@@ -26,12 +26,14 @@
 #define RESAMPLE_H
 
 #include <spa/support/cpu.h>
+#include <spa/support/log.h>
 
 struct resample {
 	uint32_t cpu_flags;
 	uint32_t channels;
 	uint32_t i_rate;
 	uint32_t o_rate;
+	struct spa_log *log;
 
 	void (*free)		(struct resample *r);
 	void (*update_rate)	(struct resample *r, double rate);

@@ -116,7 +116,7 @@ DEFINE_RESAMPLER(full,arch)							\
 			inner_product_##arch(&d[o], ip, taps, n_taps);		\
 		}								\
 	}									\
-	*in_len = index - data->index;						\
+	*in_len = index;							\
 	*out_len = o;								\
 	data->index = index;							\
 	data->phase = phase;							\
@@ -163,7 +163,7 @@ DEFINE_RESAMPLER(inter,arch)							\
 			inner_product_ip_##arch(&d[o], ip, t0, t1, x, n_taps);	\
 		}								\
 	}									\
-	*in_len = index - data->index;						\
+	*in_len = index;							\
 	*out_len = o;								\
 	data->index = index;							\
 	data->phase = phase;							\

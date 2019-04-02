@@ -153,6 +153,7 @@ static int setup_convert(struct impl *this,
 	this->resample.channels = src_info->info.raw.channels;
 	this->resample.i_rate = src_info->info.raw.rate;
 	this->resample.o_rate = dst_info->info.raw.rate;
+	this->resample.log = this->log;
 
 	if (this->monitor)
 		err = impl_peaks_init(&this->resample);
@@ -749,8 +750,8 @@ static int impl_node_process(struct spa_node *node)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %d %d %p",
-			this, inio->status, outio->status, outport->io_control);
+	spa_log_trace_fp(this->log, NAME " %p: status %d %d %d",
+			this, inio->status, outio->status, inio->buffer_id);
 
 	if (outport->io_control)
 		process_control(this, outport, &outport->io_control->sequence);

@@ -142,8 +142,8 @@ static void impl_native_process(struct resample *r,
 	const float **s = (const float **)src;
 	uint32_t c, refill, hist, in, out, remain;
 
-	out = refill = in = 0;
 	hist = data->hist;
+	refill = 0;
 
 	if (hist) {
 		/* first work on the history if any. */
@@ -169,37 +169,42 @@ static void impl_native_process(struct resample *r,
 		in = hist + refill;
 		out = *out_len;
 		data->func(r, (const void**)history, &in, dst, 0, &out);
+		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d idx:%d hist:%d",
+				r, hist + refill, in, *out_len, out, data->index, hist);
+	} else {
+		out = in = 0;
 	}
 
-	if (data->index >= hist) {
+	if (in >= hist) {
 		/* we are past the history and can now work on the new
 		 * input data */
 		data->index -= hist;
 		in = *in_len;
 		data->func(r, src, &in, dst, out, out_len);
+		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d",
+				r, *in_len, in, *out_len, out);
 
 		remain = *in_len - in;
-		if (remain < n_taps) {
+		if (remain > 0 && remain < n_taps) {
 			/* not enough input data remaining for more output,
 			 * copy to history */
 			for (c = 0; c < r->channels; c++)
 				memcpy(history[c], &s[c][in], remain * sizeof(float));
 		} else {
 			/* we have enough input data remaining to produce
-			 * more output ask to resubmit. else we copy the
-			 * remainder to the history */
+			 * more output ask to resubmit. */
 			remain = 0;
 			*in_len = in;
 		}
 	} else {
 		/* we are still working on the history */
+		*out_len = out;
 		remain = hist - in;
 		if (*in_len < n_taps) {
 			/* not enough input data, add it to the history because
 			 * resubmitting it is not going to make progress.
 			 * We copied this into the history above. */
 			remain += refill;
-			*in_len = refill;
 		} else {
 			/* input has enough data to possibly produce more output
 			 * from the history so ask to resubmit */

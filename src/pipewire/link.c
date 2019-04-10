@@ -1102,26 +1102,6 @@ static const struct pw_node_events output_node_events = {
 	.result = output_node_result,
 };
 
-static int find_driver(struct pw_link *this)
-{
-	struct pw_node *out_driver, *in_driver;
-
-	out_driver = this->output->node->driver_node;
-	in_driver = this->input->node->driver_node;
-
-	pw_log_debug("link %p: drivers %p/%p", this, out_driver, in_driver);
-
-	if (out_driver == in_driver)
-		return 0;
-
-	if (out_driver->driver)
-		pw_node_set_driver(in_driver, out_driver);
-	else
-		pw_node_set_driver(out_driver, in_driver);
-
-	return 0;
-}
-
 static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
 {
 	struct pw_port *p;
@@ -1288,14 +1268,14 @@ struct pw_link *pw_link_new(struct pw_core *core,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,
 		     input_node, input->port_id, this->rt.in_mix.port.port_id);
 
-	find_driver(this);
-
 	pw_port_emit_link_added(output, this);
 	pw_port_emit_link_added(input, this);
 
 	try_link_controls(impl, output, input);
 
 	pw_node_emit_peer_added(output_node, input_node);
+
+	pw_core_recalc_graph(core);
 
 	return this;
 
@@ -1412,6 +1392,8 @@ void pw_link_destroy(struct pw_link *link)
 
 	if (link->properties)
 		pw_properties_free(link->properties);
+
+	pw_core_recalc_graph(link->core);
 
 	free(link->info.format);
 	free(impl);

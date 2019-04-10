@@ -43,9 +43,6 @@
 #include "pipewire/type.h"
 #include "pipewire/work-queue.h"
 
-#define DEFAULT_QUANTUM		1024u
-#define MIN_QUANTUM		64u
-
 /** \cond */
 struct impl {
 	struct pw_node this;
@@ -541,38 +538,12 @@ do_move_nodes(struct spa_loop *loop,
 	struct impl *src = user_data;
 	struct pw_node *driver = *(struct pw_node **)data;
 	struct pw_node *this = &src->this;
-	struct pw_node_target *n, *t;
 
-	pw_log_trace("node %p: driver:%p->%p", this, this, driver);
+	pw_log_trace("node %p: driver:%p->%p", this, this->driver_node, driver);
 
 	if (this->source.loop != NULL) {
 		remove_node(this);
 		add_node(this, driver);
-	}
-
-	spa_list_for_each_safe(n, t, &this->rt.target_list, link) {
-		struct pw_node *node = n->node;
-		if (node && node->source.loop != NULL) {
-			remove_node(node);
-			add_node(node, driver);
-		}
-	}
-	return 0;
-}
-
-static int recalc_quantum(struct pw_node *driver)
-{
-	uint32_t quantum = DEFAULT_QUANTUM;
-	struct pw_node *n;
-
-	spa_list_for_each(n, &driver->driver_list, driver_link) {
-		if (n->quantum_size > 0 && n->quantum_size < quantum)
-			quantum = n->quantum_size;
-	}
-	quantum = SPA_MAX(quantum, MIN_QUANTUM);
-	if (driver->rt.position && quantum != driver->rt.position->size) {
-		driver->rt.position->size = quantum;
-		pw_log_info("node %p: driver quantum %d", driver, quantum);
 	}
 	return 0;
 }
@@ -581,57 +552,31 @@ SPA_EXPORT
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_node *n, *old;
-	struct spa_list nodes;
+	struct pw_node *old = node->driver_node;
 	int res;
-
-	old = node->driver_node;
 
 	if (driver == NULL)
 		driver = node;
 
-	/* first move this node to a new list */
-	spa_list_init(&nodes);
-	spa_list_remove(&node->driver_link);
-	spa_list_append(&nodes, &node->driver_link);
-	/* move all nodes managed by this node to list */
-	spa_list_insert_list(&nodes, &node->driver_list);
-	/* clear current node list */
-	spa_list_init(&node->driver_list);
+	if (old == driver)
+		return 0;
 
-	pw_log_debug("node %p: driver:%p current:%p", node, driver, old);
+	node->driver_node = driver;
+	pw_node_emit_driver_changed(node, old, driver);
 
-	/* now move all nodes to the (new) driver node */
-	spa_list_consume(n, &nodes, driver_link) {
-		old = n->driver_node;
-
-		pw_log_debug("driver %p: add %p old %p", driver, n, old);
-
-		spa_list_remove(&n->driver_link);
-		spa_list_append(&driver->driver_list, &n->driver_link);
-		if (n->driver_node == driver)
-			continue;
-
-		n->driver_node = driver;
-		pw_node_emit_driver_changed(n, old, driver);
-
-		if ((res = spa_node_set_io(n->node,
-			    SPA_IO_Position,
-			    &driver->rt.activation->position,
-			    sizeof(struct spa_io_position))) < 0) {
-			pw_log_warn("node %p: set position %s", n, spa_strerror(res));
-		} else {
-			pw_log_trace("node %p: set position %p", n, &driver->rt.activation->position);
-			n->rt.position = &driver->rt.activation->position;
-		}
+	if ((res = spa_node_set_io(node->node,
+		    SPA_IO_Position,
+		    &driver->rt.activation->position,
+		    sizeof(struct spa_io_position))) < 0) {
+		pw_log_warn("node %p: set position %s", node, spa_strerror(res));
+	} else {
+		pw_log_trace("node %p: set position %p", node, &driver->rt.activation->position);
+		node->rt.position = &driver->rt.activation->position;
 	}
-
-	recalc_quantum(driver);
 
 	pw_loop_invoke(node->data_loop,
 		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_node *),
 		       true, impl);
-
 	return 0;
 }
 
@@ -649,6 +594,7 @@ static void check_properties(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	const char *str;
+	bool driver;
 
 	if ((str = pw_properties_get(node->properties, "node.pause-on-idle")))
 		impl->pause_on_idle = pw_properties_parse_bool(str);
@@ -656,9 +602,17 @@ static void check_properties(struct pw_node *node)
 		impl->pause_on_idle = true;
 
 	if ((str = pw_properties_get(node->properties, "node.driver")))
-		node->driver = pw_properties_parse_bool(str);
+		driver = pw_properties_parse_bool(str);
 	else
-		node->driver = false;
+		driver = false;
+
+	if (node->driver != driver) {
+		node->driver = driver;
+		if (driver)
+			spa_list_append(&node->core->driver_list, &node->core_driver_link);
+		else
+			spa_list_remove(&node->core_driver_link);
+	}
 
 	if ((str = pw_properties_get(node->properties, "node.latency"))) {
 		uint32_t num, denom;
@@ -1165,7 +1119,6 @@ SPA_EXPORT
 void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_node *n;
 	struct pw_port *port;
 
 	pw_log_debug("node %p: destroy", impl);
@@ -1176,14 +1129,11 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: driver node %p", impl, node->driver_node);
 
+	if (node->driver)
+		spa_list_remove(&node->core_driver_link);
+
 	/* remove ourself from the (other) driver node */
 	spa_list_remove(&node->driver_link);
-
-	recalc_quantum(node->driver_node);
-
-	/* move all nodes driven by us to their own driver */
-	spa_list_consume(n, &node->driver_list, driver_link)
-		pw_node_set_driver(n, NULL);
 
 	if (node->registered)
 		spa_list_remove(&node->link);
@@ -1471,18 +1421,17 @@ int pw_node_set_active(struct pw_node *node, bool active)
 
 	if (old != active) {
 		pw_log_debug("node %p: %s", node, active ? "activate" : "deactivate");
+
+		if (!active)
+			pw_node_set_state(node, PW_NODE_STATE_IDLE);
+
 		node->active = active;
 		pw_node_emit_active_changed(node, active);
-		if (active) {
-			if (node->enabled)
-				node_activate(node);
-		}
-		else {
-			node->active = true;
-			pw_node_set_state(node, PW_NODE_STATE_IDLE);
-			node->active = false;
-		}
 
+		if (active && node->enabled)
+			node_activate(node);
+
+		pw_core_recalc_graph(node->core);
 	}
 	return 0;
 }

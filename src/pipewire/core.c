@@ -478,6 +478,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	spa_list_init(&this->control_list[0]);
 	spa_list_init(&this->control_list[1]);
 	spa_list_init(&this->export_list);
+	spa_list_init(&this->driver_list);
 	spa_hook_list_init(&this->listener_list);
 
 	if ((name = pw_properties_get(properties, PW_CORE_PROP_NAME)) == NULL) {
@@ -931,4 +932,80 @@ struct pw_factory *pw_core_find_factory(struct pw_core *core,
 			return factory;
 	}
 	return NULL;
+}
+
+static int collect_nodes(struct pw_node *driver)
+{
+	struct spa_list queue;
+	struct pw_node *n, *t;
+	struct pw_port *p;
+	struct pw_link *l;
+	uint32_t quantum = DEFAULT_QUANTUM;
+
+	spa_list_init(&driver->driver_list);
+
+	pw_log_info("driver %p: '%s'", driver, driver->info.name);
+	spa_list_init(&queue);
+	spa_list_append(&queue, &driver->sort_link);
+	driver->visited = true;
+
+	spa_list_consume(n, &queue, sort_link) {
+		spa_list_remove(&n->sort_link);
+		spa_list_append(&driver->driver_list, &n->driver_link);
+
+		pw_node_set_driver(n, driver);
+
+		if (n->quantum_size > 0 && n->quantum_size < quantum)
+			quantum = n->quantum_size;
+
+		spa_list_for_each(p, &n->input_ports, link) {
+			spa_list_for_each(l, &p->links, input_link) {
+				t = l->output->node;
+				if (!t->visited) {
+					t->visited = true;
+					spa_list_append(&queue, &t->sort_link);
+				}
+			}
+		}
+		spa_list_for_each(p, &n->output_ports, link) {
+			spa_list_for_each(l, &p->links, output_link) {
+				t = l->input->node;
+				if (!t->visited) {
+					t->visited = true;
+					spa_list_append(&queue, &t->sort_link);
+				}
+			}
+		}
+	}
+	quantum = SPA_MAX(quantum, MIN_QUANTUM);
+
+	if (driver->rt.position && quantum != driver->rt.position->size) {
+		driver->rt.position->size = quantum;
+	}
+
+	return 0;
+}
+
+int pw_core_recalc_graph(struct pw_core *core)
+{
+	struct pw_node *n, *s;
+
+	spa_list_for_each(n, &core->driver_list, core_driver_link) {
+		if (!n->visited)
+			collect_nodes(n);
+	}
+
+	spa_list_for_each(n, &core->node_list, link) {
+		if (!n->visited) {
+			pw_log_info("unassigned node %p: '%s'", n, n->info.name);
+		}
+		n->visited = false;
+	}
+
+	spa_list_for_each(n, &core->driver_list, core_driver_link) {
+		pw_log_info("driver %p: quantum:%d '%s'", n, n->rt.position->size, n->info.name);
+		spa_list_for_each(s, &n->driver_list, driver_link)
+			pw_log_info("slave %p: active:%d '%s'", s, s->active, s->info.name);
+	}
+	return 0;
 }

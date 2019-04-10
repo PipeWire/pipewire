@@ -45,6 +45,9 @@ extern "C" {
 #define spa_debug pw_log_trace
 #endif
 
+#define DEFAULT_QUANTUM		1024u
+#define MIN_QUANTUM		64u
+
 #define MAX_PARAMS	32
 
 struct pw_command;
@@ -185,6 +188,7 @@ struct pw_core {
 	struct spa_list link_list;		/**< list of links */
 	struct spa_list control_list[2];	/**< list of controls, indexed by direction */
 	struct spa_list export_list;		/**< list of export types */
+	struct spa_list driver_list;		/**< list of driver nodes */
 
 	struct spa_hook_list listener_list;
 
@@ -370,12 +374,16 @@ struct pw_node {
 	int remote:1;			/**< if the node is implemented remotely */
 	int master:1;			/**< a master node is one of the driver nodes that
 					  *  is selected to drive the graph */
+	int visited:1;			/**< for sorting */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
+	struct spa_list core_driver_link;
 	struct pw_node *driver_node;
 	struct spa_list driver_list;
 	struct spa_list driver_link;
+
+	struct spa_list sort_link;	/**< link used to sort nodes */
 
 	struct spa_node *node;		/**< SPA node implementation */
 	struct spa_hook listener;
@@ -743,6 +751,8 @@ pw_core_find_port(struct pw_core *core,
 		  char **error);
 
 const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
+
+int pw_core_recalc_graph(struct pw_core *core);
 
 /** Create a new port \memberof pw_port
  * \return a newly allocated port */

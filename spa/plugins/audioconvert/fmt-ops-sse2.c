@@ -80,32 +80,44 @@ conv_s16_to_f32d_2_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const v
 	float **d = (float **) dst;
 	float *d0 = d[0], *d1 = d[1];
 	uint32_t n, unrolled;
-	__m128i in, t[2];
-	__m128 out[2], factor = _mm_set1_ps(1.0f / S16_SCALE);
+	__m128i in[2], t[4];
+	__m128 out[4], factor = _mm_set1_ps(1.0f / S16_SCALE);
 
 	if (SPA_IS_ALIGNED(s, 16) &&
 	    SPA_IS_ALIGNED(d0, 16) &&
 	    SPA_IS_ALIGNED(d1, 16))
-		unrolled = n_samples & ~3;
+		unrolled = n_samples & ~7;
 	else
 		unrolled = 0;
 
-	for(n = 0; n < unrolled; n += 4) {
-		in = _mm_load_si128((__m128i*)s);
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm_load_si128((__m128i*)(s + 0));
+		in[1] = _mm_load_si128((__m128i*)(s + 8));
 
-		t[0] = _mm_slli_epi32(in, 16);
+		t[0] = _mm_slli_epi32(in[0], 16);
 		t[0] = _mm_srai_epi32(t[0], 16);
-		t[1] = _mm_srai_epi32(in, 16);
-
 		out[0] = _mm_cvtepi32_ps(t[0]);
 		out[0] = _mm_mul_ps(out[0], factor);
+
+		t[1] = _mm_srai_epi32(in[0], 16);
 		out[1] = _mm_cvtepi32_ps(t[1]);
 		out[1] = _mm_mul_ps(out[1], factor);
 
-		_mm_store_ps(&d0[n], out[0]);
-		_mm_store_ps(&d1[n], out[1]);
+		t[2] = _mm_slli_epi32(in[1], 16);
+		t[2] = _mm_srai_epi32(t[2], 16);
+		out[2] = _mm_cvtepi32_ps(t[2]);
+		out[2] = _mm_mul_ps(out[2], factor);
 
-		s += 8;
+		t[3] = _mm_srai_epi32(in[1], 16);
+		out[3] = _mm_cvtepi32_ps(t[3]);
+		out[3] = _mm_mul_ps(out[3], factor);
+
+		_mm_store_ps(&d0[n + 0], out[0]);
+		_mm_store_ps(&d1[n + 0], out[1]);
+		_mm_store_ps(&d0[n + 4], out[2]);
+		_mm_store_ps(&d1[n + 4], out[3]);
+
+		s += 16;
 	}
 	for(; n < n_samples; n++) {
 		out[0] = _mm_cvtsi32_ss(out[0], s[0]);

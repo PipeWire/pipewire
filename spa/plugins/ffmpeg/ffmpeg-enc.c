@@ -57,7 +57,7 @@ struct port {
 	struct spa_param_info params[8];
 
 	struct spa_video_info current_format;
-	int have_format:1;
+	unsigned int have_format:1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;

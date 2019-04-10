@@ -106,8 +106,8 @@ struct impl {
 
 	uint32_t cpu_flags;
 	struct convert conv;
-	int is_passthrough:1;
-	int started:1;
+	unsigned int is_passthrough:1;
+	unsigned int started:1;
 
 	bool have_profile;
 

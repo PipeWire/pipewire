@@ -59,7 +59,7 @@ struct link {
 	uint32_t min_buffers;
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
-	int negotiated:1;
+	unsigned int negotiated:1;
 };
 
 struct impl {
@@ -90,7 +90,7 @@ struct impl {
 	struct spa_node *resample;
 
 	struct spa_hook listener[4];
-	int listening:1;
+	unsigned int listening:1;
 };
 
 static int make_link(struct impl *this,

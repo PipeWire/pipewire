@@ -1262,6 +1262,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	struct pw_client *client = pw_resource_get_client(resource);
 	struct pw_core *core = pw_client_get_core(client);
 	const struct spa_support *support;
+	struct pw_properties *props;
 	uint32_t n_support;
 	const char *name;
 
@@ -1275,10 +1276,13 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 
 	pw_log_debug("client-stream %p: new", impl);
 
+	props = pw_properties_copy(properties);
+	pw_properties_set(props, "node.driver", NULL);
+
 	impl->client_node = pw_client_node_new(
 			resource,
 			parent,
-			pw_properties_copy(properties),
+			props,
 			false);
 	if (impl->client_node == NULL)
 		goto error_no_node;

@@ -61,7 +61,7 @@ struct impl {
 
 	void *user_data;
 
-	int async_init:1;
+	unsigned int async_init:1;
 };
 
 static void spa_node_free(void *data)

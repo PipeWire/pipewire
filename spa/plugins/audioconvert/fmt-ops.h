@@ -85,7 +85,7 @@ struct convert {
 	uint32_t n_channels;
 	uint32_t cpu_flags;
 
-	int is_passthrough:1;
+	unsigned int is_passthrough:1;
 	float ns_data[MAX_NS];
 	uint32_t ns_idx;
 	uint32_t ns_size;

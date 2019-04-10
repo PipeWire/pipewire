@@ -80,8 +80,8 @@ struct port {
 	struct spa_port_info info;
 	struct spa_param_info params[8];
 
-	int valid:1;
-	int have_format:1;
+	unsigned int valid:1;
+	unsigned int have_format:1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;

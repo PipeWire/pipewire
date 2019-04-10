@@ -104,10 +104,10 @@ struct impl {
 
 	struct convert conv;
 	uint32_t cpu_flags;
-	int is_passthrough:1;
-	int started:1;
-	int monitor:1;
-	int have_profile:1;
+	unsigned int is_passthrough:1;
+	unsigned int started:1;
+	unsigned int monitor:1;
+	unsigned int have_profile:1;
 
 	float empty[MAX_SAMPLES + 15];
 };

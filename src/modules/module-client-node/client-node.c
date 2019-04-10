@@ -111,8 +111,8 @@ struct port {
 	struct spa_port_info info;
 	struct pw_properties *properties;
 
-	int have_format:1;
-	int removed:1;
+	unsigned int have_format:1;
+	unsigned int removed:1;
 	uint32_t n_params;
 	struct spa_pod **params;
 

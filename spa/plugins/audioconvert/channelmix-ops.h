@@ -50,7 +50,7 @@ struct channelmix {
 
 	struct spa_log *log;
 
-	int is_identity:1;
+	unsigned int is_identity:1;
 	float volume;
 	float matrix[MAX_CHANNELS * MAX_CHANNELS];
 

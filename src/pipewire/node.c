@@ -52,7 +52,7 @@ struct impl {
 	uint32_t next_position;
 	int last_error;
 
-	int pause_on_idle:1;
+	unsigned int pause_on_idle:1;
 };
 
 struct resource_data {
@@ -607,6 +607,7 @@ static void check_properties(struct pw_node *node)
 		driver = false;
 
 	if (node->driver != driver) {
+		pw_log_info("node %p: driver %d -> %d", node, node->driver, driver);
 		node->driver = driver;
 		if (driver)
 			spa_list_append(&node->core->driver_list, &node->core_driver_link);

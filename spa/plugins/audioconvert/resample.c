@@ -85,7 +85,7 @@ struct port {
 	uint32_t stride;
 	uint32_t blocks;
 	uint32_t size;
-	int have_format:1;
+	unsigned int have_format:1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -110,8 +110,8 @@ struct impl {
 	struct port in_port;
 	struct port out_port;
 
-	int started:1;
-	int monitor:1;
+	unsigned int started:1;
+	unsigned int monitor:1;
 
 	struct resample resample;
 };

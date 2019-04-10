@@ -117,8 +117,8 @@ struct impl {
 	struct port out_port;
 
 	struct channelmix mix;
-	int started:1;
-	int is_passthrough:1;
+	unsigned int started:1;
+	unsigned int is_passthrough:1;
 	uint32_t cpu_flags;
 };
 

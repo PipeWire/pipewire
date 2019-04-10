@@ -51,7 +51,7 @@ struct pw_thread_loop {
 
 	int n_waiting;
 	int n_waiting_for_accept;
-	int running:1;
+	unsigned int running:1;
 };
 /** \endcond */
 

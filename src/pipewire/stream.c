@@ -84,14 +84,14 @@ struct control {
 	struct spa_list link;
 	struct pw_stream_control control;
 	struct spa_pod *info;
-	int emitted:1;
+	unsigned int emitted:1;
 };
 
 #define DEFAULT_VOLUME	1.0
 
 struct props {
 	float volume;
-	int changed:1;
+	unsigned int changed:1;
 };
 
 static void reset_props(struct props *props)
@@ -142,10 +142,10 @@ struct stream {
 
 	uint32_t param_propinfo;
 
-	int async_connect:1;
-	int disconnecting:1;
-	int free_data:1;
-	int subscribe:1;
+	unsigned int async_connect:1;
+	unsigned int disconnecting:1;
+	unsigned int free_data:1;
+	unsigned int subscribe:1;
 };
 
 static int get_param_index(uint32_t id)

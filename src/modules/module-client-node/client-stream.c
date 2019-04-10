@@ -315,8 +315,11 @@ static void adapter_port_info(void *data,
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 
-	if (direction == impl->direction)
-		spa_node_emit_port_info(&this->hooks, direction, port_id, info);
+	if (direction == impl->direction) {
+		struct spa_port_info i = *info;
+		SPA_FLAG_UNSET(i.flags, SPA_PORT_FLAG_DYNAMIC_DATA);
+		spa_node_emit_port_info(&this->hooks, direction, port_id, &i);
+	}
 }
 
 static void adapter_result(void *data, int seq, int res, const void *result)

@@ -69,6 +69,7 @@ static const struct media_type media_type_map[] = {
   { "video/x-raw", &type.media_type.video, &type.media_subtype.raw },
   { "audio/x-raw", &type.media_type.audio, &type.media_subtype.raw },
   { "image/jpeg", &type.media_type.video, &type.media_subtype_video.mjpg },
+  { "video/x-jpeg", &type.media_type.video, &type.media_subtype_video.mjpg },
   { "video/x-h264", &type.media_type.video, &type.media_subtype_video.h264 },
   { NULL, }
 };

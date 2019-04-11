@@ -157,8 +157,8 @@ int spa_alsa_start(struct state *state);
 int spa_alsa_pause(struct state *state);
 int spa_alsa_close(struct state *state);
 
-int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence, bool start);
-
+int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
+int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence);
 
 static inline void dll_bandwidth(struct dll *dll, double bandwidth)
 {

@@ -648,6 +648,9 @@ static int impl_node_process(struct spa_node *node)
 	}
 
 	if (spa_list_is_empty(&this->ready))
+		spa_alsa_read(this, 0);
+
+	if (spa_list_is_empty(&this->ready))
 		return SPA_STATUS_OK;
 
 	b = spa_list_first(&this->ready, struct buffer, link);

@@ -26,8 +26,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <spa/utils/defs.h>
+
 #include <jack/ringbuffer.h>
 
+SPA_EXPORT
 jack_ringbuffer_t *jack_ringbuffer_create(size_t sz)
 {
 	size_t power_of_two;
@@ -50,6 +53,7 @@ jack_ringbuffer_t *jack_ringbuffer_create(size_t sz)
 	return rb;
 }
 
+SPA_EXPORT
 void jack_ringbuffer_free(jack_ringbuffer_t *rb)
 {
 #ifdef USE_MLOCK
@@ -60,6 +64,7 @@ void jack_ringbuffer_free(jack_ringbuffer_t *rb)
 	free (rb);
 }
 
+SPA_EXPORT
 void jack_ringbuffer_get_read_vector(const jack_ringbuffer_t *rb,
                                      jack_ringbuffer_data_t *vec)
 {
@@ -89,6 +94,7 @@ void jack_ringbuffer_get_read_vector(const jack_ringbuffer_t *rb,
 	}
 }
 
+SPA_EXPORT
 void jack_ringbuffer_get_write_vector(const jack_ringbuffer_t *rb,
                                       jack_ringbuffer_data_t *vec)
 {
@@ -120,6 +126,7 @@ void jack_ringbuffer_get_write_vector(const jack_ringbuffer_t *rb,
 	}
 }
 
+SPA_EXPORT
 size_t jack_ringbuffer_read(jack_ringbuffer_t *rb, char *dest, size_t cnt)
 {
 	size_t free_cnt;
@@ -151,6 +158,7 @@ size_t jack_ringbuffer_read(jack_ringbuffer_t *rb, char *dest, size_t cnt)
 	return to_read;
 }
 
+SPA_EXPORT
 size_t jack_ringbuffer_peek(jack_ringbuffer_t *rb, char *dest, size_t cnt)
 {
 	size_t free_cnt;
@@ -185,12 +193,14 @@ size_t jack_ringbuffer_peek(jack_ringbuffer_t *rb, char *dest, size_t cnt)
 	return to_read;
 }
 
+SPA_EXPORT
 void jack_ringbuffer_read_advance(jack_ringbuffer_t *rb, size_t cnt)
 {
 	size_t tmp = (rb->read_ptr + cnt) & rb->size_mask;
 	rb->read_ptr = tmp;
 }
 
+SPA_EXPORT
 size_t jack_ringbuffer_read_space(const jack_ringbuffer_t *rb)
 {
 	size_t w, r;
@@ -204,6 +214,7 @@ size_t jack_ringbuffer_read_space(const jack_ringbuffer_t *rb)
 		return (w - r + rb->size) & rb->size_mask;
 }
 
+SPA_EXPORT
 int jack_ringbuffer_mlock(jack_ringbuffer_t *rb)
 {
 #ifdef USE_MLOCK
@@ -214,6 +225,7 @@ int jack_ringbuffer_mlock(jack_ringbuffer_t *rb)
 	return 0;
 }
 
+SPA_EXPORT
 void jack_ringbuffer_reset(jack_ringbuffer_t *rb)
 {
 	rb->read_ptr = 0;
@@ -221,6 +233,7 @@ void jack_ringbuffer_reset(jack_ringbuffer_t *rb)
 	memset(rb->buf, 0, rb->size);
 }
 
+SPA_EXPORT
 void jack_ringbuffer_reset_size (jack_ringbuffer_t * rb, size_t sz)
 {
 	rb->size = sz;
@@ -229,6 +242,7 @@ void jack_ringbuffer_reset_size (jack_ringbuffer_t * rb, size_t sz)
 	rb->write_ptr = 0;
 }
 
+SPA_EXPORT
 size_t jack_ringbuffer_write(jack_ringbuffer_t *rb, const char *src,
                              size_t cnt)
 {
@@ -261,12 +275,14 @@ size_t jack_ringbuffer_write(jack_ringbuffer_t *rb, const char *src,
 	return to_write;
 }
 
+SPA_EXPORT
 void jack_ringbuffer_write_advance(jack_ringbuffer_t *rb, size_t cnt)
 {
 	size_t tmp = (rb->write_ptr + cnt) & rb->size_mask;
 	rb->write_ptr = tmp;
 }
 
+SPA_EXPORT
 size_t jack_ringbuffer_write_space(const jack_ringbuffer_t *rb)
 {
 	size_t w, r;

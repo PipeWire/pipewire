@@ -29,18 +29,21 @@
 
 #include <pipewire/pipewire.h>
 
+SPA_EXPORT
 float jack_get_max_delayed_usecs (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return 0.0f;
 }
 
+SPA_EXPORT
 float jack_get_xrun_delayed_usecs (jack_client_t *client)
 {
 	pw_log_warn("not implemented");
 	return 0.0f;
 }
 
+SPA_EXPORT
 void jack_reset_max_delayed_usecs (jack_client_t *client)
 {
 	pw_log_warn("not implemented");

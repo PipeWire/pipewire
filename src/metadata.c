@@ -29,66 +29,70 @@
 
 #include <pipewire/pipewire.h>
 
-int
-jack_set_property(jack_client_t*client,
-                  jack_uuid_t subject,
-                  const char* key,
-                  const char* value,
-                  const char* type)
+SPA_EXPORT
+int jack_set_property(jack_client_t*client,
+		      jack_uuid_t subject,
+		      const char* key,
+		      const char* value,
+		      const char* type)
 {
 	pw_log_warn("not implemented");
 	return -1;
 }
 
-int
-jack_get_property(jack_uuid_t subject,
-                  const char* key,
-                  char**      value,
-                  char**      type)
+SPA_EXPORT
+int jack_get_property(jack_uuid_t subject,
+		      const char* key,
+		      char**      value,
+		      char**      type)
 {
 	pw_log_warn("not implemented");
 	return -1;
 }
 
-void
-jack_free_description (jack_description_t* desc, int free_description_itself)
+SPA_EXPORT
+void jack_free_description (jack_description_t* desc, int free_description_itself)
 {
 	pw_log_warn("not implemented");
 }
 
-int
-jack_get_properties (jack_uuid_t         subject,
-                     jack_description_t* desc)
-{
-	pw_log_warn("not implemented");
-	return -1;
-}
-
-int
-jack_get_all_properties (jack_description_t** descs)
+SPA_EXPORT
+int jack_get_properties (jack_uuid_t         subject,
+			 jack_description_t* desc)
 {
 	pw_log_warn("not implemented");
 	return -1;
 }
 
+SPA_EXPORT
+int jack_get_all_properties (jack_description_t** descs)
+{
+	pw_log_warn("not implemented");
+	return -1;
+}
+
+SPA_EXPORT
 int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char* key)
 {
 	pw_log_warn("not implemented");
 	return -1;
 }
 
+SPA_EXPORT
 int jack_remove_properties (jack_client_t* client, jack_uuid_t subject)
 {
 	pw_log_warn("not implemented");
 	return -1;
 }
 
+SPA_EXPORT
 int jack_remove_all_properties (jack_client_t* client)
 {
 	pw_log_warn("not implemented");
 	return -1;
 }
 
+SPA_EXPORT
 int jack_set_property_change_callback (jack_client_t*             client,
                                        JackPropertyChangeCallback callback,
                                        void*                      arg)
@@ -97,9 +101,15 @@ int jack_set_property_change_callback (jack_client_t*             client,
 	return -1;
 }
 
+SPA_EXPORT
 const char* JACK_METADATA_PRETTY_NAME = "http://jackaudio.org/metadata/pretty-name";
+SPA_EXPORT
 const char* JACK_METADATA_HARDWARE = "http://jackaudio.org/metadata/hardware";
+SPA_EXPORT
 const char* JACK_METADATA_CONNECTED = "http://jackaudio.org/metadata/connected";
+SPA_EXPORT
 const char* JACK_METADATA_PORT_GROUP = "http://jackaudio.org/metadata/port-group";
+SPA_EXPORT
 const char* JACK_METADATA_ICON_SMALL = "http://jackaudio.org/metadata/icon-small";
+SPA_EXPORT
 const char* JACK_METADATA_ICON_LARGE = "http://jackaudio.org/metadata/icon-large";

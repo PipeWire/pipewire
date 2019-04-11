@@ -29,51 +29,60 @@
 
 #include <pipewire/pipewire.h>
 
+SPA_EXPORT
 jack_uuid_t jack_client_uuid_generate ()
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 jack_uuid_t jack_port_uuid_generate (uint32_t port_id)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 uint32_t jack_uuid_to_index (jack_uuid_t id)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 int  jack_uuid_compare (jack_uuid_t id1, jack_uuid_t id2)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 void jack_uuid_copy (jack_uuid_t* dst, jack_uuid_t src)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 void jack_uuid_clear (jack_uuid_t*id)
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 int  jack_uuid_parse (const char *buf, jack_uuid_t*id)
 {
 	pw_log_warn("not implemented");
 	return 0;
 }
 
+SPA_EXPORT
 void jack_uuid_unparse (jack_uuid_t id, char buf[JACK_UUID_STRING_SIZE])
 {
 	pw_log_warn("not implemented");
 }
 
+SPA_EXPORT
 int  jack_uuid_empty (jack_uuid_t id)
 {
 	pw_log_warn("not implemented");

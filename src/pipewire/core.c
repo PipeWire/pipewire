@@ -998,12 +998,15 @@ int pw_core_recalc_graph(struct pw_core *core)
 	spa_list_for_each(n, &core->node_list, link) {
 		if (!n->visited) {
 			pw_log_info("unassigned node %p: '%s'", n, n->info.name);
+			pw_node_set_driver(n, NULL);
 		}
 		n->visited = false;
 	}
 
 	spa_list_for_each(n, &core->driver_list, core_driver_link) {
-		pw_log_info("driver %p: quantum:%d '%s'", n, n->rt.position->size, n->info.name);
+		if (!n->master)
+			continue;
+		pw_log_info("master %p: quantum:%d '%s'", n, n->rt.position->size, n->info.name);
 		spa_list_for_each(s, &n->driver_list, driver_link)
 			pw_log_info("slave %p: active:%d '%s'", s, s->active, s->info.name);
 	}

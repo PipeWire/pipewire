@@ -561,6 +561,8 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 	if (old == driver)
 		return 0;
 
+	node->master = node->driver && driver == node;
+
 	node->driver_node = driver;
 	pw_node_emit_driver_changed(node, old, driver);
 
@@ -834,6 +836,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->driver_node = this;
 	spa_list_append(&this->driver_list, &this->driver_link);
+	this->master = true;
 
 	return this;
 
@@ -1035,6 +1038,9 @@ static int node_ready(void *data, int status)
 		}
 		node->rt.activation->running = true;
 	}
+	if (node->driver && !node->master)
+		return 0;
+
 	return resume_node(node, status);
 }
 
@@ -1160,6 +1166,8 @@ void pw_node_destroy(struct pw_node *node)
 		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
 	}
+
+	pw_core_recalc_graph(node->core);
 
 	pw_log_debug("node %p: free", node);
 	pw_node_emit_free(node);

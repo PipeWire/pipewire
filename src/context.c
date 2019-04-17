@@ -1011,6 +1011,7 @@ pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, 
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
+	pw_log_warn("Not Implemented");
 
 	return o;
 }
@@ -1018,15 +1019,35 @@ pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, 
 SPA_EXPORT
 pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_data *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	d = o->userdata;
+	d->ret = PA_ERR_ACCESS;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
 	pw_log_warn("Not Implemented");
-	return NULL;
+
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_data *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	d = o->userdata;
+	d->ret = PA_ERR_ACCESS;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
 	pw_log_warn("Not Implemented");
-	return NULL;
+
+	return o;
 }
 
 SPA_EXPORT

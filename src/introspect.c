@@ -398,29 +398,65 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 SPA_EXPORT
 pa_operation* pa_context_suspend_sink_by_name(pa_context *c, const char *sink_name, int suspend, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_suspend_sink_by_index(pa_context *c, uint32_t idx, int suspend,  pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_sink_port_by_index(pa_context *c, uint32_t idx, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_sink_port_by_name(pa_context *c, const char*name, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 
@@ -733,29 +769,65 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 SPA_EXPORT
 pa_operation* pa_context_suspend_source_by_name(pa_context *c, const char *source_name, int suspend, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_suspend_source_by_index(pa_context *c, uint32_t idx, int suspend, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_source_port_by_index(pa_context *c, uint32_t idx, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_source_port_by_name(pa_context *c, const char*name, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 struct server_data {
@@ -911,8 +983,17 @@ pa_operation* pa_context_load_module(pa_context *c, const char*name, const char 
 SPA_EXPORT
 pa_operation* pa_context_unload_module(pa_context *c, uint32_t idx, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 struct client_data {
@@ -1307,8 +1388,17 @@ pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name
 SPA_EXPORT
 pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card_name, const char *port_name, int64_t offset, pa_context_success_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 static pa_stream *find_stream(pa_context *c, uint32_t idx)
@@ -1487,15 +1577,33 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 SPA_EXPORT
 pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, const char *sink_name, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, uint32_t sink_idx, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
@@ -1759,15 +1867,33 @@ pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_ou
 SPA_EXPORT
 pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx, const char *source_name, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx, uint32_t source_idx, pa_context_success_cb_t cb, void* userdata)
 {
+	pa_operation *o;
+	struct success_ack *d;
+
+	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT

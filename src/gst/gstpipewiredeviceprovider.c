@@ -356,8 +356,8 @@ on_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state sta
 
   switch (state) {
     case PW_REMOTE_STATE_CONNECTING:
-      break;
     case PW_REMOTE_STATE_UNCONNECTED:
+      break;
     case PW_REMOTE_STATE_CONNECTED:
       self->core_proxy = pw_remote_get_core_proxy(self->remote);
       pw_core_proxy_add_listener(self->core_proxy, &rd->core_listener, &core_events, self);
@@ -399,7 +399,7 @@ static const struct pw_port_proxy_events port_events = {
 static void node_event_info(void *data, const struct pw_node_info *info)
 {
   struct node_data *node_data = data;
-  pw_log_debug("%p", node_data);
+  pw_log_debug("%p", node_data->proxy);
   node_data->info = pw_node_info_update(node_data->info, info);
 }
 

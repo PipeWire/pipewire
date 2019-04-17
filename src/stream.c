@@ -940,7 +940,7 @@ static int create_stream(pa_stream_direction_t direction,
 	else
 		str = "Music";
 
-	sprintf(latency, "%u/%u", (s->buffer_attr.minreq / 2) / stride, sample_rate);
+	sprintf(latency, "%u/%u", s->buffer_attr.minreq / stride, sample_rate);
 	items[0] = SPA_DICT_ITEM_INIT("node.latency", latency);
 	items[1] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
 	items[2] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY,

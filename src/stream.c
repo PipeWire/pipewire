@@ -635,6 +635,7 @@ static void stream_unlink(pa_stream *s)
 	}
 
 	spa_list_remove(&s->link);
+	pw_stream_set_active(s->stream, false);
 
 	s->context = NULL;
 	pa_stream_unref(s);

@@ -65,16 +65,10 @@ struct buffer {
 	struct spa_list link;
 };
 
-#define DLL_BW_MAX	0.256
-#define DLL_BW_MIN	0.05
-#define DLL_BW_PERIOD	4.0
-
-struct dll {
-	double w1, w2;
-	double base, t0, dt;
-	double bw;
-	int count;
-};
+#define BW_MAX		0.256
+#define BW_MED		0.064
+#define BW_MIN		0.016
+#define BW_PERIOD	3.0
 
 struct state {
 	struct spa_handle handle;
@@ -101,7 +95,6 @@ struct state {
 
 	bool have_format;
 	struct spa_audio_info current_format;
-	struct dll dll;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;
@@ -130,20 +123,24 @@ struct state {
 	bool started;
 	struct spa_source source;
 	int timerfd;
-	bool alsa_started;
-	bool slaved;
 	uint32_t threshold;
+	unsigned int alsa_started:1;
+	unsigned int alsa_sync:1;
+	unsigned int slaved:1;
 
 	snd_htimestamp_t now;
 	int64_t sample_count;
 
 	int64_t sample_time;
-	uint64_t last_time;
 	uint64_t next_time;
+	uint64_t base_time;
 
 	uint64_t underrun;
-	double old_dt;
 	double safety;
+
+	double bw;
+	double z1, z2, z3;
+	double w0, w1, w2;
 };
 
 int
@@ -159,37 +156,6 @@ int spa_alsa_close(struct state *state);
 
 int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
 int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence);
-
-static inline void dll_bandwidth(struct dll *dll, double bandwidth)
-{
-	double w = 2 * M_PI * bandwidth;
-	dll->w1 = w * M_SQRT2;
-	dll->w2 = w * w;
-	dll->bw = bandwidth;
-	dll->base = dll->t0;
-}
-
-static inline void dll_init(struct dll *dll, double bandwidth)
-{
-	dll->dt = 1.0;
-	dll->count = 0;
-	dll_bandwidth(dll, bandwidth);
-}
-
-static inline double dll_update(struct dll *dll, double tw, double period)
-{
-	double e;
-
-	if (dll->count++ == 0) {
-		dll->t0 = dll->base = tw;
-	} else {
-		dll->t0 += dll->dt * period;
-		e = (tw - dll->t0) * period;
-		dll->t0 += dll->w1 * e;
-		dll->dt += dll->w2 * e;
-	}
-	return dll->t0;
-}
 
 #ifdef __cplusplus
 } /* extern "C" */

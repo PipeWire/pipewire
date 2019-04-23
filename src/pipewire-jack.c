@@ -817,21 +817,20 @@ on_rtsocket_condition(void *data, int fd, enum spa_io mask)
 			else
 				sample_rate = c->sample_rate;
 			c->rate_diff = c->position->clock.rate_diff;
-			nsec = c->position->clock.nsec;
 			frame = c->position->clock.position;
 			delay = c->position->clock.delay;
+			nsec = c->position->clock.nsec;
 		}
 		else {
 			buffer_size = DEFAULT_BUFFER_SIZE;
 			sample_rate = DEFAULT_SAMPLE_RATE;
 			c->rate_diff = 1.0;
-			nsec = 0;
 			frame = c->jack_position.frame + buffer_size;
 			delay = 0;
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+			nsec = SPA_TIMESPEC_TO_NSEC(&ts);
 		}
 
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		nsec = SPA_TIMESPEC_TO_NSEC(&ts);
 		c->activation->status = AWAKE;
 		c->activation->awake_time = nsec;
 

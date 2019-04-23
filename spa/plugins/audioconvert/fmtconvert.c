@@ -252,11 +252,6 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		struct spa_dict_item items[1];
-
-		items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-		port->info.props = &SPA_DICT_INIT_ARRAY(items);
-
 		spa_node_emit_port_info(&this->hooks,
 				port->direction, port->id, &port->info);
 		port->info.change_mask = 0;
@@ -459,7 +454,7 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 			buffers = 1;
 			pod = &SPA_POD_INIT_Choice(SPA_CHOICE_Range,
 					int32_t, SPA_TYPE_Int, 3,
-					1024 * port->stride,
+					2048 * port->stride,
 					16 * port->stride,
                                         INT32_MAX / port->stride);
 		}
@@ -938,7 +933,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->id = port_id;
 
 	spa_list_init(&port->queue);
-	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_PROPS;
+	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
 		SPA_PORT_FLAG_NO_REF |

@@ -568,7 +568,8 @@ static void fmt_input_port_info(void *data,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
-	if (direction == SPA_DIRECTION_INPUT)
+	if (direction == SPA_DIRECTION_INPUT ||
+	    (this->mode == MODE_MERGE && port > 0))
 		spa_node_emit_port_info(&this->hooks, direction, port, info);
 }
 
@@ -606,6 +607,7 @@ impl_node_add_listener(struct spa_node *node,
 {
 	struct impl *this;
 	struct spa_hook_list save;
+	struct spa_hook l[4];
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -614,22 +616,20 @@ impl_node_add_listener(struct spa_node *node,
 
 	spa_log_debug(this->log, "%p: add listener %p", this, listener);
 
-	if (this->listening) {
-		spa_hook_remove(&this->listener[0]);
-		spa_hook_remove(&this->listener[1]);
-		spa_hook_remove(&this->listener[2]);
-		spa_hook_remove(&this->listener[3]);
-	}
-
+	spa_zero(l);
 	spa_node_add_listener(this->fmt[SPA_DIRECTION_INPUT],
-			&this->listener[0], &fmt_input_events, this);
+			&l[0], &fmt_input_events, this);
 	spa_node_add_listener(this->channelmix,
-			&this->listener[1], &node_events, this);
+			&l[1], &node_events, this);
 	spa_node_add_listener(this->resample,
-			&this->listener[2], &node_events, this);
+			&l[2], &node_events, this);
 	spa_node_add_listener(this->fmt[SPA_DIRECTION_OUTPUT],
-			&this->listener[3], &fmt_output_events, this);
-	this->listening = true;
+			&l[3], &fmt_output_events, this);
+
+	spa_hook_remove(&l[0]);
+	spa_hook_remove(&l[1]);
+	spa_hook_remove(&l[2]);
+	spa_hook_remove(&l[3]);
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -732,8 +732,17 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		}
 		break;
 	default:
-		return spa_node_port_enum_params(this->fmt[direction], seq, direction, port_id,
+	{
+		struct spa_node *target;
+
+		if (this->mode == MODE_MERGE && port_id > 0 && direction == SPA_DIRECTION_OUTPUT)
+			target = this->fmt[SPA_DIRECTION_INPUT];
+		else
+			target = this->fmt[direction];
+
+		return spa_node_port_enum_params(target, seq, direction, port_id,
 			id, start, num, filter);
+	}
 	}
 
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
@@ -755,12 +764,18 @@ impl_node_port_set_param(struct spa_node *node,
 {
 	struct impl *this;
 	int res;
+	struct spa_node *target;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if ((res = spa_node_port_set_param(this->fmt[direction],
+	if (this->mode == MODE_MERGE && port_id > 0 && direction == SPA_DIRECTION_OUTPUT)
+		target = this->fmt[SPA_DIRECTION_INPUT];
+	else
+		target = this->fmt[direction];
+
+	if ((res = spa_node_port_set_param(target,
 					direction, port_id, id, flags, param)) < 0)
 		return res;
 
@@ -785,12 +800,18 @@ impl_node_port_use_buffers(struct spa_node *node,
 {
 	struct impl *this;
 	int res;
+	struct spa_node *target;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if ((res = spa_node_port_use_buffers(this->fmt[direction],
+	if (this->mode == MODE_MERGE && port_id > 0 && direction == SPA_DIRECTION_OUTPUT)
+		target = this->fmt[SPA_DIRECTION_INPUT];
+	else
+		target = this->fmt[direction];
+
+	if ((res = spa_node_port_use_buffers(target,
 					direction, port_id, buffers, n_buffers)) < 0)
 		return res;
 
@@ -812,12 +833,18 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 			     uint32_t *n_buffers)
 {
 	struct impl *this;
+	struct spa_node *target;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	return spa_node_port_alloc_buffers(this->fmt[direction], direction, port_id,
+	if (this->mode == MODE_MERGE && port_id > 0 && direction == SPA_DIRECTION_OUTPUT)
+		target = this->fmt[SPA_DIRECTION_INPUT];
+	else
+		target = this->fmt[direction];
+
+	return spa_node_port_alloc_buffers(target, direction, port_id,
 			params, n_params, buffers, n_buffers);
 }
 
@@ -827,6 +854,7 @@ impl_node_port_set_io(struct spa_node *node,
 		      uint32_t id, void *data, size_t size)
 {
 	struct impl *this;
+	struct spa_node *target;
 	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
@@ -840,10 +868,16 @@ impl_node_port_set_io(struct spa_node *node,
 		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
 		break;
 	case SPA_IO_Control:
+		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
 		res = spa_node_port_set_io(this->channelmix, direction, 0, id, data, size);
 		break;
 	default:
-		res = spa_node_port_set_io(this->fmt[direction], direction, port_id, id, data, size);
+		if (this->mode == MODE_MERGE && port_id > 0 && direction == SPA_DIRECTION_OUTPUT)
+			target = this->fmt[SPA_DIRECTION_INPUT];
+		else
+			target = this->fmt[direction];
+
+		res = spa_node_port_set_io(target, direction, port_id, id, data, size);
 		break;
 	}
 	return res;
@@ -852,12 +886,18 @@ impl_node_port_set_io(struct spa_node *node,
 static int impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
 {
 	struct impl *this;
+	struct spa_node *target;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	return spa_node_port_reuse_buffer(this->fmt[SPA_DIRECTION_OUTPUT], port_id, buffer_id);
+	if (this->mode == MODE_MERGE && port_id > 0)
+		target = this->fmt[SPA_DIRECTION_INPUT];
+	else
+		target = this->fmt[SPA_DIRECTION_OUTPUT];
+
+	return spa_node_port_reuse_buffer(target, port_id, buffer_id);
 }
 
 static int impl_node_process(struct spa_node *node)
@@ -1059,6 +1099,15 @@ impl_init(const struct spa_handle_factory *factory,
 	this->resample = iface;
 	spa_handle_get_interface(this->hnd_fmt[SPA_DIRECTION_OUTPUT], SPA_TYPE_INTERFACE_Node, &iface);
 	this->fmt[SPA_DIRECTION_OUTPUT] = iface;
+
+	spa_node_add_listener(this->fmt[SPA_DIRECTION_INPUT],
+			&this->listener[0], &fmt_input_events, this);
+	spa_node_add_listener(this->channelmix,
+			&this->listener[1], &node_events, this);
+	spa_node_add_listener(this->resample,
+			&this->listener[2], &node_events, this);
+	spa_node_add_listener(this->fmt[SPA_DIRECTION_OUTPUT],
+			&this->listener[3], &fmt_output_events, this);
 
 	return 0;
 }

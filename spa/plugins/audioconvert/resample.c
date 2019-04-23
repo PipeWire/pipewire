@@ -157,7 +157,7 @@ static int setup_convert(struct impl *this,
 
 	if (this->monitor)
 		err = impl_peaks_init(&this->resample);
-	else if (1)
+	else if (0)
 		err = impl_native_init(&this->resample);
 	else
 		err = impl_speex_init(&this->resample);
@@ -181,8 +181,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_rate:
-			if (spa_pod_get_double(&prop->value, &p->rate) == 0)
+			if (spa_pod_get_double(&prop->value, &p->rate) == 0) {
 				resample_update_rate(&this->resample, p->rate);
+			}
 			break;
 		default:
 			break;
@@ -406,11 +407,11 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 
 		if (other->n_buffers > 0) {
 			buffers = other->n_buffers;
-			size = other->size / other->stride;
+			size = other->size / other->stride * 2;
 		}
 		else {
 			buffers = 1;
-			size = 1024;
+			size = 2048 * other->stride;
 		}
 
 		param = spa_pod_builder_add_object(&b,
@@ -647,6 +648,8 @@ impl_node_port_set_io(struct spa_node *node,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
+	spa_log_trace_fp(this->log, NAME " %p: %d:%d io %d", this, direction, port_id, id);
+
 	port = GET_PORT(this, direction, port_id);
 
 	switch (id) {
@@ -811,10 +814,10 @@ static int impl_node_process(struct spa_node *node)
 		inio->status = SPA_STATUS_NEED_BUFFER;
 		inport->offset = 0;
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
-		if (outport->io_range == NULL)
-			maxsize = 0;
 	}
 	outport->offset += out_len * sizeof(float);
+	if (outport->io_range == NULL)
+		maxsize = 0;
 	if (outport->offset > 0 && outport->offset >= maxsize) {
 		outio->status = SPA_STATUS_HAVE_BUFFER;
 		outio->buffer_id = dbuf->id;

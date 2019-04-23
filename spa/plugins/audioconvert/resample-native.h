@@ -96,9 +96,11 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	struct native_data *data = r->data;
 	uint32_t in_rate, out_rate, phase, gcd;
 
-	in_rate = r->i_rate * rate;
+	in_rate = r->i_rate / rate;
 	out_rate = r->o_rate;
 	phase = data->phase;
+
+	spa_log_trace_fp(r->log, "native %p: new rate:%f", r, rate);
 
 	gcd = calc_gcd(in_rate, out_rate);
 	gcd = calc_gcd(gcd, phase);
@@ -151,7 +153,7 @@ static void impl_native_process(struct resample *r,
 			/* we need at least n_taps to completely process the
 			 * history before we can work on the new input. When
 			 * we have less, refill the history. */
-			refill = SPA_MIN(*in_len, n_taps);
+			refill = SPA_MIN(*in_len, n_taps-1);
 			for (c = 0; c < r->channels; c++)
 				memcpy(&history[c][hist], s[c], refill * sizeof(float));
 
@@ -293,6 +295,9 @@ static int impl_native_init(struct resample *r)
 		d->history[c] = SPA_MEMBER(d->hist_mem, c * history_stride, float);
 
 	build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
+
+	spa_log_debug(r->log, "native %p: in:%d out:%d n_taps:%d n_phases:%d",
+			r, in_rate, out_rate, n_taps, n_phases);
 
 	impl_native_reset(r);
 	impl_native_update_rate(r, 1.0);

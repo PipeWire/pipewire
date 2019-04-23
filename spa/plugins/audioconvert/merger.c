@@ -447,11 +447,11 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
+	spa_log_debug(this->log, "%p: enum params %d %d %u %u", this, seq, direction, port_id, id);
+
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
-
-	spa_log_debug(this->log, "%p: enum params %d %d %u %u", this, seq, direction, port_id, id);
 
 	result.id = id;
 	result.next = start;

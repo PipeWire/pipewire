@@ -34,6 +34,7 @@ struct resample {
 	uint32_t i_rate;
 	uint32_t o_rate;
 	struct spa_log *log;
+	double rate;
 
 	void (*free)		(struct resample *r);
 	void (*update_rate)	(struct resample *r, double rate);

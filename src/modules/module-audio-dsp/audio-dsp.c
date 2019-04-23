@@ -299,10 +299,12 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	if (direction == PW_DIRECTION_OUTPUT) {
 		pw_properties_set(pr, "merger.monitor", "1");
-		factory = "merger";
+		factory = "merge";
 	} else {
-		factory = "splitter";
+		factory = "split";
 	}
+	pw_properties_set(pr, "factory.mode", factory);
+	factory = "audioconvert";
 
 	node = pw_spa_node_load(core, NULL, NULL,
 			"audioconvert/libspa-audioconvert",

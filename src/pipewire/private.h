@@ -344,7 +344,6 @@ struct pw_node_activation {
 #define pw_node_emit_info_changed(n,i)		pw_node_emit(n, info_changed, 0, i)
 #define pw_node_emit_port_info_changed(n,p,i)	pw_node_emit(n, port_info_changed, 0, p, i)
 #define pw_node_emit_active_changed(n,a)	pw_node_emit(n, active_changed, 0, a)
-#define pw_node_emit_enabled_changed(n,e)	pw_node_emit(n, enabled_changed, 0, e)
 #define pw_node_emit_state_request(n,s)		pw_node_emit(n, state_request, 0, s)
 #define pw_node_emit_state_changed(n,o,s,e)	pw_node_emit(n, state_changed, 0, o, s, e)
 #define pw_node_emit_async_complete(n,s,r)	pw_node_emit(n, async_complete, 0, s, r)
@@ -366,7 +365,6 @@ struct pw_node {
 	struct spa_param_info params[MAX_PARAMS];
 
 	unsigned int registered:1;
-	unsigned int enabled:1;		/**< if the node is enabled */
 	unsigned int active:1;		/**< if the node is active */
 	unsigned int live:1;		/**< if the node is live */
 	unsigned int driver:1;		/**< if the node can drive the graph */

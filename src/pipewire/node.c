@@ -776,7 +776,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	if (properties == NULL)
 		goto clean_impl;
 
-	this->enabled = true;
 	this->properties = properties;
 
 	size = sizeof(struct pw_node_activation);
@@ -1437,7 +1436,7 @@ int pw_node_set_active(struct pw_node *node, bool active)
 		node->active = active;
 		pw_node_emit_active_changed(node, active);
 
-		if (active && node->enabled)
+		if (active)
 			node_activate(node);
 
 		pw_core_recalc_graph(node->core);
@@ -1449,31 +1448,4 @@ SPA_EXPORT
 bool pw_node_is_active(struct pw_node *node)
 {
 	return node->active;
-}
-
-SPA_EXPORT
-int pw_node_set_enabled(struct pw_node *node, bool enabled)
-{
-	bool old = node->enabled;
-
-	if (old != enabled) {
-		pw_log_debug("node %p: %s", node, enabled ? "enable" : "disable");
-		node->enabled = enabled;
-		pw_node_emit_enabled_changed(node, enabled);
-
-		if (enabled) {
-			if (node->active)
-				node_activate(node);
-		}
-		else {
-			pw_node_set_state(node, PW_NODE_STATE_SUSPENDED);
-		}
-	}
-	return 0;
-}
-
-SPA_EXPORT
-bool pw_node_is_enabled(struct pw_node *node)
-{
-	return node->enabled;
 }

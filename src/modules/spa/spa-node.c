@@ -87,8 +87,6 @@ static void complete_init(struct impl *impl)
         struct pw_node *this = impl->this;
 
 	impl->init_pending = SPA_ID_INVALID;
-	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_DISABLE))
-		pw_node_set_enabled(this, false);
 
 	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_ACTIVATE))
 		pw_node_set_active(this, true);

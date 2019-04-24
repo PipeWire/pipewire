@@ -497,7 +497,6 @@ static int set_timeout(struct state *state, uint64_t time)
 		ts.it_interval.tv_nsec = 0;
 		timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
 	}
-
 	return 0;
 }
 
@@ -1065,7 +1064,6 @@ int spa_alsa_start(struct state *state)
 	}
 
 	if (!state->slaved) {
-		clock_gettime(CLOCK_MONOTONIC, &state->now);
 		ts.it_value.tv_sec = 0;
 		ts.it_value.tv_nsec = 1;
 		ts.it_interval.tv_sec = 0;

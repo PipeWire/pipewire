@@ -376,10 +376,10 @@ struct pw_node {
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
-	struct spa_list core_driver_link;
-	struct pw_node *driver_node;
-	struct spa_list driver_list;
 	struct spa_list driver_link;
+	struct pw_node *driver_node;
+	struct spa_list slave_list;
+	struct spa_list slave_link;
 
 	struct spa_list sort_link;	/**< link used to sort nodes */
 

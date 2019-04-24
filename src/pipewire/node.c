@@ -612,9 +612,9 @@ static void check_properties(struct pw_node *node)
 		pw_log_info("node %p: driver %d -> %d", node, node->driver, driver);
 		node->driver = driver;
 		if (driver)
-			spa_list_append(&node->core->driver_list, &node->core_driver_link);
+			spa_list_append(&node->core->driver_list, &node->driver_link);
 		else
-			spa_list_remove(&node->core_driver_link);
+			spa_list_remove(&node->driver_link);
 	}
 
 	if ((str = pw_properties_get(node->properties, "node.latency"))) {
@@ -804,7 +804,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->data_loop = core->data_loop;
 
-	spa_list_init(&this->driver_list);
+	spa_list_init(&this->slave_list);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -834,7 +834,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	check_properties(this);
 
 	this->driver_node = this;
-	spa_list_append(&this->driver_list, &this->driver_link);
+	spa_list_append(&this->slave_list, &this->slave_link);
 	this->master = true;
 
 	return this;
@@ -1136,10 +1136,10 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: driver node %p", impl, node->driver_node);
 
 	if (node->driver)
-		spa_list_remove(&node->core_driver_link);
+		spa_list_remove(&node->driver_link);
 
-	/* remove ourself from the (other) driver node */
-	spa_list_remove(&node->driver_link);
+	/* remove ourself as a slave from the driver node */
+	spa_list_remove(&node->slave_link);
 
 	if (node->registered)
 		spa_list_remove(&node->link);

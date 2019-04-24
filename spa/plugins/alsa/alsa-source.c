@@ -166,6 +166,7 @@ static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size
 	default:
 		return -ENOENT;
 	}
+	spa_alsa_reslave(this);
 	return 0;
 }
 

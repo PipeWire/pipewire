@@ -151,6 +151,7 @@ spa_alsa_enum_format(struct state *state, int seq,
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
 
 int spa_alsa_start(struct state *state);
+int spa_alsa_reslave(struct state *state);
 int spa_alsa_pause(struct state *state);
 int spa_alsa_close(struct state *state);
 

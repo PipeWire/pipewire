@@ -1008,10 +1008,28 @@ static void reset_buffers(struct state *this)
 	}
 }
 
+static int set_timers(struct state *state)
+{
+	struct itimerspec ts;
+	ts.it_value.tv_sec = 0;
+	if (state->slaved)
+		ts.it_value.tv_nsec = 0;
+	else
+		ts.it_value.tv_nsec = 1;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	timerfd_settime(state->timerfd, 0, &ts, NULL);
+	return 0;
+}
+
+static inline bool is_slaved(struct state *state)
+{
+	return state->position && state->clock && state->position->clock.id != state->clock->id;
+}
+
 int spa_alsa_start(struct state *state)
 {
 	int err;
-	struct itimerspec ts;
 
 	if (state->started)
 		return 0;
@@ -1021,11 +1039,7 @@ int spa_alsa_start(struct state *state)
 	else
 		state->threshold = state->props.min_latency;
 
-	state->slaved = false;
-	if (state->position && state->clock) {
-		if (state->position->clock.id != state->clock->id)
-			state->slaved = true;
-	}
+	state->slaved = is_slaved(state);
 
 	init_loop(state);
 	state->safety = 0.0;
@@ -1040,14 +1054,12 @@ int spa_alsa_start(struct state *state)
 		return err;
 	}
 
-	if (!state->slaved) {
-		state->source.func = alsa_on_timeout_event;
-		state->source.data = state;
-		state->source.fd = state->timerfd;
-		state->source.mask = SPA_IO_IN;
-		state->source.rmask = 0;
-		spa_loop_add_source(state->data_loop, &state->source);
-	}
+	state->source.func = alsa_on_timeout_event;
+	state->source.data = state;
+	state->source.fd = state->timerfd;
+	state->source.mask = SPA_IO_IN;
+	state->source.rmask = 0;
+	spa_loop_add_source(state->data_loop, &state->source);
 
 	reset_buffers(state);
 	state->alsa_sync = true;
@@ -1063,19 +1075,41 @@ int spa_alsa_start(struct state *state)
 		state->alsa_started = true;
 	}
 
-	if (!state->slaved) {
-		ts.it_value.tv_sec = 0;
-		ts.it_value.tv_nsec = 1;
-		ts.it_interval.tv_sec = 0;
-		ts.it_interval.tv_nsec = 0;
-		timerfd_settime(state->timerfd, 0, &ts, NULL);
-	}
+	set_timers(state);
 
 	state->io->status = SPA_STATUS_OK;
 	state->io->buffer_id = SPA_ID_INVALID;
 
 	state->started = true;
 
+	return 0;
+}
+
+static int do_reslave(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct state *state = user_data;
+	set_timers(state);
+	return 0;
+}
+
+int spa_alsa_reslave(struct state *state)
+{
+	bool slaved;
+
+	if (!state->started)
+		return 0;
+
+	slaved = is_slaved(state);
+	if (slaved != state->slaved) {
+		spa_log_debug(state->log, "alsa %p: reslave %d->%d", state, state->slaved, slaved);
+		state->slaved = slaved;
+		spa_loop_invoke(state->data_loop, do_reslave, 0, NULL, 0, true, state);
+	}
 	return 0;
 }
 
@@ -1089,14 +1123,12 @@ static int do_remove_source(struct spa_loop *loop,
 	struct state *state = user_data;
 	struct itimerspec ts;
 
-	if (!state->slaved) {
-		spa_loop_remove_source(state->data_loop, &state->source);
-		ts.it_value.tv_sec = 0;
-		ts.it_value.tv_nsec = 0;
-		ts.it_interval.tv_sec = 0;
-		ts.it_interval.tv_nsec = 0;
-		timerfd_settime(state->timerfd, 0, &ts, NULL);
-	}
+	spa_loop_remove_source(state->data_loop, &state->source);
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 0;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	timerfd_settime(state->timerfd, 0, &ts, NULL);
 
 	return 0;
 }

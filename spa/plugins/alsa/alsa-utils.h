@@ -68,7 +68,7 @@ struct buffer {
 #define BW_MAX		0.256
 #define BW_MED		0.064
 #define BW_MIN		0.016
-#define BW_PERIOD	3.0
+#define BW_PERIOD	(3 * SPA_NSEC_PER_SEC)
 
 struct state {
 	struct spa_handle handle;

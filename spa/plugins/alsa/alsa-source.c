@@ -648,16 +648,16 @@ static int impl_node_process(struct spa_node *node)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (spa_list_is_empty(&this->ready))
+	if (spa_list_is_empty(&this->ready) && this->slaved)
 		spa_alsa_read(this, 0);
 
-	if (spa_list_is_empty(&this->ready))
+	if (spa_list_is_empty(&this->ready) || !this->slaved)
 		return SPA_STATUS_OK;
 
 	b = spa_list_first(&this->ready, struct buffer, link);
 	spa_list_remove(&b->link);
 
-	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", node, b->id);
+	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", this, b->id);
 
 	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_BUFFER;

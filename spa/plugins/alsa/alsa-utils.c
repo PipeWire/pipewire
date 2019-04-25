@@ -591,7 +591,7 @@ static int get_status(struct state *state, snd_pcm_sframes_t *delay)
 
 static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay, bool slave)
 {
-	double err, corr, elapsed;
+	double err, corr;
 
 	if (state->bw == 0.0) {
 		set_loop(state, BW_MAX);
@@ -599,7 +599,10 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->base_time = nsec;
 	}
 
-	err = delay - state->threshold;
+	if (state->stream == SND_PCM_STREAM_PLAYBACK)
+		err = delay - state->threshold;
+	else
+		err = state->threshold - delay;
 
 	state->z1 += state->w0 * (state->w1 * err - state->z1);
 	state->z2 += state->w0 * (state->z1 - state->z2);
@@ -607,15 +610,15 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	corr = 1.0 - (state->z2 + state->z3);
 
-	elapsed = (state->next_time - state->base_time) * 1e-9;
-	if (elapsed > BW_PERIOD) {
+	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
 		if (state->bw == BW_MAX)
 			set_loop(state, BW_MED);
 		else if (state->bw == BW_MED)
 			set_loop(state, BW_MIN);
 
-		spa_log_debug(state->log, "slave:%d rate:%f bw:%f", slave, corr, state->bw);
+		spa_log_debug(state->log, "slave:%d rate:%f bw:%f err:%f (%f %f %f)",
+				slave, corr, state->bw, err, state->z1, state->z2, state->z3);
 	}
 
 	if (slave && state->notify) {
@@ -665,6 +668,12 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
+		if (delay > state->threshold * 2) {
+			spa_log_warn(state->log, "slave: resync %f %f %f",
+					state->z1, state->z2, state->z3);
+			init_loop(state);
+			state->alsa_sync = true;
+		}
 		if (state->alsa_sync) {
 			if (delay > state->threshold)
 				snd_pcm_rewind(state->hndl, delay - state->threshold);
@@ -678,12 +687,6 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
 		if ((res = update_time(state, nsec, delay, true)) < 0)
 			return res;
-
-		if (delay > state->threshold * 2) {
-			spa_log_warn(state->log, "slave: skip period");
-			snd_pcm_rewind(state->hndl, state->threshold);
-			delay -= state->threshold;
-		}
 	}
 
 	total_written = 0;
@@ -857,14 +860,16 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
+		if (delay > state->threshold * 2) {
+			spa_log_warn(state->log, "slave: resync %f %f %f",
+					state->z1, state->z2, state->z3);
+			snd_pcm_forward(state->hndl, delay - state->threshold);
+			delay = state->threshold;
+			init_loop(state);
+		}
+
 		if ((res = update_time(state, nsec, delay, true)) < 0)
 			return res;
-
-		if (delay > state->threshold * 2) {
-			spa_log_trace_fp(state->log, "slave: skip period");
-			snd_pcm_forward(state->hndl, state->threshold);
-			delay -= state->threshold;
-		}
 	}
 
 again:

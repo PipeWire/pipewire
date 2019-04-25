@@ -279,6 +279,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 					SPA_DIRECTION_OUTPUT, i, NULL);
 
 		this->have_profile = true;
+		this->is_passthrough = true;
 		port->have_format = true;
 		port->format = info;
 
@@ -561,7 +562,7 @@ static int setup_convert(struct impl *this)
 	spa_log_info(this->log, NAME " %p: got converter features %08x:%08x", this,
 			this->cpu_flags, this->conv.cpu_flags);
 
-	this->is_passthrough = this->conv.is_passthrough;
+	this->is_passthrough &= this->conv.is_passthrough;
 
 	return 0;
 }
@@ -926,8 +927,9 @@ static int impl_node_process(struct spa_node *node)
 		res |= SPA_STATUS_HAVE_BUFFER;
 	}
 
-	spa_log_trace_fp(this->log, NAME " %p: %d %d %d %d %d", this,
-			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride);
+	spa_log_trace_fp(this->log, NAME " %p: %d %d %d %d %d %d", this,
+			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride,
+			this->is_passthrough);
 
 	if (!this->is_passthrough)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);

@@ -124,6 +124,7 @@ struct state {
 	struct spa_source source;
 	int timerfd;
 	uint32_t threshold;
+	uint32_t last_threshold;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;
 	unsigned int slaved:1;

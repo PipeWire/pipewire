@@ -593,22 +593,28 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 {
 	double err, corr;
 
+	if (state->stream == SND_PCM_STREAM_PLAYBACK)
+		err = delay - state->last_threshold;
+	else
+		err = state->last_threshold - delay;
+
 	if (state->bw == 0.0) {
 		set_loop(state, BW_MAX);
 		state->next_time = nsec;
 		state->base_time = nsec;
 	}
 
-	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		err = delay - state->threshold;
-	else
-		err = state->threshold - delay;
-
 	state->z1 += state->w0 * (state->w1 * err - state->z1);
 	state->z2 += state->w0 * (state->z1 - state->z2);
 	state->z3 += state->w2 * state->z2;
 
 	corr = 1.0 - (state->z2 + state->z3);
+
+	if (state->last_threshold != state->threshold) {
+		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
+		spa_log_trace(state->log, "slave:%d quantum change %d", slave, diff);
+		state->next_time += diff / corr * 1e9 / state->rate;
+	}
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
@@ -641,11 +647,12 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->clock->rate_diff = corr;
 	}
 
-	spa_log_trace_fp(state->log, "%"PRIu64" %f %ld %f %f %d", nsec,
+	spa_log_trace_fp(state->log, "slave:%d %"PRIu64" %f %ld %f %f %d", slave, nsec,
 			corr, delay, err, state->threshold * corr,
 			state->threshold);
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate;
+	state->last_threshold = state->threshold;
 
 	return 0;
 }
@@ -905,9 +912,9 @@ static int handle_play(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 {
 	int res;
 
-	if (delay >= state->threshold * 2) {
+	if (delay >= state->last_threshold * 2) {
 		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
-		state->next_time = nsec + state->threshold * SPA_NSEC_PER_SEC / state->rate;
+		state->next_time = nsec + (delay - state->last_threshold) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;
 	}
 
@@ -938,9 +945,9 @@ static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_sframes_t 
 	int res;
 	struct spa_io_buffers *io;
 
-	if (delay < state->threshold) {
+	if (delay < state->last_threshold) {
 		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
-		state->next_time = nsec + (state->threshold - delay) * SPA_NSEC_PER_SEC / state->rate;
+		state->next_time = nsec + (state->last_threshold - delay) * SPA_NSEC_PER_SEC / state->rate;
 		return 0;
 	}
 
@@ -1045,6 +1052,7 @@ int spa_alsa_start(struct state *state)
 		state->threshold = state->props.min_latency;
 
 	state->slaved = is_slaved(state);
+	state->last_threshold = state->threshold;
 
 	init_loop(state);
 	state->safety = 0.0;

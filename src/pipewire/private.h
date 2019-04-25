@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 #define DEFAULT_QUANTUM		1024u
-#define MIN_QUANTUM		64u
+#define MIN_QUANTUM		32u
 
 #define MAX_PARAMS	32
 

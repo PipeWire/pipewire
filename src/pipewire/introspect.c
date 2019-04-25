@@ -76,8 +76,6 @@ const char *pw_link_state_as_string(enum pw_link_state state)
 		return "allocating";
 	case PW_LINK_STATE_PAUSED:
 		return "paused";
-	case PW_LINK_STATE_RUNNING:
-		return "running";
 	}
 	return "invalid-state";
 }

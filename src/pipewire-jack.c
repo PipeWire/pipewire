@@ -3146,7 +3146,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 
 	*current_frames = c->jack_position.frame;
 	*current_usecs = c->jack_position.usecs;
-	*period_usecs = c->rate_diff * c->buffer_size / c->sample_rate;
+	*period_usecs = c->buffer_size / (c->sample_rate * c->rate_diff);
 	*next_usecs = c->jack_position.usecs + (*period_usecs * 1000000.0f);
 	pw_log_trace("client %p: %d %ld %ld %f", c, *current_frames,
 			*current_usecs, *next_usecs, *period_usecs);

@@ -671,7 +671,6 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		uint64_t nsec;
 		snd_pcm_sframes_t delay;
 
-		clock_gettime(CLOCK_MONOTONIC, &state->now);
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
@@ -691,7 +690,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 			state->alsa_sync = false;
 		}
 
-		nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
+		nsec = state->position->clock.nsec;
 		if ((res = update_time(state, nsec, delay, true)) < 0)
 			return res;
 	}
@@ -807,7 +806,7 @@ push_frames(struct state *state,
 		size_t n_bytes;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t index, offs, avail, l0, l1;
+		uint32_t avail, l0, l1;
 
 		b = spa_list_first(&state->free, struct buffer, link);
 		spa_list_remove(&b->link);
@@ -823,19 +822,17 @@ push_frames(struct state *state,
 		src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 
 		avail = d[0].maxsize / state->frame_size;
-		index = 0;
-		total_frames = SPA_MIN(avail, frames);
+		total_frames = SPA_MIN(avail, state->threshold);
 		n_bytes = total_frames * state->frame_size;
 
-		offs = index % d[0].maxsize;
-		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
+		l0 = SPA_MIN(n_bytes, frames * state->frame_size);
 		l1 = n_bytes - l0;
 
-		spa_memcpy(SPA_MEMBER(d[0].data, offs, void), src, l0);
+		spa_memcpy(d[0].data, src, l0);
 		if (l1 > 0)
-			spa_memcpy(d[0].data, src + l0, l1);
+			spa_memcpy(d[0].data, my_areas[0].addr, l1);
 
-		d[0].chunk->offset = index;
+		d[0].chunk->offset = 0;
 		d[0].chunk->size = n_bytes;
 		d[0].chunk->stride = state->frame_size;
 
@@ -857,24 +854,30 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	if (state->position && state->threshold != state->position->size)
 		state->threshold = state->position->size;
 
-	if (state->slaved) {
-		uint64_t nsec, master;
+	if (state->slaved && state->alsa_started) {
+		uint64_t nsec;
 		snd_pcm_sframes_t delay;
-
-		master = state->position->clock.position + state->position->clock.delay;
-		nsec = master * SPA_NSEC_PER_SEC / state->rate;
 
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
-		if (delay > state->threshold * 2) {
+		if (delay < state->threshold || delay > state->threshold * 2) {
 			spa_log_warn(state->log, "slave: resync %f %f %f",
 					state->z1, state->z2, state->z3);
-			snd_pcm_forward(state->hndl, delay - state->threshold);
-			delay = state->threshold;
 			init_loop(state);
+			state->alsa_sync = true;
+		}
+		if (state->alsa_sync) {
+			if (delay < state->threshold)
+				snd_pcm_rewind(state->hndl, state->threshold - delay);
+			else if (delay > state->threshold)
+				snd_pcm_forward(state->hndl, delay - state->threshold);
+
+			delay = state->threshold;
+			state->alsa_sync = false;
 		}
 
+		nsec = state->position->clock.nsec;
 		if ((res = update_time(state, nsec, delay, true)) < 0)
 			return res;
 	}
@@ -899,7 +902,11 @@ again:
 			return res;
 	}
 
-	to_read -= read;
+	if (to_read > read)
+		to_read -= read;
+	else
+		to_read = 0;
+
 	if (read > 0 && to_read >= state->threshold && !spa_list_is_empty(&state->free))
 		goto again;
 

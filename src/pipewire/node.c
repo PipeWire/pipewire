@@ -49,7 +49,6 @@ struct impl {
 
 	struct pw_work_queue *work;
 
-	uint32_t next_position;
 	int last_error;
 
 	unsigned int pause_on_idle:1;

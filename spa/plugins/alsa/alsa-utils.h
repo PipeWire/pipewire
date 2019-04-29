@@ -65,7 +65,7 @@ struct buffer {
 	struct spa_list link;
 };
 
-#define BW_MAX		0.256
+#define BW_MAX		0.128
 #define BW_MED		0.064
 #define BW_MIN		0.016
 #define BW_PERIOD	(3 * SPA_NSEC_PER_SEC)
@@ -125,6 +125,7 @@ struct state {
 	int timerfd;
 	uint32_t threshold;
 	uint32_t last_threshold;
+	uint64_t last_position;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;
 	unsigned int slaved:1;

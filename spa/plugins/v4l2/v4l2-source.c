@@ -859,6 +859,7 @@ static int impl_node_process_output(struct spa_node *node)
 
 static const struct spa_dict_item info_items[] = {
 	{ "media.class", "Video/Source" },
+	{ "media.role", "Camera" },
 	{ "node.pause-on-idle", "false" },
 };
 

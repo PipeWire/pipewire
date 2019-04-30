@@ -78,7 +78,7 @@ DEFINE_RESAMPLER(copy,arch)							\
 		index += to_copy;						\
 		offs += to_copy;						\
 	}									\
-	*in_len = index - data->index;						\
+	*in_len = index;							\
 	*out_len = offs;							\
 	data->index = index;							\
 }
@@ -143,8 +143,8 @@ DEFINE_RESAMPLER(inter,arch)							\
 		phase = data->phase;						\
 										\
 		for (o = offs; o < olen && index + n_taps <= ilen; o++) {	\
-			const float *ip;					\
-			float ph, x, *t0, *t1;					\
+			const float *ip, *t0, *t1;				\
+			float ph, x;						\
 			uint32_t offset;					\
 										\
 			ip = &s[index];						\

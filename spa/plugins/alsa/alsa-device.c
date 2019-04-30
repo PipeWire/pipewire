@@ -29,7 +29,6 @@
 #include <fcntl.h>
 #include <poll.h>
 
-#include <libudev.h>
 #include <asoundlib.h>
 
 #include <spa/support/log.h>

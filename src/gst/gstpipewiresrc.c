@@ -411,6 +411,9 @@ on_process (void *_data)
 
   GST_LOG_OBJECT (pwsrc, "got new buffer %p", buf);
 
+  GST_BUFFER_PTS (buf) = GST_CLOCK_TIME_NONE;
+  GST_BUFFER_DTS (buf) = GST_CLOCK_TIME_NONE;
+
   h = data->header;
   if (h) {
     GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);

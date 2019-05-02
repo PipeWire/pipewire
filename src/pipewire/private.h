@@ -303,7 +303,7 @@ struct pw_module {
 	void *user_data;                /**< module user_data */
 };
 
-#define pw_node_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
+#define pw_node_events_emit(o,m,v,...) spa_hook_list_call_simple_safe(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
 #define pw_node_events_destroy(n)		pw_node_events_emit(n, destroy, 0)
 #define pw_node_events_free(n)			pw_node_events_emit(n, free, 0)
 #define pw_node_events_initialized(n)		pw_node_events_emit(n, initialized, 0)

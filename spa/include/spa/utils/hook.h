@@ -94,6 +94,19 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 	}									\
 })
 
+#define spa_hook_list_call_simple_safe(l,type,method,vers,...)			\
+({										\
+	struct spa_hook_list *list = l;						\
+	struct spa_hook *ci;							\
+	struct spa_hook *tmp;							\
+	spa_list_for_each_safe(ci, tmp, &list->list, link) {			\
+		const type *cb = ci->funcs;					\
+		if (cb && cb->version >= vers && cb->method) {			\
+			cb->method(ci->data, ## __VA_ARGS__);			\
+		}								\
+	}									\
+})
+
 /** Call all hooks in a list, starting from the given one and optionally stopping
  * after calling the first non-NULL function, returns the number of methods
  * called */

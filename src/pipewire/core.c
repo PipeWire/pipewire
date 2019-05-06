@@ -102,13 +102,23 @@ static const struct pw_resource_events resource_events = {
 	.destroy = destroy_registry_resource
 };
 
+static int destroy_resource(void *object, void *data)
+{
+	struct pw_resource *resource = object;
+	if (resource && resource != resource->client->core_resource)
+		pw_resource_destroy(resource);
+	return 0;
+}
+
 static void core_hello(void *object)
 {
 	struct pw_resource *resource = object;
+	struct pw_client *client = resource->client;
 	struct pw_core *this = resource->core;
 
-	pw_log_debug("core %p: hello from source %p", this, resource);
-	resource->client->n_types = 0;
+	pw_log_debug("core %p: hello from resource %p", this, resource);
+	client->n_types = 0;
+	pw_map_for_each(&client->objects, destroy_resource, client);
 
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);

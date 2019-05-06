@@ -117,7 +117,8 @@ static void core_hello(void *object)
 static void core_client_update(void *object, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
-	pw_client_update_properties(resource->client, props);
+	struct pw_client *client = resource->client;
+	pw_client_update_properties(client, props);
 }
 
 static void core_permissions(void *object, const struct spa_dict *props)

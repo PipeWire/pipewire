@@ -370,9 +370,18 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 	struct pw_resource *resource;
 	uint32_t i, changed = 0;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(client->properties,
-				  dict->items[i].key, dict->items[i].value);
+	for (i = 0; i < dict->n_items; i++) {
+		const char *key = dict->items[i].key, *old, *val = dict->items[i].value;
+
+		if (strstr(key, "pipewire.") == key &&
+		    (old = pw_properties_get(client->properties, key)) != NULL &&
+		    (val == NULL || strcmp(old, val))) {
+			pw_log_warn("client %p: refused update of key %s from %s to %s",
+					client, key, old, val);
+			continue;
+		}
+		changed += pw_properties_set(client->properties, key, val);
+	}
 
 	pw_log_debug("client %p: updated %d properties", client, changed);
 

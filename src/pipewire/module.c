@@ -287,7 +287,7 @@ SPA_EXPORT
 void pw_module_destroy(struct pw_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
-	struct pw_resource *resource, *tmp;
+	struct pw_resource *resource;
 
 	pw_log_debug("module %p: destroy", module);
 	pw_module_events_destroy(module);
@@ -298,7 +298,7 @@ void pw_module_destroy(struct pw_module *module)
 		spa_hook_remove(&module->global_listener);
 		pw_global_destroy(module->global);
 	}
-	spa_list_for_each_safe(resource, tmp, &module->resource_list, link)
+	spa_list_consume(resource, &module->resource_list, link)
 		pw_resource_destroy(resource);
 
 	free((char *) module->info.name);

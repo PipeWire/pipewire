@@ -716,11 +716,11 @@ impl_new_client(struct pw_protocol *protocol,
 static void destroy_server(struct pw_protocol_server *server)
 {
 	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
-	struct pw_client *client, *tmp;
+	struct pw_client *client;
 
 	spa_list_remove(&server->link);
 
-	spa_list_for_each_safe(client, tmp, &server->client_list, protocol_link)
+	spa_list_consume(client, &server->client_list, protocol_link)
 		pw_client_destroy(client);
 
 	if (s->source)

@@ -78,6 +78,11 @@ static inline void spa_list_remove(struct spa_list *elem)
 #define spa_list_next(pos, member)					\
 	SPA_CONTAINER_OF((pos)->member.next, __typeof__(*pos), member)
 
+#define spa_list_consume(pos, head, member)				\
+	for (pos = spa_list_first(head, __typeof__(*pos), member);	\
+	     !spa_list_is_empty(head);					\
+	     pos = spa_list_first(head, __typeof__(*pos), member))
+
 #define spa_list_for_each_next(pos, head, curr, member)			\
 	for (pos = spa_list_first(curr, __typeof__(*pos), member);	\
 	     !spa_list_is_end(pos, head, member);			\

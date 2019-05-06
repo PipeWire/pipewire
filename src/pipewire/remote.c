@@ -136,11 +136,11 @@ static void core_event_remove_id(void *data, uint32_t id)
 	struct pw_proxy *proxy;
 
 	pw_log_debug("remote %p: object remove %u", this, id);
-	if ((proxy = pw_map_lookup(&this->objects, id))) {
+	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
 		proxy->removed = true;
 		pw_proxy_destroy(proxy);
+		pw_map_remove(&this->objects, id);
 	}
-	pw_map_remove(&this->objects, id);
 }
 
 static const struct pw_core_proxy_events core_proxy_events = {

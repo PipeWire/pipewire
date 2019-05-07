@@ -246,17 +246,18 @@ on_stream_format_changed (void *data, const struct spa_pod *format)
   const struct spa_pod *params[1];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[512];
+  const gint b_size = self->segsize * self->channels;
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   params[0] = spa_pod_builder_add_object (&b,
       SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
       SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(16, 1, INT32_MAX),
       SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-      SPA_PARAM_BUFFERS_size,    SPA_POD_Int(self->segsize),
+      SPA_PARAM_BUFFERS_size,    SPA_POD_Int(b_size),
       SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(self->bpf),
       SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
-  GST_DEBUG_OBJECT (self->elem, "doing finish format, buffer size:%d", self->segsize);
+  GST_DEBUG_OBJECT (self->elem, "doing finish format, buffer size:%d", b_size);
   pw_stream_finish_format (self->stream, 0, params, 1);
 }
 
@@ -402,6 +403,7 @@ gst_pw_audio_ring_buffer_acquire (GstAudioRingBuffer *buf,
   self->segsize = spec->segsize;
   self->bpf = GST_AUDIO_INFO_BPF (&spec->info);
   self->rate = GST_AUDIO_INFO_RATE (&spec->info);
+  self->channels = GST_AUDIO_INFO_CHANNELS (&spec->info);
   self->segoffset = 0;
 
   /* connect stream */

@@ -75,12 +75,12 @@ extern "C" {
 
 #define SPA_POD_Bytes(val,len)				"y",val,len
 
-#define SPA_POD_Rectangle(val)				"R", SPA_TYPECHECK(struct spa_rectangle*,(val))
+#define SPA_POD_Rectangle(val)				"R",val
 #define SPA_POD_CHOICE_ENUM_Rectangle(n_vals,...)	"?eR", SPA_CHOICE_ENUM(n_vals, __VA_ARGS__)
 #define SPA_POD_CHOICE_RANGE_Rectangle(def,min,max)	"?rR", SPA_CHOICE_RANGE((def),(min),(max))
 #define SPA_POD_CHOICE_STEP_Rectangle(def,min,max,step)	"?sR", SPA_CHOICE_STEP((def),(min),(max),(step))
 
-#define SPA_POD_Fraction(val)				"F", SPA_TYPECHECK(struct spa_fraction*,(val))
+#define SPA_POD_Fraction(val)				"F",val
 #define SPA_POD_CHOICE_ENUM_Fraction(n_vals,...)	"?eF", SPA_CHOICE_ENUM(n_vals, __VA_ARGS__)
 #define SPA_POD_CHOICE_RANGE_Fraction(def,min,max)	"?rF", SPA_CHOICE_RANGE((def),(min),(max))
 #define SPA_POD_CHOICE_STEP_Fraction(def,min,max,step)	"?sF", SPA_CHOICE_STEP(def, min, max, step)

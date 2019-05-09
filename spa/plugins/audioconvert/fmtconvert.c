@@ -87,11 +87,11 @@ struct port {
 	struct spa_port_info info;
 	struct spa_param_info params[8];
 
-	bool have_format;
 	struct spa_audio_info format;
 	uint32_t stride;
 	uint32_t blocks;
 	uint32_t size;
+	unsigned int have_format:1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -117,10 +117,9 @@ struct impl {
 
 	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
 
-	bool started;
-
 	uint32_t cpu_flags;
 	struct convert conv;
+	unsigned int started:1;
 	unsigned int is_passthrough:1;
 };
 
@@ -318,14 +317,14 @@ static int port_enum_formats(struct spa_node *node,
 	port = GET_PORT(this, direction, port_id);
 	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
-	spa_log_debug(this->log, NAME " %p: enum %p", this, other);
+	spa_log_debug(this->log, NAME " %p: enum %p %d %d", this, other, port->have_format, other->have_format);
 	switch (index) {
 	case 0:
 		if (port->have_format) {
 			*param = spa_format_audio_raw_build(builder,
 					SPA_PARAM_EnumFormat, &port->format.info.raw);
 		}
-		else if (other->have_format) {
+		else if (other->have_format && other->format.info.raw.format != SPA_AUDIO_FORMAT_F32P) {
 			struct spa_audio_info info;
 			struct spa_pod_frame f;
 
@@ -439,33 +438,33 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 
 	case SPA_PARAM_Buffers:
 	{
-		uint32_t buffers;
-		void *pod;
-
 		if (!port->have_format)
 			return -EIO;
 		if (result.index > 0)
 			return 0;
 
 		if (other->n_buffers > 0) {
-			buffers = other->n_buffers;
-			pod = &SPA_POD_INIT_Int(other->size / other->stride * port->stride);
-		} else {
-			buffers = 1;
-			pod = &SPA_POD_INIT_Choice(SPA_CHOICE_Range,
-					int32_t, SPA_TYPE_Int, 3,
-					2048 * port->stride,
-					16 * port->stride,
-                                        INT32_MAX / port->stride);
-		}
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamBuffers, id,
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(other->n_buffers, 1, MAX_BUFFERS),
+				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
+				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(other->size / other->stride * port->stride),
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
+				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, 1, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Pod(pod),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+
+		} else {
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamBuffers, id,
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
+				SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+								2048 * port->stride,
+								16 * port->stride,
+								INT32_MAX / port->stride),
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
+				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+		}
 		break;
 	}
 	case SPA_PARAM_Meta:
@@ -554,7 +553,8 @@ static int port_set_format(struct spa_node *node,
 		if (port->have_format) {
 			port->have_format = false;
 			clear_buffers(this, port);
-			convert_free(&this->conv);
+			if (this->conv.free)
+				convert_free(&this->conv);
 		}
 	} else {
 		struct spa_audio_info info = { 0 };

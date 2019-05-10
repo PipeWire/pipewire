@@ -6,7 +6,7 @@ pipewire_module_c_args = [
 ]
 
 if dbus_dep.found()
-pipewire_module_flatpak = shared_library('pipewire-module-flatpak', [ 'module-flatpak.c' ],
+pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-portal.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,

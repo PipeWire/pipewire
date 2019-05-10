@@ -487,6 +487,8 @@ int pw_node_register(struct pw_node *this,
 
 	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
 		pw_properties_set(properties, "media.class", str);
+	if ((str = pw_properties_get(this->properties, "media.role")) != NULL)
+		pw_properties_set(properties, "media.role", str);
 	pw_properties_set(properties, "node.name", this->info.name);
 	if ((str = pw_properties_get(this->properties, "node.session")) != NULL)
 		pw_properties_set(properties, "node.session", str);

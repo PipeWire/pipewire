@@ -112,6 +112,7 @@ struct pw_client {
 	struct pw_client_info info;	/**< client info */
 
 	struct pw_resource *core_resource;	/**< core resource object */
+	struct pw_resource *client_resource;	/**< client resource object */
 
 	struct pw_map objects;		/**< list of resource objects */
 

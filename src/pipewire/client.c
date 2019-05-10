@@ -169,6 +169,8 @@ static const struct pw_client_proxy_methods client_methods = {
 static void client_unbind_func(void *data)
 {
 	struct pw_resource *resource = data;
+	if (resource->id == 1)
+		resource->client->client_resource = NULL;
 	spa_list_remove(&resource->link);
 }
 
@@ -198,6 +200,9 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	pw_log_debug("client %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
+
+	if (resource->id == 1)
+		client->client_resource = resource;
 
 	this->info.change_mask = ~0;
 	pw_client_resource_info(resource, &this->info);

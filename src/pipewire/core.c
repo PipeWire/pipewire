@@ -151,7 +151,11 @@ static const struct pw_resource_events resource_events = {
 static int destroy_resource(void *object, void *data)
 {
 	struct pw_resource *resource = object;
-	if (resource && resource != resource->client->core_resource) {
+	struct pw_client *client = resource->client;
+
+	if (resource &&
+	    resource != client->core_resource &&
+	    resource != client->client_resource) {
 		resource->removed = true;
 		pw_resource_destroy(resource);
 	}
@@ -363,7 +367,8 @@ static const struct pw_core_proxy_methods core_methods = {
 static void core_unbind_func(void *data)
 {
 	struct pw_resource *resource = data;
-	resource->client->core_resource = NULL;
+	if (resource->id == 0)
+		resource->client->core_resource = NULL;
 	spa_list_remove(&resource->link);
 }
 

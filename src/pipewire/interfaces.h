@@ -96,7 +96,8 @@ struct pw_core_proxy_methods {
 	uint32_t version;
 	/**
 	 * Start a conversation with the server. This will send
-	 * the core info..
+	 * the core info and will destroy all resources for the client
+	 * (except the core and client resource).
 	 */
 	int (*hello) (void *object, uint32_t version);
 	/**

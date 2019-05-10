@@ -139,20 +139,25 @@ static void client_info_free(struct client_info *cinfo)
 static int check_sandboxed(struct pw_client *client)
 {
 	char root_path[2048];
-	int root_fd, info_fd, res;
-	const struct ucred *ucred;
+	int root_fd, info_fd, res, pid;
+	const char *str;
+	const struct pw_properties *props;
 	struct stat stat_buf;
 
-	ucred = pw_client_get_ucred(client);
+	if ((props = pw_client_get_properties(client)))
+		str = pw_properties_get(props, PW_CLIENT_PROP_UCRED_PID);
+	else
+		str = NULL;
 
-	if (ucred) {
-		pw_log_info("client has trusted pid %d", ucred->pid);
+	if (str) {
+		pid = atoi(str);
+		pw_log_info("client has trusted pid %d", pid);
 	} else {
 		pw_log_info("no trusted pid found, assuming not sandboxed\n");
 		return 0;
 	}
 
-	sprintf(root_path, "/proc/%u/root", ucred->pid);
+	sprintf(root_path, "/proc/%u/root", pid);
 	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd == -1) {
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
@@ -182,11 +187,22 @@ static int check_sandboxed(struct pw_client *client)
 	return 1;
 }
 
+static int get_client_prop(struct pw_client *client, const char *prop)
+{
+	const struct pw_properties *props;
+	const char *str;
+	if ((props = pw_client_get_properties(client)) == NULL)
+		return -EINVAL;
+	if ((str = pw_properties_get(props, prop)) == NULL)
+		return -EINVAL;
+	return atoi(str);
+}
+
 static bool
 check_global_owner(struct pw_client *client, struct pw_global *global)
 {
 	struct pw_client *owner;
-	const struct ucred *owner_ucred, *client_ucred;
+	int owner_uid, client_uid;
 
 	if (global == NULL)
 		return false;
@@ -195,14 +211,14 @@ check_global_owner(struct pw_client *client, struct pw_global *global)
 	if (owner == NULL)
 		return false;
 
-	owner_ucred = pw_client_get_ucred(owner);
-	client_ucred = pw_client_get_ucred(client);
+	owner_uid = get_client_prop(owner, PW_CLIENT_PROP_UCRED_UID);
+	client_uid = get_client_prop(client, PW_CLIENT_PROP_UCRED_UID);
 
-	if (owner_ucred == NULL || client_ucred == NULL)
+	if (owner_uid < 0 || client_uid < 0)
 		return false;
 
 	/* same user can see eachothers objects */
-	return owner_ucred->uid == client_ucred->uid;
+	return owner_uid == client_uid;
 }
 
 static int
@@ -320,7 +336,9 @@ static void do_portal_check(struct client_info *cinfo)
 
 	device = "camera";
 
-	pid = pw_client_get_ucred(client)->pid;
+	pid = get_client_prop(client, PW_CLIENT_PROP_UCRED_PID);
+	if (pid < 0)
+		goto not_allowed;
 	if (!dbus_message_append_args(m, DBUS_TYPE_UINT32, &pid, DBUS_TYPE_INVALID))
 		goto message_failed;
 

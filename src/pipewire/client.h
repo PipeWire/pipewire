@@ -24,12 +24,6 @@
 extern "C" {
 #endif
 
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
-
-#include <sys/socket.h>
-
 #include <spa/utils/hook.h>
 
 /** \class pw_client
@@ -119,11 +113,11 @@ struct pw_client_events {
 #define PW_CLIENT_PROP_UCRED_PID	"pipewire.ucred.pid"	/**< Client pid, set by protocol */
 #define PW_CLIENT_PROP_UCRED_UID	"pipewire.ucred.uid"	/**< Client uid, set by protocol*/
 #define PW_CLIENT_PROP_UCRED_GID	"pipewire.ucred.gid"	/**< client gid, set by protocol*/
+#define PW_CLIENT_PROP_SEC_LABEL	"pipewire.sec.label"	/**< client security label, set by protocol*/
 
 /** Create a new client. This is mainly used by protocols. */
 struct pw_client *
 pw_client_new(struct pw_core *core,		/**< the core object */
-	      struct ucred *ucred,		/**< optional ucred */
 	      struct pw_properties *properties,	/**< client properties */
 	      size_t user_data_size		/**< extra user data size */);
 
@@ -162,9 +156,6 @@ struct pw_resource *pw_client_find_resource(struct pw_client *client, uint32_t i
 
 /** Get the global associated with this client */
 struct pw_global *pw_client_get_global(struct pw_client *client);
-
-/** Get the ucred from a client or NULL when not specified/valid */
-const struct ucred *pw_client_get_ucred(struct pw_client *client);
 
 /** listen to events from this client */
 void pw_client_add_listener(struct pw_client *client,

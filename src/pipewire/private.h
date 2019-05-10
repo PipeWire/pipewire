@@ -99,8 +99,6 @@ struct pw_client {
 	struct pw_properties *properties;	/**< Client properties */
 
 	struct pw_client_info info;	/**< client info */
-	bool ucred_valid;		/**< if the ucred member is valid */
-	struct ucred ucred;		/**< ucred information */
 
 	struct pw_resource *core_resource;	/**< core resource object */
 

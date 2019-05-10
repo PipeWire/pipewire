@@ -435,6 +435,8 @@ struct pw_resource {
 	uint32_t type;			/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
 
+	bool removed;			/**< if the resource was removed */
+
 	struct spa_hook implementation;
 	struct spa_hook_list implementation_list;
 	struct spa_hook_list listener_list;

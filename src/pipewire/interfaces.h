@@ -117,6 +117,9 @@ struct pw_core_proxy_methods {
 	/**
 	 * Start a conversation with the server. This will send
 	 * the core info and server types.
+	 *
+	 * All the existing resources for the client (except the core
+	 * resource) will be destroyed.
 	 */
 	void (*hello) (void *object);
 	/**

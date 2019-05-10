@@ -105,8 +105,10 @@ static const struct pw_resource_events resource_events = {
 static int destroy_resource(void *object, void *data)
 {
 	struct pw_resource *resource = object;
-	if (resource && resource != resource->client->core_resource)
+	if (resource && resource != resource->client->core_resource) {
+		resource->removed = true;
 		pw_resource_destroy(resource);
+	}
 	return 0;
 }
 

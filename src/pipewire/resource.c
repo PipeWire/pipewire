@@ -207,7 +207,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 	pw_map_insert_at(&client->objects, resource->id, NULL);
 	pw_client_emit_resource_removed(client, resource);
 
-	if (client->core_resource)
+	if (client->core_resource && !resource->removed)
 		pw_core_resource_remove_id(client->core_resource, resource->id);
 
 	pw_log_debug("resource %p: free", resource);

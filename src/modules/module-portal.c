@@ -1,5 +1,6 @@
 /* PipeWire
  * Copyright (C) 2016 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright (C) 2019 Red Hat Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,6 +39,12 @@
 #include "pipewire/module.h"
 #include "pipewire/utils.h"
 
+enum media_role {
+	MEDIA_ROLE_NONE = 0,
+	MEDIA_ROLE_CAMERA = 1 << 0,
+};
+#define MEDIA_ROLE_ALL (MEDIA_ROLE_CAMERA)
+
 struct impl {
 	struct pw_core *core;
 	struct pw_type *type;
@@ -50,6 +57,9 @@ struct impl {
 	struct spa_hook module_listener;
 
 	struct spa_list client_list;
+
+	DBusPendingCall *portal_pid_pending;
+	pid_t portal_pid;
 };
 
 struct client_info {
@@ -58,17 +68,12 @@ struct client_info {
 	struct pw_client *client;
 	struct spa_hook client_listener;
         struct spa_list resources;
-	struct spa_list async_pending;
-	bool checked;
-	bool camera_allowed;
-	bool sandboxed;
-};
 
-struct async_pending {
-	struct spa_list link;
-	struct client_info *cinfo;
-	bool handled;
-	char *handle;
+	bool portal_managed;
+	bool setup_complete;
+	char *app_id;
+	enum media_role media_roles;
+	enum media_role allowed_media_roles;
 };
 
 static struct client_info *find_client_info(struct impl *impl, struct pw_client *client)
@@ -82,143 +87,95 @@ static struct client_info *find_client_info(struct impl *impl, struct pw_client 
 	return NULL;
 }
 
-static void close_request(struct async_pending *p)
-{
-	DBusMessage *m = NULL;
-	struct impl *impl = p->cinfo->impl;
-
-	pw_log_debug("pending %p: handle %s", p, p->handle);
-
-	if (!(m = dbus_message_new_method_call("org.freedesktop.portal.Request",
-					       p->handle,
-					       "org.freedesktop.portal.Request", "Close"))) {
-		pw_log_error("Failed to create message");
-		return;
-	}
-
-	if (!dbus_connection_send(impl->bus, m, NULL))
-		pw_log_error("Failed to send message");
-
-	dbus_message_unref(m);
-}
-
-static struct async_pending *find_pending(struct client_info *cinfo, const char *handle)
-{
-	struct async_pending *p;
-
-	spa_list_for_each(p, &cinfo->async_pending, link) {
-		if (strcmp(p->handle, handle) == 0)
-			return p;
-	}
-	return NULL;
-}
-
-static void free_pending(struct async_pending *p)
-{
-	if (!p->handled)
-		close_request(p);
-
-	pw_log_debug("pending %p: handle %s", p, p->handle);
-	spa_list_remove(&p->link);
-	free(p->handle);
-	free(p);
-}
-
 static void client_info_free(struct client_info *cinfo)
 {
-	struct async_pending *p, *tp;
-
-	spa_list_for_each_safe(p, tp, &cinfo->async_pending, link)
-		free_pending(p);
-
 	spa_hook_remove(&cinfo->client_listener);
 	spa_list_remove(&cinfo->link);
+	free(cinfo->app_id);
 	free(cinfo);
 }
 
-static int check_sandboxed(struct pw_client *client)
+static enum media_role media_role_from_string(const char *media_role_str)
 {
-	char root_path[2048];
-	int root_fd, info_fd, res, pid;
-	const char *str;
-	const struct pw_properties *props;
-	struct stat stat_buf;
-
-	if ((props = pw_client_get_properties(client)))
-		str = pw_properties_get(props, PW_CLIENT_PROP_UCRED_PID);
+	if (strcmp(media_role_str, "Camera") == 0)
+		return MEDIA_ROLE_CAMERA;
 	else
-		str = NULL;
+		return -1;
+}
 
-	if (str) {
-		pid = atoi(str);
-		pw_log_info("client has trusted pid %d", pid);
-	} else {
-		pw_log_info("no trusted pid found, assuming not sandboxed\n");
-		return 0;
-	}
+static enum media_role parse_media_roles(const char *media_types_str)
+{
+	enum media_role media_roles = 0;
+	char *buf_orig;
+	char *buf;
 
-	sprintf(root_path, "/proc/%u/root", pid);
-	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
-	if (root_fd == -1) {
-		/* Not able to open the root dir shouldn't happen. Probably the app died and
-		 * we're failing due to /proc/$pid not existing. In that case fail instead
-		 * of treating this as privileged. */
-		res = -errno;
-		pw_log_error("failed to open \"%s\": %m", root_path);
-		return res;
-	}
-	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
-	close (root_fd);
-	if (info_fd == -1) {
-		if (errno == ENOENT) {
-			pw_log_debug("no .flatpak-info, client on the host");
-			/* No file => on the host */
-			return 0;
+	buf_orig = strdup(media_types_str);
+	buf = buf_orig;
+	while (buf) {
+		char *media_role_str;
+		enum media_role media_role;
+
+		media_role_str = buf;
+		strsep(&buf, ",");
+
+		media_role = media_role_from_string(media_role_str);
+		if (media_role != -1) {
+			media_roles |= MEDIA_ROLE_CAMERA;
 		}
-		res = -errno;
-		pw_log_error("error opening .flatpak-info: %m");
-		return res;
-        }
-	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
-		/* Some weird fd => failure, assume sandboxed */
-		close(info_fd);
-		pw_log_error("error fstat .flatpak-info: %m");
+		else {
+			pw_log_debug("Client specified unknown media role '%s'",
+				     media_role_str);
+		}
 	}
-	return 1;
+	free(buf);
+
+	return media_roles;
 }
 
-static int get_client_prop(struct pw_client *client, const char *prop)
+static enum media_role media_role_from_properties(const struct pw_properties *props)
 {
+	const char *media_class_str;
+	const char *media_role_str;
+
+	media_class_str = pw_properties_get(props, "media.class");
+	media_role_str = pw_properties_get(props, "media.role");
+
+	if (media_class_str == NULL)
+		return -1;
+
+	if (media_role_str == NULL)
+		return -1;
+
+	if (strcmp(media_class_str, "Video/Source") != 0)
+		return -1;
+
+	return media_role_from_string(media_role_str);
+}
+
+static void check_portal_managed(struct client_info *cinfo)
+{
+	struct impl *impl = cinfo->impl;
 	const struct pw_properties *props;
-	const char *str;
-	if ((props = pw_client_get_properties(client)) == NULL)
-		return -EINVAL;
-	if ((str = pw_properties_get(props, prop)) == NULL)
-		return -EINVAL;
-	return atoi(str);
-}
 
-static bool
-check_global_owner(struct pw_client *client, struct pw_global *global)
-{
-	struct pw_client *owner;
-	int owner_uid, client_uid;
+	if (impl->portal_pid == 0)
+		return;
 
-	if (global == NULL)
-		return false;
+	props = pw_client_get_properties(cinfo->client);
+	if (props) {
+		const char *pid_str;
+		pid_t pid;
 
-	owner = pw_global_get_owner(global);
-	if (owner == NULL)
-		return false;
+		pid_str = pw_properties_get(props, PW_CLIENT_PROP_UCRED_PID);
 
-	owner_uid = get_client_prop(owner, PW_CLIENT_PROP_UCRED_UID);
-	client_uid = get_client_prop(client, PW_CLIENT_PROP_UCRED_UID);
+		pid = atoi(pid_str);
 
-	if (owner_uid < 0 || client_uid < 0)
-		return false;
+		if (pid == impl->portal_pid) {
+			cinfo->portal_managed = true;
 
-	/* same user can see eachothers objects */
-	return owner_uid == client_uid;
+			pw_log_debug("module %p: portal managed client %p added",
+				     impl, cinfo->client);
+		}
+	}
 }
 
 static int
@@ -228,177 +185,194 @@ set_global_permissions(void *data, struct pw_global *global)
 	struct impl *impl = cinfo->impl;
 	struct pw_client *client = cinfo->client;
 	const struct pw_properties *props;
-	const char *str;
 	struct spa_dict_item items[1];
 	int n_items = 0;
 	char perms[16];
+	bool set_permission;
 	bool allowed = false;
 
 	props = pw_global_get_properties(global);
 
 	if (pw_global_get_type(global) == impl->type->core) {
+		set_permission = true;
 		allowed = true;
 	}
-	else if (pw_global_get_type(global) == impl->type->factory) {
-		if (props && (str = pw_properties_get(props, "factory.name"))) {
-			if (strcmp(str, "client-node") == 0)
-				allowed = true;
-		}
-	}
-	else if (pw_global_get_type(global) == impl->type->node) {
-		if (props && (str = pw_properties_get(props, "media.class"))) {
-			if (strcmp(str, "Video/Source") == 0 && cinfo->camera_allowed)
-				allowed = true;
-		}
-		allowed |= check_global_owner(client, global);
-	}
-	else
-		allowed = check_global_owner(client, global);
+	else if (props) {
+		if (pw_global_get_type(global) == impl->type->factory) {
+			const char *factory_name;
 
-	snprintf(perms, sizeof(perms), "%d:%c--", pw_global_get_id(global), allowed ? 'r' : '-');
-	items[n_items++] = SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL, perms);
-	pw_client_update_permissions(client, &SPA_DICT_INIT(items, n_items));
+			factory_name = pw_properties_get(props, "factory.name");
+			if (factory_name &&
+			    strcmp(factory_name, "client-node") == 0) {
+				set_permission = true;
+				allowed = true;
+			}
+			else {
+				set_permission = false;
+			}
+		}
+		else if (pw_global_get_type(global) == impl->type->module) {
+			set_permission = true;
+			allowed = true;
+		}
+		else if (pw_global_get_type(global) == impl->type->node) {
+			enum media_role media_role;
+
+			media_role = media_role_from_properties(props);
+
+			if (media_role == -1) {
+				set_permission = false;
+			}
+			else if (cinfo->allowed_media_roles & media_role) {
+				set_permission = true;
+				allowed = true;
+			}
+			else if (cinfo->media_roles & media_role) {
+				set_permission = true;
+				allowed = false;
+			}
+			else {
+				set_permission = false;
+			}
+		}
+		else {
+			set_permission = false;
+		}
+	}
+	else {
+		set_permission = false;
+	}
+
+	if (set_permission) {
+		snprintf(perms, sizeof(perms),
+			 "%d:%c--", pw_global_get_id(global), allowed ? 'r' : '-');
+		items[n_items++] =
+			SPA_DICT_ITEM_INIT(PW_CORE_PROXY_PERMISSIONS_GLOBAL,
+					   perms);
+		pw_client_update_permissions(client,
+					     &SPA_DICT_INIT(items, n_items));
+	}
 
 	return 0;
 }
 
-static DBusHandlerResult
-portal_response(DBusConnection *connection, DBusMessage *msg, void *user_data)
+static bool
+check_permission_allowed(DBusMessageIter *iter)
 {
-	struct client_info *cinfo = user_data;
-	struct pw_client *client = cinfo->client;
+	bool allowed = false;
 
-	if (dbus_message_is_signal(msg, "org.freedesktop.portal.Request", "Response")) {
-		uint32_t response = 2;
-		DBusError error;
-		struct async_pending *p;
+	while (dbus_message_iter_get_arg_type (iter) != DBUS_TYPE_INVALID) {
+		const char *permission_value;
 
-		dbus_error_init(&error);
+		dbus_message_iter_get_basic(iter, &permission_value);
 
-		dbus_connection_remove_filter(connection, portal_response, cinfo);
-
-		if (!dbus_message_get_args
-		    (msg, &error, DBUS_TYPE_UINT32, &response, DBUS_TYPE_INVALID)) {
-			pw_log_error("failed to parse Response: %s", error.message);
-			dbus_error_free(&error);
+		if (strcmp(permission_value, "yes") == 0) {
+			allowed = true;
+			break;
 		}
-
-		p = find_pending(cinfo, dbus_message_get_path(msg));
-		if (p == NULL)
-			return DBUS_HANDLER_RESULT_HANDLED;
-
-		p->handled = true;
-
-		pw_log_debug("portal check result: %d", response);
-
-		if (response == 0) {
-			/* allowed */
-			cinfo->camera_allowed = true;
-			pw_log_debug("camera access allowed");
-		} else {
-			cinfo->camera_allowed = false;
-			pw_log_debug("camera access not allowed");
-		}
-		cinfo->checked = true;
-		pw_core_for_each_global(cinfo->impl->core, set_global_permissions, cinfo);
-
-		free_pending(p);
-		pw_client_set_busy(client, false);
-
-		return DBUS_HANDLER_RESULT_HANDLED;
+		dbus_message_iter_next(iter);
 	}
-	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	return allowed;
 }
 
-
-static void do_portal_check(struct client_info *cinfo)
+static void do_permission_store_check(struct client_info *cinfo)
 {
 	struct impl *impl = cinfo->impl;
 	struct pw_client *client = cinfo->client;
 	DBusMessage *m = NULL, *r = NULL;
 	DBusError error;
-	pid_t pid;
 	DBusMessageIter msg_iter;
-	DBusMessageIter dict_iter;
-	const char *handle;
-	const char *device;
-	struct async_pending *p;
+	const char *table;
+	const char *id;
+	DBusMessageIter r_iter;
+	DBusMessageIter permissions_iter;
 
-	pw_log_info("ask portal for client %p", client);
-	pw_client_set_busy(client, true);
+	if (cinfo->app_id == NULL) {
+		pw_log_debug("Ignoring portal check for broken portal managed client %p",
+			     client);
+		goto err_not_allowed;
+	}
+
+	if (cinfo->media_roles == 0) {
+		pw_log_debug("Ignoring portal check for portal client %p with static permissions",
+			     client);
+		pw_core_for_each_global(cinfo->impl->core,
+					set_global_permissions,
+					cinfo);
+		return;
+	}
+
+	if (strcmp(cinfo->app_id, "") == 0) {
+		pw_log_debug("Ignoring portal check for non-sandboxed portal client %p",
+			     client);
+		cinfo->allowed_media_roles = MEDIA_ROLE_ALL;
+		pw_core_for_each_global(cinfo->impl->core,
+					set_global_permissions,
+					cinfo);
+		return;
+	}
+
+	cinfo->allowed_media_roles = MEDIA_ROLE_NONE;
 
 	dbus_error_init(&error);
 
-	if (!(m = dbus_message_new_method_call("org.freedesktop.portal.Desktop",
-					       "/org/freedesktop/portal/desktop",
-					       "org.freedesktop.portal.Device", "AccessDevice")))
-		goto no_method_call;
-
-	device = "camera";
-
-	pid = get_client_prop(client, PW_CLIENT_PROP_UCRED_PID);
-	if (pid < 0)
-		goto not_allowed;
-	if (!dbus_message_append_args(m, DBUS_TYPE_UINT32, &pid, DBUS_TYPE_INVALID))
-		goto message_failed;
+	m = dbus_message_new_method_call("org.freedesktop.impl.portal.PermissionStore",
+					 "/org/freedesktop/impl/portal/PermissionStore",
+					 "org.freedesktop.impl.portal.PermissionStore",
+					 "Lookup");
 
 	dbus_message_iter_init_append(m, &msg_iter);
-	dbus_message_iter_open_container(&msg_iter, DBUS_TYPE_ARRAY, "s", &dict_iter);
-	dbus_message_iter_append_basic(&dict_iter, DBUS_TYPE_STRING, &device);
-	dbus_message_iter_close_container(&msg_iter, &dict_iter);
+	table = "devices";
+	dbus_message_iter_append_basic(&msg_iter, DBUS_TYPE_STRING, &table);
+	id = "camera";
+	dbus_message_iter_append_basic(&msg_iter, DBUS_TYPE_STRING, &id);
 
-	dbus_message_iter_open_container(&msg_iter, DBUS_TYPE_ARRAY, "{sv}", &dict_iter);
-	dbus_message_iter_close_container(&msg_iter, &dict_iter);
-
-	if (!(r = dbus_connection_send_with_reply_and_block(impl->bus, m, -1, &error)))
-		goto send_failed;
+	if (!(r = dbus_connection_send_with_reply_and_block(impl->bus, m, -1, &error))) {
+		pw_log_error("Failed to call permission store: %s", error.message);
+		dbus_error_free(&error);
+		goto err_not_allowed;
+	}
 
 	dbus_message_unref(m);
 
-	if (!dbus_message_get_args(r, &error, DBUS_TYPE_OBJECT_PATH, &handle, DBUS_TYPE_INVALID))
-		goto parse_failed;
+	dbus_message_iter_init(r, &r_iter);
+	dbus_message_iter_recurse(&r_iter, &permissions_iter);
+	while (dbus_message_iter_get_arg_type(&permissions_iter) !=
+	       DBUS_TYPE_INVALID) {
+		DBusMessageIter permissions_entry_iter;
+		const char *app_id;
+		DBusMessageIter permission_values_iter;
+		bool camera_allowed;
+
+		dbus_message_iter_recurse(&permissions_iter,
+					  &permissions_entry_iter);
+		dbus_message_iter_get_basic(&permissions_entry_iter, &app_id);
+
+		if (strcmp(app_id, cinfo->app_id) != 0) {
+			dbus_message_iter_next(&permissions_iter);
+			continue;
+		}
+
+		dbus_message_iter_next(&permissions_entry_iter);
+		dbus_message_iter_recurse(&permissions_entry_iter,
+					  &permission_values_iter);
+
+		camera_allowed = check_permission_allowed(&permission_values_iter);
+		cinfo->allowed_media_roles |=
+			camera_allowed ? MEDIA_ROLE_CAMERA : MEDIA_ROLE_NONE;
+		pw_core_for_each_global(cinfo->impl->core,
+					set_global_permissions,
+					cinfo);
+
+		break;
+	}
 
 	dbus_message_unref(r);
-
-	dbus_bus_add_match(impl->bus,
-			   "type='signal',interface='org.freedesktop.portal.Request'", &error);
-	dbus_connection_flush(impl->bus);
-	if (dbus_error_is_set(&error))
-		goto subscribe_failed;
-
-	dbus_connection_add_filter(impl->bus, portal_response, cinfo, NULL);
-
-	p = calloc(1, sizeof(struct async_pending));
-	p->cinfo = cinfo;
-	p->handle = strdup(handle);
-	p->handled = false;
-
-	pw_log_debug("pending %p: handle %s", p, handle);
-	spa_list_append(&cinfo->async_pending, &p->link);
 
 	return;
 
-      no_method_call:
-	pw_log_error("Failed to create message");
-	goto not_allowed;
-      message_failed:
-	dbus_message_unref(m);
-	goto not_allowed;
-      send_failed:
-	pw_log_error("Failed to call portal: %s", error.message);
-	dbus_error_free(&error);
-	dbus_message_unref(m);
-	goto not_allowed;
-      parse_failed:
-	pw_log_error("Failed to parse AccessDevice result: %s", error.message);
-	dbus_error_free(&error);
-	dbus_message_unref(r);
-	goto not_allowed;
-      subscribe_failed:
-	pw_log_error("Failed to subscribe to Request signal: %s", error.message);
-	dbus_error_free(&error);
-	goto not_allowed;
-      not_allowed:
+      err_not_allowed:
 	pw_resource_error(pw_client_get_core_resource(client), -EPERM, "not allowed");
 	return;
 }
@@ -406,22 +380,45 @@ static void do_portal_check(struct client_info *cinfo)
 static void client_info_changed(void *data, struct pw_client_info *info)
 {
 	struct client_info *cinfo = data;
-	const char *str;
+	const struct pw_properties *properties;
+	const char *app_id;
+	const char *media_roles;
+
+	if (!cinfo->portal_managed)
+		return;
 
 	if (info->props == NULL)
 		return;
 
-	if ((str = spa_dict_lookup(info->props, "pipewire.access")) == NULL)
+	if (cinfo->setup_complete)
 		return;
+	cinfo->setup_complete = true;
 
-	if (strcmp(str, "flatpak") != 0)
+	properties = pw_client_get_properties(cinfo->client);
+	if (properties == NULL) {
+		pw_log_error("Portal managed client didn't have any properties");
 		return;
-
-	if (cinfo->checked)
+	}
+	app_id = pw_properties_get(properties,
+				   "pipewire.access.portal.app_id");
+	if (app_id == NULL) {
+		pw_log_error("Portal managed client didn't set app_id");
 		return;
+	}
+	media_roles = pw_properties_get(properties,
+					"pipewire.access.portal.media_roles");
 
-	pw_log_debug("module %p: client %p set to flatpak access", cinfo->impl, cinfo->client);
-	do_portal_check(cinfo);
+	if (media_roles == NULL) {
+		pw_log_error("Portal managed client didn't set media_roles");
+		return;
+	}
+
+	cinfo->app_id = strdup(app_id);
+	cinfo->media_roles = parse_media_roles(media_roles);
+
+	pw_log_debug("module %p: client %p with app_id '%s' set to portal access",
+		     cinfo->impl, cinfo->client, cinfo->app_id);
+	do_permission_store_check(cinfo);
 }
 
 static const struct pw_client_events client_events = {
@@ -434,40 +431,22 @@ core_global_added(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 	struct client_info *cinfo;
-	int res;
 
 	if (pw_global_get_type(global) == impl->type->client) {
 		struct pw_client *client = pw_global_get_object(global);
 
-		/* clients are placed in a list and we do a portal check when needed */
 		cinfo = calloc(1, sizeof(struct client_info));
 		cinfo->impl = impl;
 		cinfo->client = client;
-		spa_list_init(&cinfo->async_pending);
 		pw_client_add_listener(client, &cinfo->client_listener, &client_events, cinfo);
 
 		spa_list_append(&impl->client_list, &cinfo->link);
 
-		res = check_sandboxed(client);
-		if (res == 0) {
-			pw_log_debug("module %p: non sandboxed client %p", impl, client);
-			return;
-		}
-		cinfo->sandboxed = true;
-
-		if (res < 0) {
-			pw_log_warn("module %p: client %p sandbox check failed: %s",
-					impl, client, spa_strerror(res));
-		}
-		else {
-			pw_log_debug("module %p: sandboxed client %p added", impl, client);
-		}
-
-		do_portal_check(cinfo);
+		check_portal_managed(cinfo);
 	}
 	else {
 		spa_list_for_each(cinfo, &impl->client_list, link) {
-			if (cinfo->sandboxed)
+			if (cinfo->portal_managed)
 				set_global_permissions(cinfo, global);
 		}
 	}
@@ -519,6 +498,234 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
+static void on_portal_pid_received(DBusPendingCall *pending,
+				   void *user_data)
+{
+	struct impl *impl = user_data;
+	DBusMessage *m;
+	DBusError error;
+	uint32_t portal_pid = 0;
+
+	m = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+	impl->portal_pid_pending = NULL;
+
+	if (!m) {
+		pw_log_error("Failed to receive portal pid");
+		return;
+	}
+
+	dbus_error_init(&error);
+	dbus_message_get_args(m, &error, DBUS_TYPE_UINT32, &portal_pid,
+			      DBUS_TYPE_INVALID);
+	dbus_message_unref(m);
+
+	if (dbus_error_is_set(&error)) {
+		impl->portal_pid = 0;
+	}
+	else {
+		struct client_info *cinfo;
+
+		impl->portal_pid = portal_pid;
+
+		spa_list_for_each(cinfo, &impl->client_list, link) {
+			if (cinfo->portal_managed)
+				continue;
+
+			check_portal_managed(cinfo);
+		}
+	}
+}
+
+static void update_portal_pid(struct impl *impl)
+{
+	DBusMessage *m;
+	const char *name;
+	DBusPendingCall *pending;
+
+	impl->portal_pid = 0;
+
+	m = dbus_message_new_method_call("org.freedesktop.DBus",
+					 "/",
+					 "org.freedesktop.DBus",
+					 "GetConnectionUnixProcessID");
+
+	name = "org.freedesktop.portal.Desktop";
+	dbus_message_append_args(m,
+				 DBUS_TYPE_STRING, &name,
+				 DBUS_TYPE_INVALID);
+
+	dbus_connection_send_with_reply(impl->bus, m, &pending, -1);
+	dbus_pending_call_set_notify(pending, on_portal_pid_received, impl, NULL);
+	if (impl->portal_pid_pending != NULL) {
+		dbus_pending_call_cancel(impl->portal_pid_pending);
+		dbus_pending_call_unref(impl->portal_pid_pending);
+	}
+	impl->portal_pid_pending = pending;
+}
+
+static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
+						    DBusMessage *message,
+						    void *user_data)
+{
+	struct impl *impl = user_data;
+	const char *name;
+	const char *old_owner;
+	const char *new_owner;
+
+	if (!dbus_message_is_signal(message, "org.freedesktop.DBus",
+				   "NameOwnerChanged"))
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	if (!dbus_message_get_args(message, NULL,
+				   DBUS_TYPE_STRING, &name,
+				   DBUS_TYPE_STRING, &old_owner,
+				   DBUS_TYPE_STRING, &new_owner,
+				   DBUS_TYPE_INVALID)) {
+		pw_log_error("Failed to get OwnerChanged args");
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
+	if (strcmp(name, "org.freedesktop.portal.Desktop") != 0)
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	if (strcmp(new_owner, "") == 0) {
+		impl->portal_pid = 0;
+		if (impl->portal_pid_pending != NULL) {
+			dbus_pending_call_cancel(impl->portal_pid_pending);
+			dbus_pending_call_unref(impl->portal_pid_pending);
+		}
+	}
+	else {
+		update_portal_pid(impl);
+	}
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static DBusHandlerResult permission_store_changed_handler(DBusConnection *connection,
+							  DBusMessage *message,
+							  void *user_data)
+{
+	struct impl *impl = user_data;
+	struct client_info *cinfo;
+	DBusMessageIter iter;
+	const char *table;
+	const char *id;
+	dbus_bool_t deleted;
+	DBusMessageIter permissions_iter;
+
+	if (!dbus_message_is_signal(message, "org.freedesktop.impl.portal.PermissionStore",
+				   "Changed"))
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	spa_list_for_each(cinfo, &impl->client_list, link) {
+		if (!cinfo->portal_managed)
+			continue;
+
+		cinfo->allowed_media_roles = MEDIA_ROLE_NONE;
+	}
+
+	dbus_message_iter_init(message, &iter);
+	dbus_message_iter_get_basic(&iter, &table);
+
+	dbus_message_iter_next(&iter);
+	dbus_message_iter_get_basic(&iter, &id);
+
+	if (strcmp(table, "devices") != 0 || strcmp(id, "camera") != 0)
+		return DBUS_HANDLER_RESULT_HANDLED;
+
+	dbus_message_iter_next(&iter);
+	dbus_message_iter_get_basic(&iter, &deleted);
+
+	dbus_message_iter_next(&iter);
+	/* data variant (ignored) */
+
+	dbus_message_iter_next(&iter);
+	dbus_message_iter_recurse(&iter, &permissions_iter);
+	while (dbus_message_iter_get_arg_type(&permissions_iter) !=
+	       DBUS_TYPE_INVALID) {
+		DBusMessageIter permissions_entry_iter;
+		const char *app_id;
+		DBusMessageIter permission_values_iter;
+		bool camera_allowed;
+
+		dbus_message_iter_recurse(&permissions_iter,
+					  &permissions_entry_iter);
+		dbus_message_iter_get_basic(&permissions_entry_iter, &app_id);
+
+		dbus_message_iter_next(&permissions_entry_iter);
+		dbus_message_iter_recurse(&permissions_entry_iter,
+					  &permission_values_iter);
+
+		camera_allowed = check_permission_allowed(&permission_values_iter);
+
+		spa_list_for_each(cinfo, &impl->client_list, link) {
+			if (!cinfo->portal_managed)
+				continue;
+
+			if (strcmp(cinfo->app_id, app_id) != 0)
+				continue;
+
+			if (!(cinfo->media_roles & MEDIA_ROLE_CAMERA))
+				continue;
+
+			if (camera_allowed)
+				cinfo->allowed_media_roles |= MEDIA_ROLE_CAMERA;
+			pw_core_for_each_global(cinfo->impl->core,
+						set_global_permissions,
+						cinfo);
+		}
+
+		dbus_message_iter_next(&permissions_iter);
+	}
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static int init_dbus_connection(struct impl *impl)
+{
+	DBusError error;
+
+	impl->bus = spa_dbus_connection_get(impl->conn);
+
+	dbus_error_init(&error);
+
+	dbus_bus_add_match(impl->bus,
+			   "type='signal',\
+			   sender='org.freedesktop.DBus',\
+			   interface='org.freedesktop.DBus',\
+			   member='NameOwnerChanged'",
+			   &error);
+	if (dbus_error_is_set(&error)) {
+		pw_log_error("Failed to add name owner changed listener: %s",
+			     error.message);
+		dbus_error_free(&error);
+		return -1;
+	}
+
+	dbus_bus_add_match(impl->bus,
+			   "type='signal',\
+			   sender='org.freedesktop.impl.portal.PermissionStore',\
+			   interface='org.freedesktop.impl.portal.PermissionStore',\
+			   member='Changed'",
+			   &error);
+	if (dbus_error_is_set(&error)) {
+		pw_log_error("Failed to add permission store changed listener: %s",
+			     error.message);
+		dbus_error_free(&error);
+		return -1;
+	}
+
+	dbus_connection_add_filter(impl->bus, name_owner_changed_handler,
+				   impl, NULL);
+	dbus_connection_add_filter(impl->bus, permission_store_changed_handler,
+				   impl, NULL);
+	update_portal_pid(impl);
+
+	return 0;
+}
+
 static int module_init(struct pw_module *module, struct pw_properties *properties)
 {
 	struct pw_core *core = pw_module_get_core(module);
@@ -547,7 +754,8 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	if (impl->conn == NULL)
 		goto error;
 
-	impl->bus = spa_dbus_connection_get(impl->conn);
+	if (init_dbus_connection(impl) != 0)
+		goto error;
 
 	spa_list_init(&impl->client_list);
 

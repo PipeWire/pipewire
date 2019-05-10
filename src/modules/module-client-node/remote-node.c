@@ -653,7 +653,8 @@ client_node_port_set_param(void *object,
 	port = pw_node_find_port(data->node, direction, port_id);
 	if (port == NULL) {
 		res = -EINVAL;
-		pw_proxy_error(proxy, res, "unknown port");
+		pw_proxy_error(proxy, res, "unknown %s port %d",
+			direction == SPA_DIRECTION_INPUT ? "input" : "output", port_id);
 		goto done;
 	}
 

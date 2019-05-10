@@ -633,8 +633,9 @@ static int port_set_format(struct spa_node *node,
 		if (port->have_format) {
 			port->have_format = false;
 			clear_buffers(this, port);
+			if (this->mix.process)
+				channelmix_free(&this->mix);
 		}
-		channelmix_free(&this->mix);
 	} else {
 		struct spa_audio_info info = { 0 };
 

@@ -553,7 +553,7 @@ static int port_set_format(struct spa_node *node,
 		if (port->have_format) {
 			port->have_format = false;
 			clear_buffers(this, port);
-			if (this->conv.free)
+			if (this->conv.process)
 				convert_free(&this->conv);
 		}
 	} else {

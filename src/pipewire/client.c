@@ -244,7 +244,6 @@ static const struct pw_core_events core_events = {
  */
 SPA_EXPORT
 struct pw_client *pw_client_new(struct pw_core *core,
-				struct ucred *ucred,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
@@ -260,19 +259,11 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	pw_log_debug("client %p: new", this);
 
 	this->core = core;
-	if ((this->ucred_valid = (ucred != NULL)))
-		this->ucred = *ucred;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
 		return NULL;
-
-	if (ucred) {
-		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_PID, "%d", ucred->pid);
-		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_UID, "%d", ucred->uid);
-		pw_properties_setf(properties, PW_CLIENT_PROP_UCRED_GID, "%d", ucred->gid);
-	}
 
 	pw_array_init(&impl->permissions, 1024);
 	p = pw_array_add(&impl->permissions, sizeof(struct pw_permission));
@@ -368,15 +359,6 @@ SPA_EXPORT
 const struct pw_properties *pw_client_get_properties(struct pw_client *client)
 {
 	return client->properties;
-}
-
-SPA_EXPORT
-const struct ucred *pw_client_get_ucred(struct pw_client *client)
-{
-	if (!client->ucred_valid)
-		return NULL;
-
-	return &client->ucred;
 }
 
 SPA_EXPORT

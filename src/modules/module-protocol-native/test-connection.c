@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <sys/socket.h>
+
 #include <spa/pod/parser.h>
 
 #include <pipewire/pipewire.h>

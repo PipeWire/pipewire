@@ -48,12 +48,12 @@ struct impl {
 	struct spa_hook module_listener;
 };
 
-static int check_cmdline(struct pw_client *client, const struct ucred *ucred, const char *str)
+static int check_cmdline(struct pw_client *client, int pid, const char *str)
 {
 	char path[2048];
 	int fd;
 
-	sprintf(path, "/proc/%u/cmdline", ucred->pid);
+	sprintf(path, "/proc/%u/cmdline", pid);
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
@@ -73,13 +73,13 @@ static int check_cmdline(struct pw_client *client, const struct ucred *ucred, co
 	return 0;
 }
 
-static int check_flatpak(struct pw_client *client, const struct ucred *ucred)
+static int check_flatpak(struct pw_client *client, int pid)
 {
 	char root_path[2048];
 	int root_fd, info_fd, res;
 	struct stat stat_buf;
 
-	sprintf(root_path, "/proc/%u/root", ucred->pid);
+	sprintf(root_path, "/proc/%u/root", pid);
 	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd == -1) {
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
@@ -113,23 +113,27 @@ static void
 core_check_access(void *data, struct pw_client *client)
 {
 	struct impl *impl = data;
-	const struct ucred *ucred;
 	struct pw_permission permissions[1];
 	struct spa_dict_item items[2];
+	const struct pw_properties *props;
 	const char *str;
-	int res;
+	int pid, res;
 
-	ucred = pw_client_get_ucred(client);
-	if (!ucred) {
+	pid = -EINVAL;
+	if ((props = pw_client_get_properties(client)) != NULL) {
+		if ((str = pw_properties_get(props, PW_CLIENT_PROP_UCRED_PID)) != NULL)
+			pid = atoi(str);
+	}
+
+	if (pid < 0) {
 		pw_log_info("no trusted pid found, assuming not sandboxed\n");
 		goto granted;
 	} else {
-		pw_log_info("client has trusted pid %d", ucred->pid);
+		pw_log_info("client has trusted pid %d", pid);
 	}
 
-
 	if (impl->properties && (str = pw_properties_get(impl->properties, "blacklisted")) != NULL) {
-		res = check_cmdline(client, ucred, str);
+		res = check_cmdline(client, pid, str);
 		if (res == 0)
 			goto granted;
 		if (res > 0)
@@ -139,7 +143,7 @@ core_check_access(void *data, struct pw_client *client)
 	}
 
 	if (impl->properties && (str = pw_properties_get(impl->properties, "restricted")) != NULL) {
-		res = check_cmdline(client, ucred, str);
+		res = check_cmdline(client, pid, str);
 		if (res == 0)
 			goto granted;
 		if (res < 0) {
@@ -153,7 +157,7 @@ core_check_access(void *data, struct pw_client *client)
 		goto wait_permissions;
 	}
 
-	res = check_flatpak(client, ucred);
+	res = check_flatpak(client, pid);
 	if (res != 0) {
 		if (res < 0) {
 			pw_log_warn("module %p: client %p sandbox check failed: %s",

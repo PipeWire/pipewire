@@ -1086,6 +1086,28 @@ static const struct pw_node_events output_node_events = {
 	.async_complete = output_node_async_complete,
 };
 
+static int
+check_permission(struct pw_core *core,
+		 struct pw_port *output,
+		 struct pw_port *input,
+		 struct pw_properties *properties)
+{
+	struct pw_node *input_node, *output_node;
+	struct pw_client *client;
+
+	input_node = input->node;
+	output_node = output->node;
+
+	if ((client = output_node->global->owner) != NULL &&
+	    !PW_PERM_IS_R(pw_global_get_permissions(input_node->global, client)))
+		return -EPERM;
+
+	if ((client = input_node->global->owner) != NULL &&
+	    !PW_PERM_IS_R(pw_global_get_permissions(output_node->global, client)))
+		return -EPERM;
+	return 0;
+}
+
 SPA_EXPORT
 struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *output,
@@ -1104,6 +1126,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	if (pw_link_find(output, input))
 		goto link_exists;
+
+	if (check_permission(core, output, input, properties) < 0)
+		goto link_not_allowed;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -1201,6 +1226,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return NULL;
       link_exists:
 	asprintf(error, "link already exists");
+	return NULL;
+      link_not_allowed:
+	asprintf(error, "link not allowed");
 	return NULL;
       no_mem:
 	asprintf(error, "no memory");

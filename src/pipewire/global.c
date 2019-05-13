@@ -291,6 +291,8 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 	struct pw_core *core = global->core;
 	struct pw_resource *resource, *t;
 
+	pw_global_emit_permissions_changed(global, client, old_permissions, new_permissions);
+
 	spa_list_for_each(resource, &core->registry_resource_list, link) {
 		if (resource->client != client)
 			continue;

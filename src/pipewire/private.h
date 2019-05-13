@@ -136,6 +136,7 @@ struct pw_client {
 #define pw_global_emit_registering(g)	pw_global_emit(g, registering, 0)
 #define pw_global_emit_destroy(g)	pw_global_emit(g, destroy, 0)
 #define pw_global_emit_free(g)		pw_global_emit(g, free, 0)
+#define pw_global_emit_permissions_changed(g,...)	pw_global_emit(g, permissions_changed, 0, __VA_ARGS__)
 
 struct pw_global {
 	struct pw_core *core;		/**< the core */

@@ -75,6 +75,11 @@ struct pw_global_events {
 	void (*destroy) (void *data);
 	/** The global is freed */
 	void (*free) (void *data);
+	/** The permissions changed for a client */
+	void (*permissions_changed) (void *data,
+			struct pw_client *client,
+			uint32_t old_permissions,
+			uint32_t new_permissions);
 };
 
 /** Create a new global object */

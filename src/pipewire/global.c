@@ -52,7 +52,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
 
 	perms = client->permission_func(global, client, client->permission_data);
 
-	while (global != global->parent) {
+	while (global->parent != NULL && global != global->parent) {
 		global = global->parent;
 		perms &= client->permission_func(global, client, client->permission_data);
 	}

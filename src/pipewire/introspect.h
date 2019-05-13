@@ -236,7 +236,7 @@ struct pw_link_info {
 #define PW_LINK_CHANGE_MASK_OUTPUT		(1 << 0)
 #define PW_LINK_CHANGE_MASK_INPUT		(1 << 1)
 #define PW_LINK_CHANGE_MASK_STATE		(1 << 2)
-#define PW_LINK_CHANGE_MASK_FORMAT		(1 << 4)
+#define PW_LINK_CHANGE_MASK_FORMAT		(1 << 3)
 #define PW_LINK_CHANGE_MASK_PROPS		(1 << 4)
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	uint32_t output_node_id;	/**< server side output node id */

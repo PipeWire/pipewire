@@ -491,13 +491,14 @@ int pw_client_update_permissions(struct pw_client *client,
 			pw_log_debug("client %p: set default permissions %08x -> %08x",
 					client, old_perm, new_perm);
 
+			def->permissions = new_perm;
+
 			spa_list_for_each(global, &core->global_list, link) {
 				p = find_permission(client, global->id);
 				if (p->id != SPA_ID_INVALID)
 					continue;
 				pw_global_update_permissions(global, client, old_perm, new_perm);
 			}
-			def->permissions = new_perm;
 		}
 		else  {
 			struct pw_global *global;
@@ -517,8 +518,8 @@ int pw_client_update_permissions(struct pw_client *client,
 			pw_log_debug("client %p: set global %d permissions %08x -> %08x",
 					client, global->id, old_perm, new_perm);
 
-			pw_global_update_permissions(global, client, old_perm, new_perm);
 			p->permissions = new_perm;
+			pw_global_update_permissions(global, client, old_perm, new_perm);
 		}
 	}
 	if (n_permissions > 0)

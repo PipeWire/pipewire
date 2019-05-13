@@ -395,6 +395,7 @@ static int do_permissions(void *data, struct pw_global *global)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct permission *p;
 	size_t len, i;
+	uint32_t old;
 
 	len = pw_array_get_len(&impl->permissions, struct permission);
 	if (len <= global->id) {
@@ -410,12 +411,16 @@ static int do_permissions(void *data, struct pw_global *global)
 
 	p = pw_array_get_unchecked(&impl->permissions, global->id, struct permission);
 	if (p->permissions == -1)
-		p->permissions = impl->permissions_default;
+		old = p->permissions = impl->permissions_default;
 	else if (update->only_new)
 		return 0;
 
+	old = p->permissions;
 	p->permissions &= update->permissions;
-	pw_log_debug("client %p: set global %d permissions to %08x", client, global->id, p->permissions);
+	pw_log_debug("client %p: change global %d permissions %08x -> %08x",
+			client, global->id, old, p->permissions);
+
+	pw_global_events_permissions_changed(global, client, old, p->permissions);
 
 	return 0;
 }

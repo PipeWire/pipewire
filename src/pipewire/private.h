@@ -124,6 +124,8 @@ struct pw_client {
 #define pw_global_events_destroy(g)	pw_global_events_emit(g, destroy, 0)
 #define pw_global_events_free(g)	pw_global_events_emit(g, free, 0)
 #define pw_global_events_bind(g,...)	pw_global_events_emit(g, bind, 0, __VA_ARGS__)
+#define pw_global_events_permissions_changed(g,...) \
+					pw_global_events_emit(g, permissions_changed, 1, __VA_ARGS__)
 
 struct pw_global {
 	struct pw_core *core;		/**< the core */

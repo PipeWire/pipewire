@@ -57,7 +57,7 @@ struct pw_global;
 
 /** Global events, use \ref pw_global_add_listener */
 struct pw_global_events {
-#define PW_VERSION_GLOBAL_EVENTS 0
+#define PW_VERSION_GLOBAL_EVENTS 1
 	uint32_t version;
 
 	/** The global is destroyed */
@@ -72,6 +72,12 @@ struct pw_global_events {
 		      uint32_t permissions,	/**< permissions for the bind */
 		      uint32_t version,		/**< client interface version */
 		      uint32_t id		/**< client proxy id */);
+
+	/* permissions for the global changed, Since version 1 */
+	void (*permissions_changed) (void *data,
+			struct pw_client *client,
+			uint32_t old_permissions,
+			uint32_t new_permissions);
 };
 
 /** Create a new global object */

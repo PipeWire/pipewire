@@ -45,11 +45,17 @@ struct impl {
 SPA_EXPORT
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
 {
-	uint32_t perms = PW_PERM_RWX;
+	uint32_t perms;
 
-	if (client->permission_func != NULL)
+	if (client->permission_func == NULL)
+		return PW_PERM_RWX;
+
+	perms = client->permission_func(global, client, client->permission_data);
+
+	while (global != global->parent) {
+		global = global->parent;
 		perms &= client->permission_func(global, client, client->permission_data);
-
+	}
 	return perms;
 }
 

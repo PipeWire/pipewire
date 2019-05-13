@@ -470,14 +470,16 @@ int pw_client_update_permissions(struct pw_client *client,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
 	struct pw_core *core = client->core;
+	struct pw_permission *def;
 	uint32_t i;
 
+	if ((def = find_permission(client, SPA_ID_INVALID)) == NULL)
+		return -EIO;
+
 	for (i = 0; i < n_permissions; i++) {
-		struct pw_permission *p, *def;
+		struct pw_permission *p;
 		uint32_t old_perm, new_perm;
 		struct pw_global *global;
-
-		def = find_permission(client, SPA_ID_INVALID);
 
 		if (permissions[i].id == SPA_ID_INVALID) {
 			old_perm = def->permissions;
@@ -521,6 +523,7 @@ int pw_client_update_permissions(struct pw_client *client,
 	}
 	if (n_permissions > 0)
 		pw_client_set_busy(client, false);
+
 	return 0;
 }
 

@@ -473,23 +473,29 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 	struct pw_remote *this = impl->this.remote;
 	struct pw_protocol_native_connection *conn = impl->connection;
 	struct pw_core *core = pw_remote_get_core(this);
+	int res;
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		pw_log_error("protocol-native %p: got connection error", impl);
-		pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
-		impl->source = NULL;
-		pw_remote_disconnect(this);
-		return;
-        }
+		res = -EPIPE;
+		goto error;
+	}
 
         if (mask & SPA_IO_IN) {
 		const struct pw_protocol_native_message *msg;
 
-                while (!impl->disconnecting
-                       && pw_protocol_native_connection_get_next(conn, &msg) == 1) {
+                while (!impl->disconnecting) {
                         struct pw_proxy *proxy;
                         const struct pw_protocol_native_demarshal *demarshal;
 			const struct pw_protocol_marshal *marshal;
+
+			res = pw_protocol_native_connection_get_next(conn, &msg);
+			if (res < 0) {
+				if (res == -EAGAIN)
+					break;
+				goto error;
+			}
+			if (res == 0)
+				break;
 
                         pw_log_trace("protocol-native %p: got message %d from %u seq:%d",
 					this, msg->opcode, msg->id, msg->seq);
@@ -530,6 +536,12 @@ on_remote_data(void *data, int fd, enum spa_io mask)
 			}
                 }
         }
+	return;
+error:
+	pw_log_error("protocol-native %p: got connection error %d (%s)", impl, res, spa_strerror(res));
+	pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
+	impl->source = NULL;
+	pw_remote_disconnect(this);
 }
 
 

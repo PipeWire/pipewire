@@ -147,9 +147,12 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 	struct iovec iov[1];
 	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
 	int n_fds = 0;
+	size_t avail;
+
+	avail = buf->buffer_maxsize - buf->buffer_size;
 
 	iov[0].iov_base = buf->buffer_data + buf->buffer_size;
-	iov[0].iov_len = buf->buffer_maxsize - buf->buffer_size;
+	iov[0].iov_len = avail;
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = cmsgbuf;
@@ -158,7 +161,9 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 
 	while (true) {
 		len = recvmsg(conn->fd, &msg, msg.msg_flags);
-		if (len <= 0) {
+		if (len == 0 && avail != 0)
+			return -EPIPE;
+		else if (len < 0) {
 			if (errno == EINTR)
 				continue;
 			if (errno != EAGAIN || errno != EWOULDBLOCK)

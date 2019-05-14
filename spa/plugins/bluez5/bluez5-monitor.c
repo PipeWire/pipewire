@@ -816,6 +816,7 @@ static struct spa_bt_transport *transport_create(struct spa_bt_monitor *monitor,
 	t->path = path;
 	t->fd = -1;
 	t->user_data = SPA_MEMBER(t, sizeof(struct spa_bt_transport), void);
+	spa_hook_list_init(&t->listener_list);
 
 	spa_list_append(&monitor->transport_list, &t->link);
 
@@ -824,8 +825,11 @@ static struct spa_bt_transport *transport_create(struct spa_bt_monitor *monitor,
 
 static void transport_free(struct spa_bt_transport *transport)
 {
-	if (transport->destroy)
-		transport->destroy(transport);
+
+	spa_bt_transport_emit_destroy(transport);
+
+	spa_bt_transport_destroy(transport);
+
 	spa_list_remove(&transport->link);
 	if (transport->device) {
 		transport->device->connected_profiles &= ~transport->profile;
@@ -923,8 +927,9 @@ static int transport_update_props(struct spa_bt_transport *transport,
 	return 0;
 }
 
-static int transport_acquire(struct spa_bt_transport *transport, bool optional)
+static int transport_acquire(void *data, bool optional)
 {
+	struct spa_bt_transport *transport = data;
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m, *r;
 	DBusError err;
@@ -977,16 +982,17 @@ static int transport_acquire(struct spa_bt_transport *transport, bool optional)
 		ret = -EIO;
 		goto finish;
 	}
-	spa_log_debug(monitor->log, "transport %p: %s, fd %d MTU %d:%d", transport, method,
-			transport->fd, transport->read_mtu, transport->write_mtu);
+	spa_log_debug(monitor->log, "transport %p: %s %s, fd %d MTU %d:%d", transport, method,
+			transport->path, transport->fd, transport->read_mtu, transport->write_mtu);
 
 finish:
 	dbus_message_unref(r);
 	return ret;
 }
 
-static int transport_release(struct spa_bt_transport *transport)
+static int transport_release(void *data)
 {
+	struct spa_bt_transport *transport = data;
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m, *r;
 	DBusError err;
@@ -994,7 +1000,8 @@ static int transport_release(struct spa_bt_transport *transport)
 	if (transport->fd < 0)
 		return 0;
 
-	spa_log_debug(monitor->log, "transport %p: release", transport);
+	spa_log_debug(monitor->log, "transport %p: Release %s",
+			transport, transport->path);
 
 	close(transport->fd);
 	transport->fd = -1;
@@ -1026,6 +1033,12 @@ static int transport_release(struct spa_bt_transport *transport)
 	return 0;
 }
 
+static const struct spa_bt_transport_implementation transport_impl = {
+	SPA_VERSION_BT_TRANSPORT_IMPLEMENTATION,
+	.acquire = transport_acquire,
+	.release = transport_release,
+};
+
 static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		const char *path, DBusMessage *m, void *userdata)
 {
@@ -1054,8 +1067,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		if (transport == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-		transport->acquire = transport_acquire;
-		transport->release = transport_release;
+		spa_bt_transport_set_implementation(transport, &transport_impl, transport);
 	}
 	transport_update_props(transport, &it[1], NULL);
 
@@ -1100,6 +1112,10 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 
 	if (transport != NULL) {
 		struct spa_bt_device *device = transport->device;
+
+		spa_log_debug(monitor->log, "transport %p: free %s",
+			transport, transport->path);
+
 		transport_free(transport);
 		if (device != NULL)
 			check_profiles(device);
@@ -1495,8 +1511,9 @@ fail_close:
 }
 
 
-static int sco_acquire_cb(struct spa_bt_transport *t, bool optional)
+static int sco_acquire_cb(void *data, bool optional)
 {
+	struct spa_bt_transport *t = data;
 	struct spa_bt_monitor *monitor = t->monitor;
 	int sock;
 	socklen_t len;
@@ -1531,8 +1548,9 @@ fail:
 	return -1;
 }
 
-static int sco_release_cb(struct spa_bt_transport *t)
+static int sco_release_cb(void *data)
 {
+	struct spa_bt_transport *t = data;
 	struct spa_bt_monitor *monitor = t->monitor;
 	spa_log_info(monitor->log, "Transport %s released", t->path);
 	/* device will close the SCO socket for us */
@@ -1614,8 +1632,9 @@ fail_close:
 	return -1;
 }
 
-static int sco_destroy_cb(struct spa_bt_transport *trans)
+static int sco_destroy_cb(void *data)
 {
+	struct spa_bt_transport *trans = data;
 	struct transport_data *td = trans->user_data;
 
 	if (td->sco.data) {
@@ -1632,6 +1651,13 @@ static int sco_destroy_cb(struct spa_bt_transport *trans)
 	}
 	return 0;
 }
+
+static const struct spa_bt_transport_implementation sco_transport_impl = {
+	SPA_VERSION_BT_TRANSPORT_IMPLEMENTATION,
+	.acquire = sco_acquire_cb,
+	.release = sco_release_cb,
+	.destroy = sco_destroy_cb,
+};
 
 static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
@@ -1681,10 +1707,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	asprintf(&pathfd, "%s/fd%d", path, fd);
 	t = transport_create(monitor, pathfd, sizeof(struct transport_data));
+	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
 
-	t->acquire = sco_acquire_cb;
-	t->release = sco_release_cb;
-	t->destroy = sco_destroy_cb;
 	t->device = d;
 	spa_list_append(&t->device->transport_list, &t->device_link);
 	t->profile = profile;

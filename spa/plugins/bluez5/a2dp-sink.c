@@ -103,6 +103,7 @@ struct impl {
 	struct props props;
 
 	struct spa_bt_transport *transport;
+	struct spa_hook transport_listener;
 
 	struct port port;
 
@@ -796,7 +797,7 @@ static int do_start(struct impl *this)
 
         spa_log_debug(this->log, "a2dp-sink %p: start slaved:%d", this, this->slaved);
 
-	if ((res = this->transport->acquire(this->transport, false)) < 0)
+	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
 
 	init_sbc(this);
@@ -879,7 +880,7 @@ static int do_stop(struct impl *this)
 
 	this->started = false;
 
-	res = this->transport->release(this->transport);
+	res = spa_bt_transport_release(this->transport);
 
 	return res;
 }
@@ -1372,6 +1373,18 @@ static const struct spa_node impl_node = {
 	.process = impl_node_process,
 };
 
+static void transport_destroy(void *data)
+{
+	struct impl *this = data;
+	spa_log_debug(this->log, "transport %p destroy", this->transport);
+	this->transport = NULL;
+}
+
+static const struct spa_bt_transport_events transport_events = {
+	SPA_VERSION_BT_TRANSPORT_EVENTS,
+        .destroy = transport_destroy,
+};
+
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
@@ -1474,6 +1487,9 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a transport is needed");
 		return -EINVAL;
 	}
+	spa_bt_transport_add_listener(this->transport,
+			&this->transport_listener, &transport_events, this);
+
 	this->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
 
 	return 0;

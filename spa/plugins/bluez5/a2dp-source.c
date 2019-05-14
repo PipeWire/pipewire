@@ -78,6 +78,7 @@ struct impl {
 	struct props props;
 
 	struct spa_bt_transport *transport;
+	struct spa_hook transport_listener;
 
 	bool have_format;
 	struct spa_audio_info current_format;
@@ -257,13 +258,14 @@ static void decode_sbc_data(struct impl *this, uint8_t *src, size_t src_size)
 	uint8_t *dest;
 	size_t decoded, dest_size, written;
 
-	/* skip the header */
-	src += header_size;
-	src_size -= header_size;
-	if (src_size <= 0) {
+	if (src_size <= header_size) {
 		spa_log_error(this->log, "not valid header found. dropping data...");
 		return;
 	}
+
+	/* skip the header */
+	src += header_size;
+	src_size -= header_size;
 
 	/* check if we have a new buffer */
 	if (spa_list_is_empty(&this->free)) {
@@ -277,7 +279,7 @@ static void decode_sbc_data(struct impl *this, uint8_t *src, size_t src_size)
 	/* remove the the buffer from the list */
         spa_list_remove(&buffer->link);
 
-        /* ppdate the outstanding flag */
+        /* update the outstanding flag */
         buffer->outstanding = false;
 
 	/* set the header */
@@ -293,14 +295,16 @@ static void decode_sbc_data(struct impl *this, uint8_t *src, size_t src_size)
 	dest_size = data[0].maxsize;
 
 	/* decode the source data */
-	spa_log_debug(this->log, "decoding data for buffer_id=%d", buffer->id);
+	spa_log_debug(this->log, "decoding data for buffer_id=%d %zd %zd",
+			buffer->id, src_size, dest_size);
+
 	while (src_size > 0 && dest_size > 0) {
 		decoded = sbc_decode(&this->sbc,
 			src, src_size,
 			dest, dest_size, &written);
 		if (decoded <= 0) {
-			printf ("Decoding error. Exiting...\n");
-			exit(-1);
+			spa_log_error(this->log, "Decoding error. (%zd)", decoded);
+			return;
 		}
 
 		/* update source and dest pointers */
@@ -344,10 +348,14 @@ static void a2dp_on_ready_read(struct spa_source *source)
 
 again:
 	/* read data from socket */
-	spa_log_debug(this->log, "reading socket data");
 	size_read = read(this->transport->fd, this->buffer_read, buffer_size);
-	if (size_read < 0) {
-		/* retry if interrumpted */
+	spa_log_debug(this->log, "read socket data %zd/%zd", size_read, buffer_size);
+
+	if (size_read == 0) {
+		goto stop;
+	}
+	else if (size_read < 0) {
+		/* retry if interrupted */
 		if (errno == EINTR)
 			goto again;
 
@@ -381,9 +389,12 @@ static int do_start(struct impl *this)
 	if (this->started)
 		return 0;
 
+	if (this->transport == NULL)
+		return -EIO;
+
 	spa_log_debug(this->log, "a2dp-source %p: start", this);
 
-	if ((res = this->transport->acquire(this->transport, false)) < 0)
+	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
 
 	sbc_init_a2dp(&this->sbc, 0, this->transport->configuration,
@@ -444,7 +455,10 @@ static int do_stop(struct impl *this)
 
 	this->started = false;
 
-	res = this->transport->release(this->transport);
+	if (this->transport)
+		res = spa_bt_transport_release(this->transport);
+	else
+		res = 0;
 
 	sbc_finish(&this->sbc);
 
@@ -588,6 +602,9 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
+
+		if (this->transport == NULL)
+			return -EIO;
 
 		switch (this->transport->codec) {
 		case A2DP_CODEC_SBC:
@@ -926,6 +943,18 @@ static const struct spa_node impl_node = {
 	.process = impl_node_process,
 };
 
+static void transport_destroy(void *data)
+{
+	struct impl *this = data;
+	spa_log_debug(this->log, "transport %p destroy", this->transport);
+	this->transport = NULL;
+}
+
+static const struct spa_bt_transport_events transport_events = {
+	SPA_VERSION_BT_TRANSPORT_EVENTS,
+        .destroy = transport_destroy,
+};
+
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 {
 	struct impl *this;
@@ -1038,6 +1067,8 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "codec != SBC not yet supported");
 		return -EINVAL;
 	}
+	spa_bt_transport_add_listener(this->transport,
+			&this->transport_listener, &transport_events, this);
 
 	return 0;
 }

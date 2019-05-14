@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <spa/utils/hook.h>
+
 #define BLUEZ_SERVICE "org.bluez"
 #define BLUEZ_PROFILE_MANAGER_INTERFACE BLUEZ_SERVICE ".ProfileManager1"
 #define BLUEZ_PROFILE_INTERFACE BLUEZ_SERVICE ".Profile1"
@@ -180,6 +182,22 @@ enum spa_bt_transport_state {
         SPA_BT_TRANSPORT_STATE_ACTIVE,
 };
 
+struct spa_bt_transport_events {
+#define SPA_VERSION_BT_TRANSPORT_EVENTS	0
+	uint32_t version;
+
+	void (*destroy) (void *data);
+};
+
+struct spa_bt_transport_implementation {
+#define SPA_VERSION_BT_TRANSPORT_IMPLEMENTATION	0
+	uint32_t version;
+
+	int (*acquire) (void *data, bool optional);
+	int (*release) (void *data);
+	int (*destroy) (void *data);
+};
+
 struct spa_bt_transport {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
@@ -198,12 +216,30 @@ struct spa_bt_transport {
 	uint16_t write_mtu;
 	void *user_data;
 
-	int (*acquire) (struct spa_bt_transport *trans, bool optional);
-
-	int (*release) (struct spa_bt_transport *trans);
-
-	int (*destroy) (struct spa_bt_transport *trans);
+	struct spa_hook_list listener_list;
+	struct spa_hook impl;
 };
+
+#define spa_bt_transport_emit(t,m,v,...)	spa_hook_list_call(&(t)->listener_list, \
+							struct spa_bt_transport_events, m, v, ##__VA_ARGS__)
+#define spa_bt_transport_emit_destroy(t)	spa_bt_transport_emit(t, destroy, 0)
+
+#define spa_bt_transport_add_listener(t,listener,events,data) \
+        spa_hook_list_append(&(t)->listener_list, listener, events, data)
+
+#define spa_bt_transport_set_implementation(t,_impl,_data) \
+			(t)->impl = SPA_HOOK_INIT(_impl, _data)
+
+#define spa_bt_transport_impl(t,m,v,...)	\
+({						\
+	int res = 0;				\
+	spa_hook_call_res(&(t)->impl, struct spa_bt_transport_implementation, res, m, v, ##__VA_ARGS__); \
+	res;					\
+})
+
+#define spa_bt_transport_acquire(t,o)	spa_bt_transport_impl(t, acquire, 0, o)
+#define spa_bt_transport_release(t)	spa_bt_transport_impl(t, release, 0)
+#define spa_bt_transport_destroy(t)	spa_bt_transport_impl(t, destroy, 0)
 
 static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(const char *value)
 {

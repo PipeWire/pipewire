@@ -53,6 +53,8 @@ struct spa_hook {
 
 };
 
+#define SPA_HOOK_INIT(_funcs,_data)	(struct spa_hook){ .funcs = _funcs, .data = _data, }
+
 /** Initialize a hook list */
 static inline void spa_hook_list_init(struct spa_hook_list *list)
 {
@@ -110,10 +112,17 @@ spa_hook_list_join(struct spa_hook_list *list,
 
 #define spa_hook_call(hook,type,method,vers,...)				\
 ({										\
-	const type *cb = hook->funcs;						\
-	if (cb && cb->version >= vers && cb->method) {				\
-		cb->method(hook->data, ## __VA_ARGS__);				\
-	}									\
+	const type *cb = (hook)->funcs;						\
+	if (cb && cb->version >= vers && cb->method)				\
+		cb->method((hook)->data, ## __VA_ARGS__);			\
+})
+
+#define spa_hook_call_res(hook,type,res,method,vers,...)			\
+({										\
+	const type *cb = (hook)->funcs;						\
+	if (cb && cb->version >= vers && cb->method)				\
+		res = cb->method((hook)->data, ## __VA_ARGS__);			\
+	res;									\
 })
 
 #define spa_hook_list_call_simple(l,type,method,vers,...)			\

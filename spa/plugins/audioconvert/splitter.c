@@ -182,7 +182,8 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	port->format.info.raw.channels = 1;
 	port->format.info.raw.position[0] = position;
 
-	spa_log_debug(this->log, NAME " %p: init port %d %s", this, port_id, port->position);
+	spa_log_debug(this->log, NAME " %p: init port %d rate:%d position:%s",
+			this, port_id, rate, port->position);
 	emit_port_info(this, port, true);
 
 	return 0;

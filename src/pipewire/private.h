@@ -497,8 +497,7 @@ struct pw_port {
 
 	struct spa_hook_list listener_list;
 
-	const struct pw_port_implementation *implementation;
-	void *implementation_data;
+	struct spa_hook impl;
 
 	struct spa_node *mix;		/**< port buffer mix/split */
 #define PW_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
@@ -701,8 +700,7 @@ struct pw_factory {
 
 	struct spa_hook_list listener_list;	/**< event listeners */
 
-	const struct pw_factory_implementation *implementation;
-	void *implementation_data;
+	struct spa_hook impl;
 
 	void *user_data;
 

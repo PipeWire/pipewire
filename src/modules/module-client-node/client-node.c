@@ -1532,9 +1532,7 @@ static void node_port_added(void *data, struct pw_port *port)
 			PW_PORT_MIX_FLAG_MULTI |
 			PW_PORT_MIX_FLAG_MIX_ONLY);
 
-	port->implementation = &port_impl;
-	port->implementation_data = p;
-
+	port->impl = SPA_HOOK_INIT(&port_impl, p);
 	port->owner_data = impl;
 }
 

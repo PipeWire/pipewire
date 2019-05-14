@@ -201,8 +201,7 @@ void pw_factory_set_implementation(struct pw_factory *factory,
 				   const struct pw_factory_implementation *implementation,
 				   void *data)
 {
-	factory->implementation = implementation;
-	factory->implementation_data = data;
+	factory->impl = SPA_HOOK_INIT(implementation, data);
 }
 
 SPA_EXPORT
@@ -213,6 +212,10 @@ void *pw_factory_create_object(struct pw_factory *factory,
 			       struct pw_properties *properties,
 			       uint32_t new_id)
 {
-	return factory->implementation->create_object(factory->implementation_data,
-						      resource, type, version, properties, new_id);
+	void *res = NULL;
+	spa_hook_call_res(&factory->impl,
+			struct pw_factory_implementation,
+			res, create_object, 0,
+			resource, type, version, properties, new_id);
+	return res;
 }

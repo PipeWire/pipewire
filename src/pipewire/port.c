@@ -162,7 +162,6 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 {
 	uint32_t port_id;
 	int res = 0;
-	const struct pw_port_implementation *pi = port->implementation;
 
 	port_id = pw_map_insert_new(&port->mix_port_map, mix);
 
@@ -176,8 +175,8 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	if (port->mix->add_port)
 		port->mix->add_port(port->mix, port->direction, port_id, NULL);
 
-	if (pi && pi->init_mix)
-		res = pi->init_mix(port->implementation_data, mix);
+	spa_hook_call_res(&port->impl, struct pw_port_implementation,
+			res, init_mix, 0, mix);
 
 	/* set the same format on the mixer as on the port if any */
 	if (port->mix->enum_params && port->mix->set_param) {
@@ -207,14 +206,13 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 {
 	int res = 0;
 	uint32_t port_id = mix->port.port_id;
-	const struct pw_port_implementation *pi = port->implementation;
 
 	pw_map_remove(&port->mix_port_map, port_id);
 	spa_list_remove(&mix->link);
 	port->n_mix--;
 
-	if (pi && pi->release_mix)
-		res = pi->release_mix(port->implementation_data, mix);
+	spa_hook_call_res(&port->impl, struct pw_port_implementation,
+			res, release_mix, 0, mix);
 
 	if (port->mix->remove_port) {
 		port->mix->remove_port(port->mix, port->direction, port_id);
@@ -1000,7 +998,6 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	int res = 0;
 	struct pw_node *node = port->node;
 	struct pw_port_mix *mix = NULL;
-	const struct pw_port_implementation *pi = port->implementation;
 
 	pw_log_debug("port %p: %d:%d.%d: %d buffers %d", port,
 			port->direction, port->port_id, mix_id, n_buffers, port->state);
@@ -1035,8 +1032,9 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 		}
 		port->allocated = false;
 		free_allocation(&port->allocation);
-		if (pi && pi->use_buffers)
-			res = pi->use_buffers(port->implementation_data, buffers, n_buffers);
+
+		spa_hook_call_res(&port->impl, struct pw_port_implementation,
+			res, use_buffers, 0, buffers, n_buffers);
 	}
 
 	if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
@@ -1052,7 +1050,6 @@ int pw_port_alloc_buffers(struct pw_port *port,
 {
 	int res;
 	struct pw_node *node = port->node;
-	const struct pw_port_implementation *pi = port->implementation;
 
 	if (port->state < PW_PORT_STATE_READY)
 		return -EIO;
@@ -1064,9 +1061,11 @@ int pw_port_alloc_buffers(struct pw_port *port,
 				res, spa_strerror(res));
 	}
 
-	if (res >= 0 && pi && pi->alloc_buffers) {
-		if ((res = pi->alloc_buffers(port->implementation_data,
-						params, n_params, buffers, n_buffers)) < 0) {
+	if (res >= 0) {
+		spa_hook_call_res(&port->impl, struct pw_port_implementation,
+			res, alloc_buffers, 0,
+			params, n_params, buffers, n_buffers);
+		if (res < 0) {
 			pw_log_error("port %p: %d implementation alloc failed: %d (%s)",
 					port, port->port_id, res, spa_strerror(res));
 		}

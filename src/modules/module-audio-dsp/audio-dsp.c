@@ -245,8 +245,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	if (direction == PW_DIRECTION_INPUT) {
 		pw_log_debug("mix node %p", p->spa_node);
 		pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
-		port->implementation = &port_implementation;
-		port->implementation_data = p;
+		port->impl = SPA_HOOK_INIT(&port_implementation, p);
 	}
 	spa_list_append(&n->ports, &p->link);
 }

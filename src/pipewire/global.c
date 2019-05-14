@@ -42,8 +42,7 @@ struct impl {
 
 /** \endcond */
 
-SPA_EXPORT
-uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
+static inline uint32_t get_permissions(struct pw_global *global, struct pw_client *client, bool recurse)
 {
 	uint32_t perms;
 
@@ -52,11 +51,19 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
 
 	perms = client->permission_func(global, client, client->permission_data);
 
-	while (global->parent != NULL && global != global->parent) {
-		global = global->parent;
-		perms &= client->permission_func(global, client, client->permission_data);
+	if (recurse) {
+		while (global->parent != NULL && global != global->parent) {
+			global = global->parent;
+			perms &= client->permission_func(global, client, client->permission_data);
+		}
 	}
 	return perms;
+}
+
+SPA_EXPORT
+uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
+{
+	return get_permissions(global, client, true);
 }
 
 /** Create a new global
@@ -302,17 +309,30 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 {
 	struct pw_core *core = global->core;
 	struct pw_resource *resource, *t;
+	struct pw_global *g;
+	uint32_t perms;
 
 	pw_global_emit_permissions_changed(global, client, old_permissions, new_permissions);
+
+	spa_list_for_each(g, &global->child_list, child_link) {
+		if (g == global)
+			continue;
+		perms = get_permissions(g, client, false);
+		pw_global_update_permissions(g, client,
+				perms & old_permissions,
+				perms & new_permissions);
+	}
 
 	spa_list_for_each(resource, &core->registry_resource_list, link) {
 		if (resource->client != client)
 			continue;
 
 		if (PW_PERM_IS_R(old_permissions) && !PW_PERM_IS_R(new_permissions)) {
+			pw_log_debug("client %p: hide global %d", client, global->id);
 			pw_registry_resource_global_remove(resource, global->id);
 		}
 		else if (!PW_PERM_IS_R(old_permissions) && PW_PERM_IS_R(new_permissions)) {
+			pw_log_debug("client %p: show global %d", client, global->id);
 			pw_registry_resource_global(resource,
 						    global->id,
 						    global->parent->id,

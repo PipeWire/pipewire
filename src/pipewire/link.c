@@ -1194,19 +1194,45 @@ check_permission(struct pw_core *core,
 	return 0;
 }
 
-static void global_permissions_changed(void *data,
+static void permissions_changed(struct pw_link *this, struct pw_port *other,
+		struct pw_client *client, uint32_t old, uint32_t new)
+{
+	uint32_t perm;
+
+	perm = pw_global_get_permissions(other->global, client);
+	old &= perm;
+	new &= perm;
+	pw_log_debug("link %p: permissions changed %08x -> %08x", this, old, new);
+
+	if (check_permission(this->core, this->output, this->input, this->properties) < 0) {
+		pw_link_destroy(this);
+	} else {
+		pw_global_update_permissions(this->global, client, old, new);
+	}
+}
+
+static void output_permissions_changed(void *data,
 		struct pw_client *client, uint32_t old, uint32_t new)
 {
 	struct pw_link *this = data;
-
-	pw_log_debug("link %p: permissions changed", this);
-	if (check_permission(this->core, this->output, this->input, this->properties) < 0)
-		pw_link_destroy(this);
+	permissions_changed(this, this->input, client, old, new);
 }
 
-static const struct pw_global_events global_node_events = {
+static const struct pw_global_events output_global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
-	.permissions_changed = global_permissions_changed,
+	.permissions_changed = output_permissions_changed,
+};
+
+static void input_permissions_changed(void *data,
+		struct pw_client *client, uint32_t old, uint32_t new)
+{
+	struct pw_link *this = data;
+	permissions_changed(this, this->output, client, old, new);
+}
+
+static const struct pw_global_events input_global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.permissions_changed = input_permissions_changed,
 };
 
 SPA_EXPORT
@@ -1270,10 +1296,10 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	pw_port_add_listener(input, &impl->input_port_listener, &input_port_events, impl);
 	pw_node_add_listener(input_node, &impl->input_node_listener, &input_node_events, impl);
-	pw_global_add_listener(input_node->global, &impl->input_global_listener, &global_node_events, impl);
+	pw_global_add_listener(input->global, &impl->input_global_listener, &input_global_events, impl);
 	pw_port_add_listener(output, &impl->output_port_listener, &output_port_events, impl);
 	pw_node_add_listener(output_node, &impl->output_node_listener, &output_node_events, impl);
-	pw_global_add_listener(output_node->global, &impl->output_global_listener, &global_node_events, impl);
+	pw_global_add_listener(output->global, &impl->output_global_listener, &output_global_events, impl);
 
 	input_node->live = output_node->live;
 

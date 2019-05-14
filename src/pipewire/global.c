@@ -97,6 +97,7 @@ pw_global_new(struct pw_core *core,
 	this->properties = properties;
 	this->id = pw_map_insert_new(&core->globals, this);
 
+	spa_list_init(&this->child_list);
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
@@ -134,6 +135,7 @@ pw_global_register(struct pw_global *global,
 	if (parent == NULL)
 		parent = global;
 	global->parent = parent;
+	spa_list_append(&parent->child_list, &global->child_link);
 
 	spa_list_append(&core->global_list, &global->link);
 	impl->registered = true;
@@ -152,7 +154,7 @@ pw_global_register(struct pw_global *global,
 						        &global->properties->dict : NULL);
 	}
 
-	pw_log_debug("global %p: add %u owner %p parent %p", global, global->id, owner, parent);
+	pw_log_debug("global %p: registered %u owner %p parent %p", global, global->id, owner, parent);
 	pw_core_emit_global_added(core, global);
 
 	return 0;
@@ -163,9 +165,16 @@ static int global_unregister(struct pw_global *global)
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_core *core = global->core;
 	struct pw_resource *resource;
+	struct pw_global *g;
 
 	if (!impl->registered)
 		return 0;
+
+	spa_list_consume(g, &global->child_list, child_link) {
+		if (g == global)
+			break;
+		global_unregister(g);
+	}
 
 	spa_list_for_each(resource, &core->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, resource->client);
@@ -174,11 +183,14 @@ static int global_unregister(struct pw_global *global)
 			pw_registry_resource_global_remove(resource, global->id);
 	}
 
+	global->parent = NULL;
+	spa_list_remove(&global->child_link);
 	spa_list_remove(&global->link);
 	pw_map_remove(&core->globals, global->id);
-	pw_core_emit_global_removed(core, global);
-
 	impl->registered = false;
+
+	pw_log_debug("global %p: unregistered %u", global, global->id);
+	pw_core_emit_global_removed(core, global);
 
 	return 0;
 }

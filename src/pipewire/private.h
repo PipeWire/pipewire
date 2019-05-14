@@ -146,6 +146,8 @@ struct pw_global {
 	struct spa_list link;		/**< link in core list of globals */
 	uint32_t id;			/**< server id of the object */
 	struct pw_global *parent;	/**< parent global */
+	struct spa_list child_link;	/**< link in parent child list of globals */
+	struct spa_list child_list;	/**< The list of child globals */
 
 	struct pw_properties *properties;	/**< properties of the global */
 

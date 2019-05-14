@@ -143,7 +143,6 @@ static void *create_object(void *_data,
 	uint32_t output_node_id, input_node_id;
 	uint32_t output_port_id, input_port_id;
 	struct link_data *ld;
-	char *error;
 	const char *str;
 	int res;
 	bool linger;
@@ -210,7 +209,7 @@ static void *create_object(void *_data,
 	str = pw_properties_get(properties, "object.linger");
 	linger = str ? pw_properties_parse_bool(str) : false;
 
-	link = pw_link_new(core, outport, inport, NULL, properties, &error, sizeof(struct link_data));
+	link = pw_link_new(core, outport, inport, NULL, properties, sizeof(struct link_data));
 	if (link == NULL)
 		goto no_mem;
 
@@ -265,8 +264,9 @@ static void *create_object(void *_data,
 	pw_resource_error(resource, -EINVAL, "unknown input port %u", input_port_id);
 	goto done;
       no_mem:
-	pw_log_error("can't create link: %s", error);
-	pw_resource_error(resource, -ENOMEM, "can't create link: %s", error);
+	res = -errno;
+	pw_log_error("can't create link: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't create link: %s", spa_strerror(res));
 	goto done;
       no_bind:
 	pw_resource_error(resource, res, "can't bind link");

@@ -357,7 +357,6 @@ static void make_nodes(struct data *data)
 				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
 				 NULL,
 				 NULL,
-				 NULL,
 				 0);
 	pw_link_register(data->link, NULL, NULL, NULL);
 

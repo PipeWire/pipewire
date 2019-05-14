@@ -1241,7 +1241,6 @@ struct pw_link *pw_link_new(struct pw_core *core,
 			    struct pw_port *input,
 			    struct spa_pod *format_filter,
 			    struct pw_properties *properties,
-			    char **error,
 			    size_t user_data_size)
 {
 	struct impl *impl;
@@ -1349,22 +1348,27 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	return this;
 
       no_io:
-	asprintf(error, "can't set io %d (%s)", res, spa_strerror(res));
+	pw_log_error("can't set io %d (%s)", res, spa_strerror(res));
+	errno = -res;
 	return NULL;
       same_ports:
-	asprintf(error, "can't link the same ports");
+	pw_log_error("can't link the same ports");
+	errno = EINVAL;
 	return NULL;
       wrong_direction:
-	asprintf(error, "ports have wrong direction");
+	pw_log_error("ports have wrong direction");
+	errno = EINVAL;
 	return NULL;
       link_exists:
-	asprintf(error, "link already exists");
+	pw_log_error("link already exists");
+	errno = EEXIST;
 	return NULL;
       link_not_allowed:
-	asprintf(error, "link not allowed");
+	pw_log_error("link not allowed");
+	errno = EPERM;
 	return NULL;
       no_mem:
-	asprintf(error, "no memory");
+	pw_log_error("no memory");
 	return NULL;
 }
 

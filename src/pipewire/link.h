@@ -85,7 +85,6 @@ pw_link_new(struct pw_core *core,		/**< the core object */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_pod *format_filter,	/**< an optional format filter */
 	    struct pw_properties *properties	/**< extra properties */,
-	    char **error,			/**< error string when result is NULL */
 	    size_t user_data_size		/**< extra user data size */);
 
 /** Destroy a link \memberof pw_link */

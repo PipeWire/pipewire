@@ -273,7 +273,7 @@ struct pw_device {
 	struct pw_device_info info;		/**< introspectable device info */
 	struct spa_param_info params[MAX_PARAMS];
 
-	struct spa_device *implementation;	/**< implementation */
+	struct spa_device *device;		/**< device implementation */
 	struct spa_hook listener;
 	struct spa_hook_list listener_list;
 

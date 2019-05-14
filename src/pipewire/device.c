@@ -168,9 +168,9 @@ int pw_device_for_each_param(struct pw_device *device,
 			index, max);
 
 	spa_zero(listener);
-	spa_device_add_listener(device->implementation, &listener,
+	spa_device_add_listener(device->device, &listener,
 			&device_events, &user_data);
-	res = spa_device_enum_params(device->implementation, seq,
+	res = spa_device_enum_params(device->device, seq,
 			param_id, index, max, filter);
 	spa_hook_remove(&listener);
 
@@ -209,7 +209,7 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_device *device = data->device;
 	int res;
 
-	if ((res = spa_device_set_param(device->implementation, id, flags, param)) < 0)
+	if ((res = spa_device_set_param(device->device, id, flags, param)) < 0)
 		pw_resource_error(resource, res, spa_strerror(res));
 	return res;
 }
@@ -475,13 +475,13 @@ int pw_device_set_implementation(struct pw_device *device, struct spa_device *sp
 {
 	pw_log_debug("device %p: implementation %p", device, spa_device);
 
-	if (device->implementation) {
+	if (device->device) {
 		pw_log_error("device %p: implementation existed %p",
-				device, device->implementation);
+				device, device->device);
 		return -EEXIST;
 	}
-	device->implementation = spa_device;
-	spa_device_add_listener(device->implementation,
+	device->device = spa_device;
+	spa_device_add_listener(device->device,
 			&device->listener, &device_events, device);
 
 	return 0;
@@ -490,7 +490,7 @@ int pw_device_set_implementation(struct pw_device *device, struct spa_device *sp
 SPA_EXPORT
 struct spa_device *pw_device_get_implementation(struct pw_device *device)
 {
-	return device->implementation;
+	return device->device;
 }
 
 SPA_EXPORT

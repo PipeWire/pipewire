@@ -57,16 +57,16 @@ struct props {
 
 struct buffer {
 	uint32_t id;
+	unsigned int outstanding:1;
 	struct spa_buffer *buf;
 	struct spa_meta_header *h;
-	bool outstanding;
 	struct spa_list link;
 };
 
 struct port {
-	bool have_format;
 	struct spa_audio_info current_format;
 	int frame_size;
+	unsigned int have_format:1;
 
 	uint64_t info_all;
 	struct spa_port_info info;
@@ -75,7 +75,7 @@ struct port {
 	struct spa_param_info params[8];
 
 	struct buffer buffers[MAX_BUFFERS];
-	unsigned int n_buffers;
+	uint32_t n_buffers;
 
 	struct spa_list free;
 	struct spa_list ready;
@@ -86,8 +86,6 @@ struct port {
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
-
-	uint32_t seq;
 
 	struct spa_log *log;
 	struct spa_loop *main_loop;
@@ -107,7 +105,6 @@ struct impl {
 
 	struct port port;
 
-	unsigned int opened:1;
 	unsigned int started:1;
 	unsigned int slaved:1;
 
@@ -239,11 +236,6 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	return 0;
 }
 
-static inline bool is_slaved(struct impl *this)
-{
-	return this->position && this->clock && this->position->clock.id != this->clock->id;
-}
-
 static int set_timers(struct impl *this)
 {
 	struct itimerspec ts;
@@ -274,6 +266,11 @@ static int do_reslave(struct spa_loop *loop,
 	struct impl *this = user_data;
 	set_timers(this);
 	return 0;
+}
+
+static inline bool is_slaved(struct impl *this)
+{
+	return this->position && this->clock && this->position->clock.id != this->clock->id;
 }
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
@@ -1188,6 +1185,7 @@ impl_node_port_set_param(struct spa_node *node,
 {
 	struct impl *this;
 	struct port *port;
+	int res;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 	this = SPA_CONTAINER_OF(node, struct impl, node);
@@ -1195,11 +1193,15 @@ impl_node_port_set_param(struct spa_node *node,
 	spa_return_val_if_fail(CHECK_PORT(node, direction, port_id), -EINVAL);
 	port = &this->port;
 
-	if (id == SPA_PARAM_Format) {
-		return port_set_format(this, port, flags, param);
+	switch (id) {
+	case SPA_PARAM_Format:
+		res = port_set_format(this, port, flags, param);
+		break;
+	default:
+		res = -ENOENT;
+		break;
 	}
-	else
-		return -ENOENT;
+	return res;
 }
 
 static int

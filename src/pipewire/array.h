@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <errno.h>
+
 #include <spa/utils/defs.h>
 
 /** \class pw_array
@@ -94,7 +96,7 @@ static inline void pw_array_reset(struct pw_array *arr)
 }
 
 /** Make sure \a size bytes can be added to the array \memberof pw_array */
-static inline bool pw_array_ensure_size(struct pw_array *arr, size_t size)
+static inline int pw_array_ensure_size(struct pw_array *arr, size_t size)
 {
 	size_t alloc, need;
 
@@ -107,11 +109,11 @@ static inline bool pw_array_ensure_size(struct pw_array *arr, size_t size)
 		while (alloc < need)
 			alloc *= 2;
 		if (SPA_UNLIKELY((data = realloc(arr->data, alloc)) == NULL))
-			return false;
+			return -errno;
 		arr->data = data;
 		arr->alloc = alloc;
 	}
-	return true;
+	return 0;
 }
 
 /** Add \a ref size bytes to \a arr. A pointer to memory that can
@@ -120,7 +122,7 @@ static inline void *pw_array_add(struct pw_array *arr, size_t size)
 {
 	void *p;
 
-	if (!pw_array_ensure_size(arr, size))
+	if (pw_array_ensure_size(arr, size) < 0)
 		return NULL;
 
 	p = SPA_MEMBER(arr->data, arr->size, void);

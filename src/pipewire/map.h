@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <string.h>
+#include <errno.h>
 
 #include <spa/utils/defs.h>
 #include <pipewire/array.h>
@@ -97,7 +98,8 @@ static inline void pw_map_reset(struct pw_map *map)
 /** Insert data in the map
  * \param map the map to insert into
  * \param data the item to add
- * \return the id where the item was inserted
+ * \return the id where the item was inserted or SPA_ID_INVALID when the
+ *	item can not be inserted.
  * \memberof pw_map
  */
 static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
@@ -111,7 +113,7 @@ static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
 		map->free_list = item->next;
 	} else {
 		item = (union pw_map_item *) pw_array_add(&map->items, sizeof(union pw_map_item));
-		if (!item)
+		if (item == NULL)
 			return SPA_ID_INVALID;
 		start = (union pw_map_item *) map->items.data;
 	}
@@ -124,23 +126,27 @@ static inline uint32_t pw_map_insert_new(struct pw_map *map, void *data)
  * \param map the map to inser into
  * \param id the index to insert at
  * \param data the data to insert
- * \return true on success, false when the index is invalid
+ * \return 0 on success, -ENOSPC value when the index is invalid or a < 0
+ *	errno value.
  * \memberof pw_map
  */
-static inline bool pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
+static inline int pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 {
 	size_t size = pw_map_get_size(map);
 	union pw_map_item *item;
 
 	if (id > size)
-		return false;
-	else if (id == size)
+		return -ENOSPC;
+	else if (id == size) {
 		item = (union pw_map_item *) pw_array_add(&map->items, sizeof(union pw_map_item));
-	else
+		if (item == NULL)
+			return -errno;
+	}
+	else {
 		item = pw_map_get_item(map, id);
-
+	}
 	item->data = data;
-	return true;
+	return 0;
 }
 
 /** Remove an item at index

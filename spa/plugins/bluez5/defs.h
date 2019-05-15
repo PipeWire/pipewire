@@ -230,11 +230,13 @@ struct spa_bt_transport {
 #define spa_bt_transport_set_implementation(t,_impl,_data) \
 			(t)->impl = SPA_CALLBACKS_INIT(_impl, _data)
 
-#define spa_bt_transport_impl(t,m,v,...)	\
-({						\
-	int res = 0;				\
-	spa_callbacks_call_res(&(t)->impl, struct spa_bt_transport_implementation, res, m, v, ##__VA_ARGS__); \
-	res;					\
+#define spa_bt_transport_impl(t,m,v,...)		\
+({							\
+	int res = 0;					\
+	spa_callbacks_call_res(&(t)->impl,		\
+		struct spa_bt_transport_implementation,	\
+		res, m, v, ##__VA_ARGS__);		\
+	res;						\
 })
 
 #define spa_bt_transport_acquire(t,o)	spa_bt_transport_impl(t, acquire, 0, o)

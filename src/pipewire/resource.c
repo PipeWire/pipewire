@@ -66,7 +66,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 	if (id == SPA_ID_INVALID) {
 		id = pw_map_insert_new(&client->objects, this);
-	} else if (!pw_map_insert_at(&client->objects, id, this))
+	} else if (pw_map_insert_at(&client->objects, id, this) < 0)
 		goto in_use;
 
 	this->id = id;

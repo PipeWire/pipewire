@@ -60,8 +60,7 @@ struct spa_bt_monitor {
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
 
-	const struct spa_monitor_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	uint32_t count;
 
@@ -532,7 +531,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 	fill_item(monitor, device, &item, &b);
 
 	device->added = true;
-	monitor->callbacks->event(monitor->callbacks_data, event);
+	spa_monitor_call_event(&monitor->callbacks, event);
 
 	return 0;
 }
@@ -552,7 +551,7 @@ static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *d
 	fill_item(monitor, device, &item, &b);
 
 	device->added = false;
-	monitor->callbacks->event(monitor->callbacks_data, event);
+	spa_monitor_call_event(&monitor->callbacks, event);
 
 	return 0;
 }
@@ -2051,8 +2050,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 
 	this = SPA_CONTAINER_OF(monitor, struct spa_bt_monitor, monitor);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	if (callbacks) {
 		get_managed_objects(this);

@@ -31,6 +31,7 @@ extern "C" {
 
 #include <stdarg.h>
 
+#include <spa/utils/hook.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/vararg.h>
 
@@ -47,7 +48,8 @@ struct spa_pod_builder;
 struct spa_pod_builder_callbacks {
 #define SPA_VERSION_POD_BUILDER_CALLBACKS 0
 	uint32_t version;
-	int (*overflow) (void *callbacks_data, uint32_t size);
+
+	int (*overflow) (void *data, uint32_t size);
 };
 
 struct spa_pod_builder {
@@ -55,8 +57,7 @@ struct spa_pod_builder {
 	uint32_t size;
 	uint32_t _padding;
 	struct spa_pod_builder_state state;
-	const struct spa_pod_builder_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 };
 
 #define SPA_POD_BUILDER_INIT(buffer,size)  (struct spa_pod_builder){ buffer, size, }
@@ -65,6 +66,13 @@ static inline void
 spa_pod_builder_get_state(struct spa_pod_builder *builder, struct spa_pod_builder_state *state)
 {
 	*state = builder->state;
+}
+
+static inline void
+spa_pod_builder_set_callbacks(struct spa_pod_builder *builder,
+		const struct spa_pod_builder_callbacks *callbacks, void *data)
+{
+	builder->callbacks = SPA_HOOK_INIT(callbacks, data);
 }
 
 static inline void
@@ -118,10 +126,9 @@ static inline int spa_pod_builder_raw(struct spa_pod_builder *builder, const voi
 	uint32_t offset = builder->state.offset;
 
 	if (offset + size > builder->size) {
-		if (builder->callbacks && builder->callbacks->overflow)
-			res = builder->callbacks->overflow(builder->callbacks_data, offset + size);
-		else
-			res = -ENOSPC;
+		res = -ENOSPC;
+		spa_hook_call_res(&builder->callbacks, struct spa_pod_builder_callbacks, res,
+				overflow, 0, offset + size);
 	}
 	if (res == 0)
 		memcpy(SPA_MEMBER(builder->data, offset, void), data, size);

@@ -85,8 +85,7 @@ struct impl {
 	struct props props;
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
@@ -194,7 +193,7 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if ((this->callbacks && this->callbacks->ready) || this->props.live) {
+	if (this->callbacks.funcs || this->props.live) {
 		if (enabled) {
 			if (this->props.live) {
 				uint64_t next_time = this->start_time + this->elapsed_time;
@@ -216,7 +215,7 @@ static inline void read_timer(struct impl *this)
 {
 	uint64_t expirations;
 
-	if ((this->callbacks && this->callbacks->ready) || this->props.live) {
+	if (this->callbacks.funcs || this->props.live) {
 		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 			perror("read timerfd");
 	}
@@ -237,8 +236,7 @@ static int consume_buffer(struct impl *this)
 
 	if (spa_list_is_empty(&port->ready)) {
 		io->status = SPA_STATUS_NEED_BUFFER;
-		if (this->callbacks->ready)
-			this->callbacks->ready(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
 	}
 	if (spa_list_is_empty(&port->ready)) {
 		spa_log_error(this->log, NAME " %p: no buffers", this);
@@ -391,12 +389,11 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (this->data_loop == NULL && callbacks != NULL && callbacks->ready != NULL) {
+	if (this->data_loop == NULL && callbacks != NULL) {
 		spa_log_error(this->log, "a data_loop is needed for async operation");
 		return -EINVAL;
 	}
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }
@@ -700,7 +697,7 @@ static int impl_node_process(struct spa_node *node)
 		io->buffer_id = SPA_ID_INVALID;
 		io->status = SPA_STATUS_OK;
 	}
-	if (this->callbacks == NULL || this->callbacks->ready == NULL)
+	if (this->callbacks.funcs == NULL)
 		return consume_buffer(this);
 	else
 		return SPA_STATUS_OK;

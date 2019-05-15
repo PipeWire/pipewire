@@ -72,8 +72,7 @@ struct node {
 	struct spa_param_info params[5];
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 };
 
 struct impl {
@@ -378,8 +377,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }
@@ -1234,7 +1232,7 @@ static int node_ready(void *data, int status)
 	impl_node_process(&impl->node.node);
 	impl->driver = true;
 
-	return impl->node.callbacks->ready(impl->node.callbacks_data, status);
+	return spa_node_call_ready(&impl->node.callbacks, status);
 }
 
 static const struct spa_node_callbacks node_callbacks = {

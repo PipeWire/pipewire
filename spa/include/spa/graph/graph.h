@@ -31,6 +31,7 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
+#include <spa/utils/hook.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 
@@ -92,8 +93,6 @@ struct spa_graph_node_callbacks {
 	int (*reuse_buffer) (void *data, struct spa_graph_node *node,
 			uint32_t port_id, uint32_t buffer_id);
 };
-#define spa_graph_node_process(n)	((n)->callbacks->process((n)->callbacks_data,(n)))
-#define spa_graph_node_reuse_buffer(n,p,i) ((n)->callbacks->reuse_buffer((n)->callbacks_data,(n),(p),(i)))
 
 struct spa_graph_node {
 	struct spa_list link;		/**< link in graph nodes list */
@@ -104,11 +103,21 @@ struct spa_graph_node {
 	struct spa_graph_state *state;	/**< state of the node */
 	struct spa_graph_link graph_link;	/**< link in graph */
 	struct spa_graph *subgraph;	/**< subgraph or NULL */
-	const struct spa_graph_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 	struct spa_list sched_link;	/**< link for scheduler */
 };
 
+#define spa_graph_node_call(n,method,version,...)			\
+({									\
+	int __res = 0;							\
+	spa_hook_call_res(&(n)->callbacks,				\
+			struct spa_graph_node_callbacks, __res,		\
+			method, version, ##__VA_ARGS__);		\
+	__res;								\
+})
+
+#define spa_graph_node_process(n)		spa_graph_node_call(n, process, 0, n)
+#define spa_graph_node_reuse_buffer(n,p,i)	spa_graph_node_call(n, reuse_buffer, 0, n, p, i)
 
 struct spa_graph_port {
 	struct spa_list link;		/**< link in node port list */
@@ -239,10 +248,9 @@ static inline void spa_graph_node_set_subgraph(struct spa_graph_node *node,
 static inline void
 spa_graph_node_set_callbacks(struct spa_graph_node *node,
 		const struct spa_graph_node_callbacks *callbacks,
-		void *callbacks_data)
+		void *data)
 {
-	node->callbacks = callbacks;
-	node->callbacks_data = callbacks_data;
+	node->callbacks = SPA_HOOK_INIT(callbacks, data);
 }
 
 static inline void

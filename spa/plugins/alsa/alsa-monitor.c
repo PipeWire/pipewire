@@ -51,8 +51,7 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 
-	const struct spa_monitor_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	struct udev *udev;
 	struct udev_monitor *umonitor;
@@ -266,7 +265,7 @@ static int emit_device(struct impl *this, uint32_t id, struct udev_device *dev)
 	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, id);
 	fill_item(this, dev, &item, &b);
 
-	this->callbacks->event(this->callbacks_data, event);
+	spa_monitor_call_event(&this->callbacks, event);
 	return 0;
 }
 
@@ -378,8 +377,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 
 	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	if (callbacks) {
 		if ((res = impl_udev_open(this)) < 0)

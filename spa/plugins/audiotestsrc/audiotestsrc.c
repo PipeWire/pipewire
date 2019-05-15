@@ -119,8 +119,7 @@ struct impl {
 	struct props props;
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	bool async;
 	struct spa_source timer_source;
@@ -394,7 +393,7 @@ static void on_output(struct spa_source *source)
 	res = make_buffer(this);
 
 	if (res == SPA_STATUS_HAVE_BUFFER)
-		this->callbacks->ready(this->callbacks_data, res);
+		spa_node_call_ready(&this->callbacks, res);
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -511,8 +510,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }

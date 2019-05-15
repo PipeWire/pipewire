@@ -182,6 +182,7 @@ struct spa_node_events {
  */
 struct spa_node_callbacks {
 #define SPA_VERSION_NODE_CALLBACKS	0
+	uint32_t version;
 	/**
 	 * \param node a spa_node
 	 *
@@ -206,6 +207,18 @@ struct spa_node_callbacks {
 			     uint32_t port_id,
 			     uint32_t buffer_id);
 };
+
+#define spa_node_call(hook,method,version,...)				\
+({									\
+	int __res = 0;							\
+	spa_hook_call_res(hook, struct spa_node_callbacks, __res,	\
+				method, version, ##__VA_ARGS__);	\
+	__res;								\
+})
+
+#define spa_node_call_ready(hook,s)		spa_node_call(hook, ready, 0, s)
+#define spa_node_call_reuse_buffer(hook,p,b)	spa_node_call(hook, reuse_buffer, 0, p, b)
+
 
 /** flags that can be passed to set_param and port_set_param functions */
 #define SPA_NODE_PARAM_FLAG_TEST_ONLY	(1 << 0)	/* just check if the param is accepted */

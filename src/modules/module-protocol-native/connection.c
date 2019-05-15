@@ -355,9 +355,9 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	return SPA_MEMBER(p, HDR_SIZE, void);
 }
 
-static int builder_overflow(void *callbacks_data, uint32_t size)
+static int builder_overflow(void *data, uint32_t size)
 {
-	struct impl *impl = callbacks_data;
+	struct impl *impl = data;
 	struct spa_pod_builder *b = &impl->builder;
 
 	b->size = SPA_ROUND_UP_N(size, 4096);
@@ -382,8 +382,7 @@ pw_protocol_native_connection_begin(struct pw_protocol_native_connection *conn,
 	buf->msg.id = id;
 	buf->msg.opcode = opcode;
 	impl->builder = SPA_POD_BUILDER_INIT(NULL, 0);
-	impl->builder.callbacks = &builder_callbacks;
-	impl->builder.callbacks_data = impl;
+	spa_pod_builder_set_callbacks(&impl->builder, &builder_callbacks, impl);
 	buf->msg.n_fds = 0;
 	buf->msg.fds = &buf->fds[buf->n_fds];
 	buf->msg.seq = buf->seq;

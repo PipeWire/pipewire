@@ -92,8 +92,7 @@ struct impl {
 	struct spa_loop *data_loop;
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -379,7 +378,7 @@ static void decode_sbc_data(struct impl *this, uint8_t *src, size_t src_size)
         spa_log_debug(this->log, "data decoded successfully for buffer_id=%d", buffer->id);
         spa_list_append(&port->ready, &buffer->link);
 
-        this->callbacks->ready(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_BUFFER);
 }
 
 static void a2dp_on_ready_read(struct spa_source *source)
@@ -608,8 +607,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }

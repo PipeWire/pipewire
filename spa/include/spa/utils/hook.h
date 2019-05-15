@@ -112,14 +112,14 @@ spa_hook_list_join(struct spa_hook_list *list,
 
 #define spa_hook_call(hook,type,method,vers,...)				\
 ({										\
-	const type *cb = (hook)->funcs;						\
+	const type *cb = (const type *) (hook)->funcs;				\
 	if (cb && cb->version >= vers && cb->method)				\
 		cb->method((hook)->data, ## __VA_ARGS__);			\
 })
 
 #define spa_hook_call_res(hook,type,res,method,vers,...)			\
 ({										\
-	const type *cb = (hook)->funcs;						\
+	const type *cb = (const type *) (hook)->funcs;				\
 	if (cb && cb->version >= vers && cb->method)				\
 		res = cb->method((hook)->data, ## __VA_ARGS__);			\
 	res;									\
@@ -144,7 +144,7 @@ spa_hook_list_join(struct spa_hook_list *list,
 	int count = 0;								\
 	spa_list_cursor_start(cursor, s, link);					\
 	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
-		const type *cb = ci->funcs;					\
+		const type *cb = (const type *)ci->funcs;			\
 		if (cb && cb->version >= vers && cb->method) {			\
 			cb->method(ci->data, ## __VA_ARGS__);			\
 			count++;						\

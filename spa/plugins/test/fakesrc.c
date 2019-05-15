@@ -86,8 +86,7 @@ struct impl {
 	struct props props;
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
@@ -212,7 +211,7 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if ((this->callbacks && this->callbacks->ready) || this->props.live) {
+	if (this->callbacks.funcs || this->props.live) {
 		if (enabled) {
 			if (this->props.live) {
 				uint64_t next_time = this->start_time + this->elapsed_time;
@@ -234,7 +233,7 @@ static inline void read_timer(struct impl *this)
 {
 	uint64_t expirations;
 
-	if ((this->callbacks && this->callbacks->ready) || this->props.live) {
+	if (this->callbacks.funcs || this->props.live) {
 		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 			perror("read timerfd");
 	}
@@ -292,8 +291,8 @@ static void on_output(struct spa_source *source)
 
 	res = make_buffer(this);
 
-	if (res == SPA_STATUS_HAVE_BUFFER && this->callbacks && this->callbacks->ready)
-		this->callbacks->ready(this->callbacks_data, res);
+	if (res == SPA_STATUS_HAVE_BUFFER && this->callbacks.funcs)
+		spa_node_call_ready(&this->callbacks, res);
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -404,12 +403,11 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	if (this->data_loop == NULL && (callbacks != NULL && callbacks->ready != NULL)) {
+	if (this->data_loop == NULL && callbacks != NULL) {
 		spa_log_error(this->log, "a data_loop is needed for async operation");
 		return -EINVAL;
 	}
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }
@@ -737,7 +735,7 @@ static int impl_node_process(struct spa_node *node)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if ((this->callbacks == NULL || this->callbacks->ready == NULL) &&
+	if (this->callbacks.funcs == NULL &&
 			(io->status == SPA_STATUS_NEED_BUFFER))
 		return make_buffer(this);
 	else

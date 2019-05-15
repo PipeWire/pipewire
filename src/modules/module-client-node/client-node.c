@@ -128,8 +128,7 @@ struct node {
 	struct spa_loop *data_loop;
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 	struct io ios[MAX_IO];
 
 	struct pw_resource *resource;
@@ -521,8 +520,7 @@ impl_node_set_callbacks(struct spa_node *node,
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }
@@ -1115,8 +1113,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 			spa_log_warn(this->log, "node %p: read %"PRIu64" failed %m", this, cmd);
 
 		spa_log_trace_fp(this->log, "node %p: got ready", this);
-		if (this->callbacks && this->callbacks->ready)
-			this->callbacks->ready(this->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_BUFFER);
 	}
 }
 

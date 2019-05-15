@@ -750,7 +750,9 @@ again:
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 			state->io->buffer_id = b->id;
 			spa_log_trace_fp(state->log, "alsa-util %p: reuse buffer %u", state, b->id);
-			state->callbacks->reuse_buffer(state->callbacks_data, 0, b->id);
+
+			spa_node_call_reuse_buffer(&state->callbacks, 0, b->id);
+
 			state->ready_offset = 0;
 		}
 		written += n_frames;
@@ -953,7 +955,7 @@ static int handle_play(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 			state->range->min_size = state->threshold * state->frame_size;
 			state->range->max_size = state->threshold * state->frame_size;
 		}
-		res = state->callbacks->ready(state->callbacks_data, SPA_STATUS_NEED_BUFFER);
+		res = spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_BUFFER);
 	}
 	else {
 		res = spa_alsa_write(state, 0);
@@ -987,7 +989,7 @@ static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_sframes_t 
 			io->buffer_id = b->id;
 			io->status = SPA_STATUS_HAVE_BUFFER;
 		}
-		state->callbacks->ready(state->callbacks_data, SPA_STATUS_HAVE_BUFFER);
+		spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_BUFFER);
 	}
 	return 0;
 }

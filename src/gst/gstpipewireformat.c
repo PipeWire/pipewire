@@ -544,8 +544,7 @@ convert_1 (ConvertData *d)
   if (!(d->type = find_media_types (gst_structure_get_name (d->cs))))
     return NULL;
 
-  d->b.callbacks = &builder_callbacks;
-  d->b.callbacks_data = &d->b;
+  spa_pod_builder_set_callbacks(&d->b, &builder_callbacks, &d->b);
 
   spa_pod_builder_push_object (&d->b, &f, SPA_TYPE_OBJECT_Format, d->id);
 

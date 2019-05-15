@@ -118,8 +118,7 @@ struct stream {
 
 	struct spa_node impl_node;
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 	struct spa_io_buffers *io;
 	struct spa_io_position *position;
 	uint32_t io_control_size;
@@ -406,8 +405,7 @@ static int impl_set_callbacks(struct spa_node *node,
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
 
-	d->callbacks = callbacks;
-	d->callbacks_data = data;
+	d->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }
@@ -1464,7 +1462,7 @@ do_process(struct spa_loop *loop,
 {
 	struct stream *impl = user_data;
 	int res = impl_node_process_output(&impl->impl_node);
-	return impl->callbacks->ready(impl->callbacks_data, res);
+	return spa_node_call_ready(&impl->callbacks, res);
 }
 
 static inline int call_trigger(struct stream *impl)

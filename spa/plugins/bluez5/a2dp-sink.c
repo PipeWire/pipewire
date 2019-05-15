@@ -92,8 +92,7 @@ struct impl {
 	struct spa_loop *data_loop;
 
 	struct spa_hook_list hooks;
-	const struct spa_node_callbacks *callbacks;
-	void *callbacks_data;
+	struct spa_hook callbacks;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -571,7 +570,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 			spa_list_remove(&b->link);
 			b->outstanding = true;
 			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->id);
-			this->callbacks->reuse_buffer(this->callbacks_data, 0, b->id);
+
+			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
 			port->ready_offset = 0;
 		}
 		total_frames += n_frames;
@@ -699,7 +699,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 			port->range->min_size = this->threshold * port->frame_size;
 			port->range->max_size = this->write_samples * port->frame_size;
 		}
-		this->callbacks->ready(this->callbacks_data, SPA_STATUS_NEED_BUFFER);
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
 	}
 	flush_data(this, now_time);
 }
@@ -974,8 +974,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = callbacks;
-	this->callbacks_data = data;
+	this->callbacks = SPA_HOOK_INIT(callbacks, data);
 
 	return 0;
 }

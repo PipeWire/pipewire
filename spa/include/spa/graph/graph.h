@@ -103,14 +103,14 @@ struct spa_graph_node {
 	struct spa_graph_state *state;	/**< state of the node */
 	struct spa_graph_link graph_link;	/**< link in graph */
 	struct spa_graph *subgraph;	/**< subgraph or NULL */
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 	struct spa_list sched_link;	/**< link for scheduler */
 };
 
 #define spa_graph_node_call(n,method,version,...)			\
 ({									\
 	int __res = 0;							\
-	spa_hook_call_res(&(n)->callbacks,				\
+	spa_callbacks_call_res(&(n)->callbacks,				\
 			struct spa_graph_node_callbacks, __res,		\
 			method, version, ##__VA_ARGS__);		\
 	__res;								\
@@ -250,7 +250,7 @@ spa_graph_node_set_callbacks(struct spa_graph_node *node,
 		const struct spa_graph_node_callbacks *callbacks,
 		void *data)
 {
-	node->callbacks = SPA_HOOK_INIT(callbacks, data);
+	node->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 }
 
 static inline void

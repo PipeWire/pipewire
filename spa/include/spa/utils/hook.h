@@ -42,18 +42,25 @@ struct spa_hook_list {
 	struct spa_list list;
 };
 
+/** Callbacks, contains the structure with functions and the data passed
+ * to the functions.  The structure should also contain a version field that
+ * is checked. */
+struct spa_callbacks {
+	const void *funcs;
+	void *data;
+};
+
+#define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }
+
 /** A hook, contains the structure with functions and the data passed
  * to the functions. */
 struct spa_hook {
 	struct spa_list link;
-	const void *funcs;
-	void *data;
+	struct spa_callbacks cb;
 	void *priv;	/**< private data for the hook list */
 	void (*removed) (struct spa_hook *hook);
 
 };
-
-#define SPA_HOOK_INIT(_funcs,_data)	(struct spa_hook){ .funcs = _funcs, .data = _data, }
 
 /** Initialize a hook list */
 static inline void spa_hook_list_init(struct spa_hook_list *list)
@@ -66,8 +73,7 @@ static inline void spa_hook_list_append(struct spa_hook_list *list,
 					struct spa_hook *hook,
 					const void *funcs, void *data)
 {
-	hook->funcs = funcs;
-	hook->data = data;
+	hook->cb = SPA_CALLBACKS_INIT(funcs, data);
 	spa_list_append(&list->list, &hook->link);
 }
 
@@ -76,8 +82,7 @@ static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 					 struct spa_hook *hook,
 					 const void *funcs, void *data)
 {
-	hook->funcs = funcs;
-	hook->data = data;
+	hook->cb = SPA_CALLBACKS_INIT(funcs, data);
 	spa_list_prepend(&list->list, &hook->link);
 }
 
@@ -110,18 +115,18 @@ spa_hook_list_join(struct spa_hook_list *list,
 	spa_list_insert_list(&list->list, &save->list);
 }
 
-#define spa_hook_call(hook,type,method,vers,...)				\
+#define spa_callbacks_call(callbacks,type,method,vers,...)			\
 ({										\
-	const type *cb = (const type *) (hook)->funcs;				\
-	if (cb && cb->version >= vers && cb->method)				\
-		cb->method((hook)->data, ## __VA_ARGS__);			\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	if (_f && _f->version >= (vers) && _f->method)				\
+		_f->method((callbacks)->data, ## __VA_ARGS__);			\
 })
 
-#define spa_hook_call_res(hook,type,res,method,vers,...)			\
+#define spa_callbacks_call_res(callbacks,type,res,method,vers,...)		\
 ({										\
-	const type *cb = (const type *) (hook)->funcs;				\
-	if (cb && cb->version >= vers && cb->method)				\
-		res = cb->method((hook)->data, ## __VA_ARGS__);			\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	if (_f && _f->version >= (vers) && _f->method)				\
+		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
 
@@ -130,7 +135,7 @@ spa_hook_list_join(struct spa_hook_list *list,
 	struct spa_hook_list *_l = l;						\
 	struct spa_hook *_h, *_t;						\
 	spa_list_for_each_safe(_h, _t, &_l->list, link)				\
-		spa_hook_call(_h,type,method,vers, ## __VA_ARGS__);		\
+		spa_callbacks_call(&_h->cb,type,method,vers, ## __VA_ARGS__);	\
 })
 
 /** Call all hooks in a list, starting from the given one and optionally stopping
@@ -144,9 +149,9 @@ spa_hook_list_join(struct spa_hook_list *list,
 	int count = 0;								\
 	spa_list_cursor_start(cursor, s, link);					\
 	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
-		const type *cb = (const type *)ci->funcs;			\
-		if (cb && cb->version >= vers && cb->method) {			\
-			cb->method(ci->data, ## __VA_ARGS__);			\
+		const type *_f = (const type *)ci->cb.funcs;			\
+		if (_f && _f->version >= (vers) && _f->method) {		\
+			_f->method(ci->cb.data, ## __VA_ARGS__);		\
 			count++;						\
 			if (once)						\
 				break;						\

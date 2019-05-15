@@ -118,7 +118,7 @@ struct stream {
 
 	struct spa_node impl_node;
 	struct spa_hook_list hooks;
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 	struct spa_io_buffers *io;
 	struct spa_io_position *position;
 	uint32_t io_control_size;
@@ -405,7 +405,7 @@ static int impl_set_callbacks(struct spa_node *node,
 {
 	struct stream *d = SPA_CONTAINER_OF(node, struct stream, impl_node);
 
-	d->callbacks = SPA_HOOK_INIT(callbacks, data);
+	d->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	return 0;
 }

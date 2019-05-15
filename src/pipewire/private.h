@@ -453,6 +453,20 @@ struct pw_port_implementation {
 			  struct spa_buffer **buffers, uint32_t *n_buffers);
 };
 
+#define pw_port_call(p,m,v,...)				\
+({							\
+	int _res = 0;					\
+	spa_callbacks_call_res(&(p)->impl,		\
+			struct pw_port_implementation,	\
+			_res, m, v, ## __VA_ARGS__);	\
+	_res;						\
+})
+
+#define pw_port_call_init_mix(p,m)		pw_port_call(p,init_mix,0,m)
+#define pw_port_call_release_mix(p,m)		pw_port_call(p,release_mix,0,m)
+#define pw_port_call_use_buffers(p,b,n)		pw_port_call(p,use_buffers,0,b,n)
+#define pw_port_call_alloc_buffers(p,pp,np,b,n)	pw_port_call(p,alloc_buffers,0,pp,np,b,n)
+
 #define pw_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
 #define pw_port_emit_destroy(p)			pw_port_emit(p, destroy, 0)
 #define pw_port_emit_free(p)			pw_port_emit(p, free, 0)
@@ -497,7 +511,7 @@ struct pw_port {
 
 	struct spa_hook_list listener_list;
 
-	struct spa_hook impl;
+	struct spa_callbacks impl;
 
 	struct spa_node *mix;		/**< port buffer mix/split */
 #define PW_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
@@ -700,7 +714,7 @@ struct pw_factory {
 
 	struct spa_hook_list listener_list;	/**< event listeners */
 
-	struct spa_hook impl;
+	struct spa_callbacks impl;
 
 	void *user_data;
 

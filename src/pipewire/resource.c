@@ -142,8 +142,7 @@ void pw_resource_set_implementation(struct pw_resource *resource,
 {
 	struct pw_client *client = resource->client;
 
-	resource->implementation.funcs = implementation;
-	resource->implementation.data = data;
+	resource->implementation.cb = SPA_CALLBACKS_INIT(implementation, data);
 
 	pw_client_emit_resource_impl(client, resource);
 }

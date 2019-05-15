@@ -82,7 +82,7 @@ struct state {
 	snd_output_t *output;
 
 	struct spa_hook_list hooks;
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 
 	uint64_t info_all;
 	struct spa_node_info info;

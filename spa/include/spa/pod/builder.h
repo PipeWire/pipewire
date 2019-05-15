@@ -57,7 +57,7 @@ struct spa_pod_builder {
 	uint32_t size;
 	uint32_t _padding;
 	struct spa_pod_builder_state state;
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 };
 
 #define SPA_POD_BUILDER_INIT(buffer,size)  (struct spa_pod_builder){ buffer, size, }
@@ -72,7 +72,7 @@ static inline void
 spa_pod_builder_set_callbacks(struct spa_pod_builder *builder,
 		const struct spa_pod_builder_callbacks *callbacks, void *data)
 {
-	builder->callbacks = SPA_HOOK_INIT(callbacks, data);
+	builder->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 }
 
 static inline void
@@ -127,7 +127,7 @@ static inline int spa_pod_builder_raw(struct spa_pod_builder *builder, const voi
 
 	if (offset + size > builder->size) {
 		res = -ENOSPC;
-		spa_hook_call_res(&builder->callbacks, struct spa_pod_builder_callbacks, res,
+		spa_callbacks_call_res(&builder->callbacks, struct spa_pod_builder_callbacks, res,
 				overflow, 0, offset + size);
 	}
 	if (res == 0)

@@ -72,7 +72,7 @@ static void test_abi(void)
 	/* builder */
 	spa_assert(sizeof(struct spa_pod_frame) == 24);
 	spa_assert(sizeof(struct spa_pod_builder_state) == 16);
-	spa_assert(sizeof(struct spa_pod_builder) == 80);
+	spa_assert(sizeof(struct spa_pod_builder) == 48);
 
 	/* command */
 	spa_assert(sizeof(struct spa_command_body) == 8);

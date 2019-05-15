@@ -48,7 +48,7 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 
 	struct udev *udev;
 	struct udev_monitor *umonitor;
@@ -283,7 +283,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 
 	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
-	this->callbacks = SPA_HOOK_INIT(callbacks, data);
+	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	if (callbacks) {
 		if ((res = impl_udev_open(this)) < 0)

@@ -208,12 +208,12 @@ struct spa_node_callbacks {
 			     uint32_t buffer_id);
 };
 
-#define spa_node_call(hook,method,version,...)				\
+#define spa_node_call(callbacks,method,version,...)			\
 ({									\
-	int __res = 0;							\
-	spa_hook_call_res(hook, struct spa_node_callbacks, __res,	\
-				method, version, ##__VA_ARGS__);	\
-	__res;								\
+	int _res = 0;							\
+	spa_callbacks_call_res(callbacks, struct spa_node_callbacks,	\
+			_res, method, version, ##__VA_ARGS__);		\
+	_res;								\
 })
 
 #define spa_node_call_ready(hook,s)		spa_node_call(hook, ready, 0, s)

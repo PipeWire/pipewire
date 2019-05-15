@@ -134,7 +134,7 @@ struct impl {
 	struct props props;
 
 	struct spa_hook_list hooks;
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 
 	struct port out_ports[1];
 
@@ -383,7 +383,7 @@ static int impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct impl, node);
 
-	this->callbacks = SPA_HOOK_INIT(callbacks, data);
+	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	return 0;
 }

@@ -175,8 +175,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	if (port->mix->add_port)
 		port->mix->add_port(port->mix, port->direction, port_id, NULL);
 
-	spa_hook_call_res(&port->impl, struct pw_port_implementation,
-			res, init_mix, 0, mix);
+	res = pw_port_call_init_mix(port, mix);
 
 	/* set the same format on the mixer as on the port if any */
 	if (port->mix->enum_params && port->mix->set_param) {
@@ -211,8 +210,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 	spa_list_remove(&mix->link);
 	port->n_mix--;
 
-	spa_hook_call_res(&port->impl, struct pw_port_implementation,
-			res, release_mix, 0, mix);
+	res = pw_port_call_release_mix(port, mix);
 
 	if (port->mix->remove_port) {
 		port->mix->remove_port(port->mix, port->direction, port_id);
@@ -1033,8 +1031,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 		port->allocated = false;
 		free_allocation(&port->allocation);
 
-		spa_hook_call_res(&port->impl, struct pw_port_implementation,
-			res, use_buffers, 0, buffers, n_buffers);
+		res = pw_port_call_use_buffers(port, buffers, n_buffers);
 	}
 
 	if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
@@ -1062,9 +1059,7 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	}
 
 	if (res >= 0) {
-		spa_hook_call_res(&port->impl, struct pw_port_implementation,
-			res, alloc_buffers, 0,
-			params, n_params, buffers, n_buffers);
+		res = pw_port_call_alloc_buffers(port, params, n_params, buffers, n_buffers);
 		if (res < 0) {
 			pw_log_error("port %p: %d implementation alloc failed: %d (%s)",
 					port, port->port_id, res, spa_strerror(res));

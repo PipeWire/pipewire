@@ -128,7 +128,7 @@ struct node {
 	struct spa_loop *data_loop;
 
 	struct spa_hook_list hooks;
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 	struct io ios[MAX_IO];
 
 	struct pw_resource *resource;
@@ -520,7 +520,7 @@ impl_node_set_callbacks(struct spa_node *node,
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
-	this->callbacks = SPA_HOOK_INIT(callbacks, data);
+	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	return 0;
 }
@@ -1529,7 +1529,7 @@ static void node_port_added(void *data, struct pw_port *port)
 			PW_PORT_MIX_FLAG_MULTI |
 			PW_PORT_MIX_FLAG_MIX_ONLY);
 
-	port->impl = SPA_HOOK_INIT(&port_impl, p);
+	port->impl = SPA_CALLBACKS_INIT(&port_impl, p);
 	port->owner_data = impl;
 }
 

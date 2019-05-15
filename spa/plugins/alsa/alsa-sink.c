@@ -293,7 +293,7 @@ impl_node_set_callbacks(struct spa_node *node,
 
 	this = SPA_CONTAINER_OF(node, struct state, node);
 
-	this->callbacks = SPA_HOOK_INIT(callbacks, data);
+	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	return 0;
 }

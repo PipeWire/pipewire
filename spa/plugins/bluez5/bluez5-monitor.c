@@ -60,7 +60,7 @@ struct spa_bt_monitor {
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
 
-	struct spa_hook callbacks;
+	struct spa_callbacks callbacks;
 
 	uint32_t count;
 
@@ -2050,7 +2050,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 
 	this = SPA_CONTAINER_OF(monitor, struct spa_bt_monitor, monitor);
 
-	this->callbacks = SPA_HOOK_INIT(callbacks, data);
+	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	if (callbacks) {
 		get_managed_objects(this);

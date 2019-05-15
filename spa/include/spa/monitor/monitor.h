@@ -86,11 +86,11 @@ struct spa_monitor_callbacks {
 	int (*event) (void *data, struct spa_event *event);
 };
 
-#define spa_monitor_call(hook,method,version,...)			\
+#define spa_monitor_call(callbacks,method,version,...)			\
 ({									\
 	int __res = 0;							\
-	spa_hook_call_res(hook, struct spa_monitor_callbacks, __res,	\
-				method, version, ##__VA_ARGS__);	\
+	spa_callbacks_call_res(callbacks, struct spa_monitor_callbacks,	\
+			__res, method, version, ##__VA_ARGS__);		\
 	__res;								\
 })
 

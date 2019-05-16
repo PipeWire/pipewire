@@ -72,7 +72,6 @@ struct port {
 	struct port_props props;
 
 	struct spa_io_buffers *io;
-	struct spa_io_range *io_range;
 	double *io_volume;
 	int32_t *io_mute;
 
@@ -431,12 +430,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Range),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_range)));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
 			break;
@@ -654,9 +647,6 @@ impl_node_port_set_io(struct spa_node *node,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_Range:
-		port->io_range = data;
-		break;
 	default:
 		return -ENOENT;
 	}
@@ -869,8 +859,6 @@ static int impl_node_process(struct spa_node *node)
 				      i, inport->queued_bytes, inio->status);
 
 			if (inport->queued_bytes == 0) {
-				if (inport->io_range && outport->io_range)
-					*inport->io_range = *outport->io_range;
 				inio->status = SPA_STATUS_NEED_BUFFER;
 			}
 		}

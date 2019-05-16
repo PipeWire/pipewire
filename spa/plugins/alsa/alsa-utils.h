@@ -106,7 +106,6 @@ struct state {
 	struct spa_port_info port_info;
 	struct spa_param_info port_params[8];
 	struct spa_io_buffers *io;
-	struct spa_io_range *range;
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
 	struct spa_io_sequence *notify;

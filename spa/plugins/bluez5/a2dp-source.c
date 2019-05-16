@@ -72,7 +72,6 @@ struct port {
 	uint64_t info_all;
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-	struct spa_io_range *range;
 	struct spa_param_info params[8];
 
 	struct buffer buffers[MAX_BUFFERS];

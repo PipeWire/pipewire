@@ -91,7 +91,6 @@ struct port {
 	struct spa_param_info params[5];
 
 	struct spa_io_buffers *io;
-	struct spa_io_range *io_range;
 	struct spa_io_sequence *io_control;
 
 	bool have_format;
@@ -317,7 +316,6 @@ static int make_buffer(struct impl *this)
 	struct buffer *b;
 	struct port *port = &this->port;
 	struct spa_io_buffers *io = port->io;
-	struct spa_io_range *range = port->io_range;
 	uint32_t n_bytes, n_samples, maxsize;
 	void *data;
 	struct spa_data *d;
@@ -340,11 +338,6 @@ static int make_buffer(struct impl *this)
 	data = d[0].data;
 
 	n_bytes = maxsize;
-	if (range && range->min_size != 0) {
-		n_bytes = SPA_MIN(n_bytes, range->min_size);
-		if (range->max_size < n_bytes)
-			n_bytes = range->max_size;
-	}
 
 	spa_log_trace(this->log, NAME " %p: dequeue buffer %d %d %d", this, b->id,
 		      maxsize, n_bytes);
@@ -642,12 +635,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Range),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_range)));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
 			break;
@@ -863,9 +850,6 @@ impl_node_port_set_io(struct spa_node *node,
 	switch (id) {
 	case SPA_IO_Buffers:
 		port->io = data;
-		break;
-	case SPA_IO_Range:
-		port->io_range = data;
 		break;
 	case SPA_IO_Control:
 		port->io_control = data;

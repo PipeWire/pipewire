@@ -71,7 +71,6 @@ struct port {
 	uint64_t info_all;
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
-	struct spa_io_range *range;
 	struct spa_param_info params[8];
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -694,11 +693,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 		spa_log_trace(this->log, "a2dp-sink %p: %d", this, io->status);
 
 		io->status = SPA_STATUS_NEED_BUFFER;
-		if (port->range) {
-			port->range->offset = this->sample_count * port->frame_size;
-			port->range->min_size = this->threshold * port->frame_size;
-			port->range->max_size = this->write_samples * port->frame_size;
-		}
+
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
 	}
 	flush_data(this, now_time);
@@ -1295,9 +1290,6 @@ impl_node_port_set_io(struct spa_node *node,
 	switch (id) {
 	case SPA_IO_Buffers:
 		port->io = data;
-		break;
-	case SPA_IO_Range:
-		port->range = data;
 		break;
 	default:
 		return -ENOENT;

@@ -950,11 +950,7 @@ static int handle_play(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		spa_log_trace_fp(state->log, "alsa-util %p: %d", state, io->status);
 
 		io->status = SPA_STATUS_NEED_BUFFER;
-		if (state->range) {
-			state->range->offset = state->sample_count * state->frame_size;
-			state->range->min_size = state->threshold * state->frame_size;
-			state->range->max_size = state->threshold * state->frame_size;
-		}
+
 		res = spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_BUFFER);
 	}
 	else {

@@ -66,7 +66,6 @@ struct port {
 	uint32_t id;
 
 	struct spa_io_buffers *io;
-	struct spa_io_range *ctrl;
 
 	uint64_t info_all;
 	struct spa_port_info info;
@@ -808,9 +807,6 @@ impl_node_port_set_io(struct spa_node *node,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_Range:
-		port->ctrl = data;
-		break;
 	default:
 		return -ENOENT;
 	}
@@ -911,8 +907,6 @@ static int impl_node_process(struct spa_node *node)
 		dd = dbuf->buf->datas;
 
 		maxsize = dd->maxsize;
-		if (outport->ctrl)
-			maxsize = SPA_MIN(outport->ctrl->max_size, maxsize);
 		n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
 		for (j = 0; j < dbuf->buf->n_datas; j++) {

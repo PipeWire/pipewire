@@ -434,13 +434,16 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 
 			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
 				const char *uuid;
+				enum spa_bt_profile profile;
 
 				dbus_message_iter_get_basic(&iter, &uuid);
 
-				spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, uuid);
+				profile = spa_bt_profile_from_uuid(uuid);
 
-				adapter->profiles |= spa_bt_profile_from_uuid(uuid);
-
+				if (profile && (adapter->profiles & profile) == 0) {
+					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, uuid);
+					adapter->profiles |= profile;
+				}
 				dbus_message_iter_next(&iter);
 			}
 		}
@@ -615,7 +618,7 @@ static int device_stop_timer(struct spa_bt_device *device)
 	return 0;
 }
 
-static int check_profiles(struct spa_bt_device *device)
+static int device_check_profiles(struct spa_bt_device *device, bool force)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	uint32_t connected_profiles = device->connected_profiles;
@@ -634,7 +637,7 @@ static int check_profiles(struct spa_bt_device *device)
 			device_remove(monitor, device);
 		}
 	}
-	else if ((device->profiles & connected_profiles) == device->profiles) {
+	else if (force || (device->profiles & connected_profiles) == device->profiles) {
 		device_stop_timer(device);
 		device_add(monitor, device);
 	} else {
@@ -651,7 +654,7 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 	device->connected = connected;
 
 	if (connected)
-		check_profiles(device);
+		device_check_profiles(device, false);
 	else
 		device_stop_timer(device);
 }
@@ -659,7 +662,7 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 static int device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile)
 {
 	device->connected_profiles |= profile;
-	check_profiles(device);
+	device_check_profiles(device, false);
 	return 0;
 }
 
@@ -720,7 +723,7 @@ static int device_update_props(struct spa_bt_device *device,
 
 			dbus_message_iter_get_basic(&it[1], &value);
 
-			spa_log_debug(monitor->log, "device %p: %s=%d", device, key, value);
+			spa_log_debug(monitor->log, "device %p: %s=%08x", device, key, value);
 
 			if (strcmp(key, "Class") == 0)
 				device->bluetooth_class = value;
@@ -764,6 +767,10 @@ static int device_update_props(struct spa_bt_device *device,
 			else if (strcmp(key, "Blocked") == 0) {
 				device->blocked = value;
 			}
+			else if (strcmp(key, "ServicesResolved") == 0) {
+				if (value)
+					device_check_profiles(device, true);
+			}
 		}
 		else if (strcmp(key, "UUIDs") == 0) {
 			DBusMessageIter iter;
@@ -775,13 +782,15 @@ static int device_update_props(struct spa_bt_device *device,
 
 			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
 				const char *uuid;
+				enum spa_bt_profile profile;
 
 				dbus_message_iter_get_basic(&iter, &uuid);
 
-				spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
-
-				device->profiles |= spa_bt_profile_from_uuid(uuid);
-
+				profile = spa_bt_profile_from_uuid(uuid);
+				if (profile && (device->profiles & profile) == 0) {
+					spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
+					device->profiles |= profile;
+				}
 				dbus_message_iter_next(&iter);
 			}
 		}
@@ -821,9 +830,26 @@ static struct spa_bt_transport *transport_create(struct spa_bt_monitor *monitor,
 
 	return t;
 }
+static void transport_set_state(struct spa_bt_transport *transport, enum spa_bt_transport_state state)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	enum spa_bt_transport_state old = transport->state;
+
+	if (old != state) {
+		transport->state = state;
+		spa_log_debug(monitor->log, "transport %p: %s state changed %d -> %d",
+				transport, transport->path, old, state);
+		spa_bt_transport_emit_state_changed(transport, old, state);
+	}
+}
 
 static void transport_free(struct spa_bt_transport *transport)
 {
+	struct spa_bt_monitor *monitor = transport->monitor;
+
+	spa_log_debug(monitor->log, "transport %p: free %s", transport, transport->path);
+
+	transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
 
 	spa_bt_transport_emit_destroy(transport);
 
@@ -877,7 +903,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				}
 			}
 			else if (strcmp(key, "State") == 0) {
-				transport->state = spa_bt_transport_state_from_string(value);
+				transport_set_state(transport, spa_bt_transport_state_from_string(value));
 			}
 			else if (strcmp(key, "Device") == 0) {
 				transport->device = device_find(monitor, value);
@@ -960,7 +986,6 @@ static int transport_acquire(void *data, bool optional)
 			spa_log_error(monitor->log, "Transport %s() failed for transport %s (%s)",
 					method, transport->path, err.message);
 		}
-
 		dbus_error_free(&err);
 		return -EIO;
 	}
@@ -1117,7 +1142,7 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 
 		transport_free(transport);
 		if (device != NULL)
-			check_profiles(device);
+			device_check_profiles(device, false);
 	}
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
@@ -1424,7 +1449,10 @@ static void rfcomm_event(struct spa_source *source)
 				spa_log_error(monitor->log, "RFCOMM write error: %s", strerror(errno));
 		}
 	}
+	return;
+
 fail:
+	transport_free(t);
 	return;
 }
 
@@ -1724,6 +1752,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	sco_listen(t);
 
+	spa_log_debug(monitor->log, "Transport %s available for profile %s", t->path, handler);
+
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	if (!dbus_connection_send(conn, r, NULL))
@@ -1775,7 +1805,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 		if (t->profile == profile)
 			transport_free(t);
 	}
-	check_profiles(d);
+	device_check_profiles(d, false);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -2039,6 +2069,120 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
         dbus_message_unref(m);
 }
 
+static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
+{
+	struct spa_bt_monitor *monitor = user_data;
+	DBusError err;
+
+	dbus_error_init(&err);
+
+	if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged")) {
+		spa_log_debug(monitor->log, "Name owner changed %s", dbus_message_get_path(m));
+	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded")) {
+		spa_log_debug(monitor->log, "interfaces added %s", dbus_message_get_path(m));
+	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved")) {
+		spa_log_debug(monitor->log, "interfaces removed %s", dbus_message_get_path(m));
+	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
+		DBusMessageIter it[2];
+		const char *iface, *path;
+
+		if (!dbus_message_iter_init(m, &it[0]) ||
+		    strcmp(dbus_message_get_signature(m), "sa{sv}as") != 0) {
+			spa_log_error(monitor->log, "Invalid signature found in PropertiesChanged");
+			goto fail;
+		}
+		path = dbus_message_get_path(m);
+
+		dbus_message_iter_get_basic(&it[0], &iface);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		if (strcmp(iface, BLUEZ_ADAPTER_INTERFACE) == 0) {
+			struct spa_bt_adapter *a;
+
+			a = adapter_find(monitor, path);
+			if (a == NULL) {
+				spa_log_warn(monitor->log,
+						"Properties changed in unknown adapter %s", path);
+				goto fail;
+			}
+			spa_log_debug(monitor->log, "Properties changed in adapter %s", path);
+
+			adapter_update_props(a, &it[1], NULL);
+		}
+		else if (strcmp(iface, BLUEZ_DEVICE_INTERFACE) == 0) {
+			struct spa_bt_device *d;
+
+			d = device_find(monitor, path);
+			if (d == NULL) {
+				spa_log_warn(monitor->log,
+						"Properties changed in unknown device %s", path);
+				goto fail;
+			}
+			spa_log_debug(monitor->log, "Properties changed in device %s", path);
+
+			device_update_props(d, &it[1], NULL);
+		}
+		else if (strcmp(iface, BLUEZ_MEDIA_TRANSPORT_INTERFACE) == 0) {
+			struct spa_bt_transport *transport;
+
+			transport = transport_find(monitor, path);
+			if (transport == NULL) {
+				spa_log_warn(monitor->log,
+						"Properties changed in unknown transport %s", path);
+				goto fail;
+			}
+
+			spa_log_debug(monitor->log, "Properties changed in transport %s", path);
+
+			transport_update_props(transport, &it[1], NULL);
+		}
+        }
+
+fail:
+	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+static void add_filters(struct spa_bt_monitor *this)
+{
+	DBusError err;
+
+	dbus_error_init(&err);
+
+	if (!dbus_connection_add_filter(this->conn, filter_cb, this, NULL)) {
+		spa_log_error(this->log, "failed to add filter function");
+		goto fail;
+	}
+
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='org.freedesktop.DBus',"
+			"interface='org.freedesktop.DBus',member='NameOwnerChanged',"
+			"arg0='" BLUEZ_SERVICE "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.ObjectManager',member='InterfacesAdded'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.ObjectManager',member='InterfacesRemoved'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
+			"arg0='" BLUEZ_ADAPTER_INTERFACE "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
+			"arg0='" BLUEZ_DEVICE_INTERFACE "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
+			"arg0='" BLUEZ_MEDIA_TRANSPORT_INTERFACE "'", &err);
+
+	return;
+
+fail:
+	dbus_error_free(&err);
+}
+
 static int
 impl_monitor_set_callbacks(struct spa_monitor *monitor,
 			   const struct spa_monitor_callbacks *callbacks,
@@ -2053,6 +2197,7 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	if (callbacks) {
+		add_filters(this);
 		get_managed_objects(this);
 	}
 

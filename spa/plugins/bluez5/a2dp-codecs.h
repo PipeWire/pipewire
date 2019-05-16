@@ -284,15 +284,15 @@ static inline int a2dp_sbc_get_frequency(a2dp_sbc_t *config)
         }
 }
 
-const a2dp_sbc_t bluez_a2dp_sbc;
+extern const a2dp_sbc_t bluez_a2dp_sbc;
 #if ENABLE_MP3
-const a2dp_mpeg_t bluez_a2dp_mpeg;
+extern const a2dp_mpeg_t bluez_a2dp_mpeg;
 #endif
 #if ENABLE_AAC
-const a2dp_aac_t bluez_a2dp_aac;
+extern const a2dp_aac_t bluez_a2dp_aac;
 #endif
 #if ENABLE_APTX
-const a2dp_aptx_t bluez_a2dp_aptx;
+extern const a2dp_aptx_t bluez_a2dp_aptx;
 #endif
 
 #endif

@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <time.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -375,7 +376,8 @@ static void decode_sbc_data(struct impl *this, uint8_t *src, size_t src_size)
         this->sample_count += data[0].chunk->size / port->frame_size;
 
         /* add the buffer to the queue */
-        spa_log_debug(this->log, "data decoded successfully for buffer_id=%d", buffer->id);
+        spa_log_debug(this->log, "data decoded %d successfully for buffer_id=%d",
+			data[0].chunk->size, buffer->id);
         spa_list_append(&port->ready, &buffer->link);
 
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_BUFFER);
@@ -432,23 +434,18 @@ stop:
 		spa_loop_remove_source(this->data_loop, &this->source);
 }
 
-static int do_start(struct impl *this)
+static int transport_start(struct impl *this)
 {
 	int res, val;
-
-	if (this->started)
-		return 0;
-
-	if (this->transport == NULL)
-		return -EIO;
-
-	spa_log_debug(this->log, "a2dp-source %p: start", this);
 
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
 
 	sbc_init_a2dp(&this->sbc, 0, this->transport->configuration,
 		this->transport->configuration_len);
+
+	val = fcntl(this->transport->fd, F_GETFL);
+	fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK);
 
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
@@ -472,9 +469,28 @@ static int do_start(struct impl *this)
 	spa_loop_add_source(this->data_loop, &this->source);
 
 	this->sample_count = 0;
-	this->started = true;
 
 	return 0;
+}
+
+static int do_start(struct impl *this)
+{
+	int res = 0;
+
+	if (this->started)
+		return 0;
+
+	if (this->transport == NULL)
+		return -EIO;
+
+	spa_log_debug(this->log, "a2dp-source %p: start", this);
+
+	if (this->transport->state == SPA_BT_TRANSPORT_STATE_ACTIVE)
+		res = transport_start(this);
+
+	this->started = true;
+
+	return res;
 }
 
 static int do_remove_source(struct spa_loop *loop,
@@ -1039,9 +1055,20 @@ static void transport_destroy(void *data)
 	this->transport = NULL;
 }
 
+static void transport_state_changed(void *data, enum spa_bt_transport_state old,
+		enum spa_bt_transport_state state)
+{
+	struct impl *this = data;
+	if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING) {
+		if (this->started)
+			transport_start(this);
+	}
+}
+
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
         .destroy = transport_destroy,
+        .state_changed = transport_state_changed,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)

@@ -102,6 +102,8 @@ static int emit_source_node(struct impl *this)
 			snprintf(transport, 16, "%p", t);
 			items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
 
+			spa_bt_transport_acquire(t, true);
+
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
 			info.factory = &spa_a2dp_source_factory;

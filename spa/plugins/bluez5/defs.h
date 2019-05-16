@@ -187,6 +187,8 @@ struct spa_bt_transport_events {
 	uint32_t version;
 
 	void (*destroy) (void *data);
+	void (*state_changed) (void *data, enum spa_bt_transport_state old,
+			enum spa_bt_transport_state state);
 };
 
 struct spa_bt_transport_implementation {
@@ -220,9 +222,11 @@ struct spa_bt_transport {
 	struct spa_callbacks impl;
 };
 
-#define spa_bt_transport_emit(t,m,v,...)	spa_hook_list_call(&(t)->listener_list, \
-							struct spa_bt_transport_events, m, v, ##__VA_ARGS__)
-#define spa_bt_transport_emit_destroy(t)	spa_bt_transport_emit(t, destroy, 0)
+#define spa_bt_transport_emit(t,m,v,...)		spa_hook_list_call(&(t)->listener_list, \
+								struct spa_bt_transport_events,	\
+								m, v, ##__VA_ARGS__)
+#define spa_bt_transport_emit_destroy(t)		spa_bt_transport_emit(t, destroy, 0)
+#define spa_bt_transport_emit_state_changed(t,...)	spa_bt_transport_emit(t, state_changed, 0, __VA_ARGS__)
 
 #define spa_bt_transport_add_listener(t,listener,events,data) \
         spa_hook_list_append(&(t)->listener_list, listener, events, data)

@@ -1,5 +1,6 @@
 
 bluez5_sources = ['plugin.c',
+		  'a2dp-codecs.c',
 		  'a2dp-sink.c',
 		  'a2dp-source.c',
 		  'bluez5-device.c',

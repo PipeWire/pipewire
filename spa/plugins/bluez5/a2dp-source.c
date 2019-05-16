@@ -484,7 +484,7 @@ static int do_start(struct impl *this)
 
 	spa_log_debug(this->log, "a2dp-source %p: start", this);
 
-	if (this->transport->state == SPA_BT_TRANSPORT_STATE_ACTIVE)
+	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING)
 		res = transport_start(this);
 
 	this->started = true;

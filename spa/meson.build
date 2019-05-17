@@ -30,9 +30,6 @@ if get_option('spa-plugins')
     avcodec_dep = dependency('libavcodec')
     avformat_dep = dependency('libavformat')
   endif
-  if get_option('v4l2')
-    v4l2_dep = dependency('libv4l2')
-  endif
 
   subdir('plugins')
 endif

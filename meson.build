@@ -97,6 +97,7 @@ check_headers = [['dlfcn.h','HAVE_DLFCN_H'],
   ['inttypes.h', 'HAVE_INTTYPES_H'],
   ['memory.h', 'HAVE_MEMORY_H'],
   ['poll.h', 'HAVE_POLL_H'],
+  ['stddef.h', 'HAVE_STDDEF_H'],
   ['stdint.h', 'HAVE_STDINT_H'],
   ['stdio_ext.h', 'HAVE_STDIO_EXT_H'],
   ['strings.h', 'HAVE_STRINGS_H'],
@@ -140,8 +141,8 @@ if cc.has_function('clock_gettime', prefix : '#include <time.h>')
   cdata.set('HAVE_CLOCK_GETTIME', 1)
 endif
 
-if cc.has_type('ptrdiff_t')
-  cdata.set('HAVE_PTRDIFF_T')
+if cc.has_type('ptrdiff_t', prefix : '#include <stddef.h>')
+  cdata.set('HAVE_PTRDIFF_T', 1)
 endif
 
 if cc.has_function('mkstemp', prefix : '#include <stdlib.h>')

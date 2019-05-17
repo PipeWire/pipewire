@@ -17,7 +17,6 @@
 
 # Only there to make jhbuild happy
 
-rm -rf ./build
-mkdir build
-meson build "$@"
+mkdir -p build
+meson setup build "$@"  # use 'autogen.sh --reconfigure' to update
 ln -s build/Makefile Makefile

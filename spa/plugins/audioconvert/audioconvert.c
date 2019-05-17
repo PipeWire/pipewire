@@ -457,7 +457,22 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this;
+	int res;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_IO_Position:
+		res = spa_node_set_io(this->resample, id, data, size);
+		break;
+	default:
+		res = -ENOENT;
+		break;
+	}
+	return res;
 }
 
 static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
@@ -718,12 +733,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Range),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_range)));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
 			break;
@@ -864,9 +873,6 @@ impl_node_port_set_io(struct spa_node *node,
 	spa_log_debug(this->log, "set io %d %d %d", id, direction, port_id);
 
 	switch (id) {
-	case SPA_IO_Range:
-		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
-		break;
 	case SPA_IO_Control:
 		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
 		res = spa_node_port_set_io(this->channelmix, direction, 0, id, data, size);

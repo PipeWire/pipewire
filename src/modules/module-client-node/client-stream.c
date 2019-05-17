@@ -104,7 +104,6 @@ struct impl {
 	struct pw_port_mix client_port_mix;
 
 	struct spa_io_buffers *io;
-	struct spa_io_range range;
 
 	struct spa_buffer **buffers;
 	uint32_t n_buffers;
@@ -267,12 +266,20 @@ static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size
 {
 	struct node *this;
 	struct impl *impl;
+	int res = 0;
+
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
 	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
-	return spa_node_set_io(impl->cnode, id, data, size);
+	if (impl->adapter)
+		res = spa_node_set_io(impl->adapter, id, data, size);
+
+	if (impl->cnode && impl->adapter != impl->cnode) {
+		res = spa_node_set_io(impl->cnode, id, data, size);
+	}
+	return res;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -414,13 +421,6 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 
 	if ((res = spa_node_add_port(impl->adapter_mix, direction, port_id, props)) < 0)
 		return res;
-
-	if ((res = spa_node_port_set_io(impl->adapter_mix,
-					direction, port_id,
-					SPA_IO_Range,
-					&impl->range,
-					sizeof(&impl->range))) < 0)
-			return res;
 
 	return res;
 }
@@ -853,9 +853,7 @@ static int impl_node_process(struct spa_node *node)
 	if (!impl->active)
 		return SPA_STATUS_HAVE_BUFFER;
 
-	impl->range.min_size = impl->range.max_size = q->size * sizeof(float);
-
-	spa_log_trace_fp(this->log, "%p: process %d", this, impl->range.max_size);
+	spa_log_trace_fp(this->log, "%p: process %zd", this, q->size * sizeof(float));
 
 	if (impl->use_converter) {
 		status = spa_node_process(impl->adapter);
@@ -1095,12 +1093,6 @@ static void client_node_initialized(void *data)
 					SPA_IO_Buffers,
 					impl->client_port_mix.io,
 					sizeof(impl->client_port_mix.io))) < 0)
-			return;
-		if ((res = spa_node_port_set_io(impl->adapter_mix,
-					impl->direction, 0,
-					SPA_IO_Range,
-					&impl->range,
-					sizeof(&impl->range))) < 0)
 			return;
 	}
 

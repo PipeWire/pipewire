@@ -78,7 +78,6 @@ struct port {
 	struct spa_param_info params[8];
 
 	struct spa_io_buffers *io;
-	struct spa_io_range *io_range;
 	struct spa_io_sequence *io_control;
 
 	struct spa_audio_info format;
@@ -101,6 +100,8 @@ struct impl {
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 
+	struct spa_io_position *io_position;
+
 	uint64_t info_all;
 	struct spa_node_info info;
 	struct props props;
@@ -110,6 +111,10 @@ struct impl {
 	struct port in_port;
 	struct port out_port;
 
+#define MODE_SPLIT	0
+#define MODE_MERGE	1
+#define MODE_CONVERT	2
+	int mode;
 	unsigned int started:1;
 	unsigned int monitor:1;
 
@@ -215,7 +220,20 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 
 static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this;
+
+	spa_return_val_if_fail(node != NULL, -EINVAL);
+
+	this = SPA_CONTAINER_OF(node, struct impl, node);
+
+	switch (id) {
+	case SPA_IO_Position:
+		this->io_position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
@@ -446,12 +464,6 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Range),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_range)));
-			break;
 		default:
 			return 0;
 		}
@@ -656,9 +668,6 @@ impl_node_port_set_io(struct spa_node *node,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_Range:
-		port->io_range = data;
-		break;
 	case SPA_IO_Control:
 		port->io_control = data;
 		break;
@@ -735,10 +744,11 @@ static int impl_node_process(struct spa_node *node)
 	struct spa_io_buffers *outio, *inio;
 	struct buffer *sbuf, *dbuf;
 	struct spa_buffer *sb, *db;
-	uint32_t i, size, in_len, out_len, pin_len, pout_len, maxsize;
+	uint32_t i, size, in_len, out_len, pin_len, pout_len, maxsize, max;
 	int res = 0;
 	const void **src_datas;
 	void **dst_datas;
+	bool flush_out = false;
 
 	spa_return_val_if_fail(node != NULL, -EINVAL);
 
@@ -784,11 +794,28 @@ static int impl_node_process(struct spa_node *node)
 
 	size = sb->datas[0].chunk->size;
 	maxsize = db->datas[0].maxsize;
-	if (outport->io_range)
-		maxsize = SPA_MIN(outport->io_range->max_size, maxsize);
 
-	pin_len = in_len = (size - inport->offset) / sizeof(float);
-	pout_len = out_len = (maxsize - outport->offset) / sizeof(float);
+	if (this->io_position) {
+		max = this->io_position->size;
+	} else {
+		max = 1024;
+	}
+
+	switch (this->mode) {
+	case MODE_SPLIT:
+		maxsize = SPA_MIN(maxsize, max * sizeof(float));
+		break;
+	case MODE_MERGE:
+	default:
+		flush_out = true;
+		break;
+	}
+
+	in_len = (size - inport->offset) / sizeof(float);
+	out_len = (maxsize - outport->offset) / sizeof(float);
+
+	pin_len = in_len;
+	pout_len = out_len;
 
 	src_datas = alloca(sizeof(void*) * this->resample.channels);
 	dst_datas = alloca(sizeof(void*) * this->resample.channels);
@@ -816,9 +843,7 @@ static int impl_node_process(struct spa_node *node)
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
 	}
 	outport->offset += out_len * sizeof(float);
-	if (outport->io_range == NULL)
-		maxsize = 0;
-	if (outport->offset > 0 && outport->offset >= maxsize) {
+	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
 		outio->status = SPA_STATUS_HAVE_BUFFER;
 		outio->buffer_id = dbuf->id;
 		dequeue_buffer(this, dbuf);
@@ -918,8 +943,19 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->resample.cpu_flags = spa_cpu_get_flags(this->cpu);
 
-	if (info != NULL && (str = spa_dict_lookup(info, "resample.peaks")) != NULL)
-		this->monitor = atoi(str);
+	if (info != NULL) {
+		if ((str = spa_dict_lookup(info, "resample.peaks")) != NULL)
+			this->monitor = atoi(str);
+		if ((str = spa_dict_lookup(info, "factory.mode")) != NULL) {
+			if (strcmp(str, "split") == 0)
+				this->mode = MODE_SPLIT;
+			else if (strcmp(str, "merge") == 0)
+				this->mode = MODE_MERGE;
+			else
+				this->mode = MODE_CONVERT;
+		}
+	}
+	spa_log_debug(this->log, "mode:%d", this->mode);
 
 	this->node = impl_node;
 

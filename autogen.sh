@@ -7,4 +7,4 @@ git submodule update
 
 mkdir -p build
 meson setup build "$@"  # use 'autogen.sh --reconfigure' to update
-ln -s build/Makefile Makefile
+ln -sf build/Makefile Makefile

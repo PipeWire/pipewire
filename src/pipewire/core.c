@@ -760,6 +760,9 @@ int pw_core_find_format(struct pw_core *core,
 	int res;
 	uint32_t iidx = 0, oidx = 0;
 	struct pw_type *t = &core->type;
+	struct spa_pod_builder fb = { 0 };
+	uint8_t fbuf[4096];
+	struct spa_pod *filter;
 
 	out_state = output->state;
 	in_state = input->state;
@@ -773,55 +776,46 @@ int pw_core_find_format(struct pw_core *core,
 		in_state = PW_PORT_STATE_CONFIGURE;
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
-		struct spa_pod_builder fb = { 0 };
-		uint8_t fbuf[4096];
-		struct spa_pod *dummy;
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->spa_direction, output->port_id,
 						     t->param.idFormat, &oidx,
-						     NULL, format, &fb)) <= 0) {
+						     NULL, &filter, &fb)) <= 0) {
 			asprintf(error, "error get output format: %s", spa_strerror(res));
 			goto error;
 		}
 		pw_log_debug("Got output %d format:", oidx);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, core->type.map, *format);
+			spa_debug_format(2, core->type.map, filter);
 
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->spa_direction, input->port_id,
 						     t->param.idEnumFormat, &iidx,
-						     *format, &dummy, builder)) <= 0) {
+						     filter, format, builder)) <= 0) {
 			asprintf(error, "error input enum formats: %d", res);
 			goto error;
 		}
 	} else if (out_state == PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
-		struct spa_pod_builder fb = { 0 };
-		uint8_t fbuf[4096];
-		struct spa_pod *dummy;
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params(input->node->node,
 						     input->spa_direction, input->port_id,
 						     t->param.idFormat, &iidx,
-						     NULL, format, &fb)) <= 0) {
+						     NULL, &filter, &fb)) <= 0) {
 			asprintf(error, "error get input format: %s", spa_strerror(res));
 			goto error;
 		}
-		pw_log_debug("Got input %d format:", oidx);
+		pw_log_debug("Got input %d format:", iidx);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, core->type.map, *format);
+			spa_debug_format(2, core->type.map, filter);
 
 		if ((res = spa_node_port_enum_params(output->node->node,
 						     output->spa_direction, output->port_id,
 						     t->param.idEnumFormat, &oidx,
-						     *format, &dummy, builder)) <= 0) {
+						     filter, format, builder)) <= 0) {
 			asprintf(error, "error output enum formats: %d", res);
 			goto error;
 		}
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
-		struct spa_pod_builder fb = { 0 };
-		uint8_t fbuf[4096];
-		struct spa_pod *filter;
 	      again:
 		/* both ports need a format */
 		pw_log_debug("core %p: do enum input %d", core, iidx);

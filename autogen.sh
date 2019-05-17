@@ -5,7 +5,6 @@
 git submodule init
 git submodule update
 
-rm -rf ./build
-mkdir build
-meson build "$@"
+mkdir -p build
+meson setup build "$@"  # use 'autogen.sh --reconfigure' to update
 ln -s build/Makefile Makefile

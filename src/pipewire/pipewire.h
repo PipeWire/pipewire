@@ -144,10 +144,7 @@ void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t 
 		uint32_t n_support,
 		const struct spa_support support[]);
 
-void *pw_load_spa_dbus_interface(struct pw_loop *loop);
-
 int pw_unload_spa_interface(void *iface);
-
 
 const struct spa_handle_factory *
 pw_get_support_factory(const char *factory_name);

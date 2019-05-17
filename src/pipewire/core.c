@@ -469,12 +469,12 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	pw_map_init(&this->globals, 128, 32);
 
-	impl->dbus_iface = pw_load_spa_dbus_interface(this->main_loop);
-
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, this->main_loop->loop);
 	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
+	impl->dbus_iface = pw_load_spa_interface("support/libspa-dbus",
+			"dbus", SPA_TYPE_INTERFACE_DBus, NULL, 4, this->support);
 	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, impl->dbus_iface);
 	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU,
 			pw_get_support_interface(SPA_TYPE_INTERFACE_CPU));

@@ -34,7 +34,6 @@
 #include <errno.h>
 #include <dlfcn.h>
 
-#include <spa/support/dbus.h>
 #include <spa/support/cpu.h>
 
 #include "pipewire.h"
@@ -390,15 +389,6 @@ int pw_unload_spa_interface(void *iface)
 	unref_interface(i);
 
 	return 0;
-}
-
-SPA_EXPORT
-void *pw_load_spa_dbus_interface(struct pw_loop *loop)
-{
-	struct spa_support support = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, loop->utils);
-
-	return pw_load_spa_interface("support/libspa-dbus", "dbus", SPA_TYPE_INTERFACE_DBus,
-			NULL, 1, &support);
 }
 
 /** Initialize PipeWire

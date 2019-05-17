@@ -2,6 +2,8 @@
 
 # Only there to make jhbuild happy
 
+set -e
+
 git submodule init
 git submodule update
 

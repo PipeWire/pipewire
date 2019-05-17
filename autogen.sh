@@ -17,6 +17,8 @@
 
 # Only there to make jhbuild happy
 
+set -e
+
 if [ -z $MESON ]; then
 	MESON=`which meson`
 fi

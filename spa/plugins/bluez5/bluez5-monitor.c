@@ -42,8 +42,8 @@
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
+#include <spa/monitor/utils.h>
 #include <spa/utils/type.h>
-#include <spa/debug/mem.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"

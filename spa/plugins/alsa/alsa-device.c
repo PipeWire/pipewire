@@ -36,6 +36,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
+#include <spa/monitor/utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/parser.h>

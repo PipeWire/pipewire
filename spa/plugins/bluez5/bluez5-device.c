@@ -35,6 +35,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
+#include <spa/monitor/utils.h>
 
 #include "defs.h"
 

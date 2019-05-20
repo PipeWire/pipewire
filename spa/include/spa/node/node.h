@@ -166,15 +166,6 @@ struct spa_node_events {
 	void (*event) (void *data, struct spa_event *event);
 };
 
-#define spa_node_emit(hooks,method,version,...)					\
-		spa_hook_list_call_simple(hooks, struct spa_node_events,	\
-				method, version, ##__VA_ARGS__)
-
-#define spa_node_emit_info(hooks,i)		spa_node_emit(hooks,info, 0, i)
-#define spa_node_emit_port_info(hooks,d,p,i)	spa_node_emit(hooks,port_info, 0, d, p, i)
-#define spa_node_emit_result(hooks,s,r,res)	spa_node_emit(hooks,result, 0, s, r, res)
-#define spa_node_emit_event(hooks,e)		spa_node_emit(hooks,event, 0, e)
-
 /** Node callbacks
  *
  * Callbacks are called from the real-time data thread. Only
@@ -207,17 +198,6 @@ struct spa_node_callbacks {
 			     uint32_t port_id,
 			     uint32_t buffer_id);
 };
-
-#define spa_node_call(callbacks,method,version,...)			\
-({									\
-	int _res = 0;							\
-	spa_callbacks_call_res(callbacks, struct spa_node_callbacks,	\
-			_res, method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-
-#define spa_node_call_ready(hook,s)		spa_node_call(hook, ready, 0, s)
-#define spa_node_call_reuse_buffer(hook,p,b)	spa_node_call(hook, reuse_buffer, 0, p, b)
 
 
 /** flags that can be passed to set_param and port_set_param functions */

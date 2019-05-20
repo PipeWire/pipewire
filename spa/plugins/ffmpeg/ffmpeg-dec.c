@@ -30,6 +30,7 @@
 
 #include <spa/support/log.h>
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/node/io.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/video/format.h>

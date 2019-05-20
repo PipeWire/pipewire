@@ -31,6 +31,7 @@
 #include <spa/buffer/alloc.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
+#include <spa/node/utils.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
 #include <spa/control/control.h>

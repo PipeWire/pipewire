@@ -102,15 +102,6 @@ struct spa_device_events {
 		const struct spa_device_object_info *info);
 };
 
-#define spa_device_emit(hooks,method,version,...)				\
-		spa_hook_list_call_simple(hooks, struct spa_device_events,	\
-				method, version, ##__VA_ARGS__)
-
-#define spa_device_emit_info(hooks,i)		spa_device_emit(hooks,info, 0, i)
-#define spa_device_emit_result(hooks,s,r,res)	spa_device_emit(hooks,result, 0, s, r, res)
-#define spa_device_emit_events(hooks,e)		spa_device_emit(hooks,event, 0, e)
-#define spa_device_emit_object_info(hooks,id,i)	spa_device_emit(hooks,object_info, 0, id, i)
-
 /**
  * spa_device:
  *

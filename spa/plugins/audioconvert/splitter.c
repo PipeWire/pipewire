@@ -31,6 +31,7 @@
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/node/io.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>

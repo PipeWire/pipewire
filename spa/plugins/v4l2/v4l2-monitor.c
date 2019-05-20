@@ -36,6 +36,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
 #include <spa/monitor/monitor.h>
+#include <spa/monitor/utils.h>
 
 #define NAME "v4l2-monitor"
 

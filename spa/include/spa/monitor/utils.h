@@ -78,6 +78,26 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 	return res;
 }
 
+#define spa_monitor_call(callbacks,method,version,...)			\
+({									\
+	int __res = 0;							\
+	spa_callbacks_call_res(callbacks, struct spa_monitor_callbacks,	\
+			__res, method, version, ##__VA_ARGS__);		\
+	__res;								\
+})
+
+#define spa_monitor_call_info(hook,i)		spa_monitor_call(hook, info, 0, i)
+#define spa_monitor_call_event(hook,e)		spa_monitor_call(hook, event, 0, e)
+
+#define spa_device_emit(hooks,method,version,...)				\
+		spa_hook_list_call_simple(hooks, struct spa_device_events,	\
+				method, version, ##__VA_ARGS__)
+
+#define spa_device_emit_info(hooks,i)		spa_device_emit(hooks,info, 0, i)
+#define spa_device_emit_result(hooks,s,r,res)	spa_device_emit(hooks,result, 0, s, r, res)
+#define spa_device_emit_events(hooks,e)		spa_device_emit(hooks,event, 0, e)
+#define spa_device_emit_object_info(hooks,id,i)	spa_device_emit(hooks,object_info, 0, id, i)
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

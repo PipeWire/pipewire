@@ -35,6 +35,7 @@
 #include <spa/param/props.h>
 #include <spa/pod/filter.h>
 #include <spa/node/io.h>
+#include <spa/node/utils.h>
 #include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>

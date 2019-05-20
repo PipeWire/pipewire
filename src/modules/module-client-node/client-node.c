@@ -31,6 +31,7 @@
 #include <sys/eventfd.h>
 
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>

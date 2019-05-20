@@ -28,6 +28,7 @@
 
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/node/utils.h>
 #include <spa/node/io.h>
 #include <spa/control/control.h>
 #include <spa/pod/filter.h>

@@ -139,12 +139,13 @@ pw_direction_reverse(enum pw_direction direction);
 void *
 pw_get_support_interface(uint32_t type);
 
-void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
+struct spa_handle *pw_load_spa_handle(const char *lib,
+		const char *factory_name,
 		const struct spa_dict *info,
 		uint32_t n_support,
 		const struct spa_support support[]);
 
-int pw_unload_spa_interface(void *iface);
+int pw_unload_spa_handle(struct spa_handle *handle);
 
 const struct spa_handle_factory *
 pw_get_support_factory(const char *factory_name);

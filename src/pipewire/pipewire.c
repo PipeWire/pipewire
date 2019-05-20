@@ -54,17 +54,8 @@ struct handle {
 	struct spa_list link;
 	struct plugin *plugin;
 	const char *factory_name;
-	struct spa_handle *handle;
-	struct spa_list interfaces;
 	int ref;
-};
-
-struct interface {
-	struct spa_list link;
-	struct handle *handle;
-	void *iface;
-	uint32_t type;
-	int ref;
+	struct spa_handle handle;
 };
 
 struct registry {
@@ -182,41 +173,32 @@ load_handle(struct plugin *plugin,
 {
         int res;
         struct handle *handle;
-        struct spa_handle *hnd;
         const struct spa_handle_factory *factory;
 
 	factory = find_factory(plugin, factory_name);
 	if (factory == NULL)
 		goto not_found;
 
-	hnd = calloc(1, spa_handle_factory_get_size(factory, NULL));
-	if (hnd == NULL)
+	handle = calloc(1, sizeof(struct handle) + spa_handle_factory_get_size(factory, info));
+	if (handle == NULL)
 		goto alloc_failed;
 
         if ((res = spa_handle_factory_init(factory,
-                                           hnd, info,
+                                           &handle->handle, info,
 					   support, n_support)) < 0) {
                 fprintf(stderr, "can't make factory instance %s: %d\n", factory_name, res);
                 goto init_failed;
         }
 
-	if ((handle = calloc(1, sizeof(struct handle))) == NULL)
-		goto handle_failed;
-
 	handle->ref = 1;
 	handle->plugin = plugin;
 	handle->factory_name = factory_name;
-	handle->handle = hnd;
-	spa_list_init(&handle->interfaces);
-
 	spa_list_append(&plugin->handles, &handle->link);
 
 	return handle;
 
-      handle_failed:
-	spa_handle_clear(hnd);
       init_failed:
-	free(hnd);
+	free(handle);
       alloc_failed:
       not_found:
 	return NULL;
@@ -226,61 +208,9 @@ static void unref_handle(struct handle *handle)
 {
 	if (--handle->ref == 0) {
 		spa_list_remove(&handle->link);
-		spa_handle_clear(handle->handle);
-		free(handle->handle);
+		spa_handle_clear(&handle->handle);
 		unref_plugin(handle->plugin);
 		free(handle);
-	}
-}
-
-static struct interface *
-load_interface(struct plugin *plugin,
-	       const char *factory_name,
-	       uint32_t type_id,
-	       const struct spa_dict *info,
-	       uint32_t n_support,
-	       struct spa_support support[n_support])
-{
-        int res;
-        struct handle *handle;
-        void *ptr;
-	struct interface *iface;
-
-        handle = load_handle(plugin, factory_name, info, n_support, support);
-	if (handle == NULL)
-		goto not_found;
-
-        if ((res = spa_handle_get_interface(handle->handle, type_id, &ptr)) < 0) {
-                fprintf(stderr, "can't get %d interface %d\n", type_id, res);
-                goto interface_failed;
-        }
-
-	if ((iface = calloc(1, sizeof(struct interface))) == NULL)
-		goto alloc_failed;
-
-	iface->ref = 1;
-	iface->handle = handle;
-	iface->type = type_id;
-	iface->iface = ptr;
-	spa_list_append(&handle->interfaces, &iface->link);
-
-        return iface;
-
-      alloc_failed:
-      interface_failed:
-	unref_handle(handle);
-	free(handle);
-      not_found:
-	return NULL;
-}
-
-static void
-unref_interface(struct interface *iface)
-{
-	if (--iface->ref == 0) {
-		spa_list_remove(&iface->link);
-		unref_handle(iface->handle);
-		free(iface);
 	}
 }
 
@@ -327,16 +257,17 @@ const struct spa_support *pw_get_support(uint32_t *n_support)
 }
 
 SPA_EXPORT
-void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t type,
-			    const struct spa_dict *info,
-			    uint32_t n_support,
-			    const struct spa_support support[])
+struct spa_handle *pw_load_spa_handle(const char *lib,
+		const char *factory_name,
+		const struct spa_dict *info,
+		uint32_t n_support,
+		const struct spa_support support[])
 {
 	struct support *sup = &global_support;
 	struct spa_support extra_support[MAX_SUPPORT];
 	uint32_t extra_n_support;
 	struct plugin *plugin;
-	struct interface *iface;
+	struct handle *handle;
 	uint32_t i;
 
 	extra_n_support = sup->n_support;
@@ -353,40 +284,37 @@ void *pw_load_spa_interface(const char *lib, const char *factory_name, uint32_t 
 		return NULL;
 	}
 
-	if ((iface = load_interface(plugin, factory_name, type, info,
-					extra_n_support, extra_support)) == NULL)
+	handle = load_handle(plugin, factory_name, info, extra_n_support, extra_support);
+	if (handle == NULL)
 		return NULL;
 
-	return iface->iface;
+	return &handle->handle;
 }
 
-static struct interface *find_interface(void *iface)
+static struct handle *find_handle(struct spa_handle *handle)
 {
 	struct registry *registry = global_support.registry;
 	struct plugin *p;
 	struct handle *h;
-	struct interface *i;
 
 	spa_list_for_each(p, &registry->plugins, link) {
 		spa_list_for_each(h, &p->handles, link) {
-			spa_list_for_each(i, &h->interfaces, link) {
-				if (i->iface == iface)
-					return i;
-			}
+			if (&h->handle == handle)
+				return h;
 		}
 	}
 	return NULL;
 }
 
 SPA_EXPORT
-int pw_unload_spa_interface(void *iface)
+int pw_unload_spa_handle(struct spa_handle *handle)
 {
-	struct interface *i;
+	struct handle *h;
 
-	if ((i = find_interface(iface)) == NULL)
+	if ((h = find_handle(handle)) == NULL)
 		return -ENOENT;
 
-	unref_interface(i);
+	unref_handle(h);
 
 	return 0;
 }
@@ -407,11 +335,13 @@ SPA_EXPORT
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
-	struct interface *iface;
+	struct handle *handle;
+	void *iface;
 	struct support *support = &global_support;
 	struct plugin *plugin;
 	struct spa_dict info;
 	struct spa_dict_item items[1];
+	int res = 0;
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(support, str);
@@ -437,22 +367,31 @@ void pw_init(int *argc, char **argv[])
 	items[0] = SPA_DICT_ITEM_INIT("log.colors", "1");
 	info = SPA_DICT_INIT(items, 1);
 
-	iface = load_interface(plugin, "logger", SPA_TYPE_INTERFACE_Log, &info,
-			support->n_support, support->support);
-	if (iface != NULL) {
-		support->support[support->n_support++] =
-			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, iface->iface);
-		pw_log_set(iface->iface);
+	handle = load_handle(plugin, "logger", &info, support->n_support, support->support);
+	if (handle == NULL ||
+	    (res = spa_handle_get_interface(&handle->handle,
+					    SPA_TYPE_INTERFACE_Log, &iface)) < 0) {
+			fprintf(stderr, "can't get Log interface %d\n", res);
 	}
-	iface = load_interface(plugin, "cpu", SPA_TYPE_INTERFACE_CPU, &info,
-			support->n_support, support->support);
-	if (iface != NULL) {
-		struct spa_cpu *cpu = iface->iface;
+	else {
+		support->support[support->n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, iface);
+		pw_log_set(iface);
+	}
+
+	handle = load_handle(plugin, "cpu", &info, support->n_support, support->support);
+	if (handle == NULL ||
+	    (res = spa_handle_get_interface(&handle->handle,
+					    SPA_TYPE_INTERFACE_CPU, &iface)) < 0) {
+		fprintf(stderr, "can't get CPU interface %d\n", res);
+	}
+	else {
+		struct spa_cpu *cpu = iface;
 		if ((str = getenv("PIPEWIRE_CPU")))
 			spa_cpu_force_flags(cpu, strtoul(str, NULL, 0));
 
 		support->support[support->n_support++] =
-			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU, iface->iface);
+			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU, iface);
 	}
 	pw_log_info("version %s", pw_get_library_version());
 }

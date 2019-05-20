@@ -48,7 +48,7 @@
 /** \cond */
 struct impl {
 	struct pw_core this;
-	void *dbus_iface;
+	struct spa_handle *dbus_handle;
 };
 
 
@@ -441,6 +441,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	struct impl *impl;
 	struct pw_core *this;
 	const char *name;
+	void *dbus_iface = NULL;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -473,9 +475,14 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, this->main_loop->loop);
 	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
-	impl->dbus_iface = pw_load_spa_interface("support/libspa-dbus",
-			"dbus", SPA_TYPE_INTERFACE_DBus, NULL, 4, this->support);
-	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, impl->dbus_iface);
+
+	impl->dbus_handle = pw_load_spa_handle("support/libspa-dbus", "dbus", NULL, 4, this->support);
+	if (impl->dbus_handle) {
+		if ((res = spa_handle_get_interface(impl->dbus_handle,
+						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0)
+			pw_log_warn("can't load dbus interface: %s", spa_strerror(res));
+	}
+	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
 	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU,
 			pw_get_support_interface(SPA_TYPE_INTERFACE_CPU));
 	this->n_support = 6;
@@ -586,7 +593,8 @@ void pw_core_destroy(struct pw_core *core)
 
 	pw_map_clear(&core->globals);
 
-	pw_unload_spa_interface(impl->dbus_iface);
+	if (impl->dbus_handle)
+		pw_unload_spa_handle(impl->dbus_handle);
 
 	pw_log_debug("core %p: free", core);
 	free(core);

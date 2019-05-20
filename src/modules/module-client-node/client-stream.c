@@ -91,6 +91,7 @@ struct impl {
 	enum spa_direction direction;
 
 	struct spa_node *cnode;
+	struct spa_handle *handle;
 	struct spa_node *adapter;
 	struct spa_hook adapter_listener;
 	struct spa_node *adapter_mix;
@@ -1055,6 +1056,7 @@ static void client_node_initialized(void *data)
 	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		struct spa_dict_item items[2];
 		const char *mode;
+		void *iface;
 
 		if (impl->direction == SPA_DIRECTION_OUTPUT)
 			mode = "split";
@@ -1064,13 +1066,18 @@ static void client_node_initialized(void *data)
 		items[0] = SPA_DICT_ITEM_INIT("factory.mode", mode);
 		items[1] = SPA_DICT_ITEM_INIT("resample.peaks", monitor ? "1" : "0");
 
-		if ((impl->adapter = pw_load_spa_interface("audioconvert/libspa-audioconvert",
+
+		if ((impl->handle = pw_load_spa_handle("audioconvert/libspa-audioconvert",
 				"audioconvert",
-				SPA_TYPE_INTERFACE_Node,
 				&SPA_DICT_INIT(items, 2),
 				0, NULL)) == NULL)
 			return;
 
+		if ((res = spa_handle_get_interface(impl->handle,
+				SPA_TYPE_INTERFACE_Node, &iface)) < 0)
+			return;
+
+		impl->adapter = iface;
 		impl->adapter_mix = impl->adapter;
 		impl->adapter_mix_port = 0;
 		impl->use_converter = true;
@@ -1118,8 +1125,8 @@ static void cleanup(struct impl *impl)
 {
 	pw_log_debug("client-stream %p: cleanup", &impl->this);
 	if (impl->use_converter) {
-		if (impl->adapter)
-			pw_unload_spa_interface(impl->adapter);
+		if (impl->handle)
+			pw_unload_spa_handle(impl->handle);
 	}
 
 	free(impl->buffers);

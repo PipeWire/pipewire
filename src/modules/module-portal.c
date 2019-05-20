@@ -71,6 +71,7 @@ struct client_info {
 
 	bool portal_managed;
 	bool setup_complete;
+	bool is_portal;
 	char *app_id;
 	enum media_role media_roles;
 	enum media_role allowed_media_roles;
@@ -381,6 +382,7 @@ static void client_info_changed(void *data, struct pw_client_info *info)
 {
 	struct client_info *cinfo = data;
 	const struct pw_properties *properties;
+	const char *is_portal;
 	const char *app_id;
 	const char *media_roles;
 
@@ -399,6 +401,16 @@ static void client_info_changed(void *data, struct pw_client_info *info)
 		pw_log_error("Portal managed client didn't have any properties");
 		return;
 	}
+
+	is_portal = pw_properties_get(properties,
+				      "pipewire.access.portal.is_portal");
+	if (is_portal != NULL && strcmp(is_portal, "yes") == 0) {
+		pw_log_debug("module %p: client %p is the portal itself",
+			     cinfo->impl, cinfo->client);
+		cinfo->is_portal = true;
+		return;
+	};
+
 	app_id = pw_properties_get(properties,
 				   "pipewire.access.portal.app_id");
 	if (app_id == NULL) {
@@ -446,7 +458,8 @@ core_global_added(void *data, struct pw_global *global)
 	}
 	else {
 		spa_list_for_each(cinfo, &impl->client_list, link) {
-			if (cinfo->portal_managed)
+			if (cinfo->portal_managed &&
+			    !cinfo->is_portal)
 				set_global_permissions(cinfo, global);
 		}
 	}
@@ -662,6 +675,9 @@ static DBusHandlerResult permission_store_changed_handler(DBusConnection *connec
 
 		spa_list_for_each(cinfo, &impl->client_list, link) {
 			if (!cinfo->portal_managed)
+				continue;
+
+			if (cinfo->is_portal)
 				continue;
 
 			if (strcmp(cinfo->app_id, app_id) != 0)

@@ -680,7 +680,8 @@ static DBusHandlerResult permission_store_changed_handler(DBusConnection *connec
 			if (cinfo->is_portal)
 				continue;
 
-			if (strcmp(cinfo->app_id, app_id) != 0)
+			if (cinfo->app_id == NULL ||
+			    strcmp(cinfo->app_id, app_id) != 0)
 				continue;
 
 			if (!(cinfo->media_roles & MEDIA_ROLE_CAMERA))

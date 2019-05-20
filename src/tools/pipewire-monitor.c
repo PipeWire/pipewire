@@ -589,40 +589,40 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	switch (type) {
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
-		client_version = PW_VERSION_NODE;
+		client_version = PW_VERSION_NODE_PROXY;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		print_func = print_node;
 		break;
 	case PW_TYPE_INTERFACE_Port:
 		events = &port_events;
-		client_version = PW_VERSION_PORT;
+		client_version = PW_VERSION_PORT_PROXY;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		print_func = print_port;
 		break;
 	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;
-		client_version = PW_VERSION_MODULE;
+		client_version = PW_VERSION_MODULE_PROXY;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		events = &device_events;
-		client_version = PW_VERSION_DEVICE;
+		client_version = PW_VERSION_DEVICE_PROXY;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		print_func = print_device;
 		break;
 	case PW_TYPE_INTERFACE_Factory:
 		events = &factory_events;
-		client_version = PW_VERSION_FACTORY;
+		client_version = PW_VERSION_FACTORY_PROXY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 		break;
 	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
-		client_version = PW_VERSION_CLIENT;
+		client_version = PW_VERSION_CLIENT_PROXY;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		break;
 	case PW_TYPE_INTERFACE_Link:
 		events = &link_events;
-		client_version = PW_VERSION_LINK;
+		client_version = PW_VERSION_LINK_PROXY;
 		destroy = (pw_destroy_t) pw_link_info_free;
 		break;
 	default:
@@ -702,7 +702,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 					   &data->core_listener,
 					   &core_events, data);
 		data->registry_proxy = pw_core_proxy_get_registry(data->core_proxy,
-								  PW_VERSION_REGISTRY, 0);
+								  PW_VERSION_REGISTRY_PROXY, 0);
 		pw_registry_proxy_add_listener(data->registry_proxy,
 					       &data->registry_listener,
 					       &registry_events, data);

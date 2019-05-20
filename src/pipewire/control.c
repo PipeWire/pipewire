@@ -145,7 +145,7 @@ static int port_set_io(struct pw_port *port, uint32_t mix, uint32_t id, void *da
 	uint32_t p;
 	int res;
 
-	if (port->mix && port->mix->port_set_io) {
+	if (port->mix) {
 		n = port->mix;
 		p = mix;
 	} else {

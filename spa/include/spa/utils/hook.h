@@ -52,6 +52,15 @@ struct spa_callbacks {
 
 #define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }
 
+struct spa_interface {
+	uint32_t type;
+	uint32_t version;
+	struct spa_callbacks cb;
+};
+
+#define SPA_INTERFACE_INIT(_type,_version,_funcs,_data) \
+	(struct spa_interface){ _type, _version, SPA_CALLBACKS_INIT(_funcs,_data), }
+
 /** A hook, contains the structure with functions and the data passed
  * to the functions. */
 struct spa_hook {
@@ -129,6 +138,12 @@ spa_hook_list_join(struct spa_hook_list *list,
 		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
+
+#define spa_interface_call(iface,type,method,vers,...)				\
+	spa_callbacks_call(&(iface)->cb,type,method,vers,##__VA_ARGS__)
+
+#define spa_interface_call_res(iface,type,res,method,vers,...)			\
+	spa_callbacks_call_res(&(iface)->cb,type,res,method,vers,##__VA_ARGS__)
 
 #define spa_hook_list_call_simple(l,type,method,vers,...)			\
 ({										\

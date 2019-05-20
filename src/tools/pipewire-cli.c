@@ -400,7 +400,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 					   &rd->core_listener,
 					   &remote_core_events, rd);
 		rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
-								PW_VERSION_REGISTRY, 0);
+								PW_VERSION_REGISTRY_PROXY, 0);
 		pw_registry_proxy_add_listener(rd->registry_proxy,
 					       &rd->registry_listener,
 					       &registry_events, rd);
@@ -881,49 +881,49 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	switch (global->type) {
 	case PW_TYPE_INTERFACE_Core:
 		events = &core_events;
-		client_version = PW_VERSION_CORE;
+		client_version = PW_VERSION_CORE_PROXY;
 		destroy = (pw_destroy_t) pw_core_info_free;
 		info_func = info_core;
 		break;
 	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;
-		client_version = PW_VERSION_MODULE;
+		client_version = PW_VERSION_MODULE_PROXY;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		info_func = info_module;
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		events = &device_events;
-		client_version = PW_VERSION_DEVICE;
+		client_version = PW_VERSION_DEVICE_PROXY;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		info_func = info_device;
 		break;
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
-		client_version = PW_VERSION_NODE;
+		client_version = PW_VERSION_NODE_PROXY;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
 		break;
 	case PW_TYPE_INTERFACE_Port:
 		events = &port_events;
-		client_version = PW_VERSION_PORT;
+		client_version = PW_VERSION_PORT_PROXY;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		info_func = info_port;
 		break;
 	case PW_TYPE_INTERFACE_Factory:
 		events = &factory_events;
-		client_version = PW_VERSION_FACTORY;
+		client_version = PW_VERSION_FACTORY_PROXY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 		info_func = info_factory;
 		break;
 	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
-		client_version = PW_VERSION_CLIENT;
+		client_version = PW_VERSION_CLIENT_PROXY;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		info_func = info_client;
 		break;
 	case PW_TYPE_INTERFACE_Link:
 		events = &link_events;
-		client_version = PW_VERSION_LINK;
+		client_version = PW_VERSION_LINK_PROXY;
 		destroy = (pw_destroy_t) pw_link_info_free;
 		info_func = info_link;
 		break;
@@ -1030,7 +1030,8 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 		props = parse_props(a[1]);
 
 	proxy = pw_core_proxy_create_object(rd->core_proxy, a[0],
-					    PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
+					    PW_TYPE_INTERFACE_Node,
+					    PW_VERSION_NODE_PROXY,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
@@ -1099,7 +1100,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	proxy = (struct pw_proxy*)pw_core_proxy_create_object(rd->core_proxy,
 					  "link-factory",
 					  PW_TYPE_INTERFACE_Link,
-					  PW_VERSION_LINK,
+					  PW_VERSION_LINK_PROXY,
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
 

@@ -272,8 +272,7 @@ void pw_global_add_listener(struct pw_global *global,
  *
  * \memberof pw_global
  */
-SPA_EXPORT
-int
+SPA_EXPORT int
 pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t permissions,
               uint32_t version, uint32_t id)
 {

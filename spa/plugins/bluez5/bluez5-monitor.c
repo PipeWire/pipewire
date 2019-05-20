@@ -2184,15 +2184,13 @@ fail:
 }
 
 static int
-impl_monitor_set_callbacks(struct spa_monitor *monitor,
+impl_monitor_set_callbacks(void *object,
 			   const struct spa_monitor_callbacks *callbacks,
 			   void *data)
 {
-	struct spa_bt_monitor *this;
+	struct spa_bt_monitor *this = object;
 
-	spa_return_val_if_fail(monitor != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(monitor, struct spa_bt_monitor, monitor);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
@@ -2204,9 +2202,9 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 	return 0;
 }
 
-static const struct spa_monitor impl_monitor = {
-	SPA_VERSION_MONITOR,
-	impl_monitor_set_callbacks,
+static const struct spa_monitor_methods impl_monitor = {
+	SPA_VERSION_MONITOR_METHODS,
+	.set_callbacks = impl_monitor_set_callbacks,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -2281,7 +2279,10 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	this->conn = spa_dbus_connection_get(this->dbus_connection);
 
-	this->monitor = impl_monitor;
+	this->monitor.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Monitor,
+			SPA_VERSION_MONITOR,
+			&impl_monitor, this);
 
 	spa_list_init(&this->adapter_list);
 	spa_list_init(&this->device_list);
@@ -2312,7 +2313,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 const struct spa_handle_factory spa_bluez5_monitor_factory = {
-	SPA_VERSION_MONITOR,
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	impl_get_size,

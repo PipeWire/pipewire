@@ -59,7 +59,7 @@ struct invoke_item {
 	int res;
 };
 
-static void loop_signal_event(struct spa_source *source);
+static void loop_signal_event(void *object, struct spa_source *source);
 
 struct impl {
 	struct spa_handle handle;
@@ -134,11 +134,11 @@ static inline enum spa_io spa_epoll_to_io(uint32_t events)
 	return mask;
 }
 
-static int loop_add_source(struct spa_loop *loop, struct spa_source *source)
+static int loop_add_source(void *object, struct spa_source *source)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, loop);
+	struct impl *impl = object;
 
-	source->loop = loop;
+	source->loop = (struct spa_loop*) &impl->loop;
 
 	if (source->fd != -1) {
 		struct epoll_event ep;
@@ -153,10 +153,9 @@ static int loop_add_source(struct spa_loop *loop, struct spa_source *source)
 	return 0;
 }
 
-static int loop_update_source(struct spa_source *source)
+static int loop_update_source(void *object, struct spa_source *source)
 {
-	struct spa_loop *loop = source->loop;
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, loop);
+	struct impl *impl = object;
 
 	if (source->fd != -1) {
 		struct epoll_event ep;
@@ -171,19 +170,19 @@ static int loop_update_source(struct spa_source *source)
 	return 0;
 }
 
-static void loop_remove_source(struct spa_source *source)
+static int loop_remove_source(void *object, struct spa_source *source)
 {
-	struct spa_loop *loop = source->loop;
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, loop);
+	struct impl *impl = object;
 
 	if (source->fd != -1)
 		epoll_ctl(impl->epoll_fd, EPOLL_CTL_DEL, source->fd, NULL);
 
 	source->loop = NULL;
+	return 0;
 }
 
 static int
-loop_invoke(struct spa_loop *loop,
+loop_invoke(void *object,
 	    spa_invoke_func_t func,
 	    uint32_t seq,
 	    const void *data,
@@ -191,13 +190,13 @@ loop_invoke(struct spa_loop *loop,
 	    bool block,
 	    void *user_data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, loop);
+	struct impl *impl = object;
 	bool in_thread = pthread_equal(impl->thread, pthread_self());
 	struct invoke_item *item;
 	int res;
 
 	if (in_thread) {
-		res = func(loop, false, seq, data, size, user_data);
+		res = func(object, false, seq, data, size, user_data);
 	} else {
 		int32_t filled;
 		uint32_t avail, idx, offset, l0;
@@ -236,7 +235,7 @@ loop_invoke(struct spa_loop *loop,
 
 		spa_ringbuffer_write_update(&impl->buffer, idx + item->item_size);
 
-		spa_loop_utils_signal_event(&impl->utils, impl->wakeup);
+		spa_loop_utils_signal_event((struct spa_loop_utils*)&impl->utils, impl->wakeup);
 
 		if (block) {
 			uint64_t count = 1;
@@ -272,7 +271,8 @@ static void wakeup_func(void *data, uint64_t count)
 		item = SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
 		block = item->block;
 
-		item->res = item->func(&impl->loop, true, item->seq, item->data, item->size,
+		item->res = item->func((struct spa_loop *)&impl->loop,
+				true, item->seq, item->data, item->size,
 			   item->user_data);
 
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
@@ -286,33 +286,31 @@ static void wakeup_func(void *data, uint64_t count)
 	}
 }
 
-static int loop_get_fd(struct spa_loop_control *ctrl)
+static int loop_get_fd(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
-
+	struct impl *impl = object;
 	return impl->epoll_fd;
 }
 
 static void
-loop_add_hooks(struct spa_loop_control *ctrl,
-	       struct spa_hook *hook,
-	       const struct spa_loop_control_hooks *hooks,
-	       void *data)
+loop_add_hook(void *object,
+	      struct spa_hook *hook,
+	      const struct spa_loop_control_hooks *hooks,
+	      void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
-
+	struct impl *impl = object;
 	spa_hook_list_append(&impl->hooks_list, hook, hooks, data);
 }
 
-static void loop_enter(struct spa_loop_control *ctrl)
+static void loop_enter(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
+	struct impl *impl = object;
 	impl->thread = pthread_self();
 }
 
-static void loop_leave(struct spa_loop_control *ctrl)
+static void loop_leave(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
+	struct impl *impl = object;
 	impl->thread = 0;
 }
 
@@ -324,10 +322,10 @@ static inline void process_destroy(struct impl *impl)
 	spa_list_init(&impl->destroy_list);
 }
 
-static int loop_iterate(struct spa_loop_control *ctrl, int timeout)
+static int loop_iterate(void *object, int timeout)
 {
-	struct impl *impl = SPA_CONTAINER_OF(ctrl, struct impl, control);
-	struct spa_loop *loop = &impl->loop;
+	struct impl *impl = object;
+	struct spa_loop *loop = (struct spa_loop *)&impl->loop;
 	struct epoll_event ep[32];
 	int i, nfds, save_errno = 0;
 
@@ -364,19 +362,19 @@ static void source_io_func(struct spa_source *source)
 	impl->func.io(source->data, source->fd, source->rmask);
 }
 
-static struct spa_source *loop_add_io(struct spa_loop_utils *utils,
+static struct spa_source *loop_add_io(void *object,
 				      int fd,
 				      enum spa_io mask,
 				      bool close, spa_source_io_func_t func, void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(utils, struct impl, utils);
+	struct impl *impl = object;
 	struct source_impl *source;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = &impl->loop;
+	source->source.loop = (struct spa_loop *) &impl->loop;
 	source->source.func = source_io_func;
 	source->source.data = data;
 	source->source.fd = fd;
@@ -385,14 +383,14 @@ static struct spa_source *loop_add_io(struct spa_loop_utils *utils,
 	source->close = close;
 	source->func.io = func;
 
-	spa_loop_add_source(&impl->loop, &source->source);
+	spa_loop_add_source(source->source.loop, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
 	return &source->source;
 }
 
-static int loop_update_io(struct spa_source *source, enum spa_io mask)
+static int loop_update_io(void *object, struct spa_source *source, enum spa_io mask)
 {
 	source->mask = mask;
 	return spa_loop_update_source(source->loop, source);
@@ -405,17 +403,17 @@ static void source_idle_func(struct spa_source *source)
 	impl->func.idle(source->data);
 }
 
-static struct spa_source *loop_add_idle(struct spa_loop_utils *utils,
+static struct spa_source *loop_add_idle(void *object,
 					bool enabled, spa_source_idle_func_t func, void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(utils, struct impl, utils);
+	struct impl *impl = object;
 	struct source_impl *source;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = &impl->loop;
+	source->source.loop = (struct spa_loop *)&impl->loop;
 	source->source.func = source_idle_func;
 	source->source.data = data;
 	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
@@ -424,19 +422,20 @@ static struct spa_source *loop_add_idle(struct spa_loop_utils *utils,
 	source->source.mask = SPA_IO_IN;
 	source->func.idle = func;
 
-	spa_loop_add_source(&impl->loop, &source->source);
+	spa_loop_add_source(source->source.loop, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
 	if (enabled)
-		spa_loop_utils_enable_idle(&impl->utils, &source->source, true);
+		spa_loop_utils_enable_idle((struct spa_loop_utils*)&impl->utils,
+				&source->source, true);
 
 	return &source->source;
 }
 
-static void loop_enable_idle(struct spa_source *source, bool enabled)
+static void loop_enable_idle(void *object, struct spa_source *source, bool enabled)
 {
-	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
+	struct source_impl *impl = object;
 	uint64_t count;
 
 	if (enabled && !impl->enabled) {
@@ -464,17 +463,17 @@ static void source_event_func(struct spa_source *source)
 	impl->func.event(source->data, count);
 }
 
-static struct spa_source *loop_add_event(struct spa_loop_utils *utils,
+static struct spa_source *loop_add_event(void *object,
 					 spa_source_event_func_t func, void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(utils, struct impl, utils);
+	struct impl *impl = object;
 	struct source_impl *source;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = &impl->loop;
+	source->source.loop = (struct spa_loop *)&impl->loop;
 	source->source.func = source_event_func;
 	source->source.data = data;
 	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
@@ -483,14 +482,14 @@ static struct spa_source *loop_add_event(struct spa_loop_utils *utils,
 	source->close = true;
 	source->func.event = func;
 
-	spa_loop_add_source(&impl->loop, &source->source);
+	spa_loop_add_source(source->source.loop, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
 	return &source->source;
 }
 
-static void loop_signal_event(struct spa_source *source)
+static void loop_signal_event(void *object, struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	uint64_t count = 1;
@@ -512,17 +511,17 @@ static void source_timer_func(struct spa_source *source)
 	impl->func.timer(source->data, expirations);
 }
 
-static struct spa_source *loop_add_timer(struct spa_loop_utils *utils,
+static struct spa_source *loop_add_timer(void *object,
 					 spa_source_timer_func_t func, void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(utils, struct impl, utils);
+	struct impl *impl = object;
 	struct source_impl *source;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = &impl->loop;
+	source->source.loop = (struct spa_loop*)&impl->loop;
 	source->source.func = source_timer_func;
 	source->source.data = data;
 	source->source.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
@@ -531,7 +530,7 @@ static struct spa_source *loop_add_timer(struct spa_loop_utils *utils,
 	source->close = true;
 	source->func.timer = func;
 
-	spa_loop_add_source(&impl->loop, &source->source);
+	spa_loop_add_source(source->source.loop, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
@@ -539,7 +538,7 @@ static struct spa_source *loop_add_timer(struct spa_loop_utils *utils,
 }
 
 static int
-loop_update_timer(struct spa_source *source,
+loop_update_timer(void *object, struct spa_source *source,
 		  struct timespec *value, struct timespec *interval, bool absolute)
 {
 	struct itimerspec its;
@@ -577,11 +576,11 @@ static void source_signal_func(struct spa_source *source)
 	impl->func.signal(source->data, impl->signal_number);
 }
 
-static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,
+static struct spa_source *loop_add_signal(void *object,
 					  int signal_number,
 					  spa_source_signal_func_t func, void *data)
 {
-	struct impl *impl = SPA_CONTAINER_OF(utils, struct impl, utils);
+	struct impl *impl = object;
 	struct source_impl *source;
 	sigset_t mask;
 
@@ -589,7 +588,7 @@ static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = &impl->loop;
+	source->source.loop = (struct spa_loop *)&impl->loop;
 	source->source.func = source_signal_func;
 	source->source.data = data;
 
@@ -604,14 +603,14 @@ static struct spa_source *loop_add_signal(struct spa_loop_utils *utils,
 	source->func.signal = func;
 	source->signal_number = signal_number;
 
-	spa_loop_add_source(&impl->loop, &source->source);
+	spa_loop_add_source(source->source.loop, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
 	return &source->source;
 }
 
-static void loop_destroy_source(struct spa_source *source)
+static void loop_destroy_source(void *object, struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 
@@ -627,35 +626,35 @@ static void loop_destroy_source(struct spa_source *source)
 	spa_list_insert(&impl->impl->destroy_list, &impl->link);
 }
 
-static const struct spa_loop impl_loop = {
-	SPA_VERSION_LOOP,
-	loop_add_source,
-	loop_update_source,
-	loop_remove_source,
-	loop_invoke,
+static const struct spa_loop_methods impl_loop = {
+	SPA_VERSION_LOOP_METHODS,
+	.add_source = loop_add_source,
+	.update_source = loop_update_source,
+	.remove_source = loop_remove_source,
+	.invoke = loop_invoke,
 };
 
-static const struct spa_loop_control impl_loop_control = {
-	SPA_VERSION_LOOP_CONTROL,
-	loop_get_fd,
-	loop_add_hooks,
-	loop_enter,
-	loop_leave,
-	loop_iterate,
+static const struct spa_loop_control_methods impl_loop_control = {
+	SPA_VERSION_LOOP_CONTROL_METHODS,
+	.get_fd = loop_get_fd,
+	.add_hook = loop_add_hook,
+	.enter = loop_enter,
+	.leave = loop_leave,
+	.iterate = loop_iterate,
 };
 
-static const struct spa_loop_utils impl_loop_utils = {
-	SPA_VERSION_LOOP_UTILS,
-	loop_add_io,
-	loop_update_io,
-	loop_add_idle,
-	loop_enable_idle,
-	loop_add_event,
-	loop_signal_event,
-	loop_add_timer,
-	loop_update_timer,
-	loop_add_signal,
-	loop_destroy_source,
+static const struct spa_loop_utils_methods impl_loop_utils = {
+	SPA_VERSION_LOOP_UTILS_METHODS,
+	.add_io = loop_add_io,
+	.update_io = loop_update_io,
+	.add_idle = loop_add_idle,
+	.enable_idle = loop_enable_idle,
+	.add_event = loop_add_event,
+	.signal_event = loop_signal_event,
+	.add_timer = loop_add_timer,
+	.update_timer = loop_update_timer,
+	.add_signal = loop_add_signal,
+	.destroy_source = loop_destroy_source,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -693,7 +692,7 @@ static int impl_clear(struct spa_handle *handle)
 	impl = (struct impl *) handle;
 
 	spa_list_consume(source, &impl->source_list, link)
-		loop_destroy_source(&source->source);
+		loop_destroy_source(impl, &source->source);
 
 	process_destroy(impl);
 
@@ -727,9 +726,18 @@ impl_init(const struct spa_handle_factory *factory,
 	handle->clear = impl_clear;
 
 	impl = (struct impl *) handle;
-	impl->loop = impl_loop;
-	impl->control = impl_loop_control;
-	impl->utils = impl_loop_utils;
+	impl->loop.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Loop,
+			SPA_VERSION_LOOP,
+			&impl_loop, impl);
+	impl->control.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_LoopControl,
+			SPA_VERSION_LOOP_CONTROL,
+			&impl_loop_control, impl);
+	impl->utils.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_LoopUtils,
+			SPA_VERSION_LOOP_UTILS,
+			&impl_loop_utils, impl);
 
 	for (i = 0; i < n_support; i++) {
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)
@@ -746,7 +754,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_ringbuffer_init(&impl->buffer);
 
-	impl->wakeup = spa_loop_utils_add_event(&impl->utils, wakeup_func, impl);
+	impl->wakeup = spa_loop_utils_add_event((struct spa_loop_utils*)&impl->utils, wakeup_func, impl);
 	impl->ack_fd = eventfd(0, EFD_SEMAPHORE | EFD_CLOEXEC);
 
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);

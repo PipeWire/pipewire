@@ -65,7 +65,7 @@ static int make_node(struct data *data)
         data->node = pw_factory_create_object(factory,
 					      NULL,
 					      PW_TYPE_INTERFACE_Node,
-					      PW_VERSION_NODE,
+					      PW_VERSION_NODE_PROXY,
 					      props, SPA_ID_INVALID);
 
 	pw_node_set_active(data->node, true);

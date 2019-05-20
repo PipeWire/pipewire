@@ -1218,7 +1218,7 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
         do_node_init(proxy);
 
 	data->proxy = (struct pw_proxy*) pw_client_node_proxy_get_node(data->node_proxy,
-			PW_VERSION_NODE, 0);
+			PW_VERSION_NODE_PROXY, 0);
 
 	return data->proxy;
 }

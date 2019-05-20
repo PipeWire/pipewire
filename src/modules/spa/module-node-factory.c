@@ -180,7 +180,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	factory = pw_factory_new(core,
 				 "spa-node-factory",
 				 PW_TYPE_INTERFACE_Node,
-				 PW_VERSION_NODE,
+				 PW_VERSION_NODE_PROXY,
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)

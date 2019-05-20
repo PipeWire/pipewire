@@ -102,17 +102,17 @@ static void update_volume(struct data *data)
                 data->volume_accum -= M_PI_M2;
 }
 
-static int impl_send_command(struct spa_node *node, const struct spa_command *command)
+static int impl_send_command(void *object, const struct spa_command *command)
 {
 	return 0;
 }
 
-static int impl_add_listener(struct spa_node *node,
+static int impl_add_listener(void *object,
 		struct spa_hook *listener,
 		const struct spa_node_events *events,
 		void *data)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 	struct spa_hook_list save;
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
@@ -125,22 +125,22 @@ static int impl_add_listener(struct spa_node *node,
 	return 0;
 }
 
-static int impl_set_callbacks(struct spa_node *node,
+static int impl_set_callbacks(void *object,
 			      const struct spa_node_callbacks *callbacks, void *data)
 {
 	return 0;
 }
 
-static int impl_set_io(struct spa_node *node,
+static int impl_set_io(void *object,
 			uint32_t id, void *data, size_t size)
 {
 	return 0;
 }
 
-static int impl_port_set_io(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+static int impl_port_set_io(void *object, enum spa_direction direction, uint32_t port_id,
 			    uint32_t id, void *data, size_t size)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 
 	switch (id) {
 	case SPA_IO_Buffers:
@@ -156,12 +156,12 @@ static int impl_port_set_io(struct spa_node *node, enum spa_direction direction,
 	return 0;
 }
 
-static int impl_port_enum_params(struct spa_node *node, int seq,
+static int impl_port_enum_params(void *object, int seq,
 				 enum spa_direction direction, uint32_t port_id,
 				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
@@ -260,11 +260,11 @@ static int impl_port_enum_params(struct spa_node *node, int seq,
 	return 0;
 }
 
-static int port_set_format(struct spa_node *node,
+static int port_set_format(void *object,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t flags, const struct spa_pod *format)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 
 	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
 	if (format == NULL) {
@@ -291,22 +291,22 @@ static int port_set_format(struct spa_node *node,
 	return 0;
 }
 
-static int impl_port_set_param(struct spa_node *node,
+static int impl_port_set_param(void *object,
 			       enum spa_direction direction, uint32_t port_id,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
 	if (id == SPA_PARAM_Format) {
-		return port_set_format(node, direction, port_id, flags, param);
+		return port_set_format(object, direction, port_id, flags, param);
 	}
 	else
 		return -ENOENT;
 }
 
-static int impl_port_use_buffers(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+static int impl_port_use_buffers(void *object, enum spa_direction direction, uint32_t port_id,
 				 struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 	uint32_t i;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &d->buffers[i];
@@ -347,9 +347,9 @@ static inline void reuse_buffer(struct data *d, uint32_t id)
         spa_list_append(&d->empty, &d->buffers[id].link);
 }
 
-static int impl_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 	reuse_buffer(d, buffer_id);
 	return 0;
 }
@@ -396,9 +396,9 @@ static void fill_s16(struct data *d, void *dest, int avail)
         }
 }
 
-static int impl_node_process(struct spa_node *node)
+static int impl_node_process(void *object)
 {
-	struct data *d = SPA_CONTAINER_OF(node, struct data, impl_node);
+	struct data *d = object;
 	struct buffer *b;
 	int avail;
         struct spa_io_buffers *io = d->io;
@@ -446,8 +446,8 @@ static int impl_node_process(struct spa_node *node)
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
-static const struct spa_node impl_node = {
-	SPA_VERSION_NODE,
+static const struct spa_node_methods impl_node = {
+	SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_add_listener,
 	.set_callbacks = impl_set_callbacks,
 	.set_io = impl_set_io,
@@ -473,7 +473,10 @@ static void make_node(struct data *data)
 	if (data->path)
 		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
 
-	data->impl_node = impl_node;
+	data->impl_node.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Node,
+			SPA_VERSION_NODE,
+			&impl_node, data);
 	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Node, props, &data->impl_node);
 }
 

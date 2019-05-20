@@ -136,7 +136,8 @@ static void *create_object(void *_data,
 	pw_node_register(dsp, client, pw_module_get_global(d->module), NULL);
 	pw_node_add_listener(dsp, &nd->dsp_listener, &node_events, nd);
 
-	res = pw_global_bind(pw_node_get_global(dsp), client, PW_PERM_RWX, PW_VERSION_NODE, new_id);
+	res = pw_global_bind(pw_node_get_global(dsp), client,
+			PW_PERM_RWX, PW_VERSION_NODE_PROXY, new_id);
 	if (res < 0)
 		goto no_bind;
 
@@ -208,7 +209,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	factory = pw_factory_new(core,
 				 "audio-dsp",
 				 PW_TYPE_INTERFACE_Node,
-				 PW_VERSION_NODE,
+				 PW_VERSION_NODE_PROXY,
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)

@@ -299,7 +299,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
 	if (pw_global_bind(pw_core_get_global(core), client,
-			PW_PERM_RWX, PW_VERSION_CORE, 0) < 0)
+			PW_PERM_RWX, PW_VERSION_CORE_PROXY, 0) < 0)
 		goto cleanup_client;
 
 	props = pw_properties_copy(pw_client_get_properties(client));
@@ -307,7 +307,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 		goto cleanup_client;
 
 	if (pw_global_bind(pw_client_get_global(client), client,
-			PW_PERM_RWX, PW_VERSION_CLIENT, 1) < 0)
+			PW_PERM_RWX, PW_VERSION_CLIENT_PROXY, 1) < 0)
 		goto cleanup_client;
 
 	return client;

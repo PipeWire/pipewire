@@ -115,19 +115,18 @@ static int emit_info(struct impl *this, bool full)
 	return 0;
 }
 
-static int impl_add_listener(struct spa_device *device,
+static int impl_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
 			void *data)
 {
-	struct impl *this;
+	struct impl *this = object;
 	struct spa_hook_list save;
 	int res = 0;
 
-	spa_return_val_if_fail(device != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(device, struct impl, device);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	if (events->info || events->object_info)
@@ -138,25 +137,25 @@ static int impl_add_listener(struct spa_device *device,
 	return res;
 }
 
-static int impl_enum_params(struct spa_device *device, int seq,
+static int impl_enum_params(void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
 {
 	return -ENOTSUP;
 }
 
-static int impl_set_param(struct spa_device *device,
+static int impl_set_param(void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
 	return -ENOTSUP;
 }
 
-static const struct spa_device impl_device = {
-	SPA_VERSION_DEVICE,
-	impl_add_listener,
-	impl_enum_params,
-	impl_set_param,
+static const struct spa_device_methods impl_device = {
+	SPA_VERSION_DEVICE_METHODS,
+	.add_listener = impl_add_listener,
+	.enum_params = impl_enum_params,
+	.set_param = impl_set_param,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -218,7 +217,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_hook_list_init(&this->hooks);
 
-	this->device = impl_device;
+	this->device.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Device,
+			SPA_VERSION_DEVICE,
+			&impl_device, this);
 	this->dev.log = this->log;
 	this->dev.fd = -1;
 

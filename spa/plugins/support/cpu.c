@@ -33,6 +33,7 @@
 #include <spa/support/cpu.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
+#include <spa/utils/hook.h>
 
 #define NAME "cpu"
 
@@ -57,18 +58,18 @@ struct impl {
 #endif
 
 static uint32_t
-impl_cpu_get_flags(struct spa_cpu *cpu)
+impl_cpu_get_flags(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(cpu, struct impl, cpu);
+	struct impl *impl = object;
 	if (impl->force != SPA_CPU_FORCE_AUTODETECT)
 		return impl->force;
 	return impl->flags;
 }
 
 static int
-impl_cpu_force_flags(struct spa_cpu *cpu, uint32_t flags)
+impl_cpu_force_flags(void *object, uint32_t flags)
 {
-	struct impl *impl = SPA_CONTAINER_OF(cpu, struct impl, cpu);
+	struct impl *impl = object;
 	impl->force = flags;
 	return 0;
 }
@@ -83,26 +84,25 @@ static uint32_t get_count(struct impl *this)
 }
 
 static uint32_t
-impl_cpu_get_count(struct spa_cpu *cpu)
+impl_cpu_get_count(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(cpu, struct impl, cpu);
+	struct impl *impl = object;
 	return impl->count;
 }
 
 static uint32_t
-impl_cpu_get_max_align(struct spa_cpu *cpu)
+impl_cpu_get_max_align(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(cpu, struct impl, cpu);
+	struct impl *impl = object;
 	return impl->max_align;
 }
 
-static const struct spa_cpu impl_cpu = {
-	SPA_VERSION_CPU,
-	NULL,
-	impl_cpu_get_flags,
-	impl_cpu_force_flags,
-	impl_cpu_get_count,
-	impl_cpu_get_max_align,
+static const struct spa_cpu_methods impl_cpu = {
+	SPA_VERSION_CPU_METHODS,
+	.get_flags = impl_cpu_get_flags,
+	.force_flags = impl_cpu_force_flags,
+	.get_count = impl_cpu_get_count,
+	.get_max_align = impl_cpu_get_max_align,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -152,7 +152,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 
-	this->cpu = impl_cpu;
+	this->cpu.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_CPU,
+			SPA_VERSION_CPU,
+			&impl_cpu, this);
 
 	for (i = 0; i < n_support; i++) {
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)

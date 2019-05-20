@@ -225,6 +225,7 @@ static int start_monitor(struct impl *this)
 	this->source.fd = udev_monitor_get_fd(this->umonitor);;
 	this->source.mask = SPA_IO_IN | SPA_IO_ERR;
 
+	spa_log_debug(this->log, "monitor %p", this->umonitor);
 	spa_loop_add_source(this->main_loop, &this->source);
 
 	return 0;
@@ -273,16 +274,14 @@ static int enum_devices(struct impl *this)
 
 
 static int
-impl_monitor_set_callbacks(struct spa_monitor *monitor,
+impl_monitor_set_callbacks(void *object,
 			   const struct spa_monitor_callbacks *callbacks,
 			   void *data)
 {
 	int res;
-	struct impl *this;
+	struct impl *this = object;
 
-	spa_return_val_if_fail(monitor != NULL, -EINVAL);
-
-	this = SPA_CONTAINER_OF(monitor, struct impl, monitor);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
@@ -302,9 +301,9 @@ impl_monitor_set_callbacks(struct spa_monitor *monitor,
 	return 0;
 }
 
-static const struct spa_monitor impl_monitor = {
-	SPA_VERSION_MONITOR,
-	impl_monitor_set_callbacks,
+static const struct spa_monitor_methods impl_monitor = {
+	SPA_VERSION_MONITOR_METHODS,
+	.set_callbacks = impl_monitor_set_callbacks,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -327,7 +326,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
-	impl_monitor_set_callbacks(&this->monitor, NULL, NULL);
+	impl_monitor_set_callbacks(this, NULL, NULL);
 	return 0;
 }
 
@@ -367,7 +366,10 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
-	this->monitor = impl_monitor;
+	this->monitor.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Monitor,
+			SPA_VERSION_MONITOR,
+			&impl_monitor, this);
 
 	return 0;
 }
@@ -394,7 +396,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 const struct spa_handle_factory spa_v4l2_monitor_factory = {
-	SPA_VERSION_MONITOR,
+	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
 	impl_get_size,

@@ -33,7 +33,7 @@ extern "C" {
 
 #include <spa/support/log.h>
 
-static inline void spa_log_impl_logv(struct spa_log *log,
+static inline void spa_log_impl_logv(void *object,
 				     enum spa_log_level level,
 				     const char *file,
 				     int line,
@@ -49,7 +49,7 @@ static inline void spa_log_impl_logv(struct spa_log *log,
                 levels[level], strrchr(file, '/') + 1, line, func, text);
         fputs(location, stderr);
 }
-static inline void spa_log_impl_log(struct spa_log *log,
+static inline void spa_log_impl_log(void *object,
 				    enum spa_log_level level,
 				    const char *file,
 				    int line,
@@ -58,24 +58,26 @@ static inline void spa_log_impl_log(struct spa_log *log,
 {
 	va_list args;
 	va_start(args, fmt);
-	spa_log_impl_logv(log, level, file, line, func, fmt, args);
+	spa_log_impl_logv(object, level, file, line, func, fmt, args);
 	va_end(args);
 }
 
 #define SPA_LOG_IMPL_DEFINE(name)		\
 struct {					\
 	struct spa_log log;			\
+	struct spa_log_methods methods;		\
 } name
 
-#define SPA_LOG_IMPL_INIT			\
-	{ { SPA_VERSION_LOG,			\
-	    SPA_LOG_LEVEL_INFO,			\
-	    NULL,				\
-	    spa_log_impl_log,			\
+#define SPA_LOG_IMPL_INIT(name)				\
+	{ { { SPA_TYPE_INTERFACE_Log, SPA_VERSION_LOG,	\
+	      SPA_CALLBACKS_INIT(&name.methods, &name) },	\
+	    SPA_LOG_LEVEL_INFO,	},			\
+	  { SPA_VERSION_LOG_METHODS,			\
+	    spa_log_impl_log,				\
 	    spa_log_impl_logv,} }
 
 #define SPA_LOG_IMPL(name)			\
-        SPA_LOG_IMPL_DEFINE(name) = SPA_LOG_IMPL_INIT
+        SPA_LOG_IMPL_DEFINE(name) = SPA_LOG_IMPL_INIT(name)
 
 #ifdef __cplusplus
 }  /* extern "C" */

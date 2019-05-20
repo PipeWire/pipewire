@@ -250,9 +250,9 @@ static const struct spa_node_callbacks sink_callbacks = {
 	.reuse_buffer = on_sink_reuse_buffer
 };
 
-static int do_add_source(struct spa_loop *loop, struct spa_source *source)
+static int do_add_source(void *object, struct spa_source *source)
 {
-	struct data *data = SPA_CONTAINER_OF(loop, struct data, data_loop);
+	struct data *data = object;
 
 	data->sources[data->n_sources] = *source;
 	data->n_sources++;
@@ -261,21 +261,18 @@ static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 	return 0;
 }
 
-static int do_update_source(struct spa_source *source)
-{
-	return 0;
-}
-
-static void do_remove_source(struct spa_source *source)
-{
-}
-
 static int
-do_invoke(struct spa_loop *loop,
+do_invoke(void *object,
 	  spa_invoke_func_t func, uint32_t seq, const void *data, size_t size, bool block, void *user_data)
 {
-	return func(loop, false, seq, data, size, user_data);
+	return func(object, false, seq, data, size, user_data);
 }
+
+static const struct spa_loop_methods impl_loop = {
+	SPA_VERSION_LOOP_METHODS,
+	.add_source = do_add_source,
+	.invoke = do_invoke,
+};
 
 static int make_nodes(struct data *data, const char *device)
 {
@@ -505,11 +502,8 @@ int main(int argc, char *argv[])
 	spa_graph_init(&data.graph, &data.graph_state);
 
 	data.log = &default_log.log;
-	data.data_loop.version = SPA_VERSION_LOOP;
-	data.data_loop.add_source = do_add_source;
-	data.data_loop.update_source = do_update_source;
-	data.data_loop.remove_source = do_remove_source;
-	data.data_loop.invoke = do_invoke;
+	data.data_loop.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Loop, SPA_VERSION_LOOP, &impl_loop, &data);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

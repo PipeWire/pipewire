@@ -29,13 +29,19 @@
 extern "C" {
 #endif
 
-struct spa_device;
-
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/support/plugin.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/event.h>
+
+/**
+ * spa_device:
+ *
+ * The device interface.
+ */
+#define SPA_VERSION_DEVICE 0
+struct spa_device { struct spa_interface iface; };
 
 struct spa_device_info {
 #define SPA_VERSION_DEVICE_INFO 0
@@ -103,14 +109,12 @@ struct spa_device_events {
 };
 
 /**
- * spa_device:
- *
- * The device interface.
+ * spa_device_methods:
  */
-struct spa_device {
-	/* the version of this device. This can be used to expand this
+struct spa_device_methods {
+	/* the version of the methods. This can be used to expand this
 	 * structure in the future */
-#define SPA_VERSION_DEVICE	0
+#define SPA_VERSION_DEVICE_METHODS	0
 	uint32_t version;
 
 	/**
@@ -128,7 +132,7 @@ struct spa_device {
 	 * \return 0 on success
 	 *	   < 0 errno on error
 	 */
-	int (*add_listener) (struct spa_device *device,
+	int (*add_listener) (void *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
 			void *data);
@@ -157,7 +161,7 @@ struct spa_device {
 	 *         -ENOTSUP when there are no parameters
 	 *                 implemented on \a device
 	 */
-	int (*enum_params) (struct spa_device *device, int seq,
+	int (*enum_params) (void *object, int seq,
 			    uint32_t id, uint32_t index, uint32_t max,
 			    const struct spa_pod *filter);
 
@@ -182,14 +186,24 @@ struct spa_device {
 	 *         -ENOTSUP when there are no parameters implemented on \a device
 	 *         -ENOENT the parameter is unknown
 	 */
-	int (*set_param) (struct spa_device *device,
+	int (*set_param) (void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 };
 
-#define spa_device_add_listener(d,...)	(d)->add_listener((d),__VA_ARGS__)
-#define spa_device_enum_params(d,...)	(d)->enum_params((d),__VA_ARGS__)
-#define spa_device_set_param(d,...)	(d)->set_param((d),__VA_ARGS__)
+#define spa_device_method(o,method,version,...)				\
+({									\
+	int _res = -ENOTSUP;						\
+	struct spa_device *_o = o;					\
+	spa_interface_call_res(&_o->iface,				\
+			struct spa_device_methods, _res,		\
+			method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
+
+#define spa_device_add_listener(d,...)	spa_device_method(d, add_listener, 0, __VA_ARGS__)
+#define spa_device_enum_params(d,...)	spa_device_method(d, enum_params, 0, __VA_ARGS__)
+#define spa_device_set_param(d,...)	spa_device_method(d, set_param, 0, __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

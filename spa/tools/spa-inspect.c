@@ -240,19 +240,9 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	}
 }
 
-static int do_add_source(struct spa_loop *loop, struct spa_source *source)
-{
-	return 0;
-}
-
-static int do_update_source(struct spa_source *source)
-{
-	return 0;
-}
-
-static void do_remove_source(struct spa_source *source)
-{
-}
+static const struct spa_loop_methods impl_loop = {
+	SPA_VERSION_LOOP_METHODS,
+};
 
 int main(int argc, char *argv[])
 {
@@ -269,10 +259,10 @@ int main(int argc, char *argv[])
 	}
 
 	data.log = &default_log.log;
-	data.loop.version = SPA_VERSION_LOOP;
-	data.loop.add_source = do_add_source;
-	data.loop.update_source = do_update_source;
-	data.loop.remove_source = do_remove_source;
+	data.loop.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Loop,
+			SPA_VERSION_LOOP,
+			&impl_loop, &data);
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);

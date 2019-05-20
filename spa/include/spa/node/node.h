@@ -29,12 +29,17 @@
 extern "C" {
 #endif
 
-struct spa_node;
-
 #include <spa/utils/defs.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/hook.h>
+
+
+/**
+ * A spa_node is a component that can consume and produce buffers.
+ */
+#define SPA_VERSION_NODE	0
+struct spa_node { struct spa_interface iface; };
 
 #include <spa/support/plugin.h>
 
@@ -206,14 +211,13 @@ struct spa_node_callbacks {
 #define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
 							 * nearest allowed field value. */
 
-
 /**
- * A spa_node is a component that can consume and produce buffers.
+ * Node methods
  */
-struct spa_node {
-	/* the version of this node. This can be used to expand this
+struct spa_node_methods {
+	/* the version of the node methods. This can be used to expand this
 	 * structure in the future */
-#define SPA_VERSION_NODE	0
+#define SPA_VERSION_NODE_METHODS	0
 	uint32_t version;
 
 	/**
@@ -230,7 +234,7 @@ struct spa_node {
 	 * \return 0 on success
 	 *	   < 0 errno on error
 	 */
-	int (*add_listener) (struct spa_node *node,
+	int (*add_listener) (void *object,
 			struct spa_hook *listener,
 			const struct spa_node_events *events,
 			void *data);
@@ -247,7 +251,7 @@ struct spa_node {
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 */
-	int (*set_callbacks) (struct spa_node *node,
+	int (*set_callbacks) (void *object,
 			      const struct spa_node_callbacks *callbacks,
 			      void *data);
 	/**
@@ -265,7 +269,7 @@ struct spa_node {
 	 *         -EINVAL when node is NULL
 	 *         an async result
 	 */
-	int (*sync) (struct spa_node *node, int seq);
+	int (*sync) (void *object, int seq);
 
 	/**
 	 * Enumerate the parameters of a node.
@@ -298,7 +302,7 @@ struct spa_node {
 	 *         an async return value when the result event will be
 	 *             emited later.
 	 */
-	int (*enum_params) (struct spa_node *node, int seq,
+	int (*enum_params) (void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t max,
 			    const struct spa_pod *filter);
 
@@ -323,7 +327,7 @@ struct spa_node {
 	 *         -ENOTSUP when there are no parameters implemented on \a node
 	 *         -ENOENT the parameter is unknown
 	 */
-	int (*set_param) (struct spa_node *node,
+	int (*set_param) (void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
@@ -345,7 +349,7 @@ struct spa_node {
 	 *         -ENOENT when \a id is unknown
 	 *         -ENOSPC when \a size is too small
 	 */
-	int (*set_io) (struct spa_node *node,
+	int (*set_io) (void *object,
 		       uint32_t id, void *data, size_t size);
 
 	/**
@@ -362,7 +366,7 @@ struct spa_node {
 	 *         -ENOTSUP when this node can't process commands
 	 *         -EINVAL \a command is an invalid command
 	 */
-	int (*send_command) (struct spa_node *node, const struct spa_command *command);
+	int (*send_command) (void *object, const struct spa_command *command);
 
 	/**
 	 * Make a new port with \a port_id. The caller should use the lowest unused
@@ -380,7 +384,7 @@ struct spa_node {
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 */
-	int (*add_port) (struct spa_node *node,
+	int (*add_port) (void *object,
 			enum spa_direction direction, uint32_t port_id,
 			const struct spa_dict *props);
 
@@ -394,7 +398,7 @@ struct spa_node {
 	 *         -EINVAL when node is NULL or when port_id is unknown or
 	 *		when the port can't be removed.
 	 */
-	int (*remove_port) (struct spa_node *node,
+	int (*remove_port) (void *object,
 			enum spa_direction direction, uint32_t port_id);
 
 	/**
@@ -427,7 +431,7 @@ struct spa_node {
 	 *         an async return value when the result event will be
 	 *             emited later.
 	 */
-	int (*port_enum_params) (struct spa_node *node, int seq,
+	int (*port_enum_params) (void *object, int seq,
 				 enum spa_direction direction, uint32_t port_id,
 				 uint32_t id, uint32_t start, uint32_t max,
 				 const struct spa_pod *filter);
@@ -455,7 +459,7 @@ struct spa_node {
 	 *         -ESRCH when the type or size of a property is not correct.
 	 *         -ENOENT when the param id is not found
 	 */
-	int (*port_set_param) (struct spa_node *node,
+	int (*port_set_param) (void *object,
 			       enum spa_direction direction,
 			       uint32_t port_id,
 			       uint32_t id, uint32_t flags,
@@ -493,7 +497,7 @@ struct spa_node {
 	 * \param n_buffers number of elements in \a buffers
 	 * \return 0 on success
 	 */
-	int (*port_use_buffers) (struct spa_node *node,
+	int (*port_use_buffers) (void *object,
 				 enum spa_direction direction,
 				 uint32_t port_id,
 				 struct spa_buffer **buffers,
@@ -530,7 +534,7 @@ struct spa_node {
 	 * \return 0 on success
 	 *         -EBUSY when the node already has allocated buffers.
 	 */
-	int (*port_alloc_buffers) (struct spa_node *node,
+	int (*port_alloc_buffers) (void *object,
 				   enum spa_direction direction,
 				   uint32_t port_id,
 				   struct spa_pod **params,
@@ -558,7 +562,7 @@ struct spa_node {
 	 *         -ENOENT when \a id is unknown
 	 *         -ENOSPC when \a size is too small
 	 */
-	int (*port_set_io) (struct spa_node *node,
+	int (*port_set_io) (void *object,
 			    enum spa_direction direction,
 			    uint32_t port_id,
 			    uint32_t id,
@@ -575,7 +579,7 @@ struct spa_node {
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL
 	 */
-	int (*port_reuse_buffer) (struct spa_node *node, uint32_t port_id, uint32_t buffer_id);
+	int (*port_reuse_buffer) (void *object, uint32_t port_id, uint32_t buffer_id);
 
 	/**
 	 * Process the node
@@ -592,26 +596,36 @@ struct spa_node {
 	 * When the node can accept new input in the next cycle, the
 	 * SPA_STATUS_NEED_BUFFER bit will be set.
 	 */
-	int (*process) (struct spa_node *node);
+	int (*process) (void *object);
 };
 
-#define spa_node_add_listener(n,...)		(n)->add_listener((n),__VA_ARGS__)
-#define spa_node_set_callbacks(n,...)		(n)->set_callbacks((n),__VA_ARGS__)
-#define spa_node_sync(n,...)			(n)->sync((n),__VA_ARGS__)
-#define spa_node_enum_params(n,...)		(n)->enum_params((n),__VA_ARGS__)
-#define spa_node_set_param(n,...)		(n)->set_param((n),__VA_ARGS__)
-#define spa_node_set_io(n,...)			(n)->set_io((n),__VA_ARGS__)
-#define spa_node_send_command(n,...)		(n)->send_command((n),__VA_ARGS__)
-#define spa_node_add_port(n,...)		(n)->add_port((n),__VA_ARGS__)
-#define spa_node_remove_port(n,...)		(n)->remove_port((n),__VA_ARGS__)
-#define spa_node_port_enum_params(n,...)	(n)->port_enum_params((n),__VA_ARGS__)
-#define spa_node_port_set_param(n,...)		(n)->port_set_param((n),__VA_ARGS__)
-#define spa_node_port_use_buffers(n,...)	(n)->port_use_buffers((n),__VA_ARGS__)
-#define spa_node_port_alloc_buffers(n,...)	(n)->port_alloc_buffers((n),__VA_ARGS__)
-#define spa_node_port_set_io(n,...)		(n)->port_set_io((n),__VA_ARGS__)
+#define spa_node_method(o,method,version,...)				\
+({									\
+	int _res = -ENOTSUP;						\
+	struct spa_node *_n = o;					\
+	spa_interface_call_res(&_n->iface,				\
+			struct spa_node_methods, _res,			\
+			method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
 
-#define spa_node_port_reuse_buffer(n,...)	(n)->port_reuse_buffer((n),__VA_ARGS__)
-#define spa_node_process(n)			(n)->process((n))
+#define spa_node_add_listener(n,...)		spa_node_method(n, add_listener, 0, __VA_ARGS__)
+#define spa_node_set_callbacks(n,...)		spa_node_method(n, set_callbacks, 0, __VA_ARGS__)
+#define spa_node_sync(n,...)			spa_node_method(n, sync, 0, __VA_ARGS__)
+#define spa_node_enum_params(n,...)		spa_node_method(n, enum_params, 0, __VA_ARGS__)
+#define spa_node_set_param(n,...)		spa_node_method(n, set_param, 0, __VA_ARGS__)
+#define spa_node_set_io(n,...)			spa_node_method(n, set_io, 0, __VA_ARGS__)
+#define spa_node_send_command(n,...)		spa_node_method(n, send_command, 0, __VA_ARGS__)
+#define spa_node_add_port(n,...)		spa_node_method(n, add_port, 0, __VA_ARGS__)
+#define spa_node_remove_port(n,...)		spa_node_method(n, remove_port, 0, __VA_ARGS__)
+#define spa_node_port_enum_params(n,...)	spa_node_method(n, port_enum_params, 0, __VA_ARGS__)
+#define spa_node_port_set_param(n,...)		spa_node_method(n, port_set_param, 0, __VA_ARGS__)
+#define spa_node_port_use_buffers(n,...)	spa_node_method(n, port_use_buffers, 0, __VA_ARGS__)
+#define spa_node_port_alloc_buffers(n,...)	spa_node_method(n, port_alloc_buffers, 0, __VA_ARGS__)
+#define spa_node_port_set_io(n,...)		spa_node_method(n, port_set_io, 0, __VA_ARGS__)
+
+#define spa_node_port_reuse_buffer(n,...)	spa_node_method(n, port_reuse_buffer, 0, __VA_ARGS__)
+#define spa_node_process(n)			spa_node_method(n, process, 0)
 
 #ifdef __cplusplus
 }  /* extern "C" */

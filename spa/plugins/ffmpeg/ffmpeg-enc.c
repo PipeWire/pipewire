@@ -87,32 +87,30 @@ struct impl {
 	bool started;
 };
 
-static int impl_node_enum_params(struct spa_node *node, int seq,
+static int impl_node_enum_params(void *object, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
 			const struct spa_pod *filter)
 {
 	return -ENOTSUP;
 }
 
-static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
+static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 					 const struct spa_pod *param)
 {
 	return -ENOTSUP;
 }
 
-static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	return -ENOTSUP;
 }
 
-static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
+static int impl_node_send_command(void *object, const struct spa_command *command)
 {
-	struct impl *this;
+	struct impl *this = object;
 
-	if (node == NULL || command == NULL)
+	if (this == NULL || command == NULL)
 		return -EINVAL;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
@@ -149,17 +147,16 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 }
 
 static int
-impl_node_add_listener(struct spa_node *node,
+impl_node_add_listener(void *object,
 		struct spa_hook *listener,
 		const struct spa_node_events *events,
 		void *data)
 {
-	struct impl *this;
+	struct impl *this = object;
 	struct spa_hook_list save;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct impl, node);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_node_info(this, true);
@@ -172,7 +169,7 @@ impl_node_add_listener(struct spa_node *node,
 }
 
 static int
-impl_node_set_callbacks(struct spa_node *node,
+impl_node_set_callbacks(void *object,
 				  const struct spa_node_callbacks *callbacks,
 				  void *user_data)
 {
@@ -180,20 +177,20 @@ impl_node_set_callbacks(struct spa_node *node,
 }
 
 static int
-impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+impl_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,
 		const struct spa_dict *props)
 {
 	return -ENOTSUP;
 }
 
 static int
-impl_node_remove_port(struct spa_node *node,
+impl_node_remove_port(void *object,
 				enum spa_direction direction, uint32_t port_id)
 {
 	return -ENOTSUP;
 }
 
-static int port_enum_formats(struct spa_node *node,
+static int port_enum_formats(void *object,
 			enum spa_direction direction, uint32_t port_id,
 			uint32_t index,
 			const struct spa_pod *filter,
@@ -203,14 +200,14 @@ static int port_enum_formats(struct spa_node *node,
 	return -ENOTSUP;
 }
 
-static int port_get_format(struct spa_node *node,
+static int port_get_format(void *object,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t index,
 			   const struct spa_pod *filter,
 			   struct spa_pod **param,
 			   struct spa_pod_builder *builder)
 {
-	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	struct impl *this = object;
 	struct port *port;
 
 	port = GET_PORT(this, direction, port_id);
@@ -227,20 +224,18 @@ static int port_get_format(struct spa_node *node,
 }
 
 static int
-impl_node_port_enum_params(struct spa_node *node, int seq,
+impl_node_port_enum_params(void *object, int seq,
 			enum spa_direction direction, uint32_t port_id,
 			uint32_t id, uint32_t start, uint32_t num,
 			const struct spa_pod *filter)
 {
-	struct impl *this;
+	struct impl *this = object;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_pod *param;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	result.id = id;
 	result.next = start;
@@ -251,13 +246,13 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		if ((res = port_enum_formats(node, direction, port_id,
+		if ((res = port_enum_formats(this, direction, port_id,
 						result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 
 	case SPA_PARAM_Format:
-		if ((res = port_get_format(node, direction, port_id,
+		if ((res = port_get_format(this, direction, port_id,
 						result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
@@ -277,11 +272,11 @@ impl_node_port_enum_params(struct spa_node *node, int seq,
 	return 0;
 }
 
-static int port_set_format(struct spa_node *node,
+static int port_set_format(void *object,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t flags, const struct spa_pod *format)
 {
-	struct impl *this = SPA_CONTAINER_OF(node, struct impl, node);
+	struct impl *this = object;
 	struct port *port;
 	int res;
 
@@ -311,35 +306,35 @@ static int port_set_format(struct spa_node *node,
 }
 
 static int
-impl_node_port_set_param(struct spa_node *node,
+impl_node_port_set_param(void *object,
 				   enum spa_direction direction, uint32_t port_id,
 				   uint32_t id, uint32_t flags,
 				   const struct spa_pod *param)
 {
 	if (id == SPA_PARAM_Format) {
-		return port_set_format(node, direction, port_id, flags, param);
+		return port_set_format(object, direction, port_id, flags, param);
 	}
 	else
 		return -ENOENT;
 }
 
 static int
-impl_node_port_use_buffers(struct spa_node *node,
+impl_node_port_use_buffers(void *object,
 				     enum spa_direction direction,
 				     uint32_t port_id,
 				     struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	if (node == NULL)
+	if (object == NULL)
 		return -EINVAL;
 
-	if (!IS_VALID_PORT(node, direction, port_id))
+	if (!IS_VALID_PORT(object, direction, port_id))
 		return -EINVAL;
 
 	return -ENOTSUP;
 }
 
 static int
-impl_node_port_alloc_buffers(struct spa_node *node,
+impl_node_port_alloc_buffers(void *object,
 				       enum spa_direction direction,
 				       uint32_t port_id,
 				       struct spa_pod **params,
@@ -351,19 +346,17 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 }
 
 static int
-impl_node_port_set_io(struct spa_node *node,
+impl_node_port_set_io(void *object,
 				enum spa_direction direction,
 				uint32_t port_id,
 				uint32_t id,
 				void *data, size_t size)
 {
-	struct impl *this;
+	struct impl *this = object;
 	struct port *port;
 
-	if (node == NULL)
+	if (this == NULL)
 		return -EINVAL;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if (!IS_VALID_PORT(this, direction, port_id))
 		return -EINVAL;
@@ -379,9 +372,9 @@ impl_node_port_set_io(struct spa_node *node,
 }
 
 static int
-impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
-	if (node == NULL)
+	if (object == NULL)
 		return -EINVAL;
 
 	if (port_id != 0)
@@ -390,16 +383,14 @@ impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t bu
 	return -ENOTSUP;
 }
 
-static int impl_node_process(struct spa_node *node)
+static int impl_node_process(void *object)
 {
-	struct impl *this;
+	struct impl *this = object;
 	struct port *port;
 	struct spa_io_buffers *output;
 
-	if (node == NULL)
+	if (this == NULL)
 		return -EINVAL;
-
-	this = SPA_CONTAINER_OF(node, struct impl, node);
 
 	if ((output = this->out_ports[0].io) == NULL)
 		return -EIO;
@@ -415,8 +406,8 @@ static int impl_node_process(struct spa_node *node)
 	return SPA_STATUS_OK;
 }
 
-static const struct spa_node impl_node = {
-	SPA_VERSION_NODE,
+static const struct spa_node_methods impl_node = {
+	SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
 	.enum_params = impl_node_enum_params,
@@ -472,7 +463,10 @@ spa_ffmpeg_enc_init(struct spa_handle *handle,
 
 	spa_hook_list_init(&this->hooks);
 
-	this->node = impl_node;
+	this->node.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Node,
+			SPA_VERSION_NODE,
+			&impl_node, this);
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS;
 	this->info = SPA_NODE_INFO_INIT();
 	this->info.max_input_ports = 1;

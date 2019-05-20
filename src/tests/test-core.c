@@ -150,7 +150,7 @@ static void test_create(void)
 	spa_assert(pw_global_get_owner(global) == NULL);
 	spa_assert(pw_global_get_parent(global) == global);
 	spa_assert(pw_global_get_type(global) == PW_TYPE_INTERFACE_Core);
-	spa_assert(pw_global_get_version(global) == PW_VERSION_CORE);
+	spa_assert(pw_global_get_version(global) == PW_VERSION_CORE_PROXY);
 	spa_assert(pw_global_get_id(global) == 0);
 	spa_assert(pw_global_get_object(global) == (void*)core);
 

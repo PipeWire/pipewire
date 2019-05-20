@@ -88,9 +88,9 @@ static int on_monitor_event(void *_data, struct spa_event *event)
 	return 0;
 }
 
-static int do_add_source(struct spa_loop *loop, struct spa_source *source)
+static int do_add_source(void *object, struct spa_source *source)
 {
-	struct data *data = SPA_CONTAINER_OF(loop, struct data, main_loop);
+	struct data *data = object;
 
 	data->sources[data->n_sources] = *source;
 	data->n_sources++;
@@ -99,14 +99,10 @@ static int do_add_source(struct spa_loop *loop, struct spa_source *source)
 	return 0;
 }
 
-static int do_update_source(struct spa_source *source)
-{
-	return 0;
-}
-
-static void do_remove_source(struct spa_source *source)
-{
-}
+static const struct spa_loop_methods impl_loop = {
+	SPA_VERSION_LOOP_METHODS,
+	.add_source = do_add_source,
+};
 
 static const struct spa_monitor_callbacks impl_callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
@@ -161,10 +157,10 @@ int main(int argc, char *argv[])
 	uint32_t fidx;
 
 	data.log = &default_log.log;
-	data.main_loop.version = SPA_VERSION_LOOP;
-	data.main_loop.add_source = do_add_source;
-	data.main_loop.update_source = do_update_source;
-	data.main_loop.remove_source = do_remove_source;
+	data.main_loop.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Loop,
+			SPA_VERSION_LOOP,
+			&impl_loop, &data);
 
 	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
 	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.main_loop);

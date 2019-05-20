@@ -61,11 +61,13 @@ static inline int spa_node_enum_params_sync(struct spa_node *node,
 		SPA_VERSION_NODE_EVENTS,
 		.result = spa_result_func_node_params,
 	};
-	int res = 0;
+	int res;
 
-	spa_node_add_listener(node, &listener, &node_events, &data);
-	res = spa_node_enum_params(node, 0, id, *index, 1, filter);
-	spa_hook_remove(&listener);
+	res = spa_node_add_listener(node, &listener, &node_events, &data);
+	if (res >= 0) {
+		res = spa_node_enum_params(node, 0, id, *index, 1, filter);
+		spa_hook_remove(&listener);
+	}
 
 	if (data.data.param == NULL) {
 		if (res > 0)
@@ -93,10 +95,12 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 	};
 	int res;
 
-	spa_node_add_listener(node, &listener, &node_events, &data);
-	res = spa_node_port_enum_params(node, 0, direction, port_id,
-			id, *index, 1, filter);
-	spa_hook_remove(&listener);
+	res = spa_node_add_listener(node, &listener, &node_events, &data);
+	if (res >= 0) {
+		res = spa_node_port_enum_params(node, 0, direction, port_id,
+				id, *index, 1, filter);
+		spa_hook_remove(&listener);
+	}
 
 	if (data.data.param == NULL) {
 		if (res > 0)

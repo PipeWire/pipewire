@@ -38,6 +38,10 @@ struct impl {
 	struct pw_array permissions;
 };
 
+#define pw_client_resource(r,m,v,...)	pw_resource_notify(r,struct pw_client_proxy_events,m,v,__VA_ARGS__)
+#define pw_client_resource_info(r,...)		pw_client_resource(r,info,0,__VA_ARGS__)
+#define pw_client_resource_permissions(r,...)	pw_client_resource(r,permissions,0,__VA_ARGS__)
+
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_client *client;
@@ -320,7 +324,8 @@ int pw_client_register(struct pw_client *client,
 	client->registered = true;
 
 	client->global = pw_global_new(core,
-				       PW_TYPE_INTERFACE_Client, PW_VERSION_CLIENT,
+				       PW_TYPE_INTERFACE_Client,
+				       PW_VERSION_CLIENT_PROXY,
 				       properties,
 				       global_bind,
 				       client);

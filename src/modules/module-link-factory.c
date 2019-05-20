@@ -229,7 +229,7 @@ static void *create_object(void *_data,
 	ld->global = pw_link_get_global(link);
 	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
 
-	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK, new_id);
+	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK_PROXY, new_id);
 	if (res < 0)
 		goto no_bind;
 
@@ -312,7 +312,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	factory = pw_factory_new(core,
 				 "link-factory",
 				 PW_TYPE_INTERFACE_Link,
-				 PW_VERSION_LINK,
+				 PW_VERSION_LINK_PROXY,
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)

@@ -116,11 +116,11 @@ struct impl {
 
 /** \endcond */
 
-static int impl_node_enum_params(struct spa_node *node, int seq,
+static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
@@ -129,10 +129,9 @@ static int impl_node_enum_params(struct spa_node *node, int seq,
 	uint32_t count = 0;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	result.id = id;
@@ -224,14 +223,13 @@ static void emit_node_info(struct node *this, bool full)
 	}
 }
 
-static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flags,
+static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
 	int res = 0;
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	switch (id) {
@@ -263,15 +261,14 @@ static int impl_node_set_param(struct spa_node *node, uint32_t id, uint32_t flag
 	return res;
 }
 
-static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size_t size)
+static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	int res = 0;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (impl->adapter)
@@ -283,15 +280,14 @@ static int impl_node_set_io(struct spa_node *node, uint32_t id, void *data, size
 	return res;
 }
 
-static int impl_node_send_command(struct spa_node *node, const struct spa_command *command)
+static int impl_node_send_command(void *object, const struct spa_command *command)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
@@ -343,19 +339,18 @@ static const struct spa_node_events adapter_node_events = {
 	.result = adapter_result,
 };
 
-static int impl_node_add_listener(struct spa_node *node,
+static int impl_node_add_listener(void *object,
 		struct spa_hook *listener,
 		const struct spa_node_events *events,
 		void *data)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	struct spa_hook l;
 	struct spa_hook_list save;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	pw_log_debug("%p: add listener %p", this, listener);
@@ -375,15 +370,14 @@ static int impl_node_add_listener(struct spa_node *node,
 }
 
 static int
-impl_node_set_callbacks(struct spa_node *node,
+impl_node_set_callbacks(void *object,
 			const struct spa_node_callbacks *callbacks,
 			void *data)
 {
-	struct node *this;
+	struct node *this = object;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 
 	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
@@ -391,30 +385,28 @@ impl_node_set_callbacks(struct spa_node *node,
 }
 
 static int
-impl_node_sync(struct spa_node *node, int seq)
+impl_node_sync(void *object, int seq)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	return spa_node_sync(impl->cnode, seq);
 }
 
 static int
-impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id,
+impl_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,
 		const struct spa_dict *props)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (direction != impl->direction)
@@ -427,14 +419,13 @@ impl_node_add_port(struct spa_node *node, enum spa_direction direction, uint32_t
 }
 
 static int
-impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint32_t port_id)
+impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_id)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (direction != this->impl->direction)
@@ -444,18 +435,17 @@ impl_node_remove_port(struct spa_node *node, enum spa_direction direction, uint3
 }
 
 static int
-impl_node_port_enum_params(struct spa_node *node, int seq,
+impl_node_port_enum_params(void *object, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
 			   const struct spa_pod *filter)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (direction != impl->direction)
@@ -698,18 +688,17 @@ static int negotiate_buffers(struct impl *impl)
 }
 
 static int
-impl_node_port_set_param(struct spa_node *node,
+impl_node_port_set_param(void *object,
 			 enum spa_direction direction, uint32_t port_id,
 			 uint32_t id, uint32_t flags,
 			 const struct spa_pod *param)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (direction != impl->direction)
@@ -737,19 +726,18 @@ impl_node_port_set_param(struct spa_node *node,
 }
 
 static int
-impl_node_port_set_io(struct spa_node *node,
+impl_node_port_set_io(void *object,
 		      enum spa_direction direction,
 		      uint32_t port_id,
 		      uint32_t id,
 		      void *data, size_t size)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	int res = 0;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	spa_log_debug(this->log, "set io %d %d %d %d", port_id, id, direction, impl->direction);
@@ -769,19 +757,18 @@ impl_node_port_set_io(struct spa_node *node,
 }
 
 static int
-impl_node_port_use_buffers(struct spa_node *node,
+impl_node_port_use_buffers(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 	int res;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (direction != impl->direction)
@@ -802,7 +789,7 @@ impl_node_port_use_buffers(struct spa_node *node,
 }
 
 static int
-impl_node_port_alloc_buffers(struct spa_node *node,
+impl_node_port_alloc_buffers(void *object,
 			     enum spa_direction direction,
 			     uint32_t port_id,
 			     struct spa_pod **params,
@@ -810,12 +797,11 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 			     struct spa_buffer **buffers,
 			     uint32_t *n_buffers)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	if (direction != impl->direction)
@@ -826,22 +812,21 @@ impl_node_port_alloc_buffers(struct spa_node *node,
 }
 
 static int
-impl_node_port_reuse_buffer(struct spa_node *node, uint32_t port_id, uint32_t buffer_id)
+impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
-	struct node *this;
+	struct node *this = object;
 	struct impl *impl;
 
-	spa_return_val_if_fail(node != NULL, -EINVAL);
+	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	this = SPA_CONTAINER_OF(node, struct node, node);
 	impl = this->impl;
 
 	return spa_node_port_reuse_buffer(impl->adapter, port_id, buffer_id);
 }
 
-static int impl_node_process(struct spa_node *node)
+static int impl_node_process(void *object)
 {
-	struct node *this = SPA_CONTAINER_OF(node, struct node, node);
+	struct node *this = object;
 	struct impl *impl = this->impl;
 	struct spa_io_position *q = impl->this.node->driver_node->rt.position;
 	int status, trigger;
@@ -890,8 +875,8 @@ static int impl_node_process(struct spa_node *node)
 	return status;
 }
 
-static const struct spa_node impl_node = {
-	SPA_VERSION_NODE,
+static const struct spa_node_methods impl_node = {
+	SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
 	.sync = impl_node_sync,
@@ -922,7 +907,10 @@ node_init(struct node *this,
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
 	}
-	this->node = impl_node;
+	this->node.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Node,
+			SPA_VERSION_NODE,
+			&impl_node, this);
 	spa_hook_list_init(&this->hooks);
 
 	this->info_all = SPA_NODE_CHANGE_MASK_PARAMS;
@@ -1301,7 +1289,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 				     name,
 				     PW_SPA_NODE_FLAG_ASYNC |
 				     PW_SPA_NODE_FLAG_ACTIVATE,
-				     &impl->node.node,
+				     (struct spa_node *)&impl->node.node,
 				     NULL,
 				     properties, 0);
 	if (this->node == NULL)

@@ -329,7 +329,7 @@ static int do_connect(struct pw_remote *remote)
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
 	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
-	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE);
+	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE_PROXY);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTED, NULL);
 
 	return 0;

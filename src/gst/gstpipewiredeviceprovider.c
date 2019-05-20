@@ -462,7 +462,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
 
     node = pw_registry_proxy_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Node,
-		    PW_VERSION_NODE, sizeof(*nd));
+		    PW_VERSION_NODE_PROXY, sizeof(*nd));
     if (node == NULL)
       goto no_mem;
 
@@ -486,7 +486,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
 
     port = pw_registry_proxy_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Port,
-		    PW_VERSION_PORT, sizeof(*pd));
+		    PW_VERSION_PORT_PROXY, sizeof(*pd));
     if (port == NULL)
       goto no_mem;
 
@@ -580,8 +580,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   self->list_only = TRUE;
   self->devices = NULL;
 
-  data->registry = pw_core_proxy_get_registry(self->core_proxy,
-		  PW_VERSION_REGISTRY, 0);
+  data->registry = pw_core_proxy_get_registry(self->core_proxy, PW_VERSION_REGISTRY_PROXY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, 0, self->seq++);
 
@@ -666,8 +665,8 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   }
   GST_DEBUG_OBJECT (self, "connected");
 
-  self->registry = pw_core_proxy_get_registry(self->core_proxy,
-		  PW_VERSION_REGISTRY, 0);
+  self->registry = pw_core_proxy_get_registry(self->core_proxy, PW_VERSION_REGISTRY_PROXY, 0);
+
   data->registry = self->registry;
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);

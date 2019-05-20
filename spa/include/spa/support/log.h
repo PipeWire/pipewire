@@ -32,6 +32,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
 
 enum spa_log_level {
 	SPA_LOG_LEVEL_NONE = 0,
@@ -49,17 +50,16 @@ struct spa_log {
 	/** the version of this log. This can be used to expand this
 	 * structure in the future */
 #define SPA_VERSION_LOG	0
-	uint32_t version;
+	struct spa_interface iface;
 	/**
 	 * Logging level, everything above this level is not logged
 	 */
 	enum spa_log_level level;
+};
 
-	/**
-	 * Extra information about the log
-	 */
-	const struct spa_dict *info;
-
+struct spa_log_methods {
+#define SPA_VERSION_LOG_METHODS	0
+	uint32_t version;
 	/**
 	 * Log a message with the given log level.
 	 *
@@ -71,7 +71,7 @@ struct spa_log {
 	 * \param fmt printf style format
 	 * \param ... format arguments
 	 */
-	void (*log) (struct spa_log *log,
+	void (*log) (void *object,
 		     enum spa_log_level level,
 		     const char *file,
 		     int line,
@@ -89,7 +89,7 @@ struct spa_log {
 	 * \param fmt printf style format
 	 * \param args format arguments
 	 */
-	void (*logv) (struct spa_log *log,
+	void (*logv) (void *object,
 		      enum spa_log_level level,
 		      const char *file,
 		      int line,
@@ -105,8 +105,20 @@ struct spa_log {
 
 #define spa_log_log(l,lev,...)					\
 ({								\
-	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev)))	\
-		(l)->log((l),lev,__VA_ARGS__);			\
+	struct spa_log *_l = l;					\
+	if (SPA_UNLIKELY (spa_log_level_enabled(_l, lev)))	\
+		spa_interface_call(&_l->iface,			\
+			struct spa_log_methods, log, 0, lev,	\
+			__VA_ARGS__);				\
+})
+
+#define spa_log_logv(l,lev,...)					\
+({								\
+	struct spa_log *_l = l;					\
+	if (SPA_UNLIKELY (spa_log_level_enabled(_l, lev)))	\
+		spa_interface_call(&_l->iface,			\
+			struct spa_log_methods, logv, 0, lev,	\
+			__VA_ARGS__);				\
 })
 
 #define spa_log_error(l,...)	spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
@@ -129,7 +141,9 @@ static inline void spa_log_##name (struct spa_log *l, const char *format, ...)  
 	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev))) {			\
 		va_list varargs;						\
 		va_start (varargs, format);					\
-		(l)->logv((l),lev,__FILE__,__LINE__,__func__,format,varargs);	\
+		spa_interface_call(&l->iface,					\
+			struct spa_log_methods, logv, 0, lev,			\
+			__FILE__,__LINE__,__func__,format,varargs);		\
 		va_end (varargs);						\
 	}									\
 }

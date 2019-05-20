@@ -37,10 +37,11 @@ struct spa_handle {
 #define SPA_VERSION_HANDLE	0
 	uint32_t version;
 
-	/* user_data that can be set by the application */
-	void *user_data;
 	/**
 	 * Get the interface provided by \a handle with \a type.
+	 *
+	 * \a interface is always a struct spa_interface but depending on
+	 * \a type, the struct might contain other information.
 	 *
 	 * \param handle a spa_handle
 	 * \param type the interface type

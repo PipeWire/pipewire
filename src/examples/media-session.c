@@ -308,7 +308,7 @@ static int link_session_dsp(struct impl *impl, struct session *session)
         session->link_proxy = pw_core_proxy_create_object(impl->core_proxy,
                                           "link-factory",
                                           PW_TYPE_INTERFACE_Link,
-                                          PW_VERSION_LINK,
+                                          PW_VERSION_LINK_PROXY,
                                           &props->dict,
 					  0);
 	pw_proxy_add_listener(session->link_proxy, &session->link_listener, &link_proxy_events, session);
@@ -481,7 +481,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	media_class = props ? spa_dict_lookup(props, "media.class") : NULL;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
-			id, type, PW_VERSION_NODE,
+			id, type, PW_VERSION_NODE_PROXY,
 			sizeof(struct node));
 
 	node = pw_proxy_get_user_data(p);
@@ -657,7 +657,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 		return -EINVAL;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
-			id, type, PW_VERSION_PORT,
+			id, type, PW_VERSION_PORT_PROXY,
 			sizeof(struct port));
 
 	port = pw_proxy_get_user_data(p);
@@ -737,7 +737,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	const char *str;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
-			id, type, PW_VERSION_CLIENT,
+			id, type, PW_VERSION_CLIENT_PROXY,
 			sizeof(struct client));
 
 	client = pw_proxy_get_user_data(p);
@@ -932,7 +932,7 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 		pw_core_proxy_create_object(impl->core_proxy,
                                           "link-factory",
                                           PW_TYPE_INTERFACE_Link,
-                                          PW_VERSION_LINK,
+                                          PW_VERSION_LINK_PROXY,
                                           &props->dict,
 					  0);
 
@@ -1259,7 +1259,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		sess->dsp_proxy = pw_core_proxy_create_object(impl->core_proxy,
 				"audio-dsp",
 				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE,
+				PW_VERSION_NODE_PROXY,
 				&props->dict,
 				0);
 		pw_properties_free(props);
@@ -1299,7 +1299,7 @@ static void do_rescan(struct impl *impl)
 static void core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
-	pw_log_debug("media-session %p: sync %d %d/%d", impl, id, seq, impl->seq);
+	pw_log_debug("media-session %p: sync %u %d/%d", impl, id, seq, impl->seq);
 	if (impl->seq == seq)
 		do_rescan(impl);
 }
@@ -1326,7 +1326,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 					   &impl->core_listener,
 					   &core_events, impl);
 		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
-                                                PW_VERSION_REGISTRY, 0);
+                                                PW_VERSION_REGISTRY_PROXY, 0);
 		pw_registry_proxy_add_listener(impl->registry_proxy,
                                                &impl->registry_listener,
                                                &registry_events, impl);

@@ -56,7 +56,7 @@ struct impl {
 };
 
 static void
-impl_log_logv(struct spa_log *log,
+impl_log_logv(void *object,
 	      enum spa_log_level level,
 	      const char *file,
 	      int line,
@@ -64,7 +64,7 @@ impl_log_logv(struct spa_log *log,
 	      const char *fmt,
 	      va_list args)
 {
-	struct impl *impl = SPA_CONTAINER_OF(log, struct impl, log);
+	struct impl *impl = object;
 	char text[512], location[1024];
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
@@ -107,7 +107,7 @@ impl_log_logv(struct spa_log *log,
 
 
 static void
-impl_log_log(struct spa_log *log,
+impl_log_log(void *object,
 	     enum spa_log_level level,
 	     const char *file,
 	     int line,
@@ -116,7 +116,7 @@ impl_log_log(struct spa_log *log,
 {
 	va_list args;
 	va_start(args, fmt);
-	impl_log_logv(log, level, file, line, func, fmt, args);
+	impl_log_logv(object, level, file, line, func, fmt, args);
 	va_end(args);
 }
 
@@ -149,12 +149,10 @@ static void on_trace_event(struct spa_source *source)
         }
 }
 
-static const struct spa_log impl_log = {
-	SPA_VERSION_LOG,
-	DEFAULT_LOG_LEVEL,
-	NULL,
-	impl_log_log,
-	impl_log_logv,
+static const struct spa_log_methods impl_log = {
+	SPA_VERSION_LOG_METHODS,
+	.log = impl_log_log,
+	.logv = impl_log_logv,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -217,7 +215,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 
-	this->log = impl_log;
+	this->log.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Log,
+			SPA_VERSION_LOG,
+			&impl_log, this);
+	this->log.level = DEFAULT_LOG_LEVEL;
 
 	for (i = 0; i < n_support; i++) {
 		if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
@@ -281,7 +283,7 @@ const struct spa_handle_factory spa_support_logger_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	NAME,
 	NULL,
-	impl_get_size,
-	impl_init,
-	impl_enum_interface_info,
+	.get_size = impl_get_size,
+	.init = impl_init,
+	.enum_interface_info = impl_enum_interface_info,
 };

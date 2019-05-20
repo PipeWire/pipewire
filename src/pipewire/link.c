@@ -47,6 +47,8 @@
 
 #define MAX_BUFFERS     64
 
+#define pw_link_resource_info(r,...)      pw_resource_notify(r,struct pw_link_proxy_events,info,0,__VA_ARGS__)
+
 /** \cond */
 struct impl {
 	struct pw_link this;
@@ -518,11 +520,13 @@ static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
 			pw_direction_as_string(port->direction),
 			port, port->port_id, mix->port.port_id, id, data, size);
 
-	if (port->mix->port_set_io) {
-		if ((res = spa_node_port_set_io(port->mix,
-				     mix->port.direction,
-				     mix->port.port_id,
-				     id, data, size)) < 0)
+	if ((res = spa_node_port_set_io(port->mix,
+			     mix->port.direction,
+			     mix->port.port_id,
+			     id, data, size)) < 0) {
+		if (res == -ENOTSUP)
+			res = 0;
+		else
 			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
 	}
 	return res;
@@ -1417,7 +1421,8 @@ int pw_link_register(struct pw_link *link,
 	link->registered = true;
 
 	link->global = pw_global_new(core,
-				     PW_TYPE_INTERFACE_Link, PW_VERSION_LINK,
+				     PW_TYPE_INTERFACE_Link,
+				     PW_VERSION_LINK_PROXY,
 				     properties,
 				     global_bind,
 				     link);

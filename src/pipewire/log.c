@@ -86,7 +86,9 @@ pw_log_log(enum spa_log_level level,
 	if (SPA_UNLIKELY(pw_log_level_enabled(level) && global_log)) {
 		va_list args;
 		va_start(args, fmt);
-		global_log->logv(global_log, level, file, line, func, fmt, args);
+		spa_interface_call(&global_log->iface,
+			struct spa_log_methods, logv, 0, level, file, line,
+			func, fmt, args);
 		va_end(args);
 	}
 }
@@ -111,7 +113,9 @@ pw_log_logv(enum spa_log_level level,
 	    va_list args)
 {
 	if (SPA_UNLIKELY(pw_log_level_enabled(level) && global_log)) {
-		global_log->logv(global_log, level, file, line, func, fmt, args);
+		spa_interface_call(&global_log->iface,
+			struct spa_log_methods, logv, 0, level, file, line,
+			func, fmt, args);
 	}
 }
 

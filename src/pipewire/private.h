@@ -36,6 +36,7 @@ extern "C" {
 #include "pipewire/remote.h"
 #include "pipewire/mem.h"
 #include "pipewire/introspect.h"
+#include "pipewire/interfaces.h"
 #include "pipewire/stream.h"
 #include "pipewire/log.h"
 
@@ -169,6 +170,38 @@ struct pw_global {
 #define pw_core_emit_check_access(c,cl)		pw_core_emit(c, check_access, 0, cl)
 #define pw_core_emit_global_added(c,g)		pw_core_emit(c, global_added, 0, g)
 #define pw_core_emit_global_removed(c,g)	pw_core_emit(c, global_removed, 0, g)
+
+#define pw_core_resource(r,m,v,...) pw_resource_notify(r, struct pw_core_proxy_events, m, v, ##__VA_ARGS__)
+#define pw_core_resource_info(r,...)         pw_core_resource(r,info,0,__VA_ARGS__)
+#define pw_core_resource_done(r,...)         pw_core_resource(r,done,0,__VA_ARGS__)
+#define pw_core_resource_ping(r,...)         pw_core_resource(r,ping,0,__VA_ARGS__)
+#define pw_core_resource_error(r,...)        pw_core_resource(r,error,0,__VA_ARGS__)
+#define pw_core_resource_remove_id(r,...)    pw_core_resource(r,remove_id,0,__VA_ARGS__)
+
+static inline void
+pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
+		int res, const char *message, va_list args)
+{
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), message, args);
+	buffer[1023] = '\0';
+	pw_core_resource_error(resource, id, seq, res, buffer);
+}
+
+static inline void
+pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
+		int res, const char *message, ...)
+{
+        va_list args;
+	va_start(args, message);
+	pw_core_resource_errorv(resource, id, seq, res, message, args);
+	va_end(args);
+}
+
+#define pw_registry_resource(r,m,v,...) pw_resource_notify(r, struct pw_registry_proxy_events,m,v,##__VA_ARGS__)
+#define pw_registry_resource_global(r,...)        pw_registry_resource(r,global,0,__VA_ARGS__)
+#define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)
+
 
 struct pw_core {
 	struct pw_global *global;	/**< the global of the core */
@@ -592,6 +625,7 @@ struct pw_link {
 #define pw_resource_emit_error(o,s,r,m)	pw_resource_emit(o, error, 0, s, r, m)
 
 struct pw_resource {
+	struct spa_interface impl;	/**< event implementation */
 	struct pw_core *core;		/**< the core object */
 	struct spa_list link;		/**< link in object resource_list */
 
@@ -620,6 +654,7 @@ struct pw_resource {
 #define pw_proxy_emit_error(p,s,r,m)	pw_proxy_emit(p, error, 0, s, r, m)
 
 struct pw_proxy {
+	struct spa_interface impl;	/**< method implementation */
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
 	struct spa_list link;		/**< link in the remote */
 

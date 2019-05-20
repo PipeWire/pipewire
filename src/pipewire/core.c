@@ -57,15 +57,14 @@ struct resource_data {
 };
 
 /** \endcond */
-
-static int registry_bind(void *object, uint32_t id,
-		uint32_t type, uint32_t version, uint32_t new_id)
+static void * registry_bind(void *object, uint32_t id,
+		uint32_t type, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_core *core = resource->core;
 	struct pw_global *global;
-	uint32_t permissions;
+	uint32_t permissions, new_id = user_data_size;
 
 	if ((global = pw_core_find_global(core, id)) == NULL)
 		goto no_id;
@@ -84,7 +83,7 @@ static int registry_bind(void *object, uint32_t id,
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
 		goto exit;
 
-	return 0;
+	return NULL;
 
       no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
@@ -100,7 +99,7 @@ static int registry_bind(void *object, uint32_t id,
 	 * new_id as 'used and freed' */
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
-	return -EFAULT;
+	return NULL;
 }
 
 static int registry_destroy(void *object, uint32_t id)
@@ -213,7 +212,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	return 0;
 }
 
-static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
+static struct pw_registry_proxy * core_get_registry(void *object, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -221,6 +220,7 @@ static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
 	struct pw_global *global;
 	struct pw_resource *registry_resource;
 	struct resource_data *data;
+	uint32_t new_id = user_data_size;
 
 	registry_resource = pw_resource_new(client,
 					    new_id,
@@ -257,7 +257,7 @@ static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
 		}
 	}
 
-	return 0;
+	return (struct pw_registry_proxy *)registry_resource;
 
       no_mem:
 	pw_log_error("can't create registry resource");
@@ -265,22 +265,24 @@ static int core_get_registry(void *object, uint32_t version, uint32_t new_id)
 			client->recv_seq, -ENOMEM, "no memory");
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
-	return -ENOMEM;
+	errno = ENOMEM;
+	return NULL;
 }
 
-static int
+static void *
 core_create_object(void *object,
 		   const char *factory_name,
 		   uint32_t type,
 		   uint32_t version,
 		   const struct spa_dict *props,
-		   uint32_t new_id)
+		   size_t user_data_size)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_factory *factory;
 	void *obj;
 	struct pw_properties *properties;
+	uint32_t new_id = user_data_size;
 	int res;
 
 	factory = pw_core_find_factory(client->core, factory_name);
@@ -330,27 +332,17 @@ core_create_object(void *object,
       error:
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
-	return res;
+	return NULL;
 }
 
-static int core_destroy(void *object, uint32_t id)
+static int core_destroy(void *object, void *proxy)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
-	struct pw_resource *r;
-
-	pw_log_debug("core %p: destroy resource %d from client %p", resource->core, id, client);
-
-	if ((r = pw_client_find_resource(client, id)) == NULL)
-		goto no_resource;
-
+	struct pw_resource *r = proxy;
+	pw_log_debug("core %p: destroy resource %p from client %p", resource->core, r, client);
 	pw_resource_destroy(r);
 	return 0;
-
-      no_resource:
-	pw_log_error("can't find resouce %d", id);
-	pw_resource_error(resource, -EINVAL, "unknown resource %d", id);
-	return -EINVAL;
 }
 
 static const struct pw_core_proxy_methods core_methods = {
@@ -525,7 +517,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	this->global = pw_global_new(this,
 				     PW_TYPE_INTERFACE_Core,
-				     PW_VERSION_CORE,
+				     PW_VERSION_CORE_PROXY,
 				     pw_properties_new(
 					     PW_CORE_PROP_USER_NAME, this->info.user_name,
 					     PW_CORE_PROP_HOST_NAME, this->info.host_name,

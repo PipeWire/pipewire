@@ -31,6 +31,9 @@ extern "C" {
 
 #include <spa/support/loop.h>
 
+#define SPA_VERSION_DBUS	0
+struct spa_dbus { struct spa_interface iface; };
+
 enum spa_dbus_type {
 	SPA_DBUS_TYPE_SESSION,	/**< The login session bus */
 	SPA_DBUS_TYPE_SYSTEM,	/**< The systemwide bus */
@@ -58,10 +61,8 @@ struct spa_dbus_connection {
 #define spa_dbus_connection_get(c)	(c)->get((c))
 #define spa_dbus_connection_destroy(c)	(c)->destroy((c))
 
-struct spa_dbus {
-	/* the version of this structure. This can be used to expand this
-	 * structure in the future */
-#define SPA_VERSION_DBUS	0
+struct spa_dbus_methods {
+#define SPA_VERSION_DBUS_METHODS	0
         uint32_t version;
 
 	/**
@@ -76,11 +77,19 @@ struct spa_dbus {
 	 * \param error location for the DBusError
 	 * \return a new dbus connection wrapper or NULL on error
 	 */
-	struct spa_dbus_connection * (*get_connection) (struct spa_dbus *dbus,
+	struct spa_dbus_connection * (*get_connection) (void *object,
 							enum spa_dbus_type type);
 };
 
-#define spa_dbus_get_connection(d,...)	(d)->get_connection((d),__VA_ARGS__)
+static inline struct spa_dbus_connection *
+spa_dbus_get_connection(struct spa_dbus *dbus, enum spa_dbus_type type)
+{
+	struct spa_dbus_connection *res = NULL;
+	spa_interface_call_res(&dbus->iface,
+                        struct spa_dbus_methods, res,
+			get_connection, 0, type);
+	return res;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

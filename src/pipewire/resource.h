@@ -141,8 +141,17 @@ const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *re
 #define pw_resource_do_parent(r,l,type,method,...)	\
 	spa_hook_list_call_once_start(pw_resource_get_implementation(r),l,type,method,v,## __VA_ARGS__)
 
-#define pw_resource_notify(r,type,event,...)		\
-	((type*) pw_resource_get_marshal(r)->event_marshal)->event(r, ## __VA_ARGS__)
+#define pw_resource_notify(r,type,event,version,...)			\
+	spa_interface_call((struct spa_interface*)r,			\
+			type, event, version, ##__VA_ARGS__);
+
+#define pw_resource_notify_res(r,type,event,version,...)		\
+({									\
+	int _res = -ENOTSUP;						\
+	spa_interface_call_res((struct spa_interface*)r,		\
+			type, _res, event, version, ##__VA_ARGS__);	\
+	_res;								\
+})
 
 #ifdef __cplusplus
 }

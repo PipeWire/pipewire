@@ -42,6 +42,10 @@ struct impl {
 	struct spa_node mix_node;	/**< mix node implementation */
 };
 
+#define pw_port_resource(r,m,v,...)	pw_resource_notify(r,struct pw_port_proxy_events,m,v,__VA_ARGS__)
+#define pw_port_resource_info(r,...)	pw_port_resource(r,info,0,__VA_ARGS__)
+#define pw_port_resource_param(r,...)	pw_port_resource(r,param,0,__VA_ARGS__)
+
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_port *port;
@@ -81,9 +85,9 @@ void pw_port_update_state(struct pw_port *port, enum pw_port_state state)
 	}
 }
 
-static int tee_process(struct spa_node *data)
+static int tee_process(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+	struct impl *impl = object;
 	struct pw_port *this = &impl->this;
 	struct pw_port_mix *mix;
 	struct spa_io_buffers *io = &this->rt.io;
@@ -99,9 +103,9 @@ static int tee_process(struct spa_node *data)
         return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
-static int tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
+static int tee_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
-	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+	struct impl *impl = object;
 	struct pw_port *this = &impl->this;
 
 	pw_log_trace_fp("port %p: tee reuse buffer %d %d", this, port_id, buffer_id);
@@ -110,16 +114,15 @@ static int tee_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t bu
 	return 0;
 }
 
-static const struct spa_node schedule_tee_node = {
-	SPA_VERSION_NODE,
-	NULL,
+static const struct spa_node_methods schedule_tee_node = {
+	SPA_VERSION_NODE_METHODS,
 	.process = tee_process,
 	.port_reuse_buffer = tee_reuse_buffer,
 };
 
-static int schedule_mix_input(struct spa_node *data)
+static int schedule_mix_input(void *object)
 {
-	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+	struct impl *impl = object;
 	struct pw_port *this = &impl->this;
 	struct spa_io_buffers *io = &this->rt.io;
 	struct pw_port_mix *mix;
@@ -137,9 +140,9 @@ static int schedule_mix_input(struct spa_node *data)
         return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 }
 
-static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, uint32_t buffer_id)
+static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
-	struct impl *impl = SPA_CONTAINER_OF(data, struct impl, mix_node);
+	struct impl *impl = object;
 	struct pw_port *this = &impl->this;
 	struct pw_port_mix *mix;
 
@@ -150,9 +153,8 @@ static int schedule_mix_reuse_buffer(struct spa_node *data, uint32_t port_id, ui
 	return 0;
 }
 
-static const struct spa_node schedule_mix_node = {
-	SPA_VERSION_NODE,
-	NULL,
+static const struct spa_node_methods schedule_mix_node = {
+	SPA_VERSION_NODE_METHODS,
 	.process = schedule_mix_input,
 	.port_reuse_buffer = schedule_mix_reuse_buffer,
 };
@@ -172,13 +174,12 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	port->n_mix++;
 	mix->p = port;
 
-	if (port->mix->add_port)
-		port->mix->add_port(port->mix, port->direction, port_id, NULL);
+	spa_node_add_port(port->mix, port->direction, port_id, NULL);
 
 	res = pw_port_call_init_mix(port, mix);
 
 	/* set the same format on the mixer as on the port if any */
-	if (port->mix->enum_params && port->mix->set_param) {
+	if (1) {
 		uint32_t idx = 0;
 		uint8_t buffer[1024];
 		struct spa_pod_builder b;
@@ -212,9 +213,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 
 	res = pw_port_call_release_mix(port, mix);
 
-	if (port->mix->remove_port) {
-		port->mix->remove_port(port->mix, port->direction, port_id);
-	}
+	spa_node_remove_port(port->mix, port->direction, port_id);
 
 	pw_log_debug("port %p: release mix %d.%d", port,
 			port->port_id, mix->port.port_id);
@@ -334,6 +333,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	struct impl *impl;
 	struct pw_port *this;
 	struct pw_properties *properties;
+	const struct spa_node_methods *mix_methods;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -379,10 +379,17 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	spa_hook_list_init(&this->listener_list);
 
-	impl->mix_node = this->direction == PW_DIRECTION_INPUT ?
-				schedule_mix_node :
-				schedule_tee_node;
-	pw_port_set_mix(this, &impl->mix_node, 0);
+	if (this->direction == PW_DIRECTION_INPUT)
+		mix_methods = &schedule_mix_node;
+	else
+		mix_methods = &schedule_tee_node;
+
+	impl->mix_node.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Node,
+			SPA_VERSION_NODE,
+			mix_methods, impl);
+
+	pw_port_set_mix(this, NULL, 0);
 
 	pw_map_init(&this->mix_port_map, 64, 64);
 
@@ -405,7 +412,7 @@ int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 
 	if (node == NULL) {
-		node = &impl->mix_node;
+		node = (struct spa_node *)&impl->mix_node;
 		flags = 0;
 	}
 	pw_log_debug("port %p: mix node %p->%p", port, port->mix, node);
@@ -631,7 +638,8 @@ int pw_port_register(struct pw_port *port,
 	struct pw_core *core = node->core;
 
 	port->global = pw_global_new(core,
-				PW_TYPE_INTERFACE_Port, PW_VERSION_PORT,
+				PW_TYPE_INTERFACE_Port,
+				PW_VERSION_PORT_PROXY,
 				properties,
 				global_bind,
 				port);
@@ -702,12 +710,10 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 				     SPA_IO_Buffers,
 				     &port->rt.io, sizeof(port->rt.io));
 
-		if (port->mix->port_set_io) {
-			spa_node_port_set_io(port->mix,
-				     pw_direction_reverse(port->direction), 0,
-				     SPA_IO_Buffers,
-				     &port->rt.io, sizeof(port->rt.io));
-		}
+		spa_node_port_set_io(port->mix,
+			     pw_direction_reverse(port->direction), 0,
+			     SPA_IO_Buffers,
+			     &port->rt.io, sizeof(port->rt.io));
 	}
 
 	pw_log_debug("port %p: %d add to node %p", port, port_id, node);
@@ -952,7 +958,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	pw_log_debug("port %p: %d set param %d %p", port, port->state, id, param);
 
 	/* set the parameters on all ports of the mixer node if possible */
-	if (port->mix->port_set_param != NULL) {
+	if (1) {
 		struct pw_port_mix *mix;
 
 		spa_list_for_each(mix, &port->mix_list, link) {
@@ -1010,7 +1016,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
 		return -EIO;
 
-	if (port->mix->port_use_buffers != NULL) {
+	if (1) {
 		res = spa_node_port_use_buffers(port->mix,
 					mix->port.direction, mix->port.port_id,
 					buffers, n_buffers);

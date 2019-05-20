@@ -37,18 +37,23 @@ static void test_core_abi(void)
 	struct pw_core_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_core_proxy_events *events,
+			void *data);
 		int (*hello) (void *object, uint32_t version);
 		int (*sync) (void *object, uint32_t id, int seq);
 		int (*pong) (void *object, uint32_t id, int seq);
 		int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
-		int (*get_registry) (void *object, uint32_t version, uint32_t new_id);
-		int (*create_object) (void *object,
+		struct pw_registry_proxy * (*get_registry) (void *object,
+				uint32_t version, size_t user_data_size);
+		void * (*create_object) (void *object,
 				       const char *factory_name,
 				       uint32_t type,
 				       uint32_t version,
 				       const struct spa_dict *props,
-				       uint32_t new_id);
-		int (*destroy) (void *object, uint32_t id);
+				       size_t user_data_size);
+		int (*destroy) (void *object, void *proxy);
 	} methods = { PW_VERSION_CORE_PROXY_METHODS, };
 	struct {
 		uint32_t version;
@@ -60,6 +65,7 @@ static void test_core_abi(void)
 	} events = { PW_VERSION_CORE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, hello);
 	TEST_FUNC(m, methods, sync);
 	TEST_FUNC(m, methods, pong);
@@ -86,7 +92,12 @@ static void test_registry_abi(void)
 	struct pw_registry_proxy_events e;
 	struct {
 		uint32_t version;
-		int (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version, uint32_t new_id);
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_registry_proxy_events *events,
+			void *data);
+		void * (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version,
+				size_t user_data_size);
 		int (*destroy) (void *object, uint32_t id);
 	} methods = { PW_VERSION_REGISTRY_PROXY_METHODS, };
 	struct {
@@ -98,6 +109,7 @@ static void test_registry_abi(void)
 	} events = { PW_VERSION_REGISTRY_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, bind);
 	TEST_FUNC(m, methods, destroy);
 	spa_assert(PW_VERSION_REGISTRY_PROXY_METHODS == 0);
@@ -116,6 +128,10 @@ static void test_module_abi(void)
 	struct pw_module_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_module_proxy_events *events,
+			void *data);
 	} methods = { PW_VERSION_MODULE_PROXY_METHODS, };
 	struct {
 		uint32_t version;
@@ -123,6 +139,7 @@ static void test_module_abi(void)
 	} events = { PW_VERSION_MODULE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	spa_assert(PW_VERSION_MODULE_PROXY_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
@@ -138,6 +155,10 @@ static void test_device_abi(void)
 	struct pw_device_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_device_proxy_events *events,
+			void *data);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
@@ -153,6 +174,7 @@ static void test_device_abi(void)
 	} events = { PW_VERSION_DEVICE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, enum_params);
 	TEST_FUNC(m, methods, set_param);
 	spa_assert(PW_VERSION_DEVICE_PROXY_METHODS == 0);
@@ -171,6 +193,10 @@ static void test_node_abi(void)
 	struct pw_node_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_node_proxy_events *events,
+			void *data);
 		int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num, const struct spa_pod *filter);
@@ -187,6 +213,7 @@ static void test_node_abi(void)
 	} events = { PW_VERSION_NODE_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, subscribe_params);
 	TEST_FUNC(m, methods, enum_params);
 	TEST_FUNC(m, methods, set_param);
@@ -207,6 +234,10 @@ static void test_port_abi(void)
 	struct pw_port_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_port_proxy_events *events,
+			void *data);
 		int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num, const struct spa_pod *filter);
@@ -220,6 +251,7 @@ static void test_port_abi(void)
 	} events = { PW_VERSION_PORT_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, enum_params);
 	spa_assert(PW_VERSION_PORT_PROXY_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
@@ -237,6 +269,10 @@ static void test_factory_abi(void)
 	struct pw_factory_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_factory_proxy_events *events,
+			void *data);
 	} methods = { PW_VERSION_FACTORY_PROXY_METHODS, };
 	struct {
 		uint32_t version;
@@ -244,6 +280,7 @@ static void test_factory_abi(void)
 	} events = { PW_VERSION_FACTORY_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	spa_assert(PW_VERSION_FACTORY_PROXY_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
@@ -259,6 +296,10 @@ static void test_client_abi(void)
 	struct pw_client_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_client_proxy_events *events,
+			void *data);
 		int (*error) (void *object, uint32_t id, int res, const char *error);
 		int (*update_properties) (void *object, const struct spa_dict *props);
 		int (*get_permissions) (void *object, uint32_t index, uint32_t num);
@@ -273,6 +314,8 @@ static void test_client_abi(void)
 	} events = { PW_VERSION_CLIENT_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
+	TEST_FUNC(m, methods, error);
 	TEST_FUNC(m, methods, update_properties);
 	TEST_FUNC(m, methods, get_permissions);
 	TEST_FUNC(m, methods, update_permissions);
@@ -292,6 +335,10 @@ static void test_link_abi(void)
 	struct pw_link_proxy_events e;
 	struct {
 		uint32_t version;
+		int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct pw_link_proxy_events *events,
+			void *data);
 	} methods = { PW_VERSION_LINK_PROXY_METHODS, };
 	struct {
 		uint32_t version;
@@ -299,6 +346,7 @@ static void test_link_abi(void)
 	} events = { PW_VERSION_LINK_PROXY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
+	TEST_FUNC(m, methods, add_listener);
 	spa_assert(PW_VERSION_LINK_PROXY_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 

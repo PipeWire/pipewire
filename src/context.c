@@ -771,7 +771,6 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 
 	if (c->registry_proxy == NULL) {
 		c->registry_proxy = pw_core_proxy_get_registry(c->core_proxy,
-				PW_TYPE_INTERFACE_Registry,
 				PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(c->registry_proxy,
 				&c->registry_listener,

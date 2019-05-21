@@ -1326,7 +1326,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 					   &impl->core_listener,
 					   &core_events, impl);
 		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
-                                                PW_TYPE_INTERFACE_Registry,
                                                 PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(impl->registry_proxy,
                                                &impl->registry_listener,

@@ -400,7 +400,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
 					   &rd->core_listener,
 					   &remote_core_events, rd);
 		rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
-								PW_TYPE_INTERFACE_Registry,
 								PW_VERSION_REGISTRY, 0);
 		pw_registry_proxy_add_listener(rd->registry_proxy,
 					       &rd->registry_listener,

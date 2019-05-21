@@ -581,7 +581,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   self->devices = NULL;
 
   data->registry = pw_core_proxy_get_registry(self->core_proxy,
-		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+		  PW_VERSION_REGISTRY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
   pw_core_proxy_sync(self->core_proxy, 0, self->seq++);
 
@@ -667,8 +667,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   GST_DEBUG_OBJECT (self, "connected");
 
   self->registry = pw_core_proxy_get_registry(self->core_proxy,
-		  PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-
+		  PW_VERSION_REGISTRY, 0);
   data->registry = self->registry;
 
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);

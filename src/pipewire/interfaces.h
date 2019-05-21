@@ -36,6 +36,7 @@ extern "C" {
 #include <spa/param/param.h>
 
 #include <pipewire/introspect.h>
+#include <pipewire/type.h>
 #include <pipewire/proxy.h>
 #include <pipewire/permission.h>
 
@@ -220,9 +221,9 @@ pw_core_proxy_errorf(struct pw_core_proxy *core, uint32_t id, int seq,
 }
 
 static inline struct pw_registry_proxy *
-pw_core_proxy_get_registry(struct pw_core_proxy *core, uint32_t type, uint32_t version, size_t user_data_size)
+pw_core_proxy_get_registry(struct pw_core_proxy *core, uint32_t version, size_t user_data_size)
 {
-	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, type, user_data_size);
+	struct pw_proxy *p = pw_proxy_new((struct pw_proxy*)core, PW_TYPE_INTERFACE_Registry, user_data_size);
 	pw_proxy_do((struct pw_proxy*)core, struct pw_core_proxy_methods, get_registry, version, pw_proxy_get_id(p));
 	return (struct pw_registry_proxy *) p;
 }

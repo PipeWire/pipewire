@@ -487,14 +487,14 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 
 void pw_port_unlink(struct pw_port *port)
 {
-	struct pw_link *l, *t;
+	struct pw_link *l;
 
 	if (port->direction == PW_DIRECTION_OUTPUT) {
-		spa_list_for_each_safe(l, t, &port->links, output_link)
+		spa_list_consume(l, &port->links, output_link)
 			pw_link_destroy(l);
 	}
 	else {
-		spa_list_for_each_safe(l, t, &port->links, input_link)
+		spa_list_consume(l, &port->links, input_link)
 			pw_link_destroy(l);
 	}
 }

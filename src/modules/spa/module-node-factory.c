@@ -136,11 +136,11 @@ static const struct pw_factory_implementation factory_impl = {
 static void factory_destroy(void *_data)
 {
 	struct factory_data *data = _data;
-	struct node_data *nd, *t;
+	struct node_data *nd;
 
 	spa_hook_remove(&data->module_listener);
 
-	spa_list_for_each_safe(nd, t, &data->node_list, link)
+	spa_list_consume(nd, &data->node_list, link)
 		pw_node_destroy(nd->node);
 
 	if (data->properties)

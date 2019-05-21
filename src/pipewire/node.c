@@ -644,14 +644,10 @@ void pw_node_destroy(struct pw_node *node)
 		pw_port_unlink(port);
 
 	pw_log_debug("node %p: destroy ports", node);
-	spa_list_consume(port, &node->input_ports, link) {
-		pw_node_events_port_removed(node, port);
+	spa_list_consume(port, &node->input_ports, link)
 		pw_port_destroy(port);
-	}
-	spa_list_consume(port, &node->output_ports, link) {
-		pw_node_events_port_removed(node, port);
+	spa_list_consume(port, &node->output_ports, link)
 		pw_port_destroy(port);
-	}
 
 	if (node->global) {
 		spa_hook_remove(&node->global_listener);

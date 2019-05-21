@@ -1894,7 +1894,6 @@ jack_client_t * jack_client_open (const char *client_name,
                                                &client->core_listener,
                                                &core_events, client);
 	client->registry_proxy = pw_core_proxy_get_registry(client->core_proxy,
-						PW_TYPE_INTERFACE_Registry,
 						PW_VERSION_REGISTRY, 0);
 	pw_registry_proxy_add_listener(client->registry_proxy,
                                                &client->registry_listener,

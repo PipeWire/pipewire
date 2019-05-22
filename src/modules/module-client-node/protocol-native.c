@@ -832,6 +832,7 @@ static int client_node_demarshal_destroy(void *object, void *data, size_t size)
 		return -EINVAL;
 
 	pw_resource_do(resource, struct pw_client_node_proxy_methods, destroy, 0);
+	pw_resource_destroy(resource);
 	return 0;
 }
 

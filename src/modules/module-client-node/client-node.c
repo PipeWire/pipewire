@@ -1047,12 +1047,6 @@ static void client_node_event(void *data, struct spa_event *event)
 	this->callbacks->event(this->callbacks_data, event);
 }
 
-static void client_node_destroy(void *data)
-{
-	struct impl *impl = data;
-	pw_client_node_destroy(&impl->this);
-}
-
 static struct pw_client_node_proxy_methods client_node_methods = {
 	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
 	.done = client_node_done,
@@ -1060,7 +1054,6 @@ static struct pw_client_node_proxy_methods client_node_methods = {
 	.port_update = client_node_port_update,
 	.set_active = client_node_set_active,
 	.event = client_node_event,
-	.destroy = client_node_destroy,
 };
 
 static void node_on_data_fd_events(struct spa_source *source)

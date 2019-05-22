@@ -1,5 +1,5 @@
 project('pipewire', 'c',
-  version : '0.2.5',
+  version : '0.2.6',
   meson_version : '>= 0.47.0',
   default_options : [ 'warning_level=1',
                       'c_std=gnu99',

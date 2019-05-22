@@ -1,3 +1,33 @@
+PipeWire 0.2.6
+
+This is mostly a bugfix release and is API/ABI compatible with
+previous 0.2 versions.
+
+Work is ongoing in the work branch that features a completely new
+scheduling method that will enable audio support. Some of these
+API changes are backported in this branch.
+
+- Improve error checking for threads
+- Fix some memory and fd leaks
+- Fix compilation with C++ compilers and clang
+- DISABLE_RTKIT should now not try to use dbus at all
+- Camera Portal fixes:
+	- add Camera media.role
+	- Rename module-flatpak to module-portal
+	- Use the portal permissions store for camera checks
+- Actually use the passed fd in pipewiresrc
+- Make properties with "pipewire." prefix read-only
+- Add security label to client object
+- Enforce link permissions
+- Permissions of objects are now combined with parent permissions
+- Remove libv4l2 dependency, it is not used
+- Improve format negotiation in autolink #146
+- Try to avoid list corruption with event emmission #143
+- Fix destroy of client-node memory corruption
+- Various small improvements
+
+Older versions:
+
 PipeWire 0.2.5
 
 - build fixes for systemd
@@ -8,4 +38,57 @@ PipeWire 0.2.5
 - Add more error checking for thread-loop
 - Small cleanups and bugfixes
 
-This is mostly a bugfix release.
+PipeWire 0.2.4
+
+- Install man pages in right directory
+- Add systemd socket activation
+- Various memory leak and corruption fixes in properties, dbus and
+  buffer mmaped memory.
+- Fix v4l2 crash on unplug
+- improve stream cleanup
+
+PipeWire 0.2.3
+
+- Fix deviceprovider caps introspection
+- Refcounting fixes in pipewiresrc
+- Remove clock interpolation from stream
+- Improve clock in gstreamer elements
+- Remove spalib
+- Fix crash with pw_map
+- Add version number to hook list
+- Improve driver mode in gstreamer elements
+- add daemon options
+- add man pages
+
+PipeWire 0.2.2
+
+- Increment API version and .so version
+
+PipeWire 0.2.1
+
+- Various fixes to memory handling
+- Fixes for shutdown
+- v4l2 fix enumeration of frame intervals
+- Make the daemon stop when the setup commands fail
+- Improve safety of hooks
+- Update stream API to more future proof version
+- Add more options to stream API such as scheduling in the
+  main thread and automatic mapping of buffers
+- Add version file and macros to check compile time and
+  runtime versions of pipewire
+- Future proof some structs
+
+PipeWire 0.1.9
+
+- Various build fixes
+- Do more permission checks
+- Add support for doing async connections. This can be used to
+  make connections through the portal later.
+- Fix device creation from the GStreamer device monitor
+- v4l2 experiment with controls
+- move rtkit to a module to avoid dbus dependency
+- use dmabuf allocator in gstreamer elements
+- Add DSP module for pro audio cases, remove jack module. The
+  idea is to make a replacement jack client library that talks
+  pipewire directly instead of trying to emulate a jack server.
+- Various memory handling improvements

@@ -142,6 +142,9 @@ int pw_factory_register(struct pw_factory *factory,
 {
 	struct pw_core *core = factory->core;
 
+	if (factory->registered)
+		return -EEXIST;
+
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)

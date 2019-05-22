@@ -215,6 +215,9 @@ int pw_client_register(struct pw_client *client,
 {
 	struct pw_core *core = client->core;
 
+	if (client->registered)
+		return -EEXIST;
+
 	pw_log_debug("client %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
 
 	spa_list_append(&core->client_list, &client->link);

@@ -426,6 +426,9 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	struct pw_type *t = &core->type;
 	const char *str, *dir;
 
+	if (port->node != NULL)
+		return -EEXIST;
+
 	port->node = node;
 
 	spa_node_port_get_info(node->node,
@@ -537,6 +540,7 @@ static void pw_port_remove(struct pw_port *port)
 	}
 	spa_list_remove(&port->link);
 	pw_node_events_port_removed(node, port);
+	port->node = NULL;
 }
 
 void pw_port_destroy(struct pw_port *port)

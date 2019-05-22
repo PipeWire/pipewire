@@ -1394,6 +1394,9 @@ int pw_link_register(struct pw_link *link,
 	struct pw_core *core = link->core;
 	struct pw_node *input_node, *output_node;
 
+	if (link->registered)
+		return -EEXIST;
+
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)

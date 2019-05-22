@@ -785,6 +785,7 @@ static void pw_port_remove(struct pw_port *port)
 	}
 	spa_list_remove(&port->link);
 	pw_node_emit_port_removed(node, port);
+	port->node = NULL;
 }
 
 void pw_port_destroy(struct pw_port *port)

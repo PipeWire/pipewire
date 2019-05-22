@@ -59,16 +59,22 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 SPA_EXPORT
 void pw_factory_destroy(struct pw_factory *factory)
 {
+	struct pw_resource *resource;
+
 	pw_log_debug("factory %p: destroy", factory);
 	pw_factory_events_destroy(factory);
 
 	if (factory->registered)
 		spa_list_remove(&factory->link);
 
+	spa_list_consume(resource, &factory->resource_list, link)
+		pw_resource_destroy(resource);
+
 	if (factory->global) {
 		spa_hook_remove(&factory->global_listener);
 		pw_global_destroy(factory->global);
 	}
+
 	free((char *)factory->info.name);
 	if (factory->properties)
 		pw_properties_free(factory->properties);

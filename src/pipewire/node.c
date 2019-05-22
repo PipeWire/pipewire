@@ -649,12 +649,13 @@ void pw_node_destroy(struct pw_node *node)
 	spa_list_consume(port, &node->output_ports, link)
 		pw_port_destroy(port);
 
+	spa_list_consume(resource, &node->resource_list, link)
+		pw_resource_destroy(resource);
+
 	if (node->global) {
 		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
 	}
-	spa_list_consume(resource, &node->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_log_debug("node %p: free", node);
 	pw_node_events_free(node);

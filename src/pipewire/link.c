@@ -1348,13 +1348,13 @@ void pw_link_destroy(struct pw_link *link)
 
 	output_remove(link, link->output);
 
+	spa_list_consume(resource, &link->resource_list, link)
+		pw_resource_destroy(resource);
+
 	if (link->global) {
 		spa_hook_remove(&link->global_listener);
 		pw_global_destroy(link->global);
 	}
-
-	spa_list_consume(resource, &link->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_log_debug("link %p: free", impl);
 	pw_link_events_free(link);

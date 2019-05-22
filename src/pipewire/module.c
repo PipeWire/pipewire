@@ -294,12 +294,13 @@ void pw_module_destroy(struct pw_module *module)
 
 	spa_list_remove(&module->link);
 
+	spa_list_consume(resource, &module->resource_list, link)
+		pw_resource_destroy(resource);
+
 	if (module->global) {
 		spa_hook_remove(&module->global_listener);
 		pw_global_destroy(module->global);
 	}
-	spa_list_consume(resource, &module->resource_list, link)
-		pw_resource_destroy(resource);
 
 	free((char *) module->info.name);
 	free((char *) module->info.filename);

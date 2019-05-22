@@ -301,18 +301,18 @@ void pw_client_destroy(struct pw_client *client)
 	if (client->registered)
 		spa_list_remove(&client->link);
 
+	pw_map_for_each(&client->objects, destroy_resource, client);
+
+	spa_list_consume(resource, &client->resource_list, link)
+		pw_resource_destroy(resource);
+
 	if (client->global) {
 		spa_hook_remove(&client->global_listener);
 		pw_global_destroy(client->global);
 	}
 
-	spa_list_consume(resource, &client->resource_list, link)
-		pw_resource_destroy(resource);
-
-	pw_map_for_each(&client->objects, destroy_resource, client);
-
-	pw_client_events_free(client);
 	pw_log_debug("client %p: free", impl);
+	pw_client_events_free(client);
 
 	pw_map_clear(&client->objects);
 	pw_map_clear(&client->types);

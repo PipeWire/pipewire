@@ -561,12 +561,13 @@ void pw_port_destroy(struct pw_port *port)
 	spa_list_consume(control, &port->control_list[1], port_link)
 		pw_control_destroy(control);
 
+	spa_list_consume(resource, &port->resource_list, link)
+		pw_resource_destroy(resource);
+
 	if (port->global) {
 		spa_hook_remove(&port->global_listener);
 		pw_global_destroy(port->global);
 	}
-	spa_list_consume(resource, &port->resource_list, link)
-		pw_resource_destroy(resource);
 
 	pw_log_debug("port %p: free", port);
 	pw_port_events_free(port);

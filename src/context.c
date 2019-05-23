@@ -506,7 +506,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->event = PA_SUBSCRIPTION_EVENT_CARD;
 
 		events = &device_events;
-                client_version = PW_VERSION_DEVICE;
+                client_version = PW_VERSION_DEVICE_PROXY;
                 destroy = device_destroy;
                 spa_list_init(&g->card_info.profiles);
 		break;
@@ -555,7 +555,7 @@ static int set_mask(pa_context *c, struct global *g)
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
 		events = &node_events;
-                client_version = PW_VERSION_NODE;
+                client_version = PW_VERSION_NODE_PROXY;
                 destroy = node_destroy;
 		g->node_info.volume = 1.0;
 		g->node_info.mute = false;
@@ -566,7 +566,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
 		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
 		events = &module_events;
-                client_version = PW_VERSION_MODULE;
+                client_version = PW_VERSION_MODULE_PROXY;
                 destroy = module_destroy;
 		break;
 
@@ -575,7 +575,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
 		events = &client_events;
-                client_version = PW_VERSION_CLIENT;
+                client_version = PW_VERSION_CLIENT_PROXY;
                 destroy = client_destroy;
 		break;
 
@@ -771,7 +771,7 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 
 	if (c->registry_proxy == NULL) {
 		c->registry_proxy = pw_core_proxy_get_registry(c->core_proxy,
-				PW_VERSION_REGISTRY, 0);
+				PW_VERSION_REGISTRY_PROXY, 0);
 		pw_registry_proxy_add_listener(c->registry_proxy,
 				&c->registry_listener,
 				&registry_events, c);

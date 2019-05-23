@@ -32,7 +32,7 @@ extern "C" {
 #include <stddef.h>
 #include <math.h>
 
-#include <asoundlib.h>
+#include <alsa/asoundlib.h>
 
 #include <spa/support/loop.h>
 #include <spa/support/log.h>

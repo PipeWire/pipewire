@@ -24,7 +24,7 @@
 
 #include <stddef.h>
 
-#include <asoundlib.h>
+#include <alsa/asoundlib.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>

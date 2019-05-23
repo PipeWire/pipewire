@@ -340,7 +340,8 @@ static int port_enum_formats(struct spa_node *node,
 			else
 				info.info.raw.format = SPA_AUDIO_FORMAT_S16;
 
-			if (info.info.raw.format == SPA_AUDIO_FORMAT_F32P ||
+			if (!other->have_format ||
+			    info.info.raw.format == SPA_AUDIO_FORMAT_F32P ||
 			    info.info.raw.format == SPA_AUDIO_FORMAT_F32) {
 				spa_pod_builder_add(builder,
 					SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(18,

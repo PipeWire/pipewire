@@ -397,15 +397,15 @@ void pw_client_destroy(struct pw_client *client)
 	if (client->registered)
 		spa_list_remove(&client->link);
 
+	pw_map_for_each(&client->objects, destroy_resource, client);
+
 	if (client->global) {
 		spa_hook_remove(&client->global_listener);
 		pw_global_destroy(client->global);
 	}
 
-	pw_map_for_each(&client->objects, destroy_resource, client);
-
-	pw_client_emit_free(client);
 	pw_log_debug("client %p: free", impl);
+	pw_client_emit_free(client);
 
 	pw_map_clear(&client->objects);
 	pw_array_clear(&impl->permissions);

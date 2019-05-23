@@ -563,6 +563,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_module *module;
 	struct pw_device *device;
 	struct pw_remote *remote;
+	struct pw_resource *resource;
 	struct pw_node *node;
 
 	pw_log_debug("core %p: destroy", core);
@@ -582,21 +583,24 @@ void pw_core_destroy(struct pw_core *core)
 	spa_list_consume(node, &core->node_list, link)
 		pw_node_destroy(node);
 
+	spa_list_consume(resource, &core->registry_resource_list, link)
+		pw_resource_destroy(resource);
+
 	spa_list_consume(global, &core->global_list, link)
 		pw_global_destroy(global);
 
+	pw_log_debug("core %p: free", core);
 	pw_core_emit_free(core);
 
 	pw_data_loop_destroy(core->data_loop_impl);
 
 	pw_properties_free(core->properties);
 
-	pw_map_clear(&core->globals);
-
 	if (impl->dbus_handle)
 		pw_unload_spa_handle(impl->dbus_handle);
 
-	pw_log_debug("core %p: free", core);
+	pw_map_clear(&core->globals);
+
 	free(core);
 }
 

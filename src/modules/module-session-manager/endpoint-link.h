@@ -1,6 +1,7 @@
 /* PipeWire
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2019 Collabora Ltd.
+ *   @author George Kiagiadakis <george.kiagiadakis@collabora.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,51 +23,42 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_TYPE_H
-#define PIPEWIRE_TYPE_H
+#ifndef MODULE_SESSION_MANAGER_ENDPOINT_LINK_H
+#define MODULE_SESSION_MANAGER_ENDPOINT_LINK_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <spa/utils/type.h>
+struct client_session;
 
-enum {
-	PW_TYPE_FIRST = SPA_TYPE_VENDOR_PipeWire,
-
-	PW_TYPE_INTERFACE_START = PW_TYPE_FIRST + SPA_TYPE_INTERFACE_START,
-	PW_TYPE_INTERFACE_Core,
-	PW_TYPE_INTERFACE_Registry,
-	PW_TYPE_INTERFACE_Node,
-	PW_TYPE_INTERFACE_Port,
-	PW_TYPE_INTERFACE_Factory,
-	PW_TYPE_INTERFACE_Link,
-	PW_TYPE_INTERFACE_Client,
-	PW_TYPE_INTERFACE_Module,
-	PW_TYPE_INTERFACE_Device,
-
-	/* extensions */
-	PW_TYPE_INTERFACE_EXTENSIONS = PW_TYPE_INTERFACE_START + 0x1000,
-	PW_TYPE_INTERFACE_ClientNode,
-	PW_TYPE_INTERFACE_Metadata,
-	PW_TYPE_INTERFACE_Session,
-	PW_TYPE_INTERFACE_Endpoint,
-	PW_TYPE_INTERFACE_EndpointStream,
-	PW_TYPE_INTERFACE_EndpointLink,
+struct endpoint_link {
+	struct spa_list link;
+	struct client_session *client_sess;
+	struct pw_global *global;
+	uint32_t id;			/* session-local link id */
+	uint32_t n_params;
+	struct spa_pod **params;
+	struct pw_endpoint_link_info info;
+	struct pw_properties *props;	/* wrapper of info.props */
 };
 
-#define PW_TYPE_INFO_BASE		"PipeWire:"
+int endpoint_link_init(struct endpoint_link *this,
+		uint32_t id, uint32_t session_id,
+		struct client_session *client_sess,
+		struct pw_core *core,
+		struct pw_properties *properties);
 
-#define PW_TYPE_INFO_Object		PW_TYPE_INFO_BASE "Object"
-#define PW_TYPE_INFO_OBJECT_BASE	PW_TYPE_INFO_Object ":"
+void endpoint_link_clear(struct endpoint_link *this);
 
-#define PW_TYPE_INFO_Interface		PW_TYPE_INFO_BASE "Interface"
-#define PW_TYPE_INFO_INTERFACE_BASE	PW_TYPE_INFO_Interface ":"
-
-const struct spa_type_info * pw_type_info(void);
+int endpoint_link_update(struct endpoint_link *this,
+			uint32_t change_mask,
+			uint32_t n_params,
+			const struct spa_pod **params,
+			const struct pw_endpoint_link_info *info);
 
 #ifdef __cplusplus
-}
+}  /* extern "C" */
 #endif
 
-#endif /* PIPEWIRE_TYPE_H */
+#endif /* MODULE_SESSION_MANAGER_ENDPOINT_LINK_H */

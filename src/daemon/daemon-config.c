@@ -92,9 +92,9 @@ struct pw_daemon_config *pw_daemon_config_new(void)
  */
 void pw_daemon_config_free(struct pw_daemon_config *config)
 {
-	struct pw_command *cmd, *tmp;
+	struct pw_command *cmd;
 
-	spa_list_for_each_safe(cmd, tmp, &config->commands, link)
+	spa_list_consume(cmd, &config->commands, link)
 		pw_command_free(cmd);
 
 	free(config);
@@ -189,7 +189,7 @@ int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_cor
 {
 	char *err = NULL;
 	int ret = 0;
-	struct pw_command *command, *tmp;
+	struct pw_command *command;
 
 	spa_list_for_each(command, &config->commands, link) {
 		if ((ret = pw_command_run(command, core, &err)) < 0) {
@@ -199,7 +199,7 @@ int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_cor
 		}
 	}
 
-	spa_list_for_each_safe(command, tmp, &config->commands, link)
+	spa_list_consume(command, &config->commands, link)
 		pw_command_free(command);
 
 	return ret;

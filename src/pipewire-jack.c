@@ -1894,7 +1894,7 @@ jack_client_t * jack_client_open (const char *client_name,
                                                &client->core_listener,
                                                &core_events, client);
 	client->registry_proxy = pw_core_proxy_get_registry(client->core_proxy,
-						PW_VERSION_REGISTRY, 0);
+						PW_VERSION_REGISTRY_PROXY, 0);
 	pw_registry_proxy_add_listener(client->registry_proxy,
                                                &client->registry_listener,
                                                &registry_events, client);
@@ -2851,7 +2851,7 @@ int jack_connect (jack_client_t *client,
 	pw_core_proxy_create_object(c->core_proxy,
 				    "link-factory",
 				    PW_TYPE_INTERFACE_Link,
-				    PW_VERSION_LINK,
+				    PW_VERSION_LINK_PROXY,
 				    &props,
 				    0);
 	res = do_sync(c);

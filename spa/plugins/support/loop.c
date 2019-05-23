@@ -138,7 +138,7 @@ static int loop_add_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
 
-	source->loop = (struct spa_loop*) &impl->loop;
+	source->loop = &impl->loop;
 
 	if (source->fd != -1) {
 		struct epoll_event ep;
@@ -235,7 +235,7 @@ loop_invoke(void *object,
 
 		spa_ringbuffer_write_update(&impl->buffer, idx + item->item_size);
 
-		spa_loop_utils_signal_event((struct spa_loop_utils*)&impl->utils, impl->wakeup);
+		loop_signal_event(impl, impl->wakeup);
 
 		if (block) {
 			uint64_t count = 1;
@@ -271,7 +271,7 @@ static void wakeup_func(void *data, uint64_t count)
 		item = SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
 		block = item->block;
 
-		item->res = item->func((struct spa_loop *)&impl->loop,
+		item->res = item->func(&impl->loop,
 				true, item->seq, item->data, item->size,
 			   item->user_data);
 
@@ -325,7 +325,7 @@ static inline void process_destroy(struct impl *impl)
 static int loop_iterate(void *object, int timeout)
 {
 	struct impl *impl = object;
-	struct spa_loop *loop = (struct spa_loop *)&impl->loop;
+	struct spa_loop *loop = &impl->loop;
 	struct epoll_event ep[32];
 	int i, nfds, save_errno = 0;
 
@@ -374,7 +374,7 @@ static struct spa_source *loop_add_io(void *object,
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = (struct spa_loop *) &impl->loop;
+	source->source.loop = &impl->loop;
 	source->source.func = source_io_func;
 	source->source.data = data;
 	source->source.fd = fd;
@@ -383,7 +383,7 @@ static struct spa_source *loop_add_io(void *object,
 	source->close = close;
 	source->func.io = func;
 
-	spa_loop_add_source(source->source.loop, &source->source);
+	loop_add_source(impl, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
@@ -393,7 +393,7 @@ static struct spa_source *loop_add_io(void *object,
 static int loop_update_io(void *object, struct spa_source *source, enum spa_io mask)
 {
 	source->mask = mask;
-	return spa_loop_update_source(source->loop, source);
+	return loop_update_source(object, source);
 }
 
 
@@ -403,39 +403,10 @@ static void source_idle_func(struct spa_source *source)
 	impl->func.idle(source->data);
 }
 
-static struct spa_source *loop_add_idle(void *object,
-					bool enabled, spa_source_idle_func_t func, void *data)
-{
-	struct impl *impl = object;
-	struct source_impl *source;
-
-	source = calloc(1, sizeof(struct source_impl));
-	if (source == NULL)
-		return NULL;
-
-	source->source.loop = (struct spa_loop *)&impl->loop;
-	source->source.func = source_idle_func;
-	source->source.data = data;
-	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-	source->impl = impl;
-	source->close = true;
-	source->source.mask = SPA_IO_IN;
-	source->func.idle = func;
-
-	spa_loop_add_source(source->source.loop, &source->source);
-
-	spa_list_insert(&impl->source_list, &source->link);
-
-	if (enabled)
-		spa_loop_utils_enable_idle((struct spa_loop_utils*)&impl->utils,
-				&source->source, true);
-
-	return &source->source;
-}
 
 static void loop_enable_idle(void *object, struct spa_source *source, bool enabled)
 {
-	struct source_impl *impl = object;
+	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	uint64_t count;
 
 	if (enabled && !impl->enabled) {
@@ -449,6 +420,34 @@ static void loop_enable_idle(void *object, struct spa_source *source, bool enabl
 					source, source->fd, strerror(errno));
 	}
 	impl->enabled = enabled;
+}
+static struct spa_source *loop_add_idle(void *object,
+					bool enabled, spa_source_idle_func_t func, void *data)
+{
+	struct impl *impl = object;
+	struct source_impl *source;
+
+	source = calloc(1, sizeof(struct source_impl));
+	if (source == NULL)
+		return NULL;
+
+	source->source.loop = &impl->loop;
+	source->source.func = source_idle_func;
+	source->source.data = data;
+	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	source->impl = impl;
+	source->close = true;
+	source->source.mask = SPA_IO_IN;
+	source->func.idle = func;
+
+	loop_add_source(impl, &source->source);
+
+	spa_list_insert(&impl->source_list, &source->link);
+
+	if (enabled)
+		loop_enable_idle(impl, &source->source, true);
+
+	return &source->source;
 }
 
 static void source_event_func(struct spa_source *source)
@@ -473,7 +472,7 @@ static struct spa_source *loop_add_event(void *object,
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = (struct spa_loop *)&impl->loop;
+	source->source.loop = &impl->loop;
 	source->source.func = source_event_func;
 	source->source.data = data;
 	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
@@ -482,7 +481,7 @@ static struct spa_source *loop_add_event(void *object,
 	source->close = true;
 	source->func.event = func;
 
-	spa_loop_add_source(source->source.loop, &source->source);
+	loop_add_source(impl, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
@@ -521,7 +520,7 @@ static struct spa_source *loop_add_timer(void *object,
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = (struct spa_loop*)&impl->loop;
+	source->source.loop = &impl->loop;
 	source->source.func = source_timer_func;
 	source->source.data = data;
 	source->source.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
@@ -530,7 +529,7 @@ static struct spa_source *loop_add_timer(void *object,
 	source->close = true;
 	source->func.timer = func;
 
-	spa_loop_add_source(source->source.loop, &source->source);
+	loop_add_source(impl, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
@@ -588,7 +587,7 @@ static struct spa_source *loop_add_signal(void *object,
 	if (source == NULL)
 		return NULL;
 
-	source->source.loop = (struct spa_loop *)&impl->loop;
+	source->source.loop = &impl->loop;
 	source->source.func = source_signal_func;
 	source->source.data = data;
 
@@ -603,7 +602,7 @@ static struct spa_source *loop_add_signal(void *object,
 	source->func.signal = func;
 	source->signal_number = signal_number;
 
-	spa_loop_add_source(source->source.loop, &source->source);
+	loop_add_source(impl, &source->source);
 
 	spa_list_insert(&impl->source_list, &source->link);
 
@@ -617,7 +616,7 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 	spa_list_remove(&impl->link);
 
 	if (source->loop)
-		spa_loop_remove_source(source->loop, source);
+		loop_remove_source(impl->impl, source);
 
 	if (source->fd != -1 && impl->close) {
 		close(source->fd);
@@ -754,7 +753,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_ringbuffer_init(&impl->buffer);
 
-	impl->wakeup = spa_loop_utils_add_event((struct spa_loop_utils*)&impl->utils, wakeup_func, impl);
+	impl->wakeup = loop_add_event(impl, wakeup_func, impl);
 	impl->ack_fd = eventfd(0, EFD_SEMAPHORE | EFD_CLOEXEC);
 
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);

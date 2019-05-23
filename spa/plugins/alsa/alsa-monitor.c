@@ -25,7 +25,7 @@
 #include <poll.h>
 
 #include <libudev.h>
-#include <asoundlib.h>
+#include <alsa/asoundlib.h>
 
 #include <spa/support/log.h>
 #include <spa/support/type-map.h>

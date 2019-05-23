@@ -26,7 +26,7 @@ extern "C" {
 
 #include <stddef.h>
 
-#include <asoundlib.h>
+#include <alsa/asoundlib.h>
 
 #include <spa/support/type-map.h>
 #include <spa/support/loop.h>

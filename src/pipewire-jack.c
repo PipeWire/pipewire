@@ -1624,8 +1624,9 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	if (props == NULL)
 		return;
 
-	if (type == PW_TYPE_INTERFACE_Node) {
-		if ((str = spa_dict_lookup(props, "node.name")) == NULL)
+	switch (type) {
+	case PW_TYPE_INTERFACE_Node:
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL)
 			goto exit;
 
 		o = alloc_object(c);
@@ -1633,39 +1634,41 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 
 		snprintf(o->node.name, sizeof(o->node.name), "%s/%d", str, id);
 		pw_log_debug("add node %d", id);
-	}
-	else if (type == PW_TYPE_INTERFACE_Port) {
+		break;
+
+	case PW_TYPE_INTERFACE_Port:
+	{
 		const struct spa_dict_item *item;
 		unsigned long flags = 0;
 		jack_port_type_id_t type_id;
 		char full_name[1024];
 
-		if ((str = spa_dict_lookup(props, "port.dsp")) == NULL) {
+		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL) {
 			type_id = 2;
 		}
 		else
 			if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
 				goto exit;
 
-		if ((str = spa_dict_lookup(props, "port.name")) == NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;
 
 		spa_dict_for_each(item, props) {
-	                if (!strcmp(item->key, "port.direction")) {
+	                if (!strcmp(item->key, PW_KEY_PORT_DIRECTION)) {
 				if (!strcmp(item->value, "in"))
 					flags |= JackPortIsInput;
 				else if (!strcmp(item->value, "out"))
 					flags |= JackPortIsOutput;
 			}
-			else if (!strcmp(item->key, "port.physical")) {
+			else if (!strcmp(item->key, PW_KEY_PORT_PHYSICAL)) {
 				if (pw_properties_parse_bool(item->value))
 					flags |= JackPortIsPhysical;
 			}
-			else if (!strcmp(item->key, "port.terminal")) {
+			else if (!strcmp(item->key, PW_KEY_PORT_TERMINAL)) {
 				if (pw_properties_parse_bool(item->value))
 					flags |= JackPortIsTerminal;
 			}
-			else if (!strcmp(item->key, "port.control")) {
+			else if (!strcmp(item->key, PW_KEY_PORT_CONTROL)) {
 				if (pw_properties_parse_bool(item->value))
 					type_id = 1;
 			}
@@ -1692,12 +1695,12 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			o->port.port_id = SPA_ID_INVALID;
 		}
 
-		if ((str = spa_dict_lookup(props, "port.alias1")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS1)) != NULL)
 			snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", str);
 		else
 			o->port.alias1[0] = '\0';
 
-		if ((str = spa_dict_lookup(props, "port.alias2")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS2)) != NULL)
 			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
 		else
 			o->port.alias2[0] = '\0';
@@ -1706,23 +1709,26 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		o->port.type_id = type_id;
 
 		pw_log_debug("add port %d %s %d", id, o->port.name, type_id);
+		break;
 	}
-	else if (type == PW_TYPE_INTERFACE_Link) {
+	case PW_TYPE_INTERFACE_Link:
 		o = alloc_object(c);
 		spa_list_append(&c->context.links, &o->link);
 
-		if ((str = spa_dict_lookup(props, "link.output")) == NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			goto exit_free;
 		o->port_link.src = pw_properties_parse_int(str);
 
-		if ((str = spa_dict_lookup(props, "link.input")) == NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
 
 		pw_log_debug("add link %d %d->%d", id, o->port_link.src, o->port_link.dst);
-	}
-	else
+		break;
+
+	default:
 		goto exit;
+	}
 
 	o->type = type;
 	o->id = id;
@@ -1733,17 +1739,21 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		pw_map_insert_at(&c->context.globals, size++, NULL);
 	pw_map_insert_at(&c->context.globals, id, o);
 
-	if (type == PW_TYPE_INTERFACE_Node) {
+	switch (type) {
+	case PW_TYPE_INTERFACE_Node:
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 1, c->registration_arg);
-	}
-	else if (type == PW_TYPE_INTERFACE_Port) {
+		break;
+
+	case PW_TYPE_INTERFACE_Port:
 		if (c->portregistration_callback)
 			c->portregistration_callback(o->id, 1, c->portregistration_arg);
-	}
-	else if (type == PW_TYPE_INTERFACE_Link) {
+		break;
+
+	case PW_TYPE_INTERFACE_Link:
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 1, c->connect_arg);
+		break;
 	}
       exit:
 	return;
@@ -1763,17 +1773,19 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	if (o == NULL)
 		return;
 
-	if (o->type == PW_TYPE_INTERFACE_Node) {
+	switch (o->type) {
+	case PW_TYPE_INTERFACE_Node:
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 0, c->registration_arg);
-	}
-	else if (o->type == PW_TYPE_INTERFACE_Port) {
+		break;
+	case PW_TYPE_INTERFACE_Port:
 		if (c->portregistration_callback)
 			c->portregistration_callback(o->id, 0, c->portregistration_arg);
-	}
-	else if (o->type == PW_TYPE_INTERFACE_Link) {
+		break;
+	case PW_TYPE_INTERFACE_Link:
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 0, c->connect_arg);
+		break;
 	}
 
 	/* JACK clients expect the objects to hang around after
@@ -1861,8 +1873,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_thread_loop_lock(client->context.loop);
         client->remote = pw_remote_new(client->context.core,
 				pw_properties_new(
-					"client.name", client_name,
-					"client.api", "jack",
+					PW_KEY_CLIENT_NAME, client_name,
+					PW_KEY_CLIENT_API, "jack",
 					NULL),
 				0);
 
@@ -1901,13 +1913,13 @@ jack_client_t * jack_client_open (const char *client_name,
 
 
 	props = SPA_DICT_INIT(items, 0);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT("node.name", client_name);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY, "Duplex");
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, "DSP");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_NAME, client_name);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY, "Duplex");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, "DSP");
 	if ((str = getenv("PIPEWIRE_LATENCY")) == NULL)
 		str = DEFAULT_LATENCY;
-	items[props.n_items++] = SPA_DICT_ITEM_INIT("node.latency", str);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
 
 	client->node_proxy = pw_core_proxy_create_object(client->core_proxy,
 				"client-node",
@@ -2382,8 +2394,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 				  SPA_PORT_FLAG_NO_REF;
 	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
 	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.dsp", port_type);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT("port.name", port_name);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_FORMAT_DSP, port_type);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_NAME, port_name);
 	port_info.props = &dict;
 	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
@@ -2842,11 +2854,11 @@ int jack_connect (jack_client_t *client,
 	snprintf(val[3], sizeof(val[3]), "%d", dst->id);
 
 	props = SPA_DICT_INIT(items, 0);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_OUTPUT_NODE_ID, val[0]);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_OUTPUT_PORT_ID, val[1]);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_INPUT_NODE_ID, val[2]);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_LINK_INPUT_PORT_ID, val[3]);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT("object.linger", "1");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_OUTPUT_NODE, val[0]);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_OUTPUT_PORT, val[1]);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_NODE, val[2]);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "1");
 
 	pw_core_proxy_create_object(c->core_proxy,
 				    "link-factory",

@@ -202,7 +202,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	else
 		prefix = "capture";
 
-	if ((str = pw_properties_get(old, PW_KEY_PORT_CHANNEL)) == NULL ||
+	if ((str = pw_properties_get(old, PW_KEY_AUDIO_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {
 		snprintf(position, 7, "%d", port->port_id);
 		str = position;

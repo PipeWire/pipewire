@@ -693,7 +693,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	pw_properties_set(port->properties, PW_KEY_PORT_DIRECTION, dir);
 
 	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_NAME)) == NULL) {
-		if ((str = pw_properties_get(port->properties, PW_KEY_PORT_CHANNEL)) != NULL &&
+		if ((str = pw_properties_get(port->properties, PW_KEY_AUDIO_CHANNEL)) != NULL &&
 		    strcmp(str, "UNK") != 0) {
 			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", dir, str);
 		}

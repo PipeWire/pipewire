@@ -116,7 +116,6 @@ extern "C" {
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */
 #define PW_KEY_PORT_DIRECTION		"port.direction"	/**< the port direction, one of "in" or "out"
 								  *  or "control" and "notify" for control ports */
-#define PW_KEY_PORT_CHANNEL		"port.channel"		/**< port channel */
 #define PW_KEY_PORT_ALIAS1		"port.alias1"		/**< port alias1 */
 #define PW_KEY_PORT_ALIAS2		"port.alias2"		/**< port alias2 */
 #define PW_KEY_PORT_PHYSICAL		"port.physical"		/**< if this is a physical port */

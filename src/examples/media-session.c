@@ -497,7 +497,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	spa_list_append(&impl->node_list, &node->l);
 	node->type = NODE_TYPE_UNKNOWN;
 
-	pw_log_debug(NAME" %p: node media.class %s", impl, media_class);
+	pw_log_debug(NAME" %p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
 
 	if (media_class == NULL)
 		return 0;

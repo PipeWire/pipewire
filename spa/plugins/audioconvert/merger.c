@@ -139,8 +139,8 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 		uint32_t n_items = 0;
 
 		if (PORT_IS_DSP(port->direction, port->id)) {
-			items[n_items++] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-			items[n_items++] = SPA_DICT_ITEM_INIT("port.channel", port->position);
+			items[n_items++] = SPA_DICT_ITEM_INIT("format.dsp", "32 bit float mono audio");
+			items[n_items++] = SPA_DICT_ITEM_INIT("audio.channel", port->position);
 			if (port->direction == SPA_DIRECTION_OUTPUT)
 				items[n_items++] = SPA_DICT_ITEM_INIT("port.monitor", "1");
 		}

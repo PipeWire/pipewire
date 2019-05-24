@@ -159,8 +159,8 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
 			SPA_PORT_FLAG_DYNAMIC_DATA;
-	port->info_props_items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
-	port->info_props_items[1] = SPA_DICT_ITEM_INIT("port.channel", port->position);
+	port->info_props_items[0] = SPA_DICT_ITEM_INIT("format.dsp", "32 bit float mono audio");
+	port->info_props_items[1] = SPA_DICT_ITEM_INIT("audio.channel", port->position);
 	port->info_props = SPA_DICT_INIT(port->info_props_items, 2);
 	port->info.props = &port->info_props;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);

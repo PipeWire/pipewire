@@ -458,12 +458,12 @@ static void make_node(struct data *data)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1", NULL);
+	props = pw_properties_new(PW_KEY_NODE_AUTOCONNECT, "1", NULL);
 	if (data->path)
-		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
-	pw_properties_set(props, PW_NODE_PROP_MEDIA, "Video");
-	pw_properties_set(props, PW_NODE_PROP_CATEGORY, "Capture");
-	pw_properties_set(props, PW_NODE_PROP_ROLE, "Camera");
+		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
+	pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Video");
+	pw_properties_set(props, PW_KEY_MEDIA_CATEGORY, "Capture");
+	pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Camera");
 
 	data->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

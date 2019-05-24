@@ -291,18 +291,18 @@ static int link_session_dsp(struct impl *impl, struct session *session)
 	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
 
 	props = pw_properties_new(NULL, NULL);
-	pw_properties_set(props, PW_LINK_PROP_PASSIVE, "true");
+	pw_properties_set(props, PW_KEY_LINK_PASSIVE, "true");
 	if (session->direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->dsp->info->id);
-		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->node->info->id);
-		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", session->dsp->info->id);
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", session->node->info->id);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
 	}
 	else {
-		pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", session->node->info->id);
-		pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-		pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", session->dsp->info->id);
-		pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", session->node->info->id);
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", session->dsp->info->id);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
 	}
 
         session->link_proxy = pw_core_proxy_create_object(impl->core_proxy,
@@ -478,7 +478,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	struct pw_proxy *p;
 	struct node *node;
 
-	media_class = props ? spa_dict_lookup(props, "media.class") : NULL;
+	media_class = props ? spa_dict_lookup(props, PW_KEY_MEDIA_CLASS) : NULL;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
 			id, type, PW_VERSION_NODE_PROXY,
@@ -556,7 +556,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		sess->enabled = false;
 		sess->starting = true;
 		sess->node = node;
-		if ((str = spa_dict_lookup(props, "node.plugged")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_PLUGGED)) != NULL)
 			sess->plugged = pw_properties_parse_uint64(str);
 		else
 			sess->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
@@ -653,7 +653,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	if ((node = find_object(impl, parent_id)) == NULL)
 		return -ESRCH;
 
-	if (props == NULL || (str = spa_dict_lookup(props, "port.direction")) == NULL)
+	if (props == NULL || (str = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION)) == NULL)
 		return -EINVAL;
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
@@ -669,7 +669,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	port->node = node;
 	port->direction = strcmp(str, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
 
-	if (props != NULL && (str = spa_dict_lookup(props, "port.dsp")) != NULL)
+	if (props != NULL && (str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) != NULL)
 		port->flags |= PORT_FLAG_DSP;
 	if (node->type == NODE_TYPE_DSP && !(port->flags & PORT_FLAG_DSP))
 		port->flags |= PORT_FLAG_SKIP;
@@ -755,7 +755,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	if (props == NULL)
 		return 0;
 
-	str = spa_dict_lookup(props, "pipewire.access");
+	str = spa_dict_lookup(props, PW_KEY_ACCESS);
 	if (str == NULL)
 		return 0;
 
@@ -865,7 +865,7 @@ static int find_session(void *data, struct session *sess)
 		if ((props = sess->node->info->props) == NULL)
 			return 0;
 
-		if ((str = spa_dict_lookup(props, "media.class")) == NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL)
 			return 0;
 
 		if (strcmp(str, find->media_class) != 0)
@@ -912,19 +912,19 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 
 		props = pw_properties_new(NULL, NULL);
 		if (p->direction == PW_DIRECTION_OUTPUT) {
-			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", node->obj.id);
-			pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", peer->obj.id);
-			pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", p->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", node->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", p->obj.id);
 			pw_log_debug(NAME " %p: node %d -> port %d:%d", impl,
 					node->obj.id, peer->obj.id, p->obj.id);
 
 		}
 		else {
-			pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", peer->obj.id);
-			pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", p->obj.id);
-			pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", node->obj.id);
-			pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", peer->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", p->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", node->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
 			pw_log_debug(NAME " %p: port %d:%d -> node %d", impl,
 					peer->obj.id, p->obj.id, node->obj.id);
 		}
@@ -986,20 +986,20 @@ static int rescan_node(struct impl *impl, struct node *node)
 	info = node->info;
 	props = info->props;
 
-        str = spa_dict_lookup(props, PW_NODE_PROP_AUTOCONNECT);
+        str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT);
         if (str == NULL || !pw_properties_parse_bool(str)) {
 		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, node->obj.id);
                 return 0;
 	}
 
-	if ((media = spa_dict_lookup(props, PW_NODE_PROP_MEDIA)) == NULL)
+	if ((media = spa_dict_lookup(props, PW_KEY_MEDIA_TYPE)) == NULL)
 		media = node->media;
 	if (media == NULL) {
 		pw_log_debug(NAME" %p: node %d has unknown media", impl, node->obj.id);
 		return 0;
 	}
 
-	if ((category = spa_dict_lookup(props, PW_NODE_PROP_CATEGORY)) == NULL) {
+	if ((category = spa_dict_lookup(props, PW_KEY_MEDIA_CATEGORY)) == NULL) {
 		pw_log_debug(NAME" %p: node %d find category from ports: %d %d",
 			impl, node->obj.id, info->n_input_ports, info->n_output_ports);
 		if (node->direction == PW_DIRECTION_INPUT ||
@@ -1017,7 +1017,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 		}
 	}
 
-	if ((role = spa_dict_lookup(props, PW_NODE_PROP_ROLE)) == NULL) {
+	if ((role = spa_dict_lookup(props, PW_KEY_MEDIA_ROLE)) == NULL) {
 		if (strcmp(media, "Audio") == 0) {
 			if (strcmp(category, "Duplex") == 0)
 				role = "Communication";
@@ -1036,7 +1036,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 		}
 	}
 
-	if ((str = spa_dict_lookup(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
+	if ((str = spa_dict_lookup(props, PW_KEY_NODE_EXCLUSIVE)) != NULL)
 		exclusive = pw_properties_parse_bool(str);
 	else
 		exclusive = false;
@@ -1077,7 +1077,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 		return -EINVAL;
 	}
 
-	str = spa_dict_lookup(props, PW_NODE_PROP_TARGET_NODE);
+	str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
 	if (str != NULL)
 		find.path_id = atoi(str);
 	else
@@ -1106,7 +1106,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 			}
 		}
 		else {
-			str = spa_dict_lookup(props, "pipewire.dont-reconnect");
+			str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
 			if (str != NULL && pw_properties_parse_bool(str)) {
 				pw_registry_proxy_destroy(impl->registry_proxy, node->obj.id);
 				return -ENOENT;
@@ -1248,7 +1248,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		info = node->format;
 
 		props = pw_properties_new_dict(node->info->props);
-		if ((str = pw_properties_get(props, "device.nick")) == NULL)
+		if ((str = pw_properties_get(props, PW_KEY_DEVICE_NICK)) == NULL)
 			str = node->info->name;
 		pw_properties_set(props, "audio-dsp.name", str);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);

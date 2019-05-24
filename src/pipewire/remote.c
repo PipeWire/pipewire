@@ -190,7 +190,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	spa_hook_list_init(&this->listener_list);
 
-	if ((protocol_name = pw_properties_get(properties, PW_REMOTE_PROP_PROTOCOL)) == NULL) {
+	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
 		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL, NULL, NULL))
 			goto no_protocol;
 

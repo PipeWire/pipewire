@@ -42,6 +42,7 @@
 #include <pipewire/type.h>
 #include <pipewire/node.h>
 #include <pipewire/device.h>
+#include <pipewire/keys.h>
 
 #include "spa-monitor.h"
 #include "spa-device.h"
@@ -117,11 +118,11 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 		}
 	}
 
-	if ((str = pw_properties_get(props, "device.form_factor")) != NULL)
+	if ((str = pw_properties_get(props, PW_KEY_DEVICE_FORM_FACTOR)) != NULL)
 		if (strcmp(str, "internal") == 0)
 			now = 0;
-	if (now != 0 && pw_properties_get(props, "device.plugged") == NULL)
-		pw_properties_setf(props, "device.plugged", "%"PRIu64, now);
+	if (now != 0 && pw_properties_get(props, PW_KEY_DEVICE_PLUGGED) == NULL)
+		pw_properties_setf(props, PW_KEY_DEVICE_PLUGGED, "%"PRIu64, now);
 
 	support = pw_core_get_support(impl->core, &n_support);
 

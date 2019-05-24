@@ -1057,22 +1057,22 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	pw_log_debug("stream %p: new \"%s\"", impl, name);
 
 	if (props == NULL) {
-		props = pw_properties_new("media.name", name, NULL);
-	} else if (!pw_properties_get(props, "media.name")) {
-		pw_properties_set(props, "media.name", name);
+		props = pw_properties_new(PW_KEY_MEDIA_NAME, name, NULL);
+	} else if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL) {
+		pw_properties_set(props, PW_KEY_MEDIA_NAME, name);
 	}
 	if (props == NULL)
 		goto no_mem;
 
-	if (!pw_properties_get(props, "node.name")) {
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL) {
 		const struct pw_properties *p = pw_remote_get_properties(remote);
 
-		if ((str = pw_properties_get(p, "application.name")) != NULL)
-			pw_properties_set(props, "node.name", str);
-		else if ((str = pw_properties_get(p, "application.prgname")) != NULL)
-			pw_properties_set(props, "node.name", str);
+		if ((str = pw_properties_get(p, PW_KEY_APP_NAME)) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_NAME, str);
+		else if ((str = pw_properties_get(p, PW_KEY_APP_PROCESS_BINARY)) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_NAME, str);
 		else
-			pw_properties_set(props, "node.name", name);
+			pw_properties_set(props, PW_KEY_NODE_NAME, name);
 	}
 
 	spa_hook_list_init(&impl->hooks);
@@ -1298,16 +1298,16 @@ pw_stream_connect(struct pw_stream *stream,
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
 	if (target_id != SPA_ID_INVALID)
-		pw_properties_setf(stream->properties, PW_NODE_PROP_TARGET_NODE, "%d", target_id);
+		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
-		pw_properties_set(stream->properties, PW_NODE_PROP_AUTOCONNECT, "1");
-	pw_properties_set(stream->properties, "node.stream", "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "1");
+	pw_properties_set(stream->properties, PW_KEY_NODE_STREAM, "1");
 	if (flags & PW_STREAM_FLAG_DRIVER)
-		pw_properties_set(stream->properties, "node.driver", "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "1");
 	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
-		pw_properties_set(stream->properties, PW_NODE_PROP_EXCLUSIVE, "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "1");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
-		pw_properties_set(stream->properties, "pipewire.dont-reconnect", "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
 
 	state = pw_remote_get_state(stream->remote, NULL);
 	impl->async_connect = (state == PW_REMOTE_STATE_UNCONNECTED ||

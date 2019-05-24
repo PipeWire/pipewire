@@ -352,9 +352,9 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 		goto no_mem;
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
-		pw_properties_set(properties, "port.physical", "1");
+		pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "1");
 	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_TERMINAL))
-		pw_properties_set(properties, "port.terminal", "1");
+		pw_properties_set(properties, PW_KEY_PORT_TERMINAL, "1");
 
 	this->direction = direction;
 	this->port_id = port_id;
@@ -682,23 +682,24 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 
 	pw_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
 
-	dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
-	pw_properties_set(port->properties, "port.direction", dir);
-
-	if ((str = pw_properties_get(port->properties, "port.name")) == NULL) {
-		if ((str = pw_properties_get(port->properties, "port.channel")) != NULL &&
-		    strcmp(str, "UNK") != 0) {
-			pw_properties_setf(port->properties, "port.name", "%s_%s", dir, str);
-		}
-		else {
-			pw_properties_setf(port->properties, "port.name", "%s_%d", dir, port->port_id);
-		}
-	}
-
 	control = PW_PORT_IS_CONTROL(port);
 	if (control) {
 		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
-		pw_properties_set(port->properties, "port.control", "1");
+		pw_properties_set(port->properties, PW_KEY_PORT_CONTROL, "1");
+	}
+	else {
+		dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
+	}
+	pw_properties_set(port->properties, PW_KEY_PORT_DIRECTION, dir);
+
+	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_NAME)) == NULL) {
+		if ((str = pw_properties_get(port->properties, PW_KEY_PORT_CHANNEL)) != NULL &&
+		    strcmp(str, "UNK") != 0) {
+			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", dir, str);
+		}
+		else {
+			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%d", dir, port->port_id);
+		}
 	}
 
 	if (control) {

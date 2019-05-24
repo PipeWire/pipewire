@@ -110,14 +110,6 @@ struct pw_client_events {
 	void (*busy_changed) (void *data, bool busy);
 };
 
-/** The name of the protocol used by the client, set by the protocol */
-#define PW_CLIENT_PROP_PROTOCOL		"pipewire.protocol"
-
-#define PW_CLIENT_PROP_UCRED_PID	"pipewire.ucred.pid"	/**< Client pid, set by protocol */
-#define PW_CLIENT_PROP_UCRED_UID	"pipewire.ucred.uid"	/**< Client uid, set by protocol*/
-#define PW_CLIENT_PROP_UCRED_GID	"pipewire.ucred.gid"	/**< client gid, set by protocol*/
-#define PW_CLIENT_PROP_SEC_LABEL	"pipewire.sec.label"	/**< client security label, set by protocol*/
-
 /** Create a new client. This is mainly used by protocols. */
 struct pw_client *
 pw_client_new(struct pw_core *core,		/**< the core object */

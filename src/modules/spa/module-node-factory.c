@@ -34,9 +34,9 @@
 #include "spa-node.h"
 
 static const struct spa_dict_item module_props[] = {
-	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_MODULE_PROP_DESCRIPTION, "Provide a factory to make SPA nodes" },
-	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Provide a factory to make SPA nodes" },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct factory_data {

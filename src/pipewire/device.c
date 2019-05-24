@@ -31,6 +31,7 @@
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/type.h"
+#include "pipewire/keys.h"
 
 struct impl {
 	struct pw_device this;
@@ -287,9 +288,9 @@ int pw_device_register(struct pw_device *device,
 	if (properties == NULL)
 		return -ENOMEM;
 
-	pw_properties_set(properties, "device.name", device->info.name);
-	if ((str = pw_properties_get(device->properties, "media.class")) != NULL)
-		pw_properties_set(properties, "media.class", str);
+	pw_properties_set(properties, PW_KEY_DEVICE_NAME, device->info.name);
+	if ((str = pw_properties_get(device->properties, PW_KEY_MEDIA_CLASS)) != NULL)
+		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
 
 	spa_list_append(&core->device_list, &device->link);
 	device->registered = true;

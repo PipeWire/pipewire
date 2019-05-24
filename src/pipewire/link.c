@@ -33,6 +33,7 @@
 #include <spa/param/param.h>
 #include <spa/buffer/alloc.h>
 
+#include "pipewire/keys.h"
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/control.h"
@@ -1289,7 +1290,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->output = output;
 
 	if (properties) {
-		const char *str = pw_properties_get(properties, PW_LINK_PROP_PASSIVE);
+		const char *str = pw_properties_get(properties, PW_KEY_LINK_PASSIVE);
 		if (str && pw_properties_parse_bool(str))
 			impl->passive = true;
 	}
@@ -1414,8 +1415,8 @@ int pw_link_register(struct pw_link *link,
 	link->info.input_node_id = input_node->global->id;
 	link->info.input_port_id = link->input->global->id;
 
-	pw_properties_setf(properties, "link.output", "%d", link->info.output_port_id);
-	pw_properties_setf(properties, "link.input", "%d", link->info.input_port_id);
+	pw_properties_setf(properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
+	pw_properties_setf(properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
 
 	spa_list_append(&core->link_list, &link->link);
 	link->registered = true;

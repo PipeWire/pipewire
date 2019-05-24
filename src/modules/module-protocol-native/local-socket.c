@@ -42,7 +42,7 @@ get_remote(const struct pw_properties *properties)
 	const char *name = NULL;
 
 	if (properties)
-		name = pw_properties_get(properties, PW_REMOTE_PROP_REMOTE_NAME);
+		name = pw_properties_get(properties, PW_KEY_REMOTE_NAME);
 	if (name == NULL)
 		name = getenv("PIPEWIRE_REMOTE");
 	if (name == NULL)

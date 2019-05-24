@@ -33,9 +33,9 @@
 #include "pipewire/private.h"
 
 static const struct spa_dict_item module_props[] = {
-	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_MODULE_PROP_DESCRIPTION, "Allow clients to create links" },
-	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create links" },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct factory_data {
@@ -153,20 +153,20 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto no_properties;
 
-	if ((str = pw_properties_get(properties, PW_LINK_OUTPUT_NODE_ID)) == NULL)
+	if ((str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
 		goto no_properties;
 
 	output_node_id = pw_properties_parse_int(str);
 
-	if ((str = pw_properties_get(properties, PW_LINK_INPUT_NODE_ID)) == NULL)
+	if ((str = pw_properties_get(properties, PW_KEY_LINK_INPUT_NODE)) == NULL)
 		goto no_properties;
 
 	input_node_id = pw_properties_parse_int(str);
 
-	str = pw_properties_get(properties, PW_LINK_OUTPUT_PORT_ID);
+	str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_PORT);
 	output_port_id = str ? pw_properties_parse_int(str) : -1;
 
-	str = pw_properties_get(properties, PW_LINK_INPUT_PORT_ID);
+	str = pw_properties_get(properties, PW_KEY_LINK_INPUT_PORT);
 	input_port_id = str ? pw_properties_parse_int(str) : -1;
 
 	global = pw_core_find_global(core, output_node_id);
@@ -206,7 +206,7 @@ static void *create_object(void *_data,
 	if (inport == NULL)
 		goto no_input_port;
 
-	str = pw_properties_get(properties, "object.linger");
+	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
 	linger = str ? pw_properties_parse_bool(str) : false;
 
 	link = pw_link_new(core, outport, inport, NULL, properties, sizeof(struct link_data));

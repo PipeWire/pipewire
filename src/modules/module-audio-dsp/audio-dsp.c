@@ -187,13 +187,13 @@ static void node_port_init(void *data, struct pw_port *port)
 
 	old = pw_port_get_properties(port);
 
-	monitor = (str = pw_properties_get(old, "port.monitor")) != NULL &&
-			atoi(str) != 0;
+	monitor = (str = pw_properties_get(old, PW_KEY_PORT_MONITOR)) != NULL &&
+			pw_properties_parse_bool(str);
 
 	if (!monitor && direction == n->direction)
 		return;
 
-	new = pw_properties_new("port.dsp", "32 bit float mono audio", NULL);
+	new = pw_properties_new(PW_KEY_FORMAT_DSP, "32 bit float mono audio", NULL);
 
 	if (monitor)
 		prefix = "monitor";
@@ -202,23 +202,23 @@ static void node_port_init(void *data, struct pw_port *port)
 	else
 		prefix = "capture";
 
-	if ((str = pw_properties_get(old, "port.channel")) == NULL ||
+	if ((str = pw_properties_get(old, PW_KEY_PORT_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {
 		snprintf(position, 7, "%d", port->port_id);
 		str = position;
 	}
 
-	pw_properties_setf(new, "port.name", "%s_%s", prefix, str);
+	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
 
 	if (direction != n->direction) {
-		pw_properties_setf(new, "port.alias1", "%s_pcm:%s:%s%s",
-				pw_properties_get(n->props, "device.api"),
+		pw_properties_setf(new, PW_KEY_PORT_ALIAS1, "%s_pcm:%s:%s%s",
+				pw_properties_get(n->props, PW_KEY_DEVICE_API),
 				pw_properties_get(n->props, "audio-dsp.name"),
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				str);
 
-		pw_properties_set(new, "port.physical", "1");
-		pw_properties_set(new, "port.terminal", "1");
+		pw_properties_set(new, PW_KEY_PORT_PHYSICAL, "1");
+		pw_properties_set(new, PW_KEY_PORT_TERMINAL, "1");
 	}
 
 	pw_port_update_properties(port, &new->dict);
@@ -271,8 +271,8 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	pr = pw_properties_copy(props);
 
-	if ((api = pw_properties_get(pr, "device.api")) == NULL) {
-		pw_log_error("missing device.api property");
+	if ((api = pw_properties_get(pr, PW_KEY_DEVICE_API)) == NULL) {
+		pw_log_error("missing "PW_KEY_DEVICE_API" property");
 		goto error;
 	}
 	if ((alias = pw_properties_get(pr, "audio-dsp.name")) == NULL) {
@@ -287,14 +287,14 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	}
 
 	pw_properties_set(pr,
-			"media.class",
+			PW_KEY_MEDIA_CLASS,
 			direction == PW_DIRECTION_OUTPUT ?
 				"Audio/DSP/Playback" :
 				"Audio/DSP/Capture");
-	pw_properties_set(pr, "node.driver", NULL);
+	pw_properties_set(pr, PW_KEY_NODE_DRIVER, NULL);
 
-	if ((str = pw_properties_get(pr, "node.id")) != NULL)
-		pw_properties_set(pr, "node.session", str);
+	if ((str = pw_properties_get(pr, PW_KEY_NODE_ID)) != NULL)
+		pw_properties_set(pr, PW_KEY_NODE_SESSION, str);
 
 	if (direction == PW_DIRECTION_OUTPUT) {
 		pw_properties_set(pr, "merger.monitor", "1");

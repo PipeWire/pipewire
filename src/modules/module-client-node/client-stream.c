@@ -988,11 +988,12 @@ static void client_node_initialized(void *data)
 			dir);
 
 	props = pw_node_get_properties(impl->client_node->node);
-	if (props != NULL && (str = pw_properties_get(props, PW_NODE_PROP_EXCLUSIVE)) != NULL)
+	if (props != NULL && (str = pw_properties_get(props, PW_KEY_NODE_EXCLUSIVE)) != NULL)
 		exclusive = pw_properties_parse_bool(str);
 	else
 		exclusive = false;
-	if (props != NULL && (str = pw_properties_get(props, "pipewire.monitor")) != NULL)
+
+	if (props != NULL && (str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) != NULL)
 		monitor = pw_properties_parse_bool(str);
 	else
 		monitor = false;
@@ -1105,7 +1106,7 @@ static void client_node_initialized(void *data)
 
 	snprintf(media_class, sizeof(media_class), "Stream/%s/%s", dir, type);
 
-	items[0] = SPA_DICT_ITEM_INIT("media.class", media_class);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CLASS, media_class);
 	pw_node_update_properties(impl->this.node, &SPA_DICT_INIT(items, 1));
 }
 
@@ -1262,7 +1263,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	pw_log_debug("client-stream %p: new", impl);
 
 	props = pw_properties_copy(properties);
-	pw_properties_set(props, "node.driver", NULL);
+	pw_properties_set(props, PW_KEY_NODE_DRIVER, NULL);
 
 	impl->client_node = pw_client_node_new(
 			resource,
@@ -1280,7 +1281,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
 
-	if ((name = pw_properties_get(properties, "node.name")) == NULL)
+	if ((name = pw_properties_get(properties, PW_KEY_NODE_NAME)) == NULL)
 		name = "client-stream";
 
 	this->node = pw_spa_node_new(core,

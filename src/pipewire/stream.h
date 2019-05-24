@@ -272,13 +272,6 @@ const char *pw_stream_get_name(struct pw_stream *stream);
 
 struct pw_remote *pw_stream_get_remote(struct pw_stream *stream);
 
-/** Indicates that the stream is live, boolean default false */
-#define PW_STREAM_PROP_IS_LIVE		"pipewire.latency.is-live"
-/** The minimum latency of the stream, int, default 0 */
-#define PW_STREAM_PROP_LATENCY_MIN	"pipewire.latency.min"
-/** The maximum latency of the stream, int default MAXINT */
-#define PW_STREAM_PROP_LATENCY_MAX	"pipewire.latency.max"
-
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 
 int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict);

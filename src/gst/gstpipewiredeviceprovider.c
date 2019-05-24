@@ -237,7 +237,7 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
     spa_dict_for_each (item, info->props)
       gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
 
-    klass = spa_dict_lookup (info->props, "media.class");
+    klass = spa_dict_lookup (info->props, PW_KEY_MEDIA_CLASS);
   }
   if (klass == NULL)
     klass = "unknown/unknown";

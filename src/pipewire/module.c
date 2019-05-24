@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#include "pipewire/keys.h"
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/utils.h"
@@ -232,7 +233,7 @@ pw_module_load(struct pw_core *core,
 
 	spa_hook_list_init(&this->listener_list);
 
-	pw_properties_set(properties, PW_MODULE_PROP_NAME, name);
+	pw_properties_set(properties, PW_KEY_MODULE_NAME, name);
 
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
@@ -245,7 +246,7 @@ pw_module_load(struct pw_core *core,
 				     PW_TYPE_INTERFACE_Module,
 				     PW_VERSION_MODULE_PROXY,
 				     pw_properties_new(
-					     PW_MODULE_PROP_NAME, name,
+					     PW_KEY_MODULE_NAME, name,
 					     NULL),
 				     global_bind,
 				     this);

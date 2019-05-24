@@ -54,9 +54,9 @@
 #endif
 
 static const struct spa_dict_item module_props[] = {
-	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_MODULE_PROP_DESCRIPTION, "Native protocol using unix sockets" },
-	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Native protocol using unix sockets" },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 static bool debug_messages = 0;
@@ -256,7 +256,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	struct pw_properties *props;
 	char buffer[1024];
 
-	props = pw_properties_new(PW_CLIENT_PROP_PROTOCOL, "protocol-native", NULL);
+	props = pw_properties_new(PW_KEY_PROTOCOL, "protocol-native", NULL);
 	if (props == NULL)
 		goto exit;
 
@@ -264,16 +264,16 @@ static struct pw_client *client_new(struct server *s, int fd)
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
 		pw_log_error("no peercred: %m");
 	} else {
-		pw_properties_setf(props, PW_CLIENT_PROP_UCRED_PID, "%d", ucred.pid);
-		pw_properties_setf(props, PW_CLIENT_PROP_UCRED_UID, "%d", ucred.uid);
-		pw_properties_setf(props, PW_CLIENT_PROP_UCRED_GID, "%d", ucred.gid);
+		pw_properties_setf(props, PW_KEY_SEC_PID, "%d", ucred.pid);
+		pw_properties_setf(props, PW_KEY_SEC_UID, "%d", ucred.uid);
+		pw_properties_setf(props, PW_KEY_SEC_GID, "%d", ucred.gid);
 	}
 
 	len = sizeof(buffer);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, buffer, &len) < 0) {
 		pw_log_error("no peersec: %m");
 	} else {
-		pw_properties_setf(props, PW_CLIENT_PROP_SEC_LABEL, "%s", buffer);
+		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%s", buffer);
 	}
 
 	client = pw_client_new(protocol->core,
@@ -651,7 +651,7 @@ impl_new_client(struct pw_protocol *protocol,
 	impl->properties = properties ? pw_properties_copy(properties) : NULL;
 
 	if (properties)
-		str = pw_properties_get(properties, "remote.intention");
+		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
 	if (str == NULL)
 		str = "generic";
 
@@ -719,7 +719,7 @@ get_name(const struct pw_properties *properties)
 	const char *name = NULL;
 
 	if (properties)
-		name = pw_properties_get(properties, PW_CORE_PROP_NAME);
+		name = pw_properties_get(properties, PW_KEY_CORE_NAME);
 	if (name == NULL)
 		name = getenv("PIPEWIRE_CORE");
 	if (name == NULL)
@@ -888,7 +888,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	val = getenv("PIPEWIRE_DAEMON");
 	if (val == NULL)
-		val = pw_properties_get(pw_core_get_properties(core), PW_CORE_PROP_DAEMON);
+		val = pw_properties_get(pw_core_get_properties(core), PW_KEY_CORE_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
 		if (impl_add_server(this, core, properties) == NULL)
 			return -errno;

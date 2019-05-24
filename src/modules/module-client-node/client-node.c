@@ -1671,7 +1671,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	pw_map_init(&impl->io_map, 64, 64);
 	pw_array_init(&impl->mems, 64);
 
-	if ((name = pw_properties_get(properties, "node.name")) == NULL)
+	if ((name = pw_properties_get(properties, PW_KEY_NODE_NAME)) == NULL)
 		name = "client-node";
 
 	this->resource = resource;

@@ -116,13 +116,13 @@ int main(int argc, char *argv[])
 	 * the fd of this pipewire mainloop to it. */
 	data.loop = pw_main_loop_new(NULL);
 
-	/* create a simple stream, the simple stream manages to core and remote
-	 * objects for you if you don't need to deal with them
+	/* Create a simple stream, the simple stream manages the core and remote
+	 * objects for you if you don't need to deal with them.
 	 *
 	 * If you plan to autoconnect your stream, you need to provide at least
-	 * media, category and role properties
+	 * media, category and role properties.
 	 *
-	 * Pass your events and a use_data pointer as the last arguments. This
+	 * Pass your events and a user_data pointer as the last arguments. This
 	 * will inform you about the stream state. The most important event
 	 * you need to listen to is the process event where you need to produce
 	 * the data.
@@ -131,22 +131,22 @@ int main(int argc, char *argv[])
 			pw_main_loop_get_loop(data.loop),
 			"audio-src",
 			pw_properties_new(
-				PW_NODE_PROP_MEDIA, "Audio",
-				PW_NODE_PROP_CATEGORY, "Playback",
-				PW_NODE_PROP_ROLE, "Music",
+				PW_KEY_MEDIA_TYPE, "Audio",
+				PW_KEY_MEDIA_CATEGORY, "Playback",
+				PW_KEY_MEDIA_ROLE, "Music",
 				NULL),
 			&stream_events,
 			&data);
 
-	/* make one parameter with the supported formats. The SPA_PARAM_EnumFormat
-	 * id means that this is a format enumeration. */
+	/* Make one parameter with the supported formats. The SPA_PARAM_EnumFormat
+	 * id means that this is a format enumeration (of 1 value). */
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_F32,
 				.channels = DEFAULT_CHANNELS,
 				.rate = DEFAULT_RATE ));
 
-	/* now connect this stream. We ask that our process function is
+	/* Now connect this stream. We ask that our process function is
 	 * called in a realtime thread. */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 			  PW_STREAM_FLAG_RT_PROCESS,
 			  params, 1);
 
-	/* and wait */
+	/* and wait while we let things run */
 	pw_main_loop_run(data.loop);
 
 	pw_stream_destroy(data.stream);

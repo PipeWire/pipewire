@@ -37,6 +37,7 @@
 #include "pipewire/interfaces.h"
 #include "pipewire/private.h"
 
+#include "pipewire/keys.h"
 #include "pipewire/node.h"
 #include "pipewire/data-loop.h"
 #include "pipewire/main-loop.h"
@@ -489,13 +490,13 @@ int pw_node_register(struct pw_node *this,
 	if (properties == NULL)
 		return -ENOMEM;
 
-	if ((str = pw_properties_get(this->properties, "media.class")) != NULL)
-		pw_properties_set(properties, "media.class", str);
-	if ((str = pw_properties_get(this->properties, "media.role")) != NULL)
-		pw_properties_set(properties, "media.role", str);
-	pw_properties_set(properties, "node.name", this->info.name);
-	if ((str = pw_properties_get(this->properties, "node.session")) != NULL)
-		pw_properties_set(properties, "node.session", str);
+	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_CLASS)) != NULL)
+		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
+	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_ROLE)) != NULL)
+		pw_properties_set(properties, PW_KEY_MEDIA_ROLE, str);
+	pw_properties_set(properties, PW_KEY_NODE_NAME, this->info.name);
+	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_SESSION)) != NULL)
+		pw_properties_set(properties, PW_KEY_NODE_SESSION, str);
 
 	spa_list_append(&core->node_list, &this->link);
 	this->registered = true;
@@ -511,7 +512,7 @@ int pw_node_register(struct pw_node *this,
 
 	this->info.id = this->global->id;
 	this->rt.activation->position.clock.id = this->info.id;
-	pw_properties_setf(this->properties, "node.id", "%d", this->info.id);
+	pw_properties_setf(this->properties, PW_KEY_NODE_ID, "%d", this->info.id);
 
 	pw_node_initialized(this);
 
@@ -604,12 +605,12 @@ static void check_properties(struct pw_node *node)
 	const char *str;
 	bool driver;
 
-	if ((str = pw_properties_get(node->properties, "node.pause-on-idle")))
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE)))
 		impl->pause_on_idle = pw_properties_parse_bool(str);
 	else
 		impl->pause_on_idle = true;
 
-	if ((str = pw_properties_get(node->properties, "node.driver")))
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_DRIVER)))
 		driver = pw_properties_parse_bool(str);
 	else
 		driver = false;
@@ -623,7 +624,7 @@ static void check_properties(struct pw_node *node)
 			spa_list_remove(&node->driver_link);
 	}
 
-	if ((str = pw_properties_get(node->properties, "node.latency"))) {
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_LATENCY))) {
 		uint32_t num, denom;
 		pw_log_info("node %p: latency '%s'", node, str);
                 if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {

@@ -746,7 +746,7 @@ int main(int argc, char *argv[])
 		return -1;
 
 	if (argc > 1)
-		props = pw_properties_new(PW_REMOTE_PROP_REMOTE_NAME, argv[1], NULL);
+		props = pw_properties_new(PW_KEY_REMOTE_NAME, argv[1], NULL);
 
 	data.remote = pw_remote_new(data.core, props, 0);
 	if (data.remote == NULL)

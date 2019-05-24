@@ -30,6 +30,7 @@
 #include "pipewire/private.h"
 #include "pipewire/type.h"
 #include "pipewire/interfaces.h"
+#include "pipewire/keys.h"
 
 #define pw_factory_resource_info(r,...) pw_resource_notify(r,struct pw_factory_proxy_events,info,0,__VA_ARGS__)
 
@@ -156,10 +157,10 @@ int pw_factory_register(struct pw_factory *factory,
 	if (properties == NULL)
 		return -ENOMEM;
 
-	pw_properties_set(properties, "factory.name", factory->info.name);
-	pw_properties_setf(properties, "factory.type.name", "%s",
+	pw_properties_set(properties, PW_KEY_FACTORY_NAME, factory->info.name);
+	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_NAME, "%s",
 			spa_debug_type_find_name(pw_type_info(), factory->info.type));
-	pw_properties_setf(properties, "factory.type.version", "%d", factory->info.version);
+	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
 
 	spa_list_append(&core->factory_list, &factory->link);
 	factory->registered = true;

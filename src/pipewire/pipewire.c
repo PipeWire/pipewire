@@ -502,37 +502,37 @@ void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *prope
 {
 	const char *val;
 
-	if (!pw_properties_get(properties, "application.name"))
-		pw_properties_set(properties, "application.name", pw_get_client_name());
+	if (!pw_properties_get(properties, PW_KEY_APP_NAME))
+		pw_properties_set(properties, PW_KEY_APP_NAME, pw_get_client_name());
 
-	if (!pw_properties_get(properties, "application.prgname"))
-		pw_properties_set(properties, "application.prgname", pw_get_prgname());
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_BINARY))
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_BINARY, pw_get_prgname());
 
-	if (!pw_properties_get(properties, "application.language")) {
-		pw_properties_set(properties, "application.language", getenv("LANG"));
+	if (!pw_properties_get(properties, PW_KEY_APP_LANGUAGE)) {
+		pw_properties_set(properties, PW_KEY_APP_LANGUAGE, getenv("LANG"));
 	}
-	if (!pw_properties_get(properties, "application.process.id")) {
-		pw_properties_setf(properties, "application.process.id", "%zd", (size_t) getpid());
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_ID)) {
+		pw_properties_setf(properties, PW_KEY_APP_PROCESS_ID, "%zd", (size_t) getpid());
 	}
-	if (!pw_properties_get(properties, "application.process.user"))
-		pw_properties_set(properties, "application.process.user", pw_get_user_name());
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_USER))
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_USER, pw_get_user_name());
 
-	if (!pw_properties_get(properties, "application.process.host"))
-		pw_properties_set(properties, "application.process.host", pw_get_host_name());
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_HOST))
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_HOST, pw_get_host_name());
 
-	if (!pw_properties_get(properties, "application.process.session_id")) {
-		pw_properties_set(properties, "application.process.session_id",
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_SESSION_ID)) {
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_SESSION_ID,
 				  getenv("XDG_SESSION_ID"));
 	}
-	if (!pw_properties_get(properties, "window.x11.display")) {
-		pw_properties_set(properties, "window.x11.display",
+	if (!pw_properties_get(properties, PW_KEY_WINDOW_X11_DISPLAY)) {
+		pw_properties_set(properties, PW_KEY_WINDOW_X11_DISPLAY,
 				  getenv("DISPLAY"));
 	}
-	pw_properties_set(properties, PW_CORE_PROP_VERSION, core->info.version);
-	pw_properties_set(properties, PW_CORE_PROP_NAME, core->info.name);
+	pw_properties_set(properties, PW_KEY_CORE_VERSION, core->info.version);
+	pw_properties_set(properties, PW_KEY_CORE_NAME, core->info.name);
 
-	if ((val = pw_properties_get(core->properties, PW_CORE_PROP_DAEMON)))
-		pw_properties_set(properties, PW_CORE_PROP_DAEMON, val);
+	if ((val = pw_properties_get(core->properties, PW_KEY_CORE_DAEMON)))
+		pw_properties_set(properties, PW_KEY_CORE_DAEMON, val);
 }
 
 /** Fill stream properties

@@ -65,12 +65,6 @@ struct pw_module_events {
 	void (*destroy) (void *data);
 };
 
-/** The name of the module */
-#define PW_MODULE_PROP_NAME		"pipewire.module.name"
-#define PW_MODULE_PROP_AUTHOR		"pipewire.module.author"
-#define PW_MODULE_PROP_DESCRIPTION	"pipewire.module.description"
-#define PW_MODULE_PROP_VERSION		"pipewire.module.version"
-
 struct pw_module *
 pw_module_load(struct pw_core *core,
 	       const char *name,		/**< name of the module */

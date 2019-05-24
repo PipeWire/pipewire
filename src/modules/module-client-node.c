@@ -35,9 +35,9 @@
 #include "module-client-node/client-stream.h"
 
 static const struct spa_dict_item module_props[] = {
-	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_MODULE_PROP_DESCRIPTION, "Allow clients to create and control remote nodes" },
-	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create and control remote nodes" },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
@@ -76,7 +76,7 @@ static void *create_object(void *_data,
 
 	parent = pw_client_get_global(client);
 
-	if (properties && pw_properties_get(properties, "node.stream") != NULL) {
+	if (properties && pw_properties_get(properties, PW_KEY_NODE_STREAM) != NULL) {
 		result = pw_client_stream_new(node_resource, parent, properties);
 	}
 	else {

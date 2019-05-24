@@ -289,7 +289,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 
 		data->stream = pw_stream_new(remote, "video-src",
 			pw_properties_new(
-				"media.class", "Video/Source",
+				PW_KEY_MEDIA_CLASS, "Video/Source",
 				NULL));
 
 		params[0] = spa_pod_builder_add_object(&b,

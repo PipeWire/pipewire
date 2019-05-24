@@ -33,14 +33,15 @@
 #include <pipewire/log.h>
 #include <pipewire/module.h>
 #include <pipewire/utils.h>
+#include <pipewire/keys.h>
 
 #include "spa-monitor.h"
 #include "spa-device.h"
 
 static const struct spa_dict_item module_props[] = {
-	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_MODULE_PROP_DESCRIPTION, "Load and manage an SPA device" },
-	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Load and manage an SPA device" },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct device_data {

@@ -73,9 +73,6 @@ struct pw_link_events {
 	void (*port_unlinked) (void *data, struct pw_port *port);
 };
 
-/** Indicate that a link is passive, it does not cause the nodes to activate,
-  * set to "1" or "0" */
-#define PW_LINK_PROP_PASSIVE	"pipewire.link.passive"
 
 /** Make a new link between two ports \memberof pw_link
  * \return a newly allocated link */

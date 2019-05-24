@@ -497,11 +497,11 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	spa_list_init(&this->driver_list);
 	spa_hook_list_init(&this->listener_list);
 
-	if ((name = pw_properties_get(properties, PW_CORE_PROP_NAME)) == NULL) {
+	if ((name = pw_properties_get(properties, PW_KEY_CORE_NAME)) == NULL) {
 		pw_properties_setf(properties,
-				   PW_CORE_PROP_NAME, "pipewire-%s-%d",
+				   PW_KEY_CORE_NAME, "pipewire-%s-%d",
 				   pw_get_user_name(), getpid());
-		name = pw_properties_get(properties, PW_CORE_PROP_NAME);
+		name = pw_properties_get(properties, PW_KEY_CORE_NAME);
 	}
 
 	this->info.change_mask = 0;
@@ -519,10 +519,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 				     PW_TYPE_INTERFACE_Core,
 				     PW_VERSION_CORE_PROXY,
 				     pw_properties_new(
-					     PW_CORE_PROP_USER_NAME, this->info.user_name,
-					     PW_CORE_PROP_HOST_NAME, this->info.host_name,
-					     PW_CORE_PROP_NAME, this->info.name,
-					     PW_CORE_PROP_VERSION, this->info.version,
+					     PW_KEY_USER_NAME, this->info.user_name,
+					     PW_KEY_HOST_NAME, this->info.host_name,
+					     PW_KEY_CORE_NAME, this->info.name,
+					     PW_KEY_CORE_VERSION, this->info.version,
 					     NULL),
 				     global_bind,
 				     this);

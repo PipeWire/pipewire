@@ -344,9 +344,9 @@ int main(int argc, char *argv[])
 			pw_main_loop_get_loop(data.loop),
 			"video-play",
 			pw_properties_new(
-				PW_NODE_PROP_MEDIA, "Video",
-				PW_NODE_PROP_CATEGORY, "Capture",
-				PW_NODE_PROP_ROLE, "Camera",
+				PW_KEY_MEDIA_TYPE, "Video",
+				PW_KEY_MEDIA_CATEGORY, "Capture",
+				PW_KEY_MEDIA_ROLE, "Camera",
 				NULL),
 			&stream_events,
 			&data);

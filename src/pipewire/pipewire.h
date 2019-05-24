@@ -36,6 +36,7 @@ extern "C" {
 #include <pipewire/device.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/introspect.h>
+#include <pipewire/keys.h>
 #include <pipewire/link.h>
 #include <pipewire/log.h>
 #include <pipewire/loop.h>

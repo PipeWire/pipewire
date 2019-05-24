@@ -95,17 +95,6 @@ struct pw_core_events {
 	void (*global_removed) (void *data, struct pw_global *global);
 };
 
-/** The user name that started the core */
-#define PW_CORE_PROP_USER_NAME	"pipewire.core.user-name"
-/** The host name of the machine */
-#define PW_CORE_PROP_HOST_NAME	"pipewire.core.host-name"
-/** The name of the core. Default is pipewire-<user-name>-<pid> */
-#define PW_CORE_PROP_NAME	"pipewire.core.name"
-/** The version of the core. */
-#define PW_CORE_PROP_VERSION	"pipewire.core.version"
-/** If the core should listen for connections, boolean default false */
-#define PW_CORE_PROP_DAEMON	"pipewire.daemon"
-
 /** Make a new core object for a given main_loop. Ownership of the properties is taken */
 struct pw_core * pw_core_new(struct pw_loop *main_loop,		/**< a main loop to run in */
 			     struct pw_properties *props,	/**< extra properties */

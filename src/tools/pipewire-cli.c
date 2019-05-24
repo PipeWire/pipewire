@@ -430,7 +430,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n == 1) {
-		props = pw_properties_new(PW_REMOTE_PROP_REMOTE_NAME, a[0], NULL);
+		props = pw_properties_new(PW_KEY_REMOTE_NAME, a[0], NULL);
 	}
 	remote = pw_remote_new(data->core, props, sizeof(struct remote_data));
 
@@ -1092,10 +1092,10 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	else
 		props = pw_properties_new(NULL, NULL);
 
-	pw_properties_set(props, PW_LINK_OUTPUT_NODE_ID, a[0]);
-	pw_properties_set(props, PW_LINK_OUTPUT_PORT_ID, a[1]);
-	pw_properties_set(props, PW_LINK_INPUT_NODE_ID, a[2]);
-	pw_properties_set(props, PW_LINK_INPUT_PORT_ID, a[3]);
+	pw_properties_set(props, PW_KEY_LINK_OUTPUT_NODE, a[0]);
+	pw_properties_set(props, PW_KEY_LINK_OUTPUT_PORT, a[1]);
+	pw_properties_set(props, PW_KEY_LINK_INPUT_NODE, a[2]);
+	pw_properties_set(props, PW_KEY_LINK_INPUT_PORT, a[3]);
 
 	proxy = (struct pw_proxy*)pw_core_proxy_create_object(rd->core_proxy,
 					  "link-factory",
@@ -1374,7 +1374,7 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);
 
-	data.core = pw_core_new(l, pw_properties_new(PW_CORE_PROP_DAEMON, "1", NULL), 0);
+	data.core = pw_core_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
 	info = pw_core_get_info(data.core);
 
 	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL, NULL, NULL);

@@ -371,10 +371,10 @@ handle_create_client_node(PipeWireDaemon1 * interface,
 	pw_log_debug("protocol-dbus %p: create client-node: %s", impl, sender);
 	props = pw_properties_from_variant(arg_properties);
 
-	target_node = pw_properties_get(props, PW_NODE_PROP_TARGET_NODE);
+	target_node = pw_properties_get(props, PW_KEY_NODE_TARGET);
 	if (target_node) {
 		if (strncmp(target_node, "/org/pipewire/node_", strlen("/org/pipewire/node_")) == 0) {
-			pw_properties_setf(props, PW_NODE_PROP_TARGET_NODE, "%s",
+			pw_properties_setf(props, PW_KEY_NODE_TARGET, "%s",
 					   target_node + strlen("/org/pipewire/node_"));
 		}
 	}

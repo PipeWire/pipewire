@@ -35,9 +35,9 @@
 #include <pipewire/pipewire.h>
 
 static const struct spa_dict_item module_props[] = {
-	{ PW_MODULE_PROP_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_MODULE_PROP_DESCRIPTION, "Perform access check" },
-	{ PW_MODULE_PROP_VERSION, PACKAGE_VERSION },
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Perform access check" },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct impl {
@@ -121,7 +121,7 @@ core_check_access(void *data, struct pw_client *client)
 
 	pid = -EINVAL;
 	if ((props = pw_client_get_properties(client)) != NULL) {
-		if ((str = pw_properties_get(props, PW_CLIENT_PROP_UCRED_PID)) != NULL)
+		if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) != NULL)
 			pid = atoi(str);
 	}
 
@@ -138,7 +138,7 @@ core_check_access(void *data, struct pw_client *client)
 			goto granted;
 		if (res > 0)
 			res = -EACCES;
-		items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "blacklisted");
+		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "blacklisted");
 		goto blacklisted;
 	}
 
@@ -153,7 +153,7 @@ core_check_access(void *data, struct pw_client *client)
 		else if (res > 0) {
 			pw_log_debug("module %p: restricted client %p added", impl, client);
 		}
-		items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "restricted");
+		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "restricted");
 		goto wait_permissions;
 	}
 
@@ -166,7 +166,7 @@ core_check_access(void *data, struct pw_client *client)
 		else if (res > 0) {
 			pw_log_debug("module %p: sandboxed client %p added", impl, client);
 		}
-		items[0] = SPA_DICT_ITEM_INIT("pipewire.access", "flatpak");
+		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "flatpak");
 		goto wait_permissions;
 	}
 

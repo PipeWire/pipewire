@@ -464,14 +464,14 @@ static void make_node(struct data *data)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new(PW_NODE_PROP_AUTOCONNECT, "1",
-				  PW_NODE_PROP_EXCLUSIVE, "1",
-				  PW_NODE_PROP_MEDIA, "Audio",
-				  PW_NODE_PROP_CATEGORY, "Playback",
-				  PW_NODE_PROP_ROLE, "Music",
+	props = pw_properties_new(PW_KEY_NODE_AUTOCONNECT, "1",
+				  PW_KEY_NODE_EXCLUSIVE, "1",
+				  PW_KEY_MEDIA_TYPE, "Audio",
+				  PW_KEY_MEDIA_CATEGORY, "Playback",
+				  PW_KEY_MEDIA_ROLE, "Music",
 				  NULL);
 	if (data->path)
-		pw_properties_set(props, PW_NODE_PROP_TARGET_NODE, data->path);
+		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
 
 	data->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -522,7 +522,7 @@ int main(int argc, char *argv[])
 		SPA_PORT_CHANGE_MASK_PARAMS;
 	data.info = SPA_PORT_INFO_INIT();
 	data.info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
-	data.items[0] = SPA_DICT_ITEM_INIT("port.dsp", "32 bit float mono audio");
+	data.items[0] = SPA_DICT_ITEM_INIT(PW_KEY_FORMAT_DSP, "32 bit float mono audio");
 	data.dict = SPA_DICT_INIT_ARRAY(data.items);
 	data.info.props = &data.dict;
 	data.params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);

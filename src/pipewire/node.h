@@ -99,20 +99,6 @@ struct pw_node_events {
 	void (*peer_removed) (void *data, struct pw_node *peer);
 };
 
-/** Media type of the node, Audio, Video, Midi */
-#define PW_NODE_PROP_MEDIA		"pipewire.media"
-/** Category: Playback, Capture, Duplex */
-#define PW_NODE_PROP_CATEGORY		"pipewire.category"
-/** Role: Movie,Music, Camera, Screen, Communication, Game, Notification, DSP,
- *        Production, Accessibility, Test */
-#define PW_NODE_PROP_ROLE		"pipewire.role"
-/** exclusive access to device */
-#define PW_NODE_PROP_EXCLUSIVE		"pipewire.exclusive"
-/** Automatically connect this node to a compatible node */
-#define PW_NODE_PROP_AUTOCONNECT	"pipewire.autoconnect"
-/** Try to connect the node to this node id */
-#define PW_NODE_PROP_TARGET_NODE	"pipewire.target.node"
-
 /** Create a new node \memberof pw_node */
 struct pw_node *
 pw_node_new(struct pw_core *core,		/**< the core */

@@ -163,11 +163,6 @@ struct pw_core_proxy_events {
 #define PW_CORE_PROXY_METHOD_DESTROY		7
 #define PW_CORE_PROXY_METHOD_NUM		8
 
-#define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
-#define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
-#define PW_LINK_INPUT_NODE_ID	"link.input_node.id"
-#define PW_LINK_INPUT_PORT_ID	"link.input_port.id"
-
 /**
  * \struct pw_core_proxy_methods
  * \brief Core methods

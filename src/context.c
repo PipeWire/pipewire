@@ -587,7 +587,7 @@ static int set_mask(pa_context *c, struct global *g)
                 if ((str = pw_properties_get(g->props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			return 0;
 		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
-                if ((str = pw_properties_get(g->props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
+                if ((str = pw_properties_get(g->props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			return 0;
 		g->link_info.dst = pa_context_find_global(c, pw_properties_parse_int(str));
 

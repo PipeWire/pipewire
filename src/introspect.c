@@ -1433,8 +1433,8 @@ static void sink_input_callback(struct sink_input_data *d)
 	s = find_stream(d->context, g->id);
 
 	if (info->props) {
-		if ((name = spa_dict_lookup(info->props, "media.name")) == NULL &&
-		    (name = spa_dict_lookup(info->props, "application.name")) == NULL)
+		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
+		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL)
 			name = info->name;
 	}
 	else
@@ -1726,8 +1726,8 @@ static void source_output_callback(struct source_output_data *d)
 	s = find_stream(d->context, g->id);
 
 	if (info->props) {
-		if ((name = spa_dict_lookup(info->props, "media.name")) == NULL &&
-		    (name = spa_dict_lookup(info->props, "application.name")) == NULL)
+		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
+		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL)
 			name = info->name;
 	}
 	else

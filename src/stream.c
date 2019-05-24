@@ -28,6 +28,7 @@
 #include <pulse/xmalloc.h>
 
 #include <pipewire/stream.h>
+#include <pipewire/keys.h>
 #include "core-format.h"
 #include "internal.h"
 
@@ -197,7 +198,7 @@ static void configure_device(pa_stream *s)
 	}
 	else {
 		s->device_index = g->id;
-		if ((str = pw_properties_get(g->props, "node.name")) == NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
 			s->device_name = strdup("unknown");
 		else
 			s->device_name = strdup(str);
@@ -526,7 +527,7 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 	else
 		name = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_NAME);
 
-	props = pw_properties_new("client.api", "pulseaudio",
+	props = pw_properties_new(PW_KEY_CLIENT_API, "pulseaudio",
 				NULL);
 	pw_properties_update(props, &s->proplist->props->dict);
 
@@ -941,13 +942,13 @@ static int create_stream(pa_stream_direction_t direction,
 		str = "Music";
 
 	sprintf(latency, "%u/%u", s->buffer_attr.minreq / stride, sample_rate);
-	items[0] = SPA_DICT_ITEM_INIT("node.latency", latency);
-	items[1] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_MEDIA, "Audio");
-	items[2] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_CATEGORY,
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	items[1] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
+	items[2] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,
 				direction == PA_STREAM_PLAYBACK ?
 					"Playback" : "Capture");
-	items[3] = SPA_DICT_ITEM_INIT(PW_NODE_PROP_ROLE, str);
-	items[4] = SPA_DICT_ITEM_INIT("pipewire.monitor", monitor ? "1" : "0");
+	items[3] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
+	items[4] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "1" : "0");
 
 	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 5));
 
@@ -1587,7 +1588,7 @@ pa_operation* pa_stream_set_name(pa_stream *s, const char *name, pa_stream_succe
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	items[0] = SPA_DICT_ITEM_INIT("media.name", name);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_NAME, name);
 	dict = SPA_DICT_INIT(items, 1);
 	pw_stream_update_properties(s->stream, &dict);
 

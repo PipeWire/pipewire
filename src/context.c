@@ -136,7 +136,7 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 		if ((g->mask & mask) == 0)
 			continue;
 		if (g->props != NULL &&
-		    (str = pw_properties_get(g->props, "node.name")) != NULL &&
+		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
 		    strcmp(str, name) == 0)
 			return g;
 		if (g->id == id)
@@ -203,7 +203,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	i->owner_module = g->parent_id;
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
 		i->driver = info->props ?
-			spa_dict_lookup(info->props, "device.api") : NULL;
+			spa_dict_lookup(info->props, PW_KEY_DEVICE_API) : NULL;
 		if (i->proplist)
 			pa_proplist_update_dict(i->proplist, info->props);
 		else
@@ -434,9 +434,9 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 		else
 			i->proplist = pa_proplist_new_dict(info->props);
 		i->name = info->props ?
-			spa_dict_lookup(info->props, "application.name") : NULL;
+			spa_dict_lookup(info->props, PW_KEY_APP_NAME) : NULL;
 		i->driver = info->props ?
-			spa_dict_lookup(info->props, PW_CLIENT_PROP_PROTOCOL) : NULL;
+			spa_dict_lookup(info->props, PW_KEY_PROTOCOL) : NULL;
 	}
 	g->pending_seq = pw_proxy_sync(g->proxy, 0);
 }
@@ -496,7 +496,7 @@ static int set_mask(pa_context *c, struct global *g)
 	case PW_TYPE_INTERFACE_Device:
 		if (g->props == NULL)
 			return 0;
-		if ((str = pw_properties_get(g->props, "media.class")) == NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL)
 			return 0;
 		if (strcmp(str, "Audio/Device") != 0)
 			return 0;
@@ -514,7 +514,7 @@ static int set_mask(pa_context *c, struct global *g)
 	case PW_TYPE_INTERFACE_Node:
 		if (g->props == NULL)
 			return 0;
-		if ((str = pw_properties_get(g->props, "media.class")) == NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL)
 			return 0;
 
 		if (strcmp(str, "Audio/Sink") == 0) {
@@ -524,7 +524,7 @@ static int set_mask(pa_context *c, struct global *g)
 			g->node_info.monitor = SPA_ID_INVALID;
 		}
 		else if (strcmp(str, "Audio/DSP/Playback") == 0) {
-			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
+			if ((str = pw_properties_get(g->props, PW_KEY_NODE_SESSION)) == NULL)
 				return 0;
 			pw_log_debug("found monitor %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_DSP_SINK | PA_SUBSCRIPTION_MASK_SOURCE;
@@ -539,7 +539,7 @@ static int set_mask(pa_context *c, struct global *g)
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
 		}
 		else if (strcmp(str, "Audio/DSP/Capture") == 0) {
-			if ((str = pw_properties_get(g->props, "node.session")) == NULL)
+			if ((str = pw_properties_get(g->props, PW_KEY_NODE_SESSION)) == NULL)
 				return 0;
 			g->mask = PA_SUBSCRIPTION_MASK_DSP_SOURCE;
 			g->dsp_info.session = pw_properties_parse_int(str);
@@ -584,10 +584,10 @@ static int set_mask(pa_context *c, struct global *g)
 		break;
 
 	case PW_TYPE_INTERFACE_Link:
-                if ((str = pw_properties_get(g->props, "link.output")) == NULL)
+                if ((str = pw_properties_get(g->props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			return 0;
 		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
-                if ((str = pw_properties_get(g->props, "link.input")) == NULL)
+                if ((str = pw_properties_get(g->props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			return 0;
 		g->link_info.dst = pa_context_find_global(c, pw_properties_parse_int(str));
 
@@ -801,7 +801,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	props = pw_properties_new(NULL, NULL);
 	if (name)
 		pw_properties_set(props, PA_PROP_APPLICATION_NAME, name);
-	pw_properties_set(props, "client.api", "pulseaudio");
+	pw_properties_set(props, PW_KEY_CLIENT_API, "pulseaudio");
 	if (p)
 		pw_properties_update(props, &p->props->dict);
 

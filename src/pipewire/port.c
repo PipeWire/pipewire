@@ -502,7 +502,7 @@ static int check_param_io(void *data, int seq, uint32_t id,
 			SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
 		return 0;
 
-	pw_log_debug("port %p: got control %s", port,
+	pw_log_debug("port %p: got io %s", port,
 			spa_debug_type_find_name(spa_type_io, pid));
 
 	switch (pid) {

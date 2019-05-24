@@ -179,7 +179,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	res = pw_port_call_init_mix(port, mix);
 
 	/* set the same format on the mixer as on the port if any */
-	if (1) {
+	{
 		uint32_t idx = 0;
 		uint8_t buffer[1024];
 		struct spa_pod_builder b;
@@ -412,7 +412,7 @@ int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 
 	if (node == NULL) {
-		node = (struct spa_node *)&impl->mix_node;
+		node = &impl->mix_node;
 		flags = 0;
 	}
 	pw_log_debug("port %p: mix node %p->%p", port, port->mix, node);
@@ -959,7 +959,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	pw_log_debug("port %p: %d set param %d %p", port, port->state, id, param);
 
 	/* set the parameters on all ports of the mixer node if possible */
-	if (1) {
+	{
 		struct pw_port_mix *mix;
 
 		spa_list_for_each(mix, &port->mix_list, link) {
@@ -1017,10 +1017,13 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) == NULL)
 		return -EIO;
 
-	if (1) {
+	{
 		res = spa_node_port_use_buffers(port->mix,
 					mix->port.direction, mix->port.port_id,
 					buffers, n_buffers);
+		if (res == -ENOTSUP)
+			res = 0;
+
 		pw_log_debug("port %p: use buffers on mix: %p %d (%s)",
 				port, port->mix, res, spa_strerror(res));
 	}

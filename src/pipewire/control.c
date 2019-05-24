@@ -141,22 +141,19 @@ void pw_control_add_listener(struct pw_control *control,
 
 static int port_set_io(struct pw_port *port, uint32_t mix, uint32_t id, void *data, uint32_t size)
 {
-	struct spa_node *n;
-	uint32_t p;
 	int res;
 
 	if (port->mix) {
-		n = port->mix;
-		p = mix;
-	} else {
-		n = port->node->node;
-		p = port->port_id;
+		res = spa_node_port_set_io(port->mix, port->direction, mix, id, data, size);
+		if (res == 0)
+			return res;
 	}
-	if ((res = spa_node_port_set_io(n,
-			port->direction, p,
+
+	if ((res = spa_node_port_set_io(port->node->node,
+			port->direction, port->port_id,
 			id, data, size)) < 0) {
 		pw_log_warn("port %p: set io failed %d %s", port,
-				res, spa_strerror(res));
+			res, spa_strerror(res));
 	}
 	return res;
 }

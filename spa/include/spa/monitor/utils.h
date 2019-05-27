@@ -95,7 +95,7 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 
 #define spa_device_emit_info(hooks,i)		spa_device_emit(hooks,info, 0, i)
 #define spa_device_emit_result(hooks,s,r,res)	spa_device_emit(hooks,result, 0, s, r, res)
-#define spa_device_emit_events(hooks,e)		spa_device_emit(hooks,event, 0, e)
+#define spa_device_emit_event(hooks,e)		spa_device_emit(hooks,event, 0, e)
 #define spa_device_emit_object_info(hooks,id,i)	spa_device_emit(hooks,object_info, 0, id, i)
 
 #ifdef __cplusplus

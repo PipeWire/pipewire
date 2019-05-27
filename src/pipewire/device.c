@@ -115,6 +115,7 @@ void pw_device_destroy(struct pw_device *device)
 		spa_hook_remove(&device->global_listener);
 		pw_global_destroy(device->global);
 	}
+	pw_device_emit_free(device);
 	free((char *)device->info.name);
 	pw_properties_free(device->properties);
 

@@ -294,6 +294,7 @@ static inline void free_allocation(struct allocation *alloc)
 
 #define pw_device_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
 #define pw_device_emit_destroy(m)		pw_device_emit(m, destroy, 0)
+#define pw_device_emit_free(m)			pw_device_emit(m, free, 0)
 #define pw_device_emit_info_changed(n,i)	pw_device_emit(n, info_changed, 0, i)
 
 struct pw_device {

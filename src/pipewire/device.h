@@ -56,6 +56,8 @@ struct pw_device_events {
 
 	/** the device is destroyed */
         void (*destroy) (void *data);
+	/** the device is freed */
+        void (*free) (void *data);
 
 	/** the device info changed */
 	void (*info_changed) (void *data, const struct pw_device_info *info);

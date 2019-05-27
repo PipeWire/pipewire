@@ -563,17 +563,17 @@ void pw_core_destroy(struct pw_core *core)
 
 	spa_hook_remove(&core->global_listener);
 
+	spa_list_consume(node, &core->node_list, link)
+		pw_node_destroy(node);
+
+	spa_list_consume(device, &core->device_list, link)
+		pw_device_destroy(device);
+
 	spa_list_consume(remote, &core->remote_list, link)
 		pw_remote_destroy(remote);
 
 	spa_list_consume(module, &core->module_list, link)
 		pw_module_destroy(module);
-
-	spa_list_consume(device, &core->device_list, link)
-		pw_device_destroy(device);
-
-	spa_list_consume(node, &core->node_list, link)
-		pw_node_destroy(node);
 
 	spa_list_consume(resource, &core->registry_resource_list, link)
 		pw_resource_destroy(resource);
@@ -1038,7 +1038,8 @@ int pw_core_recalc_graph(struct pw_core *core)
 	spa_list_for_each(n, &core->driver_list, driver_link) {
 		if (!n->master)
 			continue;
-		pw_log_info("master %p: quantum:%d '%s'", n, n->rt.position->size, n->info.name);
+		pw_log_info("master %p: quantum:%d '%s'", n,
+				n->rt.position ? n->rt.position->size : 0, n->info.name);
 		spa_list_for_each(s, &n->slave_list, slave_link)
 			pw_log_info("slave %p: active:%d '%s'", s, s->active, s->info.name);
 	}

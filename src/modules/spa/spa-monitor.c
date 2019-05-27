@@ -54,6 +54,7 @@ struct monitor_item {
 	uint32_t type;
 	void *iface;
 	void *object;
+	struct spa_hook object_listener;
 };
 
 struct impl {
@@ -65,6 +66,22 @@ struct impl {
 	void *hnd;
 
 	struct spa_list item_list;
+};
+
+static void device_free(void *data)
+{
+	struct monitor_item *mitem = data;
+	spa_hook_remove(&mitem->object_listener);
+	spa_list_remove(&mitem->link);
+	spa_handle_clear(mitem->handle);
+	free(mitem->handle);
+	free(mitem->id);
+	free(mitem);
+}
+
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
+	.free = device_free
 };
 
 static struct monitor_item *add_item(struct pw_spa_monitor *this,
@@ -139,7 +156,7 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 
 
 	if ((res = spa_handle_get_interface(handle, type, &iface)) < 0) {
-		pw_log_error("can't get NODE interface: %d", res);
+		pw_log_error("can't get %d interface: %d", type, res);
 		pw_properties_free(props);
 		return NULL;
 	}
@@ -151,10 +168,19 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 
 	switch (type) {
 	case SPA_TYPE_INTERFACE_Device:
-		mitem->object = pw_spa_device_new(impl->core, NULL, impl->parent, name,
+	{
+		struct pw_device *device;
+		device = pw_spa_device_new(impl->core, NULL, impl->parent, name,
 				      0, iface, handle, props, 0);
+		pw_device_add_listener(device, &mitem->object_listener,
+				&device_events, mitem);
+		mitem->object = device;
 		break;
+	}
 	default:
+		pw_log_error("interface %d not implemented", type);
+		free(mitem->id);
+		free(mitem);
 		return NULL;
 	}
 
@@ -188,11 +214,6 @@ void destroy_item(struct monitor_item *mitem)
 	default:
 		break;
 	}
-	spa_list_remove(&mitem->link);
-	spa_handle_clear(mitem->handle);
-	free(mitem->handle);
-	free(mitem->id);
-	free(mitem);
 }
 
 static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)

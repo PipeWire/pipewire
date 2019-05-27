@@ -110,7 +110,7 @@ int spa_v4l2_close(struct spa_v4l2_device *dev)
 	if (dev->fd == -1)
 		return 0;
 
-	if (dev->active)
+	if (dev->active || dev->have_format)
 		return 0;
 
 	spa_log_info(dev->log, "v4l2: close");
@@ -916,6 +916,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (try_only)
 		return 0;
 
+	dev->have_format = true;
 	size->width = fmt.fmt.pix.width;
 	size->height = fmt.fmt.pix.height;
 	port->rate.denom = framerate->num = streamparm.parm.capture.timeperframe.denominator;
@@ -1472,6 +1473,9 @@ static int spa_v4l2_stream_on(struct impl *this)
 	enum v4l2_buf_type type;
 
 	if (dev->fd == -1)
+		return -EIO;
+
+	if (!dev->have_format)
 		return -EIO;
 
 	if (dev->active)

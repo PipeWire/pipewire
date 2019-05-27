@@ -58,7 +58,7 @@ static void reset_props(struct props *props)
 	strncpy(props->device, default_device, 64);
 }
 
-#define MAX_BUFFERS     64
+#define MAX_BUFFERS     32
 
 #define BUFFER_FLAG_OUTSTANDING	(1<<0)
 #define BUFFER_FLAG_ALLOCATED	(1<<1)
@@ -567,6 +567,7 @@ static int port_set_format(void *object,
 		spa_v4l2_stream_off(this);
 		spa_v4l2_clear_buffers(this);
 		port->have_format = false;
+		port->dev.have_format = false;
 		spa_v4l2_close(&port->dev);
 		goto done;
 	} else {

@@ -24,6 +24,13 @@ executable('export-spa',
   dependencies : [pipewire_dep, mathlib],
 )
 
+executable('export-spa-device',
+  'export-spa-device.c',
+  c_args : [ '-D_GNU_SOURCE' ],
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
+
 executable('media-session',
   'media-session.c',
   c_args : [ '-D_GNU_SOURCE' ],

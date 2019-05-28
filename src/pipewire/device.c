@@ -41,10 +41,23 @@ struct impl {
 #define pw_device_resource_info(r,...)	pw_device_resource(r,info,0,__VA_ARGS__)
 #define pw_device_resource_param(r,...) pw_device_resource(r,param,0,__VA_ARGS__)
 
+struct result_device_params_data {
+	void *data;
+	int (*callback) (void *data, int seq,
+			uint32_t id, uint32_t index, uint32_t next,
+			struct spa_pod *param);
+};
+
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct pw_device *device;
 	struct pw_resource *resource;
+
+	/* for async replies */
+	int seq;
+	int end;
+	struct result_device_params_data data;
+	struct spa_hook listener;
 };
 
 struct node_data {
@@ -124,20 +137,22 @@ void pw_device_destroy(struct pw_device *device)
 
 static void device_unbind_func(void *data)
 {
-	struct pw_resource *resource = data;
+	struct resource_data *d = data;
+	struct pw_resource *resource = d->resource;
 	spa_list_remove(&resource->link);
+}
+
+static void device_pong(void *data, int seq)
+{
+	struct resource_data *d = data;
+	struct pw_resource *resource = d->resource;
+	pw_log_debug("resource %p: got pong %d", resource, seq);
 }
 
 static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = device_unbind_func,
-};
-
-struct result_device_params_data {
-	void *data;
-	int (*callback) (void *data, int seq,
-			uint32_t id, uint32_t index, uint32_t next,
-			struct spa_pod *param);
+	.pong = device_pong,
 };
 
 static void result_device_params(void *data, int seq, int res, uint32_t type, const void *result)
@@ -198,6 +213,20 @@ static int reply_param(void *data, int seq, uint32_t id,
 	return 0;
 }
 
+static void result_device_params_async(void *data, int seq, int res, uint32_t type, const void *result)
+{
+	struct resource_data *d = data;
+
+	pw_log_debug("async result %d %d (%d/%d)", res, seq, d->seq, d->end);
+	if (seq == d->seq)
+		result_device_params(&d->data, seq, res, type, result);
+
+	if (seq == d->end) {
+		spa_hook_remove(&d->listener);
+		pw_client_set_busy(d->resource->client, false);
+	}
+}
+
 static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start, uint32_t num,
 		const struct spa_pod *filter)
 {
@@ -206,11 +235,27 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 	struct pw_device *device = data->device;
 	struct pw_client *client = resource->client;
 	int res;
+	static const struct spa_device_events device_events = {
+		SPA_VERSION_DEVICE_EVENTS,
+		.result = result_device_params_async,
+	};
 
-	if ((res = pw_device_for_each_param(device, seq, id, start, num,
-				filter, reply_param, data)) < 0)
+	res = pw_device_for_each_param(device, seq, id, start, num,
+				filter, reply_param, data);
+
+	if (res < 0) {
 		pw_core_resource_error(client->core_resource,
 				resource->id, seq, res, spa_strerror(res));
+	} else if (SPA_RESULT_IS_ASYNC(res)) {
+		data->data.data = data;
+		data->data.callback = reply_param;
+		spa_device_add_listener(device->device, &data->listener,
+			&device_events, data);
+		data->seq = res;
+		data->end = spa_device_sync(device->device, res);
+		pw_client_set_busy(client, true);
+	}
+
 	return res;
 }
 
@@ -249,7 +294,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	data->device = this;
 	data->resource = resource;
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
+	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, data);
 
 	pw_resource_set_implementation(resource, &device_methods, data);
 
@@ -391,6 +436,10 @@ static void device_add(struct pw_device *device, uint32_t id,
 
 	if (info->type != SPA_TYPE_INTERFACE_Node) {
 		pw_log_warn("device %p: unknown type %d", device, info->type);
+		return;
+	}
+	if (info->factory == NULL) {
+		pw_log_warn("device %p: missing factory", device);
 		return;
 	}
 

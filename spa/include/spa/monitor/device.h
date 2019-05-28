@@ -115,9 +115,10 @@ struct spa_device_events {
 };
 
 #define SPA_DEVICE_METHOD_ADD_LISTENER	0
-#define SPA_DEVICE_METHOD_ENUM_PARAMS	1
-#define SPA_DEVICE_METHOD_SET_PARAM	2
-#define SPA_DEVICE_METHOD_NUM		3
+#define SPA_DEVICE_METHOD_SYNC		1
+#define SPA_DEVICE_METHOD_ENUM_PARAMS	2
+#define SPA_DEVICE_METHOD_SET_PARAM	3
+#define SPA_DEVICE_METHOD_NUM		4
 
 /**
  * spa_device_methods:
@@ -147,6 +148,23 @@ struct spa_device_methods {
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
 			void *data);
+	/**
+	 * Perform a sync operation.
+	 *
+	 * This method will emit the result event with the given sequence
+	 * number synchronously or with the returned async return value
+	 * asynchronously.
+	 *
+	 * Because all methods are serialized in the device, this can be used
+	 * to wait for completion of all previous method calls.
+	 *
+	 * \param seq a sequence number
+	 * \return 0 on success
+	 *         -EINVAL when node is NULL
+	 *         an async result
+	 */
+        int (*sync) (void *object, int seq);
+
 	/**
 	 * Enumerate the parameters of a device.
 	 *
@@ -213,6 +231,7 @@ struct spa_device_methods {
 })
 
 #define spa_device_add_listener(d,...)	spa_device_method(d, add_listener, 0, __VA_ARGS__)
+#define spa_device_sync(d,...)		spa_device_method(d, sync, 0, __VA_ARGS__)
 #define spa_device_enum_params(d,...)	spa_device_method(d, enum_params, 0, __VA_ARGS__)
 #define spa_device_set_param(d,...)	spa_device_method(d, set_param, 0, __VA_ARGS__)
 

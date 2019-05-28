@@ -168,7 +168,7 @@ struct spa_node_events {
 	 * This will be called when an out-of-bound event is notified
 	 * on \a node.
 	 */
-	void (*event) (void *data, struct spa_event *event);
+	void (*event) (void *data, const struct spa_event *event);
 };
 
 /** Node callbacks

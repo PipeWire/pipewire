@@ -997,7 +997,7 @@ static void node_result(void *data, int seq, int res, const void *result)
 	pw_node_emit_result(node, seq, res, result);
 }
 
-static void node_event(void *data, struct spa_event *event)
+static void node_event(void *data, const struct spa_event *event)
 {
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);

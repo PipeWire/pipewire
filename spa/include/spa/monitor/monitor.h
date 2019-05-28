@@ -84,7 +84,7 @@ struct spa_monitor_callbacks {
 	int (*info) (void *data, const struct spa_dict *info);
 
 	/** an item is added/removed/changed on the monitor */
-	int (*event) (void *data, struct spa_event *event);
+	int (*event) (void *data, const struct spa_event *event);
 };
 
 /**

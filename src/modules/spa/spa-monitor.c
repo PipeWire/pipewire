@@ -264,7 +264,7 @@ static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint6
 	}
 }
 
-static int on_monitor_event(void *data, struct spa_event *event)
+static int on_monitor_event(void *data, const struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct pw_spa_monitor *this = &impl->this;

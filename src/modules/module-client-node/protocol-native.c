@@ -223,7 +223,7 @@ static int client_node_marshal_set_active(void *object, bool active)
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int client_node_marshal_event_method(void *object, struct spa_event *event)
+static int client_node_marshal_event_method(void *object, const struct spa_event *event)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -1007,7 +1007,7 @@ static int client_node_demarshal_event_method(void *object, const struct pw_prot
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	struct spa_event *event;
+	const struct spa_event *event;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,

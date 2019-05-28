@@ -284,7 +284,7 @@ struct pw_client_node_proxy_methods {
 	 * Send an event to the node
 	 * \param event the event to send
 	 */
-	int (*event) (void *object, struct spa_event *event);
+	int (*event) (void *object, const struct spa_event *event);
 };
 
 

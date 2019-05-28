@@ -100,7 +100,7 @@ struct spa_device_events {
 	void (*result) (void *data, int seq, int res, const void *result);
 
 	/** a device event */
-	void (*event) (void *data, struct spa_event *event);
+	void (*event) (void *data, const struct spa_event *event);
 
 	/** info changed for an object managed by the device, info is NULL when
 	 * the object is removed */

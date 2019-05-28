@@ -1089,7 +1089,7 @@ static int client_node_set_active(void *data, bool active)
 	return pw_node_set_active(impl->this.node, active);
 }
 
-static int client_node_event(void *data, struct spa_event *event)
+static int client_node_event(void *data, const struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;

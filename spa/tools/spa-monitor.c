@@ -67,7 +67,7 @@ static int on_monitor_info(void *_data, const struct spa_dict *info)
 	return 0;
 }
 
-static int on_monitor_event(void *_data, struct spa_event *event)
+static int on_monitor_event(void *_data, const struct spa_event *event)
 {
 	struct data *data = _data;
 

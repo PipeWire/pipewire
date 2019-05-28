@@ -1186,7 +1186,7 @@ static int node_demarshal_send_command(void *object, const struct pw_protocol_na
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	struct spa_command *command;
+	const struct spa_command *command;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,

@@ -647,7 +647,7 @@ impl_node_set_callbacks(void *object,
 			const struct spa_node_callbacks *callbacks,
 			void *user_data)
 {
-	return 0;
+	return -ENOTSUP;
 }
 
 static int impl_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,

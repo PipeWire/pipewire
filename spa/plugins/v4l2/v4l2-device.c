@@ -137,6 +137,17 @@ static int impl_add_listener(void *object,
 	return res;
 }
 
+static int impl_sync(void *object, int seq)
+{
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	spa_device_emit_result(&this->hooks, seq, 0, 0, NULL);
+
+	return 0;
+}
+
 static int impl_enum_params(void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
@@ -154,6 +165,7 @@ static int impl_set_param(void *object,
 static const struct spa_device_methods impl_device = {
 	SPA_VERSION_DEVICE_METHODS,
 	.add_listener = impl_add_listener,
+	.sync = impl_sync,
 	.enum_params = impl_enum_params,
 	.set_param = impl_set_param,
 };

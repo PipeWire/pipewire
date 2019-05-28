@@ -618,6 +618,17 @@ impl_node_set_callbacks(void *object,
 	return 0;
 }
 
+static int impl_node_sync(void *object, int seq)
+{
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	spa_node_emit_result(&this->hooks, seq, 0, 0, NULL);
+
+	return 0;
+}
+
 static int impl_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,
 		const struct spa_dict *props)
 {
@@ -1011,6 +1022,7 @@ static const struct spa_node_methods impl_node = {
 	SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
+	.sync = impl_node_sync,
 	.enum_params = impl_node_enum_params,
 	.set_param = impl_node_set_param,
 	.set_io = impl_node_set_io,

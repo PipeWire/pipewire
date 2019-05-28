@@ -42,6 +42,7 @@
 struct impl {
 	struct pw_core *core;
 	struct pw_device *device;
+	struct spa_hook device_listener;
 
 	struct spa_device impl;
 	struct spa_hook_list hooks;
@@ -143,7 +144,7 @@ static void device_object_info(void *data, uint32_t id,
 	spa_device_emit_object_info(&impl->hooks, id, info);
 }
 
-static const struct spa_device_events device_events = {
+static const struct spa_device_events resource_implementation = {
 	SPA_VERSION_DEVICE_EVENTS,
 	.info = device_info,
 	.result = device_result,
@@ -154,14 +155,13 @@ static const struct spa_device_events device_events = {
 static void device_resource_destroy(void *data)
 {
 	struct impl *impl = data;
-	struct pw_device *device = impl->device;
 
 	pw_log_debug("client-device %p: destroy", impl);
 
 	impl->resource = NULL;
+	spa_hook_remove(&impl->device_listener);
 	spa_hook_remove(&impl->resource_listener);
-
-	pw_device_destroy(device);
+	pw_device_destroy(impl->device);
 }
 
 static void device_resource_pong(void *data, int seq)
@@ -174,6 +174,23 @@ static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = device_resource_destroy,
 	.pong = device_resource_pong,
+};
+
+static void device_destroy(void *data)
+{
+	struct impl *impl = data;
+
+	pw_log_debug("client-device %p: destroy", impl);
+
+	impl->device = NULL;
+	spa_hook_remove(&impl->device_listener);
+	spa_hook_remove(&impl->resource_listener);
+	pw_resource_destroy(impl->resource);
+}
+
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
+	.destroy = device_destroy,
 };
 
 struct pw_device *pw_client_device_new(struct pw_resource *resource,
@@ -206,14 +223,16 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 	spa_hook_list_init(&impl->hooks);
 	pw_device_set_implementation(device, &impl->impl);
 
+	pw_device_add_listener(impl->device,
+			&impl->device_listener,
+			&device_events, impl);
 	pw_resource_add_listener(impl->resource,
 				 &impl->resource_listener,
 				 &resource_events,
 				 impl);
 	pw_resource_set_implementation(impl->resource,
-				       &device_events,
+				       &resource_implementation,
 				       impl);
-
 
 	return device;
 }

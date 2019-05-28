@@ -44,16 +44,6 @@ struct device_data {
 	struct spa_hook proxy_listener;
 };
 
-#define pw_device_proxy_event(o,method,version,...)			\
-({									\
-        int _res = -ENOTSUP;						\
-        struct spa_interface *_p = o;                                   \
-        spa_interface_call_res(&_p->iface,                              \
-                        struct pw_core_proxy_methods, _res,             \
-                        method, version, ##__VA_ARGS__);                \
-        _res;                                                           \
-})
-
 static void device_event_info(void *_data, const struct spa_device_info *info)
 {
 	struct device_data *data = _data;

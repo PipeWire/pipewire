@@ -83,6 +83,12 @@ struct spa_result_device_params {
 	struct spa_pod *param;
 };
 
+#define SPA_DEVICE_EVENT_INFO		0
+#define SPA_DEVICE_EVENT_RESULT		1
+#define SPA_DEVICE_EVENT_EVENT		2
+#define SPA_DEVICE_EVENT_OBJECT_INFO	3
+#define SPA_DEVICE_EVENT_NUM		4
+
 /**
  * spa_device_events:
  *
@@ -107,6 +113,11 @@ struct spa_device_events {
 	void (*object_info) (void *data, uint32_t id,
 		const struct spa_device_object_info *info);
 };
+
+#define SPA_DEVICE_METHOD_ADD_LISTENER	0
+#define SPA_DEVICE_METHOD_ENUM_PARAMS	1
+#define SPA_DEVICE_METHOD_SET_PARAM	2
+#define SPA_DEVICE_METHOD_NUM		3
 
 /**
  * spa_device_methods:

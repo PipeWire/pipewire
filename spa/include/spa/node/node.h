@@ -125,6 +125,12 @@ struct spa_result_node_params {
 	struct spa_pod *param;	/**< the result param */
 };
 
+#define SPA_NODE_EVENT_INFO		0
+#define SPA_NODE_EVENT_PORT_INFO	1
+#define SPA_NODE_EVENT_RESULT		2
+#define SPA_NODE_EVENT_EVENT		3
+#define SPA_NODE_EVENT_NUM		4
+
 /** events from the spa_node.
  *
  * All event are called from the main thread and multiple
@@ -171,6 +177,10 @@ struct spa_node_events {
 	void (*event) (void *data, const struct spa_event *event);
 };
 
+#define SPA_NODE_CALLBACK_READY		0
+#define SPA_NODE_CALLBACK_REUSE_BUFFER	1
+#define SPA_NODE_CALLBACK_NUM		2
+
 /** Node callbacks
  *
  * Callbacks are called from the real-time data thread. Only
@@ -210,6 +220,24 @@ struct spa_node_callbacks {
 #define SPA_NODE_PARAM_FLAG_FIXATE	(1 << 1)	/* fixate the non-optional unset fields */
 #define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
 							 * nearest allowed field value. */
+
+#define SPA_NODE_METHOD_ADD_LISTENER		0
+#define SPA_NODE_METHOD_SET_CALLBACKS		1
+#define SPA_NODE_METHOD_SYNC			2
+#define SPA_NODE_METHOD_ENUM_PARAMS		3
+#define SPA_NODE_METHOD_SET_PARAM		4
+#define SPA_NODE_METHOD_SET_IO			5
+#define SPA_NODE_METHOD_SEND_COMMAND		6
+#define SPA_NODE_METHOD_ADD_PORT		7
+#define SPA_NODE_METHOD_REMOVE_PORT		8
+#define SPA_NODE_METHOD_PORT_ENUM_PARAMS	9
+#define SPA_NODE_METHOD_PORT_SET_PARAM		10
+#define SPA_NODE_METHOD_PORT_USE_BUFFERS	11
+#define SPA_NODE_METHOD_PORT_ALLOC_BUFFERS	12
+#define SPA_NODE_METHOD_PORT_SET_IO		13
+#define SPA_NODE_METHOD_PORT_REUSE_BUFFER	14
+#define SPA_NODE_METHOD_PROCESS			15
+#define SPA_NODE_METHOD_NUM			16
 
 /**
  * Node methods

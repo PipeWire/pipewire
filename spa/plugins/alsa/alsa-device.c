@@ -145,7 +145,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 
 	this->n_nodes = 0;
 
-	if (id == 1)
+	if (id == 0)
 		return 0;
 
         snd_pcm_info_alloca(&pcminfo);
@@ -307,13 +307,13 @@ static int impl_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(0),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
+				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
 			break;
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
+				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
 			break;
 		default:
 			return 0;

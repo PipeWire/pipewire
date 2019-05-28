@@ -37,6 +37,18 @@ pipewire_module_client_node = shared_library('pipewire-module-client-node',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+pipewire_module_client_node = shared_library('pipewire-module-client-device',
+  [ 'module-client-device.c',
+    'module-client-device/resource-device.c',
+    'module-client-device/proxy-device.c',
+    'module-client-device/protocol-native.c', ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
+
 pipewire_module_link_factory = shared_library('pipewire-module-link-factory',
   [ 'module-link-factory.c' ],
   c_args : pipewire_module_c_args,

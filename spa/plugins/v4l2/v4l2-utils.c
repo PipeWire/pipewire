@@ -815,7 +815,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	spa_pod_builder_pop(&b, &f[1]);
 	result.param = spa_pod_builder_pop(&b, &f[0]);
 
-	spa_node_emit_result(&this->hooks, seq, 0, &result);
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;
@@ -1144,7 +1144,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&this->hooks, seq, 0, &result);
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;

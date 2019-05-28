@@ -836,12 +836,20 @@ struct result_port_params_data {
 	int seq;
 };
 
-static void result_port_params(void *data, int seq, int res, const void *result)
+static void result_port_params(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct result_port_params_data *d = data;
-	const struct spa_result_node_params *r = result;
-	if (d->seq == seq)
-		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+	switch (type) {
+	case SPA_RESULT_TYPE_NODE_PARAMS:
+	{
+		const struct spa_result_node_params *r = result;
+		if (d->seq == seq)
+			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 int pw_port_for_each_param(struct pw_port *port,

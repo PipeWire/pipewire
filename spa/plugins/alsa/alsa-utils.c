@@ -359,7 +359,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	if ((res = spa_pod_filter(&b, &result.param, fmt, filter)) < 0)
 		goto next;
 
-	spa_node_emit_result(&state->hooks, seq, 0, &result);
+	spa_node_emit_result(&state->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;

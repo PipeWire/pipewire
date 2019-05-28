@@ -52,14 +52,22 @@ struct data {
 	struct spa_hook listener;
 };
 
-static void print_param(void *data, int seq, int res, const void *result)
+static void print_param(void *data, int seq, int res, uint32_t type, const void *result)
 {
-	const struct spa_result_node_params *r = result;
+	switch (type) {
+	case SPA_RESULT_TYPE_NODE_PARAMS:
+	{
+		const struct spa_result_node_params *r = result;
 
-	if (spa_pod_is_object_type(r->param, SPA_TYPE_OBJECT_Format))
-		spa_debug_format(16, NULL, r->param);
-	else
-		spa_debug_pod(16, NULL, r->param);
+		if (spa_pod_is_object_type(r->param, SPA_TYPE_OBJECT_Format))
+			spa_debug_format(16, NULL, r->param);
+		else
+			spa_debug_pod(16, NULL, r->param);
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 static void

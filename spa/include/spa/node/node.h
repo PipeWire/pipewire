@@ -112,6 +112,9 @@ struct spa_port_info {
 
 #define SPA_PORT_INFO_INIT()	(struct spa_port_info) { 0, }
 
+#define SPA_RESULT_TYPE_NODE_ERROR	1
+#define SPA_RESULT_TYPE_NODE_PARAMS	2
+
 /** an error result */
 struct spa_result_node_error {
 	const char *message;
@@ -152,8 +155,8 @@ struct spa_node_events {
 	/** notify a result.
 	 *
 	 * Some methods will trigger a result event with an optional
-	 * result. Look at the documentation of the method to know
-	 * when to expect a result event.
+	 * result of the given type. Look at the documentation of the
+	 * method to know when to expect a result event.
 	 *
 	 * The result event can be called synchronously, as an event
 	 * called from inside the method itself, in which case the seq
@@ -165,7 +168,8 @@ struct spa_node_events {
 	 * the method call. Users should match the seq number from
 	 * request to the reply.
 	 */
-	void (*result) (void *data, int seq, int res, const void *result);
+	void (*result) (void *data, int seq, int res,
+			uint32_t type, const void *result);
 
 	/**
 	 * \param node a spa_node

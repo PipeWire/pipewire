@@ -252,7 +252,7 @@ static int impl_port_enum_params(void *object, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&d->hooks, seq, 0, &result);
+	spa_node_emit_result(&d->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;

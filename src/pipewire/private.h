@@ -385,7 +385,7 @@ struct pw_node_activation {
 #define pw_node_emit_state_request(n,s)		pw_node_emit(n, state_request, 0, s)
 #define pw_node_emit_state_changed(n,o,s,e)	pw_node_emit(n, state_changed, 0, o, s, e)
 #define pw_node_emit_async_complete(n,s,r)	pw_node_emit(n, async_complete, 0, s, r)
-#define pw_node_emit_result(n,s,r,result)	pw_node_emit(n, result, 0, s, r, result)
+#define pw_node_emit_result(n,s,r,t,result)	pw_node_emit(n, result, 0, s, r, t, result)
 #define pw_node_emit_event(n,e)			pw_node_emit(n, event, 0, e)
 #define pw_node_emit_driver_changed(n,o,d)	pw_node_emit(n, driver_changed, 0, o, d)
 #define pw_node_emit_peer_added(n,p)		pw_node_emit(n, peer_added, 0, p)

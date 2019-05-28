@@ -340,7 +340,8 @@ static int impl_enum_params(void *object, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_device_emit_result(&this->hooks, seq, 0, &result);
+	spa_device_emit_result(&this->hooks, seq, 0,
+			SPA_RESULT_TYPE_DEVICE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;

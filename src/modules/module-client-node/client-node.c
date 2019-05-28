@@ -416,7 +416,7 @@ static int impl_node_enum_params(void *object, int seq,
 			continue;
 
 		pw_log_debug("client-node %p: %d param %u", this, seq, result.index);
-		spa_node_emit_result(&this->hooks, seq, 0, &result);
+		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 		if (++count == num)
 			break;
@@ -706,7 +706,7 @@ impl_node_port_enum_params(void *object, int seq,
 			continue;
 
 		pw_log_debug("client-node %p: %d param %u", this, seq, result.index);
-		spa_node_emit_result(&this->hooks, seq, 0, &result);
+		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 		if (++count == num)
 			break;
@@ -1245,7 +1245,7 @@ static void client_node_resource_error(void *data, int seq, int res, const char 
 
 	pw_log_error("client-node %p: error seq:%d %d (%s)", this, seq, res, message);
 	result.message = message;
-	spa_node_emit_result(&this->hooks, seq, res, &result);
+	spa_node_emit_result(&this->hooks, seq, res, SPA_RESULT_TYPE_NODE_ERROR, &result);
 }
 
 static void client_node_resource_pong(void *data, int seq)
@@ -1254,7 +1254,7 @@ static void client_node_resource_pong(void *data, int seq)
 	struct node *this = &impl->node;
 
 	pw_log_debug("client-node %p: got pong, emit result %d", this, seq);
-	spa_node_emit_result(&this->hooks, seq, 0, NULL);
+	spa_node_emit_result(&this->hooks, seq, 0, 0, NULL);
 }
 
 void pw_client_node_registered(struct pw_client_node *this, struct pw_global *global)

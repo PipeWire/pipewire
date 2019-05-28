@@ -76,6 +76,7 @@ struct spa_device_object_info {
 #define SPA_DEVICE_OBJECT_INFO_INIT()	(struct spa_device_object_info){ SPA_VERSION_DEVICE_OBJECT_INFO, }
 
 /** the result of spa_device_enum_params() */
+#define SPA_RESULT_TYPE_DEVICE_PARAMS	1
 struct spa_result_device_params {
 	uint32_t id;
 	uint32_t index;
@@ -103,7 +104,7 @@ struct spa_device_events {
 	void (*info) (void *data, const struct spa_device_info *info);
 
 	/** notify a result */
-	void (*result) (void *data, int seq, int res, const void *result);
+	void (*result) (void *data, int seq, int res, uint32_t type, const void *result);
 
 	/** a device event */
 	void (*event) (void *data, const struct spa_event *event);

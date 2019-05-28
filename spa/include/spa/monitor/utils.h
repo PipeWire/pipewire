@@ -37,7 +37,7 @@ struct spa_result_device_params_data {
 };
 
 static inline void spa_result_func_device_params(void *data, int seq, int res,
-		const void *result)
+		uint32_t type, const void *result)
 {
 	struct spa_result_device_params_data *d =
 		(struct spa_result_device_params_data *)data;
@@ -94,7 +94,7 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 				method, version, ##__VA_ARGS__)
 
 #define spa_device_emit_info(hooks,i)		spa_device_emit(hooks,info, 0, i)
-#define spa_device_emit_result(hooks,s,r,res)	spa_device_emit(hooks,result, 0, s, r, res)
+#define spa_device_emit_result(hooks,s,r,t,res)	spa_device_emit(hooks,result, 0, s, r, t, res)
 #define spa_device_emit_event(hooks,e)		spa_device_emit(hooks,event, 0, e)
 #define spa_device_emit_object_info(hooks,id,i)	spa_device_emit(hooks,object_info, 0, id, i)
 

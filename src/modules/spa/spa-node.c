@@ -97,7 +97,7 @@ static void complete_init(struct impl *impl)
 		pw_node_initialized(this);
 }
 
-static void spa_node_result(void *data, int seq, int res, const void *result)
+static void spa_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this;

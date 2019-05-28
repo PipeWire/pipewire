@@ -1081,7 +1081,7 @@ static const struct pw_port_events output_port_events = {
 	.destroy = output_port_destroy,
 };
 
-static void input_node_result(void *data, int seq, int res, const void *result)
+static void input_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.input->node;
@@ -1091,7 +1091,7 @@ static void input_node_result(void *data, int seq, int res, const void *result)
 	}
 }
 
-static void output_node_result(void *data, int seq, int res, const void *result)
+static void output_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.output->node;

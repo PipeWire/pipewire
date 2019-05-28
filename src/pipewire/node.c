@@ -983,7 +983,7 @@ static void node_port_info(void *data, enum spa_direction direction, uint32_t po
 	}
 }
 
-static void node_result(void *data, int seq, int res, const void *result)
+static void node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -994,7 +994,7 @@ static void node_result(void *data, int seq, int res, const void *result)
 	if (SPA_RESULT_IS_ASYNC(seq))
 	        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
 
-	pw_node_emit_result(node, seq, res, result);
+	pw_node_emit_result(node, seq, res, type, result);
 }
 
 static void node_event(void *data, const struct spa_event *event)
@@ -1222,12 +1222,20 @@ struct result_node_params_data {
 	int seq;
 };
 
-static void result_node_params(void *data, int seq, int res, const void *result)
+static void result_node_params(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct result_node_params_data *d = data;
-	const struct spa_result_node_params *r = result;
-	if (d->seq == seq)
-		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+	switch (type) {
+	case SPA_RESULT_TYPE_NODE_PARAMS:
+	{
+		const struct spa_result_node_params *r = result;
+		if (d->seq == seq)
+			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 SPA_EXPORT

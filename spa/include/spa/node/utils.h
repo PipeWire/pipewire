@@ -37,7 +37,7 @@ struct spa_result_node_params_data {
 };
 
 static inline void spa_result_func_node_params(void *data,
-		int seq, int res, const void *result)
+		int seq, int res, uint32_t type, const void *result)
 {
 	struct spa_result_node_params_data *d =
 		(struct spa_result_node_params_data *) data;
@@ -119,7 +119,7 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 
 #define spa_node_emit_info(hooks,i)		spa_node_emit(hooks,info, 0, i)
 #define spa_node_emit_port_info(hooks,d,p,i)	spa_node_emit(hooks,port_info, 0, d, p, i)
-#define spa_node_emit_result(hooks,s,r,res)	spa_node_emit(hooks,result, 0, s, r, res)
+#define spa_node_emit_result(hooks,s,r,t,res)	spa_node_emit(hooks,result, 0, s, r, t, res)
 #define spa_node_emit_event(hooks,e)		spa_node_emit(hooks,event, 0, e)
 
 

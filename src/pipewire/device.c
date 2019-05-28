@@ -140,12 +140,19 @@ struct result_device_params_data {
 			struct spa_pod *param);
 };
 
-static void result_device_params(void *data, int seq, int res, const void *result)
+static void result_device_params(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct result_device_params_data *d = data;
-	const struct spa_result_device_params *r =
-		(const struct spa_result_device_params *)result;
-	d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+	switch (type) {
+	case SPA_RESULT_TYPE_DEVICE_PARAMS:
+	{
+		const struct spa_result_device_params *r = result;
+		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 SPA_EXPORT

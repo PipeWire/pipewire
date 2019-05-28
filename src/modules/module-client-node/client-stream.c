@@ -167,7 +167,7 @@ static int impl_node_enum_params(void *object, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&this->hooks, seq, 0, &result);
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;
@@ -325,12 +325,12 @@ static void adapter_port_info(void *data,
 	}
 }
 
-static void adapter_result(void *data, int seq, int res, const void *result)
+static void adapter_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
 	pw_log_debug("%p: result %d %d", this, seq, res);
-	spa_node_emit_result(&this->hooks, seq, res, result);
+	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
 static const struct spa_node_events adapter_node_events = {
@@ -1144,12 +1144,12 @@ static void client_node_free(void *data)
 	cleanup(impl);
 }
 
-static void client_node_result(void *data, int seq, int res, const void *result)
+static void client_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *impl = data;
 	struct node *node = &impl->node;
 	pw_log_debug("client-stream %p: result %d %d", &impl->this, seq, res);
-	spa_node_emit_result(&node->hooks, seq, res, result);
+	spa_node_emit_result(&node->hooks, seq, res, type, result);
 }
 
 static void client_node_active_changed(void *data, bool active)

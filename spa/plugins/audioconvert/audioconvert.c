@@ -445,7 +445,7 @@ static int impl_node_enum_params(void *object, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&this->hooks, seq, 0, &result);
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;
@@ -563,11 +563,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static void on_node_result(void *data, int seq, int res, const void *result)
+static void on_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "%p: result %d %d", this, seq, res);
-	spa_node_emit_result(&this->hooks, seq, res, result);
+	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
 static void fmt_input_port_info(void *data,
@@ -742,7 +742,7 @@ impl_node_port_enum_params(void *object, int seq,
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&this->hooks, seq, 0, &result);
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;

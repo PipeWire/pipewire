@@ -19,4 +19,8 @@ script:
       -Dtest=true \
       -Dvideotestsrc=true \
       -Dvolume=true \
-    && make && make test'
+    && make \
+    && make test \
+    && env DESTDIR=i make install \
+    && env PREFIX=build/i/usr/local ./check_missing_headers.sh \
+    '

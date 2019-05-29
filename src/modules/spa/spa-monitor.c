@@ -43,6 +43,7 @@
 #include <pipewire/node.h>
 #include <pipewire/device.h>
 #include <pipewire/keys.h>
+#include <pipewire/pipewire.h>
 
 #include "spa-monitor.h"
 #include "spa-device.h"
@@ -62,8 +63,6 @@ struct impl {
 
 	struct pw_core *core;
 	struct pw_global *parent;
-
-	void *hnd;
 
 	struct spa_list item_list;
 };
@@ -334,45 +333,21 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	struct spa_handle *handle;
 	int res;
 	void *iface;
-	void *hnd;
-	uint32_t index;
-	spa_handle_factory_enum_func_t enum_func;
-	const struct spa_handle_factory *factory;
 	char *filename;
 	const struct spa_support *support;
 	uint32_t n_support;
 
 	asprintf(&filename, "%s/%s.so", dir, lib);
 
-	if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
-		pw_log_error("can't load %s: %s", filename, dlerror());
-		goto open_failed;
-	}
-	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
-		pw_log_error("can't find enum function");
-		goto no_symbol;
-	}
+	support = pw_core_get_support(core, &n_support);
 
-	for (index = 0;;) {
-		if ((res = enum_func(&factory, &index)) <= 0) {
-			if (res != 0)
-				pw_log_error("can't enumerate factories: %s", spa_strerror(res));
-			goto enum_failed;
-		}
-		if (strcmp(factory->name, factory_name) == 0)
-			break;
-	}
-	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+	handle = pw_load_spa_handle(lib,
+			factory_name,
+			NULL,
+			n_support, support);
 	if (handle == NULL)
 		goto no_mem;
 
-	support = pw_core_get_support(core, &n_support);
-
-	if ((res = spa_handle_factory_init(factory,
-					   handle, NULL, support, n_support)) < 0) {
-		pw_log_error("can't make factory instance: %d", res);
-		goto init_failed;
-	}
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto interface_failed;
@@ -381,7 +356,6 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	impl->core = core;
 	impl->parent = parent;
-	impl->hnd = hnd;
 
 	this = &impl->this;
 	this->monitor = iface;
@@ -402,14 +376,8 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	return this;
 
       interface_failed:
-	spa_handle_clear(handle);
-      init_failed:
-	free(handle);
+	pw_unload_spa_handle(handle);
       no_mem:
-      enum_failed:
-      no_symbol:
-	dlclose(hnd);
-      open_failed:
 	free(filename);
 	return NULL;
 
@@ -425,12 +393,10 @@ void pw_spa_monitor_destroy(struct pw_spa_monitor *monitor)
 	spa_list_for_each_safe(mitem, tmp, &impl->item_list, link)
 		destroy_item(mitem);
 
-	spa_handle_clear(monitor->handle);
-	free(monitor->handle);
+	pw_unload_spa_handle(monitor->handle);
 	free(monitor->lib);
 	free(monitor->factory_name);
 	free(monitor->system_name);
 
-	dlclose(impl->hnd);
 	free(impl);
 }

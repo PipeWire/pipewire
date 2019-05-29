@@ -41,6 +41,7 @@
 #include "pipewire/port.h"
 #include "pipewire/log.h"
 #include "pipewire/private.h"
+#include "pipewire/pipewire.h"
 
 struct impl {
 	struct pw_node *this;
@@ -50,7 +51,6 @@ struct impl {
 
 	enum pw_spa_node_flags flags;
 
-	void *hnd;
         struct spa_handle *handle;
         struct spa_node *node;          /**< handle to SPA node */
 	char *lib;
@@ -73,13 +73,10 @@ static void spa_node_free(void *data)
 
 	spa_hook_remove(&impl->node_listener);
 	if (impl->handle) {
-		spa_handle_clear(impl->handle);
-		free(impl->handle);
+		pw_unload_spa_handle(impl->handle);
 	}
 	free(impl->lib);
 	free(impl->factory_name);
-	if (impl->hnd)
-		dlclose(impl->hnd);
 }
 
 static void complete_init(struct impl *impl)
@@ -257,62 +254,26 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	struct spa_node *spa_node;
 	int res;
 	struct spa_handle *handle;
-	void *hnd;
-	uint32_t index;
-	spa_handle_factory_enum_func_t enum_func;
-	const struct spa_handle_factory *factory;
 	void *iface;
-	char *filename;
-	const char *dir;
 	const struct spa_support *support;
 	uint32_t n_support;
 
-	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
-		dir = PLUGINDIR;
-
-	asprintf(&filename, "%s/%s.so", dir, lib);
-
-	if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
-		pw_log_error("can't load %s: %s", filename, dlerror());
-		goto open_failed;
-	}
-	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
-		pw_log_error("can't find enum function");
-		goto no_symbol;
-	}
-
-	for (index = 0;;) {
-		if ((res = enum_func(&factory, &index)) <= 0) {
-			if (res != 0)
-				pw_log_error("can't enumerate factories: %s", spa_strerror(res));
-			goto enum_failed;
-		}
-		if (strcmp(factory->name, factory_name) == 0)
-			break;
-	}
-
 	support = pw_core_get_support(core, &n_support);
 
-        handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+	handle = pw_load_spa_handle(lib,
+			factory_name,
+			properties ? &properties->dict : NULL,
+			n_support, support);
 	if (handle == NULL)
 		goto no_mem;
-
-	if ((res = spa_handle_factory_init(factory,
-					   handle,
-					   properties ? &properties->dict : NULL,
-					   support,
-					   n_support)) < 0) {
-		pw_log_error("can't make factory instance: %d", res);
-		goto init_failed;
-	}
-
-	if (SPA_RESULT_IS_ASYNC(res))
-		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
 		goto interface_failed;
 	}
+	if (SPA_RESULT_IS_ASYNC(res))
+		flags |= PW_SPA_NODE_FLAG_ASYNC;
+
 	spa_node = iface;
 
 	if (properties != NULL) {
@@ -325,22 +286,14 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 			       spa_node, handle, properties, user_data_size);
 
 	impl = this->user_data;
-	impl->hnd = hnd;
 	impl->handle = handle;
-	impl->lib = filename;
+	impl->lib = strdup(lib);
 	impl->factory_name = strdup(factory_name);
 
 	return this;
 
       interface_failed:
-	spa_handle_clear(handle);
-      init_failed:
-	free(handle);
-      enum_failed:
+	pw_unload_spa_handle(handle);
       no_mem:
-      no_symbol:
-	dlclose(hnd);
-      open_failed:
-	free(filename);
 	return NULL;
 }

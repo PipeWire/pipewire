@@ -1186,7 +1186,7 @@ node_init(struct node *this,
 	this->data_source.mask = SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP;
 	this->data_source.rmask = 0;
 
-	return SPA_RESULT_RETURN_ASYNC(0);
+	return 0;
 }
 
 static int node_clear(struct node *this)

@@ -35,13 +35,45 @@ static int device_marshal_add_listener(void *object,
 			const struct spa_device_events *events,
 			void *data)
 {
-	return -ENOTSUP;
+	struct pw_resource *resource = object;
+	pw_resource_add_object_listener(resource, listener, events, data);
+	return 0;
 }
 
 static int device_demarshal_add_listener(void *object,
 			const struct pw_protocol_native_message *msg)
 {
 	return -ENOTSUP;
+}
+
+static int device_marshal_sync(void *object, int seq)
+{
+	struct pw_protocol_native_message *msg;
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, SPA_DEVICE_METHOD_SYNC, &msg);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int device_demarshal_sync(void *object,
+			const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	int seq;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+			SPA_POD_Int(&seq)) < 0)
+		return -EINVAL;
+
+	pw_proxy_notify(proxy, struct spa_device_methods, sync, 0, seq);
+	return 0;
 }
 
 static int device_marshal_enum_params(void *object, int seq,
@@ -51,18 +83,15 @@ static int device_marshal_enum_params(void *object, int seq,
 	struct pw_protocol_native_message *msg;
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
-	struct spa_pod_frame f[2];
 
 	b = pw_protocol_native_begin_resource(resource, SPA_DEVICE_METHOD_ENUM_PARAMS, &msg);
 
-	spa_pod_builder_push_struct(b, &f[0]);
-	spa_pod_builder_add(b,
+	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
 			SPA_POD_Id(id),
 			SPA_POD_Int(index),
 			SPA_POD_Int(max),
-			SPA_POD_Pod(filter), NULL);
-	spa_pod_builder_pop(b, &f[0]);
+			SPA_POD_Pod(filter));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -95,16 +124,13 @@ static int device_marshal_set_param(void *object,
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
-	struct spa_pod_frame f[2];
 
 	b = pw_protocol_native_begin_resource(resource, SPA_DEVICE_METHOD_SET_PARAM, NULL);
 
-	spa_pod_builder_push_struct(b, &f[0]);
-	spa_pod_builder_add(b,
+	spa_pod_builder_add_struct(b,
 			SPA_POD_Id(id),
 			SPA_POD_Int(flags),
-			SPA_POD_Pod(param), NULL);
-	spa_pod_builder_pop(b, &f[0]);
+			SPA_POD_Pod(param));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -322,14 +348,11 @@ static void device_marshal_event(void *object, const struct spa_event *event)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	struct spa_pod_frame f[2];
 
 	b = pw_protocol_native_begin_proxy(proxy, SPA_DEVICE_EVENT_RESULT, NULL);
-	spa_pod_builder_push_struct(b, &f[0]);
-	spa_pod_builder_add(b,
-			    SPA_POD_Pod(event),
-			    NULL);
-	spa_pod_builder_pop(b, &f[0]);
+
+	spa_pod_builder_add_struct(b,
+			    SPA_POD_Pod(event));
 
 	pw_protocol_native_end_proxy(proxy, b);
 }
@@ -447,6 +470,7 @@ static int device_demarshal_object_info(void *object,
 static const struct spa_device_methods pw_protocol_native_device_method_marshal = {
 	SPA_VERSION_DEVICE_METHODS,
 	.add_listener = &device_marshal_add_listener,
+	.sync = &device_marshal_sync,
 	.enum_params = &device_marshal_enum_params,
 	.set_param = &device_marshal_set_param
 };
@@ -455,6 +479,7 @@ static const struct pw_protocol_native_demarshal
 pw_protocol_native_device_method_demarshal[SPA_DEVICE_METHOD_NUM] =
 {
 	[SPA_DEVICE_METHOD_ADD_LISTENER] = { &device_demarshal_add_listener, 0 },
+	[SPA_DEVICE_METHOD_SYNC] = { &device_demarshal_sync, 0 },
 	[SPA_DEVICE_METHOD_ENUM_PARAMS] = { &device_demarshal_enum_params, 0 },
 	[SPA_DEVICE_METHOD_SET_PARAM] = { &device_demarshal_set_param, 0 },
 };

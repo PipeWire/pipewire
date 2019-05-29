@@ -39,6 +39,7 @@ spa_monitor_headers = [
   'monitor/device.h',
   'monitor/monitor.h',
   'monitor/type-info.h',
+  'monitor/utils.h',
 ]
 
 install_headers(spa_monitor_headers,
@@ -50,6 +51,7 @@ spa_node_headers = [
   'node/io.h',
   'node/node.h',
   'node/type-info.h',
+  'node/utils.h',
 ]
 
 install_headers(spa_node_headers,
@@ -97,6 +99,7 @@ spa_utils_headers = [
   'utils/dict.h',
   'utils/hook.h',
   'utils/list.h',
+  'utils/result.h',
   'utils/ringbuffer.h',
   'utils/type.h',
   'utils/type-info.h',

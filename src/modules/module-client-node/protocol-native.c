@@ -53,7 +53,7 @@ static int client_node_marshal_add_listener(void *object,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
-	pw_proxy_add_proxy_listener(proxy, listener, events, data);
+	pw_proxy_add_object_listener(proxy, listener, events, data);
 	return 0;
 }
 
@@ -820,7 +820,7 @@ static int client_node_demarshal_get_node(void *object, const struct pw_protocol
 				SPA_POD_Int(&new_id)) < 0)
 		return -EINVAL;
 
-	return pw_resource_do(resource, struct pw_client_node_proxy_methods, get_node, 0,
+	return pw_resource_notify(resource, struct pw_client_node_proxy_methods, get_node, 0,
 			version, new_id);
 }
 
@@ -898,7 +898,7 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 		}
 	}
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, update, 0, change_mask,
+	pw_resource_notify(resource, struct pw_client_node_proxy_methods, update, 0, change_mask,
 									n_params,
 									params, infop);
 	return 0;
@@ -980,7 +980,7 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 		}
 	}
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, port_update, 0, direction,
+	pw_resource_notify(resource, struct pw_client_node_proxy_methods, port_update, 0, direction,
 									     port_id,
 									     change_mask,
 									     n_params,
@@ -999,7 +999,7 @@ static int client_node_demarshal_set_active(void *object, const struct pw_protoc
 				SPA_POD_Bool(&active)) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, set_active, 0, active);
+	pw_resource_notify(resource, struct pw_client_node_proxy_methods, set_active, 0, active);
 	return 0;
 }
 
@@ -1014,7 +1014,7 @@ static int client_node_demarshal_event_method(void *object, const struct pw_prot
 			SPA_POD_PodObject(&event)) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct pw_client_node_proxy_methods, event, 0, event);
+	pw_resource_notify(resource, struct pw_client_node_proxy_methods, event, 0, event);
 	return 0;
 }
 

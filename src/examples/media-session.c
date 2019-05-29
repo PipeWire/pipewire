@@ -492,7 +492,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	node->obj.proxy = p;
 	spa_list_init(&node->port_list);
 	pw_proxy_add_listener(p, &node->obj.listener, &node_proxy_events, node);
-	pw_proxy_add_proxy_listener(p, &node->listener, &node_events, node);
+	pw_proxy_add_object_listener(p, &node->listener, &node_events, node);
 	add_object(impl, &node->obj);
 	spa_list_append(&impl->node_list, &node->l);
 	node->type = NODE_TYPE_UNKNOWN;
@@ -675,7 +675,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 		port->flags |= PORT_FLAG_SKIP;
 
 	pw_proxy_add_listener(p, &port->obj.listener, &port_proxy_events, port);
-	pw_proxy_add_proxy_listener(p, &port->listener, &port_events, port);
+	pw_proxy_add_object_listener(p, &port->listener, &port_events, port);
 	add_object(impl, &port->obj);
 
 	spa_list_append(&node->port_list, &port->l);
@@ -748,7 +748,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	client->obj.proxy = p;
 
 	pw_proxy_add_listener(p, &client->obj.listener, &client_proxy_events, client);
-	pw_proxy_add_proxy_listener(p, &client->listener, &client_events, client);
+	pw_proxy_add_object_listener(p, &client->listener, &client_events, client);
 	add_object(impl, &client->obj);
 	spa_list_append(&impl->client_list, &client->l);
 
@@ -1264,7 +1264,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 				0);
 		pw_properties_free(props);
 
-		pw_proxy_add_proxy_listener(sess->dsp_proxy, &sess->listener, &dsp_node_events, sess);
+		pw_proxy_add_object_listener(sess->dsp_proxy, &sess->listener, &dsp_node_events, sess);
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);

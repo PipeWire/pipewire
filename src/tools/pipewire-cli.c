@@ -95,7 +95,7 @@ struct proxy_data {
 	info_func_t info_func;
         pw_destroy_t destroy;
         struct spa_hook proxy_listener;
-        struct spa_hook proxy_proxy_listener;
+        struct spa_hook object_listener;
 };
 
 struct command {
@@ -944,7 +944,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	pd->proxy = proxy;
         pd->info_func = info_func;
         pd->destroy = destroy;
-        pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, events, pd);
+        pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	global->proxy = proxy;
@@ -1039,7 +1039,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	pd->rd = rd;
 	pd->proxy = proxy;
         pd->destroy = (pw_destroy_t) pw_node_info_free;
-        pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, &node_events, pd);
+        pw_proxy_add_object_listener(proxy, &pd->object_listener, &node_events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
@@ -1108,7 +1108,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	pd->rd = rd;
 	pd->proxy = proxy;
         pd->destroy = (pw_destroy_t) pw_link_info_free;
-        pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, &link_events, pd);
+        pw_proxy_add_object_listener(proxy, &pd->object_listener, &link_events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);

@@ -60,9 +60,8 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	this->type = type;
 	this->version = version;
 
-	spa_hook_list_init(&this->implementation_list);
-	spa_hook_list_append(&this->implementation_list, &this->implementation, NULL, NULL);
 	spa_hook_list_init(&this->listener_list);
+	spa_hook_list_init(&this->object_listener_list);
 
 	if (id == SPA_ID_INVALID) {
 		id = pw_map_insert_new(&client->objects, this);
@@ -141,30 +140,18 @@ void pw_resource_add_listener(struct pw_resource *resource,
 }
 
 SPA_EXPORT
-void pw_resource_set_implementation(struct pw_resource *resource,
-				    const void *implementation,
-				    void *data)
+void pw_resource_add_object_listener(struct pw_resource *resource,
+				struct spa_hook *listener,
+				const void *funcs,
+				void *data)
 {
-	struct pw_client *client = resource->client;
-
-	resource->implementation.cb = SPA_CALLBACKS_INIT(implementation, data);
-
-	pw_client_emit_resource_impl(client, resource);
+	spa_hook_list_append(&resource->object_listener_list, listener, funcs, data);
 }
 
 SPA_EXPORT
-void pw_resource_add_override(struct pw_resource *resource,
-			      struct spa_hook *listener,
-			      const void *implementation,
-			      void *data)
+struct spa_hook_list *pw_resource_get_object_listeners(struct pw_resource *resource)
 {
-	spa_hook_list_prepend(&resource->implementation_list, listener, implementation, data);
-}
-
-SPA_EXPORT
-struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource)
-{
-	return &resource->implementation_list;
+	return &resource->object_listener_list;
 }
 
 SPA_EXPORT

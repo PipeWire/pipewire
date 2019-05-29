@@ -74,7 +74,7 @@ struct proxy_data {
 	void *info;
 	pw_destroy_t destroy;
 	struct spa_hook proxy_listener;
-	struct spa_hook proxy_proxy_listener;
+	struct spa_hook object_listener;
 	int pending_seq;
 	struct spa_list pending_link;
 	print_func_t print_func;
@@ -656,7 +656,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pd->pending_seq = 0;
 	pd->print_func = print_func;
 	spa_list_init(&pd->param_list);
-        pw_proxy_add_proxy_listener(proxy, &pd->proxy_proxy_listener, events, pd);
+        pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
         return;
 

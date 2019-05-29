@@ -37,7 +37,7 @@ struct impl {
 	struct pw_device this;
 };
 
-#define pw_device_resource(r,m,v,...)	pw_resource_notify(r,struct pw_device_proxy_events,m,v,__VA_ARGS__)
+#define pw_device_resource(r,m,v,...)	pw_resource_call(r,struct pw_device_proxy_events,m,v,__VA_ARGS__)
 #define pw_device_resource_info(r,...)	pw_device_resource(r,info,0,__VA_ARGS__)
 #define pw_device_resource_param(r,...) pw_device_resource(r,param,0,__VA_ARGS__)
 
@@ -49,9 +49,11 @@ struct result_device_params_data {
 };
 
 struct resource_data {
-	struct spa_hook resource_listener;
 	struct pw_device *device;
 	struct pw_resource *resource;
+
+	struct spa_hook resource_listener;
+	struct spa_hook object_listener;
 
 	/* for async replies */
 	int seq;
@@ -294,9 +296,13 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	data->device = this;
 	data->resource = resource;
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, data);
 
-	pw_resource_set_implementation(resource, &device_methods, data);
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, data);
+	pw_resource_add_object_listener(resource,
+			&data->object_listener,
+			&device_methods, data);
 
 	pw_log_debug("device %p: bound to %d", this, resource->id);
 

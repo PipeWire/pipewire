@@ -40,7 +40,6 @@ static void test_abi(void)
 		void (*free) (void *data);
 		void (*info_changed) (void *data, const struct pw_client_info *info);
 		void (*resource_added) (void *data, struct pw_resource *resource);
-		void (*resource_impl) (void *data, struct pw_resource *resource);
 		void (*resource_removed) (void *data, struct pw_resource *resource);
 		void (*busy_changed) (void *data, bool busy);
 	} test = { PW_VERSION_CLIENT_EVENTS, NULL };
@@ -49,7 +48,6 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, free);
 	TEST_FUNC(ev, test, info_changed);
 	TEST_FUNC(ev, test, resource_added);
-	TEST_FUNC(ev, test, resource_impl);
 	TEST_FUNC(ev, test, resource_removed);
 	TEST_FUNC(ev, test, busy_changed);
 

@@ -163,6 +163,7 @@ struct impl {
 
 	struct spa_hook node_listener;
 	struct spa_hook resource_listener;
+	struct spa_hook object_listener;
 
 	struct pw_array mems;
 
@@ -174,7 +175,7 @@ struct impl {
 };
 
 #define pw_client_node_resource(r,m,v,...)	\
-	pw_resource_notify_res(r,struct pw_client_node_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call_res(r,struct pw_client_node_proxy_events,m,v,__VA_ARGS__)
 
 #define pw_client_node_resource_add_mem(r,...)	\
 	pw_client_node_resource(r,add_mem,0,__VA_ARGS__)
@@ -476,11 +477,10 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	update_io(this, this->ios, id, memid);
 
-	pw_client_node_resource_set_io(this->resource,
+	return pw_client_node_resource_set_io(this->resource,
 				       id,
 				       memid,
 				       mem_offset, mem_size);
-	return 0;
 }
 
 static int impl_node_send_command(void *object, const struct spa_command *command)
@@ -1224,6 +1224,7 @@ static void client_node_resource_destroy(void *data)
 
 	impl->node.resource = this->resource = NULL;
 	spa_hook_remove(&impl->resource_listener);
+	spa_hook_remove(&impl->object_listener);
 
 	if (node->data_source.fd != -1) {
 		spa_loop_invoke(node->data_loop,
@@ -1695,12 +1696,13 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	this->node->rt.target.data = impl;
 
 	pw_resource_add_listener(this->resource,
-				 &impl->resource_listener,
-				 &resource_events,
-				 impl);
-	pw_resource_set_implementation(this->resource,
-				       &client_node_methods,
-				       impl);
+				&impl->resource_listener,
+				&resource_events,
+				impl);
+	pw_resource_add_object_listener(this->resource,
+				&impl->object_listener,
+				&client_node_methods,
+				impl);
 
 	this->node->port_user_data_size = sizeof(struct port);
 

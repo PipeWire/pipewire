@@ -171,7 +171,7 @@ struct pw_global {
 #define pw_core_emit_global_added(c,g)		pw_core_emit(c, global_added, 0, g)
 #define pw_core_emit_global_removed(c,g)	pw_core_emit(c, global_removed, 0, g)
 
-#define pw_core_resource(r,m,v,...) pw_resource_notify(r, struct pw_core_proxy_events, m, v, ##__VA_ARGS__)
+#define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_proxy_events, m, v, ##__VA_ARGS__)
 #define pw_core_resource_info(r,...)         pw_core_resource(r,info,0,__VA_ARGS__)
 #define pw_core_resource_done(r,...)         pw_core_resource(r,done,0,__VA_ARGS__)
 #define pw_core_resource_ping(r,...)         pw_core_resource(r,ping,0,__VA_ARGS__)
@@ -198,7 +198,7 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 	va_end(args);
 }
 
-#define pw_registry_resource(r,m,v,...) pw_resource_notify(r, struct pw_registry_proxy_events,m,v,##__VA_ARGS__)
+#define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_proxy_events,m,v,##__VA_ARGS__)
 #define pw_registry_resource_global(r,...)        pw_registry_resource(r,global,0,__VA_ARGS__)
 #define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)
 
@@ -626,9 +626,10 @@ struct pw_link {
 #define pw_resource_emit_error(o,s,r,m)	pw_resource_emit(o, error, 0, s, r, m)
 
 struct pw_resource {
-	struct spa_interface impl;	/**< event implementation */
+	struct spa_interface impl;	/**< object implementation */
+
 	struct pw_core *core;		/**< the core object */
-	struct spa_list link;		/**< link in object resource_list */
+	struct spa_list link;		/**< link in global resource_list */
 
 	struct pw_client *client;	/**< owner client */
 
@@ -639,13 +640,11 @@ struct pw_resource {
 
 	unsigned int removed:1;		/**< resource was removed from server */
 
-	struct spa_hook implementation;
-	struct spa_hook_list implementation_list;
 	struct spa_hook_list listener_list;
+	struct spa_hook_list object_listener_list;
 
         const struct pw_protocol_marshal *marshal;
 
-	void *access_private;		/**< private data for access control */
 	void *user_data;		/**< extra user data */
 };
 
@@ -655,7 +654,8 @@ struct pw_resource {
 #define pw_proxy_emit_error(p,s,r,m)	pw_proxy_emit(p, error, 0, s, r, m)
 
 struct pw_proxy {
-	struct spa_interface impl;	/**< method implementation */
+	struct spa_interface impl;	/**< object implementation */
+
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
 	struct spa_list link;		/**< link in the remote */
 
@@ -663,7 +663,7 @@ struct pw_proxy {
 	unsigned int removed:1;		/**< proxy was removed from server */
 
 	struct spa_hook_list listener_list;
-	struct spa_hook_list proxy_listener_list;
+	struct spa_hook_list object_listener_list;
 
 	const struct pw_protocol_marshal *marshal;	/**< protocol specific marshal functions */
 

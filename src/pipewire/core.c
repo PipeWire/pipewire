@@ -54,6 +54,7 @@ struct impl {
 
 struct resource_data {
 	struct spa_hook resource_listener;
+	struct spa_hook object_listener;
 };
 
 /** \endcond */
@@ -233,13 +234,13 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 
 	data = pw_resource_get_user_data(registry_resource);
 	pw_resource_add_listener(registry_resource,
-				 &data->resource_listener,
-				 &resource_events,
-				 registry_resource);
-
-	pw_resource_set_implementation(registry_resource,
-				       &registry_methods,
-				       registry_resource);
+				&data->resource_listener,
+				&resource_events,
+				registry_resource);
+	pw_resource_add_object_listener(registry_resource,
+				&data->object_listener,
+				&registry_methods,
+				registry_resource);
 
 	spa_list_append(&this->registry_resource_list, &registry_resource->link);
 
@@ -386,9 +387,13 @@ global_bind(void *_data,
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
-	pw_resource_add_listener(resource, &data->resource_listener, &core_resource_events, resource);
-
-	pw_resource_set_implementation(resource, &core_methods, resource);
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&core_resource_events,
+			resource);
+	pw_resource_add_object_listener(resource,
+			&data->object_listener,
+			&core_methods, resource);
 
 	spa_list_append(&global->resource_list, &resource->link);
 

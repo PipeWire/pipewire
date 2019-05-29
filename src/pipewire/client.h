@@ -97,10 +97,6 @@ struct pw_client_events {
 	/** emited when a new resource is added for client */
 	void (*resource_added) (void *data, struct pw_resource *resource);
 
-	/** emited when an implementation is set on a resource. This can
-	 * be used to override the implementation */
-	void (*resource_impl) (void *data, struct pw_resource *resource);
-
 	/** emited when a resource is removed */
 	void (*resource_removed) (void *data, struct pw_resource *resource);
 

@@ -42,14 +42,17 @@ struct impl {
 	struct spa_node mix_node;	/**< mix node implementation */
 };
 
-#define pw_port_resource(r,m,v,...)	pw_resource_notify(r,struct pw_port_proxy_events,m,v,__VA_ARGS__)
+#define pw_port_resource(r,m,v,...)	pw_resource_call(r,struct pw_port_proxy_events,m,v,__VA_ARGS__)
 #define pw_port_resource_info(r,...)	pw_port_resource(r,info,0,__VA_ARGS__)
 #define pw_port_resource_param(r,...)	pw_port_resource(r,param,0,__VA_ARGS__)
 
 struct resource_data {
-	struct spa_hook resource_listener;
 	struct pw_port *port;
 	struct pw_resource *resource;
+
+	struct spa_hook resource_listener;
+	struct spa_hook object_listener;
+
 	uint32_t subscribe_ids[MAX_PARAMS];
 	uint32_t n_subscribe_ids;
 };
@@ -598,9 +601,13 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	data->port = this;
 	data->resource = resource;
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
-	pw_resource_set_implementation(resource, &port_methods, resource);
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, resource);
+	pw_resource_add_object_listener(resource,
+			&data->object_listener,
+			&port_methods, resource);
 
 	pw_log_debug("port %p: bound to %d", this, resource->id);
 

@@ -69,7 +69,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	this->remote = remote;
 
 	spa_hook_list_init(&this->listener_list);
-	spa_hook_list_init(&this->proxy_listener_list);
+	spa_hook_list_init(&this->object_listener_list);
 
 	this->id = pw_map_insert_new(&remote->objects, this);
 
@@ -121,12 +121,12 @@ void pw_proxy_add_listener(struct pw_proxy *proxy,
 }
 
 SPA_EXPORT
-void pw_proxy_add_proxy_listener(struct pw_proxy *proxy,
+void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 				 struct spa_hook *listener,
-				 const void *events,
+				 const void *funcs,
 				 void *data)
 {
-	spa_hook_list_append(&proxy->proxy_listener_list, listener, events, data);
+	spa_hook_list_append(&proxy->object_listener_list, listener, funcs, data);
 }
 
 /** Destroy a proxy object
@@ -189,9 +189,9 @@ int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error, ...)
 }
 
 SPA_EXPORT
-struct spa_hook_list *pw_proxy_get_proxy_listeners(struct pw_proxy *proxy)
+struct spa_hook_list *pw_proxy_get_object_listeners(struct pw_proxy *proxy)
 {
-	return &proxy->proxy_listener_list;
+	return &proxy->object_listener_list;
 }
 
 SPA_EXPORT

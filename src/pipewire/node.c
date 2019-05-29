@@ -55,14 +55,17 @@ struct impl {
 	unsigned int pause_on_idle:1;
 };
 
-#define pw_node_resource(r,m,v,...)	pw_resource_notify(r,struct pw_node_proxy_events,m,v,__VA_ARGS__)
+#define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_proxy_events,m,v,__VA_ARGS__)
 #define pw_node_resource_info(r,...)	pw_node_resource(r,info,0,__VA_ARGS__)
 #define pw_node_resource_param(r,...)	pw_node_resource(r,param,0,__VA_ARGS__)
 
 struct resource_data {
-	struct spa_hook resource_listener;
 	struct pw_node *node;
 	struct pw_resource *resource;
+
+	struct spa_hook resource_listener;
+	struct spa_hook object_listener;
+
 	uint32_t subscribe_ids[MAX_PARAMS];
 	uint32_t n_subscribe_ids;
 };
@@ -439,9 +442,13 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	data->node = this;
 	data->resource = resource;
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
-	pw_resource_set_implementation(resource, &node_methods, resource);
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, resource);
+	pw_resource_add_object_listener(resource,
+			&data->object_listener,
+			&node_methods, resource);
 
 	pw_log_debug("node %p: bound to %d", this, resource->id);
 

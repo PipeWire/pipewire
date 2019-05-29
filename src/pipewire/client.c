@@ -38,12 +38,13 @@ struct impl {
 	struct pw_array permissions;
 };
 
-#define pw_client_resource(r,m,v,...)	pw_resource_notify(r,struct pw_client_proxy_events,m,v,__VA_ARGS__)
+#define pw_client_resource(r,m,v,...)		pw_resource_call(r,struct pw_client_proxy_events,m,v,__VA_ARGS__)
 #define pw_client_resource_info(r,...)		pw_client_resource(r,info,0,__VA_ARGS__)
 #define pw_client_resource_permissions(r,...)	pw_client_resource(r,permissions,0,__VA_ARGS__)
 
 struct resource_data {
 	struct spa_hook resource_listener;
+	struct spa_hook object_listener;
 	struct pw_client *client;
 };
 
@@ -198,8 +199,12 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	data = pw_resource_get_user_data(resource);
 	data->client = this;
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
-	pw_resource_set_implementation(resource, &client_methods, resource);
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, resource);
+	pw_resource_add_object_listener(resource,
+			&data->object_listener,
+			&client_methods, resource);
 
 	pw_log_debug("client %p: bound to %d", this, resource->id);
 

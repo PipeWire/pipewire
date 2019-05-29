@@ -112,15 +112,10 @@ void pw_resource_add_listener(struct pw_resource *resource,
 			      void *data);
 
 /** Set the resource implementation. */
-void pw_resource_set_implementation(struct pw_resource *resource,
-				    const void *implementation,
-				    void *data);
-
-/** Override the implementation of a resource. */
-void pw_resource_add_override(struct pw_resource *resource,
-			      struct spa_hook *listener,
-			      const void *implementation,
-			      void *data);
+void pw_resource_add_object_listener(struct pw_resource *resource,
+				struct spa_hook *listener,
+				const void *funcs,
+				void *data);
 
 /** Generate an ping event for a resource. This will generate a pong event
  * with the same \a sequence number in the return value. */
@@ -129,27 +124,25 @@ int pw_resource_ping(struct pw_resource *resource, int seq);
 /** Generate an error for a resource */
 void pw_resource_error(struct pw_resource *resource, int res, const char *error, ...);
 
-/** Get the implementation list of a resource */
-struct spa_hook_list *pw_resource_get_implementation(struct pw_resource *resource);
+/** Get the list of object listeners from a resource */
+struct spa_hook_list *pw_resource_get_object_listeners(struct pw_resource *resource);
 
 /** Get the marshal functions for the resource */
 const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource);
 
-#define pw_resource_do(r,type,method,v,...)		\
-	spa_hook_list_call_once(pw_resource_get_implementation(r),type,method,v,## __VA_ARGS__)
-
-#define pw_resource_do_parent(r,l,type,method,...)	\
-	spa_hook_list_call_once_start(pw_resource_get_implementation(r),l,type,method,v,## __VA_ARGS__)
-
 #define pw_resource_notify(r,type,event,version,...)			\
-	spa_interface_call((struct spa_interface*)r,			\
-			type, event, version, ##__VA_ARGS__);
+	spa_hook_list_call(pw_resource_get_object_listeners(r),		\
+			type, event, version, ## __VA_ARGS__)
 
-#define pw_resource_notify_res(r,type,event,version,...)		\
+#define pw_resource_call(r,type,method,version,...)			\
+	spa_interface_call((struct spa_interface*)r,			\
+			type, method, version, ##__VA_ARGS__)
+
+#define pw_resource_call_res(r,type,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)r,		\
-			type, _res, event, version, ##__VA_ARGS__);	\
+			type, _res, method, version, ##__VA_ARGS__);	\
 	_res;								\
 })
 

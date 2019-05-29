@@ -30,24 +30,6 @@
 
 #include <extensions/protocol-native.h>
 
-#if 0
-static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)
-{
-	uint32_t i, n_items;
-	struct spa_pod_frame f;
-
-	n_items = dict ? dict->n_items : 0;
-
-	spa_pod_builder_push_struct(b, &f);
-	spa_pod_builder_int(b, n_items);
-	for (i = 0; i < n_items; i++) {
-		spa_pod_builder_string(b, dict->items[i].key);
-		spa_pod_builder_string(b, dict->items[i].value);
-	}
-	spa_pod_builder_pop(b, &f);
-}
-#endif
-
 static int device_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
@@ -254,7 +236,7 @@ static int device_demarshal_info(void *object,
 	else {
 		infop = NULL;
 	}
-	pw_resource_do(resource, struct spa_device_events, info, 0, infop);
+	pw_resource_notify(resource, struct spa_device_events, info, 0, infop);
 	return 0;
 }
 
@@ -332,7 +314,7 @@ static int device_demarshal_result(void *object,
 		break;
 	}
 
-	pw_resource_do(resource, struct spa_device_events, result, 0, seq, res, type, result);
+	pw_resource_notify(resource, struct spa_device_events, result, 0, seq, res, type, result);
 	return 0;
 }
 
@@ -364,7 +346,7 @@ static int device_demarshal_event(void *object,
 			SPA_POD_PodObject(&event)) < 0)
 		return -EINVAL;
 
-	pw_resource_do(resource, struct spa_device_events, event, 0, event);
+	pw_resource_notify(resource, struct spa_device_events, event, 0, event);
 	return 0;
 }
 
@@ -458,7 +440,7 @@ static int device_demarshal_object_info(void *object,
 		infop = NULL;
 	}
 
-	pw_resource_do(resource, struct spa_device_events, object_info, 0, id, infop);
+	pw_resource_notify(resource, struct spa_device_events, object_info, 0, id, infop);
 	return 0;
 }
 

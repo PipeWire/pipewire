@@ -49,13 +49,14 @@ struct impl {
 
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
+	struct spa_hook implementation_listener;
 
 	struct pw_global *parent;
 	unsigned int registered:1;
 };
 
 #define pw_device_resource(r,m,v,...)      \
-        pw_resource_notify_res(r,struct spa_device_methods,m,v,__VA_ARGS__)
+        pw_resource_call_res(r,struct spa_device_methods,m,v,__VA_ARGS__)
 
 #define pw_device_resource_enum_params(r,...)  \
         pw_device_resource(r,enum_params,0,__VA_ARGS__)
@@ -161,6 +162,7 @@ static void device_resource_destroy(void *data)
 	impl->resource = NULL;
 	spa_hook_remove(&impl->device_listener);
 	spa_hook_remove(&impl->resource_listener);
+	spa_hook_remove(&impl->implementation_listener);
 	pw_device_destroy(impl->device);
 }
 
@@ -185,6 +187,7 @@ static void device_destroy(void *data)
 	impl->device = NULL;
 	spa_hook_remove(&impl->device_listener);
 	spa_hook_remove(&impl->resource_listener);
+	spa_hook_remove(&impl->implementation_listener);
 	pw_resource_destroy(impl->resource);
 }
 
@@ -227,12 +230,13 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 			&impl->device_listener,
 			&device_events, impl);
 	pw_resource_add_listener(impl->resource,
-				 &impl->resource_listener,
-				 &resource_events,
-				 impl);
-	pw_resource_set_implementation(impl->resource,
-				       &resource_implementation,
-				       impl);
+				&impl->resource_listener,
+				&resource_events,
+				impl);
+	pw_resource_add_object_listener(impl->resource,
+				&impl->implementation_listener,
+				&resource_implementation,
+				impl);
 
 	return device;
 }

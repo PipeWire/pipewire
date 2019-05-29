@@ -11,7 +11,7 @@ before_install:
 script:
   - >
     docker run -it --rm -v $PWD:/workdir gkiagia/pipewire_build_environment:latest bash -c
-    'cd /workdir && ./autogen.sh \
+    'cd /workdir && env MESON=meson ./autogen.sh \
       -Ddocs=true \
       -Daudiomixer=true \
       -Daudiotestsrc=true \

@@ -46,7 +46,7 @@ static void global_free(pa_context *c, struct global *g)
 	if (g->destroy)
 		g->destroy(g);
 	if (g->proxy) {
-		spa_hook_remove(&g->proxy_proxy_listener);
+		spa_hook_remove(&g->object_listener);
 		spa_hook_remove(&g->proxy_listener);
 		pw_proxy_destroy(g->proxy);
 	}
@@ -621,7 +621,7 @@ static int set_mask(pa_context *c, struct global *g)
 		if (g->proxy == NULL)
 	                return -ENOMEM;
 
-		pw_proxy_add_proxy_listener(g->proxy, &g->proxy_proxy_listener, events, g);
+		pw_proxy_add_object_listener(g->proxy, &g->object_listener, events, g);
 		pw_proxy_add_listener(g->proxy, &g->proxy_listener, &proxy_events, g);
 		g->destroy = destroy;
 	} else {
@@ -639,7 +639,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	struct global *g;
 
 	g = calloc(1, sizeof(struct global));
-	pw_log_debug("context %p: global %d %p", c, id, g);
+	pw_log_debug("context %p: global %d %u %p", c, id, type, g);
 	g->context = c;
 	g->id = id;
 	g->parent_id = parent_id;

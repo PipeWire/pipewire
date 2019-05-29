@@ -234,7 +234,7 @@ struct global {
 
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
-        struct spa_hook proxy_proxy_listener;
+        struct spa_hook object_listener;
 
 	union {
 		/* for links */

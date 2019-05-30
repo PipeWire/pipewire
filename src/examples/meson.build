@@ -38,6 +38,13 @@ executable('media-session',
   dependencies : [pipewire_dep, mathlib],
 )
 
+executable('bluez-session',
+  'bluez-session.c',
+  c_args : [ '-D_GNU_SOURCE' ],
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
+
 if sdl_dep.found()
   executable('video-play',
     'video-play.c',

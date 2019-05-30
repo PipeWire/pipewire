@@ -64,7 +64,7 @@ static int make_device(struct data *data)
 					      props, SPA_ID_INVALID);
 
 	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Device, NULL,
-			pw_device_get_implementation(data->device));
+			pw_device_get_implementation(data->device), 0);
 
 	return 0;
 }

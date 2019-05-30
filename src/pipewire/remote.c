@@ -442,7 +442,8 @@ int pw_remote_disconnect(struct pw_remote *remote)
 
 SPA_EXPORT
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,
-		uint32_t type, struct pw_properties *props, void *object)
+		uint32_t type, struct pw_properties *props, void *object,
+		size_t user_data_size)
 {
 	struct pw_proxy *proxy;
 	const struct pw_export_type *t;
@@ -454,7 +455,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	if (t == NULL)
 		goto no_export_type;
 
-	proxy = t->func(remote, type, props, object);
+	proxy = t->func(remote, type, props, object, user_data_size);
         if (proxy == NULL)
 		goto proxy_failed;
 

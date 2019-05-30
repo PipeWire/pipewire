@@ -70,7 +70,7 @@ static int make_node(struct data *data)
 
 	pw_node_set_active(data->node, true);
 
-	pw_remote_export(data->remote, PW_TYPE_INTERFACE_Node, NULL, data->node);
+	pw_remote_export(data->remote, PW_TYPE_INTERFACE_Node, NULL, data->node, 0);
 
 	return 0;
 }

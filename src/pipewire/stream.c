@@ -982,7 +982,7 @@ static int handle_connect(struct pw_stream *stream)
 
 	pw_log_debug("stream %p: export node %p", stream, impl->node);
 	stream->proxy = pw_remote_export(stream->remote,
-			PW_TYPE_INTERFACE_Node, NULL, impl->node);
+			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
 	if (stream->proxy == NULL)
 		goto no_proxy;
 

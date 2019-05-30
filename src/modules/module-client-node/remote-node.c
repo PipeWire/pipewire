@@ -1170,7 +1170,8 @@ static const struct spa_node_callbacks node_callbacks = {
 	.reuse_buffer = node_reuse_buffer
 };
 
-static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool do_free)
+static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool do_free,
+		size_t user_data_size)
 {
 	struct pw_node *node = object;
 	struct pw_proxy *proxy;
@@ -1218,19 +1219,21 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
         do_node_init(proxy);
 
 	data->proxy = (struct pw_proxy*) pw_client_node_proxy_get_node(data->node_proxy,
-			PW_VERSION_NODE_PROXY, 0);
+			PW_VERSION_NODE_PROXY, user_data_size);
 
 	return data->proxy;
 }
 
 struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
-		uint32_t type, struct pw_properties *props, void *object)
+		uint32_t type, struct pw_properties *props, void *object,
+		size_t user_data_size)
 {
-	return node_export(remote, object, false);
+	return node_export(remote, object, false, user_data_size);
 }
 
 struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
-		uint32_t type, struct pw_properties *props, void *object)
+		uint32_t type, struct pw_properties *props, void *object,
+		size_t user_data_size)
 {
 	struct pw_node *node;
 
@@ -1242,5 +1245,5 @@ struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
 	pw_node_register(node, NULL, NULL, NULL);
 	pw_node_set_active(node, true);
 
-	return node_export(remote, node, true);
+	return node_export(remote, node, true, user_data_size);
 }

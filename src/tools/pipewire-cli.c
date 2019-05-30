@@ -1149,7 +1149,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	node = pw_global_get_object(global);
-	proxy = pw_remote_export(rd->remote, PW_TYPE_INTERFACE_Node, NULL, node);
+	proxy = pw_remote_export(rd->remote, PW_TYPE_INTERFACE_Node, NULL, node, 0);
 
 	id = pw_map_insert_new(&data->vars, proxy);
 	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));

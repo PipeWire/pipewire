@@ -56,7 +56,8 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
-		uint32_t type, struct pw_properties *props, void *object)
+		uint32_t type, struct pw_properties *props, void *object,
+		size_t user_data_size)
 {
 	struct spa_device *device = object;
 	struct spa_interface *iface;
@@ -68,11 +69,12 @@ struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
 					    SPA_TYPE_INTERFACE_Device,
 					    SPA_VERSION_DEVICE,
 					    &props->dict,
-					    sizeof(struct device_data));
+					    user_data_size + sizeof(struct device_data));
         if (proxy == NULL)
                 return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
+	data = SPA_MEMBER(data, user_data_size, struct device_data);
 	data->remote = remote;
 	data->device = device;
 	data->core = pw_remote_get_core(remote);

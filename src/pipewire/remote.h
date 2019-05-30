@@ -201,14 +201,16 @@ int pw_remote_disconnect(struct pw_remote *remote);
 struct pw_proxy *pw_remote_export(struct pw_remote *remote,		/**< the remote */
 				  uint32_t type,			/**< the type of object */
 				  struct pw_properties *properties,	/**< extra properties */
-				  void *object				/**< object to export */);
+				  void *object,				/**< object to export */
+				  size_t user_data_size			/**< extra user data */);
 
 /** data for registering export functions */
 struct pw_export_type {
 	struct spa_list link;
 	uint32_t type;
 	struct pw_proxy * (*func) (struct pw_remote *remote,
-                uint32_t type, struct pw_properties *properties, void *object);
+		uint32_t type, struct pw_properties *properties, void *object,
+		size_t user_data_size);
 };
 
 /** register a type that can be exported on a remote. This is usually used by

@@ -469,7 +469,7 @@ static void make_node(struct data *data)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
-	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Node, props, &data->impl_node);
+	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)

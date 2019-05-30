@@ -79,14 +79,17 @@ static int emit_source_node(struct impl *this)
 	enum spa_bt_profile profile = SPA_BT_PROFILE_NULL;
 
 	if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
-		spa_log_info(this->log, "A2DP (source) profile found");
+		spa_log_info(this->log, "device %p: A2DP (source) profile found",
+				device);
 		profile = SPA_BT_PROFILE_A2DP_SOURCE;
 	} else if (device->connected_profiles & SPA_BT_PROFILE_HSP_HS) {
-		spa_log_info(this->log, "HSP (source) profile found (Not implemented yet)");
+		spa_log_info(this->log, "device %p: HSP (source) profile found (Not implemented yet)",
+				device);
 		profile = SPA_BT_PROFILE_HSP_HS;
 		return -ENODEV;
 	} else if (device->connected_profiles & SPA_BT_PROFILE_HFP_HF) {
-		spa_log_info(this->log, "HFP (source) profile found (Not implemented yet)");
+		spa_log_info(this->log, "device %p: HFP (source) profile found (Not implemented yet)",
+				device);
 		profile = SPA_BT_PROFILE_HFP_HF;
 		return -ENODEV;
 	}
@@ -116,7 +119,7 @@ static int emit_source_node(struct impl *this)
 		}
 	}
 
-	spa_log_info (this->log, "bluez5 source nodes emitted");
+	spa_log_info (this->log, "device %p: bluez5 source nodes emitted", device);
 	return 0;
 }
 

@@ -545,7 +545,8 @@ static void device_timer_event(struct spa_source *source)
 	if (read(source->fd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
                 spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
 
-	spa_log_debug(monitor->log, "timeout %08x %08x", device->profiles, device->connected_profiles);
+	spa_log_debug(monitor->log, "device %p: timeout %08x %08x",
+			device, device->profiles, device->connected_profiles);
 
 	device_add(device->monitor, device);
 }
@@ -555,7 +556,7 @@ static int device_start_timer(struct spa_bt_device *device)
 	struct spa_bt_monitor *monitor = device->monitor;
 	struct itimerspec ts;
 
-	spa_log_debug(monitor->log, "start timer");
+	spa_log_debug(monitor->log, "device %p: start timer", device);
 	if (device->timer.data == NULL) {
 		device->timer.data = device;
 		device->timer.func = device_timer_event;
@@ -580,7 +581,7 @@ static int device_stop_timer(struct spa_bt_device *device)
 	if (device->timer.data == NULL)
 		return 0;
 
-	spa_log_debug(monitor->log, "stop timer");
+	spa_log_debug(monitor->log, "device %p: stop timer", device);
 	spa_loop_remove_source(monitor->main_loop, &device->timer);
         ts.it_value.tv_sec = 0;
         ts.it_value.tv_nsec = 0;
@@ -602,8 +603,8 @@ static int device_check_profiles(struct spa_bt_device *device, bool force)
 	if (connected_profiles & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
 
-	spa_log_debug(monitor->log, "profiles %08x %08x %d",
-			device->profiles, connected_profiles, device->added);
+	spa_log_debug(monitor->log, "device %p: profiles %08x %08x %d",
+			device, device->profiles, connected_profiles, device->added);
 
 	if (connected_profiles == 0) {
 		if (device->added) {
@@ -1441,7 +1442,7 @@ static int sco_do_accept(struct spa_bt_transport *t)
 	memset(&addr, 0, sizeof(addr));
 	optlen = sizeof(addr);
 
-	spa_log_info(monitor->log, "doing accept");
+	spa_log_info(monitor->log, "transport %p: doing accept", t);
 	sock = accept(td->sco.fd, (struct sockaddr *) &addr, &optlen);
 	if (sock < 0) {
 		if (errno != EAGAIN)
@@ -1497,7 +1498,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	addr.sco_family = AF_BLUETOOTH;
 	bacpy(&addr.sco_bdaddr, &dst);
 
-	spa_log_info(monitor->log, "doing connect");
+	spa_log_info(monitor->log, "transport %p: doing connect", t);
 	err = connect(sock, (struct sockaddr *) &addr, len);
 	if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
 		spa_log_error(monitor->log, "connect(): %s", strerror(errno));
@@ -1613,7 +1614,7 @@ static int sco_listen(struct spa_bt_transport *t)
 		goto fail_close;
 	}
 
-	spa_log_info(monitor->log, "doing listen");
+	spa_log_info(monitor->log, "transport %p: doing listen", t);
 	if (listen(sock, 1) < 0) {
 		spa_log_error(monitor->log, "listen(): %m");
 		goto fail_close;

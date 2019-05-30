@@ -88,6 +88,7 @@ inspect_node_params(struct data *data, struct spa_node *node,
 		if (!SPA_FLAG_CHECK(params[i].flags, SPA_PARAM_INFO_READ))
 			continue;
 
+		spa_zero(listener);
 		spa_node_add_listener(node, &listener, &node_events, data);
 		res = spa_node_enum_params(node, 0, params[i].id, 0, UINT32_MAX, NULL);
 		spa_hook_remove(&listener);

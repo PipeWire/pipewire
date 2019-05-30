@@ -315,6 +315,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item info_items[] = {
+	{ "device.api", "v4l2" },
 	{ "media.class", "Video/Source" },
 	{ "media.role", "Camera" },
 	{ "node.pause-on-idle", "false" },

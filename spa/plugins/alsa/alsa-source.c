@@ -226,6 +226,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item node_info_items[] = {
+	{ "device.api", "alsa" },
 	{ "media.class", "Audio/Source" },
 	{ "node.driver", "true" },
 };

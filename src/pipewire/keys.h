@@ -35,6 +35,8 @@ extern "C" {
  * Keys that start with "pipewire." are in general set-once and then
  * read-only. They are usually used for security sensitive information that
  * needs to be fixed.
+ *
+ * Properties from the parent can also appear on children.
  */
 
 /* Peroperties usually set on the core object */

@@ -184,6 +184,7 @@ static int emit_nodes(struct impl *this)
 }
 
 static const struct spa_dict_item info_items[] = {
+	{ "device.api", "bluez5" },
 	{ "media.class", "Audio/Device" },
 };
 

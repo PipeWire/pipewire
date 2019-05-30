@@ -904,8 +904,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item node_info_items[] = {
+	{ "device.api", "bluez5" },
 	{ "media.class", "Audio/Sink" },
-        { "node.driver", "true" },
+	{ "node.driver", "true" },
 };
 
 static void emit_node_info(struct impl *this, bool full)

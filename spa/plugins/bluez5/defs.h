@@ -156,6 +156,7 @@ struct spa_bt_device {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
 	struct spa_bt_adapter *adapter;
+	uint32_t id;
 	char *path;
 	char *alias;
 	char *address;

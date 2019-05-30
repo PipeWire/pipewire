@@ -56,34 +56,27 @@ struct data {
 };
 
 
-static void inspect_item(struct data *data, struct spa_pod *item)
+static void inspect_info(struct data *data, const struct spa_monitor_object_info *info)
 {
-	spa_debug_pod(0, NULL, item);
+	spa_debug_dict(0, info->props);
 }
 
-static int on_monitor_info(void *_data, const struct spa_dict *info)
+static int on_monitor_info(void *_data, const struct spa_monitor_info *info)
 {
-	spa_debug_dict(0, info);
+	spa_debug_dict(0, info->props);
 	return 0;
 }
 
-static int on_monitor_event(void *_data, const struct spa_event *event)
+static int on_monitor_object_info(void *_data, uint32_t id, const struct spa_monitor_object_info *info)
 {
 	struct data *data = _data;
 
-	switch (SPA_MONITOR_EVENT_ID(event)) {
-	case SPA_MONITOR_EVENT_Added:
-		fprintf(stderr, "added:\n");
-		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-		break;
-	case SPA_MONITOR_EVENT_Removed:
-		fprintf(stderr, "removed:\n");
-		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-		break;
-	case SPA_MONITOR_EVENT_Changed:
-		fprintf(stderr, "changed:\n");
-		inspect_item(data, SPA_POD_CONTENTS(struct spa_event, event));
-		break;
+	if (info == NULL) {
+		fprintf(stderr, "removed: %u\n", id);
+	}
+	else {
+		fprintf(stderr, "added/changed: %u\n", id);
+		inspect_info(data, info);
 	}
 	return 0;
 }
@@ -107,7 +100,7 @@ static const struct spa_loop_methods impl_loop = {
 static const struct spa_monitor_callbacks impl_callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
 	.info = on_monitor_info,
-	.event = on_monitor_event,
+	.object_info = on_monitor_object_info,
 };
 
 static void handle_monitor(struct data *data, struct spa_monitor *monitor)

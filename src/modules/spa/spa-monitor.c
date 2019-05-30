@@ -48,12 +48,12 @@
 #include "spa-monitor.h"
 #include "spa-device.h"
 
-struct monitor_item {
-	char *id;
+struct monitor_object {
+	uint32_t id;
+	char *name;
 	struct spa_list link;
 	struct spa_handle *handle;
 	uint32_t type;
-	void *iface;
 	void *object;
 	struct spa_hook object_listener;
 };
@@ -69,13 +69,12 @@ struct impl {
 
 static void device_free(void *data)
 {
-	struct monitor_item *mitem = data;
-	spa_hook_remove(&mitem->object_listener);
-	spa_list_remove(&mitem->link);
-	spa_handle_clear(mitem->handle);
-	free(mitem->handle);
-	free(mitem->id);
-	free(mitem);
+	struct monitor_object *obj = data;
+	spa_hook_remove(&obj->object_listener);
+	spa_list_remove(&obj->link);
+	spa_handle_clear(obj->handle);
+	free(obj->handle);
+	free(obj);
 }
 
 static const struct pw_device_events device_events = {
@@ -83,56 +82,28 @@ static const struct pw_device_events device_events = {
 	.free = device_free
 };
 
-static struct monitor_item *add_item(struct pw_spa_monitor *this,
-		struct spa_pod *item, uint64_t now)
+static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t id,
+		const struct spa_monitor_object_info *info, uint64_t now)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
 	struct spa_handle *handle;
-	struct monitor_item *mitem;
+	struct monitor_object *obj;
+	const char *name, *str;
 	void *iface;
 	struct pw_properties *props = NULL;
-	const char *name, *id, *klass, *str;
-	struct spa_handle_factory *factory;
-	enum spa_monitor_item_state state;
-	struct spa_pod *info = NULL;
 	const struct spa_support *support;
-	uint32_t n_support, type, ftype;
+	uint32_t n_support;
 
-	if (spa_pod_parse_object(item,
-			SPA_TYPE_OBJECT_MonitorItem, NULL,
-			SPA_MONITOR_ITEM_id,      SPA_POD_String(&id),
-			SPA_MONITOR_ITEM_state,   SPA_POD_Id(&state),
-			SPA_MONITOR_ITEM_name,    SPA_POD_String(&name),
-			SPA_MONITOR_ITEM_class,   SPA_POD_String(&klass),
-			SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(&ftype, &factory),
-			SPA_MONITOR_ITEM_type,    SPA_POD_Id(&type),
-			SPA_MONITOR_ITEM_info,    SPA_POD_Pod(&info)) < 0) {
-		pw_log_warn("monitor %p: could not parse item", this);
-		spa_debug_pod(0, NULL, item);
-		return NULL;
-	}
+	if (info->props)
+		props = pw_properties_new_dict(info->props);
+	else
+		props = pw_properties_new(NULL, NULL);
 
-	pw_log_debug("monitor %p: add: \"%s\" (%s)", this, name, id);
+	if ((name = pw_properties_get(props, PW_KEY_DEVICE_NAME)) == NULL)
+		name = "unknown";
 
-	props = pw_properties_new(NULL, NULL);
-
-	if (info) {
-		struct spa_pod_parser prs;
-		struct spa_pod_frame f;
-
-		spa_pod_parser_pod(&prs, info);
-		if (spa_pod_parser_push_struct(&prs, &f) == 0) {
-			while (true) {
-				const char *key, *val;
-				if (spa_pod_parser_get(&prs,
-						SPA_POD_String(&key),
-						SPA_POD_String(&val), NULL) < 0)
-					break;
-				pw_properties_set(props, key, val);
-			}
-		}
-	}
+	pw_log_debug("monitor %p: add: \"%s\" (%u)", this, name, id);
 
 	if ((str = pw_properties_get(props, PW_KEY_DEVICE_FORM_FACTOR)) != NULL)
 		if (strcmp(str, "internal") == 0)
@@ -142,8 +113,8 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 
 	support = pw_core_get_support(impl->core, &n_support);
 
-        handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
-	if ((res = spa_handle_factory_init(factory,
+        handle = calloc(1, spa_handle_factory_get_size(info->factory, NULL));
+	if ((res = spa_handle_factory_init(info->factory,
 					   handle,
 					   &props->dict,
 					   support,
@@ -153,138 +124,100 @@ static struct monitor_item *add_item(struct pw_spa_monitor *this,
 		return NULL;
 	}
 
-
-	if ((res = spa_handle_get_interface(handle, type, &iface)) < 0) {
-		pw_log_error("can't get %d interface: %d", type, res);
+	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
+		pw_log_error("can't get %d interface: %d", info->type, res);
 		pw_properties_free(props);
 		return NULL;
 	}
 
-	mitem = calloc(1, sizeof(struct monitor_item));
-	mitem->id = strdup(id);
-	mitem->handle = handle;
-	mitem->type = type;
+	obj = calloc(1, sizeof(struct monitor_object));
+	obj->id = id;
+	obj->name = strdup(name);
+	obj->handle = handle;
+	obj->type = info->type;
 
-	switch (type) {
+	switch (obj->type) {
 	case SPA_TYPE_INTERFACE_Device:
 	{
 		struct pw_device *device;
 		device = pw_spa_device_new(impl->core, NULL, impl->parent, name,
 				      0, iface, handle, props, 0);
-		pw_device_add_listener(device, &mitem->object_listener,
-				&device_events, mitem);
-		mitem->object = device;
+		pw_device_add_listener(device, &obj->object_listener,
+				&device_events, obj);
+		obj->object = device;
 		break;
 	}
 	default:
-		pw_log_error("interface %d not implemented", type);
-		free(mitem->id);
-		free(mitem);
+		pw_log_error("interface %d not implemented", obj->type);
+		free(obj->name);
+		free(obj);
 		return NULL;
 	}
 
-	spa_list_append(&impl->item_list, &mitem->link);
+	spa_list_append(&impl->item_list, &obj->link);
 
-	return mitem;
+	return obj;
 }
 
-static struct monitor_item *find_item(struct pw_spa_monitor *this, const char *id)
+static struct monitor_object *find_object(struct pw_spa_monitor *this, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct monitor_item *mitem;
+	struct monitor_object *obj;
 
-	spa_list_for_each(mitem, &impl->item_list, link) {
-		if (strcmp(mitem->id, id) == 0) {
-			return mitem;
+	spa_list_for_each(obj, &impl->item_list, link) {
+		if (obj->id == id) {
+			return obj;
 		}
 	}
 	return NULL;
 }
 
-void destroy_item(struct monitor_item *mitem)
+void destroy_object(struct monitor_object *obj)
 {
-	switch (mitem->type) {
+	switch (obj->type) {
 	case SPA_TYPE_INTERFACE_Node:
-		pw_node_destroy(mitem->object);
+		pw_node_destroy(obj->object);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
-		pw_device_destroy(mitem->object);
+		pw_device_destroy(obj->object);
 		break;
 	default:
 		break;
 	}
 }
 
-static void remove_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)
+static void change_object(struct pw_spa_monitor *this, struct monitor_object *obj,
+		const struct spa_monitor_object_info *info, uint64_t now)
 {
-	struct monitor_item *mitem;
-	const char *name, *id;
-
-	if (spa_pod_parse_object(item,
-			SPA_TYPE_OBJECT_MonitorItem, NULL,
-			SPA_MONITOR_ITEM_name, SPA_POD_String(&name),
-			SPA_MONITOR_ITEM_id,   SPA_POD_String(&id)) < 0)
-		return;
-
-	pw_log_debug("monitor %p: remove: \"%s\" (%s)", this, name, id);
-	mitem = find_item(this, id);
-	if (mitem)
-		destroy_item(mitem);
+	pw_log_debug("monitor %p: change: \"%s\" (%u)", this, obj->name, obj->id);
 }
 
-static void change_item(struct pw_spa_monitor *this, struct spa_pod *item, uint64_t now)
-{
-	struct monitor_item *mitem;
-	const char *name, *id;
-	enum spa_monitor_item_state state;
-
-	if (spa_pod_parse_object(item,
-			SPA_TYPE_OBJECT_MonitorItem, NULL,
-			SPA_MONITOR_ITEM_name,  SPA_POD_String(&name),
-			SPA_MONITOR_ITEM_state, SPA_POD_Id(&state),
-			SPA_MONITOR_ITEM_id,    SPA_POD_String(&id)) < 0)
-		return;
-
-	pw_log_debug("monitor %p: change: \"%s\" (%s)", this, name, id);
-	mitem = find_item(this, id);
-	if (mitem == NULL)
-		mitem = add_item(this, item, now);
-	if (mitem == NULL)
-		return;
-
-	switch (state) {
-	case SPA_MONITOR_ITEM_STATE_Available:
-		break;
-	case SPA_MONITOR_ITEM_STATE_Disabled:
-	case SPA_MONITOR_ITEM_STATE_Unavailable:
-		break;
-	default:
-		break;
-	}
-}
-
-static int on_monitor_event(void *data, const struct spa_event *event)
+static int on_monitor_object_info(void *data, uint32_t id,
+		const struct spa_monitor_object_info *info)
 {
 	struct impl *impl = data;
 	struct pw_spa_monitor *this = &impl->this;
 	struct timespec now;
 	uint64_t now_nsec;
-	struct spa_pod *item;
+	struct monitor_object *obj;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	now_nsec = SPA_TIMESPEC_TO_NSEC(&now);
 
-	item = SPA_POD_CONTENTS(struct spa_event, event);
-	switch (SPA_MONITOR_EVENT_ID(event)) {
-	case SPA_MONITOR_EVENT_Added:
-		add_item(this, item, now_nsec);
-		break;
-	case SPA_MONITOR_EVENT_Removed:
-		remove_item(this, item, now_nsec);
-		break;
-	case SPA_MONITOR_EVENT_Changed:
-		change_item(this, item, now_nsec);
-		break;
+	obj = find_object(this, id);
+
+	if (info == NULL) {
+		if (obj == NULL)
+			return -ENODEV;
+
+		pw_log_debug("monitor %p: remove: (%s) %u", this, obj->name, id);
+		destroy_object(obj);
+	} else if (obj == NULL) {
+		obj = add_object(this, id, info, now_nsec);
+		if (obj == NULL)
+			return -ENOMEM;
+	} else {
+		change_object(this, obj, info, now_nsec);
 	}
 	return 0;
 }
@@ -317,7 +250,7 @@ static void update_monitor(struct pw_core *core, const char *name)
 
 static const struct spa_monitor_callbacks callbacks = {
 	SPA_VERSION_MONITOR_CALLBACKS,
-	.event = on_monitor_event,
+	.object_info = on_monitor_object_info,
 };
 
 struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
@@ -386,12 +319,12 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 void pw_spa_monitor_destroy(struct pw_spa_monitor *monitor)
 {
 	struct impl *impl = SPA_CONTAINER_OF(monitor, struct impl, this);
-	struct monitor_item *mitem, *tmp;
+	struct monitor_object *obj, *tmp;
 
 	pw_log_debug("spa-monitor %p: destroy", impl);
 
-	spa_list_for_each_safe(mitem, tmp, &impl->item_list, link)
-		destroy_item(mitem);
+	spa_list_for_each_safe(obj, tmp, &impl->item_list, link)
+		destroy_object(obj);
 
 	pw_unload_spa_handle(monitor->handle);
 	free(monitor->lib);

@@ -37,41 +37,34 @@ extern "C" {
 #define SPA_VERSION_MONITOR	0
 struct spa_monitor { struct spa_interface iface; };
 
-enum spa_monitor_event {
-	SPA_MONITOR_EVENT_Invalid,
-	SPA_MONITOR_EVENT_Added,
-	SPA_MONITOR_EVENT_Removed,
-	SPA_MONITOR_EVENT_Changed,
+struct spa_monitor_info {
+#define SPA_VERSION_MONITOR_INFO 0
+	uint32_t version;
+
+#define SPA_MONITOR_CHANGE_MASK_FLAGS		(1u<<0)
+#define SPA_MONITOR_CHANGE_MASK_PROPS		(1u<<1)
+	uint64_t change_mask;
+	uint64_t flags;
+	const struct spa_dict *props;
 };
 
-/** monitor event id, one of enum spa_monitor_event */
-#define SPA_MONITOR_EVENT_ID(ev)	SPA_EVENT_ID(ev, SPA_TYPE_EVENT_Monitor)
+#define SPA_MONITOR_INFO_INIT()	(struct spa_monitor_info){ SPA_VERSION_MONITOR_INFO, }
 
-enum spa_monitor_item_flags {
-	SPA_MONITOR_ITEM_FLAG_NONE = 0,
+struct spa_monitor_object_info {
+#define SPA_VERSION_MONITOR_OBJECT_INFO 0
+	uint32_t version;
+
+	uint32_t type;
+	const struct spa_handle_factory *factory;
+
+#define SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS	(1u<<0)
+#define SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS	(1u<<1)
+	uint64_t change_mask;
+	uint64_t flags;
+	const struct spa_dict *props;
 };
 
-/** The monitor item state */
-enum spa_monitor_item_state {
-	SPA_MONITOR_ITEM_STATE_Invalid,		/*< The item is available */
-	SPA_MONITOR_ITEM_STATE_Available,	/*< The item is available */
-	SPA_MONITOR_ITEM_STATE_Disabled,	/*< The item is disabled */
-	SPA_MONITOR_ITEM_STATE_Unavailable,	/*< The item is unavailable */
-};
-
-/** properties for SPA_TYPE_OBJECT_MonitorItem */
-enum spa_monitor_item {
-	SPA_MONITOR_ITEM_START,		/**< id of object, one of enum spa_monitor_event */
-	SPA_MONITOR_ITEM_id,
-	SPA_MONITOR_ITEM_flags,		/**< one of enum spa_monitor_item_flags */
-	SPA_MONITOR_ITEM_state,		/**< one of enum spa_monitor_item_state */
-	SPA_MONITOR_ITEM_name,
-	SPA_MONITOR_ITEM_class,
-	SPA_MONITOR_ITEM_info,
-	SPA_MONITOR_ITEM_factory,
-	SPA_MONITOR_ITEM_type,
-};
-
+#define SPA_MONITOR_OBJECT_INFO_INIT()	(struct spa_monitor_object_info){ SPA_VERSION_MONITOR_OBJECT_INFO, }
 /**
  * spa_monitor_callbacks:
  */
@@ -81,10 +74,15 @@ struct spa_monitor_callbacks {
 	uint32_t version;
 
 	/** receive extra information about the monitor */
-	int (*info) (void *data, const struct spa_dict *info);
+	int (*info) (void *data, const struct spa_monitor_info *info);
 
 	/** an item is added/removed/changed on the monitor */
 	int (*event) (void *data, const struct spa_event *event);
+
+	/** info changed for an object managed by the monitor, info is NULL when
+	 * the object is removed */
+        int (*object_info) (void *data, uint32_t id,
+                const struct spa_monitor_object_info *info);
 };
 
 /**

@@ -43,6 +43,10 @@
 
 #define MAX_CARDS	64
 
+#define ACTION_ADD	0
+#define ACTION_CHANGE	1
+#define ACTION_REMOVE	2
+
 extern const struct spa_handle_factory spa_alsa_device_factory;
 
 struct impl {
@@ -81,19 +85,6 @@ static int impl_udev_close(struct impl *this)
 	return 0;
 }
 
-static inline void add_dict(struct spa_pod_builder *builder, const char *key, ...)
-{
-	va_list args;
-
-	va_start(args, key);
-	while (key) {
-		spa_pod_builder_string(builder, key);
-		spa_pod_builder_string(builder, va_arg(args, const char*));
-                key = va_arg(args, const char *);
-	}
-	va_end(args);
-}
-
 static const char *path_get_card_id(const char *path)
 {
 	const char *e;
@@ -110,11 +101,20 @@ static const char *path_get_card_id(const char *path)
 	return e + 5;
 }
 
-static int fill_item(struct impl *this, struct udev_device *dev,
-		struct spa_pod **result, struct spa_pod_builder *builder)
+static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *dev)
 {
+	struct spa_monitor_object_info info;
 	const char *str, *name;
-	struct spa_pod_frame f[2];
+	struct spa_dict_item items[20];
+	uint32_t n_items = 0;
+
+	info = SPA_MONITOR_OBJECT_INFO_INIT();
+
+	info.type = SPA_TYPE_INTERFACE_Device;
+	info.factory = &spa_alsa_device_factory;
+	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
+		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
+	info.flags = 0;
 
 	name = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
 	if (!(name && *name)) {
@@ -126,54 +126,41 @@ static int fill_item(struct impl *this, struct udev_device *dev,
 	if (!(name && *name))
 		name = "Unknown";
 
-	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_MonitorItem, 0);
-	spa_pod_builder_add(builder,
-		SPA_MONITOR_ITEM_id,      SPA_POD_String(udev_device_get_syspath(dev)),
-		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
-		SPA_MONITOR_ITEM_state,   SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
-		SPA_MONITOR_ITEM_name,    SPA_POD_String(name),
-		SPA_MONITOR_ITEM_class,   SPA_POD_String("Audio/Device"),
-		SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_alsa_device_factory),
-		SPA_MONITOR_ITEM_type,    SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
-		0);
+	items[n_items++] = SPA_DICT_ITEM_INIT("udev-probed", "1");
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.path", udev_device_get_devnode(dev));
 
 	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
 		return 0;
 
-	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
-	spa_pod_builder_push_struct(builder, &f[1]),
-	add_dict(builder,
-		"udev-probed",          "1",
-		"device.path",		udev_device_get_devnode(dev),
-		"alsa.card",		str,
-		NULL);
+	items[n_items++] = SPA_DICT_ITEM_INIT("alsa.card", str);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.name", name);
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str)
-		add_dict(builder, "device.class", str, NULL);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.class", str);
 
 	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
-		add_dict(builder, "device.plugged.usec", str, NULL);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.plugged.usec", str);
 
 	str = udev_device_get_property_value(dev, "ID_PATH");
 	if (!(str && *str))
 		str = udev_device_get_syspath(dev);
 	if (str && *str) {
-		add_dict(builder, "device.bus_path", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.bus_path", str);
 	}
 	if ((str = udev_device_get_syspath(dev)) && *str) {
-		add_dict(builder, "sysfs.path", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("sysfs.path", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		add_dict(builder, "udev.id", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("udev.id", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
-		add_dict(builder, "device.bus", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.bus", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
-		add_dict(builder, "device.subsystem", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.subsystem", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		add_dict(builder, "device.vendor.id", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.vendor.id", str);
 	}
 	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -183,26 +170,27 @@ static int fill_item(struct impl *this, struct udev_device *dev,
 		}
 	}
 	if (str && *str) {
-		add_dict(builder, "device.vendor.name", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.vendor.name", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		add_dict(builder, "device.product.id", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.product.id", str);
 	}
-	add_dict(builder, "device.product.name", name, 0);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.product.name", name);
 
 	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
-		add_dict(builder, "device.serial", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.serial", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "SOUND_FORM_FACTOR")) && *str) {
-		add_dict(builder, "device.form_factor", str, 0);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.form_factor", str);
 	}
-	spa_pod_builder_pop(builder, &f[1]);
-	*result = spa_pod_builder_pop(builder, &f[0]);
+	info.props = &SPA_DICT_INIT(items, n_items);
+	spa_monitor_call_object_info(&this->callbacks, id, &info);
 
 	return 1;
 }
 
-static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, bool enumerated)
+static int need_notify(struct impl *this, struct udev_device *dev, uint32_t action, bool enumerated,
+		uint32_t *id)
 {
 	const char *str;
 	uint32_t idx, i, found = SPA_ID_INVALID;
@@ -225,8 +213,8 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, 
 		}
 	}
 
-	switch (id) {
-	case SPA_MONITOR_EVENT_Added:
+	switch (action) {
+	case ACTION_ADD:
 		if (found != SPA_ID_INVALID)
 			return 0;
 		if (this->n_cards >= MAX_CARDS)
@@ -237,14 +225,14 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, 
 			return 0;
 		break;
 
-	case SPA_MONITOR_EVENT_Changed:
+	case ACTION_CHANGE:
 		if (found == SPA_ID_INVALID)
 			return 0;
 		if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
 			return 0;
 		break;
 
-	case SPA_MONITOR_EVENT_Removed:
+	case ACTION_REMOVE:
 		if (found == SPA_ID_INVALID)
 			return 0;
 		this->cards[found] = this->cards[--this->n_cards];
@@ -252,21 +240,26 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t id, 
 	default:
 		return 0;
 	}
+	*id = idx;
 	return 1;
 }
 
-static int emit_device(struct impl *this, uint32_t id, struct udev_device *dev)
+static int emit_device(struct impl *this, uint32_t action, bool enumerated, struct udev_device *dev)
 {
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = { NULL, };
-	struct spa_event *event;
-	struct spa_pod *item;
+	uint32_t id;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, id);
-	fill_item(this, dev, &item, &b);
+	if (!need_notify(this, dev, action, enumerated, &id))
+		return 0;
 
-	spa_monitor_call_event(&this->callbacks, event);
+	switch (action) {
+	case ACTION_ADD:
+	case ACTION_CHANGE:
+		emit_object_info(this, id, dev);
+		break;
+	default:
+		spa_monitor_call_object_info(&this->callbacks, id, NULL);
+		break;
+	}
 	return 0;
 }
 
@@ -275,7 +268,7 @@ static void impl_on_fd_events(struct spa_source *source)
 	struct impl *this = source->data;
 	struct udev_device *dev;
 	const char *action;
-	uint32_t id;
+	uint32_t a;
 
 	dev = udev_monitor_receive_device(this->umonitor);
 	if (dev == NULL)
@@ -287,16 +280,15 @@ static void impl_on_fd_events(struct spa_source *source)
 	spa_log_debug(this->log, "action %s", action);
 
 	if (strcmp(action, "add") == 0) {
-		id = SPA_MONITOR_EVENT_Added;
+		a = ACTION_ADD;
 	} else if (strcmp(action, "change") == 0) {
-		id = SPA_MONITOR_EVENT_Changed;
+		a = ACTION_CHANGE;
 	} else if (strcmp(action, "remove") == 0) {
-		id = SPA_MONITOR_EVENT_Removed;
+		a = ACTION_REMOVE;
 	} else
 		return;
 
-	if (need_notify(this, dev, id, false))
-		emit_device(this, id, dev);
+	emit_device(this, a, false, dev);
 
 	udev_device_unref(dev);
 }
@@ -354,8 +346,7 @@ static int enum_devices(struct impl *this)
 
 		dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(devices));
 
-		if (need_notify(this, dev, SPA_MONITOR_EVENT_Added, true))
-			emit_device(this, SPA_MONITOR_EVENT_Added, dev);
+		emit_device(this, ACTION_ADD, true, dev);
 
 		udev_device_unref(dev);
 

@@ -63,6 +63,7 @@ struct spa_bt_monitor {
 	struct spa_callbacks callbacks;
 
 	uint32_t count;
+	uint32_t id;
 
 	struct spa_list adapter_list;
 	struct spa_list device_list;
@@ -80,39 +81,6 @@ static inline void add_dict(struct spa_pod_builder *builder, const char *key, co
 {
 	spa_pod_builder_string(builder, key);
 	spa_pod_builder_string(builder, val);
-}
-
-static void fill_item(struct spa_bt_monitor *this, struct spa_bt_device *device,
-		struct spa_pod **result, struct spa_pod_builder *builder)
-{
-	char dev[16];
-	struct spa_pod_frame f[2];
-
-	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_MonitorItem, 0);
-	spa_pod_builder_add(builder,
-		SPA_MONITOR_ITEM_id,      SPA_POD_String(device->path),
-		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
-		SPA_MONITOR_ITEM_state,   SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
-		SPA_MONITOR_ITEM_name,    SPA_POD_String(device->name),
-		SPA_MONITOR_ITEM_class,   SPA_POD_String("Adapter/Bluetooth"),
-		SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory,
-						&spa_bluez5_device_factory),
-		SPA_MONITOR_ITEM_type,    SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
-		0);
-
-	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
-	spa_pod_builder_push_struct(builder, &f[1]);
-	snprintf(dev, sizeof(dev), "%p", device);
-
-	add_dict(builder, "device.api", "bluez5");
-	add_dict(builder, "device.name", device->name);
-	add_dict(builder, "device.alias", device->alias);
-	add_dict(builder, "device.icon", device->icon);
-	add_dict(builder, "device.bluez5.address", device->address);
-	add_dict(builder, "bluez5.device", dev);
-
-	spa_pod_builder_pop(builder, &f[1]);
-	*result = spa_pod_builder_pop(builder, &f[0]);
 }
 
 static uint8_t a2dp_default_bitpool(struct spa_bt_monitor *monitor, uint8_t freq, uint8_t mode) {
@@ -489,6 +457,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	if (d == NULL)
 		return NULL;
 
+	d->id = monitor->id++;
 	d->monitor = monitor;
 	d->path = strdup(path);
 	spa_list_init(&d->transport_list);
@@ -521,40 +490,45 @@ static int device_free(struct spa_bt_device *device)
 
 static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
 {
-	struct spa_event *event;
-	struct spa_pod_builder b = { NULL, };
-	uint8_t buffer[4096];
-	struct spa_pod *item;
+	struct spa_monitor_object_info info;
+	char dev[16];
+	struct spa_dict_item items[20];
+        uint32_t n_items = 0;
 
 	if (device->added)
 		return 0;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Added);
-	fill_item(monitor, device, &item, &b);
+	info = SPA_MONITOR_OBJECT_INFO_INIT();
+	info.type = SPA_TYPE_INTERFACE_Device;
+	info.factory = &spa_bluez5_device_factory;
+	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
+		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
+	info.flags = 0;
+
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.path", device->path);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.name", device->name);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.api", "bluez5");
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.alias", device->alias);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.icon", device->icon);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.bluez5.address", device->address);
+	snprintf(dev, sizeof(dev), "%p", device);
+	items[n_items++] = SPA_DICT_ITEM_INIT("bluez5.device", dev);
+
+	info.props = &SPA_DICT_INIT(items, n_items);
 
 	device->added = true;
-	spa_monitor_call_event(&monitor->callbacks, event);
+        spa_monitor_call_object_info(&monitor->callbacks, device->id, &info);
 
 	return 0;
 }
 
 static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
 {
-	struct spa_event *event;
-	struct spa_pod_builder b = { NULL, };
-	uint8_t buffer[4096];
-	struct spa_pod *item;
-
 	if (!device->added)
 		return 0;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, SPA_MONITOR_EVENT_Removed);
-	fill_item(monitor, device, &item, &b);
-
 	device->added = false;
-	spa_monitor_call_event(&monitor->callbacks, event);
+        spa_monitor_call_object_info(&monitor->callbacks, device->id, NULL);
 
 	return 0;
 }

@@ -88,6 +88,7 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 
 #define spa_monitor_call_info(hook,i)		spa_monitor_call(hook, info, 0, i)
 #define spa_monitor_call_event(hook,e)		spa_monitor_call(hook, event, 0, e)
+#define spa_monitor_call_object_info(hook,id,i)	spa_monitor_call(hook, object_info, 0, id, i)
 
 #define spa_device_emit(hooks,method,version,...)				\
 		spa_hook_list_call_simple(hooks, struct spa_device_events,	\

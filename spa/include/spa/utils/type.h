@@ -93,7 +93,6 @@ enum {
 
 	/* Objects */
 	SPA_TYPE_OBJECT_START = 0x50000,
-	SPA_TYPE_OBJECT_MonitorItem,
 	SPA_TYPE_OBJECT_PropInfo,
 	SPA_TYPE_OBJECT_Props,
 	SPA_TYPE_OBJECT_Format,

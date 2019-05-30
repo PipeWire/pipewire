@@ -122,7 +122,6 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_COMMAND_Node, SPA_TYPE_Object, SPA_TYPE_INFO_COMMAND_BASE "Node", spa_type_node_command },
 
 	{ SPA_TYPE_OBJECT_START, SPA_TYPE_Object, SPA_TYPE_INFO_Object, NULL },
-	{ SPA_TYPE_OBJECT_MonitorItem, SPA_TYPE_Object, SPA_TYPE_INFO_MonitorItem, spa_type_monitor_item },
 	{ SPA_TYPE_OBJECT_PropInfo, SPA_TYPE_Object, SPA_TYPE_INFO_PropInfo, spa_type_prop_info, },
 	{ SPA_TYPE_OBJECT_Props, SPA_TYPE_Object, SPA_TYPE_INFO_Props, spa_type_props },
 	{ SPA_TYPE_OBJECT_Format, SPA_TYPE_Object, SPA_TYPE_INFO_Format, spa_type_format },

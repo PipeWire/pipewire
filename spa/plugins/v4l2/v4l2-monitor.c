@@ -74,17 +74,36 @@ static int impl_udev_close(struct impl *this)
 	return 0;
 }
 
-static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
+static uint32_t get_device_id(struct impl *this, struct udev_device *dev)
 {
-	spa_pod_builder_string(builder, key);
-	spa_pod_builder_string(builder, val);
+	const char *str;
+
+	if ((str = udev_device_get_devnode(dev)) == NULL)
+		return SPA_ID_INVALID;
+
+        if (!(str = strrchr(str, '/')))
+                return SPA_ID_INVALID;
+
+        if (strlen(str) <= 6 || strncmp(str, "/video", 6) != 0)
+                return SPA_ID_INVALID;
+
+	return atoi(str + 6);
 }
 
-static void fill_item(struct impl *this, struct udev_device *dev,
-		struct spa_pod **result, struct spa_pod_builder *builder)
+static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *dev)
 {
+	struct spa_monitor_object_info info;
 	const char *str, *name;
-	struct spa_pod_frame f[2];
+	struct spa_dict_item items[20];
+	uint32_t n_items = 0;
+
+	info = SPA_MONITOR_OBJECT_INFO_INIT();
+
+	info.type = SPA_TYPE_INTERFACE_Device;
+	info.factory = &spa_v4l2_device_factory;
+	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
+		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
+	info.flags = 0;
 
 	name = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
 	if (!(name && *name)) {
@@ -99,45 +118,33 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 	if (!(name && *name))
 		name = "Unknown";
 
-	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_MonitorItem, 0);
-	spa_pod_builder_add(builder,
-		SPA_MONITOR_ITEM_id,      SPA_POD_String(udev_device_get_syspath(dev)),
-		SPA_MONITOR_ITEM_flags,   SPA_POD_Id(SPA_MONITOR_ITEM_FLAG_NONE),
-		SPA_MONITOR_ITEM_state,   SPA_POD_Id(SPA_MONITOR_ITEM_STATE_Available),
-		SPA_MONITOR_ITEM_name,    SPA_POD_String(name),
-		SPA_MONITOR_ITEM_class,   SPA_POD_String("Video/Device"),
-		SPA_MONITOR_ITEM_factory, SPA_POD_Pointer(SPA_TYPE_INTERFACE_HandleFactory, &spa_v4l2_device_factory),
-		SPA_MONITOR_ITEM_type,    SPA_POD_Id(SPA_TYPE_INTERFACE_Device),
-		0);
-
-	spa_pod_builder_prop(builder, SPA_MONITOR_ITEM_info, 0);
-	spa_pod_builder_push_struct(builder, &f[1]);
-	add_dict(builder, "udev-probed", "1");
-	add_dict(builder, "device.path", udev_device_get_devnode(dev));
+	items[n_items++] = SPA_DICT_ITEM_INIT("udev-probed", "1");
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.path", udev_device_get_devnode(dev));
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.name", name);
 
 	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
-		add_dict(builder, "device.plugged.usec", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.plugged.usec", str);
 
 	str = udev_device_get_property_value(dev, "ID_PATH");
 	if (!(str && *str))
 		str = udev_device_get_syspath(dev);
 	if (str && *str) {
-		add_dict(builder, "device.bus_path", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.bus_path", str);
 	}
 	if ((str = udev_device_get_syspath(dev)) && *str) {
-		add_dict(builder, "sysfs.path", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("sysfs.path", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		add_dict(builder, "udev.id", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("udev.id", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
-		add_dict(builder, "device.bus", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.bus", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
-		add_dict(builder, "device.subsystem", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.subsystem", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		add_dict(builder, "device.vendor.id", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.vendor.id", str);
 	}
 	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -147,36 +154,22 @@ static void fill_item(struct impl *this, struct udev_device *dev,
 		}
 	}
 	if (str && *str) {
-		add_dict(builder, "device.vendor.name", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.vendor.name", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		add_dict(builder, "device.product.id", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.product.id", str);
 	}
-	add_dict(builder, "device.product.name", name);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.product.name", name);
 	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
-		add_dict(builder, "device.serial", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.serial", str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_V4L_CAPABILITIES")) && *str) {
-		add_dict(builder, "device.capabilities", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT("device.capabilities", str);
 	}
+        info.props = &SPA_DICT_INIT(items, n_items);
+        spa_monitor_call_object_info(&this->callbacks, id, &info);
 
-	spa_pod_builder_pop(builder, &f[1]);
-	*result = spa_pod_builder_pop(builder, &f[0]);
-}
-
-static int emit_device(struct impl *this, uint32_t id, struct udev_device *dev)
-{
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = { NULL, };
-	struct spa_event *event;
-	struct spa_pod *item;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	event = spa_pod_builder_add_object(&b, SPA_TYPE_EVENT_Monitor, id);
-	fill_item(this, dev, &item, &b);
-
-	spa_monitor_call_event(&this->callbacks, event);
-	return 0;
+	return 1;
 }
 
 static void impl_on_fd_events(struct spa_source *source)
@@ -190,20 +183,18 @@ static void impl_on_fd_events(struct spa_source *source)
 	if (dev == NULL)
 		return;
 
+	if ((id = get_device_id(this, dev)) == SPA_ID_INVALID)
+		return;
+
 	if ((action = udev_device_get_action(dev)) == NULL)
 		action = "change";
 
-	if (strcmp(action, "add") == 0) {
-		id = SPA_MONITOR_EVENT_Added;
-	} else if (strcmp(action, "change") == 0) {
-		id = SPA_MONITOR_EVENT_Changed;
-	} else if (strcmp(action, "remove") == 0) {
-		id = SPA_MONITOR_EVENT_Removed;
-	} else
-		return;
-
-	emit_device(this, id, dev);
-
+	if (strcmp(action, "add") == 0 ||
+	    strcmp(action, "change") == 0) {
+		emit_object_info(this, id, dev);
+	} else {
+		spa_monitor_call_object_info(&this->callbacks, id, NULL);
+	}
 	udev_device_unref(dev);
 }
 
@@ -258,10 +249,16 @@ static int enum_devices(struct impl *this)
 
 	while (devices) {
 		struct udev_device *dev;
+		uint32_t id;
 
 		dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(devices));
+		if (dev == NULL)
+			continue;
 
-		emit_device(this, SPA_MONITOR_EVENT_Added, dev);
+		if ((id = get_device_id(this, dev)) == SPA_ID_INVALID)
+			continue;
+
+		emit_object_info(this, id, dev);
 
 		udev_device_unref(dev);
 

@@ -32,11 +32,15 @@
 extern "C" {
 #endif
 
+#define AUDIO_DSP_USAGE	"audio-dsp.direction=<enum spa_direction> "	\
+			"audio-dsp.maxbuffer=<int> "			\
+			"audio-dsp.name=<string> "			\
+			PW_KEY_DEVICE_API"=<string> "			\
+			"["PW_KEY_NODE_ID"=<int>]"
+
 struct pw_node *
 pw_audio_dsp_new(struct pw_core *core,
 		 const struct pw_properties *properties,
-		 enum pw_direction direction,
-		 uint32_t max_buffer_size,
 		 size_t user_data_size);
 
 void *pw_audio_dsp_get_user_data(struct pw_node *node);

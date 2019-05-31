@@ -91,7 +91,7 @@ static void *create_object(void *_data,
 	if (factory_name == NULL)
 		goto no_properties;
 
-	name = pw_properties_get(properties, "name");
+	name = pw_properties_get(properties, PW_KEY_NODE_NAME);
 	if (name == NULL)
 		name = "spa-node";
 

@@ -258,8 +258,6 @@ static const struct pw_node_events node_events = {
 
 struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		const struct pw_properties *props,
-		enum pw_direction direction,
-		uint32_t max_buffer_size,
 		size_t user_data_size)
 {
 	struct pw_node *node;
@@ -267,9 +265,23 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	const char *api, *alias, *str, *factory;
 	char node_name[128];
 	struct pw_properties *pr;
+	enum pw_direction direction;
+	uint32_t max_buffer_size;
 	int i;
 
 	pr = pw_properties_copy(props);
+
+	if ((str = pw_properties_get(pr, "audio-dsp.direction")) == NULL) {
+		pw_log_error("missing audio-dsp.direction property");
+		goto error;
+	}
+	direction = pw_properties_parse_int(str);
+
+	if ((str = pw_properties_get(pr, "audio-dsp.maxbuffer")) == NULL) {
+		pw_log_error("missing audio-dsp.maxbuffer property");
+		goto error;
+	}
+	max_buffer_size = pw_properties_parse_int(str);
 
 	if ((api = pw_properties_get(pr, PW_KEY_DEVICE_API)) == NULL) {
 		pw_log_error("missing "PW_KEY_DEVICE_API" property");

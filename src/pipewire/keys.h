@@ -180,6 +180,7 @@ extern "C" {
 
 /** Factory properties */
 #define PW_KEY_FACTORY_NAME		"factory.name"		/**< the name of the factory */
+#define PW_KEY_FACTORY_USAGE		"factory.usage"		/**< the usage of the factory */
 #define PW_KEY_FACTORY_TYPE_NAME	"factory.type.name"	/**< the name of the type created by a factory */
 #define PW_KEY_FACTORY_TYPE_VERSION	"factory.type.version"	/**< the version of the type created by a factory */
 

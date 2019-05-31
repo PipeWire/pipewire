@@ -320,7 +320,9 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				 "link-factory",
 				 PW_TYPE_INTERFACE_Link,
 				 PW_VERSION_LINK_PROXY,
-				 NULL,
+				 pw_properties_new(
+					 PW_KEY_FACTORY_USAGE, FACTORY_USAGE,
+					 NULL),
 				 sizeof(*data));
 	if (factory == NULL)
 		return -ENOMEM;

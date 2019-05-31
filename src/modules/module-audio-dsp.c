@@ -98,9 +98,7 @@ static void *create_object(void *_data,
 	struct factory_data *d = _data;
 	struct pw_client *client;
 	struct pw_node *dsp;
-	int res, maxbuffer;
-	const char *str;
-	enum pw_direction direction;
+	int res;
 	struct node_data *nd;
 	struct pw_resource *bound_resource;
 
@@ -109,24 +107,16 @@ static void *create_object(void *_data,
 
 	client = pw_resource_get_client(resource);
 
-	if ((str = pw_properties_get(properties, "audio-dsp.direction")) == NULL)
-		goto no_props;
-
-	direction = pw_properties_parse_int(str);
-
-	if ((str = pw_properties_get(properties, "audio-dsp.maxbuffer")) == NULL)
-		goto no_props;
-
-	maxbuffer = pw_properties_parse_int(str);
-
 	dsp = pw_audio_dsp_new(pw_module_get_core(d->module),
 			properties,
-			direction,
-			maxbuffer,
 			sizeof(struct node_data));
 
-	if (dsp == NULL)
-		goto no_mem;
+	if (dsp == NULL) {
+		if (errno == ENOMEM)
+			goto no_mem;
+		else
+			goto usage;
+	}
 
 	nd = pw_audio_dsp_get_user_data(dsp);
 	nd->data = d;
@@ -157,9 +147,9 @@ static void *create_object(void *_data,
 	pw_log_error("audio-dsp needs a resource");
 	pw_resource_error(resource, -EINVAL, "no resource");
 	goto done;
-      no_props:
-	pw_log_error("audio-dsp needs a property");
-	pw_resource_error(resource, -EINVAL, "no property");
+      usage:
+	pw_log_error("usage: "AUDIO_DSP_USAGE);
+	pw_resource_error(resource, -EINVAL, "usage: "AUDIO_DSP_USAGE);
 	goto done;
       no_mem:
 	pw_log_error("can't create node");
@@ -210,7 +200,9 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				 "audio-dsp",
 				 PW_TYPE_INTERFACE_Node,
 				 PW_VERSION_NODE_PROXY,
-				 NULL,
+				 pw_properties_new(
+					 PW_KEY_FACTORY_USAGE, AUDIO_DSP_USAGE,
+					 NULL),
 				 sizeof(*data));
 	if (factory == NULL)
 		return -ENOMEM;

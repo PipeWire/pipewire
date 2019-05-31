@@ -123,7 +123,9 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				 "client-device",
 				 SPA_TYPE_INTERFACE_Device,
 				 SPA_VERSION_DEVICE,
-				 NULL,
+				 pw_properties_new(
+					 PW_KEY_FACTORY_USAGE, CLIENT_DEVICE_USAGE,
+					 NULL),
 				 sizeof(*data));
 	if (factory == NULL)
 		return -ENOMEM;

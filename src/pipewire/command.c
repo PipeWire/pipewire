@@ -38,6 +38,7 @@
 /** \cond */
 
 static struct pw_command *parse_command_help(const char *line, char **err);
+static struct pw_command *parse_command_add_spa_lib(const char *line, char **err);
 static struct pw_command *parse_command_module_load(const char *line, char **err);
 static struct pw_command *parse_command_exec(const char *line, char **err);
 
@@ -55,6 +56,7 @@ struct command_parse {
 
 static const struct command_parse parsers[] = {
 	{"help", "Show this help", parse_command_help},
+	{"add-spa-lib", "Add a library that provides a spa factory name regex", parse_command_add_spa_lib},
 	{"load-module", "Load a module", parse_command_module_load},
 	{"exec", "Execute a program", parse_command_exec},
 	{NULL, NULL, NULL }
@@ -90,6 +92,46 @@ static struct pw_command *parse_command_help(const char *line, char **err)
 
 	return this;
 
+      no_mem:
+	asprintf(err, "no memory");
+	return NULL;
+}
+
+static int
+execute_command_add_spa_lib(struct pw_command *command, struct pw_core *core, char **err)
+{
+	int res;
+
+	res = pw_core_add_spa_lib(core, command->args[1], command->args[2]);
+	if (res < 0) {
+		asprintf(err, "could not add spa library \"%s\"", command->args[1]);
+		return res;
+	}
+	return 0;
+}
+
+static struct pw_command *parse_command_add_spa_lib(const char *line, char **err)
+{
+	struct impl *impl;
+	struct pw_command *this;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		goto no_mem;
+
+	this = &impl->this;
+	this->func = execute_command_add_spa_lib;
+	this->args = pw_split_strv(line, whitespace, 4, &this->n_args);
+
+	if (this->n_args < 3)
+		goto no_library;
+
+	return this;
+
+      no_library:
+	asprintf(err, "%s requires <factory-regex> <library-name>", this->args[0]);
+	pw_free_strv(this->args);
+	return NULL;
       no_mem:
 	asprintf(err, "no memory");
 	return NULL;

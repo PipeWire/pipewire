@@ -335,7 +335,7 @@ int main(int argc, char *argv[])
 	 * If you plan to autoconnect your stream, you need to provide at least
 	 * media, category and role properties
 	 *
-	 * Pass your events and a use_data pointer as the last arguments. This
+	 * Pass your events and a user_data pointer as the last arguments. This
 	 * will inform you about the stream state. The most important event
 	 * you need to listen to is the process event where you need to consume
 	 * the data provided to you.

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
+#include <regex.h>
 
 #include <pipewire/log.h>
 
@@ -55,6 +56,11 @@ struct impl {
 struct resource_data {
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
+};
+
+struct factory_entry {
+	regex_t regex;
+	char *lib;
 };
 
 /** \endcond */
@@ -466,6 +472,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->main_loop = main_loop;
 
+	pw_array_init(&this->factory_lib, 32);
 	pw_map_init(&this->globals, 128, 32);
 
 	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
@@ -562,6 +569,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_remote *remote;
 	struct pw_resource *resource;
 	struct pw_node *node;
+	struct factory_entry *entry;
 
 	pw_log_debug("core %p: destroy", core);
 	pw_core_emit_destroy(core);
@@ -595,6 +603,12 @@ void pw_core_destroy(struct pw_core *core)
 
 	if (impl->dbus_handle)
 		pw_unload_spa_handle(impl->dbus_handle);
+
+	pw_array_for_each(entry, &core->factory_lib) {
+		regfree(&entry->regex);
+		free(entry->lib);
+	}
+	pw_array_clear(&core->factory_lib);
 
 	pw_map_clear(&core->globals);
 
@@ -1049,4 +1063,43 @@ int pw_core_recalc_graph(struct pw_core *core)
 			pw_log_info("slave %p: active:%d '%s'", s, s->active, s->info.name);
 	}
 	return 0;
+}
+
+SPA_EXPORT
+int pw_core_add_spa_lib(struct pw_core *core,
+		const char *factory_regexp, const char *lib)
+{
+	struct factory_entry *entry;
+	int err;
+
+	entry = pw_array_add(&core->factory_lib, sizeof(*entry));
+	if (entry == NULL)
+		return -ENOMEM;
+
+	if ((err = regcomp(&entry->regex, factory_regexp, REG_EXTENDED | REG_NOSUB)) != 0) {
+		char errbuf[1024];
+		regerror(err, &entry->regex, errbuf, sizeof(errbuf));
+		pw_log_error("can compile regex: %s", errbuf);
+
+		pw_array_remove(&core->factory_lib, entry);
+		return -EINVAL;
+	}
+
+	entry->lib = strdup(lib);
+	pw_log_debug("core %p: map factory regex '%s' to '%s", core,
+			factory_regexp, lib);
+
+	return 0;
+}
+
+SPA_EXPORT
+const char *pw_core_find_spa_lib(struct pw_core *core, const char *factory_name)
+{
+	struct factory_entry *entry;
+
+	pw_array_for_each(entry, &core->factory_lib) {
+		if (regexec(&entry->regex, factory_name, 0, NULL, 0) == 0)
+			return entry->lib;
+	}
+	return NULL;
 }

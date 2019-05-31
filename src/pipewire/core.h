@@ -147,6 +147,12 @@ struct pw_factory *
 pw_core_find_factory(struct pw_core *core	/**< the core */,
 		     const char *name		/**< the factory name */);
 
+/** add a spa library for the given factory_name regex */
+int pw_core_add_spa_lib(struct pw_core *core, const char *factory_regex, const char *lib);
+
+/** find the library name for a spa factory */
+const char * pw_core_find_spa_lib(struct pw_core *core, const char *factory_name);
+
 #ifdef __cplusplus
 }
 #endif

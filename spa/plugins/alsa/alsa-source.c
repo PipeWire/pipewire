@@ -813,7 +813,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_alsa_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.alsa.pcm.source",
 	&info,
 	impl_get_size,
 	impl_init,

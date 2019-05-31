@@ -46,9 +46,6 @@
 
 #define MAX_DEVICES	64
 
-extern const struct spa_handle_factory spa_alsa_sink_factory;
-extern const struct spa_handle_factory spa_alsa_source_factory;
-
 static const char default_device[] = "hw:0";
 
 struct props {
@@ -112,9 +109,9 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
 	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK)
-		info.factory = &spa_alsa_sink_factory;
+		info.factory_name = "api.alsa.pcm.sink";
 	else
-		info.factory = &spa_alsa_source_factory;
+		info.factory_name = "api.alsa.pcm.source";
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
@@ -494,7 +491,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_alsa_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.alsa.device",
 	NULL,
 	impl_get_size,
 	impl_init,

@@ -42,8 +42,6 @@
 
 static const char default_device[] = "/dev/video0";
 
-extern const struct spa_handle_factory spa_v4l2_source_factory;
-
 struct props {
 	char device[64];
 	char device_name[128];
@@ -103,7 +101,7 @@ static int emit_info(struct impl *this, bool full)
 
 		oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
 		oinfo.type = SPA_TYPE_INTERFACE_Node;
-		oinfo.factory = &spa_v4l2_source_factory;
+		oinfo.factory_name = "api.v4l2.source";
 		oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 		oinfo.props = &SPA_DICT_INIT(items, 6);
 
@@ -266,7 +264,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_v4l2_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.v4l2.device",
 	NULL,
 	impl_get_size,
 	impl_init,

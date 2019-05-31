@@ -1045,7 +1045,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_v4l2_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.v4l2.source",
 	NULL,
 	impl_get_size,
 	impl_init,

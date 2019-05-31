@@ -542,7 +542,7 @@ impl_node_port_use_buffers(void *object,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
-		spa_log_debug(this->log, "alsa-sink %p: %d %p data:%p", this, i, b->buf, d[0].data);
+		spa_log_debug(this->log, NAME " %p: %d %p data:%p", this, i, b->buf, d[0].data);
 	}
 	this->n_buffers = n_buffers;
 
@@ -801,7 +801,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_alsa_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.alsa.pcm.sink",
 	&info,
 	impl_get_size,
 	impl_init,

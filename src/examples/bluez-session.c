@@ -107,7 +107,9 @@ static struct node *create_node(struct object *obj, uint32_t id,
 {
 	struct node *node;
 	struct impl *impl = obj->impl;
+	struct pw_core *core = impl->core;
 	const struct spa_support *support;
+	const char *lib;
 	uint32_t n_support;
 	struct spa_handle *handle;
 	int res;
@@ -118,26 +120,31 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	if (info->type != SPA_TYPE_INTERFACE_Node)
 		return NULL;
 
-	support = pw_core_get_support(impl->core, &n_support);
+	support = pw_core_get_support(core, &n_support);
 
-	handle = calloc(1, spa_handle_factory_get_size(info->factory, NULL));
-	if ((res = spa_handle_factory_init(info->factory,
-					handle,
-					info->props,
-					support,
-					n_support)) < 0) {
-		pw_log_error("can't make factory instance: %d", res);
-		goto free_handle;
+	lib = pw_core_find_spa_lib(core, info->factory_name);
+	if (lib == NULL) {
+		pw_log_error("can't find spa lib for factory %s", info->factory_name);
+		goto exit;
+	}
+
+	handle = pw_load_spa_handle(lib,
+			info->factory_name,
+			info->props,
+			n_support, support);
+	if (handle == NULL) {
+		pw_log_error("can't make factory instance: %m");
+		goto exit;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
 		pw_log_error("can't get %d interface: %d", info->type, res);
-		goto clean_handle;
+		goto unload_handle;
 	}
 
 	node = calloc(1, sizeof(*node));
 	if (node == NULL)
-		goto clean_handle;
+		goto unload_handle;
 
 	node->impl = impl;
 	node->object = obj;
@@ -157,10 +164,9 @@ static struct node *create_node(struct object *obj, uint32_t id,
 
 clean_node:
 	free(node);
-clean_handle:
-	spa_handle_clear(handle);
-free_handle:
-	free(handle);
+unload_handle:
+	pw_unload_spa_handle(handle);
+exit:
 	return NULL;
 }
 
@@ -221,10 +227,12 @@ static void update_object(struct impl *impl, struct object *obj,
 static struct object *create_object(struct impl *impl, uint32_t id,
 		const struct spa_monitor_object_info *info)
 {
+	struct pw_core *core = impl->core;
 	struct object *obj;
 	const struct spa_support *support;
 	uint32_t n_support;
 	struct spa_handle *handle;
+	const char *lib;
 	int res;
 	void *iface;
 
@@ -233,26 +241,31 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	if (info->type != SPA_TYPE_INTERFACE_Device)
 		return NULL;
 
-	support = pw_core_get_support(impl->core, &n_support);
+	support = pw_core_get_support(core, &n_support);
 
-	handle = calloc(1, spa_handle_factory_get_size(info->factory, NULL));
-	if ((res = spa_handle_factory_init(info->factory,
-					handle,
-					info->props,
-					support,
-					n_support)) < 0) {
-		pw_log_error("can't make factory instance: %d", res);
-		goto free_handle;
+	lib = pw_core_find_spa_lib(core, info->factory_name);
+	if (lib == NULL) {
+		pw_log_error("can't find spa lib for factory %s", info->factory_name);
+		goto exit;
+	}
+
+	handle = pw_load_spa_handle(lib,
+			info->factory_name,
+			info->props,
+			n_support, support);
+	if (handle == NULL) {
+		pw_log_error("can't make factory instance: %m");
+		goto exit;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
 		pw_log_error("can't get %d interface: %d", info->type, res);
-		goto clean_handle;
+		goto unload_handle;
 	}
 
 	obj = calloc(1, sizeof(*obj));
 	if (obj == NULL)
-		goto clean_handle;
+		goto unload_handle;
 
 	obj->impl = impl;
 	obj->id = id;
@@ -276,10 +289,9 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 
 clean_object:
 	free(obj);
-clean_handle:
-	spa_handle_clear(handle);
-free_handle:
-	free(handle);
+unload_handle:
+	pw_unload_spa_handle(handle);
+exit:
 	return NULL;
 }
 

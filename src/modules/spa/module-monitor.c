@@ -67,7 +67,8 @@ const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	const char *dir;
+	struct pw_core *core = pw_module_get_core(module);
+	const char *dir, *lib;
 	char **argv;
 	int n_tokens;
 	struct pw_spa_monitor *monitor;
@@ -77,15 +78,21 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 		goto wrong_arguments;
 
 	argv = pw_split_strv(args, " \t", INT_MAX, &n_tokens);
-	if (n_tokens < 3)
+	if (n_tokens < 2)
 		goto not_enough_arguments;
 
 	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
 		dir = PLUGINDIR;
 
-	monitor = pw_spa_monitor_load(pw_module_get_core(module),
+	if (n_tokens < 3)
+		lib = pw_core_find_spa_lib(core, argv[0]);
+	else
+		lib = argv[2];
+
+	monitor = pw_spa_monitor_load(core,
 				      pw_module_get_global(module),
-				      dir, argv[0], argv[1], argv[2],
+				      dir, lib, argv[0], argv[1],
+				      NULL,
 				      sizeof(struct data));
 	if (monitor == NULL)
 		return -ENOMEM;
@@ -104,6 +111,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
       not_enough_arguments:
 	pw_free_strv(argv);
       wrong_arguments:
-	pw_log_error("usage: module-spa-monitor <plugin> <factory> <name>");
+	pw_log_error("usage: module-spa-monitor <factory> <name> [<plugin>]");
 	return -EINVAL;
 }

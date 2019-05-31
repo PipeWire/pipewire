@@ -244,7 +244,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	slaved = is_slaved(this);
 	if (this->started && slaved != this->slaved) {
-		spa_log_debug(this->log, "a2dp-source %p: reslave %d->%d", this, this->slaved, slaved);
+		spa_log_debug(this->log, NAME" %p: reslave %d->%d", this, this->slaved, slaved);
 		this->slaved = slaved;
 		spa_loop_invoke(this->data_loop, do_reslave, 0, NULL, 0, true, this);
 	}
@@ -443,11 +443,11 @@ static int transport_start(struct impl *this)
 
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "a2dp-source %p: SO_SNDBUF %m", this);
+		spa_log_warn(this->log, NAME" %p: SO_SNDBUF %m", this);
 
 	val = FILL_FRAMES * this->transport->read_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "a2dp-source %p: SO_RCVBUF %m", this);
+		spa_log_warn(this->log, NAME" %p: SO_RCVBUF %m", this);
 
 	val = 6;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
@@ -477,7 +477,7 @@ static int do_start(struct impl *this)
 	if (this->transport == NULL)
 		return -EIO;
 
-	spa_log_debug(this->log, "a2dp-source %p: start", this);
+	spa_log_debug(this->log, NAME" %p: start", this);
 
 	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING)
 		res = transport_start(this);
@@ -509,7 +509,7 @@ static int do_stop(struct impl *this)
 	if (!this->started)
 		return 0;
 
-	spa_log_debug(this->log, "a2dp-source %p: stop", this);
+	spa_log_debug(this->log, NAME" %p: stop", this);
 
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
@@ -1217,7 +1217,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 struct spa_handle_factory spa_a2dp_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.bluez5.a2dp.source",
 	&info,
 	impl_get_size,
 	impl_init,

@@ -40,8 +40,6 @@
 
 #define NAME "v4l2-monitor"
 
-extern const struct spa_handle_factory spa_v4l2_device_factory;
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_monitor monitor;
@@ -100,7 +98,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	info = SPA_MONITOR_OBJECT_INFO_INIT();
 
 	info.type = SPA_TYPE_INTERFACE_Device;
-	info.factory = &spa_v4l2_device_factory;
+	info.factory_name = "api.v4l2.device";
 	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
 		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
@@ -394,7 +392,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_v4l2_monitor_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.v4l2.monitor",
 	NULL,
 	impl_get_size,
 	impl_init,

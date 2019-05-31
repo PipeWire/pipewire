@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 
 	if (argc < 3) {
 		fprintf(stderr, "usage: %s <library> <factory>\n\n"
-				"\texample: %s v4l2/libspa-v4l2 v4l2-device\n\n",
+				"\texample: %s v4l2/libspa-v4l2 api.v4l2.device\n\n",
 				argv[0], argv[0]);
 		return -1;
 	}

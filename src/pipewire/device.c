@@ -27,6 +27,7 @@
 #include <spa/debug/types.h>
 #include <spa/monitor/utils.h>
 
+#include "pipewire/pipewire.h"
 #include "pipewire/device.h"
 #include "pipewire/private.h"
 #include "pipewire/interfaces.h"
@@ -377,12 +378,18 @@ static void node_destroy(void *data)
 {
 	struct node_data *nd = data;
 	spa_list_remove(&nd->link);
-	spa_handle_clear(nd->handle);
+}
+
+static void node_free(void *data)
+{
+	struct node_data *nd = data;
+	pw_unload_spa_handle(nd->handle);
 }
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
+	.free = node_free,
 };
 
 static void emit_info_changed(struct pw_device *device)
@@ -432,11 +439,14 @@ static void device_info(void *data, const struct spa_device_info *info)
 static void device_add(struct pw_device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
+	struct pw_core *core = device->core;
 	const struct spa_support *support;
 	uint32_t n_support;
+	struct spa_handle *handle;
 	struct pw_node *node;
 	struct node_data *nd;
 	struct pw_properties *props;
+	const char *lib;
 	int res;
 	void *iface;
 
@@ -444,44 +454,50 @@ static void device_add(struct pw_device *device, uint32_t id,
 		pw_log_warn("device %p: unknown type %d", device, info->type);
 		return;
 	}
-	if (info->factory == NULL) {
-		pw_log_warn("device %p: missing factory", device);
+	if (info->factory_name == NULL) {
+		pw_log_warn("device %p: missing factory name", device);
+		return;
+	}
+
+	lib = pw_core_find_spa_lib(core, info->factory_name);
+	if (lib == NULL) {
+		pw_log_warn("device %p: unknown library for %s",
+				device, info->factory_name);
 		return;
 	}
 
 	pw_log_debug("device %p: add node %d", device, id);
-	support = pw_core_get_support(device->core, &n_support);
+	support = pw_core_get_support(core, &n_support);
+
+	handle = pw_load_spa_handle(lib, info->factory_name,
+			info->props, n_support, support);
+
+	if (handle == NULL) {
+		pw_log_warn("device %p: can't load handle %s:%s",
+				device, lib, info->factory_name);
+		return;
+	}
+
+	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
+		pw_log_error("can't get NODE interface: %d", res);
+		return;
+	}
 
 	props = pw_properties_copy(device->properties);
 	if (info->props)
 		pw_properties_update(props, info->props);
 
-	node = pw_node_new(device->core,
+	node = pw_node_new(core,
 			   device->info.name,
 			   props,
-			   sizeof(struct node_data) +
-			   spa_handle_factory_get_size(info->factory, info->props));
+			   sizeof(struct node_data));
 
 	nd = pw_node_get_user_data(node);
 	nd->id = id;
 	nd->node = node;
-	nd->handle = SPA_MEMBER(nd, sizeof(struct node_data), void);
+	nd->handle = handle;
 	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 	spa_list_append(&device->node_list, &nd->link);
-
-	if ((res = spa_handle_factory_init(info->factory,
-					   nd->handle,
-					   info->props,
-					   support,
-					   n_support)) < 0) {
-		pw_log_error("can't make factory instance: %d", res);
-		goto error;;
-        }
-
-	if ((res = spa_handle_get_interface(nd->handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get NODE interface: %d", res);
-		goto error;;
-	}
 
 	pw_node_set_implementation(node, iface);
 
@@ -489,10 +505,6 @@ static void device_add(struct pw_device *device, uint32_t id,
 		pw_node_register(node, NULL, device->global, NULL);
 		pw_node_set_active(node, true);
 	}
-	return;
-
-error:
-	pw_node_destroy(node);
 	return;
 }
 

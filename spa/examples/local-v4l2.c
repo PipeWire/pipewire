@@ -255,7 +255,7 @@ static int make_nodes(struct data *data, const char *device)
 	uint32_t index;
 
 	if ((res =
-	     make_node(data, &data->source, PATH "v4l2/libspa-v4l2.so", "v4l2-source")) < 0) {
+	     make_node(data, &data->source, PATH "v4l2/libspa-v4l2.so", "api.v4l2.source")) < 0) {
 		printf("can't create v4l2-source: %d\n", res);
 		return res;
 	}

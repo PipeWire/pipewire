@@ -283,7 +283,7 @@ static int make_nodes(struct data *data, const char *device)
 	//uint32_t idx;
 
 	if ((res = make_node(data, &data->sink,
-			     "build/spa/plugins/alsa/libspa-alsa.so", "alsa-sink")) < 0) {
+			     "build/spa/plugins/alsa/libspa-alsa.so", "api.alsa.pcm.sink")) < 0) {
 		printf("can't create alsa-sink: %d\n", res);
 		return res;
 	}

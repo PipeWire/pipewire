@@ -332,7 +332,7 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static void make_nodes(struct data *data)
+static int make_nodes(struct data *data)
 {
 	struct pw_factory *factory;
 	struct pw_properties *props;
@@ -348,13 +348,16 @@ static void make_nodes(struct data *data)
 
 	factory = pw_core_find_factory(data->core, "spa-node-factory");
 	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
-				  "spa.factory.name", "v4l2-source", NULL);
+				  "spa.factory.name", "api.v4l2.source", NULL);
 	data->v4l2 = pw_factory_create_object(factory,
 					      NULL,
 					      PW_TYPE_INTERFACE_Node,
 					      PW_VERSION_NODE_PROXY,
 					      props,
 					      SPA_ID_INVALID);
+	if (data->v4l2 == NULL)
+		return -ENOMEM;
+
 	data->link = pw_link_new(data->core,
 				 pw_node_find_port(data->v4l2, PW_DIRECTION_OUTPUT, 0),
 				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
@@ -365,6 +368,8 @@ static void make_nodes(struct data *data)
 
 	pw_node_set_active(data->node, true);
 	pw_node_set_active(data->v4l2, true);
+
+	return 0;
 }
 
 int main(int argc, char *argv[])

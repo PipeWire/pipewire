@@ -43,9 +43,6 @@
 
 #define MAX_DEVICES	64
 
-extern const struct spa_handle_factory spa_a2dp_source_factory;
-extern const struct spa_handle_factory spa_a2dp_sink_factory;
-
 static const char default_device[] = "";
 
 struct props {
@@ -110,7 +107,7 @@ static int emit_source_node(struct impl *this)
 
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
-			info.factory = &spa_a2dp_source_factory;
+			info.factory_name = "api.bluez5.a2dp.source";
 			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 			info.props = &SPA_DICT_INIT_ARRAY(items);
 
@@ -157,7 +154,7 @@ static int emit_sink_node(struct impl *this)
 
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
-			info.factory = &spa_a2dp_sink_factory;
+			info.factory_name = "api.bluez5.a2dp.sink";
 			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 			info.props = &SPA_DICT_INIT_ARRAY(items);
 
@@ -346,7 +343,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_bluez5_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.bluez5.device",
 	NULL,
 	impl_get_size,
 	impl_init,

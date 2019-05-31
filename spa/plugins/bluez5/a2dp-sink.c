@@ -290,7 +290,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	slaved = is_slaved(this);
 	if (this->started && slaved != this->slaved) {
-		spa_log_debug(this->log, "a2dp-sink %p: reslave %d->%d", this, this->slaved, slaved);
+		spa_log_debug(this->log, NAME " %p: reslave %d->%d", this, this->slaved, slaved);
 		this->slaved = slaved;
 		spa_loop_invoke(this->data_loop, do_reslave, 0, NULL, 0, true, this);
 	}
@@ -367,12 +367,12 @@ static int send_buffer(struct impl *this)
 
 	ioctl(this->transport->fd, TIOCOUTQ, &val);
 
-	spa_log_trace(this->log, "a2dp-sink %p: send %d %u %u %u %lu %d",
+	spa_log_trace(this->log, NAME " %p: send %d %u %u %u %lu %d",
 			this, this->frame_count, this->seqnum, this->timestamp, this->buffer_used,
 			this->sample_time, val);
 
 	written = write(this->transport->fd, this->buffer, this->buffer_used);
-	spa_log_trace(this->log, "a2dp-sink %p: send %d", this, written);
+	spa_log_trace(this->log, NAME " %p: send %d", this, written);
 	if (written < 0)
 		return -errno;
 
@@ -389,7 +389,7 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	ssize_t out_encoded;
 	struct port *port = &this->port;
 
-	spa_log_trace(this->log, "a2dp-sink %p: encode %d used %d, %d %d %d/%d",
+	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d/%d",
 			this, size, this->buffer_used, port->frame_size, this->write_size,
 			this->frame_count, MAX_FRAME_COUNT);
 
@@ -408,7 +408,7 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	this->frame_count += processed / this->codesize;
 	this->buffer_used += out_encoded;
 
-	spa_log_trace(this->log, "a2dp-sink %p: processed %d %ld used %d",
+	spa_log_trace(this->log, NAME " %p: processed %d %ld used %d",
 			this, processed, out_encoded, this->buffer_used);
 
 	return processed;
@@ -422,8 +422,8 @@ static bool need_flush(struct impl *this)
 
 static int flush_buffer(struct impl *this, bool force)
 {
-	spa_log_trace(this->log, "%d %d %d", this->buffer_used, this->frame_length,
-			this->write_size);
+	spa_log_trace(this->log, NAME" %p: %d %d %d", this,
+			this->buffer_used, this->frame_length, this->write_size);
 
 	if (force || need_flush(this))
 		return send_buffer(this);
@@ -492,7 +492,7 @@ static int set_bitpool(struct impl *this, int bitpool)
 
 	this->sbc.bitpool = bitpool;
 
-	spa_log_debug(this->log, "set bitpool %d", this->sbc.bitpool);
+	spa_log_debug(this->log, NAME" %p: set bitpool %d", this, this->sbc.bitpool);
 
 	this->codesize = sbc_get_codesize(&this->sbc);
 	this->frame_length = sbc_get_frame_length(&this->sbc);
@@ -563,19 +563,19 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		if (port->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
 			b->outstanding = true;
-			spa_log_trace(this->log, "a2dp-sink %p: reuse buffer %u", this, b->id);
+			spa_log_trace(this->log, NAME " %p: reuse buffer %u", this, b->id);
 
 			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
 			port->ready_offset = 0;
 		}
 		total_frames += n_frames;
 
-		spa_log_trace(this->log, "a2dp-sink %p: written %u frames", this, total_frames);
+		spa_log_trace(this->log, NAME " %p: written %u frames", this, total_frames);
 	}
 
 	written = flush_buffer(this, false);
 	if (written == -EAGAIN) {
-		spa_log_trace(this->log, "delay flush %ld", this->sample_time);
+		spa_log_trace(this->log, NAME" %p: delay flush %ld", this, this->sample_time);
 		if ((this->flush_source.mask & SPA_IO_OUT) == 0) {
 			this->flush_source.mask = SPA_IO_OUT;
 			spa_loop_update_source(this->data_loop, &this->flush_source);
@@ -585,7 +585,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		}
 	}
 	else if (written < 0) {
-		spa_log_trace(this->log, "error flushing %s", spa_strerror(written));
+		spa_log_trace(this->log, NAME" %p: error flushing %s", this,
+				spa_strerror(written));
 		return written;
 	}
 	else if (written > 0) {
@@ -607,7 +608,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 
 	queued = this->sample_time - elapsed;
 
-	spa_log_trace(this->log, "%ld %ld %ld %ld %d",
+	spa_log_trace(this->log, NAME" %p: %ld %ld %ld %ld %d", this,
 			now_time, queued, this->sample_time, elapsed, this->write_samples);
 
 	if (!this->slaved) {
@@ -644,10 +645,10 @@ static void a2dp_on_flush(struct spa_source *source)
 	struct impl *this = source->data;
 	uint64_t now_time;
 
-	spa_log_trace(this->log, "flushing");
+	spa_log_trace(this->log, NAME" %p: flushing", this);
 
 	if ((source->rmask & SPA_IO_OUT) == 0) {
-		spa_log_warn(this->log, "error %d", source->rmask);
+		spa_log_warn(this->log, NAME" %p: error %d", this, source->rmask);
 		if (this->flush_source.loop)
 			spa_loop_remove_source(this->data_loop, &this->flush_source);
 		this->source.mask = 0;
@@ -675,7 +676,8 @@ static void a2dp_on_timeout(struct spa_source *source)
 	clock_gettime(CLOCK_MONOTONIC, &this->now);
 	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
 
-	spa_log_trace(this->log, "timeout %ld %ld", now_time, now_time - this->last_time);
+	spa_log_trace(this->log, NAME" %p: timeout %ld %ld", this,
+			now_time, now_time - this->last_time);
 	this->last_time = now_time;
 
 	if (this->start_time == 0) {
@@ -685,7 +687,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	}
 
 	if (spa_list_is_empty(&port->ready)) {
-		spa_log_trace(this->log, "a2dp-sink %p: %d", this, io->status);
+		spa_log_trace(this->log, NAME " %p: %d", this, io->status);
 
 		io->status = SPA_STATUS_NEED_BUFFER;
 
@@ -765,7 +767,7 @@ static int init_sbc(struct impl *this)
 
 	this->seqnum = 0;
 
-        spa_log_debug(this->log, "a2dp-sink %p: codesize %d frame_length %d size %d:%d %d",
+        spa_log_debug(this->log, NAME " %p: codesize %d frame_length %d size %d:%d %d",
 			this, this->codesize, this->frame_length, this->read_size, this->write_size,
 			this->sbc.bitpool);
 
@@ -782,7 +784,7 @@ static int do_start(struct impl *this)
 
 	this->slaved = is_slaved(this);
 
-        spa_log_debug(this->log, "a2dp-sink %p: start slaved:%d", this, this->slaved);
+        spa_log_debug(this->log, NAME " %p: start slaved:%d", this, this->slaved);
 
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
@@ -791,19 +793,19 @@ static int do_start(struct impl *this)
 
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "a2dp-sink %p: SO_SNDBUF %m", this);
+		spa_log_warn(this->log, NAME " %p: SO_SNDBUF %m", this);
 
 	len = sizeof(val);
 	if (getsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, &len) < 0) {
-		spa_log_warn(this->log, "a2dp-sink %p: SO_SNDBUF %m", this);
+		spa_log_warn(this->log, NAME " %p: SO_SNDBUF %m", this);
 	}
 	else {
-		spa_log_debug(this->log, "a2dp-sink %p: SO_SNDBUF: %d", this, val);
+		spa_log_debug(this->log, NAME " %p: SO_SNDBUF: %d", this, val);
 	}
 
 	val = FILL_FRAMES * this->transport->read_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "a2dp-sink %p: SO_RCVBUF %m", this);
+		spa_log_warn(this->log, NAME " %p: SO_RCVBUF %m", this);
 
 	val = 6;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
@@ -861,7 +863,7 @@ static int do_stop(struct impl *this)
 	if (!this->started)
 		return 0;
 
-        spa_log_trace(this->log, "a2dp-sink %p: stop", this);
+        spa_log_trace(this->log, NAME " %p: stop", this);
 
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
@@ -1515,7 +1517,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 struct spa_handle_factory spa_a2dp_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.bluez5.a2dp.sink",
 	&info,
 	impl_get_size,
 	impl_init,

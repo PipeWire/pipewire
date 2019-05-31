@@ -55,7 +55,7 @@ struct spa_monitor_object_info {
 	uint32_t version;
 
 	uint32_t type;
-	const struct spa_handle_factory *factory;
+	const char *factory_name;
 
 #define SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS	(1u<<0)
 #define SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS	(1u<<1)

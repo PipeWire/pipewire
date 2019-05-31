@@ -75,8 +75,6 @@ struct transport_data {
 	struct spa_source sco;
 };
 
-struct spa_handle_factory spa_bluez5_device_factory;
-
 static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
 {
 	spa_pod_builder_string(builder, key);
@@ -500,7 +498,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 
 	info = SPA_MONITOR_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Device;
-	info.factory = &spa_bluez5_device_factory;
+	info.factory_name = "api.bluez5.device";
 	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
 		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
@@ -2289,7 +2287,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_bluez5_monitor_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"api.bluez5.monitor",
 	NULL,
 	impl_get_size,
 	impl_init,

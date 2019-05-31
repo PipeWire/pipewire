@@ -40,6 +40,7 @@ struct pw_spa_monitor {
 	char *factory_name;
 	char *system_name;
 	struct spa_handle *handle;
+	struct pw_properties *properties;
 
 	void *user_data;
 };
@@ -51,6 +52,7 @@ pw_spa_monitor_load(struct pw_core *core,
 		    const char *lib,
 		    const char *factory_name,
 		    const char *system_name,
+		    struct pw_properties *properties,
 		    size_t user_data_size);
 void
 pw_spa_monitor_destroy(struct pw_spa_monitor *monitor);

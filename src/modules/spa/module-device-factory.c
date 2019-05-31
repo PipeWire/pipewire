@@ -76,6 +76,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *data = _data;
+	struct pw_core *core = data->core;
 	struct pw_device *device;
 	const char *lib, *factory_name, *name;
 	struct device_data *nd;
@@ -87,13 +88,15 @@ static void *create_object(void *_data,
 	factory_name = pw_properties_get(properties, "spa.factory.name");
 	name = pw_properties_get(properties, "name");
 
+	if (lib == NULL && factory_name != NULL)
+		lib = pw_core_find_spa_lib(core, factory_name);
 	if (lib == NULL || factory_name == NULL)
 		goto no_properties;
 
 	if (name == NULL)
 		name = "spa-device";
 
-	device = pw_spa_device_load(data->core,
+	device = pw_spa_device_load(core,
 				NULL,
 				pw_factory_get_global(data->this),
 				lib,
@@ -120,11 +123,11 @@ static void *create_object(void *_data,
 	return device;
 
       no_properties:
-	pw_log_error("needed properties: spa.library.name=<library-name> spa.factory.name=<factory-name>");
+	pw_log_error("needed properties: [spa.library.name=<library-name>] spa.factory.name=<factory-name>");
 	if (resource) {
 		pw_resource_error(resource, -EINVAL,
 					"needed properties: "
-						"spa.library.name=<library-name> "
+						"[spa.library.name=<library-name>] "
 						"spa.factory.name=<factory-name>");
 	}
 	return NULL;

@@ -39,9 +39,12 @@
 
 #include "spa-monitor.h"
 
+#define MODULE_USAGE	"<factory> <name> [key=value ...]"
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Manage SPA monitors" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -68,7 +71,7 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
-	const char *dir, *lib;
+	struct pw_properties *props = NULL;
 	char **argv;
 	int n_tokens;
 	struct pw_spa_monitor *monitor;
@@ -81,18 +84,16 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (n_tokens < 2)
 		goto not_enough_arguments;
 
-	if ((dir = getenv("SPA_PLUGIN_DIR")) == NULL)
-		dir = PLUGINDIR;
-
-	if (n_tokens < 3)
-		lib = pw_core_find_spa_lib(core, argv[0]);
-	else
-		lib = argv[2];
+	if (n_tokens == 3) {
+		props = pw_properties_new_string(argv[2]);
+		if (props == NULL)
+			return -ENOMEM;
+	}
 
 	monitor = pw_spa_monitor_load(core,
 				      pw_module_get_global(module),
-				      dir, lib, argv[0], argv[1],
-				      NULL,
+				      argv[0], argv[1],
+				      props,
 				      sizeof(struct data));
 	if (monitor == NULL)
 		return -ENOMEM;
@@ -111,6 +112,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
       not_enough_arguments:
 	pw_free_strv(argv);
       wrong_arguments:
-	pw_log_error("usage: module-spa-monitor <factory> <name> [<plugin>]");
+	pw_log_error("usage: module-spa-monitor " MODULE_USAGE);
 	return -EINVAL;
 }

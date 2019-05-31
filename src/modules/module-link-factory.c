@@ -32,6 +32,13 @@
 #include <pipewire/pipewire.h>
 #include "pipewire/private.h"
 
+#define FACTORY_USAGE	PW_KEY_LINK_OUTPUT_NODE"=<output-node> "	\
+			"["PW_KEY_LINK_OUTPUT_PORT"=<output-port>] "	\
+			PW_KEY_LINK_INPUT_NODE"=<input-node "		\
+			"["PW_KEY_LINK_INPUT_PORT"=<input-port>] "	\
+			"["PW_KEY_OBJECT_LINGER"=<bool>] "		\
+			"["PW_KEY_LINK_PASSIVE"=<bool>]"
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create links" },
@@ -244,7 +251,7 @@ static void *create_object(void *_data,
 	return link;
 
       no_properties:
-	pw_log_error("link-factory needs properties");
+	pw_log_error("link-factory usage:" FACTORY_USAGE);
 	pw_resource_error(resource, -EINVAL, "no properties");
 	goto done;
       no_output:

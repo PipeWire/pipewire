@@ -53,7 +53,6 @@ struct impl {
 
         struct spa_handle *handle;
         struct spa_node *node;          /**< handle to SPA node */
-	char *lib;
 	char *factory_name;
 
 	struct spa_hook node_listener;
@@ -75,7 +74,6 @@ static void spa_node_free(void *data)
 	if (impl->handle) {
 		pw_unload_spa_handle(impl->handle);
 	}
-	free(impl->lib);
 	free(impl->factory_name);
 }
 
@@ -242,7 +240,6 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 struct pw_node *pw_spa_node_load(struct pw_core *core,
 				 struct pw_client *owner,
 				 struct pw_global *parent,
-				 const char *lib,
 				 const char *factory_name,
 				 const char *name,
 				 enum pw_spa_node_flags flags,
@@ -252,11 +249,19 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	struct pw_node *this;
 	struct impl *impl;
 	struct spa_node *spa_node;
+	const char *lib = NULL;
 	int res;
 	struct spa_handle *handle;
 	void *iface;
 	const struct spa_support *support;
 	uint32_t n_support;
+
+	if (lib == NULL && properties)
+		lib = pw_properties_get(properties, "spa.library.name");
+	if (lib == NULL)
+		lib = pw_core_find_spa_lib(core, factory_name);
+	if (lib == NULL)
+		goto exit;
 
 	support = pw_core_get_support(core, &n_support);
 
@@ -265,11 +270,11 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 			properties ? &properties->dict : NULL,
 			n_support, support);
 	if (handle == NULL)
-		goto no_mem;
+		goto exit;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
-		goto interface_failed;
+		goto exit_unload;
 	}
 	if (SPA_RESULT_IS_ASYNC(res))
 		flags |= PW_SPA_NODE_FLAG_ASYNC;
@@ -284,16 +289,17 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 
 	this = pw_spa_node_new(core, owner, parent, name, flags,
 			       spa_node, handle, properties, user_data_size);
+	if (this == NULL)
+		goto exit;
 
 	impl = this->user_data;
 	impl->handle = handle;
-	impl->lib = strdup(lib);
 	impl->factory_name = strdup(factory_name);
 
 	return this;
 
-      interface_failed:
+exit_unload:
 	pw_unload_spa_handle(handle);
-      no_mem:
+exit:
 	return NULL;
 }

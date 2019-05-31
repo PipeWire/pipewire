@@ -40,9 +40,12 @@
 #include "spa-monitor.h"
 #include "spa-node.h"
 
+#define MODULE_USAGE	"<factory> <name> [key=value ...]"
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Load and manage an SPA node" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -78,12 +81,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (args == NULL)
 		goto wrong_arguments;
 
-	argv = pw_split_strv(args, " \t", 4, &n_tokens);
-	if (n_tokens < 3)
+	argv = pw_split_strv(args, " \t", 3, &n_tokens);
+	if (n_tokens < 2)
 		goto not_enough_arguments;
 
-	if (n_tokens == 4) {
-		props = pw_properties_new_string(argv[3]);
+	if (n_tokens == 3) {
+		props = pw_properties_new_string(argv[2]);
 		if (props == NULL)
 			return -ENOMEM;
 	}
@@ -91,7 +94,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	node = pw_spa_node_load(core,
 				NULL,
 				pw_module_get_global(module),
-				argv[0], argv[1], argv[2],
+				argv[0], argv[1],
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				props,
 				sizeof(struct node_data));
@@ -116,6 +119,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
       not_enough_arguments:
 	pw_free_strv(argv);
       wrong_arguments:
-	pw_log_error("usage: module-spa-node <plugin> <factory> <name> [key=value ...]");
+	pw_log_error("usage: module-spa-node " MODULE_USAGE);
 	return -EINVAL;
 }

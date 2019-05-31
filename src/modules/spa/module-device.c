@@ -38,16 +38,18 @@
 #include "spa-monitor.h"
 #include "spa-device.h"
 
+#define MODULE_USAGE "<factory> <name> [key=value ...]"
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Load and manage an SPA device" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct device_data {
 	struct pw_device *this;
 	struct pw_core *core;
-	struct pw_properties *properties;
 
 	struct spa_hook module_listener;
 };
@@ -76,12 +78,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (args == NULL)
 		goto wrong_arguments;
 
-	argv = pw_split_strv(args, " \t", 4, &n_tokens);
-	if (n_tokens < 3)
+	argv = pw_split_strv(args, " \t", 3, &n_tokens);
+	if (n_tokens < 2)
 		goto not_enough_arguments;
 
-	if (n_tokens == 4) {
-		props = pw_properties_new_string(argv[3]);
+	if (n_tokens == 3) {
+		props = pw_properties_new_string(argv[2]);
 		if (props == NULL)
 			return -ENOMEM;
 	}
@@ -89,7 +91,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	device = pw_spa_device_load(core,
 				NULL,
 				pw_module_get_global(module),
-				argv[0], argv[1], argv[2],
+				argv[0], argv[1],
 				0,
 				props,
 				sizeof(struct device_data));
@@ -102,7 +104,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	data = pw_spa_device_get_user_data(device);
 	data->this = device;
 	data->core = core;
-	data->properties = props;
 
 	pw_log_debug("module %p: new", module);
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
@@ -114,6 +115,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
       not_enough_arguments:
 	pw_free_strv(argv);
       wrong_arguments:
-	pw_log_error("usage: module-spa-device <plugin> <factory> <name> [key=value ...]");
+	pw_log_error("usage: module-spa-device " MODULE_USAGE);
 	return -EINVAL;
 }

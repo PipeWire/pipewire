@@ -52,7 +52,6 @@ struct impl {
 	void *unload;
         struct spa_handle *handle;
         struct spa_device *device;
-	char *lib;
 	char *factory_name;
 
 	struct spa_hook device_listener;
@@ -70,7 +69,6 @@ static void device_destroy(void *data)
 	spa_hook_remove(&impl->device_listener);
 	if (impl->handle)
 		pw_unload_spa_handle(impl->handle);
-	free(impl->lib);
 	free(impl->factory_name);
 }
 
@@ -126,7 +124,6 @@ void *pw_spa_device_get_user_data(struct pw_device *device)
 struct pw_device *pw_spa_device_load(struct pw_core *core,
 				 struct pw_client *owner,
 				 struct pw_global *parent,
-				 const char *lib,
 				 const char *factory_name,
 				 const char *name,
 				 enum pw_spa_device_flags flags,
@@ -137,31 +134,42 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 	struct impl *impl;
 	struct spa_handle *handle;
 	const struct spa_support *support;
+	const char *lib = NULL;
 	uint32_t n_support;
 	void *iface;
 	int res;
 
 	support = pw_core_get_support(core, &n_support);
 
+	if (lib == NULL && properties)
+		lib = pw_properties_get(properties, "spa.library.name");
+	if (lib == NULL)
+		lib = pw_core_find_spa_lib(core, factory_name);
+	if (lib == NULL)
+		goto exit;
+
 	handle = pw_load_spa_handle(lib, factory_name,
 			properties ? &properties->dict : NULL, n_support, support);
 	if (handle == NULL)
-		goto open_failed;
+		goto exit;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
 		pw_log_error("can't get device interface %d\n", res);
-		goto open_failed;
+		goto exit_unload;
 	}
 
 	this = pw_spa_device_new(core, owner, parent, name, flags,
 			       iface, handle, properties, user_data_size);
+	if (this == NULL)
+		goto exit;
 
 	impl = this->user_data;
-	impl->lib = strdup(lib);
 	impl->factory_name = strdup(factory_name);
 
 	return this;
 
-      open_failed:
+exit_unload:
+	pw_unload_spa_handle(handle);
+exit:
 	return NULL;
 }

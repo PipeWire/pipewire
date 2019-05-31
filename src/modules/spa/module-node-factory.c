@@ -33,6 +33,9 @@
 
 #include "spa-node.h"
 
+#define FACTORY_USAGE	"spa.factory.name=<factory-name> " \
+			"[spa.library.name=<library-name>]"
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Provide a factory to make SPA nodes" },
@@ -78,28 +81,23 @@ static void *create_object(void *_data,
 	struct factory_data *data = _data;
 	struct pw_core *core = data->core;
 	struct pw_node *node;
-	const char *lib, *factory_name, *name;
+	const char *factory_name, *name;
 	struct node_data *nd;
 
 	if (properties == NULL)
 		goto no_properties;
 
-	lib = pw_properties_get(properties, "spa.library.name");
 	factory_name = pw_properties_get(properties, "spa.factory.name");
-	name = pw_properties_get(properties, "name");
-
-	if (lib == NULL && factory_name != NULL)
-		lib = pw_core_find_spa_lib(core, factory_name);
-	if (lib == NULL || factory_name == NULL)
+	if (factory_name == NULL)
 		goto no_properties;
 
+	name = pw_properties_get(properties, "name");
 	if (name == NULL)
 		name = "spa-node";
 
 	node = pw_spa_node_load(core,
 				NULL,
 				pw_factory_get_global(data->this),
-				lib,
 				factory_name,
 				name,
 				PW_SPA_NODE_FLAG_ACTIVATE,
@@ -123,12 +121,9 @@ static void *create_object(void *_data,
 	return node;
 
       no_properties:
-	pw_log_error("needed properties: [spa.library.name=<library-name>] spa.factory.name=<factory-name>");
+	pw_log_error("factory %p: usage: " FACTORY_USAGE, data->this);
 	if (resource) {
-		pw_resource_error(resource, -EINVAL,
-					"needed properties: "
-						"[spa.library.name=<library-name>] "
-						"spa.factory.name=<factory-name>");
+		pw_resource_error(resource, -EINVAL, "usage: " FACTORY_USAGE);
 	}
 	return NULL;
       no_mem:

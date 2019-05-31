@@ -264,8 +264,6 @@ static const struct spa_monitor_callbacks callbacks = {
 
 struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 		struct pw_global *parent,
-		const char *dir,
-		const char *lib,
 		const char *factory_name,
 		const char *system_name,
 		struct pw_properties *properties,
@@ -274,13 +272,18 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	struct impl *impl;
 	struct pw_spa_monitor *this;
 	struct spa_handle *handle;
+	const char *lib = NULL;
 	int res;
 	void *iface;
-	char *filename;
 	const struct spa_support *support;
 	uint32_t n_support;
 
-	asprintf(&filename, "%s/%s.so", dir, lib);
+	if (lib == NULL && properties)
+		lib = pw_properties_get(properties, "spa.library.name");
+	if (lib == NULL)
+		lib = pw_core_find_spa_lib(core, factory_name);
+	if (lib == NULL)
+		goto exit;
 
 	support = pw_core_get_support(core, &n_support);
 
@@ -289,20 +292,23 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 			properties ? &properties->dict : NULL,
 			n_support, support);
 	if (handle == NULL)
-		goto no_mem;
+		goto exit;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
-		goto interface_failed;
+		goto exit_unload;
 	}
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
+	if (impl == NULL)
+		goto exit_unload;
+
 	impl->core = core;
 	impl->parent = parent;
+	spa_list_init(&impl->item_list);
 
 	this = &impl->this;
 	this->monitor = iface;
-	this->lib = filename;
 	this->factory_name = strdup(factory_name);
 	this->system_name = strdup(system_name);
 	this->handle = handle;
@@ -313,16 +319,13 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 
 	update_monitor(core, this->system_name);
 
-	spa_list_init(&impl->item_list);
-
 	spa_monitor_set_callbacks(this->monitor, &callbacks, impl);
 
 	return this;
 
-      interface_failed:
+exit_unload:
 	pw_unload_spa_handle(handle);
-      no_mem:
-	free(filename);
+exit:
 	return NULL;
 
 }
@@ -338,7 +341,6 @@ void pw_spa_monitor_destroy(struct pw_spa_monitor *monitor)
 		destroy_object(obj);
 
 	pw_unload_spa_handle(monitor->handle);
-	free(monitor->lib);
 	free(monitor->factory_name);
 	free(monitor->system_name);
 	if (monitor->properties)

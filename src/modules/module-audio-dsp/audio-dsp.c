@@ -304,9 +304,9 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	}
 	pw_properties_set(pr, "factory.mode", factory);
 	factory = "audioconvert";
+	pw_properties_set(pr, "spa.library.name", "audioconvert/libspa-audioconvert");
 
 	node = pw_spa_node_load(core, NULL, NULL,
-			"audioconvert/libspa-audioconvert",
 			factory,
 			node_name,
 			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,

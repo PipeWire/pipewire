@@ -241,11 +241,11 @@ static void update_monitor(struct pw_core *core, const char *name)
 	props = pw_core_get_properties(core);
 
 	if (props)
-		monitors = pw_properties_get(props, "monitors");
+		monitors = pw_properties_get(props, PW_KEY_CORE_MONITORS);
 	else
 		monitors = NULL;
 
-	item.key = "monitors";
+	item.key = PW_KEY_CORE_MONITORS;
 	if (monitors == NULL)
 		item.value = name;
 	else

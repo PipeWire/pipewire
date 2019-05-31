@@ -61,6 +61,8 @@ extern "C" {
 #define PW_KEY_SEC_GID			"pipewire.sec.gid"	/**< client gid, set by protocol*/
 #define PW_KEY_SEC_LABEL		"pipewire.sec.label"	/**< client security label, set by protocol*/
 
+#define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
+
 /* remote keys */
 #define PW_KEY_REMOTE_NAME		"remote.name"		/**< The name of the remote to connect to,
 								  *  default env(PIPEWIRE_REMOTE) or pipewire-0 */

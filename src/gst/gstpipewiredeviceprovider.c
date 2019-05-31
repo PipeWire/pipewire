@@ -302,7 +302,7 @@ on_core_info (void *data, const struct pw_core_info *info)
   if (info == NULL || info->props == NULL)
     return;
 
-  value = spa_dict_lookup (info->props, "monitors");
+  value = spa_dict_lookup (info->props, PW_KEY_CORE_MONITORS);
   if (value) {
     gchar **monitors = g_strsplit (value, ",", -1);
     gint i;

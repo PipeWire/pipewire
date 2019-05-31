@@ -53,8 +53,7 @@ parse_line(struct pw_daemon_config *config,
 		*p = '\0';
 
 	/* remove whitespaces */
-	pw_strip(line, "\n\r \t");
-
+	line = pw_strip(line, "\n\r \t");
 	if (*line == '\0')	/* empty line */
 		return 0;
 

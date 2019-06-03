@@ -104,6 +104,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 {
 	struct spa_monitor_object_info info;
 	const char *str, *name;
+	char path[32];
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
 
@@ -126,11 +127,12 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 		name = "Unknown";
 
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MONITOR_API, "udev");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, udev_device_get_devnode(dev));
 
 	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
 		return 0;
 
+	snprintf(path, sizeof(path), "hw:%d", atoi(str));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, str);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
 

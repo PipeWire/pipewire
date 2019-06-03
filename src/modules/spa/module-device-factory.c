@@ -33,8 +33,8 @@
 
 #include "spa-device.h"
 
-#define FACTORY_USAGE	"spa.factory.name=<factory-name> " \
-			"[spa.library.name=<library-name>]"
+#define FACTORY_USAGE	SPA_KEY_FACTORY_NAME"=<factory-name> " \
+			"["SPA_KEY_LIBRARY_NAME"=<library-name>]"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -87,7 +87,7 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto no_properties;
 
-	factory_name = pw_properties_get(properties, "spa.factory.name");
+	factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 	if (factory_name == NULL)
 		goto no_properties;
 

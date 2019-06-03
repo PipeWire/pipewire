@@ -32,6 +32,8 @@
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
+#include <spa/utils/keys.h>
+#include <spa/monitor/device.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -906,9 +908,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item node_info_items[] = {
-	{ "device.api", "bluez5" },
-	{ "media.class", "Audio/Sink" },
-	{ "node.driver", "true" },
+	{ SPA_KEY_DEVICE_API, "bluez5" },
+	{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
+	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
 static void emit_node_info(struct impl *this, bool full)
@@ -1470,7 +1472,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&port->ready);
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (strcmp(info->items[i].key, "bluez5.transport") == 0)
+		if (strcmp(info->items[i].key, SPA_KEY_API_BLUEZ5_TRANSPORT) == 0)
 			sscanf(info->items[i].value, "%p", &this->transport);
 	}
 	if (this->transport == NULL) {
@@ -1509,8 +1511,9 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_dict_item info_items[] = {
-	{ "factory.author", "Wim Taymans <wim.taymans@gmail.com>" },
-	{ "factory.description", "Play audio with the a2dp" },
+	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Play audio with the a2dp" },
+	{ SPA_KEY_FACTORY_USAGE, SPA_KEY_API_BLUEZ5_TRANSPORT"=<transport>" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);

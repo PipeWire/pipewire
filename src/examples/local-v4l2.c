@@ -347,8 +347,8 @@ static int make_nodes(struct data *data)
 	pw_node_register(data->node, NULL, NULL, NULL);
 
 	factory = pw_core_find_factory(data->core, "spa-node-factory");
-	props = pw_properties_new("spa.library.name", "v4l2/libspa-v4l2",
-				  "spa.factory.name", "api.v4l2.source", NULL);
+	props = pw_properties_new(SPA_KEY_LIBRARY_NAME, "v4l2/libspa-v4l2",
+				  SPA_KEY_FACTORY_NAME, "api.v4l2.source", NULL);
 	data->v4l2 = pw_factory_create_object(factory,
 					      NULL,
 					      PW_TYPE_INTERFACE_Node,

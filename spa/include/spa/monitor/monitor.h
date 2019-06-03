@@ -123,6 +123,9 @@ static inline int spa_monitor_set_callbacks(struct spa_monitor *m,
 
 }
 
+#define SPA_KEY_MONITOR_API		"monitor.api"		/**< the api used by the monitor.
+								  *  Ex. "udev", "dbus", ... */
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

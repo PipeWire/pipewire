@@ -31,6 +31,7 @@
 
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
+#include <spa/utils/keys.h>
 #include <spa/pod/builder.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
@@ -71,6 +72,7 @@ static int emit_info(struct impl *this, bool full)
 {
 	int res;
 	struct spa_dict_item items[6];
+	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
 
@@ -80,13 +82,13 @@ static int emit_info(struct impl *this, bool full)
 	info = SPA_DEVICE_INFO_INIT();
 
 	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-	items[0] = SPA_DICT_ITEM_INIT("device.api", "v4l2");
-	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
-	items[2] = SPA_DICT_ITEM_INIT("media.class", "Video/Device");
-	items[3] = SPA_DICT_ITEM_INIT("v4l2.driver", (char *)this->dev.cap.driver);
-	items[4] = SPA_DICT_ITEM_INIT("v4l2.card", (char *)this->dev.cap.card);
-	items[5] = SPA_DICT_ITEM_INIT("v4l2.bus", (char *)this->dev.cap.bus_info);
-	info.props = &SPA_DICT_INIT(items, 6);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Video/Device");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "v4l2");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_PATH, (char *)this->props.device);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_CAP_DRIVER, (char *)this->dev.cap.driver);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_CAP_CARD, (char *)this->dev.cap.card);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_CAP_BUS_INFO, (char *)this->dev.cap.bus_info);
+	info.props = &SPA_DICT_INIT(items, n_items);
 
 	info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
@@ -103,7 +105,7 @@ static int emit_info(struct impl *this, bool full)
 		oinfo.type = SPA_TYPE_INTERFACE_Node;
 		oinfo.factory_name = "api.v4l2.source";
 		oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
-		oinfo.props = &SPA_DICT_INIT(items, 6);
+		oinfo.props = &SPA_DICT_INIT(items, n_items);
 
 		spa_device_emit_object_info(&this->hooks, 0, &oinfo);
 	}
@@ -236,7 +238,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info && (str = spa_dict_lookup(info, "device.path")))
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_V4L2_PATH)))
 		strncpy(this->props.device, str, 63);
 
 	return 0;

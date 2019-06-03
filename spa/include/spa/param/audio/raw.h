@@ -206,6 +206,9 @@ struct spa_audio_info_raw {
 
 #define SPA_AUDIO_INFO_RAW_INIT(...)		(struct spa_audio_info_raw) { __VA_ARGS__ }
 
+#define SPA_KEY_AUDIO_CHANNEL		"audio.channel"		/**< an audio channel as string,
+								  *  Ex. "FL" */
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

@@ -32,6 +32,8 @@
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
+#include <spa/utils/keys.h>
+#include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
@@ -315,11 +317,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item info_items[] = {
-	{ "device.api", "v4l2" },
-	{ "media.class", "Video/Source" },
-	{ "media.role", "Camera" },
-	{ "node.pause-on-idle", "false" },
-	{ "node.driver", "true" },
+	{ SPA_KEY_DEVICE_API, "v4l2" },
+	{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
+	{ SPA_KEY_MEDIA_ROLE, "Camera" },
+	{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
+	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
 static void emit_node_info(struct impl *this, bool full)
@@ -1013,7 +1015,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->dev.log = this->log;
 	port->dev.fd = -1;
 
-	if (info && (str = spa_dict_lookup(info, "device.path"))) {
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_V4L2_PATH))) {
 		strncpy(this->props.device, str, 63);
 		if ((res = spa_v4l2_open(&port->dev, this->props.device)) < 0)
 			return res;

@@ -54,8 +54,8 @@ static int make_device(struct data *data)
 	if (factory == NULL)
 		return -1;
 
-        props = pw_properties_new("spa.library.name", data->library,
-                                  "spa.factory.name", data->factory, NULL);
+        props = pw_properties_new(SPA_KEY_LIBRARY_NAME, data->library,
+                                  SPA_KEY_FACTORY_NAME, data->factory, NULL);
 
 	data->device = pw_factory_create_object(factory,
 					      NULL,

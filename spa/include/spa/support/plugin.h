@@ -102,7 +102,15 @@ struct spa_handle_factory {
 #define SPA_VERSION_HANDLE_FACTORY	0
 	uint32_t version;
 	/**
-	 * The name
+	 * The name of the factory contains a logical name that describes
+	 * the function of the handle. Other plugins might contain an alternative
+	 * implementation with the same name.
+	 *
+	 * Examples include:
+	 *
+	 *  api.alsa.pcm.sink: an object to write PCM samples to an alsa PLAYBACK
+	 *			device
+	 *  api.v4l2.source: an object to read from a v4l2 source.
 	 */
 	const char *name;
 	/**
@@ -186,6 +194,17 @@ typedef int (*spa_handle_factory_enum_func_t) (const struct spa_handle_factory *
  *	   < 0 errno type error
  */
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index);
+
+
+
+#define SPA_KEY_FACTORY_NAME		"factory.name"		/**< the name of a factory */
+#define SPA_KEY_FACTORY_AUTHOR		"factory.author"	/**< a comma separated list of factory authors */
+#define SPA_KEY_FACTORY_DESCRIPTION	"factory.description"	/**< description of a factory */
+#define SPA_KEY_FACTORY_USAGE		"factory.usage"		/**< usage of a factory */
+
+#define SPA_KEY_LIBRARY_NAME		"library.name"		/**< the name of a library. This is usually
+								  *  the filename of the plugin without the
+								  *  path or the plugin extension. */
 
 #ifdef __cplusplus
 }  /* extern "C" */

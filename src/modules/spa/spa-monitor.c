@@ -279,7 +279,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	uint32_t n_support;
 
 	if (lib == NULL && properties)
-		lib = pw_properties_get(properties, "spa.library.name");
+		lib = pw_properties_get(properties, SPA_KEY_LIBRARY_NAME);
 	if (lib == NULL)
 		lib = pw_core_find_spa_lib(core, factory_name);
 	if (lib == NULL)

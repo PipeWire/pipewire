@@ -364,7 +364,7 @@ void pw_init(int *argc, char **argv[])
 
 	support->support_plugin = plugin;
 
-	items[0] = SPA_DICT_ITEM_INIT("log.colors", "1");
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "1");
 	info = SPA_DICT_INIT(items, 1);
 
 	handle = load_handle(plugin, "logger", &info, support->n_support, support->support);

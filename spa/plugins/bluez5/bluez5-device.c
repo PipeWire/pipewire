@@ -32,6 +32,7 @@
 
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
+#include <spa/utils/keys.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
@@ -101,7 +102,7 @@ static int emit_source_node(struct impl *this)
 			char transport[16];
 
 			snprintf(transport, 16, "%p", t);
-			items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
+			items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 
 			spa_bt_transport_acquire(t, true);
 
@@ -150,7 +151,7 @@ static int emit_sink_node(struct impl *this)
 			char transport[16];
 
 			snprintf(transport, 16, "%p", t);
-			items[0] = SPA_DICT_ITEM_INIT("bluez5.transport", transport);
+			items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
@@ -181,8 +182,8 @@ static int emit_nodes(struct impl *this)
 }
 
 static const struct spa_dict_item info_items[] = {
-	{ "device.api", "bluez5" },
-	{ "media.class", "Audio/Device" },
+	{ SPA_KEY_DEVICE_API, "bluez5" },
+	{ SPA_KEY_MEDIA_CLASS, "Audio/Device" },
 };
 
 static int impl_add_listener(void *object,
@@ -302,7 +303,7 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (strcmp(info->items[i].key, "bluez5.device") == 0)
+		if (strcmp(info->items[i].key, SPA_KEY_API_BLUEZ5_DEVICE) == 0)
 			sscanf(info->items[i].value, "%p", &this->bt_dev);
 	}
 	if (this->bt_dev == NULL) {
@@ -341,10 +342,18 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
+static const struct spa_dict_item handle_info_items[] = {
+	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "A bluetooth device" },
+	{ SPA_KEY_FACTORY_USAGE, SPA_KEY_API_BLUEZ5_DEVICE"=<device>" },
+};
+
+static const struct spa_dict handle_info = SPA_DICT_INIT_ARRAY(handle_info_items);
+
 const struct spa_handle_factory spa_bluez5_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	"api.bluez5.device",
-	NULL,
+	&handle_info,
 	impl_get_size,
 	impl_init,
 	impl_enum_interface_info,

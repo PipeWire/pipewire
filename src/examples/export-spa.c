@@ -54,8 +54,8 @@ static int make_node(struct data *data)
 	if (factory == NULL)
 		return -1;
 
-        props = pw_properties_new("spa.library.name", data->library,
-                                  "spa.factory.name", data->factory, NULL);
+        props = pw_properties_new(SPA_KEY_LIBRARY_NAME, data->library,
+                                  SPA_KEY_FACTORY_NAME, data->factory, NULL);
 
 	if (data->path) {
 		pw_properties_set(props, PW_KEY_NODE_AUTOCONNECT, "1");

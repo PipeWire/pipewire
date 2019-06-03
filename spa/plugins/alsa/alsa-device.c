@@ -29,10 +29,11 @@
 #include <fcntl.h>
 #include <poll.h>
 
-#include <asoundlib.h>
+#include <alsa/asoundlib.h>
 
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
+#include <spa/utils/keys.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
@@ -115,12 +116,12 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
-	items[0] = SPA_DICT_ITEM_INIT("alsa.device",         device_name);
-	items[1] = SPA_DICT_ITEM_INIT("alsa.pcm.id",         snd_pcm_info_get_id(pcminfo));
-	items[2] = SPA_DICT_ITEM_INIT("alsa.pcm.name",       snd_pcm_info_get_name(pcminfo));
-	items[3] = SPA_DICT_ITEM_INIT("alsa.pcm.subname",    snd_pcm_info_get_subdevice_name(pcminfo));
-	items[4] = SPA_DICT_ITEM_INIT("alsa.pcm.class",      get_class(pcminfo));
-	items[5] = SPA_DICT_ITEM_INIT("alsa.pcm.subclass",   get_subclass(pcminfo));
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
+	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_ID,         snd_pcm_info_get_id(pcminfo));
+	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_NAME,       snd_pcm_info_get_name(pcminfo));
+	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBNAME,    snd_pcm_info_get_subdevice_name(pcminfo));
+	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CLASS,      get_class(pcminfo));
+	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBCLASS,   get_subclass(pcminfo));
 	info.props = &SPA_DICT_INIT_ARRAY(items);
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
@@ -225,16 +226,16 @@ static int emit_info(struct impl *this, bool full)
 	dinfo = SPA_DEVICE_INFO_INIT();
 
 	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-	items[0] = SPA_DICT_ITEM_INIT("device.api",  "alsa");
-	items[1] = SPA_DICT_ITEM_INIT("device.path", (char *)this->props.device);
-	items[2] = SPA_DICT_ITEM_INIT("device.nick", snd_ctl_card_info_get_id(info));
-	items[3] = SPA_DICT_ITEM_INIT("media.class", "Audio/Device");
-	items[4] = SPA_DICT_ITEM_INIT("alsa.card.id",	      snd_ctl_card_info_get_id(info));
-	items[5] = SPA_DICT_ITEM_INIT("alsa.card.components", snd_ctl_card_info_get_components(info));
-	items[6] = SPA_DICT_ITEM_INIT("alsa.card.driver",     snd_ctl_card_info_get_driver(info));
-	items[7] = SPA_DICT_ITEM_INIT("alsa.card.name",       snd_ctl_card_info_get_name(info));
-	items[8] = SPA_DICT_ITEM_INIT("alsa.card.longname",   snd_ctl_card_info_get_longname(info));
-	items[9] = SPA_DICT_ITEM_INIT("alsa.card.mixername",  snd_ctl_card_info_get_mixername(info));
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
+	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NICK, snd_ctl_card_info_get_id(info));
+	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, (char *)this->props.device);
+	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_ID,	      snd_ctl_card_info_get_id(info));
+	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_COMPONENTS, snd_ctl_card_info_get_components(info));
+	items[6] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_DRIVER,     snd_ctl_card_info_get_driver(info));
+	items[7] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_NAME,       snd_ctl_card_info_get_name(info));
+	items[8] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_LONGNAME,   snd_ctl_card_info_get_longname(info));
+	items[9] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_MIXERNAME,  snd_ctl_card_info_get_mixername(info));
 	dinfo.props = &SPA_DICT_INIT(items, 10);
 
 	dinfo.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
@@ -463,8 +464,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info && (str = spa_dict_lookup(info, "alsa.card")))
-		snprintf(this->props.device, 64, "hw:%d", atoi(str));
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)))
+		snprintf(this->props.device, 64, "%s", str);
 
 	return 0;
 }

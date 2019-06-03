@@ -28,7 +28,9 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
+#include <spa/utils/keys.h>
 #include <spa/utils/list.h>
+#include <spa/monitor/device.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 
@@ -226,9 +228,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item node_info_items[] = {
-	{ "device.api", "alsa" },
-	{ "media.class", "Audio/Source" },
-	{ "node.driver", "true" },
+	{ SPA_KEY_DEVICE_API, "alsa" },
+	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
+	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
 static void emit_node_info(struct state *this, bool full)
@@ -776,7 +778,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->ready);
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (!strcmp(info->items[i].key, "alsa.device")) {
+		if (!strcmp(info->items[i].key, SPA_KEY_API_ALSA_PATH)) {
 			snprintf(this->props.device, 63, "%s", info->items[i].value);
 		}
 	}
@@ -805,8 +807,9 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_dict_item info_items[] = {
-	{ "factory.author", "Wim Taymans <wim.taymans@gmail.com>" },
-	{ "factory.description", "Record audio with the alsa API" },
+	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Record audio with the alsa API" },
+	{ SPA_KEY_FACTORY_USAGE, "["SPA_KEY_API_ALSA_PATH"=<device>]" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);

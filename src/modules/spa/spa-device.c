@@ -142,7 +142,7 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 	support = pw_core_get_support(core, &n_support);
 
 	if (lib == NULL && properties)
-		lib = pw_properties_get(properties, "spa.library.name");
+		lib = pw_properties_get(properties, SPA_KEY_LIBRARY_NAME);
 	if (lib == NULL)
 		lib = pw_core_find_spa_lib(core, factory_name);
 	if (lib == NULL)

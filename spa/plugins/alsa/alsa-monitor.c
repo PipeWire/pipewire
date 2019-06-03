@@ -34,6 +34,7 @@
 
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
+#include <spa/utils/keys.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/monitor.h>
@@ -124,41 +125,41 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	if (!(name && *name))
 		name = "Unknown";
 
-	items[n_items++] = SPA_DICT_ITEM_INIT("udev-probed", "1");
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.path", udev_device_get_devnode(dev));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MONITOR_API, "udev");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, udev_device_get_devnode(dev));
 
 	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
 		return 0;
 
-	items[n_items++] = SPA_DICT_ITEM_INIT("alsa.card", str);
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.name", name);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, str);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.class", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_CLASS, str);
 
 	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.plugged.usec", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PLUGGED_USEC, str);
 
 	str = udev_device_get_property_value(dev, "ID_PATH");
 	if (!(str && *str))
 		str = udev_device_get_syspath(dev);
 	if (str && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.bus_path", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_PATH, str);
 	}
 	if ((str = udev_device_get_syspath(dev)) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("sysfs.path", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SYSFS_PATH, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("udev.id", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ID, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.bus", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.subsystem", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SUBSYSTEM, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.vendor.id", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_ID, str);
 	}
 	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -168,18 +169,18 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 		}
 	}
 	if (str && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.vendor.name", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_NAME, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.product.id", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, str);
 	}
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.product.name", name);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_NAME, name);
 
 	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.serial", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SERIAL, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "SOUND_FORM_FACTOR")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT("device.form_factor", str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR, str);
 	}
 	info.props = &SPA_DICT_INIT(items, n_items);
 	spa_monitor_call_object_info(&this->callbacks, id, &info);

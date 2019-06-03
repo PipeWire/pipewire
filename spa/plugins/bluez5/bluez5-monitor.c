@@ -44,6 +44,7 @@
 #include <spa/monitor/monitor.h>
 #include <spa/monitor/utils.h>
 #include <spa/utils/type.h>
+#include <spa/utils/keys.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"
@@ -503,14 +504,14 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
 
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.path", device->path);
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.name", device->name);
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.api", "bluez5");
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.alias", device->alias);
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.icon", device->icon);
-	items[n_items++] = SPA_DICT_ITEM_INIT("device.bluez5.address", device->address);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "bluez5");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, device->name);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ALIAS, device->alias);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, device->icon);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 	snprintf(dev, sizeof(dev), "%p", device);
-	items[n_items++] = SPA_DICT_ITEM_INIT("bluez5.device", dev);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_DEVICE, dev);
 
 	info.props = &SPA_DICT_INIT(items, n_items);
 

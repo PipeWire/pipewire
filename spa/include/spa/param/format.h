@@ -128,6 +128,9 @@ enum spa_format {
 	SPA_FORMAT_START_Stream = 0x40000,
 };
 
+#define SPA_KEY_FORMAT_DSP		"format.dsp"		/**< a predefined DSP format,
+								  *  Ex. "32 bit float mono audio" */
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

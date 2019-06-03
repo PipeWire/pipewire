@@ -236,6 +236,42 @@ struct spa_device_methods {
 #define spa_device_enum_params(d,...)	spa_device_method(d, enum_params, 0, __VA_ARGS__)
 #define spa_device_set_param(d,...)	spa_device_method(d, set_param, 0, __VA_ARGS__)
 
+#define SPA_KEY_DEVICE_API		"device.api"		/**< the api used by the device
+								  *  Ex. "alsa", "v4l2". */
+#define SPA_KEY_DEVICE_NAME		"device.name"		/**< the name of the device */
+#define SPA_KEY_DEVICE_ALIAS		"device.alias"		/**< altenative name of the device */
+#define SPA_KEY_DEVICE_NICK		"device.nick"		/**< the device short name */
+#define SPA_KEY_DEVICE_ID		"device.id"		/**< the device id */
+#define SPA_KEY_DEVICE_DESCRIPTION	"device.description"	/**< a device description */
+#define SPA_KEY_DEVICE_ICON		"device.icon"		/**< icon for the device. A base64 blob
+								  *  containing PNG image data */
+#define SPA_KEY_DEVICE_ICON_NAME	"device.icon-name"	/**< an XDG icon name for the device.
+								  *  Ex. "sound-card-speakers-usb" */
+#define SPA_KEY_DEVICE_PLUGGED_USEC	"device.plugged.usec"	/**< when the device was plugged */
+
+#define SPA_KEY_DEVICE_BUS_PATH		"device.bus-path"	/**< bus path to the device in the OS'
+								  *  format.
+								  *  Ex. "pci-0000:00:14.0-usb-0:3.2:1.0" */
+#define SPA_KEY_DEVICE_BUS		"device.bus"		/**< bus of the device if applicable. One of
+								   *  "isa", "pci", "usb", "firewire",
+								   *  "bluetooth" */
+#define SPA_KEY_DEVICE_SUBSYSTEM	"device.subsystem"	/**< device subsystem */
+#define SPA_KEY_DEVICE_SYSFS_PATH	"device.sysfs.path"	/**< device sysfs path */
+
+#define SPA_KEY_DEVICE_VENDOR_ID	"device.vendor.id"	/**< vendor ID if applicable */
+#define SPA_KEY_DEVICE_VENDOR_NAME	"device.vendor.name"	/**< vendor name if applicable */
+#define SPA_KEY_DEVICE_PRODUCT_ID	"device.product.id"	/**< product ID if applicable */
+#define SPA_KEY_DEVICE_PRODUCT_NAME	"device.product.name"	/**< product name if applicable */
+#define SPA_KEY_DEVICE_SERIAL		"device.serial"		/**< Serial number if applicable */
+#define SPA_KEY_DEVICE_CLASS		"device.class"		/**< device class */
+#define SPA_KEY_DEVICE_CAPABILITIES	"device.capabilities"	/**< api specific device capabilities */
+#define SPA_KEY_DEVICE_FORM_FACTOR	"device.form-factor"	/**< form factor if applicable. One of
+								  *  "internal", "speaker", "handset", "tv",
+								  *  "webcam", "microphone", "headset",
+								  *  "headphone", "hands-free", "car", "hifi",
+								  *  "computer", "portable" */
+
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

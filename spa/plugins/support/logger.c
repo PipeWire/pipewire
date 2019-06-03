@@ -226,9 +226,9 @@ impl_init(const struct spa_handle_factory *factory,
 			loop = support[i].data;
 	}
 	if (info) {
-		if ((str = spa_dict_lookup(info, "log.colors")) != NULL)
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
 			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
-		if ((str = spa_dict_lookup(info, "log.file")) != NULL) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {
 			this->file = fopen(str, "w");
 			if (this->file == NULL)
 				fprintf(stderr, "failed to open file %s: (%s)", str, strerror(errno));

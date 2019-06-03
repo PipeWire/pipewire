@@ -32,6 +32,7 @@
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
+#include <spa/utils/keys.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
@@ -441,7 +442,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 }
 
 static const struct spa_dict_item node_info_items[] = {
-	{ "media.class", "Audio/Source" },
+	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
 };
 
 static void emit_node_info(struct impl *this, bool full)
@@ -1088,8 +1089,8 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_dict_item info_items[] = {
-	{ "factory.author", "Wim Taymans <wim.taymans@gmail.com>" },
-	{ "factory.description", "Generate an audio test pattern" },
+	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Generate an audio test pattern" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);

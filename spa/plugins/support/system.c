@@ -97,7 +97,7 @@ static int impl_timerfd_create(void *object, int clockid, int flags)
 		fl |= TFD_CLOEXEC;
 	if (flags & SPA_FD_NONBLOCK)
 		fl |= TFD_NONBLOCK;
-	return timerfd_create(clockid, flags);
+	return timerfd_create(clockid, fl);
 }
 
 static int impl_timerfd_settime(void *object,

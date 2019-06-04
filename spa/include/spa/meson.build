@@ -89,6 +89,7 @@ spa_support_headers = [
   'support/log-impl.h',
   'support/loop.h',
   'support/plugin.h',
+  'support/system.h',
 ]
 
 install_headers(spa_support_headers,

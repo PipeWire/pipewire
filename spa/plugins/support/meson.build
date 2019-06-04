@@ -1,7 +1,8 @@
 spa_support_sources = ['cpu.c',
 		       'logger.c',
 		       'loop.c',
-		       'plugin.c']
+		       'plugin.c',
+		       'system.c']
 
 spa_support_lib = shared_library('spa-support',
 			spa_support_sources,

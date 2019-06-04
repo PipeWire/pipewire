@@ -576,6 +576,7 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 		return 0;
 
 	node->master = node->driver && driver == node;
+	pw_log_info("node %p: driver %p master:%u", node, driver, node->master);
 
 	node->driver_node = driver;
 	pw_node_emit_driver_changed(node, old, driver);
@@ -1382,7 +1383,7 @@ static void node_activate(struct pw_node *this)
 	}
 }
 
-/** Set th node state
+/** Set the node state
  * \param node a \ref pw_node
  * \param state a \ref pw_node_state
  * \return 0 on success < 0 on error

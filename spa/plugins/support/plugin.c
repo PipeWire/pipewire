@@ -28,8 +28,9 @@
 #include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_support_logger_factory;
-extern const struct spa_handle_factory spa_support_loop_factory;
+extern const struct spa_handle_factory spa_support_system_factory;
 extern const struct spa_handle_factory spa_support_cpu_factory;
+extern const struct spa_handle_factory spa_support_loop_factory;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -42,10 +43,13 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		*factory = &spa_support_logger_factory;
 		break;
 	case 1:
-		*factory = &spa_support_loop_factory;
+		*factory = &spa_support_system_factory;
 		break;
 	case 2:
 		*factory = &spa_support_cpu_factory;
+		break;
+	case 3:
+		*factory = &spa_support_loop_factory;
 		break;
 	default:
 		return 0;

@@ -202,7 +202,6 @@ struct spa_loop_control_methods {
 #define spa_loop_control_leave(l)		spa_loop_control_method_v(l,leave,0)
 #define spa_loop_control_iterate(l,...)		spa_loop_control_method_r(l,iterate,0,__VA_ARGS__)
 
-
 typedef void (*spa_source_io_func_t) (void *data, int fd, enum spa_io mask);
 typedef void (*spa_source_idle_func_t) (void *data);
 typedef void (*spa_source_event_func_t) (void *data, uint64_t count);

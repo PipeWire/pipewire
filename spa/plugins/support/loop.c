@@ -29,12 +29,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/epoll.h>
-#include <sys/timerfd.h>
-#include <sys/eventfd.h>
-#include <sys/signalfd.h>
 #include <pthread.h>
 
 #include <spa/support/loop.h>
+#include <spa/support/system.h>
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/list.h>
@@ -68,6 +66,7 @@ struct impl {
 	struct spa_loop_utils utils;
 
         struct spa_log *log;
+        struct spa_system *system;
 
 	struct spa_list source_list;
 	struct spa_list destroy_list;
@@ -97,7 +96,6 @@ struct source_impl {
 		spa_source_timer_func_t timer;
 		spa_source_signal_func_t signal;
 	} func;
-	int signal_number;
 	bool enabled;
 };
 /** \endcond */
@@ -242,9 +240,9 @@ loop_invoke(void *object,
 
 			spa_loop_control_hook_before(&impl->hooks_list);
 
-			if (read(impl->ack_fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+			if ((res = spa_system_eventfd_read(impl->system, impl->ack_fd, &count)) < 0)
 				spa_log_warn(impl->log, NAME " %p: failed to read event fd: %s",
-						impl, strerror(errno));
+						impl, spa_strerror(res));
 
 			spa_loop_control_hook_after(&impl->hooks_list);
 
@@ -264,6 +262,8 @@ static void wakeup_func(void *data, uint64_t count)
 {
 	struct impl *impl = data;
 	uint32_t index;
+	int res;
+
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
 		struct invoke_item *item;
 		bool block;
@@ -278,10 +278,9 @@ static void wakeup_func(void *data, uint64_t count)
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
 
 		if (block) {
-			uint64_t c = 1;
-			if (write(impl->ack_fd, &c, sizeof(uint64_t)) != sizeof(uint64_t))
+			if ((res = spa_system_eventfd_write(impl->system, impl->ack_fd, 1)) < 0)
 				spa_log_warn(impl->log, NAME " %p: failed to write event fd: %s",
-						impl, strerror(errno));
+						impl, spa_strerror(res));
 		}
 	}
 }
@@ -407,17 +406,17 @@ static void source_idle_func(struct spa_source *source)
 static void loop_enable_idle(void *object, struct spa_source *source, bool enabled)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	uint64_t count;
+	int res;
 
 	if (enabled && !impl->enabled) {
-		count = 1;
-		if (write(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+		if ((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0)
 			spa_log_warn(impl->impl->log, NAME " %p: failed to write idle fd %d: %s",
-					source, source->fd, strerror(errno));
+					source, source->fd, spa_strerror(res));
 	} else if (!enabled && impl->enabled) {
-		if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+		uint64_t count;
+		if ((res = spa_system_eventfd_read(impl->impl->system, source->fd, &count)) < 0)
 			spa_log_warn(impl->impl->log, NAME " %p: failed to read idle fd %d: %s",
-					source, source->fd, strerror(errno));
+					source, source->fd, spa_strerror(res));
 	}
 	impl->enabled = enabled;
 }
@@ -434,7 +433,7 @@ static struct spa_source *loop_add_idle(void *object,
 	source->source.loop = &impl->loop;
 	source->source.func = source_idle_func;
 	source->source.data = data;
-	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	source->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	source->impl = impl;
 	source->close = true;
 	source->source.mask = SPA_IO_IN;
@@ -454,10 +453,11 @@ static void source_event_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	uint64_t count;
+	int res;
 
-	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+	if ((res = spa_system_eventfd_read(impl->impl->system, source->fd, &count)) < 0)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read event fd %d: %s",
-				source, source->fd, strerror(errno));
+				source, source->fd, spa_strerror(res));
 
 	impl->func.event(source->data, count);
 }
@@ -475,7 +475,7 @@ static struct spa_source *loop_add_event(void *object,
 	source->source.loop = &impl->loop;
 	source->source.func = source_event_func;
 	source->source.data = data;
-	source->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	source->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
@@ -491,21 +491,23 @@ static struct spa_source *loop_add_event(void *object,
 static void loop_signal_event(void *object, struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	uint64_t count = 1;
+	int res;
 
-	if (write(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+	if ((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to write event fd %d: %s",
-				source, source->fd, strerror(errno));
+				source, source->fd, spa_strerror(res));
 }
 
 static void source_timer_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	uint64_t expirations;
+	int res;
 
-	if (read(source->fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
+	if ((res = spa_system_timerfd_read(impl->impl->system,
+				source->fd, &expirations)) < 0)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read timer fd %d: %s",
-				source, source->fd, strerror(errno));
+				source, source->fd, spa_strerror(res));
 
 	impl->func.timer(source->data, expirations);
 }
@@ -523,7 +525,8 @@ static struct spa_source *loop_add_timer(void *object,
 	source->source.loop = &impl->loop;
 	source->source.func = source_timer_func;
 	source->source.data = data;
-	source->source.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+	source->source.fd = spa_system_timerfd_create(impl->system, CLOCK_MONOTONIC,
+			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
@@ -540,6 +543,7 @@ static int
 loop_update_timer(void *object, struct spa_source *source,
 		  struct timespec *value, struct timespec *interval, bool absolute)
 {
+	struct impl *impl = object;
 	struct itimerspec its;
 	int flags = 0;
 
@@ -553,9 +557,9 @@ loop_update_timer(void *object, struct spa_source *source,
 	if (interval)
 		its.it_interval = *interval;
 	if (absolute)
-		flags |= TFD_TIMER_ABSTIME;
+		flags |= SPA_FD_TIMER_ABSTIME;
 
-	if (timerfd_settime(source->fd, flags, &its, NULL) < 0)
+	if (spa_system_timerfd_settime(impl->system, source->fd, flags, &its, NULL) < 0)
 		return errno;
 
 	return 0;
@@ -564,15 +568,13 @@ loop_update_timer(void *object, struct spa_source *source,
 static void source_signal_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	struct signalfd_siginfo signal_info;
-	int len;
+	int res, signal_number;
 
-	len = read(source->fd, &signal_info, sizeof signal_info);
-	if (!(len == -1 && errno == EAGAIN) && len != sizeof signal_info)
+	if ((res = spa_system_signalfd_read(impl->impl->system, source->fd, &signal_number)) < 0)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read signal fd %d: %s",
-				source, source->fd, strerror(errno));
+				source, source->fd, spa_strerror(res));
 
-	impl->func.signal(source->data, impl->signal_number);
+	impl->func.signal(source->data, signal_number);
 }
 
 static struct spa_source *loop_add_signal(void *object,
@@ -581,7 +583,6 @@ static struct spa_source *loop_add_signal(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
-	sigset_t mask;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
@@ -591,16 +592,13 @@ static struct spa_source *loop_add_signal(void *object,
 	source->source.func = source_signal_func;
 	source->source.data = data;
 
-	sigemptyset(&mask);
-	sigaddset(&mask, signal_number);
-	source->source.fd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
-	sigprocmask(SIG_BLOCK, &mask, NULL);
+	source->source.fd = spa_system_signalfd_create(impl->system,
+			signal_number, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
 	source->func.signal = func;
-	source->signal_number = signal_number;
 
 	loop_add_source(impl, &source->source);
 
@@ -695,7 +693,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	process_destroy(impl);
 
-	close(impl->ack_fd);
+	spa_system_close(impl->system, impl->ack_fd);
 	close(impl->epoll_fd);
 
 	return 0;
@@ -739,8 +737,14 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_loop_utils, impl);
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			impl->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_System:
+			impl->system = support[i].data;
+			break;
+		}
 	}
 
 	impl->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
@@ -754,7 +758,8 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_ringbuffer_init(&impl->buffer);
 
 	impl->wakeup = loop_add_event(impl, wakeup_func, impl);
-	impl->ack_fd = eventfd(0, EFD_SEMAPHORE | EFD_CLOEXEC);
+	impl->ack_fd = spa_system_eventfd_create(impl->system,
+			SPA_FD_EVENT_SEMAPHORE | SPA_FD_CLOEXEC);
 
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);
 

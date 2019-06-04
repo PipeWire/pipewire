@@ -378,8 +378,18 @@ void pw_init(int *argc, char **argv[])
 			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, iface);
 		pw_log_set(iface);
 	}
+	handle = load_handle(plugin, "system", NULL, support->n_support, support->support);
+	if (handle == NULL ||
+	    (res = spa_handle_get_interface(&handle->handle,
+					    SPA_TYPE_INTERFACE_System, &iface)) < 0) {
+		fprintf(stderr, "can't get System interface %d\n", res);
+	}
+	else {
+		support->support[support->n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, iface);
+	}
 
-	handle = load_handle(plugin, "cpu", &info, support->n_support, support->support);
+	handle = load_handle(plugin, "cpu", NULL, support->n_support, support->support);
 	if (handle == NULL ||
 	    (res = spa_handle_get_interface(&handle->handle,
 					    SPA_TYPE_INTERFACE_CPU, &iface)) < 0) {

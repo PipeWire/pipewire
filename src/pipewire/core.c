@@ -1030,9 +1030,8 @@ static int collect_nodes(struct pw_node *driver)
 	}
 	quantum = SPA_MAX(quantum, MIN_QUANTUM);
 
-	if (driver->rt.position && quantum != driver->rt.position->size) {
+	if (driver->rt.position && quantum != driver->rt.position->size)
 		driver->rt.position->size = quantum;
-	}
 
 	return 0;
 }

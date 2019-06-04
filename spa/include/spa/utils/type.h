@@ -68,6 +68,7 @@ enum {
 	SPA_TYPE_INTERFACE_Handle,		/**< object handle */
 	SPA_TYPE_INTERFACE_HandleFactory,	/**< factory for object handles */
 	SPA_TYPE_INTERFACE_Log,			/**< log interface */
+	SPA_TYPE_INTERFACE_System,		/**< System functions */
 	SPA_TYPE_INTERFACE_Loop,		/**< poll loop support */
 	SPA_TYPE_INTERFACE_LoopControl,		/**< control of loops */
 	SPA_TYPE_INTERFACE_LoopUtils,		/**< loop utilities */

@@ -242,7 +242,9 @@ static void test_support(void)
 	const struct spa_support *support;
 	uint32_t n_support;
 	uint32_t types[] = {
+		SPA_TYPE_INTERFACE_DataSystem,
 		SPA_TYPE_INTERFACE_DataLoop,
+		SPA_TYPE_INTERFACE_System,
 		SPA_TYPE_INTERFACE_Loop,
 		SPA_TYPE_INTERFACE_LoopUtils,
 		SPA_TYPE_INTERFACE_Log,

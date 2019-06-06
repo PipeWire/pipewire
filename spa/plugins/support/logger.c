@@ -27,10 +27,10 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
-#include <sys/eventfd.h>
 
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
+#include <spa/support/system.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/type.h>
@@ -93,14 +93,13 @@ impl_log_logv(void *object,
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;
-		uint64_t count = 1;
 
 		spa_ringbuffer_get_write_index(&impl->trace_rb, &index);
 		spa_ringbuffer_write_data(&impl->trace_rb, impl->trace_data, TRACE_BUFFER,
 					  index & (TRACE_BUFFER - 1), location, size);
 		spa_ringbuffer_write_update(&impl->trace_rb, index + size);
 
-		if (write(impl->source.fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+		if (spa_system_eventfd_write(impl->system, impl->source.fd, 1) < 0)
 			fprintf(impl->file, "error signaling eventfd: %s\n", strerror(errno));
 	} else
 		fputs(location, impl->file);
@@ -129,7 +128,7 @@ static void on_trace_event(struct spa_source *source)
 	uint32_t index;
 	uint64_t count;
 
-	if (read(source->fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (spa_system_eventfd_read(impl->system, source->fd, &count) < 0)
 		fprintf(impl->file, "failed to read event fd: %s", strerror(errno));
 
 	while ((avail = spa_ringbuffer_get_read_index(&impl->trace_rb, &index)) > 0) {
@@ -247,10 +246,10 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->file == NULL)
 		this->file = stderr;
 
-	if (loop) {
+	if (loop != NULL && this->system != NULL) {
 		this->source.func = on_trace_event;
 		this->source.data = this;
-		this->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+		this->source.fd = spa_system_eventfd_create(this->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 		this->source.mask = SPA_IO_IN;
 		this->source.rmask = 0;
 		spa_loop_add_source(loop, &this->source);

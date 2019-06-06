@@ -76,9 +76,9 @@ static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, voi
 			status == DBUS_DISPATCH_COMPLETE ? false : true);
 }
 
-static inline enum spa_io dbus_to_io(DBusWatch *watch)
+static inline uint32_t dbus_to_io(DBusWatch *watch)
 {
-	enum spa_io mask;
+	uint32_t mask;
 	unsigned int flags;
 
 	/* no watch flags for disabled watches */
@@ -96,7 +96,7 @@ static inline enum spa_io dbus_to_io(DBusWatch *watch)
 	return mask;
 }
 
-static inline unsigned int io_to_dbus(enum spa_io mask)
+static inline unsigned int io_to_dbus(uint32_t mask)
 {
 	unsigned int flags = 0;
 
@@ -112,7 +112,7 @@ static inline unsigned int io_to_dbus(enum spa_io mask)
 }
 
 static void
-handle_io_event(void *userdata, int fd, enum spa_io mask)
+handle_io_event(void *userdata, int fd, uint32_t mask)
 {
 	DBusWatch *watch = userdata;
 

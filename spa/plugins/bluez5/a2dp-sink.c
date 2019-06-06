@@ -25,12 +25,12 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <sys/timerfd.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
+#include <spa/support/system.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/monitor/device.h>
@@ -90,8 +90,8 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
+	struct spa_system *data_system;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -249,7 +249,7 @@ static int set_timers(struct impl *this)
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
 
-	res = timerfd_settime(this->timerfd, 0, &ts, NULL);
+	res = spa_system_timerfd_settime(this->data_system, this->timerfd, 0, &ts, NULL);
 	this->source.mask = SPA_IO_IN;
 	spa_loop_update_source(this->data_loop, &this->source);
 	return res;
@@ -632,7 +632,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 			     &this->now, &ts.it_value);
 		ts.it_interval.tv_sec = 0;
 		ts.it_interval.tv_nsec = 0;
-		timerfd_settime(this->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
+		spa_system_timerfd_settime(this->data_system, this->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 		this->source.mask = SPA_IO_IN;
 		spa_loop_update_source(this->data_loop, &this->source);
 	} else {
@@ -658,7 +658,7 @@ static void a2dp_on_flush(struct spa_source *source)
 		return;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &this->now);
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 	now_time = this->now.tv_sec * SPA_NSEC_PER_SEC + this->now.tv_nsec;
 
 	flush_data(this, now_time);
@@ -672,10 +672,10 @@ static void a2dp_on_timeout(struct spa_source *source)
 	uint64_t exp, now_time;
 	struct spa_io_buffers *io = port->io;
 
-	if (this->started && read(this->timerfd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
 		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
 
-	clock_gettime(CLOCK_MONOTONIC, &this->now);
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
 
 	spa_log_trace(this->log, NAME" %p: timeout %ld %ld", this,
@@ -851,7 +851,7 @@ static int do_remove_source(struct spa_loop *loop,
 	ts.it_value.tv_nsec = 0;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(this->timerfd, 0, &ts, NULL);
+	spa_system_timerfd_settime(this->data_system, this->timerfd, 0, &ts, NULL);
 	if (this->flush_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->flush_source);
 
@@ -1311,7 +1311,7 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	clock_gettime(CLOCK_MONOTONIC, &this->now);
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
 
 	if (!spa_list_is_empty(&port->ready))
@@ -1393,6 +1393,8 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this = (struct impl *) handle;
+	spa_system_close(this->data_system, this->timerfd);
 	return 0;
 }
 
@@ -1423,19 +1425,24 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
+			break;
+		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
-			this->main_loop = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_DataSystem:
+			this->data_system = support[i].data;
+			break;
+		}
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");
 		return -EINVAL;
 	}
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main loop is needed");
+	if (this->data_system == NULL) {
+		spa_log_error(this->log, "a data system is needed");
 		return -EINVAL;
 	}
 
@@ -1482,7 +1489,8 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 
-	this->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+	this->timerfd = spa_system_timerfd_create(this->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
 	return 0;
 }

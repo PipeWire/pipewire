@@ -32,6 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
+#include <spa/support/system.h>
 
 #define SPA_VERSION_LOOP		0
 struct spa_loop { struct spa_interface iface; };
@@ -41,13 +42,6 @@ struct spa_loop_control { struct spa_interface iface; };
 struct spa_loop_utils { struct spa_interface iface; };
 struct spa_source;
 
-enum spa_io {
-	SPA_IO_IN = (1 << 0),
-	SPA_IO_OUT = (1 << 1),
-	SPA_IO_HUP = (1 << 2),
-	SPA_IO_ERR = (1 << 3),
-};
-
 typedef void (*spa_source_func_t) (struct spa_source *source);
 
 struct spa_source {
@@ -55,8 +49,8 @@ struct spa_source {
 	spa_source_func_t func;
 	void *data;
 	int fd;
-	enum spa_io mask;
-	enum spa_io rmask;
+	uint32_t mask;
+	uint32_t rmask;
 };
 
 typedef int (*spa_invoke_func_t) (struct spa_loop *loop,
@@ -202,7 +196,7 @@ struct spa_loop_control_methods {
 #define spa_loop_control_leave(l)		spa_loop_control_method_v(l,leave,0)
 #define spa_loop_control_iterate(l,...)		spa_loop_control_method_r(l,iterate,0,__VA_ARGS__)
 
-typedef void (*spa_source_io_func_t) (void *data, int fd, enum spa_io mask);
+typedef void (*spa_source_io_func_t) (void *data, int fd, uint32_t mask);
 typedef void (*spa_source_idle_func_t) (void *data);
 typedef void (*spa_source_event_func_t) (void *data, uint64_t count);
 typedef void (*spa_source_timer_func_t) (void *data, uint64_t expirations);
@@ -219,11 +213,11 @@ struct spa_loop_utils_methods {
 
 	struct spa_source *(*add_io) (void *object,
 				      int fd,
-				      enum spa_io mask,
+				      uint32_t mask,
 				      bool close,
 				      spa_source_io_func_t func, void *data);
 
-	int (*update_io) (void *object, struct spa_source *source, enum spa_io mask);
+	int (*update_io) (void *object, struct spa_source *source, uint32_t mask);
 
 	struct spa_source *(*add_idle) (void *object,
 					bool enabled,

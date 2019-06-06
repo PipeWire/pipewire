@@ -28,7 +28,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/epoll.h>
 #include <pthread.h>
 
 #include <spa/support/loop.h>
@@ -72,7 +71,7 @@ struct impl {
 	struct spa_list destroy_list;
 	struct spa_hook_list hooks_list;
 
-	int epoll_fd;
+	int poll_fd;
 	pthread_t thread;
 
 	struct spa_source *wakeup;
@@ -100,83 +99,38 @@ struct source_impl {
 };
 /** \endcond */
 
-static inline uint32_t spa_io_to_epoll(enum spa_io mask)
-{
-	uint32_t events = 0;
-
-	if (mask & SPA_IO_IN)
-		events |= EPOLLIN;
-	if (mask & SPA_IO_OUT)
-		events |= EPOLLOUT;
-	if (mask & SPA_IO_ERR)
-		events |= EPOLLERR;
-	if (mask & SPA_IO_HUP)
-		events |= EPOLLHUP;
-
-	return events;
-}
-
-static inline enum spa_io spa_epoll_to_io(uint32_t events)
-{
-	enum spa_io mask = 0;
-
-	if (events & EPOLLIN)
-		mask |= SPA_IO_IN;
-	if (events & EPOLLOUT)
-		mask |= SPA_IO_OUT;
-	if (events & EPOLLHUP)
-		mask |= SPA_IO_HUP;
-	if (events & EPOLLERR)
-		mask |= SPA_IO_ERR;
-
-	return mask;
-}
-
 static int loop_add_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
 
 	source->loop = &impl->loop;
 
-	if (source->fd != -1) {
-		struct epoll_event ep;
+	if (SPA_UNLIKELY(source->fd == -1))
+		return 0;
 
-		spa_zero(ep);
-		ep.events = spa_io_to_epoll(source->mask);
-		ep.data.ptr = source;
-
-		if (epoll_ctl(impl->epoll_fd, EPOLL_CTL_ADD, source->fd, &ep) < 0)
-			return errno;
-	}
-	return 0;
+	return spa_system_pollfd_add(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
 static int loop_update_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
 
-	if (source->fd != -1) {
-		struct epoll_event ep;
+	if (SPA_UNLIKELY(source->fd == -1))
+		return 0;
 
-		spa_zero(ep);
-		ep.events = spa_io_to_epoll(source->mask);
-		ep.data.ptr = source;
-
-		if (epoll_ctl(impl->epoll_fd, EPOLL_CTL_MOD, source->fd, &ep) < 0)
-			return errno;
-	}
-	return 0;
+	return spa_system_pollfd_mod(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
 static int loop_remove_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
 
-	if (source->fd != -1)
-		epoll_ctl(impl->epoll_fd, EPOLL_CTL_DEL, source->fd, NULL);
-
 	source->loop = NULL;
-	return 0;
+
+	if (SPA_UNLIKELY(source->fd == -1))
+		return 0;
+
+	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
 }
 
 static int
@@ -288,7 +242,7 @@ static void wakeup_func(void *data, uint64_t count)
 static int loop_get_fd(void *object)
 {
 	struct impl *impl = object;
-	return impl->epoll_fd;
+	return impl->poll_fd;
 }
 
 static void
@@ -325,12 +279,13 @@ static int loop_iterate(void *object, int timeout)
 {
 	struct impl *impl = object;
 	struct spa_loop *loop = &impl->loop;
-	struct epoll_event ep[32];
+	struct spa_poll_event ep[32];
 	int i, nfds, save_errno = 0;
 
 	spa_loop_control_hook_before(&impl->hooks_list);
 
-	if (SPA_UNLIKELY((nfds = epoll_wait(impl->epoll_fd, ep, SPA_N_ELEMENTS(ep), timeout)) < 0))
+	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
+	if (SPA_UNLIKELY(nfds < 0))
 		save_errno = errno;
 
 	spa_loop_control_hook_after(&impl->hooks_list);
@@ -342,11 +297,11 @@ static int loop_iterate(void *object, int timeout)
 	 * some callback might also want to look at other sources it manages and
 	 * can then reset the rmask to suppress the callback */
 	for (i = 0; i < nfds; i++) {
-		struct spa_source *s = ep[i].data.ptr;
-		s->rmask = spa_epoll_to_io(ep[i].events);
+		struct spa_source *s = ep[i].data;
+		s->rmask = ep[i].events;
 	}
 	for (i = 0; i < nfds; i++) {
-		struct spa_source *s = ep[i].data.ptr;
+		struct spa_source *s = ep[i].data;
 		if (s->rmask && s->fd != -1 && s->loop == loop)
 			s->func(s);
 	}
@@ -363,7 +318,7 @@ static void source_io_func(struct spa_source *source)
 
 static struct spa_source *loop_add_io(void *object,
 				      int fd,
-				      enum spa_io mask,
+				      uint32_t mask,
 				      bool close, spa_source_io_func_t func, void *data)
 {
 	struct impl *impl = object;
@@ -389,7 +344,7 @@ static struct spa_source *loop_add_io(void *object,
 	return &source->source;
 }
 
-static int loop_update_io(void *object, struct spa_source *source, enum spa_io mask)
+static int loop_update_io(void *object, struct spa_source *source, uint32_t mask)
 {
 	source->mask = mask;
 	return loop_update_source(object, source);
@@ -694,7 +649,7 @@ static int impl_clear(struct spa_handle *handle)
 	process_destroy(impl);
 
 	spa_system_close(impl->system, impl->ack_fd);
-	close(impl->epoll_fd);
+	spa_system_close(impl->system, impl->poll_fd);
 
 	return 0;
 }
@@ -746,9 +701,13 @@ impl_init(const struct spa_handle_factory *factory,
 			break;
 		}
 	}
+	if (impl->system == NULL) {
+		spa_log_error(impl->log, NAME " %p: a System is needed", impl);
+		return -EINVAL;
+	}
 
-	impl->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-	if (impl->epoll_fd == -1)
+	impl->poll_fd = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC);
+	if (impl->poll_fd < 0)
 		return errno;
 
 	spa_list_init(&impl->source_list);

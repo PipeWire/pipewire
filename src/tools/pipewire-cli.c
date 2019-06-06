@@ -1312,7 +1312,7 @@ static bool parse(struct data *data, char *buf, size_t size, char **error)
 	return false;
 }
 
-static void do_input(void *data, int fd, enum spa_io mask)
+static void do_input(void *data, int fd, uint32_t mask)
 {
 	struct data *d = data;
 	char buf[4096], *error;

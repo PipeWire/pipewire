@@ -38,7 +38,9 @@
 struct impl {
 	struct pw_loop this;
 
-	struct spa_handle *handle;
+	struct spa_handle *system_handle;
+	struct spa_handle *loop_handle;
+	struct pw_properties *properties;
 };
 /** \endcond */
 
@@ -52,63 +54,97 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	int res;
 	struct impl *impl;
 	struct pw_loop *this;
-	const struct spa_handle_factory *factory;
 	void *iface;
-	const struct spa_support *support;
+	struct spa_support support[32];
 	uint32_t n_support;
+	const char *lib;
 
-	support = pw_get_support(&n_support);
-	if (support == NULL)
-		return NULL;
+	n_support = pw_get_support(support, 32);
 
-	factory = pw_get_support_factory("loop");
-	if (factory == NULL)
-		return NULL;
-
-	impl = calloc(1, sizeof(struct impl) + spa_handle_factory_get_size(factory, NULL));
+	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return NULL;
 
-	impl->handle = SPA_MEMBER(impl, sizeof(struct impl), struct spa_handle);
-
 	this = &impl->this;
+	impl->properties = properties;
 
-	if ((res = spa_handle_factory_init(factory,
-					   impl->handle,
-					   NULL,
-					   support,
-					   n_support)) < 0) {
-		fprintf(stderr, "can't make factory instance: %d\n", res);
-		goto failed;
+	if (properties)
+		lib = pw_properties_get(properties, PW_KEY_LOOP_LIBRARY_SYSTEM);
+	else
+		lib = NULL;
+
+	impl->system_handle = pw_load_spa_handle(lib,
+			"system",
+			properties ? &properties->dict : NULL,
+			n_support, support);
+	if (impl->system_handle == NULL) {
+		pw_log_error("can't make system handle");
+		goto out_free;
 	}
 
-        if ((res = spa_handle_get_interface(impl->handle,
+        if ((res = spa_handle_get_interface(impl->system_handle,
+					    SPA_TYPE_INTERFACE_System,
+					    &iface)) < 0) {
+                fprintf(stderr, "can't get System interface %d\n", res);
+                goto out_free_system;
+	}
+	this->system = iface;
+
+	support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, iface);
+
+	if (properties)
+		lib = pw_properties_get(properties, PW_KEY_LOOP_LIBRARY_LOOP);
+	else
+		lib = NULL;
+
+	impl->loop_handle = pw_load_spa_handle(lib,
+			"loop",
+			properties ? &properties->dict : NULL,
+			n_support, support);
+	if (impl->loop_handle == NULL) {
+		pw_log_error("can't make loop handle");
+		goto out_free_system;
+	}
+
+        if ((res = spa_handle_get_interface(impl->system_handle,
+					    SPA_TYPE_INTERFACE_System,
+					    &iface)) < 0) {
+                fprintf(stderr, "can't get System interface %d\n", res);
+                goto out_free_loop;
+	}
+	this->system = iface;
+
+        if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_Loop,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get Loop interface %d\n", res);
-                goto failed;
+                goto out_free_loop;
         }
 	this->loop = iface;
 
-        if ((res = spa_handle_get_interface(impl->handle,
+        if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopControl,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get LoopControl interface %d\n", res);
-                goto failed;
+                goto out_free_loop;
         }
 	this->control = iface;
 
-        if ((res = spa_handle_get_interface(impl->handle,
+        if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopUtils,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get LoopUtils interface %d\n", res);
-                goto failed;
+                goto out_free_loop;
         }
 	this->utils = iface;
 
 	return this;
 
-      failed:
+      out_free_loop:
+	pw_unload_spa_handle(impl->loop_handle);
+      out_free_system:
+	pw_unload_spa_handle(impl->system_handle);
+      out_free:
 	free(impl);
 	return NULL;
 }
@@ -122,6 +158,9 @@ void pw_loop_destroy(struct pw_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-	spa_handle_clear(impl->handle);
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+	pw_unload_spa_handle(impl->loop_handle);
+	pw_unload_spa_handle(impl->system_handle);
 	free(impl);
 }

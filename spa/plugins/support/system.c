@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/timerfd.h>
 #include <sys/eventfd.h>
@@ -43,7 +44,6 @@
 struct impl {
 	struct spa_handle handle;
 	struct spa_system system;
-
         struct spa_log *log;
 };
 
@@ -89,6 +89,90 @@ static int impl_clock_getres(void *object,
 	return clock_getres(clockid, res);
 }
 
+/* poll */
+static inline uint32_t spa_io_to_epoll(uint32_t mask)
+{
+	uint32_t events = 0;
+
+	if (mask & SPA_IO_IN)
+		events |= EPOLLIN;
+	if (mask & SPA_IO_OUT)
+		events |= EPOLLOUT;
+	if (mask & SPA_IO_ERR)
+		events |= EPOLLERR;
+	if (mask & SPA_IO_HUP)
+		events |= EPOLLHUP;
+
+	return events;
+}
+
+static inline uint32_t spa_epoll_to_io(uint32_t events)
+{
+	uint32_t mask = 0;
+
+	if (events & EPOLLIN)
+		mask |= SPA_IO_IN;
+	if (events & EPOLLOUT)
+		mask |= SPA_IO_OUT;
+	if (events & EPOLLHUP)
+		mask |= SPA_IO_HUP;
+	if (events & EPOLLERR)
+		mask |= SPA_IO_ERR;
+
+	return mask;
+}
+
+static int impl_pollfd_create(void *object, int flags)
+{
+	int fl = 0;
+	if (flags & SPA_FD_CLOEXEC)
+		fl |= EPOLL_CLOEXEC;
+	return epoll_create1(fl);
+}
+
+static int impl_pollfd_add(void *object, int pfd, int fd, uint32_t events, void *data)
+{
+	struct epoll_event ep;
+
+	spa_zero(ep);
+	ep.events = spa_io_to_epoll(events);
+	ep.data.ptr = data;
+
+	return epoll_ctl(pfd, EPOLL_CTL_ADD, fd, &ep);
+}
+
+static int impl_pollfd_mod(void *object, int pfd, int fd, uint32_t events, void *data)
+{
+	struct epoll_event ep;
+
+	spa_zero(ep);
+	ep.events = spa_io_to_epoll(events);
+	ep.data.ptr = data;
+
+	return epoll_ctl(pfd, EPOLL_CTL_MOD, fd, &ep);
+}
+
+static int impl_pollfd_del(void *object, int pfd, int fd)
+{
+	return epoll_ctl(pfd, EPOLL_CTL_DEL, fd, NULL);
+}
+
+static int impl_pollfd_wait(void *object, int pfd,
+		struct spa_poll_event *ev, int n_ev, int timeout)
+{
+	struct epoll_event ep[n_ev];
+	int i, nfds;
+
+	if (SPA_UNLIKELY((nfds = epoll_wait(pfd, ep, SPA_N_ELEMENTS(ep), timeout)) < 0))
+		return nfds;
+
+        for (i = 0; i < nfds; i++) {
+                ev[i].events = spa_epoll_to_io(ep[i].events);
+                ev[i].data = ep[i].data.ptr;
+        }
+	return nfds;
+}
+
 /* timers */
 static int impl_timerfd_create(void *object, int clockid, int flags)
 {
@@ -121,8 +205,7 @@ static int impl_timerfd_gettime(void *object,
 }
 static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
 {
-	int res;
-	if ((res = read(fd, expirations, sizeof(uint64_t))) != sizeof(uint64_t))
+	if (read(fd, expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 		return -errno;
 	return 0;
 }
@@ -195,6 +278,11 @@ static const struct spa_system_methods impl_system = {
 	.close = impl_close,
 	.clock_gettime = impl_clock_gettime,
 	.clock_getres = impl_clock_getres,
+	.pollfd_create = impl_pollfd_create,
+	.pollfd_add = impl_pollfd_add,
+	.pollfd_mod = impl_pollfd_mod,
+	.pollfd_del = impl_pollfd_del,
+	.pollfd_wait = impl_pollfd_wait,
 	.timerfd_create = impl_timerfd_create,
 	.timerfd_settime = impl_timerfd_settime,
 	.timerfd_gettime = impl_timerfd_gettime,
@@ -261,8 +349,11 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_system, impl);
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			impl->log = support[i].data;
+			break;
+		}
 	}
 
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);

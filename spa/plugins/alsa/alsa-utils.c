@@ -7,9 +7,9 @@
 #include <sys/time.h>
 #include <math.h>
 #include <limits.h>
-#include <sys/timerfd.h>
 
 #include <spa/pod/filter.h>
+#include <spa/support/system.h>
 #include <spa/control/control.h>
 
 #include "alsa-utils.h"
@@ -34,7 +34,8 @@ static int spa_alsa_open(struct state *state)
 			   SND_PCM_NO_AUTO_RESAMPLE |
 			   SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT), "open failed");
 
-	state->timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+	state->timerfd = spa_system_timerfd_create(state->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	state->opened = true;
 	state->sample_count = 0;
 	state->sample_time = 0;
@@ -52,7 +53,7 @@ int spa_alsa_close(struct state *state)
 	spa_log_info(state->log, "%p: Device '%s' closing", state, state->props.device);
 	CHECK(snd_pcm_close(state->hndl), "close failed");
 
-	close(state->timerfd);
+	spa_system_close(state->data_system, state->timerfd);
 	state->opened = false;
 
 	return err;
@@ -495,7 +496,8 @@ static int set_timeout(struct state *state, uint64_t time)
 		ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
 		ts.it_interval.tv_sec = 0;
 		ts.it_interval.tv_nsec = 0;
-		timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
+		spa_system_timerfd_settime(state->data_system,
+				state->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 	}
 	return 0;
 }
@@ -998,13 +1000,13 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	uint64_t expire;
 	int res;
 
-	if (state->started && read(state->timerfd, &expire, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0)
 		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
 
 	if (state->position)
 		state->threshold = state->position->size;
 
-	clock_gettime(CLOCK_MONOTONIC, &state->now);
+	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &state->now);
 	if ((res = get_status(state, &delay)) < 0)
 		return;
 
@@ -1049,7 +1051,7 @@ static int set_timers(struct state *state)
 		ts.it_value.tv_nsec = 1;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(state->timerfd, 0, &ts, NULL);
+	spa_system_timerfd_settime(state->data_system, state->timerfd, 0, &ts, NULL);
 	return 0;
 }
 
@@ -1160,7 +1162,7 @@ static int do_remove_source(struct spa_loop *loop,
 	ts.it_value.tv_nsec = 0;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(state->timerfd, 0, &ts, NULL);
+	spa_system_timerfd_settime(state->data_system, state->timerfd, 0, &ts, NULL);
 
 	return 0;
 }

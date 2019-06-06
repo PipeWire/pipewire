@@ -194,7 +194,7 @@ client_busy_changed(void *data, bool busy)
 {
 	struct client_data *c = data;
 	struct pw_client *client = c->client;
-	enum spa_io mask = SPA_IO_ERR | SPA_IO_HUP;
+	uint32_t mask = SPA_IO_ERR | SPA_IO_HUP;
 
 	c->busy = busy;
 
@@ -210,7 +210,7 @@ client_busy_changed(void *data, bool busy)
 }
 
 static void
-connection_data(void *data, int fd, enum spa_io mask)
+connection_data(void *data, int fd, uint32_t mask)
 {
 	struct client_data *this = data;
 	struct pw_client *client = this->client;
@@ -370,7 +370,7 @@ static bool lock_socket(struct server *s)
 }
 
 static void
-socket_data(void *data, int fd, enum spa_io mask)
+socket_data(void *data, int fd, uint32_t mask)
 {
 	struct server *s = data;
 	struct pw_client *client;
@@ -467,7 +467,7 @@ static int impl_steal_fd(struct pw_protocol_client *client)
 }
 
 static void
-on_remote_data(void *data, int fd, enum spa_io mask)
+on_remote_data(void *data, int fd, uint32_t mask)
 {
 	struct client *impl = data;
 	struct pw_remote *this = impl->this.remote;

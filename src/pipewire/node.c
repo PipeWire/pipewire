@@ -30,6 +30,7 @@
 #include <time.h>
 #include <sys/eventfd.h>
 
+#include <spa/support/system.h>
 #include <spa/pod/parser.h>
 #include <spa/node/utils.h>
 #include <spa/debug/types.h>
@@ -671,6 +672,7 @@ static inline int resume_node(struct pw_node *this, int status)
 	struct pw_node_target *t;
 	struct timespec ts;
 	struct pw_node_activation *activation = this->rt.activation;
+	struct spa_system *data_system = this->core->data_system;
 	uint64_t nsec;
 
 	if (status & SPA_STATUS_HAVE_BUFFER) {
@@ -678,7 +680,7 @@ static inline int resume_node(struct pw_node *this, int status)
 			spa_node_process(p->mix);
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
 	activation->status = FINISHED;
 	activation->finish_time = nsec;
@@ -708,11 +710,12 @@ static inline int process_node(void *data)
 	struct timespec ts;
         struct pw_port *p;
 	struct pw_node_activation *a = this->rt.activation;
+	struct spa_system *data_system = this->core->data_system;
 	int status;
 
         pw_log_trace_fp("node %p: process", this);
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->status = AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
@@ -723,7 +726,7 @@ static inline int process_node(void *data)
 	a->state[0].status = status;
 
 	if (this == this->driver_node && !this->exported) {
-		clock_gettime(CLOCK_MONOTONIC, &ts);
+		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 		a->status = FINISHED;
 		a->signal_time = a->finish_time;
 		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
@@ -742,6 +745,7 @@ static inline int process_node(void *data)
 static void node_on_fd_events(struct spa_source *source)
 {
 	struct pw_node *this = source->data;
+	struct spa_system *data_system = this->core->data_system;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("node %p: got socket error %08x", this, source->rmask);
@@ -751,7 +755,7 @@ static void node_on_fd_events(struct spa_source *source)
 	if (source->rmask & SPA_IO_IN) {
 		uint64_t cmd;
 
-		if (read(this->source.fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
+		if (spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0 || cmd != 1)
 			pw_log_warn("node %p: read %"PRIu64" failed %m", this, cmd);
 
 		pw_log_trace_fp("node %p: got process", this);
@@ -768,6 +772,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_node *this;
 	size_t size;
+	struct spa_system *data_system = core->data_system;
 	char *n;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -795,7 +800,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	size = sizeof(struct pw_node_activation);
 
-	this->source.fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	this->source.fd = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	if (this->source.fd == -1)
 		goto clean_impl;
 
@@ -856,7 +861,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
     clean_impl:
 	if (this->source.func != NULL)
-		close(this->source.fd);
+		spa_system_close(this->core->data_system, this->source.fd);
 	if (properties)
 		pw_properties_free(properties);
 	free(impl);
@@ -1197,7 +1202,7 @@ void pw_node_destroy(struct pw_node *node)
 
 	clear_info(node);
 
-	close(node->source.fd);
+	spa_system_close(node->core->data_system, node->source.fd);
 	free(impl);
 }
 

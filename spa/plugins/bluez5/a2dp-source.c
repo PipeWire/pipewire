@@ -33,6 +33,7 @@
 
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
+#include <spa/support/system.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/monitor/device.h>
@@ -91,8 +92,8 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
+	struct spa_system *data_system;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -392,7 +393,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	}
 
 	/* update the current pts */
-	clock_gettime(CLOCK_MONOTONIC, &this->now);
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 
 again:
 	/* read data from socket */
@@ -1113,19 +1114,24 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
+			break;
+		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
-			this->main_loop = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_DataSystem:
+			this->data_system = support[i].data;
+			break;
+		}
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");
 		return -EINVAL;
 	}
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main loop is needed");
+	if (this->data_system == NULL) {
+		spa_log_error(this->log, "a data system is needed");
 		return -EINVAL;
 	}
 

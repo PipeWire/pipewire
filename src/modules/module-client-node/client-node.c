@@ -28,8 +28,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
-#include <sys/eventfd.h>
 
+#include <spa/support/system.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/pod/filter.h>
@@ -127,6 +127,7 @@ struct node {
 
 	struct spa_log *log;
 	struct spa_loop *data_loop;
+	struct spa_system *data_system;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -978,15 +979,14 @@ static int impl_node_process(void *object)
 	struct impl *impl = this->impl;
 	struct pw_node *n = impl->this.node;
 	struct timespec ts;
-	uint64_t cmd = 1;
 
 	spa_log_trace_fp(this->log, "%p: send process %p", this, impl->this.node->driver_node);
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts);
 	n->rt.activation->status = TRIGGERED;
 	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (write(this->writefd, &cmd, sizeof(cmd)) != sizeof(cmd))
+	if (spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0)
 		spa_log_warn(this->log, "node %p: error %m", this);
 
 	return SPA_STATUS_OK;
@@ -1118,7 +1118,8 @@ static void node_on_data_fd_events(struct spa_source *source)
 	if (source->rmask & SPA_IO_IN) {
 		uint64_t cmd;
 
-		if (read(this->data_source.fd, &cmd, sizeof(cmd)) != sizeof(cmd) || cmd != 1)
+		if (spa_system_eventfd_read(this->data_system,
+					this->data_source.fd, &cmd) < 0 || cmd != 1)
 			spa_log_warn(this->log, "node %p: read %"PRIu64" failed %m", this, cmd);
 
 		spa_log_trace_fp(this->log, "node %p: got ready", this);
@@ -1162,12 +1163,17 @@ node_init(struct node *this,
 		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
 			break;
-		default:
+		case SPA_TYPE_INTERFACE_DataSystem:
+			this->data_system = support[i].data;
 			break;
 		}
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data-loop is needed");
+		return -EINVAL;
+	}
+	if (this->data_system == NULL) {
+		spa_log_error(this->log, "a data-system is needed");
 		return -EINVAL;
 	}
 
@@ -1292,13 +1298,14 @@ static void node_initialized(void *data)
 	struct pw_client_node *this = &impl->this;
 	struct pw_node *node = this->node;
 	struct pw_global *global;
+	struct spa_system *data_system = impl->node.data_system;
 	size_t size;
 
 	if (this->resource == NULL)
 		return;
 
-	impl->fds[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-	impl->fds[1] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	impl->node.data_source.fd = impl->fds[0];
 	impl->node.writefd = impl->fds[1];
 	impl->other_fds[0] = impl->fds[1];
@@ -1325,6 +1332,7 @@ static void node_initialized(void *data)
 static void node_free(void *data)
 {
 	struct impl *impl = data;
+	struct spa_system *data_system = impl->node.data_system;
 
 	pw_log_debug("client-node %p: free", &impl->this);
 	node_clear(&impl->node);
@@ -1338,9 +1346,9 @@ static void node_free(void *data)
 	pw_map_clear(&impl->io_map);
 
 	if (impl->fds[0] != -1)
-		close(impl->fds[0]);
+		spa_system_close(data_system, impl->fds[0]);
 	if (impl->fds[1] != -1)
-		close(impl->fds[1]);
+		spa_system_close(data_system, impl->fds[1]);
 	free(impl);
 }
 

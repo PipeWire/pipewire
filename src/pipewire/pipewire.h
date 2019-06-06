@@ -137,8 +137,7 @@ pw_fill_stream_properties(struct pw_core *core, struct pw_properties *properties
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);
 
-void *
-pw_get_support_interface(uint32_t type);
+uint32_t pw_get_support(struct spa_support *support, uint32_t max_support);
 
 struct spa_handle *pw_load_spa_handle(const char *lib,
 		const char *factory_name,
@@ -147,12 +146,6 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 		const struct spa_support support[]);
 
 int pw_unload_spa_handle(struct spa_handle *handle);
-
-const struct spa_handle_factory *
-pw_get_support_factory(const char *factory_name);
-
-const struct spa_support *
-pw_get_support(uint32_t *n_support);
 
 #ifdef __cplusplus
 }

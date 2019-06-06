@@ -445,7 +445,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	struct pw_core *this;
 	const char *name;
 	void *dbus_iface = NULL;
-	int res;
+	uint32_t n_support;
+	int res = 0;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -465,31 +466,33 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	this->properties = properties;
 
-	this->data_loop_impl = pw_data_loop_new(properties);
+	this->data_loop_impl = pw_data_loop_new(pw_properties_copy(properties));
 	if (this->data_loop_impl == NULL)
 		goto no_data_loop;
 
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
+	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
 	pw_array_init(&this->factory_lib, 32);
 	pw_map_init(&this->globals, 128, 32);
 
-	this->support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
-	this->support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, this->main_loop->loop);
-	this->support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
-	this->support[3] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
+	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support));
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, this->main_loop->loop);
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_system);
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
 
-	impl->dbus_handle = pw_load_spa_handle("support/libspa-dbus", "dbus", NULL, 4, this->support);
-	if (impl->dbus_handle) {
-		if ((res = spa_handle_get_interface(impl->dbus_handle,
-						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0)
+	impl->dbus_handle = pw_load_spa_handle("support/libspa-dbus", "dbus", NULL, n_support, this->support);
+	if (impl->dbus_handle == NULL ||
+	    (res = spa_handle_get_interface(impl->dbus_handle,
+						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
 			pw_log_warn("can't load dbus interface: %s", spa_strerror(res));
+	} else {
+		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
 	}
-	this->support[4] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
-	this->support[5] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_CPU,
-			pw_get_support_interface(SPA_TYPE_INTERFACE_CPU));
-	this->n_support = 6;
+	this->n_support = n_support;
 
 	pw_data_loop_start(this->data_loop_impl);
 

@@ -29,22 +29,35 @@
 extern "C" {
 #endif
 
+#include <sys/timerfd.h>
+
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 
 /**
- * a collection of system functions
+ * a collection of core system functions
  */
 #define SPA_VERSION_SYSTEM		0
 struct spa_system { struct spa_interface iface; };
 
+/* IO events */
+#define SPA_IO_IN	(1 << 0)
+#define SPA_IO_OUT	(1 << 1)
+#define SPA_IO_HUP	(1 << 2)
+#define SPA_IO_ERR	(1 << 3)
 
+/* flags */
 #define SPA_FD_CLOEXEC			(1<<0)
 #define SPA_FD_NONBLOCK			(1<<1)
 #define SPA_FD_EVENT_SEMAPHORE		(1<<2)
 #define SPA_FD_TIMER_ABSTIME		(1<<3)
 #define SPA_FD_TIMER_CANCEL_ON_SET	(1<<4)
+
+struct spa_poll_event {
+	uint32_t events;
+	void *data;
+};
 
 struct spa_system_methods {
 #define SPA_VERSION_SYSTEM_METHODS	0
@@ -61,6 +74,14 @@ struct spa_system_methods {
 			int clockid, struct timespec *value);
 	int (*clock_getres) (void *object,
 			int clockid, struct timespec *res);
+
+	/* poll */
+	int (*pollfd_create) (void *object, int flags);
+	int (*pollfd_add) (void *object, int pfd, int fd, uint32_t events, void *data);
+	int (*pollfd_mod) (void *object, int pfd, int fd, uint32_t events, void *data);
+	int (*pollfd_del) (void *object, int pfd, int fd);
+	int (*pollfd_wait) (void *object, int pfd,
+			struct spa_poll_event *ev, int n_ev, int timeout);
 
 	/* timers */
 	int (*timerfd_create) (void *object, int clockid, int flags);
@@ -100,6 +121,12 @@ struct spa_system_methods {
 
 #define spa_system_clock_gettime(s,...)		spa_system_method_r(s,clock_gettime,0,__VA_ARGS__)
 #define spa_system_clock_getres(s,...)		spa_system_method_r(s,clock_getres,0,__VA_ARGS__)
+
+#define spa_system_pollfd_create(s,...)		spa_system_method_r(s,pollfd_create,0,__VA_ARGS__)
+#define spa_system_pollfd_add(s,...)		spa_system_method_r(s,pollfd_add,0,__VA_ARGS__)
+#define spa_system_pollfd_mod(s,...)		spa_system_method_r(s,pollfd_mod,0,__VA_ARGS__)
+#define spa_system_pollfd_del(s,...)		spa_system_method_r(s,pollfd_del,0,__VA_ARGS__)
+#define spa_system_pollfd_wait(s,...)		spa_system_method_r(s,pollfd_wait,0,__VA_ARGS__)
 
 #define spa_system_timerfd_create(s,...)	spa_system_method_r(s,timerfd_create,0,__VA_ARGS__)
 #define spa_system_timerfd_settime(s,...)	spa_system_method_r(s,timerfd_settime,0,__VA_ARGS__)

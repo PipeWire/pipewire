@@ -142,6 +142,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
+	const char *str;
 	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -158,14 +159,22 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_cpu, this);
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		}
 	}
 	this->flags = 0;
 	this->force = SPA_CPU_FORCE_AUTODETECT;
 	this->max_align = 16;
 	this->count = get_count(this);
 	init(this);
+
+	if (info) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_FORCE)) != NULL)
+			this->flags = atoi(str);
+	}
 
 	spa_log_debug(this->log, NAME " %p: count:%d align:%d flags:%08x",
 			this, this->count, this->max_align, this->flags);

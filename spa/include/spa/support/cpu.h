@@ -114,6 +114,9 @@ struct spa_cpu_methods {
 #define spa_cpu_get_count(c)		spa_cpu_method(c, get_count, 0)
 #define spa_cpu_get_max_align(c)	spa_cpu_method(c, get_max_align, 0)
 
+/** keys can be given when initializing the cpu handle */
+#define SPA_KEY_CPU_FORCE		"cpu.force"		/**< force cpu flags */
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

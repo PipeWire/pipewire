@@ -33,22 +33,22 @@ static void do_stop(void *data, uint64_t count)
         this->quit = true;
 }
 
-static enum spa_io map_flags_to_spa(pa_io_event_flags_t flags) {
-	return (enum spa_io)
+static uint32_t map_flags_to_spa(pa_io_event_flags_t flags) {
+	return (uint32_t)
 		((flags & PA_IO_EVENT_INPUT ? SPA_IO_IN : 0) |
 		 (flags & PA_IO_EVENT_OUTPUT ? SPA_IO_OUT : 0) |
 		 (flags & PA_IO_EVENT_ERROR ? SPA_IO_ERR : 0) |
 		 (flags & PA_IO_EVENT_HANGUP ? SPA_IO_HUP : 0));
 }
 
-static pa_io_event_flags_t map_flags_from_spa(enum spa_io flags) {
+static pa_io_event_flags_t map_flags_from_spa(uint32_t flags) {
 	return (flags & SPA_IO_IN ? PA_IO_EVENT_INPUT : 0) |
 		 (flags & SPA_IO_OUT ? PA_IO_EVENT_OUTPUT : 0) |
 		 (flags & SPA_IO_ERR ? PA_IO_EVENT_ERROR : 0) |
 		 (flags & SPA_IO_HUP ? PA_IO_EVENT_HANGUP : 0);
 }
 
-static void source_io_func(void *data, int fd, enum spa_io mask)
+static void source_io_func(void *data, int fd, uint32_t mask)
 {
 	pa_io_event *ev = data;
 	if (ev->cb)

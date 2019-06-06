@@ -56,7 +56,6 @@ int main(int argc, char *argv[])
 	struct pw_main_loop *loop;
 	struct pw_daemon_config *config;
 	char *err = NULL;
-	struct pw_properties *props;
 	static const struct option long_options[] = {
 		{"help",	0, NULL, 'h'},
 		{"version",	0, NULL, 'v'},
@@ -97,14 +96,16 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	props = pw_properties_new(PW_KEY_CORE_NAME, daemon_name,
-				  PW_KEY_CORE_DAEMON, "1", NULL);
 
-	loop = pw_main_loop_new(props);
+	loop = pw_main_loop_new(NULL);
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGINT, do_quit, loop);
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGTERM, do_quit, loop);
 
-	core = pw_core_new(pw_main_loop_get_loop(loop), props, 0);
+	core = pw_core_new(pw_main_loop_get_loop(loop),
+			pw_properties_new(
+				PW_KEY_CORE_NAME, daemon_name,
+				PW_KEY_CORE_DAEMON, "1", NULL),
+			0);
 
 	if (pw_daemon_config_run_commands(config, core) < 0) {
 		pw_log_error("failed to run config commands");

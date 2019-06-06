@@ -378,10 +378,14 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_dbus, this);
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_LoopUtils)
+			break;
+		case SPA_TYPE_INTERFACE_LoopUtils:
 			this->utils = support[i].data;
+			break;
+		}
 	}
 	if (this->utils == NULL) {
 		spa_log_error(this->log, "a LoopUtils is needed");

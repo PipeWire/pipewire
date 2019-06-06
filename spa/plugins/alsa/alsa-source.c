@@ -727,19 +727,24 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct state *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
+			break;
+		case SPA_TYPE_INTERFACE_DataSystem:
+			this->data_system = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
-			this->main_loop = support[i].data;
+			break;
+		}
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");
 		return -EINVAL;
 	}
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main loop is needed");
+	if (this->data_system == NULL) {
+		spa_log_error(this->log, "a data system is needed");
 		return -EINVAL;
 	}
 

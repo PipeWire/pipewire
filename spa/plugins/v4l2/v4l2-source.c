@@ -127,7 +127,6 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 
 	uint64_t info_all;
@@ -959,16 +958,14 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
-			this->main_loop = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
+			break;
+		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
-	}
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main_loop is needed");
-		return -EINVAL;
+			break;
+		}
 	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data_loop is needed");

@@ -2236,7 +2236,7 @@ impl_init(const struct spa_handle_factory *factory,
 		case SPA_TYPE_INTERFACE_DBus:
 			this->dbus = support[i].data;
 			break;
-		case SPA_TYPE_INTERFACE_MainLoop:
+		case SPA_TYPE_INTERFACE_Loop:
 			this->main_loop = support[i].data;
 			break;
 		}

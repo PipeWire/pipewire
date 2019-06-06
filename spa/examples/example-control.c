@@ -509,7 +509,7 @@ int main(int argc, char *argv[])
 		data.log->level = atoi(str);
 
 	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.data_loop);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, &data.data_loop);
 	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.data_loop);
 	data.n_support = 3;
 

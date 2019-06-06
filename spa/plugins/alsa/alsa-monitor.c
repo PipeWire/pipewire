@@ -444,7 +444,7 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; i < n_support; i++) {
 		if (support[i].type == SPA_TYPE_INTERFACE_Log)
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
+		else if (support[i].type == SPA_TYPE_INTERFACE_Loop)
 			this->main_loop = support[i].data;
 	}
 	if (this->main_loop == NULL) {

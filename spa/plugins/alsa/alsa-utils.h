@@ -76,7 +76,7 @@ struct state {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
+	struct spa_system *data_system;
 	struct spa_loop *data_loop;
 
 	snd_pcm_stream_t stream;

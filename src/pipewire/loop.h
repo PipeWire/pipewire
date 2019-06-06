@@ -40,6 +40,7 @@ extern "C" {
  * event loops.
  */
 struct pw_loop {
+	struct spa_system *system;		/**< system utils */
 	struct spa_loop *loop;			/**< wrapped loop */
 	struct spa_loop_control *control;	/**< loop control */
 	struct spa_loop_utils *utils;		/**< loop utils */

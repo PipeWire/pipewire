@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 			&impl_loop, &data);
 
 	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_MainLoop, &data.main_loop);
+	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, &data.main_loop);
 	data.n_support = 3;
 
 	if (argc < 2) {

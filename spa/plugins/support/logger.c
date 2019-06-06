@@ -45,6 +45,8 @@ struct impl {
 	struct spa_handle handle;
 	struct spa_log log;
 
+	struct spa_system *system;
+
 	bool colors;
 	FILE *file;
 
@@ -222,8 +224,14 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log.level = DEFAULT_LOG_LEVEL;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Loop:
 			loop = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_System:
+			this->system = support[i].data;
+			break;
+		}
 	}
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)

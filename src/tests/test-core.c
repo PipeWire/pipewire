@@ -243,7 +243,7 @@ static void test_support(void)
 	uint32_t n_support;
 	uint32_t types[] = {
 		SPA_TYPE_INTERFACE_DataLoop,
-		SPA_TYPE_INTERFACE_MainLoop,
+		SPA_TYPE_INTERFACE_Loop,
 		SPA_TYPE_INTERFACE_LoopUtils,
 		SPA_TYPE_INTERFACE_Log,
 		SPA_TYPE_INTERFACE_DBus,

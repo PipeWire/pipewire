@@ -63,7 +63,6 @@ struct impl {
 	struct spa_device device;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 
 	struct spa_hook_list hooks;
 
@@ -446,14 +445,11 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_MainLoop)
-			this->main_loop = support[i].data;
-	}
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main-loop is needed");
-		return -EINVAL;
+			break;
+		}
 	}
 
 	this->device.iface = SPA_INTERFACE_INIT(

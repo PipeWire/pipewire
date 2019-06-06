@@ -788,7 +788,7 @@ static void process_tee(struct client *c)
 }
 
 static void
-on_rtsocket_condition(void *data, int fd, enum spa_io mask)
+on_rtsocket_condition(void *data, int fd, uint32_t mask)
 {
 	struct client *c = data;
 	struct timespec ts;

@@ -163,6 +163,7 @@ static inline void spa_log_trace_fp (struct spa_log *l, const char *format, ...)
 #endif
 
 /** keys can be given when initializing the logger handle */
+#define SPA_KEY_LOG_LEVEL		"log.level"		/**< the default log level */
 #define SPA_KEY_LOG_COLORS		"log.colors"		/**< enable colors in the logger */
 #define SPA_KEY_LOG_FILE		"log.file"		/**< log to the specified file instead of
 								  *  stderr. */

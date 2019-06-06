@@ -228,6 +228,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
 			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
+			this->log.level = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {
 			this->file = fopen(str, "w");
 			if (this->file == NULL)

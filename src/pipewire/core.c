@@ -443,7 +443,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 {
 	struct impl *impl;
 	struct pw_core *this;
-	const char *name;
+	const char *name, *lib;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
 	int res = 0;
@@ -488,7 +488,11 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
 
-	impl->dbus_handle = pw_load_spa_handle("support/libspa-dbus", "dbus", NULL, n_support, this->support);
+	lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_DBUS);
+	if (lib == NULL)
+		lib = "support/libspa-dbus";
+
+	impl->dbus_handle = pw_load_spa_handle(lib, "dbus", NULL, n_support, this->support);
 	if (impl->dbus_handle == NULL ||
 	    (res = spa_handle_get_interface(impl->dbus_handle,
 						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
@@ -1112,4 +1116,34 @@ const char *pw_core_find_spa_lib(struct pw_core *core, const char *factory_name)
 			return entry->lib;
 	}
 	return NULL;
+}
+
+SPA_EXPORT
+struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
+		const char *factory_name,
+		const struct spa_dict *info)
+{
+	const char *lib;
+	const struct spa_support *support;
+	uint32_t n_support;
+	struct spa_handle *handle;
+
+	pw_log_debug("core %p: load factory %s", core, factory_name);
+
+	lib = pw_core_find_spa_lib(core, factory_name);
+	if (lib == NULL && info != NULL)
+		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
+	if (lib == NULL) {
+		pw_log_warn("core %p: no library for %s: %m",
+				core, factory_name);
+		errno = ENOENT;
+		return NULL;
+	}
+
+	support = pw_core_get_support(core, &n_support);
+
+	handle = pw_load_spa_handle(lib, factory_name,
+			info, n_support, support);
+
+	return handle;
 }

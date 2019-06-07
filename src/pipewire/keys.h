@@ -61,10 +61,9 @@ extern "C" {
 #define PW_KEY_SEC_GID			"pipewire.sec.gid"	/**< client gid, set by protocol*/
 #define PW_KEY_SEC_LABEL		"pipewire.sec.label"	/**< client security label, set by protocol*/
 
-#define PW_KEY_LOOP_LIBRARY_SYSTEM	"loop.library.system"	/**< name of the system library to use for
-								  *  a loop. */
-#define PW_KEY_LOOP_LIBRARY_LOOP	"loop.library.loop"	/**< name of the loop library to use for a
-								  *  a loop. */
+#define PW_KEY_LIBRARY_NAME_SYSTEM	"library.name.system"	/**< name of the system library to use */
+#define PW_KEY_LIBRARY_NAME_LOOP	"library.name.loop"	/**< name of the loop library to use */
+#define PW_KEY_LIBRARY_NAME_DBUS	"library.name.dbus"	/**< name of the dbus library to use */
 
 #define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
 

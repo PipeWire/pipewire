@@ -249,26 +249,13 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	struct pw_node *this;
 	struct impl *impl;
 	struct spa_node *spa_node;
-	const char *lib = NULL;
 	int res;
 	struct spa_handle *handle;
 	void *iface;
-	const struct spa_support *support;
-	uint32_t n_support;
 
-	if (lib == NULL && properties)
-		lib = pw_properties_get(properties, SPA_KEY_LIBRARY_NAME);
-	if (lib == NULL)
-		lib = pw_core_find_spa_lib(core, factory_name);
-	if (lib == NULL)
-		goto exit;
-
-	support = pw_core_get_support(core, &n_support);
-
-	handle = pw_load_spa_handle(lib,
+	handle = pw_core_load_spa_handle(core,
 			factory_name,
-			properties ? &properties->dict : NULL,
-			n_support, support);
+			properties ? &properties->dict : NULL);
 	if (handle == NULL)
 		goto exit;
 

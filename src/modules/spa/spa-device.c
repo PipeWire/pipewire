@@ -133,35 +133,27 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 	struct pw_device *this;
 	struct impl *impl;
 	struct spa_handle *handle;
-	const struct spa_support *support;
-	const char *lib = NULL;
-	uint32_t n_support;
 	void *iface;
 	int res;
 
-	support = pw_core_get_support(core, &n_support);
-
-	if (lib == NULL && properties)
-		lib = pw_properties_get(properties, SPA_KEY_LIBRARY_NAME);
-	if (lib == NULL)
-		lib = pw_core_find_spa_lib(core, factory_name);
-	if (lib == NULL)
+	handle = pw_core_load_spa_handle(core, factory_name,
+			properties ? &properties->dict : NULL);
+	if (handle == NULL) {
+		pw_log_error("can't load device handle: %m");
 		goto exit;
-
-	handle = pw_load_spa_handle(lib, factory_name,
-			properties ? &properties->dict : NULL, n_support, support);
-	if (handle == NULL)
-		goto exit;
+	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
-		pw_log_error("can't get device interface %d\n", res);
+		pw_log_error("can't get device interface %d", res);
 		goto exit_unload;
 	}
 
 	this = pw_spa_device_new(core, owner, parent, name, flags,
 			       iface, handle, properties, user_data_size);
-	if (this == NULL)
+	if (this == NULL) {
+		pw_log_error("can't create device: %m");
 		goto exit;
+	}
 
 	impl = this->user_data;
 	impl->factory_name = strdup(factory_name);

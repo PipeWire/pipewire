@@ -1043,7 +1043,8 @@ static void client_node_initialized(void *data)
 	if (!exclusive &&
 	    media_type == SPA_MEDIA_TYPE_audio &&
 	    media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		struct spa_dict_item items[2];
+		struct spa_dict_item items[3];
+		uint32_t n_items;
 		const char *mode;
 		void *iface;
 
@@ -1052,14 +1053,14 @@ static void client_node_initialized(void *data)
 		else
 			mode = "merge";
 
-		items[0] = SPA_DICT_ITEM_INIT("factory.mode", mode);
-		items[1] = SPA_DICT_ITEM_INIT("resample.peaks", monitor ? "1" : "0");
+		n_items = 0;
+		items[n_items++] = SPA_DICT_ITEM_INIT("factory.mode", mode);
+		items[n_items++] = SPA_DICT_ITEM_INIT("resample.peaks", monitor ? "1" : "0");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 
-
-		if ((impl->handle = pw_load_spa_handle("audioconvert/libspa-audioconvert",
-				"audioconvert",
-				&SPA_DICT_INIT(items, 2),
-				0, NULL)) == NULL)
+		if ((impl->handle = pw_core_load_spa_handle(impl->core,
+						"audioconvert",
+						&SPA_DICT_INIT(items, n_items))) == NULL)
 			return;
 
 		if ((res = spa_handle_get_interface(impl->handle,
@@ -1277,7 +1278,6 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	spa_node_set_callbacks(impl->cnode, &node_callbacks, impl);
 
 	support = pw_core_get_support(impl->core, &n_support);
-
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
 

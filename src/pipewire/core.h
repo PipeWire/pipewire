@@ -153,6 +153,10 @@ int pw_core_add_spa_lib(struct pw_core *core, const char *factory_regex, const c
 /** find the library name for a spa factory */
 const char * pw_core_find_spa_lib(struct pw_core *core, const char *factory_name);
 
+struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
+		const char *factory_name,
+		const struct spa_dict *info);
+
 #ifdef __cplusplus
 }
 #endif

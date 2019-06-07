@@ -89,11 +89,9 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	int res;
 	struct spa_handle *handle;
 	struct monitor_object *obj;
-	const char *name, *str, *lib;
+	const char *name, *str;
 	void *iface;
 	struct pw_properties *props = NULL;
-	const struct spa_support *support;
-	uint32_t n_support;
 
 	if (info->props)
 		props = pw_properties_new_dict(info->props);
@@ -111,17 +109,8 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	if (now != 0 && pw_properties_get(props, PW_KEY_DEVICE_PLUGGED) == NULL)
 		pw_properties_setf(props, PW_KEY_DEVICE_PLUGGED, "%"PRIu64, now);
 
-	lib = pw_core_find_spa_lib(core, info->factory_name);
-	if (lib == NULL) {
-		pw_log_warn("monitor %p: unknown library for %s",
-				this, info->factory_name);
-		goto error_free_props;
-	}
-
-	support = pw_core_get_support(core, &n_support);
-
-	handle = pw_load_spa_handle(lib, info->factory_name,
-			&props->dict, n_support, support);
+	handle = pw_core_load_spa_handle(core, info->factory_name,
+			&props->dict);
 	if (handle == NULL) {
 		pw_log_error("can't make factory instance: %m");
 		goto error_free_props;
@@ -272,25 +261,12 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	struct impl *impl;
 	struct pw_spa_monitor *this;
 	struct spa_handle *handle;
-	const char *lib = NULL;
 	int res;
 	void *iface;
-	const struct spa_support *support;
-	uint32_t n_support;
 
-	if (lib == NULL && properties)
-		lib = pw_properties_get(properties, SPA_KEY_LIBRARY_NAME);
-	if (lib == NULL)
-		lib = pw_core_find_spa_lib(core, factory_name);
-	if (lib == NULL)
-		goto exit;
-
-	support = pw_core_get_support(core, &n_support);
-
-	handle = pw_load_spa_handle(lib,
+	handle = pw_core_load_spa_handle(core,
 			factory_name,
-			properties ? &properties->dict : NULL,
-			n_support, support);
+			properties ? &properties->dict : NULL);
 	if (handle == NULL)
 		goto exit;
 

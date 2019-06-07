@@ -108,9 +108,6 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	struct node *node;
 	struct impl *impl = obj->impl;
 	struct pw_core *core = impl->core;
-	const struct spa_support *support;
-	const char *lib;
-	uint32_t n_support;
 	struct spa_handle *handle;
 	int res;
 	void *iface;
@@ -120,18 +117,9 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	if (info->type != SPA_TYPE_INTERFACE_Node)
 		return NULL;
 
-	support = pw_core_get_support(core, &n_support);
-
-	lib = pw_core_find_spa_lib(core, info->factory_name);
-	if (lib == NULL) {
-		pw_log_error("can't find spa lib for factory %s", info->factory_name);
-		goto exit;
-	}
-
-	handle = pw_load_spa_handle(lib,
+	handle = pw_core_load_spa_handle(core,
 			info->factory_name,
-			info->props,
-			n_support, support);
+			info->props);
 	if (handle == NULL) {
 		pw_log_error("can't make factory instance: %m");
 		goto exit;
@@ -229,10 +217,7 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 {
 	struct pw_core *core = impl->core;
 	struct object *obj;
-	const struct spa_support *support;
-	uint32_t n_support;
 	struct spa_handle *handle;
-	const char *lib;
 	int res;
 	void *iface;
 
@@ -241,18 +226,9 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	if (info->type != SPA_TYPE_INTERFACE_Device)
 		return NULL;
 
-	support = pw_core_get_support(core, &n_support);
-
-	lib = pw_core_find_spa_lib(core, info->factory_name);
-	if (lib == NULL) {
-		pw_log_error("can't find spa lib for factory %s", info->factory_name);
-		goto exit;
-	}
-
-	handle = pw_load_spa_handle(lib,
+	handle = pw_core_load_spa_handle(core,
 			info->factory_name,
-			info->props,
-			n_support, support);
+			info->props);
 	if (handle == NULL) {
 		pw_log_error("can't make factory instance: %m");
 		goto exit;
@@ -334,24 +310,19 @@ static const struct spa_monitor_callbacks monitor_callbacks =
 
 static int start_monitor(struct impl *impl)
 {
-	const struct spa_support *support;
-	uint32_t n_support;
 	struct spa_handle *handle;
 	int res;
 	void *iface;
 
-	support = pw_core_get_support(impl->core, &n_support);
-
-	handle = pw_load_spa_handle("bluez5/libspa-bluez5",
-			"bluez5-monitor",
-			NULL,
-			n_support, support);
-	if (handle == NULL)
-		goto no_mem;
+	handle = pw_core_load_spa_handle(impl->core, "api.bluez5.monitor", NULL);
+	if (handle == NULL) {
+		res = -errno;
+		goto out;
+	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
-		goto interface_failed;
+		goto out_unload;
 	}
 
 	impl->monitor_handle = handle;
@@ -361,11 +332,10 @@ static int start_monitor(struct impl *impl)
 
 	return 0;
 
-      interface_failed:
+      out_unload:
 	pw_unload_spa_handle(handle);
+      out:
 	return res;
-      no_mem:
-	return -ENOMEM;
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
@@ -412,6 +382,8 @@ int main(int argc, char *argv[])
 	impl.loop = pw_main_loop_new(NULL);
 	impl.core = pw_core_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
         impl.remote = pw_remote_new(impl.core, NULL, 0);
+
+	pw_core_add_spa_lib(impl.core, "api.bluez5.*", "bluez5/libspa-bluez5");
 
 	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL, NULL, NULL);
 

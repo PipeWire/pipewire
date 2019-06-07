@@ -69,7 +69,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	impl->properties = properties;
 
 	if (properties)
-		lib = pw_properties_get(properties, PW_KEY_LOOP_LIBRARY_SYSTEM);
+		lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_SYSTEM);
 	else
 		lib = NULL;
 
@@ -94,7 +94,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, iface);
 
 	if (properties)
-		lib = pw_properties_get(properties, PW_KEY_LOOP_LIBRARY_LOOP);
+		lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_LOOP);
 	else
 		lib = NULL;
 

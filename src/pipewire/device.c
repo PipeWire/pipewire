@@ -444,13 +444,10 @@ static void device_add(struct pw_device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_core *core = device->core;
-	const struct spa_support *support;
-	uint32_t n_support;
 	struct spa_handle *handle;
 	struct pw_node *node;
 	struct node_data *nd;
 	struct pw_properties *props;
-	const char *lib;
 	int res;
 	void *iface;
 
@@ -463,22 +460,10 @@ static void device_add(struct pw_device *device, uint32_t id,
 		return;
 	}
 
-	lib = pw_core_find_spa_lib(core, info->factory_name);
-	if (lib == NULL) {
-		pw_log_warn("device %p: unknown library for %s",
-				device, info->factory_name);
-		return;
-	}
-
-	pw_log_debug("device %p: add node %d", device, id);
-	support = pw_core_get_support(core, &n_support);
-
-	handle = pw_load_spa_handle(lib, info->factory_name,
-			info->props, n_support, support);
-
+	handle = pw_core_load_spa_handle(core, info->factory_name, info->props);
 	if (handle == NULL) {
-		pw_log_warn("device %p: can't load handle %s:%s",
-				device, lib, info->factory_name);
+		pw_log_warn("device %p: can't load handle %s: %m",
+				device, info->factory_name);
 		return;
 	}
 

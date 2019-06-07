@@ -1708,6 +1708,10 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	asprintf(&pathfd, "%s/fd%d", path, fd);
 	t = transport_create(monitor, pathfd, sizeof(struct transport_data));
+	if (t == NULL) {
+		spa_log_warn(monitor->log, "can't create transport: %m");
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+	}
 	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
 
 	t->device = d;
@@ -1940,7 +1944,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		if (a == NULL) {
 			a = adapter_create(monitor, object_path);
 			if (a == NULL) {
-				spa_log_warn(monitor->log, "can't create adapter");
+				spa_log_warn(monitor->log, "can't create adapter: %m");
 				return;
 			}
 		}
@@ -1960,7 +1964,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		if (d == NULL) {
 			d = device_create(monitor, object_path);
 			if (d == NULL) {
-				spa_log_warn(monitor->log, "can't create device");
+				spa_log_warn(monitor->log, "can't create device: %m");
 				return;
 			}
 		}

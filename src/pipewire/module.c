@@ -61,6 +61,7 @@ static char *find_module(const char *path, const char *name)
 	struct dirent *entry;
 	struct stat s;
 	DIR *dir;
+	int res;
 
 	asprintf(&filename, "%s/%s.so", path, name);
 
@@ -76,7 +77,9 @@ static char *find_module(const char *path, const char *name)
 
 	dir = opendir(path);
 	if (dir == NULL) {
-		pw_log_warn("could not open %s: %s", path, strerror(errno));
+		res = -errno;
+		pw_log_warn("could not open %s: %m", path);
+		errno = -res;
 		return NULL;
 	}
 
@@ -87,6 +90,8 @@ static char *find_module(const char *path, const char *name)
 			continue;
 
 		asprintf(&newpath, "%s/%s", path, entry->d_name);
+		if (newpath == NULL)
+			return NULL;
 
 		if (stat(newpath, &s) == 0 && S_ISDIR(s.st_mode)) {
 			filename = find_module(newpath, name);
@@ -141,7 +146,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create module resource");
-	return -ENOMEM;
+	return -errno;
 }
 
 static void global_destroy(void *object)

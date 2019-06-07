@@ -64,6 +64,7 @@ static void do_stop(void *data, uint64_t count)
 struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 {
 	struct pw_data_loop *this;
+	int res;
 
 	this = calloc(1, sizeof(struct pw_data_loop));
 	if (this == NULL)
@@ -72,17 +73,26 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 	pw_log_debug("data-loop %p: new", this);
 
 	this->loop = pw_loop_new(properties);
-	if (this->loop == NULL)
+	if (this->loop == NULL) {
+		res = -errno;
 		goto no_loop;
+	}
+
+	this->event = pw_loop_add_event(this->loop, do_stop, this);
+	if (this->event == NULL) {
+		res = -errno;
+		goto no_event;
+	}
 
 	spa_hook_list_init(&this->listener_list);
 
-	this->event = pw_loop_add_event(this->loop, do_stop, this);
-
 	return this;
 
+      no_event:
+	pw_loop_destroy(this->loop);
       no_loop:
 	free(this);
+	errno = -res;
 	return NULL;
 }
 

@@ -78,6 +78,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 			properties ? &properties->dict : NULL,
 			n_support, support);
 	if (impl->system_handle == NULL) {
+		res = -errno;
 		pw_log_error("can't make system handle");
 		goto out_free;
 	}
@@ -102,6 +103,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 			properties ? &properties->dict : NULL,
 			n_support, support);
 	if (impl->loop_handle == NULL) {
+		res = -errno;
 		pw_log_error("can't make loop handle");
 		goto out_free_system;
 	}
@@ -146,6 +148,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	pw_unload_spa_handle(impl->system_handle);
       out_free:
 	free(impl);
+	errno = -res;
 	return NULL;
 }
 

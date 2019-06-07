@@ -286,6 +286,7 @@ impl_get_connection(void *object,
         struct impl *impl = object;
 	struct connection *conn;
         DBusError error;
+	int res;
 
 	dbus_error_init(&error);
 
@@ -298,6 +299,8 @@ impl_get_connection(void *object,
 
 	conn->dispatch_event = spa_loop_utils_add_idle(impl->utils,
 						false, dispatch_cb, conn);
+	if (conn->dispatch_event == NULL)
+		goto no_event;
 
 	dbus_connection_set_exit_on_disconnect(conn->conn, false);
 	dbus_connection_set_dispatch_status_function(conn->conn, dispatch_status, conn, NULL);
@@ -314,7 +317,19 @@ impl_get_connection(void *object,
       error:
 	spa_log_error(impl->log, "Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
+	res = -ECONNREFUSED;
+	goto out_free;
+      no_event:
+	res = -errno;
+	spa_log_error(impl->log, "Failed to create idle event: %m");
+	goto out_unref_dbus;
+
+      out_unref_dbus:
+	dbus_connection_close(conn->conn);
+	dbus_connection_unref(conn->conn);
+      out_free:
 	free(conn);
+	errno = -res;
 	return NULL;
 }
 

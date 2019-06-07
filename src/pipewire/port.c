@@ -337,6 +337,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	struct pw_port *this;
 	struct pw_properties *properties;
 	const struct spa_node_methods *mix_methods;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -351,8 +352,10 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	else
 		properties = pw_properties_new(NULL, NULL);
 
-	if (properties == NULL)
+	if (properties == NULL) {
+		res = -errno;
 		goto no_mem;
+	}
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
 		pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "1");
@@ -406,6 +409,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
        no_mem:
 	pw_log_warn("port %p: new failed", impl);
 	free(impl);
+	errno = -res;
 	return NULL;
 }
 
@@ -593,10 +597,13 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
+	int res;
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
-	if (resource == NULL)
+	if (resource == NULL) {
+		res = -errno;
 		goto no_mem;
+	}
 
 	data = pw_resource_get_user_data(resource);
 	data->port = this;
@@ -619,8 +626,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
       no_mem:
-	pw_log_error("can't create port resource");
-	return -ENOMEM;
+	pw_log_error("can't create port resource: %s", spa_strerror(res));
+	return res;
 }
 
 static void global_destroy(void *object)
@@ -651,7 +658,7 @@ int pw_port_register(struct pw_port *port,
 				global_bind,
 				port);
 	if (port->global == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	pw_global_add_listener(port->global, &port->global_listener, &global_events, port);
 

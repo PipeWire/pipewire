@@ -109,7 +109,6 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 	if (state == old)
 		return;
 
-
 	if (state == PW_LINK_STATE_ERROR) {
 		pw_log_error("link %p: update state %s -> error (%s)", link,
 		     pw_link_state_as_string(old), error);
@@ -441,7 +440,7 @@ static int alloc_buffers(struct pw_link *this,
 
 	buffers = calloc(n_buffers, info.skel_size + sizeof(struct spa_buffer *));
 	if (buffers == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	/* pointer to buffer structures */
 	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
@@ -1068,7 +1067,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create link resource");
-	return -ENOMEM;
+	return -errno;
 }
 
 static const struct pw_port_events input_port_events = {
@@ -1190,11 +1189,11 @@ check_permission(struct pw_core *core,
 
 	if ((client = output->global->owner) != NULL &&
 	    !PW_PERM_IS_R(pw_global_get_permissions(input->global, client)))
-		return -EPERM;
+		return -EACCES;
 
 	if ((client = input->global->owner) != NULL &&
 	    !PW_PERM_IS_R(pw_global_get_permissions(output->global, client)))
-		return -EPERM;
+		return -EACCES;
 
 	return 0;
 }
@@ -1405,7 +1404,7 @@ int pw_link_register(struct pw_link *link,
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	input_node = link->input->node;
 	output_node = link->output->node;
@@ -1428,7 +1427,7 @@ int pw_link_register(struct pw_link *link,
 				     global_bind,
 				     link);
 	if (link->global == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 

@@ -79,6 +79,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 {
 	struct impl *impl;
 	struct pw_device *this;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -88,8 +89,10 @@ struct pw_device *pw_device_new(struct pw_core *core,
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
+	if (properties == NULL) {
+		res = -errno;
 		goto no_mem;
+	}
 
 	this->core = core;
 	this->properties = properties;
@@ -110,6 +113,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 
       no_mem:
 	free(impl);
+	errno = -res;
 	return NULL;
 }
 
@@ -317,7 +321,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create device resource");
-	return -ENOMEM;
+	return -errno;
 }
 
 static void global_destroy(void *object)
@@ -346,7 +350,7 @@ int pw_device_register(struct pw_device *device,
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	pw_properties_set(properties, PW_KEY_DEVICE_NAME, device->info.name);
 	if ((str = pw_properties_get(device->properties, PW_KEY_MEDIA_CLASS)) != NULL)
@@ -361,7 +365,7 @@ int pw_device_register(struct pw_device *device,
 				       global_bind,
 				       device);
 	if (device->global == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	device->info.id = device->global->id;
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);

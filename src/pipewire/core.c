@@ -461,14 +461,18 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		goto no_mem;
+	if (properties == NULL) {
+		res = -errno;
+		goto out_free;
+	}
 
 	this->properties = properties;
 
 	this->data_loop_impl = pw_data_loop_new(pw_properties_copy(properties));
-	if (this->data_loop_impl == NULL)
-		goto no_data_loop;
+	if (this->data_loop_impl == NULL)  {
+		res = -errno;
+		goto out_free;
+	}
 
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->data_system = this->data_loop->system;
@@ -541,8 +545,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 					     NULL),
 				     global_bind,
 				     this);
-	if (this->global == NULL)
-		goto no_mem;
+	if (this->global == NULL) {
+		res = -errno;
+		goto out_cleanup;
+	}
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global, NULL, NULL);
@@ -550,9 +556,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	return this;
 
-      no_mem:
-      no_data_loop:
+      out_cleanup:
+      out_free:
 	free(this);
+	errno = -res;
 	return NULL;
 }
 
@@ -724,13 +731,16 @@ struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
 	struct pw_global *global;
 
 	global = pw_map_lookup(&core->globals, id);
-	if (global == NULL)
+	if (global == NULL) {
+		errno = ENOENT;
 		return NULL;
+	}
 
 	if (core->current_client &&
-	    !PW_PERM_IS_R(pw_global_get_permissions(global, core->current_client)))
+	    !PW_PERM_IS_R(pw_global_get_permissions(global, core->current_client))) {
+		errno = EACCES;
 		return NULL;
-
+	}
 	return global;
 }
 
@@ -1076,13 +1086,12 @@ int pw_core_add_spa_lib(struct pw_core *core,
 
 	entry = pw_array_add(&core->factory_lib, sizeof(*entry));
 	if (entry == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	if ((err = regcomp(&entry->regex, factory_regexp, REG_EXTENDED | REG_NOSUB)) != 0) {
 		char errbuf[1024];
 		regerror(err, &entry->regex, errbuf, sizeof(errbuf));
 		pw_log_error("can compile regex: %s", errbuf);
-
 		pw_array_remove(&core->factory_lib, entry);
 		return -EINVAL;
 	}
@@ -1090,7 +1099,6 @@ int pw_core_add_spa_lib(struct pw_core *core,
 	entry->lib = strdup(lib);
 	pw_log_debug("core %p: map factory regex '%s' to '%s", core,
 			factory_regexp, lib);
-
 	return 0;
 }
 

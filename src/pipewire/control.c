@@ -52,6 +52,7 @@ pw_control_new(struct pw_core *core,
 		direction = SPA_DIRECTION_OUTPUT;
 		break;
 	default:
+		errno = -ENOTSUP;
 		goto exit;
 	}
 

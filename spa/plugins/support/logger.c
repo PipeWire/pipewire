@@ -232,6 +232,20 @@ impl_init(const struct spa_handle_factory *factory,
 			break;
 		}
 	}
+	if (loop != NULL && this->system != NULL) {
+		this->source.func = on_trace_event;
+		this->source.data = this;
+		this->source.fd = spa_system_eventfd_create(this->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		this->source.mask = SPA_IO_IN;
+		this->source.rmask = 0;
+		if (this->source.fd != -1) {
+			spa_loop_add_source(loop, &this->source);
+			this->have_source = true;
+		} else {
+			fprintf(stderr, "Warning: failed to create eventfd: %m");
+		}
+	}
+
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
 			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
@@ -240,21 +254,11 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {
 			this->file = fopen(str, "w");
 			if (this->file == NULL)
-				fprintf(stderr, "failed to open file %s: (%s)", str, strerror(errno));
+				fprintf(stderr, "Warning: failed to open file %s: (%m)", str);
 		}
 	}
 	if (this->file == NULL)
 		this->file = stderr;
-
-	if (loop != NULL && this->system != NULL) {
-		this->source.func = on_trace_event;
-		this->source.data = this;
-		this->source.fd = spa_system_eventfd_create(this->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-		this->source.mask = SPA_IO_IN;
-		this->source.rmask = 0;
-		spa_loop_add_source(loop, &this->source);
-		this->have_source = true;
-	}
 
 	spa_ringbuffer_init(&this->trace_rb);
 
@@ -290,8 +294,8 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_support_logger_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
-	NULL,
+	.name = NAME,
+	.info = NULL,
 	.get_size = impl_get_size,
 	.init = impl_init,
 	.enum_interface_info = impl_enum_interface_info,

@@ -137,7 +137,7 @@ int pw_memblock_map(struct pw_memblock *mem)
 		} else {
 			mem->ptr = mmap(NULL, mem->size, prot, MAP_SHARED, mem->fd, 0);
 			if (mem->ptr == MAP_FAILED)
-				return -ENOMEM;
+				return -errno;
 		}
 	} else {
 		mem->ptr = NULL;
@@ -161,6 +161,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 	struct memblock tmp, *p;
 	struct pw_memblock *m;
 	bool use_fd;
+	int res;
 
 	if (mem == NULL)
 		return -EINVAL;
@@ -177,23 +178,26 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 #ifdef USE_MEMFD
 		m->fd = memfd_create("pipewire-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 		if (m->fd == -1) {
+			res = -errno;
 			pw_log_error("Failed to create memfd: %s\n", strerror(errno));
-			return -errno;
+			return res;
 		}
 #else
 		char filename[] = "/dev/shm/pipewire-tmpfile.XXXXXX";
 		m->fd = mkostemp(filename, O_CLOEXEC);
 		if (m->fd == -1) {
+			res = -errno;
 			pw_log_error("Failed to create temporary file: %s\n", strerror(errno));
-			return -errno;
+			return res;
 		}
 		unlink(filename);
 #endif
 
 		if (ftruncate(m->fd, size) < 0) {
+			res = -errno;
 			pw_log_warn("Failed to truncate temporary file: %s", strerror(errno));
 			close(m->fd);
-			return -errno;
+			return res;
 		}
 #ifdef USE_MEMFD
 		if (flags & PW_MEMBLOCK_FLAG_SEAL) {
@@ -203,13 +207,13 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 			}
 		}
 #endif
-		if (pw_memblock_map(m) != 0)
+		if ((res = pw_memblock_map(m)) < 0)
 			goto mmap_failed;
 	} else {
 		if (size > 0) {
 			m->ptr = malloc(size);
 			if (m->ptr == NULL)
-				return -ENOMEM;
+				return -errno;
 		}
 		m->fd = -1;
 	}
@@ -219,6 +223,9 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 	}
 
 	p = calloc(1, sizeof(struct memblock));
+	if (p == NULL)
+		return -errno;
+
 	*p = tmp;
 	spa_list_append(&_memblocks, &p->link);
 	*mem = &p->mem;
@@ -228,7 +235,7 @@ int pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_membl
 
       mmap_failed:
 	close(m->fd);
-	return -ENOMEM;
+	return res;
 }
 
 SPA_EXPORT

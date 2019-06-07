@@ -157,6 +157,7 @@ pw_properties_new_string(const char *str)
 	struct properties *impl;
         const char *state = NULL, *s = NULL;
 	size_t len;
+	int res;
 
 	impl = properties_new(16);
 	if (impl == NULL)
@@ -166,8 +167,10 @@ pw_properties_new_string(const char *str)
 	while (s) {
 		char *val, *eq;
 
-		if ((val = strndup(s, len)) == NULL)
+		if ((val = strndup(s, len)) == NULL) {
+			res = -errno;
 			goto no_mem;
+		}
 
 		eq = strchr(val, '=');
 		if (eq && eq != val) {
@@ -177,8 +180,10 @@ pw_properties_new_string(const char *str)
 		s = pw_split_walk(str, " \t\n\r", &len, &state);
 	}
 	return &impl->this;
+
     no_mem:
 	pw_properties_free(&impl->this);
+	errno = -res;
 	return NULL;
 }
 

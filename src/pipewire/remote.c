@@ -160,6 +160,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	struct pw_remote *this;
 	struct pw_protocol *protocol;
 	const char *protocol_name;
+	int res;
 
 	impl = calloc(1, sizeof(struct remote) + user_data_size);
 	if (impl == NULL)
@@ -191,7 +192,8 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	spa_hook_list_init(&this->listener_list);
 
 	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
-		if (!pw_module_load(core, "libpipewire-module-protocol-native", NULL, NULL, NULL, NULL))
+		if (pw_module_load(core, "libpipewire-module-protocol-native",
+					NULL, NULL, NULL, NULL) == NULL)
 			goto no_protocol;
 
 		protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
@@ -213,19 +215,23 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	return this;
 
       no_mem:
+	res = -errno;
 	pw_log_error("no memory");
 	goto exit;
       no_protocol:
-	pw_log_error("can't load native protocol");
+	res = -errno;
+	pw_log_error("can't load native protocol: %m");
 	goto exit_free_props;
       no_connection:
-	pw_log_error("can't create new native protocol connection");
+	res = -errno;
+	pw_log_error("can't create new native protocol connection: %m");
 	goto exit_free_props;
 
       exit_free_props:
 	pw_properties_free(properties);
       exit:
 	free(impl);
+	errno = -res;
 	return NULL;
 }
 
@@ -313,18 +319,23 @@ static int do_connect(struct pw_remote *remote)
 {
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct pw_proxy dummy;
+	int res;
 
 	dummy.remote = remote;
 
 	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(&dummy,
 			PW_TYPE_INTERFACE_Core, 0);
-	if (remote->core_proxy == NULL)
+	if (remote->core_proxy == NULL) {
+		res = -errno;
 		goto no_proxy;
+	}
 
 	remote->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&dummy,
 			PW_TYPE_INTERFACE_Client, 0);
-	if (remote->client_proxy == NULL)
+	if (remote->client_proxy == NULL) {
+		res = -errno;
 		goto clean_core_proxy;
+	}
 
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
 
@@ -340,7 +351,7 @@ static int do_connect(struct pw_remote *remote)
       no_proxy:
 	pw_protocol_client_disconnect(remote->conn);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
-	return -ENOMEM;
+	return res;
 }
 
 SPA_EXPORT
@@ -447,29 +458,38 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 {
 	struct pw_proxy *proxy;
 	const struct pw_export_type *t;
+	int res;
 
-	if (remote->core_proxy == NULL)
+	if (remote->core_proxy == NULL) {
+		res = -ENETDOWN;
 		goto no_core_proxy;
+	}
 
 	t = pw_core_find_export_type(remote->core, type);
-	if (t == NULL)
+	if (t == NULL) {
+		res = -EPROTO;
 		goto no_export_type;
+	}
 
 	proxy = t->func(remote, type, props, object, user_data_size);
-        if (proxy == NULL)
+        if (proxy == NULL) {
+		res = -errno;
 		goto proxy_failed;
-
+	}
 	return proxy;
 
     no_core_proxy:
-	errno = ENETDOWN;
-	pw_log_error("no core proxy: %m");
-	return NULL;
+	pw_log_error("no core proxy: %s", spa_strerror(res));
+	goto out;
     no_export_type:
-	pw_log_error("can't export type %d: %m", type);
-	return NULL;
+	pw_log_error("can't export type %d: %s", type, spa_strerror(res));
+	goto out;
     proxy_failed:
-	pw_log_error("failed to create proxy: %m");
+	pw_log_error("failed to create proxy: %s", spa_strerror(res));
+	goto out;
+
+    out:
+	errno = -res;
 	return NULL;
 }
 
@@ -489,6 +509,5 @@ const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint
 		if (t->type == type)
 			return t;
 	}
-	errno = EPROTO;
 	return NULL;
 }

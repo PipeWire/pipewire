@@ -49,6 +49,9 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 	struct pw_factory *this;
 
 	this = calloc(1, sizeof(*this) + user_data_size);
+	if (this == NULL)
+		return NULL;
+
 	this->core = core;
 	this->properties = properties;
 
@@ -124,8 +127,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
       no_mem:
-	pw_log_error("can't create factory resource");
-	return -ENOMEM;
+	pw_log_error("can't create factory resource: %m");
+	return -errno;
 }
 
 static void global_destroy(void *object)
@@ -155,7 +158,7 @@ int pw_factory_register(struct pw_factory *factory,
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	pw_properties_set(properties, PW_KEY_FACTORY_NAME, factory->info.name);
 	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_NAME, "%s",
@@ -172,8 +175,7 @@ int pw_factory_register(struct pw_factory *factory,
 					global_bind,
 					factory);
 	if (factory->global == NULL)
-		return -ENOMEM;
-
+		return -errno;
 
 	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);
 	pw_global_register(factory->global, owner, parent);

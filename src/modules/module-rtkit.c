@@ -522,7 +522,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
       error:
 	free(impl);
 	return res;
-
 }
 
 SPA_EXPORT

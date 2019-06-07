@@ -91,6 +91,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
       in_use:
 	pw_log_debug("resource %p: id %u in use for client %p", this, id, client);
 	free(impl);
+	errno = -EEXIST;
 	return NULL;
 }
 

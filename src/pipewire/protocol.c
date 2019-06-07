@@ -135,7 +135,7 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	impl = calloc(1, sizeof(struct marshal));
 	if (impl == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	impl->marshal = marshal;
 
@@ -154,9 +154,6 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type)
 {
 	struct marshal *impl;
 
-	if (protocol == NULL)
-		return NULL;
-
 	spa_list_for_each(impl, &protocol->marshal_list, link) {
 		if (impl->marshal->type == type)
                         return impl->marshal;
@@ -168,6 +165,7 @@ SPA_EXPORT
 struct pw_protocol *pw_core_find_protocol(struct pw_core *core, const char *name)
 {
 	struct pw_protocol *protocol;
+
 	spa_list_for_each(protocol, &core->protocol_list, link) {
 		if (strcmp(protocol->name, name) == 0)
 			return protocol;

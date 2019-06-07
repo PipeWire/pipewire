@@ -82,6 +82,7 @@ static void do_stop(void *data, uint64_t count)
 #define CHECK(expression,label)						\
 do {									\
 	if ((errno = expression) != 0) {				\
+		res = -errno;						\
 		pw_log_error(#expression ": %s", strerror(errno));	\
 		goto label;						\
 	}								\
@@ -108,6 +109,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 	struct pw_thread_loop *this;
 	pthread_mutexattr_t attr;
 	pthread_condattr_t cattr;
+	int res;
 
 	this = calloc(1, sizeof(struct pw_thread_loop));
 	if (this == NULL)
@@ -146,6 +148,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
       clean_this:
 	free(this->name);
 	free(this);
+	errno = -res;
       no_mem:
 	return NULL;
 }

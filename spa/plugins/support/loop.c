@@ -280,18 +280,18 @@ static int loop_iterate(void *object, int timeout)
 	struct impl *impl = object;
 	struct spa_loop *loop = &impl->loop;
 	struct spa_poll_event ep[32];
-	int i, nfds, save_errno = 0;
+	int i, nfds, res = 0;
 
 	spa_loop_control_hook_before(&impl->hooks_list);
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 	if (SPA_UNLIKELY(nfds < 0))
-		save_errno = errno;
+		res = -errno;
 
 	spa_loop_control_hook_after(&impl->hooks_list);
 
 	if (SPA_UNLIKELY(nfds < 0))
-		return save_errno;
+		return -res;
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and
@@ -323,10 +323,11 @@ static struct spa_source *loop_add_io(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
+	struct spa_source *res = NULL;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		return NULL;
+		goto out;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_io_func;
@@ -341,7 +342,9 @@ static struct spa_source *loop_add_io(void *object,
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	return &source->source;
+	res = &source->source;
+out:
+	return res;
 }
 
 static int loop_update_io(void *object, struct spa_source *source, uint32_t mask)
@@ -380,15 +383,22 @@ static struct spa_source *loop_add_idle(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
+	struct spa_source *res = NULL;
+	int err;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		return NULL;
+		goto out;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_idle_func;
 	source->source.data = data;
 	source->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (source->source.fd == -1) {
+		err = -errno;
+		goto err_free;
+	}
+
 	source->impl = impl;
 	source->close = true;
 	source->source.mask = SPA_IO_IN;
@@ -401,7 +411,14 @@ static struct spa_source *loop_add_idle(void *object,
 	if (enabled)
 		loop_enable_idle(impl, &source->source, true);
 
-	return &source->source;
+	res = &source->source;
+out:
+	return res;
+
+err_free:
+	free(source);
+	errno = -err;
+	goto out;
 }
 
 static void source_event_func(struct spa_source *source)
@@ -422,15 +439,21 @@ static struct spa_source *loop_add_event(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
+	struct spa_source *res = NULL;
+	int err;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		return NULL;
+		goto out;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_event_func;
 	source->source.data = data;
 	source->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (source->source.fd == -1) {
+		err = -errno;
+		goto err_free;
+	}
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
@@ -440,7 +463,15 @@ static struct spa_source *loop_add_event(void *object,
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	return &source->source;
+	res = &source->source;
+
+out:
+	return res;
+
+err_free:
+	free(source);
+	errno = -err;
+	goto out;
 }
 
 static void loop_signal_event(void *object, struct spa_source *source)
@@ -472,16 +503,22 @@ static struct spa_source *loop_add_timer(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
+	struct spa_source *res = NULL;
+	int err;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		return NULL;
+		goto out;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_timer_func;
 	source->source.data = data;
 	source->source.fd = spa_system_timerfd_create(impl->system, CLOCK_MONOTONIC,
 			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (source->source.fd == -1) {
+		err = -errno;
+		goto err_free;
+	}
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
@@ -491,7 +528,14 @@ static struct spa_source *loop_add_timer(void *object,
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	return &source->source;
+	res = &source->source;
+out:
+	return res;
+
+err_free:
+	free(source);
+	errno = -err;
+	goto out;
 }
 
 static int
@@ -538,10 +582,12 @@ static struct spa_source *loop_add_signal(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
+	struct spa_source *res = NULL;
+	int err;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		return NULL;
+		goto out;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_signal_func;
@@ -549,6 +595,10 @@ static struct spa_source *loop_add_signal(void *object,
 
 	source->source.fd = spa_system_signalfd_create(impl->system,
 			signal_number, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (source->source.fd == -1) {
+		err = -errno;
+		goto err_free;
+	}
 
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
@@ -559,7 +609,14 @@ static struct spa_source *loop_add_signal(void *object,
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	return &source->source;
+	res = &source->source;
+out:
+	return res;
+
+err_free:
+	free(source);
+	errno = -err;
+	goto out;
 }
 
 static void loop_destroy_source(void *object, struct spa_source *source)

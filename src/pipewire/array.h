@@ -137,8 +137,10 @@ static inline void *pw_array_add_fixed(struct pw_array *arr, size_t size)
 {
 	void *p;
 
-	if (SPA_UNLIKELY(arr->alloc < arr->size + size))
+	if (SPA_UNLIKELY(arr->alloc < arr->size + size)) {
+		errno = ENOSPC;
 		return NULL;
+	}
 
 	p = SPA_MEMBER(arr->data, arr->size, void);
 	arr->size += size;

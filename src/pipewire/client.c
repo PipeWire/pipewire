@@ -195,7 +195,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
-		goto no_mem;
+		goto out;
 
 	data = pw_resource_get_user_data(resource);
 	data->client = this;
@@ -219,9 +219,9 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	return 0;
 
-      no_mem:
-	pw_log_error("can't create client resource");
-	return -ENOMEM;
+      out:
+	pw_log_error("can't create client resource: %m");
+	return -errno;
 }
 
 static void
@@ -335,7 +335,7 @@ int pw_client_register(struct pw_client *client,
 				       global_bind,
 				       client);
 	if (client->global == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
 	pw_global_register(client->global, owner, parent);

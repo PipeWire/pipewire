@@ -175,11 +175,10 @@ static struct param *add_param(struct pw_stream *stream,
 	uint32_t id;
 	int idx;
 
-	if (param == NULL)
+	if (param == NULL || !spa_pod_is_object(param)) {
+		errno = -EINVAL;
 		return NULL;
-
-	if (!spa_pod_is_object(param))
-		return NULL;
+	}
 
 	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
 	if (p == NULL)
@@ -481,7 +480,7 @@ static int port_set_format(void *object,
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 	struct param *p;
-	int count;
+	int count, res;
 
 	pw_log_debug("stream %p: format changed:", impl);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -490,8 +489,10 @@ static int port_set_format(void *object,
 	clear_params(stream, PARAM_TYPE_FORMAT);
 	if (format && spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format)) {
 		p = add_param(stream, PARAM_TYPE_FORMAT, format);
-		if (p == NULL)
+		if (p == NULL) {
+			res = -errno;
 			goto no_mem;
+		}
 
 		((struct spa_pod_object*)p->param)->body.id = SPA_PARAM_Format;
 	}
@@ -517,8 +518,8 @@ static int port_set_format(void *object,
 	return 0;
 
       no_mem:
-	pw_stream_finish_format(stream, -ENOMEM, NULL, 0);
-	return -ENOMEM;
+	pw_stream_finish_format(stream, res, NULL, 0);
+	return res;
 }
 
 static int impl_port_set_param(void *object,
@@ -955,6 +956,7 @@ static const struct pw_node_proxy_events node_events = {
 static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	int res;
 
 	pw_log_debug("stream %p: creating node", stream);
 	impl->node = pw_node_new(impl->core, stream->name,
@@ -993,11 +995,13 @@ static int handle_connect(struct pw_stream *stream)
 	return 0;
 
     no_node:
+	res = -errno;
 	pw_log_error("stream %p: can't make node: %m", stream);
-	return -errno;
+	return res;
     no_proxy:
+	res = -errno;
 	pw_log_error("stream %p: can't make proxy: %m", stream);
-	return -errno;
+	return res;
 }
 
 static void on_remote_state_changed(void *_data, enum pw_remote_state old,
@@ -1048,6 +1052,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	struct stream *impl;
 	struct pw_stream *this;
 	const char *str;
+	int res;
 
 	impl = calloc(1, sizeof(struct stream));
 	if (impl == NULL)
@@ -1061,8 +1066,10 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	} else if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL) {
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, name);
 	}
-	if (props == NULL)
+	if (props == NULL) {
+		res = errno;
 		goto no_mem;
+	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL) {
 		const struct pw_properties *p = pw_remote_get_properties(remote);
@@ -1104,6 +1111,7 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 
       no_mem:
 	free(impl);
+	errno = -res;
 	return NULL;
 }
 
@@ -1119,13 +1127,16 @@ pw_stream_new_simple(struct pw_loop *loop,
 	struct stream *impl;
 	struct pw_core *core;
 	struct pw_remote *remote;
+	int res;
 
 	core = pw_core_new(loop, NULL, 0);
         remote = pw_remote_new(core, NULL, 0);
 
 	stream = pw_stream_new(remote, name, props);
-	if (stream == NULL)
+	if (stream == NULL) {
+		res = -errno;
 		goto cleanup;
+	}
 
 	impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
@@ -1139,6 +1150,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 
       cleanup:
 	pw_core_destroy(core);
+	errno = -res;
 	return NULL;
 }
 
@@ -1487,11 +1499,13 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b;
+	int res;
 
 	if ((b = pop_queue(impl, &impl->dequeued)) == NULL) {
-		pw_log_trace("stream %p: no more buffers", stream);
+		res = -errno;
+		pw_log_trace("stream %p: no more buffers: %m", stream);
 		call_trigger(impl);
-		errno = EPIPE;
+		errno = -res;
 		return NULL;
 	}
 	pw_log_trace("stream %p: dequeue buffer %d", stream, b->id);

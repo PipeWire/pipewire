@@ -462,7 +462,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
       no_mem:
 	pw_log_error("can't create node resource");
-	return -ENOMEM;
+	return -errno;
 }
 
 static void global_destroy(void *data)
@@ -496,7 +496,7 @@ int pw_node_register(struct pw_node *this,
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
@@ -516,7 +516,7 @@ int pw_node_register(struct pw_node *this,
 				     global_bind,
 				     this);
 	if (this->global == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	this->info.id = this->global->id;
 	this->rt.activation->position.clock.id = this->info.id;
@@ -774,6 +774,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	size_t size;
 	struct spa_system *data_system = core->data_system;
 	char *n;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -793,32 +794,38 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
+	if (properties == NULL) {
+		res = -errno;
 		goto clean_impl;
+	}
 
 	this->properties = properties;
 
 	size = sizeof(struct pw_node_activation);
 
 	this->source.fd = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (this->source.fd == -1)
+	if (this->source.fd == -1) {
+		res = -errno;
 		goto clean_impl;
+	}
 
 	this->source.func = node_on_fd_events;
 	this->source.data = this;
 	this->source.mask = SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP;
 	this->source.rmask = 0;
 
-	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
+	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			      PW_MEMBLOCK_FLAG_MAP_READWRITE |
 			      PW_MEMBLOCK_FLAG_SEAL,
 			      size,
-			      &this->activation) < 0)
+			      &this->activation)) < 0)
                 goto clean_impl;
 
 	impl->work = pw_work_queue_new(this->core->main_loop);
-	if (impl->work == NULL)
+	if (impl->work == NULL) {
+		res = -errno;
 		goto clean_impl;
+	}
 
 	this->info.name = n;
 
@@ -865,6 +872,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	if (properties)
 		pw_properties_free(properties);
 	free(impl);
+	errno = -res;
     error:
 	return NULL;
 }

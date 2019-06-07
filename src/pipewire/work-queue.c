@@ -96,18 +96,30 @@ static void process_work_queue(void *data, uint64_t count)
 struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
 {
 	struct pw_work_queue *this;
+	int res;
 
 	this = calloc(1, sizeof(struct pw_work_queue));
+	if (this == NULL)
+		return NULL;
+
 	pw_log_debug("work-queue %p: new", this);
 
 	this->loop = loop;
 
 	this->wakeup = pw_loop_add_event(this->loop, process_work_queue, this);
+	if (this->wakeup == NULL)
+		goto out_free;
 
 	spa_list_init(&this->work_list);
 	spa_list_init(&this->free_list);
 
 	return this;
+
+      out_free:
+	res = -errno;
+	free(this);
+	errno = -res;
+	return NULL;
 }
 
 /** Destroy a work queue

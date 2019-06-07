@@ -180,7 +180,7 @@ static int make_matrix(struct channelmix *mix)
 
 	unassigned = src_mask & ~dst_mask;
 
-	spa_log_debug(mix->log, "unassigned %08lx", unassigned);
+	spa_log_debug(mix->log, "unassigned %08" PRIx64, unassigned);
 
 	if (unassigned & _MASK(FC)){
 		if ((dst_mask & STEREO) == STEREO){

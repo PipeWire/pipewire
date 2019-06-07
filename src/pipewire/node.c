@@ -939,7 +939,7 @@ static void node_info(void *data, const struct spa_node_info *info)
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
 
-	pw_log_debug("node %p: change_mask %08lx max_in:%u max_out:%u",
+	pw_log_debug("node %p: change_mask %08"PRIx64" max_in:%u max_out:%u",
 			node, info->change_mask, info->max_input_ports,
 			info->max_output_ports);
 

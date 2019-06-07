@@ -193,7 +193,7 @@ static int setup_convert(struct impl *this,
 	if (dst_mask & 1)
 		dst_mask = default_mask(dst_chan);
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d %08lx:%08lx", this,
+	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d %08"PRIx64":%08"PRIx64, this,
 			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_chan,
 			src_info->info.raw.rate,

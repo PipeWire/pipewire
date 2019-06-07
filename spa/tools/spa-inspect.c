@@ -141,7 +141,7 @@ static void node_info(void *_data, const struct spa_node_info *info)
 {
 	struct data *data = _data;
 
-	printf("node info: %08lx\n", info->change_mask);
+	printf("node info: %08"PRIx64"\n", info->change_mask);
 	printf("max input ports: %u\n", info->max_input_ports);
 	printf("max output ports: %u\n", info->max_output_ports);
 

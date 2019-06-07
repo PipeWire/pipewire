@@ -1224,7 +1224,7 @@ static const struct spa_dict_item info_items[] = {
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-struct spa_handle_factory spa_a2dp_source_factory = {
+const struct spa_handle_factory spa_a2dp_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	"api.bluez5.a2dp.source",
 	&info,

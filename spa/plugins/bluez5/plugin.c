@@ -28,6 +28,9 @@
 #include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_bluez5_monitor_factory;
+extern const struct spa_handle_factory spa_bluez5_device_factory;
+extern const struct spa_handle_factory spa_a2dp_sink_factory;
+extern const struct spa_handle_factory spa_a2dp_source_factory;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -38,6 +41,15 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	switch (*index) {
 	case 0:
 		*factory = &spa_bluez5_monitor_factory;
+		break;
+	case 1:
+		*factory = &spa_bluez5_device_factory;
+		break;
+	case 2:
+		*factory = &spa_a2dp_sink_factory;
+		break;
+	case 3:
+		*factory = &spa_a2dp_source_factory;
 		break;
 	default:
 		return 0;

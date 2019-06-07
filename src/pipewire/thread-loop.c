@@ -132,8 +132,10 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 	CHECK(pthread_cond_init(&this->cond, &cattr), clean_lock);
 	CHECK(pthread_cond_init(&this->accept_cond, &cattr), clean_cond);
 
-	if ((this->event = pw_loop_add_event(this->loop, do_stop, this)) == NULL)
+	if ((this->event = pw_loop_add_event(this->loop, do_stop, this)) == NULL) {
+		res = -errno;
 		goto clean_acceptcond;
+	}
 
 	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
 

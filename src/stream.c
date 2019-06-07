@@ -1628,7 +1628,8 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	if (r_usec)
 		*r_usec = res;
 
-	pw_log_trace("stream %p: %ld %ld %ld %ld %ld %ld %ld", s, now, delay, read_time,
+	pw_log_trace("stream %p: %"PRIu64" %"PRIu64" %"PRIu64" %"PRIi64" %"PRIi64" %"PRIi64" %"PRIu64,
+			s, now, delay, read_time,
 			i->write_index, i->read_index,
 			i->write_index - i->read_index,
 			res);
@@ -1698,7 +1699,7 @@ const pa_timing_info* pa_stream_get_timing_info(pa_stream *s)
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->timing_info_valid, PA_ERR_NODATA);
 
-	pw_log_trace("stream %p: %ld %ld %ld", s,
+	pw_log_trace("stream %p: %"PRIi64" %"PRIi64" %"PRIi64, s,
 			s->timing_info.write_index, s->timing_info.read_index,
 			(s->timing_info.write_index - s->timing_info.read_index));
 

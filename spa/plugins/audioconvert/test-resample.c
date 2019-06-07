@@ -64,6 +64,7 @@ static void test_native(void)
 {
 	struct resample r;
 
+	spa_zero(r);
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 44100;
@@ -71,6 +72,7 @@ static void test_native(void)
 
 	feed_1(&r);
 
+	spa_zero(r);
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 48000;

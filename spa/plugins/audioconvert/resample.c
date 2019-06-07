@@ -810,7 +810,7 @@ static int impl_node_process(void *object)
 
 	resample_process(&this->resample, src_datas, &in_len, dst_datas, &out_len);
 
-	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %ld %d out %d/%d %ld %d",
+	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %zd %d out %d/%d %zd %d",
 			this, pin_len, in_len, size / sizeof(float), inport->offset,
 			pout_len, out_len, maxsize / sizeof(float), outport->offset);
 

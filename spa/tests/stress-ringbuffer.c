@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 		size = DEFAULT_SIZE;
 
 	printf("buffer size (bytes): %d\n", size);
-	printf("array size (bytes): %ld\n", sizeof(int) * ARRAY_SIZE);
+	printf("array size (bytes): %zd\n", sizeof(int) * ARRAY_SIZE);
 
 	spa_ringbuffer_init(&rb);
 	data = malloc(size);

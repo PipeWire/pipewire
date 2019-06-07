@@ -1252,7 +1252,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 			str = node->info->name;
 		pw_properties_set(props, "audio-dsp.name", str);
 		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
-		pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld", MAX_QUANTUM_SIZE * sizeof(float));
+		pw_properties_setf(props, "audio-dsp.maxbuffer", "%zd", MAX_QUANTUM_SIZE * sizeof(float));
 
 		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);
 

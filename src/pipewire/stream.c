@@ -1466,7 +1466,8 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	else
 		time->queued = (int64_t)(impl->queued.incount - time->queued);
 
-	pw_log_trace("%ld %ld %ld %d/%d %ld %ld %ld %ld %ld",
+	pw_log_trace("%"PRIi64" %"PRIi64" %"PRIu64" %d/%d %"PRIu64" %"
+			PRIu64" %"PRIu64" %"PRIu64" %"PRIu64,
 			time->now, time->delay, time->ticks,
 			time->rate.num, time->rate.denom, time->queued,
 			impl->dequeued.outcount, impl->dequeued.incount,

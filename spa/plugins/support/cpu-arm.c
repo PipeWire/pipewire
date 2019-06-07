@@ -93,7 +93,7 @@ arm_init(struct impl *impl)
 	}
 
 	if ((line = get_cpuinfo_line(cpuinfo, "Features"))) {
-		const char *state = NULL;
+		char *state = NULL;
 		char *current = strtok_r(line, " ", &state);
 
 		do {

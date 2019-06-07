@@ -369,7 +369,7 @@ static int send_buffer(struct impl *this)
 
 	ioctl(this->transport->fd, TIOCOUTQ, &val);
 
-	spa_log_trace(this->log, NAME " %p: send %d %u %u %u %lu %d",
+	spa_log_trace(this->log, NAME " %p: send %d %u %u %u %"PRIu64" %d",
 			this, this->frame_count, this->seqnum, this->timestamp, this->buffer_used,
 			this->sample_time, val);
 
@@ -410,7 +410,7 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	this->frame_count += processed / this->codesize;
 	this->buffer_used += out_encoded;
 
-	spa_log_trace(this->log, NAME " %p: processed %d %ld used %d",
+	spa_log_trace(this->log, NAME " %p: processed %d %zd used %d",
 			this, processed, out_encoded, this->buffer_used);
 
 	return processed;
@@ -577,7 +577,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 
 	written = flush_buffer(this, false);
 	if (written == -EAGAIN) {
-		spa_log_trace(this->log, NAME" %p: delay flush %ld", this, this->sample_time);
+		spa_log_trace(this->log, NAME" %p: delay flush %"PRIu64, this, this->sample_time);
 		if ((this->flush_source.mask & SPA_IO_OUT) == 0) {
 			this->flush_source.mask = SPA_IO_OUT;
 			spa_loop_update_source(this->data_loop, &this->flush_source);
@@ -610,7 +610,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 
 	queued = this->sample_time - elapsed;
 
-	spa_log_trace(this->log, NAME" %p: %ld %ld %ld %ld %d", this,
+	spa_log_trace(this->log, NAME" %p: %"PRIu64" %"PRIi64" %"PRIu64" %"PRIu64" %d", this,
 			now_time, queued, this->sample_time, elapsed, this->write_samples);
 
 	if (!this->slaved) {
@@ -678,7 +678,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
 
-	spa_log_trace(this->log, NAME" %p: timeout %ld %ld", this,
+	spa_log_trace(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
 			now_time, now_time - this->last_time);
 	this->last_time = now_time;
 

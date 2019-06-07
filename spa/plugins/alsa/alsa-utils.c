@@ -446,7 +446,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->period_frames = period_size;
 	periods = state->buffer_frames / state->period_frames;
 
-	spa_log_info(state->log, "%p: buffer frames %zd, period frames %zd, periods %u, frame_size %zd",
+	spa_log_info(state->log, "%p: buffer frames %lu, period frames %lu, periods %u, frame_size %zd",
 			state, state->buffer_frames, state->period_frames,
 			periods, state->frame_size);
 
@@ -572,7 +572,7 @@ static int alsa_recover(struct state *state, int err)
 	return 0;
 }
 
-static int get_status(struct state *state, snd_pcm_sframes_t *delay)
+static int get_status(struct state *state, snd_pcm_uframes_t *delay)
 {
 	snd_pcm_sframes_t avail;
 	int res;
@@ -674,7 +674,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 
 	if (state->slaved && state->alsa_started) {
 		uint64_t nsec;
-		snd_pcm_sframes_t delay;
+		snd_pcm_uframes_t delay;
 
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
@@ -879,14 +879,14 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 
 	if (state->slaved && state->alsa_started) {
 		uint64_t nsec;
-		snd_pcm_sframes_t delay;
+		snd_pcm_uframes_t delay;
 		uint32_t threshold = state->threshold;
 
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
 		if (delay < threshold) {
-			spa_log_warn(state->log, "slave delay:%ld resync %f %f %f", delay,
+			spa_log_warn(state->log, "slave delay:%lu resync %f %f %f", delay,
 					state->z1, state->z2, state->z3);
 			init_loop(state);
 			push_frames(state, NULL, 0, 0);
@@ -933,7 +933,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	return 0;
 }
 
-static int handle_play(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay)
+static int handle_play(struct state *state, uint64_t nsec, snd_pcm_uframes_t delay)
 {
 	int res;
 
@@ -961,7 +961,7 @@ static int handle_play(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	return res;
 }
 
-static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay)
+static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_uframes_t delay)
 {
 	int res;
 	struct spa_io_buffers *io;
@@ -995,7 +995,7 @@ static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_sframes_t 
 static void alsa_on_timeout_event(struct spa_source *source)
 {
 	struct state *state = source->data;
-	snd_pcm_sframes_t delay;
+	snd_pcm_uframes_t delay;
 	uint64_t nsec;
 	uint64_t expire;
 	int res;
@@ -1011,8 +1011,8 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		return;
 
 	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
-	spa_log_trace_fp(state->log, "timeout %ld %"PRIu64" %"PRIu64" %"PRIi64" %d %ld", delay,
-			nsec, state->next_time, nsec - state->next_time,
+	spa_log_trace_fp(state->log, "timeout %lu %"PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64,
+			delay, nsec, state->next_time, nsec - state->next_time,
 			state->threshold, state->sample_count);
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)

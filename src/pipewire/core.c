@@ -590,17 +590,17 @@ void pw_core_destroy(struct pw_core *core)
 
 	spa_hook_remove(&core->global_listener);
 
-	spa_list_consume(node, &core->node_list, link)
-		pw_node_destroy(node);
-
-	spa_list_consume(device, &core->device_list, link)
-		pw_device_destroy(device);
-
 	spa_list_consume(remote, &core->remote_list, link)
 		pw_remote_destroy(remote);
 
 	spa_list_consume(module, &core->module_list, link)
 		pw_module_destroy(module);
+
+	spa_list_consume(node, &core->node_list, link)
+		pw_node_destroy(node);
+
+	spa_list_consume(device, &core->device_list, link)
+		pw_device_destroy(device);
 
 	spa_list_consume(resource, &core->registry_resource_list, link)
 		pw_resource_destroy(resource);

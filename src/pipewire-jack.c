@@ -1843,8 +1843,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	mix2 = mix2_c;
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (cpu_iface) {
-		uint32_t flags = spa_cpu_get_flags(cpu_iface);
 #if defined (__SSE__)
+		uint32_t flags = spa_cpu_get_flags(cpu_iface);
 		if (flags & SPA_CPU_FLAG_SSE)
 			mix2 = mix2_sse;
 #endif
@@ -3159,7 +3159,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 	*current_usecs = c->jack_position.usecs;
 	*period_usecs = c->buffer_size / (c->sample_rate * c->rate_diff);
 	*next_usecs = c->jack_position.usecs + (*period_usecs * 1000000.0f);
-	pw_log_trace("client %p: %d %ld %ld %f", c, *current_frames,
+	pw_log_trace("client %p: %d %"PRIu64" %"PRIu64" %f", c, *current_frames,
 			*current_usecs, *next_usecs, *period_usecs);
 	return 0;
 }

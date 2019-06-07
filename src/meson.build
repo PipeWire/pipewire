@@ -20,6 +20,6 @@ pipewire_jack = shared_library('jack',
     soversion : 0,
     c_args : pipewire_jack_c_args,
     include_directories : [configinc],
-    dependencies : [pipewire_dep, jack_dep],
+    dependencies : [pipewire_dep, jack_dep, mathlib],
     install : false,
 )

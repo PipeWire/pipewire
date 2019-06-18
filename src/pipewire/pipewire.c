@@ -256,7 +256,8 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
         if ((res = spa_handle_factory_init(factory,
                                            &handle->handle, info,
 					   support, n_support)) < 0) {
-                pw_log_warn("can't make factory instance %s: %d\n", factory_name, res);
+                pw_log_warn("can't make factory instance '%s': %d (%s)",
+				factory_name, res, spa_strerror(res));
                 goto out_free_handle;
         }
 

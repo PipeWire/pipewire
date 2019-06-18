@@ -727,6 +727,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *impl;
 	uint32_t i;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -760,12 +761,16 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (impl->system == NULL) {
 		spa_log_error(impl->log, NAME " %p: a System is needed", impl);
-		return -EINVAL;
+		res = -EINVAL;
+		goto err;
 	}
 
 	impl->poll_fd = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC);
-	if (impl->poll_fd < 0)
-		return errno;
+	if (impl->poll_fd < 0) {
+		res = -errno;
+		spa_log_error(impl->log, NAME " %p: can't create pollfd: %m", impl);
+		goto err;
+	}
 
 	spa_list_init(&impl->source_list);
 	spa_list_init(&impl->destroy_list);
@@ -774,12 +779,28 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_ringbuffer_init(&impl->buffer);
 
 	impl->wakeup = loop_add_event(impl, wakeup_func, impl);
+	if (impl->wakeup == NULL) {
+		res = -errno;
+		spa_log_error(impl->log, NAME " %p: can't create wakeup event: %m", impl);
+		goto err_free_poll;
+	}
 	impl->ack_fd = spa_system_eventfd_create(impl->system,
 			SPA_FD_EVENT_SEMAPHORE | SPA_FD_CLOEXEC);
-
+	if (impl->ack_fd < 0) {
+		res = -errno;
+		spa_log_error(impl->log, NAME " %p: can't create ack event: %m", impl);
+		goto err_free_wakeup;
+	}
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);
 
 	return 0;
+
+err_free_wakeup:
+	loop_destroy_source(impl, impl->wakeup);
+err_free_poll:
+	spa_system_close(impl->system, impl->poll_fd);
+err:
+	return res;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

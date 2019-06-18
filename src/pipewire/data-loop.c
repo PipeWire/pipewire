@@ -74,12 +74,14 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 
 	this->loop = pw_loop_new(properties);
 	if (this->loop == NULL) {
+		pw_log_debug("data-loop %p: can't create loop: %m", this);
 		res = -errno;
 		goto no_loop;
 	}
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
+		pw_log_debug("data-loop %p: can't add event: %m", this);
 		res = -errno;
 		goto no_event;
 	}

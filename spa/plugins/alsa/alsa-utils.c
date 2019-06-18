@@ -36,11 +36,20 @@ static int spa_alsa_open(struct state *state)
 
 	state->timerfd = spa_system_timerfd_create(state->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (state->timerfd == -1) {
+		err = -errno;
+		goto err_close;
+	}
+
 	state->opened = true;
 	state->sample_count = 0;
 	state->sample_time = 0;
 
 	return 0;
+
+err_close:
+	snd_pcm_close(state->hndl);
+	return err;
 }
 
 int spa_alsa_close(struct state *state)

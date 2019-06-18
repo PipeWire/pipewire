@@ -107,6 +107,11 @@ int main(int argc, char *argv[])
 				PW_KEY_CORE_DAEMON, "1", NULL),
 			0);
 
+	if (core == NULL) {
+		pw_log_error("failed to create core: %m");
+		return -1;
+	}
+
 	if (pw_daemon_config_run_commands(config, core) < 0) {
 		pw_log_error("failed to run config commands");
 		return -1;

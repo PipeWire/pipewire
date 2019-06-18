@@ -86,7 +86,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
         if ((res = spa_handle_get_interface(impl->system_handle,
 					    SPA_TYPE_INTERFACE_System,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get System interface %d\n", res);
+                pw_log_error("can't get System interface %d\n", res);
                 goto out_free_system;
 	}
 	this->system = iface;
@@ -104,17 +104,9 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 			n_support, support);
 	if (impl->loop_handle == NULL) {
 		res = -errno;
-		pw_log_error("can't make loop handle");
+		pw_log_error("can't make loop handle: %m");
 		goto out_free_system;
 	}
-
-        if ((res = spa_handle_get_interface(impl->system_handle,
-					    SPA_TYPE_INTERFACE_System,
-					    &iface)) < 0) {
-                fprintf(stderr, "can't get System interface %d\n", res);
-                goto out_free_loop;
-	}
-	this->system = iface;
 
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_Loop,

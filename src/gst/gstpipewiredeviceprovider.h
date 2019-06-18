@@ -98,7 +98,7 @@ struct _GstPipeWireDeviceProvider {
 
   gboolean end;
   gboolean list_only;
-  GList **devices;
+  GList *devices;
 };
 
 struct _GstPipeWireDeviceProviderClass {

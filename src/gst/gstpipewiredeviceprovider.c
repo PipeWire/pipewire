@@ -265,7 +265,7 @@ static void do_add_node(void *data)
   nd->dev = new_node (self, nd);
   if (nd->dev) {
     if(self->list_only)
-      *self->devices = g_list_prepend (*self->devices, gst_object_ref_sink (nd->dev));
+      self->devices = g_list_prepend (self->devices, gst_object_ref_sink (nd->dev));
     else
       gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), nd->dev);
   }
@@ -555,6 +555,8 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   t = pw_core_get_type(c);
 
+  self->type = pw_core_get_type (c);
+
   if (!(r = pw_remote_new (c, NULL, sizeof(*data))))
     goto failed;
 
@@ -612,7 +614,9 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   pw_core_destroy (c);
   pw_loop_destroy (l);
 
-  return *self->devices;
+  self->type = NULL;
+
+  return self->devices;
 
 failed:
   pw_loop_destroy (l);

@@ -7,10 +7,28 @@ spa_support_sources = ['cpu.c',
 spa_support_lib = shared_library('spa-support',
 			spa_support_sources,
 			c_args : [ '-D_GNU_SOURCE' ],
-			include_directories : [ spa_inc],
-			dependencies : pthread_lib,
+			include_directories : [ spa_inc ],
+			dependencies : [ pthread_lib ],
 			install : true,
 			install_dir : '@0@/spa/support'.format(get_option('libdir')))
+
+
+if get_option('evl')
+  evl_inc = include_directories('/usr/evl/include')
+  evl_lib = cc.find_library('evl',
+		dirs: ['/usr/evl/lib/'])
+
+  spa_evl_sources = ['evl-system.c',
+		   'evl-plugin.c']
+
+  spa_evl_lib = shared_library('spa-evl',
+			spa_evl_sources,
+			c_args : [ '-D_GNU_SOURCE' ],
+			include_directories : [ spa_inc, evl_inc],
+			dependencies : [ pthread_lib, evl_lib],
+			install : true,
+			install_dir : '@0@/spa/support'.format(get_option('libdir')))
+endif
 
 spa_dbus_sources = ['dbus.c']
 

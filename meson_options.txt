@@ -62,6 +62,10 @@ option('support',
        description: 'Enable support spa plugin integration',
        type: 'boolean',
        value: true)
+option('evl',
+       description: 'Enable EVL support spa plugin integration',
+       type: 'boolean',
+       value: false)
 option('test',
        description: 'Enable test spa plugin integration',
        type: 'boolean',

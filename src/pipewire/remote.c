@@ -250,7 +250,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	spa_list_consume(stream, &remote->stream_list, link)
 		pw_stream_destroy(stream);
 
-	pw_protocol_client_destroy (remote->conn);
+	pw_protocol_client_destroy(remote->conn);
 
 	spa_list_remove(&remote->link);
 
@@ -391,7 +391,7 @@ int pw_remote_connect(struct pw_remote *remote)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_client_connect (remote->conn, done_connect, remote)) < 0) {
+	if ((res = pw_protocol_client_connect(remote->conn, done_connect, remote)) < 0) {
 		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
 				"connect failed %s", spa_strerror(res));
 		return res;
@@ -406,7 +406,7 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_client_connect_fd (remote->conn, fd)) < 0) {
+	if ((res = pw_protocol_client_connect_fd(remote->conn, fd, false)) < 0) {
 		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
 				"connect_fd failed %s", spa_strerror(res));
 		return res;
@@ -436,7 +436,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 		pw_stream_disconnect(stream);
 
-	pw_protocol_client_disconnect (remote->conn);
+	pw_protocol_client_disconnect(remote->conn);
 
 	remote->core_proxy = NULL;
 	remote->client_proxy = NULL;

@@ -570,7 +570,7 @@ static const struct pw_protocol_native_connection_events conn_events = {
 	.need_flush = on_need_flush,
 };
 
-static int impl_connect_fd(struct pw_protocol_client *client, int fd)
+static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_close)
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
 	struct pw_remote *remote = client->remote;
@@ -589,14 +589,15 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd)
         impl->source = pw_loop_add_io(remote->core->main_loop,
                                       fd,
                                       SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
-                                      true, on_remote_data, impl);
+                                      do_close, on_remote_data, impl);
 	if (impl->source == NULL)
 		goto error_close;
 
 	return 0;
 
       error_close:
-        close(fd);
+	if (do_close)
+	        close(fd);
         return -ENOMEM;
 }
 

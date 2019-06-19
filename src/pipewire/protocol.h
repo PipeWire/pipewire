@@ -49,14 +49,14 @@ struct pw_protocol_client {
 	int (*connect) (struct pw_protocol_client *client,
 			void (*done_callback) (void *data, int result),
 			void *data);
-	int (*connect_fd) (struct pw_protocol_client *client, int fd);
+	int (*connect_fd) (struct pw_protocol_client *client, int fd, bool close);
 	int (*steal_fd) (struct pw_protocol_client *client);
 	void (*disconnect) (struct pw_protocol_client *client);
 	void (*destroy) (struct pw_protocol_client *client);
 };
 
 #define pw_protocol_client_connect(c,cb,d)	((c)->connect(c,cb,d))
-#define pw_protocol_client_connect_fd(c,fd)	((c)->connect_fd(c,fd))
+#define pw_protocol_client_connect_fd(c,fd,cl)	((c)->connect_fd(c,fd,cl))
 #define pw_protocol_client_steal_fd(c)		((c)->steal_fd(c))
 #define pw_protocol_client_disconnect(c)	((c)->disconnect(c))
 #define pw_protocol_client_destroy(c)		((c)->destroy(c))

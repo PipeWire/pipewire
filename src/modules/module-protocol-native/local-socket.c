@@ -84,7 +84,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
                 goto error_close;
 	}
 
-	res = pw_protocol_client_connect_fd(client, fd);
+	res = pw_protocol_client_connect_fd(client, fd, true);
 
 	done_callback(data, res);
 

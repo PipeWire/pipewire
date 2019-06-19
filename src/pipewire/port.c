@@ -356,7 +356,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	if (properties == NULL) {
 		res = -errno;
-		goto no_mem;
+		goto error_no_mem;
 	}
 
 	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
@@ -408,7 +408,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	return this;
 
-       no_mem:
+error_no_mem:
 	pw_log_warn("port %p: new failed", impl);
 	free(impl);
 	errno = -res;

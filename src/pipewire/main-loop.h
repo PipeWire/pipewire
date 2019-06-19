@@ -67,10 +67,10 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop);
 void pw_main_loop_destroy(struct pw_main_loop *loop);
 
 /** Run a main loop. This blocks until \ref pw_main_loop_quit is called */
-void pw_main_loop_run(struct pw_main_loop *loop);
+int pw_main_loop_run(struct pw_main_loop *loop);
 
 /** Quit a main loop */
-void pw_main_loop_quit(struct pw_main_loop *loop);
+int pw_main_loop_quit(struct pw_main_loop *loop);
 
 #ifdef __cplusplus
 }

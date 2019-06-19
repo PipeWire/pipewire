@@ -92,8 +92,10 @@ pw_global_new(struct pw_core *core,
 	int res;
 
 	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	this = &impl->this;
 
@@ -107,7 +109,7 @@ pw_global_new(struct pw_core *core,
 	if (this->id == SPA_ID_INVALID) {
 		res = -errno;
 		pw_log_error("global %p: can't allocate new id: %m", this);
-		goto error_clean;
+		goto error_free;
 	}
 
 	spa_list_init(&this->child_list);
@@ -120,8 +122,11 @@ pw_global_new(struct pw_core *core,
 
 	return this;
 
-error_clean:
+error_free:
 	free(impl);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -144,6 +149,9 @@ pw_global_register(struct pw_global *global,
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_resource *registry;
 	struct pw_core *core = global->core;
+
+	if (impl->registered)
+		return -EEXIST;
 
 	global->owner = owner;
 	if (owner && parent == NULL)

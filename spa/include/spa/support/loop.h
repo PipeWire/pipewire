@@ -222,11 +222,11 @@ struct spa_loop_utils_methods {
 	struct spa_source *(*add_idle) (void *object,
 					bool enabled,
 					spa_source_idle_func_t func, void *data);
-	void (*enable_idle) (void *object, struct spa_source *source, bool enabled);
+	int (*enable_idle) (void *object, struct spa_source *source, bool enabled);
 
 	struct spa_source *(*add_event) (void *object,
 					 spa_source_event_func_t func, void *data);
-	void (*signal_event) (void *object, struct spa_source *source);
+	int (*signal_event) (void *object, struct spa_source *source);
 
 	struct spa_source *(*add_timer) (void *object,
 					 spa_source_timer_func_t func, void *data);
@@ -276,9 +276,9 @@ struct spa_loop_utils_methods {
 #define spa_loop_utils_add_io(l,...)		spa_loop_utils_method_s(l,add_io,0,__VA_ARGS__)
 #define spa_loop_utils_update_io(l,...)		spa_loop_utils_method_r(l,update_io,0,__VA_ARGS__)
 #define spa_loop_utils_add_idle(l,...)		spa_loop_utils_method_s(l,add_idle,0,__VA_ARGS__)
-#define spa_loop_utils_enable_idle(l,...)	spa_loop_utils_method_v(l,enable_idle,0,__VA_ARGS__)
+#define spa_loop_utils_enable_idle(l,...)	spa_loop_utils_method_r(l,enable_idle,0,__VA_ARGS__)
 #define spa_loop_utils_add_event(l,...)		spa_loop_utils_method_s(l,add_event,0,__VA_ARGS__)
-#define spa_loop_utils_signal_event(l,...)	spa_loop_utils_method_v(l,signal_event,0,__VA_ARGS__)
+#define spa_loop_utils_signal_event(l,...)	spa_loop_utils_method_r(l,signal_event,0,__VA_ARGS__)
 #define spa_loop_utils_add_timer(l,...)		spa_loop_utils_method_s(l,add_timer,0,__VA_ARGS__)
 #define spa_loop_utils_update_timer(l,...)	spa_loop_utils_method_r(l,update_timer,0,__VA_ARGS__)
 #define spa_loop_utils_add_signal(l,...)	spa_loop_utils_method_s(l,add_signal,0,__VA_ARGS__)

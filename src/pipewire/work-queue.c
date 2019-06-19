@@ -107,16 +107,17 @@ struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
 	this->loop = loop;
 
 	this->wakeup = pw_loop_add_event(this->loop, process_work_queue, this);
-	if (this->wakeup == NULL)
-		goto out_free;
+	if (this->wakeup == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 
 	spa_list_init(&this->work_list);
 	spa_list_init(&this->free_list);
 
 	return this;
 
-      out_free:
-	res = -errno;
+error_free:
 	free(this);
 	errno = -res;
 	return NULL;

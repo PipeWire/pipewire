@@ -352,6 +352,9 @@ int pw_device_register(struct pw_device *device,
 	struct node_data *nd;
 	const char *str;
 
+	if (device->registered)
+		goto error_existed;
+
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
@@ -361,9 +364,6 @@ int pw_device_register(struct pw_device *device,
 	if ((str = pw_properties_get(device->properties, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
 
-	spa_list_append(&core->device_list, &device->link);
-	device->registered = true;
-
         device->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Device, PW_VERSION_DEVICE_PROXY,
 				       properties,
@@ -371,6 +371,9 @@ int pw_device_register(struct pw_device *device,
 				       device);
 	if (device->global == NULL)
 		return -errno;
+
+	spa_list_append(&core->device_list, &device->link);
+	device->registered = true;
 
 	device->info.id = device->global->id;
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);
@@ -381,6 +384,11 @@ int pw_device_register(struct pw_device *device,
 		pw_node_set_active(nd->node, true);
 	}
 	return 0;
+
+error_existed:
+	if (properties)
+		pw_properties_free(properties);
+	return -EEXIST;
 }
 
 static void node_destroy(void *data)

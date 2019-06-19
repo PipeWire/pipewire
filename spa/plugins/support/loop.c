@@ -56,7 +56,7 @@ struct invoke_item {
 	int res;
 };
 
-static void loop_signal_event(void *object, struct spa_source *source);
+static int loop_signal_event(void *object, struct spa_source *source);
 
 struct impl {
 	struct spa_handle handle;
@@ -361,10 +361,10 @@ static void source_idle_func(struct spa_source *source)
 }
 
 
-static void loop_enable_idle(void *object, struct spa_source *source, bool enabled)
+static int loop_enable_idle(void *object, struct spa_source *source, bool enabled)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	int res;
+	int res = 0;
 
 	if (enabled && !impl->enabled) {
 		if ((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0)
@@ -377,6 +377,7 @@ static void loop_enable_idle(void *object, struct spa_source *source, bool enabl
 					source, source->fd, spa_strerror(res));
 	}
 	impl->enabled = enabled;
+	return res;
 }
 static struct spa_source *loop_add_idle(void *object,
 					bool enabled, spa_source_idle_func_t func, void *data)
@@ -474,7 +475,7 @@ err_free:
 	goto out;
 }
 
-static void loop_signal_event(void *object, struct spa_source *source)
+static int loop_signal_event(void *object, struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res;
@@ -482,6 +483,7 @@ static void loop_signal_event(void *object, struct spa_source *source)
 	if ((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0)
 		spa_log_warn(impl->impl->log, NAME " %p: failed to write event fd %d: %s",
 				source, source->fd, spa_strerror(res));
+	return res;
 }
 
 static void source_timer_func(struct spa_source *source)

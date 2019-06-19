@@ -163,8 +163,10 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	int res;
 
 	impl = calloc(1, sizeof(struct remote) + user_data_size);
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto exit_cleanup;
+	}
 
 	this = &impl->this;
 	pw_log_debug("remote %p: new", impl);
@@ -177,7 +179,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
-		goto no_mem;
+		goto error_properties;
 
 	pw_fill_remote_properties(core, properties);
 	this->properties = properties;
@@ -193,19 +195,23 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
 		if (pw_module_load(core, "libpipewire-module-protocol-native",
-					NULL, NULL, NULL, NULL) == NULL)
-			goto no_protocol;
+					NULL, NULL, NULL, NULL) == NULL) {
+			res = -errno;
+			goto error_protocol;
+		}
 
 		protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
 	}
 
 	protocol = pw_core_find_protocol(core, protocol_name);
-	if (protocol == NULL)
-		goto no_protocol;
+	if (protocol == NULL) {
+		res = -ENOTSUP;
+		goto error_protocol;
+	}
 
 	this->conn = pw_protocol_new_client(protocol, this, properties);
 	if (this->conn == NULL)
-		goto no_connection;
+		goto error_connection;
 
 	pw_module_load(core, "libpipewire-module-rtkit", NULL, NULL, NULL, NULL);
 	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL, NULL, NULL);
@@ -214,23 +220,23 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	return this;
 
-      no_mem:
+error_properties:
 	res = -errno;
-	pw_log_error("no memory");
-	goto exit;
-      no_protocol:
-	res = -errno;
-	pw_log_error("can't load native protocol: %m");
-	goto exit_free_props;
-      no_connection:
+	pw_log_error("can't create properties: %m");
+	goto exit_free;
+error_protocol:
+	pw_log_error("can't load native protocol: %s", spa_strerror(res));
+	goto exit_free;
+error_connection:
 	res = -errno;
 	pw_log_error("can't create new native protocol connection: %m");
-	goto exit_free_props;
+	goto exit_free;
 
-      exit_free_props:
-	pw_properties_free(properties);
-      exit:
+exit_free:
 	free(impl);
+exit_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -462,33 +468,32 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 
 	if (remote->core_proxy == NULL) {
 		res = -ENETDOWN;
-		goto no_core_proxy;
+		goto error_core_proxy;
 	}
 
 	t = pw_core_find_export_type(remote->core, type);
 	if (t == NULL) {
 		res = -EPROTO;
-		goto no_export_type;
+		goto error_export_type;
 	}
 
 	proxy = t->func(remote, type, props, object, user_data_size);
         if (proxy == NULL) {
 		res = -errno;
-		goto proxy_failed;
+		goto error_proxy_failed;
 	}
 	return proxy;
 
-    no_core_proxy:
+error_core_proxy:
 	pw_log_error("no core proxy: %s", spa_strerror(res));
-	goto out;
-    no_export_type:
+	goto exit;
+error_export_type:
 	pw_log_error("can't export type %d: %s", type, spa_strerror(res));
-	goto out;
-    proxy_failed:
+	goto exit;
+error_proxy_failed:
 	pw_log_error("failed to create proxy: %s", spa_strerror(res));
-	goto out;
-
-    out:
+	goto exit;
+exit:
 	errno = -res;
 	return NULL;
 }

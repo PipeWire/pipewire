@@ -341,12 +341,9 @@ int pw_client_register(struct pw_client *client,
 	struct pw_core *core = client->core;
 
 	if (client->registered)
-		return -EEXIST;
+		goto error_existed;
 
 	pw_log_debug("client %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
-
-	spa_list_append(&core->client_list, &client->link);
-	client->registered = true;
 
 	client->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Client,
@@ -357,11 +354,19 @@ int pw_client_register(struct pw_client *client,
 	if (client->global == NULL)
 		return -errno;
 
+	spa_list_append(&core->client_list, &client->link);
+	client->registered = true;
+
 	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
 	pw_global_register(client->global, owner, parent);
 	client->info.id = client->global->id;
 
 	return 0;
+
+error_existed:
+	if (properties)
+		pw_properties_free(properties);
+	return -EEXIST;
 }
 
 SPA_EXPORT

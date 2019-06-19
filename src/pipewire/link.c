@@ -1253,24 +1253,24 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	int res;
 
 	if (output == input)
-		goto same_ports;
+		goto error_same_ports;
 
 	if (output->direction != PW_DIRECTION_OUTPUT ||
 	    input->direction != PW_DIRECTION_INPUT)
-		goto wrong_direction;
+		goto error_wrong_direction;
 
 	if (pw_link_find(output, input))
-		goto link_exists;
+		goto error_link_exists;
 
 	if (check_permission(core, output, input, properties) < 0)
-		goto link_not_allowed;
+		goto error_link_not_allowed;
 
 	input_node = input->node;
 	output_node = output->node;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
-		goto no_mem;
+		goto error_no_mem;
 
 	this = &impl->this;
 	this->feedback = pw_node_can_reach(input_node, output_node);
@@ -1322,7 +1322,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	pw_port_init_mix(input, &this->rt.in_mix);
 
 	if ((res = select_io(this)) < 0)
-		goto no_io;
+		goto error_no_io;
 
 	if (this->feedback) {
 		impl->inode = output_node;
@@ -1351,28 +1351,35 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	return this;
 
-      no_io:
-	pw_log_error("can't set io %d (%s)", res, spa_strerror(res));
-	errno = -res;
-	return NULL;
-      same_ports:
+error_same_ports:
+	res = -EINVAL;
 	pw_log_error("can't link the same ports");
-	errno = EINVAL;
-	return NULL;
-      wrong_direction:
+	goto error_exit;
+error_wrong_direction:
+	res = -EINVAL;
 	pw_log_error("ports have wrong direction");
-	errno = EINVAL;
-	return NULL;
-      link_exists:
+	goto error_exit;
+error_link_exists:
+	res = -EEXIST;
 	pw_log_error("link already exists");
-	errno = EEXIST;
-	return NULL;
-      link_not_allowed:
+	goto error_exit;
+error_link_not_allowed:
+	res = -EPERM;
 	pw_log_error("link not allowed");
-	errno = EPERM;
-	return NULL;
-      no_mem:
-	pw_log_error("no memory");
+	goto error_exit;
+error_no_mem:
+	res = -errno;
+	pw_log_error("alloc failed: %m");
+	goto error_exit;
+error_no_io:
+	pw_log_error("can't set io %d (%s)", res, spa_strerror(res));
+	goto error_free;
+error_free:
+	free(impl);
+error_exit:
+	if (properties)
+		pw_properties_free(properties);
+	errno = -res;
 	return NULL;
 }
 
@@ -1399,7 +1406,7 @@ int pw_link_register(struct pw_link *link,
 	struct pw_node *input_node, *output_node;
 
 	if (link->registered)
-		return -EEXIST;
+		goto error_existed;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -1417,9 +1424,6 @@ int pw_link_register(struct pw_link *link,
 	pw_properties_setf(properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
 	pw_properties_setf(properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
 
-	spa_list_append(&core->link_list, &link->link);
-	link->registered = true;
-
 	link->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Link,
 				     PW_VERSION_LINK_PROXY,
@@ -1429,9 +1433,11 @@ int pw_link_register(struct pw_link *link,
 	if (link->global == NULL)
 		return -errno;
 
-	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
+	spa_list_append(&core->link_list, &link->link);
+	link->registered = true;
 
 	link->info.id = link->global->id;
+	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 	pw_global_register(link->global, owner, parent);
 
 	debug_link(link);
@@ -1442,6 +1448,11 @@ int pw_link_register(struct pw_link *link,
 		pw_link_prepare(link);
 
 	return 0;
+
+error_existed:
+	if (properties)
+		pw_properties_free(properties);
+	return -EEXIST;
 }
 
 SPA_EXPORT

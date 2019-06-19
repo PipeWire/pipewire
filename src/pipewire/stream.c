@@ -1055,8 +1055,10 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	int res;
 
 	impl = calloc(1, sizeof(struct stream));
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	this = &impl->this;
 	pw_log_debug("stream %p: new \"%s\"", impl, name);
@@ -1067,8 +1069,8 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, name);
 	}
 	if (props == NULL) {
-		res = errno;
-		goto no_mem;
+		res = -errno;
+		goto error_properties;
 	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL) {
@@ -1109,8 +1111,11 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 
 	return this;
 
-      no_mem:
+error_properties:
 	free(impl);
+error_cleanup:
+	if (props)
+		pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }
@@ -1135,7 +1140,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 	stream = pw_stream_new(remote, name, props);
 	if (stream == NULL) {
 		res = -errno;
-		goto cleanup;
+		goto error_cleanup;
 	}
 
 	impl = SPA_CONTAINER_OF(stream, struct stream, this);
@@ -1148,7 +1153,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 
 	return stream;
 
-      cleanup:
+error_cleanup:
 	pw_core_destroy(core);
 	errno = -res;
 	return NULL;

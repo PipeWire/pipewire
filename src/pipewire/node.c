@@ -458,6 +458,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	this->info.change_mask = PW_NODE_CHANGE_MASK_ALL;
 	pw_node_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
+
 	return 0;
 
 error_resource:
@@ -491,7 +492,7 @@ int pw_node_register(struct pw_node *this,
 	pw_log_debug("node %p: register", this);
 
 	if (this->registered)
-		return -EEXIST;
+		goto error_existed;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -506,9 +507,6 @@ int pw_node_register(struct pw_node *this,
 	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_SESSION)) != NULL)
 		pw_properties_set(properties, PW_KEY_NODE_SESSION, str);
 
-	spa_list_append(&core->node_list, &this->link);
-	this->registered = true;
-
 	this->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Node,
 				     PW_VERSION_NODE_PROXY,
@@ -517,6 +515,9 @@ int pw_node_register(struct pw_node *this,
 				     this);
 	if (this->global == NULL)
 		return -errno;
+
+	spa_list_append(&core->node_list, &this->link);
+	this->registered = true;
 
 	this->info.id = this->global->id;
 	this->rt.activation->position.clock.id = this->info.id;
@@ -535,6 +536,11 @@ int pw_node_register(struct pw_node *this,
 				 pw_properties_copy(port->properties));
 
 	return 0;
+
+error_existed:
+	if (properties)
+		pw_properties_free(properties);
+	return -EEXIST;
 }
 
 SPA_EXPORT

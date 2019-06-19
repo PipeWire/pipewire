@@ -153,7 +153,7 @@ int pw_factory_register(struct pw_factory *factory,
 	struct pw_core *core = factory->core;
 
 	if (factory->registered)
-		return -EEXIST;
+		goto error_existed;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -165,9 +165,6 @@ int pw_factory_register(struct pw_factory *factory,
 			spa_debug_type_find_name(pw_type_info(), factory->info.type));
 	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
 
-	spa_list_append(&core->factory_list, &factory->link);
-	factory->registered = true;
-
         factory->global = pw_global_new(core,
 					PW_TYPE_INTERFACE_Factory,
 					PW_VERSION_FACTORY_PROXY,
@@ -177,11 +174,19 @@ int pw_factory_register(struct pw_factory *factory,
 	if (factory->global == NULL)
 		return -errno;
 
+	spa_list_append(&core->factory_list, &factory->link);
+	factory->registered = true;
+
 	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);
 	pw_global_register(factory->global, owner, parent);
 	factory->info.id = factory->global->id;
 
 	return 0;
+
+error_existed:
+	if (properties)
+		pw_properties_free(properties);
+	return -EEXIST;
 }
 
 SPA_EXPORT

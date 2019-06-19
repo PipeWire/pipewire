@@ -62,8 +62,10 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	n_support = pw_get_support(support, 32);
 
 	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	this = &impl->this;
 	impl->properties = properties;
@@ -79,15 +81,15 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 			n_support, support);
 	if (impl->system_handle == NULL) {
 		res = -errno;
-		pw_log_error("can't make system handle");
-		goto out_free;
+		pw_log_error("can't make system handle: %m");
+		goto error_free;
 	}
 
         if ((res = spa_handle_get_interface(impl->system_handle,
 					    SPA_TYPE_INTERFACE_System,
 					    &iface)) < 0) {
-                pw_log_error("can't get System interface %d\n", res);
-                goto out_free_system;
+                pw_log_error("can't get System interface %s", spa_strerror(res));
+                goto error_unload_system;
 	}
 	this->system = iface;
 
@@ -105,14 +107,14 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	if (impl->loop_handle == NULL) {
 		res = -errno;
 		pw_log_error("can't make loop handle: %m");
-		goto out_free_system;
+		goto error_unload_system;
 	}
 
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_Loop,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get Loop interface %d\n", res);
-                goto out_free_loop;
+                goto error_unload_loop;
         }
 	this->loop = iface;
 
@@ -120,7 +122,7 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 					    SPA_TYPE_INTERFACE_LoopControl,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get LoopControl interface %d\n", res);
-                goto out_free_loop;
+                goto error_unload_loop;
         }
 	this->control = iface;
 
@@ -128,18 +130,21 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 					    SPA_TYPE_INTERFACE_LoopUtils,
 					    &iface)) < 0) {
                 fprintf(stderr, "can't get LoopUtils interface %d\n", res);
-                goto out_free_loop;
+                goto error_unload_loop;
         }
 	this->utils = iface;
 
 	return this;
 
-      out_free_loop:
+error_unload_loop:
 	pw_unload_spa_handle(impl->loop_handle);
-      out_free_system:
+error_unload_system:
 	pw_unload_spa_handle(impl->system_handle);
-      out_free:
+error_free:
 	free(impl);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

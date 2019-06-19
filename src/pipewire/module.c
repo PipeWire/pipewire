@@ -209,26 +209,25 @@ pw_module_load(struct pw_core *core,
 	}
 
 	if (filename == NULL)
-		goto not_found;
+		goto error_not_found;
 
 	pw_log_debug("trying to load module: %s (%s)", name, filename);
 
 	hnd = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
-
 	if (hnd == NULL)
-		goto open_failed;
+		goto error_open_failed;
 
 	if ((init_func = dlsym(hnd, PIPEWIRE_SYMBOL_MODULE_INIT)) == NULL)
-		goto no_pw_module;
-
-	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
-		goto no_mem;
+		goto error_no_pw_module;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
-		goto no_mem;
+		goto error_no_mem;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		goto error_no_mem;
 
 	impl->hnd = hnd;
 
@@ -245,8 +244,6 @@ pw_module_load(struct pw_core *core,
 	this->info.args = args ? strdup(args) : NULL;
 	this->info.props = &this->properties->dict;
 
-	spa_list_append(&core->module_list, &this->link);
-
 	this->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Module,
 				     PW_VERSION_MODULE_PROXY,
@@ -257,13 +254,14 @@ pw_module_load(struct pw_core *core,
 				     this);
 
 	if (this->global == NULL)
-		goto no_global;
+		goto error_no_global;
 
+	spa_list_append(&core->module_list, &this->link);
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	this->info.id = this->global->id;
 
 	if ((res = init_func(this, args)) < 0)
-		goto init_failed;
+		goto error_init_failed;
 
 	pw_global_register(this->global, owner, parent);
 
@@ -271,26 +269,40 @@ pw_module_load(struct pw_core *core,
 
 	return this;
 
-      not_found:
+error_not_found:
+	res = -ENOENT;
 	pw_log_error("No module \"%s\" was found", name);
-	return NULL;
-      open_failed:
+	goto error_cleanup;
+error_open_failed:
+	res = -ENOENT;
 	pw_log_error("Failed to open module: \"%s\" %s", filename, dlerror());
-	free(filename);
-	return NULL;
-      no_mem:
-      no_pw_module:
+	goto error_free_filename;
+error_no_pw_module:
+	res = -ENOSYS;
 	pw_log_error("\"%s\": is not a pipewire module", filename);
-	dlclose(hnd);
-	free(filename);
-	return NULL;
-      no_global:
-	pw_log_error("\"%s\": failed to create global", filename);
-	pw_module_destroy(this);
-	return NULL;
-      init_failed:
+	goto error_close;
+error_no_mem:
+	res = -errno;
+	pw_log_error("can't allocate module: %m");
+	goto error_close;
+error_no_global:
+	res = -errno;
+	pw_log_error("\"%s\": failed to create global: %m", filename);
+	goto error_free_module;
+error_init_failed:
 	pw_log_error("\"%s\": failed to initialize: %s", filename, spa_strerror(res));
+	goto error_free_module;
+
+error_free_module:
 	pw_module_destroy(this);
+error_close:
+	dlclose(hnd);
+error_free_filename:
+	free(filename);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
+	errno = -res;
 	return NULL;
 }
 
@@ -306,9 +318,8 @@ void pw_module_destroy(struct pw_module *module)
 	pw_log_debug("module %p: destroy", module);
 	pw_module_emit_destroy(module);
 
-	spa_list_remove(&module->link);
-
 	if (module->global) {
+		spa_list_remove(&module->link);
 		spa_hook_remove(&module->global_listener);
 		pw_global_destroy(module->global);
 	}

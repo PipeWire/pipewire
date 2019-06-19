@@ -113,7 +113,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 
 	this = calloc(1, sizeof(struct pw_thread_loop));
 	if (this == NULL)
-		goto no_mem;
+		return NULL;
 
 	pw_log_debug("thread-loop %p: new", this);
 
@@ -151,7 +151,6 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 	free(this->name);
 	free(this);
 	errno = -res;
-      no_mem:
 	return NULL;
 }
 
@@ -203,7 +202,8 @@ static void *do_loop(void *user_data)
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
-			pw_log_warn("thread-loop %p: iterate error %d", this, res);
+			pw_log_warn("thread-loop %p: iterate error %d (%s)",
+					this, res, spa_strerror(res));
 	}
 	pw_log_debug("thread-loop %p: leave thread", this);
 	pw_loop_leave(this->loop);

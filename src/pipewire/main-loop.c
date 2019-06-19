@@ -45,31 +45,37 @@ struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 	int res;
 
 	this = calloc(1, sizeof(struct pw_main_loop));
-	if (this == NULL)
-		return NULL;
+	if (this == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	pw_log_debug("main-loop %p: new", this);
 
 	this->loop = pw_loop_new(properties);
+	properties = NULL;
 	if (this->loop == NULL) {
 		res = -errno;
-		goto no_loop;
+		goto error_free;
 	}
 
         this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
 		res = -errno;
-		goto no_event;
+		goto error_free_loop;
 	}
 
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
 
-      no_event:
+error_free_loop:
 	pw_loop_destroy(this->loop);
-      no_loop:
+error_free:
 	free(this);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -113,10 +119,10 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
  * \memberof pw_main_loop
  */
 SPA_EXPORT
-void pw_main_loop_quit(struct pw_main_loop *loop)
+int pw_main_loop_quit(struct pw_main_loop *loop)
 {
 	pw_log_debug("main-loop %p: quit", loop);
-	pw_loop_signal_event(loop->loop, loop->event);
+	return pw_loop_signal_event(loop->loop, loop->event);
 }
 
 /** Start a main loop
@@ -128,14 +134,19 @@ void pw_main_loop_quit(struct pw_main_loop *loop)
  * \memberof pw_main_loop
  */
 SPA_EXPORT
-void pw_main_loop_run(struct pw_main_loop *loop)
+int pw_main_loop_run(struct pw_main_loop *loop)
 {
+	int res = 0;
+
 	pw_log_debug("main-loop %p: run", loop);
 
 	loop->running = true;
 	pw_loop_enter(loop->loop);
 	while (loop->running) {
-		pw_loop_iterate(loop->loop, -1);
+		if ((res = pw_loop_iterate(loop->loop, -1)) < 0)
+			pw_log_warn("main-loop %p: iterate error %d (%s)",
+					loop, res, spa_strerror(res));
 	}
 	pw_loop_leave(loop->loop);
+	return res;
 }

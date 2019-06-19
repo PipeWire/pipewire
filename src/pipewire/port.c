@@ -169,6 +169,8 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 	int res = 0;
 
 	port_id = pw_map_insert_new(&port->mix_port_map, mix);
+	if (port_id == SPA_ID_INVALID)
+		return -errno;
 
 	mix->port.direction = port->direction;
 	mix->port.port_id = port_id;
@@ -602,7 +604,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL) {
 		res = -errno;
-		goto no_mem;
+		goto error_resource;
 	}
 
 	data = pw_resource_get_user_data(resource);
@@ -625,8 +627,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	this->info.change_mask = 0;
 	return 0;
 
-      no_mem:
-	pw_log_error("can't create port resource: %s", spa_strerror(res));
+error_resource:
+	pw_log_error("can't create port resource: %m");
 	return res;
 }
 
@@ -674,6 +676,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	struct pw_port *find;
 	bool control;
 	const char *str, *dir;
+	int res;
 
 	if (port->node != NULL)
 		return -EEXIST;
@@ -689,6 +692,9 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	find = pw_map_lookup(portmap, port_id);
 	if (find != NULL)
 		return -EEXIST;
+
+	if ((res = pw_map_insert_at(portmap, port_id, port)) < 0)
+		return res;
 
 	port->node = node;
 
@@ -734,7 +740,6 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	pw_log_debug("port %p: %d add to node %p", port, port_id, node);
 
 	spa_list_append(ports, &port->link);
-	pw_map_insert_at(portmap, port_id, port);
 
 	if (port->direction == PW_DIRECTION_INPUT) {
 		node->info.n_input_ports++;

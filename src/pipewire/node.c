@@ -438,7 +438,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
-		goto no_mem;
+		goto error_resource;
 
 	data = pw_resource_get_user_data(resource);
 	data->node = this;
@@ -460,8 +460,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	this->info.change_mask = 0;
 	return 0;
 
-      no_mem:
-	pw_log_error("can't create node resource");
+error_resource:
+	pw_log_error("can't create node resource: %m");
 	return -errno;
 }
 
@@ -1336,6 +1336,7 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
 	uint32_t n_ports, max_ports;
 	struct pw_map *portmap;
 	uint32_t port_id;
+	int res;
 
 	if (direction == PW_DIRECTION_INPUT) {
 		max_ports = node->info.max_input_ports;
@@ -1349,19 +1350,24 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
 	pw_log_debug("node %p: direction %s n_ports:%u max_ports:%u",
 			node, pw_direction_as_string(direction), n_ports, max_ports);
 
-	if (n_ports >= max_ports)
-		goto no_mem;
+	if (n_ports >= max_ports) {
+		res = -ENOSPC;
+		goto error;
+	}
 
 	port_id = pw_map_insert_new(portmap, NULL);
-	if (port_id == SPA_ID_INVALID)
-		goto no_mem;
+	if (port_id == SPA_ID_INVALID) {
+		res = -errno;
+		goto error;
+	}
 
 	pw_log_debug("node %p: free port %d", node, port_id);
 
 	return port_id;
 
-      no_mem:
-	pw_log_warn("no more port available");
+error:
+	pw_log_warn("node %p: no more port available: %s", node, spa_strerror(res));
+	errno = -res;
 	return SPA_ID_INVALID;
 }
 

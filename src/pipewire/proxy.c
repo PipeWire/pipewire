@@ -60,6 +60,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	struct proxy *impl;
 	struct pw_proxy *this;
 	struct pw_remote *remote = factory->remote;
+	int res;
 
 	impl = calloc(1, sizeof(struct proxy) + user_data_size);
 	if (impl == NULL)
@@ -68,15 +69,25 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	this = &impl->this;
 	this->remote = remote;
 
+	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type);
+	if (this->marshal == NULL) {
+		pw_log_error("proxy %p: no marshal for type %d", this, type);
+		res = -EPROTO;
+		goto error_clean;
+	}
+
+	this->id = pw_map_insert_new(&remote->objects, this);
+	if (this->id == SPA_ID_INVALID) {
+		res = -errno;
+		pw_log_error("proxy %p: can't allocate new id: %m", this);
+		goto error_clean;
+	}
+
 	spa_hook_list_init(&this->listener_list);
 	spa_hook_list_init(&this->object_listener_list);
 
-	this->id = pw_map_insert_new(&remote->objects, this);
-
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
-
-	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type);
 
 	this->impl = SPA_INTERFACE_INIT(
 			type,
@@ -91,6 +102,11 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 			remote, this->marshal);
 
 	return this;
+
+error_clean:
+	free(impl);
+	errno = -res;
+	return NULL;
 }
 
 SPA_EXPORT

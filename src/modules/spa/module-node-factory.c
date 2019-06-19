@@ -174,6 +174,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
+	int res;
 
 	factory = pw_factory_new(core,
 				 "spa-node-factory",
@@ -182,7 +183,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
@@ -198,9 +199,15 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
+	if ((res = pw_factory_register(factory,
+					NULL, pw_module_get_global(module), NULL)) < 0)
+		goto error_register;
 
 	return 0;
+
+error_register:
+	pw_factory_destroy(factory);
+	return res;
 }
 
 SPA_EXPORT

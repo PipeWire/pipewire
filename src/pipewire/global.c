@@ -89,6 +89,7 @@ pw_global_new(struct pw_core *core,
 {
 	struct impl *impl;
 	struct pw_global *this;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -103,6 +104,11 @@ pw_global_new(struct pw_core *core,
 	this->object = object;
 	this->properties = properties;
 	this->id = pw_map_insert_new(&core->globals, this);
+	if (this->id == SPA_ID_INVALID) {
+		res = -errno;
+		pw_log_error("global %p: can't allocate new id: %m", this);
+		goto error_clean;
+	}
 
 	spa_list_init(&this->child_list);
 	spa_list_init(&this->resource_list);
@@ -113,6 +119,11 @@ pw_global_new(struct pw_core *core,
 			this->id);
 
 	return this;
+
+error_clean:
+	free(impl);
+	errno = -res;
+	return NULL;
 }
 
 /** register a global to the core registry

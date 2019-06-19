@@ -342,6 +342,9 @@ static int client_node_add_mem(void *object,
 	}
 
 	m = pw_array_add(&data->mems, sizeof(struct mem));
+	if (m == NULL)
+		return -errno;
+
 	pw_log_debug("add mem %u, fd %d, flags %d", mem_id, memfd, flags);
 
 	m->id = mem_id;
@@ -720,6 +723,11 @@ client_node_port_use_buffers(void *object,
 		}
 
 		bid = pw_array_add(&mix->buffers, sizeof(struct buffer));
+		if (bid == NULL) {
+			res = -errno;
+			pw_proxy_error(proxy, res, "error allocating buffers : %m");
+			goto cleanup;
+		}
 		bid->id = i;
 
 		bmem.mem_id = m->id;
@@ -745,7 +753,7 @@ client_node_port_use_buffers(void *object,
 
 		b = bid->buf = malloc(size);
 		if (b == NULL) {
-			res = -ENOMEM;
+			res = -errno;
 			pw_proxy_error(proxy, res, "can't alloc memory: %s", spa_strerror(res));
 			goto cleanup;
 		}
@@ -962,6 +970,8 @@ client_node_set_activation(void *object,
 
 	if (ptr) {
 		link = pw_array_add(&data->links, sizeof(struct link));
+		if (link == NULL)
+			return -errno;
 		link->node_id = node_id;
 		link->mem_id = memid;
 		link->target.activation = ptr;

@@ -139,9 +139,7 @@ pw_spa_node_new(struct pw_core *core,
                 impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
-	res = pw_node_set_implementation(this, impl->node);
-
-	if (res < 0)
+	if ((res = pw_node_set_implementation(this, impl->node)) < 0)
 		goto clean_node;
 
 	if (flags & PW_SPA_NODE_FLAG_ASYNC) {
@@ -153,6 +151,7 @@ pw_spa_node_new(struct pw_core *core,
 
     clean_node:
 	pw_node_destroy(this);
+	errno = -res;
 	return NULL;
 
 }
@@ -180,7 +179,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 					&b);
 	if (res != 1) {
 		if (res < 0)
-			pw_log_debug("spa_node_get_props failed: %d", res);
+			pw_log_debug("spa_node_get_props failed: %s", spa_strerror(res));
 		return res;
 	}
 
@@ -230,7 +229,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 	}
 
 	if ((res = spa_node_set_param(spa_node, SPA_PARAM_Props, 0, props)) < 0) {
-		pw_log_debug("spa_node_set_props failed: %d", res);
+		pw_log_debug("spa_node_set_props failed: %s", spa_strerror(res));
 		return res;
 	}
 	return 0;
@@ -256,8 +255,10 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	handle = pw_core_load_spa_handle(core,
 			factory_name,
 			properties ? &properties->dict : NULL);
-	if (handle == NULL)
+	if (handle == NULL) {
+		res = -errno;
 		goto exit;
+	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
@@ -270,14 +271,16 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 
 	if (properties != NULL) {
 		if (setup_props(core, spa_node, properties) < 0) {
-			pw_log_debug("Unrecognized properties");
+			pw_log_warn("can't setup properties: %s", spa_strerror(res));
 		}
 	}
 
 	this = pw_spa_node_new(core, owner, parent, name, flags,
 			       spa_node, handle, properties, user_data_size);
-	if (this == NULL)
+	if (this == NULL) {
+		res = -errno;
 		goto exit;
+	}
 
 	impl = this->user_data;
 	impl->handle = handle;
@@ -288,5 +291,6 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 exit_unload:
 	pw_unload_spa_handle(handle);
 exit:
+	errno = -res;
 	return NULL;
 }

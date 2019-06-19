@@ -83,13 +83,14 @@ static void *create_object(void *_data,
 	struct pw_device *device;
 	const char *factory_name, *name;
 	struct device_data *nd;
+	int res;
 
 	if (properties == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 	if (factory_name == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	name = pw_properties_get(properties, PW_KEY_DEVICE_NAME);
 	if (name == NULL)
@@ -103,8 +104,10 @@ static void *create_object(void *_data,
 				0,
 				properties,
 				sizeof(struct device_data));
-	if (device == NULL)
-		goto no_mem;
+	if (device == NULL) {
+		res = -errno;
+		goto error_device;
+	}
 
 	nd = pw_spa_device_get_user_data(device);
 	nd->device = device;
@@ -120,17 +123,19 @@ static void *create_object(void *_data,
 
 	return device;
 
-      no_properties:
+error_properties:
+	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, data->this);
-	if (resource) {
-		pw_resource_error(resource, -EINVAL, "usage: " FACTORY_USAGE);
-	}
-	return NULL;
-      no_mem:
-	pw_log_error("can't create device: no memory");
-	if (resource) {
-		pw_resource_error(resource, -ENOMEM, "no memory");
-	}
+	if (resource)
+		pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
+	goto error_exit;
+error_device:
+	pw_log_error("can't create device: %s", spa_strerror(res));
+	if (resource)
+		pw_resource_error(resource, res, "can't create device: %s", spa_strerror(res));
+	goto error_exit;
+error_exit:
+	errno = -res;
 	return NULL;
 }
 
@@ -174,6 +179,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
+	int res;
 
 	factory = pw_factory_new(core,
 				 "spa-device-factory",
@@ -182,7 +188,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
@@ -198,9 +204,17 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
+	if ((res = pw_factory_register(factory,
+					NULL,
+					pw_module_get_global(module),
+					NULL)) < 0)
+		goto error_register;
 
 	return 0;
+
+error_register:
+	pw_factory_destroy(factory);
+	return res;
 }
 
 SPA_EXPORT

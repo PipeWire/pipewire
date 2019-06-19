@@ -74,33 +74,33 @@ static void * registry_bind(void *object, uint32_t id,
 	uint32_t permissions, new_id = user_data_size;
 
 	if ((global = pw_core_find_global(core, id)) == NULL)
-		goto no_id;
+		goto error_no_id;
 
 	permissions = pw_global_get_permissions(global, client);
 
 	if (!PW_PERM_IS_R(permissions))
-		goto no_id;
+		goto error_no_id;
 
 	if (global->type != type)
-		goto wrong_interface;
+		goto error_wrong_interface;
 
 	pw_log_debug("global %p: bind global id %d, iface %s/%d to %d", global, id,
 		     spa_debug_type_find_name(pw_type_info(), type), version, new_id);
 
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
-		goto exit;
+		goto error_exit_clean;
 
 	return NULL;
 
-      no_id:
+error_no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
 	pw_resource_error(resource, -ENOENT, "no such global %u", id);
-	goto exit;
-      wrong_interface:
+	goto error_exit_clean;
+error_wrong_interface:
 	pw_log_debug("registry %p: global with id %u has no interface %u", resource, id, type);
 	pw_resource_error(resource, -ENOENT, "no such interface %u", type);
-	goto exit;
-      exit:
+	goto error_exit_clean;
+error_exit_clean:
 	/* unmark the new_id the map, the client does not yet know about the failed
 	 * bind and will choose the next id, which we would refuse when we don't mark
 	 * new_id as 'used and freed' */
@@ -116,25 +116,34 @@ static int registry_destroy(void *object, uint32_t id)
 	struct pw_core *core = resource->core;
 	struct pw_global *global;
 	uint32_t permissions;
+	int res;
 
 	if ((global = pw_core_find_global(core, id)) == NULL)
-		goto no_id;
+		goto error_no_id;
 
 	permissions = pw_global_get_permissions(global, client);
 
+	if (!PW_PERM_IS_R(permissions))
+		goto error_no_id;
+
 	if (!PW_PERM_IS_X(permissions))
-		goto no_id;
+		goto error_not_allowed;
 
 	pw_log_debug("global %p: destroy global id %d", global, id);
 
 	pw_global_destroy(global);
 	return 0;
 
-      no_id:
+error_no_id:
 	pw_log_debug("registry %p: no global with id %u to destroy", resource, id);
-	goto exit;
-      exit:
-	return -EFAULT;
+	res = -ENOENT;
+	goto error_exit;
+error_not_allowed:
+	pw_log_debug("registry %p: destroy of id %u not allowed", resource, id);
+	res = -EPERM;
+	goto error_exit;
+error_exit:
+	return res;
 }
 
 static const struct pw_registry_proxy_methods registry_methods = {
@@ -228,6 +237,7 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 	struct pw_resource *registry_resource;
 	struct resource_data *data;
 	uint32_t new_id = user_data_size;
+	int res;
 
 	registry_resource = pw_resource_new(client,
 					    new_id,
@@ -235,8 +245,10 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 					    PW_TYPE_INTERFACE_Registry,
 					    version,
 					    sizeof(*data));
-	if (registry_resource == NULL)
-		goto no_mem;
+	if (registry_resource == NULL) {
+		res = -errno;
+		goto error_resource;
+	}
 
 	data = pw_resource_get_user_data(registry_resource);
 	pw_resource_add_listener(registry_resource,
@@ -266,13 +278,14 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 
 	return (struct pw_registry_proxy *)registry_resource;
 
-      no_mem:
-	pw_log_error("can't create registry resource");
-	pw_core_resource_error(client->core_resource, new_id,
-			client->recv_seq, -ENOMEM, "no memory");
+error_resource:
+	pw_log_error("can't create registry resource: %m");
+	pw_core_resource_errorf(client->core_resource, new_id,
+			client->recv_seq, res,
+			"can't create registry resource: %s", spa_strerror(res));
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
-	errno = ENOMEM;
+	errno = -res;
 	return NULL;
 }
 
@@ -333,12 +346,13 @@ core_create_object(void *object,
       no_properties:
 	res = -errno;
 	pw_log_error("can't create properties");
-	pw_resource_error(resource, res, "no memory");
+	pw_resource_error(resource, res, "can't create properties: %s", spa_strerror(res));
       create_failed:
 	res = -errno;
       error:
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
+	errno = -res;
 	return NULL;
 }
 
@@ -387,12 +401,16 @@ global_bind(void *_data,
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
+	int res;
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
-	if (resource == NULL)
-		goto no_mem;
+	if (resource == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	data = pw_resource_get_user_data(resource);
+
 	pw_resource_add_listener(resource,
 			&data->resource_listener,
 			&core_resource_events,
@@ -410,9 +428,9 @@ global_bind(void *_data,
 
 	return 0;
 
-      no_mem:
-	pw_log_error("can't create core resource");
-	return -ENOMEM;
+error:
+	pw_log_error("core %p: can't create resource: %m", this);
+	return res;
 }
 
 static void global_destroy(void *object)
@@ -449,8 +467,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	int res = 0;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	this = &impl->this;
 
@@ -463,7 +483,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL) {
 		res = -errno;
-		goto out_free;
+		goto error_free;
 	}
 
 	this->properties = properties;
@@ -471,15 +491,12 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->data_loop_impl = pw_data_loop_new(pw_properties_copy(properties));
 	if (this->data_loop_impl == NULL)  {
 		res = -errno;
-		goto out_free;
+		goto error_free;
 	}
 
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
-
-	pw_array_init(&this->factory_lib, 32);
-	pw_map_init(&this->globals, 128, 32);
 
 	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support));
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
@@ -502,7 +519,11 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	}
 	this->n_support = n_support;
 
-	pw_data_loop_start(this->data_loop_impl);
+	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
+		goto error_free_loop;
+
+	pw_array_init(&this->factory_lib, 32);
+	pw_map_init(&this->globals, 128, 32);
 
 	spa_list_init(&this->protocol_list);
 	spa_list_init(&this->remote_list);
@@ -551,18 +572,23 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 				     this);
 	if (this->global == NULL) {
 		res = -errno;
-		goto out_cleanup;
+		goto error_free_loop;
 	}
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global, NULL, NULL);
+
 	this->info.id = this->global->id;
 
 	return this;
 
-      out_cleanup:
-      out_free:
+error_free_loop:
+	pw_data_loop_destroy(this->data_loop_impl);
+error_free:
 	free(this);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

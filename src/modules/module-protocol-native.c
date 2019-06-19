@@ -79,12 +79,12 @@ struct client {
 	struct pw_properties *properties;
 	struct spa_source *source;
 
-        struct pw_protocol_native_connection *connection;
-        struct spa_hook conn_listener;
+	struct pw_protocol_native_connection *connection;
+	struct spa_hook conn_listener;
 
-        bool disconnecting;
-	bool flush_signaled;
-        struct spa_source *flush_event;
+	struct spa_source *flush_event;
+	unsigned int disconnecting:1;
+	unsigned int flush_signaled:1;
 };
 
 struct server {
@@ -93,11 +93,11 @@ struct server {
 	int fd_lock;
 	struct sockaddr_un addr;
 	char lock_addr[UNIX_PATH_MAX + LOCK_SUFFIXLEN];
-	bool activated;
 
 	struct pw_loop *loop;
 	struct spa_source *source;
 	struct spa_hook hook;
+	unsigned int activated:1;
 };
 
 struct client_data {
@@ -105,7 +105,7 @@ struct client_data {
 	struct spa_hook client_listener;
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
-	bool busy;
+	unsigned int busy:1;
 };
 
 static void

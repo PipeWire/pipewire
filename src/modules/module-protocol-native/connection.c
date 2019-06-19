@@ -123,14 +123,18 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 
 static void *connection_ensure_size(struct pw_protocol_native_connection *conn, struct buffer *buf, size_t size)
 {
+	int res;
+
 	if (buf->buffer_size + size > buf->buffer_maxsize) {
 		buf->buffer_maxsize = SPA_ROUND_UP_N(buf->buffer_size + size, MAX_BUFFER_SIZE);
 		buf->buffer_data = realloc(buf->buffer_data, buf->buffer_maxsize);
 		if (buf->buffer_data == NULL) {
+			res = -errno;
 			buf->buffer_maxsize = 0;
 			spa_hook_list_call(&conn->listener_list,
 					struct pw_protocol_native_connection_events,
-					error, 0, -ENOMEM);
+					error, 0, -res);
+			errno = -res;
 			return NULL;
 		}
 		pw_log_warn("connection %p: resize buffer to %zd %zd %zd",
@@ -335,7 +339,7 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 			break;
 
 		if (connection_ensure_size(conn, buf, len) == NULL)
-			return -ENOMEM;
+			return -errno;
 		if ((res = refill_buffer(conn, buf)) < 0)
 			return res;
 	}
@@ -362,7 +366,7 @@ static int builder_overflow(void *data, uint32_t size)
 
 	b->size = SPA_ROUND_UP_N(size, 4096);
 	if ((b->data = begin_write(&impl->this, b->size)) == NULL)
-		return -ENOMEM;
+		return -errno;
         return 0;
 }
 
@@ -401,7 +405,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	int res;
 
 	if ((p = connection_ensure_size(conn, buf, HDR_SIZE + size)) == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	p[0] = buf->msg.id;
 	p[1] = (buf->msg.opcode << 24) | (size & 0xffffff);

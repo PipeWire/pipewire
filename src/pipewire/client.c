@@ -195,7 +195,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
-		goto out;
+		goto error_resource;
 
 	data = pw_resource_get_user_data(resource);
 	data->client = this;
@@ -219,7 +219,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	return 0;
 
-      out:
+error_resource:
 	pw_log_error("can't create client resource: %m");
 	return -errno;
 }
@@ -259,10 +259,13 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	struct pw_client *this;
 	struct impl *impl;
 	struct pw_permission *p;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	this = &impl->this;
 	pw_log_debug("client %p: new", this);
@@ -271,11 +274,18 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		return NULL;
+	if (properties == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 
 	pw_array_init(&impl->permissions, 1024);
 	p = pw_array_add(&impl->permissions, sizeof(struct pw_permission));
+	if (p == NULL) {
+		res = -errno;
+		goto error_clear_array;
+	}
+
 	p->id = SPA_ID_INVALID;
 	p->permissions = 0;
 
@@ -297,6 +307,16 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	pw_core_emit_check_access(core, this);
 
 	return this;
+
+error_clear_array:
+	pw_array_clear(&impl->permissions);
+error_free:
+	free(impl);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
+	errno = -res;
+	return NULL;
 }
 
 static void global_destroy(void *object)
@@ -522,6 +542,10 @@ int pw_client_update_permissions(struct pw_client *client,
 				continue;
 			}
 			p = ensure_permissions(client, permissions[i].id);
+			if (p == NULL) {
+				pw_log_warn("client %p: can't ensure permission: %m", client);
+				continue;
+			}
 			old_perm = p->permissions == SPA_ID_INVALID ? def->permissions : p->permissions;
 			new_perm = permissions[i].permissions;
 

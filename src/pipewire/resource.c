@@ -48,6 +48,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 {
 	struct impl *impl;
 	struct pw_resource *this;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -63,17 +64,29 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	spa_hook_list_init(&this->listener_list);
 	spa_hook_list_init(&this->object_listener_list);
 
+	this->marshal = pw_protocol_get_marshal(client->protocol, type);
+	if (this->marshal == NULL) {
+		pw_log_error("resource %p: no marshal for type %d", this, type);
+		res = -EPROTO;
+		goto error_clean;
+	}
+
 	if (id == SPA_ID_INVALID) {
-		id = pw_map_insert_new(&client->objects, this);
-	} else if (pw_map_insert_at(&client->objects, id, this) < 0)
-		goto in_use;
+		res = -EINVAL;
+		goto error_clean;
+	}
+
+	if ((res = pw_map_insert_at(&client->objects, id, this)) < 0) {
+		res = -errno;
+		pw_log_error("resource %p: can't add id %u for client %p: %m",
+			this, id, client);
+		goto error_clean;
+	}
 
 	this->id = id;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
-
-	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 
 	this->impl = SPA_INTERFACE_INIT(
 			type,
@@ -88,10 +101,9 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 	return this;
 
-      in_use:
-	pw_log_debug("resource %p: id %u in use for client %p", this, id, client);
+error_clean:
 	free(impl);
-	errno = -EEXIST;
+	errno = -res;
 	return NULL;
 }
 

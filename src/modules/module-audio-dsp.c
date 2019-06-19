@@ -205,7 +205,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 					 NULL),
 				 sizeof(*data));
 	if (factory == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;

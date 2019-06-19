@@ -527,7 +527,7 @@ builder_overflow (void *event_data, uint32_t size)
   b->size = SPA_ROUND_UP_N (size, 512);
   b->data = realloc (b->data, b->size);
   if (b->data == NULL)
-    return -ENOMEM;
+    return -errno;
   return 0;
 }
 

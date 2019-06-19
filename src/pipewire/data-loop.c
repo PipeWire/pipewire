@@ -67,33 +67,39 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 	int res;
 
 	this = calloc(1, sizeof(struct pw_data_loop));
-	if (this == NULL)
-		return NULL;
+	if (this == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	pw_log_debug("data-loop %p: new", this);
 
 	this->loop = pw_loop_new(properties);
+	properties = NULL;
 	if (this->loop == NULL) {
-		pw_log_debug("data-loop %p: can't create loop: %m", this);
 		res = -errno;
-		goto no_loop;
+		pw_log_debug("data-loop %p: can't create loop: %m", this);
+		goto error_free;
 	}
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
-		pw_log_debug("data-loop %p: can't add event: %m", this);
 		res = -errno;
-		goto no_event;
+		pw_log_debug("data-loop %p: can't add event: %m", this);
+		goto error_loop_destroy;
 	}
 
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
 
-      no_event:
+error_loop_destroy:
 	pw_loop_destroy(this->loop);
-      no_loop:
+error_free:
 	free(this);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

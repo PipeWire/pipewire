@@ -222,7 +222,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	pw_log_debug("module %p: new %s", impl, args);
 

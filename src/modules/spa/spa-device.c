@@ -52,7 +52,6 @@ struct impl {
 	void *unload;
         struct spa_handle *handle;
         struct spa_device *device;
-	char *factory_name;
 
 	struct spa_hook device_listener;
 
@@ -69,7 +68,6 @@ static void device_destroy(void *data)
 	spa_hook_remove(&impl->device_listener);
 	if (impl->handle)
 		pw_unload_spa_handle(impl->handle);
-	free(impl->factory_name);
 }
 
 static const struct pw_device_events device_events = {
@@ -90,6 +88,7 @@ pw_spa_device_new(struct pw_core *core,
 {
 	struct pw_device *this;
 	struct impl *impl;
+	int res;
 
 	this = pw_device_new(core, name, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
@@ -109,10 +108,16 @@ pw_spa_device_new(struct pw_core *core,
 	pw_device_add_listener(this, &impl->device_listener, &device_events, impl);
 	pw_device_set_implementation(this, impl->device);
 
-	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_DEVICE_FLAG_NO_REGISTER))
-		pw_device_register(this, impl->owner, impl->parent, NULL);
-
+	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_DEVICE_FLAG_NO_REGISTER)) {
+		if ((res = pw_device_register(this, impl->owner, impl->parent, NULL)) < 0)
+			goto error_register;
+	}
 	return this;
+
+error_register:
+	pw_device_destroy(this);
+	errno = -res;
+	return NULL;
 }
 
 void *pw_spa_device_get_user_data(struct pw_device *device)
@@ -131,7 +136,6 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 				 size_t user_data_size)
 {
 	struct pw_device *this;
-	struct impl *impl;
 	struct spa_handle *handle;
 	void *iface;
 	int res;
@@ -139,6 +143,7 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 	handle = pw_core_load_spa_handle(core, factory_name,
 			properties ? &properties->dict : NULL);
 	if (handle == NULL) {
+		res = -errno;
 		pw_log_error("can't load device handle: %m");
 		goto exit;
 	}
@@ -151,17 +156,16 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 	this = pw_spa_device_new(core, owner, parent, name, flags,
 			       iface, handle, properties, user_data_size);
 	if (this == NULL) {
+		res = -errno;
 		pw_log_error("can't create device: %m");
-		goto exit;
+		goto exit_unload;
 	}
-
-	impl = this->user_data;
-	impl->factory_name = strdup(factory_name);
 
 	return this;
 
 exit_unload:
 	pw_unload_spa_handle(handle);
 exit:
+	errno = -res;
 	return NULL;
 }

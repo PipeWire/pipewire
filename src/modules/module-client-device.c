@@ -66,26 +66,37 @@ static void *create_object(void *_data,
 	struct pw_resource *device_resource;
 	struct pw_global *parent;
 	struct pw_client *client = pw_resource_get_client(resource);
+	int res;
 
 	device_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
-	if (device_resource == NULL)
-		goto no_mem;
+	if (device_resource == NULL) {
+		res = -errno;
+		goto error_resource;
+	}
 
 	parent = pw_client_get_global(client);
 
 	result = pw_client_device_new(device_resource, parent, properties);
-	if (result == NULL)
-		goto no_mem;
+	if (result == NULL) {
+		res = -errno;
+		goto error_device;
+	}
 
 	return result;
 
-      no_mem:
-	pw_log_error("can't create device");
-	pw_resource_error(resource, -ENOMEM, "can't create device: no memory");
-	goto done;
-      done:
-	if (properties)
-		pw_properties_free(properties);
+error_resource:
+	pw_log_error("can't create resource: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't create resource: %s", spa_strerror(res));
+	goto error_exit;
+error_device:
+	pw_log_error("can't create device: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't create device: %s", spa_strerror(res));
+	goto error_exit_free;
+
+error_exit_free:
+	pw_resource_destroy(device_resource);
+error_exit:
+	errno = -res;
 	return NULL;
 }
 
@@ -128,7 +139,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 					 NULL),
 				 sizeof(*data));
 	if (factory == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;

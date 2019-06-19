@@ -126,6 +126,7 @@ static struct pw_port *get_port(struct pw_node *node, enum spa_direction directi
 
 		if ((res = pw_port_add(p, node)) < 0) {
 			pw_log_warn("can't add port: %s", spa_strerror(res));
+			errno = -res;
 			return NULL;
 		}
 	}
@@ -158,15 +159,15 @@ static void *create_object(void *_data,
 	core = pw_client_get_core(client);
 
 	if (properties == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	if ((str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	output_node_id = pw_properties_parse_int(str);
 
 	if ((str = pw_properties_get(properties, PW_KEY_LINK_INPUT_NODE)) == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	input_node_id = pw_properties_parse_int(str);
 
@@ -178,13 +179,13 @@ static void *create_object(void *_data,
 
 	global = pw_core_find_global(core, output_node_id);
 	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
-		goto no_output;
+		goto error_output;
 
 	output_node = pw_global_get_object(global);
 
 	global = pw_core_find_global(core, input_node_id);
 	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
-		goto no_input;
+		goto error_input;
 
 	input_node = pw_global_get_object(global);
 
@@ -194,31 +195,34 @@ static void *create_object(void *_data,
 	else {
 		global = pw_core_find_global(core, output_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
-			goto no_output_port;
+			goto error_output_port;
 
 		outport = pw_global_get_object(global);
 	}
 	if (outport == NULL)
-		goto no_output_port;
+		goto error_output_port;
 
 	if (input_port_id == SPA_ID_INVALID)
 		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	else {
 		global = pw_core_find_global(core, input_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
-			goto no_input_port;
+			goto error_input_port;
 
 		inport = pw_global_get_object(global);
 	}
 	if (inport == NULL)
-		goto no_input_port;
+		goto error_input_port;
 
 	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
 	linger = str ? pw_properties_parse_bool(str) : false;
 
 	link = pw_link_new(core, outport, inport, NULL, properties, sizeof(struct link_data));
-	if (link == NULL)
-		goto no_mem;
+	properties = NULL;
+	if (link == NULL) {
+		res = -errno;
+		goto error_create_link;
+	}
 
 	ld = pw_link_get_user_data(link);
 	ld->data = d;
@@ -226,61 +230,71 @@ static void *create_object(void *_data,
 	spa_list_append(&d->link_list, &ld->l);
 
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
-	pw_link_register(link,
+	if ((res = pw_link_register(link,
 			linger ? NULL : client,
 			linger ? NULL : pw_client_get_global(client),
-			NULL);
-
-	properties = NULL;
+			NULL)) < 0)
+		goto error_link_register;
 
 	ld->global = pw_link_get_global(link);
 	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
 
 	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK_PROXY, new_id);
 	if (res < 0)
-		goto no_bind;
+		goto error_bind;
 
 	if (!linger) {
 		ld->resource = pw_client_find_resource(client, new_id);
-		if (ld->resource == NULL)
-			goto no_bind;
+		if (ld->resource == NULL) {
+			res = -ENOENT;
+			goto error_bind;
+		}
 
 		pw_resource_add_listener(ld->resource, &ld->resource_listener, &resource_events, ld);
 	}
 
 	return link;
 
-      no_properties:
+error_properties:
+	res = -EINVAL;
 	pw_log_error("link-factory usage:" FACTORY_USAGE);
-	pw_resource_error(resource, -EINVAL, "no properties");
-	goto done;
-      no_output:
+	pw_resource_error(resource, res, "no properties");
+	goto error_exit;
+error_output:
+	res = -EINVAL;
 	pw_log_error("link-factory unknown output node %u", output_node_id);
-	pw_resource_error(resource, -EINVAL, "unknown output node %u", output_node_id);
-	goto done;
-      no_input:
+	pw_resource_error(resource, res, "unknown output node %u", output_node_id);
+	goto error_exit;
+error_input:
+	res = -EINVAL;
 	pw_log_error("link-factory unknown input node %u", input_node_id);
-	pw_resource_error(resource, -EINVAL, "unknown input node %u", input_node_id);
-	goto done;
-      no_output_port:
+	pw_resource_error(resource, res, "unknown input node %u", input_node_id);
+	goto error_exit;
+error_output_port:
+	res = -EINVAL;
 	pw_log_error("link-factory unknown output port %u", output_port_id);
-	pw_resource_error(resource, -EINVAL, "unknown output port %u", output_port_id);
-	goto done;
-      no_input_port:
+	pw_resource_error(resource, res, "unknown output port %u", output_port_id);
+	goto error_exit;
+error_input_port:
+	res = -EINVAL;
 	pw_log_error("link-factory unknown input port %u", input_port_id);
-	pw_resource_error(resource, -EINVAL, "unknown input port %u", input_port_id);
-	goto done;
-      no_mem:
-	res = -errno;
+	pw_resource_error(resource, res, "unknown input port %u", input_port_id);
+	goto error_exit;
+error_create_link:
 	pw_log_error("can't create link: %s", spa_strerror(res));
 	pw_resource_error(resource, res, "can't create link: %s", spa_strerror(res));
-	goto done;
-      no_bind:
-	pw_resource_error(resource, res, "can't bind link");
-	goto done;
-      done:
+	goto error_exit;
+error_link_register:
+	pw_log_error("can't register link: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't register link: %s", spa_strerror(res));
+	goto error_exit;
+error_bind:
+	pw_resource_error(resource, res, "can't bind link: %s", spa_strerror(res));
+	goto error_exit;
+error_exit:
 	if (properties)
 		pw_properties_free(properties);
+	errno = -res;
 	return NULL;
 }
 
@@ -315,6 +329,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
+	int res;
 
 	factory = pw_factory_new(core,
 				 "link-factory",
@@ -324,8 +339,10 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 					 PW_KEY_FACTORY_USAGE, FACTORY_USAGE,
 					 NULL),
 				 sizeof(*data));
-	if (factory == NULL)
-		return -ENOMEM;
+	if (factory == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
@@ -338,13 +355,21 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				      &impl_factory,
 				      data);
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
+	if ((res = pw_factory_register(factory, NULL, pw_module_get_global(module), NULL)) < 0)
+		goto error_register;
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
+
+error_register:
+	pw_factory_destroy(factory);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
+	return res;
 }
 
 SPA_EXPORT

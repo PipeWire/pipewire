@@ -69,10 +69,13 @@ static void *create_object(void *_data,
 	struct pw_resource *node_resource;
 	struct pw_global *parent;
 	struct pw_client *client = pw_resource_get_client(resource);
+	int res;
 
 	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
-	if (node_resource == NULL)
-		goto no_mem;
+	if (node_resource == NULL) {
+		res = -errno;
+		goto error_resource;
+	}
 
 	parent = pw_client_get_global(client);
 
@@ -82,18 +85,24 @@ static void *create_object(void *_data,
 	else {
 		result = pw_client_node_new(node_resource, parent, properties, true);
 	}
-	if (result == NULL)
-		goto no_mem;
-
+	if (result == NULL) {
+		res = -errno;
+		goto error_node;
+	}
 	return result;
 
-      no_mem:
-	pw_log_error("can't create node");
-	pw_resource_error(resource, -ENOMEM, "can't create node: no memory");
-	goto done;
-      done:
-	if (properties)
-		pw_properties_free(properties);
+error_resource:
+	pw_log_error("can't create resource: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't create resource: %s", spa_strerror(res));
+	goto error_exit;
+error_node:
+	pw_log_error("can't create node: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
+	goto error_exit_free;
+error_exit_free:
+	pw_resource_destroy(node_resource);
+error_exit:
+	errno = -res;
 	return NULL;
 }
 
@@ -135,7 +144,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;

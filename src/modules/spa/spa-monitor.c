@@ -98,6 +98,9 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	else
 		props = pw_properties_new(NULL, NULL);
 
+	if (props == NULL)
+		return NULL;
+
 	if ((name = pw_properties_get(props, PW_KEY_DEVICE_NAME)) == NULL)
 		name = "unknown";
 
@@ -112,16 +115,21 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	handle = pw_core_load_spa_handle(core, info->factory_name,
 			&props->dict);
 	if (handle == NULL) {
+		res = -errno;
 		pw_log_error("can't make factory instance: %m");
 		goto error_free_props;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get %d interface: %d", info->type, res);
+		pw_log_error("can't get %d interface: %s", info->type, spa_strerror(res));
 		goto error_free_handle;
 	}
 
 	obj = calloc(1, sizeof(struct monitor_object));
+	if (obj == NULL) {
+		res = -errno;
+		goto error_free_handle;
+	}
 	obj->id = id;
 	obj->name = strdup(name);
 	obj->handle = handle;
@@ -139,6 +147,7 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 		break;
 	}
 	default:
+		res = -ENOTSUP;
 		pw_log_error("interface %d not implemented", obj->type);
 		goto error_free_object;
 	}
@@ -154,6 +163,7 @@ error_free_handle:
 	pw_unload_spa_handle(handle);
 error_free_props:
 	pw_properties_free(props);
+	errno = -res;
 	return NULL;
 }
 
@@ -213,7 +223,7 @@ static int on_monitor_object_info(void *data, uint32_t id,
 	} else if (obj == NULL) {
 		obj = add_object(this, id, info, now_nsec);
 		if (obj == NULL)
-			return -ENOMEM;
+			return -errno;
 	} else {
 		change_object(this, obj, info, now_nsec);
 	}
@@ -267,17 +277,21 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	handle = pw_core_load_spa_handle(core,
 			factory_name,
 			properties ? &properties->dict : NULL);
-	if (handle == NULL)
+	if (handle == NULL) {
+		res = -errno;
 		goto exit;
+	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
-		pw_log_error("can't get MONITOR interface: %d", res);
+		pw_log_error("can't get MONITOR interface: %s", spa_strerror(res));
 		goto exit_unload;
 	}
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
-	if (impl == NULL)
+	if (impl == NULL) {
+		res = -errno;
 		goto exit_unload;
+	}
 
 	impl->core = core;
 	impl->parent = parent;
@@ -302,6 +316,7 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 exit_unload:
 	pw_unload_spa_handle(handle);
 exit:
+	errno = -res;
 	return NULL;
 
 }

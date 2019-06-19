@@ -225,6 +225,8 @@ static struct mem *ensure_mem(struct impl *impl, int fd, uint32_t type, uint32_t
 
 	if (f == NULL) {
 		m = pw_array_add(&impl->mems, sizeof(struct mem));
+		if (m == NULL)
+			return NULL;
 		m->id = pw_array_get_len(&impl->mems, struct mem) - 1;
 	}
 	else {
@@ -469,6 +471,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		mem_offset += mem->offset;
 		mem_size = size;
 		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		if (m == NULL)
+			return -errno;
 		memid = m->id;
 	}
 	else {
@@ -776,6 +780,8 @@ static int do_port_set_io(struct impl *impl,
 
 		mem_offset += mem->offset;
 		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		if (m == NULL)
+			return -errno;
 		memid = m->id;
 	}
 	else {
@@ -879,6 +885,8 @@ do_port_use_buffers(struct impl *impl,
 		}
 
 		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		if (m == NULL)
+			return -errno;
 		b->memid = m->id;
 
 		mb[i].buffer = &b->buffer;
@@ -900,6 +908,8 @@ do_port_use_buffers(struct impl *impl,
 			if (d->type == SPA_DATA_DmaBuf ||
 			    d->type == SPA_DATA_MemFd) {
 				m = ensure_mem(impl, d->fd, d->type, d->flags);
+				if (m == NULL)
+					return -errno;
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				spa_log_debug(this->log, "mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));
@@ -1278,6 +1288,10 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 					  impl->other_fds[1]);
 
 	m = ensure_mem(impl, node->activation->fd, SPA_DATA_MemFd, node->activation->flags);
+	if (m == NULL) {
+		pw_log_debug("client-node %p: can't ensure mem: %m", this);
+		return;
+	}
 
 	pw_client_node_resource_set_activation(this->resource,
 					  node_id,
@@ -1362,6 +1376,8 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 		return -ENOMEM;
 
 	mix->id = pw_map_insert_new(&impl->io_map, NULL);
+	if (mix->id == SPA_ID_INVALID)
+		return -errno;
 
 	mix->io = SPA_MEMBER(impl->io_areas->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
@@ -1577,6 +1593,10 @@ static void node_peer_added(void *data, struct pw_node *peer)
 		return;
 
 	m = ensure_mem(impl, peer->activation->fd, SPA_DATA_MemFd, peer->activation->flags);
+	if (m == NULL) {
+		pw_log_debug("client-node %p: can't ensure mem: %m", this);
+		return;
+	}
 
 	pw_log_debug("client-node %p: peer %p %u added %u", &impl->this, peer,
 			peer->info.id, m->id);

@@ -82,8 +82,10 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	this = &impl->this;
 
@@ -91,7 +93,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL) {
 		res = -errno;
-		goto no_mem;
+		goto error_free;
 	}
 
 	this->core = core;
@@ -111,8 +113,11 @@ struct pw_device *pw_device_new(struct pw_core *core,
 
 	return this;
 
-      no_mem:
+error_free:
 	free(impl);
+error_cleanup:
+	if (properties)
+		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -296,7 +301,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
-		goto no_mem;
+		goto error_resource;
 
 	data = pw_resource_get_user_data(resource);
 	data->device = this;
@@ -319,8 +324,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	return 0;
 
-      no_mem:
-	pw_log_error("can't create device resource");
+error_resource:
+	pw_log_error("can't create device resource: %m");
 	return -errno;
 }
 

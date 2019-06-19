@@ -1050,7 +1050,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
 	if (resource == NULL)
-		goto no_mem;
+		goto error_resource;
 
 	data = pw_resource_get_user_data(resource);
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
@@ -1065,8 +1065,8 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 
 	return 0;
 
-      no_mem:
-	pw_log_error("can't create link resource");
+error_resource:
+	pw_log_error("can't create link resource: %m");
 	return -errno;
 }
 

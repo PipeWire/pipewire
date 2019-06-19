@@ -327,14 +327,14 @@ static int do_connect(struct pw_remote *remote)
 			PW_TYPE_INTERFACE_Core, 0);
 	if (remote->core_proxy == NULL) {
 		res = -errno;
-		goto no_proxy;
+		goto error_disconnect;
 	}
 
 	remote->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&dummy,
 			PW_TYPE_INTERFACE_Client, 0);
 	if (remote->client_proxy == NULL) {
 		res = -errno;
-		goto clean_core_proxy;
+		goto error_clean_core_proxy;
 	}
 
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
@@ -345,12 +345,12 @@ static int do_connect(struct pw_remote *remote)
 
 	return 0;
 
-      clean_core_proxy:
+error_clean_core_proxy:
 	((struct pw_proxy*)remote->core_proxy)->removed = true;
 	pw_proxy_destroy((struct pw_proxy*)remote->core_proxy);
-      no_proxy:
+error_disconnect:
 	pw_protocol_client_disconnect(remote->conn);
-	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: no memory");
+	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: %s", spa_strerror(res));
 	return res;
 }
 
@@ -421,8 +421,8 @@ int pw_remote_steal_fd(struct pw_remote *remote)
 	int fd;
 
 	fd = pw_protocol_client_steal_fd(remote->conn);
-	pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
-
+	if (fd >= 0)
+		pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 	return fd;
 }
 

@@ -609,13 +609,13 @@ static int negotiate_buffers(struct impl *impl)
 			in_alloc = false;
 	}
 
-	if (spa_pod_parse_object(param,
+	if ((res = spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamBuffers, NULL,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align)) < 0)
-		return -EINVAL;
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align))) < 0)
+		return res;
 
 	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d",
 			impl, buffers, blocks, size, align);
@@ -635,7 +635,7 @@ static int negotiate_buffers(struct impl *impl)
 	free(impl->buffers);
 	impl->buffers = calloc(buffers, sizeof(struct spa_buffer *) + info.skel_size);
 	if (impl->buffers == NULL)
-		return -ENOMEM;
+		return -errno;
 
         skel = SPA_MEMBER(impl->buffers, sizeof(struct spa_buffer *) * buffers, void);
 

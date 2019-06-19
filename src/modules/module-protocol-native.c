@@ -318,14 +318,14 @@ static struct pw_client *client_new(struct server *s, int fd)
 	return NULL;
 }
 
-static bool init_socket_name(struct server *s, const char *name)
+static int init_socket_name(struct server *s, const char *name)
 {
 	int name_size;
 	const char *runtime_dir;
 
 	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
 		pw_log_error("XDG_RUNTIME_DIR not set in the environment");
-		return false;
+		return -EIO;
 	}
 
 	s->addr.sun_family = AF_LOCAL;
@@ -336,29 +336,33 @@ static bool init_socket_name(struct server *s, const char *name)
 		pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
 			     runtime_dir, name);
 		*s->addr.sun_path = 0;
-		return false;
+		return -ENAMETOOLONG;
 	}
-	return true;
+	return 0;
 }
 
-static bool lock_socket(struct server *s)
+static int lock_socket(struct server *s)
 {
+	int res;
+
 	snprintf(s->lock_addr, sizeof(s->lock_addr), "%s%s", s->addr.sun_path, LOCK_SUFFIX);
 
 	s->fd_lock = open(s->lock_addr, O_CREAT | O_CLOEXEC,
 			  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP));
 
 	if (s->fd_lock < 0) {
-		pw_log_error("unable to open lockfile %s check permissions", s->lock_addr);
+		res = -errno;
+		pw_log_error("unable to open lockfile '%s': %m", s->lock_addr);
 		goto err;
 	}
 
 	if (flock(s->fd_lock, LOCK_EX | LOCK_NB) < 0) {
-		pw_log_error("unable to lock lockfile %s, maybe another daemon is running",
+		res = -errno;
+		pw_log_error("unable to lock lockfile '%s': %m (maybe another daemon is running)",
 			     s->lock_addr);
 		goto err_fd;
 	}
-	return true;
+	return 0;
 
       err_fd:
 	close(s->fd_lock);
@@ -366,7 +370,7 @@ static bool lock_socket(struct server *s)
       err:
 	*s->lock_addr = 0;
 	*s->addr.sun_path = 0;
-	return false;
+	return res;
 }
 
 static void
@@ -399,10 +403,10 @@ socket_data(void *data, int fd, uint32_t mask)
 			  c->source, SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 }
 
-static bool add_socket(struct pw_protocol *protocol, struct server *s)
+static int add_socket(struct pw_protocol *protocol, struct server *s)
 {
 	socklen_t size;
-	int fd = -1;
+	int fd = -1, res;
 	bool activated = false;
 
 #ifdef HAVE_SYSTEMD_DAEMON
@@ -421,33 +425,42 @@ static bool add_socket(struct pw_protocol *protocol, struct server *s)
 #endif
 
 	if (fd < 0) {
-		if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
+		if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+			res = -errno;
 			goto error;
+		}
 
 		size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
 		if (bind(fd, (struct sockaddr *) &s->addr, size) < 0) {
+			res = -errno;
 			pw_log_error("bind() failed with error: %m");
 			goto error_close;
 		}
 
 		if (listen(fd, 128) < 0) {
+			res = -errno;
 			pw_log_error("listen() failed with error: %m");
 			goto error_close;
 		}
 	}
 
-	s->loop = pw_core_get_main_loop(protocol->core);
-	s->source = pw_loop_add_io(s->loop, fd, SPA_IO_IN, true, socket_data, s);
 	s->activated = activated;
-	if (s->source == NULL)
+	s->loop = pw_core_get_main_loop(protocol->core);
+	if (s->loop == NULL) {
+		res = -errno;
 		goto error_close;
-
-	return true;
+	}
+	s->source = pw_loop_add_io(s->loop, fd, SPA_IO_IN, true, socket_data, s);
+	if (s->source == NULL) {
+		res = -errno;
+		goto error_close;
+	}
+	return 0;
 
       error_close:
 	close(fd);
       error:
-	return false;
+	return res;
 
 }
 
@@ -460,9 +473,12 @@ static int impl_steal_fd(struct pw_protocol_client *client)
 		return -EIO;
 
 	fd = dup(impl->source->fd);
-
+	if (fd == -1) {
+		fd = -errno;
+		goto out;
+	}
 	pw_protocol_client_disconnect(client);
-
+out:
 	return fd;
 }
 
@@ -574,31 +590,37 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_cl
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
 	struct pw_remote *remote = client->remote;
+	int res;
 
 	impl->disconnecting = false;
 
 	impl->connection = pw_protocol_native_connection_new(remote->core, fd);
-	if (impl->connection == NULL)
-                goto error_close;
+	if (impl->connection == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
+
+	impl->source = pw_loop_add_io(remote->core->main_loop,
+					fd,
+					SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
+					do_close, on_remote_data, impl);
+	if (impl->source == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	pw_protocol_native_connection_add_listener(impl->connection,
 						   &impl->conn_listener,
 						   &conn_events,
 						   impl);
-
-        impl->source = pw_loop_add_io(remote->core->main_loop,
-                                      fd,
-                                      SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
-                                      do_close, on_remote_data, impl);
-	if (impl->source == NULL)
-		goto error_close;
-
 	return 0;
 
-      error_close:
-	if (do_close)
-	        close(fd);
-        return -ENOMEM;
+error_cleanup:
+	if (impl->connection) {
+		pw_protocol_native_connection_destroy(impl->connection);
+		impl->connection = NULL;
+	}
+	return res;
 }
 
 static void impl_disconnect(struct pw_protocol_client *client)
@@ -641,6 +663,7 @@ impl_new_client(struct pw_protocol *protocol,
 	struct client *impl;
 	struct pw_protocol_client *this;
 	const char *str = NULL;
+	int res;
 
 	if ((impl = calloc(1, sizeof(struct client))) == NULL)
 		return NULL;
@@ -667,10 +690,21 @@ impl_new_client(struct pw_protocol *protocol,
 	this->destroy = impl_destroy;
 
 	impl->flush_event = pw_loop_add_event(remote->core->main_loop, do_flush_event, impl);
+	if (impl->flush_event == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	spa_list_append(&protocol->client_list, &this->link);
 
 	return this;
+
+error_cleanup:
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+	free(impl);
+	errno = -res;
+	return NULL;
 }
 
 static void destroy_server(struct pw_protocol_server *server)
@@ -679,6 +713,7 @@ static void destroy_server(struct pw_protocol_server *server)
 	struct pw_client *client, *tmp;
 
 	spa_list_remove(&server->link);
+	spa_hook_remove(&s->hook);
 
 	spa_list_for_each_safe(client, tmp, &server->client_list, protocol_link)
 		pw_client_destroy(client);
@@ -736,6 +771,7 @@ impl_add_server(struct pw_protocol *protocol,
 	struct pw_protocol_server *this;
 	struct server *s;
 	const char *name;
+	int res;
 
 	if ((s = calloc(1, sizeof(struct server))) == NULL)
 		return NULL;
@@ -751,23 +787,24 @@ impl_add_server(struct pw_protocol *protocol,
 
 	name = get_name(pw_core_get_properties(core));
 
-	if (!init_socket_name(s, name))
-		goto error;
-
-	if (!lock_socket(s))
-		goto error;
-
-	if (!add_socket(protocol, s))
-		goto error;
-
 	pw_loop_add_hook(pw_core_get_main_loop(core), &s->hook, &impl_hooks, s);
+
+	if ((res = init_socket_name(s, name)) < 0)
+		goto error;
+
+	if ((res = lock_socket(s)) < 0)
+		goto error;
+
+	if ((res = add_socket(protocol, s)) < 0)
+		goto error;
 
 	pw_log_info("protocol-native %p: Added server %p %s", protocol, this, name);
 
 	return this;
 
-      error:
+error:
 	destroy_server(this);
+	errno = -res;
 	return NULL;
 }
 
@@ -865,13 +902,14 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	struct pw_protocol *this;
 	const char *val;
 	struct protocol_data *d;
+	int res;
 
 	if (pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
 		return 0;
 
 	this = pw_protocol_new(core, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
 	if (this == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	debug_messages = pw_debug_is_category_enabled("connection");
 
@@ -891,8 +929,10 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	if (val == NULL)
 		val = pw_properties_get(pw_core_get_properties(core), PW_KEY_CORE_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
-		if (impl_add_server(this, core, properties) == NULL)
-			return -errno;
+		if (impl_add_server(this, core, properties) == NULL) {
+			res = -errno;
+			goto error_cleanup;
+		}
 	}
 
 	pw_module_add_listener(module, &d->module_listener, &module_events, d);
@@ -900,6 +940,10 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
+
+error_cleanup:
+	pw_protocol_destroy(this);
+	return res;
 }
 
 SPA_EXPORT

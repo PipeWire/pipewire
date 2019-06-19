@@ -58,13 +58,16 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 
 	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
 		pw_log_error("connect failed: XDG_RUNTIME_DIR not set in the environment");
-		return -EIO;
+		res = -EIO;
+		goto error;
         }
 
 	name = get_remote(pw_remote_get_properties(remote));
 
-        if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0)
-                return -errno;
+        if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+		res = -errno;
+		goto error;
+	}
 
         memset(&addr, 0, sizeof(addr));
         addr.sun_family = AF_LOCAL;
@@ -90,7 +93,8 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 
 	return res;
 
-      error_close:
-        close(fd);
+error_close:
+	close(fd);
+error:
 	return res;
 }

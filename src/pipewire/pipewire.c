@@ -111,12 +111,12 @@ open_plugin(struct registry *registry,
 
         if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
 		res = -ENOENT;
-                fprintf(stderr, "can't load %s: %s\n", filename, dlerror());
+                pw_log_error("can't load %s: %s", filename, dlerror());
                 goto error_free_filename;
         }
         if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		res = -ESRCH;
-                fprintf(stderr, "can't find enum function\n");
+                pw_log_error("can't find enum function");
                 goto error_dlclose;
         }
 
@@ -172,7 +172,7 @@ static const struct spa_handle_factory *find_factory(struct plugin *plugin, cons
 	}
 	res = -ENOENT;
 out:
-	fprintf(stderr, "can't find factory %s: %s", factory_name, spa_strerror(res));
+	pw_log_error("can't find factory %s: %s", factory_name, spa_strerror(res));
 	errno = -res;
 	return NULL;
 }
@@ -238,14 +238,14 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 
 	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL) {
 		res = -errno;
-		pw_log_warn("can't load '%s': %m", lib);
+		pw_log_error("can't load '%s': %m", lib);
 		goto error_out;
 	}
 
 	factory = find_factory(plugin, factory_name);
 	if (factory == NULL) {
 		res = -errno;
-		pw_log_warn("can't find factory '%s': %m %s", factory_name, spa_strerror(res));
+		pw_log_error("can't find factory '%s': %m %s", factory_name, spa_strerror(res));
 		goto error_unref_plugin;
 	}
 
@@ -258,7 +258,7 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
         if ((res = spa_handle_factory_init(factory,
                                            &handle->handle, info,
 					   support, n_support)) < 0) {
-                pw_log_warn("can't make factory instance '%s': %d (%s)",
+                pw_log_error("can't make factory instance '%s': %d (%s)",
 				factory_name, res, spa_strerror(res));
                 goto error_free_handle;
         }
@@ -322,7 +322,7 @@ static void *add_interface(struct support *support,
 
 	if (handle == NULL ||
 	    (res = spa_handle_get_interface(handle, type, &iface)) < 0) {
-			fprintf(stderr, "can't get %d interface %d\n", type, res);
+			pw_log_error("can't get %d interface %d", type, res);
 	} else {
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(type, iface);

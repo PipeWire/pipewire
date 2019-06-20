@@ -51,19 +51,6 @@ extern "C" {
 
 #define MAX_PARAMS	32
 
-struct pw_command;
-
-typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
-
-/** \cond */
-struct pw_command {
-	struct spa_list link;	/**< link in list of commands */
-        pw_command_func_t func;
-        char **args;
-	uint32_t id;		/**< id of command */
-        int n_args;
-};
-
 #define pw_protocol_emit_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
 
 struct pw_protocol {

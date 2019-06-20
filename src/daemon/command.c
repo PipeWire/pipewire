@@ -37,16 +37,17 @@
 
 /** \cond */
 
-static struct pw_command *parse_command_help(const char *line, char **err);
-static struct pw_command *parse_command_add_spa_lib(const char *line, char **err);
-static struct pw_command *parse_command_module_load(const char *line, char **err);
-static struct pw_command *parse_command_exec(const char *line, char **err);
+static struct pw_command *parse_command_help(struct pw_properties *properties, const char *line, char **err);
+static struct pw_command *parse_command_set_prop(struct pw_properties *properties, const char *line, char **err);
+static struct pw_command *parse_command_add_spa_lib(struct pw_properties *properties, const char *line, char **err);
+static struct pw_command *parse_command_module_load(struct pw_properties *properties, const char *line, char **err);
+static struct pw_command *parse_command_exec(struct pw_properties *properties, const char *line, char **err);
 
 struct impl {
 	struct pw_command this;
 };
 
-typedef struct pw_command *(*pw_command_parse_func_t) (const char *line, char **err);
+typedef struct pw_command *(*pw_command_parse_func_t) (struct pw_properties *properties, const char *line, char **err);
 
 struct command_parse {
 	const char *name;
@@ -56,6 +57,7 @@ struct command_parse {
 
 static const struct command_parse parsers[] = {
 	{"help", "Show this help", parse_command_help},
+	{"set-prop", "Set a property", parse_command_set_prop},
 	{"add-spa-lib", "Add a library that provides a spa factory name regex", parse_command_add_spa_lib},
 	{"load-module", "Load a module", parse_command_module_load},
 	{"exec", "Execute a program", parse_command_exec},
@@ -77,7 +79,7 @@ execute_command_help(struct pw_command *command, struct pw_core *core, char **er
 	return 0;
 }
 
-static struct pw_command *parse_command_help(const char *line, char **err)
+static struct pw_command *parse_command_help(struct pw_properties *properties, const char *line, char **err)
 {
 	struct impl *impl;
 	struct pw_command *this;
@@ -98,6 +100,42 @@ no_mem:
 }
 
 static int
+execute_command_set_prop(struct pw_command *command, struct pw_core *core, char **err)
+{
+	return 0;
+}
+
+static struct pw_command *parse_command_set_prop(struct pw_properties *properties, const char *line, char **err)
+{
+	struct impl *impl;
+	struct pw_command *this;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		goto error_alloc;
+
+	this = &impl->this;
+	this->func = execute_command_set_prop;
+	this->args = pw_split_strv(line, whitespace, 4, &this->n_args);
+
+	if (this->n_args < 3)
+		goto error_arguments;
+
+	pw_log_debug("set property: '%s' = '%s'", this->args[1], this->args[2]);
+	pw_properties_set(properties, this->args[1], this->args[2]);
+
+	return this;
+
+error_arguments:
+	asprintf(err, "%s requires <property-name> <value>", this->args[0]);
+	pw_free_strv(this->args);
+	return NULL;
+error_alloc:
+	asprintf(err, "alloc failed: %m");
+	return NULL;
+}
+
+static int
 execute_command_add_spa_lib(struct pw_command *command, struct pw_core *core, char **err)
 {
 	int res;
@@ -110,7 +148,7 @@ execute_command_add_spa_lib(struct pw_command *command, struct pw_core *core, ch
 	return 0;
 }
 
-static struct pw_command *parse_command_add_spa_lib(const char *line, char **err)
+static struct pw_command *parse_command_add_spa_lib(struct pw_properties *properties, const char *line, char **err)
 {
 	struct impl *impl;
 	struct pw_command *this;
@@ -150,7 +188,7 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 	return 0;
 }
 
-static struct pw_command *parse_command_module_load(const char *line, char **err)
+static struct pw_command *parse_command_module_load(struct pw_properties *properties, const char *line, char **err)
 {
 	struct impl *impl;
 	struct pw_command *this;
@@ -194,7 +232,7 @@ execute_command_exec(struct pw_command *command, struct pw_core *core, char **er
 	return 0;
 }
 
-static struct pw_command *parse_command_exec(const char *line, char **err)
+static struct pw_command *parse_command_exec(struct pw_properties *properties, const char *line, char **err)
 {
 	struct impl *impl;
 	struct pw_command *this;
@@ -250,7 +288,7 @@ void pw_command_free(struct pw_command *command)
  * \memberof pw_command
  */
 SPA_EXPORT
-struct pw_command *pw_command_parse(const char *line, char **err)
+struct pw_command *pw_command_parse(struct pw_properties *properties, const char *line, char **err)
 {
 	struct pw_command *command = NULL;
 	const struct command_parse *parse;
@@ -263,7 +301,7 @@ struct pw_command *pw_command_parse(const char *line, char **err)
 
 	for (parse = parsers; parse->name != NULL; parse++) {
 		if (strcmp(name, parse->name) == 0) {
-			command = parse->func(line, err);
+			command = parse->func(properties, line, err);
 			goto out;
 		}
 	}

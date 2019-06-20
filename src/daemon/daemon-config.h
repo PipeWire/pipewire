@@ -34,9 +34,10 @@ extern "C" {
 
 struct pw_daemon_config {
 	struct spa_list commands;
+	struct pw_properties *properties;
 };
 
-struct pw_daemon_config * pw_daemon_config_new(void);
+struct pw_daemon_config * pw_daemon_config_new(struct pw_properties *properties);
 
 void pw_daemon_config_free(struct pw_daemon_config *config);
 

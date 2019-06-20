@@ -30,17 +30,26 @@
 extern "C" {
 #endif
 
+#include <pipewire/core.h>
+
+struct pw_command;
+
+typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
+
 /** \class pw_command
  *
  * A configuration command
  */
-struct pw_command;
-
-#include <pipewire/core.h>
-
+struct pw_command {
+	struct spa_list link;	/**< link in list of commands */
+	pw_command_func_t func;
+	char **args;
+	uint32_t id;		/**< id of command */
+	int n_args;
+};
 
 struct pw_command *
-pw_command_parse(const char *line, char **err);
+pw_command_parse(struct pw_properties *properties, const char *line, char **err);
 
 void
 pw_command_free(struct pw_command *command);

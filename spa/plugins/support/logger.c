@@ -45,16 +45,15 @@ struct impl {
 	struct spa_handle handle;
 	struct spa_log log;
 
-	struct spa_system *system;
-
-	bool colors;
 	FILE *file;
 
+	struct spa_system *system;
+	struct spa_source source;
 	struct spa_ringbuffer trace_rb;
 	uint8_t trace_data[TRACE_BUFFER];
 
-	bool have_source;
-	struct spa_source source;
+	unsigned int have_source:1;
+	unsigned int colors:1;
 };
 
 static void

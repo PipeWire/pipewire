@@ -463,9 +463,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 {
 	struct impl *impl;
 	struct pw_core *this;
-	const char *name, *lib;
+	const char *name, *lib, *str;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
+	struct pw_properties *pr;
 	int res = 0;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -490,7 +491,11 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	this->properties = properties;
 
-	this->data_loop_impl = pw_data_loop_new(pw_properties_copy(properties));
+	pr = pw_properties_copy(properties);
+	if ((str = pw_properties_get(pr, "core.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
+		pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, str);
+
+	this->data_loop_impl = pw_data_loop_new(pr);
 	if (this->data_loop_impl == NULL)  {
 		res = -errno;
 		goto error_free;

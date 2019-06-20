@@ -32,9 +32,9 @@
 #include <errno.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/command.h>
 #include <pipewire/private.h>
 
+#include "daemon/command.h"
 #include "daemon/daemon-config.h"
 
 #define DEFAULT_CONFIG_FILE PIPEWIRE_CONFIG_DIR "/pipewire.conf"
@@ -45,7 +45,6 @@ parse_line(struct pw_daemon_config *config,
 {
 	struct pw_command *command = NULL;
 	char *p;
-	int ret = 0;
 	char *local_err = NULL;
 
 	/* search for comments */
@@ -55,17 +54,20 @@ parse_line(struct pw_daemon_config *config,
 	/* remove whitespaces */
 	line = pw_strip(line, "\n\r \t");
 	if (*line == '\0')	/* empty line */
-		return 0;
+		goto out;
 
-	if ((command = pw_command_parse(line, &local_err)) == NULL) {
-		asprintf(err, "%s:%u: %s", filename, lineno, local_err);
-		free(local_err);
-		ret = -EINVAL;
-	} else {
-		spa_list_append(&config->commands, &command->link);
-	}
+	if ((command = pw_command_parse(config->properties, line, &local_err)) == NULL)
+		goto error_parse;
 
-	return ret;
+	spa_list_append(&config->commands, &command->link);
+
+out:
+	return 0;
+
+error_parse:
+	asprintf(err, "%s:%u: %s", filename, lineno, local_err);
+	free(local_err);
+	return -EINVAL;
 }
 
 /**
@@ -73,14 +75,21 @@ parse_line(struct pw_daemon_config *config,
  *
  * Returns a new empty #struct pw_daemon_config.
  */
-struct pw_daemon_config *pw_daemon_config_new(void)
+struct pw_daemon_config *pw_daemon_config_new(struct pw_properties *properties)
 {
 	struct pw_daemon_config *config;
 
 	config = calloc(1, sizeof(struct pw_daemon_config));
+	if (config == NULL)
+		goto error_exit;
+
+	config->properties = properties;
 	spa_list_init(&config->commands);
 
 	return config;
+
+error_exit:
+	return NULL;
 }
 
 /**

@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 	struct pw_core *core;
 	struct pw_main_loop *loop;
 	struct pw_daemon_config *config;
+	struct pw_properties *properties;
 	char *err = NULL;
 	static const struct option long_options[] = {
 		{"help",	0, NULL, 'h'},
@@ -88,8 +89,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	properties = pw_properties_new(
+                                PW_KEY_CORE_NAME, daemon_name,
+                                PW_KEY_CORE_DAEMON, "1", NULL);
+
 	/* parse configuration */
-	config = pw_daemon_config_new();
+	config = pw_daemon_config_new(properties);
 	if (pw_daemon_config_load(config, &err) < 0) {
 		pw_log_error("failed to parse config: %s", err);
 		free(err);
@@ -97,15 +102,17 @@ int main(int argc, char *argv[])
 	}
 
 
-	loop = pw_main_loop_new(NULL);
+	loop = pw_main_loop_new(pw_properties_copy(properties));
+	if (loop == NULL) {
+		pw_log_error("failed to create main-loop: %m");
+		return -1;
+	}
+
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGINT, do_quit, loop);
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGTERM, do_quit, loop);
 
 	core = pw_core_new(pw_main_loop_get_loop(loop),
-			pw_properties_new(
-				PW_KEY_CORE_NAME, daemon_name,
-				PW_KEY_CORE_DAEMON, "1", NULL),
-			0);
+			properties, 0);
 
 	if (core == NULL) {
 		pw_log_error("failed to create core: %m");

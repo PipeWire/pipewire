@@ -78,14 +78,14 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 	properties = NULL;
 	if (this->loop == NULL) {
 		res = -errno;
-		pw_log_debug("data-loop %p: can't create loop: %m", this);
+		pw_log_error("data-loop %p: can't create loop: %m", this);
 		goto error_free;
 	}
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
 		res = -errno;
-		pw_log_debug("data-loop %p: can't add event: %m", this);
+		pw_log_error("data-loop %p: can't add event: %m", this);
 		goto error_loop_destroy;
 	}
 
@@ -150,7 +150,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 
 		loop->running = true;
 		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
-			pw_log_warn("data-loop %p: can't create thread: %s", loop, strerror(err));
+			pw_log_error("data-loop %p: can't create thread: %s", loop, strerror(err));
 			loop->running = false;
 			return -err;
 		}

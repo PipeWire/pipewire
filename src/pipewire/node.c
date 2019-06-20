@@ -809,18 +809,16 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->properties = properties;
 
-	size = sizeof(struct pw_node_activation);
-
-	this->source.fd = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (this->source.fd == -1) {
-		res = -errno;
+	if ((res = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_clean;
-	}
 
+	this->source.fd = res;
 	this->source.func = node_on_fd_events;
 	this->source.data = this;
 	this->source.mask = SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP;
 	this->source.rmask = 0;
+
+	size = sizeof(struct pw_node_activation);
 
 	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
 			      PW_MEMBLOCK_FLAG_MAP_READWRITE |

@@ -473,12 +473,10 @@ static int impl_steal_fd(struct pw_protocol_client *client)
 		return -EIO;
 
 	fd = dup(impl->source->fd);
-	if (fd == -1) {
-		fd = -errno;
-		goto out;
-	}
+	if (fd < 0)
+		return -errno;
+
 	pw_protocol_client_disconnect(client);
-out:
 	return fd;
 }
 

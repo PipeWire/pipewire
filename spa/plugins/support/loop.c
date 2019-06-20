@@ -102,34 +102,20 @@ struct source_impl {
 static int loop_add_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
-
 	source->loop = &impl->loop;
-
-	if (SPA_UNLIKELY(source->fd == -1))
-		return 0;
-
 	return spa_system_pollfd_add(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
 static int loop_update_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
-
-	if (SPA_UNLIKELY(source->fd == -1))
-		return 0;
-
 	return spa_system_pollfd_mod(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
 static int loop_remove_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
-
 	source->loop = NULL;
-
-	if (SPA_UNLIKELY(source->fd == -1))
-		return 0;
-
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
 }
 
@@ -280,18 +266,16 @@ static int loop_iterate(void *object, int timeout)
 	struct impl *impl = object;
 	struct spa_loop *loop = &impl->loop;
 	struct spa_poll_event ep[32];
-	int i, nfds, res = 0;
+	int i, nfds;
 
 	spa_loop_control_hook_before(&impl->hooks_list);
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
-	if (SPA_UNLIKELY(nfds < 0))
-		res = -errno;
 
 	spa_loop_control_hook_after(&impl->hooks_list);
 
 	if (SPA_UNLIKELY(nfds < 0))
-		return -res;
+		return nfds;
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and
@@ -323,11 +307,11 @@ static struct spa_source *loop_add_io(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
-	struct spa_source *res = NULL;
+	int res;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		goto out;
+		goto error_exit;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_io_func;
@@ -338,13 +322,18 @@ static struct spa_source *loop_add_io(void *object,
 	source->close = close;
 	source->func.io = func;
 
-	loop_add_source(impl, &source->source);
+	if ((res = loop_add_source(impl, &source->source)) < 0)
+		goto error_exit_free;
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	res = &source->source;
-out:
-	return res;
+	return &source->source;
+
+error_exit_free:
+	free(source);
+	errno = -res;
+error_exit:
+	return NULL;
 }
 
 static int loop_update_io(void *object, struct spa_source *source, uint32_t mask)
@@ -384,42 +373,41 @@ static struct spa_source *loop_add_idle(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
-	struct spa_source *res = NULL;
-	int err;
+	int res;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		goto out;
+		goto error_exit;
+
+	if ((res = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_exit_free;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_idle_func;
 	source->source.data = data;
-	source->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (source->source.fd == -1) {
-		err = -errno;
-		goto err_free;
-	}
-
+	source->source.fd = res;
 	source->impl = impl;
 	source->close = true;
 	source->source.mask = SPA_IO_IN;
 	source->func.idle = func;
 
-	loop_add_source(impl, &source->source);
+	if ((res = loop_add_source(impl, &source->source)) < 0)
+		goto error_exit_close;
 
 	spa_list_insert(&impl->source_list, &source->link);
 
 	if (enabled)
 		loop_enable_idle(impl, &source->source, true);
 
-	res = &source->source;
-out:
-	return res;
+	return &source->source;
 
-err_free:
+error_exit_close:
+	spa_system_close(impl->system, source->source.fd);
+error_exit_free:
 	free(source);
-	errno = -err;
-	goto out;
+	errno = -res;
+error_exit:
+	return NULL;
 }
 
 static void source_event_func(struct spa_source *source)
@@ -440,39 +428,38 @@ static struct spa_source *loop_add_event(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
-	struct spa_source *res = NULL;
-	int err;
+	int res;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		goto out;
+		goto error_exit;
+
+	if ((res = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_exit_free;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_event_func;
 	source->source.data = data;
-	source->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (source->source.fd == -1) {
-		err = -errno;
-		goto err_free;
-	}
+	source->source.fd = res;
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
 	source->func.event = func;
 
-	loop_add_source(impl, &source->source);
+	if ((res = loop_add_source(impl, &source->source)) < 0)
+		goto error_exit_close;
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	res = &source->source;
+	return &source->source;
 
-out:
-	return res;
-
-err_free:
+error_exit_close:
+	spa_system_close(impl->system, source->source.fd);
+error_exit_free:
 	free(source);
-	errno = -err;
-	goto out;
+	errno = -res;
+error_exit:
+	return NULL;
 }
 
 static int loop_signal_event(void *object, struct spa_source *source)
@@ -505,39 +492,39 @@ static struct spa_source *loop_add_timer(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
-	struct spa_source *res = NULL;
-	int err;
+	int res;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		goto out;
+		goto error_exit;
+
+	if ((res = spa_system_timerfd_create(impl->system, CLOCK_MONOTONIC,
+			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_exit_free;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_timer_func;
 	source->source.data = data;
-	source->source.fd = spa_system_timerfd_create(impl->system, CLOCK_MONOTONIC,
-			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (source->source.fd == -1) {
-		err = -errno;
-		goto err_free;
-	}
+	source->source.fd = res;
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
 	source->func.timer = func;
 
-	loop_add_source(impl, &source->source);
+	if ((res = loop_add_source(impl, &source->source)) < 0)
+		goto error_exit_close;
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	res = &source->source;
-out:
-	return res;
+	return &source->source;
 
-err_free:
+error_exit_close:
+	spa_system_close(impl->system, source->source.fd);
+error_exit_free:
 	free(source);
-	errno = -err;
-	goto out;
+	errno = -res;
+error_exit:
+	return NULL;
 }
 
 static int
@@ -546,7 +533,7 @@ loop_update_timer(void *object, struct spa_source *source,
 {
 	struct impl *impl = object;
 	struct itimerspec its;
-	int flags = 0;
+	int flags = 0, res;
 
 	spa_zero(its);
 	if (value) {
@@ -560,8 +547,8 @@ loop_update_timer(void *object, struct spa_source *source,
 	if (absolute)
 		flags |= SPA_FD_TIMER_ABSTIME;
 
-	if (spa_system_timerfd_settime(impl->system, source->fd, flags, &its, NULL) < 0)
-		return errno;
+	if ((res = spa_system_timerfd_settime(impl->system, source->fd, flags, &its, NULL)) < 0)
+		return res;
 
 	return 0;
 }
@@ -584,41 +571,39 @@ static struct spa_source *loop_add_signal(void *object,
 {
 	struct impl *impl = object;
 	struct source_impl *source;
-	struct spa_source *res = NULL;
-	int err;
+	int res;
 
 	source = calloc(1, sizeof(struct source_impl));
 	if (source == NULL)
-		goto out;
+		goto error_exit;
+
+	if ((res = spa_system_signalfd_create(impl->system,
+			signal_number, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_exit_free;
 
 	source->source.loop = &impl->loop;
 	source->source.func = source_signal_func;
 	source->source.data = data;
-
-	source->source.fd = spa_system_signalfd_create(impl->system,
-			signal_number, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (source->source.fd == -1) {
-		err = -errno;
-		goto err_free;
-	}
-
+	source->source.fd = res;
 	source->source.mask = SPA_IO_IN;
 	source->impl = impl;
 	source->close = true;
 	source->func.signal = func;
 
-	loop_add_source(impl, &source->source);
+	if ((res = loop_add_source(impl, &source->source)) < 0)
+		goto error_exit_close;
 
 	spa_list_insert(&impl->source_list, &source->link);
 
-	res = &source->source;
-out:
-	return res;
+	return &source->source;
 
-err_free:
+error_exit_close:
+	spa_system_close(impl->system, source->source.fd);
+error_exit_free:
 	free(source);
-	errno = -err;
-	goto out;
+	errno = -res;
+error_exit:
+	return NULL;
 }
 
 static void loop_destroy_source(void *object, struct spa_source *source)
@@ -764,15 +749,15 @@ impl_init(const struct spa_handle_factory *factory,
 	if (impl->system == NULL) {
 		spa_log_error(impl->log, NAME " %p: a System is needed", impl);
 		res = -EINVAL;
-		goto err;
+		goto error_exit;
 	}
 
-	impl->poll_fd = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC);
-	if (impl->poll_fd < 0) {
-		res = -errno;
-		spa_log_error(impl->log, NAME " %p: can't create pollfd: %m", impl);
-		goto err;
+	if ((res = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC)) < 0) {
+		spa_log_error(impl->log, NAME " %p: can't create pollfd: %s",
+				impl, spa_strerror(res));
+		goto error_exit;
 	}
+	impl->poll_fd = res;
 
 	spa_list_init(&impl->source_list);
 	spa_list_init(&impl->destroy_list);
@@ -784,24 +769,25 @@ impl_init(const struct spa_handle_factory *factory,
 	if (impl->wakeup == NULL) {
 		res = -errno;
 		spa_log_error(impl->log, NAME " %p: can't create wakeup event: %m", impl);
-		goto err_free_poll;
+		goto error_exit_free_poll;
 	}
-	impl->ack_fd = spa_system_eventfd_create(impl->system,
-			SPA_FD_EVENT_SEMAPHORE | SPA_FD_CLOEXEC);
-	if (impl->ack_fd < 0) {
-		res = -errno;
-		spa_log_error(impl->log, NAME " %p: can't create ack event: %m", impl);
-		goto err_free_wakeup;
+	if ((res = spa_system_eventfd_create(impl->system,
+			SPA_FD_EVENT_SEMAPHORE | SPA_FD_CLOEXEC)) < 0) {
+		spa_log_error(impl->log, NAME " %p: can't create ack event: %s",
+				impl, spa_strerror(res));
+		goto error_exit_free_wakeup;
 	}
+	impl->ack_fd = res;
+
 	spa_log_debug(impl->log, NAME " %p: initialized", impl);
 
 	return 0;
 
-err_free_wakeup:
+error_exit_free_wakeup:
 	loop_destroy_source(impl, impl->wakeup);
-err_free_poll:
+error_exit_free_poll:
 	spa_system_close(impl->system, impl->poll_fd);
-err:
+error_exit:
 	return res;
 }
 

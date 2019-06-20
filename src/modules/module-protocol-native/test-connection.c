@@ -40,7 +40,7 @@ static void test_create(struct pw_protocol_native_connection *conn)
 	spa_assert(msg != NULL);
 
 	res = pw_protocol_native_connection_get_fd(conn, 0);
-	spa_assert(res == -1);
+	spa_assert(res == -ENOENT);
 
 	res = pw_protocol_native_connection_flush(conn);
 	spa_assert(res == 0);
@@ -94,8 +94,8 @@ static int read_message(struct pw_protocol_native_connection *conn)
                 spa_assert_not_reached();
 
 	fd = pw_protocol_native_connection_get_fd(conn, fdidx);
+	spa_assert(fd != -ENOENT);
 	pw_log_debug("got fd %d %d", fdidx, fd);
-	spa_assert(fd != -1);
 	return 0;
 }
 

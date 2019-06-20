@@ -74,7 +74,7 @@ struct impl {
  *
  * \param conn the connection
  * \param index the index of the fd to get
- * \return the fd at \a index or -1 when no such fd exists
+ * \return the fd at \a index or -ENOENT when no such fd exists
  *
  * \memberof pw_protocol_native_connection
  */
@@ -84,7 +84,7 @@ int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *c
 	struct buffer *buf = &impl->in;
 
 	if (index >= buf->msg.n_fds)
-		return -1;
+		return -ENOENT;
 
 	return buf->msg.fds[index];
 }

@@ -277,7 +277,7 @@ static int client_node_demarshal_transport(void *object, const struct pw_protoco
 	readfd = pw_protocol_native_get_proxy_fd(proxy, ridx);
 	writefd = pw_protocol_native_get_proxy_fd(proxy, widx);
 
-	if (readfd == -1 || writefd == -1)
+	if (readfd < 0 || writefd < 0)
 		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, 0, node_id,
@@ -514,7 +514,7 @@ static int client_node_demarshal_set_activation(void *object, const struct pw_pr
 		return -EINVAL;
 
 	signalfd = pw_protocol_native_get_proxy_fd(proxy, sigidx);
-	if (signalfd == -1)
+	if (signalfd < 0)
 		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_activation, 0,

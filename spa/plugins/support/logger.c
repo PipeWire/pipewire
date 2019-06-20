@@ -237,11 +237,12 @@ impl_init(const struct spa_handle_factory *factory,
 		this->source.fd = spa_system_eventfd_create(this->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 		this->source.mask = SPA_IO_IN;
 		this->source.rmask = 0;
-		if (this->source.fd != -1) {
+
+		if (this->source.fd < 0) {
+			fprintf(stderr, "Warning: failed to create eventfd: %m");
+		} else {
 			spa_loop_add_source(loop, &this->source);
 			this->have_source = true;
-		} else {
-			fprintf(stderr, "Warning: failed to create eventfd: %m");
 		}
 	}
 

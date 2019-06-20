@@ -49,12 +49,14 @@ struct impl {
 
 static ssize_t impl_read(void *object, int fd, void *buf, size_t count)
 {
-	return read(fd, buf, count);
+	ssize_t res = read(fd, buf, count);
+	return res < 0 ? -errno : res;
 }
 
 static ssize_t impl_write(void *object, int fd, const void *buf, size_t count)
 {
-	return write(fd, buf, count);
+	ssize_t res = write(fd, buf, count);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_ioctl(void *object, int fd, unsigned long request, ...)
@@ -68,25 +70,28 @@ static int impl_ioctl(void *object, int fd, unsigned long request, ...)
 	res = ioctl(fd, request, arg);
 	va_end(ap);
 
-	return res;
+	return res < 0 ? -errno : res;
 }
 
 static int impl_close(void *object, int fd)
 {
-	return close(fd);
+	int res = close(fd);
+	return res < 0 ? -errno : res;
 }
 
 /* clock */
 static int impl_clock_gettime(void *object,
 			int clockid, struct timespec *value)
 {
-	return clock_gettime(clockid, value);
+	int res = clock_gettime(clockid, value);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_clock_getres(void *object,
 			int clockid, struct timespec *res)
 {
-	return clock_getres(clockid, res);
+	int r = clock_getres(clockid, res);
+	return r < 0 ? -errno : r;
 }
 
 /* poll */
@@ -124,37 +129,43 @@ static inline uint32_t spa_epoll_to_io(uint32_t events)
 
 static int impl_pollfd_create(void *object, int flags)
 {
-	int fl = 0;
+	int fl = 0, res;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= EPOLL_CLOEXEC;
-	return epoll_create1(fl);
+	res = epoll_create1(fl);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_pollfd_add(void *object, int pfd, int fd, uint32_t events, void *data)
 {
 	struct epoll_event ep;
+	int res;
 
 	spa_zero(ep);
 	ep.events = spa_io_to_epoll(events);
 	ep.data.ptr = data;
 
-	return epoll_ctl(pfd, EPOLL_CTL_ADD, fd, &ep);
+	res = epoll_ctl(pfd, EPOLL_CTL_ADD, fd, &ep);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_pollfd_mod(void *object, int pfd, int fd, uint32_t events, void *data)
 {
 	struct epoll_event ep;
+	int res;
 
 	spa_zero(ep);
 	ep.events = spa_io_to_epoll(events);
 	ep.data.ptr = data;
 
-	return epoll_ctl(pfd, EPOLL_CTL_MOD, fd, &ep);
+	res = epoll_ctl(pfd, EPOLL_CTL_MOD, fd, &ep);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_pollfd_del(void *object, int pfd, int fd)
 {
-	return epoll_ctl(pfd, EPOLL_CTL_DEL, fd, NULL);
+	int res = epoll_ctl(pfd, EPOLL_CTL_DEL, fd, NULL);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_pollfd_wait(void *object, int pfd,
@@ -164,7 +175,7 @@ static int impl_pollfd_wait(void *object, int pfd,
 	int i, nfds;
 
 	if (SPA_UNLIKELY((nfds = epoll_wait(pfd, ep, SPA_N_ELEMENTS(ep), timeout)) < 0))
-		return nfds;
+		return -errno;
 
         for (i = 0; i < nfds; i++) {
                 ev[i].events = spa_epoll_to_io(ep[i].events);
@@ -176,12 +187,13 @@ static int impl_pollfd_wait(void *object, int pfd,
 /* timers */
 static int impl_timerfd_create(void *object, int clockid, int flags)
 {
-	int fl = 0;
+	int fl = 0, res;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= TFD_CLOEXEC;
 	if (flags & SPA_FD_NONBLOCK)
 		fl |= TFD_NONBLOCK;
-	return timerfd_create(clockid, fl);
+	res = timerfd_create(clockid, fl);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_timerfd_settime(void *object,
@@ -189,18 +201,20 @@ static int impl_timerfd_settime(void *object,
 			const struct itimerspec *new_value,
 			struct itimerspec *old_value)
 {
-	int fl = 0;
+	int fl = 0, res;
 	if (flags & SPA_FD_TIMER_ABSTIME)
 		fl |= TFD_TIMER_ABSTIME;
 	if (flags & SPA_FD_TIMER_CANCEL_ON_SET)
 		fl |= TFD_TIMER_CANCEL_ON_SET;
-	return timerfd_settime(fd, fl, new_value, old_value);
+	res = timerfd_settime(fd, fl, new_value, old_value);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_timerfd_gettime(void *object,
 			int fd, struct itimerspec *curr_value)
 {
-	return timerfd_gettime(fd, curr_value);
+	int res = timerfd_gettime(fd, curr_value);
+	return res < 0 ? -errno : res;
 
 }
 static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
@@ -213,14 +227,15 @@ static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
 /* events */
 static int impl_eventfd_create(void *object, int flags)
 {
-	int fl = 0;
+	int fl = 0, res;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= EFD_CLOEXEC;
 	if (flags & SPA_FD_NONBLOCK)
 		fl |= EFD_NONBLOCK;
 	if (flags & SPA_FD_EVENT_SEMAPHORE)
 		fl |= EFD_SEMAPHORE;
-	return eventfd(0, fl);
+	res = eventfd(0, fl);
+	return res < 0 ? -errno : res;
 }
 
 static int impl_eventfd_write(void *object, int fd, uint64_t count)
@@ -253,7 +268,7 @@ static int impl_signalfd_create(void *object, int signal, int flags)
 	res = signalfd(-1, &mask, fl);
 	sigprocmask(SIG_BLOCK, &mask, NULL);
 
-	return res;
+	return res < 0 ? -errno : res;
 }
 
 static int impl_signalfd_read(void *object, int fd, int *signal)

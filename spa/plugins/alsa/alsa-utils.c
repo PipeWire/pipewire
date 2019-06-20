@@ -34,12 +34,11 @@ static int spa_alsa_open(struct state *state)
 			   SND_PCM_NO_AUTO_RESAMPLE |
 			   SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT), "open failed");
 
-	state->timerfd = spa_system_timerfd_create(state->data_system,
-			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (state->timerfd == -1) {
-		err = -errno;
-		goto err_close;
-	}
+	if ((err = spa_system_timerfd_create(state->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_exit_close;
+
+	state->timerfd = err;
 
 	state->opened = true;
 	state->sample_count = 0;
@@ -47,7 +46,7 @@ static int spa_alsa_open(struct state *state)
 
 	return 0;
 
-err_close:
+error_exit_close:
 	snd_pcm_close(state->hndl);
 	return err;
 }
@@ -1010,7 +1009,7 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	int res;
 
 	if (state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0)
-		spa_log_warn(state->log, "error reading timerfd: %s", strerror(errno));
+		spa_log_warn(state->log, "error reading timerfd: %m");
 
 	if (state->position)
 		state->threshold = state->position->size;

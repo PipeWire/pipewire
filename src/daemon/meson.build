@@ -1,9 +1,11 @@
 pipewire_daemon_sources = [
-  'main.c',
+  'command.c',
   'daemon-config.c',
+  'main.c',
 ]
 
 pipewire_daemon_headers = [
+  'command.h',
   'daemon-config.h',
 ]
 

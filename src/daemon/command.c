@@ -31,9 +31,9 @@
 
 #include <pipewire/utils.h>
 #include <pipewire/module.h>
+#include <pipewire/private.h>
 
 #include "command.h"
-#include "private.h"
 
 /** \cond */
 

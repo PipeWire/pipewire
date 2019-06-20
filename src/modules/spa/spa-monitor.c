@@ -117,18 +117,18 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	if (handle == NULL) {
 		res = -errno;
 		pw_log_error("can't make factory instance: %m");
-		goto error_free_props;
+		goto error_exit_free_props;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
 		pw_log_error("can't get %d interface: %s", info->type, spa_strerror(res));
-		goto error_free_handle;
+		goto error_exit_free_handle;
 	}
 
 	obj = calloc(1, sizeof(struct monitor_object));
 	if (obj == NULL) {
 		res = -errno;
-		goto error_free_handle;
+		goto error_exit_free_handle;
 	}
 	obj->id = id;
 	obj->name = strdup(name);
@@ -149,19 +149,19 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	default:
 		res = -ENOTSUP;
 		pw_log_error("interface %d not implemented", obj->type);
-		goto error_free_object;
+		goto error_exit_free_object;
 	}
 
 	spa_list_append(&impl->item_list, &obj->link);
 
 	return obj;
 
-error_free_object:
+error_exit_free_object:
 	free(obj->name);
 	free(obj);
-error_free_handle:
+error_exit_free_handle:
 	pw_unload_spa_handle(handle);
-error_free_props:
+error_exit_free_props:
 	pw_properties_free(props);
 	errno = -res;
 	return NULL;
@@ -279,18 +279,18 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 			properties ? &properties->dict : NULL);
 	if (handle == NULL) {
 		res = -errno;
-		goto exit;
+		goto error_exit;
 	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %s", spa_strerror(res));
-		goto exit_unload;
+		goto error_exit_unload;
 	}
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL) {
 		res = -errno;
-		goto exit_unload;
+		goto error_exit_unload;
 	}
 
 	impl->core = core;
@@ -313,12 +313,11 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 
 	return this;
 
-exit_unload:
+error_exit_unload:
 	pw_unload_spa_handle(handle);
-exit:
+error_exit:
 	errno = -res;
 	return NULL;
-
 }
 
 void pw_spa_monitor_destroy(struct pw_spa_monitor *monitor)

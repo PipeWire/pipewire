@@ -779,12 +779,14 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	struct pw_node *this;
 	size_t size;
 	struct spa_system *data_system = core->data_system;
-	char *n;
+	char *n = NULL;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
-	if (impl == NULL)
-		goto error;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_exit;
+	}
 
 	if (name == NULL)
 		asprintf(&n, "node");
@@ -802,7 +804,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL) {
 		res = -errno;
-		goto clean_impl;
+		goto error_clean;
 	}
 
 	this->properties = properties;
@@ -812,7 +814,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->source.fd = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	if (this->source.fd == -1) {
 		res = -errno;
-		goto clean_impl;
+		goto error_clean;
 	}
 
 	this->source.func = node_on_fd_events;
@@ -825,12 +827,12 @@ struct pw_node *pw_node_new(struct pw_core *core,
 			      PW_MEMBLOCK_FLAG_SEAL,
 			      size,
 			      &this->activation)) < 0)
-                goto clean_impl;
+                goto error_clean;
 
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	if (impl->work == NULL) {
 		res = -errno;
-		goto clean_impl;
+		goto error_clean;
 	}
 
 	this->info.name = n;
@@ -872,14 +874,18 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	return this;
 
-    clean_impl:
-	if (this->source.func != NULL)
+error_clean:
+	if (this->activation)
+		pw_memblock_free(this->activation);
+	if (this->source.fd != -1)
 		spa_system_close(this->core->data_system, this->source.fd);
+	if (n)
+		free(n);
+	free(impl);
+error_exit:
 	if (properties)
 		pw_properties_free(properties);
-	free(impl);
 	errno = -res;
-    error:
 	return NULL;
 }
 

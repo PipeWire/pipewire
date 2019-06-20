@@ -128,7 +128,7 @@ struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 
 	return bus;
 
-      error:
+error:
 	free(bus);
 	pw_log_error("Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
@@ -227,7 +227,7 @@ static long long rtkit_get_int_property(struct pw_rtkit_bus *connection, const c
 		dbus_message_iter_next(&iter);
 	}
 
-      finish:
+finish:
 
 	if (m)
 		dbus_message_unref(m);
@@ -313,7 +313,7 @@ int pw_rtkit_make_realtime(struct pw_rtkit_bus *connection, pid_t thread, int pr
 
 	ret = 0;
 
-      finish:
+finish:
 
 	if (m)
 		dbus_message_unref(m);
@@ -372,7 +372,7 @@ int pw_rtkit_make_high_priority(struct pw_rtkit_bus *connection, pid_t thread, i
 
 	ret = 0;
 
-      finish:
+finish:
 
 	if (m)
 		dbus_message_unref(m);
@@ -519,7 +519,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	return 0;
 
-      error:
+error:
 	free(impl);
 	return res;
 }

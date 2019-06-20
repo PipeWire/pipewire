@@ -184,7 +184,7 @@ pw_properties_new_string(const char *str)
 	}
 	return &impl->this;
 
-    no_mem:
+no_mem:
 	pw_properties_free(&impl->this);
 	errno = -res;
 	return NULL;

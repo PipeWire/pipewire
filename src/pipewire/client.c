@@ -68,7 +68,7 @@ find_permission(struct pw_client *client, uint32_t id)
 
 	return p;
 
-      do_default:
+do_default:
 	return pw_array_get_unchecked(&impl->permissions, 0, struct pw_permission);
 }
 

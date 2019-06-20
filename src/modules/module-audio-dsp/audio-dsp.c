@@ -257,37 +257,34 @@ static const struct pw_node_events node_events = {
 };
 
 struct pw_node *pw_audio_dsp_new(struct pw_core *core,
-		const struct pw_properties *props,
+		struct pw_properties *props,
 		size_t user_data_size)
 {
 	struct pw_node *node;
 	struct node *n;
 	const char *api, *alias, *str, *factory;
 	char node_name[128];
-	struct pw_properties *pr;
 	enum pw_direction direction;
 	uint32_t max_buffer_size;
-	int i;
+	int i, res = -ENOENT;
 
-	pr = pw_properties_copy(props);
-
-	if ((str = pw_properties_get(pr, "audio-dsp.direction")) == NULL) {
+	if ((str = pw_properties_get(props, "audio-dsp.direction")) == NULL) {
 		pw_log_error("missing audio-dsp.direction property");
 		goto error;
 	}
 	direction = pw_properties_parse_int(str);
 
-	if ((str = pw_properties_get(pr, "audio-dsp.maxbuffer")) == NULL) {
+	if ((str = pw_properties_get(props, "audio-dsp.maxbuffer")) == NULL) {
 		pw_log_error("missing audio-dsp.maxbuffer property");
 		goto error;
 	}
 	max_buffer_size = pw_properties_parse_int(str);
 
-	if ((api = pw_properties_get(pr, PW_KEY_DEVICE_API)) == NULL) {
+	if ((api = pw_properties_get(props, PW_KEY_DEVICE_API)) == NULL) {
 		pw_log_error("missing "PW_KEY_DEVICE_API" property");
 		goto error;
 	}
-	if ((alias = pw_properties_get(pr, "audio-dsp.name")) == NULL) {
+	if ((alias = pw_properties_get(props, "audio-dsp.name")) == NULL) {
 		pw_log_error("missing audio-dsp.name property");
 		goto error;
 	}
@@ -298,34 +295,36 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 			node_name[i] = '_';
 	}
 
-	pw_properties_set(pr,
+	pw_properties_set(props,
 			PW_KEY_MEDIA_CLASS,
 			direction == PW_DIRECTION_OUTPUT ?
 				"Audio/DSP/Playback" :
 				"Audio/DSP/Capture");
-	pw_properties_set(pr, PW_KEY_NODE_DRIVER, NULL);
+	pw_properties_set(props, PW_KEY_NODE_DRIVER, NULL);
 
-	if ((str = pw_properties_get(pr, PW_KEY_NODE_ID)) != NULL)
-		pw_properties_set(pr, PW_KEY_NODE_SESSION, str);
+	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
 
 	if (direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_set(pr, "merger.monitor", "1");
+		pw_properties_set(props, "merger.monitor", "1");
 		factory = "merge";
 	} else {
 		factory = "split";
 	}
-	pw_properties_set(pr, "factory.mode", factory);
+	pw_properties_set(props, "factory.mode", factory);
 	factory = "audioconvert";
-	pw_properties_set(pr, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
+	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 
 	node = pw_spa_node_load(core, NULL, NULL,
 			factory,
 			node_name,
 			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
-			pr, sizeof(struct node) + user_data_size);
+			pw_properties_copy(props),
+			sizeof(struct node) + user_data_size);
 
         if (node == NULL) {
-		pw_log_error("can't load spa node");
+		res = -errno;
+		pw_log_error("can't load spa node: %m");
 		goto error;
 	}
 
@@ -333,7 +332,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	n->core = core;
 	n->node = node;
 	n->direction = direction;
-	n->props = pw_properties_copy(pr);
+	n->props = props;
 	spa_list_init(&n->ports);
 
 	n->max_buffer_size = max_buffer_size;
@@ -345,8 +344,10 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	return node;
 
-     error:
-	pw_properties_free(pr);
+error:
+	if (props)
+		pw_properties_free(props);
+	errno = -res;
 	return NULL;
 }
 

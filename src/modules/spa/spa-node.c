@@ -125,14 +125,17 @@ pw_spa_node_new(struct pw_core *core,
 	int res;
 
 	this = pw_node_new(core, name, properties, sizeof(struct impl) + user_data_size);
-	if (this == NULL)
-		return NULL;
+	if (this == NULL) {
+		res = -errno;
+		goto error_exit;
+	}
 
 	impl = this->user_data;
 	impl->this = this;
 	impl->owner = owner;
 	impl->parent = parent;
 	impl->node = node;
+	impl->handle = handle;
 	impl->flags = flags;
 
 	if (user_data_size > 0)
@@ -140,7 +143,7 @@ pw_spa_node_new(struct pw_core *core,
 
 	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
 	if ((res = pw_node_set_implementation(this, impl->node)) < 0)
-		goto clean_node;
+		goto error_exit_clean_node;
 
 	if (flags & PW_SPA_NODE_FLAG_ASYNC) {
 		impl->init_pending = spa_node_sync(impl->node, res);
@@ -149,8 +152,12 @@ pw_spa_node_new(struct pw_core *core,
 	}
 	return this;
 
-    clean_node:
+error_exit_clean_node:
 	pw_node_destroy(this);
+	handle = NULL;
+error_exit:
+	if (handle)
+		pw_unload_spa_handle(handle);
 	errno = -res;
 	return NULL;
 
@@ -257,12 +264,12 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 			properties ? &properties->dict : NULL);
 	if (handle == NULL) {
 		res = -errno;
-		goto exit;
+		goto error_exit_cleanup;
 	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 		pw_log_error("can't get node interface %d", res);
-		goto exit_unload;
+		goto error_exit_unload;
 	}
 	if (SPA_RESULT_IS_ASYNC(res))
 		flags |= PW_SPA_NODE_FLAG_ASYNC;
@@ -279,18 +286,20 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 			       spa_node, handle, properties, user_data_size);
 	if (this == NULL) {
 		res = -errno;
-		goto exit;
+		goto error_exit;
 	}
 
 	impl = this->user_data;
-	impl->handle = handle;
 	impl->factory_name = strdup(factory_name);
 
 	return this;
 
-exit_unload:
+error_exit_unload:
 	pw_unload_spa_handle(handle);
-exit:
+error_exit_cleanup:
+	if (properties)
+		pw_properties_free(properties);
+error_exit:
 	errno = -res;
 	return NULL;
 }

@@ -170,17 +170,17 @@ process_messages(struct client_data *data)
 		if (demarshal[msg->opcode].func(resource, msg) < 0)
 			goto invalid_message;
 	}
-      done:
+done:
 	core->current_client = NULL;
 	return;
 
-      invalid_method:
+invalid_method:
 	pw_log_error("protocol-native %p: invalid method %u on resource %u",
 		     client->protocol, msg->opcode, msg->id);
 	pw_resource_error(resource, -EINVAL, "invalid method %u", msg->opcode);
 	pw_client_destroy(client);
 	goto done;
-      invalid_message:
+invalid_message:
 	pw_log_error("protocol-native %p: invalid message received %u %u",
 		     client->protocol, msg->id, msg->opcode);
 	pw_resource_error(resource, -EINVAL, "invalid message %u", msg->opcode);
@@ -312,9 +312,9 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	return client;
 
-      cleanup_client:
+cleanup_client:
 	pw_client_destroy(client);
-      exit:
+exit:
 	return NULL;
 }
 
@@ -364,10 +364,10 @@ static int lock_socket(struct server *s)
 	}
 	return 0;
 
-      err_fd:
+err_fd:
 	close(s->fd_lock);
 	s->fd_lock = -1;
-      err:
+err:
 	*s->lock_addr = 0;
 	*s->addr.sun_path = 0;
 	return res;
@@ -457,9 +457,9 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 	}
 	return 0;
 
-      error_close:
+error_close:
 	close(fd);
-      error:
+error:
 	return res;
 
 }

@@ -83,13 +83,14 @@ static void *create_object(void *_data,
 	struct pw_node *node;
 	const char *factory_name, *name;
 	struct node_data *nd;
+	int res;
 
 	if (properties == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 	if (factory_name == NULL)
-		goto no_properties;
+		goto error_properties;
 
 	name = pw_properties_get(properties, PW_KEY_NODE_NAME);
 	if (name == NULL)
@@ -104,7 +105,7 @@ static void *create_object(void *_data,
 				properties,
 				sizeof(struct node_data));
 	if (node == NULL)
-		goto no_mem;
+		goto error_create_node;
 
 	nd = pw_spa_node_get_user_data(node);
 	nd->node = node;
@@ -120,17 +121,24 @@ static void *create_object(void *_data,
 
 	return node;
 
-      no_properties:
+error_properties:
+	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, data->this);
-	if (resource) {
-		pw_resource_error(resource, -EINVAL, "usage: " FACTORY_USAGE);
-	}
-	return NULL;
-      no_mem:
-	pw_log_error("can't create node: no memory");
-	if (resource) {
-		pw_resource_error(resource, -ENOMEM, "no memory");
-	}
+	if (resource)
+		pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
+	goto error_exit_cleanup;
+error_create_node:
+	res = -errno;
+	pw_log_error("can't create node: %m");
+	if (resource)
+		pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
+	goto error_exit;
+
+error_exit_cleanup:
+	if (properties)
+		pw_properties_free(properties);
+error_exit:
+	errno = -res;
 	return NULL;
 }
 

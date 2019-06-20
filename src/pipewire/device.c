@@ -481,12 +481,12 @@ static void device_add(struct pw_device *device, uint32_t id,
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get NODE interface: %d", res);
+		pw_log_error("can't get NODE interface: %s", spa_strerror(res));
 		return;
 	}
 
 	props = pw_properties_copy(device->properties);
-	if (info->props)
+	if (info->props && props)
 		pw_properties_update(props, info->props);
 
 	node = pw_node_new(core,

@@ -170,24 +170,22 @@ core_check_access(void *data, struct pw_client *client)
 		goto wait_permissions;
 	}
 
-      granted:
+granted:
 	pw_log_debug("module %p: client %p access granted", impl, client);
 	permissions[0] = PW_PERMISSION_INIT(-1, PW_PERM_RWX);
 	pw_client_update_permissions(client, 1, permissions);
 	return;
 
-      wait_permissions:
+wait_permissions:
 	pw_log_debug("module %p: client %p wait for permissions", impl, client);
 	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	pw_client_set_busy(client, true);
 	return;
 
-      blacklisted:
+blacklisted:
 	pw_resource_error(pw_client_get_core_resource(client), res, "blacklisted");
 	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	return;
-
-
 }
 
 static const struct pw_core_events core_events = {

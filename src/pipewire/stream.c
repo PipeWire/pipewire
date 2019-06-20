@@ -491,7 +491,7 @@ static int port_set_format(void *object,
 		p = add_param(stream, PARAM_TYPE_FORMAT, format);
 		if (p == NULL) {
 			res = -errno;
-			goto no_mem;
+			goto error_exit;
 		}
 
 		((struct spa_pod_object*)p->param)->body.id = SPA_PARAM_Format;
@@ -517,7 +517,7 @@ static int port_set_format(void *object,
 
 	return 0;
 
-      no_mem:
+error_exit:
 	pw_stream_finish_format(stream, res, NULL, 0);
 	return res;
 }
@@ -712,7 +712,7 @@ static int impl_node_process_input(void *object)
 	if (push_queue(impl, &impl->dequeued, b) == 0)
 		call_process(impl);
 
-      done:
+done:
 	copy_position(impl, impl->dequeued.incount);
 
 	/* pop buffer to recycle */
@@ -735,7 +735,7 @@ static int impl_node_process_output(void *object)
 	int res;
 	uint32_t index;
 
-     again:
+again:
 	pw_log_trace("stream %p: process out %d %d %"PRIu64" %"PRIi64, stream,
 			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
@@ -962,7 +962,7 @@ static int handle_connect(struct pw_stream *stream)
 	impl->node = pw_node_new(impl->core, stream->name,
 			pw_properties_copy(stream->properties), 0);
 	if (impl->node == NULL)
-		goto no_node;
+		goto error_node;
 
 	impl->node_methods = impl_node;
 
@@ -986,7 +986,7 @@ static int handle_connect(struct pw_stream *stream)
 	stream->proxy = pw_remote_export(stream->remote,
 			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
 	if (stream->proxy == NULL)
-		goto no_proxy;
+		goto error_proxy;
 
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 	pw_node_proxy_add_listener((struct pw_node_proxy*)stream->proxy,
@@ -994,11 +994,11 @@ static int handle_connect(struct pw_stream *stream)
 
 	return 0;
 
-    no_node:
+error_node:
 	res = -errno;
 	pw_log_error("stream %p: can't make node: %m", stream);
 	return res;
-    no_proxy:
+error_proxy:
 	res = -errno;
 	pw_log_error("stream %p: can't make proxy: %m", stream);
 	return res;

@@ -53,12 +53,12 @@ pw_control_new(struct pw_core *core,
 		break;
 	default:
 		errno = -ENOTSUP;
-		goto exit;
+		goto error_exit;
 	}
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
-		goto exit;
+		goto error_exit;
 
 	this = &impl->this;
 	this->id = id;
@@ -86,7 +86,7 @@ pw_control_new(struct pw_core *core,
 
 	return this;
 
-    exit:
+error_exit:
 	return NULL;
 }
 
@@ -223,8 +223,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 
 	pw_control_emit_linked(control, other);
 	pw_control_emit_linked(other, control);
-
-     exit:
+exit:
 	return res;
 }
 

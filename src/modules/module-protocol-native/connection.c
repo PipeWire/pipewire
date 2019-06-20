@@ -195,7 +195,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 	return 0;
 
 	/* ERRORS */
-      recv_error:
+recv_error:
 	pw_log_error("could not recvmsg on fd %d: %s", conn->fd, strerror(errno));
 	return -errno;
 }
@@ -245,7 +245,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 
 	return this;
 
-      no_mem:
+no_mem:
 	free(impl->out.buffer_data);
 	free(impl->in.buffer_data);
 	free(impl);
@@ -514,7 +514,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 	return 0;
 
 	/* ERRORS */
-      send_error:
+send_error:
 	res = -errno;
 	pw_log_error("could not sendmsg: %s", strerror(errno));
 	return res;

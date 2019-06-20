@@ -244,7 +244,7 @@ static struct mem *ensure_mem(struct impl *impl, int fd, uint32_t type, uint32_t
 					type,
 					m->fd,
 					m->flags);
-      found:
+found:
 	m->ref++;
 	pw_log_debug("client-node %p: mem %d, ref %d", impl, m->id, m->ref);
 	return m;
@@ -328,7 +328,7 @@ static struct io *update_io(struct node *this,
 	spa_log_debug(this->log, "node %p: add io %p %s %d", this, io,
 			spa_debug_type_find_name(spa_type_io, id), memid);
 
-     found:
+found:
 	return io;
 }
 
@@ -1680,10 +1680,13 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *name;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_exit_cleanup;
+	}
 
 	this = &impl->this;
 
@@ -1714,6 +1717,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 				     (struct spa_node *)&impl->node.node,
 				     NULL,
 				     properties, 0);
+
 	if (this->node == NULL)
 		goto error_no_node;
 
@@ -1738,10 +1742,20 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	return this;
 
-      error_no_node:
-	pw_resource_destroy(this->resource);
+error_no_node:
+	res = -errno;
 	node_clear(&impl->node);
+	properties = NULL;
+	goto error_exit_free;
+
+error_exit_free:
 	free(impl);
+error_exit_cleanup:
+	if (resource)
+		pw_resource_destroy(resource);
+	if (properties)
+		pw_properties_free(properties);
+	errno = -res;
 	return NULL;
 }
 

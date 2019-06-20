@@ -136,7 +136,7 @@ static int impl_node_enum_params(void *object, int seq,
 
 	result.id = id;
 	result.next = start;
-      next:
+next:
 	result.index = result.next++;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -1252,10 +1252,13 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	struct pw_properties *props;
 	uint32_t n_support;
 	const char *name;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl));
-	if (impl == NULL)
-		return NULL;
+	if (impl == NULL) {
+		res = -errno;
+		goto error_exit_cleanup;
+	}
 
 	this = &impl->this;
 
@@ -1271,8 +1274,11 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 			parent,
 			props,
 			false);
-	if (impl->client_node == NULL)
-		goto error_no_node;
+	resource = NULL;
+	if (impl->client_node == NULL) {
+		res = -errno;
+		goto error_exit_free;
+	}
 
 	impl->cnode = pw_node_get_implementation(impl->client_node->node);
 	spa_node_set_callbacks(impl->cnode, &node_callbacks, impl);
@@ -1293,8 +1299,11 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 				     (struct spa_node *)&impl->node.node,
 				     NULL,
 				     properties, 0);
-	if (this->node == NULL)
-		goto error_no_node;
+	properties = NULL;
+	if (this->node == NULL) {
+		res = -errno;
+		goto error_exit_free_client_node;
+	}
 
 	this->node->remote = true;
 
@@ -1305,9 +1314,16 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 
 	return this;
 
-      error_no_node:
-	pw_resource_destroy(resource);
+error_exit_free_client_node:
+	pw_client_node_destroy(impl->client_node);
+error_exit_free:
 	free(impl);
+error_exit_cleanup:
+	if (resource)
+		pw_resource_destroy(resource);
+	if (properties)
+		pw_properties_free(properties);
+	errno = -res;
 	return NULL;
 }
 

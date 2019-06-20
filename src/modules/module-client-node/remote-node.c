@@ -656,9 +656,7 @@ client_node_port_set_param(void *object,
 	port = pw_node_find_port(data->node, direction, port_id);
 	if (port == NULL) {
 		res = -EINVAL;
-		pw_proxy_error(proxy, res, "unknown %s port %d",
-			direction == SPA_DIRECTION_INPUT ? "input" : "output", port_id);
-		goto done;
+		goto error_exit;
 	}
 
         pw_log_debug("port %p: set param %d %p", port, id, param);
@@ -672,12 +670,14 @@ client_node_port_set_param(void *object,
 	}
 
 	res = pw_port_set_param(port, id, flags, param);
-	if (res < 0) {
-		pw_proxy_error(proxy, res, "can't set port param: %s", spa_strerror(res));
-		goto done;
-	}
+	if (res < 0)
+		goto error_exit;
 
-      done:
+	return res;
+
+error_exit:
+        pw_log_error("port %p: set_param %d %p: %s", port, id, param, spa_strerror(res));
+	pw_proxy_error(proxy, res, "port_set_param: %s", spa_strerror(res));
 	return res;
 }
 
@@ -696,9 +696,8 @@ client_node_port_use_buffers(void *object,
 
 	mix = ensure_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
-		res = -EINVAL;
-		pw_proxy_error(proxy, res, "can add mix");
-		goto done;
+		res = -ENOENT;
+		goto error_exit;
 	}
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
@@ -716,17 +715,14 @@ client_node_port_use_buffers(void *object,
 
 		m = find_mem(data, buffers[i].mem_id);
 		if (m == NULL) {
-			pw_log_error("unknown memory id %u", buffers[i].mem_id);
-			res = -EINVAL;
-			pw_proxy_error(proxy, res, "unknown memory %u", buffers[i].mem_id);
-			goto cleanup;
+			res = -ENODEV;
+			goto error_exit_cleanup;
 		}
 
 		bid = pw_array_add(&mix->buffers, sizeof(struct buffer));
 		if (bid == NULL) {
 			res = -errno;
-			pw_proxy_error(proxy, res, "error allocating buffers : %m");
-			goto cleanup;
+			goto error_exit_cleanup;
 		}
 		bid->id = i;
 
@@ -735,8 +731,7 @@ client_node_port_use_buffers(void *object,
 				buffers[i].offset, buffers[i].size);
 		if (bmem.map.ptr == NULL) {
 			res = -errno;
-			pw_proxy_error(proxy, res, "use_buffers: can't mmap memory: %m");
-			goto cleanup;
+			goto error_exit_cleanup;
 		}
 		if (mlock(bmem.map.ptr, bmem.map.map.size) < 0)
 			pw_log_warn("Failed to mlock memory %u %u: %m",
@@ -754,8 +749,7 @@ client_node_port_use_buffers(void *object,
 		b = bid->buf = malloc(size);
 		if (b == NULL) {
 			res = -errno;
-			pw_proxy_error(proxy, res, "can't alloc memory: %s", spa_strerror(res));
-			goto cleanup;
+			goto error_exit_cleanup;
 		}
 		memcpy(b, buffers[i].buffer, sizeof(struct spa_buffer));
 
@@ -795,9 +789,8 @@ client_node_port_use_buffers(void *object,
 
 				if (bm == NULL) {
 					pw_log_error("unknown buffer mem %u", mem_id);
-					res = -EINVAL;
-					pw_proxy_error(proxy, res, "unknown buffer mem %u", mem_id);
-					goto cleanup;
+					res = -ENODEV;
+					goto error_exit_cleanup;
 				}
 
 				d->fd = bm->fd;
@@ -824,15 +817,16 @@ client_node_port_use_buffers(void *object,
 	}
 
 	if ((res = pw_port_use_buffers(mix->port, mix->mix_id, bufs, n_buffers)) < 0)
-		pw_proxy_error(proxy, res, "can't use buffers: %s", spa_strerror(res));
+		goto error_exit_cleanup;
 
-      done:
 	return res;
 
-     cleanup:
+error_exit_cleanup:
 	clear_buffers(data, mix);
-	goto done;
-
+error_exit:
+        pw_log_error("port %p: use_buffers: %s", mix, spa_strerror(res));
+	pw_proxy_error(proxy, res, "port_use_buffers error: %s", spa_strerror(res));
+	return res;
 }
 
 static int
@@ -854,9 +848,8 @@ client_node_port_set_io(void *object,
 
 	mix = ensure_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
-		res = -EINVAL;
-		pw_proxy_error(proxy, res, "can't get mixer: %s", spa_strerror(res));
-		return res;
+		res = -ENOENT;
+		goto error_exit;
 	}
 
 	if (memid == SPA_ID_INVALID) {
@@ -866,17 +859,14 @@ client_node_port_set_io(void *object,
 	else {
 		m = find_mem(data, memid);
 		if (m == NULL) {
-			pw_log_warn("unknown memory id %u", memid);
-			res = -EINVAL;
-			pw_proxy_error(proxy, res, "unknown memory id %u", memid);
-			return res;
+			res = -ENODEV;
+			goto error_exit;
 		}
 		ptr = mem_map(data, &m->map, m->fd,
 			PROT_READ|PROT_WRITE, offset, size);
 		if (ptr == NULL) {
 			res = -errno;
-			pw_proxy_error(proxy, res, "port_set_io: mmap failed: %m");
-			return res;
+			goto error_exit;
 		}
 
 		m->ref++;
@@ -901,8 +891,13 @@ client_node_port_set_io(void *object,
 				     id,
 				     ptr,
 				     size)) < 0)
-			pw_proxy_error(proxy, res, "set_io failed: %s", spa_strerror(res));
+			goto error_exit;
 	}
+	return res;
+
+error_exit:
+        pw_log_error("port %p: set_io: %s", mix, spa_strerror(res));
+	pw_proxy_error(proxy, res, "port_set_io failed: %s", spa_strerror(res));
 	return res;
 }
 
@@ -946,16 +941,14 @@ client_node_set_activation(void *object,
 	else {
 		m = find_mem(data, memid);
 		if (m == NULL) {
-			pw_log_warn("unknown memory id %u", memid);
-			res = -EINVAL;
-			pw_proxy_error(proxy, res, "unknown memory id %u", memid);
-			return res;
+			res = -ENODEV;
+			goto error_exit;
 		}
 		ptr = mem_map(data, &m->map, m->fd,
 			PROT_READ|PROT_WRITE, offset, size);
 		if (ptr == NULL) {
-			pw_proxy_error(proxy, -errno, "set_activation: mmap failed: %m");
-			return -errno;
+			res = -errno;
+			goto error_exit;
 		}
 		m->ref++;
 	}
@@ -970,8 +963,10 @@ client_node_set_activation(void *object,
 
 	if (ptr) {
 		link = pw_array_add(&data->links, sizeof(struct link));
-		if (link == NULL)
-			return -errno;
+		if (link == NULL) {
+			res = -errno;
+			goto error_exit;
+		}
 		link->node_id = node_id;
 		link->mem_id = memid;
 		link->target.activation = ptr;
@@ -988,13 +983,16 @@ client_node_set_activation(void *object,
 	} else {
 		link = find_activation(&data->links, node_id);
 		if (link == NULL) {
-			res = -EINVAL;
-			goto exit;
+			res = -ENOENT;
+			goto error_exit;
 		}
 		clear_link(data, link);
 	}
+	return res;
 
-      exit:
+error_exit:
+	pw_log_error("node %p: set activation %d: %s", node, node_id, spa_strerror(res));
+	pw_proxy_error(proxy, res, "set_activation: %s", spa_strerror(res));
 	return res;
 }
 

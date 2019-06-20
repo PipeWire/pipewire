@@ -40,7 +40,7 @@ extern "C" {
 
 struct pw_node *
 pw_audio_dsp_new(struct pw_core *core,
-		 const struct pw_properties *properties,
+		 struct pw_properties *properties,
 		 size_t user_data_size);
 
 void *pw_audio_dsp_get_user_data(struct pw_node *node);

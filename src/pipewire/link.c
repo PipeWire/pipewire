@@ -359,7 +359,7 @@ static int do_negotiate(struct pw_link *this)
 	pw_log_debug("link %p: result %d", this, res);
 	return res;
 
-      error:
+error:
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	free(format);
 	return res;
@@ -742,7 +742,7 @@ static int do_allocation(struct pw_link *this)
 	}
 	return 0;
 
-      error:
+error:
 	free_allocation(&output->allocation);
 	free_allocation(&input->allocation);
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
@@ -839,9 +839,9 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	if ((res = do_allocation(this)) != 0)
 		goto exit;
 
-      exit:
+exit:
 	if (SPA_RESULT_IS_ERROR(res)) {
-		pw_log_debug("link %p: got error result %d", this, res);
+		pw_log_debug("link %p: got error result %d (%s)", this, res, spa_strerror(res));
 		return;
 	}
 

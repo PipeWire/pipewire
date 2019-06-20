@@ -99,6 +99,7 @@ error_node:
 	pw_log_error("can't create node: %s", spa_strerror(res));
 	pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
 	goto error_exit_free;
+
 error_exit_free:
 	pw_resource_destroy(node_resource);
 error_exit:

@@ -96,10 +96,12 @@ open_plugin(struct registry *registry,
 	char *filename;
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
-	int res = -EFAULT;
+	int res;
 
-        if (asprintf(&filename, "%s/%s.so", path, lib) < 0)
-		goto out;
+        if (asprintf(&filename, "%s/%s.so", path, lib) < 0) {
+		res = -ENOMEM;
+		goto error_out;
+	}
 
 	if ((plugin = find_plugin(registry, filename)) != NULL) {
 		free(filename);
@@ -110,17 +112,17 @@ open_plugin(struct registry *registry,
         if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
 		res = -ENOENT;
                 fprintf(stderr, "can't load %s: %s\n", filename, dlerror());
-                goto out_free_filename;
+                goto error_free_filename;
         }
         if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		res = -ESRCH;
                 fprintf(stderr, "can't find enum function\n");
-                goto out_dlclose;
+                goto error_dlclose;
         }
 
 	if ((plugin = calloc(1, sizeof(struct plugin))) == NULL) {
 		res = -errno;
-		goto out_dlclose;
+		goto error_dlclose;
 	}
 
 	plugin->ref = 1;
@@ -133,11 +135,11 @@ open_plugin(struct registry *registry,
 
 	return plugin;
 
-      out_dlclose:
+error_dlclose:
 	dlclose(hnd);
-      out_free_filename:
+error_free_filename:
         free(filename);
-      out:
+error_out:
 	errno = -res;
 	return NULL;
 }
@@ -170,8 +172,8 @@ static const struct spa_handle_factory *find_factory(struct plugin *plugin, cons
 	}
 	res = -ENOENT;
 out:
+	fprintf(stderr, "can't find factory %s: %s", factory_name, spa_strerror(res));
 	errno = -res;
-	fprintf(stderr, "can't find factory %s: %m\n", factory_name);
 	return NULL;
 }
 
@@ -226,7 +228,7 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 
 	if (factory_name == NULL) {
 		res = -EINVAL;
-		goto out;
+		goto error_out;
 	}
 
 	if (lib == NULL)
@@ -237,20 +239,20 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL) {
 		res = -errno;
 		pw_log_warn("can't load '%s': %m", lib);
-		goto out;
+		goto error_out;
 	}
 
 	factory = find_factory(plugin, factory_name);
 	if (factory == NULL) {
 		res = -errno;
 		pw_log_warn("can't find factory '%s': %m %s", factory_name, spa_strerror(res));
-		goto out_unref_plugin;
+		goto error_unref_plugin;
 	}
 
 	handle = calloc(1, sizeof(struct handle) + spa_handle_factory_get_size(factory, info));
 	if (handle == NULL) {
 		res = -errno;
-		goto out;
+		goto error_unref_plugin;
 	}
 
         if ((res = spa_handle_factory_init(factory,
@@ -258,7 +260,7 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 					   support, n_support)) < 0) {
                 pw_log_warn("can't make factory instance '%s': %d (%s)",
 				factory_name, res, spa_strerror(res));
-                goto out_free_handle;
+                goto error_free_handle;
         }
 
 	handle->ref = 1;
@@ -268,11 +270,11 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 
 	return &handle->handle;
 
-      out_free_handle:
+error_free_handle:
 	free(handle);
-      out_unref_plugin:
+error_unref_plugin:
 	unref_plugin(plugin);
-      out:
+error_out:
 	errno = -res;
 	return NULL;
 }

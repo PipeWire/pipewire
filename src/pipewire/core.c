@@ -307,49 +307,51 @@ core_create_object(void *object,
 
 	factory = pw_core_find_factory(client->core, factory_name);
 	if (factory == NULL || factory->global == NULL)
-		goto no_factory;
+		goto error_no_factory;
 
 	if (!PW_PERM_IS_R(pw_global_get_permissions(factory->global, client)))
-		goto no_factory;
+		goto error_no_factory;
 
 	if (factory->info.type != type)
-		goto wrong_type;
+		goto error_type;
 
 	if (factory->info.version < version)
-		goto wrong_version;
+		goto error_version;
 
 	if (props) {
 		properties = pw_properties_new_dict(props);
 		if (properties == NULL)
-			goto no_properties;
+			goto error_properties;
 	} else
 		properties = NULL;
 
 	/* error will be posted */
 	obj = pw_factory_create_object(factory, resource, type, version, properties, new_id);
 	if (obj == NULL)
-		goto create_failed;
+		goto error_create_failed;
 
 	return 0;
 
-      no_factory:
-	res = -EINVAL;
+error_no_factory:
+	res = -ENOENT;
 	pw_log_error("can't find node factory %s", factory_name);
 	pw_resource_error(resource, res, "unknown factory name %s", factory_name);
-	goto error;
-      wrong_version:
-      wrong_type:
+	goto error_exit;
+error_version:
+error_type:
 	res = -EPROTO;
 	pw_log_error("invalid resource type/version");
 	pw_resource_error(resource, res, "wrong resource type/version");
-	goto error;
-      no_properties:
+	goto error_exit;
+error_properties:
 	res = -errno;
-	pw_log_error("can't create properties");
+	pw_log_error("can't create properties: %m");
 	pw_resource_error(resource, res, "can't create properties: %s", spa_strerror(res));
-      create_failed:
+	goto error_exit;
+error_create_failed:
 	res = -errno;
-      error:
+	goto error_exit;
+error_exit:
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
 	errno = -res;
@@ -999,7 +1001,7 @@ int pw_core_find_format(struct pw_core *core,
 	}
 	return res;
 
-      error:
+error:
 	if (res == 0)
 		res = -EBADF;
 	return res;

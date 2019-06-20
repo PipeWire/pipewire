@@ -92,8 +92,8 @@ static struct pw_command *parse_command_help(const char *line, char **err)
 
 	return this;
 
-      no_mem:
-	asprintf(err, "no memory");
+no_mem:
+	asprintf(err, "alloc failed: %m");
 	return NULL;
 }
 
@@ -128,12 +128,12 @@ static struct pw_command *parse_command_add_spa_lib(const char *line, char **err
 
 	return this;
 
-      no_library:
+no_library:
 	asprintf(err, "%s requires <factory-regex> <library-name>", this->args[0]);
 	pw_free_strv(this->args);
 	return NULL;
-      no_mem:
-	asprintf(err, "no memory");
+no_mem:
+	asprintf(err, "alloc failed: %m");
 	return NULL;
 }
 
@@ -168,12 +168,12 @@ static struct pw_command *parse_command_module_load(const char *line, char **err
 
 	return this;
 
-      no_module:
+no_module:
 	asprintf(err, "%s requires a module name", this->args[0]);
 	pw_free_strv(this->args);
 	return NULL;
-      no_mem:
-	asprintf(err, "no memory");
+no_mem:
+	asprintf(err, "alloc failed: %m");
 	return NULL;
 }
 
@@ -212,12 +212,12 @@ static struct pw_command *parse_command_exec(const char *line, char **err)
 
 	return this;
 
-      no_executable:
+no_executable:
 	asprintf(err, "requires an executable name");
 	pw_free_strv(this->args);
 	return NULL;
-      no_mem:
-	asprintf(err, "no memory");
+no_mem:
+	asprintf(err, "alloc failed: %m");
 	return NULL;
 }
 
@@ -269,7 +269,7 @@ struct pw_command *pw_command_parse(const char *line, char **err)
 	}
 
 	asprintf(err, "Command \"%s\" does not exist", name);
-      out:
+out:
 	free(name);
 	return command;
 }

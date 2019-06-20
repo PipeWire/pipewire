@@ -142,30 +142,34 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 
 	handle = pw_core_load_spa_handle(core, factory_name,
 			properties ? &properties->dict : NULL);
-	if (handle == NULL) {
-		res = -errno;
-		pw_log_error("can't load device handle: %m");
-		goto exit;
-	}
+	if (handle == NULL)
+		goto error_load;
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
-		pw_log_error("can't get device interface %d", res);
-		goto exit_unload;
-	}
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0)
+		goto error_interface;
 
 	this = pw_spa_device_new(core, owner, parent, name, flags,
 			       iface, handle, properties, user_data_size);
-	if (this == NULL) {
-		res = -errno;
-		pw_log_error("can't create device: %m");
-		goto exit_unload;
-	}
+	if (this == NULL)
+		goto error_device;
 
 	return this;
 
-exit_unload:
+error_load:
+	res = -errno;
+	pw_log_error("can't load device handle: %m");
+	goto error_exit;
+error_interface:
+	pw_log_error("can't get device interface %d", res);
+	goto error_exit_unload;
+error_device:
+	res = -errno;
+	pw_log_error("can't create device: %m");
+	goto error_exit_unload;
+
+error_exit_unload:
 	pw_unload_spa_handle(handle);
-exit:
+error_exit:
 	errno = -res;
 	return NULL;
 }

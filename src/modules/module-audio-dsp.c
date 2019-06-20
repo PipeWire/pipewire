@@ -47,7 +47,6 @@ static const struct spa_dict_item module_props[] = {
 
 struct factory_data {
 	struct pw_factory *this;
-	struct pw_properties *properties;
 
 	struct spa_list node_list;
 
@@ -103,19 +102,20 @@ static void *create_object(void *_data,
 	struct pw_resource *bound_resource;
 
 	if (resource == NULL)
-		goto no_resource;
+		goto error_resource;
 
 	client = pw_resource_get_client(resource);
 
 	dsp = pw_audio_dsp_new(pw_module_get_core(d->module),
 			properties,
 			sizeof(struct node_data));
+	properties = NULL;
 
 	if (dsp == NULL) {
 		if (errno == ENOMEM)
-			goto no_mem;
+			goto error_no_mem;
 		else
-			goto usage;
+			goto error_usage;
 	}
 
 	nd = pw_audio_dsp_get_user_data(dsp);
@@ -129,38 +129,39 @@ static void *create_object(void *_data,
 	res = pw_global_bind(pw_node_get_global(dsp), client,
 			PW_PERM_RWX, PW_VERSION_NODE_PROXY, new_id);
 	if (res < 0)
-		goto no_bind;
+		goto error_bind;
 
 	if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
-		goto no_bind;
+		goto error_bind;
 
 	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
 
 	pw_node_set_active(dsp, true);
 
-	if (properties)
-		pw_properties_free(properties);
-
 	return dsp;
 
-      no_resource:
+error_resource:
+	res = -EINVAL;
 	pw_log_error("audio-dsp needs a resource");
-	pw_resource_error(resource, -EINVAL, "no resource");
-	goto done;
-      usage:
+	pw_resource_error(resource, res, "no resource");
+	goto error_cleanup;
+error_no_mem:
+	res = -errno;
+	pw_log_error("can't create node: %m");
+	pw_resource_error(resource, res, "no memory");
+	goto error_cleanup;
+error_usage:
+	res = -EINVAL;
 	pw_log_error("usage: "AUDIO_DSP_USAGE);
-	pw_resource_error(resource, -EINVAL, "usage: "AUDIO_DSP_USAGE);
-	goto done;
-      no_mem:
-	pw_log_error("can't create node");
-	pw_resource_error(resource, -ENOMEM, "no memory");
-	goto done;
-      no_bind:
+	pw_resource_error(resource, res, "usage: "AUDIO_DSP_USAGE);
+	goto error_cleanup;
+error_bind:
 	pw_resource_error(resource, res, "can't bind dsp node");
-	goto done;
-      done:
+	goto error_cleanup;
+error_cleanup:
 	if (properties)
 		pw_properties_free(properties);
+	errno = -res;
 	return NULL;
 }
 
@@ -178,9 +179,6 @@ static void module_destroy(void *data)
 
 	spa_list_for_each_safe(nd, t, &d->node_list, link)
 		pw_node_destroy(nd->dsp);
-
-	if (d->properties)
-		pw_properties_free(d->properties);
 
 	pw_factory_destroy(d->this);
 }
@@ -210,7 +208,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->module = module;
-	data->properties = properties;
 	spa_list_init(&data->node_list);
 
 	pw_log_debug("module %p: new", module);

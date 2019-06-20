@@ -60,6 +60,7 @@ struct node_data {
 static void module_destroy(void *_data)
 {
 	struct node_data *data = _data;
+	spa_hook_remove(&data->module_listener);
 	pw_node_destroy(data->this);
 }
 
@@ -72,23 +73,25 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
-	char **argv;
-	int n_tokens;
+	char **argv = NULL;
+	int n_tokens, res;
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_node *node;
         struct node_data *data;
 
 	if (args == NULL)
-		goto wrong_arguments;
+		goto error_arguments;
 
 	argv = pw_split_strv(args, " \t", 3, &n_tokens);
 	if (n_tokens < 2)
-		goto not_enough_arguments;
+		goto error_arguments;
 
 	if (n_tokens == 3) {
 		props = pw_properties_new_string(argv[2]);
-		if (props == NULL)
-			return -ENOMEM;
+		if (props == NULL) {
+			res = -errno;
+			goto error_exit_cleanup;
+		}
 	}
 
 	node = pw_spa_node_load(core,
@@ -99,10 +102,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				props,
 				sizeof(struct node_data));
 
-	pw_free_strv(argv);
+	if (node == NULL) {
+		res = -errno;
+		goto error_exit_cleanup;
+	}
 
-	if (node == NULL)
-		return -ENOMEM;
+	pw_free_strv(argv);
 
 	data = pw_spa_node_get_user_data(node);
 	data->this = node;
@@ -116,9 +121,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	return 0;
 
-      not_enough_arguments:
-	pw_free_strv(argv);
-      wrong_arguments:
+error_arguments:
+	res = -EINVAL;
 	pw_log_error("usage: module-spa-node " MODULE_USAGE);
-	return -EINVAL;
+	goto error_exit_cleanup;
+error_exit_cleanup:
+	if (argv)
+		pw_free_strv(argv);
+	return res;
 }

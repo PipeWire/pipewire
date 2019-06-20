@@ -72,22 +72,24 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_properties *props = NULL;
-	char **argv;
-	int n_tokens;
+	char **argv = NULL;
+	int n_tokens, res;
 	struct pw_spa_monitor *monitor;
 	struct data *data;
 
 	if (args == NULL)
-		goto wrong_arguments;
+		goto error_arguments;
 
 	argv = pw_split_strv(args, " \t", INT_MAX, &n_tokens);
 	if (n_tokens < 2)
-		goto not_enough_arguments;
+		goto error_arguments;
 
 	if (n_tokens == 3) {
 		props = pw_properties_new_string(argv[2]);
-		if (props == NULL)
-			return -ENOMEM;
+		if (props == NULL) {
+			res = -errno;
+			goto error_exit_cleanup;
+		}
 	}
 
 	monitor = pw_spa_monitor_load(core,
@@ -95,13 +97,15 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				      argv[0], argv[1],
 				      props,
 				      sizeof(struct data));
-	if (monitor == NULL)
-		return -ENOMEM;
+	if (monitor == NULL) {
+		res = -errno;
+		goto error_exit_cleanup;
+	}
+
+	pw_free_strv(argv);
 
 	data = monitor->user_data;
 	data->monitor = monitor;
-
-	pw_free_strv(argv);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
@@ -109,9 +113,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	return 0;
 
-      not_enough_arguments:
-	pw_free_strv(argv);
-      wrong_arguments:
+error_arguments:
+	res = -EINVAL;
 	pw_log_error("usage: module-spa-monitor " MODULE_USAGE);
-	return -EINVAL;
+	goto error_exit_cleanup;
+error_exit_cleanup:
+	if (argv)
+		pw_free_strv(argv);
+	return res;
 }

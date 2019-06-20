@@ -346,7 +346,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 	result.id = id;
 	result.next = start;
-      next:
+next:
 	result.index = result.next++;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));

@@ -18,7 +18,6 @@
  */
 
 #include <math.h>
-#include <error.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +43,12 @@
 #define M_PI_M2 ( M_PI + M_PI )
 
 static struct spa_log *logger;
+
+#define spa_error(ret,res,msg)					\
+({								\
+	fprintf(stderr, "%s: %s", msg, spa_strerror(res));	\
+	return(ret);						\
+})
 
 #define spa_debug(f,...) spa_log_trace(logger, f, __VA_ARGS__)
 
@@ -212,10 +217,11 @@ int main(int argc, char *argv[])
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-support.so",
 			     "mapper")) < 0) {
-		error(-1, res, "can't create mapper");
+		spa_error(-1, res, "can't create mapper");
 	}
-	if ((res = spa_handle_get_interface(handle, 0, &iface)) < 0)
-		error(-1, res, "can't get mapper interface");
+	if ((res = spa_handle_get_interface(handle, 0, &iface)) < 0) {
+		spa_error(-1, res, "can't get mapper interface");
+	}
 
 	data.map = iface;
 	data.support[0].type = SPA_TYPE__TypeMap;
@@ -226,13 +232,13 @@ int main(int argc, char *argv[])
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-support.so",
 			     "logger")) < 0) {
-		error(-1, res, "can't create logger");
+		spa_error(-1, res, "can't create logger");
 	}
 
 	if ((res = spa_handle_get_interface(handle,
 					    spa_type_map_get_id(data.map, SPA_TYPE__Log),
 					    &iface)) < 0)
-		error(-1, res, "can't get log interface");
+		spa_error(-1, res, "can't get log interface");
 
 	data.log = iface;
 	data.support[1].type = SPA_TYPE__Log;
@@ -245,24 +251,24 @@ int main(int argc, char *argv[])
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-support.so",
 			     "loop")) < 0) {
-		error(-1, res, "can't create loop");
+		spa_error(-1, res, "can't create loop");
 	}
 	if ((res = spa_handle_get_interface(handle,
 					    spa_type_map_get_id(data.map, SPA_TYPE__Loop),
 					    &iface)) < 0)
-		error(-1, res, "can't get loop interface");
+		spa_error(-1, res, "can't get loop interface");
 	data.loop = iface;
 
 	if ((res = spa_handle_get_interface(handle,
 					    spa_type_map_get_id(data.map, SPA_TYPE__LoopControl),
 					    &iface)) < 0)
-		error(-1, res, "can't get loopcontrol interface");
+		spa_error(-1, res, "can't get loopcontrol interface");
 	data.loop_control = iface;
 
 	if ((res = spa_handle_get_interface(handle,
 					    spa_type_map_get_id(data.map, SPA_TYPE__LoopUtils),
 					    &iface)) < 0)
-		error(-1, res, "can't get looputils interface");
+		spa_error(-1, res, "can't get looputils interface");
 	data.loop_utils = iface;
 
 	data.support[2].type = SPA_TYPE_LOOP__DataLoop;
@@ -278,13 +284,13 @@ int main(int argc, char *argv[])
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/support/libspa-dbus.so",
 			     "dbus")) < 0) {
-		error(-1, res, "can't create dbus");
+		spa_error(-1, res, "can't create dbus");
 	}
 
 	if ((res = spa_handle_get_interface(handle,
 					    spa_type_map_get_id(data.map, SPA_TYPE__DBus),
 					    &iface)) < 0)
-		error(-1, res, "can't get dbus interface");
+		spa_error(-1, res, "can't get dbus interface");
 
 	data.dbus = iface;
 	data.support[6].type = SPA_TYPE__DBus;
@@ -294,13 +300,13 @@ int main(int argc, char *argv[])
 	if ((res = get_handle(&data, &handle,
 			     "build/spa/plugins/bluez5/libspa-bluez5.so",
 			     "bluez5-monitor")) < 0) {
-		error(-1, res, "can't create bluez5-monitor");
+		spa_error(-1, res, "can't create bluez5-monitor");
 	}
 
 	if ((res = spa_handle_get_interface(handle,
 					    spa_type_map_get_id(data.map, SPA_TYPE__Monitor),
 					    &iface)) < 0)
-		error(-1, res, "can't get monitor interface");
+		spa_error(-1, res, "can't get monitor interface");
 
 	data.monitor = iface;
 

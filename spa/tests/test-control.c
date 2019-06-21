@@ -18,7 +18,6 @@
  */
 
 #include <math.h>
-#include <error.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +42,12 @@
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
+
+#define spa_error(ret,res,msg)					\
+({								\
+	fprintf(stderr, "%s: %s", msg, spa_strerror(res));	\
+	return(ret);						\
+})
 
 #define spa_debug(f,...) spa_log_trace(&default_log.log, f, __VA_ARGS__)
 
@@ -359,7 +364,7 @@ static int make_nodes(struct data *data, const char *device)
 		if ((res = spa_node_port_enum_params(data->source, SPA_DIRECTION_OUTPUT, 0,
 					   data->type.param_io.idPropsIn, &idx, NULL, &param, &b)) < 1) {
 			if (res < 0)
-				error(0, -res, "port_enum_params");
+				spa_error(0, -res, "port_enum_params");
 			break;
 		}
 
@@ -373,7 +378,7 @@ static int make_nodes(struct data *data, const char *device)
 				     SPA_DIRECTION_OUTPUT, 0,
 				     id,
 				     &data->ctrl_source_freq, sizeof(data->ctrl_source_freq))) < 0)
-				error(0, -res, "set_io freq");
+				spa_error(0, -res, "set_io freq");
 
 		}
 		else if (propId == data->type.props_volume) {
@@ -381,7 +386,7 @@ static int make_nodes(struct data *data, const char *device)
 				     SPA_DIRECTION_OUTPUT, 0,
 				     id,
 				     &data->ctrl_source_volume, sizeof(data->ctrl_source_volume))) < 0)
-				error(0, -res, "set_io volume");
+				spa_error(0, -res, "set_io volume");
 		}
 	}
 

@@ -18,7 +18,6 @@
  */
 
 #include <math.h>
-#include <error.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,6 +45,12 @@
 
 static SPA_TYPE_MAP_IMPL(default_map, 4096);
 static SPA_LOG_IMPL(default_log);
+
+#define spa_error(ret,res,msg)					\
+({								\
+	fprintf(stderr, "%s: %s", msg, spa_strerror(res));	\
+	return(ret);						\
+})
 
 #define spa_debug(...)	spa_log_trace(&default_log.log,__VA_ARGS__)
 
@@ -370,7 +375,7 @@ static int make_nodes(struct data *data, const char *device)
 		":", data->type.props_min_latency, "i", MIN_LATENCY);
 
 	if ((res = spa_node_set_param(data->sink, data->type.param.idProps, 0, props)) < 0)
-		error(0, -res, "set_param props");
+		spa_error(0, -res, "set_param props");
 
 	if ((res = make_node(data, &data->mix,
 			     "build/spa/plugins/audiomixer/libspa-audiomixer.so",
@@ -457,13 +462,13 @@ static int make_nodes(struct data *data, const char *device)
 				     SPA_DIRECTION_INPUT, data->mix_ports[0],
 				     data->type.io_inprop_volume,
 				     &data->ctrl_volume[0], sizeof(data->ctrl_volume[0]))) < 0)
-				error(0, -res, "set_io volume 0");
+				spa_error(0, -res, "set_io volume 0");
 
 	if ((res = spa_node_port_set_io(data->mix,
 				     SPA_DIRECTION_INPUT, data->mix_ports[1],
 				     data->type.io_inprop_volume,
 				     &data->ctrl_volume[1], sizeof(data->ctrl_volume[1]))) < 0)
-				error(0, -res, "set_io volume 1");
+				spa_error(0, -res, "set_io volume 1");
 
 
 #ifdef USE_GRAPH

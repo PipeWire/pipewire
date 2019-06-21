@@ -22,14 +22,18 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/support/log-impl.h>
+
 #include <pipewire/log.h>
+
+SPA_LOG_IMPL(default_log);
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_ERROR
 
 SPA_EXPORT
 enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 
-static struct spa_log *global_log = NULL;
+static struct spa_log *global_log = &default_log.log;
 
 /** Set the global log interface
  * \param log the global log to set
@@ -83,7 +87,7 @@ pw_log_log(enum spa_log_level level,
 	   const char *func,
 	   const char *fmt, ...)
 {
-	if (SPA_UNLIKELY(pw_log_level_enabled(level) && global_log)) {
+	if (SPA_UNLIKELY(pw_log_level_enabled(level))) {
 		va_list args;
 		va_start(args, fmt);
 		spa_interface_call(&global_log->iface,
@@ -112,7 +116,7 @@ pw_log_logv(enum spa_log_level level,
 	    const char *fmt,
 	    va_list args)
 {
-	if (SPA_UNLIKELY(pw_log_level_enabled(level) && global_log)) {
+	if (SPA_UNLIKELY(pw_log_level_enabled(level))) {
 		spa_interface_call(&global_log->iface,
 			struct spa_log_methods, logv, 0, level, file, line,
 			func, fmt, args);

@@ -42,6 +42,7 @@
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/control/control.h>
+#include <spa/utils/names.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
 
@@ -283,7 +284,8 @@ static int make_nodes(struct data *data, const char *device)
 	//uint32_t idx;
 
 	if ((res = make_node(data, &data->sink,
-			     "build/spa/plugins/alsa/libspa-alsa.so", "api.alsa.pcm.sink")) < 0) {
+			     "build/spa/plugins/alsa/libspa-alsa.so",
+			     SPA_NAME_API_ALSA_PCM_SINK)) < 0) {
 		printf("can't create alsa-sink: %d\n", res);
 		return res;
 	}

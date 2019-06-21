@@ -38,6 +38,7 @@
 #include <spa/support/system.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
+#include <spa/utils/names.h>
 
 #define NAME "system"
 
@@ -398,7 +399,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_support_system_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	SPA_NAME_SUPPORT_SYSTEM,
 	NULL,
 	impl_get_size,
 	impl_init,

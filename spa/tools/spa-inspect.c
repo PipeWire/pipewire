@@ -123,6 +123,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 			continue;
 
 		printf("values:\n");
+		spa_zero(listener);
 		spa_node_add_listener(node, &listener, &node_events, data);
 		res = spa_node_port_enum_params(node, 0,
 				direction, port_id,

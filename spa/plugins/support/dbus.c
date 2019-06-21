@@ -33,6 +33,7 @@
 #include <dbus/dbus.h>
 
 #include <spa/utils/type.h>
+#include <spa/utils/names.h>
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
 #include <spa/support/dbus.h>
@@ -439,7 +440,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 static const struct spa_handle_factory dbus_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	SPA_NAME_SUPPORT_DBUS,
 	NULL,
 	impl_get_size,
 	impl_init,

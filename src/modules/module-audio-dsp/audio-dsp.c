@@ -32,6 +32,7 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/names.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/type-info.h>
 #include <spa/param/audio/type-info.h>
@@ -262,7 +263,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *api, *alias, *str, *factory;
+	const char *api, *alias, *str, *mode;
 	char node_name[128];
 	enum pw_direction direction;
 	uint32_t max_buffer_size;
@@ -307,16 +308,16 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 
 	if (direction == PW_DIRECTION_OUTPUT) {
 		pw_properties_set(props, "merger.monitor", "1");
-		factory = "merge";
+		mode = "merge";
 	} else {
-		factory = "split";
+		mode = "split";
 	}
-	pw_properties_set(props, "factory.mode", factory);
-	factory = "audioconvert";
+
+	pw_properties_set(props, "factory.mode", mode);
 	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 
 	node = pw_spa_node_load(core, NULL, NULL,
-			factory,
+			SPA_NAME_AUDIO_CONVERT,
 			node_name,
 			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 			pw_properties_copy(props),

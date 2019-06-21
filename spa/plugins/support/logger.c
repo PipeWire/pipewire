@@ -34,6 +34,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/type.h>
+#include <spa/utils/names.h>
 
 #define NAME "logger"
 
@@ -294,7 +295,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_support_logger_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	.name = NAME,
+	.name = SPA_NAME_SUPPORT_LOG,
 	.info = NULL,
 	.get_size = impl_get_size,
 	.init = impl_init,

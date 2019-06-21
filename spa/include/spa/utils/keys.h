@@ -37,7 +37,6 @@ extern "C" {
 									  *  Screen, Communication, Game,
 									  *  Notification, DSP, Production,
 									  *  Accessibility, Test */
-
 /** keys for alsa api */
 #define SPA_KEY_API_ALSA		"api.alsa"			/**< key for the alsa api */
 #define SPA_KEY_API_ALSA_PATH		"api.alsa.path"			/**< alsa device path as can be
@@ -78,7 +77,6 @@ extern "C" {
 #define SPA_KEY_API_BLUEZ5_DEVICE	"api.bluez5.device"		/**< an internal bluez5 device */
 #define SPA_KEY_API_BLUEZ5_TRANSPORT	"api.bluez5.transport"		/**< an internal bluez5 transport */
 #define SPA_KEY_API_BLUEZ5_ADDRESS	"api.bluez5.address"		/**< a bluetooth address */
-
 
 
 #ifdef __cplusplus

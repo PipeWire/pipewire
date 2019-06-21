@@ -45,6 +45,7 @@
 #include <spa/monitor/utils.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"
@@ -499,7 +500,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 
 	info = SPA_MONITOR_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Device;
-	info.factory_name = "api.bluez5.device";
+	info.factory_name = SPA_NAME_API_BLUEZ5_DEVICE;
 	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
 		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
@@ -2292,7 +2293,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_bluez5_monitor_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.bluez5.monitor",
+	SPA_NAME_API_BLUEZ5_MONITOR,
 	NULL,
 	impl_get_size,
 	impl_init,

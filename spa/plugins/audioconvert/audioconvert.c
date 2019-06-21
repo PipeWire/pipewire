@@ -28,6 +28,7 @@
 
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
+#include <spa/utils/names.h>
 #include <spa/node/node.h>
 #include <spa/buffer/alloc.h>
 #include <spa/node/io.h>
@@ -1120,7 +1121,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_audioconvert_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	SPA_NAME_AUDIO_CONVERT,
 	NULL,
 	impl_get_size,
 	impl_init,

@@ -34,6 +34,7 @@
 
 #include <SDL2/SDL.h>
 
+#include <spa/utils/names.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/node/node.h>
@@ -255,7 +256,9 @@ static int make_nodes(struct data *data, const char *device)
 	uint32_t index;
 
 	if ((res =
-	     make_node(data, &data->source, PATH "v4l2/libspa-v4l2.so", "api.v4l2.source")) < 0) {
+	     make_node(data, &data->source,
+		     PATH "v4l2/libspa-v4l2.so",
+		     SPA_NAME_API_V4L2_SOURCE)) < 0) {
 		printf("can't create v4l2-source: %d\n", res);
 		return res;
 	}
@@ -469,7 +472,9 @@ int main(int argc, char *argv[])
 	struct spa_handle *handle = NULL;
 	void *iface;
 
-	if ((res = load_handle(&data, &handle, PATH "support/libspa-support.so", "loop")) < 0)
+	if ((res = load_handle(&data, &handle,
+					PATH "support/libspa-support.so",
+					SPA_NAME_SUPPORT_LOOP)) < 0)
 		return res;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Loop, &iface)) < 0) {

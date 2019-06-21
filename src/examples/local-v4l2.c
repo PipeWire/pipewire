@@ -37,6 +37,7 @@
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
 #include <spa/debug/format.h>
+#include <spa/utils/names.h>
 
 #include <pipewire/pipewire.h>
 
@@ -348,7 +349,7 @@ static int make_nodes(struct data *data)
 
 	factory = pw_core_find_factory(data->core, "spa-node-factory");
 	props = pw_properties_new(SPA_KEY_LIBRARY_NAME, "v4l2/libspa-v4l2",
-				  SPA_KEY_FACTORY_NAME, "api.v4l2.source", NULL);
+				  SPA_KEY_FACTORY_NAME, SPA_NAME_API_V4L2_SOURCE, NULL);
 	data->v4l2 = pw_factory_create_object(factory,
 					      NULL,
 					      PW_TYPE_INTERFACE_Node,

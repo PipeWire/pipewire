@@ -29,6 +29,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/utils/list.h>
 #include <spa/monitor/device.h>
 #include <spa/param/audio/format.h>
@@ -821,7 +822,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_alsa_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.alsa.pcm.source",
+	SPA_NAME_API_ALSA_PCM_SOURCE,
 	&info,
 	impl_get_size,
 	impl_init,

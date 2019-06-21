@@ -32,6 +32,7 @@
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/pod/builder.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
@@ -102,7 +103,7 @@ static int emit_info(struct impl *this, bool full)
 
 		oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
 		oinfo.type = SPA_TYPE_INTERFACE_Node;
-		oinfo.factory_name = "api.v4l2.source";
+		oinfo.factory_name = SPA_NAME_API_V4L2_SOURCE;
 		oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 		oinfo.props = &SPA_DICT_INIT(items, n_items);
 
@@ -262,7 +263,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_v4l2_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.v4l2.device",
+	SPA_NAME_API_V4L2_DEVICE,
 	NULL,
 	impl_get_size,
 	impl_init,

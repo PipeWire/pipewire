@@ -106,10 +106,10 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		return 0;
 
 	if (av_codec_is_encoder(c)) {
-		snprintf(name, 128, "ffenc_%s", c->name);
+		snprintf(name, 128, "encoder.%s", c->name);
 		f.init = ffmpeg_enc_init;
 	} else {
-		snprintf(name, 128, "ffdec_%s", c->name);
+		snprintf(name, 128, "decoder.%s", c->name);
 		f.init = ffmpeg_dec_init;
 	}
 	f.name = name;

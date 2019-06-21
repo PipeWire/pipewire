@@ -36,6 +36,7 @@
 #include <spa/support/system.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/monitor/device.h>
 
 #include <spa/node/node.h>
@@ -1226,7 +1227,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_a2dp_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.bluez5.a2dp.source",
+	SPA_NAME_API_BLUEZ5_A2DP_SOURCE,
 	&info,
 	impl_get_size,
 	impl_init,

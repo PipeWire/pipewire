@@ -35,6 +35,7 @@
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/list.h>
+#include <spa/utils/names.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/ringbuffer.h>
@@ -815,7 +816,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_support_loop_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	SPA_NAME_SUPPORT_LOOP,
 	NULL,
 	impl_get_size,
 	impl_init,

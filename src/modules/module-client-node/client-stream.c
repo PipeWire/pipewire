@@ -35,6 +35,7 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
+#include <spa/utils/names.h>
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
@@ -1059,7 +1060,7 @@ static void client_node_initialized(void *data)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 
 		if ((impl->handle = pw_core_load_spa_handle(impl->core,
-						"audioconvert",
+						SPA_NAME_AUDIO_CONVERT,
 						&SPA_DICT_INIT(items, n_items))) == NULL)
 			return;
 

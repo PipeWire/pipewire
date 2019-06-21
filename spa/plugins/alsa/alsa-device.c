@@ -34,6 +34,7 @@
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
@@ -109,9 +110,9 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
 	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK)
-		info.factory_name = "api.alsa.pcm.sink";
+		info.factory_name = SPA_NAME_API_ALSA_PCM_SINK;
 	else
-		info.factory_name = "api.alsa.pcm.source";
+		info.factory_name = SPA_NAME_API_ALSA_PCM_SOURCE;
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
@@ -488,7 +489,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_alsa_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.alsa.device",
+	SPA_NAME_API_ALSA_DEVICE,
 	NULL,
 	impl_get_size,
 	impl_init,

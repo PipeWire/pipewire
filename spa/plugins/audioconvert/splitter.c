@@ -30,6 +30,7 @@
 #include <spa/support/cpu.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
+#include <spa/utils/names.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
@@ -1052,7 +1053,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_splitter_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	SPA_NAME_AUDIO_PROCESS_DEINTERLEAVE,
 	NULL,
 	impl_get_size,
 	impl_init,

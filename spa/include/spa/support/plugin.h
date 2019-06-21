@@ -106,6 +106,8 @@ struct spa_handle_factory {
 	 * the function of the handle. Other plugins might contain an alternative
 	 * implementation with the same name.
 	 *
+	 * See utils/names.h for the list of standard names.
+	 *
 	 * Examples include:
 	 *
 	 *  api.alsa.pcm.sink: an object to write PCM samples to an alsa PLAYBACK

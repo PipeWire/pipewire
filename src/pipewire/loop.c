@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #include <spa/support/loop.h>
+#include <spa/utils/names.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/loop.h>
@@ -76,12 +77,12 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 		lib = NULL;
 
 	impl->system_handle = pw_load_spa_handle(lib,
-			"system",
+			SPA_NAME_SUPPORT_SYSTEM,
 			properties ? &properties->dict : NULL,
 			n_support, support);
 	if (impl->system_handle == NULL) {
 		res = -errno;
-		pw_log_error("can't make system handle: %m");
+		pw_log_error("can't make "SPA_NAME_SUPPORT_SYSTEM" handle: %m");
 		goto error_free;
 	}
 
@@ -101,12 +102,12 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 		lib = NULL;
 
 	impl->loop_handle = pw_load_spa_handle(lib,
-			"loop",
+			SPA_NAME_SUPPORT_LOOP,
 			properties ? &properties->dict : NULL,
 			n_support, support);
 	if (impl->loop_handle == NULL) {
 		res = -errno;
-		pw_log_error("can't make loop handle: %m");
+		pw_log_error("can't make "SPA_NAME_SUPPORT_LOOP" handle: %m");
 		goto error_unload_system;
 	}
 

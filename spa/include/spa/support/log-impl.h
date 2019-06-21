@@ -31,6 +31,7 @@ extern "C" {
 
 #include <stdio.h>
 
+#include <spa/utils/type.h>
 #include <spa/support/log.h>
 
 static inline void spa_log_impl_logv(void *object,

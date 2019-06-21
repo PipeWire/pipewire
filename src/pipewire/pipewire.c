@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <dlfcn.h>
 
+#include <spa/utils/names.h>
 #include <spa/support/cpu.h>
 
 #include "pipewire.h"
@@ -376,7 +377,7 @@ void pw_init(int *argc, char **argv[])
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
 	info = SPA_DICT_INIT(items, n_items);
 
-	log = add_interface(support, "logger", SPA_TYPE_INTERFACE_Log, &info);
+	log = add_interface(support, SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log, &info);
 	if (log)
 		pw_log_set(log);
 
@@ -385,7 +386,7 @@ void pw_init(int *argc, char **argv[])
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_CPU_FORCE, str);
 	info = SPA_DICT_INIT(items, n_items);
 
-	add_interface(support, "cpu", SPA_TYPE_INTERFACE_CPU, &info);
+	add_interface(support, SPA_NAME_SUPPORT_CPU, SPA_TYPE_INTERFACE_CPU, &info);
 	pw_log_info("version %s", pw_get_library_version());
 }
 

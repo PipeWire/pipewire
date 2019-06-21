@@ -32,6 +32,7 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/names.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
@@ -314,7 +315,7 @@ static int start_monitor(struct impl *impl)
 	int res;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(impl->core, "api.bluez5.monitor", NULL);
+	handle = pw_core_load_spa_handle(impl->core, SPA_NAME_API_BLUEZ5_MONITOR, NULL);
 	if (handle == NULL) {
 		res = -errno;
 		goto out;

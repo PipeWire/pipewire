@@ -33,6 +33,7 @@
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -1044,7 +1045,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_v4l2_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.v4l2.source",
+	SPA_NAME_API_V4L2_SOURCE,
 	NULL,
 	impl_get_size,
 	impl_init,

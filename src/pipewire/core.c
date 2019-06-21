@@ -31,6 +31,7 @@
 
 #include <spa/support/dbus.h>
 #include <spa/node/utils.h>
+#include <spa/utils/names.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
@@ -516,7 +517,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	if (lib == NULL)
 		lib = "support/libspa-dbus";
 
-	impl->dbus_handle = pw_load_spa_handle(lib, "dbus", NULL, n_support, this->support);
+	impl->dbus_handle = pw_load_spa_handle(lib,
+			SPA_NAME_SUPPORT_DBUS, NULL,
+			n_support, this->support);
+
 	if (impl->dbus_handle == NULL ||
 	    (res = spa_handle_get_interface(impl->dbus_handle,
 						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {

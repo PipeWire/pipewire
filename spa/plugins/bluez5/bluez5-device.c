@@ -33,6 +33,7 @@
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
@@ -107,7 +108,7 @@ static int emit_source_node(struct impl *this)
 
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
-			info.factory_name = "api.bluez5.a2dp.source";
+			info.factory_name = SPA_NAME_API_BLUEZ5_A2DP_SOURCE;
 			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 			info.props = &SPA_DICT_INIT_ARRAY(items);
 
@@ -154,7 +155,7 @@ static int emit_sink_node(struct impl *this)
 
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
 			info.type = SPA_TYPE_INTERFACE_Node;
-			info.factory_name = "api.bluez5.a2dp.sink";
+			info.factory_name = SPA_NAME_API_BLUEZ5_A2DP_SINK;
 			info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 			info.props = &SPA_DICT_INIT_ARRAY(items);
 
@@ -348,7 +349,7 @@ static const struct spa_dict handle_info = SPA_DICT_INIT_ARRAY(handle_info_items
 
 const struct spa_handle_factory spa_bluez5_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.bluez5.device",
+	SPA_NAME_API_BLUEZ5_DEVICE,
 	&handle_info,
 	impl_get_size,
 	impl_init,

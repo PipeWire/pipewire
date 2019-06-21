@@ -30,6 +30,7 @@
 #include <spa/node/utils.h>
 #include <spa/monitor/device.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
@@ -809,7 +810,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_alsa_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.alsa.pcm.sink",
+	SPA_NAME_API_ALSA_PCM_SINK,
 	&info,
 	impl_get_size,
 	impl_init,

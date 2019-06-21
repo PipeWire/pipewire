@@ -36,6 +36,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/monitor/monitor.h>
 #include <spa/monitor/utils.h>
 
@@ -99,7 +100,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	info = SPA_MONITOR_OBJECT_INFO_INIT();
 
 	info.type = SPA_TYPE_INTERFACE_Device;
-	info.factory_name = "api.v4l2.device";
+	info.factory_name = SPA_NAME_API_V4L2_DEVICE;
 	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
 		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
@@ -398,7 +399,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_v4l2_monitor_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.v4l2.monitor",
+	SPA_NAME_API_V4L2_MONITOR,
 	NULL,
 	impl_get_size,
 	impl_init,

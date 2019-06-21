@@ -23,7 +23,6 @@
  */
 
 #include <math.h>
-#include <error.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -322,8 +321,10 @@ static int make_nodes(struct data *data, const char *device)
 	if ((res = spa_node_port_set_io(data->source,
 				     SPA_DIRECTION_OUTPUT, 0,
 				     SPA_IO_Control,
-				     &data->ctrl, sizeof(data->ctrl))) < 0)
-				error(0, -res, "set_io freq");
+				     &data->ctrl, sizeof(data->ctrl))) < 0) {
+		printf("can't set_io freq: %d\n", res);
+		return res;
+	}
 
 	data->source_sink_io[0] = SPA_IO_BUFFERS_INIT;
 

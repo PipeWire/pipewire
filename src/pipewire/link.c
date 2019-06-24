@@ -559,7 +559,7 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 		spa_debug_port_info(2, oinfo);
 		spa_debug_port_info(2, iinfo);
 	}
-	if (output->allocation.n_buffers) {
+	if (output->allocation.n_buffers && out_state > PW_PORT_STATE_READY) {
 		out_flags = 0;
 		in_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 
@@ -567,7 +567,8 @@ static int do_allocation(struct pw_link *this, uint32_t in_state, uint32_t out_s
 
 		pw_log_debug("link %p: reusing %d output buffers %p", this,
 				allocation.n_buffers, allocation.buffers);
-	} else if (input->allocation.n_buffers && input->mix == NULL) {
+	} else if (input->allocation.n_buffers && input->mix == NULL &&
+		   in_state > PW_PORT_STATE_READY) {
 		out_flags = SPA_PORT_INFO_FLAG_CAN_USE_BUFFERS;
 		in_flags = 0;
 

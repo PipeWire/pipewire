@@ -19,7 +19,6 @@
 
 #include <pipewire/array.h>
 #include <pipewire/client.h>
-#include <pipewire/command.h>
 #include <pipewire/control.h>
 #include <pipewire/core.h>
 #include <pipewire/data-loop.h>

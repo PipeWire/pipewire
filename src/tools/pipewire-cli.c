@@ -33,7 +33,6 @@
 
 #include <pipewire/map.h>
 #include <pipewire/pipewire.h>
-#include <pipewire/command.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/type.h>
 #include <pipewire/permission.h>

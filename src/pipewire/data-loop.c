@@ -40,7 +40,8 @@ static void *do_loop(void *user_data)
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
-			pw_log_warn("data-loop %p: iterate error %d", this, res);
+			pw_log_warn("data-loop %p: iterate error %d (%s)",
+					this, res, spa_strerror(res));
 	}
 	pw_log_debug("data-loop %p: leave thread", this);
 	pw_loop_leave(this->loop);

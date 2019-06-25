@@ -234,10 +234,11 @@ pw_module_load(struct pw_core *core,
 	this = &impl->this;
 	this->core = core;
 	this->properties = properties;
+	properties = NULL;
 
 	spa_hook_list_init(&this->listener_list);
 
-	pw_properties_set(properties, PW_KEY_MODULE_NAME, name);
+	pw_properties_set(this->properties, PW_KEY_MODULE_NAME, name);
 
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;

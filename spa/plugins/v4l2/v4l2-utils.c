@@ -1107,6 +1107,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	case V4L2_CTRL_TYPE_MENU:
 	{
 		struct v4l2_querymenu querymenu;
+		struct spa_pod_builder_state state;
 
 		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
 		spa_pod_builder_add(&b,
@@ -1119,6 +1120,8 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		querymenu.id = queryctrl.id;
 
 		spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+
+		spa_pod_builder_get_state(&b, &state);
 		spa_pod_builder_push_struct(&b, &f[1]);
 		for (querymenu.index = queryctrl.minimum;
 		    querymenu.index <= queryctrl.maximum;
@@ -1128,11 +1131,13 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 				spa_pod_builder_string(&b, (const char *)querymenu.name);
 			}
 		}
-		spa_pod_builder_pop(&b, &f[1]);
-		param = spa_pod_builder_pop(&b, &f[0]);
-		if (param == NULL)
+		if (spa_pod_builder_pop(&b, &f[1]) == NULL) {
 			spa_log_warn(this->log, "can't create Control '%s' overflow %d",
 					queryctrl.name, b.state.offset);
+			spa_pod_builder_reset(&b, &state);
+			spa_pod_builder_none(&b);
+		}
+		param = spa_pod_builder_pop(&b, &f[0]);
 		break;
 	}
 	case V4L2_CTRL_TYPE_INTEGER_MENU:

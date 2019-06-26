@@ -1081,7 +1081,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	port->controls[port->n_controls].ctrl_id = ctrl_id;
 	port->controls[port->n_controls].value = queryctrl.default_value;
 
-	spa_log_debug(this->log, "Control %s %d %d", queryctrl.name, prop_id, ctrl_id);
+	spa_log_debug(this->log, "Control '%s' %d %d", queryctrl.name, prop_id, ctrl_id);
 
 	port->n_controls++;
 
@@ -1130,6 +1130,9 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		}
 		spa_pod_builder_pop(&b, &f[1]);
 		param = spa_pod_builder_pop(&b, &f[0]);
+		if (param == NULL)
+			spa_log_warn(this->log, "can't create Control '%s' overflow %d",
+					queryctrl.name, b.state.offset);
 		break;
 	}
 	case V4L2_CTRL_TYPE_INTEGER_MENU:

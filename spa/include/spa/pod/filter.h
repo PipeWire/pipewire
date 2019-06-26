@@ -367,7 +367,7 @@ spa_pod_filter(struct spa_pod_builder *b,
 		spa_pod_builder_reset(b, &state);
 	}
 	else
-		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset, b->size);
+		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
 
 	return res;
 }

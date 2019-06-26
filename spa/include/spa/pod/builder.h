@@ -87,8 +87,9 @@ static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *d
 }
 
 static inline struct spa_pod *
-spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset, uint32_t size)
+spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
 {
+	uint32_t size = builder->size;
 	if (offset + 8 <= size) {
 		struct spa_pod *pod = SPA_MEMBER(builder->data, offset, struct spa_pod);
 		if (offset + SPA_POD_SIZE(pod) <= size)
@@ -100,7 +101,7 @@ spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset, uint32_t
 static inline struct spa_pod *
 spa_pod_builder_frame(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
 {
-	return spa_pod_builder_deref(builder, frame->offset, builder->size);
+	return spa_pod_builder_deref(builder, frame->offset);
 }
 
 static inline void

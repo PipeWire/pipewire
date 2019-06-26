@@ -78,7 +78,11 @@ spa_pod_builder_set_callbacks(struct spa_pod_builder *builder,
 static inline void
 spa_pod_builder_reset(struct spa_pod_builder *builder, struct spa_pod_builder_state *state)
 {
+	struct spa_pod_frame *f;
+	uint32_t size = builder->state.offset - state->offset;
 	builder->state = *state;
+	for (f = builder->state.frame; f ; f = f->parent)
+		f->pod.size -= size;
 }
 
 static inline void spa_pod_builder_init(struct spa_pod_builder *builder, void *data, uint32_t size)
@@ -171,15 +175,6 @@ static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder, struct 
 	builder->state.flags = frame->flags;
 	spa_pod_builder_pad(builder, builder->state.offset);
 	return pod;
-}
-
-static inline void spa_pod_builder_rewind(struct spa_pod_builder *builder, uint32_t offset)
-{
-	struct spa_pod_frame *f;
-	uint32_t size = builder->state.offset - offset;
-	builder->state.offset -= size;
-	for (f = builder->state.frame; f ; f = f->parent)
-		f->pod.size -= size;
 }
 
 static inline int

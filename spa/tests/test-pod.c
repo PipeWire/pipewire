@@ -1458,6 +1458,7 @@ static void test_overflow(void)
 {
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
+	struct spa_pod_builder_state state;
 	struct spa_pod_frame f[2];
 	uint32_t idx;
 	const char *labels[] = {
@@ -1489,11 +1490,13 @@ static void test_overflow(void)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
-		spa_pod_builder_add(&b,
+	spa_pod_builder_add(&b,
 			SPA_PROP_INFO_id,    SPA_POD_Id(32567359),
 			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, 0),
 			SPA_PROP_INFO_name,  SPA_POD_String("DV Timings"),
 			0);
+
+	spa_pod_builder_get_state(&b, &state),
 
 	spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 	spa_pod_builder_push_struct(&b, &f[1]);
@@ -1505,9 +1508,7 @@ static void test_overflow(void)
 	spa_assert(b.state.offset > sizeof(buffer));
 	pod = spa_pod_builder_pop(&b, &f[1]);
 	spa_assert(pod == NULL);
-	spa_pod_builder_rewind(&b, f[1].offset);
-
-	spa_pod_builder_none(&b);
+	spa_pod_builder_reset(&b, &state);
 
 	spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 	spa_pod_builder_push_struct(&b, &f[1]);

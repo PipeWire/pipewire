@@ -101,7 +101,9 @@ spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
 static inline struct spa_pod *
 spa_pod_builder_frame(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
 {
-	return spa_pod_builder_deref(builder, frame->offset);
+	if (frame->offset + SPA_POD_SIZE(&frame->pod) <= builder->size)
+		return SPA_MEMBER(builder->data, frame->offset, struct spa_pod);
+	return NULL;
 }
 
 static inline void
@@ -162,7 +164,7 @@ static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder, struct 
 {
 	struct spa_pod *pod;
 
-	if ((pod = (struct spa_pod *) spa_pod_builder_frame(builder, frame)) != NULL)
+	if ((pod = (struct spa_pod*)spa_pod_builder_frame(builder, frame)) != NULL)
 		*pod = frame->pod;
 
 	builder->state.frame = frame->parent;

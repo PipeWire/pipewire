@@ -1454,6 +1454,72 @@ static void test_static(void)
 	spa_assert(vals.framerate.num == 25 && vals.framerate.denom == 1);
 }
 
+static void test_overflow(void)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_frame f[2];
+	uint32_t idx;
+	const char *labels[] = {
+		"640x480p59", "720x480i29", "720x480p59", "720x576i25", "720x576p50",
+		"1280x720p24", "1280x720p25", "1280x720p30", "1280x720p50", "1280x720p60",
+		"1920x1080p24", "1920x1080p25", "1920x1080p30", "1920x1080i25", "1920x1080p50",
+		"1920x1080i30", "1920x1080p60", "640x350p85", "640x400p85", "720x400p85",
+		"640x480p72", "640x480p75", "640x480p85", "800x600p56", "800x600p60",
+		"800x600p72", "800x600p75", "800x600p85", "800x600p119", "848x480p60",
+		"1024x768i43", "1024x768p60", "1024x768p70", "1024x768p75", "1024x768p84",
+		"1024x768p119", "1152x864p75", "1280x768p59", "1280x768p59", "1280x768p74",
+		"1280x768p84", "1280x768p119", "1280x800p59", "1280x800p59", "1280x800p74",
+		"1280x800p84", "1280x800p119", "1280x960p60", "1280x960p85", "1280x960p119",
+		"1280x1024p60", "1280x1024p75", "1280x1024p85", "1280x1024p119", "1360x768p60",
+		"1360x768p119", "1366x768p59", "1366x768p60", "1400x1050p59", "1400x1050p59",
+		"1400x1050p74", "1400x1050p84", "1400x1050p119", "1440x900p59", "1440x900p59",
+		"1440x900p74", "1440x900p84", "1440x900p119", "1600x900p60", "1600x1200p60",
+		"1600x1200p65", "1600x1200p70", "1600x1200p75", "1600x1200p85", "1600x1200p119",
+		"1680x1050p59", "1680x1050p59", "1680x1050p74", "1680x1050p84", "1680x1050p119",
+		"1792x1344p59", "1792x1344p74", "1792x1344p119", "1856x1392p59", "1856x1392p75",
+		"1856x1392p119", "1920x1200p59", "1920x1200p59", "1920x1200p74", "1920x1200p84",
+		"1920x1200p119", "1920x1440p60", "1920x1440p75", "1920x1440p119", "2048x1152p60",
+		"2560x1600p59", "2560x1600p59", "2560x1600p74", "2560x1600p84", "2560x1600p119",
+		"3840x2160p24", "3840x2160p25", "3840x2160p30", "3840x2160p50", "3840x2160p60",
+		"4096x2160p24", "4096x2160p25", "4096x2160p30", "4096x2160p50", "4096x2160p59",
+		"4096x2160p60", NULL };
+	struct spa_pod *pod;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
+		spa_pod_builder_add(&b,
+			SPA_PROP_INFO_id,    SPA_POD_Id(32567359),
+			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, 0),
+			SPA_PROP_INFO_name,  SPA_POD_String("DV Timings"),
+			0);
+
+	spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+	spa_pod_builder_push_struct(&b, &f[1]);
+
+	for (idx = 0; labels[idx]; idx++) {
+		spa_pod_builder_int(&b, idx);
+		spa_pod_builder_string(&b, labels[idx]);
+	}
+	spa_assert(b.state.offset > sizeof(buffer));
+	pod = spa_pod_builder_pop(&b, &f[1]);
+	spa_assert(pod == NULL);
+	spa_pod_builder_rewind(&b, f[1].offset);
+
+	spa_pod_builder_none(&b);
+
+	spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+	spa_pod_builder_push_struct(&b, &f[1]);
+	pod = spa_pod_builder_pop(&b, &f[1]);
+
+	spa_assert(b.state.offset < sizeof(buffer));
+	pod = spa_pod_builder_pop(&b, &f[0]);
+	spa_assert(pod != NULL);
+
+	spa_debug_pod(0, NULL, pod);
+}
+
 int main(int argc, char *argv[])
 {
 	test_abi();
@@ -1464,5 +1530,6 @@ int main(int argc, char *argv[])
 	test_parser();
 	test_parser2();
 	test_static();
+	test_overflow();
 	return 0;
 }

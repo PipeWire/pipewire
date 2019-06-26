@@ -173,6 +173,15 @@ static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder, struct 
 	return pod;
 }
 
+static inline void spa_pod_builder_rewind(struct spa_pod_builder *builder, uint32_t offset)
+{
+	struct spa_pod_frame *f;
+	uint32_t size = builder->state.offset - offset;
+	builder->state.offset -= size;
+	for (f = builder->state.frame; f ; f = f->parent)
+		f->pod.size -= size;
+}
+
 static inline int
 spa_pod_builder_primitive(struct spa_pod_builder *builder, const struct spa_pod *p)
 {

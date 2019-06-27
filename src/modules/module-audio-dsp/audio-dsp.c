@@ -290,6 +290,8 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		goto error;
 	}
 
+	mode = pw_properties_get(props, "audio-dsp.mode");
+
 	snprintf(node_name, sizeof(node_name), "system_%s", alias);
 	for (i = 0; node_name[i]; i++) {
 		if (node_name[i] == ':' || node_name[i] == ',')
@@ -306,11 +308,13 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
 
-	if (direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_set(props, "merger.monitor", "1");
-		mode = "merge";
-	} else {
-		mode = "split";
+	if (!mode) {
+		if (direction == PW_DIRECTION_OUTPUT) {
+			pw_properties_set(props, "merger.monitor", "1");
+			mode = "merge";
+		} else {
+			mode = "split";
+		}
 	}
 
 	pw_properties_set(props, "factory.mode", mode);

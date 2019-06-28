@@ -219,7 +219,7 @@ static struct command command_list[] = {
 	{ "create-link", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
 	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
 	{ "enum-params", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
-	{ "permissions", "Set permissions for a client <client-id> <permissions>", do_permissions },
+	{ "permissions", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
 	{ "get-permissions", "Get permissions of a client <client-id>", do_get_permissions },
 };
 

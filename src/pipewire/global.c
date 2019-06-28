@@ -38,15 +38,9 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
 {
 	uint32_t perms = PW_PERM_RWX;
 
-	if (client->permission_func == NULL)
-		return perms;
-
-	perms = client->permission_func(global, client, client->permission_data);
-
-	while (global != global->parent) {
-		global = global->parent;
+	if (client->permission_func != NULL)
 		perms &= client->permission_func(global, client, client->permission_data);
-	}
+
 	return perms;
 }
 

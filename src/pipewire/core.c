@@ -426,6 +426,8 @@ global_bind(void *_data,
 
 	if (resource->id == 0)
 		client->core_resource = resource;
+	else
+		pw_core_resource_info(resource, &this->info);
 
 	pw_log_debug("core %p: bound to %d", this, resource->id);
 

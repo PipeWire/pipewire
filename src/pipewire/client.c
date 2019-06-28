@@ -102,8 +102,7 @@ static uint32_t
 client_permission_func(struct pw_global *global,
 		       struct pw_client *client, void *data)
 {
-	struct pw_permission *p;
-	p = find_permission(client, global->id);
+	struct pw_permission *p = find_permission(client, global->id);
 	return p->permissions;
 }
 

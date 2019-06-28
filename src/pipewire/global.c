@@ -41,29 +41,13 @@ struct impl {
 };
 
 /** \endcond */
-
-static inline uint32_t get_permissions(struct pw_global *global, struct pw_client *client, bool recurse)
-{
-	uint32_t perms;
-
-	if (client->permission_func == NULL)
-		return PW_PERM_RWX;
-
-	perms = client->permission_func(global, client, client->permission_data);
-
-	if (recurse) {
-		while (global->parent != NULL && global != global->parent) {
-			global = global->parent;
-			perms &= client->permission_func(global, client, client->permission_data);
-		}
-	}
-	return perms;
-}
-
 SPA_EXPORT
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
 {
-	return get_permissions(global, client, true);
+	if (client->permission_func == NULL)
+		return PW_PERM_RWX;
+
+	return client->permission_func(global, client, client->permission_data);
 }
 
 /** Create a new global
@@ -329,29 +313,25 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 {
 	struct pw_core *core = global->core;
 	struct pw_resource *resource, *t;
-	struct pw_global *g;
-	uint32_t perms;
+	bool do_hide, do_show;
+
+	do_hide = PW_PERM_IS_R(old_permissions) && !PW_PERM_IS_R(new_permissions);
+	do_show = !PW_PERM_IS_R(old_permissions) && PW_PERM_IS_R(new_permissions);
+
+	pw_log_debug("client %p: permissions changed %d %08x -> %08x", client,
+			global->id, old_permissions, new_permissions);
 
 	pw_global_emit_permissions_changed(global, client, old_permissions, new_permissions);
-
-	spa_list_for_each(g, &global->child_list, child_link) {
-		if (g == global)
-			continue;
-		perms = get_permissions(g, client, false);
-		pw_global_update_permissions(g, client,
-				perms & old_permissions,
-				perms & new_permissions);
-	}
 
 	spa_list_for_each(resource, &core->registry_resource_list, link) {
 		if (resource->client != client)
 			continue;
 
-		if (PW_PERM_IS_R(old_permissions) && !PW_PERM_IS_R(new_permissions)) {
+		if (do_hide) {
 			pw_log_debug("client %p: hide global %d", client, global->id);
 			pw_registry_resource_global_remove(resource, global->id);
 		}
-		else if (!PW_PERM_IS_R(old_permissions) && PW_PERM_IS_R(new_permissions)) {
+		else if (do_show) {
 			pw_log_debug("client %p: show global %d", client, global->id);
 			pw_registry_resource_global(resource,
 						    global->id,
@@ -363,6 +343,7 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 						        &global->properties->dict : NULL);
 		}
 	}
+
 	spa_list_for_each_safe(resource, t, &global->resource_list, link) {
 		if (resource->client != client)
 			continue;

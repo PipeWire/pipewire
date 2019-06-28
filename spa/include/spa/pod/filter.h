@@ -359,6 +359,8 @@ spa_pod_filter(struct spa_pod_builder *b,
 	if (filter == NULL) {
 		spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
 		*result = (struct spa_pod*)b->data;
+		if (!*result)
+			return -EINVAL;
 		return 0;
 	}
 

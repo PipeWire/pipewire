@@ -335,7 +335,7 @@ core_create_object(void *object,
 
 error_no_factory:
 	res = -ENOENT;
-	pw_log_error("can't find node factory %s", factory_name);
+	pw_log_error("can't find factory '%s'", factory_name);
 	pw_resource_error(resource, res, "unknown factory name %s", factory_name);
 	goto error_exit;
 error_version:

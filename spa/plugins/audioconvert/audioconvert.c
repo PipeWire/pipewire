@@ -91,7 +91,6 @@ struct impl {
 	struct spa_node *resample;
 
 	struct spa_hook listener[4];
-	unsigned int listening:1;
 };
 
 static int make_link(struct impl *this,

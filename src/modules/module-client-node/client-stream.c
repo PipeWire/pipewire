@@ -191,7 +191,7 @@ static void try_link_controls(struct impl *impl)
 	target = pw_node_find_port(impl->this.node, impl->direction, 0);
 
 	if (target == NULL) {
-		pw_log_warn("client-stream %p: can't link controls", &impl->this);
+		pw_log_warn(NAME " %p: can't link controls", &impl->this);
 		return;
 	}
 
@@ -968,7 +968,7 @@ static void client_node_initialized(void *data)
 	struct spa_dict_item items[1];
 	const struct pw_node_info *info;
 
-	pw_log_debug("client-stream %p: initialized", &impl->this);
+	pw_log_debug(NAME " %p: initialized", &impl->this);
 
 	info = pw_node_get_info(impl->client_node->node);
 	if (info == NULL)
@@ -983,7 +983,7 @@ static void client_node_initialized(void *data)
 		dir = "Output";
 	}
 
-	pw_log_debug("client-stream %p: in %d/%d out %d/%d -> %s", &impl->this,
+	pw_log_debug(NAME " %p: in %d/%d out %d/%d -> %s", &impl->this,
 			info->n_input_ports, info->max_input_ports,
 			info->n_output_ports, info->max_output_ports,
 			dir);
@@ -1021,7 +1021,7 @@ static void client_node_initialized(void *data)
 				impl->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) != 1) {
-		pw_log_warn("client-stream %p: no format given", &impl->this);
+		pw_log_warn(NAME " %p: no format given", &impl->this);
 		impl->adapter = impl->cnode;
 		impl->adapter_mix = impl->client_port->mix;
 		impl->adapter_mix_port = 0;
@@ -1034,7 +1034,7 @@ static void client_node_initialized(void *data)
 	if (spa_format_parse(format, &media_type, &media_subtype) < 0)
 		return;
 
-	pw_log_debug("client-stream %p: %s/%s", &impl->this,
+	pw_log_debug(NAME " %p: %s/%s", &impl->this,
 			spa_debug_type_find_name(spa_type_media_type, media_type),
 			spa_debug_type_find_name(spa_type_media_subtype, media_subtype));
 
@@ -1114,7 +1114,7 @@ static void client_node_initialized(void *data)
 
 static void cleanup(struct impl *impl)
 {
-	pw_log_debug("client-stream %p: cleanup", &impl->this);
+	pw_log_debug(NAME " %p: cleanup", &impl->this);
 	if (impl->use_converter) {
 		if (impl->handle)
 			pw_unload_spa_handle(impl->handle);
@@ -1129,7 +1129,7 @@ static void cleanup(struct impl *impl)
 static void client_node_destroy(void *data)
 {
 	struct impl *impl = data;
-	pw_log_debug("client-stream %p: destroy", &impl->this);
+	pw_log_debug(NAME " %p: destroy", &impl->this);
 
 	pw_node_set_driver(impl->client_node->node, NULL);
 
@@ -1141,7 +1141,7 @@ static void client_node_destroy(void *data)
 static void client_node_free(void *data)
 {
 	struct impl *impl = data;
-	pw_log_debug("client-stream %p: free", &impl->this);
+	pw_log_debug(NAME " %p: free", &impl->this);
 	spa_hook_remove(&impl->client_node_listener);
 	cleanup(impl);
 }
@@ -1150,7 +1150,7 @@ static void client_node_result(void *data, int seq, int res, uint32_t type, cons
 {
 	struct impl *impl = data;
 	struct node *node = &impl->node;
-	pw_log_debug("client-stream %p: result %d %d", &impl->this, seq, res);
+	pw_log_debug(NAME " %p: result %d %d", &impl->this, seq, res);
 	spa_node_emit_result(&node->hooks, seq, res, type, result);
 }
 
@@ -1158,7 +1158,7 @@ static void client_node_active_changed(void *data, bool active)
 {
 	struct impl *impl = data;
 
-	pw_log_debug("client-stream %p: active %d", &impl->this, active);
+	pw_log_debug(NAME " %p: active %d", &impl->this, active);
 	impl->active = active;
 }
 
@@ -1167,7 +1167,7 @@ static void client_node_info_changed(void *data, const struct pw_node_info *info
 	struct impl *impl = data;
 	struct pw_client_stream *this = &impl->this;
 
-	pw_log_debug("client-stream %p: info changed", this);
+	pw_log_debug(NAME " %p: info changed", this);
 
 	if (this->node)
 		pw_node_update_properties(this->node, info->props);
@@ -1186,14 +1186,14 @@ static const struct pw_node_events client_node_events = {
 static void node_destroy(void *data)
 {
 	struct impl *impl = data;
-	pw_log_debug("client-stream %p: destroy", &impl->this);
+	pw_log_debug(NAME " %p: destroy", &impl->this);
 	spa_hook_remove(&impl->client_node_listener);
 }
 
 static void node_free(void *data)
 {
 	struct impl *impl = data;
-	pw_log_debug("client-stream %p: free", &impl->this);
+	pw_log_debug(NAME " %p: free", &impl->this);
 	pw_client_node_destroy(impl->client_node);
 	spa_hook_remove(&impl->node_listener);
 	cleanup(impl);
@@ -1216,7 +1216,7 @@ static const struct pw_node_events node_events = {
 static int node_ready(void *data, int status)
 {
 	struct impl *impl = data;
-	pw_log_trace_fp("client-stream %p: ready %d", &impl->this, status);
+	pw_log_trace_fp(NAME " %p: ready %d", &impl->this, status);
 
 	impl->driver = false;
 	impl_node_process(&impl->node.node);
@@ -1265,7 +1265,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 
 	impl->core = core;
 
-	pw_log_debug("client-stream %p: new", impl);
+	pw_log_debug(NAME " %p: new", impl);
 
 	props = pw_properties_copy(properties);
 	pw_properties_set(props, PW_KEY_NODE_DRIVER, NULL);
@@ -1289,7 +1289,7 @@ struct pw_client_stream *pw_client_stream_new(struct pw_resource *resource,
 	impl->node.impl = impl;
 
 	if ((name = pw_properties_get(properties, PW_KEY_NODE_NAME)) == NULL)
-		name = "client-stream";
+		name = NAME;
 
 	this->node = pw_spa_node_new(core,
 				     client,

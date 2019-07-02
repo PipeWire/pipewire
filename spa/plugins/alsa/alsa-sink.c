@@ -587,6 +587,8 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: io %d %p %zd", this, id, data, size);
+
 	switch (id) {
 	case SPA_IO_Buffers:
 		this->io = data;

@@ -179,7 +179,8 @@ static int start_node(struct pw_node *this)
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
 
 	if (res < 0)
-		pw_log_debug("node %p: start node error %s", this, spa_strerror(res));
+		pw_log_error("node %p: start node error %d: %s",
+				this, res, spa_strerror(res));
 
 	return res;
 }

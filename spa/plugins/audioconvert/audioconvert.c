@@ -310,8 +310,8 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align)) < 0)
 		return -EINVAL;
 
-	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d",
-			this, buffers, blocks, size, align);
+	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
+			this, buffers, blocks, size, align, out_alloc, in_alloc);
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
@@ -329,7 +329,7 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 		free(link->buffers);
 	link->buffers = spa_buffer_alloc_array(buffers, flags, 0, NULL, blocks, datas, aligns);
 	if (link->buffers == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	link->n_buffers = buffers;
 
@@ -896,8 +896,8 @@ static int impl_node_process(void *object)
 		ready = 0;
 		for (i = 0; i < this->n_nodes; i++) {
 			r = spa_node_process(this->nodes[i]);
-			spa_log_trace_fp(this->log, NAME " %p: process %d %d", this, i, r);
-
+			spa_log_trace_fp(this->log, NAME " %p: process %d %d: %s",
+					this, i, r, r < 0 ? spa_strerror(r) : "ok");
 			if (r < 0)
 				return r;
 

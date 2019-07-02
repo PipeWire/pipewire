@@ -809,8 +809,11 @@ static int impl_node_process(void *object)
 	inport = GET_IN_PORT(this, 0);
 
 	outio = outport->io;
-	spa_return_val_if_fail(outio != NULL, -EIO);
 	inio = inport->io;
+
+	spa_log_trace_fp(this->log, NAME " %p: io %p %p", this, inio, outio);
+
+	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
 	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d -> %p %d %d", this,

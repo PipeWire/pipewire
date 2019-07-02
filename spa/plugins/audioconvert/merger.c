@@ -820,6 +820,9 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: set io %d on port %d:%d",
+			this, id, direction, port_id);
+
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
@@ -853,8 +856,12 @@ static inline int get_in_buffer(struct impl *this, struct port *port, struct buf
 {
 	struct spa_io_buffers *io;
 
-	if ((io = port->io) == NULL ||
-	    io->status != SPA_STATUS_HAVE_BUFFER ||
+	if ((io = port->io) == NULL) {
+		spa_log_trace_fp(this->log, NAME " %p: no io on port %d",
+				this, port->id);
+		return -EIO;
+	}
+	if (io->status != SPA_STATUS_HAVE_BUFFER ||
 	    io->buffer_id >= port->n_buffers) {
 		spa_log_trace_fp(this->log, NAME " %p: empty port %d %p %d %d %d",
 				this, port->id, io, io->status, io->buffer_id,
@@ -926,7 +933,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(this->conv.process != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %d %d", this, outio->status, outio->buffer_id);
+	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d", this,
+			outio, outio->status, outio->buffer_id);
 
 	if ((res = get_out_buffer(this, outport, &dbuf)) != 0)
 		return res;

@@ -200,8 +200,8 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 		}
 	}
 
-	pw_log_debug("port %p: init mix %d.%d io %p", port,
-			port->port_id, mix->port.port_id, mix->io);
+	pw_log_debug("port %p: init mix %d.%d io %p: (%s)", port,
+			port->port_id, mix->port.port_id, mix->io, spa_strerror(res));
 
 	return res;
 }
@@ -1061,9 +1061,12 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	}
 	if (port->state == PW_PORT_STATE_READY) {
 		if (!SPA_FLAG_CHECK(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY)) {
+			pw_log_debug("port %p: use buffers on node: %p", port,
+					node->node);
 			res = spa_node_port_use_buffers(node->node,
 					port->direction, port->port_id, buffers, n_buffers);
-			pw_log_debug("port %p: use buffers on node: %d (%s)",
+			if (res < 0)
+				pw_log_error("port %p: use buffers on node: %d (%s)",
 					port, res, spa_strerror(res));
 		}
 		port->allocated = false;

@@ -1565,7 +1565,7 @@ static void node_port_added(void *data, struct pw_port *port)
 	struct impl *impl = data;
 	struct port *p = pw_port_get_user_data(port);
 
-	pw_port_set_mix(port, (struct spa_node *)&p->mix_node,
+	pw_port_set_mix(port, &p->mix_node,
 			PW_PORT_MIX_FLAG_MULTI |
 			PW_PORT_MIX_FLAG_MIX_ONLY);
 

@@ -234,16 +234,6 @@ static void add_idle_timeout(struct session *sess)
 	pw_loop_update_timer(main_loop, sess->idle_timeout, &value, NULL, false);
 }
 
-static int unlink_session_dsp(struct impl *impl, struct session *session)
-{
-	if (session->link_proxy != NULL) {
-		pw_log_debug(NAME " %p: destroy session dsp link %p", impl, session->link_proxy);
-		pw_proxy_destroy(session->link_proxy);
-		session->link_proxy = NULL;
-	}
-	return 0;
-}
-
 static int on_node_idle(struct impl *impl, struct node *node)
 {
 	struct session *sess = node->manager;
@@ -254,7 +244,9 @@ static int on_node_idle(struct impl *impl, struct node *node)
 	switch (node->type) {
 	case NODE_TYPE_DSP:
 		pw_log_debug(NAME" %p: dsp idle for session %d", impl, sess->id);
-		unlink_session_dsp(impl, sess);
+		sess->busy = false;
+		sess->exclusive = false;
+		add_idle_timeout(sess);
 		break;
 
 	case NODE_TYPE_DEVICE:
@@ -269,54 +261,6 @@ static int on_node_idle(struct impl *impl, struct node *node)
 	return 0;
 }
 
-static void link_proxy_destroy(void *data)
-{
-	struct session *s = data;
-	pw_log_debug(NAME " %p: proxy destroy session link", s);
-	s->link_proxy = NULL;
-}
-
-static const struct pw_proxy_events link_proxy_events = {
-	PW_VERSION_PROXY_EVENTS,
-	.destroy = link_proxy_destroy,
-};
-
-static int link_session_dsp(struct impl *impl, struct session *session)
-{
-	struct pw_properties *props;
-
-	if (session->link_proxy != NULL)
-		return 0;
-
-	pw_log_debug(NAME " %p: link session dsp '%d'", impl, session->id);
-
-	props = pw_properties_new(NULL, NULL);
-	pw_properties_set(props, PW_KEY_LINK_PASSIVE, "true");
-	if (session->direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", session->dsp->info->id);
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", session->node->info->id);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-	}
-	else {
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", session->node->info->id);
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", session->dsp->info->id);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-	}
-
-        session->link_proxy = pw_core_proxy_create_object(impl->core_proxy,
-                                          "link-factory",
-                                          PW_TYPE_INTERFACE_Link,
-                                          PW_VERSION_LINK_PROXY,
-                                          &props->dict,
-					  0);
-	pw_proxy_add_listener(session->link_proxy, &session->link_listener, &link_proxy_events, session);
-	pw_properties_free(props);
-
-	return 0;
-}
-
 static int on_node_running(struct impl *impl, struct node *node)
 {
 	struct session *sess = node->manager;
@@ -327,7 +271,7 @@ static int on_node_running(struct impl *impl, struct node *node)
 	switch (node->type) {
 	case NODE_TYPE_DSP:
 		pw_log_debug(NAME" %p: dsp running for session %d", impl, sess->id);
-		link_session_dsp(impl, sess);
+		remove_idle_timeout(sess);
 		break;
 
 	case NODE_TYPE_DEVICE:
@@ -1250,14 +1194,16 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		props = pw_properties_new_dict(node->info->props);
 		if ((str = pw_properties_get(props, PW_KEY_DEVICE_NICK)) == NULL)
 			str = node->info->name;
-		pw_properties_set(props, "audio-dsp.name", str);
-		pw_properties_setf(props, "audio-dsp.direction", "%d", sess->direction);
-		pw_properties_setf(props, "audio-dsp.maxbuffer", "%zd", MAX_QUANTUM_SIZE * sizeof(float));
+		pw_properties_set(props, PW_KEY_NODE_NAME, str);
+		if (sess->direction == PW_DIRECTION_OUTPUT)
+			pw_properties_setf(props, "factory.name", "api.alsa.pcm.sink");
+		else
+			pw_properties_setf(props, "factory.name", "api.alsa.pcm.source");
 
 		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);
 
 		sess->dsp_proxy = pw_core_proxy_create_object(impl->core_proxy,
-				"audio-dsp",
+				"adapter",
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,
 				&props->dict,

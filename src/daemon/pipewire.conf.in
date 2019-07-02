@@ -17,6 +17,6 @@ load-module libpipewire-module-spa-monitor api.bluez5.monitor bluez5
 load-module libpipewire-module-client-node
 load-module libpipewire-module-client-device
 load-module libpipewire-module-access
-load-module libpipewire-module-audio-dsp
+load-module libpipewire-module-adapter
 load-module libpipewire-module-link-factory
 exec build/src/examples/media-session

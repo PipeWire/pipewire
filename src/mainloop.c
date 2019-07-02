@@ -286,10 +286,18 @@ int pa_mainloop_prepare(pa_mainloop *m, int timeout)
 SPA_EXPORT
 int pa_mainloop_poll(pa_mainloop *m)
 {
+	int res;
+
 	if (m->quit)
 		return -2;
 
-	return m->n_events = pw_loop_iterate(m->loop, m->timeout);
+	res = pw_loop_iterate(m->loop, m->timeout);
+	if (res < 0) {
+		if (res == -EINTR)
+			res = 0;
+	}
+	m->n_events = res;
+	return res;
 }
 
 SPA_EXPORT

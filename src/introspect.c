@@ -507,9 +507,10 @@ static void source_callback(struct source_data *d)
 	i.owner_module = g->parent_id;
 	pa_cvolume_set(&i.volume, 2, g->node_info.volume * PA_VOLUME_NORM);
 	i.mute = g->node_info.mute;
-	if (g->mask & PA_SUBSCRIPTION_MASK_DSP_SINK) {
-		i.monitor_of_sink = g->dsp_info.session;
+	if (g->mask & PA_SUBSCRIPTION_MASK_SINK) {
+		i.monitor_of_sink = g->id;
 		i.monitor_of_sink_name = "unknown";
+		i.index = g->node_info.monitor;
 	} else {
 		i.monitor_of_sink = PA_INVALID_INDEX;
 		i.monitor_of_sink_name = NULL;
@@ -588,9 +589,12 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
-	if ((g = pa_context_find_global(c, idx)) == NULL)
-		return NULL;
-	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
+	pw_log_debug("context %p: index %d", c, idx);
+
+	if (((g = pa_context_find_global(c, idx)) == NULL ||
+	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE)) &&
+	    (((g = pa_context_find_global(c, idx & PA_IDX_MASK_DSP)) == NULL ||
+	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))))
 		return NULL;
 
 	o = pa_operation_new(c, NULL, source_info, sizeof(struct source_data));

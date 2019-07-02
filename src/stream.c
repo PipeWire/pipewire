@@ -197,7 +197,16 @@ static void configure_device(pa_stream *s)
 		s->device_name = NULL;
 	}
 	else {
-		s->device_index = g->id;
+		if (s->direction == PA_STREAM_RECORD) {
+			if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))
+				s->device_index = g->node_info.monitor;
+			else
+				s->device_index = g->id;
+		}
+		else {
+			s->device_index = g->id;
+		}
+
 		if ((str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
 			s->device_name = strdup("unknown");
 		else

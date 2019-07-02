@@ -210,9 +210,8 @@ struct param {
 	void *param;
 };
 
-#define PA_SUBSCRIPTION_MASK_DSP_SINK	0x1000U
-#define PA_SUBSCRIPTION_MASK_DSP_SOURCE	0x2000U
-#define PA_SUBSCRIPTION_MASK_DSP	(PA_SUBSCRIPTION_MASK_DSP_SINK | PA_SUBSCRIPTION_MASK_DSP_SOURCE)
+#define PA_IDX_FLAG_DSP		0x800000U
+#define PA_IDX_MASK_DSP		0x7fffffU
 
 struct global {
 	struct spa_list link;
@@ -242,10 +241,6 @@ struct global {
 			struct global *src;
 			struct global *dst;
 		} link_info;
-		/* for dsp source and sink */
-		struct {
-			uint32_t session;
-		} dsp_info;
 		/* for sink/source */
 		struct {
 			uint32_t monitor;

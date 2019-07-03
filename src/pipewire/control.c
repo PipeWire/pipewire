@@ -83,7 +83,6 @@ pw_control_new(struct pw_core *core,
 		spa_list_append(&port->control_list[direction], &this->port_link);
 		pw_port_emit_control_added(port, this);
 	}
-
 	return this;
 
 error_exit:

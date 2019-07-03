@@ -140,8 +140,7 @@ struct impl {
 	uint32_t n_buffers;
 	struct pw_memblock *mem;
 
-	struct pw_control_link control;
-	struct pw_control_link notify;
+	uint8_t control_buffer[1024];
 };
 
 /** \endcond */
@@ -207,39 +206,25 @@ next:
 
 static void try_link_controls(struct impl *impl)
 {
-	struct pw_control *cin, *cout;
-	struct pw_port *target, *port;
 	int res;
 
 	if (!impl->use_converter)
 		return;
 
-	if (impl->control.valid || impl->notify.valid)
-		return;
 
-	target = pw_node_find_port(impl->this, impl->direction, 0);
-
-	if (target == NULL) {
-		pw_log_warn(NAME " %p: can't link controls", &impl->this);
-		return;
+	if ((res = spa_node_port_set_io(impl->slave_node,
+			impl->direction, 0,
+			SPA_IO_Notify,
+			impl->control_buffer, sizeof(impl->control_buffer))) < 0) {
+		pw_log_warn(NAME " %p: set Notify on slave failed %d %s", impl,
+			res, spa_strerror(res));
 	}
-
-	port = impl->slave_port;
-
-	pw_log_debug(NAME " %p: trying controls", impl);
-	spa_list_for_each(cout, &port->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-		spa_list_for_each(cin, &target->control_list[SPA_DIRECTION_INPUT], port_link) {
-			if ((res = pw_control_add_link(cout, 0, cin, 0, &impl->control)) < 0)
-				pw_log_error("failed to link controls: %s", spa_strerror(res));
-			break;
-		}
-	}
-	spa_list_for_each(cin, &port->control_list[SPA_DIRECTION_INPUT], port_link) {
-		spa_list_for_each(cout, &target->control_list[SPA_DIRECTION_OUTPUT], port_link) {
-			if ((res = pw_control_add_link(cout, 0, cin, 0, &impl->notify)) < 0)
-				pw_log_error("failed to link controls: %s", spa_strerror(res));
-			break;
-		}
+	if ((res = spa_node_port_set_io(impl->adapter,
+			SPA_DIRECTION_REVERSE(impl->direction), 0,
+			SPA_IO_Control,
+			impl->control_buffer, sizeof(impl->control_buffer))) < 0) {
+		pw_log_warn(NAME " %p: set Control on adapter failed %d %s", impl,
+			res, spa_strerror(res));
 	}
 }
 

@@ -27,6 +27,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
@@ -88,8 +89,18 @@ impl_log_logv(void *object,
 	}
 
 	vsnprintf(text, sizeof(text), fmt, args);
-	size = snprintf(location, sizeof(location), "%s[%s][%s:%i %s()] %s%s\n",
-		prefix, levels[level], strrchr(file, '/') + 1, line, func, text, suffix);
+
+	if (level >= SPA_LOG_LEVEL_DEBUG) {
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+
+		size = snprintf(location, sizeof(location), "%s[%s][%09lu.%06lu][%s:%i %s()] %s%s\n",
+			prefix, levels[level], now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000,
+			strrchr(file, '/') + 1, line, func, text, suffix);
+	} else {
+		size = snprintf(location, sizeof(location), "%s[%s][%s:%i %s()] %s%s\n",
+			prefix, levels[level], strrchr(file, '/') + 1, line, func, text, suffix);
+	}
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;

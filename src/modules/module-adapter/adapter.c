@@ -528,25 +528,26 @@ static int negotiate_format(struct impl *impl)
 	spa_log_debug(this->log, NAME "%p: negiotiate", impl);
 
 	state = 0;
-	if ((res = spa_node_port_enum_params_sync(impl->adapter_mix,
-				SPA_DIRECTION_REVERSE(impl->direction),
-				impl->adapter_mix_port,
-				SPA_PARAM_EnumFormat, &state,
-				NULL, &format, &b)) != 1) {
-		debug_params(impl, impl->adapter_mix,
-				SPA_DIRECTION_REVERSE(impl->direction),
-				impl->adapter_mix_port,
-				SPA_PARAM_EnumFormat, NULL);
-		return -ENOTSUP;
-	}
-
-	state = 0;
+	format = NULL;
 	if ((res = spa_node_port_enum_params_sync(impl->slave_node,
 				impl->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
 				format, &format, &b)) != 1) {
 		debug_params(impl, impl->slave_node, impl->direction, 0,
 				SPA_PARAM_EnumFormat, format);
+		return -ENOTSUP;
+	}
+
+	state = 0;
+	if ((res = spa_node_port_enum_params_sync(impl->adapter_mix,
+				SPA_DIRECTION_REVERSE(impl->direction),
+				impl->adapter_mix_port,
+				SPA_PARAM_EnumFormat, &state,
+				format, &format, &b)) != 1) {
+		debug_params(impl, impl->adapter_mix,
+				SPA_DIRECTION_REVERSE(impl->direction),
+				impl->adapter_mix_port,
+				SPA_PARAM_EnumFormat, NULL);
 		return -ENOTSUP;
 	}
 
@@ -576,7 +577,7 @@ static int negotiate_buffers(struct impl *impl)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t state;
-	struct spa_pod *param = NULL;
+	struct spa_pod *param;
 	int res, i;
 	bool in_alloc, out_alloc;
 	int32_t size, buffers, blocks, align, flags;
@@ -592,6 +593,17 @@ static int negotiate_buffers(struct impl *impl)
 		return 0;
 
 	state = 0;
+	param = NULL;
+	if ((res = spa_node_port_enum_params_sync(impl->slave_node,
+				impl->direction, 0,
+				SPA_PARAM_Buffers, &state,
+				param, &param, &b)) != 1) {
+		debug_params(impl, impl->slave_node, impl->direction, 0,
+				SPA_PARAM_Buffers, param);
+		return -ENOTSUP;
+	}
+
+	state = 0;
 	if ((res = spa_node_port_enum_params_sync(impl->adapter_mix,
 				SPA_DIRECTION_REVERSE(impl->direction),
 				impl->adapter_mix_port,
@@ -602,18 +614,6 @@ static int negotiate_buffers(struct impl *impl)
 				impl->adapter_mix_port,
 				SPA_PARAM_Buffers, param);
 		return -ENOTSUP;
-	}
-	if (res != 1)
-		param = NULL;
-
-	state = 0;
-	if ((res = spa_node_port_enum_params_sync(impl->slave_node,
-				impl->direction, 0,
-				SPA_PARAM_Buffers, &state,
-				param, &param, &b)) < 0) {
-		debug_params(impl, impl->slave_node, impl->direction, 0,
-				SPA_PARAM_Buffers, param);
-		return res;
 	}
 
 	spa_pod_fixate(param);

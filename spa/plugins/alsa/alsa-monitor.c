@@ -173,22 +173,22 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 	if (!(str && *str))
 		str = udev_device_get_syspath(dev);
 	if (str && *str) {
-		spa_pod_builder_add(builder, "s", "device.bus_path", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.bus_path", "s", str, NULL);
 	}
 	if ((str = udev_device_get_syspath(dev)) && *str) {
-		spa_pod_builder_add(builder, "s", "sysfs.path", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "sysfs.path", "s", str, NULL);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "udev.id", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "udev.id", "s", str, NULL);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.bus", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.bus", "s", str, NULL);
 	}
 	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.subsystem", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.subsystem", "s", str, NULL);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.vendor.id", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.vendor.id", "s", str, NULL);
 	}
 	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
 	if (!(str && *str)) {
@@ -198,18 +198,18 @@ fill_item(struct impl *this, snd_ctl_card_info_t *card_info, snd_pcm_info_t *dev
 		}
 	}
 	if (str && *str) {
-		spa_pod_builder_add(builder, "s", "device.vendor.name", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.vendor.name", "s", str, NULL);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.product.id", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.product.id", "s", str, NULL);
 	}
-	spa_pod_builder_add(builder, "s", "device.product.name", "s", name, 0);
+	spa_pod_builder_add(builder, "s", "device.product.name", "s", name, NULL);
 
 	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.serial", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.serial", "s", str, NULL);
 	}
 	if ((str = udev_device_get_property_value(dev, "SOUND_FORM_FACTOR")) && *str) {
-		spa_pod_builder_add(builder, "s", "device.form_factor", "s", str, 0);
+		spa_pod_builder_add(builder, "s", "device.form_factor", "s", str, NULL);
 	}
 	*item = spa_pod_builder_add(builder, "]>", NULL);
 

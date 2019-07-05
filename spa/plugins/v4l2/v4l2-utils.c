@@ -692,15 +692,15 @@ spa_v4l2_enum_format(struct impl *this,
 	spa_pod_builder_push_object(builder, t->param.idEnumFormat, t->format);
 	spa_pod_builder_add(builder,
 			"I", media_type,
-			"I", media_subtype, 0);
+			"I", media_subtype, NULL);
 
 	if (media_subtype == t->media_subtype.raw) {
 		spa_pod_builder_add(builder,
-			":", t->format_video.format, "I", video_format, 0);
+			":", t->format_video.format, "I", video_format, NULL);
 	}
 	spa_pod_builder_add(builder,
 		":", t->format_video.size, "R", &SPA_RECTANGLE(port->frmsize.discrete.width,
-							       port->frmsize.discrete.height), 0);
+							       port->frmsize.discrete.height), NULL);
 
 	prop = spa_pod_builder_deref(builder,
 			spa_pod_builder_push_prop(builder, t->format_video.framerate,

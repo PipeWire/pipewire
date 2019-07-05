@@ -458,22 +458,22 @@ static int port_get_format(struct spa_node *node,
 
 	spa_pod_builder_add(builder,
 		"I", port->current_format.media_type,
-		"I", port->current_format.media_subtype, 0);
+		"I", port->current_format.media_subtype, NULL);
 
 	if (port->current_format.media_subtype == t->media_subtype.raw) {
 		spa_pod_builder_add(builder,
 			":", t->format_video.format,    "I", port->current_format.info.raw.format,
 			":", t->format_video.size,      "R", &port->current_format.info.raw.size,
-			":", t->format_video.framerate, "F", &port->current_format.info.raw.framerate, 0);
+			":", t->format_video.framerate, "F", &port->current_format.info.raw.framerate, NULL);
 	} else if (port->current_format.media_subtype == t->media_subtype_video.mjpg ||
 		   port->current_format.media_subtype == t->media_subtype_video.jpeg) {
 		spa_pod_builder_add(builder,
 			":", t->format_video.size,      "R", &port->current_format.info.mjpg.size,
-			":", t->format_video.framerate, "F", &port->current_format.info.mjpg.framerate, 0);
+			":", t->format_video.framerate, "F", &port->current_format.info.mjpg.framerate, NULL);
 	} else if (port->current_format.media_subtype == t->media_subtype_video.h264) {
 		spa_pod_builder_add(builder,
 			":", t->format_video.size,      "R", &port->current_format.info.h264.size,
-			":", t->format_video.framerate, "F", &port->current_format.info.h264.framerate, 0);
+			":", t->format_video.framerate, "F", &port->current_format.info.h264.framerate, NULL);
 	} else
 		return -EIO;
 

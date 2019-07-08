@@ -81,9 +81,67 @@ static void test_native(void)
 	feed_1(&r);
 }
 
+static void pull_blocks(struct resample *r, uint32_t size)
+{
+	uint32_t i;
+	float in[size];
+	float out[size];
+	const void *src[1];
+	void *dst[1];
+	uint32_t in_len, out_len;
+	uint32_t pin_len, pout_len;
+
+	src[0] = in;
+	dst[0] = out;
+
+	for (i = 0; i < 500; i++) {
+		pout_len = out_len = size;
+		pin_len = in_len = resample_in_len(r, out_len);
+
+		resample_process(r, src, &pin_len, dst, &pout_len);
+
+		fprintf(stderr, "%d: %d %d %d %d %d\n", i,
+				in_len, pin_len, out_len, pout_len,
+				resample_in_len(r, size));
+
+		spa_assert(in_len == pin_len + resample_delay(r));
+		spa_assert(out_len == pout_len);
+	}
+}
+
+static void test_in_len(void)
+{
+	struct resample r;
+
+	spa_zero(r);
+	r.channels = 1;
+	r.i_rate = 32000;
+	r.o_rate = 48000;
+	impl_native_init(&r);
+
+	pull_blocks(&r, 1024);
+
+	spa_zero(r);
+	r.channels = 1;
+	r.i_rate = 44100;
+	r.o_rate = 48000;
+	impl_native_init(&r);
+
+	pull_blocks(&r, 1024);
+
+	spa_zero(r);
+	r.channels = 1;
+	r.i_rate = 48000;
+	r.o_rate = 44100;
+	impl_native_init(&r);
+
+	pull_blocks(&r, 1024);
+}
+
 int main(int argc, char *argv[])
 {
 	test_native();
+	test_in_len();
 
 	return 0;
 }

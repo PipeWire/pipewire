@@ -134,6 +134,19 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	}
 }
 
+static uint32_t impl_native_in_len(struct resample *r, uint32_t out_len)
+{
+	struct native_data *data = r->data;					\
+	uint32_t in_len;
+
+	in_len = (data->phase + out_len * data->frac) / data->out_rate;
+	in_len += out_len * data->inc +	(data->n_taps - data->hist);
+
+	spa_log_trace_fp(r->log, "native %p: hist:%d %d->%d", r, data->hist, out_len, in_len);
+
+	return in_len;
+}
+
 static void impl_native_process(struct resample *r,
 		const void * SPA_RESTRICT src[], uint32_t *in_len,
 		void * SPA_RESTRICT dst[], uint32_t *out_len)
@@ -245,6 +258,7 @@ static int impl_native_init(struct resample *r)
 
 	r->free = impl_native_free;
 	r->update_rate = impl_native_update_rate;
+	r->in_len = impl_native_in_len;
 	r->process = impl_native_process;
 	r->reset = impl_native_reset;
 	r->delay = impl_native_delay;

@@ -38,6 +38,8 @@ struct resample {
 
 	void (*free)		(struct resample *r);
 	void (*update_rate)	(struct resample *r, double rate);
+	uint32_t (*in_len)	(struct resample *r, uint32_t out_len);
+	uint32_t (*out_len)	(struct resample *r, uint32_t in_len);
 	void (*process)		(struct resample *r,
 				 const void * SPA_RESTRICT src[], uint32_t *in_len,
 				 void * SPA_RESTRICT dst[], uint32_t *out_len);
@@ -48,6 +50,8 @@ struct resample {
 
 #define resample_free(r)		(r)->free(r)
 #define resample_update_rate(r,...)	(r)->update_rate(r,__VA_ARGS__)
+#define resample_in_len(r,...)		(r)->in_len(r,__VA_ARGS__)
+#define resample_out_len(r,...)		(r)->out_len(r,__VA_ARGS__)
 #define resample_process(r,...)		(r)->process(r,__VA_ARGS__)
 #define resample_reset(r)		(r)->reset(r)
 #define resample_delay(r)		(r)->delay(r)

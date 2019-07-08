@@ -38,7 +38,6 @@ struct native_data {
 	uint32_t n_phases;
 	uint32_t in_rate;
 	uint32_t out_rate;
-	uint32_t index;
 	uint32_t phase;
 	uint32_t inc;
 	uint32_t frac;
@@ -66,7 +65,7 @@ DEFINE_RESAMPLER(copy,arch)							\
 	if (r->channels == 0)							\
 		return;								\
 										\
-	index = data->index;							\
+	index = 0;								\
 	if (offs < olen && index + n_taps <= ilen) {				\
 		uint32_t to_copy = SPA_MIN(olen - offs,				\
 				ilen - (index + n_taps) + 1);			\
@@ -80,7 +79,6 @@ DEFINE_RESAMPLER(copy,arch)							\
 	}									\
 	*in_len = index;							\
 	*out_len = offs;							\
-	data->index = index;							\
 }
 
 #define MAKE_RESAMPLER_FULL(arch)						\
@@ -99,7 +97,7 @@ DEFINE_RESAMPLER(full,arch)							\
 		const float *s = src[c];					\
 		float *d = dst[c];						\
 										\
-		index = data->index;						\
+		index = 0;						\
 		phase = data->phase;						\
 										\
 		for (o = offs; o < olen && index + n_taps <= ilen; o++) {	\
@@ -118,7 +116,6 @@ DEFINE_RESAMPLER(full,arch)							\
 	}									\
 	*in_len = index;							\
 	*out_len = o;								\
-	data->index = index;							\
 	data->phase = phase;							\
 }
 
@@ -139,7 +136,7 @@ DEFINE_RESAMPLER(inter,arch)							\
 		const float *s = src[c];					\
 		float *d = dst[c];						\
 										\
-		index = data->index;						\
+		index = 0;							\
 		phase = data->phase;						\
 										\
 		for (o = offs; o < olen && index + n_taps <= ilen; o++) {	\
@@ -165,7 +162,6 @@ DEFINE_RESAMPLER(inter,arch)							\
 	}									\
 	*in_len = index;							\
 	*out_len = o;								\
-	data->index = index;							\
 	data->phase = phase;							\
 }
 

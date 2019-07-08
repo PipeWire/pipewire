@@ -112,7 +112,7 @@ static int impl_peaks_init(struct resample *r)
 	r->reset = impl_peaks_reset;
 	d = r->data = calloc(1, sizeof(struct peaks_data) * sizeof(float) * r->channels);
 	if (r->data == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	d->i_count = d->o_count = 0;
 	return 0;

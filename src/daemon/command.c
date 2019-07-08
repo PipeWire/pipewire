@@ -182,8 +182,8 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 
 	module = pw_module_load(core, command->args[1], command->args[2], NULL, NULL, NULL);
 	if (module == NULL) {
-		asprintf(err, "could not load module \"%s\"", command->args[1]);
-		return -ENOMEM;
+		asprintf(err, "could not load module \"%s\": %m", command->args[1]);
+		return -errno;
 	}
 	return 0;
 }

@@ -211,6 +211,7 @@ static void try_link_controls(struct impl *impl)
 	if (!impl->use_converter)
 		return;
 
+	pw_log_warn(NAME " %p: controls", impl);
 
 	if ((res = spa_node_port_set_io(impl->slave_node,
 			impl->direction, 0,

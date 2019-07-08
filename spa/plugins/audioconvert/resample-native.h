@@ -171,8 +171,8 @@ static void impl_native_process(struct resample *r,
 		in = hist + refill;
 		out = *out_len;
 		data->func(r, (const void**)history, &in, dst, 0, &out);
-		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d idx:%d hist:%d",
-				r, hist + refill, in, *out_len, out, data->index, hist);
+		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d hist:%d",
+				r, hist + refill, in, *out_len, out, hist);
 	} else {
 		out = in = 0;
 	}
@@ -180,7 +180,6 @@ static void impl_native_process(struct resample *r,
 	if (in >= hist) {
 		/* we are past the history and can now work on the new
 		 * input data */
-		data->index -= hist;
 		in = *in_len;
 		data->func(r, src, &in, dst, out, out_len);
 		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d",
@@ -219,7 +218,6 @@ static void impl_native_process(struct resample *r,
 		}
 	}
 	data->hist = remain;
-	data->index = 0;
 	return;
 }
 
@@ -228,7 +226,6 @@ static void impl_native_reset (struct resample *r)
 	struct native_data *d = r->data;
 	memset(d->hist_mem, 0, r->channels * sizeof(float) * d->n_taps * 2);
 	d->hist = d->n_taps / 2;
-	d->index = 0;
 	d->phase = 0;
 }
 
@@ -279,7 +276,7 @@ static int impl_native_init(struct resample *r)
 			64);
 
 	if (d == NULL)
-		return -ENOMEM;
+		return -errno;
 
 	r->data = d;
 	d->n_taps = n_taps;

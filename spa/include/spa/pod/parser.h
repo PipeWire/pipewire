@@ -295,7 +295,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser,
 	return 0;
 }
 
-static inline int spa_pod_parser_get(struct spa_pod_parser *parser,
+static inline SPA_SENTINEL int spa_pod_parser_get(struct spa_pod_parser *parser,
 				     const char *format, ...)
 {
 	int res;

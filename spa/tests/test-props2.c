@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 			"s", &vs,
 			"R", &vr,
 			"F", &vfr,
-			"P", &va, 0);
+			"P", &va, NULL);
 
 	printf("%u %lu %f %g %s %ux%u %u/%u\n", vi, vl, vf, vd, vs, vr.width, vr.height, vfr.num,
 	       vfr.denom);

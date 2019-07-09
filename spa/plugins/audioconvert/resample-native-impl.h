@@ -97,7 +97,7 @@ DEFINE_RESAMPLER(full,arch)							\
 		const float *s = src[c];					\
 		float *d = dst[c];						\
 										\
-		index = 0;						\
+		index = 0;							\
 		phase = data->phase;						\
 										\
 		for (o = offs; o < olen && index + n_taps <= ilen; o++) {	\

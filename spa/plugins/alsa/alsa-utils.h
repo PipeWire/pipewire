@@ -102,6 +102,9 @@ struct state {
 	int rate;
 	int channels;
 	size_t frame_size;
+	int rate_denom;
+	int delay;
+	int read_size;
 
 	uint64_t port_info_all;
 	struct spa_port_info port_info;
@@ -109,7 +112,7 @@ struct state {
 	struct spa_io_buffers *io;
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
-	struct spa_io_sequence *notify;
+	struct spa_io_rate_match *rate_match;
 
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;
@@ -124,6 +127,9 @@ struct state {
 	int timerfd;
 	uint32_t threshold;
 	uint32_t last_threshold;
+
+	uint32_t size;
+	uint32_t last_size;
 	uint64_t last_position;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;

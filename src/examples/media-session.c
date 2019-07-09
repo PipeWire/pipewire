@@ -1113,6 +1113,7 @@ do_link_profile:
 				peer->format.channels, node->format.channels,
 				audio_info.channels);
 
+		audio_info.rate = DEFAULT_SAMPLERATE;
 		node->profile_format = audio_info;
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
@@ -1190,6 +1191,7 @@ static void rescan_session(struct impl *impl, struct session *sess)
 		}
 
 		info = node->format;
+		info.rate = DEFAULT_SAMPLERATE;
 
 		props = pw_properties_new_dict(node->info->props);
 		if ((str = pw_properties_get(props, PW_KEY_DEVICE_NICK)) == NULL)

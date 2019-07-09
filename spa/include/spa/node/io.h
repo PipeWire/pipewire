@@ -49,6 +49,7 @@ enum spa_io_type {
 	SPA_IO_Control,		/**< area for control messages */
 	SPA_IO_Notify,		/**< area for notify messages */
 	SPA_IO_Position,	/**< position information in the graph */
+	SPA_IO_RateMatch,	/**< rate matching between nodes */
 };
 
 struct spa_io_buffers {
@@ -136,6 +137,13 @@ struct spa_io_position {
 	uint64_t flags;				/**< flags indicate what fields are valid */
 	struct spa_io_position_bar bar;		/**< when mask & SPA_IO_POSITION_FLAG_BAR*/
 	struct spa_io_position_video video;	/**< when mask & SPA_IO_POSITION_FLAG_VIDEO */
+};
+
+/** rate matching */
+struct spa_io_rate_match {
+	uint32_t delay;			/**< extra delay in samples for resampler */
+	uint32_t size;			/**< requested input size for resampler */
+	double rate;			/**< rate for resampler */
 };
 
 #ifdef __cplusplus

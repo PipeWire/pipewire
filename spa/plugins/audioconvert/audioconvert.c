@@ -721,6 +721,12 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
 			break;
+		case 2:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_RateMatch),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_rate_match)));
+			break;
 		default:
 			return 0;
 		}
@@ -850,8 +856,10 @@ impl_node_port_set_io(void *object,
 	spa_log_debug(this->log, "set io %d %d %d", id, direction, port_id);
 
 	switch (id) {
-	case SPA_IO_Control:
+	case SPA_IO_RateMatch:
 		res = spa_node_port_set_io(this->resample, direction, 0, id, data, size);
+		break;
+	case SPA_IO_Control:
 		res = spa_node_port_set_io(this->channelmix, direction, 0, id, data, size);
 		break;
 	default:

@@ -606,10 +606,15 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 {
 	double err, corr;
 
+	if (state->rate_match) {
+		state->delay = state->rate_match->delay;
+		state->read_size = state->rate_match->size;
+	}
+
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		err = delay - state->last_threshold;
+		err = delay - state->last_threshold + state->delay;
 	else
-		err = state->last_threshold - delay;
+		err = state->last_threshold - delay + state->delay * 2;
 
 	if (state->bw == 0.0) {
 		set_loop(state, BW_MAX);
@@ -641,23 +646,17 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 				err, state->z1, state->z2, state->z3);
 	}
 
-	if (slave && state->notify) {
-		struct spa_pod_builder b = { 0 };
-		struct spa_pod_frame f[2];
-	        spa_pod_builder_init(&b, state->notify, 1024);
-		spa_pod_builder_push_sequence(&b, &f[0], 0);
-		spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
-		spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-		spa_pod_builder_prop(&b, SPA_PROP_rate, 0);
-		spa_pod_builder_double(&b, SPA_CLAMP(corr, 0.95, 1.05));
-		spa_pod_builder_pop(&b, &f[1]);
-		spa_pod_builder_pop(&b, &f[0]);
+	if (slave && state->rate_match) {
+		if (state->stream == SND_PCM_STREAM_PLAYBACK)
+			state->rate_match->rate = SPA_CLAMP(corr, 0.95, 1.05);
+		else
+			state->rate_match->rate = SPA_CLAMP(1.0/corr, 0.95, 1.05);
 	}
 	if (!slave && state->clock) {
 		state->clock->nsec = state->next_time;
 		state->clock->rate = SPA_FRACTION(1, state->rate);
-		state->clock->position = state->sample_count;
-		state->clock->delay = state->threshold * corr;
+		state->clock->position += state->size;
+		state->clock->delay = state->size * corr;
 		state->clock->rate_diff = corr;
 	}
 
@@ -678,8 +677,10 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written;
 	int res;
 
-	if (state->position && state->threshold != state->position->size)
-		state->threshold = state->position->size;
+	if (state->position && state->size != state->position->size) {
+		state->size = state->position->size;
+		state->threshold = (state->size * state->rate + state->rate_denom-1) / state->rate_denom;
+	}
 
 	if (state->slaved && state->alsa_started) {
 		uint64_t nsec;
@@ -716,7 +717,7 @@ again:
 		spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 		return res;
 	}
-	spa_log_trace_fp(state->log, "begin %ld %ld %d", offset, frames, state->threshold);
+	spa_log_trace_fp(state->log, "begin %ld %ld %d %ld", offset, frames, state->threshold, silence);
 
 	silence = SPA_MIN(silence, frames);
 	to_write = frames;
@@ -810,16 +811,17 @@ static snd_pcm_uframes_t
 push_frames(struct state *state,
 	    const snd_pcm_channel_area_t *my_areas,
 	    snd_pcm_uframes_t offset,
-	    snd_pcm_uframes_t frames)
+	    snd_pcm_uframes_t frames,
+	    snd_pcm_uframes_t keep)
 {
 	snd_pcm_uframes_t total_frames = 0;
 
 	if (spa_list_is_empty(&state->free)) {
 		spa_log_warn(state->log, "%p: no more buffers", state);
-		total_frames = state->threshold;
-	} else {
+		total_frames = frames;
+	} else if (frames > 0) {
 		uint8_t *src;
-		size_t n_bytes;
+		size_t n_bytes, left;
 		struct buffer *b;
 		struct spa_data *d;
 		uint32_t avail, l0, l1;
@@ -835,13 +837,13 @@ push_frames(struct state *state,
 
 		d = b->buf->datas;
 
-
 		avail = d[0].maxsize / state->frame_size;
-		total_frames = SPA_MIN(avail, state->threshold);
+		total_frames = SPA_MIN(avail, frames);
 		n_bytes = total_frames * state->frame_size;
 
 		if (my_areas) {
-			l0 = SPA_MIN(n_bytes, frames * state->frame_size);
+			left = state->buffer_frames - offset;
+			l0 = SPA_MIN(n_bytes, left * state->frame_size);
 			l1 = n_bytes - l0;
 
 			src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
@@ -859,7 +861,7 @@ push_frames(struct state *state,
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&state->ready, &b->link);
 	}
-	return total_frames;
+	return total_frames - keep;
 }
 
 
@@ -871,19 +873,22 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_uframes_t read, frames, offset;
 	int res;
 
-	if (state->position) {
-		uint64_t position;
+	if (state->position && !state->slaved) {
+		uint64_t position, size;
 
-		if (state->threshold != state->position->size) {
-			state->threshold = state->position->size;
+		size = state->position->size;
+		if (state->size != size) {
+			state->size = size;
+			state->threshold = (size * state->rate + state->rate_denom-1) / state->rate_denom;
 		}
 		position = state->position->clock.position;
-		if (state->last_position && state->last_position + state->last_threshold != position) {
+		if (state->last_position && state->last_position + state->last_size != position) {
 			state->alsa_sync = true;
 			spa_log_warn(state->log, "discont, resync %"PRIu64" %"PRIu64" %d",
-					state->last_position, position, state->last_threshold);
+					state->last_position, position, state->last_size);
 		}
 		state->last_position = position;
+		state->last_size = size;
 	}
 
 	if (state->slaved && state->alsa_started) {
@@ -894,12 +899,13 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay)) < 0)
 			return res;
 
+		silence = delay;
+
 		if (delay < threshold) {
 			spa_log_warn(state->log, "slave delay:%lu resync %f %f %f", delay,
 					state->z1, state->z2, state->z3);
 			init_loop(state);
-			push_frames(state, NULL, 0, 0);
-			return 0;
+			state->alsa_sync = true;
 		}
 		if (state->alsa_sync) {
 			spa_log_warn(state->log, "slave resync %ld %d", delay, threshold);
@@ -917,21 +923,27 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			return res;
 	}
 
+	frames = state->read_size;
+	if (frames == 0)
+		frames = state->threshold + state->delay;
+
+	frames = SPA_MIN(frames, silence);
+
 	to_read = state->buffer_frames;
 	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &to_read)) < 0) {
 		spa_log_error(state->log, "snd_pcm_mmap_begin error: %s", snd_strerror(res));
 		return res;
 	}
-	frames = SPA_MIN(to_read, state->threshold);
 
 	spa_log_trace_fp(state->log, "begin %ld %ld %ld %d", offset, frames, to_read, state->threshold);
 
-	read = push_frames(state, my_areas, offset, frames);
+	read = push_frames(state, my_areas, offset, frames, state->delay);
+
 
 	spa_log_trace_fp(state->log, "commit %ld %ld %"PRIi64, offset, read, state->sample_count);
 	total_read += read;
 
-	if ((res = snd_pcm_mmap_commit(hndl, offset, frames)) < 0) {
+	if ((res = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
 		spa_log_error(state->log, "snd_pcm_mmap_commit error: %s", snd_strerror(res));
 		if (res != -EPIPE && res != -ESTRPIPE)
 			return res;
@@ -945,10 +957,11 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 static int handle_play(struct state *state, uint64_t nsec, snd_pcm_uframes_t delay)
 {
 	int res;
+	uint32_t threshold = state->last_threshold + state->delay;
 
-	if (delay >= state->last_threshold * 2) {
-		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
-		state->next_time = nsec + (delay - state->last_threshold) * SPA_NSEC_PER_SEC / state->rate;
+	if (delay >= threshold + state->last_threshold) {
+		spa_log_trace(state->log, "early wakeup %ld %d", delay, threshold);
+		state->next_time = nsec + (delay - threshold) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;
 	}
 
@@ -974,17 +987,19 @@ static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_uframes_t 
 {
 	int res;
 	struct spa_io_buffers *io;
+	uint32_t threshold = state->last_threshold + state->delay * 2;
 
-	if (delay < state->last_threshold) {
-		spa_log_trace(state->log, "early wakeup %ld %d", delay, state->threshold);
-		state->next_time = nsec + (state->last_threshold - delay) * SPA_NSEC_PER_SEC / state->rate;
+	if (delay < threshold) {
+		spa_log_trace(state->log, "early wakeup %ld %d", delay, threshold);
+		state->next_time = nsec + (threshold - delay) * SPA_NSEC_PER_SEC /
+			state->rate;
 		return 0;
 	}
 
 	if ((res = update_time(state, nsec, delay, false)) < 0)
 		return res;
 
-	if ((res = spa_alsa_read(state, 0)) < 0)
+	if ((res = spa_alsa_read(state, delay)) < 0)
 		return res;
 
 	if (!spa_list_is_empty(&state->ready)) {
@@ -996,8 +1011,8 @@ static int handle_capture(struct state *state, uint64_t nsec, snd_pcm_uframes_t 
 			io->buffer_id = b->id;
 			io->status = SPA_STATUS_HAVE_BUFFER;
 		}
-		spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_BUFFER);
 	}
+	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_BUFFER);
 	return 0;
 }
 
@@ -1012,8 +1027,10 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	if (state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0)
 		spa_log_warn(state->log, "error reading timerfd: %m");
 
-	if (state->position)
-		state->threshold = state->position->size;
+	if (state->position) {
+		state->size = state->position->size;
+		state->threshold = (state->size * state->rate + state->rate_denom-1) / state->rate_denom;
+	}
 
 	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &state->now);
 	if ((res = get_status(state, &delay)) < 0)
@@ -1076,12 +1093,18 @@ int spa_alsa_start(struct state *state)
 	if (state->started)
 		return 0;
 
-	if (state->position)
-		state->threshold = state->position->size;
-	else
-		state->threshold = state->props.min_latency;
-
 	state->slaved = is_slaved(state);
+
+	if (state->position) {
+		state->size = state->position->size;
+		state->rate_denom = state->position->clock.rate.denom;
+	}
+	else {
+		state->size = state->props.min_latency;
+		state->rate_denom = state->rate;
+	}
+
+	state->threshold = (state->size * state->rate + state->rate_denom-1) / state->rate_denom;
 	state->last_threshold = state->threshold;
 
 	init_loop(state);

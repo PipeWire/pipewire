@@ -140,7 +140,7 @@ struct impl {
 	uint32_t n_buffers;
 	struct pw_memblock *mem;
 
-	uint8_t control_buffer[1024];
+	struct spa_io_rate_match rate_match;
 };
 
 /** \endcond */
@@ -213,17 +213,20 @@ static void try_link_controls(struct impl *impl)
 
 	pw_log_warn(NAME " %p: controls", impl);
 
+	spa_zero(impl->rate_match);
+	impl->rate_match.rate = 1.0;
+
 	if ((res = spa_node_port_set_io(impl->slave_node,
 			impl->direction, 0,
-			SPA_IO_Notify,
-			impl->control_buffer, sizeof(impl->control_buffer))) < 0) {
-		pw_log_warn(NAME " %p: set Notify on slave failed %d %s", impl,
+			SPA_IO_RateMatch,
+			&impl->rate_match, sizeof(impl->rate_match))) < 0) {
+		pw_log_warn(NAME " %p: set RateMatch on slave failed %d %s", impl,
 			res, spa_strerror(res));
 	}
 	if ((res = spa_node_port_set_io(impl->adapter,
 			SPA_DIRECTION_REVERSE(impl->direction), 0,
-			SPA_IO_Control,
-			impl->control_buffer, sizeof(impl->control_buffer))) < 0) {
+			SPA_IO_RateMatch,
+			&impl->rate_match, sizeof(impl->rate_match))) < 0) {
 		pw_log_warn(NAME " %p: set Control on adapter failed %d %s", impl,
 			res, spa_strerror(res));
 	}
@@ -694,7 +697,7 @@ static int negotiate_buffers(struct impl *impl)
 			return res;
 	}
 	if (out_alloc) {
-		if ((res = spa_node_port_alloc_buffers(impl->slave_port->mix,
+		if ((res = spa_node_port_alloc_buffers(impl->slave_node,
 			       impl->direction, 0,
 			       NULL, 0,
 			       impl->buffers, &impl->n_buffers)) < 0) {
@@ -702,17 +705,10 @@ static int negotiate_buffers(struct impl *impl)
 		}
 	}
 	else {
-		if ((res = spa_node_port_use_buffers(impl->slave_port->mix,
+		if ((res = spa_node_port_use_buffers(impl->slave_node,
 			       impl->direction, 0,
 			       impl->buffers, impl->n_buffers)) < 0) {
-
-			if (res != -ENOTSUP)
-				return res;
-
-			if ((res = spa_node_port_use_buffers(impl->slave_port->node->node,
-			       impl->direction, 0,
-			       impl->buffers, impl->n_buffers)) < 0)
-				return res;
+			return res;
 		}
 	}
 
@@ -894,8 +890,12 @@ static int impl_node_process(void *object)
 		status = SPA_STATUS_HAVE_BUFFER;
 	}
 
-	impl->slave->rt.target.signal(impl->slave->rt.target.data);
+	status = spa_node_process(impl->slave_node);
 
+	if (impl->direction == SPA_DIRECTION_OUTPUT && !impl->this->master) {
+		if (impl->use_converter)
+			status = spa_node_process(impl->adapter);
+	}
 	return status;
 }
 

@@ -79,7 +79,6 @@ struct port {
 	struct spa_param_info params[8];
 
 	struct spa_io_buffers *io;
-	struct spa_io_sequence *io_control;
 
 	struct spa_audio_info format;
 	uint32_t stride;
@@ -102,6 +101,7 @@ struct impl {
 	struct spa_cpu *cpu;
 
 	struct spa_io_position *io_position;
+	struct spa_io_rate_match *io_rate_match;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -656,8 +656,8 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_Control:
-		port->io_control = data;
+	case SPA_IO_RateMatch:
+		this->io_rate_match = data;
 		break;
 	default:
 		return -ENOENT;
@@ -707,22 +707,6 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *sequence)
-{
-	struct spa_pod_control *c;
-
-	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
-		switch (c->type) {
-		case SPA_CONTROL_Properties:
-			apply_props(this, (const struct spa_pod *) &c->value);
-			break;
-		default:
-			break;
-                }
-	}
-	return 0;
-}
-
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -735,6 +719,7 @@ static int impl_node_process(void *object)
 	const void **src_datas;
 	void **dst_datas;
 	bool flush_out = false;
+	bool flush_in = false;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -749,9 +734,6 @@ static int impl_node_process(void *object)
 
 	spa_log_trace_fp(this->log, NAME " %p: status %d %d %d",
 			this, inio->status, outio->status, inio->buffer_id);
-
-	if (outport->io_control)
-		process_control(this, outport, &outport->io_control->sequence);
 
 	if (outio->status == SPA_STATUS_HAVE_BUFFER)
 		return SPA_STATUS_HAVE_BUFFER;
@@ -788,6 +770,7 @@ static int impl_node_process(void *object)
 	switch (this->mode) {
 	case MODE_SPLIT:
 		maxsize = SPA_MIN(maxsize, max * sizeof(float));
+		flush_out = flush_in = this->io_rate_match != NULL;
 		break;
 	case MODE_MERGE:
 	default:
@@ -821,11 +804,13 @@ static int impl_node_process(void *object)
 	}
 
 	inport->offset += in_len * sizeof(float);
-	if (inport->offset >= size) {
+	if (inport->offset >= size || flush_in) {
 		inio->status = SPA_STATUS_NEED_BUFFER;
 		inport->offset = 0;
 		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
+		spa_log_trace_fp(this->log, NAME " %p: return input buffer", this);
 	}
+
 	outport->offset += out_len * sizeof(float);
 	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
 		outio->status = SPA_STATUS_HAVE_BUFFER;
@@ -833,6 +818,13 @@ static int impl_node_process(void *object)
 		dequeue_buffer(this, dbuf);
 		outport->offset = 0;
 		SPA_FLAG_SET(res, SPA_STATUS_HAVE_BUFFER);
+		spa_log_trace_fp(this->log, NAME " %p: have output buffer", this);
+	}
+
+	if (this->io_rate_match) {
+		resample_update_rate(&this->resample, this->io_rate_match->rate);
+		this->io_rate_match->delay = resample_delay(&this->resample);
+		this->io_rate_match->size = resample_in_len(&this->resample, max);
 	}
 	return res;
 }

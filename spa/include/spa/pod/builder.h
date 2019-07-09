@@ -574,7 +574,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder,
 	return spa_pod_builder_deref(builder, builder->frame[builder->state.depth].ref);
 }
 
-static inline __attribute__((__sentinel__)) void *
+static inline SPA_SENTINEL void *
 spa_pod_builder_add(struct spa_pod_builder *builder, const char *format, ...)
 {
 	void *res;

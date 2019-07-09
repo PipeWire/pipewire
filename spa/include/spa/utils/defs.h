@@ -129,12 +129,14 @@ struct spa_fraction {
 #define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
 #define SPA_ALIGNED(align) __attribute__((aligned(align)))
 #define SPA_DEPRECATED __attribute__ ((deprecated))
-#define SPA_EXPORT __attribute__ ((visibility("default")))
+#define SPA_EXPORT __attribute__((visibility("default")))
+#define SPA_SENTINEL __attribute__((__sentinel__))
 #else
 #define SPA_PRINTF_FUNC(fmt, arg1)
 #define SPA_ALIGNED(align)
 #define SPA_DEPRECATED
 #define SPA_EXPORT
+#define SPA_SENTINEL
 #endif
 
 #define SPA_ROUND_DOWN_N(num,align)	((num) & ~((align) - 1))

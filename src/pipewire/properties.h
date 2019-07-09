@@ -40,7 +40,7 @@ struct pw_properties {
 };
 
 struct pw_properties *
-pw_properties_new(const char *key, ...);
+pw_properties_new(const char *key, ...) SPA_SENTINEL;
 
 struct pw_properties *
 pw_properties_new_dict(const struct spa_dict *dict);

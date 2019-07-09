@@ -141,7 +141,9 @@ struct state {
 	int64_t sample_time;
 	uint64_t next_time;
 	uint64_t base_time;
+	uint64_t last_time;
 
+	snd_pcm_uframes_t fill_level;
 	uint64_t underrun;
 	double safety;
 

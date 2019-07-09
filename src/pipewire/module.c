@@ -230,6 +230,7 @@ pw_module_load(struct pw_core *core,
 		goto error_no_mem;
 
 	impl->hnd = hnd;
+	hnd = NULL;
 
 	this = &impl->this;
 	this->core = core;
@@ -242,6 +243,7 @@ pw_module_load(struct pw_core *core,
 
 	this->info.name = name ? strdup(name) : NULL;
 	this->info.filename = filename;
+	filename = NULL;
 	this->info.args = args ? strdup(args) : NULL;
 	this->info.props = &this->properties->dict;
 
@@ -288,18 +290,20 @@ error_no_mem:
 	goto error_close;
 error_no_global:
 	res = -errno;
-	pw_log_error("\"%s\": failed to create global: %m", filename);
+	pw_log_error("\"%s\": failed to create global: %m", this->info.filename);
 	goto error_free_module;
 error_init_failed:
-	pw_log_error("\"%s\": failed to initialize: %s", filename, spa_strerror(res));
+	pw_log_error("\"%s\": failed to initialize: %s", this->info.filename, spa_strerror(res));
 	goto error_free_module;
 
 error_free_module:
 	pw_module_destroy(this);
 error_close:
-	dlclose(hnd);
+	if (hnd)
+		dlclose(hnd);
 error_free_filename:
-	free(filename);
+	if (filename)
+		free(filename);
 error_cleanup:
 	if (properties)
 		pw_properties_free(properties);

@@ -80,6 +80,8 @@ struct impl {
 #define MODE_MERGE	1
 #define MODE_CONVERT	2
 	int mode;
+	bool fmt_is_set[2];
+	bool buffers_set[2];
 	bool started;
 
 	struct spa_handle *hnd_fmt[2];
@@ -780,11 +782,11 @@ impl_node_port_set_param(void *object,
 	if (id == SPA_PARAM_Format) {
 		if (param == NULL)
 			clean_convert(this);
-		else if ((direction == SPA_DIRECTION_OUTPUT && this->mode == MODE_MERGE) ||
-		    (direction == SPA_DIRECTION_INPUT && this->mode == MODE_SPLIT)) {
+		else if (this->fmt_is_set[SPA_DIRECTION_REVERSE(direction)]) {
 			if ((res = setup_convert(this)) < 0)
 				return res;
 		}
+		this->fmt_is_set[direction] = (param != NULL);
 	}
 	return res;
 }
@@ -811,11 +813,11 @@ impl_node_port_use_buffers(void *object,
 					direction, port_id, buffers, n_buffers)) < 0)
 		return res;
 
-	if ((direction == SPA_DIRECTION_OUTPUT && this->mode == MODE_MERGE) ||
-	    (direction == SPA_DIRECTION_INPUT && this->mode == MODE_SPLIT)) {
+	if (buffers && this->buffers_set[SPA_DIRECTION_REVERSE(direction)]) {
 		if ((res = setup_buffers(this, SPA_DIRECTION_INPUT)) < 0)
 			return res;
 	}
+	this->buffers_set[direction] = (buffers != NULL);
 	return res;
 }
 

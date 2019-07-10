@@ -1,12 +1,13 @@
-audioconvert_sources = ['fmtconvert.c',
+audioconvert_sources = ['audioadapter.c',
+			'audioconvert.c',
+			'fmtconvert.c',
 			'fmt-ops.c',
 			'channelmix.c',
 			'channelmix-ops.c',
-			'resample.c',
-			'splitter.c',
 			'merger.c',
-			'audioconvert.c',
-			'plugin.c']
+			'plugin.c',
+			'resample.c',
+			'splitter.c']
 
 simd_cargs = []
 simd_dependencies = []

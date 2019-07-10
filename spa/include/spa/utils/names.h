@@ -62,6 +62,9 @@ extern "C" {
 									  *  to another. Must include at least
 									  *  format, channelmix and resample
 									  *  processing */
+#define SPA_NAME_AUDIO_ADAPT		"audio.adapt"			/**< combination of a node and an
+									  *  audio.convert. Does clock slaving */
+
 /** keys for alsa factory names */
 #define SPA_NAME_API_ALSA_MONITOR	"api.alsa.monitor"		/**< an alsa Monitor interface */
 #define SPA_NAME_API_ALSA_DEVICE	"api.alsa.device"		/**< an alsa Device interface */

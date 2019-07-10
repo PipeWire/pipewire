@@ -213,7 +213,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	if (direction == n->direction) {
 		pw_properties_setf(new, PW_KEY_PORT_ALIAS1, "%s_pcm:%s:%s%s",
 				pw_properties_get(n->props, PW_KEY_DEVICE_API),
-				pw_properties_get(n->props, "audio-dsp.name"),
+				pw_properties_get(n->props, PW_KEY_NODE_NAME),
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				str);
 

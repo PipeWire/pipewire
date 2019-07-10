@@ -49,6 +49,17 @@
 #define MIN_QUANTUM_SIZE	64
 #define MAX_QUANTUM_SIZE	1024
 
+struct impl;
+
+struct monitor {
+	struct impl *impl;
+
+	struct spa_handle *handle;
+	struct spa_monitor *monitor;
+
+	struct spa_list object_list;
+};
+
 struct impl {
 	struct timespec now;
 
@@ -69,6 +80,10 @@ struct impl {
 	struct spa_list node_list;
 	struct spa_list session_list;
 	int seq;
+
+	struct monitor bluez5_monitor;
+	struct monitor alsa_monitor;
+	struct monitor v4l2_monitor;
 };
 
 struct object {
@@ -149,10 +164,6 @@ struct session {
 	uint64_t plugged;
 
 	struct node *node;
-	struct node *dsp;
-	struct pw_proxy *dsp_proxy;
-	struct pw_proxy *link_proxy;
-	struct spa_hook link_listener;
 
 	struct spa_list node_list;
 
@@ -166,6 +177,10 @@ struct session {
 	bool exclusive;
 	bool need_dsp;
 };
+
+#include "alsa-monitor.c"
+#include "v4l2-monitor.c"
+#include "bluez-monitor.c"
 
 static void add_object(struct impl *impl, struct object *obj)
 {
@@ -216,8 +231,6 @@ static void idle_timeout(void *data, uint64_t expirations)
 	remove_idle_timeout(sess);
 
 	pw_node_proxy_send_command((struct pw_node_proxy*)sess->node->obj.proxy, cmd);
-	if (sess->dsp)
-		pw_node_proxy_send_command((struct pw_node_proxy*)sess->dsp->obj.proxy, cmd);
 }
 
 static void add_idle_timeout(struct session *sess)
@@ -358,17 +371,6 @@ static void remove_session(struct impl *impl, struct session *sess)
 		spa_list_remove(&n->session_link);
 	}
 
-	if (sess->dsp) {
-		sess->dsp->manager = NULL;
-	}
-	if (sess->dsp_proxy) {
-		pw_log_debug(NAME " %p: destroy dsp %p", impl, sess->dsp_proxy);
-		pw_proxy_destroy(sess->dsp_proxy);
-		sess->dsp_proxy = NULL;
-	}
-	if (sess->link_proxy) {
-		spa_hook_remove(&sess->link_listener);
-	}
 	spa_list_remove(&sess->l);
 	free(sess);
 }
@@ -397,7 +399,6 @@ static void node_proxy_destroy(void *data)
 	if (n->manager) {
 		switch (n->type) {
 		case NODE_TYPE_DSP:
-			n->manager->dsp = NULL;
 			break;
 		case NODE_TYPE_DEVICE:
 			remove_session(impl, n->manager);
@@ -465,9 +466,6 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		node->media = strdup(media_class);
 		pw_log_debug(NAME "%p: node %d is stream %s", impl, id, node->media);
 
-		pw_node_proxy_enum_params((struct pw_node_proxy*)p,
-				0, SPA_PARAM_EnumFormat,
-				0, -1, NULL);
 	}
 	else {
 		struct session *sess;
@@ -498,7 +496,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		sess->id = id;
 		sess->need_dsp = need_dsp;
 		sess->enabled = false;
-		sess->starting = true;
+		sess->starting = need_dsp;
 		sess->node = node;
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_PLUGGED)) != NULL)
 			sess->plugged = pw_properties_parse_uint64(str);
@@ -515,6 +513,9 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 		pw_log_debug(NAME" %p: new session for device node %d %d", impl, id,
 				need_dsp);
 	}
+	pw_node_proxy_enum_params((struct pw_node_proxy*)p,
+				0, SPA_PARAM_EnumFormat,
+				0, -1, NULL);
 	return 1;
 }
 
@@ -1078,21 +1079,12 @@ static int rescan_node(struct impl *impl, struct node *node)
 		return 0;
 	}
 
-	if (exclusive || session->dsp == NULL) {
-		if (exclusive && session->busy) {
-			pw_log_warn(NAME" %p: session %d busy, can't get exclusive access", impl, session->id);
-			return -EBUSY;
-		}
-		if (session->link_proxy != NULL) {
-			pw_log_warn(NAME" %p: session %d busy with DSP", impl, session->id);
-			return -EBUSY;
-		}
-		peer = session->node;
-		session->exclusive = exclusive;
+	if (exclusive && session->busy) {
+		pw_log_warn(NAME" %p: session %d busy, can't get exclusive access", impl, session->id);
+		return -EBUSY;
 	}
-	else {
-		peer = session->dsp;
-	}
+	peer = session->node;
+	session->exclusive = exclusive;
 
 	pw_log_debug(NAME" %p: linking to session '%d'", impl, session->id);
 
@@ -1100,7 +1092,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
 
-	if (!exclusive && session->dsp) {
+	if (!exclusive) {
 do_link_profile:
 		audio_info = peer->profile_format;
 
@@ -1140,94 +1132,45 @@ do_link:
         return 1;
 }
 
-static void dsp_node_event_info(void *object, const struct pw_node_info *info)
-{
-	struct session *s = object;
-	struct node *dsp;
-
-	if ((dsp = find_object(s->impl, info->id)) == NULL)
-		return;
-
-	pw_log_debug(NAME" %p: dsp node session %d id %d", dsp->obj.impl, s->id, info->id);
-
-	s->dsp = dsp;
-	spa_hook_remove(&s->listener);
-
-	dsp->direction = s->direction;
-	dsp->type = NODE_TYPE_DSP;
-	dsp->manager = s;
-	dsp->media_type = s->node->media_type;
-	dsp->media_subtype = s->node->media_subtype;
-	dsp->format = s->node->format;
-	dsp->profile_format = dsp->format;
-	dsp->profile_format.format = SPA_AUDIO_FORMAT_F32P;
-}
-
-static const struct pw_node_proxy_events dsp_node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
-	.info = dsp_node_event_info,
-};
-
 static void rescan_session(struct impl *impl, struct session *sess)
 {
-	if (sess->need_dsp && sess->dsp == NULL && sess->dsp_proxy == NULL) {
-		struct pw_properties *props;
-		struct node *node = sess->node;
-		struct spa_audio_info_raw info = { 0, };
-		uint8_t buf[1024];
-		struct spa_pod_builder b = { 0, };
-		struct spa_pod *param;
-		const char *str;
+	struct node *node = sess->node;
+	struct spa_audio_info_raw info = { 0, };
+	uint8_t buf[1024];
+	struct spa_pod_builder b = { 0, };
+	struct spa_pod *param;
 
-		if (node->info->props == NULL) {
-			pw_log_debug(NAME " %p: node %p has no properties", impl, node);
-			return;
-		}
+	if (!sess->starting)
+		return;
 
-		if (node->media_type != SPA_MEDIA_TYPE_audio ||
-		    node->media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-			pw_log_debug(NAME " %p: node %p has no media type", impl, node);
-			return;
-		}
-
-		info = node->format;
-		info.rate = DEFAULT_SAMPLERATE;
-
-		props = pw_properties_new_dict(node->info->props);
-		if ((str = pw_properties_get(props, PW_KEY_DEVICE_NICK)) == NULL)
-			str = node->info->name;
-		pw_properties_set(props, PW_KEY_NODE_NAME, str);
-		if (sess->direction == PW_DIRECTION_OUTPUT)
-			pw_properties_setf(props, "factory.name", "api.alsa.pcm.sink");
-		else
-			pw_properties_setf(props, "factory.name", "api.alsa.pcm.source");
-
-		pw_log_debug(NAME" %p: making audio dsp for session %d", impl, sess->id);
-
-		sess->dsp_proxy = pw_core_proxy_create_object(impl->core_proxy,
-				"adapter",
-				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
-				&props->dict,
-				0);
-		pw_properties_free(props);
-
-		pw_proxy_add_object_listener(sess->dsp_proxy, &sess->listener, &dsp_node_events, sess);
-
-		spa_pod_builder_init(&b, buf, sizeof(buf));
-		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-			SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(sess->direction)),
-			SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
-
-		pw_node_proxy_set_param((struct pw_node_proxy*)sess->dsp_proxy,
-				SPA_PARAM_Profile, 0, param);
-		schedule_rescan(impl);
+	if (node->info->props == NULL) {
+		pw_log_debug(NAME " %p: node %p has no properties", impl, node);
+		return;
 	}
-	else {
-		sess->starting = false;
+
+	if (node->media_type != SPA_MEDIA_TYPE_audio ||
+	    node->media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+		pw_log_debug(NAME " %p: node %p has no media type", impl, node);
+		return;
 	}
+
+	info = node->format;
+	info.rate = DEFAULT_SAMPLERATE;
+
+	pw_log_debug(NAME" %p: setting profile for session %d", impl, sess->id);
+
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+		SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(sess->direction)),
+		SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+
+	pw_node_proxy_set_param((struct pw_node_proxy*)sess->node->obj.proxy,
+			SPA_PARAM_Profile, 0, param);
+	schedule_rescan(impl);
+
+	sess->starting = false;
 }
 
 static void do_rescan(struct impl *impl)
@@ -1278,6 +1221,10 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_registry_proxy_add_listener(impl->registry_proxy,
                                                &impl->registry_listener,
                                                &registry_events, impl);
+		bluez5_start_monitor(impl, &impl->bluez5_monitor);
+		alsa_start_monitor(impl, &impl->alsa_monitor);
+		v4l2_start_monitor(impl, &impl->v4l2_monitor);
+
 		schedule_rescan(impl);
 		break;
 
@@ -1314,6 +1261,12 @@ int main(int argc, char *argv[])
 	spa_list_init(&impl.client_list);
 	spa_list_init(&impl.node_list);
 	spa_list_init(&impl.session_list);
+
+	pw_core_add_spa_lib(impl.core, "api.bluez5.*", "bluez5/libspa-bluez5");
+	pw_core_add_spa_lib(impl.core, "api.alsa.*", "alsa/libspa-alsa");
+	pw_core_add_spa_lib(impl.core, "api.v4l2.*", "v4l2/libspa-v4l2");
+
+	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL, NULL, NULL);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

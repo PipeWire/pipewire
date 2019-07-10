@@ -10,9 +10,7 @@ add-spa-lib api.bluez5.* bluez5/libspa-bluez5
 
 load-module libpipewire-module-rtkit
 load-module libpipewire-module-protocol-native
-load-module libpipewire-module-spa-monitor api.alsa.monitor alsa
-load-module libpipewire-module-spa-monitor api.v4l2.monitor v4l2
-load-module libpipewire-module-spa-monitor api.bluez5.monitor bluez5
+load-module libpipewire-module-spa-node-factory
 #load-module libpipewire-module-spa-node videotestsrc/libspa-videotestsrc videotestsrc videotestsrc Spa:POD:Object:Props:patternType=Spa:POD:Object:Props:patternType:snow
 load-module libpipewire-module-client-node
 load-module libpipewire-module-client-device

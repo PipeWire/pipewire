@@ -74,6 +74,7 @@ struct impl {
 	unsigned int started:1;
 	unsigned int active:1;
 	unsigned int driver:1;
+	unsigned int master:1;
 };
 
 /** \endcond */
@@ -180,7 +181,14 @@ static void emit_node_info(struct impl *this, bool full)
 {
 	if (full)
 		this->info.change_mask = this->info_all;
+
 	if (this->info.change_mask) {
+		struct spa_dict_item items[1];
+
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, this->driver ? "1" : "0");
+		this->info.props = &SPA_DICT_INIT(items, 1);
+
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -307,17 +315,21 @@ static const struct spa_node_events convert_node_events = {
 static void slave_info(void *data, const struct spa_node_info *info)
 {
 	struct impl *this = data;
-	const char *dir;
+	const char *str;
 
-	if (info->max_input_ports > 0)  {
+	if (info->max_input_ports > 0)
 		this->direction = SPA_DIRECTION_INPUT;
-		dir = "input";
-	}
-        else {
+        else
 		this->direction = SPA_DIRECTION_OUTPUT;
-		dir = "output";
+
+	spa_log_debug(this->log, NAME" %p: slave info %s", this,
+			this->direction == SPA_DIRECTION_INPUT ?
+				"Input" : "Output");
+
+	if (info->props) {
+		if ((str = spa_dict_lookup(info->props, SPA_KEY_NODE_DRIVER)) != NULL)
+			this->driver = strcmp(str, "true") == 0 || atoi(str) == 1;
 	}
-	spa_log_debug(this->log, NAME" %p: slave info %s", this, dir);
 }
 
 static const struct spa_node_events slave_node_events = {
@@ -770,7 +782,7 @@ static int impl_node_process(void *object)
 
 	status = spa_node_process(this->slave);
 
-	if (this->direction == SPA_DIRECTION_OUTPUT) {
+	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
 		if (this->use_converter)
 			status = spa_node_process(this->convert);
 	}

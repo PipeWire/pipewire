@@ -515,30 +515,20 @@ static int set_mask(pa_context *c, struct global *g)
 	case PW_TYPE_INTERFACE_Node:
 		if (g->props == NULL)
 			return 0;
-		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL) {
+			pw_log_debug("node %d without "PW_KEY_MEDIA_CLASS, g->id);
 			return 0;
+		}
+		pw_log_debug("node %d "PW_KEY_MEDIA_CLASS" '%s'", g->id, str);
 
 		if (strcmp(str, "Audio/Sink") == 0) {
-			return 0;
 			pw_log_debug("found sink %d", g->id);
-			g->mask = PA_SUBSCRIPTION_MASK_SINK;
-			g->event = PA_SUBSCRIPTION_EVENT_SINK;
-			g->node_info.monitor = SPA_ID_INVALID;
-		}
-		else if (strcmp(str, "Audio/DSP/Playback") == 0) {
-			pw_log_debug("found playback/monitor DSP %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK;
 			g->node_info.monitor = g->id | PA_IDX_FLAG_DSP;
 		}
 		else if (strcmp(str, "Audio/Source") == 0) {
-			return 0;
 			pw_log_debug("found source %d", g->id);
-			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
-			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
-		}
-		else if (strcmp(str, "Audio/DSP/Capture") == 0) {
-			pw_log_debug("found capture DSP %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
 		}

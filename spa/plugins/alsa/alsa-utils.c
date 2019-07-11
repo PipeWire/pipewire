@@ -1143,9 +1143,6 @@ int spa_alsa_start(struct state *state)
 
 	set_timers(state);
 
-	state->io->status = SPA_STATUS_OK;
-	state->io->buffer_id = SPA_ID_INVALID;
-
 	state->started = true;
 
 	return 0;

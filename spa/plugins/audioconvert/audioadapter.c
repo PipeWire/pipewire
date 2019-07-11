@@ -283,20 +283,18 @@ static void convert_port_info(void *data,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
-	bool monitor;
 
-	monitor = (info->props &&
-            spa_dict_lookup(info->props, SPA_KEY_PORT_MONITOR) != NULL);
-	if (monitor)
-		port_id -= 1;
-
-	spa_log_debug(this->log, NAME" %p: port info %d", this, port_id);
-
-	if (direction == this->direction || monitor) {
-		struct spa_port_info i = *info;
-		SPA_FLAG_UNSET(i.flags, SPA_PORT_FLAG_DYNAMIC_DATA);
-		spa_node_emit_port_info(&this->hooks, direction, port_id, &i);
+	if (direction != this->direction) {
+		if (port_id == 0)
+			return;
+		else
+			port_id--;
 	}
+
+	spa_log_debug(this->log, NAME" %p: port info %d:%d", this,
+			direction, port_id);
+
+	spa_node_emit_port_info(&this->hooks, direction, port_id, info);
 }
 
 static void convert_result(void *data, int seq, int res, uint32_t type, const void *result)

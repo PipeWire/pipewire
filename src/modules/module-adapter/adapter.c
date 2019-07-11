@@ -292,7 +292,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 		mode = "split";
 	}
 
-	pw_properties_setf(props, "audio.adapt.slave", "%p", slave->node);
+	pw_properties_setf(props, "audio.adapt.slave", "pointer:%p", slave->node);
 	pw_properties_set(props, "factory.mode", mode);
 	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 	pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",

@@ -99,9 +99,9 @@ static int emit_source_node(struct impl *this)
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		if (t->profile == profile) {
 			struct spa_device_object_info info;
-			char transport[16];
+			char transport[32];
 
-			snprintf(transport, 16, "%p", t);
+			snprintf(transport, sizeof(transport), "pointer:%p", t);
 			items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 
 			spa_bt_transport_acquire(t, true);
@@ -148,9 +148,9 @@ static int emit_sink_node(struct impl *this)
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		if (t->profile == profile) {
 			struct spa_device_object_info info;
-			char transport[16];
+			char transport[32];
 
-			snprintf(transport, 16, "%p", t);
+			snprintf(transport, sizeof(transport), "pointer:%p", t);
 			items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 
 			info = SPA_DEVICE_OBJECT_INFO_INIT();
@@ -301,7 +301,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	for (i = 0; info && i < info->n_items; i++) {
 		if (strcmp(info->items[i].key, SPA_KEY_API_BLUEZ5_DEVICE) == 0)
-			sscanf(info->items[i].value, "%p", &this->bt_dev);
+			sscanf(info->items[i].value, "pointer:%p", &this->bt_dev);
 	}
 	if (this->bt_dev == NULL) {
 		spa_log_error(this->log, "a device is needed");

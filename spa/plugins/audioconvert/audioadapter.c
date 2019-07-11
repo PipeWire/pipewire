@@ -887,7 +887,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info == NULL || (str = spa_dict_lookup(info, "audio.adapt.slave")) == NULL)
 		return -EINVAL;
 
-	sscanf(str, "%p", &this->slave);
+	sscanf(str, "pointer:%p", &this->slave);
 	if (this->slave == NULL)
 		return -EINVAL;
 

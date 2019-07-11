@@ -491,7 +491,7 @@ static int device_free(struct spa_bt_device *device)
 static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
 {
 	struct spa_monitor_object_info info;
-	char dev[16];
+	char dev[32];
 	struct spa_dict_item items[20];
         uint32_t n_items = 0;
 
@@ -511,7 +511,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, device->icon);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
-	snprintf(dev, sizeof(dev), "%p", device);
+	snprintf(dev, sizeof(dev), "pointer:%p", device);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_DEVICE, dev);
 
 	info.props = &SPA_DICT_INIT(items, n_items);

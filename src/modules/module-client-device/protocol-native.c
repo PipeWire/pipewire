@@ -30,6 +30,40 @@
 
 #include <extensions/protocol-native.h>
 
+static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_item *item)
+{
+	const char *str;
+	spa_pod_builder_string(b, item->key);
+	str = item->value;
+	if (strstr(str, "pointer:") == str)
+		str = "";
+	spa_pod_builder_string(b, str);
+}
+
+static inline int parse_item(struct spa_pod_parser *prs, struct spa_dict_item *item)
+{
+	int res;
+	if ((res = spa_pod_parser_get(prs,
+		       SPA_POD_String(&item->key),
+		       SPA_POD_String(&item->value),
+		       NULL)) < 0)
+		return res;
+	if (strstr(item->value, "pointer:") == item->value)
+		item->value = "";
+	return 0;
+}
+
+static inline int parse_dict(struct spa_pod_parser *prs, struct spa_dict *dict)
+{
+	uint32_t i;
+	int res;
+	for (i = 0; i < dict->n_items; i++) {
+		if ((res = parse_item(prs, (struct spa_dict_item *) &dict->items[i])) < 0)
+			return res;
+	}
+	return 0;
+}
+
 static int device_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
@@ -179,11 +213,8 @@ static void device_marshal_info(void *object,
 			    SPA_POD_Long(change_mask),
 			    SPA_POD_Long(info->flags),
 			    SPA_POD_Int(n_items), NULL);
-		for (i = 0; i < n_items; i++) {
-			spa_pod_builder_add(b,
-					    SPA_POD_String(info->props->items[i].key),
-					    SPA_POD_String(info->props->items[i].value), NULL);
-		}
+		for (i = 0; i < n_items; i++)
+			push_item(b, &info->props->items[i]);
 		spa_pod_builder_add(b,
 				    SPA_POD_Int(info->n_params), NULL);
 		for (i = 0; i < info->n_params; i++) {
@@ -238,12 +269,8 @@ static int device_demarshal_info(void *object,
 			info.props = &props;
 
 			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-			for (i = 0; i < props.n_items; i++) {
-				if (spa_pod_parser_get(&p2,
-						SPA_POD_String(&props.items[i].key),
-						SPA_POD_String(&props.items[i].value), NULL) < 0)
-					return -EINVAL;
-			}
+			if (parse_dict(&p2, &props) < 0)
+				return -EINVAL;
 		}
 		if (spa_pod_parser_get(&p2,
 				SPA_POD_Int(&info.n_params), NULL) < 0)
@@ -400,11 +427,8 @@ static void device_marshal_object_info(void *object, uint32_t id,
 			    SPA_POD_Long(change_mask),
 			    SPA_POD_Long(info->flags),
 			    SPA_POD_Int(n_items), NULL);
-		for (i = 0; i < n_items; i++) {
-			spa_pod_builder_add(b,
-					    SPA_POD_String(info->props->items[i].key),
-					    SPA_POD_String(info->props->items[i].value), NULL);
-		}
+		for (i = 0; i < n_items; i++)
+			push_item(b, &info->props->items[i]);
 		spa_pod_builder_pop(b, &f[1]);
 	} else {
 		spa_pod_builder_add(b,
@@ -423,7 +447,7 @@ static int device_demarshal_object_info(void *object,
 	struct spa_device_object_info info = SPA_DEVICE_OBJECT_INFO_INIT(), *infop;
 	struct spa_pod *ipod;
 	struct spa_dict props;
-	uint32_t i, id;
+	uint32_t id;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
@@ -452,12 +476,8 @@ static int device_demarshal_object_info(void *object,
 			info.props = &props;
 
 			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-			for (i = 0; i < props.n_items; i++) {
-				if (spa_pod_parser_get(&p2,
-						SPA_POD_String(&props.items[i].key),
-						SPA_POD_String(&props.items[i].value), NULL) < 0)
-					return -EINVAL;
-			}
+			if (parse_dict(&p2, &props) < 0)
+				return -EINVAL;
 		}
 	} else {
 		infop = NULL;

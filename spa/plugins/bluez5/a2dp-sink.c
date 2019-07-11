@@ -1481,7 +1481,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	for (i = 0; info && i < info->n_items; i++) {
 		if (strcmp(info->items[i].key, SPA_KEY_API_BLUEZ5_TRANSPORT) == 0)
-			sscanf(info->items[i].value, "%p", &this->transport);
+			sscanf(info->items[i].value, "pointer:%p", &this->transport);
 	}
 	if (this->transport == NULL) {
 		spa_log_error(this->log, "a transport is needed");

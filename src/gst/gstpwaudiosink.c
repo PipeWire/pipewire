@@ -57,6 +57,13 @@ static void
 gst_pw_audio_sink_init (GstPwAudioSink * self)
 {
   self->props.fd = -1;
+
+  /* Bump the default buffer size up to 21.3 ms, which is the default on most
+   * sound cards, in hope to match the alsa buffer size on the pipewire server.
+   * This may not always happen, but it still sounds better than the 10ms
+   * default latency. This is temporary until we have a better mechanism to
+   * select the appropriate latency */
+  GST_AUDIO_BASE_SINK (self)->latency_time = 21333;
 }
 
 static void

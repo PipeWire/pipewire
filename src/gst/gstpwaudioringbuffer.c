@@ -202,11 +202,16 @@ on_stream_state_changed (void *data, enum pw_stream_state old,
     enum pw_stream_state state, const char *error)
 {
   GstPwAudioRingBuffer *self = GST_PW_AUDIO_RING_BUFFER (data);
+  GstMessage *msg;
 
   GST_DEBUG_OBJECT (self->elem, "got stream state: %s",
       pw_stream_state_as_string (state));
 
   switch (state) {
+    case PW_STREAM_STATE_ERROR:
+      GST_ELEMENT_ERROR (self->elem, RESOURCE, FAILED,
+          ("stream error: %s", error), (NULL));
+      break;
     case PW_STREAM_STATE_UNCONNECTED:
       GST_ELEMENT_ERROR (self->elem, RESOURCE, FAILED,
           ("stream disconnected unexpectedly"), (NULL));
@@ -214,12 +219,26 @@ on_stream_state_changed (void *data, enum pw_stream_state old,
     case PW_STREAM_STATE_CONNECTING:
     case PW_STREAM_STATE_CONFIGURE:
     case PW_STREAM_STATE_READY:
-    case PW_STREAM_STATE_PAUSED:
-    case PW_STREAM_STATE_STREAMING:
       break;
-    case PW_STREAM_STATE_ERROR:
-      GST_ELEMENT_ERROR (self->elem, RESOURCE, FAILED,
-          ("stream error: %s", error), (NULL));
+    case PW_STREAM_STATE_PAUSED:
+      if (old == PW_STREAM_STATE_STREAMING) {
+        if (GST_STATE (self->elem) != GST_STATE_PAUSED &&
+            GST_STATE_TARGET (self->elem) != GST_STATE_PAUSED) {
+          GST_DEBUG_OBJECT (self->elem, "requesting GST_STATE_PAUSED");
+          msg = gst_message_new_request_state (GST_OBJECT (self->elem),
+              GST_STATE_PAUSED);
+          gst_element_post_message (self->elem, msg);
+        }
+      }
+      break;
+    case PW_STREAM_STATE_STREAMING:
+      if (GST_STATE (self->elem) != GST_STATE_PLAYING &&
+          GST_STATE_TARGET (self->elem) != GST_STATE_PLAYING) {
+        GST_DEBUG_OBJECT (self->elem, "requesting GST_STATE_PLAYING");
+        msg = gst_message_new_request_state (GST_OBJECT (self->elem),
+            GST_STATE_PLAYING);
+        gst_element_post_message (self->elem, msg);
+      }
       break;
   }
   pw_thread_loop_signal (self->main_loop, FALSE);

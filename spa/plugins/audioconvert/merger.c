@@ -908,7 +908,13 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
 	size = SPA_MIN(dd->maxsize, n_samples * outport->stride);
 	dd->chunk->offset = 0;
 	dd->chunk->size = size;
-	dd->data = (void*)data;
+
+	spa_log_trace(this->log, "%p: io %p %08x", this, outport->io, dd->flags);
+
+	if (SPA_FLAG_CHECK(dd->flags, SPA_DATA_FLAG_DYNAMIC))
+		dd->data = (void*)data;
+	else
+		memcpy(dd->data, data, size);
 
 	return res;
 }

@@ -675,17 +675,11 @@ static void dump_states(struct pw_node *driver)
 
 static inline int resume_node(struct pw_node *this, int status)
 {
-        struct pw_port *p;
 	struct pw_node_target *t;
 	struct timespec ts;
 	struct pw_node_activation *activation = this->rt.activation;
 	struct spa_system *data_system = this->core->data_system;
 	uint64_t nsec;
-
-	if (status & SPA_STATUS_HAVE_BUFFER) {
-		spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
-			spa_node_process(p->mix);
-	}
 
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
@@ -731,6 +725,11 @@ static inline int process_node(void *data)
 
 	status = spa_node_process(this->node);
 	a->state[0].status = status;
+
+	if (status & SPA_STATUS_HAVE_BUFFER) {
+		spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
+			spa_node_process(p->mix);
+	}
 
 	if (this == this->driver_node && !this->exported) {
 		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
@@ -1060,6 +1059,7 @@ static int node_ready(void *data, int status)
 	struct pw_node *node = data;
 	struct pw_node *driver = node->driver_node;
 	struct pw_node_target *t;
+	struct pw_port *p;
 
 	pw_log_trace_fp("node %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
@@ -1078,6 +1078,11 @@ static int node_ready(void *data, int status)
 	}
 	if (node->driver && !node->master)
 		return 0;
+
+	if (status & SPA_STATUS_HAVE_BUFFER) {
+		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
+			spa_node_process(p->mix);
+	}
 
 	return resume_node(node, status);
 }

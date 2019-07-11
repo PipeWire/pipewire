@@ -444,9 +444,9 @@ gst_pw_audio_ring_buffer_acquire (GstAudioRingBuffer *buf,
           params, 1) < 0)
     goto start_error;
 
-  GST_DEBUG_OBJECT (self->elem, "waiting for stream READY");
+  GST_DEBUG_OBJECT (self->elem, "waiting for stream CONFIGURE");
 
-  if (!wait_for_stream_state (self, PW_STREAM_STATE_READY))
+  if (!wait_for_stream_state (self, PW_STREAM_STATE_CONFIGURE))
     goto start_error;
 
   pw_thread_loop_unlock (self->main_loop);

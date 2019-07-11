@@ -75,6 +75,7 @@ struct impl {
 	unsigned int active:1;
 	unsigned int driver:1;
 	unsigned int master:1;
+	unsigned int monitor:1;
 };
 
 /** \endcond */
@@ -780,6 +781,9 @@ static int impl_node_process(void *object)
 
 	status = spa_node_process(this->slave);
 
+	if (this->monitor)
+		status |= SPA_STATUS_HAVE_BUFFER;
+
 	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
 		if (this->use_converter)
 			status = spa_node_process(this->convert);
@@ -886,6 +890,9 @@ impl_init(const struct spa_handle_factory *factory,
 	sscanf(str, "%p", &this->slave);
 	if (this->slave == NULL)
 		return -EINVAL;
+
+	if ((str = spa_dict_lookup(info, "merger.monitor")) != NULL)
+		this->monitor = atoi(str);
 
 	spa_node_add_listener(this->slave,
 			&this->slave_listener, &slave_node_events, this);

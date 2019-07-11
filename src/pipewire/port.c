@@ -232,9 +232,8 @@ static int update_properties(struct pw_port *port, const struct spa_dict *dict)
 
 	changed = pw_properties_update(port->properties, dict);
 
-	pw_log_debug("port %p: updated %d properties", port, changed);
-
 	if (changed) {
+		pw_log_debug("port %p: updated %d properties", port, changed);
 		port->info.props = &port->properties->dict;
 		port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
 	}

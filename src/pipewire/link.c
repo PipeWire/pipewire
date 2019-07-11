@@ -577,10 +577,11 @@ static int do_allocation(struct pw_link *this)
 
 	pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
 
-	pw_log_debug("link %p: doing alloc buffers %p %p", this, output->node, input->node);
-
 	in_flags = input->spa_flags;
 	out_flags = output->spa_flags;
+
+	pw_log_debug("link %p: doing alloc buffers %p %p: in_flags:%08x out_flags:%08x",
+			this, output->node, input->node, in_flags, out_flags);
 
 	if (out_flags & SPA_PORT_FLAG_LIVE) {
 		pw_log_debug("setting link as live");

@@ -820,8 +820,8 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: set io %d on port %d:%d",
-			this, id, direction, port_id);
+	spa_log_debug(this->log, NAME " %p: set io %d on port %d:%d %p",
+			this, id, direction, port_id, data);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 

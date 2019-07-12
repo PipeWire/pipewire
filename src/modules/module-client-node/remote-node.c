@@ -503,10 +503,10 @@ static int
 client_node_set_param(void *object, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {
-	pw_log_warn("set param not implemented");
-	return -ENOTSUP;
+	struct pw_proxy *proxy = object;
+	struct node_data *data = proxy->user_data;
+	return spa_node_set_param(data->node->node, id, flags, param);
 }
-
 
 static int
 client_node_set_io(void *object,
@@ -885,12 +885,13 @@ client_node_port_set_io(void *object,
 		mix->mix.io = ptr;
 		if (ptr)
 			activate_mix(data, mix);
-	} else {
-		if ((res = spa_node_port_set_io(mix->port->node->node,
-				     direction, port_id,
-				     id,
-				     ptr,
-				     size)) < 0)
+	}
+	if ((res = spa_node_port_set_io(mix->port->mix,
+			     direction, mix_id,
+			     id, ptr, size)) < 0) {
+		if (res == -ENOTSUP)
+			res = 0;
+		else
 			goto error_exit;
 	}
 	return res;

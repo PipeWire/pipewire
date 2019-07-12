@@ -1267,6 +1267,7 @@ int main(int argc, char *argv[])
 	pw_core_add_spa_lib(impl.core, "api.v4l2.*", "v4l2/libspa-v4l2");
 
 	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL, NULL, NULL);
+	pw_module_load(impl.core, "libpipewire-module-adapter", NULL, NULL, NULL, NULL);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

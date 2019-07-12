@@ -50,9 +50,8 @@ struct bluez5_node {
 
 	struct pw_properties *props;
 
-	struct spa_handle *handle;
+	struct pw_node *adapter;
 	struct pw_proxy *proxy;
-	struct spa_node *node;
 };
 
 struct bluez5_object {
@@ -94,6 +93,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	struct bluez5_node *node;
 	struct monitor *monitor = obj->monitor;
 	struct impl *impl = monitor->impl;
+	struct pw_factory *factory;
 	int res;
 	const char *str;
 
@@ -109,7 +109,8 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 		goto exit;
 	}
 
-	node->props = pw_properties_new_dict(info->props);
+	node->props = pw_properties_copy(obj->props);
+	pw_properties_update(node->props, info->props);
 
 	str = pw_properties_get(obj->props, PW_KEY_DEVICE_NICK);
 	if (str == NULL)
@@ -124,16 +125,26 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	node->monitor = monitor;
 	node->object = obj;
 	node->id = id;
-	node->proxy = pw_core_proxy_create_object(impl->core_proxy,
-				"adapter",
-				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
-				&node->props->dict,
-                                0);
-	if (node->proxy == NULL) {
+
+	factory = pw_core_find_factory(impl->core, "adapter");
+	if (factory == NULL) {
+		pw_log_error("no adapter factory found");
+		res = -EIO;
+		goto clean_node;
+	}
+	node->adapter = pw_factory_create_object(factory,
+			NULL,
+			PW_TYPE_INTERFACE_Node,
+			PW_VERSION_NODE_PROXY,
+			node->props,
+			0);
+	if (node->adapter == NULL) {
 		res = -errno;
 		goto clean_node;
 	}
+	node->proxy = pw_remote_export(impl->remote,
+			PW_TYPE_INTERFACE_Node,
+			node->props, node->adapter, 0);
 
 	spa_list_append(&obj->node_list, &node->link);
 
@@ -154,7 +165,6 @@ static void bluez5_remove_node(struct bluez5_object *obj, struct bluez5_node *no
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
 	pw_proxy_destroy(node->proxy);
-	free(node->handle);
 	free(node);
 }
 

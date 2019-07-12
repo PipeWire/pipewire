@@ -84,6 +84,7 @@ struct port {
 	struct spa_list ready;
 
 	size_t ready_offset;
+	unsigned int need_data:1;
 };
 
 struct impl {
@@ -556,8 +557,10 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		n_bytes = add_data(this, src + offs, l0);
 		if (n_bytes > 0 && l1 > 0)
 			n_bytes += add_data(this, src, l1);
-		if (n_bytes <= 0)
+		if (n_bytes <= 0) {
+			port->need_data = true;
 			break;
+		}
 
 		n_frames = n_bytes / port->frame_size;
 
@@ -689,7 +692,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 		this->start_time = now_time;
 	}
 
-	if (spa_list_is_empty(&port->ready)) {
+	if (spa_list_is_empty(&port->ready) || port->need_data) {
 		spa_log_trace(this->log, NAME " %p: %d", this, io->status);
 
 		io->status = SPA_STATUS_NEED_BUFFER;
@@ -1331,6 +1334,7 @@ static int impl_node_process(void *object)
 
 		spa_list_append(&port->ready, &b->link);
 		b->outstanding = false;
+		port->need_data = false;
 
 		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / port->frame_size,
 				this->props.max_latency);
@@ -1339,7 +1343,6 @@ static int impl_node_process(void *object)
 
 		io->status = SPA_STATUS_OK;
 	}
-
 	return SPA_STATUS_HAVE_BUFFER;
 }
 
@@ -1459,6 +1462,8 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_NODE_CHANGE_MASK_PARAMS |
 			SPA_NODE_CHANGE_MASK_PROPS;
 	this->info = SPA_NODE_INFO_INIT();
+	this->info.max_input_ports = 1;
+	this->info.max_output_ports = 0;
 	this->info.flags = SPA_NODE_FLAG_RT;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);

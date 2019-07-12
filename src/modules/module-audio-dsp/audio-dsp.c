@@ -263,7 +263,7 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *api, *alias, *str, *mode;
+	const char *api, *alias, *str;
 	char node_name[128];
 	enum pw_direction direction;
 	uint32_t max_buffer_size;
@@ -290,8 +290,6 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 		goto error;
 	}
 
-	mode = pw_properties_get(props, "audio-dsp.mode");
-
 	snprintf(node_name, sizeof(node_name), "system_%s", alias);
 	for (i = 0; node_name[i]; i++) {
 		if (node_name[i] == ':' || node_name[i] == ',')
@@ -308,16 +306,16 @@ struct pw_node *pw_audio_dsp_new(struct pw_core *core,
 	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
 
-	if (!mode) {
+	if ((str = pw_properties_get(props, "audio-dsp.mode")) == NULL) {
 		if (direction == PW_DIRECTION_OUTPUT) {
-			pw_properties_set(props, "merger.monitor", "1");
-			mode = "merge";
+			if (pw_properties_get(props, "merger.monitor") == NULL)
+				pw_properties_set(props, "merger.monitor", "1");
+			str = "merge";
 		} else {
-			mode = "split";
+			str = "split";
 		}
 	}
-
-	pw_properties_set(props, "factory.mode", mode);
+	pw_properties_set(props, "factory.mode", str);
 	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 
 	node = pw_spa_node_load(core, NULL, NULL,

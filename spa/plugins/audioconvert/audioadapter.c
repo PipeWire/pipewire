@@ -348,9 +348,23 @@ static int slave_ready(void *data, int status)
 	return spa_node_call_ready(&this->callbacks, status);
 }
 
+static int slave_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+{
+	int res;
+	struct impl *this = data;
+
+	if (this->use_converter)
+		res = spa_node_port_reuse_buffer(this->convert, port_id, buffer_id);
+	else
+		res = spa_node_call_reuse_buffer(&this->callbacks, port_id, buffer_id);
+
+	return res;
+}
+
 static const struct spa_node_callbacks slave_node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = slave_ready,
+	.reuse_buffer = slave_reuse_buffer,
 };
 
 static int impl_node_add_listener(void *object,

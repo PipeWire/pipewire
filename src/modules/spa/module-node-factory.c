@@ -54,9 +54,24 @@ struct factory_data {
 };
 
 struct node_data {
+	struct factory_data *data;
 	struct spa_list link;
 	struct pw_node *node;
 	struct spa_hook node_listener;
+	struct spa_hook resource_listener;
+};
+
+static void resource_destroy(void *data)
+{
+	struct node_data *nd = data;
+	spa_hook_remove(&nd->resource_listener);
+	if (nd->node)
+		pw_node_destroy(nd->node);
+}
+
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = resource_destroy
 };
 
 static void node_destroy(void *data)
@@ -64,6 +79,7 @@ static void node_destroy(void *data)
 	struct node_data *nd = data;
 	spa_list_remove(&nd->link);
 	spa_hook_remove(&nd->node_listener);
+	nd->node = NULL;
 }
 
 static const struct pw_node_events node_events = {
@@ -108,17 +124,28 @@ static void *create_object(void *_data,
 		goto error_create_node;
 
 	nd = pw_spa_node_get_user_data(node);
+	nd->data = data;
 	nd->node = node;
 	spa_list_append(&data->node_list, &nd->link);
 
 	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
 
-	if (resource)
-		pw_global_bind(pw_node_get_global(node),
-			       pw_resource_get_client(resource),
+	if (resource) {
+		struct pw_resource *bound_resource;
+		struct pw_client *client = pw_resource_get_client(resource);
+
+		res = pw_global_bind(pw_node_get_global(node),
+			       client,
 			       PW_PERM_RWX,
 			       version, new_id);
+		if (res < 0)
+			goto error_bind;
 
+		if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+			goto error_bind;
+
+		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
+	}
 	return node;
 
 error_properties:
@@ -132,6 +159,9 @@ error_create_node:
 	pw_log_error("can't create node: %m");
 	if (resource)
 		pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
+	goto error_exit;
+error_bind:
+	pw_resource_error(resource, res, "can't bind node");
 	goto error_exit;
 
 error_exit_cleanup:

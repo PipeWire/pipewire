@@ -53,6 +53,7 @@ struct factory_data {
 
 	struct spa_list node_list;
 
+	struct pw_core *core;
 	struct pw_module *module;
 	struct spa_hook module_listener;
 };
@@ -98,15 +99,11 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *d = _data;
-	struct pw_client *client = pw_resource_get_client(resource);
+	struct pw_client *client;
 	struct pw_node *adapter, *slave;
 	const char *factory_name;
 	int res;
 	struct node_data *nd;
-	struct pw_resource *bound_resource;
-
-	if (resource == NULL)
-		goto error_resource;
 
 	if (properties == NULL)
 		goto error_properties;
@@ -115,7 +112,7 @@ static void *create_object(void *_data,
 	if (factory_name == NULL)
 		goto error_properties;
 
-	slave = pw_spa_node_load(client->core,
+	slave = pw_spa_node_load(d->core,
 				NULL,
 				pw_factory_get_global(d->this),
 				factory_name,
@@ -144,29 +141,30 @@ static void *create_object(void *_data,
 	nd->adapter = adapter;
 	spa_list_append(&d->node_list, &nd->link);
 
-	client = pw_resource_get_client(resource);
-
-	pw_node_register(adapter, client, pw_module_get_global(d->module), NULL);
 	pw_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);
 
-	res = pw_global_bind(pw_node_get_global(adapter), client,
-			PW_PERM_RWX, PW_VERSION_NODE_PROXY, new_id);
-	if (res < 0)
-		goto error_bind;
+	client = resource ? pw_resource_get_client(resource): NULL;
 
-	if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
-		goto error_bind;
+	pw_node_register(adapter, client, pw_module_get_global(d->module), NULL);
 
-	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
+	if (client) {
+		struct pw_resource *bound_resource;
+
+		res = pw_global_bind(pw_node_get_global(adapter), client,
+				PW_PERM_RWX, PW_VERSION_NODE_PROXY, new_id);
+		if (res < 0)
+			goto error_bind;
+
+		if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+			goto error_bind;
+
+		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
+	}
 
 	pw_node_set_active(adapter, true);
 
 	return adapter;
 
-error_resource:
-	res = -EINVAL;
-	pw_log_error("adapter needs a resource");
-	goto error_cleanup;
 error_properties:
 	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, d->this);
@@ -234,6 +232,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
+	data->core = core;
 	data->module = module;
 	spa_list_init(&data->node_list);
 

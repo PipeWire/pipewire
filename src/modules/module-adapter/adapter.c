@@ -79,6 +79,8 @@ struct node {
 	struct pw_node *node;
 	struct spa_hook node_listener;
 
+	struct pw_node *slave;
+
 	void *user_data;
 	enum pw_direction direction;
 	struct pw_properties *props;
@@ -160,13 +162,14 @@ static void node_destroy(void *data)
 	struct node *n = data;
 	struct port *p, *tmp;
 
-	pw_properties_free(n->props);
 	spa_list_for_each_safe(p, tmp, &n->ports, link) {
 		pw_port_set_mix(p->port, NULL, 0);
 		spa_list_remove(&p->link);
 		spa_handle_clear(p->spa_handle);
 		free(p);
 	}
+	pw_node_destroy(n->slave);
+	pw_properties_free(n->props);
 }
 
 static void node_port_init(void *data, struct pw_port *port)
@@ -318,6 +321,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 	n = pw_spa_node_get_user_data(node);
 	n->core = core;
 	n->node = node;
+	n->slave = slave;
 	n->direction = direction;
 	n->props = props;
 	spa_list_init(&n->ports);

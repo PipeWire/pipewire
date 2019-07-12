@@ -619,6 +619,9 @@ impl_node_port_set_io(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
+	spa_log_debug(this->log, NAME " %p: port %d:%d io %d %p/%zd", this,
+			direction, port_id, id, data, size);
+
 	switch (id) {
 	case SPA_IO_Buffers:
 		port->io = data;

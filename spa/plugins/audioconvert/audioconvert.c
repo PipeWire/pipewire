@@ -370,6 +370,8 @@ static void clean_convert(struct impl *this)
 	for (i = 0; i < this->n_links; i++)
 		clean_link(this, &this->links[i]);
 	this->n_links = 0;
+	this->buffers_set[SPA_DIRECTION_INPUT] = false;
+	this->buffers_set[SPA_DIRECTION_OUTPUT] = false;
 }
 
 static int setup_buffers(struct impl *this, enum spa_direction direction)

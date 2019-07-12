@@ -1086,7 +1086,7 @@ static void input_node_result(void *data, int seq, int res, uint32_t type, const
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.input->node;
 	if (SPA_RESULT_IS_ASYNC(seq)) {
-		pw_log_debug("link %p: input node %p result %d %d", impl, node, seq, res);
+		pw_log_trace("link %p: input node %p result %d %d", impl, node, seq, res);
 		pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
 	}
 }
@@ -1096,7 +1096,7 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.output->node;
 	if (SPA_RESULT_IS_ASYNC(seq)) {
-		pw_log_debug("link %p: output node %p result %d %d", impl, node, seq, res);
+		pw_log_trace("link %p: output node %p result %d %d", impl, node, seq, res);
 		pw_work_queue_complete(impl->work, node, SPA_RESULT_ASYNC_SEQ(seq), res);
 	}
 }

@@ -253,7 +253,7 @@ int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq,
 		}
 	}
 	if (!have_work) {
-		pw_log_debug("work-queue %p: no defered %d found for object %p", queue, seq, obj);
+		pw_log_trace("work-queue %p: no defered %d found for object %p", queue, seq, obj);
 		return -EINVAL;
 	}
 

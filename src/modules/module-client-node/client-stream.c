@@ -330,7 +330,7 @@ static void adapter_result(void *data, int seq, int res, uint32_t type, const vo
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	pw_log_debug("%p: result %d %d", this, seq, res);
+	pw_log_trace("%p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
@@ -1150,7 +1150,7 @@ static void client_node_result(void *data, int seq, int res, uint32_t type, cons
 {
 	struct impl *impl = data;
 	struct node *node = &impl->node;
-	pw_log_debug(NAME " %p: result %d %d", &impl->this, seq, res);
+	pw_log_trace(NAME " %p: result %d %d", &impl->this, seq, res);
 	spa_node_emit_result(&node->hooks, seq, res, type, result);
 }
 

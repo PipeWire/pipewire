@@ -301,7 +301,7 @@ static void convert_port_info(void *data,
 static void convert_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *this = data;
-	spa_log_debug(this->log, NAME" %p: result %d %d", this, seq, res);
+	spa_log_trace(this->log, NAME" %p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
@@ -378,7 +378,7 @@ static int impl_node_add_listener(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME" %p: add listener %p", this, listener);
+	spa_log_trace(this->log, NAME" %p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_node_info(this, true);

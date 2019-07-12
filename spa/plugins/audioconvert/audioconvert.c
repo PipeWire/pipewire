@@ -566,7 +566,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 static void on_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *this = data;
-	spa_log_debug(this->log, "%p: result %d %d", this, seq, res);
+	spa_log_trace(this->log, "%p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
@@ -620,7 +620,7 @@ impl_node_add_listener(void *object,
 
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	spa_log_debug(this->log, "%p: add listener %p", this, listener);
+	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 
 	spa_zero(l);
 	spa_node_add_listener(this->fmt[SPA_DIRECTION_INPUT],

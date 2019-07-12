@@ -518,6 +518,8 @@ int pw_node_register(struct pw_node *this,
 		return -errno;
 
 	spa_list_append(&core->node_list, &this->link);
+	if (this->driver)
+		spa_list_append(&core->driver_list, &this->driver_link);
 	this->registered = true;
 
 	this->info.id = this->global->id;
@@ -634,10 +636,12 @@ static void check_properties(struct pw_node *node)
 	if (node->driver != driver) {
 		pw_log_info("node %p: driver %d -> %d", node, node->driver, driver);
 		node->driver = driver;
-		if (driver)
-			spa_list_append(&node->core->driver_list, &node->driver_link);
-		else
-			spa_list_remove(&node->driver_link);
+		if (node->registered) {
+			if (driver)
+				spa_list_append(&node->core->driver_list, &node->driver_link);
+			else
+				spa_list_remove(&node->driver_link);
+		}
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_LATENCY))) {
@@ -1179,14 +1183,14 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug("node %p: driver node %p", impl, node->driver_node);
 
-	if (node->driver)
-		spa_list_remove(&node->driver_link);
-
 	/* remove ourself as a slave from the driver node */
 	spa_list_remove(&node->slave_link);
 
-	if (node->registered)
+	if (node->registered) {
 		spa_list_remove(&node->link);
+		if (node->driver)
+			spa_list_remove(&node->driver_link);
+	}
 
 	if (node->node) {
 		spa_hook_remove(&node->listener);

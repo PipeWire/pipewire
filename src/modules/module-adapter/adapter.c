@@ -266,7 +266,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *name, *str, *mode;
+	const char *name, *str;
 	const struct pw_node_info *info;
 	enum pw_direction direction;
 	int res = -ENOENT;
@@ -288,15 +288,18 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
 
-	if (direction == PW_DIRECTION_INPUT) {
-		pw_properties_set(props, "merger.monitor", "1");
-		mode = "merge";
-	} else {
-		mode = "split";
+	if ((str = pw_properties_get(props, "factory.mode")) == NULL) {
+		if (direction == PW_DIRECTION_INPUT) {
+			if (pw_properties_get(props, "merger.monitor") == NULL)
+				pw_properties_set(props, "merger.monitor", "1");
+			str = "merge";
+		} else {
+			str = "split";
+		}
+		pw_properties_set(props, "factory.mode", str);
 	}
 
 	pw_properties_setf(props, "audio.adapt.slave", "pointer:%p", slave->node);
-	pw_properties_set(props, "factory.mode", mode);
 	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 	pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",
 			direction == PW_DIRECTION_INPUT ? "Sink" : "Source");

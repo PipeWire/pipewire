@@ -94,8 +94,9 @@ static inline uint32_t calc_gcd(uint32_t a, uint32_t b)
 static void impl_native_update_rate(struct resample *r, double rate)
 {
 	struct native_data *data = r->data;
-	uint32_t in_rate, out_rate, phase, gcd;
+	uint32_t in_rate, out_rate, phase, gcd, old_out_rate;
 
+	old_out_rate = data->out_rate;
 	in_rate = r->i_rate / rate;
 	out_rate = r->o_rate;
 	phase = data->phase;
@@ -105,7 +106,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	out_rate /= gcd;
 
 	data->rate = rate;
-	data->phase = phase * out_rate / data->out_rate;
+	data->phase = phase * out_rate / old_out_rate;
 	data->in_rate = in_rate;
 	data->out_rate = out_rate;
 
@@ -118,7 +119,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	if (data->in_rate == data->out_rate)
 		data->func = do_resample_copy_c;
 	else {
-		bool is_full = r->i_rate == in_rate;
+		bool is_full = rate == 1.0;
 
 		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
 #if defined (HAVE_SSE)

@@ -101,27 +101,37 @@ static void *create_object(void *_data,
 	struct factory_data *d = _data;
 	struct pw_client *client;
 	struct pw_node *adapter, *slave;
-	const char *factory_name;
+	const char *str, *factory_name;
 	int res;
 	struct node_data *nd;
 
 	if (properties == NULL)
 		goto error_properties;
 
-	factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
-	if (factory_name == NULL)
-		goto error_properties;
+	slave = NULL;
+	str = pw_properties_get(properties, "adapt.slave.node");
+	if (str != NULL) {
+		if (sscanf(str, "pointer:%p", &slave) != 1)
+			goto error_properties;
 
-	slave = pw_spa_node_load(d->core,
-				NULL,
-				pw_factory_get_global(d->this),
-				factory_name,
-				"slave-node",
-				PW_SPA_NODE_FLAG_ACTIVATE |
-				PW_SPA_NODE_FLAG_NO_REGISTER,
-				pw_properties_copy(properties), 0);
-	if (slave == NULL)
-		goto error_no_mem;
+		pw_properties_setf(properties, "audio.adapt.slave", "pointer:%p", slave);
+	}
+	if (slave == NULL) {
+		factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
+		if (factory_name == NULL)
+			goto error_properties;
+
+		slave = pw_spa_node_load(d->core,
+					NULL,
+					pw_factory_get_global(d->this),
+					factory_name,
+					"slave-node",
+					PW_SPA_NODE_FLAG_ACTIVATE |
+					PW_SPA_NODE_FLAG_NO_REGISTER,
+					pw_properties_copy(properties), 0);
+		if (slave == NULL)
+			goto error_no_mem;
+	}
 
 	adapter = pw_adapter_new(pw_module_get_core(d->module),
 			slave,

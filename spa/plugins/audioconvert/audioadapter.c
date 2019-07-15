@@ -133,12 +133,12 @@ next:
 	return 0;
 }
 
-static void link_io(struct impl *this)
+static int link_io(struct impl *this)
 {
 	int res;
 
 	if (!this->use_converter)
-		return;
+		return 0;
 
 	spa_log_warn(this->log, NAME " %p: controls", this);
 
@@ -152,7 +152,7 @@ static void link_io(struct impl *this)
 		spa_log_warn(this->log, NAME " %p: set RateMatch on slave failed %d %s", this,
 			res, spa_strerror(res));
 	}
-	if ((res = spa_node_port_set_io(this->convert,
+	else if ((res = spa_node_port_set_io(this->convert,
 			SPA_DIRECTION_REVERSE(this->direction), 0,
 			SPA_IO_RateMatch,
 			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
@@ -168,14 +168,17 @@ static void link_io(struct impl *this)
 			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
 		spa_log_warn(this->log, NAME " %p: set Buffers on slave failed %d %s", this,
 			res, spa_strerror(res));
+		return res;
 	}
-	if ((res = spa_node_port_set_io(this->convert,
+	else if ((res = spa_node_port_set_io(this->convert,
 			SPA_DIRECTION_REVERSE(this->direction), 0,
 			SPA_IO_Buffers,
 			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
 		spa_log_warn(this->log, NAME " %p: set Buffers on convert failed %d %s", this,
 			res, spa_strerror(res));
+		return res;
 	}
+	return 0;
 }
 
 static void emit_node_info(struct impl *this, bool full)

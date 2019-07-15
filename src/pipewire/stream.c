@@ -959,37 +959,55 @@ static const struct pw_node_proxy_events node_events = {
 static int handle_connect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct pw_factory *factory;
+	struct pw_properties *props;
+	struct pw_node *slave;
+	const char *str;
 	int res;
 
 	pw_log_debug("stream %p: creating node", stream);
-	impl->node = pw_node_new(impl->core, stream->name,
-			pw_properties_copy(stream->properties), 0);
-	if (impl->node == NULL)
+	props = pw_properties_copy(stream->properties);
+
+	if ((str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) &&
+	    pw_properties_parse_bool(str)) {
+		pw_properties_set(props, "resample.peaks", "1");
+	}
+
+	slave = pw_node_new(impl->core, stream->name,
+			pw_properties_copy(props), 0);
+	if (slave == NULL) {
+		res = -errno;
 		goto error_node;
+	}
 
-	impl->node_methods = impl_node;
-
-	if (impl->direction == SPA_DIRECTION_INPUT)
-		impl->node_methods.process = impl_node_process_input;
-	else
-		impl->node_methods.process = impl_node_process_output;
-
-	impl->impl_node.iface = SPA_INTERFACE_INIT(
-			SPA_TYPE_INTERFACE_Node,
-			SPA_VERSION_NODE,
-			&impl->node_methods, impl);
-
-	pw_node_set_implementation(impl->node, &impl->impl_node);
-
-	pw_node_register(impl->node, NULL, NULL, NULL);
+	pw_node_set_implementation(slave, &impl->impl_node);
 	if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_INACTIVE))
-		pw_node_set_active(impl->node, true);
+		pw_node_set_active(slave, true);
 
+	factory = pw_core_find_factory(impl->core, "adapter");
+	if (factory == NULL) {
+		pw_log_error("no adapter factory found");
+		res = -ENOENT;
+		goto error_node;
+	}
+	pw_properties_setf(props, "adapt.slave.node", "pointer:%p", slave);
+	impl->node = pw_factory_create_object(factory,
+			NULL,
+			PW_TYPE_INTERFACE_Node,
+			PW_VERSION_NODE_PROXY,
+			props,
+			0);
+	if (impl->node == NULL) {
+		res = -errno;
+		goto error_node;
+	}
 	pw_log_debug("stream %p: export node %p", stream, impl->node);
 	stream->proxy = pw_remote_export(stream->remote,
 			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
-	if (stream->proxy == NULL)
+	if (stream->proxy == NULL) {
+		res = -errno;
 		goto error_proxy;
+	}
 
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 	pw_node_proxy_add_listener((struct pw_node_proxy*)stream->proxy,
@@ -998,12 +1016,10 @@ static int handle_connect(struct pw_stream *stream)
 	return 0;
 
 error_node:
-	res = -errno;
-	pw_log_error("stream %p: can't make node: %m", stream);
+	pw_log_error("stream %p: can't make node: %s", stream, spa_strerror(res));
 	return res;
 error_proxy:
-	res = -errno;
-	pw_log_error("stream %p: can't make proxy: %m", stream);
+	pw_log_error("stream %p: can't make proxy: %s", stream, spa_strerror(res));
 	return res;
 }
 
@@ -1302,6 +1318,17 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->flags = flags;
+	impl->node_methods = impl_node;
+
+	if (impl->direction == SPA_DIRECTION_INPUT)
+		impl->node_methods.process = impl_node_process_input;
+	else
+		impl->node_methods.process = impl_node_process_output;
+
+	impl->impl_node.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Node,
+			SPA_VERSION_NODE,
+			&impl->node_methods, impl);
 
 	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
@@ -1321,13 +1348,14 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "1");
-	pw_properties_set(stream->properties, PW_KEY_NODE_STREAM, "1");
 	if (flags & PW_STREAM_FLAG_DRIVER)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "1");
 	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
 		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "1");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
+	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/Audio",
+			direction == PW_DIRECTION_INPUT ? "Input" : "Output");
 
 	state = pw_remote_get_state(stream->remote, NULL);
 	impl->async_connect = (state == PW_REMOTE_STATE_UNCONNECTED ||

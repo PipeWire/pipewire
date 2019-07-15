@@ -32,7 +32,6 @@
 #include <pipewire/pipewire.h>
 
 #include "module-client-node/client-node.h"
-#include "module-client-node/client-stream.h"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -79,12 +78,7 @@ static void *create_object(void *_data,
 
 	parent = pw_client_get_global(client);
 
-	if (properties && pw_properties_get(properties, PW_KEY_NODE_STREAM) != NULL) {
-		result = pw_client_stream_new(node_resource, parent, properties);
-	}
-	else {
-		result = pw_client_node_new(node_resource, parent, properties, true);
-	}
+	result = pw_client_node_new(node_resource, parent, properties, true);
 	if (result == NULL) {
 		res = -errno;
 		goto error_node;

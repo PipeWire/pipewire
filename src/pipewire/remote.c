@@ -215,6 +215,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	pw_module_load(core, "libpipewire-module-rtkit", NULL, NULL, NULL, NULL);
 	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL, NULL, NULL);
+	pw_module_load(core, "libpipewire-module-adapter", NULL, NULL, NULL, NULL);
 
         spa_list_append(&core->remote_list, &this->link);
 

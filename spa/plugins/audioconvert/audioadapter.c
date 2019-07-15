@@ -295,7 +295,7 @@ static void convert_port_info(void *data,
 			port_id--;
 	}
 
-	spa_log_debug(this->log, NAME" %p: port info %d:%d", this,
+	spa_log_trace(this->log, NAME" %p: port info %d:%d", this,
 			direction, port_id);
 
 	spa_node_emit_port_info(&this->hooks, direction, port_id, info);

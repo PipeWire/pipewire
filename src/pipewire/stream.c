@@ -307,6 +307,9 @@ static void call_process(struct stream *impl)
 static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct stream *impl = object;
+
+	pw_log_debug("stream %p: io %d %p/%zd", impl, id, data, size);
+
 	switch(id) {
 	case SPA_IO_Position:
 		if (data && size >= sizeof(struct spa_io_position))

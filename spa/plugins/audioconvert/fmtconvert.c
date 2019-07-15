@@ -857,8 +857,9 @@ static int impl_node_process(void *object)
 	maxsize = outb->datas[0].maxsize;
 	n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
-	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d",
-			this, n_src_datas, n_dst_datas, size, maxsize, n_samples);
+	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d p:%d",
+			this, n_src_datas, n_dst_datas, size, maxsize, n_samples,
+			this->is_passthrough);
 
 	for (i = 0; i < n_dst_datas; i++) {
 		dst_datas[i] = this->is_passthrough ?

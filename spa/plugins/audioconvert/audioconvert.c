@@ -464,6 +464,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+
 	switch (id) {
 	case SPA_IO_Position:
 		res = spa_node_set_io(this->resample, id, data, size);

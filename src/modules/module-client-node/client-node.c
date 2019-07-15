@@ -992,7 +992,7 @@ static int impl_node_process(void *object)
 	struct pw_node *n = impl->this.node;
 	struct timespec ts;
 
-	spa_log_trace_fp(this->log, "%p: send process %p", this, impl->this.node->driver_node);
+	spa_log_trace_fp(this->log, "%p: send process driver:%p", this, impl->this.node->driver_node);
 
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts);
 	n->rt.activation->status = TRIGGERED;

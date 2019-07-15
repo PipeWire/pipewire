@@ -223,6 +223,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+
 	switch (id) {
 	case SPA_IO_Position:
 		this->io_position = data;
@@ -794,9 +796,10 @@ static int impl_node_process(void *object)
 
 	resample_process(&this->resample, src_datas, &in_len, dst_datas, &out_len);
 
-	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %zd %d out %d/%d %zd %d",
+	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %zd %d out %d/%d %zd %d max:%d",
 			this, pin_len, in_len, size / sizeof(float), inport->offset,
-			pout_len, out_len, maxsize / sizeof(float), outport->offset);
+			pout_len, out_len, maxsize / sizeof(float), outport->offset,
+			max);
 
 	for (i = 0; i < db->n_datas; i++) {
 		db->datas[i].chunk->size = outport->offset + (out_len * sizeof(float));

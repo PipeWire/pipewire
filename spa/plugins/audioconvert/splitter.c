@@ -750,7 +750,11 @@ impl_node_port_use_buffers(void *object,
 			if (direction == SPA_DIRECTION_OUTPUT &&
 			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
 				this->is_passthrough = false;
+
+			spa_log_debug(this->log, NAME " %p: buffer %d data %d flags:%08x %p",
+					this, i, j, d[j].flags, b->datas[j]);
 		}
+
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
 	}
@@ -898,7 +902,7 @@ static int impl_node_process(void *object)
 		res |= SPA_STATUS_HAVE_BUFFER;
 	}
 
-	spa_log_trace_fp(this->log, NAME " %p: %d %d %d %d %d %d", this,
+	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d stride:%d p:%d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, inport->stride,
 			this->is_passthrough);
 

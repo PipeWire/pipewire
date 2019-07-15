@@ -168,20 +168,24 @@ static void *create_object(void *_data,
 error_properties:
 	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, d->this);
-	pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
+	if (resource)
+		pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
 	goto error_cleanup;
 error_no_mem:
 	res = -errno;
 	pw_log_error("can't create node: %m");
-	pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
+	if (resource)
+		pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
 	goto error_cleanup;
 error_usage:
 	res = -EINVAL;
 	pw_log_error("usage: "ADAPTER_USAGE);
-	pw_resource_error(resource, res, "usage: "ADAPTER_USAGE);
+	if (resource)
+		pw_resource_error(resource, res, "usage: "ADAPTER_USAGE);
 	goto error_cleanup;
 error_bind:
-	pw_resource_error(resource, res, "can't bind adapter node");
+	if (resource)
+		pw_resource_error(resource, res, "can't bind adapter node");
 	goto error_cleanup;
 error_cleanup:
 	if (properties)

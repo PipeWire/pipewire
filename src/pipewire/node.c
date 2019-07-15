@@ -69,6 +69,11 @@ struct resource_data {
 
 	uint32_t subscribe_ids[MAX_PARAMS];
 	uint32_t n_subscribe_ids;
+
+	/* for async replies */
+	int seq;
+	int end;
+	struct spa_hook listener;
 };
 
 /** \endcond */
@@ -384,21 +389,45 @@ static int node_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 	return 0;
 }
 
+static void result_node_sync(void *data, int seq, int res, uint32_t type, const void *result)
+{
+	struct resource_data *d = data;
+
+	pw_log_debug("sync result %d %d (%d/%d)", res, seq, d->seq, d->end);
+	if (seq == d->end) {
+		spa_hook_remove(&d->listener);
+		pw_client_set_busy(d->resource->client, false);
+	}
+}
+
 static int node_set_param(void *object, uint32_t id, uint32_t flags,
 		const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
+	struct pw_client *client = resource->client;
 	int res;
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.result = result_node_sync,
+	};
 
 	pw_log_debug("resource %p: set param %s %08x", resource,
 			spa_debug_type_find_name(spa_type_param, id), flags);
 
-	if ((res = spa_node_set_param(node->node, id, flags, param)) < 0) {
+	res = spa_node_set_param(node->node, id, flags, param);
+
+	if (res < 0) {
 		pw_log_error("resource %p: %d error %d (%s)", resource,
 				resource->id, res, spa_strerror(res));
 		pw_resource_error(resource, res, spa_strerror(res));
+	} else if (SPA_RESULT_IS_ASYNC(res)) {
+		spa_node_add_listener(node->node, &data->listener,
+			&node_events, data);
+		data->seq = res;
+		data->end = spa_node_sync(node->node, res);
+		pw_client_set_busy(client, true);
 	}
 	return 0;
 }

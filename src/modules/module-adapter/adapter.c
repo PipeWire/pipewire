@@ -277,6 +277,8 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 		return NULL;
 	}
 
+	pw_properties_update(props, info->props);
+
 	if (info->n_output_ports == 0)
 		direction = PW_DIRECTION_INPUT;
 	else
@@ -301,7 +303,8 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 
 	pw_properties_setf(props, "audio.adapt.slave", "pointer:%p", slave->node);
 	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
-	pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",
+	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
+		pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",
 			direction == PW_DIRECTION_INPUT ? "Sink" : "Source");
 
 	node = pw_spa_node_load(core, NULL, NULL,

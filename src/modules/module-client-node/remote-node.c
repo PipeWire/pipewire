@@ -165,7 +165,7 @@ static void *mem_map(struct node_data *data, struct mapping *map,
 		map->ptr = m.ptr;
 		pw_log_debug("remote %p: fd %d map %d %d %p", data, fd, m.map.offset, m.map.size, m.ptr);
 	}
-	ptr = SPA_MEMBER(map->ptr, map->map.start, void);
+	ptr = SPA_MEMBER(map->ptr, m.map.start, void);
 	pw_log_debug("remote %p: fd %d ptr %p (%d %d)", data, fd, ptr, offset, size);
 
 	return ptr;
@@ -479,7 +479,8 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 		pi.flags = port->spa_flags;
 		pi.rate = SPA_FRACTION(0, 1);
 		pi.props = &port->properties->dict;
-		pi.flags &= ~SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+		SPA_FLAG_UNSET(pi.flags,
+			SPA_PORT_FLAG_CAN_ALLOC_BUFFERS | SPA_PORT_FLAG_DYNAMIC_DATA);
 		pi.n_params = port->info.n_params;
 		pi.params = port->info.params;
 	}

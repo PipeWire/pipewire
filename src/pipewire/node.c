@@ -396,6 +396,7 @@ static void result_node_sync(void *data, int seq, int res, uint32_t type, const 
 	pw_log_debug("sync result %d %d (%d/%d)", res, seq, d->seq, d->end);
 	if (seq == d->end) {
 		spa_hook_remove(&d->listener);
+		d->end = -1;
 		pw_client_set_busy(d->resource->client, false);
 	}
 }
@@ -423,11 +424,12 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 				resource->id, res, spa_strerror(res));
 		pw_resource_error(resource, res, spa_strerror(res));
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
-		spa_node_add_listener(node->node, &data->listener,
-			&node_events, data);
+		pw_client_set_busy(client, true);
+		if (data->end == -1)
+			spa_node_add_listener(node->node, &data->listener,
+				&node_events, data);
 		data->seq = res;
 		data->end = spa_node_sync(node->node, res);
-		pw_client_set_busy(client, true);
 	}
 	return 0;
 }
@@ -473,6 +475,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	data->node = this;
 	data->resource = resource;
+	data->end = -1;
 
 	pw_resource_add_listener(resource,
 			&data->resource_listener,

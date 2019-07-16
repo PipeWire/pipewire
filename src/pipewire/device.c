@@ -235,6 +235,7 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 
 	if (seq == d->end) {
 		spa_hook_remove(&d->listener);
+		d->end = -1;
 		pw_client_set_busy(d->resource->client, false);
 	}
 }
@@ -259,13 +260,14 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 		pw_core_resource_error(client->core_resource,
 				resource->id, seq, res, spa_strerror(res));
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
+		pw_client_set_busy(client, true);
 		data->data.data = data;
 		data->data.callback = reply_param;
-		spa_device_add_listener(device->device, &data->listener,
-			&device_events, data);
+		if (data->end == -1)
+			spa_device_add_listener(device->device, &data->listener,
+				&device_events, data);
 		data->seq = res;
 		data->end = spa_device_sync(device->device, res);
-		pw_client_set_busy(client, true);
 	}
 
 	return res;
@@ -306,6 +308,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	data->device = this;
 	data->resource = resource;
+	data->end = -1;
 
 	pw_resource_add_listener(resource,
 			&data->resource_listener,

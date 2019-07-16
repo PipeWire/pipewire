@@ -135,7 +135,7 @@ process_messages(struct client_data *data)
 			     msg->opcode, msg->id);
 
 		if (debug_messages) {
-			fprintf(stderr, "<<<<<<<<< in: %d %d %d\n", msg->id, msg->opcode, msg->size);
+			fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d\n", msg->id, msg->opcode, msg->size);
 		        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 		}
 
@@ -517,7 +517,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			this->recv_seq = msg->seq;
 
 			if (debug_messages) {
-				fprintf(stderr, "<<<<<<<<< in: %d %d %d %d\n",
+				fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d seq:%d\n",
 						msg->id, msg->opcode, msg->size, msg->seq);
 			        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 			}

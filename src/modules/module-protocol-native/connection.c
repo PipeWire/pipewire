@@ -416,7 +416,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	buf->n_fds += buf->msg.n_fds;
 
 	if (debug_messages) {
-		fprintf(stderr, ">>>>>>>>> out: %d %d %d\n", buf->msg.id, buf->msg.opcode, size);
+		fprintf(stderr, ">>>>>>>>> out: id:%d op:%d size:%d\n", buf->msg.id, buf->msg.opcode, size);
 	        spa_debug_pod(0, NULL, SPA_MEMBER(p, HDR_SIZE, struct spa_pod));
 	}
 

@@ -179,31 +179,43 @@ static void node_port_init(void *data, struct pw_port *port)
 	const struct pw_properties *old;
 	enum pw_direction direction;
 	struct pw_properties *new;
-	const char *str;
+	const char *str, *node_name, *media_class;
 	void *iface;
 	const struct spa_support *support;
 	uint32_t n_support;
 	char position[8], *prefix;
-	bool monitor;
+	bool is_monitor, is_device;
 
 	direction = pw_port_get_direction(port);
 
 	old = pw_port_get_properties(port);
 
-	monitor = (str = pw_properties_get(old, PW_KEY_PORT_MONITOR)) != NULL &&
+	is_monitor = (str = pw_properties_get(old, PW_KEY_PORT_MONITOR)) != NULL &&
 			pw_properties_parse_bool(str);
 
-	if (!monitor && direction != n->direction)
+	if (!is_monitor && direction != n->direction)
 		return;
 
-	new = pw_properties_new(PW_KEY_FORMAT_DSP, "32 bit float mono audio", NULL);
+	node_name = pw_properties_get(n->props, PW_KEY_NODE_NAME);
+	media_class = pw_properties_get(n->props, PW_KEY_MEDIA_CLASS);
 
-	if (monitor)
-		prefix = "monitor";
-	else if (direction == PW_DIRECTION_INPUT)
-		prefix = "playback";
+	if (media_class != NULL &&
+	    (strstr(media_class, "Sink") != NULL ||
+	     strstr(media_class, "Source") != NULL))
+		is_device = true;
 	else
-		prefix = "capture";
+		is_device = false;
+
+	new = pw_properties_new(NULL, NULL);
+
+	if (is_monitor)
+		prefix = "monitor";
+	else if (is_device)
+		prefix = direction == PW_DIRECTION_INPUT ?
+			"playback" : "capture";
+	else
+		prefix = direction == PW_DIRECTION_INPUT ?
+			"input" : "output";
 
 	if ((str = pw_properties_get(old, PW_KEY_AUDIO_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {
@@ -214,9 +226,11 @@ static void node_port_init(void *data, struct pw_port *port)
 	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
 
 	if (direction == n->direction) {
+		const char *api = pw_properties_get(n->props, PW_KEY_DEVICE_API);
+
 		pw_properties_setf(new, PW_KEY_PORT_ALIAS1, "%s_pcm:%s:%s%s",
-				pw_properties_get(n->props, PW_KEY_DEVICE_API),
-				pw_properties_get(n->props, PW_KEY_NODE_NAME),
+				api ? api : "adapter",
+				node_name ? node_name : "node",
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				str);
 

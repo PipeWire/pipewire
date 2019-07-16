@@ -536,7 +536,6 @@ static int select_io(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct spa_io_buffers *io;
-	int res;
 
 	io = this->rt.in_mix.io;
 	if (io == NULL)
@@ -546,15 +545,8 @@ static int select_io(struct pw_link *this)
 	if (io == NULL)
 		return -EIO;
 
-	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, io,
-			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
-		return res;
-
-	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, io,
-			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
-		return res;
-
 	this->io = io;
+
 	return 0;
 }
 
@@ -754,10 +746,19 @@ static int
 do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-        struct pw_link *this = user_data;
+	struct pw_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	int res;
 
 	pw_log_trace("link %p: activate", this);
+
+	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
+			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
+		return res;
+
+	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
+			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+		return res;
 
 	spa_list_append(&this->output->rt.mix_list, &this->rt.out_mix.rt_link);
 	spa_list_append(&this->input->rt.mix_list, &this->rt.in_mix.rt_link);
@@ -886,7 +887,6 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 
 	clear_port_buffers(this, port);
 
-	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, mix);
 	pw_port_release_mix(port, mix);
 	this->input = NULL;
 }
@@ -906,7 +906,6 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 	clear_port_buffers(this, port);
 
-	port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, mix);
 	pw_port_release_mix(port, mix);
 	this->output = NULL;
 }
@@ -966,6 +965,9 @@ do_deactivate_link(struct spa_loop *loop,
         struct pw_link *this = user_data;
 
 	pw_log_trace("link %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
+
+	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
+	port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, &this->rt.out_mix);
 
 	spa_list_remove(&this->rt.out_mix.rt_link);
 	spa_list_remove(&this->rt.in_mix.rt_link);

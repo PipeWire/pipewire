@@ -121,16 +121,13 @@ struct node {
 	enum pw_direction direction;
 #define NODE_TYPE_UNKNOWN	0
 #define NODE_TYPE_STREAM	1
-#define NODE_TYPE_DSP		2
-#define NODE_TYPE_DEVICE	3
+#define NODE_TYPE_DEVICE	2
 	uint32_t type;
 	char *media;
 
 	uint32_t media_type;
 	uint32_t media_subtype;
 	struct spa_audio_info_raw format;
-
-	struct spa_audio_info_raw profile_format;
 };
 
 struct port {
@@ -255,13 +252,6 @@ static int on_node_idle(struct impl *impl, struct node *node)
 		return 0;
 
 	switch (node->type) {
-	case NODE_TYPE_DSP:
-		pw_log_debug(NAME" %p: dsp idle for session %d", impl, sess->id);
-		sess->busy = false;
-		sess->exclusive = false;
-		add_idle_timeout(sess);
-		break;
-
 	case NODE_TYPE_DEVICE:
 		pw_log_debug(NAME" %p: device idle for session %d", impl, sess->id);
 		sess->busy = false;
@@ -282,11 +272,6 @@ static int on_node_running(struct impl *impl, struct node *node)
 		return 0;
 
 	switch (node->type) {
-	case NODE_TYPE_DSP:
-		pw_log_debug(NAME" %p: dsp running for session %d", impl, sess->id);
-		remove_idle_timeout(sess);
-		break;
-
 	case NODE_TYPE_DEVICE:
 		pw_log_debug(NAME" %p: device running or session %d", impl, sess->id);
 		remove_idle_timeout(sess);
@@ -340,6 +325,7 @@ static void node_event_param(void *object, int seq,
 		return;
 
 	spa_pod_object_fixate((struct spa_pod_object*)param);
+	spa_debug_pod(2, NULL, param);
 
 	if (spa_format_audio_raw_parse(param, &info) < 0)
 		goto error;
@@ -398,8 +384,6 @@ static void node_proxy_destroy(void *data)
 	}
 	if (n->manager) {
 		switch (n->type) {
-		case NODE_TYPE_DSP:
-			break;
 		case NODE_TYPE_DEVICE:
 			remove_session(impl, n->manager);
 			n->manager = NULL;
@@ -484,11 +468,8 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 			direction = PW_DIRECTION_OUTPUT;
 		else if (strcmp(media_class, "Source") == 0)
 			direction = PW_DIRECTION_INPUT;
-		else {
-			if (strstr(media_class, "DSP/") == media_class)
-				node->type = NODE_TYPE_DSP;
+		else
 			return 0;
-		}
 
 		sess = calloc(1, sizeof(struct session));
 		sess->impl = impl;
@@ -616,8 +597,6 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 
 	if (props != NULL && (str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) != NULL)
 		port->flags |= PORT_FLAG_DSP;
-	if (node->type == NODE_TYPE_DSP && !(port->flags & PORT_FLAG_DSP))
-		port->flags |= PORT_FLAG_SKIP;
 
 	pw_proxy_add_listener(p, &port->obj.listener, &port_proxy_events, port);
 	pw_proxy_add_object_listener(p, &port->listener, &port_events, port);
@@ -917,7 +896,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	char buf[1024];
 	int n_links = 0;
 
-	if (node->type == NODE_TYPE_DSP || node->type == NODE_TYPE_DEVICE)
+	if (node->type == NODE_TYPE_DEVICE)
 		return 0;
 
 	if (node->session != NULL)
@@ -1094,19 +1073,17 @@ static int rescan_node(struct impl *impl, struct node *node)
 
 	if (!exclusive) {
 do_link_profile:
-		audio_info = peer->profile_format;
+		audio_info = peer->format;
 
 		if (direction == PW_DIRECTION_INPUT)
-			audio_info.channels = SPA_MIN(peer->format.channels, node->format.channels);
+			audio_info.channels = SPA_MIN(audio_info.channels, node->format.channels);
 		else
-			audio_info.channels = SPA_MAX(peer->format.channels, node->format.channels);
+			audio_info.channels = SPA_MAX(audio_info.channels, node->format.channels);
 
-		pw_log_debug(NAME" %p: channels: %d %d -> %d", impl,
-				peer->format.channels, node->format.channels,
-				audio_info.channels);
+		pw_log_debug(NAME" %p: channels: %d -> %d", impl,
+				node->format.channels, audio_info.channels);
 
 		audio_info.rate = DEFAULT_SAMPLERATE;
-		node->profile_format = audio_info;
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &audio_info);

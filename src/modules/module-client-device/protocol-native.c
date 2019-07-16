@@ -86,6 +86,7 @@ static int device_marshal_sync(void *object, int seq)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
+	pw_client_set_busy(pw_resource_get_client(resource), false);
 	b = pw_protocol_native_begin_resource(resource, SPA_DEVICE_METHOD_SYNC, &msg);
 
 	spa_pod_builder_add_struct(b,

@@ -122,6 +122,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		str = "alsa-device";
 	pw_properties_set(node->props, PW_KEY_NODE_NAME, str);
 	pw_properties_set(node->props, "factory.name", info->factory_name);
+	pw_properties_set(node->props, "merger.monitor", "1");
 
 	node->monitor = monitor;
 	node->object = obj;

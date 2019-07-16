@@ -306,8 +306,6 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 
 	if ((str = pw_properties_get(props, "factory.mode")) == NULL) {
 		if (direction == PW_DIRECTION_INPUT) {
-			if (pw_properties_get(props, "merger.monitor") == NULL)
-				pw_properties_set(props, "merger.monitor", "1");
 			str = "merge";
 		} else {
 			str = "split";

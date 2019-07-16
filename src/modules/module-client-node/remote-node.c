@@ -1037,12 +1037,14 @@ static void do_node_init(struct pw_proxy *proxy)
 
 static void clear_mix(struct node_data *data, struct mix *mix)
 {
-	clear_buffers(data, mix);
-	pw_array_clear(&mix->buffers);
-
 	deactivate_mix(data, mix);
 
 	spa_list_remove(&mix->link);
+
+	clear_buffers(data, mix);
+	pw_array_clear(&mix->buffers);
+
+	spa_list_remove(&mix->mix.link);
 	spa_list_append(&data->free_mix, &mix->link);
 }
 
@@ -1071,12 +1073,14 @@ static void node_destroy(void *data)
 static void node_free(void *data)
 {
 	struct node_data *d = data;
-	struct pw_proxy *proxy = (struct pw_proxy*) d->node_proxy;
 
 	pw_log_debug("%p: free", d);
 
-	pw_proxy_destroy(d->proxy);
-	pw_proxy_destroy(proxy);
+	if (d->proxy) {
+		pw_proxy_destroy(d->proxy);
+		d->proxy = NULL;
+	}
+	pw_proxy_destroy((struct pw_proxy*)d->node_proxy);
 }
 
 static void node_info_changed(void *data, const struct pw_node_info *info)
@@ -1132,8 +1136,19 @@ static const struct pw_node_events node_events = {
 static void node_proxy_destroy(void *_data)
 {
 	struct node_data *data = _data;
+
+	pw_log_debug("%p: destroy", data);
+
 	clean_node(data);
+
 	spa_hook_remove(&data->node_listener);
+
+	data->node_proxy = NULL;
+
+	if (data->proxy) {
+		pw_proxy_destroy(data->proxy);
+		data->proxy = NULL;
+	}
 	if (data->do_free)
 		pw_node_destroy(data->node);
 }

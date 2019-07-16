@@ -469,7 +469,8 @@ impl_node_port_enum_params(void *object, int seq,
 }
 
 static int debug_params(struct impl *this, struct spa_node *node,
-                enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter)
+                enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter,
+		const char *debug, int err)
 {
         struct spa_pod_builder b = { 0 };
         uint8_t buffer[4096];
@@ -477,7 +478,9 @@ static int debug_params(struct impl *this, struct spa_node *node,
         struct spa_pod *param;
         int res;
 
-        spa_log_error(this->log, "params %s:", spa_debug_type_find_name(spa_type_param, id));
+        spa_log_error(this->log, "params %s: %d:%d (%s) %s",
+			spa_debug_type_find_name(spa_type_param, id),
+			direction, port_id, debug, spa_strerror(err));
 
         state = 0;
         while (true) {
@@ -519,9 +522,9 @@ static int negotiate_format(struct impl *this)
 	if ((res = spa_node_port_enum_params_sync(this->slave,
 				this->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
-				format, &format, &b)) != 1) {
+				format, &format, &b)) < 0) {
 		debug_params(this, this->slave, this->direction, 0,
-				SPA_PARAM_EnumFormat, format);
+				SPA_PARAM_EnumFormat, format, "slave format", res);
 		return -ENOTSUP;
 	}
 
@@ -532,7 +535,7 @@ static int negotiate_format(struct impl *this)
 				format, &format, &b)) != 1) {
 		debug_params(this, this->convert,
 				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_EnumFormat, NULL);
+				SPA_PARAM_EnumFormat, format, "convert format", res);
 		return -ENOTSUP;
 	}
 
@@ -578,9 +581,9 @@ static int negotiate_buffers(struct impl *this)
 	if ((res = spa_node_port_enum_params_sync(this->slave,
 				this->direction, 0,
 				SPA_PARAM_Buffers, &state,
-				param, &param, &b)) != 1) {
+				param, &param, &b)) < 0) {
 		debug_params(this, this->slave, this->direction, 0,
-				SPA_PARAM_Buffers, param);
+				SPA_PARAM_Buffers, param, "slave buffers", res);
 		return -ENOTSUP;
 	}
 
@@ -591,7 +594,7 @@ static int negotiate_buffers(struct impl *this)
 				param, &param, &b)) != 1) {
 		debug_params(this, this->convert,
 				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, param);
+				SPA_PARAM_Buffers, param, "convert buffers", res);
 		return -ENOTSUP;
 	}
 

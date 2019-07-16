@@ -1424,7 +1424,7 @@ struct sink_input_data {
 
 static void sink_input_callback(struct sink_input_data *d)
 {
-	struct global *g = d->global, *l, *cl;
+	struct global *g = d->global, *cl;
 	struct pw_node_info *info = g->info;
 	const char *name;
 	pa_sink_input_info i;
@@ -1455,6 +1455,7 @@ static void sink_input_callback(struct sink_input_data *d)
 		i.sink = s->device_index;
 	}
 	else {
+		struct global *l;
 		l = pa_context_find_linked(d->context, g->id);
 		i.sink = l ? l->id : PA_INVALID_INDEX;
 	}
@@ -1489,6 +1490,8 @@ static void sink_input_callback(struct sink_input_data *d)
 	i.corked = false;
 	i.has_volume = true;
 	i.volume_writable = true;
+
+	pw_log_debug("context %p: sink info for %d sink:%d", g->context, i.index, i.sink);
 
 	d->cb(d->context, &i, 0, d->userdata);
 

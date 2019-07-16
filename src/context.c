@@ -588,9 +588,11 @@ static int set_mask(pa_context *c, struct global *g)
 				g->link_info.dst->parent_id,
 				g->link_info.dst->id);
 
-		if ((f = pa_context_find_global(c, g->link_info.src->parent_id)) != NULL)
+		if ((f = pa_context_find_global(c, g->link_info.src->parent_id)) != NULL &&
+		    !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
-		if ((f = pa_context_find_global(c, g->link_info.dst->parent_id)) != NULL)
+		if ((f = pa_context_find_global(c, g->link_info.dst->parent_id)) != NULL &&
+		    !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
 
 		break;

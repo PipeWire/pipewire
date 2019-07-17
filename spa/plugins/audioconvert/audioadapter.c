@@ -856,6 +856,9 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
+	spa_hook_remove(&this->slave_listener);
+	spa_node_set_callbacks(this->slave, NULL, NULL);
+
 	if (this->buffers)
 		free(this->buffers);
 	this->buffers = NULL;

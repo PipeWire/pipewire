@@ -620,7 +620,10 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 	node->master = node->driver && driver == node;
 	pw_log_info("node %p: driver %p master:%u", node, driver, node->master);
 
+	spa_list_remove(&node->slave_link);
 	node->driver_node = driver;
+	spa_list_append(&driver->slave_list, &node->slave_link);
+
 	pw_node_emit_driver_changed(node, old, driver);
 
 	if ((res = spa_node_set_io(node->node,
@@ -1217,6 +1220,11 @@ void pw_node_destroy(struct pw_node *node)
 
 	/* remove ourself as a slave from the driver node */
 	spa_list_remove(&node->slave_link);
+
+	spa_list_consume(slave, &node->slave_list, slave_link) {
+		pw_log_debug("node %p: reslave %p", impl, slave);
+		pw_node_set_driver(slave, NULL);
+	}
 
 	if (node->registered) {
 		spa_list_remove(&node->link);

@@ -1058,8 +1058,6 @@ static int collect_nodes(struct pw_node *driver)
 
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
-		spa_list_append(&driver->slave_list, &n->slave_link);
-
 		pw_node_set_driver(n, driver);
 
 		if (n->quantum_size > 0 && n->quantum_size < quantum)

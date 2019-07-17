@@ -1049,9 +1049,13 @@ static int collect_nodes(struct pw_node *driver)
 	struct pw_link *l;
 	uint32_t quantum = DEFAULT_QUANTUM;
 
-	spa_list_init(&driver->slave_list);
+	spa_list_consume(t, &driver->slave_list, slave_link) {
+		spa_list_remove(&t->slave_link);
+		spa_list_init(&t->slave_link);
+	}
 
 	pw_log_info("driver %p: '%s'", driver, driver->info.name);
+
 	spa_list_init(&queue);
 	spa_list_append(&queue, &driver->sort_link);
 	driver->visited = true;

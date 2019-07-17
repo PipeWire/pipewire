@@ -614,15 +614,16 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 	if (driver == NULL)
 		driver = node;
 
+	spa_list_remove(&node->slave_link);
+	spa_list_append(&driver->slave_list, &node->slave_link);
+
 	if (old == driver)
 		return 0;
 
 	node->master = node->driver && driver == node;
 	pw_log_info("node %p: driver %p master:%u", node, driver, node->master);
 
-	spa_list_remove(&node->slave_link);
 	node->driver_node = driver;
-	spa_list_append(&driver->slave_list, &node->slave_link);
 
 	pw_node_emit_driver_changed(node, old, driver);
 
@@ -1209,6 +1210,8 @@ void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_port *port;
+
+	node->active = false;
 
 	pw_log_debug("node %p: destroy", impl);
 	pw_node_emit_destroy(node);

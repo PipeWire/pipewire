@@ -546,7 +546,7 @@ static int core_method_demarshal_destroy(void *object, const struct pw_protocol_
 			SPA_POD_Int(&id)) < 0)
 		return -EINVAL;
 
-	pw_log_debug("client %p: destroy resource %d", client, id);
+	pw_log_debug("client %p: destroy resource %u", client, id);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		goto no_resource;
@@ -554,9 +554,9 @@ static int core_method_demarshal_destroy(void *object, const struct pw_protocol_
 	return pw_resource_notify(resource, struct pw_core_proxy_methods, destroy, 0, r);
 
       no_resource:
-	pw_log_error("client %p: can't find resouce %d", client, id);
-	pw_resource_error(resource, -EINVAL, "unknown resource %d", id);
-	return -EINVAL;
+	pw_log_error("client %p: unknown resouce %u op:%u", client, id, msg->opcode);
+	pw_resource_error(resource, -EINVAL, "unknown resource %d op:%u", id, msg->opcode);
+	return 0;
 }
 
 static int registry_method_marshal_add_listener(void *object,

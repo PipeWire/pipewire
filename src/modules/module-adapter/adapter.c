@@ -130,7 +130,7 @@ static int port_use_buffers(void *data,
 	struct pw_node *node = port->node;
 	int res, i;
 
-	pw_log_debug(NAME " %p: port %p", p->node->node, port);
+	pw_log_debug(NAME " %p: port %p %p %d", p->node->node, port, buffers, n_buffers);
 
 	if (n_buffers > 0) {
 		for (i = 0; i < PORT_BUFFERS; i++)

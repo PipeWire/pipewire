@@ -116,6 +116,7 @@ process_messages(struct client_data *data)
 	struct pw_core *core = client->core;
 	const struct pw_protocol_native_message *msg;
 	struct pw_resource *resource;
+	int res;
 
 	core->current_client = client;
 
@@ -135,16 +136,17 @@ process_messages(struct client_data *data)
 			     msg->opcode, msg->id);
 
 		if (debug_messages) {
-			fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d\n", msg->id, msg->opcode, msg->size);
+			fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d seq:%d\n",
+					msg->id, msg->opcode, msg->size, msg->seq);
 		        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 		}
 
 		resource = pw_client_find_resource(client, msg->id);
 		if (resource == NULL) {
-			pw_log_error("protocol-native %p: unknown resource %u",
-				     client->protocol, msg->id);
+			pw_log_error("protocol-native %p: unknown resource %u op:%u",
+				     client->protocol, msg->id, msg->opcode);
 			pw_resource_error(client->core_resource,
-					-EINVAL, "unknown resource %u", msg->id);
+					-EINVAL, "unknown resource %u op:%u", msg->id, msg->opcode);
 			continue;
 		}
 
@@ -153,8 +155,10 @@ process_messages(struct client_data *data)
 			goto invalid_method;
 
 		demarshal = marshal->method_demarshal;
-		if (!demarshal[msg->opcode].func)
+		if (!demarshal[msg->opcode].func) {
+			res = -ENOENT;
 			goto invalid_message;
+		}
 
 		permissions = pw_resource_get_permissions(resource);
 		required = demarshal[msg->opcode].permissions | PW_PERM_X;
@@ -167,7 +171,7 @@ process_messages(struct client_data *data)
 			continue;
 		}
 
-		if (demarshal[msg->opcode].func(resource, msg) < 0)
+		if ((res = demarshal[msg->opcode].func(resource, msg)) < 0)
 			goto invalid_message;
 	}
 done:
@@ -175,15 +179,17 @@ done:
 	return;
 
 invalid_method:
-	pw_log_error("protocol-native %p: invalid method %u on resource %u",
-		     client->protocol, msg->opcode, msg->id);
-	pw_resource_error(resource, -EINVAL, "invalid method %u", msg->opcode);
+	pw_log_error("protocol-native %p: invalid method id:%u op:%u",
+		     client->protocol, msg->id, msg->opcode);
+	pw_resource_error(resource, -EINVAL, "invalid method id:%u op:%u",
+			msg->id, msg->opcode);
 	pw_client_destroy(client);
 	goto done;
 invalid_message:
-	pw_log_error("protocol-native %p: invalid message received %u %u",
-		     client->protocol, msg->id, msg->opcode);
-	pw_resource_error(resource, -EINVAL, "invalid message %u", msg->opcode);
+	pw_log_error("protocol-native %p: invalid message received id:%u op:%u (%s)",
+		     client->protocol, msg->id, msg->opcode, spa_strerror(res));
+	pw_resource_error(resource, res, "invalid message received id:%u op:%u (%s)",
+			msg->id, msg->opcode, spa_strerror(res));
 	spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 	pw_client_destroy(client);
 	goto done;

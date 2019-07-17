@@ -912,6 +912,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
+	pw_log_debug("link %p: port %p", this, port);
 	pw_link_emit_port_unlinked(this, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);

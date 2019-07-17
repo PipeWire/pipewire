@@ -62,6 +62,7 @@ struct node_data {
 	struct factory_data *data;
 	struct spa_list link;
 	struct pw_node *adapter;
+	struct pw_node *slave;
 	struct spa_hook adapter_listener;
 	struct spa_hook resource_listener;
 };
@@ -69,6 +70,7 @@ struct node_data {
 static void resource_destroy(void *data)
 {
 	struct node_data *nd = data;
+
 	spa_hook_remove(&nd->resource_listener);
 	if (nd->adapter)
 		pw_node_destroy(nd->adapter);
@@ -86,9 +88,16 @@ static void node_destroy(void *data)
 	nd->adapter = NULL;
 }
 
+static void node_free(void *data)
+{
+	struct node_data *nd = data;
+	pw_node_destroy(nd->slave);
+}
+
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.destroy = node_destroy
+	.destroy = node_destroy,
+	.free = node_free,
 };
 
 static void *create_object(void *_data,
@@ -149,6 +158,7 @@ static void *create_object(void *_data,
 	nd = pw_adapter_get_user_data(adapter);
 	nd->data = d;
 	nd->adapter = adapter;
+	nd->slave = slave;
 	spa_list_append(&d->node_list, &nd->link);
 
 	pw_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);

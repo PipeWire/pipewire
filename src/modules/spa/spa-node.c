@@ -71,9 +71,8 @@ static void spa_node_free(void *data)
 	pw_log_debug("spa-node %p: free", node);
 
 	spa_hook_remove(&impl->node_listener);
-	if (impl->handle) {
+	if (impl->handle)
 		pw_unload_spa_handle(impl->handle);
-	}
 	free(impl->factory_name);
 }
 

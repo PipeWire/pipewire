@@ -252,6 +252,17 @@ found:
 	return m;
 }
 
+
+static inline struct mem *find_mem_fd(struct impl *impl, int fd)
+{
+	struct mem *m;
+	pw_array_for_each(m, &impl->mems) {
+		if (m->fd == fd)
+			return m;
+	}
+	return NULL;
+}
+
 static struct mix *find_mix(struct port *p, uint32_t mix_id)
 {
 	struct mix *mix;
@@ -296,10 +307,10 @@ static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id
 static void clear_io(struct node *node, struct io *io)
 {
 	struct mem *m;
-	spa_log_debug(node->log, "node %p: clear io %p %d %d", node, io, io->id, io->memid);
 	m = pw_array_get_unchecked(&node->impl->mems, io->memid, struct mem);
 	m->ref--;
 	io->id = SPA_ID_INVALID;
+	spa_log_debug(node->log, "node %p: clear io %p %d mem %u %d", node, io, io->id, io->memid, m->ref);
 }
 
 static struct io *update_io(struct node *this,
@@ -776,8 +787,7 @@ static int do_port_set_io(struct impl *impl,
 			return -EINVAL;
 
 		mem_offset = SPA_PTRDIFF(data, mem->ptr);
-		mem_size = mem->size;
-		if (mem_size - mem_offset < size)
+		if (mem_offset + size > mem->size)
 			return -EINVAL;
 
 		mem_offset += mem->offset;
@@ -785,6 +795,7 @@ static int do_port_set_io(struct impl *impl,
 		if (m == NULL)
 			return -errno;
 		memid = m->id;
+		mem_size = size;
 	}
 	else {
 		memid = SPA_ID_INVALID;
@@ -1622,9 +1633,21 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
+	struct mem *m;
 
 	if (this->resource == NULL)
 		return;
+
+	m = find_mem_fd(impl, peer->activation->fd);
+	if (m == NULL) {
+		pw_log_warn(NAME " %p: unknown peer %p fd:%d", &impl->this, peer,
+			peer->source.fd);
+		return;
+	}
+	m->ref--;
+
+	pw_log_debug(NAME " %p: peer %p %u removed", &impl->this, peer,
+			peer->info.id);
 
 	pw_client_node_resource_set_activation(this->resource,
 					  peer->info.id,
@@ -1636,6 +1659,10 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 
 static void node_driver_changed(void *data, struct pw_node *old, struct pw_node *driver)
 {
+	struct impl *impl = data;
+
+	pw_log_debug(NAME " %p: driver changed %p -> %p", &impl->this, old, driver);
+
 	node_peer_removed(data, old);
 	node_peer_added(data, driver);
 }

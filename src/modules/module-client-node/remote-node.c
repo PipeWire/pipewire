@@ -141,7 +141,7 @@ static struct mem *find_mem_ptr(struct node_data *data, void *ptr)
 {
 	struct mem *m;
 	pw_array_for_each(m, &data->mems) {
-		if (m->map.ptr == ptr)
+		if (ptr >= m->map.ptr && ptr < SPA_MEMBER(m->map.ptr, m->map.map.size, void))
 			return m;
 	}
 	return NULL;
@@ -208,8 +208,13 @@ static void clear_mem(struct node_data *data, struct mem *m)
 
 static void clear_link(struct node_data *data, struct link *link)
 {
+	struct mem *m;
+
 	link->node_id = SPA_ID_INVALID;
 	link->target.activation = NULL;
+	m = find_mem(data, link->mem_id);
+	if (m && --m->ref == 0)
+		clear_mem(data, m);
 	close(link->signalfd);
 	spa_list_remove(&link->target.link);
 }
@@ -873,8 +878,8 @@ client_node_port_set_io(void *object,
 		m->ref++;
 	}
 
-	pw_log_debug("port %p: set io %s %p", mix->port,
-			spa_debug_type_find_name(spa_type_io, id), ptr);
+	pw_log_debug("port %p: set io %s %p %p", mix->port,
+			spa_debug_type_find_name(spa_type_io, id), ptr, mix->mix.io);
 
 	if (id == SPA_IO_Buffers) {
 		if (ptr == NULL && mix->mix.io) {
@@ -954,7 +959,7 @@ client_node_set_activation(void *object,
 		}
 		m->ref++;
 	}
-	pw_log_debug("node %p: set activation %d", node, node_id);
+	pw_log_debug("node %p: set activation %d %p %u %u", node, node_id, ptr, offset, size);
 
 	if (data->remote_id == node_id) {
 		pw_log_debug("node %p: our activation %u: %u %u %u %p", node, node_id,
@@ -978,7 +983,9 @@ client_node_set_activation(void *object,
 		link->target.node = NULL;
 		spa_list_append(&node->rt.target_list, &link->target.link);
 
-		pw_log_debug("node %p: state %p required %d, pending %d", node,
+		pw_log_debug("node %p: link %p: fd:%d id:%u state %p required %d, pending %d",
+				node, link, signalfd,
+				link->target.activation->position.clock.id,
 				&link->target.activation->state[0],
 				link->target.activation->state[0].required,
 				link->target.activation->state[0].pending);

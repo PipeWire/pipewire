@@ -83,7 +83,9 @@ struct pw_link_proxy { struct spa_interface iface; };
 #define PW_CORE_PROXY_EVENT_PING	2
 #define PW_CORE_PROXY_EVENT_ERROR	3
 #define PW_CORE_PROXY_EVENT_REMOVE_ID	4
-#define PW_CORE_PROXY_EVENT_NUM		5
+#define PW_CORE_PROXY_EVENT_ADD_MEM	5
+#define PW_CORE_PROXY_EVENT_REMOVE_MEM	6
+#define PW_CORE_PROXY_EVENT_NUM		7
 
 /** \struct pw_core_proxy_events
  *  \brief Core events
@@ -149,6 +151,29 @@ struct pw_core_proxy_events {
          * \param id deleted object ID
 	 */
 	void (*remove_id) (void *object, uint32_t id);
+
+	/**
+	 * Add memory for a client
+	 *
+	 * Memory is given to a client as \a fd of a certain
+	 * memory \a type.
+	 *
+	 * Further references to this fd will be made with the per memory
+	 * unique identifier \a id.
+	 *
+	 * \param id the unique id of the memory
+	 * \param type the memory type, one of enum spa_data_type
+	 * \param fd the file descriptor
+	 * \param flags extra flags
+	 */
+	void (*add_mem) (void *object, uint32_t id, uint32_t type, int fd, uint32_t flags);
+
+	/**
+	 * Remove memory for a client
+	 *
+	 * \param id the memory id to remove
+	 */
+	void (*remove_mem) (void *object, uint32_t id);
 };
 
 

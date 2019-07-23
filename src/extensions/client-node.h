@@ -46,46 +46,23 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM		0
-#define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		1
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM		2
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_IO		3
-#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		4
-#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		5
-#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		6
-#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		7
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	8
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	9
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		10
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION	11
-#define PW_CLIENT_NODE_PROXY_EVENT_NUM			12
+#define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		0
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM		1
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_IO		2
+#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		3
+#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		4
+#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		5
+#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		6
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	7
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	8
+#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		9
+#define PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION	10
+#define PW_CLIENT_NODE_PROXY_EVENT_NUM			11
 
 /** \ref pw_client_node events */
 struct pw_client_node_proxy_events {
 #define PW_VERSION_CLIENT_NODE_PROXY_EVENTS		0
 	uint32_t version;
-	/**
-	 * Memory was added to a node
-	 *
-	 * Memory is given to a node as an fd in \a memfd of a certain
-	 * memory \a type.
-	 *
-	 * Further references to this fd will be made with the per memory
-	 * unique identifier \a mem_id.
-	 *
-	 * Buffers or controls will reference the memory by \a mem_id and
-	 * mapping the specified area will give access to the memory.
-	 *
-	 * \param mem_id the id of the memory
-	 * \param type the memory type
-	 * \param memfd the fd of the memory
-	 * \param flags flags for the \a memfd
-	 */
-	int (*add_mem) (void *object,
-			uint32_t mem_id,
-			uint32_t type,
-			int memfd,
-			uint32_t flags);
 	/**
 	 * Notify of a new transport area
 	 *

@@ -445,14 +445,14 @@ static int alloc_buffers(struct pw_link *this,
 	/* pointer to buffer structures */
 	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
 
-	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
-				     PW_MEMBLOCK_FLAG_MAP_READWRITE |
-				     PW_MEMBLOCK_FLAG_SEAL, n_buffers * info.mem_size,
-				     &m)) < 0)
+	if ((res = pw_mempool_alloc(this->core->pool,
+					PW_MEMBLOCK_FLAG_SEAL |
+					PW_MEMBLOCK_FLAG_MAP,
+					n_buffers * info.mem_size, &m)) < 0)
 		return res;
 
-	pw_log_debug("layout buffers %p data %p", bp, m->ptr);
-	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, bp, m->ptr);
+	pw_log_debug("layout buffers %p data %p", bp, m->map->ptr);
+	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, bp, m->map->ptr);
 
 	allocation->mem = m;
 	allocation->n_buffers = n_buffers;
@@ -748,17 +748,8 @@ do_activate_link(struct spa_loop *loop,
 {
 	struct pw_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	int res;
 
 	pw_log_trace("link %p: activate", this);
-
-	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
-			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
-		return res;
-
-	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
-		return res;
 
 	spa_list_append(&this->output->rt.mix_list, &this->rt.out_mix.rt_link);
 	spa_list_append(&this->input->rt.mix_list, &this->rt.in_mix.rt_link);
@@ -774,6 +765,7 @@ do_activate_link(struct spa_loop *loop,
 int pw_link_activate(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	int res;
 
 	pw_log_debug("link %p: activate %d %d", this, impl->activated, this->info.state);
 
@@ -781,6 +773,14 @@ int pw_link_activate(struct pw_link *this)
 		return 0;
 
 	pw_link_prepare(this);
+
+	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
+			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
+		return res;
+
+	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
+			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+		return res;
 
 	if (this->info.state == PW_LINK_STATE_PAUSED) {
 		pw_loop_invoke(this->output->node->data_loop,
@@ -967,9 +967,6 @@ do_deactivate_link(struct spa_loop *loop,
 
 	pw_log_trace("link %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
 
-	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
-	port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, &this->rt.out_mix);
-
 	spa_list_remove(&this->rt.out_mix.rt_link);
 	spa_list_remove(&this->rt.in_mix.rt_link);
 
@@ -995,6 +992,10 @@ int pw_link_deactivate(struct pw_link *this)
 	if (impl->activated) {
 		pw_loop_invoke(this->output->node->data_loop,
 			       do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, this);
+
+		port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
+		port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, &this->rt.out_mix);
+
 		impl->activated = false;
 	}
 

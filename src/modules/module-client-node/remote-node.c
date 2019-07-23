@@ -41,33 +41,20 @@
 #include "extensions/client-node.h"
 
 #define MAX_MIX	4096
+#define MAX_IO	32
 
 /** \cond */
-
-struct mapping {
-	void *ptr;
-	struct pw_map_range map;
-	int prot;
-};
-
-struct mem {
-	uint32_t id;
-	int fd;
-	uint32_t flags;
-	uint32_t ref;
-	struct mapping map;
-};
-
-struct buffer_mem {
-	uint32_t mem_id;
-	struct mapping map;
-};
 
 struct buffer {
 	uint32_t id;
 	struct spa_buffer *buf;
-	struct buffer_mem *mem;
+	struct pw_memmap **mem;
 	uint32_t n_mem;
+};
+
+struct io {
+	uint32_t id;
+	struct pw_memmap *mem;
 };
 
 struct mix {
@@ -77,11 +64,12 @@ struct mix {
 	struct pw_port_mix mix;
 	struct pw_array buffers;
 	bool active;
+	struct io ios[MAX_IO];
 };
 
 struct link {
 	uint32_t node_id;
-	uint32_t mem_id;
+	struct pw_memmap *map;
 	struct pw_node_target target;
 	int signalfd;
 };
@@ -97,8 +85,6 @@ struct node_data {
 	struct spa_list mix[2];
 	struct spa_list free_mix;
 
-        struct pw_array mems;
-
 	struct pw_node *node;
 	struct spa_hook node_listener;
 	int do_free:1;
@@ -109,12 +95,57 @@ struct node_data {
 	struct spa_hook proxy_listener;
         struct pw_proxy *proxy;
 
+	struct io ios[MAX_IO];
 	struct spa_io_position *position;
 
 	struct pw_array links;
 };
 
 /** \endcond */
+
+static void init_ios(struct io *ios)
+{
+	int i;
+	for (i = 0; i < MAX_IO; i++)
+		ios[i].id = SPA_ID_INVALID;
+}
+
+static void clear_io(struct io *io)
+{
+	pw_log_debug("%p clear id:%u mem:%p", io, io->id, io->mem);
+	pw_memmap_free(io->mem);
+	io->mem = NULL;
+	io->id = SPA_ID_INVALID;
+}
+
+static struct io *update_io(struct node_data *data, struct io *ios,
+		uint32_t id, struct pw_memmap *mem)
+{
+	int i;
+	struct io *io, *f = NULL;
+
+	pw_log_debug("node %p: update id:%u mem:%p", data, id, mem);
+
+	for (i = 0; i < MAX_IO; i++) {
+		io = &ios[i];
+		if (io->id == SPA_ID_INVALID && f == NULL)
+			f = io;
+		else if (io->id == id) {
+			if (io->mem && io->mem != mem)
+				clear_io(io);
+			f = io;
+			break;
+		}
+	}
+	if (f == NULL)
+		return NULL;
+
+	io = f;
+	io->id = id;
+	io->mem = mem;
+
+	return io;
+}
 
 static struct link *find_activation(struct pw_array *links, uint32_t node_id)
 {
@@ -127,112 +158,26 @@ static struct link *find_activation(struct pw_array *links, uint32_t node_id)
 	return NULL;
 }
 
-static struct mem *find_mem(struct node_data *data, uint32_t id)
-{
-	struct mem *m;
-	pw_array_for_each(m, &data->mems) {
-		if (m->id == id)
-			return m;
-	}
-	return NULL;
-}
-
-static struct mem *find_mem_ptr(struct node_data *data, void *ptr)
-{
-	struct mem *m;
-	pw_array_for_each(m, &data->mems) {
-		if (ptr >= m->map.ptr && ptr < SPA_MEMBER(m->map.ptr, m->map.map.size, void))
-			return m;
-	}
-	return NULL;
-}
-
-static void *mem_map(struct node_data *data, struct mapping *map,
-		int fd, int prot, uint32_t offset, uint32_t size)
-{
-	struct mapping m;
-	void *ptr;
-
-	pw_map_range_init(&m.map, offset, size, data->core->sc_pagesize);
-
-	if (map->ptr == NULL || map->map.offset != m.map.offset || map->map.size != m.map.size) {
-		m.ptr = mmap(map->ptr, m.map.size, prot, MAP_SHARED, fd, m.map.offset);
-		if (m.ptr == MAP_FAILED) {
-			pw_log_error("remote %p: Failed to mmap memory %d size:%d: %m", data, fd, size);
-			return NULL;
-		}
-		map->map = m.map;
-		map->ptr = m.ptr;
-		pw_log_debug("remote %p: fd %d map %d %d %p", data, fd, m.map.offset, m.map.size, m.ptr);
-	}
-	ptr = SPA_MEMBER(map->ptr, m.map.start, void);
-	pw_log_debug("remote %p: fd %d ptr %p (%d %d)", data, fd, ptr, offset, size);
-
-	return ptr;
-}
-
-static void *mem_unmap(struct node_data *data, struct mapping *map)
-{
-	if (map->ptr != NULL) {
-                if (munmap(map->ptr, map->map.size) < 0)
-			pw_log_warn("failed to unmap: %m");
-	}
-	return NULL;
-}
-
-static void clear_mem(struct node_data *data, struct mem *m)
-{
-	if (m->fd != -1) {
-		bool has_ref = false;
-		int fd;
-		struct mem *m2;
-
-		pw_log_debug("remote %p: clear mem %p %d %d", data, m, m->id, m->fd);
-
-		fd = m->fd;
-		m->fd = -1;
-		m->id = SPA_ID_INVALID;
-
-		pw_array_for_each(m2, &data->mems) {
-			if (m2->fd == fd) {
-				has_ref = true;
-				break;
-			}
-		}
-		if (!has_ref) {
-			m->map.ptr = mem_unmap(data, &m->map);
-			close(fd);
-		}
-	}
-}
-
 static void clear_link(struct node_data *data, struct link *link)
 {
-	struct mem *m;
-
 	link->node_id = SPA_ID_INVALID;
 	link->target.activation = NULL;
-	m = find_mem(data, link->mem_id);
-	if (m && --m->ref == 0)
-		clear_mem(data, m);
+	pw_memmap_free(link->map);
 	close(link->signalfd);
 	spa_list_remove(&link->target.link);
 }
 
 static void clean_transport(struct node_data *data)
 {
-	struct mem *m;
 	struct link *l;
 
 	if (!data->have_transport)
 		return;
 
-	pw_array_for_each(m, &data->mems)
-		clear_mem(data, m);
-	pw_array_clear(&data->mems);
-
-	pw_array_for_each(l, &data->links)
-		clear_link(data, l);
+	pw_array_for_each(l, &data->links) {
+		if (l->node_id != SPA_ID_INVALID)
+			clear_link(data, l);
+	}
 	pw_array_clear(&data->links);
 
 	close(data->rtwritefd);
@@ -248,6 +193,7 @@ static void mix_init(struct mix *mix, struct pw_port *port, uint32_t mix_id)
 	mix->active = false;
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
+	init_ios(mix->ios);
 }
 
 static int
@@ -331,35 +277,6 @@ static struct mix *ensure_mix(struct node_data *data,
 	return mix;
 }
 
-static int client_node_add_mem(void *object,
-			uint32_t mem_id,
-			uint32_t type, int memfd, uint32_t flags)
-{
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
-	struct mem *m;
-
-	m = find_mem(data, mem_id);
-	if (m) {
-		pw_log_warn("duplicate mem %u, fd %d, flags %d",
-			     mem_id, memfd, flags);
-		return -EINVAL;
-	}
-
-	m = pw_array_add(&data->mems, sizeof(struct mem));
-	if (m == NULL)
-		return -errno;
-
-	pw_log_debug("add mem %u, fd %d, flags %d", mem_id, memfd, flags);
-
-	m->id = mem_id;
-	m->fd = memfd;
-	m->flags = flags;
-	m->ref = 0;
-	m->map.map = PW_MAP_RANGE_INIT;
-	m->map.ptr = NULL;
-	return 0;
-}
 
 static int client_node_transport(void *object, uint32_t node_id,
 			int readfd, int writefd)
@@ -523,39 +440,36 @@ client_node_set_io(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct mem *m;
+	struct pw_memmap *mm;
 	void *ptr;
 
 	if (memid == SPA_ID_INVALID) {
-		ptr = NULL;
 		size = 0;
+		mm = ptr = NULL;
 	}
 	else {
-		m = find_mem(data, memid);
-		if (m == NULL) {
-			pw_log_warn("unknown memory id %u", memid);
-			return -EINVAL;
-		}
-		ptr = mem_map(data, &m->map, m->fd,
-			PROT_READ|PROT_WRITE, offset, size);
-		if (ptr == NULL) {
-			pw_proxy_error(proxy, -errno, "set_io: mmap failed: %m");
+		mm = pw_mempool_map_id(proxy->remote->pool, memid,
+				PROT_READ|PROT_WRITE, offset, size);
+		if (mm == NULL) {
+			pw_log_warn("can't map memory id %u: %m", memid);
 			return -errno;
 		}
-		m->ref++;
+		ptr = mm->ptr;
 	}
 
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
-	if (id == SPA_IO_Position) {
-		if (ptr == NULL && data->position) {
-			m = find_mem_ptr(data, data->position);
-			if (m && --m->ref == 0)
-				clear_mem(data, m);
-		}
+	update_io(data, data->ios, id, mm);
+
+	switch (id) {
+	case SPA_IO_Position:
 		data->position = ptr;
+		break;
+	default:
+		break;
 	}
+
 	return spa_node_set_io(data->node->node, id, ptr, size);
 }
 
@@ -631,15 +545,9 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 
         pw_array_for_each(b, &mix->buffers) {
 		for (i = 0; i < b->n_mem; i++) {
-			struct buffer_mem *bm = &b->mem[i];
-			struct mem *m;
-
-			pw_log_debug("port %p: clear buffer %d mem %d",
-				port, b->id, bm->mem_id);
-
-			m = find_mem(data, bm->mem_id);
-			if (m && --m->ref == 0)
-				clear_mem(data, m);
+			pw_log_debug("port %p: clear buffer %d map %p",
+				port, b->id, b->mem[i]);
+			pw_memmap_free(b->mem[i]);
 		}
 		b->n_mem = 0;
                 free(b->buf);
@@ -714,14 +622,14 @@ client_node_port_use_buffers(void *object,
 	bufs = alloca(n_buffers * sizeof(struct spa_buffer *));
 
 	for (i = 0; i < n_buffers; i++) {
-		struct buffer_mem bmem = { 0, };
 		size_t size;
 		off_t offset;
-		struct mem *m;
+		struct pw_memmap *mm;
 
-		m = find_mem(data, buffers[i].mem_id);
-		if (m == NULL) {
-			res = -ENODEV;
+		mm = pw_mempool_map_id(proxy->remote->pool, buffers[i].mem_id,
+				prot, buffers[i].offset, buffers[i].size);
+		if (mm == NULL) {
+			res = -errno;
 			goto error_exit_cleanup;
 		}
 
@@ -732,24 +640,17 @@ client_node_port_use_buffers(void *object,
 		}
 		bid->id = i;
 
-		bmem.mem_id = m->id;
-		bmem.map.ptr = mem_map(data, &bmem.map, m->fd, prot,
-				buffers[i].offset, buffers[i].size);
-		if (bmem.map.ptr == NULL) {
-			res = -errno;
-			goto error_exit_cleanup;
-		}
-		if (mlock(bmem.map.ptr, bmem.map.map.size) < 0)
-			pw_log_warn("Failed to mlock memory %u %u: %m",
-					bmem.map.map.offset, bmem.map.map.size);
+		if (mlock(mm->ptr, mm->size) < 0)
+			pw_log_warn("Failed to mlock memory %p %u: %m",
+					mm->ptr, mm->size);
 
 		size = sizeof(struct spa_buffer);
-		size += sizeof(struct buffer_mem);
+		size += sizeof(struct pw_memmap *);
 		for (j = 0; j < buffers[i].buffer->n_metas; j++)
 			size += sizeof(struct spa_meta);
 		for (j = 0; j < buffers[i].buffer->n_datas; j++) {
 			size += sizeof(struct spa_data);
-			size += sizeof(struct buffer_mem);
+			size += sizeof(struct pw_memmap *);
 		}
 
 		b = bid->buf = malloc(size);
@@ -763,20 +664,18 @@ client_node_port_use_buffers(void *object,
 		b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
 		bid->mem = SPA_MEMBER(b->datas, sizeof(struct spa_data) * b->n_datas,
-			       struct buffer_mem);
+			       struct pw_memmap *);
 		bid->n_mem = 0;
+		bid->mem[bid->n_mem++] = mm;
 
-		bid->mem[bid->n_mem++] = bmem;
-		m->ref++;
-
-		pw_log_debug("add buffer %d %d %u %u", m->id,
-				bid->id, bmem.map.map.offset, bmem.map.map.size);
+		pw_log_debug("add buffer %d %d %u %u", mm->block->id,
+				bid->id, buffers[i].offset, buffers[i].size);
 
 		offset = 0;
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
-			m->data = SPA_MEMBER(bmem.map.ptr, offset, void);
+			m->data = SPA_MEMBER(mm->ptr, offset, void);
 			offset += SPA_ROUND_UP_N(m->size, 8);
 		}
 
@@ -785,14 +684,14 @@ client_node_port_use_buffers(void *object,
 
 			memcpy(d, &buffers[i].buffer->datas[j], sizeof(struct spa_data));
 			d->chunk =
-			    SPA_MEMBER(bmem.map.ptr, offset + sizeof(struct spa_chunk) * j,
+			    SPA_MEMBER(mm->ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
-			if (d->type == SPA_DATA_MemFd || d->type == SPA_DATA_DmaBuf) {
+			if (d->type == SPA_DATA_MemId) {
 				uint32_t mem_id = SPA_PTR_TO_UINT32(d->data);
-				struct mem *bm = find_mem(data, mem_id);
-				struct buffer_mem bm2;
+				struct pw_memblock *bm;
 
+				bm = pw_mempool_find_id(proxy->remote->pool, mem_id);
 				if (bm == NULL) {
 					pw_log_error("unknown buffer mem %u", mem_id);
 					res = -ENODEV;
@@ -800,18 +699,14 @@ client_node_port_use_buffers(void *object,
 				}
 
 				d->fd = bm->fd;
-				bm->ref++;
-				bm2.mem_id = bm->id;
-				bm2.map.ptr = NULL;
-				d->data = bm2.map.ptr;
-
-				bid->mem[bid->n_mem++] = bm2;
+				d->type = bm->type;
+				d->data = NULL;
 
 				pw_log_debug(" data %d %u -> fd %d maxsize %d",
 						j, bm->id, bm->fd, d->maxsize);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
-				d->data = SPA_MEMBER(bmem.map.ptr, offs, void);
+				d->data = SPA_MEMBER(mm->ptr, offs, void);
 				d->fd = -1;
 				pw_log_debug(" data %d %u -> mem %p maxsize %d",
 						j, bid->id, d->data, d->maxsize);
@@ -848,7 +743,7 @@ client_node_port_set_io(void *object,
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
 	struct mix *mix;
-	struct mem *m;
+	struct pw_memmap *mm;
 	void *ptr;
 	int res = 0;
 
@@ -859,39 +754,32 @@ client_node_port_set_io(void *object,
 	}
 
 	if (memid == SPA_ID_INVALID) {
-		ptr = NULL;
+		mm = ptr = NULL;
 		size = 0;
 	}
 	else {
-		m = find_mem(data, memid);
-		if (m == NULL) {
-			res = -ENODEV;
-			goto error_exit;
-		}
-		ptr = mem_map(data, &m->map, m->fd,
-			PROT_READ|PROT_WRITE, offset, size);
-		if (ptr == NULL) {
+		mm = pw_mempool_map_id(proxy->remote->pool, memid,
+				PROT_READ|PROT_WRITE, offset, size);
+		if (mm == NULL) {
 			res = -errno;
 			goto error_exit;
 		}
-
-		m->ref++;
+		ptr = mm->ptr;
 	}
 
-	pw_log_debug("port %p: set io %s %p %p", mix->port,
+	pw_log_debug("port %p: set io:%s new:%p old:%p", mix->port,
 			spa_debug_type_find_name(spa_type_io, id), ptr, mix->mix.io);
 
+	update_io(data, mix->ios, id, mm);
+
 	if (id == SPA_IO_Buffers) {
-		if (ptr == NULL && mix->mix.io) {
+		if (ptr == NULL && mix->mix.io)
 			deactivate_mix(data, mix);
-                        m = find_mem_ptr(data, mix->mix.io);
-                        if (m && --m->ref == 0)
-                                clear_mem(data, m);
-                }
 		mix->mix.io = ptr;
 		if (ptr)
 			activate_mix(data, mix);
 	}
+
 	if ((res = spa_node_port_set_io(mix->port->mix,
 			     direction, mix_id,
 			     id, ptr, size)) < 0) {
@@ -936,28 +824,24 @@ client_node_set_activation(void *object,
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
 	struct pw_node *node = data->node;
-	struct mem *m;
+	struct pw_memmap *mm;
 	struct pw_node_activation *ptr;
 	struct link *link;
 	int res = 0;
 
 	if (memid == SPA_ID_INVALID) {
 		ptr = NULL;
+		mm = NULL;
 		size = 0;
 	}
 	else {
-		m = find_mem(data, memid);
-		if (m == NULL) {
-			res = -ENODEV;
-			goto error_exit;
-		}
-		ptr = mem_map(data, &m->map, m->fd,
-			PROT_READ|PROT_WRITE, offset, size);
-		if (ptr == NULL) {
+		mm = pw_mempool_map_id(proxy->remote->pool, memid,
+				PROT_READ|PROT_WRITE, offset, size);
+		if (mm == NULL) {
 			res = -errno;
 			goto error_exit;
 		}
-		m->ref++;
+		ptr = mm->ptr;
 	}
 	pw_log_debug("node %p: set activation %d %p %u %u", node, node_id, ptr, offset, size);
 
@@ -975,7 +859,7 @@ client_node_set_activation(void *object,
 			goto error_exit;
 		}
 		link->node_id = node_id;
-		link->mem_id = memid;
+		link->map = mm;
 		link->target.activation = ptr;
 		link->signalfd = signalfd;
 		link->target.signal = link_signal_func;
@@ -1007,7 +891,6 @@ error_exit:
 
 static const struct pw_client_node_proxy_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
-	.add_mem = client_node_add_mem,
 	.transport = client_node_transport,
 	.set_param = client_node_set_param,
 	.set_io = client_node_set_io,
@@ -1226,6 +1109,7 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 	data->core = pw_node_get_core(node);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
 	data->remote_id = SPA_ID_INVALID;
+	init_ios(data->ios);
 
 	node->exported = true;
 
@@ -1235,8 +1119,6 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 	for (i = 0; i < MAX_MIX; i++)
 		spa_list_append(&data->free_mix, &data->mix_pool[i].link);
 
-        pw_array_init(&data->mems, 64);
-        pw_array_ensure_size(&data->mems, sizeof(struct mem) * 64);
         pw_array_init(&data->links, 64);
         pw_array_ensure_size(&data->links, sizeof(struct link) * 64);
 

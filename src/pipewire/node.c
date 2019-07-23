@@ -700,9 +700,11 @@ static void dump_states(struct pw_node *driver)
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
+		if (t->node == NULL)
+			continue;
 		pw_log_warn("node %p (%s): required:%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%d",
-				t->node, t->node ? t->node->info.name : "",
+				t->node, t->node->info.name,
 				a->state[0].required,
 				a->signal_time,
 				a->awake_time,
@@ -860,12 +862,12 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	size = sizeof(struct pw_node_activation);
 
-	if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
-			      PW_MEMBLOCK_FLAG_MAP_READWRITE |
-			      PW_MEMBLOCK_FLAG_SEAL,
-			      size,
-			      &this->activation)) < 0)
+	if ((res = pw_mempool_alloc(this->core->pool,
+					PW_MEMBLOCK_FLAG_SEAL |
+					PW_MEMBLOCK_FLAG_MAP,
+					size, &this->activation)) < 0)
                 goto error_clean;
+
 
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	if (impl->work == NULL) {
@@ -894,7 +896,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	spa_list_init(&this->rt.output_mix);
 	spa_list_init(&this->rt.target_list);
 
-	this->rt.activation = this->activation->ptr;
+	this->rt.activation = this->activation->map->ptr;
 	this->rt.target.activation = this->rt.activation;
 	this->rt.target.node = this;
 	this->rt.target.signal = process_node;
@@ -914,7 +916,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 error_clean:
 	if (this->activation)
-		pw_memblock_free(this->activation);
+		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
 		spa_system_close(this->core->data_system, this->source.fd);
 	if (n)
@@ -1262,7 +1264,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: free", node);
 	pw_node_emit_free(node);
 
-	pw_memblock_free(node->activation);
+	pw_memblock_unref(node->activation);
 
 	pw_work_queue_destroy(impl->work);
 

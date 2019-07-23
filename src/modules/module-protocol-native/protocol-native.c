@@ -335,6 +335,40 @@ static int core_event_demarshal_remove_id(void *object, const struct pw_protocol
 	return pw_proxy_notify(proxy, struct pw_core_proxy_events, remove_id, 0, id);
 }
 
+static int core_event_demarshal_add_mem(void *object, const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, type, idx, flags;
+	int fd;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&id),
+				SPA_POD_Id(&type),
+				SPA_POD_Int(&idx),
+				SPA_POD_Int(&flags)) < 0)
+		return -EINVAL;
+
+	fd = pw_protocol_native_get_proxy_fd(proxy, idx);
+
+	return pw_proxy_notify(proxy, struct pw_core_proxy_events, add_mem, 0, id, type, fd, flags);
+}
+
+static int core_event_demarshal_remove_mem(void *object, const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&id)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_core_proxy_events, remove_mem, 0, id);
+}
+
 static void core_event_marshal_info(void *object, const struct pw_core_info *info)
 {
 	struct pw_resource *resource = object;
@@ -411,6 +445,35 @@ static void core_event_marshal_remove_id(void *object, uint32_t id)
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_REMOVE_ID, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(id));
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static void core_event_marshal_add_mem(void *object, uint32_t id, uint32_t type, int fd, uint32_t flags)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_ADD_MEM, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(id),
+			SPA_POD_Id(type),
+			SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, fd)),
+			SPA_POD_Int(flags));
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static void core_event_marshal_remove_mem(void *object, uint32_t id)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_REMOVE_MEM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id));
@@ -1835,6 +1898,8 @@ static const struct pw_core_proxy_events pw_protocol_native_core_event_marshal =
 	.ping = &core_event_marshal_ping,
 	.error = &core_event_marshal_error,
 	.remove_id = &core_event_marshal_remove_id,
+	.add_mem = &core_event_marshal_add_mem,
+	.remove_mem = &core_event_marshal_remove_mem,
 };
 
 static const struct pw_protocol_native_demarshal
@@ -1845,6 +1910,8 @@ pw_protocol_native_core_event_demarshal[PW_CORE_PROXY_EVENT_NUM] =
 	[PW_CORE_PROXY_EVENT_PING] = { &core_event_demarshal_ping, 0, },
 	[PW_CORE_PROXY_EVENT_ERROR] = { &core_event_demarshal_error, 0, },
 	[PW_CORE_PROXY_EVENT_REMOVE_ID] = { &core_event_demarshal_remove_id, 0, },
+	[PW_CORE_PROXY_EVENT_ADD_MEM] = { &core_event_demarshal_add_mem, 0, },
+	[PW_CORE_PROXY_EVENT_REMOVE_MEM] = { &core_event_demarshal_remove_mem, 0, },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {

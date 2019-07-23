@@ -119,7 +119,7 @@ void pw_control_destroy(struct pw_control *control)
 
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
 		if (impl->mem)
-			pw_memblock_free(impl->mem);
+			pw_memblock_unref(impl->mem);
 	}
 	free(control);
 }
@@ -183,11 +183,10 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 	size = SPA_MAX(control->size, other->size);
 
 	if (impl->mem == NULL) {
-		if ((res = pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
-					     PW_MEMBLOCK_FLAG_SEAL |
-					     PW_MEMBLOCK_FLAG_MAP_READWRITE,
-					     size,
-					     &impl->mem)) < 0)
+		if ((res = pw_mempool_alloc(control->core->pool,
+						PW_MEMBLOCK_FLAG_SEAL |
+						PW_MEMBLOCK_FLAG_MAP,
+						size, &impl->mem)) < 0)
 			goto exit;
 	}
 
@@ -195,7 +194,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 		if (control->port) {
 			if ((res = port_set_io(control->port, cmix,
 						control->id,
-						impl->mem->ptr, size)) < 0) {
+						impl->mem->map->ptr, size)) < 0) {
 				pw_log_warn("control %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 				goto exit;
@@ -205,7 +204,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 
 	if (other->port) {
 		if ((res = port_set_io(other->port, omix,
-				other->id, impl->mem->ptr, size)) < 0) {
+				other->id, impl->mem->map->ptr, size)) < 0) {
 			pw_log_warn("control %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 			goto exit;

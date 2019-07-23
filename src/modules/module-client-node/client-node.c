@@ -51,7 +51,6 @@
 
 #define MAX_BUFFERS	64
 #define MAX_AREAS	1024
-#define MAX_IO		32
 #define MAX_MIX		128
 
 #define CHECK_IN_PORT_ID(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) < MAX_INPUTS)
@@ -70,25 +69,11 @@
 
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
 
-struct mem {
-	uint32_t id;
-	int ref;
-	int fd;
-	uint32_t type;
-	uint32_t flags;
-};
-
 struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_buffer buffer;
 	struct spa_meta metas[4];
 	struct spa_data datas[4];
-	uint32_t memid;
-};
-
-struct io {
-	uint32_t id;
-	uint32_t memid;
 };
 
 struct mix {
@@ -98,7 +83,6 @@ struct mix {
 	struct port *port;
 	uint32_t n_buffers;
 	struct buffer buffers[MAX_BUFFERS];
-	struct io ios[MAX_IO];
 };
 
 struct port {
@@ -133,7 +117,6 @@ struct node {
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
-	struct io ios[MAX_IO];
 
 	struct pw_resource *resource;
 
@@ -214,55 +197,6 @@ do_port_use_buffers(struct impl *impl,
 
 /** \endcond */
 
-static struct mem *ensure_mem(struct impl *impl, int fd, uint32_t type, uint32_t flags)
-{
-	struct mem *m, *f = NULL;
-
-	pw_array_for_each(m, &impl->mems) {
-		if (m->ref <= 0)
-			f = m;
-		else if (m->fd == fd)
-			goto found;
-	}
-
-	if (f == NULL) {
-		m = pw_array_add(&impl->mems, sizeof(struct mem));
-		if (m == NULL)
-			return NULL;
-		m->id = pw_array_get_len(&impl->mems, struct mem) - 1;
-	}
-	else {
-		m = f;
-	}
-	m->fd = fd;
-	m->type = type;
-	m->flags = flags;
-	m->ref = 0;
-
-	pw_log_debug(NAME " %p: add mem %d", impl, m->id);
-
-	pw_client_node_resource_add_mem(impl->node.resource,
-					m->id,
-					type,
-					m->fd,
-					m->flags);
-found:
-	m->ref++;
-	pw_log_debug(NAME " %p: mem %d, ref %d", impl, m->id, m->ref);
-	return m;
-}
-
-
-static inline struct mem *find_mem_fd(struct impl *impl, int fd)
-{
-	struct mem *m;
-	pw_array_for_each(m, &impl->mems) {
-		if (m->fd == fd)
-			return m;
-	}
-	return NULL;
-}
-
 static struct mix *find_mix(struct port *p, uint32_t mix_id)
 {
 	struct mix *mix;
@@ -274,13 +208,6 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 	return mix;
 }
 
-static void init_ios(struct io *ios)
-{
-	int i;
-	for (i = 0; i < MAX_IO; i++)
-		ios[i].id = SPA_ID_INVALID;
-}
-
 static void mix_init(struct mix *mix, struct port *p, uint32_t id)
 {
 	mix->valid = true;
@@ -288,7 +215,6 @@ static void mix_init(struct mix *mix, struct port *p, uint32_t id)
 	mix->port = p;
 	mix->active = false;
 	mix->n_buffers = 0;
-	init_ios(mix->ios);
 }
 
 
@@ -304,66 +230,17 @@ static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id
 	return mix;
 }
 
-static void clear_io(struct node *node, struct io *io)
-{
-	struct mem *m;
-	m = pw_array_get_unchecked(&node->impl->mems, io->memid, struct mem);
-	m->ref--;
-	io->id = SPA_ID_INVALID;
-	spa_log_debug(node->log, "node %p: clear io %p %d mem %u %d", node, io, io->id, io->memid, m->ref);
-}
-
-static struct io *update_io(struct node *this,
-		struct io *ios, uint32_t id, uint32_t memid)
-{
-	int i;
-	struct io *io, *f = NULL;
-
-	for (i = 0; i < MAX_IO; i++) {
-		io = &ios[i];
-		if (io->id == SPA_ID_INVALID)
-			f = io;
-		else if (io->id == id) {
-			if (io->memid != memid) {
-				clear_io(this, io);
-				if (memid == SPA_ID_INVALID)
-					io->id = SPA_ID_INVALID;
-			}
-			goto found;
-		}
-	}
-	if (f == NULL || memid == SPA_ID_INVALID)
-		return NULL;
-
-	io = f;
-	io->id = id;
-	io->memid = memid;
-	spa_log_debug(this->log, "node %p: add io %p %s %d", this, io,
-			spa_debug_type_find_name(spa_type_io, id), memid);
-
-found:
-	return io;
-}
-
-static void clear_ios(struct node *this, struct io *ios)
-{
-	int i;
-
-	for (i = 0; i < MAX_IO; i++) {
-		struct io *io = &ios[i];
-		if (io->id != SPA_ID_INVALID)
-			clear_io(this, io);
-	}
-}
-
 static int clear_buffers(struct node *this, struct mix *mix)
 {
 	uint32_t i, j;
 	struct impl *impl = this->impl;
 
+	if (this->resource == NULL)
+		return 0;
+
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
-		struct mem *m;
+		struct pw_memblock *m;
 
 		spa_log_debug(this->log, "node %p: clear buffer %d", this, i);
 
@@ -375,14 +252,11 @@ static int clear_buffers(struct node *this, struct mix *mix)
 				uint32_t id;
 
 				id = SPA_PTR_TO_UINT32(b->buffer.datas[j].data);
-				m = pw_array_get_unchecked(&impl->mems, id, struct mem);
-				m->ref--;
-				pw_log_debug(NAME " %p: mem %d, ref %d", impl, m->id, m->ref);
+				m = pw_mempool_find_id(this->resource->client->pool, id);
+				if (m)
+					pw_log_debug(NAME " %p: mem %d", impl, m->id);
 			}
 		}
-		m = pw_array_get_unchecked(&impl->mems, b->memid, struct mem);
-		m->ref--;
-		pw_log_debug(NAME " %p: mem %d, ref %d", impl, m->id, m->ref);
 	}
 	mix->n_buffers = 0;
 	return 0;
@@ -396,7 +270,6 @@ static void mix_clear(struct node *this, struct mix *mix)
 		return;
 	do_port_use_buffers(this->impl, port->direction, port->id,
 			mix->id, NULL, 0);
-	clear_ios(this, mix->ios);
 	mix->valid = false;
 }
 
@@ -458,8 +331,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct node *this = object;
 	struct impl *impl;
-	struct pw_memblock *mem;
-	struct mem *m;
+	struct pw_memblock *mem, *m;
 	uint32_t memid, mem_offset, mem_size;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -473,27 +345,24 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		return -EIO;
 
 	if (data) {
-		if ((mem = pw_memblock_find(data)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->core->pool, data)) == NULL)
 			return -EINVAL;
 
-		mem_offset = SPA_PTRDIFF(data, mem->ptr);
-		mem_size = mem->size;
-		if (mem_size - mem_offset < size)
+		mem_offset = SPA_PTRDIFF(data, mem->map->ptr);
+		if (mem_offset + size > mem->map->size)
 			return -EINVAL;
 
-		mem_offset += mem->offset;
-		mem_size = size;
-		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		m = pw_mempool_import_block(this->resource->client->pool, mem);
 		if (m == NULL)
 			return -errno;
+
+		mem_size = size;
 		memid = m->id;
 	}
 	else {
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-
-	update_io(this, this->ios, id, memid);
 
 	return pw_client_node_resource_set_io(this->resource,
 				       id,
@@ -762,8 +631,7 @@ static int do_port_set_io(struct impl *impl,
 			  uint32_t id, void *data, size_t size)
 {
 	struct node *this = &impl->node;
-	struct pw_memblock *mem;
-	struct mem *m;
+	struct pw_memblock *mem, *m;
 	uint32_t memid, mem_offset, mem_size;
 	struct port *port;
 	struct mix *mix;
@@ -783,17 +651,17 @@ static int do_port_set_io(struct impl *impl,
 		return -EINVAL;
 
 	if (data) {
-		if ((mem = pw_memblock_find(data)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->core->pool, data)) == NULL)
 			return -EINVAL;
 
-		mem_offset = SPA_PTRDIFF(data, mem->ptr);
-		if (mem_offset + size > mem->size)
+		mem_offset = SPA_PTRDIFF(data, mem->map->ptr);
+		if (mem_offset + size > mem->map->size)
 			return -EINVAL;
 
-		mem_offset += mem->offset;
-		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		m = pw_mempool_import_block(this->resource->client->pool, mem);
 		if (m == NULL)
 			return -errno;
+
 		memid = m->id;
 		mem_size = size;
 	}
@@ -801,8 +669,6 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-
-	update_io(this, mix->ios, id, memid);
 
 	return pw_client_node_resource_port_set_io(this->resource,
 					    direction, port_id,
@@ -867,8 +733,7 @@ do_port_use_buffers(struct impl *impl,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
-		struct pw_memblock *mem;
-		struct mem *m;
+		struct pw_memblock *mem, *m;
 		size_t data_size;
 		void *baseptr;
 
@@ -884,7 +749,7 @@ do_port_use_buffers(struct impl *impl,
 		else
 			return -EINVAL;
 
-		if ((mem = pw_memblock_find(baseptr)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->core->pool, baseptr)) == NULL)
 			return -EINVAL;
 
 		data_size = buffers[i]->n_datas * sizeof(struct spa_chunk);
@@ -897,14 +762,13 @@ do_port_use_buffers(struct impl *impl,
 				data_size += d->maxsize;
 		}
 
-		m = ensure_mem(impl, mem->fd, SPA_DATA_MemFd, mem->flags);
+		m = pw_mempool_import_block(this->resource->client->pool, mem);
 		if (m == NULL)
 			return -errno;
-		b->memid = m->id;
 
 		mb[i].buffer = &b->buffer;
-		mb[i].mem_id = b->memid;
-		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->ptr, mem->offset, void));
+		mb[i].mem_id = m->id;
+		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->map->ptr, 0, void));
 		mb[i].size = data_size;
 		spa_log_debug(this->log, "buffer %d %d %d %d", i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
@@ -920,7 +784,8 @@ do_port_use_buffers(struct impl *impl,
 
 			if (d->type == SPA_DATA_DmaBuf ||
 			    d->type == SPA_DATA_MemFd) {
-				m = ensure_mem(impl, d->fd, d->type, d->flags);
+				m = pw_mempool_import(this->resource->client->pool,
+					d->type, d->fd, d->flags);
 				if (m == NULL)
 					return -errno;
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
@@ -1207,8 +1072,6 @@ node_init(struct node *this,
 	spa_hook_list_init(&this->hooks);
 	spa_list_init(&this->pending_list);
 
-	init_ios(this->ios);
-
 	this->data_source.func = node_on_data_fd_events;
 	this->data_source.data = this;
 	this->data_source.fd = -1;
@@ -1221,8 +1084,6 @@ node_init(struct node *this,
 static int node_clear(struct node *this)
 {
 	uint32_t i;
-
-	clear_ios(this, this->ios);
 
 	for (i = 0; i < this->n_params; i++)
 		free(this->params[i]);
@@ -1293,7 +1154,7 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *node = this->node;
 	uint32_t node_id = global->id;
-	struct mem *m;
+	struct pw_memblock *m;
 
 	pw_log_debug(NAME " %p: %d", this, node_id);
 	pw_client_node_resource_transport(this->resource,
@@ -1301,9 +1162,9 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 					  impl->other_fds[0],
 					  impl->other_fds[1]);
 
-	m = ensure_mem(impl, node->activation->fd, SPA_DATA_MemFd, node->activation->flags);
+	m = pw_mempool_import_block(this->resource->client->pool, node->activation);
 	if (m == NULL) {
-		pw_log_debug(NAME " %p: can't ensure mem: %m", this);
+		pw_log_debug(NAME " %p: can't import block: %m", this);
 		return;
 	}
 
@@ -1344,14 +1205,13 @@ static void node_initialized(void *data)
 
 	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
 
-	if (pw_memblock_alloc(PW_MEMBLOCK_FLAG_WITH_FD |
-			      PW_MEMBLOCK_FLAG_MAP_READWRITE |
-			      PW_MEMBLOCK_FLAG_SEAL,
-			      size,
-			      &impl->io_areas) < 0)
+	if (pw_mempool_alloc(impl->core->pool,
+				PW_MEMBLOCK_FLAG_MAP |
+				PW_MEMBLOCK_FLAG_SEAL,
+				size, &impl->io_areas) < 0)
                 return;
 
-	pw_log_debug(NAME " %p: io areas %p", node, impl->io_areas->ptr);
+	pw_log_debug(NAME " %p: io areas %p", node, impl->io_areas->map->ptr);
 
 	if ((global = pw_node_get_global(node)) != NULL)
 		pw_client_node_registered(this, global);
@@ -1373,9 +1233,8 @@ static void node_free(void *data)
 	if (this->resource)
 		pw_resource_destroy(this->resource);
 
-	pw_array_clear(&impl->mems);
 	if (impl->io_areas)
-		pw_memblock_free(impl->io_areas);
+		pw_memblock_unref(impl->io_areas);
 
 	pw_map_clear(&impl->io_map);
 
@@ -1399,13 +1258,13 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 	if (mix->id == SPA_ID_INVALID)
 		return -errno;
 
-	mix->io = SPA_MEMBER(impl->io_areas->ptr,
+	mix->io = SPA_MEMBER(impl->io_areas->map->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
 	mix->io->buffer_id = SPA_ID_INVALID;
 	mix->io->status = SPA_STATUS_NEED_BUFFER;
 
 	pw_log_debug(NAME " %p: init mix io %d %p %p", impl, mix->id, mix->io,
-			impl->io_areas->ptr);
+			impl->io_areas->map->ptr);
 
 	return 0;
 }
@@ -1418,7 +1277,7 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 	struct mix *m;
 
 	pw_log_debug(NAME " %p: remove mix io %d %p %p", impl, mix->id, mix->io,
-			impl->io_areas->ptr);
+			impl->io_areas->map->ptr);
 
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
 		return -EINVAL;
@@ -1607,17 +1466,16 @@ static void node_peer_added(void *data, struct pw_node *peer)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	struct mem *m;
+	struct pw_memblock *m;
 
 	if (this->resource == NULL)
 		return;
 
-	m = ensure_mem(impl, peer->activation->fd, SPA_DATA_MemFd, peer->activation->flags);
+	m = pw_mempool_import_block(this->resource->client->pool, peer->activation);
 	if (m == NULL) {
 		pw_log_debug(NAME " %p: can't ensure mem: %m", this);
 		return;
 	}
-
 	pw_log_debug(NAME " %p: peer %p %u added %u", &impl->this, peer,
 			peer->info.id, m->id);
 
@@ -1633,19 +1491,18 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	struct mem *m;
+	struct pw_memblock *m;
 
 	if (this->resource == NULL)
 		return;
 
-	m = find_mem_fd(impl, peer->activation->fd);
+	m = pw_mempool_find_fd(this->resource->client->pool,
+			peer->activation->fd);
 	if (m == NULL) {
 		pw_log_warn(NAME " %p: unknown peer %p fd:%d", &impl->this, peer,
 			peer->source.fd);
 		return;
 	}
-	m->ref--;
-
 	pw_log_debug(NAME " %p: peer %p %u removed", &impl->this, peer,
 			peer->info.id);
 
@@ -1655,6 +1512,7 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 					  SPA_ID_INVALID,
 					  0,
 					  0);
+	pw_memblock_unref(m);
 }
 
 static void node_driver_changed(void *data, struct pw_node *old, struct pw_node *driver)
@@ -1737,7 +1595,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	this->flags = do_register ? 0 : 1;
 
 	pw_map_init(&impl->io_map, 64, 64);
-	pw_array_init(&impl->mems, 64);
 
 	if ((name = pw_properties_get(properties, PW_KEY_NODE_NAME)) == NULL)
 		name = NAME;

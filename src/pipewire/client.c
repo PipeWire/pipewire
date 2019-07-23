@@ -36,6 +36,7 @@ struct impl {
 	struct pw_client this;
 	struct spa_hook core_listener;
 	struct pw_array permissions;
+	struct spa_hook pool_listener;
 };
 
 #define pw_client_resource(r,m,v,...)		pw_resource_call(r,struct pw_client_proxy_events,m,v,__VA_ARGS__)
@@ -223,6 +224,29 @@ error_resource:
 	return -errno;
 }
 
+static void pool_added(void *data, struct pw_memblock *block)
+{
+	struct impl *impl = data;
+	struct pw_client *client = &impl->this;
+	if (client->core_resource)
+		pw_core_resource_add_mem(client->core_resource,
+				block->id, block->type, block->fd, block->flags);
+}
+
+static void pool_removed(void *data, struct pw_memblock *block)
+{
+	struct impl *impl = data;
+	struct pw_client *client = &impl->this;
+	if (client->core_resource)
+		pw_core_resource_remove_mem(client->core_resource, block->id);
+}
+
+static const struct pw_mempool_events pool_events = {
+	PW_VERSION_MEMPOOL_EVENTS,
+	.added = pool_added,
+	.removed = pool_removed,
+};
+
 static void
 core_global_removed(void *data, struct pw_global *global)
 {
@@ -284,9 +308,15 @@ struct pw_client *pw_client_new(struct pw_core *core,
 		res = -errno;
 		goto error_clear_array;
 	}
-
 	p->id = SPA_ID_INVALID;
 	p->permissions = 0;
+
+	this->pool = pw_mempool_new(NULL);
+	if (this->pool == NULL) {
+		res = -errno;
+		goto error_clear_array;
+	}
+	pw_mempool_add_listener(this->pool, &impl->pool_listener, &pool_events, impl);
 
 	this->properties = properties;
 	this->permission_func = client_permission_func;
@@ -443,6 +473,7 @@ void pw_client_destroy(struct pw_client *client)
 
 	pw_map_clear(&client->objects);
 	pw_array_clear(&impl->permissions);
+	pw_mempool_destroy(client->pool);
 
 	pw_properties_free(client->properties);
 

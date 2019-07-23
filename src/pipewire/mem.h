@@ -25,50 +25,46 @@
 #ifndef PIPEWIRE_MEM_H
 #define PIPEWIRE_MEM_H
 
-#include <spa/utils/defs.h>
+#include <pipewire/properties.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Flags passed to \ref pw_memblock_alloc() \memberof pw_memblock */
+/** Flags passed to \ref pw_mempool_alloc() \memberof pw_memblock */
 enum pw_memblock_flags {
 	PW_MEMBLOCK_FLAG_NONE = 0,
-	PW_MEMBLOCK_FLAG_WITH_FD = (1 << 0),
-	PW_MEMBLOCK_FLAG_SEAL = (1 << 1),
-	PW_MEMBLOCK_FLAG_MAP_READ = (1 << 2),
-	PW_MEMBLOCK_FLAG_MAP_WRITE = (1 << 3),
-	PW_MEMBLOCK_FLAG_MAP_TWICE = (1 << 4),
+	PW_MEMBLOCK_FLAG_SEAL = (1 << 0),
+	PW_MEMBLOCK_FLAG_MAP = (1 << 1),
+	PW_MEMBLOCK_FLAG_DONT_CLOSE = (1 << 2),
 };
 
-#define PW_MEMBLOCK_FLAG_MAP_READWRITE (PW_MEMBLOCK_FLAG_MAP_READ | PW_MEMBLOCK_FLAG_MAP_WRITE)
+enum pw_memmap_flags {
+	PW_MEMMAP_FLAG_NONE = 0,
+	PW_MEMMAP_FLAG_READ = (1 << 0),		/**< map in read mode */
+	PW_MEMMAP_FLAG_WRITE = (1 << 1),	/**< map in write mode */
+	PW_MEMMAP_FLAG_TWICE = (1 << 2),	/**< map the same area twice afer eachother,
+						  *  creating a circular ringbuffer */
+};
+
+struct pw_memchunk;
+
+struct pw_mempool {
+	struct pw_properties *props;
+};
 
 /** \class pw_memblock
  * Memory block structure */
 struct pw_memblock {
-	enum pw_memblock_flags flags;	/**< flags used when allocating */
-	int fd;				/**< memfd if any */
-	off_t offset;			/**< offset of mappable memory */
-	void *ptr;			/**< ptr to mapped memory */
-	size_t size;			/**< size of mapped memory */
+	struct pw_mempool *pool;	/**< owner pool */
+	enum pw_memblock_flags flags;
+	int ref;			/**< refcount */
+	uint32_t id;			/**< unique id */
+	uint32_t type;			/**< type of the fd */
+	uint32_t size;			/**< size of memory */
+	int fd;				/**< fd */
+	struct pw_memmap *map;		/**< optional map when PW_MEMBLOCK_FLAG_MAP was given */
 };
-
-int
-pw_memblock_alloc(enum pw_memblock_flags flags, size_t size, struct pw_memblock **mem);
-
-int
-pw_memblock_import(enum pw_memblock_flags flags,
-		   int fd, off_t offset, size_t size,
-		   struct pw_memblock **mem);
-
-int
-pw_memblock_map(struct pw_memblock *mem);
-
-void
-pw_memblock_free(struct pw_memblock *mem);
-
-/** Find memblock for given \a ptr */
-struct pw_memblock * pw_memblock_find(const void *ptr);
 
 /** parameters to map a memory range */
 struct pw_map_range {
@@ -76,6 +72,72 @@ struct pw_map_range {
 	uint32_t offset;	/** page aligned offset to map */
 	uint32_t size;		/** size to map */
 };
+
+/** a mapped region of a pw_memblock */
+struct pw_memmap {
+	struct pw_memblock *block;	/**< owner memblock */
+	enum pw_memmap_flags flags;	/**< flags used when mapping */
+	uint32_t offset;		/**< offset in memblock */
+	uint32_t size;			/**< size in memblock */
+	void *ptr;			/**< mapped pointer */
+};
+
+struct pw_mempool_events {
+#define PW_VERSION_MEMPOOL_EVENTS	0
+	uint32_t version;
+
+	void (*destroy) (void *data);
+
+	void (*added) (void *data, struct pw_memblock *block);
+
+	void (*removed) (void *data, struct pw_memblock *block);
+};
+
+struct pw_mempool *pw_mempool_new(struct pw_properties *props);
+
+void pw_mempool_add_listener(struct pw_mempool *pool,
+                            struct spa_hook *listener,
+                            const struct pw_mempool_events *events,
+                            void *data);
+
+void pw_mempool_destroy(struct pw_mempool *pool);
+
+
+int pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_flags flags,
+		size_t size, struct pw_memblock **mem);
+
+struct pw_memblock * pw_mempool_import_block(struct pw_mempool *pool,
+		struct pw_memblock *mem);
+struct pw_memblock * pw_mempool_import(struct pw_mempool *pool,
+		uint32_t type, int fd, enum pw_memblock_flags flags);
+
+/** Find memblock for given \a id */
+int pw_mempool_remove_id(struct pw_mempool *pool, uint32_t id);
+
+/** Find memblock for given \a ptr */
+struct pw_memblock * pw_mempool_find_ptr(struct pw_mempool *pool, const void *ptr);
+
+/** Find memblock for given \a id */
+struct pw_memblock * pw_mempool_find_id(struct pw_mempool *pool, uint32_t id);
+
+/** Find memblock for given \a fd */
+struct pw_memblock * pw_mempool_find_fd(struct pw_mempool *pool, int fd);
+
+struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
+		enum pw_memmap_flags flags, uint32_t offset, uint32_t size);
+
+struct pw_memmap * pw_mempool_map_id(struct pw_mempool *pool, uint32_t id,
+		enum pw_memmap_flags flags, uint32_t offset, uint32_t size);
+
+int pw_memmap_free(struct pw_memmap *map);
+
+void pw_memblock_free(struct pw_memblock *mem);
+
+static inline void pw_memblock_unref(struct pw_memblock *mem)
+{
+	if (--mem->ref == 0)
+		pw_memblock_free(mem);
+}
 
 #define PW_MAP_RANGE_INIT (struct pw_map_range){ 0, }
 

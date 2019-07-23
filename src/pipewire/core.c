@@ -504,6 +504,8 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 		goto error_free;
 	}
 
+	this->pool = pw_mempool_new(NULL);
+
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
@@ -649,6 +651,8 @@ void pw_core_destroy(struct pw_core *core)
 
 	pw_log_debug("core %p: free", core);
 	pw_core_emit_free(core);
+
+	pw_mempool_destroy(core->pool);
 
 	pw_data_loop_destroy(core->data_loop_impl);
 

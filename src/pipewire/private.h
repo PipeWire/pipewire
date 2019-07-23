@@ -99,6 +99,7 @@ struct pw_client {
 
 	struct pw_client_info info;	/**< client info */
 
+	struct pw_mempool *pool;		/**< client mempool */
 	struct pw_resource *core_resource;	/**< core resource object */
 	struct pw_resource *client_resource;	/**< client resource object */
 
@@ -159,11 +160,13 @@ struct pw_global {
 #define pw_core_emit_global_removed(c,g)	pw_core_emit(c, global_removed, 0, g)
 
 #define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_proxy_events, m, v, ##__VA_ARGS__)
-#define pw_core_resource_info(r,...)         pw_core_resource(r,info,0,__VA_ARGS__)
-#define pw_core_resource_done(r,...)         pw_core_resource(r,done,0,__VA_ARGS__)
-#define pw_core_resource_ping(r,...)         pw_core_resource(r,ping,0,__VA_ARGS__)
-#define pw_core_resource_error(r,...)        pw_core_resource(r,error,0,__VA_ARGS__)
-#define pw_core_resource_remove_id(r,...)    pw_core_resource(r,remove_id,0,__VA_ARGS__)
+#define pw_core_resource_info(r,...)		pw_core_resource(r,info,0,__VA_ARGS__)
+#define pw_core_resource_done(r,...)		pw_core_resource(r,done,0,__VA_ARGS__)
+#define pw_core_resource_ping(r,...)		pw_core_resource(r,ping,0,__VA_ARGS__)
+#define pw_core_resource_error(r,...)		pw_core_resource(r,error,0,__VA_ARGS__)
+#define pw_core_resource_remove_id(r,...)	pw_core_resource(r,remove_id,0,__VA_ARGS__)
+#define pw_core_resource_add_mem(r,...)		pw_core_resource(r,add_mem,0,__VA_ARGS__)
+#define pw_core_resource_remove_mem(r,...)	pw_core_resource(r,remove_mem,0,__VA_ARGS__)
 
 static inline void
 pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
@@ -197,6 +200,8 @@ struct pw_core {
 	struct pw_core_info info;	/**< info about the core */
 
 	struct pw_properties *properties;	/**< properties of the core */
+
+	struct pw_mempool *pool;		/**< global memory pool */
 
 	struct pw_map globals;			/**< map of globals */
 
@@ -273,7 +278,7 @@ static inline void move_allocation(struct allocation *alloc, struct allocation *
 static inline void free_allocation(struct allocation *alloc)
 {
 	if (alloc->mem) {
-		pw_memblock_free(alloc->mem);
+		pw_memblock_unref(alloc->mem);
 		free(alloc->buffers);
 	}
 	alloc->mem = NULL;
@@ -669,6 +674,7 @@ struct pw_remote {
 	struct spa_list link;			/**< link in core remote_list */
 	struct pw_properties *properties;	/**< extra properties */
 
+	struct pw_mempool *pool;		/**< memory pool */
 	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */

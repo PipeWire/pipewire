@@ -262,30 +262,6 @@ static int client_node_marshal_event_method(void *object, const struct spa_event
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int client_node_demarshal_add_mem(void *object, const struct pw_protocol_native_message *msg)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_parser prs;
-	uint32_t mem_id, type, memfd_idx, flags;
-	int memfd;
-
-	spa_pod_parser_init(&prs, msg->data, msg->size);
-	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&mem_id),
-			SPA_POD_Id(&type),
-			SPA_POD_Int(&memfd_idx),
-			SPA_POD_Int(&flags)) < 0)
-		return -EINVAL;
-
-	memfd = pw_protocol_native_get_proxy_fd(proxy, memfd_idx);
-
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, add_mem, 0,
-								      mem_id,
-								      type,
-								      memfd, flags);
-	return 0;
-}
-
 static int client_node_demarshal_transport(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -562,27 +538,6 @@ static int client_node_demarshal_set_io(void *object, const struct pw_protocol_n
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_io, 0,
 			id, memid, off, sz);
 	return 0;
-}
-
-static int
-client_node_marshal_add_mem(void *object,
-			    uint32_t mem_id,
-			    uint32_t type,
-			    int memfd, uint32_t flags)
-{
-	struct pw_protocol_native_message *msg;
-	struct pw_resource *resource = object;
-	struct spa_pod_builder *b;
-
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM, &msg);
-
-	spa_pod_builder_add_struct(b,
-		       SPA_POD_Int(mem_id),
-		       SPA_POD_Id(type),
-		       SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, memfd)),
-		       SPA_POD_Int(flags));
-
-	return pw_protocol_native_end_resource(resource, b);
 }
 
 static int client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd)
@@ -1053,7 +1008,6 @@ pw_protocol_native_client_node_method_demarshal[PW_CLIENT_NODE_PROXY_METHOD_NUM]
 
 static const struct pw_client_node_proxy_events pw_protocol_native_client_node_event_marshal = {
 	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
-	.add_mem = &client_node_marshal_add_mem,
 	.transport = &client_node_marshal_transport,
 	.set_param = &client_node_marshal_set_param,
 	.set_io = &client_node_marshal_set_io,
@@ -1070,7 +1024,6 @@ static const struct pw_client_node_proxy_events pw_protocol_native_client_node_e
 static const struct pw_protocol_native_demarshal
 pw_protocol_native_client_node_event_demarshal[PW_CLIENT_NODE_PROXY_EVENT_NUM] =
 {
-	[PW_CLIENT_NODE_PROXY_EVENT_ADD_MEM] = { &client_node_demarshal_add_mem, 0 },
 	[PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT] = { &client_node_demarshal_transport, 0 },
 	[PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM] = { &client_node_demarshal_set_param, 0 },
 	[PW_CLIENT_NODE_PROXY_EVENT_SET_IO] = { &client_node_demarshal_set_io, 0 },

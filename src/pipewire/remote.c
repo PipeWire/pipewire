@@ -143,12 +143,36 @@ static void core_event_remove_id(void *data, uint32_t id)
 	}
 }
 
+static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, uint32_t flags)
+{
+	struct pw_remote *this = data;
+	struct pw_memblock *m;
+
+	pw_log_debug("remote %p: add mem %u type:%u fd:%d flags:%u", this, id, type, fd, flags);
+
+	m = pw_mempool_import(this->pool, type, fd, flags);
+	if (m->id != id) {
+		pw_log_error("remote %p: invalid mem id %u, expected %u",
+				this, id, m->id);
+		pw_memblock_unref(m);
+	}
+}
+
+static void core_event_remove_mem(void *data, uint32_t id)
+{
+	struct pw_remote *this = data;
+	pw_log_debug("remote %p: remove mem %u", this, id);
+	pw_mempool_remove_id(this->pool, id);
+}
+
 static const struct pw_core_proxy_events core_proxy_events = {
 	PW_VERSION_CORE_PROXY_EVENTS,
 	.error = core_event_error,
 	.ping = core_event_ping,
 	.done = core_event_done,
 	.remove_id = core_event_remove_id,
+	.add_mem = core_event_add_mem,
+	.remove_mem = core_event_remove_mem,
 };
 
 SPA_EXPORT
@@ -183,6 +207,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	pw_fill_remote_properties(core, properties);
 	this->properties = properties;
+	this->pool = pw_mempool_new(NULL);
 
 	this->state = PW_REMOTE_STATE_UNCONNECTED;
 
@@ -264,6 +289,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	pw_map_clear(&remote->objects);
 
 	pw_log_debug("remote %p: free", remote);
+	pw_mempool_destroy(remote->pool);
 	pw_properties_free(remote->properties);
 	free(remote->error);
 	free(impl);

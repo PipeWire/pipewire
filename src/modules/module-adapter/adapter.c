@@ -162,8 +162,16 @@ static void node_destroy(void *data)
 	struct node *n = data;
 	struct port *p;
 
-	spa_list_consume(p, &n->ports, link) {
+	spa_list_for_each(p, &n->ports, link)
 		pw_port_set_mix(p->port, NULL, 0);
+}
+
+static void node_free(void *data)
+{
+	struct node *n = data;
+	struct port *p;
+
+	spa_list_consume(p, &n->ports, link) {
 		spa_list_remove(&p->link);
 		spa_handle_clear(p->spa_handle);
 		free(p);
@@ -269,6 +277,7 @@ static void node_port_init(void *data, struct pw_port *port)
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
+	.free = node_free,
 	.port_init = node_port_init,
 };
 

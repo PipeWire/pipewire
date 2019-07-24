@@ -446,6 +446,7 @@ static int alloc_buffers(struct pw_link *this,
 	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
 
 	if ((res = pw_mempool_alloc(this->core->pool,
+					PW_MEMBLOCK_FLAG_READWRITE |
 					PW_MEMBLOCK_FLAG_SEAL |
 					PW_MEMBLOCK_FLAG_MAP,
 					n_buffers * info.mem_size, &m)) < 0)

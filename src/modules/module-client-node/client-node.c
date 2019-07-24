@@ -1209,6 +1209,7 @@ static void node_initialized(void *data)
 	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
 
 	if (pw_mempool_alloc(impl->core->pool,
+				PW_MEMBLOCK_FLAG_READWRITE |
 				PW_MEMBLOCK_FLAG_MAP |
 				PW_MEMBLOCK_FLAG_SEAL,
 				size, &impl->io_areas) < 0)

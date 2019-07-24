@@ -418,7 +418,7 @@ int pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_flags flags,
 	b->this.fd = memfd_create("pipewire-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 	if (b->this.fd == -1) {
 		res = -errno;
-		pw_log_error("Failed to create memfd: %s\n", strerror(errno));
+		pw_log_error("Failed to create memfd: %m");
 		goto error_free;
 	}
 #else
@@ -426,7 +426,7 @@ int pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_flags flags,
 	b->this.fd = mkostemp(filename, O_CLOEXEC);
 	if (b->this.fd == -1) {
 		res = -errno;
-		pw_log_error("Failed to create temporary file: %s\n", strerror(errno));
+		pw_log_error("Failed to create temporary file: %m");
 		goto error_free;
 	}
 	unlink(filename);
@@ -434,23 +434,31 @@ int pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_flags flags,
 
 	if (ftruncate(b->this.fd, size) < 0) {
 		res = -errno;
-		pw_log_warn("Failed to truncate temporary file: %s", strerror(errno));
+		pw_log_warn("Failed to truncate temporary file: %m");
 		goto error_close;
 	}
 #ifdef USE_MEMFD
 	if (flags & PW_MEMBLOCK_FLAG_SEAL) {
 		unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
 		if (fcntl(b->this.fd, F_ADD_SEALS, seals) == -1) {
-			pw_log_warn("Failed to add seals: %s", strerror(errno));
+			pw_log_warn("Failed to add seals: %m");
 		}
 	}
 #endif
 	b->this.type = SPA_DATA_MemFd;
 
 	if (flags & PW_MEMBLOCK_FLAG_MAP && size > 0) {
-		b->this.map = pw_memblock_map(&b->this, PROT_READ|PROT_WRITE, 0, size);
+		enum pw_memmap_flags fl = 0;
+
+		if (flags & PW_MEMBLOCK_FLAG_READABLE)
+			fl |= PW_MEMMAP_FLAG_READ;
+		if (flags & PW_MEMBLOCK_FLAG_WRITABLE)
+			fl |= PW_MEMMAP_FLAG_WRITE;
+
+		b->this.map = pw_memblock_map(&b->this, fl, 0, size);
 		if (b->this.map == NULL) {
 			res = -errno;
+			pw_log_warn("Failed to map: %m");
 			goto error_close;
 		}
 	}

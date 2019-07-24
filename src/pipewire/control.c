@@ -184,6 +184,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 
 	if (impl->mem == NULL) {
 		if ((res = pw_mempool_alloc(control->core->pool,
+						PW_MEMBLOCK_FLAG_READWRITE |
 						PW_MEMBLOCK_FLAG_SEAL |
 						PW_MEMBLOCK_FLAG_MAP,
 						size, &impl->mem)) < 0)

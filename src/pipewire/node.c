@@ -863,6 +863,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	size = sizeof(struct pw_node_activation);
 
 	if ((res = pw_mempool_alloc(this->core->pool,
+					PW_MEMBLOCK_FLAG_READWRITE |
 					PW_MEMBLOCK_FLAG_SEAL |
 					PW_MEMBLOCK_FLAG_MAP,
 					size, &this->activation)) < 0)

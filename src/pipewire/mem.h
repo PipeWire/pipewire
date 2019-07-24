@@ -34,9 +34,13 @@ extern "C" {
 /** Flags passed to \ref pw_mempool_alloc() \memberof pw_memblock */
 enum pw_memblock_flags {
 	PW_MEMBLOCK_FLAG_NONE = 0,
-	PW_MEMBLOCK_FLAG_SEAL = (1 << 0),
-	PW_MEMBLOCK_FLAG_MAP = (1 << 1),
-	PW_MEMBLOCK_FLAG_DONT_CLOSE = (1 << 2),
+	PW_MEMBLOCK_FLAG_READABLE = (1 << 0),
+	PW_MEMBLOCK_FLAG_WRITABLE = (1 << 1),
+	PW_MEMBLOCK_FLAG_SEAL = (1 << 2),
+	PW_MEMBLOCK_FLAG_MAP = (1 << 3),
+	PW_MEMBLOCK_FLAG_DONT_CLOSE = (1 << 4),
+
+	PW_MEMBLOCK_FLAG_READWRITE = PW_MEMBLOCK_FLAG_READABLE | PW_MEMBLOCK_FLAG_WRITABLE,
 };
 
 enum pw_memmap_flags {
@@ -45,6 +49,7 @@ enum pw_memmap_flags {
 	PW_MEMMAP_FLAG_WRITE = (1 << 1),	/**< map in write mode */
 	PW_MEMMAP_FLAG_TWICE = (1 << 2),	/**< map the same area twice afer eachother,
 						  *  creating a circular ringbuffer */
+	PW_MEMMAP_FLAG_READWRITE = PW_MEMMAP_FLAG_READ | PW_MEMMAP_FLAG_WRITE,
 };
 
 struct pw_memchunk;

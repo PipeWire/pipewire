@@ -228,9 +228,11 @@ static void pool_added(void *data, struct pw_memblock *block)
 {
 	struct impl *impl = data;
 	struct pw_client *client = &impl->this;
-	if (client->core_resource)
+	if (client->core_resource) {
 		pw_core_resource_add_mem(client->core_resource,
-				block->id, block->type, block->fd, block->flags);
+				block->id, block->type, block->fd,
+				block->flags & PW_MEMBLOCK_FLAG_READWRITE);
+	}
 }
 
 static void pool_removed(void *data, struct pw_memblock *block)

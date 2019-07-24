@@ -43,6 +43,7 @@ enum spa_data_type {
 					  *  struct spa_data is set. */
 	SPA_DATA_MemFd,			/**< generic fd, mmap to get to memory */
 	SPA_DATA_DmaBuf,		/**< fd to dmabuf memory */
+	SPA_DATA_MemId,			/**< memory is identified with an id */
 
 	SPA_DATA_LAST,			/**< not part of ABI */
 };

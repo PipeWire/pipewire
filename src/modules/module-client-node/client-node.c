@@ -74,6 +74,7 @@ struct buffer {
 	struct spa_buffer buffer;
 	struct spa_meta metas[4];
 	struct spa_data datas[4];
+	struct pw_memblock *mem;
 };
 
 struct mix {
@@ -235,9 +236,6 @@ static int clear_buffers(struct node *this, struct mix *mix)
 	uint32_t i, j;
 	struct impl *impl = this->impl;
 
-	if (this->resource == NULL)
-		return 0;
-
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
 		struct pw_memblock *m;
@@ -247,16 +245,18 @@ static int clear_buffers(struct node *this, struct mix *mix)
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &b->datas[j];
 
-			if (d->type == SPA_DATA_DmaBuf ||
-			    d->type == SPA_DATA_MemFd) {
+			if (d->type == SPA_DATA_MemId) {
 				uint32_t id;
 
 				id = SPA_PTR_TO_UINT32(b->buffer.datas[j].data);
 				m = pw_mempool_find_id(this->resource->client->pool, id);
-				if (m)
+				if (m) {
 					pw_log_debug(NAME " %p: mem %d", impl, m->id);
+					pw_memblock_unref(m);
+				}
 			}
 		}
+		pw_memblock_unref(b->mem);
 	}
 	mix->n_buffers = 0;
 	return 0;
@@ -766,6 +766,8 @@ do_port_use_buffers(struct impl *impl,
 		if (m == NULL)
 			return -errno;
 
+		b->mem = m;
+
 		mb[i].buffer = &b->buffer;
 		mb[i].mem_id = m->id;
 		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->map->ptr, 0, void));
@@ -788,6 +790,7 @@ do_port_use_buffers(struct impl *impl,
 					d->type, d->fd, d->flags);
 				if (m == NULL)
 					return -errno;
+				b->buffer.datas[j].type = SPA_DATA_MemId;
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				spa_log_debug(this->log, "mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));

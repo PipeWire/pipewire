@@ -48,8 +48,7 @@
 struct buffer {
 	uint32_t id;
 	struct spa_buffer *buf;
-	struct pw_memmap **mem;
-	uint32_t n_mem;
+	struct pw_memmap *mem;
 };
 
 struct io {
@@ -534,7 +533,6 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 {
 	struct pw_port *port = mix->port;
         struct buffer *b;
-	uint32_t i;
 	int res;
 
         pw_log_debug("port %p: clear buffers %d", port, mix->mix_id);
@@ -544,12 +542,9 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 	}
 
         pw_array_for_each(b, &mix->buffers) {
-		for (i = 0; i < b->n_mem; i++) {
-			pw_log_debug("port %p: clear buffer %d map %p",
-				port, b->id, b->mem[i]);
-			pw_memmap_free(b->mem[i]);
-		}
-		b->n_mem = 0;
+		pw_log_debug("port %p: clear buffer %d map %p",
+			port, b->id, b->mem);
+		pw_memmap_free(b->mem);
                 free(b->buf);
         }
 	mix->buffers.size = 0;
@@ -639,19 +634,17 @@ client_node_port_use_buffers(void *object,
 			goto error_exit_cleanup;
 		}
 		bid->id = i;
+		bid->mem = mm;
 
 		if (mlock(mm->ptr, mm->size) < 0)
 			pw_log_warn("Failed to mlock memory %p %u: %m",
 					mm->ptr, mm->size);
 
 		size = sizeof(struct spa_buffer);
-		size += sizeof(struct pw_memmap *);
 		for (j = 0; j < buffers[i].buffer->n_metas; j++)
 			size += sizeof(struct spa_meta);
-		for (j = 0; j < buffers[i].buffer->n_datas; j++) {
+		for (j = 0; j < buffers[i].buffer->n_datas; j++)
 			size += sizeof(struct spa_data);
-			size += sizeof(struct pw_memmap *);
-		}
 
 		b = bid->buf = malloc(size);
 		if (b == NULL) {
@@ -663,10 +656,6 @@ client_node_port_use_buffers(void *object,
 		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
 		b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
-		bid->mem = SPA_MEMBER(b->datas, sizeof(struct spa_data) * b->n_datas,
-			       struct pw_memmap *);
-		bid->n_mem = 0;
-		bid->mem[bid->n_mem++] = mm;
 
 		pw_log_debug("add buffer %d %d %u %u", mm->block->id,
 				bid->id, buffers[i].offset, buffers[i].size);

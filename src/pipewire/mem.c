@@ -376,10 +376,11 @@ int pw_memmap_free(struct pw_memmap *map)
         pw_log_debug("pool %p: map:%p fd:%d ptr:%p map:%p ref:%d", p,
 			&mm->this, b->this.fd, mm->this.ptr, m, m->ref);
 
+	spa_list_remove(&mm->link);
+
 	if (--m->ref == 0)
 		mapping_unmap(m);
 
-	spa_list_remove(&mm->link);
 	free(mm);
 
 	return 0;

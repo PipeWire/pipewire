@@ -145,11 +145,6 @@ struct buffer {
 	uint32_t n_mem;
 };
 
-struct io {
-	uint32_t id;
-	struct pw_memmap *mem;
-};
-
 struct link {
 	uint32_t node_id;
 	struct pw_memmap *mem;
@@ -162,8 +157,6 @@ struct mix {
 	struct spa_list port_link;
 	uint32_t id;
 	struct port *port;
-
-	struct io ios[MAX_IO];
 
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *notify;
@@ -281,9 +274,9 @@ struct client {
 	struct spa_list ports[2];
 	struct spa_list free_ports[2];
 
-	struct io ios[MAX_IO];
 	struct pw_array links;
 
+	struct pw_memmap *mem;
 	struct pw_node_activation *activation;
 
 	bool started;
@@ -333,49 +326,6 @@ static void free_object(struct client *c, struct object *o)
 	spa_list_append(&c->context.free_objects, &o->link);
 }
 
-static void init_ios(struct io *ios)
-{
-	int i;
-	for (i = 0; i < MAX_IO; i++)
-		ios[i].id = SPA_ID_INVALID;
-}
-
-static void clear_io(struct io *io)
-{
-	pw_log_debug("%p clear id:%u mem:%p", io, io->id, io->mem);
-	pw_memmap_free(io->mem);
-	io->mem = NULL;
-	io->id = SPA_ID_INVALID;
-}
-
-static struct io *update_io(struct client *c, struct io *ios,
-		uint32_t id, struct pw_memmap *mem)
-{
-	int i;
-	struct io *io, *f = NULL;
-
-	pw_log_debug("update id:%u mem:%p", id, mem);
-
-	for (i = 0; i < MAX_IO; i++) {
-		io = &ios[i];
-		if (io->id == SPA_ID_INVALID && f == NULL)
-			f = io;
-		else if (io->id == id) {
-			if (io->mem && io->mem != mem)
-				clear_io(io);
-			f = io;
-			break;
-		}
-	}
-	if (f == NULL)
-		return NULL;
-
-	io = f;
-	io->id = id;
-	io->mem = mem;
-	return io;
-}
-
 static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
 {
 	struct mix *mix;
@@ -397,7 +347,6 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 	mix->port = port;
 	mix->io = NULL;
 	mix->n_buffers = 0;
-	init_ios(mix->ios);
 
 	return mix;
 }
@@ -859,8 +808,8 @@ static void clean_transport(struct client *c)
 
 static int client_node_transport(void *object,
                            uint32_t node_id,
-                           int readfd,
-                           int writefd)
+                           int readfd, int writefd,
+			   uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct client *c = (struct client *) object;
 	struct pw_core *core = c->context.core;
@@ -868,6 +817,14 @@ static int client_node_transport(void *object,
 	clean_transport(c);
 
 	c->node_id = node_id;
+
+	c->mem = pw_mempool_map_id(c->remote->pool, mem_id,
+				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
+	if (c->mem == NULL) {
+		pw_log_debug("client %p: can't map activation: %m", c);
+		return -errno;
+	}
+	c->activation = c->mem->ptr;
 
 	pw_log_debug("client %p: create client transport with fds %d %d for node %u",
 			c, readfd, writefd, node_id);
@@ -898,14 +855,17 @@ static int client_node_set_io(void *object,
 	struct client *c = (struct client *) object;
         struct pw_memmap *mm;
         void *ptr;
+	uint32_t tag[5] = { c->node_id, id, };
 
         if (mem_id == SPA_ID_INVALID) {
-		size = 0;
+		if ((mm = pw_mempool_find_tag(c->remote->pool, tag)) != NULL)
+			pw_memmap_free(mm);
 		mm = ptr = NULL;
+		size = 0;
         }
         else {
 		mm = pw_mempool_map_id(c->remote->pool, mem_id,
-				PROT_READ|PROT_WRITE, offset, size);
+				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
                         pw_log_warn("can't map memory id %u", mem_id);
 			return -errno;
@@ -914,8 +874,6 @@ static int client_node_set_io(void *object,
         }
 	pw_log_debug("client %p: set io %s %p", c,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
-
-	update_io(c, c->ios, id, mm);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -993,15 +951,6 @@ static int clear_buffers(struct client *c, struct mix *mix)
 	for (i = 0; i < mix->n_buffers; i++) {
 		b = &mix->buffers[i];
 
-		for (j = 0; j < b->n_datas; j++) {
-			struct spa_data *d = &b->datas[j];
-			if (d->fd != -1 && d->data) {
-				if (munmap(SPA_MEMBER(d->data, -d->mapoffset, void),
-							d->maxsize + d->mapoffset) < 0)
-					pw_log_warn("failed to unmap: %m");
-			}
-			d->fd = -1;
-		}
 		for (j = 0; j < b->n_mem; j++)
 			pw_memmap_free(b->mem[j]);
 
@@ -1234,7 +1183,7 @@ static int client_node_port_use_buffers(void *object,
 		struct pw_memmap *mm;
 
 		mm = pw_mempool_map_id(c->remote->pool, buffers[i].mem_id,
-				flags, buffers[i].offset, buffers[i].size);
+				flags, buffers[i].offset, buffers[i].size, NULL);
 		if (mm == NULL) {
 			pw_log_warn(NAME" %p: can't map memory id %u: %m", c, buffers[i].mem_id);
 			continue;
@@ -1284,7 +1233,7 @@ static int client_node_port_use_buffers(void *object,
 				d->type = bm->type;
 				d->data = NULL;
 
-				bmm = pw_memblock_map(bm, flags, d->mapoffset, d->maxsize);
+				bmm = pw_memblock_map(bm, flags, d->mapoffset, d->maxsize, NULL);
 				if (bmm == NULL) {
 					res = -errno;
 					pw_log_error(NAME" %p: failed to map buffer mem %m", c);
@@ -1340,6 +1289,7 @@ static int client_node_port_set_io(void *object,
 	struct port *p = GET_PORT(c, direction, port_id);
         struct pw_memmap *mm;
         struct mix *mix;
+	uint32_t tag[5] = { c->node_id, direction, port_id, mix_id, id };
         void *ptr;
 	int res = 0;
 
@@ -1349,12 +1299,15 @@ static int client_node_port_set_io(void *object,
 	}
 
         if (mem_id == SPA_ID_INVALID) {
+		if ((mm = pw_mempool_find_tag(c->remote->pool, tag)) != NULL)
+			pw_memmap_free(mm);
+
                 mm = ptr = NULL;
                 size = 0;
         }
         else {
 		mm = pw_mempool_map_id(c->remote->pool, mem_id,
-				PROT_READ|PROT_WRITE, offset, size);
+				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
                         pw_log_warn("can't map memory id %u", mem_id);
 			res = -EINVAL;
@@ -1365,8 +1318,6 @@ static int client_node_port_set_io(void *object,
 
 	pw_log_debug("port %p: set io:%s id:%u ptr:%p", p,
 			spa_debug_type_find_name(spa_type_io, id), id, ptr);
-
-	update_io(c, mix->ios, id, mm);
 
 	switch (id) {
 	case SPA_IO_Buffers:
@@ -1404,12 +1355,12 @@ static int client_node_set_activation(void *object,
 	int res = 0;
 
 	if (mem_id == SPA_ID_INVALID) {
-		ptr = NULL;
+		mm = ptr = NULL;
 		size = 0;
 	}
 	else {
 		mm = pw_mempool_map_id(c->remote->pool, mem_id,
-				PROT_READ|PROT_WRITE, offset, size);
+				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
 			pw_log_warn("can't map memory id %u", mem_id);
 			res = -EINVAL;
@@ -1424,8 +1375,8 @@ static int client_node_set_activation(void *object,
 	if (c->node_id == node_id) {
 		pw_log_debug("node %p: our activation %u: %u %u %u %p", c, node_id,
 				mem_id, offset, size, ptr);
-		if (ptr)
-			c->activation = ptr;
+		if (mm)
+			pw_memmap_free(mm);
 		close(signalfd);
 		return 0;
 	}
@@ -1723,7 +1674,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	spa_list_init(&client->context.nodes);
 	spa_list_init(&client->context.ports);
 	spa_list_init(&client->context.links);
-	init_ios(client->ios);
 
 	support = pw_core_get_support(client->context.core, &n_support);
 

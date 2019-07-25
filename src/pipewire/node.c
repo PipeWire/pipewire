@@ -1233,6 +1233,7 @@ void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_port *port;
+	struct pw_node *slave;
 
 	node->active = false;
 

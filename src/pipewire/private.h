@@ -477,8 +477,6 @@ struct pw_port_implementation {
 	int (*init_mix) (void *data, struct pw_port_mix *mix);
 	int (*release_mix) (void *data, struct pw_port_mix *mix);
 	int (*use_buffers) (void *data, uint32_t flags, struct spa_buffer **buffers, uint32_t n_buffers);
-	int (*alloc_buffers) (void *data, struct spa_pod **params, uint32_t n_params,
-			  struct spa_buffer **buffers, uint32_t *n_buffers);
 };
 
 #define pw_port_call(p,m,v,...)				\
@@ -493,7 +491,6 @@ struct pw_port_implementation {
 #define pw_port_call_init_mix(p,m)		pw_port_call(p,init_mix,0,m)
 #define pw_port_call_release_mix(p,m)		pw_port_call(p,release_mix,0,m)
 #define pw_port_call_use_buffers(p,f,b,n)	pw_port_call(p,use_buffers,0,f,b,n)
-#define pw_port_call_alloc_buffers(p,pp,np,b,n)	pw_port_call(p,alloc_buffers,0,pp,np,b,n)
 
 #define pw_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
 #define pw_port_emit_destroy(p)			pw_port_emit(p, destroy, 0)

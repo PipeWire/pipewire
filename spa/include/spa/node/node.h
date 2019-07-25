@@ -512,6 +512,10 @@ struct spa_node_methods {
 	/**
 	 * Tell the port to use the given buffers
 	 *
+	 * When \a flags contains SPA_NODE_BUFFERS_FLAG_ALLOC, the data
+	 * in the buffers should point to an array of at least 1 data entry
+	 * with the desired supported type that will be filled by this function.
+	 *
 	 * The port should also have a spa_io_buffers io area configured to exchange
 	 * the buffers with the port.
 	 *
@@ -551,45 +555,6 @@ struct spa_node_methods {
 				 uint32_t flags,
 				 struct spa_buffer **buffers,
 				 uint32_t n_buffers);
-	/**
-	 * Tell the port to allocate memory for \a buffers.
-	 *
-	 * The port should also have a spa_io_buffers io area configured to exchange
-	 * the buffers with the port.
-	 *
-	 * \a buffers should contain an array of pointers to buffers. The data
-	 * in the buffers should point to an array of at least 1 data entry
-	 * with a 0 type that will be filled by this function.
-	 *
-	 * For input ports, the buffers will be dequeued and ready to be filled
-	 * and pushed into the port. A callback should be configured so that you can
-	 * know when a buffer can be reused.
-	 *
-	 * For output ports, the buffers remain queued. port_reuse_buffer() should
-	 * be called when a buffer can be reused.
-	 *
-	 * Once the port has allocated buffers, the memory of the buffers can be
-	 * released again by calling struct port_use_buffers with NULL.
-	 *
-	 * This function must be called from the main thread.
-	 *
-	 * \param node a spa_node
-	 * \param direction a spa_direction
-	 * \param port_id a port id
-	 * \param params allocation parameters
-	 * \param n_params number of elements in \a params
-	 * \param buffers an array of buffer pointers
-	 * \param n_buffers number of elements in \a buffers
-	 * \return 0 on success
-	 *         -EBUSY when the node already has allocated buffers.
-	 */
-	int (*port_alloc_buffers) (void *object,
-				   enum spa_direction direction,
-				   uint32_t port_id,
-				   struct spa_pod **params,
-				   uint32_t n_params,
-				   struct spa_buffer **buffers,
-				   uint32_t *n_buffers);
 
 	/**
 	 * Configure the given memory area with \a id on \a port_id. This
@@ -670,7 +635,6 @@ struct spa_node_methods {
 #define spa_node_port_enum_params(n,...)	spa_node_method(n, port_enum_params, 0, __VA_ARGS__)
 #define spa_node_port_set_param(n,...)		spa_node_method(n, port_set_param, 0, __VA_ARGS__)
 #define spa_node_port_use_buffers(n,...)	spa_node_method(n, port_use_buffers, 0, __VA_ARGS__)
-#define spa_node_port_alloc_buffers(n,...)	spa_node_method(n, port_alloc_buffers, 0, __VA_ARGS__)
 #define spa_node_port_set_io(n,...)		spa_node_method(n, port_set_io, 0, __VA_ARGS__)
 
 #define spa_node_port_reuse_buffer(n,...)	spa_node_method(n, port_reuse_buffer, 0, __VA_ARGS__)

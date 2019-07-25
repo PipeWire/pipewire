@@ -406,9 +406,10 @@ static int negotiate_formats(struct data *data)
 			return -1;
 		}
 		n_buffers = MAX_BUFFERS;
-		if ((res =
-		     spa_node_port_alloc_buffers(data->source, SPA_DIRECTION_OUTPUT, 0, NULL, 0,
-						 data->bp, &n_buffers)) < 0) {
+		if ((res = spa_node_port_use_buffers(data->source,
+						SPA_DIRECTION_OUTPUT, 0,
+						SPA_NODE_BUFFERS_FLAG_ALLOC,
+						data->bp, n_buffers)) < 0) {
 			printf("can't allocate buffers: %s\n", spa_strerror(res));
 			return -1;
 		}

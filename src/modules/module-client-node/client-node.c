@@ -838,31 +838,6 @@ impl_node_port_use_buffers(void *object,
 }
 
 static int
-impl_node_port_alloc_buffers(void *object,
-			     enum spa_direction direction,
-			     uint32_t port_id,
-			     struct spa_pod **params,
-			     uint32_t n_params,
-			     struct spa_buffer **buffers,
-			     uint32_t *n_buffers)
-{
-	struct node *this = object;
-	struct port *port;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-	spa_return_val_if_fail(buffers != NULL, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_PORT(this, direction, port_id);
-
-	if (!port->have_format)
-		return -EIO;
-
-	spa_log_warn(this->log, "not supported");
-	return -ENOTSUP;
-}
-
-static int
 impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct node *this = object;
@@ -1043,7 +1018,6 @@ static const struct spa_node_methods impl_node = {
 	.port_enum_params = impl_node_port_enum_params,
 	.port_set_param = impl_node_port_set_param,
 	.port_use_buffers = impl_node_port_use_buffers,
-	.port_alloc_buffers = impl_node_port_alloc_buffers,
 	.port_set_io = impl_node_port_set_io,
 	.port_reuse_buffer = impl_node_port_reuse_buffer,
 	.process = impl_node_process,
@@ -1358,18 +1332,6 @@ impl_mix_port_use_buffers(void *object,
 	return do_port_use_buffers(impl, direction, port->id, mix_id, flags, buffers, n_buffers);
 }
 
-static int
-impl_mix_port_alloc_buffers(void *object,
-			    enum spa_direction direction,
-			    uint32_t port_id,
-			    struct spa_pod **params,
-			    uint32_t n_params,
-			    struct spa_buffer **buffers,
-			    uint32_t *n_buffers)
-{
-	return -ENOTSUP;
-}
-
 static int impl_mix_port_set_io(void *object,
 			   enum spa_direction direction, uint32_t mix_id,
 			   uint32_t id, void *data, size_t size)
@@ -1414,7 +1376,6 @@ static const struct spa_node_methods impl_port_mix = {
 	.add_port = impl_mix_add_port,
 	.remove_port = impl_mix_remove_port,
 	.port_use_buffers = impl_mix_port_use_buffers,
-	.port_alloc_buffers = impl_mix_port_alloc_buffers,
 	.port_set_io = impl_mix_port_set_io,
 	.port_reuse_buffer = impl_mix_port_reuse_buffer,
 	.process = impl_mix_process,

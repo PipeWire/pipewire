@@ -699,37 +699,14 @@ static int impl_node_port_use_buffers(void *object,
 		if ((res = spa_v4l2_clear_buffers(this)) < 0)
 			return res;
 	}
-	if (buffers != NULL) {
-		if ((res = spa_v4l2_use_buffers(this, buffers, n_buffers)) < 0)
-			return res;
+	if (buffers == NULL)
+		return 0;
+
+	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
+		res = spa_v4l2_alloc_buffers(this, buffers, n_buffers);
+	} else {
+		res = spa_v4l2_use_buffers(this, buffers, n_buffers);
 	}
-	return 0;
-}
-
-static int
-impl_node_port_alloc_buffers(void *object,
-			     enum spa_direction direction,
-			     uint32_t port_id,
-			     struct spa_pod **params,
-			     uint32_t n_params,
-			     struct spa_buffer **buffers,
-			     uint32_t *n_buffers)
-{
-	struct impl *this = object;
-	struct port *port;
-	int res;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-	spa_return_val_if_fail(buffers != NULL, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
-
-	port = GET_PORT(this, direction, port_id);
-
-	if (!port->have_format)
-		return -EIO;
-
-	res = spa_v4l2_alloc_buffers(this, params, n_params, buffers, n_buffers);
-
 	return res;
 }
 
@@ -903,7 +880,6 @@ static const struct spa_node_methods impl_node = {
 	.port_enum_params = impl_node_port_enum_params,
 	.port_set_param = impl_node_port_set_param,
 	.port_use_buffers = impl_node_port_use_buffers,
-	.port_alloc_buffers = impl_node_port_alloc_buffers,
 	.port_set_io = impl_node_port_set_io,
 	.port_reuse_buffer = impl_node_port_reuse_buffer,
 	.process = impl_node_process,

@@ -643,33 +643,17 @@ static int negotiate_buffers(struct impl *this)
 		return -errno;
 	this->n_buffers = buffers;
 
-	if (conv_alloc) {
-		if ((res = spa_node_port_alloc_buffers(this->convert,
-			       SPA_DIRECTION_REVERSE(this->direction), 0,
-			       NULL, 0,
-			       this->buffers, &this->n_buffers)) < 0)
-			return res;
-	}
-	else {
-		if ((res = spa_node_port_use_buffers(this->convert,
-			       SPA_DIRECTION_REVERSE(this->direction), 0, 0,
-			       this->buffers, this->n_buffers)) < 0)
-			return res;
-	}
-	if (slave_alloc) {
-		if ((res = spa_node_port_alloc_buffers(this->slave,
-			       this->direction, 0,
-			       NULL, 0,
-			       this->buffers, &this->n_buffers)) < 0) {
-			return res;
-		}
-	}
-	else {
-		if ((res = spa_node_port_use_buffers(this->slave, 0,
-			       this->direction, 0,
-			       this->buffers, this->n_buffers)) < 0) {
-			return res;
-		}
+	if ((res = spa_node_port_use_buffers(this->convert,
+		       SPA_DIRECTION_REVERSE(this->direction), 0,
+		       conv_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+		       this->buffers, this->n_buffers)) < 0)
+		return res;
+
+	if ((res = spa_node_port_use_buffers(this->slave,
+		       this->direction, 0,
+		       slave_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+		       this->buffers, this->n_buffers)) < 0) {
+		return res;
 	}
 	return 0;
 }
@@ -761,26 +745,6 @@ impl_node_port_use_buffers(void *object,
 }
 
 static int
-impl_node_port_alloc_buffers(void *object,
-			     enum spa_direction direction,
-			     uint32_t port_id,
-			     struct spa_pod **params,
-			     uint32_t n_params,
-			     struct spa_buffer **buffers,
-			     uint32_t *n_buffers)
-{
-	struct impl *this = object;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-
-	if (direction != this->direction)
-		port_id++;
-
-	return spa_node_port_alloc_buffers(this->target, direction, port_id,
-			params, n_params, buffers, n_buffers);
-}
-
-static int
 impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct impl *this = object;
@@ -829,7 +793,6 @@ static const struct spa_node_methods impl_node = {
 	.port_enum_params = impl_node_port_enum_params,
 	.port_set_param = impl_node_port_set_param,
 	.port_use_buffers = impl_node_port_use_buffers,
-	.port_alloc_buffers = impl_node_port_alloc_buffers,
 	.port_set_io = impl_node_port_set_io,
 	.port_reuse_buffer = impl_node_port_reuse_buffer,
 	.process = impl_node_process,

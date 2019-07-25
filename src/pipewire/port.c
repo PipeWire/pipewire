@@ -1092,15 +1092,16 @@ int pw_port_alloc_buffers(struct pw_port *port,
 	if (port->state < PW_PORT_STATE_READY)
 		return -EIO;
 
-	if ((res = spa_node_port_alloc_buffers(node->node, port->direction, port->port_id,
-					  params, n_params,
-					  buffers, n_buffers)) < 0) {
+	if ((res = spa_node_port_use_buffers(node->node,
+					port->direction, port->port_id,
+					SPA_NODE_BUFFERS_FLAG_ALLOC,
+					buffers, *n_buffers)) < 0) {
 		pw_log_error("port %p: %d alloc failed: %d (%s)", port, port->port_id,
 				res, spa_strerror(res));
 	}
 
 	if (res >= 0) {
-		res = pw_port_call_alloc_buffers(port, params, n_params, buffers, n_buffers);
+		res = pw_port_call_use_buffers(port, SPA_NODE_BUFFERS_FLAG_ALLOC, buffers, *n_buffers);
 		if (res < 0) {
 			pw_log_error("port %p: %d implementation alloc failed: %d (%s)",
 					port, port->port_id, res, spa_strerror(res));

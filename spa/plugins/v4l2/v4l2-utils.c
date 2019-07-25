@@ -1338,10 +1338,8 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 
 static int
 mmap_init(struct impl *this,
-	  struct spa_pod **params,
-	  uint32_t n_params,
 	  struct spa_buffer **buffers,
-	  uint32_t *n_buffers)
+	  uint32_t n_buffers)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
@@ -1353,7 +1351,7 @@ mmap_init(struct impl *this,
 	spa_zero(reqbuf);
 	reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	reqbuf.memory = port->memtype;
-	reqbuf.count = *n_buffers;
+	reqbuf.count = n_buffers;
 
 	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		spa_log_error(this->log, "VIDIOC_REQBUFS: %m");
@@ -1361,7 +1359,7 @@ mmap_init(struct impl *this,
 	}
 
 	spa_log_info(this->log, "v4l2: got %d buffers", reqbuf.count);
-	*n_buffers = reqbuf.count;
+	n_buffers = reqbuf.count;
 
 	if (reqbuf.count < 2) {
 		spa_log_error(this->log, "v4l2: can't allocate enough buffers");
@@ -1454,10 +1452,8 @@ static int read_init(struct impl *this)
 
 static int
 spa_v4l2_alloc_buffers(struct impl *this,
-		       struct spa_pod **params,
-		       uint32_t n_params,
 		       struct spa_buffer **buffers,
-		       uint32_t *n_buffers)
+		       uint32_t n_buffers)
 {
 	int res;
 	struct port *port = &this->out_ports[0];
@@ -1467,7 +1463,7 @@ spa_v4l2_alloc_buffers(struct impl *this,
 		return -EIO;
 
 	if (dev->cap.capabilities & V4L2_CAP_STREAMING) {
-		if ((res = mmap_init(this, params, n_params, buffers, n_buffers)) < 0)
+		if ((res = mmap_init(this, buffers, n_buffers)) < 0)
 			if ((res = userptr_init(this)) < 0)
 				return res;
 	} else if (dev->cap.capabilities & V4L2_CAP_READWRITE) {

@@ -716,18 +716,6 @@ impl_node_port_use_buffers(void *object,
 }
 
 static int
-impl_node_port_alloc_buffers(void *object,
-			     enum spa_direction direction,
-			     uint32_t port_id,
-			     struct spa_pod **params,
-			     uint32_t n_params,
-			     struct spa_buffer **buffers,
-			     uint32_t *n_buffers)
-{
-	return -ENOTSUP;
-}
-
-static int
 impl_node_port_set_io(void *object,
 		      enum spa_direction direction, uint32_t port_id,
 		      uint32_t id, void *data, size_t size)
@@ -897,7 +885,6 @@ static const struct spa_node_methods impl_node = {
 	.port_enum_params = impl_node_port_enum_params,
 	.port_set_param = impl_node_port_set_param,
 	.port_use_buffers = impl_node_port_use_buffers,
-	.port_alloc_buffers = impl_node_port_alloc_buffers,
 	.port_set_io = impl_node_port_set_io,
 	.port_reuse_buffer = impl_node_port_reuse_buffer,
 	.process = impl_node_process,

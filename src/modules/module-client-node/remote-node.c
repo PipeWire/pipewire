@@ -51,11 +51,6 @@ struct buffer {
 	struct pw_memmap *mem;
 };
 
-struct io {
-	uint32_t id;
-	struct pw_memmap *mem;
-};
-
 struct mix {
 	struct spa_list link;
 	struct pw_port *port;
@@ -63,7 +58,6 @@ struct mix {
 	struct pw_port_mix mix;
 	struct pw_array buffers;
 	bool active;
-	struct io ios[MAX_IO];
 };
 
 struct link {
@@ -79,6 +73,7 @@ struct node_data {
 
 	uint32_t remote_id;
 	int rtwritefd;
+	struct pw_memmap *activation;
 
 	struct mix mix_pool[MAX_MIX];
 	struct spa_list mix[2];
@@ -94,57 +89,12 @@ struct node_data {
 	struct spa_hook proxy_listener;
         struct pw_proxy *proxy;
 
-	struct io ios[MAX_IO];
 	struct spa_io_position *position;
 
 	struct pw_array links;
 };
 
 /** \endcond */
-
-static void init_ios(struct io *ios)
-{
-	int i;
-	for (i = 0; i < MAX_IO; i++)
-		ios[i].id = SPA_ID_INVALID;
-}
-
-static void clear_io(struct io *io)
-{
-	pw_log_debug("%p clear id:%u mem:%p", io, io->id, io->mem);
-	pw_memmap_free(io->mem);
-	io->mem = NULL;
-	io->id = SPA_ID_INVALID;
-}
-
-static struct io *update_io(struct node_data *data, struct io *ios,
-		uint32_t id, struct pw_memmap *mem)
-{
-	int i;
-	struct io *io, *f = NULL;
-
-	pw_log_debug("node %p: update id:%u mem:%p", data, id, mem);
-
-	for (i = 0; i < MAX_IO; i++) {
-		io = &ios[i];
-		if (io->id == SPA_ID_INVALID && f == NULL)
-			f = io;
-		else if (io->id == id) {
-			if (io->mem && io->mem != mem)
-				clear_io(io);
-			f = io;
-			break;
-		}
-	}
-	if (f == NULL)
-		return NULL;
-
-	io = f;
-	io->id = id;
-	io->mem = mem;
-
-	return io;
-}
 
 static struct link *find_activation(struct pw_array *links, uint32_t node_id)
 {
@@ -179,6 +129,7 @@ static void clean_transport(struct node_data *data)
 	}
 	pw_array_clear(&data->links);
 
+	pw_memmap_free(data->activation);
 	close(data->rtwritefd);
 	data->remote_id = SPA_ID_INVALID;
 	data->have_transport = false;
@@ -192,7 +143,6 @@ static void mix_init(struct mix *mix, struct pw_port *port, uint32_t mix_id)
 	mix->active = false;
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
-	init_ios(mix->ios);
 }
 
 static int
@@ -278,7 +228,7 @@ static struct mix *ensure_mix(struct node_data *data,
 
 
 static int client_node_transport(void *object, uint32_t node_id,
-			int readfd, int writefd)
+			int readfd, int writefd, uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
@@ -286,15 +236,24 @@ static int client_node_transport(void *object, uint32_t node_id,
 
 	clean_transport(data);
 
-	data->have_transport = true;
-	data->remote_id = node_id;
+	data->activation = pw_mempool_map_id(proxy->remote->pool, mem_id,
+				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
+	if (data->activation == NULL) {
+		pw_log_debug("remote-node %p: can't map activation: %m", proxy);
+		return -errno;
+	}
 
-	pw_log_debug("remote-node %p: create transport with fds %d %d for node %u",
-		proxy, readfd, writefd, node_id);
+	data->remote_id = node_id;
+	data->node->rt.activation = data->activation->ptr;
+
+	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
+		proxy, readfd, writefd, node_id, data->activation->ptr);
 
         data->rtwritefd = writefd;
 	close(data->node->source.fd);
 	data->node->source.fd = readfd;
+
+	data->have_transport = true;
 
 	if (data->node->active)
 		pw_client_node_proxy_set_active(data->node_proxy, true);
@@ -441,14 +400,17 @@ client_node_set_io(void *object,
 	struct node_data *data = proxy->user_data;
 	struct pw_memmap *mm;
 	void *ptr;
+	uint32_t tag[5] = { data->remote_id, id, };
 
 	if (memid == SPA_ID_INVALID) {
-		size = 0;
+		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag)) != NULL)
+			pw_memmap_free(mm);
 		mm = ptr = NULL;
+		size = 0;
 	}
 	else {
 		mm = pw_mempool_map_id(proxy->remote->pool, memid,
-				PROT_READ|PROT_WRITE, offset, size);
+				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			pw_log_warn("can't map memory id %u: %m", memid);
 			return -errno;
@@ -458,8 +420,6 @@ client_node_set_io(void *object,
 
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
-
-	update_io(data, data->ios, id, mm);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -535,7 +495,7 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
         struct buffer *b;
 	int res;
 
-        pw_log_debug("port %p: clear buffers %d", port, mix->mix_id);
+        pw_log_debug("port %p: clear buffers mix:%d", port, mix->mix_id);
 	if ((res = pw_port_use_buffers(port, mix->mix_id, NULL, 0)) < 0) {
 		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
 		return res;
@@ -609,7 +569,7 @@ client_node_port_use_buffers(void *object,
 		goto error_exit;
 	}
 
-	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
+	prot = PW_MEMMAP_FLAG_READ | (direction == SPA_DIRECTION_OUTPUT ? PW_MEMMAP_FLAG_WRITE : 0);
 
 	/* clear previous buffers */
 	clear_buffers(data, mix);
@@ -622,7 +582,7 @@ client_node_port_use_buffers(void *object,
 		struct pw_memmap *mm;
 
 		mm = pw_mempool_map_id(proxy->remote->pool, buffers[i].mem_id,
-				prot, buffers[i].offset, buffers[i].size);
+				prot, buffers[i].offset, buffers[i].size, NULL);
 		if (mm == NULL) {
 			res = -errno;
 			goto error_exit_cleanup;
@@ -735,6 +695,7 @@ client_node_port_set_io(void *object,
 	struct pw_memmap *mm;
 	void *ptr;
 	int res = 0;
+	uint32_t tag[5] = { data->remote_id, direction, port_id, mix_id, id };
 
 	mix = ensure_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
@@ -743,12 +704,15 @@ client_node_port_set_io(void *object,
 	}
 
 	if (memid == SPA_ID_INVALID) {
+		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag)) != NULL)
+			pw_memmap_free(mm);
+
 		mm = ptr = NULL;
 		size = 0;
 	}
 	else {
 		mm = pw_mempool_map_id(proxy->remote->pool, memid,
-				PROT_READ|PROT_WRITE, offset, size);
+				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			res = -errno;
 			goto error_exit;
@@ -758,8 +722,6 @@ client_node_port_set_io(void *object,
 
 	pw_log_debug("port %p: set io:%s new:%p old:%p", mix->port,
 			spa_debug_type_find_name(spa_type_io, id), ptr, mix->mix.io);
-
-	update_io(data, mix->ios, id, mm);
 
 	if (id == SPA_IO_Buffers) {
 		if (ptr == NULL && mix->mix.io)
@@ -799,6 +761,7 @@ static int link_signal_func(void *user_data)
 
 	if (write(link->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		pw_log_warn("link %p: write failed %m", link);
+
 	return 0;
 }
 
@@ -825,7 +788,7 @@ client_node_set_activation(void *object,
 	}
 	else {
 		mm = pw_mempool_map_id(proxy->remote->pool, memid,
-				PROT_READ|PROT_WRITE, offset, size);
+				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
 			res = -errno;
 			goto error_exit;
@@ -837,6 +800,8 @@ client_node_set_activation(void *object,
 	if (data->remote_id == node_id) {
 		pw_log_debug("node %p: our activation %u: %u %u %u %p", node, node_id,
 				memid, offset, size, ptr);
+		if (mm)
+			pw_memmap_free(mm);
 		close(signalfd);
 		return 0;
 	}
@@ -1098,7 +1063,6 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 	data->core = pw_node_get_core(node);
 	data->node_proxy = (struct pw_client_node_proxy *)proxy;
 	data->remote_id = SPA_ID_INVALID;
-	init_ios(data->ios);
 
 	node->exported = true;
 

@@ -96,27 +96,44 @@ static void node_deactivate(struct pw_node *this)
 
 static void add_node(struct pw_node *this, struct pw_node *driver)
 {
-	pw_log_trace("node %p: add to driver %p", this, driver);
+	uint32_t rdriver, rnode;
+
+	if (this->exported)
+		return;
+
+	pw_log_trace("node %p: add to driver %p %p %p", this, driver,
+			driver->rt.activation, this->rt.activation);
 	/* signal the driver */
 	this->rt.driver_target.activation = driver->rt.activation;
 	this->rt.driver_target.node = driver;
 	this->rt.driver_target.data = driver;
 	spa_list_append(&this->rt.target_list, &this->rt.driver_target.link);
-	this->rt.driver_target.activation->state[0].required++;
+	rdriver = ++this->rt.driver_target.activation->state[0].required;
 
 	spa_list_append(&driver->rt.target_list, &this->rt.target.link);
-	this->rt.activation->state[0].required++;
+	rnode = ++this->rt.activation->state[0].required;
+
+	pw_log_trace("node %p: required driver:%d node:%d", this, rdriver, rnode);
 }
 
 static void remove_node(struct pw_node *this)
 {
-	pw_log_trace("node %p: remove from driver %p", this,
-				this->rt.driver_target.data);
+	uint32_t rdriver, rnode;
+
+	if (this->exported)
+		return;
+
+	pw_log_trace("node %p: remove from driver %p %p %p",
+			this, this->rt.driver_target.data,
+			this->rt.driver_target.activation, this->rt.activation);
+
 	spa_list_remove(&this->rt.driver_target.link);
-	this->rt.driver_target.activation->state[0].required--;
+	rdriver = --this->rt.driver_target.activation->state[0].required;
 
 	spa_list_remove(&this->rt.target.link);
-	this->rt.activation->state[0].required--;
+	rnode = --this->rt.activation->state[0].required;
+
+	pw_log_trace("node %p: required driver:%d node:%d", this, rdriver, rnode);
 }
 
 static int
@@ -862,12 +879,15 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	size = sizeof(struct pw_node_activation);
 
-	if ((res = pw_mempool_alloc(this->core->pool,
-					PW_MEMBLOCK_FLAG_READWRITE |
-					PW_MEMBLOCK_FLAG_SEAL |
-					PW_MEMBLOCK_FLAG_MAP,
-					size, &this->activation)) < 0)
+	this->activation = pw_mempool_alloc(this->core->pool,
+			PW_MEMBLOCK_FLAG_READWRITE |
+			PW_MEMBLOCK_FLAG_SEAL |
+			PW_MEMBLOCK_FLAG_MAP,
+			SPA_DATA_MemFd, size);
+	if (this->activation == NULL) {
+		res = -errno;
                 goto error_clean;
+	}
 
 
 	impl->work = pw_work_queue_new(this->core->main_loop);

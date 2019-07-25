@@ -1031,7 +1031,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 	struct pw_node *node = port->node;
 	struct pw_port_mix *mix = NULL;
 
-	pw_log_debug("port %p: %d:%d.%d: %d buffers %d", port,
+	pw_log_debug("port %p: %d:%d.%d: %d buffers state:%d", port,
 			port->direction, port->port_id, mix_id, n_buffers, port->state);
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)

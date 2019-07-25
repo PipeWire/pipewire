@@ -183,12 +183,15 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 	size = SPA_MAX(control->size, other->size);
 
 	if (impl->mem == NULL) {
-		if ((res = pw_mempool_alloc(control->core->pool,
+		impl->mem = pw_mempool_alloc(control->core->pool,
 						PW_MEMBLOCK_FLAG_READWRITE |
 						PW_MEMBLOCK_FLAG_SEAL |
 						PW_MEMBLOCK_FLAG_MAP,
-						size, &impl->mem)) < 0)
+						SPA_DATA_MemFd, size);
+		if (impl->mem == NULL) {
+			res = -errno;
 			goto exit;
+		}
 	}
 
 	if (spa_list_is_empty(&control->links)) {

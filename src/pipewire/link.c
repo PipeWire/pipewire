@@ -388,7 +388,6 @@ static int alloc_buffers(struct pw_link *this,
 			 uint32_t flags,
 			 struct allocation *allocation)
 {
-	int res;
 	struct spa_buffer **buffers, *bp;
 	uint32_t i;
 	uint32_t n_metas;
@@ -428,6 +427,7 @@ static int alloc_buffers(struct pw_link *this,
 		if (data_sizes[i] > 0) {
 			d->type = SPA_DATA_MemPtr;
 			d->maxsize = data_sizes[i];
+			SPA_FLAG_SET(d->flags, SPA_DATA_FLAG_READWRITE);
 		} else {
 			d->type = SPA_ID_INVALID;
 			d->maxsize = 0;
@@ -445,12 +445,14 @@ static int alloc_buffers(struct pw_link *this,
 	/* pointer to buffer structures */
 	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
 
-	if ((res = pw_mempool_alloc(this->core->pool,
-					PW_MEMBLOCK_FLAG_READWRITE |
-					PW_MEMBLOCK_FLAG_SEAL |
-					PW_MEMBLOCK_FLAG_MAP,
-					n_buffers * info.mem_size, &m)) < 0)
-		return res;
+	m = pw_mempool_alloc(this->core->pool,
+			PW_MEMBLOCK_FLAG_READWRITE |
+			PW_MEMBLOCK_FLAG_SEAL |
+			PW_MEMBLOCK_FLAG_MAP,
+			SPA_DATA_MemFd,
+			n_buffers * info.mem_size);
+	if (m == NULL)
+		return -errno;
 
 	pw_log_debug("layout buffers %p data %p", bp, m->map->ptr);
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, bp, m->map->ptr);
@@ -756,9 +758,13 @@ do_activate_link(struct spa_loop *loop,
 	spa_list_append(&this->input->rt.mix_list, &this->rt.in_mix.rt_link);
 
 	if (impl->inode != impl->onode) {
+		uint32_t required;
+
 		this->rt.target.activation = impl->inode->rt.activation;
 		spa_list_append(&impl->onode->rt.target_list, &this->rt.target.link);
-		this->rt.target.activation->state[0].required++;
+		required = ++this->rt.target.activation->state[0].required;
+		pw_log_trace("link %p: node:%p required:%d", this,
+				impl->inode, required);
 	}
 	return 0;
 }
@@ -965,6 +971,7 @@ do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
         struct pw_link *this = user_data;
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
 	pw_log_trace("link %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
 
@@ -972,8 +979,12 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_list_remove(&this->rt.in_mix.rt_link);
 
 	if (this->input->node != this->output->node) {
+		uint32_t required;
+
 		spa_list_remove(&this->rt.target.link);
-		this->rt.target.activation->state[0].required--;
+		required = --this->rt.target.activation->state[0].required;
+		pw_log_trace("link %p: node:%p required:%d", this,
+				impl->inode, required);
 	}
 
 	return 0;

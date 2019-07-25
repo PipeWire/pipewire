@@ -1202,6 +1202,9 @@ static int mmap_read(struct impl *this)
 	d[0].chunk->offset = 0;
 	d[0].chunk->size = buf.bytesused;
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
+	d[0].chunk->flags = 0;
+	if (buf.flags & V4L2_BUF_FLAG_ERROR)
+		d[0].flags |= SPA_CHUNK_FLAG_CORRUPTED;
 
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
 
@@ -1399,6 +1402,7 @@ mmap_init(struct impl *this,
 		d[0].chunk->offset = 0;
 		d[0].chunk->size = 0;
 		d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
+		d[0].chunk->flags = 0;
 
 		if (port->export_buf) {
 			struct v4l2_exportbuffer expbuf;
@@ -1412,11 +1416,13 @@ mmap_init(struct impl *this,
 				continue;
 			}
 			d[0].type = SPA_DATA_DmaBuf;
+			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = expbuf.fd;
 			d[0].data = NULL;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 		} else {
 			d[0].type = SPA_DATA_MemPtr;
+			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = -1;
 			d[0].data = mmap(NULL,
 					 b->v4l2_buffer.length,

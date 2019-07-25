@@ -150,7 +150,7 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 
 	pw_log_debug("remote %p: add mem %u type:%u fd:%d flags:%u", this, id, type, fd, flags);
 
-	m = pw_mempool_import(this->pool, type, fd, flags);
+	m = pw_mempool_import(this->pool, flags, type, fd);
 	if (m->id != id) {
 		pw_log_error("remote %p: invalid mem id %u, expected %u",
 				this, id, m->id);
@@ -162,7 +162,7 @@ static void core_event_remove_mem(void *data, uint32_t id)
 {
 	struct pw_remote *this = data;
 	pw_log_debug("remote %p: remove mem %u", this, id);
-	pw_mempool_remove_id(this->pool, id);
+	pw_mempool_unref_id(this->pool, id);
 }
 
 static const struct pw_core_proxy_events core_proxy_events = {

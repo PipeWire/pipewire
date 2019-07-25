@@ -48,7 +48,7 @@ enum spa_data_type {
 	SPA_DATA_LAST,			/**< not part of ABI */
 };
 
-/** Chunk of memory */
+/** Chunk of memory, can change for each buffer */
 struct spa_chunk {
 	uint32_t offset;		/**< offset of valid data. Should be taken
 					  *  modulo the data maxsize to get the offset
@@ -56,15 +56,19 @@ struct spa_chunk {
 	uint32_t size;			/**< size of valid data. Should be clamped to
 					  *  maxsize. */
 	int32_t stride;			/**< stride of valid data */
-	int32_t dummy;			/**< dummy field for alignment */
+#define SPA_CHUNK_FLAG_NONE		0
+#define SPA_CHUNK_FLAG_CORRUPTED	(1u<<0)	/**< chunk data is corrupted in some way */
+	int32_t flags;			/**< chunk flags */
 };
 
-/** Data for a buffer */
+/** Data for a buffer this stays constant for a buffer */
 struct spa_data {
 	uint32_t type;			/**< memory type, one of enum spa_data_type */
 #define SPA_DATA_FLAG_NONE	 0
-#define SPA_DATA_FLAG_CORRUPTED	(1u<<0)	/**< data is corrupted in some way */
-#define SPA_DATA_FLAG_DYNAMIC	(1u<<1)	/**< data pointer can be changed */
+#define SPA_DATA_FLAG_READABLE	(1u<<0)	/**< data is readable */
+#define SPA_DATA_FLAG_WRITABLE	(1u<<1)	/**< data is writable */
+#define SPA_DATA_FLAG_DYNAMIC	(1u<<2)	/**< data pointer can be changed */
+#define SPA_DATA_FLAG_READWRITE	(SPA_DATA_FLAG_READABLE|SPA_DATA_FLAG_WRITABLE)
 	uint32_t flags;			/**< data flags */
 	int64_t fd;			/**< optional fd for data */
 	uint32_t mapoffset;		/**< offset to map fd at */

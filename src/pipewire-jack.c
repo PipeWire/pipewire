@@ -1150,13 +1150,14 @@ static int client_node_port_use_buffers(void *object,
                                   enum spa_direction direction,
                                   uint32_t port_id,
                                   uint32_t mix_id,
+                                  uint32_t flags,
                                   uint32_t n_buffers,
                                   struct pw_client_node_buffer *buffers)
 {
 	struct client *c = (struct client *) object;
 	struct port *p = GET_PORT(c, direction, port_id);
 	struct buffer *b;
-	uint32_t i, j, flags, res;
+	uint32_t i, j, fl, res;
 	struct mix *mix;
 
 	if (!p->valid) {
@@ -1172,7 +1173,7 @@ static int client_node_port_use_buffers(void *object,
 	pw_log_debug(NAME" %p: port %p %d %d.%d use_buffers %d", c, p, direction,
 			port_id, mix_id, n_buffers);
 
-	flags = PW_MEMMAP_FLAG_READ | (direction == SPA_DIRECTION_OUTPUT ? PW_MEMMAP_FLAG_WRITE : 0);
+	fl = PW_MEMMAP_FLAG_READ | (direction == SPA_DIRECTION_OUTPUT ? PW_MEMMAP_FLAG_WRITE : 0);
 
 	/* clear previous buffers */
 	clear_buffers(c, mix);
@@ -1183,7 +1184,7 @@ static int client_node_port_use_buffers(void *object,
 		struct pw_memmap *mm;
 
 		mm = pw_mempool_map_id(c->remote->pool, buffers[i].mem_id,
-				flags, buffers[i].offset, buffers[i].size, NULL);
+				fl, buffers[i].offset, buffers[i].size, NULL);
 		if (mm == NULL) {
 			pw_log_warn(NAME" %p: can't map memory id %u: %m", c, buffers[i].mem_id);
 			continue;
@@ -1233,7 +1234,7 @@ static int client_node_port_use_buffers(void *object,
 				d->type = bm->type;
 				d->data = NULL;
 
-				bmm = pw_memblock_map(bm, flags, d->mapoffset, d->maxsize, NULL);
+				bmm = pw_memblock_map(bm, fl, d->mapoffset, d->maxsize, NULL);
 				if (bmm == NULL) {
 					res = -errno;
 					pw_log_error(NAME" %p: failed to map buffer mem %m", c);
@@ -2224,11 +2225,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	port_info = SPA_PORT_INFO_INIT();
 	port_info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	if (type_id == 1)
-		port_info.flags = SPA_PORT_FLAG_NO_REF;
-	else
-		port_info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
-				  SPA_PORT_FLAG_NO_REF;
+	port_info.flags = SPA_PORT_FLAG_NO_REF;
 	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
 	dict = SPA_DICT_INIT(items, 0);
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_FORMAT_DSP, port_type);

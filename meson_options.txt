@@ -74,6 +74,10 @@ option('v4l2',
        description: 'Enable v4l2 spa plugin integration',
        type: 'boolean',
        value: true)
+option('videoconvert',
+       description: 'Enable videoconvert spa plugin integration',
+       type: 'boolean',
+       value: true)
 option('videotestsrc',
        description: 'Enable videotestsrc spa plugin integration',
        type: 'boolean',

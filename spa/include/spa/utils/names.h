@@ -65,6 +65,17 @@ extern "C" {
 #define SPA_NAME_AUDIO_ADAPT		"audio.adapt"			/**< combination of a node and an
 									  *  audio.convert. Does clock slaving */
 
+/** video processing */
+#define SPA_NAME_VIDEO_PROCESS_FORMAT	"video.process.format"		/**< processes raw video from one format
+									  *  to another */
+#define SPA_NAME_VIDEO_PROCESS_SCALE	"video.process.scale"		/**< scales raw video */
+
+/** video convert combines some of the video processing */
+#define SPA_NAME_VIDEO_CONVERT		"video.convert"			/**< converts raw video from one format
+									  *  to another. Must include at least
+									  *  format and scaling */
+#define SPA_NAME_VIDEO_ADAPT		"video.adapt"			/**< combination of a node and a
+									  *  video.convert. */
 /** keys for alsa factory names */
 #define SPA_NAME_API_ALSA_MONITOR	"api.alsa.monitor"		/**< an alsa Monitor interface */
 #define SPA_NAME_API_ALSA_DEVICE	"api.alsa.device"		/**< an alsa Device interface */

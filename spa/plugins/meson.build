@@ -22,6 +22,9 @@ endif
 if get_option('test')
   subdir('test')
 endif
+if get_option('videoconvert')
+  subdir('videoconvert')
+endif
 if get_option('videotestsrc')
   subdir('videotestsrc')
 endif

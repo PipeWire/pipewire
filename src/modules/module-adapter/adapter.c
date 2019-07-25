@@ -31,18 +31,20 @@
 #include "config.h"
 
 #include <spa/node/node.h>
+#include <spa/node/utils.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
-#include <spa/param/audio/format-utils.h>
 #include <spa/utils/type-info.h>
-#include <spa/param/audio/type-info.h>
+#include <spa/param/format.h>
+#include <spa/param/format-utils.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"
 
-#define NAME "audioadapter"
+#define NAME "adapter"
 
 #define PORT_BUFFERS	1
 #define MAX_BUFFER_SIZE	2048
@@ -85,7 +87,8 @@ struct node {
 	enum pw_direction direction;
 	struct pw_properties *props;
 
-	struct spa_audio_info format;
+	uint32_t media_type;
+	uint32_t media_subtype;
 
 	struct spa_list ports;
 };
@@ -251,27 +254,29 @@ static void node_port_init(void *data, struct pw_port *port)
 	if (direction != n->direction)
 		return;
 
-	p = calloc(1, sizeof(struct port) +
+	if (n->media_type == SPA_MEDIA_TYPE_audio) {
+		p = calloc(1, sizeof(struct port) +
 			spa_handle_factory_get_size(&spa_floatmix_factory, NULL));
-	p->node = n;
-	p->port = port;
-	init_port(p, direction);
-	p->spa_handle = SPA_MEMBER(p, sizeof(struct port), struct spa_handle);
+		p->node = n;
+		p->port = port;
+		init_port(p, direction);
+		p->spa_handle = SPA_MEMBER(p, sizeof(struct port), struct spa_handle);
 
-	support = pw_core_get_support(n->core, &n_support);
-	spa_handle_factory_init(&spa_floatmix_factory,
-			p->spa_handle, NULL,
-			support, n_support);
+		support = pw_core_get_support(n->core, &n_support);
+		spa_handle_factory_init(&spa_floatmix_factory,
+				p->spa_handle, NULL,
+				support, n_support);
 
-	spa_handle_get_interface(p->spa_handle, SPA_TYPE_INTERFACE_Node, &iface);
-	p->spa_node = iface;
+		spa_handle_get_interface(p->spa_handle, SPA_TYPE_INTERFACE_Node, &iface);
+		p->spa_node = iface;
 
-	if (direction == PW_DIRECTION_INPUT) {
-		pw_log_debug("mix node %p", p->spa_node);
-		pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
-		port->impl = SPA_CALLBACKS_INIT(&port_implementation, p);
+		if (direction == PW_DIRECTION_INPUT) {
+			pw_log_debug("mix node %p", p->spa_node);
+			pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
+			port->impl = SPA_CALLBACKS_INIT(&port_implementation, p);
+		}
+		spa_list_append(&n->ports, &p->link);
 	}
-	spa_list_append(&n->ports, &p->link);
 }
 
 static const struct pw_node_events node_events = {
@@ -281,6 +286,37 @@ static const struct pw_node_events node_events = {
 	.port_init = node_port_init,
 };
 
+
+static int find_format(struct pw_node *node, enum pw_direction direction,
+		uint32_t *media_type, uint32_t *media_subtype)
+{
+	uint32_t state = 0;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b;
+	int res;
+	struct spa_pod *format;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	if ((res = spa_node_port_enum_params_sync(node->node,
+				direction == PW_DIRECTION_INPUT ?
+					SPA_DIRECTION_INPUT :
+					SPA_DIRECTION_OUTPUT, 0,
+				SPA_PARAM_EnumFormat, &state,
+				NULL, &format, &b)) != 1) {
+		pw_log_warn(NAME " %p: no format given", node);
+		return -ENOENT;
+	}
+
+	if ((res = spa_format_parse(format, media_type, media_subtype)) < 0)
+		return res;
+
+	pw_log_debug(NAME " %p: %s/%s", node,
+			spa_debug_type_find_name(spa_type_media_type, *media_type),
+			spa_debug_type_find_name(spa_type_media_subtype, *media_subtype));
+	return 0;
+}
+
+
 struct pw_node *pw_adapter_new(struct pw_core *core,
 		struct pw_node *slave,
 		struct pw_properties *props,
@@ -288,23 +324,32 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *name, *str;
+	const char *name, *str, *factory_name;
 	const struct pw_node_info *info;
 	enum pw_direction direction;
-	int res = -ENOENT;
+	int res;
+	uint32_t media_type, media_subtype;
 
 	info = pw_node_get_info(slave);
 	if (info == NULL) {
-		errno = EINVAL;
-		return NULL;
+		res = -EINVAL;
+		goto error;
 	}
+
+	pw_log_debug(NAME " %p: in %d/%d out %d/%d", slave,
+			info->n_input_ports, info->max_input_ports,
+			info->n_output_ports, info->max_output_ports);
 
 	pw_properties_update(props, info->props);
 
-	if (info->n_output_ports == 0)
-		direction = PW_DIRECTION_INPUT;
-	else
+	if (info->n_output_ports > 0) {
 		direction = PW_DIRECTION_OUTPUT;
+	} else if (info->n_input_ports > 0) {
+		direction = PW_DIRECTION_INPUT;
+	} else {
+		res = -EINVAL;
+		goto error;
+	}
 
 	if ((name = pw_properties_get(props, PW_KEY_NODE_NAME)) == NULL)
 		name = NAME;
@@ -321,28 +366,40 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 		pw_properties_set(props, "factory.mode", str);
 	}
 
-	pw_properties_setf(props, "audio.adapt.slave", "pointer:%p", slave->node);
-	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
-	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
-		pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",
-			direction == PW_DIRECTION_INPUT ? "Sink" : "Source");
+	if ((res = find_format(slave, direction, &media_type, &media_subtype)) < 0)
+		goto error;
+
+	if (media_type == SPA_MEDIA_TYPE_audio) {
+		pw_properties_setf(props, "audio.adapt.slave", "pointer:%p", slave->node);
+		pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
+		if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
+			pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",
+				direction == PW_DIRECTION_INPUT ? "Sink" : "Source");
+		factory_name = SPA_NAME_AUDIO_ADAPT;
+	}
+	else if (media_type == SPA_MEDIA_TYPE_video) {
+		pw_properties_setf(props, "video.adapt.slave", "pointer:%p", slave->node);
+		pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "videoconvert/libspa-videoconvert");
+		if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
+			pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Video/%s",
+				direction == PW_DIRECTION_INPUT ? "Sink" : "Source");
+		factory_name = SPA_NAME_VIDEO_ADAPT;
+	} else {
+		res = -ENOTSUP;
+		goto error;
+	}
 
 	node = pw_spa_node_load(core, NULL, NULL,
-			SPA_NAME_AUDIO_ADAPT,
-			name,
-			PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
-			pw_properties_copy(props),
-			sizeof(struct node) + user_data_size);
-
+				factory_name,
+				name,
+				PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
+				pw_properties_copy(props),
+				sizeof(struct node) + user_data_size);
         if (node == NULL) {
 		res = -errno;
 		pw_log_error("can't load spa node: %m");
 		goto error;
 	}
-
-	pw_log_debug(NAME " %p: in %d/%d out %d/%d", node,
-			info->n_input_ports, info->max_input_ports,
-			info->n_output_ports, info->max_output_ports);
 
 	n = pw_spa_node_get_user_data(node);
 	n->core = core;
@@ -350,6 +407,8 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 	n->slave = slave;
 	n->direction = direction;
 	n->props = props;
+	n->media_type = media_type;
+	n->media_subtype = media_subtype;
 	spa_list_init(&n->ports);
 
 	if (user_data_size > 0)

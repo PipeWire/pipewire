@@ -413,7 +413,7 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
-	uint32_t direction, port_id, mix_id, n_buffers, data_id;
+	uint32_t direction, port_id, mix_id, flags, n_buffers, data_id;
 	struct pw_client_node_buffer *buffers;
 	uint32_t i, j;
 
@@ -423,6 +423,7 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 			SPA_POD_Int(&direction),
 			SPA_POD_Int(&port_id),
 			SPA_POD_Int(&mix_id),
+			SPA_POD_Int(&flags),
 			SPA_POD_Int(&n_buffers), NULL) < 0)
 		return -EINVAL;
 
@@ -469,6 +470,7 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 									  direction,
 									  port_id,
 									  mix_id,
+									  flags,
 									  n_buffers, buffers);
 	return 0;
 }
@@ -673,6 +675,7 @@ client_node_marshal_port_use_buffers(void *object,
 				     enum spa_direction direction,
 				     uint32_t port_id,
 				     uint32_t mix_id,
+				     uint32_t flags,
 				     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_resource *resource = object;
@@ -687,6 +690,7 @@ client_node_marshal_port_use_buffers(void *object,
 			    SPA_POD_Int(direction),
 			    SPA_POD_Int(port_id),
 			    SPA_POD_Int(mix_id),
+			    SPA_POD_Int(flags),
 			    SPA_POD_Int(n_buffers), NULL);
 
 	for (i = 0; i < n_buffers; i++) {

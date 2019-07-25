@@ -385,7 +385,7 @@ static void emit_port_info(struct stream *d)
 
 	info = SPA_PORT_INFO_INIT();
 	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	info.flags = 0;
 	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	info.params = d->params;
 	info.n_params = 5;
@@ -601,12 +601,14 @@ static void clear_buffers(struct pw_stream *stream)
 	clear_queue(impl, &impl->queued);
 }
 
-static int impl_port_use_buffers(void *object, enum spa_direction direction, uint32_t port_id,
-			struct spa_buffer **buffers, uint32_t n_buffers)
+static int impl_port_use_buffers(void *object,
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t flags,
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
-	uint32_t i, j, flags = impl->flags;
+	uint32_t i, j, impl_flags = impl->flags;
 	int prot, res;
 	int size = 0;
 
@@ -621,7 +623,7 @@ static int impl_port_use_buffers(void *object, enum spa_direction direction, uin
 		b->flags = 0;
 		b->id = i;
 
-		if (SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
+		if (SPA_FLAG_CHECK(impl_flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
 				if (d->type == SPA_DATA_MemFd ||

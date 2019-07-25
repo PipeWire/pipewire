@@ -496,7 +496,7 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 	int res;
 
         pw_log_debug("port %p: clear buffers mix:%d", port, mix->mix_id);
-	if ((res = pw_port_use_buffers(port, mix->mix_id, NULL, 0)) < 0) {
+	if ((res = pw_port_use_buffers(port, mix->mix_id, 0, NULL, 0)) < 0) {
 		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
 		return res;
 	}
@@ -553,6 +553,7 @@ error_exit:
 static int
 client_node_port_use_buffers(void *object,
 			     enum spa_direction direction, uint32_t port_id, uint32_t mix_id,
+			     uint32_t flags,
 			     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
 	struct pw_proxy *proxy = object;
@@ -666,7 +667,7 @@ client_node_port_use_buffers(void *object,
 		bufs[i] = b;
 	}
 
-	if ((res = pw_port_use_buffers(mix->port, mix->mix_id, bufs, n_buffers)) < 0)
+	if ((res = pw_port_use_buffers(mix->port, mix->mix_id, flags, bufs, n_buffers)) < 0)
 		goto error_exit_cleanup;
 
 	return res;

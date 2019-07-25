@@ -344,7 +344,7 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	}
 	else {
 		if ((res = spa_node_port_use_buffers(link->out_node,
-			       SPA_DIRECTION_OUTPUT, link->out_port,
+			       SPA_DIRECTION_OUTPUT, link->out_port, 0,
 			       link->buffers, link->n_buffers)) < 0)
 			return res;
 	}
@@ -357,7 +357,7 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	}
 	else {
 		if ((res = spa_node_port_use_buffers(link->in_node,
-			       SPA_DIRECTION_INPUT, link->in_port,
+			       SPA_DIRECTION_INPUT, link->in_port, 0,
 			       link->buffers, link->n_buffers)) < 0)
 			return res;
 	}
@@ -799,6 +799,7 @@ static int
 impl_node_port_use_buffers(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
+			   uint32_t flags,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
@@ -814,7 +815,7 @@ impl_node_port_use_buffers(void *object,
 		target = this->fmt[direction];
 
 	if ((res = spa_node_port_use_buffers(target,
-					direction, port_id, buffers, n_buffers)) < 0)
+					direction, port_id, flags, buffers, n_buffers)) < 0)
 		return res;
 
 	if (buffers && this->buffers_set[SPA_DIRECTION_REVERSE(direction)]) {

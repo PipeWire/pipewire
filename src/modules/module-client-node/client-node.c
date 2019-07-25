@@ -187,11 +187,13 @@ struct impl {
 	pw_client_node_resource(r,port_set_io,0,__VA_ARGS__)
 #define pw_client_node_resource_set_activation(r,...)	\
 	pw_client_node_resource(r,set_activation,0,__VA_ARGS__)
+
 static int
 do_port_use_buffers(struct impl *impl,
 		    enum spa_direction direction,
 		    uint32_t port_id,
 		    uint32_t mix_id,
+		    uint32_t flags,
 		    struct spa_buffer **buffers,
 		    uint32_t n_buffers);
 
@@ -268,7 +270,7 @@ static void mix_clear(struct node *this, struct mix *mix)
 	if (!mix->valid)
 		return;
 	do_port_use_buffers(this->impl, port->direction, port->id,
-			mix->id, NULL, 0);
+			mix->id, 0, NULL, 0);
 	mix->valid = false;
 }
 
@@ -695,6 +697,7 @@ do_port_use_buffers(struct impl *impl,
 		    enum spa_direction direction,
 		    uint32_t port_id,
 		    uint32_t mix_id,
+		    uint32_t flags,
 		    struct spa_buffer **buffers,
 		    uint32_t n_buffers)
 {
@@ -811,7 +814,7 @@ do_port_use_buffers(struct impl *impl,
 	}
 
 	return pw_client_node_resource_port_use_buffers(this->resource,
-						 direction, port_id, mix_id,
+						 direction, port_id, mix_id, flags,
 						 n_buffers, mb);
 }
 
@@ -819,6 +822,7 @@ static int
 impl_node_port_use_buffers(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
+			   uint32_t flags,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
@@ -830,7 +834,7 @@ impl_node_port_use_buffers(void *object,
 	impl = this->impl;
 
 	return do_port_use_buffers(impl, direction, port_id,
-			SPA_ID_INVALID, buffers, n_buffers);
+			SPA_ID_INVALID, flags, buffers, n_buffers);
 }
 
 static int
@@ -1344,13 +1348,14 @@ static int
 impl_mix_port_use_buffers(void *object,
 			   enum spa_direction direction,
 			   uint32_t mix_id,
+			   uint32_t flags,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
 	struct port *port = object;
 	struct impl *impl = port->impl;
 
-	return do_port_use_buffers(impl, direction, port->id, mix_id, buffers, n_buffers);
+	return do_port_use_buffers(impl, direction, port->id, mix_id, flags, buffers, n_buffers);
 }
 
 static int

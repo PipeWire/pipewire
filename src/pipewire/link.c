@@ -561,6 +561,7 @@ static int do_allocation(struct pw_link *this)
 	char *error = NULL;
 	struct pw_port *input, *output;
 	struct allocation allocation = { NULL, };
+	bool in_use, out_use;
 
 	if (this->info.state > PW_LINK_STATE_ALLOCATING)
 		return 0;
@@ -574,6 +575,7 @@ static int do_allocation(struct pw_link *this)
 
 	in_flags = input->spa_flags;
 	out_flags = output->spa_flags;
+	in_use = out_use = true;
 
 	pw_log_debug("link %p: doing alloc buffers %p %p: in_flags:%08x out_flags:%08x",
 			this, output->node, input->node, in_flags, out_flags);
@@ -683,18 +685,19 @@ static int do_allocation(struct pw_link *this)
 				goto error;
 			}
 			out_res = res;
-			SPA_FLAG_UNSET(out_flags, SPA_PORT_FLAG_CAN_USE_BUFFERS);
+			out_use = false;
 			move_allocation(&allocation, &output->allocation);
 
 			pw_log_debug("link %p: allocated %d buffers %p from output port", this,
 				     allocation.n_buffers, allocation.buffers);
 		}
 	}
-	if (out_flags & SPA_PORT_FLAG_CAN_USE_BUFFERS) {
+	if (out_use) {
 		pw_log_debug("link %p: using %d buffers %p on output port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(output,
 					       this->rt.out_mix.port.port_id,
+					       0,
 					       allocation.buffers,
 					       allocation.n_buffers)) < 0) {
 			asprintf(&error, "link %p: error use output buffers: %s", this,
@@ -704,11 +707,12 @@ static int do_allocation(struct pw_link *this)
 		out_res = res;
 		move_allocation(&allocation, &output->allocation);
 	}
-	if (in_flags & SPA_PORT_FLAG_CAN_USE_BUFFERS) {
+	if (in_use) {
 		pw_log_debug("link %p: using %d buffers %p on input port", this,
 			     allocation.n_buffers, allocation.buffers);
 		if ((res = pw_port_use_buffers(input,
 						this->rt.in_mix.port.port_id,
+						0,
 						allocation.buffers,
 						allocation.n_buffers)) < 0) {
 			asprintf(&error, "link %p: error use input buffers: %s", this,
@@ -875,7 +879,7 @@ static void clear_port_buffers(struct pw_link *link, struct pw_port *port)
 	else
 		mix = &link->rt.in_mix;
 
-	if ((res = pw_port_use_buffers(port, mix->port.port_id, NULL, 0)) < 0)
+	if ((res = pw_port_use_buffers(port, mix->port.port_id, 0, NULL, 0)) < 0)
 		pw_log_warn("link %p: port %p clear error %s", link, port, spa_strerror(res));
 }
 

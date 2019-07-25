@@ -304,10 +304,12 @@ static int impl_port_set_param(void *object,
 }
 
 static int impl_port_use_buffers(void *object, enum spa_direction direction, uint32_t port_id,
-				 struct spa_buffer **buffers, uint32_t n_buffers)
+		uint32_t flags,
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct data *d = object;
 	uint32_t i;
+
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &d->buffers[i];
 		struct spa_data *datas = buffers[i]->datas;
@@ -521,7 +523,7 @@ int main(int argc, char *argv[])
 		SPA_PORT_CHANGE_MASK_PROPS |
 		SPA_PORT_CHANGE_MASK_PARAMS;
 	data.info = SPA_PORT_INFO_INIT();
-	data.info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	data.info.flags = 0;
 	data.items[0] = SPA_DICT_ITEM_INIT(PW_KEY_FORMAT_DSP, "32 bit float mono audio");
 	data.dict = SPA_DICT_INIT_ARRAY(data.items);
 	data.info.props = &data.dict;

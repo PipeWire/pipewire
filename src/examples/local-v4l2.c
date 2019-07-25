@@ -104,7 +104,7 @@ static int impl_add_listener(void *object,
 
 	info = SPA_PORT_INFO_INIT();
 	info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-	info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	info.flags = 0;
 
 	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &info);
 
@@ -243,7 +243,7 @@ static int impl_port_set_param(void *object,
 }
 
 static int impl_port_use_buffers(void *object, enum spa_direction direction, uint32_t port_id,
-				 struct spa_buffer **buffers, uint32_t n_buffers)
+		uint32_t flags, struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct data *d = object;
 	uint32_t i;

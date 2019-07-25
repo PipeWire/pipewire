@@ -1166,7 +1166,7 @@ static int port_set_format(struct impl *this, struct port *port,
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->have_format) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-		port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS | SPA_PORT_FLAG_LIVE;
+		port->info.flags = SPA_PORT_FLAG_LIVE;
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_RATE;
 		port->info.rate = SPA_FRACTION(1, port->current_format.info.raw.rate);
 		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
@@ -1207,8 +1207,9 @@ impl_node_port_set_param(void *object,
 
 static int
 impl_node_port_use_buffers(void *object,
-			   enum spa_direction direction,
-			   uint32_t port_id, struct spa_buffer **buffers, uint32_t n_buffers)
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t flags,
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct impl *this = object;
 	struct port *port;
@@ -1474,7 +1475,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS;
+	port->info.flags = 0;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

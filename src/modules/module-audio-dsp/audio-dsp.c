@@ -121,8 +121,8 @@ static void init_port(struct port *p, enum spa_direction direction)
 }
 
 static int port_use_buffers(void *data,
-			    struct spa_buffer **buffers,
-			    uint32_t n_buffers)
+		uint32_t flags,
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct port *p = data;
 	struct pw_port *port = p->port;
@@ -140,15 +140,13 @@ static int port_use_buffers(void *data,
 	}
 
 	res = spa_node_port_use_buffers(port->mix,
-			pw_direction_reverse(port->direction),
-			0,
-			buffers,
-			n_buffers);
+			pw_direction_reverse(port->direction), 0,
+			flags,
+			buffers, n_buffers);
 	res = spa_node_port_use_buffers(node->node,
-			port->direction,
-			port->port_id,
-			buffers,
-			n_buffers);
+			port->direction, port->port_id,
+			flags,
+			buffers, n_buffers);
 	return res;
 }
 

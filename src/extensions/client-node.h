@@ -171,6 +171,7 @@ struct pw_client_node_proxy_events {
 				  enum spa_direction direction,
 				  uint32_t port_id,
 				  uint32_t mix_id,
+				  uint32_t flags,
 				  uint32_t n_buffers,
 				  struct pw_client_node_buffer *buffers);
 	/**

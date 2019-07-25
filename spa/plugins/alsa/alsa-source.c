@@ -521,8 +521,9 @@ impl_node_port_set_param(void *object,
 
 static int
 impl_node_port_use_buffers(void *object,
-			   enum spa_direction direction,
-			   uint32_t port_id, struct spa_buffer **buffers, uint32_t n_buffers)
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t flags,
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct state *this = object;
 	int res;
@@ -779,8 +780,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->port_info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	this->port_info = SPA_PORT_INFO_INIT();
-	this->port_info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
-			   SPA_PORT_FLAG_LIVE |
+	this->port_info.flags = SPA_PORT_FLAG_LIVE |
 			   SPA_PORT_FLAG_PHYSICAL |
 			   SPA_PORT_FLAG_TERMINAL;
 	this->port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);

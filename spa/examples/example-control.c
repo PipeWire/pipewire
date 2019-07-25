@@ -394,11 +394,11 @@ static int negotiate_formats(struct data *data)
 
 	init_buffer(data, data->source_buffers, data->source_buffer, 1, BUFFER_SIZE);
 	if ((res =
-	     spa_node_port_use_buffers(data->sink, SPA_DIRECTION_INPUT, 0, data->source_buffers,
+	     spa_node_port_use_buffers(data->sink, SPA_DIRECTION_INPUT, 0, 0, data->source_buffers,
 				       1)) < 0)
 		return res;
 	if ((res =
-	     spa_node_port_use_buffers(data->source, SPA_DIRECTION_OUTPUT, 0, data->source_buffers,
+	     spa_node_port_use_buffers(data->source, SPA_DIRECTION_OUTPUT, 0, 0, data->source_buffers,
 				       1)) < 0)
 		return res;
 

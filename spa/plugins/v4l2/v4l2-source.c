@@ -678,6 +678,7 @@ static int impl_node_port_set_param(void *object,
 static int impl_node_port_use_buffers(void *object,
 				      enum spa_direction direction,
 				      uint32_t port_id,
+				      uint32_t flags,
 				      struct spa_buffer **buffers,
 				      uint32_t n_buffers)
 {

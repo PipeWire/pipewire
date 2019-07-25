@@ -87,20 +87,19 @@ struct spa_port_info {
 #define SPA_PORT_FLAG_REMOVABLE			(1u<<0)	/**< port can be removed */
 #define SPA_PORT_FLAG_OPTIONAL			(1u<<1)	/**< processing on port is optional */
 #define SPA_PORT_FLAG_CAN_ALLOC_BUFFERS		(1u<<2)	/**< the port can allocate buffer data */
-#define SPA_PORT_FLAG_CAN_USE_BUFFERS		(1u<<3)	/**< the port can use a provided buffer */
-#define SPA_PORT_FLAG_IN_PLACE			(1u<<4)	/**< the port can process data in-place and
+#define SPA_PORT_FLAG_IN_PLACE			(1u<<3)	/**< the port can process data in-place and
 							 *   will need a writable input buffer */
-#define SPA_PORT_FLAG_NO_REF			(1u<<5)	/**< the port does not keep a ref on the buffer.
+#define SPA_PORT_FLAG_NO_REF			(1u<<4)	/**< the port does not keep a ref on the buffer.
 							 *   This means the node will always completely
 							 *   consume the input buffer and it will be
 							 *   recycled after process. */
-#define SPA_PORT_FLAG_LIVE			(1u<<6)	/**< output buffers from this port are
+#define SPA_PORT_FLAG_LIVE			(1u<<5)	/**< output buffers from this port are
 							 *   timestamped against a live clock. */
-#define SPA_PORT_FLAG_PHYSICAL			(1u<<7)	/**< connects to some device */
-#define SPA_PORT_FLAG_TERMINAL			(1u<<8)	/**< data was not created from this port
+#define SPA_PORT_FLAG_PHYSICAL			(1u<<6)	/**< connects to some device */
+#define SPA_PORT_FLAG_TERMINAL			(1u<<7)	/**< data was not created from this port
 							 *   or will not be made available on another
 							 *   port */
-#define SPA_PORT_FLAG_DYNAMIC_DATA		(1u<<9)	/**< data pointer on buffers can be changed.
+#define SPA_PORT_FLAG_DYNAMIC_DATA		(1u<<8)	/**< data pointer on buffers can be changed.
 							 *   Only the buffer data marked as DYNAMIC
 							 *   can be changed. */
 	uint64_t flags;				/**< port flags */
@@ -114,18 +113,25 @@ struct spa_port_info {
 
 #define SPA_RESULT_TYPE_NODE_ERROR	1
 #define SPA_RESULT_TYPE_NODE_PARAMS	2
+#define SPA_RESULT_TYPE_NODE_BUFFERS	3
 
 /** an error result */
 struct spa_result_node_error {
 	const char *message;
 };
 
-/** the result of enum_param. */
+/** the result of enum_params or port_enum_params. */
 struct spa_result_node_params {
 	uint32_t id;		/**< id of parameter */
 	uint32_t index;		/**< index of parameter */
 	uint32_t next;		/**< next index of iteration */
 	struct spa_pod *param;	/**< the result param */
+};
+
+/** the result of use_buffers. */
+struct spa_result_node_buffers {
+	uint32_t n_buffers;
+	struct spa_buffer **buffers;
 };
 
 #define SPA_NODE_EVENT_INFO		0
@@ -220,10 +226,16 @@ struct spa_node_callbacks {
 
 
 /** flags that can be passed to set_param and port_set_param functions */
-#define SPA_NODE_PARAM_FLAG_TEST_ONLY	(1 << 0)	/* just check if the param is accepted */
-#define SPA_NODE_PARAM_FLAG_FIXATE	(1 << 1)	/* fixate the non-optional unset fields */
-#define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/* allow set fields to be rounded to the
-							 * nearest allowed field value. */
+#define SPA_NODE_PARAM_FLAG_TEST_ONLY	(1 << 0)	/**< Just check if the param is accepted */
+#define SPA_NODE_PARAM_FLAG_FIXATE	(1 << 1)	/**< Fixate the non-optional unset fields */
+#define SPA_NODE_PARAM_FLAG_NEAREST	(1 << 2)	/**< Allow set fields to be rounded to the
+							  *  nearest allowed field value. */
+
+/** flags to pass to the use_buffers functions */
+#define SPA_NODE_BUFFERS_FLAG_ALLOC	(1 << 0)	/**< Allocate memory for the buffers. This flag
+							  *  is ignored when the port does not have the
+							  *  SPA_PORT_FLAG_CAN_ALLOC_BUFFERS set. */
+
 
 #define SPA_NODE_METHOD_ADD_LISTENER		0
 #define SPA_NODE_METHOD_SET_CALLBACKS		1
@@ -520,11 +532,15 @@ struct spa_node_methods {
 	 * Passing NULL as \a buffers will remove the reference that the port has
 	 * on the buffers.
 	 *
+	 * The function will emit the result event of type SPA_RESULT_TYPE_NODE_BUFFERS
+	 * with the final allocation of the buffers.
+	 *
 	 * This function must be called from the main thread.
 	 *
-	 * \param node an spa_node
+	 * \param object an object implementing the interface
 	 * \param direction an spa_direction
 	 * \param port_id a port id
+	 * \param flags extra flags
 	 * \param buffers an array of buffer pointers
 	 * \param n_buffers number of elements in \a buffers
 	 * \return 0 on success
@@ -532,6 +548,7 @@ struct spa_node_methods {
 	int (*port_use_buffers) (void *object,
 				 enum spa_direction direction,
 				 uint32_t port_id,
+				 uint32_t flags,
 				 struct spa_buffer **buffers,
 				 uint32_t n_buffers);
 	/**

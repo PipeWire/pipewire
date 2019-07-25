@@ -1024,7 +1024,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 }
 
 SPA_EXPORT
-int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
+int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res = 0;
@@ -1045,7 +1045,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 
 	{
 		res = spa_node_port_use_buffers(port->mix,
-					mix->port.direction, mix->port.port_id,
+					mix->port.direction, mix->port.port_id, flags,
 					buffers, n_buffers);
 		if (res == -ENOTSUP)
 			res = 0;
@@ -1063,7 +1063,8 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 			pw_log_debug("port %p: use buffers on node: %p", port,
 					node->node);
 			res = spa_node_port_use_buffers(node->node,
-					port->direction, port->port_id, buffers, n_buffers);
+					port->direction, port->port_id,
+					flags, buffers, n_buffers);
 			if (res < 0)
 				pw_log_error("port %p: use buffers on node: %d (%s)",
 					port, res, spa_strerror(res));
@@ -1071,7 +1072,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id,
 		port->allocated = false;
 		free_allocation(&port->allocation);
 
-		res = pw_port_call_use_buffers(port, buffers, n_buffers);
+		res = pw_port_call_use_buffers(port, flags, buffers, n_buffers);
 	}
 
 	if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {

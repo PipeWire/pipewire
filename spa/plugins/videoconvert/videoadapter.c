@@ -652,7 +652,7 @@ static int negotiate_buffers(struct impl *this)
 	}
 	else {
 		if ((res = spa_node_port_use_buffers(this->convert,
-			       SPA_DIRECTION_REVERSE(this->direction), 0,
+			       SPA_DIRECTION_REVERSE(this->direction), 0, 0,
 			       this->buffers, this->n_buffers)) < 0)
 			return res;
 	}
@@ -665,7 +665,7 @@ static int negotiate_buffers(struct impl *this)
 		}
 	}
 	else {
-		if ((res = spa_node_port_use_buffers(this->slave,
+		if ((res = spa_node_port_use_buffers(this->slave, 0,
 			       this->direction, 0,
 			       this->buffers, this->n_buffers)) < 0) {
 			return res;
@@ -733,6 +733,7 @@ static int
 impl_node_port_use_buffers(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
+			   uint32_t flags,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
@@ -745,7 +746,7 @@ impl_node_port_use_buffers(void *object,
 		port_id++;
 
 	if ((res = spa_node_port_use_buffers(this->target,
-					direction, port_id, buffers, n_buffers)) < 0)
+					direction, port_id, flags, buffers, n_buffers)) < 0)
 		return res;
 
 

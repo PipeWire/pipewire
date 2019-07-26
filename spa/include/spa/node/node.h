@@ -113,7 +113,6 @@ struct spa_port_info {
 
 #define SPA_RESULT_TYPE_NODE_ERROR	1
 #define SPA_RESULT_TYPE_NODE_PARAMS	2
-#define SPA_RESULT_TYPE_NODE_BUFFERS	3
 
 /** an error result */
 struct spa_result_node_error {
@@ -126,12 +125,6 @@ struct spa_result_node_params {
 	uint32_t index;		/**< index of parameter */
 	uint32_t next;		/**< next index of iteration */
 	struct spa_pod *param;	/**< the result param */
-};
-
-/** the result of use_buffers. */
-struct spa_result_node_buffers {
-	uint32_t n_buffers;
-	struct spa_buffer **buffers;
 };
 
 #define SPA_NODE_EVENT_INFO		0
@@ -536,13 +529,13 @@ struct spa_node_methods {
 	 * Passing NULL as \a buffers will remove the reference that the port has
 	 * on the buffers.
 	 *
-	 * The function will emit the result event of type SPA_RESULT_TYPE_NODE_BUFFERS
-	 * with the final allocation of the buffers.
+	 * When this function returns async, use the spa_node_sync operation to
+	 * wait for completion.
 	 *
 	 * This function must be called from the main thread.
 	 *
 	 * \param object an object implementing the interface
-	 * \param direction an spa_direction
+	 * \param direction a port direction
 	 * \param port_id a port id
 	 * \param flags extra flags
 	 * \param buffers an array of buffer pointers

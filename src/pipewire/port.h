@@ -78,7 +78,8 @@ struct pw_port_events {
 	void (*link_removed) (void *data, struct pw_link *link);
 
 	/** the state of the port changed */
-	void (*state_changed) (void *data, enum pw_port_state state);
+	void (*state_changed) (void *data, enum pw_port_state old,
+			enum pw_port_state state, const char *error);
 
 	/** a control was added to the port */
 	void (*control_added) (void *data, struct pw_control *control);

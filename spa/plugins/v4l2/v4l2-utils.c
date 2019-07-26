@@ -1338,8 +1338,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 
 static int
 mmap_init(struct impl *this,
-	  struct spa_buffer **buffers,
-	  uint32_t n_buffers)
+		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;

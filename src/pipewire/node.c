@@ -1082,7 +1082,7 @@ static void node_result(void *data, int seq, int res, uint32_t type, const void 
 	struct pw_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
-	pw_log_trace("node %p: result seq:%d res:%d", node, seq, res);
+	pw_log_trace("node %p: result seq:%d res:%d type:%u", node, seq, res, type);
 	impl->last_error = res;
 
 	if (SPA_RESULT_IS_ASYNC(seq))

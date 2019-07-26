@@ -467,7 +467,6 @@ struct pw_port_mix {
 	} port;
 	struct spa_io_buffers *io;
 	uint32_t id;
-	int have_buffers;
 };
 
 struct pw_port_implementation {
@@ -498,7 +497,7 @@ struct pw_port_implementation {
 #define pw_port_emit_info_changed(p,i)		pw_port_emit(p, info_changed, 0, i)
 #define pw_port_emit_link_added(p,l)		pw_port_emit(p, link_added, 0, l)
 #define pw_port_emit_link_removed(p,l)		pw_port_emit(p, link_removed, 0, l)
-#define pw_port_emit_state_changed(p,s)		pw_port_emit(p, state_changed, 0, s)
+#define pw_port_emit_state_changed(p,o,s,e)	pw_port_emit(p, state_changed, 0, o, s, e)
 #define pw_port_emit_control_added(p,c)		pw_port_emit(p, control_added, 0, c)
 #define pw_port_emit_control_removed(p,c)	pw_port_emit(p, control_removed, 0, c)
 
@@ -523,6 +522,7 @@ struct pw_port {
 	uint32_t port_id;		/**< port id */
 
 	enum pw_port_state state;	/**< state of the port */
+	const char *error;		/**< error state */
 
 	struct pw_properties *properties;	/**< properties of the port */
 	struct pw_port_info info;
@@ -824,8 +824,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node);
 int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix);
 int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix);
 
-void pw_port_mix_update_state(struct pw_port *port, struct pw_port_mix *mix, enum pw_port_state state);
-void pw_port_update_state(struct pw_port *port, enum pw_port_state state);
+void pw_port_update_state(struct pw_port *port, enum pw_port_state state, char *error);
 
 /** Unlink a port \memberof pw_port */
 void pw_port_unlink(struct pw_port *port);
@@ -878,8 +877,7 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
 
 /** Allocate memory for buffers on a port \memberof pw_port */
 int pw_port_alloc_buffers(struct pw_port *port,
-			  struct spa_pod **params, uint32_t n_params,
-			  struct spa_buffer **buffers, uint32_t *n_buffers);
+			  struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Change the state of the node */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state);

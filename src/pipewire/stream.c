@@ -152,6 +152,7 @@ struct stream {
 	unsigned int disconnecting:1;
 	unsigned int free_data:1;
 	unsigned int subscribe:1;
+	unsigned int alloc_buffers:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -386,6 +387,8 @@ static void emit_port_info(struct stream *d)
 	info = SPA_PORT_INFO_INIT();
 	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	info.flags = 0;
+	if (d->alloc_buffers)
+		info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	info.params = d->params;
 	info.n_params = 5;
@@ -1400,6 +1403,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
 
+	impl->alloc_buffers = SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_ALLOC_BUFFERS);
 
 	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/Audio",
 			direction == PW_DIRECTION_INPUT ? "Input" : "Output");

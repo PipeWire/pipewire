@@ -242,6 +242,9 @@ enum pw_stream_flags {
 							  *  device */
 	PW_STREAM_FLAG_DONT_RECONNECT	= (1 << 7),	/**< don't try to reconnect this stream
 							  *  when the sink/source is removed */
+	PW_STREAM_FLAG_ALLOC_BUFFERS	= (1 << 8),	/**< the application will allocate buffer
+							  *  memory. In the add_buffer event, the
+							  *  data of the buffer should be set */
 };
 
 /** Create a new unconneced \ref pw_stream \memberof pw_stream

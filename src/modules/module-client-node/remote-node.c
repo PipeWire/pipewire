@@ -359,8 +359,7 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 		pi.flags = port->spa_flags;
 		pi.rate = SPA_FRACTION(0, 1);
 		pi.props = &port->properties->dict;
-		SPA_FLAG_UNSET(pi.flags,
-			SPA_PORT_FLAG_CAN_ALLOC_BUFFERS | SPA_PORT_FLAG_DYNAMIC_DATA);
+		SPA_FLAG_UNSET(pi.flags, SPA_PORT_FLAG_DYNAMIC_DATA);
 		pi.n_params = port->info.n_params;
 		pi.params = port->info.params;
 	}
@@ -667,9 +666,15 @@ client_node_port_use_buffers(void *object,
 		bufs[i] = b;
 	}
 
-	if ((res = pw_port_use_buffers(mix->port, mix->mix_id, flags, bufs, n_buffers)) < 0)
+	if ((res = pw_port_use_buffers(mix->port, mix_id, flags, bufs, n_buffers)) < 0)
 		goto error_exit_cleanup;
 
+	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
+		pw_client_node_proxy_port_buffers(data->node_proxy,
+				direction, port_id, mix_id,
+				n_buffers,
+				bufs);
+	}
 	return res;
 
 error_exit_cleanup:
@@ -967,7 +972,6 @@ static void node_active_changed(void *data, bool active)
 	pw_log_debug("active %d", active);
 	pw_client_node_proxy_set_active(d->node_proxy, active);
 }
-
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,

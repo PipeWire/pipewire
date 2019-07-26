@@ -786,6 +786,9 @@ do_port_use_buffers(struct impl *impl,
 
 			memcpy(&b->buffer.datas[j], d, sizeof(struct spa_data));
 
+			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC)
+				continue;
+
 			if (d->type == SPA_DATA_DmaBuf ||
 			    d->type == SPA_DATA_MemFd) {
 				uint32_t flags = PW_MEMBLOCK_FLAG_DONT_CLOSE;
@@ -974,6 +977,57 @@ static int client_node_event(void *data, const struct spa_event *event)
 	return 0;
 }
 
+static int client_node_port_buffers(void *data,
+			enum spa_direction direction,
+			uint32_t port_id,
+			uint32_t mix_id,
+			uint32_t n_buffers,
+			struct spa_buffer **buffers)
+{
+	struct impl *impl = data;
+	struct node *this = &impl->node;
+	struct port *p;
+	struct mix *mix;
+	uint32_t i, j;
+
+	spa_log_debug(this->log, NAME " %p: %s port %d.%d buffers %p %u", impl,
+			direction == SPA_DIRECTION_INPUT ? "input" : "output",
+			port_id, mix_id, buffers, n_buffers);
+
+	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+
+	p = GET_PORT(this, direction, port_id);
+	if (!p->have_format)
+		return -EIO;
+
+	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
+		return -EINVAL;
+
+
+	for (i = 0; i < n_buffers; i++) {
+		struct spa_buffer *oldbuf, *newbuf;
+
+		oldbuf = mix->buffers[i].outbuf;
+		newbuf = buffers[i];
+
+		spa_log_debug(this->log, "buffer %d n_datas:%d", i, newbuf->n_datas);
+
+		if (oldbuf->n_datas != newbuf->n_datas)
+			return -EINVAL;
+
+		for (j = 0; j < newbuf->n_datas; j++) {
+			oldbuf->datas[j] = newbuf->datas[j];
+
+			spa_log_debug(this->log, " data %d type:%d fd:%d", j,
+					newbuf->datas[j].type,
+					(int) newbuf->datas[j].fd);
+		}
+	}
+	mix->n_buffers = n_buffers;
+
+	return 0;
+}
+
 static struct pw_client_node_proxy_methods client_node_methods = {
 	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
 	.get_node = client_node_get_node,
@@ -981,6 +1035,7 @@ static struct pw_client_node_proxy_methods client_node_methods = {
 	.port_update = client_node_port_update,
 	.set_active = client_node_set_active,
 	.event = client_node_event,
+	.port_buffers = client_node_port_buffers,
 };
 
 static void node_on_data_fd_events(struct spa_source *source)

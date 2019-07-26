@@ -262,6 +262,49 @@ static int client_node_marshal_event_method(void *object, const struct spa_event
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
+static int
+client_node_marshal_port_buffers(void *object,
+				enum spa_direction direction,
+				uint32_t port_id,
+				uint32_t mix_id,
+				uint32_t n_buffers,
+				struct spa_buffer **buffers)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+	struct spa_pod_frame f[2];
+	uint32_t i, j;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_PROXY_METHOD_PORT_BUFFERS, NULL);
+
+	spa_pod_builder_push_struct(b, &f[0]);
+	spa_pod_builder_add(b,
+			    SPA_POD_Int(direction),
+			    SPA_POD_Int(port_id),
+			    SPA_POD_Int(mix_id),
+			    SPA_POD_Int(n_buffers), NULL);
+
+	for (i = 0; i < n_buffers; i++) {
+		struct spa_buffer *buf = buffers[i];
+
+		spa_pod_builder_add(b,
+				SPA_POD_Int(buf->n_datas), NULL);
+
+		for (j = 0; j < buf->n_datas; j++) {
+			struct spa_data *d = &buf->datas[j];
+			spa_pod_builder_add(b,
+					SPA_POD_Id(d->type),
+					SPA_POD_Int(pw_protocol_native_add_proxy_fd(proxy, d->fd)),
+					SPA_POD_Int(d->flags),
+					SPA_POD_Int(d->mapoffset),
+					SPA_POD_Int(d->maxsize), NULL);
+		}
+	}
+	spa_pod_builder_pop(b, &f[0]);
+
+	return pw_protocol_native_end_proxy(proxy, b);
+}
+
 static int client_node_demarshal_transport(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -687,11 +730,11 @@ client_node_marshal_port_use_buffers(void *object,
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
-			    SPA_POD_Int(direction),
-			    SPA_POD_Int(port_id),
-			    SPA_POD_Int(mix_id),
-			    SPA_POD_Int(flags),
-			    SPA_POD_Int(n_buffers), NULL);
+			SPA_POD_Int(direction),
+			SPA_POD_Int(port_id),
+			SPA_POD_Int(mix_id),
+			SPA_POD_Int(flags),
+			SPA_POD_Int(n_buffers), NULL);
 
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *buf = buffers[i].buffer;
@@ -997,6 +1040,56 @@ static int client_node_demarshal_event_method(void *object, const struct pw_prot
 	return 0;
 }
 
+static int client_node_demarshal_port_buffers(void *object, const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	uint32_t i, j, direction, port_id, mix_id, n_buffers, data_id;
+	struct spa_buffer **buffers = NULL;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0 ||
+	    spa_pod_parser_get(&prs,
+			SPA_POD_Int(&direction),
+			SPA_POD_Int(&port_id),
+			SPA_POD_Int(&mix_id),
+			SPA_POD_Int(&n_buffers), NULL) < 0)
+		return -EINVAL;
+
+	buffers = alloca(sizeof(struct spa_buffer*) * n_buffers);
+	for (i = 0; i < n_buffers; i++) {
+		struct spa_buffer *buf = buffers[i] = alloca(sizeof(struct spa_buffer));
+
+		buf->n_metas = 0;
+		buf->metas = NULL;
+
+		if (spa_pod_parser_get(&prs,
+					SPA_POD_Int(&buf->n_datas), NULL) < 0)
+			return -EINVAL;
+
+		buf->datas = alloca(sizeof(struct spa_data) * buf->n_datas);
+		for (j = 0; j < buf->n_datas; j++) {
+			struct spa_data *d = &buf->datas[j];
+
+			if (spa_pod_parser_get(&prs,
+					      SPA_POD_Id(&d->type),
+					      SPA_POD_Int(&data_id),
+					      SPA_POD_Int(&d->flags),
+					      SPA_POD_Int(&d->mapoffset),
+					      SPA_POD_Int(&d->maxsize), NULL) < 0)
+				return -EINVAL;
+
+			d->fd = pw_protocol_native_get_resource_fd(resource, data_id);
+		}
+	}
+
+	pw_resource_notify(resource, struct pw_client_node_proxy_methods, port_buffers, 0,
+			direction, port_id, mix_id, n_buffers, buffers);
+
+	return 0;
+}
+
 static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_method_marshal = {
 	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
 	.add_listener = &client_node_marshal_add_listener,
@@ -1004,7 +1097,8 @@ static const struct pw_client_node_proxy_methods pw_protocol_native_client_node_
 	.update = &client_node_marshal_update,
 	.port_update = &client_node_marshal_port_update,
 	.set_active = &client_node_marshal_set_active,
-	.event = &client_node_marshal_event_method
+	.event = &client_node_marshal_event_method,
+	.port_buffers = &client_node_marshal_port_buffers
 };
 
 static const struct pw_protocol_native_demarshal
@@ -1015,7 +1109,8 @@ pw_protocol_native_client_node_method_demarshal[PW_CLIENT_NODE_PROXY_METHOD_NUM]
 	[PW_CLIENT_NODE_PROXY_METHOD_UPDATE] = { &client_node_demarshal_update, 0 },
 	[PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE] = { &client_node_demarshal_port_update, 0 },
 	[PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE] = { &client_node_demarshal_set_active, 0 },
-	[PW_CLIENT_NODE_PROXY_METHOD_EVENT] = { &client_node_demarshal_event_method, 0 }
+	[PW_CLIENT_NODE_PROXY_METHOD_EVENT] = { &client_node_demarshal_event_method, 0 },
+	[PW_CLIENT_NODE_PROXY_METHOD_PORT_BUFFERS] = { &client_node_demarshal_port_buffers, 0 }
 };
 
 static const struct pw_client_node_proxy_events pw_protocol_native_client_node_event_marshal = {

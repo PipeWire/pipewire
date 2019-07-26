@@ -208,7 +208,8 @@ struct pw_client_node_proxy_events {
 #define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		3
 #define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		4
 #define PW_CLIENT_NODE_PROXY_METHOD_EVENT		5
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM			6
+#define PW_CLIENT_NODE_PROXY_METHOD_PORT_BUFFERS	6
+#define PW_CLIENT_NODE_PROXY_METHOD_NUM			7
 
 /** \ref pw_client_node methods */
 struct pw_client_node_proxy_methods {
@@ -269,6 +270,16 @@ struct pw_client_node_proxy_methods {
 	 * \param event the event to send
 	 */
 	int (*event) (void *object, const struct spa_event *event);
+
+	/**
+	 * Send allocated buffers
+	 */
+	int (*port_buffers) (void *object,
+			  enum spa_direction direction,
+			  uint32_t port_id,
+			  uint32_t mix_id,
+			  uint32_t n_buffers,
+			  struct spa_buffer **buffers);
 };
 
 
@@ -294,10 +305,11 @@ pw_client_node_proxy_get_node(struct pw_client_node_proxy *p, uint32_t version, 
 	return res;
 }
 
-#define pw_client_node_proxy_update(c,...)	pw_client_node_proxy_method(c,update,0,__VA_ARGS__)
-#define pw_client_node_proxy_port_update(c,...)	pw_client_node_proxy_method(c,port_update,0,__VA_ARGS__)
-#define pw_client_node_proxy_set_active(c,...)	pw_client_node_proxy_method(c,set_active,0,__VA_ARGS__)
-#define pw_client_node_proxy_event(c,...)	pw_client_node_proxy_method(c,event,0,__VA_ARGS__)
+#define pw_client_node_proxy_update(c,...)		pw_client_node_proxy_method(c,update,0,__VA_ARGS__)
+#define pw_client_node_proxy_port_update(c,...)		pw_client_node_proxy_method(c,port_update,0,__VA_ARGS__)
+#define pw_client_node_proxy_set_active(c,...)		pw_client_node_proxy_method(c,set_active,0,__VA_ARGS__)
+#define pw_client_node_proxy_event(c,...)		pw_client_node_proxy_method(c,event,0,__VA_ARGS__)
+#define pw_client_node_proxy_port_buffers(c,...)	pw_client_node_proxy_method(c,port_buffers,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

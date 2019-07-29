@@ -33,7 +33,8 @@ static void test_abi(void)
 	spa_assert(SPA_DATA_MemPtr == 1);
 	spa_assert(SPA_DATA_MemFd == 2);
 	spa_assert(SPA_DATA_DmaBuf == 3);
-	spa_assert(SPA_DATA_LAST == 4);
+	spa_assert(SPA_DATA_MemId == 4);
+	spa_assert(SPA_DATA_LAST == 5);
 
 	spa_assert(sizeof(struct spa_chunk) == 16);
 	spa_assert(sizeof(struct spa_data) == 40);

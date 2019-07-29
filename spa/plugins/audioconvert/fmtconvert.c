@@ -336,7 +336,7 @@ static int port_enum_formats(void *object,
 			if (other->have_format)
 				info = other->format;
 			else
-				info.info.raw.format = SPA_AUDIO_FORMAT_S16;
+				info.info.raw.format = SPA_AUDIO_FORMAT_F32;
 
 			if (!other->have_format ||
 			    info.info.raw.format == SPA_AUDIO_FORMAT_F32P ||

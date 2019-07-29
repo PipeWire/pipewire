@@ -356,7 +356,6 @@ struct pw_node_activation {
 #define AWAKE		2
 #define FINISHED	3
 	int status;
-	int running;
 
 	uint64_t signal_time;
 	uint64_t awake_time;

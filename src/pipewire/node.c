@@ -795,7 +795,6 @@ static inline int process_node(void *data)
 		a->status = FINISHED;
 		a->signal_time = a->finish_time;
 		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
-		a->running = false;
 		pw_log_trace_fp("node %p: graph completed wait:%"PRIu64" run:%"PRIu64, this,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time);
@@ -1128,7 +1127,7 @@ static int node_ready(void *data, int status)
 			node->driver, node->exported, driver, status);
 
 	if (node == driver) {
-		if (node->rt.activation->running) {
+		if (node->rt.activation->state[0].pending != 0) {
 			pw_log_warn("node %p: graph not finished", node);
 			dump_states(node);
 	                node->rt.target.signal(node->rt.target.data);
@@ -1137,7 +1136,6 @@ static int node_ready(void *data, int status)
 			pw_node_activation_state_reset(&t->activation->state[0]);
 			t->activation->status = NOT_TRIGGERED;
 		}
-		node->rt.activation->running = true;
 	}
 	if (node->driver && !node->master)
 		return 0;

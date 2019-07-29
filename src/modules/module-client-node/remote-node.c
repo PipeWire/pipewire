@@ -636,6 +636,9 @@ client_node_port_use_buffers(void *object,
 			    SPA_MEMBER(mm->ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
+			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC)
+				continue;
+
 			if (d->type == SPA_DATA_MemId) {
 				uint32_t mem_id = SPA_PTR_TO_UINT32(d->data);
 				struct pw_memblock *bm;

@@ -153,7 +153,7 @@ struct impl {
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 
-	struct pw_array mems;
+	uint32_t node_id;
 
 	uint32_t bind_node_version;
 	uint32_t bind_node_id;
@@ -331,39 +331,34 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct node *this = object;
-	struct impl *impl;
-	struct pw_memblock *mem, *m;
+	struct impl *impl = this->impl;
+	struct pw_memmap *mm;
 	uint32_t memid, mem_offset, mem_size;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-
-	impl = this->impl;
+	uint32_t tag[5] = { impl->node_id, id };
 
 	if (impl->this.flags & 1)
 		return 0;
 
-	if (this->resource == NULL)
-		return -EIO;
-
 	if (data) {
-		if ((mem = pw_mempool_find_ptr(impl->core->pool, data)) == NULL)
-			return -EINVAL;
-
-		mem_offset = SPA_PTRDIFF(data, mem->map->ptr);
-		if (mem_offset + size > mem->map->size)
-			return -EINVAL;
-
-		m = pw_mempool_import_block(this->client->pool, mem);
-		if (m == NULL)
+		mm = pw_mempool_import_map(this->client->pool,
+				impl->core->pool, data, size, tag);
+		if (mm == NULL)
 			return -errno;
 
+		mem_offset = mm->offset;
+		memid = mm->block->id;
 		mem_size = size;
-		memid = m->id;
 	}
 	else {
+		if ((mm = pw_mempool_find_tag(this->client->pool, tag)) != NULL)
+                        pw_memmap_free(mm);
+
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
+
+	if (this->resource == NULL)
+		return -EIO;
 
 	return pw_client_node_resource_set_io(this->resource,
 				       id,
@@ -441,6 +436,7 @@ impl_node_sync(void *object, int seq)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	pw_log_debug(NAME " %p: sync", this);
+
 	if (this->resource == NULL)
 		return -EIO;
 
@@ -539,6 +535,9 @@ impl_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_FREE_PORT(this, direction, port_id), -EINVAL);
 
+	if (this->resource == NULL)
+		return -EIO;
+
 	return pw_client_node_resource_add_port(this->resource, direction, port_id, props);
 }
 
@@ -549,6 +548,9 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+
+	if (this->resource == NULL)
+		return -EIO;
 
 	return pw_client_node_resource_remove_port(this->resource, direction, port_id);
 }
@@ -614,12 +616,12 @@ impl_node_port_set_param(void *object,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (this->resource == NULL)
-		return -EIO;
-
 	pw_log_debug("node %p: port %d.%d add param %s %d", this,
 			direction, port_id,
 			spa_debug_type_find_name(spa_type_param, id), id);
+
+	if (this->resource == NULL)
+		return -EIO;
 
 	return pw_client_node_resource_port_set_param(this->resource,
 					       direction, port_id,
@@ -633,10 +635,11 @@ static int do_port_set_io(struct impl *impl,
 			  uint32_t id, void *data, size_t size)
 {
 	struct node *this = &impl->node;
-	struct pw_memblock *mem, *m;
 	uint32_t memid, mem_offset, mem_size;
 	struct port *port;
 	struct mix *mix;
+	uint32_t tag[5] = { impl->node_id, direction, port_id, mix_id, id };
+	struct pw_memmap *mm;
 
 	pw_log_debug(NAME " %p: %s port %d.%d set io %p %zd", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
@@ -644,33 +647,31 @@ static int do_port_set_io(struct impl *impl,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (this->resource == NULL)
-		return -EIO;
-
 	port = GET_PORT(this, direction, port_id);
 
 	if ((mix = find_mix(port, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
 
 	if (data) {
-		if ((mem = pw_mempool_find_ptr(impl->core->pool, data)) == NULL)
-			return -EINVAL;
-
-		mem_offset = SPA_PTRDIFF(data, mem->map->ptr);
-		if (mem_offset + size > mem->map->size)
-			return -EINVAL;
-
-		m = pw_mempool_import_block(this->client->pool, mem);
-		if (m == NULL)
+		mm = pw_mempool_import_map(this->client->pool,
+				impl->core->pool, data, size, tag);
+		if (mm == NULL)
 			return -errno;
 
-		memid = m->id;
+		mem_offset = mm->offset;
+		memid = mm->block->id;
 		mem_size = size;
 	}
 	else {
+		if ((mm = pw_mempool_find_tag(this->client->pool, tag)) != NULL)
+                        pw_memmap_free(mm);
+
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
+
+	if (this->resource == NULL)
+		return -EIO;
 
 	return pw_client_node_resource_port_set_io(this->resource,
 					    direction, port_id,
@@ -1197,15 +1198,21 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *node = this->node;
+	struct pw_client *client = impl->node.client;
 	uint32_t node_id = global->id;
 	struct pw_memblock *m;
 
 	pw_log_debug(NAME " %p: %d", this, node_id);
-	m = pw_mempool_import_block(this->resource->client->pool, node->activation);
+
+	m = pw_mempool_import_block(client->pool, node->activation);
 	if (m == NULL) {
 		pw_log_debug(NAME " %p: can't import block: %m", this);
 		return;
 	}
+	impl->node_id = node_id;
+
+	if (this->resource == NULL)
+		return;
 
 	pw_client_node_resource_transport(this->resource,
 					  node_id,
@@ -1216,7 +1223,7 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 					  sizeof(struct pw_node_activation));
 
 	if (impl->bind_node_id) {
-		pw_global_bind(global, this->resource->client, PW_PERM_RWX,
+		pw_global_bind(global, client, PW_PERM_RWX,
 				impl->bind_node_version, impl->bind_node_id);
 	}
 }
@@ -1229,9 +1236,6 @@ static void node_initialized(void *data)
 	struct pw_global *global;
 	struct spa_system *data_system = impl->node.data_system;
 	size_t size;
-
-	if (this->resource == NULL)
-		return;
 
 	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
@@ -1498,9 +1502,6 @@ static void node_peer_added(void *data, struct pw_node *peer)
 	struct node *this = &impl->node;
 	struct pw_memblock *m;
 
-	if (this->resource == NULL)
-		return;
-
 	m = pw_mempool_import_block(this->client->pool, peer->activation);
 	if (m == NULL) {
 		pw_log_debug(NAME " %p: can't ensure mem: %m", this);
@@ -1508,6 +1509,9 @@ static void node_peer_added(void *data, struct pw_node *peer)
 	}
 	pw_log_debug(NAME " %p: peer %p %u added %u", &impl->this, peer,
 			peer->info.id, m->id);
+
+	if (this->resource == NULL)
+		return;
 
 	pw_client_node_resource_set_activation(this->resource,
 					  peer->info.id,
@@ -1523,9 +1527,6 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 	struct node *this = &impl->node;
 	struct pw_memblock *m;
 
-	if (this->resource == NULL)
-		return;
-
 	m = pw_mempool_find_fd(this->client->pool,
 			peer->activation->fd);
 	if (m == NULL) {
@@ -1536,12 +1537,15 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 	pw_log_debug(NAME " %p: peer %p %u removed", &impl->this, peer,
 			peer->info.id);
 
-	pw_client_node_resource_set_activation(this->resource,
+	if (this->resource != NULL) {
+		pw_client_node_resource_set_activation(this->resource,
 					  peer->info.id,
 					  -1,
 					  SPA_ID_INVALID,
 					  0,
 					  0);
+	}
+
 	pw_memblock_unref(m);
 }
 

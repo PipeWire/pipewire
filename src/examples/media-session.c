@@ -1071,7 +1071,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	node->session = session;
 	spa_list_append(&session->node_list, &node->session_link);
 
-	if (!exclusive) {
+	if (!exclusive && peer->media_type == SPA_MEDIA_TYPE_audio) {
 do_link_profile:
 		audio_info = peer->format;
 

@@ -378,10 +378,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
 
+	pw_log_debug(NAME " %p: send command %d", this, SPA_COMMAND_TYPE(command));
+
 	if (this->resource == NULL)
 		return -EIO;
 
-	pw_log_debug(NAME " %p: send command %d", this, SPA_COMMAND_TYPE(command));
 	return pw_client_node_resource_command(this->resource, command);
 }
 

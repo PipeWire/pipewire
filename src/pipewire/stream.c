@@ -711,8 +711,8 @@ static int impl_node_process_input(void *object)
 
 	size = impl->time.ticks - impl->dequeued.incount;
 
-	pw_log_trace(NAME" %p: process in %d %d %"PRIu64" %"PRIi64" %"PRIu64, stream,
-			io->status, io->buffer_id, impl->time.ticks, impl->time.delay, size);
+	pw_log_trace(NAME" %p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64" size:%"PRIi64,
+			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay, size);
 
 	if (io->status != SPA_STATUS_HAVE_BUFFER)
 		goto done;
@@ -750,7 +750,7 @@ static int impl_node_process_output(void *object)
 	uint32_t index;
 
 again:
-	pw_log_trace(NAME" %p: process out %d %d %"PRIu64" %"PRIi64, stream,
+	pw_log_trace(NAME" %p: process out status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64, stream,
 			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
 	res = 0;
@@ -1531,6 +1531,7 @@ SPA_EXPORT
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	pw_log_debug(NAME" %p: active:%d", stream, active);
 	if (impl->node)
 		pw_node_set_active(impl->node, active);
 	return 0;

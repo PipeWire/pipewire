@@ -719,10 +719,10 @@ static void dump_states(struct pw_node *driver)
 		struct pw_node_activation *a = t->activation;
 		if (t->node == NULL)
 			continue;
-		pw_log_warn("node %p (%s): required:%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
+		pw_log_warn("node %p (%s): pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%d",
 				t->node, t->node->info.name,
-				a->state[0].required,
+				a->state[0].pending, a->state[0].required,
 				a->signal_time,
 				a->awake_time,
 				a->finish_time,

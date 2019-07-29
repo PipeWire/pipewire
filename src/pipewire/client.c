@@ -228,6 +228,8 @@ static void pool_added(void *data, struct pw_memblock *block)
 {
 	struct impl *impl = data;
 	struct pw_client *client = &impl->this;
+
+	pw_log_debug("client %p: added block %d", client, block->id);
 	if (client->core_resource) {
 		pw_core_resource_add_mem(client->core_resource,
 				block->id, block->type, block->fd,
@@ -239,6 +241,7 @@ static void pool_removed(void *data, struct pw_memblock *block)
 {
 	struct impl *impl = data;
 	struct pw_client *client = &impl->this;
+	pw_log_debug("client %p: removed block %d", client, block->id);
 	if (client->core_resource)
 		pw_core_resource_remove_mem(client->core_resource, block->id);
 }

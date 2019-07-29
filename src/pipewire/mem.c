@@ -244,10 +244,15 @@ static struct mapping * memblock_find_mapping(struct memblock *b,
 		uint32_t flags, uint32_t offset, uint32_t size)
 {
 	struct mapping *m;
+	struct pw_mempool *pool = b->this.pool;
 
 	spa_list_for_each(m, &b->mappings, link) {
-		if (m->offset <= offset && (m->offset + m->size) >= (offset + size))
+		if (m->offset <= offset && (m->offset + m->size) >= (offset + size)) {
+			pw_log_debug("pool %p: found %p id:%d fd:%d offs:%d size:%d ref:%d",
+					pool, &b->this, b->this.id, b->this.fd,
+					offset, size, b->this.ref);
 			return m;
+		}
 	}
 	return NULL;
 }
@@ -487,7 +492,8 @@ static struct memblock * mempool_find_fd(struct pw_mempool *pool, int fd)
 
 	spa_list_for_each(b, &impl->blocks, link) {
 		if (fd == b->this.fd) {
-			pw_log_debug("pool %p: found %p id:%d for fd %d", pool, &b->this, b->this.id, fd);
+			pw_log_debug("pool %p: found %p id:%d fd:%d ref:%d",
+					pool, &b->this, b->this.id, fd, b->this.ref);
 			return b;
 		}
 	}

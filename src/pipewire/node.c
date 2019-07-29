@@ -150,12 +150,15 @@ do_node_remove(struct spa_loop *loop,
 
 static int pause_node(struct pw_node *this)
 {
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	if (this->info.state <= PW_NODE_STATE_IDLE)
+	pw_log_debug("node %p: pause node state:%s", this,
+			pw_node_state_as_string(this->info.state));
+
+	if (this->info.state <= PW_NODE_STATE_IDLE && impl->pause_on_idle)
 		return 0;
 
-	pw_log_debug("node %p: pause node", this);
 	node_deactivate(this);
 
 	pw_loop_invoke(this->data_loop, do_node_remove, 1, NULL, 0, true, this);
@@ -319,7 +322,10 @@ static int suspend_node(struct pw_node *this)
 	int res = 0;
 	struct pw_port *p;
 
-	pw_log_debug("node %p: suspend node", this);
+	pw_log_debug("node %p: suspend node state:%s", this,
+			pw_node_state_as_string(this->info.state));
+
+	pause_node(this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
 		if ((res = pw_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
@@ -335,6 +341,7 @@ static int suspend_node(struct pw_node *this)
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
+
 	return res;
 }
 static void node_unbind_func(void *data)
@@ -1238,7 +1245,6 @@ void pw_node_destroy(struct pw_node *node)
 	pw_log_debug("node %p: destroy", impl);
 	pw_node_emit_destroy(node);
 
-	pause_node(node);
 	suspend_node(node);
 
 	pw_log_debug("node %p: driver node %p", impl, node->driver_node);

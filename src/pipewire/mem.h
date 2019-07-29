@@ -153,6 +153,9 @@ struct pw_memmap * pw_mempool_map_id(struct pw_mempool *pool, uint32_t id,
 		enum pw_memmap_flags flags, uint32_t offset, uint32_t size,
 		uint32_t tag[5]);
 
+struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
+		struct pw_mempool *other, void *data, uint32_t size, uint32_t tag[5]);
+
 /** find a map with the given tag */
 struct pw_memmap * pw_mempool_find_tag(struct pw_mempool *pool, uint32_t tag[5]);
 

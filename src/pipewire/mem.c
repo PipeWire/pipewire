@@ -115,6 +115,7 @@ struct mapping {
 	int ref;
 	uint32_t offset;
 	uint32_t size;
+	unsigned int do_unmap:1;
 	struct spa_list link;
 	void *ptr;
 };
@@ -271,9 +272,10 @@ static struct mapping * memblock_map(struct memblock *b,
 		prot |= PROT_WRITE;
 
 	if (flags & PW_MEMMAP_FLAG_TWICE) {
-		errno = -ENOTSUP;
+		errno = ENOTSUP;
 		return NULL;
 	}
+
 
 	ptr = mmap(NULL, size, prot, MAP_SHARED, b->this.fd, offset);
 	if (ptr == MAP_FAILED) {
@@ -288,6 +290,7 @@ static struct mapping * memblock_map(struct memblock *b,
 		return NULL;
 	}
 	m->ptr = ptr;
+	m->do_unmap = true;
 	m->block = b;
 	m->offset = offset;
 	m->size = size;
@@ -305,9 +308,11 @@ static void mapping_unmap(struct mapping *m)
 	struct memblock *b = m->block;
 	struct mempool *p = SPA_CONTAINER_OF(b->this.pool, struct mempool, this);
 
-        pw_log_debug("pool %p: mapping:%p fd:%d ptr:%p size:%d", p, m, b->this.fd, m->ptr, m->size);
+        pw_log_debug("pool %p: mapping:%p fd:%d ptr:%p size:%d block-ref:%d",
+			p, m, b->this.fd, m->ptr, m->size, b->this.ref);
 
-	munmap(m->ptr, m->size);
+	if (m->do_unmap)
+		munmap(m->ptr, m->size);
 	spa_list_remove(&m->link);
 	free(m);
 
@@ -416,6 +421,8 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	b->this.ref = 1;
 	b->this.pool = pool;
 	b->this.flags = flags;
+	b->this.type = type;
+	b->this.size = size;
 	spa_list_init(&b->mappings);
 	spa_list_init(&b->maps);
 
@@ -450,8 +457,6 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 		}
 	}
 #endif
-	b->this.type = type;
-
 	if (flags & PW_MEMBLOCK_FLAG_MAP && size > 0) {
 		enum pw_memmap_flags fl = 0;
 
@@ -543,6 +548,52 @@ struct pw_memblock * pw_mempool_import_block(struct pw_mempool *pool,
 	return pw_mempool_import(pool,
 			mem->flags | PW_MEMBLOCK_FLAG_DONT_CLOSE,
 			mem->type, mem->fd);
+}
+
+SPA_EXPORT
+struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
+		struct pw_mempool *other, void *data, uint32_t size, uint32_t tag[5])
+{
+	struct pw_memblock *old, *block;
+	struct memblock *b;
+	struct pw_memmap *map;
+	struct mapping *m;
+	uint32_t offset;
+
+	old = pw_mempool_find_ptr(other, data);
+	if (old == NULL || old->map == NULL) {
+		errno = EFAULT;
+		return NULL;
+	}
+
+	block = pw_mempool_import_block(pool, old);
+	if (block == NULL)
+		return NULL;
+
+	if (block->ref == 1) {
+		b = SPA_CONTAINER_OF(block, struct memblock, this);
+
+		m = calloc(1, sizeof(struct mapping));
+		if (m == NULL) {
+			pw_memblock_unref(block);
+			return NULL;
+		}
+		m->ptr = old->map->ptr;
+		m->block = b;
+		m->offset = old->map->offset;
+		m->size = old->map->size;
+		spa_list_append(&b->mappings, &m->link);
+	} else {
+		block->ref--;
+	}
+
+	offset = SPA_PTRDIFF(data, old->map->ptr);
+
+	map = pw_memblock_map(block, block->flags, offset, size, tag);
+	if (map == NULL)
+		return NULL;
+
+	return map;
 }
 
 

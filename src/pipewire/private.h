@@ -466,6 +466,7 @@ struct pw_port_mix {
 	} port;
 	struct spa_io_buffers *io;
 	uint32_t id;
+	unsigned int have_buffers:1;
 };
 
 struct pw_port_implementation {

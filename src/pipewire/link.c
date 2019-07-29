@@ -172,6 +172,9 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 	} else {
 		pw_port_update_state(port, PW_PORT_STATE_ERROR, NULL);
 	}
+	if (this->input->state >= PW_PORT_STATE_READY &&
+	    this->output->state >= PW_PORT_STATE_READY)
+		pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
 }
 
 static void complete_paused(void *obj, void *data, int res, uint32_t id)
@@ -184,9 +187,13 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 
 	if (SPA_RESULT_IS_OK(res)) {
 		pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
+		mix->have_buffers = true;
 	} else {
 		pw_port_update_state(port, PW_PORT_STATE_ERROR, NULL);
+		mix->have_buffers = false;
 	}
+	if (this->rt.in_mix.have_buffers && this->rt.out_mix.have_buffers)
+		pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
 }
 
 static int do_negotiate(struct pw_link *this)
@@ -539,6 +546,7 @@ static int select_io(struct pw_link *this)
 		return -EIO;
 
 	this->io = io;
+	*this->io = SPA_IO_BUFFERS_INIT;
 
 	return 0;
 }
@@ -576,11 +584,7 @@ static int do_allocation(struct pw_link *this)
 	}
 
 	if (output->allocation.n_buffers) {
-		SPA_FLAG_UNSET(out_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
-		SPA_FLAG_UNSET(in_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
-
 		move_allocation(&output->allocation, &allocation);
-
 		pw_log_debug("link %p: reusing %d output buffers %p", this,
 				allocation.n_buffers, allocation.buffers);
 	} else {
@@ -638,12 +642,10 @@ static int do_allocation(struct pw_link *this)
 			max_buffers = 4;
 		}
 
-		/* when one of the ports can allocate buffer memory, set the minsize to
+		/* when the output can allocate buffer memory, set the minsize to
 		 * 0 to make sure we don't allocate memory in the shared memory */
-		if ((in_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS) ||
-		    (out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS)) {
+		if ((out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS))
 			minsize = 0;
-		}
 
 		data_sizes[0] = minsize;
 		data_strides[0] = stride;
@@ -698,6 +700,17 @@ static int do_allocation(struct pw_link *this)
 		move_allocation(&allocation, &output->allocation);
 	}
 
+	if (SPA_RESULT_IS_ASYNC(out_res)) {
+		pw_work_queue_add(impl->work, output->node,
+				spa_node_sync(output->node->node, out_res),
+				complete_paused, this);
+		if (out_alloc)
+			return 0;
+	} else {
+		complete_paused(output->node, this, out_res, 0);
+	}
+
+
 	pw_log_debug("link %p: using %d buffers %p on input port", this,
 		     output->allocation.n_buffers, output->allocation.buffers);
 
@@ -711,16 +724,6 @@ static int do_allocation(struct pw_link *this)
 		goto error;
 	}
 	in_res = res;
-
-	if (SPA_RESULT_IS_ASYNC(out_res)) {
-		pw_work_queue_add(impl->work, output->node,
-				spa_node_sync(output->node->node, out_res),
-				complete_paused, this);
-		if (out_alloc)
-			return 0;
-	} else {
-		complete_paused(output->node, this, out_res, 0);
-	}
 
 	if (SPA_RESULT_IS_ASYNC(in_res)) {
 		pw_work_queue_add(impl->work, input->node,
@@ -1087,17 +1090,7 @@ static void port_state_changed(struct pw_link *this, struct pw_port *port, struc
 	case PW_PORT_STATE_ERROR:
 		pw_link_update_state(this, PW_LINK_STATE_ERROR, strdup(error));
 		break;
-	case PW_PORT_STATE_INIT:
-		break;
-	case PW_PORT_STATE_CONFIGURE:
-		break;
-	case PW_PORT_STATE_READY:
-		if (other->state >= PW_PORT_STATE_READY)
-			pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
-		break;
-	case PW_PORT_STATE_PAUSED:
-		if (other->state >= PW_PORT_STATE_PAUSED)
-			pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
+	default:
 		break;
 	}
 }

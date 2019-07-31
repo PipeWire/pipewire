@@ -1644,12 +1644,14 @@ static int sco_destroy_cb(void *data)
 			spa_loop_remove_source(td->sco.loop, &td->sco);
 		shutdown(td->sco.fd, SHUT_RDWR);
 		close (td->sco.fd);
+		td->sco.fd = -1;
 	}
 	if (td->rfcomm.data) {
 		if (td->rfcomm.loop)
 			spa_loop_remove_source(td->rfcomm.loop, &td->rfcomm);
 		shutdown(td->rfcomm.fd, SHUT_RDWR);
 		close (td->rfcomm.fd);
+		td->rfcomm.fd = -1;
 	}
 	return 0;
 }

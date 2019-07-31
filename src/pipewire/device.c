@@ -34,6 +34,8 @@
 #include "pipewire/type.h"
 #include "pipewire/keys.h"
 
+#define NAME "device"
+
 struct impl {
 	struct pw_device this;
 };
@@ -109,7 +111,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(struct impl), void);
 
-	pw_log_debug("device %p: new %s", this, name);
+	pw_log_debug(NAME" %p: new %s", this, name);
 
 	return this;
 
@@ -127,7 +129,7 @@ void pw_device_destroy(struct pw_device *device)
 {
 	struct node_data *nd;
 
-	pw_log_debug("device %p: destroy", device);
+	pw_log_debug(NAME" %p: destroy", device);
 	pw_device_emit_destroy(device);
 
 	spa_list_consume(nd, &device->node_list, link)
@@ -158,7 +160,8 @@ static void device_pong(void *data, int seq)
 {
 	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
-	pw_log_debug("resource %p: got pong %d", resource, seq);
+	pw_log_debug(NAME" %p: resource %p: got pong %d", d->device,
+			resource, seq);
 }
 
 static const struct pw_resource_events resource_events = {
@@ -203,7 +206,7 @@ int pw_device_for_each_param(struct pw_device *device,
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug("device %p: params %s %u %u", device,
+	pw_log_debug(NAME" %p: params %s %u %u", device,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
@@ -229,15 +232,17 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 {
 	struct resource_data *d = data;
 
-	pw_log_debug("async result %d %d (%d/%d)", res, seq, d->seq, d->end);
-	if (seq == d->seq)
-		result_device_params(&d->data, seq, res, type, result);
+	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
+			res, seq, d->seq, d->end);
 
 	if (seq == d->end) {
 		spa_hook_remove(&d->listener);
 		d->end = -1;
 		pw_client_set_busy(d->resource->client, false);
 	}
+	if (seq == d->seq)
+		result_device_params(&d->data, seq, res, type, result);
+
 }
 
 static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start, uint32_t num,
@@ -317,7 +322,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 			&data->object_listener,
 			&device_methods, data);
 
-	pw_log_debug("device %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
 
@@ -328,7 +333,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error("can't create device resource: %m");
+	pw_log_error(NAME" %p: can't create device resource: %m", this);
 	return -errno;
 }
 
@@ -431,7 +436,7 @@ static int update_properties(struct pw_device *device, const struct spa_dict *di
 
 	changed = pw_properties_update(device->properties, dict);
 
-	pw_log_debug("device %p: updated %d properties", device, changed);
+	pw_log_debug(NAME" %p: updated %d properties", device, changed);
 
 	if (!changed)
 		return 0;
@@ -468,23 +473,24 @@ static void device_add(struct pw_device *device, uint32_t id,
 	void *iface;
 
 	if (info->type != SPA_TYPE_INTERFACE_Node) {
-		pw_log_warn("device %p: unknown type %d", device, info->type);
+		pw_log_warn(NAME" %p: unknown type %d", device, info->type);
 		return;
 	}
 	if (info->factory_name == NULL) {
-		pw_log_warn("device %p: missing factory name", device);
+		pw_log_warn(NAME" %p: missing factory name", device);
 		return;
 	}
 
 	handle = pw_core_load_spa_handle(core, info->factory_name, info->props);
 	if (handle == NULL) {
-		pw_log_warn("device %p: can't load handle %s: %m",
+		pw_log_warn(NAME" %p: can't load handle %s: %m",
 				device, info->factory_name);
 		return;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get NODE interface: %s", spa_strerror(res));
+		pw_log_error(NAME" %p: can't get NODE interface: %s", device,
+				spa_strerror(res));
 		return;
 	}
 
@@ -533,11 +539,11 @@ static void device_object_info(void *data, uint32_t id,
 
 	if (info == NULL) {
 		if (nd) {
-			pw_log_debug("device %p: remove node %d", device, id);
+			pw_log_debug(NAME" %p: remove node %d", device, id);
 			pw_node_destroy(nd->node);
 		}
 		else {
-			pw_log_warn("device %p: unknown node %d", device, id);
+			pw_log_warn(NAME" %p: unknown node %d", device, id);
 		}
 	}
 	else if (nd != NULL) {
@@ -558,10 +564,10 @@ static const struct spa_device_events device_events = {
 SPA_EXPORT
 int pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
 {
-	pw_log_debug("device %p: implementation %p", device, spa_device);
+	pw_log_debug(NAME" %p: implementation %p", device, spa_device);
 
 	if (device->device) {
-		pw_log_error("device %p: implementation existed %p",
+		pw_log_error(NAME" %p: implementation existed %p",
 				device, device->device);
 		return -EEXIST;
 	}

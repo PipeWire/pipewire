@@ -296,7 +296,8 @@ void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 {
-	pw_log_trace("thread-loop: %p, waiting %d", loop, loop->n_waiting);
+	pw_log_trace("thread-loop: %p, waiting:%d accept:%d",
+			loop, loop->n_waiting, wait_for_accept);
 	if (loop->n_waiting > 0)
 		pthread_cond_broadcast(&loop->cond);
 

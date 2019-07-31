@@ -348,8 +348,11 @@ void pw_remote_add_listener(struct pw_remote *remote,
 	spa_hook_list_append(&remote->listener_list, listener, events, data);
 }
 
-static int do_connect(struct pw_remote *remote)
+static int
+do_connect(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
+	struct pw_remote *remote = user_data;
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct pw_proxy dummy;
 	int res;
@@ -413,8 +416,8 @@ static void done_connect(void *data, int result)
 				spa_strerror(result));
 		return;
 	}
-
-	do_connect(remote);
+	pw_loop_invoke(remote->core->main_loop,
+			do_connect, 0, NULL, 0, false, remote);
 }
 
 SPA_EXPORT
@@ -444,8 +447,10 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 				"connect_fd failed %s", spa_strerror(res));
 		return res;
 	}
+	pw_loop_invoke(remote->core->main_loop,
+			do_connect, 0, NULL, 0, false, remote);
 
-	return do_connect(remote);
+	return remote->state == PW_REMOTE_STATE_ERROR ? -EIO : 0;
 }
 
 SPA_EXPORT

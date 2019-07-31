@@ -31,6 +31,8 @@ extern const struct spa_handle_factory spa_bluez5_monitor_factory;
 extern const struct spa_handle_factory spa_bluez5_device_factory;
 extern const struct spa_handle_factory spa_a2dp_sink_factory;
 extern const struct spa_handle_factory spa_a2dp_source_factory;
+extern const struct spa_handle_factory spa_sco_sink_factory;
+extern const struct spa_handle_factory spa_sco_source_factory;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -50,6 +52,12 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		break;
 	case 3:
 		*factory = &spa_a2dp_source_factory;
+		break;
+	case 4:
+		*factory = &spa_sco_sink_factory;
+		break;
+	case 5:
+		*factory = &spa_sco_source_factory;
 		break;
 	default:
 		return 0;

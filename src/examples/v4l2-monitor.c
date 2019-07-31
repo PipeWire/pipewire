@@ -49,7 +49,6 @@ struct v4l2_node {
 
 	struct pw_properties *props;
 
-	struct spa_handle *handle;
 	struct pw_proxy *proxy;
 	struct spa_node *node;
 };
@@ -153,7 +152,6 @@ static void v4l2_remove_node(struct v4l2_object *obj, struct v4l2_node *node)
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
 	pw_proxy_destroy(node->proxy);
-	free(node->handle);
 	free(node);
 }
 
@@ -283,7 +281,7 @@ static void v4l2_remove_object(struct monitor *monitor, struct v4l2_object *obj)
 	spa_list_remove(&obj->link);
 	spa_hook_remove(&obj->device_listener);
 	pw_proxy_destroy(obj->proxy);
-	free(obj->handle);
+	pw_unload_spa_handle(obj->handle);
 	free(obj);
 }
 

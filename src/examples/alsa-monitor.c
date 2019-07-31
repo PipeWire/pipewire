@@ -50,7 +50,6 @@ struct alsa_node {
 
 	struct pw_properties *props;
 
-	struct spa_handle *handle;
 	struct pw_proxy *proxy;
 	struct spa_node *node;
 };
@@ -155,7 +154,6 @@ static void alsa_remove_node(struct alsa_object *obj, struct alsa_node *node)
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
 	pw_proxy_destroy(node->proxy);
-	free(node->handle);
 	free(node);
 }
 
@@ -285,7 +283,7 @@ static void alsa_remove_object(struct monitor *monitor, struct alsa_object *obj)
 	spa_list_remove(&obj->link);
 	spa_hook_remove(&obj->device_listener);
 	pw_proxy_destroy(obj->proxy);
-	free(obj->handle);
+	pw_unload_spa_handle(obj->handle);
 	free(obj);
 }
 

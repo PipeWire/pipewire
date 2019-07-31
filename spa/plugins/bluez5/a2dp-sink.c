@@ -864,7 +864,7 @@ static int do_remove_source(struct spa_loop *loop,
 
 static int do_stop(struct impl *this)
 {
-	int res;
+	int res = 0;
 
 	if (!this->started)
 		return 0;
@@ -875,7 +875,8 @@ static int do_stop(struct impl *this)
 
 	this->started = false;
 
-	res = spa_bt_transport_release(this->transport);
+	if (this->transport)
+		res = spa_bt_transport_release(this->transport);
 
 	return res;
 }

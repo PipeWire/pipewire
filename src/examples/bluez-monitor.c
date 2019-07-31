@@ -136,7 +136,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 			NULL,
 			PW_TYPE_INTERFACE_Node,
 			PW_VERSION_NODE_PROXY,
-			node->props,
+			pw_properties_copy(node->props),
 			0);
 	if (node->adapter == NULL) {
 		res = -errno;
@@ -144,7 +144,8 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	}
 	node->proxy = pw_remote_export(impl->remote,
 			PW_TYPE_INTERFACE_Node,
-			node->props, node->adapter, 0);
+			pw_properties_copy(node->props),
+			node->adapter, 0);
 
 	spa_list_append(&obj->node_list, &node->link);
 
@@ -164,7 +165,8 @@ static void bluez5_remove_node(struct bluez5_object *obj, struct bluez5_node *no
 {
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
-	pw_proxy_destroy(node->proxy);
+	pw_node_destroy(node->adapter);
+	pw_properties_free(node->props);
 	free(node);
 }
 
@@ -284,9 +286,15 @@ exit:
 
 static void bluez5_remove_object(struct monitor *monitor, struct bluez5_object *obj)
 {
+	struct bluez5_node *node;
+
 	pw_log_debug("remove object %u", obj->id);
 	spa_list_remove(&obj->link);
 	spa_hook_remove(&obj->device_listener);
+
+	spa_list_consume(node, &obj->node_list, link)
+		bluez5_remove_node(obj, node);
+
 	pw_proxy_destroy(obj->proxy);
 	pw_unload_spa_handle(obj->handle);
 	free(obj);

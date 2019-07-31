@@ -87,8 +87,10 @@ extern "C" {
 /** keys for bluez5 factory names */
 #define SPA_NAME_API_BLUEZ5_MONITOR	"api.bluez5.monitor"		/**< a Monitor interface */
 #define SPA_NAME_API_BLUEZ5_DEVICE	"api.bluez5.device"		/**< a Device interface */
-#define SPA_NAME_API_BLUEZ5_A2DP_SINK	"api.bluez5.a2dp.sink"		/**< a playback Node interface */
-#define SPA_NAME_API_BLUEZ5_A2DP_SOURCE	"api.bluez5.a2dp.source"	/**< a capture Node interface */
+#define SPA_NAME_API_BLUEZ5_A2DP_SINK	"api.bluez5.a2dp.sink"		/**< a playback Node interface for A2DP profiles */
+#define SPA_NAME_API_BLUEZ5_A2DP_SOURCE	"api.bluez5.a2dp.source"	/**< a capture Node interface for A2DP profiles */
+#define SPA_NAME_API_BLUEZ5_SCO_SINK	"api.bluez5.sco.sink"		/**< a playback Node interface for HSP/HFP profiles */
+#define SPA_NAME_API_BLUEZ5_SCO_SOURCE	"api.bluez5.sco.source"		/**< a capture Node interface for HSP/HFP profiles */
 
 /** keys for v4l2 factory names */
 #define SPA_NAME_API_V4L2_MONITOR	"api.v4l2.monitor"		/**< a v4l2 Monitor interface */

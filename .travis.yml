@@ -11,16 +11,17 @@ before_install:
 script:
   - >
     docker run -it --rm -v $PWD:/workdir gkiagia/pipewire_build_environment:latest bash -c
-    'cd /workdir && env MESON=meson ./autogen.sh \
-      -Ddocs=true \
-      -Daudiomixer=true \
-      -Daudiotestsrc=true \
-      -Dffmpeg=true \
-      -Dtest=true \
-      -Dvideotestsrc=true \
-      -Dvolume=true \
-    && make \
-    && make test \
-    && env DESTDIR=i make install \
-    && env PREFIX=build/i/usr/local ./check_missing_headers.sh \
+    'cd /workdir \
+      && env MESON=meson ./autogen.sh \
+        -Ddocs=true \
+        -Daudiomixer=true \
+        -Daudiotestsrc=true \
+        -Dffmpeg=true \
+        -Dtest=true \
+        -Dvideotestsrc=true \
+        -Dvolume=true \
+      && make \
+      && make test \
+      && env DESTDIR=$PWD/build/i make install \
+      && env PREFIX=$PWD/build/i/usr/local ./check_missing_headers.sh \
     '

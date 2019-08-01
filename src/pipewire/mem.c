@@ -692,15 +692,17 @@ struct pw_memblock * pw_mempool_find_fd(struct pw_mempool *pool, int fd)
 }
 
 SPA_EXPORT
-struct pw_memmap * pw_mempool_find_tag(struct pw_mempool *pool, uint32_t tag[5])
+struct pw_memmap * pw_mempool_find_tag(struct pw_mempool *pool, uint32_t tag[5], size_t size)
 {
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
 	struct memblock *b;
 	struct memmap *mm;
 
+	pw_log_debug("pool %p: find tag %zd", pool, size);
+
 	spa_list_for_each(b, &impl->blocks, link) {
 		spa_list_for_each(mm, &b->maps, link) {
-			if (memcmp(tag, mm->this.tag, sizeof(mm->this.tag)) == 0) {
+			if (memcmp(tag, mm->this.tag, size) == 0) {
 				pw_log_debug("pool %p: found %p", pool, mm);
 				return &mm->this;
 			}

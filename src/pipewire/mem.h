@@ -157,7 +157,7 @@ struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
 		struct pw_mempool *other, void *data, uint32_t size, uint32_t tag[5]);
 
 /** find a map with the given tag */
-struct pw_memmap * pw_mempool_find_tag(struct pw_mempool *pool, uint32_t tag[5]);
+struct pw_memmap * pw_mempool_find_tag(struct pw_mempool *pool, uint32_t tag[5], size_t size);
 
 /** Unmap a region */
 int pw_memmap_free(struct pw_memmap *map);

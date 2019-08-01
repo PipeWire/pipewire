@@ -350,7 +350,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		mem_size = size;
 	}
 	else {
-		if ((mm = pw_mempool_find_tag(this->client->pool, tag)) != NULL)
+		if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
                         pw_memmap_free(mm);
 
 		memid = SPA_ID_INVALID;
@@ -663,7 +663,7 @@ static int do_port_set_io(struct impl *impl,
 		mem_size = size;
 	}
 	else {
-		if ((mm = pw_mempool_find_tag(this->client->pool, tag)) != NULL)
+		if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
                         pw_memmap_free(mm);
 
 		memid = SPA_ID_INVALID;

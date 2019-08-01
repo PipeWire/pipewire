@@ -402,7 +402,7 @@ client_node_set_io(void *object,
 	uint32_t tag[5] = { data->remote_id, id, };
 
 	if (memid == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag)) != NULL)
+		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag, sizeof(tag))) != NULL)
 			pw_memmap_free(mm);
 		mm = ptr = NULL;
 		size = 0;
@@ -713,7 +713,7 @@ client_node_port_set_io(void *object,
 	}
 
 	if (memid == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag)) != NULL)
+		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag, sizeof(tag))) != NULL)
 			pw_memmap_free(mm);
 
 		mm = ptr = NULL;

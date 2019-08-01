@@ -232,11 +232,11 @@ static int client_node_transport(void *object, uint32_t node_id,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_remote *remote = proxy->remote;
+	struct pw_remote *remote = data->remote;
 
 	clean_transport(data);
 
-	data->activation = pw_mempool_map_id(proxy->remote->pool, mem_id,
+	data->activation = pw_mempool_map_id(data->remote->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 	if (data->activation == NULL) {
 		pw_log_debug("remote-node %p: can't map activation: %m", proxy);
@@ -402,13 +402,13 @@ client_node_set_io(void *object,
 	uint32_t tag[5] = { data->remote_id, id, };
 
 	if (memid == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag, sizeof(tag))) != NULL)
+		if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
 			pw_memmap_free(mm);
 		mm = ptr = NULL;
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(proxy->remote->pool, memid,
+		mm = pw_mempool_map_id(data->remote->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			pw_log_warn("can't map memory id %u: %m", memid);
@@ -581,7 +581,7 @@ client_node_port_use_buffers(void *object,
 		off_t offset;
 		struct pw_memmap *mm;
 
-		mm = pw_mempool_map_id(proxy->remote->pool, buffers[i].mem_id,
+		mm = pw_mempool_map_id(data->remote->pool, buffers[i].mem_id,
 				prot, buffers[i].offset, buffers[i].size, NULL);
 		if (mm == NULL) {
 			res = -errno;
@@ -643,7 +643,7 @@ client_node_port_use_buffers(void *object,
 				uint32_t mem_id = SPA_PTR_TO_UINT32(d->data);
 				struct pw_memblock *bm;
 
-				bm = pw_mempool_find_id(proxy->remote->pool, mem_id);
+				bm = pw_mempool_find_id(data->remote->pool, mem_id);
 				if (bm == NULL) {
 					pw_log_error("unknown buffer mem %u", mem_id);
 					res = -ENODEV;
@@ -713,14 +713,14 @@ client_node_port_set_io(void *object,
 	}
 
 	if (memid == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(proxy->remote->pool, tag, sizeof(tag))) != NULL)
+		if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
 			pw_memmap_free(mm);
 
 		mm = ptr = NULL;
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(proxy->remote->pool, memid,
+		mm = pw_mempool_map_id(data->remote->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			res = -errno;
@@ -796,7 +796,7 @@ client_node_set_activation(void *object,
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(proxy->remote->pool, memid,
+		mm = pw_mempool_map_id(data->remote->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
 			res = -errno;

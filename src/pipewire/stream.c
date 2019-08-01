@@ -1435,16 +1435,13 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	pw_log_debug(NAME" %p: disconnect", stream);
 	impl->disconnecting = true;
 
-	if (stream->proxy) {
-		stream->proxy = NULL;
-		spa_hook_remove(&stream->proxy_listener);
-		stream->node_id = SPA_ID_INVALID;
-	}
+	if (stream->proxy)
+		pw_proxy_destroy(stream->proxy);
+
 	if (impl->node) {
 		pw_node_destroy(impl->node);
 		impl->node = NULL;
 	}
-	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
 	return 0;
 }
 

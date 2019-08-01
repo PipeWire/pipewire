@@ -32,6 +32,8 @@
 
 #include <spa/debug/types.h>
 
+#define NAME "proxy"
+
 /** \cond */
 struct proxy {
 	struct pw_proxy this;
@@ -71,7 +73,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 
 	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type);
 	if (this->marshal == NULL) {
-		pw_log_error("proxy %p: no marshal for type %d", this, type);
+		pw_log_error(NAME" %p: no marshal for type %d", this, type);
 		res = -EPROTO;
 		goto error_clean;
 	}
@@ -79,7 +81,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	this->id = pw_map_insert_new(&remote->objects, this);
 	if (this->id == SPA_ID_INVALID) {
 		res = -errno;
-		pw_log_error("proxy %p: can't allocate new id: %m", this);
+		pw_log_error(NAME" %p: can't allocate new id: %m", this);
 		goto error_clean;
 	}
 
@@ -96,7 +98,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 
 	spa_list_append(&this->remote->proxy_list, &this->link);
 
-	pw_log_debug("proxy %p: new %u %s remote %p, marshal %p",
+	pw_log_debug(NAME" %p: new %u %s remote %p, marshal %p",
 			this, this->id,
 			spa_debug_type_find_name(pw_type_info(), type),
 			remote, this->marshal);
@@ -159,7 +161,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 	struct pw_remote *remote = proxy->remote;
 
-	pw_log_debug("proxy %p: destroy %u", proxy, proxy->id);
+	pw_log_debug(NAME" %p: destroy %u", proxy, proxy->id);
 	pw_proxy_emit_destroy(proxy);
 
 	spa_list_remove(&proxy->link);
@@ -173,6 +175,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 		if (remote->core_proxy)
 			pw_core_proxy_destroy(remote->core_proxy, proxy);
 	}
+	pw_log_debug(NAME" %p: free", proxy);
 	free(impl);
 }
 
@@ -184,7 +187,7 @@ int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 
 	if (remote->core_proxy != NULL) {
 		res = pw_core_proxy_sync(remote->core_proxy, proxy->id, seq);
-		pw_log_debug("proxy %p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
+		pw_log_debug(NAME" %p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
 	}
 	return res;
 }

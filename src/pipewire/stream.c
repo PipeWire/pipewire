@@ -1235,6 +1235,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
 
+	pw_log_debug(NAME" %p: free", stream);
 	free(stream->error);
 
 	pw_properties_free(stream->properties);

@@ -32,6 +32,8 @@
 #include "pipewire/interfaces.h"
 #include "pipewire/keys.h"
 
+#define NAME "factory"
+
 #define pw_factory_resource_info(r,...) pw_resource_call(r,struct pw_factory_proxy_events,info,0,__VA_ARGS__)
 
 struct resource_data {
@@ -64,7 +66,7 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
 
-	pw_log_debug("factory %p: new %s", this, name);
+	pw_log_debug(NAME" %p: new %s", this, name);
 
 	return this;
 }
@@ -72,7 +74,7 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 SPA_EXPORT
 void pw_factory_destroy(struct pw_factory *factory)
 {
-	pw_log_debug("factory %p: destroy", factory);
+	pw_log_debug(NAME" %p: destroy", factory);
 	pw_factory_emit_destroy(factory);
 
 	if (factory->registered)
@@ -82,6 +84,8 @@ void pw_factory_destroy(struct pw_factory *factory)
 		spa_hook_remove(&factory->global_listener);
 		pw_global_destroy(factory->global);
 	}
+
+	pw_log_debug(NAME" %p: free", factory);
 	free((char *)factory->info.name);
 	if (factory->properties)
 		pw_properties_free(factory->properties);
@@ -116,7 +120,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
-	pw_log_debug("factory %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
 
@@ -127,7 +131,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error("can't create factory resource: %m");
+	pw_log_error(NAME" %p: can't create factory resource: %m", this);
 	return -errno;
 }
 

@@ -40,6 +40,8 @@
 #include "pipewire/module.h"
 #include "pipewire/type.h"
 
+#define NAME "module"
+
 /** \cond */
 struct impl {
 	struct pw_module this;
@@ -134,7 +136,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
-	pw_log_debug("module %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
 
@@ -145,7 +147,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error("can't create module resource: %m");
+	pw_log_error(NAME" %p: can't create module resource: %m", this);
 	return -errno;
 }
 
@@ -268,7 +270,7 @@ pw_module_load(struct pw_core *core,
 
 	pw_global_register(this->global, owner, parent);
 
-	pw_log_debug("loaded module: %s", this->info.name);
+	pw_log_debug(NAME" %p: loaded module: %s", this, this->info.name);
 
 	return this;
 
@@ -320,7 +322,7 @@ void pw_module_destroy(struct pw_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 
-	pw_log_debug("module %p: destroy", module);
+	pw_log_debug(NAME" %p: destroy", module);
 	pw_module_emit_destroy(module);
 
 	if (module->global) {
@@ -329,6 +331,7 @@ void pw_module_destroy(struct pw_module *module)
 		pw_global_destroy(module->global);
 	}
 
+	pw_log_debug(NAME" %p: destroy", module);
 	free((char *) module->info.name);
 	free((char *) module->info.filename);
 	free((char *) module->info.args);
@@ -336,7 +339,7 @@ void pw_module_destroy(struct pw_module *module)
 	pw_properties_free(module->properties);
 
 	if (dlclose(impl->hnd) != 0)
-		pw_log_warn("dlclose failed: %s", dlerror());
+		pw_log_warn(NAME" %p: dlclose failed: %s", module, dlerror());
 	free(impl);
 }
 
@@ -367,7 +370,7 @@ int pw_module_update_properties(struct pw_module *module, const struct spa_dict 
 
 	changed = pw_properties_update(module->properties, dict);
 
-	pw_log_debug("module %p: updated %d properties", module, changed);
+	pw_log_debug(NAME" %p: updated %d properties", module, changed);
 
 	if (!changed)
 		return 0;

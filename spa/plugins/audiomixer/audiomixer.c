@@ -246,8 +246,7 @@ static int impl_node_add_port(void *object, enum spa_direction direction, uint32
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
-			   SPA_PORT_FLAG_REMOVABLE |
+	port->info.flags = SPA_PORT_FLAG_REMOVABLE |
 			   SPA_PORT_FLAG_OPTIONAL |
 			   SPA_PORT_FLAG_IN_PLACE;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
@@ -552,6 +551,7 @@ static int
 impl_node_port_use_buffers(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
+			   uint32_t flags,
 			   struct spa_buffer **buffers,
 			   uint32_t n_buffers)
 {
@@ -597,18 +597,6 @@ impl_node_port_use_buffers(void *object,
 	port->n_buffers = n_buffers;
 
 	return 0;
-}
-
-static int
-impl_node_port_alloc_buffers(void *object,
-			     enum spa_direction direction,
-			     uint32_t port_id,
-			     struct spa_pod **params,
-			     uint32_t n_params,
-			     struct spa_buffer **buffers,
-			     uint32_t *n_buffers)
-{
-	return -ENOTSUP;
 }
 
 static int
@@ -857,7 +845,6 @@ static const struct spa_node_methods impl_node = {
 	.port_enum_params = impl_node_port_enum_params,
 	.port_set_param = impl_node_port_set_param,
 	.port_use_buffers = impl_node_port_use_buffers,
-	.port_alloc_buffers = impl_node_port_alloc_buffers,
 	.port_set_io = impl_node_port_set_io,
 	.port_reuse_buffer = impl_node_port_reuse_buffer,
 	.process = impl_node_process,
@@ -936,8 +923,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->id = 0;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	port->info.flags = SPA_PORT_FLAG_CAN_USE_BUFFERS |
-			   SPA_PORT_FLAG_NO_REF;
+	port->info.flags = SPA_PORT_FLAG_NO_REF;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);

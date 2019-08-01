@@ -84,10 +84,12 @@ struct node_data {
 	int do_free:1;
 	int have_transport:1;
 
-        struct pw_client_node_proxy *node_proxy;
-	struct spa_hook node_proxy_listener;
+	struct pw_client_node_proxy *client_node;
+	struct spa_hook client_node_listener;
+	struct spa_hook client_node_proxy_listener;
+
+	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
-        struct pw_proxy *proxy;
 
 	struct spa_io_position *position;
 
@@ -256,7 +258,7 @@ static int client_node_transport(void *object, uint32_t node_id,
 	data->have_transport = true;
 
 	if (data->node->active)
-		pw_client_node_proxy_set_active(data->node_proxy, true);
+		pw_client_node_proxy_set_active(data->client_node, true);
 
 	pw_remote_emit_exported(remote, data->proxy->id, node_id);
 	return 0;
@@ -306,7 +308,7 @@ static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
 
 	}
 
-        res = pw_client_node_proxy_update(data->node_proxy,
+        res = pw_client_node_proxy_update(data->client_node,
 				change_mask,
 				n_params,
 				(const struct spa_pod **)params,
@@ -364,7 +366,7 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 		pi.params = port->info.params;
 	}
 
-	res = pw_client_node_proxy_port_update(data->node_proxy,
+	res = pw_client_node_proxy_port_update(data->client_node,
                                          port->direction,
                                          port->port_id,
                                          change_mask,
@@ -673,7 +675,7 @@ client_node_port_use_buffers(void *object,
 		goto error_exit_cleanup;
 
 	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
-		pw_client_node_proxy_port_buffers(data->node_proxy,
+		pw_client_node_proxy_port_buffers(data->client_node,
 				direction, port_id, mix_id,
 				n_buffers,
 				bufs);
@@ -929,11 +931,8 @@ static void node_free(void *data)
 
 	pw_log_debug("%p: free", d);
 
-	if (d->proxy) {
-		pw_proxy_destroy(d->proxy);
-		d->proxy = NULL;
-	}
-	pw_proxy_destroy((struct pw_proxy*)d->node_proxy);
+	if (d->client_node)
+		pw_proxy_destroy((struct pw_proxy*)d->client_node);
 }
 
 static void node_info_changed(void *data, const struct pw_node_info *info)
@@ -949,7 +948,7 @@ static void node_info_changed(void *data, const struct pw_node_info *info)
 		change_mask |= PW_CLIENT_NODE_UPDATE_PARAMS;
 		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
 	}
-	add_node_update((struct pw_proxy*)d->node_proxy, change_mask);
+	add_node_update((struct pw_proxy*)d->client_node, change_mask);
 }
 
 static void node_port_info_changed(void *data, struct pw_port *port,
@@ -966,14 +965,14 @@ static void node_port_info_changed(void *data, struct pw_port *port,
 		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_PARAMS;
 		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_INFO;
 	}
-	add_port_update((struct pw_proxy*)d->node_proxy, port, change_mask);
+	add_port_update((struct pw_proxy*)d->client_node, port, change_mask);
 }
 
 static void node_active_changed(void *data, bool active)
 {
 	struct node_data *d = data;
 	pw_log_debug("active %d", active);
-	pw_client_node_proxy_set_active(d->node_proxy, active);
+	pw_client_node_proxy_set_active(d->client_node, active);
 }
 
 static const struct pw_node_events node_events = {
@@ -985,7 +984,7 @@ static const struct pw_node_events node_events = {
 	.active_changed = node_active_changed,
 };
 
-static void node_proxy_destroy(void *_data)
+static void client_node_proxy_destroy(void *_data)
 {
 	struct node_data *data = _data;
 
@@ -995,19 +994,36 @@ static void node_proxy_destroy(void *_data)
 
 	spa_hook_remove(&data->node_listener);
 
-	data->node_proxy = NULL;
+	data->client_node = NULL;
 
-	if (data->proxy) {
+	if (data->proxy)
 		pw_proxy_destroy(data->proxy);
-		data->proxy = NULL;
-	}
+
 	if (data->do_free)
 		pw_node_destroy(data->node);
 }
 
+static const struct pw_proxy_events client_node_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = client_node_proxy_destroy,
+};
+
+static void proxy_destroy(void *_data)
+{
+	struct node_data *data = _data;
+
+	pw_log_debug("%p: destroy", data);
+	spa_hook_remove(&data->proxy_listener);
+	data->proxy = NULL;
+
+	if (data->client_node)
+		pw_proxy_destroy((struct pw_proxy*)data->client_node);
+}
+
+
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.destroy = node_proxy_destroy,
+	.destroy = proxy_destroy,
 };
 
 static int node_ready(void *d, int status)
@@ -1051,25 +1067,25 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 		size_t user_data_size)
 {
 	struct pw_node *node = object;
-	struct pw_proxy *proxy;
+	struct pw_proxy *client_node;
 	struct node_data *data;
 	int i;
 
-	proxy = pw_core_proxy_create_object(remote->core_proxy,
+	client_node = pw_core_proxy_create_object(remote->core_proxy,
 					    "client-node",
 					    PW_TYPE_INTERFACE_ClientNode,
 					    PW_VERSION_CLIENT_NODE,
 					    &node->properties->dict,
 					    sizeof(struct node_data));
-        if (proxy == NULL)
+        if (client_node == NULL)
                 return NULL;
 
-	data = pw_proxy_get_user_data(proxy);
+	data = pw_proxy_get_user_data(client_node);
 	data->remote = remote;
 	data->node = node;
 	data->do_free = do_free;
 	data->core = pw_node_get_core(node);
-	data->node_proxy = (struct pw_client_node_proxy *)proxy;
+	data->client_node = (struct pw_client_node_proxy *)client_node;
 	data->remote_id = SPA_ID_INVALID;
 
 	node->exported = true;
@@ -1083,18 +1099,23 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
         pw_array_init(&data->links, 64);
         pw_array_ensure_size(&data->links, sizeof(struct link) * 64);
 
-	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
+	pw_proxy_add_listener(client_node,
+			&data->client_node_proxy_listener,
+			&client_node_proxy_events, data);
+
 	spa_node_set_callbacks(node->node, &node_callbacks, data);
 	pw_node_add_listener(node, &data->node_listener, &node_events, data);
 
-        pw_client_node_proxy_add_listener(data->node_proxy,
-					  &data->node_proxy_listener,
+        pw_client_node_proxy_add_listener(data->client_node,
+					  &data->client_node_listener,
 					  &client_node_events,
-					  proxy);
-        do_node_init(proxy);
+					  client_node);
+        do_node_init(client_node);
 
-	data->proxy = (struct pw_proxy*) pw_client_node_proxy_get_node(data->node_proxy,
+	data->proxy = (struct pw_proxy*) pw_client_node_proxy_get_node(data->client_node,
 			PW_VERSION_NODE_PROXY, user_data_size);
+
+	pw_proxy_add_listener(data->proxy, &data->proxy_listener, &proxy_events, data);
 
 	return data->proxy;
 }

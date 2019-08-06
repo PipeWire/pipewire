@@ -186,8 +186,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->format.info.raw.position[0] = position;
 	spa_list_init(&port->queue);
 
-	spa_log_debug(this->log, NAME " %p: add port %d rate:%d position:%s",
-			this, port_id, rate, port->position);
+	spa_log_debug(this->log, NAME " %p: add port %d:%d rate:%d position:%s",
+			this, direction, port_id, rate, port->position);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -215,7 +215,7 @@ static int impl_node_enum_params(void *object, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_Profile:
+	case SPA_PARAM_PortConfig:
 		return -ENOTSUP;
 	default:
 		return 0;
@@ -246,19 +246,30 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	switch (id) {
-	case SPA_PARAM_Profile:
+	case SPA_PARAM_PortConfig:
 	{
 		struct spa_audio_info info = { 0, };
 		struct port *port;
 		struct spa_pod *format;
+		enum spa_direction direction;
+		enum spa_param_port_config_mode mode;
+		bool monitor = false;
 		uint32_t i;
 
 		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_format, SPA_POD_Pod(&format)) < 0)
+				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
+				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
+				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
+				SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
+				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(&format)) < 0)
 			return -EINVAL;
 
 		if (!SPA_POD_IS_OBJECT_TYPE(format, SPA_TYPE_OBJECT_Format))
+			return -EINVAL;
+
+		if (mode != SPA_PARAM_PORT_CONFIG_MODE_dsp)
+			return -ENOTSUP;
+		if (direction != SPA_DIRECTION_INPUT)
 			return -EINVAL;
 
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
@@ -275,8 +286,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (port->have_format && memcmp(&port->format, &info, sizeof(info)) == 0)
 			return 0;
 
-		spa_log_debug(this->log, NAME " %p: profile %d/%d", this,
-				info.info.raw.rate, info.info.raw.channels);
+		spa_log_debug(this->log, NAME " %p: port config %d/%d %d", this,
+				info.info.raw.rate, info.info.raw.channels, monitor);
 
 		for (i = 0; i < this->port_count; i++) {
 			spa_node_emit_port_info(&this->hooks,
@@ -288,6 +299,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		port->have_format = true;
 		port->format = info;
+		this->monitor = monitor;
 
 		this->have_profile = true;
 		this->port_count = info.info.raw.channels;
@@ -344,8 +356,11 @@ impl_node_add_listener(void *object,
 
 	emit_node_info(this, true);
 	emit_port_info(this, GET_OUT_PORT(this, 0), true);
-	for (i = 0; i < this->port_count; i++)
+	for (i = 0; i < this->port_count; i++) {
 		emit_port_info(this, GET_IN_PORT(this, i), true);
+		if (this->monitor)
+			emit_port_info(this, GET_OUT_PORT(this, i+1), true);
+	}
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -663,7 +678,8 @@ static int port_set_format(void *object,
 				port_id, port->stride, port->blocks);
 
 		if (!PORT_IS_DSP(direction, port_id))
-			setup_convert(this);
+			if ((res = setup_convert(this)) < 0)
+				return res;
 
 		port->have_format = true;
 	}
@@ -1038,7 +1054,6 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
-	const char *str;
 	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -1063,9 +1078,6 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
-	if (info != NULL && (str = spa_dict_lookup(info, "merger.monitor")) != NULL)
-		this->monitor = atoi(str);
-
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
@@ -1078,7 +1090,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_input_ports = MAX_PORTS;
 	this->info.max_output_ports = MAX_PORTS+1;
 	this->info.flags = SPA_NODE_FLAG_RT;
-	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
 	this->info.n_params = 1;
 

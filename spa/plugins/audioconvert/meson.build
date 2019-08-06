@@ -84,7 +84,16 @@ audioconvertlib = shared_library('spa-audioconvert',
                           install : true,
                           install_dir : '@0@/spa/audioconvert/'.format(get_option('libdir')))
 
+test_lib = static_library('test_lib',
+	['test-source.c' ],
+	c_args : ['-O3'],
+	include_directories : [spa_inc],
+	install : false
+)
+
 test_apps = [
+	'test-audioadapter',
+	'test-audioconvert',
 	'test-fmt-ops',
 	'test-resample',
 ]
@@ -94,7 +103,7 @@ foreach a : test_apps
 	executable(a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
-		link_with : simd_dependencies,
+		link_with : [ simd_dependencies, test_lib, audioconvertlib ],
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : false),
 	env : [

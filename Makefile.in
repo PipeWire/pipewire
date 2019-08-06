@@ -55,4 +55,4 @@ publish: all
 	git commit -anm "Deploy on gh-pages" && \
 	git subtree split --prefix build/doc/html -b gh-pages && \
 	git push --force origin gh-pages:gh-pages && \
-	git checkout master 2>/dev/null
+	git checkout work 2>/dev/null

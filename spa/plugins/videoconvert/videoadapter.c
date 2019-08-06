@@ -210,7 +210,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	spa_log_debug(this->log, NAME" %p: set param %d", this, id);
 
 	switch (id) {
-	case SPA_PARAM_Profile:
+	case SPA_PARAM_PortConfig:
 		if (this->started)
 			return -EIO;
 		if (this->target != this->slave) {
@@ -885,9 +885,6 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->slave == NULL)
 		return -EINVAL;
 
-	if ((str = spa_dict_lookup(info, "merger.monitor")) != NULL)
-		this->monitor = atoi(str);
-
 	spa_node_add_listener(this->slave,
 			&this->slave_listener, &slave_node_events, this);
 	spa_node_set_callbacks(this->slave, &slave_node_callbacks, this);
@@ -928,7 +925,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
-	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
 	this->info.n_params = 5;
 

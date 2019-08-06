@@ -97,18 +97,6 @@ test('pw-test-protocol-native',
 		'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.build_root())
 	])
 
-pipewire_module_audio_dsp = shared_library('pipewire-module-audio-dsp',
-  [ 'module-audio-dsp.c',
-    'module-audio-dsp/audio-dsp.c',
-    'module-audio-dsp/floatmix.c',
-    'spa/spa-node.c' ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  install : true,
-  install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
-)
-
 pipewire_module_adapter = shared_library('pipewire-module-adapter',
   [ 'module-adapter.c',
     'module-adapter/adapter.c',

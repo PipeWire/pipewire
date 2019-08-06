@@ -132,9 +132,9 @@ static int can_convert(const struct spa_audio_info *info1, const struct spa_audi
 {
 	if (info1->info.raw.channels != info2->info.raw.channels ||
 	    info1->info.raw.rate != info2->info.raw.rate) {
-		return -EINVAL;
+		return 0;
 	}
-	return 0;
+	return 1;
 }
 
 static int setup_convert(struct impl *this)
@@ -165,7 +165,7 @@ static int setup_convert(struct impl *this)
 			outformat.info.raw.channels,
 			outformat.info.raw.rate);
 
-	if (can_convert(&informat, &outformat) < 0)
+	if (!can_convert(&informat, &outformat))
 		return -EINVAL;
 
 	for (i = 0; i < informat.info.raw.channels; i++) {
@@ -555,7 +555,7 @@ static int port_set_format(void *object,
 {
 	struct impl *this = object;
 	struct port *port, *other;
-	int res = 0;
+	int res;
 
 	port = GET_PORT(this, direction, port_id);
 	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
@@ -584,7 +584,7 @@ static int port_set_format(void *object,
 			spa_log_info(this->log, NAME "%p: %d %d %d %d", this,
 				info.info.raw.channels, other->format.info.raw.channels,
 				info.info.raw.rate, other->format.info.raw.rate);
-			if (can_convert(&info, &other->format) < 0)
+			if (!can_convert(&info, &other->format))
 				return -ENOTSUP;
 		}
 
@@ -602,10 +602,11 @@ static int port_set_format(void *object,
 		port->format = info;
 
 		if (other->have_format && port->have_format)
-			res = setup_convert(this);
+			if ((res = setup_convert(this)) < 0)
+				return res;
 
-		spa_log_debug(this->log, NAME " %p: set format on port %d %d %d",
-				this, port_id, res, port->stride);
+		spa_log_debug(this->log, NAME " %p: set format on port %d:%d res:%d stride:%d",
+				this, direction, port_id, res, port->stride);
 	}
 	if (port->have_format) {
 		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
@@ -614,7 +615,7 @@ static int port_set_format(void *object,
 		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
-	return res;
+	return 0;
 }
 
 static int
@@ -623,9 +624,13 @@ impl_node_port_set_param(void *object,
 			 uint32_t id, uint32_t flags,
 			 const struct spa_pod *param)
 {
-	spa_return_val_if_fail(object != NULL, -EINVAL);
+	struct impl *this = object;
 
+	spa_return_val_if_fail(object != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(object, direction, port_id), -EINVAL);
+
+	spa_log_debug(this->log, NAME " %p: set param %u on port %d:%d %p",
+				this, id, direction, port_id, param);
 
 	switch (id) {
 	case SPA_PARAM_Format:

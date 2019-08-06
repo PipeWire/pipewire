@@ -1098,15 +1098,16 @@ do_link_profile:
 		spa_pod_builder_init(&b, buf, sizeof(buf));
 		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &audio_info);
 		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-			SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(direction)),
-			SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(pw_direction_reverse(direction)),
+			SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+			SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(2, NULL, param);
 
 		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
-				SPA_PARAM_Profile, 0, param);
+				SPA_PARAM_PortConfig, 0, param);
 
 		stream_set_volume(impl, node, 1.0, false);
 		n_links = audio_info.channels;
@@ -1144,17 +1145,19 @@ static void rescan_session(struct impl *impl, struct session *sess)
 	info = node->format;
 	info.rate = DEFAULT_SAMPLERATE;
 
-	pw_log_debug(NAME" %p: setting profile for session %d", impl, sess->id);
+	pw_log_debug(NAME" %p: setting profile for session %d %d", impl, sess->id, sess->direction);
 
 	spa_pod_builder_init(&b, buf, sizeof(buf));
 	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
 	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-		SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(sess->direction)),
-		SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(pw_direction_reverse(sess->direction)),
+		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+		SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_Bool(true),
+		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 
 	pw_node_proxy_set_param((struct pw_node_proxy*)sess->node->obj.proxy,
-			SPA_PARAM_Profile, 0, param);
+			SPA_PARAM_PortConfig, 0, param);
 	schedule_rescan(impl);
 
 	sess->starting = false;

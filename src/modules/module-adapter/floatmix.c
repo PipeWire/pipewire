@@ -872,7 +872,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_input_ports = MAX_PORTS;
 	this->info.max_output_ports = 1;
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
-	this->info.flags = SPA_NODE_FLAG_RT | SPA_NODE_FLAG_DYNAMIC_INPUT_PORTS;
+	this->info.flags = SPA_NODE_FLAG_RT | SPA_NODE_FLAG_IN_DYNAMIC_PORTS;
 
 	port = GET_OUT_PORT(this, 0);
 	port->valid = true;

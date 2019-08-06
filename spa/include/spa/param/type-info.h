@@ -263,8 +263,29 @@ static const struct spa_type_info spa_type_param_profile[] = {
 	{ SPA_PARAM_PROFILE_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PROFILE_BASE, spa_type_param, },
 	{ SPA_PARAM_PROFILE_index, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PROFILE_BASE "index", NULL },
 	{ SPA_PARAM_PROFILE_name, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_PROFILE_BASE "name", NULL },
-	{ SPA_PARAM_PROFILE_direction, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PROFILE_BASE "direction", spa_type_direction },
-	{ SPA_PARAM_PROFILE_format, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_PROFILE_BASE "format", NULL, },
+	{ 0, 0, NULL, NULL },
+};
+
+#define SPA_TYPE_INFO_ParamPortConfigMode		SPA_TYPE_INFO_ENUM_BASE "ParamPortConfigMode"
+#define SPA_TYPE_INFO_PARAM_PORT_CONFIG_MODE_BASE	SPA_TYPE_INFO_ParamPortConfigMode ":"
+
+static const struct spa_type_info spa_type_param_port_config_mode[] = {
+	{ SPA_PARAM_PORT_CONFIG_MODE_none, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PORT_CONFIG_MODE_BASE "none", NULL },
+	{ SPA_PARAM_PORT_CONFIG_MODE_passthrough, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PORT_CONFIG_MODE_BASE "passthrough", NULL },
+	{ SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PORT_CONFIG_MODE_BASE "convert", NULL },
+	{ SPA_PARAM_PORT_CONFIG_MODE_dsp, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PORT_CONFIG_MODE_BASE "dsp", NULL },
+	{ 0, 0, NULL, NULL },
+};
+
+#define SPA_TYPE_INFO_PARAM_PortConfig		SPA_TYPE_INFO_PARAM_BASE "PortConfig"
+#define SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE	SPA_TYPE_INFO_PARAM_PortConfig ":"
+
+static const struct spa_type_info spa_type_param_port_config[] = {
+	{ SPA_PARAM_PORT_CONFIG_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE, spa_type_param, },
+	{ SPA_PARAM_PORT_CONFIG_direction, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "direction", spa_type_direction, },
+	{ SPA_PARAM_PORT_CONFIG_mode, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "mode", spa_type_param_port_config_mode },
+	{ SPA_PARAM_PORT_CONFIG_monitor, SPA_TYPE_Bool, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "monitor", NULL },
+	{ SPA_PARAM_PORT_CONFIG_format, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "format", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

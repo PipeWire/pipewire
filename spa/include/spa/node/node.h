@@ -61,9 +61,13 @@ struct spa_node_info {
 #define SPA_NODE_CHANGE_MASK_PARAMS		(1u<<2)
 	uint64_t change_mask;
 
-#define SPA_NODE_FLAG_DYNAMIC_INPUT_PORTS	(1u<<0)	/**< input ports can be added/removed */
-#define SPA_NODE_FLAG_DYNAMIC_OUTPUT_PORTS	(1u<<1)	/**< output ports can be added/removed */
-#define SPA_NODE_FLAG_RT			(1u<<2)	/**< node can do real-time processing */
+#define SPA_NODE_FLAG_RT			(1u<<0)	/**< node can do real-time processing */
+#define SPA_NODE_FLAG_IN_DYNAMIC_PORTS		(1u<<1)	/**< input ports can be added/removed */
+#define SPA_NODE_FLAG_OUT_DYNAMIC_PORTS		(1u<<2)	/**< output ports can be added/removed */
+#define SPA_NODE_FLAG_IN_PORT_CONFIG		(1u<<3)	/**< input ports can be reconfigured with
+							  *  PortConfig parameter */
+#define SPA_NODE_FLAG_OUT_PORT_CONFIG		(1u<<4)	/**< output ports can be reconfigured with
+							  *  PortConfig parameter */
 	uint64_t flags;
 	struct spa_dict *props;			/**< extra node properties */
 	struct spa_param_info *params;		/**< parameter information */

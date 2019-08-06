@@ -114,6 +114,8 @@ static int impl_peaks_init(struct resample *r)
 	if (r->data == NULL)
 		return -errno;
 
+	spa_log_debug(r->log, "peaks %p: in:%d out:%d", r, r->i_rate, r->o_rate);
+
 	d->i_count = d->o_count = 0;
 	return 0;
 }

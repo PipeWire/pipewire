@@ -31,6 +31,7 @@
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
+#include <spa/param/param.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
@@ -72,10 +73,8 @@ struct impl {
 
 	unsigned int use_converter:1;
 	unsigned int started:1;
-	unsigned int active:1;
 	unsigned int driver:1;
 	unsigned int master:1;
-	unsigned int monitor:1;
 };
 
 /** \endcond */
@@ -103,6 +102,8 @@ next:
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
+	case SPA_PARAM_EnumPortConfig:
+	case SPA_PARAM_PortConfig:
 	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
 		if ((res = spa_node_enum_params_sync(this->convert,
@@ -140,7 +141,7 @@ static int link_io(struct impl *this)
 	if (!this->use_converter)
 		return 0;
 
-	spa_log_warn(this->log, NAME " %p: controls", this);
+	spa_log_debug(this->log, NAME " %p: controls", this);
 
 	spa_zero(this->io_rate_match);
 	this->io_rate_match.rate = 1.0;
@@ -149,7 +150,7 @@ static int link_io(struct impl *this)
 			this->direction, 0,
 			SPA_IO_RateMatch,
 			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
-		spa_log_warn(this->log, NAME " %p: set RateMatch on slave failed %d %s", this,
+		spa_log_debug(this->log, NAME " %p: set RateMatch on slave disabled %d %s", this,
 			res, spa_strerror(res));
 	}
 	else if ((res = spa_node_port_set_io(this->convert,
@@ -207,7 +208,14 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	spa_log_debug(this->log, NAME" %p: set param %d", this, id);
 
 	switch (id) {
-	case SPA_PARAM_Profile:
+	case SPA_PARAM_Format:
+		if (this->started)
+			return -EIO;
+		if ((res = spa_node_port_set_param(this->slave, this->direction, 0, id, flags, param)) < 0)
+			return res;
+		break;
+
+	case SPA_PARAM_PortConfig:
 		if (this->started)
 			return -EIO;
 		if (this->target != this->slave) {
@@ -215,6 +223,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				return res;
 		}
 		break;
+
 	case SPA_PARAM_Props:
 		if (this->target != this->slave) {
 			if ((res = spa_node_set_param(this->target, id, flags, param)) < 0)
@@ -766,9 +775,6 @@ static int impl_node_process(void *object)
 
 	status = spa_node_process(this->slave);
 
-	if (this->monitor)
-		status |= SPA_STATUS_HAVE_BUFFER;
-
 	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
 		if (this->use_converter)
 			status = spa_node_process(this->convert);
@@ -830,6 +836,22 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
+static int configure_adapt(struct impl *this)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(this->direction),
+		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp));
+
+	return spa_node_set_param(this->target, SPA_PARAM_PortConfig, 0, param);
+}
+
 extern const struct spa_handle_factory spa_audioconvert_factory;
 
 static size_t
@@ -878,9 +900,6 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->slave == NULL)
 		return -EINVAL;
 
-	if ((str = spa_dict_lookup(info, "merger.monitor")) != NULL)
-		this->monitor = atoi(str);
-
 	spa_node_add_listener(this->slave,
 			&this->slave_listener, &slave_node_events, this);
 	spa_node_set_callbacks(this->slave, &slave_node_callbacks, this);
@@ -903,17 +922,19 @@ impl_init(const struct spa_handle_factory *factory,
 			&this->convert_listener, &convert_node_events, this);
 	this->use_converter = true;
 
+	configure_adapt(this);
+
 	link_io(this);
 
 	this->info_all = SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
-	this->info.max_input_ports = 0;
-	this->info.max_output_ports = 0;
+	this->info.max_input_ports = this->direction == SPA_DIRECTION_INPUT ? 128 : 0;
+	this->info.max_output_ports = this->direction == SPA_DIRECTION_OUTPUT ? 128 : 0;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
 	this->info.n_params = 5;
 

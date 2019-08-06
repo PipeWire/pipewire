@@ -25,7 +25,6 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-//#include <math.h>
 
 #include <spa/support/log.h>
 #include <spa/support/cpu.h>

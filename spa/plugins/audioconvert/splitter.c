@@ -182,8 +182,8 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	port->format.info.raw.channels = 1;
 	port->format.info.raw.position[0] = position;
 
-	spa_log_debug(this->log, NAME " %p: init port %d rate:%d position:%s",
-			this, port_id, rate, port->position);
+	spa_log_debug(this->log, NAME " %p: init port %d:%d rate:%d position:%s",
+			this, direction, port_id, rate, port->position);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -240,19 +240,28 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	switch (id) {
-	case SPA_PARAM_Profile:
+	case SPA_PARAM_PortConfig:
 	{
 		struct port *port;
 		struct spa_audio_info info = { 0, };
 		struct spa_pod *format;
+		enum spa_direction direction;
+		enum spa_param_port_config_mode mode;
 		uint32_t i;
 
 		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_format, SPA_POD_Pod(&format)) < 0)
+				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
+				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
+				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
+				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(&format)) < 0)
 			return -EINVAL;
 
 		if (!SPA_POD_IS_OBJECT_TYPE(format, SPA_TYPE_OBJECT_Format))
+			return -EINVAL;
+
+		if (mode != SPA_PARAM_PORT_CONFIG_MODE_dsp)
+			return -ENOTSUP;
+		if (direction != SPA_DIRECTION_OUTPUT)
 			return -EINVAL;
 
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
@@ -260,7 +269,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-			return -EINVAL;
+			return -ENOTSUP;
 
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
@@ -325,6 +334,7 @@ impl_node_add_listener(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_node_info(this, true);
@@ -635,7 +645,8 @@ static int port_set_format(void *object,
 		spa_log_debug(this->log, NAME " %p: %d %d %d", this, port_id, port->stride, port->blocks);
 
 		if (direction == SPA_DIRECTION_INPUT)
-			setup_convert(this);
+			if ((res = setup_convert(this)) < 0)
+				return res;
 
 		port->have_format = true;
 	}
@@ -994,7 +1005,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_input_ports = 1;
 	this->info.max_output_ports = MAX_PORTS;
 	this->info.flags = SPA_NODE_FLAG_RT;
-	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
+	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
 	this->info.n_params = 1;
 

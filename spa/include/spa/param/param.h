@@ -43,17 +43,19 @@ enum spa_param_type {
 	SPA_PARAM_IO,			/**< configurable IO areas as SPA_TYPE_OBJECT_ParamIO */
 	SPA_PARAM_EnumProfile,		/**< profile enumeration as SPA_TYPE_OBJECT_ParamProfile */
 	SPA_PARAM_Profile,		/**< profile configuration as SPA_TYPE_OBJECT_ParamProfile */
+	SPA_PARAM_EnumPortConfig,	/**< port configuration enumeration as SPA_TYPE_OBJECT_ParamPortConfig */
+	SPA_PARAM_PortConfig,		/**< port configuration as SPA_TYPE_OBJECT_ParamPortConfig */
 };
 
 /** Properties for SPA_TYPE_OBJECT_ParamList */
 enum spa_param_list {
-	SPA_PARAM_LIST_START,	/**< object id, one of enum spa_param_type */
+	SPA_PARAM_LIST_START,
 	SPA_PARAM_LIST_id,	/**< id of the supported list param (Id enum spa_param_type) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamBuffers */
 enum spa_param_buffers {
-	SPA_PARAM_BUFFERS_START,	/**< object id, one of enum spa_param_type */
+	SPA_PARAM_BUFFERS_START,
 	SPA_PARAM_BUFFERS_buffers,	/**< number of buffers (Int) */
 	SPA_PARAM_BUFFERS_blocks,	/**< number of data blocks per buffer (Int) */
 	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory (Int)*/
@@ -63,25 +65,41 @@ enum spa_param_buffers {
 
 /** properties for SPA_TYPE_OBJECT_ParamMeta */
 enum spa_param_meta {
-	SPA_PARAM_META_START,	/**< object id, one of enum spa_param_type */
+	SPA_PARAM_META_START,
 	SPA_PARAM_META_type,	/**< the metadata, one of enum spa_meta_type (Id enum spa_meta_type) */
 	SPA_PARAM_META_size,	/**< the expected maximum size the meta (Int) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamIO */
 enum spa_param_io {
-	SPA_PARAM_IO_START,	/**< object id, one of enum spa_param_type */
+	SPA_PARAM_IO_START,
 	SPA_PARAM_IO_id,	/**< type ID, uniquely identifies the io area (Id enum spa_io_type) */
 	SPA_PARAM_IO_size,	/**< size of the io area (Int) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamProfile */
 enum spa_param_profile {
-	SPA_PARAM_PROFILE_START,	/**< object id, one of enum spa_param_type */
+	SPA_PARAM_PROFILE_START,
 	SPA_PARAM_PROFILE_index,	/**< profile index (Int) */
 	SPA_PARAM_PROFILE_name,		/**< profile name (String) */
-	SPA_PARAM_PROFILE_direction,	/**< direction, input/output (Id enum spa_direction) */
-	SPA_PARAM_PROFILE_format,	/**< profile format specification (Object) */
+};
+
+enum spa_param_port_config_mode {
+	SPA_PARAM_PORT_CONFIG_MODE_none,	/**< no configuration */
+	SPA_PARAM_PORT_CONFIG_MODE_passthrough,	/**< passthrough configuration */
+	SPA_PARAM_PORT_CONFIG_MODE_convert,	/**< convert configuration */
+	SPA_PARAM_PORT_CONFIG_MODE_dsp,		/**< dsp configuration, depending on the external
+						  *  format. For audio, ports will be configured for
+						  *  the given number of channels with F32 format. */
+};
+
+/** properties for SPA_TYPE_OBJECT_ParamPortConfig */
+enum spa_param_port_config {
+	SPA_PARAM_PORT_CONFIG_START,
+	SPA_PARAM_PORT_CONFIG_direction,	/**< direction, input/output (Id enum spa_direction) */
+	SPA_PARAM_PORT_CONFIG_mode,		/**< (Id enum spa_param_port_config_mode) mode */
+	SPA_PARAM_PORT_CONFIG_monitor,		/**< (Bool) enable monitor output ports on input ports */
+	SPA_PARAM_PORT_CONFIG_format,		/**< (Object) format filter */
 };
 
 #ifdef __cplusplus

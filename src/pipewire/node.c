@@ -1430,21 +1430,24 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
 	uint32_t n_ports, max_ports;
 	struct pw_map *portmap;
 	uint32_t port_id;
+	bool dynamic;
 	int res;
 
 	if (direction == PW_DIRECTION_INPUT) {
 		max_ports = node->info.max_input_ports;
 		n_ports = node->info.n_input_ports;
 		portmap = &node->input_port_map;
+		dynamic = SPA_FLAG_CHECK(node->spa_flags, SPA_NODE_FLAG_IN_DYNAMIC_PORTS);
 	} else {
 		max_ports = node->info.max_output_ports;
 		n_ports = node->info.n_output_ports;
 		portmap = &node->output_port_map;
+		dynamic = SPA_FLAG_CHECK(node->spa_flags, SPA_NODE_FLAG_OUT_DYNAMIC_PORTS);
 	}
 	pw_log_debug("node %p: direction %s n_ports:%u max_ports:%u",
 			node, pw_direction_as_string(direction), n_ports, max_ports);
 
-	if (n_ports >= max_ports) {
+	if (!dynamic || n_ports >= max_ports) {
 		res = -ENOSPC;
 		goto error;
 	}

@@ -1319,7 +1319,6 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 {
 	struct port *port = data;
 	struct impl *impl = port->impl;
-	struct node *this = &impl->node;
 	struct mix *m;
 
 	pw_log_debug(NAME " %p: remove mix io %d %p %p", impl, mix->id, mix->io,
@@ -1329,7 +1328,8 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 		return -EINVAL;
 
 	pw_map_remove(&impl->io_map, mix->id);
-	mix_clear(this, m);
+	m->valid = false;
+
 	return 0;
 }
 

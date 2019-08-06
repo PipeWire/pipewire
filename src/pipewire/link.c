@@ -584,9 +584,9 @@ static int do_allocation(struct pw_link *this)
 	}
 
 	if (output->allocation.n_buffers) {
-		move_allocation(&output->allocation, &allocation);
 		pw_log_debug("link %p: reusing %d output buffers %p", this,
-				allocation.n_buffers, allocation.buffers);
+				output->allocation.n_buffers, output->allocation.buffers);
+		this->rt.out_mix.have_buffers = true;
 	} else {
 		struct spa_pod **params, *param;
 		uint8_t buffer[4096];
@@ -676,40 +676,35 @@ static int do_allocation(struct pw_link *this)
 			}
 			out_res = res;
 			out_alloc = true;
-			move_allocation(&allocation, &output->allocation);
 
 			pw_log_debug("link %p: allocated %d buffers %p from output port: %s", this,
 				     allocation.n_buffers, allocation.buffers, spa_strerror(out_res));
+		} else {
+			pw_log_debug("link %p: using %d buffers %p on output port", this,
+				     allocation.n_buffers, allocation.buffers);
+
+			if ((res = pw_port_use_buffers(output,
+							this->rt.out_mix.port.port_id, 0,
+							allocation.buffers,
+							allocation.n_buffers)) < 0) {
+				asprintf(&error, "link %p: error use output buffers: %s", this,
+						spa_strerror(res));
+				goto error;
+			}
+			out_res = res;
 		}
-	}
-
-	if (!out_alloc) {
-		pw_log_debug("link %p: using %d buffers %p on output port", this,
-			     allocation.n_buffers, allocation.buffers);
-
-		if ((res = pw_port_use_buffers(output,
-						this->rt.out_mix.port.port_id, 0,
-						allocation.buffers,
-						allocation.n_buffers)) < 0) {
-			asprintf(&error, "link %p: error use output buffers: %s", this,
-					spa_strerror(res));
-			goto error;
-		}
-		out_res = res;
-
 		move_allocation(&allocation, &output->allocation);
-	}
 
-	if (SPA_RESULT_IS_ASYNC(out_res)) {
-		pw_work_queue_add(impl->work, output->node,
-				spa_node_sync(output->node->node, out_res),
-				complete_paused, this);
-		if (out_alloc)
-			return 0;
-	} else {
-		complete_paused(output->node, this, out_res, 0);
+		if (SPA_RESULT_IS_ASYNC(out_res)) {
+			pw_work_queue_add(impl->work, output->node,
+					spa_node_sync(output->node->node, out_res),
+					complete_paused, this);
+			if (out_alloc)
+				return 0;
+		} else {
+			complete_paused(output->node, this, out_res, 0);
+		}
 	}
-
 
 	pw_log_debug("link %p: using %d buffers %p on input port", this,
 		     output->allocation.n_buffers, output->allocation.buffers);

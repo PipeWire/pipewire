@@ -395,6 +395,8 @@ struct pw_node {
 	struct pw_node_info info;		/**< introspectable node info */
 	struct spa_param_info params[MAX_PARAMS];
 
+	uint32_t spa_flags;
+
 	unsigned int registered:1;
 	unsigned int active:1;		/**< if the node is active */
 	unsigned int live:1;		/**< if the node is live */

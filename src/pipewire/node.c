@@ -1022,6 +1022,9 @@ static void node_info(void *data, const struct spa_node_info *info)
 			node, info->change_mask, info->max_input_ports,
 			info->max_output_ports);
 
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_FLAGS) {
+		node->spa_flags = info->flags;
+	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
 		update_properties(node, info->props);
 	}

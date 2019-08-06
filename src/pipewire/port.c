@@ -381,14 +381,16 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 		goto error_no_mem;
 	}
 
-	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
-		pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "1");
-	if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_TERMINAL))
-		pw_properties_set(properties, PW_KEY_PORT_TERMINAL, "1");
+	if (info) {
+		if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
+			pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "1");
+		if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_TERMINAL))
+			pw_properties_set(properties, PW_KEY_PORT_TERMINAL, "1");
+		this->spa_flags = info->flags;
+	}
 
 	this->direction = direction;
 	this->port_id = port_id;
-	this->spa_flags = info->flags;
 	this->properties = properties;
 	this->state = PW_PORT_STATE_INIT;
 	this->rt.io = SPA_IO_BUFFERS_INIT;

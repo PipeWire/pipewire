@@ -879,6 +879,7 @@ static int impl_node_process(void *object)
 		if ((dbuf = dequeue_buffer(this, outport)) == NULL) {
 			outio->status = -EPIPE;
           empty:
+			spa_log_trace_fp(this->log, NAME" %p: %d skip output", this, i);
 			dst_datas[n_dst_datas++] = SPA_PTR_ALIGN(this->empty, 16, void);
 			continue;
 		}
@@ -896,9 +897,14 @@ static int impl_node_process(void *object)
 			dd[j].chunk->offset = 0;
 			dd[j].chunk->size = n_samples * outport->stride;
 		}
+
 		outio->status = SPA_STATUS_HAVE_BUFFER;
 		outio->buffer_id = dbuf->id;
 		res |= SPA_STATUS_HAVE_BUFFER;
+	}
+	while (n_dst_datas < this->port_count) {
+		spa_log_trace_fp(this->log, NAME" %p: %d fill output", this, n_dst_datas);
+		dst_datas[n_dst_datas++] = SPA_PTR_ALIGN(this->empty, 16, void);
 	}
 
 	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d stride:%d p:%d", this,

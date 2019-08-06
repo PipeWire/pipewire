@@ -111,10 +111,10 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 {
 	switch (type) {
 	case SPA_TYPE_Bool:
-		spa_debug("%*s" "Bool %d", indent, "", *(int32_t *) body);
+		spa_debug("%*s" "Bool %s", indent, "", (*(int32_t *) body) ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
-		spa_debug("%*s" "Id %d (%s)", indent, "", *(int32_t *) body,
+		spa_debug("%*s" "Id %-8d (%s)", indent, "", *(int32_t *) body,
 		       spa_debug_type_find_name(info, *(int32_t *) body));
 		break;
 	case SPA_TYPE_Int:

@@ -115,6 +115,8 @@ struct node {
 	struct spa_list session_link;
 	struct session *session;
 
+	struct node *peer;
+
 	struct session *manager;
 	struct spa_list port_list;
 
@@ -739,10 +741,15 @@ registry_global_remove(void *data, uint32_t id)
 	switch (obj->type) {
 	case PW_TYPE_INTERFACE_Node:
 	{
-		struct node *node = (struct node*) obj;
+		struct node *node = (struct node*) obj, *n;
 		if (node->manager)
 			remove_session(impl, node->manager);
 		node->manager = NULL;
+
+		spa_list_for_each(n, &impl->node_list, l) {
+			if (n->peer == node)
+				n->peer = NULL;
+		}
 		break;
 	}
 	default:
@@ -862,6 +869,8 @@ static int link_nodes(struct node *peer, enum pw_direction direction, struct nod
 
 		pw_properties_free(props);
 	}
+	node->peer = peer;
+
 	return 0;
 }
 
@@ -899,7 +908,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 	if (node->type == NODE_TYPE_DEVICE)
 		return 0;
 
-	if (node->session != NULL)
+	if (node->session != NULL || node->peer != NULL)
 		return 0;
 
 	if (node->info == NULL || node->info->props == NULL) {

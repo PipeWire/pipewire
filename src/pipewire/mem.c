@@ -371,7 +371,7 @@ struct pw_memmap * pw_mempool_map_id(struct pw_mempool *pool,
 
 	b = pw_map_lookup(&impl->map, id);
 	if (b == NULL) {
-		errno = -ENOENT;
+		errno = ENOENT;
 		return NULL;
 	}
 	return pw_memblock_map(&b->this, flags, offset, size, tag);

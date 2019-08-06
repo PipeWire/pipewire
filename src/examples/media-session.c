@@ -332,7 +332,8 @@ static void node_event_param(void *object, int seq,
 	if (spa_format_audio_raw_parse(param, &info) < 0)
 		goto error;
 
-	n->format = info;
+	if (n->format.channels < info.channels)
+		n->format = info;
 	return;
 
       error:

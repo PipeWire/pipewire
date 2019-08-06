@@ -496,17 +496,18 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
         struct buffer *b;
 	int res;
 
-        pw_log_debug("port %p: clear buffers mix:%d", port, mix->mix_id);
+        pw_log_debug("port %p: clear buffers mix:%d %zd", port, mix->mix_id, mix->buffers.size);
+
 	if ((res = pw_port_use_buffers(port, mix->mix_id, 0, NULL, 0)) < 0) {
 		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
 		return res;
 	}
 
         pw_array_for_each(b, &mix->buffers) {
-		pw_log_debug("port %p: clear buffer %d map %p",
-			port, b->id, b->mem);
+		pw_log_debug("port %p: clear buffer %d map %p %p",
+			port, b->id, b->mem, b->buf);
 		pw_memmap_free(b->mem);
-                free(b->buf);
+		free(b->buf);
         }
 	mix->buffers.size = 0;
 	return 0;
@@ -619,8 +620,8 @@ client_node_port_use_buffers(void *object,
 		b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
 
-		pw_log_debug("add buffer %d %d %u %u", mm->block->id,
-				bid->id, buffers[i].offset, buffers[i].size);
+		pw_log_debug("add buffer %d %d %u %u %p", mm->block->id,
+				bid->id, buffers[i].offset, buffers[i].size, bid->buf);
 
 		offset = 0;
 		for (j = 0; j < b->n_metas; j++) {
@@ -685,7 +686,7 @@ client_node_port_use_buffers(void *object,
 error_exit_cleanup:
 	clear_buffers(data, mix);
 error_exit:
-        pw_log_error("port %p: use_buffers: %s", mix, spa_strerror(res));
+        pw_log_error("port %p: use_buffers: %d %s", mix, res, spa_strerror(res));
 	pw_proxy_error(proxy, res, "port_use_buffers error: %s", spa_strerror(res));
 	return res;
 }

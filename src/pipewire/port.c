@@ -223,8 +223,8 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 		}
 	}
 
-	pw_log_debug("port %p: init mix %d.%d io %p: (%s)", port,
-			port->port_id, mix->port.port_id, mix->io, spa_strerror(res));
+	pw_log_debug("port %p: init mix %d %d.%d io %p: (%s)", port,
+			port->n_mix, port->port_id, mix->port.port_id, mix->io, spa_strerror(res));
 
 	return res;
 }
@@ -243,8 +243,8 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 
 	spa_node_remove_port(port->mix, port->direction, port_id);
 
-	pw_log_debug("port %p: release mix %d.%d", port,
-			port->port_id, mix->port.port_id);
+	pw_log_debug("port %p: release mix %d %d.%d", port,
+			port->n_mix, port->port_id, mix->port.port_id);
 
 	return res;
 }
@@ -1058,9 +1058,9 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
 	struct pw_node *node = port->node;
 	struct pw_port_mix *mix = NULL;
 
-	pw_log_debug("port %p: %d:%d.%d: %d buffers state:%d", port,
+	pw_log_debug("port %p: %d:%d.%d: %d buffers state:%d n_mix:%d", port,
 			port->direction, port->port_id, mix_id,
-			n_buffers, port->state);
+			n_buffers, port->state, port->n_mix);
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
 		return 0;
@@ -1072,11 +1072,12 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
 		res = spa_node_port_use_buffers(port->mix,
 					mix->port.direction, mix->port.port_id, flags,
 					buffers, n_buffers);
-		if (res == -ENOTSUP)
-			res = 0;
 
 		pw_log_debug("port %p: use buffers on mix: %p %d (%s)",
 				port, port->mix, res, spa_strerror(res));
+
+		if (res == -ENOTSUP)
+			res = 0;
 	}
 
 	if (n_buffers == 0) {

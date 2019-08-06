@@ -183,7 +183,7 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 	struct pw_port_mix *mix = obj == this->input->node ? &this->rt.in_mix : &this->rt.out_mix;
 	struct pw_port *port = mix->p;
 
-	pw_log_debug("port %p: complete PAUSED: %s", port, spa_strerror(res));
+	pw_log_debug("link %p: port %p: complete PAUSED: %s", this, port, spa_strerror(res));
 
 	if (SPA_RESULT_IS_OK(res)) {
 		pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);

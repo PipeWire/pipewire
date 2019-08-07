@@ -572,9 +572,6 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		this->io = data;
 		break;
-	case SPA_IO_Clock:
-		this->clock = data;
-		break;
 	case SPA_IO_RateMatch:
 		this->rate_match = data;
 		break;

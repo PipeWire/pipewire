@@ -272,6 +272,7 @@ static struct mapping * memblock_map(struct memblock *b,
 		prot |= PROT_WRITE;
 
 	if (flags & PW_MEMMAP_FLAG_TWICE) {
+		pw_log_error("pool %p: implement me PW_MEMMAP_FLAG_TWICE", p);
 		errno = ENOTSUP;
 		return NULL;
 	}
@@ -398,6 +399,18 @@ int pw_memmap_free(struct pw_memmap *map)
 	return 0;
 }
 
+static inline enum pw_memmap_flags block_flags_to_mem(enum pw_memblock_flags flags)
+{
+	enum pw_memmap_flags fl = 0;
+
+	if (flags & PW_MEMBLOCK_FLAG_READABLE)
+		fl |= PW_MEMMAP_FLAG_READ;
+	if (flags & PW_MEMBLOCK_FLAG_WRITABLE)
+		fl |= PW_MEMMAP_FLAG_WRITE;
+
+	return fl;
+}
+
 /** Create a new memblock
  * \param pool the pool to use
  * \param flags memblock flags
@@ -458,14 +471,8 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	}
 #endif
 	if (flags & PW_MEMBLOCK_FLAG_MAP && size > 0) {
-		enum pw_memmap_flags fl = 0;
-
-		if (flags & PW_MEMBLOCK_FLAG_READABLE)
-			fl |= PW_MEMMAP_FLAG_READ;
-		if (flags & PW_MEMBLOCK_FLAG_WRITABLE)
-			fl |= PW_MEMMAP_FLAG_WRITE;
-
-		b->this.map = pw_memblock_map(&b->this, fl, 0, size, NULL);
+		b->this.map = pw_memblock_map(&b->this,
+				block_flags_to_mem(flags), 0, size, NULL);
 		if (b->this.map == NULL) {
 			res = -errno;
 			pw_log_warn("Failed to map: %m");
@@ -589,7 +596,8 @@ struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
 
 	offset = SPA_PTRDIFF(data, old->map->ptr);
 
-	map = pw_memblock_map(block, block->flags, offset, size, tag);
+	map = pw_memblock_map(block,
+			block_flags_to_mem(block->flags), offset, size, tag);
 	if (map == NULL)
 		return NULL;
 

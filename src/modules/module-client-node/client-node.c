@@ -334,7 +334,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	struct impl *impl = this->impl;
 	struct pw_memmap *mm;
 	uint32_t memid, mem_offset, mem_size;
-	uint32_t tag[5] = { impl->node_id, id };
+	uint32_t tag[5] = { impl->node_id, id, };
 
 	if (impl->this.flags & 1)
 		return 0;

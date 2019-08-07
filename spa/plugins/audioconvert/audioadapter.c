@@ -549,6 +549,7 @@ static int negotiate_format(struct impl *this)
 	}
 
 	spa_pod_fixate(format);
+	spa_log_debug(this->log, NAME "%p: configure format:", this);
 	if (spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(0, NULL, format);
 

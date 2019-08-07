@@ -545,8 +545,6 @@ struct pw_port {
 #define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
 	uint32_t mix_flags;		/**< flags for the mixing */
 
-	unsigned int allocated:1;	/**< if buffers are allocated */
-
 	struct spa_list mix_list;	/**< list of \ref pw_port_mix */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 	uint32_t n_mix;
@@ -874,12 +872,8 @@ int pw_port_set_param(struct pw_port *port,
 		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
 /** Use buffers on a port \memberof pw_port */
-int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
+int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers);
-
-/** Allocate memory for buffers on a port \memberof pw_port */
-int pw_port_alloc_buffers(struct pw_port *port,
-			  struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Change the state of the node */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state);

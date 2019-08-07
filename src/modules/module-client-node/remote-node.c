@@ -498,7 +498,7 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 
         pw_log_debug("port %p: clear buffers mix:%d %zd", port, mix->mix_id, mix->buffers.size);
 
-	if ((res = pw_port_use_buffers(port, mix->mix_id, 0, NULL, 0)) < 0) {
+	if ((res = pw_port_use_buffers(port, &mix->mix, 0, NULL, 0)) < 0) {
 		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
 		return res;
 	}
@@ -672,7 +672,7 @@ client_node_port_use_buffers(void *object,
 		bufs[i] = b;
 	}
 
-	if ((res = pw_port_use_buffers(mix->port, mix_id, flags, bufs, n_buffers)) < 0)
+	if ((res = pw_port_use_buffers(mix->port, &mix->mix, flags, bufs, n_buffers)) < 0)
 		goto error_exit_cleanup;
 
 	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {

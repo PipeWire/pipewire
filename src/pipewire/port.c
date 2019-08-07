@@ -1038,7 +1038,6 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 
 		/* setting the format always destroys the negotiated buffers */
 		free_allocation(&port->allocation);
-		port->allocated = false;
 
 		if (param == NULL || res < 0) {
 			pw_port_update_state(port, PW_PORT_STATE_CONFIGURE, NULL);
@@ -1051,15 +1050,14 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 }
 
 SPA_EXPORT
-int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
+int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	int res = 0;
+	int res = 0, res2;
 	struct pw_node *node = port->node;
-	struct pw_port_mix *mix = NULL;
 
 	pw_log_debug("port %p: %d:%d.%d: %d buffers state:%d n_mix:%d", port,
-			port->direction, port->port_id, mix_id,
+			port->direction, port->port_id, mix->id,
 			n_buffers, port->state, port->n_mix);
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
@@ -1067,18 +1065,6 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
 
 	if (n_buffers > 0 && port->state < PW_PORT_STATE_READY)
 		return -EIO;
-
-	if ((mix = pw_map_lookup(&port->mix_port_map, mix_id)) != NULL) {
-		res = spa_node_port_use_buffers(port->mix,
-					mix->port.direction, mix->port.port_id, flags,
-					buffers, n_buffers);
-
-		pw_log_debug("port %p: use buffers on mix: %p %d (%s)",
-				port, port->mix, res, spa_strerror(res));
-
-		if (res == -ENOTSUP)
-			res = 0;
-	}
 
 	if (n_buffers == 0) {
 		if (port->n_mix == 1)
@@ -1091,67 +1077,28 @@ int pw_port_use_buffers(struct pw_port *port, uint32_t mix_id, uint32_t flags,
 			res = spa_node_port_use_buffers(node->node,
 					port->direction, port->port_id,
 					flags, buffers, n_buffers);
-			if (res < 0)
+			if (res < 0) {
 				pw_log_error("port %p: use buffers on node: %d (%s)",
 					port, res, spa_strerror(res));
+				pw_port_update_state(port, PW_PORT_STATE_ERROR,
+						"can't use buffers on port");
+				return res;
+			}
 		}
-		port->allocated = false;
-		free_allocation(&port->allocation);
-
-		pw_port_call_use_buffers(port, flags, buffers, n_buffers);
-	}
-
-	if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res))
-		pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
-
-	return res;
-}
-
-SPA_EXPORT
-int pw_port_alloc_buffers(struct pw_port *port,
-		struct spa_buffer **buffers, uint32_t n_buffers)
-{
-	int res, res2;
-	struct pw_node *node = port->node;
-
-	if (port->state < PW_PORT_STATE_READY)
-		return -EIO;
-
-	if ((res = spa_node_port_use_buffers(node->node,
-					port->direction, port->port_id,
-					SPA_NODE_BUFFERS_FLAG_ALLOC,
-					buffers, n_buffers)) < 0) {
-		pw_log_error("port %p: %d alloc failed: %d (%s)", port, port->port_id,
-				res, spa_strerror(res));
-	}
-
-	if (res >= 0) {
-		res2 = pw_port_call_use_buffers(port,
-				SPA_NODE_BUFFERS_FLAG_ALLOC,
-				buffers, n_buffers);
-		if (res2 < 0) {
-			pw_log_error("port %p: %d implementation alloc failed: %d (%s)",
-					port, port->port_id, res, spa_strerror(res2));
+		if ((res2 = pw_port_call_use_buffers(port, flags, buffers, n_buffers)) < 0) {
+			pw_log_warn("port %p: implementation alloc failed: %d (%s)",
+					port, res2, spa_strerror(res2));
 		}
+		if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res))
+			pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
 	}
 
-	pw_log_debug("port %p: %d alloc %d buffers: %d (%s)", port,
-			port->port_id, n_buffers, res, spa_strerror(res));
-
-	free_allocation(&port->allocation);
-
-	if (res < 0) {
-		port->allocated = false;
-	} else {
-		port->allocated = true;
-	}
-
-	if (n_buffers == 0) {
-		if (port->n_mix == 1)
-			pw_port_update_state(port, PW_PORT_STATE_READY, NULL);
-	}
-	else if (!SPA_RESULT_IS_ASYNC(res)) {
-		pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
+	if ((res2 = spa_node_port_use_buffers(port->mix,
+				mix->port.direction, mix->port.port_id, flags,
+				buffers, n_buffers)) < 0) {
+		if (res2 != -ENOTSUP)
+			pw_log_warn("port %p: mix use buffers failed: %d (%s)",
+					port, res2, spa_strerror(res2));
 	}
 
 	return res;

@@ -1317,7 +1317,7 @@ static int client_node_port_set_io(void *object,
 		ptr = mm->ptr;
         }
 
-	pw_log_debug("port %p: set io:%s id:%u ptr:%p", p,
+	pw_log_debug("port %p: mix:%d set io:%s id:%u ptr:%p", p, mix_id,
 			spa_debug_type_find_name(spa_type_io, id), id, ptr);
 
 	switch (id) {
@@ -2350,8 +2350,6 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct object *o = (struct object *) port;
 	struct client *c = o->client;
 	struct port *p;
-	struct buffer *b;
-	struct spa_io_buffers *io;
 	struct mix *mix;
 	void *ptr = NULL;
 
@@ -2371,18 +2369,22 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			break;
 		}
 	} else {
-		b = NULL;
-		spa_list_for_each(mix, &p->mix, port_link) {
-			pw_log_trace("port %p: mix %d.%d get buffer %d",
-					p, p->id, mix->id, frames);
-			io = mix->io;
+		struct spa_io_buffers io;
 
-			if (mix->n_buffers == 0 || io == NULL)
+		io.status = -EPIPE;
+		io.buffer_id = SPA_ID_INVALID;
+
+		spa_list_for_each(mix, &p->mix, port_link) {
+			struct buffer *b;
+
+			pw_log_trace("port %p: mix %d.%d get buffer %d io:%p n_buffers:%d",
+					p, p->id, mix->id, frames, mix->io, mix->n_buffers);
+
+			if (mix->n_buffers == 0)
 				continue;
 
 			if ((b = dequeue_buffer(mix)) == NULL) {
 				pw_log_warn("port %p: out of buffers", p);
-				io->buffer_id = SPA_ID_INVALID;
 				goto done;
 			}
 			reuse_buffer(c, mix, b->id);
@@ -2392,15 +2394,15 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			b->datas[0].chunk->size = frames * sizeof(float);
 			b->datas[0].chunk->stride = sizeof(float);
 
-			io->status = SPA_STATUS_HAVE_BUFFER;
-			io->buffer_id = b->id;
+			io.status = SPA_STATUS_HAVE_BUFFER;
+			io.buffer_id = b->id;
 			break;
 		}
 		spa_list_for_each(mix, &p->mix, port_link) {
 			struct spa_io_buffers *mio = mix->io;
 			if (mio == NULL)
 				continue;
-			*mio = *io;
+			*mio = io;
 		}
 	}
 

@@ -419,7 +419,7 @@ bool pw_debug_is_category_enabled(const char *name)
 SPA_EXPORT
 const char *pw_get_application_name(void)
 {
-	errno = -ENOTSUP;
+	errno = ENOTSUP;
 	return NULL;
 }
 

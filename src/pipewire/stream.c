@@ -182,7 +182,7 @@ static struct param *add_param(struct pw_stream *stream,
 	int idx;
 
 	if (param == NULL || !spa_pod_is_object(param)) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 

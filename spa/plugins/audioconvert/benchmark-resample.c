@@ -31,7 +31,6 @@
 
 #include "resample.h"
 #include "resample-native.h"
-#include "resample-speex.h"
 
 #define MAX_SAMPLES	4096
 #define MAX_CHANNELS	11
@@ -175,16 +174,6 @@ int main(int argc, char *argv[])
 		resample_free(&r);
 	}
 #endif
-
-	for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
-		spa_zero(r);
-		r.channels = 2;
-		r.i_rate = in_rates[i];
-		r.o_rate = out_rates[i];
-		impl_speex_init(&r);
-		run_test("speex", "def", &r);
-		resample_free(&r);
-	}
 
 	qsort(results, n_results, sizeof(struct stats), compare_func);
 

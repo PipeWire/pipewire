@@ -79,7 +79,7 @@ audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,
 			  c_args : simd_cargs,
                           include_directories : [spa_inc],
-                          dependencies : [ speexdsp_dep, mathlib ],
+                          dependencies : [ mathlib ],
 			  link_with : simd_dependencies,
                           install : true,
                           install_dir : '@0@/spa/audioconvert/'.format(get_option('libdir')))
@@ -119,7 +119,7 @@ benchmark_apps = [
 foreach a : benchmark_apps
   benchmark(a,
 	executable(a, a + '.c',
-		dependencies : [dl_lib, pthread_lib, mathlib, speexdsp_dep, ],
+		dependencies : [dl_lib, pthread_lib, mathlib, ],
 		include_directories : [spa_inc ],
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
 		link_with : simd_dependencies,

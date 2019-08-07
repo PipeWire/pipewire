@@ -19,9 +19,6 @@ if get_option('spa-plugins')
   if get_option('alsa')
     alsa_dep = dependency('alsa')
   endif
-  if get_option('audioconvert')
-    speexdsp_dep = dependency('speexdsp')
-  endif
   if get_option('bluez5')
     bluez_dep = dependency('bluez', version : '>= 4.101')
     sbc_dep = dependency('sbc')

@@ -41,10 +41,11 @@
 #include "pipewire/type.h"
 #include "pipewire/work-queue.h"
 
-#undef spa_debug
 #include <spa/debug/node.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
+
+#define NAME "link"
 
 #define MAX_BUFFERS     64
 
@@ -85,7 +86,7 @@ static void debug_link(struct pw_link *link)
 {
 	struct pw_node *in = link->input->node, *out = link->output->node;
 
-	pw_log_debug("link %p: %d %d %d out %d %d %d , %d %d %d in %d %d %d", link,
+	pw_log_debug(NAME" %p: %d %d %d out %d %d %d , %d %d %d in %d %d %d", link,
 			out->n_used_input_links,
 			out->n_ready_input_links,
 			out->idle_used_input_links,
@@ -122,10 +123,10 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 		return;
 
 	if (state == PW_LINK_STATE_ERROR) {
-		pw_log_error("link %p: update state %s -> error (%s)", link,
+		pw_log_error(NAME" %p: update state %s -> error (%s)", link,
 		     pw_link_state_as_string(old), error);
 	} else {
-		pw_log_debug("link %p: update state %s -> %s", link,
+		pw_log_debug(NAME" %p: update state %s -> %s", link,
 		     pw_link_state_as_string(old), pw_link_state_as_string(state));
 	}
 
@@ -165,7 +166,7 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 	struct pw_port_mix *mix = obj == this->input->node ? &this->rt.in_mix : &this->rt.out_mix;
 	struct pw_port *port = mix->p;
 
-	pw_log_debug("port %p: complete READY: %s", port, spa_strerror(res));
+	pw_log_debug(NAME" %p: port %p complete READY: %s", this, port, spa_strerror(res));
 
 	if (SPA_RESULT_IS_OK(res)) {
 		pw_port_update_state(port, PW_PORT_STATE_READY, NULL);
@@ -183,7 +184,7 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 	struct pw_port_mix *mix = obj == this->input->node ? &this->rt.in_mix : &this->rt.out_mix;
 	struct pw_port *port = mix->p;
 
-	pw_log_debug("link %p: port %p: complete PAUSED: %s", this, port, spa_strerror(res));
+	pw_log_debug(NAME" %p: port %p: complete PAUSED: %s", this, port, spa_strerror(res));
 
 	if (SPA_RESULT_IS_OK(res)) {
 		pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
@@ -218,7 +219,7 @@ static int do_negotiate(struct pw_link *this)
 	in_state = input->state;
 	out_state = output->state;
 
-	pw_log_debug("link %p: in_state:%d out_state:%d", this, in_state, out_state);
+	pw_log_debug(NAME" %p: in_state:%d out_state:%d", this, in_state, out_state);
 
 	if (in_state != PW_PORT_STATE_CONFIGURE && out_state != PW_PORT_STATE_CONFIGURE)
 		return 0;
@@ -261,7 +262,7 @@ static int do_negotiate(struct pw_link *this)
 			goto error;
 		}
 		if (current == NULL || spa_pod_compare(current, format) != 0) {
-			pw_log_debug("link %p: output format change, renegotiate", this);
+			pw_log_debug(NAME" %p: output format change, renegotiate", this);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
 				if (current)
 					spa_debug_pod(2, NULL, current);
@@ -271,7 +272,7 @@ static int do_negotiate(struct pw_link *this)
 			out_state = PW_PORT_STATE_CONFIGURE;
 		}
 		else {
-			pw_log_debug("link %p: format was already set", this);
+			pw_log_debug(NAME" %p: format was already set", this);
 			changed = false;
 		}
 	}
@@ -297,7 +298,7 @@ static int do_negotiate(struct pw_link *this)
 			goto error;
 		}
 		if (current == NULL || spa_pod_compare(current, format) != 0) {
-			pw_log_debug("link %p: input format change, renegotiate", this);
+			pw_log_debug(NAME" %p: input format change, renegotiate", this);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
 				if (current)
 					spa_debug_pod(2, NULL, current);
@@ -307,17 +308,17 @@ static int do_negotiate(struct pw_link *this)
 			in_state = PW_PORT_STATE_CONFIGURE;
 		}
 		else {
-			pw_log_debug("link %p: format was already set", this);
+			pw_log_debug(NAME" %p: format was already set", this);
 			changed = false;
 		}
 	}
 
-	pw_log_debug("link %p: doing set format %p", this, format);
+	pw_log_debug(NAME" %p: doing set format %p", this, format);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(2, NULL, format);
 
 	if (out_state == PW_PORT_STATE_CONFIGURE) {
-		pw_log_debug("link %p: doing set format on output", this);
+		pw_log_debug(NAME" %p: doing set format on output", this);
 		if ((res = pw_port_set_param(output,
 					     SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					     format)) < 0) {
@@ -333,7 +334,7 @@ static int do_negotiate(struct pw_link *this)
 		}
 	}
 	if (in_state == PW_PORT_STATE_CONFIGURE) {
-		pw_log_debug("link %p: doing set format on input", this);
+		pw_log_debug(NAME" %p: doing set format on input", this);
 		if ((res2 = pw_port_set_param(input,
 					      SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					      format)) < 0) {
@@ -358,7 +359,7 @@ static int do_negotiate(struct pw_link *this)
 		this->info.change_mask |= PW_LINK_CHANGE_MASK_FORMAT;
 		info_changed(this);
 	}
-	pw_log_debug("link %p: result %d", this, res);
+	pw_log_debug(NAME" %p: result %d", this, res);
 	return res;
 
 error:
@@ -414,7 +415,7 @@ static int alloc_buffers(struct pw_link *this,
 				SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0)
 				continue;
 
-			pw_log_debug("link %p: enable meta %d %d", this, type, size);
+			pw_log_debug(NAME" %p: enable meta %d %d", this, type, size);
 
 			metas[n_metas].type = type;
 			metas[n_metas].size = size;
@@ -456,7 +457,7 @@ static int alloc_buffers(struct pw_link *this,
 	if (m == NULL)
 		return -errno;
 
-	pw_log_debug("layout buffers %p data %p", bp, m->map->ptr);
+	pw_log_debug(NAME" %p: layout buffers %p data %p", this, bp, m->map->ptr);
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, bp, m->map->ptr);
 
 	allocation->mem = m;
@@ -481,7 +482,7 @@ param_filter(struct pw_link *this,
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
-		pw_log_debug("iparam %d", iidx);
+		pw_log_debug(NAME" %p: input param %d id:%d", this, iidx, id);
 		if ((res = spa_node_port_enum_params_sync(in_port->node->node,
 						in_port->direction, in_port->port_id,
 						id, &iidx, NULL, &iparam, &ib)) < 0)
@@ -497,7 +498,7 @@ param_filter(struct pw_link *this,
 			spa_debug_pod(2, NULL, iparam);
 
 		for (oidx = 0;;) {
-			pw_log_debug("oparam %d", oidx);
+			pw_log_debug(NAME" %p: output param %d id:%d", this, oidx, id);
 			if (spa_node_port_enum_params_sync(out_port->node->node,
 						out_port->direction, out_port->port_id,
 						id, &oidx, iparam, &oparam, result) != 1) {
@@ -521,7 +522,7 @@ static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
 	int res = 0;
 
 	mix->io = data;
-	pw_log_debug("link %p: %s port %p %d.%d set io: %d %p %zd", this,
+	pw_log_debug(NAME" %p: %s port %p %d.%d set io: %d %p %zd", this,
 			pw_direction_as_string(port->direction),
 			port, port->port_id, mix->port.port_id, id, data, size);
 
@@ -532,7 +533,8 @@ static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
 		if (res == -ENOTSUP)
 			res = 0;
 		else
-			pw_log_warn("port %p: can't set io: %s", port, spa_strerror(res));
+			pw_log_warn(NAME" %p: port %p can't set io: %s", this,
+					port, spa_strerror(res));
 	}
 	return res;
 }
@@ -571,24 +573,24 @@ static int do_allocation(struct pw_link *this)
 	output = this->output;
 	input = this->input;
 
-	pw_log_debug("link %p: out-state:%d in-state:%d", this, output->state, input->state);
+	pw_log_debug(NAME" %p: out-state:%d in-state:%d", this, output->state, input->state);
 
 	pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
 
 	out_flags = output->spa_flags;
 	in_flags = input->spa_flags;
 
-	pw_log_debug("link %p: out-node:%p in-node:%p: out-flags:%08x in-flags:%08x",
+	pw_log_debug(NAME" %p: out-node:%p in-node:%p: out-flags:%08x in-flags:%08x",
 			this, output->node, input->node, out_flags, in_flags);
 
 	if (out_flags & SPA_PORT_FLAG_LIVE) {
-		pw_log_debug("setting link as live");
+		pw_log_debug(NAME" %p: setting link as live", this);
 		output->node->live = true;
 		input->node->live = true;
 	}
 
 	if (output->allocation.n_buffers) {
-		pw_log_debug("link %p: reusing %d output buffers %p", this,
+		pw_log_debug(NAME" %p: reusing %d output buffers %p", this,
 				output->allocation.n_buffers, output->allocation.buffers);
 		this->rt.out_mix.have_buffers = true;
 	} else {
@@ -609,7 +611,7 @@ static int do_allocation(struct pw_link *this)
 		for (i = 0, offset = 0; i < n_params; i++) {
 			params[i] = SPA_MEMBER(buffer, offset, struct spa_pod);
 			spa_pod_fixate(params[i]);
-			pw_log_debug("fixated param %d:", i);
+			pw_log_debug(NAME" %p: fixated param %d:", this, i);
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_pod(2, NULL, params[i]);
 			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
@@ -637,11 +639,11 @@ static int do_allocation(struct pw_link *this)
 			stride = SPA_MAX(stride, qstride);
 			align = SPA_MAX(align, qalign);
 
-			pw_log_debug("%d %d %d %d -> %zd %zd %d %zd",
+			pw_log_debug(NAME" %p: %d %d %d %d -> %zd %zd %d %zd", this,
 					qminsize, qstride, qmax_buffers, qalign,
 					minsize, stride, max_buffers, align);
 		} else {
-			pw_log_warn("no buffers param");
+			pw_log_warn(NAME" %p: no buffers param", this);
 			minsize = 8192;
 			max_buffers = 4;
 		}
@@ -671,12 +673,13 @@ static int do_allocation(struct pw_link *this)
 			goto error;
 		}
 
-		pw_log_debug("link %p: allocating %d buffers %p %zd %zd", this,
+		pw_log_debug(NAME" %p: allocating %d buffers %p %zd %zd", this,
 			     allocation.n_buffers, allocation.buffers, minsize, stride);
 
 		if ((res = pw_port_use_buffers(output, &this->rt.out_mix,
 					flags, allocation.buffers, allocation.n_buffers)) < 0) {
-			asprintf(&error, "error use output buffers: %d", res);
+			asprintf(&error, "error use output buffers: %d (%s)", res,
+					spa_strerror(res));
 			goto error;
 		}
 		move_allocation(&allocation, &output->allocation);
@@ -692,13 +695,13 @@ static int do_allocation(struct pw_link *this)
 		}
 	}
 
-	pw_log_debug("link %p: using %d buffers %p on input port", this,
+	pw_log_debug(NAME" %p: using %d buffers %p on input port", this,
 		     output->allocation.n_buffers, output->allocation.buffers);
 
 	if ((res = pw_port_use_buffers(input, &this->rt.in_mix, 0,
 				output->allocation.buffers,
 				output->allocation.n_buffers)) < 0) {
-		asprintf(&error, "link %p: error use input buffers: %s", this,
+		asprintf(&error, "error use input buffers: %d (%s)", res,
 				spa_strerror(res));
 		goto error;
 	}
@@ -725,7 +728,7 @@ do_activate_link(struct spa_loop *loop,
 	struct pw_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_trace("link %p: activate", this);
+	pw_log_trace(NAME" %p: activate", this);
 
 	spa_list_append(&this->output->rt.mix_list, &this->rt.out_mix.rt_link);
 	spa_list_append(&this->input->rt.mix_list, &this->rt.in_mix.rt_link);
@@ -736,7 +739,7 @@ do_activate_link(struct spa_loop *loop,
 		this->rt.target.activation = impl->inode->rt.activation;
 		spa_list_append(&impl->onode->rt.target_list, &this->rt.target.link);
 		required = ++this->rt.target.activation->state[0].required;
-		pw_log_trace("link %p: node:%p required:%d", this,
+		pw_log_trace(NAME" %p: node:%p required:%d", this,
 				impl->inode, required);
 	}
 	return 0;
@@ -747,7 +750,7 @@ int pw_link_activate(struct pw_link *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
 
-	pw_log_debug("link %p: activate %d %d", this, impl->activated, this->info.state);
+	pw_log_debug(NAME" %p: activate %d %d", this, impl->activated, this->info.state);
 
 	if (impl->activated)
 		return 0;
@@ -787,13 +790,13 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 
 	if (output == NULL || input == NULL) {
 		pw_link_update_state(this, PW_LINK_STATE_ERROR,
-				strdup("link without input or output port"));
+				strdup(NAME" without input or output port"));
 		return;
 	}
 
 	if (output->node->info.state == PW_NODE_STATE_ERROR ||
 	    input->node->info.state == PW_NODE_STATE_ERROR) {
-		pw_log_warn("link %p: one of the nodes is in error out:%d in:%d", this,
+		pw_log_warn(NAME" %p: one of the nodes is in error out:%d in:%d", this,
 				output->node->info.state,
 				input->node->info.state);
 		return;
@@ -802,7 +805,7 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	out_state = output->state;
 	in_state = input->state;
 
-	pw_log_debug("link %p: output state %d, input state %d", this, out_state, in_state);
+	pw_log_debug(NAME" %p: output state %d, input state %d", this, out_state, in_state);
 
 	if (out_state == PW_PORT_STATE_ERROR || in_state == PW_PORT_STATE_ERROR) {
 		pw_link_update_state(this, PW_LINK_STATE_ERROR, strdup("ports are in error"));
@@ -823,7 +826,7 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 
 exit:
 	if (SPA_RESULT_IS_ERROR(res)) {
-		pw_log_debug("link %p: got error result %d (%s)", this, res, spa_strerror(res));
+		pw_log_debug(NAME" %p: got error result %d (%s)", this, res, spa_strerror(res));
 		return;
 	}
 
@@ -837,7 +840,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	struct pw_port_mix *mix = &this->rt.in_mix;
 	int res;
 
-	pw_log_debug("link %p: remove input port %p", this, port);
+	pw_log_debug(NAME" %p: remove input port %p", this, port);
 	spa_hook_remove(&impl->input_port_listener);
 	spa_hook_remove(&impl->input_node_listener);
 	spa_hook_remove(&impl->input_global_listener);
@@ -846,7 +849,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	pw_port_emit_link_removed(this->input, this);
 
 	if ((res = pw_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
-		pw_log_warn("link %p: port %p clear error %s", this, port, spa_strerror(res));
+		pw_log_warn(NAME" %p: port %p clear error %s", this, port, spa_strerror(res));
 	}
 	pw_port_release_mix(port, mix);
 	this->input = NULL;
@@ -857,7 +860,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	struct impl *impl = (struct impl *) this;
 	struct pw_port_mix *mix = &this->rt.out_mix;
 
-	pw_log_debug("link %p: remove output port %p", this, port);
+	pw_log_debug(NAME" %p: remove output port %p", this, port);
 	spa_hook_remove(&impl->output_port_listener);
 	spa_hook_remove(&impl->output_node_listener);
 	spa_hook_remove(&impl->output_global_listener);
@@ -874,7 +877,7 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 
 static void on_port_destroy(struct pw_link *this, struct pw_port *port)
 {
-	pw_log_debug("link %p: port %p", this, port);
+	pw_log_debug(NAME" %p: port %p", this, port);
 	pw_link_emit_port_unlinked(this, port);
 
 	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
@@ -897,7 +900,7 @@ int pw_link_prepare(struct pw_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_debug("link %p: prepare %d", this, impl->prepare);
+	pw_log_debug(NAME" %p: prepare %d", this, impl->prepare);
 
 	if (impl->prepare)
 		return 0;
@@ -928,7 +931,7 @@ do_deactivate_link(struct spa_loop *loop,
         struct pw_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_trace("link %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
+	pw_log_trace(NAME" %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
 
 	spa_list_remove(&this->rt.out_mix.rt_link);
 	spa_list_remove(&this->rt.in_mix.rt_link);
@@ -938,7 +941,7 @@ do_deactivate_link(struct spa_loop *loop,
 
 		spa_list_remove(&this->rt.target.link);
 		required = --this->rt.target.activation->state[0].required;
-		pw_log_trace("link %p: node:%p required:%d", this,
+		pw_log_trace(NAME" %p: node:%p required:%d", this,
 				impl->inode, required);
 	}
 
@@ -950,7 +953,7 @@ int pw_link_deactivate(struct pw_link *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *input_node, *output_node;
 
-	pw_log_debug("link %p: deactivate %d %d", this, impl->prepare, impl->activated);
+	pw_log_debug(NAME" %p: deactivate %d %d", this, impl->prepare, impl->activated);
 
 	if (!impl->prepare)
 		return 0;
@@ -983,16 +986,16 @@ int pw_link_deactivate(struct pw_link *this)
 	    input_node->n_used_output_links <= input_node->idle_used_output_links &&
 	    input_node->info.state > PW_NODE_STATE_IDLE) {
 		pw_node_set_state(input_node, PW_NODE_STATE_IDLE);
-		pw_log_debug("port %p: input state %d -> %d", this->input,
-				this->input->state, PW_PORT_STATE_PAUSED);
+		pw_log_debug(NAME" %p: input port %p state %d -> %d", this,
+				this->input, this->input->state, PW_PORT_STATE_PAUSED);
 	}
 
 	if (output_node->n_used_input_links <= output_node->idle_used_input_links &&
 	    output_node->n_used_output_links <= output_node->idle_used_output_links &&
 	    output_node->info.state > PW_NODE_STATE_IDLE) {
 		pw_node_set_state(output_node, PW_NODE_STATE_IDLE);
-		pw_log_debug("port %p: output state %d -> %d", this->output,
-				this->output->state, PW_PORT_STATE_PAUSED);
+		pw_log_debug(NAME" %p: output port %p state %d -> %d", this,
+				this->output, this->output->state, PW_PORT_STATE_PAUSED);
 	}
 
 	pw_link_update_state(this, PW_LINK_STATE_INIT, NULL);
@@ -1027,7 +1030,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	data = pw_resource_get_user_data(resource);
 	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
 
-	pw_log_debug("link %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
 
@@ -1038,7 +1041,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error("can't create link resource: %m");
+	pw_log_error(NAME" %p: can't create link resource: %m", this);
 	return -errno;
 }
 
@@ -1093,7 +1096,7 @@ static void input_node_result(void *data, int seq, int res, uint32_t type, const
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.input->node;
-	pw_log_debug("link %p: input node %p result seq:%d res:%d type:%u",
+	pw_log_debug(NAME" %p: input node %p result seq:%d res:%d type:%u",
 			impl, node, seq, res, type);
 	node_result(impl, node, seq, res, type, result);
 }
@@ -1102,7 +1105,7 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 {
 	struct impl *impl = data;
 	struct pw_node *node = impl->this.output->node;
-	pw_log_debug("link %p: output node %p result seq:%d res:%d type:%u",
+	pw_log_debug(NAME" %p: output node %p result seq:%d res:%d type:%u",
 			impl, node, seq, res, type);
 
 	node_result(impl, node, seq, res, type, result);
@@ -1154,18 +1157,20 @@ static void try_link_controls(struct impl *impl, struct pw_port *output, struct 
 	imix = this->rt.in_mix.port.port_id;
 	omix = this->rt.out_mix.port.port_id;
 
-	pw_log_debug("link %p: trying controls", impl);
+	pw_log_debug(NAME" %p: trying controls", impl);
 	spa_list_for_each(cout, &output->control_list[SPA_DIRECTION_OUTPUT], port_link) {
 		spa_list_for_each(cin, &input->control_list[SPA_DIRECTION_INPUT], port_link) {
 			if ((res = pw_control_add_link(cout, omix, cin, imix, &this->control)) < 0)
-				pw_log_error("failed to link controls: %s", spa_strerror(res));
+				pw_log_error(NAME" %p: failed to link controls: %s",
+						this, spa_strerror(res));
 			break;
 		}
 	}
 	spa_list_for_each(cin, &output->control_list[SPA_DIRECTION_INPUT], port_link) {
 		spa_list_for_each(cout, &input->control_list[SPA_DIRECTION_OUTPUT], port_link) {
 			if ((res = pw_control_add_link(cout, imix, cin, omix, &this->notify)) < 0)
-				pw_log_error("failed to link controls: %s", spa_strerror(res));
+				pw_log_error(NAME" %p: failed to link controls: %s",
+						this, spa_strerror(res));
 			break;
 		}
 	}
@@ -1176,14 +1181,16 @@ static void try_unlink_controls(struct impl *impl, struct pw_port *output, struc
 	struct pw_link *this = &impl->this;
 	int res;
 
-	pw_log_debug("link %p: unlinking controls", impl);
+	pw_log_debug(NAME" %p: unlinking controls", impl);
 	if (this->control.valid) {
 		if ((res = pw_control_remove_link(&this->control)) < 0)
-			pw_log_error("failed to unlink controls: %s", spa_strerror(res));
+			pw_log_error(NAME" %p: failed to unlink controls: %s",
+					this, spa_strerror(res));
 	}
 	if (this->notify.valid) {
 		if ((res = pw_control_remove_link(&this->notify)) < 0)
-			pw_log_error("failed to unlink controls: %s", spa_strerror(res));
+			pw_log_error(NAME" %p: failed to unlink controls: %s",
+					this, spa_strerror(res));
 	}
 }
 
@@ -1214,7 +1221,7 @@ static void permissions_changed(struct pw_link *this, struct pw_port *other,
 	perm = pw_global_get_permissions(other->global, client);
 	old &= perm;
 	new &= perm;
-	pw_log_debug("link %p: permissions changed %08x -> %08x", this, old, new);
+	pw_log_debug(NAME" %p: permissions changed %08x -> %08x", this, old, new);
 
 	if (check_permission(this->core, this->output, this->input, this->properties) < 0) {
 		pw_link_destroy(this);
@@ -1282,7 +1289,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	this = &impl->this;
 	this->feedback = pw_node_can_reach(input_node, output_node);
-	pw_log_debug("link %p: new out-port:%p -> in-port:%p", this, output, input);
+	pw_log_debug(NAME" %p: new out-port:%p -> in-port:%p", this, output, input);
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -1314,7 +1321,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	input_node->live = output_node->live;
 
-	pw_log_debug("link %p: output node %p live %d, passive %d, feedback %d",
+	pw_log_debug(NAME" %p: output node %p live %d, passive %d, feedback %d",
 			this, output_node, output_node->live, impl->passive, this->feedback);
 
 	spa_list_append(&output->links, &this->output_link);
@@ -1344,7 +1351,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->rt.target.signal = impl->inode->rt.target.signal;
 	this->rt.target.data = impl->inode->rt.target.data;
 
-	pw_log_debug("link %p: constructed out:%p:%d.%d -> in:%p:%d.%d", impl,
+	pw_log_debug(NAME" %p: constructed out:%p:%d.%d -> in:%p:%d.%d", impl,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,
 		     input_node, input->port_id, this->rt.in_mix.port.port_id);
 
@@ -1380,7 +1387,7 @@ error_no_mem:
 	pw_log_error("alloc failed: %m");
 	goto error_exit;
 error_no_io:
-	pw_log_error("can't set io %d (%s)", res, spa_strerror(res));
+	pw_log_error(NAME" %p: can't set io %d (%s)", this, res, spa_strerror(res));
 	goto error_free;
 error_free:
 	free(impl);
@@ -1468,7 +1475,7 @@ void pw_link_destroy(struct pw_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 
-	pw_log_debug("link %p: destroy", impl);
+	pw_log_debug(NAME" %p: destroy", impl);
 	pw_link_emit_destroy(link);
 
 	pw_link_deactivate(link);
@@ -1488,7 +1495,7 @@ void pw_link_destroy(struct pw_link *link)
 		pw_global_destroy(link->global);
 	}
 
-	pw_log_debug("link %p: free", impl);
+	pw_log_debug(NAME" %p: free", impl);
 	pw_link_emit_free(link);
 
 	pw_work_queue_destroy(impl->work);
@@ -1508,7 +1515,7 @@ void pw_link_add_listener(struct pw_link *link,
 			  const struct pw_link_events *events,
 			  void *data)
 {
-	pw_log_debug("link %p: add listener %p", link, listener);
+	pw_log_debug(NAME" %p: add listener %p", link, listener);
 	spa_hook_list_append(&link->listener_list, listener, events, data);
 }
 

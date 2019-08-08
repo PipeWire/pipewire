@@ -29,6 +29,8 @@
 #include "log.h"
 #include "thread-loop.h"
 
+#define NAME "thread-loop"
+
 #define pw_thread_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_thread_loop_events, m, v, ##__VA_ARGS__)
 #define pw_thread_loop_events_destroy(o)	pw_thread_loop_events_emit(o, destroy, 0)
 
@@ -115,7 +117,7 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 	if (this == NULL)
 		return NULL;
 
-	pw_log_debug("thread-loop %p: new", this);
+	pw_log_debug(NAME" %p: new", this);
 
 	this->loop = loop;
 	this->name = name ? strdup(name) : NULL;
@@ -196,16 +198,16 @@ static void *do_loop(void *user_data)
 	int res;
 
 	pthread_mutex_lock(&this->lock);
-	pw_log_debug("thread-loop %p: enter thread", this);
+	pw_log_debug(NAME" %p: enter thread", this);
 	pthread_setname_np(this->thread, this->name ? this->name : "pipewire-thread");
 	pw_loop_enter(this->loop);
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
-			pw_log_warn("thread-loop %p: iterate error %d (%s)",
+			pw_log_warn(NAME" %p: iterate error %d (%s)",
 					this, res, spa_strerror(res));
 	}
-	pw_log_debug("thread-loop %p: leave thread", this);
+	pw_log_debug(NAME" %p: leave thread", this);
 	pw_loop_leave(this->loop);
 	pthread_mutex_unlock(&this->lock);
 
@@ -227,7 +229,7 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 
 		loop->running = true;
 		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
-			pw_log_warn("thread-loop %p: can't create thread: %s", loop,
+			pw_log_warn(NAME" %p: can't create thread: %s", loop,
 				    strerror(err));
 			loop->running = false;
 			return -err;
@@ -245,16 +247,16 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_stop(struct pw_thread_loop *loop)
 {
-	pw_log_debug("thread-loop: %p stopping", loop);
+	pw_log_debug(NAME": %p stopping", loop);
 	if (loop->running) {
-		pw_log_debug("thread-loop: %p signal", loop);
+		pw_log_debug(NAME": %p signal", loop);
 		pw_loop_signal_event(loop->loop, loop->event);
-		pw_log_debug("thread-loop: %p join", loop);
+		pw_log_debug(NAME": %p join", loop);
 		pthread_join(loop->thread, NULL);
-		pw_log_debug("thread-loop: %p joined", loop);
+		pw_log_debug(NAME": %p joined", loop);
 		loop->running = false;
 	}
-	pw_log_debug("thread-loop: %p stopped", loop);
+	pw_log_debug(NAME": %p stopped", loop);
 }
 
 /** Lock the mutex associated with \a loop
@@ -267,7 +269,7 @@ SPA_EXPORT
 void pw_thread_loop_lock(struct pw_thread_loop *loop)
 {
 	pthread_mutex_lock(&loop->lock);
-	pw_log_trace("thread-loop: %p", loop);
+	pw_log_trace(NAME": %p", loop);
 }
 
 /** Unlock the mutex associated with \a loop
@@ -279,7 +281,7 @@ void pw_thread_loop_lock(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 {
-	pw_log_trace("thread-loop: %p", loop);
+	pw_log_trace(NAME": %p", loop);
 	pthread_mutex_unlock(&loop->lock);
 }
 
@@ -296,7 +298,7 @@ void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 {
-	pw_log_trace("thread-loop: %p, waiting:%d accept:%d",
+	pw_log_trace(NAME": %p, waiting:%d accept:%d",
 			loop, loop->n_waiting, wait_for_accept);
 	if (loop->n_waiting > 0)
 		pthread_cond_broadcast(&loop->cond);
@@ -318,11 +320,11 @@ void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 SPA_EXPORT
 void pw_thread_loop_wait(struct pw_thread_loop *loop)
 {
-	pw_log_trace("thread-loop: %p, waiting %d", loop, loop->n_waiting);
+	pw_log_trace(NAME": %p, waiting %d", loop, loop->n_waiting);
 	loop->n_waiting++;
 	pthread_cond_wait(&loop->cond, &loop->lock);
 	loop->n_waiting--;
-	pw_log_trace("thread-loop: %p, waiting done %d", loop, loop->n_waiting);
+	pw_log_trace(NAME": %p, waiting done %d", loop, loop->n_waiting);
 }
 
 /** Wait for the loop thread to call \ref pw_thread_loop_signal()

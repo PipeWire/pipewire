@@ -34,6 +34,8 @@
 
 #define DATAS_SIZE (4096 * 8)
 
+#define NAME "loop"
+
 /** \cond */
 
 struct impl {
@@ -82,14 +84,14 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 			n_support, support);
 	if (impl->system_handle == NULL) {
 		res = -errno;
-		pw_log_error("can't make "SPA_NAME_SUPPORT_SYSTEM" handle: %m");
+		pw_log_error(NAME" %p: can't make "SPA_NAME_SUPPORT_SYSTEM" handle: %m", this);
 		goto error_free;
 	}
 
         if ((res = spa_handle_get_interface(impl->system_handle,
 					    SPA_TYPE_INTERFACE_System,
 					    &iface)) < 0) {
-                pw_log_error("can't get System interface %s", spa_strerror(res));
+                pw_log_error(NAME" %p: can't get System interface: %s", this, spa_strerror(res));
                 goto error_unload_system;
 	}
 	this->system = iface;
@@ -107,14 +109,15 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 			n_support, support);
 	if (impl->loop_handle == NULL) {
 		res = -errno;
-		pw_log_error("can't make "SPA_NAME_SUPPORT_LOOP" handle: %m");
+		pw_log_error(NAME" %p: can't make "SPA_NAME_SUPPORT_LOOP" handle: %m", this);
 		goto error_unload_system;
 	}
 
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_Loop,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get Loop interface %d\n", res);
+		pw_log_error(NAME" %p: can't get Loop interface: %s",
+				this, spa_strerror(res));
                 goto error_unload_loop;
         }
 	this->loop = iface;
@@ -122,7 +125,8 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopControl,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get LoopControl interface %d\n", res);
+		pw_log_error(NAME" %p: can't get LoopControl interface: %s",
+				this, spa_strerror(res));
                 goto error_unload_loop;
         }
 	this->control = iface;
@@ -130,7 +134,8 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopUtils,
 					    &iface)) < 0) {
-                fprintf(stderr, "can't get LoopUtils interface %d\n", res);
+		pw_log_error(NAME" %p: can't get LoopUtils interface: %s",
+				this, spa_strerror(res));
                 goto error_unload_loop;
         }
 	this->utils = iface;

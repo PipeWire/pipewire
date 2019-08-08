@@ -34,6 +34,8 @@
 
 #include <spa/debug/types.h>
 
+#define NAME "global"
+
 /** \cond */
 struct impl {
 	struct pw_global this;
@@ -92,7 +94,7 @@ pw_global_new(struct pw_core *core,
 	this->id = pw_map_insert_new(&core->globals, this);
 	if (this->id == SPA_ID_INVALID) {
 		res = -errno;
-		pw_log_error("global %p: can't allocate new id: %m", this);
+		pw_log_error(NAME" %p: can't allocate new id: %m", this);
 		goto error_free;
 	}
 
@@ -100,7 +102,7 @@ pw_global_new(struct pw_core *core,
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
-	pw_log_debug("global %p: new %s %d", this,
+	pw_log_debug(NAME" %p: new %s %d", this,
 			spa_debug_type_find_name(pw_type_info(), this->type),
 			this->id);
 
@@ -164,7 +166,7 @@ pw_global_register(struct pw_global *global,
 						        &global->properties->dict : NULL);
 	}
 
-	pw_log_debug("global %p: registered %u owner %p parent %p", global, global->id, owner, parent);
+	pw_log_debug(NAME" %p: registered %u owner %p parent %p", global, global->id, owner, parent);
 	pw_core_emit_global_added(core, global);
 
 	return 0;
@@ -199,7 +201,7 @@ static int global_unregister(struct pw_global *global)
 	pw_map_remove(&core->globals, global->id);
 	impl->registered = false;
 
-	pw_log_debug("global %p: unregistered %u", global, global->id);
+	pw_log_debug(NAME" %p: unregistered %u", global, global->id);
 	pw_core_emit_global_removed(core, global);
 
 	return 0;
@@ -301,7 +303,8 @@ error_bind:
 	goto error_exit;
 
 error_exit:
-	pw_log_error("can't bind global %u/%u: %d (%s)", id, version, res, spa_strerror(res));
+	pw_log_error(NAME" %p: can't bind global %u/%u: %d (%s)", global, id,
+			version, res, spa_strerror(res));
 	pw_map_insert_at(&client->objects, id, NULL);
 	pw_core_resource_remove_id(client->core_resource, id);
 	return res;
@@ -318,8 +321,8 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 	do_hide = PW_PERM_IS_R(old_permissions) && !PW_PERM_IS_R(new_permissions);
 	do_show = !PW_PERM_IS_R(old_permissions) && PW_PERM_IS_R(new_permissions);
 
-	pw_log_debug("client %p: permissions changed %d %08x -> %08x", client,
-			global->id, old_permissions, new_permissions);
+	pw_log_debug(NAME" %p: client %p permissions changed %d %08x -> %08x",
+			global, client, global->id, old_permissions, new_permissions);
 
 	pw_global_emit_permissions_changed(global, client, old_permissions, new_permissions);
 
@@ -328,11 +331,13 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 			continue;
 
 		if (do_hide) {
-			pw_log_debug("client %p: hide global %d", client, global->id);
+			pw_log_debug("client %p: resource %p hide global %d",
+					client, resource, global->id);
 			pw_registry_resource_global_remove(resource, global->id);
 		}
 		else if (do_show) {
-			pw_log_debug("client %p: show global %d", client, global->id);
+			pw_log_debug("client %p: resource %p show global %d",
+					client, resource, global->id);
 			pw_registry_resource_global(resource,
 						    global->id,
 						    global->parent->id,
@@ -368,7 +373,7 @@ void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_resource *resource;
 
-	pw_log_debug("global %p: destroy %u", global, global->id);
+	pw_log_debug(NAME" %p: destroy %u", global, global->id);
 	pw_global_emit_destroy(global);
 
 	spa_list_consume(resource, &global->resource_list, link)
@@ -376,7 +381,7 @@ void pw_global_destroy(struct pw_global *global)
 
 	global_unregister(global);
 
-	pw_log_debug("global %p: free", global);
+	pw_log_debug(NAME" %p: free", global);
 	pw_global_emit_free(global);
 
 	if (global->properties)

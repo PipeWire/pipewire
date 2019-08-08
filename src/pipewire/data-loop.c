@@ -30,20 +30,22 @@
 #include "pipewire/data-loop.h"
 #include "pipewire/private.h"
 
+#define NAME "data-loop"
+
 static void *do_loop(void *user_data)
 {
 	struct pw_data_loop *this = user_data;
 	int res;
 
-	pw_log_debug("data-loop %p: enter thread", this);
+	pw_log_debug(NAME" %p: enter thread", this);
 	pw_loop_enter(this->loop);
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
-			pw_log_warn("data-loop %p: iterate error %d (%s)",
+			pw_log_warn(NAME" %p: iterate error %d (%s)",
 					this, res, spa_strerror(res));
 	}
-	pw_log_debug("data-loop %p: leave thread", this);
+	pw_log_debug(NAME" %p: leave thread", this);
 	pw_loop_leave(this->loop);
 
 	return NULL;
@@ -53,7 +55,7 @@ static void *do_loop(void *user_data)
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_data_loop *this = data;
-	pw_log_debug("data-loop %p: stopping", this);
+	pw_log_debug(NAME" %p: stopping", this);
 	this->running = false;
 }
 
@@ -73,20 +75,20 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 		goto error_cleanup;
 	}
 
-	pw_log_debug("data-loop %p: new", this);
+	pw_log_debug(NAME" %p: new", this);
 
 	this->loop = pw_loop_new(properties);
 	properties = NULL;
 	if (this->loop == NULL) {
 		res = -errno;
-		pw_log_error("data-loop %p: can't create loop: %m", this);
+		pw_log_error(NAME" %p: can't create loop: %m", this);
 		goto error_free;
 	}
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
 		res = -errno;
-		pw_log_error("data-loop %p: can't add event: %m", this);
+		pw_log_error(NAME" %p: can't add event: %m", this);
 		goto error_loop_destroy;
 	}
 
@@ -111,7 +113,7 @@ error_cleanup:
  */
 void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
-	pw_log_debug("data-loop %p: destroy", loop);
+	pw_log_debug(NAME" %p: destroy", loop);
 
 	pw_data_loop_emit_destroy(loop);
 
@@ -151,7 +153,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 
 		loop->running = true;
 		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
-			pw_log_error("data-loop %p: can't create thread: %s", loop, strerror(err));
+			pw_log_error(NAME" %p: can't create thread: %s", loop, strerror(err));
 			loop->running = false;
 			return -err;
 		}

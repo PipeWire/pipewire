@@ -26,10 +26,12 @@
 #include "pipewire/main-loop.h"
 #include "pipewire/private.h"
 
+#define NAME "main-loop"
+
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_main_loop *this = data;
-	pw_log_debug("main-loop %p: do stop", this);
+	pw_log_debug(NAME" %p: do stop", this);
 	this->running = false;
 }
 
@@ -50,7 +52,7 @@ struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 		goto error_cleanup;
 	}
 
-	pw_log_debug("main-loop %p: new", this);
+	pw_log_debug(NAME" %p: new", this);
 
 	this->loop = pw_loop_new(properties);
 	properties = NULL;
@@ -88,7 +90,7 @@ error_cleanup:
 SPA_EXPORT
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
-	pw_log_debug("main-loop %p: destroy", loop);
+	pw_log_debug(NAME" %p: destroy", loop);
 	pw_main_loop_emit_destroy(loop);
 
 	pw_loop_destroy(loop->loop);
@@ -121,7 +123,7 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
 SPA_EXPORT
 int pw_main_loop_quit(struct pw_main_loop *loop)
 {
-	pw_log_debug("main-loop %p: quit", loop);
+	pw_log_debug(NAME" %p: quit", loop);
 	return pw_loop_signal_event(loop->loop, loop->event);
 }
 
@@ -138,13 +140,13 @@ int pw_main_loop_run(struct pw_main_loop *loop)
 {
 	int res = 0;
 
-	pw_log_debug("main-loop %p: run", loop);
+	pw_log_debug(NAME" %p: run", loop);
 
 	loop->running = true;
 	pw_loop_enter(loop->loop);
 	while (loop->running) {
 		if ((res = pw_loop_iterate(loop->loop, -1)) < 0)
-			pw_log_warn("main-loop %p: iterate error %d (%s)",
+			pw_log_warn(NAME" %p: iterate error %d (%s)",
 					loop, res, spa_strerror(res));
 	}
 	pw_loop_leave(loop->loop);

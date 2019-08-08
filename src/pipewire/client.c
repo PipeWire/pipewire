@@ -31,6 +31,8 @@
 #include "pipewire/resource.h"
 #include "pipewire/type.h"
 
+#define NAME "client"
+
 /** \cond */
 struct impl {
 	struct pw_client this;
@@ -206,7 +208,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 			&data->object_listener,
 			&client_methods, resource);
 
-	pw_log_debug("client %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
 
@@ -220,7 +222,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error("can't create client resource: %m");
+	pw_log_error(NAME" %p: can't create client resource: %m", this);
 	return -errno;
 }
 
@@ -229,7 +231,7 @@ static void pool_added(void *data, struct pw_memblock *block)
 	struct impl *impl = data;
 	struct pw_client *client = &impl->this;
 
-	pw_log_debug("client %p: added block %d", client, block->id);
+	pw_log_debug(NAME" %p: added block %d", client, block->id);
 	if (client->core_resource) {
 		pw_core_resource_add_mem(client->core_resource,
 				block->id, block->type, block->fd,
@@ -241,7 +243,7 @@ static void pool_removed(void *data, struct pw_memblock *block)
 {
 	struct impl *impl = data;
 	struct pw_client *client = &impl->this;
-	pw_log_debug("client %p: removed block %d", client, block->id);
+	pw_log_debug(NAME" %p: removed block %d", client, block->id);
 	if (client->core_resource)
 		pw_core_resource_remove_mem(client->core_resource, block->id);
 }
@@ -260,7 +262,7 @@ core_global_removed(void *data, struct pw_global *global)
 	struct pw_permission *p;
 
 	p = find_permission(client, global->id);
-	pw_log_debug("client %p: global %d removed, %p", client, global->id, p);
+	pw_log_debug(NAME" %p: global %d removed, %p", client, global->id, p);
 	if (p->id != SPA_ID_INVALID)
 		p->permissions = SPA_ID_INVALID;
 }
@@ -296,7 +298,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	}
 
 	this = &impl->this;
-	pw_log_debug("client %p: new", this);
+	pw_log_debug(NAME" %p: new", this);
 
 	this->core = core;
 
@@ -377,7 +379,7 @@ int pw_client_register(struct pw_client *client,
 	if (client->registered)
 		goto error_existed;
 
-	pw_log_debug("client %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
+	pw_log_debug(NAME" %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
 
 	client->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Client,
@@ -458,7 +460,7 @@ void pw_client_destroy(struct pw_client *client)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
-	pw_log_debug("client %p: destroy", client);
+	pw_log_debug(NAME" %p: destroy", client);
 	pw_client_emit_destroy(client);
 
 	spa_hook_remove(&impl->core_listener);
@@ -473,7 +475,7 @@ void pw_client_destroy(struct pw_client *client)
 		pw_global_destroy(client->global);
 	}
 
-	pw_log_debug("client %p: free", impl);
+	pw_log_debug(NAME" %p: free", impl);
 	pw_client_emit_free(client);
 
 	pw_map_clear(&client->objects);
@@ -519,7 +521,7 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 
 	changed = pw_properties_update(client->properties, dict);
 
-	pw_log_debug("client %p: updated %d properties", client, changed);
+	pw_log_debug(NAME" %p: updated %d properties", client, changed);
 
 	if (!changed)
 		return 0;
@@ -561,7 +563,7 @@ int pw_client_update_permissions(struct pw_client *client,
 			if (core->current_client == client)
 				new_perm &= old_perm;
 
-			pw_log_debug("client %p: set default permissions %08x -> %08x",
+			pw_log_debug(NAME" %p: set default permissions %08x -> %08x",
 					client, old_perm, new_perm);
 
 			def->permissions = new_perm;
@@ -578,12 +580,12 @@ int pw_client_update_permissions(struct pw_client *client,
 
 			global = pw_core_find_global(client->core, permissions[i].id);
 			if (global == NULL || global->id != permissions[i].id) {
-				pw_log_warn("client %p: invalid global %d", client, permissions[i].id);
+				pw_log_warn(NAME" %p: invalid global %d", client, permissions[i].id);
 				continue;
 			}
 			p = ensure_permissions(client, permissions[i].id);
 			if (p == NULL) {
-				pw_log_warn("client %p: can't ensure permission: %m", client);
+				pw_log_warn(NAME" %p: can't ensure permission: %m", client);
 				continue;
 			}
 			old_perm = p->permissions == SPA_ID_INVALID ? def->permissions : p->permissions;
@@ -592,7 +594,7 @@ int pw_client_update_permissions(struct pw_client *client,
 			if (core->current_client == client)
 				new_perm &= old_perm;
 
-			pw_log_debug("client %p: set global %d permissions %08x -> %08x",
+			pw_log_debug(NAME" %p: set global %d permissions %08x -> %08x",
 					client, global->id, old_perm, new_perm);
 
 			p->permissions = new_perm;
@@ -609,7 +611,7 @@ SPA_EXPORT
 void pw_client_set_busy(struct pw_client *client, bool busy)
 {
 	if (client->busy != busy) {
-		pw_log_debug("client %p: busy %d", client, busy);
+		pw_log_debug(NAME" %p: busy %d", client, busy);
 		client->busy = busy;
 		pw_client_emit_busy_changed(client, busy);
 	}

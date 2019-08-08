@@ -28,6 +28,8 @@
 #include <pipewire/control.h>
 #include <pipewire/private.h>
 
+#define NAME "control"
+
 struct impl {
 	struct pw_control this;
 
@@ -64,7 +66,7 @@ pw_control_new(struct pw_core *core,
 	this->id = id;
 	this->size = size;
 
-	pw_log_debug("control %p: new %s %d", this,
+	pw_log_debug(NAME" %p: new %s %d", this,
 			spa_debug_type_find_name(spa_type_io, this->id), direction);
 
 	this->core = core;
@@ -94,7 +96,7 @@ void pw_control_destroy(struct pw_control *control)
 	struct impl *impl = SPA_CONTAINER_OF(control, struct impl, this);
 	struct pw_control_link *link;
 
-	pw_log_debug("control %p: destroy", control);
+	pw_log_debug(NAME" %p: destroy", control);
 
 	pw_control_emit_destroy(control);
 
@@ -114,7 +116,7 @@ void pw_control_destroy(struct pw_control *control)
 		pw_port_emit_control_removed(control->port, control);
 	}
 
-	pw_log_debug("control %p: free", control);
+	pw_log_debug(NAME" %p: free", control);
 	pw_control_emit_free(control);
 
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
@@ -177,7 +179,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 
 	impl = SPA_CONTAINER_OF(control, struct impl, this);
 
-	pw_log_debug("control %p: link to %p %s", control, other,
+	pw_log_debug(NAME" %p: link to %p %s", control, other,
 			spa_debug_type_find_name(spa_type_io, control->id));
 
 	size = SPA_MAX(control->size, other->size);
@@ -199,7 +201,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 			if ((res = port_set_io(control->port, cmix,
 						control->id,
 						impl->mem->map->ptr, size)) < 0) {
-				pw_log_warn("control %p: set io failed %d %s", control,
+				pw_log_warn(NAME" %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 				goto exit;
 			}
@@ -209,7 +211,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 	if (other->port) {
 		if ((res = port_set_io(other->port, omix,
 				other->id, impl->mem->map->ptr, size)) < 0) {
-			pw_log_warn("control %p: set io failed %d %s", control,
+			pw_log_warn(NAME" %p: set io failed %d %s", control,
 					res, spa_strerror(res));
 			goto exit;
 		}
@@ -236,7 +238,7 @@ int pw_control_remove_link(struct pw_control_link *link)
 	struct pw_control *output = link->output;
 	struct pw_control *input = link->input;
 
-	pw_log_debug("control %p: unlink from %p", output, input);
+	pw_log_debug(NAME" %p: unlink from %p", output, input);
 
 	spa_list_remove(&link->in_link);
 	spa_list_remove(&link->out_link);
@@ -245,14 +247,14 @@ int pw_control_remove_link(struct pw_control_link *link)
 	if (spa_list_is_empty(&output->links)) {
 		if ((res = port_set_io(output->port, link->out_port,
 					output->id, NULL, 0)) < 0) {
-			pw_log_warn("control %p: can't unset port control io", output);
+			pw_log_warn(NAME" %p: can't unset port control io", output);
 		}
 	}
 
 	if (input->port) {
 		if ((res = port_set_io(input->port, link->in_port,
 				     input->id, NULL, 0)) < 0) {
-			pw_log_warn("control %p: can't unset port control io", output);
+			pw_log_warn(NAME" %p: can't unset port control io", output);
 		}
 	}
 

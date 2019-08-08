@@ -30,6 +30,8 @@
 #include <pipewire/private.h>
 #include <pipewire/type.h>
 
+#define NAME "protocol"
+
 /** \cond */
 struct impl {
 	struct pw_protocol this;
@@ -65,7 +67,7 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 
 	spa_list_append(&core->protocol_list, &protocol->link);
 
-	pw_log_debug("protocol %p: Created protocol %s", protocol, name);
+	pw_log_debug(NAME" %p: Created protocol %s", protocol, name);
 
 	return protocol;
 }
@@ -98,7 +100,7 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	struct pw_protocol_server *server;
 	struct pw_protocol_client *client;
 
-	pw_log_debug("protocol %p: destroy", protocol);
+	pw_log_debug(NAME" %p: destroy", protocol);
 	pw_protocol_emit_destroy(protocol);
 
 	spa_list_remove(&protocol->link);
@@ -141,9 +143,9 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->marshal_list, &impl->link);
 
-	pw_log_debug("Add marshal %d/%s:%d to protocol %s", marshal->type,
-			spa_debug_type_find_name(pw_type_info(), marshal->type), marshal->version,
-			protocol->name);
+	pw_log_debug(NAME" %p: Add marshal %d/%s:%d to protocol %s", protocol,
+			marshal->type, spa_debug_type_find_name(pw_type_info(), marshal->type),
+			marshal->version, protocol->name);
 
 	return 0;
 }

@@ -47,6 +47,8 @@
 #include <pipewire/module.h>
 #include <pipewire/version.h>
 
+#define NAME "core"
+
 /** \cond */
 struct impl {
 	struct pw_core this;
@@ -184,7 +186,7 @@ static int core_hello(void *object, uint32_t version)
 	struct pw_client *client = resource->client;
 	struct pw_core *this = resource->core;
 
-	pw_log_debug("core %p: hello %d from resource %p", this, version, resource);
+	pw_log_debug(NAME" %p: hello %d from resource %p", this, version, resource);
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_map_for_each(&client->objects, destroy_resource, client);
 	pw_core_resource_info(resource, &this->info);
@@ -194,7 +196,7 @@ static int core_hello(void *object, uint32_t version)
 static int core_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
-	pw_log_debug("core %p: sync %d for resource %d", resource->core, seq, id);
+	pw_log_debug(NAME" %p: sync %d for resource %d", resource->core, seq, id);
 	pw_core_resource_done(resource, id, seq);
 	return 0;
 }
@@ -205,7 +207,7 @@ static int core_pong(void *object, uint32_t id, int seq)
 	struct pw_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug("core %p: pong %d for resource %d", resource->core, seq, id);
+	pw_log_debug(NAME" %p: pong %d for resource %d", resource->core, seq, id);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
@@ -220,7 +222,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	struct pw_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug("core %p: error %d for resource %d: %s", resource->core, res, id, message);
+	pw_log_debug(NAME" %p: error %d for resource %d: %s", resource->core, res, id, message);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
@@ -280,7 +282,7 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 	return (struct pw_registry_proxy *)registry_resource;
 
 error_resource:
-	pw_log_error("can't create registry resource: %m");
+	pw_log_error(NAME" %p: can't create registry resource: %m", this);
 	pw_core_resource_errorf(client->core_resource, new_id,
 			client->recv_seq, res,
 			"can't create registry resource: %s", spa_strerror(res));
@@ -303,10 +305,11 @@ core_create_object(void *object,
 	struct pw_factory *factory;
 	void *obj;
 	struct pw_properties *properties;
+	struct pw_core *this = client->core;
 	uint32_t new_id = user_data_size;
 	int res;
 
-	factory = pw_core_find_factory(client->core, factory_name);
+	factory = pw_core_find_factory(this, factory_name);
 	if (factory == NULL || factory->global == NULL)
 		goto error_no_factory;
 
@@ -335,18 +338,18 @@ core_create_object(void *object,
 
 error_no_factory:
 	res = -ENOENT;
-	pw_log_error("can't find factory '%s'", factory_name);
+	pw_log_error(NAME" %p: can't find factory '%s'", this, factory_name);
 	pw_resource_error(resource, res, "unknown factory name %s", factory_name);
 	goto error_exit;
 error_version:
 error_type:
 	res = -EPROTO;
-	pw_log_error("invalid resource type/version");
+	pw_log_error(NAME" %p: invalid resource type/version", this);
 	pw_resource_error(resource, res, "wrong resource type/version");
 	goto error_exit;
 error_properties:
 	res = -errno;
-	pw_log_error("can't create properties: %m");
+	pw_log_error(NAME" %p: can't create properties: %m", this);
 	pw_resource_error(resource, res, "can't create properties: %s", spa_strerror(res));
 	goto error_exit;
 error_create_failed:
@@ -364,7 +367,7 @@ static int core_destroy(void *object, void *proxy)
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_resource *r = proxy;
-	pw_log_debug("core %p: destroy resource %p from client %p", resource->core, r, client);
+	pw_log_debug(NAME" %p: destroy resource %p from client %p", resource->core, r, client);
 	pw_resource_destroy(r);
 	return 0;
 }
@@ -429,12 +432,12 @@ global_bind(void *_data,
 	else
 		pw_core_resource_info(resource, &this->info);
 
-	pw_log_debug("core %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	return 0;
 
 error:
-	pw_log_error("core %p: can't create resource: %m", this);
+	pw_log_error(NAME" %p: can't create resource: %m", this);
 	return res;
 }
 
@@ -480,7 +483,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	this = &impl->this;
 
-	pw_log_debug("core %p: new", this);
+	pw_log_debug(NAME" %p: new", this);
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -528,7 +531,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	if (impl->dbus_handle == NULL ||
 	    (res = spa_handle_get_interface(impl->dbus_handle,
 						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
-			pw_log_warn("can't load dbus interface: %s", spa_strerror(res));
+			pw_log_warn(NAME" %p: can't load dbus interface: %s", this, spa_strerror(res));
 	} else {
 		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
 	}
@@ -626,7 +629,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_node *node;
 	struct factory_entry *entry;
 
-	pw_log_debug("core %p: destroy", core);
+	pw_log_debug(NAME" %p: destroy", core);
 	pw_core_emit_destroy(core);
 
 	spa_hook_remove(&core->global_listener);
@@ -649,7 +652,7 @@ void pw_core_destroy(struct pw_core *core)
 	spa_list_consume(global, &core->global_list, link)
 		pw_global_destroy(global);
 
-	pw_log_debug("core %p: free", core);
+	pw_log_debug(NAME" %p: free", core);
 	pw_core_emit_free(core);
 
 	pw_mempool_destroy(core->pool);
@@ -735,7 +738,7 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 
 	changed = pw_properties_update(core->properties, dict);
 
-	pw_log_debug("core %p: updated %d properties", core, changed);
+	pw_log_debug(NAME" %p: updated %d properties", core, changed);
 
 	if (!changed)
 		return 0;
@@ -818,7 +821,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 
 	have_id = id != SPA_ID_INVALID;
 
-	pw_log_debug("id \"%u\", %d", id, have_id);
+	pw_log_debug(NAME" %p: id:%u", core, id);
 
 	spa_list_for_each(n, &core->node_list, link) {
 		if (n->global == NULL)
@@ -831,11 +834,11 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 		    !PW_PERM_IS_R(pw_global_get_permissions(n->global, core->current_client)))
 			continue;
 
-		pw_log_debug("node id \"%d\"", n->global->id);
+		pw_log_debug(NAME" %p: node id:%d", core, n->global->id);
 
 		if (have_id) {
 			if (n->global->id == id) {
-				pw_log_debug("id \"%u\" matches node %p", id, n);
+				pw_log_debug(NAME" %p: id:%u matches node %p", core, id, n);
 
 				best =
 				    pw_node_find_port(n,
@@ -922,7 +925,7 @@ int pw_core_find_format(struct pw_core *core,
 	out_state = output->state;
 	in_state = input->state;
 
-	pw_log_debug("core %p: finding best format %d %d", core, out_state, in_state);
+	pw_log_debug(NAME" %p: finding best format %d %d", core, out_state, in_state);
 
 	/* when a port is configured but the node is idle, we can reconfigure with a different format */
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
@@ -930,7 +933,7 @@ int pw_core_find_format(struct pw_core *core,
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
 		in_state = PW_PORT_STATE_CONFIGURE;
 
-	pw_log_debug("core %p: states %d %d", core, out_state, in_state);
+	pw_log_debug(NAME" %p: states %d %d", core, out_state, in_state);
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
@@ -942,7 +945,7 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error get output format: %d", res);
 			goto error;
 		}
-		pw_log_debug("Got output format:");
+		pw_log_debug(NAME" %p: Got output format:", core);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
@@ -963,7 +966,7 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "error get input format: %d", res);
 			goto error;
 		}
-		pw_log_debug("Got input format:");
+		pw_log_debug(NAME" %p: Got input format:", core);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
@@ -977,7 +980,7 @@ int pw_core_find_format(struct pw_core *core,
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 	      again:
 		/* both ports need a format */
-		pw_log_debug("core %p: do enum input %d", core, iidx);
+		pw_log_debug(NAME" %p: do enum input %d", core, iidx);
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
@@ -990,7 +993,7 @@ int pw_core_find_format(struct pw_core *core,
 			asprintf(error, "no more input formats");
 			goto error;
 		}
-		pw_log_debug("enum output %d with filter: %p", oidx, filter);
+		pw_log_debug(NAME" %p: enum output %d with filter: %p", core, oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
@@ -1006,7 +1009,7 @@ int pw_core_find_format(struct pw_core *core,
 			goto error;
 		}
 
-		pw_log_debug("Got filtered:");
+		pw_log_debug(NAME" %p: Got filtered:", core);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, *format);
 	} else {
@@ -1109,7 +1112,8 @@ int pw_core_recalc_graph(struct pw_core *core)
 
 	spa_list_for_each(n, &core->node_list, link) {
 		if (!n->visited) {
-			pw_log_info("unassigned node %p: '%s' %d", n, n->info.name, n->active);
+			pw_log_info(NAME" %p: unassigned node %p: '%s' %d", core,
+					n, n->info.name, n->active);
 			pw_node_set_driver(n, NULL);
 		}
 		n->visited = false;
@@ -1118,10 +1122,11 @@ int pw_core_recalc_graph(struct pw_core *core)
 	spa_list_for_each(n, &core->driver_list, driver_link) {
 		if (!n->master)
 			continue;
-		pw_log_info("master %p: quantum:%d '%s'", n,
+		pw_log_info(NAME" %p: master %p quantum:%d '%s'", core, n,
 				n->rt.position ? n->rt.position->size : 0, n->info.name);
 		spa_list_for_each(s, &n->slave_list, slave_link)
-			pw_log_info("slave %p: active:%d '%s'", s, s->active, s->info.name);
+			pw_log_info(NAME" %p: slave %p: active:%d '%s'",
+					core, s, s->active, s->info.name);
 	}
 	return 0;
 }
@@ -1140,13 +1145,13 @@ int pw_core_add_spa_lib(struct pw_core *core,
 	if ((err = regcomp(&entry->regex, factory_regexp, REG_EXTENDED | REG_NOSUB)) != 0) {
 		char errbuf[1024];
 		regerror(err, &entry->regex, errbuf, sizeof(errbuf));
-		pw_log_error("can compile regex: %s", errbuf);
+		pw_log_error(NAME" %p: can compile regex: %s", core, errbuf);
 		pw_array_remove(&core->factory_lib, entry);
 		return -EINVAL;
 	}
 
 	entry->lib = strdup(lib);
-	pw_log_debug("core %p: map factory regex '%s' to '%s", core,
+	pw_log_debug(NAME" %p: map factory regex '%s' to '%s", core,
 			factory_regexp, lib);
 	return 0;
 }
@@ -1173,13 +1178,13 @@ struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
 	uint32_t n_support;
 	struct spa_handle *handle;
 
-	pw_log_debug("core %p: load factory %s", core, factory_name);
+	pw_log_debug(NAME" %p: load factory %s", core, factory_name);
 
 	lib = pw_core_find_spa_lib(core, factory_name);
 	if (lib == NULL && info != NULL)
 		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
 	if (lib == NULL) {
-		pw_log_warn("core %p: no library for %s: %m",
+		pw_log_warn(NAME" %p: no library for %s: %m",
 				core, factory_name);
 		errno = ENOENT;
 		return NULL;

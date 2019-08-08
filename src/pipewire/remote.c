@@ -37,6 +37,8 @@
 
 #include "extensions/protocol-native.h"
 
+#define NAME "remote"
+
 /** \cond */
 
 struct remote {
@@ -75,7 +77,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 
 			va_start(varargs, fmt);
 			if (vasprintf(&remote->error, fmt, varargs) < 0) {
-				pw_log_debug("remote %p: error formating message: %m", remote);
+				pw_log_debug(NAME" %p: error formating message: %m", remote);
 				remote->error = NULL;
 			}
 			va_end(varargs);
@@ -83,11 +85,11 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 			remote->error = NULL;
 		}
 		if (state == PW_REMOTE_STATE_ERROR) {
-			pw_log_error("remote %p: update state from %s -> %s (%s)", remote,
+			pw_log_error(NAME" %p: update state from %s -> %s (%s)", remote,
 				     pw_remote_state_as_string(old),
 				     pw_remote_state_as_string(state), remote->error);
 		} else {
-			pw_log_debug("remote %p: update state from %s -> %s", remote,
+			pw_log_debug(NAME" %p: update state from %s -> %s", remote,
 				     pw_remote_state_as_string(old),
 				     pw_remote_state_as_string(state));
 		}
@@ -101,7 +103,7 @@ pw_remote_update_state(struct pw_remote *remote, enum pw_remote_state state, con
 static void core_event_ping(void *data, uint32_t id, int seq)
 {
 	struct pw_remote *this = data;
-	pw_log_debug("remote %p: object %u ping %u", this, id, seq);
+	pw_log_debug(NAME" %p: object %u ping %u", this, id, seq);
 	pw_core_proxy_pong(this->core_proxy, id, seq);
 }
 
@@ -110,7 +112,7 @@ static void core_event_done(void *data, uint32_t id, int seq)
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_debug("remote %p: object %u done %d", this, id, seq);
+	pw_log_debug(NAME" %p: object %u done %d", this, id, seq);
 
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy)
@@ -122,7 +124,7 @@ static void core_event_error(void *data, uint32_t id, int seq, int res, const ch
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_error("remote %p: object error %u: seq:%d %d (%s): %s", this, id, seq,
+	pw_log_error(NAME" %p: object error %u: seq:%d %d (%s): %s", this, id, seq,
 			res, spa_strerror(res), message);
 
 	proxy = pw_map_lookup(&this->objects, id);
@@ -135,7 +137,7 @@ static void core_event_remove_id(void *data, uint32_t id)
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_debug("remote %p: object remove %u", this, id);
+	pw_log_debug(NAME" %p: object remove %u", this, id);
 	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
 		proxy->removed = true;
 		pw_proxy_destroy(proxy);
@@ -148,11 +150,11 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 	struct pw_remote *this = data;
 	struct pw_memblock *m;
 
-	pw_log_debug("remote %p: add mem %u type:%u fd:%d flags:%u", this, id, type, fd, flags);
+	pw_log_debug(NAME" %p: add mem %u type:%u fd:%d flags:%u", this, id, type, fd, flags);
 
 	m = pw_mempool_import(this->pool, flags, type, fd);
 	if (m->id != id) {
-		pw_log_error("remote %p: invalid mem id %u, expected %u",
+		pw_log_error(NAME" %p: invalid mem id %u, expected %u",
 				this, id, m->id);
 		pw_memblock_unref(m);
 	}
@@ -161,7 +163,7 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 static void core_event_remove_mem(void *data, uint32_t id)
 {
 	struct pw_remote *this = data;
-	pw_log_debug("remote %p: remove mem %u", this, id);
+	pw_log_debug(NAME" %p: remove mem %u", this, id);
 	pw_mempool_unref_id(this->pool, id);
 }
 
@@ -193,7 +195,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	}
 
 	this = &impl->this;
-	pw_log_debug("remote %p: new", impl);
+	pw_log_debug(NAME" %p: new", impl);
 
 	this->core = core;
 
@@ -248,14 +250,14 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 error_properties:
 	res = -errno;
-	pw_log_error("can't create properties: %m");
+	pw_log_error(NAME" %p: can't create properties: %m", this);
 	goto exit_free;
 error_protocol:
-	pw_log_error("can't load native protocol: %s", spa_strerror(res));
+	pw_log_error(NAME" %p: can't load native protocol: %s", this, spa_strerror(res));
 	goto exit_free;
 error_connection:
 	res = -errno;
-	pw_log_error("can't create new native protocol connection: %m");
+	pw_log_error(NAME" %p: can't create new native protocol connection: %m", this);
 	goto exit_free;
 
 exit_free:
@@ -273,7 +275,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct pw_stream *stream;
 
-	pw_log_debug("remote %p: destroy", remote);
+	pw_log_debug(NAME" %p: destroy", remote);
 	pw_remote_emit_destroy(remote);
 
 	if (remote->state != PW_REMOTE_STATE_UNCONNECTED)
@@ -288,7 +290,7 @@ void pw_remote_destroy(struct pw_remote *remote)
 
 	pw_map_clear(&remote->objects);
 
-	pw_log_debug("remote %p: free", remote);
+	pw_log_debug(NAME" %p: free", remote);
 	pw_mempool_destroy(remote->pool);
 	pw_properties_free(remote->properties);
 	free(remote->error);
@@ -314,7 +316,7 @@ int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict 
 
 	changed = pw_properties_update(remote->properties, dict);
 
-	pw_log_debug("remote %p: updated %d properties", remote, changed);
+	pw_log_debug(NAME" %p: updated %d properties", remote, changed);
 
 	if (!changed)
 		return 0;
@@ -470,7 +472,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	struct pw_proxy *proxy;
 	struct pw_stream *stream, *s2;
 
-	pw_log_debug("remote %p: disconnect", remote);
+	pw_log_debug(NAME" %p: disconnect", remote);
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 		pw_stream_disconnect(stream);
 
@@ -517,13 +519,13 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 	return proxy;
 
 error_core_proxy:
-	pw_log_error("no core proxy: %s", spa_strerror(res));
+	pw_log_error(NAME" %p: no core proxy: %s", remote, spa_strerror(res));
 	goto exit;
 error_export_type:
-	pw_log_error("can't export type %d: %s", type, spa_strerror(res));
+	pw_log_error(NAME" %p: can't export type %d: %s", remote, type, spa_strerror(res));
 	goto exit;
 error_proxy_failed:
-	pw_log_error("failed to create proxy: %s", spa_strerror(res));
+	pw_log_error(NAME" %p: failed to create proxy: %s", remote, spa_strerror(res));
 	goto exit;
 exit:
 	errno = -res;
@@ -533,7 +535,7 @@ exit:
 SPA_EXPORT
 int pw_core_register_export_type(struct pw_core *core, struct pw_export_type *type)
 {
-	pw_log_debug("Add export type %d/%s to core", type->type,
+	pw_log_debug("core %p: Add export type %d/%s to core", core, type->type,
 			spa_debug_type_find_name(pw_type_info(), type->type));
 	spa_list_append(&core->export_list, &type->link);
 	return 0;

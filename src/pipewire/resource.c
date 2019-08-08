@@ -32,6 +32,8 @@
 
 #include <spa/debug/types.h>
 
+#define NAME "resource"
+
 /** \cond */
 struct impl {
 	struct pw_resource this;
@@ -66,7 +68,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 	if (this->marshal == NULL) {
-		pw_log_error("resource %p: no marshal for type %d", this, type);
+		pw_log_error(NAME" %p: no marshal for type %d", this, type);
 		res = -EPROTO;
 		goto error_clean;
 	}
@@ -78,7 +80,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 	if ((res = pw_map_insert_at(&client->objects, id, this)) < 0) {
 		res = -errno;
-		pw_log_error("resource %p: can't add id %u for client %p: %m",
+		pw_log_error(NAME" %p: can't add id %u for client %p: %m",
 			this, id, client);
 		goto error_clean;
 	}
@@ -93,7 +95,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 			this->marshal->version,
 			this->marshal->event_marshal, this);
 
-	pw_log_debug("resource %p: new %u %s/%d client %p marshal %p",
+	pw_log_debug(NAME" %p: new %u %s/%d client %p marshal %p",
 			this, id,
 			spa_debug_type_find_name(pw_type_info(), type), version,
 			client, this->marshal);
@@ -182,7 +184,7 @@ int pw_resource_ping(struct pw_resource *resource, int seq)
 	if (client->core_resource != NULL) {
 		pw_core_resource_ping(client->core_resource, resource->id, seq);
 		res = client->send_seq;
-		pw_log_debug("resource %p: %u seq:%d ping %d", resource, resource->id, seq, res);
+		pw_log_debug(NAME" %p: %u seq:%d ping %d", resource, resource->id, seq, res);
 	}
 	return res;
 }
@@ -205,7 +207,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 {
 	struct pw_client *client = resource->client;
 
-	pw_log_debug("resource %p: destroy %u", resource, resource->id);
+	pw_log_debug(NAME" %p: destroy %u", resource, resource->id);
 	pw_resource_emit_destroy(resource);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
@@ -214,6 +216,6 @@ void pw_resource_destroy(struct pw_resource *resource)
 	if (client->core_resource && !resource->removed)
 		pw_core_resource_remove_id(client->core_resource, resource->id);
 
-	pw_log_debug("resource %p: free", resource);
+	pw_log_debug(NAME" %p: free", resource);
 	free(resource);
 }

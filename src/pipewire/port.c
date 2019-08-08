@@ -36,6 +36,8 @@
 #include "pipewire/port.h"
 #include "pipewire/link.h"
 
+#define NAME "port"
+
 /** \cond */
 struct impl {
 	struct pw_port this;
@@ -101,7 +103,7 @@ void pw_port_update_state(struct pw_port *port, enum pw_port_state state, char *
 	if (old != state) {
 		pw_log(state == PW_PORT_STATE_ERROR ?
 				SPA_LOG_LEVEL_ERROR : SPA_LOG_LEVEL_DEBUG,
-			"port %p: state %s -> %s (%s)", port,
+			NAME" %p: state %s -> %s (%s)", port,
 			port_state_as_string(old), port_state_as_string(state), error);
 
 		port->state = state;
@@ -118,9 +120,9 @@ static int tee_process(void *object)
 	struct pw_port_mix *mix;
 	struct spa_io_buffers *io = &this->rt.io;
 
-	pw_log_trace_fp("port %p: tee input %d %d", this, io->status, io->buffer_id);
+	pw_log_trace_fp(NAME" %p: tee input %d %d", this, io->status, io->buffer_id);
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
-		pw_log_trace_fp("port %p: port %d %p->%p %d", this,
+		pw_log_trace_fp(NAME" %p: port %d %p->%p %d", this,
 				mix->port.port_id, io, mix->io, mix->io->buffer_id);
 		*mix->io = *io;
 	}
@@ -134,7 +136,7 @@ static int tee_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 	struct impl *impl = object;
 	struct pw_port *this = &impl->this;
 
-	pw_log_trace_fp("port %p: tee reuse buffer %d %d", this, port_id, buffer_id);
+	pw_log_trace_fp(NAME" %p: tee reuse buffer %d %d", this, port_id, buffer_id);
 	spa_node_port_reuse_buffer(this->node->node, this->port_id, buffer_id);
 
 	return 0;
@@ -157,7 +159,7 @@ static int schedule_mix_input(void *object)
 		return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
 
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
-		pw_log_trace_fp("port %p: mix input %d %p->%p %d %d", this,
+		pw_log_trace_fp(NAME" %p: mix input %d %p->%p %d %d", this,
 				mix->port.port_id, mix->io, io, mix->io->status, mix->io->buffer_id);
 		*io = *mix->io;
 		mix->io->status = SPA_STATUS_NEED_BUFFER;
@@ -173,7 +175,7 @@ static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t bu
 	struct pw_port_mix *mix;
 
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
-		pw_log_trace_fp("port %p: reuse buffer %d %d", this, port_id, buffer_id);
+		pw_log_trace_fp(NAME" %p: reuse buffer %d %d", this, port_id, buffer_id);
 		spa_node_port_reuse_buffer(this->node->node, port_id, buffer_id);
 	}
 	return 0;
@@ -223,7 +225,7 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 		}
 	}
 
-	pw_log_debug("port %p: init mix %d %d.%d io %p: (%s)", port,
+	pw_log_debug(NAME" %p: init mix %d %d.%d io %p: (%s)", port,
 			port->n_mix, port->port_id, mix->port.port_id, mix->io, spa_strerror(res));
 
 	return res;
@@ -243,7 +245,7 @@ int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix)
 
 	spa_node_remove_port(port->mix, port->direction, port_id);
 
-	pw_log_debug("port %p: release mix %d %d.%d", port,
+	pw_log_debug(NAME" %p: release mix %d %d.%d", port,
 			port->n_mix, port->port_id, mix->port.port_id);
 
 	return res;
@@ -256,7 +258,7 @@ static int update_properties(struct pw_port *port, const struct spa_dict *dict)
 	changed = pw_properties_update(port->properties, dict);
 
 	if (changed) {
-		pw_log_debug("port %p: updated %d properties", port, changed);
+		pw_log_debug(NAME" %p: updated %d properties", port, changed);
 		port->info.props = &port->properties->dict;
 		port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
 	}
@@ -285,7 +287,7 @@ static int notify_param(void *data, int seq, uint32_t id,
 		if (!resource_is_subscribed(resource, id))
 			continue;
 
-		pw_log_debug("resource %p: notify param %d", resource, id);
+		pw_log_debug(NAME" %p: resource %p notify param %d", port, resource, id);
 		pw_port_resource_param(resource, seq, id, index, next, param);
 	}
 	return 0;
@@ -299,7 +301,7 @@ static void emit_params(struct pw_port *port, uint32_t *changed_ids, uint32_t n_
 	if (port->global == NULL)
 		return;
 
-	pw_log_debug("port %p: emit %d params", port, n_changed_ids);
+	pw_log_debug(NAME" %p: emit %d params", port, n_changed_ids);
 
 	for (i = 0; i < n_changed_ids; i++) {
 		struct pw_resource *resource;
@@ -315,7 +317,7 @@ static void emit_params(struct pw_port *port, uint32_t *changed_ids, uint32_t n_
 
 		if ((res = pw_port_for_each_param(port, 1, changed_ids[i], 0, UINT32_MAX,
 					NULL, notify_param, port)) < 0) {
-			pw_log_error("port %p: error %d (%s)", port, res, spa_strerror(res));
+			pw_log_error(NAME" %p: error %d (%s)", port, res, spa_strerror(res));
 		}
 	}
 }
@@ -368,7 +370,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 		return NULL;
 
 	this = &impl->this;
-	pw_log_debug("port %p: new %s %d", this,
+	pw_log_debug(NAME" %p: new %s %d", this,
 			pw_direction_as_string(direction), port_id);
 
 	if (info && info->change_mask & SPA_PORT_CHANGE_MASK_PROPS && info->props)
@@ -433,7 +435,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	return this;
 
 error_no_mem:
-	pw_log_warn("port %p: new failed", impl);
+	pw_log_warn(NAME" %p: new failed", impl);
 	free(impl);
 	errno = -res;
 	return NULL;
@@ -448,7 +450,7 @@ int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 		node = &impl->mix_node;
 		flags = 0;
 	}
-	pw_log_debug("port %p: mix node %p->%p", port, port->mix, node);
+	pw_log_debug(NAME" %p: mix node %p->%p", port, port->mix, node);
 	port->mix = node;
 	port->mix_flags = flags;
 	return 0;
@@ -535,7 +537,7 @@ static int check_param_io(void *data, int seq, uint32_t id,
 			SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
 		return 0;
 
-	pw_log_debug("port %p: got io %s", port,
+	pw_log_debug(NAME" %p: got io %s", port,
 			spa_debug_type_find_name(spa_type_io, pid));
 
 	switch (pid) {
@@ -569,7 +571,8 @@ static int reply_param(void *data, int seq, uint32_t id,
 {
 	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
-	pw_log_debug("resource %p: reply param %u %u %u", resource, id, index, next);
+	pw_log_debug(NAME" %p: resource %p reply param %u %u %u", d->port,
+			resource, id, index, next);
 	pw_port_resource_param(resource, seq, id, index, next, param);
 	return 0;
 }
@@ -581,8 +584,10 @@ static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, 
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_port *port = data->port;
 	int res;
-	pw_log_debug("resource %p: enum params %d %s %u %u", resource, seq,
-			spa_debug_type_find_name(spa_type_param, id), index, num);
+
+	pw_log_debug(NAME" %p: resource %p enum params %d %s %u %u", port,
+			resource, seq, spa_debug_type_find_name(spa_type_param, id),
+			index, num);
 
 	if ((res = pw_port_for_each_param(port, seq, id, index, num, filter,
 			reply_param, data)) < 0)
@@ -602,8 +607,8 @@ static int port_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 
 	for (i = 0; i < n_ids; i++) {
 		data->subscribe_ids[i] = ids[i];
-		pw_log_debug("resource %p: subscribe param %s", resource,
-			spa_debug_type_find_name(spa_type_param, ids[i]));
+		pw_log_debug(NAME" %p: resource %p subscribe param %s", data->port,
+				resource, spa_debug_type_find_name(spa_type_param, ids[i]));
 		port_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
 	return 0;
@@ -642,7 +647,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 			&data->object_listener,
 			&port_methods, resource);
 
-	pw_log_debug("port %p: bound to %d", this, resource->id);
+	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
 
@@ -652,7 +657,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error("can't create port resource: %m");
+	pw_log_error(NAME" %p: can't create port resource: %m", this);
 	return res;
 }
 
@@ -747,9 +752,9 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	}
 
 	if (control) {
-		pw_log_debug("port %p: setting node control", port);
+		pw_log_debug(NAME" %p: setting node control", port);
 	} else {
-		pw_log_debug("port %p: setting node io", port);
+		pw_log_debug(NAME" %p: setting node io", port);
 		spa_node_port_set_io(node->node,
 				     port->direction, port->port_id,
 				     SPA_IO_Buffers,
@@ -761,7 +766,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 			     &port->rt.io, sizeof(port->rt.io));
 	}
 
-	pw_log_debug("port %p: %d add to node %p", port, port_id, node);
+	pw_log_debug(NAME" %p: %d add to node %p", port, port_id, node);
 
 	spa_list_append(ports, &port->link);
 
@@ -816,14 +821,14 @@ static void pw_port_remove(struct pw_port *port)
 	if (node == NULL)
 		return;
 
-	pw_log_debug("port %p: remove", port);
+	pw_log_debug(NAME" %p: remove", port);
 
 	pw_loop_invoke(port->node->data_loop, do_remove_port,
 		       SPA_ID_INVALID, NULL, 0, true, port);
 
 	if (SPA_FLAG_CHECK(port->flags, PW_PORT_FLAG_TO_REMOVE)) {
 		if ((res = spa_node_remove_port(node->node, port->direction, port->port_id)) < 0)
-			pw_log_warn("port %p: can't remove: %s", port, spa_strerror(res));
+			pw_log_warn(NAME" %p: can't remove: %s", port, spa_strerror(res));
 	}
 
 	if (port->direction == PW_DIRECTION_INPUT) {
@@ -842,11 +847,11 @@ void pw_port_destroy(struct pw_port *port)
 {
 	struct pw_control *control;
 
-	pw_log_debug("port %p: destroy", port);
+	pw_log_debug(NAME" %p: destroy", port);
 
 	pw_port_emit_destroy(port);
 
-	pw_log_debug("port %p: control destroy", port);
+	pw_log_debug(NAME" %p: control destroy", port);
 	spa_list_consume(control, &port->control_list[0], port_link)
 		pw_control_destroy(control);
 	spa_list_consume(control, &port->control_list[1], port_link)
@@ -859,7 +864,7 @@ void pw_port_destroy(struct pw_port *port)
 		pw_global_destroy(port->global);
 	}
 
-	pw_log_debug("port %p: free", port);
+	pw_log_debug(NAME" %p: free", port);
 	pw_port_emit_free(port);
 
 	free_allocation(&port->allocation);
@@ -918,7 +923,7 @@ int pw_port_for_each_param(struct pw_port *port,
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug("port %p: params %s %u %u", port,
+	pw_log_debug(NAME" %p: params %s %u %u", port,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
@@ -930,7 +935,7 @@ int pw_port_for_each_param(struct pw_port *port,
 					filter);
 	spa_hook_remove(&listener);
 
-	pw_log_debug("port %p: res %d: (%s)", port, res, spa_strerror(res));
+	pw_log_debug(NAME" %p: res %d: (%s)", port, res, spa_strerror(res));
 	return res;
 }
 
@@ -1008,7 +1013,7 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	int res = 0;
 	struct pw_node *node = port->node;
 
-	pw_log_debug("port %p: %d set param %d %p", port, port->state, id, param);
+	pw_log_debug(NAME" %p: %d set param %d %p", port, port->state, id, param);
 
 	/* set the parameters on all ports of the mixer node if possible */
 	{
@@ -1029,12 +1034,12 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 			port->direction, port->port_id,
 			id, flags, param);
 
-	pw_log_debug("port %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
+	pw_log_debug(NAME" %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
 			port->direction, port->port_id,
 			spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
 
 	if (id == SPA_PARAM_Format) {
-		pw_log_debug("port %p: %d %p %d", port, port->state, param, res);
+		pw_log_debug(NAME" %p: %d %p %d", port, port->state, param, res);
 
 		/* setting the format always destroys the negotiated buffers */
 		free_allocation(&port->allocation);
@@ -1056,7 +1061,7 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 	int res = 0, res2;
 	struct pw_node *node = port->node;
 
-	pw_log_debug("port %p: %d:%d.%d: %d buffers state:%d n_mix:%d", port,
+	pw_log_debug(NAME" %p: %d:%d.%d: %d buffers state:%d n_mix:%d", port,
 			port->direction, port->port_id, mix->id,
 			n_buffers, port->state, port->n_mix);
 
@@ -1072,13 +1077,13 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 	}
 	if (port->state == PW_PORT_STATE_READY) {
 		if (!SPA_FLAG_CHECK(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY)) {
-			pw_log_debug("port %p: use buffers on node: %p", port,
+			pw_log_debug(NAME" %p: use buffers on node: %p", port,
 					node->node);
 			res = spa_node_port_use_buffers(node->node,
 					port->direction, port->port_id,
 					flags, buffers, n_buffers);
 			if (res < 0) {
-				pw_log_error("port %p: use buffers on node: %d (%s)",
+				pw_log_error(NAME" %p: use buffers on node: %d (%s)",
 					port, res, spa_strerror(res));
 				pw_port_update_state(port, PW_PORT_STATE_ERROR,
 						"can't use buffers on port");
@@ -1086,7 +1091,7 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 			}
 		}
 		if ((res2 = pw_port_call_use_buffers(port, flags, buffers, n_buffers)) < 0) {
-			pw_log_warn("port %p: implementation alloc failed: %d (%s)",
+			pw_log_warn(NAME" %p: implementation alloc failed: %d (%s)",
 					port, res2, spa_strerror(res2));
 		}
 		if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res))
@@ -1097,7 +1102,7 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 				mix->port.direction, mix->port.port_id, flags,
 				buffers, n_buffers)) < 0) {
 		if (res2 != -ENOTSUP)
-			pw_log_warn("port %p: mix use buffers failed: %d (%s)",
+			pw_log_warn(NAME" %p: mix use buffers failed: %d (%s)",
 					port, res2, spa_strerror(res2));
 	}
 

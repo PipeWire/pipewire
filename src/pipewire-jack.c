@@ -670,7 +670,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 	struct timespec ts;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		pw_log_warn("got error");
+		pw_log_warn(NAME" %p: got error", c);
 		unhandle_socket(c);
 		return;
 	}
@@ -682,9 +682,9 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		struct link *l;
 
 		if (read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))
-			pw_log_warn("jack %p: read failed %m", c);
+			pw_log_warn(NAME" %p: read failed %m", c);
 		if (cmd > 1)
-			pw_log_warn("jack %p: missed %"PRIu64" wakeups", c, cmd - 1);
+			pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
 		if (c->position) {
 			struct spa_io_position *pos = c->position;
@@ -713,14 +713,14 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		c->activation->awake_time = nsec;
 
 		if (buffer_size != c->buffer_size) {
-			pw_log_info("jack %p: buffersize %d", c, buffer_size);
+			pw_log_info(NAME" %p: buffersize %d", c, buffer_size);
 			c->buffer_size = buffer_size;
 			if (c->bufsize_callback)
 				c->bufsize_callback(c->buffer_size, c->bufsize_arg);
 		}
 
 		if (sample_rate != c->sample_rate) {
-			pw_log_info("jack %p: sample_rate %d", c, sample_rate);
+			pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
 			c->sample_rate = sample_rate;
 			if (c->srate_callback)
 				c->srate_callback(c->sample_rate, c->srate_arg);
@@ -738,8 +738,8 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace("do process %"PRIu64" %d %d %d %"PRIi64" %f", nsec,
-				c->buffer_size, c->sample_rate,
+		pw_log_trace(NAME" %p: do process %"PRIu64" %d %d %d %"PRIi64" %f", c,
+				nsec, c->buffer_size, c->sample_rate,
 				c->jack_position.frame, delay, c->rate_diff);
 
 		if (c->process_callback)
@@ -768,14 +768,17 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 			state = &l->activation->state[0];
 
-			pw_log_trace("link %p %p %d/%d", l, state, state->pending, state->required);
+			pw_log_trace(NAME" %p: link %p %p %d/%d", c, l, state,
+					state->pending, state->required);
+
 			if (pw_node_activation_state_dec(state, 1)) {
 				l->activation->status = TRIGGERED;
 				l->activation->signal_time = nsec;
 
-				pw_log_trace("signal %p %p", l, state);
+				pw_log_trace(NAME" %p: signal %p %p", c, l, state);
+
 				if (write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
-					pw_log_warn("jack %p: write failed %m", c);
+					pw_log_warn(NAME" %p: write failed %m", c);
 			}
 		}
 	}
@@ -821,12 +824,12 @@ static int client_node_transport(void *object,
 	c->mem = pw_mempool_map_id(c->remote->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 	if (c->mem == NULL) {
-		pw_log_debug("client %p: can't map activation: %m", c);
+		pw_log_debug(NAME" %p: can't map activation: %m", c);
 		return -errno;
 	}
 	c->activation = c->mem->ptr;
 
-	pw_log_debug("client %p: create client transport with fds %d %d for node %u",
+	pw_log_debug(NAME" %p: create client transport with fds %d %d for node %u",
 			c, readfd, writefd, node_id);
 
 	close(writefd);
@@ -867,12 +870,12 @@ static int client_node_set_io(void *object,
 		mm = pw_mempool_map_id(c->remote->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
-                        pw_log_warn("can't map memory id %u", mem_id);
+                        pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
 			return -errno;
                 }
 		ptr = mm->ptr;
         }
-	pw_log_debug("client %p: set io %s %p", c,
+	pw_log_debug(NAME" %p: set io %s %p", c,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
 	switch (id) {
@@ -895,7 +898,8 @@ static int client_node_command(void *object, const struct spa_command *command)
 {
 	struct client *c = (struct client *) object;
 
-	pw_log_debug("got command %d", SPA_COMMAND_TYPE(command));
+	pw_log_debug(NAME" %p: got command %d", c, SPA_COMMAND_TYPE(command));
+
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Pause:
 		if (c->started) {
@@ -915,7 +919,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 		}
 		break;
 	default:
-		pw_log_warn("unhandled node command %d", SPA_COMMAND_TYPE(command));
+		pw_log_warn(NAME" %p: unhandled node command %d", c, SPA_COMMAND_TYPE(command));
 		pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP,
 				"unhandled command %d", SPA_COMMAND_TYPE(command));
 	}
@@ -1198,8 +1202,9 @@ static int client_node_port_use_buffers(void *object,
 		b->n_mem = 0;
 		b->mem[b->n_mem++] = mm;
 
-		pw_log_debug("add buffer id:%u offset:%u size:%u map:%p ptr:%p", buffers[i].mem_id,
-                                buffers[i].offset, buffers[i].size, mm, mm->ptr);
+		pw_log_debug(NAME" %p: add buffer id:%u offset:%u size:%u map:%p ptr:%p",
+				c, buffers[i].mem_id, buffers[i].offset,
+				buffers[i].size, mm, mm->ptr);
 
 		offset = 0;
 		for (j = 0; j < buf->n_metas; j++) {
@@ -1224,7 +1229,7 @@ static int client_node_port_use_buffers(void *object,
 
 				bm = pw_mempool_find_id(c->remote->pool, mem_id);
 				if (bm == NULL) {
-					pw_log_error("unknown buffer mem %u", mem_id);
+					pw_log_error(NAME" %p: unknown buffer mem %u", c, mem_id);
 					res = -ENODEV;
 					goto done;
 
@@ -1267,7 +1272,7 @@ static int client_node_port_use_buffers(void *object,
 		}
 
 	}
-	pw_log_debug("have %d buffers", n_buffers);
+	pw_log_debug(NAME" %p: have %d buffers", c, n_buffers);
 	mix->n_buffers = n_buffers;
 	res = 0;
 
@@ -1310,14 +1315,14 @@ static int client_node_port_set_io(void *object,
 		mm = pw_mempool_map_id(c->remote->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
-                        pw_log_warn("can't map memory id %u", mem_id);
+                        pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
 			res = -EINVAL;
                         goto exit;
                 }
 		ptr = mm->ptr;
         }
 
-	pw_log_debug("port %p: mix:%d set io:%s id:%u ptr:%p", p, mix_id,
+	pw_log_debug(NAME" %p: port %p mix:%d set io:%s id:%u ptr:%p", c, p, mix_id,
 			spa_debug_type_find_name(spa_type_io, id), id, ptr);
 
 	switch (id) {
@@ -1363,18 +1368,18 @@ static int client_node_set_activation(void *object,
 		mm = pw_mempool_map_id(c->remote->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
-			pw_log_warn("can't map memory id %u", mem_id);
+			pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
 			res = -EINVAL;
 			goto exit;
 		}
 		ptr = mm->ptr;
 	}
 
-	pw_log_debug("node %p: set activation %u: %u %u %u %p", c, node_id,
+	pw_log_debug(NAME" %p: set activation %u: %u %u %u %p", c, node_id,
 			mem_id, offset, size, ptr);
 
 	if (c->node_id == node_id) {
-		pw_log_debug("node %p: our activation %u: %u %u %u %p", c, node_id,
+		pw_log_debug(NAME" %p: our activation %u: %u %u %u %p", c, node_id,
 				mem_id, offset, size, ptr);
 		if (mm)
 			pw_memmap_free(mm);
@@ -1471,7 +1476,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		spa_list_append(&c->context.nodes, &o->link);
 
 		snprintf(o->node.name, sizeof(o->node.name), "%s/%d", str, id);
-		pw_log_debug("add node %d", id);
+		pw_log_debug(NAME" %p: add node %d", c, id);
 		break;
 
 	case PW_TYPE_INTERFACE_Port:
@@ -1517,7 +1522,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			snprintf(full_name, sizeof(full_name), "%s:%s", c->name, str);
 			o = find_port(c, full_name);
 			if (o != NULL)
-				pw_log_debug("client %p: %s found our port %p", c, full_name, o);
+				pw_log_debug(NAME" %p: %s found our port %p", c, full_name, o);
 		}
 		if (o == NULL) {
 			o = alloc_object(c);
@@ -1546,7 +1551,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		o->port.flags = flags;
 		o->port.type_id = type_id;
 
-		pw_log_debug("add port %d %s %d", id, o->port.name, type_id);
+		pw_log_debug(NAME" %p: add port %d %s %d", c, id, o->port.name, type_id);
 		break;
 	}
 	case PW_TYPE_INTERFACE_Link:
@@ -1561,7 +1566,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
 
-		pw_log_debug("add link %d %d->%d", id, o->port_link.src, o->port_link.dst);
+		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,
+				o->port_link.src, o->port_link.dst);
 		break;
 
 	default:
@@ -1605,7 +1611,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	struct client *c = (struct client *) object;
 	struct object *o;
 
-	pw_log_debug("removed: %u", id);
+	pw_log_debug(NAME" %p: removed: %u", c, id);
 
 	o = pw_map_lookup(&c->context.globals, id);
 	if (o == NULL)
@@ -1660,11 +1666,11 @@ jack_client_t * jack_client_open (const char *client_name,
         if (getenv("PIPEWIRE_NOJACK") != NULL)
 		goto disabled;
 
-	pw_log_debug("client open %s %d", client_name, options);
-
 	client = calloc(1, sizeof(struct client));
 	if (client == NULL)
 		goto init_failed;
+
+	pw_log_debug(NAME" %p: open '%s' options:%d", client, client_name, options);
 
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
@@ -1825,7 +1831,7 @@ int jack_client_close (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 
-	pw_log_debug("client %p: close", client);
+	pw_log_debug(NAME" %p: close", client);
 
 	pw_thread_loop_stop(c->context.loop);
 
@@ -1833,7 +1839,7 @@ int jack_client_close (jack_client_t *client)
         pw_thread_loop_destroy(c->context.loop);
         pw_main_loop_destroy(c->context.main);
 
-	pw_log_debug("client %p: free", client);
+	pw_log_debug(NAME" %p: free", client);
 	free(c);
 
 	return 0;
@@ -1856,7 +1862,7 @@ SPA_EXPORT
 char *jack_get_uuid_for_client_name (jack_client_t *client,
                                      const char    *client_name)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %s", client, client_name);
 	return NULL;
 }
 
@@ -1864,7 +1870,7 @@ SPA_EXPORT
 char *jack_get_client_name_by_uuid (jack_client_t *client,
                                     const char    *client_uuid )
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %s", client, client_uuid);
 	return NULL;
 }
 
@@ -1873,14 +1879,14 @@ int jack_internal_client_new (const char *client_name,
                               const char *load_name,
                               const char *load_init)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %s %s %s", client_name, load_name, load_init);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 void jack_internal_client_close (const char *client_name)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %s", client_name);
 }
 
 SPA_EXPORT
@@ -1924,7 +1930,7 @@ int jack_deactivate (jack_client_t *client)
 SPA_EXPORT
 int jack_get_client_pid (const char *name)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %s", name);
 	return -ENOTSUP;
 }
 
@@ -1937,28 +1943,28 @@ jack_native_thread_t jack_client_thread_id (jack_client_t *client)
 SPA_EXPORT
 int jack_is_realtime (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 jack_nframes_t jack_thread_wait (jack_client_t *client, int status)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %d", client, status);
 	return 0;
 }
 
 SPA_EXPORT
 jack_nframes_t jack_cycle_wait (jack_client_t* client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return 0;
 }
 
 SPA_EXPORT
 void jack_cycle_signal (jack_client_t* client, int status)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %d", client, status);
 }
 
 SPA_EXPORT
@@ -1967,10 +1973,10 @@ int jack_set_process_thread(jack_client_t* client, JackThreadCallback thread_cal
 	struct client *c = (struct client *) client;
 
 	if (c->active) {
-		pw_log_error("jack %p: can't set callback on active client", c);
+		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	} else if (c->process_callback) {
-		pw_log_error("jack %p: process callback was already set", c);
+		pw_log_error(NAME" %p: process callback was already set", c);
 		return -EIO;
 	}
 
@@ -2016,14 +2022,14 @@ int jack_set_process_callback (jack_client_t *client,
 	struct client *c = (struct client *) client;
 
 	if (c->active) {
-		pw_log_error("jack %p: can't set callback on active client", c);
+		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	} else if (c->thread_callback) {
-		pw_log_error("jack %p: thread callback was already set", c);
+		pw_log_error(NAME" %p: thread callback was already set", c);
 		return -EIO;
 	}
 
-	pw_log_debug("jack %p: %p %p", c, process_callback, arg);
+	pw_log_debug(NAME" %p: %p %p", c, process_callback, arg);
 	c->process_callback = process_callback;
 	c->process_arg = arg;
 	return 0;
@@ -2119,7 +2125,7 @@ SPA_EXPORT
 int jack_set_xrun_callback (jack_client_t *client,
                             JackXRunCallback xrun_callback, void *arg)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return 0;
 }
 
@@ -2128,21 +2134,21 @@ int jack_set_latency_callback (jack_client_t *client,
 			       JackLatencyCallback latency_callback,
 			       void *data)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_set_freewheel(jack_client_t* client, int onoff)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %d", client, onoff);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %d", client, nframes);
 	return -ENOTSUP;
 }
 
@@ -2167,14 +2173,14 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 SPA_EXPORT
 int jack_engine_takeover_timebase (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 float jack_cpu_load (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return 0.0;
 }
 
@@ -2200,7 +2206,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	struct port *p;
 	int res;
 
-	pw_log_debug("client %p: port register \"%s\" \"%s\" %ld %ld",
+	pw_log_debug(NAME" %p: port register \"%s\" \"%s\" %ld %ld",
 			c, port_name, port_type, flags, buffer_size);
 
 	if (flags & JackPortIsInput)
@@ -2273,10 +2279,10 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	int res;
 
 	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
-		pw_log_error("client %p: invalid port %p", client, port);
+		pw_log_error(NAME" %p: invalid port %p", client, port);
 		return -EINVAL;
 	}
-	pw_log_debug("client %p: port unregister %p", client, port);
+	pw_log_debug(NAME" %p: port unregister %p", client, port);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -2296,7 +2302,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	return res;
 }
 
-static void *mix_audio(struct port *p, jack_nframes_t frames)
+static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	struct buffer *b;
@@ -2305,8 +2311,8 @@ static void *mix_audio(struct port *p, jack_nframes_t frames)
 	void *ptr = NULL;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
-		pw_log_trace("port %p: mix %d.%d get buffer %d",
-				p, p->id, mix->id, frames);
+		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
+				c, p, p->id, mix->id, frames);
 		io = mix->io;
 		if (io == NULL || io->buffer_id >= mix->n_buffers)
 			continue;
@@ -2324,15 +2330,15 @@ static void *mix_audio(struct port *p, jack_nframes_t frames)
 	return ptr;
 }
 
-static void *mix_midi(struct port *p, jack_nframes_t frames)
+static void *mix_midi(struct client *c, struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	struct spa_io_sequence *io;
 	void *ptr = NULL;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
-		pw_log_trace("port %p: mix %d.%d get buffer %d",
-				p, p->id, mix->id, frames);
+		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
+				c, p, p->id, mix->id, frames);
 		io = mix->control;
 		if (io == NULL)
 			continue;
@@ -2354,7 +2360,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	void *ptr = NULL;
 
 	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
-		pw_log_error("client %p: invalid port %p", c, port);
+		pw_log_error(NAME" %p: invalid port %p", c, port);
 		return NULL;
 	}
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
@@ -2362,10 +2368,10 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		switch (p->object->port.type_id) {
 		case 0:
-			ptr = mix_audio(p, frames);
+			ptr = mix_audio(c, p, frames);
 			break;
 		case 1:
-			ptr = mix_midi(p, frames);
+			ptr = mix_midi(c, p, frames);
 			break;
 		}
 	} else {
@@ -2377,8 +2383,8 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		spa_list_for_each(mix, &p->mix, port_link) {
 			struct buffer *b;
 
-			pw_log_trace("port %p: mix %d.%d get buffer %d io:%p n_buffers:%d",
-					p, p->id, mix->id, frames, mix->io, mix->n_buffers);
+			pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d io:%p n_buffers:%d",
+					c, p, p->id, mix->id, frames, mix->io, mix->n_buffers);
 
 			if (mix->n_buffers == 0)
 				continue;
@@ -2414,14 +2420,14 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			p->zeroed = true;
 		}
 	}
-	pw_log_trace("port %p: buffer %p", p, ptr);
+	pw_log_trace(NAME" %p: port %p buffer %p", c, p, ptr);
 	return ptr;
 }
 
 SPA_EXPORT
 jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p", port);
 	return 0;
 }
 
@@ -2568,42 +2574,42 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 SPA_EXPORT
 int jack_port_tie (jack_port_t *src, jack_port_t *dst)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %p", src, dst);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_untie (jack_port_t *port)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p", port);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_set_name (jack_port_t *port, const char *port_name)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %s", port, port_name);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port_name)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %p %s", client, port, port_name);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_set_alias (jack_port_t *port, const char *alias)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %s", port, alias);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_unset_alias (jack_port_t *port, const char *alias)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %s", port, alias);
 	return -ENOTSUP;
 }
 
@@ -2632,7 +2638,7 @@ int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 SPA_EXPORT
 int jack_port_request_monitor (jack_port_t *port, int onoff)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %d", port, onoff);
 	return -ENOTSUP;
 }
 
@@ -2640,21 +2646,21 @@ SPA_EXPORT
 int jack_port_request_monitor_by_name (jack_client_t *client,
                                        const char *port_name, int onoff)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %s %d", client, port_name, onoff);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_ensure_monitor (jack_port_t *port, int onoff)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %d", port, onoff);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_port_monitoring_input (jack_port_t *port)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p", port);
 	return -ENOTSUP;
 }
 
@@ -2670,7 +2676,7 @@ int jack_connect (jack_client_t *client,
 	char val[4][16];
 	int res;
 
-	pw_log_debug("client %p: connect %s %s", client, source_port, destination_port);
+	pw_log_debug(NAME" %p: connect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -2719,14 +2725,14 @@ int jack_disconnect (jack_client_t *client,
 	struct object *src, *dst, *l;
 	int res;
 
-	pw_log_debug("client %p: disconnect %s %s", client, source_port, destination_port);
+	pw_log_debug(NAME" %p: disconnect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
 
 	src = find_port(c, source_port);
 	dst = find_port(c, destination_port);
 
-	pw_log_debug("client %p: %d %d", client, src->id, dst->id);
+	pw_log_debug(NAME" %p: %d %d", client, src->id, dst->id);
 
 	if (src == NULL || dst == NULL ||
 	    !(src->port.flags & JackPortIsOutput) ||
@@ -2758,7 +2764,7 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	struct object *l;
 	int res;
 
-	pw_log_debug("client %p: disconnect %p", client, port);
+	pw_log_debug(NAME" %p: disconnect %p", client, port);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -2802,32 +2808,32 @@ size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_t
 SPA_EXPORT
 void jack_port_set_latency (jack_port_t *port, jack_nframes_t frames)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %d", port, frames);
 }
 
 SPA_EXPORT
 void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %d", port, mode);
 }
 
 SPA_EXPORT
 void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p %d", port, mode);
 }
 
 SPA_EXPORT
 int jack_recompute_total_latencies (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 jack_nframes_t jack_port_get_latency (jack_port_t *port)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %p", port);
 	return 0;
 }
 
@@ -2835,14 +2841,14 @@ SPA_EXPORT
 jack_nframes_t jack_port_get_total_latency (jack_client_t *client,
 					    jack_port_t *port)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %p", client, port);
 	return 0;
 }
 
 SPA_EXPORT
 int jack_recompute_total_latency (jack_client_t *client, jack_port_t* port)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %p", client, port);
 	return -ENOTSUP;
 }
 
@@ -2872,11 +2878,12 @@ const char ** jack_get_ports (jack_client_t *client,
 
 	pw_thread_loop_lock(c->context.loop);
 
-	pw_log_debug("ports %d %s %s %08lx", id, port_name_pattern, type_name_pattern, flags);
+	pw_log_debug(NAME" %p: ports id:%d name:%s type:%s flags:%08lx", c, id,
+			port_name_pattern, type_name_pattern, flags);
 
 	spa_list_for_each(o, &c->context.ports, link) {
-		pw_log_debug("check port %s %d %lu",
-				o->port.name, o->port.type_id, o->port.flags);
+		pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:%s", c,
+				o->port.type_id, o->port.flags, o->port.name);
 		if (o->port.type_id == 2)
 			continue;
 		if (!SPA_FLAG_CHECK(o->port.flags, flags))
@@ -2894,7 +2901,7 @@ const char ** jack_get_ports (jack_client_t *client,
 				continue;
 		}
 
-		pw_log_debug("add port %d %s", count, o->port.name);
+		pw_log_debug(NAME" %p: port %s matches (%d)", c, o->port.name, count);
 		res[count++] = o->port.name;
 		if (count == JACK_PORT_MAX)
 			break;
@@ -2940,7 +2947,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	pw_thread_loop_lock(c->context.loop);
 
 	o = pw_map_lookup(&c->context.globals, port_id);
-	pw_log_debug("client %p: port %d -> %p", c, port_id, o);
+	pw_log_debug(NAME" %p: port %d -> %p", c, port_id, o);
 
 	if (o == NULL || o->type != PW_TYPE_INTERFACE_Port)
 		goto exit;
@@ -2995,7 +3002,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 	*current_usecs = c->jack_position.usecs;
 	*period_usecs = c->buffer_size / (c->sample_rate * c->rate_diff);
 	*next_usecs = c->jack_position.usecs + (*period_usecs * 1000000.0f);
-	pw_log_trace("client %p: %d %"PRIu64" %"PRIu64" %f", c, *current_frames,
+	pw_log_trace(NAME" %p: %d %"PRIu64" %"PRIu64" %f", c, *current_frames,
 			*current_usecs, *next_usecs, *period_usecs);
 	return 0;
 }
@@ -3045,7 +3052,7 @@ void jack_free(void* ptr)
 SPA_EXPORT
 int jack_release_timebase (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
@@ -3064,7 +3071,7 @@ SPA_EXPORT
 int jack_set_sync_timeout (jack_client_t *client,
 			   jack_time_t timeout)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %lu", client, timeout);
 	return -ENOTSUP;
 }
 
@@ -3084,7 +3091,7 @@ SPA_EXPORT
 int  jack_transport_locate (jack_client_t *client,
 			    jack_nframes_t frame)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %d", client, frame);
 	return -ENOTSUP;
 }
 
@@ -3101,7 +3108,7 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 SPA_EXPORT
 jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return 0;
 }
 
@@ -3109,20 +3116,20 @@ SPA_EXPORT
 int  jack_transport_reposition (jack_client_t *client,
 				const jack_position_t *pos)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 void jack_transport_start (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 }
 
 SPA_EXPORT
 void jack_transport_stop (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 }
 
 SPA_EXPORT
@@ -3131,14 +3138,14 @@ void jack_get_transport_info (jack_client_t *client,
 {
 	static jack_transport_info_t dummy;
 	memcpy(tinfo, &dummy, sizeof(jack_transport_info_t));
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 }
 
 SPA_EXPORT
 void jack_set_transport_info (jack_client_t *client,
 			      jack_transport_info_t *tinfo)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 }
 
 SPA_EXPORT
@@ -3146,7 +3153,7 @@ int jack_set_session_callback (jack_client_t       *client,
                                JackSessionCallback  session_callback,
                                void                *arg)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
@@ -3154,7 +3161,7 @@ SPA_EXPORT
 int jack_session_reply (jack_client_t        *client,
                         jack_session_event_t *event)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
@@ -3168,28 +3175,28 @@ void jack_session_event_free (jack_session_event_t *event)
 SPA_EXPORT
 char *jack_client_get_uuid (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return "";
 }
 
 SPA_EXPORT
 int jack_client_real_time_priority (jack_client_t * client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_client_max_real_time_priority (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %lu %d", thread, priority);
 	return -ENOTSUP;
 }
 
@@ -3226,21 +3233,21 @@ int jack_client_create_thread (jack_client_t* client,
 SPA_EXPORT
 int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn("not implemented %lu", thread);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %lu", client, thread);
 	return -ENOTSUP;
 }
 
 SPA_EXPORT
 int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 {
-	pw_log_warn("not implemented");
+	pw_log_warn(NAME" %p: not implemented %lu", client, thread);
 	return -ENOTSUP;
 }
 

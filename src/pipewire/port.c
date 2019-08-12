@@ -1107,6 +1107,8 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 			pw_log_warn(NAME" %p: mix use buffers failed: %d (%s)",
 					port, res2, spa_strerror(res2));
 	}
+	if (SPA_RESULT_IS_ASYNC(res2))
+		res = res2;
 
 	return res;
 }

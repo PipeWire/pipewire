@@ -709,9 +709,9 @@ do_port_use_buffers(struct impl *impl,
 	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u", impl,
+	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
-			port_id, mix_id, buffers, n_buffers);
+			port_id, mix_id, buffers, n_buffers, flags);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 

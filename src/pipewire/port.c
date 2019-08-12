@@ -680,9 +680,11 @@ int pw_port_register(struct pw_port *port,
 		     struct pw_properties *properties)
 {
 	struct pw_node *node = port->node;
-	struct pw_core *core = node->core;
 
-	port->global = pw_global_new(core,
+	if (node == NULL)
+		return -EIO;
+
+	port->global = pw_global_new(node->core,
 				PW_TYPE_INTERFACE_Port,
 				PW_VERSION_PORT_PROXY,
 				properties,

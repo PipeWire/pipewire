@@ -721,7 +721,6 @@ static void check_properties(struct pw_node *node)
 		node->quantum_size = DEFAULT_QUANTUM;
 
 	pw_log_debug(NAME" %p: driver:%d", node, node->driver);
-
 }
 
 static void dump_states(struct pw_node *driver)

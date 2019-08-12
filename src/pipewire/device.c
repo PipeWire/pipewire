@@ -370,7 +370,12 @@ int pw_device_register(struct pw_device *device,
 	if (properties == NULL)
 		return -errno;
 
-	pw_properties_set(properties, PW_KEY_DEVICE_NAME, device->info.name);
+	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_DESCRIPTION)) != NULL)
+		pw_properties_set(properties, PW_KEY_DEVICE_DESCRIPTION, str);
+	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NAME)) != NULL)
+		pw_properties_set(properties, PW_KEY_DEVICE_NAME, str);
+	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NICK)) != NULL)
+		pw_properties_set(properties, PW_KEY_DEVICE_NICK, str);
 	if ((str = pw_properties_get(device->properties, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
 
@@ -445,6 +450,7 @@ static int update_properties(struct pw_device *device, const struct spa_dict *di
 
 	device->info.props = &device->properties->dict;
 	device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
+
 	return changed;
 }
 

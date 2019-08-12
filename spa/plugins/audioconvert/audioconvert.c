@@ -552,7 +552,37 @@ static struct spa_node_events fmt_output_events = {
 	.result = on_node_result,
 };
 
-static struct spa_node_events node_events = {
+static void on_channelmix_info(void *data, const struct spa_node_info *info)
+{
+	struct impl *this = data;
+	uint32_t i;
+
+	for (i = 0; i < info->n_params; i++) {
+		uint32_t idx = SPA_ID_INVALID;
+
+		switch (info->params[i].id) {
+		case SPA_PARAM_PropInfo:
+			idx = 2;
+			break;
+		case SPA_PARAM_Props:
+			idx = 3;
+			break;
+		}
+		if (idx != SPA_ID_INVALID) {
+			this->params[idx] = info->params[i];
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		}
+	}
+	emit_node_info(this, false);
+}
+
+static struct spa_node_events channelmix_events = {
+	SPA_VERSION_NODE_EVENTS,
+	.info = on_channelmix_info,
+	.result = on_node_result,
+};
+
+static struct spa_node_events resample_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.result = on_node_result,
 };
@@ -774,9 +804,9 @@ impl_node_add_listener(void *object,
 	spa_node_add_listener(this->fmt[SPA_DIRECTION_INPUT],
 			&l[0], &fmt_input_events, this);
 	spa_node_add_listener(this->channelmix,
-			&l[1], &node_events, this);
+			&l[1], &channelmix_events, this);
 	spa_node_add_listener(this->resample,
-			&l[2], &node_events, this);
+			&l[2], &resample_events, this);
 	spa_node_add_listener(this->fmt[SPA_DIRECTION_OUTPUT],
 			&l[3], &fmt_output_events, this);
 
@@ -1229,9 +1259,9 @@ impl_init(const struct spa_handle_factory *factory,
 	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_INPUT, false, NULL);
 
 	spa_node_add_listener(this->channelmix,
-			&this->listener[0], &node_events, this);
+			&this->listener[0], &channelmix_events, this);
 	spa_node_add_listener(this->resample,
-			&this->listener[1], &node_events, this);
+			&this->listener[1], &resample_events, this);
 
 	return 0;
 }

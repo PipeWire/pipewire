@@ -130,6 +130,23 @@ struct impl {
 #define _MASK(ch)	(1ULL << SPA_AUDIO_CHANNEL_ ## ch)
 #define STEREO	(_MASK(FL)|_MASK(FR))
 
+static void emit_info(struct impl *this, bool full)
+{
+	if (full)
+		this->info.change_mask = this->info_all;
+	if (this->info.change_mask) {
+		spa_node_emit_info(&this->hooks, &this->info);
+		this->info.change_mask = 0;
+	}
+}
+
+static void emit_params_changed(struct impl *this)
+{
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_info(this, false);
+}
+
 static uint64_t default_mask(uint32_t channels)
 {
 	uint64_t mask = 0;
@@ -334,16 +351,6 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return -ENOTSUP;
 }
 
-static void emit_info(struct impl *this, bool full)
-{
-	if (full)
-		this->info.change_mask = this->info_all;
-	if (this->info.change_mask) {
-		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = 0;
-	}
-}
-
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -353,11 +360,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 	switch (id) {
 	case SPA_PARAM_Props:
-		if (apply_props(this, param) > 0) {
-			this->info.change_mask = SPA_NODE_CHANGE_MASK_PARAMS;
-			this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
-			emit_info(this, false);
-		}
+		if (apply_props(this, param) > 0)
+			emit_params_changed(this);
 		break;
 	default:
 		return -ENOENT;

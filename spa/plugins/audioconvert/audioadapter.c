@@ -291,6 +291,30 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return res;
 }
 
+static void convert_node_info(void *data, const struct spa_node_info *info)
+{
+	struct impl *this = data;
+	uint32_t i;
+
+	for (i = 0; i < info->n_params; i++) {
+		uint32_t idx = SPA_ID_INVALID;
+
+		switch (info->params[i].id) {
+		case SPA_PARAM_PropInfo:
+			idx = 1;
+			break;
+		case SPA_PARAM_Props:
+			idx = 2;
+			break;
+		}
+		if (idx != SPA_ID_INVALID) {
+			this->params[idx] = info->params[i];
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		}
+	}
+	emit_node_info(this, false);
+}
+
 static void convert_port_info(void *data,
 		enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
@@ -319,6 +343,7 @@ static void convert_result(void *data, int seq, int res, uint32_t type, const vo
 
 static const struct spa_node_events convert_node_events = {
 	SPA_VERSION_NODE_EVENTS,
+	.info = convert_node_info,
 	.port_info = convert_port_info,
 	.result = convert_result,
 };
@@ -333,6 +358,9 @@ static void slave_info(void *data, const struct spa_node_info *info)
         else
 		this->direction = SPA_DIRECTION_OUTPUT;
 
+	this->info.max_input_ports = this->direction == SPA_DIRECTION_INPUT ? 128 : 0;
+	this->info.max_output_ports = this->direction == SPA_DIRECTION_OUTPUT ? 128 : 0;
+
 	spa_log_debug(this->log, NAME" %p: slave info %s", this,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output");
@@ -343,9 +371,33 @@ static void slave_info(void *data, const struct spa_node_info *info)
 	}
 }
 
+static void slave_port_info(void *data,
+		enum spa_direction direction, uint32_t port_id,
+		const struct spa_port_info *info)
+{
+	struct impl *this = data;
+	uint32_t i;
+
+	for (i = 0; i < info->n_params; i++) {
+		uint32_t idx = SPA_ID_INVALID;
+
+		switch (info->params[i].id) {
+		case SPA_PARAM_Format:
+			idx = 3;
+			break;
+		}
+		if (idx != SPA_ID_INVALID) {
+			this->params[idx] = info->params[i];
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		}
+	}
+	emit_node_info(this, false);
+}
+
 static const struct spa_node_events slave_node_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.info = slave_info,
+	.port_info = slave_port_info,
 };
 
 static int slave_ready(void *data, int status)
@@ -353,6 +405,8 @@ static int slave_ready(void *data, int status)
 	struct impl *this = data;
 
 	spa_log_trace(this->log, NAME " %p: ready %d", this, status);
+
+	this->master = true;
 
 	if (this->direction == SPA_DIRECTION_OUTPUT)
 		status = spa_node_process(this->convert);
@@ -766,8 +820,8 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	int status;
 
-	spa_log_trace_fp(this->log, "%p: process convert:%u",
-			this, this->use_converter);
+	spa_log_trace_fp(this->log, "%p: process convert:%u master:%d",
+			this, this->use_converter, this->master);
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
 		if (this->use_converter)
@@ -779,6 +833,7 @@ static int impl_node_process(void *object)
 	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
 		if (this->use_converter)
 			status = spa_node_process(this->convert);
+		this->master = false;
 	}
 	return status;
 }
@@ -901,15 +956,12 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->slave == NULL)
 		return -EINVAL;
 
-	spa_node_add_listener(this->slave,
-			&this->slave_listener, &slave_node_events, this);
-	spa_node_set_callbacks(this->slave, &slave_node_callbacks, this);
+	spa_hook_list_init(&this->hooks);
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, this);
-	spa_hook_list_init(&this->hooks);
 
 	this->hnd_convert = SPA_MEMBER(this, sizeof(struct impl), struct spa_handle);
 	spa_handle_factory_init(&spa_audioconvert_factory,
@@ -919,18 +971,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_handle_get_interface(this->hnd_convert, SPA_TYPE_INTERFACE_Node, &iface);
 	this->convert = iface;
 	this->target = this->convert;
-	spa_node_add_listener(this->convert,
-			&this->convert_listener, &convert_node_events, this);
-	this->use_converter = true;
-
-	configure_adapt(this);
-
-	link_io(this);
 
 	this->info_all = SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
-	this->info.max_input_ports = this->direction == SPA_DIRECTION_INPUT ? 128 : 0;
-	this->info.max_output_ports = this->direction == SPA_DIRECTION_OUTPUT ? 128 : 0;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
@@ -938,6 +981,18 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
 	this->info.n_params = 5;
+
+	spa_node_add_listener(this->slave,
+			&this->slave_listener, &slave_node_events, this);
+	spa_node_set_callbacks(this->slave, &slave_node_callbacks, this);
+
+	spa_node_add_listener(this->convert,
+			&this->convert_listener, &convert_node_events, this);
+	this->use_converter = true;
+
+	configure_adapt(this);
+
+	link_io(this);
 
 	return 0;
 }

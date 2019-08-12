@@ -104,6 +104,9 @@ extern "C" {
 /** Node keys */
 #define PW_KEY_NODE_ID			"node.id"		/**< node id */
 #define PW_KEY_NODE_NAME		"node.name"		/**< node name */
+#define PW_KEY_NODE_NICK		"node.nick"		/**< short node name */
+#define PW_KEY_NODE_DESCRIPTION		"node.description"	/**< localized human readable node one-line
+								  *  description. Ex. "Foobar USB Headset" */
 #define PW_KEY_NODE_PLUGGED		"node.plugged"		/**< when the node was created. As a uint64 in
 								  *  nanoseconds. */
 #define PW_KEY_NODE_SESSION		"node.session"		/**< the session id this node is part of */
@@ -140,6 +143,7 @@ extern "C" {
 								  *  does not cause the graph to be
 								  *  runnable. */
 /** device properties */
+#define PW_KEY_DEVICE_ID		"device.id"		/**< device id */
 #define PW_KEY_DEVICE_NAME		"device.name"		/**< device name */
 #define PW_KEY_DEVICE_PLUGGED		"device.plugged"	/**< when the device was created. As a uint64 in
 								  *  nanoseconds. */

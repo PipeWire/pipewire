@@ -1376,6 +1376,24 @@ static int find_format(struct stream *impl, enum pw_direction direction,
 	return 0;
 }
 
+static const char *get_media_class(struct stream *impl)
+{
+	switch (impl->media_type) {
+	case SPA_MEDIA_TYPE_audio:
+		return "Audio";
+	case SPA_MEDIA_TYPE_video:
+		return "Video";
+	case SPA_MEDIA_TYPE_stream:
+		switch(impl->media_subtype) {
+		case SPA_MEDIA_SUBTYPE_midi:
+			return "Midi";
+		}
+		/* fallthrough */
+	default:
+		return "Data";
+	}
+}
+
 SPA_EXPORT
 int
 pw_stream_connect(struct pw_stream *stream,
@@ -1436,8 +1454,9 @@ pw_stream_connect(struct pw_stream *stream,
 
 	impl->alloc_buffers = SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_ALLOC_BUFFERS);
 
-	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/Audio",
-			direction == PW_DIRECTION_INPUT ? "Input" : "Output");
+	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
+			direction == PW_DIRECTION_INPUT ? "Input" : "Output",
+			get_media_class(impl));
 
 	state = pw_remote_get_state(stream->remote, NULL);
 	impl->async_connect = (state == PW_REMOTE_STATE_UNCONNECTED ||

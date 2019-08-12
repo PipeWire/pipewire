@@ -81,7 +81,7 @@ static void *create_object(void *_data,
 	struct factory_data *data = _data;
 	struct pw_core *core = data->core;
 	struct pw_device *device;
-	const char *factory_name, *name;
+	const char *factory_name;
 	struct device_data *nd;
 	int res;
 
@@ -92,15 +92,10 @@ static void *create_object(void *_data,
 	if (factory_name == NULL)
 		goto error_properties;
 
-	name = pw_properties_get(properties, PW_KEY_DEVICE_NAME);
-	if (name == NULL)
-		name = "spa-device";
-
 	device = pw_spa_device_load(core,
 				NULL,
 				pw_factory_get_global(data->this),
 				factory_name,
-				name,
 				0,
 				properties,
 				sizeof(struct device_data));

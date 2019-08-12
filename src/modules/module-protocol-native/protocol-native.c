@@ -251,12 +251,12 @@ static int core_event_demarshal_info(void *object, const struct pw_protocol_nati
 		return -EINVAL;
 	if (spa_pod_parser_get(&prs,
 			 SPA_POD_Int(&info.id),
-			 SPA_POD_Long(&info.change_mask),
+			 SPA_POD_Int(&info.cookie),
 			 SPA_POD_String(&info.user_name),
 			 SPA_POD_String(&info.host_name),
 			 SPA_POD_String(&info.version),
 			 SPA_POD_String(&info.name),
-			 SPA_POD_Int(&info.cookie), NULL) < 0)
+			 SPA_POD_Long(&info.change_mask), NULL) < 0)
 		return -EINVAL;
 
 	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
@@ -380,12 +380,12 @@ static void core_event_marshal_info(void *object, const struct pw_core_info *inf
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
-			    SPA_POD_Long(info->change_mask),
+			    SPA_POD_Int(info->cookie),
 			    SPA_POD_String(info->user_name),
 			    SPA_POD_String(info->host_name),
 			    SPA_POD_String(info->version),
 			    SPA_POD_String(info->name),
-			    SPA_POD_Int(info->cookie),
+			    SPA_POD_Long(info->change_mask),
 			    NULL);
 	push_dict(b, info->props);
 	spa_pod_builder_pop(b, &f);
@@ -719,10 +719,10 @@ static void module_marshal_info(void *object, const struct pw_module_info *info)
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
-			    SPA_POD_Long(info->change_mask),
 			    SPA_POD_String(info->name),
 			    SPA_POD_String(info->filename),
 			    SPA_POD_String(info->args),
+			    SPA_POD_Long(info->change_mask),
 			    NULL);
 	push_dict(b, info->props);
 	spa_pod_builder_pop(b, &f);
@@ -742,10 +742,10 @@ static int module_demarshal_info(void *object, const struct pw_protocol_native_m
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&info.id),
-			SPA_POD_Long(&info.change_mask),
 			SPA_POD_String(&info.name),
 			SPA_POD_String(&info.filename),
-			SPA_POD_String(&info.args), NULL) < 0)
+			SPA_POD_String(&info.args),
+			SPA_POD_Long(&info.change_mask), NULL) < 0)
 		return -EINVAL;
 
 	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
@@ -782,7 +782,6 @@ static void device_marshal_info(void *object, const struct pw_device_info *info)
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
-			    SPA_POD_String(info->name),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
 	push_dict(b, info->props);
@@ -805,7 +804,6 @@ static int device_demarshal_info(void *object, const struct pw_protocol_native_m
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&info.id),
-			SPA_POD_String(&info.name),
 			SPA_POD_Long(&info.change_mask), NULL) < 0)
 		return -EINVAL;
 
@@ -969,10 +967,10 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
-			    SPA_POD_Long(info->change_mask),
 			    SPA_POD_String(info->name),
 			    SPA_POD_Id(info->type),
 			    SPA_POD_Int(info->version),
+			    SPA_POD_Long(info->change_mask),
 			    NULL);
 	push_dict(b, info->props);
 	spa_pod_builder_pop(b, &f);
@@ -992,10 +990,10 @@ static int factory_demarshal_info(void *object, const struct pw_protocol_native_
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&info.id),
-			SPA_POD_Long(&info.change_mask),
 			SPA_POD_String(&info.name),
 			SPA_POD_Id(&info.type),
-			SPA_POD_Int(&info.version), NULL) < 0)
+			SPA_POD_Int(&info.version),
+			SPA_POD_Long(&info.change_mask), NULL) < 0)
 		return -EINVAL;
 
 	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
@@ -1032,11 +1030,10 @@ static void node_marshal_info(void *object, const struct pw_node_info *info)
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
-			    SPA_POD_Long(info->change_mask),
-			    SPA_POD_String(info->name),
 			    SPA_POD_Int(info->max_input_ports),
-			    SPA_POD_Int(info->n_input_ports),
 			    SPA_POD_Int(info->max_output_ports),
+			    SPA_POD_Long(info->change_mask),
+			    SPA_POD_Int(info->n_input_ports),
 			    SPA_POD_Int(info->n_output_ports),
 			    SPA_POD_Id(info->state),
 			    SPA_POD_String(info->error),
@@ -1061,11 +1058,10 @@ static int node_demarshal_info(void *object, const struct pw_protocol_native_mes
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&info.id),
-			SPA_POD_Long(&info.change_mask),
-			SPA_POD_String(&info.name),
 			SPA_POD_Int(&info.max_input_ports),
-			SPA_POD_Int(&info.n_input_ports),
 			SPA_POD_Int(&info.max_output_ports),
+			SPA_POD_Long(&info.change_mask),
+			SPA_POD_Int(&info.n_input_ports),
 			SPA_POD_Int(&info.n_output_ports),
 			SPA_POD_Id(&info.state),
 			SPA_POD_String(&info.error), NULL) < 0)
@@ -1734,11 +1730,11 @@ static void link_marshal_info(void *object, const struct pw_link_info *info)
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
-			    SPA_POD_Long(info->change_mask),
 			    SPA_POD_Int(info->output_node_id),
 			    SPA_POD_Int(info->output_port_id),
 			    SPA_POD_Int(info->input_node_id),
 			    SPA_POD_Int(info->input_port_id),
+			    SPA_POD_Long(info->change_mask),
 			    SPA_POD_Int(info->state),
 			    SPA_POD_String(info->error),
 			    SPA_POD_Pod(info->format),
@@ -1761,11 +1757,11 @@ static int link_demarshal_info(void *object, const struct pw_protocol_native_mes
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&info.id),
-			SPA_POD_Long(&info.change_mask),
 			SPA_POD_Int(&info.output_node_id),
 			SPA_POD_Int(&info.output_port_id),
 			SPA_POD_Int(&info.input_node_id),
 			SPA_POD_Int(&info.input_port_id),
+			SPA_POD_Long(&info.change_mask),
 			SPA_POD_Int(&info.state),
 			SPA_POD_String(&info.error),
 			SPA_POD_Pod(&info.format), NULL) < 0)

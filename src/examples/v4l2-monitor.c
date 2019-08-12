@@ -108,17 +108,22 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 		goto exit;
 	}
 
-	node->props = pw_properties_copy(obj->props);
-	pw_properties_update(node->props, info->props);
+	node->props = pw_properties_new_dict(info->props);
 
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
+	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
+		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
 	if (str == NULL)
 		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_ALIAS);
 	if (str == NULL)
 		str = "v4l2-device";
-	pw_properties_set(node->props, PW_KEY_NODE_NAME, str);
+	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
+
+	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION);
+	if (str == NULL)
+		str = "v4l2-device";
+	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
+
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
 	node->monitor = monitor;
@@ -208,6 +213,32 @@ static void v4l2_update_object(struct monitor *monitor, struct v4l2_object *obj,
 	pw_properties_update(obj->props, info->props);
 }
 
+static int v4l2_update_device_props(struct v4l2_object *obj)
+{
+	struct pw_properties *p = obj->props;
+	const char *s, *d;
+	char temp[32];
+
+	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
+		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_ID)) == NULL) {
+			if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
+				snprintf(temp, sizeof(temp), "%d", obj->id);
+				s = temp;
+			}
+		}
+	}
+	pw_properties_setf(p, PW_KEY_DEVICE_NAME, "v4l2_device.%s", s);
+
+	if (pw_properties_get(p, PW_KEY_DEVICE_DESCRIPTION) == NULL) {
+		d = pw_properties_get(p, PW_KEY_DEVICE_PRODUCT_NAME);
+		if (!d)
+			d = "Unknown device";
+
+		pw_properties_set(p, PW_KEY_DEVICE_DESCRIPTION, d);
+	}
+	return 0;
+}
+
 static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t id,
 		const struct spa_monitor_object_info *info)
 {
@@ -250,6 +281,8 @@ static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t 
 	obj->handle = handle;
 	obj->device = iface;
 	obj->props = pw_properties_new_dict(info->props);
+	v4l2_update_device_props(obj);
+
 	obj->proxy = pw_remote_export(impl->remote,
 			info->type, obj->props, obj->device, 0);
 	if (obj->proxy == NULL) {

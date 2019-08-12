@@ -43,7 +43,6 @@ struct pw_device *
 pw_spa_device_new(struct pw_core *core,
 		  struct pw_client *owner,	/**< optional owner */
 		  struct pw_global *parent,	/**< optional parent */
-		  const char *name,
 		  enum pw_spa_device_flags flags,
 		  struct spa_device *device,
 		  struct spa_handle *handle,
@@ -55,7 +54,6 @@ pw_spa_device_load(struct pw_core *core,
 		   struct pw_client *owner,	/**< optional owner */
 		   struct pw_global *parent,	/**< optional parent */
 		   const char *factory_name,
-		   const char *name,
 		   enum pw_spa_device_flags flags,
 		   struct pw_properties *properties,
 		   size_t user_data_size);

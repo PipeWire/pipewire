@@ -334,7 +334,6 @@ impl_node_add_listener(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_node_info(this, true);

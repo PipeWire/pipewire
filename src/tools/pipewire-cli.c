@@ -517,7 +517,7 @@ static bool do_switch_remote(struct data *data, const char *cmd, char *args, cha
 	return false;
 }
 
-#define MARK_CHANGE(f) ((((info)->change_mask & (1 << (f)))) ? '*' : ' ')
+#define MARK_CHANGE(f) ((((info)->change_mask & (f))) ? '*' : ' ')
 
 static void info_global(struct proxy_data *pd)
 {
@@ -531,7 +531,9 @@ static void info_global(struct proxy_data *pd)
 	fprintf(stdout, "\tpermissions: %c%c%c\n", global->permissions & PW_PERM_R ? 'r' : '-',
 					  global->permissions & PW_PERM_W ? 'w' : '-',
 					  global->permissions & PW_PERM_X ? 'x' : '-');
-	fprintf(stdout, "\ttype: %s/%d\n", spa_debug_type_find_name(pw_type_info(), global->type), pd->global->version);
+	fprintf(stdout, "\ttype: %s/%d\n",
+			spa_debug_type_find_name(pw_type_info(), global->type),
+			pd->global->version);
 }
 
 static void info_core(struct proxy_data *pd)
@@ -539,12 +541,12 @@ static void info_core(struct proxy_data *pd)
 	struct pw_core_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "%c\tuser-name: \"%s\"\n", MARK_CHANGE(0), info->user_name);
-	fprintf(stdout, "%c\thost-name: \"%s\"\n", MARK_CHANGE(1), info->host_name);
-	fprintf(stdout, "%c\tversion: \"%s\"\n", MARK_CHANGE(2), info->version);
-	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(3), info->name);
-	fprintf(stdout, "%c\tcookie: %u\n", MARK_CHANGE(4), info->cookie);
-	print_properties(info->props, MARK_CHANGE(5), true);
+	fprintf(stdout, "\tcookie: %u\n", info->cookie);
+	fprintf(stdout, "\tuser-name: \"%s\"\n", info->user_name);
+	fprintf(stdout, "\thost-name: \"%s\"\n", info->host_name);
+	fprintf(stdout, "\tversion: \"%s\"\n", info->version);
+	fprintf(stdout, "\tname: \"%s\"\n", info->name);
+	print_properties(info->props, MARK_CHANGE(PW_CORE_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
 
@@ -553,10 +555,10 @@ static void info_module(struct proxy_data *pd)
 	struct pw_module_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-	fprintf(stdout, "%c\tfilename: \"%s\"\n", MARK_CHANGE(1), info->filename);
-	fprintf(stdout, "%c\targs: \"%s\"\n", MARK_CHANGE(2), info->args);
-	print_properties(info->props, MARK_CHANGE(3), true);
+	fprintf(stdout, "\tname: \"%s\"\n", info->name);
+	fprintf(stdout, "\tfilename: \"%s\"\n", info->filename);
+	fprintf(stdout, "\targs: \"%s\"\n", info->args);
+	print_properties(info->props, MARK_CHANGE(PW_MODULE_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
 
@@ -565,18 +567,18 @@ static void info_node(struct proxy_data *pd)
 	struct pw_node_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-	fprintf(stdout, "%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
+	fprintf(stdout, "%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
 			info->n_input_ports, info->max_input_ports);
-	fprintf(stdout, "%c\toutput ports: %u/%u\n", MARK_CHANGE(2),
+	fprintf(stdout, "%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
 			info->n_output_ports, info->max_output_ports);
-	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(3), pw_node_state_as_string(info->state));
+	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
+			pw_node_state_as_string(info->state));
 	if (info->state == PW_NODE_STATE_ERROR && info->error)
 		fprintf(stdout, " \"%s\"\n", info->error);
 	else
 		fprintf(stdout, "\n");
-	print_properties(info->props, MARK_CHANGE(4), true);
-	print_params(info->params, info->n_params, MARK_CHANGE(5), true);
+	print_properties(info->props, MARK_CHANGE(PW_NODE_CHANGE_MASK_PROPS), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS), true);
 	info->change_mask = 0;
 }
 
@@ -585,8 +587,9 @@ static void info_port(struct proxy_data *pd)
 	struct pw_port_info *info = pd->info;
 
 	info_global(pd);
-	print_properties(info->props, MARK_CHANGE(0), true);
-	print_params(info->params, info->n_params, MARK_CHANGE(1), true);
+	fprintf(stdout, "\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
+	print_properties(info->props, MARK_CHANGE(PW_PORT_CHANGE_MASK_PROPS), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(PW_PORT_CHANGE_MASK_PARAMS), true);
 	info->change_mask = 0;
 }
 
@@ -596,8 +599,9 @@ static void info_factory(struct proxy_data *pd)
 
 	info_global(pd);
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	fprintf(stdout, "\tobject-type: %s/%d\n", spa_debug_type_find_name(pw_type_info(), info->type), info->version);
-	print_properties(info->props, MARK_CHANGE(0), true);
+	fprintf(stdout, "\tobject-type: %s/%d\n",
+			spa_debug_type_find_name(pw_type_info(), info->type), info->version);
+	print_properties(info->props, MARK_CHANGE(PW_FACTORY_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
 
@@ -606,7 +610,7 @@ static void info_client(struct proxy_data *pd)
 	struct pw_client_info *info = pd->info;
 
 	info_global(pd);
-	print_properties(info->props, MARK_CHANGE(0), true);
+	print_properties(info->props, MARK_CHANGE(PW_CLIENT_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
 
@@ -615,16 +619,23 @@ static void info_link(struct proxy_data *pd)
 	struct pw_link_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "%c\toutput-node-id: %u\n", MARK_CHANGE(0), info->output_node_id);
-	fprintf(stdout, "%c\toutput-port-id: %u\n", MARK_CHANGE(0), info->output_port_id);
-	fprintf(stdout, "%c\tinput-node-id: %u\n", MARK_CHANGE(1), info->input_node_id);
-	fprintf(stdout, "%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
-	fprintf(stdout, "%c\tformat:\n", MARK_CHANGE(2));
+	fprintf(stdout, "\toutput-node-id: %u\n", info->output_node_id);
+	fprintf(stdout, "\toutput-port-id: %u\n", info->output_port_id);
+	fprintf(stdout, "\tinput-node-id: %u\n", info->input_node_id);
+	fprintf(stdout, "\tinput-port-id: %u\n", info->input_port_id);
+
+	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
+			pw_link_state_as_string(info->state));
+	if (info->state == PW_LINK_STATE_ERROR && info->error)
+		printf(" \"%s\"\n", info->error);
+	else
+		printf("\n");
+	fprintf(stdout, "%c\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
 	if (info->format)
 		spa_debug_format(2, NULL, info->format);
 	else
 		fprintf(stdout, "\t\tnone\n");
-	print_properties(info->props, MARK_CHANGE(3), true);
+	print_properties(info->props, MARK_CHANGE(PW_LINK_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
 
@@ -633,9 +644,8 @@ static void info_device(struct proxy_data *pd)
 	struct pw_device_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	print_properties(info->props, MARK_CHANGE(0), true);
-	print_params(info->params, info->n_params, MARK_CHANGE(1), true);
+	print_properties(info->props, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PROPS), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PARAMS), true);
 	info->change_mask = 0;
 }
 

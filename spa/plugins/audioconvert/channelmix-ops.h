@@ -26,11 +26,10 @@
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
+#include <spa/param/audio/raw.h>
 
 #define VOLUME_MIN 0.0f
 #define VOLUME_NORM 1.0f
-
-#define MAX_CHANNELS	64
 
 #define _M(ch)		(1UL << SPA_AUDIO_CHANNEL_ ## ch)
 #define MASK_MONO	_M(FC)|_M(MONO)|_M(UNKNOWN)
@@ -52,10 +51,14 @@ struct channelmix {
 
 	unsigned int is_identity:1;
 	float volume;
-	float matrix[MAX_CHANNELS * MAX_CHANNELS];
+	float matrix_orig[SPA_AUDIO_MAX_CHANNELS * SPA_AUDIO_MAX_CHANNELS];
+
+	float matrix[SPA_AUDIO_MAX_CHANNELS * SPA_AUDIO_MAX_CHANNELS];
 
 	void (*process) (struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
 			uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples);
+	void (*set_volume) (struct channelmix *mix, float volume, bool mute,
+			uint32_t n_channel_volumes, float *channel_volumes);
 	void (*free) (struct channelmix *mix);
 
 	void *data;
@@ -64,6 +67,7 @@ struct channelmix {
 int channelmix_init(struct channelmix *mix);
 
 #define channelmix_process(mix,...)	(mix)->process(mix, __VA_ARGS__)
+#define channelmix_set_volume(mix,...)	(mix)->set_volume(mix, __VA_ARGS__)
 #define channelmix_free(mix)		(mix)->free(mix)
 
 #define DEFINE_FUNCTION(name,arch)					\

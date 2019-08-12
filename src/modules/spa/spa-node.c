@@ -112,7 +112,6 @@ struct pw_node *
 pw_spa_node_new(struct pw_core *core,
 		struct pw_client *owner,
 		struct pw_global *parent,
-		const char *name,
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
 		struct spa_handle *handle,
@@ -123,7 +122,7 @@ pw_spa_node_new(struct pw_core *core,
 	struct impl *impl;
 	int res;
 
-	this = pw_node_new(core, name, properties, sizeof(struct impl) + user_data_size);
+	this = pw_node_new(core, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL) {
 		res = -errno;
 		goto error_exit;
@@ -246,7 +245,6 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 				 struct pw_client *owner,
 				 struct pw_global *parent,
 				 const char *factory_name,
-				 const char *name,
 				 enum pw_spa_node_flags flags,
 				 struct pw_properties *properties,
 				 size_t user_data_size)
@@ -281,7 +279,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		}
 	}
 
-	this = pw_spa_node_new(core, owner, parent, name, flags,
+	this = pw_spa_node_new(core, owner, parent, flags,
 			       spa_node, handle, properties, user_data_size);
 	if (this == NULL) {
 		res = -errno;

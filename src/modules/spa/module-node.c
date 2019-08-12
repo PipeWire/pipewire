@@ -40,7 +40,7 @@
 #include "spa-monitor.h"
 #include "spa-node.h"
 
-#define MODULE_USAGE	"<factory> <name> [key=value ...]"
+#define MODULE_USAGE	"<factory> [key=value ...]"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -82,12 +82,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (args == NULL)
 		goto error_arguments;
 
-	argv = pw_split_strv(args, " \t", 3, &n_tokens);
-	if (n_tokens < 2)
+	argv = pw_split_strv(args, " \t", 2, &n_tokens);
+	if (n_tokens < 1)
 		goto error_arguments;
 
-	if (n_tokens == 3) {
-		props = pw_properties_new_string(argv[2]);
+	if (n_tokens == 2) {
+		props = pw_properties_new_string(argv[1]);
 		if (props == NULL) {
 			res = -errno;
 			goto error_exit_cleanup;
@@ -97,7 +97,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	node = pw_spa_node_load(core,
 				NULL,
 				pw_module_get_global(module),
-				argv[0], argv[1],
+				argv[0],
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				props,
 				sizeof(struct node_data));

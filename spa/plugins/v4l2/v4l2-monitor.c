@@ -90,10 +90,90 @@ static uint32_t get_device_id(struct impl *this, struct udev_device *dev)
 	return atoi(str + 6);
 }
 
+static int dehex(char x)
+{
+	if (x >= '0' && x <= '9')
+		return x - '0';
+	if (x >= 'A' && x <= 'F')
+		return x - 'A' + 10;
+	if (x >= 'a' && x <= 'f')
+		return x - 'a' + 10;
+	return -1;
+}
+
+static void unescape(const char *src, char *dst)
+{
+	const char *s;
+	char *d;
+	int h1, h2;
+	enum { TEXT, BACKSLASH, EX, FIRST } state = TEXT;
+
+	for (s = src, d = dst; *s; s++) {
+		switch (state) {
+		case TEXT:
+			if (*s == '\\')
+				state = BACKSLASH;
+			else
+				*(d++) = *s;
+			break;
+
+		case BACKSLASH:
+			if (*s == 'x')
+				state = EX;
+			else {
+				*(d++) = '\\';
+				*(d++) = *s;
+				state = TEXT;
+			}
+			break;
+
+		case EX:
+			h1 = dehex(*s);
+			if (h1 < 0) {
+				*(d++) = '\\';
+				*(d++) = 'x';
+				*(d++) = *s;
+				state = TEXT;
+			} else
+				state = FIRST;
+			break;
+
+		case FIRST:
+			h2 = dehex(*s);
+			if (h2 < 0) {
+				*(d++) = '\\';
+				*(d++) = 'x';
+				*(d++) = *(s-1);
+				*(d++) = *s;
+			} else
+				*(d++) = (char) (h1 << 4) | h2;
+			state = TEXT;
+			break;
+		}
+	}
+	switch (state) {
+	case TEXT:
+		break;
+	case BACKSLASH:
+		*(d++) = '\\';
+		break;
+	case EX:
+		*(d++) = '\\';
+		*(d++) = 'x';
+		break;
+	case FIRST:
+		*(d++) = '\\';
+		*(d++) = 'x';
+		*(d++) = *(s-1);
+		break;
+	}
+	*d = 0;
+}
+
 static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *dev)
 {
 	struct spa_monitor_object_info info;
-	const char *str, *name;
+	const char *str;
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
 
@@ -105,22 +185,9 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
 
-	name = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
-	if (!(name && *name)) {
-		name = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
-		if (!(name && *name)) {
-			name = udev_device_get_property_value(dev, "ID_MODEL_ENC");
-			if (!(name && *name)) {
-				name = udev_device_get_property_value(dev, "ID_MODEL");
-			}
-		}
-	}
-	if (!(name && *name))
-		name = "Unknown";
-
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MONITOR_API,"udev");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "v4l2");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
+
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_PATH, udev_device_get_devnode(dev));
 
 	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
@@ -152,6 +219,10 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 		str = udev_device_get_property_value(dev, "ID_VENDOR_ENC");
 		if (!(str && *str)) {
 			str = udev_device_get_property_value(dev, "ID_VENDOR");
+		} else {
+			char *t = alloca(strlen(str) + 1);
+			unescape(str, t);
+			str = t;
 		}
 	}
 	if (str && *str) {
@@ -160,7 +231,24 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, str);
 	}
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_NAME, name);
+
+	str = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
+	if (!(str && *str)) {
+		str = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
+		if (!(str && *str)) {
+			str = udev_device_get_property_value(dev, "ID_MODEL_ENC");
+			if (!(str && *str)) {
+				str = udev_device_get_property_value(dev, "ID_MODEL");
+			} else {
+				char *t = alloca(strlen(str) + 1);
+				unescape(str, t);
+				str = t;
+			}
+		}
+	}
+	if (str && *str)
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_NAME, str);
+
 	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SERIAL, str);
 	}

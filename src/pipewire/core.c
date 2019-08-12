@@ -1061,7 +1061,7 @@ static int collect_nodes(struct pw_node *driver)
 		spa_list_init(&t->slave_link);
 	}
 
-	pw_log_info("driver %p: '%s'", driver, driver->info.name);
+	pw_log_info("driver %p: '%s'", driver, driver->name);
 
 	spa_list_init(&queue);
 	spa_list_append(&queue, &driver->sort_link);
@@ -1113,7 +1113,7 @@ int pw_core_recalc_graph(struct pw_core *core)
 	spa_list_for_each(n, &core->node_list, link) {
 		if (!n->visited) {
 			pw_log_info(NAME" %p: unassigned node %p: '%s' %d", core,
-					n, n->info.name, n->active);
+					n, n->name, n->active);
 			pw_node_set_driver(n, NULL);
 		}
 		n->visited = false;
@@ -1123,10 +1123,10 @@ int pw_core_recalc_graph(struct pw_core *core)
 		if (!n->master)
 			continue;
 		pw_log_info(NAME" %p: master %p quantum:%d '%s'", core, n,
-				n->rt.position ? n->rt.position->size : 0, n->info.name);
+				n->rt.position ? n->rt.position->size : 0, n->name);
 		spa_list_for_each(s, &n->slave_list, slave_link)
 			pw_log_info(NAME" %p: slave %p: active:%d '%s'",
-					core, s, s->active, s->info.name);
+					core, s, s->active, s->name);
 	}
 	return 0;
 }

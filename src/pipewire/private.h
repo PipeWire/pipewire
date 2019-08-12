@@ -301,6 +301,8 @@ struct pw_device {
 	struct pw_device_info info;		/**< introspectable device info */
 	struct spa_param_info params[MAX_PARAMS];
 
+	char *name;				/**< device name for debug */
+
 	struct spa_device *device;		/**< device implementation */
 	struct spa_hook listener;
 	struct spa_hook_list listener_list;
@@ -394,6 +396,8 @@ struct pw_node {
 
 	struct pw_node_info info;		/**< introspectable node info */
 	struct spa_param_info params[MAX_PARAMS];
+
+	char *name;				/** for debug */
 
 	uint32_t spa_flags;
 
@@ -701,7 +705,7 @@ struct pw_remote {
 #define pw_stream_emit_remove_buffer(s,b)	pw_stream_emit(s, remove_buffer, 0, b)
 #define pw_stream_emit_process(s)		pw_stream_emit(s, process, 0)
 #define pw_stream_emit_drained(s)		pw_stream_emit(s, drained,0)
-#define pw_stream_emit_control_changed(s,i,v)	pw_stream_emit(s, control_changed, 0, i, v)
+#define pw_stream_emit_control_info(s,i,c)	pw_stream_emit(s, control_info, 0, i, c)
 
 
 struct pw_stream {

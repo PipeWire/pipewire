@@ -357,7 +357,7 @@ static void node_unbind_func(void *data)
 static void
 clear_info(struct pw_node *this)
 {
-	free((char*)this->info.name);
+	free(this->name);
 	free((char*)this->info.error);
 }
 
@@ -562,11 +562,16 @@ int pw_node_register(struct pw_node *this,
 	if (properties == NULL)
 		return -errno;
 
+	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_DESCRIPTION)) != NULL)
+		pw_properties_set(properties, PW_KEY_NODE_DESCRIPTION, str);
+	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_NAME)) != NULL)
+		pw_properties_set(properties, PW_KEY_NODE_NAME, str);
+	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_NICK)) != NULL)
+		pw_properties_set(properties, PW_KEY_NODE_NICK, str);
 	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
 	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_ROLE)) != NULL)
 		pw_properties_set(properties, PW_KEY_MEDIA_ROLE, str);
-	pw_properties_set(properties, PW_KEY_NODE_NAME, this->info.name);
 	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_SESSION)) != NULL)
 		pw_properties_set(properties, PW_KEY_NODE_SESSION, str);
 
@@ -689,6 +694,12 @@ static void check_properties(struct pw_node *node)
 	const char *str;
 	bool driver;
 
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME))) {
+		free(node->name);
+		node->name = strdup(str);
+		pw_log_info(NAME" %p: name '%s'", node, node->name);
+	}
+
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE)))
 		impl->pause_on_idle = pw_properties_parse_bool(str);
 	else
@@ -733,7 +744,7 @@ static void dump_states(struct pw_node *driver)
 			continue;
 		pw_log_warn(NAME" %p (%s): pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%d",
-				t->node, t->node->info.name,
+				t->node, t->node->name,
 				a->state[0].pending, a->state[0].required,
 				a->signal_time,
 				a->awake_time,
@@ -841,7 +852,6 @@ static void node_on_fd_events(struct spa_source *source)
 
 SPA_EXPORT
 struct pw_node *pw_node_new(struct pw_core *core,
-			    const char *name,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
 {
@@ -849,7 +859,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	struct pw_node *this;
 	size_t size;
 	struct spa_system *data_system = core->data_system;
-	char *n = NULL;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -858,14 +867,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 		goto error_exit;
 	}
 
-	if (name == NULL)
-		asprintf(&n, "node");
-	else
-		n = strdup(name);
-
 	this = &impl->this;
 	this->core = core;
-	pw_log_debug(NAME" %p: new \"%s\"", this, n);
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -876,6 +879,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 		res = -errno;
 		goto error_clean;
 	}
+
+	pw_log_debug(NAME" %p: new", this);
 
 	this->properties = properties;
 
@@ -906,8 +911,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 		res = -errno;
 		goto error_clean;
 	}
-
-	this->info.name = n;
 
 	this->data_loop = core->data_loop;
 
@@ -951,8 +954,6 @@ error_clean:
 		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
 		spa_system_close(this->core->data_system, this->source.fd);
-	if (n)
-		free(n);
 	free(impl);
 error_exit:
 	if (properties)
@@ -1040,6 +1041,11 @@ static void node_info(void *data, const struct spa_node_info *info)
 		node->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(node->params));
 
 		for (i = 0; i < node->info.n_params; i++) {
+			pw_log_debug(NAME" %p: param %d id:%d (%s) %08x:%08x", node, i,
+					info->params[i].id,
+					spa_debug_type_find_name(spa_type_param, info->params[i].id),
+					node->info.params[i].flags, info->params[i].flags);
+
 			if (node->info.params[i].flags == info->params[i].flags)
 				continue;
 

@@ -139,7 +139,7 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	case SPA_TYPE_INTERFACE_Device:
 	{
 		struct pw_device *device;
-		device = pw_spa_device_new(core, NULL, impl->parent, name,
+		device = pw_spa_device_new(core, NULL, impl->parent,
 				      0, iface, handle, props, 0);
 		pw_device_add_listener(device, &obj->object_listener,
 				&device_events, obj);

@@ -109,17 +109,27 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		goto exit;
 	}
 
-	node->props = pw_properties_copy(obj->props);
-	pw_properties_update(node->props, info->props);
+	node->props = pw_properties_new_dict(info->props);
 
 	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
+	if (str)
+		pw_properties_set(node->props, PW_KEY_NODE_NICK, str);
+
+	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
+		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
 	if (str == NULL)
 		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_ALIAS);
 	if (str == NULL)
 		str = "alsa-device";
-	pw_properties_set(node->props, PW_KEY_NODE_NAME, str);
+
+	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
+
+	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION);
+	if (str == NULL)
+		str = "alsa-device";
+	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
+
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
 	node->monitor = monitor;
@@ -209,6 +219,83 @@ static void alsa_update_object(struct monitor *monitor, struct alsa_object *obj,
 	pw_properties_update(obj->props, info->props);
 }
 
+static int update_device_props(struct alsa_object *obj)
+{
+	struct pw_properties *p = obj->props;
+	const char *s, *d;
+	char temp[32];
+
+	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
+		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_ID)) == NULL) {
+			if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
+				snprintf(temp, sizeof(temp), "%d", obj->id);
+				s = temp;
+			}
+		}
+	}
+	pw_properties_setf(p, PW_KEY_DEVICE_NAME, "alsa_card.%s", s);
+
+	if (pw_properties_get(p, PW_KEY_DEVICE_DESCRIPTION) == NULL) {
+		d = NULL;
+
+		if ((s = pw_properties_get(p, PW_KEY_DEVICE_FORM_FACTOR)))
+			if (strcmp(s, "internal") == 0)
+				d = "Built-in Audio";
+		if (!d)
+			if ((s = pw_properties_get(p, PW_KEY_DEVICE_CLASS)))
+				if (strcmp(s, "modem") == 0)
+					d = "Modem";
+		if (!d)
+			d = pw_properties_get(p, PW_KEY_DEVICE_PRODUCT_NAME);
+
+		if (!d)
+			d = "Unknown device";
+
+		pw_properties_set(p, PW_KEY_DEVICE_DESCRIPTION, d);
+	}
+
+	if (pw_properties_get(p, PW_KEY_DEVICE_ICON_NAME) == NULL) {
+		d = NULL;
+
+		if ((s = pw_properties_get(p, PW_KEY_DEVICE_FORM_FACTOR))) {
+			if (strcmp(s, "microphone") == 0)
+				d = "audio-input-microphone";
+			else if (strcmp(s, "webcam") == 0)
+				d = "camera-web";
+			else if (strcmp(s, "computer") == 0)
+				d = "computer";
+			else if (strcmp(s, "handset") == 0)
+				d = "phone";
+			else if (strcmp(s, "portable") == 0)
+				d = "multimedia-player";
+			else if (strcmp(s, "tv") == 0)
+				d = "video-display";
+			else if (strcmp(s, "headset") == 0)
+				d = "audio-headset";
+			else if (strcmp(s, "headphone") == 0)
+				d = "audio-headphones";
+			else if (strcmp(s, "speaker") == 0)
+				d = "audio-speakers";
+			else if (strcmp(s, "hands-free") == 0)
+				d = "audio-handsfree";
+		}
+		if (!d)
+			if ((s = pw_properties_get(p, PW_KEY_DEVICE_CLASS)))
+				if (strcmp(s, "modem") == 0)
+					d = "modem";
+
+		if (!d)
+			d = "audio-card";
+
+		s = pw_properties_get(p, PW_KEY_DEVICE_BUS);
+
+		pw_properties_setf(p, PW_KEY_DEVICE_ICON_NAME,
+				"%s-analog%s%s", d, s ? "-" : "", s);
+	}
+	return 1;
+}
+
+
 static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t id,
 		const struct spa_monitor_object_info *info)
 {
@@ -251,6 +338,8 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 	obj->handle = handle;
 	obj->device = iface;
 	obj->props = pw_properties_new_dict(info->props);
+	update_device_props(obj);
+
 	obj->proxy = pw_remote_export(impl->remote,
 			info->type, obj->props, obj->device, 0);
 	if (obj->proxy == NULL) {

@@ -1607,7 +1607,6 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	struct pw_core *core = pw_client_get_core(client);
 	const struct spa_support *support;
 	uint32_t n_support;
-	const char *name;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl));
@@ -1631,15 +1630,11 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	pw_map_init(&impl->io_map, 64, 64);
 
-	if ((name = pw_properties_get(properties, PW_KEY_NODE_NAME)) == NULL)
-		name = NAME;
-
 	this->resource = resource;
 	this->parent = parent;
 	this->node = pw_spa_node_new(core,
 				     client,
 				     parent,
-				     name,
 				     PW_SPA_NODE_FLAG_ASYNC |
 				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),
 				     (struct spa_node *)&impl->node.node,

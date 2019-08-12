@@ -39,6 +39,8 @@
 #include <spa/control/control.h>
 #include <spa/debug/types.h>
 
+#include "channelmix-ops.h"
+
 #define NAME "channelmix"
 
 #define DEFAULT_RATE		44100
@@ -55,12 +57,18 @@ struct impl;
 struct props {
 	float volume;
 	bool mute;
+	uint32_t n_channel_volumes;
+	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 };
 
 static void props_reset(struct props *props)
 {
+	uint32_t i;
 	props->mute = DEFAULT_MUTE;
 	props->volume = DEFAULT_VOLUME;
+	props->n_channel_volumes = 0;
+	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+		props->channel_volumes[i] = 1.0;
 }
 
 struct buffer {
@@ -95,8 +103,6 @@ struct port {
 
 	struct spa_list queue;
 };
-
-#include "channelmix-ops.h"
 
 struct impl {
 	struct spa_handle handle;
@@ -228,10 +234,16 @@ static int setup_convert(struct impl *this,
 	this->mix.dst_mask = dst_mask;
 	this->mix.cpu_flags = this->cpu_flags;
 	this->mix.log = this->log;
-	this->mix.volume = this->props.mute ? 0.0f : this->props.volume;
 
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
+
+	this->props.n_channel_volumes = SPA_MAX(src_chan, dst_chan);
+
+	channelmix_set_volume(&this->mix, this->props.volume, this->props.mute,
+			this->props.n_channel_volumes, this->props.channel_volumes);
+
+	emit_params_changed(this);
 
 	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x %d",
 			this, this->cpu_flags, this->mix.cpu_flags,
@@ -283,6 +295,13 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_name, SPA_POD_String("Mute"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mute));
 			break;
+		case 2:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelVolumes),
+				SPA_PROP_INFO_name, SPA_POD_String("Channel Volumes"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0));
+			break;
 		default:
 			return 0;
 		}
@@ -296,8 +315,12 @@ static int impl_node_enum_params(void *object, int seq,
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_volume,	SPA_POD_Float(p->volume),
-				SPA_PROP_mute,		SPA_POD_Bool(p->mute));
+				SPA_PROP_volume,		SPA_POD_Float(p->volume),
+				SPA_PROP_mute,			SPA_POD_Bool(p->mute),
+				SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
+									SPA_TYPE_Float,
+									p->n_channel_volumes,
+									p->channel_volumes));
 			break;
 		default:
 			return 0;
@@ -336,13 +359,19 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			if (spa_pod_get_bool(&prop->value, &p->mute) == 0)
 				changed++;
 			break;
+		case SPA_PROP_channelVolumes:
+			if (spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					p->channel_volumes, SPA_AUDIO_MAX_CHANNELS) > 0)
+				changed++;
+			break;
 		default:
 			break;
 		}
 	}
-	if (changed)
-		this->mix.volume = p->mute ? 0.0f : p->volume;
-
+	if (changed && this->mix.set_volume) {
+		channelmix_set_volume(&this->mix, p->volume, p->mute,
+				p->n_channel_volumes, p->channel_volumes);
+	}
 	return changed;
 }
 

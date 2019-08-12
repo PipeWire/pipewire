@@ -99,7 +99,7 @@ static void *create_object(void *_data,
 	struct factory_data *data = _data;
 	struct pw_core *core = data->core;
 	struct pw_node *node;
-	const char *factory_name, *name;
+	const char *factory_name;
 	struct node_data *nd;
 	int res;
 
@@ -110,15 +110,10 @@ static void *create_object(void *_data,
 	if (factory_name == NULL)
 		goto error_properties;
 
-	name = pw_properties_get(properties, PW_KEY_NODE_NAME);
-	if (name == NULL)
-		name = "spa-node";
-
 	node = pw_spa_node_load(core,
 				NULL,
 				pw_factory_get_global(data->this),
 				factory_name,
-				name,
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				properties,
 				sizeof(struct node_data));

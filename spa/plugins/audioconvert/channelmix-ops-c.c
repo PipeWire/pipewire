@@ -31,7 +31,8 @@ channelmix_copy_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT ds
 	uint32_t i, n;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
-	float v = mix->volume;
+	const float *m = mix->matrix;
+	const float v = mix->volume;
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
@@ -42,9 +43,12 @@ channelmix_copy_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT ds
 			spa_memcpy(d[i], s[i], n_samples * sizeof(float));
 	}
 	else {
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < n_dst; i++) {
+			const float vol = m[i * n_src + i];
 			for (n = 0; n < n_samples; n++)
-				d[i][n] = s[i][n] * v;
+				d[i][n] = s[i][n] * vol;
+		}
+
 	}
 }
 
@@ -58,14 +62,13 @@ channelmix_f32_n_m_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
 	const float *m = mix->matrix;
-	float v = mix->volume;
 
 	for (n = 0; n < n_samples; n++) {
 		for (i = 0; i < n_dst; i++) {
 			float sum = 0.0f;
 			for (j = 0; j < n_src; j++)
 				sum += s[j][n] * m[i * n_src + j];
-			d[i][n] = sum * v;
+			d[i][n] = sum;
 		}
 	}
 }

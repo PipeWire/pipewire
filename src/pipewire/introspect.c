@@ -132,27 +132,16 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 		info = calloc(1, sizeof(struct pw_core_info));
 		if (info == NULL)
 			return NULL;
-	}
-	info->id = update->id;
-	info->cookie = update->cookie;
-	info->change_mask = update->change_mask;
 
-	if (update->change_mask & PW_CORE_CHANGE_MASK_USER_NAME) {
-		free((void *) info->user_name);
+		info->id = update->id;
+		info->cookie = update->cookie;
 		info->user_name = update->user_name ? strdup(update->user_name) : NULL;
-	}
-	if (update->change_mask & PW_CORE_CHANGE_MASK_HOST_NAME) {
-		free((void *) info->host_name);
 		info->host_name = update->host_name ? strdup(update->host_name) : NULL;
-	}
-	if (update->change_mask & PW_CORE_CHANGE_MASK_VERSION) {
-		free((void *) info->version);
 		info->version = update->version ? strdup(update->version) : NULL;
-	}
-	if (update->change_mask & PW_CORE_CHANGE_MASK_NAME) {
-		free((void *) info->name);
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
+	info->change_mask = update->change_mask;
+
 	if (update->change_mask & PW_CORE_CHANGE_MASK_PROPS) {
 		if (info->props)
 			pw_spa_dict_destroy(info->props);
@@ -184,20 +173,17 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		info = calloc(1, sizeof(struct pw_node_info));
 		if (info == NULL)
 			return NULL;
+
+		info->id = update->id;
+		info->max_input_ports = update->max_input_ports;
+		info->max_output_ports = update->max_output_ports;
 	}
-	info->id = update->id;
 	info->change_mask = update->change_mask;
 
-	if (update->change_mask & PW_NODE_CHANGE_MASK_NAME) {
-		free((void *) info->name);
-		info->name = update->name ? strdup(update->name) : NULL;
-	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) {
-		info->max_input_ports = update->max_input_ports;
 		info->n_input_ports = update->n_input_ports;
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
-		info->max_output_ports = update->max_output_ports;
 		info->n_output_ports = update->n_output_ports;
 	}
 
@@ -229,7 +215,6 @@ SPA_EXPORT
 void pw_node_info_free(struct pw_node_info *info)
 {
 
-	free((void *) info->name);
 	free((void *) info->error);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
@@ -249,9 +234,10 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 		info = calloc(1, sizeof(struct pw_port_info));
 		if (info == NULL)
 			return NULL;
+
+		info->id = update->id;
+		info->direction = update->direction;
 	}
-	info->id = update->id;
-	info->direction = update->direction;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
@@ -294,12 +280,12 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 		info = calloc(1, sizeof(struct pw_factory_info));
 		if (info == NULL)
 			return NULL;
+
+		info->id = update->id;
+		info->name = update->name ? strdup(update->name) : NULL;
+		info->type = update->type;
+		info->version = update->version;
 	}
-	info->id = update->id;
-	free((void *) info->name);
-	info->name = update->name ? strdup(update->name) : NULL;
-	info->type = update->type;
-	info->version = update->version;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_FACTORY_CHANGE_MASK_PROPS) {
@@ -330,22 +316,14 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 		info = calloc(1, sizeof(struct pw_module_info));
 		if (info == NULL)
 			return NULL;
-	}
-	info->id = update->id;
-	info->change_mask = update->change_mask;
 
-	if (update->change_mask & PW_MODULE_CHANGE_MASK_NAME) {
-		free((void *) info->name);
+		info->id = update->id;
 		info->name = update->name ? strdup(update->name) : NULL;
-	}
-	if (update->change_mask & PW_MODULE_CHANGE_MASK_FILENAME) {
-		free((void *) info->filename);
 		info->filename = update->filename ? strdup(update->filename) : NULL;
-	}
-	if (update->change_mask & PW_MODULE_CHANGE_MASK_ARGS) {
-		free((void *) info->args);
 		info->args = update->args ? strdup(update->args) : NULL;
 	}
+	info->change_mask = update->change_mask;
+
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_PROPS) {
 		if (info->props)
 			pw_spa_dict_destroy(info->props);
@@ -365,7 +343,6 @@ void pw_module_info_free(struct pw_module_info *info)
 	free(info);
 }
 
-
 SPA_EXPORT
 struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 					     const struct pw_device_info *update)
@@ -377,10 +354,9 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 		info = calloc(1, sizeof(struct pw_device_info));
 		if (info == NULL)
 			return NULL;
+
+		info->id = update->id;
 	}
-	info->id = update->id;
-	free((void *) info->name);
-	info->name = update->name ? strdup(update->name) : NULL;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
@@ -405,7 +381,6 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 SPA_EXPORT
 void pw_device_info_free(struct pw_device_info *info)
 {
-	free((void *) info->name);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free((void *) info->params);
@@ -423,8 +398,9 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 		info = calloc(1, sizeof(struct pw_client_info));
 		if (info == NULL)
 			return NULL;
+
+		info->id = update->id;
 	}
-	info->id = update->id;
 	info->change_mask = update->change_mask;
 
 	if (update->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
@@ -454,18 +430,16 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info = calloc(1, sizeof(struct pw_link_info));
 		if (info == NULL)
 			return NULL;
-	}
-	info->id = update->id;
-	info->change_mask = update->change_mask;
 
-	if (update->change_mask & PW_LINK_CHANGE_MASK_OUTPUT) {
+		info->id = update->id;
 		info->output_node_id = update->output_node_id;
 		info->output_port_id = update->output_port_id;
-	}
-	if (update->change_mask & PW_LINK_CHANGE_MASK_INPUT) {
 		info->input_node_id = update->input_node_id;
 		info->input_port_id = update->input_port_id;
 	}
+
+	info->change_mask = update->change_mask;
+
 	if (update->change_mask & PW_LINK_CHANGE_MASK_STATE) {
 		info->state = update->state;
 		free((void *) info->error);

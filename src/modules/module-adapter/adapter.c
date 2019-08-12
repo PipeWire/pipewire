@@ -322,7 +322,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 {
 	struct pw_node *node;
 	struct node *n;
-	const char *name, *str, *factory_name;
+	const char *str, *factory_name;
 	const struct pw_node_info *info;
 	enum pw_direction direction;
 	int res;
@@ -348,9 +348,6 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 		res = -EINVAL;
 		goto error;
 	}
-
-	if ((name = pw_properties_get(props, PW_KEY_NODE_NAME)) == NULL)
-		name = NAME;
 
 	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
@@ -389,7 +386,6 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 
 	node = pw_spa_node_load(core, NULL, NULL,
 				factory_name,
-				name,
 				PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 				pw_properties_copy(props),
 				sizeof(struct node) + user_data_size);

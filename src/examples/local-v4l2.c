@@ -339,7 +339,7 @@ static int make_nodes(struct data *data)
 	struct pw_factory *factory;
 	struct pw_properties *props;
 
-	data->node = pw_node_new(data->core, "SDL-sink", NULL, 0);
+	data->node = pw_node_new(data->core, NULL, 0);
 	data->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,

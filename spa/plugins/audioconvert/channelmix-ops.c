@@ -159,9 +159,7 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 static int make_matrix(struct channelmix *mix)
 {
 	float matrix[NUM_CHAN][NUM_CHAN] = {{ 0.0f }};
-	uint32_t src_chan = mix->src_chan;
 	uint64_t src_mask = mix->src_mask;
-	uint32_t dst_chan = mix->dst_chan;
 	uint64_t dst_mask = mix->dst_mask;
 	uint64_t unassigned;
 	uint32_t i, j, matrix_encoding = MATRIX_NORMAL, c;
@@ -335,10 +333,45 @@ static int make_matrix(struct channelmix *mix)
 		for (j = 0; j < NUM_CHAN; j++) {
 			if ((src_mask & (1UL << (j + 2))) == 0)
 				continue;
-			mix->matrix[c++] = matrix[i][j];
+			mix->matrix_orig[c++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
 		max = SPA_MAX(max, sum);
+	}
+	return 0;
+}
+
+static void impl_channelmix_set_volume(struct channelmix *mix, float volume, bool mute,
+		uint32_t n_channel_volumes, float *channel_volumes)
+{
+	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float vol = mute ? 0.0f : volume, sum;
+	uint32_t i, j;
+	uint32_t src_chan = mix->src_chan;
+	uint32_t dst_chan = mix->dst_chan;
+
+	/** apply global volume to channels */
+	sum = 0.0;
+	for (i = 0; i < n_channel_volumes; i++) {
+		volumes[i] = channel_volumes[i] * vol;
+		sum += volumes[i];
+	}
+	mix->volume = sum / n_channel_volumes;
+
+	if (n_channel_volumes == src_chan) {
+		for (i = 0; i < dst_chan; i++) {
+			for (j = 0; j < src_chan; j++) {
+				float v = mix->matrix_orig[i * src_chan + j];
+				mix->matrix[i * src_chan + j] = v * volumes[j];
+			}
+		}
+	} else if (n_channel_volumes == dst_chan) {
+		for (i = 0; i < dst_chan; i++) {
+			for (j = 0; j < src_chan; j++) {
+				float v = mix->matrix_orig[i * src_chan + j];
+				mix->matrix[i * src_chan + j] = v * volumes[i];
+			}
+		}
 	}
 
 	mix->is_identity = dst_chan == src_chan;
@@ -351,7 +384,7 @@ static int make_matrix(struct channelmix *mix)
 				mix->is_identity = false;
 		}
 	}
-	return 0;
+	spa_log_debug(mix->log, "vol:%f, identity:%d", mix->volume, mix->is_identity);
 }
 
 static void impl_channelmix_free(struct channelmix *mix)
@@ -370,6 +403,7 @@ int channelmix_init(struct channelmix *mix)
 
 	mix->free = impl_channelmix_free;
 	mix->process = info->process;
+	mix->set_volume = impl_channelmix_set_volume;
 	mix->cpu_flags = info->cpu_flags;
 	return make_matrix(mix);
 }

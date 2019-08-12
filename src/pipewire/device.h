@@ -64,7 +64,6 @@ struct pw_device_events {
 };
 
 struct pw_device *pw_device_new(struct pw_core *core,
-				const char *name,
 				struct pw_properties *properties,
 				size_t user_data_size);
 

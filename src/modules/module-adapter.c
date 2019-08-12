@@ -134,7 +134,6 @@ static void *create_object(void *_data,
 					NULL,
 					pw_factory_get_global(d->this),
 					factory_name,
-					"slave-node",
 					PW_SPA_NODE_FLAG_ACTIVATE |
 					PW_SPA_NODE_FLAG_NO_REGISTER,
 					pw_properties_copy(properties), 0);

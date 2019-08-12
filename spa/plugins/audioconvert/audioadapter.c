@@ -99,6 +99,8 @@ static int impl_node_enum_params(void *object, int seq,
 next:
 	result.index = result.next;
 
+	spa_log_debug(this->log, NAME" %p: %d id:%u", this, seq, id);
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
@@ -190,7 +192,6 @@ static void emit_node_info(struct impl *this, bool full)
 	if (this->info.change_mask) {
 		struct spa_dict_item items[1];
 
-		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, this->driver ? "1" : "0");
 		this->info.props = &SPA_DICT_INIT(items, 1);
 
@@ -228,10 +229,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (this->target != this->slave) {
 			if ((res = spa_node_set_param(this->target, id, flags, param)) < 0)
 				return res;
-
-			this->info.change_mask = SPA_NODE_CHANGE_MASK_PARAMS;
-			this->params[2].flags ^= SPA_PARAM_INFO_SERIAL;
-			emit_node_info(this, false);
 		}
 		break;
 	default:
@@ -366,8 +363,10 @@ static void slave_info(void *data, const struct spa_node_info *info)
 				"Input" : "Output");
 
 	if (info->props) {
-		if ((str = spa_dict_lookup(info->props, SPA_KEY_NODE_DRIVER)) != NULL)
+		if ((str = spa_dict_lookup(info->props, SPA_KEY_NODE_DRIVER)) != NULL) {
 			this->driver = strcmp(str, "true") == 0 || atoi(str) == 1;
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+		}
 	}
 }
 

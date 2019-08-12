@@ -32,8 +32,8 @@ void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	uint32_t i, n, unrolled;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
+	float *m = mix->matrix;
 	float v = mix->volume;
-	const __m128 vol = _mm_set1_ps(v);
 
 	if (v <= VOLUME_MIN) {
 		for (i = 0; i < n_dst; i++)
@@ -48,6 +48,7 @@ void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 			float *di = d[i];
 			const float *si = s[i];
 			__m128 t[4];
+			const __m128 vol = _mm_set1_ps(m[i * n_src + i]);
 
 			if (SPA_IS_ALIGNED(di, 16) &&
 			    SPA_IS_ALIGNED(si, 16))

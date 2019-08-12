@@ -80,17 +80,13 @@ const char * pw_link_state_as_string(enum pw_link_state state);
 struct pw_core_info {
 	uint32_t id;			/**< id of the global */
 	uint32_t cookie;		/**< a random cookie for identifying this instance of PipeWire */
-#define PW_CORE_CHANGE_MASK_USER_NAME  (1 << 0)
-#define PW_CORE_CHANGE_MASK_HOST_NAME  (1 << 1)
-#define PW_CORE_CHANGE_MASK_VERSION    (1 << 2)
-#define PW_CORE_CHANGE_MASK_NAME       (1 << 3)
-#define PW_CORE_CHANGE_MASK_PROPS      (1 << 4)
-#define PW_CORE_CHANGE_MASK_ALL        (~0)
-	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	const char *user_name;		/**< name of the user that started the core */
 	const char *host_name;		/**< name of the machine the core is running on */
 	const char *version;		/**< version of the core */
 	const char *name;		/**< name of the core */
+#define PW_CORE_CHANGE_MASK_PROPS      (1 << 0)
+#define PW_CORE_CHANGE_MASK_ALL        ((1 << 1)-1)
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	struct spa_dict *props;		/**< extra properties */
 };
 
@@ -105,14 +101,12 @@ void pw_core_info_free(struct pw_core_info *info);
 /** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
 	uint32_t id;		/**< id of the global */
-#define PW_MODULE_CHANGE_MASK_NAME	(1 << 0)
-#define PW_MODULE_CHANGE_MASK_FILENAME	(1 << 1)
-#define PW_MODULE_CHANGE_MASK_ARGS	(1 << 2)
-#define PW_MODULE_CHANGE_MASK_PROPS	(1 << 3)
-	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	const char *name;	/**< name of the module */
 	const char *filename;	/**< filename of the module */
 	const char *args;	/**< arguments passed to the module */
+#define PW_MODULE_CHANGE_MASK_PROPS	(1 << 0)
+#define PW_MODULE_CHANGE_MASK_ALL	((1 << 1)-1)
+	uint64_t change_mask;	/**< bitfield of changed fields since last call */
 	struct spa_dict *props;	/**< extra properties */
 };
 
@@ -128,10 +122,9 @@ void pw_module_info_free(struct pw_module_info *info);
 /** The device information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_device_info {
 	uint32_t id;			/**< id of the global */
-	const char *name;		/**< name the device */
-#define PW_DEVICE_CHANGE_MASK_PROPS		(1 << 0)
-#define PW_DEVICE_CHANGE_MASK_PARAMS		(1 << 1)
-#define PW_DEVICE_CHANGE_MASK_ALL		((1 << 2)-1)
+#define PW_DEVICE_CHANGE_MASK_PROPS	(1 << 0)
+#define PW_DEVICE_CHANGE_MASK_PARAMS	(1 << 1)
+#define PW_DEVICE_CHANGE_MASK_ALL	((1 << 2)-1)
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	struct spa_dict *props;		/**< extra properties */
 	struct spa_param_info *params;	/**< parameters */
@@ -148,10 +141,11 @@ void pw_device_info_free(struct pw_device_info *info);
 
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
-	uint32_t id;		/**< id of the global */
-#define PW_CLIENT_CHANGE_MASK_PROPS		(1 << 0)
-	uint64_t change_mask;	/**< bitfield of changed fields since last call */
-	struct spa_dict *props;	/**< extra properties */
+	uint32_t id;			/**< id of the global */
+#define PW_CLIENT_CHANGE_MASK_PROPS	(1 << 0)
+#define PW_CLIENT_CHANGE_MASK_ALL	((1 << 1)-1)
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
+	struct spa_dict *props;		/**< extra properties */
 };
 
 /** Update and existing \ref pw_client_info with \a update \memberof pw_introspect */
@@ -166,18 +160,16 @@ void pw_client_info_free(struct pw_client_info *info);
 /** The node information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_node_info {
 	uint32_t id;				/**< id of the global */
-#define PW_NODE_CHANGE_MASK_NAME		(1 << 0)
-#define PW_NODE_CHANGE_MASK_INPUT_PORTS		(1 << 1)
-#define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 2)
-#define PW_NODE_CHANGE_MASK_STATE		(1 << 3)
-#define PW_NODE_CHANGE_MASK_PROPS		(1 << 4)
-#define PW_NODE_CHANGE_MASK_PARAMS		(1 << 5)
-#define PW_NODE_CHANGE_MASK_ALL			((1 << 6)-1)
-	uint64_t change_mask;			/**< bitfield of changed fields since last call */
-	const char *name;                       /**< name the node, suitable for display */
 	uint32_t max_input_ports;		/**< maximum number of inputs */
-	uint32_t n_input_ports;			/**< number of inputs */
 	uint32_t max_output_ports;		/**< maximum number of outputs */
+#define PW_NODE_CHANGE_MASK_INPUT_PORTS		(1 << 0)
+#define PW_NODE_CHANGE_MASK_OUTPUT_PORTS	(1 << 1)
+#define PW_NODE_CHANGE_MASK_STATE		(1 << 2)
+#define PW_NODE_CHANGE_MASK_PROPS		(1 << 3)
+#define PW_NODE_CHANGE_MASK_PARAMS		(1 << 4)
+#define PW_NODE_CHANGE_MASK_ALL			((1 << 5)-1)
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
+	uint32_t n_input_ports;			/**< number of inputs */
 	uint32_t n_output_ports;		/**< number of outputs */
 	enum pw_node_state state;		/**< the current state of the node */
 	const char *error;			/**< an error reason if \a state is error */
@@ -219,6 +211,7 @@ struct pw_factory_info {
 	uint32_t type;			/**< type of the objects created by this factory */
 	uint32_t version;		/**< version of the objects */
 #define PW_FACTORY_CHANGE_MASK_PROPS	(1 << 0)
+#define PW_FACTORY_CHANGE_MASK_ALL	((1 << 1)-1)
 	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	struct spa_dict *props;		/**< the properties of the factory */
 };
@@ -233,16 +226,15 @@ pw_factory_info_free(struct pw_factory_info *info);
 /** The link information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_link_info {
 	uint32_t id;			/**< id of the global */
-#define PW_LINK_CHANGE_MASK_OUTPUT		(1 << 0)
-#define PW_LINK_CHANGE_MASK_INPUT		(1 << 1)
-#define PW_LINK_CHANGE_MASK_STATE		(1 << 2)
-#define PW_LINK_CHANGE_MASK_FORMAT		(1 << 3)
-#define PW_LINK_CHANGE_MASK_PROPS		(1 << 4)
-	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	uint32_t output_node_id;	/**< server side output node id */
 	uint32_t output_port_id;	/**< output port id */
 	uint32_t input_node_id;		/**< server side input node id */
 	uint32_t input_port_id;		/**< input port id */
+#define PW_LINK_CHANGE_MASK_STATE	(1 << 0)
+#define PW_LINK_CHANGE_MASK_FORMAT	(1 << 1)
+#define PW_LINK_CHANGE_MASK_PROPS	(1 << 2)
+#define PW_LINK_CHANGE_MASK_ALL		((1 << 3)-1)
+	uint64_t change_mask;		/**< bitfield of changed fields since last call */
 	enum pw_link_state state;	/**< the current state of the link */
 	const char *error;		/**< an error reason if \a state is error */
 	struct spa_pod *format;		/**< format over link */

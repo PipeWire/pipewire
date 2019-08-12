@@ -179,12 +179,14 @@ struct pw_buffer {
 };
 
 struct pw_stream_control {
-	const char *name;
-	uint32_t flags;
-	float value;
-	float def;
-	float min;
-	float max;
+	const char *name;		/**< name of the control */
+	uint32_t flags;			/**< extra flags (unused) */
+	float def;			/**< default value */
+	float min;			/**< min value */
+	float max;			/**< max value */
+	float *values;			/**< array of values */
+	uint32_t n_values;		/**< number of values in array */
+	uint32_t max_values;		/**< max values that can be set on this control */
 };
 
 /** Events for a stream. These events are always called from the mainloop
@@ -199,7 +201,7 @@ struct pw_stream_events {
 				enum pw_stream_state state, const char *error);
 
 	/** Notify information about a control.  */
-	void (*control_changed) (void *data, uint32_t id, float value);
+	void (*control_info) (void *data, uint32_t id, struct pw_stream_control *control);
 
 	/** when the format changed. The listener should call
 	 * pw_stream_finish_format() from within this callback or later to complete
@@ -251,12 +253,12 @@ enum pw_stream_flags {
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
 pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
-	      const char *name,			/**< a stream name */
+	      const char *name,			/**< a stream media name */
 	      struct pw_properties *props	/**< stream properties, ownership is taken */);
 
 struct pw_stream *
 pw_stream_new_simple(struct pw_loop *loop,	/**< a \ref pw_loop to use */
-		     const char *name,		/**< a stream name */
+		     const char *name,		/**< a stream media name */
 		     struct pw_properties *props,/**< stream properties, ownership is taken */
 		     const struct pw_stream_events *events,	/**< stream events */
 		     void *data					/**< data passed to events */);
@@ -320,10 +322,7 @@ pw_stream_finish_format(struct pw_stream *stream,	/**< a \ref pw_stream */
 
 
 /** Set control values */
-int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ...);
-
-/** Get control information */
-const struct pw_stream_control * pw_stream_get_control(struct pw_stream *stream, uint32_t id);
+int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 
 /** A time structure \memberof pw_stream */
 struct pw_time {

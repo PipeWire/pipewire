@@ -188,20 +188,20 @@ static void print_properties(const struct spa_dict *props, char mark)
 	}
 }
 
-#define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (1 << (f)))) ? '*' : ' ')
+#define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (f))) ? '*' : ' ')
 
 static void on_core_info(void *data, const struct pw_core_info *info)
 {
-	bool print_all = true, print_mark = false;
+	bool print_all = true, print_mark = true;
 
 	printf("\ttype: %s\n", spa_debug_type_find_name(pw_type_info(), PW_TYPE_INTERFACE_Core));
 	printf("\tcookie: %u\n", info->cookie);
+	printf("\tuser-name: \"%s\"\n", info->user_name);
+	printf("\thost-name: \"%s\"\n", info->host_name);
+	printf("\tversion: \"%s\"\n", info->version);
+	printf("\tname: \"%s\"\n", info->name);
 	if (print_all) {
-		printf("%c\tuser-name: \"%s\"\n", MARK_CHANGE(0), info->user_name);
-		printf("%c\thost-name: \"%s\"\n", MARK_CHANGE(1), info->host_name);
-		printf("%c\tversion: \"%s\"\n", MARK_CHANGE(2), info->version);
-		printf("%c\tname: \"%s\"\n", MARK_CHANGE(3), info->name);
-		print_properties(info->props, MARK_CHANGE(4));
+		print_properties(info->props, MARK_CHANGE(PW_CORE_CHANGE_MASK_PROPS));
 	}
 }
 
@@ -229,11 +229,11 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+	printf("\tname: \"%s\"\n", info->name);
+	printf("\tfilename: \"%s\"\n", info->filename);
+	printf("\targs: \"%s\"\n", info->args);
 	if (print_all) {
-		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-		printf("%c\tfilename: \"%s\"\n", MARK_CHANGE(1), info->filename);
-		printf("%c\targs: \"%s\"\n", MARK_CHANGE(2), info->args);
-		print_properties(info->props, MARK_CHANGE(3));
+		print_properties(info->props, MARK_CHANGE(PW_MODULE_CHANGE_MASK_PROPS));
 	}
 }
 
@@ -266,20 +266,18 @@ static void print_node(struct proxy_data *data)
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
 	if (print_all) {
-		printf("%c\tname: \"%s\"\n", MARK_CHANGE(0), info->name);
-		print_params(data, MARK_CHANGE(5));
-		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(1),
+		print_params(data, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS));
+		printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
 				info->n_input_ports, info->max_input_ports);
-		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(2),
+		printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
 				info->n_output_ports, info->max_output_ports);
-		printf("%c\tstate: \"%s\"", MARK_CHANGE(3), pw_node_state_as_string(info->state));
+		printf("%c\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
+				pw_node_state_as_string(info->state));
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
 			printf(" \"%s\"\n", info->error);
 		else
 			printf("\n");
-		print_properties(info->props, MARK_CHANGE(4));
-
-
+		print_properties(info->props, MARK_CHANGE(PW_NODE_CHANGE_MASK_PROPS));
 	}
 }
 
@@ -336,16 +334,16 @@ static void print_port(struct proxy_data *data)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+
+	printf("\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
 	if (print_all) {
-		printf(" \tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
-		print_params(data, MARK_CHANGE(1));
-		print_properties(info->props, MARK_CHANGE(0));
+		print_params(data, MARK_CHANGE(PW_PORT_CHANGE_MASK_PARAMS));
+		print_properties(info->props, MARK_CHANGE(PW_PORT_CHANGE_MASK_PROPS));
 	}
 }
 
 static void port_event_info(void *object, const struct pw_port_info *info)
 {
-
         struct proxy_data *data = object;
 	struct pw_port_info *old = data->info;
 	uint32_t i;
@@ -398,10 +396,11 @@ static void factory_event_info(void *object, const struct pw_factory_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+
 	printf("\tname: \"%s\"\n", info->name);
 	printf("\tobject-type: %s/%d\n", spa_debug_type_find_name(pw_type_info(), info->type), info->version);
 	if (print_all) {
-		print_properties(info->props, MARK_CHANGE(0));
+		print_properties(info->props, MARK_CHANGE(PW_FACTORY_CHANGE_MASK_PROPS));
 	}
 }
 
@@ -434,8 +433,9 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+
 	if (print_all) {
-		print_properties(info->props, MARK_CHANGE(0));
+		print_properties(info->props, MARK_CHANGE(PW_CLIENT_CHANGE_MASK_PROPS));
 	}
 }
 
@@ -468,22 +468,24 @@ static void link_event_info(void *object, const struct pw_link_info *info)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+
+	printf("\toutput-node-id: %u\n", info->output_node_id);
+	printf("\toutput-port-id: %u\n", info->output_port_id);
+	printf("\tinput-node-id: %u\n", info->input_node_id);
+	printf("\tinput-port-id: %u\n", info->input_port_id);
 	if (print_all) {
-		printf("%c\toutput-node-id: %u\n", MARK_CHANGE(0), info->output_node_id);
-		printf("%c\toutput-port-id: %u\n", MARK_CHANGE(0), info->output_port_id);
-		printf("%c\tinput-node-id: %u\n", MARK_CHANGE(1), info->input_node_id);
-		printf("%c\tinput-port-id: %u\n", MARK_CHANGE(1), info->input_port_id);
-		printf("%c\tstate: \"%s\"", MARK_CHANGE(2), pw_link_state_as_string(info->state));
+		printf("%c\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
+				pw_link_state_as_string(info->state));
 		if (info->state == PW_LINK_STATE_ERROR && info->error)
 			printf(" \"%s\"\n", info->error);
 		else
 			printf("\n");
-		printf("%c\tformat:\n", MARK_CHANGE(3));
+		printf("%c\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
 		if (info->format)
 			spa_debug_format(2, NULL, info->format);
 		else
 			printf("\t\tnone\n");
-		print_properties(info->props, MARK_CHANGE(4));
+		print_properties(info->props, MARK_CHANGE(PW_LINK_CHANGE_MASK_PROPS));
 	}
 }
 
@@ -515,9 +517,10 @@ static void print_device(struct proxy_data *data)
 					  data->permissions & PW_PERM_X ? 'x' : '-');
 	printf("\ttype: %s (version %d)\n",
 			spa_debug_type_find_name(pw_type_info(), data->type), data->version);
+
 	if (print_all) {
-		print_params(data, MARK_CHANGE(1));
-		print_properties(info->props, MARK_CHANGE(0));
+		print_params(data, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PARAMS));
+		print_properties(info->props, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PROPS));
 	}
 }
 

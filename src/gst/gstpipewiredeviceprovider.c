@@ -215,7 +215,7 @@ static GstDevice *
 new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
 {
   GstStructure *props;
-  const gchar *klass = NULL;
+  const gchar *klass = NULL, *name = NULL;
   GstPipeWireDeviceType type;
   const struct pw_node_info *info = data->info;
   const gchar *element = NULL;
@@ -242,8 +242,12 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
   if (klass == NULL)
     klass = "unknown/unknown";
 
+  name = spa_dict_lookup (info->props, PW_KEY_NODE_DESCRIPTION);
+  if (name == NULL)
+    name = "unknown";
+
   gstdev = g_object_new (GST_TYPE_PIPEWIRE_DEVICE,
-      "display-name", info->name, "caps", data->caps, "device-class", klass,
+      "display-name", name, "caps", data->caps, "device-class", klass,
       "id", data->id, "properties", props, NULL);
 
   gstdev->id = data->id;

@@ -110,12 +110,8 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 	struct pw_device *device;
 	struct pw_client *client = pw_resource_get_client(resource);
 	struct pw_core *core = pw_client_get_core(client);
-	const char *name;
 
-	if ((name = pw_properties_get(properties, PW_KEY_DEVICE_NAME)) == NULL)
-		name = "client-device";
-
-	device = pw_device_new(core, name, properties, sizeof(struct impl));
+	device = pw_device_new(core, properties, sizeof(struct impl));
 	if (device == NULL)
 		return NULL;
 

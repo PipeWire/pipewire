@@ -939,10 +939,11 @@ static void node_free(void *data)
 static void node_info_changed(void *data, const struct pw_node_info *info)
 {
 	struct node_data *d = data;
-	uint32_t change_mask = 0;
+	uint32_t change_mask;
 
 	pw_log_debug("info changed %p", d);
 
+	change_mask = 0;
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
 		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
@@ -1134,7 +1135,7 @@ struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
 {
 	struct pw_node *node;
 
-	node = pw_node_new(pw_remote_get_core(remote), NULL, props, 0);
+	node = pw_node_new(pw_remote_get_core(remote), props, 0);
 	if (node == NULL)
 		return NULL;
 

@@ -109,17 +109,20 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 		goto exit;
 	}
 
-	node->props = pw_properties_copy(obj->props);
-	pw_properties_update(node->props, info->props);
+	node->props = pw_properties_new_dict(info->props);
 
-	str = pw_properties_get(obj->props, PW_KEY_DEVICE_NICK);
+	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION);
 	if (str == NULL)
 		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
+	if (str == NULL)
+		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
 	if (str == NULL)
 		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_ALIAS);
 	if (str == NULL)
 		str = "bluetooth-device";
-	pw_properties_set(node->props, PW_KEY_NODE_NAME, str);
+
+	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
+	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
 	pw_properties_setf(node->props, "factory.name", info->factory_name);
 
 	node->monitor = monitor;

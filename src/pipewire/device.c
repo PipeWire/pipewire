@@ -73,9 +73,19 @@ struct node_data {
 	struct spa_hook node_listener;
 };
 
+static void check_properties(struct pw_device *device)
+{
+	const char *str;
+
+	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NAME))) {
+		free(device->name);
+		device->name = strdup(str);
+		pw_log_info(NAME" %p: name '%s'", device, device->name);
+	}
+}
+
 SPA_EXPORT
 struct pw_device *pw_device_new(struct pw_core *core,
-				const char *name,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
@@ -90,6 +100,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	}
 
 	this = &impl->this;
+	pw_log_debug(NAME" %p: new", this);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -101,7 +112,6 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	this->core = core;
 	this->properties = properties;
 
-	this->info.name = strdup(name);
 	this->info.props = &properties->dict;
 	this->info.params = this->params;
 	spa_hook_list_init(&this->listener_list);
@@ -111,7 +121,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(struct impl), void);
 
-	pw_log_debug(NAME" %p: new %s", this, name);
+	check_properties(this);
 
 	return this;
 
@@ -145,7 +155,6 @@ void pw_device_destroy(struct pw_device *device)
 	pw_log_debug(NAME" %p: free", device);
 	pw_device_emit_free(device);
 
-	free((char *)device->info.name);
 	pw_properties_free(device->properties);
 
 	free(device);
@@ -507,7 +516,6 @@ static void device_add(struct pw_device *device, uint32_t id,
 		pw_properties_update(props, info->props);
 
 	node = pw_node_new(core,
-			   device->info.name,
 			   props,
 			   sizeof(struct node_data));
 

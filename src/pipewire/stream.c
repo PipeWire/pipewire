@@ -88,6 +88,7 @@ struct control {
 	struct pw_stream_control control;
 	struct spa_pod *info;
 	unsigned int emitted:1;
+	float values[64];
 };
 
 #define DEFAULT_VOLUME	1.0
@@ -461,6 +462,10 @@ static int impl_port_enum_params(void *object, int seq,
 	result.id = id;
 	result.next = start;
 
+	pw_log_debug(NAME" %p: param id %d (%s) start:%d num:%d", d, id,
+			spa_debug_type_find_name(spa_type_param, id),
+			start, num);
+
 	spa_list_for_each(p, &d->param_list, link) {
 		struct spa_pod *param;
 
@@ -519,6 +524,8 @@ static int port_set_format(void *object,
 	if (stream->state == PW_STREAM_STATE_ERROR)
 		return -EIO;
 
+	impl->params[3].flags |= SPA_PARAM_INFO_READ;
+	impl->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_port_info(impl);
 
 	stream_set_state(stream,
@@ -864,6 +871,8 @@ static void node_event_param(void *object, int seq,
 {
 	struct pw_stream *stream = object;
 
+	pw_log_debug(NAME" %p: param %d", stream, id);
+
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
@@ -875,6 +884,9 @@ static void node_event_param(void *object, int seq,
 		c = calloc(1, sizeof(*c) + SPA_POD_SIZE(param));
 		c->info = SPA_MEMBER(c, sizeof(*c), struct spa_pod);
 		memcpy(c->info, param, SPA_POD_SIZE(param));
+		c->control.n_values = 0;
+		c->control.max_values = 0;
+		c->control.values = c->values;
 		spa_list_append(&stream->controls, &c->link);
 
 		if (spa_pod_parse_object(c->info,
@@ -902,12 +914,16 @@ static void node_event_param(void *object, int seq,
 		case SPA_CHOICE_None:
 			if (n_vals < 1)
 				return;
-			c->control.value = c->control.def = c->control.min = c->control.max = vals[0];
+			c->control.n_values = 1;
+			c->control.max_values = 1;
+			c->control.values[0] = c->control.def = c->control.min = c->control.max = vals[0];
 			break;
 		case SPA_CHOICE_Range:
 			if (n_vals < 3)
 				return;
-			c->control.value = vals[0];
+			c->control.n_values = 1;
+			c->control.max_values = 1;
+			c->control.values[0] = vals[0];
 			c->control.def = vals[0];
 			c->control.min = vals[1];
 			c->control.max = vals[2];
@@ -930,6 +946,8 @@ static void node_event_param(void *object, int seq,
 			float f;
 			bool b;
 		} value;
+		float *values;
+		uint32_t i, n_values;
 
 		SPA_POD_OBJECT_FOREACH(obj, prop) {
 			struct control *c;
@@ -938,21 +956,34 @@ static void node_event_param(void *object, int seq,
 			if (c == NULL)
 				continue;
 
-			if (spa_pod_get_float(&prop->value, &value.f) == 0)
-				;
-			else if (spa_pod_get_bool(&prop->value, &value.b) == 0)
+			if (spa_pod_get_float(&prop->value, &value.f) == 0) {
+				n_values = 1;
+				values = &value.f;
+			} else if (spa_pod_get_bool(&prop->value, &value.b) == 0) {
 				value.f = value.b ? 1.0 : 0.0;
-			else
+				n_values = 1;
+				values = &value.f;
+			} else if ((values = spa_pod_get_array(&prop->value, &n_values))) {
+				if (!spa_pod_is_float(SPA_POD_ARRAY_CHILD(&prop->value)))
+					continue;
+			} else
 				continue;
 
-			if (c->control.value == value.f && c->emitted)
+
+			if (c->emitted && c->control.n_values == n_values &&
+			    memcmp(c->control.values, values, sizeof(float) * n_values) == 0)
 				continue;
 
-			c->control.value = value.f;
+			memcpy(c->control.values, values, sizeof(float) * n_values);
+			c->control.n_values = n_values;
 			c->emitted = true;
-			pw_log_debug(NAME" %p: control %d (%s) changed %f", stream,
-					prop->key, c->control.name, value.f);
-			pw_stream_emit_control_changed(stream, prop->key, value.f);
+
+			pw_log_debug(NAME" %p: control %d (%s) changed %d:", stream,
+					prop->key, c->control.name, n_values);
+			for (i = 0; i < n_values; i++)
+				pw_log_debug(NAME" %p:  value %d %f", stream, i, values[i]);
+
+			pw_stream_emit_control_info(stream, prop->key, &c->control);
 		}
 		break;
 	}
@@ -984,8 +1015,7 @@ static int handle_connect(struct pw_stream *stream)
 		pw_properties_set(props, "resample.peaks", "1");
 	}
 
-	slave = pw_node_new(impl->core, stream->name,
-			pw_properties_copy(props), 0);
+	slave = pw_node_new(impl->core, pw_properties_copy(props), 0);
 	if (slave == NULL) {
 		res = -errno;
 		goto error_node;
@@ -1470,7 +1500,7 @@ void pw_stream_finish_format(struct pw_stream *stream,
 }
 
 SPA_EXPORT
-int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ...)
+int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...)
 {
         va_list varargs;
 	char buf[1024];
@@ -1479,9 +1509,9 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ..
 	struct spa_pod *pod;
 	struct control *c;
 
-	pw_log_debug(NAME" %p: set control %d %f", stream, id, value);
+	pw_log_debug(NAME" %p: set control %d %d %f", stream, id, n_values, values[0]);
 
-        va_start(varargs, value);
+        va_start(varargs, values);
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 	while (1) {
@@ -1489,10 +1519,15 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ..
 			spa_pod_builder_prop(&b, id, 0);
 			switch (c->type) {
 			case SPA_TYPE_Float:
-				spa_pod_builder_float(&b, value);
+				if (n_values == 1)
+					spa_pod_builder_float(&b, values[0]);
+				else
+					spa_pod_builder_array(&b,
+							sizeof(float), SPA_TYPE_Float,
+							n_values, values);
 				break;
 			case SPA_TYPE_Bool:
-				spa_pod_builder_bool(&b, value < 0.5 ? false : true);
+				spa_pod_builder_bool(&b, values[0] < 0.5 ? false : true);
 				break;
 			default:
 				spa_pod_builder_none(&b);
@@ -1501,7 +1536,8 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, float value, ..
 		}
 		if ((id = va_arg(varargs, uint32_t)) == 0)
 			break;
-		value = va_arg(varargs, double);
+		n_values = va_arg(varargs, uint32_t);
+		values = va_arg(varargs, float *);
 	}
 	pod = spa_pod_builder_pop(&b, &f[0]);
 

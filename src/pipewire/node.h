@@ -102,7 +102,6 @@ struct pw_node_events {
 /** Create a new node \memberof pw_node */
 struct pw_node *
 pw_node_new(struct pw_core *core,		/**< the core */
-	    const char *name,			/**< node name */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 

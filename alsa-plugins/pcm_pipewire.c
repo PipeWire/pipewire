@@ -814,8 +814,8 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 {
 	snd_pcm_pipewire_t *pw;
 	int err;
-	static unsigned int num = 0;
 	const char *str;
+	struct pw_properties *props;
 
 	assert(pcmp);
 	pw = calloc(1, sizeof(*pw));
@@ -831,10 +831,8 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw->flags = flags;
 
 	if (node_name == NULL)
-		err = asprintf(&pw->node_name,
-			       "alsa-pipewire.%s%s.%d.%d", name,
-			       stream == SND_PCM_STREAM_PLAYBACK ? "P" : "C",
-			       getpid(), num++);
+		err = asprintf(&pw->node_name, "ALSA %s",
+			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture");
 	else
 		pw->node_name = strdup(node_name);
 
@@ -852,7 +850,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
         pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");
         pw->core = pw_core_new(pw->loop, NULL, 0);
 
-	pw->remote = pw_remote_new(pw->core, NULL, 0);
+	props = pw_properties_new(NULL, NULL);
+	str = pw_get_prgname();
+	if (str)
+		pw_properties_setf(props, PW_KEY_APP_NAME, "ALSA plug-in [%s]", str);
+	else
+		pw_properties_set(props, PW_KEY_APP_NAME, "ALSA plug-in");
+
+	pw->remote = pw_remote_new(pw->core, props, 0);
 	pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);
 
 	if ((err = pw_thread_loop_start(pw->main_loop)) < 0)

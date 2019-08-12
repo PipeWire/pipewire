@@ -97,7 +97,7 @@ static int impl_node_enum_params(void *object, int seq,
 	result.id = id;
 	result.next = start;
 next:
-	result.index = result.next++;
+	result.index = result.next;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -107,7 +107,7 @@ next:
 	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
 		if ((res = spa_node_enum_params_sync(this->convert,
-				id, &start, filter, &param, &b)) != 1)
+				id, &result.next, filter, &param, &b)) != 1)
 			return res;
 		break;
 
@@ -115,7 +115,7 @@ next:
 	case SPA_PARAM_Format:
 		if ((res = spa_node_port_enum_params_sync(this->slave,
 				this->direction, 0,
-				id, &start, filter, &param, &b)) != 1)
+				id, &result.next, filter, &param, &b)) != 1)
 			return res;
 		break;
 

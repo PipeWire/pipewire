@@ -4,6 +4,12 @@ executable('video-src',
   install: false,
   dependencies : [pipewire_dep, mathlib],
 )
+executable('video-src-alloc',
+  'video-src-alloc.c',
+  c_args : [ '-D_GNU_SOURCE' ],
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
 executable('audio-src',
   'audio-src.c',
   c_args : [ '-D_GNU_SOURCE' ],

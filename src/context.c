@@ -190,6 +190,15 @@ static void emit_event(pa_context *c, struct global *g, pa_subscription_event_ty
 	}
 }
 
+static void update_device_props(struct global *g)
+{
+	pa_card_info *i = &g->card_info.info;
+	const char *s;
+
+	if ((s = pa_proplist_gets(i->proplist, PW_KEY_DEVICE_ICON_NAME)))
+		pa_proplist_sets(i->proplist, PA_PROP_DEVICE_ICON_NAME, s);
+}
+
 static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct global *g = object;
@@ -200,15 +209,19 @@ static void device_event_info(void *object, const struct pw_device_info *info)
         info = g->info = pw_device_info_update(g->info, info);
 
 	i->index = g->id;
-	i->name = info->name;
+	i->name = info->props ?
+		spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME) : "unknown";
 	i->owner_module = g->parent_id;
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_KEY_DEVICE_API) : NULL;
+
 		if (i->proplist)
 			pa_proplist_update_dict(i->proplist, info->props);
-		else
+		else {
 			i->proplist = pa_proplist_new_dict(info->props);
+		}
+		update_device_props(g);
 	}
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (n = 0; n < info->n_params; n++) {
@@ -333,6 +346,39 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	g->pending_seq = pw_proxy_sync(g->proxy, 0);
 }
 
+static void parse_props(struct global *g, const struct spa_pod *param)
+{
+	struct spa_pod_prop *prop;
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		switch (prop->key) {
+		case SPA_PROP_volume:
+			spa_pod_get_float(&prop->value, &g->node_info.volume);
+			break;
+		case SPA_PROP_mute:
+			spa_pod_get_bool(&prop->value, &g->node_info.mute);
+			break;
+		case SPA_PROP_channelVolumes:
+		{
+			uint32_t n_vals;
+
+			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					g->node_info.channel_volumes, SPA_AUDIO_MAX_CHANNELS);
+
+			if (n_vals != g->node_info.n_channel_volumes) {
+				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_REMOVE);
+				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_NEW);
+				g->node_info.n_channel_volumes = n_vals;
+			}
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
 static void node_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
@@ -342,24 +388,8 @@ static void node_event_param(void *object, int seq,
 
 	switch (id) {
 	case SPA_PARAM_Props:
-	{
-		struct spa_pod_prop *prop;
-		struct spa_pod_object *obj = (struct spa_pod_object *) param;
-
-		SPA_POD_OBJECT_FOREACH(obj, prop) {
-			switch (prop->key) {
-			case SPA_PROP_volume:
-				spa_pod_get_float(&prop->value, &g->node_info.volume);
-				break;
-			case SPA_PROP_mute:
-				spa_pod_get_bool(&prop->value, &g->node_info.mute);
-				break;
-			default:
-				break;
-			}
-		}
+		parse_props(g, param);
 		break;
-	}
 	default:
 		break;
 	}
@@ -395,10 +425,8 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 			i->proplist = pa_proplist_new_dict(info->props);
 	}
 
-	if (info->change_mask & PW_MODULE_CHANGE_MASK_NAME)
-		i->name = info->name;
-	if (info->change_mask & PW_MODULE_CHANGE_MASK_ARGS)
-		i->argument = info->args;
+	i->name = info->name;
+	i->argument = info->args;
 	i->n_used = -1;
 	i->auto_unload = false;
 	g->pending_seq = pw_proxy_sync(g->proxy, 0);

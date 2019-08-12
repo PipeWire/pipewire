@@ -91,22 +91,35 @@ static void sink_callback(struct sink_data *d)
 {
 	struct global *g = d->global;
 	struct pw_node_info *info = g->info;
+	const char *str;
+	uint32_t n;
 	pa_sink_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
 
-	pw_log_debug("sink %d %s monitor %d", g->id, info->name, g->node_info.monitor);
-
 	spa_zero(i);
-	i.name = info->name;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)))
+		i.name = str;
+	else
+		i.name = "unknown";
+	pw_log_debug("sink %d %s monitor %d", g->id, i.name, g->node_info.monitor);
 	i.index = g->id;
-	i.description = info->name;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)))
+		i.description = str;
+	else
+		i.description = "unknown";
+
 	i.sample_spec.format = PA_SAMPLE_S16LE;
 	i.sample_spec.rate = 44100;
-	i.sample_spec.channels = 2;
-	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
+	if (g->node_info.n_channel_volumes)
+		i.sample_spec.channels = g->node_info.n_channel_volumes;
+	else
+		i.sample_spec.channels = 2;
+	pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 	i.owner_module = g->parent_id;
-	pa_cvolume_set(&i.volume, 2, g->node_info.volume * PA_VOLUME_NORM);
+	i.volume.channels = i.sample_spec.channels;
+	for (n = 0; n < i.volume.channels; n++)
+		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->node_info.mute;
 	i.monitor_source = g->node_info.monitor;
 	i.monitor_source_name = "unknown";
@@ -243,35 +256,80 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	return o;
 }
 
-static void set_stream_volume(pa_context *c, pa_stream *s, float volume, bool mute)
+static void set_stream_volume(pa_context *c, pa_stream *s, const pa_cvolume *volume, bool mute)
 {
-	if (s->volume != volume || s->mute != mute) {
-		s->volume = volume;
+	uint32_t i, n_channel_volumes;
+	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
+	float *vols;
+
+	if (volume) {
+		for (i = 0; i < volume->channels; i++)
+			channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+		vols = channel_volumes;
+		n_channel_volumes = volume->channels;
+	} else {
+		vols = s->channel_volumes;
+		n_channel_volumes = s->n_channel_volumes;
+	}
+
+	if (n_channel_volumes != s->n_channel_volumes ||
+	    !memcmp(s->channel_volumes, vols, n_channel_volumes * sizeof(float)) ||
+	    s->mute != mute) {
+		float val;
+
+		memcpy(s->channel_volumes, vols, n_channel_volumes * sizeof(float));
+		s->n_channel_volumes = n_channel_volumes;
 		s->mute = mute;
 
+		val = s->mute ? 1.0f : 0.0f;
+
 		pw_stream_set_control(s->stream,
-				SPA_PROP_volume, s->volume,
-				SPA_PROP_mute, s->mute ? 1.0f : 0.0f,
+				SPA_PROP_mute, 1, &val,
+				SPA_PROP_channelVolumes, n_channel_volumes, channel_volumes,
 				0);
 	}
 }
 
-static void set_node_volume(pa_context *c, struct global *g, float volume, bool mute)
+static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *volume, bool mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	uint32_t i, n_channel_volumes;
+	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
+	float *vols;
 
-	if (g->node_info.volume != volume || g->node_info.mute != mute) {
-		g->node_info.volume = volume;
-		g->node_info.mute = mute;
-		pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
-			SPA_PARAM_Props, 0,
-			spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
-				SPA_PROP_volume,	SPA_POD_Float(volume),
-				SPA_PROP_mute,		SPA_POD_Bool(mute)));
+	if (volume) {
+		for (i = 0; i < volume->channels; i++)
+			channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+		vols = channel_volumes;
+		n_channel_volumes = volume->channels;
+
+		if (n_channel_volumes == g->node_info.n_channel_volumes &&
+		    memcmp(g->node_info.channel_volumes, vols, n_channel_volumes * sizeof(float)) == 0 &&
+		    mute == g->node_info.mute)
+			return;
+
+		memcpy(g->node_info.channel_volumes, vols, n_channel_volumes * sizeof(float));
+		g->node_info.n_channel_volumes = n_channel_volumes;
+	} else {
+		n_channel_volumes = g->node_info.n_channel_volumes;
+		vols = g->node_info.channel_volumes;
+		if (mute == g->node_info.mute)
+			return;
 	}
+	g->node_info.mute = mute;
+
+	pw_node_proxy_set_param((struct pw_node_proxy*)g->proxy,
+		SPA_PARAM_Props, 0,
+		spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,
+			SPA_PROP_mute,			SPA_POD_Bool(mute),
+			SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
+								SPA_TYPE_Float,
+								n_channel_volumes,
+								vols)));
 }
+
 
 SPA_EXPORT
 pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
@@ -279,7 +337,6 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -295,8 +352,7 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 		return NULL;
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-	set_node_volume(c, g, v, g->node_info.mute);
+	set_node_volume(c, g, volume, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -312,7 +368,6 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -326,8 +381,7 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
 		return NULL;
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-	set_node_volume(c, g, v, g->node_info.mute);
+	set_node_volume(c, g, volume, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -357,7 +411,7 @@ pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 		return NULL;
 
-	set_node_volume(c, g, g->node_info.volume, mute);
+	set_node_volume(c, g, NULL, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -385,7 +439,7 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL)
 		return NULL;
 
-	set_node_volume(c, g, g->node_info.volume, mute);
+	set_node_volume(c, g, NULL, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -488,6 +542,8 @@ static void source_callback(struct source_data *d)
 {
 	struct global *g = d->global;
 	struct pw_node_info *info = g->info;
+	const char *str;
+	uint32_t n;
 	pa_source_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
@@ -497,15 +553,26 @@ static void source_callback(struct source_data *d)
 		  PA_SOURCE_DECIBEL_VOLUME;
 
 	spa_zero(i);
-	i.name = info->name;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)))
+		i.name = str;
+	else
+		i.name = "unknown";
 	i.index = g->id;
-	i.description = info->name;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)))
+		i.description = str;
+	else
+		i.description = "unknown";
 	i.sample_spec.format = PA_SAMPLE_S16LE;
 	i.sample_spec.rate = 44100;
-	i.sample_spec.channels = 2;
-	pa_channel_map_init_auto(&i.channel_map, 2, PA_CHANNEL_MAP_DEFAULT);
+	if (g->node_info.n_channel_volumes)
+		i.sample_spec.channels = g->node_info.n_channel_volumes;
+	else
+		i.sample_spec.channels = 2;
+	pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 	i.owner_module = g->parent_id;
-	pa_cvolume_set(&i.volume, 2, g->node_info.volume * PA_VOLUME_NORM);
+	i.volume.channels = i.sample_spec.channels;
+	for (n = 0; n < i.volume.channels; n++)
+		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->node_info.mute;
 	if (g->mask & PA_SUBSCRIPTION_MASK_SINK) {
 		i.monitor_of_sink = g->id;
@@ -654,7 +721,6 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -670,8 +736,7 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
 		return NULL;
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-	set_node_volume(c, g, v, g->node_info.mute);
+	set_node_volume(c, g, volume, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -687,7 +752,6 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	float v;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -701,8 +765,7 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
 		return NULL;
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-	set_node_volume(c, g, v, g->node_info.mute);
+	set_node_volume(c, g, volume, g->node_info.mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -732,7 +795,7 @@ pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, i
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
 		return NULL;
 
-	set_node_volume(c, g, g->node_info.volume, mute);
+	set_node_volume(c, g, NULL, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -760,7 +823,7 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL)
 		return NULL;
 
-	set_node_volume(c, g, g->node_info.volume, mute);
+	set_node_volume(c, g, NULL, mute);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -858,7 +921,7 @@ static void server_callback(struct server_data *d)
 	i.default_sink_name = "unknown";
 	i.default_source_name = "unknown";
 	i.cookie = info->cookie;
-        pa_channel_map_init_extend(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+        pa_channel_map_init_extend(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 	d->cb(d->context, &i, d->userdata);
 }
 
@@ -1427,6 +1490,7 @@ static void sink_input_callback(struct sink_input_data *d)
 	struct global *g = d->global, *cl;
 	struct pw_node_info *info = g->info;
 	const char *name;
+	uint32_t n;
 	pa_sink_input_info i;
 	pa_format_info ii[1];
 	pa_stream *s;
@@ -1438,17 +1502,18 @@ static void sink_input_callback(struct sink_input_data *d)
 
 	if (info->props) {
 		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
-		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL)
-			name = info->name;
+		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL &&
+		    (name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) == NULL)
+			name = "unknown";
 	}
 	else
-		name = info->name;
+		name = "unknown";
 
 	cl = pa_context_find_global(d->context, g->parent_id);
 
 	spa_zero(i);
 	i.index = g->id;
-	i.name = name ? name : "Unknown";
+	i.name = name;
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->parent_id;
 	if (s) {
@@ -1465,20 +1530,25 @@ static void sink_input_callback(struct sink_input_data *d)
 			i.channel_map = s->channel_map;
 		else
 			pa_channel_map_init_auto(&i.channel_map,
-					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+					i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 		i.format = s->format;
 	}
 	else {
 		i.sample_spec.format = PA_SAMPLE_S16LE;
 		i.sample_spec.rate = 44100;
-		i.sample_spec.channels = 2;
-		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+		i.sample_spec.channels = g->node_info.n_channel_volumes;
+		if (i.sample_spec.channels == 0)
+			i.sample_spec.channels = 2;
+		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
 	}
 	pa_cvolume_init(&i.volume);
-	pa_cvolume_set(&i.volume, i.sample_spec.channels, g->node_info.volume * PA_VOLUME_NORM);
+	i.volume.channels = i.sample_spec.channels;
+	for (n = 0; n < i.volume.channels; n++)
+		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
+
 	i.mute = g->node_info.mute;
 	i.buffer_usec = 0;
 	i.sink_usec = 0;
@@ -1620,7 +1690,6 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	float v;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -1631,13 +1700,11 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 			return NULL;
 	}
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-
 	if (s) {
-		set_stream_volume(c, s, v, s->mute);
+		set_stream_volume(c, s, volume, s->mute);
 	}
 	else if (g) {
-		set_node_volume(c, g, v, g->node_info.mute);
+		set_node_volume(c, g, volume, g->node_info.mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1666,10 +1733,10 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	}
 
 	if (s) {
-		set_stream_volume(c, s, s->volume, mute);
+		set_stream_volume(c, s, NULL, mute);
 	}
 	else if (g) {
-		set_node_volume(c, g, g->node_info.volume, mute);
+		set_node_volume(c, g, NULL, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1721,7 +1788,8 @@ static void source_output_callback(struct source_output_data *d)
 {
 	struct global *g = d->global, *l, *cl;
 	struct pw_node_info *info = g->info;
-	const char *name;
+	const char *name = NULL;
+	uint32_t n;
 	pa_source_output_info i;
 	pa_format_info ii[1];
 	pa_stream *s;
@@ -1734,11 +1802,12 @@ static void source_output_callback(struct source_output_data *d)
 
 	if (info->props) {
 		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
-		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL)
-			name = info->name;
+		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL &&
+		    (name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) == NULL)
+			name = NULL;
 	}
-	else
-		name = info->name;
+	if (name == NULL)
+		name = "unknown";
 
 	cl = pa_context_find_global(d->context, g->parent_id);
 
@@ -1760,20 +1829,25 @@ static void source_output_callback(struct source_output_data *d)
 			i.channel_map = s->channel_map;
 		else
 			pa_channel_map_init_auto(&i.channel_map,
-					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+					i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 		i.format = s->format;
 	}
 	else {
 		i.sample_spec.format = PA_SAMPLE_S16LE;
 		i.sample_spec.rate = 44100;
-		i.sample_spec.channels = 2;
-		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
+		i.sample_spec.channels = g->node_info.n_channel_volumes;
+		if (i.sample_spec.channels == 0)
+			i.sample_spec.channels = 2;
+		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
 	}
 	pa_cvolume_init(&i.volume);
-	pa_cvolume_set(&i.volume, i.sample_spec.channels, g->node_info.volume * PA_VOLUME_NORM);
+	i.volume.channels = i.sample_spec.channels;
+	for (n = 0; n < i.volume.channels; n++)
+		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
+
 	i.mute = g->node_info.mute;
 	i.buffer_usec = 0;
 	i.source_usec = 0;
@@ -1910,7 +1984,6 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	float v;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -1921,13 +1994,11 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 			return NULL;
 	}
 
-	v = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-
 	if (s) {
-		set_stream_volume(c, s, v, s->mute);
+		set_stream_volume(c, s, volume, s->mute);
 	}
 	else if (g) {
-		set_node_volume(c, g, v, g->node_info.mute);
+		set_node_volume(c, g, volume, g->node_info.mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1954,10 +2025,10 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	}
 
 	if (s) {
-		set_stream_volume(c, s, s->volume, mute);
+		set_stream_volume(c, s, NULL, mute);
 	}
 	else if (g) {
-		set_node_volume(c, g, g->node_info.volume, mute);
+		set_node_volume(c, g, NULL, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;

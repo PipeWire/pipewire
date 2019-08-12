@@ -246,6 +246,8 @@ struct global {
 			uint32_t monitor;
 			float volume;
 			bool mute;
+			uint32_t n_channel_volumes;
+			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 		} node_info;
 		/* for devices */
 		struct {
@@ -382,7 +384,8 @@ struct pa_stream {
 	uint32_t buffer_size;
 	uint32_t buffer_offset;
 
-	float volume;
+	uint32_t n_channel_volumes;
+	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 	bool mute;
 	pa_operation *drain;
 	uint64_t queued;

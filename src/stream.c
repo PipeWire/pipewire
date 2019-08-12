@@ -828,7 +828,7 @@ static int create_stream(pa_stream_direction_t direction,
 	int res;
 	enum pw_stream_flags fl;
 	const struct spa_pod *params[16];
-	uint32_t n_params = 0;
+	uint32_t i, n_params = 0;
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t sample_rate = 0, stride = 0;
@@ -847,10 +847,15 @@ static int create_stream(pa_stream_direction_t direction,
 	s->direction = direction;
 	s->timing_info_valid = false;
 	s->disconnecting = false;
-	if (volume)
-		s->volume = pa_cvolume_avg(volume) / (float) PA_VOLUME_NORM;
-	else
-		s->volume = 1.0;
+	if (volume) {
+		for (i = 0; i < volume->channels; i++)
+			s->channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+		s->n_channel_volumes = volume->channels;
+	} else {
+		for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+			s->channel_volumes[i] = 1.0;
+		s->n_channel_volumes = 0;
+	}
 	s->mute = false;
 
 	pa_stream_set_state(s, PA_STREAM_CREATING);

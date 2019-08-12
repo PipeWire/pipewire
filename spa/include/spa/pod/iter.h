@@ -317,6 +317,25 @@ static inline int spa_pod_is_array(const struct spa_pod *pod)
 			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_array_body));
 }
 
+static inline void *spa_pod_get_array(const struct spa_pod *pod, uint32_t *n_values)
+{
+	spa_return_val_if_fail(spa_pod_is_array(pod), NULL);
+	*n_values = SPA_POD_ARRAY_N_VALUES(pod);
+	return SPA_POD_ARRAY_VALUES(pod);
+}
+
+static inline uint32_t spa_pod_copy_array(const struct spa_pod *pod, uint32_t type,
+		void *values, uint32_t max_values)
+{
+	uint32_t n_values;
+	void *v = spa_pod_get_array(pod, &n_values);
+	if (v == NULL || max_values == 0 || SPA_POD_ARRAY_VALUE_TYPE(pod) != type)
+		return 0;
+	n_values = SPA_MIN(n_values, max_values);
+	memcpy(values, v, SPA_POD_ARRAY_VALUE_SIZE(pod) * n_values);
+	return n_values;
+}
+
 static inline int spa_pod_is_choice(const struct spa_pod *pod)
 {
 	return (SPA_POD_TYPE(pod) == SPA_TYPE_Choice &&

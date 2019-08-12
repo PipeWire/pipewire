@@ -1469,8 +1469,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Node:
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL)
-			goto exit;
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
+		    (str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
+			str = "node";
+		}
 
 		o = alloc_object(c);
 		spa_list_append(&c->context.nodes, &o->link);

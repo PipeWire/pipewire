@@ -73,6 +73,7 @@ enum spa_prop {
 	SPA_PROP_patternType,
 	SPA_PROP_ditherType,
 	SPA_PROP_truncate,
+	SPA_PROP_channelVolumes,
 
 	SPA_PROP_START_Video	= 0x20000,	/**< video related properties */
 	SPA_PROP_brightness,

@@ -403,9 +403,10 @@ client_node_set_io(void *object,
 	void *ptr;
 	uint32_t tag[5] = { data->remote_id, id, };
 
+	if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
+		pw_memmap_free(mm);
+
 	if (memid == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
-			pw_memmap_free(mm);
 		mm = ptr = NULL;
 		size = 0;
 	}
@@ -715,10 +716,10 @@ client_node_port_set_io(void *object,
 		goto error_exit;
 	}
 
-	if (memid == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
-			pw_memmap_free(mm);
+	if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
+		pw_memmap_free(mm);
 
+	if (memid == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
 	}

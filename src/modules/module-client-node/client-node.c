@@ -339,6 +339,9 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	if (impl->this.flags & 1)
 		return 0;
 
+	if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
+		pw_memmap_free(mm);
+
 	if (data) {
 		mm = pw_mempool_import_map(this->client->pool,
 				impl->core->pool, data, size, tag);
@@ -350,9 +353,6 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		mem_size = size;
 	}
 	else {
-		if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
-                        pw_memmap_free(mm);
-
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
@@ -652,6 +652,9 @@ static int do_port_set_io(struct impl *impl,
 	if ((mix = find_mix(port, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
 
+	if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
+		pw_memmap_free(mm);
+
 	if (data) {
 		mm = pw_mempool_import_map(this->client->pool,
 				impl->core->pool, data, size, tag);
@@ -663,9 +666,6 @@ static int do_port_set_io(struct impl *impl,
 		mem_size = size;
 	}
 	else {
-		if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
-                        pw_memmap_free(mm);
-
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}

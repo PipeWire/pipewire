@@ -106,6 +106,7 @@ struct impl {
 	struct spa_hook listener[2];
 
 	unsigned int started:1;
+	unsigned int add_listener:1;
 };
 
 #define IS_MONITOR_PORT(this,dir,port_id) (dir == SPA_DIRECTION_OUTPUT && port_id > 0 &&	\
@@ -113,6 +114,9 @@ struct impl {
 
 static void emit_node_info(struct impl *this, bool full)
 {
+	if (this->add_listener)
+		return;
+
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
@@ -798,7 +802,7 @@ impl_node_add_listener(void *object,
 
 	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 
-	emit_node_info(this, true);
+	this->add_listener = true;
 
 	spa_zero(l);
 	spa_node_add_listener(this->fmt[SPA_DIRECTION_INPUT],
@@ -814,6 +818,10 @@ impl_node_add_listener(void *object,
 	spa_hook_remove(&l[1]);
 	spa_hook_remove(&l[2]);
 	spa_hook_remove(&l[3]);
+
+	this->add_listener = false;
+
+	emit_node_info(this, true);
 
 	spa_hook_list_join(&this->hooks, &save);
 

@@ -71,6 +71,7 @@ struct impl {
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 
+	unsigned int add_listener:1;
 	unsigned int use_converter:1;
 	unsigned int started:1;
 	unsigned int driver:1;
@@ -186,6 +187,9 @@ static int link_io(struct impl *this)
 
 static void emit_node_info(struct impl *this, bool full)
 {
+	if (this->add_listener)
+		return;
+
 	if (full)
 		this->info.change_mask = this->info_all;
 
@@ -446,13 +450,17 @@ static int impl_node_add_listener(void *object,
 	spa_log_trace(this->log, NAME" %p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	emit_node_info(this, true);
+	this->add_listener = true;
 
 	if (this->use_converter) {
 		spa_zero(l);
 		spa_node_add_listener(this->convert, &l, &convert_node_events, this);
 		spa_hook_remove(&l);
 	}
+
+	this->add_listener = false;
+
+	emit_node_info(this, true);
 
 	spa_hook_list_join(&this->hooks, &save);
 

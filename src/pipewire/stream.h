@@ -201,7 +201,7 @@ struct pw_stream_events {
 				enum pw_stream_state state, const char *error);
 
 	/** Notify information about a control.  */
-	void (*control_info) (void *data, uint32_t id, struct pw_stream_control *control);
+	void (*control_info) (void *data, uint32_t id, const struct pw_stream_control *control);
 
 	/** when the format changed. The listener should call
 	 * pw_stream_finish_format() from within this callback or later to complete

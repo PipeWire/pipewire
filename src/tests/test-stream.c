@@ -40,7 +40,7 @@ static void test_abi(void)
 		void (*destroy) (void *data);
 		void (*state_changed) (void *data, enum pw_stream_state old,
 			enum pw_stream_state state, const char *error);
-	        void (*control_info) (void *data, uint32_t id, struct pw_stream_control *control);
+	        void (*control_info) (void *data, uint32_t id, const struct pw_stream_control *control);
 		void (*format_changed) (void *data, const struct spa_pod *format);
 		void (*add_buffer) (void *data, struct pw_buffer *buffer);
 		void (*remove_buffer) (void *data, struct pw_buffer *buffer);

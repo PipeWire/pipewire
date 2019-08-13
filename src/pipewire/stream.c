@@ -871,8 +871,6 @@ static void node_event_param(void *object, int seq,
 {
 	struct pw_stream *stream = object;
 
-	pw_log_debug(NAME" %p: param %d", stream, id);
-
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
@@ -1528,12 +1526,12 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	struct spa_pod *pod;
 	struct control *c;
 
-	pw_log_debug(NAME" %p: set control %d %d %f", stream, id, n_values, values[0]);
-
         va_start(varargs, values);
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 	while (1) {
+		pw_log_debug(NAME" %p: set control %d %d %f", stream, id, n_values, values[0]);
+
 		if ((c = find_control(stream, id))) {
 			spa_pod_builder_prop(&b, id, 0);
 			switch (c->type) {
@@ -1552,6 +1550,8 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 				spa_pod_builder_none(&b);
 				break;
 			}
+		} else {
+			pw_log_warn(NAME" %p: unknown control with id %d", stream, id);
 		}
 		if ((id = va_arg(varargs, uint32_t)) == 0)
 			break;

@@ -22,6 +22,7 @@
 #include <time.h>
 
 #include <spa/utils/defs.h>
+#include <spa/param/props.h>
 
 #include <pulse/stream.h>
 #include <pulse/timeval.h>
@@ -414,6 +415,24 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 	pw_stream_finish_format(s->stream, res, params, n_params);
 }
 
+static void stream_control_info(void *data, uint32_t id, const struct pw_stream_control *control)
+{
+	pa_stream *s = data;
+
+	switch (id) {
+	case SPA_PROP_mute:
+		if (control->n_values > 0)
+			s->mute = control->values[0] >= 0.5f;
+		break;
+	case SPA_PROP_channelVolumes:
+		s->n_channel_volumes = SPA_MAX(SPA_AUDIO_MAX_CHANNELS, control->n_values);
+		memcpy(s->channel_volumes, control->values, s->n_channel_volumes * sizeof(float));
+		break;
+	default:
+		break;
+	}
+}
+
 static void stream_add_buffer(void *data, struct pw_buffer *buffer)
 {
 	pa_stream *s = data;
@@ -503,6 +522,7 @@ static const struct pw_stream_events stream_events =
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = stream_state_changed,
 	.format_changed = stream_format_changed,
+	.control_info = stream_control_info,
 	.add_buffer = stream_add_buffer,
 	.remove_buffer = stream_remove_buffer,
 	.process = stream_process,

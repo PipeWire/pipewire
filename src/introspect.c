@@ -275,17 +275,10 @@ static void set_stream_volume(pa_context *c, pa_stream *s, const pa_cvolume *vol
 	if (n_channel_volumes != s->n_channel_volumes ||
 	    !memcmp(s->channel_volumes, vols, n_channel_volumes * sizeof(float)) ||
 	    s->mute != mute) {
-		float val;
-
-		memcpy(s->channel_volumes, vols, n_channel_volumes * sizeof(float));
-		s->n_channel_volumes = n_channel_volumes;
-		s->mute = mute;
-
-		val = s->mute ? 1.0f : 0.0f;
-
+		float val = s->mute ? 1.0f : 0.0f;
 		pw_stream_set_control(s->stream,
 				SPA_PROP_mute, 1, &val,
-				SPA_PROP_channelVolumes, n_channel_volumes, channel_volumes,
+				SPA_PROP_channelVolumes, n_channel_volumes, vols,
 				0);
 	}
 }

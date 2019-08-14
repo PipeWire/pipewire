@@ -652,7 +652,6 @@ struct pw_proxy {
 	struct spa_interface impl;	/**< object implementation */
 
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
-	struct spa_list link;		/**< link in the remote */
 
 	uint32_t id;			/**< client side id */
 	unsigned int zombie:1;		/**< proxy is removed locally and waiting to
@@ -683,9 +682,7 @@ struct pw_remote {
 						 *   indexed with the client id */
 	struct pw_client_proxy *client_proxy;	/**< proxy for the client object */
 
-	struct spa_list proxy_list;		/**< list of \ref pw_proxy objects */
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
-	struct spa_list remote_node_list;	/**< list of \ref pw_remote_node objects */
 
 	struct pw_protocol_client *conn;	/**< the protocol client connection */
 	int recv_seq;				/**< last received sequence number */

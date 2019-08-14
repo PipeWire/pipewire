@@ -214,7 +214,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	pw_map_init(&this->objects, 64, 32);
 
-	spa_list_init(&this->proxy_list);
 	spa_list_init(&this->stream_list);
 
 	spa_hook_list_init(&this->listener_list);
@@ -465,10 +464,16 @@ int pw_remote_steal_fd(struct pw_remote *remote)
 	return fd;
 }
 
+static int destroy_proxy(void *object, void *data)
+{
+	if (object)
+		pw_proxy_destroy(object);
+	return 0;
+}
+
 SPA_EXPORT
 int pw_remote_disconnect(struct pw_remote *remote)
 {
-	struct pw_proxy *proxy;
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug(NAME" %p: disconnect", remote);
@@ -482,8 +487,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 
         pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 
-	spa_list_consume(proxy, &remote->proxy_list, link)
-		pw_proxy_destroy(proxy);
+	pw_map_for_each(&remote->objects, destroy_proxy, remote);
 
 	pw_map_reset(&remote->objects);
 

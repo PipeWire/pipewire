@@ -96,8 +96,6 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 			this->marshal->version,
 			this->marshal->method_marshal, this);
 
-	spa_list_append(&this->remote->proxy_list, &this->link);
-
 	pw_log_debug(NAME" %p: new %u %s remote %p, marshal %p",
 			this, this->id,
 			spa_debug_type_find_name(pw_type_info(), type),
@@ -164,8 +162,6 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	if (!proxy->zombie) {
 		pw_log_debug(NAME" %p: destroy %u", proxy, proxy->id);
 		pw_proxy_emit_destroy(proxy);
-
-		spa_list_remove(&proxy->link);
 	}
 	if (!proxy->removed) {
 		/* if the server did not remove this proxy, remove ourselves

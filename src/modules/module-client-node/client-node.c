@@ -612,6 +612,8 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct node *this = object;
+	struct port *port;
+	uint32_t i;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
@@ -620,8 +622,18 @@ impl_node_port_set_param(void *object,
 			direction, port_id,
 			spa_debug_type_find_name(spa_type_param, id), id);
 
+	port = GET_PORT(this, direction, port_id);
+
+	if (id == SPA_PARAM_Format) {
+		for (i = 0; i < MAX_MIX+1; i++) {
+			struct mix *mix = &port->mix[i];
+			if (mix->valid)
+				clear_buffers(this, mix);
+		}
+	}
 	if (this->resource == NULL)
 		return -EIO;
+
 
 	return pw_client_node_resource_port_set_param(this->resource,
 					       direction, port_id,
@@ -709,13 +721,14 @@ do_port_use_buffers(struct impl *impl,
 	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x", this,
-			direction == SPA_DIRECTION_INPUT ? "input" : "output",
-			port_id, mix_id, buffers, n_buffers, flags);
-
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	p = GET_PORT(this, direction, port_id);
+
+	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x %d", this,
+			direction == SPA_DIRECTION_INPUT ? "input" : "output",
+			port_id, mix_id, buffers, n_buffers, flags, p->have_format);
+
 	if (!p->have_format)
 		return -EIO;
 
@@ -1329,7 +1342,6 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
 		return -EINVAL;
 
-	clear_buffers(this, m);
 	pw_map_remove(&impl->io_map, mix->id);
 	m->valid = false;
 

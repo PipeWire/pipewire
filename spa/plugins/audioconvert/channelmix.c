@@ -245,11 +245,11 @@ static int setup_convert(struct impl *this,
 
 	emit_params_changed(this);
 
-	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x %d",
+	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x identity:%d",
 			this, this->cpu_flags, this->mix.cpu_flags,
-			this->mix.is_identity);
+			this->mix.identity);
 
-	this->is_passthrough = this->mix.is_identity;
+	this->is_passthrough = this->mix.identity;
 
 	return 0;
 }
@@ -916,9 +916,7 @@ static int impl_node_process(void *object)
 		void *dst_datas[n_dst_datas];
 		bool is_passthrough;
 
-		is_passthrough = this->is_passthrough &&
-			this->mix.volume == 1.0f &&
-			this->mix.is_identity;
+		is_passthrough = this->is_passthrough && this->mix.identity;
 
 		n_samples = sb->datas[0].chunk->size / inport->stride;
 

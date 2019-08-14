@@ -49,11 +49,12 @@ struct channelmix {
 
 	struct spa_log *log;
 
-	unsigned int is_identity:1;
-	float volume;
-	float matrix_orig[SPA_AUDIO_MAX_CHANNELS * SPA_AUDIO_MAX_CHANNELS];
-
-	float matrix[SPA_AUDIO_MAX_CHANNELS * SPA_AUDIO_MAX_CHANNELS];
+	unsigned int zero:1;		/* all zero components */
+	unsigned int identity:1;	/* identity matrix */
+	unsigned int norm:1;		/* all normal values */
+	unsigned int equal:1;	/* all values are equal */
+	float matrix_orig[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
+	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
 
 	void (*process) (struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
 			uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples);

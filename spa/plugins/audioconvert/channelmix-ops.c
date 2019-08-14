@@ -162,7 +162,7 @@ static int make_matrix(struct channelmix *mix)
 	uint64_t src_mask = mix->src_mask;
 	uint64_t dst_mask = mix->dst_mask;
 	uint64_t unassigned;
-	uint32_t i, j, matrix_encoding = MATRIX_NORMAL, c;
+	uint32_t i, j, ic, jc, matrix_encoding = MATRIX_NORMAL;
 	float clev = SQRT1_2;
 	float slev = SQRT1_2;
 	float llev = 0.5f;
@@ -325,17 +325,17 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 
-	c = 0;
-	for (i = 0; i < NUM_CHAN; i++) {
+	for (ic = 0, i = 0; i < NUM_CHAN; i++) {
 		float sum = 0.0f;
 		if ((dst_mask & (1UL << (i + 2))) == 0)
 			continue;
-		for (j = 0; j < NUM_CHAN; j++) {
+		for (jc = 0, j = 0; j < NUM_CHAN; j++) {
 			if ((src_mask & (1UL << (j + 2))) == 0)
 				continue;
-			mix->matrix_orig[c++] = matrix[i][j];
+			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
+		ic++;
 		max = SPA_MAX(max, sum);
 	}
 	return 0;
@@ -345,46 +345,56 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 		uint32_t n_channel_volumes, float *channel_volumes)
 {
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	float vol = mute ? 0.0f : volume, sum;
+	float vol = mute ? 0.0f : volume, sum, t;
 	uint32_t i, j;
 	uint32_t src_chan = mix->src_chan;
 	uint32_t dst_chan = mix->dst_chan;
 
 	/** apply global volume to channels */
 	sum = 0.0;
+	mix->norm = true;
 	for (i = 0; i < n_channel_volumes; i++) {
 		volumes[i] = channel_volumes[i] * vol;
+		if (volumes[i] != 1.0f)
+			mix->norm = false;
 		sum += volumes[i];
 	}
-	mix->volume = sum / n_channel_volumes;
 
 	if (n_channel_volumes == src_chan) {
 		for (i = 0; i < dst_chan; i++) {
 			for (j = 0; j < src_chan; j++) {
-				float v = mix->matrix_orig[i * src_chan + j];
-				mix->matrix[i * src_chan + j] = v * volumes[j];
+				mix->matrix[i][j] = mix->matrix_orig[i][j] * volumes[j];
 			}
 		}
 	} else if (n_channel_volumes == dst_chan) {
 		for (i = 0; i < dst_chan; i++) {
 			for (j = 0; j < src_chan; j++) {
-				float v = mix->matrix_orig[i * src_chan + j];
-				mix->matrix[i * src_chan + j] = v * volumes[i];
+				mix->matrix[i][j] = mix->matrix_orig[i][j] * volumes[i];
 			}
 		}
 	}
 
-	mix->is_identity = dst_chan == src_chan;
+	mix->zero = true;
+	mix->equal = true;
+	mix->identity = dst_chan == src_chan;
+	t = 0.0;
+
 	for (i = 0; i < dst_chan; i++) {
 		for (j = 0; j < src_chan; j++) {
-			float v = mix->matrix[i * src_chan + j];
+			float v = mix->matrix[i][j];
 			spa_log_debug(mix->log, "%d %d: %f", i, j, v);
+			if (i == 0 && j == 0)
+				t = v;
+			else if (t != v)
+				mix->equal = false;
+			if (v != 0.0)
+				mix->zero = false;
 			if ((i == j && v != 1.0f) ||
 			    (i != j && v != 0.0f))
-				mix->is_identity = false;
+				mix->identity = false;
 		}
 	}
-	spa_log_debug(mix->log, "vol:%f, identity:%d", mix->volume, mix->is_identity);
+	spa_log_debug(mix->log, "zero:%d norm:%d identity:%d", mix->zero, mix->norm, mix->identity);
 }
 
 static void impl_channelmix_free(struct channelmix *mix)

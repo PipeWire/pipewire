@@ -32,14 +32,12 @@ void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	uint32_t i, n, unrolled;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
-	float *m = mix->matrix;
-	float v = mix->volume;
 
-	if (v <= VOLUME_MIN) {
+	if (mix->zero) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (v == VOLUME_NORM) {
+	else if (mix->norm) {
 		for (i = 0; i < n_dst; i++)
 			spa_memcpy(d[i], s[i], n_samples * sizeof(float));
 	}
@@ -48,7 +46,7 @@ void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 			float *di = d[i];
 			const float *si = s[i];
 			__m128 t[4];
-			const __m128 vol = _mm_set1_ps(m[i * n_src + i]);
+			const __m128 vol = _mm_set1_ps(mix->matrix[i][i]);
 
 			if (SPA_IS_ALIGNED(di, 16) &&
 			    SPA_IS_ALIGNED(si, 16))
@@ -79,8 +77,8 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	uint32_t i, n, unrolled;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
-	float v = mix->volume;
-	const __m128 vol = _mm_set1_ps(v);
+	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
+	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
 	__m128 in;
 	const float *sFL = s[0], *sFR = s[1];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
@@ -95,11 +93,11 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	else
 		unrolled = 0;
 
-	if (v <= VOLUME_MIN) {
+	if (mix->zero) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (v == VOLUME_NORM) {
+	else if (mix->norm) {
 		for(n = 0; n < unrolled; n += 4) {
 			in = _mm_load_ps(&sFL[n]);
 			_mm_store_ps(&dFL[n], in);
@@ -119,18 +117,18 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	}
 	else {
 		for(n = 0; n < unrolled; n += 4) {
-			in = _mm_mul_ps(_mm_load_ps(&sFL[n]), vol);
+			in = _mm_mul_ps(_mm_load_ps(&sFL[n]), v0);
 			_mm_store_ps(&dFL[n], in);
 			_mm_store_ps(&dRL[n], in);
-			in = _mm_mul_ps(_mm_load_ps(&sFR[n]), vol);
+			in = _mm_mul_ps(_mm_load_ps(&sFR[n]), v1);
 			_mm_store_ps(&dFR[n], in);
 			_mm_store_ps(&dRR[n], in);
 		}
 		for(; n < n_samples; n++) {
-			in = _mm_mul_ss(_mm_load_ss(&sFL[n]), vol);
+			in = _mm_mul_ss(_mm_load_ss(&sFL[n]), v0);
 			_mm_store_ss(&dFL[n], in);
 			_mm_store_ss(&dRL[n], in);
-			in = _mm_mul_ss(_mm_load_ss(&sFR[n]), vol);
+			in = _mm_mul_ss(_mm_load_ss(&sFR[n]), v1);
 			_mm_store_ss(&dFR[n], in);
 			_mm_store_ss(&dRR[n], in);
 		}
@@ -145,12 +143,12 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	uint32_t n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	float v = mix->volume;
-	const float *m = mix->matrix;
-	const __m128 clev = _mm_set1_ps(m[2]);
-	const __m128 llev = _mm_set1_ps(m[3]);
-	const __m128 slev = _mm_set1_ps(m[4]);
-	const __m128 vol = _mm_set1_ps(v);
+	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
+	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
+	const __m128 clev = _mm_set1_ps(mix->matrix[2][0]);
+	const __m128 llev = _mm_set1_ps(mix->matrix[3][0]);
+	const __m128 slev0 = _mm_set1_ps(mix->matrix[4][0]);
+	const __m128 slev1 = _mm_set1_ps(mix->matrix[4][1]);
 	__m128 in, ctr;
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1];
@@ -167,19 +165,19 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	else
 		unrolled = 0;
 
-	if (v <= VOLUME_MIN) {
+	if (mix->zero) {
 		memset(dFL, 0, n_samples * sizeof(float));
 		memset(dFR, 0, n_samples * sizeof(float));
 	}
-	else if (v == VOLUME_NORM) {
+	else if (mix->norm) {
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
-			in = _mm_mul_ps(_mm_load_ps(&sSL[n]), slev);
+			in = _mm_mul_ps(_mm_load_ps(&sSL[n]), slev0);
 			in = _mm_add_ps(in, ctr);
 			in = _mm_add_ps(in, _mm_load_ps(&sFL[n]));
 			_mm_store_ps(&dFL[n], in);
-			in = _mm_mul_ps(_mm_load_ps(&sSR[n]), slev);
+			in = _mm_mul_ps(_mm_load_ps(&sSR[n]), slev1);
 			in = _mm_add_ps(in, ctr);
 			in = _mm_add_ps(in, _mm_load_ps(&sFR[n]));
 			_mm_store_ps(&dFR[n], in);
@@ -187,11 +185,11 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 		for(; n < n_samples; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
 			ctr = _mm_add_ss(ctr, _mm_mul_ss(_mm_load_ss(&sLFE[n]), llev));
-			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev);
+			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev0);
 			in = _mm_add_ss(in, ctr);
 			in = _mm_add_ss(in, _mm_load_ss(&sFL[n]));
 			_mm_store_ss(&dFL[n], in);
-			in = _mm_mul_ss(_mm_load_ss(&sSR[n]), slev);
+			in = _mm_mul_ss(_mm_load_ss(&sSR[n]), slev1);
 			in = _mm_add_ss(in, ctr);
 			in = _mm_add_ss(in, _mm_load_ss(&sFR[n]));
 			_mm_store_ss(&dFR[n], in);
@@ -201,29 +199,29 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
-			in = _mm_mul_ps(_mm_load_ps(&sSL[n]), slev);
+			in = _mm_mul_ps(_mm_load_ps(&sSL[n]), slev0);
 			in = _mm_add_ps(in, ctr);
 			in = _mm_add_ps(in, _mm_load_ps(&sFL[n]));
-			in = _mm_mul_ps(in, vol);
+			in = _mm_mul_ps(in, v0);
 			_mm_store_ps(&dFL[n], in);
-			in = _mm_mul_ps(_mm_load_ps(&sSR[n]), slev);
+			in = _mm_mul_ps(_mm_load_ps(&sSR[n]), slev1);
 			in = _mm_add_ps(in, ctr);
 			in = _mm_add_ps(in, _mm_load_ps(&sFR[n]));
-			in = _mm_mul_ps(in, vol);
+			in = _mm_mul_ps(in, v1);
 			_mm_store_ps(&dFR[n], in);
 		}
 		for(; n < n_samples; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
 			ctr = _mm_add_ss(ctr, _mm_mul_ss(_mm_load_ss(&sLFE[n]), llev));
-			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev);
+			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev0);
 			in = _mm_add_ss(in, ctr);
 			in = _mm_add_ss(in, _mm_load_ss(&sFL[n]));
-			in = _mm_mul_ss(in, vol);
+			in = _mm_mul_ss(in, v0);
 			_mm_store_ss(&dFL[n], in);
-			in = _mm_mul_ss(_mm_load_ss(&sSR[n]), slev);
+			in = _mm_mul_ss(_mm_load_ss(&sSR[n]), slev1);
 			in = _mm_add_ss(in, ctr);
 			in = _mm_add_ss(in, _mm_load_ss(&sFR[n]));
-			in = _mm_mul_ss(in, vol);
+			in = _mm_mul_ss(in, v1);
 			_mm_store_ss(&dFR[n], in);
 		}
 	}
@@ -237,9 +235,12 @@ channelmix_f32_5p1_3p1_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RE
 	uint32_t i, n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	float v = mix->volume;
-	const __m128 slev = _mm_set1_ps(v * 0.5f);
-	const __m128 vol = _mm_set1_ps(v);
+	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
+	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
+	const __m128 slev0 = _mm_set1_ps(mix->matrix[0][4]);
+	const __m128 slev1 = _mm_set1_ps(mix->matrix[1][5]);
+	const __m128 v2 = _mm_set1_ps(mix->matrix[2][2]);
+	const __m128 v3 = _mm_set1_ps(mix->matrix[3][3]);
 	__m128 avg[2];
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dFC = d[2], *dLFE = d[3];
@@ -258,56 +259,48 @@ channelmix_f32_5p1_3p1_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RE
 	else
 		unrolled = 0;
 
-	if (v <= VOLUME_MIN) {
+	if (mix->zero) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (v == VOLUME_NORM) {
-		for(n = 0; n < unrolled; n += 8) {
-			avg[0] = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
-			avg[1] = _mm_add_ps(_mm_load_ps(&sFL[n+4]), _mm_load_ps(&sSL[n+4]));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], slev));
-			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], slev));
-			avg[0] = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
-			avg[1] = _mm_add_ps(_mm_load_ps(&sFR[n+4]), _mm_load_ps(&sSR[n+4]));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], slev));
-			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], slev));
-			_mm_store_ps(&dFC[n], _mm_load_ps(&sFC[n]));
-			_mm_store_ps(&dFC[n+4], _mm_load_ps(&sFC[n+4]));
-			_mm_store_ps(&dLFE[n], _mm_load_ps(&sLFE[n]));
-			_mm_store_ps(&dLFE[n+4], _mm_load_ps(&sLFE[n+4]));
-		}
-		for(; n < n_samples; n++) {
-			avg[0] = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], slev));
-			avg[0] = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], slev));
-			_mm_store_ss(&dFC[n], _mm_load_ss(&sFC[n]));
-			_mm_store_ss(&dLFE[n], _mm_load_ss(&sLFE[n]));
-		}
-	}
 	else {
 		for(n = 0; n < unrolled; n += 8) {
-			avg[0] = _mm_add_ps(_mm_load_ps(&sFL[n]), _mm_load_ps(&sSL[n]));
-			avg[1] = _mm_add_ps(_mm_load_ps(&sFL[n+4]), _mm_load_ps(&sSL[n+4]));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(avg[0], slev));
-			_mm_store_ps(&dFL[n+4], _mm_mul_ps(avg[1], slev));
-			avg[0] = _mm_add_ps(_mm_load_ps(&sFR[n]), _mm_load_ps(&sSR[n]));
-			avg[1] = _mm_add_ps(_mm_load_ps(&sFR[n+4]), _mm_load_ps(&sSR[n+4]));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(avg[0], slev));
-			_mm_store_ps(&dFR[n+4], _mm_mul_ps(avg[1], slev));
-			_mm_store_ps(&dFC[n], _mm_mul_ps(_mm_load_ps(&sFC[n]), vol));
-			_mm_store_ps(&dFC[n+4], _mm_mul_ps(_mm_load_ps(&sFC[n+4]), vol));
-			_mm_store_ps(&dLFE[n], _mm_mul_ps(_mm_load_ps(&sLFE[n]), vol));
-			_mm_store_ps(&dLFE[n+4], _mm_mul_ps(_mm_load_ps(&sLFE[n+4]), vol));
+			avg[0] = _mm_add_ps(
+					_mm_mul_ps(_mm_load_ps(&sFL[n]), v0),
+					_mm_mul_ps(_mm_load_ps(&sSL[n]), slev0));
+			avg[1] = _mm_add_ps(
+					_mm_mul_ps(_mm_load_ps(&sFL[n+4]), v0),
+					_mm_mul_ps(_mm_load_ps(&sSL[n+4]), slev0));
+			_mm_store_ps(&dFL[n], avg[0]);
+			_mm_store_ps(&dFL[n+4], avg[1]);
+
+			avg[0] = _mm_add_ps(
+					_mm_mul_ps(_mm_load_ps(&sFR[n]), v1),
+					_mm_mul_ps(_mm_load_ps(&sSR[n]), slev1));
+			avg[1] = _mm_add_ps(
+					_mm_mul_ps(_mm_load_ps(&sFR[n+4]), v1),
+					_mm_mul_ps(_mm_load_ps(&sSR[n+4]), slev1));
+			_mm_store_ps(&dFR[n], avg[0]);
+			_mm_store_ps(&dFR[n+4], avg[1]);
+
+			_mm_store_ps(&dFC[n], _mm_mul_ps(_mm_load_ps(&sFC[n]), v2));
+			_mm_store_ps(&dFC[n+4], _mm_mul_ps(_mm_load_ps(&sFC[n+4]), v2));
+			_mm_store_ps(&dLFE[n], _mm_mul_ps(_mm_load_ps(&sLFE[n]), v3));
+			_mm_store_ps(&dLFE[n+4], _mm_mul_ps(_mm_load_ps(&sLFE[n+4]), v3));
 		}
 		for(; n < n_samples; n++) {
-			avg[0] = _mm_add_ss(_mm_load_ss(&sFL[n]), _mm_load_ss(&sSL[n]));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(avg[0], slev));
-			avg[0] = _mm_add_ss(_mm_load_ss(&sFR[n]), _mm_load_ss(&sSR[n]));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(avg[0], slev));
-			_mm_store_ss(&dFC[n], _mm_mul_ss(_mm_load_ss(&sFC[n]), vol));
-			_mm_store_ss(&dLFE[n], _mm_mul_ss(_mm_load_ss(&sLFE[n]), vol));
+			avg[0] = _mm_add_ss(
+					_mm_mul_ss(_mm_load_ss(&sFL[n]), v0),
+					_mm_mul_ss(_mm_load_ss(&sSL[n]), slev0));
+			_mm_store_ss(&dFL[n], avg[0]);
+
+			avg[0] = _mm_add_ss(
+					_mm_mul_ss(_mm_load_ss(&sFR[n]), v1),
+					_mm_mul_ss(_mm_load_ss(&sSR[n]), slev1));
+			_mm_store_ss(&dFR[n], avg[0]);
+
+			_mm_store_ss(&dFC[n], _mm_mul_ss(_mm_load_ss(&sFC[n]), v2));
+			_mm_store_ss(&dLFE[n], _mm_mul_ss(_mm_load_ss(&sLFE[n]), v3));
 		}
 	}
 }
@@ -320,11 +313,10 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	uint32_t i, n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const float *m = mix->matrix;
-	float v = mix->volume;
-	const __m128 clev = _mm_set1_ps(m[2]);
-	const __m128 llev = _mm_set1_ps(m[3]);
-	const __m128 vol = _mm_set1_ps(v);
+	const __m128 clev = _mm_set1_ps(mix->matrix[2][2]);
+	const __m128 llev = _mm_set1_ps(mix->matrix[3][3]);
+	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
+	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
 	__m128 ctr;
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
@@ -343,11 +335,11 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	else
 		unrolled = 0;
 
-	if (v <= VOLUME_MIN) {
+	if (mix->zero) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (v == VOLUME_NORM) {
+	else if (mix->norm) {
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
@@ -369,18 +361,18 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
-			_mm_store_ps(&dFL[n], _mm_mul_ps(_mm_add_ps(_mm_load_ps(&sFL[n]), ctr), vol));
-			_mm_store_ps(&dFR[n], _mm_mul_ps(_mm_add_ps(_mm_load_ps(&sFR[n]), ctr), vol));
-			_mm_store_ps(&dRL[n], _mm_mul_ps(_mm_load_ps(&sSL[n]), vol));
-			_mm_store_ps(&dRR[n], _mm_mul_ps(_mm_load_ps(&sSR[n]), vol));
+			_mm_store_ps(&dFL[n], _mm_mul_ps(_mm_add_ps(_mm_load_ps(&sFL[n]), ctr), v0));
+			_mm_store_ps(&dFR[n], _mm_mul_ps(_mm_add_ps(_mm_load_ps(&sFR[n]), ctr), v1));
+			_mm_store_ps(&dRL[n], _mm_mul_ps(_mm_load_ps(&sSL[n]), v0));
+			_mm_store_ps(&dRR[n], _mm_mul_ps(_mm_load_ps(&sSR[n]), v1));
 		}
 		for(; n < n_samples; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
 			ctr = _mm_add_ss(ctr, _mm_mul_ss(_mm_load_ss(&sLFE[n]), llev));
-			_mm_store_ss(&dFL[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFL[n]), ctr), vol));
-			_mm_store_ss(&dFR[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFR[n]), ctr), vol));
-			_mm_store_ss(&dRL[n], _mm_mul_ss(_mm_load_ss(&sSL[n]), vol));
-			_mm_store_ss(&dRR[n], _mm_mul_ss(_mm_load_ss(&sSR[n]), vol));
+			_mm_store_ss(&dFL[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFL[n]), ctr), v0));
+			_mm_store_ss(&dFR[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFR[n]), ctr), v1));
+			_mm_store_ss(&dRL[n], _mm_mul_ss(_mm_load_ss(&sSL[n]), v0));
+			_mm_store_ss(&dRR[n], _mm_mul_ss(_mm_load_ss(&sSR[n]), v1));
 		}
 	}
 }

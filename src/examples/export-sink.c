@@ -45,7 +45,7 @@
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-#define MAX_BUFFERS	16
+#define MAX_BUFFERS	64
 
 #define DEFAULT_PARAM 0.1
 
@@ -346,6 +346,9 @@ static int impl_port_use_buffers(void *object,
 {
 	struct data *d = object;
 	uint32_t i;
+
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	for (i = 0; i < n_buffers; i++)
 		d->buffers[i] = buffers[i];

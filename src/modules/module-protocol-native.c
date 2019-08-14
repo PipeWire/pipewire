@@ -49,6 +49,8 @@
 #include "modules/module-protocol-native/connection.h"
 #include "modules/module-protocol-native/defs.h"
 
+#define NAME "protocol-native"
+
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX   108
 #endif
@@ -132,7 +134,7 @@ process_messages(struct client_data *data)
 
 		client->recv_seq = msg->seq;
 
-		pw_log_trace("protocol-native %p: got message %d from %u", client->protocol,
+		pw_log_trace(NAME" %p: got message %d from %u", client->protocol,
 			     msg->opcode, msg->id);
 
 		if (debug_messages) {
@@ -143,7 +145,7 @@ process_messages(struct client_data *data)
 
 		resource = pw_client_find_resource(client, msg->id);
 		if (resource == NULL) {
-			pw_log_error("protocol-native %p: unknown resource %u op:%u",
+			pw_log_error(NAME" %p: unknown resource %u op:%u",
 				     client->protocol, msg->id, msg->opcode);
 			pw_resource_error(client->core_resource,
 					-EINVAL, "unknown resource %u op:%u", msg->id, msg->opcode);
@@ -164,7 +166,7 @@ process_messages(struct client_data *data)
 		required = demarshal[msg->opcode].permissions | PW_PERM_X;
 
 		if ((required & permissions) != required) {
-			pw_log_error("protocol-native %p: method %u on %u requires %08x, have %08x",
+			pw_log_error(NAME" %p: method %u on %u requires %08x, have %08x",
 				     client->protocol, msg->opcode, msg->id, required, permissions);
 			pw_resource_error(resource,
 				-EACCES, "no permission to call method %u ", msg->opcode, msg->id);
@@ -179,14 +181,14 @@ done:
 	return;
 
 invalid_method:
-	pw_log_error("protocol-native %p: invalid method id:%u op:%u",
+	pw_log_error(NAME" %p: invalid method id:%u op:%u",
 		     client->protocol, msg->id, msg->opcode);
 	pw_resource_error(resource, -EINVAL, "invalid method id:%u op:%u",
 			msg->id, msg->opcode);
 	pw_client_destroy(client);
 	goto done;
 invalid_message:
-	pw_log_error("protocol-native %p: invalid message received id:%u op:%u (%s)",
+	pw_log_error(NAME" %p: invalid message received id:%u op:%u (%s)",
 		     client->protocol, msg->id, msg->opcode, spa_strerror(res));
 	pw_resource_error(resource, res, "invalid message received id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
@@ -207,7 +209,7 @@ client_busy_changed(void *data, bool busy)
 	if (!busy)
 		mask |= SPA_IO_IN;
 
-	pw_log_debug("protocol-native %p: busy changed %d", client->protocol, busy);
+	pw_log_debug(NAME" %p: busy changed %d", client->protocol, busy);
 	pw_loop_update_io(client->core->main_loop, c->source, mask);
 
 	if (!busy)
@@ -222,7 +224,7 @@ connection_data(void *data, int fd, uint32_t mask)
 	struct pw_client *client = this->client;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		pw_log_info("protocol-native %p: client %p disconnected", client->protocol, client);
+		pw_log_info(NAME" %p: client %p disconnected", client->protocol, client);
 		pw_client_destroy(client);
 		return;
 	}
@@ -268,7 +270,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
-		pw_log_error("no peercred: %m");
+		pw_log_error("server %p: no peercred: %m", s);
 	} else {
 		pw_properties_setf(props, PW_KEY_SEC_PID, "%d", ucred.pid);
 		pw_properties_setf(props, PW_KEY_SEC_UID, "%d", ucred.uid);
@@ -277,7 +279,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	len = sizeof(buffer);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, buffer, &len) < 0) {
-		pw_log_error("no peersec: %m");
+		pw_log_error("server %p: no peersec: %m", s);
 	} else {
 		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%s", buffer);
 	}
@@ -330,7 +332,7 @@ static int init_socket_name(struct server *s, const char *name)
 	const char *runtime_dir;
 
 	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
-		pw_log_error("XDG_RUNTIME_DIR not set in the environment");
+		pw_log_error("server %p: XDG_RUNTIME_DIR not set in the environment", s);
 		return -EIO;
 	}
 
@@ -339,8 +341,8 @@ static int init_socket_name(struct server *s, const char *name)
 			     "%s/%s", runtime_dir, name) + 1;
 
 	if (name_size > (int) sizeof(s->addr.sun_path)) {
-		pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
-			     runtime_dir, name);
+		pw_log_error("server %p: socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
+				s, runtime_dir, name);
 		*s->addr.sun_path = 0;
 		return -ENAMETOOLONG;
 	}
@@ -358,14 +360,15 @@ static int lock_socket(struct server *s)
 
 	if (s->fd_lock < 0) {
 		res = -errno;
-		pw_log_error("unable to open lockfile '%s': %m", s->lock_addr);
+		pw_log_error("server %p: unable to open lockfile '%s': %m", s, s->lock_addr);
 		goto err;
 	}
 
 	if (flock(s->fd_lock, LOCK_EX | LOCK_NB) < 0) {
 		res = -errno;
-		pw_log_error("unable to lock lockfile '%s': %m (maybe another daemon is running)",
-			     s->lock_addr);
+		pw_log_error("server %p: unable to lock lockfile '%s': %m"
+				" (maybe another daemon is running)",
+				s, s->lock_addr);
 		goto err_fd;
 	}
 	return 0;
@@ -392,13 +395,13 @@ socket_data(void *data, int fd, uint32_t mask)
 	length = sizeof(name);
 	client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);
 	if (client_fd < 0) {
-		pw_log_error("failed to accept: %m");
+		pw_log_error("server %p: failed to accept: %m", s);
 		return;
 	}
 
 	client = client_new(s, client_fd);
 	if (client == NULL) {
-		pw_log_error("failed to create client");
+		pw_log_error("server %p: failed to create client", s);
 		close(client_fd);
 		return;
 	}
@@ -423,7 +426,8 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 						1, s->addr.sun_path, 0) > 0) {
 				fd = SD_LISTEN_FDS_START + i;
 				activated = true;
-				pw_log_info("Found socket activation socket for '%s'", s->addr.sun_path);
+				pw_log_info("server %p: Found socket activation socket for '%s'",
+						s, s->addr.sun_path);
 				break;
 			}
 		}
@@ -439,13 +443,13 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 		size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
 		if (bind(fd, (struct sockaddr *) &s->addr, size) < 0) {
 			res = -errno;
-			pw_log_error("bind() failed with error: %m");
+			pw_log_error("server %p: bind() failed with error: %m", s);
 			goto error_close;
 		}
 
 		if (listen(fd, 128) < 0) {
 			res = -errno;
-			pw_log_error("listen() failed with error: %m");
+			pw_log_error("server %p: listen() failed with error: %m", s);
 			goto error_close;
 		}
 	}
@@ -517,7 +521,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			if (res == 0)
 				break;
 
-                        pw_log_trace("protocol-native %p: got message %d from %u seq:%d",
+                        pw_log_trace(NAME" %p: got message %d from %u seq:%d",
 					this, msg->opcode, msg->id, msg->seq);
 
 			this->recv_seq = msg->seq;
@@ -536,21 +540,21 @@ on_remote_data(void *data, int fd, uint32_t mask)
                         }
 
 			marshal = pw_proxy_get_marshal(proxy);
-                        if (marshal == NULL || msg->opcode >= marshal->n_events) {
-                                pw_log_error("protocol-native %p: invalid method %u for %u (%d)",
+			if (marshal == NULL || msg->opcode >= marshal->n_events) {
+				pw_log_error(NAME" %p: invalid method %u for %u (%d)",
 						this, msg->opcode, msg->id,
 						marshal ? marshal->n_events : (uint32_t)-1);
-                                continue;
+				continue;
                         }
 
                         demarshal = marshal->event_demarshal;
 			if (!demarshal[msg->opcode].func) {
-                                pw_log_error("protocol-native %p: function %d not implemented on %u",
+                                pw_log_error(NAME" %p: function %d not implemented on %u",
 						this, msg->opcode, msg->id);
 				continue;
 			}
 			if (demarshal[msg->opcode].func(proxy, msg) < 0) {
-				pw_log_error ("protocol-native %p: invalid message received %u for %u",
+				pw_log_error (NAME" %p: invalid message received %u for %u",
 						this, msg->opcode, msg->id);
 				continue;
 			}
@@ -558,7 +562,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
         }
 	return;
 error:
-	pw_log_error("protocol-native %p: got connection error %d (%s)", impl, res, spa_strerror(res));
+	pw_log_error(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
 	pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
 	impl->source = NULL;
 	pw_remote_disconnect(this);
@@ -802,7 +806,7 @@ impl_add_server(struct pw_protocol *protocol,
 	if ((res = add_socket(protocol, s)) < 0)
 		goto error;
 
-	pw_log_info("protocol-native %p: Added server %p %s", protocol, this, name);
+	pw_log_info(NAME" %p: Added server %p %s", protocol, this, name);
 
 	return this;
 
@@ -922,7 +926,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_protocol_native_init(this);
 
-	pw_log_debug("protocol-native %p: new %d", this, debug_messages);
+	pw_log_debug(NAME" %p: new %d", this, debug_messages);
 
 	d = pw_protocol_get_user_data(this);
 	d->protocol = this;

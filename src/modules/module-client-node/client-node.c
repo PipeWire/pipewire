@@ -241,7 +241,7 @@ static int clear_buffers(struct node *this, struct mix *mix)
 		struct buffer *b = &mix->buffers[i];
 		struct pw_memblock *m;
 
-		spa_log_debug(this->log, "node %p: clear buffer %d", this, i);
+		spa_log_debug(this->log, NAME" %p: clear buffer %d", this, i);
 
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &b->datas[j];
@@ -456,7 +456,7 @@ do_update_port(struct node *this,
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		port->have_format = false;
 
-		spa_log_debug(this->log, "node %p: port %u update %d params", this, port->id, n_params);
+		spa_log_debug(this->log, NAME" %p: port %u update %d params", this, port->id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
@@ -496,7 +496,7 @@ clear_port(struct node *this, struct port *port)
 {
 	int i;
 
-	spa_log_debug(this->log, "node %p: clear port %p", this, port);
+	spa_log_debug(this->log, NAME" %p: clear port %p", this, port);
 
 	if (port == NULL)
 		return;
@@ -616,7 +616,7 @@ impl_node_port_set_param(void *object,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	pw_log_debug("node %p: port %d.%d add param %s %d", this,
+	pw_log_debug(NAME" %p: port %d.%d add param %s %d", this,
 			direction, port_id,
 			spa_debug_type_find_name(spa_type_param, id), id);
 
@@ -641,7 +641,7 @@ static int do_port_set_io(struct impl *impl,
 	uint32_t tag[5] = { impl->node_id, direction, port_id, mix_id, id };
 	struct pw_memmap *mm;
 
-	pw_log_debug(NAME " %p: %s port %d.%d set io %p %zd", impl,
+	pw_log_debug(NAME " %p: %s port %d.%d set io %p %zd", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, data, size);
 
@@ -709,7 +709,7 @@ do_port_use_buffers(struct impl *impl,
 	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x", impl,
+	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);
 
@@ -776,7 +776,7 @@ do_port_use_buffers(struct impl *impl,
 		mb[i].mem_id = m->id;
 		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->map->ptr, 0, void));
 		mb[i].size = data_size;
-		spa_log_debug(this->log, "buffer %d %d %d %d", i, mb[i].mem_id,
+		spa_log_debug(this->log, NAME" %p: buffer %d %d %d %d", this, i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
 
 		for (j = 0; j < buffers[i]->n_metas; j++)
@@ -869,7 +869,7 @@ static int impl_node_process(void *object)
 	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0)
-		spa_log_warn(this->log, "node %p: error %m", this);
+		spa_log_warn(this->log, NAME" %p: error %m", this);
 
 	return SPA_STATUS_OK;
 }
@@ -883,7 +883,7 @@ client_node_get_node(void *data,
 	struct node *this = &impl->node;
 	uint32_t new_id = user_data_size;
 
-	pw_log_debug("node %p: bind %u/%u", this, new_id, version);
+	pw_log_debug(NAME" %p: bind %u/%u", this, new_id, version);
 
 	impl->bind_node_version = version;
 	impl->bind_node_id = new_id;
@@ -904,7 +904,7 @@ client_node_update(void *data,
 
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		uint32_t i;
-		pw_log_debug("node %p: update %d params", this, n_params);
+		pw_log_debug(NAME" %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
@@ -917,7 +917,7 @@ client_node_update(void *data,
 	if (change_mask & PW_CLIENT_NODE_UPDATE_INFO) {
 		spa_node_emit_info(&this->hooks, info);
 	}
-	pw_log_debug("node %p: got node update", this);
+	pw_log_debug(NAME" %p: got node update", this);
 	return 0;
 }
 
@@ -935,7 +935,7 @@ client_node_port_update(void *data,
 	struct port *port;
 	bool remove;
 
-	spa_log_debug(this->log, "node %p: got port update", this);
+	spa_log_debug(this->log, NAME" %p: got port update", this);
 	if (!CHECK_PORT_ID(this, direction, port_id))
 		return -EINVAL;
 
@@ -992,7 +992,7 @@ static int client_node_port_buffers(void *data,
 	struct mix *mix;
 	uint32_t i, j;
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d buffers %p %u", impl,
+	spa_log_debug(this->log, NAME " %p: %s port %d.%d buffers %p %u", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers);
 
@@ -1045,7 +1045,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 	struct node *this = source->data;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		spa_log_warn(this->log, "node %p: got error", this);
+		spa_log_warn(this->log, NAME" %p: got error", this);
 		return;
 	}
 
@@ -1054,9 +1054,9 @@ static void node_on_data_fd_events(struct spa_source *source)
 
 		if (spa_system_eventfd_read(this->data_system,
 					this->data_source.fd, &cmd) < 0 || cmd != 1)
-			spa_log_warn(this->log, "node %p: read %"PRIu64" failed %m", this, cmd);
+			spa_log_warn(this->log, NAME" %p: read %"PRIu64" failed %m", this, cmd);
 
-		spa_log_trace_fp(this->log, "node %p: got ready", this);
+		spa_log_trace_fp(this->log, NAME" %p: got ready", this);
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_BUFFER);
 	}
 }
@@ -1155,7 +1155,7 @@ static void client_node_resource_destroy(void *data)
 	struct pw_client_node *this = &impl->this;
 	struct node *node = &impl->node;
 
-	pw_log_debug(NAME " %p: destroy", impl);
+	pw_log_debug(NAME " %p: destroy", node);
 
 	impl->node.resource = this->resource = NULL;
 	spa_hook_remove(&impl->resource_listener);
@@ -1202,11 +1202,11 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 	uint32_t node_id = global->id;
 	struct pw_memblock *m;
 
-	pw_log_debug(NAME " %p: %d", this, node_id);
+	pw_log_debug(NAME " %p: %d", &impl->node, node_id);
 
 	m = pw_mempool_import_block(client->pool, node->activation);
 	if (m == NULL) {
-		pw_log_debug(NAME " %p: can't import block: %m", this);
+		pw_log_debug(NAME " %p: can't import block: %m", &impl->node);
 		return;
 	}
 	impl->node_id = node_id;
@@ -1232,19 +1232,19 @@ static void node_initialized(void *data)
 {
 	struct impl *impl = data;
 	struct pw_client_node *this = &impl->this;
-	struct pw_node *node = this->node;
+	struct node *node = &impl->node;
 	struct pw_global *global;
 	struct spa_system *data_system = impl->node.data_system;
 	size_t size;
 
 	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	impl->node.data_source.fd = impl->fds[0];
-	impl->node.writefd = impl->fds[1];
 	impl->other_fds[0] = impl->fds[1];
 	impl->other_fds[1] = impl->fds[0];
+	node->data_source.fd = impl->fds[0];
+	node->writefd = impl->fds[1];
 
-	spa_loop_add_source(impl->node.data_loop, &impl->node.data_source);
+	spa_loop_add_source(node->data_loop, &node->data_source);
 	pw_log_debug(NAME " %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
 	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
@@ -1259,7 +1259,7 @@ static void node_initialized(void *data)
 
 	pw_log_debug(NAME " %p: io areas %p", node, impl->io_areas->map->ptr);
 
-	if ((global = pw_node_get_global(node)) != NULL)
+	if ((global = pw_node_get_global(this->node)) != NULL)
 		pw_client_node_registered(this, global);
 }
 
@@ -1267,12 +1267,13 @@ static void node_free(void *data)
 {
 	struct impl *impl = data;
 	struct pw_client_node *this = &impl->this;
-	struct spa_system *data_system = impl->node.data_system;
+	struct node *node = &impl->node;
+	struct spa_system *data_system = node->data_system;
 
 	this->node = NULL;
 
-	pw_log_debug(NAME " %p: free", &impl->this);
-	node_clear(&impl->node);
+	pw_log_debug(NAME " %p: free", node);
+	node_clear(node);
 
 	spa_hook_remove(&impl->node_listener);
 
@@ -1319,9 +1320,10 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 {
 	struct port *port = data;
 	struct impl *impl = port->impl;
+	struct node *this = &impl->node;
 	struct mix *m;
 
-	pw_log_debug(NAME " %p: remove mix io %d %p %p", impl, mix->id, mix->io,
+	pw_log_debug(NAME " %p: remove mix io %d %p %p", this, mix->id, mix->io,
 			impl->io_areas->map->ptr);
 
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
@@ -1447,7 +1449,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	struct port *p = pw_port_get_user_data(port);
 	struct node *this = &impl->node;
 
-	pw_log_debug(NAME " %p: port %p init", &impl->this, port);
+	pw_log_debug(NAME " %p: port %p init", this, port);
 
 	*p = this->dummy;
 	p->port = port;
@@ -1490,7 +1492,7 @@ static void node_port_removed(void *data, struct pw_port *port)
 	struct node *this = &impl->node;
 	struct port *p = pw_port_get_user_data(port);
 
-	pw_log_debug(NAME " %p: port %p remove", &impl->this, port);
+	pw_log_debug(NAME " %p: port %p remove", this, port);
 
 	p->removed = true;
 	clear_port(this, p);
@@ -1530,11 +1532,11 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 	m = pw_mempool_find_fd(this->client->pool,
 			peer->activation->fd);
 	if (m == NULL) {
-		pw_log_warn(NAME " %p: unknown peer %p fd:%d", &impl->this, peer,
+		pw_log_warn(NAME " %p: unknown peer %p fd:%d", this, peer,
 			peer->source.fd);
 		return;
 	}
-	pw_log_debug(NAME " %p: peer %p %u removed", &impl->this, peer,
+	pw_log_debug(NAME " %p: peer %p %u removed", this, peer,
 			peer->info.id);
 
 	if (this->resource != NULL) {
@@ -1552,8 +1554,9 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 static void node_driver_changed(void *data, struct pw_node *old, struct pw_node *driver)
 {
 	struct impl *impl = data;
+	struct node *this = &impl->node;
 
-	pw_log_debug(NAME " %p: driver changed %p -> %p", &impl->this, old, driver);
+	pw_log_debug(NAME " %p: driver changed %p -> %p", this, old, driver);
 
 	node_peer_removed(data, old);
 	node_peer_added(data, driver);
@@ -1581,8 +1584,9 @@ static const struct pw_resource_events resource_events = {
 static int process_node(void *data)
 {
 	struct impl *impl = data;
-	pw_log_trace_fp(NAME " %p: process", impl);
-	return spa_node_process((struct spa_node*)&impl->node.node);
+	struct node *this = &impl->node;
+	pw_log_trace_fp(NAME " %p: process", this);
+	return spa_node_process(&this->node);
 }
 
 /** Create a new client node
@@ -1619,7 +1623,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	impl->core = core;
 	impl->fds[0] = impl->fds[1] = -1;
-	pw_log_debug(NAME " %p: new", impl);
+	pw_log_debug(NAME " %p: new", &impl->node);
 
 	support = pw_core_get_support(impl->core, &n_support);
 	node_init(&impl->node, NULL, support, n_support);

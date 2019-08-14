@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 		{"name",	1, NULL, 'n'},
 		{NULL,		0, NULL, 0}
 	};
-	int c;
+	int c, res;
 
 	pw_init(&argc, &argv);
 
@@ -119,8 +119,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (pw_daemon_config_run_commands(config, core) < 0) {
-		pw_log_error("failed to run config commands");
+	if ((res = pw_daemon_config_run_commands(config, core)) < 0) {
+		pw_log_error("failed to run config commands: %s", spa_strerror(res));
 		return -1;
 	}
 

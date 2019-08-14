@@ -265,6 +265,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 {
 	enum pw_stream_state old = stream->state;
 	bool res = old != state;
+
 	if (res) {
 		free(stream->error);
 		stream->error = error ? strdup(error) : NULL;
@@ -490,16 +491,15 @@ static int impl_port_enum_params(void *object, int seq,
 	return 0;
 }
 
-static int port_set_format(void *object,
+static int port_set_format(struct stream *impl,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t flags, const struct spa_pod *format)
 {
-	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 	struct param *p;
 	int count, res;
 
-	pw_log_debug(NAME" %p: format changed:", impl);
+	pw_log_debug(NAME" %p: format changed: %p %d", impl, format, impl->disconnecting);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(2, NULL, format);
 

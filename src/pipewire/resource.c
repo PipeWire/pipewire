@@ -216,6 +216,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 	if (client->core_resource && !resource->removed)
 		pw_core_resource_remove_id(client->core_resource, resource->id);
 
-	pw_log_debug(NAME" %p: free", resource);
+	pw_log_debug(NAME" %p: free %u", resource, resource->id);
+
 	free(resource);
 }

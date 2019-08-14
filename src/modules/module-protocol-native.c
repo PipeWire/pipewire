@@ -532,11 +532,15 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 			}
 
-                        proxy = pw_remote_find_proxy(this, msg->id);
+			proxy = pw_remote_find_proxy(this, msg->id);
+			if (proxy == NULL || proxy->zombie) {
+				if (proxy->zombie)
+					pw_log_debug(NAME" %p: zombie proxy %u", this, msg->id);
+				else
+					pw_log_error(NAME" %p: could not find proxy %u", this, msg->id);
 
-                        if (proxy == NULL) {
-                                pw_log_error("protocol-native %p: could not find proxy %u", this, msg->id);
-                                continue;
+				/* FIXME close fds */
+				continue;
                         }
 
 			marshal = pw_proxy_get_marshal(proxy);

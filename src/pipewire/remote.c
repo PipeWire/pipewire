@@ -141,7 +141,6 @@ static void core_event_remove_id(void *data, uint32_t id)
 	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
 		proxy->removed = true;
 		pw_proxy_destroy(proxy);
-		pw_map_remove(&this->objects, id);
 	}
 }
 

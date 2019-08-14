@@ -655,6 +655,8 @@ struct pw_proxy {
 	struct spa_list link;		/**< link in the remote */
 
 	uint32_t id;			/**< client side id */
+	unsigned int zombie:1;		/**< proxy is removed locally and waiting to
+					  *  be removed from server */
 	unsigned int removed:1;		/**< proxy was removed from server */
 
 	struct spa_hook_list listener_list;

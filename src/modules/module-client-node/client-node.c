@@ -1329,6 +1329,7 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
 		return -EINVAL;
 
+	clear_buffers(this, m);
 	pw_map_remove(&impl->io_map, mix->id);
 	m->valid = false;
 

@@ -121,6 +121,8 @@ static void clear_link(struct node_data *data, struct link *link)
 static void clean_transport(struct node_data *data)
 {
 	struct link *l;
+	uint32_t tag[5] = { data->remote_id, };
+	struct pw_memmap *mm;
 
 	if (!data->have_transport)
 		return;
@@ -130,6 +132,9 @@ static void clean_transport(struct node_data *data)
 			clear_link(data, l);
 	}
 	pw_array_clear(&data->links);
+
+	while ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(uint32_t))) != NULL)
+		pw_memmap_free(mm);
 
 	pw_memmap_free(data->activation);
 	close(data->rtwritefd);

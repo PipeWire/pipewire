@@ -546,8 +546,13 @@ static int impl_port_set_param(void *object,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
+	struct stream *impl = object;
+
+	if (impl->disconnecting)
+		return param == NULL ? 0 : -EIO;
+
 	if (id == SPA_PARAM_Format) {
-		return port_set_format(object, direction, port_id, flags, param);
+		return port_set_format(impl, direction, port_id, flags, param);
 	}
 	else
 		return -ENOENT;
@@ -621,6 +626,9 @@ static int impl_port_use_buffers(void *object,
 	uint32_t i, j, impl_flags = impl->flags;
 	int prot, res;
 	int size = 0;
+
+	if (impl->disconnecting)
+		return n_buffers == 0 ? 0 : -EIO;
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
@@ -1437,6 +1445,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if ((res = find_format(impl, direction, &impl->media_type, &impl->media_subtype)) < 0)
 		return res;
 
+	impl->disconnecting = false;
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
 	if (target_id != SPA_ID_INVALID)

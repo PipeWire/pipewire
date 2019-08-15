@@ -62,10 +62,11 @@ struct buffer {
 
 struct data {
 	struct spa_log *log;
+	struct spa_system *system;
 	struct spa_loop *loop;
 	struct spa_loop_control *control;
 
-	struct spa_support support[4];
+	struct spa_support support[5];
 	uint32_t n_support;
 
 	struct spa_node *source;
@@ -149,18 +150,6 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	return 0;
 }
 
-static void handle_events(struct data *data)
-{
-	SDL_Event event;
-	while (SDL_PollEvent(&event)) {
-		switch (event.type) {
-		case SDL_QUIT:
-			exit(0);
-			break;
-		}
-	}
-}
-
 static int on_source_ready(void *_data, int status)
 {
 	struct data *data = _data;
@@ -172,8 +161,6 @@ static int on_source_ready(void *_data, int status)
 	uint8_t *src, *dst;
 	struct spa_data *datas;
 	struct spa_io_buffers *io = &data->source_output[0];
-
-	handle_events(data);
 
 	if (io->status != SPA_STATUS_HAVE_BUFFER ||
 	    io->buffer_id > MAX_BUFFERS)
@@ -437,14 +424,16 @@ static void *loop(void *user_data)
 
 static void run_async_source(struct data *data)
 {
-	int res;
-	int err;
+	int res, err;
+	struct spa_command cmd;
+	SDL_Event event;
+	bool running = true;
 
-	{
-		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
-		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
-			printf("got error %d\n", res);
-	}
+	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
+	if ((res = spa_node_send_command(data->source, &cmd)) < 0)
+		printf("got error %d\n", res);
+
+	spa_loop_control_leave(data->control);
 
 	data->running = true;
 	if ((err = pthread_create(&data->thread, NULL, loop, data)) != 0) {
@@ -452,18 +441,24 @@ static void run_async_source(struct data *data)
 		data->running = false;
 	}
 
-	sleep(10000);
+	while (running && SDL_WaitEvent(&event)) {
+		switch (event.type) {
+		case SDL_QUIT:
+			running = false;
+			break;
+		}
+	}
 
 	if (data->running) {
 		data->running = false;
 		pthread_join(data->thread, NULL);
 	}
 
-	{
-		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
-		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
-			printf("got error %d\n", res);
-	}
+	spa_loop_control_enter(data->control);
+
+	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
+	if ((res = spa_node_send_command(data->source, &cmd)) < 0)
+		printf("got error %d\n", res);
 }
 
 int main(int argc, char *argv[])
@@ -473,6 +468,18 @@ int main(int argc, char *argv[])
 	const char *str;
 	struct spa_handle *handle = NULL;
 	void *iface;
+
+	if ((res = load_handle(&data, &handle,
+					PATH "support/libspa-support.so",
+					SPA_NAME_SUPPORT_SYSTEM)) < 0)
+		return res;
+
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_System, &iface)) < 0) {
+		printf("can't get System interface %d\n", res);
+		return res;
+	}
+	data.system = iface;
+	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, data.system);
 
 	if ((res = load_handle(&data, &handle,
 					PATH "support/libspa-support.so",
@@ -490,17 +497,16 @@ int main(int argc, char *argv[])
 	}
 	data.control = iface;
 
-	data.use_buffer = true;
+	data.use_buffer = false;
 
 	data.log = &default_log.log;
 
 	if ((str = getenv("SPA_DEBUG")))
 		data.log->level = atoi(str);
 
-	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, data.loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, data.loop);
-	data.n_support = 3;
+	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
+	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, data.loop);
+	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, data.loop);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());
@@ -523,7 +529,9 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	spa_loop_control_enter(data.control);
 	run_async_source(&data);
+	spa_loop_control_leave(data.control);
 
 	SDL_DestroyRenderer(data.renderer);
 

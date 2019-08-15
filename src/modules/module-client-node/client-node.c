@@ -618,7 +618,7 @@ impl_node_port_set_param(void *object,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	pw_log_debug(NAME" %p: port %d.%d add param %s %d", this,
+	pw_log_debug(NAME" %p: port %d.%d set param %s %d", this,
 			direction, port_id,
 			spa_debug_type_find_name(spa_type_param, id), id);
 
@@ -627,8 +627,7 @@ impl_node_port_set_param(void *object,
 	if (id == SPA_PARAM_Format) {
 		for (i = 0; i < MAX_MIX+1; i++) {
 			struct mix *mix = &port->mix[i];
-			if (mix->valid)
-				clear_buffers(this, mix);
+			clear_buffers(this, mix);
 		}
 	}
 	if (this->resource == NULL)
@@ -731,6 +730,9 @@ do_port_use_buffers(struct impl *impl,
 
 	if (!p->have_format)
 		return -EIO;
+
+	if (direction == SPA_DIRECTION_OUTPUT)
+		mix_id = SPA_ID_INVALID;
 
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
@@ -1015,9 +1017,11 @@ static int client_node_port_buffers(void *data,
 	if (!p->have_format)
 		return -EIO;
 
+	if (direction == SPA_DIRECTION_OUTPUT)
+		mix_id = SPA_ID_INVALID;
+
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
-
 
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *oldbuf, *newbuf;

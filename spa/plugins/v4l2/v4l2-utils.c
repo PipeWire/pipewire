@@ -169,6 +169,7 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 					d[0].maxsize - d[0].mapoffset);
 		}
 		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_ALLOCATED)) {
+			spa_log_debug(this->log, "v4l2: close %d", (int) d[0].fd);
 			close(d[0].fd);
 		}
 		d[0].type = SPA_ID_INVALID;

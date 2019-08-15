@@ -969,6 +969,7 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	port = GET_OUT_PORT(this, 0);
+	port->impl = this;
 	spa_list_init(&port->queue);
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;

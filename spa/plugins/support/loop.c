@@ -135,7 +135,7 @@ loop_invoke(void *object,
 	int res;
 
 	if (in_thread) {
-		res = func(object, false, seq, data, size, user_data);
+		res = func(&impl->loop, false, seq, data, size, user_data);
 	} else {
 		int32_t filled;
 		uint32_t avail, idx, offset, l0;

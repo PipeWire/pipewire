@@ -211,9 +211,9 @@ static int setup_convert(struct impl *this,
 	for (i = 0, dst_mask = 0; i < dst_chan; i++)
 		dst_mask |= 1UL << dst_info->info.raw.position[i];
 
-	if (src_mask & 1)
+	if (src_mask & 1 || src_chan == 1)
 		src_mask = default_mask(src_chan);
-	if (dst_mask & 1)
+	if (dst_mask & 1 || dst_chan == 1)
 		dst_mask = default_mask(dst_chan);
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d %08"PRIx64":%08"PRIx64, this,

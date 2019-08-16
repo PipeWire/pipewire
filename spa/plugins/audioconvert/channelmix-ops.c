@@ -168,13 +168,18 @@ static int make_matrix(struct channelmix *mix)
 	float llev = 0.5f;
 	float max = 0.0f;
 
+	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
+			src_mask, dst_mask);
+
+	if ((src_mask & _MASK(MONO)) ==  _MASK(MONO))
+		src_mask = _MASK(FC);
+	if ((dst_mask & _MASK(MONO)) ==  _MASK(MONO))
+		dst_mask = _MASK(FC);
+
 	for (i = 0; i < NUM_CHAN; i++) {
 		if (src_mask & dst_mask & (1ULL << (i + 2)))
 			matrix[i][i]= 1.0f;
 	}
-
-	if ((dst_mask & _MASK(MONO)) ==  _MASK(MONO))
-		dst_mask = _MASK(FC);
 
 	unassigned = src_mask & ~dst_mask;
 

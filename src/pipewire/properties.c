@@ -203,6 +203,29 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 	return pw_properties_new_dict(&properties->dict);
 }
 
+/** Copy multiple keys from one property to another
+ *
+ * \param src properties to copy from
+ * \param dst properties to copy to
+ * \param keys a NULL terminated list of keys to copy
+ * \return the number of keys changed in \a dest
+ *
+ * \memberof pw_properties
+ */
+SPA_EXPORT
+int pw_properties_copy_keys(const struct pw_properties *src,
+		struct pw_properties *dst, const char *keys[])
+{
+	int i, changed = 0;
+	const char *str;
+
+	for (i = 0; keys[i]; i++) {
+		if ((str = pw_properties_get(src, keys[i])) != NULL)
+			changed += pw_properties_set(dst, keys[i], str);
+	}
+	return changed;
+}
+
 /** Clear a properties object
  *
  * \param properties properties to clear

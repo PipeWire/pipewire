@@ -49,7 +49,6 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_core *core;
-	struct pw_properties *properties;
 
 	struct spa_loop *loop;
 	struct spa_source source;
@@ -414,10 +413,6 @@ static void module_destroy(void *data)
 		close(impl->source.fd);
 		impl->source.fd = -1;
 	}
-
-	if (impl->properties)
-		pw_properties_free(impl->properties);
-
 	free(impl);
 }
 
@@ -476,7 +471,8 @@ static void idle_func(struct spa_source *source)
 	pw_rtkit_bus_free(system_bus);
 }
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
@@ -498,7 +494,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_log_debug("module %p: new", impl);
 
 	impl->core = core;
-	impl->properties = properties;
 	impl->loop = loop;
 
 	impl->source.loop = loop;
@@ -522,10 +517,4 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 error:
 	free(impl);
 	return res;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

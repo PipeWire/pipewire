@@ -46,9 +46,6 @@
 struct impl {
 	struct pw_node *this;
 
-	struct pw_client *owner;
-	struct pw_global *parent;
-
 	enum pw_spa_node_flags flags;
 
         struct spa_handle *handle;
@@ -86,7 +83,7 @@ static void complete_init(struct impl *impl)
 		pw_node_set_active(this, true);
 
 	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_NO_REGISTER))
-		pw_node_register(this, impl->owner, impl->parent, NULL);
+		pw_node_register(this, NULL);
 	else
 		pw_node_initialized(this);
 }
@@ -110,8 +107,6 @@ static const struct pw_node_events node_events = {
 
 struct pw_node *
 pw_spa_node_new(struct pw_core *core,
-		struct pw_client *owner,
-		struct pw_global *parent,
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
 		struct spa_handle *handle,
@@ -130,8 +125,6 @@ pw_spa_node_new(struct pw_core *core,
 
 	impl = this->user_data;
 	impl->this = this;
-	impl->owner = owner;
-	impl->parent = parent;
 	impl->node = node;
 	impl->handle = handle;
 	impl->flags = flags;
@@ -242,8 +235,6 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 
 
 struct pw_node *pw_spa_node_load(struct pw_core *core,
-				 struct pw_client *owner,
-				 struct pw_global *parent,
 				 const char *factory_name,
 				 enum pw_spa_node_flags flags,
 				 struct pw_properties *properties,
@@ -279,7 +270,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 		}
 	}
 
-	this = pw_spa_node_new(core, owner, parent, flags,
+	this = pw_spa_node_new(core, flags,
 			       spa_node, handle, properties, user_data_size);
 	if (this == NULL) {
 		res = -errno;

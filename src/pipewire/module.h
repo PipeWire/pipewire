@@ -63,14 +63,16 @@ struct pw_module_events {
 
 	/** The module is destroyed */
 	void (*destroy) (void *data);
+
+	/** The module is registered. This is a good time to register
+	 * objectes created from the module. */
+	void (*registered) (void *data);
 };
 
 struct pw_module *
 pw_module_load(struct pw_core *core,
 	       const char *name,		/**< name of the module */
 	       const char *args			/**< arguments of the module */,
-	       struct pw_client *owner,		/**< optional owner */
-	       struct pw_global *parent,	/**< parent global */
 	       struct pw_properties *properties	/**< extra global properties */);
 
 /** Get the core of a module */

@@ -346,7 +346,7 @@ static int make_nodes(struct data *data)
 			&impl_node, data);
 	pw_node_set_implementation(data->node, &data->impl_node);
 
-	pw_node_register(data->node, NULL, NULL, NULL);
+	pw_node_register(data->node, NULL);
 
 	factory = pw_core_find_factory(data->core, "spa-node-factory");
 	props = pw_properties_new(SPA_KEY_LIBRARY_NAME, "v4l2/libspa-v4l2",
@@ -366,7 +366,7 @@ static int make_nodes(struct data *data)
 				 NULL,
 				 NULL,
 				 0);
-	pw_link_register(data->link, NULL, NULL, NULL);
+	pw_link_register(data->link, NULL);
 
 	pw_node_set_active(data->node, true);
 	pw_node_set_active(data->v4l2, true);
@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
 
 	spa_hook_list_init(&data.hooks);
 
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
+	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

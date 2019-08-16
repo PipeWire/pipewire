@@ -180,7 +180,7 @@ execute_command_module_load(struct pw_command *command, struct pw_core *core, ch
 {
 	struct pw_module *module;
 
-	module = pw_module_load(core, command->args[1], command->args[2], NULL, NULL, NULL);
+	module = pw_module_load(core, command->args[1], command->args[2], NULL);
 	if (module == NULL) {
 		asprintf(err, "could not load module \"%s\": %m", command->args[1]);
 		return -errno;

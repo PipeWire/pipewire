@@ -67,7 +67,6 @@ struct proxy_data {
 	bool first;
 	struct pw_proxy *proxy;
 	uint32_t id;
-	uint32_t parent_id;
 	uint32_t permissions;
 	uint32_t version;
 	uint32_t type;
@@ -223,7 +222,6 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 	info = data->info = pw_module_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -259,7 +257,6 @@ static void print_node(struct proxy_data *data)
 	}
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -328,7 +325,6 @@ static void print_port(struct proxy_data *data)
 	}
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -390,7 +386,6 @@ static void factory_event_info(void *object, const struct pw_factory_info *info)
         info = data->info = pw_factory_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -427,7 +422,6 @@ static void client_event_info(void *object, const struct pw_client_info *info)
         info = data->info = pw_client_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -462,7 +456,6 @@ static void link_event_info(void *object, const struct pw_link_info *info)
         info = data->info = pw_link_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -511,7 +504,6 @@ static void print_device(struct proxy_data *data)
 	}
 
 	printf("\tid: %d\n", data->id);
-	printf("\tparent_id: %d\n", data->parent_id);
 	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
 					  data->permissions & PW_PERM_W ? 'w' : '-',
 					  data->permissions & PW_PERM_X ? 'x' : '-');
@@ -577,7 +569,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = destroy_proxy,
 };
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id,
 				  uint32_t permissions, uint32_t type, uint32_t version,
 				  const struct spa_dict *props)
 {
@@ -631,7 +623,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	default:
 		printf("added:\n");
 		printf("\tid: %u\n", id);
-		printf("\tparent_id: %d\n", parent_id);
 		printf("\tpermissions: %c%c%c\n", permissions & PW_PERM_R ? 'r' : '-',
 						  permissions & PW_PERM_W ? 'w' : '-',
 						  permissions & PW_PERM_X ? 'x' : '-');
@@ -651,7 +642,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pd->first = true;
 	pd->proxy = proxy;
 	pd->id = id;
-	pd->parent_id = parent_id;
 	pd->permissions = permissions;
 	pd->version = version;
 	pd->type = type;

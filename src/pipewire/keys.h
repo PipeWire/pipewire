@@ -36,7 +36,8 @@ extern "C" {
  * read-only. They are usually used for security sensitive information that
  * needs to be fixed.
  *
- * Properties from the parent can also appear on children.
+ * Properties from other objects can also appear. This usually suggests some
+ * sort of parent/child or owner/owned relationship.
  */
 
 /* Peroperties usually set on the core object */
@@ -65,6 +66,7 @@ extern "C" {
 #define PW_KEY_LIBRARY_NAME_LOOP	"library.name.loop"	/**< name of the loop library to use */
 #define PW_KEY_LIBRARY_NAME_DBUS	"library.name.dbus"	/**< name of the dbus library to use */
 
+#define PW_KEY_CORE_ID			"core.id"		/**< the core id */
 #define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
 
 /* remote keys */
@@ -97,6 +99,7 @@ extern "C" {
 #define PW_KEY_WINDOW_X11_DISPLAY	"window.x11.display"	/**< the X11 display string. Ex. ":0.0" */
 
 /** Client properties */
+#define PW_KEY_CLIENT_ID		"client.id"		/**< a client id */
 #define PW_KEY_CLIENT_NAME		"client.name"		/**< the client name */
 #define PW_KEY_CLIENT_API		"client.api"		/**< the client api used to access
 								  *  PipeWire */
@@ -135,6 +138,7 @@ extern "C" {
 #define PW_KEY_PORT_MONITOR		"port.monitor"		/**< if this port is a monitor port */
 
 /** link properties */
+#define PW_KEY_LINK_ID			"link.id"		/**< a link id */
 #define PW_KEY_LINK_INPUT_NODE		"link.input.node"	/**< input node id of a link */
 #define PW_KEY_LINK_INPUT_PORT		"link.input.port"	/**< input port id of a link */
 #define PW_KEY_LINK_OUTPUT_NODE		"link.output.node"	/**< output node id of a link */
@@ -181,6 +185,7 @@ extern "C" {
 								  *  latency, quality or form factor. */
 
 /** module properties */
+#define PW_KEY_MODULE_ID		"module.id"		/**< the module id */
 #define PW_KEY_MODULE_NAME		"module.name"		/**< the name of the module */
 #define PW_KEY_MODULE_AUTHOR		"module.author"		/**< the author's name */
 #define PW_KEY_MODULE_DESCRIPTION	"module.description"	/**< a human readable one-line description
@@ -190,6 +195,7 @@ extern "C" {
 #define PW_KEY_MODULE_VERSION		"module.version"	/**< a version string for the module. */
 
 /** Factory properties */
+#define PW_KEY_FACTORY_ID		"factory.id"		/**< the factory id */
 #define PW_KEY_FACTORY_NAME		"factory.name"		/**< the name of the factory */
 #define PW_KEY_FACTORY_USAGE		"factory.usage"		/**< the usage of the factory */
 #define PW_KEY_FACTORY_TYPE_NAME	"factory.type.name"	/**< the name of the type created by a factory */

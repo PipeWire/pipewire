@@ -256,10 +256,10 @@ static int update_properties(struct pw_port *port, const struct spa_dict *dict)
 	int changed;
 
 	changed = pw_properties_update(port->properties, dict);
+	port->info.props = &port->properties->dict;
 
 	if (changed) {
 		pw_log_debug(NAME" %p: updated %d properties", port, changed);
-		port->info.props = &port->properties->dict;
 		port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
 	}
 	return changed;
@@ -675,14 +675,31 @@ static const struct pw_global_events global_events = {
 };
 
 int pw_port_register(struct pw_port *port,
-		     struct pw_client *owner,
-		     struct pw_global *parent,
 		     struct pw_properties *properties)
 {
 	struct pw_node *node = port->node;
+	const char *keys[] = {
+		PW_KEY_FORMAT_DSP,
+		PW_KEY_PORT_NAME,
+		PW_KEY_PORT_DIRECTION,
+		PW_KEY_PORT_PHYSICAL,
+		PW_KEY_PORT_TERMINAL,
+		PW_KEY_PORT_CONTROL,
+		PW_KEY_PORT_ALIAS1,
+		PW_KEY_PORT_ALIAS2,
+		NULL
+	};
 
-	if (node == NULL)
+	if (node == NULL || node->global == NULL)
 		return -EIO;
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return -errno;
+
+	pw_properties_setf(properties, PW_KEY_NODE_ID, "%d", node->global->id);
+	pw_properties_copy_keys(port->properties, properties, keys);
 
 	port->global = pw_global_new(node->core,
 				PW_TYPE_INTERFACE_Port,
@@ -695,7 +712,12 @@ int pw_port_register(struct pw_port *port,
 
 	pw_global_add_listener(port->global, &port->global_listener, &global_events, port);
 
-	return pw_global_register(port->global, owner, parent);
+	port->info.id = port->global->id;
+	pw_properties_setf(port->properties, PW_KEY_NODE_ID, "%d", node->global->id);
+	pw_properties_setf(port->properties, PW_KEY_PORT_ID, "%d", port->info.id);
+	port->info.props = &port->properties->dict;
+
+	return pw_global_register(port->global);
 }
 
 SPA_EXPORT
@@ -752,6 +774,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%d", dir, port->port_id);
 		}
 	}
+	port->info.props = &port->properties->dict;
 
 	if (control) {
 		pw_log_debug(NAME" %p: setting node control", port);
@@ -781,8 +804,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	}
 
 	if (node->global)
-		pw_port_register(port, node->global->owner, node->global,
-				pw_properties_copy(port->properties));
+		pw_port_register(port, NULL);
 
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 

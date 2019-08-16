@@ -396,13 +396,12 @@ struct pw_registry_proxy_events {
 	 * available.
 	 *
 	 * \param id the global object id
-	 * \param parent_id the parent global id
 	 * \param permissions the permissions of the object
 	 * \param type the type of the interface
 	 * \param version the version of the interface
 	 * \param props extra properties of the global
 	 */
-	void (*global) (void *object, uint32_t id, uint32_t parent_id,
+	void (*global) (void *object, uint32_t id,
 		       uint32_t permissions, uint32_t type, uint32_t version,
 		       const struct spa_dict *props);
 	/**

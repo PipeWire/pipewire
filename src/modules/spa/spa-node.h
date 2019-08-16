@@ -42,8 +42,6 @@ enum pw_spa_node_flags {
 
 struct pw_node *
 pw_spa_node_new(struct pw_core *core,
-		struct pw_client *owner,	/**< optional owner */
-		struct pw_global *parent,	/**< optional parent */
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
 		struct spa_handle *handle,
@@ -52,8 +50,6 @@ pw_spa_node_new(struct pw_core *core,
 
 struct pw_node *
 pw_spa_node_load(struct pw_core *core,
-		 struct pw_client *owner,	/**< optional owner */
-		 struct pw_global *parent,	/**< optional parent */
 		 const char *factory_name,
 		 enum pw_spa_node_flags flags,
 		 struct pw_properties *properties,

@@ -632,7 +632,7 @@ static int registry_method_marshal_add_listener(void *object,
 	return 0;
 }
 
-static void registry_marshal_global(void *object, uint32_t id, uint32_t parent_id, uint32_t permissions,
+static void registry_marshal_global(void *object, uint32_t id, uint32_t permissions,
 				    uint32_t type, uint32_t version, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
@@ -644,7 +644,6 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t parent_i
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(id),
-			    SPA_POD_Int(parent_id),
 			    SPA_POD_Int(permissions),
 			    SPA_POD_Id(type),
 			    SPA_POD_Int(version),
@@ -1785,14 +1784,13 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	uint32_t id, parent_id, permissions, type, version;
+	uint32_t id, permissions, type, version;
 	struct spa_dict props;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&id),
-			SPA_POD_Int(&parent_id),
 			SPA_POD_Int(&permissions),
 			SPA_POD_Id(&type),
 			SPA_POD_Int(&version), NULL) < 0)
@@ -1808,7 +1806,7 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 		return -EINVAL;
 
 	return pw_proxy_notify(proxy, struct pw_registry_proxy_events,
-			global, 0, id, parent_id, permissions, type, version,
+			global, 0, id, permissions, type, version,
 			props.n_items > 0 ? &props : NULL);
 }
 

@@ -129,14 +129,9 @@ struct pw_client {
 
 struct pw_global {
 	struct pw_core *core;		/**< the core */
-	struct pw_client *owner;	/**< the owner of this object, NULL when the
-					  *  PipeWire server is the owner */
 
 	struct spa_list link;		/**< link in core list of globals */
 	uint32_t id;			/**< server id of the object */
-	struct pw_global *parent;	/**< parent global */
-	struct spa_list child_link;	/**< link in parent child list of globals */
-	struct spa_list child_list;	/**< The list of child globals */
 
 	struct pw_properties *properties;	/**< properties of the global */
 
@@ -316,6 +311,7 @@ struct pw_device {
 
 #define pw_module_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
 #define pw_module_emit_destroy(m)	pw_module_emit(m, destroy, 0)
+#define pw_module_emit_registered(m)	pw_module_emit(m, registered, 0)
 
 struct pw_module {
 	struct pw_core *core;           /**< the core object */
@@ -709,8 +705,8 @@ struct pw_remote {
 
 
 struct pw_stream {
-	struct pw_remote *remote;	/**< the owner remote */
-	struct spa_list link;		/**< link in the remote */
+	struct pw_remote *remote;		/**< the owner remote */
+	struct spa_list link;			/**< link in the remote */
 
 	char *name;				/**< the name of the stream */
 	struct pw_properties *properties;	/**< properties of the stream */
@@ -813,8 +809,6 @@ pw_port_new(enum pw_direction direction,
 void pw_port_update_info(struct pw_port *port, const struct spa_port_info *info);
 
 int pw_port_register(struct pw_port *port,
-		     struct pw_client *owner,
-		     struct pw_global *parent,
 		     struct pw_properties *properties);
 
 /** Get the user data of a port, the size of the memory was given \ref in pw_port_new */

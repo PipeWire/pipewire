@@ -106,7 +106,7 @@ static void test_registry_abi(void)
 	} methods = { PW_VERSION_REGISTRY_PROXY_METHODS, };
 	struct {
 		uint32_t version;
-		void (*global) (void *object, uint32_t id, uint32_t parent_id,
+		void (*global) (void *object, uint32_t id,
 			uint32_t permissions, uint32_t type, uint32_t version,
 			const struct spa_dict *props);
 		void (*global_remove) (void *object, uint32_t id);

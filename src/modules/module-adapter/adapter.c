@@ -384,7 +384,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 		goto error;
 	}
 
-	node = pw_spa_node_load(core, NULL, NULL,
+	node = pw_spa_node_load(core,
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 				pw_properties_copy(props),

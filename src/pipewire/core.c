@@ -270,12 +270,10 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 		if (PW_PERM_IS_R(permissions)) {
 			pw_registry_resource_global(registry_resource,
 						    global->id,
-						    global->parent->id,
 						    permissions,
 						    global->type,
 						    global->version,
-						    global->properties ?
-						        &global->properties->dict : NULL);
+						    &global->properties->dict);
 		}
 	}
 
@@ -572,7 +570,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->info.version = pw_get_library_version();
 	srandom(time(NULL));
 	this->info.cookie = random();
-	this->info.props = &properties->dict;
 	this->info.name = name;
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
@@ -592,11 +589,12 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 		res = -errno;
 		goto error_free_loop;
 	}
+	this->info.id = this->global->id;
+	pw_properties_setf(this->properties, PW_KEY_CORE_ID, "%d", this->info.id);
+	this->info.props = &this->properties->dict;
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
-	pw_global_register(this->global, NULL, NULL);
-
-	this->info.id = this->global->id;
+	pw_global_register(this->global);
 
 	return this;
 
@@ -737,6 +735,7 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 	int changed;
 
 	changed = pw_properties_update(core->properties, dict);
+	core->info.props = &core->properties->dict;
 
 	pw_log_debug(NAME" %p: updated %d properties", core, changed);
 
@@ -744,7 +743,6 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 		return 0;
 
 	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
-	core->info.props = &core->properties->dict;
 
 	pw_core_emit_info_changed(core, &core->info);
 

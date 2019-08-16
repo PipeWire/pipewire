@@ -89,7 +89,6 @@ struct impl {
 struct object {
 	struct impl *impl;
 	uint32_t id;
-	uint32_t parent_id;
 	uint32_t type;
 	struct pw_proxy *proxy;
 	struct spa_hook listener;
@@ -111,6 +110,8 @@ struct node {
 
 	struct spa_hook listener;
 	struct pw_node_info *info;
+
+	uint32_t client_id;
 
 	struct spa_list session_link;
 	struct session *session;
@@ -401,7 +402,7 @@ static const struct pw_proxy_events node_proxy_events = {
 };
 
 static int
-handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
+handle_node(struct impl *impl, uint32_t id,
 		uint32_t type, const struct spa_dict *props)
 {
 	const char *str, *media_class;
@@ -409,8 +410,10 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	enum pw_direction direction;
 	struct pw_proxy *p;
 	struct node *node;
+	uint32_t client_id = SPA_ID_INVALID;
 
-	media_class = props ? spa_dict_lookup(props, PW_KEY_MEDIA_CLASS) : NULL;
+	if (props && (str = spa_dict_lookup(props, PW_KEY_CLIENT_ID)) != NULL)
+		client_id = atoi(str);
 
 	p = pw_registry_proxy_bind(impl->registry_proxy,
 			id, type, PW_VERSION_NODE_PROXY,
@@ -419,15 +422,17 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 	node = pw_proxy_get_user_data(p);
 	node->obj.impl = impl;
 	node->obj.id = id;
-	node->obj.parent_id = parent_id;
 	node->obj.type = type;
 	node->obj.proxy = p;
+	node->client_id = client_id;
 	spa_list_init(&node->port_list);
 	pw_proxy_add_listener(p, &node->obj.listener, &node_proxy_events, node);
 	pw_proxy_add_object_listener(p, &node->listener, &node_events, node);
 	add_object(impl, &node->obj);
 	spa_list_append(&impl->node_list, &node->l);
 	node->type = NODE_TYPE_UNKNOWN;
+
+	media_class = props ? spa_dict_lookup(props, PW_KEY_MEDIA_CLASS) : NULL;
 
 	pw_log_debug(NAME" %p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
 
@@ -571,15 +576,21 @@ static const struct pw_proxy_events port_proxy_events = {
 };
 
 static int
-handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
+handle_port(struct impl *impl, uint32_t id, uint32_t type,
 		const struct spa_dict *props)
 {
 	struct port *port;
 	struct pw_proxy *p;
 	struct node *node;
 	const char *str;
+	uint32_t node_id;
 
-	if ((node = find_object(impl, parent_id)) == NULL)
+	if (props == NULL || (str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
+		return -EINVAL;
+
+	node_id = atoi(str);
+
+	if ((node = find_object(impl, node_id)) == NULL)
 		return -ESRCH;
 
 	if (props == NULL || (str = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION)) == NULL)
@@ -592,7 +603,6 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 	port = pw_proxy_get_user_data(p);
 	port->obj.impl = impl;
 	port->obj.id = id;
-	port->obj.parent_id = parent_id;
 	port->obj.type = type;
 	port->obj.proxy = p;
 	port->node = node;
@@ -607,7 +617,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id, uint32_t type,
 
 	spa_list_append(&node->port_list, &port->l);
 
-	pw_log_debug(NAME" %p: new port %d for node %d type %d %08x", impl, id, parent_id,
+	pw_log_debug(NAME" %p: new port %d for node %d type %d %08x", impl, id, node_id,
 			node->type, port->flags);
 
 	if (node->type == NODE_TYPE_DEVICE) {
@@ -655,7 +665,7 @@ static const struct pw_proxy_events client_proxy_events = {
 };
 
 static int
-handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
+handle_client(struct impl *impl, uint32_t id,
 		uint32_t type, const struct spa_dict *props)
 {
 	struct pw_proxy *p;
@@ -670,7 +680,6 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 	client = pw_proxy_get_user_data(p);
 	client->obj.impl = impl;
 	client->obj.id = id;
-	client->obj.parent_id = parent_id;
 	client->obj.type = type;
 	client->obj.proxy = p;
 
@@ -695,7 +704,7 @@ handle_client(struct impl *impl, uint32_t id, uint32_t parent_id,
 }
 
 static void
-registry_global(void *data,uint32_t id, uint32_t parent_id,
+registry_global(void *data,uint32_t id,
 		uint32_t permissions, uint32_t type, uint32_t version,
 		const struct spa_dict *props)
 {
@@ -706,15 +715,15 @@ registry_global(void *data,uint32_t id, uint32_t parent_id,
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Client:
-		res = handle_client(impl, id, parent_id, type, props);
+		res = handle_client(impl, id, type, props);
 		break;
 
 	case PW_TYPE_INTERFACE_Node:
-		res = handle_node(impl, id, parent_id, type, props);
+		res = handle_node(impl, id, type, props);
 		break;
 
 	case PW_TYPE_INTERFACE_Port:
-		res = handle_port(impl, id, parent_id, type, props);
+		res = handle_port(impl, id, type, props);
 		break;
 
 	default:
@@ -1053,7 +1062,7 @@ static int rescan_node(struct impl *impl, struct node *node)
 
 		pw_log_warn(NAME " %p: no session found for %d", impl, node->obj.id);
 
-		client = find_object(impl, node->obj.parent_id);
+		client = find_object(impl, node->client_id);
 		if (client && client->obj.type == PW_TYPE_INTERFACE_Client) {
 			pw_client_proxy_error((struct pw_client_proxy*)client->obj.proxy,
 				node->obj.id, -ENOENT, "no session available");
@@ -1256,8 +1265,8 @@ int main(int argc, char *argv[])
 	pw_core_add_spa_lib(impl.core, "api.alsa.*", "alsa/libspa-alsa");
 	pw_core_add_spa_lib(impl.core, "api.v4l2.*", "v4l2/libspa-v4l2");
 
-	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL, NULL, NULL);
-	pw_module_load(impl.core, "libpipewire-module-adapter", NULL, NULL, NULL, NULL);
+	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL);
+	pw_module_load(impl.core, "libpipewire-module-adapter", NULL, NULL);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

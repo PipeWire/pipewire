@@ -33,6 +33,8 @@
 
 #include "spa-node.h"
 
+#define NAME "spa-node-factory"
+
 #define FACTORY_USAGE	SPA_KEY_FACTORY_NAME"=<factory-name> " \
 			"["SPA_KEY_LIBRARY_NAME"=<library-name>]"
 
@@ -45,7 +47,7 @@ static const struct spa_dict_item module_props[] = {
 struct factory_data {
 	struct pw_core *core;
 	struct pw_factory *this;
-	struct pw_properties *properties;
+	struct pw_module *module;
 
 	struct spa_hook factory_listener;
 	struct spa_hook module_listener;
@@ -110,9 +112,10 @@ static void *create_object(void *_data,
 	if (factory_name == NULL)
 		goto error_properties;
 
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_global_get_id(pw_factory_get_global(data->this)));
+
 	node = pw_spa_node_load(core,
-				NULL,
-				pw_factory_get_global(data->this),
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				properties,
@@ -183,9 +186,6 @@ static void factory_destroy(void *_data)
 
 	spa_list_consume(nd, &data->node_list, link)
 		pw_node_destroy(nd->node);
-
-	if (data->properties)
-		pw_properties_free(data->properties);
 }
 
 static const struct pw_factory_events factory_events = {
@@ -199,17 +199,36 @@ static void module_destroy(void *_data)
 	pw_factory_destroy(data->this);
 }
 
+static void module_registered(void *data)
+{
+	struct factory_data *d = data;
+	struct pw_module *module = d->module;
+	struct pw_factory *factory = d->this;
+	struct spa_dict_item items[1];
+	char id[16];
+	int res;
+
+	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_module_get_global(module)));
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
+	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+
+	if ((res = pw_factory_register(factory, NULL)) < 0) {
+		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+	}
+}
+
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
+	.registered = module_registered,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
-	int res;
 
 	factory = pw_factory_new(core,
 				 "spa-node-factory",
@@ -223,7 +242,7 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->core = core;
-	data->properties = properties;
+	data->module = module;
 	spa_list_init(&data->node_list);
 
 	pw_factory_add_listener(factory, &data->factory_listener, &factory_events, data);
@@ -234,19 +253,5 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	if ((res = pw_factory_register(factory,
-					NULL, pw_module_get_global(module), NULL)) < 0)
-		goto error_register;
-
 	return 0;
-
-error_register:
-	pw_factory_destroy(factory);
-	return res;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

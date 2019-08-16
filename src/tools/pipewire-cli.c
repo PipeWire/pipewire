@@ -54,7 +54,6 @@ struct data {
 struct global {
 	struct remote_data *rd;
 	uint32_t id;
-	uint32_t parent_id;
 	uint32_t permissions;
 	uint32_t type;
 	uint32_t version;
@@ -247,7 +246,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	module = pw_module_load(data->core, a[0], n == 2 ? a[1] : NULL, NULL, NULL, NULL);
+	module = pw_module_load(data->core, a[0], n == 2 ? a[1] : NULL, NULL);
 	if (module == NULL) {
 		asprintf(error, "Could not load module");
 		return false;
@@ -288,7 +287,7 @@ static int print_global(void *obj, void *data)
 	if (global == NULL)
 		return 0;
 
-	fprintf(stdout, "\tid %d, parent %d, type %s/%d\n", global->id, global->parent_id,
+	fprintf(stdout, "\tid %d, type %s/%d\n", global->id,
 					spa_debug_type_find_name(pw_type_info(), global->type),
 					global->version);
 	if (global->properties)
@@ -297,7 +296,7 @@ static int print_global(void *obj, void *data)
 	return 0;
 }
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id,
 		uint32_t permissions, uint32_t type, uint32_t version,
 		const struct spa_dict *props)
 {
@@ -308,7 +307,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	global = calloc(1, sizeof(struct global));
 	global->rd = rd;
 	global->id = id;
-	global->parent_id = parent_id;
 	global->permissions = permissions;
 	global->type = type;
 	global->version = version;
@@ -527,7 +525,6 @@ static void info_global(struct proxy_data *pd)
 		return;
 
 	fprintf(stdout, "\tid: %d\n", global->id);
-	fprintf(stdout, "\tparent_id: %d\n", global->parent_id);
 	fprintf(stdout, "\tpermissions: %c%c%c\n", global->permissions & PW_PERM_R ? 'r' : '-',
 					  global->permissions & PW_PERM_W ? 'w' : '-',
 					  global->permissions & PW_PERM_X ? 'x' : '-');
@@ -1386,7 +1383,7 @@ int main(int argc, char *argv[])
 	data.core = pw_core_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
 	info = pw_core_get_info(data.core);
 
-	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL, NULL, NULL);
+	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL);
 
 	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
 

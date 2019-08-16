@@ -35,7 +35,6 @@ extern "C" {
 
 struct pw_device *
 pw_client_device_new(struct pw_resource *resource,
-		   struct pw_global *parent,
 		   struct pw_properties *properties);
 
 #ifdef __cplusplus

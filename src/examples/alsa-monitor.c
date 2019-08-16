@@ -58,6 +58,7 @@ struct alsa_object {
 	struct monitor *monitor;
 	struct spa_list link;
 	uint32_t id;
+	uint32_t device_id;
 
 	struct pw_properties *props;
 
@@ -111,8 +112,10 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 
 	node->props = pw_properties_new_dict(info->props);
 
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
-	if (str)
+	if (obj->device_id != 0)
+		pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", obj->device_id);
+
+	if ((str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK)) != NULL)
 		pw_properties_set(node->props, PW_KEY_NODE_NICK, str);
 
 	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
@@ -169,7 +172,13 @@ static void alsa_remove_node(struct alsa_object *obj, struct alsa_node *node)
 static void alsa_device_info(void *data, const struct spa_device_info *info)
 {
 	struct alsa_object *obj = data;
+	const char *str;
+
 	pw_properties_update(obj->props, info->props);
+
+	if ((str = pw_properties_get(obj->props, PW_KEY_DEVICE_ID)) != NULL)
+		obj->device_id = pw_properties_parse_int(str);
+
 	spa_debug_dict(0, info->props);
 }
 

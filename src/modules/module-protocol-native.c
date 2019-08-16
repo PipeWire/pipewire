@@ -72,13 +72,11 @@ struct protocol_data {
 	struct pw_module *module;
 	struct spa_hook module_listener;
 	struct pw_protocol *protocol;
-	struct pw_properties *properties;
 };
 
 struct client {
 	struct pw_protocol_client this;
 
-	struct pw_properties *properties;
 	struct spa_source *source;
 
 	struct pw_protocol_native_connection *connection;
@@ -257,12 +255,12 @@ static struct pw_client *client_new(struct server *s, int fd)
 	struct client_data *this;
 	struct pw_client *client;
 	struct pw_protocol *protocol = s->this.protocol;
-	struct protocol_data *pd = protocol->user_data;
 	socklen_t len;
 	struct ucred ucred;
 	struct pw_core *core = protocol->core;
 	struct pw_properties *props;
 	char buffer[1024];
+	struct protocol_data *d = pw_protocol_get_user_data(protocol);
 
 	props = pw_properties_new(PW_KEY_PROTOCOL, "protocol-native", NULL);
 	if (props == NULL)
@@ -283,6 +281,8 @@ static struct pw_client *client_new(struct server *s, int fd)
 	} else {
 		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%s", buffer);
 	}
+
+	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 
 	client = pw_client_new(protocol->core,
 			       props,
@@ -310,8 +310,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 			PW_PERM_RWX, PW_VERSION_CORE_PROXY, 0) < 0)
 		goto cleanup_client;
 
-	props = pw_properties_copy(pw_client_get_properties(client));
-	if (pw_client_register(client, client, pw_module_get_global(pd->module), props) < 0)
+	if (pw_client_register(client, NULL) < 0)
 		goto cleanup_client;
 
 	if (pw_global_bind(pw_client_get_global(client), client,
@@ -664,9 +663,6 @@ static void impl_destroy(struct pw_protocol_client *client)
 
 	pw_loop_destroy_source(remote->core->main_loop, impl->flush_event);
 
-	if (impl->properties)
-		pw_properties_free(impl->properties);
-
 	spa_list_remove(&client->link);
 	free(impl);
 }
@@ -687,8 +683,6 @@ impl_new_client(struct pw_protocol *protocol,
 	this = &impl->this;
 	this->protocol = protocol;
 	this->remote = remote;
-
-	impl->properties = properties ? pw_properties_copy(properties) : NULL;
 
 	if (properties)
 		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
@@ -716,8 +710,6 @@ impl_new_client(struct pw_protocol *protocol,
 	return this;
 
 error_cleanup:
-	if (impl->properties)
-		pw_properties_free(impl->properties);
 	free(impl);
 	errno = -res;
 	return NULL;
@@ -901,9 +893,6 @@ static void module_destroy(void *data)
 
 	spa_hook_remove(&d->module_listener);
 
-	if (d->properties)
-		pw_properties_free(d->properties);
-
 	pw_protocol_destroy(d->protocol);
 }
 
@@ -912,7 +901,8 @@ static const struct pw_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_protocol *this;
@@ -939,13 +929,12 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	d = pw_protocol_get_user_data(this);
 	d->protocol = this;
 	d->module = module;
-	d->properties = properties;
 
 	val = getenv("PIPEWIRE_DAEMON");
 	if (val == NULL)
 		val = pw_properties_get(pw_core_get_properties(core), PW_KEY_CORE_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
-		if (impl_add_server(this, core, properties) == NULL) {
+		if (impl_add_server(this, core, NULL) == NULL) {
 			res = -errno;
 			goto error_cleanup;
 		}
@@ -960,10 +949,4 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 error_cleanup:
 	pw_protocol_destroy(this);
 	return res;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

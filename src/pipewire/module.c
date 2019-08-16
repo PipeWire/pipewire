@@ -178,8 +178,6 @@ SPA_EXPORT
 struct pw_module *
 pw_module_load(struct pw_core *core,
 	       const char *name, const char *args,
-	       struct pw_client *owner,
-	       struct pw_global *parent,
 	       struct pw_properties *properties)
 {
 	struct pw_module *this;
@@ -247,7 +245,6 @@ pw_module_load(struct pw_core *core,
 	this->info.filename = filename;
 	filename = NULL;
 	this->info.args = args ? strdup(args) : NULL;
-	this->info.props = &this->properties->dict;
 
 	this->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Module,
@@ -262,13 +259,19 @@ pw_module_load(struct pw_core *core,
 		goto error_no_global;
 
 	spa_list_append(&core->module_list, &this->link);
-	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
+
 	this->info.id = this->global->id;
+	pw_properties_setf(this->properties, PW_KEY_MODULE_ID, "%d", this->info.id);
+	this->info.props = &this->properties->dict;
+
+	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 
 	if ((res = init_func(this, args)) < 0)
 		goto error_init_failed;
 
-	pw_global_register(this->global, owner, parent);
+	pw_global_register(this->global);
+
+	pw_module_emit_registered(this);
 
 	pw_log_debug(NAME" %p: loaded module: %s", this, this->info.name);
 
@@ -369,13 +372,12 @@ int pw_module_update_properties(struct pw_module *module, const struct spa_dict 
 	int changed;
 
 	changed = pw_properties_update(module->properties, dict);
+	module->info.props = &module->properties->dict;
 
 	pw_log_debug(NAME" %p: updated %d properties", module, changed);
 
 	if (!changed)
 		return 0;
-
-	module->info.props = &module->properties->dict;
 
 	module->info.change_mask |= PW_MODULE_CHANGE_MASK_PROPS;
 	if (module->global)

@@ -221,7 +221,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
 		if (pw_module_load(core, "libpipewire-module-protocol-native",
-					NULL, NULL, NULL, NULL) == NULL) {
+					NULL, NULL) == NULL) {
 			res = -errno;
 			goto error_protocol;
 		}
@@ -239,9 +239,9 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	if (this->conn == NULL)
 		goto error_connection;
 
-	pw_module_load(core, "libpipewire-module-rtkit", NULL, NULL, NULL, NULL);
-	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL, NULL, NULL);
-	pw_module_load(core, "libpipewire-module-adapter", NULL, NULL, NULL, NULL);
+	pw_module_load(core, "libpipewire-module-rtkit", NULL, NULL);
+	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL);
+	pw_module_load(core, "libpipewire-module-adapter", NULL, NULL);
 
         spa_list_append(&core->remote_list, &this->link);
 

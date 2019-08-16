@@ -68,8 +68,6 @@ struct pw_device *pw_device_new(struct pw_core *core,
 				size_t user_data_size);
 
 int pw_device_register(struct pw_device *device,
-		       struct pw_client *owner,
-		       struct pw_global *parent,
 		       struct pw_properties *properties);
 
 void pw_device_destroy(struct pw_device *device);

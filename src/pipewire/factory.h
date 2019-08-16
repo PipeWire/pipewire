@@ -72,9 +72,13 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 				  struct pw_properties *properties,
 				  size_t user_data_size);
 
+/** Get the factory properties */
+const struct pw_properties *pw_factory_get_properties(struct pw_factory *factory);
+
+/** Update the factory properties */
+int pw_factory_update_properties(struct pw_factory *factory, const struct spa_dict *dict);
+
 int pw_factory_register(struct pw_factory *factory,
-			struct pw_client *owner,
-			struct pw_global *parent,
 			struct pw_properties *properties);
 
 void pw_factory_destroy(struct pw_factory *factory);

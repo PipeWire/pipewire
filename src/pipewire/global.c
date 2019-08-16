@@ -77,6 +77,11 @@ pw_global_new(struct pw_core *core,
 	struct pw_global *this;
 	int res;
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return NULL;
+
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL) {
 		res = -errno;
@@ -98,7 +103,6 @@ pw_global_new(struct pw_core *core,
 		goto error_free;
 	}
 
-	spa_list_init(&this->child_list);
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
@@ -120,17 +124,12 @@ error_cleanup:
 /** register a global to the core registry
  *
  * \param global a global to add
- * \param owner an optional owner client of the global
- * \param parent an optional parent of the global
  * \return 0 on success < 0 errno value on failure
  *
  * \memberof pw_global
  */
 SPA_EXPORT
-int
-pw_global_register(struct pw_global *global,
-		   struct pw_client *owner,
-		   struct pw_global *parent)
+int pw_global_register(struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_resource *registry;
@@ -138,16 +137,6 @@ pw_global_register(struct pw_global *global,
 
 	if (impl->registered)
 		return -EEXIST;
-
-	global->owner = owner;
-	if (owner && parent == NULL)
-		parent = owner->global;
-	if (parent == NULL)
-		parent = core->global;
-	if (parent == NULL)
-		parent = global;
-	global->parent = parent;
-	spa_list_append(&parent->child_list, &global->child_link);
 
 	spa_list_append(&core->global_list, &global->link);
 	impl->registered = true;
@@ -158,15 +147,13 @@ pw_global_register(struct pw_global *global,
 		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global(registry,
 						    global->id,
-						    global->parent->id,
 						    permissions,
 						    global->type,
 						    global->version,
-						    global->properties ?
-						        &global->properties->dict : NULL);
+						    &global->properties->dict);
 	}
 
-	pw_log_debug(NAME" %p: registered %u owner %p parent %p", global, global->id, owner, parent);
+	pw_log_debug(NAME" %p: registered %u", global, global->id);
 	pw_core_emit_global_added(core, global);
 
 	return 0;
@@ -177,16 +164,9 @@ static int global_unregister(struct pw_global *global)
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_core *core = global->core;
 	struct pw_resource *resource;
-	struct pw_global *g;
 
 	if (!impl->registered)
 		return 0;
-
-	spa_list_consume(g, &global->child_list, child_link) {
-		if (g == global)
-			break;
-		global_unregister(g);
-	}
 
 	spa_list_for_each(resource, &core->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, resource->client);
@@ -195,8 +175,6 @@ static int global_unregister(struct pw_global *global)
 			pw_registry_resource_global_remove(resource, global->id);
 	}
 
-	global->parent = NULL;
-	spa_list_remove(&global->child_link);
 	spa_list_remove(&global->link);
 	pw_map_remove(&core->globals, global->id);
 	impl->registered = false;
@@ -211,18 +189,6 @@ SPA_EXPORT
 struct pw_core *pw_global_get_core(struct pw_global *global)
 {
 	return global->core;
-}
-
-SPA_EXPORT
-struct pw_client *pw_global_get_owner(struct pw_global *global)
-{
-	return global->owner;
-}
-
-SPA_EXPORT
-struct pw_global *pw_global_get_parent(struct pw_global *global)
-{
-	return global->parent;
 }
 
 SPA_EXPORT
@@ -340,12 +306,10 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 					client, resource, global->id);
 			pw_registry_resource_global(resource,
 						    global->id,
-						    global->parent->id,
 						    new_permissions,
 						    global->type,
 						    global->version,
-						    global->properties ?
-						        &global->properties->dict : NULL);
+						    &global->properties->dict);
 		}
 	}
 
@@ -384,8 +348,7 @@ void pw_global_destroy(struct pw_global *global)
 	pw_log_debug(NAME" %p: free", global);
 	pw_global_emit_free(global);
 
-	if (global->properties)
-		pw_properties_free(global->properties);
+	pw_properties_free(global->properties);
 
 	free(global);
 }

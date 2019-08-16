@@ -1621,7 +1621,6 @@ static int process_node(void *data)
  * \memberof pw_client_node
  */
 struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
-					  struct pw_global *parent,
 					  struct pw_properties *properties,
 					  bool do_register)
 {
@@ -1639,6 +1638,15 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 		goto error_exit_cleanup;
 	}
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL) {
+		res = -errno;
+		goto error_exit_free;
+	}
+
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
+
 	this = &impl->this;
 
 	impl->core = core;
@@ -1655,10 +1663,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	pw_map_init(&impl->io_map, 64, 64);
 
 	this->resource = resource;
-	this->parent = parent;
 	this->node = pw_spa_node_new(core,
-				     client,
-				     parent,
 				     PW_SPA_NODE_FLAG_ASYNC |
 				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),
 				     (struct spa_node *)&impl->node.node,

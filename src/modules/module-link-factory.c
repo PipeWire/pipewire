@@ -32,6 +32,8 @@
 #include <pipewire/pipewire.h>
 #include "pipewire/private.h"
 
+#define NAME "link-factory"
+
 #define FACTORY_USAGE	PW_KEY_LINK_OUTPUT_NODE"=<output-node> "	\
 			"["PW_KEY_LINK_OUTPUT_PORT"=<output-port>] "	\
 			PW_KEY_LINK_INPUT_NODE"=<input-node "		\
@@ -46,8 +48,8 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct factory_data {
+	struct pw_module *module;
 	struct pw_factory *this;
-	struct pw_properties *properties;
 
 	struct spa_list link_list;
 
@@ -217,6 +219,11 @@ static void *create_object(void *_data,
 	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
 	linger = str ? pw_properties_parse_bool(str) : false;
 
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d", d->this->global->id);
+	if (!linger)
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
+
+
 	link = pw_link_new(core, outport, inport, NULL, properties, sizeof(struct link_data));
 	properties = NULL;
 	if (link == NULL) {
@@ -230,10 +237,7 @@ static void *create_object(void *_data,
 	spa_list_append(&d->link_list, &ld->l);
 
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
-	if ((res = pw_link_register(link,
-			linger ? NULL : client,
-			linger ? NULL : pw_client_get_global(client),
-			NULL)) < 0)
+	if ((res = pw_link_register(link, NULL)) < 0)
 		goto error_link_register;
 
 	ld->global = pw_link_get_global(link);
@@ -249,7 +253,6 @@ static void *create_object(void *_data,
 			res = -ENOENT;
 			goto error_bind;
 		}
-
 		pw_resource_add_listener(ld->resource, &ld->resource_listener, &resource_events, ld);
 	}
 
@@ -313,23 +316,39 @@ static void module_destroy(void *data)
 	spa_list_for_each_safe(ld, t, &d->link_list, l)
 		pw_link_destroy(ld->link);
 
-	if (d->properties)
-		pw_properties_free(d->properties);
-
 	pw_factory_destroy(d->this);
+}
+
+static void module_registered(void *data)
+{
+	struct factory_data *d = data;
+	struct pw_module *module = d->module;
+	struct pw_factory *factory = d->this;
+	struct spa_dict_item items[1];
+	char id[16];
+	int res;
+
+	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_module_get_global(module)));
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
+	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+
+	if ((res = pw_factory_register(factory, NULL)) < 0) {
+		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+	}
 }
 
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
+	.registered = module_registered,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
-	int res;
 
 	factory = pw_factory_new(core,
 				 "link-factory",
@@ -339,14 +358,12 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 					 PW_KEY_FACTORY_USAGE, FACTORY_USAGE,
 					 NULL),
 				 sizeof(*data));
-	if (factory == NULL) {
-		res = -errno;
-		goto error_cleanup;
-	}
+	if (factory == NULL)
+		return -errno;
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
-	data->properties = properties;
+	data->module = module;
 	spa_list_init(&data->link_list);
 
 	pw_log_debug("module %p: new", module);
@@ -355,25 +372,9 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				      &impl_factory,
 				      data);
 
-	if ((res = pw_factory_register(factory, NULL, pw_module_get_global(module), NULL)) < 0)
-		goto error_register;
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
-
 	return 0;
-
-error_register:
-	pw_factory_destroy(factory);
-error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
-	return res;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

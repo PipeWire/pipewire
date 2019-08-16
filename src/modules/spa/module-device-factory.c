@@ -33,6 +33,8 @@
 
 #include "spa-device.h"
 
+#define NAME "spa-device-factory"
+
 #define FACTORY_USAGE	SPA_KEY_FACTORY_NAME"=<factory-name> " \
 			"["SPA_KEY_LIBRARY_NAME"=<library-name>]"
 
@@ -44,8 +46,8 @@ static const struct spa_dict_item module_props[] = {
 
 struct factory_data {
 	struct pw_core *core;
+	struct pw_module *module;
 	struct pw_factory *this;
-	struct pw_properties *properties;
 
 	struct spa_hook factory_listener;
 	struct spa_hook module_listener;
@@ -93,8 +95,6 @@ static void *create_object(void *_data,
 		goto error_properties;
 
 	device = pw_spa_device_load(core,
-				NULL,
-				pw_factory_get_global(data->this),
 				factory_name,
 				0,
 				properties,
@@ -148,9 +148,6 @@ static void factory_destroy(void *_data)
 
 	spa_list_consume(nd, &data->device_list, link)
 		pw_device_destroy(nd->device);
-
-	if (data->properties)
-		pw_properties_free(data->properties);
 }
 
 static const struct pw_factory_events factory_events = {
@@ -164,17 +161,36 @@ static void module_destroy(void *_data)
 	pw_factory_destroy(data->this);
 }
 
+static void module_registered(void *data)
+{
+	struct factory_data *d = data;
+	struct pw_module *module = d->module;
+	struct pw_factory *factory = d->this;
+	struct spa_dict_item items[1];
+	char id[16];
+	int res;
+
+	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_module_get_global(module)));
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
+	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+
+	if ((res = pw_factory_register(factory, NULL)) < 0) {
+		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+	}
+}
+
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
+	.registered = module_registered,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
-	int res;
 
 	factory = pw_factory_new(core,
 				 "spa-device-factory",
@@ -187,33 +203,17 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
+	data->module = module;
 	data->core = core;
-	data->properties = properties;
 	spa_list_init(&data->device_list);
 
 	pw_factory_add_listener(factory, &data->factory_listener, &factory_events, data);
 	pw_factory_set_implementation(factory, &factory_impl, data);
 
 	pw_log_debug("module %p: new", module);
-	pw_module_add_listener(module, &data->module_listener, &module_events, data);
-
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	if ((res = pw_factory_register(factory,
-					NULL,
-					pw_module_get_global(module),
-					NULL)) < 0)
-		goto error_register;
+	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	return 0;
-
-error_register:
-	pw_factory_destroy(factory);
-	return res;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

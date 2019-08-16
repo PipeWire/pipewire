@@ -386,7 +386,7 @@ int main(int argc, char *argv[])
 
 	pw_core_add_spa_lib(impl.core, "api.bluez5.*", "bluez5/libspa-bluez5");
 
-	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL, NULL, NULL);
+	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

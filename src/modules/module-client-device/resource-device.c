@@ -48,7 +48,6 @@ struct impl {
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 
-	struct pw_global *parent;
 	unsigned int registered:1;
 };
 
@@ -56,7 +55,9 @@ static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct impl *impl = data;
 	if (!impl->registered) {
-		pw_device_register(impl->device, impl->resource->client, impl->parent, NULL);
+		pw_device_register(impl->device, NULL);
+		pw_device_set_implementation(impl->device,
+				(struct spa_device*)impl->resource);
 		impl->registered = true;
 	}
 }
@@ -103,13 +104,19 @@ static const struct pw_device_events device_events = {
 };
 
 struct pw_device *pw_client_device_new(struct pw_resource *resource,
-		struct pw_global *parent,
 		struct pw_properties *properties)
 {
 	struct impl *impl;
 	struct pw_device *device;
 	struct pw_client *client = pw_resource_get_client(resource);
 	struct pw_core *core = pw_client_get_core(client);
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return NULL;
+
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
 
 	device = pw_device_new(core, properties, sizeof(struct impl));
 	if (device == NULL)
@@ -119,13 +126,10 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 	impl->device = device;
 	impl->core = core;
 	impl->resource = resource;
-	impl->parent = parent;
 
 	pw_device_add_listener(impl->device,
 			&impl->device_listener,
 			&device_events, impl);
-	pw_device_set_implementation(device,
-			(struct spa_device*)resource);
 
 	pw_resource_add_listener(impl->resource,
 				&impl->resource_listener,

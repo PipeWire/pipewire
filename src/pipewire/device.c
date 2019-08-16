@@ -363,13 +363,19 @@ static const struct pw_global_events global_events = {
 
 SPA_EXPORT
 int pw_device_register(struct pw_device *device,
-		       struct pw_client *owner,
-		       struct pw_global *parent,
 		       struct pw_properties *properties)
 {
 	struct pw_core *core = device->core;
 	struct node_data *nd;
-	const char *str;
+	const char *keys[] = {
+		PW_KEY_MODULE_ID,
+		PW_KEY_CLIENT_ID,
+		PW_KEY_DEVICE_DESCRIPTION,
+		PW_KEY_DEVICE_NAME,
+		PW_KEY_DEVICE_NICK,
+		PW_KEY_MEDIA_CLASS,
+		NULL
+	};
 
 	if (device->registered)
 		goto error_existed;
@@ -379,17 +385,11 @@ int pw_device_register(struct pw_device *device,
 	if (properties == NULL)
 		return -errno;
 
-	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_DESCRIPTION)) != NULL)
-		pw_properties_set(properties, PW_KEY_DEVICE_DESCRIPTION, str);
-	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NAME)) != NULL)
-		pw_properties_set(properties, PW_KEY_DEVICE_NAME, str);
-	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NICK)) != NULL)
-		pw_properties_set(properties, PW_KEY_DEVICE_NICK, str);
-	if ((str = pw_properties_get(device->properties, PW_KEY_MEDIA_CLASS)) != NULL)
-		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
+	pw_properties_copy_keys(device->properties, properties, keys);
 
         device->global = pw_global_new(core,
-				       PW_TYPE_INTERFACE_Device, PW_VERSION_DEVICE_PROXY,
+				       PW_TYPE_INTERFACE_Device,
+				       PW_VERSION_DEVICE_PROXY,
 				       properties,
 				       global_bind,
 				       device);
@@ -400,11 +400,14 @@ int pw_device_register(struct pw_device *device,
 	device->registered = true;
 
 	device->info.id = device->global->id;
+	pw_properties_setf(device->properties, PW_KEY_DEVICE_ID, "%d", device->info.id);
+	device->info.props = &device->properties->dict;
+
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);
-	pw_global_register(device->global, owner, parent);
+	pw_global_register(device->global);
 
 	spa_list_for_each(nd, &device->node_list, link) {
-		pw_node_register(nd->node, NULL, device->global, NULL);
+		pw_node_register(nd->node, NULL);
 		pw_node_set_active(nd->node, true);
 	}
 	return 0;
@@ -451,13 +454,13 @@ static int update_properties(struct pw_device *device, const struct spa_dict *di
 	int changed;
 
 	changed = pw_properties_update(device->properties, dict);
+	device->info.props = &device->properties->dict;
 
 	pw_log_debug(NAME" %p: updated %d properties", device, changed);
 
 	if (!changed)
 		return 0;
 
-	device->info.props = &device->properties->dict;
 	device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
 
 	return changed;
@@ -529,7 +532,7 @@ static void device_add(struct pw_device *device, uint32_t id,
 	pw_node_set_implementation(node, iface);
 
 	if (device->global) {
-		pw_node_register(node, NULL, device->global, NULL);
+		pw_node_register(node, NULL);
 		pw_node_set_active(node, true);
 	}
 	return;

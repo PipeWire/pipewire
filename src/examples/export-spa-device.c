@@ -127,8 +127,8 @@ int main(int argc, char *argv[])
 	data.library = argv[1];
 	data.factory = argv[2];
 
-	pw_module_load(data.core, "libpipewire-module-spa-device-factory", NULL, NULL, NULL, NULL);
-	pw_module_load(data.core, "libpipewire-module-client-device", NULL, NULL, NULL, NULL);
+	pw_module_load(data.core, "libpipewire-module-spa-device-factory", NULL, NULL);
+	pw_module_load(data.core, "libpipewire-module-client-device", NULL, NULL);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 

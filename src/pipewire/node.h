@@ -107,8 +107,6 @@ pw_node_new(struct pw_core *core,		/**< the core */
 
 /** Complete initialization of the node and register */
 int pw_node_register(struct pw_node *node,		/**< node to register */
-		     struct pw_client *owner,		/**< optional owner */
-		     struct pw_global *parent,		/**< optional parent */
 		     struct pw_properties *properties	/**< extra properties */);
 
 /** Destroy a node */

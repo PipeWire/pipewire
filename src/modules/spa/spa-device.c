@@ -44,9 +44,6 @@
 struct impl {
 	struct pw_device *this;
 
-	struct pw_client *owner;
-	struct pw_global *parent;
-
 	enum pw_spa_device_flags flags;
 
 	void *unload;
@@ -77,8 +74,6 @@ static const struct pw_device_events device_events = {
 
 struct pw_device *
 pw_spa_device_new(struct pw_core *core,
-		  struct pw_client *owner,
-		  struct pw_global *parent,
 		  enum pw_spa_device_flags flags,
 		  struct spa_device *device,
 		  struct spa_handle *handle,
@@ -95,8 +90,6 @@ pw_spa_device_new(struct pw_core *core,
 
 	impl = this->user_data;
 	impl->this = this;
-	impl->owner = owner;
-	impl->parent = parent;
 	impl->device = device;
 	impl->handle = handle;
 	impl->flags = flags;
@@ -108,7 +101,7 @@ pw_spa_device_new(struct pw_core *core,
 	pw_device_set_implementation(this, impl->device);
 
 	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_DEVICE_FLAG_NO_REGISTER)) {
-		if ((res = pw_device_register(this, impl->owner, impl->parent, NULL)) < 0)
+		if ((res = pw_device_register(this, NULL)) < 0)
 			goto error_register;
 	}
 	return this;
@@ -126,8 +119,6 @@ void *pw_spa_device_get_user_data(struct pw_device *device)
 }
 
 struct pw_device *pw_spa_device_load(struct pw_core *core,
-				 struct pw_client *owner,
-				 struct pw_global *parent,
 				 const char *factory_name,
 				 enum pw_spa_device_flags flags,
 				 struct pw_properties *properties,
@@ -146,7 +137,7 @@ struct pw_device *pw_spa_device_load(struct pw_core *core,
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0)
 		goto error_interface;
 
-	this = pw_spa_device_new(core, owner, parent, flags,
+	this = pw_spa_device_new(core, flags,
 			       iface, handle, properties, user_data_size);
 	if (this == NULL)
 		goto error_device;

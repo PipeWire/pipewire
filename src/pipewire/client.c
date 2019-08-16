@@ -30,6 +30,7 @@
 #include "pipewire/private.h"
 #include "pipewire/resource.h"
 #include "pipewire/type.h"
+#include "pipewire/keys.h"
 
 #define NAME "client"
 
@@ -370,16 +371,30 @@ static const struct pw_global_events global_events = {
 
 SPA_EXPORT
 int pw_client_register(struct pw_client *client,
-		       struct pw_client *owner,
-		       struct pw_global *parent,
 		       struct pw_properties *properties)
 {
 	struct pw_core *core = client->core;
+	const char *keys[] = {
+		PW_KEY_MODULE_ID,
+		PW_KEY_PROTOCOL,
+		PW_KEY_SEC_PID,
+		PW_KEY_SEC_UID,
+		PW_KEY_SEC_GID,
+		PW_KEY_SEC_LABEL,
+		NULL
+	};
 
 	if (client->registered)
 		goto error_existed;
 
-	pw_log_debug(NAME" %p: register parent %d", client, parent ? parent->id : SPA_ID_INVALID);
+	pw_log_debug(NAME" %p: register", client);
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return -errno;
+
+	pw_properties_copy_keys(client->properties, properties, keys);
 
 	client->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Client,
@@ -393,9 +408,12 @@ int pw_client_register(struct pw_client *client,
 	spa_list_append(&core->client_list, &client->link);
 	client->registered = true;
 
-	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
-	pw_global_register(client->global, owner, parent);
 	client->info.id = client->global->id;
+	pw_properties_setf(client->properties, PW_KEY_CLIENT_ID, "%d", client->info.id);
+	client->info.props = &client->properties->dict;
+
+	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
+	pw_global_register(client->global);
 
 	return 0;
 
@@ -520,6 +538,7 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 	int changed;
 
 	changed = pw_properties_update(client->properties, dict);
+	client->info.props = &client->properties->dict;
 
 	pw_log_debug(NAME" %p: updated %d properties", client, changed);
 
@@ -527,7 +546,6 @@ int pw_client_update_properties(struct pw_client *client, const struct spa_dict 
 		return 0;
 
 	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
-	client->info.props = &client->properties->dict;
 
 	pw_client_emit_info_changed(client, &client->info);
 

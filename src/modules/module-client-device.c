@@ -33,6 +33,8 @@
 
 #include "module-client-device/client-device.h"
 
+#define NAME "client-device"
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create and control remote devices" },
@@ -47,7 +49,6 @@ struct pw_protocol *pw_protocol_native_ext_client_device_init(struct pw_core *co
 
 struct factory_data {
 	struct pw_factory *this;
-	struct pw_properties *properties;
 
 	struct pw_module *module;
 	struct spa_hook module_listener;
@@ -64,7 +65,6 @@ static void *create_object(void *_data,
 {
 	void *result;
 	struct pw_resource *device_resource;
-	struct pw_global *parent;
 	struct pw_client *client = pw_resource_get_client(resource);
 	int res;
 
@@ -74,9 +74,7 @@ static void *create_object(void *_data,
 		goto error_resource;
 	}
 
-	parent = pw_client_get_global(client);
-
-	result = pw_client_device_new(device_resource, parent, properties);
+	result = pw_client_device_new(device_resource, properties);
 	if (result == NULL) {
 		res = -errno;
 		goto error_device;
@@ -111,20 +109,37 @@ static void module_destroy(void *data)
 
 	spa_hook_remove(&d->module_listener);
 
-	if (d->properties)
-		pw_properties_free(d->properties);
-
 	spa_list_remove(&d->export_spadevice.link);
 
 	pw_factory_destroy(d->this);
 }
 
+static void module_registered(void *data)
+{
+	struct factory_data *d = data;
+	struct pw_module *module = d->module;
+	struct pw_factory *factory = d->this;
+	struct spa_dict_item items[1];
+	char id[16];
+	int res;
+
+	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_module_get_global(module)));
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
+	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+
+	if ((res = pw_factory_register(factory, NULL)) < 0) {
+		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+	}
+}
+
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
+	.registered = module_registered,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
@@ -144,7 +159,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->module = module;
-	data->properties = properties;
 
 	pw_log_debug("module %p: new", module);
 
@@ -153,8 +167,6 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				      data);
 
 	pw_protocol_native_ext_client_device_init(core);
-
-	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
 
 	data->export_spadevice.type = SPA_TYPE_INTERFACE_Device;
 	data->export_spadevice.func = pw_remote_spa_device_export;
@@ -165,10 +177,4 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

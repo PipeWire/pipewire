@@ -1146,7 +1146,7 @@ struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
 		return NULL;
 
 	pw_node_set_implementation(node, (struct spa_node*)object);
-	pw_node_register(node, NULL, NULL, NULL);
+	pw_node_register(node, NULL);
 	pw_node_set_active(node, true);
 
 	return node_export(remote, node, true, user_data_size);

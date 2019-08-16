@@ -1200,16 +1200,6 @@ check_permission(struct pw_core *core,
 		 struct pw_port *input,
 		 struct pw_properties *properties)
 {
-	struct pw_client *client;
-
-	if ((client = output->global->owner) != NULL &&
-	    !PW_PERM_IS_R(pw_global_get_permissions(input->global, client)))
-		return -EACCES;
-
-	if ((client = input->global->owner) != NULL &&
-	    !PW_PERM_IS_R(pw_global_get_permissions(output->global, client)))
-		return -EACCES;
-
 	return 0;
 }
 
@@ -1265,6 +1255,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	struct impl *impl;
 	struct pw_link *this;
 	struct pw_node *input_node, *output_node;
+	const char *str;
 	int res;
 
 	if (output == input)
@@ -1282,6 +1273,11 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	output_node = output->node;
 	input_node = input->node;
+
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		goto error_no_mem;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -1303,11 +1299,10 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->output = output;
 	this->input = input;
 
-	if (properties) {
-		const char *str = pw_properties_get(properties, PW_KEY_LINK_PASSIVE);
-		if (str && pw_properties_parse_bool(str))
-			impl->passive = true;
-	}
+	/* passive means that this link does not make the nodes active */
+	if ((str = pw_properties_get(properties, PW_KEY_LINK_PASSIVE)) != NULL)
+		impl->passive = pw_properties_parse_bool(str);
+
 	spa_hook_list_init(&this->listener_list);
 
 	impl->format_filter = format_filter;
@@ -1328,7 +1323,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	spa_list_append(&input->links, &this->input_link);
 
 	this->info.format = NULL;
-	this->info.props = this->properties ? &this->properties->dict : NULL;
+	this->info.props = &this->properties->dict;
 
 	impl->io.buffer_id = SPA_ID_INVALID;
 	impl->io.status = SPA_STATUS_NEED_BUFFER;
@@ -1413,12 +1408,15 @@ static const struct pw_global_events global_events = {
 
 SPA_EXPORT
 int pw_link_register(struct pw_link *link,
-		     struct pw_client *owner,
-		     struct pw_global *parent,
 		     struct pw_properties *properties)
 {
 	struct pw_core *core = link->core;
 	struct pw_node *output_node, *input_node;
+	const char *keys[] = {
+		PW_KEY_FACTORY_ID,
+		PW_KEY_CLIENT_ID,
+		NULL
+	};
 
 	if (link->registered)
 		goto error_existed;
@@ -1436,6 +1434,8 @@ int pw_link_register(struct pw_link *link,
 	link->info.input_node_id = input_node->global->id;
 	link->info.input_port_id = link->input->global->id;
 
+	pw_properties_copy_keys(link->properties, properties, keys);
+
 	pw_properties_setf(properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
 	pw_properties_setf(properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
 
@@ -1452,8 +1452,11 @@ int pw_link_register(struct pw_link *link,
 	link->registered = true;
 
 	link->info.id = link->global->id;
+	pw_properties_setf(link->properties, PW_KEY_LINK_ID, "%d", link->info.id);
+	link->info.props = &link->properties->dict;
+
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
-	pw_global_register(link->global, owner, parent);
+	pw_global_register(link->global);
 
 	debug_link(link);
 
@@ -1500,8 +1503,7 @@ void pw_link_destroy(struct pw_link *link)
 
 	pw_work_queue_destroy(impl->work);
 
-	if (link->properties)
-		pw_properties_free(link->properties);
+	pw_properties_free(link->properties);
 
 	pw_core_recalc_graph(link->core);
 

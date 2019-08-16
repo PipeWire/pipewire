@@ -41,9 +41,6 @@ extern "C" {
  *
  * A client can bind to a global to send methods or receive events from
  * the global.
- *
- * Global objects are arranged in a hierarchy where each global has a parent
- * global. The core global is the top parent in the hierarchy.
  */
 /** \class pw_global
  *
@@ -92,9 +89,7 @@ pw_global_new(struct pw_core *core,		/**< the core */
 	      void *object			/**< global object */);
 
 /** Register a global object to the core registry */
-int pw_global_register(struct pw_global *global,
-		       struct pw_client *owner,
-		       struct pw_global *parent);
+int pw_global_register(struct pw_global *global);
 
 /** Add an event listener on the global */
 void pw_global_add_listener(struct pw_global *global,
@@ -107,12 +102,6 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
 
 /** Get the core object of this global */
 struct pw_core *pw_global_get_core(struct pw_global *global);
-
-/** Get the owner of the global. This can be NULL when the core is owner */
-struct pw_client *pw_global_get_owner(struct pw_global *global);
-
-/** Get the parent of a global */
-struct pw_global *pw_global_get_parent(struct pw_global *global);
 
 /** Get the global type */
 uint32_t pw_global_get_type(struct pw_global *global);

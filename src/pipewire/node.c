@@ -544,13 +544,21 @@ static const struct pw_global_events global_events = {
 
 SPA_EXPORT
 int pw_node_register(struct pw_node *this,
-		     struct pw_client *owner,
-		     struct pw_global *parent,
 		     struct pw_properties *properties)
 {
 	struct pw_core *core = this->core;
 	struct pw_port *port;
-	const char *str;
+	const char *keys[] = {
+		PW_KEY_CLIENT_ID,
+		PW_KEY_DEVICE_ID,
+		PW_KEY_NODE_DESCRIPTION,
+		PW_KEY_NODE_NAME,
+		PW_KEY_NODE_NICK,
+		PW_KEY_NODE_SESSION,
+		PW_KEY_MEDIA_CLASS,
+		PW_KEY_MEDIA_ROLE,
+		NULL
+	};
 
 	pw_log_debug(NAME" %p: register", this);
 
@@ -562,18 +570,7 @@ int pw_node_register(struct pw_node *this,
 	if (properties == NULL)
 		return -errno;
 
-	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_DESCRIPTION)) != NULL)
-		pw_properties_set(properties, PW_KEY_NODE_DESCRIPTION, str);
-	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_NAME)) != NULL)
-		pw_properties_set(properties, PW_KEY_NODE_NAME, str);
-	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_NICK)) != NULL)
-		pw_properties_set(properties, PW_KEY_NODE_NICK, str);
-	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_CLASS)) != NULL)
-		pw_properties_set(properties, PW_KEY_MEDIA_CLASS, str);
-	if ((str = pw_properties_get(this->properties, PW_KEY_MEDIA_ROLE)) != NULL)
-		pw_properties_set(properties, PW_KEY_MEDIA_ROLE, str);
-	if ((str = pw_properties_get(this->properties, PW_KEY_NODE_SESSION)) != NULL)
-		pw_properties_set(properties, PW_KEY_NODE_SESSION, str);
+	pw_properties_copy_keys(this->properties, properties, keys);
 
 	this->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Node,
@@ -592,18 +589,17 @@ int pw_node_register(struct pw_node *this,
 	this->info.id = this->global->id;
 	this->rt.activation->position.clock.id = this->info.id;
 	pw_properties_setf(this->properties, PW_KEY_NODE_ID, "%d", this->info.id);
+	this->info.props = &this->properties->dict;
 
 	pw_node_initialized(this);
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
-	pw_global_register(this->global, owner, parent);
+	pw_global_register(this->global);
 
 	spa_list_for_each(port, &this->input_ports, link)
-		pw_port_register(port, this->global->owner, this->global,
-				 pw_properties_copy(port->properties));
+		pw_port_register(port, NULL);
 	spa_list_for_each(port, &this->output_ports, link)
-		pw_port_register(port, this->global->owner, this->global,
-				 pw_properties_copy(port->properties));
+		pw_port_register(port, NULL);
 
 	return 0;
 
@@ -997,12 +993,12 @@ static int update_properties(struct pw_node *node, const struct spa_dict *dict)
 	int changed;
 
 	changed = pw_properties_update(node->properties, dict);
+	node->info.props = &node->properties->dict;
 
 	pw_log_debug(NAME" %p: updated %d properties", node, changed);
 
 	if (changed) {
 		check_properties(node);
-		node->info.props = &node->properties->dict;
 		node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
 	}
 	return changed;

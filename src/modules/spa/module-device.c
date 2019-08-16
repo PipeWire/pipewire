@@ -95,8 +95,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	}
 
 	device = pw_spa_device_load(core,
-				NULL,
-				pw_module_get_global(module),
 				argv[0],
 				0,
 				props,

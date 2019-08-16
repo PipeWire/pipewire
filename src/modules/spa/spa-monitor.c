@@ -62,7 +62,6 @@ struct impl {
 	struct pw_spa_monitor this;
 
 	struct pw_core *core;
-	struct pw_global *parent;
 
 	struct spa_list item_list;
 };
@@ -139,7 +138,7 @@ static struct monitor_object *add_object(struct pw_spa_monitor *this, uint32_t i
 	case SPA_TYPE_INTERFACE_Device:
 	{
 		struct pw_device *device;
-		device = pw_spa_device_new(core, NULL, impl->parent,
+		device = pw_spa_device_new(core,
 				      0, iface, handle, props, 0);
 		pw_device_add_listener(device, &obj->object_listener,
 				&device_events, obj);
@@ -262,7 +261,6 @@ static const struct spa_monitor_callbacks callbacks = {
 };
 
 struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
-		struct pw_global *parent,
 		const char *factory_name,
 		const char *system_name,
 		struct pw_properties *properties,
@@ -294,7 +292,6 @@ struct pw_spa_monitor *pw_spa_monitor_load(struct pw_core *core,
 	}
 
 	impl->core = core;
-	impl->parent = parent;
 	spa_list_init(&impl->item_list);
 
 	this = &impl->this;

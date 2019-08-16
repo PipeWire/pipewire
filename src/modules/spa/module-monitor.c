@@ -93,7 +93,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	}
 
 	monitor = pw_spa_monitor_load(core,
-				      pw_module_get_global(module),
 				      argv[0], argv[1],
 				      props,
 				      sizeof(struct data));

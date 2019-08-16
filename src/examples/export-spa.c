@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	if (argc > 3)
 		data.path = argv[3];
 
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL, NULL, NULL);
+	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL);
 
 	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
 

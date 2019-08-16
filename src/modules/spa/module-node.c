@@ -95,8 +95,6 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	}
 
 	node = pw_spa_node_load(core,
-				NULL,
-				pw_module_get_global(module),
 				argv[0],
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				props,

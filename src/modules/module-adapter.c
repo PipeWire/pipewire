@@ -38,6 +38,8 @@
 #include "modules/spa/spa-node.h"
 #include "module-adapter/adapter.h"
 
+#define NAME "adapter"
+
 #define FACTORY_USAGE	SPA_KEY_FACTORY_NAME"=<factory-name> " \
 			"["SPA_KEY_LIBRARY_NAME"=<library-name>] " \
 			ADAPTER_USAGE
@@ -117,6 +119,8 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto error_properties;
 
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d", d->this->global->id);
+
 	slave = NULL;
 	str = pw_properties_get(properties, "adapt.slave.node");
 	if (str != NULL) {
@@ -131,8 +135,6 @@ static void *create_object(void *_data,
 			goto error_properties;
 
 		slave = pw_spa_node_load(d->core,
-					NULL,
-					pw_factory_get_global(d->this),
 					factory_name,
 					PW_SPA_NODE_FLAG_ACTIVATE |
 					PW_SPA_NODE_FLAG_NO_REGISTER,
@@ -164,7 +166,7 @@ static void *create_object(void *_data,
 
 	client = resource ? pw_resource_get_client(resource): NULL;
 
-	pw_node_register(adapter, client, pw_module_get_global(d->module), NULL);
+	pw_node_register(adapter, NULL);
 
 	if (client) {
 		struct pw_resource *bound_resource;
@@ -231,12 +233,32 @@ static void module_destroy(void *data)
 	pw_factory_destroy(d->this);
 }
 
+static void module_registered(void *data)
+{
+	struct factory_data *d = data;
+	struct pw_module *module = d->module;
+	struct pw_factory *factory = d->this;
+	struct spa_dict_item items[1];
+	char id[16];
+	int res;
+
+	snprintf(id, sizeof(id), "%d", module->global->id);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
+	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+
+	if ((res = pw_factory_register(factory, NULL)) < 0) {
+		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+	}
+}
+
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
 	.destroy = module_destroy,
+	.registered = module_registered,
 };
 
-static int module_init(struct pw_module *module, struct pw_properties *properties)
+SPA_EXPORT
+int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_core *core = pw_module_get_core(module);
 	struct pw_factory *factory;
@@ -265,17 +287,9 @@ static int module_init(struct pw_module *module, struct pw_properties *propertie
 				      &impl_factory,
 				      data);
 
-	pw_factory_register(factory, NULL, pw_module_get_global(module), NULL);
+	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
-
 	return 0;
-}
-
-SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
-{
-	return module_init(module, NULL);
 }

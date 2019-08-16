@@ -183,7 +183,6 @@ struct node_data {
   struct pw_node_proxy *proxy;
   struct spa_hook proxy_listener;
   uint32_t id;
-  uint32_t parent_id;
   struct spa_hook node_listener;
   struct pw_node_info *info;
   GstCaps *caps;
@@ -453,7 +452,7 @@ static const struct pw_proxy_events proxy_port_events = {
         .destroy = destroy_port_proxy,
 };
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, uint32_t permissions,
+static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 				 uint32_t type, uint32_t version,
 				 const struct spa_dict *props)
 {
@@ -474,7 +473,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
     nd->self = self;
     nd->proxy = node;
     nd->id = id;
-    nd->parent_id = parent_id;
     nd->caps = gst_caps_new_empty ();
     spa_list_append(&rd->nodes, &nd->link);
     pw_node_proxy_add_listener(node, &nd->node_listener, &node_events, nd);
@@ -484,8 +482,12 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id, u
   else if (type == PW_TYPE_INTERFACE_Port) {
     struct pw_port_proxy *port;
     struct port_data *pd;
+    const char *str;
 
-    if ((nd = find_node_data(rd, parent_id)) == NULL)
+    if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
+      return;
+
+    if ((nd = find_node_data(rd, atoi(str))) == NULL)
       return;
 
     port = pw_registry_proxy_bind(rd->registry,

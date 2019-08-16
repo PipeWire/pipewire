@@ -44,6 +44,7 @@
 struct remote {
 	struct pw_remote this;
 	struct spa_hook core_listener;
+	struct spa_hook core_proxy_listener;
 };
 
 /** \endcond */
@@ -166,7 +167,7 @@ static void core_event_remove_mem(void *data, uint32_t id)
 	pw_mempool_unref_id(this->pool, id);
 }
 
-static const struct pw_core_proxy_events core_proxy_events = {
+static const struct pw_core_proxy_events core_events = {
 	PW_VERSION_CORE_PROXY_EVENTS,
 	.error = core_event_error,
 	.ping = core_event_ping,
@@ -348,23 +349,42 @@ void pw_remote_add_listener(struct pw_remote *remote,
 	spa_hook_list_append(&remote->listener_list, listener, events, data);
 }
 
+static void core_proxy_destroy(void *data)
+{
+	struct pw_remote *remote = data;
+	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
+
+	pw_log_debug(NAME" %p: core proxy destroy", remote);
+	if (remote->core_proxy) {
+		spa_hook_remove(&impl->core_proxy_listener);
+		spa_hook_remove(&impl->core_listener);
+		remote->core_proxy = NULL;
+	}
+}
+
+
+static const struct pw_proxy_events core_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = core_proxy_destroy,
+};
+
 static int
 do_connect(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_remote *remote = user_data;
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
-	struct pw_proxy dummy;
+	struct pw_proxy dummy, *core_proxy;
 	int res;
 
 	dummy.remote = remote;
 
-	remote->core_proxy = (struct pw_core_proxy*)pw_proxy_new(&dummy,
-			PW_TYPE_INTERFACE_Core, 0);
-	if (remote->core_proxy == NULL) {
+	core_proxy = pw_proxy_new(&dummy, PW_TYPE_INTERFACE_Core, 0);
+	if (core_proxy == NULL) {
 		res = -errno;
 		goto error_disconnect;
 	}
+	remote->core_proxy = (struct pw_core_proxy*)core_proxy;
 
 	remote->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&dummy,
 			PW_TYPE_INTERFACE_Client, 0);
@@ -373,7 +393,8 @@ do_connect(struct spa_loop *loop,
 		goto error_clean_core_proxy;
 	}
 
-	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_proxy_events, remote);
+	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_events, remote);
+	pw_proxy_add_listener(core_proxy, &impl->core_proxy_listener, &core_proxy_events, remote);
 
 	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
 	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE_PROXY);
@@ -477,6 +498,7 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	struct pw_stream *stream, *s2;
 
 	pw_log_debug(NAME" %p: disconnect", remote);
+
 	spa_list_for_each_safe(stream, s2, &remote->stream_list, link)
 		pw_stream_disconnect(stream);
 

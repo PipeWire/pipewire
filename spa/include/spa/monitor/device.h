@@ -241,7 +241,6 @@ struct spa_device_methods {
 #define SPA_KEY_DEVICE_NAME		"device.name"		/**< the name of the device */
 #define SPA_KEY_DEVICE_ALIAS		"device.alias"		/**< altenative name of the device */
 #define SPA_KEY_DEVICE_NICK		"device.nick"		/**< the device short name */
-#define SPA_KEY_DEVICE_ID		"device.id"		/**< the device id */
 #define SPA_KEY_DEVICE_DESCRIPTION	"device.description"	/**< a device description */
 #define SPA_KEY_DEVICE_ICON		"device.icon"		/**< icon for the device. A base64 blob
 								  *  containing PNG image data */
@@ -249,6 +248,7 @@ struct spa_device_methods {
 								  *  Ex. "sound-card-speakers-usb" */
 #define SPA_KEY_DEVICE_PLUGGED_USEC	"device.plugged.usec"	/**< when the device was plugged */
 
+#define SPA_KEY_DEVICE_BUS_ID		"device.bus-id"		/**< the device bus-id */
 #define SPA_KEY_DEVICE_BUS_PATH		"device.bus-path"	/**< bus path to the device in the OS'
 								  *  format.
 								  *  Ex. "pci-0000:00:14.0-usb-0:3.2:1.0" */

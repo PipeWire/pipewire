@@ -226,7 +226,7 @@ static int update_device_props(struct alsa_object *obj)
 	char temp[32];
 
 	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
-		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_ID)) == NULL) {
+		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_ID)) == NULL) {
 			if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
 				snprintf(temp, sizeof(temp), "%d", obj->id);
 				s = temp;

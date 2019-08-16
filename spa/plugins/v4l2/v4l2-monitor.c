@@ -203,7 +203,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SYSFS_PATH, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ID, str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_ID, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, str);

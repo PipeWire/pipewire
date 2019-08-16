@@ -83,6 +83,9 @@ int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *c
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	struct buffer *buf = &impl->in;
 
+	if (index == SPA_ID_INVALID)
+		return -1;
+
 	if (index >= buf->msg.n_fds)
 		return -ENOENT;
 
@@ -93,7 +96,7 @@ int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *c
  *
  * \param conn the connection
  * \param fd the fd to add
- * \return the index of the fd or -1 when an error occured
+ * \return the index of the fd or SPA_IDX_INVALID when an error occured
  *
  * \memberof pw_protocol_native_connection
  */
@@ -103,6 +106,9 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 	struct buffer *buf = &impl->out;
 	uint32_t index, i;
 
+	if (fd < 0)
+		return SPA_IDX_INVALID;
+
 	for (i = 0; i < buf->msg.n_fds; i++) {
 		if (buf->msg.fds[i] == fd)
 			return i;
@@ -111,7 +117,7 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 	index = buf->msg.n_fds;
 	if (index + buf->n_fds >= MAX_FDS) {
 		pw_log_error("connection %p: too many fds", conn);
-		return -1;
+		return SPA_IDX_INVALID;
 	}
 
 	buf->msg.fds[index] = fd;
@@ -447,8 +453,8 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 	struct iovec iov[1];
 	struct cmsghdr *cmsg;
 	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
-	int *cm, res = 0, *fds;
-	uint32_t i, fds_len, n_fds, outfds;
+	int res = 0, *fds;
+	uint32_t fds_len, n_fds, outfds;
 	struct buffer *buf;
 	void *data;
 	size_t size;
@@ -482,9 +488,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 			cmsg->cmsg_level = SOL_SOCKET;
 			cmsg->cmsg_type = SCM_RIGHTS;
 			cmsg->cmsg_len = CMSG_LEN(fds_len);
-			cm = (int *) CMSG_DATA(cmsg);
-			for (i = 0; i < outfds; i++)
-				cm[i] = fds[i] > 0 ? fds[i] : -fds[i];
+			memcpy(CMSG_DATA(cmsg), fds, cmsg->cmsg_len);
 			msg.msg_controllen = cmsg->cmsg_len;
 		} else {
 			msg.msg_control = NULL;

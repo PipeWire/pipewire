@@ -216,7 +216,6 @@ struct param {
 struct global {
 	struct spa_list link;
 	uint32_t id;
-	uint32_t parent_id;
 	uint32_t type;
 	struct pw_properties *props;
 
@@ -243,12 +242,16 @@ struct global {
 		} link_info;
 		/* for sink/source */
 		struct {
+			uint32_t client_id;
 			uint32_t monitor;
 			float volume;
 			bool mute;
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 		} node_info;
+		struct {
+			uint32_t node_id;
+		} port_info;
 		/* for devices */
 		struct {
 			struct spa_list profiles;

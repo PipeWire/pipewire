@@ -150,19 +150,24 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 	struct global *g, *f;
 
 	spa_list_for_each(g, &c->globals, link) {
+		uint32_t src_node_id, dst_node_id;
+
 		if (g->type != PW_TYPE_INTERFACE_Link)
 			continue;
 
-		pw_log_debug("context %p: %p %d %d %d", c, g, idx,
-				g->link_info.src->parent_id,
-				g->link_info.dst->parent_id);
+		src_node_id = g->link_info.src->port_info.node_id;
+		dst_node_id = g->link_info.dst->port_info.node_id;
 
-		if (g->link_info.src->parent_id == idx)
-			f = pa_context_find_global(c, g->link_info.dst->parent_id);
-		else if (g->link_info.dst->parent_id == idx)
-			f = pa_context_find_global(c, g->link_info.src->parent_id);
+		pw_log_debug("context %p: %p %d %d %d", c, g, idx,
+				src_node_id, dst_node_id);
+
+		if (src_node_id == idx)
+			f = pa_context_find_global(c, dst_node_id);
+		else if (dst_node_id == idx)
+			f = pa_context_find_global(c, src_node_id);
 		else
 			continue;
+
 		if (f == NULL)
 			continue;
 		return f;
@@ -203,6 +208,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct global *g = object;
 	pa_card_info *i = &g->card_info.info;
+	const char *str;
 	uint32_t n;
 
 	pw_log_debug("global %p: id:%d change-mask:%"PRIu64, g, g->id, info->change_mask);
@@ -211,7 +217,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	i->index = g->id;
 	i->name = info->props ?
 		spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME) : "unknown";
-	i->owner_module = g->parent_id;
+	str = info->props ? spa_dict_lookup(info->props, PW_KEY_MODULE_ID) : NULL;
+	i->owner_module = str ? (unsigned)atoi(str) : SPA_ID_INVALID;
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_KEY_DEVICE_API) : NULL;
@@ -449,13 +456,15 @@ static void module_destroy(void *data)
 static void client_event_info(void *object, const struct pw_client_info *info)
 {
         struct global *g = object;
+	const char *str;
 	pa_client_info *i = &g->client_info.info;
 
 	pw_log_debug("update %d", g->id);
 	info = g->info = pw_client_info_update(g->info, info);
 
 	i->index = g->id;
-	i->owner_module = g->parent_id;
+	str = info->props ? spa_dict_lookup(info->props, PW_KEY_MODULE_ID) : NULL;
+	i->owner_module = str ? (unsigned)atoi(str) : SPA_ID_INVALID;
 
 	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
 		if (i->proplist)
@@ -570,6 +579,10 @@ static int set_mask(pa_context *c, struct global *g)
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
+
+		if ((str = pw_properties_get(g->props, PW_KEY_CLIENT_ID)) != NULL)
+			g->node_info.client_id = atoi(str);
+
 		events = &node_events;
                 client_version = PW_VERSION_NODE_PROXY;
                 destroy = node_destroy;
@@ -596,7 +609,9 @@ static int set_mask(pa_context *c, struct global *g)
 		break;
 
 	case PW_TYPE_INTERFACE_Port:
-		pw_log_debug("found port %d", g->id);
+		if ((str = pw_properties_get(g->props, PW_KEY_NODE_ID)) != NULL)
+			g->port_info.node_id = atoi(str);
+		pw_log_debug("found port %d node %d", g->id, g->port_info.node_id);
 		break;
 
 	case PW_TYPE_INTERFACE_Link:
@@ -611,15 +626,15 @@ static int set_mask(pa_context *c, struct global *g)
 			return 0;
 
 		pw_log_debug("link %d:%d->%d:%d",
-				g->link_info.src->parent_id,
+				g->link_info.src->port_info.node_id,
 				g->link_info.src->id,
-				g->link_info.dst->parent_id,
+				g->link_info.dst->port_info.node_id,
 				g->link_info.dst->id);
 
-		if ((f = pa_context_find_global(c, g->link_info.src->parent_id)) != NULL &&
+		if ((f = pa_context_find_global(c, g->link_info.src->port_info.node_id)) != NULL &&
 		    !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
-		if ((f = pa_context_find_global(c, g->link_info.dst->parent_id)) != NULL &&
+		if ((f = pa_context_find_global(c, g->link_info.dst->port_info.node_id)) != NULL &&
 		    !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
 
@@ -649,7 +664,7 @@ static int set_mask(pa_context *c, struct global *g)
 	return 1;
 }
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
 {
@@ -660,7 +675,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	pw_log_debug("context %p: global %d %u %p", c, id, type, g);
 	g->context = c;
 	g->id = id;
-	g->parent_id = parent_id;
 	g->type = type;
 	g->init = true;
 	g->props = props ? pw_properties_new_dict(props) : NULL;

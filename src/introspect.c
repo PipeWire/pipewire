@@ -116,7 +116,7 @@ static void sink_callback(struct sink_data *d)
 	else
 		i.sample_spec.channels = 2;
 	pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
-	i.owner_module = g->parent_id;
+	i.owner_module = 0;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
@@ -562,7 +562,7 @@ static void source_callback(struct source_data *d)
 	else
 		i.sample_spec.channels = 2;
 	pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
-	i.owner_module = g->parent_id;
+	i.owner_module = 0;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
@@ -1502,13 +1502,13 @@ static void sink_input_callback(struct sink_input_data *d)
 	else
 		name = "unknown";
 
-	cl = pa_context_find_global(d->context, g->parent_id);
+	cl = pa_context_find_global(d->context, g->node_info.client_id);
 
 	spa_zero(i);
 	i.index = g->id;
 	i.name = name;
 	i.owner_module = PA_INVALID_INDEX;
-	i.client = g->parent_id;
+	i.client = g->node_info.client_id;
 	if (s) {
 		i.sink = s->device_index;
 	}
@@ -1802,13 +1802,13 @@ static void source_output_callback(struct source_output_data *d)
 	if (name == NULL)
 		name = "unknown";
 
-	cl = pa_context_find_global(d->context, g->parent_id);
+	cl = pa_context_find_global(d->context, g->node_info.client_id);
 
 	spa_zero(i);
 	i.index = g->id;
 	i.name = name ? name : "Unknown";
 	i.owner_module = PA_INVALID_INDEX;
-	i.client = g->parent_id;
+	i.client = g->node_info.client_id;
 	if (s) {
 		i.source = s->device_index;
 	}

@@ -733,9 +733,17 @@ static void remote_state_changed(void *data, enum pw_remote_state old,
 
 	switch(state) {
 	case PW_REMOTE_STATE_ERROR:
+		if (c->core_proxy) {
+			spa_hook_remove(&c->core_listener);
+			c->core_proxy = NULL;
+		}
 		context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 		break;
 	case PW_REMOTE_STATE_UNCONNECTED:
+		if (c->core_proxy) {
+			spa_hook_remove(&c->core_listener);
+			c->core_proxy = NULL;
+		}
 		if (!c->disconnect)
 			context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 		break;

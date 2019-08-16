@@ -70,6 +70,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 
 	this = &impl->this;
 	this->remote = remote;
+	this->refcount = 1;
 
 	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type);
 	if (this->marshal == NULL) {
@@ -156,7 +157,6 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
-	struct proxy *impl = SPA_CONTAINER_OF(proxy, struct proxy, this);
 	struct pw_remote *remote = proxy->remote;
 
 	if (!proxy->zombie) {
@@ -175,9 +175,19 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	}
 	if (proxy->removed) {
 		pw_map_remove(&remote->objects, proxy->id);
-		pw_log_debug(NAME" %p: free %u", proxy, proxy->id);
-		free(impl);
+
+		pw_proxy_unref(proxy);
 	}
+}
+
+SPA_EXPORT
+void pw_proxy_unref(struct pw_proxy *proxy)
+{
+	if (--proxy->refcount > 0)
+		return;
+
+	pw_log_debug(NAME" %p: free %u", proxy, proxy->id);
+	free(proxy);
 }
 
 SPA_EXPORT

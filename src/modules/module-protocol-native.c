@@ -557,7 +557,11 @@ on_remote_data(void *data, int fd, uint32_t mask)
 						this, msg->opcode, msg->id);
 				continue;
 			}
-			if (demarshal[msg->opcode].func(proxy, msg) < 0) {
+			proxy->refcount++;
+			res = demarshal[msg->opcode].func(proxy, msg);
+			pw_proxy_unref(proxy);
+
+			if (res < 0) {
 				pw_log_error (NAME" %p: invalid message received %u for %u",
 						this, msg->opcode, msg->id);
 				continue;

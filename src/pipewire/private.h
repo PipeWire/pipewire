@@ -654,6 +654,7 @@ struct pw_proxy {
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
 
 	uint32_t id;			/**< client side id */
+	int refcount;
 	unsigned int zombie:1;		/**< proxy is removed locally and waiting to
 					  *  be removed from server */
 	unsigned int removed:1;		/**< proxy was removed from server */
@@ -909,6 +910,8 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 int pw_control_remove_link(struct pw_control_link *link);
 
 void pw_control_destroy(struct pw_control *control);
+
+void pw_proxy_unref(struct pw_proxy *proxy);
 
 /** \endcond */
 

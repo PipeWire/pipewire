@@ -534,14 +534,14 @@ on_remote_data(void *data, int fd, uint32_t mask)
 
 			proxy = pw_remote_find_proxy(this, msg->id);
 			if (proxy == NULL || proxy->zombie) {
-				if (proxy->zombie)
-					pw_log_debug(NAME" %p: zombie proxy %u", this, msg->id);
-				else
+				if (proxy == NULL)
 					pw_log_error(NAME" %p: could not find proxy %u", this, msg->id);
+				else
+					pw_log_debug(NAME" %p: zombie proxy %u", this, msg->id);
 
 				/* FIXME close fds */
 				continue;
-                        }
+			}
 
 			marshal = pw_proxy_get_marshal(proxy);
 			if (marshal == NULL || msg->opcode >= marshal->n_events) {

@@ -493,15 +493,6 @@ static void stream_process(void *data)
 
 	update_timing_info(s);
 
-	if (s->drain && s->queued == 0) {
-		pa_operation *o = s->drain;
-		pa_operation_ref(o);
-		if (o->callback)
-			o->callback(o, o->userdata);
-		pa_operation_unref(o);
-		s->drain = NULL;
-	}
-
 	while (dequeue_buffer(s) == 0);
 
 	if (s->dequeued_size <= 0)
@@ -517,6 +508,20 @@ static void stream_process(void *data)
 	}
 }
 
+static void stream_drained(void *data)
+{
+	pa_stream *s = data;
+
+	if (s->drain) {
+		pa_operation *o = s->drain;
+		pa_operation_ref(o);
+		if (o->callback)
+			o->callback(o, o->userdata);
+		pa_operation_unref(o);
+		s->drain = NULL;
+	}
+}
+
 static const struct pw_stream_events stream_events =
 {
 	PW_VERSION_STREAM_EVENTS,
@@ -526,6 +531,7 @@ static const struct pw_stream_events stream_events =
 	.add_buffer = stream_add_buffer,
 	.remove_buffer = stream_remove_buffer,
 	.process = stream_process,
+	.drained = stream_drained,
 };
 
 static pa_stream* stream_new(pa_context *c, const char *name,
@@ -1320,6 +1326,7 @@ pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *use
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction == PA_STREAM_PLAYBACK, PA_ERR_BADSTATE);
 
 	pw_log_debug("stream %p", s);
+	pw_stream_flush(s->stream, true);
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

@@ -1521,6 +1521,9 @@ static void node_peer_added(void *data, struct pw_node *peer)
 	struct node *this = &impl->node;
 	struct pw_memblock *m;
 
+	if (peer == impl->this.node)
+		return;
+
 	m = pw_mempool_import_block(this->client->pool, peer->activation);
 	if (m == NULL) {
 		pw_log_debug(NAME " %p: can't ensure mem: %m", this);

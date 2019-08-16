@@ -346,7 +346,7 @@ static int core_event_demarshal_add_mem(void *object, const struct pw_protocol_n
 	if (spa_pod_parser_get_struct(&prs,
 				SPA_POD_Int(&id),
 				SPA_POD_Id(&type),
-				SPA_POD_Int(&idx),
+				SPA_POD_Fd(&idx),
 				SPA_POD_Int(&flags)) < 0)
 		return -EINVAL;
 
@@ -462,7 +462,7 @@ static void core_event_marshal_add_mem(void *object, uint32_t id, uint32_t type,
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id),
 			SPA_POD_Id(type),
-			SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, fd)),
+			SPA_POD_Fd(pw_protocol_native_add_resource_fd(resource, fd)),
 			SPA_POD_Int(flags));
 
 	pw_protocol_native_end_resource(resource, b);

@@ -294,7 +294,7 @@ client_node_marshal_port_buffers(void *object,
 			struct spa_data *d = &buf->datas[j];
 			spa_pod_builder_add(b,
 					SPA_POD_Id(d->type),
-					SPA_POD_Int(pw_protocol_native_add_proxy_fd(proxy, d->fd)),
+					SPA_POD_Fd(pw_protocol_native_add_proxy_fd(proxy, d->fd)),
 					SPA_POD_Int(d->flags),
 					SPA_POD_Int(d->mapoffset),
 					SPA_POD_Int(d->maxsize), NULL);
@@ -315,8 +315,8 @@ static int client_node_demarshal_transport(void *object, const struct pw_protoco
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&node_id),
-			SPA_POD_Int(&ridx),
-			SPA_POD_Int(&widx),
+			SPA_POD_Fd(&ridx),
+			SPA_POD_Fd(&widx),
 			SPA_POD_Int(&mem_id),
 			SPA_POD_Int(&offset),
 			SPA_POD_Int(&sz)) < 0)
@@ -552,15 +552,13 @@ static int client_node_demarshal_set_activation(void *object, const struct pw_pr
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&node_id),
-			SPA_POD_Int(&sigidx),
+			SPA_POD_Fd(&sigidx),
 			SPA_POD_Int(&memid),
 			SPA_POD_Int(&off),
 			SPA_POD_Int(&sz)) < 0)
 		return -EINVAL;
 
 	signalfd = pw_protocol_native_get_proxy_fd(proxy, sigidx);
-	if (signalfd < 0)
-		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, set_activation, 0,
 							node_id,
@@ -600,8 +598,8 @@ static int client_node_marshal_transport(void *object, uint32_t node_id, int rea
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(node_id),
-			       SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, readfd)),
-			       SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, writefd)),
+			       SPA_POD_Fd(pw_protocol_native_add_resource_fd(resource, readfd)),
+			       SPA_POD_Fd(pw_protocol_native_add_resource_fd(resource, writefd)),
 			       SPA_POD_Int(mem_id),
 			       SPA_POD_Int(offset),
 			       SPA_POD_Int(size));
@@ -811,7 +809,7 @@ client_node_marshal_set_activation(void *object,
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(node_id),
-			       SPA_POD_Int(pw_protocol_native_add_resource_fd(resource, signalfd)),
+			       SPA_POD_Fd(pw_protocol_native_add_resource_fd(resource, signalfd)),
 			       SPA_POD_Int(memid),
 			       SPA_POD_Int(offset),
 			       SPA_POD_Int(size));
@@ -1074,7 +1072,7 @@ static int client_node_demarshal_port_buffers(void *object, const struct pw_prot
 
 			if (spa_pod_parser_get(&prs,
 					      SPA_POD_Id(&d->type),
-					      SPA_POD_Int(&data_id),
+					      SPA_POD_Fd(&data_id),
 					      SPA_POD_Int(&d->flags),
 					      SPA_POD_Int(&d->mapoffset),
 					      SPA_POD_Int(&d->maxsize), NULL) < 0)

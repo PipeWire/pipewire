@@ -488,7 +488,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 			cmsg->cmsg_level = SOL_SOCKET;
 			cmsg->cmsg_type = SCM_RIGHTS;
 			cmsg->cmsg_len = CMSG_LEN(fds_len);
-			memcpy(CMSG_DATA(cmsg), fds, cmsg->cmsg_len);
+			memcpy(CMSG_DATA(cmsg), fds, fds_len);
 			msg.msg_controllen = cmsg->cmsg_len;
 		} else {
 			msg.msg_control = NULL;

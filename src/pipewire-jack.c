@@ -1455,7 +1455,7 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
-static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
+static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
 {
@@ -1463,6 +1463,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 	struct object *o, *ot;
 	const char *str;
 	size_t size;
+	uint32_t parent_id = 0;
 
 	if (props == NULL)
 		return;
@@ -1495,6 +1496,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t parent_id,
 		else
 			if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
 				goto exit;
+
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
+			goto exit;
+
+		parent_id = atoi(str);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;

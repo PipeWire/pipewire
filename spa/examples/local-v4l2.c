@@ -82,13 +82,6 @@ struct data {
 	bool running;
 	pthread_t thread;
 
-	struct spa_source sources[16];
-	unsigned int n_sources;
-
-	bool rebuild_fds;
-	struct pollfd fds[16];
-	unsigned int n_fds;
-
 	struct spa_buffer *bp[MAX_BUFFERS];
 	struct buffer buffers[MAX_BUFFERS];
 	unsigned int n_buffers;
@@ -497,7 +490,7 @@ int main(int argc, char *argv[])
 	}
 	data.control = iface;
 
-	data.use_buffer = false;
+	data.use_buffer = true;
 
 	data.log = &default_log.log;
 

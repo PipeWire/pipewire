@@ -20,6 +20,7 @@ script:
         -Dtest=true \
         -Dvideotestsrc=true \
         -Dvolume=true \
+        -Dvulkan=false \
       && make \
       && make test \
       && env DESTDIR=$PWD/build/i make install \

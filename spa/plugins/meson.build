@@ -31,6 +31,9 @@ endif
 if get_option('volume')
   subdir('volume')
 endif
+if get_option('vulkan')
+  subdir('vulkan')
+endif
 if get_option('v4l2')
   subdir('v4l2')
 endif

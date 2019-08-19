@@ -86,3 +86,7 @@ option('volume',
        description: 'Enable volume spa plugin integration',
        type: 'boolean',
        value: false)
+option('vulkan',
+       description: 'Enable vulkan spa plugin integration',
+       type: 'boolean',
+       value: true)

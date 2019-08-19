@@ -27,6 +27,9 @@ if get_option('spa-plugins')
     avcodec_dep = dependency('libavcodec')
     avformat_dep = dependency('libavformat')
   endif
+  if get_option('vulkan')
+    vulkan_dep = dependency('vulkan')
+  endif
 
   subdir('plugins')
 endif

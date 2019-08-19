@@ -7,10 +7,12 @@ add-spa-lib audio.convert* audioconvert/libspa-audioconvert
 add-spa-lib api.alsa.* alsa/libspa-alsa
 add-spa-lib api.v4l2.* v4l2/libspa-v4l2
 add-spa-lib api.bluez5.* bluez5/libspa-bluez5
+add-spa-lib api.vulkan.* vulkan/libspa-vulkan
 
 load-module libpipewire-module-rtkit
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-spa-node-factory
+load-module libpipewire-module-spa-node api.vulkan.compute.source node.name=my-compute-source
 #load-module libpipewire-module-spa-node videotestsrc/libspa-videotestsrc videotestsrc videotestsrc Spa:POD:Object:Props:patternType=Spa:POD:Object:Props:patternType:snow
 load-module libpipewire-module-client-node
 load-module libpipewire-module-client-device

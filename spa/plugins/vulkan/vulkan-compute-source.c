@@ -287,20 +287,28 @@ static int make_buffer(struct impl *this)
 
 	spa_vulkan_process(&this->state, b->id);
 
-	b->outbuf->datas[0].chunk->offset = 0;
-	b->outbuf->datas[0].chunk->size = n_bytes;
-	b->outbuf->datas[0].chunk->stride = port->stride;
+	if (this->state.ready_buffer_id != SPA_ID_INVALID) {
+		struct buffer *b = &port->buffers[this->state.ready_buffer_id];
 
-	if (b->h) {
-		b->h->seq = this->frame_count;
-		b->h->pts = this->start_time + this->elapsed_time;
-		b->h->dts_offset = 0;
+		this->state.ready_buffer_id = SPA_ID_INVALID;
+
+		spa_log_trace(this->log, NAME " %p: ready buffer %d", this, b->id);
+
+		b->outbuf->datas[0].chunk->offset = 0;
+		b->outbuf->datas[0].chunk->size = n_bytes;
+		b->outbuf->datas[0].chunk->stride = port->stride;
+
+		if (b->h) {
+			b->h->seq = this->frame_count;
+			b->h->pts = this->start_time + this->elapsed_time;
+			b->h->dts_offset = 0;
+		}
+
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+		spa_list_append(&port->ready, &b->link);
+
+		res = SPA_STATUS_HAVE_BUFFER;
 	}
-
-	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-	spa_list_append(&port->ready, &b->link);
-
-	res = SPA_STATUS_HAVE_BUFFER;
 next:
 	this->frame_count++;
 	this->elapsed_time = FRAMES_TO_TIME(port, this->frame_count);
@@ -925,6 +933,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
+
+	this->state.log = this->log;
 
 	spa_log_info(this->log, NAME " %p: initialized", this);
 

@@ -23,6 +23,8 @@ struct vulkan_buffer {
 };
 
 struct vulkan_state {
+	struct spa_log *log;
+
 	struct push_constants constants;
 
 	VkInstance instance;
@@ -41,17 +43,18 @@ struct vulkan_state {
 	uint32_t queueFamilyIndex;
 	VkFence fence;
 	unsigned int prepared:1;
-	unsigned int busy:1;
+	uint32_t busy_buffer_id;
+	uint32_t ready_buffer_id;
 
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
 	VkDescriptorSetLayout descriptorSetLayout;
+	uint32_t current_buffer_id;
 
+	uint32_t bufferSize;
 	struct vulkan_buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 
-	uint32_t bufferSize;
-	uint32_t buffer_id;
 };
 
 int spa_vulkan_prepare(struct vulkan_state *s);

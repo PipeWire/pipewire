@@ -13,6 +13,8 @@
 #include <math.h>
 #include <time.h>
 
+#include <spa/utils/result.h>
+#include <spa/support/log.h>
 #include <spa/debug/mem.h>
 
 #include "vulkan-utils.h"
@@ -72,18 +74,17 @@ static int vkresult_to_errno(VkResult result)
 	}
 }
 
-// Used for validating return values of Vulkan API calls.
 #define VK_CHECK_RESULT(f)								\
 {											\
-    VkResult res = (f);									\
-    if (res != VK_SUCCESS)								\
-    {											\
-        printf("Fatal : VkResult is %d in %s at line %d\n", res,  __FILE__, __LINE__);	\
-        return -vkresult_to_errno(res);							\
-    }											\
+	VkResult result = (f);								\
+	int res = -vkresult_to_errno(result);						\
+	if (result != VK_SUCCESS) {							\
+		spa_log_debug(s->log, "error: %d (%s)", result, spa_strerror(res));	\
+		return res;								\
+	}										\
 }
 
-static int createInstance(struct vulkan_state *d)
+static int createInstance(struct vulkan_state *s)
 {
 	const VkApplicationInfo applicationInfo = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -103,20 +104,20 @@ static int createInstance(struct vulkan_state *d)
 		.ppEnabledExtensionNames = extensions,
 	};
 
-	VK_CHECK_RESULT(vkCreateInstance(&createInfo, NULL, &d->instance));
+	VK_CHECK_RESULT(vkCreateInstance(&createInfo, NULL, &s->instance));
 
 	return 0;
 }
 
-static uint32_t getComputeQueueFamilyIndex(struct vulkan_state *d)
+static uint32_t getComputeQueueFamilyIndex(struct vulkan_state *s)
 {
 	uint32_t i, queueFamilyCount;
 	VkQueueFamilyProperties *queueFamilies;
 
-	vkGetPhysicalDeviceQueueFamilyProperties(d->physicalDevice, &queueFamilyCount, NULL);
+	vkGetPhysicalDeviceQueueFamilyProperties(s->physicalDevice, &queueFamilyCount, NULL);
 
 	queueFamilies = alloca(queueFamilyCount * sizeof(VkQueueFamilyProperties));
-	vkGetPhysicalDeviceQueueFamilyProperties(d->physicalDevice, &queueFamilyCount, queueFamilies);
+	vkGetPhysicalDeviceQueueFamilyProperties(s->physicalDevice, &queueFamilyCount, queueFamilies);
 
 	for (i = 0; i < queueFamilyCount; i++) {
 		VkQueueFamilyProperties props = queueFamilies[i];
@@ -130,30 +131,30 @@ static uint32_t getComputeQueueFamilyIndex(struct vulkan_state *d)
 	return i;
 }
 
-static int findPhysicalDevice(struct vulkan_state *d)
+static int findPhysicalDevice(struct vulkan_state *s)
 {
 	uint32_t deviceCount;
         VkPhysicalDevice *devices;
 
-	vkEnumeratePhysicalDevices(d->instance, &deviceCount, NULL);
+	vkEnumeratePhysicalDevices(s->instance, &deviceCount, NULL);
 	if (deviceCount == 0)
 		return -ENODEV;
 
 	devices = alloca(deviceCount * sizeof(VkPhysicalDevice));
-        vkEnumeratePhysicalDevices(d->instance, &deviceCount, devices);
+        vkEnumeratePhysicalDevices(s->instance, &deviceCount, devices);
 
-	d->physicalDevice = devices[0];
+	s->physicalDevice = devices[0];
 
-	d->queueFamilyIndex = getComputeQueueFamilyIndex(d);
+	s->queueFamilyIndex = getComputeQueueFamilyIndex(s);
 
 	return 0;
 }
 
-static int createDevice(struct vulkan_state *d)
+static int createDevice(struct vulkan_state *s)
 {
 	VkDeviceQueueCreateInfo queueCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = d->queueFamilyIndex,
+		.queueFamilyIndex = s->queueFamilyIndex,
 		.queueCount = 1,
 		.pQueuePriorities = (const float[]) { 1.0f }
 	};
@@ -169,26 +170,26 @@ static int createDevice(struct vulkan_state *d)
 		.ppEnabledExtensionNames = extensions,
 	};
 
-	VK_CHECK_RESULT(vkCreateDevice(d->physicalDevice, &deviceCreateInfo, NULL, &d->device));
+	VK_CHECK_RESULT(vkCreateDevice(s->physicalDevice, &deviceCreateInfo, NULL, &s->device));
 
-	vkGetDeviceQueue(d->device, d->queueFamilyIndex, 0, &d->queue);
+	vkGetDeviceQueue(s->device, s->queueFamilyIndex, 0, &s->queue);
 
 	VkFenceCreateInfo fenceCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = 0,
 	};
-	VK_CHECK_RESULT(vkCreateFence(d->device, &fenceCreateInfo, NULL, &d->fence));
+	VK_CHECK_RESULT(vkCreateFence(s->device, &fenceCreateInfo, NULL, &s->fence));
 
 	return 0;
 }
 
-static uint32_t findMemoryType(struct vulkan_state *d,
+static uint32_t findMemoryType(struct vulkan_state *s,
 		uint32_t memoryTypeBits, VkMemoryPropertyFlags properties)
 {
 	uint32_t i;
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 
-	vkGetPhysicalDeviceMemoryProperties(d->physicalDevice, &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(s->physicalDevice, &memoryProperties);
 
 	for (i = 0; i < memoryProperties.memoryTypeCount; i++) {
 		if ((memoryTypeBits & (1 << i)) &&
@@ -198,7 +199,7 @@ static uint32_t findMemoryType(struct vulkan_state *d,
 	return -1;
 }
 
-static int createDescriptors(struct vulkan_state *d)
+static int createDescriptors(struct vulkan_state *s)
 {
 	VkDescriptorPoolSize descriptorPoolSize = {
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -211,9 +212,9 @@ static int createDescriptors(struct vulkan_state *d)
 		.pPoolSizes = &descriptorPoolSize,
 	};
 
-        VK_CHECK_RESULT(vkCreateDescriptorPool(d->device,
+        VK_CHECK_RESULT(vkCreateDescriptorPool(s->device,
 				&descriptorPoolCreateInfo, NULL,
-				&d->descriptorPool));
+				&s->descriptorPool));
 
 	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {
 		.binding = 0,
@@ -226,87 +227,90 @@ static int createDescriptors(struct vulkan_state *d)
 		.bindingCount = 1,
 		.pBindings = &descriptorSetLayoutBinding
 	};
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(d->device,
+	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(s->device,
 				&descriptorSetLayoutCreateInfo, NULL,
-				&d->descriptorSetLayout));
+				&s->descriptorSetLayout));
 
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.descriptorPool = d->descriptorPool,
+		.descriptorPool = s->descriptorPool,
 		.descriptorSetCount = 1,
-		.pSetLayouts = &d->descriptorSetLayout
+		.pSetLayouts = &s->descriptorSetLayout
 	};
 
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(d->device,
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(s->device,
 				&descriptorSetAllocateInfo,
-				&d->descriptorSet));
+				&s->descriptorSet));
 	return 0;
 }
 
-static int createBuffer(struct vulkan_state *d, uint32_t id)
+static int createBuffer(struct vulkan_state *s, uint32_t id)
 {
 	VkBufferCreateInfo bufferCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = d->bufferSize,
+		.size = s->bufferSize,
 		.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 	};
 	VkMemoryRequirements memoryRequirements;
 
-	VK_CHECK_RESULT(vkCreateBuffer(d->device,
-				&bufferCreateInfo, NULL, &d->buffers[id].buffer));
+	VK_CHECK_RESULT(vkCreateBuffer(s->device,
+				&bufferCreateInfo, NULL, &s->buffers[id].buffer));
 
-	vkGetBufferMemoryRequirements(d->device,
-			d->buffers[id].buffer, &memoryRequirements);
+	vkGetBufferMemoryRequirements(s->device,
+			s->buffers[id].buffer, &memoryRequirements);
 
 	VkMemoryAllocateInfo allocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.allocationSize = memoryRequirements.size
 	};
-	allocateInfo.memoryTypeIndex = findMemoryType(d,
+	allocateInfo.memoryTypeIndex = findMemoryType(s,
 			memoryRequirements.memoryTypeBits,
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-	VK_CHECK_RESULT(vkAllocateMemory(d->device,
-				&allocateInfo, NULL, &d->buffers[id].memory));
-	VK_CHECK_RESULT(vkBindBufferMemory(d->device,
-				d->buffers[id].buffer, d->buffers[id].memory, 0));
+	VK_CHECK_RESULT(vkAllocateMemory(s->device,
+				&allocateInfo, NULL, &s->buffers[id].memory));
+	VK_CHECK_RESULT(vkBindBufferMemory(s->device,
+				s->buffers[id].buffer, s->buffers[id].memory, 0));
 
 	return 0;
 }
 
-static int updateDescriptors(struct vulkan_state *d, uint32_t buffer_id)
+static int updateDescriptors(struct vulkan_state *s, uint32_t buffer_id)
 {
+	if (s->current_buffer_id == buffer_id)
+		return 0;
+
 	VkDescriptorBufferInfo descriptorBufferInfo = {
-		.buffer = d->buffers[buffer_id].buffer,
+		.buffer = s->buffers[buffer_id].buffer,
 		.offset = 0,
-		.range = d->bufferSize,
+		.range = s->bufferSize,
 	};
 	VkWriteDescriptorSet writeDescriptorSet = {
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = d->descriptorSet,
+		.dstSet = s->descriptorSet,
 		.dstBinding = 0,
 		.descriptorCount = 1,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.pBufferInfo = &descriptorBufferInfo,
 	};
-	vkUpdateDescriptorSets(d->device, 1, &writeDescriptorSet, 0, NULL);
-
-	d->buffer_id = buffer_id;
+	vkUpdateDescriptorSets(s->device, 1, &writeDescriptorSet, 0, NULL);
+	s->current_buffer_id = buffer_id;
 
 	return 0;
 }
 
-static VkShaderModule createShaderModule(struct vulkan_state *d, const char* shaderFile)
+static VkShaderModule createShaderModule(struct vulkan_state *s, const char* shaderFile)
 {
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
+	VkResult result;
 	void *data;
 	int fd;
 	struct stat stat;
 
 	if ((fd = open(shaderFile, 0, O_RDONLY)) == -1) {
-		fprintf(stderr, "can't open %s: %m\n", shaderFile);
+		spa_log_error(s->log, "can't open %s: %m", shaderFile);
 		return NULL;
 	}
 	fstat(fd, &stat);
@@ -318,15 +322,20 @@ static VkShaderModule createShaderModule(struct vulkan_state *d, const char* sha
 		.codeSize = stat.st_size,
 		.pCode = data,
 	};
-	vkCreateShaderModule(d->device, &shaderModuleCreateInfo, 0, &shaderModule);
+	result = vkCreateShaderModule(s->device,
+			&shaderModuleCreateInfo, 0, &shaderModule);
 
 	munmap(data, stat.st_size);
 	close(fd);
 
+	if (result != VK_SUCCESS) {
+		spa_log_error(s->log, "can't create shader %s: %m", shaderFile);
+		return NULL;
+	}
 	return shaderModule;
 }
 
-static int createComputePipeline(struct vulkan_state *d, const char *shader_file)
+static int createComputePipeline(struct vulkan_state *s, const char *shader_file)
 {
 	const VkPushConstantRange range = {
 		.stageFlags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
@@ -337,86 +346,89 @@ static int createComputePipeline(struct vulkan_state *d, const char *shader_file
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
-		.pSetLayouts = &d->descriptorSetLayout,
+		.pSetLayouts = &s->descriptorSetLayout,
 		.pushConstantRangeCount = 1,
 		.pPushConstantRanges = &range,
 	};
-	VK_CHECK_RESULT(vkCreatePipelineLayout(d->device,
+	VK_CHECK_RESULT(vkCreatePipelineLayout(s->device,
 				&pipelineLayoutCreateInfo, NULL,
-				&d->pipelineLayout));
+				&s->pipelineLayout));
 
-        d->computeShaderModule = createShaderModule(d, shader_file);
+        s->computeShaderModule = createShaderModule(s, shader_file);
+	if (s->computeShaderModule == NULL)
+		return -ENOENT;
+
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = d->computeShaderModule,
+		.module = s->computeShaderModule,
 		.pName = "main",
 	};
 	VkComputePipelineCreateInfo pipelineCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.stage = shaderStageCreateInfo,
-		.layout = d->pipelineLayout,
+		.layout = s->pipelineLayout,
 	};
-	VK_CHECK_RESULT(vkCreateComputePipelines(d->device, VK_NULL_HANDLE,
+	VK_CHECK_RESULT(vkCreateComputePipelines(s->device, VK_NULL_HANDLE,
 				1, &pipelineCreateInfo, NULL,
-				&d->pipeline));
+				&s->pipeline));
 	return 0;
 }
 
-static int createCommandBuffer(struct vulkan_state *d)
+static int createCommandBuffer(struct vulkan_state *s)
 {
 	VkCommandPoolCreateInfo commandPoolCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		.queueFamilyIndex = d->queueFamilyIndex,
+		.queueFamilyIndex = s->queueFamilyIndex,
 	};
-        VK_CHECK_RESULT(vkCreateCommandPool(d->device,
+        VK_CHECK_RESULT(vkCreateCommandPool(s->device,
 				&commandPoolCreateInfo, NULL,
-				&d->commandPool));
+				&s->commandPool));
 
 	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandPool = d->commandPool,
+		.commandPool = s->commandPool,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = 1,
 	};
-        VK_CHECK_RESULT(vkAllocateCommandBuffers(d->device,
+        VK_CHECK_RESULT(vkAllocateCommandBuffers(s->device,
 				&commandBufferAllocateInfo,
-				&d->commandBuffer));
+				&s->commandBuffer));
 
 	return 0;
 }
 
-static int runCommandBuffer(struct vulkan_state *d)
+static int runCommandBuffer(struct vulkan_state *s)
 {
 	VkCommandBufferBeginInfo beginInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
-	VK_CHECK_RESULT(vkBeginCommandBuffer(d->commandBuffer, &beginInfo));
+	VK_CHECK_RESULT(vkBeginCommandBuffer(s->commandBuffer, &beginInfo));
 
-	vkCmdBindPipeline(d->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, d->pipeline);
-	vkCmdPushConstants (d->commandBuffer,
-			d->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
-			0, sizeof(struct push_constants), (const void *) &d->constants);
-	vkCmdBindDescriptorSets(d->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-			d->pipelineLayout, 0, 1, &d->descriptorSet, 0, NULL);
+	vkCmdBindPipeline(s->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, s->pipeline);
+	vkCmdPushConstants (s->commandBuffer,
+			s->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+			0, sizeof(struct push_constants), (const void *) &s->constants);
+	vkCmdBindDescriptorSets(s->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+			s->pipelineLayout, 0, 1, &s->descriptorSet, 0, NULL);
 
-	vkCmdDispatch(d->commandBuffer,
-			(uint32_t)ceil(d->constants.width / (float)WORKGROUP_SIZE),
-			(uint32_t)ceil(d->constants.height / (float)WORKGROUP_SIZE), 1);
+	vkCmdDispatch(s->commandBuffer,
+			(uint32_t)ceil(s->constants.width / (float)WORKGROUP_SIZE),
+			(uint32_t)ceil(s->constants.height / (float)WORKGROUP_SIZE), 1);
 
-	VK_CHECK_RESULT(vkEndCommandBuffer(d->commandBuffer));
+	VK_CHECK_RESULT(vkEndCommandBuffer(s->commandBuffer));
 
-	VK_CHECK_RESULT(vkResetFences(d->device, 1, &d->fence));
+	VK_CHECK_RESULT(vkResetFences(s->device, 1, &s->fence));
 
 	VkSubmitInfo submitInfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.commandBufferCount = 1,
-		.pCommandBuffers = &d->commandBuffer,
+		.pCommandBuffers = &s->commandBuffer,
 	};
-        VK_CHECK_RESULT(vkQueueSubmit(d->queue, 1, &submitInfo, d->fence));
-	d->busy = true;
+        VK_CHECK_RESULT(vkQueueSubmit(s->queue, 1, &submitInfo, s->fence));
+	s->busy_buffer_id = s->current_buffer_id;
 
 	return 0;
 }
@@ -500,7 +512,9 @@ int spa_vulkan_unprepare(struct vulkan_state *s)
 
 int spa_vulkan_start(struct vulkan_state *s)
 {
-	s->busy = false;
+	s->current_buffer_id = SPA_ID_INVALID;
+	s->busy_buffer_id = SPA_ID_INVALID;
+	s->ready_buffer_id = SPA_ID_INVALID;
 	return 0;
 }
 
@@ -514,24 +528,23 @@ int spa_vulkan_ready(struct vulkan_state *s)
 {
 	VkResult result;
 
-	if (!s->busy)
+	if (s->busy_buffer_id == SPA_ID_INVALID)
 		return 0;
 
 	result = vkGetFenceStatus(s->device, s->fence);
-	if (result != VK_SUCCESS)
-		return -vkresult_to_errno(result);
+	if (result == VK_NOT_READY)
+		return -EBUSY;
+	VK_CHECK_RESULT(result);
 
-	s->busy = false;
+	s->ready_buffer_id = s->busy_buffer_id;
+	s->busy_buffer_id = SPA_ID_INVALID;
 
 	return 0;
 }
 
 int spa_vulkan_process(struct vulkan_state *s, uint32_t buffer_id)
 {
-	if (buffer_id != s->buffer_id) {
-		updateDescriptors(s, buffer_id);
-		s->buffer_id = buffer_id;
-	}
+	updateDescriptors(s, buffer_id);
 	runCommandBuffer(s);
 
 	return 0;

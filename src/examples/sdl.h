@@ -132,6 +132,7 @@ static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_
 		if (id != SPA_VIDEO_FORMAT_UNKNOWN)
 			spa_pod_builder_id(b, id);
 	}
+	spa_pod_builder_id(b, SPA_VIDEO_FORMAT_RGBA_F32);
 	spa_pod_builder_pop(b, &f[1]);
 	/* add size and framerate ranges */
 	spa_pod_builder_add(b,

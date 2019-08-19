@@ -56,7 +56,7 @@ if sdl_dep.found()
     'video-play.c',
     c_args : [ '-D_GNU_SOURCE' ],
     install: false,
-    dependencies : [pipewire_dep, sdl_dep],
+    dependencies : [pipewire_dep, sdl_dep, mathlib],
   )
   executable('local-v4l2',
     'local-v4l2.c',

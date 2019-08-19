@@ -40,6 +40,10 @@
 
 #include "sdl.h"
 
+struct pixel {
+	float r, g, b, a;
+};
+
 struct data {
 	const char *path;
 
@@ -93,7 +97,7 @@ on_process(void *_data)
 	int sstride, dstride, ostride;
 	struct spa_meta_region *mc;
 	struct spa_meta_cursor *mcs;
-	uint32_t i;
+	uint32_t i, j;
 	uint8_t *src, *dst;
 	bool render_cursor = false;
 
@@ -172,10 +176,26 @@ on_process(void *_data)
 
 	src = sdata;
 	dst = ddata;
-	for (i = 0; i < data->format.size.height; i++) {
-		memcpy(dst, src, ostride);
-		src += sstride;
-		dst += dstride;
+
+	if (data->format.format == SPA_VIDEO_FORMAT_RGBA_F32) {
+		for (i = 0; i < data->format.size.height; i++) {
+			struct pixel *p = (struct pixel *) src;
+			for (j = 0; j < data->format.size.width; j++) {
+				dst[j * 4 + 0] = SPA_CLAMP(lrintf(p[j].r * 255.0f), 0, 255);
+				dst[j * 4 + 1] = SPA_CLAMP(lrintf(p[j].g * 255.0f), 0, 255);
+				dst[j * 4 + 2] = SPA_CLAMP(lrintf(p[j].b * 255.0f), 0, 255);
+				dst[j * 4 + 3] = SPA_CLAMP(lrintf(p[j].a * 255.0f), 0, 255);
+			}
+			src += sstride;
+			dst += dstride;
+		}
+	}
+	else {
+		for (i = 0; i < data->format.size.height; i++) {
+			memcpy(dst, src, ostride);
+			src += sstride;
+			dst += dstride;
+		}
 	}
 	SDL_UnlockTexture(data->texture);
 
@@ -242,7 +262,11 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	/* call a helper function to parse the format for us. */
 	spa_format_video_raw_parse(format, &data->format);
 
-	sdl_format = id_to_sdl_format(data->format.format);
+	if (data->format.format == SPA_VIDEO_FORMAT_RGBA_F32)
+		sdl_format = SDL_PIXELFORMAT_RGBA32;
+	else
+		sdl_format = id_to_sdl_format(data->format.format);
+
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
 		pw_stream_finish_format(stream, -EINVAL, NULL, 0);
 		return;

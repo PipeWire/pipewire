@@ -87,9 +87,9 @@ static int createInstance(struct vulkan_state *d)
 {
 	const VkApplicationInfo applicationInfo = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.pApplicationName = "Hello world app",
+		.pApplicationName = "PipeWire",
 		.applicationVersion = 0,
-		.pEngineName = "awesomeengine",
+		.pEngineName = "PipeWire Vulkan Engine",
 		.engineVersion = 0,
 		.apiVersion = VK_API_VERSION_1_1
 	};

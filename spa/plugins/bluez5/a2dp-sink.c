@@ -559,6 +559,10 @@ static int flush_data(struct impl *this, uint64_t now_time)
 			n_bytes += add_data(this, src, l1);
 		if (n_bytes <= 0) {
 			port->need_data = true;
+			spa_list_remove(&b->link);
+			b->outstanding = true;
+			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+			port->ready_offset = 0;
 			break;
 		}
 

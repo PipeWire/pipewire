@@ -277,7 +277,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	len = sizeof(buffer);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, buffer, &len) < 0) {
-		pw_log_error("server %p: no peersec: %m", s);
+		pw_log_warn("server %p: no peersec: %m", s);
 	} else {
 		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%s", buffer);
 	}

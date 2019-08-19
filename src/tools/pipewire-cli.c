@@ -211,7 +211,7 @@ static struct command command_list[] = {
 	{ "disconnect", "Disconnect from a remote. [<remote-var>]", do_disconnect },
 	{ "list-remotes", "List connected remotes.", do_list_remotes },
 	{ "switch-remote", "Switch between current remotes. [<remote-var>]", do_switch_remote },
-	{ "list-objects", "List objects or current remote.", do_list_objects },
+	{ "list-objects", "List objects or current remote. [<interface>]", do_list_objects },
 	{ "info", "Get info about an object. <object-id>|all", do_info },
 	{ "create-node", "Create a node from a factory. <factory-name> [<properties>]", do_create_node },
 	{ "destroy", "Destroy a global object. <object-id>", do_destroy },
@@ -283,12 +283,18 @@ static void on_core_done(void *_data, uint32_t id, int seq)
 static int print_global(void *obj, void *data)
 {
 	struct global *global = obj;
+	const char *filter = data;
+	const char *type_name = NULL;
 
 	if (global == NULL)
 		return 0;
 
+	type_name = spa_debug_type_find_name(pw_type_info(), global->type);
+	if (filter && !strstr(type_name, filter))
+		return 0;
+
 	fprintf(stdout, "\tid %d, type %s/%d\n", global->id,
-					spa_debug_type_find_name(pw_type_info(), global->type),
+					type_name,
 					global->version);
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
@@ -871,7 +877,7 @@ static const struct pw_proxy_events proxy_events = {
 static bool do_list_objects(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
-	pw_map_for_each(&rd->globals, print_global, NULL);
+	pw_map_for_each(&rd->globals, print_global, args);
 	return true;
 }
 

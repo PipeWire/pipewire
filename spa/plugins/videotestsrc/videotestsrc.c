@@ -484,13 +484,13 @@ static int port_enum_formats(void *object,
 							SPA_VIDEO_FORMAT_RGB,
 							SPA_VIDEO_FORMAT_UYVY),
 			SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
-							SPA_RECTANGLE(320, 240),
-							SPA_RECTANGLE(1, 1),
-							SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
+							&SPA_RECTANGLE(320, 240),
+							&SPA_RECTANGLE(1, 1),
+							&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
-							SPA_FRACTION(25,1),
-							SPA_FRACTION(0, 1),
-							SPA_FRACTION(INT32_MAX, 1)));
+							&SPA_FRACTION(25,1),
+							&SPA_FRACTION(0, 1),
+							&SPA_FRACTION(INT32_MAX, 1)));
 		break;
 	default:
 		return 0;

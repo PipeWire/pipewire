@@ -58,6 +58,10 @@ option('ffmpeg',
        description: 'Enable ffmpeg spa plugin integration',
        type: 'boolean',
        value: false)
+option('jack',
+       description: 'Enable jack spa plugin integration',
+       type: 'boolean',
+       value: true)
 option('support',
        description: 'Enable support spa plugin integration',
        type: 'boolean',

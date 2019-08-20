@@ -16,6 +16,9 @@ endif
 if get_option('ffmpeg')
   subdir('ffmpeg')
 endif
+if get_option('jack')
+  subdir('jack')
+endif
 if get_option('support')
   subdir('support')
 endif

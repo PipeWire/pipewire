@@ -638,6 +638,7 @@ struct spa_node_methods {
 
 
 /** node keys */
+#define SPA_KEY_NODE_NAME		"node.name"		/**< a node name */
 #define SPA_KEY_NODE_DRIVER		"node.driver"		/**< the node can be a driver */
 #define SPA_KEY_NODE_PAUSE_ON_IDLE	"node.pause-on-idle"	/**< if the node should be paused
 								  *  immediately when idle. */

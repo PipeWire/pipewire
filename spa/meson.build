@@ -27,6 +27,9 @@ if get_option('spa-plugins')
     avcodec_dep = dependency('libavcodec')
     avformat_dep = dependency('libavformat')
   endif
+  if get_option('jack')
+    jack_dep = dependency('jack', version : '>= 1.9.10')
+  endif
   if get_option('vulkan')
     vulkan_dep = dependency('vulkan')
   endif

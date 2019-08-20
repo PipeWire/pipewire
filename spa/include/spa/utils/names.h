@@ -97,6 +97,11 @@ extern "C" {
 #define SPA_NAME_API_V4L2_DEVICE	"api.v4l2.device"		/**< a v4l2 Device interface */
 #define SPA_NAME_API_V4L2_SOURCE	"api.v4l2.source"		/**< a v4l2 Node interface for
 									  *  capturing */
+/** keys for jack factory names */
+#define SPA_NAME_API_JACK_DEVICE	"api.jack.device"		/**< a jack device. This is a
+									  *  client connected to a server */
+#define SPA_NAME_API_JACK_SOURCE	"api.jack.source"		/**< a jack source */
+#define SPA_NAME_API_JACK_SINK		"api.jack.sink"			/**< a jack sink */
 
 #ifdef __cplusplus
 }  /* extern "C" */

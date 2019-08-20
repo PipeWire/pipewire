@@ -339,7 +339,8 @@ static int core_event_demarshal_add_mem(void *object, const struct pw_protocol_n
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t id, type, idx, flags;
+	uint32_t id, type, flags;
+	int64_t idx;
 	int fd;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);

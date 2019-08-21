@@ -35,6 +35,7 @@ jack_uuid_t jack_client_uuid_generate ()
 	static uint32_t uuid_cnt = 0;
 	jack_uuid_t uuid = 0x2; /* JackUUIDClient */;
 	uuid = (uuid << 32) | ++uuid_cnt;
+	pw_log_debug("uuid %"PRIu64, uuid);
 	return uuid;
 }
 
@@ -43,6 +44,7 @@ jack_uuid_t jack_port_uuid_generate (uint32_t port_id)
 {
 	jack_uuid_t uuid = 0x1; /* JackUUIDPort */
 	uuid = (uuid << 32) | (port_id + 1);
+	pw_log_debug("uuid %d -> %"PRIu64, port_id, uuid);
 	return uuid;
 }
 

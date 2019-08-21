@@ -862,9 +862,10 @@ static int client_node_set_io(void *object,
         void *ptr;
 	uint32_t tag[5] = { c->node_id, id, };
 
+	if ((mm = pw_mempool_find_tag(c->remote->pool, tag, sizeof(tag))) != NULL)
+		pw_memmap_free(mm);
+
         if (mem_id == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(c->remote->pool, tag, sizeof(tag))) != NULL)
-			pw_memmap_free(mm);
 		mm = ptr = NULL;
 		size = 0;
         }
@@ -1306,9 +1307,10 @@ static int client_node_port_set_io(void *object,
 		goto exit;
 	}
 
+	if ((mm = pw_mempool_find_tag(c->remote->pool, tag, sizeof(tag))) != NULL)
+		pw_memmap_free(mm);
+
         if (mem_id == SPA_ID_INVALID) {
-		if ((mm = pw_mempool_find_tag(c->remote->pool, tag, sizeof(tag))) != NULL)
-			pw_memmap_free(mm);
 
                 mm = ptr = NULL;
                 size = 0;
@@ -1362,6 +1364,13 @@ static int client_node_set_activation(void *object,
 	void *ptr;
 	int res = 0;
 
+	if (c->node_id == node_id) {
+		pw_log_debug(NAME" %p: our activation %u: %u %u %u", c, node_id,
+				mem_id, offset, size);
+		close(signalfd);
+		return 0;
+	}
+
 	if (mem_id == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
@@ -1380,22 +1389,12 @@ static int client_node_set_activation(void *object,
 	pw_log_debug(NAME" %p: set activation %u: %u %u %u %p", c, node_id,
 			mem_id, offset, size, ptr);
 
-	if (c->node_id == node_id) {
-		pw_log_debug(NAME" %p: our activation %u: %u %u %u %p", c, node_id,
-				mem_id, offset, size, ptr);
-		if (mm)
-			pw_memmap_free(mm);
-		close(signalfd);
-		return 0;
-	}
-
 	if (ptr) {
 		link = pw_array_add(&c->links, sizeof(struct link));
 		if (link == NULL) {
 			res = -errno;
 			goto exit;
 		}
-		link->node_id = SPA_ID_INVALID;
 		link->node_id = node_id;
 		link->mem = mm;
 		link->activation = ptr;

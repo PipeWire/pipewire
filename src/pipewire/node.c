@@ -901,7 +901,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
                 goto error_clean;
 	}
 
-
 	impl->work = pw_work_queue_new(this->core->main_loop);
 	if (impl->work == NULL) {
 		res = -errno;

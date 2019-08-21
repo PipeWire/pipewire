@@ -795,13 +795,19 @@ client_node_set_activation(void *object,
 	struct node_data *data = proxy->user_data;
 	struct pw_node *node = data->node;
 	struct pw_memmap *mm;
-	struct pw_node_activation *ptr;
+	void *ptr;
 	struct link *link;
 	int res = 0;
 
+	if (data->remote_id == node_id) {
+		pw_log_debug("node %p: our activation %u: %u %u %u", node, node_id,
+				memid, offset, size);
+		close(signalfd);
+		return 0;
+	}
+
 	if (memid == SPA_ID_INVALID) {
-		ptr = NULL;
-		mm = NULL;
+		mm = ptr = NULL;
 		size = 0;
 	}
 	else {
@@ -815,14 +821,6 @@ client_node_set_activation(void *object,
 	}
 	pw_log_debug("node %p: set activation %d %p %u %u", node, node_id, ptr, offset, size);
 
-	if (data->remote_id == node_id) {
-		pw_log_debug("node %p: our activation %u: %u %u %u %p", node, node_id,
-				memid, offset, size, ptr);
-		if (mm)
-			pw_memmap_free(mm);
-		close(signalfd);
-		return 0;
-	}
 
 	if (ptr) {
 		link = pw_array_add(&data->links, sizeof(struct link));

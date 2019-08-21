@@ -32,59 +32,69 @@
 SPA_EXPORT
 jack_uuid_t jack_client_uuid_generate ()
 {
-	pw_log_warn("not implemented");
-	return 0;
+	static uint32_t uuid_cnt = 0;
+	jack_uuid_t uuid = 0x2; /* JackUUIDClient */;
+	uuid = (uuid << 32) | ++uuid_cnt;
+	return uuid;
 }
 
 SPA_EXPORT
 jack_uuid_t jack_port_uuid_generate (uint32_t port_id)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	jack_uuid_t uuid = 0x1; /* JackUUIDPort */
+	uuid = (uuid << 32) | (port_id + 1);
+	return uuid;
 }
 
 SPA_EXPORT
 uint32_t jack_uuid_to_index (jack_uuid_t id)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	return (id & 0xffff) - 1;
 }
 
 SPA_EXPORT
 int  jack_uuid_compare (jack_uuid_t id1, jack_uuid_t id2)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	if (id1 == id2)
+		return 0;
+	if (id1 < id2)
+		return -1;
+	return 1;
 }
 
 SPA_EXPORT
 void jack_uuid_copy (jack_uuid_t* dst, jack_uuid_t src)
 {
-	pw_log_warn("not implemented");
+	*dst = src;
 }
 
 SPA_EXPORT
-void jack_uuid_clear (jack_uuid_t*id)
+void jack_uuid_clear (jack_uuid_t *id)
 {
-	pw_log_warn("not implemented");
+	*id = 0;
 }
 
 SPA_EXPORT
-int  jack_uuid_parse (const char *buf, jack_uuid_t*id)
+int  jack_uuid_parse (const char *buf, jack_uuid_t *id)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	if (sscanf (buf, "%" PRIu64, id) == 1) {
+		if (*id < (0x1LL << 32)) {
+			/* has not type bits set - not legal */
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
 }
 
 SPA_EXPORT
 void jack_uuid_unparse (jack_uuid_t id, char buf[JACK_UUID_STRING_SIZE])
 {
-	pw_log_warn("not implemented");
+	snprintf (buf, JACK_UUID_STRING_SIZE, "%" PRIu64, id);
 }
 
 SPA_EXPORT
 int  jack_uuid_empty (jack_uuid_t id)
 {
-	pw_log_warn("not implemented");
-	return 0;
+	return id == 0;
 }

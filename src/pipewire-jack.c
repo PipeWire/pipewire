@@ -31,6 +31,7 @@
 #include <jack/session.h>
 #include <jack/thread.h>
 #include <jack/midiport.h>
+#include <jack/uuid.h>
 
 #include <spa/support/cpu.h>
 #include <spa/param/audio/format-utils.h>
@@ -89,7 +90,6 @@ struct object {
 
 	uint32_t type;
 	uint32_t id;
-	uint32_t parent_id;
 
 	union {
 		struct {
@@ -105,6 +105,7 @@ struct object {
 			char alias1[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias2[REAL_JACK_PORT_NAME_SIZE+1];
 			uint32_t type_id;
+			uint32_t node_id;
 			uint32_t port_id;
 		} port;
 	};
@@ -372,7 +373,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	o = alloc_object(c);
 	o->type = PW_TYPE_INTERFACE_Port;
 	o->id = SPA_ID_INVALID;
-	o->parent_id = c->node_id;
+	o->port.node_id = c->node_id;
 	o->port.port_id = p->id;
 	spa_list_append(&c->context.ports, &o->link);
 
@@ -738,9 +739,10 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 					 &c->jack_position, c->sync_arg);
 		}
 
-		pw_log_trace(NAME" %p: do process %"PRIu64" %d %d %d %"PRIi64" %f", c,
+		pw_log_trace(NAME" %p: do process %"PRIu64" %d %d %d %"PRIi64" %f %p", c,
 				nsec, c->buffer_size, c->sample_rate,
-				c->jack_position.frame, delay, c->rate_diff);
+				c->jack_position.frame, delay, c->rate_diff,
+				c->position);
 
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
@@ -1463,7 +1465,6 @@ static void registry_event_global(void *data, uint32_t id,
 	struct object *o, *ot;
 	const char *str;
 	size_t size;
-	uint32_t parent_id = 0;
 
 	if (props == NULL)
 		return;
@@ -1488,6 +1489,7 @@ static void registry_event_global(void *data, uint32_t id,
 		const struct spa_dict_item *item;
 		unsigned long flags = 0;
 		jack_port_type_id_t type_id;
+		uint32_t node_id;
 		char full_name[1024];
 
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL) {
@@ -1500,7 +1502,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
 			goto exit;
 
-		parent_id = atoi(str);
+		node_id = atoi(str);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;
@@ -1527,7 +1529,7 @@ static void registry_event_global(void *data, uint32_t id,
 		}
 
 		o = NULL;
-		if (parent_id == c->node_id) {
+		if (node_id == c->node_id) {
 			snprintf(full_name, sizeof(full_name), "%s:%s", c->name, str);
 			o = find_port(c, full_name);
 			if (o != NULL)
@@ -1539,7 +1541,7 @@ static void registry_event_global(void *data, uint32_t id,
 				goto exit;
 
 			spa_list_append(&c->context.ports, &o->link);
-			ot = pw_map_lookup(&c->context.globals, parent_id);
+			ot = pw_map_lookup(&c->context.globals, node_id);
 			if (ot == NULL || ot->type != PW_TYPE_INTERFACE_Node)
 				goto exit_free;
 
@@ -1559,6 +1561,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		o->port.flags = flags;
 		o->port.type_id = type_id;
+		o->port.node_id = node_id;
 
 		pw_log_debug(NAME" %p: add port %d %s %d", c, id, o->port.name, type_id);
 		break;
@@ -1585,7 +1588,6 @@ static void registry_event_global(void *data, uint32_t id,
 
 	o->type = type;
 	o->id = id;
-	o->parent_id = parent_id;
 
         size = pw_map_get_size(&c->context.globals);
         while (id > size)
@@ -1867,11 +1869,24 @@ char * jack_get_client_name (jack_client_t *client)
 	return c->name;
 }
 
+static jack_uuid_t cuuid = 0x2;
+
 SPA_EXPORT
 char *jack_get_uuid_for_client_name (jack_client_t *client,
                                      const char    *client_name)
 {
-	pw_log_warn(NAME" %p: not implemented %s", client, client_name);
+	struct client *c = (struct client *) client;
+	struct object *o;
+
+	spa_list_for_each(o, &c->context.nodes, link) {
+		if (strcmp(o->node.name, client_name) == 0) {
+			char *uuid;
+			asprintf(&uuid, "%" PRIu64, (cuuid << 32) | o->id);
+			pw_log_debug(NAME" %p: name %s -> %s",
+					client, client_name, uuid);
+			return uuid;
+		}
+	}
 	return NULL;
 }
 
@@ -1879,7 +1894,21 @@ SPA_EXPORT
 char *jack_get_client_name_by_uuid (jack_client_t *client,
                                     const char    *client_uuid )
 {
-	pw_log_warn(NAME" %p: not implemented %s", client, client_uuid);
+	struct client *c = (struct client *) client;
+	struct object *o;
+	jack_uuid_t uuid;
+	jack_uuid_t cuuid = 0x2;
+
+	if (jack_uuid_parse(client_uuid, &uuid) < 0)
+		return NULL;
+
+	spa_list_for_each(o, &c->context.nodes, link) {
+		if ((cuuid << 32 | o->id) == uuid) {
+			pw_log_debug(NAME" %p: uuid %s (%"PRIu64")-> %s",
+					client, client_uuid, uuid, o->node.name);
+			return strdup(o->node.name);
+		}
+	}
 	return NULL;
 }
 
@@ -2436,8 +2465,8 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 SPA_EXPORT
 jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
-	pw_log_warn("not implemented %p", port);
-	return 0;
+	struct object *o = (struct object *) port;
+	return jack_port_uuid_generate(o->id);
 }
 
 SPA_EXPORT
@@ -2699,9 +2728,9 @@ int jack_connect (jack_client_t *client,
 		goto exit;
 	}
 
-	snprintf(val[0], sizeof(val[0]), "%d", src->parent_id);
+	snprintf(val[0], sizeof(val[0]), "%d", src->port.node_id);
 	snprintf(val[1], sizeof(val[1]), "%d", src->id);
-	snprintf(val[2], sizeof(val[2]), "%d", dst->parent_id);
+	snprintf(val[2], sizeof(val[2]), "%d", dst->port.node_id);
 	snprintf(val[3], sizeof(val[3]), "%d", dst->id);
 
 	props = SPA_DICT_INIT(items, 0);
@@ -2897,7 +2926,7 @@ const char ** jack_get_ports (jack_client_t *client,
 			continue;
 		if (!SPA_FLAG_CHECK(o->port.flags, flags))
 			continue;
-		if (id != SPA_ID_INVALID && o->parent_id != id)
+		if (id != SPA_ID_INVALID && o->port.node_id != id)
 			continue;
 
 		if (port_name_pattern && port_name_pattern[0]) {
@@ -3184,8 +3213,10 @@ void jack_session_event_free (jack_session_event_t *event)
 SPA_EXPORT
 char *jack_client_get_uuid (jack_client_t *client)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
-	return "";
+	struct client *c = (struct client *) client;
+	char *uuid = NULL;
+	asprintf(&uuid, "%d", c->node_id);
+	return uuid;
 }
 
 SPA_EXPORT

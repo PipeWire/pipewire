@@ -26,8 +26,28 @@
 #include <sys/mman.h>
 
 #include <jack/metadata.h>
+#include <jack/uuid.h>
 
 #include <pipewire/pipewire.h>
+
+
+static struct pw_properties * get_properties(void)
+{
+	static struct pw_properties *properties = NULL;
+	if (properties == NULL) {
+		properties = pw_properties_new(NULL, NULL);
+	}
+	return properties;
+}
+
+static void make_key(char *dst, jack_uuid_t subject, const char *key, int keylen)
+{
+	int len;
+	jack_uuid_unparse (subject, dst);
+	len = strlen(dst);
+	dst[len] = '@';
+	memcpy(&dst[len+1], key, keylen+1);
+}
 
 SPA_EXPORT
 int jack_set_property(jack_client_t*client,
@@ -36,8 +56,16 @@ int jack_set_property(jack_client_t*client,
 		      const char* value,
 		      const char* type)
 {
-	pw_log_warn("not implemented");
-	return -1;
+	int keylen = strlen(key);
+	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
+	struct pw_properties * props = get_properties();
+
+	make_key(dst, subject, key, keylen);
+
+	pw_properties_setf(props, dst, "%s@%s", value, type);
+	pw_log_debug("set '%s' to '%s@%s'", dst, value, type);
+
+	return 0;
 }
 
 SPA_EXPORT
@@ -46,8 +74,30 @@ int jack_get_property(jack_uuid_t subject,
 		      char**      value,
 		      char**      type)
 {
-	pw_log_warn("not implemented");
-	return -1;
+	int keylen = strlen(key);
+	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
+	struct pw_properties * props = get_properties();
+	const char *str, *at;
+
+	make_key(dst, subject, key, keylen);
+
+	if ((str = pw_properties_get(props, dst)) == NULL) {
+		pw_log_warn("no property '%s'", dst);
+		return -1;
+	}
+
+	at = strrchr(str, '@');
+	if (at == NULL) {
+		pw_log_warn("property '%s' invalid value '%s'", dst, str);
+		return -1;
+	}
+
+	*value = strndup(str, at - str);
+	*type = strdup(at + 1);
+
+	pw_log_debug("got '%s' with value:'%s' type:'%s'", dst, *value, *type);
+
+	return 0;
 }
 
 SPA_EXPORT
@@ -74,8 +124,16 @@ int jack_get_all_properties (jack_description_t** descs)
 SPA_EXPORT
 int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char* key)
 {
-	pw_log_warn("not implemented");
-	return -1;
+	int keylen = strlen(key);
+	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
+	struct pw_properties * props = get_properties();
+
+	make_key(dst, subject, key, keylen);
+
+	pw_properties_set(props, dst, NULL);
+	pw_log_debug("removed %s", dst);
+
+	return 0;
 }
 
 SPA_EXPORT

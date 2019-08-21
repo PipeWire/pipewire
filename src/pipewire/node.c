@@ -1209,6 +1209,8 @@ int pw_node_set_implementation(struct pw_node *node,
 			    sizeof(struct spa_io_position)) >= 0) {
 		pw_log_debug(NAME" %p: set position %p", node, &node->rt.activation->position);
 		node->rt.position = &node->rt.activation->position;
+	} else if (node->driver) {
+		pw_log_warn(NAME" %p: can't set position on driver", node);
 	}
 	if (spa_node_set_io(node->node,
 			    SPA_IO_Clock,

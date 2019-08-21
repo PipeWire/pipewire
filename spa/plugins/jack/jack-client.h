@@ -50,7 +50,14 @@ struct spa_jack_client {
 	struct spa_log *log;
 
 	jack_client_t *client;
+
+	jack_nframes_t frame_rate;
 	jack_nframes_t buffer_size;
+	jack_nframes_t current_frames;
+	jack_time_t current_usecs;
+	jack_time_t next_usecs;
+	float period_usecs;
+	jack_position_t pos;
 
 	struct spa_hook_list listener_list;
 };

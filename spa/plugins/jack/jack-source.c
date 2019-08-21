@@ -73,7 +73,6 @@ struct port {
 	int stride;
 
 	struct spa_io_buffers *io;
-	struct spa_io_clock *io_clock;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -92,10 +91,13 @@ struct impl {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-	struct spa_param_info params[4];
+	struct spa_param_info params[5];
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
+
+	struct spa_io_clock *clock;
+	struct spa_io_position *position;
 
 	struct port out_ports[MAX_PORTS];
 	uint32_t n_out_ports;
@@ -153,6 +155,25 @@ static int impl_node_enum_params(void *object, int seq,
 		}
 		break;
 
+	case SPA_PARAM_IO:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Position),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_position)));
+			break;
+		default:
+			return 0;
+		}
+		break;
+
 	default:
 		return -ENOENT;
 	}
@@ -170,7 +191,21 @@ static int impl_node_enum_params(void *object, int seq,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -240,18 +275,21 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
-	{ SPA_KEY_NODE_NAME, "jack_system" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		struct spa_dict_item items[5];
+		char latency[64];
+		snprintf(latency, sizeof(latency), "%d/%d",
+				this->client->buffer_size, this->client->frame_rate);
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Source");
+		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_NAME, "jack_system");
+		items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
+		items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_PAUSE_ON_IDLE, "false");
+		items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_LATENCY, latency);
+		this->info.props = &SPA_DICT_INIT_ARRAY(items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -510,12 +548,6 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
-			break;
 		default:
 			return 0;
 		}
@@ -669,9 +701,6 @@ impl_node_port_set_io(void *object,
 	switch (id) {
 	case SPA_IO_Buffers:
 		port->io = data;
-		break;
-	case SPA_IO_Clock:
-		port->io_clock = data;
 		break;
 	default:
 		return -ENOENT;
@@ -840,8 +869,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
 	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	this->info.params = this->params;
-	this->info.n_params = 4;
+	this->info.n_params = 5;
 
 	init_ports(this);
 

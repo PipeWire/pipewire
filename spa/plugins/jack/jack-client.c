@@ -30,7 +30,14 @@ static int jack_process(jack_nframes_t nframes, void *arg)
 {
 	struct spa_jack_client *client = arg;
 
+	jack_get_cycle_times(client->client,
+			&client->current_frames, &client->current_usecs,
+			&client->next_usecs, &client->period_usecs);
+
+	jack_transport_query (client->client, &client->pos);
+
 	client->buffer_size = nframes;
+
 	spa_jack_client_emit_process(client);
 
 	return 0;
@@ -42,12 +49,6 @@ static void jack_shutdown(void* arg)
 
 	spa_jack_client_emit_shutdown(client);
 }
-
-static int jack_buffer_size(jack_nframes_t nframes, void *arg)
-{
-	return 0;
-}
-
 
 static int status_to_result(jack_status_t status)
 {
@@ -83,7 +84,8 @@ int spa_jack_client_open(struct spa_jack_client *client,
 
 	jack_set_process_callback(client->client, jack_process, client);
 	jack_on_shutdown(client->client, jack_shutdown, client);
-	jack_set_buffer_size_callback(client->client, jack_buffer_size, client);
+	client->frame_rate = jack_get_sample_rate(client->client);
+	client->buffer_size = jack_get_buffer_size(client->client);
 
 	return 0;
 }

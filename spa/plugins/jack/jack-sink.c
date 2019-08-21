@@ -73,7 +73,6 @@ struct port {
 	int stride;
 
 	struct spa_io_buffers *io;
-	struct spa_io_clock *io_clock;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -90,10 +89,13 @@ struct impl {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-	struct spa_param_info params[4];
+	struct spa_param_info params[5];
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
+
+	struct spa_io_clock *clock;
+	struct spa_io_position *position;
 
 	struct port in_ports[MAX_PORTS];
 	uint32_t n_in_ports;
@@ -151,6 +153,25 @@ static int impl_node_enum_params(void *object, int seq,
 		}
 		break;
 
+	case SPA_PARAM_IO:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Position),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_position)));
+			break;
+		default:
+			return 0;
+		}
+		break;
+
 	default:
 		return -ENOENT;
 	}
@@ -168,7 +189,21 @@ static int impl_node_enum_params(void *object, int seq,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -212,18 +247,21 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
-	{ SPA_KEY_NODE_NAME, "jack_system" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		struct spa_dict_item items[5];
+		char latency[64];
+		snprintf(latency, sizeof(latency), "%d/%d",
+				this->client->buffer_size, this->client->frame_rate);
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Sink");
+		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_NAME, "jack_system");
+		items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
+		items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_PAUSE_ON_IDLE, "false");
+		items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_LATENCY, latency);
+		this->info.props = &SPA_DICT_INIT_ARRAY(items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -280,6 +318,38 @@ impl_node_set_callbacks(void *object,
 static void client_process(void *data)
 {
 	struct impl *this = data;
+
+	if (this->clock) {
+		struct spa_io_clock *c = this->clock;
+		c->nsec = this->client->current_usecs * SPA_NSEC_PER_USEC;
+		c->rate = SPA_FRACTION(1, this->client->frame_rate);
+		c->position = this->client->current_frames;
+		c->delay = 0;
+		c->rate_diff = 1.0;
+	}
+	if (this->position) {
+		jack_position_t *jp = &this->client->pos;
+		struct spa_io_position *p = this->position;
+
+		p->version = 0;
+		p->size = this->client->buffer_size;
+		p->rate = SPA_FRACTION(1, this->client->frame_rate);
+		p->flags = 0;
+		if (jp->valid & JackPositionBBT) {
+			p->flags |= SPA_IO_POSITION_FLAG_BAR;
+			p->bar.size = sizeof(struct spa_io_position_bar);
+			if (jp->valid & JackBBTFrameOffset)
+				p->bar.offset = jp->bbt_offset;
+			else
+				p->bar.offset = 0;
+			p->bar.signature = SPA_FRACTION(jp->beats_per_bar, jp->beat_type);
+			p->bar.bpm = jp->beats_per_minute;
+			p->bar.bar = jp->bar;
+			p->bar.last_bar = jp->bar;
+			p->bar.cycle_start = jp->bar;
+			p->bar.cycle_end = jp->bar;
+		}
+	}
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
 }
 
@@ -475,12 +545,6 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
-			break;
 		default:
 			return 0;
 		}
@@ -633,9 +697,6 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_Clock:
-		port->io_clock = data;
-		break;
 	default:
 		return -ENOENT;
 	}
@@ -663,23 +724,20 @@ static int impl_node_process(void *object)
 		uint32_t n_frames = this->client->buffer_size;
 		void *dst;
 
-		if (io == NULL || io->status != SPA_STATUS_HAVE_BUFFER)
-			continue;
+		dst = jack_port_get_buffer(port->jack_port, n_frames);
 
-		if (io->buffer_id >= port->n_buffers)
+		if (io == NULL ||
+		    io->status != SPA_STATUS_HAVE_BUFFER ||
+		    io->buffer_id >= port->n_buffers) {
+			memset(dst, 0, n_frames * sizeof(float));
 			continue;
+		}
 
 		spa_log_trace(this->log, NAME" %p: port %d: buffer %d", this, i, io->buffer_id);
 		b = &port->buffers[io->buffer_id];
 		src = &b->outbuf->datas[0];
 
-		dst = jack_port_get_buffer(port->jack_port, n_frames);
-
 		memcpy(dst, src->data, n_frames * port->stride);
-		src->chunk->offset = 0;
-		src->chunk->size = n_frames * port->stride;
-		src->chunk->stride = port->stride;
-		src->chunk->flags = 0;
 
 		io->status = SPA_STATUS_NEED_BUFFER;
 
@@ -785,8 +843,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
 	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	this->params[4] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	this->info.params = this->params;
-	this->info.n_params = 4;
+	this->info.n_params = 5;
 
 	init_ports(this);
 

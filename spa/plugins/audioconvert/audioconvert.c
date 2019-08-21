@@ -389,8 +389,6 @@ static void clean_convert(struct impl *this)
 	for (i = 0; i < this->n_links; i++)
 		clean_link(this, &this->links[i]);
 	this->n_links = 0;
-	this->buffers_set[SPA_DIRECTION_INPUT] = false;
-	this->buffers_set[SPA_DIRECTION_OUTPUT] = false;
 }
 
 static int setup_buffers(struct impl *this, enum spa_direction direction)
@@ -621,6 +619,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 
 	this->fmt[direction] = new;
 	this->fmt_is_set[direction] = false;
+	this->buffers_set[direction] = false;
 
 	/* signal if we change nodes or when DSP config changes */
 	do_signal = this->fmt[direction] != old ||
@@ -947,6 +946,9 @@ impl_node_port_set_param(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: set param %u on port %d:%d %p",
+				this, id, direction, port_id, param);
+
 	is_monitor = IS_MONITOR_PORT(this, direction, port_id);
 	if (is_monitor)
 		target = this->fmt[SPA_DIRECTION_INPUT];
@@ -955,8 +957,10 @@ impl_node_port_set_param(void *object,
 
 	if (id == SPA_PARAM_Format && !is_monitor) {
 		if (param == NULL ||
-		    this->mode[direction] == SPA_PARAM_PORT_CONFIG_MODE_convert)
+		    this->mode[direction] == SPA_PARAM_PORT_CONFIG_MODE_convert) {
 			clean_convert(this);
+			this->buffers_set[direction] = false;
+		}
 	}
 
 	if ((res = spa_node_port_set_param(target,
@@ -998,11 +1002,13 @@ impl_node_port_use_buffers(void *object,
 					direction, port_id, flags, buffers, n_buffers)) < 0)
 		return res;
 
-	if (buffers && this->buffers_set[SPA_DIRECTION_REVERSE(direction)]) {
+	this->buffers_set[direction] = (buffers != NULL);
+
+	if (this->buffers_set[direction] &&
+	    this->buffers_set[SPA_DIRECTION_REVERSE(direction)]) {
 		if ((res = setup_buffers(this, SPA_DIRECTION_INPUT)) < 0)
 			return res;
 	}
-	this->buffers_set[direction] = (buffers != NULL);
 	return res;
 }
 

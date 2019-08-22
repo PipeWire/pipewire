@@ -257,6 +257,8 @@ struct client {
 	void *connect_arg;
 	JackGraphOrderCallback graph_callback;
 	void *graph_arg;
+	JackXRunCallback xrun_callback;
+	void *xrun_arg;
 	JackSyncCallback sync_callback;
 	void *sync_arg;
 	JackTimebaseCallback timebase_callback;
@@ -281,6 +283,7 @@ struct client {
 
 	struct pw_memmap *mem;
 	struct pw_node_activation *activation;
+	uint32_t xrun_count;
 
 	bool started;
 	int status;
@@ -740,6 +743,14 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		if (c->sync_callback) {
 			c->sync_callback(JackTransportRolling,
 					 &c->jack_position, c->sync_arg);
+		}
+
+		if (c->driver_activation) {
+			struct pw_node_activation *a = c->driver_activation;
+			if (c->xrun_count != a->xrun_count &&
+			    c->xrun_count != 0 && c->xrun_callback)
+				c->xrun_callback(c->xrun_arg);
+			c->xrun_count = a->xrun_count;
 		}
 
 		pw_log_trace(NAME" %p: do process %"PRIu64" %d %d %d %"PRIi64" %f %p", c,
@@ -2181,7 +2192,9 @@ SPA_EXPORT
 int jack_set_xrun_callback (jack_client_t *client,
                             JackXRunCallback xrun_callback, void *arg)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
+	struct client *c = (struct client *) client;
+	c->xrun_callback = xrun_callback;
+	c->xrun_arg = arg;
 	return 0;
 }
 
@@ -2240,7 +2253,7 @@ float jack_cpu_load (jack_client_t *client)
 	float res = 0.0f;
 
 	if (c->driver_activation)
-		res = c->driver_activation->cpu_load[2];
+		res = c->driver_activation->cpu_load[0] * 100.0f;
 
 	pw_log_trace(NAME" %p: cpu load %f", client, res);
 	return res;

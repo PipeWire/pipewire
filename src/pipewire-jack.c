@@ -3042,13 +3042,11 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	struct timespec ts;
-	jack_nframes_t res;
 	uint64_t diff;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	diff = SPA_TIMESPEC_TO_USEC(&ts) - c->jack_position.usecs;
-	res = (jack_nframes_t) floor(((float)c->sample_rate * diff) / 1000000000.0f);
-	return res;
+	return (jack_nframes_t) floor(((float)c->sample_rate * diff) / 1000000000.0f);
 }
 
 SPA_EXPORT
@@ -3088,16 +3086,16 @@ SPA_EXPORT
 jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t frames)
 {
 	struct client *c = (struct client *) client;
-        int32_t df = frames - c->jack_position.frame;
-        return c->jack_position.usecs + (int64_t)rint((double) df / c->sample_rate);
+	double df = (frames - c->jack_position.frame) * (double)SPA_USEC_PER_SEC / c->sample_rate;
+	return c->jack_position.usecs + (int64_t)rint(df);
 }
 
 SPA_EXPORT
 jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usecs)
 {
 	struct client *c = (struct client *) client;
-	int64_t du = usecs - c->jack_position.usecs;
-        return c->jack_position.frame + (int32_t)rint((double)du * c->sample_rate);
+	double du = (usecs - c->jack_position.usecs) * (double)c->sample_rate / SPA_USEC_PER_SEC;
+	return c->jack_position.frame + (int32_t)rint(du);
 }
 
 SPA_EXPORT

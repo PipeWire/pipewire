@@ -764,7 +764,7 @@ static inline int resume_node(struct pw_node *this, int status)
 	activation->status = FINISHED;
 	activation->finish_time = nsec;
 
-        pw_log_trace_fp(NAME" %p: trigger peers", this);
+	pw_log_trace_fp(NAME" %p: trigger peers %"PRIu64, this, nsec);
 
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		struct pw_node_activation_state *state;
@@ -804,11 +804,11 @@ static inline int process_node(void *data)
 	struct spa_system *data_system = this->core->data_system;
 	int status;
 
-        pw_log_trace_fp(NAME" %p: process", this);
-
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->status = AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	pw_log_trace_fp(NAME" %p: process %"PRIu64, this, a->awake_time);
 
 	spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
 		spa_node_process(p->mix);

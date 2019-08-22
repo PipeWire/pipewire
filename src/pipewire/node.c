@@ -783,6 +783,18 @@ static inline int resume_node(struct pw_node *this, int status)
 	return 0;
 }
 
+static inline void calculate_stats(struct pw_node *this,  struct pw_node_activation *a)
+{
+	if (a->signal_time > a->prev_signal_time) {
+		uint64_t process_time = a->finish_time - a->signal_time;
+		uint64_t period_time = a->signal_time - a->prev_signal_time;
+		float load = (float) process_time / (float) period_time;
+		a->cpu_load[0] = (a->cpu_load[0] * 7.0f + load) / 8.0f;
+		a->cpu_load[1] = (a->cpu_load[1] * 15.0f + load) / 16.0f;
+		a->cpu_load[2] = (a->cpu_load[2] * 31.0f + load) / 32.0f;
+	}
+}
+
 static inline int process_node(void *data)
 {
 	struct pw_node *this = data;
@@ -814,9 +826,17 @@ static inline int process_node(void *data)
 		a->status = FINISHED;
 		a->signal_time = a->finish_time;
 		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
-		pw_log_trace_fp(NAME" %p: graph completed wait:%"PRIu64" run:%"PRIu64, this,
+
+		/* calculate CPU time */
+		calculate_stats(this, a);
+
+		pw_log_trace_fp(NAME" %p: graph completed wait:%"PRIu64" run:%"PRIu64
+				" period:%"PRIu64" cpu:%f:%f:%f", this,
 				a->awake_time - a->signal_time,
-				a->finish_time - a->awake_time);
+				a->finish_time - a->awake_time,
+				a->signal_time - a->prev_signal_time,
+				a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
+
 	} else if (status == SPA_STATUS_OK) {
 		pw_log_trace_fp(NAME" %p: async continue", this);
 	} else {
@@ -1143,15 +1163,18 @@ static int node_ready(void *data, int status)
 			node->driver, node->exported, driver, status);
 
 	if (node == driver) {
-		if (node->rt.activation->state[0].pending != 0) {
+		struct pw_node_activation *a = node->rt.activation;
+
+		if (a->state[0].pending != 0) {
 			pw_log_warn(NAME" %p: graph not finished", node);
 			dump_states(node);
-	                node->rt.target.signal(node->rt.target.data);
+			node->rt.target.signal(node->rt.target.data);
 		}
 		spa_list_for_each(t, &driver->rt.target_list, link) {
 			pw_node_activation_state_reset(&t->activation->state[0]);
 			t->activation->status = NOT_TRIGGERED;
 		}
+		a->prev_signal_time = a->signal_time;
 	}
 	if (node->driver && !node->master)
 		return 0;

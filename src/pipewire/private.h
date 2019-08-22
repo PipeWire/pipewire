@@ -358,9 +358,12 @@ struct pw_node_activation {
 	uint64_t signal_time;
 	uint64_t awake_time;
 	uint64_t finish_time;
+	uint64_t prev_signal_time;
 
 	struct spa_io_position position;
-	struct pw_node_activation_state state[2];	/* one current state and one next state */
+	struct pw_node_activation_state state[2];	/* one current state and one next state,
+							 * as low bit of version in position */
+	float cpu_load[3];				/* averaged over short, medium, long time */
 };
 
 #define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)

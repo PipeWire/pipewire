@@ -276,6 +276,8 @@ struct client {
 	struct spa_list free_ports[2];
 
 	struct pw_array links;
+	uint32_t driver_id;
+	struct pw_node_activation *driver_activation;
 
 	struct pw_memmap *mem;
 	struct pw_node_activation *activation;
@@ -284,6 +286,7 @@ struct client {
 	int status;
 
 	jack_position_t jack_position;
+
 };
 
 static void init_port_pool(struct client *c, enum spa_direction direction)
@@ -851,6 +854,17 @@ static int client_node_set_param(void *object,
 	return -ENOTSUP;
 }
 
+static int update_driver_activation(struct client *c)
+{
+	struct link *link;
+
+	pw_log_debug(NAME" %p: driver %d", c, c->driver_id);
+
+	link = find_activation(&c->links, c->driver_id);
+	c->driver_activation = link ? link->activation : NULL;
+	return 0;
+}
+
 static int client_node_set_io(void *object,
 			uint32_t id,
 			uint32_t mem_id,
@@ -884,6 +898,8 @@ static int client_node_set_io(void *object,
 	switch (id) {
 	case SPA_IO_Position:
 		c->position = ptr;
+		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
+		update_driver_activation(c);
 		break;
 	default:
 		break;
@@ -1408,6 +1424,9 @@ static int client_node_set_activation(void *object,
 		}
 		clear_link(c, link);
 	}
+
+	if (c->driver_id == node_id)
+		update_driver_activation(c);
 
       exit:
 	if (res < 0)
@@ -2217,8 +2236,14 @@ int jack_engine_takeover_timebase (jack_client_t *client)
 SPA_EXPORT
 float jack_cpu_load (jack_client_t *client)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
-	return 0.0;
+	struct client *c = (struct client *) client;
+	float res = 0.0f;
+
+	if (c->driver_activation)
+		res = c->driver_activation->cpu_load[2];
+
+	pw_log_trace(NAME" %p: cpu load %f", client, res);
+	return res;
 }
 
 SPA_EXPORT

@@ -789,8 +789,8 @@ static inline void calculate_stats(struct pw_node *this,  struct pw_node_activat
 		uint64_t process_time = a->finish_time - a->signal_time;
 		uint64_t period_time = a->signal_time - a->prev_signal_time;
 		float load = (float) process_time / (float) period_time;
-		a->cpu_load[0] = (a->cpu_load[0] * 7.0f + load) / 8.0f;
-		a->cpu_load[1] = (a->cpu_load[1] * 15.0f + load) / 16.0f;
+		a->cpu_load[0] = (a->cpu_load[0] + load) / 2.0f;
+		a->cpu_load[1] = (a->cpu_load[1] * 7.0f + load) / 8.0f;
 		a->cpu_load[2] = (a->cpu_load[2] * 31.0f + load) / 32.0f;
 	}
 }
@@ -831,9 +831,10 @@ static inline int process_node(void *data)
 		calculate_stats(this, a);
 
 		pw_log_trace_fp(NAME" %p: graph completed wait:%"PRIu64" run:%"PRIu64
-				" period:%"PRIu64" cpu:%f:%f:%f", this,
+				" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", this,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time,
+				a->finish_time - a->signal_time,
 				a->signal_time - a->prev_signal_time,
 				a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
 

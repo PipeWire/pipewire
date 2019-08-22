@@ -1557,8 +1557,10 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 	struct node *this = &impl->node;
 	struct pw_memblock *m;
 
-	m = pw_mempool_find_fd(this->client->pool,
-			peer->activation->fd);
+	if (peer == impl->this.node)
+		return;
+
+	m = pw_mempool_find_fd(this->client->pool, peer->activation->fd);
 	if (m == NULL) {
 		pw_log_warn(NAME " %p: unknown peer %p fd:%d", this, peer,
 			peer->source.fd);

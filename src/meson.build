@@ -2,7 +2,6 @@ pipewire_jack_sources = [
   'pipewire-jack.c',
   'metadata.c',
   'ringbuffer.c',
-  'statistics.c',
   'uuid.c',
 ]
 

@@ -17,34 +17,38 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
 #include <jack/statistics.h>
-
-#include <pipewire/pipewire.h>
 
 SPA_EXPORT
 float jack_get_max_delayed_usecs (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
-	return 0.0f;
+	struct client *c = (struct client *) client;
+	float res = 0.0f;
+
+	if (c->driver_activation)
+		res = (float)c->driver_activation->max_delay / SPA_USEC_PER_SEC;
+
+	pw_log_trace(NAME" %p: max delay %f", client, res);
+	return res;
 }
 
 SPA_EXPORT
 float jack_get_xrun_delayed_usecs (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
-	return 0.0f;
+	struct client *c = (struct client *) client;
+	float res = 0.0f;
+
+	if (c->driver_activation)
+		res = (float)c->driver_activation->xrun_delay / SPA_USEC_PER_SEC;
+
+	pw_log_trace(NAME" %p: xrun delay %f", client, res);
+	return res;
 }
 
 SPA_EXPORT
 void jack_reset_max_delayed_usecs (jack_client_t *client)
 {
-	pw_log_warn("not implemented");
+	struct client *c = (struct client *) client;
+	if (c->driver_activation)
+		c->driver_activation->max_delay = 0;
 }

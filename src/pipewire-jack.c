@@ -2246,6 +2246,8 @@ float jack_cpu_load (jack_client_t *client)
 	return res;
 }
 
+#include "statistics.c"
+
 SPA_EXPORT
 jack_port_t * jack_port_register (jack_client_t *client,
                                   const char *port_name,

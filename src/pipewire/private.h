@@ -364,6 +364,10 @@ struct pw_node_activation {
 	struct pw_node_activation_state state[2];	/* one current state and one next state,
 							 * as low bit of version in position */
 	float cpu_load[3];				/* averaged over short, medium, long time */
+	uint32_t xrun_count;				/* number of xruns */
+	uint64_t xrun_time;				/* time of last xrun in microseconds */
+	uint64_t xrun_delay;				/* delay of last xrun in microseconds */
+	uint64_t max_delay;				/* max of all xruns in microseconds */
 };
 
 #define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)

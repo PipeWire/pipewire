@@ -1202,10 +1202,27 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	return 0;
 }
 
+static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_pod *info)
+{
+	struct pw_node *this = data;
+	struct pw_node_activation *a = this->rt.activation;
+
+	a->xrun_count++;
+	a->xrun_time = trigger;
+	a->xrun_delay = delay;
+	a->max_delay = SPA_MAX(a->max_delay, delay);
+
+	pw_log_debug(NAME" %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
+			this, a->xrun_count, trigger, delay, a->max_delay);
+
+	return 0;
+}
+
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = node_ready,
 	.reuse_buffer = node_reuse_buffer,
+	.xrun = node_xrun,
 };
 
 SPA_EXPORT

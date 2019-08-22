@@ -117,10 +117,10 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 		spa_hook_list_call_simple(hooks, struct spa_node_events,	\
 				method, version, ##__VA_ARGS__)
 
-#define spa_node_emit_info(hooks,i)		spa_node_emit(hooks,info, 0, i)
-#define spa_node_emit_port_info(hooks,d,p,i)	spa_node_emit(hooks,port_info, 0, d, p, i)
-#define spa_node_emit_result(hooks,s,r,t,res)	spa_node_emit(hooks,result, 0, s, r, t, res)
-#define spa_node_emit_event(hooks,e)		spa_node_emit(hooks,event, 0, e)
+#define spa_node_emit_info(hooks,...)		spa_node_emit(hooks,info, 0, __VA_ARGS__)
+#define spa_node_emit_port_info(hooks,...)	spa_node_emit(hooks,port_info, 0, __VA_ARGS__)
+#define spa_node_emit_result(hooks,...)		spa_node_emit(hooks,result, 0, __VA_ARGS__)
+#define spa_node_emit_event(hooks,...)		spa_node_emit(hooks,event, 0, __VA_ARGS__)
 
 
 #define spa_node_call(callbacks,method,version,...)			\
@@ -131,8 +131,9 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 	_res;								\
 })
 
-#define spa_node_call_ready(hook,s)		spa_node_call(hook, ready, 0, s)
-#define spa_node_call_reuse_buffer(hook,p,b)	spa_node_call(hook, reuse_buffer, 0, p, b)
+#define spa_node_call_ready(hook,...)		spa_node_call(hook, ready, 0, __VA_ARGS__)
+#define spa_node_call_reuse_buffer(hook,...)	spa_node_call(hook, reuse_buffer, 0, __VA_ARGS__)
+#define spa_node_call_xrun(hook,...)		spa_node_call(hook, xrun, 0, __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

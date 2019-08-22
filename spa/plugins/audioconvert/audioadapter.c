@@ -430,10 +430,17 @@ static int slave_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	return res;
 }
 
+static int slave_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_pod *info)
+{
+	struct impl *this = data;
+	return spa_node_call_xrun(&this->callbacks, trigger, delay, info);
+}
+
 static const struct spa_node_callbacks slave_node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = slave_ready,
 	.reuse_buffer = slave_reuse_buffer,
+	.xrun = slave_xrun,
 };
 
 static int impl_node_add_listener(void *object,

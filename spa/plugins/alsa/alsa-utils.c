@@ -542,17 +542,20 @@ static int alsa_recover(struct state *state, int err)
 	case SND_PCM_STATE_XRUN:
 	{
 		struct timeval now, trigger, diff;
-		uint64_t xrun, missing;
+		uint64_t delay, missing;
 
 	        snd_pcm_status_get_tstamp (status, &now);
 		snd_pcm_status_get_trigger_tstamp (status, &trigger);
                 timersub(&now, &trigger, &diff);
 
-		xrun = SPA_TIMEVAL_TO_USEC(&diff);
-		missing = xrun * state->rate / SPA_USEC_PER_SEC;
+		delay = SPA_TIMEVAL_TO_USEC(&diff);
+		missing = delay * state->rate / SPA_USEC_PER_SEC;
 
 		spa_log_error(state->log, "%p: xrun of %"PRIu64" usec %"PRIu64" %f",
-				state, xrun, missing, state->safety);
+				state, delay, missing, state->safety);
+
+		spa_node_call_xrun(&state->callbacks,
+				SPA_TIMEVAL_TO_USEC(&trigger), delay, NULL);
 
 		state->sample_count += missing ? missing : state->threshold;
 		break;

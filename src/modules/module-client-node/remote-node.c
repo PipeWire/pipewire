@@ -1036,6 +1036,7 @@ static int node_ready(void *d, int status)
 {
 	struct node_data *data = d;
 	struct pw_node *node = data->node;
+	struct pw_node_activation *a = node->rt.activation;
 	struct timespec ts;
 	struct pw_port *p;
 	uint64_t cmd = 1;
@@ -1049,8 +1050,8 @@ static int node_ready(void *d, int status)
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	node->rt.activation->status = TRIGGERED;
-	node->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
+	a->status = TRIGGERED;
+	a->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))
 		pw_log_warn("node %p: write failed %m", node);
@@ -1063,10 +1064,28 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	return 0;
 }
 
+static int node_xrun(void *d, uint64_t trigger, uint64_t delay, struct spa_pod *info)
+{
+	struct node_data *data = d;
+	struct pw_node *node = data->node;
+	struct pw_node_activation *a = node->rt.activation;
+
+	a->xrun_count++;
+	a->xrun_time = trigger;
+	a->xrun_delay = delay;
+	a->max_delay = SPA_MAX(a->max_delay, delay);
+
+	pw_log_debug("node %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
+			node, a->xrun_count, trigger, delay, a->max_delay);
+
+	return 0;
+}
+
 static const struct spa_node_callbacks node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = node_ready,
-	.reuse_buffer = node_reuse_buffer
+	.reuse_buffer = node_reuse_buffer,
+	.xrun = node_xrun
 };
 
 static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool do_free,

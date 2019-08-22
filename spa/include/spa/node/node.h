@@ -186,7 +186,8 @@ struct spa_node_events {
 
 #define SPA_NODE_CALLBACK_READY		0
 #define SPA_NODE_CALLBACK_REUSE_BUFFER	1
-#define SPA_NODE_CALLBACK_NUM		2
+#define SPA_NODE_CALLBACK_XRUN		2
+#define SPA_NODE_CALLBACK_NUM		3
 
 /** Node callbacks
  *
@@ -219,6 +220,19 @@ struct spa_node_callbacks {
 	int (*reuse_buffer) (void *data,
 			     uint32_t port_id,
 			     uint32_t buffer_id);
+
+	/**
+	 * \param data user data
+	 * \param trigger the timestamp in microseconds when the xrun happened
+	 * \param delay the amount of microseconds of xrun.
+	 * \param info an object with extra info (NULL for now)
+	 *
+	 * The node has encountered an over or underrun
+	 *
+	 * The info contains an object with more information
+	 */
+	int (*xrun) (void *data, uint64_t trigger, uint64_t delay,
+			struct spa_pod *info);
 };
 
 

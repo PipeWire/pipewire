@@ -1365,6 +1365,10 @@ impl_mix_port_enum_params(void *object, int seq,
 			   const struct spa_pod *filter)
 {
 	struct port *port = object;
+
+	if (port->direction != direction)
+		return -ENOTSUP;
+
 	return impl_node_port_enum_params(&port->node->node, seq, direction, port->id,
 			id, start, num, filter);
 }
@@ -1376,6 +1380,10 @@ impl_mix_port_set_param(void *object,
 			const struct spa_pod *param)
 {
 	struct port *port = object;
+
+	if (port->direction != direction)
+		return -ENOTSUP;
+
 	return impl_node_port_set_param(&port->node->node, direction, port->id,
 			id, flags, param);
 }

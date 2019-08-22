@@ -44,13 +44,13 @@ struct spa_event {
 #define SPA_EVENT_ID(ev,type)	(SPA_EVENT_TYPE(ev) == type ? \
 					(ev)->body.body.id : SPA_ID_INVALID)
 
-#define SPA_EVENT_INIT(type,id) (struct spa_event)			\
-	{ { sizeof(struct spa_event_body), SPA_TYPE_Object },		\
-	  { { type, id } } }						\
-
 #define SPA_EVENT_INIT_FULL(t,size,type,id,...) (t)			\
 	{ { size, SPA_TYPE_OBJECT },					\
 	  { { type, id }, ##__VA_ARGS__ } }				\
+
+#define SPA_EVENT_INIT(type,id)						\
+	SPA_EVENT_INIT_FULL(struct spa_event,				\
+			sizeof(struct spa_event_body), type, id)
 
 #ifdef __cplusplus
 }  /* extern "C" */

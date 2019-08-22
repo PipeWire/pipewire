@@ -44,10 +44,8 @@ enum spa_node_command {
 };
 
 #define SPA_NODE_COMMAND_ID(cmd)	SPA_COMMAND_ID(cmd, SPA_TYPE_COMMAND_Node)
+#define SPA_NODE_COMMAND_INIT(id)	SPA_COMMAND_INIT(SPA_TYPE_COMMAND_Node, id)
 
-#define SPA_NODE_COMMAND_INIT(id) (struct spa_command)			\
-        { { sizeof(struct spa_command_body), SPA_TYPE_Object },		\
-          { { SPA_TYPE_COMMAND_Node, id } } }				\
 
 #ifdef __cplusplus
 }  /* extern "C" */

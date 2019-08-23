@@ -376,7 +376,7 @@ handle_video_fields (ConvertData *d)
       }
 
       idx = gst_video_format_from_string (v);
-      if (idx < (int)SPA_N_ELEMENTS (video_format_map))
+      if (idx != GST_VIDEO_FORMAT_UNKNOWN && idx < (int)SPA_N_ELEMENTS (video_format_map))
         spa_pod_builder_id (&d->b, video_format_map[idx]);
     }
     choice = spa_pod_builder_pop(&d->b, &f);

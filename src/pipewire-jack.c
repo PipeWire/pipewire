@@ -706,11 +706,13 @@ static inline void debug_position(struct client *c, jack_position_t *p)
 	}
 }
 
-static inline void jack_to_position(jack_position_t *s, struct spa_io_position *d)
+static inline void jack_to_position(jack_position_t *s, struct spa_io_position *pos)
 {
+	struct spa_io_segment *d = &pos->segments[0];
+
 	d->valid = 0;
 	if (s->valid & JackPositionBBT) {
-		SPA_FLAG_SET(d->valid, SPA_IO_POSITION_VALID_BAR);
+		SPA_FLAG_SET(d->valid, SPA_IO_SEGMENT_VALID_BAR);
 
 		if (s->valid & JackBBTFrameOffset)
 			d->bar.offset = s->bbt_offset;
@@ -723,54 +725,59 @@ static inline void jack_to_position(jack_position_t *s, struct spa_io_position *
 	}
 }
 
-static inline void position_to_jack(struct spa_io_position *s, jack_position_t *d, jack_transport_state_t *state)
+static inline jack_transport_state_t position_to_jack(struct spa_io_position *s, jack_position_t *d)
 {
+	jack_transport_state_t state;
+	struct spa_io_segment *seg = &s->segments[0];
+
 	switch (s->state) {
 	default:
 	case SPA_IO_POSITION_STATE_STOPPED:
-		*state = JackTransportStopped;
+		state = JackTransportStopped;
 		break;
 	case SPA_IO_POSITION_STATE_STARTING:
-		*state = JackTransportStarting;
+		state = JackTransportStarting;
 		break;
 	case SPA_IO_POSITION_STATE_RUNNING:
-		*state = JackTransportRolling;
-		break;
-	case SPA_IO_POSITION_STATE_LOOPING:
-		*state = JackTransportLooping;
+		if (seg->flags & SPA_IO_SEGMENT_FLAG_LOOPING)
+			state = JackTransportLooping;
+		else
+			state = JackTransportRolling;
 		break;
 	}
+	if (d == NULL)
+		return state;
+
 
 	d->unique_1++;
 	d->usecs = s->clock.nsec / SPA_NSEC_PER_USEC;
 	d->frame_rate = s->clock.rate.denom;
 
-	if (s->clock.position >= s->clock_start &&
-	    (s->clock_duration == 0 || s->clock.position < s->clock_start + s->clock_duration))
-		d->frame = (s->clock.position - s->clock_start) * s->rate + s->position;
+	if (s->clock.position >= seg->clock_start &&
+	    (seg->clock_duration == 0 || s->clock.position < seg->clock_start + seg->clock_duration))
+		d->frame = (s->clock.position - seg->clock_start) * seg->rate + seg->position;
 	else
-		d->frame = s->position;
+		d->frame = seg->position;
 
 	d->valid = 0;
-
-	if (s->valid & SPA_IO_POSITION_VALID_BAR) {
+	if (seg->valid & SPA_IO_SEGMENT_VALID_BAR) {
 		double min;
 		long abs_tick, abs_beat;
 
 		d->valid |= JackPositionBBT;
 
-		d->bbt_offset = s->bar.offset;
-		if (s->bar.offset)
+		d->bbt_offset = seg->bar.offset;
+		if (seg->bar.offset)
 			d->valid |= JackBBTFrameOffset;
 
-		d->beats_per_bar = s->bar.signature_num;
-		d->beat_type = s->bar.signature_denom;
+		d->beats_per_bar = seg->bar.signature_num;
+		d->beat_type = seg->bar.signature_denom;
 		d->ticks_per_beat = 1920.0f;
-		d->beats_per_minute = s->bar.bpm;
+		d->beats_per_minute = seg->bar.bpm;
 
 		min = d->frame / ((double) d->frame_rate * 60.0);
                 abs_tick = min * d->beats_per_minute * d->ticks_per_beat;
-		abs_beat = s->bar.beat;
+		abs_beat = seg->bar.beat;
 
 		d->bar = abs_beat / d->beats_per_bar;
 		d->beat = abs_beat - (d->bar * d->beats_per_bar) + 1;
@@ -780,6 +787,7 @@ static inline void position_to_jack(struct spa_io_position *s, jack_position_t *
 		d->bar++;
 	}
 	d->unique_2 = d->unique_1;
+	return state;
 }
 
 static void
@@ -813,7 +821,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		}
 
 		nsec = pos->clock.nsec;
-		c->activation->status = AWAKE;
+		c->activation->status = PW_NODE_ACTIVATION_AWAKE;
 		c->activation->awake_time = nsec;
 
 		buffer_size = pos->clock.duration;
@@ -832,7 +840,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 				c->srate_callback(c->sample_rate, c->srate_arg);
 		}
 
-		position_to_jack(pos, &jack_position, &jack_state);
+		jack_state = position_to_jack(pos, &jack_position);
 
 		if (c->sync_callback && c->sync_emit) {
 			c->sync_callback(jack_state,
@@ -871,7 +879,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		nsec = SPA_TIMESPEC_TO_NSEC(&ts);
-		c->activation->status = FINISHED;
+		c->activation->status = PW_NODE_ACTIVATION_FINISHED;
 		c->activation->finish_time = nsec;
 
 		cmd = 1;
@@ -887,7 +895,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 					state->pending, state->required);
 
 			if (pw_node_activation_state_dec(state, 1)) {
-				l->activation->status = TRIGGERED;
+				l->activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 				l->activation->signal_time = nsec;
 
 				pw_log_trace(NAME" %p: signal %p %p", c, l, state);
@@ -2345,8 +2353,8 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 SPA_EXPORT
 int jack_engine_takeover_timebase (jack_client_t *client)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
-	return -ENOTSUP;
+	pw_log_error(NAME" %p: deprecated", client);
+	return 0;
 }
 
 SPA_EXPORT
@@ -3290,6 +3298,14 @@ int  jack_set_timebase_callback (jack_client_t *client,
 				 void *arg)
 {
 	struct client *c = (struct client *) client;
+	struct pw_node_activation *a = c->driver_activation;
+
+	if (a == NULL)
+		return -EIO;
+
+
+
+
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
 	c->timebase_emit = true;
@@ -3314,9 +3330,9 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 	struct pw_node_activation *a = c->driver_activation;
 	jack_transport_state_t jack_state = JackTransportStopped;
 
-	if (a != NULL && pos != NULL)
-		position_to_jack(&a->position, pos, &jack_state);
-	else
+	if (a != NULL)
+		jack_state = position_to_jack(&a->position, pos);
+	else if (pos != NULL)
 		memset(pos, 0, sizeof(jack_position_t));
 
 	return jack_state;
@@ -3328,14 +3344,14 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a = c->driver_activation;
 	struct spa_io_position *pos;
+	struct spa_io_segment *seg;
 	uint64_t clock_position;
 	if (!a)
 		return -1;
 
 	pos = &a->position;
 
-	if (pos->state == SPA_IO_POSITION_STATE_RUNNING ||
-	    pos->state == SPA_IO_POSITION_STATE_LOOPING) {
+	if (pos->state == SPA_IO_POSITION_STATE_RUNNING) {
 		struct timespec ts;
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		uint64_t nsecs = SPA_TIMESPEC_TO_NSEC(&ts) - pos->clock.nsec;
@@ -3344,7 +3360,9 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 	} else {
 		clock_position = pos->clock.position;
 	}
-	return (pos->clock_start - clock_position) * pos->rate + pos->position;
+	seg = &pos->segments[0];
+
+	return (seg->clock_start - clock_position) * seg->rate + seg->position;
 }
 
 SPA_EXPORT
@@ -3364,15 +3382,28 @@ int  jack_transport_reposition (jack_client_t *client,
 
 	do {
 		seq1 = SEQ_WRITE(&a->pending.seq);
-		a->pending.change_mask |= UPDATE_POSITION;
-		a->pending.position.position = pos->frame;
-		a->pending.position.clock_start = 0;
-		a->pending.position.clock_duration = 0;
-		a->pending.position.rate = 1.0;
+		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_REPOSITION;
+		a->pending.segment.flags = 0;
+		a->pending.segment.clock_start = 0;
+		a->pending.segment.clock_duration = 0;
+		a->pending.segment.position = pos->frame;
+		a->pending.segment.rate = 1.0;
 		seq2 = SEQ_WRITE(&a->pending.seq);
 	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
 
 	return 0;
+}
+
+static void update_state(struct pw_node_activation *a, enum spa_io_position_state state)
+{
+	uint32_t seq1, seq2;
+
+	do {
+		seq1 = SEQ_WRITE(&a->pending.seq);
+		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_STATE;
+		a->pending.state = state;
+		seq2 = SEQ_WRITE(&a->pending.seq);
+	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
 }
 
 SPA_EXPORT
@@ -3380,17 +3411,11 @@ void jack_transport_start (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a = c->driver_activation;
-	uint32_t seq1, seq2;
 
 	if (!a)
 		return;
 
-	do {
-		seq1 = SEQ_WRITE(&a->pending.seq);
-		a->pending.change_mask |= UPDATE_STATE;
-		a->pending.state = SPA_IO_POSITION_STATE_STARTING;
-		seq2 = SEQ_WRITE(&a->pending.seq);
-	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
+	update_state(a, SPA_IO_POSITION_STATE_STARTING);
 }
 
 SPA_EXPORT
@@ -3398,17 +3423,11 @@ void jack_transport_stop (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a = c->driver_activation;
-	uint32_t seq1, seq2;
 
 	if (!a)
 		return;
 
-	do {
-		seq1 = SEQ_WRITE(&a->pending.seq);
-		a->pending.change_mask |= UPDATE_STATE;
-		a->pending.state = SPA_IO_POSITION_STATE_STOPPED;
-		seq2 = SEQ_WRITE(&a->pending.seq);
-	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
+	update_state(a, SPA_IO_POSITION_STATE_STOPPED);
 }
 
 SPA_EXPORT

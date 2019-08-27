@@ -109,23 +109,23 @@ struct spa_io_sequence {
 	struct spa_pod_sequence sequence;	/**< sequence of timed events */
 };
 
-/** bar and beat position */
-struct spa_io_position_bar {
+/** bar and beat segment */
+struct spa_io_segment_bar {
 	uint32_t offset;		/**< offset in samples of this beat */
 	float signature_num;		/**< time signature numerator */
 	float signature_denom;		/**< time signature denominator */
 	double bpm;			/**< beats per minute */
-	double beat;			/**< current beat in position */
+	double beat;			/**< current beat in segment */
 	uint32_t padding[16];
 };
 
-/** video frame position */
-struct spa_io_position_video {
-	uint32_t offset;		/**< offset of frame against current position */
+/** video frame segment */
+struct spa_io_segment_video {
+	uint32_t offset;		/**< offset of frame against current segment */
 	struct spa_fraction framerate;
-#define SPA_IO_POSITION_VIDEO_FLAG_DROP_FRAME	(1<<0)
-#define SPA_IO_POSITION_VIDEO_FLAG_PULL_DOWN	(1<<1)
-#define SPA_IO_POSITION_VIDEO_FLAG_INTERLACED	(1<<2)
+#define SPA_IO_SEGMENT_VIDEO_FLAG_DROP_FRAME	(1<<0)
+#define SPA_IO_SEGMENT_VIDEO_FLAG_PULL_DOWN	(1<<1)
+#define SPA_IO_SEGMENT_VIDEO_FLAG_INTERLACED	(1<<2)
 	uint32_t flags;			/**< flags */
 	uint32_t hours;
 	uint32_t minutes;
@@ -135,12 +135,57 @@ struct spa_io_position_video {
 	uint32_t padding[16];
 };
 
+/**
+ * A segment converts a raw clock time to a segment (stream) position.
+ *
+ * The segment position is valid when the current clock position is between
+ * clock_start and clock_start + clock_duration. The position is then
+ * calculated as:
+ *
+ *   (clock_start - clock.position) * rate + position;
+ *
+ * Support for looping is done by specifying a non-zero duration. When the
+ * clock reaches clock_start + clock_duration, clock_duration is added to
+ * clock_start and the loop repeats.
+ *
+ * Care has to be taken when the clock.duration extends past the
+ * clock_start + clock_duration from the segment; the user should correctly
+ * wrap around and partially repeat the loop in the current cycle.
+ *
+ * Extra information can be placed in the segment by setting the valid flags
+ * and filling up the corresponding structures.
+ */
+struct spa_io_segment {
+#define SPA_IO_SEGMENT_FLAG_LOOPING	(1<<0)	/**< after the duration, the segment repeats */
+	uint32_t flags;				/**< extra flags */
+#define SPA_IO_SEGMENT_VALID_POSITION	(1<<0)
+#define SPA_IO_SEGMENT_VALID_BAR	(1<<1)
+#define SPA_IO_SEGMENT_VALID_VIDEO	(1<<2)
+	uint32_t valid;				/**< indicates what fields are valid below */
+	uint64_t clock_start;			/**< position against clock position when this
+						  *  info is active. Can be in the future for
+						  *  pending changes. It does not have to be in
+						  *  exact multiples of the clock duration. */
+	uint64_t clock_duration;		/**< duration when this info becomes invalid. If
+						  *  the duration is 0, this segment extends to the
+						  *  next segment. If the segment becomes invalid and
+						  *  the looping flag is set, the segment is repeats. */
+	uint64_t position;			/**< The position when the clock == clock_start. */
+	double rate;				/**< overal rate of the graph, can be negative for
+						  *  backwards time reporting. */
+
+	struct spa_io_segment_bar bar;		/**< when valid & SPA_IO_SEGMENT_VALID_BAR */
+	struct spa_io_segment_video video;	/**< when valid & SPA_IO_SEGMENT_VALID_VIDEO */
+};
+
 enum spa_io_position_state {
 	SPA_IO_POSITION_STATE_STOPPED,
 	SPA_IO_POSITION_STATE_STARTING,
 	SPA_IO_POSITION_STATE_RUNNING,
-	SPA_IO_POSITION_STATE_LOOPING,
 };
+
+/** the maximum number of segments visible in the future */
+#define SPA_IO_POSITION_MAX_SEGMENTS	8
 
 /**
  * The position information adds extra meaning to the raw clock times.
@@ -148,39 +193,19 @@ enum spa_io_position_state {
  * It is set on all nodes and the clock id will contain the clock of the
  * master node in the graph.
  *
- * The position is valid when the current clock position is between
- * start_position and end_position. The position is then calculated as:
- *
- *   (clock_start - clock.position) * rate + position;
- *
- * Support for looping is done by specifying an end_position. When the
- * clock reaches the end_position, end_position is copied to start_position
- * and start_position is incremented with the same duration as the previous
- * loop.
+ * The position information contains 1 or more segments that convert the
+ * raw clock times to a stream time. They are sorted based on their
+ * clock_start times, and thus the order in which they will activate in
+ * the future. This makes it possible to look ahead in the scheduled
+ * segments and anticipate the changes in the timeline.
  */
 struct spa_io_position {
 	struct spa_io_clock clock;		/**< clock position of driver, always valid and
 						  *  read only */
-	uint32_t flags;				/**< extra flags */
 	uint32_t state;				/**< one of enum spa_io_position_state */
-	uint64_t clock_start;			/**< position against clock position when this
-						  *  info is active. Can be in the future for
-						  *  pending changes. It does not have to be in
-						  *  exact multiples of the clock duration. */
-	uint64_t clock_duration;		/**< duration when this info becomes invalid. If
-						  *  RUNNING, the state will transition to STOPPED.
-						  *  If the state was LOOPING, the clock_start will
-						  *  be updated with the duration of this info */
-	uint64_t position;			/**< The position when the clock position == clock_start */
 
-	double rate;				/**< overal rate of the graph, can be negative for
-						  *  backwards time reporting. */
-
-#define SPA_IO_POSITION_VALID_BAR	(1<<0)
-#define SPA_IO_POSITION_VALID_VIDEO	(1<<1)
-	uint32_t valid;				/**< indicates what fields are valid */
-	struct spa_io_position_bar bar;		/**< when mask & SPA_IO_POSITION_VALID_BAR */
-	struct spa_io_position_video video;	/**< when mask & SPA_IO_POSITION_VALID_VIDEO */
+	uint32_t n_segments;			/**< number of segments */
+	struct spa_io_segment segments[SPA_IO_POSITION_MAX_SEGMENTS];	/**< segments */
 };
 
 /** rate matching */

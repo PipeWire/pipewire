@@ -768,7 +768,7 @@ static inline int resume_node(struct pw_node *this, int status)
 
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
-	activation->status = FINISHED;
+	activation->status = PW_NODE_ACTIVATION_FINISHED;
 	activation->finish_time = nsec;
 
 	pw_log_trace_fp(NAME" %p: trigger peers %"PRIu64, this, nsec);
@@ -782,7 +782,7 @@ static inline int resume_node(struct pw_node *this, int status)
                                 state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state, 1)) {
-			t->activation->status = TRIGGERED;
+			t->activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 			t->activation->signal_time = nsec;
 			t->signal(t->data);
 		}
@@ -812,7 +812,7 @@ static inline int process_node(void *data)
 	int status;
 
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
-	a->status = AWAKE;
+	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	pw_log_trace_fp(NAME" %p: process %"PRIu64, this, a->awake_time);
@@ -830,7 +830,7 @@ static inline int process_node(void *data)
 
 	if (this == this->driver_node && !this->exported) {
 		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
-		a->status = FINISHED;
+		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->signal_time = a->finish_time;
 		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
@@ -963,7 +963,6 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->rt.activation->position.clock.rate = SPA_FRACTION(1, 48000);
 	this->rt.activation->position.clock.duration = DEFAULT_QUANTUM;
-	this->rt.activation->position.rate = 1.0;
 
 	check_properties(this);
 
@@ -1164,47 +1163,63 @@ static const struct spa_node_events node_events = {
 static void update_position(struct pw_node *node)
 {
 	struct pw_node_activation *a = node->rt.activation;
-	struct spa_io_position position;
+	struct spa_io_segment segment, *seg;
 	uint32_t seq1, seq2, change_mask;
 	enum spa_io_position_state state;
 
 	seq1 = SEQ_READ(&a->pending.seq);
 	change_mask = a->pending.change_mask;
 	state = a->pending.state;
-	position = a->pending.position;
+	segment = a->pending.segment;
 	seq2 = SEQ_READ(&a->pending.seq);
 
+	/* if we can't read a stable update, just ignore it and process it
+	 * in the next cycle. */
         if (SEQ_READ_SUCCESS(seq1, seq2))
 		a->pending.change_mask = 0;
 	else
 		change_mask = 0;
 
-	if (change_mask & UPDATE_POSITION) {
-		pw_log_debug("update position:%lu", position.position);
-		a->position.position = position.position;
-		a->position.clock_start = position.clock_start;
-		a->position.clock_duration = position.clock_duration;
-		a->position.rate = position.rate;
+	seg = &a->position.segments[0];
+
+	if (change_mask & PW_NODE_ACTIVATION_UPDATE_SEGMENT) {
+		pw_log_debug("update segment");
+		if (segment.valid & SPA_IO_SEGMENT_VALID_BAR) {
+			seg->bar = segment.bar;
+			seg->valid |= SPA_IO_SEGMENT_VALID_BAR;
+		}
+		if (segment.valid & SPA_IO_SEGMENT_VALID_VIDEO) {
+			seg->video = segment.video;
+			seg->valid |= SPA_IO_SEGMENT_VALID_BAR;
+		}
 	}
-	if (change_mask & UPDATE_STATE) {
+	if (change_mask & PW_NODE_ACTIVATION_UPDATE_REPOSITION) {
+		pw_log_debug("update position:%lu", segment.position);
+		seg->flags = segment.flags;
+		seg->clock_start = segment.clock_start;
+		seg->clock_duration = segment.clock_duration;
+		seg->position = segment.position;
+		seg->rate = segment.rate;
+	}
+	if (change_mask & PW_NODE_ACTIVATION_UPDATE_STATE) {
 		switch (state) {
 		case SPA_IO_POSITION_STATE_STOPPED:
+		case SPA_IO_POSITION_STATE_RUNNING:
 			a->position.state = state;
 			break;
 		case SPA_IO_POSITION_STATE_STARTING:
 			a->position.state = SPA_IO_POSITION_STATE_RUNNING;
 			break;
-		case SPA_IO_POSITION_STATE_RUNNING:
-		case SPA_IO_POSITION_STATE_LOOPING:
-			a->position.state = state;
-			break;
 		}
 	}
-	if (a->position.clock_start == 0)
-		a->position.clock_start = a->position.clock.position;
+	if (seg->rate == 0.0)
+		seg->rate = 1.0;
+
+	if (seg->clock_start == 0)
+		seg->clock_start = a->position.clock.position;
 
 	if (a->position.state == SPA_IO_POSITION_STATE_STOPPED)
-		a->position.clock_start += a->position.clock.duration;
+		seg->clock_start += a->position.clock.duration;
 }
 
 static int node_ready(void *data, int status)
@@ -1227,7 +1242,7 @@ static int node_ready(void *data, int status)
 		}
 		spa_list_for_each(t, &driver->rt.target_list, link) {
 			pw_node_activation_state_reset(&t->activation->state[0]);
-			t->activation->status = NOT_TRIGGERED;
+			t->activation->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
 		}
 		a->prev_signal_time = a->signal_time;
 

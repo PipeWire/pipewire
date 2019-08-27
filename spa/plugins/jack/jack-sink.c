@@ -333,19 +333,25 @@ static void client_process(void *data)
 	if (this->position) {
 		jack_position_t *jp = &this->client->pos;
 		struct spa_io_position *p = this->position;
+		struct spa_io_segment *s;
 
-		p->rate = 1.0;
-		p->valid = 0;
+		p->n_segments = 1;
+		s = &p->segments[0];
+
+		s->flags = SPA_IO_SEGMENT_VALID_POSITION;
+		s->position = jp->frame;
+		s->rate = 1.0;
+		s->valid = 0;
 		if (jp->valid & JackPositionBBT) {
-			p->valid |= SPA_IO_POSITION_VALID_BAR;
+			s->valid |= SPA_IO_SEGMENT_VALID_BAR;
 			if (jp->valid & JackBBTFrameOffset)
-				p->bar.offset = jp->bbt_offset;
+				s->bar.offset = jp->bbt_offset;
 			else
-				p->bar.offset = 0;
-			p->bar.signature_num = jp->beats_per_bar;
-			p->bar.signature_denom = jp->beat_type;
-			p->bar.bpm = jp->beats_per_minute;
-			p->bar.beat = jp->bar * jp->beats_per_bar + jp->beat;
+				s->bar.offset = 0;
+			s->bar.signature_num = jp->beats_per_bar;
+			s->bar.signature_denom = jp->beat_type;
+			s->bar.bpm = jp->beats_per_minute;
+			s->bar.beat = jp->bar * jp->beats_per_bar + jp->beat;
 		}
 	}
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);

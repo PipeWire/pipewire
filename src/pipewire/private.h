@@ -349,10 +349,10 @@ struct pw_node_target {
 };
 
 struct pw_node_activation {
-#define NOT_TRIGGERED	0
-#define TRIGGERED	1
-#define AWAKE		2
-#define FINISHED	3
+#define PW_NODE_ACTIVATION_NOT_TRIGGERED	0
+#define PW_NODE_ACTIVATION_TRIGGERED		1
+#define PW_NODE_ACTIVATION_AWAKE		2
+#define PW_NODE_ACTIVATION_FINISHED		3
 	int status;
 
 	uint64_t signal_time;
@@ -361,21 +361,32 @@ struct pw_node_activation {
 	uint64_t prev_signal_time;
 
 	struct spa_io_position position;
+	uint32_t segment_master[32];			/* unique id (client id usually) of client
+							 * that will update extra segment info, There
+							 * can be one master for each segment
+							 * bitfield */
+
+	uint32_t version;
 	struct pw_node_activation_state state[2];	/* one current state and one next state,
-							 * as low bit of version in position */
+							 * as low bit of version */
 	float cpu_load[3];				/* averaged over short, medium, long time */
 	uint32_t xrun_count;				/* number of xruns */
 	uint64_t xrun_time;				/* time of last xrun in microseconds */
 	uint64_t xrun_delay;				/* delay of last xrun in microseconds */
 	uint64_t max_delay;				/* max of all xruns in microseconds */
 
+
 	struct {
 		uint32_t seq;
-#define UPDATE_STATE		(1<<0)
-#define UPDATE_POSITION		(1<<1)
+#define PW_NODE_ACTIVATION_UPDATE_STATE		(1<<0)
+#define PW_NODE_ACTIVATION_UPDATE_SEGMENT	(1<<1)
+#define PW_NODE_ACTIVATION_UPDATE_REPOSITION	(1<<2)
 		uint32_t change_mask;
 		enum spa_io_position_state state;
-		struct spa_io_position position;
+		struct spa_io_segment segment;		/* update for the extra segment info
+							 * fields. When REPOSITION update, the segment
+							 * position field will contain the desired
+							 * new position. */
 	} pending;
 };
 

@@ -774,7 +774,7 @@ static int link_signal_func(void *user_data)
 	pw_log_trace("link %p: signal", link);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	link->target.activation->status = TRIGGERED;
+	link->target.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 	link->target.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (write(link->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
@@ -1050,7 +1050,7 @@ static int node_ready(void *d, int status)
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	a->status = TRIGGERED;
+	a->status = PW_NODE_ACTIVATION_TRIGGERED;
 	a->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))

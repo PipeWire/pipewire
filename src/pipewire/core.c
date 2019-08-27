@@ -1093,8 +1093,8 @@ static int collect_nodes(struct pw_node *driver)
 	}
 	quantum = SPA_MAX(quantum, MIN_QUANTUM);
 
-	if (driver->rt.position && quantum != driver->rt.position->size)
-		driver->rt.position->size = quantum;
+	if (driver->rt.position && quantum != driver->rt.position->clock.duration)
+		driver->rt.position->clock.duration = quantum;
 
 	return 0;
 }
@@ -1161,8 +1161,8 @@ int pw_core_recalc_graph(struct pw_core *core)
 	spa_list_for_each(n, &core->driver_list, driver_link) {
 		if (!n->master)
 			continue;
-		pw_log_info(NAME" %p: master %p quantum:%d '%s'", core, n,
-				n->rt.position ? n->rt.position->size : 0, n->name);
+		pw_log_info(NAME" %p: master %p quantum:%"PRIu64" '%s'", core, n,
+				n->rt.position ? n->rt.position->clock.duration : 0, n->name);
 		spa_list_for_each(s, &n->slave_list, slave_link)
 			pw_log_info(NAME" %p: slave %p: active:%d '%s'",
 					core, s, s->active, s->name);

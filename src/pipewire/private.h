@@ -368,6 +368,15 @@ struct pw_node_activation {
 	uint64_t xrun_time;				/* time of last xrun in microseconds */
 	uint64_t xrun_delay;				/* delay of last xrun in microseconds */
 	uint64_t max_delay;				/* max of all xruns in microseconds */
+
+	struct {
+		uint32_t seq;
+#define UPDATE_STATE		(1<<0)
+#define UPDATE_POSITION		(1<<1)
+		uint32_t change_mask;
+		enum spa_io_position_state state;
+		struct spa_io_position position;
+	} pending;
 };
 
 #define SEQ_WRITE(s)			__atomic_add_fetch((s), 1, __ATOMIC_SEQ_CST)

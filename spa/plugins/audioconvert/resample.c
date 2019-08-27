@@ -750,7 +750,7 @@ static int impl_node_process(void *object)
 	maxsize = db->datas[0].maxsize;
 
 	if (this->io_position) {
-		max = this->io_position->size;
+		max = this->io_position->clock.duration;
 	} else {
 		max = 1024;
 	}

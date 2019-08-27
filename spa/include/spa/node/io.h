@@ -70,17 +70,31 @@ struct spa_io_range {
 	uint32_t max_size;	/**< maximum size of data */
 };
 
-/** A time source. Nodes that can report clocking information will
- * receive this. The application sets the id. */
+/**
+ * Absolute time reporting.
+ *
+ * Nodes that can report clocking information will receive this io block.
+ * The application sets the id. This is usually set as part of the
+ * position information but can also be set separately.
+ *
+ * The clock counts the elapsed time according to the clock provider
+ * since the provider was last started.
+ */
 struct spa_io_clock {
 	uint32_t id;			/**< unique clock id, set by application */
 	uint32_t flags;			/**< clock flags */
 	uint64_t nsec;			/**< time in nanoseconds */
-	struct spa_fraction rate;	/**< rate for position/delay */
+	uint64_t count;			/**< a media specific counter. Can be used to detect
+					  *  gaps in the media. It usually represents the amount
+					  *  of processed media units (packets, frames,
+					  *  samples, ...) */
+	struct spa_fraction rate;	/**< rate for position/duration/delay */
 	uint64_t position;		/**< current position */
+	uint64_t duration;		/**< duration of current cycle */
 	int64_t delay;			/**< delay between position and hardware,
 					  *  positive for capture, negative for playback */
 	double rate_diff;		/**< rate difference between clock and monotonic time */
+	uint64_t next_nsec;		/**< extimated next wakup time in nanoseconds */
 };
 
 /** latency reporting */
@@ -97,21 +111,17 @@ struct spa_io_sequence {
 
 /** bar and beat position */
 struct spa_io_position_bar {
-	uint32_t size;			/**< size of this structure */
-	uint32_t offset;		/**< offset of last bar in samples against current cycle */
-	struct spa_fraction signature;	/**< time signature */
+	uint32_t offset;		/**< offset in samples of this beat */
+	float signature_num;		/**< time signature numerator */
+	float signature_denom;		/**< time signature denominator */
 	double bpm;			/**< beats per minute */
-	double bar;			/**< current bar in quarter notes */
-	double last_bar;		/**< position of last bar in quarter notes */
-	double cycle_start;		/**< cycle start in quarter notes */
-	double cycle_end;		/**< cycle end in quarter notes */
+	double beat;			/**< current beat in position */
 	uint32_t padding[16];
 };
 
 /** video frame position */
 struct spa_io_position_video {
-	uint32_t size;			/**< size of this structure */
-	uint32_t offset;		/**< offset of frame against current cycle */
+	uint32_t offset;		/**< offset of frame against current position */
 	struct spa_fraction framerate;
 #define SPA_IO_POSITION_VIDEO_FLAG_DROP_FRAME	(1<<0)
 #define SPA_IO_POSITION_VIDEO_FLAG_PULL_DOWN	(1<<1)
@@ -125,18 +135,52 @@ struct spa_io_position_video {
 	uint32_t padding[16];
 };
 
-/** position reporting */
+enum spa_io_position_state {
+	SPA_IO_POSITION_STATE_STOPPED,
+	SPA_IO_POSITION_STATE_STARTING,
+	SPA_IO_POSITION_STATE_RUNNING,
+	SPA_IO_POSITION_STATE_LOOPING,
+};
+
+/**
+ * The position information adds extra meaning to the raw clock times.
+ *
+ * It is set on all nodes and the clock id will contain the clock of the
+ * master node in the graph.
+ *
+ * The position is valid when the current clock position is between
+ * start_position and end_position. The position is then calculated as:
+ *
+ *   (clock_start - clock.position) * rate + position;
+ *
+ * Support for looping is done by specifying an end_position. When the
+ * clock reaches the end_position, end_position is copied to start_position
+ * and start_position is incremented with the same duration as the previous
+ * loop.
+ */
 struct spa_io_position {
 	struct spa_io_clock clock;		/**< clock position of driver, always valid and
 						  *  read only */
-	uint32_t version;			/**< current graph version */
-	uint32_t size;				/**< size of current cycle expressed in clock.rate */
-	struct spa_fraction rate;		/**< overal rate of the graph */
-#define SPA_IO_POSITION_FLAG_BAR	(1<<0)
-#define SPA_IO_POSITION_FLAG_VIDEO	(1<<1)
-	uint64_t flags;				/**< flags indicate what fields are valid */
-	struct spa_io_position_bar bar;		/**< when mask & SPA_IO_POSITION_FLAG_BAR*/
-	struct spa_io_position_video video;	/**< when mask & SPA_IO_POSITION_FLAG_VIDEO */
+	uint32_t flags;				/**< extra flags */
+	uint32_t state;				/**< one of enum spa_io_position_state */
+	uint64_t clock_start;			/**< position against clock position when this
+						  *  info is active. Can be in the future for
+						  *  pending changes. It does not have to be in
+						  *  exact multiples of the clock duration. */
+	uint64_t clock_duration;		/**< duration when this info becomes invalid. If
+						  *  RUNNING, the state will transition to STOPPED.
+						  *  If the state was LOOPING, the clock_start will
+						  *  be updated with the duration of this info */
+	uint64_t position;			/**< The position when the clock position == clock_start */
+
+	double rate;				/**< overal rate of the graph, can be negative for
+						  *  backwards time reporting. */
+
+#define SPA_IO_POSITION_VALID_BAR	(1<<0)
+#define SPA_IO_POSITION_VALID_VIDEO	(1<<1)
+	uint32_t valid;				/**< indicates what fields are valid */
+	struct spa_io_position_bar bar;		/**< when mask & SPA_IO_POSITION_VALID_BAR */
+	struct spa_io_position_video video;	/**< when mask & SPA_IO_POSITION_VALID_VIDEO */
 };
 
 /** rate matching */

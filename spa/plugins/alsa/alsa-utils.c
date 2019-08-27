@@ -656,11 +656,14 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 			state->rate_match->rate = SPA_CLAMP(1.0/corr, 0.95, 1.05);
 	}
 	if (!slave && state->clock) {
-		state->clock->nsec = state->next_time;
+		state->clock->nsec = nsec;
 		state->clock->rate = SPA_FRACTION(1, state->rate);
-		state->clock->position += state->size;
-		state->clock->delay = state->size * corr;
+		state->clock->position += state->duration;
+		state->clock->duration = state->duration;
+		state->clock->count = state->clock->position;
+		state->clock->delay = state->duration * corr;
 		state->clock->rate_diff = corr;
+		state->clock->next_nsec = state->next_time;
 	}
 
 	spa_log_trace_fp(state->log, "slave:%d %"PRIu64" %f %ld %f %f %d", slave, nsec,
@@ -680,9 +683,9 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written;
 	int res;
 
-	if (state->position && state->size != state->position->size) {
-		state->size = state->position->size;
-		state->threshold = (state->size * state->rate + state->rate_denom-1) / state->rate_denom;
+	if (state->position && state->duration != state->position->clock.duration) {
+		state->duration = state->position->clock.duration;
+		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}
 
 	if (state->slaved && state->alsa_started) {
@@ -877,21 +880,21 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	int res;
 
 	if (state->position && !state->slaved) {
-		uint64_t position, size;
+		uint64_t position, duration;
 
-		size = state->position->size;
-		if (state->size != size) {
-			state->size = size;
-			state->threshold = (size * state->rate + state->rate_denom-1) / state->rate_denom;
+		duration = state->position->clock.duration;
+		if (state->duration != duration) {
+			state->duration = duration;
+			state->threshold = (duration * state->rate + state->rate_denom-1) / state->rate_denom;
 		}
 		position = state->position->clock.position;
-		if (state->last_position && state->last_position + state->last_size != position) {
+		if (state->last_position && state->last_position + state->last_duration != position) {
 			state->alsa_sync = true;
 			spa_log_warn(state->log, "discont, resync %"PRIu64" %"PRIu64" %d",
-					state->last_position, position, state->last_size);
+					state->last_position, position, state->last_duration);
 		}
 		state->last_position = position;
-		state->last_size = size;
+		state->last_duration = duration;
 	}
 
 	if (state->slaved && state->alsa_started) {
@@ -1031,8 +1034,8 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		spa_log_warn(state->log, "error reading timerfd: %m");
 
 	if (state->position) {
-		state->size = state->position->size;
-		state->threshold = (state->size * state->rate + state->rate_denom-1) / state->rate_denom;
+		state->duration = state->position->clock.duration;
+		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}
 
 	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &state->now);
@@ -1099,15 +1102,15 @@ int spa_alsa_start(struct state *state)
 	state->slaved = is_slaved(state);
 
 	if (state->position) {
-		state->size = state->position->size;
+		state->duration = state->position->clock.duration;
 		state->rate_denom = state->position->clock.rate.denom;
 	}
 	else {
-		state->size = state->props.min_latency;
+		state->duration = state->props.min_latency;
 		state->rate_denom = state->rate;
 	}
 
-	state->threshold = (state->size * state->rate + state->rate_denom-1) / state->rate_denom;
+	state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	state->last_threshold = state->threshold;
 
 	init_loop(state);

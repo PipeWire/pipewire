@@ -128,8 +128,8 @@ struct state {
 	uint32_t threshold;
 	uint32_t last_threshold;
 
-	uint32_t size;
-	uint32_t last_size;
+	uint32_t duration;
+	uint32_t last_duration;
 	uint64_t last_position;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;

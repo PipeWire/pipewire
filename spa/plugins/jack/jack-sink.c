@@ -322,32 +322,30 @@ static void client_process(void *data)
 	if (this->clock) {
 		struct spa_io_clock *c = this->clock;
 		c->nsec = this->client->current_usecs * SPA_NSEC_PER_USEC;
+		c->count = this->client->current_frames;
 		c->rate = SPA_FRACTION(1, this->client->frame_rate);
 		c->position = this->client->current_frames;
+		c->duration = this->client->buffer_size;
 		c->delay = 0;
 		c->rate_diff = 1.0;
+		c->next_nsec = this->client->next_usecs * SPA_NSEC_PER_USEC;
 	}
 	if (this->position) {
 		jack_position_t *jp = &this->client->pos;
 		struct spa_io_position *p = this->position;
 
-		p->version = 0;
-		p->size = this->client->buffer_size;
-		p->rate = SPA_FRACTION(1, this->client->frame_rate);
-		p->flags = 0;
+		p->rate = 1.0;
+		p->valid = 0;
 		if (jp->valid & JackPositionBBT) {
-			p->flags |= SPA_IO_POSITION_FLAG_BAR;
-			p->bar.size = sizeof(struct spa_io_position_bar);
+			p->valid |= SPA_IO_POSITION_VALID_BAR;
 			if (jp->valid & JackBBTFrameOffset)
 				p->bar.offset = jp->bbt_offset;
 			else
 				p->bar.offset = 0;
-			p->bar.signature = SPA_FRACTION(jp->beats_per_bar, jp->beat_type);
+			p->bar.signature_num = jp->beats_per_bar;
+			p->bar.signature_denom = jp->beat_type;
 			p->bar.bpm = jp->beats_per_minute;
-			p->bar.bar = jp->bar;
-			p->bar.last_bar = jp->bar;
-			p->bar.cycle_start = jp->bar;
-			p->bar.cycle_end = jp->bar;
+			p->bar.beat = jp->bar * jp->beats_per_bar + jp->beat;
 		}
 	}
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);

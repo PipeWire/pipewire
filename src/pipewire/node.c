@@ -962,7 +962,8 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->rt.driver_target.signal = process_node;
 
 	this->rt.activation->position.clock.rate = SPA_FRACTION(1, 48000);
-	this->rt.activation->position.size = DEFAULT_QUANTUM;
+	this->rt.activation->position.clock.duration = DEFAULT_QUANTUM;
+	this->rt.activation->position.rate = 1.0;
 
 	check_properties(this);
 
@@ -1160,6 +1161,52 @@ static const struct spa_node_events node_events = {
 	.event = node_event,
 };
 
+static void update_position(struct pw_node *node)
+{
+	struct pw_node_activation *a = node->rt.activation;
+	struct spa_io_position position;
+	uint32_t seq1, seq2, change_mask;
+	enum spa_io_position_state state;
+
+	seq1 = SEQ_READ(&a->pending.seq);
+	change_mask = a->pending.change_mask;
+	state = a->pending.state;
+	position = a->pending.position;
+	seq2 = SEQ_READ(&a->pending.seq);
+
+        if (SEQ_READ_SUCCESS(seq1, seq2))
+		a->pending.change_mask = 0;
+	else
+		change_mask = 0;
+
+	if (change_mask & UPDATE_POSITION) {
+		pw_log_debug("update position:%lu", position.position);
+		a->position.position = position.position;
+		a->position.clock_start = position.clock_start;
+		a->position.clock_duration = position.clock_duration;
+		a->position.rate = position.rate;
+	}
+	if (change_mask & UPDATE_STATE) {
+		switch (state) {
+		case SPA_IO_POSITION_STATE_STOPPED:
+			a->position.state = state;
+			break;
+		case SPA_IO_POSITION_STATE_STARTING:
+			a->position.state = SPA_IO_POSITION_STATE_RUNNING;
+			break;
+		case SPA_IO_POSITION_STATE_RUNNING:
+		case SPA_IO_POSITION_STATE_LOOPING:
+			a->position.state = state;
+			break;
+		}
+	}
+	if (a->position.clock_start == 0)
+		a->position.clock_start = a->position.clock.position;
+
+	if (a->position.state == SPA_IO_POSITION_STATE_STOPPED)
+		a->position.clock_start += a->position.clock.duration;
+}
+
 static int node_ready(void *data, int status)
 {
 	struct pw_node *node = data;
@@ -1183,6 +1230,8 @@ static int node_ready(void *data, int status)
 			t->activation->status = NOT_TRIGGERED;
 		}
 		a->prev_signal_time = a->signal_time;
+
+		update_position(node);
 	}
 	if (node->driver && !node->master)
 		return 0;

@@ -753,9 +753,9 @@ static inline jack_transport_state_t position_to_jack(struct spa_io_position *s,
 	d->usecs = s->clock.nsec / SPA_NSEC_PER_USEC;
 	d->frame_rate = s->clock.rate.denom;
 
-	if (s->clock.position >= seg->clock_start &&
-	    (seg->clock_duration == 0 || s->clock.position < seg->clock_start + seg->clock_duration))
-		d->frame = (s->clock.position - seg->clock_start) * seg->rate + seg->position;
+	if (s->clock.position >= seg->start &&
+	    (seg->duration == 0 || s->clock.position < seg->start + seg->duration))
+		d->frame = (s->clock.position - seg->start) * seg->rate + seg->position;
 	else
 		d->frame = seg->position;
 
@@ -3345,7 +3345,7 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 	struct pw_node_activation *a = c->driver_activation;
 	struct spa_io_position *pos;
 	struct spa_io_segment *seg;
-	uint64_t clock_position;
+	uint64_t position;
 	if (!a)
 		return -1;
 
@@ -3356,13 +3356,13 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		uint64_t nsecs = SPA_TIMESPEC_TO_NSEC(&ts) - pos->clock.nsec;
 		uint64_t elapsed = (uint64_t)floor((((float) c->sample_rate) / SPA_NSEC_PER_SEC) * nsecs);
-		clock_position = pos->clock.position + elapsed;
+		position = pos->clock.position + elapsed;
 	} else {
-		clock_position = pos->clock.position;
+		position = pos->clock.position;
 	}
 	seg = &pos->segments[0];
 
-	return (seg->clock_start - clock_position) * seg->rate + seg->position;
+	return (seg->start - position) * seg->rate + seg->position;
 }
 
 SPA_EXPORT
@@ -3384,8 +3384,8 @@ int  jack_transport_reposition (jack_client_t *client,
 		seq1 = SEQ_WRITE(&a->pending.seq);
 		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_REPOSITION;
 		a->pending.segment.flags = 0;
-		a->pending.segment.clock_start = 0;
-		a->pending.segment.clock_duration = 0;
+		a->pending.segment.start = 0;
+		a->pending.segment.duration = 0;
 		a->pending.segment.position = pos->frame;
 		a->pending.segment.rate = 1.0;
 		seq2 = SEQ_WRITE(&a->pending.seq);

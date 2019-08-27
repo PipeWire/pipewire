@@ -370,6 +370,12 @@ struct pw_node_activation {
 	uint64_t max_delay;				/* max of all xruns in microseconds */
 };
 
+#define SEQ_WRITE(s)			__atomic_add_fetch((s), 1, __ATOMIC_SEQ_CST)
+#define SEQ_WRITE_SUCCESS(s1,s2)	((s1) + 1 == (s2) && (s2 & 1) == 0)
+
+#define SEQ_READ(s)			__atomic_load_n((s), __ATOMIC_SEQ_CST)
+#define SEQ_READ_SUCCESS(s1,s2)		((s1) == (s2) && (s2 & 1) == 0)
+
 #define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
 #define pw_node_emit_destroy(n)			pw_node_emit(n, destroy, 0)
 #define pw_node_emit_free(n)			pw_node_emit(n, free, 0)

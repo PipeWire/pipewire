@@ -729,13 +729,13 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 {
 	struct spa_io_position *p = impl->position;
 	if (p != NULL) {
-		__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
+		SEQ_WRITE(&impl->seq);
 		impl->time.now = p->clock.nsec;
 		impl->time.rate = p->clock.rate;
 		impl->time.ticks = p->clock.position;
 		impl->time.delay = p->clock.delay;
 		impl->time.queued = queued;
-		__atomic_add_fetch(&impl->seq, 1, __ATOMIC_SEQ_CST);
+		SEQ_WRITE(&impl->seq);
 	}
 }
 
@@ -1638,10 +1638,10 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	uintptr_t seq1, seq2;
 
 	do {
-		seq1 = __atomic_load_n(&impl->seq, __ATOMIC_SEQ_CST);
+		seq1 = SEQ_READ(&impl->seq);
 		*time = impl->time;
-		seq2 = __atomic_load_n(&impl->seq, __ATOMIC_SEQ_CST);
-	} while (seq1 != seq2 || seq1 & 1);
+		seq2 = SEQ_READ(&impl->seq);
+	} while (!SEQ_READ_SUCCESS(seq1, seq2));
 
 	if (impl->direction == SPA_DIRECTION_INPUT)
 		time->queued = (int64_t)(time->queued - impl->dequeued.outcount);

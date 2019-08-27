@@ -601,6 +601,8 @@ int pw_node_register(struct pw_node *this,
 	spa_list_for_each(port, &this->output_ports, link)
 		pw_port_register(port, NULL);
 
+	pw_core_recalc_graph(core);
+
 	return 0;
 
 error_existed:
@@ -705,6 +707,11 @@ static void check_properties(struct pw_node *node)
 		driver = pw_properties_parse_bool(str);
 	else
 		driver = false;
+
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_ALWAYS_PROCESS)))
+		node->want_driver = pw_properties_parse_bool(str);
+	else
+		node->want_driver = false;
 
 	if (node->driver != driver) {
 		pw_log_info(NAME" %p: driver %d -> %d", node, node->driver, driver);

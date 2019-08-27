@@ -121,6 +121,7 @@ extern "C" {
 #define PW_KEY_NODE_LATENCY		"node.latency"		/**< the requested latency of the node as
 								  *  a fraction. Ex: 128/48000 */
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node */
+#define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */
 #define PW_KEY_NODE_PAUSE_ON_IDLE	"node.pause-on-idle"	/**< pause the node when idle */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should

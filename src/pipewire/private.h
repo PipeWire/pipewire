@@ -419,6 +419,7 @@ struct pw_node {
 	unsigned int master:1;		/**< a master node is one of the driver nodes that
 					  *  is selected to drive the graph */
 	unsigned int visited:1;		/**< for sorting */
+	unsigned int want_driver:1;	/**< this node wants to be assigned to a driver */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

@@ -1101,22 +1101,63 @@ static int collect_nodes(struct pw_node *driver)
 
 int pw_core_recalc_graph(struct pw_core *core)
 {
-	struct pw_node *n, *s;
+	struct pw_node *n, *s, *target;
 
+	/* start from all drivers and group all nodes that are linked
+	 * to it. Some nodes are not (yet) linked to anything and they
+	 * will end up 'unassigned' to a master. Other nodes are master
+	 * and if they have active slaves, we can use them to schedule
+	 * the unassigned nodes. */
+	target = NULL;
 	spa_list_for_each(n, &core->driver_list, driver_link) {
-		if (!n->visited)
+		uint32_t active_slaves;
+
+		if (n->active && !n->visited)
 			collect_nodes(n);
+
+		/* from now on we are only interested in nodes that are
+		 * a master. We're going to count the number of slaves it
+		 * has. */
+		if (!n->master)
+			continue;
+
+		active_slaves = 0;
+		spa_list_for_each(s, &n->slave_list, slave_link) {
+			pw_log_info(NAME" %p: driver %p: slave %p %s: %d",
+					core, n, s, s->name, s->active);
+			if (s != n && s->active)
+				active_slaves++;
+		}
+		pw_log_info(NAME" %p: driver %p active slaves %d",
+				core, n, active_slaves);
+
+		/* if the master has active slaves, it is a target for our
+		 * unassigned nodes */
+		if (active_slaves > 0) {
+			if (target == NULL)
+				target = n;
+		}
 	}
 
+	/* now go through all available nodes. The ones we didn't visit
+	 * in collect_nodes() are not linked to any master. We assign them
+	 * to an active master */
 	spa_list_for_each(n, &core->node_list, link) {
 		if (!n->visited) {
 			pw_log_info(NAME" %p: unassigned node %p: '%s' %d", core,
 					n, n->name, n->active);
-			pw_node_set_driver(n, NULL);
+			if (!n->want_driver)
+				pw_node_set_driver(n, NULL);
+			else {
+				pw_node_set_driver(n, target);
+				pw_node_set_state(n, target && n->active ?
+						PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
+			}
 		}
 		n->visited = false;
 	}
 
+	/* debug only here to list all masters and their slaves */
 	spa_list_for_each(n, &core->driver_list, driver_link) {
 		if (!n->master)
 			continue;

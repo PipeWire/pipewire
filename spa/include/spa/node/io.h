@@ -139,17 +139,17 @@ struct spa_io_segment_video {
  * A segment converts a raw clock time to a segment (stream) position.
  *
  * The segment position is valid when the current clock position is between
- * clock_start and clock_start + clock_duration. The position is then
+ * start and start + duration. The position is then
  * calculated as:
  *
- *   (clock_start - clock.position) * rate + position;
+ *   (start - clock.position) * rate + position;
  *
  * Support for looping is done by specifying a non-zero duration. When the
- * clock reaches clock_start + clock_duration, clock_duration is added to
- * clock_start and the loop repeats.
+ * clock reaches start + duration, duration is added to start and the
+ * loop repeats.
  *
  * Care has to be taken when the clock.duration extends past the
- * clock_start + clock_duration from the segment; the user should correctly
+ * start + duration from the segment; the user should correctly
  * wrap around and partially repeat the loop in the current cycle.
  *
  * Extra information can be placed in the segment by setting the valid flags
@@ -162,15 +162,15 @@ struct spa_io_segment {
 #define SPA_IO_SEGMENT_VALID_BAR	(1<<1)
 #define SPA_IO_SEGMENT_VALID_VIDEO	(1<<2)
 	uint32_t valid;				/**< indicates what fields are valid below */
-	uint64_t clock_start;			/**< position against clock position when this
+	uint64_t start;				/**< position against clock position when this
 						  *  info is active. Can be in the future for
 						  *  pending changes. It does not have to be in
 						  *  exact multiples of the clock duration. */
-	uint64_t clock_duration;		/**< duration when this info becomes invalid. If
+	uint64_t duration;			/**< duration when this info becomes invalid. If
 						  *  the duration is 0, this segment extends to the
 						  *  next segment. If the segment becomes invalid and
 						  *  the looping flag is set, the segment is repeats. */
-	uint64_t position;			/**< The position when the clock == clock_start. */
+	uint64_t position;			/**< The position when the clock == start. */
 	double rate;				/**< overal rate of the graph, can be negative for
 						  *  backwards time reporting. */
 
@@ -195,7 +195,7 @@ enum spa_io_position_state {
  *
  * The position information contains 1 or more segments that convert the
  * raw clock times to a stream time. They are sorted based on their
- * clock_start times, and thus the order in which they will activate in
+ * start times, and thus the order in which they will activate in
  * the future. This makes it possible to look ahead in the scheduled
  * segments and anticipate the changes in the timeline.
  */

@@ -963,6 +963,13 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->rt.activation->position.clock.rate = SPA_FRACTION(1, 48000);
 	this->rt.activation->position.clock.duration = DEFAULT_QUANTUM;
+	this->rt.activation->position.n_segments = 1;
+	this->rt.activation->position.segments[0].flags = 0;
+	this->rt.activation->position.segments[0].valid = SPA_IO_SEGMENT_VALID_POSITION;
+	this->rt.activation->position.segments[0].start = 0;
+	this->rt.activation->position.segments[0].duration = 0;
+	this->rt.activation->position.segments[0].position = 0;
+	this->rt.activation->position.segments[0].rate = 1.0;
 
 	check_properties(this);
 
@@ -1196,8 +1203,8 @@ static void update_position(struct pw_node *node)
 	if (change_mask & PW_NODE_ACTIVATION_UPDATE_REPOSITION) {
 		pw_log_debug("update position:%lu", segment.position);
 		seg->flags = segment.flags;
-		seg->clock_start = segment.clock_start;
-		seg->clock_duration = segment.clock_duration;
+		seg->start = segment.start;
+		seg->duration = segment.duration;
 		seg->position = segment.position;
 		seg->rate = segment.rate;
 	}
@@ -1212,14 +1219,11 @@ static void update_position(struct pw_node *node)
 			break;
 		}
 	}
-	if (seg->rate == 0.0)
-		seg->rate = 1.0;
-
-	if (seg->clock_start == 0)
-		seg->clock_start = a->position.clock.position;
+	if (seg->start == 0)
+		seg->start = a->position.clock.position;
 
 	if (a->position.state == SPA_IO_POSITION_STATE_STOPPED)
-		seg->clock_start += a->position.clock.duration;
+		seg->start += a->position.clock.duration;
 }
 
 static int node_ready(void *data, int status)

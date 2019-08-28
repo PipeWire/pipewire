@@ -364,7 +364,17 @@ struct pw_node_activation {
 	uint32_t segment_master[32];			/* unique id (client id usually) of client
 							 * that will update extra segment info, There
 							 * can be one master for each segment
-							 * bitfield */
+							 * bitfield. 0 means no master for the
+							 * given segment info */
+
+	uint64_t sync_timeout;
+	uint32_t sync_version;				/* version updates whenever new sync is
+							 * required */
+	uint32_t sync_total;				/* number of clients that have want to
+							 * explicitly signal when they are ready to
+							 * process the pending segment */
+	uint32_t sync_pending;				/* pending number of clients preparing for
+							 * the current segment */
 
 	uint32_t version;
 	struct pw_node_activation_state state[2];	/* one current state and one next state,
@@ -392,11 +402,23 @@ struct pw_node_activation {
 	} pending;
 };
 
-#define SEQ_WRITE(s)			__atomic_add_fetch((s), 1, __ATOMIC_SEQ_CST)
-#define SEQ_WRITE_SUCCESS(s1,s2)	((s1) + 1 == (s2) && (s2 & 1) == 0)
+#define ATOMIC_CAS(v,ov,nv)						\
+({									\
+	__typeof__(v) __ov = (ov);					\
+	__atomic_compare_exchange_n(&(v), &__ov, (nv),			\
+			0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);		\
+})
 
-#define SEQ_READ(s)			__atomic_load_n((s), __ATOMIC_SEQ_CST)
-#define SEQ_READ_SUCCESS(s1,s2)		((s1) == (s2) && (s2 & 1) == 0)
+#define ATOMIC_DEC(s)			__atomic_sub_fetch(&(s), 1, __ATOMIC_SEQ_CST)
+#define ATOMIC_INC(s)			__atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
+#define ATOMIC_LOAD(s)			__atomic_load_n(&(s), __ATOMIC_SEQ_CST)
+#define ATOMIC_STORE(s,v)		__atomic_store_n(&(s), (v), __ATOMIC_SEQ_CST)
+
+#define SEQ_WRITE(s)			ATOMIC_INC(s)
+#define SEQ_WRITE_SUCCESS(s1,s2)	((s1) + 1 == (s2) && ((s2) & 1) == 0)
+
+#define SEQ_READ(s)			ATOMIC_LOAD(s)
+#define SEQ_READ_SUCCESS(s1,s2)		((s1) == (s2) && ((s2) & 1) == 0)
 
 #define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
 #define pw_node_emit_destroy(n)			pw_node_emit(n, destroy, 0)

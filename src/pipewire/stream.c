@@ -729,13 +729,13 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 {
 	struct spa_io_position *p = impl->position;
 	if (p != NULL) {
-		SEQ_WRITE(&impl->seq);
+		SEQ_WRITE(impl->seq);
 		impl->time.now = p->clock.nsec;
 		impl->time.rate = p->clock.rate;
 		impl->time.ticks = p->clock.position;
 		impl->time.delay = p->clock.delay;
 		impl->time.queued = queued;
-		SEQ_WRITE(&impl->seq);
+		SEQ_WRITE(impl->seq);
 	}
 }
 
@@ -1638,9 +1638,9 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	uintptr_t seq1, seq2;
 
 	do {
-		seq1 = SEQ_READ(&impl->seq);
+		seq1 = SEQ_READ(impl->seq);
 		*time = impl->time;
-		seq2 = SEQ_READ(&impl->seq);
+		seq2 = SEQ_READ(impl->seq);
 	} while (!SEQ_READ_SUCCESS(seq1, seq2));
 
 	if (impl->direction == SPA_DIRECTION_INPUT)

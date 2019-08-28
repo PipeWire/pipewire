@@ -111,7 +111,7 @@ struct spa_io_sequence {
 
 /** bar and beat segment */
 struct spa_io_segment_bar {
-	uint32_t offset;		/**< offset in samples of this beat */
+	uint64_t offset;		/**< offset in segment of this beat */
 	float signature_num;		/**< time signature numerator */
 	float signature_denom;		/**< time signature denominator */
 	double bpm;			/**< beats per minute */
@@ -121,7 +121,7 @@ struct spa_io_segment_bar {
 
 /** video frame segment */
 struct spa_io_segment_video {
-	uint32_t offset;		/**< offset of frame against current segment */
+	uint64_t offset;		/** offset in segment */
 	struct spa_fraction framerate;
 #define SPA_IO_SEGMENT_VIDEO_FLAG_DROP_FRAME	(1<<0)
 #define SPA_IO_SEGMENT_VIDEO_FLAG_PULL_DOWN	(1<<1)

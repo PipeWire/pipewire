@@ -874,6 +874,29 @@ static void node_on_fd_events(struct spa_source *source)
 	}
 }
 
+static void reset_segment(struct spa_io_segment *seg)
+{
+	seg->flags = 0;
+	seg->valid = SPA_IO_SEGMENT_VALID_POSITION;
+	seg->start = 0;
+	seg->duration = 0;
+	seg->position = 0;
+	seg->rate = 1.0;
+}
+
+static void reset_position(struct spa_io_position *pos)
+{
+	uint32_t i;
+
+	pos->clock.rate = SPA_FRACTION(1, 48000);
+	pos->clock.duration = DEFAULT_QUANTUM;
+	pos->offset = INT64_MIN;
+
+	pos->n_segments = 1;
+	for (i = 0; i < SPA_IO_POSITION_MAX_SEGMENTS; i++)
+		reset_segment(&pos->segments[i]);
+}
+
 SPA_EXPORT
 struct pw_node *pw_node_new(struct pw_core *core,
 			    struct pw_properties *properties,
@@ -961,16 +984,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	this->rt.target.data = this;
 	this->rt.driver_target.signal = process_node;
 
-	this->rt.activation->position.clock.rate = SPA_FRACTION(1, 48000);
-	this->rt.activation->position.clock.duration = DEFAULT_QUANTUM;
-	this->rt.activation->position.offset = INT64_MIN;
-	this->rt.activation->position.n_segments = 1;
-	this->rt.activation->position.segments[0].flags = 0;
-	this->rt.activation->position.segments[0].valid = SPA_IO_SEGMENT_VALID_POSITION;
-	this->rt.activation->position.segments[0].start = 0;
-	this->rt.activation->position.segments[0].duration = 0;
-	this->rt.activation->position.segments[0].position = 0;
-	this->rt.activation->position.segments[0].rate = 1.0;
+	reset_position(&this->rt.activation->position);
 
 	check_properties(this);
 
@@ -1178,11 +1192,11 @@ static void update_position(struct pw_node *node)
 	if (a->position.offset == INT64_MIN)
 		a->position.offset = a->position.clock.position;
 
-	seq1 = SEQ_READ(&a->pending.seq);
+	seq1 = SEQ_READ(a->pending.seq);
 	change_mask = a->pending.change_mask;
 	state = a->pending.state;
 	segment = a->pending.segment;
-	seq2 = SEQ_READ(&a->pending.seq);
+	seq2 = SEQ_READ(a->pending.seq);
 
 	/* if we can't read a stable update, just ignore it and process it
 	 * in the next cycle. */
@@ -1213,20 +1227,20 @@ static void update_position(struct pw_node *node)
 		seg->rate = segment.rate;
 		if (seg->start == 0)
 			seg->start = a->position.clock.position - a->position.offset;
+
+		a->position.state = SPA_IO_POSITION_STATE_STARTING;
+		ATOMIC_STORE(a->sync_pending, a->sync_total);
+		ATOMIC_INC(a->sync_version);
 	}
 	if (change_mask & PW_NODE_ACTIVATION_UPDATE_STATE) {
-		switch (state) {
-		case SPA_IO_POSITION_STATE_STOPPED:
-		case SPA_IO_POSITION_STATE_RUNNING:
-			a->position.state = state;
-			break;
-		case SPA_IO_POSITION_STATE_STARTING:
-			a->position.state = SPA_IO_POSITION_STATE_RUNNING;
-			break;
-		}
+		a->position.state = state;
 	}
 
-	if (a->position.state == SPA_IO_POSITION_STATE_STOPPED)
+	if (a->position.state == SPA_IO_POSITION_STATE_STARTING) {
+		if (ATOMIC_LOAD(a->sync_pending) == 0)
+			a->position.state = SPA_IO_POSITION_STATE_RUNNING;
+	}
+	if (a->position.state != SPA_IO_POSITION_STATE_RUNNING)
 		a->position.offset += a->position.clock.duration;
 }
 

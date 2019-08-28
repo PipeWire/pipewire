@@ -261,10 +261,11 @@ struct client {
 	void *xrun_arg;
 	JackSyncCallback sync_callback;
 	void *sync_arg;
+	uint32_t sync_version;
 	unsigned int sync_emit:1;
 	JackTimebaseCallback timebase_callback;
 	void *timebase_arg;
-	unsigned int timebase_emit:1;
+	unsigned int timebase_new_pos:1;
 
 	struct spa_io_position *position;
 	uint32_t sample_rate;
@@ -812,6 +813,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		uint32_t buffer_size, sample_rate;
 		struct link *l;
 		struct spa_io_position *pos = c->position;
+		struct pw_node_activation *a = c->driver_activation;
 
 		if (read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))
 			pw_log_warn(NAME" %p: read failed %m", c);
@@ -845,14 +847,19 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 		jack_state = position_to_jack(pos, &jack_position);
 
-		if (c->sync_callback && c->sync_emit) {
-			c->sync_callback(jack_state,
-					 &jack_position, c->sync_arg);
-			c->sync_emit = false;
-		}
-
-		if (c->driver_activation) {
-			struct pw_node_activation *a = c->driver_activation;
+		if (a) {
+			if (a->sync_version != c->sync_version) {
+				c->sync_emit = true;
+				c->timebase_new_pos = true;
+				c->sync_version = a->sync_version;
+			}
+			if (c->sync_emit) {
+				if (c->sync_callback &&
+				    c->sync_callback(jack_state, &jack_position, c->sync_arg)) {
+					ATOMIC_DEC(a->sync_pending);
+				}
+				c->sync_emit = false;
+			}
 			if (c->xrun_count != a->xrun_count &&
 			    c->xrun_count != 0 && c->xrun_callback)
 				c->xrun_callback(c->xrun_arg);
@@ -866,14 +873,14 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
 
-		if (c->timebase_callback) {
+		if (c->timebase_callback && a->segment_master[1] == c->node_id) {
 			c->timebase_callback(jack_state,
 					     buffer_size,
 					     &jack_position,
-					     c->timebase_emit,
+					     c->timebase_new_pos,
 					     c->timebase_arg);
 
-			c->timebase_emit = false;
+			c->timebase_new_pos = false;
 
 			debug_position(c, &jack_position);
 			jack_to_position(&jack_position, pos);
@@ -2076,7 +2083,8 @@ int jack_activate (jack_client_t *client)
 	pw_thread_loop_lock(c->context.loop);
 	pw_client_node_proxy_set_active(c->node_proxy, true);
 
-	c->timebase_emit = true;
+	c->timebase_new_pos = true;
+	c->sync_emit = true;
 
 	res = do_sync(c);
 
@@ -2097,7 +2105,8 @@ int jack_deactivate (jack_client_t *client)
 	pw_thread_loop_lock(c->context.loop);
 	pw_client_node_proxy_set_active(c->node_proxy, false);
 
-	c->timebase_emit = false;
+	c->timebase_new_pos = false;
+	c->sync_emit = false;
 
 	res = do_sync(c);
 
@@ -3268,9 +3277,20 @@ SPA_EXPORT
 int jack_release_timebase (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	struct pw_node_activation *a = c->driver_activation;
+
+	if (a == NULL)
+		return -EIO;
+
+	if (!ATOMIC_CAS(a->segment_master[1], c->node_id, 0))
+		return -EINVAL;
+
+	SPA_FLAG_UNSET(a->position.segments[0].valid, SPA_IO_SEGMENT_VALID_BAR);
+
 	c->timebase_callback = NULL;
 	c->timebase_arg = NULL;
-	c->timebase_emit = false;
+	c->timebase_new_pos = false;
+
 	return 0;
 }
 
@@ -3280,9 +3300,21 @@ int jack_set_sync_callback (jack_client_t *client,
 			    void *arg)
 {
 	struct client *c = (struct client *) client;
+	struct pw_node_activation *a = c->driver_activation;
+
+	if (a == NULL)
+		return -EIO;
+
+	if (sync_callback && c->sync_callback == NULL) {
+		ATOMIC_INC(a->sync_total);
+	} else if (sync_callback == NULL && c->sync_callback) {
+		ATOMIC_DEC(a->sync_total);
+	}
+
 	c->sync_callback = sync_callback;
 	c->sync_arg = arg;
 	c->sync_emit = true;
+
 	return 0;
 }
 
@@ -3290,8 +3322,15 @@ SPA_EXPORT
 int jack_set_sync_timeout (jack_client_t *client,
 			   jack_time_t timeout)
 {
-	pw_log_warn(NAME" %p: not implemented %lu", client, timeout);
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	struct pw_node_activation *a = c->driver_activation;
+
+	if (a == NULL)
+		return -EIO;
+
+	ATOMIC_STORE(a->sync_timeout, timeout);
+
+	return 0;
 }
 
 SPA_EXPORT
@@ -3306,12 +3345,22 @@ int  jack_set_timebase_callback (jack_client_t *client,
 	if (a == NULL)
 		return -EIO;
 
+	/* was ok */
+	if (ATOMIC_LOAD(a->segment_master[1]) == c->node_id)
+		return 0;
 
-
+	/* try to become master */
+	if (conditional) {
+		if (!ATOMIC_CAS(a->segment_master[1], 0, c->node_id))
+			return -EBUSY;
+	} else {
+		ATOMIC_STORE(a->segment_master[1], c->node_id);
+	}
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
-	c->timebase_emit = true;
+	c->timebase_new_pos = true;
+
 	return 0;
 }
 
@@ -3382,14 +3431,14 @@ int  jack_transport_reposition (jack_client_t *client,
 	pw_log_debug("frame:%u", pos->frame);
 
 	do {
-		seq1 = SEQ_WRITE(&a->pending.seq);
+		seq1 = SEQ_WRITE(a->pending.seq);
 		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_REPOSITION;
 		a->pending.segment.flags = 0;
 		a->pending.segment.start = 0;
 		a->pending.segment.duration = 0;
 		a->pending.segment.position = pos->frame;
 		a->pending.segment.rate = 1.0;
-		seq2 = SEQ_WRITE(&a->pending.seq);
+		seq2 = SEQ_WRITE(a->pending.seq);
 	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
 
 	return 0;
@@ -3400,10 +3449,10 @@ static void update_state(struct pw_node_activation *a, enum spa_io_position_stat
 	uint32_t seq1, seq2;
 
 	do {
-		seq1 = SEQ_WRITE(&a->pending.seq);
+		seq1 = SEQ_WRITE(a->pending.seq);
 		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_STATE;
 		a->pending.state = state;
-		seq2 = SEQ_WRITE(&a->pending.seq);
+		seq2 = SEQ_WRITE(a->pending.seq);
 	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
 }
 

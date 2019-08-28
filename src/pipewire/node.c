@@ -963,6 +963,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	this->rt.activation->position.clock.rate = SPA_FRACTION(1, 48000);
 	this->rt.activation->position.clock.duration = DEFAULT_QUANTUM;
+	this->rt.activation->position.offset = INT64_MIN;
 	this->rt.activation->position.n_segments = 1;
 	this->rt.activation->position.segments[0].flags = 0;
 	this->rt.activation->position.segments[0].valid = SPA_IO_SEGMENT_VALID_POSITION;
@@ -1174,6 +1175,9 @@ static void update_position(struct pw_node *node)
 	uint32_t seq1, seq2, change_mask;
 	enum spa_io_position_state state;
 
+	if (a->position.offset == INT64_MIN)
+		a->position.offset = a->position.clock.position;
+
 	seq1 = SEQ_READ(&a->pending.seq);
 	change_mask = a->pending.change_mask;
 	state = a->pending.state;
@@ -1207,6 +1211,8 @@ static void update_position(struct pw_node *node)
 		seg->duration = segment.duration;
 		seg->position = segment.position;
 		seg->rate = segment.rate;
+		if (seg->start == 0)
+			seg->start = a->position.clock.position - a->position.offset;
 	}
 	if (change_mask & PW_NODE_ACTIVATION_UPDATE_STATE) {
 		switch (state) {
@@ -1219,11 +1225,9 @@ static void update_position(struct pw_node *node)
 			break;
 		}
 	}
-	if (seg->start == 0)
-		seg->start = a->position.clock.position;
 
 	if (a->position.state == SPA_IO_POSITION_STATE_STOPPED)
-		seg->start += a->position.clock.duration;
+		a->position.offset += a->position.clock.duration;
 }
 
 static int node_ready(void *data, int status)

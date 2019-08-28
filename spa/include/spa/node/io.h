@@ -136,20 +136,20 @@ struct spa_io_segment_video {
 };
 
 /**
- * A segment converts a raw clock time to a segment (stream) position.
+ * A segment converts a running time to a segment (stream) position.
  *
- * The segment position is valid when the current clock position is between
+ * The segment position is valid when the current running time is between
  * start and start + duration. The position is then
  * calculated as:
  *
- *   (start - clock.position) * rate + position;
+ *   (running time - start) * rate + position;
  *
- * Support for looping is done by specifying a non-zero duration. When the
- * clock reaches start + duration, duration is added to start and the
- * loop repeats.
+ * Support for looping is done by specifying the LOOPING flags with a
+ * non-zero duration. When the running time reaches start + duration,
+ * duration is added to start and the loop repeats.
  *
- * Care has to be taken when the clock.duration extends past the
- * start + duration from the segment; the user should correctly
+ * Care has to be taken when the running time + clock.duration extends
+ * past the start + duration from the segment; the user should correctly
  * wrap around and partially repeat the loop in the current cycle.
  *
  * Extra information can be placed in the segment by setting the valid flags
@@ -162,15 +162,16 @@ struct spa_io_segment {
 #define SPA_IO_SEGMENT_VALID_BAR	(1<<1)
 #define SPA_IO_SEGMENT_VALID_VIDEO	(1<<2)
 	uint32_t valid;				/**< indicates what fields are valid below */
-	uint64_t start;				/**< position against clock position when this
+	uint64_t start;				/**< value of running time when this
 						  *  info is active. Can be in the future for
 						  *  pending changes. It does not have to be in
 						  *  exact multiples of the clock duration. */
-	uint64_t duration;			/**< duration when this info becomes invalid. If
-						  *  the duration is 0, this segment extends to the
-						  *  next segment. If the segment becomes invalid and
-						  *  the looping flag is set, the segment is repeats. */
-	uint64_t position;			/**< The position when the clock == start. */
+	uint64_t duration;			/**< duration when this info becomes invalid expressed
+						  *  in running time. If the duration is 0, this
+						  *  segment extends to the next segment. If the
+						  *  segment becomes invalid and the looping flag is
+						  *  set, the segment repeats. */
+	uint64_t position;			/**< The position when the running time == start. */
 	double rate;				/**< overal rate of the graph, can be negative for
 						  *  backwards time reporting. */
 
@@ -202,6 +203,11 @@ enum spa_io_position_state {
 struct spa_io_position {
 	struct spa_io_clock clock;		/**< clock position of driver, always valid and
 						  *  read only */
+	int64_t offset;				/**< an offset to subtract from the clock position
+						  *  to get a running time. This is the time that
+						  *  the state has been in the RUNNING state and the
+						  *  time that should be used to compare the segment
+						  *  start values against. */
 	uint32_t state;				/**< one of enum spa_io_position_state */
 
 	uint32_t n_segments;			/**< number of segments */

@@ -381,8 +381,10 @@ struct pw_node_activation {
 #define PW_NODE_ACTIVATION_UPDATE_STATE		(1<<0)
 #define PW_NODE_ACTIVATION_UPDATE_SEGMENT	(1<<1)
 #define PW_NODE_ACTIVATION_UPDATE_REPOSITION	(1<<2)
+#define PW_NODE_ACTIVATION_UPDATE_FLUSH		(1<<3)	/* flush out current segments and immediately
+							 * start the new one */
 		uint32_t change_mask;
-		enum spa_io_position_state state;
+		enum spa_io_position_state state;	/* when change_mask & PW_NODE_ACTIVATION_UPDATE_STATE */
 		struct spa_io_segment segment;		/* update for the extra segment info
 							 * fields. When REPOSITION update, the segment
 							 * position field will contain the desired

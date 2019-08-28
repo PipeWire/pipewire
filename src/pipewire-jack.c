@@ -729,6 +729,7 @@ static inline jack_transport_state_t position_to_jack(struct spa_io_position *s,
 {
 	jack_transport_state_t state;
 	struct spa_io_segment *seg = &s->segments[0];
+	uint64_t running;
 
 	switch (s->state) {
 	default:
@@ -753,9 +754,11 @@ static inline jack_transport_state_t position_to_jack(struct spa_io_position *s,
 	d->usecs = s->clock.nsec / SPA_NSEC_PER_USEC;
 	d->frame_rate = s->clock.rate.denom;
 
-	if (s->clock.position >= seg->start &&
-	    (seg->duration == 0 || s->clock.position < seg->start + seg->duration))
-		d->frame = (s->clock.position - seg->start) * seg->rate + seg->position;
+	running = s->clock.position - s->offset;
+
+	if (running >= seg->start &&
+	    (seg->duration == 0 || running < seg->start + seg->duration))
+		d->frame = (running - seg->start) * seg->rate + seg->position;
 	else
 		d->frame = seg->position;
 
@@ -3345,24 +3348,22 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 	struct pw_node_activation *a = c->driver_activation;
 	struct spa_io_position *pos;
 	struct spa_io_segment *seg;
-	uint64_t position;
+	uint64_t running;
 	if (!a)
 		return -1;
 
 	pos = &a->position;
+	running = pos->clock.position - pos->offset;
 
 	if (pos->state == SPA_IO_POSITION_STATE_RUNNING) {
 		struct timespec ts;
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		uint64_t nsecs = SPA_TIMESPEC_TO_NSEC(&ts) - pos->clock.nsec;
-		uint64_t elapsed = (uint64_t)floor((((float) c->sample_rate) / SPA_NSEC_PER_SEC) * nsecs);
-		position = pos->clock.position + elapsed;
-	} else {
-		position = pos->clock.position;
+		running += (uint64_t)floor((((float) c->sample_rate) / SPA_NSEC_PER_SEC) * nsecs);
 	}
 	seg = &pos->segments[0];
 
-	return (seg->start - position) * seg->rate + seg->position;
+	return (running - seg->start) * seg->rate + seg->position;
 }
 
 SPA_EXPORT

@@ -368,15 +368,12 @@ struct pw_node_activation {
 
 	/* for drivers */
 	struct spa_io_position position;
-	uint32_t segment_master[32];			/* node id that will update extra segment info,
-							 * There can be one master for each segment
-							 * bitfield. 0 means no master for the
-							 * given segment info */
 
 	uint64_t sync_timeout;				/* sync timeout in nanoseconds
 							 * position goes to RUNNING without waiting any
 							 * longer for sync clients. */
 	uint64_t sync_left;				/* number of cycles before timeout */
+
 
 	float cpu_load[3];				/* averaged over short, medium, long time */
 	uint32_t xrun_count;				/* number of xruns */
@@ -387,7 +384,6 @@ struct pw_node_activation {
 	struct {
 		uint32_t seq;
 #define PW_NODE_ACTIVATION_UPDATE_COMMAND	(1<<0)
-#define PW_NODE_ACTIVATION_UPDATE_SEGMENT	(1<<1)
 #define PW_NODE_ACTIVATION_UPDATE_REPOSITION	(1<<2)
 #define PW_NODE_ACTIVATION_UPDATE_FLUSH		(1<<3)	/* flush out current segments and immediately
 							 * start the new one */
@@ -395,10 +391,9 @@ struct pw_node_activation {
 #define PW_NODE_ACTIVATION_COMMAND_START	0
 #define PW_NODE_ACTIVATION_COMMAND_STOP		1
 		uint32_t command;			/* when change_mask & PW_NODE_ACTIVATION_UPDATE_COMMAND */
+		struct spa_io_segment reposition;	/* reposition information */
 		struct spa_io_segment segment;		/* update for the extra segment info
-							 * fields. When REPOSITION update, the segment
-							 * position field will contain the desired
-							 * new position. */
+							 * fields. */
 	} pending;
 };
 

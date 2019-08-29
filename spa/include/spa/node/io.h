@@ -111,6 +111,9 @@ struct spa_io_sequence {
 
 /** bar and beat segment */
 struct spa_io_segment_bar {
+	uint32_t owner;			/**< owner id */
+#define SPA_IO_SEGMENT_BAR_FLAG_VALID		(1<<0)
+	uint32_t flags;			/**< extra flags */
 	uint64_t offset;		/**< offset in segment of this beat */
 	float signature_num;		/**< time signature numerator */
 	float signature_denom;		/**< time signature denominator */
@@ -121,18 +124,20 @@ struct spa_io_segment_bar {
 
 /** video frame segment */
 struct spa_io_segment_video {
-	uint64_t offset;		/** offset in segment */
-	struct spa_fraction framerate;
-#define SPA_IO_SEGMENT_VIDEO_FLAG_DROP_FRAME	(1<<0)
-#define SPA_IO_SEGMENT_VIDEO_FLAG_PULL_DOWN	(1<<1)
-#define SPA_IO_SEGMENT_VIDEO_FLAG_INTERLACED	(1<<2)
+	uint32_t owner;			/**< owner id */
+#define SPA_IO_SEGMENT_VIDEO_FLAG_VALID		(1<<0)
+#define SPA_IO_SEGMENT_VIDEO_FLAG_DROP_FRAME	(1<<1)
+#define SPA_IO_SEGMENT_VIDEO_FLAG_PULL_DOWN	(1<<2)
+#define SPA_IO_SEGMENT_VIDEO_FLAG_INTERLACED	(1<<3)
 	uint32_t flags;			/**< flags */
+	uint64_t offset;		/**< offset in segment */
+	struct spa_fraction framerate;
 	uint32_t hours;
 	uint32_t minutes;
 	uint32_t seconds;
 	uint32_t frames;
 	uint32_t field_count;		/**< 0 for progressive, 1 and 2 for interlaced */
-	uint32_t padding[16];
+	uint32_t padding[17];
 };
 
 /**
@@ -156,12 +161,6 @@ struct spa_io_segment_video {
  * and filling up the corresponding structures.
  */
 struct spa_io_segment {
-#define SPA_IO_SEGMENT_FLAG_LOOPING	(1<<0)	/**< after the duration, the segment repeats */
-	uint32_t flags;				/**< extra flags */
-#define SPA_IO_SEGMENT_VALID_POSITION	(1<<0)
-#define SPA_IO_SEGMENT_VALID_BAR	(1<<1)
-#define SPA_IO_SEGMENT_VALID_VIDEO	(1<<2)
-	uint32_t valid;				/**< indicates what fields are valid below */
 	uint64_t start;				/**< value of running time when this
 						  *  info is active. Can be in the future for
 						  *  pending changes. It does not have to be in
@@ -171,12 +170,20 @@ struct spa_io_segment {
 						  *  segment extends to the next segment. If the
 						  *  segment becomes invalid and the looping flag is
 						  *  set, the segment repeats. */
-	uint64_t position;			/**< The position when the running time == start. */
-	double rate;				/**< overal rate of the graph, can be negative for
+	double rate;				/**< overal rate of the segment, can be negative for
 						  *  backwards time reporting. */
+#define SPA_IO_SEGMENT_FLAG_LOOPING	(1<<0)	/**< after the duration, the segment repeats */
+#define SPA_IO_SEGMENT_FLAG_NO_POSITION	(1<<1)	/**< position is invalid. The position can be invalid
+						  *  after a seek, for example, when the exact mapping
+						  *  of the extra segment info (bar, video, ...) to
+						  *  position has not been determined yet */
+	uint32_t flags;				/**< extra flags */
+	uint64_t position;			/**< The position when the running time == start.
+						  *  can be invalid when the owner of the extra segment
+						  *  infomation has not yet made the mapping. */
 
-	struct spa_io_segment_bar bar;		/**< when valid & SPA_IO_SEGMENT_VALID_BAR */
-	struct spa_io_segment_video video;	/**< when valid & SPA_IO_SEGMENT_VALID_VIDEO */
+	struct spa_io_segment_bar bar;
+	struct spa_io_segment_video video;
 };
 
 enum spa_io_position_state {

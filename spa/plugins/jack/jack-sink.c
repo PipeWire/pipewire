@@ -338,12 +338,11 @@ static void client_process(void *data)
 		p->n_segments = 1;
 		s = &p->segments[0];
 
-		s->flags = SPA_IO_SEGMENT_VALID_POSITION;
+		s->flags = 0;
 		s->position = jp->frame;
 		s->rate = 1.0;
-		s->valid = 0;
 		if (jp->valid & JackPositionBBT) {
-			s->valid |= SPA_IO_SEGMENT_VALID_BAR;
+			s->bar.flags = SPA_IO_SEGMENT_BAR_FLAG_VALID;
 			if (jp->valid & JackBBTFrameOffset)
 				s->bar.offset = jp->bbt_offset;
 			else

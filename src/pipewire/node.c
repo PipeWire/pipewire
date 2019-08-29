@@ -637,6 +637,13 @@ do_move_nodes(struct spa_loop *loop,
 	return 0;
 }
 
+static void remove_segment_master(struct pw_node *driver, uint32_t node_id)
+{
+	struct pw_node_activation *a = driver->rt.activation;
+	ATOMIC_CAS(a->pending.segment.bar.owner, node_id, 0);
+	ATOMIC_CAS(a->pending.segment.video.owner, node_id, 0);
+}
+
 SPA_EXPORT
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 {
@@ -652,6 +659,8 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 
 	if (old == driver)
 		return 0;
+
+	remove_segment_master(old, node->info.id);
 
 	node->master = node->driver && driver == node;
 	pw_log_info(NAME" %p: driver %p master:%u", node, driver, node->master);
@@ -880,11 +889,7 @@ static void node_on_fd_events(struct spa_source *source)
 
 static void reset_segment(struct spa_io_segment *seg)
 {
-	seg->flags = 0;
-	seg->valid = SPA_IO_SEGMENT_VALID_POSITION;
-	seg->start = 0;
-	seg->duration = 0;
-	seg->position = 0;
+	spa_zero(*seg);
 	seg->rate = 1.0;
 }
 
@@ -1196,7 +1201,7 @@ static int check_updates(struct pw_node *node)
 {
 	int res = SYNC_CHECK;
 	struct pw_node_activation *a = node->rt.activation;
-	struct spa_io_segment segment, *seg;
+	struct spa_io_segment segment, reposition, *seg;
 	uint32_t seq1, seq2, change_mask, command;
 
 	if (a->position.offset == INT64_MIN)
@@ -1205,6 +1210,7 @@ static int check_updates(struct pw_node *node)
 	seq1 = SEQ_READ(a->pending.seq);
 	change_mask = a->pending.change_mask;
 	command = a->pending.command;
+	reposition = a->pending.reposition;
 	segment = a->pending.segment;
 	seq2 = SEQ_READ(a->pending.seq);
 
@@ -1217,17 +1223,17 @@ static int check_updates(struct pw_node *node)
 
 	seg = &a->position.segments[0];
 
-	if (change_mask & PW_NODE_ACTIVATION_UPDATE_SEGMENT) {
-		pw_log_trace(NAME" %p: update segment %08x", node, segment.valid);
-		if (segment.valid & SPA_IO_SEGMENT_VALID_BAR) {
-			seg->bar = segment.bar;
-			seg->valid |= SPA_IO_SEGMENT_VALID_BAR;
-		}
-		if (segment.valid & SPA_IO_SEGMENT_VALID_VIDEO) {
-			seg->video = segment.video;
-			seg->valid |= SPA_IO_SEGMENT_VALID_BAR;
-		}
-	}
+	/* update extra segment info if there is an owner */
+	if (segment.bar.owner)
+		seg->bar = segment.bar;
+	else
+		seg->bar.owner = 0;
+
+	if (segment.video.owner)
+		seg->video = segment.video;
+	else
+		seg->video.owner = 0;
+
 	if (change_mask & PW_NODE_ACTIVATION_UPDATE_COMMAND) {
 		pw_log_debug(NAME" %p: update command:%u", node, command);
 		switch (command) {
@@ -1245,12 +1251,12 @@ static int check_updates(struct pw_node *node)
 		}
 	}
 	if (change_mask & PW_NODE_ACTIVATION_UPDATE_REPOSITION) {
-		pw_log_debug(NAME" %p: update position:%lu", node, segment.position);
-		seg->flags = segment.flags;
-		seg->start = segment.start;
-		seg->duration = segment.duration;
-		seg->position = segment.position;
-		seg->rate = segment.rate;
+		pw_log_debug(NAME" %p: update position:%lu", node, reposition.position);
+		seg->flags = reposition.flags;
+		seg->start = reposition.start;
+		seg->duration = reposition.duration;
+		seg->position = reposition.position;
+		seg->rate = reposition.rate;
 		if (seg->start == 0)
 			seg->start = a->position.clock.position - a->position.offset;
 
@@ -1449,6 +1455,7 @@ void pw_node_destroy(struct pw_node *node)
 
 	/* remove ourself as a slave from the driver node */
 	spa_list_remove(&node->slave_link);
+	remove_segment_master(node->driver_node, node->info.id);
 
 	spa_list_consume(slave, &node->slave_list, slave_link) {
 		pw_log_debug(NAME" %p: reslave %p", impl, slave);

@@ -721,7 +721,8 @@ static inline void jack_to_position(jack_position_t *s, struct spa_io_position *
 		d->bar.signature_num = s->beats_per_bar;
 		d->bar.signature_denom = s->beat_type;
 		d->bar.bpm = s->beats_per_minute;
-		d->bar.beat = (s->bar - 1) * s->beats_per_bar + (s->beat - 1);
+		d->bar.beat = (s->bar - 1) * s->beats_per_bar + (s->beat - 1) +
+			(s->tick / s->ticks_per_beat);
 	}
 }
 
@@ -764,8 +765,8 @@ static inline jack_transport_state_t position_to_jack(struct spa_io_position *s,
 
 	d->valid = 0;
 	if (seg->valid & SPA_IO_SEGMENT_VALID_BAR) {
-		double min;
-		long abs_tick, abs_beat;
+		double abs_beat;
+		long beats;
 
 		d->valid |= JackPositionBBT;
 
@@ -778,16 +779,16 @@ static inline jack_transport_state_t position_to_jack(struct spa_io_position *s,
 		d->ticks_per_beat = 1920.0f;
 		d->beats_per_minute = seg->bar.bpm;
 
-		min = d->frame / ((double) d->frame_rate * 60.0);
-                abs_tick = min * d->beats_per_minute * d->ticks_per_beat;
 		abs_beat = seg->bar.beat;
 
 		d->bar = abs_beat / d->beats_per_bar;
-		d->beat = abs_beat - (d->bar * d->beats_per_bar) + 1;
-		d->tick = abs_tick - (abs_beat * d->ticks_per_beat);
-		d->bar_start_tick = d->bar * d->beats_per_bar *
-			d->ticks_per_beat;
+		beats = d->bar * d->beats_per_bar;
+		d->bar_start_tick = beats * d->ticks_per_beat;
+		d->beat = abs_beat - beats;
+		beats += d->beat;
+		d->tick = (abs_beat - beats) * d->ticks_per_beat;
 		d->bar++;
+		d->beat++;
 	}
 	d->unique_2 = d->unique_1;
 	return state;

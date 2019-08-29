@@ -94,6 +94,7 @@ test_lib = static_library('test_lib',
 test_apps = [
 	'test-audioadapter',
 	'test-audioconvert',
+	'test-channelmix',
 	'test-fmt-ops',
 	'test-resample',
 ]

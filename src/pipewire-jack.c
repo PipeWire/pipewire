@@ -706,14 +706,13 @@ static inline void debug_position(struct client *c, jack_position_t *p)
 	}
 }
 
-static inline void jack_to_position(jack_position_t *s, struct spa_io_position *pos)
+static inline void jack_to_position(jack_position_t *s, struct pw_node_activation *a)
 {
-	struct spa_io_segment *d = &pos->segments[0];
+	struct spa_io_segment *d = &a->pending.segment;
 
-	d->valid = 0;
 	if (s->valid & JackPositionBBT) {
-		SPA_FLAG_SET(d->valid, SPA_IO_SEGMENT_VALID_BAR);
-
+		SEQ_WRITE(a->pending.seq);
+		d->bar.flags = SPA_IO_SEGMENT_BAR_FLAG_VALID;
 		if (s->valid & JackBBTFrameOffset)
 			d->bar.offset = s->bbt_offset;
 		else
@@ -723,6 +722,7 @@ static inline void jack_to_position(jack_position_t *s, struct spa_io_position *
 		d->bar.bpm = s->beats_per_minute;
 		d->bar.beat = (s->bar - 1) * s->beats_per_bar + (s->beat - 1) +
 			(s->tick / s->ticks_per_beat);
+		SEQ_WRITE(a->pending.seq);
 	}
 }
 
@@ -764,7 +764,7 @@ static inline jack_transport_state_t position_to_jack(struct spa_io_position *s,
 		d->frame = seg->position;
 
 	d->valid = 0;
-	if (seg->valid & SPA_IO_SEGMENT_VALID_BAR) {
+	if (seg->bar.owner && SPA_FLAG_CHECK(seg->bar.flags, SPA_IO_SEGMENT_BAR_FLAG_VALID)) {
 		double abs_beat;
 		long beats;
 
@@ -867,7 +867,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
 
-		if (c->timebase_callback && driver && driver->segment_master[1] == c->node_id) {
+		if (c->timebase_callback && driver && driver->pending.segment.bar.owner == c->node_id) {
 			if (activation->pending_new_pos ||
 			    jack_state == JackTransportRolling ||
 			    jack_state == JackTransportLooping) {
@@ -880,7 +880,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 				activation->pending_new_pos = false;
 
 				debug_position(c, &jack_position);
-				jack_to_position(&jack_position, pos);
+				jack_to_position(&jack_position, driver);
 			}
 		}
 		process_tee(c);
@@ -3346,10 +3346,8 @@ int jack_release_timebase (jack_client_t *client)
 	if (a == NULL)
 		return -EIO;
 
-	if (!ATOMIC_CAS(a->segment_master[1], c->node_id, 0))
+	if (!ATOMIC_CAS(a->pending.segment.bar.owner, c->node_id, 0))
 		return -EINVAL;
-
-	SPA_FLAG_UNSET(a->position.segments[0].valid, SPA_IO_SEGMENT_VALID_BAR);
 
 	c->timebase_callback = NULL;
 	c->timebase_arg = NULL;
@@ -3405,15 +3403,15 @@ int  jack_set_timebase_callback (jack_client_t *client,
 		return -EIO;
 
 	/* was ok */
-	if (ATOMIC_LOAD(a->segment_master[1]) == c->node_id)
+	if (ATOMIC_LOAD(a->pending.segment.bar.owner) == c->node_id)
 		return 0;
 
 	/* try to become master */
 	if (conditional) {
-		if (!ATOMIC_CAS(a->segment_master[1], 0, c->node_id))
+		if (!ATOMIC_CAS(a->pending.segment.bar.owner, 0, c->node_id))
 			return -EBUSY;
 	} else {
-		ATOMIC_STORE(a->segment_master[1], c->node_id);
+		ATOMIC_STORE(a->pending.segment.bar.owner, c->node_id);
 	}
 
 	c->timebase_callback = timebase_callback;
@@ -3496,11 +3494,11 @@ int  jack_transport_reposition (jack_client_t *client,
 	do {
 		seq1 = SEQ_WRITE(a->pending.seq);
 		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_REPOSITION;
-		a->pending.segment.flags = 0;
-		a->pending.segment.start = 0;
-		a->pending.segment.duration = 0;
-		a->pending.segment.position = pos->frame;
-		a->pending.segment.rate = 1.0;
+		a->pending.reposition.flags = 0;
+		a->pending.reposition.start = 0;
+		a->pending.reposition.duration = 0;
+		a->pending.reposition.position = pos->frame;
+		a->pending.reposition.rate = 1.0;
 		seq2 = SEQ_WRITE(a->pending.seq);
 	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
 

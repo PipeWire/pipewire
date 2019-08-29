@@ -353,48 +353,48 @@ struct pw_node_activation {
 #define PW_NODE_ACTIVATION_TRIGGERED		1
 #define PW_NODE_ACTIVATION_AWAKE		2
 #define PW_NODE_ACTIVATION_FINISHED		3
-	int status;
+	uint32_t status;
 
+	unsigned int version:1;
+	unsigned int pending_sync:1;			/* a sync is pending */
+	unsigned int pending_new_pos:1;			/* a new position is pending */
+
+	struct pw_node_activation_state state[2];	/* one current state and one next state,
+							 * as version flag */
 	uint64_t signal_time;
 	uint64_t awake_time;
 	uint64_t finish_time;
 	uint64_t prev_signal_time;
 
+	/* for drivers */
 	struct spa_io_position position;
-	uint32_t segment_master[32];			/* unique id (client id usually) of client
-							 * that will update extra segment info, There
-							 * can be one master for each segment
+	uint32_t segment_master[32];			/* node id that will update extra segment info,
+							 * There can be one master for each segment
 							 * bitfield. 0 means no master for the
 							 * given segment info */
 
-	uint64_t sync_timeout;
-	uint32_t sync_version;				/* version updates whenever new sync is
-							 * required */
-	uint32_t sync_total;				/* number of clients that have want to
-							 * explicitly signal when they are ready to
-							 * process the pending segment */
-	uint32_t sync_pending;				/* pending number of clients preparing for
-							 * the current segment */
+	uint64_t sync_timeout;				/* sync timeout in nanoseconds
+							 * position goes to RUNNING without waiting any
+							 * longer for sync clients. */
+	uint64_t sync_left;				/* number of cycles before timeout */
 
-	uint32_t version;
-	struct pw_node_activation_state state[2];	/* one current state and one next state,
-							 * as low bit of version */
 	float cpu_load[3];				/* averaged over short, medium, long time */
 	uint32_t xrun_count;				/* number of xruns */
 	uint64_t xrun_time;				/* time of last xrun in microseconds */
 	uint64_t xrun_delay;				/* delay of last xrun in microseconds */
 	uint64_t max_delay;				/* max of all xruns in microseconds */
 
-
 	struct {
 		uint32_t seq;
-#define PW_NODE_ACTIVATION_UPDATE_STATE		(1<<0)
+#define PW_NODE_ACTIVATION_UPDATE_COMMAND	(1<<0)
 #define PW_NODE_ACTIVATION_UPDATE_SEGMENT	(1<<1)
 #define PW_NODE_ACTIVATION_UPDATE_REPOSITION	(1<<2)
 #define PW_NODE_ACTIVATION_UPDATE_FLUSH		(1<<3)	/* flush out current segments and immediately
 							 * start the new one */
 		uint32_t change_mask;
-		enum spa_io_position_state state;	/* when change_mask & PW_NODE_ACTIVATION_UPDATE_STATE */
+#define PW_NODE_ACTIVATION_COMMAND_START	0
+#define PW_NODE_ACTIVATION_COMMAND_STOP		1
+		uint32_t command;			/* when change_mask & PW_NODE_ACTIVATION_UPDATE_COMMAND */
 		struct spa_io_segment segment;		/* update for the extra segment info
 							 * fields. When REPOSITION update, the segment
 							 * position field will contain the desired

@@ -359,6 +359,8 @@ void pw_init(int *argc, char **argv[])
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(support, str);
+	else
+		pw_log_set_level(SPA_LOG_LEVEL_WARN);
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;

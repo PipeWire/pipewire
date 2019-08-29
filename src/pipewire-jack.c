@@ -2070,6 +2070,19 @@ void jack_internal_client_close (const char *client_name)
 	pw_log_warn("not implemented %s", client_name);
 }
 
+static int do_activate(struct client *c)
+{
+	int res;
+
+	pw_thread_loop_lock(c->context.loop);
+	pw_client_node_proxy_set_active(c->node_proxy, true);
+
+	res = do_sync(c);
+
+	pw_thread_loop_unlock(c->context.loop);
+	return res;
+}
+
 SPA_EXPORT
 int jack_activate (jack_client_t *client)
 {
@@ -2079,14 +2092,7 @@ int jack_activate (jack_client_t *client)
 	if (c->active)
 		return 0;
 
-	pw_thread_loop_lock(c->context.loop);
-	pw_client_node_proxy_set_active(c->node_proxy, true);
-
-	res = do_sync(c);
-
-	pw_thread_loop_unlock(c->context.loop);
-
-	if (res < 0)
+	if ((res = do_activate(c)) < 0)
 		return res;
 
 	c->activation->pending_new_pos = true;
@@ -3362,7 +3368,7 @@ int jack_set_sync_callback (jack_client_t *client,
 	c->sync_callback = sync_callback;
 	c->sync_arg = arg;
 
-	if ((res = jack_activate(client)) < 0)
+	if ((res = do_activate(c)) < 0)
 		return res;
 
 	c->activation->pending_sync = true;
@@ -3412,7 +3418,7 @@ int  jack_set_timebase_callback (jack_client_t *client,
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
 
-	if ((res = jack_activate(client)) < 0)
+	if ((res = do_activate(c)) < 0)
 		return res;
 
 	c->activation->pending_new_pos = true;

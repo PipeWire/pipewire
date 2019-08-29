@@ -255,17 +255,16 @@ struct client {
 	void *portregistration_arg;
 	JackPortConnectCallback connect_callback;
 	void *connect_arg;
+	JackPortRenameCallback rename_callback;
+	void *rename_arg;
 	JackGraphOrderCallback graph_callback;
 	void *graph_arg;
 	JackXRunCallback xrun_callback;
 	void *xrun_arg;
 	JackSyncCallback sync_callback;
 	void *sync_arg;
-	uint32_t sync_version;
-	unsigned int sync_emit:1;
 	JackTimebaseCallback timebase_callback;
 	void *timebase_arg;
-	unsigned int timebase_new_pos:1;
 
 	struct spa_io_position *position;
 	uint32_t sample_rate;
@@ -813,7 +812,8 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		uint32_t buffer_size, sample_rate;
 		struct link *l;
 		struct spa_io_position *pos = c->position;
-		struct pw_node_activation *a = c->driver_activation;
+		struct pw_node_activation *activation = c->activation;
+		struct pw_node_activation *driver = c->driver_activation;
 
 		if (read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))
 			pw_log_warn(NAME" %p: read failed %m", c);
@@ -826,8 +826,8 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		}
 
 		nsec = pos->clock.nsec;
-		c->activation->status = PW_NODE_ACTIVATION_AWAKE;
-		c->activation->awake_time = nsec;
+		activation->status = PW_NODE_ACTIVATION_AWAKE;
+		activation->awake_time = nsec;
 
 		buffer_size = pos->clock.duration;
 		if (buffer_size != c->buffer_size) {
@@ -847,23 +847,16 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 		jack_state = position_to_jack(pos, &jack_position);
 
-		if (a) {
-			if (a->sync_version != c->sync_version) {
-				c->sync_emit = true;
-				c->timebase_new_pos = true;
-				c->sync_version = a->sync_version;
+		if (driver) {
+			if (activation->pending_sync) {
+				if (c->sync_callback == NULL ||
+				    c->sync_callback(jack_state, &jack_position, c->sync_arg))
+					activation->pending_sync = false;
 			}
-			if (c->sync_emit) {
-				if (c->sync_callback &&
-				    c->sync_callback(jack_state, &jack_position, c->sync_arg)) {
-					ATOMIC_DEC(a->sync_pending);
-				}
-				c->sync_emit = false;
-			}
-			if (c->xrun_count != a->xrun_count &&
+			if (c->xrun_count != driver->xrun_count &&
 			    c->xrun_count != 0 && c->xrun_callback)
 				c->xrun_callback(c->xrun_arg);
-			c->xrun_count = a->xrun_count;
+			c->xrun_count = driver->xrun_count;
 		}
 
 		pw_log_trace(NAME" %p: do process %"PRIu64" %d %d %d %"PRIi64" %f", c,
@@ -873,24 +866,28 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		if (c->process_callback)
 			c->process_callback(c->buffer_size, c->process_arg);
 
-		if (c->timebase_callback && a->segment_master[1] == c->node_id) {
-			c->timebase_callback(jack_state,
-					     buffer_size,
-					     &jack_position,
-					     c->timebase_new_pos,
-					     c->timebase_arg);
+		if (c->timebase_callback && driver && driver->segment_master[1] == c->node_id) {
+			if (activation->pending_new_pos ||
+			    jack_state == JackTransportRolling ||
+			    jack_state == JackTransportLooping) {
+				c->timebase_callback(jack_state,
+						     buffer_size,
+						     &jack_position,
+						     activation->pending_new_pos,
+						     c->timebase_arg);
 
-			c->timebase_new_pos = false;
+				activation->pending_new_pos = false;
 
-			debug_position(c, &jack_position);
-			jack_to_position(&jack_position, pos);
+				debug_position(c, &jack_position);
+				jack_to_position(&jack_position, pos);
+			}
 		}
 		process_tee(c);
 
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		nsec = SPA_TIMESPEC_TO_NSEC(&ts);
-		c->activation->status = PW_NODE_ACTIVATION_FINISHED;
-		c->activation->finish_time = nsec;
+		activation->status = PW_NODE_ACTIVATION_FINISHED;
+		activation->finish_time = nsec;
 
 		cmd = 1;
 		pw_array_for_each(l, &c->links) {
@@ -985,7 +982,6 @@ static int client_node_set_param(void *object,
 static int update_driver_activation(struct client *c)
 {
 	struct link *link;
-
 	pw_log_debug(NAME" %p: driver %d", c, c->driver_id);
 
 	link = find_activation(&c->links, c->driver_id);
@@ -2078,44 +2074,51 @@ SPA_EXPORT
 int jack_activate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	int res = 0;
+	int res;
+
+	if (c->active)
+		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
 	pw_client_node_proxy_set_active(c->node_proxy, true);
-
-	c->timebase_new_pos = true;
-	c->sync_emit = true;
 
 	res = do_sync(c);
 
 	pw_thread_loop_unlock(c->context.loop);
 
-	if (res > 0)
-		c->active = true;
+	if (res < 0)
+		return res;
 
-	return res;
+	c->activation->pending_new_pos = true;
+	c->activation->pending_sync = true;
+	c->active = true;
+	return 0;
 }
 
 SPA_EXPORT
 int jack_deactivate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	int res = 0;
+	int res;
+
+	if (!c->active)
+		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
 	pw_client_node_proxy_set_active(c->node_proxy, false);
 
-	c->timebase_new_pos = false;
-	c->sync_emit = false;
+	c->activation->pending_new_pos = false;
+	c->activation->pending_sync = false;
 
 	res = do_sync(c);
 
 	pw_thread_loop_unlock(c->context.loop);
 
-	if (res > 0)
-		c->active = false;
+	if (res < 0)
+		return res;
 
-	return res;
+	c->active = false;
+	return 0;
 }
 
 SPA_EXPORT
@@ -2191,8 +2194,13 @@ void jack_on_shutdown (jack_client_t *client,
                        JackShutdownCallback shutdown_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
-	c->shutdown_callback = shutdown_callback;
-	c->shutdown_arg = arg;
+
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+	} else {
+		c->shutdown_callback = shutdown_callback;
+		c->shutdown_arg = arg;
+	}
 }
 
 SPA_EXPORT
@@ -2200,8 +2208,13 @@ void jack_on_info_shutdown (jack_client_t *client,
                             JackInfoShutdownCallback shutdown_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
-	c->info_shutdown_callback = shutdown_callback;
-	c->info_shutdown_arg = arg;
+
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+	} else {
+		c->info_shutdown_callback = shutdown_callback;
+		c->info_shutdown_arg = arg;
+	}
 }
 
 SPA_EXPORT
@@ -2231,6 +2244,10 @@ int jack_set_freewheel_callback (jack_client_t *client,
                                  void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	c->freewheel_callback = freewheel_callback;
 	c->freewheel_arg = arg;
 	return 0;
@@ -2242,6 +2259,10 @@ int jack_set_buffer_size_callback (jack_client_t *client,
                                    void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	c->bufsize_callback = bufsize_callback;
 	c->bufsize_arg = arg;
 	return 0;
@@ -2253,6 +2274,10 @@ int jack_set_sample_rate_callback (jack_client_t *client,
                                    void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	c->srate_callback = srate_callback;
 	c->srate_arg = arg;
 	return 0;
@@ -2264,6 +2289,10 @@ int jack_set_client_registration_callback (jack_client_t *client,
                                             registration_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	c->registration_callback = registration_callback;
 	c->registration_arg = arg;
 	return 0;
@@ -2275,6 +2304,10 @@ int jack_set_port_registration_callback (jack_client_t *client,
                                           registration_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	c->portregistration_callback = registration_callback;
 	c->portregistration_arg = arg;
 	return 0;
@@ -2287,6 +2320,10 @@ int jack_set_port_connect_callback (jack_client_t *client,
                                     connect_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	c->connect_callback = connect_callback;
 	c->connect_arg = arg;
 	return 0;
@@ -2294,9 +2331,16 @@ int jack_set_port_connect_callback (jack_client_t *client,
 
 SPA_EXPORT
 int jack_set_port_rename_callback (jack_client_t *client,
-                                   JackPortRenameCallback
-                                   rename_callback, void *arg)
+                                   JackPortRenameCallback rename_callback,
+				   void *arg)
 {
+	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
+	c->rename_callback = rename_callback;
+	c->rename_arg = arg;
 	return 0;
 }
 
@@ -2306,6 +2350,10 @@ int jack_set_graph_order_callback (jack_client_t *client,
                                    void *data)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -1;
+	}
 	c->graph_callback = graph_callback;
 	c->graph_arg = data;
 	return 0;
@@ -2316,6 +2364,10 @@ int jack_set_xrun_callback (jack_client_t *client,
                             JackXRunCallback xrun_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -1;
+	}
 	c->xrun_callback = xrun_callback;
 	c->xrun_arg = arg;
 	return 0;
@@ -2326,6 +2378,11 @@ int jack_set_latency_callback (jack_client_t *client,
 			       JackLatencyCallback latency_callback,
 			       void *data)
 {
+	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }
@@ -3289,7 +3346,7 @@ int jack_release_timebase (jack_client_t *client)
 
 	c->timebase_callback = NULL;
 	c->timebase_arg = NULL;
-	c->timebase_new_pos = false;
+	c->activation->pending_new_pos = false;
 
 	return 0;
 }
@@ -3299,22 +3356,16 @@ int jack_set_sync_callback (jack_client_t *client,
 			    JackSyncCallback sync_callback,
 			    void *arg)
 {
+	int res;
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
-
-	if (a == NULL)
-		return -EIO;
-
-	if (sync_callback && c->sync_callback == NULL) {
-		ATOMIC_INC(a->sync_total);
-	} else if (sync_callback == NULL && c->sync_callback) {
-		ATOMIC_DEC(a->sync_total);
-	}
 
 	c->sync_callback = sync_callback;
 	c->sync_arg = arg;
-	c->sync_emit = true;
 
+	if ((res = jack_activate(client)) < 0)
+		return res;
+
+	c->activation->pending_sync = true;
 	return 0;
 }
 
@@ -3339,6 +3390,7 @@ int  jack_set_timebase_callback (jack_client_t *client,
 				 JackTimebaseCallback timebase_callback,
 				 void *arg)
 {
+	int res;
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a = c->driver_activation;
 
@@ -3359,7 +3411,11 @@ int  jack_set_timebase_callback (jack_client_t *client,
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
-	c->timebase_new_pos = true;
+
+	if ((res = jack_activate(client)) < 0)
+		return res;
+
+	c->activation->pending_new_pos = true;
 
 	return 0;
 }
@@ -3444,14 +3500,18 @@ int  jack_transport_reposition (jack_client_t *client,
 	return 0;
 }
 
-static void update_state(struct pw_node_activation *a, enum spa_io_position_state state)
+static void update_command(struct client *c, uint32_t command)
 {
+	struct pw_node_activation *a = c->driver_activation;
 	uint32_t seq1, seq2;
+
+	if (!a)
+		return;
 
 	do {
 		seq1 = SEQ_WRITE(a->pending.seq);
-		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_STATE;
-		a->pending.state = state;
+		a->pending.change_mask |= PW_NODE_ACTIVATION_UPDATE_COMMAND;
+		a->pending.command = command;
 		seq2 = SEQ_WRITE(a->pending.seq);
 	} while (!SEQ_WRITE_SUCCESS(seq1, seq2));
 }
@@ -3460,24 +3520,14 @@ SPA_EXPORT
 void jack_transport_start (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
-
-	if (!a)
-		return;
-
-	update_state(a, SPA_IO_POSITION_STATE_STARTING);
+	update_command(c, PW_NODE_ACTIVATION_COMMAND_START);
 }
 
 SPA_EXPORT
 void jack_transport_stop (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
-
-	if (!a)
-		return;
-
-	update_state(a, SPA_IO_POSITION_STATE_STOPPED);
+	update_command(c, PW_NODE_ACTIVATION_COMMAND_STOP);
 }
 
 SPA_EXPORT
@@ -3503,6 +3553,11 @@ int jack_set_session_callback (jack_client_t       *client,
                                JackSessionCallback  session_callback,
                                void                *arg)
 {
+	struct client *c = (struct client *) client;
+	if (c->active) {
+		pw_log_error(NAME" %p: can't set callback on active client", c);
+		return -EIO;
+	}
 	pw_log_warn(NAME" %p: not implemented", client);
 	return -ENOTSUP;
 }

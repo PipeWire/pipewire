@@ -434,9 +434,21 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 #endif
 
 	if (fd < 0) {
+		struct stat socket_stat;
+
 		if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 			res = -errno;
 			goto error;
+		}
+		if (stat(s->addr.sun_path, &socket_stat) < 0) {
+			if (errno != ENOENT) {
+				res = -errno;
+				pw_log_error("server %p: stat %s failed with error: %m",
+						s, s->addr.sun_path);
+				goto error_close;
+			}
+		} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
+			unlink(s->addr.sun_path);
 		}
 
 		size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);

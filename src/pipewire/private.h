@@ -490,6 +490,7 @@ struct pw_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	uint32_t quantum_size;			/**< desired quantum */
+	uint32_t quantum_current;		/**< current quantum for driver */
 	struct spa_source source;		/**< source to remotely trigger this node */
 	struct pw_memblock *activation;
 	struct {

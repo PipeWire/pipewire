@@ -1091,10 +1091,7 @@ static int collect_nodes(struct pw_node *driver)
 			}
 		}
 	}
-	quantum = SPA_MAX(quantum, MIN_QUANTUM);
-
-	if (driver->rt.position && quantum != driver->rt.position->clock.duration)
-		driver->rt.position->clock.duration = quantum;
+	driver->quantum_current = SPA_MAX(quantum, MIN_QUANTUM);
 
 	return 0;
 }
@@ -1146,23 +1143,33 @@ int pw_core_recalc_graph(struct pw_core *core)
 		if (!n->visited) {
 			pw_log_info(NAME" %p: unassigned node %p: '%s' %d", core,
 					n, n->name, n->active);
-			if (!n->want_driver)
+
+			if (!n->want_driver || target == NULL) {
 				pw_node_set_driver(n, NULL);
-			else {
+				pw_node_set_state(n, PW_NODE_STATE_IDLE);
+			} else {
+				if (n->quantum_size > 0 && n->quantum_size < target->quantum_current)
+					target->quantum_current = SPA_MAX(MIN_QUANTUM, n->quantum_size);
+
 				pw_node_set_driver(n, target);
-				pw_node_set_state(n, target && n->active ?
+				pw_node_set_state(n, n->active ?
 						PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
 			}
 		}
 		n->visited = false;
 	}
 
-	/* debug only here to list all masters and their slaves */
+	/* assign final quantum and debug masters and slaves */
 	spa_list_for_each(n, &core->driver_list, driver_link) {
 		if (!n->master)
 			continue;
-		pw_log_info(NAME" %p: master %p quantum:%"PRIu64" '%s'", core, n,
-				n->rt.position ? n->rt.position->clock.duration : 0, n->name);
+
+		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration)
+			n->rt.position->clock.duration = n->quantum_current;
+
+		pw_log_info(NAME" %p: master %p quantum:%u '%s'", core, n,
+				n->quantum_current, n->name);
+
 		spa_list_for_each(s, &n->slave_list, slave_link)
 			pw_log_info(NAME" %p: slave %p: active:%d '%s'",
 					core, s, s->active, s->name);

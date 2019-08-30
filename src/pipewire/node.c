@@ -699,7 +699,7 @@ static void check_properties(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	const char *str;
-	bool driver;
+	bool driver, do_recalc = false;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME))) {
 		free(node->name);
@@ -737,13 +737,21 @@ static void check_properties(struct pw_node *node)
 		uint32_t num, denom;
 		pw_log_info(NAME" %p: latency '%s'", node, str);
                 if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-			node->quantum_size = flp2((num * 48000 / denom));
-			pw_log_info(NAME" %p: quantum %d", node, node->quantum_size);
-		}
-	} else
-		node->quantum_size = DEFAULT_QUANTUM;
+			uint32_t quantum_size;
 
-	pw_log_debug(NAME" %p: driver:%d", node, node->driver);
+			quantum_size = flp2((num * 48000 / denom));
+			pw_log_info(NAME" %p: quantum %d", node, quantum_size);
+
+			if (quantum_size != node->quantum_size) {
+				node->quantum_size = quantum_size;
+				do_recalc |= node->active;
+			}
+		}
+	}
+	pw_log_debug(NAME" %p: driver:%d recalc:%d", node, node->driver, do_recalc);
+
+	if (do_recalc)
+		pw_core_recalc_graph(node->core);
 }
 
 static void dump_states(struct pw_node *driver)

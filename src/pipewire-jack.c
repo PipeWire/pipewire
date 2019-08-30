@@ -2405,8 +2405,25 @@ int jack_set_freewheel(jack_client_t* client, int onoff)
 SPA_EXPORT
 int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 {
-	pw_log_warn(NAME" %p: not implemented %d", client, nframes);
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	struct spa_node_info ni;
+	struct spa_dict_item items[1];
+	char latency[128];
+
+	snprintf(latency, sizeof(latency), "%d/%d", nframes, jack_get_sample_rate(client));
+
+	ni = SPA_NODE_INFO_INIT();
+	ni.max_input_ports = MAX_PORTS;
+	ni.max_output_ports = MAX_PORTS;
+	ni.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	ni.props = &SPA_DICT_INIT_ARRAY(items);
+
+	pw_client_node_proxy_update(c->node_proxy,
+                                    PW_CLIENT_NODE_UPDATE_INFO,
+				    0, NULL, &ni);
+
+	return 0;
 }
 
 SPA_EXPORT

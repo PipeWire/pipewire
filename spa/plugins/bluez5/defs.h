@@ -138,6 +138,26 @@ static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 		return 0;
 }
 
+static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
+      switch (profile) {
+      case SPA_BT_PROFILE_A2DP_SOURCE:
+        return "a2dp-source";
+      case SPA_BT_PROFILE_A2DP_SINK:
+        return "a2dp-sink";
+      case SPA_BT_PROFILE_HSP_HS:
+        return "hsp-hs";
+      case SPA_BT_PROFILE_HSP_AG:
+        return "hsp-ag";
+      case SPA_BT_PROFILE_HFP_HF:
+        return "hfp-hf";
+      case SPA_BT_PROFILE_HFP_AG:
+        return "hfp-ag";
+      default:
+        break;
+      }
+      return "unknown";
+}
+
 struct spa_bt_monitor;
 
 struct spa_bt_adapter {

@@ -74,11 +74,12 @@ struct impl {
 static void emit_node (struct impl *this, struct spa_bt_transport *t, const char *factory_name)
 {
         struct spa_device_object_info info;
-        struct spa_dict_item items[1];
+        struct spa_dict_item items[2];
         char transport[32];
 
         snprintf(transport, sizeof(transport), "pointer:%p", t);
         items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
+        items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PROFILE, spa_bt_profile_name(t->profile));
 
         info = SPA_DEVICE_OBJECT_INFO_INIT();
         info.type = SPA_TYPE_INTERFACE_Node;

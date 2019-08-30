@@ -612,6 +612,12 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	if (state->rate_match) {
 		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
+		/* We try to compensate for the latency introduced by rate matching
+		 * by moving a little closer to the device read/write pointers.
+		 * Don't try to get closer than 32 samples but instead increase the
+		 * reported latency on the port (TODO). */
+		if ((int)state->last_threshold <= state->delay + 32)
+			state->delay = SPA_MAX(0, (int)state->last_threshold + 32 - state->delay);
 	}
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
@@ -644,8 +650,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		else if (state->bw == BW_MED)
 			set_loop(state, BW_MIN);
 
-		spa_log_debug(state->log, "slave:%d rate:%f bw:%f thr:%d err:%f (%f %f %f)",
-				slave, corr, state->bw, state->threshold,
+		spa_log_debug(state->log, "slave:%d rate:%f bw:%f del:%d thr:%d err:%f (%f %f %f)",
+				slave, corr, state->bw, state->delay, state->threshold,
 				err, state->z1, state->z2, state->z3);
 	}
 

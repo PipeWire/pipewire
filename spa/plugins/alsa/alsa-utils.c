@@ -885,22 +885,23 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_uframes_t read, frames, offset;
 	int res;
 
-	if (state->position && !state->slaved) {
-		uint64_t position, duration;
+	if (state->position) {
+		if (state->duration != state->position->clock.duration) {
+			state->duration = state->position->clock.duration;
+			state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
+		}
+		if (!state->slaved) {
+			uint64_t position;
 
-		duration = state->position->clock.duration;
-		if (state->duration != duration) {
-			state->duration = duration;
-			state->threshold = (duration * state->rate + state->rate_denom-1) / state->rate_denom;
+			position = state->position->clock.position;
+			if (state->last_position && state->last_position + state->last_duration != position) {
+				state->alsa_sync = true;
+				spa_log_warn(state->log, "discont, resync %"PRIu64" %"PRIu64" %d",
+						state->last_position, position, state->last_duration);
+			}
+			state->last_position = position;
+			state->last_duration = state->duration;
 		}
-		position = state->position->clock.position;
-		if (state->last_position && state->last_position + state->last_duration != position) {
-			state->alsa_sync = true;
-			spa_log_warn(state->log, "discont, resync %"PRIu64" %"PRIu64" %d",
-					state->last_position, position, state->last_duration);
-		}
-		state->last_position = position;
-		state->last_duration = duration;
 	}
 
 	if (state->slaved && state->alsa_started) {

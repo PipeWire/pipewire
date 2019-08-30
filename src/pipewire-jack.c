@@ -3079,6 +3079,8 @@ SPA_EXPORT
 void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	pw_log_warn("not implemented %p %d", port, mode);
+	range->min = 0;
+	range->max = 0;
 }
 
 SPA_EXPORT

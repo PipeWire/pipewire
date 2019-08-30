@@ -231,8 +231,6 @@ struct client {
 	uint32_t node_id;
 	struct spa_source *socket_source;
 
-	bool active;
-
 	JackThreadCallback thread_callback;
 	void *thread_arg;
 	JackThreadInitCallback thread_init_callback;
@@ -287,8 +285,8 @@ struct client {
 	uint32_t xrun_count;
 
 	unsigned int started:1;
-
-
+	unsigned int active:1;
+	unsigned int destroyed:1;
 };
 
 static void init_port_pool(struct client *c, enum spa_direction direction)
@@ -519,7 +517,9 @@ static void on_state_changed(void *data, enum pw_remote_state old,
 		client->error = true;
 		/* fallthrough*/
         case PW_REMOTE_STATE_UNCONNECTED:
-		if (client->shutdown_callback)
+		/* don't call shutdown when we do client_close, only
+		 * on unexpected errors */
+		if (client->shutdown_callback && !client->destroyed)
 			client->shutdown_callback(client->shutdown_arg);
 		/* fallthrough*/
         case PW_REMOTE_STATE_CONNECTED:
@@ -1990,9 +1990,10 @@ int jack_client_close (jack_client_t *client)
 
 	pw_thread_loop_stop(c->context.loop);
 
+	c->destroyed = true;
 	pw_core_destroy(c->context.core);
-        pw_thread_loop_destroy(c->context.loop);
-        pw_main_loop_destroy(c->context.main);
+	pw_thread_loop_destroy(c->context.loop);
+	pw_main_loop_destroy(c->context.main);
 
 	pw_log_debug(NAME" %p: free", client);
 	free(c);

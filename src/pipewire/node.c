@@ -640,8 +640,8 @@ do_move_nodes(struct spa_loop *loop,
 static void remove_segment_master(struct pw_node *driver, uint32_t node_id)
 {
 	struct pw_node_activation *a = driver->rt.activation;
-	ATOMIC_CAS(a->pending.segment.bar.owner, node_id, 0);
-	ATOMIC_CAS(a->pending.segment.video.owner, node_id, 0);
+	ATOMIC_CAS(a->segment_owner[0], node_id, 0);
+	ATOMIC_CAS(a->segment_owner[1], node_id, 0);
 }
 
 SPA_EXPORT
@@ -1205,44 +1205,19 @@ static const struct spa_node_events node_events = {
 #define SYNC_START	1
 #define SYNC_STOP	2
 
-static int check_updates(struct pw_node *node)
+static int check_updates(struct pw_node *node, uint32_t *reposition_owner)
 {
 	int res = SYNC_CHECK;
 	struct pw_node_activation *a = node->rt.activation;
-	struct spa_io_segment segment, reposition, *seg;
-	uint32_t seq1, seq2, change_mask, command;
+	uint32_t command;
 
 	if (a->position.offset == INT64_MIN)
 		a->position.offset = a->position.clock.position;
 
-	seq1 = SEQ_READ(a->pending.seq);
-	change_mask = a->pending.change_mask;
-	command = a->pending.command;
-	reposition = a->pending.reposition;
-	segment = a->pending.segment;
-	seq2 = SEQ_READ(a->pending.seq);
+	command = ATOMIC_XCHG(a->command, PW_NODE_ACTIVATION_COMMAND_NONE);
+	*reposition_owner = ATOMIC_XCHG(a->reposition_owner, 0);
 
-	/* if we can't read a stable update, just ignore it and process it
-	 * in the next cycle. */
-        if (SEQ_READ_SUCCESS(seq1, seq2))
-		a->pending.change_mask = 0;
-	else
-		change_mask = 0;
-
-	seg = &a->position.segments[0];
-
-	/* update extra segment info if there is an owner */
-	if (segment.bar.owner)
-		seg->bar = segment.bar;
-	else
-		seg->bar.owner = 0;
-
-	if (segment.video.owner)
-		seg->video = segment.video;
-	else
-		seg->video.owner = 0;
-
-	if (change_mask & PW_NODE_ACTIVATION_UPDATE_COMMAND) {
+	if (command != PW_NODE_ACTIVATION_COMMAND_NONE) {
 		pw_log_debug(NAME" %p: update command:%u", node, command);
 		switch (command) {
 		case PW_NODE_ACTIVATION_COMMAND_STOP:
@@ -1258,27 +1233,40 @@ static int check_updates(struct pw_node *node)
 			break;
 		}
 	}
-	if (change_mask & PW_NODE_ACTIVATION_UPDATE_REPOSITION) {
-		pw_log_debug(NAME" %p: update position:%lu", node, reposition.position);
-		seg->flags = reposition.flags;
-		seg->start = reposition.start;
-		seg->duration = reposition.duration;
-		seg->position = reposition.position;
-		seg->rate = reposition.rate;
-		if (seg->start == 0)
-			seg->start = a->position.clock.position - a->position.offset;
 
-		switch (a->position.state) {
-		case SPA_IO_POSITION_STATE_RUNNING:
-			a->position.state = SPA_IO_POSITION_STATE_STARTING;
-			a->sync_left = a->sync_timeout /
-				((a->position.clock.duration * SPA_NSEC_PER_SEC) /
-				 a->position.clock.rate.denom);
-			break;
-		}
+	if (*reposition_owner)
 		res = SYNC_START;
-	}
+
 	return res;
+}
+
+static void do_reposition(struct pw_node *driver, struct pw_node *node)
+{
+	struct pw_node_activation *a = driver->rt.activation;
+	struct spa_io_segment *dst, *src;
+
+	src = &node->rt.activation->reposition;
+	dst = &a->position.segments[0];
+
+	pw_log_debug(NAME" %p: update position:%lu", node, src->position);
+
+	memcpy(dst, src, sizeof(struct spa_io_segment));
+	dst->flags = src->flags;
+	dst->start = src->start;
+	dst->duration = src->duration;
+	dst->rate = src->rate;
+	dst->position = src->position;
+	if (dst->start == 0)
+		dst->start = a->position.clock.position - a->position.offset;
+
+	switch (a->position.state) {
+	case SPA_IO_POSITION_STATE_RUNNING:
+		a->position.state = SPA_IO_POSITION_STATE_STARTING;
+		a->sync_left = a->sync_timeout /
+			((a->position.clock.duration * SPA_NSEC_PER_SEC) /
+			 a->position.clock.rate.denom);
+		break;
+	}
 }
 
 static void update_position(struct pw_node *node, int all_ready)
@@ -1300,7 +1288,7 @@ static void update_position(struct pw_node *node, int all_ready)
 
 static int node_ready(void *data, int status)
 {
-	struct pw_node *node = data;
+	struct pw_node *node = data, *reposition_node = NULL;
 	struct pw_node *driver = node->driver_node;
 	struct pw_node_target *t;
 	struct pw_port *p;
@@ -1311,6 +1299,7 @@ static int node_ready(void *data, int status)
 	if (node == driver) {
 		struct pw_node_activation *a = node->rt.activation;
 		int sync_type, all_ready, update_sync, target_sync;
+		uint32_t owner[2], reposition_owner;
 
 		if (a->state[0].pending != 0) {
 			pw_log_warn(NAME" %p: graph not finished", node);
@@ -1318,22 +1307,41 @@ static int node_ready(void *data, int status)
 			node->rt.target.signal(node->rt.target.data);
 		}
 
-		sync_type = check_updates(node);
+		sync_type = check_updates(node, &reposition_owner);
+		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);
+		owner[1] = ATOMIC_LOAD(a->segment_owner[1]);
 		all_ready = sync_type == SYNC_CHECK;
 		update_sync = !all_ready;
 		target_sync = sync_type == SYNC_START ? true : false;
 
 		spa_list_for_each(t, &driver->rt.target_list, link) {
-			pw_node_activation_state_reset(&t->activation->state[0]);
-			t->activation->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
+			struct pw_node_activation *ta = t->activation;
+			uint32_t id = t->node->info.id;
+
+			ta->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
+			pw_node_activation_state_reset(&ta->state[0]);
+
+			/* this is the node with reposition info */
+			if (id == reposition_owner)
+				reposition_node = t->node;
+
+			/* update extra segment info if it is the owner */
+			if (id == owner[0])
+				a->position.segments[0].bar = ta->segment.bar;
+			if (id == owner[1])
+				a->position.segments[0].video = ta->segment.video;
+
 			if (update_sync) {
-				t->activation->pending_sync = target_sync;
-				t->activation->pending_new_pos = target_sync;
+				ta->pending_sync = target_sync;
+				ta->pending_new_pos = target_sync;
 			} else {
-				all_ready &= t->activation->pending_sync == false;
+				all_ready &= ta->pending_sync == false;
 			}
 		}
 		a->prev_signal_time = a->signal_time;
+
+		if (reposition_node)
+			do_reposition(node, reposition_node);
 
 		update_position(node, all_ready);
 	}

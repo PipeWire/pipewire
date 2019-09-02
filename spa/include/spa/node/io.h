@@ -111,10 +111,9 @@ struct spa_io_sequence {
 
 /** bar and beat segment */
 struct spa_io_segment_bar {
-	uint32_t owner;			/**< owner id */
 #define SPA_IO_SEGMENT_BAR_FLAG_VALID		(1<<0)
 	uint32_t flags;			/**< extra flags */
-	uint64_t offset;		/**< offset in segment of this beat */
+	uint32_t offset;		/**< offset in segment of this beat */
 	float signature_num;		/**< time signature numerator */
 	float signature_denom;		/**< time signature denominator */
 	double bpm;			/**< beats per minute */
@@ -124,13 +123,12 @@ struct spa_io_segment_bar {
 
 /** video frame segment */
 struct spa_io_segment_video {
-	uint32_t owner;			/**< owner id */
 #define SPA_IO_SEGMENT_VIDEO_FLAG_VALID		(1<<0)
 #define SPA_IO_SEGMENT_VIDEO_FLAG_DROP_FRAME	(1<<1)
 #define SPA_IO_SEGMENT_VIDEO_FLAG_PULL_DOWN	(1<<2)
 #define SPA_IO_SEGMENT_VIDEO_FLAG_INTERLACED	(1<<3)
 	uint32_t flags;			/**< flags */
-	uint64_t offset;		/**< offset in segment */
+	uint32_t offset;		/**< offset in segment */
 	struct spa_fraction framerate;
 	uint32_t hours;
 	uint32_t minutes;
@@ -161,6 +159,13 @@ struct spa_io_segment_video {
  * and filling up the corresponding structures.
  */
 struct spa_io_segment {
+	uint32_t version;
+#define SPA_IO_SEGMENT_FLAG_LOOPING	(1<<0)	/**< after the duration, the segment repeats */
+#define SPA_IO_SEGMENT_FLAG_NO_POSITION	(1<<1)	/**< position is invalid. The position can be invalid
+						  *  after a seek, for example, when the exact mapping
+						  *  of the extra segment info (bar, video, ...) to
+						  *  position has not been determined yet */
+	uint32_t flags;				/**< extra flags */
 	uint64_t start;				/**< value of running time when this
 						  *  info is active. Can be in the future for
 						  *  pending changes. It does not have to be in
@@ -172,12 +177,6 @@ struct spa_io_segment {
 						  *  set, the segment repeats. */
 	double rate;				/**< overal rate of the segment, can be negative for
 						  *  backwards time reporting. */
-#define SPA_IO_SEGMENT_FLAG_LOOPING	(1<<0)	/**< after the duration, the segment repeats */
-#define SPA_IO_SEGMENT_FLAG_NO_POSITION	(1<<1)	/**< position is invalid. The position can be invalid
-						  *  after a seek, for example, when the exact mapping
-						  *  of the extra segment info (bar, video, ...) to
-						  *  position has not been determined yet */
-	uint32_t flags;				/**< extra flags */
 	uint64_t position;			/**< The position when the running time == start.
 						  *  can be invalid when the owner of the extra segment
 						  *  infomation has not yet made the mapping. */

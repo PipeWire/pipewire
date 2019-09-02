@@ -1254,8 +1254,8 @@ static void node_initialized(void *data)
 	struct spa_system *data_system = impl->node.data_system;
 	size_t size;
 
-	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC);
+	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC);
 	impl->other_fds[0] = impl->fds[1];
 	impl->other_fds[1] = impl->fds[0];
 	node->data_source.fd = impl->fds[0];

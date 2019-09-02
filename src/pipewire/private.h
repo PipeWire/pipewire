@@ -366,8 +366,19 @@ struct pw_node_activation {
 	uint64_t finish_time;
 	uint64_t prev_signal_time;
 
-	/* for drivers */
-	struct spa_io_position position;
+	/* updates */
+	struct spa_io_segment reposition;		/* reposition info, used when driver reposition_owner
+							 * has this node id */
+	struct spa_io_segment segment;			/* update for the extra segment info fields.
+							 * used when driver segment_owner has this node id */
+
+	/* for drivers, shared with all nodes */
+	uint32_t segment_owner[32];			/* id of owners for each segment info struct.
+							 * nodes that want to update segment info need to
+							 * CAS their node id in this array. */
+	struct spa_io_position position;		/* contains current position and segment info.
+							 * extra info is updated by nodes that have set
+							 * themselves as owner in the segment structs */
 
 	uint64_t sync_timeout;				/* sync timeout in nanoseconds
 							 * position goes to RUNNING without waiting any
@@ -381,20 +392,12 @@ struct pw_node_activation {
 	uint64_t xrun_delay;				/* delay of last xrun in microseconds */
 	uint64_t max_delay;				/* max of all xruns in microseconds */
 
-	struct {
-		uint32_t seq;
-#define PW_NODE_ACTIVATION_UPDATE_COMMAND	(1<<0)
-#define PW_NODE_ACTIVATION_UPDATE_REPOSITION	(1<<2)
-#define PW_NODE_ACTIVATION_UPDATE_FLUSH		(1<<3)	/* flush out current segments and immediately
-							 * start the new one */
-		uint32_t change_mask;
-#define PW_NODE_ACTIVATION_COMMAND_START	0
-#define PW_NODE_ACTIVATION_COMMAND_STOP		1
-		uint32_t command;			/* when change_mask & PW_NODE_ACTIVATION_UPDATE_COMMAND */
-		struct spa_io_segment reposition;	/* reposition information */
-		struct spa_io_segment segment;		/* update for the extra segment info
-							 * fields. */
-	} pending;
+#define PW_NODE_ACTIVATION_COMMAND_NONE		0
+#define PW_NODE_ACTIVATION_COMMAND_START	1
+#define PW_NODE_ACTIVATION_COMMAND_STOP		2
+	uint32_t command;				/* next command */
+	uint32_t reposition_owner;			/* owner id with new reposition info, last one
+							 * to update wins */
 };
 
 #define ATOMIC_CAS(v,ov,nv)						\
@@ -408,6 +411,7 @@ struct pw_node_activation {
 #define ATOMIC_INC(s)			__atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
 #define ATOMIC_LOAD(s)			__atomic_load_n(&(s), __ATOMIC_SEQ_CST)
 #define ATOMIC_STORE(s,v)		__atomic_store_n(&(s), (v), __ATOMIC_SEQ_CST)
+#define ATOMIC_XCHG(s,v)		__atomic_exchange_n(&(s), (v), __ATOMIC_SEQ_CST)
 
 #define SEQ_WRITE(s)			ATOMIC_INC(s)
 #define SEQ_WRITE_SUCCESS(s1,s2)	((s1) + 1 == (s2) && ((s2) & 1) == 0)

@@ -2001,6 +2001,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (status)
 		*status = 0;
 
+	pw_log_trace(NAME" %p: new", client);
 	return (jack_client_t *)client;
 
       init_failed:
@@ -2055,6 +2056,7 @@ int jack_client_close (jack_client_t *client)
 SPA_EXPORT
 int jack_client_name_size (void)
 {
+	pw_log_trace("%d", JACK_CLIENT_NAME_SIZE);
 	return JACK_CLIENT_NAME_SIZE;
 }
 
@@ -2062,6 +2064,7 @@ SPA_EXPORT
 char * jack_get_client_name (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	pw_log_trace(NAME" %p: %s", c, c->name);
 	return c->name;
 }
 
@@ -2128,6 +2131,7 @@ static int do_activate(struct client *c)
 	int res;
 
 	pw_thread_loop_lock(c->context.loop);
+	pw_log_debug(NAME" %p: activate", c);
 	pw_client_node_proxy_set_active(c->node_proxy, true);
 
 	res = do_sync(c);
@@ -2151,6 +2155,7 @@ int jack_activate (jack_client_t *client)
 	c->activation->pending_new_pos = true;
 	c->activation->pending_sync = true;
 	c->active = true;
+
 	return 0;
 }
 
@@ -2164,6 +2169,7 @@ int jack_deactivate (jack_client_t *client)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
+	pw_log_debug(NAME" %p: deactivate", c);
 	pw_client_node_proxy_set_active(c->node_proxy, false);
 
 	c->activation->pending_new_pos = false;
@@ -2210,13 +2216,17 @@ SPA_EXPORT
 jack_nframes_t jack_cycle_wait (jack_client_t* client)
 {
 	struct client *c = (struct client *) client;
-	return cycle_wait(c);
+	jack_nframes_t res;
+	res = cycle_wait(c);
+	pw_log_trace(NAME" %p: result:%d", c, res);
+	return res;
 }
 
 SPA_EXPORT
 void jack_cycle_signal (jack_client_t* client, int status)
 {
 	struct client *c = (struct client *) client;
+	pw_log_trace(NAME" %p: status:%d", c, status);
 	cycle_signal(c, status);
 }
 
@@ -2232,7 +2242,7 @@ int jack_set_process_thread(jack_client_t* client, JackThreadCallback thread_cal
 		pw_log_error(NAME" %p: process callback was already set", c);
 		return -EIO;
 	}
-
+	pw_log_debug(NAME" %p: %p %p", c, thread_callback, arg);
 	c->thread_callback = thread_callback;
 	c->thread_arg = arg;
 	return 0;
@@ -2244,6 +2254,7 @@ int jack_set_thread_init_callback (jack_client_t *client,
                                    void *arg)
 {
 	struct client *c = (struct client *) client;
+	pw_log_debug(NAME" %p: %p %p", c, thread_init_callback, arg);
 	c->thread_init_callback = thread_init_callback;
 	c->thread_init_arg = arg;
 	return 0;
@@ -2258,6 +2269,7 @@ void jack_on_shutdown (jack_client_t *client,
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 	} else {
+		pw_log_debug(NAME" %p: %p %p", c, shutdown_callback, arg);
 		c->shutdown_callback = shutdown_callback;
 		c->shutdown_arg = arg;
 	}
@@ -2272,6 +2284,7 @@ void jack_on_info_shutdown (jack_client_t *client,
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 	} else {
+		pw_log_debug(NAME" %p: %p %p", c, shutdown_callback, arg);
 		c->info_shutdown_callback = shutdown_callback;
 		c->info_shutdown_arg = arg;
 	}
@@ -2308,6 +2321,7 @@ int jack_set_freewheel_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, freewheel_callback, arg);
 	c->freewheel_callback = freewheel_callback;
 	c->freewheel_arg = arg;
 	return 0;
@@ -2323,6 +2337,7 @@ int jack_set_buffer_size_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, bufsize_callback, arg);
 	c->bufsize_callback = bufsize_callback;
 	c->bufsize_arg = arg;
 	return 0;
@@ -2338,6 +2353,7 @@ int jack_set_sample_rate_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, srate_callback, arg);
 	c->srate_callback = srate_callback;
 	c->srate_arg = arg;
 	return 0;
@@ -2353,6 +2369,7 @@ int jack_set_client_registration_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, registration_callback, arg);
 	c->registration_callback = registration_callback;
 	c->registration_arg = arg;
 	return 0;
@@ -2368,6 +2385,7 @@ int jack_set_port_registration_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, registration_callback, arg);
 	c->portregistration_callback = registration_callback;
 	c->portregistration_arg = arg;
 	return 0;
@@ -2384,6 +2402,7 @@ int jack_set_port_connect_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, connect_callback, arg);
 	c->connect_callback = connect_callback;
 	c->connect_arg = arg;
 	return 0;
@@ -2399,6 +2418,7 @@ int jack_set_port_rename_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, rename_callback, arg);
 	c->rename_callback = rename_callback;
 	c->rename_arg = arg;
 	return 0;
@@ -2414,6 +2434,7 @@ int jack_set_graph_order_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -1;
 	}
+	pw_log_trace(NAME" %p: %p %p", c, graph_callback, data);
 	c->graph_callback = graph_callback;
 	c->graph_arg = data;
 	return 0;
@@ -2428,6 +2449,7 @@ int jack_set_xrun_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -1;
 	}
+	pw_log_debug(NAME" %p: %p %p", c, xrun_callback, arg);
 	c->xrun_callback = xrun_callback;
 	c->xrun_arg = arg;
 	return 0;

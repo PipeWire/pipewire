@@ -107,6 +107,8 @@ struct object {
 			uint32_t type_id;
 			uint32_t node_id;
 			uint32_t port_id;
+			jack_latency_range_t capture_latency;
+			jack_latency_range_t playback_latency;
 		} port;
 	};
 };
@@ -259,6 +261,8 @@ struct client {
 	void *graph_arg;
 	JackXRunCallback xrun_callback;
 	void *xrun_arg;
+	JackLatencyCallback latency_callback;
+	void *latency_arg;
 	JackSyncCallback sync_callback;
 	void *sync_arg;
 	JackTimebaseCallback timebase_callback;
@@ -1745,6 +1749,14 @@ static void registry_event_global(void *data, uint32_t id,
 		o->port.type_id = type_id;
 		o->port.node_id = node_id;
 
+		if (o->port.flags & JackPortIsOutput) {
+			o->port.capture_latency.min = 1024;
+			o->port.capture_latency.max = 1024;
+		} else {
+			o->port.playback_latency.min = 1024;
+			o->port.playback_latency.max = 1024;
+		}
+
 		pw_log_debug(NAME" %p: add port %d %s %d", c, id, o->port.name, type_id);
 		break;
 	}
@@ -2431,8 +2443,10 @@ int jack_set_latency_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
-	pw_log_warn(NAME" %p: not implemented", client);
-	return -ENOTSUP;
+	pw_log_debug(NAME" %p: %p %p", c, latency_callback, data);
+	c->latency_callback = latency_callback;
+	c->latency_arg = data;
+	return 0;
 }
 
 SPA_EXPORT
@@ -3130,35 +3144,57 @@ size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_t
 SPA_EXPORT
 void jack_port_set_latency (jack_port_t *port, jack_nframes_t frames)
 {
-	pw_log_warn("not implemented %p %d", port, frames);
+	struct object *o = (struct object *) port;
+	jack_latency_range_t range = { frames, frames };
+	if (o->port.flags & JackPortIsOutput) {
+		jack_port_set_latency_range(port, JackCaptureLatency, &range);
+        }
+        if (o->port.flags & JackPortIsInput) {
+		jack_port_set_latency_range(port, JackPlaybackLatency, &range);
+        }
 }
 
 SPA_EXPORT
 void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
-	pw_log_warn("not implemented %p %d", port, mode);
-	range->min = 0;
-	range->max = 0;
+	struct object *o = (struct object *) port;
+	if (mode == JackCaptureLatency) {
+		*range = o->port.capture_latency;
+	} else {
+		*range = o->port.playback_latency;
+	}
 }
 
 SPA_EXPORT
 void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
-	pw_log_warn("not implemented %p %d", port, mode);
+	struct object *o = (struct object *) port;
+	if (mode == JackCaptureLatency) {
+		o->port.capture_latency = *range;
+	} else {
+		o->port.playback_latency = *range;
+	}
 }
 
 SPA_EXPORT
 int jack_recompute_total_latencies (jack_client_t *client)
 {
 	pw_log_warn(NAME" %p: not implemented", client);
-	return -ENOTSUP;
+	return 0;
 }
 
 SPA_EXPORT
 jack_nframes_t jack_port_get_latency (jack_port_t *port)
 {
-	pw_log_warn("not implemented %p", port);
-	return 0;
+	struct object *o = (struct object *) port;
+	jack_latency_range_t range;
+	if (o->port.flags & JackPortIsOutput) {
+		jack_port_get_latency_range(port, JackCaptureLatency, &range);
+        }
+        if (o->port.flags & JackPortIsInput) {
+		jack_port_get_latency_range(port, JackPlaybackLatency, &range);
+        }
+	return (range.min + range.max) / 2;
 }
 
 SPA_EXPORT
@@ -3173,7 +3209,7 @@ SPA_EXPORT
 int jack_recompute_total_latency (jack_client_t *client, jack_port_t* port)
 {
 	pw_log_warn(NAME" %p: not implemented %p", client, port);
-	return -ENOTSUP;
+	return 0;
 }
 
 SPA_EXPORT

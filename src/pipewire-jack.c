@@ -3154,9 +3154,8 @@ int jack_port_type_size(void)
 SPA_EXPORT
 size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_type)
 {
-	struct client *c = (struct client *) client;
 	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
-		return c->buffer_size;
+		return jack_get_buffer_size(client) * sizeof(float);
 	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
 		return BUFFER_SIZE_MAX;
 	else

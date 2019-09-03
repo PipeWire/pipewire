@@ -1316,20 +1316,23 @@ static int node_ready(void *data, int status)
 
 		spa_list_for_each(t, &driver->rt.target_list, link) {
 			struct pw_node_activation *ta = t->activation;
-			uint32_t id = t->node->info.id;
 
 			ta->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
 			pw_node_activation_state_reset(&ta->state[0]);
 
-			/* this is the node with reposition info */
-			if (id == reposition_owner)
-				reposition_node = t->node;
+			if (t->node) {
+				uint32_t id = t->node->info.id;
 
-			/* update extra segment info if it is the owner */
-			if (id == owner[0])
-				a->position.segments[0].bar = ta->segment.bar;
-			if (id == owner[1])
-				a->position.segments[0].video = ta->segment.video;
+				/* this is the node with reposition info */
+				if (id == reposition_owner)
+					reposition_node = t->node;
+
+				/* update extra segment info if it is the owner */
+				if (id == owner[0])
+					a->position.segments[0].bar = ta->segment.bar;
+				if (id == owner[1])
+					a->position.segments[0].video = ta->segment.video;
+			}
 
 			if (update_sync) {
 				ta->pending_sync = target_sync;

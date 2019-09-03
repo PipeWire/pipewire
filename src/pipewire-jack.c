@@ -273,7 +273,6 @@ struct client {
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 
-	struct spa_list mix[2];
 	struct mix mix_pool[MAX_MIX];
 	struct spa_list free_mix;
 
@@ -352,7 +351,6 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 	mix = spa_list_first(&c->free_mix, struct mix, link);
 	spa_list_remove(&mix->link);
 
-	spa_list_append(&c->mix[port->direction], &mix->link);
 	spa_list_append(&port->mix, &mix->port_link);
 
 	mix->id = mix_id;
@@ -1904,8 +1902,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->buffer_size = (uint32_t)-1;
 	client->sample_rate = (uint32_t)-1;
 
-        spa_list_init(&client->mix[SPA_DIRECTION_INPUT]);
-        spa_list_init(&client->mix[SPA_DIRECTION_OUTPUT]);
         spa_list_init(&client->free_mix);
 	for (i = 0; i < MAX_MIX; i++)
 		spa_list_append(&client->free_mix, &client->mix_pool[i].link);

@@ -187,6 +187,7 @@ static int test_split_setup(struct context *ctx)
 	spa_zero(info);
 	info.format = SPA_AUDIO_FORMAT_F32P;
 	info.channels = 6;
+	info.rate = 48000;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
 	info.position[1] = SPA_AUDIO_CHANNEL_FR;
 	info.position[2] = SPA_AUDIO_CHANNEL_FC;

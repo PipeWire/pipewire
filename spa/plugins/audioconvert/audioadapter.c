@@ -914,6 +914,8 @@ static int configure_adapt(struct impl *this)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	spa_log_debug(this->log, "%p: configure convert %p", this, this->target);
+
 	param = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(this->direction),

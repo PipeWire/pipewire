@@ -291,6 +291,7 @@ struct client {
 	unsigned int started:1;
 	unsigned int active:1;
 	unsigned int destroyed:1;
+	unsigned int first:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -834,6 +835,12 @@ static inline uint32_t cycle_wait(struct client *c)
 	if (wait_sync(c) < 0)
 		return 0;
 
+	if (c->first) {
+		if (c->thread_init_callback)
+			c->thread_init_callback(c->thread_init_arg);
+		c->first = false;
+	}
+
 	buffer_size = pos->clock.duration;
 	if (buffer_size != c->buffer_size) {
 		pw_log_info(NAME" %p: buffersize %d", c, buffer_size);
@@ -942,6 +949,10 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn(NAME" %p: got error", c);
 		unhandle_socket(c);
+		return;
+	}
+	if (c->thread_callback) {
+		c->thread_callback(c->thread_arg);
 		return;
 	}
 
@@ -1102,6 +1113,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 					  c->socket_source,
 					  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 			c->started = true;
+			c->first = true;
 		}
 		break;
 	default:

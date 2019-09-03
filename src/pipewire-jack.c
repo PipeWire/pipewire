@@ -107,6 +107,7 @@ struct object {
 			uint32_t type_id;
 			uint32_t node_id;
 			uint32_t port_id;
+			uint32_t monitor_requests;
 			jack_latency_range_t capture_latency;
 			jack_latency_range_t playback_latency;
 		} port;
@@ -1495,7 +1496,6 @@ static int client_node_port_set_io(void *object,
 		pw_memmap_free(mm);
 
         if (mem_id == SPA_ID_INVALID) {
-
                 mm = ptr = NULL;
                 size = 0;
         }
@@ -2996,30 +2996,55 @@ int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 SPA_EXPORT
 int jack_port_request_monitor (jack_port_t *port, int onoff)
 {
-	pw_log_warn("not implemented %p %d", port, onoff);
-	return -ENOTSUP;
+	struct object *o = (struct object *) port;
+	if (onoff)
+		o->port.monitor_requests++;
+	else if (o->port.monitor_requests > 0)
+		o->port.monitor_requests--;
+	return 0;
 }
 
 SPA_EXPORT
 int jack_port_request_monitor_by_name (jack_client_t *client,
                                        const char *port_name, int onoff)
 {
-	pw_log_warn(NAME" %p: not implemented %s %d", client, port_name, onoff);
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	struct object *p;
+
+	pw_thread_loop_lock(c->context.loop);
+
+	p = find_port(c, port_name);
+
+	pw_thread_loop_unlock(c->context.loop);
+
+	if (p == NULL) {
+		pw_log_error(NAME" %p: jack_port_request_monitor_by_name called"
+				" with an incorrect port %s", client, port_name);
+		return -1;
+	}
+
+	return jack_port_request_monitor((jack_port_t*)p, onoff);
 }
 
 SPA_EXPORT
 int jack_port_ensure_monitor (jack_port_t *port, int onoff)
 {
-	pw_log_warn("not implemented %p %d", port, onoff);
-	return -ENOTSUP;
+	struct object *o = (struct object *) port;
+	if (onoff) {
+		if (o->port.monitor_requests == 0)
+			o->port.monitor_requests++;
+	} else {
+		if (o->port.monitor_requests > 0)
+			o->port.monitor_requests = 0;
+	}
+	return 0;
 }
 
 SPA_EXPORT
 int jack_port_monitoring_input (jack_port_t *port)
 {
-	pw_log_warn("not implemented %p", port);
-	return -ENOTSUP;
+	struct object *o = (struct object *) port;
+	return o->port.monitor_requests > 0;
 }
 
 SPA_EXPORT

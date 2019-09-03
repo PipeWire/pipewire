@@ -338,7 +338,7 @@ static void free_object(struct client *c, struct object *o)
 	spa_list_append(&c->context.free_objects, &o->link);
 }
 
-static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
+static struct mix *find_mix(struct client *c, struct port *port, uint32_t mix_id)
 {
 	struct mix *mix;
 
@@ -346,6 +346,16 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 		if (mix->id == mix_id)
 			return mix;
 	}
+	return NULL;
+}
+
+static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
+{
+	struct mix *mix;
+
+	if ((mix = find_mix(c, port, mix_id)) != NULL)
+		return mix;
+
 	if (spa_list_is_empty(&c->free_mix))
 		return NULL;
 
@@ -2164,6 +2174,7 @@ int jack_activate (jack_client_t *client)
 	c->activation->pending_sync = true;
 	c->active = true;
 
+
 	return 0;
 }
 
@@ -2746,14 +2757,11 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		io.status = -EPIPE;
 		io.buffer_id = SPA_ID_INVALID;
 
-		spa_list_for_each(mix, &p->mix, port_link) {
+		if ((mix = find_mix(c, p, -1)) != NULL) {
 			struct buffer *b;
 
-			pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d io:%p n_buffers:%d",
-					c, p, p->id, mix->id, frames, mix->io, mix->n_buffers);
-
-			if (mix->n_buffers == 0)
-				continue;
+			pw_log_trace(NAME" %p: port %p %d get buffer %d n_buffers:%d",
+					c, p, p->id, frames, mix->n_buffers);
 
 			if ((b = dequeue_buffer(mix)) == NULL) {
 				pw_log_warn("port %p: out of buffers", p);
@@ -2768,17 +2776,18 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 			io.status = SPA_STATUS_HAVE_BUFFER;
 			io.buffer_id = b->id;
-			break;
 		}
+      done:
 		spa_list_for_each(mix, &p->mix, port_link) {
 			struct spa_io_buffers *mio = mix->io;
 			if (mio == NULL)
 				continue;
+			pw_log_trace(NAME" %p: port %p tee %d.%d get buffer %d io:%p",
+					c, p, p->id, mix->id, frames, mio);
 			*mio = io;
 		}
 	}
 
-      done:
 	if (ptr == NULL) {
 		ptr = p->emptyptr;
 		if (!p->zeroed) {

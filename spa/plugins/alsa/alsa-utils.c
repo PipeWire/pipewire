@@ -861,7 +861,7 @@ push_frames(struct state *state,
 			src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
 			spa_memcpy(d[0].data, src, l0);
 			if (l1 > 0)
-				spa_memcpy(d[0].data, my_areas[0].addr, l1);
+				spa_memcpy(SPA_MEMBER(d[0].data, l0, void), my_areas[0].addr, l1);
 		} else {
 			memset(d[0].data, 0, n_bytes);
 		}

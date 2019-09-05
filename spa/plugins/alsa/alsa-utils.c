@@ -670,7 +670,6 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	}
 	if (!slave && state->clock) {
 		state->clock->nsec = nsec;
-		state->clock->rate = SPA_FRACTION(1, state->rate);
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
 		state->clock->count = state->clock->position;
@@ -1115,6 +1114,7 @@ int spa_alsa_start(struct state *state)
 		state->rate_denom = state->position->clock.rate.denom;
 	}
 	else {
+		spa_log_warn(state->log, "alsa %p: no position set, using defaults", state);
 		state->duration = state->props.min_latency;
 		state->rate_denom = state->rate;
 	}
@@ -1125,7 +1125,8 @@ int spa_alsa_start(struct state *state)
 	init_loop(state);
 	state->safety = 0.0;
 
-	spa_log_debug(state->log, "alsa %p: start %d slave:%d", state, state->threshold, state->slaved);
+	spa_log_debug(state->log, "alsa %p: start %d duration:%d rate:%d slave:%d",
+			state, state->threshold, state->duration, state->rate_denom, state->slaved);
 
 	CHECK(set_swparams(state), "swparams");
 	snd_pcm_dump(state->hndl, state->output);

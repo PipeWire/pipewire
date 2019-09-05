@@ -29,7 +29,10 @@
 #include <errno.h>
 #include <time.h>
 
+#include <spa/support/log-impl.h>
 #include <spa/debug/mem.h>
+
+SPA_LOG_IMPL(logger);
 
 #include "resample.h"
 #include "resample-native.h"
@@ -65,6 +68,7 @@ static void test_native(void)
 	struct resample r;
 
 	spa_zero(r);
+	r.log = &logger.log;
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 44100;
@@ -73,6 +77,7 @@ static void test_native(void)
 	feed_1(&r);
 
 	spa_zero(r);
+	r.log = &logger.log;
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 48000;
@@ -114,6 +119,7 @@ static void test_in_len(void)
 	struct resample r;
 
 	spa_zero(r);
+	r.log = &logger.log;
 	r.channels = 1;
 	r.i_rate = 32000;
 	r.o_rate = 48000;
@@ -122,6 +128,7 @@ static void test_in_len(void)
 	pull_blocks(&r, 1024);
 
 	spa_zero(r);
+	r.log = &logger.log;
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 48000;
@@ -130,6 +137,7 @@ static void test_in_len(void)
 	pull_blocks(&r, 1024);
 
 	spa_zero(r);
+	r.log = &logger.log;
 	r.channels = 1;
 	r.i_rate = 48000;
 	r.o_rate = 44100;
@@ -140,6 +148,8 @@ static void test_in_len(void)
 
 int main(int argc, char *argv[])
 {
+	logger.log.level = SPA_LOG_LEVEL_TRACE;
+
 	test_native();
 	test_in_len();
 

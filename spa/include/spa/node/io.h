@@ -83,7 +83,7 @@ struct spa_io_range {
 struct spa_io_clock {
 	uint32_t id;			/**< unique clock id, set by application */
 	uint32_t flags;			/**< clock flags */
-	uint64_t nsec;			/**< time in nanoseconds */
+	uint64_t nsec;			/**< time in nanoseconds against monotonic clock */
 	uint64_t count;			/**< a media specific counter. Can be used to detect
 					  *  gaps in the media. It usually represents the amount
 					  *  of processed media units (packets, frames,

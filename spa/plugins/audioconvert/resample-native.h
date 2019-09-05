@@ -139,7 +139,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 
 static uint32_t impl_native_in_len(struct resample *r, uint32_t out_len)
 {
-	struct native_data *data = r->data;					\
+	struct native_data *data = r->data;
 	uint32_t in_len;
 
 	in_len = (data->phase + out_len * data->frac) / data->out_rate;
@@ -232,6 +232,8 @@ static void impl_native_process(struct resample *r,
 			for (c = 0; c < r->channels; c++)
 				memmove(history[c], &history[c][in], remain * sizeof(float));
 		}
+		spa_log_trace_fp(r->log, "native %p: in:%d remain:%d", r, in, remain);
+
 	}
 	data->hist = remain;
 	return;

@@ -59,7 +59,7 @@ void do_resample_##type##_##arch(struct resample *r,				\
 DEFINE_RESAMPLER(copy,arch)							\
 {										\
 	struct native_data *data = r->data;					\
-	uint32_t index, n_taps = data->n_taps;					\
+	uint32_t index, n_taps = data->n_taps, n_taps2 = n_taps/2;		\
 	uint32_t c, olen = *out_len, ilen = *in_len;				\
 										\
 	if (r->channels == 0)							\
@@ -72,7 +72,8 @@ DEFINE_RESAMPLER(copy,arch)							\
 		for (c = 0; c < r->channels; c++) {				\
 			const float *s = src[c];				\
 			float *d = dst[c];					\
-			memcpy(&d[offs], &s[index], to_copy * sizeof(float));	\
+			memcpy(&d[offs], &s[index + n_taps2],			\
+					to_copy * sizeof(float));		\
 		}								\
 		index += to_copy;						\
 		offs += to_copy;						\

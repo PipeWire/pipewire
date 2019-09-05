@@ -3798,15 +3798,26 @@ int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 SPA_EXPORT
 int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 {
-	pw_log_warn(NAME" %p: not implemented %lu", client, thread);
-	return -ENOTSUP;
+	void* status;
+
+	if (thread == (jack_native_thread_t)NULL)
+		return -1;
+
+        pthread_join(thread, &status);
+	return 0;
 }
 
 SPA_EXPORT
 int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 {
-	pw_log_warn(NAME" %p: not implemented %lu", client, thread);
-	return -ENOTSUP;
+	void* status;
+
+	if (thread == (jack_native_thread_t)NULL)
+		return -1;
+
+        pthread_cancel(thread);
+        pthread_join(thread, &status);
+	return 0;
 }
 
 SPA_EXPORT

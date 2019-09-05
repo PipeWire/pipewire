@@ -1141,20 +1141,20 @@ int pw_core_recalc_graph(struct pw_core *core)
 	 * to an active master */
 	spa_list_for_each(n, &core->node_list, link) {
 		if (!n->visited) {
-			pw_log_info(NAME" %p: unassigned node %p: '%s' %d", core,
-					n, n->name, n->active);
 
-			if (!n->want_driver || target == NULL) {
-				pw_node_set_driver(n, NULL);
-				pw_node_set_state(n, PW_NODE_STATE_IDLE);
-			} else {
+			pw_log_info(NAME" %p: unassigned node %p: '%s' %d %d", core,
+					n, n->name, n->active, n->want_driver);
+
+			if (!n->want_driver)
+				continue;
+
+			if (target != NULL) {
 				if (n->quantum_size > 0 && n->quantum_size < target->quantum_current)
 					target->quantum_current = SPA_MAX(MIN_QUANTUM, n->quantum_size);
-
-				pw_node_set_driver(n, target);
-				pw_node_set_state(n, n->active ?
-						PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
 			}
+			pw_node_set_driver(n, target);
+			pw_node_set_state(n, target && n->active ?
+					PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
 		}
 		n->visited = false;
 	}

@@ -103,8 +103,8 @@ struct state {
 	int channels;
 	size_t frame_size;
 	int rate_denom;
-	int delay;
-	int read_size;
+	uint32_t delay;
+	uint32_t read_size;
 
 	uint64_t port_info_all;
 	struct spa_port_info port_info;

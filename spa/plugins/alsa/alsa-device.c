@@ -103,9 +103,11 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 
 static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 {
-	struct spa_dict_item items[6];
+	struct spa_dict_item items[7];
 	char device_name[128];
+	char sync_name[128];
 	struct spa_device_object_info info;
+	snd_pcm_sync_id_t sync_id;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -122,6 +124,10 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBNAME,    snd_pcm_info_get_subdevice_name(pcminfo));
 	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CLASS,      get_class(pcminfo));
 	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBCLASS,   get_subclass(pcminfo));
+	sync_id = snd_pcm_info_get_sync(pcminfo);
+	snprintf(sync_name, 128, "%08x:%08x:%08x:%08x",
+			sync_id.id32[0], sync_id.id32[1], sync_id.id32[2], sync_id.id32[3]);
+	items[6] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SYNC_ID,    sync_name);
 	info.props = &SPA_DICT_INIT_ARRAY(items);
 
 	spa_device_emit_object_info(&this->hooks, id, &info);

@@ -59,6 +59,7 @@ extern "C" {
 #define SPA_KEY_API_ALSA_PCM_SUBNAME	"api.alsa.pcm.subname"		/**< subdevice_name from pcm_info */
 #define SPA_KEY_API_ALSA_PCM_CLASS	"api.alsa.pcm.class"		/**< class from pcm_info as string */
 #define SPA_KEY_API_ALSA_PCM_SUBCLASS	"api.alsa.pcm.subclass"		/**< subclass from pcm_info as string */
+#define SPA_KEY_API_ALSA_PCM_SYNC_ID	"api.alsa.pcm.sync-id"		/**< sync id */
 
 /** keys for v4l2 api */
 #define SPA_KEY_API_V4L2		"api.v4l2"			/**< key for the v4l2 api */

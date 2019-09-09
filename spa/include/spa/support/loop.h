@@ -162,11 +162,11 @@ struct spa_loop_control_methods {
 
 	/** Perform one iteration of the loop.
 	 * \param ctrl the control
-	 * \param timeout an optional timeout. 0 for no timeout, -1 for infinte
-	 *		timeout.
+	 * \param timeout an optional timeout in milliseconds.
+	 *	0 for no timeout, -1 for infinte timeout.
 	 *
 	 * This function will block
-	 * up to \a timeout and then dispatch the fds with activity.
+	 * up to \a timeout milliseconds and then dispatch the fds with activity.
 	 * The number of dispatched fds is returned.
 	 */
 	int (*iterate) (void *object, int timeout);

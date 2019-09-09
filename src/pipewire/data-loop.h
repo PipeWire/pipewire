@@ -59,6 +59,13 @@ void pw_data_loop_add_listener(struct pw_data_loop *loop,
 			       const struct pw_data_loop_events *events,
 			       void *data);
 
+/** wait for activity on the loop up to \a timeout milliseconds.
+ * Should be called from the loop function */
+int pw_data_loop_wait(struct pw_data_loop *loop, int timeout);
+
+/** make sure the thread will exit. Can be called from a loop callback */
+void pw_data_loop_exit(struct pw_data_loop *loop);
+
 /** Get the loop implementation of this data loop */
 struct pw_loop *
 pw_data_loop_get_loop(struct pw_data_loop *loop);

@@ -32,6 +32,29 @@
 
 #define NAME "data-loop"
 
+SPA_EXPORT
+int pw_data_loop_wait(struct pw_data_loop *this, int timeout)
+{
+	int res;
+
+	while (true) {
+		if (!this->running)
+			return -ECANCELED;
+		if ((res = pw_loop_iterate(this->loop, timeout)) < 0) {
+			if (errno == EINTR)
+				continue;
+		}
+		break;
+	}
+	return res;
+}
+
+SPA_EXPORT
+void pw_data_loop_exit(struct pw_data_loop *this)
+{
+	this->running = false;
+}
+
 static void *do_loop(void *user_data)
 {
 	struct pw_data_loop *this = user_data;
@@ -41,10 +64,14 @@ static void *do_loop(void *user_data)
 	pw_loop_enter(this->loop);
 
 	while (this->running) {
-		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
-			pw_log_warn(NAME" %p: iterate error %d (%s)",
+		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
+			if (errno == EINTR)
+				continue;
+			pw_log_error(NAME" %p: iterate error %d (%s)",
 					this, res, spa_strerror(res));
+		}
 	}
+
 	pw_log_debug(NAME" %p: leave thread", this);
 	pw_loop_leave(this->loop);
 
@@ -64,6 +91,7 @@ static void do_stop(void *data, uint64_t count)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 {
 	struct pw_data_loop *this;
@@ -111,6 +139,7 @@ error_cleanup:
  * \param loop the data loop to destroy
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
 	pw_log_debug(NAME" %p: destroy", loop);
@@ -124,6 +153,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 	free(loop);
 }
 
+SPA_EXPORT
 void pw_data_loop_add_listener(struct pw_data_loop *loop,
 			       struct spa_hook *listener,
 			       const struct pw_data_loop_events *events,
@@ -146,6 +176,7 @@ pw_data_loop_get_loop(struct pw_data_loop *loop)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
 	if (!loop->running) {
@@ -169,6 +200,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 int pw_data_loop_stop(struct pw_data_loop *loop)
 {
 	if (loop->running) {
@@ -185,6 +217,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
  *
  * \memberof pw_data_loop
  */
+SPA_EXPORT
 bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
 	return pthread_equal(loop->thread, pthread_self());

@@ -2208,8 +2208,8 @@ int jack_deactivate (jack_client_t *client)
 SPA_EXPORT
 int jack_get_client_pid (const char *name)
 {
-	pw_log_warn("not implemented %s", name);
-	return -ENOTSUP;
+	pw_log_error("not implemented on library side");
+	return 0;
 }
 
 SPA_EXPORT
@@ -2963,29 +2963,135 @@ int jack_port_untie (jack_port_t *port)
 SPA_EXPORT
 int jack_port_set_name (jack_port_t *port, const char *port_name)
 {
-	pw_log_warn("not implemented %p %s", port, port_name);
-	return -ENOTSUP;
+	pw_log_warn("deprecated");
+	return 0;
 }
 
 SPA_EXPORT
 int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port_name)
 {
-	pw_log_warn(NAME" %p: not implemented %p %s", client, port, port_name);
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	struct object *o = (struct object *) port;
+	struct port *p;
+	struct spa_port_info port_info;
+	struct spa_dict dict;
+	struct spa_dict_item items[1];
+
+	pw_thread_loop_lock(c->context.loop);
+
+	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+
+	port_info = SPA_PORT_INFO_INIT();
+	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	dict = SPA_DICT_INIT(items, 0);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_NAME, port_name);
+	port_info.props = &dict;
+
+	pw_client_node_proxy_port_update(c->node_proxy,
+					 p->direction,
+					 p->id,
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
+					 0, NULL,
+					 &port_info);
+	pw_thread_loop_unlock(c->context.loop);
+
+	return 0;
 }
 
 SPA_EXPORT
 int jack_port_set_alias (jack_port_t *port, const char *alias)
 {
-	pw_log_warn("not implemented %p %s", port, alias);
-	return -ENOTSUP;
+	struct object *o = (struct object *) port;
+	struct client *c = o->client;
+	struct port *p;
+	struct spa_port_info port_info;
+	struct spa_dict dict;
+	struct spa_dict_item items[1];
+	const char *key;
+
+	if (c == NULL)
+		return -1;
+
+	pw_thread_loop_lock(c->context.loop);
+
+	if (o->port.alias1[0] == '\0') {
+		key = PW_KEY_PORT_ALIAS1;
+		snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", alias);
+	}
+	else if (o->port.alias2[0] == '\0') {
+		key = PW_KEY_PORT_ALIAS2;
+		snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", alias);
+	}
+	else
+		goto error;
+
+	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+
+	port_info = SPA_PORT_INFO_INIT();
+	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	dict = SPA_DICT_INIT(items, 0);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT(key, alias);
+	port_info.props = &dict;
+
+	pw_client_node_proxy_port_update(c->node_proxy,
+					 p->direction,
+					 p->id,
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
+					 0, NULL,
+					 &port_info);
+	pw_thread_loop_unlock(c->context.loop);
+
+	return 0;
+
+error:
+	pw_thread_loop_unlock(c->context.loop);
+	return -1;
 }
 
 SPA_EXPORT
 int jack_port_unset_alias (jack_port_t *port, const char *alias)
 {
-	pw_log_warn("not implemented %p %s", port, alias);
-	return -ENOTSUP;
+	struct object *o = (struct object *) port;
+	struct client *c = o->client;
+	struct port *p;
+	struct spa_port_info port_info;
+	struct spa_dict dict;
+	struct spa_dict_item items[1];
+	const char *key;
+
+	if (c == NULL)
+		return -1;
+
+	pw_thread_loop_lock(c->context.loop);
+
+	if (strcmp(o->port.alias1, alias) == 0)
+		key = PW_KEY_PORT_ALIAS1;
+	else if (strcmp(o->port.alias2, alias) == 0)
+		key = PW_KEY_PORT_ALIAS2;
+	else
+		goto error;
+
+	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+
+	port_info = SPA_PORT_INFO_INIT();
+	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	dict = SPA_DICT_INIT(items, 0);
+	items[dict.n_items++] = SPA_DICT_ITEM_INIT(key, NULL);
+	port_info.props = &dict;
+
+	pw_client_node_proxy_port_update(c->node_proxy,
+					 p->direction,
+					 p->id,
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
+					 0, NULL,
+					 &port_info);
+	pw_thread_loop_unlock(c->context.loop);
+
+	return 0;
+
+error:
+	pw_thread_loop_unlock(c->context.loop);
+	return -1;
 }
 
 SPA_EXPORT
@@ -3740,15 +3846,13 @@ char *jack_client_get_uuid (jack_client_t *client)
 SPA_EXPORT
 int jack_client_real_time_priority (jack_client_t * client)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
 	return 20;
 }
 
 SPA_EXPORT
 int jack_client_max_real_time_priority (jack_client_t *client)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
-	return -ENOTSUP;
+	return 20;
 }
 
 SPA_EXPORT
@@ -3785,6 +3889,7 @@ int jack_client_create_thread (jack_client_t* client,
 	if (globals.creator == NULL)
 		globals.creator = pthread_create;
 
+	pw_log_info("client %p: create thread", client);
 	return globals.creator(thread, NULL, start_routine, arg);
 }
 
@@ -3803,7 +3908,9 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 	if (thread == (jack_native_thread_t)NULL)
 		return -1;
 
+	pw_log_warn("join thread %lu", thread);
         pthread_join(thread, &status);
+	pw_log_warn("stopped thread %lu", thread);
 	return 0;
 }
 
@@ -3815,8 +3922,11 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 	if (thread == (jack_native_thread_t)NULL)
 		return -1;
 
+	pw_log_warn("cancel thread %lu", thread);
         pthread_cancel(thread);
+	pw_log_warn("join thread %lu", thread);
         pthread_join(thread, &status);
+	pw_log_warn("stopped thread %lu", thread);
 	return 0;
 }
 

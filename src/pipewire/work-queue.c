@@ -247,8 +247,8 @@ int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq,
 
 	spa_list_for_each(item, &queue->work_list, link) {
 		if (item->obj == obj && item->seq == seq) {
-			pw_log_debug(NAME" %p: found defered %d for object %p", queue, seq,
-				     obj);
+			pw_log_debug(NAME" %p: found defered %d for object %p res:%d",
+					queue, seq, obj, res);
 			item->seq = SPA_ID_INVALID;
 			item->res = res;
 			have_work = true;

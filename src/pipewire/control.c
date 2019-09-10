@@ -147,7 +147,7 @@ static int port_set_io(struct pw_port *port, uint32_t mix, uint32_t id, void *da
 
 	if (port->mix) {
 		res = spa_node_port_set_io(port->mix, port->direction, mix, id, data, size);
-		if (res == 0)
+		if (SPA_RESULT_IS_OK(res))
 			return res;
 	}
 

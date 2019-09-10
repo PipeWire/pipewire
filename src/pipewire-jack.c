@@ -1395,7 +1395,10 @@ static int client_node_port_use_buffers(void *object,
 	pw_log_debug(NAME" %p: port %p %d %d.%d use_buffers %d", c, p, direction,
 			port_id, mix_id, n_buffers);
 
-	fl = PW_MEMMAP_FLAG_READ | (direction == SPA_DIRECTION_OUTPUT ? PW_MEMMAP_FLAG_WRITE : 0);
+
+	/* some apps write to the input buffer so we want everything writable
+	 * but for input buffers, the changes are private */
+	fl = PW_MEMMAP_FLAG_READWRITE | (direction == SPA_DIRECTION_INPUT ? PW_MEMMAP_FLAG_PRIVATE : 0);
 
 	/* clear previous buffers */
 	clear_buffers(c, mix);

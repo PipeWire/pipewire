@@ -266,12 +266,17 @@ static struct mapping * memblock_map(struct memblock *b,
 	struct mempool *p = SPA_CONTAINER_OF(b->this.pool, struct mempool, this);
 	struct mapping *m;
 	void *ptr;
-	int prot = 0;
+	int prot = 0, fl = 0;
 
 	if (flags & PW_MEMMAP_FLAG_READ)
 		prot |= PROT_READ;
 	if (flags & PW_MEMMAP_FLAG_WRITE)
 		prot |= PROT_WRITE;
+
+	if (flags & PW_MEMMAP_FLAG_PRIVATE)
+		fl |= MAP_PRIVATE;
+	else
+		fl |= MAP_SHARED;
 
 	if (flags & PW_MEMMAP_FLAG_TWICE) {
 		pw_log_error(NAME" %p: implement me PW_MEMMAP_FLAG_TWICE", p);
@@ -280,7 +285,7 @@ static struct mapping * memblock_map(struct memblock *b,
 	}
 
 
-	ptr = mmap(NULL, size, prot, MAP_SHARED, b->this.fd, offset);
+	ptr = mmap(NULL, size, prot, fl, b->this.fd, offset);
 	if (ptr == MAP_FAILED) {
 		pw_log_error(NAME" %p: Failed to mmap memory fd:%d offset:%u size:%u: %m",
 				p, b->this.fd, offset, size);

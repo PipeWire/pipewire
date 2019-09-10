@@ -178,7 +178,7 @@ void pw_remote_add_listener(struct pw_remote *remote,
 int pw_remote_connect(struct pw_remote *remote);
 
 /** Connect to a remote PipeWire on the given socket \memberof pw_remote
- * \param fd the connected socket to use, the socket will not be closed
+ * \param fd the connected socket to use, the socket will be closed
  *	automatically on disconnect or error.
  * \return 0 on success, < 0 on error */
 int pw_remote_connect_fd(struct pw_remote *remote, int fd);

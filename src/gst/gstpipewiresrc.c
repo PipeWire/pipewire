@@ -984,7 +984,7 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   if (pwsrc->fd == -1)
     pw_remote_connect (pwsrc->remote);
   else
-    pw_remote_connect_fd (pwsrc->remote, pwsrc->fd);
+    pw_remote_connect_fd (pwsrc->remote, dup(pwsrc->fd));
 
   while (TRUE) {
     enum pw_remote_state state = pw_remote_get_state(pwsrc->remote, &error);

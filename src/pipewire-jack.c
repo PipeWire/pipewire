@@ -1396,9 +1396,8 @@ static int client_node_port_use_buffers(void *object,
 			port_id, mix_id, n_buffers);
 
 
-	/* some apps write to the input buffer so we want everything writable
-	 * but for input buffers, the changes are private */
-	fl = PW_MEMMAP_FLAG_READWRITE | (direction == SPA_DIRECTION_INPUT ? PW_MEMMAP_FLAG_PRIVATE : 0);
+	/* some apps write to the input buffer so we want everything readwrite */
+	fl = PW_MEMMAP_FLAG_READWRITE;
 
 	/* clear previous buffers */
 	clear_buffers(c, mix);

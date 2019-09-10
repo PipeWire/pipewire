@@ -139,7 +139,7 @@ void pw_work_queue_destroy(struct pw_work_queue *queue)
 	pw_loop_destroy_source(queue->loop, queue->wakeup);
 
 	spa_list_for_each_safe(item, tmp, &queue->work_list, link) {
-		pw_log_warn(NAME" %p: cancel work item %p %d %d", queue,
+		pw_log_debug(NAME" %p: cancel work item %p %d %d", queue,
 			    item->obj, item->seq, item->res);
 		free(item);
 	}

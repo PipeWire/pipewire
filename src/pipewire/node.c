@@ -1774,11 +1774,9 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 
 	if (SPA_RESULT_IS_ASYNC(res)) {
 		res = spa_node_sync(node->node, res);
-		pw_work_queue_add(impl->work,
-			node, res, on_state_complete, SPA_INT_TO_PTR(state));
-	} else {
-		on_state_complete(node, SPA_INT_TO_PTR(state), res, 0);
 	}
+	pw_work_queue_add(impl->work,
+			node, res, on_state_complete, SPA_INT_TO_PTR(state));
 
 	return res;
 }

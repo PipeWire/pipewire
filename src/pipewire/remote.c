@@ -428,7 +428,7 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_client_connect_fd(remote->conn, fd, false)) < 0) {
+	if ((res = pw_protocol_client_connect_fd(remote->conn, fd, true)) < 0) {
 		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
 				"connect_fd failed %s", spa_strerror(res));
 		return res;

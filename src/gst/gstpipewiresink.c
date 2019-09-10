@@ -36,6 +36,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/socket.h>
 
 #include "gstpipewireformat.h"
@@ -735,7 +736,7 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
   if (pwsink->fd == -1)
     pw_remote_connect (pwsink->remote);
   else
-    pw_remote_connect_fd (pwsink->remote, pwsink->fd);
+    pw_remote_connect_fd (pwsink->remote, dup(pwsink->fd));
 
   while (TRUE) {
     enum pw_remote_state state = pw_remote_get_state (pwsink->remote, &error);

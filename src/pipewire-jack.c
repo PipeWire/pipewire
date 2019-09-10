@@ -1357,6 +1357,7 @@ static void init_buffer(struct port *p, void *data, size_t maxsize)
 {
 	if (p->object->port.type_id == 1) {
 		struct midi_buffer *mb = data;
+		pw_log_debug("port %p: init midi buffer %p size:%zd", p, data, maxsize);
 		mb->magic = MIDI_BUFFER_MAGIC;
 		mb->buffer_size = maxsize;
 		mb->nframes = maxsize / sizeof(float);
@@ -1727,9 +1728,11 @@ static void registry_event_global(void *data, uint32_t id,
 
 		spa_dict_for_each(item, props) {
 	                if (!strcmp(item->key, PW_KEY_PORT_DIRECTION)) {
-				if (!strcmp(item->value, "in"))
+				if (strcmp(item->value, "in") == 0 ||
+				    strcmp(item->value, "control") == 0)
 					flags |= JackPortIsInput;
-				else if (!strcmp(item->value, "out"))
+				else if (strcmp(item->value, "out") == 0 ||
+				    strcmp(item->value, "notify") == 0)
 					flags |= JackPortIsOutput;
 			}
 			else if (!strcmp(item->key, PW_KEY_PORT_PHYSICAL)) {
@@ -2609,7 +2612,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	struct port *p;
 	int res;
 
-	pw_log_debug(NAME" %p: port register \"%s\" \"%s\" %ld %ld",
+	pw_log_debug(NAME" %p: port register \"%s\" \"%s\" %08lx %ld",
 			c, port_name, port_type, flags, buffer_size);
 
 	if (flags & JackPortIsInput)
@@ -2757,10 +2760,15 @@ SPA_EXPORT
 void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
+	struct client *c;
 	struct port *p;
 	struct mix *mix;
 	void *ptr = NULL;
+
+	if (o == NULL)
+		return NULL;
+
+	c = o->client;
 
 	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error(NAME" %p: invalid port %p", c, port);
@@ -2817,7 +2825,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	if (ptr == NULL) {
 		ptr = p->emptyptr;
 		if (!p->zeroed) {
-			init_buffer(p, p->empty, sizeof(p->empty));
+			init_buffer(p, ptr, BUFFER_SIZE_MAX * sizeof(float));
 			p->zeroed = true;
 		}
 	}
@@ -4041,16 +4049,22 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 	struct midi_event *events = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
 	size_t buffer_size = mb->buffer_size;
 
-	if (time < 0 || time >= mb->nframes)
-                goto failed;
+	if (time < 0 || time >= mb->nframes) {
+		pw_log_warn("midi %p: time:%d frames:%d", port_buffer, time, mb->nframes);
+		goto failed;
+	}
 
-	if (mb->event_count > 0 && time < events[mb->event_count - 1].time)
-                goto failed;
+	if (mb->event_count > 0 && time < events[mb->event_count - 1].time) {
+		pw_log_warn("midi %p: time:%d ev:%d", port_buffer, time, mb->event_count);
+		goto failed;
+	}
 
 	/* Check if data_size is >0 and there is enough space in the buffer for the event. */
 	if (data_size <= 0) {
+		pw_log_warn("midi %p: data_size:%zd", port_buffer, data_size);
 		goto failed; // return NULL?
 	} else if (jack_midi_max_event_size (port_buffer) < data_size) {
+		pw_log_warn("midi %p: event too large: data_size:%zd", port_buffer, data_size);
 		goto failed;
 	} else {
 		struct midi_event *ev = &events[mb->event_count];

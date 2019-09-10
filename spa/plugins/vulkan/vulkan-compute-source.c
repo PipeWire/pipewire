@@ -33,6 +33,7 @@
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
@@ -974,7 +975,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_vulkan_compute_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.vulkan.compute.source",
+	SPA_NAME_API_VULKAN_COMPUTE_SOURCE,
 	&info,
 	impl_get_size,
 	impl_init,

@@ -103,6 +103,10 @@ extern "C" {
 #define SPA_NAME_API_JACK_SOURCE	"api.jack.source"		/**< a jack source */
 #define SPA_NAME_API_JACK_SINK		"api.jack.sink"			/**< a jack sink */
 
+/** keys for vulkan factory names */
+#define SPA_NAME_API_VULKAN_COMPUTE_SOURCE	\
+					"api.vulkan.compute.source"	/**< a vulkan compute source. */
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

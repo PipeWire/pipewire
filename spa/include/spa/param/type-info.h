@@ -150,6 +150,7 @@ static const struct spa_type_info spa_type_media_type[] = {
 	{ SPA_MEDIA_TYPE_image,   SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_TYPE_BASE "image", NULL },
 	{ SPA_MEDIA_TYPE_binary,  SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_TYPE_BASE "binary", NULL },
 	{ SPA_MEDIA_TYPE_stream,  SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_TYPE_BASE "stream", NULL },
+	{ SPA_MEDIA_TYPE_application,  SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_TYPE_BASE "application", NULL },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -191,6 +192,8 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 	{ SPA_MEDIA_SUBTYPE_jpeg, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "jpeg", NULL },
 	/* stream subtypes */
 	{ SPA_MEDIA_SUBTYPE_midi, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "midi", NULL },
+	/* application subtypes */
+	{ SPA_MEDIA_SUBTYPE_control, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "control", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

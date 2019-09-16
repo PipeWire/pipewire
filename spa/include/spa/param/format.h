@@ -39,6 +39,7 @@ enum spa_media_type {
 	SPA_MEDIA_TYPE_image,
 	SPA_MEDIA_TYPE_binary,
 	SPA_MEDIA_TYPE_stream,
+	SPA_MEDIA_TYPE_application,
 };
 
 /** media subtype for SPA_TYPE_OBJECT_Format */
@@ -82,6 +83,10 @@ enum spa_media_subtype {
 
 	SPA_MEDIA_SUBTYPE_START_Stream	= 0x50000,
 	SPA_MEDIA_SUBTYPE_midi,
+
+	SPA_MEDIA_SUBTYPE_START_Application	= 0x60000,
+	SPA_MEDIA_SUBTYPE_control,		/**< control stream, data contains
+						  *  spa_pod_sequence with control info. */
 };
 
 /** properties for audio SPA_TYPE_OBJECT_Format */
@@ -92,7 +97,7 @@ enum spa_format {
 	SPA_FORMAT_mediaSubtype,	/**< media subtype (Id enum spa_media_subtype) */
 
 	/* Audio format keys */
-	SPA_FORMAT_START_Audio,
+	SPA_FORMAT_START_Audio = 0x10000,
 	SPA_FORMAT_AUDIO_format,	/**< audio format, (Id enum spa_audio_format) */
 	SPA_FORMAT_AUDIO_flags,		/**< optional flags (Int) */
 	SPA_FORMAT_AUDIO_rate,		/**< sample rate (Int) */
@@ -100,7 +105,7 @@ enum spa_format {
 	SPA_FORMAT_AUDIO_position,	/**< channel positions (Id enum spa_audio_position) */
 
 	/* Video Format keys */
-	SPA_FORMAT_START_Video = 0x10000,
+	SPA_FORMAT_START_Video = 0x20000,
 	SPA_FORMAT_VIDEO_format,		/**< video format (Id enum spa_video_format) */
 	SPA_FORMAT_VIDEO_size,			/**< size (Rectangle) */
 	SPA_FORMAT_VIDEO_framerate,		/**< frame rate (Fraction) */
@@ -121,11 +126,13 @@ enum spa_format {
 	SPA_FORMAT_VIDEO_H264_alignment,	/**< (Id enum spa_h264_alignment) */
 
 	/* Image Format keys */
-	SPA_FORMAT_START_Image = 0x20000,
+	SPA_FORMAT_START_Image = 0x30000,
 	/* Binary Format keys */
-	SPA_FORMAT_START_Binary = 0x30000,
+	SPA_FORMAT_START_Binary = 0x40000,
 	/* Stream Format keys */
-	SPA_FORMAT_START_Stream = 0x40000,
+	SPA_FORMAT_START_Stream = 0x50000,
+	/* Application Format keys */
+	SPA_FORMAT_START_Application = 0x60000,
 };
 
 #define SPA_KEY_FORMAT_DSP		"format.dsp"		/**< a predefined DSP format,

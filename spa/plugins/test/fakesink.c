@@ -232,8 +232,8 @@ static int consume_buffer(struct impl *this)
 	read_timer(this);
 
 	if (spa_list_is_empty(&port->ready)) {
-		io->status = SPA_STATUS_NEED_BUFFER;
-		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
+		io->status = SPA_STATUS_NEED_DATA;
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 	}
 	if (spa_list_is_empty(&port->ready)) {
 		spa_log_error(this->log, NAME " %p: no buffers", this);
@@ -264,10 +264,10 @@ static int consume_buffer(struct impl *this)
 	set_timer(this, true);
 
 	io->buffer_id = b->id;
-	io->status = SPA_STATUS_NEED_BUFFER;
+	io->status = SPA_STATUS_NEED_DATA;
 	b->outstanding = true;
 
-	return SPA_STATUS_NEED_BUFFER;
+	return SPA_STATUS_NEED_DATA;
 }
 
 static void on_input(struct spa_source *source)
@@ -636,7 +636,7 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	if (io->status == SPA_STATUS_HAVE_BUFFER && io->buffer_id < port->n_buffers) {
+	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
 
 		if (!b->outstanding) {

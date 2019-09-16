@@ -844,7 +844,7 @@ static inline int process_node(void *data)
 	status = spa_node_process(this->node);
 	a->state[0].status = status;
 
-	if (status & SPA_STATUS_HAVE_BUFFER) {
+	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
 			spa_node_process(p->mix);
 	}
@@ -1351,7 +1351,7 @@ static int node_ready(void *data, int status)
 	if (node->driver && !node->master)
 		return 0;
 
-	if (status & SPA_STATUS_HAVE_BUFFER) {
+	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
 			spa_node_process(p->mix);
 	}

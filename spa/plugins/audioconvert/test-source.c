@@ -753,7 +753,7 @@ static int impl_node_process(void *object)
 
 	spa_log_trace_fp(this->log, NAME " %p: status %d", this, io->status);
 
-	if (io->status == SPA_STATUS_HAVE_BUFFER)
+	if (io->status == SPA_STATUS_HAVE_DATA)
 		goto done;
 
 	/* recycle */
@@ -765,11 +765,11 @@ static int impl_node_process(void *object)
 	if ((buf = dequeue_buffer(this, port)) == NULL)
 		return io->status = -EPIPE;
 
-	io->status = SPA_STATUS_HAVE_BUFFER;
+	io->status = SPA_STATUS_HAVE_DATA;
 	io->buffer_id = buf->id;
 
       done:
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

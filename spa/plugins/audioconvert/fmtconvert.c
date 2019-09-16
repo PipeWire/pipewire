@@ -814,15 +814,15 @@ static int impl_node_process(void *object)
 			inio, inio->status, inio->buffer_id,
 			outio, outio->status, outio->buffer_id);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
+	if (outio->status == SPA_STATUS_HAVE_DATA)
 		return inio->status | outio->status;
 
 	if (outio->buffer_id < outport->n_buffers) {
 		recycle_buffer(this, outport, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
 	}
-	if (inio->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
+	if (inio->status != SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_NEED_DATA;
 	if (inio->buffer_id >= inport->n_buffers)
 		return inio->status = -EINVAL;
 
@@ -867,12 +867,12 @@ static int impl_node_process(void *object)
 	if (!this->is_passthrough)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
-	inio->status = SPA_STATUS_NEED_BUFFER;
-	res |= SPA_STATUS_NEED_BUFFER;
+	inio->status = SPA_STATUS_NEED_DATA;
+	res |= SPA_STATUS_NEED_DATA;
 
-	outio->status = SPA_STATUS_HAVE_BUFFER;
+	outio->status = SPA_STATUS_HAVE_DATA;
 	outio->buffer_id = outbuf->id;
-	res |= SPA_STATUS_HAVE_BUFFER;
+	res |= SPA_STATUS_HAVE_DATA;
 
 	return res;
 }

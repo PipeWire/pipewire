@@ -833,8 +833,8 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d", this,
 			inio, inio->status, inio->buffer_id);
 
-	if (inio->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
+	if (inio->status != SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_NEED_DATA;
 	if (inio->buffer_id >= inport->n_buffers)
 		return inio->status = -EINVAL;
 
@@ -865,8 +865,8 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, NAME " %p: %d %p %d %d %d", this, i,
 				outio, outio->status, outio->buffer_id, outport->stride);
 
-		if (outio->status == SPA_STATUS_HAVE_BUFFER) {
-			res |= SPA_STATUS_HAVE_BUFFER;
+		if (outio->status == SPA_STATUS_HAVE_DATA) {
+			res |= SPA_STATUS_HAVE_DATA;
 			goto empty;
 		}
 
@@ -897,9 +897,9 @@ static int impl_node_process(void *object)
 			dd[j].chunk->size = n_samples * outport->stride;
 		}
 
-		outio->status = SPA_STATUS_HAVE_BUFFER;
+		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
-		res |= SPA_STATUS_HAVE_BUFFER;
+		res |= SPA_STATUS_HAVE_DATA;
 	}
 	while (n_dst_datas < this->port_count) {
 		spa_log_trace_fp(this->log, NAME" %p: %d fill output", this, n_dst_datas);
@@ -913,8 +913,8 @@ static int impl_node_process(void *object)
 	if (!this->is_passthrough)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
-	inio->status = SPA_STATUS_NEED_BUFFER;
-	res |= SPA_STATUS_NEED_BUFFER;
+	inio->status = SPA_STATUS_NEED_DATA;
+	res |= SPA_STATUS_NEED_DATA;
 
 	return res;
 }

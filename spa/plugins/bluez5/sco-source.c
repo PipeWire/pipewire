@@ -379,21 +379,21 @@ static void sco_on_ready_read(struct spa_source *source)
 	}
 
 	/* Process a buffer if there is one ready and IO does not have one */
-	if (!spa_list_is_empty(&port->ready) && io->status != SPA_STATUS_HAVE_BUFFER) {
+	if (!spa_list_is_empty(&port->ready) && io->status != SPA_STATUS_HAVE_DATA) {
 		/* Get the ready buffer and remove it from the ready list */
 		buffer = spa_list_first(&port->ready, struct buffer, link);
 		spa_list_remove(&buffer->link);
 
 		/* Mark the buffer to be processed */
 		io->buffer_id = buffer->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
+		io->status = SPA_STATUS_HAVE_DATA;
 
 		/* Add the buffer to the free list */
 		spa_list_append(&port->free, &buffer->link);
 		buffer->outstanding = false;
 
 		/* Set the done status as have buffer */
-		io_done_status = SPA_STATUS_HAVE_BUFFER;
+		io_done_status = SPA_STATUS_HAVE_DATA;
 	}
 
 	/* Notify the current status */
@@ -903,8 +903,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(io != NULL, -EIO);
 
 	/* Return if we already have a buffer */
-	if (io->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	if (io->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
 
 	/* Return if there is not buffers ready to be processed */
 	if (spa_list_is_empty(&port->ready))
@@ -916,14 +916,14 @@ static int impl_node_process(void *object)
 
 	/* Set the new buffer in IO */
 	io->buffer_id = buffer->id;
-	io->status = SPA_STATUS_HAVE_BUFFER;
+	io->status = SPA_STATUS_HAVE_DATA;
 
 	/* Add the buffer to the free list */
 	spa_list_append(&port->free, &buffer->link);
 	buffer->outstanding = false;
 
 	/* Notify we have a buffer ready to be processed */
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

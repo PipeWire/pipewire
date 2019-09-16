@@ -723,11 +723,11 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: status %d %d %d",
 			this, inio->status, outio->status, inio->buffer_id);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	if (outio->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
 
-	if (inio->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
+	if (inio->status != SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_NEED_DATA;
 
 	/* recycle */
 	if (outio->buffer_id < outport->n_buffers) {
@@ -794,19 +794,19 @@ static int impl_node_process(void *object)
 
 	inport->offset += in_len * sizeof(float);
 	if (inport->offset >= size || flush_in) {
-		inio->status = SPA_STATUS_NEED_BUFFER;
+		inio->status = SPA_STATUS_NEED_DATA;
 		inport->offset = 0;
-		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
+		SPA_FLAG_SET(res, SPA_STATUS_NEED_DATA);
 		spa_log_trace_fp(this->log, NAME " %p: return input buffer", this);
 	}
 
 	outport->offset += out_len * sizeof(float);
 	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
-		outio->status = SPA_STATUS_HAVE_BUFFER;
+		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
 		dequeue_buffer(this, dbuf);
 		outport->offset = 0;
-		SPA_FLAG_SET(res, SPA_STATUS_HAVE_BUFFER);
+		SPA_FLAG_SET(res, SPA_STATUS_HAVE_DATA);
 		spa_log_trace_fp(this->log, NAME " %p: have output buffer", this);
 	}
 

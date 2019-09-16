@@ -371,7 +371,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 			pw_log_debug(NAME" %p: start %d", stream, impl->direction);
 
 			if (impl->direction == SPA_DIRECTION_INPUT) {
-				impl->io->status = SPA_STATUS_NEED_BUFFER;
+				impl->io->status = SPA_STATUS_NEED_DATA;
 				impl->io->buffer_id = SPA_ID_INVALID;
 			}
 			else {
@@ -752,7 +752,7 @@ static int impl_node_process_input(void *object)
 	pw_log_trace(NAME" %p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64" size:%"PRIi64,
 			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay, size);
 
-	if (io->status != SPA_STATUS_HAVE_BUFFER)
+	if (io->status != SPA_STATUS_HAVE_DATA)
 		goto done;
 
 	if ((b = get_buffer(stream, io->buffer_id)) == NULL)
@@ -773,9 +773,9 @@ done:
 	}
 
 	io->buffer_id = b ? b->id : SPA_ID_INVALID;
-	io->status = SPA_STATUS_NEED_BUFFER;
+	io->status = SPA_STATUS_NEED_DATA;
 
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static int impl_node_process_output(void *object)
@@ -792,7 +792,7 @@ again:
 			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
 	res = 0;
-	if (io->status != SPA_STATUS_HAVE_BUFFER) {
+	if (io->status != SPA_STATUS_HAVE_DATA) {
 		/* recycle old buffer */
 		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
 			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
@@ -802,11 +802,11 @@ again:
 		/* pop new buffer */
 		if ((b = pop_queue(impl, &impl->queued)) != NULL) {
 			io->buffer_id = b->id;
-			io->status = SPA_STATUS_HAVE_BUFFER;
+			io->status = SPA_STATUS_HAVE_DATA;
 			pw_log_trace(NAME" %p: pop %d %p", stream, b->id, io);
 		} else {
 			io->buffer_id = SPA_ID_INVALID;
-			io->status = SPA_STATUS_NEED_BUFFER;
+			io->status = SPA_STATUS_NEED_DATA;
 			pw_log_trace(NAME" %p: no more buffers %p", stream, io);
 			if (impl->draining) {
 				call_drained(impl);
@@ -818,7 +818,7 @@ again:
 	if (!impl->draining && !SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 		call_process(impl);
 		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) >= MIN_QUEUED &&
-		    io->status == SPA_STATUS_NEED_BUFFER)
+		    io->status == SPA_STATUS_NEED_DATA)
 			goto again;
 	}
 exit:

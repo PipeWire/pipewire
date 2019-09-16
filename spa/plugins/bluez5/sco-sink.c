@@ -483,8 +483,8 @@ static void sco_on_timeout(struct spa_source *source)
 
 	/* Notify we need a new buffer if we have processed all of them */
 	if (spa_list_is_empty(&port->ready) || port->need_data) {
-		io->status = SPA_STATUS_NEED_BUFFER;
-		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
+		io->status = SPA_STATUS_NEED_DATA;
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 	}
 
 	/* Render the buffers */
@@ -994,7 +994,7 @@ static int impl_node_process(void *object)
 	if (!spa_list_is_empty(&port->ready))
 		render_buffers(this, now_time);
 
-	if (io->status == SPA_STATUS_HAVE_BUFFER && io->buffer_id < port->n_buffers) {
+	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
 
 		if (!b->outstanding) {
@@ -1017,7 +1017,7 @@ static int impl_node_process(void *object)
 		io->status = SPA_STATUS_OK;
 	}
 
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

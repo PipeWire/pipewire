@@ -353,7 +353,7 @@ static void client_process(void *data)
 			s->bar.beat = jp->bar * jp->beats_per_bar + jp->beat;
 		}
 	}
-	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_BUFFER);
+	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 }
 
 static const struct spa_jack_client_events client_events = {
@@ -730,7 +730,7 @@ static int impl_node_process(void *object)
 		dst = jack_port_get_buffer(port->jack_port, n_frames);
 
 		if (io == NULL ||
-		    io->status != SPA_STATUS_HAVE_BUFFER ||
+		    io->status != SPA_STATUS_HAVE_DATA ||
 		    io->buffer_id >= port->n_buffers) {
 			memset(dst, 0, n_frames * sizeof(float));
 			continue;
@@ -742,9 +742,9 @@ static int impl_node_process(void *object)
 
 		memcpy(dst, src->data, n_frames * port->stride);
 
-		io->status = SPA_STATUS_NEED_BUFFER;
+		io->status = SPA_STATUS_NEED_DATA;
 
-		res |= SPA_STATUS_NEED_BUFFER;
+		res |= SPA_STATUS_NEED_DATA;
 	}
 	return res;
 }

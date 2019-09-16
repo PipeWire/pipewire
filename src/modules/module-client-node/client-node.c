@@ -1074,7 +1074,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 			spa_log_warn(this->log, NAME" %p: read %"PRIu64" failed %m", this, cmd);
 
 		spa_log_trace_fp(this->log, NAME" %p: got ready", this);
-		spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_BUFFER);
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);
 	}
 }
 
@@ -1325,7 +1325,7 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 	mix->io = SPA_MEMBER(impl->io_areas->map->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
 	mix->io->buffer_id = SPA_ID_INVALID;
-	mix->io->status = SPA_STATUS_NEED_BUFFER;
+	mix->io->status = SPA_STATUS_NEED_DATA;
 
 	pw_log_debug(NAME " %p: init mix io %d %p %p", impl, mix->id, mix->io,
 			impl->io_areas->map->ptr);
@@ -1453,7 +1453,7 @@ impl_mix_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 
 static int impl_mix_process(void *object)
 {
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_port_mix = {

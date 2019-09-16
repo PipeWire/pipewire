@@ -635,8 +635,8 @@ static int impl_node_process(void *object)
 	io = this->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	if (io->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	if (io->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
 
 	if (io->buffer_id < this->n_buffers) {
 		recycle_buffer(this, io->buffer_id);
@@ -655,9 +655,9 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", this, b->id);
 
 	io->buffer_id = b->id;
-	io->status = SPA_STATUS_HAVE_BUFFER;
+	io->status = SPA_STATUS_HAVE_DATA;
 
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

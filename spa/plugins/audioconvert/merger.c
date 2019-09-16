@@ -865,7 +865,7 @@ static inline int get_in_buffer(struct impl *this, struct port *port, struct buf
 				this, port->id);
 		return -EIO;
 	}
-	if (io->status != SPA_STATUS_HAVE_BUFFER ||
+	if (io->status != SPA_STATUS_HAVE_DATA ||
 	    io->buffer_id >= port->n_buffers) {
 		spa_log_trace_fp(this->log, NAME " %p: empty port %d %p %d %d %d",
 				this, port->id, io, io->status, io->buffer_id,
@@ -874,7 +874,7 @@ static inline int get_in_buffer(struct impl *this, struct port *port, struct buf
 	}
 
 	*buf = &port->buffers[io->buffer_id];
-	io->status = SPA_STATUS_NEED_BUFFER;
+	io->status = SPA_STATUS_NEED_DATA;
 
 	return 0;
 }
@@ -884,8 +884,8 @@ static inline int get_out_buffer(struct impl *this, struct port *port, struct bu
 	struct spa_io_buffers *io;
 
 	if ((io = port->io) == NULL ||
-	    io->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	    io->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
 
 	if (io->buffer_id < port->n_buffers)
 		queue_buffer(this, port, io->buffer_id);
@@ -893,7 +893,7 @@ static inline int get_out_buffer(struct impl *this, struct port *port, struct bu
 	if ((*buf = dequeue_buffer(this, port)) == NULL)
 		return -EPIPE;
 
-	io->status = SPA_STATUS_HAVE_BUFFER;
+	io->status = SPA_STATUS_HAVE_DATA;
 	io->buffer_id = (*buf)->id;
 
 	return 0;
@@ -978,7 +978,7 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, NAME " %p: %d %d %d %p", this,
 				sd->chunk->size, maxsize, n_samples, src_datas[i]);
 
-		SPA_FLAG_SET(res, SPA_STATUS_NEED_BUFFER);
+		SPA_FLAG_SET(res, SPA_STATUS_NEED_DATA);
 	}
 
 	for (i = 0; i < this->monitor_count; i++)
@@ -995,7 +995,7 @@ static int impl_node_process(void *object)
 	if (!this->is_passthrough)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
-	return res | SPA_STATUS_HAVE_BUFFER;
+	return res | SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

@@ -1325,7 +1325,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	this->info.props = &this->properties->dict;
 
 	impl->io.buffer_id = SPA_ID_INVALID;
-	impl->io.status = SPA_STATUS_NEED_BUFFER;
+	impl->io.status = SPA_STATUS_NEED_DATA;
 
 	pw_port_init_mix(output, &this->rt.out_mix);
 	pw_port_init_mix(input, &this->rt.in_mix);

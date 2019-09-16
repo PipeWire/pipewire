@@ -1044,7 +1044,7 @@ static int node_ready(void *d, int status)
 	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
 
-	if (status == SPA_STATUS_HAVE_BUFFER) {
+	if (status == SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
 			spa_node_process(p->mix);
 	}

@@ -741,7 +741,7 @@ static int impl_node_process(void *object)
 		const void *src;
 		uint32_t n_frames = this->client->buffer_size;
 
-		if (io == NULL || io->status == SPA_STATUS_HAVE_BUFFER)
+		if (io == NULL || io->status == SPA_STATUS_HAVE_DATA)
 			continue;
 
 		if (io->buffer_id < port->n_buffers) {
@@ -765,9 +765,9 @@ static int impl_node_process(void *object)
 		d->chunk->flags = 0;
 
 		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
+		io->status = SPA_STATUS_HAVE_DATA;
 
-		res |= SPA_STATUS_HAVE_BUFFER;
+		res |= SPA_STATUS_HAVE_DATA;
 	}
 	return res;
 }

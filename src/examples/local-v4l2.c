@@ -316,9 +316,9 @@ static int impl_node_process(void *object)
 
 	handle_events(d);
 
-	d->io->status = SPA_STATUS_NEED_BUFFER;
+	d->io->status = SPA_STATUS_NEED_DATA;
 
-	return SPA_STATUS_NEED_BUFFER;
+	return SPA_STATUS_NEED_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

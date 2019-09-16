@@ -126,9 +126,9 @@ static int tee_process(void *object)
 				mix->port.port_id, io, mix->io, mix->io->buffer_id);
 		*mix->io = *io;
 	}
-	io->status = SPA_STATUS_NEED_BUFFER;
+	io->status = SPA_STATUS_NEED_DATA;
 
-        return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
+        return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
 static int tee_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
@@ -156,16 +156,16 @@ static int schedule_mix_input(void *object)
 	struct pw_port_mix *mix;
 
 	if (PW_PORT_IS_CONTROL(this))
-		return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
+		return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
 		pw_log_trace_fp(NAME" %p: mix input %d %p->%p %d %d", this,
 				mix->port.port_id, mix->io, io, mix->io->status, mix->io->buffer_id);
 		*io = *mix->io;
-		mix->io->status = SPA_STATUS_NEED_BUFFER;
+		mix->io->status = SPA_STATUS_NEED_DATA;
 		break;
 	}
-        return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
+        return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
 static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
@@ -427,7 +427,7 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 
 	pw_map_init(&this->mix_port_map, 64, 64);
 
-	this->rt.io.status = SPA_STATUS_NEED_BUFFER;
+	this->rt.io.status = SPA_STATUS_NEED_DATA;
 
 	if (info)
 		update_info(this, info);

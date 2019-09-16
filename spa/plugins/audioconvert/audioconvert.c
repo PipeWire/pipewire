@@ -138,7 +138,7 @@ static int make_link(struct impl *this,
 	l->in_port = in_port;
 	l->in_flags = 0;
 	l->negotiated = false;
-	l->io.status = SPA_STATUS_NEED_BUFFER;
+	l->io.status = SPA_STATUS_NEED_DATA;
 	l->io.buffer_id = SPA_ID_INVALID;
 	l->n_buffers = 0;
 	l->min_buffers = min_buffers;
@@ -1082,15 +1082,15 @@ static int impl_node_process(void *object)
 			if (r < 0)
 				return r;
 
-			if (r & SPA_STATUS_HAVE_BUFFER)
+			if (r & SPA_STATUS_HAVE_DATA)
 				ready++;
 
 			if (i == 0)
-				res |= r & SPA_STATUS_NEED_BUFFER;
+				res |= r & SPA_STATUS_NEED_DATA;
 			if (i == this->n_nodes-1)
-				res |= r & SPA_STATUS_HAVE_BUFFER;
+				res |= r & SPA_STATUS_HAVE_DATA;
 		}
-		if (res & SPA_STATUS_HAVE_BUFFER)
+		if (res & SPA_STATUS_HAVE_DATA)
 			break;
 		if (ready == 0)
 			break;

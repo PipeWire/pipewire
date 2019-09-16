@@ -707,7 +707,7 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d",
 			this, outio, outio->status, outio->buffer_id);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
+	if (outio->status == SPA_STATUS_HAVE_DATA)
 		return outio->status;
 
 	/* recycle */
@@ -729,7 +729,7 @@ static int impl_node_process(void *object)
 		if (!inport->valid ||
 		    (inio = inport->io) == NULL ||
 		    inio->buffer_id >= inport->n_buffers ||
-		    inio->status != SPA_STATUS_HAVE_BUFFER) {
+		    inio->status != SPA_STATUS_HAVE_DATA) {
 			spa_log_trace_fp(this->log, NAME " %p: skip input %d %d %p %d %d %d", this,
 				i, inport->valid, inio,
 				inio ? inio->status : -1,
@@ -746,7 +746,7 @@ static int impl_node_process(void *object)
 		maxsize = SPA_MIN(inb->buffer->datas[0].chunk->size, maxsize);
 
 		buffers[n_buffers++] = inb;
-		inio->status = SPA_STATUS_NEED_BUFFER;
+		inio->status = SPA_STATUS_NEED_DATA;
 	}
 
 	outb = dequeue_buffer(this, outport);
@@ -786,9 +786,9 @@ static int impl_node_process(void *object)
 	}
 
 	outio->buffer_id = outb->id;
-	outio->status = SPA_STATUS_HAVE_BUFFER;
+	outio->status = SPA_STATUS_HAVE_DATA;
 
-	return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
+	return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

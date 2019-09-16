@@ -1214,16 +1214,16 @@ static int mmap_read(struct impl *this)
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
 
 	io = port->io;
-	if (io != NULL && io->status != SPA_STATUS_HAVE_BUFFER) {
+	if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
 		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
+		io->status = SPA_STATUS_HAVE_DATA;
 	}
 	else {
 		spa_list_append(&port->queue, &b->link);
 	}
 
 	spa_log_trace(this->log, "v4l2 %p: now queued %d", this, b->id);
-	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_BUFFER);
+	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);
 
 	return 0;
 }

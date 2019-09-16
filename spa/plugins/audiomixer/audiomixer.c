@@ -768,9 +768,9 @@ static int mix_output(struct impl *this, size_t n_bytes)
 	od[0].chunk->stride = 0;
 
 	outio->buffer_id = outbuf->id;
-	outio->status = SPA_STATUS_HAVE_BUFFER;
+	outio->status = SPA_STATUS_HAVE_DATA;
 
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static int impl_node_process(void *object)
@@ -789,7 +789,7 @@ static int impl_node_process(void *object)
 
 	spa_log_trace(this->log, NAME " %p: status %d", this, outio->status);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
+	if (outio->status == SPA_STATUS_HAVE_DATA)
 		goto done;
 
 	/* recycle */
@@ -823,10 +823,10 @@ static int impl_node_process(void *object)
 				      i, inport->queued_bytes, inio->status);
 
 			if (inport->queued_bytes == 0) {
-				inio->status = SPA_STATUS_NEED_BUFFER;
+				inio->status = SPA_STATUS_NEED_DATA;
 			}
 		}
-		outio->status = SPA_STATUS_NEED_BUFFER;
+		outio->status = SPA_STATUS_NEED_DATA;
 	}
       done:
 	return outio->status;

@@ -770,7 +770,7 @@ static int impl_node_process(void *object)
 	status = spa_node_process(this->slave);
 
 	if (this->monitor)
-		status |= SPA_STATUS_HAVE_BUFFER;
+		status |= SPA_STATUS_HAVE_DATA;
 
 	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
 		if (this->use_converter)

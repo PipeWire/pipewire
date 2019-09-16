@@ -887,11 +887,11 @@ static int impl_node_process(void *object)
 	if (outport->control)
 		process_control(this, outport, &outport->control->sequence);
 
-	if (outio->status == SPA_STATUS_HAVE_BUFFER)
+	if (outio->status == SPA_STATUS_HAVE_DATA)
 		goto done;
 
-	if (inio->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
+	if (inio->status != SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_NEED_DATA;
 
 	/* recycle */
 	if (outio->buffer_id < outport->n_buffers) {
@@ -933,13 +933,13 @@ static int impl_node_process(void *object)
 				    n_src_datas, src_datas, n_samples);
 	}
 
-	outio->status = SPA_STATUS_HAVE_BUFFER;
+	outio->status = SPA_STATUS_HAVE_DATA;
 	outio->buffer_id = dbuf->id;
 
-	inio->status = SPA_STATUS_NEED_BUFFER;
+	inio->status = SPA_STATUS_NEED_DATA;
 
       done:
-	return SPA_STATUS_HAVE_BUFFER | SPA_STATUS_NEED_BUFFER;
+	return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

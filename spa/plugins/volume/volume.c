@@ -680,8 +680,8 @@ static int impl_node_process(void *object)
 	output = out_port->io;
 	spa_return_val_if_fail(output != NULL, -EIO);
 
-	if (output->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	if (output->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
 
 	/* recycle */
 	if (output->buffer_id < out_port->n_buffers) {
@@ -693,8 +693,8 @@ static int impl_node_process(void *object)
 	input = in_port->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	if (input->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
+	if (input->status != SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_NEED_DATA;
 
 	if (input->buffer_id >= in_port->n_buffers) {
 		input->status = -EINVAL;
@@ -712,11 +712,11 @@ static int impl_node_process(void *object)
 	do_volume(this, dbuf->outbuf, sbuf->outbuf);
 
 	output->buffer_id = dbuf->id;
-	output->status = SPA_STATUS_HAVE_BUFFER;
+	output->status = SPA_STATUS_HAVE_DATA;
 
-	input->status = SPA_STATUS_NEED_BUFFER;
+	input->status = SPA_STATUS_NEED_DATA;
 
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

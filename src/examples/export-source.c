@@ -442,11 +442,11 @@ static int impl_node_process(void *object)
 	od[0].chunk->stride = 0;
 
 	io->buffer_id = b->id;
-	io->status = SPA_STATUS_HAVE_BUFFER;
+	io->status = SPA_STATUS_HAVE_DATA;
 
 	update_volume(d);
 
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

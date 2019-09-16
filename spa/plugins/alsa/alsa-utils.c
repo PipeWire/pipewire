@@ -987,9 +987,9 @@ static int handle_play(struct state *state, uint64_t nsec,
 
 		spa_log_trace_fp(state->log, "alsa-util %p: %d", state, io->status);
 
-		io->status = SPA_STATUS_NEED_BUFFER;
+		io->status = SPA_STATUS_NEED_DATA;
 
-		res = spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_BUFFER);
+		res = spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 	}
 	else {
 		res = spa_alsa_write(state, 0);
@@ -1018,15 +1018,15 @@ static int handle_capture(struct state *state, uint64_t nsec,
 
 	if (!spa_list_is_empty(&state->ready)) {
 		io = state->io;
-		if (io != NULL && io->status != SPA_STATUS_HAVE_BUFFER) {
+		if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
 			struct buffer *b = spa_list_first(&state->ready, struct buffer, link);
 			spa_list_remove(&b->link);
 
 			io->buffer_id = b->id;
-			io->status = SPA_STATUS_HAVE_BUFFER;
+			io->status = SPA_STATUS_HAVE_DATA;
 		}
 	}
-	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_BUFFER);
+	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);
 	return 0;
 }
 

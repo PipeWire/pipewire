@@ -536,7 +536,7 @@ struct spa_node_methods {
 	 * the port.
 	 *
 	 * For output ports, all buffers will be queued in the port. When process
-	 * returns SPA_STATUS_HAVE_BUFFER, buffers are available in one or more
+	 * returns SPA_STATUS_HAVE_DATA, buffers are available in one or more
 	 * of the spa_io_buffers areas.
 	 *
 	 * When a buffer can be reused, port_reuse_buffer() should be called or the
@@ -608,17 +608,17 @@ struct spa_node_methods {
 	/**
 	 * Process the node
 	 *
-	 * Output io areas with SPA_STATUS_NEED_BUFFER will recycle the
+	 * Output io areas with SPA_STATUS_NEED_DATA will recycle the
 	 * buffers if any.
 	 *
-	 * Input areas with SPA_STATUS_HAVE_BUFFER are consumed if possible
-	 * and the status is set to SPA_STATUS_NEED_BUFFER or SPA_STATUS_OK.
+	 * Input areas with SPA_STATUS_HAVE_DATA are consumed if possible
+	 * and the status is set to SPA_STATUS_NEED_DATA or SPA_STATUS_OK.
 	 *
-	 * When the node has new output buffers, the SPA_STATUS_HAVE_BUFFER
+	 * When the node has new output buffers, the SPA_STATUS_HAVE_DATA
 	 * bit will be set.
 	 *
 	 * When the node can accept new input in the next cycle, the
-	 * SPA_STATUS_NEED_BUFFER bit will be set.
+	 * SPA_STATUS_NEED_DATA bit will be set.
 	 */
 	int (*process) (void *object);
 };

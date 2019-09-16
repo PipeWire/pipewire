@@ -613,7 +613,7 @@ static int impl_node_process(void *object)
 			input->buffer_id,
 			this->n_buffers);
 
-	if (input->status == SPA_STATUS_HAVE_BUFFER &&
+	if (input->status == SPA_STATUS_HAVE_DATA &&
 	    input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 
@@ -632,7 +632,7 @@ static int impl_node_process(void *object)
 
 		input->status = SPA_STATUS_OK;
 	}
-	return SPA_STATUS_HAVE_BUFFER;
+	return SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

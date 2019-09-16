@@ -428,11 +428,11 @@ static int impl_node_process(void *object)
 	struct spa_buffer *buf;
 	int res;
 
-	if (d->io->status != SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_NEED_BUFFER;
+	if (d->io->status != SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_NEED_DATA;
 
 	if (d->io->buffer_id >= d->n_buffers)
-		return SPA_STATUS_NEED_BUFFER;
+		return SPA_STATUS_NEED_DATA;
 
 	buf = d->buffers[d->io->buffer_id];
 
@@ -443,7 +443,7 @@ static int impl_node_process(void *object)
 
 	update_param(d);
 
-	return d->io->status = SPA_STATUS_NEED_BUFFER;
+	return d->io->status = SPA_STATUS_NEED_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

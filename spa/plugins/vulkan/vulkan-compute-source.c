@@ -308,7 +308,7 @@ static int make_buffer(struct impl *this)
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->ready, &b->link);
 
-		res = SPA_STATUS_HAVE_BUFFER;
+		res = SPA_STATUS_HAVE_DATA;
 	}
 next:
 	this->frame_count++;
@@ -343,7 +343,7 @@ static void on_output(struct spa_source *source)
 	if (io == NULL)
 		return;
 
-	if (io->status == SPA_STATUS_HAVE_BUFFER)
+	if (io->status == SPA_STATUS_HAVE_DATA)
 		return;
 
 	if (io->buffer_id < port->n_buffers) {
@@ -358,7 +358,7 @@ static void on_output(struct spa_source *source)
 		spa_list_remove(&b->link);
 
 		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_BUFFER;
+		io->status = SPA_STATUS_HAVE_DATA;
         }
 	spa_node_call_ready(&this->callbacks, res);
 }
@@ -789,15 +789,15 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	if (io->status == SPA_STATUS_HAVE_BUFFER)
-		return SPA_STATUS_HAVE_BUFFER;
+	if (io->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
 
 	if (io->buffer_id < port->n_buffers) {
 		reuse_buffer(this, port, io->buffer_id);
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (!this->props.live && (io->status == SPA_STATUS_NEED_BUFFER))
+	if (!this->props.live && (io->status == SPA_STATUS_NEED_DATA))
 		return make_buffer(this);
 	else
 		return SPA_STATUS_OK;

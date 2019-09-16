@@ -46,8 +46,12 @@ enum spa_io_type {
 	SPA_IO_Range,		/**< expected byte range */
 	SPA_IO_Clock,		/**< area to update clock information */
 	SPA_IO_Latency,		/**< latency reporting */
-	SPA_IO_Control,		/**< area for control messages */
-	SPA_IO_Notify,		/**< area for notify messages */
+	SPA_IO_Control,		/**< area for control messages, control messages
+				  *  contain an input spa_pod_sequence of timed
+				  *  events. */
+	SPA_IO_Notify,		/**< area for notify messages, notify messages
+				  *  contain an output spa_pod_sequence of timed
+				  *  events to be sent to listeners. */
 	SPA_IO_Position,	/**< position information in the graph */
 	SPA_IO_RateMatch,	/**< rate matching between nodes */
 };
@@ -104,7 +108,7 @@ struct spa_io_latency {
 	uint64_t max;			/**< max latency */
 };
 
-/** control stream */
+/** control stream, io area for SPA_IO_Control and SPA_IO_Notify */
 struct spa_io_sequence {
 	struct spa_pod_sequence sequence;	/**< sequence of timed events */
 };

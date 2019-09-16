@@ -39,8 +39,10 @@ extern "C" {
 /** Different Control types */
 enum spa_control_type {
 	SPA_CONTROL_Invalid,
-	SPA_CONTROL_Properties,
-	SPA_CONTROL_Midi,
+	SPA_CONTROL_Properties,		/**< data contains a SPA_TYPE_OBJECT_Props */
+	SPA_CONTROL_Midi,		/**< data contains a spa_pod_bytes with raw midi data */
+	SPA_CONTROL_OSC,		/**< data contains a spa_pod_bytes with an OSC packet */
+
 	SPA_CONTROL_LAST,		/**< not part of ABI */
 };
 

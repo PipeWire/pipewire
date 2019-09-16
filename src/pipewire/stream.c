@@ -34,7 +34,6 @@
 #include <spa/node/utils.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
-#include <spa/control/control.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>

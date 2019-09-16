@@ -36,7 +36,6 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
-#include <spa/control/control.h>
 #include <spa/debug/types.h>
 
 #include "channelmix-ops.h"
@@ -90,7 +89,6 @@ struct port {
 	struct spa_param_info params[8];
 
 	struct spa_io_buffers *io;
-	struct spa_io_sequence *control;
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -604,12 +602,6 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
-			break;
 		default:
 			return 0;
 		}
@@ -800,9 +792,6 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
-	case SPA_IO_Control:
-		port->control = data;
-		break;
 	default:
 		return -ENOENT;
 	}
@@ -848,22 +837,6 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static int process_control(struct impl *this, struct port *port, struct spa_pod_sequence *sequence)
-{
-	struct spa_pod_control *c;
-
-	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
-		switch (c->type) {
-		case SPA_CONTROL_Properties:
-			apply_props(this, (const struct spa_pod *) &c->value);
-			break;
-		default:
-			break;
-                }
-	}
-	return 0;
-}
-
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -883,9 +856,6 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
 	spa_log_trace_fp(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
-
-	if (outport->control)
-		process_control(this, outport, &outport->control->sequence);
 
 	if (outio->status == SPA_STATUS_HAVE_DATA)
 		goto done;

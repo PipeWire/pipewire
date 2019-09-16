@@ -25,7 +25,6 @@
 #include <spa/buffer/alloc.h>
 #include <spa/buffer/buffer.h>
 #include <spa/buffer/meta.h>
-#include <spa/control/control.h>
 #include <spa/debug/buffer.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/format.h>

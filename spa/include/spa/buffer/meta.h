@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/pod/pod.h>
 
 /** \page page_meta Metadata
  *
@@ -42,6 +43,8 @@ enum spa_meta_type {
 	SPA_META_VideoDamage,
 	SPA_META_Bitmap,
 	SPA_META_Cursor,
+	SPA_META_Control,	/**< metadata contains a spa_pod_sequence
+				  *  associated with the data */
 
 	SPA_META_LAST,		/**< not part of ABI/API */
 };
@@ -132,6 +135,11 @@ struct spa_meta_cursor {
 					  *  is 0, there is no new bitmap information. When the offset is
 					  *  >= sizeof(struct spa_meta_cursor) there is a
 					  *  struct spa_meta_bitmap at the offset. */
+};
+
+/** a timed set of events associated with the buffer */
+struct spa_meta_control {
+	struct spa_pod_sequence sequence;
 };
 
 #ifdef __cplusplus

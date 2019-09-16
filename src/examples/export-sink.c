@@ -30,7 +30,6 @@
 #include <spa/param/props.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
-#include <spa/control/control.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>

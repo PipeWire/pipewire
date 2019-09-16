@@ -10,7 +10,6 @@
 
 #include <spa/pod/filter.h>
 #include <spa/support/system.h>
-#include <spa/control/control.h>
 
 #include "alsa-utils.h"
 

@@ -36,7 +36,6 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
-#include <spa/control/control.h>
 #include <spa/debug/types.h>
 
 #define NAME "test-source"

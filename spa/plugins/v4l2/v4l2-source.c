@@ -41,7 +41,6 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
-#include <spa/control/control.h>
 #include <spa/debug/pod.h>
 
 #include "v4l2.h"

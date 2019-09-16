@@ -164,10 +164,6 @@ struct mix {
 	struct port *port;
 
 	struct spa_io_buffers *io;
-	struct spa_io_sequence *notify;
-	size_t notify_size;
-	struct spa_io_sequence *control;
-	size_t control_size;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -184,6 +180,7 @@ struct port {
 	uint32_t id;
 	struct object *object;
 
+	struct spa_io_buffers io;
 	struct spa_list mix;
 
 	bool have_format;
@@ -661,8 +658,6 @@ static void convert_to_midi(struct spa_pod_sequence *seq, void *midi)
 {
 	struct spa_pod_control *c;
 
-	jack_midi_reset_buffer(midi);
-
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
 		switch(c->type) {
 		case SPA_CONTROL_Midi:
@@ -675,18 +670,57 @@ static void convert_to_midi(struct spa_pod_sequence *seq, void *midi)
 	}
 }
 
+static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames, uint32_t stride)
+{
+	struct mix *mix;
+	void *ptr = NULL;
+
+	p->io.status = -EPIPE;
+	p->io.buffer_id = SPA_ID_INVALID;
+
+	if ((mix = find_mix(c, p, -1)) != NULL) {
+		struct buffer *b;
+
+		pw_log_trace(NAME" %p: port %p %d get buffer %d n_buffers:%d",
+				c, p, p->id, frames, mix->n_buffers);
+
+		if ((b = dequeue_buffer(mix)) == NULL) {
+			pw_log_warn("port %p: out of buffers", p);
+			goto done;
+		}
+		reuse_buffer(c, mix, b->id);
+		ptr = b->datas[0].data;
+
+		b->datas[0].chunk->offset = 0;
+		b->datas[0].chunk->size = frames * stride;
+		b->datas[0].chunk->stride = stride;
+
+		p->io.status = SPA_STATUS_HAVE_DATA;
+		p->io.buffer_id = b->id;
+	}
+done:
+	spa_list_for_each(mix, &p->mix, port_link) {
+		struct spa_io_buffers *mio = mix->io;
+		if (mio == NULL)
+			continue;
+		pw_log_trace(NAME" %p: port %p tee %d.%d get buffer %d io:%p",
+				c, p, p->id, mix->id, frames, mio);
+		*mio = p->io;
+	}
+	return ptr;
+}
+
 static void process_tee(struct client *c)
 {
 	struct port *p;
 
+
 	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
-		struct mix *mix;
-		spa_list_for_each(mix, &p->mix, port_link) {
-			if (mix->notify == NULL)
-				continue;
-			convert_from_midi(p->emptyptr, mix->notify, mix->notify_size);
-			break;
-		}
+		if (p->object->port.type_id != 1)
+			continue;
+		void *ptr = get_buffer_output(c, p, BUFFER_SIZE_MAX, 1);
+		if (ptr != NULL)
+			convert_from_midi(p->emptyptr, ptr, BUFFER_SIZE_MAX);
 	}
 }
 
@@ -1199,8 +1233,8 @@ static int param_enum_format(struct client *c, struct port *p,
 	case 1:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_stream),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_midi));
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
 	default:
 		return -EINVAL;
@@ -1236,8 +1270,8 @@ static int param_format(struct client *c, struct port *p,
 	case 1:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_stream),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_midi));
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
 	default:
 		return -EINVAL;
@@ -1261,27 +1295,10 @@ static int param_buffers(struct client *c, struct port *p,
 static int param_io(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
-	switch (p->object->port.type_id) {
-	case 0:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-			SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Buffers),
-			SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_buffers)));
-		break;
-	case 1:
-		if (p->direction == SPA_DIRECTION_OUTPUT) {
-			*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-				SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Notify),
-				SPA_PARAM_IO_size,	SPA_POD_Int(BUFFER_SIZE_MAX));
-		} else {
-			*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
-				SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Control),
-				SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_sequence)));
-		}
-		break;
-	}
+	*param = spa_pod_builder_add_object(b,
+		SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+		SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Buffers),
+		SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_buffers)));
 	return 1;
 }
 
@@ -1313,7 +1330,9 @@ static int port_set_format(struct client *c, struct port *p,
 			p->rate = info.info.raw.rate;
 			break;
 
-		case SPA_MEDIA_TYPE_stream:
+		case SPA_MEDIA_TYPE_application:
+			if (info.media_subtype != SPA_MEDIA_SUBTYPE_control)
+				return -EINVAL;
 			break;
 		default:
 			return -EINVAL;
@@ -1486,11 +1505,12 @@ static int client_node_port_use_buffers(void *object,
 						d->data, d->maxsize);
 		}
 
+		init_buffer(p, p->emptyptr, BUFFER_SIZE_MAX);
+		p->zeroed = true;
+
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-		if (direction == SPA_DIRECTION_OUTPUT) {
-			init_buffer(p, b->datas[0].data, b->datas[0].maxsize);
+		if (direction == SPA_DIRECTION_OUTPUT)
 			reuse_buffer(c, mix, b->id);
-		}
 
 	}
 	pw_log_debug(NAME" %p: have %d buffers", c, n_buffers);
@@ -1549,14 +1569,6 @@ static int client_node_port_set_io(void *object,
 	switch (id) {
 	case SPA_IO_Buffers:
                 mix->io = ptr;
-		break;
-	case SPA_IO_Notify:
-                mix->notify = ptr;
-                mix->notify_size = size;
-		break;
-	case SPA_IO_Control:
-                mix->control = ptr;
-                mix->control_size = size;
 		break;
 	default:
 		break;
@@ -1728,11 +1740,9 @@ static void registry_event_global(void *data, uint32_t id,
 
 		spa_dict_for_each(item, props) {
 	                if (!strcmp(item->key, PW_KEY_PORT_DIRECTION)) {
-				if (strcmp(item->value, "in") == 0 ||
-				    strcmp(item->value, "control") == 0)
+				if (strcmp(item->value, "in") == 0)
 					flags |= JackPortIsInput;
-				else if (strcmp(item->value, "out") == 0 ||
-				    strcmp(item->value, "notify") == 0)
+				else if (strcmp(item->value, "out") == 0)
 					flags |= JackPortIsOutput;
 			}
 			else if (!strcmp(item->key, PW_KEY_PORT_PHYSICAL)) {
@@ -2739,21 +2749,54 @@ static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
 static void *mix_midi(struct client *c, struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
-	struct spa_io_sequence *io;
-	void *ptr = NULL;
+	struct buffer *b;
+	struct spa_io_buffers *io;
+	void *ptr = p->emptyptr;
+
+	jack_midi_reset_buffer(ptr);
 
 	spa_list_for_each(mix, &p->mix, port_link) {
 		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
 				c, p, p->id, mix->id, frames);
-		io = mix->control;
-		if (io == NULL)
+
+		io = mix->io;
+		if (io == NULL || io->buffer_id >= mix->n_buffers)
 			continue;
 
-		ptr = p->emptyptr;
-		convert_to_midi(&io->sequence, ptr);
+		io->status = SPA_STATUS_NEED_DATA;
+		b = &mix->buffers[io->buffer_id];
+		/* FIXME, actually mix the midi */
+		convert_to_midi(b->datas[0].data, ptr);
+		p->zeroed = false;
 		break;
 	}
 	return ptr;
+}
+
+static inline void *get_buffer_input_float(struct client *c, struct port *p, jack_nframes_t frames)
+{
+	return mix_audio(c, p, frames);
+}
+
+static inline void *get_buffer_input_midi(struct client *c, struct port *p, jack_nframes_t frames)
+{
+	return mix_midi(c, p, frames);
+}
+
+static inline void *get_buffer_output_float(struct client *c, struct port *p, jack_nframes_t frames)
+{
+	void *ptr;
+
+	ptr = get_buffer_output(c, p, frames, sizeof(float));
+	if (ptr == NULL)
+		ptr = p->emptyptr;
+
+	return ptr;
+}
+
+static inline void *get_buffer_output_midi(struct client *c, struct port *p, jack_nframes_t frames)
+{
+	return p->emptyptr;
 }
 
 SPA_EXPORT
@@ -2762,7 +2805,6 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct object *o = (struct object *) port;
 	struct client *c;
 	struct port *p;
-	struct mix *mix;
 	void *ptr = NULL;
 
 	if (o == NULL)
@@ -2779,56 +2821,30 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		switch (p->object->port.type_id) {
 		case 0:
-			ptr = mix_audio(c, p, frames);
+			ptr = get_buffer_input_float(c, p, frames);
 			break;
 		case 1:
-			ptr = mix_midi(c, p, frames);
+			ptr = get_buffer_input_midi(c, p, frames);
 			break;
 		}
-	} else {
-		struct spa_io_buffers io;
-
-		io.status = -EPIPE;
-		io.buffer_id = SPA_ID_INVALID;
-
-		if ((mix = find_mix(c, p, -1)) != NULL) {
-			struct buffer *b;
-
-			pw_log_trace(NAME" %p: port %p %d get buffer %d n_buffers:%d",
-					c, p, p->id, frames, mix->n_buffers);
-
-			if ((b = dequeue_buffer(mix)) == NULL) {
-				pw_log_warn("port %p: out of buffers", p);
-				goto done;
+		if (ptr == NULL) {
+			ptr = p->emptyptr;
+			if (!p->zeroed) {
+				init_buffer(p, ptr, BUFFER_SIZE_MAX * sizeof(float));
+				p->zeroed = true;
 			}
-			reuse_buffer(c, mix, b->id);
-			ptr = b->datas[0].data;
-
-			b->datas[0].chunk->offset = 0;
-			b->datas[0].chunk->size = frames * sizeof(float);
-			b->datas[0].chunk->stride = sizeof(float);
-
-			io.status = SPA_STATUS_HAVE_DATA;
-			io.buffer_id = b->id;
 		}
-      done:
-		spa_list_for_each(mix, &p->mix, port_link) {
-			struct spa_io_buffers *mio = mix->io;
-			if (mio == NULL)
-				continue;
-			pw_log_trace(NAME" %p: port %p tee %d.%d get buffer %d io:%p",
-					c, p, p->id, mix->id, frames, mio);
-			*mio = io;
+	} else {
+		switch (p->object->port.type_id) {
+		case 0:
+			ptr = get_buffer_output_float(c, p, frames);
+			break;
+		case 1:
+			ptr = get_buffer_output_midi(c, p, frames);
+			break;
 		}
 	}
 
-	if (ptr == NULL) {
-		ptr = p->emptyptr;
-		if (!p->zeroed) {
-			init_buffer(p, ptr, BUFFER_SIZE_MAX * sizeof(float));
-			p->zeroed = true;
-		}
-	}
 	pw_log_trace(NAME" %p: port %p buffer %p", c, p, ptr);
 	return ptr;
 }

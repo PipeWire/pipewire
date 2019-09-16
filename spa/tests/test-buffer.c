@@ -47,7 +47,8 @@ static void test_abi(void)
 	spa_assert(SPA_META_VideoDamage == 3);
 	spa_assert(SPA_META_Bitmap == 4);
 	spa_assert(SPA_META_Cursor == 5);
-	spa_assert(SPA_META_LAST == 6);
+	spa_assert(SPA_META_Control == 6);
+	spa_assert(SPA_META_LAST == 7);
 
 	spa_assert(sizeof(struct spa_meta) == 16);
 	spa_assert(sizeof(struct spa_meta_header) == 24);

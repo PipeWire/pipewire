@@ -2723,7 +2723,7 @@ static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
 		if (io == NULL || io->buffer_id >= mix->n_buffers)
 			continue;
 
-		io->status = SPA_STATUS_NEED_BUFFER;
+		io->status = SPA_STATUS_NEED_DATA;
 		b = &mix->buffers[io->buffer_id];
 		if (layer++ == 0)
 			ptr = b->datas[0].data;
@@ -2808,7 +2808,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			b->datas[0].chunk->size = frames * sizeof(float);
 			b->datas[0].chunk->stride = sizeof(float);
 
-			io.status = SPA_STATUS_HAVE_BUFFER;
+			io.status = SPA_STATUS_HAVE_DATA;
 			io.buffer_id = b->id;
 		}
       done:

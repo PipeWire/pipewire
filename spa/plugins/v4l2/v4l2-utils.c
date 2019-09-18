@@ -881,7 +881,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	streamparm.parm.capture.timeperframe.numerator = framerate->denom;
 	streamparm.parm.capture.timeperframe.denominator = framerate->num;
 
-	spa_log_info(this->log, "v4l2: set %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
+	spa_log_info(this->log, "v4l2: set %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
@@ -902,7 +902,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (xioctl(dev->fd, VIDIOC_S_PARM, &streamparm) < 0)
 		spa_log_warn(this->log, "VIDIOC_S_PARM: %m");
 
-	spa_log_info(this->log, "v4l2: got %08x %dx%d %d/%d", fmt.fmt.pix.pixelformat,
+	spa_log_info(this->log, "v4l2: got %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);

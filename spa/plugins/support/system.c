@@ -96,38 +96,6 @@ static int impl_clock_getres(void *object,
 }
 
 /* poll */
-static inline uint32_t spa_io_to_epoll(uint32_t mask)
-{
-	uint32_t events = 0;
-
-	if (mask & SPA_IO_IN)
-		events |= EPOLLIN;
-	if (mask & SPA_IO_OUT)
-		events |= EPOLLOUT;
-	if (mask & SPA_IO_ERR)
-		events |= EPOLLERR;
-	if (mask & SPA_IO_HUP)
-		events |= EPOLLHUP;
-
-	return events;
-}
-
-static inline uint32_t spa_epoll_to_io(uint32_t events)
-{
-	uint32_t mask = 0;
-
-	if (events & EPOLLIN)
-		mask |= SPA_IO_IN;
-	if (events & EPOLLOUT)
-		mask |= SPA_IO_OUT;
-	if (events & EPOLLHUP)
-		mask |= SPA_IO_HUP;
-	if (events & EPOLLERR)
-		mask |= SPA_IO_ERR;
-
-	return mask;
-}
-
 static int impl_pollfd_create(void *object, int flags)
 {
 	int fl = 0, res;
@@ -143,7 +111,7 @@ static int impl_pollfd_add(void *object, int pfd, int fd, uint32_t events, void 
 	int res;
 
 	spa_zero(ep);
-	ep.events = spa_io_to_epoll(events);
+	ep.events = events;
 	ep.data.ptr = data;
 
 	res = epoll_ctl(pfd, EPOLL_CTL_ADD, fd, &ep);
@@ -156,7 +124,7 @@ static int impl_pollfd_mod(void *object, int pfd, int fd, uint32_t events, void 
 	int res;
 
 	spa_zero(ep);
-	ep.events = spa_io_to_epoll(events);
+	ep.events = events;
 	ep.data.ptr = data;
 
 	res = epoll_ctl(pfd, EPOLL_CTL_MOD, fd, &ep);
@@ -175,11 +143,11 @@ static int impl_pollfd_wait(void *object, int pfd,
 	struct epoll_event ep[n_ev];
 	int i, nfds;
 
-	if (SPA_UNLIKELY((nfds = epoll_wait(pfd, ep, SPA_N_ELEMENTS(ep), timeout)) < 0))
+	if (SPA_UNLIKELY((nfds = epoll_wait(pfd, ep, n_ev, timeout)) < 0))
 		return -errno;
 
         for (i = 0; i < nfds; i++) {
-                ev[i].events = spa_epoll_to_io(ep[i].events);
+                ev[i].events = ep[i].events;
                 ev[i].data = ep[i].data.ptr;
         }
 	return nfds;

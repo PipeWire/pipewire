@@ -43,9 +43,9 @@ struct spa_system { struct spa_interface iface; };
 
 /* IO events */
 #define SPA_IO_IN	(1 << 0)
-#define SPA_IO_OUT	(1 << 1)
-#define SPA_IO_HUP	(1 << 2)
+#define SPA_IO_OUT	(1 << 2)
 #define SPA_IO_ERR	(1 << 3)
+#define SPA_IO_HUP	(1 << 4)
 
 /* flags */
 #define SPA_FD_CLOEXEC			(1<<0)

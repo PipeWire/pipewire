@@ -440,15 +440,7 @@ static void *loop(void *user_data)
 		/* after */
 		for (i = 0; i < data->n_sources; i++) {
 			struct spa_source *p = &data->sources[i];
-			p->rmask = 0;
-			if (data->fds[i].revents & POLLIN)
-				p->rmask |= SPA_IO_IN;
-			if (data->fds[i].revents & POLLOUT)
-				p->rmask |= SPA_IO_OUT;
-			if (data->fds[i].revents & POLLHUP)
-				p->rmask |= SPA_IO_HUP;
-			if (data->fds[i].revents & POLLERR)
-				p->rmask |= SPA_IO_ERR;
+			p->rmask = data->fds[i].revents;
 		}
 		for (i = 0; i < data->n_sources; i++) {
 			struct spa_source *p = &data->sources[i];

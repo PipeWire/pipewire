@@ -3241,7 +3241,8 @@ int jack_connect (jack_client_t *client,
 
 	if (src == NULL || dst == NULL ||
 	    !(src->port.flags & JackPortIsOutput) ||
-	    !(dst->port.flags & JackPortIsInput)) {
+	    !(dst->port.flags & JackPortIsInput) ||
+	    src->port.type_id != dst->port.type_id) {
 		res = -EINVAL;
 		goto exit;
 	}

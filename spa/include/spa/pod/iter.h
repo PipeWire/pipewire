@@ -126,6 +126,17 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 	SPA_POD_SEQUENCE_BODY_FOREACH(&(seq)->body, SPA_POD_BODY_SIZE(seq), iter)
 
 
+static inline void *spa_pod_from_data(void *data, size_t maxsize, off_t offset, size_t size)
+{
+	void *pod;
+	if (offset + size > maxsize)
+		return NULL;
+	pod = SPA_MEMBER(data, offset, void);
+	if (SPA_POD_SIZE(pod) > size)
+		return NULL;
+	return pod;
+}
+
 static inline int spa_pod_is_none(const struct spa_pod *pod)
 {
 	return (SPA_POD_TYPE(pod) == SPA_TYPE_None);

@@ -3443,7 +3443,7 @@ const char ** jack_get_ports (jack_client_t *client,
 	int count = 0;
 	struct object *o;
 	const char *str;
-	uint32_t id;
+	uint32_t i, id;
 	regex_t port_regex, type_regex;
 
 	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
@@ -3461,30 +3461,32 @@ const char ** jack_get_ports (jack_client_t *client,
 	pw_log_debug(NAME" %p: ports id:%d name:%s type:%s flags:%08lx", c, id,
 			port_name_pattern, type_name_pattern, flags);
 
-	spa_list_for_each(o, &c->context.ports, link) {
-		pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:%s", c,
-				o->port.type_id, o->port.flags, o->port.name);
-		if (o->port.type_id == 2)
-			continue;
-		if (!SPA_FLAG_CHECK(o->port.flags, flags))
-			continue;
-		if (id != SPA_ID_INVALID && o->port.node_id != id)
-			continue;
-
-		if (port_name_pattern && port_name_pattern[0]) {
-			if (regexec(&port_regex, o->port.name, 0, NULL, 0) == REG_NOMATCH)
+	for (i = 0; i < 2; i++) {
+		spa_list_for_each(o, &c->context.ports, link) {
+			pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:%s", c,
+					o->port.type_id, o->port.flags, o->port.name);
+			if (count == JACK_PORT_MAX)
+				break;
+			if (o->port.type_id != i)
 				continue;
-		}
-		if (type_name_pattern && type_name_pattern[0]) {
-			if (regexec(&type_regex, type_to_string(o->port.type_id),
-						0, NULL, 0) == REG_NOMATCH)
+			if (!SPA_FLAG_CHECK(o->port.flags, flags))
 				continue;
-		}
+			if (id != SPA_ID_INVALID && o->port.node_id != id)
+				continue;
 
-		pw_log_debug(NAME" %p: port %s matches (%d)", c, o->port.name, count);
-		res[count++] = o->port.name;
-		if (count == JACK_PORT_MAX)
-			break;
+			if (port_name_pattern && port_name_pattern[0]) {
+				if (regexec(&port_regex, o->port.name, 0, NULL, 0) == REG_NOMATCH)
+					continue;
+			}
+			if (type_name_pattern && type_name_pattern[0]) {
+				if (regexec(&type_regex, type_to_string(o->port.type_id),
+							0, NULL, 0) == REG_NOMATCH)
+					continue;
+			}
+
+			pw_log_debug(NAME" %p: port %s matches (%d)", c, o->port.name, count);
+			res[count++] = o->port.name;
+		}
 	}
 	pw_thread_loop_unlock(c->context.loop);
 

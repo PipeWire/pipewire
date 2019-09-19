@@ -106,7 +106,7 @@ struct spa_log_methods {
 #define spa_log_log(l,lev,...)					\
 ({								\
 	struct spa_log *_l = l;					\
-	if (SPA_UNLIKELY (spa_log_level_enabled(_l, lev)))	\
+	if (SPA_UNLIKELY(spa_log_level_enabled(_l, lev)))	\
 		spa_interface_call(&_l->iface,			\
 			struct spa_log_methods, log, 0, lev,	\
 			__VA_ARGS__);				\
@@ -115,7 +115,7 @@ struct spa_log_methods {
 #define spa_log_logv(l,lev,...)					\
 ({								\
 	struct spa_log *_l = l;					\
-	if (SPA_UNLIKELY (spa_log_level_enabled(_l, lev)))	\
+	if (SPA_UNLIKELY(spa_log_level_enabled(_l, lev)))	\
 		spa_interface_call(&_l->iface,			\
 			struct spa_log_methods, logv, 0, lev,	\
 			__VA_ARGS__);				\
@@ -138,7 +138,7 @@ struct spa_log_methods {
 #define SPA_LOG_FUNC(name,lev)							\
 static inline void spa_log_##name (struct spa_log *l, const char *format, ...)  \
 {										\
-	if (SPA_UNLIKELY (spa_log_level_enabled (l, lev))) {			\
+	if (SPA_UNLIKELY(spa_log_level_enabled(l, lev))) {			\
 		va_list varargs;						\
 		va_start (varargs, format);					\
 		spa_interface_call(&l->iface,					\

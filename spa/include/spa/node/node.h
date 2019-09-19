@@ -662,6 +662,7 @@ struct spa_node_methods {
 								  *  immediately when idle. */
 
 /** port keys */
+#define SPA_KEY_PORT_NAME		"port.name"		/**< a port name */
 #define SPA_KEY_PORT_MONITOR		"port.monitor"		/**< this port is a monitor port */
 
 #ifdef __cplusplus

@@ -499,14 +499,12 @@ static int set_timeout(struct state *state, uint64_t time)
 {
 	struct itimerspec ts;
 
-	if (!state->slaved) {
-		ts.it_value.tv_sec = time / SPA_NSEC_PER_SEC;
-		ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
-		ts.it_interval.tv_sec = 0;
-		ts.it_interval.tv_nsec = 0;
-		spa_system_timerfd_settime(state->data_system,
-				state->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
-	}
+	ts.it_value.tv_sec = time / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(state->data_system,
+			state->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 	return 0;
 }
 
@@ -848,7 +846,7 @@ push_frames(struct state *state,
 
 		if (b->h) {
 			b->h->seq = state->sample_count;
-			b->h->pts = SPA_TIMESPEC_TO_NSEC(&state->now);
+			b->h->pts = state->next_time;
 			b->h->dts_offset = 0;
 		}
 
@@ -1033,7 +1031,6 @@ static void alsa_on_timeout_event(struct spa_source *source)
 {
 	struct state *state = source->data;
 	snd_pcm_uframes_t delay, target;
-	uint64_t nsec;
 	uint64_t expire;
 	int res;
 
@@ -1045,19 +1042,27 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}
 
-	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &state->now);
 	if ((res = get_status(state, &delay, &target)) < 0)
 		return;
 
-	nsec = SPA_TIMESPEC_TO_NSEC(&state->now);
-	spa_log_trace_fp(state->log, "timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64,
-			delay, target, nsec, state->next_time, nsec - state->next_time,
-			state->threshold, state->sample_count);
+	state->current_time = state->next_time;
+
+#ifndef FASTPATH
+	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE))) {
+		struct timespec now;
+		uint64_t nsec;
+		spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now);
+		nsec = SPA_TIMESPEC_TO_NSEC(&now);
+		spa_log_trace_fp(state->log, "timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64,
+				delay, target, nsec, state->current_time, nsec - state->current_time,
+				state->threshold, state->sample_count);
+	}
+#endif
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		handle_play(state, nsec, delay, target);
+		handle_play(state, state->current_time, delay, target);
 	else
-		handle_capture(state, nsec, delay, target);
+		handle_capture(state, state->current_time, delay, target);
 
 	set_timeout(state, state->next_time);
 }
@@ -1082,15 +1087,15 @@ static void reset_buffers(struct state *this)
 
 static int set_timers(struct state *state)
 {
-	struct itimerspec ts;
-	ts.it_value.tv_sec = 0;
-	if (state->slaved)
-		ts.it_value.tv_nsec = 0;
-	else
-		ts.it_value.tv_nsec = 1;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	spa_system_timerfd_settime(state->data_system, state->timerfd, 0, &ts, NULL);
+	struct timespec now;
+	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now);
+	state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+
+	if (state->slaved) {
+		set_timeout(state, 0);
+	} else {
+		set_timeout(state, state->next_time);
+	}
 	return 0;
 }
 

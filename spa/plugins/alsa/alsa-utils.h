@@ -135,10 +135,10 @@ struct state {
 	unsigned int alsa_sync:1;
 	unsigned int slaved:1;
 
-	snd_htimestamp_t now;
 	int64_t sample_count;
 
 	int64_t sample_time;
+	uint64_t current_time;
 	uint64_t next_time;
 	uint64_t base_time;
 

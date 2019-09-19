@@ -1,6 +1,8 @@
 spa_alsa_sources = ['alsa.c',
                 'alsa-monitor.c',
                 'alsa-device.c',
+                'alsa-seq-source.c',
+                'alsa-seq.c',
                 'alsa-sink.c',
                 'alsa-source.c',
                 'alsa-utils.c']

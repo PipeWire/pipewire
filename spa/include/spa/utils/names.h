@@ -83,6 +83,8 @@ extern "C" {
 									  *  capturing PCM */
 #define SPA_NAME_API_ALSA_PCM_SINK	"api.alsa.pcm.sink"		/**< an alsa Node interface for
 									  *  playback PCM */
+#define SPA_NAME_API_ALSA_MIDI_SOURCE	"api.alsa.midi.source"		/**< an alsa Node interface for
+									  *  capturing midi */
 
 /** keys for bluez5 factory names */
 #define SPA_NAME_API_BLUEZ5_MONITOR	"api.bluez5.monitor"		/**< a Monitor interface */

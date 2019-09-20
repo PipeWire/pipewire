@@ -242,8 +242,10 @@ static void node_port_init(void *data, struct pw_port *port)
 				direction == PW_DIRECTION_INPUT ? "in" : "out",
 				str);
 
-		pw_properties_set(new, PW_KEY_PORT_PHYSICAL, "1");
-		pw_properties_set(new, PW_KEY_PORT_TERMINAL, "1");
+		if (is_device) {
+			pw_properties_set(new, PW_KEY_PORT_PHYSICAL, "1");
+			pw_properties_set(new, PW_KEY_PORT_TERMINAL, "1");
+		}
 	}
 
 	pw_port_update_properties(port, &new->dict);

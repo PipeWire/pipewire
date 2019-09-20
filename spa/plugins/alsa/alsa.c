@@ -28,7 +28,7 @@
 
 extern const struct spa_handle_factory spa_alsa_source_factory;
 extern const struct spa_handle_factory spa_alsa_sink_factory;
-extern const struct spa_handle_factory spa_alsa_monitor_factory;
+extern const struct spa_handle_factory spa_alsa_udev_factory;
 extern const struct spa_handle_factory spa_alsa_device_factory;
 extern const struct spa_handle_factory spa_alsa_midi_source_factory;
 
@@ -46,7 +46,7 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		*factory = &spa_alsa_sink_factory;
 		break;
 	case 2:
-		*factory = &spa_alsa_monitor_factory;
+		*factory = &spa_alsa_udev_factory;
 		break;
 	case 3:
 		*factory = &spa_alsa_device_factory;

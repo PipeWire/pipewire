@@ -52,7 +52,6 @@ static const struct spa_type_info spa_type_direction[] = {
 	{ 0, 0, NULL, NULL }
 };
 
-#include <spa/monitor/type-info.h>
 #include <spa/node/type-info.h>
 #include <spa/param/type-info.h>
 #include <spa/control/type-info.h>
@@ -110,16 +109,16 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_INTERFACE_DataSystem, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "DataSystem", NULL },
 	{ SPA_TYPE_INTERFACE_DataLoop, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "DataLoop", NULL },
 	{ SPA_TYPE_INTERFACE_DBus, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "DBus", NULL },
-	{ SPA_TYPE_INTERFACE_Monitor, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "Monitor", NULL },
 	{ SPA_TYPE_INTERFACE_Node, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "Node", NULL },
 	{ SPA_TYPE_INTERFACE_Device, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "Device", NULL },
 	{ SPA_TYPE_INTERFACE_CPU, SPA_TYPE_Pointer, SPA_TYPE_INFO_INTERFACE_BASE "CPU", NULL },
 
 	{ SPA_TYPE_EVENT_START, SPA_TYPE_Object, SPA_TYPE_INFO_Event, NULL },
-	{ SPA_TYPE_EVENT_Monitor, SPA_TYPE_Object, SPA_TYPE_INFO_EVENT_BASE "Monitor", spa_type_monitor_event },
+	{ SPA_TYPE_EVENT_Device, SPA_TYPE_Object, SPA_TYPE_INFO_EVENT_BASE "Device", NULL },
 	{ SPA_TYPE_EVENT_Node, SPA_TYPE_Object, SPA_TYPE_INFO_EVENT_BASE "Node", spa_type_node_event },
 
 	{ SPA_TYPE_COMMAND_START, SPA_TYPE_Object, SPA_TYPE_INFO_Command, NULL },
+	{ SPA_TYPE_COMMAND_Device, SPA_TYPE_Object, SPA_TYPE_INFO_COMMAND_BASE "Device", NULL },
 	{ SPA_TYPE_COMMAND_Node, SPA_TYPE_Object, SPA_TYPE_INFO_COMMAND_BASE "Node", spa_type_node_command },
 
 	{ SPA_TYPE_OBJECT_START, SPA_TYPE_Object, SPA_TYPE_INFO_Object, NULL },

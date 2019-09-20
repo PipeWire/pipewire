@@ -34,7 +34,6 @@
 #include <spa/debug/types.h>
 #include <spa/graph/graph.h>
 #include <spa/monitor/device.h>
-#include <spa/monitor/monitor.h>
 #include <spa/node/command.h>
 #include <spa/node/event.h>
 #include <spa/node/io.h>

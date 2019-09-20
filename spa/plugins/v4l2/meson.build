@@ -1,6 +1,6 @@
 v4l2_sources = ['v4l2.c',
                 'v4l2-device.c',
-                'v4l2-monitor.c',
+                'v4l2-udev.c',
                 'v4l2-source.c']
 
 v4l2lib = shared_library('spa-v4l2',

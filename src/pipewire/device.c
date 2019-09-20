@@ -65,13 +65,51 @@ struct resource_data {
 	struct spa_hook listener;
 };
 
-struct node_data {
+struct object_data {
 	struct spa_list link;
-	struct pw_node *node;
-	struct spa_handle *handle;
 	uint32_t id;
-	struct spa_hook node_listener;
+	uint32_t type;
+	struct spa_handle *handle;
+	void *object;
+	struct spa_hook listener;
 };
+
+static void object_destroy(struct object_data *od)
+{
+	switch (od->type) {
+	case SPA_TYPE_INTERFACE_Node:
+		pw_node_destroy(od->object);
+		break;
+	case SPA_TYPE_INTERFACE_Device:
+		pw_device_destroy(od->object);
+		break;
+	}
+}
+
+static void object_update(struct object_data *od, const struct spa_dict *props)
+{
+	switch (od->type) {
+	case SPA_TYPE_INTERFACE_Node:
+		pw_node_update_properties(od->object, props);
+		break;
+	case SPA_TYPE_INTERFACE_Device:
+		pw_device_update_properties(od->object, props);
+		break;
+	}
+}
+
+static void object_register(struct object_data *od)
+{
+	switch (od->type) {
+	case SPA_TYPE_INTERFACE_Node:
+		pw_node_register(od->object, NULL);
+		pw_node_set_active(od->object, true);
+		break;
+	case SPA_TYPE_INTERFACE_Device:
+		pw_device_register(od->object, NULL);
+		break;
+	}
+}
 
 static void check_properties(struct pw_device *device)
 {
@@ -116,7 +154,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 	this->info.params = this->params;
 	spa_hook_list_init(&this->listener_list);
 
-	spa_list_init(&this->node_list);
+	spa_list_init(&this->object_list);
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(this, sizeof(struct impl), void);
@@ -137,13 +175,13 @@ error_cleanup:
 SPA_EXPORT
 void pw_device_destroy(struct pw_device *device)
 {
-	struct node_data *nd;
+	struct object_data *od;
 
 	pw_log_debug(NAME" %p: destroy", device);
 	pw_device_emit_destroy(device);
 
-	spa_list_consume(nd, &device->node_list, link)
-		pw_node_destroy(nd->node);
+	spa_list_consume(od, &device->object_list, link)
+		object_destroy(od);
 
 	if (device->registered)
 		spa_list_remove(&device->link);
@@ -366,7 +404,7 @@ int pw_device_register(struct pw_device *device,
 		       struct pw_properties *properties)
 {
 	struct pw_core *core = device->core;
-	struct node_data *nd;
+	struct object_data *od;
 	const char *keys[] = {
 		PW_KEY_MODULE_ID,
 		PW_KEY_CLIENT_ID,
@@ -400,16 +438,15 @@ int pw_device_register(struct pw_device *device,
 	device->registered = true;
 
 	device->info.id = device->global->id;
-	pw_properties_setf(device->properties, PW_KEY_DEVICE_ID, "%d", device->info.id);
+	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%d", device->info.id);
 	device->info.props = &device->properties->dict;
 
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);
 	pw_global_register(device->global);
 
-	spa_list_for_each(nd, &device->node_list, link) {
-		pw_node_register(nd->node, NULL);
-		pw_node_set_active(nd->node, true);
-	}
+	spa_list_for_each(od, &device->object_list, link)
+		object_register(od);
+
 	return 0;
 
 error_existed:
@@ -418,22 +455,28 @@ error_existed:
 	return -EEXIST;
 }
 
-static void node_destroy(void *data)
+static void on_object_destroy(void *data)
 {
-	struct node_data *nd = data;
-	spa_list_remove(&nd->link);
+	struct object_data *od = data;
+	spa_list_remove(&od->link);
 }
 
-static void node_free(void *data)
+static void on_object_free(void *data)
 {
-	struct node_data *nd = data;
-	pw_unload_spa_handle(nd->handle);
+	struct object_data *od = data;
+	pw_unload_spa_handle(od->handle);
 }
 
-static const struct pw_node_events node_events = {
+static const struct pw_node_events node_object_events = {
 	PW_VERSION_NODE_EVENTS,
-	.destroy = node_destroy,
-	.free = node_free,
+	.destroy = on_object_destroy,
+	.free = on_object_free,
+};
+
+static const struct pw_device_events device_object_events = {
+	PW_VERSION_DEVICE_EVENTS,
+	.destroy = on_object_destroy,
+	.free = on_object_free,
 };
 
 static void emit_info_changed(struct pw_device *device)
@@ -481,21 +524,16 @@ static void device_info(void *data, const struct spa_device_info *info)
 	emit_info_changed(device);
 }
 
-static void device_add(struct pw_device *device, uint32_t id,
+static void device_add_object(struct pw_device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_core *core = device->core;
 	struct spa_handle *handle;
-	struct pw_node *node;
-	struct node_data *nd;
 	struct pw_properties *props;
 	int res;
 	void *iface;
+	struct object_data *od = NULL;
 
-	if (info->type != SPA_TYPE_INTERFACE_Node) {
-		pw_log_warn(NAME" %p: unknown type %d", device, info->type);
-		return;
-	}
 	if (info->factory_name == NULL) {
 		pw_log_warn(NAME" %p: missing factory name", device);
 		return;
@@ -518,32 +556,52 @@ static void device_add(struct pw_device *device, uint32_t id,
 	if (info->props && props)
 		pw_properties_update(props, info->props);
 
-	node = pw_node_new(core,
-			   props,
-			   sizeof(struct node_data));
+	switch (info->type) {
+	case SPA_TYPE_INTERFACE_Node:
+	{
+		struct pw_node *node;
+		node = pw_node_new(core, props, sizeof(struct object_data));
 
-	nd = pw_node_get_user_data(node);
-	nd->id = id;
-	nd->node = node;
-	nd->handle = handle;
-	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
-	spa_list_append(&device->node_list, &nd->link);
+		od = pw_node_get_user_data(node);
+		od->object = node;
+		pw_node_add_listener(node, &od->listener, &node_object_events, od);
+		pw_node_set_implementation(node, iface);
+		break;
+	}
+	case SPA_TYPE_INTERFACE_Device:
+	{
+		struct pw_device *dev;
+		dev = pw_device_new(core, props, sizeof(struct object_data));
 
-	pw_node_set_implementation(node, iface);
+		od = pw_device_get_user_data(dev);
+		od->object = dev;
+		pw_device_add_listener(dev, &od->listener, &device_object_events, od);
+		pw_device_set_implementation(dev, iface);
+		break;
+	}
+	default:
+		pw_log_warn(NAME" %p: unknown type %d", device, info->type);
+		pw_properties_free(props);
+		break;
+	}
 
-	if (device->global) {
-		pw_node_register(node, NULL);
-		pw_node_set_active(node, true);
+	if (od) {
+		od->id = id;
+		od->type = info->type;
+		od->handle = handle;
+		spa_list_append(&device->object_list, &od->link);
+		if (device->global)
+			object_register(od);
 	}
 	return;
 }
 
-static struct node_data *find_node(struct pw_device *device, uint32_t id)
+static struct object_data *find_object(struct pw_device *device, uint32_t id)
 {
-	struct node_data *nd;
-	spa_list_for_each(nd, &device->node_list, link) {
-		if (nd->id == id)
-			return nd;
+	struct object_data *od;
+	spa_list_for_each(od, &device->object_list, link) {
+		if (od->id == id)
+			return od;
 	}
 	return NULL;
 }
@@ -552,25 +610,25 @@ static void device_object_info(void *data, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_device *device = data;
-	struct node_data *nd;
+	struct object_data *od;
 
-	nd = find_node(device, id);
+	od = find_object(device, id);
 
 	if (info == NULL) {
-		if (nd) {
+		if (od) {
 			pw_log_debug(NAME" %p: remove node %d", device, id);
-			pw_node_destroy(nd->node);
+			object_destroy(od);
 		}
 		else {
 			pw_log_warn(NAME" %p: unknown node %d", device, id);
 		}
 	}
-	else if (nd != NULL) {
+	else if (od != NULL) {
 		if (info->change_mask & SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS)
-			pw_node_update_properties(nd->node, info->props);
+			object_update(od, info->props);
 	}
 	else {
-		device_add(device, id, info);
+		device_add_object(device, id, info);
 	}
 }
 

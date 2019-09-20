@@ -102,13 +102,14 @@ static void test_abi(void)
 	spa_assert(SPA_TYPE_LAST == 21);
 
 	spa_assert(SPA_TYPE_EVENT_START == 0x30000);
-	spa_assert(SPA_TYPE_EVENT_Monitor == 0x30001);
+	spa_assert(SPA_TYPE_EVENT_Device == 0x30001);
 	spa_assert(SPA_TYPE_EVENT_Node == 0x30002);
 	spa_assert(SPA_TYPE_EVENT_LAST == 0x30003);
 
 	spa_assert(SPA_TYPE_COMMAND_START == 0x40000);
-	spa_assert(SPA_TYPE_COMMAND_Node == 0x40001);
-	spa_assert(SPA_TYPE_COMMAND_LAST == 0x40002);
+	spa_assert(SPA_TYPE_COMMAND_Device == 0x40001);
+	spa_assert(SPA_TYPE_COMMAND_Node == 0x40002);
+	spa_assert(SPA_TYPE_COMMAND_LAST == 0x40003);
 
 	spa_assert(SPA_TYPE_OBJECT_START == 0x50000);
 	spa_assert(SPA_TYPE_OBJECT_PropInfo == 0x50001);

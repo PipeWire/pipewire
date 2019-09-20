@@ -229,7 +229,7 @@ int pw_factory_register(struct pw_factory *factory,
 	factory->registered = true;
 
 	factory->info.id = factory->global->id;
-	pw_properties_setf(factory->properties, PW_KEY_FACTORY_ID, "%d", factory->info.id);
+	pw_properties_setf(factory->properties, PW_KEY_OBJECT_ID, "%d", factory->info.id);
 	factory->info.props = &factory->properties->dict;
 
 	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);

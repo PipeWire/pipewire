@@ -1451,7 +1451,7 @@ int pw_link_register(struct pw_link *link,
 	link->registered = true;
 
 	link->info.id = link->global->id;
-	pw_properties_setf(link->properties, PW_KEY_LINK_ID, "%d", link->info.id);
+	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%d", link->info.id);
 	link->info.props = &link->properties->dict;
 
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);

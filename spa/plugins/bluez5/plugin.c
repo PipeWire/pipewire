@@ -27,7 +27,7 @@
 
 #include <spa/support/plugin.h>
 
-extern const struct spa_handle_factory spa_bluez5_monitor_factory;
+extern const struct spa_handle_factory spa_bluez5_dbus_factory;
 extern const struct spa_handle_factory spa_bluez5_device_factory;
 extern const struct spa_handle_factory spa_a2dp_sink_factory;
 extern const struct spa_handle_factory spa_a2dp_source_factory;
@@ -42,7 +42,7 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 
 	switch (*index) {
 	case 0:
-		*factory = &spa_bluez5_monitor_factory;
+		*factory = &spa_bluez5_dbus_factory;
 		break;
 	case 1:
 		*factory = &spa_bluez5_device_factory;

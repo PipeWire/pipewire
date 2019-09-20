@@ -206,7 +206,7 @@ static struct v4l2_object *v4l2_find_object(struct monitor *monitor, uint32_t id
 }
 
 static void v4l2_update_object(struct monitor *monitor, struct v4l2_object *obj,
-		const struct spa_monitor_object_info *info)
+		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
 	spa_debug_dict(0, info->props);
@@ -240,7 +240,7 @@ static int v4l2_update_device_props(struct v4l2_object *obj)
 }
 
 static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t id,
-		const struct spa_monitor_object_info *info)
+		const struct spa_device_object_info *info)
 {
 	struct impl *impl = monitor->impl;
 	struct pw_core *core = impl->core;
@@ -318,8 +318,8 @@ static void v4l2_remove_object(struct monitor *monitor, struct v4l2_object *obj)
 	free(obj);
 }
 
-static int v4l2_monitor_object_info(void *data, uint32_t id,
-                const struct spa_monitor_object_info *info)
+static void v4l2_udev_object_info(void *data, uint32_t id,
+                const struct spa_device_object_info *info)
 {
 	struct monitor *monitor = data;
 	struct v4l2_object *obj;
@@ -328,21 +328,20 @@ static int v4l2_monitor_object_info(void *data, uint32_t id,
 
 	if (info == NULL) {
 		if (obj == NULL)
-			return -ENODEV;
+			return;
 		v4l2_remove_object(monitor, obj);
 	} else if (obj == NULL) {
 		if ((obj = v4l2_create_object(monitor, id, info)) == NULL)
-			return -ENOMEM;
+			return;
 	} else {
 		v4l2_update_object(monitor, obj, info);
 	}
-	return 0;
 }
 
-static const struct spa_monitor_callbacks v4l2_monitor_callbacks =
+static const struct spa_device_events v4l2_udev_callbacks =
 {
-	SPA_VERSION_MONITOR_CALLBACKS,
-	.object_info = v4l2_monitor_object_info,
+	SPA_VERSION_DEVICE_EVENTS,
+	.object_info = v4l2_udev_object_info,
 };
 
 static int v4l2_start_monitor(struct impl *impl, struct monitor *monitor)
@@ -352,13 +351,13 @@ static int v4l2_start_monitor(struct impl *impl, struct monitor *monitor)
 	int res;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(core, SPA_NAME_API_V4L2_MONITOR, NULL);
+	handle = pw_core_load_spa_handle(core, SPA_NAME_API_V4L2_ENUM_UDEV, NULL);
 	if (handle == NULL) {
 		res = -errno;
 		goto out;
 	}
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto out_unload;
 	}
@@ -368,7 +367,8 @@ static int v4l2_start_monitor(struct impl *impl, struct monitor *monitor)
 	monitor->monitor = iface;
 	spa_list_init(&monitor->object_list);
 
-	spa_monitor_set_callbacks(monitor->monitor, &v4l2_monitor_callbacks, monitor);
+	spa_device_add_listener(monitor->monitor, &monitor->listener,
+			&v4l2_udev_callbacks, monitor);
 
 	return 0;
 

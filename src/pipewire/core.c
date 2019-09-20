@@ -590,7 +590,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 		goto error_free_loop;
 	}
 	this->info.id = this->global->id;
-	pw_properties_setf(this->properties, PW_KEY_CORE_ID, "%d", this->info.id);
+	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);

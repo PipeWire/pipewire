@@ -714,7 +714,7 @@ int pw_port_register(struct pw_port *port,
 
 	port->info.id = port->global->id;
 	pw_properties_setf(port->properties, PW_KEY_NODE_ID, "%d", node->global->id);
-	pw_properties_setf(port->properties, PW_KEY_PORT_ID, "%d", port->info.id);
+	pw_properties_setf(port->properties, PW_KEY_OBJECT_ID, "%d", port->info.id);
 	port->info.props = &port->properties->dict;
 
 	return pw_global_register(port->global);

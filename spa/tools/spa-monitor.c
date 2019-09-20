@@ -33,7 +33,7 @@
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
-#include <spa/monitor/monitor.h>
+#include <spa/monitor/device.h>
 
 #include <spa/debug/dict.h>
 #include <spa/debug/pod.h>
@@ -56,18 +56,17 @@ struct data {
 };
 
 
-static void inspect_info(struct data *data, const struct spa_monitor_object_info *info)
+static void inspect_info(struct data *data, const struct spa_device_object_info *info)
 {
 	spa_debug_dict(0, info->props);
 }
 
-static int on_monitor_info(void *_data, const struct spa_monitor_info *info)
+static void on_device_info(void *_data, const struct spa_device_info *info)
 {
 	spa_debug_dict(0, info->props);
-	return 0;
 }
 
-static int on_monitor_object_info(void *_data, uint32_t id, const struct spa_monitor_object_info *info)
+static void on_device_object_info(void *_data, uint32_t id, const struct spa_device_object_info *info)
 {
 	struct data *data = _data;
 
@@ -78,7 +77,6 @@ static int on_monitor_object_info(void *_data, uint32_t id, const struct spa_mon
 		fprintf(stderr, "added/changed: %u\n", id);
 		inspect_info(data, info);
 	}
-	return 0;
 }
 
 static int do_add_source(void *object, struct spa_source *source)
@@ -97,15 +95,17 @@ static const struct spa_loop_methods impl_loop = {
 	.add_source = do_add_source,
 };
 
-static const struct spa_monitor_callbacks impl_callbacks = {
-	SPA_VERSION_MONITOR_CALLBACKS,
-	.info = on_monitor_info,
-	.object_info = on_monitor_object_info,
+static const struct spa_device_events impl_device_events = {
+	SPA_VERSION_DEVICE_EVENTS,
+	.info = on_device_info,
+	.object_info = on_device_object_info,
 };
 
-static void handle_monitor(struct data *data, struct spa_monitor *monitor)
+static void handle_device(struct data *data, struct spa_device *device)
 {
-	spa_monitor_set_callbacks(monitor, &impl_callbacks, data);
+	struct spa_hook listener;
+
+	spa_device_add_listener(device, &listener, &impl_device_events, data);
 
 	while (true) {
 		int r;
@@ -129,7 +129,7 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 			break;
 		}
 		if (r == 0) {
-			fprintf(stderr, "monitor %p: select timeout", monitor);
+			fprintf(stderr, "device %p: select timeout", device);
 			break;
 		}
 
@@ -139,6 +139,7 @@ static void handle_monitor(struct data *data, struct spa_monitor *monitor)
 			p->func(p);
 		}
 	}
+	spa_hook_remove(&listener);
 }
 
 int main(int argc, char *argv[])
@@ -193,7 +194,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (info->type == SPA_TYPE_INTERFACE_Monitor) {
+			if (info->type == SPA_TYPE_INTERFACE_Device) {
 				struct spa_handle *handle;
 				void *interface;
 
@@ -206,12 +207,12 @@ int main(int argc, char *argv[])
 				}
 
 				if ((res =
-				     spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor,
+				     spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device,
 							      &interface)) < 0) {
 					printf("can't get interface: %s\n", strerror(res));
 					continue;
 				}
-				handle_monitor(&data, interface);
+				handle_device(&data, interface);
 			}
 		}
 	}

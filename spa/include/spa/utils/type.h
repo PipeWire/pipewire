@@ -75,7 +75,6 @@ enum {
 	SPA_TYPE_INTERFACE_DataSystem,		/**< System functions for data loop */
 	SPA_TYPE_INTERFACE_DataLoop,		/**< a data loop */
 	SPA_TYPE_INTERFACE_DBus,		/**< dbus connection */
-	SPA_TYPE_INTERFACE_Monitor,		/**< monitor of devices */
 	SPA_TYPE_INTERFACE_Node,		/**< nodes for data processing */
 	SPA_TYPE_INTERFACE_Device,		/**< device managing nodes */
 	SPA_TYPE_INTERFACE_CPU,			/**< CPU functions */
@@ -83,12 +82,13 @@ enum {
 
 	/* Events */
 	SPA_TYPE_EVENT_START = 0x30000,
-	SPA_TYPE_EVENT_Monitor,
+	SPA_TYPE_EVENT_Device,
 	SPA_TYPE_EVENT_Node,
 	SPA_TYPE_EVENT_LAST,			/**< not part of ABI */
 
 	/* Commands */
 	SPA_TYPE_COMMAND_START = 0x40000,
+	SPA_TYPE_COMMAND_Device,
 	SPA_TYPE_COMMAND_Node,
 	SPA_TYPE_COMMAND_LAST,			/**< not part of ABI */
 

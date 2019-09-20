@@ -261,7 +261,7 @@ pw_module_load(struct pw_core *core,
 	spa_list_append(&core->module_list, &this->link);
 
 	this->info.id = this->global->id;
-	pw_properties_setf(this->properties, PW_KEY_MODULE_ID, "%d", this->info.id);
+	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);

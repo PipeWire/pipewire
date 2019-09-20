@@ -588,7 +588,7 @@ int pw_node_register(struct pw_node *this,
 
 	this->info.id = this->global->id;
 	this->rt.activation->position.clock.id = this->info.id;
-	pw_properties_setf(this->properties, PW_KEY_NODE_ID, "%d", this->info.id);
+	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 
 	pw_node_initialized(this);

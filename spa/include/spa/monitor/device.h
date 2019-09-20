@@ -236,8 +236,10 @@ struct spa_device_methods {
 #define spa_device_enum_params(d,...)	spa_device_method(d, enum_params, 0, __VA_ARGS__)
 #define spa_device_set_param(d,...)	spa_device_method(d, set_param, 0, __VA_ARGS__)
 
+#define SPA_KEY_DEVICE_ENUM_API		"device.enum.api"	/**< the api used to discover this
+								  *  device */
 #define SPA_KEY_DEVICE_API		"device.api"		/**< the api used by the device
-								  *  Ex. "alsa", "v4l2". */
+								  *  Ex. "udev", "alsa", "v4l2". */
 #define SPA_KEY_DEVICE_NAME		"device.name"		/**< the name of the device */
 #define SPA_KEY_DEVICE_ALIAS		"device.alias"		/**< altenative name of the device */
 #define SPA_KEY_DEVICE_NICK		"device.nick"		/**< the device short name */

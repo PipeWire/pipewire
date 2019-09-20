@@ -37,8 +37,6 @@ install_headers(spa_graph_headers,
 
 spa_monitor_headers = [
   'monitor/device.h',
-  'monitor/monitor.h',
-  'monitor/type-info.h',
   'monitor/utils.h',
 ]
 

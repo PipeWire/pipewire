@@ -64,7 +64,7 @@ struct object {
 	struct spa_handle *handle;
 	struct pw_proxy *proxy;
 	struct spa_device *device;
-	struct spa_hook device_listener;
+	struct spa_hook listener;
 
 	struct spa_list node_list;
 };
@@ -78,11 +78,11 @@ struct impl {
 	struct pw_remote *remote;
 	struct spa_hook remote_listener;
 
-	struct spa_handle *monitor_handle;
-	struct spa_monitor *monitor;
-	struct spa_hook monitor_listener;
+	struct spa_handle *handle;
+	struct spa_device *device;
+	struct spa_hook listener;
 
-	struct spa_list object_list;
+	struct spa_list device_list;
 };
 
 static struct node *find_node(struct object *obj, uint32_t id)
@@ -199,7 +199,7 @@ static struct object *find_object(struct impl *impl, uint32_t id)
 {
 	struct object *obj;
 
-	spa_list_for_each(obj, &impl->object_list, link) {
+	spa_list_for_each(obj, &impl->device_list, link) {
 		if (obj->id == id)
 			return obj;
 	}
@@ -207,14 +207,14 @@ static struct object *find_object(struct impl *impl, uint32_t id)
 }
 
 static void update_object(struct impl *impl, struct object *obj,
-		const struct spa_monitor_object_info *info)
+		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
 	spa_debug_dict(0, info->props);
 }
 
 static struct object *create_object(struct impl *impl, uint32_t id,
-		const struct spa_monitor_object_info *info)
+		const struct spa_device_object_info *info)
 {
 	struct pw_core *core = impl->core;
 	struct object *obj;
@@ -256,9 +256,9 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	spa_list_init(&obj->node_list);
 
 	spa_device_add_listener(obj->device,
-			&obj->device_listener, &device_events, obj);
+			&obj->listener, &device_events, obj);
 
-	spa_list_append(&impl->object_list, &obj->link);
+	spa_list_append(&impl->device_list, &obj->link);
 
 	update_object(impl, obj, info);
 
@@ -276,14 +276,14 @@ static void remove_object(struct impl *impl, struct object *obj)
 {
 	pw_log_debug("remove object %u", obj->id);
 	spa_list_remove(&obj->link);
-	spa_hook_remove(&obj->device_listener);
+	spa_hook_remove(&obj->listener);
 	pw_proxy_destroy(obj->proxy);
 	free(obj->handle);
 	free(obj);
 }
 
-static int monitor_object_info(void *data, uint32_t id,
-                const struct spa_monitor_object_info *info)
+static void dbus_device_object_info(void *data, uint32_t id,
+                const struct spa_device_object_info *info)
 {
 	struct impl *impl = data;
 	struct object *obj;
@@ -292,21 +292,20 @@ static int monitor_object_info(void *data, uint32_t id,
 
 	if (info == NULL) {
 		if (obj == NULL)
-			return -ENODEV;
+			return;
 		remove_object(impl, obj);
 	} else if (obj == NULL) {
 		if ((obj = create_object(impl, id, info)) == NULL)
-			return -ENOMEM;
+			return;
 	} else {
 		update_object(impl, obj, info);
 	}
-	return 0;
 }
 
-static const struct spa_monitor_callbacks monitor_callbacks =
+static const struct spa_device_events dbus_device_events =
 {
-	SPA_VERSION_MONITOR_CALLBACKS,
-	.object_info = monitor_object_info,
+	SPA_VERSION_DEVICE_EVENTS,
+	.object_info = dbus_device_object_info,
 };
 
 static int start_monitor(struct impl *impl)
@@ -315,21 +314,21 @@ static int start_monitor(struct impl *impl)
 	int res;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(impl->core, SPA_NAME_API_BLUEZ5_MONITOR, NULL);
+	handle = pw_core_load_spa_handle(impl->core, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
 	if (handle == NULL) {
 		res = -errno;
 		goto out;
 	}
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto out_unload;
 	}
 
-	impl->monitor_handle = handle;
-	impl->monitor = iface;
+	impl->handle = handle;
+	impl->device = iface;
 
-	spa_monitor_set_callbacks(impl->monitor, &monitor_callbacks, impl);
+	spa_device_add_listener(impl->device, &impl->listener, &dbus_device_events, impl);
 
 	return 0;
 
@@ -390,7 +389,7 @@ int main(int argc, char *argv[])
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 
-	spa_list_init(&impl.object_list);
+	spa_list_init(&impl.device_list);
 
 	pw_remote_add_listener(impl.remote,
 			&impl.remote_listener,

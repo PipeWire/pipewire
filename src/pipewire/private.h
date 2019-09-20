@@ -302,7 +302,7 @@ struct pw_device {
 	struct spa_hook listener;
 	struct spa_hook_list listener_list;
 
-	struct spa_list node_list;
+	struct spa_list object_list;
 
 	void *user_data;                /**< device user_data */
 

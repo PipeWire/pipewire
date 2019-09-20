@@ -1,4 +1,4 @@
-/* Spa V4l2 Monitor
+/* Spa V4l2 dbus
  *
  * Copyright © 2018 Wim Taymans
  *
@@ -41,8 +41,9 @@
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
-#include <spa/monitor/monitor.h>
+#include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+#include <spa/utils/hook.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -54,7 +55,7 @@
 
 struct spa_bt_monitor {
 	struct spa_handle handle;
-	struct spa_monitor monitor;
+	struct spa_device device;
 
 	struct spa_log *log;
 	struct spa_loop *main_loop;
@@ -62,7 +63,7 @@ struct spa_bt_monitor {
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
 
-	struct spa_callbacks callbacks;
+	struct spa_hook_list hooks;
 
 	uint32_t count;
 	uint32_t id;
@@ -70,6 +71,8 @@ struct spa_bt_monitor {
 	struct spa_list adapter_list;
 	struct spa_list device_list;
 	struct spa_list transport_list;
+
+	unsigned int filters_added:1;
 };
 
 struct transport_data {
@@ -490,7 +493,7 @@ static int device_free(struct spa_bt_device *device)
 
 static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
 {
-	struct spa_monitor_object_info info;
+	struct spa_device_object_info info;
 	char dev[32];
 	struct spa_dict_item items[20];
         uint32_t n_items = 0;
@@ -498,11 +501,11 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 	if (device->added)
 		return 0;
 
-	info = SPA_MONITOR_OBJECT_INFO_INIT();
+	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Device;
 	info.factory_name = SPA_NAME_API_BLUEZ5_DEVICE;
-	info.change_mask = SPA_MONITOR_OBJECT_CHANGE_MASK_FLAGS |
-		SPA_MONITOR_OBJECT_CHANGE_MASK_PROPS;
+	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
+		SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
 
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "bluez5");
@@ -517,7 +520,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 	info.props = &SPA_DICT_INIT(items, n_items);
 
 	device->added = true;
-        spa_monitor_call_object_info(&monitor->callbacks, device->id, &info);
+        spa_device_emit_object_info(&monitor->hooks, device->id, &info);
 
 	return 0;
 }
@@ -528,7 +531,7 @@ static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *d
 		return 0;
 
 	device->added = false;
-        spa_monitor_call_object_info(&monitor->callbacks, device->id, NULL);
+	spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
 
 	return 0;
 }
@@ -2128,6 +2131,9 @@ static void add_filters(struct spa_bt_monitor *this)
 {
 	DBusError err;
 
+	if (this->filters_added)
+		return;
+
 	dbus_error_init(&err);
 
 	if (!dbus_connection_add_filter(this->conn, filter_cb, this, NULL)) {
@@ -2158,6 +2164,8 @@ static void add_filters(struct spa_bt_monitor *this)
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
 			"arg0='" BLUEZ_MEDIA_TRANSPORT_INTERFACE "'", &err);
 
+	this->filters_added = true;
+
 	return;
 
 fail:
@@ -2165,27 +2173,28 @@ fail:
 }
 
 static int
-impl_monitor_set_callbacks(void *object,
-			   const struct spa_monitor_callbacks *callbacks,
-			   void *data)
+impl_device_add_listener(void *object, struct spa_hook *listener,
+		const struct spa_device_events *events, void *data)
 {
 	struct spa_bt_monitor *this = object;
+        struct spa_hook_list save;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
+        spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	if (callbacks) {
-		add_filters(this);
-		get_managed_objects(this);
-	}
+	add_filters(this);
+	get_managed_objects(this);
+
+        spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
 }
 
-static const struct spa_monitor_methods impl_monitor = {
-	SPA_VERSION_MONITOR_METHODS,
-	.set_callbacks = impl_monitor_set_callbacks,
+static const struct spa_device_methods impl_device = {
+	SPA_VERSION_DEVICE_METHODS,
+	.add_listener = impl_device_add_listener,
 };
 
 static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
@@ -2197,11 +2206,13 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	this = (struct spa_bt_monitor *) handle;
 
-	if (type == SPA_TYPE_INTERFACE_Monitor)
-		*interface = &this->monitor;
-	else
+	switch (type) {
+	case SPA_TYPE_INTERFACE_Device:
+		*interface = &this->device;
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 
@@ -2260,10 +2271,12 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	this->conn = spa_dbus_connection_get(this->dbus_connection);
 
-	this->monitor.iface = SPA_INTERFACE_INIT(
-			SPA_TYPE_INTERFACE_Monitor,
-			SPA_VERSION_MONITOR,
-			&impl_monitor, this);
+	spa_hook_list_init(&this->hooks);
+
+	this->device.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Device,
+			SPA_VERSION_DEVICE,
+			&impl_device, this);
 
 	spa_list_init(&this->adapter_list);
 	spa_list_init(&this->device_list);
@@ -2273,7 +2286,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE_INTERFACE_Monitor,},
+	{SPA_TYPE_INTERFACE_Device,},
 };
 
 static int
@@ -2293,9 +2306,9 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_bluez5_monitor_factory = {
+const struct spa_handle_factory spa_bluez5_dbus_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	SPA_NAME_API_BLUEZ5_MONITOR,
+	SPA_NAME_API_BLUEZ5_ENUM_DBUS,
 	NULL,
 	impl_get_size,
 	impl_init,

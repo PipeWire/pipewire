@@ -55,7 +55,9 @@ struct monitor {
 	struct impl *impl;
 
 	struct spa_handle *handle;
-	struct spa_monitor *monitor;
+
+	struct spa_device *monitor;
+	struct spa_hook listener;
 
 	struct spa_list object_list;
 };

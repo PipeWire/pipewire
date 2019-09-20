@@ -37,6 +37,10 @@ extern "C" {
 									  *  Screen, Communication, Game,
 									  *  Notification, DSP, Production,
 									  *  Accessibility, Test */
+/** keys for udev api */
+#define SPA_KEY_API_UDEV		"api.udev"			/**< key for the udev api */
+#define SPA_KEY_API_UDEV_MATCH		"api.udev.match"		/**< udev subsystem match */
+
 /** keys for alsa api */
 #define SPA_KEY_API_ALSA		"api.alsa"			/**< key for the alsa api */
 #define SPA_KEY_API_ALSA_PATH		"api.alsa.path"			/**< alsa device path as can be

@@ -77,7 +77,7 @@ extern "C" {
 #define SPA_NAME_VIDEO_ADAPT		"video.adapt"			/**< combination of a node and a
 									  *  video.convert. */
 /** keys for alsa factory names */
-#define SPA_NAME_API_ALSA_MONITOR	"api.alsa.monitor"		/**< an alsa Monitor interface */
+#define SPA_NAME_API_ALSA_ENUM_UDEV	"api.alsa.enum.udev"		/**< an alsa udev Device interface */
 #define SPA_NAME_API_ALSA_DEVICE	"api.alsa.device"		/**< an alsa Device interface */
 #define SPA_NAME_API_ALSA_PCM_SOURCE	"api.alsa.pcm.source"		/**< an alsa Node interface for
 									  *  capturing PCM */
@@ -87,7 +87,7 @@ extern "C" {
 									  *  capturing midi */
 
 /** keys for bluez5 factory names */
-#define SPA_NAME_API_BLUEZ5_MONITOR	"api.bluez5.monitor"		/**< a Monitor interface */
+#define SPA_NAME_API_BLUEZ5_ENUM_DBUS	"api.bluez5.enum.dbus"		/**< a dbus Device interface */
 #define SPA_NAME_API_BLUEZ5_DEVICE	"api.bluez5.device"		/**< a Device interface */
 #define SPA_NAME_API_BLUEZ5_A2DP_SINK	"api.bluez5.a2dp.sink"		/**< a playback Node interface for A2DP profiles */
 #define SPA_NAME_API_BLUEZ5_A2DP_SOURCE	"api.bluez5.a2dp.source"	/**< a capture Node interface for A2DP profiles */
@@ -95,7 +95,7 @@ extern "C" {
 #define SPA_NAME_API_BLUEZ5_SCO_SOURCE	"api.bluez5.sco.source"		/**< a capture Node interface for HSP/HFP profiles */
 
 /** keys for v4l2 factory names */
-#define SPA_NAME_API_V4L2_MONITOR	"api.v4l2.monitor"		/**< a v4l2 Monitor interface */
+#define SPA_NAME_API_V4L2_ENUM_UDEV	"api.v4l2.enum.udev"		/**< a v4l2 udev Device interface */
 #define SPA_NAME_API_V4L2_DEVICE	"api.v4l2.device"		/**< a v4l2 Device interface */
 #define SPA_NAME_API_V4L2_SOURCE	"api.v4l2.source"		/**< a v4l2 Node interface for
 									  *  capturing */

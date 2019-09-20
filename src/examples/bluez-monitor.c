@@ -212,14 +212,14 @@ static struct bluez5_object *bluez5_find_object(struct monitor *monitor, uint32_
 }
 
 static void bluez5_update_object(struct monitor *monitor, struct bluez5_object *obj,
-		const struct spa_monitor_object_info *info)
+		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
 	spa_debug_dict(0, info->props);
 }
 
 static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint32_t id,
-		const struct spa_monitor_object_info *info)
+		const struct spa_device_object_info *info)
 {
 	struct impl *impl = monitor->impl;
 	struct pw_core *core = impl->core;
@@ -303,8 +303,8 @@ static void bluez5_remove_object(struct monitor *monitor, struct bluez5_object *
 	free(obj);
 }
 
-static int bluez5_monitor_object_info(void *data, uint32_t id,
-                const struct spa_monitor_object_info *info)
+static void bluez5_enum_object_info(void *data, uint32_t id,
+                const struct spa_device_object_info *info)
 {
 	struct monitor *monitor = data;
 	struct bluez5_object *obj;
@@ -313,21 +313,20 @@ static int bluez5_monitor_object_info(void *data, uint32_t id,
 
 	if (info == NULL) {
 		if (obj == NULL)
-			return -ENODEV;
+			return;
 		bluez5_remove_object(monitor, obj);
 	} else if (obj == NULL) {
 		if ((obj = bluez5_create_object(monitor, id, info)) == NULL)
-			return -ENOMEM;
+			return;
 	} else {
 		bluez5_update_object(monitor, obj, info);
 	}
-	return 0;
 }
 
-static const struct spa_monitor_callbacks bluez5_monitor_callbacks =
+static const struct spa_device_events bluez5_enum_callbacks =
 {
-	SPA_VERSION_MONITOR_CALLBACKS,
-	.object_info = bluez5_monitor_object_info,
+	SPA_VERSION_DEVICE_EVENTS,
+	.object_info = bluez5_enum_object_info,
 };
 
 static int bluez5_start_monitor(struct impl *impl, struct monitor *monitor)
@@ -337,14 +336,14 @@ static int bluez5_start_monitor(struct impl *impl, struct monitor *monitor)
 	int res;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(core, SPA_NAME_API_BLUEZ5_MONITOR, NULL);
+	handle = pw_core_load_spa_handle(core, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
 	if (handle == NULL) {
 		res = -errno;
 		goto out;
 	}
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface)) < 0) {
-		pw_log_error("can't get MONITOR interface: %d", res);
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
+		pw_log_error("can't get Device interface: %d", res);
 		goto out_unload;
 	}
 
@@ -353,7 +352,8 @@ static int bluez5_start_monitor(struct impl *impl, struct monitor *monitor)
 	monitor->monitor = iface;
 	spa_list_init(&monitor->object_list);
 
-	spa_monitor_set_callbacks(monitor->monitor, &bluez5_monitor_callbacks, monitor);
+	spa_device_add_listener(monitor->monitor, &monitor->listener,
+			&bluez5_enum_callbacks, monitor);
 
 	return 0;
 

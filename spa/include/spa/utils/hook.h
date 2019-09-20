@@ -66,15 +66,20 @@ struct spa_interface {
 struct spa_hook {
 	struct spa_list link;
 	struct spa_callbacks cb;
-	void *priv;	/**< private data for the hook list */
+	/** callback and data for the hook list */
 	void (*removed) (struct spa_hook *hook);
-
+	void *priv;
 };
 
 /** Initialize a hook list */
 static inline void spa_hook_list_init(struct spa_hook_list *list)
 {
 	spa_list_init(&list->list);
+}
+
+static inline bool spa_hook_list_is_empty(struct spa_hook_list *list)
+{
+	return spa_list_is_empty(&list->list);
 }
 
 /** Append a hook \memberof spa_hook */

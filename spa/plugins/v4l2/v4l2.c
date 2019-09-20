@@ -27,7 +27,7 @@
 #include <spa/support/plugin.h>
 
 extern const struct spa_handle_factory spa_v4l2_source_factory;
-extern const struct spa_handle_factory spa_v4l2_monitor_factory;
+extern const struct spa_handle_factory spa_v4l2_udev_factory;
 extern const struct spa_handle_factory spa_v4l2_device_factory;
 
 SPA_EXPORT
@@ -42,7 +42,7 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory,
 		*factory = &spa_v4l2_source_factory;
 		break;
 	case 1:
-		*factory = &spa_v4l2_monitor_factory;
+		*factory = &spa_v4l2_udev_factory;
 		break;
 	case 2:
 		*factory = &spa_v4l2_device_factory;

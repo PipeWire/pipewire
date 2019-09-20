@@ -37,7 +37,6 @@
 #include <pipewire/module.h>
 #include <pipewire/utils.h>
 
-#include "spa-monitor.h"
 #include "spa-node.h"
 
 #define MODULE_USAGE	"<factory> [key=value ...]"

@@ -123,7 +123,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 
 	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
-	pw_properties_setf(node->props, "factory.name", info->factory_name);
+	pw_properties_set(node->props, "factory.name", info->factory_name);
 
 	node->monitor = monitor;
 	node->object = obj;

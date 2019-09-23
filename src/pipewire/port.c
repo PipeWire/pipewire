@@ -679,14 +679,14 @@ int pw_port_register(struct pw_port *port,
 {
 	struct pw_node *node = port->node;
 	const char *keys[] = {
+		PW_KEY_OBJECT_PATH,
 		PW_KEY_FORMAT_DSP,
 		PW_KEY_PORT_NAME,
 		PW_KEY_PORT_DIRECTION,
 		PW_KEY_PORT_PHYSICAL,
 		PW_KEY_PORT_TERMINAL,
 		PW_KEY_PORT_CONTROL,
-		PW_KEY_PORT_ALIAS1,
-		PW_KEY_PORT_ALIAS2,
+		PW_KEY_PORT_ALIAS,
 		NULL
 	};
 

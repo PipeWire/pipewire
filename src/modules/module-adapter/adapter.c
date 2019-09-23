@@ -187,7 +187,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	const struct pw_properties *old;
 	enum pw_direction direction;
 	struct pw_properties *new;
-	const char *str, *node_name, *media_class;
+	const char *str, *path, *node_name, *media_class;
 	void *iface;
 	const struct spa_support *support;
 	uint32_t n_support;
@@ -204,7 +204,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	if (!is_monitor && direction != n->direction)
 		return;
 
-	node_name = pw_properties_get(n->props, PW_KEY_NODE_NAME);
+	path = pw_properties_get(n->props, PW_KEY_OBJECT_PATH);
 	media_class = pw_properties_get(n->props, PW_KEY_MEDIA_CLASS);
 
 	if (media_class != NULL &&
@@ -230,23 +230,24 @@ static void node_port_init(void *data, struct pw_port *port)
 		snprintf(position, 7, "%d", port->port_id);
 		str = position;
 	}
-
-	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
-
 	if (direction == n->direction) {
-		const char *api = pw_properties_get(n->props, PW_KEY_DEVICE_API);
-
-		pw_properties_setf(new, PW_KEY_PORT_ALIAS1, "%s_pcm:%s:%s%s",
-				api ? api : "adapter",
-				node_name ? node_name : "node",
-				direction == PW_DIRECTION_INPUT ? "in" : "out",
-				str);
-
 		if (is_device) {
 			pw_properties_set(new, PW_KEY_PORT_PHYSICAL, "1");
 			pw_properties_set(new, PW_KEY_PORT_TERMINAL, "1");
 		}
 	}
+
+	if ((node_name = pw_properties_get(n->props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+	    (node_name = pw_properties_get(n->props, PW_KEY_NODE_NICK)) == NULL &&
+	    (node_name = pw_properties_get(n->props, PW_KEY_NODE_NAME)) == NULL) {
+		node_name = "node";
+	}
+	pw_properties_setf(new, PW_KEY_OBJECT_PATH, "%s:%s_%d",
+			path ? path : node_name, prefix, port->port_id);
+
+	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%d", prefix, port->port_id);
+	pw_properties_setf(new, PW_KEY_PORT_ALIAS, "%s:%s_%s",
+			node_name, prefix, str);
 
 	pw_port_update_properties(port, &new->dict);
 	pw_properties_free(new);

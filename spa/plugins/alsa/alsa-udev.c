@@ -188,13 +188,13 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	struct spa_device_object_info info;
 	const char *str;
 	char path[32];
-	struct spa_dict_item items[20];
+	struct spa_dict_item items[22];
 	uint32_t n_items = 0;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 
 	info.type = SPA_TYPE_INTERFACE_Device;
-	info.factory_name = SPA_NAME_API_ALSA_DEVICE;
+	info.factory_name = SPA_NAME_API_ALSA_PCM_DEVICE;
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
 		SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;

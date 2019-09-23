@@ -1,11 +1,11 @@
 spa_alsa_sources = ['alsa.c',
                 'alsa-udev.c',
-                'alsa-device.c',
+                'alsa-pcm-device.c',
+                'alsa-pcm-sink.c',
+                'alsa-pcm-source.c',
+                'alsa-pcm.c',
                 'alsa-seq-source.c',
-                'alsa-seq.c',
-                'alsa-sink.c',
-                'alsa-source.c',
-                'alsa-utils.c']
+                'alsa-seq.c']
 
 spa_alsa = shared_library('spa-alsa',
                            spa_alsa_sources,

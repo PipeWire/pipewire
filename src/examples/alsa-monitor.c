@@ -33,6 +33,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
+#include <spa/utils/keys.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
@@ -96,7 +97,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	struct monitor *monitor = obj->monitor;
 	struct impl *impl = monitor->impl;
 	int res;
-	const char *str;
+	const char *dev, *subdev;
 
 	pw_log_debug("new node %u", id);
 
@@ -115,25 +116,46 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	if (obj->device_id != 0)
 		pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", obj->device_id);
 
-	if ((str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK)) != NULL)
-		pw_properties_set(node->props, PW_KEY_NODE_NICK, str);
-
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
-	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
-	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_ALIAS);
-	if (str == NULL)
-		str = "alsa-device";
-
-	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
-
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION);
-	if (str == NULL)
-		str = "alsa-device";
-	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
-
 	pw_properties_set(node->props, "factory.name", info->factory_name);
+
+	if ((dev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_DEVICE)) == NULL)
+		dev = "0";
+	if ((subdev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_SUBDEVICE)) == NULL)
+		subdev = "0";
+
+	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
+		const char *devname, *stream;
+		if ((devname = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME)) == NULL)
+			devname = "unknown";
+		if ((stream = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_STREAM)) == NULL)
+			stream = "unknown";
+
+		pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s.%s",
+				devname, stream, dev, subdev);
+	}
+	if (pw_properties_get(node->props, PW_KEY_NODE_DESCRIPTION) == NULL) {
+		const char *desc, *name = NULL;
+
+		if ((desc = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION)) == NULL)
+			desc = "unknown";
+
+		name = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_NAME);
+		if (name == NULL)
+			name = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_ID);
+		if (name == NULL)
+			name = dev;
+
+		if (strcmp(subdev, "0")) {
+			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s (%s %s)",
+					desc, name, subdev);
+		} else if (strcmp(dev, "0")) {
+			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s (%s)",
+					desc, name);
+		} else {
+			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s",
+					desc);
+		}
+	}
 
 	node->monitor = monitor;
 	node->object = obj;

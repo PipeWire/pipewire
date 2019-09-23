@@ -30,6 +30,9 @@ extern "C" {
 #endif
 
 /** for objects */
+#define SPA_KEY_OBJECT_PATH		"object.path"			/**< a unique path to
+									  *  identity the object */
+
 #define SPA_KEY_MEDIA_CLASS		"media.class"			/**< Media class
 									  *  Ex. "Audio/Device",
 									  *  "Video/Source",... */
@@ -59,9 +62,13 @@ extern "C" {
 
 /** info from alsa pcm_info */
 #define SPA_KEY_API_ALSA_PCM_ID		"api.alsa.pcm.id"		/**< id from pcm_info */
+#define SPA_KEY_API_ALSA_PCM_CARD	"api.alsa.pcm.card"		/**< card from pcm_info */
 #define SPA_KEY_API_ALSA_PCM_NAME	"api.alsa.pcm.name"		/**< name from pcm_info */
 #define SPA_KEY_API_ALSA_PCM_SUBNAME	"api.alsa.pcm.subname"		/**< subdevice_name from pcm_info */
+#define SPA_KEY_API_ALSA_PCM_STREAM	"api.alsa.pcm.stream"		/**< stream type from pcm_info */
 #define SPA_KEY_API_ALSA_PCM_CLASS	"api.alsa.pcm.class"		/**< class from pcm_info as string */
+#define SPA_KEY_API_ALSA_PCM_DEVICE	"api.alsa.pcm.device"		/**< device from pcm_info */
+#define SPA_KEY_API_ALSA_PCM_SUBDEVICE	"api.alsa.pcm.subdevice"	/**< subdevice from pcm_info */
 #define SPA_KEY_API_ALSA_PCM_SUBCLASS	"api.alsa.pcm.subclass"		/**< subclass from pcm_info as string */
 #define SPA_KEY_API_ALSA_PCM_SYNC_ID	"api.alsa.pcm.sync-id"		/**< sync id */
 

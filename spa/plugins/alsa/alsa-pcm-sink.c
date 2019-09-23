@@ -35,9 +35,9 @@
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
 
-#define NAME "alsa-sink"
+#define NAME "alsa-pcm-sink"
 
-#include "alsa-utils.h"
+#include "alsa-pcm.h"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 

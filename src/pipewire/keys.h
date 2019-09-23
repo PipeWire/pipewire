@@ -66,6 +66,7 @@ extern "C" {
 #define PW_KEY_LIBRARY_NAME_LOOP	"library.name.loop"	/**< name of the loop library to use */
 #define PW_KEY_LIBRARY_NAME_DBUS	"library.name.dbus"	/**< name of the dbus library to use */
 
+#define PW_KEY_OBJECT_PATH		"object.path"		/**< unique path to construct the object */
 #define PW_KEY_OBJECT_ID		"object.id"		/**< a global object id */
 
 #define PW_KEY_CORE_ID			"core.id"		/**< the core id */
@@ -133,8 +134,7 @@ extern "C" {
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */
 #define PW_KEY_PORT_DIRECTION		"port.direction"	/**< the port direction, one of "in" or "out"
 								  *  or "control" and "notify" for control ports */
-#define PW_KEY_PORT_ALIAS1		"port.alias1"		/**< port alias1 */
-#define PW_KEY_PORT_ALIAS2		"port.alias2"		/**< port alias2 */
+#define PW_KEY_PORT_ALIAS		"port.alias"		/**< port alias */
 #define PW_KEY_PORT_PHYSICAL		"port.physical"		/**< if this is a physical port */
 #define PW_KEY_PORT_TERMINAL		"port.terminal"		/**< if this port consumes the data */
 #define PW_KEY_PORT_CONTROL		"port.control"		/**< if this port is a control port */

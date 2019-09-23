@@ -227,7 +227,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static const struct spa_dict_item node_info_items[] = {
 	{ SPA_KEY_DEVICE_API, "alsa" },
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
+	{ SPA_KEY_MEDIA_CLASS, "Midi/Bridge" },
 	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
@@ -246,7 +246,7 @@ static inline void clean_name(char *name)
 {
 	char *c;
 	for (c = name; *c; ++c) {
-		if (!isalnum(*c) && *c != '/' && *c != '_' && *c != ':' && *c != '(' && *c != ')')
+		if (!isalnum(*c) && strchr(" /_:()", *c) == NULL)
 			*c = '-';
 	}
 }
@@ -256,23 +256,51 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		struct spa_dict_item items[2];
+		struct spa_dict_item items[5];
+		uint32_t n_items = 0;
+		int id;
 		snd_seq_port_info_t *info;
+		snd_seq_client_info_t *client_info;
+		char card[8];
 		char name[128];
+		char path[128];
+		char alias[128];
 
 		snd_seq_port_info_alloca(&info);
-		snd_seq_get_any_port_info(this->sys.hndl
-				, port->addr.client, port->addr.port, info);
+		snd_seq_get_any_port_info(this->sys.hndl,
+				port->addr.client, port->addr.port, info);
+
+		snd_seq_client_info_alloca(&client_info);
+		snd_seq_get_any_client_info(this->sys.hndl,
+				port->addr.client, client_info);
 
 		snprintf(name, sizeof(name), "%s:%s_%d",
-				snd_seq_port_info_get_name(info),
+				snd_seq_client_info_get_name(client_info),
 				port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
 				port->addr.port);
 		clean_name(name);
 
-		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
-		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, name);
-		port->info.props = &SPA_DICT_INIT(items, 2);
+		snprintf(path, sizeof(path), "alsa:seq:%s:client_%d:%s_%d",
+				this->props.device,
+				port->addr.client,
+				port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
+				port->addr.port);
+		clean_name(path);
+
+		snprintf(alias, sizeof(alias), "%s:%s",
+				snd_seq_client_info_get_name(client_info),
+				snd_seq_port_info_get_name(info));
+		clean_name(alias);
+
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH, path);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, name);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, alias);
+		if ((id = snd_seq_client_info_get_card(client_info)) != -1) {
+			snprintf(card, sizeof(card), "%d", id);
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, card);
+		}
+		port->info.props = &SPA_DICT_INIT(items, n_items);
 
 		spa_node_emit_port_info(&this->hooks,
 				port->direction, port->id, &port->info);
@@ -454,7 +482,6 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 			init_port(state, port, addr);
 		}
 	}
-
 }
 
 static int on_port_info(void *data, const snd_seq_addr_t *addr, const snd_seq_port_info_t *info)

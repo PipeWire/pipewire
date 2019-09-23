@@ -78,11 +78,12 @@ extern "C" {
 									  *  video.convert. */
 /** keys for alsa factory names */
 #define SPA_NAME_API_ALSA_ENUM_UDEV	"api.alsa.enum.udev"		/**< an alsa udev Device interface */
-#define SPA_NAME_API_ALSA_DEVICE	"api.alsa.device"		/**< an alsa Device interface */
+#define SPA_NAME_API_ALSA_PCM_DEVICE	"api.alsa.pcm.device"		/**< an alsa Device interface */
 #define SPA_NAME_API_ALSA_PCM_SOURCE	"api.alsa.pcm.source"		/**< an alsa Node interface for
 									  *  capturing PCM */
 #define SPA_NAME_API_ALSA_PCM_SINK	"api.alsa.pcm.sink"		/**< an alsa Node interface for
 									  *  playback PCM */
+#define SPA_NAME_API_ALSA_MIDI_DEVICE	"api.alsa.midi.device"		/**< an alsa Midi device */
 #define SPA_NAME_API_ALSA_MIDI_SOURCE	"api.alsa.midi.source"		/**< an alsa Node interface for
 									  *  capturing midi */
 

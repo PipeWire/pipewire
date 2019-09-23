@@ -73,6 +73,18 @@ struct impl {
 	uint32_t profile;
 };
 
+static const char *get_stream(snd_pcm_info_t *pcminfo)
+{
+	switch (snd_pcm_info_get_stream(pcminfo)) {
+	case SND_PCM_STREAM_PLAYBACK:
+		return "playback";
+	case SND_PCM_STREAM_CAPTURE:
+		return "capture";
+	default:
+		return "unknown";
+	}
+}
+
 static const char *get_class(snd_pcm_info_t *pcminfo)
 {
 	switch (snd_pcm_info_get_class(pcminfo)) {
@@ -103,9 +115,9 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 
 static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 {
-	struct spa_dict_item items[7];
-	char device_name[128];
-	char sync_name[128];
+	struct spa_dict_item items[12];
+	char device_name[128], path[160];
+	char sync_name[128], dev[16], subdev[16], card[16];
 	struct spa_device_object_info info;
 	snd_pcm_sync_id_t sync_id;
 
@@ -117,17 +129,27 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 		info.factory_name = SPA_NAME_API_ALSA_PCM_SOURCE;
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
-	snprintf(device_name, 128, "%s,%d", this->props.device, snd_pcm_info_get_device(pcminfo));
-	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
-	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_ID,         snd_pcm_info_get_id(pcminfo));
-	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_NAME,       snd_pcm_info_get_name(pcminfo));
-	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBNAME,    snd_pcm_info_get_subdevice_name(pcminfo));
-	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CLASS,      get_class(pcminfo));
-	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBCLASS,   get_subclass(pcminfo));
+
+	snprintf(card, sizeof(card), "%d", snd_pcm_info_get_card(pcminfo));
+	snprintf(dev, sizeof(dev), "%d", snd_pcm_info_get_device(pcminfo));
+	snprintf(subdev, sizeof(subdev), "%d", snd_pcm_info_get_subdevice(pcminfo));
+	snprintf(device_name, sizeof(device_name), "%s,%s", this->props.device, dev);
+	snprintf(path, sizeof(path), "alsa:pcm:%s", device_name);
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH,	       path);
+	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
+	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card);
+	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_DEVICE,     dev);
+	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBDEVICE,  subdev);
+	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM,     get_stream(pcminfo));
+	items[6] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_ID,         snd_pcm_info_get_id(pcminfo));
+	items[7] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_NAME,       snd_pcm_info_get_name(pcminfo));
+	items[8] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBNAME,    snd_pcm_info_get_subdevice_name(pcminfo));
+	items[9] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CLASS,      get_class(pcminfo));
+	items[10] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SUBCLASS,  get_subclass(pcminfo));
 	sync_id = snd_pcm_info_get_sync(pcminfo);
-	snprintf(sync_name, 128, "%08x:%08x:%08x:%08x",
+	snprintf(sync_name, sizeof(sync_name), "%08x:%08x:%08x:%08x",
 			sync_id.id32[0], sync_id.id32[1], sync_id.id32[2], sync_id.id32[3]);
-	items[6] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SYNC_ID,    sync_name);
+	items[11] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_SYNC_ID,    sync_name);
 	info.props = &SPA_DICT_INIT_ARRAY(items);
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
@@ -210,11 +232,13 @@ static int set_profile(struct impl *this, uint32_t id)
 static int emit_info(struct impl *this, bool full)
 {
 	int err = 0;
-	struct spa_dict_item items[10];
+	struct spa_dict_item items[20];
+	uint32_t n_items = 0;
 	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
 	struct spa_device_info dinfo;
 	struct spa_param_info params[2];
+	char path[128];
 
         spa_log_info(this->log, "open card %s", this->props.device);
         if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
@@ -232,17 +256,21 @@ static int emit_info(struct impl *this, bool full)
 	dinfo = SPA_DEVICE_INFO_INIT();
 
 	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
-	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NICK, snd_ctl_card_info_get_id(info));
-	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
-	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, (char *)this->props.device);
-	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_ID,	      snd_ctl_card_info_get_id(info));
-	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_COMPONENTS, snd_ctl_card_info_get_components(info));
-	items[6] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_DRIVER,     snd_ctl_card_info_get_driver(info));
-	items[7] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_NAME,       snd_ctl_card_info_get_name(info));
-	items[8] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_LONGNAME,   snd_ctl_card_info_get_longname(info));
-	items[9] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_MIXERNAME,  snd_ctl_card_info_get_mixername(info));
-	dinfo.props = &SPA_DICT_INIT(items, 10);
+
+#define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
+	snprintf(path, sizeof(path), "alsa:pcm:%s", this->props.device);
+	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
+	ADD_ITEM(SPA_KEY_DEVICE_API, "alsa:pcm");
+	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+	ADD_ITEM(SPA_KEY_API_ALSA_PATH,	(char *)this->props.device);
+	ADD_ITEM(SPA_KEY_API_ALSA_CARD_ID, snd_ctl_card_info_get_id(info));
+	ADD_ITEM(SPA_KEY_API_ALSA_CARD_COMPONENTS, snd_ctl_card_info_get_components(info));
+	ADD_ITEM(SPA_KEY_API_ALSA_CARD_DRIVER, snd_ctl_card_info_get_driver(info));
+	ADD_ITEM(SPA_KEY_API_ALSA_CARD_NAME, snd_ctl_card_info_get_name(info));
+	ADD_ITEM(SPA_KEY_API_ALSA_CARD_LONGNAME, snd_ctl_card_info_get_longname(info));
+	ADD_ITEM(SPA_KEY_API_ALSA_CARD_MIXERNAME, snd_ctl_card_info_get_mixername(info));
+	dinfo.props = &SPA_DICT_INIT(items, n_items);
+#undef ADD_ITEM
 
 	dinfo.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
@@ -495,7 +523,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_alsa_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	SPA_NAME_API_ALSA_DEVICE,
+	SPA_NAME_API_ALSA_PCM_DEVICE,
 	NULL,
 	impl_get_size,
 	impl_init,

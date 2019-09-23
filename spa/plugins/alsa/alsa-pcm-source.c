@@ -35,9 +35,9 @@
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 
-#define NAME "alsa-source"
+#define NAME "alsa-pcm-source"
 
-#include "alsa-utils.h"
+#include "alsa-pcm.h"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
@@ -740,11 +740,11 @@ impl_init(const struct spa_handle_factory *factory,
 		}
 	}
 	if (this->data_loop == NULL) {
-		spa_log_error(this->log, "a data loop is needed");
+		spa_log_error(this->log, NAME" %p: a data loop is needed", this);
 		return -EINVAL;
 	}
 	if (this->data_system == NULL) {
-		spa_log_error(this->log, "a data system is needed");
+		spa_log_error(this->log, NAME" %p: a data system is needed", this);
 		return -EINVAL;
 	}
 

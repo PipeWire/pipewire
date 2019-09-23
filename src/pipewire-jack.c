@@ -1702,8 +1702,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Node:
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
-		    (str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
 			str = "node";
 		}
@@ -1780,12 +1780,12 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.port_id = SPA_ID_INVALID;
 		}
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS1)) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
 			snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", str);
 		else
 			o->port.alias1[0] = '\0';
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS2)) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS)) != NULL)
 			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
 		else
 			o->port.alias2[0] = '\0';
@@ -3065,11 +3065,11 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 	pw_thread_loop_lock(c->context.loop);
 
 	if (o->port.alias1[0] == '\0') {
-		key = PW_KEY_PORT_ALIAS1;
+		key = PW_KEY_OBJECT_PATH;
 		snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", alias);
 	}
 	else if (o->port.alias2[0] == '\0') {
-		key = PW_KEY_PORT_ALIAS2;
+		key = PW_KEY_PORT_ALIAS;
 		snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", alias);
 	}
 	else
@@ -3115,9 +3115,9 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 	pw_thread_loop_lock(c->context.loop);
 
 	if (strcmp(o->port.alias1, alias) == 0)
-		key = PW_KEY_PORT_ALIAS1;
+		key = PW_KEY_OBJECT_PATH;
 	else if (strcmp(o->port.alias2, alias) == 0)
-		key = PW_KEY_PORT_ALIAS2;
+		key = PW_KEY_PORT_ALIAS;
 	else
 		goto error;
 

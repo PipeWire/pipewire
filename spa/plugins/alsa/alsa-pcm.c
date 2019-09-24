@@ -642,7 +642,6 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->next_time = nsec;
 		state->base_time = nsec;
 	}
-
 	state->z1 += state->w0 * (state->w1 * err - state->z1);
 	state->z2 += state->w0 * (state->z1 - state->z2);
 	state->z3 += state->w2 * state->z2;
@@ -654,6 +653,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		spa_log_trace(state->log, NAME" %p: slave:%d quantum change %d",
 				state, slave, diff);
 		state->next_time += diff / corr * 1e9 / state->rate;
+		state->last_threshold = state->threshold;
 	}
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
@@ -674,6 +674,9 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		else
 			state->rate_match->rate = SPA_CLAMP(1.0/corr, 0.95, 1.05);
 	}
+
+	state->next_time += state->threshold / corr * 1e9 / state->rate;
+
 	if (!slave && state->clock) {
 		state->clock->nsec = nsec;
 		state->clock->position += state->duration;
@@ -687,9 +690,6 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	spa_log_trace_fp(state->log, NAME" %p: slave:%d %"PRIu64" %f %ld %f %f %d",
 			state, slave, nsec, corr, delay, err, state->threshold * corr,
 			state->threshold);
-
-	state->next_time += state->threshold / corr * 1e9 / state->rate;
-	state->last_threshold = state->threshold;
 
 	return 0;
 }

@@ -240,6 +240,7 @@ int spa_alsa_seq_open(struct seq_state *state)
 	int res;
 	snd_seq_port_subscribe_t *sub;
 	snd_seq_addr_t addr;
+	snd_seq_queue_timer_t *timer;
 
 	if (state->opened)
 		return 0;
@@ -280,6 +281,16 @@ int spa_alsa_seq_open(struct seq_state *state)
 	state->sys.source.func = alsa_seq_on_sys;
 	state->sys.source.data = state;
 	spa_loop_add_source(state->main_loop, &state->sys.source);
+
+	/* increase queue timer resolution */
+	snd_seq_queue_timer_alloca(&timer);
+	if ((res = snd_seq_get_queue_timer(state->event.hndl, state->event.queue_id, timer)) < 0) {
+		spa_log_warn(state->log, "failed to get queue timer: %s", snd_strerror(res));
+	}
+	snd_seq_queue_timer_set_resolution(timer, INT_MAX);
+	if ((res = snd_seq_set_queue_timer(state->event.hndl, state->event.queue_id, timer)) < 0) {
+		spa_log_warn(state->log, "failed to set queue timer: %s", snd_strerror(res));
+	}
 
 	init_ports(state);
 
@@ -585,20 +596,78 @@ static int process_write(struct seq_state *state)
 	return SPA_STATUS_NEED_DATA;
 }
 
-static int update_time(struct seq_state *state)
+static void init_loop(struct seq_state *state)
+{
+	state->bw = 0.0;
+	state->z1 = state->z2 = state->z3 = 0.0;
+}
+
+static void set_loop(struct seq_state *state, double bw)
+{
+	double w = 2 * M_PI * bw * state->threshold * state->rate.num / state->rate.denom;
+	state->w0 = 1.0 - exp (-20.0 * w);
+	state->w1 = w * 1.5 / state->threshold;
+	state->w2 = w / 1.5;
+	state->bw = bw;
+}
+
+static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 {
 	snd_seq_queue_status_t *status;
 	const snd_seq_real_time_t* queue_time;
+	uint64_t queue_real, queue_nsec;
+	double err, corr;
 
 	/* take queue time */
 	snd_seq_queue_status_alloca(&status);
         snd_seq_get_queue_status(state->event.hndl, state->event.queue_id, status);
 	queue_time = snd_seq_queue_status_get_real_time(status);
-	state->queue_time = SPA_TIMESPEC_TO_NSEC(queue_time);
+	queue_real = SPA_TIMESPEC_TO_NSEC(queue_time);
 
-	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" diff:%"PRIu64,
-			state->current_time, state->queue_time,
-			state->current_time - state->queue_time);
+	if (state->queue_start == 0)
+		state->queue_start = state->current_time - queue_real;
+
+	state->queue_time = state->current_time - state->queue_start;
+	queue_nsec = state->queue_start + queue_real;
+
+	err = ((int64_t)state->current_time - (int64_t) queue_nsec) / state->rate.denom;
+
+	if (state->bw == 0.0) {
+		set_loop(state, BW_MAX);
+		state->next_time = nsec;
+		state->base_time = nsec;
+	}
+	state->z1 += state->w0 * (state->w1 * err - state->z1);
+	state->z2 += state->w0 * (state->z1 - state->z2);
+	state->z3 += state->w2 * state->z2;
+
+	corr = 1.0 - (state->z2 + state->z3);
+
+	if ((state->next_time - state->base_time) > BW_PERIOD) {
+		state->base_time = state->next_time;
+		if (state->bw == BW_MAX)
+			set_loop(state, BW_MED);
+		else if (state->bw == BW_MED)
+			set_loop(state, BW_MIN);
+
+		spa_log_debug(state->log, NAME" %p: slave:%d rate:%f bw:%f err:%f (%f %f %f)",
+				state, slave, corr, state->bw, err, state->z1, state->z2, state->z3);
+	}
+
+	state->next_time += state->threshold / corr * 1e9 / state->rate.denom;
+
+	if (!slave && state->clock) {
+		state->clock->nsec = state->current_time;
+		state->clock->position += state->duration;
+		state->clock->duration = state->duration;
+		state->clock->count = state->clock->position;
+		state->clock->delay = state->duration * corr;
+		state->clock->rate_diff = corr;
+		state->clock->next_nsec = state->next_time;
+	}
+
+	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" next:%"PRIu64" thr:%d",
+			state->current_time, queue_nsec, state->next_time, state->threshold);
 
 	return 0;
 }
@@ -610,7 +679,7 @@ int spa_alsa_seq_process(struct seq_state *state)
 	res = process_recycle(state);
 
 	if (state->slaved) {
-		update_time(state);
+		update_time(state, state->position->clock.nsec, true);
 		res |= process_read(state);
 	}
 	res = process_write(state);
@@ -634,17 +703,14 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		struct spa_io_clock *clock = &state->position->clock;
 		state->rate = clock->rate;
 		state->duration = clock->duration;
-		state->threshold = (state->duration * clock->rate.num * SPA_NSEC_PER_SEC) /
-			clock->rate.denom;
+		state->threshold = state->duration;
 	}
 
-	update_time(state);
+	update_time(state, state->current_time, false);
 
 	res = process_read(state);
 	if (res > 0)
 		spa_node_call_ready(&state->callbacks, res);
-
-	state->next_time += state->threshold;
 
 	set_timeout(state, state->next_time);
 }
@@ -708,6 +774,7 @@ int spa_alsa_seq_start(struct seq_state *state)
 	state->source.rmask = 0;
 	spa_loop_add_source(state->data_loop, &state->source);
 
+	init_loop(state);
 	set_timers(state);
 
 	state->started = true;

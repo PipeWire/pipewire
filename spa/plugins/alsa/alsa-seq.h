@@ -105,6 +105,11 @@ struct seq_conn {
 	struct spa_source source;
 };
 
+#define BW_MAX		0.128
+#define BW_MED		0.064
+#define BW_MIN		0.016
+#define BW_PERIOD	(3 * SPA_NSEC_PER_SEC)
+
 struct seq_state {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -139,13 +144,19 @@ struct seq_state {
 	int timerfd;
 	uint64_t current_time;
 	uint64_t next_time;
+	uint64_t base_time;
 	uint64_t queue_time;
+	uint64_t queue_start;
 
 	unsigned int opened:1;
 	unsigned int started:1;
 	unsigned int slaved:1;
 
 	struct seq_stream streams[2];
+
+	double bw;
+	double z1, z2, z3;
+	double w0, w1, w2;
 };
 
 #define VALID_DIRECTION(this,d)		((d) == SPA_DIRECTION_INPUT || (d) == SPA_DIRECTION_OUTPUT)

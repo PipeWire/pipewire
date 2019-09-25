@@ -98,8 +98,7 @@ struct seq_stream {
 
 struct seq_conn {
 	snd_seq_t *hndl;
-	int client_id;
-	int port_id;
+	snd_seq_addr_t addr;
 	int queue_id;
 	int fd;
 	struct spa_source source;

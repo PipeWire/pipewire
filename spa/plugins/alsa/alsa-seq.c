@@ -64,7 +64,7 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
 		spa_log_error(state->log, "failed to get client id: %d", res);
 		goto error_exit_close;
         }
-	conn->client_id = res;
+	conn->addr.client = res;
 
 	/* queue */
 	if ((res = snd_seq_alloc_queue(conn->hndl)) < 0) {
@@ -81,9 +81,7 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
 	snd_seq_port_info_set_name(pinfo, "input");
 	snd_seq_port_info_set_type(pinfo, SND_SEQ_PORT_TYPE_MIDI_GENERIC);
 	snd_seq_port_info_set_capability(pinfo,
-			SND_SEQ_PORT_CAP_WRITE |
-			SND_SEQ_PORT_CAP_READ |
-			SND_SEQ_PORT_CAP_NO_EXPORT);
+			SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_READ);
         /* Enable timestamping for events sent by external subscribers. */
         snd_seq_port_info_set_timestamping(pinfo, 1);
         snd_seq_port_info_set_timestamp_real(pinfo, 1);
@@ -93,10 +91,10 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
 		spa_log_error(state->log, "failed to create port: %s", snd_strerror(res));
 		goto error_exit_close;
         }
-        conn->port_id = snd_seq_port_info_get_port(pinfo);
+        conn->addr.port = snd_seq_port_info_get_port(pinfo);
 
 	spa_log_debug(state->log, "queue:%d client:%d port:%d",
-			conn->queue_id, conn->client_id, conn->port_id);
+			conn->queue_id, conn->addr.client, conn->addr.port);
 
 	snd_seq_poll_descriptors(conn->hndl, &pfd, 1, POLLIN);
 	conn->source.fd = pfd.fd;
@@ -169,8 +167,8 @@ static void init_ports(struct seq_state *state)
 
 		addr.client = snd_seq_client_info_get_client(client_info);
 		if (addr.client == SND_SEQ_CLIENT_SYSTEM ||
-		    addr.client == state->sys.client_id ||
-		    addr.client == state->event.client_id)
+		    addr.client == state->sys.addr.client ||
+		    addr.client == state->event.addr.client)
 			continue;
 
 		snd_seq_port_info_set_client(port_info, addr.client);
@@ -212,7 +210,7 @@ static void alsa_seq_on_sys(struct spa_source *source)
 	while (snd_seq_event_input (state->sys.hndl, &ev) > 0) {
 		const snd_seq_addr_t *addr = &ev->data.addr;
 
-		if (addr->client == state->event.client_id)
+		if (addr->client == state->event.addr.client)
 			continue;
 
 		debug_event(state, ev);
@@ -262,17 +260,19 @@ int spa_alsa_seq_open(struct seq_state *state)
 	if ((res = seq_open(state, &state->sys)) < 0)
 		return res;
 
+	snd_seq_set_client_name(state->sys.hndl, "PipeWire-System");
+
 	if ((res = seq_open(state, &state->event)) < 0)
 		return res;
+
+	snd_seq_set_client_name(state->event.hndl, "PipeWire-RT-Event");
 
 	/* connect to system announce */
 	snd_seq_port_subscribe_alloca(&sub);
 	addr.client = SND_SEQ_CLIENT_SYSTEM;
 	addr.port = SND_SEQ_PORT_SYSTEM_ANNOUNCE;
 	snd_seq_port_subscribe_set_sender(sub, &addr);
-	addr.client = state->sys.client_id;
-	addr.port = state->sys.port_id;
-	snd_seq_port_subscribe_set_dest(sub, &addr);
+	snd_seq_port_subscribe_set_dest(sub, &state->sys.addr);
 	snd_seq_port_subscribe_set_queue(sub, state->sys.queue_id);
 	snd_seq_port_subscribe_set_time_update(sub, 1);
 	snd_seq_port_subscribe_set_time_real(sub, 1);
@@ -583,7 +583,7 @@ static int process_write(struct seq_state *state)
 	                        continue;
 			}
 
-			snd_seq_ev_set_source(&ev, state->event.port_id);
+			snd_seq_ev_set_source(&ev, state->event.addr.port);
 			snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
 
 			out_time = state->queue_time +

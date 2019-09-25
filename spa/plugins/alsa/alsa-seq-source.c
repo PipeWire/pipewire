@@ -401,33 +401,9 @@ static void free_port(struct seq_state *state, struct seq_port *port)
 	port->valid = false;
 }
 
-static int alsa_connect_from(struct seq_state *state, const snd_seq_addr_t *addr)
-{
-	snd_seq_port_subscribe_t* sub;
-	snd_seq_addr_t seq_addr;
-	int res;
-
-	snd_seq_port_subscribe_alloca(&sub);
-	seq_addr.client = addr->client;
-	seq_addr.port = addr->port;
-	snd_seq_port_subscribe_set_sender(sub, &seq_addr);
-	seq_addr.client = state->event.client_id;
-	seq_addr.port = state->event.port_id;
-	snd_seq_port_subscribe_set_dest(sub, &seq_addr);
-
-	snd_seq_port_subscribe_set_time_update(sub, 1);
-	snd_seq_port_subscribe_set_time_real(sub, 1);
-	snd_seq_port_subscribe_set_queue(sub, state->event.queue_id);
-
-	if ((res = snd_seq_subscribe_port(state->event.hndl, sub)) < 0) {
-                spa_log_error(state->log, "can't subscribe to %d:%d - %s",
-				addr->client, addr->port, snd_strerror(res));
-	}
-        return res;
-}
-
 static void init_port(struct seq_state *state, struct seq_port *port, const snd_seq_addr_t *addr)
 {
+	snd_seq_port_subscribe_t* sub;
 	int res;
 
 	port->addr = *addr;
@@ -450,13 +426,24 @@ static void init_port(struct seq_state *state, struct seq_port *port, const snd_
 	spa_list_init(&port->free);
 	spa_list_init(&port->ready);
 
+	snd_seq_port_subscribe_alloca(&sub);
 	if (port->direction == SPA_DIRECTION_OUTPUT) {
-		res = alsa_connect_from(state, addr);
+		snd_seq_port_subscribe_set_sender(sub, addr);
+		snd_seq_port_subscribe_set_dest(sub, &state->event.addr);
 	} else {
-		res = snd_seq_connect_to(state->event.hndl, state->event.port_id,
-				addr->client, addr->port);
+		snd_seq_port_subscribe_set_sender(sub, &state->event.addr);
+		snd_seq_port_subscribe_set_dest(sub, addr);
+	}
+	snd_seq_port_subscribe_set_time_update(sub, 1);
+	snd_seq_port_subscribe_set_time_real(sub, 1);
+	snd_seq_port_subscribe_set_queue(sub, state->event.queue_id);
+
+	if ((res = snd_seq_subscribe_port(state->event.hndl, sub)) < 0) {
+                spa_log_error(state->log, "can't subscribe to %d:%d - %s",
+				addr->client, addr->port, snd_strerror(res));
 	}
 	spa_log_debug(state->log, "connect: %d.%d: %d", addr->client, addr->port, res);
+
 	emit_port_info(state, port, true);
 }
 

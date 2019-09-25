@@ -130,6 +130,17 @@ static int seq_start(struct seq_state *state, struct seq_conn *conn)
 	return res;
 }
 
+static int seq_stop(struct seq_state *state, struct seq_conn *conn)
+{
+	int res;
+	if ((res = snd_seq_stop_queue(conn->hndl, conn->queue_id, NULL)) < 0) {
+		spa_log_warn(state->log, "failed to stop queue: %s", snd_strerror(res));
+	}
+	while (snd_seq_drain_output(conn->hndl) > 0)
+		sleep(1);
+	return res;
+}
+
 static int init_stream(struct seq_state *state, enum spa_direction direction)
 {
 	struct seq_stream *stream = &state->streams[direction];
@@ -611,12 +622,15 @@ static void set_loop(struct seq_state *state, double bw)
 	state->bw = bw;
 }
 
+#define NSEC_TO_CLOCK(c,n) ((n) * (c)->rate.denom / ((c)->rate.num * SPA_NSEC_PER_SEC))
+
 static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 {
 	snd_seq_queue_status_t *status;
 	const snd_seq_real_time_t* queue_time;
-	uint64_t queue_real, queue_nsec;
+	uint64_t queue_real;
 	double err, corr;
+	uint64_t clock_elapsed, queue_elapsed;
 
 	/* take queue time */
 	snd_seq_queue_status_alloca(&status);
@@ -624,13 +638,16 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 	queue_time = snd_seq_queue_status_get_real_time(status);
 	queue_real = SPA_TIMESPEC_TO_NSEC(queue_time);
 
-	if (state->queue_start == 0)
-		state->queue_start = state->current_time - queue_real;
+	if (state->queue_base == 0) {
+		state->queue_base = nsec - queue_real;
+		state->clock_base = state->clock->position;
+	}
 
-	state->queue_time = state->current_time - state->queue_start;
-	queue_nsec = state->queue_start + queue_real;
+	clock_elapsed = state->clock->position - state->clock_base;
+	state->queue_time = nsec - state->queue_base;
+	queue_elapsed = NSEC_TO_CLOCK(state->clock, state->queue_time);
 
-	err = ((int64_t)state->current_time - (int64_t) queue_nsec) / state->rate.denom;
+	err = ((int64_t)clock_elapsed - (int64_t) queue_elapsed);
 
 	if (state->bw == 0.0) {
 		set_loop(state, BW_MAX);
@@ -657,7 +674,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 	state->next_time += state->threshold / corr * 1e9 / state->rate.denom;
 
 	if (!slave && state->clock) {
-		state->clock->nsec = state->current_time;
+		state->clock->nsec = nsec;
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
 		state->clock->count = state->clock->position;
@@ -667,7 +684,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 	}
 
 	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" next:%"PRIu64" thr:%d",
-			state->current_time, queue_nsec, state->next_time, state->threshold);
+			nsec, queue_real, state->next_time, state->threshold);
 
 	return 0;
 }
@@ -774,6 +791,7 @@ int spa_alsa_seq_start(struct seq_state *state)
 	state->source.rmask = 0;
 	spa_loop_add_source(state->data_loop, &state->source);
 
+	state->queue_base = 0;
 	init_loop(state);
 	set_timers(state);
 
@@ -833,6 +851,8 @@ int spa_alsa_seq_pause(struct seq_state *state)
 	spa_log_debug(state->log, "alsa %p: pause", state);
 
 	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
+
+	seq_stop(state, &state->event);
 
 	state->started = false;
 

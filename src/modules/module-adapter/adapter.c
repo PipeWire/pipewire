@@ -245,7 +245,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	pw_properties_setf(new, PW_KEY_OBJECT_PATH, "%s:%s_%d",
 			path ? path : node_name, prefix, port->port_id);
 
-	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%d", prefix, port->port_id);
+	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
 	pw_properties_setf(new, PW_KEY_PORT_ALIAS, "%s:%s_%s",
 			node_name, prefix, str);
 

@@ -470,12 +470,15 @@ static int process_read(struct seq_state *state)
 			data[2] = 0x40;
 		}
 
+		/* queue_time is the estimated current time of the queue as calculated by
+		 * the DLL. Calculate the age of the event. */
 		ev_time = SPA_TIMESPEC_TO_NSEC(&ev->time.time);
 		if (state->queue_time > ev_time)
 			diff = state->queue_time - ev_time;
 		else
 			diff = 0;
 
+		/* convert the age to samples and convert to an offset */
 		offset = (diff * state->rate.denom) / (state->rate.num * SPA_NSEC_PER_SEC);
 		if (state->duration > offset)
 			offset = state->duration - offset;

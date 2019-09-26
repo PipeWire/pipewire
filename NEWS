@@ -1,3 +1,105 @@
+PipeWire 0.3.0
+
+This is the fisst release of the 0.3 version. It consists of a
+major rewrite and is not API or ABI compatible with the 0.2
+branch.
+
+
+
+Older versions:
+
+
+PipeWire 0.2.7
+
+This is mostly a bugfix release and is API/ABI compatible with
+previous 0.2 versions.
+
+Work is ongoing in the work branch that features a completely new
+scheduling method that will enable audio support. Some of these
+API changes are backported in this branch.
+
+- Add support for alsa-lib 1.1.9 which changed the include path
+- Improve error checking and reporting in the protocol
+- deviceprovider: fix probing without starting
+- add sentinel to some functions
+- compiler fixes for musl
+- Revert object tree permission checks that broke things, this is
+  probably not a good idea (and the tree of objects is going to
+  be removed later)
+
+
+PipeWire 0.2.6
+
+- Improve error checking for threads
+- Fix some memory and fd leaks
+- Fix compilation with C++ compilers and clang
+- DISABLE_RTKIT should now not try to use dbus at all
+- Camera Portal fixes:
+	- add Camera media.role
+	- Rename module-flatpak to module-portal
+	- Use the portal permissions store for camera checks
+- Actually use the passed fd in pipewiresrc
+- Make properties with "pipewire." prefix read-only
+- Add security label to client object
+- Enforce link permissions
+- Permissions of objects are now combined with parent permissions
+- Remove libv4l2 dependency, it is not used
+- Improve format negotiation in autolink #146
+- Try to avoid list corruption with event emmission #143
+- Fix destroy of client-node memory corruption
+- Various small improvements
+
+PipeWire 0.2.5
+
+- build fixes for systemd
+- Add cursor and bitmap metadata. This can be used to send a cursor
+  sprite with the video stream.
+- permissions were set too strict for non-flatpak clients
+- Fix crash in loop caused by thread unsafe hook emission
+- Add more error checking for thread-loop
+- Small cleanups and bugfixes
+
+PipeWire 0.2.4
+
+- Install man pages in right directory
+- Add systemd socket activation
+- Various memory leak and corruption fixes in properties, dbus and
+  buffer mmaped memory.
+- Fix v4l2 crash on unplug
+- improve stream cleanup
+
+PipeWire 0.2.3
+
+- Fix deviceprovider caps introspection
+- Refcounting fixes in pipewiresrc
+- Remove clock interpolation from stream
+- Improve clock in gstreamer elements
+- Remove spalib
+- Fix crash with pw_map
+- Add version number to hook list
+- Improve driver mode in gstreamer elements
+- add daemon options
+- add man pages
+
+PipeWire 0.2.2
+
+- Increment API version and .so version
+
+PipeWire 0.2.1
+
+- Various fixes to memory handling
+- Fixes for shutdown
+- v4l2 fix enumeration of frame intervals
+- Make the daemon stop when the setup commands fail
+- Improve safety of hooks
+- Update stream API to more future proof version
+- Add more options to stream API such as scheduling in the
+  main thread and automatic mapping of buffers
+- Add version file and macros to check compile time and
+  runtime versions of pipewire
+- Future proof some structs
+
+
 PipeWire 0.1.9
 
 - Various build fixes

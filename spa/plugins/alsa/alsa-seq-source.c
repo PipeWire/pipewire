@@ -457,16 +457,22 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 		if (port)
 			free_port(state, port);
 	} else {
-		if (port != NULL && (caps & stream->caps) != stream->caps) {
-			spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);
-			free_port(state, port);
-		}
-		else if (port == NULL && (caps & stream->caps) == stream->caps) {
+		if (port == NULL && (caps & stream->caps) == stream->caps) {
 			spa_log_debug(state->log, "new port %d.%d", addr->client, addr->port);
 			port = alloc_port(state, stream);
 			if (port == NULL)
 				return;
 			init_port(state, port, addr);
+		} else if (port != NULL) {
+			if ((caps & stream->caps) != stream->caps) {
+				spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);
+				free_port(state, port);
+			}
+			else {
+				spa_log_debug(state->log, "update port %d.%d", addr->client, addr->port);
+				port->info.change_mask = SPA_PORT_CHANGE_MASK_PROPS;
+				emit_port_info(state, port, false);
+			}
 		}
 	}
 }
@@ -701,6 +707,9 @@ impl_node_port_use_buffers(void *object,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
+
+	spa_log_debug(this->log, NAME " %p: port %d.%d buffers:%d format:%d", this,
+			direction, port_id, n_buffers, port->have_format);
 
 	if (!port->have_format)
 		return -EIO;

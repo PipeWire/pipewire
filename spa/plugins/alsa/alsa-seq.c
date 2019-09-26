@@ -216,6 +216,13 @@ static void alsa_seq_on_sys(struct spa_source *source)
 		debug_event(state, ev);
 
 		switch (ev->type) {
+		case SND_SEQ_EVENT_CLIENT_START:
+		case SND_SEQ_EVENT_CLIENT_CHANGE:
+			spa_log_debug(state->log, "client add/change %d", addr->client);
+			break;
+		case SND_SEQ_EVENT_CLIENT_EXIT:
+			break;
+
 		case SND_SEQ_EVENT_PORT_START:
 		case SND_SEQ_EVENT_PORT_CHANGE:
 		{
@@ -442,6 +449,9 @@ static int process_read(struct seq_state *state)
 					addr->client, addr->port);
 			continue;
 		}
+		if (port->io == NULL || port->n_buffers == 0)
+			continue;
+
 		if ((res = prepare_buffer(state, port)) < 0) {
 			spa_log_debug(state->log, "can't prepare buffer port:%p %d.%d: %s",
 					port, addr->client, addr->port, spa_strerror(res));

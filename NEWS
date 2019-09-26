@@ -1,4 +1,4 @@
-PipeWire 0.2.6
+PipeWire 0.2.7
 
 This is mostly a bugfix release and is API/ABI compatible with
 previous 0.2 versions.
@@ -6,6 +6,20 @@ previous 0.2 versions.
 Work is ongoing in the work branch that features a completely new
 scheduling method that will enable audio support. Some of these
 API changes are backported in this branch.
+
+- Add support for alsa-lib 1.1.9 which changed the include path
+- Improve error checking and reporting in the protocol
+- deviceprovider: fix probing without starting
+- add sentinel to some functions
+- compiler fixes for musl
+- Revert object tree permission checks that broke things, this is
+  probably not a good idea (and the tree of objects is going to
+  be removed later)
+
+
+Older versions:
+
+PipeWire 0.2.6
 
 - Improve error checking for threads
 - Fix some memory and fd leaks
@@ -25,8 +39,6 @@ API changes are backported in this branch.
 - Try to avoid list corruption with event emmission #143
 - Fix destroy of client-node memory corruption
 - Various small improvements
-
-Older versions:
 
 PipeWire 0.2.5
 

@@ -48,7 +48,7 @@
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_MAX			4096
 #define JACK_PORT_TYPE_SIZE             32
-#define CONNECTION_NUM_FOR_PORT		2048
+#define CONNECTION_NUM_FOR_PORT		1024
 
 #define BUFFER_SIZE_MAX			8192
 
@@ -654,21 +654,44 @@ static void convert_from_midi(void *midi, void *buffer, size_t size)
         spa_pod_builder_pop(&b, &f);
 }
 
-static void convert_to_midi(struct spa_pod_sequence *seq, void *midi)
+static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void *midi)
 {
-	struct spa_pod_control *c;
+	struct spa_pod_control *c[n_seq];
+	uint32_t i;
 
-	SPA_POD_SEQUENCE_FOREACH(seq, c) {
-		switch(c->type) {
+	for (i = 0; i < n_seq; i++) {
+		c[i] = spa_pod_control_first(&seq[i]->body);
+	}
+
+	while (true) {
+		struct spa_pod_control *next = NULL;
+		uint32_t next_index = 0;
+
+		for (i = 0; i < n_seq; i++) {
+			if (!spa_pod_control_is_inside(&seq[i]->body,
+						SPA_POD_BODY_SIZE(seq[i]), c[i]))
+				continue;
+
+			if (next == NULL || c[i]->offset < next->offset) {
+				next = c[i];
+				next_index = i;
+			}
+		}
+		if (next == NULL)
+			break;
+
+		switch(next->type) {
 		case SPA_CONTROL_Midi:
 			jack_midi_event_write(midi,
-					c->offset,
-					SPA_POD_BODY(&c->value),
-					SPA_POD_BODY_SIZE(&c->value));
+					next->offset,
+					SPA_POD_BODY(&next->value),
+					SPA_POD_BODY_SIZE(&next->value));
 			break;
 		}
+		c[next_index] = spa_pod_control_next(c[next_index]);
 	}
 }
+
 
 static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames, uint32_t stride)
 {
@@ -2749,13 +2772,17 @@ static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
 static void *mix_midi(struct client *c, struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
-	struct buffer *b;
 	struct spa_io_buffers *io;
 	void *ptr = p->emptyptr;
+	struct spa_pod_sequence *seq[CONNECTION_NUM_FOR_PORT];
+	uint32_t n_seq = 0;
 
 	jack_midi_reset_buffer(ptr);
 
 	spa_list_for_each(mix, &p->mix, port_link) {
+		struct spa_data *d;
+		void *pod;
+
 		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
 				c, p, p->id, mix->id, frames);
 
@@ -2764,12 +2791,17 @@ static void *mix_midi(struct client *c, struct port *p, jack_nframes_t frames)
 			continue;
 
 		io->status = SPA_STATUS_NEED_DATA;
-		b = &mix->buffers[io->buffer_id];
-		/* FIXME, actually mix the midi */
-		convert_to_midi(b->datas[0].data, ptr);
-		p->zeroed = false;
-		break;
+		d = &mix->buffers[io->buffer_id].datas[0];
+
+		if ((pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size)) == NULL)
+			continue;
+		if (!spa_pod_is_sequence(pod))
+			continue;
+
+		seq[n_seq++] = pod;
 	}
+	convert_to_midi(seq, n_seq, ptr);
+
 	return ptr;
 }
 

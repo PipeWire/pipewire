@@ -261,7 +261,7 @@ static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint3
 	obj->device = iface;
 	obj->props = pw_properties_new_dict(info->props);
 	obj->proxy = pw_remote_export(impl->remote,
-			info->type, obj->props, obj->device, 0);
+			info->type, pw_properties_copy(obj->props), obj->device, 0);
 	if (obj->proxy == NULL) {
 		res = -errno;
 		goto clean_object;

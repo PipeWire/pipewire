@@ -284,7 +284,7 @@ static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t 
 	v4l2_update_device_props(obj);
 
 	obj->proxy = pw_remote_export(impl->remote,
-			info->type, obj->props, obj->device, 0);
+			info->type, pw_properties_copy(obj->props), obj->device, 0);
 	if (obj->proxy == NULL) {
 		res = -errno;
 		goto clean_object;

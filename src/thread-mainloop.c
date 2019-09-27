@@ -108,7 +108,7 @@ void pa_threaded_mainloop_accept(pa_threaded_mainloop *m)
 }
 
 SPA_EXPORT
-int pa_threaded_mainloop_get_retval(pa_threaded_mainloop *m)
+int pa_threaded_mainloop_get_retval(PA_CONST pa_threaded_mainloop *m)
 {
 	return pa_mainloop_get_retval(m->loop);
 }

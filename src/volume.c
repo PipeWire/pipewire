@@ -953,7 +953,7 @@ pa_cvolume* pa_cvolume_set_position(
 
 SPA_EXPORT
 pa_volume_t pa_cvolume_get_position(
-        pa_cvolume *cv,
+        PA_CONST pa_cvolume *cv,
         const pa_channel_map *map,
         pa_channel_position_t t) {
 

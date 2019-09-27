@@ -722,7 +722,7 @@ pa_stream *pa_stream_ref(pa_stream *s)
 }
 
 SPA_EXPORT
-pa_stream_state_t pa_stream_get_state(pa_stream *s)
+pa_stream_state_t pa_stream_get_state(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -730,7 +730,7 @@ pa_stream_state_t pa_stream_get_state(pa_stream *s)
 }
 
 SPA_EXPORT
-pa_context* pa_stream_get_context(pa_stream *s)
+pa_context* pa_stream_get_context(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -738,7 +738,7 @@ pa_context* pa_stream_get_context(pa_stream *s)
 }
 
 SPA_EXPORT
-uint32_t pa_stream_get_index(pa_stream *s)
+uint32_t pa_stream_get_index(PA_CONST pa_stream *s)
 {
 	uint32_t idx;
 
@@ -773,7 +773,7 @@ void pa_stream_set_state(pa_stream *s, pa_stream_state_t st) {
 
 
 SPA_EXPORT
-uint32_t pa_stream_get_device_index(pa_stream *s)
+uint32_t pa_stream_get_device_index(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -790,7 +790,7 @@ uint32_t pa_stream_get_device_index(pa_stream *s)
 }
 
 SPA_EXPORT
-const char *pa_stream_get_device_name(pa_stream *s)
+const char *pa_stream_get_device_name(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -806,7 +806,7 @@ const char *pa_stream_get_device_name(pa_stream *s)
 }
 
 SPA_EXPORT
-int pa_stream_is_suspended(pa_stream *s)
+int pa_stream_is_suspended(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -818,7 +818,7 @@ int pa_stream_is_suspended(pa_stream *s)
 }
 
 SPA_EXPORT
-int pa_stream_is_corked(pa_stream *s)
+int pa_stream_is_corked(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1274,7 +1274,7 @@ int pa_stream_drop(pa_stream *s)
 }
 
 SPA_EXPORT
-size_t pa_stream_writable_size(pa_stream *s)
+size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1289,7 +1289,7 @@ size_t pa_stream_writable_size(pa_stream *s)
 }
 
 SPA_EXPORT
-size_t pa_stream_readable_size(pa_stream *s)
+size_t pa_stream_readable_size(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1427,7 +1427,7 @@ void pa_stream_set_overflow_callback(pa_stream *s, pa_stream_notify_cb_t cb, voi
 }
 
 SPA_EXPORT
-int64_t pa_stream_get_underflow_index(pa_stream *s)
+int64_t pa_stream_get_underflow_index(PA_CONST pa_stream *s)
 {
 	pw_log_warn("Not Implemented");
 	return 0;
@@ -1767,7 +1767,7 @@ const pa_channel_map* pa_stream_get_channel_map(pa_stream *s)
 }
 
 SPA_EXPORT
-const pa_format_info* pa_stream_get_format_info(pa_stream *s)
+const pa_format_info* pa_stream_get_format_info(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1896,7 +1896,7 @@ int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 }
 
 SPA_EXPORT
-uint32_t pa_stream_get_monitor_stream(pa_stream *s)
+uint32_t pa_stream_get_monitor_stream(PA_CONST pa_stream *s)
 {
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);

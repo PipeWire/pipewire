@@ -310,7 +310,7 @@ int pa_mainloop_dispatch(pa_mainloop *m)
 }
 
 SPA_EXPORT
-int pa_mainloop_get_retval(pa_mainloop *m)
+int pa_mainloop_get_retval(PA_CONST pa_mainloop *m)
 {
 	return m->retval;
 }

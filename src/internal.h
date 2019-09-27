@@ -31,11 +31,19 @@
 #include <pulse/format.h>
 #include <pulse/subscribe.h>
 #include <pulse/introspect.h>
+#include <pulse/version.h>
 
 #include <pipewire/array.h>
 #include <pipewire/utils.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/log.h>
+
+/* Some PulseAudio API added const qualifiers in 13.0 */
+#if PA_MAJOR >= 13
+#define PA_CONST const
+#else
+#define PA_CONST
+#endif
 
 #define PA_MAX_FORMATS (PA_ENCODING_MAX)
 

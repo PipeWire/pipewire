@@ -828,7 +828,7 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 }
 
 SPA_EXPORT
-pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *name, pa_proplist *p)
+pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *name, PA_CONST pa_proplist *p)
 {
 	struct pw_core *core;
 	struct pw_loop *loop;
@@ -944,7 +944,7 @@ void pa_context_set_event_callback(pa_context *c, pa_context_event_cb_t cb, void
 }
 
 SPA_EXPORT
-int pa_context_errno(pa_context *c)
+int pa_context_errno(PA_CONST pa_context *c)
 {
 	if (!c)
 		return PA_ERR_INVALID;
@@ -955,7 +955,7 @@ int pa_context_errno(pa_context *c)
 }
 
 SPA_EXPORT
-int pa_context_is_pending(pa_context *c)
+int pa_context_is_pending(PA_CONST pa_context *c)
 {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -966,7 +966,7 @@ int pa_context_is_pending(pa_context *c)
 }
 
 SPA_EXPORT
-pa_context_state_t pa_context_get_state(pa_context *c)
+pa_context_state_t pa_context_get_state(PA_CONST pa_context *c)
 {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -1090,7 +1090,7 @@ pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_
 }
 
 SPA_EXPORT
-int pa_context_is_local(pa_context *c)
+int pa_context_is_local(PA_CONST pa_context *c)
 {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -1128,7 +1128,7 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 }
 
 SPA_EXPORT
-const char* pa_context_get_server(pa_context *c)
+const char* pa_context_get_server(PA_CONST pa_context *c)
 {
 	const struct pw_core_info *info;
 
@@ -1142,13 +1142,13 @@ const char* pa_context_get_server(pa_context *c)
 }
 
 SPA_EXPORT
-uint32_t pa_context_get_protocol_version(pa_context *c)
+uint32_t pa_context_get_protocol_version(PA_CONST pa_context *c)
 {
 	return PA_PROTOCOL_VERSION;
 }
 
 SPA_EXPORT
-uint32_t pa_context_get_server_protocol_version(pa_context *c)
+uint32_t pa_context_get_server_protocol_version(PA_CONST pa_context *c)
 {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -1159,7 +1159,7 @@ uint32_t pa_context_get_server_protocol_version(pa_context *c)
 }
 
 SPA_EXPORT
-pa_operation *pa_context_proplist_update(pa_context *c, pa_update_mode_t mode, pa_proplist *p, pa_context_success_cb_t cb, void *userdata)
+pa_operation *pa_context_proplist_update(pa_context *c, pa_update_mode_t mode, PA_CONST pa_proplist *p, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
 	struct success_data *d;
@@ -1204,13 +1204,13 @@ pa_operation *pa_context_proplist_remove(pa_context *c, const char *const keys[]
 }
 
 SPA_EXPORT
-uint32_t pa_context_get_index(pa_context *c)
+uint32_t pa_context_get_index(PA_CONST pa_context *c)
 {
 	return c->client_index;
 }
 
 SPA_EXPORT
-pa_time_event* pa_context_rttime_new(pa_context *c, pa_usec_t usec, pa_time_event_cb_t cb, void *userdata)
+pa_time_event* pa_context_rttime_new(PA_CONST pa_context *c, pa_usec_t usec, pa_time_event_cb_t cb, void *userdata)
 {
 	struct timeval tv;
 
@@ -1227,7 +1227,7 @@ pa_time_event* pa_context_rttime_new(pa_context *c, pa_usec_t usec, pa_time_even
 }
 
 SPA_EXPORT
-void pa_context_rttime_restart(pa_context *c, pa_time_event *e, pa_usec_t usec)
+void pa_context_rttime_restart(PA_CONST pa_context *c, pa_time_event *e, pa_usec_t usec)
 {
 	struct timeval tv;
 
@@ -1244,7 +1244,7 @@ void pa_context_rttime_restart(pa_context *c, pa_time_event *e, pa_usec_t usec)
 }
 
 SPA_EXPORT
-size_t pa_context_get_tile_size(pa_context *c, const pa_sample_spec *ss)
+size_t pa_context_get_tile_size(PA_CONST pa_context *c, const pa_sample_spec *ss)
 {
 	size_t fs, mbs;
 

@@ -54,7 +54,7 @@ pa_operation* pa_context_play_sample(pa_context *c, const char *name, const char
 
 SPA_EXPORT
 pa_operation* pa_context_play_sample_with_proplist(pa_context *c, const char *name,
-        const char *dev, pa_volume_t volume, pa_proplist *proplist,
+        const char *dev, pa_volume_t volume, PA_CONST pa_proplist *proplist,
         pa_context_play_sample_cb_t cb, void *userdata)
 {
 	pw_log_warn("Not Implemented");

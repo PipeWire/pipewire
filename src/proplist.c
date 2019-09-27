@@ -145,13 +145,13 @@ int pa_proplist_set(pa_proplist *p, const char *key, const void *data, size_t nb
 }
 
 SPA_EXPORT
-const char *pa_proplist_gets(pa_proplist *p, const char *key)
+const char *pa_proplist_gets(PA_CONST pa_proplist *p, const char *key)
 {
 	return pw_properties_get(p->props, key);
 }
 
 SPA_EXPORT
-int pa_proplist_get(pa_proplist *p, const char *key, const void **data, size_t *nbytes)
+int pa_proplist_get(PA_CONST pa_proplist *p, const char *key, const void **data, size_t *nbytes)
 {
 	const char *val;
 
@@ -223,7 +223,7 @@ int pa_proplist_unset_many(pa_proplist *p, const char * const keys[])
 }
 
 SPA_EXPORT
-const char *pa_proplist_iterate(pa_proplist *p, void **state)
+const char *pa_proplist_iterate(PA_CONST pa_proplist *p, void **state)
 {
 	spa_assert(p);
 	spa_assert(state);
@@ -231,14 +231,14 @@ const char *pa_proplist_iterate(pa_proplist *p, void **state)
 }
 
 SPA_EXPORT
-char *pa_proplist_to_string(pa_proplist *p)
+char *pa_proplist_to_string(PA_CONST pa_proplist *p)
 {
 	spa_assert(p);
 	return pa_proplist_to_string_sep(p, ",");
 }
 
 SPA_EXPORT
-char *pa_proplist_to_string_sep(pa_proplist *p, const char *sep)
+char *pa_proplist_to_string_sep(PA_CONST pa_proplist *p, const char *sep)
 {
 	const char *key;
 	void *state = NULL;
@@ -293,7 +293,7 @@ pa_proplist *pa_proplist_from_string(const char *str)
 }
 
 SPA_EXPORT
-int pa_proplist_contains(pa_proplist *p, const char *key)
+int pa_proplist_contains(PA_CONST pa_proplist *p, const char *key)
 {
 	spa_assert(p);
 	spa_assert(key);
@@ -330,21 +330,21 @@ pa_proplist* pa_proplist_copy(const pa_proplist *p)
 }
 
 SPA_EXPORT
-unsigned pa_proplist_size(pa_proplist *p)
+unsigned pa_proplist_size(PA_CONST pa_proplist *p)
 {
 	spa_assert(p);
 	return p->props->dict.n_items;
 }
 
 SPA_EXPORT
-int pa_proplist_isempty(pa_proplist *p)
+int pa_proplist_isempty(PA_CONST pa_proplist *p)
 {
 	spa_assert(p);
 	return p->props->dict.n_items == 0 ? 1 : 0;
 }
 
 SPA_EXPORT
-int pa_proplist_equal(pa_proplist *a, pa_proplist *b)
+int pa_proplist_equal(PA_CONST pa_proplist *a, PA_CONST pa_proplist *b)
 {
 	uint32_t i;
 

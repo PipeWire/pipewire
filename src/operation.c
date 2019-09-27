@@ -144,7 +144,7 @@ void pa_operation_done(pa_operation *o) {
 
 
 SPA_EXPORT
-pa_operation_state_t pa_operation_get_state(pa_operation *o)
+pa_operation_state_t pa_operation_get_state(PA_CONST pa_operation *o)
 {
 	pa_assert(o);
 	pa_assert(o->refcount >= 1);

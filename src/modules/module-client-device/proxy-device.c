@@ -68,10 +68,12 @@ struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
 					    "client-device",
 					    SPA_TYPE_INTERFACE_Device,
 					    SPA_VERSION_DEVICE,
-					    &props->dict,
+					    props ? &props->dict : NULL,
 					    user_data_size + sizeof(struct device_data));
+	if (props)
+		pw_properties_free(props);
         if (proxy == NULL)
-                return NULL;
+		return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
 	data = SPA_MEMBER(data, user_data_size, struct device_data);

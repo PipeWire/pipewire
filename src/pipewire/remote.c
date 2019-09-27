@@ -545,13 +545,16 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 
 error_core_proxy:
 	pw_log_error(NAME" %p: no core proxy: %s", remote, spa_strerror(res));
-	goto exit;
+	goto exit_free;
 error_export_type:
 	pw_log_error(NAME" %p: can't export type %d: %s", remote, type, spa_strerror(res));
-	goto exit;
+	goto exit_free;
 error_proxy_failed:
 	pw_log_error(NAME" %p: failed to create proxy: %s", remote, spa_strerror(res));
 	goto exit;
+exit_free:
+	if (props)
+		pw_properties_free(props);
 exit:
 	errno = -res;
 	return NULL;

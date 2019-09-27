@@ -1149,6 +1149,12 @@ struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
+	struct pw_node *node = object;
+
+	if (props) {
+		pw_node_update_properties(node, &props->dict);
+		pw_properties_free(props);
+	}
 	return node_export(remote, object, false, user_data_size);
 }
 

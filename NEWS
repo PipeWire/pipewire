@@ -1,6 +1,6 @@
 PipeWire 0.3.0
 
-This is the fisst release of the 0.3 version. It consists of a
+This is the first release of the 0.3 version. It consists of a
 major rewrite and is not API or ABI compatible with the 0.2
 branch.
 

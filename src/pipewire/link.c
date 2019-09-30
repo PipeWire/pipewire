@@ -55,10 +55,9 @@
 struct impl {
 	struct pw_link this;
 
-	unsigned int prepare:1;
-	unsigned int ioset:1;
-	unsigned int activated:1;
-	unsigned int passive:1;
+	bool prepare;
+	bool activated;
+	bool passive;
 
 	struct pw_work_queue *work;
 
@@ -757,16 +756,13 @@ int pw_link_activate(struct pw_link *this)
 
 	pw_link_prepare(this);
 
-	if (!impl->ioset) {
-		if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-				sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
-			return res;
+	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
+			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+		return res;
 
-		if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
-				sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
-			return res;
-		impl->ioset = true;
-	}
+	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
+			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
+		return res;
 
 	if (this->info.state == PW_LINK_STATE_PAUSED) {
 		pw_loop_invoke(this->output->node->data_loop,
@@ -969,7 +965,6 @@ int pw_link_deactivate(struct pw_link *this)
 		port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, &this->rt.out_mix);
 		port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
 
-		impl->ioset = false;
 		impl->activated = false;
 	}
 

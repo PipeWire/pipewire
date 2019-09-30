@@ -349,8 +349,9 @@ SPA_EXPORT
 int pw_properties_setva(struct pw_properties *properties,
 		   const char *key, const char *format, va_list args)
 {
-	char *value;
-	vasprintf(&value, format, args);
+	char *value = NULL;
+	if (format != NULL)
+		vasprintf(&value, format, args);
 	return do_replace(properties, key, value, false);
 }
 
@@ -360,6 +361,9 @@ int pw_properties_setva(struct pw_properties *properties,
  * \param key a key
  * \param format a value
  * \param ... extra arguments
+ * \return 1 if the property was changed. 0 if nothing was changed because
+ *  the property already existed with the same value or because the key to remove
+ *  did not exist.
  *
  * Set the property in \a properties with \a key to the value in printf style \a format
  * Any previous value of \a key will be overwritten.

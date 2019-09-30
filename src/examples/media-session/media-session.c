@@ -35,9 +35,12 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
+#include <spa/support/dbus.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
+
+#include <dbus/dbus.h>
 
 #define NAME "media-session"
 
@@ -86,6 +89,10 @@ struct impl {
 	struct monitor bluez5_monitor;
 	struct monitor alsa_monitor;
 	struct monitor v4l2_monitor;
+
+	struct spa_dbus *dbus;
+	struct spa_dbus_connection *dbus_connection;
+	DBusConnection *conn;
 };
 
 struct object {
@@ -1201,6 +1208,28 @@ static const struct pw_core_proxy_events core_events = {
 	.done = core_done
 };
 
+static void start_services(struct impl *impl)
+{
+	const struct spa_support *support;
+	uint32_t n_support;
+
+	support = pw_core_get_support(impl->core, &n_support);
+
+	impl->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
+	if (impl->dbus)
+		impl->dbus_connection = spa_dbus_get_connection(impl->dbus, DBUS_BUS_SESSION);
+	if (impl->dbus_connection)
+		impl->conn = spa_dbus_connection_get(impl->dbus_connection);
+	if (impl->conn == NULL)
+		pw_log_warn("no dbus connection, device reservation disabled");
+	else
+		pw_log_debug("got dbus connection %p", impl->conn);
+
+	bluez5_start_monitor(impl, &impl->bluez5_monitor);
+	alsa_start_monitor(impl, &impl->alsa_monitor);
+	v4l2_start_monitor(impl, &impl->v4l2_monitor);
+}
+
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
 {
 	struct impl *impl = _data;
@@ -1222,10 +1251,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remo
 		pw_registry_proxy_add_listener(impl->registry_proxy,
                                                &impl->registry_listener,
                                                &registry_events, impl);
-		bluez5_start_monitor(impl, &impl->bluez5_monitor);
-		alsa_start_monitor(impl, &impl->alsa_monitor);
-		v4l2_start_monitor(impl, &impl->v4l2_monitor);
-
+		start_services(impl);
 		schedule_rescan(impl);
 		break;
 

@@ -280,8 +280,6 @@ static int emit_info(struct impl *this, bool full)
 
 	spa_device_emit_info(&this->hooks, &dinfo);
 
-	activate_profile(this, ctl_hndl, 1);
-
       exit:
         spa_log_info(this->log, "close card %s", this->props.device);
 	snd_ctl_close(ctl_hndl);

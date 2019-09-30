@@ -41,6 +41,8 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
+#include "reserve.c"
+
 struct alsa_object;
 
 struct alsa_node {
@@ -60,6 +62,10 @@ struct alsa_object {
 	struct spa_list link;
 	uint32_t id;
 	uint32_t device_id;
+
+	struct rd_device *reserve;
+	struct spa_hook sync_listener;
+	int seq;
 
 	struct pw_properties *props;
 
@@ -326,6 +332,63 @@ static int update_device_props(struct alsa_object *obj)
 	return 1;
 }
 
+static void set_profile(struct alsa_object *obj, int index)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	spa_device_set_param(obj->device,
+			SPA_PARAM_Profile, 0,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, 0,
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
+}
+
+static void reserve_acquired(void *data, struct rd_device *d)
+{
+	struct alsa_object *obj = data;
+
+	pw_log_debug("%p: reserve acquired", obj);
+
+	set_profile(obj, 1);
+}
+
+static void sync_complete_done(void *data, int seq)
+{
+	struct alsa_object *obj = data;
+
+	if (seq != obj->seq)
+		return;
+
+	spa_hook_remove(&obj->sync_listener);
+	obj->seq = 0;
+
+	rd_device_complete_release(obj->reserve, true);
+}
+
+static const struct pw_proxy_events sync_complete_release = {
+	PW_VERSION_PROXY_EVENTS,
+	.done = sync_complete_done
+};
+
+static void reserve_release(void *data, struct rd_device *d, int forced)
+{
+	struct alsa_object *obj = data;
+
+	pw_log_debug("%p: reserve release", obj);
+
+	set_profile(obj, 0);
+
+	if (obj->seq == 0)
+		pw_proxy_add_listener(obj->proxy,
+				&obj->sync_listener,
+				&sync_complete_release, obj);
+	obj->seq = pw_proxy_sync(obj->proxy, 0);
+}
+
+static const struct rd_device_callbacks reserve_callbacks = {
+	.acquired = reserve_acquired,
+	.release = reserve_release,
+};
 
 static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t id,
 		const struct spa_device_object_info *info)
@@ -336,6 +399,7 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 	struct spa_handle *handle;
 	int res;
 	void *iface;
+	const char *card;
 
 	pw_log_debug("new object %u", id);
 
@@ -378,6 +442,27 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 		goto clean_object;
 	}
 
+	if ((card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
+		const char *reserve;
+
+		pw_properties_setf(obj->props, "api.dbus.ReserveDevice1", "Audio%s", card);
+		reserve = pw_properties_get(obj->props, "api.dbus.ReserveDevice1");
+
+		obj->reserve = rd_device_new(impl->conn, reserve,
+				"PipeWire", 0,
+				&reserve_callbacks, obj);
+
+		if (obj->reserve == NULL) {
+			pw_log_warn("can't create device reserve for %s: %m", reserve);
+		} else {
+			rd_device_set_application_device_name(obj->reserve,
+				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
+			}
+	}
+
+	if (obj->reserve == NULL)
+		set_profile(obj, 1);
+
 	spa_list_init(&obj->node_list);
 
 	spa_device_add_listener(obj->device,
@@ -401,6 +486,10 @@ static void alsa_remove_object(struct monitor *monitor, struct alsa_object *obj)
 	pw_log_debug("remove object %u", obj->id);
 	spa_list_remove(&obj->link);
 	spa_hook_remove(&obj->device_listener);
+	if (obj->seq != 0)
+		spa_hook_remove(&obj->sync_listener);
+	if (obj->reserve)
+		rd_device_destroy(obj->reserve);
 	pw_proxy_destroy(obj->proxy);
 	pw_unload_spa_handle(obj->handle);
 	free(obj);

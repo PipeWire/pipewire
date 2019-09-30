@@ -38,10 +38,10 @@ executable('export-spa-device',
 )
 
 executable('media-session',
-  'media-session.c',
+  'media-session/media-session.c',
   c_args : [ '-D_GNU_SOURCE' ],
   install: false,
-  dependencies : [pipewire_dep, mathlib],
+  dependencies : [dbus_dep, pipewire_dep, mathlib],
 )
 
 executable('bluez-session',

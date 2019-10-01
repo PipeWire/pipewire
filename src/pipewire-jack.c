@@ -2761,8 +2761,8 @@ static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
 		if (layer++ == 0)
 			ptr = b->datas[0].data;
 		else  {
+			mix2(p->emptyptr, ptr, b->datas[0].data, frames);
 			ptr = p->emptyptr;
-			mix2(ptr, ptr, b->datas[0].data, frames);
 			p->zeroed = false;
 		}
 	}
@@ -3748,24 +3748,32 @@ int  jack_set_timebase_callback (jack_client_t *client,
 	int res;
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a = c->driver_activation;
+	uint32_t owner;
+
+	pw_log_debug(NAME" %p: activation %p", c, a);
 
 	if (a == NULL)
 		return -EIO;
 
 	/* was ok */
-	if (ATOMIC_LOAD(a->segment_owner[0]) == c->node_id)
+	owner = ATOMIC_LOAD(a->segment_owner[0]);
+	if (owner == c->node_id)
 		return 0;
 
 	/* try to become master */
 	if (conditional) {
-		if (!ATOMIC_CAS(a->segment_owner[0], 0, c->node_id))
+		if (!ATOMIC_CAS(a->segment_owner[0], 0, c->node_id)) {
+			pw_log_debug(NAME" %p: owner:%u id:%u", c, owner, c->node_id);
 			return -EBUSY;
+		}
 	} else {
 		ATOMIC_STORE(a->segment_owner[0], c->node_id);
 	}
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
+
+	pw_log_debug(NAME" %p: timebase set id:%u", c, c->node_id);
 
 	if ((res = do_activate(c)) < 0)
 		return res;

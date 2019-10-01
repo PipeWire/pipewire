@@ -502,8 +502,6 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 					continue;
 				else {
 					res = -errno;
-					pw_log_error("could not sendmsg on fd:%d n_fds:%d: %s",
-							conn->fd, n_fds, spa_strerror(res));
 					goto exit;
 				}
 			}

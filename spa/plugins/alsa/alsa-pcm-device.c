@@ -116,17 +116,21 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 {
 	struct spa_dict_item items[12];
-	char device_name[128], path[160];
+	char device_name[128], path[180];
 	char sync_name[128], dev[16], subdev[16], card[16];
 	struct spa_device_object_info info;
 	snd_pcm_sync_id_t sync_id;
+	const char *stream;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
-	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK)
+	if (snd_pcm_info_get_stream(pcminfo) == SND_PCM_STREAM_PLAYBACK) {
 		info.factory_name = SPA_NAME_API_ALSA_PCM_SINK;
-	else
+		stream = "playback";
+	} else {
 		info.factory_name = SPA_NAME_API_ALSA_PCM_SOURCE;
+		stream = "capture";
+	}
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
@@ -134,7 +138,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	snprintf(dev, sizeof(dev), "%d", snd_pcm_info_get_device(pcminfo));
 	snprintf(subdev, sizeof(subdev), "%d", snd_pcm_info_get_subdevice(pcminfo));
 	snprintf(device_name, sizeof(device_name), "%s,%s", this->props.device, dev);
-	snprintf(path, sizeof(path), "alsa:pcm:%s", device_name);
+	snprintf(path, sizeof(path), "alsa:pcm:%s:%s", device_name, stream);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH,	       path);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card);

@@ -71,10 +71,11 @@ struct impl {
 static int emit_info(struct impl *this, bool full)
 {
 	int res;
-	struct spa_dict_item items[6];
+	struct spa_dict_item items[10];
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
+        char path[128], version[16], capabilities[16], device_caps[16];
 
 	if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
 		return res;
@@ -82,12 +83,26 @@ static int emit_info(struct impl *this, bool full)
 	info = SPA_DEVICE_INFO_INIT();
 
 	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Video/Device");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "v4l2");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_PATH, (char *)this->props.device);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_CAP_DRIVER, (char *)this->dev.cap.driver);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_CAP_CARD, (char *)this->dev.cap.card);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_CAP_BUS_INFO, (char *)this->dev.cap.bus_info);
+
+#define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
+	snprintf(path, sizeof(path), "v4l2:%s", this->props.device);
+	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
+	ADD_ITEM(SPA_KEY_DEVICE_API, "v4l2");
+	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
+	ADD_ITEM(SPA_KEY_API_V4L2_PATH, (char *)this->props.device);
+	ADD_ITEM(SPA_KEY_API_V4L2_CAP_DRIVER, (char *)this->dev.cap.driver);
+	ADD_ITEM(SPA_KEY_API_V4L2_CAP_CARD, (char *)this->dev.cap.card);
+	ADD_ITEM(SPA_KEY_API_V4L2_CAP_BUS_INFO, (char *)this->dev.cap.bus_info);
+	snprintf(version, sizeof(version), "%u.%u.%u",
+			(this->dev.cap.version >> 16) & 0xFF,
+			(this->dev.cap.version >> 8) & 0xFF,
+			(this->dev.cap.version) & 0xFF);
+	ADD_ITEM(SPA_KEY_API_V4L2_CAP_VERSION, version);
+	snprintf(capabilities, sizeof(capabilities), "%08x", this->dev.cap.capabilities);
+	ADD_ITEM(SPA_KEY_API_V4L2_CAP_CAPABILITIES, capabilities);
+	snprintf(device_caps, sizeof(device_caps), "%08x", this->dev.cap.device_caps);
+	ADD_ITEM(SPA_KEY_API_V4L2_CAP_DEVICE_CAPS, device_caps);
+#undef ADD_ITEM
 	info.props = &SPA_DICT_INIT(items, n_items);
 
 	info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;

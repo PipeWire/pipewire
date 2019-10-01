@@ -457,9 +457,10 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 		} else {
 			rd_device_set_application_device_name(obj->reserve,
 				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
-			}
+		}
 	}
 
+	/* no device reservation, activate device right now */
 	if (obj->reserve == NULL)
 		set_profile(obj, 1);
 

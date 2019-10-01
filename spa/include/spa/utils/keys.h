@@ -81,6 +81,11 @@ extern "C" {
 #define SPA_KEY_API_V4L2_CAP_DRIVER	"api.v4l2.cap.driver"		/**< driver from capbility */
 #define SPA_KEY_API_V4L2_CAP_CARD	"api.v4l2.cap.card"		/**< caps from capability */
 #define SPA_KEY_API_V4L2_CAP_BUS_INFO	"api.v4l2.cap.bus_info"		/**< bus_info from capability */
+#define SPA_KEY_API_V4L2_CAP_VERSION	"api.v4l2.cap.version"		/**< version from capability as %u.%u.%u */
+#define SPA_KEY_API_V4L2_CAP_CAPABILITIES	\
+					"api.v4l2.cap.capabilities"	/**< capabilities from capability */
+#define SPA_KEY_API_V4L2_CAP_DEVICE_CAPS	\
+					"api.v4l2.cap.device-caps"	/**< device_caps from capability */
 
 
 /** keys for bluez5 api */

@@ -500,8 +500,12 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 			if (sent < 0) {
 				if (errno == EINTR)
 					continue;
-				else
-					goto send_error;
+				else {
+					res = -errno;
+					pw_log_error("could not sendmsg on fd:%d n_fds:%d: %s",
+							conn->fd, n_fds, spa_strerror(res));
+					goto exit;
+				}
 			}
 			break;
 		}
@@ -513,15 +517,16 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 		n_fds -= outfds;
 		fds += outfds;
 	}
+
+	res = 0;
+
+exit:
+	if (size > 0)
+		memmove(buf->buffer_data, data, size);
 	buf->buffer_size = size;
+	if (n_fds > 0)
+		memmove(buf->fds, fds, n_fds * sizeof(int));
 	buf->n_fds = n_fds;
-
-	return 0;
-
-	/* ERRORS */
-send_error:
-	res = -errno;
-	pw_log_error("could not sendmsg on fd:%d n_fds:%d: %s", conn->fd, n_fds, strerror(errno));
 	return res;
 }
 

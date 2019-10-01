@@ -97,12 +97,10 @@ error:
 
 int spa_v4l2_is_capture(struct spa_v4l2_device *dev)
 {
-	if ((dev->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0 ||
-	    ((dev->cap.capabilities & V4L2_CAP_DEVICE_CAPS) &&
-	     (dev->cap.device_caps & V4L2_CAP_VIDEO_CAPTURE) == 0)) {
-		return 0;
-	}
-	return 1;
+	uint32_t caps = dev->cap.capabilities;
+	if ((caps & V4L2_CAP_DEVICE_CAPS))
+		caps = dev->cap.device_caps;
+	return (caps & V4L2_CAP_VIDEO_CAPTURE) == V4L2_CAP_VIDEO_CAPTURE;
 }
 
 int spa_v4l2_close(struct spa_v4l2_device *dev)

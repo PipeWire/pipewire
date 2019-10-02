@@ -762,6 +762,15 @@ static void reset_buffers(struct seq_state *this, struct seq_port *port)
 		}
 	}
 }
+static void reset_stream(struct seq_state *this, struct seq_stream *stream)
+{
+	uint32_t i;
+	for (i = 0; i < MAX_PORTS; i++) {
+		struct seq_port *port = &stream->ports[i];
+		if (port->valid)
+			reset_buffers(this, port);
+	}
+}
 
 static int set_timers(struct seq_state *state)
 {
@@ -796,6 +805,9 @@ int spa_alsa_seq_start(struct seq_state *state)
 
 	if ((res = seq_start(state, &state->event)) < 0)
 		return res;
+
+	reset_stream(state, &state->streams[SPA_DIRECTION_INPUT]);
+	reset_stream(state, &state->streams[SPA_DIRECTION_OUTPUT]);
 
 	state->source.func = alsa_on_timeout_event;
 	state->source.data = state;

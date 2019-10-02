@@ -750,8 +750,7 @@ client_node_port_set_io(void *object,
 	}
 
 	if ((res = spa_node_port_set_io(mix->port->mix,
-			     direction, mix_id,
-			     id, ptr, size)) < 0) {
+			     direction, mix_id, id, ptr, size)) < 0) {
 		if (res == -ENOTSUP)
 			res = 0;
 		else

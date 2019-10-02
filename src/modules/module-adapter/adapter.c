@@ -49,30 +49,10 @@
 #define PORT_BUFFERS	1
 #define MAX_BUFFER_SIZE	2048
 
-extern const struct spa_handle_factory spa_floatmix_factory;
-
 struct buffer {
 	struct spa_buffer buf;
 	struct spa_data datas[1];
 	struct spa_chunk chunk[1];
-};
-
-struct node;
-
-struct port {
-	struct spa_list link;
-
-	struct pw_port *port;
-	struct node *node;
-
-	struct buffer buffers[PORT_BUFFERS];
-
-	struct spa_buffer *bufs[PORT_BUFFERS];
-
-	struct spa_handle *spa_handle;
-	struct spa_node *spa_node;
-
-	float empty[MAX_BUFFER_SIZE + 15];
 };
 
 struct node {
@@ -94,103 +74,19 @@ struct node {
 };
 
 /** \endcond */
-
-static void init_buffer(struct port *port, uint32_t id)
-{
-	struct buffer *b = &port->buffers[id];
-	b->buf.n_metas = 0;
-	b->buf.metas = NULL;
-	b->buf.n_datas = 1;
-	b->buf.datas = b->datas;
-	b->datas[0].type = SPA_DATA_MemPtr;
-	b->datas[0].flags = SPA_DATA_FLAG_DYNAMIC;
-	b->datas[0].fd = -1;
-	b->datas[0].mapoffset = 0;
-	b->datas[0].maxsize = SPA_ROUND_DOWN_N(sizeof(port->empty), 16);
-	b->datas[0].data = SPA_PTR_ALIGN(port->empty, 16, void);
-	b->datas[0].chunk = b->chunk;
-	b->datas[0].chunk->offset = 0;
-	b->datas[0].chunk->size = 0;
-	b->datas[0].chunk->stride = 0;
-	port->bufs[id] = &b->buf;
-	memset(port->empty, 0, sizeof(port->empty));
-	pw_log_debug("%p %d", b->datas[0].data, b->datas[0].maxsize);
-}
-
-static void init_port(struct port *p, enum spa_direction direction)
-{
-	int i;
-	for (i = 0; i < PORT_BUFFERS; i++)
-		init_buffer(p, i);
-}
-
-static int port_use_buffers(void *data,
-		uint32_t flags,
-		struct spa_buffer **buffers, uint32_t n_buffers)
-{
-	struct port *p = data;
-	struct pw_port *port = p->port;
-	struct pw_node *node = port->node;
-	int res, i;
-
-	pw_log_debug(NAME " %p: port %p %p %d", p->node->node, port, buffers, n_buffers);
-
-	if (n_buffers > 0) {
-		for (i = 0; i < PORT_BUFFERS; i++)
-			init_buffer(p, i);
-
-		n_buffers = PORT_BUFFERS;
-		buffers = p->bufs;
-	}
-
-	res = spa_node_port_use_buffers(port->mix,
-			pw_direction_reverse(port->direction), 0,
-			flags,
-			buffers, n_buffers);
-	res = spa_node_port_use_buffers(node->node,
-			port->direction, port->port_id,
-			flags,
-			buffers, n_buffers);
-	return res;
-}
-
-static const struct pw_port_implementation port_implementation = {
-	.use_buffers = port_use_buffers,
-};
-
-static void node_destroy(void *data)
-{
-	struct node *n = data;
-	struct port *p;
-
-	spa_list_for_each(p, &n->ports, link)
-		pw_port_set_mix(p->port, NULL, 0);
-}
-
 static void node_free(void *data)
 {
 	struct node *n = data;
-	struct port *p;
-
-	spa_list_consume(p, &n->ports, link) {
-		spa_list_remove(&p->link);
-		spa_handle_clear(p->spa_handle);
-		free(p);
-	}
 	pw_properties_free(n->props);
 }
 
 static void node_port_init(void *data, struct pw_port *port)
 {
 	struct node *n = data;
-	struct port *p;
 	const struct pw_properties *old;
 	enum pw_direction direction;
 	struct pw_properties *new;
 	const char *str, *path, *node_name, *media_class;
-	void *iface;
-	const struct spa_support *support;
-	uint32_t n_support;
 	char position[8], *prefix;
 	bool is_monitor, is_device;
 
@@ -251,38 +147,10 @@ static void node_port_init(void *data, struct pw_port *port)
 
 	pw_port_update_properties(port, &new->dict);
 	pw_properties_free(new);
-
-	if (direction != n->direction)
-		return;
-
-	if (n->media_type == SPA_MEDIA_TYPE_audio) {
-		p = calloc(1, sizeof(struct port) +
-			spa_handle_factory_get_size(&spa_floatmix_factory, NULL));
-		p->node = n;
-		p->port = port;
-		init_port(p, direction);
-		p->spa_handle = SPA_MEMBER(p, sizeof(struct port), struct spa_handle);
-
-		support = pw_core_get_support(n->core, &n_support);
-		spa_handle_factory_init(&spa_floatmix_factory,
-				p->spa_handle, NULL,
-				support, n_support);
-
-		spa_handle_get_interface(p->spa_handle, SPA_TYPE_INTERFACE_Node, &iface);
-		p->spa_node = iface;
-
-		if (direction == PW_DIRECTION_INPUT) {
-			pw_log_debug("mix node %p", p->spa_node);
-			pw_port_set_mix(port, p->spa_node, PW_PORT_MIX_FLAG_MULTI);
-			port->impl = SPA_CALLBACKS_INIT(&port_implementation, p);
-		}
-		spa_list_append(&n->ports, &p->link);
-	}
 }
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-	.destroy = node_destroy,
 	.free = node_free,
 	.port_init = node_port_init,
 };

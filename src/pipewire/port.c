@@ -27,6 +27,7 @@
 #include <errno.h>
 
 #include <spa/pod/parser.h>
+#include <spa/param/audio/format-utils.h>
 #include <spa/node/utils.h>
 #include <spa/debug/types.h>
 
@@ -37,6 +38,8 @@
 #include "pipewire/link.h"
 
 #define NAME "port"
+
+extern const struct spa_handle_factory spa_floatmix_factory;
 
 /** \cond */
 struct impl {
@@ -446,14 +449,100 @@ SPA_EXPORT
 int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 {
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
+	struct pw_port_mix *mix;
 
 	if (node == NULL) {
 		node = &impl->mix_node;
 		flags = 0;
 	}
+
 	pw_log_debug(NAME" %p: mix node %p->%p", port, port->mix, node);
-	port->mix = node;
+
+	if (port->mix != NULL && port->mix != node) {
+		spa_list_for_each(mix, &port->mix_list, link)
+			spa_node_remove_port(port->mix, mix->port.direction, mix->port.port_id);
+
+		spa_node_port_set_io(port->mix,
+			     pw_direction_reverse(port->direction), 0,
+			     SPA_IO_Buffers, NULL, 0);
+	}
+	if (port->mix_handle != NULL) {
+		spa_handle_clear(port->mix_handle);
+		free(port->mix_handle);
+		port->mix_handle = NULL;
+	}
+
 	port->mix_flags = flags;
+	port->mix = node;
+
+	if (port->mix) {
+		spa_list_for_each(mix, &port->mix_list, link)
+			spa_node_add_port(port->mix, mix->port.direction, mix->port.port_id, NULL);
+
+		spa_node_port_set_io(port->mix,
+			     pw_direction_reverse(port->direction), 0,
+			     SPA_IO_Buffers,
+			     &port->rt.io, sizeof(port->rt.io));
+	}
+	return 0;
+}
+
+static int setup_mixer(struct pw_port *port, const struct spa_pod *param)
+{
+	uint32_t media_type, media_subtype;
+	int res;
+	const struct spa_handle_factory *factory = NULL;
+	struct spa_handle *handle;
+	const struct spa_support *support;
+	uint32_t n_support;
+	void *iface;
+
+	if ((res = spa_format_parse(param, &media_type, &media_subtype)) < 0)
+		return res;
+
+	pw_log_debug(NAME" %p: %s/%s", port,
+			spa_debug_type_find_name(spa_type_media_type, media_type),
+			spa_debug_type_find_name(spa_type_media_subtype, media_subtype));
+
+	switch (media_type) {
+	case SPA_MEDIA_TYPE_audio:
+		switch (media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+		{
+			struct spa_audio_info_raw info;
+			if ((res = spa_format_audio_raw_parse(param, &info)) < 0)
+				return res;
+
+			if (info.format != SPA_AUDIO_FORMAT_F32P || info.channels != 1)
+				return -ENOTSUP;
+
+			factory = &spa_floatmix_factory;
+			break;
+		}
+		default:
+			return -ENOTSUP;
+		}
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	if (factory == NULL)
+		return -EIO;
+
+	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+
+	support = pw_core_get_support(port->node->core, &n_support);
+	spa_handle_factory_init(factory, handle, NULL, support, n_support);
+
+	spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface);
+
+	pw_log_debug("mix node %p", iface);
+	pw_port_set_mix(port, (struct spa_node*)iface,
+			PW_PORT_MIX_FLAG_MULTI |
+			PW_PORT_MIX_FLAG_NEGOTIATE);
+	port->mix_handle = handle;
+
 	return 0;
 }
 
@@ -863,6 +952,9 @@ static void pw_port_remove(struct pw_port *port)
 		pw_map_remove(&node->output_port_map, port->port_id);
 		node->info.n_output_ports--;
 	}
+
+	pw_port_set_mix(port, NULL, 0);
+
 	spa_list_remove(&port->link);
 	pw_node_emit_port_removed(node, port);
 	port->node = NULL;
@@ -892,7 +984,7 @@ void pw_port_destroy(struct pw_port *port)
 	pw_log_debug(NAME" %p: free", port);
 	pw_port_emit_free(port);
 
-	free_allocation(&port->allocation);
+	pw_buffers_clear(&port->allocation);
 	free((void*)port->error);
 
 	pw_map_clear(&port->mix_port_map);
@@ -1035,14 +1127,29 @@ SPA_EXPORT
 int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {
-	int res = 0;
+	int res;
 	struct pw_node *node = port->node;
 
 	pw_log_debug(NAME" %p: %d set param %d %p", port, port->state, id, param);
 
+	/* set parameter on node */
+	res = spa_node_port_set_param(node->node,
+			port->direction, port->port_id,
+			id, flags, param);
+
+	pw_log_debug(NAME" %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
+			port->direction, port->port_id,
+			spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
+
 	/* set the parameters on all ports of the mixer node if possible */
-	{
+	if (res >= 0) {
 		struct pw_port_mix *mix;
+
+		if (port->direction == PW_DIRECTION_INPUT &&
+		    id == SPA_PARAM_Format && param != NULL &&
+		    !SPA_FLAG_IS_SET(port->flags, PW_PORT_FLAG_NO_MIXER)) {
+			setup_mixer(port, param);
+		}
 
 		spa_list_for_each(mix, &port->mix_list, link) {
 			spa_node_port_set_param(port->mix,
@@ -1054,20 +1161,11 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 				id, flags, param);
 	}
 
-	/* then set parameter on node */
-	res = spa_node_port_set_param(node->node,
-			port->direction, port->port_id,
-			id, flags, param);
-
-	pw_log_debug(NAME" %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
-			port->direction, port->port_id,
-			spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
-
 	if (id == SPA_PARAM_Format) {
 		pw_log_debug(NAME" %p: %d %p %d", port, port->state, param, res);
 
 		/* setting the format always destroys the negotiated buffers */
-		free_allocation(&port->allocation);
+		pw_buffers_clear(&port->allocation);
 
 		if (param == NULL || res < 0) {
 			pw_port_update_state(port, PW_PORT_STATE_CONFIGURE, NULL);
@@ -1079,12 +1177,61 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 	return res;
 }
 
+static int negotiate_mixer_buffers(struct pw_port *port, uint32_t flags,
+                struct spa_buffer **buffers, uint32_t n_buffers)
+{
+	int res;
+	struct pw_node *node = port->node;
+
+	if (SPA_FLAG_IS_SET(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY))
+		return 0;
+
+	if (SPA_FLAG_IS_SET(port->mix_flags, PW_PORT_MIX_FLAG_NEGOTIATE)) {
+		struct pw_buffers allocation = { NULL, };
+		int alloc_flags;
+
+		/* try dynamic data */
+		alloc_flags = PW_BUFFERS_FLAG_DYNAMIC;
+
+		pw_log_debug(NAME" %p: %d.%d negotiate buffers on node: %p",
+				port, port->direction, port->port_id, node->node);
+
+		if ((res = pw_buffers_negotiate(node->core, alloc_flags,
+				port->mix, 0,
+				node->node, port->port_id,
+				&allocation)) < 0) {
+			pw_log_warn(NAME" %p: can't negotiate buffers: %s",
+					port, spa_strerror(res));
+			return res;
+		}
+		pw_buffers_clear(&port->mix_buffers);
+		pw_buffers_move(&port->mix_buffers, &allocation);
+		buffers = port->mix_buffers.buffers;
+		n_buffers = port->mix_buffers.n_buffers;
+		flags = 0;
+	}
+
+	pw_log_debug(NAME" %p: %d.%d use buffers on node: %p",
+			port, port->direction, port->port_id, node->node);
+
+	res = spa_node_port_use_buffers(node->node,
+			port->direction, port->port_id,
+			flags, buffers, n_buffers);
+
+	if (SPA_RESULT_IS_OK(res)) {
+		spa_node_port_use_buffers(port->mix,
+			     pw_direction_reverse(port->direction), 0,
+			     0, buffers, n_buffers);
+	}
+	return res;
+}
+
+
 SPA_EXPORT
 int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res = 0, res2;
-	struct pw_node *node = port->node;
 
 	pw_log_debug(NAME" %p: %d:%d.%d: %d buffers state:%d n_mix:%d", port,
 			port->direction, port->port_id, mix->id,
@@ -1100,37 +1247,36 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 		if (port->n_mix == 1)
 			pw_port_update_state(port, PW_PORT_STATE_READY, NULL);
 	}
+
+	/* first negotiate with the node, this makes it possible to let the
+	 * node allocate buffer memory if needed */
 	if (port->state == PW_PORT_STATE_READY) {
-		if (!SPA_FLAG_CHECK(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY)) {
-			pw_log_debug(NAME" %p: use buffers on node: %p", port,
-					node->node);
-			res = spa_node_port_use_buffers(node->node,
-					port->direction, port->port_id,
-					flags, buffers, n_buffers);
-			if (res < 0) {
-				pw_log_error(NAME" %p: use buffers on node: %d (%s)",
-					port, res, spa_strerror(res));
-				pw_port_update_state(port, PW_PORT_STATE_ERROR,
-						"can't use buffers on port");
-				return res;
-			}
-		}
-		if ((res2 = pw_port_call_use_buffers(port, flags, buffers, n_buffers)) < 0) {
-			pw_log_warn(NAME" %p: implementation alloc failed: %d (%s)",
-					port, res2, spa_strerror(res2));
-		}
-		if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res))
+		res = negotiate_mixer_buffers(port, flags, buffers, n_buffers);
+
+		if (res < 0) {
+			pw_log_error(NAME" %p: negotiate buffers on node: %d (%s)",
+				port, res, spa_strerror(res));
+			pw_port_update_state(port, PW_PORT_STATE_ERROR,
+					"can't negotiate buffers on port");
+		} else if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
 			pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
+		}
+
 	}
 
-	if ((res2 = spa_node_port_use_buffers(port->mix,
-				mix->port.direction, mix->port.port_id, flags,
-				buffers, n_buffers)) < 0) {
-		if (res2 != -ENOTSUP)
+	/* then use the buffers on the mixer */
+	flags &= ~SPA_NODE_BUFFERS_FLAG_ALLOC;
+	res2 = spa_node_port_use_buffers(port->mix,
+			mix->port.direction, mix->port.port_id, flags,
+			buffers, n_buffers);
+	if (res2 < 0) {
+		if (res2 != -ENOTSUP) {
 			pw_log_warn(NAME" %p: mix use buffers failed: %d (%s)",
 					port, res2, spa_strerror(res2));
+			return res2;
+		}
 	}
-	if (SPA_RESULT_IS_ASYNC(res2))
+	else if (SPA_RESULT_IS_ASYNC(res2))
 		res = res2;
 
 	return res;

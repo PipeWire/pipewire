@@ -1379,13 +1379,7 @@ impl_mix_port_set_param(void *object,
 			uint32_t id, uint32_t flags,
 			const struct spa_pod *param)
 {
-	struct port *port = object;
-
-	if (port->direction != direction)
-		return -ENOTSUP;
-
-	return impl_node_port_set_param(&port->node->node, direction, port->id,
-			id, flags, param);
+	return -ENOTSUP;
 }
 
 static int
@@ -1506,6 +1500,8 @@ static void node_port_added(void *data, struct pw_port *port)
 	pw_port_set_mix(port, &p->mix_node,
 			PW_PORT_MIX_FLAG_MULTI |
 			PW_PORT_MIX_FLAG_MIX_ONLY);
+
+	port->flags |= PW_PORT_FLAG_NO_MIXER;
 
 	port->impl = SPA_CALLBACKS_INIT(&port_impl, p);
 	port->owner_data = impl;

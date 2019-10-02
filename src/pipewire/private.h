@@ -32,6 +32,7 @@ extern "C" {
 #include <sys/socket.h>
 #include <sys/types.h> /* for pthread_t */
 
+#include "pipewire/buffers.h"
 #include "pipewire/map.h"
 #include "pipewire/remote.h"
 #include "pipewire/mem.h"
@@ -257,29 +258,6 @@ struct pw_main_loop {
 
 	unsigned int running:1;
 };
-
-struct allocation {
-	struct pw_memblock *mem;	/**< allocated buffer memory */
-	struct spa_buffer **buffers;	/**< port buffers */
-	uint32_t n_buffers;		/**< number of port buffers */
-};
-
-static inline void move_allocation(struct allocation *alloc, struct allocation *dest)
-{
-	*dest = *alloc;
-	alloc->mem = NULL;
-}
-
-static inline void free_allocation(struct allocation *alloc)
-{
-	if (alloc->mem) {
-		pw_memblock_unref(alloc->mem);
-		free(alloc->buffers);
-	}
-	alloc->mem = NULL;
-	alloc->buffers = NULL;
-	alloc->n_buffers = 0;
-}
 
 #define pw_device_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
 #define pw_device_emit_destroy(m)		pw_device_emit(m, destroy, 0)
@@ -535,7 +513,6 @@ struct pw_port_implementation {
 
 	int (*init_mix) (void *data, struct pw_port_mix *mix);
 	int (*release_mix) (void *data, struct pw_port_mix *mix);
-	int (*use_buffers) (void *data, uint32_t flags, struct spa_buffer **buffers, uint32_t n_buffers);
 };
 
 #define pw_port_call(p,m,v,...)				\
@@ -549,7 +526,6 @@ struct pw_port_implementation {
 
 #define pw_port_call_init_mix(p,m)		pw_port_call(p,init_mix,0,m)
 #define pw_port_call_release_mix(p,m)		pw_port_call(p,release_mix,0,m)
-#define pw_port_call_use_buffers(p,f,b,n)	pw_port_call(p,use_buffers,0,f,b,n)
 
 #define pw_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
 #define pw_port_emit_destroy(p)			pw_port_emit(p, destroy, 0)
@@ -575,6 +551,7 @@ struct pw_port {
 							  *  implementation when destroyed */
 #define PW_PORT_FLAG_BUFFERS		(1<<1)		/**< port has data */
 #define PW_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
+#define PW_PORT_FLAG_NO_MIXER		(1<<3)		/**< don't try to add mixer to port */
 	uint32_t flags;
 	uint32_t spa_flags;
 
@@ -588,7 +565,7 @@ struct pw_port {
 	struct pw_port_info info;
 	struct spa_param_info params[MAX_PARAMS];
 
-	struct allocation allocation;
+	struct pw_buffers allocation;
 
 	struct spa_list links;		/**< list of \ref pw_link */
 
@@ -601,7 +578,10 @@ struct pw_port {
 	struct spa_node *mix;		/**< port buffer mix/split */
 #define PW_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
 #define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
+#define PW_PORT_MIX_FLAG_NEGOTIATE	(1<<2)	/**< negotiate buffers  */
 	uint32_t mix_flags;		/**< flags for the mixing */
+	struct spa_handle *mix_handle;	/**< mix plugin handle */
+	struct pw_buffers mix_buffers;	/**< buffers between mixer and node */
 
 	struct spa_list mix_list;	/**< list of \ref pw_port_mix */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */

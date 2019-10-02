@@ -368,154 +368,6 @@ error:
 	return res;
 }
 
-static struct spa_pod *find_param(struct spa_pod **params, uint32_t n_params, uint32_t type)
-{
-	uint32_t i;
-
-	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type(params[i], type))
-			return params[i];
-	}
-	return NULL;
-}
-
-/* Allocate an array of buffers that can be shared */
-static int alloc_buffers(struct pw_link *this,
-			 uint32_t n_buffers,
-			 uint32_t n_params,
-			 struct spa_pod **params,
-			 uint32_t n_datas,
-			 uint32_t *data_sizes,
-			 int32_t *data_strides,
-			 uint32_t *data_aligns,
-			 uint32_t flags,
-			 struct allocation *allocation)
-{
-	struct spa_buffer **buffers, *bp;
-	uint32_t i;
-	uint32_t n_metas;
-	struct spa_meta *metas;
-	struct spa_data *datas;
-	struct pw_memblock *m;
-	struct spa_buffer_alloc_info info = { 0, };
-
-	n_metas = 0;
-
-	metas = alloca(sizeof(struct spa_meta) * n_params);
-	datas = alloca(sizeof(struct spa_data) * n_datas);
-
-	/* collect metadata */
-	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamMeta)) {
-			uint32_t type, size;
-
-			if (spa_pod_parse_object(params[i],
-				SPA_TYPE_OBJECT_ParamMeta, NULL,
-				SPA_PARAM_META_type, SPA_POD_Id(&type),
-				SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0)
-				continue;
-
-			pw_log_debug(NAME" %p: enable meta %d %d", this, type, size);
-
-			metas[n_metas].type = type;
-			metas[n_metas].size = size;
-			n_metas++;
-		}
-	}
-
-	for (i = 0; i < n_datas; i++) {
-		struct spa_data *d = &datas[i];
-
-		spa_zero(*d);
-		if (data_sizes[i] > 0) {
-			d->type = SPA_DATA_MemPtr;
-			d->maxsize = data_sizes[i];
-			SPA_FLAG_SET(d->flags, SPA_DATA_FLAG_READWRITE);
-		} else {
-			d->type = SPA_ID_INVALID;
-			d->maxsize = 0;
-		}
-		if (SPA_FLAG_CHECK(flags, SPA_PORT_FLAG_DYNAMIC_DATA))
-			SPA_FLAG_SET(d->flags, SPA_DATA_FLAG_DYNAMIC);
-	}
-
-        spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
-
-	buffers = calloc(n_buffers, info.skel_size + sizeof(struct spa_buffer *));
-	if (buffers == NULL)
-		return -errno;
-
-	/* pointer to buffer structures */
-	bp = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), struct spa_buffer);
-
-	m = pw_mempool_alloc(this->core->pool,
-			PW_MEMBLOCK_FLAG_READWRITE |
-			PW_MEMBLOCK_FLAG_SEAL |
-			PW_MEMBLOCK_FLAG_MAP,
-			SPA_DATA_MemFd,
-			n_buffers * info.mem_size);
-	if (m == NULL)
-		return -errno;
-
-	pw_log_debug(NAME" %p: layout buffers %p data %p", this, bp, m->map->ptr);
-	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, bp, m->map->ptr);
-
-	allocation->mem = m;
-	allocation->n_buffers = n_buffers;
-	allocation->buffers = buffers;
-
-	return 0;
-}
-
-static int
-param_filter(struct pw_link *this,
-	     struct pw_port *in_port,
-	     struct pw_port *out_port,
-	     uint32_t id,
-	     struct spa_pod_builder *result)
-{
-	uint8_t ibuf[4096];
-        struct spa_pod_builder ib = { 0 };
-	struct spa_pod *oparam, *iparam;
-	uint32_t iidx, oidx, num = 0;
-	int res;
-
-	for (iidx = 0;;) {
-	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
-		pw_log_debug(NAME" %p: input param %d id:%d", this, iidx, id);
-		if ((res = spa_node_port_enum_params_sync(in_port->node->node,
-						in_port->direction, in_port->port_id,
-						id, &iidx, NULL, &iparam, &ib)) < 0)
-			break;
-
-		if (res != 1) {
-			if (num > 0)
-				break;
-			iparam = NULL;
-		}
-
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
-			spa_debug_pod(2, NULL, iparam);
-
-		for (oidx = 0;;) {
-			pw_log_debug(NAME" %p: output param %d id:%d", this, oidx, id);
-			if (spa_node_port_enum_params_sync(out_port->node->node,
-						out_port->direction, out_port->port_id,
-						id, &oidx, iparam, &oparam, result) != 1) {
-				break;
-			}
-
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, NULL, oparam);
-
-			num++;
-		}
-		if (iparam == NULL && num == 0)
-			break;
-	}
-	return num;
-}
-
 static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
 		void *data, size_t size, struct pw_port_mix *mix)
 {
@@ -565,7 +417,7 @@ static int do_allocation(struct pw_link *this)
 	uint32_t in_flags, out_flags;
 	char *error = NULL;
 	struct pw_port *input, *output;
-	struct allocation allocation = { NULL, };
+	struct pw_buffers allocation = { NULL, };
 
 	if (this->info.state > PW_LINK_STATE_ALLOCATING)
 		return 0;
@@ -594,87 +446,27 @@ static int do_allocation(struct pw_link *this)
 				output->allocation.n_buffers, output->allocation.buffers);
 		this->rt.out_mix.have_buffers = true;
 	} else {
-		struct spa_pod **params, *param;
-		uint8_t buffer[4096];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-		uint32_t i, offset, n_params, flags;
-		uint32_t max_buffers;
-		size_t minsize = 8192, stride = 0, align;
-		uint32_t data_sizes[1];
-		int32_t data_strides[1];
-		uint32_t data_aligns[1];
+		uint32_t flags, alloc_flags;
 
-		n_params = param_filter(this, input, output, SPA_PARAM_Buffers, &b);
-		n_params += param_filter(this, input, output, SPA_PARAM_Meta, &b);
-
-		params = alloca(n_params * sizeof(struct spa_pod *));
-		for (i = 0, offset = 0; i < n_params; i++) {
-			params[i] = SPA_MEMBER(buffer, offset, struct spa_pod);
-			spa_pod_fixate(params[i]);
-			pw_log_debug(NAME" %p: fixated param %d:", this, i);
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, NULL, params[i]);
-			offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
-		}
-
-		max_buffers = MAX_BUFFERS;
-		minsize = stride = 0;
-		align = 8;
-		param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
-		if (param) {
-			uint32_t qmax_buffers = max_buffers,
-			    qminsize = minsize, qstride = stride, qalign = align;
-
-			spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamBuffers, NULL,
-				SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&qmax_buffers),
-				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&qminsize),
-				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride),
-				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&qalign));
-
-			max_buffers =
-			    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
-							      max_buffers);
-			minsize = SPA_MAX(minsize, qminsize);
-			stride = SPA_MAX(stride, qstride);
-			align = SPA_MAX(align, qalign);
-
-			pw_log_debug(NAME" %p: %d %d %d %d -> %zd %zd %d %zd", this,
-					qminsize, qstride, qmax_buffers, qalign,
-					minsize, stride, max_buffers, align);
-		} else {
-			pw_log_warn(NAME" %p: no buffers param", this);
-			minsize = 8192;
-			max_buffers = 4;
-		}
-
-		/* when the output can allocate buffer memory, set the minsize to
-		 * 0 to make sure we don't allocate memory in the shared memory */
 		flags = 0;
-		if ((out_flags & SPA_PORT_FLAG_CAN_ALLOC_BUFFERS)) {
-			minsize = 0;
+		/* always shared buffers for the link */
+		alloc_flags = PW_BUFFERS_FLAG_SHARED;
+		/* if output port can alloc buffers, alloc skeleton buffers */
+		if (SPA_FLAG_IS_SET(out_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS)) {
+			SPA_FLAG_SET(alloc_flags, PW_BUFFERS_FLAG_NO_MEM);
 			flags |= SPA_NODE_BUFFERS_FLAG_ALLOC;
 		}
 
-		data_sizes[0] = minsize;
-		data_strides[0] = stride;
-		data_aligns[0] = align;
-
-		if ((res = alloc_buffers(this,
-					 max_buffers,
-					 n_params,
-					 params,
-					 1,
-					 data_sizes, data_strides,
-					 data_aligns,
-					 out_flags & in_flags,
-					 &allocation)) < 0) {
-			asprintf(&error, "error alloc buffers: %d", res);
+		if ((res = pw_buffers_negotiate(this->core, alloc_flags,
+						output->node->node, output->port_id,
+						input->node->node, input->port_id,
+						&allocation)) < 0) {
+			asprintf(&error, "error alloc buffers: %s", spa_strerror(res));
 			goto error;
 		}
 
-		pw_log_debug(NAME" %p: allocating %d buffers %p %zd %zd", this,
-			     allocation.n_buffers, allocation.buffers, minsize, stride);
+		pw_log_debug(NAME" %p: allocating %d buffers %p", this,
+			     allocation.n_buffers, allocation.buffers);
 
 		if ((res = pw_port_use_buffers(output, &this->rt.out_mix,
 					flags, allocation.buffers, allocation.n_buffers)) < 0) {
@@ -682,7 +474,7 @@ static int do_allocation(struct pw_link *this)
 					spa_strerror(res));
 			goto error;
 		}
-		move_allocation(&allocation, &output->allocation);
+		pw_buffers_move(&output->allocation, &allocation);
 
 		if (SPA_RESULT_IS_ASYNC(res)) {
 			res = spa_node_sync(output->node->node, res),
@@ -716,7 +508,7 @@ static int do_allocation(struct pw_link *this)
 	return 0;
 
 error:
-	free_allocation(&output->allocation);
+	pw_buffers_clear(&output->allocation);
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	return res;
 }

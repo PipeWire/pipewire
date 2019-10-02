@@ -93,6 +93,8 @@ struct impl {
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
+
+	struct pw_proxy *midi_bridge;
 };
 
 struct object {
@@ -1227,6 +1229,7 @@ static void start_services(struct impl *impl)
 
 	bluez5_start_monitor(impl, &impl->bluez5_monitor);
 	alsa_start_monitor(impl, &impl->alsa_monitor);
+	alsa_start_midi_bridge(impl);
 	v4l2_start_monitor(impl, &impl->v4l2_monitor);
 }
 

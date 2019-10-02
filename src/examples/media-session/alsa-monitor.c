@@ -522,6 +522,30 @@ static const struct spa_device_events alsa_udev_events =
 	.object_info = alsa_udev_object_info,
 };
 
+static int alsa_start_midi_bridge(struct impl *impl)
+{
+	struct pw_properties *props;
+	int res = 0;
+
+	props = pw_properties_new(
+			SPA_KEY_FACTORY_NAME, SPA_NAME_API_ALSA_SEQ_BRIDGE,
+			SPA_KEY_NODE_NAME, "Midi-Bridge",
+			NULL);
+
+	impl->midi_bridge = pw_core_proxy_create_object(impl->core_proxy,
+				"spa-node-factory",
+				PW_TYPE_INTERFACE_Node,
+				PW_VERSION_NODE_PROXY,
+				&props->dict,
+                                0);
+
+	if (impl->midi_bridge == NULL) {
+		res = -errno;
+	}
+	return res;
+
+}
+
 static int alsa_start_monitor(struct impl *impl, struct monitor *monitor)
 {
 	struct spa_handle *handle;

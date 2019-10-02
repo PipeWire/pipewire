@@ -36,7 +36,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 
-#define NAME "alsa-source"
+#define NAME "alsa-bridge"
 
 #include "alsa-seq.h"
 
@@ -946,15 +946,15 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ SPA_KEY_FACTORY_DESCRIPTION, "Record midi with the alsa API" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Bridge midi ports with the alsa sequencer API" },
 	{ SPA_KEY_FACTORY_USAGE, "["SPA_KEY_API_ALSA_PATH"=<device>]" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-const struct spa_handle_factory spa_alsa_midi_source_factory = {
+const struct spa_handle_factory spa_alsa_seq_bridge_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	SPA_NAME_API_ALSA_MIDI_SOURCE,
+	SPA_NAME_API_ALSA_SEQ_BRIDGE,
 	&info,
 	impl_get_size,
 	impl_init,

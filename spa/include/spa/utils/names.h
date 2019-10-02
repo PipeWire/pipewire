@@ -83,9 +83,13 @@ extern "C" {
 									  *  capturing PCM */
 #define SPA_NAME_API_ALSA_PCM_SINK	"api.alsa.pcm.sink"		/**< an alsa Node interface for
 									  *  playback PCM */
-#define SPA_NAME_API_ALSA_MIDI_DEVICE	"api.alsa.midi.device"		/**< an alsa Midi device */
-#define SPA_NAME_API_ALSA_MIDI_SOURCE	"api.alsa.midi.source"		/**< an alsa Node interface for
-									  *  capturing midi */
+#define SPA_NAME_API_ALSA_SEQ_DEVICE	"api.alsa.seq.device"		/**< an alsa Midi device */
+#define SPA_NAME_API_ALSA_SEQ_SOURCE	"api.alsa.seq.source"		/**< an alsa Node interface for
+									  *  capture of midi */
+#define SPA_NAME_API_ALSA_SEQ_SINK	"api.alsa.seq.sink"		/**< an alsa Node interface for
+									  *  playback of midi */
+#define SPA_NAME_API_ALSA_SEQ_BRIDGE	"api.alsa.seq.bridge"		/**< an alsa Node interface for
+									  *  bridging midi ports */
 
 /** keys for bluez5 factory names */
 #define SPA_NAME_API_BLUEZ5_ENUM_DBUS	"api.bluez5.enum.dbus"		/**< a dbus Device interface */

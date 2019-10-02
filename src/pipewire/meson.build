@@ -1,5 +1,6 @@
 pipewire_headers = [
   'array.h',
+  'buffers.h',
   'client.h',
   'control.h',
   'core.h',
@@ -34,6 +35,7 @@ pipewire_headers = [
 ]
 
 pipewire_sources = [
+  'buffers.c',
   'client.c',
   'control.c',
   'core.c',
@@ -47,6 +49,7 @@ pipewire_sources = [
   'main-loop.c',
   'mem.c',
   'module.c',
+  'mix/floatmix.c',
   'node.c',
   'factory.c',
   'pipewire.c',

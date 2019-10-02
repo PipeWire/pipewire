@@ -36,7 +36,7 @@ extern "C" {
 #define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
 #endif
 
-int spa_debug_port_info(int indent, const struct spa_port_info *info)
+static inline int spa_debug_port_info(int indent, const struct spa_port_info *info)
 {
         spa_debug("%*s" "struct spa_port_info %p:", indent, "", info);
         spa_debug("%*s" " flags: \t%08" PRIx64, indent, "", info->flags);

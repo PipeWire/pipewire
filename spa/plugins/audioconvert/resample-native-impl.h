@@ -72,7 +72,7 @@ DEFINE_RESAMPLER(copy,arch)							\
 		for (c = 0; c < r->channels; c++) {				\
 			const float *s = src[c];				\
 			float *d = dst[c];					\
-			memcpy(&d[offs], &s[index + n_taps2],			\
+			spa_memcpy(&d[offs], &s[index + n_taps2],		\
 					to_copy * sizeof(float));		\
 		}								\
 		index += to_copy;						\

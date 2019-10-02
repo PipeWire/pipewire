@@ -251,8 +251,15 @@ struct spa_param_info {
 		__FILE__, __LINE__, __func__, (d), (s), (size_t)(n));	\
 	memcpy(d,s,n);							\
 })
+#define spa_memmove(d,s,n)						\
+({									\
+	fprintf(stderr, "%s:%u %s() memmove(%p, %p, %zd)\n",		\
+		__FILE__, __LINE__, __func__, (d), (s), (size_t)(n));	\
+	memmove(d,s,n);							\
+})
 #else
 #define spa_memcpy(d,s,n)	memcpy(d,s,n)
+#define spa_memmove(d,s,n)	memmove(d,s,n)
 #endif
 
 #ifdef __cplusplus

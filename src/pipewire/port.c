@@ -225,8 +225,9 @@ int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix)
 		}
 	}
 
-	pw_log_debug(NAME" %p: init mix %d %d.%d io %p: (%s)", port,
-			port->n_mix, port->port_id, mix->port.port_id, mix->io, spa_strerror(res));
+	pw_log_debug(NAME" %p: init mix n_mix:%d %d.%d io:%p: (%s)", port,
+			port->n_mix, port->port_id, mix->port.port_id,
+			mix->io, spa_strerror(res));
 
 	return res;
 }

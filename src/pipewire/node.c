@@ -1252,11 +1252,6 @@ static void do_reposition(struct pw_node *driver, struct pw_node *node)
 	pw_log_debug(NAME" %p: update position:%lu", node, src->position);
 
 	memcpy(dst, src, sizeof(struct spa_io_segment));
-	dst->flags = src->flags;
-	dst->start = src->start;
-	dst->duration = src->duration;
-	dst->rate = src->rate;
-	dst->position = src->position;
 	if (dst->start == 0)
 		dst->start = a->position.clock.position - a->position.offset;
 

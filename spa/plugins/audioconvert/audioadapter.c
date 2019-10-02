@@ -804,13 +804,12 @@ impl_node_port_use_buffers(void *object,
 	if (direction != this->direction)
 		port_id++;
 
+	spa_log_debug(this->log, NAME" %p: %d %d:%d", this,
+			n_buffers, direction, port_id);
+
 	if ((res = spa_node_port_use_buffers(this->target,
 					direction, port_id, flags, buffers, n_buffers)) < 0)
 		return res;
-
-
-	spa_log_debug(this->log, NAME" %p: %d %d:%d", this,
-			n_buffers, direction, port_id);
 
 	if (n_buffers > 0 && this->use_converter) {
 		if (port_id == 0)

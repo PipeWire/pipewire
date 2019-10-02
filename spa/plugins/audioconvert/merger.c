@@ -918,7 +918,7 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
 	if (SPA_FLAG_IS_SET(dd->flags, SPA_DATA_FLAG_DYNAMIC))
 		dd->data = (void*)data;
 	else
-		memcpy(dd->data, data, size);
+		spa_memcpy(dd->data, data, size);
 
 	return res;
 }

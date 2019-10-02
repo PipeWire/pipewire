@@ -1100,7 +1100,7 @@ static void input_node_result(void *data, int seq, int res, uint32_t type, const
 {
 	struct impl *impl = data;
 	struct pw_port *port = impl->this.input;
-	pw_log_debug(NAME" %p: input port %p result seq:%d res:%d type:%u",
+	pw_log_trace(NAME" %p: input port %p result seq:%d res:%d type:%u",
 			impl, port, seq, res, type);
 	node_result(impl, port, seq, res, type, result);
 }
@@ -1109,7 +1109,7 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 {
 	struct impl *impl = data;
 	struct pw_port *port = impl->this.output;
-	pw_log_debug(NAME" %p: output port %p result seq:%d res:%d type:%u",
+	pw_log_trace(NAME" %p: output port %p result seq:%d res:%d type:%u",
 			impl, port, seq, res, type);
 
 	node_result(impl, port, seq, res, type, result);

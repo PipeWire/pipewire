@@ -740,7 +740,7 @@ static int impl_node_process(void *object)
 		b = &port->buffers[io->buffer_id];
 		src = &b->outbuf->datas[0];
 
-		memcpy(dst, src->data, n_frames * port->stride);
+		spa_memcpy(dst, src->data, n_frames * port->stride);
 
 		io->status = SPA_STATUS_NEED_DATA;
 

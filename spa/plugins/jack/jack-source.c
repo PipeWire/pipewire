@@ -758,7 +758,7 @@ static int impl_node_process(void *object)
 		src = jack_port_get_buffer(port->jack_port, n_frames);
 
 		d = &b->outbuf->datas[0];
-		memcpy(d->data, src, n_frames * port->stride);
+		spa_memcpy(d->data, src, n_frames * port->stride);
 		d->chunk->offset = 0;
 		d->chunk->size = n_frames * port->stride;
 		d->chunk->stride = port->stride;

@@ -171,7 +171,7 @@ static void impl_native_process(struct resample *r,
 			 * we have less, refill the history. */
 			refill = SPA_MIN(*in_len, n_taps-1);
 			for (c = 0; c < r->channels; c++)
-				memcpy(&history[c][hist], s[c], refill * sizeof(float));
+				spa_memcpy(&history[c][hist], s[c], refill * sizeof(float));
 
 			if (hist + refill < n_taps) {
 				/* not enough in the history, keep the input in
@@ -206,7 +206,7 @@ static void impl_native_process(struct resample *r,
 			/* not enough input data remaining for more output,
 			 * copy to history */
 			for (c = 0; c < r->channels; c++)
-				memcpy(history[c], &s[c][in], remain * sizeof(float));
+				spa_memcpy(history[c], &s[c][in], remain * sizeof(float));
 		} else {
 			/* we have enough input data remaining to produce
 			 * more output ask to resubmit. */
@@ -230,7 +230,7 @@ static void impl_native_process(struct resample *r,
 		if (remain) {
 			/* move history */
 			for (c = 0; c < r->channels; c++)
-				memmove(history[c], &history[c][in], remain * sizeof(float));
+				spa_memmove(history[c], &history[c][in], remain * sizeof(float));
 		}
 		spa_log_trace_fp(r->log, "native %p: in:%d remain:%d", r, in, remain);
 

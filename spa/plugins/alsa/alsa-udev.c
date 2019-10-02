@@ -30,6 +30,7 @@
 #include <poll.h>
 
 #include <libudev.h>
+#include <alsa/asoundlib.h>
 
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
@@ -186,10 +187,40 @@ static void unescape(const char *src, char *dst)
 static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *dev)
 {
 	struct spa_device_object_info info;
+	snd_ctl_t *ctl_hndl;
 	const char *str;
 	char path[32];
 	struct spa_dict_item items[22];
 	uint32_t n_items = 0;
+	int res, pcm;
+
+	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
+		return 0;
+
+	snprintf(path, sizeof(path), "hw:%d", atoi(str));
+
+	spa_log_info(this->log, "open card %s", path);
+
+	if ((res = snd_ctl_open(&ctl_hndl, path, 0)) < 0) {
+		spa_log_error(this->log, "can't open control for card %s: %s",
+				path, snd_strerror(res));
+		return res;
+	}
+
+	pcm = -1;
+	res = snd_ctl_pcm_next_device(ctl_hndl, &pcm);
+
+	spa_log_info(this->log, "close card %s", path);
+	snd_ctl_close(ctl_hndl);
+
+	if (res < 0) {
+		spa_log_error(this->log, "error iterating devices: %s", snd_strerror(res));
+		return res;
+	}
+	if (pcm < 0) {
+		spa_log_debug(this->log, "no pcm devices for %s", path);
+		return 0;
+	}
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 
@@ -202,11 +233,6 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ENUM_API, "udev");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
-
-	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
-		return 0;
-
-	snprintf(path, sizeof(path), "hw:%d", atoi(str));
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, str);
 

@@ -565,7 +565,8 @@ struct pw_port {
 	struct pw_port_info info;
 	struct spa_param_info params[MAX_PARAMS];
 
-	struct pw_buffers allocation;
+	struct pw_buffers buffers;	/**< buffers managed by this port, only on
+					  *  output ports, shared with all links */
 
 	struct spa_list links;		/**< list of \ref pw_link */
 

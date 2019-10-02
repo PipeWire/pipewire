@@ -51,7 +51,6 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 		struct spa_node *innode, uint32_t in_port_id,
 		struct pw_buffers *result);
 
-void pw_buffers_move(struct pw_buffers *dest, struct pw_buffers *src);
 void pw_buffers_clear(struct pw_buffers *buffers);
 
 #ifdef __cplusplus

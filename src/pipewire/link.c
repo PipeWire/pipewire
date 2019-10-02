@@ -417,7 +417,6 @@ static int do_allocation(struct pw_link *this)
 	uint32_t in_flags, out_flags;
 	char *error = NULL;
 	struct pw_port *input, *output;
-	struct pw_buffers allocation = { NULL, };
 
 	if (this->info.state > PW_LINK_STATE_ALLOCATING)
 		return 0;
@@ -441,9 +440,9 @@ static int do_allocation(struct pw_link *this)
 		input->node->live = true;
 	}
 
-	if (output->allocation.n_buffers) {
+	if (output->buffers.n_buffers) {
 		pw_log_debug(NAME" %p: reusing %d output buffers %p", this,
-				output->allocation.n_buffers, output->allocation.buffers);
+				output->buffers.n_buffers, output->buffers.buffers);
 		this->rt.out_mix.have_buffers = true;
 	} else {
 		uint32_t flags, alloc_flags;
@@ -460,22 +459,21 @@ static int do_allocation(struct pw_link *this)
 		if ((res = pw_buffers_negotiate(this->core, alloc_flags,
 						output->node->node, output->port_id,
 						input->node->node, input->port_id,
-						&allocation)) < 0) {
+						&output->buffers)) < 0) {
 			asprintf(&error, "error alloc buffers: %s", spa_strerror(res));
 			goto error;
 		}
 
 		pw_log_debug(NAME" %p: allocating %d buffers %p", this,
-			     allocation.n_buffers, allocation.buffers);
+			     output->buffers.n_buffers, output->buffers.buffers);
 
-		if ((res = pw_port_use_buffers(output, &this->rt.out_mix,
-					flags, allocation.buffers, allocation.n_buffers)) < 0) {
+		if ((res = pw_port_use_buffers(output, &this->rt.out_mix, flags,
+						output->buffers.buffers,
+						output->buffers.n_buffers)) < 0) {
 			asprintf(&error, "error use output buffers: %d (%s)", res,
 					spa_strerror(res));
 			goto error;
 		}
-		pw_buffers_move(&output->allocation, &allocation);
-
 		if (SPA_RESULT_IS_ASYNC(res)) {
 			res = spa_node_sync(output->node->node, res),
 			pw_work_queue_add(impl->work, output, res,
@@ -488,11 +486,11 @@ static int do_allocation(struct pw_link *this)
 	}
 
 	pw_log_debug(NAME" %p: using %d buffers %p on input port", this,
-		     output->allocation.n_buffers, output->allocation.buffers);
+		     output->buffers.n_buffers, output->buffers.buffers);
 
 	if ((res = pw_port_use_buffers(input, &this->rt.in_mix, 0,
-				output->allocation.buffers,
-				output->allocation.n_buffers)) < 0) {
+				output->buffers.buffers,
+				output->buffers.n_buffers)) < 0) {
 		asprintf(&error, "error use input buffers: %d (%s)", res,
 				spa_strerror(res));
 		goto error;
@@ -508,7 +506,7 @@ static int do_allocation(struct pw_link *this)
 	return 0;
 
 error:
-	pw_buffers_clear(&output->allocation);
+	pw_buffers_clear(&output->buffers);
 	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	return res;
 }

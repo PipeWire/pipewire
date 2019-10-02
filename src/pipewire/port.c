@@ -984,7 +984,8 @@ void pw_port_destroy(struct pw_port *port)
 	pw_log_debug(NAME" %p: free", port);
 	pw_port_emit_free(port);
 
-	pw_buffers_clear(&port->allocation);
+	pw_buffers_clear(&port->buffers);
+	pw_buffers_clear(&port->mix_buffers);
 	free((void*)port->error);
 
 	pw_map_clear(&port->mix_port_map);
@@ -1165,7 +1166,8 @@ int pw_port_set_param(struct pw_port *port, uint32_t id, uint32_t flags,
 		pw_log_debug(NAME" %p: %d %p %d", port, port->state, param, res);
 
 		/* setting the format always destroys the negotiated buffers */
-		pw_buffers_clear(&port->allocation);
+		pw_buffers_clear(&port->buffers);
+		pw_buffers_clear(&port->mix_buffers);
 
 		if (param == NULL || res < 0) {
 			pw_port_update_state(port, PW_PORT_STATE_CONFIGURE, NULL);
@@ -1187,7 +1189,6 @@ static int negotiate_mixer_buffers(struct pw_port *port, uint32_t flags,
 		return 0;
 
 	if (SPA_FLAG_IS_SET(port->mix_flags, PW_PORT_MIX_FLAG_NEGOTIATE)) {
-		struct pw_buffers allocation = { NULL, };
 		int alloc_flags;
 
 		/* try dynamic data */
@@ -1196,16 +1197,16 @@ static int negotiate_mixer_buffers(struct pw_port *port, uint32_t flags,
 		pw_log_debug(NAME" %p: %d.%d negotiate buffers on node: %p",
 				port, port->direction, port->port_id, node->node);
 
+		pw_buffers_clear(&port->mix_buffers);
+
 		if ((res = pw_buffers_negotiate(node->core, alloc_flags,
 				port->mix, 0,
 				node->node, port->port_id,
-				&allocation)) < 0) {
+				&port->mix_buffers)) < 0) {
 			pw_log_warn(NAME" %p: can't negotiate buffers: %s",
 					port, spa_strerror(res));
 			return res;
 		}
-		pw_buffers_clear(&port->mix_buffers);
-		pw_buffers_move(&port->mix_buffers, &allocation);
 		buffers = port->mix_buffers.buffers;
 		n_buffers = port->mix_buffers.n_buffers;
 		flags = 0;

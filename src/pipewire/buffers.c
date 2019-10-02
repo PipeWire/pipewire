@@ -301,10 +301,3 @@ void pw_buffers_clear(struct pw_buffers *buffers)
 	free(buffers->buffers);
 	spa_zero(*buffers);
 }
-
-SPA_EXPORT
-void pw_buffers_move(struct pw_buffers *dest, struct pw_buffers *src)
-{
-	*dest = *src;
-	spa_zero(*src);
-}

@@ -550,6 +550,8 @@ int pw_node_register(struct pw_node *this,
 	struct pw_port *port;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
+		PW_KEY_MODULE_ID,
+		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,
 		PW_KEY_NODE_DESCRIPTION,

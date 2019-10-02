@@ -63,6 +63,8 @@ static void *create_object(void *_data,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
 {
+	struct factory_data *data = _data;
+	struct pw_factory *this = data->this;
 	void *result;
 	struct pw_resource *device_resource;
 	struct pw_client *client = pw_resource_get_client(resource);
@@ -74,18 +76,33 @@ static void *create_object(void *_data,
 		goto error_resource;
 	}
 
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL) {
+		res = -errno;
+		goto error_properties;
+	}
+
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_global_get_id(pw_factory_get_global(this)));
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+			pw_global_get_id(pw_client_get_global(client)));
+
 	result = pw_client_device_new(device_resource, properties);
 	if (result == NULL) {
 		res = -errno;
 		goto error_device;
 	}
-
 	return result;
 
 error_resource:
 	pw_log_error("can't create resource: %s", spa_strerror(res));
 	pw_resource_error(resource, res, "can't create resource: %s", spa_strerror(res));
 	goto error_exit;
+error_properties:
+	pw_log_error("can't create properties: %s", spa_strerror(res));
+	pw_resource_error(resource, res, "can't create properties: %s", spa_strerror(res));
+	goto error_exit_free;
 error_device:
 	pw_log_error("can't create device: %s", spa_strerror(res));
 	pw_resource_error(resource, res, "can't create device: %s", spa_strerror(res));

@@ -407,7 +407,9 @@ int pw_device_register(struct pw_device *device,
 	struct pw_core *core = device->core;
 	struct object_data *od;
 	const char *keys[] = {
+		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
+		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_DESCRIPTION,
 		PW_KEY_DEVICE_NAME,

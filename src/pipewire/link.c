@@ -1207,6 +1207,8 @@ int pw_link_register(struct pw_link *link,
 	struct pw_core *core = link->core;
 	struct pw_node *output_node, *input_node;
 	const char *keys[] = {
+		PW_KEY_OBJECT_PATH,
+		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		NULL

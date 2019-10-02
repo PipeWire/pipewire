@@ -121,6 +121,13 @@ static void *create_object(void *_data,
 
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d", d->this->global->id);
 
+	client = resource ? pw_resource_get_client(resource): NULL;
+
+	if (client) {
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+				client->global->id);
+	}
+
 	slave = NULL;
 	str = pw_properties_get(properties, "adapt.slave.node");
 	if (str != NULL) {
@@ -163,8 +170,6 @@ static void *create_object(void *_data,
 	spa_list_append(&d->node_list, &nd->link);
 
 	pw_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);
-
-	client = resource ? pw_resource_get_client(resource): NULL;
 
 	pw_node_register(adapter, NULL);
 

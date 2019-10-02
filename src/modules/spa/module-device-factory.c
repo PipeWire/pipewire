@@ -85,6 +85,7 @@ static void *create_object(void *_data,
 	struct pw_device *device;
 	const char *factory_name;
 	struct device_data *nd;
+	struct pw_client *client;
 	int res;
 
 	if (properties == NULL)
@@ -93,6 +94,16 @@ static void *create_object(void *_data,
 	factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 	if (factory_name == NULL)
 		goto error_properties;
+
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_global_get_id(pw_factory_get_global(data->this)));
+
+	client = resource ? pw_resource_get_client(resource) : NULL;
+
+	if (client) {
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+			pw_global_get_id(pw_client_get_global(client)));
+	}
 
 	device = pw_spa_device_load(core,
 				factory_name,
@@ -110,12 +121,12 @@ static void *create_object(void *_data,
 
 	pw_device_add_listener(device, &nd->device_listener, &device_events, nd);
 
-	if (resource)
+	if (client) {
 		pw_global_bind(pw_device_get_global(device),
-			       pw_resource_get_client(resource),
-			       PW_PERM_RWX,
-			       version, new_id);
-
+				client,
+				PW_PERM_RWX, version,
+				new_id);
+	}
 	return device;
 
 error_properties:

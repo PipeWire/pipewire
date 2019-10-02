@@ -626,10 +626,10 @@ static void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
 
 	b = &mix->buffers[id];
 
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		pw_log_trace(NAME" %p: port %p: recycle buffer %d", c, mix->port, id);
 		spa_list_append(&mix->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 	}
 }
 
@@ -841,7 +841,7 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 		d->frame = seg->position;
 
 	d->valid = 0;
-	if (a->segment_owner[0] && SPA_FLAG_CHECK(seg->bar.flags, SPA_IO_SEGMENT_BAR_FLAG_VALID)) {
+	if (a->segment_owner[0] && SPA_FLAG_IS_SET(seg->bar.flags, SPA_IO_SEGMENT_BAR_FLAG_VALID)) {
 		double abs_beat;
 		long beats;
 
@@ -3501,7 +3501,7 @@ const char ** jack_get_ports (jack_client_t *client,
 				break;
 			if (o->port.type_id != i)
 				continue;
-			if (!SPA_FLAG_CHECK(o->port.flags, flags))
+			if (!SPA_FLAG_IS_SET(o->port.flags, flags))
 				continue;
 			if (id != SPA_ID_INVALID && o->port.node_id != id)
 				continue;

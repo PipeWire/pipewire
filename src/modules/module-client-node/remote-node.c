@@ -366,7 +366,7 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 		pi.flags = port->spa_flags;
 		pi.rate = SPA_FRACTION(0, 1);
 		pi.props = &port->properties->dict;
-		SPA_FLAG_UNSET(pi.flags, SPA_PORT_FLAG_DYNAMIC_DATA);
+		SPA_FLAG_CLEAR(pi.flags, SPA_PORT_FLAG_DYNAMIC_DATA);
 		pi.n_params = port->info.n_params;
 		pi.params = port->info.params;
 	}

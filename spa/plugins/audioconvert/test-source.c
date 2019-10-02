@@ -618,9 +618,9 @@ impl_node_port_set_param(void *object,
 
 static void recycle_buffer(struct impl *this, struct port *port, struct buffer *b)
 {
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, b->id);
 	}
 }

@@ -761,7 +761,7 @@ impl_node_port_use_buffers(void *object,
 			}
 			b->datas[j] = d[j].data;
 			if (direction == SPA_DIRECTION_OUTPUT &&
-			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
+			    !SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
 				this->is_passthrough = false;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -803,9 +803,9 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	struct port *port = GET_OUT_PORT(this, 0);
 	struct buffer *b = &port->buffers[id];
 
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
 	}
 }

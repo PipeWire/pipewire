@@ -222,7 +222,7 @@ static inline int push_queue(struct stream *stream, struct queue *queue, struct 
 {
 	uint32_t index;
 
-	if (SPA_FLAG_CHECK(buffer->flags, BUFFER_FLAG_QUEUED))
+	if (SPA_FLAG_IS_SET(buffer->flags, BUFFER_FLAG_QUEUED))
 		return -EINVAL;
 
 	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
@@ -251,7 +251,7 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 
 	buffer = &stream->buffers[id];
 	queue->outcount += buffer->this.size;
-	SPA_FLAG_UNSET(buffer->flags, BUFFER_FLAG_QUEUED);
+	SPA_FLAG_CLEAR(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	return buffer;
 }
@@ -304,7 +304,7 @@ do_call_process(struct spa_loop *loop,
 static void call_process(struct stream *impl)
 {
 	pw_log_trace(NAME" %p: call process", impl);
-	if (SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_RT_PROCESS)) {
+	if (SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_RT_PROCESS)) {
 		do_call_process(NULL, false, 1, NULL, 0, impl);
 	}
 	else {
@@ -624,7 +624,7 @@ static void clear_buffers(struct pw_stream *stream)
 
 		pw_stream_emit_remove_buffer(stream, &b->this);
 
-		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_MAPPED)) {
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->this.buffer->n_datas; j++) {
 				struct spa_data *d = &b->this.buffer->datas[j];
 				pw_log_debug(NAME" %p: clear buffer %d mem",
@@ -663,7 +663,7 @@ static int impl_port_use_buffers(void *object,
 		b->flags = 0;
 		b->id = i;
 
-		if (SPA_FLAG_CHECK(impl_flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
+		if (SPA_FLAG_IS_SET(impl_flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
 				if (d->type == SPA_DATA_MemFd ||
@@ -814,7 +814,7 @@ again:
 		}
 	}
 
-	if (!impl->draining && !SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
+	if (!impl->draining && !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 		call_process(impl);
 		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) >= MIN_QUEUED &&
 		    io->status == SPA_STATUS_NEED_DATA)
@@ -1056,7 +1056,7 @@ static int handle_connect(struct pw_stream *stream)
 
 	pw_node_set_implementation(slave, &impl->impl_node);
 
-	if (!SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_INACTIVE))
+	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
 		pw_node_set_active(slave, true);
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
@@ -1486,7 +1486,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
 
-	impl->alloc_buffers = SPA_FLAG_CHECK(flags, PW_STREAM_FLAG_ALLOC_BUFFERS);
+	impl->alloc_buffers = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ALLOC_BUFFERS);
 
 	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
 			direction == PW_DIRECTION_INPUT ? "Input" : "Output",
@@ -1669,7 +1669,7 @@ do_process(struct spa_loop *loop,
 static inline int call_trigger(struct stream *impl)
 {
 	int res = 0;
-	if (SPA_FLAG_CHECK(impl->flags, PW_STREAM_FLAG_DRIVER)) {
+	if (SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER)) {
 		res = pw_loop_invoke(impl->core->data_loop,
 			do_process, 1, NULL, 0, false, impl);
 	}

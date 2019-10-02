@@ -322,10 +322,10 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 {
 	struct buffer *b = &port->buffers[id];
 
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
 
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
 
 		if (!this->props.live)

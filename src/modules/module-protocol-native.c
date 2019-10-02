@@ -204,10 +204,7 @@ client_busy_changed(void *data, bool busy)
 
 	c->busy = busy;
 
-	if (busy)
-		SPA_FLAG_UNSET(mask, SPA_IO_IN);
-	else
-		SPA_FLAG_SET(mask, SPA_IO_IN);
+	SPA_FLAG_UPDATE(mask, SPA_IO_IN, !busy);
 
 	pw_log_debug(NAME" %p: busy changed %d", client->protocol, busy);
 	pw_loop_update_io(client->core->main_loop, c->source, mask);
@@ -238,7 +235,7 @@ connection_data(void *data, int fd, uint32_t mask)
 		res = pw_protocol_native_connection_flush(this->connection);
 		if (res >= 0) {
 			int mask = this->source->mask;
-			SPA_FLAG_UNSET(mask, SPA_IO_OUT);
+			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
 			pw_loop_update_io(client->protocol->core->main_loop,
 					this->source, mask);
 		} else if (res != EAGAIN) {
@@ -540,7 +537,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 		res = pw_protocol_native_connection_flush(conn);
 		if (res >= 0) {
 			int mask = impl->source->mask;
-			SPA_FLAG_UNSET(mask, SPA_IO_OUT);
+			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
 			pw_loop_update_io(core->main_loop,
 					impl->source, mask);
 			impl->flushing = false;

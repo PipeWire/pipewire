@@ -79,10 +79,10 @@ static void complete_init(struct impl *impl)
 
 	impl->init_pending = SPA_ID_INVALID;
 
-	if (SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_ACTIVATE))
+	if (SPA_FLAG_IS_SET(impl->flags, PW_SPA_NODE_FLAG_ACTIVATE))
 		pw_node_set_active(this, true);
 
-	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_NODE_FLAG_NO_REGISTER))
+	if (!SPA_FLAG_IS_SET(impl->flags, PW_SPA_NODE_FLAG_NO_REGISTER))
 		pw_node_register(this, NULL);
 	else
 		pw_node_initialized(this);

@@ -84,7 +84,7 @@ inspect_node_params(struct data *data, struct spa_node *node,
 	for (i = 0; i < n_params; i++) {
 		printf("enumerating: %s:\n", spa_debug_type_find_name(spa_type_param, params[i].id));
 
-		if (!SPA_FLAG_CHECK(params[i].flags, SPA_PARAM_INFO_READ))
+		if (!SPA_FLAG_IS_SET(params[i].flags, SPA_PARAM_INFO_READ))
 			continue;
 
 		spa_zero(listener);
@@ -118,7 +118,7 @@ inspect_port_params(struct data *data, struct spa_node *node,
 				params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
 				params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
 
-		if (!SPA_FLAG_CHECK(params[i].flags, SPA_PARAM_INFO_READ))
+		if (!SPA_FLAG_IS_SET(params[i].flags, SPA_PARAM_INFO_READ))
 			continue;
 
 		printf("values:\n");

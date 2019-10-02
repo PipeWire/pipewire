@@ -37,9 +37,10 @@ extern "C" {
 #include <stdio.h>
 
 #define SPA_FLAG_MASK(field,mask,flag)	(((field) & (mask)) == (flag))
-#define SPA_FLAG_CHECK(field,flag)	SPA_FLAG_MASK(field,flag,flag)
+#define SPA_FLAG_IS_SET(field,flag)	SPA_FLAG_MASK(field,flag,flag)
 #define SPA_FLAG_SET(field,flag)	((field) |= (flag))
-#define SPA_FLAG_UNSET(field,flag)	((field) &= ~(flag))
+#define SPA_FLAG_CLEAR(field,flag)	((field) &= ~(flag))
+#define SPA_FLAG_UPDATE(field,flag,val)	((val) ? SPA_FLAG_SET(field,flag) : SPA_FLAG_CLEAR(field,flag))
 
 enum spa_direction {
 	SPA_DIRECTION_INPUT = 0,

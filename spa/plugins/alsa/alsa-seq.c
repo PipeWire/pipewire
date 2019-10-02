@@ -380,11 +380,11 @@ int spa_alsa_seq_recycle_buffer(struct seq_state *state, struct seq_port *port, 
 {
 	struct buffer *b = &port->buffers[buffer_id];
 
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_log_trace_fp(state->log, NAME " %p: recycle buffer port:%p buffer-id:%u",
 				state, port, buffer_id);
 		spa_list_append(&port->free, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 	}
 	return 0;
 }
@@ -758,7 +758,7 @@ static void reset_buffers(struct seq_state *this, struct seq_port *port)
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		} else {
 			spa_list_append(&port->free, &b->link);
-			SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		}
 	}
 }

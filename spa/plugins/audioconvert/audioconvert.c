@@ -322,9 +322,9 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 
 	spa_pod_fixate(param);
 
-	in_alloc = SPA_FLAG_CHECK(link->in_flags,
+	in_alloc = SPA_FLAG_IS_SET(link->in_flags,
 				SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
-	out_alloc = SPA_FLAG_CHECK(link->out_flags,
+	out_alloc = SPA_FLAG_IS_SET(link->out_flags,
 				SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 
 	flags = 0;

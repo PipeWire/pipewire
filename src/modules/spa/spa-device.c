@@ -100,7 +100,7 @@ pw_spa_device_new(struct pw_core *core,
 	pw_device_add_listener(this, &impl->device_listener, &device_events, impl);
 	pw_device_set_implementation(this, impl->device);
 
-	if (!SPA_FLAG_CHECK(impl->flags, PW_SPA_DEVICE_FLAG_NO_REGISTER)) {
+	if (!SPA_FLAG_IS_SET(impl->flags, PW_SPA_DEVICE_FLAG_NO_REGISTER)) {
 		if ((res = pw_device_register(this, NULL)) < 0)
 			goto error_register;
 	}

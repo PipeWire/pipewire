@@ -1637,7 +1637,7 @@ pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t po
 				break;
 			}
 			/* We can use this port if it can multiplex */
-			if (SPA_FLAG_CHECK(p->mix_flags, PW_PORT_MIX_FLAG_MULTI))
+			if (SPA_FLAG_IS_SET(p->mix_flags, PW_PORT_MIX_FLAG_MULTI))
 				port = p;
 		}
 	}
@@ -1659,12 +1659,12 @@ uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direct
 		max_ports = node->info.max_input_ports;
 		n_ports = node->info.n_input_ports;
 		portmap = &node->input_port_map;
-		dynamic = SPA_FLAG_CHECK(node->spa_flags, SPA_NODE_FLAG_IN_DYNAMIC_PORTS);
+		dynamic = SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_IN_DYNAMIC_PORTS);
 	} else {
 		max_ports = node->info.max_output_ports;
 		n_ports = node->info.n_output_ports;
 		portmap = &node->output_port_map;
-		dynamic = SPA_FLAG_CHECK(node->spa_flags, SPA_NODE_FLAG_OUT_DYNAMIC_PORTS);
+		dynamic = SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_OUT_DYNAMIC_PORTS);
 	}
 	pw_log_debug(NAME" %p: direction %s n_ports:%u max_ports:%u",
 			node, pw_direction_as_string(direction), n_ports, max_ports);

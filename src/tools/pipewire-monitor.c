@@ -289,7 +289,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			if (old != NULL && info->params[i].flags == old->params[i].flags)
 				continue;
 			remove_params(data, info->params[i].id, 0);
-			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
+			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
@@ -349,7 +349,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 			if (old != NULL && info->params[i].flags == old->params[i].flags)
 				continue;
 			remove_params(data, info->params[i].id, 0);
-			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
+			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
@@ -528,7 +528,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			if (old != NULL && info->params[i].flags == old->params[i].flags)
 				continue;
 			remove_params(data, info->params[i].id, 0);
-			if (!SPA_FLAG_CHECK(info->params[i].flags, SPA_PARAM_INFO_READ))
+			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_device_proxy_enum_params((struct pw_device_proxy*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);

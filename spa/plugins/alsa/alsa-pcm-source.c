@@ -337,10 +337,10 @@ static void recycle_buffer(struct state *this, uint32_t buffer_id)
 {
 	struct buffer *b = &this->buffers[buffer_id];
 
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
 		spa_list_append(&this->free, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 	}
 }
 

@@ -123,15 +123,15 @@ static void impl_native_update_rate(struct resample *r, double rate)
 
 		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
 #if defined (HAVE_SSE)
-		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_SSE))
+		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_SSE))
 			data->func = is_full ? do_resample_full_sse : do_resample_inter_sse;
 #endif
 #if defined (HAVE_SSSE3)
-		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED))
+		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED))
 			data->func = is_full ? do_resample_full_ssse3 : do_resample_inter_ssse3;
 #endif
 #if defined(HAVE_AVX) && defined(HAVE_FMA)
-		if (SPA_FLAG_CHECK(r->cpu_flags, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3))
+		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3))
 			data->func = is_full ? do_resample_full_avx : do_resample_inter_avx;
 #endif
 	}

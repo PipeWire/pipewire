@@ -142,14 +142,14 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 		size += SPA_ROUND_UP_N(metas[i].size, 8);
 	info->meta_size = size;
 
-	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
+	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
 		target = &info->skel_size;
 	else
 		target = &info->mem_size;
 	*target += info->meta_size;
 
 	info->chunk_size = n_datas * sizeof(struct spa_chunk);
-	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK))
+	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK))
 		target = &info->skel_size;
 	else
 	        target = &info->mem_size;
@@ -162,8 +162,8 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 	}
 	info->data_size = size;
 
-	if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA) &&
-	    SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
+	if (!SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA) &&
+	    SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
 		target = &info->skel_size;
 	else
 		target = &info->mem_size;
@@ -209,7 +209,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 	skel = SPA_MEMBER(b->datas, info->n_datas * sizeof(struct spa_data), void);
 	data = data_mem;
 
-	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
+	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
 		dp = &skel;
 	else
 		dp = &data;
@@ -222,7 +222,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 	}
 
 	size = info->n_datas * sizeof(struct spa_chunk);
-	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK)) {
+	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK)) {
 		cp = (struct spa_chunk*)skel;
 		skel = SPA_MEMBER(skel, size, void);
 	}
@@ -231,7 +231,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		data = SPA_MEMBER(data, size, void);
 	}
 
-	if (SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
+	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
 		dp = &skel;
 	else
 		dp = &data;
@@ -241,7 +241,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 
 		*d = info->datas[i];
 		d->chunk = &cp[i];
-		if (!SPA_FLAG_CHECK(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA)) {
+		if (!SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA)) {
 			*dp = SPA_PTR_ALIGN(*dp, info->data_aligns[i], void);
 			d->data = *dp;
 			*dp = SPA_MEMBER(*dp, d->maxsize, void);

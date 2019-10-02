@@ -127,10 +127,10 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 	struct spa_v4l2_device *dev = &port->dev;
 	int err;
 
-	if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUTSTANDING))
+	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING))
 		return 0;
 
-	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUTSTANDING);
+	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUTSTANDING);
 	spa_log_trace(this->log, "v4l2 %p: recycle buffer %d", this, buffer_id);
 
 	if (xioctl(dev->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
@@ -158,15 +158,15 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 		b = &port->buffers[i];
 		d = b->outbuf->datas;
 
-		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUTSTANDING)) {
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING)) {
 			spa_log_info(this->log, "v4l2: queueing outstanding buffer %p", b);
 			spa_v4l2_buffer_recycle(this, i);
 		}
-		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_MAPPED)) {
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			munmap(SPA_MEMBER(b->ptr, -d[0].mapoffset, void),
 					d[0].maxsize - d[0].mapoffset);
 		}
-		if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_ALLOCATED)) {
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_ALLOCATED)) {
 			spa_log_debug(this->log, "v4l2: close %d", (int) d[0].fd);
 			close(d[0].fd);
 		}
@@ -1552,7 +1552,7 @@ static int spa_v4l2_stream_off(struct impl *this)
 		struct buffer *b;
 
 		b = &port->buffers[i];
-		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUTSTANDING)) {
+		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING)) {
 			if (xioctl(dev->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
 				spa_log_warn(this->log, "VIDIOC_QBUF: %s", strerror(errno));
 		}

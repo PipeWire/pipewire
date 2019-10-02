@@ -384,9 +384,9 @@ struct pw_port *pw_port_new(enum pw_direction direction,
 	}
 
 	if (info) {
-		if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_PHYSICAL))
+		if (SPA_FLAG_IS_SET(info->flags, SPA_PORT_FLAG_PHYSICAL))
 			pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "1");
-		if (SPA_FLAG_CHECK(info->flags, SPA_PORT_FLAG_TERMINAL))
+		if (SPA_FLAG_IS_SET(info->flags, SPA_PORT_FLAG_TERMINAL))
 			pw_properties_set(properties, PW_KEY_PORT_TERMINAL, "1");
 		this->spa_flags = info->flags;
 	}
@@ -850,7 +850,7 @@ static void pw_port_remove(struct pw_port *port)
 	pw_loop_invoke(port->node->data_loop, do_remove_port,
 		       SPA_ID_INVALID, NULL, 0, true, port);
 
-	if (SPA_FLAG_CHECK(port->flags, PW_PORT_FLAG_TO_REMOVE)) {
+	if (SPA_FLAG_IS_SET(port->flags, PW_PORT_FLAG_TO_REMOVE)) {
 		if ((res = spa_node_remove_port(node->node, port->direction, port->port_id)) < 0)
 			pw_log_warn(NAME" %p: can't remove: %s", port, spa_strerror(res));
 	}

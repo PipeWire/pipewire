@@ -190,7 +190,7 @@ spa_pod_builder_primitive(struct spa_pod_builder *builder, const struct spa_pod 
 	} else {
 		data = p;
 		size = SPA_POD_SIZE(p);
-		SPA_FLAG_UNSET(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST);
+		SPA_FLAG_CLEAR(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST);
 	}
 	res = spa_pod_builder_raw(builder, data, size);
 	if (builder->state.flags != SPA_POD_BUILDER_FLAG_BODY)

@@ -436,7 +436,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 
 static int queue_buffer(struct impl *this, struct port *port, struct buffer *b)
 {
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_QUEUED))
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_QUEUED))
 		return -EINVAL;
 
 	spa_list_append(&port->queue, &b->link);
@@ -454,7 +454,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
-	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
+	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
 	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", this, b->id);
 	return b;
 }
@@ -730,7 +730,8 @@ static int impl_node_process(void *object)
 		    (inio = inport->io) == NULL ||
 		    inio->buffer_id >= inport->n_buffers ||
 		    inio->status != SPA_STATUS_HAVE_DATA) {
-			spa_log_trace_fp(this->log, NAME " %p: skip input %d %d %p %d %d %d", this,
+			spa_log_trace_fp(this->log, NAME " %p: skip input idx:%d valid:%d "
+					"io:%p status:%d buf_id:%d n_buffers:%d", this,
 				i, inport->valid, inio,
 				inio ? inio->status : -1,
 				inio ? inio->buffer_id : SPA_ID_INVALID,

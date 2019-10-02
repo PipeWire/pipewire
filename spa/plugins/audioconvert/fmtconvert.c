@@ -376,7 +376,7 @@ static int port_enum_formats(void *object,
 					SPA_FORMAT_AUDIO_rate,     SPA_POD_Int(info.info.raw.rate),
 					SPA_FORMAT_AUDIO_channels, SPA_POD_Int(info.info.raw.channels),
 					0);
-				if (!SPA_FLAG_CHECK(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
+				if (!SPA_FLAG_IS_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
 					qsort(info.info.raw.position, info.info.raw.channels,
 							sizeof(uint32_t), int32_cmp);
 					spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
@@ -703,7 +703,7 @@ impl_node_port_use_buffers(void *object,
 			}
 			b->datas[j] = d[j].data;
 			if (direction == SPA_DIRECTION_OUTPUT &&
-			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
+			    !SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
 				this->is_passthrough = false;
 		}
 
@@ -750,9 +750,9 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t id)
 {
 	struct buffer *b = &port->buffers[id];
 
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
 	}
 }

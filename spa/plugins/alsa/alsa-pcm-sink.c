@@ -617,7 +617,7 @@ static int impl_node_process(void *object)
 	    input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 
-		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 			spa_log_warn(this->log, NAME " %p: buffer %u in use",
 					this, input->buffer_id);
 			input->status = -EINVAL;
@@ -625,7 +625,7 @@ static int impl_node_process(void *object)
 		}
 		spa_log_trace_fp(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
-		SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		input->buffer_id = SPA_ID_INVALID;
 
 		spa_alsa_write(this, 0);

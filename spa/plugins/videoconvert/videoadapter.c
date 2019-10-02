@@ -606,8 +606,8 @@ static int negotiate_buffers(struct impl *this)
 	slave_flags = this->slave_flags;
 	conv_flags = this->convert_flags;
 
-	slave_alloc = SPA_FLAG_CHECK(slave_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
-	conv_alloc = SPA_FLAG_CHECK(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+	slave_alloc = SPA_FLAG_IS_SET(slave_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+	conv_alloc = SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 
 	flags = 0;
 	if (conv_alloc || slave_alloc) {

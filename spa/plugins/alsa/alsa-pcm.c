@@ -1099,7 +1099,7 @@ static void reset_buffers(struct state *this)
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		} else {
 			spa_list_append(&this->free, &b->link);
-			SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		}
 	}
 }

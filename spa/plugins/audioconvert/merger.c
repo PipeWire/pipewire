@@ -724,7 +724,7 @@ static void queue_buffer(struct impl *this, struct port *port, uint32_t id)
 
 	spa_log_trace_fp(this->log, NAME " %p: queue buffer %d on port %d %d",
 			this, id, port->id, b->flags);
-	if (SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_QUEUED))
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_QUEUED))
 		return;
 
 	spa_list_append(&port->queue, &b->link);
@@ -740,7 +740,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
-	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_QUEUED);
+	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
 	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d on port %d %u",
 			this, b->id, port->id, b->flags);
 
@@ -802,7 +802,7 @@ impl_node_port_use_buffers(void *object,
 			}
 			b->datas[j] = d[j].data;
 			if (direction == SPA_DIRECTION_OUTPUT &&
-			    !SPA_FLAG_CHECK(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
+			    !SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
 				this->is_passthrough = false;
 		}
 
@@ -915,7 +915,7 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
 
 	spa_log_trace(this->log, "%p: io %p %08x", this, outport->io, dd->flags);
 
-	if (SPA_FLAG_CHECK(dd->flags, SPA_DATA_FLAG_DYNAMIC))
+	if (SPA_FLAG_IS_SET(dd->flags, SPA_DATA_FLAG_DYNAMIC))
 		dd->data = (void*)data;
 	else
 		memcpy(dd->data, data, size);

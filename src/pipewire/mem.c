@@ -167,6 +167,7 @@ void pw_mempool_destroy(struct pw_mempool *pool)
 	spa_list_consume(b, &impl->blocks, link)
 		pw_memblock_free(&b->this);
 
+	pw_map_clear(&impl->map);
 	if (pool->props)
 		pw_properties_free(pool->props);
 	free(impl);

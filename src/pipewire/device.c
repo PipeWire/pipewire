@@ -194,6 +194,7 @@ void pw_device_destroy(struct pw_device *device)
 	pw_device_emit_free(device);
 
 	pw_properties_free(device->properties);
+	free(device->name);
 
 	free(device);
 }

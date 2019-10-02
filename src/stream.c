@@ -892,7 +892,7 @@ static int create_stream(pa_stream_direction_t direction,
 	fl = PW_STREAM_FLAG_AUTOCONNECT |
 		PW_STREAM_FLAG_MAP_BUFFERS;
 
-	s->corked = SPA_FLAG_CHECK(flags, PA_STREAM_START_CORKED);
+	s->corked = SPA_FLAG_IS_SET(flags, PA_STREAM_START_CORKED);
 
 	if (s->corked)
 		fl |= PW_STREAM_FLAG_INACTIVE;

@@ -62,12 +62,11 @@ static void clear_item(struct spa_dict_item *item)
 
 static int find_index(const struct pw_properties *this, const char *key)
 {
-	uint32_t i, len = this->dict.n_items;
-	for (i = 0; i < len; i++) {
-		if (strcmp(this->dict.items[i].key, key) == 0)
-			return i;
-	}
-	return -1;
+	const struct spa_dict_item *item;
+	item = spa_dict_lookup_item(&this->dict, key);
+	if (item == NULL)
+		return -1;
+	return item - this->dict.items;
 }
 
 static struct properties *properties_new(int prealloc)

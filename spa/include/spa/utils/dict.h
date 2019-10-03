@@ -41,6 +41,7 @@ struct spa_dict_item {
 #define SPA_DICT_ITEM_INIT(key,value) (struct spa_dict_item) { key, value }
 
 struct spa_dict {
+#define SPA_DICT_FLAG_SORTED	(1<<0)		/**< items are sorted */
 	uint32_t flags;
 	uint32_t n_items;
 	const struct spa_dict_item *items;
@@ -54,13 +55,31 @@ struct spa_dict {
 	     (item) < &(dict)->items[(dict)->n_items];		\
 	     (item)++)
 
+static inline int spa_dict_item_compare(const void *i1, const void *i2)
+{
+	const struct spa_dict_item *it1 = (const struct spa_dict_item *)i1,
+	      *it2 = (const struct spa_dict_item *)i2;
+	return strcmp(it1->key, it2->key);
+}
+
 static inline const struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *dict,
 							       const char *key)
 {
 	const struct spa_dict_item *item;
-	spa_dict_for_each(item, dict) {
-		if (!strcmp(item->key, key))
+
+	if (SPA_FLAG_IS_SET(dict->flags, SPA_DICT_FLAG_SORTED)) {
+		struct spa_dict_item k = SPA_DICT_ITEM_INIT(key, NULL);
+		item = (const struct spa_dict_item *)bsearch(&k,
+				(const void *) dict->items, dict->n_items,
+				sizeof(struct spa_dict_item),
+				spa_dict_item_compare);
+		if (item != NULL)
 			return item;
+	} else {
+		spa_dict_for_each(item, dict) {
+			if (!strcmp(item->key, key))
+				return item;
+		}
 	}
 	return NULL;
 }

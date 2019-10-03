@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include <spa/support/log.h>
+#include <spa/support/cpu.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
 #include <spa/node/node.h>
@@ -36,7 +37,9 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 
-#define NAME "floatmix"
+#include "mix-ops.h"
+
+#define NAME "mixer-dsp"
 
 #define MAX_BUFFERS     64
 #define MAX_PORTS       128
@@ -96,6 +99,10 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
+	uint32_t cpu_flags;
+
+	struct mix_ops ops;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -500,6 +507,13 @@ static int port_set_format(void *object,
 			if (info.info.raw.rate != this->format.info.raw.rate)
 				return -EINVAL;
 		} else {
+			this->ops.fmt = info.info.raw.format;
+			this->ops.n_channels = info.info.raw.channels;
+			this->ops.cpu_flags = this->cpu_flags;
+
+			if ((res = mix_ops_init(&this->ops)) < 0)
+				return res;
+
 			this->stride = sizeof(float);
 			this->have_format = true;
 			this->format = info;
@@ -635,60 +649,6 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return queue_buffer(this, port, &port->buffers[buffer_id]);
 }
 
-#if defined (__SSE__)
-#include <xmmintrin.h>
-static void mix_2(float * dst, const float * SPA_RESTRICT src1,
-		const float * SPA_RESTRICT src2, uint32_t n_samples)
-{
-	uint32_t n, unrolled;
-	__m128 in1[4], in2[4];
-
-	if (SPA_IS_ALIGNED(src1, 16) &&
-	    SPA_IS_ALIGNED(src2, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples & ~15;
-	else
-		unrolled = 0;
-
-	for (n = 0; n < unrolled; n += 16) {
-		in1[0] = _mm_load_ps(&src1[n+ 0]);
-		in1[1] = _mm_load_ps(&src1[n+ 4]);
-		in1[2] = _mm_load_ps(&src1[n+ 8]);
-		in1[3] = _mm_load_ps(&src1[n+12]);
-
-		in2[0] = _mm_load_ps(&src2[n+ 0]);
-		in2[1] = _mm_load_ps(&src2[n+ 4]);
-		in2[2] = _mm_load_ps(&src2[n+ 8]);
-		in2[3] = _mm_load_ps(&src2[n+12]);
-
-		in1[0] = _mm_add_ps(in1[0], in2[0]);
-		in1[1] = _mm_add_ps(in1[1], in2[1]);
-		in1[2] = _mm_add_ps(in1[2], in2[2]);
-		in1[3] = _mm_add_ps(in1[3], in2[3]);
-
-		_mm_store_ps(&dst[n+ 0], in1[0]);
-		_mm_store_ps(&dst[n+ 4], in1[1]);
-		_mm_store_ps(&dst[n+ 8], in1[2]);
-		_mm_store_ps(&dst[n+12], in1[3]);
-	}
-	for (; n < n_samples; n++) {
-		in1[0] = _mm_load_ss(&src1[n]),
-		in2[0] = _mm_load_ss(&src2[n]),
-		in1[0] = _mm_add_ss(in1[0], in2[0]);
-		_mm_store_ss(&dst[n], in1[0]);
-	}
-}
-#else
-static void mix_2(float * dst, const float * SPA_RESTRICT src1,
-		const float * SPA_RESTRICT src2, uint32_t n_samples)
-{
-	uint32_t i;
-	for (i = 0; i < n_samples; i++)
-		dst[i] = src1[i] + src2[i];
-}
-#endif
-
-
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -697,6 +657,7 @@ static int impl_node_process(void *object)
 	uint32_t n_samples, n_buffers, i, maxsize;
         struct buffer **buffers;
         struct buffer *outb;
+	const void **datas;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -717,6 +678,7 @@ static int impl_node_process(void *object)
 	}
 
         buffers = alloca(MAX_PORTS * sizeof(struct buffer *));
+        datas = alloca(MAX_PORTS * sizeof(void *));
         n_buffers = 0;
 
 	maxsize = MAX_SAMPLES * sizeof(float);
@@ -746,6 +708,7 @@ static int impl_node_process(void *object)
 
 		maxsize = SPA_MIN(inb->buffer->datas[0].chunk->size, maxsize);
 
+		datas[n_buffers] = inb->buffer->datas[0].data;
 		buffers[n_buffers++] = inb;
 		inio->status = SPA_STATUS_NEED_DATA;
 	}
@@ -762,8 +725,6 @@ static int impl_node_process(void *object)
 		*outb->buffer = *buffers[0]->buffer;
 	}
 	else {
-		float *dst;
-
 		outb->buffer->n_datas = 1;
 		outb->buffer->datas = outb->datas;
 		outb->datas[0].data = SPA_PTR_ALIGN(this->empty, 16, void);
@@ -772,18 +733,7 @@ static int impl_node_process(void *object)
 		outb->datas[0].chunk->size = n_samples * sizeof(float);
 		outb->datas[0].chunk->stride = sizeof(float);
 
-		dst = outb->datas[0].data;
-		if (n_buffers == 0) {
-			memset(dst, 0, n_samples * sizeof(float));
-		}
-		else {
-			/* first 2 buffers, add and store */
-			mix_2(dst, buffers[0]->buffer->datas[0].data,
-				   buffers[1]->buffer->datas[0].data, n_samples);
-			/* next buffers */
-			for (i = 2; i < n_buffers; i++)
-				mix_2(dst, dst, buffers[i]->buffer->datas[0].data, n_samples);
-		}
+		mix_ops_process(&this->ops, outb->datas[0].data, datas, n_buffers, n_samples);
 	}
 
 	outio->buffer_id = outb->id;
@@ -859,9 +809,17 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
+		}
 	}
+	if (this->cpu)
+		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	spa_hook_list_init(&this->hooks);
 
@@ -920,9 +878,9 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_floatmix_factory = {
+const struct spa_handle_factory spa_mixer_dsp_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	SPA_NAME_AUDIO_MIXER,
+	SPA_NAME_AUDIO_MIXER_DSP,
 	NULL,
 	impl_get_size,
 	impl_init,

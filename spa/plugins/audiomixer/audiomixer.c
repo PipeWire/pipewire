@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include <spa/support/log.h>
+#include <spa/support/cpu.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
 #include <spa/node/node.h>
@@ -96,8 +97,10 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
+	uint32_t cpu_flags;
 
-	struct spa_audiomixer_ops ops;
+	struct mix_ops ops;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -114,12 +117,6 @@ struct impl {
 	int n_formats;
 	struct spa_audio_info format;
 	uint32_t bpf;
-
-	mix_clear_func_t clear;
-	mix_func_t copy;
-	mix_func_t add;
-	mix_scale_func_t copy_scale;
-	mix_scale_func_t add_scale;
 
 	bool started;
 };
@@ -481,24 +478,12 @@ static int port_set_format(void *object,
 			if (memcmp(&info, &this->format, sizeof(struct spa_audio_info)))
 				return -EINVAL;
 		} else {
-			if (info.info.raw.format == SPA_AUDIO_FORMAT_S16) {
-				this->clear = this->ops.clear[FMT_S16];
-				this->copy = this->ops.copy[FMT_S16];
-				this->add = this->ops.add[FMT_S16];
-				this->copy_scale = this->ops.copy_scale[FMT_S16];
-				this->add_scale = this->ops.add_scale[FMT_S16];
-				this->bpf = sizeof(int16_t) * info.info.raw.channels;
-			}
-			else if (info.info.raw.format == SPA_AUDIO_FORMAT_F32) {
-				this->clear = this->ops.clear[FMT_F32];
-				this->copy = this->ops.copy[FMT_F32];
-				this->add = this->ops.add[FMT_F32];
-				this->copy_scale = this->ops.copy_scale[FMT_F32];
-				this->add_scale = this->ops.add_scale[FMT_F32];
-				this->bpf = sizeof(float) * info.info.raw.channels;
-			}
-			else
-				return -EINVAL;
+			this->ops.fmt = info.info.raw.format;
+			this->ops.n_channels = info.info.raw.channels;
+			this->ops.cpu_flags = this->cpu_flags;
+
+			if ((res = mix_ops_init(&this->ops)) < 0)
+				return res;
 
 			this->have_format = true;
 			this->format = info;
@@ -651,6 +636,8 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 	void *data;
 	double volume = *port->io_volume;
 	bool mute = *port->io_mute;
+	const void *s0[2], *s1[2];
+	uint32_t n_src;
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 
@@ -668,29 +655,24 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 	len1 = SPA_MIN(outsize, maxsize - offset);
 	len2 = outsize - len1;
 
-	if (volume < 0.001 || mute) {
-		/* silence, for the first layer clear, otherwise do nothing */
-		if (layer == 0) {
-			this->clear(out, len1);
-			if (len2 > 0)
-				this->clear(SPA_MEMBER(out, len1, void), len2);
-		}
+	n_src = 0;
+	if (layer > 0) {
+		s0[n_src] = out;
+		s1[n_src] = SPA_MEMBER(out, len1, void);
+		n_src++;
 	}
-	else if (volume < 0.999 || volume > 1.001) {
-		mix_scale_func_t mix = layer == 0 ? this->copy_scale : this->add_scale;
+	s0[n_src] = SPA_MEMBER(data, offset, void);
+	s1[n_src] = data;
+	n_src++;
 
-		mix(out, SPA_MEMBER(data, offset, void), volume, len1);
-		if (len2 > 0)
-			mix(SPA_MEMBER(out, len1, void), data, volume, len2);
+	if (volume < 0.001 || mute) {
+		/* silence, do nothing */
 	}
 	else {
-		mix_func_t mix = layer == 0 ? this->copy : this->add;
-
-		mix(out, SPA_MEMBER(data, offset, void), len1);
+		mix_ops_process(&this->ops, out, s0, n_src, len1);
 		if (len2 > 0)
-			mix(SPA_MEMBER(out, len1, void), data, len2);
+			mix_ops_process(&this->ops, SPA_MEMBER(out, len1, void), s1, n_src, len2);
 	}
-
 	port->queued_bytes -= outsize;
 
 	if (port->queued_bytes == 0) {
@@ -863,6 +845,13 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	mix_ops_free(&this->ops);
 	return 0;
 }
 
@@ -893,9 +882,17 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
+		}
 	}
+	if (this->cpu)
+		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	spa_hook_list_init(&this->hooks);
 
@@ -928,8 +925,6 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 
 	spa_list_init(&port->queue);
-
-	spa_audiomixer_get_ops(&this->ops);
 
 	return 0;
 }

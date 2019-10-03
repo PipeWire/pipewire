@@ -1,6 +1,6 @@
-/* Spa Audiomixer plugin
+/* Spa
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2019 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,29 +22,48 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
 
-#include <spa/support/plugin.h>
+#include <spa/utils/defs.h>
 
-extern const struct spa_handle_factory spa_audiomixer_factory;
-extern const struct spa_handle_factory spa_mixer_dsp_factory;
+#include "mix-ops.h"
 
-SPA_EXPORT
-int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+void
+mix_f32_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
 {
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
+	uint32_t i, n;
+	float *d = dst;
 
-	switch (*index) {
-	case 0:
-		*factory = &spa_audiomixer_factory;
-		break;
-	case 1:
-		*factory = &spa_mixer_dsp_factory;
-		break;
-	default:
-		return 0;
+	if (n_src == 0)
+		memset(dst, 0, n_samples * sizeof(float));
+	else if (dst != src[0])
+		memcpy(dst, src[0], n_samples * sizeof(float));
+
+	for (i = 1; i < n_src; i++) {
+		const float *s = src[i];
+		for (n = 0; n < n_samples; n++)
+			d[n] += s[n];
 	}
-	(*index)++;
-	return 1;
+}
+
+void
+mix_f64_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, n;
+	double *d = dst;
+
+	if (n_src == 0)
+		memset(dst, 0, n_samples * sizeof(double));
+	else if (dst != src[0])
+		memcpy(dst, src[0], n_samples * sizeof(double));
+
+	for (i = 1; i < n_src; i++) {
+		const double *s = src[i];
+		for (n = 0; n < n_samples; n++)
+			d[n] += s[n];
+	}
 }

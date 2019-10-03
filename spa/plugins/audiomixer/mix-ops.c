@@ -1,6 +1,6 @@
 /* Spa
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2019 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,262 +22,86 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+
+#include <spa/support/cpu.h>
+#include <spa/utils/defs.h>
+#include <spa/param/audio/format-utils.h>
+
 #include "mix-ops.h"
 
-static void
-clear_s16(void *dst, int n_bytes)
-{
-	memset(dst, 0, n_bytes);
-}
+typedef void (*mix_func_t) (struct mix_ops *ops, void * SPA_RESTRICT dst,
+		const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples);
 
-static void
-clear_f32(void *dst, int n_bytes)
-{
-	memset(dst, 0, n_bytes);
-}
+struct mix_info {
+	uint32_t fmt;
+	uint32_t n_channels;
+	uint32_t cpu_flags;
+	uint32_t stride;
+	mix_func_t process;
+};
 
-static void
-copy_s16(void *dst, const void *src, int n_bytes)
+static struct mix_info mix_table[] =
 {
-	memcpy(dst, src, n_bytes);
-}
+	/* f32 */
+#if defined (HAVE_SSE)
+	{ SPA_AUDIO_FORMAT_F32, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
+	{ SPA_AUDIO_FORMAT_F32P, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
+#endif
+	{ SPA_AUDIO_FORMAT_F32, 1, 0, 4, mix_f32_c },
+	{ SPA_AUDIO_FORMAT_F32P, 1, 0, 4, mix_f32_c },
 
-static void
-copy_f32(void *dst, const void *src, int n_bytes)
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_F64, 1, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
+	{ SPA_AUDIO_FORMAT_F64P, 1, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
+#endif
+	{ SPA_AUDIO_FORMAT_F64, 1, 0, 8, mix_f64_c },
+	{ SPA_AUDIO_FORMAT_F64P, 1, 0, 8, mix_f64_c },
+};
+
+#define MATCH_CHAN(a,b)		((a) == 0 || (a) == (b))
+#define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
+
+static const struct mix_info *find_mix_info(uint32_t fmt,
+		uint32_t n_channels, uint32_t cpu_flags)
 {
-	memcpy(dst, src, n_bytes);
-}
+	size_t i;
 
-static void
-add_s16(void *dst, const void *src, int n_bytes)
-{
-	const int16_t *s = src;
-	int16_t *d = dst;
-	int32_t t;
-
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		t = *d + *s;
-		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
-		d++;
-		s++;
+	for (i = 0; i < SPA_N_ELEMENTS(mix_table); i++) {
+		if (mix_table[i].fmt == fmt &&
+		    MATCH_CHAN(mix_table[i].n_channels, n_channels) &&
+		    MATCH_CPU_FLAGS(mix_table[i].cpu_flags, cpu_flags))
+			return &mix_table[i];
 	}
+	return NULL;
 }
 
-static void
-add_f32(void *dst, const void *src, int n_bytes)
+static void impl_mix_ops_clear(struct mix_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
 {
-	const float *s = src;
-	float *d = dst;
-
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d += *s;
-		d++;
-		s++;
-	}
+	const struct mix_info *info = ops->priv;
+	memset(dst, 0, n_samples * info->stride);
 }
 
-static void
-copy_scale_s16(void *dst, const void *src, const double scale, int n_bytes)
+static void impl_mix_ops_free(struct mix_ops *ops)
 {
-	const int16_t *s = src;
-	int16_t *d = dst;;
-	int32_t v = scale * (1 << 11), t;
-
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		t = (*s * v) >> 11;
-		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
-		d++;
-		s++;
-	}
+	spa_zero(*ops);
 }
 
-static void
-copy_scale_f32(void *dst, const void *src, const double scale, int n_bytes)
+int mix_ops_init(struct mix_ops *ops)
 {
-	const float *s = src;
-	float *d = dst;
-	float v = scale;
+	const struct mix_info *info;
 
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d = *s * v;
-		d++;
-		s++;
-	}
-}
+	info = find_mix_info(ops->fmt, ops->n_channels, ops->cpu_flags);
+	if (info == NULL)
+		return -ENOTSUP;
 
-static void
-add_scale_s16(void *dst, const void *src, const double scale, int n_bytes)
-{
-	const int16_t *s = src;
-	int16_t *d = dst;
-	int32_t v = scale * (1 << 11), t;
+	ops->priv = info;
+	ops->cpu_flags = info->cpu_flags;
+	ops->clear = impl_mix_ops_clear;
+	ops->process = info->process;
+	ops->free = impl_mix_ops_free;
 
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		t = *d + ((*s * v) >> 11);
-		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
-		d++;
-		s++;
-	}
-}
-
-static void
-add_scale_f32(void *dst, const void *src, const double scale, int n_bytes)
-{
-	const float *s = src;
-	float *d = dst;
-	float v = scale;
-
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d += *s * v;
-		d++;
-		s++;
-	}
-}
-
-static void
-copy_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
-{
-	const int16_t *s = src;
-	int16_t *d = dst;
-
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		*d = *s;
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-copy_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
-{
-	const float *s = src;
-	float *d = dst;
-
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d = *s;
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-add_s16_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
-{
-	const int16_t *s = src;
-	int16_t *d = dst;
-	int32_t t;
-
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		t = *d + *s;
-		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-add_f32_i(void *dst, int dst_stride, const void *src, int src_stride, int n_bytes)
-{
-	const float *s = src;
-	float *d = dst;
-
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d += *s;
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-copy_scale_s16_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
-{
-	const int16_t *s = src;
-	int16_t *d = dst;
-	int32_t v = scale * (1 << 11), t;
-
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		t = (*s * v) >> 11;
-		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-copy_scale_f32_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
-{
-	const float *s = src;
-	float *d = dst;
-	float v = scale;
-
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d = *s * v;
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-add_scale_s16_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
-{
-	const int16_t *s = src;
-	int16_t *d = dst;
-	int32_t v = scale * (1 << 11), t;
-
-	n_bytes /= sizeof(int16_t);
-	while (n_bytes--) {
-		t = *d + ((*s * v) >> 11);
-		*d = SPA_CLAMP(t, INT16_MIN, INT16_MAX);
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-static void
-add_scale_f32_i(void *dst, int dst_stride, const void *src, int src_stride, const double scale, int n_bytes)
-{
-	const float *s = src;
-	float *d = dst;
-	float v = scale;
-
-	n_bytes /= sizeof(float);
-	while (n_bytes--) {
-		*d += *s * v;
-		d += dst_stride;
-		s += src_stride;
-	}
-}
-
-void spa_audiomixer_get_ops(struct spa_audiomixer_ops *ops)
-{
-	ops->clear[FMT_S16] = clear_s16;
-	ops->clear[FMT_F32] = clear_f32;
-	ops->copy[FMT_S16] = copy_s16;
-	ops->copy[FMT_F32] = copy_f32;
-        ops->add[FMT_S16] = add_s16;
-        ops->add[FMT_F32] = add_f32;
-        ops->copy_scale[FMT_S16] = copy_scale_s16;
-        ops->copy_scale[FMT_F32] = copy_scale_f32;
-        ops->add_scale[FMT_S16] = add_scale_s16;
-        ops->add_scale[FMT_F32] = add_scale_f32;
-        ops->copy_i[FMT_S16] = copy_s16_i;
-        ops->copy_i[FMT_F32] = copy_f32_i;
-        ops->add_i[FMT_S16] = add_s16_i;
-        ops->add_i[FMT_F32] = add_f32_i;
-        ops->copy_scale_i[FMT_S16] = copy_scale_s16_i;
-        ops->copy_scale_i[FMT_F32] = copy_scale_f32_i;
-        ops->add_scale_i[FMT_S16] = add_scale_s16_i;
-        ops->add_scale_i[FMT_F32] = add_scale_f32_i;
+	return 0;
 }

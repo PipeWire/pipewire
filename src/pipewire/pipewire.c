@@ -126,6 +126,7 @@ open_plugin(struct registry *registry,
 		goto error_dlclose;
 	}
 
+	pw_log_debug("loaded plugin:'%s'", filename);
 	plugin->ref = 1;
 	plugin->filename = filename;
 	plugin->hnd = hnd;
@@ -150,6 +151,7 @@ unref_plugin(struct plugin *plugin)
 {
 	if (--plugin->ref == 0) {
 		spa_list_remove(&plugin->link);
+		pw_log_debug("unloaded plugin:'%s'", plugin->filename);
 		dlclose(plugin->hnd);
 		free(plugin->filename);
 		free(plugin);
@@ -235,7 +237,7 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 	if (lib == NULL)
 		lib = sup->support_lib;
 
-	pw_log_debug("load \"%s\", \"%s\"", lib, factory_name);
+	pw_log_debug("load lib:'%s' factory-name:'%s'", lib, factory_name);
 
 	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL) {
 		res = -errno;

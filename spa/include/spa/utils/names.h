@@ -40,9 +40,14 @@ extern "C" {
 
 /* audio mixer */
 
-#define SPA_NAME_AUDIO_MIXER		"audio.mix"			/**< mixes the raw audio on N input
+#define SPA_NAME_AUDIO_MIXER		"audio.mixer"			/**< mixes the raw audio on N input
 									  *  ports together on the output
 									  *  port */
+#define SPA_NAME_AUDIO_MIXER_DSP	"audio.mixer.dsp"		/**< mixes mono audio with fixed input
+									  *  and output buffer sizes. supported
+									  *  formats must include f32 and
+									  *  optionally f64 and s24_32 */
+
 /** audio processing */
 #define SPA_NAME_AUDIO_PROCESS_FORMAT	"audio.process.format"		/**< processes raw audio from one format
 									  *  to another */

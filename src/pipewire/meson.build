@@ -49,7 +49,6 @@ pipewire_sources = [
   'main-loop.c',
   'mem.c',
   'module.c',
-  'mix/floatmix.c',
   'node.c',
   'factory.c',
   'pipewire.c',

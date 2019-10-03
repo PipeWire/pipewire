@@ -29,6 +29,7 @@
 #include <spa/pod/parser.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/node/utils.h>
+#include <spa/utils/names.h>
 #include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
@@ -38,8 +39,6 @@
 #include "pipewire/link.h"
 
 #define NAME "port"
-
-extern const struct spa_handle_factory spa_floatmix_factory;
 
 /** \cond */
 struct impl {
@@ -467,8 +466,7 @@ int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags)
 			     SPA_IO_Buffers, NULL, 0);
 	}
 	if (port->mix_handle != NULL) {
-		spa_handle_clear(port->mix_handle);
-		free(port->mix_handle);
+		pw_unload_spa_handle(port->mix_handle);
 		port->mix_handle = NULL;
 	}
 
@@ -491,10 +489,9 @@ static int setup_mixer(struct pw_port *port, const struct spa_pod *param)
 {
 	uint32_t media_type, media_subtype;
 	int res;
-	const struct spa_handle_factory *factory = NULL;
+	const char *fallback_lib, *factory_name;
 	struct spa_handle *handle;
-	const struct spa_support *support;
-	uint32_t n_support;
+	struct spa_dict_item items[1];
 	void *iface;
 
 	if ((res = spa_format_parse(param, &media_type, &media_subtype)) < 0)
@@ -516,7 +513,8 @@ static int setup_mixer(struct pw_port *port, const struct spa_pod *param)
 			if (info.format != SPA_AUDIO_FORMAT_F32P || info.channels != 1)
 				return -ENOTSUP;
 
-			factory = &spa_floatmix_factory;
+			fallback_lib = "audiomixer/libspa-audiomixer";
+			factory_name = SPA_NAME_AUDIO_MIXER_DSP;
 			break;
 		}
 		default:
@@ -527,15 +525,17 @@ static int setup_mixer(struct pw_port *port, const struct spa_pod *param)
 		return -ENOTSUP;
 	}
 
-	if (factory == NULL)
-		return -EIO;
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, fallback_lib);
+	handle = pw_core_load_spa_handle(port->node->core, factory_name,
+			&SPA_DICT_INIT_ARRAY(items));
+	if (handle == NULL)
+		return -errno;
 
-	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
-
-	support = pw_core_get_support(port->node->core, &n_support);
-	spa_handle_factory_init(factory, handle, NULL, support, n_support);
-
-	spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface);
+	if ((res = spa_handle_get_interface(handle,
+					SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
+		pw_unload_spa_handle(handle);
+		return res;
+	}
 
 	pw_log_debug("mix node %p", iface);
 	pw_port_set_mix(port, (struct spa_node*)iface,

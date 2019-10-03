@@ -62,6 +62,13 @@ static inline int spa_dict_item_compare(const void *i1, const void *i2)
 	return strcmp(it1->key, it2->key);
 }
 
+static inline void spa_dict_qsort(struct spa_dict *dict)
+{
+	qsort((void*)dict->items, dict->n_items, sizeof(struct spa_dict_item),
+			spa_dict_item_compare);
+	SPA_FLAG_SET(dict->flags, SPA_DICT_FLAG_SORTED);
+}
+
 static inline const struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *dict,
 							       const char *key)
 {

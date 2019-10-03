@@ -540,7 +540,7 @@ impl_node_port_use_buffers(void *object,
 				      buffers[i]);
 			return -EINVAL;
 		}
-		if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT))
+		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT))
 			spa_list_append(&port->empty, &b->link);
 	}
 	port->n_buffers = n_buffers;
@@ -578,13 +578,13 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	struct port *port = GET_OUT_PORT(this, 0);
 	struct buffer *b = &port->buffers[id];
 
-	if (!SPA_FLAG_CHECK(b->flags, BUFFER_FLAG_OUT)) {
+	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_log_warn(this->log, NAME " %p: buffer %d not outstanding", this, id);
 		return;
 	}
 
 	spa_list_append(&port->empty, &b->link);
-	SPA_FLAG_UNSET(b->flags, BUFFER_FLAG_OUT);
+	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 	spa_log_trace(this->log, NAME " %p: recycle buffer %d", this, id);
 }
 

@@ -377,9 +377,10 @@ do_connect(struct spa_loop *loop,
 	struct pw_proxy dummy, *core_proxy;
 	int res;
 
+	spa_zero(dummy);
 	dummy.remote = remote;
 
-	core_proxy = pw_proxy_new(&dummy, PW_TYPE_INTERFACE_Core, 0);
+	core_proxy = pw_proxy_new(&dummy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE_PROXY, 0);
 	if (core_proxy == NULL) {
 		res = -errno;
 		goto error_disconnect;
@@ -387,7 +388,7 @@ do_connect(struct spa_loop *loop,
 	remote->core_proxy = (struct pw_core_proxy*)core_proxy;
 
 	remote->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&dummy,
-			PW_TYPE_INTERFACE_Client, 0);
+			PW_TYPE_INTERFACE_Client, PW_VERSION_CLIENT_PROXY, 0);
 	if (remote->client_proxy == NULL) {
 		res = -errno;
 		goto error_clean_core_proxy;
@@ -396,8 +397,8 @@ do_connect(struct spa_loop *loop,
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_events, remote);
 	pw_proxy_add_listener(core_proxy, &impl->core_proxy_listener, &core_proxy_events, remote);
 
-	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
 	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE_PROXY);
+	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTED, NULL);
 
 	return 0;

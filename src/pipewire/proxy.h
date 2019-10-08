@@ -123,6 +123,7 @@ struct pw_proxy_events {
 struct pw_proxy *
 pw_proxy_new(struct pw_proxy *factory,	/**< factory */
 	     uint32_t type,		/**< interface type */
+	     uint32_t version,		/**< interface version */
 	     size_t user_data_size	/**< size of user data */);
 
 /** Add an event listener to proxy */

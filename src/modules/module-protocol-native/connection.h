@@ -43,6 +43,8 @@ struct pw_protocol_native_connection_events {
 	void (*error) (void *data, int error);
 
 	void (*need_flush) (void *data);
+
+	void (*start) (void *data, uint32_t version);
 };
 
 /** \class pw_protocol_native_connection

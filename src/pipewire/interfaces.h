@@ -41,23 +41,23 @@ extern "C" {
 #include <pipewire/proxy.h>
 #include <pipewire/permission.h>
 
-#define PW_VERSION_CORE_PROXY		0
+#define PW_VERSION_CORE_PROXY		3
 struct pw_core_proxy { struct spa_interface iface; };
-#define PW_VERSION_REGISTRY_PROXY	0
+#define PW_VERSION_REGISTRY_PROXY	3
 struct pw_registry_proxy { struct spa_interface iface; };
-#define PW_VERSION_MODULE_PROXY		0
+#define PW_VERSION_MODULE_PROXY		3
 struct pw_module_proxy { struct spa_interface iface; };
-#define PW_VERSION_DEVICE_PROXY		0
+#define PW_VERSION_DEVICE_PROXY		3
 struct pw_device_proxy { struct spa_interface iface; };
-#define PW_VERSION_NODE_PROXY		0
+#define PW_VERSION_NODE_PROXY		3
 struct pw_node_proxy { struct spa_interface iface; };
-#define PW_VERSION_PORT_PROXY		0
+#define PW_VERSION_PORT_PROXY		3
 struct pw_port_proxy { struct spa_interface iface; };
-#define PW_VERSION_FACTORY_PROXY	0
+#define PW_VERSION_FACTORY_PROXY	3
 struct pw_factory_proxy { struct spa_interface iface; };
-#define PW_VERSION_CLIENT_PROXY		0
+#define PW_VERSION_CLIENT_PROXY		3
 struct pw_client_proxy { struct spa_interface iface; };
-#define PW_VERSION_LINK_PROXY		0
+#define PW_VERSION_LINK_PROXY		3
 struct pw_link_proxy { struct spa_interface iface; };
 
 /**

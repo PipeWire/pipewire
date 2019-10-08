@@ -34,7 +34,7 @@ extern "C" {
 
 struct pw_client_node_proxy { struct spa_interface iface; };
 
-#define PW_VERSION_CLIENT_NODE			0
+#define PW_VERSION_CLIENT_NODE			3
 
 #define PW_EXTENSION_MODULE_CLIENT_NODE		PIPEWIRE_MODULE_PREFIX "module-client-node"
 

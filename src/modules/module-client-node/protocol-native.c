@@ -97,7 +97,7 @@ client_node_marshal_get_node(void *object, uint32_t version, size_t user_data_si
 	struct pw_proxy *res;
 	uint32_t new_id;
 
-	res = pw_proxy_new(object, PW_TYPE_INTERFACE_Node, user_data_size);
+	res = pw_proxy_new(object, PW_TYPE_INTERFACE_Node, version, user_data_size);
 	if (res == NULL)
 		return NULL;
 

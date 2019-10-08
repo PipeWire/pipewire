@@ -23,19 +23,6 @@ pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.
 )
 endif
 
-pipewire_module_client_node = shared_library('pipewire-module-client-node',
-  [ 'module-client-node.c',
-    'module-client-node/remote-node.c',
-    'module-client-node/client-node.c',
-    'module-client-node/protocol-native.c',
-    'spa/spa-node.c', ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  install : true,
-  install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
-)
-
 pipewire_module_client_node = shared_library('pipewire-module-client-device',
   [ 'module-client-device.c',
     'module-client-device/resource-device.c',
@@ -68,12 +55,30 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
     'module-protocol-native/local-socket.c',
     'module-protocol-native/portal-screencast.c',
     'module-protocol-native/protocol-native.c',
+    'module-protocol-native/v0/protocol-native.c',
     'module-protocol-native/connection.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
   dependencies : pipewire_module_protocol_native_deps,
+)
+
+pipewire_module_client_node = shared_library('pipewire-module-client-node',
+  [ 'module-client-node.c',
+    'module-client-node/remote-node.c',
+    'module-client-node/client-node.c',
+    'module-client-node/protocol-native.c',
+    'module-client-node/v0/client-node.c',
+    'module-client-node/v0/transport.c',
+    'module-client-node/v0/protocol-native.c',
+    'spa/spa-node.c', ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  link_with : pipewire_module_protocol_native,
+  install : true,
+  install_dir : modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
 test('pw-test-protocol-native',

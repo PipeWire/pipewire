@@ -132,7 +132,7 @@ int pw_protocol_add_marshal(struct pw_protocol *protocol,
 			    const struct pw_protocol_marshal *marshal);
 
 const struct pw_protocol_marshal *
-pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type);
+pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t version);
 
 struct pw_protocol * pw_core_find_protocol(struct pw_core *core, const char *name);
 

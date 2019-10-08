@@ -152,12 +152,12 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 SPA_EXPORT
 const struct pw_protocol_marshal *
-pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type)
+pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t version)
 {
 	struct marshal *impl;
 
 	spa_list_for_each(impl, &protocol->marshal_list, link) {
-		if (impl->marshal->type == type)
+		if (impl->marshal->type == type && impl->marshal->version == version)
                         return impl->marshal;
         }
 	return NULL;

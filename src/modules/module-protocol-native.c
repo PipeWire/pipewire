@@ -44,6 +44,8 @@
 
 #include <pipewire/pipewire.h>
 #include <extensions/protocol-native.h>
+
+#include "pipewire/map.h"
 #include "pipewire/private.h"
 
 #include "modules/module-protocol-native/connection.h"
@@ -67,6 +69,7 @@ static bool debug_messages = 0;
 #define LOCK_SUFFIXLEN  5
 
 void pw_protocol_native_init(struct pw_protocol *protocol);
+void pw_protocol_native0_init(struct pw_protocol *protocol);
 
 struct protocol_data {
 	struct pw_module *module;
@@ -102,10 +105,15 @@ struct server {
 struct client_data {
 	struct pw_client *client;
 	struct spa_hook client_listener;
+
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
+	struct spa_hook conn_listener;
+
 	unsigned int busy:1;
 	unsigned int need_flush:1;
+
+	struct protocol_compat_v2 compat_v2;
 };
 
 static void
@@ -127,8 +135,19 @@ process_messages(struct client_data *data)
 	        const struct pw_protocol_marshal *marshal;
 		uint32_t permissions, required;
 
-		if (pw_protocol_native_connection_get_next(conn, &msg) != 1)
+		res = pw_protocol_native_connection_get_next(conn, &msg);
+		if (res < 0) {
+			if (res == -EAGAIN)
+				break;
+			goto error;
+		}
+		if (res == 0)
 			break;
+
+		if (client->core_resource == NULL) {
+			res = -EPROTO;
+			goto error;
+		}
 
 		client->recv_seq = msg->seq;
 
@@ -191,6 +210,10 @@ invalid_message:
 	pw_resource_error(resource, res, "invalid message received id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
 	spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
+	pw_client_destroy(client);
+	goto done;
+error:
+	pw_log_error(NAME" %p: client error (%s)", client->protocol, spa_strerror(res));
 	pw_client_destroy(client);
 	goto done;
 }
@@ -260,12 +283,40 @@ static void client_free(void *data)
 		pw_loop_destroy_source(client->protocol->core->main_loop, this->source);
 	if (this->connection)
 		pw_protocol_native_connection_destroy(this->connection);
+
+	pw_map_clear(&this->compat_v2.types);
 }
 
 static const struct pw_client_events client_events = {
 	PW_VERSION_CLIENT_EVENTS,
 	.free = client_free,
 	.busy_changed = client_busy_changed,
+};
+
+static void on_start(void *data, uint32_t version)
+{
+	struct client_data *this = data;
+	struct pw_client *client = this->client;
+	struct pw_core *core = client->core;
+
+	pw_log_debug("version %d", version);
+
+	if (pw_global_bind(pw_core_get_global(core), client,
+			PW_PERM_RWX, version, 0) < 0)
+		return;
+
+	if (version == 0)
+		client->compat_v2 = &this->compat_v2;
+
+	if (pw_client_register(client, NULL) < 0)
+		return;
+
+	return;
+}
+
+static const struct pw_protocol_native_connection_events server_conn_events = {
+	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
+	.start = on_start,
 };
 
 static struct pw_client *client_new(struct server *s, int fd)
@@ -323,18 +374,15 @@ static struct pw_client *client_new(struct server *s, int fd)
 	if (this->connection == NULL)
 		goto cleanup_client;
 
+	pw_map_init(&this->compat_v2.types, 0, 32);
+
+	pw_protocol_native_connection_add_listener(this->connection,
+						   &this->conn_listener,
+						   &server_conn_events,
+						   this);
+
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
-	if (pw_global_bind(pw_core_get_global(core), client,
-			PW_PERM_RWX, PW_VERSION_CORE_PROXY, 0) < 0)
-		goto cleanup_client;
-
-	if (pw_client_register(client, NULL) < 0)
-		goto cleanup_client;
-
-	if (pw_global_bind(pw_client_get_global(client), client,
-			PW_PERM_RWX, PW_VERSION_CLIENT_PROXY, 1) < 0)
-		goto cleanup_client;
 
 	return client;
 
@@ -632,7 +680,7 @@ static void on_need_flush(void *data)
 	}
 }
 
-static const struct pw_protocol_native_connection_events conn_events = {
+static const struct pw_protocol_native_connection_events client_conn_events = {
 	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
 	.need_flush = on_need_flush,
 };
@@ -662,7 +710,7 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_cl
 
 	pw_protocol_native_connection_add_listener(impl->connection,
 						   &impl->conn_listener,
-						   &conn_events,
+						   &client_conn_events,
 						   impl);
 	return 0;
 
@@ -957,6 +1005,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	this->extension = &protocol_ext_impl;
 
 	pw_protocol_native_init(this);
+	pw_protocol_native0_init(this);
 
 	pw_log_debug(NAME" %p: new %d", this, debug_messages);
 

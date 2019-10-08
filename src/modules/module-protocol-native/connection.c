@@ -58,6 +58,7 @@ struct buffer {
 	struct pw_protocol_native_message msg;
 
 	bool update;
+	bool first;
 };
 
 struct impl {
@@ -66,6 +67,9 @@ struct impl {
 
 	struct buffer in, out;
 	struct spa_pod_builder builder;
+
+	uint32_t version;
+	size_t hdr_size;
 };
 
 /** \endcond */
@@ -240,11 +244,15 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 	this->fd = fd;
 	spa_hook_list_init(&this->listener_list);
 
+	impl->hdr_size = HDR_SIZE;
+	impl->version = 3;
+
 	impl->out.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->out.buffer_maxsize = MAX_BUFFER_SIZE;
 	impl->in.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->in.buffer_maxsize = MAX_BUFFER_SIZE;
 	impl->in.update = true;
+	impl->in.first = true;
 
 	if (impl->out.buffer_data == NULL || impl->in.buffer_data == NULL)
 		goto no_mem;
@@ -279,6 +287,7 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 
 static int prepare_packet(struct pw_protocol_native_connection *conn, struct buffer *buf)
 {
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint8_t *data;
 	size_t size, len;
 	uint32_t *p;
@@ -286,18 +295,39 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	data = buf->buffer_data + buf->offset;
 	size = buf->buffer_size - buf->offset;
 
-	if (size < HDR_SIZE)
-		return HDR_SIZE;
+	if (size < impl->hdr_size)
+		return impl->hdr_size;
 
 	p = (uint32_t *) data;
-	data += HDR_SIZE;
-	size -= HDR_SIZE;
 
 	buf->msg.id = p[0];
 	buf->msg.opcode = p[1] >> 24;
 	len = p[1] & 0xffffff;
-	buf->msg.seq = p[2];
-	buf->msg.n_fds = p[3];
+
+	if (buf->first) {
+		buf->first = false;
+		if (p[2] != 0) {
+			pw_log_warn("old version detected");
+			impl->version = 0;
+			impl->hdr_size = 8;
+		} else {
+			impl->version = 3;
+			impl->hdr_size = 16;
+		}
+		spa_hook_list_call(&conn->listener_list,
+				struct pw_protocol_native_connection_events,
+				start, 0, impl->version);
+	}
+
+	if (impl->version >= 3) {
+		buf->msg.seq = p[2];
+		buf->msg.n_fds = p[3];
+	} else {
+		buf->msg.seq = 0;
+		buf->msg.n_fds = 0;
+	}
+	data += impl->hdr_size;
+	size -= impl->hdr_size;
 	buf->msg.fds = &buf->fds[buf->fds_offset];
 
 	if (size < len)
@@ -306,7 +336,7 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	buf->msg.size = len;
 	buf->msg.data = data;
 
-	buf->offset += HDR_SIZE + len;
+	buf->offset += impl->hdr_size + len;
 	buf->fds_offset += buf->msg.n_fds;
 
 	if (buf->offset >= buf->buffer_size)
@@ -334,14 +364,16 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 		const struct pw_protocol_native_message **msg)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
-	size_t len;
-	int res;
+	int len, res;
 	struct buffer *buf;
 
 	buf = &impl->in;
 
 	while (1) {
-		if ((len = prepare_packet(conn, buf)) == 0)
+		len = prepare_packet(conn, buf);
+		if (len < 0)
+			return len;
+		if (len == 0)
 			break;
 
 		if (connection_ensure_size(conn, buf, len) == NULL)
@@ -359,10 +391,10 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	uint32_t *p;
 	struct buffer *buf = &impl->out;
 	/* header and size for payload */
-	if ((p = connection_ensure_size(conn, buf, HDR_SIZE + size)) == NULL)
+	if ((p = connection_ensure_size(conn, buf, impl->hdr_size + size)) == NULL)
 		return NULL;
 
-	return SPA_MEMBER(p, HDR_SIZE, void);
+	return SPA_MEMBER(p, impl->hdr_size, void);
 }
 
 static int builder_overflow(void *data, uint32_t size)
@@ -393,8 +425,14 @@ pw_protocol_native_connection_begin(struct pw_protocol_native_connection *conn,
 	buf->msg.opcode = opcode;
 	impl->builder = SPA_POD_BUILDER_INIT(NULL, 0);
 	spa_pod_builder_set_callbacks(&impl->builder, &builder_callbacks, impl);
-	buf->msg.n_fds = 0;
-	buf->msg.fds = &buf->fds[buf->n_fds];
+	if (impl->version >= 3) {
+		buf->msg.n_fds = 0;
+		buf->msg.fds = &buf->fds[buf->n_fds];
+	} else {
+		buf->msg.n_fds = buf->n_fds;
+		buf->msg.fds = &buf->fds[0];
+	}
+
 	buf->msg.seq = buf->seq;
 	if (msg)
 		*msg = &buf->msg;
@@ -410,21 +448,26 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	struct buffer *buf = &impl->out;
 	int res;
 
-	if ((p = connection_ensure_size(conn, buf, HDR_SIZE + size)) == NULL)
+	if ((p = connection_ensure_size(conn, buf, impl->hdr_size + size)) == NULL)
 		return -errno;
 
 	p[0] = buf->msg.id;
 	p[1] = (buf->msg.opcode << 24) | (size & 0xffffff);
-	p[2] = buf->msg.seq;
-	p[3] = buf->msg.n_fds;
+	if (impl->version >= 3) {
+		p[2] = buf->msg.seq;
+		p[3] = buf->msg.n_fds;
+	}
 
-	buf->buffer_size += HDR_SIZE + size;
-	buf->n_fds += buf->msg.n_fds;
+	buf->buffer_size += impl->hdr_size + size;
+	if (impl->version >= 3)
+		buf->n_fds += buf->msg.n_fds;
+	else
+		buf->n_fds = buf->msg.n_fds;
 
 	if (debug_messages) {
 		fprintf(stderr, ">>>>>>>>> out: id:%d op:%d size:%d seq:%d\n",
 				buf->msg.id, buf->msg.opcode, size, buf->msg.seq);
-	        spa_debug_pod(0, NULL, SPA_MEMBER(p, HDR_SIZE, struct spa_pod));
+	        spa_debug_pod(0, NULL, SPA_MEMBER(p, impl->hdr_size, struct spa_pod));
 	}
 
 	buf->seq = (buf->seq + 1) & SPA_ASYNC_SEQ_MASK;

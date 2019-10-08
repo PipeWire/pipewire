@@ -31,6 +31,7 @@
 
 #include <pipewire/pipewire.h>
 
+#include "module-client-node/v0/client-node.h"
 #include "module-client-node/client-node.h"
 
 #define NAME "client-node"
@@ -47,6 +48,7 @@ struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
 		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
 
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
+struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_core *core);
 
 struct factory_data {
 	struct pw_factory *this;
@@ -76,7 +78,11 @@ static void *create_object(void *_data,
 		goto error_resource;
 	}
 
-	result = pw_client_node_new(node_resource, properties, true);
+	if (version == 0) {
+		result = pw_client_node0_new(node_resource, properties);
+	} else {
+		result = pw_client_node_new(node_resource, properties, true);
+	}
 	if (result == NULL) {
 		res = -errno;
 		goto error_node;
@@ -167,6 +173,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				      data);
 
 	pw_protocol_native_ext_client_node_init(core);
+	pw_protocol_native_ext_client_node0_init(core);
 
 	data->export_node.type = PW_TYPE_INTERFACE_Node;
 	data->export_node.func = pw_remote_node_export;

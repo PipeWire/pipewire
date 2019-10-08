@@ -172,8 +172,7 @@ static int destroy_resource(void *object, void *data)
 	struct pw_client *client = resource->client;
 
 	if (resource &&
-	    resource != client->core_resource &&
-	    resource != client->client_resource) {
+	    resource != client->core_resource) {
 		resource->removed = true;
 		pw_resource_destroy(resource);
 	}
@@ -185,11 +184,20 @@ static int core_hello(void *object, uint32_t version)
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_core *this = resource->core;
+	int res;
 
 	pw_log_debug(NAME" %p: hello %d from resource %p", this, version, resource);
-	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_map_for_each(&client->objects, destroy_resource, client);
+
+	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);
+
+	if (version >= 3) {
+		if ((res = pw_global_bind(client->global, client,
+				PW_PERM_RWX, PW_VERSION_CLIENT_PROXY, 1)) < 0)
+			return res;
+	}
+
 	return 0;
 }
 

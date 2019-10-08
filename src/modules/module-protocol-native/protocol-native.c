@@ -108,7 +108,7 @@ static struct pw_registry_proxy * core_method_marshal_get_registry(void *object,
 	struct pw_proxy *res;
 	uint32_t new_id;
 
-	res = pw_proxy_new(object, PW_TYPE_INTERFACE_Registry, user_data_size);
+	res = pw_proxy_new(object, PW_TYPE_INTERFACE_Registry, version, user_data_size);
 	if (res == NULL)
 		return NULL;
 
@@ -200,7 +200,7 @@ core_method_marshal_create_object(void *object,
 	struct pw_proxy *res;
 	uint32_t new_id;
 
-	res = pw_proxy_new(object, type, user_data_size);
+	res = pw_proxy_new(object, type, version, user_data_size);
 	if (res == NULL)
 		return NULL;
 
@@ -1833,7 +1833,7 @@ static void * registry_marshal_bind(void *object, uint32_t id,
 	struct pw_proxy *res;
 	uint32_t new_id;
 
-	res = pw_proxy_new(object, type, user_data_size);
+	res = pw_proxy_new(object, type, version, user_data_size);
 	if (res == NULL)
 		return NULL;
 

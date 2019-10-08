@@ -87,6 +87,11 @@ typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
 #define pw_client_emit_resource_removed(o,r)	pw_client_emit(o, resource_removed, 0, r)
 #define pw_client_emit_busy_changed(o,b)	pw_client_emit(o, busy_changed, 0, b)
 
+struct protocol_compat_v2 {
+	/* v2 typemap */
+	struct pw_map types;
+};
+
 struct pw_client {
 	struct pw_core *core;		/**< core object */
 	struct spa_list link;		/**< link in core object client list */
@@ -119,6 +124,9 @@ struct pw_client {
 	unsigned int registered:1;
 	unsigned int ucred_valid:1;	/**< if the ucred member is valid */
 	unsigned int busy:1;
+
+	/* v2 compatibility data */
+	void *compat_v2;
 };
 
 #define pw_global_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_global_events, m, v, ##__VA_ARGS__)
@@ -689,6 +697,7 @@ struct pw_proxy {
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
 
 	uint32_t id;			/**< client side id */
+	uint32_t version;		/**< client side version */
 	int refcount;
 	unsigned int zombie:1;		/**< proxy is removed locally and waiting to
 					  *  be removed from server */

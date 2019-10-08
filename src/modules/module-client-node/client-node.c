@@ -134,8 +134,6 @@ struct node {
 
 	uint32_t n_params;
 	struct spa_pod **params;
-
-	struct spa_list pending_list;
 };
 
 struct impl {
@@ -1132,7 +1130,6 @@ node_init(struct node *this,
 			SPA_VERSION_NODE,
 			&impl_node, this);
 	spa_hook_list_init(&this->hooks);
-	spa_list_init(&this->pending_list);
 
 	this->data_source.func = node_on_data_fd_events;
 	this->data_source.data = this;

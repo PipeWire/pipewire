@@ -209,7 +209,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 
 	pw_fill_remote_properties(core, properties);
 	this->properties = properties;
-	this->pool = pw_mempool_new(NULL);
 
 	this->state = PW_REMOTE_STATE_UNCONNECTED;
 
@@ -290,7 +289,6 @@ void pw_remote_destroy(struct pw_remote *remote)
 	pw_map_clear(&remote->objects);
 
 	pw_log_debug(NAME" %p: free", remote);
-	pw_mempool_destroy(remote->pool);
 	pw_properties_free(remote->properties);
 	free(remote->error);
 	free(impl);
@@ -359,6 +357,8 @@ static void core_proxy_destroy(void *data)
 		spa_hook_remove(&impl->core_proxy_listener);
 		spa_hook_remove(&impl->core_listener);
 		remote->core_proxy = NULL;
+		pw_mempool_destroy(remote->pool);
+		remote->pool = NULL;
 	}
 }
 
@@ -393,6 +393,7 @@ do_connect(struct spa_loop *loop,
 		res = -errno;
 		goto error_clean_core_proxy;
 	}
+	remote->pool = pw_mempool_new(NULL);
 
 	pw_core_proxy_add_listener(remote->core_proxy, &impl->core_listener, &core_events, remote);
 	pw_proxy_add_listener(core_proxy, &impl->core_proxy_listener, &core_proxy_events, remote);
@@ -505,10 +506,9 @@ int pw_remote_disconnect(struct pw_remote *remote)
 
 	pw_protocol_client_disconnect(remote->conn);
 
-	remote->core_proxy = NULL;
 	remote->client_proxy = NULL;
 
-        pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
+	pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 
 	pw_map_for_each(&remote->objects, destroy_proxy, remote);
 

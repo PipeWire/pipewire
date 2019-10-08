@@ -48,6 +48,7 @@ struct pw_protocol_native_message {
 struct pw_protocol_native_demarshal {
 	int (*func) (void *object, const struct pw_protocol_native_message *msg);
 	uint32_t permissions;
+	uint32_t flags;
 };
 
 /** \ref pw_protocol_native_ext methods */

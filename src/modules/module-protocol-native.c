@@ -671,7 +671,7 @@ static void on_need_flush(void *data)
         struct client *impl = data;
         struct pw_remote *remote = impl->this.remote;
 
-	if (!impl->flushing) {
+	if (!impl->flushing && impl->source) {
 		int mask = impl->source->mask;
 		impl->flushing = true;
 		SPA_FLAG_SET(mask, SPA_IO_OUT);

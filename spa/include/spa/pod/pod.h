@@ -166,7 +166,7 @@ struct spa_pod_struct {
 struct spa_pod_object_body {
 	uint32_t type;		/**< one of enum spa_type */
 	uint32_t id;		/**< id of the object, depends on the object type */
-	/* contents follow, series of spa_pod */
+	/* contents follow, series of spa_pod_prop */
 };
 
 struct spa_pod_object {

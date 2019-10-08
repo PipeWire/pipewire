@@ -259,20 +259,24 @@ pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t perm
 
 error_version:
 	res = -EPROTO;
-	pw_core_resource_errorf(client->core_resource, id, client->recv_seq,
-			res, "id %d: interface version %d < %d",
-			id, global->version, version);
+	if (client->core_resource)
+		pw_core_resource_errorf(client->core_resource, id, client->recv_seq,
+				res, "id %d: interface version %d < %d",
+				id, global->version, version);
 	goto error_exit;
 error_bind:
-	pw_core_resource_errorf(client->core_resource, id, client->recv_seq,
-		res, "can't bind global %u/%u: %d (%s)", id, version, res, spa_strerror(res));
+	if (client->core_resource)
+		pw_core_resource_errorf(client->core_resource, id, client->recv_seq,
+			res, "can't bind global %u/%u: %d (%s)", id, version,
+			res, spa_strerror(res));
 	goto error_exit;
 
 error_exit:
 	pw_log_error(NAME" %p: can't bind global %u/%u: %d (%s)", global, id,
 			version, res, spa_strerror(res));
 	pw_map_insert_at(&client->objects, id, NULL);
-	pw_core_resource_remove_id(client->core_resource, id);
+	if (client->core_resource)
+		pw_core_resource_remove_id(client->core_resource, id);
 	return res;
 }
 

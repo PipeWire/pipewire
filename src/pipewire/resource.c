@@ -68,7 +68,9 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 
 	this->marshal = pw_protocol_get_marshal(client->protocol, type);
 	if (this->marshal == NULL) {
-		pw_log_error(NAME" %p: no marshal for type %d", this, type);
+		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
+				spa_debug_type_find_name(pw_type_info(), type),
+				version);
 		res = -EPROTO;
 		goto error_clean;
 	}

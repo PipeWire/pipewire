@@ -1420,6 +1420,7 @@ mmap_init(struct impl *this,
 			d[0].fd = expbuf.fd;
 			d[0].data = NULL;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
+			spa_log_debug(this->log, "v4l2: EXPBUF fd:%d", expbuf.fd);
 		} else {
 			d[0].type = SPA_DATA_MemPtr;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
@@ -1435,6 +1436,7 @@ mmap_init(struct impl *this,
 			}
 			b->ptr = d[0].data;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
+			spa_log_debug(this->log, "v4l2: mmap ptr:%p", d[0].data);
 		}
 		spa_v4l2_buffer_recycle(this, i);
 	}

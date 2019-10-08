@@ -844,7 +844,7 @@ static void port_state_changed(struct pw_link *this, struct pw_port *port, struc
 {
 	switch (state) {
 	case PW_PORT_STATE_ERROR:
-		pw_link_update_state(this, PW_LINK_STATE_ERROR, strdup(error));
+		pw_link_update_state(this, PW_LINK_STATE_ERROR, error ? strdup(error) : NULL);
 		break;
 	default:
 		break;

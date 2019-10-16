@@ -112,13 +112,13 @@ open_plugin(struct registry *registry,
 
         if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
 		res = -ENOENT;
-                pw_log_error("can't load %s: %s", filename, dlerror());
-                goto error_free_filename;
+		pw_log_error("can't load %s: %s", filename, dlerror());
+		goto error_free_filename;
         }
         if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
-		res = -ESRCH;
-                pw_log_error("can't find enum function");
-                goto error_dlclose;
+		res = -ENOSYS;
+		pw_log_error("can't find enum function: %s", dlerror());
+		goto error_dlclose;
         }
 
 	if ((plugin = calloc(1, sizeof(struct plugin))) == NULL) {

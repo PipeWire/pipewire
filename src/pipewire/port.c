@@ -521,6 +521,18 @@ static int setup_mixer(struct pw_port *port, const struct spa_pod *param)
 			return -ENOTSUP;
 		}
 		break;
+
+	case SPA_MEDIA_TYPE_application:
+		switch (media_subtype) {
+		case SPA_MEDIA_SUBTYPE_control:
+			fallback_lib = "control/libspa-control";
+			factory_name = SPA_NAME_CONTROL_MIXER;
+			break;
+		default:
+			return -ENOTSUP;
+		}
+		break;
+
 	default:
 		return -ENOTSUP;
 	}

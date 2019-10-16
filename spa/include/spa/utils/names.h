@@ -38,8 +38,10 @@ extern "C" {
 #define SPA_NAME_SUPPORT_SYSTEM		"support.system"		/**< A System interface */
 
 
-/* audio mixer */
+/* control mixer */
+#define SPA_NAME_CONTROL_MIXER		"control.mixer"			/**< mixes control streams */
 
+/* audio mixer */
 #define SPA_NAME_AUDIO_MIXER		"audio.mixer"			/**< mixes the raw audio on N input
 									  *  ports together on the output
 									  *  port */

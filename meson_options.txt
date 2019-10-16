@@ -50,6 +50,10 @@ option('bluez5',
        description: 'Enable bluez5 spa plugin integration',
        type: 'boolean',
        value: true)
+option('control',
+       description: 'Enable control spa plugin integration',
+       type: 'boolean',
+       value: true)
 option('audiotestsrc',
        description: 'Enable audiotestsrc spa plugin integration',
        type: 'boolean',

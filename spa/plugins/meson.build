@@ -7,6 +7,9 @@ endif
 if get_option('audiomixer')
   subdir('audiomixer')
 endif
+if get_option('control')
+  subdir('control')
+endif
 if get_option('audiotestsrc')
   subdir('audiotestsrc')
 endif

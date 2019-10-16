@@ -129,7 +129,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 static inline void *spa_pod_from_data(void *data, size_t maxsize, off_t offset, size_t size)
 {
 	void *pod;
-	if (offset + size > maxsize)
+	if (size < sizeof(struct spa_pod) || offset + size > maxsize)
 		return NULL;
 	pod = SPA_MEMBER(data, offset, void);
 	if (SPA_POD_SIZE(pod) > size)

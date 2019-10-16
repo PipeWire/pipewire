@@ -37,25 +37,51 @@ extern "C" {
  * IO information for a port on a node. This is allocated
  * by the host and configured on a node or all ports for which
  * IO is requested.
+ *
+ * The plugin will communicate with the host through the IO
+ * areas.
  */
 
 /** Different IO area types */
 enum spa_io_type {
 	SPA_IO_Invalid,
-	SPA_IO_Buffers,		/**< area to exchange buffers */
-	SPA_IO_Range,		/**< expected byte range */
-	SPA_IO_Clock,		/**< area to update clock information */
-	SPA_IO_Latency,		/**< latency reporting */
-	SPA_IO_Control,		/**< area for control messages, control messages
-				  *  contain an input spa_pod_sequence of timed
-				  *  events. */
-	SPA_IO_Notify,		/**< area for notify messages, notify messages
-				  *  contain an output spa_pod_sequence of timed
-				  *  events to be sent to listeners. */
-	SPA_IO_Position,	/**< position information in the graph */
-	SPA_IO_RateMatch,	/**< rate matching between nodes */
+	SPA_IO_Buffers,		/**< area to exchange buffers, struct spa_io_buffers */
+	SPA_IO_Range,		/**< expected byte range, struct spa_io_range */
+	SPA_IO_Clock,		/**< area to update clock information, struct spa_io_clock */
+	SPA_IO_Latency,		/**< latency reporting, struct spa_io_latency */
+	SPA_IO_Control,		/**< area for control messages, struct spa_io_sequence */
+	SPA_IO_Notify,		/**< area for notify messages, struct spa_io_sequence */
+	SPA_IO_Position,	/**< position information in the graph, struct spa_io_position */
+	SPA_IO_RateMatch,	/**< rate matching between nodes, struct spa_io_rate_match */
+	SPA_IO_Memory,		/**< memory pointer, struct spa_io_memory */
 };
 
+/**
+ * IO area to exchange buffers.
+ *
+ * A set of buffers should first be configured on the node/port.
+ * Further references to those buffers will be made by using the
+ * id of the buffer.
+ *
+ * If status is SPA_STATUS_OK, the host should ignore
+ * the io area.
+ *
+ * If status is SPA_STATUS_NEED_DATA, the host should:
+ * 1) recycle the buffer in buffer_id, if possible
+ * 2) prepare a new buffer and place the id in buffer_id.
+ *
+ * If status is SPA_STATUS_HAVE_DATA, the host should consume
+ * the buffer in buffer_id and set the state to
+ * SPA_STATUS_NEED_DATA when new data is requested.
+ *
+ * If status is SPA_STATUS_STOPPED, some error occured on the
+ * port.
+ *
+ * Status can also be a negative errno value to indicate errors.
+ * such as:
+ * -EINVAL: buffer_id is invalid
+ * -EPIPE: no more buffers available
+ */
 struct spa_io_buffers {
 #define SPA_STATUS_OK			0
 #define SPA_STATUS_NEED_DATA		(1<<0)
@@ -66,6 +92,16 @@ struct spa_io_buffers {
 };
 
 #define SPA_IO_BUFFERS_INIT  (struct spa_io_buffers) { SPA_STATUS_OK, SPA_ID_INVALID, }
+
+/**
+ * IO area to exchange a memory region
+ */
+struct spa_io_memory {
+	int32_t status;			/**< the status code */
+	uint32_t size;			/**< the size of \a data */
+	void *data;			/**< a memory pointer */
+};
+#define SPA_IO_MEMORY_INIT  (struct spa_io_memory) { SPA_STATUS_OK, 0, NULL, }
 
 /** A range, suitable for input ports that can suggest a range to output ports */
 struct spa_io_range {

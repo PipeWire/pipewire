@@ -544,7 +544,6 @@ impl_node_port_use_buffers(void *object,
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &this->buffers[i];
 		struct spa_data *d = buffers[i]->datas;
-		uint32_t type;
 
 		b->buf = buffers[i];
 		b->id = i;
@@ -552,10 +551,7 @@ impl_node_port_use_buffers(void *object,
 
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));
 
-		type = d[0].type;
-		if ((type == SPA_DATA_MemFd ||
-		     type == SPA_DATA_DmaBuf ||
-		     type == SPA_DATA_MemPtr) && d[0].data == NULL) {
+		if (d[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}

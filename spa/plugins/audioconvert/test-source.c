@@ -663,9 +663,7 @@ impl_node_port_use_buffers(void *object,
 			else if (size != d[j].maxsize)
 				return -EINVAL;
 
-			if (!((d[j].type == SPA_DATA_MemPtr ||
-			       d[j].type == SPA_DATA_MemFd ||
-			       d[j].type == SPA_DATA_DmaBuf) && d[j].data != NULL)) {
+			if (d[j].data == NULL) {
 				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 					      buffers[i]);
 				return -EINVAL;

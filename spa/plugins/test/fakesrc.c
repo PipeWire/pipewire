@@ -599,9 +599,7 @@ impl_node_port_use_buffers(void *object,
 		b->outstanding = false;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
-		if ((d[0].type == SPA_DATA_MemPtr ||
-		     d[0].type == SPA_DATA_MemFd ||
-		     d[0].type == SPA_DATA_DmaBuf) && d[0].data == NULL) {
+		if (d[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
 				      buffers[i]);
 		}

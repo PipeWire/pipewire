@@ -726,9 +726,7 @@ impl_node_port_use_buffers(void *object,
 
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));
 
-		if (!((d[0].type == SPA_DATA_MemFd ||
-		       d[0].type == SPA_DATA_DmaBuf ||
-		       d[0].type == SPA_DATA_MemPtr) && d[0].data != NULL)) {
+		if (d[0].data == NULL) {
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}

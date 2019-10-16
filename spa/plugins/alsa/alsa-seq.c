@@ -570,6 +570,7 @@ static int process_write(struct seq_state *state)
 		buffer = &port->buffers[io->buffer_id];
 		d = &buffer->buf->datas[0];
 
+		io->status = SPA_STATUS_NEED_DATA;
 		spa_node_call_reuse_buffer(&state->callbacks, i, io->buffer_id);
 
 		pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size);

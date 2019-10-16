@@ -225,6 +225,7 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 	uint32_t data_aligns[1];
 	struct port output = { outnode, SPA_DIRECTION_OUTPUT, out_port_id };
 	struct port input = { innode, SPA_DIRECTION_INPUT, in_port_id };
+	const char *str;
 	int res;
 
 	n_params = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
@@ -240,7 +241,11 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 	}
 
-	max_buffers = MAX_BUFFERS;
+	if ((str = pw_properties_get(core->properties, "link.max-buffers")) != NULL)
+		max_buffers = pw_properties_parse_int(str);
+	else
+		max_buffers = MAX_BUFFERS;
+
 	minsize = stride = 0;
 	align = 8;
 	param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);

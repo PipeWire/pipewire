@@ -23,6 +23,7 @@
  */
 
 #include <spa/support/log.h>
+#include <spa/support/cpu.h>
 
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -44,7 +45,9 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
 
+	uint32_t max_align;
 	enum spa_direction direction;
 
 	struct spa_node *target;
@@ -642,9 +645,9 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t state;
 	struct spa_pod *param;
-	int res, i;
+	int res;
 	bool slave_alloc, conv_alloc;
-	int32_t size, buffers, blocks, align, flags;
+	uint32_t i, size, buffers, blocks, align, flags;
 	uint32_t *aligns;
 	struct spa_data *datas;
 	uint32_t slave_flags, conv_flags;
@@ -701,6 +704,8 @@ static int negotiate_buffers(struct impl *this)
 
 	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
 			this, buffers, blocks, size, align, slave_alloc, conv_alloc);
+
+	align = SPA_MAX(align, this->max_align);
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
@@ -962,6 +967,9 @@ impl_init(const struct spa_handle_factory *factory,
 		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
 			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
 		}
 	}
 	if (info == NULL || (str = spa_dict_lookup(info, "audio.adapt.slave")) == NULL)
@@ -970,6 +978,9 @@ impl_init(const struct spa_handle_factory *factory,
 	sscanf(str, "pointer:%p", &this->slave);
 	if (this->slave == NULL)
 		return -EINVAL;
+
+	if (this->cpu)
+		this->max_align = spa_cpu_get_max_align(this->cpu);
 
 	spa_hook_list_init(&this->hooks);
 

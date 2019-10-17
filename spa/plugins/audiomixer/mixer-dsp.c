@@ -41,9 +41,10 @@
 
 #define NAME "mixer-dsp"
 
-#define MAX_BUFFERS     64
-#define MAX_PORTS       128
-#define MAX_SAMPLES     1024
+#define MAX_BUFFERS	64
+#define MAX_PORTS	128
+#define MAX_SAMPLES	1024
+#define MAX_ALIGN	64
 
 #define PORT_DEFAULT_VOLUME	1.0
 #define PORT_DEFAULT_MUTE	false
@@ -115,13 +116,14 @@ struct impl {
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[1];
 
-	bool have_format;
 	int n_formats;
 	struct spa_audio_info format;
 	uint32_t stride;
 
-	bool started;
-        float empty[MAX_SAMPLES + 15];
+	unsigned int have_format:1;
+	unsigned int started:1;
+
+	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
 
 #define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !this->in_ports[(p)].valid)
@@ -725,7 +727,7 @@ static int impl_node_process(void *object)
 	else {
 		outb->buffer->n_datas = 1;
 		outb->buffer->datas = outb->datas;
-		outb->datas[0].data = SPA_PTR_ALIGN(this->empty, 16, void);
+		outb->datas[0].data = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 		outb->datas[0].chunk = outb->chunk;
 		outb->datas[0].chunk->offset = 0;
 		outb->datas[0].chunk->size = n_samples * sizeof(float);

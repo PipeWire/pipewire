@@ -73,7 +73,6 @@ struct port {
 	struct spa_param_info params[8];
 	char position[16];
 
-	bool have_format;
 	struct spa_audio_info format;
 	uint32_t blocks;
 	uint32_t stride;
@@ -82,6 +81,8 @@ struct port {
 	uint32_t n_buffers;
 
 	struct spa_list queue;
+
+	unsigned int have_format:1;
 };
 
 struct impl {

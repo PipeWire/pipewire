@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include <spa/support/log.h>
+#include <spa/support/cpu.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
 #include <spa/node/node.h>
@@ -68,6 +69,9 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_cpu *cpu;
+
+	uint32_t max_align;
 
 	struct spa_hook_list hooks;
 
@@ -344,6 +348,8 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 
 	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
 			this, buffers, blocks, size, align, out_alloc, in_alloc);
+
+	align = SPA_MAX(align, this->max_align);
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
@@ -1191,9 +1197,19 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_CPU:
+			this->cpu = support[i].data;
+			break;
+		}
 	}
+
+	if (this->cpu)
+		this->max_align = spa_cpu_get_max_align(this->cpu);
+
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,

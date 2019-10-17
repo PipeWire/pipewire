@@ -29,6 +29,7 @@
 
 #include <pipewire/log.h>
 
+#include <spa/support/cpu.h>
 #include <spa/support/dbus.h>
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
@@ -479,6 +480,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	void *dbus_iface = NULL;
 	uint32_t n_support;
 	struct pw_properties *pr;
+	struct spa_cpu *cpu;
 	int res = 0;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -525,6 +527,9 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
+
+	if ((cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU)) != NULL)
+		pw_properties_setf(properties, "cpu.max-align", "%u", spa_cpu_get_max_align(cpu));
 
 	lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_DBUS);
 	if (lib == NULL)

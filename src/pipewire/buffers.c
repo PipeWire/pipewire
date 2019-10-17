@@ -37,7 +37,8 @@
 
 #define NAME "buffers"
 
-#define MAX_BUFFERS     64
+#define MAX_ALIGN	32
+#define MAX_BUFFERS	64
 
 struct port {
 	struct spa_node *node;
@@ -246,8 +247,12 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 	else
 		max_buffers = MAX_BUFFERS;
 
+	if ((str = pw_properties_get(core->properties, "cpu.max-align")) != NULL)
+		align = pw_properties_parse_int(str);
+	else
+		align = MAX_ALIGN;
+
 	minsize = stride = 0;
-	align = 8;
 	param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
 	if (param) {
 		uint32_t qmax_buffers = max_buffers,

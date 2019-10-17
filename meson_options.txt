@@ -41,7 +41,7 @@ option('alsa',
 option('audiomixer',
        description: 'Enable audiomixer spa plugin integration',
        type: 'boolean',
-       value: false)
+       value: true)
 option('audioconvert',
        description: 'Enable audioconvert spa plugin integration',
        type: 'boolean',

@@ -67,7 +67,7 @@ endif
 if have_avx and have_fma
 	audioconvert_avx = static_library('audioconvert_avx',
 		['resample-native-avx.c'],
-		c_args : [avx2_args, fma_args, '-O3', '-DHAVE_AVX', '-DHAVE_FMA'],
+		c_args : [avx_args, fma_args, '-O3', '-DHAVE_AVX', '-DHAVE_FMA'],
 		include_directories : [spa_inc],
 		install : false
 	)

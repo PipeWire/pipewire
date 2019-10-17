@@ -59,3 +59,6 @@ DEFINE_FUNCTION(f32, sse);
 #if defined(HAVE_SSE2)
 DEFINE_FUNCTION(f64, sse2);
 #endif
+#if defined(HAVE_AVX)
+DEFINE_FUNCTION(f32, avx);
+#endif

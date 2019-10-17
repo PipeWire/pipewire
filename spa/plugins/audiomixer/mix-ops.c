@@ -46,6 +46,10 @@ struct mix_info {
 static struct mix_info mix_table[] =
 {
 	/* f32 */
+#if defined(HAVE_AVX)
+	{ SPA_AUDIO_FORMAT_F32, 1, SPA_CPU_FLAG_AVX, 4, mix_f32_avx },
+	{ SPA_AUDIO_FORMAT_F32P, 1, SPA_CPU_FLAG_AVX, 4, mix_f32_avx },
+#endif
 #if defined (HAVE_SSE)
 	{ SPA_AUDIO_FORMAT_F32, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
 	{ SPA_AUDIO_FORMAT_F32P, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },

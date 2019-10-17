@@ -35,6 +35,16 @@ if have_sse2
 	simd_cargs += ['-DHAVE_SSE2']
 	simd_dependencies += audiomixer_sse2
 endif
+if have_avx and have_fma
+	audiomixer_avx = static_library('audiomixer_avx',
+		['mix-ops-avx.c'],
+		c_args : [avx_args, fma_args, '-O3', '-DHAVE_AVX', '-DHAVE_FMA'],
+		include_directories : [spa_inc],
+		install : false
+	)
+	simd_cargs += ['-DHAVE_AVX', '-DHAVE_FMA']
+	simd_dependencies += audiomixer_avx
+endif
 
 audiomixerlib = shared_library('spa-audiomixer',
                           audiomixer_sources,

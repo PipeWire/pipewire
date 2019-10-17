@@ -360,7 +360,7 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 
 	dbus_connection_ref(d->connection);
 
-	pw_log_debug(NAME"%p: new device %s", d, device_name);
+	pw_log_debug(NAME"%p: new device %s: res %d", d, device_name, res);
 
 	return d;
 

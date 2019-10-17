@@ -66,6 +66,7 @@ struct alsa_object {
 	struct rd_device *reserve;
 	struct spa_hook sync_listener;
 	int seq;
+	int priority;
 
 	struct pw_properties *props;
 
@@ -74,6 +75,7 @@ struct alsa_object {
 	struct spa_device *device;
 	struct spa_hook device_listener;
 
+	unsigned int first:1;
 	struct spa_list node_list;
 };
 
@@ -103,7 +105,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	struct monitor *monitor = obj->monitor;
 	struct impl *impl = monitor->impl;
 	int res;
-	const char *card, *dev, *subdev;
+	const char *dev, *subdev;
 	int priority;
 
 	pw_log_debug("new node %u", id);
@@ -125,15 +127,18 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
-	if ((card = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_CARD)) == NULL)
-		card = "0";
 	if ((dev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_DEVICE)) == NULL)
 		dev = "0";
 	if ((subdev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_SUBDEVICE)) == NULL)
 		subdev = "0";
 
-	priority = 1000;
-	priority -= atol(card) * 64;
+	if (obj->first) {
+		if (atol(dev) != 0)
+			obj->priority -= 256;
+		obj->first = false;
+	}
+
+	priority = obj->priority;
 	priority -= atol(dev) * 16;
 	priority -= atol(subdev);
 
@@ -445,6 +450,7 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 	obj->handle = handle;
 	obj->device = iface;
 	obj->props = pw_properties_new_dict(info->props);
+	obj->priority = 1000;
 	update_device_props(obj);
 
 	obj->proxy = pw_remote_export(impl->remote,
@@ -470,12 +476,14 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 			rd_device_set_application_device_name(obj->reserve,
 				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
 		}
+		obj->priority -= atol(card) * 64;
 	}
 
 	/* no device reservation, activate device right now */
 	if (obj->reserve == NULL)
 		set_profile(obj, 1);
 
+	obj->first = true;
 	spa_list_init(&obj->node_list);
 
 	spa_device_add_listener(obj->device,

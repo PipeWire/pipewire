@@ -115,6 +115,7 @@ extern "C" {
 								  *  description. Ex. "Foobar USB Headset" */
 #define PW_KEY_NODE_PLUGGED		"node.plugged"		/**< when the node was created. As a uint64 in
 								  *  nanoseconds. */
+#define PW_KEY_NODE_PRIORITY		"node.priority"		/**< priority of node */
 #define PW_KEY_NODE_SESSION		"node.session"		/**< the session id this node is part of */
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected

@@ -172,6 +172,7 @@ struct session {
 
 	struct impl *impl;
 	enum pw_direction direction;
+	int priority;
 	uint64_t plugged;
 
 	struct node *node;
@@ -503,6 +504,11 @@ handle_node(struct impl *impl, uint32_t id,
 		else
 			sess->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
 
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_PRIORITY)) != NULL)
+			sess->priority = pw_properties_parse_int(str);
+		else
+			sess->priority = 0;
+
 		spa_list_init(&sess->node_list);
 		spa_list_append(&impl->session_list, &sess->l);
 
@@ -793,6 +799,7 @@ struct find_data {
 	const char *media_class;
 	struct session *sess;
 	bool exclusive;
+	int priority;
 	uint64_t plugged;
 };
 
@@ -802,6 +809,7 @@ static int find_session(void *data, struct session *sess)
 	struct impl *impl = find->impl;
 	const struct spa_dict *props;
 	const char *str;
+	int priority = 0;
 	uint64_t plugged = 0;
 
 	pw_log_debug(NAME " %p: looking at session '%d' enabled:%d busy:%d exclusive:%d",
@@ -824,6 +832,7 @@ static int find_session(void *data, struct session *sess)
 			return 0;
 
 		plugged = sess->plugged;
+		priority = sess->priority;
 	}
 
 	if ((find->exclusive && sess->busy) || sess->exclusive) {
@@ -834,9 +843,12 @@ static int find_session(void *data, struct session *sess)
 	pw_log_debug(NAME " %p: found session '%d' %" PRIu64, impl,
 			sess->id, plugged);
 
-	if (find->sess == NULL || plugged > find->plugged) {
-		pw_log_debug(NAME " %p: new best %" PRIu64, impl, plugged);
+	if (find->sess == NULL ||
+	    priority > find->priority ||
+	    (priority == find->priority && plugged > find->plugged)) {
+		pw_log_debug(NAME " %p: new best %d %" PRIu64, impl, priority, plugged);
 		find->sess = sess;
+		find->priority = priority;
 		find->plugged = plugged;
 	}
 	return 0;
@@ -953,6 +965,8 @@ static int rescan_node(struct impl *impl, struct node *node)
 		return 0;
 	}
 
+	spa_zero(find);
+
 	if ((category = spa_dict_lookup(props, PW_KEY_MEDIA_CATEGORY)) == NULL) {
 		pw_log_debug(NAME" %p: node %d find category from ports: %d %d",
 			impl, node->obj.id, info->n_input_ports, info->n_output_ports);
@@ -1041,9 +1055,8 @@ static int rescan_node(struct impl *impl, struct node *node)
 			media, category, role, exclusive, find.path_id);
 
 	find.impl = impl;
-	find.sess = NULL;
-	find.plugged = 0;
 	find.exclusive = exclusive;
+
 	spa_list_for_each(session, &impl->session_list, l)
 		find_session(&find, session);
 

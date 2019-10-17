@@ -103,7 +103,8 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	struct monitor *monitor = obj->monitor;
 	struct impl *impl = monitor->impl;
 	int res;
-	const char *dev, *subdev;
+	const char *card, *dev, *subdev;
+	int priority;
 
 	pw_log_debug("new node %u", id);
 
@@ -124,10 +125,21 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
+	if ((card = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_CARD)) == NULL)
+		card = "0";
 	if ((dev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_DEVICE)) == NULL)
 		dev = "0";
 	if ((subdev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_SUBDEVICE)) == NULL)
 		subdev = "0";
+
+	priority = 1000;
+	priority -= atol(card) * 64;
+	priority -= atol(dev) * 16;
+	priority -= atol(subdev);
+
+	if (pw_properties_get(node->props, PW_KEY_NODE_PRIORITY) == NULL) {
+		pw_properties_setf(node->props, PW_KEY_NODE_PRIORITY, "%d", priority);
+	}
 
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
 		const char *devname, *stream;

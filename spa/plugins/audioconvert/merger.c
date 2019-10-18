@@ -452,7 +452,8 @@ impl_node_port_enum_params(void *object, int seq,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
-	spa_log_debug(this->log, "%p: enum params %d %d %u %u", this, seq, direction, port_id, id);
+	spa_log_debug(this->log, "%p: enum params port %d.%d %d %u",
+			this, direction, port_id, seq, id);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 

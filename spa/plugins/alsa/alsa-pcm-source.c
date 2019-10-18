@@ -549,6 +549,8 @@ impl_node_port_use_buffers(void *object,
 	if (!this->have_format)
 		return -EIO;
 
+	spa_log_debug(this->log, NAME " %p: use %d buffers", this, n_buffers);
+
 	if (this->n_buffers > 0) {
 		spa_alsa_pause(this);
 		if ((res = clear_buffers(this)) < 0)

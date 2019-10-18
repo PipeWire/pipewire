@@ -438,7 +438,8 @@ impl_node_port_enum_params(void *object, int seq,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, "%p: enum params %d %u", this, seq, id);
+	spa_log_debug(this->log, "%p: enum params port %d.%d %d %u",
+			this, direction, port_id, seq, id);
 
 	result.id = id;
 	result.next = start;

@@ -280,14 +280,14 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 
 	if ((res = spa_node_send_command(this->target, command)) < 0) {
-		spa_log_error(this->log, NAME " %p: can't start convert: %s",
+		spa_log_error(this->log, NAME " %p: can't send command: %s",
 				this, spa_strerror(res));
 		return res;
 	}
 
 	if (this->target != this->slave) {
 		if ((res = spa_node_send_command(this->slave, command)) < 0) {
-			spa_log_error(this->log, NAME " %p: can't start slave: %s",
+			spa_log_error(this->log, NAME " %p: can't send command: %s",
 					this, spa_strerror(res));
 			return res;
 		}

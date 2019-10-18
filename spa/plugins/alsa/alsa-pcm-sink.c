@@ -530,7 +530,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	spa_log_debug(this->log, "use buffers %d", n_buffers);
+	spa_log_debug(this->log, NAME " %p: use %d buffers", this, n_buffers);
 
 	if (!this->have_format)
 		return -EIO;

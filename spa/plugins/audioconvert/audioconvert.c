@@ -872,6 +872,8 @@ impl_node_port_enum_params(void *object, int seq,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
+	spa_log_debug(this->log, NAME" %p: port %d.%d %d %u", this, direction, port_id, seq, id);
+
 	result.id = id;
 	result.next = start;
       next:

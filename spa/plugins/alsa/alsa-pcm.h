@@ -133,6 +133,7 @@ struct state {
 	uint64_t last_position;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;
+	unsigned int alsa_recovering:1;
 	unsigned int slaved:1;
 
 	int64_t sample_count;

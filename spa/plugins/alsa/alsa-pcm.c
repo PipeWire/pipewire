@@ -574,6 +574,7 @@ static int alsa_recover(struct state *state, int err)
 		return res;
 	}
 	init_loop(state);
+	state->alsa_recovering = true;
 
 	if (state->stream == SND_PCM_STREAM_CAPTURE) {
 		if ((res = snd_pcm_start(state->hndl)) < 0) {
@@ -586,6 +587,7 @@ static int alsa_recover(struct state *state, int err)
 		state->alsa_started = false;
 		spa_alsa_write(state, state->threshold * 2);
 	}
+
 	return 0;
 }
 
@@ -599,6 +601,8 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 			return res;
 		if ((avail = snd_pcm_avail(state->hndl)) < 0)
 			return avail;
+	} else {
+		state->alsa_recovering = false;
 	}
 
 
@@ -713,7 +717,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay, &target)) < 0)
 			return res;
 
-		if (delay > target + state->threshold) {
+		if (!state->alsa_recovering && delay > target + state->threshold) {
 			spa_log_warn(state->log, NAME" %p: slave delay:%ld resync %f %f %f",
 					state, delay, state->z1, state->z2, state->z3);
 			init_loop(state);
@@ -929,7 +933,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay, &target)) < 0)
 			return res;
 
-		if (delay < target) {
+		if (!state->alsa_recovering && delay < target) {
 			spa_log_warn(state->log, NAME" %p: slave delay:%lu resync %f %f %f",
 					state, delay, state->z1, state->z2, state->z3);
 			init_loop(state);
@@ -1198,6 +1202,7 @@ static int do_reslave(struct spa_loop *loop,
 {
 	struct state *state = user_data;
 	set_timers(state);
+	init_loop(state);
 	return 0;
 }
 

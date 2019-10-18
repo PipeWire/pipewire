@@ -73,7 +73,7 @@ static int setup_context(struct context *ctx)
 	void *iface;
 
 	logger.log.level = SPA_LOG_LEVEL_TRACE;
-	support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, &logger);
+	support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, &logger.log);
 
 	/* make slave */
 	factory = &test_source_factory;
@@ -198,6 +198,7 @@ static int test_split_setup(struct context *ctx)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
         param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
 
+	spa_log_debug(&logger.log, "set profile %d@%d", info.channels, info.rate);
 	param = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(SPA_DIRECTION_OUTPUT),
@@ -217,11 +218,13 @@ static int test_split_setup(struct context *ctx)
 
 	spa_zero(info);
 	info.format = SPA_AUDIO_FORMAT_S16;
+	info.rate = 44100;
 	info.channels = 2;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
 	info.position[1] = SPA_AUDIO_CHANNEL_FR;
-        param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
+	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
 
+	spa_log_debug(&logger.log, "set format %d@%d", info.channels, info.rate);
 	res = spa_node_set_param(ctx->adapter_node, SPA_PARAM_Format, 0, param);
 	spa_assert(res == 0);
 

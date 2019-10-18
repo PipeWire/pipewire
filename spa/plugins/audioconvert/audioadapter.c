@@ -851,8 +851,9 @@ static int impl_node_process(void *object)
 	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
 		if (this->use_converter)
 			status = spa_node_process(this->convert);
-		this->master = false;
 	}
+	this->master = false;
+
 	return status;
 }
 

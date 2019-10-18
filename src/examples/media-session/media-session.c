@@ -305,17 +305,19 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	pw_log_debug(NAME" %p: info for node %d type %d", impl, n->obj.id, n->type);
 	n->info = pw_node_info_update(n->info, info);
 
-	switch (info->state) {
-	case PW_NODE_STATE_IDLE:
-		on_node_idle(impl, n);
-		break;
-	case PW_NODE_STATE_RUNNING:
-		on_node_running(impl, n);
-		break;
-	case PW_NODE_STATE_SUSPENDED:
-		break;
-	default:
-		break;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
+		switch (info->state) {
+		case PW_NODE_STATE_IDLE:
+			on_node_idle(impl, n);
+			break;
+		case PW_NODE_STATE_RUNNING:
+			on_node_running(impl, n);
+			break;
+		case PW_NODE_STATE_SUSPENDED:
+			break;
+		default:
+			break;
+		}
 	}
 }
 

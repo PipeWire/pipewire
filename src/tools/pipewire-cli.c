@@ -98,6 +98,7 @@ struct proxy_data {
 
 struct command {
 	const char *name;
+	const char *alias;
 	const char *description;
 	bool (*func) (struct data *data, const char *cmd, char *args, char **error);
 };
@@ -195,6 +196,7 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 static bool do_list_remotes(struct data *data, const char *cmd, char *args, char **error);
 static bool do_switch_remote(struct data *data, const char *cmd, char *args, char **error);
 static bool do_info(struct data *data, const char *cmd, char *args, char **error);
+static bool do_create_device(struct data *data, const char *cmd, char *args, char **error);
 static bool do_create_node(struct data *data, const char *cmd, char *args, char **error);
 static bool do_destroy(struct data *data, const char *cmd, char *args, char **error);
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error);
@@ -204,22 +206,23 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 
 static struct command command_list[] = {
-	{ "help", "Show this help", do_help },
-	{ "load-module", "Load a module. <module-name> [<module-arguments>]", do_load_module },
-	{ "unload-module", "Unload a module. <module-var>", do_not_implemented },
-	{ "connect", "Connect to a remote. [<remote-name>]", do_connect },
-	{ "disconnect", "Disconnect from a remote. [<remote-var>]", do_disconnect },
-	{ "list-remotes", "List connected remotes.", do_list_remotes },
-	{ "switch-remote", "Switch between current remotes. [<remote-var>]", do_switch_remote },
-	{ "list-objects", "List objects or current remote. [<interface>]", do_list_objects },
-	{ "info", "Get info about an object. <object-id>|all", do_info },
-	{ "create-node", "Create a node from a factory. <factory-name> [<properties>]", do_create_node },
-	{ "destroy", "Destroy a global object. <object-id>", do_destroy },
-	{ "create-link", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
-	{ "export-node", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
-	{ "enum-params", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
-	{ "permissions", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
-	{ "get-permissions", "Get permissions of a client <client-id>", do_get_permissions },
+	{ "help", "h", "Show this help", do_help },
+	{ "load-module", "lm", "Load a module. <module-name> [<module-arguments>]", do_load_module },
+	{ "unload-module", "um", "Unload a module. <module-var>", do_not_implemented },
+	{ "connect", "con", "Connect to a remote. [<remote-name>]", do_connect },
+	{ "disconnect", "dis", "Disconnect from a remote. [<remote-var>]", do_disconnect },
+	{ "list-remotes", "lr", "List connected remotes.", do_list_remotes },
+	{ "switch-remote", "sr", "Switch between current remotes. [<remote-var>]", do_switch_remote },
+	{ "list-objects", "ls", "List objects or current remote. [<interface>]", do_list_objects },
+	{ "info", "i", "Get info about an object. <object-id>|all", do_info },
+	{ "create-device", "cd", "Create a device from a factory. <factory-name> [<properties>]", do_create_device },
+	{ "create-node", "cn", "Create a node from a factory. <factory-name> [<properties>]", do_create_node },
+	{ "destroy", "d", "Destroy a global object. <object-id>", do_destroy },
+	{ "create-link", "cl", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
+	{ "export-node", "en", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
+	{ "enum-params", "e", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
+	{ "permissions", "sp", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
+	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -954,10 +957,10 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	pd->rd = rd;
 	pd->global = global;
 	pd->proxy = proxy;
-        pd->info_func = info_func;
-        pd->destroy = destroy;
-        pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
-        pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
+	pd->info_func = info_func;
+	pd->destroy = destroy;
+	pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
+	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	global->proxy = proxy;
 
@@ -1020,6 +1023,43 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 		}
 		return do_global_info(global, error);
 	}
+	return true;
+}
+
+static bool do_create_device(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	char *a[2];
+	int n;
+	uint32_t id;
+	struct pw_proxy *proxy;
+	struct pw_properties *props = NULL;
+	struct proxy_data *pd;
+
+	n = pw_split_ip(args, WHITESPACE, 2, a);
+	if (n < 1) {
+		asprintf(error, "%s <factory-name> [<properties>]", cmd);
+		return false;
+	}
+	if (n == 2)
+		props = parse_props(a[1]);
+
+	proxy = pw_core_proxy_create_object(rd->core_proxy, a[0],
+					    PW_TYPE_INTERFACE_Device,
+					    PW_VERSION_DEVICE_PROXY,
+					    props ? &props->dict : NULL,
+					    sizeof(struct proxy_data));
+
+	pd = pw_proxy_get_user_data(proxy);
+	pd->rd = rd;
+	pd->proxy = proxy;
+	pd->destroy = (pw_destroy_t) pw_device_info_free;
+	pw_proxy_add_object_listener(proxy, &pd->object_listener, &device_events, pd);
+	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
+
+	id = pw_map_insert_new(&data->vars, proxy);
+	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+
 	return true;
 }
 
@@ -1316,7 +1356,8 @@ static bool parse(struct data *data, char *buf, size_t size, char **error)
 	args = n > 1 ? a[1] : "";
 
 	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
-		if (!strcmp(command_list[i].name, cmd)) {
+		if (!strcmp(command_list[i].name, cmd) ||
+		    !strcmp(command_list[i].alias, cmd)) {
 			return command_list[i].func(data, cmd, args, error);
 		}
 	}

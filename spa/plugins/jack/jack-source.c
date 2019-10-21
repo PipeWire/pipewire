@@ -64,7 +64,7 @@ struct port {
 
 	uint64_t info_all;
 	struct spa_port_info info;
-	struct spa_dict_item items[2];
+	struct spa_dict_item items[4];
 	struct spa_dict props;
 	struct spa_param_info params[5];
 
@@ -285,7 +285,7 @@ static void emit_node_info(struct impl *this, bool full)
 		snprintf(latency, sizeof(latency), "%d/%d",
 				this->client->buffer_size, this->client->frame_rate);
 		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Source");
-		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_NAME, "jack_system");
+		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_NAME, "JACK System");
 		items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
 		items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_PAUSE_ON_IDLE, "false");
 		items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_LATENCY, latency);
@@ -300,6 +300,21 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
+		char* aliases[2];
+		int n_aliases, n_items;
+
+		aliases[0] = alloca(jack_port_name_size());
+		aliases[1] = alloca(jack_port_name_size());
+		n_aliases = jack_port_get_aliases(port->jack_port, aliases);
+		n_items = 1;
+		port->items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME,
+				jack_port_short_name(port->jack_port));
+		if (n_aliases > 0)
+			port->items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH, aliases[0]);
+		if (n_aliases > 1)
+			port->items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, aliases[1]);
+		port->props = SPA_DICT_INIT(port->items, n_items);
+
 		spa_node_emit_port_info(&this->hooks,
 				SPA_DIRECTION_OUTPUT, port->id, &port->info);
 		port->info.change_mask = 0;
@@ -366,9 +381,11 @@ static int init_port(struct impl *this, struct port *port)
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF;
+
 	port->items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit float mono audio");
 	port->props = SPA_DICT_INIT(port->items, 1);
 	port->info.props = &port->props;
+
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
@@ -376,6 +393,7 @@ static int init_port(struct impl *this, struct port *port)
 	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->info.params = port->params;
 	port->info.n_params = 5;
+
 	spa_list_init(&port->empty);
 	return 0;
 }
@@ -398,19 +416,32 @@ static int init_ports(struct impl *this)
 
 	for (i = 0; ports[i]; i++) {
 		struct port *port = GET_OUT_PORT(this, i);
+		jack_port_t *p = jack_port_by_name(client, ports[i]);
+		char *aliases[2];
+		int n_aliases;
 
 		port->id = i;
-		init_port(this, port);
-
 		port->jack_port = jack_port_register(client,
-				ports[i],
-				JACK_DEFAULT_AUDIO_TYPE,
-				JackPortIsInput|JackPortIsTerminal, 0);
+				jack_port_short_name(p),
+				jack_port_type(p),
+				JackPortIsInput, 0);
 		if (port->jack_port == NULL) {
-			spa_log_error(this->log, NAME" %p: jack_port_register() failed", this);
+			spa_log_error(this->log, NAME" %p: jack_port_register() %d (%s) failed",
+					this, i, ports[i]);
 			res = -EFAULT;
 			goto exit_free;
 		}
+
+		aliases[0] = alloca(jack_port_name_size());
+		aliases[1] = alloca(jack_port_name_size());
+
+		n_aliases = jack_port_get_aliases(p, aliases);
+		if (n_aliases > 0)
+			jack_port_set_alias(port->jack_port, aliases[0]);
+		if (n_aliases > 1)
+			jack_port_set_alias(port->jack_port, aliases[1]);
+
+		init_port(this, port);
 	}
 	this->n_out_ports = i;
 

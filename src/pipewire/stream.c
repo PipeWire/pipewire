@@ -356,6 +356,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	struct pw_stream *stream = &impl->this;
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
 		pw_loop_invoke(impl->core->main_loop,
 			NULL, 0, NULL, 0, false, impl);

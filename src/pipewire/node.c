@@ -344,6 +344,12 @@ static int suspend_node(struct pw_node *this)
 		/* force CONFIGURE in case of async */
 		p->state = PW_PORT_STATE_CONFIGURE;
 	}
+
+	res = spa_node_send_command(this->node,
+				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));
+	if (res < 0)
+		pw_log_warn(NAME" %p: suspend node error %s", this, spa_strerror(res));
+
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 
 	return res;

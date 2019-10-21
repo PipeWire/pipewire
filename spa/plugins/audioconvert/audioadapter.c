@@ -76,6 +76,7 @@ struct impl {
 
 	unsigned int add_listener:1;
 	unsigned int use_converter:1;
+	unsigned int have_format:1;
 	unsigned int started:1;
 	unsigned int driver:1;
 	unsigned int master:1;
@@ -207,6 +208,173 @@ static void emit_node_info(struct impl *this, bool full)
 	}
 }
 
+static int debug_params(struct impl *this, struct spa_node *node,
+                enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter,
+		const char *debug, int err)
+{
+        struct spa_pod_builder b = { 0 };
+        uint8_t buffer[4096];
+        uint32_t state;
+        struct spa_pod *param;
+        int res;
+
+        spa_log_error(this->log, "params %s: %d:%d (%s) %s",
+			spa_debug_type_find_name(spa_type_param, id),
+			direction, port_id, debug, spa_strerror(err));
+
+        state = 0;
+        while (true) {
+                spa_pod_builder_init(&b, buffer, sizeof(buffer));
+                res = spa_node_port_enum_params_sync(node,
+                                       direction, port_id,
+                                       id, &state,
+                                       NULL, &param, &b);
+                if (res != 1) {
+			if (res < 0)
+				spa_log_error(this->log, "  error: %s", spa_strerror(res));
+                        break;
+		}
+                spa_debug_pod(2, NULL, param);
+        }
+
+        spa_log_error(this->log, "failed filter:");
+        if (filter)
+                spa_debug_pod(2, NULL, filter);
+
+        return 0;
+}
+
+static int negotiate_buffers(struct impl *this)
+{
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	uint32_t state;
+	struct spa_pod *param;
+	int res;
+	bool slave_alloc, conv_alloc;
+	uint32_t i, size, buffers, blocks, align, flags;
+	uint32_t *aligns;
+	struct spa_data *datas;
+	uint32_t slave_flags, conv_flags;
+
+	spa_log_debug(this->log, "%p: %d", this, this->n_buffers);
+
+	if (this->n_buffers > 0)
+		return 0;
+
+	state = 0;
+	param = NULL;
+	if ((res = spa_node_port_enum_params_sync(this->slave,
+				this->direction, 0,
+				SPA_PARAM_Buffers, &state,
+				param, &param, &b)) < 0) {
+		debug_params(this, this->slave, this->direction, 0,
+				SPA_PARAM_Buffers, param, "slave buffers", res);
+		return -ENOTSUP;
+	}
+
+	state = 0;
+	if ((res = spa_node_port_enum_params_sync(this->convert,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_Buffers, &state,
+				param, &param, &b)) != 1) {
+		debug_params(this, this->convert,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_Buffers, param, "convert buffers", res);
+		return -ENOTSUP;
+	}
+
+	spa_pod_fixate(param);
+
+	slave_flags = this->slave_flags;
+	conv_flags = this->convert_flags;
+
+	slave_alloc = SPA_FLAG_IS_SET(slave_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+	conv_alloc = SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+
+	flags = 0;
+	if (conv_alloc || slave_alloc) {
+		flags |= SPA_BUFFER_ALLOC_FLAG_NO_DATA;
+		if (conv_alloc)
+			slave_alloc = false;
+	}
+
+	if ((res = spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_ParamBuffers, NULL,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align))) < 0)
+		return res;
+
+	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
+			this, buffers, blocks, size, align, slave_alloc, conv_alloc);
+
+	align = SPA_MAX(align, this->max_align);
+
+	datas = alloca(sizeof(struct spa_data) * blocks);
+	memset(datas, 0, sizeof(struct spa_data) * blocks);
+	aligns = alloca(sizeof(uint32_t) * blocks);
+	for (i = 0; i < blocks; i++) {
+		datas[i].type = SPA_DATA_MemPtr;
+		datas[i].flags = SPA_DATA_FLAG_DYNAMIC;
+		datas[i].maxsize = size;
+		aligns[i] = align;
+	}
+
+	free(this->buffers);
+	this->buffers = spa_buffer_alloc_array(buffers, flags, 0, NULL, blocks, datas, aligns);
+	if (this->buffers == NULL)
+		return -errno;
+	this->n_buffers = buffers;
+
+	if ((res = spa_node_port_use_buffers(this->convert,
+		       SPA_DIRECTION_REVERSE(this->direction), 0,
+		       conv_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+		       this->buffers, this->n_buffers)) < 0)
+		return res;
+
+	if ((res = spa_node_port_use_buffers(this->slave,
+		       this->direction, 0,
+		       slave_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+		       this->buffers, this->n_buffers)) < 0)
+		return res;
+
+	return 0;
+}
+
+static int configure_format(struct impl *this, uint32_t flags, const struct spa_pod *format)
+{
+	int res;
+
+	spa_log_debug(this->log, NAME "%p: configure format:", this);
+	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
+		spa_debug_format(0, NULL, format);
+
+	if (this->use_converter) {
+		if ((res = spa_node_port_set_param(this->convert,
+					   SPA_DIRECTION_REVERSE(this->direction), 0,
+					   SPA_PARAM_Format, flags,
+					   format)) < 0)
+				return res;
+	}
+
+	if ((res = spa_node_port_set_param(this->slave,
+					   this->direction, 0,
+					   SPA_PARAM_Format, flags,
+					   format)) < 0)
+			return res;
+
+	this->have_format = format != NULL;
+	if (format == NULL) {
+		this->n_buffers = 0;
+	} else {
+		res = negotiate_buffers(this);
+	}
+
+	return res;
+}
+
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -219,7 +387,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Format:
 		if (this->started)
 			return -EIO;
-		if ((res = spa_node_port_set_param(this->slave, this->direction, 0, id, flags, param)) < 0)
+		if ((res = configure_format(this, flags, param)) < 0)
 			return res;
 		break;
 
@@ -261,6 +429,53 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return res;
 }
 
+static int negotiate_format(struct impl *this)
+{
+	uint32_t state;
+	struct spa_pod *format;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	int res;
+
+	if (this->have_format)
+		return 0;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	spa_log_debug(this->log, NAME "%p: negiotiate", this);
+
+	state = 0;
+	format = NULL;
+	if ((res = spa_node_port_enum_params_sync(this->slave,
+				this->direction, 0,
+				SPA_PARAM_EnumFormat, &state,
+				format, &format, &b)) < 0) {
+		debug_params(this, this->slave, this->direction, 0,
+				SPA_PARAM_EnumFormat, format, "slave format", res);
+		return -ENOTSUP;
+	}
+
+	if (this->use_converter) {
+		state = 0;
+		if ((res = spa_node_port_enum_params_sync(this->convert,
+					SPA_DIRECTION_REVERSE(this->direction), 0,
+					SPA_PARAM_EnumFormat, &state,
+					format, &format, &b)) != 1) {
+			debug_params(this, this->convert,
+					SPA_DIRECTION_REVERSE(this->direction), 0,
+					SPA_PARAM_EnumFormat, format, "convert format", res);
+			return -ENOTSUP;
+		}
+	}
+
+	spa_pod_fixate(format);
+
+	res = configure_format(this, 0, format);
+
+	return res;
+}
+
+
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
@@ -268,10 +483,19 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	spa_log_debug(this->log, NAME " %p: command %d", this, SPA_NODE_COMMAND_ID(command));
+
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
+		if ((res = negotiate_format(this)) < 0)
+			return res;
+		if ((res = negotiate_buffers(this)) < 0)
+			return res;
 		this->started = true;
 		break;
+	case SPA_NODE_COMMAND_Suspend:
+		configure_format(this, 0, NULL);
+		/* fallthrough */
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;
@@ -548,196 +772,6 @@ impl_node_port_enum_params(void *object, int seq,
 			start, num, filter);
 }
 
-static int debug_params(struct impl *this, struct spa_node *node,
-                enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter,
-		const char *debug, int err)
-{
-        struct spa_pod_builder b = { 0 };
-        uint8_t buffer[4096];
-        uint32_t state;
-        struct spa_pod *param;
-        int res;
-
-        spa_log_error(this->log, "params %s: %d:%d (%s) %s",
-			spa_debug_type_find_name(spa_type_param, id),
-			direction, port_id, debug, spa_strerror(err));
-
-        state = 0;
-        while (true) {
-                spa_pod_builder_init(&b, buffer, sizeof(buffer));
-                res = spa_node_port_enum_params_sync(node,
-                                       direction, port_id,
-                                       id, &state,
-                                       NULL, &param, &b);
-                if (res != 1) {
-			if (res < 0)
-				spa_log_error(this->log, "  error: %s", spa_strerror(res));
-                        break;
-		}
-                spa_debug_pod(2, NULL, param);
-        }
-
-        spa_log_error(this->log, "failed filter:");
-        if (filter)
-                spa_debug_pod(2, NULL, filter);
-
-        return 0;
-}
-
-
-static int negotiate_format(struct impl *this)
-{
-	uint32_t state;
-	struct spa_pod *format;
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = { 0 };
-	int res;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
-	spa_log_debug(this->log, NAME "%p: negiotiate", this);
-
-	state = 0;
-	format = NULL;
-	if ((res = spa_node_port_enum_params_sync(this->slave,
-				this->direction, 0,
-				SPA_PARAM_EnumFormat, &state,
-				format, &format, &b)) < 0) {
-		debug_params(this, this->slave, this->direction, 0,
-				SPA_PARAM_EnumFormat, format, "slave format", res);
-		return -ENOTSUP;
-	}
-
-	state = 0;
-	if ((res = spa_node_port_enum_params_sync(this->convert,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_EnumFormat, &state,
-				format, &format, &b)) != 1) {
-		debug_params(this, this->convert,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_EnumFormat, format, "convert format", res);
-		return -ENOTSUP;
-	}
-
-	spa_pod_fixate(format);
-	spa_log_debug(this->log, NAME "%p: configure format:", this);
-	if (spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
-		spa_debug_format(0, NULL, format);
-
-	if ((res = spa_node_port_set_param(this->convert,
-				   SPA_DIRECTION_REVERSE(this->direction), 0,
-				   SPA_PARAM_Format, 0,
-				   format)) < 0)
-			return res;
-
-	if ((res = spa_node_port_set_param(this->slave,
-					   this->direction, 0,
-					   SPA_PARAM_Format, 0,
-					   format)) < 0)
-			return res;
-
-	return res;
-}
-
-static int negotiate_buffers(struct impl *this)
-{
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t state;
-	struct spa_pod *param;
-	int res;
-	bool slave_alloc, conv_alloc;
-	uint32_t i, size, buffers, blocks, align, flags;
-	uint32_t *aligns;
-	struct spa_data *datas;
-	uint32_t slave_flags, conv_flags;
-
-	spa_log_debug(this->log, "%p: %d", this, this->n_buffers);
-
-	if (this->n_buffers > 0)
-		return 0;
-
-	state = 0;
-	param = NULL;
-	if ((res = spa_node_port_enum_params_sync(this->slave,
-				this->direction, 0,
-				SPA_PARAM_Buffers, &state,
-				param, &param, &b)) < 0) {
-		debug_params(this, this->slave, this->direction, 0,
-				SPA_PARAM_Buffers, param, "slave buffers", res);
-		return -ENOTSUP;
-	}
-
-	state = 0;
-	if ((res = spa_node_port_enum_params_sync(this->convert,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, &state,
-				param, &param, &b)) != 1) {
-		debug_params(this, this->convert,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, param, "convert buffers", res);
-		return -ENOTSUP;
-	}
-
-	spa_pod_fixate(param);
-
-	slave_flags = this->slave_flags;
-	conv_flags = this->convert_flags;
-
-	slave_alloc = SPA_FLAG_IS_SET(slave_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
-	conv_alloc = SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
-
-	flags = 0;
-	if (conv_alloc || slave_alloc) {
-		flags |= SPA_BUFFER_ALLOC_FLAG_NO_DATA;
-		if (conv_alloc)
-			slave_alloc = false;
-	}
-
-	if ((res = spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_ParamBuffers, NULL,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align))) < 0)
-		return res;
-
-	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
-			this, buffers, blocks, size, align, slave_alloc, conv_alloc);
-
-	align = SPA_MAX(align, this->max_align);
-
-	datas = alloca(sizeof(struct spa_data) * blocks);
-	memset(datas, 0, sizeof(struct spa_data) * blocks);
-	aligns = alloca(sizeof(uint32_t) * blocks);
-	for (i = 0; i < blocks; i++) {
-		datas[i].type = SPA_DATA_MemPtr;
-		datas[i].flags = SPA_DATA_FLAG_DYNAMIC;
-		datas[i].maxsize = size;
-		aligns[i] = align;
-	}
-
-	free(this->buffers);
-	this->buffers = spa_buffer_alloc_array(buffers, flags, 0, NULL, blocks, datas, aligns);
-	if (this->buffers == NULL)
-		return -errno;
-	this->n_buffers = buffers;
-
-	if ((res = spa_node_port_use_buffers(this->convert,
-		       SPA_DIRECTION_REVERSE(this->direction), 0,
-		       conv_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
-		       this->buffers, this->n_buffers)) < 0)
-		return res;
-
-	if ((res = spa_node_port_use_buffers(this->slave,
-		       this->direction, 0,
-		       slave_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
-		       this->buffers, this->n_buffers)) < 0)
-		return res;
-
-	return 0;
-}
-
 static int
 impl_node_port_set_param(void *object,
 			 enum spa_direction direction, uint32_t port_id,
@@ -758,19 +792,6 @@ impl_node_port_set_param(void *object,
 			flags, param)) < 0)
 		return res;
 
-	if (id == SPA_PARAM_Format && this->use_converter) {
-		if (param == NULL) {
-			if ((res = spa_node_port_set_param(this->target,
-					SPA_DIRECTION_REVERSE(direction), 0,
-					id, 0, NULL)) < 0)
-				return res;
-			this->n_buffers = 0;
-		}
-		else {
-			if (port_id == 0)
-				res = negotiate_format(this);
-		}
-	}
 	return res;
 }
 
@@ -816,10 +837,6 @@ impl_node_port_use_buffers(void *object,
 					direction, port_id, flags, buffers, n_buffers)) < 0)
 		return res;
 
-	if (n_buffers > 0 && this->use_converter) {
-		if (port_id == 0)
-			res = negotiate_buffers(this);
-	}
 	return res;
 }
 

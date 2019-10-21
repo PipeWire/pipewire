@@ -1174,6 +1174,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 	pw_log_debug(NAME" %p: got command %d", c, SPA_COMMAND_TYPE(command));
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
 		if (c->started) {
 			pw_loop_update_io(c->loop->loop,

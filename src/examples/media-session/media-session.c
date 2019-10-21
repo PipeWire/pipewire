@@ -95,6 +95,9 @@ struct impl {
 	DBusConnection *conn;
 
 	struct pw_proxy *midi_bridge;
+
+	struct spa_source *jack_timeout;
+	struct pw_proxy *jack_device;
 };
 
 struct object {
@@ -1245,6 +1248,7 @@ static void start_services(struct impl *impl)
 	bluez5_start_monitor(impl, &impl->bluez5_monitor);
 	alsa_start_monitor(impl, &impl->alsa_monitor);
 	alsa_start_midi_bridge(impl);
+	alsa_start_jack_device(impl);
 	v4l2_start_monitor(impl, &impl->v4l2_monitor);
 }
 

@@ -43,6 +43,8 @@
 
 #include "reserve.c"
 
+#define DEFAULT_JACK_SECONDS	1
+
 struct alsa_object;
 
 struct alsa_node {
@@ -349,6 +351,21 @@ static int update_device_props(struct alsa_object *obj)
 	return 1;
 }
 
+static void set_jack_profile(struct impl *impl, int index)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	if (impl->jack_device == NULL)
+		return;
+
+	pw_device_proxy_set_param((struct pw_device_proxy*)impl->jack_device,
+			SPA_PARAM_Profile, 0,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, 0,
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
+}
+
 static void set_profile(struct alsa_object *obj, int index)
 {
 	char buf[1024];
@@ -360,18 +377,53 @@ static void set_profile(struct alsa_object *obj, int index)
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
 }
 
+static void remove_jack_timeout(struct impl *impl)
+{
+	struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
+
+	if (impl->jack_timeout) {
+		pw_loop_destroy_source(main_loop, impl->jack_timeout);
+		impl->jack_timeout = NULL;
+	}
+}
+
+static void jack_timeout(void *data, uint64_t expirations)
+{
+	struct impl *impl = data;
+	remove_jack_timeout(impl);
+	set_jack_profile(impl, 1);
+}
+
+static void add_jack_timeout(struct impl *impl)
+{
+	struct timespec value;
+	struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
+
+	if (impl->jack_timeout == NULL)
+		impl->jack_timeout = pw_loop_add_timer(main_loop, jack_timeout, impl);
+
+	value.tv_sec = DEFAULT_JACK_SECONDS;
+	value.tv_nsec = 0;
+	pw_loop_update_timer(main_loop, impl->jack_timeout, &value, NULL, false);
+}
 static void reserve_acquired(void *data, struct rd_device *d)
 {
 	struct alsa_object *obj = data;
+	struct monitor *monitor = obj->monitor;
+	struct impl *impl = monitor->impl;
 
 	pw_log_debug("%p: reserve acquired", obj);
 
+	remove_jack_timeout(impl);
+	set_jack_profile(impl, 0);
 	set_profile(obj, 1);
 }
 
 static void sync_complete_done(void *data, int seq)
 {
 	struct alsa_object *obj = data;
+	struct monitor *monitor = obj->monitor;
+	struct impl *impl = monitor->impl;
 
 	if (seq != obj->seq)
 		return;
@@ -380,6 +432,8 @@ static void sync_complete_done(void *data, int seq)
 	obj->seq = 0;
 
 	rd_device_complete_release(obj->reserve, true);
+
+	add_jack_timeout(impl);
 }
 
 static const struct pw_proxy_events sync_complete_release = {
@@ -390,9 +444,12 @@ static const struct pw_proxy_events sync_complete_release = {
 static void reserve_release(void *data, struct rd_device *d, int forced)
 {
 	struct alsa_object *obj = data;
+	struct monitor *monitor = obj->monitor;
+	struct impl *impl = monitor->impl;
 
 	pw_log_debug("%p: reserve release", obj);
 
+	remove_jack_timeout(impl);
 	set_profile(obj, 0);
 
 	if (obj->seq == 0)
@@ -467,7 +524,7 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 		reserve = pw_properties_get(obj->props, "api.dbus.ReserveDevice1");
 
 		obj->reserve = rd_device_new(impl->conn, reserve,
-				"PipeWire", 0,
+				"PipeWire", 10,
 				&reserve_callbacks, obj);
 
 		if (obj->reserve == NULL) {
@@ -559,11 +616,10 @@ static int alsa_start_midi_bridge(struct impl *impl)
 				&props->dict,
                                 0);
 
-	if (impl->midi_bridge == NULL) {
+	if (impl->midi_bridge == NULL)
 		res = -errno;
-	}
-	return res;
 
+	return res;
 }
 
 static int alsa_start_monitor(struct impl *impl, struct monitor *monitor)
@@ -596,5 +652,28 @@ static int alsa_start_monitor(struct impl *impl, struct monitor *monitor)
       out_unload:
 	pw_unload_spa_handle(handle);
       out:
+	return res;
+}
+
+static int alsa_start_jack_device(struct impl *impl)
+{
+	struct pw_properties *props;
+	int res = 0;
+
+	props = pw_properties_new(
+			SPA_KEY_FACTORY_NAME, SPA_NAME_API_JACK_DEVICE,
+			SPA_KEY_NODE_NAME, "JACK-Device",
+			NULL);
+
+	impl->jack_device = pw_core_proxy_create_object(impl->core_proxy,
+				"spa-device-factory",
+				PW_TYPE_INTERFACE_Device,
+				PW_VERSION_DEVICE_PROXY,
+				&props->dict,
+                                0);
+
+	if (impl->jack_device == NULL)
+		res = -errno;
+
 	return res;
 }

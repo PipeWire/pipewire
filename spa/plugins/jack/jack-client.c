@@ -48,6 +48,9 @@ static void jack_shutdown(void* arg)
 	struct spa_jack_client *client = arg;
 
 	spa_jack_client_emit_shutdown(client);
+
+	spa_hook_list_init(&client->listener_list);
+	client->client = NULL;
 }
 
 static int status_to_result(jack_status_t status)

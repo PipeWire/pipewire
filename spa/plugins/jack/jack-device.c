@@ -351,6 +351,13 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	activate_profile(this, 0);
 	return 0;
 }
 
@@ -396,11 +403,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_JACK_SERVER)))
-		snprintf(this->props.server, 64, "%s", str);
-
-	activate_profile(this, 1);
-
+	if (info) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_API_JACK_SERVER)))
+			snprintf(this->props.server, 64, "%s", str);
+	}
 	return 0;
 }
 

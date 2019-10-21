@@ -265,6 +265,8 @@ struct spa_io_rate_match {
 	uint32_t delay;			/**< extra delay in samples for resampler */
 	uint32_t size;			/**< requested input size for resampler */
 	double rate;			/**< rate for resampler */
+#define SPA_IO_RATE_MATCH_FLAG_ACTIVE	(1 << 0)
+	uint32_t flags;			/**< extra flags */
 };
 
 #ifdef __cplusplus

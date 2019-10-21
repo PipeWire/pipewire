@@ -767,6 +767,14 @@ static int impl_node_process(void *object)
 		break;
 	}
 
+	if (this->io_rate_match) {
+		if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE)) {
+			resample_update_rate(&this->resample, this->io_rate_match->rate);
+		} else {
+			resample_update_rate(&this->resample, 1.0);
+		}
+	}
+
 	in_len = (size - inport->offset) / sizeof(float);
 	out_len = (maxsize - outport->offset) / sizeof(float);
 
@@ -812,7 +820,6 @@ static int impl_node_process(void *object)
 	}
 
 	if (this->io_rate_match) {
-		resample_update_rate(&this->resample, this->io_rate_match->rate);
 		this->io_rate_match->delay = resample_delay(&this->resample);
 		this->io_rate_match->size = resample_in_len(&this->resample, max);
 	}

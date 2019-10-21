@@ -608,7 +608,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 
 	*target = state->last_threshold;
 
-	if (state->rate_match) {
+	if (state->slaved && state->rate_match) {
 		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
 		/* We try to compensate for the latency introduced by rate matching
@@ -672,11 +672,13 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 				err, state->z1, state->z2, state->z3);
 	}
 
-	if (slave && state->rate_match) {
+	if (state->rate_match) {
 		if (state->stream == SND_PCM_STREAM_PLAYBACK)
 			state->rate_match->rate = SPA_CLAMP(corr, 0.95, 1.05);
 		else
 			state->rate_match->rate = SPA_CLAMP(1.0/corr, 0.95, 1.05);
+
+		SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, slave);
 	}
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate;

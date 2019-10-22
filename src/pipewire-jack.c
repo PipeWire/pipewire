@@ -704,6 +704,9 @@ static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames
 	if ((mix = find_mix(c, p, -1)) != NULL) {
 		struct buffer *b;
 
+		if (mix->n_buffers == 0)
+			goto done;
+
 		pw_log_trace(NAME" %p: port %p %d get buffer %d n_buffers:%d",
 				c, p, p->id, frames, mix->n_buffers);
 

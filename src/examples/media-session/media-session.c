@@ -345,7 +345,8 @@ static void node_event_param(void *object, int seq,
 		return;
 
 	spa_pod_object_fixate((struct spa_pod_object*)param);
-	spa_debug_pod(2, NULL, param);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
 
 	if (spa_format_audio_raw_parse(param, &info) < 0)
 		goto error;
@@ -356,7 +357,8 @@ static void node_event_param(void *object, int seq,
 
       error:
 	pw_log_warn("unhandled param:");
-	spa_debug_pod(2, NULL, param);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_WARN))
+		spa_debug_pod(2, NULL, param);
 	return;
 }
 

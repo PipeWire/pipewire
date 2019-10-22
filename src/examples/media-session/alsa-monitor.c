@@ -96,8 +96,11 @@ static void alsa_update_node(struct alsa_object *obj, struct alsa_node *node,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update node %u", node->id);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
+
 	pw_properties_update(node->props, info->props);
-	spa_debug_dict(0, info->props);
 }
 
 static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
@@ -222,12 +225,13 @@ static void alsa_device_info(void *data, const struct spa_device_info *info)
 	struct alsa_object *obj = data;
 	const char *str;
 
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
+
 	pw_properties_update(obj->props, info->props);
 
 	if ((str = pw_properties_get(obj->props, PW_KEY_DEVICE_ID)) != NULL)
 		obj->device_id = pw_properties_parse_int(str);
-
-	spa_debug_dict(0, info->props);
 }
 
 static void alsa_device_object_info(void *data, uint32_t id,
@@ -272,7 +276,10 @@ static void alsa_update_object(struct monitor *monitor, struct alsa_object *obj,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
-	spa_debug_dict(0, info->props);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
+
 	pw_properties_update(obj->props, info->props);
 }
 

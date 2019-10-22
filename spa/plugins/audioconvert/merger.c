@@ -524,11 +524,8 @@ impl_node_port_enum_params(void *object, int seq,
 		return -ENOENT;
 	}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0) {
-		spa_debug_pod(2, NULL, param);
-		spa_debug_pod(2, NULL, filter);
+	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
-	}
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 

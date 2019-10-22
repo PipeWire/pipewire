@@ -84,7 +84,9 @@ static void bluez5_update_node(struct bluez5_object *obj, struct bluez5_node *no
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update node %u", node->id);
-	spa_debug_dict(0, info->props);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
 }
 
 static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_t id,
@@ -215,7 +217,9 @@ static void bluez5_update_object(struct monitor *monitor, struct bluez5_object *
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
-	spa_debug_dict(0, info->props);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
 }
 
 static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint32_t id,

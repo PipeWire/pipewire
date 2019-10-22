@@ -83,8 +83,11 @@ static void v4l2_update_node(struct v4l2_object *obj, struct v4l2_node *node,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update node %u", node->id);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
+
 	pw_properties_update(node->props, info->props);
-	spa_debug_dict(0, info->props);
 }
 
 static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
@@ -163,8 +166,11 @@ static void v4l2_remove_node(struct v4l2_object *obj, struct v4l2_node *node)
 static void v4l2_device_info(void *data, const struct spa_device_info *info)
 {
 	struct v4l2_object *obj = data;
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
+
 	pw_properties_update(obj->props, info->props);
-	spa_debug_dict(0, info->props);
 }
 
 static void v4l2_device_object_info(void *data, uint32_t id,
@@ -209,7 +215,10 @@ static void v4l2_update_object(struct monitor *monitor, struct v4l2_object *obj,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
-	spa_debug_dict(0, info->props);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
+
 	pw_properties_update(obj->props, info->props);
 }
 

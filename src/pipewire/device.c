@@ -538,7 +538,7 @@ static void device_add_object(struct pw_device *device, uint32_t id,
 	struct object_data *od = NULL;
 
 	if (info->factory_name == NULL) {
-		pw_log_warn(NAME" %p: missing factory name", device);
+		pw_log_debug(NAME" %p: missing factory name", device);
 		return;
 	}
 

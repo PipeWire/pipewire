@@ -1158,7 +1158,8 @@ int spa_alsa_start(struct state *state)
 			state, state->threshold, state->duration, state->rate_denom, state->slaved);
 
 	CHECK(set_swparams(state), "swparams");
-	snd_pcm_dump(state->hndl, state->output);
+	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
+		snd_pcm_dump(state->hndl, state->output);
 
 	if ((err = snd_pcm_prepare(state->hndl)) < 0) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_prepare error: %s", state,

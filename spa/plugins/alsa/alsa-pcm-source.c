@@ -238,6 +238,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return res;
 		break;
 	case SPA_NODE_COMMAND_Pause:
+	case SPA_NODE_COMMAND_Suspend:
 		if ((res = spa_alsa_pause(this)) < 0)
 			return res;
 		break;

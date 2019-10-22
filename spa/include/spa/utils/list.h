@@ -99,11 +99,10 @@ static inline void spa_list_remove(struct spa_list *elem)
 	spa_list_for_each_next(pos, head, head, member)
 
 #define spa_list_for_each_safe_next(pos, tmp, head, curr, member)	\
-	for (pos = spa_list_first(curr, __typeof__(*pos), member),	\
-	     tmp = spa_list_next(pos, member);				\
+	for (pos = spa_list_first(curr, __typeof__(*pos), member);	\
+	     tmp = spa_list_next(pos, member),				\
 	     !spa_list_is_end(pos, head, member);			\
-	     pos = tmp,							\
-	     tmp = spa_list_next(pos, member))
+	     pos = tmp)
 
 #define spa_list_for_each_safe(pos, tmp, head, member)			\
 	spa_list_for_each_safe_next(pos, tmp, head, head, member)

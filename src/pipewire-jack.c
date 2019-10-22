@@ -95,6 +95,7 @@ struct object {
 	union {
 		struct {
 			char name[JACK_CLIENT_NAME_SIZE+1];
+			int32_t priority;
 		} node;
 		struct {
 			uint32_t src;
@@ -111,6 +112,7 @@ struct object {
 			uint32_t monitor_requests;
 			jack_latency_range_t capture_latency;
 			jack_latency_range_t playback_latency;
+			int32_t priority;
 		} port;
 	};
 };
@@ -739,7 +741,6 @@ done:
 static void process_tee(struct client *c)
 {
 	struct port *p;
-
 
 	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
 		if (p->object->port.type_id != 1)
@@ -1729,17 +1730,20 @@ static void registry_event_global(void *data, uint32_t id,
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Node:
+		o = alloc_object(c);
+
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
 			str = "node";
 		}
-
-		o = alloc_object(c);
-		spa_list_append(&c->context.nodes, &o->link);
-
 		snprintf(o->node.name, sizeof(o->node.name), "%s/%d", str, id);
+
+		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_MASTER)) != NULL)
+			o->node.priority = pw_properties_parse_int(str);
+
 		pw_log_debug(NAME" %p: add node %d", c, id);
+		spa_list_append(&c->context.nodes, &o->link);
 		break;
 
 	case PW_TYPE_INTERFACE_Port:
@@ -1805,6 +1809,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 			snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
 			o->port.port_id = SPA_ID_INVALID;
+			o->port.priority = ot->node.priority;
 		}
 
 		if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
@@ -2745,7 +2750,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	return res;
 }
 
-static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
+static inline void *get_buffer_input_float(struct client *c, struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	struct buffer *b;
@@ -2773,7 +2778,7 @@ static void *mix_audio(struct client *c, struct port *p, jack_nframes_t frames)
 	return ptr;
 }
 
-static void *mix_midi(struct client *c, struct port *p, jack_nframes_t frames)
+static inline void *get_buffer_input_midi(struct client *c, struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	struct spa_io_buffers *io;
@@ -2807,16 +2812,6 @@ static void *mix_midi(struct client *c, struct port *p, jack_nframes_t frames)
 	convert_to_midi(seq, n_seq, ptr);
 
 	return ptr;
-}
-
-static inline void *get_buffer_input_float(struct client *c, struct port *p, jack_nframes_t frames)
-{
-	return mix_audio(c, p, frames);
-}
-
-static inline void *get_buffer_input_midi(struct client *c, struct port *p, jack_nframes_t frames)
-{
-	return mix_midi(c, p, frames);
 }
 
 static inline void *get_buffer_output_float(struct client *c, struct port *p, jack_nframes_t frames)
@@ -3468,6 +3463,19 @@ int jack_recompute_total_latency (jack_client_t *client, jack_port_t* port)
 	return 0;
 }
 
+static int port_compare_func(const void *v1, const void *v2)
+{
+	const struct object *const*o1 = v1, *const*o2 = v2;
+
+	if ((*o1)->port.type_id != (*o2)->port.type_id)
+		return (*o1)->port.type_id - (*o2)->port.type_id;
+
+	if ((*o1)->port.priority != (*o2)->port.priority)
+		return (*o2)->port.priority - (*o1)->port.priority;
+
+	return (*o1)->id  - (*o2)->id;
+}
+
 SPA_EXPORT
 const char ** jack_get_ports (jack_client_t *client,
                               const char *port_name_pattern,
@@ -3475,11 +3483,11 @@ const char ** jack_get_ports (jack_client_t *client,
                               unsigned long flags)
 {
 	struct client *c = (struct client *) client;
-	const char **res = malloc(sizeof(char*) * (JACK_PORT_MAX + 1));
-	int count = 0;
+	const char **res;
 	struct object *o;
+	struct object *tmp[JACK_PORT_MAX];
 	const char *str;
-	uint32_t i, id;
+	uint32_t i, count, id;
 	regex_t port_regex, type_regex;
 
 	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
@@ -3497,40 +3505,45 @@ const char ** jack_get_ports (jack_client_t *client,
 	pw_log_debug(NAME" %p: ports id:%d name:%s type:%s flags:%08lx", c, id,
 			port_name_pattern, type_name_pattern, flags);
 
-	for (i = 0; i < 2; i++) {
-		spa_list_for_each(o, &c->context.ports, link) {
-			pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:%s", c,
-					o->port.type_id, o->port.flags, o->port.name);
-			if (count == JACK_PORT_MAX)
-				break;
-			if (o->port.type_id != i)
-				continue;
-			if (!SPA_FLAG_IS_SET(o->port.flags, flags))
-				continue;
-			if (id != SPA_ID_INVALID && o->port.node_id != id)
-				continue;
+	count = 0;
+	spa_list_for_each(o, &c->context.ports, link) {
+		pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:%s", c,
+				o->port.type_id, o->port.flags, o->port.name);
+		if (count == JACK_PORT_MAX)
+			break;
+		if (o->port.type_id > 1)
+			continue;
+		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
+			continue;
+		if (id != SPA_ID_INVALID && o->port.node_id != id)
+			continue;
 
-			if (port_name_pattern && port_name_pattern[0]) {
-				if (regexec(&port_regex, o->port.name, 0, NULL, 0) == REG_NOMATCH)
-					continue;
-			}
-			if (type_name_pattern && type_name_pattern[0]) {
-				if (regexec(&type_regex, type_to_string(o->port.type_id),
-							0, NULL, 0) == REG_NOMATCH)
-					continue;
-			}
-
-			pw_log_debug(NAME" %p: port %s matches (%d)", c, o->port.name, count);
-			res[count++] = o->port.name;
+		if (port_name_pattern && port_name_pattern[0]) {
+			if (regexec(&port_regex, o->port.name, 0, NULL, 0) == REG_NOMATCH)
+				continue;
 		}
-	}
-	pw_thread_loop_unlock(c->context.loop);
+		if (type_name_pattern && type_name_pattern[0]) {
+			if (regexec(&type_regex, type_to_string(o->port.type_id),
+						0, NULL, 0) == REG_NOMATCH)
+				continue;
+		}
 
-	if (count == 0) {
-		free(res);
-		res = NULL;
-	} else
+		pw_log_debug(NAME" %p: port %s prio:%d matches (%d)",
+				c, o->port.name, o->port.priority, count);
+		tmp[count++] = o;
+	}
+	if (count > 0) {
+		qsort(tmp, count, sizeof(struct object *), port_compare_func);
+
+		res = malloc(sizeof(char*) * (count + 1));
+		for (i = 0; i < count; i++)
+			res[i] = tmp[i]->port.name;
 		res[count] = NULL;
+	} else {
+		res = NULL;
+	}
+
+	pw_thread_loop_unlock(c->context.loop);
 
 	if (port_name_pattern && port_name_pattern[0])
 		regfree(&port_regex);

@@ -547,7 +547,7 @@ static int process_write(struct seq_state *state)
 {
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_INPUT];
 	uint32_t i;
-	int res;
+	int res = 0;
 
 	for (i = 0; i < MAX_PORTS; i++) {
 		struct seq_port *port = &stream->ports[i];
@@ -572,6 +572,7 @@ static int process_write(struct seq_state *state)
 
 		io->status = SPA_STATUS_NEED_DATA;
 		spa_node_call_reuse_buffer(&state->callbacks, i, io->buffer_id);
+		res |= SPA_STATUS_NEED_DATA;
 
 		pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size);
 		if (pod == NULL) {
@@ -618,7 +619,7 @@ static int process_write(struct seq_state *state)
 	}
 	snd_seq_drain_output(state->event.hndl);
 
-	return SPA_STATUS_NEED_DATA;
+	return res;
 }
 
 static void init_loop(struct seq_state *state)
@@ -654,12 +655,14 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 
 	if (state->queue_base == 0) {
 		state->queue_base = nsec - queue_real;
-		state->clock_base = state->clock->position;
+		state->clock_base = state->position->clock.position;
 	}
 
-	clock_elapsed = state->clock->position - state->clock_base;
+	corr = 1.0 - (state->z2 + state->z3);
+
+	clock_elapsed = state->position->clock.position - state->clock_base;
 	state->queue_time = nsec - state->queue_base;
-	queue_elapsed = NSEC_TO_CLOCK(state->clock, state->queue_time);
+	queue_elapsed = NSEC_TO_CLOCK(state->clock, state->queue_time) / corr;
 
 	err = ((int64_t)clock_elapsed - (int64_t) queue_elapsed);
 
@@ -697,8 +700,8 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" next:%"PRIu64" thr:%d",
-			nsec, queue_real, state->next_time, state->threshold);
+	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" err:%f next:%"PRIu64" thr:%d",
+			nsec, queue_real, err, state->next_time, state->threshold);
 
 	return 0;
 }
@@ -713,7 +716,8 @@ int spa_alsa_seq_process(struct seq_state *state)
 		update_time(state, state->position->clock.nsec, true);
 		res |= process_read(state);
 	}
-	res = process_write(state);
+	res |= process_write(state);
+
 	return res;
 }
 
@@ -806,6 +810,13 @@ int spa_alsa_seq_start(struct seq_state *state)
 
 	if ((res = seq_start(state, &state->event)) < 0)
 		return res;
+
+	if (state->position) {
+		struct spa_io_clock *clock = &state->position->clock;
+		state->rate = clock->rate;
+		state->duration = clock->duration;
+		state->threshold = state->duration;
+	}
 
 	reset_stream(state, &state->streams[SPA_DIRECTION_INPUT]);
 	reset_stream(state, &state->streams[SPA_DIRECTION_OUTPUT]);

@@ -72,6 +72,10 @@ extern "C" {
 #define PW_KEY_CORE_ID			"core.id"		/**< the core id */
 #define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
 
+/* priorities */
+#define PW_KEY_PRIORITY_SESSION		"priority.session"	/**< priority in session manager */
+#define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< priority to be a master */
+
 /* remote keys */
 #define PW_KEY_REMOTE_NAME		"remote.name"		/**< The name of the remote to connect to,
 								  *  default env(PIPEWIRE_REMOTE) or pipewire-0 */
@@ -115,7 +119,7 @@ extern "C" {
 								  *  description. Ex. "Foobar USB Headset" */
 #define PW_KEY_NODE_PLUGGED		"node.plugged"		/**< when the node was created. As a uint64 in
 								  *  nanoseconds. */
-#define PW_KEY_NODE_PRIORITY		"node.priority"		/**< priority of node */
+
 #define PW_KEY_NODE_SESSION		"node.session"		/**< the session id this node is part of */
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected

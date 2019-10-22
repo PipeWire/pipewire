@@ -548,6 +548,17 @@ static const struct pw_global_events global_events = {
 	.destroy = global_destroy,
 };
 
+static inline void insert_driver(struct pw_core *core, struct pw_node *node)
+{
+	struct pw_node *n, *t;
+
+	spa_list_for_each_safe(n, t, &core->driver_list, driver_link) {
+		if (n->priority_master < node->priority_master)
+			break;
+	}
+	spa_list_append(&n->driver_link, &node->driver_link);
+}
+
 SPA_EXPORT
 int pw_node_register(struct pw_node *this,
 		     struct pw_properties *properties)
@@ -560,7 +571,8 @@ int pw_node_register(struct pw_node *this,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,
-		PW_KEY_NODE_PRIORITY,
+		PW_KEY_PRIORITY_SESSION,
+		PW_KEY_PRIORITY_MASTER,
 		PW_KEY_NODE_DESCRIPTION,
 		PW_KEY_NODE_NAME,
 		PW_KEY_NODE_NICK,
@@ -593,7 +605,7 @@ int pw_node_register(struct pw_node *this,
 
 	spa_list_append(&core->node_list, &this->link);
 	if (this->driver)
-		spa_list_append(&core->driver_list, &this->driver_link);
+		insert_driver(core, this);
 	this->registered = true;
 
 	this->info.id = this->global->id;
@@ -711,6 +723,11 @@ static void check_properties(struct pw_node *node)
 	const char *str;
 	bool driver, do_recalc = false;
 
+	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_MASTER))) {
+		node->priority_master = pw_properties_parse_int(str);
+		pw_log_info(NAME" %p: priority master %d", node, node->priority_master);
+	}
+
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME))) {
 		free(node->name);
 		node->name = strdup(str);
@@ -737,7 +754,7 @@ static void check_properties(struct pw_node *node)
 		node->driver = driver;
 		if (node->registered) {
 			if (driver)
-				spa_list_append(&node->core->driver_list, &node->driver_link);
+				insert_driver(node->core, node);
 			else
 				spa_list_remove(&node->driver_link);
 		}
@@ -1803,7 +1820,8 @@ int pw_node_set_active(struct pw_node *node, bool active)
 		if (active)
 			node_activate(node);
 
-		pw_core_recalc_graph(node->core);
+		if (node->registered)
+			pw_core_recalc_graph(node->core);
 	}
 	return 0;
 }

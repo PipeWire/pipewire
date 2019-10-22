@@ -144,8 +144,9 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	priority -= atol(dev) * 16;
 	priority -= atol(subdev);
 
-	if (pw_properties_get(node->props, PW_KEY_NODE_PRIORITY) == NULL) {
-		pw_properties_setf(node->props, PW_KEY_NODE_PRIORITY, "%d", priority);
+	if (pw_properties_get(node->props, PW_KEY_PRIORITY_MASTER) == NULL) {
+		pw_properties_setf(node->props, PW_KEY_PRIORITY_MASTER, "%d", priority);
+		pw_properties_setf(node->props, PW_KEY_PRIORITY_SESSION, "%d", priority);
 	}
 
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {

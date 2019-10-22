@@ -509,7 +509,7 @@ handle_node(struct impl *impl, uint32_t id,
 		else
 			sess->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
 
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_PRIORITY)) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION)) != NULL)
 			sess->priority = pw_properties_parse_int(str);
 		else
 			sess->priority = 0;

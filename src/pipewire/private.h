@@ -437,6 +437,7 @@ struct pw_node {
 
 	char *name;				/** for debug */
 
+	uint32_t priority_master;	/** priority for being master driver */
 	uint32_t spa_flags;
 
 	unsigned int registered:1;

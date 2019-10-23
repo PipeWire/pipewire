@@ -21,6 +21,7 @@ static int spa_alsa_open(struct state *state)
 {
 	int err;
 	struct props *props = &state->props;
+	snd_pcm_info_t *pcminfo;
 
 	if (state->opened)
 		return 0;
@@ -42,6 +43,16 @@ static int spa_alsa_open(struct state *state)
 
 	state->timerfd = err;
 
+	snd_pcm_info_alloca(&pcminfo);
+	snd_pcm_info(state->hndl, pcminfo);
+
+	/* we would love to use the sync_id but it always returns 0, so use the
+	 * card id for now */
+	state->card = snd_pcm_info_get_card(pcminfo);
+	if (state->clock) {
+		snprintf(state->clock->name, sizeof(state->clock->name),
+				"api.alsa.%d", state->card);
+	}
 	state->opened = true;
 	state->sample_count = 0;
 	state->sample_time = 0;
@@ -608,7 +619,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 
 	*target = state->last_threshold;
 
-	if (state->slaved && state->rate_match) {
+	if (state->matching && state->rate_match) {
 		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
 		/* We try to compensate for the latency introduced by rate matching
@@ -618,6 +629,8 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 		if (*target <= state->delay + 48)
 			state->delay = SPA_MAX(0, (int)(*target - 48 - state->delay));
 		*target -= state->delay;
+	} else {
+		state->delay = state->read_size = 0;
 	}
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -678,7 +691,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		else
 			state->rate_match->rate = SPA_CLAMP(1.0/corr, 0.95, 1.05);
 
-		SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, slave);
+		SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, state->matching);
 	}
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate;
@@ -1137,8 +1150,14 @@ int spa_alsa_start(struct state *state)
 		return 0;
 
 	state->slaved = is_slaved(state);
+	state->matching = state->slaved;
 
 	if (state->position) {
+		int card;
+		if (sscanf(state->position->clock.name, "api.alsa.%d", &card) == 1 &&
+		    card == state->card) {
+			state->matching = false;
+		}
 		state->duration = state->position->clock.duration;
 		state->rate_denom = state->position->clock.rate.denom;
 	}
@@ -1154,8 +1173,9 @@ int spa_alsa_start(struct state *state)
 	init_loop(state);
 	state->safety = 0.0;
 
-	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d slave:%d",
-			state, state->threshold, state->duration, state->rate_denom, state->slaved);
+	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d slave:%d match:%d",
+			state, state->threshold, state->duration, state->rate_denom,
+			state->slaved, state->matching);
 
 	CHECK(set_swparams(state), "swparams");
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))

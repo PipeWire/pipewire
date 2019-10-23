@@ -92,6 +92,7 @@ struct state {
 
 	bool opened;
 	snd_pcm_t *hndl;
+	int card;
 
 	bool have_format;
 	struct spa_audio_info current_format;
@@ -135,6 +136,7 @@ struct state {
 	unsigned int alsa_sync:1;
 	unsigned int alsa_recovering:1;
 	unsigned int slaved:1;
+	unsigned int matching:1;
 
 	int64_t sample_count;
 

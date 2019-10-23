@@ -123,8 +123,9 @@ struct spa_io_range {
 struct spa_io_clock {
 	uint32_t flags;			/**< clock flags */
 	uint32_t id;			/**< unique clock id, set by application */
-	uint32_t api;			/**< api of the clock */
-	uint32_t clock_id;		/**< api specific clock id */
+	char name[64];			/**< clock name prefixed with API, set by node. The clock name
+					  *  is unique per clock and can be used to check if nodes
+					  *  share the same clock. */
 	uint64_t nsec;			/**< time in nanoseconds against monotonic clock */
 	uint64_t count;			/**< a media specific counter. Can be used to detect
 					  *  gaps in the media. It usually represents the amount

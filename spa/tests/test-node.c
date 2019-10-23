@@ -44,7 +44,7 @@ static void test_io_abi(void)
 	spa_assert(sizeof(struct spa_io_buffers) == 8);
 	spa_assert(sizeof(struct spa_io_memory) == 16);
 	spa_assert(sizeof(struct spa_io_range) == 16);
-	spa_assert(sizeof(struct spa_io_clock) == 80);
+	spa_assert(sizeof(struct spa_io_clock) == 136);
 	spa_assert(sizeof(struct spa_io_latency) == 24);
 	spa_assert(sizeof(struct spa_io_sequence) == 16);
 	spa_assert(sizeof(struct spa_io_segment_bar) == 96);
@@ -56,7 +56,7 @@ static void test_io_abi(void)
 	spa_assert(SPA_IO_POSITION_STATE_STARTING == 1);
 	spa_assert(SPA_IO_POSITION_STATE_RUNNING == 2);
 
-	spa_assert(sizeof(struct spa_io_position) == 1952);
+	spa_assert(sizeof(struct spa_io_position) == 2008);
 	spa_assert(sizeof(struct spa_io_rate_match) == 48);
 }
 

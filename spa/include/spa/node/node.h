@@ -34,7 +34,6 @@ extern "C" {
 #include <spa/utils/type.h>
 #include <spa/utils/hook.h>
 
-
 /**
  * A spa_node is a component that can consume and produce buffers.
  */
@@ -43,7 +42,6 @@ struct spa_node { struct spa_interface iface; };
 
 #include <spa/support/plugin.h>
 
-#include <spa/pod/builder.h>
 #include <spa/buffer/buffer.h>
 #include <spa/node/event.h>
 #include <spa/node/command.h>

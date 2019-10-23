@@ -121,8 +121,10 @@ struct spa_io_range {
  * since the provider was last started.
  */
 struct spa_io_clock {
-	uint32_t id;			/**< unique clock id, set by application */
 	uint32_t flags;			/**< clock flags */
+	uint32_t id;			/**< unique clock id, set by application */
+	uint32_t api;			/**< api of the clock */
+	uint32_t clock_id;		/**< api specific clock id */
 	uint64_t nsec;			/**< time in nanoseconds against monotonic clock */
 	uint64_t count;			/**< a media specific counter. Can be used to detect
 					  *  gaps in the media. It usually represents the amount
@@ -175,7 +177,7 @@ struct spa_io_segment_video {
 	uint32_t seconds;
 	uint32_t frames;
 	uint32_t field_count;		/**< 0 for progressive, 1 and 2 for interlaced */
-	uint32_t padding[17];
+	uint32_t padding[15];
 };
 
 /**
@@ -267,6 +269,7 @@ struct spa_io_rate_match {
 	double rate;			/**< rate for resampler */
 #define SPA_IO_RATE_MATCH_FLAG_ACTIVE	(1 << 0)
 	uint32_t flags;			/**< extra flags */
+	uint32_t padding[7];
 };
 
 #ifdef __cplusplus

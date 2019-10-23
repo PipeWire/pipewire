@@ -1,5 +1,6 @@
 test_apps = [
 	'test-buffer',
+	'test-node',
 	'test-pod',
 	'test-utils',
 ]

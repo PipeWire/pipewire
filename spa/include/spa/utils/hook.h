@@ -29,6 +29,7 @@
 extern "C" {
 #endif
 
+#include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
 /** \class spa_hook

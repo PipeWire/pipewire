@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <spa/pod/builder.h>
+
 #include <spa/node/node.h>
 
 struct spa_result_node_params_data {

@@ -159,16 +159,21 @@ static int emit_info(struct impl *this, bool full)
 	struct spa_dict_item items[10];
 	struct spa_device_info dinfo;
 	struct spa_param_info params[2];
-
+	char name[200];
 
 	dinfo = SPA_DEVICE_INFO_INIT();
 
 	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "jack");
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NICK, "jack");
-	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, this->props.server);
-	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
-	dinfo.props = &SPA_DICT_INIT(items, 4);
+	if (strcmp(this->props.server, "default") == 0)
+		snprintf(name, sizeof(name), "JACK Client");
+	else
+		snprintf(name, sizeof(name), "JACK Client (%s)", this->props.server);
+	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
+	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_JACK_SERVER, this->props.server);
+	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+	dinfo.props = &SPA_DICT_INIT(items, 5);
 
 	dinfo.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);

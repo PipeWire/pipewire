@@ -469,6 +469,15 @@ static int client_node_command(void *object, const struct spa_command *command)
 			pw_proxy_error(proxy, res, "start failed");
 		}
 		break;
+
+	case SPA_NODE_COMMAND_Suspend:
+		pw_log_debug("node %p: suspend", proxy);
+		if ((res = pw_node_set_state(data->node, PW_NODE_STATE_SUSPENDED)) < 0) {
+			pw_log_warn("node %p: suspend failed", proxy);
+			pw_proxy_error(proxy, res, "suspend failed");
+		}
+		break;
+
 	default:
 		pw_log_warn("unhandled node command %d", SPA_NODE_COMMAND_ID(command));
 		res = -ENOTSUP;

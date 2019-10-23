@@ -1246,9 +1246,9 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 {
 	int res = 0, res2;
 
-	pw_log_debug(NAME" %p: %d:%d.%d: %d buffers state:%d n_mix:%d", port,
+	pw_log_debug(NAME" %p: %d:%d.%d: %d buffers flags:%d state:%d n_mix:%d", port,
 			port->direction, port->port_id, mix->id,
-			n_buffers, port->state, port->n_mix);
+			n_buffers, flags, port->state, port->n_mix);
 
 	if (n_buffers == 0 && port->state <= PW_PORT_STATE_READY)
 		return 0;
@@ -1274,11 +1274,12 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 		} else if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
 			pw_port_update_state(port, PW_PORT_STATE_PAUSED, NULL);
 		}
-
 	}
 
 	/* then use the buffers on the mixer */
-	flags &= ~SPA_NODE_BUFFERS_FLAG_ALLOC;
+	if (!SPA_FLAG_IS_SET(port->mix_flags, PW_PORT_MIX_FLAG_MIX_ONLY))
+		flags &= ~SPA_NODE_BUFFERS_FLAG_ALLOC;
+
 	res2 = spa_node_port_use_buffers(port->mix,
 			mix->port.direction, mix->port.port_id, flags,
 			buffers, n_buffers);

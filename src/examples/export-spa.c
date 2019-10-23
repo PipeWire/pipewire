@@ -43,6 +43,25 @@ struct data {
 	const char *library;
 	const char *factory;
 	const char *path;
+
+	struct pw_proxy *proxy;
+	struct spa_hook node_listener;
+	uint32_t id;
+};
+
+static void node_event_info(void *object, const struct pw_node_info *info)
+{
+	struct data *data = object;
+
+	if (data->id != info->id) {
+		printf("node id: %u\n", info->id);
+		data->id = info->id;
+	}
+}
+
+static const struct pw_node_proxy_events node_events = {
+	PW_VERSION_NODE_PROXY_EVENTS,
+	.info = node_event_info,
 };
 
 static int make_node(struct data *data)
@@ -67,10 +86,17 @@ static int make_node(struct data *data)
 					      PW_TYPE_INTERFACE_Node,
 					      PW_VERSION_NODE_PROXY,
 					      props, SPA_ID_INVALID);
+	if (data->node == NULL)
+		return -errno;
 
 	pw_node_set_active(data->node, true);
 
-	pw_remote_export(data->remote, PW_TYPE_INTERFACE_Node, NULL, data->node, 0);
+	data->proxy = pw_remote_export(data->remote, PW_TYPE_INTERFACE_Node, NULL, data->node, 0);
+	if (data->proxy == NULL)
+		return -errno;
+
+	pw_node_proxy_add_listener((struct pw_node_proxy*)data->proxy,
+			&data->node_listener, &node_events, data);
 
 	return 0;
 }

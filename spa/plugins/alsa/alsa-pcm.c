@@ -680,8 +680,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		else if (state->bw == BW_MED)
 			set_loop(state, BW_MIN);
 
-		spa_log_debug(state->log, NAME" %p: slave:%d rate:%f bw:%f del:%d target:%ld err:%f (%f %f %f)",
-				state, slave, corr, state->bw, state->delay, target,
+		spa_log_debug(state->log, NAME" %p: slave:%d match:%d rate:%f bw:%f del:%d target:%ld err:%f (%f %f %f)",
+				state, slave, state->matching, corr, state->bw, state->delay, target,
 				err, state->z1, state->z2, state->z3);
 	}
 
@@ -948,9 +948,9 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay, &target)) < 0)
 			return res;
 
-		if (!state->alsa_recovering && delay < target) {
-			spa_log_warn(state->log, NAME" %p: slave delay:%lu resync %f %f %f",
-					state, delay, state->z1, state->z2, state->z3);
+		if (!state->alsa_recovering && (delay < target || delay > target * 2)) {
+			spa_log_warn(state->log, NAME" %p: slave delay:%lu target:%lu resync %f %f %f",
+					state, delay, target, state->z1, state->z2, state->z3);
 			init_loop(state);
 			state->alsa_sync = true;
 		}
@@ -958,7 +958,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			spa_log_warn(state->log, NAME" %p: slave resync %ld %d %ld",
 					state, delay, threshold, target);
 			if (delay < target)
-				snd_pcm_rewind(state->hndl, target - delay);
+				snd_pcm_rewind(state->hndl, target - delay + 32);
 			else if (delay > target)
 				snd_pcm_forward(state->hndl, delay - target);
 

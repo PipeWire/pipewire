@@ -86,8 +86,6 @@ struct impl {
 
 	enum spa_param_port_config_mode mode[2];
 	bool fmt_removing[2];
-	bool fmt_is_set[2];
-	bool buffers_set[2];
 
 	struct spa_handle *hnd_merger;
 	struct spa_handle *hnd_convert_in;
@@ -624,8 +622,6 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	clean_convert(this);
 
 	this->fmt[direction] = new;
-	this->fmt_is_set[direction] = false;
-	this->buffers_set[direction] = false;
 
 	/* signal if we change nodes or when DSP config changes */
 	do_signal = this->fmt[direction] != old ||
@@ -668,14 +664,6 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 			SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 		res = spa_node_set_param(this->fmt[direction], SPA_PARAM_PortConfig, 0, param);
 		if (res < 0)
-			return res;
-
-		this->fmt_is_set[direction] = true;
-	}
-
-	if (this->fmt_is_set[direction] &&
-	    this->fmt_is_set[SPA_DIRECTION_REVERSE(direction)]) {
-		if ((res = setup_convert(this)) < 0)
 			return res;
 	}
 
@@ -775,16 +763,22 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
+		if ((res = setup_convert(this)) < 0)
+			return res;
+		if ((res = setup_buffers(this, SPA_DIRECTION_INPUT)) < 0)
+			return res;
 		this->started = true;
 		break;
 
 	case SPA_NODE_COMMAND_Suspend:
+		clean_convert(this);
 		/* fallthrough */
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
@@ -962,27 +956,10 @@ impl_node_port_set_param(void *object,
 	else
 		target = this->fmt[direction];
 
-	if (id == SPA_PARAM_Format && !is_monitor) {
-		if (param == NULL ||
-		    this->mode[direction] == SPA_PARAM_PORT_CONFIG_MODE_convert) {
-			clean_convert(this);
-			this->buffers_set[direction] = false;
-		}
-	}
-
 	if ((res = spa_node_port_set_param(target,
 					direction, port_id, id, flags, param)) < 0)
 		return res;
 
-	if (id == SPA_PARAM_Format && !is_monitor) {
-		this->fmt_is_set[direction] = (param != NULL);
-
-		if (this->fmt_is_set[direction] &&
-		    this->fmt_is_set[SPA_DIRECTION_REVERSE(direction)]) {
-			if ((res = setup_convert(this)) < 0)
-				return res;
-		}
-	}
 	return res;
 }
 
@@ -1009,13 +986,6 @@ impl_node_port_use_buffers(void *object,
 					direction, port_id, flags, buffers, n_buffers)) < 0)
 		return res;
 
-	this->buffers_set[direction] = (buffers != NULL);
-
-	if (this->buffers_set[direction] &&
-	    this->buffers_set[SPA_DIRECTION_REVERSE(direction)]) {
-		if ((res = setup_buffers(this, SPA_DIRECTION_INPUT)) < 0)
-			return res;
-	}
 	return res;
 }
 

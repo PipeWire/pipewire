@@ -50,6 +50,7 @@ extern "C" {
 
 #define DEFAULT_QUANTUM		1024u
 #define MIN_QUANTUM		32u
+#define MAX_QUANTUM		8192u
 
 #define MAX_PARAMS	32
 

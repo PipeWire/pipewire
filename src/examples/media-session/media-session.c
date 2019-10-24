@@ -49,9 +49,6 @@
 
 #define DEFAULT_IDLE_SECONDS	3
 
-#define MIN_QUANTUM_SIZE	64
-#define MAX_QUANTUM_SIZE	1024
-
 struct impl;
 
 struct monitor {

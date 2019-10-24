@@ -94,8 +94,6 @@ static int alloc_buffers(struct pw_mempool *pool,
 		}
 	}
 
-
-
 	for (i = 0; i < n_datas; i++) {
 		struct spa_data *d = &datas[i];
 

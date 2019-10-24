@@ -165,6 +165,7 @@ DEFINE_FUNCTION(interleave_32, c);
 DEFINE_FUNCTION(s16_to_f32d_2, sse2);
 DEFINE_FUNCTION(s16_to_f32d, sse2);
 DEFINE_FUNCTION(s24_to_f32d, sse2);
+DEFINE_FUNCTION(s32_to_f32d, sse2);
 DEFINE_FUNCTION(f32d_to_s32, sse2);
 DEFINE_FUNCTION(f32d_to_s16, sse2);
 #endif

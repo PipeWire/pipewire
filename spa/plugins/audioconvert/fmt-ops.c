@@ -67,6 +67,9 @@ static struct conv_info conv_table[] =
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_deinterleave_32_c },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32, 0, 0, conv_interleave_32_c },
 
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32P, 0, SPA_CPU_FLAG_SSE2, conv_s32_to_f32d_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32, 0, 0, conv_s32_to_f32_c },
 	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s32d_to_f32d_c },
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s32_to_f32d_c },

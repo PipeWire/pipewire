@@ -47,7 +47,7 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	8192
 #define MAX_BUFFERS	32
 
 struct impl;
@@ -426,7 +426,7 @@ impl_node_port_enum_params(void *object, int seq,
 		}
 		else {
 			buffers = 1;
-			size = MAX_SAMPLES * 2 * other->stride;
+			size = MAX_SAMPLES*2 * other->stride;
 		}
 
 		param = spa_pod_builder_add_object(&b,
@@ -436,7 +436,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							size * port->stride,
 							16 * port->stride,
-							INT32_MAX / port->stride),
+							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
@@ -820,6 +820,12 @@ static int impl_node_process(void *object)
 		outport->offset = 0;
 		SPA_FLAG_SET(res, SPA_STATUS_HAVE_DATA);
 		spa_log_trace_fp(this->log, NAME " %p: have output buffer", this);
+	}
+	if (out_len == 0 && this->peaks) {
+		outio->status = SPA_STATUS_HAVE_DATA;
+		outio->buffer_id = SPA_ID_INVALID;
+		SPA_FLAG_SET(res, SPA_STATUS_HAVE_DATA);
+		spa_log_trace_fp(this->log, NAME " %p: no output buffer", this);
 	}
 
 	if (this->io_rate_match) {

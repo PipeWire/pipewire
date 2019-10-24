@@ -45,7 +45,7 @@ extern "C" {
 #include <spa/param/audio/format-utils.h>
 
 #define MIN_LATENCY	16
-#define MAX_LATENCY	1024
+#define MAX_LATENCY	8192
 
 #define DEFAULT_RATE		48000u
 #define DEFAULT_CHANNELS	2u

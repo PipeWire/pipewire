@@ -48,7 +48,7 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	8192
 #define MAX_ALIGN	16
 #define MAX_BUFFERS	64
 #define MAX_DATAS	32
@@ -493,7 +493,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								MAX_SAMPLES * port->stride,
 								16 * port->stride,
-								MAX_SAMPLES * port->stride),
+								INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;

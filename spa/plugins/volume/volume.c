@@ -51,7 +51,7 @@ static void reset_props(struct props *props)
 	props->mute = DEFAULT_MUTE;
 }
 
-#define MAX_SAMPLES     1024
+#define MAX_SAMPLES     8192
 #define MAX_BUFFERS     16
 
 struct buffer {

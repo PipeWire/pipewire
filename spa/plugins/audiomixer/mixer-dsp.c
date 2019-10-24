@@ -43,7 +43,7 @@
 
 #define MAX_BUFFERS	64
 #define MAX_PORTS	128
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	8192
 #define MAX_ALIGN	64
 
 #define PORT_DEFAULT_VOLUME	1.0
@@ -386,9 +386,9 @@ next:
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								1024 * this->stride,
+								MAX_SAMPLES * this->stride,
 								16 * this->stride,
-								INT32_MAX / this->stride),
+								INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
@@ -602,6 +602,10 @@ impl_node_port_use_buffers(void *object,
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, b);
+
+		spa_log_debug(this->log, NAME " %p: port %d.%d buffer %d n_data:%d data:%p maxsize:%d",
+				this, i, direction, port_id,
+				buffers[i]->n_datas, d[0].data, d[0].maxsize);
 	}
 	port->n_buffers = n_buffers;
 
@@ -701,12 +705,11 @@ static int impl_node_process(void *object)
 			continue;
 		}
 
-		spa_log_trace_fp(this->log, NAME " %p: mix input %d %p->%p %d %d", this,
-				i, inio, outio, inio->status, inio->buffer_id);
-
 		inb = &inport->buffers[inio->buffer_id];
-
 		maxsize = SPA_MIN(inb->buffer->datas[0].chunk->size, maxsize);
+
+		spa_log_trace_fp(this->log, NAME " %p: mix input %d %p->%p %d %d %d", this,
+				i, inio, outio, inio->status, inio->buffer_id, maxsize);
 
 		datas[n_buffers] = inb->buffer->datas[0].data;
 		buffers[n_buffers++] = inb;

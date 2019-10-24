@@ -1131,7 +1131,7 @@ static int collect_nodes(struct pw_node *driver)
 		quantum = DEFAULT_QUANTUM;
 
 	/* for now, we try to limit the latency between min and default, We can
-	 * go higher but we should really only do this when in power save mode */
+	 * go to max but we should really only do this when in power save mode */
 	driver->quantum_current = SPA_CLAMP(quantum, MIN_QUANTUM, DEFAULT_QUANTUM);
 
 	return 0;

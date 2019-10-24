@@ -45,7 +45,7 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	8192
 #define MAX_BUFFERS	32
 #define MAX_DATAS	32
 

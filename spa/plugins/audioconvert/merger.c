@@ -48,7 +48,8 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	2048
+#define MAX_SAMPLES	1024
+#define MAX_ALIGN	16
 #define MAX_BUFFERS	64
 #define MAX_DATAS	32
 #define MAX_PORTS	128
@@ -110,7 +111,7 @@ struct impl {
 	unsigned int monitor:1;
 	unsigned int have_profile:1;
 
-	float empty[MAX_SAMPLES + 15];
+	float empty[MAX_SAMPLES*2 + MAX_ALIGN];
 };
 
 #define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && (p) < this->port_count)
@@ -490,7 +491,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								1024 * port->stride,
+								MAX_SAMPLES * port->stride,
 								16 * port->stride,
 								MAX_SAMPLES * port->stride),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
@@ -793,7 +794,7 @@ impl_node_port_use_buffers(void *object,
 						this, j, i, d[j].type, d[j].data);
 				return -EINVAL;
 			}
-			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
+			if (!SPA_IS_ALIGNED(d[j].data, MAX_ALIGN)) {
 				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
@@ -962,7 +963,7 @@ static int impl_node_process(void *object)
 		struct port *inport = GET_IN_PORT(this, i);
 
 		if (get_in_buffer(this, inport, &sbuf) < 0) {
-			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, 16, void);
+			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 			continue;
 		}
 

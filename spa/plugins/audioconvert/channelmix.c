@@ -45,6 +45,7 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
+#define MAX_SAMPLES	1024
 #define MAX_BUFFERS	32
 #define MAX_DATAS	32
 
@@ -569,7 +570,7 @@ impl_node_port_enum_params(void *object, int seq,
 			size = other->size / other->stride;
 		} else {
 			buffers = 1;
-			size = port->format.info.raw.rate * 1024 / DEFAULT_RATE;
+			size = MAX_SAMPLES;
 		}
 
 		param = spa_pod_builder_add_object(&b,
@@ -579,7 +580,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							size * port->stride,
 							16 * port->stride,
-							INT32_MAX / port->stride),
+							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;

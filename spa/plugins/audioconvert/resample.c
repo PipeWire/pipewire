@@ -47,6 +47,7 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
+#define MAX_SAMPLES	1024
 #define MAX_BUFFERS	32
 
 struct impl;
@@ -425,7 +426,7 @@ impl_node_port_enum_params(void *object, int seq,
 		}
 		else {
 			buffers = 1;
-			size = 2048 * other->stride;
+			size = MAX_SAMPLES * 2 * other->stride;
 		}
 
 		param = spa_pod_builder_add_object(&b,
@@ -755,7 +756,7 @@ static int impl_node_process(void *object)
 	if (this->io_position) {
 		max = this->io_position->clock.duration;
 	} else {
-		max = 1024;
+		max = maxsize / sizeof(float);
 	}
 
 	switch (this->mode) {

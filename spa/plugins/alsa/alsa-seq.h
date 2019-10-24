@@ -46,8 +46,6 @@ extern "C" {
 
 struct props {
 	char device[64];
-	uint32_t min_latency;
-	uint32_t max_latency;
 };
 
 #define MAX_EVENT_SIZE 1024

@@ -50,8 +50,9 @@
 #define JACK_PORT_TYPE_SIZE             32
 #define CONNECTION_NUM_FOR_PORT		1024
 
-#define BUFFER_SIZE_MAX			8192
+#define MAX_BUFFER_FRAMES		8192
 
+#define MAX_ALIGN			16
 #define MAX_OBJECTS			8192
 #define MAX_PORTS			1024
 #define MAX_BUFFERS			2
@@ -61,9 +62,8 @@
 #define MAX_IO				32
 
 #define DEFAULT_SAMPLE_RATE	48000
-#define DEFAULT_BUFFER_SIZE	1024
-#define MAX_BUFFER_SIZE		2048
-#define DEFAULT_LATENCY		SPA_STRINGIFY(DEFAULT_BUFFER_SIZE/DEFAULT_SAMPLE_RATE)
+#define DEFAULT_BUFFER_FRAMES	1024
+#define DEFAULT_LATENCY		SPA_STRINGIFY(DEFAULT_BUFFER_FRAMES/DEFAULT_SAMPLE_RATE)
 
 #define REAL_JACK_PORT_NAME_SIZE (JACK_CLIENT_NAME_SIZE + JACK_PORT_NAME_SIZE)
 
@@ -190,7 +190,7 @@ struct port {
 
 	bool zeroed;
 	float *emptyptr;
-	float empty[BUFFER_SIZE_MAX + 15];
+	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
 };
 
 struct context {
@@ -273,7 +273,7 @@ struct client {
 
 	struct spa_io_position *position;
 	uint32_t sample_rate;
-	uint32_t buffer_size;
+	uint32_t buffer_frames;
 
 	struct mix mix_pool[MAX_MIX];
 	struct spa_list free_mix;
@@ -310,7 +310,7 @@ static void init_port_pool(struct client *c, enum spa_direction direction)
 		c->port_pool[direction][i].direction = direction;
 		c->port_pool[direction][i].id = i;
 		c->port_pool[direction][i].emptyptr =
-			SPA_PTR_ALIGN(c->port_pool[direction][i].empty, 16, float);
+			SPA_PTR_ALIGN(c->port_pool[direction][i].empty, MAX_ALIGN, float);
 		spa_list_append(&c->free_ports[direction], &c->port_pool[direction][i].link);
 	}
 }
@@ -720,7 +720,7 @@ static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames
 		ptr = b->datas[0].data;
 
 		b->datas[0].chunk->offset = 0;
-		b->datas[0].chunk->size = frames * stride;
+		b->datas[0].chunk->size = frames * sizeof(float);
 		b->datas[0].chunk->stride = stride;
 
 		p->io.status = SPA_STATUS_HAVE_DATA;
@@ -745,9 +745,9 @@ static void process_tee(struct client *c)
 	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
 		if (p->object->port.type_id != 1)
 			continue;
-		void *ptr = get_buffer_output(c, p, BUFFER_SIZE_MAX, 1);
+		void *ptr = get_buffer_output(c, p, MAX_BUFFER_FRAMES, 1);
 		if (ptr != NULL)
-			convert_from_midi(p->emptyptr, ptr, BUFFER_SIZE_MAX);
+			convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
 	}
 }
 
@@ -879,7 +879,7 @@ static inline uint32_t cycle_run(struct client *c)
 {
 	uint64_t cmd, nsec;
 	int fd = c->socket_source->fd;
-	uint32_t buffer_size, sample_rate;
+	uint32_t buffer_frames, sample_rate;
 	struct spa_io_position *pos = c->position;
 	struct pw_node_activation *activation = c->activation;
 	struct pw_node_activation *driver = c->driver_activation;
@@ -907,12 +907,12 @@ static inline uint32_t cycle_run(struct client *c)
 		c->first = false;
 	}
 
-	buffer_size = pos->clock.duration;
-	if (buffer_size != c->buffer_size) {
-		pw_log_info(NAME" %p: buffersize %d", c, buffer_size);
-		c->buffer_size = buffer_size;
+	buffer_frames = pos->clock.duration;
+	if (buffer_frames != c->buffer_frames) {
+		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
+		c->buffer_frames = buffer_frames;
 		if (c->bufsize_callback)
-			c->bufsize_callback(c->buffer_size, c->bufsize_arg);
+			c->bufsize_callback(c->buffer_frames, c->bufsize_arg);
 	}
 
 	sample_rate = pos->clock.rate.denom;
@@ -936,11 +936,11 @@ static inline uint32_t cycle_run(struct client *c)
 			c->xrun_callback(c->xrun_arg);
 		c->xrun_count = driver->xrun_count;
 	}
-	pw_log_trace(NAME" %p: wait %"PRIu64" %d %d %d %"PRIi64" %f", c,
-			activation->awake_time, c->buffer_size, c->sample_rate,
+	pw_log_trace(NAME" %p: wait %"PRIu64" frames:%d rate:%d pos:%d delay:%"PRIi64" corr:%f", c,
+			activation->awake_time, c->buffer_frames, c->sample_rate,
 			c->jack_position.frame, pos->clock.delay, pos->clock.rate_diff);
 
-	return buffer_size;
+	return buffer_frames;
 }
 
 static inline uint32_t cycle_wait(struct client *c)
@@ -1004,7 +1004,7 @@ static inline void cycle_signal(struct client *c, int status)
 			    c->jack_state == JackTransportRolling ||
 			    c->jack_state == JackTransportLooping) {
 				c->timebase_callback(c->jack_state,
-						     c->buffer_size,
+						     c->buffer_frames,
 						     &c->jack_position,
 						     activation->pending_new_pos,
 						     c->timebase_arg);
@@ -1036,12 +1036,12 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		}
 		return;
 	} else if (mask & SPA_IO_IN) {
-		uint32_t buffer_size;
+		uint32_t buffer_frames;
 		int status;
 
-		buffer_size = cycle_run(c);
+		buffer_frames = cycle_run(c);
 
-		status = c->process_callback ? c->process_callback(buffer_size, c->process_arg) : 0;
+		status = c->process_callback ? c->process_callback(buffer_frames, c->process_arg) : 0;
 
 		cycle_signal(c, status);
 	}
@@ -1314,7 +1314,11 @@ static int param_buffers(struct client *c, struct port *p,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(MAX_BUFFER_SIZE * sizeof(float), 4, INT32_MAX, 4),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
+							MAX_BUFFER_FRAMES * sizeof(float),
+							sizeof(float),
+							MAX_BUFFER_FRAMES * sizeof(float),
+							sizeof(float)),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4),
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 	return 1;
@@ -1382,6 +1386,8 @@ static int client_node_port_set_param(void *object,
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
+	pw_log_debug("port %p: %d.%d id:%d %p", p, direction, port_id, id, param);
+
         if (id == SPA_PARAM_Format) {
 		port_set_format(c, p, flags, param);
 	}
@@ -1400,20 +1406,20 @@ static int client_node_port_set_param(void *object,
 					 NULL);
 }
 
-static void init_buffer(struct port *p, void *data, size_t maxsize)
+static void init_buffer(struct port *p, void *data, size_t maxframes)
 {
 	if (p->object->port.type_id == 1) {
 		struct midi_buffer *mb = data;
-		pw_log_debug("port %p: init midi buffer %p size:%zd", p, data, maxsize);
 		mb->magic = MIDI_BUFFER_MAGIC;
-		mb->buffer_size = maxsize;
-		mb->nframes = maxsize / sizeof(float);
+		mb->buffer_size = MAX_BUFFER_FRAMES * sizeof(float);
+		mb->nframes = maxframes;
 		mb->write_pos = 0;
 		mb->event_count = 0;
 		mb->lost_events = 0;
+		pw_log_debug("port %p: init midi buffer %p size:%d", p, data, mb->buffer_size);
 	}
 	else
-		memset(data, 0, maxsize);
+		memset(data, 0, maxframes * sizeof(float));
 }
 
 static int client_node_port_use_buffers(void *object,
@@ -1533,7 +1539,7 @@ static int client_node_port_use_buffers(void *object,
 						d->data, d->maxsize);
 		}
 
-		init_buffer(p, p->emptyptr, BUFFER_SIZE_MAX);
+		init_buffer(p, p->emptyptr, MAX_BUFFER_FRAMES);
 		p->zeroed = true;
 
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
@@ -1989,7 +1995,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	pw_array_init(&client->links, 64);
 
-	client->buffer_size = (uint32_t)-1;
+	client->buffer_frames = (uint32_t)-1;
 	client->sample_rate = (uint32_t)-1;
 
         spa_list_init(&client->free_mix);
@@ -2605,9 +2611,9 @@ SPA_EXPORT
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	if (c->buffer_size == (uint32_t)-1)
-		return DEFAULT_BUFFER_SIZE;
-	return c->buffer_size;
+	if (c->buffer_frames == (uint32_t)-1)
+		return DEFAULT_BUFFER_FRAMES;
+	return c->buffer_frames;
 }
 
 SPA_EXPORT
@@ -2637,7 +2643,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
                                   const char *port_name,
                                   const char *port_type,
                                   unsigned long flags,
-                                  unsigned long buffer_size)
+                                  unsigned long buffer_frames)
 {
 	struct client *c = (struct client *) client;
 	enum spa_direction direction;
@@ -2655,7 +2661,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	int res;
 
 	pw_log_debug(NAME" %p: port register \"%s\" \"%s\" %08lx %ld",
-			c, port_name, port_type, flags, buffer_size);
+			c, port_name, port_type, flags, buffer_frames);
 
 	if (flags & JackPortIsInput)
 		direction = PW_DIRECTION_INPUT;
@@ -2674,6 +2680,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	o->port.flags = flags;
 	snprintf(o->port.name, sizeof(o->port.name), "%s:%s", c->name, port_name);
 	o->port.type_id = type_id;
+
+	pw_log_debug(NAME" %p: port %p", c, p);
 
 	spa_list_init(&p->mix);
 
@@ -2861,7 +2869,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		if (ptr == NULL) {
 			ptr = p->emptyptr;
 			if (!p->zeroed) {
-				init_buffer(p, ptr, BUFFER_SIZE_MAX * sizeof(float));
+				init_buffer(p, ptr, MAX_BUFFER_FRAMES);
 				p->zeroed = true;
 			}
 		}
@@ -3387,7 +3395,7 @@ size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_t
 	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
 		return jack_get_buffer_size(client) * sizeof(float);
 	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
-		return BUFFER_SIZE_MAX;
+		return MAX_BUFFER_FRAMES * sizeof(float);
 	else
 		return 0;
 }
@@ -3473,7 +3481,7 @@ static int port_compare_func(const void *v1, const void *v2)
 	if ((*o1)->port.priority != (*o2)->port.priority)
 		return (*o2)->port.priority - (*o1)->port.priority;
 
-	return (*o1)->id  - (*o2)->id;
+	return (*o1)->id - (*o2)->id;
 }
 
 SPA_EXPORT

@@ -40,6 +40,8 @@ extern "C" {
 #define BLUEZ_MEDIA_ENDPOINT_INTERFACE BLUEZ_SERVICE ".MediaEndpoint1"
 #define BLUEZ_MEDIA_TRANSPORT_INTERFACE BLUEZ_SERVICE ".MediaTransport1"
 
+#define MIN_LATENCY	128
+#define MAX_LATENCY	1024
 
 #define ENDPOINT_INTROSPECT_XML                                             \
 	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                           \

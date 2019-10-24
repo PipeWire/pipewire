@@ -127,8 +127,8 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
-static const uint32_t default_min_latency = 128;
-static const uint32_t default_max_latency = 1024;
+static const uint32_t default_min_latency = MIN_LATENCY;
+static const uint32_t default_max_latency = MAX_LATENCY;
 
 static void reset_props(struct props *props)
 {

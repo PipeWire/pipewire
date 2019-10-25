@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>

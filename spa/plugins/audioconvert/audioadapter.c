@@ -35,6 +35,7 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
 #include <spa/param/param.h>
+#include <spa/param/audio/format-utils.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
@@ -57,6 +58,7 @@ struct impl {
 	struct spa_node *slave;
 	struct spa_hook slave_listener;
 	uint32_t slave_flags;
+	struct spa_audio_info slave_current_format;
 
 	struct spa_handle *hnd_convert;
 	struct spa_node *convert;
@@ -382,6 +384,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 {
 	int res = 0;
 	struct impl *this = object;
+	struct spa_audio_info info = { 0 };
 
 	spa_log_debug(this->log, NAME" %p: set param %d", this, id);
 
@@ -389,8 +392,18 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Format:
 		if (this->started)
 			return -EIO;
-		if ((res = configure_format(this, flags, param)) < 0)
+		if (param == NULL)
+			return -EINVAL;
+
+		if ((res = spa_format_parse(param, &info.media_type, &info.media_subtype)) < 0)
 			return res;
+		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+			info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+				return -EINVAL;
+		if (spa_format_audio_raw_parse(param, &info.info.raw) < 0)
+			return -EINVAL;
+
+		this->slave_current_format = info;
 		break;
 
 	case SPA_PARAM_PortConfig:
@@ -448,6 +461,10 @@ static int negotiate_format(struct impl *this)
 
 	state = 0;
 	format = NULL;
+
+	if (this->have_format)
+		format = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &this->slave_current_format.info.raw);
+
 	if ((res = spa_node_port_enum_params_sync(this->slave,
 				this->direction, 0,
 				SPA_PARAM_EnumFormat, &state,

@@ -19,6 +19,8 @@
 
 #include <errno.h>
 
+#include <spa/utils/result.h>
+
 #include <pipewire/log.h>
 #include <pipewire/loop.h>
 

@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stddef.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
 #include <spa/node/node.h>

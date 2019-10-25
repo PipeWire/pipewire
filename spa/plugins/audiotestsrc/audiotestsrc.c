@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>
 #include <spa/support/loop.h>

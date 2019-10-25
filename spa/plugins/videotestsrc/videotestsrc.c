@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <sys/timerfd.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>

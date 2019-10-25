@@ -35,7 +35,7 @@
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
-#include <spa/node/io.h>
+#include <spa/utils/result.h>
 
 #include <pipewire/pipewire.h>
 

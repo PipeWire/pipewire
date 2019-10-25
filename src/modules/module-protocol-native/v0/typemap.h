@@ -44,7 +44,7 @@ const struct type_info {
 	{ "Spa:Enum:ParamId:Meta", SPA_TYPE_INFO_PARAM_ID_BASE "Meta", SPA_PARAM_Meta, },
 	{ "Spa:Pointer:Meta:Header", SPA_TYPE_INFO_META_BASE "Header", SPA_META_Header, },
 	{ "Spa:Pointer:Meta:VideoCrop", SPA_TYPE_INFO_META_REGION_BASE "VideoCrop", SPA_META_VideoCrop, },
-	{ "Spa:Pointer:Meta:VideoDamage", SPA_TYPE_INFO_META_REGION_ARRAY_BASE "VideoDamage", SPA_META_VideoDamage, },
+	{ "Spa:Pointer:Meta:VideoDamage", SPA_TYPE_INFO_META_ARRAY_REGION_BASE "VideoDamage", SPA_META_VideoDamage, },
 	{ "Spa:Pointer:Meta:Bitmap", SPA_TYPE_INFO_META_BASE "Bitmap", SPA_META_Bitmap, },
 	{ "Spa:Pointer:Meta:Cursor", SPA_TYPE_INFO_META_BASE "Cursor", SPA_META_Cursor, },
 	{ "Spa:Enum:DataType:MemPtr", SPA_TYPE_INFO_DATA_BASE "MemPtr", SPA_DATA_MemPtr, },

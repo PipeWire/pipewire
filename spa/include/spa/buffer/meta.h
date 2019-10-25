@@ -38,12 +38,12 @@ extern "C" {
  */
 enum spa_meta_type {
 	SPA_META_Invalid,
-	SPA_META_Header,
-	SPA_META_VideoCrop,
-	SPA_META_VideoDamage,
-	SPA_META_Bitmap,
-	SPA_META_Cursor,
-	SPA_META_Control,	/**< metadata contains a spa_pod_sequence
+	SPA_META_Header,	/**< struct spa_meta_header */
+	SPA_META_VideoCrop,	/**< struct spa_meta_region with cropping data */
+	SPA_META_VideoDamage,	/**< array of struct spa_meta_region with damage */
+	SPA_META_Bitmap,	/**< struct spa_meta_bitmap */
+	SPA_META_Cursor,	/**< struct spa_meta_cursor */
+	SPA_META_Control,	/**< metadata contains a spa_meta_control
 				  *  associated with the data */
 
 	SPA_META_LAST,		/**< not part of ABI/API */
@@ -91,7 +91,8 @@ struct spa_meta_region {
 
 #define spa_meta_region_is_valid(m)	((m)->region.size.width != 0 && (m)->region.size.height != 0)
 
-#define spa_meta_region_for_each(pos,meta)				\
+/** iterate all the items in a metadata */
+#define spa_meta_for_each(pos,meta)					\
 	for (pos = (__typeof(pos))spa_meta_first(meta);			\
 	    spa_meta_check(pos, meta);					\
             (pos)++)

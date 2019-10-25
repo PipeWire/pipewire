@@ -387,7 +387,7 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	}
 
 	if ((m = spa_buffer_find_meta(buf, SPA_META_VideoDamage))) {
-		spa_meta_region_for_each(r, m) {
+		spa_meta_for_each(r, m) {
 			if (!spa_meta_region_is_valid(r))
 				break;
 			if (memcmp(&r->region, &d->region, sizeof(struct spa_region)) == 0)

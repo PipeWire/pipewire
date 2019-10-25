@@ -56,19 +56,23 @@ static const struct spa_type_info spa_type_data_type[] = {
 #define SPA_TYPE_INFO_Meta			SPA_TYPE_INFO_POINTER_BASE "Meta"
 #define SPA_TYPE_INFO_META_BASE			SPA_TYPE_INFO_Meta ":"
 
+#define SPA_TYPE_INFO_META_Array		SPA_TYPE_INFO_META_BASE "Array"
+#define SPA_TYPE_INFO_META_ARRAY_BASE		SPA_TYPE_INFO_META_Array ":"
+
 #define SPA_TYPE_INFO_META_Region		SPA_TYPE_INFO_META_BASE "Region"
 #define SPA_TYPE_INFO_META_REGION_BASE		SPA_TYPE_INFO_META_Region ":"
 
-#define SPA_TYPE_INFO_META_RegionArray		SPA_TYPE_INFO_META_BASE "RegionArray"
-#define SPA_TYPE_INFO_META_REGION_ARRAY_BASE	SPA_TYPE_INFO_META_RegionArray ":"
+#define SPA_TYPE_INFO_META_ARRAY_Region		SPA_TYPE_INFO_META_ARRAY_BASE "Region"
+#define SPA_TYPE_INFO_META_ARRAY_REGION_BASE	SPA_TYPE_INFO_META_ARRAY_Region ":"
 
 static const struct spa_type_info spa_type_meta_type[] = {
 	{ SPA_META_Invalid, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Invalid", NULL },
 	{ SPA_META_Header, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Header", NULL },
 	{ SPA_META_VideoCrop, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_REGION_BASE "VideoCrop", NULL },
-	{ SPA_META_VideoDamage, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_REGION_ARRAY_BASE "VideoDamage", NULL },
+	{ SPA_META_VideoDamage, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_ARRAY_REGION_BASE "VideoDamage", NULL },
 	{ SPA_META_Bitmap, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Bitmap", NULL },
 	{ SPA_META_Cursor, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Cursor", NULL },
+	{ SPA_META_Control, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Control", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

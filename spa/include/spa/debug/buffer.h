@@ -75,7 +75,7 @@ static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 		case SPA_META_VideoDamage:
 		{
 			struct spa_meta_region *h;
-			spa_meta_region_for_each(h, m) {
+			spa_meta_for_each(h, m) {
 				spa_debug("%*s" "    struct spa_meta_region:", indent, "");
 				spa_debug("%*s" "      x:      %d", indent, "", h->region.position.x);
 				spa_debug("%*s" "      y:      %d", indent, "", h->region.position.y);

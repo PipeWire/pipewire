@@ -30,21 +30,18 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/hook.h>
+#include <spa/buffer/buffer.h>
+#include <spa/node/event.h>
+#include <spa/node/command.h>
+
 
 /**
  * A spa_node is a component that can consume and produce buffers.
  */
 #define SPA_VERSION_NODE	0
 struct spa_node { struct spa_interface iface; };
-
-#include <spa/support/plugin.h>
-
-#include <spa/buffer/buffer.h>
-#include <spa/node/event.h>
-#include <spa/node/command.h>
 
 /**
  * Node information structure

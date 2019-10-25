@@ -41,7 +41,9 @@ extern "C" {
 #include "pipewire/stream.h"
 #include "pipewire/log.h"
 
+#include <spa/support/plugin.h>
 #include <spa/pod/builder.h>
+#include <spa/utils/result.h>
 #include <spa/utils/type-info.h>
 
 #ifndef spa_debug

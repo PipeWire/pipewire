@@ -30,9 +30,8 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
-#include <spa/support/plugin.h>
-#include <spa/pod/builder.h>
 #include <spa/pod/event.h>
 
 /**

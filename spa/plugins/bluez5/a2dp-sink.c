@@ -28,12 +28,14 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/monitor/device.h>
 
 #include <spa/node/node.h>

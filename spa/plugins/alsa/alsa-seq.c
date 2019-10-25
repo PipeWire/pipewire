@@ -32,6 +32,7 @@
 #include <math.h>
 #include <limits.h>
 
+#include <spa/utils/result.h>
 #include <spa/pod/filter.h>
 #include <spa/support/system.h>
 #include <spa/control/control.h>

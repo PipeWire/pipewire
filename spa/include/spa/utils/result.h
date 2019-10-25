@@ -43,6 +43,14 @@ extern "C" {
 #define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | SPA_RESULT_ASYNC_SEQ(seq))
 
+#define spa_strerror(err)		\
+({					\
+	int _err = -err;		\
+	if (SPA_RESULT_IS_ASYNC(err))	\
+		_err = EINPROGRESS;	\
+	strerror(_err);			\
+})
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

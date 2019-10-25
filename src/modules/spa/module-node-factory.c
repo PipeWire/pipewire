@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <dlfcn.h>
 
+#include <spa/utils/result.h>
+
 #include "config.h"
 
 #include "pipewire/pipewire.h"

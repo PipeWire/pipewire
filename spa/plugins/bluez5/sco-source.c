@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>

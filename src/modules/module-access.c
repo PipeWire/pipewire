@@ -32,6 +32,8 @@
 
 #include "config.h"
 
+#include <spa/utils/result.h>
+
 #include <pipewire/pipewire.h>
 
 static const struct spa_dict_item module_props[] = {

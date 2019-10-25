@@ -38,6 +38,7 @@
 #include "config.h"
 
 #include <spa/support/dbus.h>
+#include <spa/utils/result.h>
 
 #include <pipewire/pipewire.h>
 

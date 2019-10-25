@@ -33,7 +33,6 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
-#include <spa/utils/result.h>
 
 /**
  * a collection of core system functions

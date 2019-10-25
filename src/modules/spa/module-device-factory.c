@@ -29,6 +29,8 @@
 
 #include "config.h"
 
+#include <spa/utils/result.h>
+
 #include "pipewire/pipewire.h"
 
 #include "spa-device.h"

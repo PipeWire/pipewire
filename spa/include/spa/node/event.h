@@ -29,9 +29,7 @@
 extern "C" {
 #endif
 
-#include <spa/utils/defs.h>
 #include <spa/pod/event.h>
-#include <spa/node/node.h>
 
 /* object id of SPA_TYPE_EVENT_Node */
 enum spa_node_event {

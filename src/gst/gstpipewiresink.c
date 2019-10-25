@@ -44,6 +44,9 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
+#include <spa/pod/builder.h>
+#include <spa/utils/result.h>
+
 #include "gstpipewireformat.h"
 
 GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);

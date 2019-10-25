@@ -236,14 +236,6 @@ struct spa_param_info {
 #define spa_memzero(x,l) (memset((x), 0, (l)))
 #define spa_zero(x) (spa_memzero(&(x), sizeof(x)))
 
-#define spa_strerror(err)		\
-({					\
-	int _err = -err;		\
-	if (SPA_RESULT_IS_ASYNC(err))	\
-		_err = EINPROGRESS;	\
-	strerror(_err);			\
-})
-
 #ifdef SPA_DEBUG_MEMCPY
 #define spa_memcpy(d,s,n)						\
 ({									\

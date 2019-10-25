@@ -45,6 +45,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <spa/pod/builder.h>
+
 #include <gst/net/gstnetclientclock.h>
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/allocators/gstdmabuf.h>

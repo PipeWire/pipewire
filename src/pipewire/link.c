@@ -31,7 +31,6 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
-#include <spa/buffer/alloc.h>
 
 #include "pipewire/keys.h"
 #include "pipewire/private.h"

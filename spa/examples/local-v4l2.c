@@ -34,7 +34,9 @@
 
 #include <SDL2/SDL.h>
 
+#include <spa/support/plugin.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/node/node.h>

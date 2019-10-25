@@ -23,6 +23,7 @@
  */
 
 #include <spa/utils/defs.h>
+#include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/node/command.h>
 #include <spa/node/event.h>

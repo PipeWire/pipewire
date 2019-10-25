@@ -28,8 +28,10 @@
 #include <unistd.h>
 #include <dlfcn.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
+#include <spa/utils/result.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/pod/parser.h>

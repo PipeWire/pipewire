@@ -24,6 +24,8 @@
 
 #include <string.h>
 
+#include <spa/pod/builder.h>
+
 #include "pipewire/pipewire.h"
 
 #include "pipewire/remote.h"

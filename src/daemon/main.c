@@ -25,6 +25,8 @@
 #include <signal.h>
 #include <getopt.h>
 
+#include <spa/utils/result.h>
+
 #include <pipewire/pipewire.h>
 #include <pipewire/core.h>
 #include <pipewire/module.h>

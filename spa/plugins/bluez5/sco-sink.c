@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 
+#include <spa/support/plugin.h>
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>

@@ -31,7 +31,6 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
-#include <spa/utils/result.h>
 #include <spa/support/system.h>
 
 #define SPA_VERSION_LOOP		0

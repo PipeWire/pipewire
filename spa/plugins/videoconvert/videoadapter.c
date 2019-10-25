@@ -22,11 +22,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/support/plugin.h>
 #include <spa/support/log.h>
 
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
+#include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>

@@ -160,6 +160,7 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 	{ SPA_MEDIA_SUBTYPE_unknown, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "unknown", NULL },
 	/* generic subtypes */
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "raw", NULL },
+	{ SPA_MEDIA_SUBTYPE_dsp, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "dsp", NULL },
 	/* audio subtypes */
 	{ SPA_MEDIA_SUBTYPE_mp3, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "mp3", NULL },
 	{ SPA_MEDIA_SUBTYPE_aac, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "aac", NULL },

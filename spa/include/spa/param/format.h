@@ -46,6 +46,7 @@ enum spa_media_type {
 enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_unknown,
 	SPA_MEDIA_SUBTYPE_raw,
+	SPA_MEDIA_SUBTYPE_dsp,
 
 	SPA_MEDIA_SUBTYPE_START_Audio	= 0x10000,
 	SPA_MEDIA_SUBTYPE_mp3,

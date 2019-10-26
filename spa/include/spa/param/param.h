@@ -47,11 +47,19 @@ enum spa_param_type {
 	SPA_PARAM_PortConfig,		/**< port configuration as SPA_TYPE_OBJECT_ParamPortConfig */
 };
 
-/** Properties for SPA_TYPE_OBJECT_ParamList */
-enum spa_param_list {
-	SPA_PARAM_LIST_START,
-	SPA_PARAM_LIST_id,	/**< id of the supported list param (Id enum spa_param_type) */
+/** information about a parameter */
+struct spa_param_info {
+	uint32_t id;			/**< enum spa_param_type */
+#define SPA_PARAM_INFO_SERIAL		(1<<0)	/**< bit to signal update even when the
+						 *   read/write flags don't change */
+#define SPA_PARAM_INFO_READ		(1<<1)
+#define SPA_PARAM_INFO_WRITE		(1<<2)
+#define SPA_PARAM_INFO_READWRITE	(SPA_PARAM_INFO_WRITE|SPA_PARAM_INFO_READ)
+	uint32_t flags;
+	uint32_t padding[6];
 };
+
+#define SPA_PARAM_INFO(id,flags) (struct spa_param_info){ (id), (flags) }
 
 /** properties for SPA_TYPE_OBJECT_ParamBuffers */
 enum spa_param_buffers {

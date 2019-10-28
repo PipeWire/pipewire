@@ -436,6 +436,10 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
+		struct spa_dict_item items[1];
+
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit float RGBA video");
+		port->info.props = &SPA_DICT_INIT(items, 1);
 		spa_node_emit_port_info(&this->hooks,
 				SPA_DIRECTION_OUTPUT, 0, &port->info);
 		port->info.change_mask = 0;
@@ -917,7 +921,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	port = &this->port;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
-			SPA_PORT_CHANGE_MASK_PARAMS;
+			SPA_PORT_CHANGE_MASK_PARAMS |
+			SPA_PORT_CHANGE_MASK_PROPS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	if (this->props.live)

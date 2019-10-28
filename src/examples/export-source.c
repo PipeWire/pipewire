@@ -210,8 +210,9 @@ static int impl_port_enum_params(void *object, int seq,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, 32),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(BUFFER_SAMPLES * sizeof(float), 32, 4096),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+							BUFFER_SAMPLES * sizeof(float), 32, INT32_MAX),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(sizeof(float)),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 

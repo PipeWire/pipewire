@@ -90,22 +90,8 @@ struct control {
 	float values[64];
 };
 
-#define DEFAULT_VOLUME	1.0
-
-struct props {
-	float volume;
-	unsigned int changed:1;
-};
-
-static void reset_props(struct props *props)
-{
-	props->volume = DEFAULT_VOLUME;
-}
-
 struct stream {
 	struct pw_stream this;
-
-	struct props props;
 
 	const char *path;
 
@@ -125,8 +111,6 @@ struct stream {
 	struct spa_callbacks callbacks;
 	struct spa_io_buffers *io;
 	struct spa_io_position *position;
-	uint32_t io_control_size;
-	uint32_t io_notify_size;
 
 	struct spa_list param_list;
 	struct spa_param_info params[5];
@@ -145,8 +129,6 @@ struct stream {
 	struct data data;
 	uintptr_t seq;
 	struct pw_time time;
-
-	uint32_t param_propinfo;
 
 	unsigned int async_connect:1;
 	unsigned int disconnecting:1;
@@ -1191,8 +1173,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	this->remote = remote;
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;
-
-	reset_props(&impl->props);
 
 	spa_ringbuffer_init(&impl->dequeued.ring);
 	spa_ringbuffer_init(&impl->queued.ring);

@@ -1269,7 +1269,7 @@ static int param_enum_format(struct client *c, struct port *p,
 		break;
 	case 2:
 		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 	                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
@@ -1420,11 +1420,11 @@ static int port_set_format(struct client *c, struct port *p,
 			break;
 		case SPA_MEDIA_TYPE_video:
 		{
-			struct spa_video_info info = { 0 };
+			struct spa_video_info vinfo = { 0 };
 
 			if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 				return -EINVAL;
-			if (spa_format_video_raw_parse(param, &info.info.raw) < 0)
+			if (spa_format_video_raw_parse(param, &vinfo.info.raw) < 0)
 				return -EINVAL;
 			break;
 		}
@@ -1511,9 +1511,12 @@ static int client_node_port_use_buffers(void *object,
 	pw_log_debug(NAME" %p: port %p %d %d.%d use_buffers %d", c, p, direction,
 			port_id, mix_id, n_buffers);
 
-
-	/* some apps write to the input buffer so we want everything readwrite */
-	fl = PW_MEMMAP_FLAG_READWRITE;
+	if (p->object->port.type_id == 2 && direction == SPA_DIRECTION_INPUT) {
+		fl = PW_MEMMAP_FLAG_READ;
+	} else {
+		/* some apps write to the input buffer so we want everything readwrite */
+		fl = PW_MEMMAP_FLAG_READWRITE;
+	}
 
 	/* clear previous buffers */
 	clear_buffers(c, mix);

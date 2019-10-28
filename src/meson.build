@@ -22,3 +22,12 @@ pipewire_jack = shared_library('jack',
     dependencies : [pipewire_dep, jack_dep, mathlib],
     install : false,
 )
+
+if sdl_dep.found()
+  executable('video-dsp-play',
+    '../examples/video-dsp-play.c',
+    c_args : [ '-D_GNU_SOURCE' ],
+    install: false,
+    dependencies : [jack_dep, sdl_dep, mathlib],
+  )
+endif

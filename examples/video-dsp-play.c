@@ -30,9 +30,9 @@
 
 #include <jack/jack.h>
 
-#define WIDTH   640
-#define HEIGHT  480
-#define BPP    3
+#define WIDTH   320
+#define HEIGHT  240
+#define BPP     16
 
 #define MAX_BUFFERS	64
 
@@ -153,8 +153,8 @@ int main(int argc, char *argv[])
 
         jack_set_process_callback (data.client, process, &data);
 
-	data.width = 320;
-	data.height = 240;
+	data.width = WIDTH;
+	data.height = HEIGHT;
 	data.stride = data.width * 4 * sizeof(float);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {

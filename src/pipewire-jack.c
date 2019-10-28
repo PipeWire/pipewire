@@ -35,6 +35,7 @@
 
 #include <spa/support/cpu.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/video/format-utils.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
 
@@ -1266,6 +1267,21 @@ static int param_enum_format(struct client *c, struct port *p,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
+	case 2:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+	                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
+			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
+                                                        &SPA_RECTANGLE(320, 240),
+                                                        &SPA_RECTANGLE(1,1),
+                                                        &SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
+                                                        &SPA_FRACTION(25,1),
+                                                        &SPA_FRACTION(0,1),
+                                                        &SPA_FRACTION(INT32_MAX,1)));
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1303,6 +1319,21 @@ static int param_format(struct client *c, struct port *p,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
+	case 2:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+	                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
+			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
+                                                        &SPA_RECTANGLE(320, 240),
+                                                        &SPA_RECTANGLE(1,1),
+                                                        &SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
+                                                        &SPA_FRACTION(25,1),
+                                                        &SPA_FRACTION(0,1),
+                                                        &SPA_FRACTION(INT32_MAX,1)));
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1312,17 +1343,36 @@ static int param_format(struct client *c, struct port *p,
 static int param_buffers(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
-	*param = spa_pod_builder_add_object(b,
-		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
-							MAX_BUFFER_FRAMES * sizeof(float),
-							sizeof(float),
-							MAX_BUFFER_FRAMES * sizeof(float),
-							sizeof(float)),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4),
-		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+	switch (p->object->port.type_id) {
+	case 0:
+	case 1:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
+								MAX_BUFFER_FRAMES * sizeof(float),
+								sizeof(float),
+								MAX_BUFFER_FRAMES * sizeof(float),
+								sizeof(float)),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+		break;
+	case 2:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+								320 * 240 * 4 * 4,
+								0,
+								INT32_MAX),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(4, 4, INT32_MAX),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+		break;
+	default:
+		return -EINVAL;
+	}
 	return 1;
 }
 
@@ -1350,11 +1400,11 @@ static int port_set_format(struct client *c, struct port *p,
 	}
 	else {
 		struct spa_audio_info info = { 0 };
-
 		spa_format_parse(param, &info.media_type, &info.media_subtype);
 
 		switch (info.media_type) {
 		case SPA_MEDIA_TYPE_audio:
+		{
 			if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 				return -EINVAL;
 
@@ -1363,11 +1413,21 @@ static int port_set_format(struct client *c, struct port *p,
 
 			p->rate = info.info.raw.rate;
 			break;
-
+		}
 		case SPA_MEDIA_TYPE_application:
 			if (info.media_subtype != SPA_MEDIA_SUBTYPE_control)
 				return -EINVAL;
 			break;
+		case SPA_MEDIA_TYPE_video:
+		{
+			struct spa_video_info info = { 0 };
+
+			if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+				return -EINVAL;
+			if (spa_format_video_raw_parse(param, &info.info.raw) < 0)
+				return -EINVAL;
+			break;
+		}
 		default:
 			return -EINVAL;
 		}
@@ -2798,7 +2858,7 @@ static inline void *get_buffer_input_midi(struct client *c, struct port *p, jack
 	struct spa_pod_sequence *seq[CONNECTION_NUM_FOR_PORT];
 	uint32_t n_seq = 0;
 
-	jack_midi_reset_buffer(ptr);
+	jack_midi_clear_buffer(ptr);
 
 	spa_list_for_each(mix, &p->mix, port_link) {
 		struct spa_data *d;
@@ -2869,6 +2929,9 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		case 1:
 			ptr = get_buffer_input_midi(c, p, frames);
 			break;
+		case 2:
+			ptr = get_buffer_input_float(c, p, frames);
+			break;
 		}
 		if (ptr == NULL) {
 			ptr = p->emptyptr;
@@ -2884,6 +2947,9 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			break;
 		case 1:
 			ptr = get_buffer_output_midi(c, p, frames);
+			break;
+		case 2:
+			ptr = get_buffer_output_float(c, p, frames);
 			break;
 		}
 	}
@@ -3400,6 +3466,8 @@ size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_t
 		return jack_get_buffer_size(client) * sizeof(float);
 	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
 		return MAX_BUFFER_FRAMES * sizeof(float);
+	else if (!strcmp(JACK_DEFAULT_VIDEO_TYPE, port_type))
+		return 320 * 240 * 4 * sizeof(float);
 	else
 		return 0;
 }

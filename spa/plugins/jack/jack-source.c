@@ -486,7 +486,7 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
-static int port_enum_formats(void *object,
+static int port_enum_formats(struct impl *this,
 			     enum spa_direction direction, uint32_t port_id,
 			     uint32_t index,
 			     const struct spa_pod *filter,
@@ -500,6 +500,7 @@ static int port_enum_formats(void *object,
 			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 			SPA_FORMAT_AUDIO_format,    SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
+			SPA_FORMAT_AUDIO_rate,      SPA_POD_Int(this->client->frame_rate),
 			SPA_FORMAT_AUDIO_channels,  SPA_POD_Int(1));
 		break;
 	default:

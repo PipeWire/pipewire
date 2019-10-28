@@ -44,6 +44,8 @@
 
 #include "extensions/client-node.h"
 
+#define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"
+
 #define JACK_CLIENT_NAME_SIZE		64
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_MAX			4096
@@ -1702,8 +1704,10 @@ static jack_port_type_id_t string_to_type(const char *port_type)
 		return 0;
 	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
 		return 1;
-	else if (!strcmp("other", port_type))
+	else if (!strcmp(JACK_DEFAULT_VIDEO_TYPE, port_type))
 		return 2;
+	else if (!strcmp("other", port_type))
+		return 3;
 	else
 		return SPA_ID_INVALID;
 }
@@ -1716,6 +1720,8 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	case 1:
 		return JACK_DEFAULT_MIDI_TYPE;
 	case 2:
+		return JACK_DEFAULT_VIDEO_TYPE;
+	case 3:
 		return "other";
 	default:
 		return NULL;
@@ -1760,12 +1766,10 @@ static void registry_event_global(void *data, uint32_t id,
 		uint32_t node_id;
 		char full_name[1024];
 
-		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL) {
-			type_id = 2;
-		}
-		else
-			if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
-				goto exit;
+		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
+			str = "other";
+		if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
+			goto exit;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
 			goto exit;
@@ -3519,7 +3523,7 @@ const char ** jack_get_ports (jack_client_t *client,
 				o->port.type_id, o->port.flags, o->port.name);
 		if (count == JACK_PORT_MAX)
 			break;
-		if (o->port.type_id > 1)
+		if (o->port.type_id > 2)
 			continue;
 		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
 			continue;

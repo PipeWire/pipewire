@@ -379,14 +379,12 @@ static inline int spa_pod_is_object(const struct spa_pod *pod)
 
 static inline bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
 {
-	return (pod && spa_pod_is_object(pod) &&
-		((const struct spa_pod_object *) pod)->body.type == type);
+	return (pod && spa_pod_is_object(pod) && SPA_POD_OBJECT_TYPE(pod) == type);
 }
 
 static inline bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t id)
 {
-	return (pod && spa_pod_is_object(pod) &&
-		((const struct spa_pod_object *) pod)->body.id == id);
+	return (pod && spa_pod_is_object(pod) && SPA_POD_OBJECT_ID(pod) == id);
 }
 
 static inline int spa_pod_is_sequence(const struct spa_pod *pod)

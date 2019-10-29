@@ -710,7 +710,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			return -EINVAL;
 
 		if (format) {
-			if (!SPA_POD_IS_OBJECT_TYPE(format, SPA_TYPE_OBJECT_Format))
+			if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))
 				return -EINVAL;
 
 			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)

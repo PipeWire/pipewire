@@ -31,6 +31,7 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
+#include "pipewire/keys.h"
 #include "pipewire/private.h"
 
 #include "buffers.h"
@@ -218,7 +219,7 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t i, offset, n_params;
 	uint32_t max_buffers;
-	size_t minsize = 8192, stride = 0, align;
+	size_t minsize, stride, align;
 	uint32_t data_sizes[1];
 	int32_t data_strides[1];
 	uint32_t data_aligns[1];
@@ -245,7 +246,7 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 	else
 		max_buffers = MAX_BUFFERS;
 
-	if ((str = pw_properties_get(core->properties, "cpu.max-align")) != NULL)
+	if ((str = pw_properties_get(core->properties, PW_KEY_CPU_MAX_ALIGN)) != NULL)
 		align = pw_properties_parse_int(str);
 	else
 		align = MAX_ALIGN;

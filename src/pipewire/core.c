@@ -529,7 +529,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
 
 	if ((cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU)) != NULL)
-		pw_properties_setf(properties, "cpu.max-align", "%u", spa_cpu_get_max_align(cpu));
+		pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN, "%u", spa_cpu_get_max_align(cpu));
 
 	lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_DBUS);
 	if (lib == NULL)

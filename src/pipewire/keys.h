@@ -72,6 +72,11 @@ extern "C" {
 #define PW_KEY_CORE_ID			"core.id"		/**< the core id */
 #define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
 
+/* cpu */
+#define PW_KEY_CPU_MAX_ALIGN		"cpu.max-align"		/**< maximum alignment needed to support
+								  *  all CPU optimizations */
+#define PW_KEY_CPU_CORES		"cpu.cores"		/**< number of cores */
+
 /* priorities */
 #define PW_KEY_PRIORITY_SESSION		"priority.session"	/**< priority in session manager */
 #define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< priority to be a master */

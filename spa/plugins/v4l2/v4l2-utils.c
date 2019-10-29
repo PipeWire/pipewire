@@ -1186,7 +1186,6 @@ static int mmap_read(struct impl *this)
 		this->clock->rate = port->rate;
 		this->clock->position = buf.sequence;
 		this->clock->duration = 1;
-		this->clock->count = buf.sequence;
 		this->clock->delay = 0;
 		this->clock->rate_diff = 1.0;
 		this->clock->next_nsec = pts + 1000000000LL / port->rate.denom;

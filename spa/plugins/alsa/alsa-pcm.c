@@ -700,7 +700,6 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->clock->nsec = nsec;
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
-		state->clock->count = state->clock->position;
 		state->clock->delay = state->duration * corr;
 		state->clock->rate_diff = corr;
 		state->clock->next_nsec = state->next_time;

@@ -127,10 +127,6 @@ struct spa_io_clock {
 					  *  is unique per clock and can be used to check if nodes
 					  *  share the same clock. */
 	uint64_t nsec;			/**< time in nanoseconds against monotonic clock */
-	uint64_t count;			/**< a media specific counter. Can be used to detect
-					  *  gaps in the media. It usually represents the amount
-					  *  of processed media units (packets, frames,
-					  *  samples, ...) */
 	struct spa_fraction rate;	/**< rate for position/duration/delay */
 	uint64_t position;		/**< current position */
 	uint64_t duration;		/**< duration of current cycle */
@@ -138,6 +134,19 @@ struct spa_io_clock {
 					  *  positive for capture, negative for playback */
 	double rate_diff;		/**< rate difference between clock and monotonic time */
 	uint64_t next_nsec;		/**< extimated next wakup time in nanoseconds */
+	uint32_t padding[8];
+};
+
+/* the size of the video in this cycle */
+struct spa_io_video_size {
+#define SPA_IO_VIDEO_SIZE_VALID		(1<<0)
+	uint32_t flags;			/**< optional flags */
+	uint32_t stride;		/**< video stride in bytes */
+	struct spa_rectangle size;	/**< the video size */
+	struct spa_fraction framerate;  /**< the minimum framerate, the cycle duration is
+					  *  always smaller to ensure there is only one
+					  *  video frame per cycle. */
+	uint32_t padding[4];
 };
 
 /** latency reporting */
@@ -161,7 +170,7 @@ struct spa_io_segment_bar {
 	float signature_denom;		/**< time signature denominator */
 	double bpm;			/**< beats per minute */
 	double beat;			/**< current beat in segment */
-	uint32_t padding[16];
+	uint32_t padding[8];
 };
 
 /** video frame segment */
@@ -178,7 +187,7 @@ struct spa_io_segment_video {
 	uint32_t seconds;
 	uint32_t frames;
 	uint32_t field_count;		/**< 0 for progressive, 1 and 2 for interlaced */
-	uint32_t padding[15];
+	uint32_t padding[11];
 };
 
 /**
@@ -252,6 +261,7 @@ enum spa_io_position_state {
 struct spa_io_position {
 	struct spa_io_clock clock;		/**< clock position of driver, always valid and
 						  *  read only */
+	struct spa_io_video_size video;		/**< size of the video in the current cycle */
 	int64_t offset;				/**< an offset to subtract from the clock position
 						  *  to get a running time. This is the time that
 						  *  the state has been in the RUNNING state and the

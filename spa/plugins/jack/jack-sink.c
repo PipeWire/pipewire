@@ -339,7 +339,6 @@ static void client_process(void *data)
 	if (this->clock) {
 		struct spa_io_clock *c = this->clock;
 		c->nsec = this->client->current_usecs * SPA_NSEC_PER_USEC;
-		c->count = this->client->current_frames;
 		c->rate = SPA_FRACTION(1, this->client->frame_rate);
 		c->position = this->client->current_frames;
 		c->duration = this->client->buffer_size;

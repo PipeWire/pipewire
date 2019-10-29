@@ -4101,9 +4101,9 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 	if (thread == (jack_native_thread_t)NULL)
 		return -1;
 
-	pw_log_warn("join thread %lu", thread);
+	pw_log_debug("join thread %lu", thread);
         pthread_join(thread, &status);
-	pw_log_warn("stopped thread %lu", thread);
+	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }
 
@@ -4115,11 +4115,11 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 	if (thread == (jack_native_thread_t)NULL)
 		return -1;
 
-	pw_log_warn("cancel thread %lu", thread);
+	pw_log_debug("cancel thread %lu", thread);
         pthread_cancel(thread);
-	pw_log_warn("join thread %lu", thread);
+	pw_log_debug("join thread %lu", thread);
         pthread_join(thread, &status);
-	pw_log_warn("stopped thread %lu", thread);
+	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }
 

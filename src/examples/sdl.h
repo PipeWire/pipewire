@@ -77,7 +77,7 @@ static struct {
 #endif
 };
 
-static uint32_t sdl_format_to_id(Uint32 format)
+static inline uint32_t sdl_format_to_id(Uint32 format)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(sdl_video_formats); i++) {
@@ -87,7 +87,7 @@ static uint32_t sdl_format_to_id(Uint32 format)
 	return SPA_VIDEO_FORMAT_UNKNOWN;
 }
 
-static Uint32 id_to_sdl_format(uint32_t id)
+static inline Uint32 id_to_sdl_format(uint32_t id)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(sdl_video_formats); i++) {
@@ -98,7 +98,7 @@ static Uint32 id_to_sdl_format(uint32_t id)
 }
 
 
-static struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_builder *b)
+static inline struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct spa_pod_builder *b)
 {
 	uint32_t i, c;
 	struct spa_pod_frame f[2];

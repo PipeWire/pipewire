@@ -23,6 +23,13 @@ executable('export-source',
   dependencies : [pipewire_dep, mathlib],
 )
 
+executable('audio-dsp-filter',
+  'audio-dsp-filter.c',
+  c_args : [ '-D_GNU_SOURCE' ],
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
+
 executable('export-spa',
   'export-spa.c',
   c_args : [ '-D_GNU_SOURCE' ],
@@ -58,6 +65,13 @@ if sdl_dep.found()
     install: false,
     dependencies : [pipewire_dep, sdl_dep, mathlib],
   )
+  executable('video-dsp-play',
+    'video-dsp-play.c',
+    c_args : [ '-D_GNU_SOURCE' ],
+    install: false,
+    dependencies : [pipewire_dep, sdl_dep, mathlib],
+  )
+
   executable('local-v4l2',
     'local-v4l2.c',
     c_args : [ '-D_GNU_SOURCE' ],

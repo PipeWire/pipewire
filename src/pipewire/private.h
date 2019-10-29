@@ -39,6 +39,7 @@ extern "C" {
 #include "pipewire/introspect.h"
 #include "pipewire/interfaces.h"
 #include "pipewire/stream.h"
+#include "pipewire/filter.h"
 #include "pipewire/log.h"
 
 #include <spa/support/plugin.h>
@@ -733,6 +734,7 @@ struct pw_remote {
 	struct pw_client_proxy *client_proxy;	/**< proxy for the client object */
 
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
+	struct spa_list filter_list;		/**< list of \ref pw_stream objects */
 
 	struct pw_protocol_client *conn;	/**< the protocol client connection */
 	int recv_seq;				/**< last received sequence number */
@@ -767,6 +769,40 @@ struct pw_stream {
 	uint32_t node_id;			/**< node id for remote node, available from
 						  *  CONFIGURE state and higher */
 	enum pw_stream_state state;		/**< stream state */
+	char *error;				/**< error reason when state is in error */
+
+	struct spa_hook_list listener_list;
+
+	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
+
+	struct pw_node_proxy *node;
+	struct spa_hook node_listener;
+
+	struct spa_list controls;
+};
+
+#define pw_filter_emit(s,m,v,...) spa_hook_list_call(&(s)->listener_list, struct pw_filter_events, m, v, ##__VA_ARGS__)
+#define pw_filter_emit_destroy(s)		pw_filter_emit(s, destroy, 0)
+#define pw_filter_emit_state_changed(s,o,n,e)	pw_filter_emit(s, state_changed,0,o,n,e)
+#define pw_filter_emit_io_changed(s,p,i,d,t)	pw_filter_emit(s, io_changed,0,p,i,d,t)
+#define pw_filter_emit_param_changed(s,p,i,f)	pw_filter_emit(s, param_changed,0,p,i,f)
+#define pw_filter_emit_add_buffer(s,p,b)	pw_filter_emit(s, add_buffer, 0, p, b)
+#define pw_filter_emit_remove_buffer(s,p,b)	pw_filter_emit(s, remove_buffer, 0, p, b)
+#define pw_filter_emit_process(s,p)		pw_filter_emit(s, process, 0, p)
+#define pw_filter_emit_drained(s)		pw_filter_emit(s, drained, 0)
+
+
+struct pw_filter {
+	struct pw_remote *remote;		/**< the owner remote */
+	struct spa_list link;			/**< link in the remote */
+
+	char *name;				/**< the name of the filter */
+	struct pw_properties *properties;	/**< properties of the filter */
+
+	uint32_t node_id;			/**< node id for remote node, available from
+						  *  CONFIGURE state and higher */
+	enum pw_filter_state state;		/**< filter state */
 	char *error;				/**< error reason when state is in error */
 
 	struct spa_hook_list listener_list;

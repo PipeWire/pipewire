@@ -57,7 +57,8 @@ static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 			struct spa_meta_header *h = (struct spa_meta_header*)m->data;
 			spa_debug("%*s" "    struct spa_meta_header:", indent, "");
 			spa_debug("%*s" "      flags:      %08x", indent, "", h->flags);
-			spa_debug("%*s" "      seq:        %u", indent, "", h->seq);
+			spa_debug("%*s" "      offset:     %u", indent, "", h->offset);
+			spa_debug("%*s" "      seq:        %" PRIu64, indent, "", h->seq);
 			spa_debug("%*s" "      pts:        %" PRIi64, indent, "", h->pts);
 			spa_debug("%*s" "      dts_offset: %" PRIi64, indent, "", h->dts_offset);
 			break;

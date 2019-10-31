@@ -552,11 +552,14 @@ static int set_mask(pa_context *c, struct global *g)
 	case PW_TYPE_INTERFACE_Node:
 		if (g->props == NULL)
 			return 0;
+
+		if ((str = pw_properties_get(g->props, PW_KEY_PRIORITY_MASTER)) != NULL)
+			g->priority_master = pw_properties_parse_int(str);
+
 		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL) {
 			pw_log_debug("node %d without "PW_KEY_MEDIA_CLASS, g->id);
 			return 0;
 		}
-		pw_log_debug("node %d "PW_KEY_MEDIA_CLASS" '%s'", g->id, str);
 
 		if (strcmp(str, "Audio/Sink") == 0) {
 			pw_log_debug("found sink %d", g->id);
@@ -664,12 +667,26 @@ static int set_mask(pa_context *c, struct global *g)
 	return 1;
 }
 
+static inline void insert_global(pa_context *c, struct global *global)
+{
+	struct global *g, *t;
+
+	spa_list_for_each_safe(g, t, &c->globals, link) {
+		if (g->priority_master < global->priority_master) {
+			g = g->link.prev;
+			break;
+		}
+	}
+	spa_list_prepend(&g->link, &global->link);
+}
+
 static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
 {
 	pa_context *c = data;
 	struct global *g;
+	int res;
 
 	g = calloc(1, sizeof(struct global));
 	pw_log_debug("context %p: global %d %u %p", c, id, type, g);
@@ -678,12 +695,12 @@ static void registry_event_global(void *data, uint32_t id,
 	g->type = type;
 	g->init = true;
 	g->props = props ? pw_properties_new_dict(props) : NULL;
-	spa_list_append(&c->globals, &g->link);
 
-	if (set_mask(c, g) != 1) {
+	res = set_mask(c, g);
+	insert_global(c, g);
+
+	if (res != 1)
 		global_free(c, g);
-		return;
-	}
 }
 
 static void registry_event_global_remove(void *object, uint32_t id)

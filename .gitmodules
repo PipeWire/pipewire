@@ -1,9 +1,0 @@
-[submodule "pipewire-alsa"]
-	path = pipewire-alsa
-	url = https://github.com/PipeWire/pipewire-alsa.git
-[submodule "pipewire-jack"]
-	path = pipewire-jack
-	url = https://github.com/PipeWire/pipewire-jack.git
-[submodule "pipewire-pulseaudio"]
-	path = pipewire-pulseaudio
-	url = https://github.com/PipeWire/pipewire-pulseaudio.git

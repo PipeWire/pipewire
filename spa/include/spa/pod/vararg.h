@@ -88,6 +88,7 @@ extern "C" {
 #define SPA_POD_Array(csize,ctype,n_vals,vals)		"a", csize,ctype,n_vals,vals
 #define SPA_POD_Pointer(type,val)			"p", type,val
 #define SPA_POD_Fd(val)					"h", val
+#define SPA_POD_None()					"P", NULL
 #define SPA_POD_Pod(val)				"P", val
 #define SPA_POD_PodObject(val)				"O", val
 #define SPA_POD_PodStruct(val)				"T", val

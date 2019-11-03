@@ -6,6 +6,7 @@ LABEL description="Fedora-based environment for building PipeWire" \
 
 # Install pipewire dependencies
 RUN dnf -y install \
+    which \
     gcc \
     meson \
     systemd-devel \

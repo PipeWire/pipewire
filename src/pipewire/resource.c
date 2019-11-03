@@ -66,15 +66,6 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 	spa_hook_list_init(&this->listener_list);
 	spa_hook_list_init(&this->object_listener_list);
 
-	this->marshal = pw_protocol_get_marshal(client->protocol, type, version);
-	if (this->marshal == NULL) {
-		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
-				spa_debug_type_find_name(pw_type_info(), type),
-				version);
-		res = -EPROTO;
-		goto error_clean;
-	}
-
 	if (id == SPA_ID_INVALID) {
 		res = -EINVAL;
 		goto error_clean;
@@ -86,21 +77,24 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 			this, id, client);
 		goto error_clean;
 	}
-
 	this->id = id;
+
+	if ((res = pw_resource_install_marshal(this, false)) < 0) {
+		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
+				spa_debug_type_find_name(pw_type_info(), type),
+				version);
+		goto error_clean;
+	}
+
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
-
-	this->impl = SPA_INTERFACE_INIT(
-			type,
-			this->marshal->version,
-			this->marshal->event_marshal, this);
 
 	pw_log_debug(NAME" %p: new %u type %s/%d client:%p marshal:%p",
 			this, id,
 			spa_debug_type_find_name(pw_type_info(), type), version,
 			client, this->marshal);
+
 	pw_client_emit_resource_added(client, this);
 
 	return this;
@@ -109,6 +103,26 @@ error_clean:
 	free(impl);
 	errno = -res;
 	return NULL;
+}
+
+SPA_EXPORT
+int pw_resource_install_marshal(struct pw_resource *this, bool implementor)
+{
+	struct pw_client *client = this->client;
+	const struct pw_protocol_marshal *marshal;
+
+	marshal = pw_protocol_get_marshal(client->protocol,
+			this->type, this->version,
+			implementor ? PW_PROTOCOL_MARSHAL_FLAG_IMPL : 0);
+	if (marshal == NULL)
+		return -EPROTO;
+
+	this->marshal = marshal;
+	this->impl = SPA_INTERFACE_INIT(
+			this->type,
+			this->marshal->version,
+			this->marshal->server_marshal, this);
+	return 0;
 }
 
 SPA_EXPORT

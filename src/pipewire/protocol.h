@@ -73,14 +73,16 @@ struct pw_protocol_server {
 #define pw_protocol_server_destroy(l)	((l)->destroy(l))
 
 struct pw_protocol_marshal {
-        uint32_t type;			/**< interface type */
-	uint32_t version;               /**< version */
-	uint32_t n_methods;             /**< number of methods in the interface */
-        uint32_t n_events;              /**< number of events in the interface */
-	const void *method_marshal;
-	const void *method_demarshal;
-	const void *event_marshal;
-	const void *event_demarshal;
+	uint32_t type;			/**< interface type */
+	uint32_t version;		/**< version */
+#define PW_PROTOCOL_MARSHAL_FLAG_IMPL	(1 << 0)	/**< marshal for implementations */
+	uint32_t flags;			/**< version */
+	uint32_t n_client_methods;	/**< number of client methods */
+	uint32_t n_server_methods;	/**< number of server methods */
+	const void *client_marshal;
+	const void *server_demarshal;
+	const void *server_marshal;
+	const void *client_demarshal;
 };
 
 struct pw_protocol_implementaton {
@@ -132,7 +134,7 @@ int pw_protocol_add_marshal(struct pw_protocol *protocol,
 			    const struct pw_protocol_marshal *marshal);
 
 const struct pw_protocol_marshal *
-pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t version);
+pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t version, uint32_t flags);
 
 struct pw_protocol * pw_core_find_protocol(struct pw_core *core, const char *name);
 

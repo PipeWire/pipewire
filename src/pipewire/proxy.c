@@ -71,16 +71,8 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	this = &impl->this;
 	this->remote = remote;
 	this->refcount = 1;
+	this->type = type;
 	this->version = version;
-
-	this->marshal = pw_protocol_get_marshal(remote->conn->protocol, type, version);
-	if (this->marshal == NULL) {
-		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
-				spa_debug_type_find_name(pw_type_info(), type),
-				version);
-		res = -EPROTO;
-		goto error_clean;
-	}
 
 	this->id = pw_map_insert_new(&remote->objects, this);
 	if (this->id == SPA_ID_INVALID) {
@@ -92,25 +84,46 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	spa_hook_list_init(&this->listener_list);
 	spa_hook_list_init(&this->object_listener_list);
 
+	if ((res = pw_proxy_install_marshal(this, false)) < 0) {
+		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
+				spa_debug_type_find_name(pw_type_info(), type),
+				version);
+		goto error_clean;
+	}
+
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
-
-	this->impl = SPA_INTERFACE_INIT(
-			type,
-			this->marshal->version,
-			this->marshal->method_marshal, this);
 
 	pw_log_debug(NAME" %p: new %u type %s/%d remote:%p, marshal:%p",
 			this, this->id,
 			spa_debug_type_find_name(pw_type_info(), type), version,
 			remote, this->marshal);
-
 	return this;
 
 error_clean:
 	free(impl);
 	errno = -res;
 	return NULL;
+}
+
+SPA_EXPORT
+int pw_proxy_install_marshal(struct pw_proxy *this, bool implementor)
+{
+	struct pw_remote *remote = this->remote;
+	const struct pw_protocol_marshal *marshal;
+
+	marshal = pw_protocol_get_marshal(remote->conn->protocol,
+			this->type, this->version,
+			implementor ? PW_PROTOCOL_MARSHAL_FLAG_IMPL : 0);
+	if (marshal == NULL)
+		return -EPROTO;
+
+	this->marshal = marshal;
+	this->impl = SPA_INTERFACE_INIT(
+			this->type,
+			this->marshal->version,
+			this->marshal->client_marshal, this);
+	return 0;
 }
 
 SPA_EXPORT

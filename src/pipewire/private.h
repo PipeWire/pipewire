@@ -703,6 +703,7 @@ struct pw_proxy {
 	struct pw_remote *remote;	/**< the owner remote of this proxy */
 
 	uint32_t id;			/**< client side id */
+	uint32_t type;			/**< type of the interface */
 	uint32_t version;		/**< client side version */
 	int refcount;
 	unsigned int zombie:1;		/**< proxy is removed locally and waiting to
@@ -884,6 +885,9 @@ pw_core_find_port(struct pw_core *core,
 		  char **error);
 
 const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
+
+int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
+int pw_resource_install_marshal(struct pw_resource *resource, bool implementor);
 
 int pw_core_recalc_graph(struct pw_core *core);
 

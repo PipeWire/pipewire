@@ -527,12 +527,13 @@ pw_protocol_native_device_event_demarshal[SPA_DEVICE_EVENT_NUM] =
 static const struct pw_protocol_marshal pw_protocol_native_client_device_marshal = {
 	SPA_TYPE_INTERFACE_Device,
 	SPA_VERSION_DEVICE,
+	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
 	SPA_DEVICE_EVENT_NUM,
 	SPA_DEVICE_METHOD_NUM,
-	&pw_protocol_native_device_event_marshal,
-	pw_protocol_native_device_event_demarshal,
-	&pw_protocol_native_device_method_marshal,
-	pw_protocol_native_device_method_demarshal,
+	.client_marshal = &pw_protocol_native_device_event_marshal,
+	.server_demarshal = pw_protocol_native_device_event_demarshal,
+	.server_marshal = &pw_protocol_native_device_method_marshal,
+	.client_demarshal = pw_protocol_native_device_method_demarshal,
 };
 
 struct pw_protocol *pw_protocol_native_ext_client_device_init(struct pw_core *core)

@@ -170,10 +170,10 @@ process_messages(struct client_data *data)
 		}
 
 		marshal = pw_resource_get_marshal(resource);
-		if (marshal == NULL || msg->opcode >= marshal->n_methods)
+		if (marshal == NULL || msg->opcode >= marshal->n_client_methods)
 			goto invalid_method;
 
-		demarshal = marshal->method_demarshal;
+		demarshal = marshal->server_demarshal;
 		if (!demarshal[msg->opcode].func) {
 			res = -ENOENT;
 			goto invalid_message;
@@ -633,14 +633,14 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			}
 
 			marshal = pw_proxy_get_marshal(proxy);
-			if (marshal == NULL || msg->opcode >= marshal->n_events) {
+			if (marshal == NULL || msg->opcode >= marshal->n_server_methods) {
 				pw_log_error(NAME" %p: invalid method %u for %u (%d)",
 						this, msg->opcode, msg->id,
-						marshal ? marshal->n_events : (uint32_t)-1);
+						marshal ? marshal->n_server_methods : (uint32_t)-1);
 				continue;
                         }
 
-                        demarshal = marshal->event_demarshal;
+                        demarshal = marshal->client_demarshal;
 			if (!demarshal[msg->opcode].func) {
                                 pw_log_error(NAME" %p: function %d not implemented on %u",
 						this, msg->opcode, msg->id);

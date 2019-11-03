@@ -108,6 +108,7 @@ enum spa_format {
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,
 	SPA_FORMAT_VIDEO_format,		/**< video format (Id enum spa_video_format) */
+	SPA_FORMAT_VIDEO_modifier,		/**< format modifier (Long) */
 	SPA_FORMAT_VIDEO_size,			/**< size (Rectangle) */
 	SPA_FORMAT_VIDEO_framerate,		/**< frame rate (Fraction) */
 	SPA_FORMAT_VIDEO_maxFramerate,		/**< miximum frame rate (Fraction) */

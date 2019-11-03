@@ -382,7 +382,7 @@ int rd_device_request_release(struct rd_device *d)
 	if ((m = dbus_message_new_method_call(d->service_name,
 					d->object_path,
 					"org.freedesktop.ReserveDevice1",
-					"RequestRelease"))) {
+					"RequestRelease")) == NULL) {
 		return -ENOMEM;
 	}
         if (!dbus_message_append_args(m,
@@ -391,6 +391,9 @@ int rd_device_request_release(struct rd_device *d)
 		dbus_message_unref(m);
 		return -ENOMEM;
         }
+	if (!dbus_connection_send(d->connection, m, NULL)) {
+		return -ENOMEM;
+	}
 	return 0;
 }
 

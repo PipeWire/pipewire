@@ -87,6 +87,8 @@ struct impl {
 	struct monitor alsa_monitor;
 	struct monitor v4l2_monitor;
 
+	struct sm_metadata *metadata;
+
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
@@ -193,6 +195,7 @@ struct session {
 #include "alsa-monitor.c"
 #include "v4l2-monitor.c"
 #include "bluez-monitor.c"
+#include "metadata.c"
 
 static void add_object(struct impl *impl, struct object *obj)
 {
@@ -1244,6 +1247,12 @@ static void start_services(struct impl *impl)
 	else
 		pw_log_debug("got dbus connection %p", impl->conn);
 
+	pw_remote_export(impl->remote,
+			PW_TYPE_INTERFACE_Metadata,
+			NULL,
+			impl->metadata,
+			0);
+
 	bluez5_start_monitor(impl, &impl->bluez5_monitor);
 	alsa_start_monitor(impl, &impl->alsa_monitor);
 	alsa_start_midi_bridge(impl);
@@ -1316,6 +1325,7 @@ int main(int argc, char *argv[])
 
 	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL);
 	pw_module_load(impl.core, "libpipewire-module-adapter", NULL, NULL);
+	pw_module_load(impl.core, "libpipewire-module-metadata", NULL, NULL);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 
@@ -1323,6 +1333,8 @@ int main(int argc, char *argv[])
 
 	if (pw_remote_connect(impl.remote) < 0)
 		return -1;
+
+	impl.metadata = sm_metadata_new(NULL);
 
 	pw_main_loop_run(impl.loop);
 

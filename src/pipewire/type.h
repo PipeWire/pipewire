@@ -48,6 +48,7 @@ enum {
 	/* extensions */
 	PW_TYPE_INTERFACE_EXTENSIONS = PW_TYPE_INTERFACE_START + 0x1000,
 	PW_TYPE_INTERFACE_ClientNode,
+	PW_TYPE_INTERFACE_Metadata,
 
 };
 

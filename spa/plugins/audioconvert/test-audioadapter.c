@@ -226,7 +226,8 @@ static int test_split_setup(struct context *ctx)
 
 	spa_log_debug(&logger.log, "set format %d@%d", info.channels, info.rate);
 	res = spa_node_set_param(ctx->adapter_node, SPA_PARAM_Format, 0, param);
-	spa_assert(res == 0);
+	spa_log_debug(&logger.log, "result %d", res);
+	spa_assert(res >= 0);
 
 	return 0;
 }

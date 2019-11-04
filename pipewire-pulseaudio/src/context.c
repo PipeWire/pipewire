@@ -673,7 +673,7 @@ static inline void insert_global(pa_context *c, struct global *global)
 
 	spa_list_for_each_safe(g, t, &c->globals, link) {
 		if (g->priority_master < global->priority_master) {
-			g = g->link.prev;
+			g = spa_list_prev(g, link);
 			break;
 		}
 	}

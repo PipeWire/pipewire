@@ -251,7 +251,7 @@ int client_endpoint_factory_init(struct pw_module *module)
 
 	factory = pw_factory_new(core,
 				 "client-endpoint",
-				 PW_TYPE_INTERFACE_Endpoint,
+				 PW_TYPE_INTERFACE_ClientEndpoint,
 				 PW_VERSION_CLIENT_ENDPOINT_PROXY,
 				 NULL,
 				 sizeof(*data));

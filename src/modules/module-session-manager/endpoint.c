@@ -286,6 +286,7 @@ int endpoint_init(struct endpoint *this,
 	const char *keys[] = {
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
+		PW_KEY_DEVICE_ID,
 		NULL
 	};
 

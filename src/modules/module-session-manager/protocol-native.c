@@ -144,8 +144,6 @@ do { \
 			SPA_POD_Int(&version), \
 			SPA_POD_Int(&(info)->id), \
 			SPA_POD_Int(&(info)->change_mask), \
-			SPA_POD_Int(&(info)->n_params), \
-			SPA_POD_Int(&(info)->props->n_items), \
 			NULL) < 0) \
 		return -EINVAL; \
 	\
@@ -314,7 +312,8 @@ static int client_endpoint_marshal_set_id (void *object, uint32_t id)
 	b = pw_protocol_native_begin_resource(resource,
 		PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_ID, NULL);
 
-	spa_pod_builder_add (b, SPA_POD_Int(id), NULL);
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(id));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -327,7 +326,8 @@ static int client_endpoint_marshal_set_session_id (void *object, uint32_t id)
 	b = pw_protocol_native_begin_resource(resource,
 		PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID, NULL);
 
-	spa_pod_builder_add (b, SPA_POD_Int(id), NULL);
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(id));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -573,7 +573,7 @@ static int client_endpoint_demarshal_stream_update(void *object,
 	spa_pod_parser_init(&prs[0], msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs[0], &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs[0],
-	    		SPA_POD_Int(&stream_id),
+			SPA_POD_Int(&stream_id),
 			SPA_POD_Int(&change_mask),
 			SPA_POD_Int(&n_params), NULL) < 0)
 		return -EINVAL;
@@ -630,9 +630,9 @@ pw_protocol_native_client_endpoint_method_demarshal[PW_CLIENT_ENDPOINT_PROXY_MET
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_endpoint_marshal = {
-	PW_TYPE_INTERFACE_Endpoint,
+	PW_TYPE_INTERFACE_ClientEndpoint,
 	PW_VERSION_CLIENT_ENDPOINT_PROXY,
-	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
+	0,
 	PW_CLIENT_ENDPOINT_PROXY_METHOD_NUM,
 	PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM,
 	&pw_protocol_native_client_endpoint_method_marshal,
@@ -653,7 +653,8 @@ static int client_session_marshal_set_id (void *object, uint32_t id)
 	b = pw_protocol_native_begin_resource(resource,
 		PW_CLIENT_SESSION_PROXY_EVENT_SET_ID, NULL);
 
-	spa_pod_builder_add (b, SPA_POD_Int(id), NULL);
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(id));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -719,7 +720,8 @@ static int client_session_marshal_destroy_link (void *object, uint32_t link_id)
 	b = pw_protocol_native_begin_resource(resource,
 		PW_CLIENT_SESSION_PROXY_EVENT_DESTROY_LINK, NULL);
 
-	spa_pod_builder_add(b, SPA_POD_Int(link_id), NULL);
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(link_id));
 
 	return pw_protocol_native_end_resource(resource, b);
 }
@@ -1037,9 +1039,9 @@ pw_protocol_native_client_session_method_demarshal[PW_CLIENT_SESSION_PROXY_METHO
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_session_marshal = {
-	PW_TYPE_INTERFACE_Session,
+	PW_TYPE_INTERFACE_ClientSession,
 	PW_VERSION_CLIENT_SESSION_PROXY,
-	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
+	0,
 	PW_CLIENT_SESSION_PROXY_METHOD_NUM,
 	PW_CLIENT_SESSION_PROXY_EVENT_NUM,
 	&pw_protocol_native_client_session_method_marshal,

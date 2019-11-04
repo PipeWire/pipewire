@@ -251,7 +251,7 @@ int client_session_factory_init(struct pw_module *module)
 
 	factory = pw_factory_new(core,
 				 "client-session",
-				 PW_TYPE_INTERFACE_Session,
+				 PW_TYPE_INTERFACE_ClientSession,
 				 PW_VERSION_CLIENT_SESSION_PROXY,
 				 NULL,
 				 sizeof(*data));

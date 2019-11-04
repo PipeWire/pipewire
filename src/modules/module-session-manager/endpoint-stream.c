@@ -208,7 +208,7 @@ int endpoint_stream_update(struct endpoint_stream *this,
 		}
 
 		if (!this->info.name)
-			this->info.name = strdup(info->name);
+			this->info.name = info->name ? strdup(info->name) : NULL;
 
 		this->info.change_mask = info->change_mask;
 		spa_list_for_each(resource, &this->global->resource_list, link) {

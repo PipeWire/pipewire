@@ -50,7 +50,9 @@ enum {
 	PW_TYPE_INTERFACE_ClientNode,
 	PW_TYPE_INTERFACE_Metadata,
 	PW_TYPE_INTERFACE_Session,
+	PW_TYPE_INTERFACE_ClientSession,
 	PW_TYPE_INTERFACE_Endpoint,
+	PW_TYPE_INTERFACE_ClientEndpoint,
 	PW_TYPE_INTERFACE_EndpointStream,
 	PW_TYPE_INTERFACE_EndpointLink,
 };

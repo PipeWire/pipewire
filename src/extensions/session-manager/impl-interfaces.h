@@ -65,7 +65,7 @@ struct pw_client_endpoint_proxy_events {
 	 *         -EINVAL when the id has already been set
 	 *         -ENOTSUP on the server-side endpoint implementation
 	 */
-	int (*set_id) (void *endpoint, uint32_t id);
+	int (*set_id) (void *object, uint32_t id);
 
 	/**
 	 * Sets the session id of the \a endpoint.
@@ -82,7 +82,7 @@ struct pw_client_endpoint_proxy_events {
 	 *         -EINVAL when the session id has already been set
 	 *         -ENOTSUP when the endpoint is a session master
 	 */
-	int (*set_session_id) (void *endpoint, uint32_t session_id);
+	int (*set_session_id) (void *object, uint32_t session_id);
 
 	/**
 	 * Set the configurable parameter in \a endpoint.
@@ -105,7 +105,7 @@ struct pw_client_endpoint_proxy_events {
 	 *         -ENOTSUP when there are no parameters implemented on \a endpoint
 	 *         -ENOENT the parameter is unknown
 	 */
-	int (*set_param) (void *endpoint,
+	int (*set_param) (void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
@@ -129,7 +129,7 @@ struct pw_client_endpoint_proxy_events {
 	 *         -ESRCH when the type or size of a property is not correct.
 	 *         -ENOENT when the param id is not found
 	 */
-	int (*stream_set_param) (void *endpoint, uint32_t stream_id,
+	int (*stream_set_param) (void *object, uint32_t stream_id,
 			         uint32_t id, uint32_t flags,
 			         const struct spa_pod *param);
 };
@@ -215,7 +215,7 @@ struct pw_client_session_proxy_events {
 	 *         -EINVAL when the id has already been set
 	 *         -ENOTSUP on the server-side session implementation
 	 */
-	int (*set_id) (void *session, uint32_t id);
+	int (*set_id) (void *object, uint32_t id);
 
 	/**
 	 * Set the configurable parameter in \a session.
@@ -238,7 +238,7 @@ struct pw_client_session_proxy_events {
 	 *         -ENOTSUP when there are no parameters implemented on \a session
 	 *         -ENOENT the parameter is unknown
 	 */
-	int (*set_param) (void *session,
+	int (*set_param) (void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
@@ -262,15 +262,15 @@ struct pw_client_session_proxy_events {
 	 *         -ESRCH when the type or size of a property is not correct.
 	 *         -ENOENT when the param id is not found
 	 */
-	int (*link_set_param) (void *session, uint32_t link_id,
+	int (*link_set_param) (void *object, uint32_t link_id,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param);
 
-	int (*create_link) (void *session, const struct spa_dict *props);
+	int (*create_link) (void *object, const struct spa_dict *props);
 
-	int (*destroy_link) (void *session, uint32_t link_id);
+	int (*destroy_link) (void *object, uint32_t link_id);
 
-	int (*link_request_state) (void *session, uint32_t link_id, uint32_t state);
+	int (*link_request_state) (void *object, uint32_t link_id, uint32_t state);
 };
 
 #define PW_CLIENT_SESSION_PROXY_METHOD_ADD_LISTENER	0

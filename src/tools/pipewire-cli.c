@@ -269,7 +269,7 @@ static void on_core_info(void *_data, const struct pw_core_info *info)
 {
 	struct remote_data *rd = _data;
 	free(rd->name);
-	rd->name = strdup(info->name);
+	rd->name = info->name ? strdup(info->name) : NULL;
 	fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
 }
 
@@ -659,6 +659,16 @@ static void info_device(struct proxy_data *pd)
 	info->change_mask = 0;
 }
 
+static void info_session(struct proxy_data *pd)
+{
+	struct pw_session_info *info = pd->info;
+
+	info_global(pd);
+	print_properties(info->props, MARK_CHANGE(0), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(1), true);
+	info->change_mask = 0;
+}
+
 static void info_endpoint(struct proxy_data *pd)
 {
 	struct pw_endpoint_info *info = pd->info;
@@ -690,6 +700,19 @@ static void info_endpoint(struct proxy_data *pd)
 	fprintf(stdout, "%c\tsession: %u\n", MARK_CHANGE(0), info->session_id);
 	print_properties(info->props, MARK_CHANGE(2), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(3), true);
+	info->change_mask = 0;
+}
+
+static void info_endpoint_stream(struct proxy_data *pd)
+{
+	struct pw_endpoint_stream_info *info = pd->info;
+
+	info_global(pd);
+	fprintf(stdout, "\tid: %u\n", info->id);
+	fprintf(stdout, "\tendpoint-id: %u\n", info->endpoint_id);
+	fprintf(stdout, "\tname: %s\n", info->name);
+	print_properties(info->props, MARK_CHANGE(1), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(2), true);
 	info->change_mask = 0;
 }
 
@@ -894,6 +917,53 @@ static const struct pw_device_proxy_events device_events = {
 	.param = event_param
 };
 
+static void session_info_free(struct pw_session_info *info)
+{
+	free(info->params);
+	if (info->props)
+		pw_properties_free ((struct pw_properties *)info->props);
+	free(info);
+}
+
+static void session_event_info(void *object,
+				const struct pw_session_info *update)
+{
+	struct proxy_data *pd = object;
+	struct remote_data *rd = pd->rd;
+	struct pw_session_info *info = pd->info;
+
+	if (!info) {
+		info = pd->info = calloc(1, sizeof(*info));
+		info->id = update->id;
+	}
+	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
+		info->n_params = update->n_params;
+		free(info->params);
+		info->params = malloc(info->n_params * sizeof(struct spa_param_info));
+		memcpy(info->params, update->params,
+			info->n_params * sizeof(struct spa_param_info));
+	}
+	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_properties_free ((struct pw_properties *)info->props);
+		info->props =
+			(struct spa_dict *) pw_properties_new_dict (update->props);
+	}
+
+	if (pd->global == NULL)
+		pd->global = pw_map_lookup(&rd->globals, info->id);
+	if (pd->global && pd->global->info_pending) {
+		info_session(pd);
+		pd->global->info_pending = false;
+	}
+}
+
+static const struct pw_session_proxy_events session_events = {
+	PW_VERSION_SESSION_PROXY_EVENTS,
+	.info = session_event_info,
+	.param = event_param
+};
+
 static void endpoint_info_free(struct pw_endpoint_info *info)
 {
 	free(info->name);
@@ -914,8 +984,8 @@ static void endpoint_event_info(void *object,
 	if (!info) {
 		info = pd->info = calloc(1, sizeof(*info));
 		info->id = update->id;
-		info->name = strdup(update->name);
-		info->media_class = strdup(update->media_class);
+		info->name = update->name ? strdup(update->name) : NULL;
+		info->media_class = update->media_class ? strdup(update->media_class) : NULL;
 		info->direction = update->direction;
 		info->flags = update->flags;
 	}
@@ -948,6 +1018,56 @@ static void endpoint_event_info(void *object,
 static const struct pw_endpoint_proxy_events endpoint_events = {
 	PW_VERSION_ENDPOINT_PROXY_EVENTS,
 	.info = endpoint_event_info,
+	.param = event_param
+};
+
+static void endpoint_stream_info_free(struct pw_endpoint_stream_info *info)
+{
+	free(info->name);
+	free(info->params);
+	if (info->props)
+		pw_properties_free ((struct pw_properties *)info->props);
+	free(info);
+}
+
+static void endpoint_stream_event_info(void *object,
+				const struct pw_endpoint_stream_info *update)
+{
+	struct proxy_data *pd = object;
+	struct remote_data *rd = pd->rd;
+	struct pw_endpoint_stream_info *info = pd->info;
+
+	if (!info) {
+		info = pd->info = calloc(1, sizeof(*info));
+		info->id = update->id;
+		info->endpoint_id = update->endpoint_id;
+		info->name = update->name ? strdup(update->name) : NULL;
+	}
+	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) {
+		info->n_params = update->n_params;
+		free(info->params);
+		info->params = malloc(info->n_params * sizeof(struct spa_param_info));
+		memcpy(info->params, update->params,
+			info->n_params * sizeof(struct spa_param_info));
+	}
+	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_properties_free ((struct pw_properties *)info->props);
+		info->props =
+			(struct spa_dict *) pw_properties_new_dict (update->props);
+	}
+
+	if (pd->global == NULL)
+		pd->global = pw_map_lookup(&rd->globals, info->id);
+	if (pd->global && pd->global->info_pending) {
+		info_endpoint_stream(pd);
+		pd->global->info_pending = false;
+	}
+}
+
+static const struct pw_endpoint_stream_proxy_events endpoint_stream_events = {
+	PW_VERSION_ENDPOINT_STREAM_PROXY_EVENTS,
+	.info = endpoint_stream_event_info,
 	.param = event_param
 };
 
@@ -1037,11 +1157,23 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		destroy = (pw_destroy_t) pw_link_info_free;
 		info_func = info_link;
 		break;
+	case PW_TYPE_INTERFACE_Session:
+		events = &session_events;
+		client_version = PW_VERSION_SESSION_PROXY;
+		destroy = (pw_destroy_t) session_info_free;
+		info_func = info_session;
+		break;
 	case PW_TYPE_INTERFACE_Endpoint:
 		events = &endpoint_events;
 		client_version = PW_VERSION_ENDPOINT_PROXY;
 		destroy = (pw_destroy_t) endpoint_info_free;
 		info_func = info_endpoint;
+		break;
+	case PW_TYPE_INTERFACE_EndpointStream:
+		events = &endpoint_stream_events;
+		client_version = PW_VERSION_ENDPOINT_STREAM_PROXY;
+		destroy = (pw_destroy_t) endpoint_stream_info_free;
+		info_func = info_endpoint_stream;
 		break;
 	default:
 		asprintf(error, "unsupported type %s", spa_debug_type_find_name(pw_type_info(), global->type));

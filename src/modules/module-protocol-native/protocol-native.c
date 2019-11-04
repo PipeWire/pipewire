@@ -243,7 +243,7 @@ core_method_marshal_destroy(void *object, void *p)
 static int core_event_demarshal_info(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct spa_pod_frame f[2];
 	struct pw_core_info info;
 	struct spa_pod_parser prs;
@@ -569,7 +569,7 @@ static int core_method_demarshal_create_object(void *object, const struct pw_pro
 	struct spa_pod_frame f[2];
 	uint32_t version, type, new_id;
 	const char *factory_name;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -737,7 +737,7 @@ static int module_demarshal_info(void *object, const struct pw_protocol_native_m
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_module_info info;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -798,7 +798,7 @@ static int device_demarshal_info(void *object, const struct pw_protocol_native_m
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_device_info info;
 	uint32_t i;
 
@@ -985,7 +985,7 @@ static int factory_demarshal_info(void *object, const struct pw_protocol_native_
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_factory_info info;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -1052,7 +1052,7 @@ static int node_demarshal_info(void *object, const struct pw_protocol_native_mes
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_node_info info;
 	uint32_t i;
 
@@ -1301,7 +1301,7 @@ static int port_demarshal_info(void *object, const struct pw_protocol_native_mes
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_port_info info;
 	uint32_t i;
 
@@ -1485,7 +1485,7 @@ static int client_demarshal_info(void *object, const struct pw_protocol_native_m
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_client_info info;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -1631,7 +1631,7 @@ static int client_marshal_update_properties(void *object, const struct spa_dict 
 static int client_demarshal_update_properties(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 
@@ -1752,7 +1752,7 @@ static int link_demarshal_info(void *object, const struct pw_protocol_native_mes
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct pw_link_info info = { 0, };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -1788,7 +1788,7 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	uint32_t id, permissions, type, version;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||

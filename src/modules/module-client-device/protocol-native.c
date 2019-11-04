@@ -242,7 +242,7 @@ static int device_demarshal_info(void *object,
 	struct spa_pod_parser prs;
 	struct spa_pod *ipod;
 	struct spa_device_info info = SPA_DEVICE_INFO_INIT(), *infop;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	uint32_t i;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -449,7 +449,7 @@ static int device_demarshal_object_info(void *object,
 	struct spa_pod_parser prs;
 	struct spa_device_object_info info = SPA_DEVICE_OBJECT_INFO_INIT(), *infop;
 	struct spa_pod *ipod;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	uint32_t id;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);

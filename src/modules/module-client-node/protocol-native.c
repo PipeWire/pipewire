@@ -391,7 +391,7 @@ static int client_node_demarshal_add_port(void *object, const struct pw_protocol
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	int32_t direction, port_id;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0)
@@ -865,7 +865,7 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 	const struct spa_pod **params;
 	struct spa_node_info info = SPA_NODE_INFO_INIT(), *infop = NULL;
 	struct spa_pod *ipod;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	uint32_t i;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -941,7 +941,7 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 	const struct spa_pod **params = NULL;
 	struct spa_port_info info = SPA_PORT_INFO_INIT(), *infop = NULL;
 	struct spa_pod *ipod;
-	struct spa_dict props;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0 ||

@@ -48,7 +48,7 @@ executable('media-session',
   'media-session/media-session.c',
   c_args : [ '-D_GNU_SOURCE' ],
   install: false,
-  dependencies : [dbus_dep, pipewire_dep, mathlib],
+  dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib],
 )
 
 executable('bluez-session',

@@ -39,6 +39,7 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
+#include "extensions/session-manager.h"
 
 #include <dbus/dbus.h>
 
@@ -88,6 +89,10 @@ struct impl {
 	struct monitor v4l2_monitor;
 
 	struct sm_metadata *metadata;
+
+	struct pw_client_session_proxy *client_session;
+	struct spa_hook client_session_listener;
+	struct pw_session_info client_session_info;
 
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
@@ -192,7 +197,12 @@ struct session {
 	bool need_dsp;
 };
 
+struct alsa_object;
+
+static int setup_alsa_endpoint(struct alsa_object *obj);
+
 #include "alsa-monitor.c"
+#include "alsa-endpoint.c"
 #include "v4l2-monitor.c"
 #include "bluez-monitor.c"
 #include "metadata.c"
@@ -523,8 +533,8 @@ handle_node(struct impl *impl, uint32_t id,
 		node->type = NODE_TYPE_DEVICE;
 		node->manager = sess;
 
-		pw_log_debug(NAME" %p: new session for device node %d %d", impl, id,
-				need_dsp);
+		pw_log_debug(NAME" %p: new session for device node %d %d prio:%d", impl, id,
+				need_dsp, sess->priority);
 	}
 	pw_node_proxy_enum_params((struct pw_node_proxy*)p,
 				0, SPA_PARAM_EnumFormat,
@@ -847,8 +857,8 @@ static int find_session(void *data, struct session *sess)
 		return 0;
 	}
 
-	pw_log_debug(NAME " %p: found session '%d' %" PRIu64, impl,
-			sess->id, plugged);
+	pw_log_debug(NAME " %p: found session '%d' %"PRIu64" prio:%d", impl,
+			sess->id, plugged, priority);
 
 	if (find->sess == NULL ||
 	    priority > find->priority ||
@@ -1230,6 +1240,64 @@ static const struct pw_core_proxy_events core_events = {
 	.done = core_done
 };
 
+static int client_session_set_id(void *object, uint32_t id)
+{
+	struct impl *impl = object;
+
+	pw_log_debug("got sesssion id:%d", id);
+	impl->client_session_info.id = id;
+
+	pw_client_session_proxy_update(impl->client_session,
+			PW_CLIENT_SESSION_UPDATE_INFO,
+			0, NULL,
+			&impl->client_session_info);
+	return 0;
+}
+
+static int client_session_set_param(void *object, uint32_t id, uint32_t flags,
+			const struct spa_pod *param)
+{
+	struct impl *impl = object;
+	pw_proxy_error((struct pw_proxy*)impl->client_session,
+			-ENOTSUP, "Session:SetParam not supported");
+	return -ENOTSUP;
+}
+
+static int client_session_link_set_param(void *object, uint32_t link_id, uint32_t id, uint32_t flags,
+			const struct spa_pod *param)
+{
+	struct impl *impl = object;
+	pw_proxy_error((struct pw_proxy*)impl->client_session,
+			-ENOTSUP, "Session:LinkSetParam not supported");
+	return -ENOTSUP;
+}
+
+static int client_session_create_link(void *object, const struct spa_dict *props)
+{
+	return -ENOTSUP;
+}
+
+static int client_session_destroy_link(void *object, uint32_t link_id)
+{
+	return -ENOTSUP;
+}
+
+static int client_session_link_request_state(void *object, uint32_t link_id, uint32_t state)
+{
+	return -ENOTSUP;
+}
+
+
+static const struct pw_client_session_proxy_events client_session_events = {
+	PW_VERSION_CLIENT_SESSION_PROXY_METHODS,
+	.set_id = client_session_set_id,
+	.set_param = client_session_set_param,
+	.link_set_param = client_session_link_set_param,
+	.create_link = client_session_create_link,
+	.destroy_link = client_session_destroy_link,
+	.link_request_state = client_session_link_request_state,
+};
+
 static void start_services(struct impl *impl)
 {
 	const struct spa_support *support;
@@ -1252,6 +1320,18 @@ static void start_services(struct impl *impl)
 			NULL,
 			impl->metadata,
 			0);
+
+	impl->client_session = pw_core_proxy_create_object(impl->core_proxy,
+                                            "client-session",
+                                            PW_TYPE_INTERFACE_ClientSession,
+                                            PW_VERSION_CLIENT_SESSION_PROXY,
+                                            NULL, 0);
+	impl->client_session_info.version = PW_VERSION_SESSION_INFO;
+
+	pw_client_session_proxy_add_listener(impl->client_session,
+			&impl->client_session_listener,
+			&client_session_events,
+			impl);
 
 	bluez5_start_monitor(impl, &impl->bluez5_monitor);
 	alsa_start_monitor(impl, &impl->alsa_monitor);
@@ -1326,6 +1406,7 @@ int main(int argc, char *argv[])
 	pw_module_load(impl.core, "libpipewire-module-client-device", NULL, NULL);
 	pw_module_load(impl.core, "libpipewire-module-adapter", NULL, NULL);
 	pw_module_load(impl.core, "libpipewire-module-metadata", NULL, NULL);
+	pw_module_load(impl.core, "libpipewire-module-session-manager", NULL, NULL);
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 

@@ -88,6 +88,7 @@ static const struct pw_client_endpoint_proxy_events client_endpoint_events = {
 	.stream_set_param = client_endpoint_stream_set_param,
 };
 
+/** fallback, one stream for each node */
 static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 {
 	struct alsa_node *n;
@@ -110,6 +111,10 @@ static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 	return 0;
 }
 
+/** UCM.
+ *
+ * We create 1 stream for each verb + modifier combination
+ */
 static int setup_alsa_ucm_endpoint(struct alsa_object *obj)
 {
 	const char *str, *card_name = NULL;

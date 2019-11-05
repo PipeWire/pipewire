@@ -168,6 +168,12 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		pw_properties_setf(node->props, PW_KEY_PRIORITY_SESSION, "%d", priority);
 	}
 
+	if (pw_properties_get(node->props, SPA_KEY_MEDIA_CLASS) == NULL) {
+		if (!strcmp(stream, "capture"))
+			pw_properties_setf(node->props, SPA_KEY_MEDIA_CLASS, "Audio/Source");
+		else
+			pw_properties_setf(node->props, SPA_KEY_MEDIA_CLASS, "Audio/Sink");
+	}
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
 		const char *devname;
 		if ((devname = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME)) == NULL)

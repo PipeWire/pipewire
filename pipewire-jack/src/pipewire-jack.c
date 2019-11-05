@@ -32,6 +32,7 @@
 #include <jack/thread.h>
 #include <jack/midiport.h>
 #include <jack/uuid.h>
+#include <jack/metadata.h>
 
 #include <spa/support/cpu.h>
 #include <spa/param/audio/format-utils.h>
@@ -44,6 +45,7 @@
 #include <pipewire/data-loop.h>
 
 #include "extensions/client-node.h"
+#include "extensions/metadata.h"
 
 #define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"
 
@@ -77,6 +79,8 @@ struct port;
 
 struct globals {
 	jack_thread_creator_t creator;
+	jack_client_t *client;
+	struct pw_properties *properties;
 };
 
 static struct globals globals;
@@ -214,6 +218,11 @@ struct context {
 #define GET_OUT_PORT(c,p)	(&c->port_pool[SPA_DIRECTION_OUTPUT][p])
 #define GET_PORT(c,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(c,p) : GET_OUT_PORT(c,p))
 
+struct metadata {
+	struct pw_metadata *proxy;
+	struct spa_hook listener;
+};
+
 struct client {
 	char name[JACK_CLIENT_NAME_SIZE+1];
 
@@ -235,6 +244,8 @@ struct client {
 	struct pw_client_node_proxy *node_proxy;
 	struct spa_hook node_listener;
         struct spa_hook proxy_listener;
+
+	struct metadata *metadata;
 
 	uint32_t node_id;
 	struct spa_source *socket_source;
@@ -273,6 +284,8 @@ struct client {
 	void *sync_arg;
 	JackTimebaseCallback timebase_callback;
 	void *timebase_arg;
+	JackPropertyChangeCallback property_callback;
+	void *property_arg;
 
 	struct spa_io_position *position;
 	uint32_t sample_rate;
@@ -302,6 +315,8 @@ struct client {
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
 };
+
+#include "metadata.c"
 
 static void init_port_pool(struct client *c, enum spa_direction direction)
 {
@@ -1791,6 +1806,44 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
+static int metadata_property(void *object, uint32_t id,
+		const char *key, const char *type, const char *value)
+{
+	struct client *c = (struct client *) object;
+	int keylen = strlen(key);
+	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
+	struct pw_properties * props = get_properties();
+	jack_property_change_t change;
+	jack_uuid_t uuid;
+
+	uuid = jack_port_uuid_generate(id);
+
+	make_key(dst, uuid, key, keylen);
+
+	if (value == NULL || type == NULL) {
+		pw_properties_setf(props, dst, NULL);
+		change = PropertyDeleted;
+	} else {
+		change = PropertyCreated;
+		if (pw_properties_get(props, dst) != NULL)
+			change = PropertyChanged;
+
+		pw_properties_setf(props, dst, "%s@%s", value, type);
+	}
+
+	pw_log_debug("set id:%u '%s' to '%s@%s'", id, dst, value, type);
+
+	if (c->property_callback)
+		c->property_callback(uuid, key, change, c->property_arg);
+
+	return 0;
+}
+
+static const struct pw_metadata_events metadata_events = {
+	PW_VERSION_METADATA_EVENTS,
+	.property = metadata_property
+};
+
 static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, uint32_t type, uint32_t version,
                                   const struct spa_dict *props)
@@ -1926,6 +1979,24 @@ static void registry_event_global(void *data, uint32_t id,
 				o->port_link.src, o->port_link.dst);
 		break;
 
+	case PW_TYPE_INTERFACE_Metadata:
+	{
+		struct pw_proxy *proxy;
+
+		if (c->metadata)
+			goto exit;
+
+		proxy = pw_registry_proxy_bind(c->registry_proxy,
+				id, type, PW_VERSION_METADATA, sizeof(struct metadata));
+
+		c->metadata = pw_proxy_get_user_data(proxy);
+		c->metadata->proxy = (struct pw_metadata*)proxy;
+
+		pw_proxy_add_object_listener(proxy,
+				&c->metadata->listener,
+				&metadata_events, c);
+		goto exit;
+	}
 	default:
 		goto exit;
 	}
@@ -2160,7 +2231,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (status)
 		*status = 0;
 
-	pw_log_trace(NAME" %p: new", client);
+	globals.client = (jack_client_t *)client;
+
+	pw_log_debug(NAME" %p: new", client);
 	return (jack_client_t *)client;
 
       init_failed:
@@ -2198,6 +2271,8 @@ int jack_client_close (jack_client_t *client)
 	struct client *c = (struct client *) client;
 
 	pw_log_debug(NAME" %p: close", client);
+
+	do_sync(c);
 
 	pw_thread_loop_stop(c->context.loop);
 

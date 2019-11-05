@@ -29,15 +29,14 @@
 #include <jack/uuid.h>
 
 #include <pipewire/pipewire.h>
-
+#include <extensions/metadata.h>
 
 static struct pw_properties * get_properties(void)
 {
-	static struct pw_properties *properties = NULL;
-	if (properties == NULL) {
-		properties = pw_properties_new(NULL, NULL);
+	if (globals.properties == NULL) {
+		globals.properties = pw_properties_new(NULL, NULL);
 	}
-	return properties;
+	return globals.properties;
 }
 
 static void make_key(char *dst, jack_uuid_t subject, const char *key, int keylen)
@@ -56,15 +55,14 @@ int jack_set_property(jack_client_t*client,
 		      const char* value,
 		      const char* type)
 {
-	int keylen = strlen(key);
-	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
-	struct pw_properties * props = get_properties();
+	struct client *c = (struct client *) client;
+	uint32_t id;
 
-	make_key(dst, subject, key, keylen);
+	id = jack_uuid_to_index(subject);
 
-	pw_properties_setf(props, dst, "%s@%s", value, type);
-	pw_log_debug("set '%s' to '%s@%s'", dst, value, type);
-
+	pw_log_debug("set id:%u (%lu) '%s' to '%s@%s'", id, subject, key, value, type);
+	pw_metadata_set_property(c->metadata->proxy,
+			id, key, type, value);
 	return 0;
 }
 

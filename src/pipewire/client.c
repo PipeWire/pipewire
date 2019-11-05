@@ -394,7 +394,7 @@ int pw_client_register(struct pw_client *client,
 	if (properties == NULL)
 		return -errno;
 
-	pw_properties_copy_keys(client->properties, properties, keys);
+	pw_properties_update_keys(properties, &client->properties->dict, keys);
 
 	client->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Client,

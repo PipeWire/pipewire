@@ -287,6 +287,7 @@ int endpoint_init(struct endpoint *this,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,
+		PW_KEY_MEDIA_CLASS,
 		NULL
 	};
 
@@ -299,7 +300,7 @@ int endpoint_init(struct endpoint *this,
 	if (!properties)
 		goto no_mem;
 
-	pw_properties_copy_keys(this->props, properties, keys);
+	pw_properties_update_keys(properties, &this->props->dict, keys);
 
 	this->global = pw_global_new (core,
 			PW_TYPE_INTERFACE_Endpoint,

@@ -93,7 +93,7 @@ static int client_session_link_update(void *object,
 		props = pw_properties_new(NULL, NULL);
 		if (!props)
 			goto no_mem;
-		pw_properties_copy_keys (session->props, props, keys);
+		pw_properties_update_keys(props, &session->props->dict, keys);
 
 		if (endpoint_link_init(link, link_id, session->info.id,
 					this, core, props) < 0)

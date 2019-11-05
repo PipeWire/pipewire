@@ -83,6 +83,8 @@ static int client_endpoint_stream_update(void *object,
 			PW_KEY_FACTORY_ID,
 			PW_KEY_CLIENT_ID,
 			PW_KEY_ENDPOINT_ID,
+			PW_KEY_MEDIA_CLASS,
+			PW_KEY_PRIORITY_SESSION,
 			NULL
 		};
 
@@ -93,7 +95,10 @@ static int client_endpoint_stream_update(void *object,
 		props = pw_properties_new(NULL, NULL);
 		if (!props)
 			goto no_mem;
-		pw_properties_copy_keys (endpoint->props, props, keys);
+
+		pw_properties_update_keys(props, &endpoint->props->dict, keys);
+		if (info && info->props)
+			pw_properties_update_keys(props, info->props, keys);
 
 		if (endpoint_stream_init(stream, stream_id, endpoint->info.id,
 					this, core, props) < 0)

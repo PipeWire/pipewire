@@ -298,7 +298,7 @@ int session_init(struct session *this,
 	if (!properties)
 		goto no_mem;
 
-	pw_properties_copy_keys(this->props, properties, keys);
+	pw_properties_update_keys(properties, &this->props->dict, keys);
 
 	this->global = pw_global_new (core,
 			PW_TYPE_INTERFACE_Session,

@@ -592,7 +592,7 @@ int pw_node_register(struct pw_node *this,
 	if (properties == NULL)
 		return -errno;
 
-	pw_properties_copy_keys(this->properties, properties, keys);
+	pw_properties_update_keys(properties, &this->properties->dict, keys);
 
 	this->global = pw_global_new(core,
 				     PW_TYPE_INTERFACE_Node,

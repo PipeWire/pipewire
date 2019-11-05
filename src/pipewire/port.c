@@ -801,7 +801,7 @@ int pw_port_register(struct pw_port *port,
 		return -errno;
 
 	pw_properties_setf(properties, PW_KEY_NODE_ID, "%d", node->global->id);
-	pw_properties_copy_keys(port->properties, properties, keys);
+	pw_properties_update_keys(properties, &port->properties->dict, keys);
 
 	port->global = pw_global_new(node->core,
 				PW_TYPE_INTERFACE_Port,

@@ -209,7 +209,7 @@ int pw_factory_register(struct pw_factory *factory,
 	if (properties == NULL)
 		return -errno;
 
-	pw_properties_copy_keys(factory->properties, properties, keys);
+	pw_properties_update_keys(properties, &factory->properties->dict, keys);
 
 	pw_properties_set(properties, PW_KEY_FACTORY_NAME, factory->info.name);
 	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_NAME, "%s",

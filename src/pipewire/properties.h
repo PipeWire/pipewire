@@ -57,11 +57,10 @@ pw_properties_new_string(const char *args);
 struct pw_properties *
 pw_properties_copy(const struct pw_properties *properties);
 
-int pw_properties_copy_keys(const struct pw_properties *src,
-		struct pw_properties *dst, const char *keys[]);
+int pw_properties_update_keys(struct pw_properties *props,
+		     const struct spa_dict *dict, const char *keys[]);
 
-int
-pw_properties_update(struct pw_properties *oldprops,
+int pw_properties_update(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);
 
 void pw_properties_clear(struct pw_properties *properties);

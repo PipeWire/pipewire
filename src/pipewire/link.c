@@ -1227,7 +1227,7 @@ int pw_link_register(struct pw_link *link,
 	link->info.input_node_id = input_node->global->id;
 	link->info.input_port_id = link->input->global->id;
 
-	pw_properties_copy_keys(link->properties, properties, keys);
+	pw_properties_update_keys(properties, &link->properties->dict, keys);
 
 	pw_properties_setf(properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
 	pw_properties_setf(properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);

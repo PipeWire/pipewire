@@ -426,7 +426,7 @@ int pw_device_register(struct pw_device *device,
 	if (properties == NULL)
 		return -errno;
 
-	pw_properties_copy_keys(device->properties, properties, keys);
+	pw_properties_update_keys(properties, &device->properties->dict, keys);
 
         device->global = pw_global_new(core,
 				       PW_TYPE_INTERFACE_Device,

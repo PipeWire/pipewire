@@ -212,15 +212,15 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
  * \memberof pw_properties
  */
 SPA_EXPORT
-int pw_properties_copy_keys(const struct pw_properties *src,
-		struct pw_properties *dst, const char *keys[])
+int pw_properties_update_keys(struct pw_properties *props,
+		const struct spa_dict *dict, const char *keys[])
 {
 	int i, changed = 0;
 	const char *str;
 
 	for (i = 0; keys[i]; i++) {
-		if ((str = pw_properties_get(src, keys[i])) != NULL)
-			changed += pw_properties_set(dst, keys[i], str);
+		if ((str = spa_dict_lookup(dict, keys[i])) != NULL)
+			changed += pw_properties_set(props, keys[i], str);
 	}
 	return changed;
 }

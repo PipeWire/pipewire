@@ -200,7 +200,7 @@ static void configure_device(pa_stream *s)
 	else {
 		if (s->direction == PA_STREAM_RECORD) {
 			if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))
-				s->device_index = g->node_info.monitor;
+				s->device_index = g->stream_info.monitor;
 			else
 				s->device_index = g->id;
 		}

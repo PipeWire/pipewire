@@ -30,8 +30,16 @@
 extern "C" {
 #endif
 
-#define PW_KEY_ENDPOINT_ID	"endpoint.id"
-#define PW_KEY_SESSION_ID	"session.id"
+#define PW_KEY_SESSION_ID		"session.id"		/**< id of a session manager */
+
+#define PW_KEY_ENDPOINT_ID		"endpoint.id"		/**< id of an endpoint */
+#define PW_KEY_ENDPOINT_NAME		"endpoint.name"		/**< the name of an endpoint */
+#define PW_KEY_ENDPOINT_ICON_NAME	"endpoint.icon-name"	/**< an XDG icon name for the device.
+								  *  Ex. "sound-card-speakers-usb" */
+
+#define PW_KEY_STREAM_ID		"stream.id"		/**< id of a stream */
+#define PW_KEY_STREAM_NAME		"stream.name"		/**< unique name of a stream */
+#define PW_KEY_STREAM_DESCRIPTION	"stream.description"	/**< description of a stream */
 
 #ifdef __cplusplus
 }

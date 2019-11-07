@@ -46,6 +46,8 @@ executable('export-spa-device',
 
 executable('media-session',
   'media-session/media-session.c',
+  'media-session/monitor.c',
+  'media-session/policy.c',
   c_args : [ '-D_GNU_SOURCE' ],
   install: false,
   dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib],

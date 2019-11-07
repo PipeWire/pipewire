@@ -288,6 +288,8 @@ int endpoint_init(struct endpoint *this,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,
 		PW_KEY_MEDIA_CLASS,
+		PW_KEY_ENDPOINT_NAME,
+		PW_KEY_ENDPOINT_ICON_NAME,
 		NULL
 	};
 

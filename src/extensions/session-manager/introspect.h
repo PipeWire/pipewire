@@ -34,9 +34,6 @@
 extern "C" {
 #endif
 
-#define PW_KEY_ENDPOINT_ID	"endpoint.id"
-#define PW_KEY_SESSION_ID	"session.id"
-
 enum pw_endpoint_direction {
 	PW_ENDPOINT_DIRECTION_SINK_INPUT = SPA_DIRECTION_INPUT,
 	PW_ENDPOINT_DIRECTION_SOURCE_OUTPUT = SPA_DIRECTION_OUTPUT,

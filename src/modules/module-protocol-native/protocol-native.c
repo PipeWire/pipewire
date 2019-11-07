@@ -416,7 +416,6 @@ static void core_event_marshal_ping(void *object, uint32_t id, int seq)
 	struct spa_pod_builder *b;
 	struct pw_protocol_native_message *msg;
 
-	pw_client_set_busy(pw_resource_get_client(resource), false);
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_PING, &msg);
 
 	spa_pod_builder_add_struct(b,

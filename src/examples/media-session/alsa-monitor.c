@@ -60,8 +60,6 @@ struct alsa_node {
 
 	struct pw_proxy *proxy;
 	struct spa_node *node;
-
-	struct pw_endpoint_stream_info info;
 };
 
 struct alsa_object {
@@ -84,13 +82,6 @@ struct alsa_object {
 
 	unsigned int first:1;
 	struct spa_list node_list;
-
-	struct pw_client_endpoint_proxy *client_endpoint;
-	struct spa_hook client_endpoint_listener;
-	struct pw_endpoint_info client_endpoint_info;
-
-	unsigned int use_ucm:1;
-	snd_use_case_mgr_t *ucm;
 };
 
 static struct alsa_node *alsa_find_node(struct alsa_object *obj, uint32_t id)
@@ -447,7 +438,6 @@ static void reserve_acquired(void *data, struct rd_device *d)
 	set_profile(obj, 1);
 
 	setup_alsa_endpoint(obj);
-
 }
 
 static void sync_complete_done(void *data, int seq)

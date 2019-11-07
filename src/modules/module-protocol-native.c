@@ -1007,7 +1007,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	pw_protocol_native_init(this);
 	pw_protocol_native0_init(this);
 
-	pw_log_debug(NAME" %p: new %d", this, debug_messages);
+	pw_log_debug(NAME" %p: new debug:%d", this, debug_messages);
 
 	d = pw_protocol_get_user_data(this);
 	d->protocol = this;

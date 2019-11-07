@@ -37,6 +37,7 @@
 #include <pipewire/utils.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/log.h>
+#include <extensions/session-manager.h>
 
 /* Some PulseAudio API added const qualifiers in 13.0 */
 #if PA_MAJOR >= 13
@@ -231,7 +232,7 @@ struct global {
 	pa_subscription_mask_t mask;
 	pa_subscription_event_type_t event;
 
-	int priority_master;
+	int priority_session;
 	int pending_seq;
 	int init:1;
 	int subscribed:1;
@@ -249,7 +250,7 @@ struct global {
 			struct global *src;
 			struct global *dst;
 		} link_info;
-		/* for sink/source */
+		/* for endpoint stream */
 		struct {
 			uint32_t client_id;
 			uint32_t monitor;
@@ -257,11 +258,9 @@ struct global {
 			bool mute;
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
-		} node_info;
-		struct {
-			uint32_t node_id;
-		} port_info;
-		/* for devices */
+			uint32_t endpoint_id;
+		} stream_info;
+		/* for endpoints */
 		struct {
 			struct spa_list profiles;
 			uint32_t n_profiles;

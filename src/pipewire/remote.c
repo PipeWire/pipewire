@@ -184,7 +184,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 {
 	struct remote *impl;
 	struct pw_remote *this;
-	struct pw_protocol *protocol;
+	struct pw_protocol *protocol = NULL;
 	const char *protocol_name;
 	int res;
 
@@ -220,16 +220,20 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	spa_hook_list_init(&this->listener_list);
 
 	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
-		if (pw_module_load(core, "libpipewire-module-protocol-native",
-					NULL, NULL) == NULL) {
-			res = -errno;
-			goto error_protocol;
+		if ((protocol_name = pw_properties_get(core->properties, PW_KEY_PROTOCOL)) == NULL) {
+			protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
+			if ((protocol = pw_core_find_protocol(core, protocol_name)) == NULL) {
+				if (pw_module_load(core, "libpipewire-module-protocol-native",
+						NULL, NULL) == NULL) {
+					res = -errno;
+					goto error_protocol;
+				}
+			}
 		}
-
-		protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
 	}
 
-	protocol = pw_core_find_protocol(core, protocol_name);
+	if (protocol == NULL)
+		protocol = pw_core_find_protocol(core, protocol_name);
 	if (protocol == NULL) {
 		res = -ENOTSUP;
 		goto error_protocol;

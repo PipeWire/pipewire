@@ -26,10 +26,6 @@ option('pipewire-pulseaudio',
        description: 'Enable pipewire-pulseaudio integration',
        type: 'boolean',
        value: true)
-option('spa',
-       description: 'Enable spa integration',
-       type: 'boolean',
-       value: true)
 option('spa-plugins',
        description: 'Enable spa plugins integration',
        type: 'boolean',

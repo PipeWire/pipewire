@@ -207,9 +207,7 @@ if get_option('gstreamer')
              dependency('gstreamer-allocators-1.0'),]
 endif
 
-if get_option('spa')
-  subdir('spa')
-endif
+subdir('spa')
 
 subdir('src')
 

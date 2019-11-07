@@ -516,6 +516,10 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	}
 
 	this->pool = pw_mempool_new(NULL);
+	if (this->pool == NULL) {
+		res = -errno;
+		goto error_free_loop;
+	}
 
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
 	this->data_system = this->data_loop->system;
@@ -548,9 +552,6 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	}
 	this->n_support = n_support;
 
-	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
-		goto error_free_loop;
-
 	pw_array_init(&this->factory_lib, 32);
 	pw_map_init(&this->globals, 128, 32);
 
@@ -576,6 +577,9 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 				   pw_get_user_name(), getpid());
 		name = pw_properties_get(properties, PW_KEY_CORE_NAME);
 	}
+
+	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
+		goto error_free_loop;
 
 	this->info.change_mask = 0;
 	this->info.user_name = pw_get_user_name();

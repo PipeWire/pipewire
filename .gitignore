@@ -11,6 +11,7 @@ config.h.meson
 cscope.out
 cscope.in.out
 cscope.po.out
+Makefile
 
 # Created by https://www.gitignore.io/api/vim
 

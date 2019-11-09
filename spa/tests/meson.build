@@ -20,7 +20,7 @@ endforeach
 if have_cpp
 test_cpp = executable('spa-test-cpp', 'test-cpp.cpp',
                         include_directories : [spa_inc ],
-                        dependencies : [],
+                        dependencies : [epoll_shim_dep],
                         install : false)
 test('spa-test-cpp', test_cpp)
 endif

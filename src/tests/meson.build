@@ -12,7 +12,7 @@ test_apps = [
 foreach a : test_apps
   test('pw-' + a,
 	executable('pw-' + a, a + '.c',
-		dependencies : [pipewire_dep],
+		dependencies : [pipewire_dep, epoll_shim_dep],
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : false),
 	env : [
@@ -24,7 +24,7 @@ endforeach
 
 if have_cpp
 test_cpp = executable('pw-test-cpp', 'test-cpp.cpp',
-                        dependencies : [pipewire_dep],
+                        dependencies : [pipewire_dep, epoll_shim_dep],
                         install : false)
 test('pw-test-cpp', test_cpp)
 endif

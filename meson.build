@@ -207,6 +207,11 @@ if get_option('gstreamer')
              dependency('gstreamer-allocators-1.0'),]
 endif
 
+# On FreeBSD, epoll-shim library is required for eventfd() and timerfd()
+epoll_shim_dep = (build_machine.system() == 'freebsd'
+    ? dependency('epoll-shim', required: true)
+    : dependency('', required: false))
+
 if get_option('spa')
   subdir('spa')
 endif

@@ -75,9 +75,14 @@ install_headers(pipewire_headers, subdir : 'pipewire')
 
 libpipewire_c_args = [
   '-DHAVE_CONFIG_H',
-  '-D_GNU_SOURCE',
-  '-D_POSIX_C_SOURCE',
 ]
+
+if build_machine.system() != 'freebsd'
+  libpipewire_c_args += [
+    '-D_GNU_SOURCE',
+    '-D_POSIX_C_SOURCE'
+  ]
+endif
 
 libpipewire_name = 'pipewire-@0@'.format(apiversion)
 libpipewire = shared_library(libpipewire_name, pipewire_sources,
@@ -86,7 +91,7 @@ libpipewire = shared_library(libpipewire_name, pipewire_sources,
   c_args : libpipewire_c_args,
   include_directories : [pipewire_inc, configinc, spa_inc],
   install : true,
-  dependencies : [dl_lib, mathlib, pthread_lib],
+  dependencies : [dl_lib, mathlib, pthread_lib, epoll_shim_dep],
 )
 
 pipewire_dep = declare_dependency(link_with : libpipewire,

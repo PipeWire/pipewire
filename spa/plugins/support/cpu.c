@@ -29,6 +29,10 @@
 #include <stdio.h>
 #include <sched.h>
 
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#endif
+
 #include <spa/support/log.h>
 #include <spa/support/cpu.h>
 #include <spa/support/plugin.h>
@@ -75,6 +79,7 @@ impl_cpu_force_flags(void *object, uint32_t flags)
 	return 0;
 }
 
+#ifndef __FreeBSD__
 static uint32_t get_count(struct impl *this)
 {
 	cpu_set_t cpuset;
@@ -83,6 +88,17 @@ static uint32_t get_count(struct impl *this)
 		return CPU_COUNT(&cpuset);
 	return 1;
 }
+#else
+static uint32_t get_count(struct impl *this)
+{
+	int mib[] = {CTL_HW, HW_NCPU};
+	int r;
+	size_t rSize = sizeof(r);
+	if(-1 == sysctl(mib, 2, &r, &rSize, 0, 0))
+		return 1;
+	return r;
+}
+#endif
 
 static uint32_t
 impl_cpu_get_count(void *object)

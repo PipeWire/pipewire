@@ -11,6 +11,10 @@
 #define ARRAY_SIZE 63
 #define MAX_VALUE 0x10000
 
+#ifdef __FreeBSD__
+static int sched_getcpu(void) { return -1; };
+#endif
+
 static struct spa_ringbuffer rb;
 static uint32_t size;
 static void *data;

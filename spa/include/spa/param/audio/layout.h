@@ -29,7 +29,9 @@
 extern "C" {
 #endif
 
+#ifndef __FreeBSD__
 #include <endian.h>
+#endif
 
 #define SPA_AUDIO_LAYOUT_Mono		1, SPA_AUDIO_CHANNEL_MONO
 #define SPA_AUDIO_LAYOUT_Stereo		2, SPA_AUDIO_CHANNEL_FL, SPA_AUDIO_CHANNEL_FR

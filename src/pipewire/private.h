@@ -47,6 +47,11 @@ extern "C" {
 #include <spa/utils/result.h>
 #include <spa/utils/type-info.h>
 
+#ifdef __FreeBSD__
+struct ucred {
+};
+#endif
+
 #ifndef spa_debug
 #define spa_debug pw_log_trace
 #endif

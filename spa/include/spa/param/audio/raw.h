@@ -29,7 +29,9 @@
 extern "C" {
 #endif
 
+#ifndef __FreeBSD__
 #include <endian.h>
+#endif
 
 #define SPA_AUDIO_MAX_CHANNELS	64u
 

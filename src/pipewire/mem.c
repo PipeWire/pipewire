@@ -43,9 +43,11 @@
 
 #define NAME "mempool"
 
+#ifndef __FreeBSD__
 #define USE_MEMFD
+#endif
 
-#ifndef HAVE_MEMFD_CREATE
+#if defined(USE_MEMFD) && !defined(HAVE_MEMFD_CREATE)
 /*
  * No glibc wrappers exist for memfd_create(2), so provide our own.
  *

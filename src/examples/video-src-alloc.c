@@ -225,7 +225,11 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 	/* create the memfd on the buffer, set the type and flags */
 	d[0].type = SPA_DATA_MemFd;
 	d[0].flags = SPA_DATA_FLAG_READWRITE;
+#ifndef __FreeBSD__
 	d[0].fd = memfd_create("video-src-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#else
+	d[0].fd = -1;
+#endif
 	if (d[0].fd == -1) {
 		pw_log_error("can't create memfd: %m");
 		return;
@@ -238,11 +242,13 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 		pw_log_error("can't truncate to %d: %m", d[0].maxsize);
 		return;
 	}
+#ifndef __FreeBSD__
 	/* not enforced yet but server might require SEAL_SHRINK later */
 	seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
 	if (fcntl(d[0].fd, F_ADD_SEALS, seals) == -1) {
 		pw_log_warn("Failed to add seals: %m");
 	}
+#endif
 
 	/* now mmap so we can write to it in the process function above */
 	d[0].data = mmap(NULL, d[0].maxsize, PROT_READ|PROT_WRITE,

@@ -23,7 +23,9 @@
 #define _GNU_SOURCE
 
 #include <limits.h>
+#ifndef __FreeBSD__
 #include <byteswap.h>
+#endif
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/socket.h>

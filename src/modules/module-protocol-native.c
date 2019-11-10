@@ -335,6 +335,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	if (props == NULL)
 		goto exit;
 
+#ifndef __FreeBSD__
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
 		pw_log_error("server %p: no peercred: %m", s);
@@ -350,6 +351,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	} else {
 		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%s", buffer);
 	}
+#endif
 
 	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 

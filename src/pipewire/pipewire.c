@@ -29,7 +29,9 @@
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
+#ifndef __FreeBSD__
 #include <sys/prctl.h>
+#endif
 #include <pwd.h>
 #include <errno.h>
 #include <dlfcn.h>
@@ -436,8 +438,10 @@ const char *pw_get_prgname(void)
 	static char tcomm[16 + 1];
 	spa_zero(tcomm);
 
+#ifndef __FreeBSD__
 	if (prctl(PR_GET_NAME, (unsigned long) tcomm, 0, 0, 0) == 0)
 		return tcomm;
+#endif
 
 	return NULL;
 }

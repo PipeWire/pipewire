@@ -29,6 +29,9 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __FreeBSD__
+#include <sys/thr.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -144,7 +147,13 @@ void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
 
 static pid_t _gettid(void)
 {
+#ifndef __FreeBSD__
 	return (pid_t) syscall(SYS_gettid);
+#else
+	long pid;
+	thr_self(&pid);
+	return (pid_t)pid;
+#endif
 }
 
 static int translate_error(const char *name)
@@ -440,10 +449,12 @@ static void idle_func(struct spa_source *source)
 	spa_zero(sp);
 	sp.sched_priority = rtprio;
 
+#ifndef __FreeBSD__
 	if (pthread_setschedparam(pthread_self(), SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
 		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
 		return;
 	}
+#endif
 
 	system_bus = pw_rtkit_bus_get_system();
 	if (system_bus == NULL)

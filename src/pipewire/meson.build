@@ -96,7 +96,7 @@ libpipewire = shared_library(libpipewire_name, pipewire_sources,
 
 pipewire_dep = declare_dependency(link_with : libpipewire,
   include_directories : [pipewire_inc, configinc, spa_inc],
-  dependencies : [pthread_lib],
+  dependencies : [pthread_lib, epoll_shim_dep],
 )
 
 pkgconfig.generate(filebase : 'lib@0@'.format(libpipewire_name),

@@ -9,7 +9,7 @@ pipewire_module_spa_node = shared_library('pipewire-module-spa-node',
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, epoll_shim_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_spa_device = shared_library('pipewire-module-spa-device',
@@ -18,7 +18,7 @@ pipewire_module_spa_device = shared_library('pipewire-module-spa-device',
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, epoll_shim_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_spa_node_factory = shared_library('pipewire-module-spa-node-factory',
@@ -27,7 +27,7 @@ pipewire_module_spa_node_factory = shared_library('pipewire-module-spa-node-fact
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, epoll_shim_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_spa_device_factory = shared_library('pipewire-module-spa-device-factory',
@@ -36,5 +36,5 @@ pipewire_module_spa_device_factory = shared_library('pipewire-module-spa-device-
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, epoll_shim_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )

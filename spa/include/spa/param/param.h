@@ -90,6 +90,8 @@ enum spa_param_profile {
 	SPA_PARAM_PROFILE_START,
 	SPA_PARAM_PROFILE_index,	/**< profile index (Int) */
 	SPA_PARAM_PROFILE_name,		/**< profile name (String) */
+	SPA_PARAM_PROFILE_description,	/**< profile description (String) */
+	SPA_PARAM_PROFILE_priority,	/**< profile priority (Int) */
 };
 
 enum spa_param_port_config_mode {

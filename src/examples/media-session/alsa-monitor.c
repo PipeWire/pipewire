@@ -52,14 +52,18 @@ struct alsa_object;
 
 struct alsa_node {
 	struct monitor *monitor;
+	enum pw_direction direction;
 	struct alsa_object *object;
 	struct spa_list link;
 	uint32_t id;
 
 	struct pw_properties *props;
 
-	struct pw_proxy *proxy;
 	struct spa_node *node;
+
+	struct pw_proxy *proxy;
+	struct spa_hook listener;
+	struct pw_node_info *info;
 };
 
 struct alsa_object {
@@ -106,6 +110,17 @@ static void alsa_update_node(struct alsa_object *obj, struct alsa_node *node,
 	pw_properties_update(node->props, info->props);
 }
 
+static void node_event_info(void *object, const struct pw_node_info *info)
+{
+	struct alsa_node *node = object;
+	node->info = pw_node_info_update(node->info, info);
+}
+
+static const struct pw_node_proxy_events node_events = {
+	PW_VERSION_NODE_PROXY_EVENTS,
+	.info = node_event_info,
+};
+
 static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		const struct spa_device_object_info *info)
 {
@@ -142,6 +157,11 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	if ((stream = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_STREAM)) == NULL)
 		stream = "unknown";
 
+	if (!strcmp(stream, "capture"))
+		node->direction = PW_DIRECTION_OUTPUT;
+	else
+		node->direction = PW_DIRECTION_INPUT;
+
 	if (obj->first) {
 		if (atol(dev) != 0)
 			obj->priority -= 256;
@@ -160,7 +180,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	}
 
 	if (pw_properties_get(node->props, SPA_KEY_MEDIA_CLASS) == NULL) {
-		if (!strcmp(stream, "capture"))
+		if (node->direction == PW_DIRECTION_OUTPUT)
 			pw_properties_setf(node->props, SPA_KEY_MEDIA_CLASS, "Audio/Source");
 		else
 			pw_properties_setf(node->props, SPA_KEY_MEDIA_CLASS, "Audio/Sink");
@@ -209,6 +229,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		res = -errno;
 		goto clean_node;
 	}
+	pw_proxy_add_object_listener(node->proxy, &node->listener, &node_events, node);
 
 	spa_list_append(&obj->node_list, &node->link);
 

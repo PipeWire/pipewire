@@ -47,6 +47,8 @@
 
 #define DEFAULT_IDLE_SECONDS	3
 
+void * sm_stream_monitor_start(struct pw_remote *remote, uint32_t session_id);
+
 struct impl;
 
 struct monitor {
@@ -87,6 +89,11 @@ struct impl {
 
 	struct spa_source *jack_timeout;
 	struct pw_proxy *jack_device;
+
+	struct pw_registry_proxy *registry_proxy;
+	struct spa_hook registry_listener;
+
+
 };
 
 struct alsa_object;
@@ -110,6 +117,13 @@ static int client_session_set_id(void *object, uint32_t id)
 			PW_CLIENT_SESSION_UPDATE_INFO,
 			0, NULL,
 			&impl->client_session_info);
+
+	bluez5_start_monitor(impl, &impl->bluez5_monitor);
+	alsa_start_monitor(impl, &impl->alsa_monitor);
+	alsa_start_midi_bridge(impl);
+	alsa_start_jack_device(impl);
+	v4l2_start_monitor(impl, &impl->v4l2_monitor);
+	sm_stream_monitor_start(impl->remote, id);
 	return 0;
 }
 
@@ -131,16 +145,6 @@ static int client_session_link_set_param(void *object, uint32_t link_id, uint32_
 	return -ENOTSUP;
 }
 
-static int client_session_create_link(void *object, const struct spa_dict *props)
-{
-	return -ENOTSUP;
-}
-
-static int client_session_destroy_link(void *object, uint32_t link_id)
-{
-	return -ENOTSUP;
-}
-
 static int client_session_link_request_state(void *object, uint32_t link_id, uint32_t state)
 {
 	return -ENOTSUP;
@@ -152,8 +156,6 @@ static const struct pw_client_session_proxy_events client_session_events = {
 	.set_id = client_session_set_id,
 	.set_param = client_session_set_param,
 	.link_set_param = client_session_link_set_param,
-	.create_link = client_session_create_link,
-	.destroy_link = client_session_destroy_link,
 	.link_request_state = client_session_link_request_state,
 };
 
@@ -192,11 +194,6 @@ static void start_services(struct impl *impl)
 			&client_session_events,
 			impl);
 
-	bluez5_start_monitor(impl, &impl->bluez5_monitor);
-	alsa_start_monitor(impl, &impl->alsa_monitor);
-	alsa_start_midi_bridge(impl);
-	alsa_start_jack_device(impl);
-	v4l2_start_monitor(impl, &impl->v4l2_monitor);
 }
 
 static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)

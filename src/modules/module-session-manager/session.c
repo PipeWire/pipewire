@@ -123,24 +123,11 @@ static int session_set_param (void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
-static int session_create_link(void *object, const struct spa_dict *props)
-{
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
-	struct session *this = data->session;
-
-	pw_client_session_resource_create_link(this->client_sess->resource,
-						props);
-
-	return 0;
-}
-
 static const struct pw_session_proxy_methods methods = {
 	PW_VERSION_SESSION_PROXY_METHODS,
 	.subscribe_params = session_subscribe_params,
 	.enum_params = session_enum_params,
 	.set_param = session_set_param,
-	.create_link = session_create_link,
 };
 
 static void session_notify_subscribed(struct session *this,

@@ -43,7 +43,8 @@ struct pw_client_endpoint_proxy { struct spa_interface iface; };
 #define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID		1
 #define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM		2
 #define PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM		3
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM			4
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_CREATE_LINK		4
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM			5
 
 struct pw_client_endpoint_proxy_events {
 #define PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS		0
@@ -132,6 +133,8 @@ struct pw_client_endpoint_proxy_events {
 	int (*stream_set_param) (void *object, uint32_t stream_id,
 			         uint32_t id, uint32_t flags,
 			         const struct spa_pod *param);
+
+	int (*create_link) (void *object, const struct spa_dict *props);
 };
 
 #define PW_CLIENT_ENDPOINT_PROXY_METHOD_ADD_LISTENER	0
@@ -140,7 +143,7 @@ struct pw_client_endpoint_proxy_events {
 #define PW_CLIENT_ENDPOINT_PROXY_METHOD_NUM		3
 
 struct pw_client_endpoint_proxy_methods {
-#define PW_VERSION_CLIENT_ENDPOINT_PROXY_METHODS 	0
+#define PW_VERSION_CLIENT_ENDPOINT_PROXY_METHODS	0
 	uint32_t version;		/**< version of this structure */
 
 	int (*add_listener) (void *object,
@@ -190,10 +193,8 @@ struct pw_client_session_proxy { struct spa_interface iface; };
 #define PW_CLIENT_SESSION_PROXY_EVENT_SET_ID			0
 #define PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM			1
 #define PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM		2
-#define PW_CLIENT_SESSION_PROXY_EVENT_CREATE_LINK		3
-#define PW_CLIENT_SESSION_PROXY_EVENT_DESTROY_LINK		4
-#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE	5
-#define PW_CLIENT_SESSION_PROXY_EVENT_NUM			6
+#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE	3
+#define PW_CLIENT_SESSION_PROXY_EVENT_NUM			4
 
 struct pw_client_session_proxy_events {
 #define PW_VERSION_CLIENT_SESSION_PROXY_EVENTS		0
@@ -266,10 +267,6 @@ struct pw_client_session_proxy_events {
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param);
 
-	int (*create_link) (void *object, const struct spa_dict *props);
-
-	int (*destroy_link) (void *object, uint32_t link_id);
-
 	int (*link_request_state) (void *object, uint32_t link_id, uint32_t state);
 };
 
@@ -279,7 +276,7 @@ struct pw_client_session_proxy_events {
 #define PW_CLIENT_SESSION_PROXY_METHOD_NUM		3
 
 struct pw_client_session_proxy_methods {
-#define PW_VERSION_CLIENT_SESSION_PROXY_METHODS 	0
+#define PW_VERSION_CLIENT_SESSION_PROXY_METHODS		0
 	uint32_t version;		/**< version of this structure */
 
 	int (*add_listener) (void *object,

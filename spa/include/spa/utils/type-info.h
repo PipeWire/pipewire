@@ -130,6 +130,7 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_OBJECT_ParamIO, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_IO, spa_type_param_io },
 	{ SPA_TYPE_OBJECT_ParamProfile, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_Profile, spa_type_param_profile },
 	{ SPA_TYPE_OBJECT_ParamPortConfig, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_PortConfig, spa_type_param_port_config },
+	{ SPA_TYPE_OBJECT_ParamRoute, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_Route, spa_type_param_route },
 
 	{ 0, 0, NULL, NULL }
 };

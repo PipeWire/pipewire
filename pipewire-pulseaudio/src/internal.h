@@ -250,7 +250,10 @@ struct global {
 			struct global *src;
 			struct global *dst;
 		} link_info;
-		/* for endpoint stream */
+		struct {
+			uint32_t endpoint_id;
+		} stream_info;
+		/* for endpoints */
 		struct {
 			uint32_t client_id;
 			uint32_t monitor;
@@ -258,9 +261,9 @@ struct global {
 			bool mute;
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
-			uint32_t endpoint_id;
-		} stream_info;
-		/* for endpoints */
+			uint32_t device_id;
+		} endpoint_info;
+		/* for devices */
 		struct {
 			struct spa_list profiles;
 			uint32_t n_profiles;

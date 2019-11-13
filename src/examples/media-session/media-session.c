@@ -47,6 +47,7 @@
 
 int sm_monitor_start(struct pw_remote *remote);
 int sm_policy_start(struct pw_remote *remote);
+int sm_policy_ep_start(struct pw_remote *remote);
 
 struct impl {
 	struct pw_main_loop *loop;
@@ -115,7 +116,8 @@ int main(int argc, char *argv[])
 	pw_module_load(impl.core, "libpipewire-module-session-manager", NULL, NULL);
 
 	sm_monitor_start(impl.monitor_remote);
-	sm_policy_start(impl.policy_remote);
+//	sm_policy_start(impl.policy_remote);
+	sm_policy_ep_start(impl.policy_remote);
 
 	if ((res = pw_remote_connect(impl.monitor_remote)) < 0)
 		return res;

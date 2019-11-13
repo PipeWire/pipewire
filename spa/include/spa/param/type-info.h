@@ -297,6 +297,30 @@ static const struct spa_type_info spa_type_param_port_config[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+#define SPA_TYPE_INFO_ParamRouteAvailability		SPA_TYPE_INFO_ENUM_BASE "ParamRouteAvailability"
+#define SPA_TYPE_INFO_PARAM_ROUTE_AVAILABILITY_BASE	SPA_TYPE_INFO_ParamRouteAvailability ":"
+
+static const struct spa_type_info spa_type_param_route_availability[] = {
+	{ SPA_PARAM_ROUTE_AVAILABILITY_unknown, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_AVAILABILITY_BASE "unknown", NULL },
+	{ SPA_PARAM_ROUTE_AVAILABILITY_no, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_AVAILABILITY_BASE "no", NULL },
+	{ SPA_PARAM_ROUTE_AVAILABILITY_yes, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_AVAILABILITY_BASE "yes", NULL },
+	{ 0, 0, NULL, NULL },
+};
+
+
+#define SPA_TYPE_INFO_PARAM_Route		SPA_TYPE_INFO_PARAM_BASE "Route"
+#define SPA_TYPE_INFO_PARAM_ROUTE_BASE		SPA_TYPE_INFO_PARAM_Route ":"
+
+static const struct spa_type_info spa_type_param_route[] = {
+	{ SPA_PARAM_ROUTE_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_ROUTE_BASE, spa_type_param, },
+	{ SPA_PARAM_ROUTE_index, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_BASE "index", NULL, },
+	{ SPA_PARAM_ROUTE_name, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_ROUTE_BASE "name", NULL, },
+	{ SPA_PARAM_ROUTE_description, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_ROUTE_BASE "description", NULL, },
+	{ SPA_PARAM_ROUTE_priority, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_BASE "priority", NULL, },
+	{ SPA_PARAM_ROUTE_available, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_ROUTE_BASE "available", spa_type_param_route_availability, },
+	{ 0, 0, NULL, NULL },
+};
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

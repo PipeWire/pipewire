@@ -45,6 +45,8 @@ enum spa_param_type {
 	SPA_PARAM_Profile,		/**< profile configuration as SPA_TYPE_OBJECT_ParamProfile */
 	SPA_PARAM_EnumPortConfig,	/**< port configuration enumeration as SPA_TYPE_OBJECT_ParamPortConfig */
 	SPA_PARAM_PortConfig,		/**< port configuration as SPA_TYPE_OBJECT_ParamPortConfig */
+	SPA_PARAM_EnumRoute,		/**< routing enumeration as SPA_TYPE_OBJECT_ParamRoute */
+	SPA_PARAM_Route,		/**< routing configuration as SPA_TYPE_OBJECT_ParamRoute */
 };
 
 /** information about a parameter */
@@ -111,6 +113,24 @@ enum spa_param_port_config {
 	SPA_PARAM_PORT_CONFIG_monitor,		/**< (Bool) enable monitor output ports on input ports */
 	SPA_PARAM_PORT_CONFIG_format,		/**< (Object) format filter */
 };
+
+enum spa_param_route_availability {
+	SPA_PARAM_ROUTE_AVAILABILITY_unknown,	/**< unknown if route is available */
+	SPA_PARAM_ROUTE_AVAILABILITY_no,	/**< route is not available */
+	SPA_PARAM_ROUTE_AVAILABILITY_yes,	/**< route is available */
+};
+
+/** properties for SPA_TYPE_OBJECT_ParamRoute */
+enum spa_param_route {
+	SPA_PARAM_ROUTE_START,
+	SPA_PARAM_ROUTE_index,			/**< index of the routing destination (Int) */
+	SPA_PARAM_ROUTE_name,			/**< name of the routing destination (String) */
+	SPA_PARAM_ROUTE_description,		/**< description of the destination (String) */
+	SPA_PARAM_ROUTE_priority,		/**< priority of the destination (Int) */
+	SPA_PARAM_ROUTE_available,		/**< availability of the destination
+						  *  (Id enum spa_param_route_availability) */
+};
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

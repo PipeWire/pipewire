@@ -102,6 +102,7 @@ enum {
 	SPA_TYPE_OBJECT_ParamIO,
 	SPA_TYPE_OBJECT_ParamProfile,
 	SPA_TYPE_OBJECT_ParamPortConfig,
+	SPA_TYPE_OBJECT_ParamRoute,
 	SPA_TYPE_OBJECT_LAST,			/**< not part of ABI */
 
 	/* vendor extensions */

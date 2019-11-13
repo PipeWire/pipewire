@@ -117,8 +117,22 @@ static int endpoint_set_param (void *object, uint32_t id, uint32_t flags,
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct endpoint *this = data->endpoint;
 
+	pw_log_debug("%p", this);
 	pw_client_endpoint_resource_set_param(this->client_ep->resource,
 						id, flags, param);
+
+	return 0;
+}
+
+static int endpoint_create_link(void *object, const struct spa_dict *props)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct endpoint *this = data->endpoint;
+
+	pw_log_debug("%p", this);
+	pw_client_endpoint_resource_create_link(this->client_ep->resource,
+						props);
 
 	return 0;
 }
@@ -128,6 +142,7 @@ static const struct pw_endpoint_proxy_methods methods = {
 	.subscribe_params = endpoint_subscribe_params,
 	.enum_params = endpoint_enum_params,
 	.set_param = endpoint_set_param,
+	.create_link = endpoint_create_link,
 };
 
 static void endpoint_notify_subscribed(struct endpoint *this,
@@ -288,6 +303,7 @@ int endpoint_init(struct endpoint *this,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,
 		PW_KEY_MEDIA_CLASS,
+		PW_KEY_PRIORITY_SESSION,
 		PW_KEY_ENDPOINT_NAME,
 		PW_KEY_ENDPOINT_ICON_NAME,
 		NULL

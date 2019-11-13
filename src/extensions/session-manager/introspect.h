@@ -34,13 +34,6 @@
 extern "C" {
 #endif
 
-enum pw_endpoint_direction {
-	PW_ENDPOINT_DIRECTION_SINK_INPUT = SPA_DIRECTION_INPUT,
-	PW_ENDPOINT_DIRECTION_SOURCE_OUTPUT = SPA_DIRECTION_OUTPUT,
-	PW_ENDPOINT_DIRECTION_SOURCE,
-	PW_ENDPOINT_DIRECTION_SINK,
-};
-
 enum pw_endpoint_link_state {
 	PW_ENDPOINT_LINK_STATE_ERROR = -1,
 	PW_ENDPOINT_LINK_STATE_PREPARING,
@@ -67,7 +60,7 @@ struct pw_endpoint_info {
 	uint32_t id;				/**< the endpoint id (global) */
 	char *name;				/**< name of the endpoint */
 	char *media_class;			/**< media class of the endpoint */
-	enum pw_endpoint_direction direction;	/**< direction of the endpoint */
+	enum pw_direction direction;		/**< direction of the endpoint */
 #define PW_ENDPOINT_FLAG_PROVIDES_SESSION	(1 << 0)
 	uint32_t flags;				/**< additional flags */
 #define PW_ENDPOINT_CHANGE_MASK_STREAMS		(1 << 0)

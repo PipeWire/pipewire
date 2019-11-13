@@ -135,25 +135,12 @@ static int endpoint_link_request_state(void *object, enum pw_endpoint_link_state
 	return 0;
 }
 
-static int endpoint_link_destroy(void *object)
-{
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
-	struct endpoint_link *this = data->link;
-
-	pw_client_session_resource_destroy_link(this->client_sess->resource,
-						this->id);
-
-	return 0;
-}
-
 static const struct pw_endpoint_link_proxy_methods methods = {
 	PW_VERSION_ENDPOINT_LINK_PROXY_METHODS,
 	.subscribe_params = endpoint_link_subscribe_params,
 	.enum_params = endpoint_link_enum_params,
 	.set_param = endpoint_link_set_param,
 	.request_state = endpoint_link_request_state,
-	.destroy = endpoint_link_destroy,
 };
 
 static void endpoint_link_notify_subscribed(struct endpoint_link *this,

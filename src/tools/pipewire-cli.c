@@ -678,16 +678,10 @@ static void info_endpoint(struct proxy_data *pd)
 	fprintf(stdout, "\tname: %s\n", info->name);
 	fprintf(stdout, "\tmedia-class: %s\n",  info->media_class);
 	switch(info->direction) {
-	case PW_ENDPOINT_DIRECTION_SINK_INPUT:
-		direction = "sink-input";
-		break;
-	case PW_ENDPOINT_DIRECTION_SOURCE_OUTPUT:
-		direction = "source-output";
-		break;
-	case PW_ENDPOINT_DIRECTION_SOURCE:
+	case PW_DIRECTION_OUTPUT:
 		direction = "source";
 		break;
-	case PW_ENDPOINT_DIRECTION_SINK:
+	case PW_DIRECTION_INPUT:
 		direction = "sink";
 		break;
 	default:
@@ -697,7 +691,7 @@ static void info_endpoint(struct proxy_data *pd)
 	fprintf(stdout, "\tdirection: %s\n", direction);
 	fprintf(stdout, "\tflags: 0x%x\n", info->flags);
 	fprintf(stdout, "%c\tstreams: %u\n", MARK_CHANGE(0), info->n_streams);
-	fprintf(stdout, "%c\tsession: %u\n", MARK_CHANGE(0), info->session_id);
+	fprintf(stdout, "%c\tsession: %u\n", MARK_CHANGE(1), info->session_id);
 	print_properties(info->props, MARK_CHANGE(2), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(3), true);
 	info->change_mask = 0;

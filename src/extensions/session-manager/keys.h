@@ -36,6 +36,8 @@ extern "C" {
 #define PW_KEY_ENDPOINT_NAME		"endpoint.name"		/**< the name of an endpoint */
 #define PW_KEY_ENDPOINT_ICON_NAME	"endpoint.icon-name"	/**< an XDG icon name for the device.
 								  *  Ex. "sound-card-speakers-usb" */
+#define PW_KEY_ENDPOINT_AUTOCONNECT	"endpoint.autoconnect"	/**< try to automatically connect this
+								  *  endpoint. */
 
 #define PW_KEY_STREAM_ID		"stream.id"		/**< id of a stream */
 #define PW_KEY_STREAM_NAME		"stream.name"		/**< unique name of a stream */

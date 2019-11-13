@@ -40,7 +40,7 @@
 #include "pipewire/private.h"
 #include "extensions/session-manager.h"
 
-#define NAME "media-session"
+#define NAME "policy"
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
@@ -1236,13 +1236,13 @@ static const struct pw_remote_events remote_events = {
 	.state_changed = on_state_changed,
 };
 
-int sm_policy_start(struct pw_remote *remote)
+void *sm_policy_start(struct pw_remote *remote)
 {
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return -errno;
+		return NULL;
 
 	impl->core = pw_remote_get_core(remote);
 	impl->remote = remote;
@@ -1255,10 +1255,10 @@ int sm_policy_start(struct pw_remote *remote)
 
 	pw_remote_add_listener(impl->remote, &impl->remote_listener, &remote_events, impl);
 
-	return 0;
+	return impl;
 }
 
-int sm_policy_stop(struct pw_core *core)
+int sm_policy_stop(void *data)
 {
 	return 0;
 }

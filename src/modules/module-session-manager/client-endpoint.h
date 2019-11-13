@@ -50,6 +50,8 @@ struct client_endpoint {
 	pw_client_endpoint_resource(r,set_param,0,__VA_ARGS__)
 #define pw_client_endpoint_resource_stream_set_param(r,...)	\
 	pw_client_endpoint_resource(r,stream_set_param,0,__VA_ARGS__)
+#define pw_client_endpoint_resource_create_link(r,...)	\
+	pw_client_endpoint_resource(r,create_link,0,__VA_ARGS__)
 
 int client_endpoint_factory_init(struct pw_module *module);
 

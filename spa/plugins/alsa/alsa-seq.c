@@ -57,7 +57,7 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
 			   SND_SEQ_OPEN_DUPLEX,
 			   0)) < 0) {
 		spa_log_error(state->log, "open failed: %s", snd_strerror(res));
-		goto error_exit_close;
+		return res;
 	}
 
 	/* client id */

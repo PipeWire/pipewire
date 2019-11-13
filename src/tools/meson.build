@@ -10,3 +10,9 @@ executable('pipewire-cli',
 	install: true,
 	dependencies : [pipewire_dep],
 )
+executable('pipewire-dot',
+	'pipewire-dot.c',
+	c_args : [ '-D_GNU_SOURCE' ],
+	install: true,
+	dependencies : [pipewire_dep],
+)

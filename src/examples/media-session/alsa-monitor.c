@@ -219,7 +219,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	node->monitor = monitor;
 	node->object = obj;
 	node->id = id;
-	node->proxy = pw_core_proxy_create_object(impl->core_proxy,
+	node->proxy = sm_media_session_create_object(impl->session,
 				"adapter",
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,
@@ -418,7 +418,7 @@ static void set_profile(struct alsa_object *obj, int index)
 
 static void remove_jack_timeout(struct impl *impl)
 {
-	struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
+	struct pw_loop *main_loop = impl->session->loop->loop;
 
 	if (impl->jack_timeout) {
 		pw_loop_destroy_source(main_loop, impl->jack_timeout);
@@ -436,7 +436,7 @@ static void jack_timeout(void *data, uint64_t expirations)
 static void add_jack_timeout(struct impl *impl)
 {
 	struct timespec value;
-	struct pw_loop *main_loop = pw_core_get_main_loop(impl->core);
+	struct pw_loop *main_loop = impl->session->loop->loop;
 
 	if (impl->jack_timeout == NULL)
 		impl->jack_timeout = pw_loop_add_timer(main_loop, jack_timeout, impl);
@@ -467,6 +467,7 @@ static void sync_complete_done(void *data, int seq)
 	struct monitor *monitor = obj->monitor;
 	struct impl *impl = monitor->impl;
 
+	pw_log_debug("%d %d", obj->seq, seq);
 	if (seq != obj->seq)
 		return;
 
@@ -510,7 +511,7 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 		const struct spa_device_object_info *info)
 {
 	struct impl *impl = monitor->impl;
-	struct pw_core *core = impl->core;
+	struct pw_core *core = impl->session->core;
 	struct alsa_object *obj;
 	struct spa_handle *handle;
 	int res;
@@ -552,8 +553,10 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 	obj->priority = 1000;
 	update_device_props(obj);
 
-	obj->proxy = pw_remote_export(impl->remote,
-			info->type, pw_properties_copy(obj->props), obj->device, 0);
+	obj->proxy = sm_media_session_export(impl->session,
+			info->type,
+			pw_properties_copy(obj->props),
+			obj->device, 0);
 	if (obj->proxy == NULL) {
 		res = -errno;
 		goto clean_object;
@@ -651,7 +654,7 @@ static int alsa_start_midi_bridge(struct impl *impl)
 			SPA_KEY_NODE_NAME, "Midi-Bridge",
 			NULL);
 
-	impl->midi_bridge = pw_core_proxy_create_object(impl->core_proxy,
+	impl->midi_bridge = sm_media_session_create_object(impl->session,
 				"spa-node-factory",
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,
@@ -667,7 +670,7 @@ static int alsa_start_midi_bridge(struct impl *impl)
 static int alsa_start_monitor(struct impl *impl, struct monitor *monitor)
 {
 	struct spa_handle *handle;
-	struct pw_core *core = impl->core;
+	struct pw_core *core = impl->session->core;
 	int res;
 	void *iface;
 
@@ -707,7 +710,7 @@ static int alsa_start_jack_device(struct impl *impl)
 			SPA_KEY_NODE_NAME, "JACK-Device",
 			NULL);
 
-	impl->jack_device = pw_core_proxy_create_object(impl->core_proxy,
+	impl->jack_device = sm_media_session_create_object(impl->session,
 				"spa-device-factory",
 				PW_TYPE_INTERFACE_Device,
 				PW_VERSION_DEVICE_PROXY,

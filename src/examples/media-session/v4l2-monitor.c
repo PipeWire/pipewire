@@ -132,7 +132,7 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 	node->monitor = monitor;
 	node->object = obj;
 	node->id = id;
-	node->proxy = pw_core_proxy_create_object(impl->core_proxy,
+	node->proxy = sm_media_session_create_object(impl->session,
 				"spa-node-factory",
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,
@@ -252,7 +252,7 @@ static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t 
 		const struct spa_device_object_info *info)
 {
 	struct impl *impl = monitor->impl;
-	struct pw_core *core = impl->core;
+	struct pw_core *core = impl->session->core;
 	struct v4l2_object *obj;
 	struct spa_handle *handle;
 	int res;
@@ -292,7 +292,7 @@ static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t 
 	obj->props = pw_properties_new_dict(info->props);
 	v4l2_update_device_props(obj);
 
-	obj->proxy = pw_remote_export(impl->remote,
+	obj->proxy = sm_media_session_export(impl->session,
 			info->type, pw_properties_copy(obj->props), obj->device, 0);
 	if (obj->proxy == NULL) {
 		res = -errno;
@@ -356,7 +356,7 @@ static const struct spa_device_events v4l2_udev_callbacks =
 static int v4l2_start_monitor(struct impl *impl, struct monitor *monitor)
 {
 	struct spa_handle *handle;
-	struct pw_core *core = impl->core;
+	struct pw_core *core = impl->session->core;
 	int res;
 	void *iface;
 

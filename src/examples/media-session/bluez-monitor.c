@@ -95,6 +95,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	struct bluez5_node *node;
 	struct monitor *monitor = obj->monitor;
 	struct impl *impl = monitor->impl;
+	struct pw_core *core = impl->session->core;
 	struct pw_factory *factory;
 	int res;
 	const char *str;
@@ -131,7 +132,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	node->object = obj;
 	node->id = id;
 
-	factory = pw_core_find_factory(impl->core, "adapter");
+	factory = pw_core_find_factory(core, "adapter");
 	if (factory == NULL) {
 		pw_log_error("no adapter factory found");
 		res = -EIO;
@@ -147,7 +148,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 		res = -errno;
 		goto clean_node;
 	}
-	node->proxy = pw_remote_export(impl->remote,
+	node->proxy = sm_media_session_export(impl->session,
 			PW_TYPE_INTERFACE_Node,
 			pw_properties_copy(node->props),
 			node->adapter, 0);
@@ -226,7 +227,7 @@ static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint3
 		const struct spa_device_object_info *info)
 {
 	struct impl *impl = monitor->impl;
-	struct pw_core *core = impl->core;
+	struct pw_core *core = impl->session->core;
 	struct bluez5_object *obj;
 	struct spa_handle *handle;
 	int res;
@@ -264,7 +265,7 @@ static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint3
 	obj->handle = handle;
 	obj->device = iface;
 	obj->props = pw_properties_new_dict(info->props);
-	obj->proxy = pw_remote_export(impl->remote,
+	obj->proxy = sm_media_session_export(impl->session,
 			info->type, pw_properties_copy(obj->props), obj->device, 0);
 	if (obj->proxy == NULL) {
 		res = -errno;
@@ -336,7 +337,7 @@ static const struct spa_device_events bluez5_enum_callbacks =
 static int bluez5_start_monitor(struct impl *impl, struct monitor *monitor)
 {
 	struct spa_handle *handle;
-	struct pw_core *core = impl->core;
+	struct pw_core *core = impl->session->core;
 	int res;
 	void *iface;
 

@@ -114,6 +114,8 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	struct spa_pod_builder b = { 0, };
 	struct spa_pod *param;
 
+	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
+
 	p = pw_properties_new_dict(props);
 
 	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
@@ -145,7 +147,7 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 		endpoint->active = true;
 	}
 
-	pw_core_proxy_create_object(impl->core_proxy,
+	sm_media_session_create_object(impl->session,
                                           "link-factory",
                                           PW_TYPE_INTERFACE_Link,
                                           PW_VERSION_LINK_PROXY,
@@ -234,7 +236,7 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 			pw_properties_set(props, PW_KEY_ENDPOINT_ICON_NAME, str);
 	}
 
-	proxy = pw_core_proxy_create_object(impl->core_proxy,
+	proxy = sm_media_session_create_object(impl->session,
 						"client-endpoint",
 						PW_TYPE_INTERFACE_ClientEndpoint,
 						PW_VERSION_CLIENT_ENDPOINT_PROXY,
@@ -251,14 +253,14 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 	endpoint->info.version = PW_VERSION_ENDPOINT_INFO;
 	endpoint->info.name = (char*)pw_properties_get(endpoint->props, PW_KEY_ENDPOINT_NAME);
 	endpoint->info.media_class = (char*)pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS);
-	endpoint->info.session_id = impl->client_session_info.id;
+	endpoint->info.session_id = impl->session->info.id;
 	endpoint->info.direction = obj->direction;
 	endpoint->info.flags = 0;
 	endpoint->info.change_mask =
 		PW_ENDPOINT_CHANGE_MASK_STREAMS |
 		PW_ENDPOINT_CHANGE_MASK_SESSION |
 		PW_ENDPOINT_CHANGE_MASK_PROPS;
-	endpoint->info.n_streams = 1;
+	endpoint->info.n_streams = 0;
 	endpoint->info.props = &endpoint->props->dict;
 	spa_list_init(&endpoint->stream_list);
 
@@ -295,6 +297,7 @@ static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 			return -errno;
 
 		spa_list_append(&endpoint->stream_list, &s->link);
+		endpoint->info.n_streams++;
 
 		s->props = pw_properties_new(NULL, NULL);
 		if ((str = pw_properties_get(n->props, PW_KEY_MEDIA_CLASS)) != NULL)
@@ -372,7 +375,6 @@ close_exit:
 exit:
 	free(name_free);
 	return res;
-
 }
 
 static int setup_alsa_endpoint(struct alsa_object *obj)

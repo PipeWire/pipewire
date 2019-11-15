@@ -193,7 +193,7 @@ struct spa_pod_fd {
 struct spa_pod_prop {
 	uint32_t key;			/**< key of property, list of valid keys depends on the
 					  *  object type */
-	uint32_t context;		/**< context for property */
+	uint32_t flags;			/**< flags for property */
 	struct spa_pod value;
 	/* value follows */
 };

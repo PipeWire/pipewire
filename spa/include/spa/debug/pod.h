@@ -142,8 +142,8 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
 			ii = spa_debug_type_find(info, p->key);
 
-			spa_debug("%*s" "Prop: key %s (%d), context %d", indent+2, "",
-					ii ? ii->name : "unknown", p->key, p->context);
+			spa_debug("%*s" "Prop: key %s (%d), flags %08x", indent+2, "",
+					ii ? ii->name : "unknown", p->key, p->flags);
 
 			spa_debug_pod_value(indent + 4, ii ? ii->values : NULL,
 					p->value.type,

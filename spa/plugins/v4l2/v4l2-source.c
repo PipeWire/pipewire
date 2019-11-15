@@ -810,7 +810,7 @@ static int process_control(struct impl *this, struct spa_pod_sequence *control)
 				if ((control_id = prop_to_control_id(prop->key)) == 0)
 					continue;
 
-				port = GET_OUT_PORT(this, prop->context);
+				port = GET_OUT_PORT(this, 0);
 				set_control(this, port, control_id,
 						SPA_POD_VALUE(struct spa_pod_float, &prop->value));
 			}

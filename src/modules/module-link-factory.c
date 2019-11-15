@@ -260,27 +260,27 @@ static void *create_object(void *_data,
 
 error_properties:
 	res = -EINVAL;
-	pw_log_error("link-factory usage:" FACTORY_USAGE);
+	pw_log_error(NAME" usage:" FACTORY_USAGE);
 	pw_resource_error(resource, res, "no properties");
 	goto error_exit;
 error_output:
 	res = -EINVAL;
-	pw_log_error("link-factory unknown output node %u", output_node_id);
+	pw_log_error(NAME" unknown output node %u", output_node_id);
 	pw_resource_error(resource, res, "unknown output node %u", output_node_id);
 	goto error_exit;
 error_input:
 	res = -EINVAL;
-	pw_log_error("link-factory unknown input node %u", input_node_id);
+	pw_log_error(NAME" unknown input node %u", input_node_id);
 	pw_resource_error(resource, res, "unknown input node %u", input_node_id);
 	goto error_exit;
 error_output_port:
 	res = -EINVAL;
-	pw_log_error("link-factory unknown output port %u", output_port_id);
+	pw_log_error(NAME" unknown output port %u", output_port_id);
 	pw_resource_error(resource, res, "unknown output port %u", output_port_id);
 	goto error_exit;
 error_input_port:
 	res = -EINVAL;
-	pw_log_error("link-factory unknown input port %u", input_port_id);
+	pw_log_error(NAME" unknown input port %u", input_port_id);
 	pw_resource_error(resource, res, "unknown input port %u", input_port_id);
 	goto error_exit;
 error_create_link:

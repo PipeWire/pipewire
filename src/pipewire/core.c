@@ -204,7 +204,7 @@ static int core_hello(void *object, uint32_t version)
 static int core_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
-	pw_log_debug(NAME" %p: sync %d for resource %d", resource->core, seq, id);
+	pw_log_trace(NAME" %p: sync %d for resource %d", resource->core, seq, id);
 	pw_core_resource_done(resource, id, seq);
 	return 0;
 }

@@ -113,7 +113,7 @@ static void core_event_done(void *data, uint32_t id, int seq)
 	struct pw_remote *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_debug(NAME" %p: object %u done %d", this, id, seq);
+	pw_log_trace(NAME" %p: object %u done %d", this, id, seq);
 
 	proxy = pw_map_lookup(&this->objects, id);
 	if (proxy)

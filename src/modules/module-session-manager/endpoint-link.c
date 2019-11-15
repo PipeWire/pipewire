@@ -303,6 +303,8 @@ int endpoint_link_init(struct endpoint_link *this,
 	this->id = id;
 	this->props = properties;
 
+	pw_properties_setf(properties, PW_KEY_SESSION_ID, "%u", session_id);
+
 	properties = pw_properties_copy(properties);
 	if (!properties)
 		goto no_mem;
@@ -313,6 +315,8 @@ int endpoint_link_init(struct endpoint_link *this,
 			properties, endpoint_link_bind, this);
 	if (!this->global)
 		goto no_mem;
+
+	pw_properties_setf(this->props, PW_KEY_OBJECT_ID, "%u", this->global->id);
 
 	this->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
 	this->info.id = this->global->id;

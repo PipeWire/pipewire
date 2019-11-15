@@ -327,7 +327,7 @@ int endpoint_init(struct endpoint *this,
 	if (!this->global)
 		goto no_mem;
 
-	pw_properties_setf(this->props, PW_KEY_ENDPOINT_ID, "%u", this->global->id);
+	pw_properties_setf(this->props, PW_KEY_OBJECT_ID, "%u", this->global->id);
 
 	this->info.version = PW_VERSION_ENDPOINT_INFO;
 	this->info.id = this->global->id;

@@ -83,6 +83,10 @@ static int client_session_link_update(void *object,
 			PW_KEY_FACTORY_ID,
 			PW_KEY_CLIENT_ID,
 			PW_KEY_SESSION_ID,
+			PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT,
+			PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM,
+			PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT,
+			PW_KEY_ENDPOINT_LINK_INPUT_STREAM,
 			NULL
 		};
 
@@ -94,6 +98,8 @@ static int client_session_link_update(void *object,
 		if (!props)
 			goto no_mem;
 		pw_properties_update_keys(props, &session->props->dict, keys);
+		if (info && info->props)
+			pw_properties_update_keys(props, info->props, keys);
 
 		if (endpoint_link_init(link, link_id, session->info.id,
 					this, core, props) < 0)

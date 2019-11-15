@@ -116,7 +116,9 @@ struct sm_endpoint_stream {
 	struct sm_endpoint *endpoint;
 	struct spa_list link;		/**< link in endpoint stream_list */
 
-#define SM_STREAM_CHANGE_MASK_INFO	(1<<0)
+	struct spa_list link_list;	/**< list of links */
+
+#define SM_ENDPOINT_STREAM_CHANGE_MASK_INFO	(1<<0)
 	uint32_t mask;			/**< monitored info */
 	uint32_t avail;			/**< available info */
 	uint32_t changed;		/**< changed since last update */
@@ -126,8 +128,14 @@ struct sm_endpoint_stream {
 struct sm_endpoint_link {
 	struct sm_object obj;
 
-	struct spa_list link;
+	struct spa_list link;		/**< link in session link_list */
 
+	struct spa_list output_link;
+	struct sm_endpoint_stream *output;
+	struct spa_list input_link;
+	struct sm_endpoint_stream *input;
+
+#define SM_ENDPOINT_LINK_CHANGE_MASK_INFO	(1<<0)
 	uint32_t mask;			/**< monitored info */
 	uint32_t avail;			/**< available info */
 	uint32_t changed;		/**< changed since last update */

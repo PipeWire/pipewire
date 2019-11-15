@@ -467,12 +467,13 @@ registry_global(void *data,uint32_t id,
 
 		if (props) {
 			if ((str = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION)) != NULL)
-				port->direction = strcmp(str, "out") ?
+				port->direction = strcmp(str, "out") == 0 ?
 					PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
 			if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) != NULL)
 				port->node = find_object(impl, atoi(str));
 
-			pw_log_debug(NAME" %p: port %d parent node %s", impl, id, str);
+			pw_log_debug(NAME" %p: port %d parent node %s direction:%d", impl, id, str,
+					port->direction);
 			if (port->node) {
 				spa_list_append(&port->node->port_list, &port->link);
 				port->node->changed |= SM_NODE_CHANGE_MASK_PORTS;

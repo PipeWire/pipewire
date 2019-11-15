@@ -43,6 +43,7 @@
 #include "media-session.h"
 
 #define NAME "policy-ep"
+#define SESSION_KEY	"policy-endpoint"
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
@@ -108,7 +109,7 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 	struct endpoint *ep;
 	uint32_t client_id = SPA_ID_INVALID;
 
-	if (sm_object_get_data(object, "policy-endpoint") != NULL)
+	if (sm_object_get_data(object, SESSION_KEY) != NULL)
 		return 0;
 
 	if (object->props) {
@@ -123,7 +124,7 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 	if (media_class == NULL)
 		return 0;
 
-	ep = sm_object_add_data(object, "policy-endpoint", sizeof(struct endpoint));
+	ep = sm_object_add_data(object, SESSION_KEY, sizeof(struct endpoint));
 	ep->obj = (struct sm_endpoint*)object;
 	ep->id = object->id;
 	ep->impl = impl;
@@ -183,27 +184,22 @@ handle_stream(struct impl *impl, struct sm_object *object)
 	struct stream *s;
 	struct endpoint *ep;
 
-	if (sm_object_get_data(object, "policy-endpoint") != NULL)
+	if (sm_object_get_data(object, SESSION_KEY) != NULL)
 		return 0;
 
 	if (stream->endpoint == NULL)
 		return 0;
 
-	ep = sm_object_get_data(&stream->endpoint->obj, "policy-endpoint");
+	ep = sm_object_get_data(&stream->endpoint->obj, SESSION_KEY);
 	if (ep == NULL)
 		return 0;
 
-	s = sm_object_add_data(object, "policy-endpoint", sizeof(struct stream));
+	s = sm_object_add_data(object, SESSION_KEY, sizeof(struct stream));
 	s->obj = (struct sm_endpoint_stream*)object;
 	s->id = object->id;
 	s->impl = impl;
 	s->endpoint = ep;
 
-	if (s->endpoint->type == ENDPOINT_TYPE_DEVICE) {
-		pw_endpoint_stream_proxy_enum_params((struct pw_endpoint_stream_proxy*)stream->obj.proxy,
-				0, SPA_PARAM_EnumFormat,
-				0, -1, NULL);
-	}
 	return 0;
 }
 
@@ -211,8 +207,6 @@ static void session_update(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	int res;
-
-	pw_log_debug(NAME " %p: update global '%d'", impl, object->id);
 
 	switch (object->type) {
 	case PW_TYPE_INTERFACE_Endpoint:
@@ -243,8 +237,10 @@ static void session_remove(void *data, struct sm_object *object)
 	case PW_TYPE_INTERFACE_Endpoint:
 	{
 		struct endpoint *ep;
-		if ((ep = sm_object_get_data(object, "policy-endpoint")) != NULL)
+		if ((ep = sm_object_get_data(object, SESSION_KEY)) != NULL) {
 			spa_list_remove(&ep->link);
+			free(ep->media);
+		}
 		break;
 	}
 	default:
@@ -323,24 +319,18 @@ static int link_endpoints(struct endpoint *endpoint, enum pw_direction direction
 
 	pw_log_debug(NAME " %p: link endpoints %d %d %d", impl, max, endpoint->id, peer->id);
 
+	if (endpoint->direction == PW_DIRECTION_INPUT) {
+		struct endpoint *t = endpoint;
+		endpoint = peer;
+		peer = t;
+	}
 	props = pw_properties_new(NULL, NULL);
-	if (endpoint->direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->id);
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->id);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-		pw_log_debug(NAME " %p: endpoint %d -> endpoint %d", impl,
-				endpoint->id, peer->id);
-
-	}
-	else {
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", peer->id);
-		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->id);
-		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-		pw_log_debug(NAME " %p: endpoint %d -> endpoint %d", impl,
-				peer->id, endpoint->id);
-	}
+	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%d", endpoint->id);
+	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d", -1);
+	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d", peer->id);
+	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d", -1);
+	pw_log_debug(NAME " %p: endpoint %d -> endpoint %d", impl,
+			endpoint->id, peer->id);
 
 	pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)endpoint->obj->obj.proxy,
                                          &props->dict);
@@ -487,7 +477,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 
 		if ((obj = sm_media_session_find_object(impl->session, find.path_id)) != NULL) {
 			if (obj->type == PW_TYPE_INTERFACE_Endpoint) {
-				peer = sm_object_get_data(obj, "policy-endpoint");
+				peer = sm_object_get_data(obj, SESSION_KEY);
 				goto do_link;
 			}
 		}

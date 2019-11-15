@@ -42,6 +42,7 @@
 #include "media-session.h"
 
 #define NAME "stream-monitor"
+#define SESSION_KEY	"stream-monitor"
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
@@ -120,7 +121,13 @@ static int client_endpoint_set_session_id(void *object, uint32_t id)
 static int client_endpoint_set_param(void *object,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct client_endpoint *endpoint = object;
+	struct impl *impl = endpoint->impl;
+	struct node *node = endpoint->node;
+
+	pw_log_debug(NAME " %p: node %d set param %d", impl, node->obj->obj.id, id);
+	return pw_node_proxy_set_param((struct pw_node_proxy*)node->obj->obj.proxy,
+			id, flags, param);
 }
 
 
@@ -134,8 +141,6 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 {
 	struct client_endpoint *endpoint = object;
 	struct impl *impl = endpoint->impl;
-	const char *str;
-	struct sm_object *obj;
 	struct node *node = endpoint->node;
 	struct pw_properties *p;
 	int res;
@@ -152,22 +157,9 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
 		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->node->id);
 		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_PORT, "-1");
-		str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_NODE);
 	} else {
 		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->node->id);
 		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");
-		str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_NODE);
-	}
-	if (str == NULL) {
-		pw_log_warn(NAME" %p: no target endpoint given", impl);
-		res = -EINVAL;
-		goto exit;
-	}
-	obj = sm_media_session_find_object(impl->session, atoi(str));
-	if (obj == NULL || obj->type != PW_TYPE_INTERFACE_Endpoint) {
-		pw_log_warn(NAME" %p: could not find object %s (%p)", impl, str, obj);
-		res = -EINVAL;
-		goto exit;
 	}
 
 	if (!endpoint->stream.active) {
@@ -192,12 +184,29 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj->obj.proxy,
 				SPA_PARAM_PortConfig, 0, param);
 
-		endpoint->pending_config = pw_proxy_sync(node->obj->obj.proxy, 0);
-
 		endpoint->stream.active = true;
 	}
 
-	pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)obj->proxy, &p->dict);
+	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
+		const char *str;
+		struct sm_object *obj;
+
+		str = spa_dict_lookup(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
+		if (str == NULL) {
+			pw_log_warn(NAME" %p: no target endpoint given", impl);
+			res = -EINVAL;
+			goto exit;
+		}
+		obj = sm_media_session_find_object(impl->session, atoi(str));
+		if (obj == NULL || obj->type != PW_TYPE_INTERFACE_Endpoint) {
+			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
+			res = -EINVAL;
+			goto exit;
+		}
+		pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)obj->proxy, &p->dict);
+	} else {
+		sm_media_session_create_links(impl->session, &p->dict);
+	}
 
 	res = 0;
 
@@ -277,14 +286,14 @@ static struct client_endpoint *make_endpoint(struct node *node)
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(s->props, PW_KEY_MEDIA_CLASS, str);
 	if (node->direction == PW_DIRECTION_OUTPUT)
-		pw_properties_set(s->props, PW_KEY_STREAM_NAME, "Playback");
+		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
 	else
-		pw_properties_set(s->props, PW_KEY_STREAM_NAME, "Capture");
+		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
 
 	s->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
 	s->info.id = 0;
 	s->info.endpoint_id = endpoint->info.id;
-	s->info.name = (char*)pw_properties_get(s->props, PW_KEY_STREAM_NAME);
+	s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
 	s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 	s->info.props = &s->props->dict;
 
@@ -349,46 +358,6 @@ static const struct pw_node_proxy_events node_events = {
 	.param = node_event_param,
 };
 
-static void node_proxy_destroy(void *data)
-{
-	struct node *n = data;
-	struct impl *impl = n->impl;
-
-	pw_log_debug(NAME " %p: proxy destroy node %d", impl, n->id);
-
-	if (n->endpoint)
-		destroy_endpoint(n->endpoint);
-	free(n->media);
-}
-
-static void node_proxy_done(void *data, int seq)
-{
-	struct node *n = data;
-	struct impl *impl = n->impl;
-	struct client_endpoint *endpoint = n->endpoint;
-
-	if (endpoint == NULL)
-		return;
-	if (endpoint->pending_config != 0) {
-		pw_log_debug(NAME" %p: config complete", impl);
-		endpoint->pending_config = 0;
-	}
-}
-
-static void node_proxy_error(void *data, int seq, int res, const char *message)
-{
-	struct node *n = data;
-	struct impl *impl = n->impl;
-	pw_log_error(NAME " %p: proxy seq:%d got error %d: %s", impl, seq, res, message);
-}
-
-static const struct pw_proxy_events node_proxy_events = {
-	PW_VERSION_PROXY_EVENTS,
-	.destroy = node_proxy_destroy,
-	.done = node_proxy_done,
-	.error = node_proxy_error,
-};
-
 static int
 handle_node(struct impl *impl, struct sm_object *obj)
 {
@@ -396,7 +365,7 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	enum pw_direction direction;
 	struct node *node;
 
-	if (sm_object_get_data(obj, "stream-monitor") != NULL)
+	if (sm_object_get_data(obj, SESSION_KEY) != NULL)
 		return 0;
 
 	media_class = obj->props ? pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS) : NULL;
@@ -422,7 +391,7 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	else
 		return 0;
 
-	node = sm_object_add_data(obj, "stream-monitor", sizeof(struct node));
+	node = sm_object_add_data(obj, SESSION_KEY, sizeof(struct node));
 	node->obj = (struct sm_node*)obj;
 	node->impl = impl;
 	node->id = obj->id;
@@ -430,7 +399,6 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	node->media = strdup(media_class);
 	pw_log_debug(NAME "%p: node %d is stream %s", impl, node->id, node->media);
 
-	pw_proxy_add_listener(obj->proxy, &node->proxy_listener, &node_proxy_events, node);
 	pw_proxy_add_object_listener(obj->proxy, &node->listener, &node_events, node);
 
 	pw_node_proxy_enum_params((struct pw_node_proxy*)obj->proxy,
@@ -439,72 +407,10 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	return 1;
 }
 
-#if 0
-static void stream_set_volume(struct impl *impl, struct node *node, float volume, bool mute)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	pw_log_debug(NAME " %p: node %d set volume:%f mute:%d", impl, node->obj.id, volume, mute);
-
-	pw_node_proxy_set_param((struct pw_node_proxy*)node->obj.proxy,
-			SPA_PARAM_Props, 0,
-			spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-				SPA_PROP_volume,	SPA_POD_Float(volume),
-				SPA_PROP_mute,		SPA_POD_Bool(mute)));
-}
-
-static void rescan_session(struct impl *impl, struct session *sess)
-{
-	struct node *node = sess->node;
-	struct spa_audio_info_raw info = { 0, };
-	uint8_t buf[1024];
-	struct spa_pod_builder b = { 0, };
-	struct spa_pod *param;
-
-	if (!sess->starting)
-		return;
-
-	if (node->info->props == NULL) {
-		pw_log_debug(NAME " %p: node %p has no properties", impl, node);
-		return;
-	}
-
-	if (node->media_type != SPA_MEDIA_TYPE_audio ||
-	    node->media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-		pw_log_debug(NAME " %p: node %p has no media type", impl, node);
-		return;
-	}
-
-	info = node->format;
-	info.rate = DEFAULT_SAMPLERATE;
-
-	pw_log_debug(NAME" %p: setting profile for session %d %d", impl, sess->id, sess->direction);
-
-	spa_pod_builder_init(&b, buf, sizeof(buf));
-	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
-	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(pw_direction_reverse(sess->direction)),
-		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-		SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_Bool(true),
-		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
-
-	pw_node_proxy_set_param((struct pw_node_proxy*)sess->node->obj.proxy,
-			SPA_PARAM_PortConfig, 0, param);
-	schedule_rescan(impl);
-
-	sess->starting = false;
-}
-#endif
-
 static void session_update(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	int res;
-
-	pw_log_debug(NAME " %p: update object '%d' %d", impl, object->id, object->type);
 
 	switch (object->type) {
 	case PW_TYPE_INTERFACE_Node:
@@ -523,6 +429,20 @@ static void session_update(void *data, struct sm_object *object)
 
 static void session_remove(void *data, struct sm_object *object)
 {
+	switch (object->type) {
+	case PW_TYPE_INTERFACE_Node:
+	{
+		struct node *node;
+		if ((node = sm_object_get_data(object, SESSION_KEY)) != NULL) {
+			if (node->endpoint)
+				destroy_endpoint(node->endpoint);
+			free(node->media);
+		}
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 static const struct sm_media_session_events session_events = {

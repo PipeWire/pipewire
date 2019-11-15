@@ -39,9 +39,14 @@ extern "C" {
 #define PW_KEY_ENDPOINT_AUTOCONNECT	"endpoint.autoconnect"	/**< try to automatically connect this
 								  *  endpoint. */
 
-#define PW_KEY_STREAM_ID		"stream.id"		/**< id of a stream */
-#define PW_KEY_STREAM_NAME		"stream.name"		/**< unique name of a stream */
-#define PW_KEY_STREAM_DESCRIPTION	"stream.description"	/**< description of a stream */
+#define PW_KEY_ENDPOINT_STREAM_ID		"endpoint-stream.id"		/**< id of a stream */
+#define PW_KEY_ENDPOINT_STREAM_NAME		"endpoint-stream.name"		/**< unique name of a stream */
+#define PW_KEY_ENDPOINT_STREAM_DESCRIPTION	"endpoint-stream.description"	/**< description of a stream */
+
+#define PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT	"endpoint-link.output.endpoint"	/**< output endpoint of link */
+#define PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM	"endpoint-link.output.stream"	/**< output stream of link */
+#define PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT	"endpoint-link.input.endpoint"	/**< input endpoint of link */
+#define PW_KEY_ENDPOINT_LINK_INPUT_STREAM	"endpoint-link.inut.stream"	/**< input stream of link */
 
 #ifdef __cplusplus
 }

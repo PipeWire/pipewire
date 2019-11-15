@@ -113,18 +113,9 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	char buf[1024];
 	struct spa_pod_builder b = { 0, };
 	struct spa_pod *param;
+	int res;
 
 	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
-
-	p = pw_properties_new_dict(props);
-
-	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->obj->info->id);
-		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_PORT, "-1");
-	} else {
-		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->obj->info->id);
-		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");
-	}
 
 	if (!endpoint->active) {
 		endpoint->format.info.raw.rate = 48000;
@@ -147,15 +138,43 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 		endpoint->active = true;
 	}
 
-	sm_media_session_create_object(impl->session,
-                                          "link-factory",
-                                          PW_TYPE_INTERFACE_Link,
-                                          PW_VERSION_LINK_PROXY,
-                                          &p->dict, 0);
+	p = pw_properties_new_dict(props);
+	if (p == NULL)
+		return -errno;
 
+	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
+		const char *str;
+		struct sm_object *obj;
+
+		str = spa_dict_lookup(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
+		if (str == NULL) {
+			pw_log_warn(NAME" %p: no target endpoint given", impl);
+			res = -EINVAL;
+			goto exit;
+		}
+		obj = sm_media_session_find_object(impl->session, atoi(str));
+		if (obj == NULL || obj->type != PW_TYPE_INTERFACE_Endpoint) {
+			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
+			res = -EINVAL;
+			goto exit;
+		}
+
+		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->obj->info->id);
+		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_PORT, "-1");
+
+		pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)obj->proxy, &p->dict);
+	} else {
+		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->obj->info->id);
+		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");
+
+		sm_media_session_create_links(impl->session, &p->dict);
+	}
+
+	res = 0;
+exit:
 	pw_properties_free(p);
 
-	return 0;
+	return res;
 }
 
 static const struct pw_client_endpoint_proxy_events client_endpoint_events = {
@@ -305,14 +324,14 @@ static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 		if ((str = pw_properties_get(n->props, PW_KEY_PRIORITY_SESSION)) != NULL)
 			pw_properties_set(s->props, PW_KEY_PRIORITY_SESSION, str);
 		if (n->direction == PW_DIRECTION_OUTPUT)
-			pw_properties_set(s->props, PW_KEY_STREAM_NAME, "Playback");
+			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
 		else
-			pw_properties_set(s->props, PW_KEY_STREAM_NAME, "Capture");
+			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
 
 		s->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
 		s->info.id = n->id;
 		s->info.endpoint_id = endpoint->info.id;
-		s->info.name = (char*)pw_properties_get(s->props, PW_KEY_STREAM_NAME);
+		s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
 		s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 		s->info.props = &s->props->dict;
 

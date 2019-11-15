@@ -605,6 +605,88 @@ struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 			factory_name, type, version, props, user_data_size);
 }
 
+int sm_media_session_create_links(struct sm_media_session *sess,
+		const struct spa_dict *dict)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct sm_object *obj;
+	struct sm_node *outnode, *innode;
+	struct sm_port *outport, *inport;
+	struct pw_properties *props;
+	const char *str;
+	int res;
+
+	sm_media_session_roundtrip(sess);
+
+	/* find output node */
+	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_OUTPUT_NODE)) == NULL) {
+		res = -EINVAL;
+		pw_log_error(NAME" %p: no output node given", impl);
+		goto exit;
+	}
+	if ((obj = find_object(impl, atoi(str))) == NULL ||
+	    obj->type != PW_TYPE_INTERFACE_Node) {
+		res = -EINVAL;
+		pw_log_error(NAME" %p: can find output node %s", impl, str);
+		goto exit;
+	}
+	outnode = (struct sm_node*)obj;
+
+	/* find input node */
+	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_INPUT_NODE)) == NULL) {
+		res = -EINVAL;
+		pw_log_error(NAME" %p: no input node given", impl);
+		goto exit;
+	}
+	if ((obj = find_object(impl, atoi(str))) == NULL ||
+	    obj->type != PW_TYPE_INTERFACE_Node) {
+		res = -EINVAL;
+		pw_log_error(NAME" %p: can find input node %s", impl, str);
+		goto exit;
+	}
+	innode = (struct sm_node*)obj;
+
+	pw_log_debug(NAME" %p: linking %d -> %d", impl, outnode->obj.id, innode->obj.id);
+
+	props = pw_properties_new(NULL, NULL);
+	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", outnode->obj.id);
+	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", innode->obj.id);
+
+	for (outport = spa_list_first(&outnode->port_list, struct sm_port, link),
+	    inport = spa_list_first(&innode->port_list, struct sm_port, link);
+	    !spa_list_is_end(outport, &outnode->port_list, link) &&
+	    !spa_list_is_end(inport, &innode->port_list, link);) {
+
+		pw_log_debug(NAME" %p: port %d:%d -> %d:%d", impl,
+				outport->direction, outport->obj.id,
+				inport->direction, inport->obj.id);
+
+		if (outport->direction == PW_DIRECTION_OUTPUT &&
+		    inport->direction == PW_DIRECTION_INPUT) {
+
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", outport->obj.id);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", inport->obj.id);
+
+			sm_media_session_create_object(sess, "link-factory",
+	                                          PW_TYPE_INTERFACE_Link,
+	                                          PW_VERSION_LINK_PROXY,
+	                                          &props->dict, 0);
+
+			outport = spa_list_next(outport, link);
+			inport = spa_list_next(inport, link);
+		} else {
+			if (outport->direction != PW_DIRECTION_OUTPUT)
+				outport = spa_list_next(outport, link);
+			if (inport->direction != PW_DIRECTION_INPUT)
+				inport = spa_list_next(inport, link);
+		}
+	}
+	pw_properties_free(props);
+
+	res = 0;
+exit:
+	return res;
+}
 
 /**
  * Session implementation

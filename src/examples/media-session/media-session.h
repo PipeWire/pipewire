@@ -168,6 +168,9 @@ struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 		const char *factory_name, uint32_t type, uint32_t version,
 		const struct spa_dict *props, size_t user_data_size);
 
+int sm_media_session_create_links(struct sm_media_session *sess,
+		const struct spa_dict *dict);
+
 #ifdef __cplusplus
 }
 #endif

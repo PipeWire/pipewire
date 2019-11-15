@@ -456,7 +456,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		return -EINVAL;
 	}
 
-	str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
+	str = spa_dict_lookup(props, PW_KEY_ENDPOINT_TARGET);
 	if (str != NULL)
 		find.path_id = atoi(str);
 	else

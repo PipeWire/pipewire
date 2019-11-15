@@ -38,6 +38,7 @@ extern "C" {
 								  *  Ex. "sound-card-speakers-usb" */
 #define PW_KEY_ENDPOINT_AUTOCONNECT	"endpoint.autoconnect"	/**< try to automatically connect this
 								  *  endpoint. */
+#define PW_KEY_ENDPOINT_TARGET		"endpoint.target"	/**< the suggested target to connect to */
 
 #define PW_KEY_ENDPOINT_STREAM_ID		"endpoint-stream.id"		/**< id of a stream */
 #define PW_KEY_ENDPOINT_STREAM_NAME		"endpoint-stream.name"		/**< unique name of a stream */

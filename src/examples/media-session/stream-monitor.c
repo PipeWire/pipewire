@@ -150,18 +150,6 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	if (props == NULL)
 		return -EINVAL;
 
-	p = pw_properties_new(NULL, NULL);
-	if (p == NULL)
-		return -errno;
-
-	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
-		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->node->id);
-		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_PORT, "-1");
-	} else {
-		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->node->id);
-		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");
-	}
-
 	if (!endpoint->stream.active) {
 		char buf[1024];
 		struct spa_pod_builder b = { 0, };
@@ -175,7 +163,7 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(endpoint->info.direction),
 			SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
+			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(false),
 			SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -187,9 +175,16 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 		endpoint->stream.active = true;
 	}
 
+	p = pw_properties_new_dict(props);
+	if (p == NULL)
+		return -errno;
+
 	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
 		const char *str;
 		struct sm_object *obj;
+
+		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->node->id);
+		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_PORT, "-1");
 
 		str = spa_dict_lookup(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
 		if (str == NULL) {
@@ -205,6 +200,9 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 		}
 		pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)obj->proxy, &p->dict);
 	} else {
+		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->node->id);
+		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");
+
 		sm_media_session_create_links(impl->session, &p->dict);
 	}
 
@@ -246,6 +244,8 @@ static struct client_endpoint *make_endpoint(struct node *node)
 			pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
 		if ((str = spa_dict_lookup(dict, PW_KEY_NODE_AUTOCONNECT)) != NULL)
 			pw_properties_set(props, PW_KEY_ENDPOINT_AUTOCONNECT, str);
+		if ((str = spa_dict_lookup(dict, PW_KEY_NODE_TARGET)) != NULL)
+			pw_properties_set(props, PW_KEY_ENDPOINT_TARGET, str);
 	}
 
 	proxy = sm_media_session_create_object(impl->session,

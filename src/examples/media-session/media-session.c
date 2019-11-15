@@ -551,7 +551,7 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 	pw_log_debug(NAME" %p: roundtrip %d", impl, seq);
 
 	pw_loop_enter(loop->loop);
-	while (impl->last_seq != seq) {
+	while (impl->last_seq <= seq) {
 		if ((res = pw_loop_iterate(loop->loop, -1)) < 0) {
 			pw_log_warn(NAME" %p: iterate error %d (%s)",
 				loop, res, spa_strerror(res));

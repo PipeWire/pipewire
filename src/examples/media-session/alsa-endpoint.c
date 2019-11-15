@@ -121,6 +121,9 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 
 	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
 
+	if (props == NULL)
+		return -EINVAL;
+
 	if (!endpoint->active) {
 		endpoint->format.info.raw.rate = 48000;
 
@@ -287,6 +290,8 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 	endpoint->info.props = &endpoint->props->dict;
 	spa_list_init(&endpoint->stream_list);
 
+	pw_log_debug(NAME" %p: new endpoint %p for alsa node %p", impl, endpoint, obj);
+
 	pw_client_endpoint_proxy_add_listener(endpoint->client_endpoint,
 			&endpoint->client_endpoint_listener,
 			&client_endpoint_events,
@@ -319,9 +324,6 @@ static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 		if (s == NULL)
 			return -errno;
 
-		spa_list_append(&endpoint->stream_list, &s->link);
-		endpoint->info.n_streams++;
-
 		s->props = pw_properties_new(NULL, NULL);
 		if ((str = pw_properties_get(n->props, PW_KEY_MEDIA_CLASS)) != NULL)
 			pw_properties_set(s->props, PW_KEY_MEDIA_CLASS, str);
@@ -333,18 +335,22 @@ static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
 
 		s->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
-		s->info.id = n->id;
+		s->info.id = endpoint->info.n_streams;
 		s->info.endpoint_id = endpoint->info.id;
 		s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
 		s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 		s->info.props = &s->props->dict;
 
-		pw_log_debug("stream %d", n->id);
+		pw_log_debug("stream %d", s->info.id);
 		pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
 				n->id,
 				PW_CLIENT_ENDPOINT_STREAM_UPDATE_INFO,
 				0, NULL,
 				&s->info);
+
+		spa_list_append(&endpoint->stream_list, &s->link);
+		endpoint->info.n_streams++;
+
 	}
 	return 0;
 }

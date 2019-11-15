@@ -166,8 +166,9 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 		else
 			continue;
 
-		if (f == NULL)
+		if (f == NULL || ((f->mask & (PA_SUBSCRIPTION_MASK_SOURCE | PA_SUBSCRIPTION_MASK_SINK)) == 0))
 			continue;
+
 		return f;
 	}
 	return NULL;

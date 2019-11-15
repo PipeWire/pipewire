@@ -84,7 +84,8 @@ struct impl {
 	struct pw_client_session_proxy *client_session;
 	struct spa_hook client_session_listener;
 
-	int seq;
+	int rescan_seq;
+	int last_seq;
 };
 
 static void add_object(struct impl *impl, struct sm_object *obj)
@@ -533,8 +534,37 @@ int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	if (impl->core_proxy)
-		impl->seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->seq);
-	return impl->seq;
+		impl->rescan_seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->last_seq);
+	return impl->rescan_seq;
+}
+
+int sm_media_session_roundtrip(struct sm_media_session *sess)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct pw_main_loop *loop = sess->loop;
+	int seq, res;
+
+	if (impl->core_proxy == NULL)
+		return -EIO;
+
+	seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->last_seq);
+	pw_log_debug(NAME" %p: roundtrip %d", impl, seq);
+
+	pw_loop_enter(loop->loop);
+	while (impl->last_seq != seq) {
+		if ((res = pw_loop_iterate(loop->loop, -1)) < 0) {
+			pw_log_warn(NAME" %p: iterate error %d (%s)",
+				loop, res, spa_strerror(res));
+			break;
+		}
+	}
+        pw_loop_leave(loop->loop);
+	if (res >= 0)
+		res = seq;
+
+	pw_log_debug(NAME" %p: roundtrip done %d", impl, res);
+
+	return res;
 }
 
 static void
@@ -650,9 +680,11 @@ static int start_policy(struct impl *impl)
 static void core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME" %p: sync %u %d/%d", impl, id, seq, impl->seq);
-	if (impl->seq == seq)
+	impl->last_seq = seq;
+	if (impl->rescan_seq == seq) {
+		pw_log_trace(NAME" %p: rescan %u %d", impl, id, seq);
 		sm_media_session_emit_rescan(impl, seq);
+	}
 }
 
 static const struct pw_core_proxy_events core_events = {

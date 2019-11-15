@@ -154,6 +154,8 @@ struct sm_media_session {
 int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook *listener,
 		const struct sm_media_session_events *events, void *data);
 
+int sm_media_session_roundtrip(struct sm_media_session *sess);
+
 struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, uint32_t id);
 
 int sm_media_session_schedule_rescan(struct sm_media_session *sess);

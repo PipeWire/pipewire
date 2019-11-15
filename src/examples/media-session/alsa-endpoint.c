@@ -95,7 +95,11 @@ static int client_endpoint_set_session_id(void *object, uint32_t id)
 static int client_endpoint_set_param(void *object,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct endpoint *endpoint = object;
+	struct impl *impl = endpoint->obj->monitor->impl;
+	pw_log_debug(NAME " %p: endpoint %p set param %d", impl, endpoint, id);
+	return pw_node_proxy_set_param((struct pw_node_proxy*)endpoint->obj->proxy,
+				id, flags, param);
 }
 
 

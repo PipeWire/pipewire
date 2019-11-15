@@ -150,21 +150,19 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 	struct global *g, *f;
 
 	spa_list_for_each(g, &c->globals, link) {
-		uint32_t src_endpoint_id, dst_endpoint_id;
-
-		if (g->type != PW_TYPE_INTERFACE_Link)
+		if (g->type != PW_TYPE_INTERFACE_EndpointLink)
 			continue;
 
-		src_endpoint_id = g->link_info.src->stream_info.endpoint_id;
-		dst_endpoint_id = g->link_info.dst->stream_info.endpoint_id;
+		pw_log_debug("context %p: %p %d %d:%d %d:%d", c, g, idx,
+				g->link_info.output->id, g->link_info.output->endpoint_info.node_id,
+				g->link_info.input->id, g->link_info.input->endpoint_info.node_id);
 
-		pw_log_debug("context %p: %p %d %d %d", c, g, idx,
-				src_endpoint_id, dst_endpoint_id);
-
-		if (src_endpoint_id == idx)
-			f = pa_context_find_global(c, dst_endpoint_id);
-		else if (dst_endpoint_id == idx)
-			f = pa_context_find_global(c, src_endpoint_id);
+		if (g->link_info.input->id == idx ||
+		    g->link_info.input->endpoint_info.node_id == idx)
+			f = g->link_info.output;
+		else if (g->link_info.output->id == idx ||
+		    g->link_info.output->endpoint_info.node_id == idx)
+			f = g->link_info.input;
 		else
 			continue;
 
@@ -581,9 +579,8 @@ static const struct pw_proxy_events proxy_events = {
 static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
-	struct global *f;
-        const void *events = NULL;
-        pw_destroy_t destroy;
+	const void *events = NULL;
+	pw_destroy_t destroy;
 	uint32_t client_version;
 
 	switch (g->type) {
@@ -645,6 +642,8 @@ static int set_mask(pa_context *c, struct global *g)
 			g->endpoint_info.client_id = atoi(str);
 		if ((str = pw_properties_get(g->props, PW_KEY_DEVICE_ID)) != NULL)
 			g->endpoint_info.device_id = atoi(str);
+		if ((str = pw_properties_get(g->props, PW_KEY_NODE_ID)) != NULL)
+			g->endpoint_info.node_id = atoi(str);
 
 		events = &endpoint_events;
                 client_version = PW_VERSION_ENDPOINT_PROXY;
@@ -661,7 +660,6 @@ static int set_mask(pa_context *c, struct global *g)
 			pw_log_warn("endpoint stream %d without "PW_KEY_ENDPOINT_ID, g->id);
 			return 0;
 		}
-
 		/* streams get transformed into profiles on the device */
 		pw_log_debug("found endpoint stream %d", g->id);
 		break;
@@ -685,28 +683,22 @@ static int set_mask(pa_context *c, struct global *g)
 		break;
 
 	case PW_TYPE_INTERFACE_EndpointLink:
-                if ((str = pw_properties_get(g->props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT)) == NULL)
 			return 0;
-		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
-                if ((str = pw_properties_get(g->props, PW_KEY_LINK_INPUT_PORT)) == NULL)
+		g->link_info.output = pa_context_find_global(c, pw_properties_parse_int(str));
+		if ((str = pw_properties_get(g->props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT)) == NULL)
 			return 0;
-		g->link_info.dst = pa_context_find_global(c, pw_properties_parse_int(str));
+		g->link_info.input = pa_context_find_global(c, pw_properties_parse_int(str));
 
-		if (g->link_info.src == NULL || g->link_info.dst == NULL)
+		if (g->link_info.output == NULL || g->link_info.input == NULL)
 			return 0;
 
-		pw_log_debug("link %d:%d->%d:%d",
-				g->link_info.src->stream_info.endpoint_id,
-				g->link_info.src->id,
-				g->link_info.dst->stream_info.endpoint_id,
-				g->link_info.dst->id);
+		pw_log_debug("link %d->%d", g->link_info.output->id, g->link_info.input->id);
 
-		if ((f = pa_context_find_global(c, g->link_info.src->stream_info.endpoint_id)) != NULL &&
-		    !f->init)
-			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
-		if ((f = pa_context_find_global(c, g->link_info.dst->stream_info.endpoint_id)) != NULL &&
-		    !f->init)
-			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
+		if (!g->link_info.output->init)
+			emit_event(c, g->link_info.output, PA_SUBSCRIPTION_EVENT_CHANGE);
+		if (!g->link_info.input->init)
+			emit_event(c, g->link_info.input, PA_SUBSCRIPTION_EVENT_CHANGE);
 
 		break;
 
@@ -739,12 +731,11 @@ static inline void insert_global(pa_context *c, struct global *global)
 	struct global *g, *t;
 
 	spa_list_for_each_safe(g, t, &c->globals, link) {
-		if (g->priority_session < global->priority_session) {
-			g = spa_list_prev(g, link);
+		if (g->priority_session <= global->priority_session) {
 			break;
 		}
 	}
-	spa_list_prepend(&g->link, &global->link);
+	spa_list_append(&g->link, &global->link);
 }
 
 static void registry_event_global(void *data, uint32_t id,

@@ -1797,7 +1797,7 @@ static void source_output_callback(struct source_output_data *d)
 	if (name == NULL && info->props) {
 		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
 		    (name = spa_dict_lookup(info->props, PW_KEY_APP_NAME)) == NULL &&
-		    (name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) == NULL)
+		    (name = spa_dict_lookup(info->props, PW_KEY_ENDPOINT_NAME)) == NULL)
 			name = NULL;
 	}
 	if (name == NULL)

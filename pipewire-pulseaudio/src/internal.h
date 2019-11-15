@@ -245,10 +245,10 @@ struct global {
         struct spa_hook object_listener;
 
 	union {
-		/* for links */
+		/* for links, globals are endpoints */
 		struct {
-			struct global *src;
-			struct global *dst;
+			struct global *output;
+			struct global *input;
 		} link_info;
 		struct {
 			uint32_t endpoint_id;
@@ -262,6 +262,7 @@ struct global {
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 			uint32_t device_id;
+			uint32_t node_id;
 		} endpoint_info;
 		/* for devices */
 		struct {

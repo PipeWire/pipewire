@@ -507,7 +507,7 @@ static int client_endpoint_demarshal_set_param(void *object,
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&id),
+			SPA_POD_Id(&id),
 			SPA_POD_Int(&flags),
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
@@ -527,7 +527,7 @@ static int client_endpoint_demarshal_stream_set_param(void *object,
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&stream_id),
-			SPA_POD_Int(&id),
+			SPA_POD_Id(&id),
 			SPA_POD_Int(&flags),
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
@@ -706,7 +706,7 @@ static int client_session_marshal_set_param (void *object,
 		PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
-				SPA_POD_Int(id),
+				SPA_POD_Id(id),
 				SPA_POD_Int(flags),
 				SPA_POD_Pod(param));
 
@@ -852,7 +852,7 @@ static int client_session_demarshal_set_param(void *object,
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&id),
+			SPA_POD_Id(&id),
 			SPA_POD_Int(&flags),
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
@@ -872,7 +872,7 @@ static int client_session_demarshal_link_set_param(void *object,
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&link_id),
-			SPA_POD_Int(&id),
+			SPA_POD_Id(&id),
 			SPA_POD_Int(&flags),
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
@@ -953,7 +953,7 @@ static int client_session_demarshal_link_update(void *object,
 	spa_pod_parser_init(&prs[0], msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs[0], &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs[0],
-	    		SPA_POD_Int(&link_id),
+			SPA_POD_Int(&link_id),
 			SPA_POD_Int(&change_mask),
 			SPA_POD_Int(&n_params), NULL) < 0)
 		return -EINVAL;

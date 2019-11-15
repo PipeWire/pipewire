@@ -34,6 +34,7 @@ extern "C" {
 
 #define PW_KEY_ENDPOINT_ID		"endpoint.id"		/**< id of an endpoint */
 #define PW_KEY_ENDPOINT_NAME		"endpoint.name"		/**< the name of an endpoint */
+#define PW_KEY_ENDPOINT_CLIENT_ID	"endpoint.client.id"	/**< client of the endpoint */
 #define PW_KEY_ENDPOINT_ICON_NAME	"endpoint.icon-name"	/**< an XDG icon name for the device.
 								  *  Ex. "sound-card-speakers-usb" */
 #define PW_KEY_ENDPOINT_AUTOCONNECT	"endpoint.autoconnect"	/**< try to automatically connect this

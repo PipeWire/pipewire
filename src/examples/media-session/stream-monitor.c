@@ -244,6 +244,8 @@ static struct client_endpoint *make_endpoint(struct node *node)
 			pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
 		if ((str = spa_dict_lookup(dict, PW_KEY_OBJECT_ID)) != NULL)
 			pw_properties_set(props, PW_KEY_NODE_ID, str);
+		if ((str = spa_dict_lookup(dict, PW_KEY_CLIENT_ID)) != NULL)
+			pw_properties_set(props, PW_KEY_ENDPOINT_CLIENT_ID, str);
 		if ((str = spa_dict_lookup(dict, PW_KEY_NODE_AUTOCONNECT)) != NULL)
 			pw_properties_set(props, PW_KEY_ENDPOINT_AUTOCONNECT, str);
 		if ((str = spa_dict_lookup(dict, PW_KEY_NODE_TARGET)) != NULL)

@@ -639,7 +639,9 @@ static int set_mask(pa_context *c, struct global *g)
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
 
-		if ((str = pw_properties_get(g->props, PW_KEY_CLIENT_ID)) != NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_ENDPOINT_CLIENT_ID)) != NULL)
+			g->endpoint_info.client_id = atoi(str);
+		else if ((str = pw_properties_get(g->props, PW_KEY_CLIENT_ID)) != NULL)
 			g->endpoint_info.client_id = atoi(str);
 		if ((str = pw_properties_get(g->props, PW_KEY_DEVICE_ID)) != NULL)
 			g->endpoint_info.device_id = atoi(str);

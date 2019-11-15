@@ -3624,14 +3624,20 @@ int jack_recompute_total_latency (jack_client_t *client, jack_port_t* port)
 static int port_compare_func(const void *v1, const void *v2)
 {
 	const struct object *const*o1 = v1, *const*o2 = v2;
+	int res;
 
 	if ((*o1)->port.type_id != (*o2)->port.type_id)
-		return (*o1)->port.type_id - (*o2)->port.type_id;
+		res = (*o1)->port.type_id - (*o2)->port.type_id;
+	else if ((*o1)->port.priority != (*o2)->port.priority)
+		res = (*o2)->port.priority - (*o1)->port.priority;
+	else if ((res = strcmp((*o1)->port.alias1, (*o2)->port.alias1) == 0))
+		res = (*o1)->id - (*o2)->id;
 
-	if ((*o1)->port.priority != (*o2)->port.priority)
-		return (*o2)->port.priority - (*o1)->port.priority;
-
-	return (*o1)->id - (*o2)->id;
+	pw_log_debug("port type:%d<->%d prio:%d<->%d id:%d<->%d res:%d",
+			(*o1)->port.type_id, (*o2)->port.type_id,
+			(*o1)->port.priority, (*o2)->port.priority,
+			(*o1)->id, (*o2)->id, res);
+	return res;
 }
 
 SPA_EXPORT

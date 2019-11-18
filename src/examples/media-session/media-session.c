@@ -63,6 +63,13 @@ struct data {
 	size_t size;
 };
 
+struct sync {
+	struct spa_list link;
+	int seq;
+	void (*callback) (void *data);
+	void *data;
+};
+
 struct impl {
 	struct sm_media_session this;
 
@@ -87,6 +94,7 @@ struct impl {
 	struct spa_list endpoint_link_list;	/** list of struct endpoint_link */
 	struct pw_map endpoint_links;		/** map of endpoint_link */
 
+	struct spa_list sync_list;		/** list of struct sync */
 	int rescan_seq;
 	int last_seq;
 };
@@ -623,20 +631,46 @@ int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 	return impl->rescan_seq;
 }
 
+int sm_media_session_sync(struct sm_media_session *sess,
+		void (*callback) (void *data), void *data)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct sync *sync;
+
+	sync = calloc(1, sizeof(struct sync));
+	if (sync == NULL)
+		return -errno;
+
+	spa_list_append(&impl->sync_list, &sync->link);
+	sync->callback = callback;
+	sync->data = data;
+	sync->seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->last_seq);
+	return sync->seq;
+}
+
+static void roundtrip_callback(void *data)
+{
+	int *done = data;
+	*done = 1;
+}
+
 int sm_media_session_roundtrip(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	struct pw_main_loop *loop = sess->loop;
-	int seq, res;
+	int done, res;
 
 	if (impl->core_proxy == NULL)
 		return -EIO;
 
-	seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->last_seq);
-	pw_log_debug(NAME" %p: roundtrip %d", impl, seq);
+	done = 0;
+	if ((res = sm_media_session_sync(sess, roundtrip_callback, &done)) < 0)
+		return res;
+
+	pw_log_debug(NAME" %p: roundtrip %d", impl, res);
 
 	pw_loop_enter(loop->loop);
-	while (impl->last_seq <= seq) {
+	while (!done) {
 		if ((res = pw_loop_iterate(loop->loop, -1)) < 0) {
 			pw_log_warn(NAME" %p: iterate error %d (%s)",
 				loop, res, spa_strerror(res));
@@ -644,12 +678,10 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 		}
 	}
         pw_loop_leave(loop->loop);
-	if (res >= 0)
-		res = seq;
 
-	pw_log_debug(NAME" %p: roundtrip done %d", impl, res);
+	pw_log_debug(NAME" %p: roundtrip done", impl);
 
-	return res;
+	return 0;
 }
 
 static void
@@ -955,7 +987,16 @@ static int start_policy(struct impl *impl)
 static void core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
+	struct sync *s, *t;
 	impl->last_seq = seq;
+
+	spa_list_for_each_safe(s, t, &impl->sync_list, link) {
+		if (s->seq == seq) {
+			spa_list_remove(&s->link);
+			s->callback(s->data);
+			free(s);
+		}
+	}
 	if (impl->rescan_seq == seq) {
 		pw_log_trace(NAME" %p: rescan %u %d", impl, id, seq);
 		sm_media_session_emit_rescan(impl, seq);
@@ -1070,6 +1111,7 @@ int main(int argc, char *argv[])
 	pw_map_init(&impl.globals, 64, 64);
 	pw_map_init(&impl.endpoint_links, 64, 64);
 	spa_list_init(&impl.endpoint_link_list);
+	spa_list_init(&impl.sync_list);
 	spa_hook_list_init(&impl.hooks);
 
 	if ((res = pw_remote_connect(impl.monitor_remote)) < 0)

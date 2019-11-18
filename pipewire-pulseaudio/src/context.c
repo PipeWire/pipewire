@@ -139,7 +139,7 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
 		    strcmp(str, name) == 0)
 			return g;
-		if (g->id == id || (g->id == (id & PA_IDX_MASK_DSP)))
+		if (g->id == id)
 			return g;
 	}
 	return NULL;
@@ -182,15 +182,6 @@ static void emit_event(pa_context *c, struct global *g, pa_subscription_event_ty
 				event | g->event,
 				g->id,
 				c->subscribe_userdata);
-
-		if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) {
-			pw_log_debug("context %p: obj %d: emit %d:%d", c, g->endpoint_info.monitor,
-					event, PA_SUBSCRIPTION_EVENT_SOURCE);
-			c->subscribe_callback(c,
-					event | PA_SUBSCRIPTION_EVENT_SOURCE,
-					g->endpoint_info.monitor,
-					c->subscribe_userdata);
-		}
 	}
 }
 
@@ -615,18 +606,26 @@ static int set_mask(pa_context *c, struct global *g)
 			pw_log_warn("endpoint %d without "PW_KEY_MEDIA_CLASS, g->id);
 			return 0;
 		}
+		g->endpoint_info.monitor = SPA_ID_INVALID;
 
 		/* endpoints get transformed into sink/source or sink_input/source_output */
 		if (strcmp(str, "Audio/Sink") == 0) {
 			pw_log_debug("found sink %d", g->id);
-			g->mask = PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE;
+			g->mask = PA_SUBSCRIPTION_MASK_SINK;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK;
-			g->endpoint_info.monitor = g->id | PA_IDX_FLAG_DSP;
 		}
 		else if (strcmp(str, "Audio/Source") == 0) {
 			pw_log_debug("found source %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE;
+			if ((str = pw_properties_get(g->props, PW_KEY_ENDPOINT_MONITOR)) != NULL) {
+				struct global *f;
+				f = pa_context_find_global(c, pw_properties_parse_int(str));
+				if (f != NULL) {
+					g->endpoint_info.monitor = f->id;
+					f->endpoint_info.monitor = g->id;
+				}
+			}
 		}
 		else if (strcmp(str, "Stream/Output/Audio") == 0) {
 			pw_log_debug("found sink input %d", g->id);

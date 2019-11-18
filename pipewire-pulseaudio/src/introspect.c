@@ -121,8 +121,13 @@ static void sink_callback(struct sink_data *d)
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->endpoint_info.volume * g->endpoint_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->endpoint_info.mute;
-	i.monitor_source = g->endpoint_info.monitor;
-	i.monitor_source_name = "unknown";
+	if (g->endpoint_info.monitor != SPA_ID_INVALID) {
+		i.monitor_source = g->endpoint_info.monitor;
+		i.monitor_source_name = "unknown";
+	} else {
+		i.monitor_source = PA_INVALID_INDEX;
+		i.monitor_source_name = NULL;
+	}
 	i.latency = 0;
 	i.driver = "PipeWire";
 	i.flags = PA_SINK_HARDWARE |
@@ -567,10 +572,9 @@ static void source_callback(struct source_data *d)
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->endpoint_info.volume * g->endpoint_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->endpoint_info.mute;
-	if (g->mask & PA_SUBSCRIPTION_MASK_SINK) {
-		i.monitor_of_sink = g->id;
+	if (g->endpoint_info.monitor != SPA_ID_INVALID) {
+		i.monitor_of_sink = g->endpoint_info.monitor;
 		i.monitor_of_sink_name = "unknown";
-		i.index = g->endpoint_info.monitor;
 	} else {
 		i.monitor_of_sink = PA_INVALID_INDEX;
 		i.monitor_of_sink_name = NULL;
@@ -651,10 +655,8 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 
 	pw_log_debug("context %p: index %d", c, idx);
 
-	if (((g = pa_context_find_global(c, idx)) == NULL ||
-	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE)) &&
-	    (((g = pa_context_find_global(c, idx & PA_IDX_MASK_DSP)) == NULL ||
-	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))))
+	if ((g = pa_context_find_global(c, idx)) == NULL ||
+	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))
 		return NULL;
 
 	o = pa_operation_new(c, NULL, source_info, sizeof(struct source_data));

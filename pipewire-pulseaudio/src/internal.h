@@ -219,9 +219,6 @@ struct param {
 	void *param;
 };
 
-#define PA_IDX_FLAG_DSP		0x800000U
-#define PA_IDX_MASK_DSP		0x7fffffU
-
 struct global {
 	struct spa_list link;
 	uint32_t id;

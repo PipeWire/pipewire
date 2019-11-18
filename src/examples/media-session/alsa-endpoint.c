@@ -56,6 +56,8 @@ struct endpoint {
 	struct spa_hook client_endpoint_listener;
 	struct pw_endpoint_info info;
 
+	struct endpoint *monitor;
+
 	unsigned int use_ucm:1;
 	snd_use_case_mgr_t *ucm;
 
@@ -193,6 +195,48 @@ static const struct pw_client_endpoint_proxy_events client_endpoint_events = {
 	.create_link = client_endpoint_create_link,
 };
 
+static int endpoint_add_stream(struct endpoint *endpoint)
+{
+	struct stream *s;
+	const char *str;
+
+	s = calloc(1, sizeof(*s));
+	if (s == NULL)
+		return -errno;
+
+	s->props = pw_properties_new(NULL, NULL);
+	if ((str = pw_properties_get(endpoint->props, PW_KEY_MEDIA_CLASS)) != NULL)
+		pw_properties_set(s->props, PW_KEY_MEDIA_CLASS, str);
+	if ((str = pw_properties_get(endpoint->props, PW_KEY_PRIORITY_SESSION)) != NULL)
+		pw_properties_set(s->props, PW_KEY_PRIORITY_SESSION, str);
+	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
+		if (endpoint->monitor != NULL)
+			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Monitor");
+		else
+			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
+	} else {
+		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
+	}
+
+	s->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
+	s->info.id = endpoint->info.n_streams;
+	s->info.endpoint_id = endpoint->info.id;
+	s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
+	s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
+	s->info.props = &s->props->dict;
+
+	pw_log_debug("stream %d", s->info.id);
+	pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
+			s->info.id,
+			PW_CLIENT_ENDPOINT_STREAM_UPDATE_INFO,
+			0, NULL,
+			&s->info);
+
+	spa_list_append(&endpoint->stream_list, &s->link);
+	endpoint->info.n_streams++;
+	return 0;
+}
+
 static void node_event_param(void *object, int seq,
                        uint32_t id, uint32_t index, uint32_t next,
                        const struct spa_pod *param)
@@ -223,6 +267,7 @@ static void node_event_param(void *object, int seq,
 
 	if (endpoint->format.info.raw.channels < info.info.raw.channels)
 		endpoint->format = info;
+
 	return;
 
       error:
@@ -237,7 +282,27 @@ static const struct pw_node_proxy_events endpoint_node_events = {
 	.param = node_event_param,
 };
 
-static struct endpoint *make_endpoint(struct alsa_node *obj)
+static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *monitor);
+
+static void complete_endpoint(void *data)
+{
+	struct endpoint *endpoint = data;
+
+	endpoint_add_stream(endpoint);
+
+	if (endpoint->info.direction == PW_DIRECTION_INPUT) {
+		struct endpoint *monitor;
+
+		/* make monitor for sinks */
+		monitor = make_endpoint(endpoint->obj, endpoint);
+		if (monitor == NULL)
+			return;
+
+		endpoint_add_stream(monitor);
+	}
+}
+
+static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *monitor)
 {
 	struct impl *impl = obj->monitor->impl;
 	struct pw_properties *props;
@@ -250,12 +315,23 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 		return NULL;
 
 	if (obj->props) {
-		if ((media_class = pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS)) != NULL)
-			pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
+		if ((media_class = pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS)) != NULL) {
+			if (monitor != NULL) {
+				pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+			 } else {
+				pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
+			 }
+		}
 		if ((str = pw_properties_get(obj->props, PW_KEY_PRIORITY_SESSION)) != NULL)
 			pw_properties_set(props, PW_KEY_PRIORITY_SESSION, str);
-		if ((name = pw_properties_get(obj->props, PW_KEY_NODE_DESCRIPTION)) != NULL)
-			pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
+		if ((name = pw_properties_get(obj->props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
+			if (monitor != NULL) {
+				pw_properties_setf(props, PW_KEY_ENDPOINT_NAME, "Monitor of %s", monitor->info.name);
+				pw_properties_setf(props, PW_KEY_ENDPOINT_MONITOR, "%d", monitor->info.id);
+			} else {
+				pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
+			}
+		}
 	}
 	if (obj->object && obj->object->props) {
 		if ((str = pw_properties_get(obj->object->props, PW_KEY_DEVICE_ICON_NAME)) != NULL)
@@ -274,13 +350,14 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 
 	endpoint = pw_proxy_get_user_data(proxy);
 	endpoint->obj = obj;
+	endpoint->monitor = monitor;
 	endpoint->props = props;
 	endpoint->client_endpoint = (struct pw_client_endpoint_proxy *) proxy;
 	endpoint->info.version = PW_VERSION_ENDPOINT_INFO;
 	endpoint->info.name = (char*)pw_properties_get(endpoint->props, PW_KEY_ENDPOINT_NAME);
-	endpoint->info.media_class = (char*)pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS);
+	endpoint->info.media_class = (char*)pw_properties_get(endpoint->props, PW_KEY_MEDIA_CLASS);
 	endpoint->info.session_id = impl->session->info.id;
-	endpoint->info.direction = obj->direction;
+	endpoint->info.direction = monitor != NULL ? PW_DIRECTION_OUTPUT : obj->direction;
 	endpoint->info.flags = 0;
 	endpoint->info.change_mask =
 		PW_ENDPOINT_CHANGE_MASK_STREAMS |
@@ -303,6 +380,9 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 				0, SPA_PARAM_EnumFormat,
 				0, -1, NULL);
 
+	if (monitor == NULL)
+		sm_media_session_sync(impl->session, complete_endpoint, endpoint);
+
 	return endpoint;
 }
 
@@ -310,47 +390,13 @@ static struct endpoint *make_endpoint(struct alsa_node *obj)
 static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
 {
 	struct alsa_node *n;
-	const char *str;
 
 	spa_list_for_each(n, &obj->node_list, link) {
-		struct stream *s;
 		struct endpoint *endpoint;
 
-		endpoint = make_endpoint(n);
+		endpoint = make_endpoint(n, NULL);
 		if (endpoint == NULL)
 			return -errno;
-
-		s = calloc(1, sizeof(*s));
-		if (s == NULL)
-			return -errno;
-
-		s->props = pw_properties_new(NULL, NULL);
-		if ((str = pw_properties_get(n->props, PW_KEY_MEDIA_CLASS)) != NULL)
-			pw_properties_set(s->props, PW_KEY_MEDIA_CLASS, str);
-		if ((str = pw_properties_get(n->props, PW_KEY_PRIORITY_SESSION)) != NULL)
-			pw_properties_set(s->props, PW_KEY_PRIORITY_SESSION, str);
-		if (n->direction == PW_DIRECTION_OUTPUT)
-			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
-		else
-			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
-
-		s->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
-		s->info.id = endpoint->info.n_streams;
-		s->info.endpoint_id = endpoint->info.id;
-		s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
-		s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
-		s->info.props = &s->props->dict;
-
-		pw_log_debug("stream %d", s->info.id);
-		pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
-				n->id,
-				PW_CLIENT_ENDPOINT_STREAM_UPDATE_INFO,
-				0, NULL,
-				&s->info);
-
-		spa_list_append(&endpoint->stream_list, &s->link);
-		endpoint->info.n_streams++;
-
 	}
 	return 0;
 }

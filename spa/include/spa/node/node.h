@@ -645,22 +645,6 @@ struct spa_node_methods {
 #define spa_node_port_reuse_buffer(n,...)	spa_node_method(n, port_reuse_buffer, 0, __VA_ARGS__)
 #define spa_node_process(n)			spa_node_method(n, process, 0)
 
-
-/** node keys */
-#define SPA_KEY_NODE_NAME		"node.name"		/**< a node name */
-#define SPA_KEY_NODE_LATENCY		"node.latency"		/**< the requested node latency */
-
-#define SPA_KEY_NODE_DRIVER		"node.driver"		/**< the node can be a driver */
-#define SPA_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< call the process function even if
-								  *  not linked. */
-#define SPA_KEY_NODE_PAUSE_ON_IDLE	"node.pause-on-idle"	/**< if the node should be paused
-								  *  immediately when idle. */
-
-/** port keys */
-#define SPA_KEY_PORT_NAME		"port.name"		/**< a port name */
-#define SPA_KEY_PORT_ALIAS		"port.alias"		/**< a port alias */
-#define SPA_KEY_PORT_MONITOR		"port.monitor"		/**< this port is a monitor port */
-
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

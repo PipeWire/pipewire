@@ -308,6 +308,7 @@ int endpoint_init(struct endpoint *this,
 		PW_KEY_ENDPOINT_NAME,
 		PW_KEY_ENDPOINT_CLIENT_ID,
 		PW_KEY_ENDPOINT_ICON_NAME,
+		PW_KEY_ENDPOINT_MONITOR,
 		NULL
 	};
 

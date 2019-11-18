@@ -41,6 +41,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
+#include <spa/node/keys.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>

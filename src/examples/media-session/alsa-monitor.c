@@ -33,6 +33,7 @@
 #include <alsa/asoundlib.h>
 
 #include <spa/node/node.h>
+#include <spa/node/keys.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>

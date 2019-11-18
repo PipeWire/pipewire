@@ -28,6 +28,7 @@
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
+#include <spa/node/keys.h>
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/buffer/alloc.h>

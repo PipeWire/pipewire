@@ -29,6 +29,7 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
+#include <spa/node/keys.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/list.h>

@@ -56,6 +56,7 @@ struct impl {
 
 	unsigned int have_source:1;
 	unsigned int colors:1;
+	unsigned int timestamp:1;
 };
 
 static void
@@ -90,17 +91,19 @@ impl_log_logv(void *object,
 
 	vsnprintf(text, sizeof(text), fmt, args);
 
-	if (level >= SPA_LOG_LEVEL_DEBUG) {
+	if (impl->timestamp) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 
 		size = snprintf(location, sizeof(location), "%s[%s][%09lu.%06lu][%s:%i %s()] %s%s\n",
 			prefix, levels[level], now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000,
 			strrchr(file, '/') + 1, line, func, text, suffix);
+
 	} else {
 		size = snprintf(location, sizeof(location), "%s[%s][%s:%i %s()] %s%s\n",
 			prefix, levels[level], strrchr(file, '/') + 1, line, func, text, suffix);
 	}
+
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;
@@ -259,6 +262,8 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	if (info) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_TIMESTAMP)) != NULL)
+			this->timestamp = (strcmp(str, "true") == 0 || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
 			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)

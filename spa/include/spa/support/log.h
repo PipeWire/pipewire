@@ -167,6 +167,8 @@ static inline void spa_log_trace_fp (struct spa_log *l, const char *format, ...)
 #define SPA_KEY_LOG_COLORS		"log.colors"		/**< enable colors in the logger */
 #define SPA_KEY_LOG_FILE		"log.file"		/**< log to the specified file instead of
 								  *  stderr. */
+#define SPA_KEY_LOG_TIMESTAMP		"log.timestamp"		/**< log timestamps */
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

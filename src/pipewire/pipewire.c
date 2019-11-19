@@ -351,7 +351,7 @@ SPA_EXPORT
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
-	struct spa_dict_item items[3];
+	struct spa_dict_item items[4];
 	uint32_t n_items;
 	struct spa_dict info;
 	struct support *support = &global_support;
@@ -379,6 +379,7 @@ void pw_init(int *argc, char **argv[])
 
 	n_items = 0;
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "1");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "1");
 	snprintf(level, sizeof(level), "%d", pw_log_level);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
 	if ((str = getenv("PIPEWIRE_LOG")) != NULL)

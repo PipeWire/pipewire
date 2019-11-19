@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/timerfd.h>
 
 #include <jack/jack.h>
 

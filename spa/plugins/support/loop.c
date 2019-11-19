@@ -627,7 +627,7 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 		loop_remove_source(impl->impl, source);
 
 	if (source->fd != -1 && impl->close) {
-		close(source->fd);
+		spa_system_close(impl->impl->system, source->fd);
 		source->fd = -1;
 	}
 	spa_list_insert(&impl->impl->destroy_list, &impl->link);

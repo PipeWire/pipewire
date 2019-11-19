@@ -33,7 +33,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/resource.h>
-#include <sys/eventfd.h>
 
 #include "config.h"
 
@@ -52,6 +51,7 @@ struct impl {
 	struct pw_core *core;
 
 	struct spa_loop *loop;
+	struct spa_system *system;
 	struct spa_source source;
 
 	struct spa_hook module_listener;
@@ -411,7 +411,7 @@ static void module_destroy(void *data)
 				0,
 				true,
 				&impl->source);
-		close(impl->source.fd);
+		spa_system_close(impl->system, impl->source.fd);
 		impl->source.fd = -1;
 	}
 	free(impl);
@@ -432,7 +432,7 @@ static void idle_func(struct spa_source *source)
 	long long rttime;
 	uint64_t count;
 
-	read(impl->source.fd, &count, sizeof(uint64_t));
+	spa_system_eventfd_read(impl->system, impl->source.fd, &count);
 
 	rtprio = 20;
 	rttime = 20000;
@@ -478,6 +478,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	struct pw_core *core = pw_module_get_core(module);
 	struct impl *impl;
 	struct spa_loop *loop;
+	struct spa_system *system;
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res;
@@ -488,6 +489,10 @@ int pipewire__module_init(struct pw_module *module, const char *args)
         if (loop == NULL)
                 return -ENOTSUP;
 
+	system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+        if (system == NULL)
+                return -ENOTSUP;
+
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -ENOMEM;
@@ -496,11 +501,12 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	impl->core = core;
 	impl->loop = loop;
+	impl->system = system;
 
 	impl->source.loop = loop;
 	impl->source.func = idle_func;
 	impl->source.data = impl;
-	impl->source.fd = eventfd(1, EFD_CLOEXEC | EFD_NONBLOCK);
+	impl->source.fd = spa_system_eventfd_create(system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	impl->source.mask = SPA_IO_IN;
 	if (impl->source.fd == -1) {
 		res = -errno;

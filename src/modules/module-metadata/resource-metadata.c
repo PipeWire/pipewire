@@ -28,7 +28,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
-#include <sys/eventfd.h>
 
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>

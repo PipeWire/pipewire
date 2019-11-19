@@ -29,7 +29,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-#include <sys/timerfd.h>
 #include <fcntl.h>
 
 #include <bluetooth/bluetooth.h>
@@ -59,6 +58,7 @@ struct spa_bt_monitor {
 
 	struct spa_log *log;
 	struct spa_loop *main_loop;
+	struct spa_system *main_system;
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
@@ -546,7 +546,7 @@ static void device_timer_event(struct spa_source *source)
 	struct spa_bt_monitor *monitor = device->monitor;
 	uint64_t exp;
 
-	if (read(source->fd, &exp, sizeof(uint64_t)) != sizeof(uint64_t))
+	if (spa_system_timerfd_read(monitor->main_system, source->fd, &exp) < 0)
                 spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
 
 	spa_log_debug(monitor->log, "device %p: timeout %08x %08x",
@@ -564,7 +564,8 @@ static int device_start_timer(struct spa_bt_device *device)
 	if (device->timer.data == NULL) {
 		device->timer.data = device;
 		device->timer.func = device_timer_event;
-		device->timer.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+		device->timer.fd = spa_system_timerfd_create(monitor->main_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 		device->timer.mask = SPA_IO_IN;
 		device->timer.rmask = 0;
 		spa_loop_add_source(monitor->main_loop, &device->timer);
@@ -573,7 +574,7 @@ static int device_start_timer(struct spa_bt_device *device)
 	ts.it_value.tv_nsec = 0;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
-	timerfd_settime(device->timer.fd, 0, &ts, NULL);
+	spa_system_timerfd_settime(monitor->main_system, device->timer.fd, 0, &ts, NULL);
 	return 0;
 }
 
@@ -591,8 +592,8 @@ static int device_stop_timer(struct spa_bt_device *device)
         ts.it_value.tv_nsec = 0;
         ts.it_interval.tv_sec = 0;
         ts.it_interval.tv_nsec = 0;
-        timerfd_settime(device->timer.fd, 0, &ts, NULL);
-	close(device->timer.fd);
+        spa_system_timerfd_settime(monitor->main_system, device->timer.fd, 0, &ts, NULL);
+	spa_system_close(monitor->main_system, device->timer.fd);
 	device->timer.data = NULL;
 	return 0;
 }
@@ -2257,6 +2258,9 @@ impl_init(const struct spa_handle_factory *factory,
 			break;
 		case SPA_TYPE_INTERFACE_Loop:
 			this->main_loop = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_System:
+			this->main_system = support[i].data;
 			break;
 		}
 	}

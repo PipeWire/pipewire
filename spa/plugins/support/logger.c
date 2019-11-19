@@ -183,7 +183,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->have_source) {
 		spa_loop_remove_source(this->source.loop, &this->source);
-		close(this->source.fd);
+		spa_system_close(this->system, this->source.fd);
 		this->have_source = false;
 	}
 	return 0;

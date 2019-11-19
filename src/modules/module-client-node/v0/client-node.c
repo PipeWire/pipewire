@@ -26,7 +26,6 @@
 #include <dlfcn.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
-#include <sys/eventfd.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -317,8 +316,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 static inline void do_flush(struct node *this)
 {
-	uint64_t cmd = 1;
-	if (write(this->writefd, &cmd, 8) != 8)
+	if (spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0)
 		spa_log_warn(this->log, "node %p: error flushing : %s", this, strerror(errno));
 
 }
@@ -1036,7 +1034,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 		struct pw_client_node0_message message;
 		uint64_t cmd;
 
-		if (read(this->data_source.fd, &cmd, sizeof(uint64_t)) != sizeof(uint64_t))
+		if (spa_system_eventfd_read(this->data_system, this->data_source.fd, &cmd) < 0)
 			spa_log_warn(this->log, "node %p: error reading message: %s",
 					this, strerror(errno));
 
@@ -1168,12 +1166,13 @@ static void node_initialized(void *data)
 	struct impl *impl = data;
 	struct pw_client_node0 *this = &impl->this;
 	struct pw_node *node = this->node;
+	struct spa_system *data_system = impl->node.data_system;
 
 	if (this->resource == NULL)
 		return;
 
-	impl->fds[0] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-	impl->fds[1] = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	impl->node.data_source.fd = impl->fds[0];
 	impl->node.writefd = impl->fds[1];
 	impl->other_fds[0] = impl->fds[1];
@@ -1192,6 +1191,7 @@ static void node_initialized(void *data)
 static void node_free(void *data)
 {
 	struct impl *impl = data;
+	struct spa_system *data_system = impl->node.data_system;
 
 	pw_log_debug("client-node %p: free", &impl->this);
 	node_clear(&impl->node);
@@ -1204,9 +1204,9 @@ static void node_free(void *data)
 	pw_array_clear(&impl->mems);
 
 	if (impl->fds[0] != -1)
-		close(impl->fds[0]);
+		spa_system_close(data_system, impl->fds[0]);
 	if (impl->fds[1] != -1)
-		close(impl->fds[1]);
+		spa_system_close(data_system, impl->fds[1]);
 	free(impl);
 }
 

@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
-#include <sys/eventfd.h>
 
 #include <spa/support/system.h>
 #include <spa/pod/parser.h>

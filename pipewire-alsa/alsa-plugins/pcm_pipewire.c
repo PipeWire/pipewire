@@ -27,7 +27,6 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/eventfd.h>
 #include <sys/mman.h>
 
 #include <alsa/asoundlib.h>
@@ -90,7 +89,7 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 	    (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
 		avail = snd_pcm_avail_update(io->pcm);
 		if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
-			read(io->poll_fd, &val, sizeof(val));
+			spa_system_eventfd_read(pw->loop->system, io->poll_fd, &val);
 			return 1;
 		}
 	}
@@ -100,9 +99,8 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 
 static inline int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
 {
-	uint64_t val = 1;
 	snd_pcm_pipewire_t *pw = io->private_data;
-	write(pw->fd, &val, sizeof(val));
+	spa_system_eventfd_write(pw->loop->system, pw->fd, 1);
 	return 1;
 }
 
@@ -118,7 +116,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		if (pw->loop)
 			pw_loop_destroy(pw->loop);
 		if (pw->fd >= 0)
-			close(pw->fd);
+			spa_system_close(pw->loop->system, pw->fd);
 		free(pw);
 	}
 }
@@ -866,7 +864,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	if ((err = remote_connect_sync(pw)) < 0)
 		goto error;
 
-	pw->fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	pw->fd = spa_system_eventfd_create(pw->loop->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
 	pw->io.version = SND_PCM_IOPLUG_VERSION;
 	pw->io.name = "ALSA <-> PipeWire PCM I/O Plugin";

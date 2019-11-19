@@ -198,7 +198,6 @@ static int core_hello(void *object, uint32_t version)
 				PW_PERM_RWX, PW_VERSION_CLIENT_PROXY, 1)) < 0)
 			return res;
 	}
-
 	return 0;
 }
 

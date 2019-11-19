@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/timerfd.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -81,6 +80,7 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_loop *data_loop;
+	struct spa_system *data_system;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -223,7 +223,8 @@ static void set_timer(struct impl *this, bool enabled)
 			this->timerspec.it_value.tv_sec = 0;
 			this->timerspec.it_value.tv_nsec = 0;
 		}
-		timerfd_settime(this->timer_source.fd, TFD_TIMER_ABSTIME, &this->timerspec, NULL);
+		spa_system_timerfd_settime(this->data_system,
+				this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
 	}
 }
 
@@ -232,7 +233,8 @@ static inline void read_timer(struct impl *this)
 	uint64_t expirations;
 
 	if (this->callbacks.funcs || this->props.live) {
-		if (read(this->timer_source.fd, &expirations, sizeof(uint64_t)) != sizeof(uint64_t))
+		if (spa_system_timerfd_read(this->data_system,
+					this->timer_source.fd, &expirations) < 0)
 			perror("read timerfd");
 	}
 }
@@ -738,7 +740,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->data_loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
-	close(this->timer_source.fd);
+	spa_system_close(this->data_system, this->timer_source.fd);
 
 	return 0;
 }
@@ -770,10 +772,17 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
+		switch (support[i].type) {
+		case SPA_TYPE_INTERFACE_Log:
 			this->log = support[i].data;
-		else if (support[i].type == SPA_TYPE_INTERFACE_DataLoop)
+			break;
+		case SPA_TYPE_INTERFACE_DataLoop:
 			this->data_loop = support[i].data;
+			break;
+		case SPA_TYPE_INTERFACE_DataSystem:
+			this->data_system = support[i].data;
+			break;
+		}
 	}
 
 	spa_hook_list_init(&this->hooks);
@@ -795,7 +804,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timer_source.func = on_output;
 	this->timer_source.data = this;
-	this->timer_source.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC, SPA_FD_CLOEXEC);
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
 	this->timerspec.it_value.tv_sec = 0;

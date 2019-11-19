@@ -308,9 +308,6 @@ static void on_start(void *data, uint32_t version)
 	if (version == 0)
 		client->compat_v2 = &this->compat_v2;
 
-	if (pw_client_register(client, NULL) < 0)
-		return;
-
 	return;
 }
 

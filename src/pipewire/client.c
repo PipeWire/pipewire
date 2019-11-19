@@ -343,6 +343,9 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	pw_core_emit_check_access(core, this);
 
+	if ((res = pw_client_register(this, NULL)) < 0)
+		goto error_clear_array;
+
 	return this;
 
 error_clear_array:

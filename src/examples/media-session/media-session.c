@@ -63,6 +63,11 @@ struct data {
 	size_t size;
 };
 
+struct param {
+	struct sm_param this;
+	struct spa_list link;
+};
+
 struct sync {
 	struct spa_list link;
 	int seq;
@@ -227,6 +232,44 @@ static void client_destroy(void *object)
 		pw_client_info_free(client->info);
 }
 
+static struct param *add_param(struct spa_list *param_list,
+		uint32_t id, const struct spa_pod *param)
+{
+	struct param *p;
+
+	if (param == NULL || !spa_pod_is_object(param)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (id == SPA_ID_INVALID)
+		id = SPA_POD_OBJECT_ID(param);
+
+	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
+	if (p == NULL)
+		return NULL;
+
+	p->this.id = id;
+	p->this.param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	memcpy(p->this.param, param, SPA_POD_SIZE(param));
+
+	spa_list_append(param_list, &p->link);
+
+	return p;
+}
+
+
+static void clear_params(struct spa_list *param_list, uint32_t id)
+{
+	struct param *p, *t;
+
+	spa_list_for_each_safe(p, t, param_list, link) {
+		if (id == SPA_ID_INVALID || p->this.id == id) {
+			spa_list_remove(&p->link);
+			free(p);
+		}
+	}
+}
+
 /**
  * Node
  */
@@ -234,6 +277,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct sm_node *node = object;
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
+	uint32_t i;
 
 	pw_log_debug(NAME" %p: node %d info", impl, node->obj.id);
 	node->info = pw_node_info_update(node->info, info);
@@ -242,11 +286,53 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	node->changed |= SM_NODE_CHANGE_MASK_INFO;
 	sm_media_session_emit_update(impl, &node->obj);
 	node->changed = 0;
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS &&
+	    (node->mask & SM_NODE_CHANGE_MASK_PARAMS) &&
+	    !node->subscribe) {
+		uint32_t subscribe[info->n_params], n_subscribe = 0;
+
+		for (i = 0; i < info->n_params; i++) {
+			switch (info->params[i].id) {
+			case SPA_PARAM_PropInfo:
+			case SPA_PARAM_Props:
+			case SPA_PARAM_EnumFormat:
+				subscribe[n_subscribe++] = info->params[i].id;
+				break;
+			default:
+				break;
+			}
+		}
+		if (n_subscribe > 0) {
+			pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->obj.proxy,
+					subscribe, n_subscribe);
+			node->subscribe = true;
+		}
+	}
+}
+
+static void node_event_param(void *object, int seq,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct sm_node *node = object;
+	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
+
+	if (index == 0)
+		clear_params(&node->param_list, id);
+
+	add_param(&node->param_list, id, param);
+
+	node->avail |= SM_NODE_CHANGE_MASK_PARAMS;
+	node->changed |= SM_NODE_CHANGE_MASK_PARAMS;
+	sm_media_session_emit_update(impl, &node->obj);
+	node->changed = 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
 	PW_VERSION_NODE_PROXY_EVENTS,
 	.info = node_event_info,
+	.param = node_event_param,
 };
 
 static void node_destroy(void *object)
@@ -258,6 +344,8 @@ static void node_destroy(void *object)
 		port->node = NULL;
 		spa_list_remove(&port->link);
 	}
+	clear_params(&node->param_list, SPA_ID_INVALID);
+
 	if (node->info)
 		pw_node_info_free(node->info);
 }
@@ -556,6 +644,7 @@ registry_global(void *data,uint32_t id,
 	{
 		struct sm_node *node = (struct sm_node*) obj;
 		spa_list_init(&node->port_list);
+		spa_list_init(&node->param_list);
 		break;
 	}
 	case PW_TYPE_INTERFACE_Port:

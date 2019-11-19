@@ -406,6 +406,7 @@ static void stream_control_info(void *data, uint32_t id, const struct pw_stream_
 {
 	pa_stream *s = data;
 
+	pw_log_debug("stream %p: control %d", s, id);
 	switch (id) {
 	case SPA_PROP_mute:
 		if (control->n_values > 0)

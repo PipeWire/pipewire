@@ -323,10 +323,10 @@ static void node_event_param(void *object, int seq,
 	struct impl *impl = n->impl;
 	struct spa_audio_info_raw info = { 0, };
 
-	pw_log_debug(NAME" %p: param for node %d, %d", impl, n->id, id);
+	pw_log_debug(NAME" %p: param for node %d %d", impl, n->id, id);
 
 	if (id != SPA_PARAM_EnumFormat)
-		goto error;
+		return;
 
 	if (spa_format_parse(param, &n->media_type, &n->media_subtype) < 0)
 		goto error;

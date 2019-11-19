@@ -53,6 +53,11 @@ struct sm_object {
 	struct spa_list data;
 };
 
+struct sm_param {
+	uint32_t id;
+	struct spa_pod *param;
+};
+
 /** get user data with \a id and \a size to an object */
 void *sm_object_add_data(struct sm_object *obj, const char *id, size_t size);
 void *sm_object_get_data(struct sm_object *obj, const char *id);
@@ -72,13 +77,17 @@ struct sm_client {
 struct sm_node {
 	struct sm_object obj;
 
+	unsigned int subscribe:1;	/**< if we subscribed to param changes */
+
 #define SM_NODE_CHANGE_MASK_INFO	(1<<0)
 #define SM_NODE_CHANGE_MASK_PORTS	(1<<1)
+#define SM_NODE_CHANGE_MASK_PARAMS	(1<<2)
 	uint32_t mask;			/**< monitored info */
 	uint32_t avail;			/**< available info */
 	uint32_t changed;		/**< changed since last update */
 	struct pw_node_info *info;
 	struct spa_list port_list;
+	struct spa_list param_list;	/**< list of sm_param */
 };
 
 struct sm_port {

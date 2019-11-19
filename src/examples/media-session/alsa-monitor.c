@@ -31,7 +31,6 @@
 #include "config.h"
 
 #include <alsa/asoundlib.h>
-#include <alsa/use-case.h>
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>

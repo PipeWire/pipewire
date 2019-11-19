@@ -327,6 +327,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	struct pw_properties *props;
 	char buffer[1024];
 	struct protocol_data *d = pw_protocol_get_user_data(protocol);
+	int res;
 
 	props = pw_properties_new(PW_KEY_PROTOCOL, "protocol-native", NULL);
 	if (props == NULL)
@@ -366,12 +367,16 @@ static struct pw_client *client_new(struct server *s, int fd)
 	this->source = pw_loop_add_io(pw_core_get_main_loop(core),
 				      fd, SPA_IO_ERR | SPA_IO_HUP, true,
 				      connection_data, this);
-	if (this->source == NULL)
+	if (this->source == NULL) {
+		res = -errno;
 		goto cleanup_client;
+	}
 
 	this->connection = pw_protocol_native_connection_new(protocol->core, fd);
-	if (this->connection == NULL)
+	if (this->connection == NULL) {
+		res = -errno;
 		goto cleanup_client;
+	}
 
 	pw_map_init(&this->compat_v2.types, 0, 32);
 
@@ -382,11 +387,14 @@ static struct pw_client *client_new(struct server *s, int fd)
 
 	pw_client_add_listener(client, &this->client_listener, &client_events, this);
 
+	if ((res = pw_client_register(client, NULL)) < 0)
+		goto cleanup_client;
 
 	return client;
 
 cleanup_client:
 	pw_client_destroy(client);
+	errno = -res;
 exit:
 	return NULL;
 }

@@ -36,6 +36,7 @@ struct sm_object {
 	uint32_t id;
 	uint32_t type;
 
+	struct spa_list link;
 	struct sm_media_session *session;
 
 #define SM_OBJECT_CHANGE_MASK_PROPERTIES	(1<<0)

@@ -86,6 +86,8 @@ struct impl {
 	struct spa_hook registry_listener;
 
 	struct pw_map globals;
+	struct spa_list global_list;
+
 	struct spa_hook_list hooks;
 
 	struct pw_client_session_proxy *client_session;
@@ -126,14 +128,16 @@ struct link {
 static void add_object(struct impl *impl, struct sm_object *obj)
 {
 	size_t size = pw_map_get_size(&impl->globals);
-        while (obj->id > size)
-                pw_map_insert_at(&impl->globals, size++, NULL);
-        pw_map_insert_at(&impl->globals, obj->id, obj);
+	while (obj->id > size)
+		pw_map_insert_at(&impl->globals, size++, NULL);
+	pw_map_insert_at(&impl->globals, obj->id, obj);
+	spa_list_append(&impl->global_list, &obj->link);
 }
 
 static void remove_object(struct impl *impl, struct sm_object *obj)
 {
-        pw_map_insert_at(&impl->globals, obj->id, NULL);
+	pw_map_insert_at(&impl->globals, obj->id, NULL);
+	spa_list_remove(&obj->link);
 }
 
 static void *find_object(struct impl *impl, uint32_t id)
@@ -613,7 +617,16 @@ int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook
                 const struct sm_media_session_events *events, void *data)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	spa_hook_list_append(&impl->hooks, listener, events, data);
+	struct spa_hook_list save;
+	struct sm_object *obj;
+
+	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
+
+	spa_list_for_each(obj, &impl->global_list, link)
+		sm_media_session_emit_update(impl, obj);
+
+        spa_hook_list_join(&impl->hooks, &save);
+
 	return 0;
 }
 
@@ -1109,6 +1122,7 @@ int main(int argc, char *argv[])
 	pw_module_load(impl.this.core, "libpipewire-module-session-manager", NULL, NULL);
 
 	pw_map_init(&impl.globals, 64, 64);
+	spa_list_init(&impl.global_list);
 	pw_map_init(&impl.endpoint_links, 64, 64);
 	spa_list_init(&impl.endpoint_link_list);
 	spa_list_init(&impl.sync_list);

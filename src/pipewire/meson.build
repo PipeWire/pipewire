@@ -91,12 +91,12 @@ libpipewire = shared_library(libpipewire_name, pipewire_sources,
   c_args : libpipewire_c_args,
   include_directories : [pipewire_inc, configinc, spa_inc],
   install : true,
-  dependencies : [dl_lib, mathlib, pthread_lib, epoll_shim_dep],
+  dependencies : [dl_lib, mathlib, pthread_lib, ],
 )
 
 pipewire_dep = declare_dependency(link_with : libpipewire,
   include_directories : [pipewire_inc, configinc, spa_inc],
-  dependencies : [pthread_lib, epoll_shim_dep],
+  dependencies : [pthread_lib, ],
 )
 
 pkgconfig.generate(filebase : 'lib@0@'.format(libpipewire_name),

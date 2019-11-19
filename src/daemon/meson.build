@@ -30,7 +30,7 @@ executable('pipewire',
   install: true,
   c_args : pipewire_c_args,
   include_directories : [configinc, spa_inc],
-  dependencies : [pipewire_dep, epoll_shim_dep],
+  dependencies : [pipewire_dep, ],
 )
 
 if get_option('systemd') and systemd.found()

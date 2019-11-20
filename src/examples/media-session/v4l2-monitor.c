@@ -37,12 +37,13 @@
 #include <spa/debug/dict.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
+
+#include "media-session.h"
 
 struct v4l2_object;
 
 struct v4l2_node {
-	struct monitor *monitor;
+	struct impl *impl;
 	struct v4l2_object *object;
 	struct spa_list link;
 	uint32_t id;
@@ -54,7 +55,7 @@ struct v4l2_node {
 };
 
 struct v4l2_object {
-	struct monitor *monitor;
+	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
 
@@ -66,6 +67,16 @@ struct v4l2_object {
 	struct spa_hook device_listener;
 
 	struct spa_list node_list;
+};
+
+struct impl {
+	struct sm_media_session *session;
+
+	struct spa_handle *handle;
+	struct spa_device *monitor;
+	struct spa_hook listener;
+
+	struct spa_list object_list;
 };
 
 static struct v4l2_node *v4l2_find_node(struct v4l2_object *obj, uint32_t id)
@@ -94,8 +105,7 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct v4l2_node *node;
-	struct monitor *monitor = obj->monitor;
-	struct impl *impl = monitor->impl;
+	struct impl *impl = obj->impl;
 	int res;
 	const char *str;
 
@@ -129,7 +139,7 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
-	node->monitor = monitor;
+	node->impl = impl;
 	node->object = obj;
 	node->id = id;
 	node->proxy = sm_media_session_create_object(impl->session,
@@ -200,18 +210,18 @@ static const struct spa_device_events v4l2_device_events = {
 	.object_info = v4l2_device_object_info
 };
 
-static struct v4l2_object *v4l2_find_object(struct monitor *monitor, uint32_t id)
+static struct v4l2_object *v4l2_find_object(struct impl *impl, uint32_t id)
 {
 	struct v4l2_object *obj;
 
-	spa_list_for_each(obj, &monitor->object_list, link) {
+	spa_list_for_each(obj, &impl->object_list, link) {
 		if (obj->id == id)
 			return obj;
 	}
 	return NULL;
 }
 
-static void v4l2_update_object(struct monitor *monitor, struct v4l2_object *obj,
+static void v4l2_update_object(struct impl *impl, struct v4l2_object *obj,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
@@ -248,10 +258,9 @@ static int v4l2_update_device_props(struct v4l2_object *obj)
 	return 0;
 }
 
-static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t id,
+static struct v4l2_object *v4l2_create_object(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct impl *impl = monitor->impl;
 	struct pw_core *core = impl->session->core;
 	struct v4l2_object *obj;
 	struct spa_handle *handle;
@@ -285,7 +294,7 @@ static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t 
 		goto unload_handle;
 	}
 
-	obj->monitor = monitor;
+	obj->impl = impl;
 	obj->id = id;
 	obj->handle = handle;
 	obj->device = iface;
@@ -304,7 +313,7 @@ static struct v4l2_object *v4l2_create_object(struct monitor *monitor, uint32_t 
 	spa_device_add_listener(obj->device,
 			&obj->device_listener, &v4l2_device_events, obj);
 
-	spa_list_append(&monitor->object_list, &obj->link);
+	spa_list_append(&impl->object_list, &obj->link);
 
 	return obj;
 
@@ -317,7 +326,7 @@ exit:
 	return NULL;
 }
 
-static void v4l2_remove_object(struct monitor *monitor, struct v4l2_object *obj)
+static void v4l2_remove_object(struct impl *impl, struct v4l2_object *obj)
 {
 	pw_log_debug("remove object %u", obj->id);
 	spa_list_remove(&obj->link);
@@ -330,20 +339,20 @@ static void v4l2_remove_object(struct monitor *monitor, struct v4l2_object *obj)
 static void v4l2_udev_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct monitor *monitor = data;
+	struct impl *impl = data;
 	struct v4l2_object *obj;
 
-	obj = v4l2_find_object(monitor, id);
+	obj = v4l2_find_object(impl, id);
 
 	if (info == NULL) {
 		if (obj == NULL)
 			return;
-		v4l2_remove_object(monitor, obj);
+		v4l2_remove_object(impl, obj);
 	} else if (obj == NULL) {
-		if ((obj = v4l2_create_object(monitor, id, info)) == NULL)
+		if ((obj = v4l2_create_object(impl, id, info)) == NULL)
 			return;
 	} else {
-		v4l2_update_object(monitor, obj, info);
+		v4l2_update_object(impl, obj, info);
 	}
 }
 
@@ -353,36 +362,50 @@ static const struct spa_device_events v4l2_udev_callbacks =
 	.object_info = v4l2_udev_object_info,
 };
 
-static int v4l2_start_monitor(struct impl *impl, struct monitor *monitor)
+void * sm_v4l2_monitor_start(struct sm_media_session *sess)
 {
-	struct spa_handle *handle;
-	struct pw_core *core = impl->session->core;
+	struct pw_core *core = sess->core;
+	struct impl *impl;
 	int res;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(core, SPA_NAME_API_V4L2_ENUM_UDEV, NULL);
-	if (handle == NULL) {
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->session = sess;
+
+	impl->handle = pw_core_load_spa_handle(core, SPA_NAME_API_V4L2_ENUM_UDEV, NULL);
+	if (impl->handle == NULL) {
 		res = -errno;
-		goto out;
+		goto out_free;
 	}
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(impl->handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
 		pw_log_error("can't get MONITOR interface: %d", res);
 		goto out_unload;
 	}
 
-	monitor->impl = impl;
-	monitor->handle = handle;
-	monitor->monitor = iface;
-	spa_list_init(&monitor->object_list);
+	impl->monitor = iface;
+	spa_list_init(&impl->object_list);
 
-	spa_device_add_listener(monitor->monitor, &monitor->listener,
-			&v4l2_udev_callbacks, monitor);
+	spa_device_add_listener(impl->monitor, &impl->listener,
+			&v4l2_udev_callbacks, impl);
 
+	return impl;
+
+out_unload:
+	pw_unload_spa_handle(impl->handle);
+out_free:
+	free(impl);
+	errno = -res;
+	return NULL;
+}
+
+int sm_v4l2_monitor_stop(void *data)
+{
+	struct impl *impl = data;
+	pw_unload_spa_handle(impl->handle);
+	free(impl);
 	return 0;
-
-      out_unload:
-	pw_unload_spa_handle(handle);
-      out:
-	return res;
 }

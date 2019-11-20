@@ -104,10 +104,24 @@ struct sm_port {
 	struct pw_port_info *info;
 };
 
+struct sm_session {
+	struct sm_object obj;
+
+#define SM_SESSION_CHANGE_MASK_INFO	(1<<0)
+	uint32_t mask;			/**< monitored info */
+	uint32_t avail;			/**< available info */
+	uint32_t changed;		/**< changed since last update */
+	struct pw_session_info *info;
+	struct spa_list endpoint_list;
+};
+
 struct sm_endpoint {
 	struct sm_object obj;
 
 	int32_t priority;
+
+	struct sm_session *session;
+	struct spa_list link;		/**< link in session endpoint_list */
 
 #define SM_ENDPOINT_CHANGE_MASK_INFO	(1<<0)
 #define SM_ENDPOINT_CHANGE_MASK_STREAMS	(1<<1)
@@ -163,10 +177,12 @@ struct sm_media_session_events {
 };
 
 struct sm_media_session {
-	struct pw_main_loop *loop;
+	struct sm_session *session;	/** session object managed by this session */
+
+	struct pw_loop *loop;		/** the main loop */
 	struct pw_core *core;
 
-	struct pw_session_info info;
+	struct spa_dbus_connection *dbus_connection;
 };
 
 int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook *listener,

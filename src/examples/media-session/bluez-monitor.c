@@ -38,12 +38,12 @@
 #include <spa/debug/dict.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
+#include "media-session.h"
 
 struct bluez5_object;
 
 struct bluez5_node {
-	struct monitor *monitor;
+	struct impl *impl;
 	struct bluez5_object *object;
 	struct spa_list link;
 	uint32_t id;
@@ -55,7 +55,7 @@ struct bluez5_node {
 };
 
 struct bluez5_object {
-	struct monitor *monitor;
+	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
 
@@ -67,6 +67,17 @@ struct bluez5_object {
 	struct spa_hook device_listener;
 
 	struct spa_list node_list;
+};
+
+struct impl {
+	struct sm_media_session *session;
+
+	struct spa_handle *handle;
+
+	struct spa_device *monitor;
+	struct spa_hook listener;
+
+	struct spa_list object_list;
 };
 
 static struct bluez5_node *bluez5_find_node(struct bluez5_object *obj, uint32_t id)
@@ -93,8 +104,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 		const struct spa_device_object_info *info)
 {
 	struct bluez5_node *node;
-	struct monitor *monitor = obj->monitor;
-	struct impl *impl = monitor->impl;
+	struct impl *impl = obj->impl;
 	struct pw_core *core = impl->session->core;
 	struct pw_factory *factory;
 	int res;
@@ -128,7 +138,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
-	node->monitor = monitor;
+	node->impl = impl;
 	node->object = obj;
 	node->id = id;
 
@@ -203,18 +213,18 @@ static const struct spa_device_events bluez5_device_events = {
 	.object_info = bluez5_device_object_info
 };
 
-static struct bluez5_object *bluez5_find_object(struct monitor *monitor, uint32_t id)
+static struct bluez5_object *bluez5_find_object(struct impl *impl, uint32_t id)
 {
 	struct bluez5_object *obj;
 
-	spa_list_for_each(obj, &monitor->object_list, link) {
+	spa_list_for_each(obj, &impl->object_list, link) {
 		if (obj->id == id)
 			return obj;
 	}
 	return NULL;
 }
 
-static void bluez5_update_object(struct monitor *monitor, struct bluez5_object *obj,
+static void bluez5_update_object(struct impl *impl, struct bluez5_object *obj,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
@@ -223,10 +233,9 @@ static void bluez5_update_object(struct monitor *monitor, struct bluez5_object *
 		spa_debug_dict(0, info->props);
 }
 
-static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint32_t id,
+static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct impl *impl = monitor->impl;
 	struct pw_core *core = impl->session->core;
 	struct bluez5_object *obj;
 	struct spa_handle *handle;
@@ -260,7 +269,7 @@ static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint3
 		goto unload_handle;
 	}
 
-	obj->monitor = monitor;
+	obj->impl = impl;
 	obj->id = id;
 	obj->handle = handle;
 	obj->device = iface;
@@ -277,9 +286,9 @@ static struct bluez5_object *bluez5_create_object(struct monitor *monitor, uint3
 	spa_device_add_listener(obj->device,
 			&obj->device_listener, &bluez5_device_events, obj);
 
-	spa_list_append(&monitor->object_list, &obj->link);
+	spa_list_append(&impl->object_list, &obj->link);
 
-	bluez5_update_object(monitor, obj, info);
+	bluez5_update_object(impl, obj, info);
 
 	return obj;
 
@@ -292,7 +301,7 @@ exit:
 	return NULL;
 }
 
-static void bluez5_remove_object(struct monitor *monitor, struct bluez5_object *obj)
+static void bluez5_remove_object(struct impl *impl, struct bluez5_object *obj)
 {
 	struct bluez5_node *node;
 
@@ -311,20 +320,20 @@ static void bluez5_remove_object(struct monitor *monitor, struct bluez5_object *
 static void bluez5_enum_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct monitor *monitor = data;
+	struct impl *impl = data;
 	struct bluez5_object *obj;
 
-	obj = bluez5_find_object(monitor, id);
+	obj = bluez5_find_object(impl, id);
 
 	if (info == NULL) {
 		if (obj == NULL)
 			return;
-		bluez5_remove_object(monitor, obj);
+		bluez5_remove_object(impl, obj);
 	} else if (obj == NULL) {
-		if ((obj = bluez5_create_object(monitor, id, info)) == NULL)
+		if ((obj = bluez5_create_object(impl, id, info)) == NULL)
 			return;
 	} else {
-		bluez5_update_object(monitor, obj, info);
+		bluez5_update_object(impl, obj, info);
 	}
 }
 
@@ -334,12 +343,13 @@ static const struct spa_device_events bluez5_enum_callbacks =
 	.object_info = bluez5_enum_object_info,
 };
 
-static int bluez5_start_monitor(struct impl *impl, struct monitor *monitor)
+void *sm_bluez5_monitor_start(struct sm_media_session *session)
 {
 	struct spa_handle *handle;
-	struct pw_core *core = impl->session->core;
+	struct pw_core *core = session->core;
 	int res;
 	void *iface;
+	struct impl *impl;
 
 	handle = pw_core_load_spa_handle(core, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
 	if (handle == NULL) {
@@ -352,18 +362,33 @@ static int bluez5_start_monitor(struct impl *impl, struct monitor *monitor)
 		goto out_unload;
 	}
 
-	monitor->impl = impl;
-	monitor->handle = handle;
-	monitor->monitor = iface;
-	spa_list_init(&monitor->object_list);
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL) {
+		res = -errno;
+		goto out_unload;
+	}
 
-	spa_device_add_listener(monitor->monitor, &monitor->listener,
-			&bluez5_enum_callbacks, monitor);
+	impl->session = session;
+	impl->handle = handle;
+	impl->monitor = iface;
+	spa_list_init(&impl->object_list);
 
-	return 0;
+	spa_device_add_listener(impl->monitor, &impl->listener,
+			&bluez5_enum_callbacks, impl);
+
+	return impl;
 
       out_unload:
 	pw_unload_spa_handle(handle);
       out:
-	return res;
+	errno = -res;
+	return NULL;
+}
+
+int sm_bluez5_monitor_stop(void *data)
+{
+	struct impl *impl = data;
+	pw_unload_spa_handle(impl->handle);
+	free(impl);
+	return 0;
 }

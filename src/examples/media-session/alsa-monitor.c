@@ -40,18 +40,20 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
+#include <spa/support/dbus.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/private.h"
+#include <pipewire/pipewire.h>
+#include <pipewire/main-loop.h>
+#include <extensions/session-manager.h>
+
+#include "media-session.h"
 
 #include "reserve.c"
 
 #define DEFAULT_JACK_SECONDS	1
 
-struct alsa_object;
-
 struct alsa_node {
-	struct monitor *monitor;
+	struct impl *impl;
 	enum pw_direction direction;
 	struct alsa_object *object;
 	struct spa_list link;
@@ -67,7 +69,7 @@ struct alsa_node {
 };
 
 struct alsa_object {
-	struct monitor *monitor;
+	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
 	uint32_t device_id;
@@ -87,6 +89,24 @@ struct alsa_object {
 	unsigned int first:1;
 	struct spa_list node_list;
 };
+
+struct impl {
+	struct sm_media_session *session;
+
+	DBusConnection *conn;
+
+	struct spa_handle *handle;
+
+	struct spa_device *monitor;
+	struct spa_hook listener;
+
+	struct spa_list object_list;
+
+	struct spa_source *jack_timeout;
+	struct pw_proxy *jack_device;
+};
+
+#include "alsa-endpoint.c"
 
 static struct alsa_node *alsa_find_node(struct alsa_object *obj, uint32_t id)
 {
@@ -125,8 +145,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct alsa_node *node;
-	struct monitor *monitor = obj->monitor;
-	struct impl *impl = monitor->impl;
+	struct impl *impl = obj->impl;
 	int res;
 	const char *dev, *subdev, *stream;
 	int priority;
@@ -216,7 +235,7 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 		}
 	}
 
-	node->monitor = monitor;
+	node->impl = impl;
 	node->object = obj;
 	node->id = id;
 	node->proxy = sm_media_session_create_object(impl->session,
@@ -292,18 +311,18 @@ static const struct spa_device_events alsa_device_events = {
 	.object_info = alsa_device_object_info
 };
 
-static struct alsa_object *alsa_find_object(struct monitor *monitor, uint32_t id)
+static struct alsa_object *alsa_find_object(struct impl *impl, uint32_t id)
 {
 	struct alsa_object *obj;
 
-	spa_list_for_each(obj, &monitor->object_list, link) {
+	spa_list_for_each(obj, &impl->object_list, link) {
 		if (obj->id == id)
 			return obj;
 	}
 	return NULL;
 }
 
-static void alsa_update_object(struct monitor *monitor, struct alsa_object *obj,
+static void alsa_update_object(struct impl *impl, struct alsa_object *obj,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update object %u", obj->id);
@@ -418,7 +437,7 @@ static void set_profile(struct alsa_object *obj, int index)
 
 static void remove_jack_timeout(struct impl *impl)
 {
-	struct pw_loop *main_loop = impl->session->loop->loop;
+	struct pw_loop *main_loop = impl->session->loop;
 
 	if (impl->jack_timeout) {
 		pw_loop_destroy_source(main_loop, impl->jack_timeout);
@@ -436,7 +455,7 @@ static void jack_timeout(void *data, uint64_t expirations)
 static void add_jack_timeout(struct impl *impl)
 {
 	struct timespec value;
-	struct pw_loop *main_loop = impl->session->loop->loop;
+	struct pw_loop *main_loop = impl->session->loop;
 
 	if (impl->jack_timeout == NULL)
 		impl->jack_timeout = pw_loop_add_timer(main_loop, jack_timeout, impl);
@@ -449,8 +468,7 @@ static void add_jack_timeout(struct impl *impl)
 static void reserve_acquired(void *data, struct rd_device *d)
 {
 	struct alsa_object *obj = data;
-	struct monitor *monitor = obj->monitor;
-	struct impl *impl = monitor->impl;
+	struct impl *impl = obj->impl;
 
 	pw_log_debug("%p: reserve acquired", obj);
 
@@ -464,8 +482,7 @@ static void reserve_acquired(void *data, struct rd_device *d)
 static void sync_complete_done(void *data, int seq)
 {
 	struct alsa_object *obj = data;
-	struct monitor *monitor = obj->monitor;
-	struct impl *impl = monitor->impl;
+	struct impl *impl = obj->impl;
 
 	pw_log_debug("%d %d", obj->seq, seq);
 	if (seq != obj->seq)
@@ -487,8 +504,7 @@ static const struct pw_proxy_events sync_complete_release = {
 static void reserve_release(void *data, struct rd_device *d, int forced)
 {
 	struct alsa_object *obj = data;
-	struct monitor *monitor = obj->monitor;
-	struct impl *impl = monitor->impl;
+	struct impl *impl = obj->impl;
 
 	pw_log_debug("%p: reserve release", obj);
 
@@ -507,10 +523,9 @@ static const struct rd_device_callbacks reserve_callbacks = {
 	.release = reserve_release,
 };
 
-static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t id,
+static struct alsa_object *alsa_create_object(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct impl *impl = monitor->impl;
 	struct pw_core *core = impl->session->core;
 	struct alsa_object *obj;
 	struct spa_handle *handle;
@@ -545,7 +560,7 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 		goto unload_handle;
 	}
 
-	obj->monitor = monitor;
+	obj->impl = impl;
 	obj->id = id;
 	obj->handle = handle;
 	obj->device = iface;
@@ -591,7 +606,7 @@ static struct alsa_object *alsa_create_object(struct monitor *monitor, uint32_t 
 	spa_device_add_listener(obj->device,
 			&obj->device_listener, &alsa_device_events, obj);
 
-	spa_list_append(&monitor->object_list, &obj->link);
+	spa_list_append(&impl->object_list, &obj->link);
 
 	return obj;
 
@@ -604,7 +619,7 @@ exit:
 	return NULL;
 }
 
-static void alsa_remove_object(struct monitor *monitor, struct alsa_object *obj)
+static void alsa_remove_object(struct impl *impl, struct alsa_object *obj)
 {
 	pw_log_debug("remove object %u", obj->id);
 	spa_list_remove(&obj->link);
@@ -621,20 +636,20 @@ static void alsa_remove_object(struct monitor *monitor, struct alsa_object *obj)
 static void alsa_udev_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct monitor *monitor = data;
+	struct impl *impl = data;
 	struct alsa_object *obj;
 
-	obj = alsa_find_object(monitor, id);
+	obj = alsa_find_object(impl, id);
 
 	if (info == NULL) {
 		if (obj == NULL)
 			return;
-		alsa_remove_object(monitor, obj);
+		alsa_remove_object(impl, obj);
 	} else if (obj == NULL) {
-		if ((obj = alsa_create_object(monitor, id, info)) == NULL)
+		if ((obj = alsa_create_object(impl, id, info)) == NULL)
 			return;
 	} else {
-		alsa_update_object(monitor, obj, info);
+		alsa_update_object(impl, obj, info);
 	}
 }
 
@@ -643,62 +658,6 @@ static const struct spa_device_events alsa_udev_events =
 	SPA_VERSION_DEVICE_EVENTS,
 	.object_info = alsa_udev_object_info,
 };
-
-static int alsa_start_midi_bridge(struct impl *impl)
-{
-	struct pw_properties *props;
-	int res = 0;
-
-	props = pw_properties_new(
-			SPA_KEY_FACTORY_NAME, SPA_NAME_API_ALSA_SEQ_BRIDGE,
-			SPA_KEY_NODE_NAME, "Midi-Bridge",
-			NULL);
-
-	impl->midi_bridge = sm_media_session_create_object(impl->session,
-				"spa-node-factory",
-				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
-				&props->dict,
-                                0);
-
-	if (impl->midi_bridge == NULL)
-		res = -errno;
-
-	return res;
-}
-
-static int alsa_start_monitor(struct impl *impl, struct monitor *monitor)
-{
-	struct spa_handle *handle;
-	struct pw_core *core = impl->session->core;
-	int res;
-	void *iface;
-
-	handle = pw_core_load_spa_handle(core, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
-	if (handle == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
-		pw_log_error("can't get udev Device interface: %d", res);
-		goto out_unload;
-	}
-
-	monitor->impl = impl;
-	monitor->handle = handle;
-	monitor->monitor = iface;
-	spa_list_init(&monitor->object_list);
-
-	spa_device_add_listener(monitor->monitor, &monitor->listener, &alsa_udev_events, monitor);
-
-	return 0;
-
-      out_unload:
-	pw_unload_spa_handle(handle);
-      out:
-	return res;
-}
 
 static int alsa_start_jack_device(struct impl *impl)
 {
@@ -721,4 +680,59 @@ static int alsa_start_jack_device(struct impl *impl)
 		res = -errno;
 
 	return res;
+}
+
+void *sm_alsa_monitor_start(struct sm_media_session *session)
+{
+	struct pw_core *core = session->core;
+	struct impl *impl;
+	void *iface;
+	int res;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->session = session;
+
+	if (session->dbus_connection)
+		impl->conn = spa_dbus_connection_get(session->dbus_connection);
+	if (impl->conn == NULL)
+		pw_log_warn("no dbus connection, device reservation disabled");
+	else
+		pw_log_debug("got dbus connection %p", impl->conn);
+
+	impl->handle = pw_core_load_spa_handle(core, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
+	if (impl->handle == NULL) {
+		res = -errno;
+		goto out_free;
+	}
+
+	if ((res = spa_handle_get_interface(impl->handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
+		pw_log_error("can't get udev Device interface: %d", res);
+		goto out_unload;
+	}
+	impl->monitor = iface;
+	spa_list_init(&impl->object_list);
+	spa_device_add_listener(impl->monitor, &impl->listener, &alsa_udev_events, impl);
+
+	if ((res = alsa_start_jack_device(impl)) < 0)
+		goto out_unload;
+
+	return impl;
+
+out_unload:
+	pw_unload_spa_handle(impl->handle);
+out_free:
+	free(impl);
+	errno = -res;
+	return NULL;
+}
+
+int sm_alsa_monitor_stop(void *data)
+{
+	struct impl *impl = data;
+	pw_unload_spa_handle(impl->handle);
+	free(impl);
+	return 0;
 }

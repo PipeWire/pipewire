@@ -270,7 +270,7 @@ static struct client_endpoint *make_endpoint(struct node *node)
 	endpoint->info.version = PW_VERSION_ENDPOINT_INFO;
 	endpoint->info.name = (char*)pw_properties_get(props, PW_KEY_ENDPOINT_NAME);
 	endpoint->info.media_class = (char*)pw_properties_get(props, PW_KEY_MEDIA_CLASS);
-	endpoint->info.session_id = impl->session->info.id;
+	endpoint->info.session_id = impl->session->session->obj.id;
 	endpoint->info.direction = node->direction;
 	endpoint->info.flags = 0;
 	endpoint->info.change_mask =
@@ -469,8 +469,9 @@ void * sm_stream_monitor_start(struct sm_media_session *session)
 	return impl;
 }
 
-int sm_stream_monitor_stop(struct impl *impl)
+int sm_stream_monitor_stop(void *data)
 {
+	struct impl *impl = data;
 	spa_hook_remove(&impl->listener);
 	return 0;
 }

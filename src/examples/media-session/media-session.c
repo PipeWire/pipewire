@@ -53,7 +53,12 @@
 #define sm_media_session_emit_remove(s,obj)		sm_media_session_emit(s, remove, 0, obj)
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
 
-int sm_monitor_start(struct sm_media_session *sess);
+void * sm_stream_monitor_start(struct sm_media_session *sess);
+void * sm_metadata_start(struct sm_media_session *sess);
+void * sm_alsa_midi_start(struct sm_media_session *sess);
+void * sm_v4l2_monitor_start(struct sm_media_session *sess);
+void * sm_bluez5_monitor_start(struct sm_media_session *sess);
+void * sm_alsa_monitor_start(struct sm_media_session *sess);
 int sm_policy_ep_start(struct sm_media_session *sess);
 
 /** user data to add to an object */
@@ -77,6 +82,10 @@ struct sync {
 
 struct impl {
 	struct sm_media_session this;
+	uint32_t session_id;
+
+	struct pw_main_loop *loop;
+	struct spa_dbus *dbus;
 
 	struct pw_remote *monitor_remote;
 	struct spa_hook monitor_listener;
@@ -384,6 +393,54 @@ static void port_destroy(void *object)
 }
 
 /**
+ * Session
+ */
+static void session_event_info(void *object, const struct pw_session_info *info)
+{
+	struct sm_session *sess = object;
+	struct impl *impl = SPA_CONTAINER_OF(sess->obj.session, struct impl, this);
+	struct pw_session_info *i = sess->info;
+
+	pw_log_debug(NAME" %p: session %d info", impl, sess->obj.id);
+	if (i == NULL && info) {
+		i = sess->info = calloc(1, sizeof(struct pw_session_info));
+		i->version = PW_VERSION_SESSION_INFO;
+		i->id = info->id;
+        }
+	i->change_mask = info->change_mask;
+	if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) {
+		if (i->props)
+			pw_properties_free ((struct pw_properties *)i->props);
+		i->props = (struct spa_dict *) pw_properties_new_dict (info->props);
+	}
+
+	sess->avail |= SM_SESSION_CHANGE_MASK_INFO;
+	sess->changed |= SM_SESSION_CHANGE_MASK_INFO;
+	sm_media_session_emit_update(impl, &sess->obj);
+	sess->changed = 0;
+}
+
+static const struct pw_session_proxy_events session_events = {
+	PW_VERSION_SESSION_PROXY_EVENTS,
+	.info = session_event_info,
+};
+
+static void session_destroy(void *object)
+{
+	struct sm_session *sess = object;
+	struct sm_endpoint *endpoint;
+
+	if (sess->info) {
+		free(sess->info);
+	}
+
+	spa_list_consume(endpoint, &sess->endpoint_list, link) {
+		endpoint->session = NULL;
+		spa_list_remove(&endpoint->link);
+	}
+}
+
+/**
  * Endpoint
  */
 static void endpoint_event_info(void *object, const struct pw_endpoint_info *info)
@@ -439,6 +496,10 @@ static void endpoint_destroy(void *object)
 	spa_list_consume(stream, &endpoint->stream_list, link) {
 		stream->endpoint = NULL;
 		spa_list_remove(&stream->link);
+	}
+	if (endpoint->session) {
+		endpoint->session = NULL;
+		spa_list_remove(&endpoint->link);
 	}
 }
 
@@ -564,7 +625,7 @@ registry_global(void *data,uint32_t id,
 	const void *events;
         uint32_t client_version;
         pw_destroy_t destroy;
-        struct sm_object *obj;
+        struct sm_object *obj = NULL;
         struct pw_proxy *proxy;
 	size_t user_data_size;
 	const char *str;
@@ -591,6 +652,13 @@ registry_global(void *data,uint32_t id,
                 client_version = PW_VERSION_PORT_PROXY;
                 destroy = (pw_destroy_t) port_destroy;
 		user_data_size = sizeof(struct sm_port);
+		break;
+
+	case PW_TYPE_INTERFACE_Session:
+		events = &session_events;
+                client_version = PW_VERSION_SESSION_PROXY;
+                destroy = (pw_destroy_t) session_destroy;
+		user_data_size = sizeof(struct sm_session);
 		break;
 
 	case PW_TYPE_INTERFACE_Endpoint:
@@ -625,7 +693,8 @@ registry_global(void *data,uint32_t id,
 		goto error;
 	}
 
-	obj = pw_proxy_get_user_data(proxy);
+	if (obj == NULL)
+		obj = pw_proxy_get_user_data(proxy);
 	obj->session = &impl->this;
 	obj->id = id;
 	obj->type = type;
@@ -667,9 +736,24 @@ registry_global(void *data,uint32_t id,
 		}
 		break;
 	}
+	case PW_TYPE_INTERFACE_Session:
+	{
+		struct sm_session *sess = (struct sm_session*) obj;
+		if (id == impl->session_id)
+			impl->this.session = sess;
+		spa_list_init(&sess->endpoint_list);
+		break;
+	}
 	case PW_TYPE_INTERFACE_Endpoint:
 	{
 		struct sm_endpoint *endpoint = (struct sm_endpoint*) obj;
+		if (props) {
+			if ((str = spa_dict_lookup(props, PW_KEY_SESSION_ID)) != NULL)
+				endpoint->session = find_object(impl, atoi(str));
+			pw_log_debug(NAME" %p: endpoint %d parent session %s", impl, id, str);
+			if (endpoint->session)
+				spa_list_append(&endpoint->session->endpoint_list, &endpoint->link);
+		}
 		spa_list_init(&endpoint->stream_list);
 		break;
 	}
@@ -759,7 +843,7 @@ static void roundtrip_callback(void *data)
 int sm_media_session_roundtrip(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	struct pw_main_loop *loop = sess->loop;
+	struct pw_loop *loop = impl->this.loop;
 	int done, res;
 
 	if (impl->core_proxy == NULL)
@@ -771,15 +855,15 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 
 	pw_log_debug(NAME" %p: roundtrip %d", impl, res);
 
-	pw_loop_enter(loop->loop);
+	pw_loop_enter(loop);
 	while (!done) {
-		if ((res = pw_loop_iterate(loop->loop, -1)) < 0) {
+		if ((res = pw_loop_iterate(loop, -1)) < 0) {
 			pw_log_warn(NAME" %p: iterate error %d (%s)",
 				loop, res, spa_strerror(res));
 			break;
 		}
 	}
-        pw_loop_leave(loop->loop);
+        pw_loop_leave(loop);
 
 	pw_log_debug(NAME" %p: roundtrip done", impl);
 
@@ -986,7 +1070,7 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 
 		link->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
 		link->info.id = link->id;
-		link->info.session_id = impl->this.info.id;
+		link->info.session_id = impl->this.session->obj.id;
 		link->info.output_endpoint_id = outendpoint->info->id;
 		link->info.output_stream_id = outstream ? outstream->info->id : SPA_ID_INVALID;
 		link->info.input_endpoint_id = inendpoint->info->id;
@@ -1021,16 +1105,29 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 static int client_session_set_id(void *object, uint32_t id)
 {
 	struct impl *impl = object;
+	struct pw_session_info info;
+
+	impl->session_id = id;
+
+	spa_zero(info);
+	info.version = PW_VERSION_SESSION_INFO;
+	info.id = id;
 
 	pw_log_debug("got sesssion id:%d", id);
-	impl->this.info.id = id;
 
 	pw_client_session_proxy_update(impl->client_session,
 			PW_CLIENT_SESSION_UPDATE_INFO,
 			0, NULL,
-			&impl->this.info);
+			&info);
 
-	return sm_monitor_start(&impl->this);
+	/* start monitors */
+	sm_metadata_start(&impl->this);
+	sm_alsa_midi_start(&impl->this);
+	sm_bluez5_monitor_start(&impl->this);
+	sm_alsa_monitor_start(&impl->this);
+	sm_v4l2_monitor_start(&impl->this);
+	sm_stream_monitor_start(&impl->this);
+	return 0;
 }
 
 static int client_session_set_param(void *object, uint32_t id, uint32_t flags,
@@ -1071,7 +1168,6 @@ static int start_session(struct impl *impl)
                                             PW_TYPE_INTERFACE_ClientSession,
                                             PW_VERSION_CLIENT_SESSION_PROXY,
                                             NULL, 0);
-	impl->this.info.version = PW_VERSION_SESSION_INFO;
 
 	pw_client_session_proxy_add_listener(impl->client_session,
 			&impl->client_session_listener,
@@ -1114,12 +1210,11 @@ static void on_monitor_state_changed(void *_data, enum pw_remote_state old,
 		enum pw_remote_state state, const char *error)
 {
 	struct impl *impl = _data;
-	struct sm_media_session *sess = &impl->this;
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		pw_log_error(NAME" %p: remote error: %s", impl, error);
-		pw_main_loop_quit(sess->loop);
+		pw_main_loop_quit(impl->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -1138,7 +1233,7 @@ static void on_monitor_state_changed(void *_data, enum pw_remote_state old,
 
 	case PW_REMOTE_STATE_UNCONNECTED:
 		pw_log_info(NAME" %p: disconnected", impl);
-		pw_main_loop_quit(sess->loop);
+		pw_main_loop_quit(impl->loop);
 		break;
 
 	default:
@@ -1156,12 +1251,11 @@ static void on_policy_state_changed(void *_data, enum pw_remote_state old,
 		enum pw_remote_state state, const char *error)
 {
 	struct impl *impl = _data;
-	struct sm_media_session *sess = &impl->this;
 
 	switch (state) {
 	case PW_REMOTE_STATE_ERROR:
 		pw_log_error(NAME" %p: remote error: %s", impl, error);
-		pw_main_loop_quit(sess->loop);
+		pw_main_loop_quit(impl->loop);
 		break;
 
 	case PW_REMOTE_STATE_CONNECTED:
@@ -1171,7 +1265,7 @@ static void on_policy_state_changed(void *_data, enum pw_remote_state old,
 
 	case PW_REMOTE_STATE_UNCONNECTED:
 		pw_log_info(NAME" %p: disconnected", impl);
-		pw_main_loop_quit(sess->loop);
+		pw_main_loop_quit(impl->loop);
 		break;
 
 	default:
@@ -1188,12 +1282,15 @@ static const struct pw_remote_events policy_remote_events = {
 int main(int argc, char *argv[])
 {
 	struct impl impl = { 0, };
+	const struct spa_support *support;
+	uint32_t n_support;
 	int res;
 
 	pw_init(&argc, &argv);
 
-	impl.this.loop = pw_main_loop_new(NULL);
-	impl.this.core = pw_core_new(pw_main_loop_get_loop(impl.this.loop), NULL, 0);
+	impl.loop = pw_main_loop_new(NULL);
+	impl.this.loop = pw_main_loop_get_loop(impl.loop);
+	impl.this.core = pw_core_new(impl.this.loop, NULL, 0);
 
 	pw_core_add_spa_lib(impl.this.core, "api.bluez5.*", "bluez5/libspa-bluez5");
 	pw_core_add_spa_lib(impl.this.core, "api.alsa.*", "alsa/libspa-alsa");
@@ -1217,15 +1314,25 @@ int main(int argc, char *argv[])
 	spa_list_init(&impl.sync_list);
 	spa_hook_list_init(&impl.hooks);
 
+	support = pw_core_get_support(impl.this.core, &n_support);
+
+	impl.dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
+	if (impl.dbus)
+		impl.this.dbus_connection = spa_dbus_get_connection(impl.dbus, DBUS_BUS_SESSION);
+	if (impl.this.dbus_connection == NULL)
+		pw_log_warn("no dbus connection");
+	else
+		pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
+
 	if ((res = pw_remote_connect(impl.monitor_remote)) < 0)
 		return res;
 	if ((res = pw_remote_connect(impl.policy_remote)) < 0)
 		return res;
 
-	pw_main_loop_run(impl.this.loop);
+	pw_main_loop_run(impl.loop);
 
 	pw_core_destroy(impl.this.core);
-	pw_main_loop_destroy(impl.this.loop);
+	pw_main_loop_destroy(impl.loop);
 
 	return 0;
 }

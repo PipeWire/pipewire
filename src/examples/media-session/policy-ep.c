@@ -539,13 +539,13 @@ static const struct sm_media_session_events session_events = {
 	.rescan = session_rescan,
 };
 
-int sm_policy_ep_start(struct sm_media_session *session)
+void *sm_policy_ep_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return -errno;
+		return NULL;
 
 	impl->session = session;
 	impl->core = session->core;
@@ -554,10 +554,12 @@ int sm_policy_ep_start(struct sm_media_session *session)
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
 
-	return 0;
+	return impl;
 }
 
-int sm_policy_ep_stop(struct pw_core *core)
+int sm_policy_ep_stop(void *data)
 {
+	struct impl *impl = data;
+	free(impl);
 	return 0;
 }

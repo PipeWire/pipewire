@@ -1,7 +1,52 @@
-image: registry.freedesktop.org/pipewire/pipewire/fedora:31
+stages:
+  - container
+  - build
+
+variables:
+  # Update this tag when you want to trigger a rebuild
+  FEDORA_TAG: '2019-11-21-01'
+  FEDORA_VERSION: '31'
+  FEDORA_IMAGE: "$CI_REGISTRY_IMAGE/fedora/$FEDORA_VERSION:$FEDORA_TAG"
+
+include:
+  - project: 'wayland/ci-templates'
+    ref: master
+    file: '/templates/fedora.yml'
+
+build-container:
+  extends: .fedora@container-ifnot-exists
+  stage: container
+  variables:
+    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
+    FEDORA_RPMS: >-
+      alsa-lib-devel
+      bluez-libs-devel
+      dbus-devel
+      doxygen
+      findutils
+      gcc
+      git
+      glib-devel
+      graphviz
+      gstreamer1-devel
+      gstreamer1-plugins-base-devel
+      jack-audio-connection-kit-devel
+      libv4l-devel
+      libva-devel
+      libX11-devel
+      make
+      meson
+      pulseaudio-libs-devel
+      sbc-devel
+      SDL2-devel
+      systemd-devel
+      vulkan-loader-devel
+      which
+      xmltoman
 
 build:
   stage: build
+  image: $FEDORA_IMAGE
   script:
      - ./autogen.sh -Ddocs=true -Daudiomixer=true -Daudiotestsrc=true -Dtest=true -Dvideotestsrc=true -Dvolume=true
      - make

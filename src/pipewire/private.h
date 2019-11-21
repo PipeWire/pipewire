@@ -817,7 +817,6 @@ struct pw_filter {
 	struct spa_hook proxy_listener;
 
 	struct pw_node_proxy *node;
-	struct spa_hook node_listener;
 
 	struct spa_list controls;
 };

@@ -185,6 +185,7 @@ static struct param *add_param(struct filter *impl, struct port *port,
 	p->id = id;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
+	SPA_POD_OBJECT_ID(p->param) = id;
 
 	idx = get_param_index(id);
 
@@ -460,7 +461,7 @@ static int impl_port_enum_params(void *object, int seq,
 	if ((port = get_port(d, direction, port_id)) == NULL)
 		return -EINVAL;
 
-	pw_log_debug(NAME" %p: param id %d (%s) start:%d num:%d", d, id,
+	pw_log_debug(NAME" %p: port %p param id %d (%s) start:%d num:%d", d, port, id,
 			spa_debug_type_find_name(spa_type_param, id),
 			start, num);
 
@@ -488,30 +489,44 @@ static int impl_port_enum_params(void *object, int seq,
 	return 0;
 }
 
+static int update_params(struct filter *impl, struct port *port, uint32_t id,
+		const struct spa_pod **params, uint32_t n_params)
+{
+	uint32_t i;
+	int res = 0;
+
+	if (id != SPA_ID_INVALID) {
+		clear_params(impl, port, id);
+	} else {
+		for (i = 0; i < n_params; i++) {
+			if (!spa_pod_is_object(params[i]))
+				continue;
+			clear_params(impl, port, SPA_POD_OBJECT_ID(params[i]));
+		}
+	}
+	for (i = 0; i < n_params; i++) {
+		if (add_param(impl, port, id, params[i]) == NULL) {
+			res = -errno;
+			break;
+		}
+	}
+	return res;
+}
+
 static int port_set_param(struct filter *impl, struct port *port,
 			   uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct pw_filter *filter = &impl->this;
-	struct param *p;
 	int res, idx;
 
 	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_pod(2, NULL, param);
 
-	clear_params(impl, port, id);
-	if (param) {
-		p = add_param(impl, port, id, param);
-		if (p == NULL) {
-			res = -errno;
-			goto error_exit;
-		}
-		SPA_POD_OBJECT_ID(p->param) = id;
-	}
-	else
-		p = NULL;
+	if ((res = update_params(impl, port, id, &param, 1)) < 0)
+		return res;
 
-	pw_filter_emit_param_changed(filter, port->user_data, id, p ? p->param : NULL);
+	pw_filter_emit_param_changed(filter, port->user_data, id, param);
 
 	if (filter->state == PW_FILTER_STATE_ERROR)
 		return -EIO;
@@ -522,9 +537,6 @@ static int port_set_param(struct filter *impl, struct port *port,
 		impl->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
 		emit_port_info(impl, port, false);
 	}
-	return 0;
-
-error_exit:
 	return res;
 }
 
@@ -863,38 +875,6 @@ static const struct pw_proxy_events proxy_events = {
 	.error = proxy_error,
 };
 
-static void node_event_info(void *object, const struct pw_node_info *info)
-{
-	struct pw_filter *filter = object;
-	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	uint32_t subscribe[info->n_params], n_subscribe = 0;
-	uint32_t i;
-
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS && !impl->subscribe) {
-		for (i = 0; i < info->n_params; i++) {
-
-			switch (info->params[i].id) {
-			case SPA_PARAM_PropInfo:
-			case SPA_PARAM_Props:
-				subscribe[n_subscribe++] = info->params[i].id;
-				break;
-			default:
-				break;
-			}
-		}
-		if (n_subscribe > 0) {
-			pw_node_proxy_subscribe_params((struct pw_node_proxy*)filter->proxy,
-					subscribe, n_subscribe);
-			impl->subscribe = true;
-		}
-	}
-}
-
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
-	.info = node_event_info,
-};
-
 static int handle_connect(struct pw_filter *filter)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
@@ -923,8 +903,6 @@ static int handle_connect(struct pw_filter *filter)
 	}
 
 	pw_proxy_add_listener(filter->proxy, &filter->proxy_listener, &proxy_events, filter);
-	pw_node_proxy_add_listener((struct pw_node_proxy*)filter->proxy,
-			&filter->node_listener, &node_events, filter);
 
 	if (!SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_INACTIVE))
 		pw_node_set_active(impl->node, true);
@@ -1334,26 +1312,6 @@ static void add_video_dsp_port_params(struct filter *impl, struct port *port)
 							&SPA_FRACTION(INT32_MAX,1))));
 }
 
-static int update_params(struct filter *impl, struct port *port,
-		const struct spa_pod **params, uint32_t n_params)
-{
-	uint32_t i;
-	int res = 0;
-
-	for (i = 0; i < n_params; i++) {
-		if (!spa_pod_is_object(params[i]))
-			continue;
-		clear_params(impl, port, SPA_POD_OBJECT_ID(params[i]));
-	}
-	for (i = 0; i < n_params; i++) {
-		if (add_param(impl, port, SPA_ID_INVALID, params[i]) == NULL) {
-			res = -errno;
-			break;
-		}
-	}
-	return res;
-}
-
 SPA_EXPORT
 void *pw_filter_add_port(struct pw_filter *filter,
 		enum pw_direction direction,
@@ -1389,7 +1347,7 @@ void *pw_filter_add_port(struct pw_filter *filter,
 			add_video_dsp_port_params(impl, p);
 	}
 	/* then override with user provided if any */
-	update_params(impl, p, params, n_params);
+	update_params(impl, p, SPA_ID_INVALID, params, n_params);
 
 	p->change_mask_all = SPA_PORT_CHANGE_MASK_FLAGS |
 		SPA_PORT_CHANGE_MASK_PROPS;
@@ -1448,7 +1406,7 @@ int pw_filter_update_params(struct pw_filter *filter,
 		return 0;
 	}
 
-	res = update_params(impl, port, params, n_params);
+	res = update_params(impl, port, SPA_ID_INVALID, params, n_params);
 
 	return res;
 }

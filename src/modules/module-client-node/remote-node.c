@@ -287,6 +287,8 @@ static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
 			struct spa_pod *param;
 
 			id = node->info.params[i].id;
+			if (id == SPA_PARAM_Invalid)
+				continue;
 
 			for (idx = 0;;) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));
@@ -344,6 +346,8 @@ static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_
 			struct spa_pod *param;
 
 			id = port->info.params[i].id;
+			if (id == SPA_PARAM_Invalid)
+				continue;
 
 			for (idx = 0;;) {
 				spa_pod_builder_init(&b, buf, sizeof(buf));

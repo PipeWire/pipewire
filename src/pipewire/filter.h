@@ -189,11 +189,15 @@ const struct pw_properties *pw_filter_get_properties(struct pw_filter *filter,
 int pw_filter_update_properties(struct pw_filter *filter,
 		void *port_data, const struct spa_dict *dict);
 
+/** Set the filter in error state */
+int pw_filter_set_error(struct pw_filter *filter,	/**< a \ref pw_filter */
+			int res,			/**< a result code */
+			const char *error, ...		/**< an error message */) SPA_PRINTF_FUNC(3, 4);
+
 /** Update params, use NULL port_data for global filter params */
 int
 pw_filter_update_params(struct pw_filter *filter,	/**< a \ref pw_filter */
 			void *port_data,		/**< data associated with port */
-			int res,			/**< a result code */
 			const struct spa_pod **params,	/**< an array of params. */
 			uint32_t n_params		/**< number of elements in \a params */);
 

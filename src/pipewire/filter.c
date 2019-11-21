@@ -1387,28 +1387,40 @@ int pw_filter_remove_port(void *port_data)
 }
 
 SPA_EXPORT
+int pw_filter_set_error(struct pw_filter *filter,
+			int res, const char *error, ...)
+{
+	if (res < 0) {
+		va_list args;
+		char *value;
+
+		va_start(args, error);
+		vasprintf(&value, error, args);
+
+		if (filter->proxy)
+			pw_proxy_error(filter->proxy, res, value);
+
+		filter_set_state(filter, PW_STREAM_STATE_ERROR, value);
+		va_end(args);
+		free(value);
+	}
+	return res;
+}
+
+SPA_EXPORT
 int pw_filter_update_params(struct pw_filter *filter,
 		void *port_data,
-		int res,
 		const struct spa_pod **params,
 		uint32_t n_params)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	struct port *port;
 
-	pw_log_debug(NAME" %p: update params %d", filter, res);
+	pw_log_debug(NAME" %p: update params", filter);
 
 	port = port_data ? SPA_CONTAINER_OF(port_data, struct port, user_data) : NULL;
 
-	if (res < 0) {
-		pw_proxy_error(filter->proxy, res, "params failed");
-		filter_set_state(filter, PW_FILTER_STATE_ERROR, "params error");
-		return 0;
-	}
-
-	res = update_params(impl, port, SPA_ID_INVALID, params, n_params);
-
-	return res;
+	return update_params(impl, port, SPA_ID_INVALID, params, n_params);
 }
 
 SPA_EXPORT

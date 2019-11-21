@@ -176,14 +176,9 @@ on_filter_param_changed(void *_data, void *port_data, uint32_t id, const struct 
 	Uint32 sdl_format;
 	void *d;
 
-	if (id != SPA_PARAM_Format)
-		return;
-
 	/* NULL means to clear the format */
-	if (param == NULL) {
-		pw_filter_update_params(filter, port_data, 0, NULL, 0);
+	if (param == NULL || id != SPA_PARAM_Format)
 		return;
-	}
 
 	fprintf(stderr, "got format:\n");
 	spa_debug_format(2, NULL, param);
@@ -197,7 +192,7 @@ on_filter_param_changed(void *_data, void *port_data, uint32_t id, const struct 
 		sdl_format = SDL_PIXELFORMAT_UNKNOWN;
 
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
-		pw_filter_update_params(filter, port_data, -EINVAL, NULL, 0);
+		pw_filter_set_error(filter, -EINVAL, "unknown format");
 		return;
 	}
 
@@ -225,7 +220,7 @@ on_filter_param_changed(void *_data, void *port_data, uint32_t id, const struct 
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
 	/* we are done */
-	pw_filter_update_params(filter, port_data, 0, params, 1);
+	pw_filter_update_params(filter, port_data, params, 1);
 }
 
 /* these are the filter events we listen for */

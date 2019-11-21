@@ -118,7 +118,7 @@ static int client_session_link_update(void *object,
 	free(link);
 	pw_log_error(NAME" %p: cannot update link: no memory", this);
 	pw_resource_error(this->resource, -ENOMEM,
-		NAME" %p: cannot update link: no memory", this);
+		"cannot update link: no memory");
 	return -ENOMEM;
 }
 

@@ -266,33 +266,33 @@ error_properties:
 error_output:
 	res = -EINVAL;
 	pw_log_error(NAME" unknown output node %u", output_node_id);
-	pw_resource_error(resource, res, "unknown output node %u", output_node_id);
+	pw_resource_errorf(resource, res, "unknown output node %u", output_node_id);
 	goto error_exit;
 error_input:
 	res = -EINVAL;
 	pw_log_error(NAME" unknown input node %u", input_node_id);
-	pw_resource_error(resource, res, "unknown input node %u", input_node_id);
+	pw_resource_errorf(resource, res, "unknown input node %u", input_node_id);
 	goto error_exit;
 error_output_port:
 	res = -EINVAL;
 	pw_log_error(NAME" unknown output port %u", output_port_id);
-	pw_resource_error(resource, res, "unknown output port %u", output_port_id);
+	pw_resource_errorf(resource, res, "unknown output port %u", output_port_id);
 	goto error_exit;
 error_input_port:
 	res = -EINVAL;
 	pw_log_error(NAME" unknown input port %u", input_port_id);
-	pw_resource_error(resource, res, "unknown input port %u", input_port_id);
+	pw_resource_errorf(resource, res, "unknown input port %u", input_port_id);
 	goto error_exit;
 error_create_link:
 	pw_log_error("can't create link: %s", spa_strerror(res));
-	pw_resource_error(resource, res, "can't create link: %s", spa_strerror(res));
+	pw_resource_errorf(resource, res, "can't create link: %s", spa_strerror(res));
 	goto error_exit;
 error_link_register:
 	pw_log_error("can't register link: %s", spa_strerror(res));
-	pw_resource_error(resource, res, "can't register link: %s", spa_strerror(res));
+	pw_resource_errorf(resource, res, "can't register link: %s", spa_strerror(res));
 	goto error_exit;
 error_bind:
-	pw_resource_error(resource, res, "can't bind link: %s", spa_strerror(res));
+	pw_resource_errorf(resource, res, "can't bind link: %s", spa_strerror(res));
 	goto error_exit;
 error_exit:
 	if (properties)

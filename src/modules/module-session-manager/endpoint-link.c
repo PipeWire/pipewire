@@ -253,7 +253,7 @@ int endpoint_link_update(struct endpoint_link *this,
       no_mem:
 	pw_log_error(NAME" %p: can't update: no memory", this);
 	pw_resource_error(this->client_sess->resource, -ENOMEM,
-			NAME" %p: can't update: no memory", this);
+			"can't update: no memory");
 	return -ENOMEM;
 }
 
@@ -300,7 +300,7 @@ static int endpoint_link_bind(void *_data, struct pw_client *client,
       no_mem:
 	pw_log_error(NAME" %p: can't create resource: no memory", this);
 	pw_resource_error(this->client_sess->resource, -ENOMEM,
-			NAME" %p: can't create resource: no memory", this);
+			"can't create resource: no memory");
 	return -ENOMEM;
 }
 

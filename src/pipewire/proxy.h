@@ -156,7 +156,8 @@ struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 int pw_proxy_sync(struct pw_proxy *proxy, int seq);
 
 /** Generate an error for a proxy */
-int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error, ...);
+int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error);
+int pw_proxy_errorf(struct pw_proxy *proxy, int res, const char *error, ...) SPA_PRINTF_FUNC(3, 4);
 
 /** Get the listener of proxy */
 struct spa_hook_list *pw_proxy_get_object_listeners(struct pw_proxy *proxy);

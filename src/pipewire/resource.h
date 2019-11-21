@@ -122,7 +122,8 @@ void pw_resource_add_object_listener(struct pw_resource *resource,
 int pw_resource_ping(struct pw_resource *resource, int seq);
 
 /** Generate an error for a resource */
-void pw_resource_error(struct pw_resource *resource, int res, const char *error, ...);
+void pw_resource_error(struct pw_resource *resource, int res, const char *error);
+void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...) SPA_PRINTF_FUNC(3, 4);
 
 /** Get the list of object listeners from a resource */
 struct spa_hook_list *pw_resource_get_object_listeners(struct pw_resource *resource);

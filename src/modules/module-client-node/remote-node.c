@@ -485,7 +485,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 	default:
 		pw_log_warn("unhandled node command %d", SPA_NODE_COMMAND_ID(command));
 		res = -ENOTSUP;
-		pw_proxy_error(proxy, res, "command %d not supported", SPA_NODE_COMMAND_ID(command));
+		pw_proxy_errorf(proxy, res, "command %d not supported", SPA_NODE_COMMAND_ID(command));
 	}
 	return res;
 }
@@ -567,7 +567,7 @@ client_node_port_set_param(void *object,
 
 error_exit:
         pw_log_error("port %p: set_param %d %p: %s", port, id, param, spa_strerror(res));
-	pw_proxy_error(proxy, res, "port_set_param: %s", spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "port_set_param: %s", spa_strerror(res));
 	return res;
 }
 
@@ -706,7 +706,7 @@ error_exit_cleanup:
 	clear_buffers(data, mix);
 error_exit:
         pw_log_error("port %p: use_buffers: %d %s", mix, res, spa_strerror(res));
-	pw_proxy_error(proxy, res, "port_use_buffers error: %s", spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "port_use_buffers error: %s", spa_strerror(res));
 	return res;
 }
 
@@ -773,7 +773,7 @@ client_node_port_set_io(void *object,
 
 error_exit:
         pw_log_error("port %p: set_io: %s", mix, spa_strerror(res));
-	pw_proxy_error(proxy, res, "port_set_io failed: %s", spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "port_set_io failed: %s", spa_strerror(res));
 	return res;
 }
 
@@ -867,7 +867,7 @@ client_node_set_activation(void *object,
 
 error_exit:
 	pw_log_error("node %p: set activation %d: %s", node, node_id, spa_strerror(res));
-	pw_proxy_error(proxy, res, "set_activation: %s", spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "set_activation: %s", spa_strerror(res));
 	return res;
 }
 

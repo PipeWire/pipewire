@@ -167,7 +167,7 @@ error_create_node:
 	res = -errno;
 	pw_log_error("can't create node: %m");
 	if (resource)
-		pw_resource_error(resource, res, "can't create node: %s", spa_strerror(res));
+		pw_resource_errorf(resource, res, "can't create node: %s", spa_strerror(res));
 	goto error_exit;
 error_bind:
 	pw_resource_error(resource, res, "can't bind node");

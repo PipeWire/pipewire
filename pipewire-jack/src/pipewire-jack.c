@@ -1218,7 +1218,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 		break;
 	default:
 		pw_log_warn(NAME" %p: unhandled node command %d", c, SPA_COMMAND_TYPE(command));
-		pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP,
+		pw_proxy_errorf((struct pw_proxy*)c->node_proxy, -ENOTSUP,
 				"unhandled command %d", SPA_COMMAND_TYPE(command));
 	}
 	return 0;

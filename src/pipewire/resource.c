@@ -206,7 +206,7 @@ int pw_resource_ping(struct pw_resource *resource, int seq)
 }
 
 SPA_EXPORT
-void pw_resource_error(struct pw_resource *resource, int res, const char *error, ...)
+void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...)
 {
 	va_list ap;
 	struct pw_client *client = resource->client;
@@ -216,6 +216,15 @@ void pw_resource_error(struct pw_resource *resource, int res, const char *error,
 		pw_core_resource_errorv(client->core_resource,
 				resource->id, client->recv_seq, res, error, ap);
 	va_end(ap);
+}
+
+SPA_EXPORT
+void pw_resource_error(struct pw_resource *resource, int res, const char *error)
+{
+	struct pw_client *client = resource->client;
+	if (client->core_resource != NULL)
+		pw_core_resource_error(client->core_resource,
+				resource->id, client->recv_seq, res, error);
 }
 
 SPA_EXPORT

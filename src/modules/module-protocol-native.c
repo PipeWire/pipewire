@@ -164,7 +164,7 @@ process_messages(struct client_data *data)
 		if (resource == NULL) {
 			pw_log_error(NAME" %p: unknown resource %u op:%u",
 				     client->protocol, msg->id, msg->opcode);
-			pw_resource_error(client->core_resource,
+			pw_resource_errorf(client->core_resource,
 					-EINVAL, "unknown resource %u op:%u", msg->id, msg->opcode);
 			continue;
 		}
@@ -185,8 +185,8 @@ process_messages(struct client_data *data)
 		if ((required & permissions) != required) {
 			pw_log_error(NAME" %p: method %u on %u requires %08x, have %08x",
 				     client->protocol, msg->opcode, msg->id, required, permissions);
-			pw_resource_error(resource,
-				-EACCES, "no permission to call method %u ", msg->opcode, msg->id);
+			pw_resource_errorf(resource,
+				-EACCES, "no permission to call method %u on %u", msg->opcode, msg->id);
 			continue;
 		}
 
@@ -200,14 +200,14 @@ done:
 invalid_method:
 	pw_log_error(NAME" %p: invalid method id:%u op:%u",
 		     client->protocol, msg->id, msg->opcode);
-	pw_resource_error(resource, -EINVAL, "invalid method id:%u op:%u",
+	pw_resource_errorf(resource, -EINVAL, "invalid method id:%u op:%u",
 			msg->id, msg->opcode);
 	pw_client_destroy(client);
 	goto done;
 invalid_message:
 	pw_log_error(NAME" %p: invalid message received id:%u op:%u (%s)",
 		     client->protocol, msg->id, msg->opcode, spa_strerror(res));
-	pw_resource_error(resource, res, "invalid message received id:%u op:%u (%s)",
+	pw_resource_errorf(resource, res, "invalid message received id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
 	spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 	pw_client_destroy(client);

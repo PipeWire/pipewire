@@ -220,7 +220,7 @@ int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 }
 
 SPA_EXPORT
-int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error, ...)
+int pw_proxy_errorf(struct pw_proxy *proxy, int res, const char *error, ...)
 {
 	va_list ap;
 	int r = -EIO;
@@ -231,6 +231,17 @@ int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error, ...)
 		r = pw_core_proxy_errorv(remote->core_proxy, proxy->id,
 				remote->recv_seq, res, error, ap);
 	va_end(ap);
+	return r;
+}
+
+SPA_EXPORT
+int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error)
+{
+	int r = -EIO;
+	struct pw_remote *remote = proxy->remote;
+	if (remote->core_proxy != NULL)
+		r = pw_core_proxy_error(remote->core_proxy, proxy->id,
+				remote->recv_seq, res, error);
 	return r;
 }
 

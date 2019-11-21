@@ -140,7 +140,7 @@ error_properties:
 error_device:
 	pw_log_error("can't create device: %s", spa_strerror(res));
 	if (resource)
-		pw_resource_error(resource, res, "can't create device: %s", spa_strerror(res));
+		pw_resource_errorf(resource, res, "can't create device: %s", spa_strerror(res));
 	goto error_exit;
 error_exit:
 	errno = -res;

@@ -124,7 +124,7 @@ static int client_endpoint_stream_update(void *object,
 		pw_properties_free(props);
 	free(stream);
 	pw_log_error(NAME" %p: cannot update stream: no memory", this);
-	pw_resource_error(this->resource, -ENOMEM,
+	pw_resource_errorf(this->resource, -ENOMEM,
 		NAME" %p: cannot update stream: no memory", this);
 	return -ENOMEM;
 }

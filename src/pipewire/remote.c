@@ -367,8 +367,6 @@ static void core_proxy_destroy(void *data)
 		spa_hook_remove(&impl->core_proxy_listener);
 		spa_hook_remove(&impl->core_listener);
 		remote->core_proxy = NULL;
-		pw_mempool_destroy(remote->pool);
-		remote->pool = NULL;
 	}
 }
 
@@ -521,8 +519,9 @@ int pw_remote_disconnect(struct pw_remote *remote)
 	pw_remote_update_state(remote, PW_REMOTE_STATE_UNCONNECTED, NULL);
 
 	pw_map_for_each(&remote->objects, destroy_proxy, remote);
-
 	pw_map_reset(&remote->objects);
+
+	pw_mempool_destroy(remote->pool);
 
 	return 0;
 }

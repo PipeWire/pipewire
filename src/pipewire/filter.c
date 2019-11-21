@@ -136,8 +136,6 @@ struct filter {
 	struct spa_list param_list;
 	struct spa_param_info params[5];
 
-	uint32_t pending_seq;
-
 	struct data data;
 	uintptr_t seq;
 	struct pw_time time;
@@ -1037,7 +1035,6 @@ struct pw_filter * pw_filter_new(struct pw_remote *remote, const char *name,
 	this->state = PW_FILTER_STATE_UNCONNECTED;
 
 	impl->core = remote->core;
-	impl->pending_seq = SPA_ID_INVALID;
 
 	pw_remote_add_listener(remote, &impl->remote_listener, &remote_events, this);
 
@@ -1441,7 +1438,7 @@ int pw_filter_update_params(struct pw_filter *filter,
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	struct port *port;
 
-	pw_log_debug(NAME" %p: update params %d %d", filter, res, impl->pending_seq);
+	pw_log_debug(NAME" %p: update params %d", filter, res);
 
 	port = port_data ? SPA_CONTAINER_OF(port_data, struct port, user_data) : NULL;
 
@@ -1452,8 +1449,6 @@ int pw_filter_update_params(struct pw_filter *filter,
 	}
 
 	res = update_params(impl, port, params, n_params);
-
-	impl->pending_seq = SPA_ID_INVALID;
 
 	return res;
 }

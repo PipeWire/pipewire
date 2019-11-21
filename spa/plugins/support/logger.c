@@ -37,6 +37,10 @@
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
 
+#ifdef __FreeBSD__
+#define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
+#endif
+
 #define NAME "logger"
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO

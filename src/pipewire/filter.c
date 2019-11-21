@@ -125,7 +125,6 @@ struct filter {
 	struct pw_node *node;
 
 	struct spa_node impl_node;
-	struct spa_node_methods node_methods;
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 	struct spa_io_position *position;
@@ -929,6 +928,7 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 	case PW_REMOTE_STATE_ERROR:
 		filter_set_state(filter, PW_FILTER_STATE_ERROR, error);
 		break;
+
 	case PW_REMOTE_STATE_UNCONNECTED:
 		filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, "remote unconnected");
 		break;
@@ -1191,12 +1191,11 @@ pw_filter_connect(struct pw_filter *filter,
 
 	pw_log_debug(NAME" %p: connect", filter);
 	impl->flags = flags;
-	impl->node_methods = impl_node;
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
-			&impl->node_methods, impl);
+			&impl_node, impl);
 
 	clear_params(impl, NULL, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++) {

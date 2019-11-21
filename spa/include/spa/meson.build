@@ -47,6 +47,7 @@ spa_node_headers = [
   'node/command.h',
   'node/event.h',
   'node/io.h',
+  'node/keys.h',
   'node/node.h',
   'node/type-info.h',
   'node/utils.h',

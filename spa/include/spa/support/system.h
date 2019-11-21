@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#include <sys/timerfd.h>
+#include <time.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>

@@ -1631,6 +1631,15 @@ int pw_node_for_each_param(struct pw_node *node,
 }
 
 SPA_EXPORT
+int pw_node_set_param(struct pw_node *node,
+		uint32_t id, uint32_t flags, const struct spa_pod *param)
+{
+	pw_log_debug(NAME" %p: set_param %s flags:%08x param:%p", node,
+			spa_debug_type_find_name(spa_type_param, id), flags, param);
+	return spa_node_set_param(node->node, id, flags, param);
+}
+
+SPA_EXPORT
 struct pw_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 {

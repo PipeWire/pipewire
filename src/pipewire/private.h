@@ -974,6 +974,9 @@ int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t 
 /** Change the state of the node */
 int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
 
+int pw_node_set_param(struct pw_node *node,
+		uint32_t id, uint32_t flags, const struct spa_pod *param);
+
 int pw_node_update_ports(struct pw_node *node);
 
 int pw_node_initialized(struct pw_node *node);

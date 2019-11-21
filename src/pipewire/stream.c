@@ -72,10 +72,7 @@ struct data {
 };
 
 struct param {
-#define PARAM_TYPE_INIT		(1 << 0)
-#define PARAM_TYPE_OTHER	(1 << 1)
-#define PARAM_TYPE_FORMAT	(1 << 2)
-	int type;
+	uint32_t id;
 	struct spa_list link;
 	struct spa_pod *param;
 };
@@ -121,8 +118,6 @@ struct stream {
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 
-	uint32_t pending_seq;
-
 	struct queue dequeued;
 	struct queue queued;
 
@@ -133,7 +128,6 @@ struct stream {
 	unsigned int async_connect:1;
 	unsigned int disconnecting:1;
 	unsigned int free_data:1;
-	unsigned int subscribe:1;
 	unsigned int alloc_buffers:1;
 	unsigned int draining:1;
 };
@@ -156,30 +150,29 @@ static int get_param_index(uint32_t id)
 	}
 }
 
-static struct param *add_param(struct pw_stream *stream,
-		     int type, const struct spa_pod *param)
+static struct param *add_param(struct stream *impl,
+		uint32_t id, const struct spa_pod *param)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct param *p;
-	uint32_t id;
 	int idx;
 
 	if (param == NULL || !spa_pod_is_object(param)) {
 		errno = EINVAL;
 		return NULL;
 	}
+	if (id == SPA_ID_INVALID)
+		id = SPA_POD_OBJECT_ID(param);
 
 	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
 	if (p == NULL)
 		return NULL;
 
-	p->type = type;
+	p->id = id;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 
 	spa_list_append(&impl->param_list, &p->link);
 
-	id = ((const struct spa_pod_object *)param)->body.id;
 	idx = get_param_index(id);
 	if (idx != -1)
 		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
@@ -187,18 +180,42 @@ static struct param *add_param(struct pw_stream *stream,
 	return p;
 }
 
-static void clear_params(struct pw_stream *stream, int type)
+static void clear_params(struct stream *impl, uint32_t id)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct param *p, *t;
 
 	spa_list_for_each_safe(p, t, &impl->param_list, link) {
-		if ((p->type & type) != 0) {
+		if (id == SPA_ID_INVALID || p->id == id) {
 			spa_list_remove(&p->link);
 			free(p);
 		}
 	}
 }
+
+static int update_params(struct stream *impl, uint32_t id,
+		const struct spa_pod **params, uint32_t n_params)
+{
+	uint32_t i;
+	int res = 0;
+
+	if (id != SPA_ID_INVALID) {
+		clear_params(impl, id);
+	} else {
+		for (i = 0; i < n_params; i++) {
+			if (!spa_pod_is_object(params[i]))
+				continue;
+			clear_params(impl, SPA_POD_OBJECT_ID(params[i]));
+		}
+	}
+	for (i = 0; i < n_params; i++) {
+		if (add_param(impl, id, params[i]) == NULL) {
+			res = -errno;
+			break;
+		}
+	}
+	return res;
+}
+
 
 static inline int push_queue(struct stream *stream, struct queue *queue, struct buffer *buffer)
 {
@@ -496,71 +513,38 @@ static int impl_port_enum_params(void *object, int seq,
 	return 0;
 }
 
-static int port_set_format(struct stream *impl,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t flags, const struct spa_pod *format)
-{
-	struct pw_stream *stream = &impl->this;
-	struct param *p;
-	int count, res;
-
-	pw_log_debug(NAME" %p: format changed: %p %d", impl, format, impl->disconnecting);
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_format(2, NULL, format);
-
-	clear_params(stream, PARAM_TYPE_FORMAT);
-	if (format && spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format)) {
-		p = add_param(stream, PARAM_TYPE_FORMAT, format);
-		if (p == NULL) {
-			res = -errno;
-			goto error_exit;
-		}
-
-		((struct spa_pod_object*)p->param)->body.id = SPA_PARAM_Format;
-	}
-	else
-		p = NULL;
-
-	count = pw_stream_emit_format_changed(stream, p ? p->param : NULL);
-
-	if (count == 0)
-		pw_stream_finish_format(stream, 0, NULL, 0);
-
-	if (stream->state == PW_STREAM_STATE_ERROR)
-		return -EIO;
-
-	impl->params[3].flags |= SPA_PARAM_INFO_READ;
-	impl->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_port_info(impl);
-
-	stream_set_state(stream,
-			p ?
-			    PW_STREAM_STATE_READY :
-			    PW_STREAM_STATE_CONFIGURE,
-			NULL);
-
-	return 0;
-
-error_exit:
-	pw_stream_finish_format(stream, res, NULL, 0);
-	return res;
-}
-
 static int impl_port_set_param(void *object,
 			       enum spa_direction direction, uint32_t port_id,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
 	struct stream *impl = object;
+	struct pw_stream *stream = &impl->this;
+	int res, idx;
 
 	if (impl->disconnecting)
 		return param == NULL ? 0 : -EIO;
 
-	if (id == SPA_PARAM_Format) {
-		return port_set_format(impl, direction, port_id, flags, param);
+	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
+
+	if ((res = update_params(impl, id, &param, 1)) < 0)
+		return res;
+
+	pw_stream_emit_param_changed(stream, id, param);
+
+	if (stream->state == PW_STREAM_STATE_ERROR)
+		return -EIO;
+
+	idx = get_param_index(id);
+	if (idx != -1) {
+		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
+		impl->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(impl);
 	}
-	else
-		return -ENOENT;
+
+	return 0;
 }
 
 static int map_data(struct stream *impl, struct spa_data *data, int prot)
@@ -688,12 +672,6 @@ static int impl_port_use_buffers(void *object,
 	}
 
 	impl->n_buffers = n_buffers;
-
-	stream_set_state(stream,
-			n_buffers > 0 ?
-			    PW_STREAM_STATE_PAUSED :
-			    PW_STREAM_STATE_READY,
-			NULL);
 
 	return 0;
 }
@@ -846,33 +824,6 @@ static const struct pw_proxy_events proxy_events = {
 	.error = proxy_error,
 };
 
-static void node_event_info(void *object, const struct pw_node_info *info)
-{
-	struct pw_stream *stream = object;
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	uint32_t subscribe[info->n_params], n_subscribe = 0;
-	uint32_t i;
-
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS && !impl->subscribe) {
-		for (i = 0; i < info->n_params; i++) {
-
-			switch (info->params[i].id) {
-			case SPA_PARAM_PropInfo:
-			case SPA_PARAM_Props:
-				subscribe[n_subscribe++] = info->params[i].id;
-				break;
-			default:
-				break;
-			}
-		}
-		if (n_subscribe > 0) {
-			pw_node_proxy_subscribe_params((struct pw_node_proxy*)stream->proxy,
-					subscribe, n_subscribe);
-			impl->subscribe = true;
-		}
-	}
-}
-
 static struct control *find_control(struct pw_stream *stream, uint32_t id)
 {
 	struct control *c;
@@ -883,9 +834,9 @@ static struct control *find_control(struct pw_stream *stream, uint32_t id)
 	return NULL;
 }
 
-static void node_event_param(void *object, int seq,
+static int node_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
-		const struct spa_pod *param)
+		struct spa_pod *param)
 {
 	struct pw_stream *stream = object;
 
@@ -910,7 +861,7 @@ static void node_event_param(void *object, int seq,
 					SPA_PROP_INFO_id,   SPA_POD_Id(&iid),
 					SPA_PROP_INFO_name, SPA_POD_String(&c->control.name),
 					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type)) < 0)
-			return;
+			return -EINVAL;
 
 		pod = spa_pod_get_values(type, &n_vals, &choice);
 
@@ -924,19 +875,19 @@ static void node_event_param(void *object, int seq,
 			n_vals = 3;
 		}
 		else
-			return;
+			return -ENOTSUP;
 
 		switch (choice) {
 		case SPA_CHOICE_None:
 			if (n_vals < 1)
-				return;
+				return -EINVAL;
 			c->control.n_values = 1;
 			c->control.max_values = 1;
 			c->control.values[0] = c->control.def = c->control.min = c->control.max = vals[0];
 			break;
 		case SPA_CHOICE_Range:
 			if (n_vals < 3)
-				return;
+				return -EINVAL;
 			c->control.n_values = 1;
 			c->control.max_values = 1;
 			c->control.values[0] = vals[0];
@@ -945,7 +896,7 @@ static void node_event_param(void *object, int seq,
 			c->control.max = vals[2];
 			break;
 		default:
-			return;
+			return -ENOTSUP;
 		}
 
 		c->id = iid;
@@ -1006,12 +957,37 @@ static void node_event_param(void *object, int seq,
 	default:
 		break;
 	}
+	return 0;
 }
 
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
-	.info = node_event_info,
-	.param = node_event_param,
+static void node_event_info(void *object, const struct pw_node_info *info)
+{
+	struct pw_stream *stream = object;
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	uint32_t i;
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			switch (info->params[i].id) {
+			case SPA_PARAM_PropInfo:
+			case SPA_PARAM_Props:
+				pw_node_for_each_param(impl->node,
+						0, info->params[i].id,
+						0, UINT32_MAX,
+						NULL,
+						node_event_param,
+						stream);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.info_changed = node_event_info,
 };
 
 static int handle_connect(struct pw_stream *stream)
@@ -1074,8 +1050,9 @@ static int handle_connect(struct pw_stream *stream)
 	}
 
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
-	pw_node_proxy_add_listener((struct pw_node_proxy*)stream->proxy,
-			&stream->node_listener, &node_events, stream);
+
+
+	pw_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
 
 	return 0;
 
@@ -1118,7 +1095,7 @@ static void on_remote_exported(void *_data, uint32_t proxy_id, uint32_t global_i
 	struct pw_stream *stream = _data;
 	if (stream->proxy && stream->proxy->id == proxy_id) {
 		stream->node_id = global_id;
-		stream_set_state(stream, PW_STREAM_STATE_CONFIGURE, NULL);
+		stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 	}
 }
 
@@ -1184,7 +1161,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
 	impl->core = remote->core;
-	impl->pending_seq = SPA_ID_INVALID;
 
 	pw_remote_add_listener(remote, &impl->remote_listener, &remote_events, this);
 
@@ -1250,10 +1226,6 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 		return "unconnected";
 	case PW_STREAM_STATE_CONNECTING:
 		return "connecting";
-	case PW_STREAM_STATE_CONFIGURE:
-		return "configure";
-	case PW_STREAM_STATE_READY:
-		return "ready";
 	case PW_STREAM_STATE_PAUSED:
 		return "paused";
 	case PW_STREAM_STATE_STREAMING:
@@ -1277,7 +1249,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	spa_hook_remove(&impl->remote_listener);
 	spa_list_remove(&stream->link);
 
-	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
+	clear_params(impl, SPA_ID_INVALID);
 
 	pw_log_debug(NAME" %p: free", stream);
 	free(stream->error);
@@ -1349,14 +1321,14 @@ struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
 	return stream->remote;
 }
 
-static void add_params(struct pw_stream *stream)
+static void add_params(struct stream *impl)
 {
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
 
 	spa_pod_builder_init(&b, buffer, 4096);
 
-	add_param(stream, PARAM_TYPE_INIT,
+	add_param(impl, SPA_PARAM_IO,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
 			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
@@ -1444,11 +1416,11 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 
-	clear_params(stream, PARAM_TYPE_INIT | PARAM_TYPE_OTHER | PARAM_TYPE_FORMAT);
+	clear_params(impl, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++)
-		add_param(stream, PARAM_TYPE_INIT, params[i]);
+		add_param(impl, SPA_ID_INVALID, params[i]);
 
-	add_params(stream);
+	add_params(impl);
 
 	if ((res = find_format(impl, direction, &impl->media_type, &impl->media_subtype)) < 0)
 		return res;
@@ -1514,32 +1486,40 @@ int pw_stream_disconnect(struct pw_stream *stream)
 }
 
 SPA_EXPORT
-void pw_stream_finish_format(struct pw_stream *stream,
-			int res,
+int pw_stream_set_error(struct pw_stream *stream,
+			int res, const char *error, ...)
+{
+	if (res < 0) {
+		va_list args;
+		char *value;
+
+		va_start(args, error);
+		vasprintf(&value, error, args);
+
+		if (stream->proxy)
+			pw_proxy_error(stream->proxy, res, value);
+		stream_set_state(stream, PW_STREAM_STATE_ERROR, value);
+
+		va_end(args);
+		free(value);
+	}
+	return res;
+}
+
+SPA_EXPORT
+int pw_stream_update_params(struct pw_stream *stream,
 			const struct spa_pod **params,
 			uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	uint32_t i;
-
-	pw_log_debug(NAME" %p: finish format %d %d", stream, res, impl->pending_seq);
-
-	if (res < 0) {
-		pw_proxy_error(stream->proxy, res, "format failed");
-		stream_set_state(stream, PW_STREAM_STATE_ERROR, "format error");
-		return;
-	}
-
-	clear_params(stream, PARAM_TYPE_OTHER);
-	for (i = 0; i < n_params; i++)
-		add_param(stream, PARAM_TYPE_OTHER, params[i]);
-
-	impl->pending_seq = SPA_ID_INVALID;
+	pw_log_debug(NAME" %p: update params", stream);
+	return update_params(impl, SPA_ID_INVALID, params, n_params);
 }
 
 SPA_EXPORT
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...)
 {
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
         va_list varargs;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -1581,8 +1561,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	}
 	pod = spa_pod_builder_pop(&b, &f[0]);
 
-	pw_node_proxy_set_param((struct pw_node_proxy*)stream->proxy,
-				SPA_PARAM_Props, 0, pod);
+	pw_node_set_param(impl->node, SPA_PARAM_Props, 0, pod);
 
 	return 0;
 }

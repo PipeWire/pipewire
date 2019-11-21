@@ -41,7 +41,8 @@ static void test_abi(void)
 		void (*state_changed) (void *data, enum pw_stream_state old,
 			enum pw_stream_state state, const char *error);
 	        void (*control_info) (void *data, uint32_t id, const struct pw_stream_control *control);
-		void (*format_changed) (void *data, const struct spa_pod *format);
+		void (*io_changed) (void *data, uint32_t id, void *area, uint32_t size);
+		void (*param_changed) (void *data, uint32_t id, const struct spa_pod *param);
 		void (*add_buffer) (void *data, struct pw_buffer *buffer);
 		void (*remove_buffer) (void *data, struct pw_buffer *buffer);
 		void (*process) (void *data);
@@ -51,7 +52,8 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, state_changed);
 	TEST_FUNC(ev, test, control_info);
-	TEST_FUNC(ev, test, format_changed);
+	TEST_FUNC(ev, test, io_changed);
+	TEST_FUNC(ev, test, param_changed);
 	TEST_FUNC(ev, test, add_buffer);
 	TEST_FUNC(ev, test, remove_buffer);
 	TEST_FUNC(ev, test, process);
@@ -66,16 +68,12 @@ static void test_abi(void)
 	spa_assert(PW_STREAM_STATE_ERROR == -1);
 	spa_assert(PW_STREAM_STATE_UNCONNECTED == 0);
 	spa_assert(PW_STREAM_STATE_CONNECTING == 1);
-	spa_assert(PW_STREAM_STATE_CONFIGURE == 2);
-	spa_assert(PW_STREAM_STATE_READY == 3);
-	spa_assert(PW_STREAM_STATE_PAUSED == 4);
-	spa_assert(PW_STREAM_STATE_STREAMING == 5);
+	spa_assert(PW_STREAM_STATE_PAUSED == 2);
+	spa_assert(PW_STREAM_STATE_STREAMING == 3);
 
 	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_ERROR) != NULL);
 	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_UNCONNECTED) != NULL);
 	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_CONNECTING) != NULL);
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_CONFIGURE) != NULL);
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_READY) != NULL);
 	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_PAUSED) != NULL);
 	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_STREAMING) != NULL);
 }
@@ -89,7 +87,11 @@ static void stream_state_changed_error(void *data, enum pw_stream_state old,
 {
 	spa_assert_not_reached();
 }
-static void stream_format_changed_error(void *data, const struct spa_pod *format)
+static void stream_io_changed_error(void *data, uint32_t id, void *area, uint32_t size)
+{
+	spa_assert_not_reached();
+}
+static void stream_param_changed_error(void *data, uint32_t id, const struct spa_pod *format)
 {
 	spa_assert_not_reached();
 }
@@ -115,7 +117,8 @@ static const struct pw_stream_events stream_events_error =
 	PW_VERSION_STREAM_EVENTS,
         .destroy = stream_destroy_error,
         .state_changed = stream_state_changed_error,
-	.format_changed = stream_format_changed_error,
+	.io_changed = stream_io_changed_error,
+	.param_changed = stream_param_changed_error,
 	.add_buffer = stream_add_buffer_error,
 	.remove_buffer = stream_remove_buffer_error,
 	.process = stream_process_error,

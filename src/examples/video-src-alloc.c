@@ -188,7 +188,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
 
 	switch (state) {
-	case PW_STREAM_STATE_CONFIGURE:
+	case PW_STREAM_STATE_PAUSED:
 		printf("node id: %d\n", pw_stream_get_node_id(data->stream));
 		break;
 	case PW_STREAM_STATE_STREAMING:
@@ -271,18 +271,19 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 	close(d[0].fd);
 }
 
-/* Be notified when the stream format changes.
+/* Be notified when the stream param changes. We're only looking at the
+ * format param.
  *
- * We are now supposed to call pw_stream_finish_format() with success or
+ * We are now supposed to call pw_stream_update_params() with success or
  * failure, depending on if we can support the format. Because we gave
  * a list of supported formats, this should be ok.
  *
- * As part of pw_stream_finish_format() we can provide parameters that
+ * As part of pw_stream_update_params() we can provide parameters that
  * will control the buffer memory allocation. This includes the metadata
  * that we would like on our buffer, the size, alignment, etc.
  */
 static void
-on_stream_format_changed(void *_data, const struct spa_pod *format)
+on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
@@ -290,11 +291,10 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[5];
 
-	if (format == NULL) {
-		pw_stream_finish_format(stream, 0, NULL, 0);
+	if (param == NULL || id != SPA_PARAM_Format)
 		return;
-	}
-	spa_format_video_raw_parse(format, &data->format);
+
+	spa_format_video_raw_parse(param, &data->format);
 
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
 
@@ -330,13 +330,13 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		SPA_PARAM_META_size, SPA_POD_Int(
 			CURSOR_META_SIZE(CURSOR_WIDTH,CURSOR_HEIGHT)));
 
-	pw_stream_finish_format(stream, 0, params, 5);
+	pw_stream_update_params(stream, params, 5);
 }
 
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_stream_state_changed,
-	.format_changed = on_stream_format_changed,
+	.param_changed = on_stream_param_changed,
 	.add_buffer = on_stream_add_buffer,
 	.remove_buffer = on_stream_remove_buffer,
 };

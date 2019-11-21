@@ -454,8 +454,6 @@ on_state_changed (void *data,
   switch (state) {
     case PW_STREAM_STATE_UNCONNECTED:
     case PW_STREAM_STATE_CONNECTING:
-    case PW_STREAM_STATE_CONFIGURE:
-    case PW_STREAM_STATE_READY:
     case PW_STREAM_STATE_PAUSED:
     case PW_STREAM_STATE_STREAMING:
       break;
@@ -686,22 +684,21 @@ connect_error:
 }
 
 static void
-on_format_changed (void *data,
-                   const struct spa_pod *format)
+on_param_changed (void *data, uint32_t id,
+                   const struct spa_pod *param)
 {
   GstPipeWireSrc *pwsrc = data;
   GstCaps *caps;
   gboolean res;
 
-  if (format == NULL) {
+  if (param == NULL || id != SPA_PARAM_Format) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
-    pw_stream_finish_format (pwsrc->stream, 0, NULL, 0);
     return;
   }
 
   gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->clock), 0);
 
-  caps = gst_caps_from_format (format);
+  caps = gst_caps_from_format (param);
   GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, caps);
   res = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
   gst_caps_unref (caps);
@@ -726,10 +723,10 @@ on_format_changed (void *data,
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_finish_format (pwsrc->stream, 0, params, 2);
+    pw_stream_update_params (pwsrc->stream, params, 2);
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
-    pw_stream_finish_format (pwsrc->stream, -EINVAL, NULL, 0);
+    pw_stream_set_error (pwsrc->stream, -EINVAL, "unhandled format");
   }
 }
 
@@ -960,7 +957,7 @@ static const struct pw_remote_events remote_events = {
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_state_changed,
-	.format_changed = on_format_changed,
+	.param_changed = on_param_changed,
 	.add_buffer = on_add_buffer,
 	.remove_buffer = on_remove_buffer,
 	.process = on_process,

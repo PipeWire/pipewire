@@ -265,7 +265,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 
 
   pw_thread_loop_lock (sink->main_loop);
-  pw_stream_finish_format (sink->stream, 0, port_params, 2);
+  pw_stream_update_params (sink->stream, port_params, 2);
   pw_thread_loop_unlock (sink->main_loop);
 }
 
@@ -488,8 +488,6 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
   switch (state) {
     case PW_STREAM_STATE_UNCONNECTED:
     case PW_STREAM_STATE_CONNECTING:
-    case PW_STREAM_STATE_CONFIGURE:
-    case PW_STREAM_STATE_READY:
     case PW_STREAM_STATE_PAUSED:
     case PW_STREAM_STATE_STREAMING:
       break;
@@ -502,11 +500,11 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
 }
 
 static void
-on_format_changed (void *data, const struct spa_pod *format)
+on_param_changed (void *data, uint32_t id, const struct spa_pod *param)
 {
   GstPipeWireSink *pwsink = data;
 
-  if (format == NULL)
+  if (param == NULL || id != SPA_PARAM_Format)
 	  return;
 
   if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->pool)))
@@ -550,7 +548,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     while (TRUE) {
       state = pw_stream_get_state (pwsink->stream, &error);
 
-      if (state == PW_STREAM_STATE_READY)
+      if (state == PW_STREAM_STATE_PAUSED)
         break;
 
       if (state == PW_STREAM_STATE_ERROR)
@@ -645,7 +643,7 @@ copy_properties (GQuark field_id,
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_state_changed,
-	.format_changed = on_format_changed,
+	.param_changed = on_param_changed,
 	.add_buffer = on_add_buffer,
 	.remove_buffer = on_remove_buffer,
 	.process = on_process,

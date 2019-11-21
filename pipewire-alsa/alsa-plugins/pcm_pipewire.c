@@ -310,7 +310,7 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	return 0;
 }
 
-static void on_stream_format_changed(void *data, const struct spa_pod *format)
+static void on_stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	snd_pcm_pipewire_t *pw = data;
 	snd_pcm_ioplug_t *io = &pw->io;
@@ -321,6 +321,9 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
 	uint32_t stride = (io->channels * pw->sample_bits) / 8;
 	uint32_t buffers;
 	uint32_t size;
+
+	if (param == NULL || id != SPA_PARAM_Format)
+		return;
 
 	io->period_size = pw->min_avail;
 	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
@@ -337,7 +340,7 @@ static void on_stream_format_changed(void *data, const struct spa_pod *format)
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
-	pw_stream_finish_format(pw->stream, 0, params, n_params);
+	pw_stream_update_params(pw->stream, params, n_params);
 }
 
 static void on_stream_process(void *data)
@@ -360,7 +363,7 @@ static void on_stream_process(void *data)
 
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-        .format_changed = on_stream_format_changed,
+        .param_changed = on_stream_param_changed,
         .process = on_stream_process,
 };
 

@@ -242,27 +242,20 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_CONNECTING:
 		pa_stream_set_state(s, PA_STREAM_CREATING);
 		break;
-	case PW_STREAM_STATE_CONFIGURE:
-	case PW_STREAM_STATE_READY:
-		break;
 	case PW_STREAM_STATE_PAUSED:
-		if (old < PW_STREAM_STATE_PAUSED) {
-			if (s->suspended && s->suspended_callback) {
-				s->suspended = false;
-				s->suspended_callback(s, s->suspended_userdata);
-			}
-			configure_device(s);
-			configure_buffers(s);
-			pa_stream_set_state(s, PA_STREAM_READY);
-		}
-		else {
-			if (!s->suspended && s->suspended_callback) {
-				s->suspended = true;
-				s->suspended_callback(s, s->suspended_userdata);
-			}
+		if (!s->suspended && s->suspended_callback) {
+			s->suspended = true;
+			s->suspended_callback(s, s->suspended_userdata);
 		}
 		break;
 	case PW_STREAM_STATE_STREAMING:
+		if (s->suspended && s->suspended_callback) {
+			s->suspended = false;
+			s->suspended_callback(s, s->suspended_userdata);
+		}
+		configure_device(s);
+		configure_buffers(s);
+		pa_stream_set_state(s, PA_STREAM_READY);
 		break;
 	}
 }
@@ -359,7 +352,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 	dump_buffer_attr(s, attr);
 }
 
-static void stream_format_changed(void *data, const struct spa_pod *format)
+static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	pa_stream *s = data;
 	const struct spa_pod *params[4];
@@ -367,28 +360,25 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_audio_info info = { 0 };
-	int res;
 	unsigned int i;
 
-	if (format == NULL) {
-		res = 0;
-		goto done;
-	}
+	if (param == NULL || id != SPA_PARAM_Format)
+		return;
 
-	spa_format_parse(format, &info.media_type, &info.media_subtype);
+	spa_format_parse(param, &info.media_type, &info.media_subtype);
 
 	if (info.media_type != SPA_MEDIA_TYPE_audio ||
 	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    spa_format_audio_raw_parse(format, &info.info.raw) < 0 ||
+	    spa_format_audio_raw_parse(param, &info.info.raw) < 0 ||
 	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
-		res = -EINVAL;
-		goto done;
+		pw_stream_set_error(s->stream, -EINVAL, "unhandled format");
+		return;
 	}
 
 	s->sample_spec.format = format_id2pa(s, info.info.raw.format);
 	if (s->sample_spec.format == PA_SAMPLE_INVALID) {
-		res = -EINVAL;
-		goto done;
+		pw_stream_set_error(s->stream, -EINVAL, "invalid format");
+		return;
 	}
 	s->sample_spec.rate = info.info.raw.rate;
 	s->sample_spec.channels = info.info.raw.channels;
@@ -409,10 +399,7 @@ static void stream_format_changed(void *data, const struct spa_pod *format)
 
 	params[n_params++] = get_buffers_param(s, &s->buffer_attr, &b);
 
-	res = 0;
-
-      done:
-	pw_stream_finish_format(s->stream, res, params, n_params);
+	pw_stream_update_params(s->stream, params, n_params);
 }
 
 static void stream_control_info(void *data, uint32_t id, const struct pw_stream_control *control)
@@ -526,7 +513,7 @@ static const struct pw_stream_events stream_events =
 {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = stream_state_changed,
-	.format_changed = stream_format_changed,
+	.param_changed = stream_param_changed,
 	.control_info = stream_control_info,
 	.add_buffer = stream_add_buffer,
 	.remove_buffer = stream_remove_buffer,

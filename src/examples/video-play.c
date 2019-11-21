@@ -220,7 +220,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_main_loop_quit(data->loop);
 		break;
-	case PW_STREAM_STATE_CONFIGURE:
+	case PW_STREAM_STATE_PAUSED:
 		/* because we started inactive, activate ourselves now */
 		pw_stream_set_active(data->stream, true);
 		break;
@@ -229,7 +229,8 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	}
 }
 
-/* Be notified when the stream format changes.
+/* Be notified when the stream param changes. We're only looking at the
+ * format changes.
  *
  * We are now supposed to call pw_stream_finish_format() with success or
  * failure, depending on if we can support the format. Because we gave
@@ -240,7 +241,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
  * that we would like on our buffer, the size, alignment, etc.
  */
 static void
-on_stream_format_changed(void *_data, const struct spa_pod *format)
+on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 {
 	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
@@ -251,16 +252,14 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 	void *d;
 
 	/* NULL means to clear the format */
-	if (format == NULL) {
-		pw_stream_finish_format(stream, 0, NULL, 0);
+	if (param == NULL || id != SPA_PARAM_Format)
 		return;
-	}
 
 	fprintf(stderr, "got format:\n");
-	spa_debug_format(2, NULL, format);
+	spa_debug_format(2, NULL, param);
 
 	/* call a helper function to parse the format for us. */
-	spa_format_video_raw_parse(format, &data->format);
+	spa_format_video_raw_parse(param, &data->format);
 
 	if (data->format.format == SPA_VIDEO_FORMAT_RGBA_F32)
 		sdl_format = SDL_PIXELFORMAT_RGBA32;
@@ -268,7 +267,7 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 		sdl_format = id_to_sdl_format(data->format.format);
 
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
-		pw_stream_finish_format(stream, -EINVAL, NULL, 0);
+		pw_stream_set_error(stream, -EINVAL, "unknown pixel format");
 		return;
 	}
 
@@ -317,14 +316,14 @@ on_stream_format_changed(void *_data, const struct spa_pod *format)
 				CURSOR_META_SIZE(256,256)));
 
 	/* we are done */
-	pw_stream_finish_format(stream, 0, params, 4);
+	pw_stream_update_params(stream, params, 4);
 }
 
 /* these are the stream events we listen for */
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_stream_state_changed,
-	.format_changed = on_stream_format_changed,
+	.param_changed = on_stream_param_changed,
 	.process = on_process,
 };
 

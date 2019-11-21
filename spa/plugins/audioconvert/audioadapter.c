@@ -118,10 +118,7 @@ next:
 	case SPA_PARAM_PortConfig:
 	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
-		if ((res = spa_node_enum_params_sync(this->convert,
-				id, &result.next, filter, &param, &b)) != 1)
-			return res;
-		break;
+		return spa_node_enum_params(this->convert, seq, id, start, num, filter);
 
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:

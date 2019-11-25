@@ -445,6 +445,8 @@ int pw_device_register(struct pw_device *device,
 	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%d", device->info.id);
 	device->info.props = &device->properties->dict;
 
+	pw_device_emit_initialized(device);
+
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);
 	pw_global_register(device->global);
 

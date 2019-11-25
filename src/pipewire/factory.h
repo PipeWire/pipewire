@@ -50,6 +50,10 @@ struct pw_factory_events {
 
 	/** the factory is destroyed */
         void (*destroy) (void *data);
+	/** the factory is freed */
+        void (*free) (void *data);
+	/** the factory is initialized */
+        void (*initialized) (void *data);
 };
 
 struct pw_factory_implementation {

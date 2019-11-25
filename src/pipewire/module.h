@@ -63,6 +63,10 @@ struct pw_module_events {
 
 	/** The module is destroyed */
 	void (*destroy) (void *data);
+	/** The module is freed */
+	void (*free) (void *data);
+	/** The module is initialized */
+	void (*initialized) (void *data);
 
 	/** The module is registered. This is a good time to register
 	 * objectes created from the module. */

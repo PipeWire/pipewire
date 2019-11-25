@@ -61,6 +61,9 @@ struct pw_link_events {
 	/** A link is freed */
 	void (*free) (void *data);
 
+	/** a Link is initialized */
+	void (*initialized) (void *data);
+
 	/** The info changed on a link */
 	void (*info_changed) (void *data, const struct pw_link_info *info);
 

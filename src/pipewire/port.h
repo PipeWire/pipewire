@@ -68,6 +68,9 @@ struct pw_port_events {
 	/** The port is freed */
 	void (*free) (void *data);
 
+	/** The port is initialized */
+	void (*initialized) (void *data);
+
 	/** the port info changed */
 	void (*info_changed) (void *data, const struct pw_port_info *info);
 

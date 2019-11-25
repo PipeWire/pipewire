@@ -99,6 +99,7 @@ void pw_factory_destroy(struct pw_factory *factory)
 		pw_global_destroy(factory->global);
 	}
 
+	pw_factory_emit_free(factory);
 	pw_log_debug(NAME" %p: free", factory);
 	free((char *)factory->info.name);
 
@@ -231,6 +232,8 @@ int pw_factory_register(struct pw_factory *factory,
 	factory->info.id = factory->global->id;
 	pw_properties_setf(factory->properties, PW_KEY_OBJECT_ID, "%d", factory->info.id);
 	factory->info.props = &factory->properties->dict;
+
+	pw_factory_emit_initialized(factory);
 
 	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);
 	pw_global_register(factory->global);

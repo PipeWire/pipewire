@@ -91,6 +91,9 @@ struct pw_client_events {
 	/** emited right before the client is freed */
 	void (*free) (void *data);
 
+	/** the client is initialized */
+	void (*initialized) (void *data);
+
 	/** emited when the client info changed */
 	void (*info_changed) (void *data, const struct pw_client_info *info);
 

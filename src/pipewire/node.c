@@ -607,8 +607,9 @@ int pw_node_register(struct pw_node *this,
 		insert_driver(core, this);
 	this->registered = true;
 
+	this->rt.activation->position.clock.id = this->global->id;
+
 	this->info.id = this->global->id;
-	this->rt.activation->position.clock.id = this->info.id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 

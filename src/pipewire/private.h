@@ -91,6 +91,7 @@ typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
 
 #define pw_client_emit_destroy(o)		pw_client_emit(o, destroy, 0)
 #define pw_client_emit_free(o)			pw_client_emit(o, free, 0)
+#define pw_client_emit_initialized(o)		pw_client_emit(o, initialized, 0)
 #define pw_client_emit_info_changed(o,i)	pw_client_emit(o, info_changed, 0, i)
 #define pw_client_emit_resource_added(o,r)	pw_client_emit(o, resource_added, 0, r)
 #define pw_client_emit_resource_impl(o,r)	pw_client_emit(o, resource_impl, 0, r)
@@ -280,6 +281,7 @@ struct pw_main_loop {
 #define pw_device_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
 #define pw_device_emit_destroy(m)		pw_device_emit(m, destroy, 0)
 #define pw_device_emit_free(m)			pw_device_emit(m, free, 0)
+#define pw_device_emit_initialized(m)		pw_device_emit(m, initialized, 0)
 #define pw_device_emit_info_changed(n,i)	pw_device_emit(n, info_changed, 0, i)
 
 struct pw_device {
@@ -307,6 +309,8 @@ struct pw_device {
 
 #define pw_module_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
 #define pw_module_emit_destroy(m)	pw_module_emit(m, destroy, 0)
+#define pw_module_emit_free(m)		pw_module_emit(m, free, 0)
+#define pw_module_emit_initialized(m)	pw_module_emit(m, initialized, 0)
 #define pw_module_emit_registered(m)	pw_module_emit(m, registered, 0)
 
 struct pw_module {
@@ -549,6 +553,7 @@ struct pw_port_implementation {
 #define pw_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
 #define pw_port_emit_destroy(p)			pw_port_emit(p, destroy, 0)
 #define pw_port_emit_free(p)			pw_port_emit(p, free, 0)
+#define pw_port_emit_initialized(p)		pw_port_emit(p, initialized, 0)
 #define pw_port_emit_info_changed(p,i)		pw_port_emit(p, info_changed, 0, i)
 #define pw_port_emit_link_added(p,l)		pw_port_emit(p, link_added, 0, l)
 #define pw_port_emit_link_removed(p,l)		pw_port_emit(p, link_removed, 0, l)
@@ -631,6 +636,7 @@ struct pw_control_link {
 #define pw_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_link_events, m, v, ##__VA_ARGS__)
 #define pw_link_emit_destroy(l)			pw_link_emit(l, destroy, 0)
 #define pw_link_emit_free(l)			pw_link_emit(l, free, 0)
+#define pw_link_emit_initialized(l)		pw_link_emit(l, initialized, 0)
 #define pw_link_emit_info_changed(l,i)		pw_link_emit(l, info_changed, 0, i)
 #define pw_link_emit_state_changed(l,...)	pw_link_emit(l, state_changed, 0, __VA_ARGS__)
 #define pw_link_emit_port_unlinked(l,p)		pw_link_emit(l, port_unlinked, 0, p)
@@ -825,6 +831,8 @@ struct pw_filter {
 #define pw_factory_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)
 
 #define pw_factory_emit_destroy(s)		pw_factory_emit(s, destroy, 0)
+#define pw_factory_emit_free(s)			pw_factory_emit(s, free, 0)
+#define pw_factory_emit_initialized(s)		pw_factory_emit(s, initialized, 0)
 
 struct pw_factory {
 	struct pw_core *core;		/**< the core */

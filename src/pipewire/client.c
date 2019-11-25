@@ -412,6 +412,8 @@ int pw_client_register(struct pw_client *client,
 	pw_properties_setf(client->properties, PW_KEY_OBJECT_ID, "%d", client->info.id);
 	client->info.props = &client->properties->dict;
 
+	pw_client_emit_initialized(client);
+
 	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
 	pw_global_register(client->global);
 

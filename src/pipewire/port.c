@@ -819,6 +819,8 @@ int pw_port_register(struct pw_port *port,
 	pw_properties_setf(port->properties, PW_KEY_OBJECT_ID, "%d", port->info.id);
 	port->info.props = &port->properties->dict;
 
+	pw_port_emit_initialized(port);
+
 	return pw_global_register(port->global);
 }
 

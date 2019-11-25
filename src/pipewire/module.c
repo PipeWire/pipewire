@@ -264,6 +264,8 @@ pw_module_load(struct pw_core *core,
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 
+	pw_module_emit_initialized(this);
+
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 
 	if ((res = init_func(this, args)) < 0)
@@ -334,7 +336,8 @@ void pw_module_destroy(struct pw_module *module)
 		pw_global_destroy(module->global);
 	}
 
-	pw_log_debug(NAME" %p: destroy", module);
+	pw_log_debug(NAME" %p: free", module);
+	pw_module_emit_free(module);
 	free((char *) module->info.name);
 	free((char *) module->info.filename);
 	free((char *) module->info.args);

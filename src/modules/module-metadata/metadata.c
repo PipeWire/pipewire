@@ -124,25 +124,19 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
         data->impl = impl;
         data->resource = resource;
 
-	pw_log_debug(".");
-//	pw_resource_install_marshal(resource, true);
-
 	/* listen for when the resource goes away */
         pw_resource_add_listener(resource,
                         &data->resource_listener,
                         &resource_events, data);
 
 	/* resource methods -> implemention */
-	pw_log_debug(".");
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
                         &metadata_methods, data);
 	/* implementation events -> resource */
-	pw_log_debug(". %p", impl->metadata);
 	pw_metadata_add_listener(impl->metadata,
 			&data->metadata_listener,
 			&metadata_events, data);
-	pw_log_debug(".");
 
 	return 0;
 }

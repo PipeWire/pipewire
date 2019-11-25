@@ -66,7 +66,9 @@ struct node_data {
 	struct pw_node *adapter;
 	struct pw_node *slave;
 	struct spa_hook adapter_listener;
+	struct pw_resource *resource;
 	struct spa_hook resource_listener;
+	uint32_t new_id;
 };
 
 static void resource_destroy(void *data)
@@ -96,10 +98,42 @@ static void node_free(void *data)
 	pw_node_destroy(nd->slave);
 }
 
+static void node_initialized(void *data)
+{
+	struct node_data *nd = data;
+	struct pw_client *client;
+	struct pw_resource *bound_resource;
+	struct pw_global *global;
+	int res;
+
+	if (nd->resource == NULL)
+		return;
+
+	client = pw_resource_get_client(nd->resource);
+	global = pw_node_get_global(nd->adapter);
+
+	res = pw_global_bind(global, client,
+			PW_PERM_RWX, PW_VERSION_NODE_PROXY, nd->new_id);
+	if (res < 0)
+		goto error_bind;
+
+	if ((bound_resource = pw_client_find_resource(client, nd->new_id)) == NULL)
+		goto error_bind;
+
+	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
+	return;
+
+error_bind:
+	pw_resource_error(nd->resource, res, "can't bind adapter node");
+	return;
+}
+
+
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.destroy = node_destroy,
 	.free = node_free,
+	.initialized = node_initialized,
 };
 
 static void *create_object(void *_data,
@@ -167,25 +201,13 @@ static void *create_object(void *_data,
 	nd->data = d;
 	nd->adapter = adapter;
 	nd->slave = slave;
+	nd->resource = resource;
+	nd->new_id = new_id;
 	spa_list_append(&d->node_list, &nd->link);
 
 	pw_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);
 
 	pw_node_register(adapter, NULL);
-
-	if (client) {
-		struct pw_resource *bound_resource;
-
-		res = pw_global_bind(pw_node_get_global(adapter), client,
-				PW_PERM_RWX, PW_VERSION_NODE_PROXY, new_id);
-		if (res < 0)
-			goto error_bind;
-
-		if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
-			goto error_bind;
-
-		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
-	}
 
 	pw_node_set_active(adapter, true);
 
@@ -208,10 +230,6 @@ error_usage:
 	pw_log_error("usage: "ADAPTER_USAGE);
 	if (resource)
 		pw_resource_error(resource, res, "usage: "ADAPTER_USAGE);
-	goto error_cleanup;
-error_bind:
-	if (resource)
-		pw_resource_error(resource, res, "can't bind adapter node");
 	goto error_cleanup;
 error_cleanup:
 	if (properties)

@@ -61,10 +61,16 @@ struct link_data {
 	struct spa_list l;
 	struct pw_link *link;
 	struct spa_hook link_listener;
+
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
+
 	struct pw_global *global;
 	struct spa_hook global_listener;
+
+	struct pw_resource *factory_resource;
+	uint32_t new_id;
+	bool linger;
 };
 
 static void resource_destroy(void *data)
@@ -81,21 +87,6 @@ static const struct pw_resource_events resource_events = {
 	.destroy = resource_destroy
 };
 
-static void link_destroy(void *data)
-{
-	struct link_data *ld = data;
-	spa_list_remove(&ld->l);
-	if (ld->global)
-		spa_hook_remove(&ld->global_listener);
-	if (ld->resource)
-		spa_hook_remove(&ld->resource_listener);
-}
-
-static const struct pw_link_events link_events = {
-	PW_VERSION_LINK_EVENTS,
-	.destroy = link_destroy
-};
-
 static void global_destroy(void *data)
 {
 	struct link_data *ld = data;
@@ -106,6 +97,49 @@ static void global_destroy(void *data)
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
 	.destroy = global_destroy
+};
+
+static void link_destroy(void *data)
+{
+	struct link_data *ld = data;
+	spa_list_remove(&ld->l);
+	if (ld->global)
+		spa_hook_remove(&ld->global_listener);
+	if (ld->resource)
+		spa_hook_remove(&ld->resource_listener);
+}
+
+static void link_initialized(void *data)
+{
+	struct link_data *ld = data;
+	struct pw_client *client = pw_resource_get_client(ld->factory_resource);
+	int res;
+
+	ld->global = pw_link_get_global(ld->link);
+	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
+
+	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK_PROXY, ld->new_id);
+	if (res < 0)
+		goto error_bind;
+
+	if (!ld->linger) {
+		ld->resource = pw_client_find_resource(client, ld->new_id);
+		if (ld->resource == NULL) {
+			res = -ENOENT;
+			goto error_bind;
+		}
+		pw_resource_add_listener(ld->resource, &ld->resource_listener, &resource_events, ld);
+	}
+	return;
+
+error_bind:
+	pw_resource_errorf(ld->factory_resource, res, "can't bind link: %s", spa_strerror(res));
+}
+
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
+	.destroy = link_destroy,
+	.initialized = link_initialized
 };
 
 static struct pw_port *get_port(struct pw_node *node, enum spa_direction direction)
@@ -233,28 +267,15 @@ static void *create_object(void *_data,
 
 	ld = pw_link_get_user_data(link);
 	ld->data = d;
+	ld->factory_resource = resource;
 	ld->link = link;
+	ld->new_id = new_id;
+	ld->linger = linger;
 	spa_list_append(&d->link_list, &ld->l);
 
 	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
 	if ((res = pw_link_register(link, NULL)) < 0)
 		goto error_link_register;
-
-	ld->global = pw_link_get_global(link);
-	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
-
-	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK_PROXY, new_id);
-	if (res < 0)
-		goto error_bind;
-
-	if (!linger) {
-		ld->resource = pw_client_find_resource(client, new_id);
-		if (ld->resource == NULL) {
-			res = -ENOENT;
-			goto error_bind;
-		}
-		pw_resource_add_listener(ld->resource, &ld->resource_listener, &resource_events, ld);
-	}
 
 	return link;
 
@@ -290,9 +311,6 @@ error_create_link:
 error_link_register:
 	pw_log_error("can't register link: %s", spa_strerror(res));
 	pw_resource_errorf(resource, res, "can't register link: %s", spa_strerror(res));
-	goto error_exit;
-error_bind:
-	pw_resource_errorf(resource, res, "can't bind link: %s", spa_strerror(res));
 	goto error_exit;
 error_exit:
 	if (properties)

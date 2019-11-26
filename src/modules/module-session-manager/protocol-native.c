@@ -1086,7 +1086,7 @@ static int endpoint_link_marshal_subscribe_params(void *object,
 
 static int endpoint_link_marshal_enum_params(void *object,
 					int seq, uint32_t id,
-					uint32_t start, uint32_t num,
+					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
 {
 	struct pw_protocol_native_message *msg;
@@ -1363,7 +1363,7 @@ static int endpoint_stream_marshal_subscribe_params(void *object,
 
 static int endpoint_stream_marshal_enum_params(void *object,
 					int seq, uint32_t id,
-					uint32_t start, uint32_t num,
+					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
 {
 	struct pw_protocol_native_message *msg;
@@ -1608,7 +1608,7 @@ static int endpoint_marshal_subscribe_params(void *object,
 
 static int endpoint_marshal_enum_params(void *object,
 					int seq, uint32_t id,
-					uint32_t start, uint32_t num,
+					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
 {
 	struct pw_protocol_native_message *msg;
@@ -1885,7 +1885,7 @@ static int session_marshal_subscribe_params(void *object,
 
 static int session_marshal_enum_params(void *object,
 					int seq, uint32_t id,
-					uint32_t start, uint32_t num,
+					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
 {
 	struct pw_protocol_native_message *msg;

@@ -561,6 +561,7 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 
 	pw_stream_add_listener(s->stream, &s->stream_listener, &stream_events, s);
 
+	s->endpoint_id = SPA_ID_INVALID;
 	s->direction = PA_STREAM_NODIRECTION;
 	s->state = PA_STREAM_UNCONNECTED;
 	s->flags = 0;
@@ -732,8 +733,10 @@ uint32_t pa_stream_get_index(PA_CONST pa_stream *s)
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
-
-	idx = pw_stream_get_node_id(s->stream);
+	if (s->endpoint_id != SPA_ID_INVALID)
+		idx = s->endpoint_id;
+	else
+		idx = pw_stream_get_node_id(s->stream);
 	pw_log_debug("stream %p: index %u", s, idx);
 	return idx;
 }

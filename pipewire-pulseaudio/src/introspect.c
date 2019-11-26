@@ -1493,7 +1493,7 @@ static void sink_input_callback(struct sink_input_data *d)
 	if (info == NULL)
 		return;
 
-	s = find_stream(d->context, g->id);
+	s = find_stream(d->context, g->endpoint_info.node_id);
 
 	if (info->props) {
 		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
@@ -1793,7 +1793,7 @@ static void source_output_callback(struct source_output_data *d)
 	if (info == NULL)
 		return;
 
-	s = find_stream(d->context, g->id);
+	s = find_stream(d->context, g->endpoint_info.node_id);
 
 	name = info->name;
 	if (name == NULL && info->props) {

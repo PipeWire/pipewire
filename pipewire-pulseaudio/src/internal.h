@@ -344,6 +344,7 @@ struct pa_stream {
 	pa_format_info *req_formats[PA_MAX_FORMATS];
 	pa_format_info *format;
 
+	uint32_t endpoint_id;
 	uint32_t stream_index;
 
 	pa_buffer_attr buffer_attr;

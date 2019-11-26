@@ -644,8 +644,14 @@ static int set_mask(pa_context *c, struct global *g)
 			g->endpoint_info.client_id = atoi(str);
 		if ((str = pw_properties_get(g->props, PW_KEY_DEVICE_ID)) != NULL)
 			g->endpoint_info.device_id = atoi(str);
-		if ((str = pw_properties_get(g->props, PW_KEY_NODE_ID)) != NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_NODE_ID)) != NULL) {
+			pa_stream *s;
 			g->endpoint_info.node_id = atoi(str);
+			spa_list_for_each(s, &c->streams, link) {
+				if (pw_stream_get_node_id(s->stream) == g->endpoint_info.node_id)
+					s->endpoint_id = g->id;
+			}
+		}
 
 		events = &endpoint_events;
                 client_version = PW_VERSION_ENDPOINT_PROXY;

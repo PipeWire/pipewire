@@ -32,6 +32,14 @@ extern "C" {
 
 struct sm_media_session;
 
+struct sm_object_events {
+#define SM_VERSION_OBJECT_EVENTS	0
+	uint32_t version;
+
+	void (*update) (void *data);
+	void (*destroy) (void *data);
+};
+
 struct sm_object {
 	uint32_t id;
 	uint32_t type;
@@ -50,11 +58,17 @@ struct sm_object {
 	struct spa_hook object_listener;
 	pw_destroy_t destroy;
 
+	struct spa_hook_list hooks;
+
 	struct spa_list data;
 };
 
+int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,
+		const struct sm_object_events *events, void *data);
+
 struct sm_param {
 	uint32_t id;
+	struct spa_list link;		/**< link in param_list */
 	struct spa_pod *param;
 };
 
@@ -170,7 +184,7 @@ struct sm_media_session_events {
 #define SM_VERSION_MEDIA_SESSION_EVENTS	0
 	uint32_t version;
 
-	void (*update) (void *data, struct sm_object *object);
+	void (*create) (void *data, struct sm_object *object);
 	void (*remove) (void *data, struct sm_object *object);
 
 	void (*rescan) (void *data, int seq);
@@ -204,6 +218,10 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 		const char *factory_name, uint32_t type, uint32_t version,
 		const struct spa_dict *props, size_t user_data_size);
+
+struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
+		const char *factory_name, const struct spa_dict *props,
+		size_t user_data_size);
 
 int sm_media_session_create_links(struct sm_media_session *sess,
 		const struct spa_dict *dict);

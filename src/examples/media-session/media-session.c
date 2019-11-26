@@ -47,9 +47,13 @@
 
 #define NAME "media-session"
 
+#define sm_object_emit(o,m,v,...) spa_hook_list_call(&(o)->hooks, struct sm_object_events, m, v, ##__VA_ARGS__)
+
+#define sm_object_emit_update(s)		sm_object_emit(s, update, 0)
+
 #define sm_media_session_emit(s,m,v,...) spa_hook_list_call(&s->hooks, struct sm_media_session_events, m, v, ##__VA_ARGS__)
 
-#define sm_media_session_emit_update(s,obj)		sm_media_session_emit(s, update, 0, obj)
+#define sm_media_session_emit_create(s,obj)		sm_media_session_emit(s, create, 0, obj)
 #define sm_media_session_emit_remove(s,obj)		sm_media_session_emit(s, remove, 0, obj)
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
 
@@ -70,7 +74,6 @@ struct data {
 
 struct param {
 	struct sm_param this;
-	struct spa_list link;
 };
 
 struct sync {
@@ -225,7 +228,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 
 	client->avail |= SM_CLIENT_CHANGE_MASK_INFO;
 	client->changed |= SM_CLIENT_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &client->obj);
+	sm_object_emit_update(&client->obj);
 	client->changed = 0;
 }
 
@@ -261,7 +264,7 @@ static struct param *add_param(struct spa_list *param_list,
 	p->this.param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->this.param, param, SPA_POD_SIZE(param));
 
-	spa_list_append(param_list, &p->link);
+	spa_list_append(param_list, &p->this.link);
 
 	return p;
 }
@@ -271,9 +274,9 @@ static void clear_params(struct spa_list *param_list, uint32_t id)
 {
 	struct param *p, *t;
 
-	spa_list_for_each_safe(p, t, param_list, link) {
+	spa_list_for_each_safe(p, t, param_list, this.link) {
 		if (id == SPA_ID_INVALID || p->this.id == id) {
-			spa_list_remove(&p->link);
+			spa_list_remove(&p->this.link);
 			free(p);
 		}
 	}
@@ -291,9 +294,15 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	pw_log_debug(NAME" %p: node %d info", impl, node->obj.id);
 	node->info = pw_node_info_update(node->info, info);
 
+	if (node->obj.id == SPA_ID_INVALID) {
+		node->obj.id = info->id;
+		pw_log_debug(NAME" %p: node %d added", impl, node->obj.id);
+		add_object(impl, &node->obj);
+	}
+
 	node->avail |= SM_NODE_CHANGE_MASK_INFO;
 	node->changed |= SM_NODE_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &node->obj);
+	sm_object_emit_update(&node->obj);
 	node->changed = 0;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS &&
@@ -313,6 +322,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			}
 		}
 		if (n_subscribe > 0) {
+			pw_log_debug(NAME" %p: node %d subscribe %d params", impl,
+					node->obj.id, n_subscribe);
 			pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->obj.proxy,
 					subscribe, n_subscribe);
 			node->subscribe = true;
@@ -327,6 +338,7 @@ static void node_event_param(void *object, int seq,
 	struct sm_node *node = object;
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 
+	pw_log_debug(NAME" %p: node %p param %d index:%d", impl, node, id, index);
 	if (index == 0)
 		clear_params(&node->param_list, id);
 
@@ -334,7 +346,7 @@ static void node_event_param(void *object, int seq,
 
 	node->avail |= SM_NODE_CHANGE_MASK_PARAMS;
 	node->changed |= SM_NODE_CHANGE_MASK_PARAMS;
-	sm_media_session_emit_update(impl, &node->obj);
+	sm_object_emit_update(&node->obj);
 	node->changed = 0;
 }
 
@@ -372,7 +384,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 
 	port->avail |= SM_PORT_CHANGE_MASK_INFO;
 	port->changed |= SM_PORT_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &port->obj);
+	sm_object_emit_update(&port->obj);
 	port->changed = 0;
 }
 
@@ -416,7 +428,7 @@ static void session_event_info(void *object, const struct pw_session_info *info)
 
 	sess->avail |= SM_SESSION_CHANGE_MASK_INFO;
 	sess->changed |= SM_SESSION_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &sess->obj);
+	sm_object_emit_update(&sess->obj);
 	sess->changed = 0;
 }
 
@@ -473,7 +485,7 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *inf
 
 	endpoint->avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	endpoint->changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &endpoint->obj);
+	sm_object_emit_update(&endpoint->obj);
 	endpoint->changed = 0;
 }
 
@@ -523,7 +535,7 @@ static void endpoint_stream_event_info(void *object, const struct pw_endpoint_st
 
 	stream->avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	stream->changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &stream->obj);
+	sm_object_emit_update(&stream->obj);
 	stream->changed = 0;
 }
 
@@ -568,7 +580,7 @@ static void endpoint_link_event_info(void *object, const struct pw_endpoint_link
 
 	link->avail |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
 	link->changed |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
-	sm_media_session_emit_update(impl, &link->obj);
+	sm_object_emit_update(&link->obj);
 	link->changed = 0;
 }
 
@@ -616,21 +628,21 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 static void
-registry_global(void *data,uint32_t id,
+init_object(struct impl *impl, struct sm_object *obj, uint32_t id,
 		uint32_t permissions, uint32_t type, uint32_t version,
 		const struct spa_dict *props)
 {
-	struct impl *impl = data;
 	int res;
 	const void *events;
         uint32_t client_version;
         pw_destroy_t destroy;
-        struct sm_object *obj = NULL;
-        struct pw_proxy *proxy;
 	size_t user_data_size;
 	const char *str;
+	struct pw_proxy *proxy;
 
-	pw_log_debug(NAME " %p: new global '%d' %d", impl, id, type);
+	proxy = obj ? obj->proxy : NULL;
+
+	pw_log_debug(NAME " %p: init '%d' %d", impl, id, type);
 
 	switch (type) {
 	case PW_TYPE_INTERFACE_Client:
@@ -686,13 +698,14 @@ registry_global(void *data,uint32_t id,
 		return;
 	}
 
-	proxy = pw_registry_proxy_bind(impl->registry_proxy,
-			id, type, client_version, user_data_size);
 	if (proxy == NULL) {
-		res = -errno;
-		goto error;
+		proxy = pw_registry_proxy_bind(impl->registry_proxy,
+				id, type, client_version, user_data_size);
+		if (proxy == NULL) {
+			res = -errno;
+			goto error;
+		}
 	}
-
 	if (obj == NULL)
 		obj = pw_proxy_get_user_data(proxy);
 	obj->session = &impl->this;
@@ -703,9 +716,11 @@ registry_global(void *data,uint32_t id,
 	obj->destroy = destroy;
 	obj->mask = SM_OBJECT_CHANGE_MASK_PROPERTIES | SM_OBJECT_CHANGE_MASK_BIND;
 	obj->avail = obj->mask;
+	spa_hook_list_init(&obj->hooks);
 	spa_list_init(&obj->data);
+	if (id != SPA_ID_INVALID)
+		add_object(impl, obj);
 
-	add_object(impl, obj);
 	pw_proxy_add_listener(proxy, &obj->proxy_listener, &proxy_events, obj);
 
 	switch (type) {
@@ -776,14 +791,39 @@ registry_global(void *data,uint32_t id,
 	default:
 		break;
 	}
-	sm_media_session_emit_update(impl, obj);
 
+	sm_media_session_emit_create(impl, obj);
 	pw_proxy_add_object_listener(proxy, &obj->object_listener, events, obj);
 
 	return;
 
 error:
 	pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(res));
+}
+
+static void
+registry_global(void *data, uint32_t id,
+		uint32_t permissions, uint32_t type, uint32_t version,
+		const struct spa_dict *props)
+{
+	struct impl *impl = data;
+        struct sm_object *obj;
+
+	pw_log_debug(NAME " %p: new global '%d' %d", impl, id, type);
+
+	obj = find_object(impl, id);
+	if (obj == NULL) {
+		init_object(impl, obj, id, permissions, type, version, props);
+	} else {
+		pw_log_debug(NAME " %p: our object %d appeared", impl, id);
+	}
+}
+
+int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,
+		const struct sm_object_events *events, void *data)
+{
+	spa_hook_list_append(&obj->hooks, listener, events, data);
+	return 0;
 }
 
 int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook *listener,
@@ -796,7 +836,7 @@ int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
 	spa_list_for_each(obj, &impl->global_list, link)
-		sm_media_session_emit_update(impl, obj);
+		sm_media_session_emit_create(impl, obj);
 
         spa_hook_list_join(&impl->hooks, &save);
 
@@ -906,6 +946,32 @@ struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	return pw_core_proxy_create_object(impl->core_proxy,
 			factory_name, type, version, props, user_data_size);
+}
+
+struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
+		const char *factory_name, const struct spa_dict *props,
+		size_t user_data_size)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct sm_node *node;
+	struct pw_proxy *proxy;
+
+	pw_log_debug(NAME " %p: node '%s'", impl, factory_name);
+
+	proxy = pw_core_proxy_create_object(impl->core_proxy,
+				factory_name,
+				PW_TYPE_INTERFACE_Node,
+				PW_VERSION_NODE_PROXY,
+				props,
+				sizeof(struct sm_node) + user_data_size);
+
+	node = pw_proxy_get_user_data(proxy);
+	node->obj.proxy = proxy;
+	init_object(impl, &node->obj, SPA_ID_INVALID,
+			PW_PERM_RWX, PW_TYPE_INTERFACE_Node,
+			PW_VERSION_NODE_PROXY, props);
+
+	return node;
 }
 
 static void check_endpoint_link(struct endpoint_link *link)

@@ -70,14 +70,14 @@ struct node {
 
 	struct client_endpoint *endpoint;
 
-	uint32_t media_type;
-	uint32_t media_subtype;
-	struct spa_audio_info_raw format;
+	struct spa_audio_info format;
 };
 
 struct stream {
 	struct pw_properties *props;
 	struct pw_endpoint_stream_info info;
+
+	struct spa_audio_info format;
 
 	unsigned int active:1;
 };
@@ -137,28 +137,22 @@ static int client_endpoint_stream_set_param(void *object, uint32_t stream_id,
 	return -ENOTSUP;
 }
 
-static int client_endpoint_create_link(void *object, const struct spa_dict *props)
+static int stream_set_active(struct client_endpoint *endpoint, struct stream *stream, bool active)
 {
-	struct client_endpoint *endpoint = object;
-	struct impl *impl = endpoint->impl;
 	struct node *node = endpoint->node;
-	struct pw_properties *p;
-	int res;
+	char buf[1024];
+	struct spa_pod_builder b = { 0, };
+	struct spa_pod *param;
 
-	pw_log_debug("create link");
+	if (stream->active == active)
+		return 0;
 
-	if (props == NULL)
-		return -EINVAL;
-
-	if (!endpoint->stream.active) {
-		char buf[1024];
-		struct spa_pod_builder b = { 0, };
-		struct spa_pod *param;
-
-		node->format.rate = 48000;
+	if (active) {
+		stream->format = node->format;
+		stream->format.info.raw.rate = 48000;
 
 		spa_pod_builder_init(&b, buf, sizeof(buf));
-		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format);
+		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &stream->format.info.raw);
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(endpoint->info.direction),
@@ -171,9 +165,24 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 
 		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj->obj.proxy,
 				SPA_PARAM_PortConfig, 0, param);
-
-		endpoint->stream.active = true;
 	}
+	stream->active = active;
+	return 0;
+}
+
+static int client_endpoint_create_link(void *object, const struct spa_dict *props)
+{
+	struct client_endpoint *endpoint = object;
+	struct impl *impl = endpoint->impl;
+	struct pw_properties *p;
+	int res;
+
+	pw_log_debug("create link");
+
+	if (props == NULL)
+		return -EINVAL;
+
+	stream_set_active(endpoint, &endpoint->stream, true);
 
 	p = pw_properties_new_dict(props);
 	if (p == NULL)
@@ -315,52 +324,41 @@ static void destroy_endpoint(struct client_endpoint *endpoint)
 	pw_proxy_destroy((struct pw_proxy*)endpoint->client_endpoint);
 }
 
-static void node_event_param(void *object, int seq,
-                       uint32_t id, uint32_t index, uint32_t next,
-                       const struct spa_pod *param)
+static void complete_stream(void *data)
 {
-	struct node *n = object;
-	struct impl *impl = n->impl;
-	struct spa_audio_info_raw info = { 0, };
+	struct node *node = data;
+	struct impl *impl = node->impl;
+	struct sm_param *p;
 
-	pw_log_debug(NAME" %p: param for node %d %d", impl, n->id, id);
+	pw_log_debug(NAME" %p: node %p", impl, node);
 
-	if (id != SPA_PARAM_EnumFormat)
-		return;
+	spa_list_for_each(p, &node->obj->param_list, link) {
+		struct spa_audio_info info = { 0, };
 
-	if (spa_format_parse(param, &n->media_type, &n->media_subtype) < 0)
-		goto error;
+		if (p->id != SPA_PARAM_EnumFormat)
+			continue;
 
-	if (n->media_type != SPA_MEDIA_TYPE_audio ||
-	    n->media_subtype != SPA_MEDIA_SUBTYPE_raw)
-		return;
+		if (spa_format_parse(p->param, &info.media_type, &info.media_subtype) < 0)
+			continue;
 
-	spa_pod_object_fixate((struct spa_pod_object*)param);
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, param);
+		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			continue;
 
-	if (spa_format_audio_raw_parse(param, &info) < 0)
-		goto error;
+		spa_pod_object_fixate((struct spa_pod_object*)p->param);
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(2, NULL, p->param);
 
-	if (n->format.channels < info.channels)
-		n->format = info;
+		if (spa_format_audio_raw_parse(p->param, &info.info.raw) < 0)
+			continue;
 
-	if (n->endpoint == NULL) {
-		n->endpoint = make_endpoint(n);
+		if (node->format.info.raw.channels < info.info.raw.channels)
+			node->format = info;
 	}
-	return;
 
-      error:
-	pw_log_warn("unhandled param:");
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_WARN))
-		spa_debug_pod(2, NULL, param);
-	return;
+	pw_log_debug("node %p: complete", node);
+	node->endpoint = make_endpoint(node);
 }
-
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
-	.param = node_event_param,
-};
 
 static int
 handle_node(struct impl *impl, struct sm_object *obj)
@@ -368,9 +366,7 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	const char *media_class;
 	enum pw_direction direction;
 	struct node *node;
-
-	if (sm_object_get_data(obj, SESSION_KEY) != NULL)
-		return 0;
+	uint32_t subscribe[4], n_subscribe = 0;
 
 	media_class = obj->props ? pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS) : NULL;
 
@@ -403,15 +399,20 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	node->media = strdup(media_class);
 	pw_log_debug(NAME "%p: node %d is stream %s", impl, node->id, node->media);
 
-	pw_proxy_add_object_listener(obj->proxy, &node->listener, &node_events, node);
+	subscribe[n_subscribe++] = SPA_PARAM_EnumFormat;
+	subscribe[n_subscribe++] = SPA_PARAM_Props;
+	subscribe[n_subscribe++] = SPA_PARAM_PropInfo;
+	pw_log_debug(NAME" %p: node %p proxy %p subscribe %d params", impl,
+				node, obj->proxy, n_subscribe);
+	pw_node_proxy_subscribe_params((struct pw_node_proxy*)obj->proxy,
+				subscribe, n_subscribe);
 
-	pw_node_proxy_enum_params((struct pw_node_proxy*)obj->proxy,
-				0, SPA_PARAM_EnumFormat,
-				0, -1, NULL);
+	sm_media_session_sync(impl->session, complete_stream, node);
+
 	return 1;
 }
 
-static void session_update(void *data, struct sm_object *object)
+static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	int res;
@@ -451,7 +452,7 @@ static void session_remove(void *data, struct sm_object *object)
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
-	.update = session_update,
+	.create = session_create,
 	.remove = session_remove,
 };
 

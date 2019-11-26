@@ -63,6 +63,8 @@ struct alsa_node {
 
 	struct spa_node *node;
 
+	struct sm_node *snode;
+
 	struct pw_proxy *proxy;
 	struct spa_hook listener;
 	struct pw_node_info *info;
@@ -108,6 +110,9 @@ struct impl {
 
 #include "alsa-endpoint.c"
 
+#undef NAME
+#define NAME "alsa-monitor"
+
 static struct alsa_node *alsa_find_node(struct alsa_object *obj, uint32_t id)
 {
 	struct alsa_node *node;
@@ -133,6 +138,7 @@ static void alsa_update_node(struct alsa_object *obj, struct alsa_node *node,
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct alsa_node *node = object;
+	pw_log_debug("node info %d", info->id);
 	node->info = pw_node_info_update(node->info, info);
 }
 
@@ -238,12 +244,11 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 	node->impl = impl;
 	node->object = obj;
 	node->id = id;
-	node->proxy = sm_media_session_create_object(impl->session,
+	node->snode = sm_media_session_create_node(impl->session,
 				"adapter",
-				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
 				&node->props->dict,
                                 0);
+	node->proxy = node->snode->obj.proxy;
 	if (node->proxy == NULL) {
 		res = -errno;
 		goto clean_node;
@@ -420,7 +425,7 @@ static void set_jack_profile(struct impl *impl, int index)
 	pw_device_proxy_set_param((struct pw_device_proxy*)impl->jack_device,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, 0,
+				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
 }
 
@@ -431,7 +436,7 @@ static void set_profile(struct alsa_object *obj, int index)
 	spa_device_set_param(obj->device,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, 0,
+				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
 }
 

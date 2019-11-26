@@ -109,9 +109,6 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 	struct endpoint *ep;
 	uint32_t client_id = SPA_ID_INVALID;
 
-	if (sm_object_get_data(object, SESSION_KEY) != NULL)
-		return 0;
-
 	if (object->props) {
 		if ((str = pw_properties_get(object->props, PW_KEY_CLIENT_ID)) != NULL)
 			client_id = atoi(str);
@@ -184,9 +181,6 @@ handle_stream(struct impl *impl, struct sm_object *object)
 	struct stream *s;
 	struct endpoint *ep;
 
-	if (sm_object_get_data(object, SESSION_KEY) != NULL)
-		return 0;
-
 	if (stream->endpoint == NULL)
 		return 0;
 
@@ -203,7 +197,7 @@ handle_stream(struct impl *impl, struct sm_object *object)
 	return 0;
 }
 
-static void session_update(void *data, struct sm_object *object)
+static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	int res;
@@ -534,7 +528,7 @@ static void session_rescan(void *data, int seq)
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
-	.update = session_update,
+	.create = session_create,
 	.remove = session_remove,
 	.rescan = session_rescan,
 };

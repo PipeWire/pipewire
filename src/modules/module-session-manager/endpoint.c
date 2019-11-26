@@ -68,6 +68,8 @@ static int endpoint_enum_params (void *object, int seq,
 	uint32_t next = start;
 	uint32_t count = 0;
 
+	pw_log_debug(NAME" %p: param %u %d/%d", this, id, start, num);
+
 	while (true) {
 		index = next++;
 		if (index >= this->n_params)
@@ -224,8 +226,8 @@ int endpoint_update(struct endpoint *this,
 		}
 
 		if (!this->info.name) {
-			this->info.name = strdup(info->name);
-			this->info.media_class = strdup(info->media_class);
+			this->info.name = info->name ? strdup(info->name) : NULL;
+			this->info.media_class = info->media_class ? strdup(info->media_class) : NULL;
 			this->info.direction = info->direction;
 			this->info.flags = info->flags;
 		}

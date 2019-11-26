@@ -339,8 +339,7 @@ static void node_event_param(void *object, int seq,
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: node %p param %d index:%d", impl, node, id, index);
-	if (index == 0)
-		clear_params(&node->param_list, id);
+	clear_params(&node->param_list, id);
 
 	add_param(&node->param_list, id, param);
 

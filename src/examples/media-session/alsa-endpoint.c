@@ -60,7 +60,6 @@ struct endpoint {
 	struct pw_endpoint_info info;
 
 	struct spa_param_info params[5];
-	uint32_t n_params;
 
 	struct endpoint *monitor;
 
@@ -284,7 +283,6 @@ static void complete_endpoint(void *data)
 	}
 
 	pw_client_endpoint_proxy_update(endpoint->client_endpoint,
-			PW_CLIENT_ENDPOINT_UPDATE_PARAMS |
 			PW_CLIENT_ENDPOINT_UPDATE_INFO,
 			0, NULL,
 			&endpoint->info);

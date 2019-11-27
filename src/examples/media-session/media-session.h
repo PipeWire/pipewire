@@ -49,8 +49,10 @@ struct sm_object {
 
 #define SM_OBJECT_CHANGE_MASK_PROPERTIES	(1<<0)
 #define SM_OBJECT_CHANGE_MASK_BIND		(1<<1)
+#define SM_OBJECT_CHANGE_MASK_LAST		(1<<8)
 	uint32_t mask;			/**< monitored info */
 	uint32_t avail;			/**< available info */
+	uint32_t changed;		/**< changed since last update */
 	struct pw_properties *props;	/**< global properties */
 
 	struct pw_proxy *proxy;
@@ -80,11 +82,8 @@ int sm_object_remove_data(struct sm_object *obj, const char *id);
 struct sm_client {
 	struct sm_object obj;
 
-#define SM_CLIENT_CHANGE_MASK_INFO		(1<<0)
-#define SM_CLIENT_CHANGE_MASK_PERMISSIONS	(1<<1)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_CLIENT_CHANGE_MASK_INFO		(SM_OBJECT_CHANGE_MASK_LAST<<0)
+#define SM_CLIENT_CHANGE_MASK_PERMISSIONS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
 	struct pw_client_info *info;
 };
 
@@ -93,15 +92,13 @@ struct sm_node {
 
 	unsigned int subscribe:1;	/**< if we subscribed to param changes */
 
-#define SM_NODE_CHANGE_MASK_INFO	(1<<0)
-#define SM_NODE_CHANGE_MASK_PORTS	(1<<1)
-#define SM_NODE_CHANGE_MASK_PARAMS	(1<<2)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_NODE_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
+#define SM_NODE_CHANGE_MASK_PORTS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
+#define SM_NODE_CHANGE_MASK_PARAMS	(SM_OBJECT_CHANGE_MASK_LAST<<2)
+	uint32_t n_params;
+	struct spa_list param_list;	/**< list of sm_param */
 	struct pw_node_info *info;
 	struct spa_list port_list;
-	struct spa_list param_list;	/**< list of sm_param */
 };
 
 struct sm_port {
@@ -111,20 +108,14 @@ struct sm_port {
 	struct sm_node *node;
 	struct spa_list link;		/**< link in node port_list */
 
-#define SM_PORT_CHANGE_MASK_INFO	(1<<0)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_PORT_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 	struct pw_port_info *info;
 };
 
 struct sm_session {
 	struct sm_object obj;
 
-#define SM_SESSION_CHANGE_MASK_INFO	(1<<0)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_SESSION_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 	struct pw_session_info *info;
 	struct spa_list endpoint_list;
 };
@@ -137,11 +128,8 @@ struct sm_endpoint {
 	struct sm_session *session;
 	struct spa_list link;		/**< link in session endpoint_list */
 
-#define SM_ENDPOINT_CHANGE_MASK_INFO	(1<<0)
-#define SM_ENDPOINT_CHANGE_MASK_STREAMS	(1<<1)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_ENDPOINT_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
+#define SM_ENDPOINT_CHANGE_MASK_STREAMS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
 	struct pw_endpoint_info *info;
 	struct spa_list stream_list;
 };
@@ -156,10 +144,7 @@ struct sm_endpoint_stream {
 
 	struct spa_list link_list;	/**< list of links */
 
-#define SM_ENDPOINT_STREAM_CHANGE_MASK_INFO	(1<<0)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_ENDPOINT_STREAM_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 	struct pw_endpoint_stream_info *info;
 };
 
@@ -173,10 +158,7 @@ struct sm_endpoint_link {
 	struct spa_list input_link;
 	struct sm_endpoint_stream *input;
 
-#define SM_ENDPOINT_LINK_CHANGE_MASK_INFO	(1<<0)
-	uint32_t mask;			/**< monitored info */
-	uint32_t avail;			/**< available info */
-	uint32_t changed;		/**< changed since last update */
+#define SM_ENDPOINT_LINK_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 	struct pw_endpoint_link_info *info;
 };
 

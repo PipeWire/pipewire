@@ -430,13 +430,13 @@ static void object_update(void *data)
 	struct node *node = data;
 	struct impl *impl = node->impl;
 
-	pw_log_debug(NAME" %p: node %p endpoint %p %08x", impl, node, node->endpoint, node->obj->changed);
+	pw_log_debug(NAME" %p: node %p endpoint %p %08x", impl, node, node->endpoint, node->obj->obj.changed);
 
 	if (node->endpoint == NULL &&
 	    node->obj->obj.avail & SM_OBJECT_CHANGE_MASK_PROPERTIES)
 		node->endpoint = make_endpoint(node);
 
-	if (node->obj->changed & SM_NODE_CHANGE_MASK_PARAMS)
+	if (node->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
 		update_params(node->endpoint);
 }
 

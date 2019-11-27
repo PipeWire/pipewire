@@ -270,16 +270,19 @@ static struct param *add_param(struct spa_list *param_list,
 }
 
 
-static void clear_params(struct spa_list *param_list, uint32_t id)
+static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 {
 	struct param *p, *t;
+	uint32_t count = 0;
 
 	spa_list_for_each_safe(p, t, param_list, this.link) {
 		if (id == SPA_ID_INVALID || p->this.id == id) {
 			spa_list_remove(&p->this.link);
 			free(p);
+			count++;
 		}
 	}
+	return count;
 }
 
 /**
@@ -339,9 +342,10 @@ static void node_event_param(void *object, int seq,
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: node %p param %d index:%d", impl, node, id, index);
-	clear_params(&node->param_list, id);
+	node->n_params -= clear_params(&node->param_list, id);
 
-	add_param(&node->param_list, id, param);
+	if (add_param(&node->param_list, id, param) != NULL)
+		node->n_params++;
 
 	node->obj.avail |= SM_NODE_CHANGE_MASK_PARAMS;
 	node->obj.changed |= SM_NODE_CHANGE_MASK_PARAMS;
@@ -365,6 +369,7 @@ static void node_destroy(void *object)
 		spa_list_remove(&port->link);
 	}
 	clear_params(&node->param_list, SPA_ID_INVALID);
+	node->n_params = 0;
 
 	if (node->info)
 		pw_node_info_free(node->info);

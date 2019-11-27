@@ -315,12 +315,7 @@ static void update_params(void *data)
 
 	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
 
-	n_params = 0;
-	spa_list_for_each(p, &node->obj->param_list, link)
-		n_params++;
-
-	params = alloca(sizeof(struct spa_pod *) * n_params);
-
+	params = alloca(sizeof(struct spa_pod *) * node->obj->n_params);
 	n_params = 0;
 	spa_list_for_each(p, &node->obj->param_list, link) {
 		switch (p->id) {

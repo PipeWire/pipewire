@@ -248,7 +248,54 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	return s;
 }
 
+static void update_params(void *data)
+{
+	uint32_t n_params;
+	const struct spa_pod **params;
+	struct endpoint *endpoint = data;
+	struct sm_node *node = endpoint->obj->snode;
+	struct sm_param *p;
+
+	pw_log_debug(NAME" %p: endpoint", endpoint);
+
+	params = alloca(sizeof(struct spa_pod *) * node->n_params);
+	n_params = 0;
+	spa_list_for_each(p, &node->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_Props:
+		case SPA_PARAM_PropInfo:
+			params[n_params++] = p->param;
+			break;
+		default:
+			break;
+		}
+	}
+
+	pw_client_endpoint_proxy_update(endpoint->client_endpoint,
+			PW_CLIENT_ENDPOINT_UPDATE_PARAMS |
+			PW_CLIENT_ENDPOINT_UPDATE_INFO,
+			n_params, params,
+			&endpoint->info);
+}
+
 static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *monitor);
+
+static void object_update(void *data)
+{
+	struct endpoint *endpoint = data;
+	struct impl *impl = endpoint->obj->impl;
+	struct sm_node *node = endpoint->obj->snode;
+
+	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
+
+	if (node->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
+		update_params(endpoint);
+}
+
+static const struct sm_object_events object_events = {
+	SM_VERSION_OBJECT_EVENTS,
+	.update = object_update
+};
 
 static void complete_endpoint(void *data)
 {
@@ -300,6 +347,8 @@ static void complete_endpoint(void *data)
 		endpoint_add_stream(monitor);
 	}
 	stream_set_active(endpoint, stream, true);
+
+	sm_object_add_listener(&endpoint->obj->snode->obj, &endpoint->listener, &object_events, endpoint);
 }
 
 static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *monitor)

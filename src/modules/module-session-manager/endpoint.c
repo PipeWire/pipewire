@@ -317,6 +317,7 @@ int endpoint_init(struct endpoint *this,
 	this->info.id = this->global->id;
 	this->info.props = &this->props->dict;
 
+	pw_resource_bound_id(client_ep->resource, this->global->id);
 	pw_client_endpoint_resource_set_id(client_ep->resource, this->global->id);
 
 	return pw_global_register(this->global);

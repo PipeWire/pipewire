@@ -432,6 +432,7 @@ global_bind(void *_data,
 			&core_methods, resource);
 
 	spa_list_append(&global->resource_list, &resource->link);
+	pw_resource_bound_id(resource, global->id);
 
 	if (resource->id == 0)
 		client->core_resource = resource;

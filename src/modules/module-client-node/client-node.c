@@ -1228,6 +1228,8 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 	if (this->resource == NULL)
 		return;
 
+	pw_resource_bound_id(this->resource, node_id);
+
 	pw_client_node_resource_transport(this->resource,
 					  node_id,
 					  impl->other_fds[0],

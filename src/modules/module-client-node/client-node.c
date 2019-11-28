@@ -1231,7 +1231,6 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 	pw_resource_bound_id(this->resource, node_id);
 
 	pw_client_node_resource_transport(this->resource,
-					  node_id,
 					  impl->other_fds[0],
 					  impl->other_fds[1],
 					  m->id,

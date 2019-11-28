@@ -311,13 +311,12 @@ static int client_node_demarshal_transport(void *object, const struct pw_protoco
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
-	uint32_t node_id, mem_id, offset, sz;
+	uint32_t mem_id, offset, sz;
 	int64_t ridx, widx;
 	int readfd, writefd;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&node_id),
 			SPA_POD_Fd(&ridx),
 			SPA_POD_Fd(&widx),
 			SPA_POD_Int(&mem_id),
@@ -331,7 +330,7 @@ static int client_node_demarshal_transport(void *object, const struct pw_protoco
 	if (readfd < 0 || writefd < 0)
 		return -EINVAL;
 
-	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, 0, node_id,
+	pw_proxy_notify(proxy, struct pw_client_node_proxy_events, transport, 0,
 								   readfd, writefd, mem_id,
 								   offset, sz);
 	return 0;
@@ -591,7 +590,7 @@ static int client_node_demarshal_set_io(void *object, const struct pw_protocol_n
 	return 0;
 }
 
-static int client_node_marshal_transport(void *object, uint32_t node_id, int readfd, int writefd,
+static int client_node_marshal_transport(void *object, int readfd, int writefd,
 		uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct pw_protocol_native_message *msg;
@@ -601,7 +600,6 @@ static int client_node_marshal_transport(void *object, uint32_t node_id, int rea
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT, &msg);
 
 	spa_pod_builder_add_struct(b,
-			       SPA_POD_Int(node_id),
 			       SPA_POD_Fd(pw_protocol_native_add_resource_fd(resource, readfd)),
 			       SPA_POD_Fd(pw_protocol_native_add_resource_fd(resource, writefd)),
 			       SPA_POD_Int(mem_id),

@@ -138,7 +138,6 @@ static void clean_transport(struct node_data *data)
 
 	pw_memmap_free(data->activation);
 	close(data->rtwritefd);
-	data->remote_id = SPA_ID_INVALID;
 	data->have_transport = false;
 }
 
@@ -234,7 +233,7 @@ static struct mix *ensure_mix(struct node_data *data,
 }
 
 
-static int client_node_transport(void *object, uint32_t node_id,
+static int client_node_transport(void *object,
 			int readfd, int writefd, uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct pw_proxy *proxy = object;
@@ -249,11 +248,10 @@ static int client_node_transport(void *object, uint32_t node_id,
 		return -errno;
 	}
 
-	data->remote_id = node_id;
 	data->node->rt.activation = data->activation->ptr;
 
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
-		proxy, readfd, writefd, node_id, data->activation->ptr);
+		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
 
         data->rtwritefd = writefd;
 	close(data->node->source.fd);
@@ -922,7 +920,7 @@ static void clean_node(struct node_data *d)
 {
 	struct mix *mix, *tmp;
 
-	if (d->remote_id != SPA_ID_INVALID) {
+	if (d->have_transport) {
 		spa_list_for_each_safe(mix, tmp, &d->mix[SPA_DIRECTION_INPUT], link)
 			clear_mix(d, mix);
 		spa_list_for_each_safe(mix, tmp, &d->mix[SPA_DIRECTION_OUTPUT], link)
@@ -1019,9 +1017,17 @@ static void client_node_proxy_destroy(void *_data)
 		pw_node_destroy(data->node);
 }
 
+static void client_node_proxy_bound(void *_data, uint32_t global_id)
+{
+	struct node_data *data = _data;
+	pw_log_debug("%p: bound %u", data, global_id);
+	data->remote_id = global_id;
+}
+
 static const struct pw_proxy_events client_node_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = client_node_proxy_destroy,
+	.bound = client_node_proxy_bound,
 };
 
 static void proxy_destroy(void *_data)

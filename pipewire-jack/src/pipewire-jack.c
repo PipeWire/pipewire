@@ -606,9 +606,16 @@ static void on_node_proxy_destroy(void *data)
 
 }
 
+static void on_node_proxy_bound(void *data, uint32_t global_id)
+{
+	struct client *client = data;
+	client->node_id = global_id;
+}
+
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = on_node_proxy_destroy,
+	.bound = on_node_proxy_bound,
 };
 
 static struct link *find_activation(struct pw_array *links, uint32_t node_id)
@@ -1094,15 +1101,12 @@ static void clean_transport(struct client *c)
 }
 
 static int client_node_transport(void *object,
-                           uint32_t node_id,
                            int readfd, int writefd,
 			   uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct client *c = (struct client *) object;
 
 	clean_transport(c);
-
-	c->node_id = node_id;
 
 	c->mem = pw_mempool_map_id(c->remote->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);

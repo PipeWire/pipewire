@@ -68,7 +68,6 @@ struct pw_client_node_proxy_events {
 	 *
 	 * The transport area is used to signal the client and the server.
 	 *
-	 * \param node_id the node id created for this client node
 	 * \param readfd fd for signal data can be read
 	 * \param writefd fd for signal data can be written
 	 * \param mem_id id for activation memory
@@ -76,7 +75,6 @@ struct pw_client_node_proxy_events {
 	 * \param size size of activation memory
 	 */
 	int (*transport) (void *object,
-			  uint32_t node_id,
 			  int readfd,
 			  int writefd,
 			  uint32_t mem_id,

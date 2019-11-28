@@ -311,6 +311,7 @@ struct client {
 	unsigned int destroyed:1;
 	unsigned int first:1;
 	unsigned int thread_entered:1;
+	unsigned int has_transport:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -1077,7 +1078,7 @@ static void clean_transport(struct client *c)
 {
 	struct link *l;
 
-	if (c->node_id == SPA_ID_INVALID)
+	if (!c->has_transport)
 		return;
 
 	pw_data_loop_stop(c->loop);
@@ -1089,7 +1090,7 @@ static void clean_transport(struct client *c)
 			clear_link(c, l);
 	pw_array_clear(&c->links);
 
-	c->node_id = SPA_ID_INVALID;
+	c->has_transport = false;
 }
 
 static int client_node_transport(void *object,
@@ -1112,13 +1113,16 @@ static int client_node_transport(void *object,
 	c->activation = c->mem->ptr;
 
 	pw_log_debug(NAME" %p: create client transport with fds %d %d for node %u",
-			c, readfd, writefd, node_id);
+			c, readfd, writefd, c->node_id);
 
 	close(writefd);
 	c->socket_source = pw_loop_add_io(c->loop->loop,
 					  readfd,
 					  SPA_IO_ERR | SPA_IO_HUP,
 					  true, on_rtsocket_condition, c);
+
+	c->has_transport = true;
+
 	return 0;
 }
 

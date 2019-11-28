@@ -52,10 +52,10 @@
 
 #define DEFAULT_JACK_SECONDS	1
 
-struct alsa_node {
+struct node {
 	struct impl *impl;
 	enum pw_direction direction;
-	struct alsa_object *object;
+	struct device *object;
 	struct spa_list link;
 	uint32_t id;
 
@@ -64,13 +64,9 @@ struct alsa_node {
 	struct spa_node *node;
 
 	struct sm_node *snode;
-
-	struct pw_proxy *proxy;
-	struct spa_hook listener;
-	struct pw_node_info *info;
 };
 
-struct alsa_object {
+struct device {
 	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
@@ -102,20 +98,18 @@ struct impl {
 	struct spa_device *monitor;
 	struct spa_hook listener;
 
-	struct spa_list object_list;
+	struct spa_list device_list;
 
 	struct spa_source *jack_timeout;
 	struct pw_proxy *jack_device;
 };
 
-#include "alsa-endpoint.c"
-
 #undef NAME
 #define NAME "alsa-monitor"
 
-static struct alsa_node *alsa_find_node(struct alsa_object *obj, uint32_t id)
+static struct node *alsa_find_node(struct device *obj, uint32_t id)
 {
-	struct alsa_node *node;
+	struct node *node;
 
 	spa_list_for_each(node, &obj->node_list, link) {
 		if (node->id == id)
@@ -124,7 +118,7 @@ static struct alsa_node *alsa_find_node(struct alsa_object *obj, uint32_t id)
 	return NULL;
 }
 
-static void alsa_update_node(struct alsa_object *obj, struct alsa_node *node,
+static void alsa_update_node(struct device *obj, struct node *node,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update node %u", node->id);
@@ -135,22 +129,10 @@ static void alsa_update_node(struct alsa_object *obj, struct alsa_node *node,
 	pw_properties_update(node->props, info->props);
 }
 
-static void node_event_info(void *object, const struct pw_node_info *info)
-{
-	struct alsa_node *node = object;
-	pw_log_debug("node info %d", info->id);
-	node->info = pw_node_info_update(node->info, info);
-}
-
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
-	.info = node_event_info,
-};
-
-static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
+static struct node *alsa_create_node(struct device *obj, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct alsa_node *node;
+	struct node *node;
 	struct impl *impl = obj->impl;
 	int res;
 	const char *dev, *subdev, *stream;
@@ -248,13 +230,10 @@ static struct alsa_node *alsa_create_node(struct alsa_object *obj, uint32_t id,
 				"adapter",
 				&node->props->dict,
                                 0);
-	node->proxy = node->snode->obj.proxy;
-	if (node->proxy == NULL) {
+	if (node->snode == NULL) {
 		res = -errno;
 		goto clean_node;
 	}
-	pw_proxy_add_object_listener(node->proxy, &node->listener, &node_events, node);
-
 	spa_list_append(&obj->node_list, &node->link);
 
 	return node;
@@ -267,17 +246,17 @@ exit:
 	return NULL;
 }
 
-static void alsa_remove_node(struct alsa_object *obj, struct alsa_node *node)
+static void alsa_remove_node(struct device *obj, struct node *node)
 {
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
-	pw_proxy_destroy(node->proxy);
+	sm_object_destroy(&node->snode->obj);
 	free(node);
 }
 
 static void alsa_device_info(void *data, const struct spa_device_info *info)
 {
-	struct alsa_object *obj = data;
+	struct device *obj = data;
 	const char *str;
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -292,8 +271,8 @@ static void alsa_device_info(void *data, const struct spa_device_info *info)
 static void alsa_device_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct alsa_object *obj = data;
-	struct alsa_node *node;
+	struct device *obj = data;
+	struct node *node;
 
 	node = alsa_find_node(obj, id);
 
@@ -316,38 +295,38 @@ static const struct spa_device_events alsa_device_events = {
 	.object_info = alsa_device_object_info
 };
 
-static struct alsa_object *alsa_find_object(struct impl *impl, uint32_t id)
+static struct device *alsa_find_device(struct impl *impl, uint32_t id)
 {
-	struct alsa_object *obj;
+	struct device *obj;
 
-	spa_list_for_each(obj, &impl->object_list, link) {
+	spa_list_for_each(obj, &impl->device_list, link) {
 		if (obj->id == id)
 			return obj;
 	}
 	return NULL;
 }
 
-static void alsa_update_object(struct impl *impl, struct alsa_object *obj,
+static void alsa_update_device(struct impl *impl, struct device *device,
 		const struct spa_device_object_info *info)
 {
-	pw_log_debug("update object %u", obj->id);
+	pw_log_debug("update device %u", device->id);
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_dict(0, info->props);
 
-	pw_properties_update(obj->props, info->props);
+	pw_properties_update(device->props, info->props);
 }
 
-static int update_device_props(struct alsa_object *obj)
+static int update_device_props(struct device *device)
 {
-	struct pw_properties *p = obj->props;
+	struct pw_properties *p = device->props;
 	const char *s, *d;
 	char temp[32];
 
 	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
 		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_ID)) == NULL) {
 			if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
-				snprintf(temp, sizeof(temp), "%d", obj->id);
+				snprintf(temp, sizeof(temp), "%d", device->id);
 				s = temp;
 			}
 		}
@@ -429,11 +408,11 @@ static void set_jack_profile(struct impl *impl, int index)
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
 }
 
-static void set_profile(struct alsa_object *obj, int index)
+static void set_profile(struct device *device, int index)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	spa_device_set_param(obj->device,
+	spa_device_set_param(device->device,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
@@ -472,31 +451,31 @@ static void add_jack_timeout(struct impl *impl)
 
 static void reserve_acquired(void *data, struct rd_device *d)
 {
-	struct alsa_object *obj = data;
-	struct impl *impl = obj->impl;
+	struct device *device = data;
+	struct impl *impl = device->impl;
 
-	pw_log_debug("%p: reserve acquired", obj);
+	pw_log_debug("%p: reserve acquired", device);
 
 	remove_jack_timeout(impl);
 	set_jack_profile(impl, 0);
-	set_profile(obj, 1);
+	set_profile(device, 1);
 
-	setup_alsa_endpoint(obj);
+//	setup_alsa_endpoint(device);
 }
 
 static void sync_complete_done(void *data, int seq)
 {
-	struct alsa_object *obj = data;
-	struct impl *impl = obj->impl;
+	struct device *device = data;
+	struct impl *impl = device->impl;
 
-	pw_log_debug("%d %d", obj->seq, seq);
-	if (seq != obj->seq)
+	pw_log_debug("%d %d", device->seq, seq);
+	if (seq != device->seq)
 		return;
 
-	spa_hook_remove(&obj->sync_listener);
-	obj->seq = 0;
+	spa_hook_remove(&device->sync_listener);
+	device->seq = 0;
 
-	rd_device_complete_release(obj->reserve, true);
+	rd_device_complete_release(device->reserve, true);
 
 	add_jack_timeout(impl);
 }
@@ -508,19 +487,19 @@ static const struct pw_proxy_events sync_complete_release = {
 
 static void reserve_release(void *data, struct rd_device *d, int forced)
 {
-	struct alsa_object *obj = data;
-	struct impl *impl = obj->impl;
+	struct device *device = data;
+	struct impl *impl = device->impl;
 
-	pw_log_debug("%p: reserve release", obj);
+	pw_log_debug("%p: reserve release", device);
 
 	remove_jack_timeout(impl);
-	set_profile(obj, 0);
+	set_profile(device, 0);
 
-	if (obj->seq == 0)
-		pw_proxy_add_listener(obj->proxy,
-				&obj->sync_listener,
-				&sync_complete_release, obj);
-	obj->seq = pw_proxy_sync(obj->proxy, 0);
+	if (device->seq == 0)
+		pw_proxy_add_listener(device->proxy,
+				&device->sync_listener,
+				&sync_complete_release, device);
+	device->seq = pw_proxy_sync(device->proxy, 0);
 }
 
 static const struct rd_device_callbacks reserve_callbacks = {
@@ -528,17 +507,17 @@ static const struct rd_device_callbacks reserve_callbacks = {
 	.release = reserve_release,
 };
 
-static struct alsa_object *alsa_create_object(struct impl *impl, uint32_t id,
+static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_core *core = impl->session->core;
-	struct alsa_object *obj;
+	struct device *device;
 	struct spa_handle *handle;
 	int res;
 	void *iface;
 	const char *card;
 
-	pw_log_debug("new object %u", id);
+	pw_log_debug("new device %u", id);
 
 	if (info->type != SPA_TYPE_INTERFACE_Device) {
 		errno = EINVAL;
@@ -559,64 +538,64 @@ static struct alsa_object *alsa_create_object(struct impl *impl, uint32_t id,
 		goto unload_handle;
 	}
 
-	obj = calloc(1, sizeof(*obj));
-	if (obj == NULL) {
+	device = calloc(1, sizeof(*device));
+	if (device == NULL) {
 		res = -errno;
 		goto unload_handle;
 	}
 
-	obj->impl = impl;
-	obj->id = id;
-	obj->handle = handle;
-	obj->device = iface;
-	obj->props = pw_properties_new_dict(info->props);
-	obj->priority = 1000;
-	update_device_props(obj);
+	device->impl = impl;
+	device->id = id;
+	device->handle = handle;
+	device->device = iface;
+	device->props = pw_properties_new_dict(info->props);
+	device->priority = 1000;
+	update_device_props(device);
 
-	obj->proxy = sm_media_session_export(impl->session,
+	device->proxy = sm_media_session_export(impl->session,
 			info->type,
-			pw_properties_copy(obj->props),
-			obj->device, 0);
-	if (obj->proxy == NULL) {
+			pw_properties_copy(device->props),
+			device->device, 0);
+	if (device->proxy == NULL) {
 		res = -errno;
-		goto clean_object;
+		goto clean_device;
 	}
 
 	if ((card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		const char *reserve;
 
-		pw_properties_setf(obj->props, "api.dbus.ReserveDevice1", "Audio%s", card);
-		reserve = pw_properties_get(obj->props, "api.dbus.ReserveDevice1");
+		pw_properties_setf(device->props, "api.dbus.ReserveDevice1", "Audio%s", card);
+		reserve = pw_properties_get(device->props, "api.dbus.ReserveDevice1");
 
-		obj->reserve = rd_device_new(impl->conn, reserve,
+		device->reserve = rd_device_new(impl->conn, reserve,
 				"PipeWire", 10,
-				&reserve_callbacks, obj);
+				&reserve_callbacks, device);
 
-		if (obj->reserve == NULL) {
+		if (device->reserve == NULL) {
 			pw_log_warn("can't create device reserve for %s: %m", reserve);
 		} else {
-			rd_device_set_application_device_name(obj->reserve,
+			rd_device_set_application_device_name(device->reserve,
 				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
 		}
-		obj->priority -= atol(card) * 64;
+		device->priority -= atol(card) * 64;
 	}
 
 	/* no device reservation, activate device right now */
-	if (obj->reserve == NULL)
-		set_profile(obj, 1);
+	if (device->reserve == NULL)
+		set_profile(device, 1);
 
-	obj->first = true;
-	spa_list_init(&obj->node_list);
+	device->first = true;
+	spa_list_init(&device->node_list);
 
-	spa_device_add_listener(obj->device,
-			&obj->device_listener, &alsa_device_events, obj);
+	spa_device_add_listener(device->device,
+			&device->device_listener, &alsa_device_events, device);
 
-	spa_list_append(&impl->object_list, &obj->link);
+	spa_list_append(&impl->device_list, &device->link);
 
-	return obj;
+	return device;
 
-clean_object:
-	free(obj);
+clean_device:
+	free(device);
 unload_handle:
 	pw_unload_spa_handle(handle);
 exit:
@@ -624,9 +603,9 @@ exit:
 	return NULL;
 }
 
-static void alsa_remove_object(struct impl *impl, struct alsa_object *obj)
+static void alsa_remove_device(struct impl *impl, struct device *obj)
 {
-	pw_log_debug("remove object %u", obj->id);
+	pw_log_debug("remove device %u", obj->id);
 	spa_list_remove(&obj->link);
 	spa_hook_remove(&obj->device_listener);
 	if (obj->seq != 0)
@@ -642,19 +621,19 @@ static void alsa_udev_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
 	struct impl *impl = data;
-	struct alsa_object *obj;
+	struct device *obj;
 
-	obj = alsa_find_object(impl, id);
+	obj = alsa_find_device(impl, id);
 
 	if (info == NULL) {
 		if (obj == NULL)
 			return;
-		alsa_remove_object(impl, obj);
+		alsa_remove_device(impl, obj);
 	} else if (obj == NULL) {
-		if ((obj = alsa_create_object(impl, id, info)) == NULL)
+		if ((obj = alsa_create_device(impl, id, info)) == NULL)
 			return;
 	} else {
-		alsa_update_object(impl, obj, info);
+		alsa_update_device(impl, obj, info);
 	}
 }
 
@@ -718,7 +697,7 @@ void *sm_alsa_monitor_start(struct sm_media_session *session)
 		goto out_unload;
 	}
 	impl->monitor = iface;
-	spa_list_init(&impl->object_list);
+	spa_list_init(&impl->device_list);
 	spa_device_add_listener(impl->monitor, &impl->listener, &alsa_udev_events, impl);
 
 	if ((res = alsa_start_jack_device(impl)) < 0)

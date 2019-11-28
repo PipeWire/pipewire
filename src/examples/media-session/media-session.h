@@ -79,6 +79,8 @@ void *sm_object_add_data(struct sm_object *obj, const char *id, size_t size);
 void *sm_object_get_data(struct sm_object *obj, const char *id);
 int sm_object_remove_data(struct sm_object *obj, const char *id);
 
+int sm_object_destroy(struct sm_object *obj);
+
 struct sm_client {
 	struct sm_object obj;
 
@@ -87,14 +89,32 @@ struct sm_client {
 	struct pw_client_info *info;
 };
 
-struct sm_node {
+struct sm_device {
 	struct sm_object obj;
 
 	unsigned int subscribe:1;	/**< if we subscribed to param changes */
 
+#define SM_DEVICE_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
+#define SM_DEVICE_CHANGE_MASK_PARAMS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
+#define SM_DEVICE_CHANGE_MASK_NODES	(SM_OBJECT_CHANGE_MASK_LAST<<2)
+	uint32_t n_params;
+	struct spa_list param_list;	/**< list of sm_param */
+	struct pw_device_info *info;
+	struct spa_list node_list;
+};
+
+
+struct sm_node {
+	struct sm_object obj;
+
+	struct sm_device *device;	/**< optional device */
+	struct spa_list link;		/**< link in device node_list */
+	unsigned int subscribe:1;	/**< if we subscribed to param changes */
+	uint32_t last_id;
+
 #define SM_NODE_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
-#define SM_NODE_CHANGE_MASK_PORTS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
-#define SM_NODE_CHANGE_MASK_PARAMS	(SM_OBJECT_CHANGE_MASK_LAST<<2)
+#define SM_NODE_CHANGE_MASK_PARAMS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
+#define SM_NODE_CHANGE_MASK_PORTS	(SM_OBJECT_CHANGE_MASK_LAST<<2)
 	uint32_t n_params;
 	struct spa_list param_list;	/**< list of sm_param */
 	struct pw_node_info *info;

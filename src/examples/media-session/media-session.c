@@ -63,6 +63,7 @@ void * sm_alsa_midi_start(struct sm_media_session *sess);
 void * sm_v4l2_monitor_start(struct sm_media_session *sess);
 void * sm_bluez5_monitor_start(struct sm_media_session *sess);
 void * sm_alsa_monitor_start(struct sm_media_session *sess);
+void * sm_alsa_endpoint_start(struct sm_media_session *sess);
 int sm_policy_ep_start(struct sm_media_session *sess);
 
 /** user data to add to an object */
@@ -92,11 +93,11 @@ struct impl {
 
 	struct pw_remote *monitor_remote;
 	struct spa_hook monitor_listener;
+	struct pw_core_proxy *monitor_core;
 
 	struct pw_remote *policy_remote;
 	struct spa_hook policy_listener;
-
-	struct pw_core_proxy *core_proxy;
+	struct pw_core_proxy *policy_core;
 	struct spa_hook core_listener;
 
 	struct pw_registry_proxy *registry_proxy;
@@ -215,33 +216,10 @@ int sm_object_remove_data(struct sm_object *obj, const char *id)
 	return 0;
 }
 
-/**
- * Clients
- */
-static void client_event_info(void *object, const struct pw_client_info *info)
+int sm_object_destroy(struct sm_object *obj)
 {
-	struct sm_client *client = object;
-	struct impl *impl = SPA_CONTAINER_OF(client->obj.session, struct impl, this);
-
-	pw_log_debug(NAME" %p: client %d info", impl, client->obj.id);
-	client->info = pw_client_info_update(client->info, info);
-
-	client->obj.avail |= SM_CLIENT_CHANGE_MASK_INFO;
-	client->obj.changed |= SM_CLIENT_CHANGE_MASK_INFO;
-	sm_object_emit_update(&client->obj);
-	client->obj.changed = 0;
-}
-
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
-	.info = client_event_info,
-};
-
-static void client_destroy(void *object)
-{
-	struct sm_client *client = object;
-	if (client->info)
-		pw_client_info_free(client->info);
+	pw_proxy_destroy(obj->proxy);
+	return 0;
 }
 
 static struct param *add_param(struct spa_list *param_list,
@@ -286,6 +264,94 @@ static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 }
 
 /**
+ * Clients
+ */
+static void client_event_info(void *object, const struct pw_client_info *info)
+{
+	struct sm_client *client = object;
+	struct impl *impl = SPA_CONTAINER_OF(client->obj.session, struct impl, this);
+
+	pw_log_debug(NAME" %p: client %d info", impl, client->obj.id);
+	client->info = pw_client_info_update(client->info, info);
+
+	client->obj.avail |= SM_CLIENT_CHANGE_MASK_INFO;
+	client->obj.changed |= SM_CLIENT_CHANGE_MASK_INFO;
+	pw_proxy_sync(client->obj.proxy, 1);
+}
+
+static const struct pw_client_proxy_events client_events = {
+	PW_VERSION_CLIENT_PROXY_EVENTS,
+	.info = client_event_info,
+};
+
+static void client_destroy(void *object)
+{
+	struct sm_client *client = object;
+	if (client->info)
+		pw_client_info_free(client->info);
+}
+
+/**
+ * Device
+ */
+static void device_event_info(void *object, const struct pw_device_info *info)
+{
+	struct sm_device *device = object;
+	struct impl *impl = SPA_CONTAINER_OF(device->obj.session, struct impl, this);
+
+	pw_log_debug(NAME" %p: device %d info", impl, device->obj.id);
+	device->info = pw_device_info_update(device->info, info);
+
+	device->obj.avail |= SM_DEVICE_CHANGE_MASK_INFO;
+	device->obj.changed |= SM_DEVICE_CHANGE_MASK_INFO;
+
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
+		pw_device_proxy_enum_params((struct pw_device_proxy*)device->obj.proxy,
+				1, SPA_PARAM_Profile, 0, UINT32_MAX, NULL);
+	}
+	pw_proxy_sync(device->obj.proxy, 1);
+}
+
+static void device_event_param(void *object, int seq,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct sm_device *device = object;
+	struct impl *impl = SPA_CONTAINER_OF(device->obj.session, struct impl, this);
+
+	pw_log_debug(NAME" %p: device %p param %d index:%d", impl, device, id, index);
+	device->n_params -= clear_params(&device->param_list, id);
+
+	if (add_param(&device->param_list, id, param) != NULL)
+		device->n_params++;
+
+	device->obj.avail |= SM_DEVICE_CHANGE_MASK_PARAMS;
+	device->obj.changed |= SM_DEVICE_CHANGE_MASK_PARAMS;
+}
+
+static const struct pw_device_proxy_events device_events = {
+	PW_VERSION_DEVICE_PROXY_EVENTS,
+	.info = device_event_info,
+	.param = device_event_param,
+};
+
+static void device_destroy(void *object)
+{
+	struct sm_device *device = object;
+	struct sm_node *node;
+
+	spa_list_consume(node, &device->node_list, link) {
+		node->device = NULL;
+		spa_list_remove(&node->link);
+	}
+	clear_params(&device->param_list, SPA_ID_INVALID);
+	device->n_params = 0;
+
+	if (device->info)
+		pw_device_info_free(device->info);
+}
+
+/**
  * Node
  */
 static void node_event_info(void *object, const struct pw_node_info *info)
@@ -305,8 +371,6 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 	node->obj.avail |= SM_NODE_CHANGE_MASK_INFO;
 	node->obj.changed |= SM_NODE_CHANGE_MASK_INFO;
-	sm_object_emit_update(&node->obj);
-	node->obj.changed = 0;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS &&
 	    (node->obj.mask & SM_NODE_CHANGE_MASK_PARAMS) &&
@@ -332,6 +396,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			node->subscribe = true;
 		}
 	}
+	node->last_id = SPA_ID_INVALID;
+	pw_proxy_sync(node->obj.proxy, 1);
 }
 
 static void node_event_param(void *object, int seq,
@@ -342,15 +408,18 @@ static void node_event_param(void *object, int seq,
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: node %p param %d index:%d", impl, node, id, index);
-	node->n_params -= clear_params(&node->param_list, id);
+
+	if (node->last_id != id) {
+		pw_log_debug(NAME" %p: node %p clear param %d", impl, node, id);
+		node->n_params -= clear_params(&node->param_list, id);
+		node->last_id = id;
+	}
 
 	if (add_param(&node->param_list, id, param) != NULL)
 		node->n_params++;
 
 	node->obj.avail |= SM_NODE_CHANGE_MASK_PARAMS;
 	node->obj.changed |= SM_NODE_CHANGE_MASK_PARAMS;
-	sm_object_emit_update(&node->obj);
-	node->obj.changed = 0;
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -371,6 +440,10 @@ static void node_destroy(void *object)
 	clear_params(&node->param_list, SPA_ID_INVALID);
 	node->n_params = 0;
 
+	if (node->device) {
+		spa_list_remove(&node->link);
+		node->device->obj.changed |= SM_DEVICE_CHANGE_MASK_NODES;
+	}
 	if (node->info)
 		pw_node_info_free(node->info);
 }
@@ -388,8 +461,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 
 	port->obj.avail |= SM_PORT_CHANGE_MASK_INFO;
 	port->obj.changed |= SM_PORT_CHANGE_MASK_INFO;
-	sm_object_emit_update(&port->obj);
-	port->obj.changed = 0;
+	pw_proxy_sync(port->obj.proxy, 1);
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -432,8 +504,7 @@ static void session_event_info(void *object, const struct pw_session_info *info)
 
 	sess->obj.avail |= SM_SESSION_CHANGE_MASK_INFO;
 	sess->obj.changed |= SM_SESSION_CHANGE_MASK_INFO;
-	sm_object_emit_update(&sess->obj);
-	sess->obj.changed = 0;
+	pw_proxy_sync(sess->obj.proxy, 1);
 }
 
 static const struct pw_session_proxy_events session_events = {
@@ -489,8 +560,7 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *inf
 
 	endpoint->obj.avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	endpoint->obj.changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
-	sm_object_emit_update(&endpoint->obj);
-	endpoint->obj.changed = 0;
+	pw_proxy_sync(endpoint->obj.proxy, 1);
 }
 
 static const struct pw_endpoint_proxy_events endpoint_events = {
@@ -539,8 +609,7 @@ static void endpoint_stream_event_info(void *object, const struct pw_endpoint_st
 
 	stream->obj.avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	stream->obj.changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
-	sm_object_emit_update(&stream->obj);
-	stream->obj.changed = 0;
+	pw_proxy_sync(stream->obj.proxy, 1);
 }
 
 static const struct pw_endpoint_stream_proxy_events endpoint_stream_events = {
@@ -584,8 +653,7 @@ static void endpoint_link_event_info(void *object, const struct pw_endpoint_link
 
 	link->obj.avail |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
 	link->obj.changed |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
-	sm_object_emit_update(&link->obj);
-	link->obj.changed = 0;
+	pw_proxy_sync(link->obj.proxy, 1);
 }
 
 static const struct pw_endpoint_link_proxy_events endpoint_link_events = {
@@ -615,7 +683,7 @@ static void endpoint_link_destroy(void *object)
  * Proxy
  */
 static void
-destroy_proxy (void *data)
+destroy_proxy(void *data)
 {
 	struct sm_object *obj = data;
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
@@ -626,9 +694,21 @@ destroy_proxy (void *data)
 		obj->destroy(obj);
 }
 
+static void done_proxy(void *data, int seq)
+{
+	struct sm_object *obj = data;
+	pw_log_debug("done %p proxy %p avail:%08x update:%08x", obj,
+			obj->proxy, obj->avail, obj->changed);
+	if (obj->changed) {
+		sm_object_emit_update(obj);
+	}
+	obj->changed = 0;
+}
+
 static const struct pw_proxy_events proxy_events = {
         PW_VERSION_PROXY_EVENTS,
         .destroy = destroy_proxy,
+        .done = done_proxy,
 };
 
 static void
@@ -654,6 +734,13 @@ init_object(struct impl *impl, struct sm_object *obj, uint32_t id,
                 client_version = PW_VERSION_CLIENT_PROXY;
                 destroy = (pw_destroy_t) client_destroy;
 		user_data_size = sizeof(struct sm_client);
+		break;
+
+	case PW_TYPE_INTERFACE_Device:
+		events = &device_events;
+                client_version = PW_VERSION_DEVICE_PROXY;
+                destroy = (pw_destroy_t) device_destroy;
+		user_data_size = sizeof(struct sm_device);
 		break;
 
 	case PW_TYPE_INTERFACE_Node:
@@ -728,11 +815,29 @@ init_object(struct impl *impl, struct sm_object *obj, uint32_t id,
 	pw_proxy_add_listener(proxy, &obj->proxy_listener, &proxy_events, obj);
 
 	switch (type) {
+	case PW_TYPE_INTERFACE_Device:
+	{
+		struct sm_device *device = (struct sm_device*) obj;
+		spa_list_init(&device->node_list);
+		spa_list_init(&device->param_list);
+		break;
+	}
+
 	case PW_TYPE_INTERFACE_Node:
 	{
 		struct sm_node *node = (struct sm_node*) obj;
 		spa_list_init(&node->port_list);
 		spa_list_init(&node->param_list);
+
+		if (props) {
+			if ((str = spa_dict_lookup(props, PW_KEY_DEVICE_ID)) != NULL)
+				node->device = find_object(impl, atoi(str));
+			pw_log_debug(NAME" %p: node %d parent device %s", impl, id, str);
+			if (node->device) {
+				spa_list_append(&node->device->node_list, &node->link);
+				node->device->obj.changed |= SM_DEVICE_CHANGE_MASK_NODES;
+			}
+		}
 		break;
 	}
 	case PW_TYPE_INTERFACE_Port:
@@ -796,6 +901,7 @@ init_object(struct impl *impl, struct sm_object *obj, uint32_t id,
 		break;
 	}
 
+	pw_log_debug(NAME" %p: created new object %p id:%d", impl, obj, obj->id);
 	sm_media_session_emit_create(impl, obj);
 	pw_proxy_add_object_listener(proxy, &obj->object_listener, events, obj);
 
@@ -856,8 +962,8 @@ struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, ui
 int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	if (impl->core_proxy)
-		impl->rescan_seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->last_seq);
+	if (impl->policy_core)
+		impl->rescan_seq = pw_core_proxy_sync(impl->policy_core, 0, impl->last_seq);
 	return impl->rescan_seq;
 }
 
@@ -874,7 +980,7 @@ int sm_media_session_sync(struct sm_media_session *sess,
 	spa_list_append(&impl->sync_list, &sync->link);
 	sync->callback = callback;
 	sync->data = data;
-	sync->seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->last_seq);
+	sync->seq = pw_core_proxy_sync(impl->policy_core, 0, impl->last_seq);
 	return sync->seq;
 }
 
@@ -890,7 +996,7 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 	struct pw_loop *loop = impl->this.loop;
 	int done, res;
 
-	if (impl->core_proxy == NULL)
+	if (impl->policy_core == NULL)
 		return -EIO;
 
 	done = 0;
@@ -948,7 +1054,7 @@ struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 		const struct spa_dict *props, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	return pw_core_proxy_create_object(impl->core_proxy,
+	return pw_core_proxy_create_object(impl->policy_core,
 			factory_name, type, version, props, user_data_size);
 }
 
@@ -962,7 +1068,7 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 
 	pw_log_debug(NAME " %p: node '%s'", impl, factory_name);
 
-	proxy = pw_core_proxy_create_object(impl->core_proxy,
+	proxy = pw_core_proxy_create_object(impl->policy_core,
 				factory_name,
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,
@@ -1042,7 +1148,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", outport->obj.id);
 			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", inport->obj.id);
 
-			p = pw_core_proxy_create_object(impl->core_proxy,
+			p = pw_core_proxy_create_object(impl->policy_core,
 						"link-factory",
 						PW_TYPE_INTERFACE_Link,
 						PW_VERSION_LINK_PROXY,
@@ -1195,6 +1301,7 @@ static int client_session_set_id(void *object, uint32_t id)
 	sm_alsa_midi_start(&impl->this);
 	sm_bluez5_monitor_start(&impl->this);
 	sm_alsa_monitor_start(&impl->this);
+	sm_alsa_endpoint_start(&impl->this);
 	sm_v4l2_monitor_start(&impl->this);
 	sm_stream_monitor_start(&impl->this);
 	return 0;
@@ -1233,7 +1340,7 @@ static const struct pw_client_session_proxy_events client_session_events = {
 
 static int start_session(struct impl *impl)
 {
-	impl->client_session = pw_core_proxy_create_object(impl->core_proxy,
+	impl->client_session = pw_core_proxy_create_object(impl->monitor_core,
                                             "client-session",
                                             PW_TYPE_INTERFACE_ClientSession,
                                             PW_VERSION_CLIENT_SESSION_PROXY,
@@ -1271,11 +1378,6 @@ static void core_done(void *data, uint32_t id, int seq)
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.done = core_done
-};
-
 static void on_monitor_state_changed(void *_data, enum pw_remote_state old,
 		enum pw_remote_state state, const char *error)
 {
@@ -1289,15 +1391,7 @@ static void on_monitor_state_changed(void *_data, enum pw_remote_state old,
 
 	case PW_REMOTE_STATE_CONNECTED:
 		pw_log_info(NAME" %p: connected", impl);
-		impl->core_proxy = pw_remote_get_core_proxy(impl->monitor_remote);
-		pw_core_proxy_add_listener(impl->core_proxy,
-					   &impl->core_listener,
-					   &core_events, impl);
-		impl->registry_proxy = pw_core_proxy_get_registry(impl->core_proxy,
-                                                PW_VERSION_REGISTRY_PROXY, 0);
-		pw_registry_proxy_add_listener(impl->registry_proxy,
-                                               &impl->registry_listener,
-                                               &registry_events, impl);
+		impl->monitor_core = pw_remote_get_core_proxy(impl->monitor_remote);
 		start_session(impl);
 		break;
 
@@ -1317,6 +1411,11 @@ static const struct pw_remote_events monitor_remote_events = {
 	.state_changed = on_monitor_state_changed,
 };
 
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.done = core_done
+};
+
 static void on_policy_state_changed(void *_data, enum pw_remote_state old,
 		enum pw_remote_state state, const char *error)
 {
@@ -1330,6 +1429,15 @@ static void on_policy_state_changed(void *_data, enum pw_remote_state old,
 
 	case PW_REMOTE_STATE_CONNECTED:
 		pw_log_info(NAME" %p: connected", impl);
+		impl->policy_core = pw_remote_get_core_proxy(impl->policy_remote);
+		pw_core_proxy_add_listener(impl->policy_core,
+					   &impl->core_listener,
+					   &core_events, impl);
+		impl->registry_proxy = pw_core_proxy_get_registry(impl->policy_core,
+                                                PW_VERSION_REGISTRY_PROXY, 0);
+		pw_registry_proxy_add_listener(impl->registry_proxy,
+                                               &impl->registry_listener,
+                                               &registry_events, impl);
 		start_policy(impl);
 		break;
 

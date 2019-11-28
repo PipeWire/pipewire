@@ -35,6 +35,7 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>
 #include <spa/param/audio/format-utils.h>
@@ -43,16 +44,21 @@
 #include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
+#include <extensions/session-manager.h>
 
-#undef NAME
-#define NAME "alsa-endpoint"
+#include "media-session.h"
+
+#define NAME		"alsa-endpoint"
+#define SESSION_KEY	"alsa-endpoint"
 
 struct endpoint {
 	struct spa_list link;
 
+	struct impl *impl;
+
 	struct pw_properties *props;
 
-	struct alsa_node *obj;
+	struct node *node;
 	struct spa_hook listener;
 
 	struct pw_client_endpoint_proxy *client_endpoint;
@@ -82,6 +88,31 @@ struct stream {
 	unsigned int active:1;
 };
 
+struct node {
+	struct spa_list link;
+
+	struct impl *impl;
+	struct sm_node *node;
+
+	struct endpoint *endpoint;
+};
+
+struct device {
+	struct spa_list link;
+
+	struct impl *impl;
+	uint32_t id;
+	struct sm_device *device;
+	struct spa_hook listener;
+
+	struct spa_list endpoint_list;
+};
+
+struct impl {
+	struct sm_media_session *session;
+	struct spa_hook listener;
+};
+
 static int client_endpoint_set_id(void *object, uint32_t id)
 {
 	struct endpoint *endpoint = object;
@@ -100,9 +131,9 @@ static int client_endpoint_set_param(void *object,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct endpoint *endpoint = object;
-	struct impl *impl = endpoint->obj->impl;
+	struct impl *impl = endpoint->impl;
 	pw_log_debug(NAME " %p: endpoint %p set param %d", impl, endpoint, id);
-	return pw_node_proxy_set_param((struct pw_node_proxy*)endpoint->obj->proxy,
+	return pw_node_proxy_set_param((struct pw_node_proxy*)endpoint->node->node->obj.proxy,
 				id, flags, param);
 }
 
@@ -137,7 +168,7 @@ static int stream_set_active(struct endpoint *endpoint, struct stream *stream, b
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(2, NULL, param);
 
-		pw_node_proxy_set_param((struct pw_node_proxy*)endpoint->obj->proxy,
+		pw_node_proxy_set_param((struct pw_node_proxy*)endpoint->node->node->obj.proxy,
 				SPA_PARAM_PortConfig, 0, param);
 	}
 	stream->active = active;
@@ -147,7 +178,7 @@ static int stream_set_active(struct endpoint *endpoint, struct stream *stream, b
 static int client_endpoint_create_link(void *object, const struct spa_dict *props)
 {
 	struct endpoint *endpoint = object;
-	struct impl *impl = endpoint->obj->impl;
+	struct impl *impl = endpoint->impl;
 	struct pw_properties *p;
 	int res;
 
@@ -177,12 +208,12 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 			goto exit;
 		}
 
-		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->obj->info->id);
+		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->node->node->info->id);
 		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_PORT, "-1");
 
 		pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)obj->proxy, &p->dict);
 	} else {
-		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->obj->info->id);
+		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->node->node->info->id);
 		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");
 
 		sm_media_session_create_links(impl->session, &p->dict);
@@ -253,7 +284,7 @@ static void update_params(void *data)
 	uint32_t n_params;
 	const struct spa_pod **params;
 	struct endpoint *endpoint = data;
-	struct sm_node *node = endpoint->obj->snode;
+	struct sm_node *node = endpoint->node->node;
 	struct sm_param *p;
 
 	pw_log_debug(NAME" %p: endpoint", endpoint);
@@ -278,13 +309,13 @@ static void update_params(void *data)
 			&endpoint->info);
 }
 
-static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *monitor);
+static struct endpoint *make_endpoint(struct node *node, struct endpoint *monitor);
 
 static void object_update(void *data)
 {
 	struct endpoint *endpoint = data;
-	struct impl *impl = endpoint->obj->impl;
-	struct sm_node *node = endpoint->obj->snode;
+	struct impl *impl = endpoint->impl;
+	struct sm_node *node = endpoint->node->node;
 
 	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
 
@@ -305,7 +336,7 @@ static void complete_endpoint(void *data)
 
 	pw_log_debug("endpoint %p: complete", endpoint);
 
-	spa_list_for_each(p, &endpoint->obj->snode->param_list, link) {
+	spa_list_for_each(p, &endpoint->node->node->param_list, link) {
 		struct spa_audio_info info = { 0, };
 
 		if (p->id != SPA_PARAM_EnumFormat)
@@ -340,7 +371,7 @@ static void complete_endpoint(void *data)
 		struct endpoint *monitor;
 
 		/* make monitor for sinks */
-		monitor = make_endpoint(endpoint->obj, endpoint);
+		monitor = make_endpoint(endpoint->node, endpoint);
 		if (monitor == NULL)
 			return;
 
@@ -348,33 +379,34 @@ static void complete_endpoint(void *data)
 	}
 	stream_set_active(endpoint, stream, true);
 
-	sm_object_add_listener(&endpoint->obj->snode->obj, &endpoint->listener, &object_events, endpoint);
+	sm_object_add_listener(&endpoint->node->node->obj, &endpoint->listener, &object_events, endpoint);
 }
 
-static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *monitor)
+static struct endpoint *make_endpoint(struct node *node, struct endpoint *monitor)
 {
-	struct impl *impl = obj->impl;
+	struct impl *impl = node->impl;
 	struct pw_properties *props;
 	struct endpoint *endpoint;
 	struct pw_proxy *proxy;
 	const char *str, *media_class = NULL, *name = NULL;
 	uint32_t subscribe[4], n_subscribe = 0;
+	struct pw_properties *pr = node->node->obj.props;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		return NULL;
 
-	if (obj->props) {
-		if ((media_class = pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS)) != NULL) {
+	if (pr) {
+		if ((media_class = pw_properties_get(pr, PW_KEY_MEDIA_CLASS)) != NULL) {
 			if (monitor != NULL) {
 				pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 			 } else {
 				pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
 			 }
 		}
-		if ((str = pw_properties_get(obj->props, PW_KEY_PRIORITY_SESSION)) != NULL)
+		if ((str = pw_properties_get(pr, PW_KEY_PRIORITY_SESSION)) != NULL)
 			pw_properties_set(props, PW_KEY_PRIORITY_SESSION, str);
-		if ((name = pw_properties_get(obj->props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
+		if ((name = pw_properties_get(pr, PW_KEY_NODE_DESCRIPTION)) != NULL) {
 			if (monitor != NULL) {
 				pw_properties_setf(props, PW_KEY_ENDPOINT_NAME, "Monitor of %s", monitor->info.name);
 				pw_properties_setf(props, PW_KEY_ENDPOINT_MONITOR, "%d", monitor->info.id);
@@ -382,9 +414,7 @@ static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *mo
 				pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
 			}
 		}
-	}
-	if (obj->object && obj->object->props) {
-		if ((str = pw_properties_get(obj->object->props, PW_KEY_DEVICE_ICON_NAME)) != NULL)
+		if ((str = pw_properties_get(pr, PW_KEY_DEVICE_ICON_NAME)) != NULL)
 			pw_properties_set(props, PW_KEY_ENDPOINT_ICON_NAME, str);
 	}
 
@@ -399,7 +429,7 @@ static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *mo
 	}
 
 	endpoint = pw_proxy_get_user_data(proxy);
-	endpoint->obj = obj;
+	endpoint->node = node;
 	endpoint->monitor = monitor;
 	endpoint->props = props;
 	endpoint->client_endpoint = (struct pw_client_endpoint_proxy *) proxy;
@@ -407,7 +437,7 @@ static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *mo
 	endpoint->info.name = (char*)pw_properties_get(endpoint->props, PW_KEY_ENDPOINT_NAME);
 	endpoint->info.media_class = (char*)pw_properties_get(endpoint->props, PW_KEY_MEDIA_CLASS);
 	endpoint->info.session_id = impl->session->session->obj.id;
-	endpoint->info.direction = monitor != NULL ? PW_DIRECTION_OUTPUT : obj->direction;
+	endpoint->info.direction = monitor != NULL ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
 	endpoint->info.flags = 0;
 	endpoint->info.change_mask =
 		PW_ENDPOINT_CHANGE_MASK_STREAMS |
@@ -422,7 +452,7 @@ static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *mo
 	endpoint->info.n_params = 2;
 	spa_list_init(&endpoint->stream_list);
 
-	pw_log_debug(NAME" %p: new endpoint %p for alsa node %p", impl, endpoint, obj);
+	pw_log_debug(NAME" %p: new endpoint %p for alsa node %p", impl, endpoint, node);
 
 	pw_client_endpoint_proxy_add_listener(endpoint->client_endpoint,
 			&endpoint->client_endpoint_listener,
@@ -433,8 +463,8 @@ static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *mo
 	subscribe[n_subscribe++] = SPA_PARAM_Props;
 	subscribe[n_subscribe++] = SPA_PARAM_PropInfo;
 	pw_log_debug(NAME" %p: endpoint %p proxy %p subscribe %d params", impl,
-				endpoint, obj->proxy, n_subscribe);
-	pw_node_proxy_subscribe_params((struct pw_node_proxy*)obj->proxy,
+				endpoint, node->node->obj.proxy, n_subscribe);
+	pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->node->obj.proxy,
 				subscribe, n_subscribe);
 
 	if (monitor == NULL)
@@ -444,15 +474,24 @@ static struct endpoint *make_endpoint(struct alsa_node *obj, struct endpoint *mo
 }
 
 /** fallback, one stream for each node */
-static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
+static int setup_alsa_fallback_endpoint(struct device *device)
 {
-	struct alsa_node *n;
+	struct impl *impl = device->impl;
+	struct sm_node *n;
+	struct sm_device *d = device->device;
 
-	spa_list_for_each(n, &obj->node_list, link) {
-		struct endpoint *endpoint;
+	pw_log_debug(NAME" %p: device %p fallback", impl, d);
 
-		endpoint = make_endpoint(n, NULL);
-		if (endpoint == NULL)
+	spa_list_for_each(n, &d->node_list, link) {
+		struct node *node;
+
+		pw_log_debug(NAME" %p: device %p has node %p", impl, d, n);
+
+		node = sm_object_add_data(&n->obj, SESSION_KEY, sizeof(struct node));
+		node->node = n;
+		node->impl = impl;
+		node->endpoint = make_endpoint(node, NULL);
+		if (node->endpoint == NULL)
 			return -errno;
 	}
 	return 0;
@@ -462,22 +501,24 @@ static int setup_alsa_fallback_endpoint(struct alsa_object *obj)
  *
  * We create 1 stream for each verb + modifier combination
  */
-static int setup_alsa_ucm_endpoint(struct alsa_object *obj)
+static int setup_alsa_ucm_endpoint(struct device *device)
 {
 	const char *str, *card_name = NULL;
 	char *name_free = NULL;
 	int i, res, num_verbs;
 	const char **verb_list = NULL;
+	struct spa_dict *props = device->device->info->props;
 	snd_use_case_mgr_t *ucm;
 
-	card_name = pw_properties_get(obj->props, SPA_KEY_API_ALSA_CARD_NAME);
+	card_name = spa_dict_lookup(props, SPA_KEY_API_ALSA_CARD_NAME);
 	if (card_name == NULL &&
-	    (str = pw_properties_get(obj->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
+	    (str = spa_dict_lookup(props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		snd_card_get_name(atoi(str), &name_free);
 		card_name = name_free;
 		pw_log_debug("got card name %s for index %s", card_name, str);
 	}
 	if (card_name == NULL) {
+		pw_log_error("can't get card name for index %s", str);
 		res = -ENOTSUP;
 		goto exit;
 	}
@@ -509,24 +550,67 @@ exit:
 	return res;
 }
 
-static int setup_alsa_endpoint(struct alsa_object *obj)
+static int setup_alsa_endpoint(struct device *device)
 {
 	int res;
 
-	if ((res = setup_alsa_ucm_endpoint(obj)) < 0)
-		res = setup_alsa_fallback_endpoint(obj);
+	if ((res = setup_alsa_ucm_endpoint(device)) < 0)
+		res = setup_alsa_fallback_endpoint(device);
 
 	return res;
 }
 
-#if 0
+static void device_update(void *data)
+{
+	struct device *device = data;
+	struct impl *impl = device->impl;
+
+	pw_log_debug(NAME" %p: device %p %08x %08x", impl, device,
+			device->device->obj.avail, device->device->obj.changed);
+	if (!(device->device->obj.avail & SM_DEVICE_CHANGE_MASK_INFO))
+		return;
+
+	if (device->device->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS) {
+		setup_alsa_endpoint(device);
+	}
+}
+
+static const struct sm_object_events device_events = {
+	SM_VERSION_OBJECT_EVENTS,
+	.update = device_update
+};
+
 static int
 handle_device(struct impl *impl, struct sm_object *obj)
 {
+	const char *media_class, *str;
+	struct device *device;
+
+	if (obj->props == NULL)
+		return 0;
+
+	media_class = pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS);
+	str = pw_properties_get(obj->props, PW_KEY_DEVICE_API);
+
+	pw_log_debug(NAME" %p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
+
+	if (strstr(media_class, "Audio/") != media_class)
+		return 0;
+	if (strcmp(str, "alsa") != 0)
+		return 0;
+
+	device = sm_object_add_data(obj, SESSION_KEY, sizeof(struct device));
+	device->impl = impl;
+	device->id = obj->id;
+	device->device = (struct sm_device*)obj;
+	pw_log_debug(NAME" %p: found alsa device %d media_class %s", impl, obj->id, media_class);
+
+	sm_object_add_listener(obj, &device->listener, &device_events, device);
+
 	return 0;
 }
 
-static void session_update(void *data, struct sm_object *object)
+static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	int res;
@@ -559,7 +643,7 @@ static void session_remove(void *data, struct sm_object *object)
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
-	.update = session_update,
+	.create = session_create,
 	.remove = session_remove,
 };
 
@@ -581,4 +665,3 @@ int sm_alsa_endpoint_stop(void *data)
 {
 	return 0;
 }
-#endif

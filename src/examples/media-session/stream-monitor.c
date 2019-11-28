@@ -406,7 +406,7 @@ static struct endpoint *make_endpoint(struct node *node)
 	subscribe[n_subscribe++] = SPA_PARAM_Props;
 	subscribe[n_subscribe++] = SPA_PARAM_PropInfo;
 	pw_log_debug(NAME" %p: node %p proxy %p subscribe %d params", impl,
-				node, node->obj->obj.proxy, n_subscribe);
+				node->obj, node->obj->obj.proxy, n_subscribe);
 	pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->obj->obj.proxy,
 				subscribe, n_subscribe);
 

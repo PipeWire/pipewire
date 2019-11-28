@@ -180,6 +180,7 @@ struct pw_global {
 #define pw_core_resource_ping(r,...)		pw_core_resource(r,ping,0,__VA_ARGS__)
 #define pw_core_resource_error(r,...)		pw_core_resource(r,error,0,__VA_ARGS__)
 #define pw_core_resource_remove_id(r,...)	pw_core_resource(r,remove_id,0,__VA_ARGS__)
+#define pw_core_resource_bound_id(r,...)	pw_core_resource(r,bound_id,0,__VA_ARGS__)
 #define pw_core_resource_add_mem(r,...)		pw_core_resource(r,add_mem,0,__VA_ARGS__)
 #define pw_core_resource_remove_mem(r,...)	pw_core_resource(r,remove_mem,0,__VA_ARGS__)
 
@@ -705,6 +706,7 @@ struct pw_resource {
 
 #define pw_proxy_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_proxy_events, m, v, ##__VA_ARGS__)
 #define pw_proxy_emit_destroy(p)	pw_proxy_emit(p, destroy, 0)
+#define pw_proxy_emit_bound(p,g)	pw_proxy_emit(p, bound, 0, g)
 #define pw_proxy_emit_done(p,s)		pw_proxy_emit(p, done, 0, s)
 #define pw_proxy_emit_error(p,s,r,m)	pw_proxy_emit(p, error, 0, s, r, m)
 

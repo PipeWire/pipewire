@@ -337,6 +337,21 @@ static int core_event_demarshal_remove_id(void *object, const struct pw_protocol
 	return pw_proxy_notify(proxy, struct pw_core_proxy_events, remove_id, 0, id);
 }
 
+static int core_event_demarshal_bound_id(void *object, const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, global_id;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&id),
+				SPA_POD_Int(&global_id)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_core_proxy_events, bound_id, 0, id, global_id);
+}
+
 static int core_event_demarshal_add_mem(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -450,6 +465,20 @@ static void core_event_marshal_remove_id(void *object, uint32_t id)
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id));
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static void core_event_marshal_bound_id(void *object, uint32_t id, uint32_t global_id)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_EVENT_BOUND_ID, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(id),
+			SPA_POD_Int(global_id));
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -1894,6 +1923,7 @@ static const struct pw_core_proxy_events pw_protocol_native_core_event_marshal =
 	.ping = &core_event_marshal_ping,
 	.error = &core_event_marshal_error,
 	.remove_id = &core_event_marshal_remove_id,
+	.bound_id = &core_event_marshal_bound_id,
 	.add_mem = &core_event_marshal_add_mem,
 	.remove_mem = &core_event_marshal_remove_mem,
 };
@@ -1906,6 +1936,7 @@ pw_protocol_native_core_event_demarshal[PW_CORE_PROXY_EVENT_NUM] =
 	[PW_CORE_PROXY_EVENT_PING] = { &core_event_demarshal_ping, 0, },
 	[PW_CORE_PROXY_EVENT_ERROR] = { &core_event_demarshal_error, 0, },
 	[PW_CORE_PROXY_EVENT_REMOVE_ID] = { &core_event_demarshal_remove_id, 0, },
+	[PW_CORE_PROXY_EVENT_BOUND_ID] = { &core_event_demarshal_bound_id, 0, },
 	[PW_CORE_PROXY_EVENT_ADD_MEM] = { &core_event_demarshal_add_mem, 0, },
 	[PW_CORE_PROXY_EVENT_REMOVE_MEM] = { &core_event_demarshal_remove_mem, 0, },
 };

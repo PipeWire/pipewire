@@ -208,6 +208,18 @@ int pw_resource_ping(struct pw_resource *resource, int seq)
 }
 
 SPA_EXPORT
+int pw_resource_bound_id(struct pw_resource *resource, uint32_t global_id)
+{
+	struct pw_client *client = resource->client;
+
+	if (client->core_resource != NULL) {
+		pw_log_debug(NAME" %p: %u global_id:%u", resource, resource->id, global_id);
+		pw_core_resource_bound_id(client->core_resource, resource->id, global_id);
+	}
+	return 0;
+}
+
+SPA_EXPORT
 void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...)
 {
 	va_list ap;

@@ -111,6 +111,9 @@ struct pw_proxy_events {
 	/** The proxy is destroyed */
         void (*destroy) (void *data);
 
+	/** a proxy is bound to a global id */
+        void (*bound) (void *data, uint32_t global_id);
+
 	/** a reply to a sync method completed */
         void (*done) (void *data, int seq);
 

@@ -83,9 +83,10 @@ struct pw_link_proxy { struct spa_interface iface; };
 #define PW_CORE_PROXY_EVENT_PING	2
 #define PW_CORE_PROXY_EVENT_ERROR	3
 #define PW_CORE_PROXY_EVENT_REMOVE_ID	4
-#define PW_CORE_PROXY_EVENT_ADD_MEM	5
-#define PW_CORE_PROXY_EVENT_REMOVE_MEM	6
-#define PW_CORE_PROXY_EVENT_NUM		7
+#define PW_CORE_PROXY_EVENT_BOUND_ID	5
+#define PW_CORE_PROXY_EVENT_ADD_MEM	6
+#define PW_CORE_PROXY_EVENT_REMOVE_MEM	7
+#define PW_CORE_PROXY_EVENT_NUM		8
 
 /** \struct pw_core_proxy_events
  *  \brief Core events
@@ -151,6 +152,18 @@ struct pw_core_proxy_events {
          * \param id deleted object ID
 	 */
 	void (*remove_id) (void *object, uint32_t id);
+
+	/**
+	 * Notify an object binding
+	 *
+	 * This event is emited when a local object ID is bound to a
+	 * global ID. It is emited before the global becomes visible in the
+	 * registry.
+	 *
+	 * \param id bound object ID
+	 * \param global_id the global id bound to
+	 */
+	void (*bound_id) (void *object, uint32_t id, uint32_t global_id);
 
 	/**
 	 * Add memory for a client

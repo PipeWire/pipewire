@@ -145,6 +145,17 @@ static void core_event_remove_id(void *data, uint32_t id)
 	}
 }
 
+static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
+{
+	struct pw_remote *this = data;
+	struct pw_proxy *proxy;
+
+	pw_log_debug(NAME" %p: proxy %u bound %u", this, id, global_id);
+	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
+		pw_proxy_emit_bound(proxy, global_id);
+	}
+}
+
 static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, uint32_t flags)
 {
 	struct pw_remote *this = data;
@@ -173,6 +184,7 @@ static const struct pw_core_proxy_events core_events = {
 	.ping = core_event_ping,
 	.done = core_event_done,
 	.remove_id = core_event_remove_id,
+	.bound_id = core_event_bound_id,
 	.add_mem = core_event_add_mem,
 	.remove_mem = core_event_remove_mem,
 };

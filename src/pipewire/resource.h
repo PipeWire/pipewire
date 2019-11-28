@@ -121,6 +121,9 @@ void pw_resource_add_object_listener(struct pw_resource *resource,
  * with the same \a sequence number in the return value. */
 int pw_resource_ping(struct pw_resource *resource, int seq);
 
+/** Notify global id this resource is bound to */
+int pw_resource_bound_id(struct pw_resource *resource, uint32_t global_id);
+
 /** Generate an error for a resource */
 void pw_resource_error(struct pw_resource *resource, int res, const char *error);
 void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...) SPA_PRINTF_FUNC(3, 4);

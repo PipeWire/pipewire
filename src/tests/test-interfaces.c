@@ -62,6 +62,7 @@ static void test_core_abi(void)
 		void (*ping) (void *object, uint32_t id, int seq);
 		void (*error) (void *object, uint32_t id, int seq, int res, const char *error);
 		void (*remove_id) (void *object, uint32_t id);
+		void (*bound_id) (void *object, uint32_t id, uint32_t global_id);
 		void (*add_mem) (void *object, uint32_t id, uint32_t type, int fd, uint32_t flags);
 		void (*remove_mem) (void *object, uint32_t id);
 	} events = { PW_VERSION_CORE_PROXY_EVENTS, };
@@ -84,6 +85,7 @@ static void test_core_abi(void)
 	TEST_FUNC(e, events, ping);
 	TEST_FUNC(e, events, error);
 	TEST_FUNC(e, events, remove_id);
+	TEST_FUNC(e, events, bound_id);
 	TEST_FUNC(e, events, add_mem);
 	TEST_FUNC(e, events, remove_mem);
 	spa_assert(PW_VERSION_CORE_PROXY_EVENTS == 0);

@@ -239,7 +239,6 @@ static int client_node_transport(void *object, uint32_t node_id,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_remote *remote = data->remote;
 
 	clean_transport(data);
 
@@ -265,7 +264,6 @@ static int client_node_transport(void *object, uint32_t node_id,
 	if (data->node->active)
 		pw_client_node_proxy_set_active(data->client_node, true);
 
-	pw_remote_emit_exported(remote, data->proxy->id, node_id);
 	return 0;
 }
 

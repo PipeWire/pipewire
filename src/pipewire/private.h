@@ -734,7 +734,6 @@ struct pw_proxy {
 #define pw_remote_emit(r,m,v,...) spa_hook_list_call(&r->listener_list, struct pw_remote_events, m, v, ##__VA_ARGS__)
 #define pw_remote_emit_destroy(r)		pw_remote_emit(r, destroy, 0)
 #define pw_remote_emit_state_changed(r,o,s,e)	pw_remote_emit(r, state_changed, 0, o, s, e)
-#define pw_remote_emit_exported(r,i,g)		pw_remote_emit(r, exported, 0, i,g)
 
 struct pw_remote {
 	struct pw_core *core;			/**< core */

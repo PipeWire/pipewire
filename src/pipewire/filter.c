@@ -868,10 +868,18 @@ static void proxy_error(void *_data, int seq, int res, const char *message)
 	filter_set_state(filter, PW_FILTER_STATE_ERROR, message);
 }
 
+static void proxy_bound(void *_data, uint32_t global_id)
+{
+	struct pw_filter *filter = _data;
+	filter->node_id = global_id;
+	filter_set_state(filter, PW_FILTER_STATE_PAUSED, NULL);
+}
+
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = proxy_destroy,
 	.error = proxy_error,
+	.bound = proxy_bound,
 };
 
 static int handle_connect(struct pw_filter *filter)
@@ -943,19 +951,9 @@ static void on_remote_state_changed(void *_data, enum pw_remote_state old,
 	}
 }
 
-static void on_remote_exported(void *_data, uint32_t proxy_id, uint32_t global_id)
-{
-	struct pw_filter *filter = _data;
-	if (filter->proxy && filter->proxy->id == proxy_id) {
-		filter->node_id = global_id;
-		filter_set_state(filter, PW_FILTER_STATE_PAUSED, NULL);
-	}
-}
-
 static const struct pw_remote_events remote_events = {
 	PW_VERSION_REMOTE_EVENTS,
 	.state_changed = on_remote_state_changed,
-	.exported = on_remote_exported,
 };
 
 SPA_EXPORT

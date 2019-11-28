@@ -137,8 +137,6 @@ struct pw_remote_events {
 	/** emited when the state changes */
 	void (*state_changed) (void *data, enum pw_remote_state old,
 			       enum pw_remote_state state, const char *error);
-        /** emited when a node was exported */
-	void (*exported) (void *data, uint32_t proxy_id, uint32_t global_id);
 };
 
 /** Create a new unconnected remote \memberof pw_remote

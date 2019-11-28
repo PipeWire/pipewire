@@ -271,7 +271,7 @@ int spa_alsa_seq_open(struct seq_state *state)
 	snd_seq_set_client_name(state->sys.hndl, "PipeWire-System");
 
 	if ((res = seq_open(state, &state->event)) < 0)
-		return res;
+		goto error_close_sys;
 
 	snd_seq_set_client_name(state->event.hndl, "PipeWire-RT-Event");
 
@@ -295,11 +295,11 @@ int spa_alsa_seq_open(struct seq_state *state)
 		spa_log_warn(state->log, "failed to connect timer port: %s", snd_strerror(res));
 	}
 
-	seq_start(state, &state->sys);
-
 	state->sys.source.func = alsa_seq_on_sys;
 	state->sys.source.data = state;
 	spa_loop_add_source(state->main_loop, &state->sys.source);
+
+	seq_start(state, &state->sys);
 
 	/* increase queue timer resolution */
 	snd_seq_queue_timer_alloca(&timer);
@@ -315,13 +315,19 @@ int spa_alsa_seq_open(struct seq_state *state)
 
 	if ((res = spa_system_timerfd_create(state->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-		return res;
+		goto error_close_event;
 
 	state->timerfd = res;
 
 	state->opened = true;
 
 	return 0;
+
+error_close_event:
+	seq_close(state, &state->event);
+error_close_sys:
+	seq_close(state, &state->sys);
+	return res;
 }
 
 int spa_alsa_seq_close(struct seq_state *state)
@@ -331,6 +337,7 @@ int spa_alsa_seq_close(struct seq_state *state)
 	if (!state->opened)
 		return 0;
 
+	seq_stop(state, &state->sys);
 	spa_loop_remove_source(state->main_loop, &state->sys.source);
 
 	seq_close(state, &state->sys);

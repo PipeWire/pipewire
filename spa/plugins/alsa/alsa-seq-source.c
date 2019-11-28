@@ -815,6 +815,13 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct seq_state *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct seq_state *) handle;
+
+	spa_alsa_seq_close(this);
 	return 0;
 }
 

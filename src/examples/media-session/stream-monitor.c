@@ -52,17 +52,13 @@ struct endpoint;
 struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
-
-	int seq;
 };
 
 struct node {
 	struct sm_node *obj;
+	struct spa_hook listener;
 
 	struct impl *impl;
-
-	struct spa_hook proxy_listener;
-	struct spa_hook listener;
 
 	uint32_t id;
 	enum pw_direction direction;
@@ -74,6 +70,9 @@ struct node {
 };
 
 struct stream {
+	struct endpoint *endpoint;
+	struct spa_list link;
+
 	struct pw_properties *props;
 	struct pw_endpoint_stream_info info;
 
@@ -83,8 +82,6 @@ struct stream {
 };
 
 struct endpoint {
-	struct spa_list link;
-
 	struct impl *impl;
 
 	struct pw_properties *props;
@@ -92,20 +89,13 @@ struct endpoint {
 
 	struct pw_client_endpoint_proxy *client_endpoint;
 	struct spa_hook client_endpoint_listener;
+	struct spa_hook proxy_listener;
 	struct pw_endpoint_info info;
 
 	struct spa_param_info params[5];
 
-	struct stream stream;
-	uint32_t pending_config;
+	struct spa_list stream_list;
 };
-
-static int client_endpoint_set_id(void *object, uint32_t id)
-{
-	struct endpoint *endpoint = object;
-	endpoint->info.id = id;
-	return 0;
-}
 
 static int client_endpoint_set_session_id(void *object, uint32_t id)
 {
@@ -133,8 +123,9 @@ static int client_endpoint_stream_set_param(void *object, uint32_t stream_id,
 	return -ENOTSUP;
 }
 
-static int stream_set_active(struct endpoint *endpoint, struct stream *stream, bool active)
+static int stream_set_active(struct stream *stream, bool active)
 {
+	struct endpoint *endpoint = stream->endpoint;
 	struct node *node = endpoint->node;
 	char buf[1024];
 	struct spa_pod_builder b = { 0, };
@@ -171,6 +162,7 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	struct endpoint *endpoint = object;
 	struct impl *impl = endpoint->impl;
 	struct pw_properties *p;
+	struct stream *stream;
 	int res;
 
 	pw_log_debug("create link");
@@ -178,7 +170,12 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	if (props == NULL)
 		return -EINVAL;
 
-	stream_set_active(endpoint, &endpoint->stream, true);
+	if (spa_list_is_empty(&endpoint->stream_list))
+		return -EIO;
+
+	/* FIXME take first stream */
+	stream = spa_list_first(&endpoint->stream_list, struct stream, link);
+	stream_set_active(stream, true);
 
 	p = pw_properties_new_dict(props);
 	if (p == NULL)
@@ -221,7 +218,6 @@ exit:
 
 static const struct pw_client_endpoint_proxy_events client_endpoint_events = {
 	PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS,
-	.set_id = client_endpoint_set_id,
 	.set_session_id = client_endpoint_set_session_id,
 	.set_param = client_endpoint_set_param,
 	.stream_set_param = client_endpoint_stream_set_param,
@@ -235,9 +231,13 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	struct node *node = endpoint->node;
 	const char *str;
 
-	s = &endpoint->stream;
+	s = calloc(1, sizeof(*s));
+	if (s == NULL)
+		return NULL;
 
+	s->endpoint = endpoint;
 	s->props = pw_properties_new(NULL, NULL);
+
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(s->props, PW_KEY_MEDIA_CLASS, str);
 	if (node->direction == PW_DIRECTION_OUTPUT)
@@ -251,6 +251,7 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
 	s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 	s->info.props = &s->props->dict;
+	spa_list_append(&endpoint->stream_list, &s->link);
 
 	pw_log_debug("stream %d", node->id);
 	pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
@@ -259,6 +260,21 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 			0, NULL,
 			&s->info);
 	return s;
+}
+
+static void destroy_stream(struct stream *stream)
+{
+	struct endpoint *endpoint = stream->endpoint;
+
+	pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
+			stream->info.id,
+			PW_CLIENT_ENDPOINT_STREAM_UPDATE_DESTROYED,
+			0, NULL,
+			&stream->info);
+
+	pw_properties_free(stream->props);
+	spa_list_remove(&stream->link);
+	free(stream);
 }
 
 static void complete_endpoint(void *data)
@@ -335,7 +351,30 @@ static void update_params(void *data)
 			&endpoint->info);
 }
 
-static struct endpoint *make_endpoint(struct node *node)
+static void proxy_destroy(void *data)
+{
+	struct endpoint *endpoint = data;
+	struct stream *s;
+
+	spa_list_consume(s, &endpoint->stream_list, link)
+		destroy_stream(s);
+
+	pw_properties_free(endpoint->props);
+}
+
+static void proxy_bound(void *data, uint32_t id)
+{
+	struct endpoint *endpoint = data;
+	endpoint->info.id = id;
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = proxy_destroy,
+	.bound = proxy_bound,
+};
+
+static struct endpoint *create_endpoint(struct node *node)
 {
 	struct impl *impl = node->impl;
 	struct pw_properties *props;
@@ -396,6 +435,11 @@ static struct endpoint *make_endpoint(struct node *node)
 	endpoint->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	endpoint->info.params = endpoint->params;
 	endpoint->info.n_params = 2;
+	spa_list_init(&endpoint->stream_list);
+
+	pw_proxy_add_listener(proxy,
+			&endpoint->proxy_listener,
+			&proxy_events, endpoint);
 
 	pw_client_endpoint_proxy_add_listener(endpoint->client_endpoint,
 			&endpoint->client_endpoint_listener,
@@ -429,7 +473,7 @@ static void object_update(void *data)
 
 	if (node->endpoint == NULL &&
 	    node->obj->obj.avail & SM_OBJECT_CHANGE_MASK_PROPERTIES)
-		node->endpoint = make_endpoint(node);
+		node->endpoint = create_endpoint(node);
 
 	if (node->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
 		update_params(node->endpoint);
@@ -484,6 +528,14 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	return 1;
 }
 
+static void destroy_node(struct node *node)
+{
+	if (node->endpoint)
+		destroy_endpoint(node->endpoint);
+	free(node->media);
+	spa_hook_remove(&node->listener);
+}
+
 static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
@@ -510,11 +562,8 @@ static void session_remove(void *data, struct sm_object *object)
 	case PW_TYPE_INTERFACE_Node:
 	{
 		struct node *node;
-		if ((node = sm_object_get_data(object, SESSION_KEY)) != NULL) {
-			if (node->endpoint)
-				destroy_endpoint(node->endpoint);
-			free(node->media);
-		}
+		if ((node = sm_object_get_data(object, SESSION_KEY)) != NULL)
+			destroy_node(node);
 		break;
 	}
 	default:

@@ -47,8 +47,9 @@ struct sm_object {
 	struct spa_list link;
 	struct sm_media_session *session;
 
-#define SM_OBJECT_CHANGE_MASK_PROPERTIES	(1<<0)
-#define SM_OBJECT_CHANGE_MASK_BIND		(1<<1)
+#define SM_OBJECT_CHANGE_MASK_LISTENER		(1<<1)
+#define SM_OBJECT_CHANGE_MASK_PROPERTIES	(1<<2)
+#define SM_OBJECT_CHANGE_MASK_BIND		(1<<3)
 #define SM_OBJECT_CHANGE_MASK_LAST		(1<<8)
 	uint32_t mask;			/**< monitored info */
 	uint32_t avail;			/**< available info */
@@ -135,7 +136,8 @@ struct sm_port {
 struct sm_session {
 	struct sm_object obj;
 
-#define SM_SESSION_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
+#define SM_SESSION_CHANGE_MASK_INFO		(SM_OBJECT_CHANGE_MASK_LAST<<0)
+#define SM_SESSION_CHANGE_MASK_ENDPOINTS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
 	struct pw_session_info *info;
 	struct spa_list endpoint_list;
 };
@@ -217,13 +219,15 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		uint32_t type, struct pw_properties *properties,
 		void *object, size_t user_data_size);
 
+struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
+		struct pw_properties *properties, struct spa_device *device);
+
 struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 		const char *factory_name, uint32_t type, uint32_t version,
 		const struct spa_dict *props, size_t user_data_size);
 
 struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
-		const char *factory_name, const struct spa_dict *props,
-		size_t user_data_size);
+		const char *factory_name, const struct spa_dict *props);
 
 int sm_media_session_create_links(struct sm_media_session *sess,
 		const struct spa_dict *dict);

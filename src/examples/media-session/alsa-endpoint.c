@@ -62,6 +62,7 @@ struct endpoint {
 	struct spa_hook listener;
 
 	struct pw_client_endpoint_proxy *client_endpoint;
+	struct spa_hook proxy_listener;
 	struct spa_hook client_endpoint_listener;
 	struct pw_endpoint_info info;
 
@@ -79,6 +80,7 @@ struct endpoint {
 
 struct stream {
 	struct spa_list link;
+	struct endpoint *endpoint;
 
 	struct pw_properties *props;
 	struct pw_endpoint_stream_info info;
@@ -89,17 +91,15 @@ struct stream {
 };
 
 struct node {
-	struct spa_list link;
-
 	struct impl *impl;
 	struct sm_node *node;
+
+	struct device *device;
 
 	struct endpoint *endpoint;
 };
 
 struct device {
-	struct spa_list link;
-
 	struct impl *impl;
 	uint32_t id;
 	struct sm_device *device;
@@ -112,13 +112,6 @@ struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
 };
-
-static int client_endpoint_set_id(void *object, uint32_t id)
-{
-	struct endpoint *endpoint = object;
-	endpoint->info.id = id;
-	return 0;
-}
 
 static int client_endpoint_set_session_id(void *object, uint32_t id)
 {
@@ -228,7 +221,6 @@ exit:
 
 static const struct pw_client_endpoint_proxy_events client_endpoint_events = {
 	PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS,
-	.set_id = client_endpoint_set_id,
 	.set_session_id = client_endpoint_set_session_id,
 	.set_param = client_endpoint_set_param,
 	.stream_set_param = client_endpoint_stream_set_param,
@@ -245,6 +237,8 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 		return NULL;
 
 	s->props = pw_properties_new(NULL, NULL);
+	s->endpoint = endpoint;
+
 	if ((str = pw_properties_get(endpoint->props, PW_KEY_MEDIA_CLASS)) != NULL)
 		pw_properties_set(s->props, PW_KEY_MEDIA_CLASS, str);
 	if ((str = pw_properties_get(endpoint->props, PW_KEY_PRIORITY_SESSION)) != NULL)
@@ -279,6 +273,23 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	return s;
 }
 
+static void destroy_stream(struct stream *stream)
+{
+	struct endpoint *endpoint = stream->endpoint;
+
+	pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
+			stream->info.id,
+			PW_CLIENT_ENDPOINT_STREAM_UPDATE_DESTROYED,
+			0, NULL,
+			&stream->info);
+
+	spa_list_remove(&stream->link);
+	endpoint->info.n_streams--;
+
+	pw_properties_free(stream->props);
+	free(stream);
+}
+
 static void update_params(void *data)
 {
 	uint32_t n_params;
@@ -309,7 +320,7 @@ static void update_params(void *data)
 			&endpoint->info);
 }
 
-static struct endpoint *make_endpoint(struct node *node, struct endpoint *monitor);
+static struct endpoint *create_endpoint(struct node *node, struct endpoint *monitor);
 
 static void object_update(void *data)
 {
@@ -371,7 +382,7 @@ static void complete_endpoint(void *data)
 		struct endpoint *monitor;
 
 		/* make monitor for sinks */
-		monitor = make_endpoint(endpoint->node, endpoint);
+		monitor = create_endpoint(endpoint->node, endpoint);
 		if (monitor == NULL)
 			return;
 
@@ -382,41 +393,84 @@ static void complete_endpoint(void *data)
 	sm_object_add_listener(&endpoint->node->node->obj, &endpoint->listener, &object_events, endpoint);
 }
 
-static struct endpoint *make_endpoint(struct node *node, struct endpoint *monitor)
+static void proxy_destroy(void *data)
+{
+	struct endpoint *endpoint = data;
+	struct stream *s;
+
+	spa_list_consume(s, &endpoint->stream_list, link)
+		destroy_stream(s);
+
+	pw_properties_free(endpoint->props);
+	spa_list_remove(&endpoint->link);
+}
+
+static void proxy_bound(void *data, uint32_t id)
+{
+	struct endpoint *endpoint = data;
+	endpoint->info.id = id;
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = proxy_destroy,
+	.bound = proxy_bound,
+};
+
+static struct endpoint *create_endpoint(struct node *node, struct endpoint *monitor)
 {
 	struct impl *impl = node->impl;
+	struct device *device = node->device;
 	struct pw_properties *props;
 	struct endpoint *endpoint;
 	struct pw_proxy *proxy;
 	const char *str, *media_class = NULL, *name = NULL;
 	uint32_t subscribe[4], n_subscribe = 0;
 	struct pw_properties *pr = node->node->obj.props;
+	enum pw_direction direction;
+
+	if (pr == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if ((media_class = pw_properties_get(pr, PW_KEY_MEDIA_CLASS)) == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		return NULL;
 
-	if (pr) {
-		if ((media_class = pw_properties_get(pr, PW_KEY_MEDIA_CLASS)) != NULL) {
-			if (monitor != NULL) {
-				pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
-			 } else {
-				pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
-			 }
-		}
-		if ((str = pw_properties_get(pr, PW_KEY_PRIORITY_SESSION)) != NULL)
-			pw_properties_set(props, PW_KEY_PRIORITY_SESSION, str);
-		if ((name = pw_properties_get(pr, PW_KEY_NODE_DESCRIPTION)) != NULL) {
-			if (monitor != NULL) {
-				pw_properties_setf(props, PW_KEY_ENDPOINT_NAME, "Monitor of %s", monitor->info.name);
-				pw_properties_setf(props, PW_KEY_ENDPOINT_MONITOR, "%d", monitor->info.id);
-			} else {
-				pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
-			}
-		}
-		if ((str = pw_properties_get(pr, PW_KEY_DEVICE_ICON_NAME)) != NULL)
-			pw_properties_set(props, PW_KEY_ENDPOINT_ICON_NAME, str);
+	if (strstr(media_class, "Source") != NULL) {
+		direction = PW_DIRECTION_OUTPUT;
+	} else if (strstr(media_class, "Sink") != NULL) {
+		direction = PW_DIRECTION_INPUT;
+	} else {
+		errno = EINVAL;
+		return NULL;
 	}
+
+	if (monitor != NULL) {
+		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+		direction = PW_DIRECTION_OUTPUT;
+	} else {
+		pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
+	}
+
+	if ((str = pw_properties_get(pr, PW_KEY_PRIORITY_SESSION)) != NULL)
+		pw_properties_set(props, PW_KEY_PRIORITY_SESSION, str);
+	if ((name = pw_properties_get(pr, PW_KEY_NODE_DESCRIPTION)) != NULL) {
+		if (monitor != NULL) {
+			pw_properties_setf(props, PW_KEY_ENDPOINT_NAME, "Monitor of %s", monitor->info.name);
+			pw_properties_setf(props, PW_KEY_ENDPOINT_MONITOR, "%d", monitor->info.id);
+		} else {
+			pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
+		}
+	}
+	if ((str = pw_properties_get(pr, PW_KEY_DEVICE_ICON_NAME)) != NULL)
+		pw_properties_set(props, PW_KEY_ENDPOINT_ICON_NAME, str);
 
 	proxy = sm_media_session_create_object(impl->session,
 						"client-endpoint",
@@ -429,6 +483,7 @@ static struct endpoint *make_endpoint(struct node *node, struct endpoint *monito
 	}
 
 	endpoint = pw_proxy_get_user_data(proxy);
+	endpoint->impl = impl;
 	endpoint->node = node;
 	endpoint->monitor = monitor;
 	endpoint->props = props;
@@ -437,7 +492,7 @@ static struct endpoint *make_endpoint(struct node *node, struct endpoint *monito
 	endpoint->info.name = (char*)pw_properties_get(endpoint->props, PW_KEY_ENDPOINT_NAME);
 	endpoint->info.media_class = (char*)pw_properties_get(endpoint->props, PW_KEY_MEDIA_CLASS);
 	endpoint->info.session_id = impl->session->session->obj.id;
-	endpoint->info.direction = monitor != NULL ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+	endpoint->info.direction = direction;
 	endpoint->info.flags = 0;
 	endpoint->info.change_mask =
 		PW_ENDPOINT_CHANGE_MASK_STREAMS |
@@ -453,6 +508,9 @@ static struct endpoint *make_endpoint(struct node *node, struct endpoint *monito
 	spa_list_init(&endpoint->stream_list);
 
 	pw_log_debug(NAME" %p: new endpoint %p for alsa node %p", impl, endpoint, node);
+	pw_proxy_add_listener(proxy,
+			&endpoint->proxy_listener,
+			&proxy_events, endpoint);
 
 	pw_client_endpoint_proxy_add_listener(endpoint->client_endpoint,
 			&endpoint->client_endpoint_listener,
@@ -467,10 +525,17 @@ static struct endpoint *make_endpoint(struct node *node, struct endpoint *monito
 	pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->node->obj.proxy,
 				subscribe, n_subscribe);
 
+	spa_list_append(&device->endpoint_list, &endpoint->link);
+
 	if (monitor == NULL)
 		sm_media_session_sync(impl->session, complete_endpoint, endpoint);
 
 	return endpoint;
+}
+
+static void destroy_endpoint(struct endpoint *endpoint)
+{
+	pw_proxy_destroy((struct pw_proxy*)endpoint->client_endpoint);
 }
 
 /** fallback, one stream for each node */
@@ -488,9 +553,10 @@ static int setup_alsa_fallback_endpoint(struct device *device)
 		pw_log_debug(NAME" %p: device %p has node %p", impl, d, n);
 
 		node = sm_object_add_data(&n->obj, SESSION_KEY, sizeof(struct node));
+		node->device = device;
 		node->node = n;
 		node->impl = impl;
-		node->endpoint = make_endpoint(node, NULL);
+		node->endpoint = create_endpoint(node, NULL);
 		if (node->endpoint == NULL)
 			return -errno;
 	}
@@ -550,7 +616,7 @@ exit:
 	return res;
 }
 
-static int setup_alsa_endpoint(struct device *device)
+static int activate_device(struct device *device)
 {
 	int res;
 
@@ -560,6 +626,14 @@ static int setup_alsa_endpoint(struct device *device)
 	return res;
 }
 
+static int deactivate_device(struct device *device)
+{
+	struct endpoint *e;
+	spa_list_consume(e, &device->endpoint_list, link)
+		destroy_endpoint(e);
+	return 0;
+}
+
 static void device_update(void *data)
 {
 	struct device *device = data;
@@ -567,11 +641,13 @@ static void device_update(void *data)
 
 	pw_log_debug(NAME" %p: device %p %08x %08x", impl, device,
 			device->device->obj.avail, device->device->obj.changed);
-	if (!(device->device->obj.avail & SM_DEVICE_CHANGE_MASK_INFO))
+
+	if (!SPA_FLAG_IS_SET(device->device->obj.avail,
+			SM_DEVICE_CHANGE_MASK_INFO | SM_DEVICE_CHANGE_MASK_PARAMS))
 		return;
 
 	if (device->device->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS) {
-		setup_alsa_endpoint(device);
+		activate_device(device);
 	}
 }
 
@@ -603,11 +679,18 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	device->impl = impl;
 	device->id = obj->id;
 	device->device = (struct sm_device*)obj;
+	spa_list_init(&device->endpoint_list);
 	pw_log_debug(NAME" %p: found alsa device %d media_class %s", impl, obj->id, media_class);
 
 	sm_object_add_listener(obj, &device->listener, &device_events, device);
 
 	return 0;
+}
+
+static void destroy_device(struct device *device)
+{
+	deactivate_device(device);
+	spa_hook_remove(&device->listener);
 }
 
 static void session_create(void *data, struct sm_object *object)
@@ -634,7 +717,12 @@ static void session_remove(void *data, struct sm_object *object)
 {
 	switch (object->type) {
 	case PW_TYPE_INTERFACE_Device:
+	{
+		struct device *device;
+		if ((device = sm_object_get_data(object, SESSION_KEY)) != NULL)
+			destroy_device(device);
 		break;
+	}
 	default:
 		break;
 	}

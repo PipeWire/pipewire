@@ -39,34 +39,15 @@ extern "C" {
 #define PW_VERSION_CLIENT_ENDPOINT_PROXY 0
 struct pw_client_endpoint_proxy { struct spa_interface iface; };
 
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_ID			0
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID		1
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM		2
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM		3
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_CREATE_LINK		4
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM			5
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID		0
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM		1
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM		2
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_CREATE_LINK		3
+#define PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM			4
 
 struct pw_client_endpoint_proxy_events {
 #define PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS		0
 	uint32_t version;		/**< version of this structure */
-
-	/**
-	 * Sets the id of the \a endpoint.
-	 *
-	 * On endpoint implementations, this is called by the server to notify
-	 * the implementation of the assigned global id of the endpoint. The
-	 * implementation is obliged to set this id in the
-	 * #struct pw_endpoint_info \a id field. The implementation should also
-	 * not emit the info() event before this method is called.
-	 *
-	 * \param endpoint a #pw_endpoint
-	 * \param id the global id assigned to this endpoint
-	 *
-	 * \return 0 on success
-	 *         -EINVAL when the id has already been set
-	 *         -ENOTSUP on the server-side endpoint implementation
-	 */
-	int (*set_id) (void *object, uint32_t id);
 
 	/**
 	 * Sets the session id of the \a endpoint.
@@ -190,33 +171,14 @@ struct pw_client_endpoint_proxy_methods {
 #define PW_VERSION_CLIENT_SESSION_PROXY 0
 struct pw_client_session_proxy { struct spa_interface iface; };
 
-#define PW_CLIENT_SESSION_PROXY_EVENT_SET_ID			0
-#define PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM			1
-#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM		2
-#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE	3
-#define PW_CLIENT_SESSION_PROXY_EVENT_NUM			4
+#define PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM			0
+#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM		1
+#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE	2
+#define PW_CLIENT_SESSION_PROXY_EVENT_NUM			3
 
 struct pw_client_session_proxy_events {
 #define PW_VERSION_CLIENT_SESSION_PROXY_EVENTS		0
 	uint32_t version;		/**< version of this structure */
-
-	/**
-	 * Sets the id of the \a session.
-	 *
-	 * On session implementations, this is called by the server to notify
-	 * the implementation of the assigned global id of the session. The
-	 * implementation is obliged to set this id in the
-	 * #struct pw_session_info \a id field. The implementation should also
-	 * not emit the info() event before this method is called.
-	 *
-	 * \param session a #pw_session
-	 * \param id the global id assigned to this session
-	 *
-	 * \return 0 on success
-	 *         -EINVAL when the id has already been set
-	 *         -ENOTSUP on the server-side session implementation
-	 */
-	int (*set_id) (void *object, uint32_t id);
 
 	/**
 	 * Set the configurable parameter in \a session.

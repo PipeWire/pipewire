@@ -308,20 +308,6 @@ do { \
  *              CLIENT ENDPOINT
  ***********************************************/
 
-static int client_endpoint_marshal_set_id (void *object, uint32_t id)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_builder *b;
-
-	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_ID, NULL);
-
-	spa_pod_builder_add_struct(b,
-			SPA_POD_Int(id));
-
-	return pw_protocol_native_end_resource(resource, b);
-}
-
 static int client_endpoint_marshal_set_session_id (void *object, uint32_t id)
 {
 	struct pw_resource *resource = object;
@@ -463,22 +449,6 @@ static int client_endpoint_marshal_stream_update(void *object,
 	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_proxy(proxy, b);
-}
-
-static int client_endpoint_demarshal_set_id(void *object,
-				const struct pw_protocol_native_message *msg)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_parser prs;
-	uint32_t id;
-
-	spa_pod_parser_init(&prs, msg->data, msg->size);
-	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&id)) < 0)
-		return -EINVAL;
-
-	return pw_proxy_notify(proxy, struct pw_client_endpoint_proxy_events,
-				set_id, 0, id);
 }
 
 static int client_endpoint_demarshal_set_session_id(void *object,
@@ -633,7 +603,6 @@ static int client_endpoint_demarshal_stream_update(void *object,
 
 static const struct pw_client_endpoint_proxy_events pw_protocol_native_client_endpoint_event_marshal = {
 	PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS,
-	.set_id = client_endpoint_marshal_set_id,
 	.set_session_id = client_endpoint_marshal_set_session_id,
 	.set_param = client_endpoint_marshal_set_param,
 	.stream_set_param = client_endpoint_marshal_stream_set_param,
@@ -643,7 +612,6 @@ static const struct pw_client_endpoint_proxy_events pw_protocol_native_client_en
 static const struct pw_protocol_native_demarshal
 pw_protocol_native_client_endpoint_event_demarshal[PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM] =
 {
-	[PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_ID] = { client_endpoint_demarshal_set_id, 0 },
 	[PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID] = { client_endpoint_demarshal_set_session_id, 0 },
 	[PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM] = { client_endpoint_demarshal_set_param, 0 },
 	[PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM] = { client_endpoint_demarshal_stream_set_param, 0 },
@@ -680,20 +648,6 @@ static const struct pw_protocol_marshal pw_protocol_native_client_endpoint_marsh
 /***********************************************
  *              CLIENT SESSION
  ***********************************************/
-
-static int client_session_marshal_set_id (void *object, uint32_t id)
-{
-	struct pw_resource *resource = object;
-	struct spa_pod_builder *b;
-
-	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_SESSION_PROXY_EVENT_SET_ID, NULL);
-
-	spa_pod_builder_add_struct(b,
-			SPA_POD_Int(id));
-
-	return pw_protocol_native_end_resource(resource, b);
-}
 
 static int client_session_marshal_set_param (void *object,
 					uint32_t id, uint32_t flags,
@@ -824,22 +778,6 @@ static int client_session_marshal_link_update(void *object,
 	spa_pod_builder_pop(b, &f);
 
 	return pw_protocol_native_end_proxy(proxy, b);
-}
-
-static int client_session_demarshal_set_id(void *object,
-				const struct pw_protocol_native_message *msg)
-{
-	struct pw_proxy *proxy = object;
-	struct spa_pod_parser prs;
-	uint32_t id;
-
-	spa_pod_parser_init(&prs, msg->data, msg->size);
-	if (spa_pod_parser_get_struct(&prs,
-			SPA_POD_Int(&id)) < 0)
-		return -EINVAL;
-
-	return pw_proxy_notify(proxy, struct pw_client_session_proxy_events,
-				set_id, 0, id);
 }
 
 static int client_session_demarshal_set_param(void *object,
@@ -979,7 +917,6 @@ static int client_session_demarshal_link_update(void *object,
 
 static const struct pw_client_session_proxy_events pw_protocol_native_client_session_event_marshal = {
 	PW_VERSION_CLIENT_SESSION_PROXY_EVENTS,
-	.set_id = client_session_marshal_set_id,
 	.set_param = client_session_marshal_set_param,
 	.link_set_param = client_session_marshal_link_set_param,
 	.link_request_state = client_session_marshal_link_request_state,
@@ -988,7 +925,6 @@ static const struct pw_client_session_proxy_events pw_protocol_native_client_ses
 static const struct pw_protocol_native_demarshal
 pw_protocol_native_client_session_event_demarshal[PW_CLIENT_SESSION_PROXY_EVENT_NUM] =
 {
-	[PW_CLIENT_SESSION_PROXY_EVENT_SET_ID] = { client_session_demarshal_set_id, 0 },
 	[PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM] = { client_session_demarshal_set_param, 0 },
 	[PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM] = { client_session_demarshal_link_set_param, 0 },
 	[PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE] = { client_session_demarshal_link_request_state, 0 },

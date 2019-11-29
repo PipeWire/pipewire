@@ -148,6 +148,9 @@ void *pw_proxy_get_user_data(struct pw_proxy *proxy);
 /** Get the local id of the proxy */
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
+/** Get the type and version of the proxy */
+uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version);
+
 /** Get the protocol used for the proxy */
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 

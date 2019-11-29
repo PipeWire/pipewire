@@ -144,8 +144,10 @@ uint32_t pw_resource_get_permissions(struct pw_resource *resource)
 }
 
 SPA_EXPORT
-uint32_t pw_resource_get_type(struct pw_resource *resource)
+uint32_t pw_resource_get_type(struct pw_resource *resource, uint32_t *version)
 {
+	if (version)
+		*version = resource->version;
 	return resource->type;
 }
 

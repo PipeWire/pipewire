@@ -96,8 +96,8 @@ uint32_t pw_resource_get_id(struct pw_resource *resource);
 /** Get the permissions of this resource */
 uint32_t pw_resource_get_permissions(struct pw_resource *resource);
 
-/** Get the type of this resource */
-uint32_t pw_resource_get_type(struct pw_resource *resource);
+/** Get the type and optionally the version of this resource */
+uint32_t pw_resource_get_type(struct pw_resource *resource, uint32_t *version);
 
 /** Get the protocol used for this resource */
 struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource);

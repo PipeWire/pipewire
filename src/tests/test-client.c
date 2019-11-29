@@ -38,6 +38,7 @@ static void test_abi(void)
 		uint32_t version;
 		void (*destroy) (void *data);
 		void (*free) (void *data);
+		void (*initialized) (void *data);
 		void (*info_changed) (void *data, const struct pw_client_info *info);
 		void (*resource_added) (void *data, struct pw_resource *resource);
 		void (*resource_removed) (void *data, struct pw_resource *resource);
@@ -46,6 +47,7 @@ static void test_abi(void)
 
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, free);
+	TEST_FUNC(ev, test, initialized);
 	TEST_FUNC(ev, test, info_changed);
 	TEST_FUNC(ev, test, resource_added);
 	TEST_FUNC(ev, test, resource_removed);

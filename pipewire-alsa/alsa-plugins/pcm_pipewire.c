@@ -115,10 +115,10 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 			pw_core_destroy(pw->core);
 		if (pw->main_loop)
 			pw_thread_loop_destroy(pw->main_loop);
-		if (pw->loop)
-			pw_loop_destroy(pw->loop);
 		if (pw->fd >= 0)
 			spa_system_close(pw->loop->system, pw->fd);
+		if (pw->loop)
+			pw_loop_destroy(pw->loop);
 		free(pw);
 	}
 }

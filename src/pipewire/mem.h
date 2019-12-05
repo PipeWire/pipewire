@@ -105,7 +105,10 @@ void pw_mempool_add_listener(struct pw_mempool *pool,
                             const struct pw_mempool_events *events,
                             void *data);
 
-/** Destroy a pool */
+/** Clear a pool */
+void pw_mempool_clear(struct pw_mempool *pool);
+
+/** Clear and destroy a pool */
 void pw_mempool_destroy(struct pw_mempool *pool);
 
 

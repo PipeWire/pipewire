@@ -155,19 +155,26 @@ struct pw_mempool *pw_mempool_new(struct pw_properties *props)
 	return this;
 }
 
-void pw_mempool_destroy(struct pw_mempool *pool)
+void pw_mempool_clear(struct pw_mempool *pool)
 {
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
 	struct memblock *b;
+
+	spa_list_consume(b, &impl->blocks, link)
+		pw_memblock_free(&b->this);
+}
+
+void pw_mempool_destroy(struct pw_mempool *pool)
+{
+	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
 
 	pw_log_debug(NAME" %p: destroy", pool);
 
 	pw_mempool_emit_destroy(impl);
 
-	spa_list_remove(&impl->link);
+	pw_mempool_clear(pool);
 
-	spa_list_consume(b, &impl->blocks, link)
-		pw_memblock_free(&b->this);
+	spa_list_remove(&impl->link);
 
 	pw_map_clear(&impl->map);
 	if (pool->props)

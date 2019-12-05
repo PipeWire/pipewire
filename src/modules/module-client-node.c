@@ -44,9 +44,9 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
+struct pw_proxy *pw_core_proxy_node_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
-struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
+struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
 
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
@@ -178,11 +178,11 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	pw_protocol_native_ext_client_node0_init(core);
 
 	data->export_node.type = PW_TYPE_INTERFACE_Node;
-	data->export_node.func = pw_remote_node_export;
+	data->export_node.func = pw_core_proxy_node_export;
 	pw_core_register_export_type(core, &data->export_node);
 
 	data->export_spanode.type = SPA_TYPE_INTERFACE_Node;
-	data->export_spanode.func = pw_remote_spa_node_export;
+	data->export_spanode.func = pw_core_proxy_spa_node_export;
 	pw_core_register_export_type(core, &data->export_spanode);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);

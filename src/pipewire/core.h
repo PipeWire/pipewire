@@ -44,6 +44,7 @@ struct pw_core;
 
 #include <pipewire/client.h>
 #include <pipewire/introspect.h>
+#include <pipewire/interfaces.h>
 #include <pipewire/remote.h>
 #include <pipewire/global.h>
 #include <pipewire/loop.h>
@@ -163,7 +164,7 @@ struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
 struct pw_export_type {
 	struct spa_list link;
 	uint32_t type;
-	struct pw_proxy * (*func) (struct pw_remote *remote,
+	struct pw_proxy * (*func) (struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *properties, void *object,
 		size_t user_data_size);
 };

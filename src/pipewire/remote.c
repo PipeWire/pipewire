@@ -558,7 +558,7 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,
 		goto error_export_type;
 	}
 
-	proxy = t->func(remote, type, props, object, user_data_size);
+	proxy = t->func(remote->core_proxy, type, props, object, user_data_size);
         if (proxy == NULL) {
 		res = -errno;
 		goto error_proxy_failed;

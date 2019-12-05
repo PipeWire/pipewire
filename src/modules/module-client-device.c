@@ -43,7 +43,7 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
+struct pw_proxy *pw_remote_spa_device_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size);
 

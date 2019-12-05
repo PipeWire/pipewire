@@ -1161,11 +1161,12 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 	return data->proxy;
 }
 
-struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
+struct pw_proxy *pw_core_proxy_node_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_node *node = object;
+	struct pw_remote *remote = pw_proxy_get_remote((struct pw_proxy*)core_proxy);
 
 	if (props) {
 		pw_node_update_properties(node, &props->dict);
@@ -1174,11 +1175,12 @@ struct pw_proxy *pw_remote_node_export(struct pw_remote *remote,
 	return node_export(remote, object, false, user_data_size);
 }
 
-struct pw_proxy *pw_remote_spa_node_export(struct pw_remote *remote,
+struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_node *node;
+	struct pw_remote *remote = pw_proxy_get_remote((struct pw_proxy*)core_proxy);
 
 	node = pw_node_new(pw_remote_get_core(remote), props, 0);
 	if (node == NULL)

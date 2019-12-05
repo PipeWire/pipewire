@@ -33,9 +33,6 @@
 #include "extensions/metadata.h"
 
 struct object_data {
-	struct pw_remote *remote;
-	struct pw_core *core;
-
 	struct pw_metadata *object;
 	struct spa_hook object_listener;
 	struct spa_hook object_methods;
@@ -55,7 +52,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = object_proxy_destroy,
 };
 
-struct pw_proxy *pw_remote_metadata_export(struct pw_remote *remote,
+struct pw_proxy *pw_core_proxy_metadata_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
@@ -64,7 +61,7 @@ struct pw_proxy *pw_remote_metadata_export(struct pw_remote *remote,
 	struct pw_proxy *proxy;
 	struct object_data *data;
 
-	proxy = pw_core_proxy_create_object(remote->core_proxy,
+	proxy = pw_core_proxy_create_object(core_proxy,
 					    "metadata",
 					    PW_TYPE_INTERFACE_Metadata,
 					    PW_VERSION_METADATA,
@@ -77,9 +74,7 @@ struct pw_proxy *pw_remote_metadata_export(struct pw_remote *remote,
 
 	data = pw_proxy_get_user_data(proxy);
 	data = SPA_MEMBER(data, user_data_size, struct object_data);
-	data->remote = remote;
 	data->object = object;
-	data->core = pw_remote_get_core(remote);
 	data->proxy = proxy;
 
 	iface = (struct spa_interface*)proxy;

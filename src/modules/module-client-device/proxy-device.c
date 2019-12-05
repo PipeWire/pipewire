@@ -33,9 +33,6 @@
 #include "pipewire/private.h"
 
 struct device_data {
-	struct pw_remote *remote;
-	struct pw_core *core;
-
 	struct spa_device *device;
 	struct spa_hook device_listener;
 	struct spa_hook device_methods;
@@ -55,7 +52,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = device_proxy_destroy,
 };
 
-struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
+struct pw_proxy *pw_remote_spa_device_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
@@ -64,7 +61,7 @@ struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
 	struct pw_proxy *proxy;
 	struct device_data *data;
 
-	proxy = pw_core_proxy_create_object(remote->core_proxy,
+	proxy = pw_core_proxy_create_object(core_proxy,
 					    "client-device",
 					    SPA_TYPE_INTERFACE_Device,
 					    SPA_VERSION_DEVICE,
@@ -77,9 +74,7 @@ struct pw_proxy *pw_remote_spa_device_export(struct pw_remote *remote,
 
 	data = pw_proxy_get_user_data(proxy);
 	data = SPA_MEMBER(data, user_data_size, struct device_data);
-	data->remote = remote;
 	data->device = device;
-	data->core = pw_remote_get_core(remote);
 	data->proxy = proxy;
 
 	iface = (struct spa_interface*)proxy;

@@ -46,7 +46,7 @@ static const struct spa_dict_item module_props[] = {
 void * pw_metadata_new(struct pw_core *core, struct pw_resource *resource,
 		   struct pw_properties *properties);
 
-struct pw_proxy *pw_remote_metadata_export(struct pw_remote *remote,
+struct pw_proxy *pw_core_proxy_metadata_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
 
 int pw_protocol_native_ext_metadata_init(struct pw_core *core);
@@ -174,7 +174,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				      data);
 
 	data->export_metadata.type = PW_TYPE_INTERFACE_Metadata;
-	data->export_metadata.func = pw_remote_metadata_export;
+	data->export_metadata.func = pw_core_proxy_metadata_export;
 	pw_core_register_export_type(core, &data->export_metadata);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);

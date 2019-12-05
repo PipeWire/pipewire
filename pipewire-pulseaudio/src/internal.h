@@ -127,7 +127,7 @@ static inline const char *pa_strnull(const char *x) {
     return x ? x : "(null)";
 }
 
-int pa_context_set_error(pa_context *c, int error);
+int pa_context_set_error(PA_CONST pa_context *c, int error);
 
 #define PA_CHECK_VALIDITY(context, expression, error)			\
 do {									\

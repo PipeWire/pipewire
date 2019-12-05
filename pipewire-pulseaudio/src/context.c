@@ -29,12 +29,13 @@
 
 #include "internal.h"
 
-int pa_context_set_error(pa_context *c, int error) {
+int pa_context_set_error(PA_CONST pa_context *c, int error) {
 	pa_assert(error >= 0);
 	pa_assert(error < PA_ERR_MAX);
 	if (c && c->error != error) {
 		pw_log_debug("context %p: error %d %s", c, error, pa_strerror(error));
-		c->error = error;
+		((pa_context*)c)->error = error;
+
 	}
 	return error;
 }

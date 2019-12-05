@@ -460,6 +460,21 @@ static const struct pw_global_events global_events = {
 	.destroy = global_destroy,
 };
 
+static int load_module_profile(struct pw_core *this, const char *profile)
+{
+	pw_log_debug(NAME" %p: module profile %s", this, profile);
+	if (strcmp(profile, "default") == 0) {
+		pw_module_load(this, "libpipewire-module-rtkit", NULL, NULL);
+		pw_module_load(this, "libpipewire-module-protocol-native", NULL, NULL);
+		pw_module_load(this, "libpipewire-module-client-node", NULL, NULL);
+		pw_module_load(this, "libpipewire-module-client-device", NULL, NULL);
+		pw_module_load(this, "libpipewire-module-adapter", NULL, NULL);
+		pw_module_load(this, "libpipewire-module-metadata", NULL, NULL);
+		pw_module_load(this, "libpipewire-module-session-manager", NULL, NULL);
+	}
+	return 0;
+}
+
 /** Create a new core object
  *
  * \param main_loop the main loop to use
@@ -611,6 +626,13 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global);
+
+	if ((str = pw_properties_get(properties, PW_KEY_CORE_PROFILE_MODULES)) == NULL)
+		str = "default";
+
+	load_module_profile(this, str);
+
+	pw_log_debug(NAME" %p: created", this);
 
 	return this;
 

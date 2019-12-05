@@ -235,11 +235,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 		if ((protocol_name = pw_properties_get(core->properties, PW_KEY_PROTOCOL)) == NULL) {
 			protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
 			if ((protocol = pw_core_find_protocol(core, protocol_name)) == NULL) {
-				if (pw_module_load(core, "libpipewire-module-protocol-native",
-						NULL, NULL) == NULL) {
-					res = -errno;
-					goto error_protocol;
-				}
+				goto error_protocol;
 			}
 		}
 	}
@@ -254,12 +250,6 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	this->conn = pw_protocol_new_client(protocol, this, properties);
 	if (this->conn == NULL)
 		goto error_connection;
-
-	pw_module_load(core, "libpipewire-module-rtkit", NULL, NULL);
-	pw_module_load(core, "libpipewire-module-client-node", NULL, NULL);
-	pw_module_load(core, "libpipewire-module-adapter", NULL, NULL);
-	pw_module_load(core, "libpipewire-module-metadata", NULL, NULL);
-	pw_module_load(core, "libpipewire-module-session-manager", NULL, NULL);
 
         spa_list_append(&core->remote_list, &this->link);
 

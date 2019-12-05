@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
 
 	properties = pw_properties_new(
                                 PW_KEY_CORE_NAME, daemon_name,
+                                PW_KEY_CORE_PROFILE_MODULES, "none",
                                 PW_KEY_CORE_DAEMON, "1", NULL);
 
 	/* parse configuration */

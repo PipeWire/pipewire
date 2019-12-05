@@ -71,6 +71,7 @@ extern "C" {
 
 #define PW_KEY_CORE_ID			"core.id"		/**< the core id */
 #define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
+#define PW_KEY_CORE_PROFILE_MODULES	"core.profile.modules"	/**< a core profile for modules */
 
 /* cpu */
 #define PW_KEY_CPU_MAX_ALIGN		"cpu.max-align"		/**< maximum alignment needed to support

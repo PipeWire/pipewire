@@ -1669,11 +1669,6 @@ int main(int argc, char *argv[])
 	impl.policy_remote = pw_remote_new(impl.this.core, NULL, 0);
 	pw_remote_add_listener(impl.policy_remote, &impl.policy_listener, &policy_remote_events, &impl);
 
-	pw_module_load(impl.this.core, "libpipewire-module-client-device", NULL, NULL);
-	pw_module_load(impl.this.core, "libpipewire-module-adapter", NULL, NULL);
-	pw_module_load(impl.this.core, "libpipewire-module-metadata", NULL, NULL);
-	pw_module_load(impl.this.core, "libpipewire-module-session-manager", NULL, NULL);
-
 	pw_map_init(&impl.globals, 64, 64);
 	spa_list_init(&impl.global_list);
 	pw_map_init(&impl.endpoint_links, 64, 64);

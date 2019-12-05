@@ -203,19 +203,6 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,		/**< the remote */
 				  void *object,				/**< object to export */
 				  size_t user_data_size			/**< extra user data */);
 
-/** data for registering export functions */
-struct pw_export_type {
-	struct spa_list link;
-	uint32_t type;
-	struct pw_proxy * (*func) (struct pw_remote *remote,
-		uint32_t type, struct pw_properties *properties, void *object,
-		size_t user_data_size);
-};
-
-/** register a type that can be exported on a remote. This is usually used by
- * extension modules */
-int pw_core_register_export_type(struct pw_core *core, struct pw_export_type *type);
-
 #ifdef __cplusplus
 }
 #endif

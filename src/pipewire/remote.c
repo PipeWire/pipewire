@@ -581,22 +581,3 @@ exit:
 	errno = -res;
 	return NULL;
 }
-
-SPA_EXPORT
-int pw_core_register_export_type(struct pw_core *core, struct pw_export_type *type)
-{
-	pw_log_debug("core %p: Add export type %d/%s to core", core, type->type,
-			spa_debug_type_find_name(pw_type_info(), type->type));
-	spa_list_append(&core->export_list, &type->link);
-	return 0;
-}
-
-const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type)
-{
-	const struct pw_export_type *t;
-	spa_list_for_each(t, &core->export_list, link) {
-		if (t->type == type)
-			return t;
-	}
-	return NULL;
-}

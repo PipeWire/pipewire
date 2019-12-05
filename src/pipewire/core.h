@@ -44,6 +44,7 @@ struct pw_core;
 
 #include <pipewire/client.h>
 #include <pipewire/introspect.h>
+#include <pipewire/remote.h>
 #include <pipewire/global.h>
 #include <pipewire/loop.h>
 #include <pipewire/factory.h>
@@ -156,6 +157,22 @@ const char * pw_core_find_spa_lib(struct pw_core *core, const char *factory_name
 struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
 		const char *factory_name,
 		const struct spa_dict *info);
+
+
+/** data for registering export functions */
+struct pw_export_type {
+	struct spa_list link;
+	uint32_t type;
+	struct pw_proxy * (*func) (struct pw_remote *remote,
+		uint32_t type, struct pw_properties *properties, void *object,
+		size_t user_data_size);
+};
+
+/** register a type that can be exported on a core_proxy. This is usually used by
+ * extension modules */
+int pw_core_register_export_type(struct pw_core *core, struct pw_export_type *type);
+/** find information about registered export type */
+const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
 
 #ifdef __cplusplus
 }

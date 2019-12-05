@@ -45,6 +45,7 @@ struct remote {
 	struct pw_remote this;
 	struct spa_hook core_listener;
 	struct spa_hook core_proxy_listener;
+	size_t user_data_size;
 };
 
 /** \endcond */
@@ -208,6 +209,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 	pw_log_debug(NAME" %p: new", impl);
 
 	this->core = core;
+	impl->user_data_size = user_data_size;
 
 	if (user_data_size > 0)
 		this->user_data = SPA_MEMBER(impl, sizeof(struct remote), void);
@@ -386,11 +388,8 @@ static const struct pw_proxy_events core_proxy_events = {
 	.destroy = core_proxy_destroy,
 };
 
-static int
-do_connect(struct spa_loop *loop,
-		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+static int init_connect(struct pw_remote *remote)
 {
-	struct pw_remote *remote = user_data;
 	struct remote *impl = SPA_CONTAINER_OF(remote, struct remote, this);
 	struct pw_proxy dummy, *core_proxy;
 	int res;
@@ -398,10 +397,13 @@ do_connect(struct spa_loop *loop,
 	spa_zero(dummy);
 	dummy.remote = remote;
 
-	core_proxy = pw_proxy_new(&dummy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE_PROXY, 0);
+	core_proxy = pw_proxy_new(&dummy,
+			PW_TYPE_INTERFACE_Core,
+			PW_VERSION_CORE_PROXY,
+			impl->user_data_size);
 	if (core_proxy == NULL) {
 		res = -errno;
-		goto error_disconnect;
+		goto error;
 	}
 	remote->core_proxy = (struct pw_core_proxy*)core_proxy;
 
@@ -418,16 +420,23 @@ do_connect(struct spa_loop *loop,
 
 	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE_PROXY);
 	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
-	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTED, NULL);
 
 	return 0;
 
 error_clean_core_proxy:
 	pw_proxy_remove((struct pw_proxy*)remote->core_proxy);
-error_disconnect:
-	pw_protocol_client_disconnect(remote->conn);
+error:
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: %s", spa_strerror(res));
 	return res;
+}
+
+static int
+do_connect(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_remote *remote = user_data;
+	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTED, NULL);
+	return 0;
 }
 
 SPA_EXPORT
@@ -467,12 +476,17 @@ int pw_remote_connect(struct pw_remote *remote)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_client_connect(remote->conn, done_connect, remote)) < 0) {
-		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
-				"connect failed %s", spa_strerror(res));
-		return res;
-	}
+	if ((res = init_connect(remote)) < 0)
+		goto error;
+
+	if ((res = pw_protocol_client_connect(remote->conn, done_connect, remote)) < 0)
+		goto error;
+
 	return remote->state == PW_REMOTE_STATE_ERROR ? -EIO : 0;
+error:
+	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
+			"connect failed %d: %s", res, spa_strerror(res));
+	return res;
 }
 
 SPA_EXPORT
@@ -482,15 +496,20 @@ int pw_remote_connect_fd(struct pw_remote *remote, int fd)
 
 	pw_remote_update_state(remote, PW_REMOTE_STATE_CONNECTING, NULL);
 
-	if ((res = pw_protocol_client_connect_fd(remote->conn, fd, true)) < 0) {
-		pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
-				"connect_fd failed %s", spa_strerror(res));
-		return res;
-	}
+	if ((res = init_connect(remote)) < 0)
+		goto error;
+
+	if ((res = pw_protocol_client_connect_fd(remote->conn, fd, true)) < 0)
+		goto error;
+
 	pw_loop_invoke(remote->core->main_loop,
 			do_connect, 0, NULL, 0, false, remote);
 
 	return remote->state == PW_REMOTE_STATE_ERROR ? -EIO : 0;
+error:
+	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR,
+			"connect_fd failed %d: %s", res, spa_strerror(res));
+	return res;
 }
 
 SPA_EXPORT

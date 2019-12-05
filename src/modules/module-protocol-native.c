@@ -667,6 +667,9 @@ on_remote_data(void *data, int fd, uint32_t mask)
 	return;
 error:
 	pw_log_error(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
+	pw_proxy_notify((struct pw_proxy*)this->core_proxy,
+			struct pw_core_proxy_events, error, 0, 0,
+			this->recv_seq, res, "connection error");
 	pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
 	impl->source = NULL;
 	pw_remote_disconnect(this);

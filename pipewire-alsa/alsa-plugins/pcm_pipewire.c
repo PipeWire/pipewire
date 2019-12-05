@@ -40,6 +40,8 @@
 
 #include <pipewire/pipewire.h>
 
+#define NAME "alsa-plugin"
+
 #define MIN_BUFFERS	3u
 #define MAX_BUFFERS	64u
 
@@ -193,7 +195,7 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	ptr = SPA_MEMBER(d[0].data, offset, void);
 
 	nframes = nbytes / bpf;
-	pw_log_trace("%d %d %lu %d %d %p %d", nbytes, avail, nframes, filled, offset, ptr, io->state);
+	pw_log_trace(NAME" %p: %d %d %lu %d %d %p %d", pw, nbytes, avail, nframes, filled, offset, ptr, io->state);
 
 	for (channel = 0; channel < io->channels; channel++) {
 		pwareas[channel].addr = ptr;
@@ -202,7 +204,7 @@ snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	}
 
 	if (io->state != SND_PCM_STATE_RUNNING && io->state != SND_PCM_STATE_DRAINING) {
-		pw_log_trace("silence %lu frames %d", nframes, io->state);
+		pw_log_trace(NAME" %p: silence %lu frames %d", pw, nframes, io->state);
 		for (channel = 0; channel < io->channels; channel++)
 			snd_pcm_area_silence(&pwareas[channel], 0, nframes, io->format);
 		goto done;
@@ -272,7 +274,7 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b)
 	nbytes = SPA_MIN(avail, maxsize - offset);
 	ptr = SPA_MEMBER(d[0].data, offset, void);
 
-	pw_log_trace("%d %d %d %p", nbytes, avail, offset, ptr);
+	pw_log_trace(NAME" %p: %d %d %d %p", pw, nbytes, avail, offset, ptr);
 	nframes = nbytes / bpf;
 
 	for (channel = 0; channel < io->channels; channel++) {
@@ -329,8 +331,8 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
 	size = io->period_size * stride;
 
-	pw_log_info("buffer_size:%lu period_size:%lu buffers:%u stride:%u size:%u min_avail:%lu",
-			io->buffer_size, io->period_size, buffers, stride, size, pw->min_avail);
+	pw_log_info(NAME" %p: buffer_size:%lu period_size:%lu buffers:%u stride:%u size:%u min_avail:%lu",
+			pw, io->buffer_size, io->period_size, buffers, stride, size, pw->min_avail);
 
 	params[n_params++] = spa_pod_builder_add_object(&b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
@@ -389,7 +391,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	min_period = (MIN_PERIOD * io->rate / 48000);
 	pw->min_avail = SPA_MAX(pw->min_avail, min_period);
 
-	pw_log_debug("prepare %d %p %lu %ld", pw->error, pw->stream, io->period_size, pw->min_avail);
+	pw_log_debug(NAME" %p: prepare %d %p %lu %ld", pw,
+			pw->error, pw->stream, io->period_size, pw->min_avail);
 	if (!pw->error && pw->stream != NULL)
 		goto done;
 
@@ -519,7 +522,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	snd_pcm_pipewire_t *pw = io->private_data;
 	bool planar;
 
-	pw_log_debug("hw_params %lu %lu", io->buffer_size, io->period_size);
+	pw_log_debug(NAME" %p: hw_params %lu %lu", pw, io->buffer_size, io->period_size);
 
 	switch(io->access) {
 	case SND_PCM_ACCESS_MMAP_INTERLEAVED:
@@ -754,7 +757,7 @@ static void on_remote_state_changed(void *data, enum pw_remote_state old,
 
         switch (state) {
         case PW_REMOTE_STATE_ERROR:
-		pw_log_error("error %s", error);
+		pw_log_error(NAME" %p: error %s", pw, error);
 		/* fallthrough */
         case PW_REMOTE_STATE_UNCONNECTED:
 		pw->error = true;
@@ -827,7 +830,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	str = getenv("PIPEWIRE_NODE");
 
-	pw_log_debug("open %s %d %d %08x '%s'", name, stream, mode, flags, str);
+	pw_log_debug(NAME" %p: open %s %d %d %08x '%s'", pw, name, stream, mode, flags, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
@@ -882,7 +885,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	if ((err = snd_pcm_ioplug_create(&pw->io, name, stream, mode)) < 0)
 		goto error;
 
-	pw_log_debug("open %s %d %d", name, pw->io.stream, mode);
+	pw_log_debug(NAME" %p: open %s %d %d", pw, name, pw->io.stream, mode);
 
 	if ((err = pipewire_set_hw_constraint(pw)) < 0)
 		goto error;

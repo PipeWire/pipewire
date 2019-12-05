@@ -703,12 +703,7 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_cl
 
 	impl->disconnecting = false;
 
-	impl->connection = pw_protocol_native_connection_new(remote->core, fd);
-	if (impl->connection == NULL) {
-		res = -errno;
-		goto error_cleanup;
-	}
-
+	pw_protocol_native_connection_set_fd(impl->connection, fd);
 	impl->source = pw_loop_add_io(remote->core->main_loop,
 					fd,
 					SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
@@ -766,6 +761,7 @@ impl_new_client(struct pw_protocol *protocol,
 	struct client *impl;
 	struct pw_protocol_client *this;
 	const char *str = NULL;
+	int res;
 
 	if ((impl = calloc(1, sizeof(struct client))) == NULL)
 		return NULL;
@@ -773,6 +769,12 @@ impl_new_client(struct pw_protocol *protocol,
 	this = &impl->this;
 	this->protocol = protocol;
 	this->remote = remote;
+
+	impl->connection = pw_protocol_native_connection_new(remote->core, -1);
+	if (impl->connection == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 
 	if (properties)
 		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
@@ -792,6 +794,11 @@ impl_new_client(struct pw_protocol *protocol,
 	spa_list_append(&protocol->client_list, &this->link);
 
 	return this;
+
+error_free:
+	free(impl);
+	errno = -res;
+	return NULL;
 }
 
 static void destroy_server(struct pw_protocol_server *server)

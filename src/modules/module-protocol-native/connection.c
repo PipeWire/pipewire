@@ -266,6 +266,12 @@ no_mem:
 	return NULL;
 }
 
+int pw_protocol_native_connection_set_fd(struct pw_protocol_native_connection *conn, int fd)
+{
+	conn->fd = fd;
+	return 0;
+}
+
 /** Destroy a connection
  *
  * \param conn the connection to destroy

@@ -154,6 +154,9 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 /** Get the type and version of the proxy */
 uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version);
 
+/** Get the remote managing this proxy */
+struct pw_remote *pw_proxy_get_remote(struct pw_proxy *proxy);
+
 /** Get the protocol used for the proxy */
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
 

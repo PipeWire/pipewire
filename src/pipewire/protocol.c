@@ -73,6 +73,12 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 }
 
 SPA_EXPORT
+struct pw_core *pw_protocol_get_core(struct pw_protocol *protocol)
+{
+	return protocol->core;
+}
+
+SPA_EXPORT
 void *pw_protocol_get_user_data(struct pw_protocol *protocol)
 {
 	return protocol->user_data;

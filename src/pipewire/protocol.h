@@ -112,6 +112,8 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core, const char *name, size
 
 void pw_protocol_destroy(struct pw_protocol *protocol);
 
+struct pw_core *pw_protocol_get_core(struct pw_protocol *protocol);
+
 void *pw_protocol_get_user_data(struct pw_protocol *protocol);
 
 const struct pw_protocol_implementaton *

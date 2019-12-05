@@ -147,6 +147,12 @@ uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version)
 }
 
 SPA_EXPORT
+struct pw_remote *pw_proxy_get_remote(struct pw_proxy *proxy)
+{
+	return proxy->remote;
+}
+
+SPA_EXPORT
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
 {
 	return proxy->remote->conn->protocol;

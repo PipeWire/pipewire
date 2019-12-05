@@ -259,3 +259,9 @@ void pw_resource_destroy(struct pw_resource *resource)
 
 	free(resource);
 }
+
+void pw_resource_remove(struct pw_resource *resource)
+{
+	resource->removed = true;
+	pw_resource_destroy(resource);
+}

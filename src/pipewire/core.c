@@ -174,8 +174,7 @@ static int destroy_resource(void *object, void *data)
 
 	if (resource &&
 	    resource != client->core_resource) {
-		resource->removed = true;
-		pw_resource_destroy(resource);
+		pw_resource_remove(resource);
 	}
 	return 0;
 }

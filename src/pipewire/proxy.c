@@ -210,6 +210,12 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	}
 }
 
+void pw_proxy_remove(struct pw_proxy *proxy)
+{
+	proxy->removed = true;
+	pw_proxy_destroy(proxy);
+}
+
 SPA_EXPORT
 void pw_proxy_unref(struct pw_proxy *proxy)
 {

@@ -901,7 +901,10 @@ pw_core_find_port(struct pw_core *core,
 const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
 
 int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
+void pw_proxy_remove(struct pw_proxy *proxy);
+
 int pw_resource_install_marshal(struct pw_resource *resource, bool implementor);
+void pw_resource_remove(struct pw_resource *resource);
 
 int pw_core_recalc_graph(struct pw_core *core);
 

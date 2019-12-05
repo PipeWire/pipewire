@@ -139,10 +139,8 @@ static void core_event_remove_id(void *data, uint32_t id)
 	struct pw_proxy *proxy;
 
 	pw_log_debug(NAME" %p: object remove %u", this, id);
-	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
-		proxy->removed = true;
-		pw_proxy_destroy(proxy);
-	}
+	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL)
+		pw_proxy_remove(proxy);
 }
 
 static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
@@ -425,8 +423,7 @@ do_connect(struct spa_loop *loop,
 	return 0;
 
 error_clean_core_proxy:
-	((struct pw_proxy*)remote->core_proxy)->removed = true;
-	pw_proxy_destroy((struct pw_proxy*)remote->core_proxy);
+	pw_proxy_remove((struct pw_proxy*)remote->core_proxy);
 error_disconnect:
 	pw_protocol_client_disconnect(remote->conn);
 	pw_remote_update_state(remote, PW_REMOTE_STATE_ERROR, "can't connect: %s", spa_strerror(res));

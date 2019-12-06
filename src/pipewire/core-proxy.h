@@ -70,16 +70,31 @@ int pw_core_proxy_steal_fd(struct pw_core_proxy *core_proxy);
 /** Get the core proxy, can only be called when connected */
 int pw_core_proxy_disconnect(struct pw_core_proxy *proxy);
 
+/** Get the user_data. It is of the size specified when this object was
+ * constructed */
+void *pw_core_proxy_get_user_data(struct pw_core_proxy *core_proxy);
+
 /** Get the client proxy */
 struct pw_client_proxy * pw_core_proxy_get_client_proxy(struct pw_core_proxy *proxy);
 
+/** Get the core object used to created this core_proxy */
 struct pw_core * pw_core_proxy_get_core(struct pw_core_proxy *proxy);
 
+/** Get properties from the core_proxy */
+const struct pw_properties *pw_core_proxy_get_properties(struct pw_core_proxy *proxy);
+
+/** Update the core_proxy properties. This updates the properties
+ * of the associated client.
+ * \return the number of properties that were updated */
+int pw_core_proxy_update_properties(struct pw_core_proxy *core_proxy, const struct spa_dict *dict);
+
+/** Get the core_proxy mempool object */
 struct pw_mempool * pw_core_proxy_get_mempool(struct pw_core_proxy *proxy);
 
 /** Get the proxy with the given id */
 struct pw_proxy *pw_core_proxy_find_proxy(struct pw_core_proxy *proxy, uint32_t id);
 
+/** Export an object into the PipeWire instance associated with core_proxy */
 struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *proxy,	/**< the proxy */
 				  uint32_t type,			/**< the type of object */
 				  struct pw_properties *properties,	/**< extra properties */

@@ -1060,9 +1060,11 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 	if (c->core_proxy == NULL) {
                 context_fail(c, PA_ERR_CONNECTIONREFUSED);
 		res = -1;
+		goto exit;
 	}
 	pw_core_proxy_add_listener(c->core_proxy, &c->core_listener, &core_events, c);
 
+exit:
 	pa_context_unref(c);
 
 	return res;

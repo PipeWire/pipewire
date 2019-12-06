@@ -116,29 +116,6 @@ struct pw_remote;
 #include <pipewire/node.h>
 #include <pipewire/proxy.h>
 
-/** \enum pw_remote_state The state of a \ref pw_remote \memberof pw_remote */
-enum pw_remote_state {
-	PW_REMOTE_STATE_ERROR = -1,		/**< remote is in error */
-	PW_REMOTE_STATE_UNCONNECTED = 0,	/**< not connected */
-	PW_REMOTE_STATE_CONNECTING = 1,		/**< connecting to remote PipeWire */
-	PW_REMOTE_STATE_CONNECTED = 2,		/**< remote is connected and ready */
-};
-
-/** Convert a \ref pw_remote_state to a readable string \memberof pw_remote */
-const char *pw_remote_state_as_string(enum pw_remote_state state);
-
-/** Events for the remote. use \ref pw_remote_add_listener */
-struct pw_remote_events {
-#define PW_VERSION_REMOTE_EVENTS	0
-	uint32_t version;
-
-	/** The remote is destroyed */
-	void (*destroy)	(void *data);
-	/** emited when the state changes */
-	void (*state_changed) (void *data, enum pw_remote_state old,
-			       enum pw_remote_state state, const char *error);
-};
-
 /** Create a new unconnected remote \memberof pw_remote
  * \return a new unconnected remote */
 struct pw_remote *
@@ -161,15 +138,6 @@ int pw_remote_update_properties(struct pw_remote *remote, const struct spa_dict 
 
 /** Get the user_data. The size was given in \ref pw_remote_new */
 void *pw_remote_get_user_data(struct pw_remote *remote);
-
-/** Get the current state, \a error is set when state is \ref PW_REMOTE_STATE_ERROR */
-enum pw_remote_state pw_remote_get_state(struct pw_remote *remote, const char **error);
-
-/** Add listener for events */
-void pw_remote_add_listener(struct pw_remote *remote,
-			    struct spa_hook *listener,
-			    const struct pw_remote_events *events,
-			    void *data);
 
 /** Connect to a remote PipeWire \memberof pw_remote
  * \return 0 on success, < 0 on error */

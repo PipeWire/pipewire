@@ -4,7 +4,7 @@ test_apps = [
 	'test-core',
 	'test-interfaces',
 	'test-properties',
-	'test-remote',
+	#	'test-remote',
 	'test-stream',
 	'test-utils'
 ]

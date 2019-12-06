@@ -753,11 +753,6 @@ struct pw_remote {
 	int recv_seq;				/**< last received sequence number */
 	int send_seq;				/**< last protocol result code */
 
-	enum pw_remote_state state;
-	char *error;
-
-	struct spa_hook_list listener_list;
-
 	void *user_data;			/**< extra user data */
 };
 

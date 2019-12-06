@@ -134,6 +134,7 @@ static void test_create(void)
 {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
+	struct pw_core_proxy *core_proxy;
 	struct pw_stream *stream;
 	struct pw_stream_events stream_events = stream_events_error;
 	struct spa_hook listener = { 0, };
@@ -141,8 +142,14 @@ static void test_create(void)
 	struct pw_time tm;
 
 	loop = pw_main_loop_new(NULL);
-	core = pw_core_new(pw_main_loop_get_loop(loop), NULL, 12);
-	stream = pw_stream_new(NULL, "test", NULL);
+	core = pw_core_new(pw_main_loop_get_loop(loop),
+			pw_properties_new(
+				PW_KEY_CORE_DAEMON, "1",
+				NULL), 12);
+	spa_assert(core != NULL);
+	core_proxy = pw_core_connect_self(core, NULL, 0);
+	spa_assert(core_proxy != NULL);
+	stream = pw_stream_new(core_proxy, "test", NULL);
 	spa_assert(stream != NULL);
 	pw_stream_add_listener(stream, &listener, &stream_events, stream);
 
@@ -179,6 +186,7 @@ static void test_properties(void)
 {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
+	struct pw_core_proxy *core_proxy;
 	const struct pw_properties *props;
 	struct pw_stream *stream;
 	struct pw_stream_events stream_events = stream_events_error;
@@ -186,8 +194,14 @@ static void test_properties(void)
 	struct spa_dict_item items[3];
 
 	loop = pw_main_loop_new(NULL);
-	core = pw_core_new(pw_main_loop_get_loop(loop), NULL, 0);
-	stream = pw_stream_new(NULL, "test",
+	core = pw_core_new(pw_main_loop_get_loop(loop),
+			pw_properties_new(
+				PW_KEY_CORE_DAEMON, "1",
+				NULL), 12);
+	spa_assert(core != NULL);
+	core_proxy = pw_core_connect_self(core, NULL, 0);
+	spa_assert(core_proxy != NULL);
+	stream = pw_stream_new(core_proxy, "test",
 			pw_properties_new("foo", "bar",
 					  "biz", "fuzz",
 					  NULL));

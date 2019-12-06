@@ -1091,6 +1091,7 @@ struct pw_stream * pw_stream_new(struct pw_core_proxy *core_proxy, const char *n
 
 	this = &impl->this;
 	this->core_proxy = core_proxy;
+	spa_list_append(&core_proxy->stream_list, &this->link);
 	pw_core_proxy_add_listener(core_proxy,
 			&this->core_listener, &core_events, this);
 
@@ -1163,6 +1164,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	if (stream->core_proxy) {
 		spa_hook_remove(&stream->core_listener);
+		spa_list_remove(&stream->link);
 		stream->core_proxy = NULL;
 	}
 
@@ -1372,6 +1374,7 @@ pw_stream_connect(struct pw_stream *stream,
 			res = -errno;
 			goto error_connect;
 		}
+		spa_list_append(&stream->core_proxy->stream_list, &stream->link);
 		pw_core_proxy_add_listener(stream->core_proxy,
 				&stream->core_listener, &core_events, stream);
 	}

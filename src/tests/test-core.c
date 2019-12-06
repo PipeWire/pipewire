@@ -130,7 +130,10 @@ static void test_create(void)
 	loop = pw_main_loop_new(NULL);
 	spa_assert(loop != NULL);
 
-	core = pw_core_new(pw_main_loop_get_loop(loop), NULL, 12);
+	core = pw_core_new(pw_main_loop_get_loop(loop),
+			pw_properties_new(
+				PW_KEY_CORE_PROFILE_MODULES, "none",
+				NULL), 12);
 	spa_assert(core != NULL);
 	pw_core_add_listener(core, &listener, &core_events, core);
 

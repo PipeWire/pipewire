@@ -972,6 +972,7 @@ struct pw_filter * pw_filter_new(struct pw_core_proxy *core_proxy, const char *n
 
 	this = &impl->this;
 	this->core_proxy = core_proxy;
+	spa_list_append(&this->core_proxy->filter_list, &this->link);
 	pw_core_proxy_add_listener(core_proxy,
 			&this->core_listener, &core_events, this);
 
@@ -1044,6 +1045,7 @@ void pw_filter_destroy(struct pw_filter *filter)
 
 	if (filter->core_proxy) {
 		spa_hook_remove(&filter->core_listener);
+		spa_list_remove(&filter->link);
 		filter->core_proxy = NULL;
 	}
 
@@ -1159,6 +1161,7 @@ pw_filter_connect(struct pw_filter *filter,
 			res = -errno;
 			goto error_connect;
 		}
+		spa_list_append(&filter->core_proxy->filter_list, &filter->link);
 		pw_core_proxy_add_listener(filter->core_proxy,
 				&filter->core_listener, &core_events, filter);
 	}

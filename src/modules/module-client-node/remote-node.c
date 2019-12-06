@@ -138,6 +138,8 @@ static void clean_transport(struct node_data *data)
 		pw_memmap_free(mm);
 
 	pw_memmap_free(data->activation);
+	data->node->rt.activation = data->node->activation->map->ptr;
+
 	close(data->rtwritefd);
 	data->have_transport = false;
 }

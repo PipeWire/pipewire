@@ -55,6 +55,14 @@ pw_core_connect_fd(struct pw_core *core,	/**< a \ref pw_core */
 						  *  the properties is taken.*/
 	      size_t user_data_size		/**< extra user data size */);
 
+/** Connect to a given PipeWire instance \memberof pw_core_proxy
+ * \return a pw_core_proxy on success or NULL with errno set on error */
+struct pw_core_proxy *
+pw_core_connect_self(struct pw_core *core,	/**< a \ref pw_core to connect to */
+	      struct pw_properties *properties,	/**< optional properties, ownership of
+						  *  the properties is taken.*/
+	      size_t user_data_size		/**< extra user data size */);
+
 /** Steal the fd of the core_proxy connection or < 0 on error. The core_proxy
   * will be disconnected after this call. */
 int pw_core_proxy_steal_fd(struct pw_core_proxy *core_proxy);

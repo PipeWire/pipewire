@@ -410,6 +410,24 @@ error_free:
 }
 
 SPA_EXPORT
+struct pw_core_proxy *
+pw_core_connect_self(struct pw_core *core, struct pw_properties *properties,
+	      size_t user_data_size)
+{
+	const struct pw_core_info *info;
+
+	if (properties == NULL)
+                properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return NULL;
+
+	info = pw_core_get_info(core);
+	pw_properties_set(properties, PW_KEY_REMOTE_NAME, info->name);
+
+	return pw_core_connect(core, properties, user_data_size);
+}
+
+SPA_EXPORT
 int pw_core_proxy_steal_fd(struct pw_core_proxy *proxy)
 {
 	return pw_protocol_client_steal_fd(proxy->conn);

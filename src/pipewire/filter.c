@@ -138,6 +138,7 @@ struct filter {
 
 	unsigned int disconnecting:1;
 	unsigned int free_data:1;
+	unsigned int free_proxy:1;
 	unsigned int subscribe:1;
 	unsigned int draining:1;
 };
@@ -1171,6 +1172,7 @@ pw_filter_connect(struct pw_filter *filter,
 		spa_list_append(&filter->core_proxy->filter_list, &filter->link);
 		pw_core_proxy_add_listener(filter->core_proxy,
 				&filter->core_listener, &core_events, filter);
+		impl->free_proxy = true;
 	}
 
 	pw_log_debug(NAME" %p: creating node", filter);
@@ -1236,7 +1238,12 @@ int pw_filter_disconnect(struct pw_filter *filter)
 		pw_node_destroy(impl->node);
 		impl->node = NULL;
 	}
-
+	if (filter->core_proxy && impl->free_proxy) {
+		spa_hook_remove(&filter->core_listener);
+		spa_list_remove(&filter->link);
+		pw_core_proxy_disconnect(filter->core_proxy);
+		filter->core_proxy = NULL;
+	}
 	return 0;
 }
 

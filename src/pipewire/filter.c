@@ -896,7 +896,7 @@ static const struct pw_core_proxy_events core_events = {
 
 static struct filter *
 filter_new(struct pw_core *core, const char *name,
-		struct pw_properties *props, struct pw_properties *extra)
+		struct pw_properties *props, const struct pw_properties *extra)
 {
 	struct filter *impl;
 	struct pw_filter *this;
@@ -964,9 +964,9 @@ struct pw_filter * pw_filter_new(struct pw_core_proxy *core_proxy, const char *n
 {
 	struct filter *impl;
 	struct pw_filter *this;
-	struct pw_core *core = pw_core_proxy_get_core(core_proxy);
+	struct pw_core *core = core_proxy->core;
 
-	impl = filter_new(core, name, props, NULL);
+	impl = filter_new(core, name, props, core_proxy->properties);
 	if (impl == NULL)
 		return NULL;
 
@@ -992,9 +992,16 @@ pw_filter_new_simple(struct pw_loop *loop,
 	struct pw_core *core;
 	int res;
 
+	if (props == NULL)
+		props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		return NULL;
+
 	core = pw_core_new(loop, NULL, 0);
 
-	impl = filter_new(core, name, props, NULL);
+	pw_fill_connect_properties(core, props);
+
+	impl = filter_new(core, name, props, props);
 	if (impl == NULL) {
 		res = -errno;
 		goto error_cleanup;

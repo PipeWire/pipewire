@@ -496,15 +496,15 @@ const char *pw_get_client_name(void)
 	}
 }
 
-/** Fill remote properties
+/** Fill connectremote properties
  * \param properties a \ref pw_properties
  *
- * Fill \a properties with a set of default remote properties.
+ * Fill \a properties with a set of default properties for connecting to a PipeWire instance.
  *
  * \memberof pw_pipewire
  */
 SPA_EXPORT
-void pw_fill_remote_properties(struct pw_core *core, struct pw_properties *properties)
+void pw_fill_connect_properties(struct pw_core *core, struct pw_properties *properties)
 {
 	const char *val;
 

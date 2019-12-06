@@ -286,6 +286,8 @@ static struct pw_core_proxy *core_proxy_new(struct pw_core *core,
 	if (properties == NULL)
 		goto error_properties;
 
+	pw_fill_connect_properties(core, properties);
+
 	p->proxy.core_proxy = p;
 	p->core = core;
 	p->properties = properties;

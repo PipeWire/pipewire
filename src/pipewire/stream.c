@@ -1014,7 +1014,7 @@ static const struct pw_core_proxy_events core_events = {
 
 static struct stream *
 stream_new(struct pw_core *core, const char *name,
-		struct pw_properties *props, struct pw_properties *extra)
+		struct pw_properties *props, const struct pw_properties *extra)
 {
 	struct stream *impl;
 	struct pw_stream *this;
@@ -1083,9 +1083,9 @@ struct pw_stream * pw_stream_new(struct pw_core_proxy *core_proxy, const char *n
 {
 	struct stream *impl;
 	struct pw_stream *this;
-	struct pw_core *core = pw_core_proxy_get_core(core_proxy);
+	struct pw_core *core = core_proxy->core;
 
-	impl = stream_new(core, name, props, NULL);
+	impl = stream_new(core, name, props, core_proxy->properties);
 	if (impl == NULL)
 		return NULL;
 
@@ -1111,7 +1111,14 @@ pw_stream_new_simple(struct pw_loop *loop,
 	struct pw_core *core;
 	int res;
 
+	if (props == NULL)
+		props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		return NULL;
+
 	core = pw_core_new(loop, NULL, 0);
+
+	pw_fill_connect_properties(core, props);
 
 	impl = stream_new(core, name, props, NULL);
 	if (impl == NULL) {

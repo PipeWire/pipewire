@@ -156,7 +156,7 @@ struct pw_client_endpoint_proxy_methods {
 #define pw_client_endpoint_proxy_method(o,method,version,...)		\
 ({									\
 	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)&o,		\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_client_endpoint_proxy_methods, _res,	\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -269,7 +269,7 @@ struct pw_client_session_proxy_methods {
 #define pw_client_session_proxy_method(o,method,version,...)		\
 ({									\
 	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)&o,		\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_client_session_proxy_methods, _res,	\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\

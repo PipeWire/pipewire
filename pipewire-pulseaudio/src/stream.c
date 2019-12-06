@@ -216,6 +216,12 @@ static void configure_device(pa_stream *s)
 	pw_log_debug("stream %p: linked to %d '%s'", s, s->device_index, s->device_name);
 }
 
+static void stream_destroy(void *data)
+{
+	pa_stream *s = data;
+	s->stream = NULL;
+}
+
 static void stream_state_changed(void *data, enum pw_stream_state old,
 	enum pw_stream_state state, const char *error)
 {
@@ -513,6 +519,7 @@ static void stream_drained(void *data)
 static const struct pw_stream_events stream_events =
 {
 	PW_VERSION_STREAM_EVENTS,
+	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
 	.param_changed = stream_param_changed,
 	.control_info = stream_control_info,

@@ -404,19 +404,31 @@ static int init_socket_name(struct server *s, const char *name)
 {
 	int name_size;
 	const char *runtime_dir;
+	bool path_is_absolute;
 
-	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
+	path_is_absolute = name[0] == '/';
+
+	runtime_dir = getenv("XDG_RUNTIME_DIR");
+	if (runtime_dir == NULL && !path_is_absolute) {
 		pw_log_error("server %p: XDG_RUNTIME_DIR not set in the environment", s);
-		return -EIO;
+		return -ENOENT;
 	}
 
 	s->addr.sun_family = AF_LOCAL;
-	name_size = snprintf(s->addr.sun_path, sizeof(s->addr.sun_path),
+	if (path_is_absolute)
+		name_size = snprintf(s->addr.sun_path, sizeof(s->addr.sun_path),
+			     "%s", name) + 1;
+	else
+		name_size = snprintf(s->addr.sun_path, sizeof(s->addr.sun_path),
 			     "%s/%s", runtime_dir, name) + 1;
 
 	if (name_size > (int) sizeof(s->addr.sun_path)) {
-		pw_log_error("server %p: socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
-				s, runtime_dir, name);
+		if (path_is_absolute)
+			pw_log_error("server %p: socket path \"%s\" plus null terminator exceeds %i bytes",
+				s, name, (int) sizeof(s->addr.sun_path));
+		else
+			pw_log_error("server %p: socket path \"%s/%s\" plus null terminator exceeds %i bytes",
+				s, runtime_dir, name, (int) sizeof(s->addr.sun_path));
 		*s->addr.sun_path = 0;
 		return -ENAMETOOLONG;
 	}

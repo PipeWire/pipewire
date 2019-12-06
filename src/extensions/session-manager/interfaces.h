@@ -36,13 +36,13 @@ extern "C" {
 #endif
 
 #define PW_VERSION_SESSION_PROXY		0
-struct pw_session_proxy { struct spa_interface iface; };
+struct pw_session_proxy;
 #define PW_VERSION_ENDPOINT_PROXY		0
-struct pw_endpoint_proxy { struct spa_interface iface; };
+struct pw_endpoint_proxy;
 #define PW_VERSION_ENDPOINT_STREAM_PROXY	0
-struct pw_endpoint_stream_proxy { struct spa_interface iface; };
+struct pw_endpoint_stream_proxy;
 #define PW_VERSION_ENDPOINT_LINK_PROXY		0
-struct pw_endpoint_link_proxy { struct spa_interface iface; };
+struct pw_endpoint_link_proxy;
 
 /* Session */
 
@@ -134,8 +134,7 @@ struct pw_session_proxy_methods {
 #define pw_session_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_session_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_session_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -239,8 +238,7 @@ struct pw_endpoint_proxy_methods {
 #define pw_endpoint_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_endpoint_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_endpoint_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -338,12 +336,11 @@ struct pw_endpoint_stream_proxy_methods {
 			  const struct spa_pod *param);
 };
 
-#define pw_endpoint_stream_proxy_method(o,method,version,...)			\
+#define pw_endpoint_stream_proxy_method(o,method,version,...)		\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_endpoint_stream_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
-			struct pw_endpoint_stream_proxy_methods, _res,		\
+	spa_interface_call_res((struct spa_interface*)o,		\
+			struct pw_endpoint_stream_proxy_methods, _res,	\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
@@ -446,8 +443,7 @@ struct pw_endpoint_link_proxy_methods {
 #define pw_endpoint_link_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_endpoint_link_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_endpoint_link_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\

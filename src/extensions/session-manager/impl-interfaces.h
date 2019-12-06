@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 #define PW_VERSION_CLIENT_ENDPOINT_PROXY 0
-struct pw_client_endpoint_proxy { struct spa_interface iface; };
+struct pw_client_endpoint_proxy;
 
 #define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID		0
 #define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM		1
@@ -156,8 +156,7 @@ struct pw_client_endpoint_proxy_methods {
 #define pw_client_endpoint_proxy_method(o,method,version,...)		\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_client_endpoint_proxy *_p = o;			\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)&o,		\
 			struct pw_client_endpoint_proxy_methods, _res,	\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -169,7 +168,7 @@ struct pw_client_endpoint_proxy_methods {
 
 
 #define PW_VERSION_CLIENT_SESSION_PROXY 0
-struct pw_client_session_proxy { struct spa_interface iface; };
+struct pw_client_session_proxy;
 
 #define PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM			0
 #define PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM		1
@@ -270,8 +269,7 @@ struct pw_client_session_proxy_methods {
 #define pw_client_session_proxy_method(o,method,version,...)		\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_client_session_proxy *_p = o;				\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)&o,		\
 			struct pw_client_session_proxy_methods, _res,	\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\

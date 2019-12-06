@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-struct pw_metadata { struct spa_interface iface; };
+struct pw_metadata;
 
 #define PW_VERSION_METADATA			3
 
@@ -80,8 +80,7 @@ struct pw_metadata_methods {
 #define pw_metadata_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_metadata *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_metadata_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\

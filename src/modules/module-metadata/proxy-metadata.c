@@ -57,7 +57,7 @@ struct pw_proxy *pw_core_proxy_metadata_export(struct pw_core_proxy *core_proxy,
 		size_t user_data_size)
 {
 	struct pw_metadata *meta = object;
-	struct spa_interface *iface;
+	struct spa_interface *iface, *miface;
 	struct pw_proxy *proxy;
 	struct object_data *data;
 
@@ -78,13 +78,14 @@ struct pw_proxy *pw_core_proxy_metadata_export(struct pw_core_proxy *core_proxy,
 	data->proxy = proxy;
 
 	iface = (struct spa_interface*)proxy;
+	miface = (struct spa_interface*)meta;
 
 	pw_proxy_install_marshal(proxy, true);
 
 	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
 
 	pw_proxy_add_object_listener(proxy, &data->object_methods,
-			meta->iface.cb.funcs, meta->iface.cb.data);
+			miface->cb.funcs, miface->cb.data);
 	pw_metadata_add_listener(meta, &data->object_listener,
 			iface->cb.funcs, iface->cb.data);
 

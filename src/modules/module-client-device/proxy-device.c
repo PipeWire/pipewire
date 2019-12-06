@@ -57,7 +57,7 @@ struct pw_proxy *pw_core_proxy_spa_device_export(struct pw_core_proxy *core_prox
 		size_t user_data_size)
 {
 	struct spa_device *device = object;
-	struct spa_interface *iface;
+	struct spa_interface *iface, *diface;
 	struct pw_proxy *proxy;
 	struct device_data *data;
 
@@ -78,11 +78,12 @@ struct pw_proxy *pw_core_proxy_spa_device_export(struct pw_core_proxy *core_prox
 	data->proxy = proxy;
 
 	iface = (struct spa_interface*)proxy;
+	diface = (struct spa_interface*)device;
 
 	pw_proxy_add_listener(proxy, &data->proxy_listener, &proxy_events, data);
 
 	pw_proxy_add_object_listener(proxy, &data->device_methods,
-			device->iface.cb.funcs, device->iface.cb.data);
+			diface->cb.funcs, diface->cb.data);
 	spa_device_add_listener(device, &data->device_listener,
 			iface->cb.funcs, iface->cb.data);
 

@@ -62,7 +62,7 @@ static void set_item(struct item *item, uint32_t subject, const char *key, const
 }
 
 struct metadata {
-	struct pw_metadata impl;
+	struct spa_interface iface;
 
 	struct sm_media_session *session;
 	struct spa_hook_list hooks;
@@ -189,7 +189,7 @@ void *sm_metadata_start(struct sm_media_session *sess)
 	md->properties = pw_properties_new(NULL, NULL);
 	pw_array_init(&md->metadata, 4096);
 
-	md->impl.iface = SPA_INTERFACE_INIT(
+	md->iface = SPA_INTERFACE_INIT(
 			PW_TYPE_INTERFACE_Metadata,
 			PW_VERSION_METADATA,
 			&impl_metadata, md);
@@ -198,7 +198,7 @@ void *sm_metadata_start(struct sm_media_session *sess)
 	md->proxy = sm_media_session_export(sess,
 			PW_TYPE_INTERFACE_Metadata,
 			NULL,
-			&md->impl,
+			md,
 			0);
 	return md;
 }

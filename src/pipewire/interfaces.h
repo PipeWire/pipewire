@@ -42,23 +42,23 @@ extern "C" {
 #include <pipewire/permission.h>
 
 #define PW_VERSION_CORE_PROXY		3
-struct pw_core_proxy { struct spa_interface iface; };
+struct pw_core_proxy;
 #define PW_VERSION_REGISTRY_PROXY	3
-struct pw_registry_proxy { struct spa_interface iface; };
+struct pw_registry_proxy;
 #define PW_VERSION_MODULE_PROXY		3
-struct pw_module_proxy { struct spa_interface iface; };
+struct pw_module_proxy;
 #define PW_VERSION_DEVICE_PROXY		3
-struct pw_device_proxy { struct spa_interface iface; };
+struct pw_device_proxy;
 #define PW_VERSION_NODE_PROXY		3
-struct pw_node_proxy { struct spa_interface iface; };
+struct pw_node_proxy;
 #define PW_VERSION_PORT_PROXY		3
-struct pw_port_proxy { struct spa_interface iface; };
+struct pw_port_proxy;
 #define PW_VERSION_FACTORY_PROXY	3
-struct pw_factory_proxy { struct spa_interface iface; };
+struct pw_factory_proxy;
 #define PW_VERSION_CLIENT_PROXY		3
-struct pw_client_proxy { struct spa_interface iface; };
+struct pw_client_proxy;
 #define PW_VERSION_LINK_PROXY		3
-struct pw_link_proxy { struct spa_interface iface; };
+struct pw_link_proxy;
 
 /**
  * \page page_pipewire_protocol The PipeWire protocol
@@ -299,8 +299,7 @@ struct pw_core_proxy_methods {
 #define pw_core_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_core_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_core_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -338,7 +337,7 @@ static inline struct pw_registry_proxy *
 pw_core_proxy_get_registry(struct pw_core_proxy *core, uint32_t version, size_t user_data_size)
 {
 	struct pw_registry_proxy *res = NULL;
-	spa_interface_call_res(&core->iface,
+	spa_interface_call_res((struct spa_interface*)core,
 			struct pw_core_proxy_methods, res,
 			get_registry, 0, version, user_data_size);
 	return res;
@@ -353,7 +352,7 @@ pw_core_proxy_create_object(struct pw_core_proxy *core,
 			    size_t user_data_size)
 {
 	void *res = NULL;
-	spa_interface_call_res(&core->iface,
+	spa_interface_call_res((struct spa_interface*)core,
 			struct pw_core_proxy_methods, res,
 			create_object, 0, factory_name,
 			type, version, props, user_data_size);
@@ -471,8 +470,7 @@ struct pw_registry_proxy_methods {
 #define pw_registry_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_registry_proxy *_p = o;				\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_registry_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -487,7 +485,7 @@ pw_registry_proxy_bind(struct pw_registry_proxy *registry,
 		       size_t user_data_size)
 {
 	void *res = NULL;
-	spa_interface_call_res(&registry->iface,
+	spa_interface_call_res((struct spa_interface*)registry,
 			struct pw_registry_proxy_methods, res,
 			bind, 0, id, type, version, user_data_size);
 	return res;
@@ -528,8 +526,7 @@ struct pw_module_proxy_methods {
 #define pw_module_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_module_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_module_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -610,8 +607,7 @@ struct pw_device_proxy_methods {
 #define pw_device_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_device_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_device_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -716,8 +712,7 @@ struct pw_node_proxy_methods {
 #define pw_node_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_node_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_node_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -806,8 +801,7 @@ struct pw_port_proxy_methods {
 #define pw_port_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_port_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_port_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -850,8 +844,7 @@ struct pw_factory_proxy_methods {
 #define pw_factory_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_factory_proxy *_p = o;				\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_factory_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -951,8 +944,7 @@ struct pw_client_proxy_methods {
 #define pw_client_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_client_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_client_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
@@ -997,8 +989,7 @@ struct pw_link_proxy_methods {
 #define pw_link_proxy_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct pw_link_proxy *_p = o;					\
-	spa_interface_call_res(&_p->iface,				\
+	spa_interface_call_res((struct spa_interface*)o,		\
 			struct pw_link_proxy_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\

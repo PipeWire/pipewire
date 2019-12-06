@@ -44,7 +44,7 @@ struct pw_filter;
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 
-#include <pipewire/remote.h>
+#include <pipewire/core-proxy.h>
 
 /** \enum pw_filter_state The state of a filter \memberof pw_filter */
 enum pw_filter_state {

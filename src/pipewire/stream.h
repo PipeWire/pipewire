@@ -48,7 +48,7 @@ extern "C" {
  *
  * For more complicated nodes such as filters or ports with multiple
  * inputs and/or outputs you will need to use the pw_filter or make
- * a pw_node yourself and export it with \ref pw_remote_export.
+ * a pw_node yourself and export it with \ref pw_core_proxy_export.
  *
  * \section sec_create Create
  *
@@ -152,7 +152,7 @@ struct pw_stream;
 #include <spa/buffer/buffer.h>
 #include <spa/param/param.h>
 
-#include <pipewire/remote.h>
+#include <pipewire/core-proxy.h>
 
 /** \enum pw_stream_state The state of a stream \memberof pw_stream */
 enum pw_stream_state {

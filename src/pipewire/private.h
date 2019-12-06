@@ -34,7 +34,6 @@ extern "C" {
 
 #include "pipewire/buffers.h"
 #include "pipewire/map.h"
-#include "pipewire/remote.h"
 #include "pipewire/mem.h"
 #include "pipewire/introspect.h"
 #include "pipewire/interfaces.h"
@@ -222,7 +221,7 @@ struct pw_core {
 	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list protocol_list;		/**< list of protocols */
-	struct spa_list remote_list;		/**< list of remote connections */
+	struct spa_list core_proxy_list;	/**< list of remote connections */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
 	struct spa_list module_list;		/**< list of modules */
 	struct spa_list device_list;		/**< list of devices */
@@ -713,7 +712,7 @@ struct pw_resource {
 struct pw_proxy {
 	struct spa_interface impl;	/**< object implementation */
 
-	struct pw_remote *remote;	/**< the owner remote of this proxy */
+	struct pw_core_proxy *core_proxy;	/**< the owner core_proxy of this proxy */
 
 	uint32_t id;			/**< client side id */
 	uint32_t type;			/**< type of the interface */
@@ -731,17 +730,18 @@ struct pw_proxy {
 	void *user_data;		/**< extra user data */
 };
 
-#define pw_remote_emit(r,m,v,...) spa_hook_list_call(&r->listener_list, struct pw_remote_events, m, v, ##__VA_ARGS__)
-#define pw_remote_emit_destroy(r)		pw_remote_emit(r, destroy, 0)
-#define pw_remote_emit_state_changed(r,o,s,e)	pw_remote_emit(r, state_changed, 0, o, s, e)
+struct pw_core_proxy {
+	struct pw_proxy proxy;
 
-struct pw_remote {
 	struct pw_core *core;			/**< core */
-	struct spa_list link;			/**< link in core remote_list */
+	struct spa_list link;			/**< link in core core_proxy_list */
 	struct pw_properties *properties;	/**< extra properties */
 
 	struct pw_mempool *pool;		/**< memory pool */
 	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
+	struct spa_hook core_listener;
+	struct spa_hook core_proxy_listener;
+
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
 	struct pw_client_proxy *client_proxy;	/**< proxy for the client object */
@@ -898,6 +898,8 @@ pw_core_find_port(struct pw_core *core,
 		  char **error);
 
 const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
+
+int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version);
 
 int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
 void pw_proxy_remove(struct pw_proxy *proxy);

@@ -947,8 +947,6 @@ filter_new(struct pw_core *core, const char *name,
 
 	impl->core = core;
 
-//	spa_list_append(&remote->filter_list, &this->link);
-
 	return impl;
 
 error_properties:
@@ -1048,7 +1046,6 @@ void pw_filter_destroy(struct pw_filter *filter)
 		spa_hook_remove(&filter->core_listener);
 		filter->core_proxy = NULL;
 	}
-//	spa_list_remove(&filter->link);
 
 	clear_params(impl, NULL, SPA_ID_INVALID);
 

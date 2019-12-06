@@ -42,7 +42,7 @@
 #include <pipewire/properties.h>
 #include <pipewire/protocol.h>
 #include <pipewire/proxy.h>
-#include <pipewire/remote.h>
+#include <pipewire/core-proxy.h>
 #include <pipewire/resource.h>
 #include <pipewire/stream.h>
 #include <pipewire/thread-loop.h>

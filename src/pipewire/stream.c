@@ -96,8 +96,6 @@ struct stream {
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
 
-	struct spa_hook remote_listener;
-
 	struct pw_node *node;
 	struct spa_port_info port_info;
 
@@ -1068,8 +1066,6 @@ stream_new(struct pw_core *core, const char *name,
 
 	impl->core = core;
 
-//	spa_list_append(&remote->stream_list, &this->link);
-
 	return impl;
 
 error_properties:
@@ -1169,7 +1165,6 @@ void pw_stream_destroy(struct pw_stream *stream)
 		spa_hook_remove(&stream->core_listener);
 		stream->core_proxy = NULL;
 	}
-//	spa_list_remove(&stream->link);
 
 	clear_params(impl, SPA_ID_INVALID);
 

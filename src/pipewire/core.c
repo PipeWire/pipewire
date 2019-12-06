@@ -570,7 +570,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	pw_map_init(&this->globals, 128, 32);
 
 	spa_list_init(&this->protocol_list);
-	spa_list_init(&this->remote_list);
+	spa_list_init(&this->core_proxy_list);
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
 	spa_list_init(&this->module_list);
@@ -660,7 +660,7 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_global *global;
 	struct pw_module *module;
 	struct pw_device *device;
-	struct pw_remote *remote;
+	struct pw_core_proxy *core_proxy;
 	struct pw_resource *resource;
 	struct pw_node *node;
 	struct factory_entry *entry;
@@ -670,8 +670,8 @@ void pw_core_destroy(struct pw_core *core)
 
 	spa_hook_remove(&core->global_listener);
 
-	spa_list_consume(remote, &core->remote_list, link)
-		pw_remote_destroy(remote);
+	spa_list_consume(core_proxy, &core->core_proxy_list, link)
+		pw_core_proxy_disconnect(core_proxy);
 
 	spa_list_consume(module, &core->module_list, link)
 		pw_module_destroy(module);

@@ -43,9 +43,8 @@ extern "C" {
  * \section sec_page_proxy_core Core proxy
  *
  * A proxy for a remote core object can be obtained by making
- * a remote connection. See \ref pw_page_remote_api
- *
- * A pw_core_proxy can then be retrieved with \ref pw_remote_get_core_proxy
+ * a remote connection with \ref pw_core_connect.
+ * See \ref pw_page_remote_api
  *
  * Some methods on proxy object allow creation of more proxy objects or
  * create a binding between a local proxy and global resource.
@@ -153,9 +152,6 @@ uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
 /** Get the type and version of the proxy */
 uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version);
-
-/** Get the remote managing this proxy */
-struct pw_remote *pw_proxy_get_remote(struct pw_proxy *proxy);
 
 /** Get the protocol used for the proxy */
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);

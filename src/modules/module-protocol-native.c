@@ -581,7 +581,6 @@ on_remote_data(void *data, int fd, uint32_t mask)
 {
 	struct client *impl = data;
 	struct pw_core_proxy *this = impl->this.core_proxy;
-	struct pw_remote *remote = pw_proxy_get_remote((struct pw_proxy*)this);
 	struct pw_protocol_native_connection *conn = impl->connection;
 	struct pw_core *core = pw_core_proxy_get_core(this);
 	struct pw_loop *loop = pw_core_get_main_loop(core);
@@ -623,7 +622,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
                         pw_log_trace(NAME" %p: got message %d from %u seq:%d",
 					this, msg->opcode, msg->id, msg->seq);
 
-			remote->recv_seq = msg->seq;
+			this->recv_seq = msg->seq;
 
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d seq:%d\n",
@@ -672,7 +671,7 @@ error:
 	pw_log_error(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
 	pw_proxy_notify((struct pw_proxy*)this,
 			struct pw_core_proxy_events, error, 0, 0,
-			remote->recv_seq, res, "connection error");
+			this->recv_seq, res, "connection error");
 	pw_loop_destroy_source(loop, impl->source);
 	impl->source = NULL;
 	pw_core_proxy_disconnect(this);
@@ -924,28 +923,28 @@ const static struct pw_protocol_implementaton protocol_impl = {
 static struct spa_pod_builder *
 impl_ext_begin_proxy(struct pw_proxy *proxy, uint8_t opcode, struct pw_protocol_native_message **msg)
 {
-	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->core_proxy->conn, struct client, this);
 	return pw_protocol_native_connection_begin(impl->connection, proxy->id, opcode, msg);
 }
 
 static uint32_t impl_ext_add_proxy_fd(struct pw_proxy *proxy, int fd)
 {
-	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->core_proxy->conn, struct client, this);
 	return pw_protocol_native_connection_add_fd(impl->connection, fd);
 }
 
 static int impl_ext_get_proxy_fd(struct pw_proxy *proxy, uint32_t index)
 {
-	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
+	struct client *impl = SPA_CONTAINER_OF(proxy->core_proxy->conn, struct client, this);
 	return pw_protocol_native_connection_get_fd(impl->connection, index);
 }
 
 static int impl_ext_end_proxy(struct pw_proxy *proxy,
 			       struct spa_pod_builder *builder)
 {
-	struct client *impl = SPA_CONTAINER_OF(proxy->remote->conn, struct client, this);
-	struct pw_remote *remote = proxy->remote;
-	return remote->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
+	struct pw_core_proxy *core_proxy = proxy->core_proxy;
+	struct client *impl = SPA_CONTAINER_OF(core_proxy->conn, struct client, this);
+	return core_proxy->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
 }
 
 static struct spa_pod_builder *

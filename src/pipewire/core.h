@@ -45,7 +45,7 @@ struct pw_core;
 #include <pipewire/client.h>
 #include <pipewire/introspect.h>
 #include <pipewire/interfaces.h>
-#include <pipewire/remote.h>
+#include <pipewire/core-proxy.h>
 #include <pipewire/global.h>
 #include <pipewire/loop.h>
 #include <pipewire/factory.h>

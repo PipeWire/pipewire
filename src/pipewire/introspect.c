@@ -28,7 +28,7 @@
 
 #include "pipewire/pipewire.h"
 
-#include "pipewire/remote.h"
+#include "pipewire/core-proxy.h"
 
 SPA_EXPORT
 const char *pw_node_state_as_string(enum pw_node_state state)

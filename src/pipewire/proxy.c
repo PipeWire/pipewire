@@ -200,8 +200,6 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
-	struct pw_core_proxy *core_proxy = proxy->core_proxy;
-
 	if (!proxy->zombie) {
 		pw_log_debug(NAME" %p: destroy %u", proxy, proxy->id);
 		pw_proxy_emit_destroy(proxy);
@@ -209,15 +207,16 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	if (!proxy->removed) {
 		/* if the server did not remove this proxy, remove ourselves
 		 * from the proxy objects and schedule a destroy. */
-		if (core_proxy) {
+		if (proxy->core_proxy) {
 			proxy->zombie = true;
-			pw_core_proxy_destroy(core_proxy, proxy);
+			pw_core_proxy_destroy(proxy->core_proxy, proxy);
 		} else {
 			proxy->removed = true;
 		}
 	}
 	if (proxy->removed) {
-		pw_map_remove(&core_proxy->objects, proxy->id);
+		if (proxy->core_proxy)
+			pw_map_remove(&proxy->core_proxy->objects, proxy->id);
 
 		pw_proxy_unref(proxy);
 	}

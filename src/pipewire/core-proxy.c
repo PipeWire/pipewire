@@ -167,9 +167,14 @@ void *pw_core_proxy_get_user_data(struct pw_core_proxy *core_proxy)
 static int destroy_proxy(void *object, void *data)
 {
 	struct pw_core_proxy *core_proxy = data;
+	struct pw_proxy *p = object;
 
-	if (object && object != core_proxy)
-		pw_proxy_destroy(object);
+	if (object == NULL)
+		return 0;
+
+	p->core_proxy = NULL;
+	if (object != core_proxy)
+		pw_proxy_remove(p);
 
 	return 0;
 }

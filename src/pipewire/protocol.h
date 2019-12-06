@@ -44,9 +44,10 @@ struct pw_protocol_client {
 	struct spa_list link;		/**< link in protocol client_list */
 	struct pw_protocol *protocol;	/**< the owner protocol */
 
-	struct pw_remote *remote;	/**< the associated remote */
+	struct pw_core_proxy *core_proxy;
 
 	int (*connect) (struct pw_protocol_client *client,
+			const struct spa_dict *props,
 			void (*done_callback) (void *data, int result),
 			void *data);
 	int (*connect_fd) (struct pw_protocol_client *client, int fd, bool close);
@@ -55,7 +56,7 @@ struct pw_protocol_client {
 	void (*destroy) (struct pw_protocol_client *client);
 };
 
-#define pw_protocol_client_connect(c,cb,d)	((c)->connect(c,cb,d))
+#define pw_protocol_client_connect(c,p,cb,d)	((c)->connect(c,p,cb,d))
 #define pw_protocol_client_connect_fd(c,fd,cl)	((c)->connect_fd(c,fd,cl))
 #define pw_protocol_client_steal_fd(c)		((c)->steal_fd(c))
 #define pw_protocol_client_disconnect(c)	((c)->disconnect(c))
@@ -90,10 +91,8 @@ struct pw_protocol_implementaton {
 	uint32_t version;
 
 	struct pw_protocol_client * (*new_client) (struct pw_protocol *protocol,
-						   struct pw_remote *remote,
 						   struct pw_properties *properties);
 	struct pw_protocol_server * (*add_server) (struct pw_protocol *protocol,
-						   struct pw_core *core,
 						   struct pw_properties *properties);
 };
 

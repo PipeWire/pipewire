@@ -79,6 +79,7 @@ struct protocol_data {
 
 struct client {
 	struct pw_protocol_client this;
+	struct pw_core *core;
 
 	struct spa_source *source;
 
@@ -579,9 +580,11 @@ static void
 on_remote_data(void *data, int fd, uint32_t mask)
 {
 	struct client *impl = data;
-	struct pw_remote *this = impl->this.remote;
+	struct pw_core_proxy *this = impl->this.core_proxy;
+	struct pw_remote *remote = pw_proxy_get_remote((struct pw_proxy*)this);
 	struct pw_protocol_native_connection *conn = impl->connection;
-	struct pw_core *core = pw_remote_get_core(this);
+	struct pw_core *core = pw_core_proxy_get_core(this);
+	struct pw_loop *loop = pw_core_get_main_loop(core);
 	int res;
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
@@ -593,7 +596,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 		if (res >= 0) {
 			int mask = impl->source->mask;
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
-			pw_loop_update_io(core->main_loop,
+			pw_loop_update_io(loop,
 					impl->source, mask);
 			impl->flushing = false;
 		} else if (res != EAGAIN)
@@ -620,7 +623,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
                         pw_log_trace(NAME" %p: got message %d from %u seq:%d",
 					this, msg->opcode, msg->id, msg->seq);
 
-			this->recv_seq = msg->seq;
+			remote->recv_seq = msg->seq;
 
 			if (debug_messages) {
 				fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d seq:%d\n",
@@ -628,7 +631,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 			}
 
-			proxy = pw_remote_find_proxy(this, msg->id);
+			proxy = pw_core_proxy_find_proxy(this, msg->id);
 			if (proxy == NULL || proxy->zombie) {
 				if (proxy == NULL)
 					pw_log_error(NAME" %p: could not find proxy %u", this, msg->id);
@@ -667,25 +670,24 @@ on_remote_data(void *data, int fd, uint32_t mask)
 	return;
 error:
 	pw_log_error(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
-	pw_proxy_notify((struct pw_proxy*)this->core_proxy,
+	pw_proxy_notify((struct pw_proxy*)this,
 			struct pw_core_proxy_events, error, 0, 0,
-			this->recv_seq, res, "connection error");
-	pw_loop_destroy_source(pw_core_get_main_loop(core), impl->source);
+			remote->recv_seq, res, "connection error");
+	pw_loop_destroy_source(loop, impl->source);
 	impl->source = NULL;
-	pw_remote_disconnect(this);
+	pw_core_proxy_disconnect(this);
 }
 
 
 static void on_need_flush(void *data)
 {
         struct client *impl = data;
-        struct pw_remote *remote = impl->this.remote;
 
 	if (!impl->flushing && impl->source) {
 		int mask = impl->source->mask;
 		impl->flushing = true;
 		SPA_FLAG_SET(mask, SPA_IO_OUT);
-		pw_loop_update_io(remote->core->main_loop,
+		pw_loop_update_io(impl->core->main_loop,
 					impl->source, mask);
 	}
 }
@@ -698,15 +700,15 @@ static const struct pw_protocol_native_connection_events client_conn_events = {
 static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_close)
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
-	struct pw_remote *remote = client->remote;
 	int res;
 
 	impl->disconnecting = false;
 
 	pw_protocol_native_connection_set_fd(impl->connection, fd);
-	impl->source = pw_loop_add_io(remote->core->main_loop,
+	impl->flushing = true;
+	impl->source = pw_loop_add_io(impl->core->main_loop,
 					fd,
-					SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR,
+					SPA_IO_IN | SPA_IO_OUT | SPA_IO_HUP | SPA_IO_ERR,
 					do_close, on_remote_data, impl);
 	if (impl->source == NULL) {
 		res = -errno;
@@ -730,12 +732,11 @@ error_cleanup:
 static void impl_disconnect(struct pw_protocol_client *client)
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
-	struct pw_remote *remote = client->remote;
 
 	impl->disconnecting = true;
 
 	if (impl->source)
-                pw_loop_destroy_source(remote->core->main_loop, impl->source);
+                pw_loop_destroy_source(impl->core->main_loop, impl->source);
 	impl->source = NULL;
 
 	if (impl->connection)
@@ -755,7 +756,6 @@ static void impl_destroy(struct pw_protocol_client *client)
 
 static struct pw_protocol_client *
 impl_new_client(struct pw_protocol *protocol,
-		struct pw_remote *remote,
 		struct pw_properties *properties)
 {
 	struct client *impl;
@@ -768,9 +768,9 @@ impl_new_client(struct pw_protocol *protocol,
 
 	this = &impl->this;
 	this->protocol = protocol;
-	this->remote = remote;
 
-	impl->connection = pw_protocol_native_connection_new(remote->core, -1);
+	impl->core = protocol->core;
+	impl->connection = pw_protocol_native_connection_new(protocol->core, -1);
 	if (impl->connection == NULL) {
 		res = -errno;
 		goto error_free;
@@ -872,10 +872,10 @@ get_name(const struct pw_properties *properties)
 
 static struct pw_protocol_server *
 impl_add_server(struct pw_protocol *protocol,
-                struct pw_core *core,
                 struct pw_properties *properties)
 {
 	struct pw_protocol_server *this;
+	struct pw_core *core = protocol->core;
 	struct server *s;
 	const char *name;
 	int res;
@@ -1034,7 +1034,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (val == NULL)
 		val = pw_properties_get(pw_core_get_properties(core), PW_KEY_CORE_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
-		if (impl_add_server(this, core, NULL) == NULL) {
+		if (impl_add_server(this, NULL) == NULL) {
 			res = -errno;
 			goto error_cleanup;
 		}

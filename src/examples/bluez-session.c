@@ -75,8 +75,8 @@ struct impl {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
 
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
+	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
 
 	struct spa_handle *handle;
 	struct spa_device *device;
@@ -140,7 +140,7 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	node->id = id;
 	node->handle = handle;
 	node->node = iface;
-	node->proxy = pw_remote_export(impl->remote,
+	node->proxy = pw_core_proxy_export(impl->core_proxy,
 			info->type, pw_properties_new_dict(info->props), node->node, 0);
 	if (node->proxy == NULL)
 		goto clean_node;
@@ -248,7 +248,7 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	obj->id = id;
 	obj->handle = handle;
 	obj->device = iface;
-	obj->proxy = pw_remote_export(impl->remote,
+	obj->proxy = pw_core_proxy_export(impl->core_proxy,
 			info->type, pw_properties_new_dict(info->props), obj->device, 0);
 	if (obj->proxy == NULL)
 		goto clean_object;
@@ -338,50 +338,32 @@ static int start_monitor(struct impl *impl)
 	return res;
 }
 
-static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
+static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
-	struct impl *impl = _data;
-	int res;
+	struct impl *impl = data;
 
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		pw_log_error(NAME" %p: remote error: %s", impl, error);
+	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == 0) {
 		pw_main_loop_quit(impl->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		pw_log_info(NAME" %p: connected", impl);
-		if ((res = start_monitor(impl)) < 0) {
-			pw_log_debug("error starting monitor: %s", spa_strerror(res));
-			pw_main_loop_quit(impl->loop);
-		}
-		break;
-
-	case PW_REMOTE_STATE_UNCONNECTED:
-		pw_log_info(NAME" %p: disconnected", impl);
-		pw_main_loop_quit(impl->loop);
-		break;
-
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
 	}
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+	.error = on_core_error,
 };
 
 int main(int argc, char *argv[])
 {
 	struct impl impl = { 0, };
+	int res;
 
 	pw_init(&argc, &argv);
 
 	impl.loop = pw_main_loop_new(NULL);
 	impl.core = pw_core_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
-        impl.remote = pw_remote_new(impl.core, NULL, 0);
 
 	pw_core_add_spa_lib(impl.core, "api.bluez5.*", "bluez5/libspa-bluez5");
 
@@ -389,12 +371,20 @@ int main(int argc, char *argv[])
 
 	spa_list_init(&impl.device_list);
 
-	pw_remote_add_listener(impl.remote,
-			&impl.remote_listener,
-			&remote_events, &impl);
-
-	if (pw_remote_connect(impl.remote) < 0)
+        impl.core_proxy = pw_core_connect(impl.core, NULL, 0);
+	if (impl.core_proxy == NULL) {
+		pw_log_error(NAME" %p: can't connect %m", &impl);
 		return -1;
+	}
+
+	pw_core_proxy_add_listener(impl.core_proxy,
+			&impl.core_listener,
+			&core_events, &impl);
+
+	if ((res = start_monitor(&impl)) < 0) {
+		pw_log_error(NAME" %p: error starting monitor: %s", &impl, spa_strerror(res));
+		return -1;
+	}
 
 	pw_main_loop_run(impl.loop);
 

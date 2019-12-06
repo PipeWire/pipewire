@@ -91,14 +91,11 @@ struct impl {
 	struct pw_main_loop *loop;
 	struct spa_dbus *dbus;
 
-	struct pw_remote *monitor_remote;
-	struct spa_hook monitor_listener;
 	struct pw_core_proxy *monitor_core;
+	struct spa_hook monitor_listener;
 
-	struct pw_remote *policy_remote;
-	struct spa_hook policy_listener;
 	struct pw_core_proxy *policy_core;
-	struct spa_hook core_listener;
+	struct spa_hook policy_listener;
 
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
@@ -1216,7 +1213,7 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		void *object, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	return pw_remote_export(impl->monitor_remote, type,
+	return pw_core_proxy_export(impl->monitor_core, type,
 			properties, object, user_data_size);
 }
 
@@ -1229,7 +1226,7 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 
 	pw_log_debug(NAME " %p: device %p", impl, object);
 
-	proxy = pw_remote_export(impl->monitor_remote, SPA_TYPE_INTERFACE_Device,
+	proxy = pw_core_proxy_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
 			properties, object, sizeof(struct sm_device));
 
 	device = (struct sm_device *) create_object(impl, proxy, &properties->dict);
@@ -1526,6 +1523,12 @@ static const struct pw_proxy_events client_session_proxy_events = {
 
 static int start_session(struct impl *impl)
 {
+	impl->monitor_core = pw_core_connect(impl->this.core, NULL, 0);
+	if (impl->monitor_core == NULL) {
+		pw_log_error("can't start monitor: %m");
+		return -errno;
+	}
+
 	impl->client_session = pw_core_proxy_create_object(impl->monitor_core,
                                             "client-session",
                                             PW_TYPE_INTERFACE_ClientSession,
@@ -1541,11 +1544,6 @@ static int start_session(struct impl *impl)
 			&client_session_events, impl);
 
 	return 0;
-}
-
-static int start_policy(struct impl *impl)
-{
-	return sm_policy_ep_start(&impl->this);
 }
 
 static void core_done(void *data, uint32_t id, int seq)
@@ -1567,91 +1565,50 @@ static void core_done(void *data, uint32_t id, int seq)
 	}
 }
 
-static void on_monitor_state_changed(void *_data, enum pw_remote_state old,
-		enum pw_remote_state state, const char *error)
+static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
-	struct impl *impl = _data;
+	struct impl *impl = data;
 
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		pw_log_error(NAME" %p: remote error: %s", impl, error);
+	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == 0) {
 		pw_main_loop_quit(impl->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		pw_log_info(NAME" %p: connected", impl);
-		impl->monitor_core = pw_remote_get_core_proxy(impl->monitor_remote);
-		start_session(impl);
-		break;
-
-	case PW_REMOTE_STATE_UNCONNECTED:
-		pw_log_info(NAME" %p: disconnected", impl);
-		pw_main_loop_quit(impl->loop);
-		break;
-
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
 	}
 }
 
-static const struct pw_remote_events monitor_remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_monitor_state_changed,
-};
 
 static const struct pw_core_proxy_events core_events = {
 	PW_VERSION_CORE_EVENTS,
-	.done = core_done
+	.done = core_done,
+	.error = core_error
 };
 
-static void on_policy_state_changed(void *_data, enum pw_remote_state old,
-		enum pw_remote_state state, const char *error)
+static int start_policy(struct impl *impl)
 {
-	struct impl *impl = _data;
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		pw_log_error(NAME" %p: remote error: %s", impl, error);
-		pw_main_loop_quit(impl->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		pw_log_info(NAME" %p: connected", impl);
-		impl->policy_core = pw_remote_get_core_proxy(impl->policy_remote);
-		pw_core_proxy_add_listener(impl->policy_core,
-					   &impl->core_listener,
-					   &core_events, impl);
-		impl->registry_proxy = pw_core_proxy_get_registry(impl->policy_core,
-                                                PW_VERSION_REGISTRY_PROXY, 0);
-		pw_registry_proxy_add_listener(impl->registry_proxy,
-                                               &impl->registry_listener,
-                                               &registry_events, impl);
-		start_policy(impl);
-		break;
-
-	case PW_REMOTE_STATE_UNCONNECTED:
-		pw_log_info(NAME" %p: disconnected", impl);
-		pw_main_loop_quit(impl->loop);
-		break;
-
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
+	impl->policy_core = pw_core_connect(impl->this.core, NULL, 0);
+	if (impl->policy_core == NULL) {
+		pw_log_error("can't start policy: %m");
+		return -errno;
 	}
-}
 
-static const struct pw_remote_events policy_remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_policy_state_changed,
-};
+	pw_core_proxy_add_listener(impl->policy_core,
+				   &impl->policy_listener,
+				   &core_events, impl);
+	impl->registry_proxy = pw_core_proxy_get_registry(impl->policy_core,
+                                               PW_VERSION_REGISTRY_PROXY, 0);
+	pw_registry_proxy_add_listener(impl->registry_proxy,
+                                              &impl->registry_listener,
+                                              &registry_events, impl);
+
+	return sm_policy_ep_start(&impl->this);
+}
 
 int main(int argc, char *argv[])
 {
 	struct impl impl = { 0, };
 	const struct spa_support *support;
 	uint32_t n_support;
-	int res;
 
 	pw_init(&argc, &argv);
 
@@ -1662,12 +1619,6 @@ int main(int argc, char *argv[])
 	pw_core_add_spa_lib(impl.this.core, "api.bluez5.*", "bluez5/libspa-bluez5");
 	pw_core_add_spa_lib(impl.this.core, "api.alsa.*", "alsa/libspa-alsa");
 	pw_core_add_spa_lib(impl.this.core, "api.v4l2.*", "v4l2/libspa-v4l2");
-
-	impl.monitor_remote = pw_remote_new(impl.this.core, NULL, 0);
-	pw_remote_add_listener(impl.monitor_remote, &impl.monitor_listener, &monitor_remote_events, &impl);
-
-	impl.policy_remote = pw_remote_new(impl.this.core, NULL, 0);
-	pw_remote_add_listener(impl.policy_remote, &impl.policy_listener, &policy_remote_events, &impl);
 
 	pw_map_init(&impl.globals, 64, 64);
 	spa_list_init(&impl.global_list);
@@ -1686,10 +1637,10 @@ int main(int argc, char *argv[])
 	else
 		pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
 
-	if ((res = pw_remote_connect(impl.monitor_remote)) < 0)
-		return res;
-	if ((res = pw_remote_connect(impl.policy_remote)) < 0)
-		return res;
+	if (start_session(&impl) < 0)
+		return -1;
+	if (start_policy(&impl) < 0)
+		return -1;
 
 	pw_main_loop_run(impl.loop);
 

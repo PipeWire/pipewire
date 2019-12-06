@@ -70,7 +70,6 @@ struct queue {
 
 struct data {
 	struct pw_core *core;
-	struct pw_remote *remote;
 	struct spa_hook filter_listener;
 };
 
@@ -120,8 +119,6 @@ struct filter {
 
 	enum pw_filter_flags flags;
 
-	struct spa_hook remote_listener;
-
 	struct pw_node *node;
 
 	struct spa_node impl_node;
@@ -139,7 +136,6 @@ struct filter {
 	uintptr_t seq;
 	struct pw_time time;
 
-	unsigned int async_connect:1;
 	unsigned int disconnecting:1;
 	unsigned int free_data:1;
 	unsigned int subscribe:1;
@@ -882,83 +878,25 @@ static const struct pw_proxy_events proxy_events = {
 	.bound = proxy_bound,
 };
 
-static int handle_connect(struct pw_filter *filter)
-{
-	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	struct pw_properties *props;
-	int res;
-
-	pw_log_debug(NAME" %p: creating node", filter);
-	props = pw_properties_copy(filter->properties);
-
-	impl->node = pw_node_new(impl->core, props, 0);
-	if (impl->node == NULL) {
-		res = -errno;
-		goto error_node;
-	}
-
-	impl->node->port_user_data_size = sizeof(struct port);
-
-	pw_node_set_implementation(impl->node, &impl->impl_node);
-
-	pw_log_debug(NAME" %p: export node %p", filter, impl->node);
-	filter->proxy = pw_remote_export(filter->remote,
-			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
-	if (filter->proxy == NULL) {
-		res = -errno;
-		goto error_proxy;
-	}
-
-	pw_proxy_add_listener(filter->proxy, &filter->proxy_listener, &proxy_events, filter);
-
-	if (!SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_INACTIVE))
-		pw_node_set_active(impl->node, true);
-
-	return 0;
-
-error_node:
-	pw_log_error(NAME" %p: can't make node: %s", filter, spa_strerror(res));
-	return res;
-error_proxy:
-	pw_log_error(NAME" %p: can't make proxy: %s", filter, spa_strerror(res));
-	return res;
-}
-
-static void on_remote_state_changed(void *_data, enum pw_remote_state old,
-		enum pw_remote_state state, const char *error)
+static void on_core_error(void *_data, uint32_t id, int seq, int res, const char *message)
 {
 	struct pw_filter *filter = _data;
-	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 
-	pw_log_debug(NAME" %p: remote state %d", filter, state);
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		filter_set_state(filter, PW_FILTER_STATE_ERROR, error);
-		break;
-
-	case PW_REMOTE_STATE_UNCONNECTED:
-		filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, "remote unconnected");
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		if (impl->async_connect)
-			handle_connect(filter);
-		break;
-
-	default:
-		break;
+	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", filter,
+			id, seq, res, spa_strerror(res), message);
+	if (id == 0) {
+		filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, message);
 	}
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_remote_state_changed,
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+	.error = on_core_error,
 };
 
-SPA_EXPORT
-struct pw_filter * pw_filter_new(struct pw_remote *remote, const char *name,
-	      struct pw_properties *props)
+static struct filter *
+filter_new(struct pw_core *core, const char *name,
+		struct pw_properties *props, struct pw_properties *extra)
 {
 	struct filter *impl;
 	struct pw_filter *this;
@@ -984,12 +922,10 @@ struct pw_filter * pw_filter_new(struct pw_remote *remote, const char *name,
 		goto error_properties;
 	}
 
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL) {
-		const struct pw_properties *p = pw_remote_get_properties(remote);
-
-		if ((str = pw_properties_get(p, PW_KEY_APP_NAME)) != NULL)
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
+		if ((str = pw_properties_get(extra, PW_KEY_APP_NAME)) != NULL)
 			pw_properties_set(props, PW_KEY_NODE_NAME, str);
-		else if ((str = pw_properties_get(p, PW_KEY_APP_PROCESS_BINARY)) != NULL)
+		else if ((str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY)) != NULL)
 			pw_properties_set(props, PW_KEY_NODE_NAME, str);
 		else
 			pw_properties_set(props, PW_KEY_NODE_NAME, name);
@@ -998,7 +934,6 @@ struct pw_filter * pw_filter_new(struct pw_remote *remote, const char *name,
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;
 
-	this->remote = remote;
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;
 
@@ -1010,13 +945,11 @@ struct pw_filter * pw_filter_new(struct pw_remote *remote, const char *name,
 
 	this->state = PW_FILTER_STATE_UNCONNECTED;
 
-	impl->core = remote->core;
+	impl->core = core;
 
-	pw_remote_add_listener(remote, &impl->remote_listener, &remote_events, this);
+//	spa_list_append(&remote->filter_list, &this->link);
 
-	spa_list_append(&remote->filter_list, &this->link);
-
-	return this;
+	return impl;
 
 error_properties:
 	free(impl);
@@ -1028,6 +961,26 @@ error_cleanup:
 }
 
 SPA_EXPORT
+struct pw_filter * pw_filter_new(struct pw_core_proxy *core_proxy, const char *name,
+	      struct pw_properties *props)
+{
+	struct filter *impl;
+	struct pw_filter *this;
+	struct pw_core *core = pw_core_proxy_get_core(core_proxy);
+
+	impl = filter_new(core, name, props, NULL);
+	if (impl == NULL)
+		return NULL;
+
+	this = &impl->this;
+	this->core_proxy = core_proxy;
+	pw_core_proxy_add_listener(core_proxy,
+			&this->core_listener, &core_events, this);
+
+	return this;
+}
+
+SPA_EXPORT
 struct pw_filter *
 pw_filter_new_simple(struct pw_loop *loop,
 		     const char *name,
@@ -1035,30 +988,26 @@ pw_filter_new_simple(struct pw_loop *loop,
 		     const struct pw_filter_events *events,
 		     void *data)
 {
-	struct pw_filter *filter;
+	struct pw_filter *this;
 	struct filter *impl;
 	struct pw_core *core;
-	struct pw_remote *remote;
 	int res;
 
 	core = pw_core_new(loop, NULL, 0);
-        remote = pw_remote_new(core, NULL, 0);
 
-	filter = pw_filter_new(remote, name, props);
-	if (filter == NULL) {
+	impl = filter_new(core, name, props, NULL);
+	if (impl == NULL) {
 		res = -errno;
 		goto error_cleanup;
 	}
 
-	impl = SPA_CONTAINER_OF(filter, struct filter, this);
+	this = &impl->this;
 
 	impl->free_data = true;
 	impl->data.core = core;
-	impl->data.remote = remote;
+	pw_filter_add_listener(this, &impl->data.filter_listener, events, data);
 
-	pw_filter_add_listener(filter, &impl->data.filter_listener, events, data);
-
-	return filter;
+	return this;
 
 error_cleanup:
 	pw_core_destroy(core);
@@ -1095,8 +1044,11 @@ void pw_filter_destroy(struct pw_filter *filter)
 
 	pw_filter_disconnect(filter);
 
-	spa_hook_remove(&impl->remote_listener);
-	spa_list_remove(&filter->link);
+	if (filter->core_proxy) {
+		spa_hook_remove(&filter->core_listener);
+		filter->core_proxy = NULL;
+	}
+//	spa_list_remove(&filter->link);
 
 	clear_params(impl, NULL, SPA_ID_INVALID);
 
@@ -1131,9 +1083,9 @@ enum pw_filter_state pw_filter_get_state(struct pw_filter *filter, const char **
 }
 
 SPA_EXPORT
-struct pw_remote *pw_filter_get_remote(struct pw_filter *filter)
+struct pw_core_proxy *pw_filter_get_core_proxy(struct pw_filter *filter)
 {
-	return filter->remote;
+	return filter->core_proxy;
 }
 
 SPA_EXPORT
@@ -1183,7 +1135,7 @@ pw_filter_connect(struct pw_filter *filter,
 		  uint32_t n_params)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	enum pw_remote_state state;
+	struct pw_properties *props;
 	int res;
 	uint32_t i;
 
@@ -1203,15 +1155,53 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->disconnecting = false;
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, NULL);
 
-	state = pw_remote_get_state(filter->remote, NULL);
-	impl->async_connect = (state == PW_REMOTE_STATE_UNCONNECTED ||
-			 state == PW_REMOTE_STATE_ERROR);
+	if (filter->core_proxy == NULL) {
+		filter->core_proxy = pw_core_connect(impl->core,
+				pw_properties_copy(filter->properties), 0);
+		if (filter->core_proxy == NULL) {
+			res = -errno;
+			goto error_connect;
+		}
+		pw_core_proxy_add_listener(filter->core_proxy,
+				&filter->core_listener, &core_events, filter);
+	}
 
-	if (impl->async_connect)
-		res = pw_remote_connect(filter->remote);
-	else
-		res = handle_connect(filter);
+	pw_log_debug(NAME" %p: creating node", filter);
+	props = pw_properties_copy(filter->properties);
 
+	impl->node = pw_node_new(impl->core, props, 0);
+	if (impl->node == NULL) {
+		res = -errno;
+		goto error_node;
+	}
+
+	impl->node->port_user_data_size = sizeof(struct port);
+
+	pw_node_set_implementation(impl->node, &impl->impl_node);
+
+	pw_log_debug(NAME" %p: export node %p", filter, impl->node);
+	filter->proxy = pw_core_proxy_export(filter->core_proxy,
+			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
+	if (filter->proxy == NULL) {
+		res = -errno;
+		goto error_proxy;
+	}
+
+	pw_proxy_add_listener(filter->proxy, &filter->proxy_listener, &proxy_events, filter);
+
+	if (!SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_INACTIVE))
+		pw_node_set_active(impl->node, true);
+
+	return 0;
+
+error_connect:
+	pw_log_error(NAME" %p: can't connect: %s", filter, spa_strerror(res));
+	return res;
+error_node:
+	pw_log_error(NAME" %p: can't make node: %s", filter, spa_strerror(res));
+	return res;
+error_proxy:
+	pw_log_error(NAME" %p: can't make proxy: %s", filter, spa_strerror(res));
 	return res;
 }
 

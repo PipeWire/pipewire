@@ -774,8 +774,10 @@ struct pw_remote {
 
 
 struct pw_stream {
-	struct pw_remote *remote;		/**< the owner remote */
-	struct spa_list link;			/**< link in the remote */
+	struct pw_core_proxy *core_proxy;	/**< the owner core_proxy */
+	struct spa_hook core_listener;
+
+	struct spa_list link;			/**< link in the core_proxy */
 
 	char *name;				/**< the name of the stream */
 	struct pw_properties *properties;	/**< properties of the stream */
@@ -808,8 +810,10 @@ struct pw_stream {
 
 
 struct pw_filter {
-	struct pw_remote *remote;		/**< the owner remote */
-	struct spa_list link;			/**< link in the remote */
+	struct pw_core_proxy *core_proxy;	/**< the owner core proxy */
+	struct spa_hook core_listener;
+
+	struct spa_list link;			/**< link in the core proxy */
 
 	char *name;				/**< the name of the filter */
 	struct pw_properties *properties;	/**< properties of the filter */

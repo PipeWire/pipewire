@@ -43,7 +43,7 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct pw_proxy *pw_remote_spa_device_export(struct pw_core_proxy *core_proxy,
+struct pw_proxy *pw_core_proxy_spa_device_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size);
 
@@ -188,7 +188,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	pw_protocol_native_ext_client_device_init(core);
 
 	data->export_spadevice.type = SPA_TYPE_INTERFACE_Device;
-	data->export_spadevice.func = pw_remote_spa_device_export;
+	data->export_spadevice.func = pw_core_proxy_spa_device_export;
 	pw_core_register_export_type(core, &data->export_spadevice);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);

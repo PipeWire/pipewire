@@ -70,8 +70,8 @@ typedef struct {
 
 	struct pw_core *core;
 
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
+	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
 
 	uint32_t flags;
 	struct pw_stream *stream;
@@ -410,7 +410,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 			"Playback" : "Capture");
 	pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Music");
 
-	pw->stream = pw_stream_new(pw->remote, pw->node_name, props);
+	pw->stream = pw_stream_new(pw->core_proxy, pw->node_name, props);
 	if (pw->stream == NULL)
 		goto error;
 
@@ -750,65 +750,25 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 	return 0;
 }
 
-static void on_remote_state_changed(void *data, enum pw_remote_state old,
-			enum pw_remote_state state, const char *error)
+static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
 	snd_pcm_pipewire_t *pw = data;
 
-        switch (state) {
-        case PW_REMOTE_STATE_ERROR:
-		pw_log_error(NAME" %p: error %s", pw, error);
-		/* fallthrough */
-        case PW_REMOTE_STATE_UNCONNECTED:
+	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", pw,
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == 0) {
 		pw->error = true;
 		if (pw->fd != -1)
 			pcm_poll_unblock_check(&pw->io);
-		/* fallthrough */
-        case PW_REMOTE_STATE_CONNECTED:
-                pw_thread_loop_signal(pw->main_loop, false);
-                break;
-	default:
-                break;
-        }
+	}
+	pw_thread_loop_signal(pw->main_loop, false);
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-        .state_changed = on_remote_state_changed,
+static const struct pw_core_proxy_events core_proxy_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+        .error = on_core_error,
 };
-
-static int remote_connect_sync(snd_pcm_pipewire_t *pw)
-{
-	const char *error = NULL;
-	enum pw_remote_state state;
-	int res;
-
-	pw_thread_loop_lock(pw->main_loop);
-
-	if ((res = pw_remote_connect(pw->remote)) < 0) {
-		error = spa_strerror(res);
-		goto error;
-	}
-
-	while (true) {
-		state = pw_remote_get_state(pw->remote, &error);
-		if (state == PW_REMOTE_STATE_ERROR)
-			goto error;
-
-		if (state == PW_REMOTE_STATE_CONNECTED)
-			break;
-
-		pw_thread_loop_wait(pw->main_loop);
-	}
-     exit:
-	pw_thread_loop_unlock(pw->main_loop);
-
-	return res;
-
-     error:
-	SNDERR("PipeWire: Unable to connect: %s\n", error);
-	goto exit;
-}
 
 static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 			     const char *node_name,
@@ -863,14 +823,18 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	else
 		pw_properties_set(props, PW_KEY_APP_NAME, "ALSA plug-in");
 
-	pw->remote = pw_remote_new(pw->core, props, 0);
-	pw_remote_add_listener(pw->remote, &pw->remote_listener, &remote_events, pw);
-
 	if ((err = pw_thread_loop_start(pw->main_loop)) < 0)
 		goto error;
 
-	if ((err = remote_connect_sync(pw)) < 0)
+	pw_thread_loop_lock(pw->main_loop);
+	pw->core_proxy = pw_core_connect(pw->core, props, 0);
+	if (pw->core_proxy == NULL) {
+		err = -errno;
+		pw_thread_loop_unlock(pw->main_loop);
 		goto error;
+	}
+	pw_core_proxy_add_listener(pw->core_proxy, &pw->core_listener, &core_proxy_events, pw);
+	pw_thread_loop_unlock(pw->main_loop);
 
 	pw->fd = spa_system_eventfd_create(pw->loop->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 

@@ -25,13 +25,13 @@
 #include <stdio.h>
 #include <signal.h>
 
+#include <spa/utils/result.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
 #include <pipewire/interfaces.h>
 #include <pipewire/type.h>
-#include <pipewire/remote.h>
 #include <pipewire/main-loop.h>
 #include <pipewire/pipewire.h>
 
@@ -49,9 +49,6 @@ struct param {
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_core *core;
-
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -670,46 +667,22 @@ static const struct pw_registry_proxy_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.info = on_core_info,
-	.done = on_core_done,
-};
-
-static void on_state_changed(void *_data, enum pw_remote_state old,
-			     enum pw_remote_state state, const char *error)
+static void on_core_error(void *_data, uint32_t id, int seq, int res, const char *message)
 {
 	struct data *data = _data;
 
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
+	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
+	if (id == 0) {
 		pw_main_loop_quit(data->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-
-		data->core_proxy = pw_remote_get_core_proxy(data->remote);
-		pw_core_proxy_add_listener(data->core_proxy,
-					   &data->core_listener,
-					   &core_events, data);
-		data->registry_proxy = pw_core_proxy_get_registry(data->core_proxy,
-								  PW_VERSION_REGISTRY_PROXY, 0);
-		pw_registry_proxy_add_listener(data->registry_proxy,
-					       &data->registry_listener,
-					       &registry_events, data);
-		break;
-
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
 	}
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+	.info = on_core_info,
+	.done = on_core_done,
+	.error = on_core_error,
 };
 
 static void do_quit(void *data, int signal_number)
@@ -741,19 +714,23 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, argv[1], NULL);
 
-	data.remote = pw_remote_new(data.core, props, 0);
-	if (data.remote == NULL)
-		return -1;
-
-	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
-	if (pw_remote_connect(data.remote) < 0)
-		return -1;
-
 	spa_list_init(&data.pending_list);
+
+	data.core_proxy = pw_core_connect(data.core, props, 0);
+	if (data.core_proxy == NULL)
+		return -1;
+
+	pw_core_proxy_add_listener(data.core_proxy,
+				   &data.core_listener,
+				   &core_events, &data);
+	data.registry_proxy = pw_core_proxy_get_registry(data.core_proxy,
+					  PW_VERSION_REGISTRY_PROXY, 0);
+	pw_registry_proxy_add_listener(data.registry_proxy,
+				       &data.registry_listener,
+				       &registry_events, &data);
 
 	pw_main_loop_run(data.loop);
 
-	pw_remote_destroy(data.remote);
 	pw_core_destroy(data.core);
 	pw_main_loop_destroy(data.loop);
 

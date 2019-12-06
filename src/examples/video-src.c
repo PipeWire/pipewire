@@ -47,8 +47,7 @@ struct data {
 	struct spa_source *timer;
 
 	struct pw_core *core;
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
+	struct pw_core_proxy *core_proxy;
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
@@ -186,6 +185,11 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
 
 	switch (state) {
+	case PW_STREAM_STATE_ERROR:
+	case PW_STREAM_STATE_UNCONNECTED:
+		pw_main_loop_quit(data->loop);
+		break;
+
 	case PW_STREAM_STATE_PAUSED:
 		printf("node id: %d\n", pw_stream_get_node_id(data->stream));
 		break;
@@ -266,81 +270,51 @@ static const struct pw_stream_events stream_events = {
 	.param_changed = on_stream_param_changed,
 };
 
-static void on_state_changed(void *_data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
-{
-	struct data *data = _data;
-	struct pw_remote *remote = data->remote;
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
-		pw_main_loop_quit(data->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-	{
-		const struct spa_pod *params[1];
-		uint8_t buffer[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-		printf("remote state: \"%s\"\n",
-		       pw_remote_state_as_string(state));
-
-		data->stream = pw_stream_new(remote, "video-src",
-			pw_properties_new(
-				PW_KEY_MEDIA_CLASS, "Video/Source",
-				NULL));
-
-		params[0] = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGB),
-			SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
-							&SPA_RECTANGLE(320, 240),
-							&SPA_RECTANGLE(1, 1),
-							&SPA_RECTANGLE(4096, 4096)),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(25, 1)));
-
-		pw_stream_add_listener(data->stream,
-				       &data->stream_listener,
-				       &stream_events,
-				       data);
-
-		pw_stream_connect(data->stream,
-				  PW_DIRECTION_OUTPUT,
-				  SPA_ID_INVALID,
-				  PW_STREAM_FLAG_DRIVER |
-				  PW_STREAM_FLAG_MAP_BUFFERS,
-				  params, 1);
-		break;
-	}
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
-	}
-}
-
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
-};
-
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
+	const struct spa_pod *params[1];
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
 	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
-	data.remote = pw_remote_new(data.core, NULL, 0);
 
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 
-	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
+	data.core_proxy = pw_core_connect(data.core, NULL, 0);
+	if (data.core_proxy == NULL)
+		return -1;
 
-	pw_remote_connect(data.remote);
+	data.stream = pw_stream_new(data.core_proxy, "video-src",
+		pw_properties_new(
+			PW_KEY_MEDIA_CLASS, "Video/Source",
+			NULL));
+
+	params[0] = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+		SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
+		SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGB),
+		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
+						&SPA_RECTANGLE(320, 240),
+						&SPA_RECTANGLE(1, 1),
+						&SPA_RECTANGLE(4096, 4096)),
+	SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(25, 1)));
+
+	pw_stream_add_listener(data.stream,
+			       &data.stream_listener,
+			       &stream_events,
+			       &data);
+
+	pw_stream_connect(data.stream,
+			  PW_DIRECTION_OUTPUT,
+			  SPA_ID_INVALID,
+			  PW_STREAM_FLAG_DRIVER |
+			  PW_STREAM_FLAG_MAP_BUFFERS,
+			  params, 1);
 
 	pw_main_loop_run(data.loop);
 

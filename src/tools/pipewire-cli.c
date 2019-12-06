@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <string.h>
 
+#include <spa/utils/result.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
@@ -71,12 +72,11 @@ struct remote_data {
 	char *name;
 	uint32_t id;
 
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
 	int prompt_pending;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
+	struct spa_hook core_proxy_listener;
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
 
@@ -370,7 +370,27 @@ static const struct pw_registry_proxy_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-static void on_remote_destroy(void *_data)
+static void on_core_error(void *_data, uint32_t id, int seq, int res, const char *message)
+{
+	struct remote_data *rd = _data;
+	struct data *data = rd->data;
+
+	pw_log_error("remote %p: error id:%u seq:%d res:%d (%s): %s", rd,
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == 0) {
+		pw_main_loop_quit(data->loop);
+	}
+}
+
+static const struct pw_core_proxy_events remote_core_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+	.info = on_core_info,
+	.done = on_core_done,
+	.error = on_core_error,
+};
+
+static void on_core_destroy(void *_data)
 {
 	struct remote_data *rd = _data;
 	struct data *data = rd->data;
@@ -385,78 +405,49 @@ static void on_remote_destroy(void *_data)
 	free(rd->name);
 }
 
-static const struct pw_core_proxy_events remote_core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.info = on_core_info,
-	.done = on_core_done,
+static const struct pw_proxy_events core_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = on_core_destroy,
 };
-
-static void on_state_changed(void *_data, enum pw_remote_state old,
-			     enum pw_remote_state state, const char *error)
-{
-	struct remote_data *rd = _data;
-	struct data *data = rd->data;
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		fprintf(stderr, "remote %d error: %s\n", rd->id, error);
-		pw_main_loop_quit(data->loop);
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		fprintf(stdout, "remote %d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
-		rd->core_proxy = pw_remote_get_core_proxy(rd->remote);
-		pw_core_proxy_add_listener(rd->core_proxy,
-					   &rd->core_listener,
-					   &remote_core_events, rd);
-		rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
-								PW_VERSION_REGISTRY_PROXY, 0);
-		pw_registry_proxy_add_listener(rd->registry_proxy,
-					       &rd->registry_listener,
-					       &registry_events, rd);
-		rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0, 0);
-		break;
-
-	default:
-		fprintf(stdout, "remote %d state: \"%s\"\n", rd->id, pw_remote_state_as_string(state));
-		break;
-	}
-}
-
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.destroy = on_remote_destroy,
-	.state_changed = on_state_changed,
-};
-
 
 static bool do_connect(struct data *data, const char *cmd, char *args, char **error)
 {
 	char *a[1];
         int n;
-	struct pw_remote *remote;
 	struct pw_properties *props = NULL;
+	struct pw_core_proxy *core_proxy;
 	struct remote_data *rd;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n == 1) {
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, a[0], NULL);
 	}
-	remote = pw_remote_new(data->core, props, sizeof(struct remote_data));
+	core_proxy = pw_core_connect(data->core, props, sizeof(struct remote_data));
+	if (core_proxy == NULL)
+		return false;
 
-	rd = pw_remote_get_user_data(remote);
-	rd->remote = remote;
+	rd = pw_proxy_get_user_data((struct pw_proxy*)core_proxy);
+	rd->core_proxy = core_proxy;
 	rd->data = data;
 	pw_map_init(&rd->globals, 64, 16);
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
-	fprintf(stdout, "%d = @remote:%p\n", rd->id, remote);
+	fprintf(stdout, "%d = @remote:%p\n", rd->id, rd->core_proxy);
 	data->current = rd;
 
-	pw_remote_add_listener(remote, &rd->remote_listener, &remote_events, rd);
-	if (pw_remote_connect(remote) < 0)
-		return false;
+	pw_core_proxy_add_listener(rd->core_proxy,
+				   &rd->core_listener,
+				   &remote_core_events, rd);
+	pw_proxy_add_listener((struct pw_proxy*)rd->core_proxy,
+			&rd->core_proxy_listener,
+			&core_proxy_events, rd);
+	rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
+							PW_VERSION_REGISTRY_PROXY, 0);
+	pw_registry_proxy_add_listener(rd->registry_proxy,
+				       &rd->registry_listener,
+				       &registry_events, rd);
+	rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0, 0);
 
 	return true;
 }
@@ -476,8 +467,7 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 			goto no_remote;
 
 	}
-	pw_remote_disconnect(rd->remote);
-	pw_remote_destroy(rd->remote);
+	pw_core_proxy_disconnect(rd->core_proxy);
 
 	if (data->current == NULL) {
 		if (spa_list_is_empty(&data->remotes)) {
@@ -498,7 +488,7 @@ static bool do_list_remotes(struct data *data, const char *cmd, char *args, char
 	struct remote_data *rd;
 
 	spa_list_for_each(rd, &data->remotes, link)
-		fprintf(stdout, "\t%d = @remote:%p '%s'\n", rd->id, rd->remote, rd->name);
+		fprintf(stdout, "\t%d = @remote:%p '%s'\n", rd->id, rd->core_proxy, rd->name);
 
 	return true;
 }
@@ -1428,7 +1418,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	node = pw_global_get_object(global);
-	proxy = pw_remote_export(rd->remote, PW_TYPE_INTERFACE_Node, NULL, node, 0);
+	proxy = pw_core_proxy_export(rd->core_proxy, PW_TYPE_INTERFACE_Node, NULL, node, 0);
 
 	id = pw_map_insert_new(&data->vars, proxy);
 	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));

@@ -67,7 +67,6 @@ struct queue {
 
 struct data {
 	struct pw_core *core;
-	struct pw_remote *remote;
 	struct spa_hook stream_listener;
 };
 
@@ -125,7 +124,6 @@ struct stream {
 	uintptr_t seq;
 	struct pw_time time;
 
-	unsigned int async_connect:1;
 	unsigned int disconnecting:1;
 	unsigned int free_data:1;
 	unsigned int alloc_buffers:1;
@@ -1000,114 +998,25 @@ static const struct pw_node_events node_events = {
 	.info_changed = node_event_info,
 };
 
-static int handle_connect(struct pw_stream *stream)
+static void on_core_error(void *object, uint32_t id, int seq, int res, const char *message)
 {
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_factory *factory;
-	struct pw_properties *props;
-	struct pw_node *slave;
-	const char *str;
-	int res;
+	struct pw_stream *stream = object;
 
-	pw_log_debug(NAME" %p: creating node", stream);
-	props = pw_properties_copy(stream->properties);
-
-	if ((str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) &&
-	    pw_properties_parse_bool(str)) {
-		pw_properties_set(props, "resample.peaks", "1");
-	}
-
-	slave = pw_node_new(impl->core, pw_properties_copy(props), 0);
-	if (slave == NULL) {
-		res = -errno;
-		goto error_node;
-	}
-
-	pw_node_set_implementation(slave, &impl->impl_node);
-
-	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
-		pw_node_set_active(slave, true);
-
-	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
-	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		factory = pw_core_find_factory(impl->core, "adapter");
-		if (factory == NULL) {
-			pw_log_error(NAME" %p: no adapter factory found", stream);
-			res = -ENOENT;
-			goto error_node;
-		}
-		pw_properties_setf(props, "adapt.slave.node", "pointer:%p", slave);
-		impl->node = pw_factory_create_object(factory,
-				NULL,
-				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
-				props,
-				0);
-		if (impl->node == NULL) {
-			res = -errno;
-			goto error_node;
-		}
-	} else {
-		impl->node = slave;
-	}
-
-	pw_log_debug(NAME" %p: export node %p", stream, impl->node);
-	stream->proxy = pw_remote_export(stream->remote,
-			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
-	if (stream->proxy == NULL) {
-		res = -errno;
-		goto error_proxy;
-	}
-
-	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
-
-
-	pw_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
-
-	return 0;
-
-error_node:
-	pw_log_error(NAME" %p: can't make node: %s", stream, spa_strerror(res));
-	return res;
-error_proxy:
-	pw_log_error(NAME" %p: can't make proxy: %s", stream, spa_strerror(res));
-	return res;
-}
-
-static void on_remote_state_changed(void *_data, enum pw_remote_state old,
-		enum pw_remote_state state, const char *error)
-{
-	struct pw_stream *stream = _data;
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-
-	pw_log_debug(NAME" %p: remote state %d", stream, state);
-
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		stream_set_state(stream, PW_STREAM_STATE_ERROR, error);
-		break;
-	case PW_REMOTE_STATE_UNCONNECTED:
-		stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, "remote unconnected");
-		break;
-
-	case PW_REMOTE_STATE_CONNECTED:
-		if (impl->async_connect)
-			handle_connect(stream);
-		break;
-
-	default:
-		break;
+	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", stream,
+			id, seq, res, spa_strerror(res), message);
+	if (id == 0) {
+		stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, message);
 	}
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_remote_state_changed,
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+	.error = on_core_error,
 };
 
-SPA_EXPORT
-struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
-	      struct pw_properties *props)
+static struct stream *
+stream_new(struct pw_core *core, const char *name,
+		struct pw_properties *props, struct pw_properties *extra)
 {
 	struct stream *impl;
 	struct pw_stream *this;
@@ -1133,12 +1042,10 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 		goto error_properties;
 	}
 
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL) {
-		const struct pw_properties *p = pw_remote_get_properties(remote);
-
-		if ((str = pw_properties_get(p, PW_KEY_APP_NAME)) != NULL)
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
+		if ((str = pw_properties_get(extra, PW_KEY_APP_NAME)) != NULL)
 			pw_properties_set(props, PW_KEY_NODE_NAME, str);
-		else if ((str = pw_properties_get(p, PW_KEY_APP_PROCESS_BINARY)) != NULL)
+		else if ((str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY)) != NULL)
 			pw_properties_set(props, PW_KEY_NODE_NAME, str);
 		else
 			pw_properties_set(props, PW_KEY_NODE_NAME, name);
@@ -1147,7 +1054,6 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;
 
-	this->remote = remote;
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;
 
@@ -1160,13 +1066,11 @@ struct pw_stream * pw_stream_new(struct pw_remote *remote, const char *name,
 
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
-	impl->core = remote->core;
+	impl->core = core;
 
-	pw_remote_add_listener(remote, &impl->remote_listener, &remote_events, this);
+//	spa_list_append(&remote->stream_list, &this->link);
 
-	spa_list_append(&remote->stream_list, &this->link);
-
-	return this;
+	return impl;
 
 error_properties:
 	free(impl);
@@ -1178,6 +1082,26 @@ error_cleanup:
 }
 
 SPA_EXPORT
+struct pw_stream * pw_stream_new(struct pw_core_proxy *core_proxy, const char *name,
+	      struct pw_properties *props)
+{
+	struct stream *impl;
+	struct pw_stream *this;
+	struct pw_core *core = pw_core_proxy_get_core(core_proxy);
+
+	impl = stream_new(core, name, props, NULL);
+	if (impl == NULL)
+		return NULL;
+
+	this = &impl->this;
+	this->core_proxy = core_proxy;
+	pw_core_proxy_add_listener(core_proxy,
+			&this->core_listener, &core_events, this);
+
+	return this;
+}
+
+SPA_EXPORT
 struct pw_stream *
 pw_stream_new_simple(struct pw_loop *loop,
 		     const char *name,
@@ -1185,30 +1109,25 @@ pw_stream_new_simple(struct pw_loop *loop,
 		     const struct pw_stream_events *events,
 		     void *data)
 {
-	struct pw_stream *stream;
+	struct pw_stream *this;
 	struct stream *impl;
 	struct pw_core *core;
-	struct pw_remote *remote;
 	int res;
 
 	core = pw_core_new(loop, NULL, 0);
-        remote = pw_remote_new(core, NULL, 0);
 
-	stream = pw_stream_new(remote, name, props);
-	if (stream == NULL) {
+	impl = stream_new(core, name, props, NULL);
+	if (impl == NULL) {
 		res = -errno;
 		goto error_cleanup;
 	}
 
-	impl = SPA_CONTAINER_OF(stream, struct stream, this);
-
+	this = &impl->this;
 	impl->free_data = true;
 	impl->data.core = core;
-	impl->data.remote = remote;
+	pw_stream_add_listener(this, &impl->data.stream_listener, events, data);
 
-	pw_stream_add_listener(stream, &impl->data.stream_listener, events, data);
-
-	return stream;
+	return this;
 
 error_cleanup:
 	pw_core_destroy(core);
@@ -1246,8 +1165,11 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_stream_disconnect(stream);
 
-	spa_hook_remove(&impl->remote_listener);
-	spa_list_remove(&stream->link);
+	if (stream->core_proxy) {
+		spa_hook_remove(&stream->core_listener);
+		stream->core_proxy = NULL;
+	}
+//	spa_list_remove(&stream->link);
 
 	clear_params(impl, SPA_ID_INVALID);
 
@@ -1316,9 +1238,9 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 }
 
 SPA_EXPORT
-struct pw_remote *pw_stream_get_remote(struct pw_stream *stream)
+struct pw_core_proxy *pw_stream_get_core_proxy(struct pw_stream *stream)
 {
-	return stream->remote;
+	return stream->core_proxy;
 }
 
 static void add_params(struct stream *impl)
@@ -1390,9 +1312,12 @@ pw_stream_connect(struct pw_stream *stream,
 		  uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	enum pw_remote_state state;
-	int res;
+	struct pw_factory *factory;
+	struct pw_properties *props;
+	struct pw_node *slave;
+	const char *str;
 	uint32_t i;
+	int res;
 
 	pw_log_debug(NAME" %p: connect target:%d", stream, target_id);
 	impl->direction =
@@ -1445,15 +1370,82 @@ pw_stream_connect(struct pw_stream *stream,
 			direction == PW_DIRECTION_INPUT ? "Input" : "Output",
 			get_media_class(impl));
 
-	state = pw_remote_get_state(stream->remote, NULL);
-	impl->async_connect = (state == PW_REMOTE_STATE_UNCONNECTED ||
-			 state == PW_REMOTE_STATE_ERROR);
+	if (stream->core_proxy == NULL) {
+		stream->core_proxy = pw_core_connect(impl->core,
+				pw_properties_copy(stream->properties), 0);
+		if (stream->core_proxy == NULL) {
+			res = -errno;
+			goto error_connect;
+		}
+		pw_core_proxy_add_listener(stream->core_proxy,
+				&stream->core_listener, &core_events, stream);
+	}
 
-	if (impl->async_connect)
-		res = pw_remote_connect(stream->remote);
-	else
-		res = handle_connect(stream);
+	pw_log_debug(NAME" %p: creating node", stream);
+	props = pw_properties_copy(stream->properties);
 
+	if ((str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) &&
+	    pw_properties_parse_bool(str)) {
+		pw_properties_set(props, "resample.peaks", "1");
+	}
+
+	slave = pw_node_new(impl->core, pw_properties_copy(props), 0);
+	if (slave == NULL) {
+		res = -errno;
+		goto error_node;
+	}
+
+	pw_node_set_implementation(slave, &impl->impl_node);
+
+	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
+		pw_node_set_active(slave, true);
+
+	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
+	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		factory = pw_core_find_factory(impl->core, "adapter");
+		if (factory == NULL) {
+			pw_log_error(NAME" %p: no adapter factory found", stream);
+			res = -ENOENT;
+			goto error_node;
+		}
+		pw_properties_setf(props, "adapt.slave.node", "pointer:%p", slave);
+		impl->node = pw_factory_create_object(factory,
+				NULL,
+				PW_TYPE_INTERFACE_Node,
+				PW_VERSION_NODE_PROXY,
+				props,
+				0);
+		if (impl->node == NULL) {
+			res = -errno;
+			goto error_node;
+		}
+	} else {
+		impl->node = slave;
+	}
+
+	pw_log_debug(NAME" %p: export node %p", stream, impl->node);
+	stream->proxy = pw_core_proxy_export(stream->core_proxy,
+			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
+	if (stream->proxy == NULL) {
+		res = -errno;
+		goto error_proxy;
+	}
+
+	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
+
+
+	pw_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
+
+	return 0;
+
+error_connect:
+	pw_log_error(NAME" %p: can't connect: %s", stream, spa_strerror(res));
+	return res;
+error_node:
+	pw_log_error(NAME" %p: can't make node: %s", stream, spa_strerror(res));
+	return res;
+error_proxy:
+	pw_log_error(NAME" %p: can't make proxy: %s", stream, spa_strerror(res));
 	return res;
 }
 

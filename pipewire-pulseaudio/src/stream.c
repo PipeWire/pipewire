@@ -554,12 +554,9 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 				NULL);
 	pw_properties_update(props, &s->proplist->props->dict);
 
-	s->stream = pw_stream_new(c->remote, name, props);
 	s->refcount = 1;
 	s->context = c;
 	spa_list_init(&s->pending);
-
-	pw_stream_add_listener(s->stream, &s->stream_listener, &stream_events, s);
 
 	s->endpoint_id = SPA_ID_INVALID;
 	s->direction = PA_STREAM_NODIRECTION;
@@ -858,11 +855,19 @@ static int create_stream(pa_stream_direction_t direction,
 	struct spa_dict_item items[5];
 	char latency[64];
 	bool monitor;
+	const char *name;
+	pa_context *c = s->context;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
 	pw_log_debug("stream %p: connect %s %08x", s, dev, flags);
+
+	name = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_NAME);
+
+	s->stream = pw_stream_new(c->core_proxy,
+			name, pw_properties_copy(c->props));
+	pw_stream_add_listener(s->stream, &s->stream_listener, &stream_events, s);
 
 	s->direction = direction;
 	s->timing_info_valid = false;

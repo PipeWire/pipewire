@@ -27,6 +27,7 @@
 #include <math.h>
 #include <sys/mman.h>
 
+#include <spa/utils/result.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/node/io.h>
@@ -55,8 +56,8 @@ struct data {
 
 	struct pw_core *core;
 
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
+	struct pw_core_proxy *core_proxy;
+	struct spa_hook core_listener;
 
 	uint64_t info_all;
 	struct spa_port_info info;
@@ -481,33 +482,24 @@ static void make_node(struct data *data)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
-	pw_remote_export(data->remote, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
+	pw_core_proxy_export(data->core_proxy, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
 }
 
-static void on_state_changed(void *_data, enum pw_remote_state old,
-			     enum pw_remote_state state, const char *error)
+static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
-	struct data *data = _data;
+	struct data *d = data;
 
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		printf("remote error: %s\n", error);
-		pw_main_loop_quit(data->loop);
-		break;
+	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
 
-	case PW_REMOTE_STATE_CONNECTED:
-		make_node(data);
-		break;
-
-	default:
-		printf("remote state: \"%s\"\n", pw_remote_state_as_string(state));
-		break;
+	if (id == 0) {
+		pw_main_loop_quit(d->loop);
 	}
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
+static const struct pw_core_proxy_events core_events = {
+	PW_VERSION_CORE_PROXY_EVENTS,
+	.error = on_core_error,
 };
 
 int main(int argc, char *argv[])
@@ -518,7 +510,6 @@ int main(int argc, char *argv[])
 
 	data.loop = pw_main_loop_new(NULL);
 	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
-        data.remote = pw_remote_new(data.core, NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	data.info_all = SPA_PORT_CHANGE_MASK_FLAGS |
@@ -540,9 +531,14 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.empty);
 	spa_hook_list_init(&data.hooks);
 
-	pw_remote_add_listener(data.remote, &data.remote_listener, &remote_events, &data);
+	if ((data.core_proxy = pw_core_connect(data.core, NULL, 0)) == NULL) {
+		printf("can't connect: %m\n");
+		return -1;
+	}
 
-        pw_remote_connect(data.remote);
+	pw_core_proxy_add_listener(data.core_proxy, &data.core_listener, &core_events, &data);
+
+	make_node(&data);
 
 	pw_main_loop_run(data.loop);
 

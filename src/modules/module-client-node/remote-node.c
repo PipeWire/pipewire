@@ -68,8 +68,9 @@ struct link {
 };
 
 struct node_data {
-	struct pw_remote *remote;
 	struct pw_core *core;
+
+	struct pw_mempool *pool;
 
 	uint32_t remote_id;
 	int rtwritefd;
@@ -133,7 +134,7 @@ static void clean_transport(struct node_data *data)
 	}
 	pw_array_clear(&data->links);
 
-	while ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(uint32_t))) != NULL)
+	while ((mm = pw_mempool_find_tag(data->pool, tag, sizeof(uint32_t))) != NULL)
 		pw_memmap_free(mm);
 
 	pw_memmap_free(data->activation);
@@ -241,7 +242,7 @@ static int client_node_transport(void *object,
 
 	clean_transport(data);
 
-	data->activation = pw_mempool_map_id(data->remote->pool, mem_id,
+	data->activation = pw_mempool_map_id(data->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 	if (data->activation == NULL) {
 		pw_log_debug("remote-node %p: can't map activation: %m", proxy);
@@ -408,7 +409,7 @@ client_node_set_io(void *object,
 	void *ptr;
 	uint32_t tag[5] = { data->remote_id, id, };
 
-	if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
+	if ((mm = pw_mempool_find_tag(data->pool, tag, sizeof(tag))) != NULL)
 		pw_memmap_free(mm);
 
 	if (memid == SPA_ID_INVALID) {
@@ -416,7 +417,7 @@ client_node_set_io(void *object,
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(data->remote->pool, memid,
+		mm = pw_mempool_map_id(data->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			pw_log_warn("can't map memory id %u: %m", memid);
@@ -599,7 +600,7 @@ client_node_port_use_buffers(void *object,
 		off_t offset;
 		struct pw_memmap *mm;
 
-		mm = pw_mempool_map_id(data->remote->pool, buffers[i].mem_id,
+		mm = pw_mempool_map_id(data->pool, buffers[i].mem_id,
 				prot, buffers[i].offset, buffers[i].size, NULL);
 		if (mm == NULL) {
 			res = -errno;
@@ -661,7 +662,7 @@ client_node_port_use_buffers(void *object,
 				uint32_t mem_id = SPA_PTR_TO_UINT32(d->data);
 				struct pw_memblock *bm;
 
-				bm = pw_mempool_find_id(data->remote->pool, mem_id);
+				bm = pw_mempool_find_id(data->pool, mem_id);
 				if (bm == NULL) {
 					pw_log_error("unknown buffer mem %u", mem_id);
 					res = -ENODEV;
@@ -730,7 +731,7 @@ client_node_port_set_io(void *object,
 		goto error_exit;
 	}
 
-	if ((mm = pw_mempool_find_tag(data->remote->pool, tag, sizeof(tag))) != NULL)
+	if ((mm = pw_mempool_find_tag(data->pool, tag, sizeof(tag))) != NULL)
 		pw_memmap_free(mm);
 
 	if (memid == SPA_ID_INVALID) {
@@ -738,7 +739,7 @@ client_node_port_set_io(void *object,
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(data->remote->pool, memid,
+		mm = pw_mempool_map_id(data->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			res = -errno;
@@ -819,7 +820,7 @@ client_node_set_activation(void *object,
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(data->remote->pool, memid,
+		mm = pw_mempool_map_id(data->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
 			res = -errno;
@@ -1104,7 +1105,7 @@ static const struct spa_node_callbacks node_callbacks = {
 	.xrun = node_xrun
 };
 
-static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool do_free,
+static struct pw_proxy *node_export(struct pw_core_proxy *core_proxy, void *object, bool do_free,
 		size_t user_data_size)
 {
 	struct pw_node *node = object;
@@ -1112,7 +1113,7 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
 	struct node_data *data;
 	int i;
 
-	client_node = pw_core_proxy_create_object(remote->core_proxy,
+	client_node = pw_core_proxy_create_object(core_proxy,
 					    "client-node",
 					    PW_TYPE_INTERFACE_ClientNode,
 					    PW_VERSION_CLIENT_NODE,
@@ -1122,7 +1123,7 @@ static struct pw_proxy *node_export(struct pw_remote *remote, void *object, bool
                 return NULL;
 
 	data = pw_proxy_get_user_data(client_node);
-	data->remote = remote;
+	data->pool = pw_core_proxy_get_mempool(core_proxy);
 	data->node = node;
 	data->do_free = do_free;
 	data->core = pw_node_get_core(node);
@@ -1166,13 +1167,12 @@ struct pw_proxy *pw_core_proxy_node_export(struct pw_core_proxy *core_proxy,
 		size_t user_data_size)
 {
 	struct pw_node *node = object;
-	struct pw_remote *remote = pw_proxy_get_remote((struct pw_proxy*)core_proxy);
 
 	if (props) {
 		pw_node_update_properties(node, &props->dict);
 		pw_properties_free(props);
 	}
-	return node_export(remote, object, false, user_data_size);
+	return node_export(core_proxy, object, false, user_data_size);
 }
 
 struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
@@ -1180,9 +1180,8 @@ struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 		size_t user_data_size)
 {
 	struct pw_node *node;
-	struct pw_remote *remote = pw_proxy_get_remote((struct pw_proxy*)core_proxy);
 
-	node = pw_node_new(pw_remote_get_core(remote), props, 0);
+	node = pw_node_new(pw_core_proxy_get_core(core_proxy), props, 0);
 	if (node == NULL)
 		return NULL;
 
@@ -1190,5 +1189,5 @@ struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 	pw_node_register(node, NULL);
 	pw_node_set_active(node, true);
 
-	return node_export(remote, node, true, user_data_size);
+	return node_export(core_proxy, node, true, user_data_size);
 }

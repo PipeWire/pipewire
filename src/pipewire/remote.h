@@ -203,6 +203,41 @@ struct pw_proxy *pw_remote_export(struct pw_remote *remote,		/**< the remote */
 				  void *object,				/**< object to export */
 				  size_t user_data_size			/**< extra user data */);
 
+
+struct pw_core_proxy *
+pw_core_connect(struct pw_core *core,		/**< a \ref pw_core */
+	      struct pw_properties *properties,	/**< optional properties, ownership of
+						  *  the properties is taken.*/
+	      size_t user_data_size		/**< extra user data size */);
+
+struct pw_core_proxy *
+pw_core_connect_fd(struct pw_core *core,	/**< a \ref pw_core */
+	      int fd,				/**< an fd */
+	      struct pw_properties *properties,	/**< optional properties, ownership of
+						  *  the properties is taken.*/
+	      size_t user_data_size		/**< extra user data size */);
+
+int pw_core_proxy_disconnect(struct pw_core_proxy *proxy);
+
+/** Get the client proxy */
+struct pw_client_proxy * pw_core_proxy_get_client_proxy(struct pw_core_proxy *proxy);
+
+struct pw_core * pw_core_proxy_get_core(struct pw_core_proxy *proxy);
+
+struct pw_remote * pw_core_proxy_get_remote(struct pw_core_proxy *proxy);
+
+struct pw_mempool * pw_core_proxy_get_mempool(struct pw_core_proxy *proxy);
+
+/** Get the proxy with the given id */
+struct pw_proxy *pw_core_proxy_find_proxy(struct pw_core_proxy *proxy, uint32_t id);
+
+struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *proxy,	/**< the proxy */
+				  uint32_t type,			/**< the type of object */
+				  struct pw_properties *properties,	/**< extra properties */
+				  void *object,				/**< object to export */
+				  size_t user_data_size			/**< extra user data */);
+
+
 #ifdef __cplusplus
 }
 #endif

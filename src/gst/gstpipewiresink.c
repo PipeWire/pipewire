@@ -665,7 +665,7 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   }
 
   pw_thread_loop_lock (pwsink->main_loop);
-  pwsink->stream = pw_stream_new (pwsink->remote, pwsink->client_name, props);
+  pwsink->stream = pw_stream_new (pwsink->core_proxy, pwsink->client_name, props);
   pwsink->pool->stream = pwsink->stream;
 
   pw_stream_add_listener(pwsink->stream,
@@ -697,62 +697,22 @@ gst_pipewire_sink_stop (GstBaseSink * basesink)
   return TRUE;
 }
 
-static void
-on_remote_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
-{
-  GstPipeWireSink *pwsink = data;
-
-  GST_DEBUG ("got remote state %d", state);
-
-  switch (state) {
-    case PW_REMOTE_STATE_UNCONNECTED:
-    case PW_REMOTE_STATE_CONNECTING:
-    case PW_REMOTE_STATE_CONNECTED:
-      break;
-    case PW_REMOTE_STATE_ERROR:
-      GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
-          ("remote error: %s", error), (NULL));
-      break;
-  }
-  pw_thread_loop_signal (pwsink->main_loop, FALSE);
-}
-
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_remote_state_changed,
-};
-
 static gboolean
 gst_pipewire_sink_open (GstPipeWireSink * pwsink)
 {
-  const char *error = NULL;
-
   if (pw_thread_loop_start (pwsink->main_loop) < 0)
     goto mainloop_error;
 
   pw_thread_loop_lock (pwsink->main_loop);
-  pwsink->remote = pw_remote_new (pwsink->core, NULL, 0);
-
-  pw_remote_add_listener (pwsink->remote,
-			  &pwsink->remote_listener,
-			  &remote_events, pwsink);
 
   if (pwsink->fd == -1)
-    pw_remote_connect (pwsink->remote);
+    pwsink->core_proxy = pw_core_connect (pwsink->core, NULL, 0);
   else
-    pw_remote_connect_fd (pwsink->remote, dup(pwsink->fd));
+    pwsink->core_proxy = pw_core_connect_fd (pwsink->core, dup(pwsink->fd), NULL, 0);
 
-  while (TRUE) {
-    enum pw_remote_state state = pw_remote_get_state (pwsink->remote, &error);
+  if (pwsink->core_proxy == NULL)
+    goto connect_error;
 
-    if (state == PW_REMOTE_STATE_CONNECTED)
-      break;
-
-    if (state == PW_REMOTE_STATE_ERROR)
-      goto connect_error;
-
-    pw_thread_loop_wait (pwsink->main_loop);
-  }
   pw_thread_loop_unlock (pwsink->main_loop);
 
   return TRUE;
@@ -766,6 +726,8 @@ mainloop_error:
   }
 connect_error:
   {
+    GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
+        ("Failed to connect"), (NULL));
     pw_thread_loop_unlock (pwsink->main_loop);
     return FALSE;
   }
@@ -774,26 +736,13 @@ connect_error:
 static gboolean
 gst_pipewire_sink_close (GstPipeWireSink * pwsink)
 {
-  const char *error = NULL;
-
   pw_thread_loop_lock (pwsink->main_loop);
   if (pwsink->stream) {
     pw_stream_disconnect (pwsink->stream);
   }
-  if (pwsink->remote) {
-    pw_remote_disconnect (pwsink->remote);
-
-    while (TRUE) {
-      enum pw_remote_state state = pw_remote_get_state (pwsink->remote, &error);
-
-      if (state == PW_REMOTE_STATE_UNCONNECTED)
-        break;
-
-      if (state == PW_REMOTE_STATE_ERROR)
-        break;
-
-      pw_thread_loop_wait (pwsink->main_loop);
-    }
+  if (pwsink->core_proxy) {
+    pw_core_proxy_disconnect (pwsink->core_proxy);
+    pwsink->core_proxy = NULL;
   }
   pw_thread_loop_unlock (pwsink->main_loop);
 
@@ -803,12 +752,6 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
     pw_stream_destroy (pwsink->stream);
     pwsink->stream = NULL;
   }
-
-  if (pwsink->remote) {
-    pw_remote_destroy (pwsink->remote);
-    pwsink->remote = NULL;
-  }
-
   return TRUE;
 }
 

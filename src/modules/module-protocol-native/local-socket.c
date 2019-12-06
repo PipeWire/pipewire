@@ -37,12 +37,12 @@
 #include <pipewire/pipewire.h>
 
 static const char *
-get_remote(const struct pw_properties *properties)
+get_remote(const struct spa_dict *props)
 {
 	const char *name = NULL;
 
-	if (properties)
-		name = pw_properties_get(properties, PW_KEY_REMOTE_NAME);
+	if (props)
+		name = spa_dict_lookup(props, PW_KEY_REMOTE_NAME);
 	if (name == NULL)
 		name = getenv("PIPEWIRE_REMOTE");
 	if (name == NULL)
@@ -51,10 +51,10 @@ get_remote(const struct pw_properties *properties)
 }
 
 int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
+					    const struct spa_dict *props,
 					    void (*done_callback) (void *data, int res),
 					    void *data)
 {
-	struct pw_remote *remote = client->remote;
 	struct sockaddr_un addr;
 	socklen_t size;
 	const char *runtime_dir, *name = NULL;
@@ -66,7 +66,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 		goto error;
         }
 
-	name = get_remote(pw_remote_get_properties(remote));
+	name = get_remote(props);
 
         if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;

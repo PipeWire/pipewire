@@ -247,7 +247,7 @@ struct pw_remote *pw_remote_new(struct pw_core *core,
 		goto error_protocol;
 	}
 
-	this->conn = pw_protocol_new_client(protocol, this, properties);
+	this->conn = pw_protocol_new_client(protocol, properties);
 	if (this->conn == NULL)
 		goto error_connection;
 
@@ -411,6 +411,8 @@ static int init_connect(struct pw_remote *remote)
 	pw_core_proxy_hello(remote->core_proxy, PW_VERSION_CORE_PROXY);
 	pw_client_proxy_update_properties(remote->client_proxy, &remote->properties->dict);
 
+	remote->conn->core_proxy = remote->core_proxy;
+
 	return 0;
 
 error_clean_core_proxy:
@@ -469,7 +471,9 @@ int pw_remote_connect(struct pw_remote *remote)
 	if ((res = init_connect(remote)) < 0)
 		goto error;
 
-	if ((res = pw_protocol_client_connect(remote->conn, done_connect, remote)) < 0)
+	if ((res = pw_protocol_client_connect(remote->conn,
+					&remote->properties->dict,
+					done_connect, remote)) < 0)
 		goto error;
 
 	return remote->state == PW_REMOTE_STATE_ERROR ? -EIO : 0;
@@ -586,4 +590,100 @@ exit_free:
 exit:
 	errno = -res;
 	return NULL;
+}
+
+SPA_EXPORT
+struct pw_core_proxy *
+pw_core_connect(struct pw_core *core, struct pw_properties *properties,
+	      size_t user_data_size)
+{
+	struct pw_remote *remote;
+	int res;
+
+	remote = pw_remote_new(core, properties, user_data_size);
+	if (remote == NULL)
+		return NULL;
+
+	if ((res = pw_remote_connect(remote)) < 0)
+		goto error_free;
+
+	return remote->core_proxy;
+
+error_free:
+	pw_remote_destroy(remote);
+	errno = -res;
+	return NULL;
+}
+
+SPA_EXPORT
+struct pw_core_proxy *
+pw_core_connect_fd(struct pw_core *core, int fd, struct pw_properties *properties,
+	      size_t user_data_size)
+{
+	struct pw_remote *remote;
+	int res;
+
+	remote = pw_remote_new(core, properties, user_data_size);
+	if (remote == NULL)
+		return NULL;
+
+	if ((res = pw_remote_connect_fd(remote, fd)) < 0)
+		goto error_free;
+
+	return remote->core_proxy;
+
+error_free:
+	pw_remote_destroy(remote);
+	errno = -res;
+	return NULL;
+}
+
+SPA_EXPORT
+struct pw_client_proxy * pw_core_proxy_get_client_proxy(struct pw_core_proxy *proxy)
+{
+	struct pw_remote *remote = ((struct pw_proxy*)proxy)->remote;
+	return remote->client_proxy;
+}
+
+SPA_EXPORT
+struct pw_core * pw_core_proxy_get_core(struct pw_core_proxy *proxy)
+{
+	struct pw_remote *remote = ((struct pw_proxy*)proxy)->remote;
+	return remote->core;
+}
+SPA_EXPORT
+struct pw_remote * pw_core_proxy_get_remote(struct pw_core_proxy *proxy)
+{
+	return ((struct pw_proxy*)proxy)->remote;
+}
+
+SPA_EXPORT
+struct pw_mempool * pw_core_proxy_get_mempool(struct pw_core_proxy *proxy)
+{
+	struct pw_remote *remote = ((struct pw_proxy*)proxy)->remote;
+	return remote->pool;
+}
+
+SPA_EXPORT
+struct pw_proxy *pw_core_proxy_find_proxy(struct pw_core_proxy *proxy, uint32_t id)
+{
+	struct pw_remote *remote = ((struct pw_proxy*)proxy)->remote;
+	return pw_remote_find_proxy(remote, id);
+}
+
+SPA_EXPORT
+int pw_core_proxy_disconnect(struct pw_core_proxy *proxy)
+{
+	struct pw_remote *remote = ((struct pw_proxy*)proxy)->remote;
+	pw_remote_destroy(remote);
+	return 0;
+}
+
+SPA_EXPORT
+struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *proxy,
+		uint32_t type, struct pw_properties *properties,
+		void *object, size_t user_data_size)
+{
+	struct pw_remote *remote = ((struct pw_proxy*)proxy)->remote;
+	return pw_remote_export(remote, type, properties, object, user_data_size);
 }

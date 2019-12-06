@@ -52,7 +52,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = device_proxy_destroy,
 };
 
-struct pw_proxy *pw_remote_spa_device_export(struct pw_core_proxy *core_proxy,
+struct pw_proxy *pw_core_proxy_spa_device_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {

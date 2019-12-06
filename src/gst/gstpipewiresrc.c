@@ -504,9 +504,6 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
     if (state == PW_STREAM_STATE_ERROR)
       goto start_error;
 
-    if (pw_remote_get_state(pwsrc->remote, &error) == PW_REMOTE_STATE_ERROR)
-      goto start_error;
-
     pw_thread_loop_wait (pwsrc->main_loop);
   }
 
@@ -540,9 +537,6 @@ wait_negotiated (GstPipeWireSrc *this)
         pw_stream_state_as_string (state));
 
     if (state == PW_STREAM_STATE_ERROR)
-      break;
-
-    if (pw_remote_get_state(this->remote, &error) == PW_REMOTE_STATE_ERROR)
       break;
 
     if (this->started)
@@ -636,9 +630,6 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
       break;
 
     if (state == PW_STREAM_STATE_ERROR)
-      goto connect_error;
-
-    if (pw_remote_get_state(pwsrc->remote, &error) == PW_REMOTE_STATE_ERROR)
       goto connect_error;
 
     pw_thread_loop_wait (pwsrc->main_loop);
@@ -915,26 +906,6 @@ gst_pipewire_src_stop (GstBaseSrc * basesrc)
   return TRUE;
 }
 
-static void
-on_remote_state_changed (void *data, enum pw_remote_state old, enum pw_remote_state state, const char *error)
-{
-  GstPipeWireSrc *pwsrc = data;
-
-  GST_DEBUG ("got remote state %s", pw_remote_state_as_string (state));
-
-  switch (state) {
-    case PW_REMOTE_STATE_UNCONNECTED:
-    case PW_REMOTE_STATE_CONNECTING:
-    case PW_REMOTE_STATE_CONNECTED:
-      break;
-    case PW_REMOTE_STATE_ERROR:
-      GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED,
-          ("remote error: %s", error), (NULL));
-      break;
-  }
-  pw_thread_loop_signal (pwsrc->main_loop, FALSE);
-}
-
 static gboolean
 copy_properties (GQuark field_id,
                  const GValue *value,
@@ -949,11 +920,6 @@ copy_properties (GQuark field_id,
   return TRUE;
 }
 
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_remote_state_changed,
-};
-
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_state_changed,
@@ -967,36 +933,19 @@ static gboolean
 gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
 {
   struct pw_properties *props;
-  const char *error = NULL;
 
   if (pw_thread_loop_start (pwsrc->main_loop) < 0)
     goto mainloop_failed;
 
   pw_thread_loop_lock (pwsrc->main_loop);
-  if ((pwsrc->remote = pw_remote_new (pwsrc->core, NULL, 0)) == NULL)
-    goto no_remote;
-
-  pw_remote_add_listener (pwsrc->remote,
-			  &pwsrc->remote_listener,
-			  &remote_events, pwsrc);
 
   if (pwsrc->fd == -1)
-    pw_remote_connect (pwsrc->remote);
+    pwsrc->core_proxy = pw_core_connect (pwsrc->core, NULL, 0);
   else
-    pw_remote_connect_fd (pwsrc->remote, dup(pwsrc->fd));
+    pwsrc->core_proxy = pw_core_connect_fd (pwsrc->core, dup(pwsrc->fd), NULL, 0);
 
-  while (TRUE) {
-    enum pw_remote_state state = pw_remote_get_state(pwsrc->remote, &error);
-
-    GST_DEBUG ("waiting for CONNECTED, now %s", pw_remote_state_as_string (state));
-    if (state == PW_REMOTE_STATE_CONNECTED)
-      break;
-
-    if (state == PW_REMOTE_STATE_ERROR)
+  if (pwsrc->core_proxy == NULL)
       goto connect_error;
-
-    pw_thread_loop_wait (pwsrc->main_loop);
-  }
 
   if (pwsrc->properties) {
     props = pw_properties_new (NULL, NULL);
@@ -1005,7 +954,8 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
     props = NULL;
   }
 
-  if ((pwsrc->stream = pw_stream_new (pwsrc->remote, pwsrc->client_name, props)) == NULL)
+  if ((pwsrc->stream = pw_stream_new (pwsrc->core_proxy,
+				  pwsrc->client_name, props)) == NULL)
     goto no_stream;
 
 
@@ -1026,14 +976,9 @@ mainloop_failed:
     GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED, ("error starting mainloop"), (NULL));
     return FALSE;
   }
-no_remote:
-  {
-    GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED, ("can't create remote"), (NULL));
-    pw_thread_loop_unlock (pwsrc->main_loop);
-    return FALSE;
-  }
 connect_error:
   {
+    GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED, ("can't connect"), (NULL));
     pw_thread_loop_unlock (pwsrc->main_loop);
     return FALSE;
   }
@@ -1065,8 +1010,8 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   pw_stream_destroy (pwsrc->stream);
   pwsrc->stream = NULL;
 
-  pw_remote_destroy (pwsrc->remote);
-  pwsrc->remote = NULL;
+  pw_core_proxy_disconnect (pwsrc->core_proxy);
+  pwsrc->core_proxy = NULL;
 }
 
 static GstStateChangeReturn

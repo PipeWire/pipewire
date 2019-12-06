@@ -230,11 +230,9 @@ struct client {
 
 	struct pw_data_loop *loop;
 
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
-
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
+	struct pw_mempool *pool;
 	int last_sync;
 	bool error;
 
@@ -536,35 +534,6 @@ jack_get_version_string(void)
 	return "0.0.0.0";
 }
 
-static void on_state_changed(void *data, enum pw_remote_state old,
-                             enum pw_remote_state state, const char *error)
-{
-	struct client *client = data;
-
-	pw_log_debug(NAME" %p: state %s", client, pw_remote_state_as_string(state));
-	switch (state) {
-	case PW_REMOTE_STATE_ERROR:
-		client->error = true;
-		/* fallthrough*/
-        case PW_REMOTE_STATE_UNCONNECTED:
-		/* don't call shutdown when we do client_close, only
-		 * on unexpected errors */
-		if (client->shutdown_callback && !client->destroyed)
-			client->shutdown_callback(client->shutdown_arg);
-		/* fallthrough*/
-        case PW_REMOTE_STATE_CONNECTED:
-		pw_thread_loop_signal(client->context.loop, false);
-                break;
-        default:
-                break;
-        }
-}
-
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = on_state_changed,
-};
-
 static void on_sync_reply(void *data, uint32_t id, int seq)
 {
 	struct client *client = data;
@@ -574,9 +543,26 @@ static void on_sync_reply(void *data, uint32_t id, int seq)
 	pw_thread_loop_signal(client->context.loop, false);
 }
 
+
+static void on_error(void *data, uint32_t id, int seq, int res, const char *message)
+{
+	struct client *client = data;
+
+	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", client,
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == 0) {
+		client->error = true;
+		if (client->shutdown_callback && !client->destroyed)
+			client->shutdown_callback(client->shutdown_arg);
+	}
+	pw_thread_loop_signal(client->context.loop, false);
+}
+
 static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_EVENTS,
+	PW_VERSION_CORE_PROXY_EVENTS,
 	.done = on_sync_reply,
+	.error = on_error,
 };
 
 static int do_sync(struct client *client)
@@ -1108,7 +1094,7 @@ static int client_node_transport(void *object,
 
 	clean_transport(c);
 
-	c->mem = pw_mempool_map_id(c->remote->pool, mem_id,
+	c->mem = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 	if (c->mem == NULL) {
 		pw_log_debug(NAME" %p: can't map activation: %m", c);
@@ -1160,7 +1146,7 @@ static int client_node_set_io(void *object,
         void *ptr;
 	uint32_t tag[5] = { c->node_id, id, };
 
-	if ((mm = pw_mempool_find_tag(c->remote->pool, tag, sizeof(tag))) != NULL)
+	if ((mm = pw_mempool_find_tag(c->pool, tag, sizeof(tag))) != NULL)
 		pw_memmap_free(mm);
 
         if (mem_id == SPA_ID_INVALID) {
@@ -1168,7 +1154,7 @@ static int client_node_set_io(void *object,
 		size = 0;
         }
         else {
-		mm = pw_mempool_map_id(c->remote->pool, mem_id,
+		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
                         pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
@@ -1549,7 +1535,7 @@ static int client_node_port_use_buffers(void *object,
 		struct spa_buffer *buf;
 		struct pw_memmap *mm;
 
-		mm = pw_mempool_map_id(c->remote->pool, buffers[i].mem_id,
+		mm = pw_mempool_map_id(c->pool, buffers[i].mem_id,
 				fl, buffers[i].offset, buffers[i].size, NULL);
 		if (mm == NULL) {
 			pw_log_warn(NAME" %p: can't map memory id %u: %m", c, buffers[i].mem_id);
@@ -1589,7 +1575,7 @@ static int client_node_port_use_buffers(void *object,
 				struct pw_memblock *bm;
 				struct pw_memmap *bmm;
 
-				bm = pw_mempool_find_id(c->remote->pool, mem_id);
+				bm = pw_mempool_find_id(c->pool, mem_id);
 				if (bm == NULL) {
 					pw_log_error(NAME" %p: unknown buffer mem %u", c, mem_id);
 					res = -ENODEV;
@@ -1667,7 +1653,7 @@ static int client_node_port_set_io(void *object,
 		goto exit;
 	}
 
-	if ((mm = pw_mempool_find_tag(c->remote->pool, tag, sizeof(tag))) != NULL)
+	if ((mm = pw_mempool_find_tag(c->pool, tag, sizeof(tag))) != NULL)
 		pw_memmap_free(mm);
 
         if (mem_id == SPA_ID_INVALID) {
@@ -1675,7 +1661,7 @@ static int client_node_port_set_io(void *object,
                 size = 0;
         }
         else {
-		mm = pw_mempool_map_id(c->remote->pool, mem_id,
+		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
                         pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
@@ -1727,7 +1713,7 @@ static int client_node_set_activation(void *object,
 		size = 0;
 	}
 	else {
-		mm = pw_mempool_map_id(c->remote->pool, mem_id,
+		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
 			pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
@@ -2094,7 +2080,6 @@ jack_client_t * jack_client_open (const char *client_name,
                                   jack_status_t *status, ...)
 {
 	struct client *client;
-	bool busy = true;
 	struct spa_dict props;
 	struct spa_dict_item items[6];
 	const struct spa_support *support;
@@ -2156,37 +2141,18 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_thread_loop_start(client->context.loop);
 
 	pw_thread_loop_lock(client->context.loop);
-        client->remote = pw_remote_new(client->context.core,
+
+        client->core_proxy = pw_core_connect(client->context.core,
 				pw_properties_new(
 					PW_KEY_CLIENT_NAME, client_name,
 					PW_KEY_CLIENT_API, "jack",
 					NULL),
 				0);
-
-        pw_remote_add_listener(client->remote, &client->remote_listener, &remote_events, client);
-
-        if (pw_remote_connect(client->remote) < 0)
+	if (client->core_proxy == NULL)
 		goto server_failed;
 
-	while (busy) {
-		const char *error = NULL;
+	client->pool = pw_core_proxy_get_mempool(client->core_proxy);
 
-		switch (pw_remote_get_state(client->remote, &error)) {
-		case PW_REMOTE_STATE_ERROR:
-			goto server_failed;
-
-		case PW_REMOTE_STATE_CONNECTED:
-			busy = false;
-			break;
-
-		default:
-			break;
-		}
-		if (busy)
-		        pw_thread_loop_wait(client->context.loop);
-
-	}
-	client->core_proxy = pw_remote_get_core_proxy(client->remote);
 	pw_core_proxy_add_listener(client->core_proxy,
                                                &client->core_listener,
                                                &core_events, client);
@@ -2195,7 +2161,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_registry_proxy_add_listener(client->registry_proxy,
                                                &client->registry_listener,
                                                &registry_events, client);
-
 
 	props = SPA_DICT_INIT(items, 0);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_NAME, client_name);

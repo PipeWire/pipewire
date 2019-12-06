@@ -23,8 +23,10 @@
  */
 
 int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
+					    const struct spa_dict *props,
 					    void (*done_callback) (void *data, int res),
 					    void *data);
 int pw_protocol_native_connect_portal_screencast(struct pw_protocol_client *client,
+					    const struct spa_dict *props,
 					    void (*done_callback) (void *data, int res),
 					    void *data);

@@ -19,6 +19,7 @@
 
 #include <errno.h>
 
+#include <spa/utils/result.h>
 #include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
@@ -808,7 +809,32 @@ static void complete_operations(pa_context *c, int seq)
 static void core_info(void *data, const struct pw_core_info *info)
 {
 	pa_context *c = data;
+	bool first = c->core_info == NULL;
+
+	pw_log_debug("context %p: info", c);
+
+	if (first) {
+		pa_context_set_state(c, PA_CONTEXT_AUTHORIZING);
+		pa_context_set_state(c, PA_CONTEXT_SETTING_NAME);
+	}
+
 	c->core_info = pw_core_info_update(c->core_info, info);
+
+	if (first)
+		pa_context_set_state(c, PA_CONTEXT_READY);
+}
+
+static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
+{
+	pa_context *c = data;
+
+	pw_log_error("context %p: error id:%u seq:%d res:%d (%s): %s", c,
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == 0) {
+		if (!c->disconnect)
+			context_fail(c, PA_ERR_CONNECTIONTERMINATED);
+	}
 }
 
 static void core_done(void *data, uint32_t id, int seq)
@@ -819,50 +845,10 @@ static void core_done(void *data, uint32_t id, int seq)
 }
 
 static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_EVENTS,
+	PW_VERSION_CORE_PROXY_EVENTS,
 	.info = core_info,
-	.done = core_done
-};
-
-static void remote_state_changed(void *data, enum pw_remote_state old,
-				 enum pw_remote_state state, const char *error)
-{
-	pa_context *c = data;
-
-	switch(state) {
-	case PW_REMOTE_STATE_ERROR:
-		if (c->core_proxy) {
-			spa_hook_remove(&c->core_listener);
-			c->core_proxy = NULL;
-		}
-		context_fail(c, PA_ERR_CONNECTIONTERMINATED);
-		break;
-	case PW_REMOTE_STATE_UNCONNECTED:
-		if (c->core_proxy) {
-			spa_hook_remove(&c->core_listener);
-			c->core_proxy = NULL;
-		}
-		if (!c->disconnect)
-			context_fail(c, PA_ERR_CONNECTIONTERMINATED);
-		break;
-	case PW_REMOTE_STATE_CONNECTING:
-		pa_context_set_state(c, PA_CONTEXT_CONNECTING);
-		break;
-	case PW_REMOTE_STATE_CONNECTED:
-		pa_context_set_state(c, PA_CONTEXT_AUTHORIZING);
-		pa_context_set_state(c, PA_CONTEXT_SETTING_NAME);
-
-		c->core_proxy = pw_remote_get_core_proxy(c->remote);
-		pw_core_proxy_add_listener(c->core_proxy, &c->core_listener, &core_events, c);
-
-		pa_context_set_state(c, PA_CONTEXT_READY);
-		break;
-	}
-}
-
-static const struct pw_remote_events remote_events = {
-	PW_VERSION_REMOTE_EVENTS,
-	.state_changed = remote_state_changed,
+	.done = core_done,
+	.error = core_error
 };
 
 struct success_data {
@@ -916,7 +902,6 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 {
 	struct pw_core *core;
 	struct pw_loop *loop;
-	struct pw_remote *r;
 	struct pw_properties *props;
 	pa_context *c;
 
@@ -930,19 +915,14 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 		pw_properties_update(props, &p->props->dict);
 
 	loop = mainloop->userdata;
-	core = pw_core_new(loop, NULL, 0);
-
-	r = pw_remote_new(core, props, sizeof(struct pa_context));
-	if (r == NULL)
+	core = pw_core_new(loop, NULL, sizeof(struct pa_context));
+	if (core == NULL)
 		return NULL;
 
-	c = pw_remote_get_user_data(r);
+	c = pw_core_get_user_data(core);
+	c->props = props;
 	c->loop = loop;
 	c->core = core;
-	c->remote = r;
-
-	pw_remote_add_listener(r, &c->remote_listener, &remote_events, c);
-
 	c->proplist = p ? pa_proplist_copy(p) : pa_proplist_new();
 	c->refcount = 1;
 	c->client_index = PA_INVALID_INDEX;
@@ -974,6 +954,7 @@ static void context_free(pa_context *c)
 
 	context_unlink(c);
 
+	pw_properties_free(c->props);
 	if (c->proplist)
 		pa_proplist_free(c->proplist);
 	if (c->core_info)
@@ -1060,7 +1041,7 @@ pa_context_state_t pa_context_get_state(PA_CONST pa_context *c)
 SPA_EXPORT
 int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t flags, const pa_spawn_api *api)
 {
-	int res;
+	int res = 0;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -1073,7 +1054,14 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 
 	c->no_fail = !!(flags & PA_CONTEXT_NOFAIL);
 
-	res = pw_remote_connect(c->remote);
+	pa_context_set_state(c, PA_CONTEXT_CONNECTING);
+
+	c->core_proxy = pw_core_connect(c->core, pw_properties_copy(c->props), 0);
+	if (c->core_proxy == NULL) {
+                context_fail(c, PA_ERR_CONNECTIONREFUSED);
+		res = -1;
+	}
+	pw_core_proxy_add_listener(c->core_proxy, &c->core_listener, &core_events, c);
 
 	pa_context_unref(c);
 
@@ -1087,8 +1075,10 @@ void pa_context_disconnect(pa_context *c)
 	pa_assert(c->refcount >= 1);
 
 	c->disconnect = true;
-	pw_remote_disconnect(c->remote);
-
+	if (c->core_proxy) {
+		pw_core_proxy_disconnect(c->core_proxy);
+		c->core_proxy = NULL;
+	}
 	if (PA_CONTEXT_IS_GOOD(c->state))
 		pa_context_set_state(c, PA_CONTEXT_TERMINATED);
 }
@@ -1191,6 +1181,7 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 	struct spa_dict_item items[1];
 	pa_operation *o;
 	struct success_data *d;
+	int changed;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -1200,7 +1191,14 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 
 	items[0] = SPA_DICT_ITEM_INIT(PA_PROP_APPLICATION_NAME, name);
 	dict = SPA_DICT_INIT(items, 1);
-	pw_remote_update_properties(c->remote, &dict);
+	changed = pw_properties_update(c->props, &dict);
+
+	if (changed) {
+		struct pw_client_proxy *client_proxy;
+
+		client_proxy = pw_core_proxy_get_client_proxy(c->core_proxy);
+		pw_client_proxy_update_properties(client_proxy, &c->props->dict);
+	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;

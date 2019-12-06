@@ -283,8 +283,8 @@ struct pa_context {
 
 	struct pw_loop *loop;
 	struct pw_core *core;
-	struct pw_remote *remote;
-	struct spa_hook remote_listener;
+
+	struct pw_properties *props;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;

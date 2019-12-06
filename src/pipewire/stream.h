@@ -247,7 +247,7 @@ enum pw_stream_flags {
 /** Create a new unconneced \ref pw_stream \memberof pw_stream
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
-pw_stream_new(struct pw_remote *remote,		/**< a \ref pw_remote */
+pw_stream_new(struct pw_core_proxy *proxy,	/**< a \ref pw_core_proxy */
 	      const char *name,			/**< a stream media name */
 	      struct pw_properties *props	/**< stream properties, ownership is taken */);
 
@@ -270,7 +270,7 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 
 const char *pw_stream_get_name(struct pw_stream *stream);
 
-struct pw_remote *pw_stream_get_remote(struct pw_stream *stream);
+struct pw_core_proxy *pw_stream_get_core_proxy(struct pw_stream *stream);
 
 const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 

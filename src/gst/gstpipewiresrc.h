@@ -75,8 +75,7 @@ struct _GstPipeWireSrc {
   struct pw_thread_loop *main_loop;
 
   struct pw_core *core;
-  struct pw_remote *remote;
-  struct spa_hook remote_listener;
+  struct pw_core_proxy *core_proxy;
 
   struct pw_stream *stream;
   struct spa_hook stream_listener;

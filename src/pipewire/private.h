@@ -753,6 +753,8 @@ struct pw_core_proxy {
 	int recv_seq;				/**< last received sequence number */
 	int send_seq;				/**< last protocol result code */
 
+	unsigned int destroyed:1;
+
 	void *user_data;			/**< extra user data */
 };
 

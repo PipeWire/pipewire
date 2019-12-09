@@ -183,30 +183,35 @@ static void core_proxy_destroy(void *data)
 {
 	struct pw_core_proxy *core_proxy = data;
 	struct pw_stream *stream, *s2;
-	struct pw_filter *filter;
+	struct pw_filter *filter, *f2;
+
+	if (core_proxy->destroyed)
+		return;
+
+	core_proxy->destroyed = true;
 
 	pw_log_debug(NAME" %p: core proxy destroy", core_proxy);
+	spa_list_remove(&core_proxy->link);
 
 	spa_list_for_each_safe(stream, s2, &core_proxy->stream_list, link)
 		pw_stream_disconnect(stream);
+	spa_list_for_each_safe(filter, f2, &core_proxy->filter_list, link)
+		pw_filter_disconnect(filter);
 
 	pw_protocol_client_disconnect(core_proxy->conn);
-
 	core_proxy->client_proxy = NULL;
 
 	pw_map_for_each(&core_proxy->objects, destroy_proxy, core_proxy);
 	pw_map_reset(&core_proxy->objects);
-
-	pw_mempool_destroy(core_proxy->pool);
 
 	spa_list_consume(stream, &core_proxy->stream_list, link)
 		pw_stream_destroy(stream);
 	spa_list_consume(filter, &core_proxy->filter_list, link)
 		pw_filter_destroy(filter);
 
-	pw_protocol_client_destroy(core_proxy->conn);
+	pw_mempool_destroy(core_proxy->pool);
 
-	spa_list_remove(&core_proxy->link);
+	pw_protocol_client_destroy(core_proxy->conn);
 
 	pw_map_clear(&core_proxy->objects);
 

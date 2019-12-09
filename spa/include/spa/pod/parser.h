@@ -484,7 +484,8 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 			}
 			SPA_POD_PARSER_SKIP(*format, args);
 		} else {
-			if (pod->type == SPA_TYPE_Choice && *format != 'V')
+			if (pod->type == SPA_TYPE_Choice && *format != 'V' &&
+			    SPA_POD_CHOICE_TYPE(pod) == SPA_CHOICE_None)
 				pod = SPA_POD_CHOICE_CHILD(pod);
 
 			SPA_POD_PARSER_COLLECT(pod, *format, args);

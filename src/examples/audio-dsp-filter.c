@@ -135,7 +135,10 @@ int main(int argc, char *argv[])
 
 	/* Now connect this filter. We ask that our process function is
 	 * called in a realtime thread. */
-	pw_filter_connect(data.filter, PW_FILTER_FLAG_RT_PROCESS, NULL, 0);
+	if (pw_filter_connect(data.filter, PW_FILTER_FLAG_RT_PROCESS, NULL, 0) < 0) {
+		fprintf(stderr, "can't connect\n");
+		return -1;
+	}
 
 	/* and wait while we let things run */
 	pw_main_loop_run(data.loop);

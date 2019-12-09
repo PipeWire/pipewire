@@ -97,7 +97,6 @@ struct stream {
 	enum pw_stream_flags flags;
 
 	struct pw_node *node;
-	struct spa_port_info port_info;
 
 	struct spa_node impl_node;
 	struct spa_node_methods node_methods;
@@ -106,6 +105,8 @@ struct stream {
 	struct spa_io_buffers *io;
 	struct spa_io_position *position;
 
+	uint32_t change_mask_all;
+	struct spa_port_info port_info;
 	struct spa_list param_list;
 	struct spa_param_info params[5];
 
@@ -123,9 +124,7 @@ struct stream {
 	struct pw_time time;
 
 	unsigned int disconnecting:1;
-	unsigned int free_data:1;
 	unsigned int free_proxy:1;
-	unsigned int alloc_buffers:1;
 	unsigned int draining:1;
 };
 
@@ -171,8 +170,10 @@ static struct param *add_param(struct stream *impl,
 	spa_list_append(&impl->param_list, &p->link);
 
 	idx = get_param_index(id);
-	if (idx != -1)
+	if (idx != -1) {
+		impl->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
+	}
 
 	return p;
 }
@@ -401,19 +402,13 @@ static void emit_node_info(struct stream *d)
 	spa_node_emit_info(&d->hooks, &info);
 }
 
-static void emit_port_info(struct stream *d)
+static void emit_port_info(struct stream *d, bool full)
 {
-	struct spa_port_info info;
-
-	info = SPA_PORT_INFO_INIT();
-	info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	info.flags = 0;
-	if (d->alloc_buffers)
-		info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
-	info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	info.params = d->params;
-	info.n_params = 5;
-	spa_node_emit_port_info(&d->hooks, d->direction, 0, &info);
+	if (full)
+		d->port_info.change_mask = d->change_mask_all;
+	if (d->port_info.change_mask != 0)
+		spa_node_emit_port_info(&d->hooks, d->direction, 0, &d->port_info);
+	d->port_info.change_mask = 0;
 }
 
 static int impl_add_listener(void *object,
@@ -427,7 +422,7 @@ static int impl_add_listener(void *object,
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
 	emit_node_info(d);
-	emit_port_info(d);
+	emit_port_info(d, true);
 
 	spa_hook_list_join(&d->hooks, &save);
 
@@ -517,7 +512,7 @@ static int impl_port_set_param(void *object,
 {
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
-	int res, idx;
+	int res;
 
 	if (impl->disconnecting)
 		return param == NULL ? 0 : -EIO;
@@ -534,12 +529,7 @@ static int impl_port_set_param(void *object,
 	if (stream->state == PW_STREAM_STATE_ERROR)
 		return -EIO;
 
-	idx = get_param_index(id);
-	if (idx != -1) {
-		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
-		impl->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
-		emit_port_info(impl);
-	}
+	emit_port_info(impl, false);
 
 	return 0;
 }
@@ -855,20 +845,31 @@ static int node_event_param(void *object, int seq,
 		uint32_t iid, choice, n_vals;
 		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 };
 
+		if (spa_pod_parse_object(param,
+					SPA_TYPE_OBJECT_PropInfo, NULL,
+					SPA_PROP_INFO_id,   SPA_POD_Id(&iid)) < 0)
+			return -EINVAL;
+
+		c = find_control(stream, iid);
+		if (c != NULL)
+			return 0;
+
 		c = calloc(1, sizeof(*c) + SPA_POD_SIZE(param));
 		c->info = SPA_MEMBER(c, sizeof(*c), struct spa_pod);
 		memcpy(c->info, param, SPA_POD_SIZE(param));
 		c->control.n_values = 0;
 		c->control.max_values = 0;
 		c->control.values = c->values;
-		spa_list_append(&stream->controls, &c->link);
 
 		if (spa_pod_parse_object(c->info,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
-					SPA_PROP_INFO_id,   SPA_POD_Id(&iid),
 					SPA_PROP_INFO_name, SPA_POD_String(&c->control.name),
-					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type)) < 0)
+					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type)) < 0) {
+			free(c);
 			return -EINVAL;
+		}
+
+		spa_list_append(&stream->controls, &c->link);
 
 		pod = spa_pod_get_values(type, &n_vals, &choice);
 
@@ -1067,6 +1068,7 @@ stream_new(struct pw_core *core, const char *name,
 
 	impl->core = core;
 
+
 	return impl;
 
 error_properties:
@@ -1128,7 +1130,6 @@ pw_stream_new_simple(struct pw_loop *loop,
 	}
 
 	this = &impl->this;
-	impl->free_data = true;
 	impl->data.core = core;
 	pw_stream_add_listener(this, &impl->data.stream_listener, events, data);
 
@@ -1190,7 +1191,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 		free(c);
 	}
 
-	if (impl->free_data)
+	if (impl->data.core)
 		pw_core_destroy(impl->data.core);
 
 	free(impl);
@@ -1340,11 +1341,22 @@ pw_stream_connect(struct pw_stream *stream,
 			SPA_VERSION_NODE,
 			&impl->node_methods, impl);
 
+	impl->change_mask_all =
+		SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PARAMS;
+
+	impl->port_info = SPA_PORT_INFO_INIT();
+	impl->port_info.change_mask = impl->change_mask_all;
+	impl->port_info.flags = 0;
+	if (SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ALLOC_BUFFERS))
+		impl->port_info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
 	impl->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	impl->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	impl->port_info.params = impl->params;
+	impl->port_info.n_params = 5;
 
 	clear_params(impl, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++)
@@ -1368,8 +1380,6 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "1");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
-
-	impl->alloc_buffers = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ALLOC_BUFFERS);
 
 	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
 			direction == PW_DIRECTION_INPUT ? "Input" : "Output",
@@ -1480,7 +1490,8 @@ int pw_stream_disconnect(struct pw_stream *stream)
 		pw_node_destroy(impl->node);
 		impl->node = NULL;
 	}
-	if (stream->core_proxy && impl->free_proxy) {
+	if (impl->free_proxy) {
+		impl->free_proxy = false;
 		spa_hook_remove(&stream->core_listener);
 		spa_list_remove(&stream->link);
 		pw_core_proxy_disconnect(stream->core_proxy);
@@ -1516,8 +1527,15 @@ int pw_stream_update_params(struct pw_stream *stream,
 			uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	int res;
+
 	pw_log_debug(NAME" %p: update params", stream);
-	return update_params(impl, SPA_ID_INVALID, params, n_params);
+	if ((res = update_params(impl, SPA_ID_INVALID, params, n_params)) < 0)
+		return res;
+
+	emit_port_info(impl, false);
+
+	return res;
 }
 
 SPA_EXPORT

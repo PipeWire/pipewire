@@ -96,8 +96,6 @@ struct port {
 	struct spa_list param_list;
 	struct spa_param_info params[5];
 
-	unsigned int alloc_buffers:1;
-
 	struct spa_io_buffers *io;
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -189,12 +187,14 @@ static struct param *add_param(struct filter *impl, struct port *port,
 		if (idx != -1) {
 			port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			port->params[idx].flags |= SPA_PARAM_INFO_READ;
+			port->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
 		}
 	} else {
 		spa_list_append(&impl->param_list, &p->link);
 		if (idx != -1) {
 			impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			impl->params[idx].flags |= SPA_PARAM_INFO_READ;
+			impl->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
 		}
 	}
 	return p;
@@ -882,7 +882,6 @@ static const struct pw_proxy_events proxy_events = {
 static void on_core_error(void *_data, uint32_t id, int seq, int res, const char *message)
 {
 	struct pw_filter *filter = _data;
-	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 
 	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", filter,
 			id, seq, res, spa_strerror(res), message);
@@ -948,19 +947,6 @@ filter_new(struct pw_core *core, const char *name,
 	this->state = PW_FILTER_STATE_UNCONNECTED;
 
 	impl->core = core;
-
-	impl->info = SPA_NODE_INFO_INIT();
-	impl->info.max_input_ports = MAX_PORTS;
-	impl->info.max_output_ports = MAX_PORTS;
-	impl->change_mask_all =
-		SPA_NODE_CHANGE_MASK_FLAGS |
-		SPA_NODE_CHANGE_MASK_PROPS |
-		SPA_NODE_CHANGE_MASK_PARAMS;
-	impl->info.flags = SPA_NODE_FLAG_RT;
-	impl->info.props = &this->properties->dict;
-	impl->info.params = impl->params;
-	impl->info.n_params = SPA_N_ELEMENTS(impl->params);
-	impl->info.change_mask = impl->change_mask_all;
 
 	return impl;
 
@@ -1170,11 +1156,24 @@ pw_filter_connect(struct pw_filter *filter,
 			SPA_VERSION_NODE,
 			&impl_node, impl);
 
+	impl->change_mask_all =
+		SPA_NODE_CHANGE_MASK_FLAGS |
+		SPA_NODE_CHANGE_MASK_PROPS |
+		SPA_NODE_CHANGE_MASK_PARAMS;
+
+	impl->info = SPA_NODE_INFO_INIT();
+	impl->info.max_input_ports = MAX_PORTS;
+	impl->info.max_output_ports = MAX_PORTS;
+	impl->info.flags = SPA_NODE_FLAG_RT;
+	impl->info.props = &filter->properties->dict;
 	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
 	impl->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	impl->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	impl->info.params = impl->params;
+	impl->info.n_params = SPA_N_ELEMENTS(impl->params);
+	impl->info.change_mask = impl->change_mask_all;
 
 	clear_params(impl, NULL, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++) {
@@ -1331,7 +1330,6 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	if ((p = alloc_port(impl, direction, port_data_size)) == NULL)
 		goto error_cleanup;
 
-	p->alloc_buffers = SPA_FLAG_IS_SET(flags, PW_FILTER_PORT_FLAG_ALLOC_BUFFERS);
 	p->props = props;
 	p->flags = flags;
 
@@ -1349,9 +1347,10 @@ void *pw_filter_add_port(struct pw_filter *filter,
 
 	p->change_mask_all = SPA_PORT_CHANGE_MASK_FLAGS |
 		SPA_PORT_CHANGE_MASK_PROPS;
+	p->info = SPA_PORT_INFO_INIT();
 	p->info.change_mask = 0;
 	p->info.flags = 0;
-	if (p->alloc_buffers)
+	if (SPA_FLAG_IS_SET(flags, PW_FILTER_PORT_FLAG_ALLOC_BUFFERS))
 		p->info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	p->info.props = &p->props->dict;
 	p->change_mask_all |= SPA_PORT_CHANGE_MASK_PARAMS;

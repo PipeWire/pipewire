@@ -50,7 +50,7 @@ build:
   script:
      - ./autogen.sh -Ddocs=true -Daudiomixer=true -Daudiotestsrc=true -Dtest=true -Dvideotestsrc=true -Dvolume=true
      - make
-     - make test
+     - XDG_RUNTIME_DIR=$PWD/build make test
      - DESTDIR=$PWD/build/i make install
      - PREFIX=$PWD/build/i/usr/local ./check_missing_headers.sh
   artifacts:

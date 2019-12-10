@@ -83,7 +83,6 @@ struct impl {
 	unsigned int use_converter:1;
 	unsigned int have_format:1;
 	unsigned int started:1;
-	unsigned int driver:1;
 	unsigned int master:1;
 };
 
@@ -193,18 +192,9 @@ static int link_io(struct impl *this)
 
 static void emit_node_info(struct impl *this, bool full)
 {
-	if (this->add_listener)
-		return;
-
 	if (full)
 		this->info.change_mask = this->info_all;
-
 	if (this->info.change_mask) {
-		struct spa_dict_item items[1];
-
-		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, this->driver ? "1" : "0");
-		this->info.props = &SPA_DICT_INIT(items, 1);
-
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -596,7 +586,6 @@ static const struct spa_node_events convert_node_events = {
 static void slave_info(void *data, const struct spa_node_info *info)
 {
 	struct impl *this = data;
-	const char *str;
 
 	if (info->max_input_ports > 0)
 		this->direction = SPA_DIRECTION_INPUT;
@@ -610,11 +599,10 @@ static void slave_info(void *data, const struct spa_node_info *info)
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output");
 
-	if (info->props) {
-		if ((str = spa_dict_lookup(info->props, SPA_KEY_NODE_DRIVER)) != NULL) {
-			this->driver = strcmp(str, "true") == 0 || atoi(str) == 1;
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
-		}
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+		this->info.props = info->props;
+		emit_node_info(this, false);
 	}
 }
 
@@ -638,7 +626,8 @@ static void slave_port_info(void *data,
 			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 		}
 	}
-	emit_node_info(this, false);
+	if (!this->add_listener)
+		emit_node_info(this, false);
 }
 
 static const struct spa_node_events slave_node_events = {
@@ -703,15 +692,21 @@ static int impl_node_add_listener(void *object,
 
 	this->add_listener = true;
 
-	if (this->use_converter) {
+	if (events->info || events->port_info) {
+
 		spa_zero(l);
-		spa_node_add_listener(this->convert, &l, &convert_node_events, this);
+		spa_node_add_listener(this->slave, &l, &slave_node_events, this);
 		spa_hook_remove(&l);
+
+		if (this->use_converter) {
+			spa_zero(l);
+			spa_node_add_listener(this->convert, &l, &convert_node_events, this);
+			spa_hook_remove(&l);
+		} else {
+			emit_node_info(this, false);
+		}
 	}
-
 	this->add_listener = false;
-
-	emit_node_info(this, true);
 
 	spa_hook_list_join(&this->hooks, &save);
 

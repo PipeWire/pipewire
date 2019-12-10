@@ -40,7 +40,7 @@ struct data {
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
 
-	struct pw_node *node;
+	struct spa_node *node;
 	const char *library;
 	const char *factory;
 	const char *path;
@@ -67,32 +67,33 @@ static const struct pw_node_proxy_events node_events = {
 
 static int make_node(struct data *data)
 {
-	struct pw_factory *factory;
 	struct pw_properties *props;
-
-        factory = pw_core_find_factory(data->core, "spa-node-factory");
-	if (factory == NULL)
-		return -1;
+	struct spa_handle *hndl;
+	void *iface;
+	int res;
 
         props = pw_properties_new(SPA_KEY_LIBRARY_NAME, data->library,
-                                  SPA_KEY_FACTORY_NAME, data->factory, NULL);
+                                  SPA_KEY_FACTORY_NAME, data->factory,
+				  NULL);
+
+
+	hndl = pw_core_load_spa_handle(data->core, data->factory, &props->dict);
+	if (hndl == NULL)
+		return -errno;
+
+	if ((res = spa_handle_get_interface(hndl, SPA_TYPE_INTERFACE_Node, &iface)) < 0)
+		return res;
+
+	data->node = iface;
 
 	if (data->path) {
 		pw_properties_set(props, PW_KEY_NODE_AUTOCONNECT, "1");
 		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
 	}
 
-        data->node = pw_factory_create_object(factory,
-					      NULL,
-					      PW_TYPE_INTERFACE_Node,
-					      PW_VERSION_NODE_PROXY,
-					      props, SPA_ID_INVALID);
-	if (data->node == NULL)
-		return -errno;
-
-	pw_node_set_active(data->node, true);
-
-	data->proxy = pw_core_proxy_export(data->core_proxy, PW_TYPE_INTERFACE_Node, NULL, data->node, 0);
+	data->proxy = pw_core_proxy_export(data->core_proxy,
+			SPA_TYPE_INTERFACE_Node, props,
+			data->node, 0);
 	if (data->proxy == NULL)
 		return -errno;
 

@@ -99,7 +99,6 @@ struct port {
 	struct spa_port_info info;
 	struct pw_properties *properties;
 
-	unsigned int have_format:1;
 	unsigned int removed:1;
 	uint32_t n_params;
 	struct spa_pod **params;
@@ -452,19 +451,13 @@ do_update_port(struct node *this,
 	uint32_t i;
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
-		port->have_format = false;
-
 		spa_log_debug(this->log, NAME" %p: port %u update %d params", this, port->id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
 		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod *));
-
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
-
-			if (port->params[i] && spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
-				port->have_format = true;
 		}
 	}
 
@@ -722,12 +715,9 @@ do_port_use_buffers(struct impl *impl,
 
 	p = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x %d", this,
+	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
-			port_id, mix_id, buffers, n_buffers, flags, p->have_format);
-
-	if (!p->have_format)
-		return -EIO;
+			port_id, mix_id, buffers, n_buffers, flags);
 
 	if (direction == SPA_DIRECTION_OUTPUT)
 		mix_id = SPA_ID_INVALID;
@@ -1012,8 +1002,6 @@ static int client_node_port_buffers(void *data,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	p = GET_PORT(this, direction, port_id);
-	if (!p->have_format)
-		return -EIO;
 
 	if (direction == SPA_DIRECTION_OUTPUT)
 		mix_id = SPA_ID_INVALID;

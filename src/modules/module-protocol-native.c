@@ -686,7 +686,6 @@ error:
 			this->recv_seq, res, "connection error");
 	pw_loop_destroy_source(loop, impl->source);
 	impl->source = NULL;
-	pw_core_proxy_disconnect(this);
 }
 
 

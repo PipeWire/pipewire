@@ -222,7 +222,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	if (!proxy->removed) {
 		/* if the server did not remove this proxy, remove ourselves
 		 * from the proxy objects and schedule a destroy. */
-		if (proxy->core_proxy) {
+		if (proxy->core_proxy && !proxy->core_proxy->destroyed) {
 			proxy->zombie = true;
 			pw_core_proxy_destroy(proxy->core_proxy, proxy);
 		} else {

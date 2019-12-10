@@ -160,6 +160,13 @@ struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);
  * with the same seq number of the reply. */
 int pw_proxy_sync(struct pw_proxy *proxy, int seq);
 
+/** Set the global id this proxy is bound to. This is usually used internally
+ * and will also emit the bound event */
+int pw_proxy_set_bound_id(struct pw_proxy *proxy, uint32_t global_id);
+/** Get the global id bound to this proxy of SPA_ID_INVALID when not bound
+ * to a global */
+uint32_t pw_proxy_get_bound_id(struct pw_proxy *proxy);
+
 /** Generate an error for a proxy */
 int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error);
 int pw_proxy_errorf(struct pw_proxy *proxy, int res, const char *error, ...) SPA_PRINTF_FUNC(3, 4);

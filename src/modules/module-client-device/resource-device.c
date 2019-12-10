@@ -104,7 +104,7 @@ static void device_initialized(void *data)
 	struct pw_global *global = pw_device_get_global(device);
 
 	pw_log_debug("client-device %p: initialized global:%d", impl, global->id);
-	pw_resource_bound_id(impl->resource, global->id);
+	pw_resource_set_bound_id(impl->resource, global->id);
 }
 
 static const struct pw_device_events device_events = {

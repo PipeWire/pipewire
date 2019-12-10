@@ -91,7 +91,7 @@ static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
 
 	pw_log_debug(NAME" %p: proxy %u bound %u", this, id, global_id);
 	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
-		pw_proxy_emit_bound(proxy, global_id);
+		pw_proxy_set_bound_id(proxy, global_id);
 	}
 }
 

@@ -139,7 +139,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 
 	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_bound_id(resource, global->id);
+	pw_resource_set_bound_id(resource, global->id);
 
 	this->info.change_mask = ~0;
 	pw_module_resource_info(resource, &this->info);

@@ -692,6 +692,7 @@ struct pw_resource {
 	uint32_t permissions;		/**< resource permissions */
 	uint32_t type;			/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
+	uint32_t bound_id;		/**< global id we are bound to */
 
 	unsigned int removed:1;		/**< resource was removed from server */
 
@@ -717,6 +718,7 @@ struct pw_proxy {
 	uint32_t id;			/**< client side id */
 	uint32_t type;			/**< type of the interface */
 	uint32_t version;		/**< client side version */
+	uint32_t bound_id;		/**< global id we are bound to */
 	int refcount;
 	unsigned int zombie:1;		/**< proxy is removed locally and waiting to
 					  *  be removed from server */

@@ -122,7 +122,10 @@ void pw_resource_add_object_listener(struct pw_resource *resource,
 int pw_resource_ping(struct pw_resource *resource, int seq);
 
 /** Notify global id this resource is bound to */
-int pw_resource_bound_id(struct pw_resource *resource, uint32_t global_id);
+int pw_resource_set_bound_id(struct pw_resource *resource, uint32_t global_id);
+
+/** Get the global id this resource is bound to or SPA_ID_INVALID when not bound */
+uint32_t pw_resource_get_bound_id(struct pw_resource *resource);
 
 /** Generate an error for a resource */
 void pw_resource_error(struct pw_resource *resource, int res, const char *error);

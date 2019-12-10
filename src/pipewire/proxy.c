@@ -46,6 +46,7 @@ int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version)
 	proxy->refcount = 1;
 	proxy->type = type;
 	proxy->version = version;
+	proxy->bound_id = SPA_ID_INVALID;
 
 	proxy->id = pw_map_insert_new(&proxy->core_proxy->objects, proxy);
 	if (proxy->id == SPA_ID_INVALID) {
@@ -149,6 +150,20 @@ SPA_EXPORT
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy)
 {
 	return proxy->id;
+}
+
+SPA_EXPORT
+int pw_proxy_set_bound_id(struct pw_proxy *proxy, uint32_t global_id)
+{
+	proxy->bound_id = global_id;
+	pw_proxy_emit_bound(proxy, global_id);
+	return 0;
+}
+
+SPA_EXPORT
+uint32_t pw_proxy_get_bound_id(struct pw_proxy *proxy)
+{
+	return proxy->bound_id;
 }
 
 SPA_EXPORT

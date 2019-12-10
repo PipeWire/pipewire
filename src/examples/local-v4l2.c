@@ -50,12 +50,8 @@ struct data {
 	struct spa_source *timer;
 
 	struct pw_core *core;
-	struct pw_node *node;
+	struct pw_core_proxy *core_proxy;
 	struct spa_port_info port_info;
-
-	struct pw_node *v4l2;
-
-	struct pw_link *link;
 
 	struct spa_node impl_node;
 	struct spa_io_buffers *io;
@@ -99,12 +95,21 @@ static int impl_add_listener(void *object,
 	struct data *d = object;
 	struct spa_port_info info;
 	struct spa_hook_list save;
+	struct spa_param_info params[4];
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
 	info = SPA_PORT_INFO_INIT();
-	info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
+	info.change_mask =
+		SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PARAMS;
 	info.flags = 0;
+	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	params[3] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	info.params = params;
+	info.n_params = SPA_N_ELEMENTS(params);
 
 	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &info);
 
@@ -336,40 +341,55 @@ static const struct spa_node_methods impl_node = {
 
 static int make_nodes(struct data *data)
 {
-	struct pw_factory *factory;
 	struct pw_properties *props;
+	struct pw_proxy *out, *in;
 
-	data->node = pw_node_new(data->core, NULL, 0);
 	data->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
-	pw_node_set_implementation(data->node, &data->impl_node);
 
-	pw_node_register(data->node, NULL);
+	in = pw_core_proxy_export(data->core_proxy,
+			SPA_TYPE_INTERFACE_Node,
+			NULL,
+			&data->impl_node,
+			0);
 
-	factory = pw_core_find_factory(data->core, "spa-node-factory");
-	props = pw_properties_new(SPA_KEY_LIBRARY_NAME, "v4l2/libspa-v4l2",
-				  SPA_KEY_FACTORY_NAME, SPA_NAME_API_V4L2_SOURCE, NULL);
-	data->v4l2 = pw_factory_create_object(factory,
-					      NULL,
-					      PW_TYPE_INTERFACE_Node,
-					      PW_VERSION_NODE_PROXY,
-					      props,
-					      SPA_ID_INVALID);
-	if (data->v4l2 == NULL)
-		return -ENOMEM;
+	props = pw_properties_new(
+			SPA_KEY_LIBRARY_NAME, "v4l2/libspa-v4l2",
+			SPA_KEY_FACTORY_NAME, SPA_NAME_API_V4L2_SOURCE,
+			NULL);
 
-	data->link = pw_link_new(data->core,
-				 pw_node_find_port(data->v4l2, PW_DIRECTION_OUTPUT, 0),
-				 pw_node_find_port(data->node, PW_DIRECTION_INPUT, 0),
-				 NULL,
-				 NULL,
-				 0);
-	pw_link_register(data->link, NULL);
+	out = pw_core_proxy_create_object(data->core_proxy,
+			"spa-node-factory",
+			PW_TYPE_INTERFACE_Node,
+			PW_VERSION_NODE_PROXY,
+			&props->dict, 0);
 
-	pw_node_set_active(data->node, true);
-	pw_node_set_active(data->v4l2, true);
+
+	while (true) {
+
+		if (pw_proxy_get_bound_id(out) != SPA_ID_INVALID &&
+		    pw_proxy_get_bound_id(in) != SPA_ID_INVALID)
+			break;
+
+		pw_loop_iterate(pw_main_loop_get_loop(data->loop), -1);
+	}
+
+	pw_properties_clear(props);
+
+	pw_properties_setf(props,
+			PW_KEY_LINK_OUTPUT_NODE, "%d", pw_proxy_get_bound_id(out));
+	pw_properties_setf(props,
+			PW_KEY_LINK_INPUT_NODE, "%d", pw_proxy_get_bound_id(in));
+
+	pw_core_proxy_create_object(data->core_proxy,
+			"link-factory",
+			PW_TYPE_INTERFACE_Link,
+			PW_VERSION_LINK_PROXY,
+			&props->dict, 0);
+
+	pw_properties_free(props);
 
 	return 0;
 }
@@ -381,11 +401,16 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
+	data.core = pw_core_new(
+			pw_main_loop_get_loop(data.loop),
+			pw_properties_new(
+				PW_KEY_CORE_DAEMON, "0",
+				NULL), 0);
 
 	spa_hook_list_init(&data.hooks);
 
 	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL);
+	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());
@@ -398,12 +423,16 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	data.core_proxy = pw_core_connect_self(data.core, NULL, 0);
+	if (data.core_proxy == NULL) {
+		printf("can't connect to core: %m\n");
+		return -1;
+	}
+
 	make_nodes(&data);
 
 	pw_main_loop_run(data.loop);
 
-	pw_link_destroy(data.link);
-	pw_node_destroy(data.node);
 	pw_core_destroy(data.core);
 	pw_main_loop_destroy(data.loop);
 

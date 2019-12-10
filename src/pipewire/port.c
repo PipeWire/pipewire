@@ -917,6 +917,7 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 		pw_port_update_state(port, PW_PORT_STATE_CONFIGURE, NULL);
 
 	pw_node_emit_port_added(node, port);
+	emit_info_changed(port);
 
 	return 0;
 }

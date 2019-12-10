@@ -46,7 +46,7 @@ struct endpoint_stream {
 int endpoint_stream_init(struct endpoint_stream *this,
 		uint32_t id, uint32_t endpoint_id,
 		struct client_endpoint *client_ep,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties);
 
 void endpoint_stream_clear(struct endpoint_stream *this);

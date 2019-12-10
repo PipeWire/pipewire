@@ -54,7 +54,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
 
 /** Create a new global
  *
- * \param core a core object
+ * \param context a context object
  * \param type the type of the global
  * \param version the version of the type
  * \param properties extra properties
@@ -66,7 +66,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *c
  */
 SPA_EXPORT
 struct pw_global *
-pw_global_new(struct pw_core *core,
+pw_global_new(struct pw_context *context,
 	      uint32_t type,
 	      uint32_t version,
 	      struct pw_properties *properties,
@@ -90,13 +90,13 @@ pw_global_new(struct pw_core *core,
 
 	this = &impl->this;
 
-	this->core = core;
+	this->context = context;
 	this->type = type;
 	this->version = version;
 	this->func = func;
 	this->object = object;
 	this->properties = properties;
-	this->id = pw_map_insert_new(&core->globals, this);
+	this->id = pw_map_insert_new(&context->globals, this);
 	if (this->id == SPA_ID_INVALID) {
 		res = -errno;
 		pw_log_error(NAME" %p: can't allocate new id: %m", this);
@@ -121,7 +121,7 @@ error_cleanup:
 	return NULL;
 }
 
-/** register a global to the core registry
+/** register a global to the context registry
  *
  * \param global a global to add
  * \return 0 on success < 0 errno value on failure
@@ -133,15 +133,15 @@ int pw_global_register(struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_resource *registry;
-	struct pw_core *core = global->core;
+	struct pw_context *context = global->context;
 
 	if (impl->registered)
 		return -EEXIST;
 
-	spa_list_append(&core->global_list, &global->link);
+	spa_list_append(&context->global_list, &global->link);
 	impl->registered = true;
 
-	spa_list_for_each(registry, &core->registry_resource_list, link) {
+	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
 		pw_log_debug("registry %p: global %d %08x", registry, global->id, permissions);
 		if (PW_PERM_IS_R(permissions))
@@ -154,7 +154,7 @@ int pw_global_register(struct pw_global *global)
 	}
 
 	pw_log_debug(NAME" %p: registered %u", global, global->id);
-	pw_core_emit_global_added(core, global);
+	pw_context_emit_global_added(context, global);
 
 	return 0;
 }
@@ -162,13 +162,13 @@ int pw_global_register(struct pw_global *global)
 static int global_unregister(struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
-	struct pw_core *core = global->core;
+	struct pw_context *context = global->context;
 	struct pw_resource *resource;
 
 	if (!impl->registered)
 		return 0;
 
-	spa_list_for_each(resource, &core->registry_resource_list, link) {
+	spa_list_for_each(resource, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, resource->client);
 		pw_log_debug("registry %p: global %d %08x", resource, global->id, permissions);
 		if (PW_PERM_IS_R(permissions))
@@ -176,19 +176,19 @@ static int global_unregister(struct pw_global *global)
 	}
 
 	spa_list_remove(&global->link);
-	pw_map_remove(&core->globals, global->id);
+	pw_map_remove(&context->globals, global->id);
 	impl->registered = false;
 
 	pw_log_debug(NAME" %p: unregistered %u", global, global->id);
-	pw_core_emit_global_removed(core, global);
+	pw_context_emit_global_removed(context, global);
 
 	return 0;
 }
 
 SPA_EXPORT
-struct pw_core *pw_global_get_core(struct pw_global *global)
+struct pw_context *pw_global_get_context(struct pw_global *global)
 {
-	return global->core;
+	return global->context;
 }
 
 SPA_EXPORT
@@ -284,7 +284,7 @@ SPA_EXPORT
 int pw_global_update_permissions(struct pw_global *global, struct pw_client *client,
 		uint32_t old_permissions, uint32_t new_permissions)
 {
-	struct pw_core *core = global->core;
+	struct pw_context *context = global->context;
 	struct pw_resource *resource, *t;
 	bool do_hide, do_show;
 
@@ -296,7 +296,7 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 
 	pw_global_emit_permissions_changed(global, client, old_permissions, new_permissions);
 
-	spa_list_for_each(resource, &core->registry_resource_list, link) {
+	spa_list_for_each(resource, &context->registry_resource_list, link) {
 		if (resource->client != client)
 			continue;
 
@@ -321,7 +321,7 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_client *cli
 		if (resource->client != client)
 			continue;
 
-		/* don't ever destroy the core resource */
+		/* don't ever destroy the context resource */
 		if (!PW_PERM_IS_R(new_permissions) && global->id != 0)
 			pw_resource_destroy(resource);
 		else

@@ -51,7 +51,7 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct impl {
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct spa_loop *loop;
 	struct spa_system *system;
@@ -486,7 +486,7 @@ static void idle_func(struct spa_source *source)
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct impl *impl;
 	struct spa_loop *loop;
 	struct spa_system *system;
@@ -494,7 +494,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	uint32_t n_support;
 	int res;
 
-	support = pw_core_get_support(core, &n_support);
+	support = pw_context_get_support(context, &n_support);
 
 	loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
         if (loop == NULL)
@@ -510,7 +510,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	pw_log_debug("module %p: new", impl);
 
-	impl->core = core;
+	impl->context = context;
 	impl->loop = loop;
 	impl->system = system;
 

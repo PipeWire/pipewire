@@ -181,7 +181,7 @@ static void *create_object(void *_data,
 	struct pw_client *client = NULL;
 	struct pw_node *output_node, *input_node;
 	struct pw_port *outport, *inport;
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_global *global;
 	struct pw_link *link;
 	uint32_t output_node_id, input_node_id;
@@ -192,7 +192,7 @@ static void *create_object(void *_data,
 	bool linger;
 
 	client = pw_resource_get_client(resource);
-	core = pw_client_get_core(client);
+	context = pw_client_get_context(client);
 
 	if (properties == NULL)
 		goto error_properties;
@@ -213,13 +213,13 @@ static void *create_object(void *_data,
 	str = pw_properties_get(properties, PW_KEY_LINK_INPUT_PORT);
 	input_port_id = str ? pw_properties_parse_int(str) : -1;
 
-	global = pw_core_find_global(core, output_node_id);
+	global = pw_context_find_global(context, output_node_id);
 	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
 		goto error_output;
 
 	output_node = pw_global_get_object(global);
 
-	global = pw_core_find_global(core, input_node_id);
+	global = pw_context_find_global(context, input_node_id);
 	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
 		goto error_input;
 
@@ -229,7 +229,7 @@ static void *create_object(void *_data,
 		outport = get_port(output_node, SPA_DIRECTION_OUTPUT);
 	}
 	else {
-		global = pw_core_find_global(core, output_port_id);
+		global = pw_context_find_global(context, output_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
 			goto error_output_port;
 
@@ -241,7 +241,7 @@ static void *create_object(void *_data,
 	if (input_port_id == SPA_ID_INVALID)
 		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	else {
-		global = pw_core_find_global(core, input_port_id);
+		global = pw_context_find_global(context, input_port_id);
 		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
 			goto error_input_port;
 
@@ -258,7 +258,7 @@ static void *create_object(void *_data,
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
 
 
-	link = pw_link_new(core, outport, inport, NULL, properties, sizeof(struct link_data));
+	link = pw_link_new(context, outport, inport, NULL, properties, sizeof(struct link_data));
 	properties = NULL;
 	if (link == NULL) {
 		res = -errno;
@@ -364,11 +364,11 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "link-factory",
 				 PW_TYPE_INTERFACE_Link,
 				 PW_VERSION_LINK_PROXY,

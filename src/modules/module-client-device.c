@@ -47,7 +47,7 @@ struct pw_proxy *pw_core_proxy_spa_device_export(struct pw_core_proxy *core_prox
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size);
 
-struct pw_protocol *pw_protocol_native_ext_client_device_init(struct pw_core *core);
+struct pw_protocol *pw_protocol_native_ext_client_device_init(struct pw_context *context);
 
 struct factory_data {
 	struct pw_factory *this;
@@ -160,11 +160,11 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "client-device",
 				 SPA_TYPE_INTERFACE_Device,
 				 SPA_VERSION_DEVICE,
@@ -185,11 +185,11 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				      &impl_factory,
 				      data);
 
-	pw_protocol_native_ext_client_device_init(core);
+	pw_protocol_native_ext_client_device_init(context);
 
 	data->export_spadevice.type = SPA_TYPE_INTERFACE_Device;
 	data->export_spadevice.func = pw_core_proxy_spa_device_export;
-	pw_core_register_export_type(core, &data->export_spadevice);
+	pw_context_register_export_type(context, &data->export_spadevice);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

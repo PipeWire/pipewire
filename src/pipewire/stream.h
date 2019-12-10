@@ -145,7 +145,7 @@ extern "C" {
  * The stream object provides a convenient way to send and
  * receive data streams from/to PipeWire.
  *
- * See also \ref page_streams and \ref page_core_api
+ * See also \ref page_streams and \ref page_context_api
  */
 struct pw_stream;
 

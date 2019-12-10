@@ -43,7 +43,7 @@ struct session {
 
 int session_init(struct session *this,
 		struct client_session *client_sess,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties);
 
 void session_clear(struct session *this);

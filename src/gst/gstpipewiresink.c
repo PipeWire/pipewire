@@ -283,7 +283,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   sink->loop = pw_loop_new (NULL);
   sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
-  sink->core = pw_core_new (sink->loop, NULL, 0);
+  sink->context = pw_context_new (sink->loop, NULL, 0);
   GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
 }
 
@@ -706,9 +706,9 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
   pw_thread_loop_lock (pwsink->main_loop);
 
   if (pwsink->fd == -1)
-    pwsink->core_proxy = pw_core_connect (pwsink->core, NULL, 0);
+    pwsink->core_proxy = pw_context_connect (pwsink->context, NULL, 0);
   else
-    pwsink->core_proxy = pw_core_connect_fd (pwsink->core, dup(pwsink->fd), NULL, 0);
+    pwsink->core_proxy = pw_context_connect_fd (pwsink->context, dup(pwsink->fd), NULL, 0);
 
   if (pwsink->core_proxy == NULL)
     goto connect_error;

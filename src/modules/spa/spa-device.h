@@ -27,7 +27,7 @@
 
 #include <spa/monitor/device.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/device.h>
 
 #ifdef __cplusplus
@@ -40,7 +40,7 @@ enum pw_spa_device_flags {
 };
 
 struct pw_device *
-pw_spa_device_new(struct pw_core *core,
+pw_spa_device_new(struct pw_context *context,
 		  enum pw_spa_device_flags flags,
 		  struct spa_device *device,
 		  struct spa_handle *handle,
@@ -48,7 +48,7 @@ pw_spa_device_new(struct pw_core *core,
 		  size_t user_data_size);
 
 struct pw_device *
-pw_spa_device_load(struct pw_core *core,
+pw_spa_device_load(struct pw_context *context,
 		   const char *factory_name,
 		   enum pw_spa_device_flags flags,
 		   struct pw_properties *properties,

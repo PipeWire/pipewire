@@ -43,7 +43,7 @@ extern "C" {
  */
 struct pw_client;
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/global.h>
 #include <pipewire/introspect.h>
 #include <pipewire/properties.h>
@@ -74,7 +74,7 @@ struct pw_client;
  *
  * \section sec_page_client_resources Resources
  *
- * When a client binds to core global object, a resource is made for this
+ * When a client binds to context global object, a resource is made for this
  * binding and a unique id is assigned to the resources. The client and
  * server will use this id as the destination when exchanging messages.
  * See also \ref page_resource
@@ -111,7 +111,7 @@ struct pw_client_events {
 
 /** Create a new client. This is mainly used by protocols. */
 struct pw_client *
-pw_client_new(struct pw_core *core,		/**< the core object */
+pw_client_new(struct pw_context *context,		/**< the context object */
 	      struct pw_properties *properties,	/**< client properties */
 	      size_t user_data_size		/**< extra user data size */);
 
@@ -138,10 +138,10 @@ int pw_client_update_permissions(struct pw_client *client, uint32_t n_permission
 /** Get the client properties */
 const struct pw_properties *pw_client_get_properties(struct pw_client *client);
 
-/** Get the core used to create this client */
-struct pw_core *pw_client_get_core(struct pw_client *client);
+/** Get the context used to create this client */
+struct pw_context *pw_client_get_context(struct pw_client *client);
 
-/** Get the client core resource */
+/** Get the client context resource */
 struct pw_resource *pw_client_get_core_resource(struct pw_client *client);
 
 /** Get a resource with the given id */

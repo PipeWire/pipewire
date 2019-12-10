@@ -35,7 +35,7 @@
 struct data {
 	struct pw_main_loop *loop;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -51,7 +51,7 @@ static int make_device(struct data *data)
 	struct pw_factory *factory;
 	struct pw_properties *props;
 
-        factory = pw_core_find_factory(data->core, "spa-device-factory");
+        factory = pw_context_find_factory(data->context, "spa-device-factory");
 	if (factory == NULL)
 		return -1;
 
@@ -111,13 +111,13 @@ int main(int argc, char *argv[])
 	l = pw_main_loop_get_loop(data.loop);
         pw_loop_add_signal(l, SIGINT, do_quit, &data);
         pw_loop_add_signal(l, SIGTERM, do_quit, &data);
-	data.core = pw_core_new(l, NULL, 0);
+	data.context = pw_context_new(l, NULL, 0);
 	data.library = argv[1];
 	data.factory = argv[2];
 
-	pw_module_load(data.core, "libpipewire-module-spa-device-factory", NULL, NULL);
+	pw_module_load(data.context, "libpipewire-module-spa-device-factory", NULL, NULL);
 
-        data.core_proxy = pw_core_connect(data.core, NULL, 0);
+        data.core_proxy = pw_context_connect(data.context, NULL, 0);
 	if (data.core_proxy == NULL) {
 		pw_log_error("can't connect %m");
 		return -1;
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

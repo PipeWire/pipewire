@@ -186,7 +186,7 @@ static int parse_message(struct pw_client_node0_transport *trans, void *message)
  * \memberof pw_client_node0_transport
  */
 struct pw_client_node0_transport *
-pw_client_node0_transport_new(struct pw_core *core,
+pw_client_node0_transport_new(struct pw_context *context,
 		uint32_t max_input_ports, uint32_t max_output_ports)
 {
 	struct transport *impl;
@@ -207,7 +207,7 @@ pw_client_node0_transport_new(struct pw_core *core,
 	trans = &impl->trans;
 	impl->offset = 0;
 
-	impl->mem = pw_mempool_alloc(core->pool,
+	impl->mem = pw_mempool_alloc(context->pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
 			PW_MEMBLOCK_FLAG_MAP |
 			PW_MEMBLOCK_FLAG_SEAL,

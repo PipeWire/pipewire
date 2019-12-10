@@ -45,7 +45,7 @@ struct pw_port;
 struct pw_link;
 struct pw_control;
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/introspect.h>
 #include <pipewire/node.h>
 

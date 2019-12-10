@@ -321,11 +321,11 @@ static const struct pw_protocol_marshal pw_protocol_native_metadata_impl_marshal
 	.client_demarshal = pw_protocol_native_metadata_client_method_demarshal,
 };
 
-int pw_protocol_native_ext_metadata_init(struct pw_core *core)
+int pw_protocol_native_ext_metadata_init(struct pw_context *context)
 {
 	struct pw_protocol *protocol;
 
-	protocol = pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native);
+	protocol = pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native);
 	if (protocol == NULL)
 		return -EPROTO;
 

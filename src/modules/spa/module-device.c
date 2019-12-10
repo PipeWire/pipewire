@@ -29,7 +29,7 @@
 #include <getopt.h>
 #include <limits.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/log.h>
 #include <pipewire/module.h>
 #include <pipewire/utils.h>
@@ -48,7 +48,7 @@ static const struct spa_dict_item module_props[] = {
 
 struct device_data {
 	struct pw_device *this;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct spa_hook module_listener;
 };
@@ -73,7 +73,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	struct pw_properties *props = NULL;
 	char **argv = NULL;
 	int n_tokens;
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_device *device;
         struct device_data *data;
 	int res;
@@ -93,7 +93,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 		}
 	}
 
-	device = pw_spa_device_load(core,
+	device = pw_spa_device_load(context,
 				argv[0],
 				0,
 				props,
@@ -107,7 +107,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	data = pw_spa_device_get_user_data(device);
 	data->this = device;
-	data->core = core;
+	data->context = context;
 
 	pw_log_debug("module %p: new", module);
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);

@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 
 struct pw_daemon_config {
 	struct spa_list commands;
@@ -45,7 +45,7 @@ int pw_daemon_config_load_file(struct pw_daemon_config *config, const char *file
 
 int pw_daemon_config_load(struct pw_daemon_config *config, char **err);
 
-int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_core *core);
+int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_context *context);
 
 #ifdef __cplusplus
 }

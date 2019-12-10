@@ -504,7 +504,7 @@ const char *pw_get_client_name(void)
  * \memberof pw_pipewire
  */
 SPA_EXPORT
-void pw_fill_connect_properties(struct pw_core *core, struct pw_properties *properties)
+void pw_fill_connect_properties(struct pw_context *context, struct pw_properties *properties)
 {
 	const char *val;
 
@@ -534,10 +534,10 @@ void pw_fill_connect_properties(struct pw_core *core, struct pw_properties *prop
 		pw_properties_set(properties, PW_KEY_WINDOW_X11_DISPLAY,
 				  getenv("DISPLAY"));
 	}
-	pw_properties_set(properties, PW_KEY_CORE_VERSION, core->info.version);
-	pw_properties_set(properties, PW_KEY_CORE_NAME, core->info.name);
+	pw_properties_set(properties, PW_KEY_CORE_VERSION, context->info.version);
+	pw_properties_set(properties, PW_KEY_CORE_NAME, context->info.name);
 
-	if ((val = pw_properties_get(core->properties, PW_KEY_CORE_DAEMON)))
+	if ((val = pw_properties_get(context->properties, PW_KEY_CORE_DAEMON)))
 		pw_properties_set(properties, PW_KEY_CORE_DAEMON, val);
 }
 
@@ -549,7 +549,7 @@ void pw_fill_connect_properties(struct pw_core *core, struct pw_properties *prop
  * \memberof pw_pipewire
  */
 SPA_EXPORT
-void pw_fill_stream_properties(struct pw_core *core, struct pw_properties *properties)
+void pw_fill_stream_properties(struct pw_context *context, struct pw_properties *properties)
 {
 }
 

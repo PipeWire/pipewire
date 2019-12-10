@@ -123,7 +123,7 @@ static void check_properties(struct pw_device *device)
 }
 
 SPA_EXPORT
-struct pw_device *pw_device_new(struct pw_core *core,
+struct pw_device *pw_device_new(struct pw_context *context,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
@@ -147,7 +147,7 @@ struct pw_device *pw_device_new(struct pw_core *core,
 		goto error_free;
 	}
 
-	this->core = core;
+	this->context = context;
 	this->properties = properties;
 
 	this->info.props = &properties->dict;
@@ -405,7 +405,7 @@ SPA_EXPORT
 int pw_device_register(struct pw_device *device,
 		       struct pw_properties *properties)
 {
-	struct pw_core *core = device->core;
+	struct pw_context *context = device->context;
 	struct object_data *od;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
@@ -430,7 +430,7 @@ int pw_device_register(struct pw_device *device,
 
 	pw_properties_update_keys(properties, &device->properties->dict, keys);
 
-        device->global = pw_global_new(core,
+        device->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Device,
 				       PW_VERSION_DEVICE_PROXY,
 				       properties,
@@ -439,7 +439,7 @@ int pw_device_register(struct pw_device *device,
 	if (device->global == NULL)
 		return -errno;
 
-	spa_list_append(&core->device_list, &device->link);
+	spa_list_append(&context->device_list, &device->link);
 	device->registered = true;
 
 	device->info.id = device->global->id;
@@ -534,7 +534,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 static void device_add_object(struct pw_device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_core *core = device->core;
+	struct pw_context *context = device->context;
 	struct spa_handle *handle;
 	struct pw_properties *props;
 	int res;
@@ -546,7 +546,7 @@ static void device_add_object(struct pw_device *device, uint32_t id,
 		return;
 	}
 
-	handle = pw_core_load_spa_handle(core, info->factory_name, info->props);
+	handle = pw_context_load_spa_handle(context, info->factory_name, info->props);
 	if (handle == NULL) {
 		pw_log_warn(NAME" %p: can't load handle %s: %m",
 				device, info->factory_name);
@@ -567,7 +567,7 @@ static void device_add_object(struct pw_device *device, uint32_t id,
 	case SPA_TYPE_INTERFACE_Node:
 	{
 		struct pw_node *node;
-		node = pw_node_new(core, props, sizeof(struct object_data));
+		node = pw_node_new(context, props, sizeof(struct object_data));
 
 		od = pw_node_get_user_data(node);
 		od->object = node;
@@ -578,7 +578,7 @@ static void device_add_object(struct pw_device *device, uint32_t id,
 	case SPA_TYPE_INTERFACE_Device:
 	{
 		struct pw_device *dev;
-		dev = pw_device_new(core, props, sizeof(struct object_data));
+		dev = pw_device_new(context, props, sizeof(struct object_data));
 
 		od = pw_device_get_user_data(dev);
 		od->object = dev;

@@ -68,7 +68,7 @@ typedef struct {
 	struct pw_loop *loop;
 	struct pw_thread_loop *main_loop;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -113,8 +113,8 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 	if (pw) {
 		if (pw->main_loop)
 			pw_thread_loop_stop(pw->main_loop);
-		if (pw->core)
-			pw_core_destroy(pw->core);
+		if (pw->context)
+			pw_context_destroy(pw->context);
 		if (pw->main_loop)
 			pw_thread_loop_destroy(pw->main_loop);
 		if (pw->fd >= 0)
@@ -814,7 +814,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
         pw->loop = pw_loop_new(NULL);
         pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");
-        pw->core = pw_core_new(pw->loop, NULL, 0);
+        pw->context = pw_context_new(pw->loop, NULL, 0);
 
 	props = pw_properties_new(NULL, NULL);
 	str = pw_get_prgname();
@@ -827,7 +827,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		goto error;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw->core_proxy = pw_core_connect(pw->core, props, 0);
+	pw->core_proxy = pw_context_connect(pw->context, props, 0);
 	if (pw->core_proxy == NULL) {
 		err = -errno;
 		pw_thread_loop_unlock(pw->main_loop);

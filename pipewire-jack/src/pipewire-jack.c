@@ -203,7 +203,7 @@ struct port {
 struct context {
 	struct pw_main_loop *main;
 	struct pw_thread_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_map globals;
 	struct spa_list free_objects;
@@ -2102,13 +2102,13 @@ jack_client_t * jack_client_open (const char *client_name,
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
 	client->context.main = pw_main_loop_new(NULL);
 	client->context.loop = pw_thread_loop_new(pw_main_loop_get_loop(client->context.main), client_name);
-        client->context.core = pw_core_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
+        client->context.context = pw_context_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
 	spa_list_init(&client->context.free_objects);
 	spa_list_init(&client->context.nodes);
 	spa_list_init(&client->context.ports);
 	spa_list_init(&client->context.links);
 
-	support = pw_core_get_support(client->context.core, &n_support);
+	support = pw_context_get_support(client->context.context, &n_support);
 
 	mix2 = mix2_c;
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
@@ -2142,7 +2142,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	pw_thread_loop_lock(client->context.loop);
 
-        client->core_proxy = pw_core_connect(client->context.core,
+        client->core_proxy = pw_context_connect(client->context.context,
 				pw_properties_new(
 					PW_KEY_CLIENT_NAME, client_name,
 					PW_KEY_CLIENT_API, "jack",
@@ -2250,7 +2250,7 @@ int jack_client_close (jack_client_t *client)
 	pw_thread_loop_stop(c->context.loop);
 
 	c->destroyed = true;
-	pw_core_destroy(c->context.core);
+	pw_context_destroy(c->context.context);
 	pw_thread_loop_destroy(c->context.loop);
 	pw_main_loop_destroy(c->context.main);
 

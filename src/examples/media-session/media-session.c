@@ -1523,7 +1523,7 @@ static const struct pw_proxy_events client_session_proxy_events = {
 
 static int start_session(struct impl *impl)
 {
-	impl->monitor_core = pw_core_connect(impl->this.core, NULL, 0);
+	impl->monitor_core = pw_context_connect(impl->this.context, NULL, 0);
 	if (impl->monitor_core == NULL) {
 		pw_log_error("can't start monitor: %m");
 		return -errno;
@@ -1579,14 +1579,14 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 
 
 static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_EVENTS,
+	PW_VERSION_CORE_PROXY_EVENTS,
 	.done = core_done,
 	.error = core_error
 };
 
 static int start_policy(struct impl *impl)
 {
-	impl->policy_core = pw_core_connect(impl->this.core, NULL, 0);
+	impl->policy_core = pw_context_connect(impl->this.context, NULL, 0);
 	if (impl->policy_core == NULL) {
 		pw_log_error("can't start policy: %m");
 		return -errno;
@@ -1614,11 +1614,11 @@ int main(int argc, char *argv[])
 
 	impl.loop = pw_main_loop_new(NULL);
 	impl.this.loop = pw_main_loop_get_loop(impl.loop);
-	impl.this.core = pw_core_new(impl.this.loop, NULL, 0);
+	impl.this.context = pw_context_new(impl.this.loop, NULL, 0);
 
-	pw_core_add_spa_lib(impl.this.core, "api.bluez5.*", "bluez5/libspa-bluez5");
-	pw_core_add_spa_lib(impl.this.core, "api.alsa.*", "alsa/libspa-alsa");
-	pw_core_add_spa_lib(impl.this.core, "api.v4l2.*", "v4l2/libspa-v4l2");
+	pw_context_add_spa_lib(impl.this.context, "api.bluez5.*", "bluez5/libspa-bluez5");
+	pw_context_add_spa_lib(impl.this.context, "api.alsa.*", "alsa/libspa-alsa");
+	pw_context_add_spa_lib(impl.this.context, "api.v4l2.*", "v4l2/libspa-v4l2");
 
 	pw_map_init(&impl.globals, 64, 64);
 	spa_list_init(&impl.global_list);
@@ -1627,7 +1627,7 @@ int main(int argc, char *argv[])
 	spa_list_init(&impl.sync_list);
 	spa_hook_list_init(&impl.hooks);
 
-	support = pw_core_get_support(impl.this.core, &n_support);
+	support = pw_context_get_support(impl.this.context, &n_support);
 
 	impl.dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	if (impl.dbus)
@@ -1644,7 +1644,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(impl.loop);
 
-	pw_core_destroy(impl.this.core);
+	pw_context_destroy(impl.this.context);
 	pw_main_loop_destroy(impl.loop);
 
 	return 0;

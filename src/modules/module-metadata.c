@@ -43,13 +43,13 @@ static const struct spa_dict_item module_props[] = {
 };
 
 
-void * pw_metadata_new(struct pw_core *core, struct pw_resource *resource,
+void * pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		   struct pw_properties *properties);
 
 struct pw_proxy *pw_core_proxy_metadata_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
 
-int pw_protocol_native_ext_metadata_init(struct pw_core *core);
+int pw_protocol_native_ext_metadata_init(struct pw_context *context);
 
 struct factory_data {
 	struct pw_factory *this;
@@ -79,7 +79,7 @@ static void *create_object(void *_data,
 	}
 
 	pw_log_debug(".");
-	result = pw_metadata_new(pw_client_get_core(client), metadata_resource, properties);
+	result = pw_metadata_new(pw_client_get_context(client), metadata_resource, properties);
 	if (result == NULL) {
 		res = -errno;
 		goto error_node;
@@ -146,15 +146,15 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 	int res;
 
-	if ((res = pw_protocol_native_ext_metadata_init(core)) < 0)
+	if ((res = pw_protocol_native_ext_metadata_init(context)) < 0)
 		return res;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "metadata",
 				 PW_TYPE_INTERFACE_Metadata,
 				 PW_VERSION_METADATA,
@@ -175,7 +175,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	data->export_metadata.type = PW_TYPE_INTERFACE_Metadata;
 	data->export_metadata.func = pw_core_proxy_metadata_export;
-	pw_core_register_export_type(core, &data->export_metadata);
+	pw_context_register_export_type(context, &data->export_metadata);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

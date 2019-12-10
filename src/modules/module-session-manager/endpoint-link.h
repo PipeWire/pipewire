@@ -46,7 +46,7 @@ struct endpoint_link {
 int endpoint_link_init(struct endpoint_link *this,
 		uint32_t id, uint32_t session_id,
 		struct client_session *client_sess,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties);
 
 void endpoint_link_clear(struct endpoint_link *this);

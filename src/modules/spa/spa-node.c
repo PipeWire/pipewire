@@ -106,7 +106,7 @@ static const struct pw_node_events node_events = {
 };
 
 struct pw_node *
-pw_spa_node_new(struct pw_core *core,
+pw_spa_node_new(struct pw_context *context,
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
 		struct spa_handle *handle,
@@ -117,7 +117,7 @@ pw_spa_node_new(struct pw_core *core,
 	struct impl *impl;
 	int res;
 
-	this = pw_node_new(core, properties, sizeof(struct impl) + user_data_size);
+	this = pw_node_new(context, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL) {
 		res = -errno;
 		goto error_exit;
@@ -161,7 +161,7 @@ void *pw_spa_node_get_user_data(struct pw_node *node)
 }
 
 static int
-setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_properties *pw_props)
+setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_properties *pw_props)
 {
 	int res;
 	struct spa_pod *props;
@@ -234,7 +234,7 @@ setup_props(struct pw_core *core, struct spa_node *spa_node, struct pw_propertie
 }
 
 
-struct pw_node *pw_spa_node_load(struct pw_core *core,
+struct pw_node *pw_spa_node_load(struct pw_context *context,
 				 const char *factory_name,
 				 enum pw_spa_node_flags flags,
 				 struct pw_properties *properties,
@@ -247,7 +247,7 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	struct spa_handle *handle;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(core,
+	handle = pw_context_load_spa_handle(context,
 			factory_name,
 			properties ? &properties->dict : NULL);
 	if (handle == NULL) {
@@ -265,12 +265,12 @@ struct pw_node *pw_spa_node_load(struct pw_core *core,
 	spa_node = iface;
 
 	if (properties != NULL) {
-		if (setup_props(core, spa_node, properties) < 0) {
+		if (setup_props(context, spa_node, properties) < 0) {
 			pw_log_warn("can't setup properties: %s", spa_strerror(res));
 		}
 	}
 
-	this = pw_spa_node_new(core, flags,
+	this = pw_spa_node_new(context, flags,
 			       spa_node, handle, properties, user_data_size);
 	if (this == NULL) {
 		res = -errno;

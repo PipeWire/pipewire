@@ -35,7 +35,7 @@ extern "C" {
  */
 struct pw_link;
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/introspect.h>
 #include <pipewire/port.h>
 
@@ -80,7 +80,7 @@ struct pw_link_events {
 /** Make a new link between two ports \memberof pw_link
  * \return a newly allocated link */
 struct pw_link *
-pw_link_new(struct pw_core *core,		/**< the core object */
+pw_link_new(struct pw_context *context,		/**< the context object */
 	    struct pw_port *output,		/**< an output port */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_pod *format_filter,	/**< an optional format filter */
@@ -100,8 +100,8 @@ void pw_link_add_listener(struct pw_link *link,
 int pw_link_register(struct pw_link *link,		/**< the link to register */
 		     struct pw_properties *properties	/**< extra properties */);
 
-/** Get the core of a link */
-struct pw_core *pw_link_get_core(struct pw_link *link);
+/** Get the context of a link */
+struct pw_context *pw_link_get_context(struct pw_link *link);
 
 /** Get the user_data of a link, the size of the memory is given when
   * constructing the link */

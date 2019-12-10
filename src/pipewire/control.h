@@ -43,7 +43,7 @@ extern "C" {
  */
 struct pw_control;
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/introspect.h>
 #include <pipewire/node.h>
 

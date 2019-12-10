@@ -56,7 +56,7 @@ struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct spa_list endpoint_list;
 	int seq;
@@ -474,6 +474,9 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 				peer = sm_object_get_data(obj, SESSION_KEY);
 				goto do_link;
 			}
+			if (obj->type == PW_TYPE_INTERFACE_Node) {
+				pw_log_debug(NAME " %p: target is node", impl);
+			}
 		}
 		else {
 			str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
@@ -542,7 +545,7 @@ void *sm_policy_ep_start(struct sm_media_session *session)
 		return NULL;
 
 	impl->session = session;
-	impl->core = session->core;
+	impl->context = session->context;
 
 	spa_list_init(&impl->endpoint_list);
 

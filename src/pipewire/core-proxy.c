@@ -129,9 +129,9 @@ static const struct pw_core_proxy_events core_events = {
 };
 
 SPA_EXPORT
-struct pw_core *pw_core_proxy_get_core(struct pw_core_proxy *core_proxy)
+struct pw_context *pw_core_proxy_get_context(struct pw_core_proxy *core_proxy)
 {
-	return core_proxy->core;
+	return core_proxy->context;
 }
 
 SPA_EXPORT
@@ -245,7 +245,7 @@ struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *core_proxy,
 	const struct pw_export_type *t;
 	int res;
 
-	t = pw_core_find_export_type(core_proxy->core, type);
+	t = pw_context_find_export_type(core_proxy->context, type);
 	if (t == NULL) {
 		res = -EPROTO;
 		goto error_export_type;
@@ -272,7 +272,7 @@ exit:
 	return NULL;
 }
 
-static struct pw_core_proxy *core_proxy_new(struct pw_core *core,
+static struct pw_core_proxy *core_proxy_new(struct pw_context *context,
 		struct pw_properties *properties, size_t user_data_size)
 {
 	struct pw_core_proxy *p;
@@ -292,10 +292,10 @@ static struct pw_core_proxy *core_proxy_new(struct pw_core *core,
 	if (properties == NULL)
 		goto error_properties;
 
-	pw_fill_connect_properties(core, properties);
+	pw_fill_connect_properties(context, properties);
 
 	p->proxy.core_proxy = p;
-	p->core = core;
+	p->context = context;
 	p->properties = properties;
 	p->pool = pw_mempool_new(NULL);
 	p->core_proxy = p;
@@ -308,17 +308,13 @@ static struct pw_core_proxy *core_proxy_new(struct pw_core *core,
 	spa_list_init(&p->filter_list);
 
 	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
-		if ((protocol_name = pw_properties_get(core->properties, PW_KEY_PROTOCOL)) == NULL) {
+		if ((protocol_name = pw_properties_get(context->properties, PW_KEY_PROTOCOL)) == NULL) {
 			protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
-			if ((protocol = pw_core_find_protocol(core, protocol_name)) == NULL) {
-				res = -ENOTSUP;
-				goto error_protocol;
-			}
 		}
 	}
 
 	if (protocol == NULL)
-		protocol = pw_core_find_protocol(core, protocol_name);
+		protocol = pw_context_find_protocol(context, protocol_name);
 	if (protocol == NULL) {
 		res = -ENOTSUP;
 		goto error_protocol;
@@ -346,7 +342,7 @@ static struct pw_core_proxy *core_proxy_new(struct pw_core *core,
 	pw_core_proxy_hello(p, PW_VERSION_CORE_PROXY);
 	pw_client_proxy_update_properties(p->client_proxy, &p->properties->dict);
 
-	spa_list_append(&core->core_proxy_list, &p->link);
+	spa_list_append(&context->core_proxy_list, &p->link);
 
 	return p;
 
@@ -376,13 +372,13 @@ exit_cleanup:
 
 SPA_EXPORT
 struct pw_core_proxy *
-pw_core_connect(struct pw_core *core, struct pw_properties *properties,
+pw_context_connect(struct pw_context *context, struct pw_properties *properties,
 	      size_t user_data_size)
 {
 	struct pw_core_proxy *core_proxy;
 	int res;
 
-	core_proxy = core_proxy_new(core, properties, user_data_size);
+	core_proxy = core_proxy_new(context, properties, user_data_size);
 	if (core_proxy == NULL)
 		return NULL;
 
@@ -401,13 +397,13 @@ error_free:
 
 SPA_EXPORT
 struct pw_core_proxy *
-pw_core_connect_fd(struct pw_core *core, int fd, struct pw_properties *properties,
+pw_context_connect_fd(struct pw_context *context, int fd, struct pw_properties *properties,
 	      size_t user_data_size)
 {
 	struct pw_core_proxy *core_proxy;
 	int res;
 
-	core_proxy = core_proxy_new(core, properties, user_data_size);
+	core_proxy = core_proxy_new(context, properties, user_data_size);
 	if (core_proxy == NULL)
 		return NULL;
 
@@ -424,7 +420,7 @@ error_free:
 
 SPA_EXPORT
 struct pw_core_proxy *
-pw_core_connect_self(struct pw_core *core, struct pw_properties *properties,
+pw_context_connect_self(struct pw_context *context, struct pw_properties *properties,
 	      size_t user_data_size)
 {
 	const struct pw_core_info *info;
@@ -434,10 +430,10 @@ pw_core_connect_self(struct pw_core *core, struct pw_properties *properties,
 	if (properties == NULL)
 		return NULL;
 
-	info = pw_core_get_info(core);
+	info = pw_context_get_info(context);
 	pw_properties_set(properties, PW_KEY_REMOTE_NAME, info->name);
 
-	return pw_core_connect(core, properties, user_data_size);
+	return pw_context_connect(context, properties, user_data_size);
 }
 
 SPA_EXPORT

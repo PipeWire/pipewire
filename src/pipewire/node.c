@@ -548,11 +548,11 @@ static const struct pw_global_events global_events = {
 	.destroy = global_destroy,
 };
 
-static inline void insert_driver(struct pw_core *core, struct pw_node *node)
+static inline void insert_driver(struct pw_context *context, struct pw_node *node)
 {
 	struct pw_node *n, *t;
 
-	spa_list_for_each_safe(n, t, &core->driver_list, driver_link) {
+	spa_list_for_each_safe(n, t, &context->driver_list, driver_link) {
 		if (n->priority_master < node->priority_master)
 			break;
 	}
@@ -563,7 +563,7 @@ SPA_EXPORT
 int pw_node_register(struct pw_node *this,
 		     struct pw_properties *properties)
 {
-	struct pw_core *core = this->core;
+	struct pw_context *context = this->context;
 	struct pw_port *port;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
@@ -594,7 +594,7 @@ int pw_node_register(struct pw_node *this,
 
 	pw_properties_update_keys(properties, &this->properties->dict, keys);
 
-	this->global = pw_global_new(core,
+	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Node,
 				     PW_VERSION_NODE_PROXY,
 				     properties,
@@ -603,9 +603,9 @@ int pw_node_register(struct pw_node *this,
 	if (this->global == NULL)
 		return -errno;
 
-	spa_list_append(&core->node_list, &this->link);
+	spa_list_append(&context->node_list, &this->link);
 	if (this->driver)
-		insert_driver(core, this);
+		insert_driver(context, this);
 	this->registered = true;
 
 	this->rt.activation->position.clock.id = this->global->id;
@@ -624,7 +624,7 @@ int pw_node_register(struct pw_node *this,
 	spa_list_for_each(port, &this->output_ports, link)
 		pw_port_register(port, NULL);
 
-	pw_core_recalc_graph(core);
+	pw_context_recalc_graph(context);
 
 	return 0;
 
@@ -755,7 +755,7 @@ static void check_properties(struct pw_node *node)
 		node->driver = driver;
 		if (node->registered) {
 			if (driver)
-				insert_driver(node->core, node);
+				insert_driver(node->context, node);
 			else
 				spa_list_remove(&node->driver_link);
 		}
@@ -779,7 +779,7 @@ static void check_properties(struct pw_node *node)
 	pw_log_debug(NAME" %p: driver:%d recalc:%d", node, node->driver, do_recalc);
 
 	if (do_recalc)
-		pw_core_recalc_graph(node->core);
+		pw_context_recalc_graph(node->context);
 }
 
 static void dump_states(struct pw_node *driver)
@@ -808,7 +808,7 @@ static inline int resume_node(struct pw_node *this, int status)
 	struct pw_node_target *t;
 	struct timespec ts;
 	struct pw_node_activation *activation = this->rt.activation;
-	struct spa_system *data_system = this->core->data_system;
+	struct spa_system *data_system = this->context->data_system;
 	uint64_t nsec;
 
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
@@ -853,7 +853,7 @@ static inline int process_node(void *data)
 	struct timespec ts;
         struct pw_port *p;
 	struct pw_node_activation *a = this->rt.activation;
-	struct spa_system *data_system = this->core->data_system;
+	struct spa_system *data_system = this->context->data_system;
 	int status;
 
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
@@ -905,7 +905,7 @@ static inline int process_node(void *data)
 static void node_on_fd_events(struct spa_source *source)
 {
 	struct pw_node *this = source->data;
-	struct spa_system *data_system = this->core->data_system;
+	struct spa_system *data_system = this->context->data_system;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn(NAME" %p: got socket error %08x", this, source->rmask);
@@ -943,14 +943,14 @@ static void reset_position(struct spa_io_position *pos)
 }
 
 SPA_EXPORT
-struct pw_node *pw_node_new(struct pw_core *core,
+struct pw_node *pw_node_new(struct pw_context *context,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_node *this;
 	size_t size;
-	struct spa_system *data_system = core->data_system;
+	struct spa_system *data_system = context->data_system;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -960,7 +960,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 	}
 
 	this = &impl->this;
-	this->core = core;
+	this->context = context;
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -987,7 +987,7 @@ struct pw_node *pw_node_new(struct pw_core *core,
 
 	size = sizeof(struct pw_node_activation);
 
-	this->activation = pw_mempool_alloc(this->core->pool,
+	this->activation = pw_mempool_alloc(this->context->pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
 			PW_MEMBLOCK_FLAG_SEAL |
 			PW_MEMBLOCK_FLAG_MAP,
@@ -997,13 +997,13 @@ struct pw_node *pw_node_new(struct pw_core *core,
                 goto error_clean;
 	}
 
-	impl->work = pw_work_queue_new(this->core->main_loop);
+	impl->work = pw_work_queue_new(this->context->main_loop);
 	if (impl->work == NULL) {
 		res = -errno;
 		goto error_clean;
 	}
 
-	this->data_loop = core->data_loop;
+	this->data_loop = context->data_loop;
 
 	spa_list_init(&this->slave_list);
 
@@ -1045,7 +1045,7 @@ error_clean:
 	if (this->activation)
 		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
-		spa_system_close(this->core->data_system, this->source.fd);
+		spa_system_close(this->context->data_system, this->source.fd);
 	free(impl);
 error_exit:
 	if (properties)
@@ -1067,9 +1067,9 @@ void * pw_node_get_user_data(struct pw_node *node)
 }
 
 SPA_EXPORT
-struct pw_core * pw_node_get_core(struct pw_node *node)
+struct pw_context * pw_node_get_context(struct pw_node *node)
 {
-	return node->core;
+	return node->context;
 }
 
 SPA_EXPORT
@@ -1532,7 +1532,7 @@ void pw_node_destroy(struct pw_node *node)
 		pw_global_destroy(node->global);
 	}
 
-	pw_core_recalc_graph(node->core);
+	pw_context_recalc_graph(node->context);
 
 	pw_log_debug(NAME" %p: free", node);
 	pw_node_emit_free(node);
@@ -1548,7 +1548,7 @@ void pw_node_destroy(struct pw_node *node)
 
 	clear_info(node);
 
-	spa_system_close(node->core->data_system, node->source.fd);
+	spa_system_close(node->context->data_system, node->source.fd);
 	free(impl);
 }
 
@@ -1831,7 +1831,7 @@ int pw_node_set_active(struct pw_node *node, bool active)
 			node_activate(node);
 
 		if (node->registered)
-			pw_core_recalc_graph(node->core);
+			pw_context_recalc_graph(node->context);
 	}
 	return 0;
 }

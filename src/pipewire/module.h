@@ -32,7 +32,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
 #define PIPEWIRE_MODULE_PREFIX "libpipewire-"
@@ -74,13 +74,13 @@ struct pw_module_events {
 };
 
 struct pw_module *
-pw_module_load(struct pw_core *core,
+pw_module_load(struct pw_context *context,
 	       const char *name,		/**< name of the module */
 	       const char *args			/**< arguments of the module */,
 	       struct pw_properties *properties	/**< extra global properties */);
 
-/** Get the core of a module */
-struct pw_core * pw_module_get_core(struct pw_module *module);
+/** Get the context of a module */
+struct pw_context * pw_module_get_context(struct pw_module *module);
 
 /** Get the global of a module */
 struct pw_global * pw_module_get_global(struct pw_module *module);

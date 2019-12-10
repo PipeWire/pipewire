@@ -261,7 +261,7 @@ static int v4l2_update_device_props(struct v4l2_object *obj)
 static struct v4l2_object *v4l2_create_object(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_core *core = impl->session->core;
+	struct pw_context *context = impl->session->context;
 	struct v4l2_object *obj;
 	struct spa_handle *handle;
 	int res;
@@ -274,7 +274,7 @@ static struct v4l2_object *v4l2_create_object(struct impl *impl, uint32_t id,
 		return NULL;
 	}
 
-	handle = pw_core_load_spa_handle(core,
+	handle = pw_context_load_spa_handle(context,
 			info->factory_name,
 			info->props);
 	if (handle == NULL) {
@@ -364,7 +364,7 @@ static const struct spa_device_events v4l2_udev_callbacks =
 
 void * sm_v4l2_monitor_start(struct sm_media_session *sess)
 {
-	struct pw_core *core = sess->core;
+	struct pw_context *context = sess->context;
 	struct impl *impl;
 	int res;
 	void *iface;
@@ -375,7 +375,7 @@ void * sm_v4l2_monitor_start(struct sm_media_session *sess)
 
 	impl->session = sess;
 
-	impl->handle = pw_core_load_spa_handle(core, SPA_NAME_API_V4L2_ENUM_UDEV, NULL);
+	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_V4L2_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {
 		res = -errno;
 		goto out_free;

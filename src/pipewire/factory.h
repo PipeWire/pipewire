@@ -37,7 +37,7 @@ extern "C" {
  */
 struct pw_factory;
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/client.h>
 #include <pipewire/global.h>
 #include <pipewire/properties.h>
@@ -69,7 +69,7 @@ struct pw_factory_implementation {
 				uint32_t new_id);
 };
 
-struct pw_factory *pw_factory_new(struct pw_core *core,
+struct pw_factory *pw_factory_new(struct pw_context *context,
 				  const char *name,
 				  uint32_t type,
 				  uint32_t version,

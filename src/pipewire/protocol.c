@@ -44,7 +44,7 @@ struct marshal {
 /** \endcond */
 
 SPA_EXPORT
-struct pw_protocol *pw_protocol_new(struct pw_core *core,
+struct pw_protocol *pw_protocol_new(struct pw_context *context,
 				    const char *name,
 				    size_t user_data_size)
 {
@@ -54,7 +54,7 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	if (protocol == NULL)
 		return NULL;
 
-	protocol->core = core;
+	protocol->context = context;
 	protocol->name = strdup(name);
 
 	spa_list_init(&protocol->marshal_list);
@@ -65,7 +65,7 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 	if (user_data_size > 0)
 		protocol->user_data = SPA_MEMBER(protocol, sizeof(struct impl), void);
 
-	spa_list_append(&core->protocol_list, &protocol->link);
+	spa_list_append(&context->protocol_list, &protocol->link);
 
 	pw_log_debug(NAME" %p: Created protocol %s", protocol, name);
 
@@ -73,9 +73,9 @@ struct pw_protocol *pw_protocol_new(struct pw_core *core,
 }
 
 SPA_EXPORT
-struct pw_core *pw_protocol_get_core(struct pw_protocol *protocol)
+struct pw_context *pw_protocol_get_context(struct pw_protocol *protocol)
 {
-	return protocol->core;
+	return protocol->context;
 }
 
 SPA_EXPORT
@@ -175,11 +175,11 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t ve
 }
 
 SPA_EXPORT
-struct pw_protocol *pw_core_find_protocol(struct pw_core *core, const char *name)
+struct pw_protocol *pw_context_find_protocol(struct pw_context *context, const char *name)
 {
 	struct pw_protocol *protocol;
 
-	spa_list_for_each(protocol, &core->protocol_list, link) {
+	spa_list_for_each(protocol, &context->protocol_list, link) {
 		if (strcmp(protocol->name, name) == 0)
 			return protocol;
 	}

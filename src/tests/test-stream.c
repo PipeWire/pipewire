@@ -133,7 +133,7 @@ static void stream_destroy_count(void *data)
 static void test_create(void)
 {
 	struct pw_main_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_core_proxy *core_proxy;
 	struct pw_stream *stream;
 	struct pw_stream_events stream_events = stream_events_error;
@@ -142,12 +142,12 @@ static void test_create(void)
 	struct pw_time tm;
 
 	loop = pw_main_loop_new(NULL);
-	core = pw_core_new(pw_main_loop_get_loop(loop),
+	context = pw_context_new(pw_main_loop_get_loop(loop),
 			pw_properties_new(
 				PW_KEY_CORE_DAEMON, "1",
 				NULL), 12);
-	spa_assert(core != NULL);
-	core_proxy = pw_core_connect_self(core, NULL, 0);
+	spa_assert(context != NULL);
+	core_proxy = pw_context_connect_self(context, NULL, 0);
 	spa_assert(core_proxy != NULL);
 	stream = pw_stream_new(core_proxy, "test", NULL);
 	spa_assert(stream != NULL);
@@ -178,14 +178,14 @@ static void test_create(void)
 	pw_stream_destroy(stream);
 	spa_assert(destroy_count == 1);
 
-	pw_core_destroy(core);
+	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
 }
 
 static void test_properties(void)
 {
 	struct pw_main_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_core_proxy *core_proxy;
 	const struct pw_properties *props;
 	struct pw_stream *stream;
@@ -194,12 +194,12 @@ static void test_properties(void)
 	struct spa_dict_item items[3];
 
 	loop = pw_main_loop_new(NULL);
-	core = pw_core_new(pw_main_loop_get_loop(loop),
+	context = pw_context_new(pw_main_loop_get_loop(loop),
 			pw_properties_new(
 				PW_KEY_CORE_DAEMON, "1",
 				NULL), 12);
-	spa_assert(core != NULL);
-	core_proxy = pw_core_connect_self(core, NULL, 0);
+	spa_assert(context != NULL);
+	core_proxy = pw_context_connect_self(context, NULL, 0);
 	spa_assert(core_proxy != NULL);
 	stream = pw_stream_new(core_proxy, "test",
 			pw_properties_new("foo", "bar",
@@ -230,7 +230,7 @@ static void test_properties(void)
 	/* check destroy */
 	destroy_count = 0;
 	stream_events.destroy = stream_destroy_count;
-	pw_core_destroy(core);
+	pw_context_destroy(context);
 	spa_assert(destroy_count == 1);
 
 	pw_main_loop_destroy(loop);

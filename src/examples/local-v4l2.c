@@ -49,7 +49,7 @@ struct data {
 	struct pw_main_loop *loop;
 	struct spa_source *timer;
 
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_core_proxy *core_proxy;
 	struct spa_port_info port_info;
 
@@ -401,7 +401,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(
+	data.context = pw_context_new(
 			pw_main_loop_get_loop(data.loop),
 			pw_properties_new(
 				PW_KEY_CORE_DAEMON, "0",
@@ -409,8 +409,8 @@ int main(int argc, char *argv[])
 
 	spa_hook_list_init(&data.hooks);
 
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL);
-	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL);
+	pw_module_load(data.context, "libpipewire-module-spa-node-factory", NULL, NULL);
+	pw_module_load(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());
@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	data.core_proxy = pw_core_connect_self(data.core, NULL, 0);
+	data.core_proxy = pw_context_connect_self(data.context, NULL, 0);
 	if (data.core_proxy == NULL) {
 		printf("can't connect to core: %m\n");
 		return -1;
@@ -433,7 +433,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

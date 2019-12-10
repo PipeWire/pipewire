@@ -297,7 +297,7 @@ static int endpoint_bind(void *_data, struct pw_client *client,
 
 int endpoint_init(struct endpoint *this,
 		struct client_endpoint *client_ep,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties)
 {
 	const char *keys[] = {
@@ -326,7 +326,7 @@ int endpoint_init(struct endpoint *this,
 
 	pw_properties_update_keys(properties, &this->props->dict, keys);
 
-	this->global = pw_global_new (core,
+	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_Endpoint,
 			PW_VERSION_ENDPOINT_PROXY,
 			properties, endpoint_bind, this);

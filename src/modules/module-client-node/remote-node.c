@@ -68,7 +68,7 @@ struct link {
 };
 
 struct node_data {
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_mempool *pool;
 
@@ -168,7 +168,7 @@ deactivate_mix(struct node_data *data, struct mix *mix)
 {
 	if (mix->active) {
 		pw_log_debug("node %p: mix %p deactivate", data, mix);
-		pw_loop_invoke(data->core->data_loop,
+		pw_loop_invoke(data->context->data_loop,
                        do_deactivate_mix, SPA_ID_INVALID, NULL, 0, true, mix);
 		mix->active = false;
 	}
@@ -190,7 +190,7 @@ activate_mix(struct node_data *data, struct mix *mix)
 {
 	if (!mix->active) {
 		pw_log_debug("node %p: mix %p activate", data, mix);
-		pw_loop_invoke(data->core->data_loop,
+		pw_loop_invoke(data->context->data_loop,
                        do_activate_mix, SPA_ID_INVALID, NULL, 0, false, mix);
 		mix->active = true;
 	}
@@ -1128,7 +1128,7 @@ static struct pw_proxy *node_export(struct pw_core_proxy *core_proxy, void *obje
 	data->pool = pw_core_proxy_get_mempool(core_proxy);
 	data->node = node;
 	data->do_free = do_free;
-	data->core = pw_node_get_core(node);
+	data->context = pw_node_get_context(node);
 	data->client_node = (struct pw_client_node_proxy *)client_node;
 	data->remote_id = SPA_ID_INVALID;
 
@@ -1183,7 +1183,7 @@ struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 {
 	struct pw_node *node;
 
-	node = pw_node_new(pw_core_proxy_get_core(core_proxy), props, 0);
+	node = pw_node_new(pw_core_proxy_get_context(core_proxy), props, 0);
 	if (node == NULL)
 		return NULL;
 

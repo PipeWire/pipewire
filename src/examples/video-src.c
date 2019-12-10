@@ -46,7 +46,7 @@ struct data {
 	struct pw_main_loop *loop;
 	struct spa_source *timer;
 
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_core_proxy *core_proxy;
 
 	struct pw_stream *stream;
@@ -280,11 +280,11 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
+	data.context = pw_context_new(pw_main_loop_get_loop(data.loop), NULL, 0);
 
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 
-	data.core_proxy = pw_core_connect(data.core, NULL, 0);
+	data.core_proxy = pw_context_connect(data.context, NULL, 0);
 	if (data.core_proxy == NULL)
 		return -1;
 
@@ -318,7 +318,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

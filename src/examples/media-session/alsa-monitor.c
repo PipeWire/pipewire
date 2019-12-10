@@ -539,7 +539,7 @@ static const struct sm_object_events device_events = {
 static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_core *core = impl->session->core;
+	struct pw_context *context = impl->session->context;
 	struct device *device;
 	struct spa_handle *handle;
 	int res;
@@ -553,7 +553,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		return NULL;
 	}
 
-	handle = pw_core_load_spa_handle(core,
+	handle = pw_context_load_spa_handle(context,
 			info->factory_name,
 			info->props);
 	if (handle == NULL) {
@@ -700,7 +700,7 @@ static int alsa_start_jack_device(struct impl *impl)
 
 void *sm_alsa_monitor_start(struct sm_media_session *session)
 {
-	struct pw_core *core = session->core;
+	struct pw_context *context = session->context;
 	struct impl *impl;
 	void *iface;
 	int res;
@@ -718,7 +718,7 @@ void *sm_alsa_monitor_start(struct sm_media_session *session)
 	else
 		pw_log_debug("got dbus connection %p", impl->conn);
 
-	impl->handle = pw_core_load_spa_handle(core, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
+	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {
 		res = -errno;
 		goto out_free;

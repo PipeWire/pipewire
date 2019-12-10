@@ -57,7 +57,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 		return NULL;
 
 	this = &impl->this;
-	this->core = client->core;
+	this->context = client->context;
 	this->client = client;
 	this->permissions = permissions;
 	this->type = type;

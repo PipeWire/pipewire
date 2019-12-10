@@ -69,7 +69,7 @@ struct queue {
 };
 
 struct data {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct spa_hook filter_listener;
 };
 
@@ -113,7 +113,7 @@ struct filter {
 
 	const char *path;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	enum pw_filter_flags flags;
 
@@ -341,7 +341,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
-		pw_loop_invoke(impl->core->main_loop,
+		pw_loop_invoke(impl->context->main_loop,
 			NULL, 0, NULL, 0, false, impl);
 		if (filter->state == PW_FILTER_STATE_STREAMING) {
 			pw_log_debug(NAME" %p: pause", filter);
@@ -558,7 +558,7 @@ static int map_data(struct filter *impl, struct spa_data *data, int prot)
 	void *ptr;
 	struct pw_map_range range;
 
-	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->core->sc_pagesize);
+	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
 	ptr = mmap(NULL, range.size, prot, MAP_SHARED, data->fd, range.offset);
 	if (ptr == MAP_FAILED) {
@@ -576,7 +576,7 @@ static int unmap_data(struct filter *impl, struct spa_data *data)
 {
 	struct pw_map_range range;
 
-	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->core->sc_pagesize);
+	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
 	if (munmap(SPA_MEMBER(data->data, -range.start, void), range.size) < 0)
 		pw_log_warn(NAME" %p: failed to unmap: %m", impl);
@@ -733,7 +733,7 @@ static void call_process(struct filter *impl)
 		do_call_process(NULL, false, 1, NULL, 0, impl);
 	}
 	else {
-		pw_loop_invoke(impl->core->main_loop,
+		pw_loop_invoke(impl->context->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
 	}
 }
@@ -752,7 +752,7 @@ do_call_drained(struct spa_loop *loop,
 
 static void call_drained(struct filter *impl)
 {
-	pw_loop_invoke(impl->core->main_loop,
+	pw_loop_invoke(impl->context->main_loop,
 		do_call_drained, 1, NULL, 0, false, impl);
 }
 
@@ -896,7 +896,7 @@ static const struct pw_core_proxy_events core_events = {
 };
 
 static struct filter *
-filter_new(struct pw_core *core, const char *name,
+filter_new(struct pw_context *context, const char *name,
 		struct pw_properties *props, const struct pw_properties *extra)
 {
 	struct filter *impl;
@@ -946,7 +946,7 @@ filter_new(struct pw_core *core, const char *name,
 
 	this->state = PW_FILTER_STATE_UNCONNECTED;
 
-	impl->core = core;
+	impl->context = context;
 
 	return impl;
 
@@ -965,9 +965,9 @@ struct pw_filter * pw_filter_new(struct pw_core_proxy *core_proxy, const char *n
 {
 	struct filter *impl;
 	struct pw_filter *this;
-	struct pw_core *core = core_proxy->core;
+	struct pw_context *context = core_proxy->context;
 
-	impl = filter_new(core, name, props, core_proxy->properties);
+	impl = filter_new(context, name, props, core_proxy->properties);
 	if (impl == NULL)
 		return NULL;
 
@@ -990,7 +990,7 @@ pw_filter_new_simple(struct pw_loop *loop,
 {
 	struct pw_filter *this;
 	struct filter *impl;
-	struct pw_core *core;
+	struct pw_context *context;
 	int res;
 
 	if (props == NULL)
@@ -998,11 +998,11 @@ pw_filter_new_simple(struct pw_loop *loop,
 	if (props == NULL)
 		return NULL;
 
-	core = pw_core_new(loop, NULL, 0);
+	context = pw_context_new(loop, NULL, 0);
 
-	pw_fill_connect_properties(core, props);
+	pw_fill_connect_properties(context, props);
 
-	impl = filter_new(core, name, props, props);
+	impl = filter_new(context, name, props, props);
 	if (impl == NULL) {
 		res = -errno;
 		goto error_cleanup;
@@ -1010,13 +1010,13 @@ pw_filter_new_simple(struct pw_loop *loop,
 
 	this = &impl->this;
 
-	impl->data.core = core;
+	impl->data.context = context;
 	pw_filter_add_listener(this, &impl->data.filter_listener, events, data);
 
 	return this;
 
 error_cleanup:
-	pw_core_destroy(core);
+	pw_context_destroy(context);
 	errno = -res;
 	return NULL;
 }
@@ -1064,8 +1064,8 @@ void pw_filter_destroy(struct pw_filter *filter)
 
 	free(filter->name);
 
-	if (impl->data.core)
-		pw_core_destroy(impl->data.core);
+	if (impl->data.context)
+		pw_context_destroy(impl->data.context);
 
 	free(impl);
 }
@@ -1184,7 +1184,7 @@ pw_filter_connect(struct pw_filter *filter,
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, NULL);
 
 	if (filter->core_proxy == NULL) {
-		filter->core_proxy = pw_core_connect(impl->core,
+		filter->core_proxy = pw_context_connect(impl->context,
 				pw_properties_copy(filter->properties), 0);
 		if (filter->core_proxy == NULL) {
 			res = -errno;
@@ -1481,7 +1481,7 @@ static inline int call_trigger(struct filter *impl)
 {
 	int res = 0;
 	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_DRIVER)) {
-		res = pw_loop_invoke(impl->core->data_loop,
+		res = pw_loop_invoke(impl->context->data_loop,
 			do_process, 1, NULL, 0, false, impl);
 	}
 	return res;
@@ -1580,7 +1580,7 @@ SPA_EXPORT
 int pw_filter_flush(struct pw_filter *filter, bool drain)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	pw_loop_invoke(impl->core->data_loop,
+	pw_loop_invoke(impl->context->data_loop,
 			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
 	return 0;
 }

@@ -41,7 +41,7 @@ struct resource_data {
 };
 
 SPA_EXPORT
-struct pw_factory *pw_factory_new(struct pw_core *core,
+struct pw_factory *pw_factory_new(struct pw_context *context,
 				  const char *name,
 				  uint32_t type,
 				  uint32_t version,
@@ -62,7 +62,7 @@ struct pw_factory *pw_factory_new(struct pw_core *core,
 		goto error_exit;
 	};
 
-	this->core = core;
+	this->context = context;
 	this->properties = properties;
 
 	this->info.name = strdup(name);
@@ -197,7 +197,7 @@ SPA_EXPORT
 int pw_factory_register(struct pw_factory *factory,
 			 struct pw_properties *properties)
 {
-	struct pw_core *core = factory->core;
+	struct pw_context *context = factory->context;
 	const char *keys[] = {
 		PW_KEY_MODULE_ID,
 		NULL
@@ -218,7 +218,7 @@ int pw_factory_register(struct pw_factory *factory,
 			spa_debug_type_find_name(pw_type_info(), factory->info.type));
 	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
 
-        factory->global = pw_global_new(core,
+        factory->global = pw_global_new(context,
 					PW_TYPE_INTERFACE_Factory,
 					PW_VERSION_FACTORY_PROXY,
 					properties,
@@ -227,7 +227,7 @@ int pw_factory_register(struct pw_factory *factory,
 	if (factory->global == NULL)
 		return -errno;
 
-	spa_list_append(&core->factory_list, &factory->link);
+	spa_list_append(&context->factory_list, &factory->link);
 	factory->registered = true;
 
 	factory->info.id = factory->global->id;

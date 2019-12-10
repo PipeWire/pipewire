@@ -209,7 +209,7 @@ static struct spa_pod *find_param(struct spa_pod **params, uint32_t n_params, ui
 }
 
 SPA_EXPORT
-int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
+int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		struct spa_node *outnode, uint32_t out_port_id,
 		struct spa_node *innode, uint32_t in_port_id,
 		struct pw_buffers *result)
@@ -241,12 +241,12 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 	}
 
-	if ((str = pw_properties_get(core->properties, "link.max-buffers")) != NULL)
+	if ((str = pw_properties_get(context->properties, "link.max-buffers")) != NULL)
 		max_buffers = pw_properties_parse_int(str);
 	else
 		max_buffers = MAX_BUFFERS;
 
-	if ((str = pw_properties_get(core->properties, PW_KEY_CPU_MAX_ALIGN)) != NULL)
+	if ((str = pw_properties_get(context->properties, PW_KEY_CPU_MAX_ALIGN)) != NULL)
 		align = pw_properties_parse_int(str);
 	else
 		align = MAX_ALIGN;
@@ -287,7 +287,7 @@ int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
 	data_strides[0] = stride;
 	data_aligns[0] = align;
 
-	if ((res = alloc_buffers(core->pool,
+	if ((res = alloc_buffers(context->pool,
 				 max_buffers,
 				 n_params,
 				 params,

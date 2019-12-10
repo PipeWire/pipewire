@@ -105,7 +105,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 {
 	struct bluez5_node *node;
 	struct impl *impl = obj->impl;
-	struct pw_core *core = impl->session->core;
+	struct pw_context *context = impl->session->context;
 	struct pw_factory *factory;
 	int res;
 	const char *str;
@@ -142,7 +142,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	node->object = obj;
 	node->id = id;
 
-	factory = pw_core_find_factory(core, "adapter");
+	factory = pw_context_find_factory(context, "adapter");
 	if (factory == NULL) {
 		pw_log_error("no adapter factory found");
 		res = -EIO;
@@ -236,7 +236,7 @@ static void bluez5_update_object(struct impl *impl, struct bluez5_object *obj,
 static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_core *core = impl->session->core;
+	struct pw_context *context = impl->session->context;
 	struct bluez5_object *obj;
 	struct spa_handle *handle;
 	int res;
@@ -249,7 +249,7 @@ static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id
 		return NULL;
 	}
 
-	handle = pw_core_load_spa_handle(core,
+	handle = pw_context_load_spa_handle(context,
 			info->factory_name,
 			info->props);
 	if (handle == NULL) {
@@ -346,12 +346,12 @@ static const struct spa_device_events bluez5_enum_callbacks =
 void *sm_bluez5_monitor_start(struct sm_media_session *session)
 {
 	struct spa_handle *handle;
-	struct pw_core *core = session->core;
+	struct pw_context *context = session->context;
 	int res;
 	void *iface;
 	struct impl *impl;
 
-	handle = pw_core_load_spa_handle(core, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
+	handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
 	if (handle == NULL) {
 		res = -errno;
 		goto out;

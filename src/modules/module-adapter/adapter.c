@@ -56,7 +56,7 @@ struct buffer {
 };
 
 struct node {
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_node *node;
 	struct spa_hook node_listener;
@@ -186,7 +186,7 @@ static int find_format(struct pw_node *node, enum pw_direction direction,
 }
 
 
-struct pw_node *pw_adapter_new(struct pw_core *core,
+struct pw_node *pw_adapter_new(struct pw_context *context,
 		struct pw_node *slave,
 		struct pw_properties *props,
 		size_t user_data_size)
@@ -255,7 +255,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 		goto error;
 	}
 
-	node = pw_spa_node_load(core,
+	node = pw_spa_node_load(context,
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
 				pw_properties_copy(props),
@@ -267,7 +267,7 @@ struct pw_node *pw_adapter_new(struct pw_core *core,
 	}
 
 	n = pw_spa_node_get_user_data(node);
-	n->core = core;
+	n->context = context;
 	n->node = node;
 	n->slave = slave;
 	n->direction = direction;

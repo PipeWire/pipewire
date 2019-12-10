@@ -46,7 +46,7 @@ struct remote_data;
 
 struct data {
 	struct pw_main_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct spa_list remotes;
 	struct remote_data *current;
@@ -253,7 +253,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	module = pw_module_load(data->core, a[0], n == 2 ? a[1] : NULL, NULL);
+	module = pw_module_load(data->context, a[0], n == 2 ? a[1] : NULL, NULL);
 	if (module == NULL) {
 		asprintf(error, "Could not load module");
 		return false;
@@ -422,7 +422,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	if (n == 1) {
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, a[0], NULL);
 	}
-	core_proxy = pw_core_connect(data->core, props, sizeof(struct remote_data));
+	core_proxy = pw_context_connect(data->context, props, sizeof(struct remote_data));
 	if (core_proxy == NULL) {
 		asprintf(error, "failed to connect: %m");
 		return false;
@@ -1410,7 +1410,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 			goto no_remote;
 	}
 
-	global = pw_core_find_global(data->core, atoi(a[0]));
+	global = pw_context_find_global(data->context, atoi(a[0]));
 	if (global == NULL) {
 		asprintf(error, "object %d does not exist", atoi(a[0]));
 		return false;
@@ -1650,10 +1650,10 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);
 
-	data.core = pw_core_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
-	info = pw_core_get_info(data.core);
+	data.context = pw_context_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
+	info = pw_context_get_info(data.context);
 
-	pw_module_load(data.core, "libpipewire-module-link-factory", NULL, NULL);
+	pw_module_load(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
 	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
 
@@ -1664,7 +1664,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

@@ -35,7 +35,7 @@
 struct data {
 	struct pw_main_loop *loop;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -77,7 +77,7 @@ static int make_node(struct data *data)
 				  NULL);
 
 
-	hndl = pw_core_load_spa_handle(data->core, data->factory, &props->dict);
+	hndl = pw_context_load_spa_handle(data->context, data->factory, &props->dict);
 	if (hndl == NULL)
 		return -errno;
 
@@ -144,15 +144,15 @@ int main(int argc, char *argv[])
 	l = pw_main_loop_get_loop(data.loop);
         pw_loop_add_signal(l, SIGINT, do_quit, &data);
         pw_loop_add_signal(l, SIGTERM, do_quit, &data);
-	data.core = pw_core_new(l, NULL, 0);
+	data.context = pw_context_new(l, NULL, 0);
 	data.library = argv[1];
 	data.factory = argv[2];
 	if (argc > 3)
 		data.path = argv[3];
 
-	pw_module_load(data.core, "libpipewire-module-spa-node-factory", NULL, NULL);
+	pw_module_load(data.context, "libpipewire-module-spa-node-factory", NULL, NULL);
 
-        data.core_proxy = pw_core_connect(data.core, NULL, 0);
+        data.core_proxy = pw_context_connect(data.context, NULL, 0);
 	if (data.core_proxy == NULL) {
 		printf("can't connect: %m\n");
 		return -1;
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

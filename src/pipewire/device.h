@@ -44,7 +44,7 @@ struct pw_device;
 
 #include <spa/monitor/device.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/global.h>
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>
@@ -65,7 +65,7 @@ struct pw_device_events {
 	void (*info_changed) (void *data, const struct pw_device_info *info);
 };
 
-struct pw_device *pw_device_new(struct pw_core *core,
+struct pw_device *pw_device_new(struct pw_context *context,
 				struct pw_properties *properties,
 				size_t user_data_size);
 

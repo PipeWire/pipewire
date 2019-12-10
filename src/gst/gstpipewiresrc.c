@@ -208,8 +208,8 @@ gst_pipewire_src_finalize (GObject * object)
 
   clear_queue (pwsrc);
 
-  pw_core_destroy (pwsrc->core);
-  pwsrc->core = NULL;
+  pw_context_destroy (pwsrc->context);
+  pwsrc->context = NULL;
   pw_thread_loop_destroy (pwsrc->main_loop);
   pwsrc->main_loop = NULL;
   pw_loop_destroy (pwsrc->loop);
@@ -331,7 +331,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->pool =  gst_pipewire_pool_new ();
   src->loop = pw_loop_new (NULL);
   src->main_loop = pw_thread_loop_new (src->loop, "pipewire-main-loop");
-  src->core = pw_core_new (src->loop, NULL, 0);
+  src->context = pw_context_new (src->loop, NULL, 0);
   GST_DEBUG ("loop %p, mainloop %p", src->loop, src->main_loop);
 
 }
@@ -940,9 +940,9 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   pw_thread_loop_lock (pwsrc->main_loop);
 
   if (pwsrc->fd == -1)
-    pwsrc->core_proxy = pw_core_connect (pwsrc->core, NULL, 0);
+    pwsrc->core_proxy = pw_context_connect (pwsrc->context, NULL, 0);
   else
-    pwsrc->core_proxy = pw_core_connect_fd (pwsrc->core, dup(pwsrc->fd), NULL, 0);
+    pwsrc->core_proxy = pw_context_connect_fd (pwsrc->context, dup(pwsrc->fd), NULL, 0);
 
   if (pwsrc->core_proxy == NULL)
       goto connect_error;

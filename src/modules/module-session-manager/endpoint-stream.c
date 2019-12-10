@@ -276,7 +276,7 @@ static int endpoint_stream_bind(void *_data, struct pw_client *client,
 int endpoint_stream_init(struct endpoint_stream *this,
 		uint32_t id, uint32_t endpoint_id,
 		struct client_endpoint *client_ep,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties)
 {
 	pw_log_debug(NAME" %p: new", this);
@@ -291,7 +291,7 @@ int endpoint_stream_init(struct endpoint_stream *this,
 	if (!properties)
 		goto no_mem;
 
-	this->global = pw_global_new (core,
+	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_EndpointStream,
 			PW_VERSION_ENDPOINT_STREAM_PROXY,
 			properties, endpoint_stream_bind, this);

@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/support/plugin.h>
 
 #include <pipewire/client.h>
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/device.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/introspect.h>
@@ -62,8 +62,8 @@ extern "C" {
  * This document describes the API for the PipeWire multimedia framework.
  * The API consists of two parts:
  *
- * \li The core API and tools to build new modules (See
- * \subpage page_core_api)
+ * \li The context API and tools to build new modules (See
+ * \subpage page_context_api)
  * \li The remote API (See \subpage page_remote_api)
  *
  * \section sec_errors Error reporting
@@ -129,10 +129,10 @@ const char *
 pw_get_client_name(void);
 
 void
-pw_fill_connect_properties(struct pw_core *core, struct pw_properties *properties);
+pw_fill_connect_properties(struct pw_context *context, struct pw_properties *properties);
 
 void
-pw_fill_stream_properties(struct pw_core *core, struct pw_properties *properties);
+pw_fill_stream_properties(struct pw_context *context, struct pw_properties *properties);
 
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);

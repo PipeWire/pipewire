@@ -142,7 +142,7 @@ global_bind(void *_data, struct pw_client *client, uint32_t permissions,
 }
 
 void *
-pw_metadata_new(struct pw_core *core, struct pw_resource *resource,
+pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		   struct pw_properties *properties)
 {
 	struct impl *impl;
@@ -162,7 +162,7 @@ pw_metadata_new(struct pw_core *core, struct pw_resource *resource,
 
 	pw_resource_install_marshal(resource, true);
 
-	impl->global = pw_global_new(core,
+	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Metadata,
 			PW_VERSION_METADATA,
 			properties,

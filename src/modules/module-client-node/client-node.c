@@ -138,7 +138,7 @@ struct node {
 struct impl {
 	struct pw_client_node this;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct node node;
 
@@ -341,7 +341,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	if (data) {
 		mm = pw_mempool_import_map(this->client->pool,
-				impl->core->pool, data, size, tag);
+				impl->context->pool, data, size, tag);
 		if (mm == NULL)
 			return -errno;
 
@@ -659,7 +659,7 @@ static int do_port_set_io(struct impl *impl,
 
 	if (data) {
 		mm = pw_mempool_import_map(this->client->pool,
-				impl->core->pool, data, size, tag);
+				impl->context->pool, data, size, tag);
 		if (mm == NULL)
 			return -errno;
 
@@ -756,7 +756,7 @@ do_port_use_buffers(struct impl *impl,
 		else
 			return -EINVAL;
 
-		if ((mem = pw_mempool_find_ptr(impl->core->pool, baseptr)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->context->pool, baseptr)) == NULL)
 			return -EINVAL;
 
 		data_size = buffers[i]->n_datas * sizeof(struct spa_chunk);
@@ -1252,7 +1252,7 @@ static void node_initialized(void *data)
 
 	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
 
-	impl->io_areas = pw_mempool_alloc(impl->core->pool,
+	impl->io_areas = pw_mempool_alloc(impl->context->pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
 			PW_MEMBLOCK_FLAG_MAP |
 			PW_MEMBLOCK_FLAG_SEAL,
@@ -1619,7 +1619,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	struct impl *impl;
 	struct pw_client_node *this;
 	struct pw_client *client = pw_resource_get_client(resource);
-	struct pw_core *core = pw_client_get_core(client);
+	struct pw_context *context = pw_client_get_context(client);
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res;
@@ -1641,11 +1641,11 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	this = &impl->this;
 
-	impl->core = core;
+	impl->context = context;
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug(NAME " %p: new", &impl->node);
 
-	support = pw_core_get_support(impl->core, &n_support);
+	support = pw_context_get_support(impl->context, &n_support);
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
 	impl->node.resource = resource;
@@ -1655,7 +1655,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 	pw_map_init(&impl->io_map, 64, 64);
 
 	this->resource = resource;
-	this->node = pw_spa_node_new(core,
+	this->node = pw_spa_node_new(context,
 				     PW_SPA_NODE_FLAG_ASYNC |
 				     (do_register ? 0 : PW_SPA_NODE_FLAG_NO_REGISTER),
 				     (struct spa_node *)&impl->node.node,

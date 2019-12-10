@@ -30,11 +30,11 @@
 extern "C" {
 #endif
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 
 struct pw_command;
 
-typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_core *core, char **err);
+typedef int (*pw_command_func_t) (struct pw_command *command, struct pw_context *context, char **err);
 
 /** \class pw_command
  *
@@ -54,7 +54,7 @@ pw_command_parse(struct pw_properties *properties, const char *line, char **err)
 void
 pw_command_free(struct pw_command *command);
 
-int pw_command_run(struct pw_command *command, struct pw_core *core, char **err);
+int pw_command_run(struct pw_command *command, struct pw_context *context, char **err);
 
 #ifdef __cplusplus
 }

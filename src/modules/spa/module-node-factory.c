@@ -47,7 +47,7 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct factory_data {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_factory *this;
 	struct pw_module *module;
 
@@ -101,7 +101,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *data = _data;
-	struct pw_core *core = data->core;
+	struct pw_context *context = data->context;
 	struct pw_node *node;
 	const char *factory_name;
 	struct node_data *nd;
@@ -125,7 +125,7 @@ static void *create_object(void *_data,
 			pw_global_get_id(pw_client_get_global(client)));
 	}
 
-	node = pw_spa_node_load(core,
+	node = pw_spa_node_load(context,
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				properties,
@@ -235,11 +235,11 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "spa-node-factory",
 				 PW_TYPE_INTERFACE_Node,
 				 PW_VERSION_NODE_PROXY,
@@ -250,7 +250,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
-	data->core = core;
+	data->context = context;
 	data->module = module;
 	spa_list_init(&data->node_list);
 

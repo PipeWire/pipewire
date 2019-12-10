@@ -73,7 +73,7 @@ struct impl {
 	struct timespec now;
 
 	struct pw_main_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -108,7 +108,7 @@ static struct node *create_node(struct object *obj, uint32_t id,
 {
 	struct node *node;
 	struct impl *impl = obj->impl;
-	struct pw_core *core = impl->core;
+	struct pw_context *context = impl->context;
 	struct spa_handle *handle;
 	int res;
 	void *iface;
@@ -118,7 +118,7 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	if (info->type != SPA_TYPE_INTERFACE_Node)
 		return NULL;
 
-	handle = pw_core_load_spa_handle(core,
+	handle = pw_context_load_spa_handle(context,
 			info->factory_name,
 			info->props);
 	if (handle == NULL) {
@@ -216,7 +216,7 @@ static void update_object(struct impl *impl, struct object *obj,
 static struct object *create_object(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_core *core = impl->core;
+	struct pw_context *context = impl->context;
 	struct object *obj;
 	struct spa_handle *handle;
 	int res;
@@ -227,7 +227,7 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	if (info->type != SPA_TYPE_INTERFACE_Device)
 		return NULL;
 
-	handle = pw_core_load_spa_handle(core,
+	handle = pw_context_load_spa_handle(context,
 			info->factory_name,
 			info->props);
 	if (handle == NULL) {
@@ -314,7 +314,7 @@ static int start_monitor(struct impl *impl)
 	int res;
 	void *iface;
 
-	handle = pw_core_load_spa_handle(impl->core, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
+	handle = pw_context_load_spa_handle(impl->context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
 	if (handle == NULL) {
 		res = -errno;
 		goto out;
@@ -363,15 +363,15 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	impl.loop = pw_main_loop_new(NULL);
-	impl.core = pw_core_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
+	impl.context = pw_context_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
 
-	pw_core_add_spa_lib(impl.core, "api.bluez5.*", "bluez5/libspa-bluez5");
+	pw_context_add_spa_lib(impl.context, "api.bluez5.*", "bluez5/libspa-bluez5");
 
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 
 	spa_list_init(&impl.device_list);
 
-        impl.core_proxy = pw_core_connect(impl.core, NULL, 0);
+        impl.core_proxy = pw_context_connect(impl.context, NULL, 0);
 	if (impl.core_proxy == NULL) {
 		pw_log_error(NAME" %p: can't connect %m", &impl);
 		return -1;
@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(impl.loop);
 
-	pw_core_destroy(impl.core);
+	pw_context_destroy(impl.context);
 	pw_main_loop_destroy(impl.loop);
 
 	return 0;

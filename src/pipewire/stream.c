@@ -66,7 +66,7 @@ struct queue {
 };
 
 struct data {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct spa_hook stream_listener;
 };
 
@@ -91,7 +91,7 @@ struct stream {
 
 	const char *path;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
@@ -305,7 +305,7 @@ static void call_process(struct stream *impl)
 		do_call_process(NULL, false, 1, NULL, 0, impl);
 	}
 	else {
-		pw_loop_invoke(impl->core->main_loop,
+		pw_loop_invoke(impl->context->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
 	}
 }
@@ -324,7 +324,7 @@ do_call_drained(struct spa_loop *loop,
 
 static void call_drained(struct stream *impl)
 {
-	pw_loop_invoke(impl->core->main_loop,
+	pw_loop_invoke(impl->context->main_loop,
 		do_call_drained, 1, NULL, 0, false, impl);
 }
 
@@ -355,7 +355,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
-		pw_loop_invoke(impl->core->main_loop,
+		pw_loop_invoke(impl->context->main_loop,
 			NULL, 0, NULL, 0, false, impl);
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 
@@ -539,7 +539,7 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 	void *ptr;
 	struct pw_map_range range;
 
-	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->core->sc_pagesize);
+	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
 	ptr = mmap(NULL, range.size, prot, MAP_SHARED, data->fd, range.offset);
 	if (ptr == MAP_FAILED) {
@@ -557,7 +557,7 @@ static int unmap_data(struct stream *impl, struct spa_data *data)
 {
 	struct pw_map_range range;
 
-	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->core->sc_pagesize);
+	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
 	if (munmap(SPA_MEMBER(data->data, -range.start, void), range.size) < 0)
 		pw_log_warn(NAME" %p: failed to unmap: %m", impl);
@@ -1015,7 +1015,7 @@ static const struct pw_core_proxy_events core_events = {
 };
 
 static struct stream *
-stream_new(struct pw_core *core, const char *name,
+stream_new(struct pw_context *context, const char *name,
 		struct pw_properties *props, const struct pw_properties *extra)
 {
 	struct stream *impl;
@@ -1066,7 +1066,7 @@ stream_new(struct pw_core *core, const char *name,
 
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
-	impl->core = core;
+	impl->context = context;
 
 
 	return impl;
@@ -1086,9 +1086,9 @@ struct pw_stream * pw_stream_new(struct pw_core_proxy *core_proxy, const char *n
 {
 	struct stream *impl;
 	struct pw_stream *this;
-	struct pw_core *core = core_proxy->core;
+	struct pw_context *context = core_proxy->context;
 
-	impl = stream_new(core, name, props, core_proxy->properties);
+	impl = stream_new(context, name, props, core_proxy->properties);
 	if (impl == NULL)
 		return NULL;
 
@@ -1111,7 +1111,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 {
 	struct pw_stream *this;
 	struct stream *impl;
-	struct pw_core *core;
+	struct pw_context *context;
 	int res;
 
 	if (props == NULL)
@@ -1119,24 +1119,24 @@ pw_stream_new_simple(struct pw_loop *loop,
 	if (props == NULL)
 		return NULL;
 
-	core = pw_core_new(loop, NULL, 0);
+	context = pw_context_new(loop, NULL, 0);
 
-	pw_fill_connect_properties(core, props);
+	pw_fill_connect_properties(context, props);
 
-	impl = stream_new(core, name, props, NULL);
+	impl = stream_new(context, name, props, NULL);
 	if (impl == NULL) {
 		res = -errno;
 		goto error_cleanup;
 	}
 
 	this = &impl->this;
-	impl->data.core = core;
+	impl->data.context = context;
 	pw_stream_add_listener(this, &impl->data.stream_listener, events, data);
 
 	return this;
 
 error_cleanup:
-	pw_core_destroy(core);
+	pw_context_destroy(context);
 	errno = -res;
 	return NULL;
 }
@@ -1191,8 +1191,8 @@ void pw_stream_destroy(struct pw_stream *stream)
 		free(c);
 	}
 
-	if (impl->data.core)
-		pw_core_destroy(impl->data.core);
+	if (impl->data.context)
+		pw_context_destroy(impl->data.context);
 
 	free(impl);
 }
@@ -1386,7 +1386,7 @@ pw_stream_connect(struct pw_stream *stream,
 			get_media_class(impl));
 
 	if (stream->core_proxy == NULL) {
-		stream->core_proxy = pw_core_connect(impl->core,
+		stream->core_proxy = pw_context_connect(impl->context,
 				pw_properties_copy(stream->properties), 0);
 		if (stream->core_proxy == NULL) {
 			res = -errno;
@@ -1406,7 +1406,7 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "resample.peaks", "1");
 	}
 
-	slave = pw_node_new(impl->core, pw_properties_copy(props), 0);
+	slave = pw_node_new(impl->context, pw_properties_copy(props), 0);
 	if (slave == NULL) {
 		res = -errno;
 		goto error_node;
@@ -1419,7 +1419,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		factory = pw_core_find_factory(impl->core, "adapter");
+		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
 			pw_log_error(NAME" %p: no adapter factory found", stream);
 			res = -ENOENT;
@@ -1652,7 +1652,7 @@ static inline int call_trigger(struct stream *impl)
 {
 	int res = 0;
 	if (SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER)) {
-		res = pw_loop_invoke(impl->core->data_loop,
+		res = pw_loop_invoke(impl->context->data_loop,
 			do_process, 1, NULL, 0, false, impl);
 	}
 	return res;
@@ -1724,7 +1724,7 @@ SPA_EXPORT
 int pw_stream_flush(struct pw_stream *stream, bool drain)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	pw_loop_invoke(impl->core->data_loop,
+	pw_loop_invoke(impl->context->data_loop,
 			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
 	return 0;
 }

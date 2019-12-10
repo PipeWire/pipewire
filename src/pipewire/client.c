@@ -37,7 +37,7 @@
 /** \cond */
 struct impl {
 	struct pw_client this;
-	struct spa_hook core_listener;
+	struct spa_hook context_listener;
 	struct pw_array permissions;
 	struct spa_hook pool_listener;
 };
@@ -118,7 +118,7 @@ static int client_error(void *object, uint32_t id, int res, const char *error)
 	struct pw_global *global;
 	struct pw_resource *r, *t;
 
-	global = pw_core_find_global(client->core, id);
+	global = pw_context_find_global(client->context, id);
 	if (global == NULL)
 		return -ENOENT;
 
@@ -257,7 +257,7 @@ static const struct pw_mempool_events pool_events = {
 };
 
 static void
-core_global_removed(void *data, struct pw_global *global)
+context_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
 	struct pw_client *client = &impl->this;
@@ -269,14 +269,14 @@ core_global_removed(void *data, struct pw_global *global)
 		p->permissions = SPA_ID_INVALID;
 }
 
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.global_removed = core_global_removed,
+static const struct pw_context_events context_events = {
+	PW_VERSION_CONTEXT_EVENTS,
+	.global_removed = context_global_removed,
 };
 
 /** Make a new client object
  *
- * \param core a \ref pw_core object to register the client with
+ * \param context a \ref pw_context object to register the client with
  * \param ucred a ucred structure or NULL when unknown
  * \param properties optional client properties, ownership is taken
  * \return a newly allocated client object
@@ -284,7 +284,7 @@ static const struct pw_core_events core_events = {
  * \memberof pw_client
  */
 SPA_EXPORT
-struct pw_client *pw_client_new(struct pw_core *core,
+struct pw_client *pw_client_new(struct pw_context *context,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
@@ -302,7 +302,7 @@ struct pw_client *pw_client_new(struct pw_core *core,
 	this = &impl->this;
 	pw_log_debug(NAME" %p: new", this);
 
-	this->core = core;
+	this->context = context;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -338,11 +338,11 @@ struct pw_client *pw_client_new(struct pw_core *core,
 
 	pw_map_init(&this->objects, 0, 32);
 
-	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
+	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
 
 	this->info.props = &this->properties->dict;
 
-	pw_core_emit_check_access(core, this);
+	pw_context_emit_check_access(context, this);
 
 	return this;
 
@@ -374,7 +374,7 @@ SPA_EXPORT
 int pw_client_register(struct pw_client *client,
 		       struct pw_properties *properties)
 {
-	struct pw_core *core = client->core;
+	struct pw_context *context = client->context;
 	const char *keys[] = {
 		PW_KEY_MODULE_ID,
 		PW_KEY_PROTOCOL,
@@ -397,7 +397,7 @@ int pw_client_register(struct pw_client *client,
 
 	pw_properties_update_keys(properties, &client->properties->dict, keys);
 
-	client->global = pw_global_new(core,
+	client->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Client,
 				       PW_VERSION_CLIENT_PROXY,
 				       properties,
@@ -406,7 +406,7 @@ int pw_client_register(struct pw_client *client,
 	if (client->global == NULL)
 		return -errno;
 
-	spa_list_append(&core->client_list, &client->link);
+	spa_list_append(&context->client_list, &client->link);
 	client->registered = true;
 
 	client->info.id = client->global->id;
@@ -427,9 +427,9 @@ error_existed:
 }
 
 SPA_EXPORT
-struct pw_core *pw_client_get_core(struct pw_client *client)
+struct pw_context *pw_client_get_context(struct pw_client *client)
 {
-	return client->core;
+	return client->context;
 }
 
 SPA_EXPORT
@@ -484,7 +484,7 @@ void pw_client_destroy(struct pw_client *client)
 	pw_log_debug(NAME" %p: destroy", client);
 	pw_client_emit_destroy(client);
 
-	spa_hook_remove(&impl->core_listener);
+	spa_hook_remove(&impl->context_listener);
 
 	if (client->registered)
 		spa_list_remove(&client->link);
@@ -565,7 +565,7 @@ SPA_EXPORT
 int pw_client_update_permissions(struct pw_client *client,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
-	struct pw_core *core = client->core;
+	struct pw_context *context = client->context;
 	struct pw_permission *def;
 	uint32_t i;
 
@@ -581,7 +581,7 @@ int pw_client_update_permissions(struct pw_client *client,
 			old_perm = def->permissions;
 			new_perm = permissions[i].permissions;
 
-			if (core->current_client == client)
+			if (context->current_client == client)
 				new_perm &= old_perm;
 
 			pw_log_debug(NAME" %p: set default permissions %08x -> %08x",
@@ -589,7 +589,7 @@ int pw_client_update_permissions(struct pw_client *client,
 
 			def->permissions = new_perm;
 
-			spa_list_for_each(global, &core->global_list, link) {
+			spa_list_for_each(global, &context->global_list, link) {
 				p = find_permission(client, global->id);
 				if (p->id != SPA_ID_INVALID)
 					continue;
@@ -599,7 +599,7 @@ int pw_client_update_permissions(struct pw_client *client,
 		else  {
 			struct pw_global *global;
 
-			global = pw_core_find_global(client->core, permissions[i].id);
+			global = pw_context_find_global(client->context, permissions[i].id);
 			if (global == NULL || global->id != permissions[i].id) {
 				pw_log_warn(NAME" %p: invalid global %d", client, permissions[i].id);
 				continue;
@@ -612,7 +612,7 @@ int pw_client_update_permissions(struct pw_client *client,
 			old_perm = p->permissions == SPA_ID_INVALID ? def->permissions : p->permissions;
 			new_perm = permissions[i].permissions;
 
-			if (core->current_client == client)
+			if (context->current_client == client)
 				new_perm &= old_perm;
 
 			pw_log_debug(NAME" %p: set global %d permissions %08x -> %08x",

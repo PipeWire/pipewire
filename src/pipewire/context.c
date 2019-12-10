@@ -40,7 +40,7 @@
 #include <pipewire/private.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/protocol.h>
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/data-loop.h>
 #include <pipewire/device.h>
 #include <pipewire/map.h>
@@ -48,11 +48,11 @@
 #include <pipewire/module.h>
 #include <pipewire/version.h>
 
-#define NAME "core"
+#define NAME "context"
 
 /** \cond */
 struct impl {
-	struct pw_core this;
+	struct pw_context this;
 	struct spa_handle *dbus_handle;
 };
 
@@ -73,11 +73,11 @@ static void * registry_bind(void *object, uint32_t id,
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
-	struct pw_core *core = resource->core;
+	struct pw_context *context = resource->context;
 	struct pw_global *global;
 	uint32_t permissions, new_id = user_data_size;
 
-	if ((global = pw_core_find_global(core, id)) == NULL)
+	if ((global = pw_context_find_global(context, id)) == NULL)
 		goto error_no_id;
 
 	permissions = pw_global_get_permissions(global, client);
@@ -117,12 +117,12 @@ static int registry_destroy(void *object, uint32_t id)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
-	struct pw_core *core = resource->core;
+	struct pw_context *context = resource->context;
 	struct pw_global *global;
 	uint32_t permissions;
 	int res;
 
-	if ((global = pw_core_find_global(core, id)) == NULL)
+	if ((global = pw_context_find_global(context, id)) == NULL)
 		goto error_no_id;
 
 	permissions = pw_global_get_permissions(global, client);
@@ -183,7 +183,7 @@ static int core_hello(void *object, uint32_t version)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
-	struct pw_core *this = resource->core;
+	struct pw_context *this = resource->context;
 	int res;
 
 	pw_log_debug(NAME" %p: hello %d from resource %p", this, version, resource);
@@ -203,7 +203,7 @@ static int core_hello(void *object, uint32_t version)
 static int core_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
-	pw_log_trace(NAME" %p: sync %d for resource %d", resource->core, seq, id);
+	pw_log_trace(NAME" %p: sync %d for resource %d", resource->context, seq, id);
 	pw_core_resource_done(resource, id, seq);
 	return 0;
 }
@@ -214,7 +214,7 @@ static int core_pong(void *object, uint32_t id, int seq)
 	struct pw_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug(NAME" %p: pong %d for resource %d", resource->core, seq, id);
+	pw_log_debug(NAME" %p: pong %d for resource %d", resource->context, seq, id);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
@@ -229,7 +229,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	struct pw_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug(NAME" %p: error %d for resource %d: %s", resource->core, res, id, message);
+	pw_log_debug(NAME" %p: error %d for resource %d: %s", resource->context, res, id, message);
 
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
@@ -242,7 +242,7 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
-	struct pw_core *this = resource->core;
+	struct pw_context *this = resource->context;
 	struct pw_global *global;
 	struct pw_resource *registry_resource;
 	struct resource_data *data;
@@ -310,11 +310,11 @@ core_create_object(void *object,
 	struct pw_factory *factory;
 	void *obj;
 	struct pw_properties *properties;
-	struct pw_core *this = client->core;
+	struct pw_context *this = client->context;
 	uint32_t new_id = user_data_size;
 	int res;
 
-	factory = pw_core_find_factory(this, factory_name);
+	factory = pw_context_find_factory(this, factory_name);
 	if (factory == NULL || factory->global == NULL)
 		goto error_no_factory;
 
@@ -372,7 +372,7 @@ static int core_destroy(void *object, void *proxy)
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
 	struct pw_resource *r = proxy;
-	pw_log_debug(NAME" %p: destroy resource %p from client %p", resource->core, r, client);
+	pw_log_debug(NAME" %p: destroy resource %p from client %p", resource->context, r, client);
 	pw_resource_destroy(r);
 	return 0;
 }
@@ -408,7 +408,7 @@ global_bind(void *_data,
 	    uint32_t version,
 	    uint32_t id)
 {
-	struct pw_core *this = _data;
+	struct pw_context *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -449,10 +449,10 @@ error:
 
 static void global_destroy(void *object)
 {
-	struct pw_core *core = object;
-	spa_hook_remove(&core->global_listener);
-	core->global = NULL;
-	pw_core_destroy(core);
+	struct pw_context *context = object;
+	spa_hook_remove(&context->global_listener);
+	context->global = NULL;
+	pw_context_destroy(context);
 }
 
 static const struct pw_global_events global_events = {
@@ -460,7 +460,7 @@ static const struct pw_global_events global_events = {
 	.destroy = global_destroy,
 };
 
-static int load_module_profile(struct pw_core *this, const char *profile)
+static int load_module_profile(struct pw_context *this, const char *profile)
 {
 	pw_log_debug(NAME" %p: module profile %s", this, profile);
 	if (strcmp(profile, "default") == 0) {
@@ -475,21 +475,21 @@ static int load_module_profile(struct pw_core *this, const char *profile)
 	return 0;
 }
 
-/** Create a new core object
+/** Create a new context object
  *
  * \param main_loop the main loop to use
- * \param properties extra properties for the core, ownership it taken
- * \return a newly allocated core object
+ * \param properties extra properties for the context, ownership it taken
+ * \return a newly allocated context object
  *
- * \memberof pw_core
+ * \memberof pw_context
  */
 SPA_EXPORT
-struct pw_core *pw_core_new(struct pw_loop *main_loop,
+struct pw_context *pw_context_new(struct pw_loop *main_loop,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
 {
 	struct impl *impl;
-	struct pw_core *this;
+	struct pw_context *this;
 	const char *name, *lib, *str;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
@@ -520,7 +520,7 @@ struct pw_core *pw_core_new(struct pw_loop *main_loop,
 	this->properties = properties;
 
 	pr = pw_properties_copy(properties);
-	if ((str = pw_properties_get(pr, "core.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
+	if ((str = pw_properties_get(pr, "context.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
 		pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, str);
 
 	this->data_loop_impl = pw_data_loop_new(pr);
@@ -647,16 +647,16 @@ error_cleanup:
 	return NULL;
 }
 
-/** Destroy a core object
+/** Destroy a context object
  *
- * \param core a core to destroy
+ * \param context a context to destroy
  *
- * \memberof pw_core
+ * \memberof pw_context
  */
 SPA_EXPORT
-void pw_core_destroy(struct pw_core *core)
+void pw_context_destroy(struct pw_context *context)
 {
-	struct impl *impl = SPA_CONTAINER_OF(core, struct impl, this);
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_global *global;
 	struct pw_module *module;
 	struct pw_device *device;
@@ -665,145 +665,145 @@ void pw_core_destroy(struct pw_core *core)
 	struct pw_node *node;
 	struct factory_entry *entry;
 
-	pw_log_debug(NAME" %p: destroy", core);
-	pw_core_emit_destroy(core);
+	pw_log_debug(NAME" %p: destroy", context);
+	pw_context_emit_destroy(context);
 
-	spa_hook_remove(&core->global_listener);
+	spa_hook_remove(&context->global_listener);
 
-	spa_list_consume(core_proxy, &core->core_proxy_list, link)
+	spa_list_consume(core_proxy, &context->core_proxy_list, link)
 		pw_core_proxy_disconnect(core_proxy);
 
-	spa_list_consume(module, &core->module_list, link)
+	spa_list_consume(module, &context->module_list, link)
 		pw_module_destroy(module);
 
-	spa_list_consume(node, &core->node_list, link)
+	spa_list_consume(node, &context->node_list, link)
 		pw_node_destroy(node);
 
-	spa_list_consume(device, &core->device_list, link)
+	spa_list_consume(device, &context->device_list, link)
 		pw_device_destroy(device);
 
-	spa_list_consume(resource, &core->registry_resource_list, link)
+	spa_list_consume(resource, &context->registry_resource_list, link)
 		pw_resource_destroy(resource);
 
-	spa_list_consume(global, &core->global_list, link)
+	spa_list_consume(global, &context->global_list, link)
 		pw_global_destroy(global);
 
-	pw_log_debug(NAME" %p: free", core);
-	pw_core_emit_free(core);
+	pw_log_debug(NAME" %p: free", context);
+	pw_context_emit_free(context);
 
-	pw_mempool_destroy(core->pool);
+	pw_mempool_destroy(context->pool);
 
-	pw_data_loop_destroy(core->data_loop_impl);
+	pw_data_loop_destroy(context->data_loop_impl);
 
-	pw_properties_free(core->properties);
+	pw_properties_free(context->properties);
 
 	if (impl->dbus_handle)
 		pw_unload_spa_handle(impl->dbus_handle);
 
-	pw_array_for_each(entry, &core->factory_lib) {
+	pw_array_for_each(entry, &context->factory_lib) {
 		regfree(&entry->regex);
 		free(entry->lib);
 	}
-	pw_array_clear(&core->factory_lib);
+	pw_array_clear(&context->factory_lib);
 
-	pw_map_clear(&core->globals);
+	pw_map_clear(&context->globals);
 
-	free(core);
+	free(context);
 }
 
 SPA_EXPORT
-void *pw_core_get_user_data(struct pw_core *core)
+void *pw_context_get_user_data(struct pw_context *context)
 {
-	return core->user_data;
+	return context->user_data;
 }
 
 SPA_EXPORT
-const struct pw_core_info *pw_core_get_info(struct pw_core *core)
+const struct pw_core_info *pw_context_get_info(struct pw_context *context)
 {
-	return &core->info;
+	return &context->info;
 }
 
 SPA_EXPORT
-struct pw_global *pw_core_get_global(struct pw_core *core)
+struct pw_global *pw_context_get_global(struct pw_context *context)
 {
-	return core->global;
+	return context->global;
 }
 
 SPA_EXPORT
-void pw_core_add_listener(struct pw_core *core,
+void pw_context_add_listener(struct pw_context *context,
 			  struct spa_hook *listener,
-			  const struct pw_core_events *events,
+			  const struct pw_context_events *events,
 			  void *data)
 {
-	spa_hook_list_append(&core->listener_list, listener, events, data);
+	spa_hook_list_append(&context->listener_list, listener, events, data);
 }
 
 SPA_EXPORT
-const struct spa_support *pw_core_get_support(struct pw_core *core, uint32_t *n_support)
+const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support)
 {
-	*n_support = core->n_support;
-	return core->support;
+	*n_support = context->n_support;
+	return context->support;
 }
 
 SPA_EXPORT
-struct pw_loop *pw_core_get_main_loop(struct pw_core *core)
+struct pw_loop *pw_context_get_main_loop(struct pw_context *context)
 {
-	return core->main_loop;
+	return context->main_loop;
 }
 
 SPA_EXPORT
-const struct pw_properties *pw_core_get_properties(struct pw_core *core)
+const struct pw_properties *pw_context_get_properties(struct pw_context *context)
 {
-	return core->properties;
+	return context->properties;
 }
 
-/** Update core properties
+/** Update context properties
  *
- * \param core a core
+ * \param context a context
  * \param dict properties to update
  *
- * Update the core object with the given properties
+ * Update the context object with the given properties
  *
- * \memberof pw_core
+ * \memberof pw_context
  */
 SPA_EXPORT
-int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
+int pw_context_update_properties(struct pw_context *context, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
 	int changed;
 
-	changed = pw_properties_update(core->properties, dict);
-	core->info.props = &core->properties->dict;
+	changed = pw_properties_update(context->properties, dict);
+	context->info.props = &context->properties->dict;
 
-	pw_log_debug(NAME" %p: updated %d properties", core, changed);
+	pw_log_debug(NAME" %p: updated %d properties", context, changed);
 
 	if (!changed)
 		return 0;
 
-	core->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
+	context->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
 
-	pw_core_emit_info_changed(core, &core->info);
+	pw_context_emit_info_changed(context, &context->info);
 
-	if (core->global)
-		spa_list_for_each(resource, &core->global->resource_list, link)
-			pw_core_resource_info(resource, &core->info);
+	if (context->global)
+		spa_list_for_each(resource, &context->global->resource_list, link)
+			pw_core_resource_info(resource, &context->info);
 
-	core->info.change_mask = 0;
+	context->info.change_mask = 0;
 
 	return changed;
 }
 
 SPA_EXPORT
-int pw_core_for_each_global(struct pw_core *core,
+int pw_context_for_each_global(struct pw_context *context,
 			    int (*callback) (void *data, struct pw_global *global),
 			    void *data)
 {
 	struct pw_global *g, *t;
 	int res;
 
-	spa_list_for_each_safe(g, t, &core->global_list, link) {
-		if (core->current_client &&
-		    !PW_PERM_IS_R(pw_global_get_permissions(g, core->current_client)))
+	spa_list_for_each_safe(g, t, &context->global_list, link) {
+		if (context->current_client &&
+		    !PW_PERM_IS_R(pw_global_get_permissions(g, context->current_client)))
 			continue;
 		if ((res = callback(data, g)) != 0)
 			return res;
@@ -812,18 +812,18 @@ int pw_core_for_each_global(struct pw_core *core,
 }
 
 SPA_EXPORT
-struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
+struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id)
 {
 	struct pw_global *global;
 
-	global = pw_map_lookup(&core->globals, id);
+	global = pw_map_lookup(&context->globals, id);
 	if (global == NULL) {
 		errno = ENOENT;
 		return NULL;
 	}
 
-	if (core->current_client &&
-	    !PW_PERM_IS_R(pw_global_get_permissions(global, core->current_client))) {
+	if (context->current_client &&
+	    !PW_PERM_IS_R(pw_global_get_permissions(global, context->current_client))) {
 		errno = EACCES;
 		return NULL;
 	}
@@ -832,7 +832,7 @@ struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
 
 /** Find a port to link with
  *
- * \param core a core
+ * \param context a context
  * \param other_port a port to find a link with
  * \param id the id of a port or SPA_ID_INVALID
  * \param props extra properties
@@ -841,9 +841,9 @@ struct pw_global *pw_core_find_global(struct pw_core *core, uint32_t id)
  * \param[out] error an error when something is wrong
  * \return a port that can be used to link to \a otherport or NULL on error
  *
- * \memberof pw_core
+ * \memberof pw_context
  */
-struct pw_port *pw_core_find_port(struct pw_core *core,
+struct pw_port *pw_context_find_port(struct pw_context *context,
 				  struct pw_port *other_port,
 				  uint32_t id,
 				  struct pw_properties *props,
@@ -857,24 +857,24 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 
 	have_id = id != SPA_ID_INVALID;
 
-	pw_log_debug(NAME" %p: id:%u", core, id);
+	pw_log_debug(NAME" %p: id:%u", context, id);
 
-	spa_list_for_each(n, &core->node_list, link) {
+	spa_list_for_each(n, &context->node_list, link) {
 		if (n->global == NULL)
 			continue;
 
 		if (other_port->node == n)
 			continue;
 
-		if (core->current_client &&
-		    !PW_PERM_IS_R(pw_global_get_permissions(n->global, core->current_client)))
+		if (context->current_client &&
+		    !PW_PERM_IS_R(pw_global_get_permissions(n->global, context->current_client)))
 			continue;
 
-		pw_log_debug(NAME" %p: node id:%d", core, n->global->id);
+		pw_log_debug(NAME" %p: node id:%d", context, n->global->id);
 
 		if (have_id) {
 			if (n->global->id == id) {
-				pw_log_debug(NAME" %p: id:%u matches node %p", core, id, n);
+				pw_log_debug(NAME" %p: id:%u matches node %p", context, id, n);
 
 				best =
 				    pw_node_find_port(n,
@@ -903,7 +903,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 				pout = other_port;
 			}
 
-			if (pw_core_find_format(core,
+			if (pw_context_find_format(context,
 						pout,
 						pin,
 						props,
@@ -927,7 +927,7 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
 
 /** Find a common format between two ports
  *
- * \param core a core object
+ * \param context a context object
  * \param output an output port
  * \param input an input port
  * \param props extra properties
@@ -939,9 +939,9 @@ struct pw_port *pw_core_find_port(struct pw_core *core,
  * Find a common format between the given ports. The format will
  * be restricted to a subset given with the format filters.
  *
- * \memberof pw_core
+ * \memberof pw_context
  */
-int pw_core_find_format(struct pw_core *core,
+int pw_context_find_format(struct pw_context *context,
 			struct pw_port *output,
 			struct pw_port *input,
 			struct pw_properties *props,
@@ -961,7 +961,7 @@ int pw_core_find_format(struct pw_core *core,
 	out_state = output->state;
 	in_state = input->state;
 
-	pw_log_debug(NAME" %p: finding best format %d %d", core, out_state, in_state);
+	pw_log_debug(NAME" %p: finding best format %d %d", context, out_state, in_state);
 
 	/* when a port is configured but the node is idle, we can reconfigure with a different format */
 	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
@@ -969,7 +969,7 @@ int pw_core_find_format(struct pw_core *core,
 	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
 		in_state = PW_PORT_STATE_CONFIGURE;
 
-	pw_log_debug(NAME" %p: states %d %d", core, out_state, in_state);
+	pw_log_debug(NAME" %p: states %d %d", context, out_state, in_state);
 
 	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
@@ -984,7 +984,7 @@ int pw_core_find_format(struct pw_core *core,
 				asprintf(error, "no output formats");
 			goto error;
 		}
-		pw_log_debug(NAME" %p: Got output format:", core);
+		pw_log_debug(NAME" %p: Got output format:", context);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
@@ -1011,7 +1011,7 @@ int pw_core_find_format(struct pw_core *core,
 				asprintf(error, "no input format");
 			goto error;
 		}
-		pw_log_debug(NAME" %p: Got input format:", core);
+		pw_log_debug(NAME" %p: Got input format:", context);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
@@ -1028,7 +1028,7 @@ int pw_core_find_format(struct pw_core *core,
 	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
 	      again:
 		/* both ports need a format */
-		pw_log_debug(NAME" %p: do enum input %d", core, iidx);
+		pw_log_debug(NAME" %p: do enum input %d", context, iidx);
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
@@ -1044,7 +1044,7 @@ int pw_core_find_format(struct pw_core *core,
 				asprintf(error, "no more input formats");
 			goto error;
 		}
-		pw_log_debug(NAME" %p: enum output %d with filter: %p", core, oidx, filter);
+		pw_log_debug(NAME" %p: enum output %d with filter: %p", context, oidx, filter);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, filter);
 
@@ -1060,7 +1060,7 @@ int pw_core_find_format(struct pw_core *core,
 			goto error;
 		}
 
-		pw_log_debug(NAME" %p: Got filtered:", core);
+		pw_log_debug(NAME" %p: Got filtered:", context);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_format(2, NULL, *format);
 	} else {
@@ -1078,21 +1078,21 @@ error:
 
 /** Find a factory by name
  *
- * \param core the core object
+ * \param context the context object
  * \param name the name of the factory to find
  *
- * Find in the list of factories registered in \a core for one with
+ * Find in the list of factories registered in \a context for one with
  * the given \a name.
  *
- * \memberof pw_core
+ * \memberof pw_context
  */
 SPA_EXPORT
-struct pw_factory *pw_core_find_factory(struct pw_core *core,
+struct pw_factory *pw_context_find_factory(struct pw_context *context,
 					const char *name)
 {
 	struct pw_factory *factory;
 
-	spa_list_for_each(factory, &core->factory_list, link) {
+	spa_list_for_each(factory, &context->factory_list, link) {
 		if (strcmp(factory->info.name, name) == 0)
 			return factory;
 	}
@@ -1162,7 +1162,7 @@ static int collect_nodes(struct pw_node *driver)
 	return 0;
 }
 
-int pw_core_recalc_graph(struct pw_core *core)
+int pw_context_recalc_graph(struct pw_context *context)
 {
 	struct pw_node *n, *s, *target;
 
@@ -1172,7 +1172,7 @@ int pw_core_recalc_graph(struct pw_core *core)
 	 * and if they have active slaves, we can use them to schedule
 	 * the unassigned nodes. */
 	target = NULL;
-	spa_list_for_each(n, &core->driver_list, driver_link) {
+	spa_list_for_each(n, &context->driver_list, driver_link) {
 		uint32_t active_slaves;
 
 		if (n->active && !n->visited)
@@ -1187,12 +1187,12 @@ int pw_core_recalc_graph(struct pw_core *core)
 		active_slaves = 0;
 		spa_list_for_each(s, &n->slave_list, slave_link) {
 			pw_log_info(NAME" %p: driver %p: slave %p %s: %d",
-					core, n, s, s->name, s->active);
+					context, n, s, s->name, s->active);
 			if (s != n && s->active)
 				active_slaves++;
 		}
 		pw_log_info(NAME" %p: driver %p active slaves %d",
-				core, n, active_slaves);
+				context, n, active_slaves);
 
 		/* if the master has active slaves, it is a target for our
 		 * unassigned nodes */
@@ -1205,10 +1205,10 @@ int pw_core_recalc_graph(struct pw_core *core)
 	/* now go through all available nodes. The ones we didn't visit
 	 * in collect_nodes() are not linked to any master. We assign them
 	 * to an active master */
-	spa_list_for_each(n, &core->node_list, link) {
+	spa_list_for_each(n, &context->node_list, link) {
 		if (!n->visited) {
 
-			pw_log_info(NAME" %p: unassigned node %p: '%s' %d %d", core,
+			pw_log_info(NAME" %p: unassigned node %p: '%s' %d %d", context,
 					n, n->name, n->active, n->want_driver);
 
 			if (!n->want_driver)
@@ -1226,54 +1226,54 @@ int pw_core_recalc_graph(struct pw_core *core)
 	}
 
 	/* assign final quantum and debug masters and slaves */
-	spa_list_for_each(n, &core->driver_list, driver_link) {
+	spa_list_for_each(n, &context->driver_list, driver_link) {
 		if (!n->master)
 			continue;
 
 		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration)
 			n->rt.position->clock.duration = n->quantum_current;
 
-		pw_log_info(NAME" %p: master %p quantum:%u '%s'", core, n,
+		pw_log_info(NAME" %p: master %p quantum:%u '%s'", context, n,
 				n->quantum_current, n->name);
 
 		spa_list_for_each(s, &n->slave_list, slave_link)
 			pw_log_info(NAME" %p: slave %p: active:%d '%s'",
-					core, s, s->active, s->name);
+					context, s, s->active, s->name);
 	}
 	return 0;
 }
 
 SPA_EXPORT
-int pw_core_add_spa_lib(struct pw_core *core,
+int pw_context_add_spa_lib(struct pw_context *context,
 		const char *factory_regexp, const char *lib)
 {
 	struct factory_entry *entry;
 	int err;
 
-	entry = pw_array_add(&core->factory_lib, sizeof(*entry));
+	entry = pw_array_add(&context->factory_lib, sizeof(*entry));
 	if (entry == NULL)
 		return -errno;
 
 	if ((err = regcomp(&entry->regex, factory_regexp, REG_EXTENDED | REG_NOSUB)) != 0) {
 		char errbuf[1024];
 		regerror(err, &entry->regex, errbuf, sizeof(errbuf));
-		pw_log_error(NAME" %p: can compile regex: %s", core, errbuf);
-		pw_array_remove(&core->factory_lib, entry);
+		pw_log_error(NAME" %p: can compile regex: %s", context, errbuf);
+		pw_array_remove(&context->factory_lib, entry);
 		return -EINVAL;
 	}
 
 	entry->lib = strdup(lib);
-	pw_log_debug(NAME" %p: map factory regex '%s' to '%s", core,
+	pw_log_debug(NAME" %p: map factory regex '%s' to '%s", context,
 			factory_regexp, lib);
 	return 0;
 }
 
 SPA_EXPORT
-const char *pw_core_find_spa_lib(struct pw_core *core, const char *factory_name)
+const char *pw_context_find_spa_lib(struct pw_context *context, const char *factory_name)
 {
 	struct factory_entry *entry;
 
-	pw_array_for_each(entry, &core->factory_lib) {
+	pw_array_for_each(entry, &context->factory_lib) {
 		if (regexec(&entry->regex, factory_name, 0, NULL, 0) == 0)
 			return entry->lib;
 	}
@@ -1281,7 +1281,7 @@ const char *pw_core_find_spa_lib(struct pw_core *core, const char *factory_name)
 }
 
 SPA_EXPORT
-struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
+struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 		const char *factory_name,
 		const struct spa_dict *info)
 {
@@ -1290,19 +1290,19 @@ struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
 	uint32_t n_support;
 	struct spa_handle *handle;
 
-	pw_log_debug(NAME" %p: load factory %s", core, factory_name);
+	pw_log_debug(NAME" %p: load factory %s", context, factory_name);
 
-	lib = pw_core_find_spa_lib(core, factory_name);
+	lib = pw_context_find_spa_lib(context, factory_name);
 	if (lib == NULL && info != NULL)
 		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
 	if (lib == NULL) {
 		pw_log_warn(NAME" %p: no library for %s: %m",
-				core, factory_name);
+				context, factory_name);
 		errno = ENOENT;
 		return NULL;
 	}
 
-	support = pw_core_get_support(core, &n_support);
+	support = pw_context_get_support(context, &n_support);
 
 	handle = pw_load_spa_handle(lib, factory_name,
 			info, n_support, support);
@@ -1311,19 +1311,19 @@ struct spa_handle *pw_core_load_spa_handle(struct pw_core *core,
 }
 
 SPA_EXPORT
-int pw_core_register_export_type(struct pw_core *core, struct pw_export_type *type)
+int pw_context_register_export_type(struct pw_context *context, struct pw_export_type *type)
 {
-	pw_log_debug("core %p: Add export type %d/%s to core", core, type->type,
+	pw_log_debug("context %p: Add export type %d/%s to context", context, type->type,
 			spa_debug_type_find_name(pw_type_info(), type->type));
-	spa_list_append(&core->export_list, &type->link);
+	spa_list_append(&context->export_list, &type->link);
 	return 0;
 }
 
 SPA_EXPORT
-const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type)
+const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, uint32_t type)
 {
 	const struct pw_export_type *t;
-	spa_list_for_each(t, &core->export_list, link) {
+	spa_list_for_each(t, &context->export_list, link) {
 		if (t->type == type)
 			return t;
 	}

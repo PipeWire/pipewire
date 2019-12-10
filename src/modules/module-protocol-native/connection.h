@@ -70,7 +70,7 @@ pw_protocol_native_connection_add_listener(struct pw_protocol_native_connection 
 }
 
 struct pw_protocol_native_connection *
-pw_protocol_native_connection_new(struct pw_core *core, int fd);
+pw_protocol_native_connection_new(struct pw_context *context, int fd);
 
 int pw_protocol_native_connection_set_fd(struct pw_protocol_native_connection *conn, int fd);
 

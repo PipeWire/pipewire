@@ -538,7 +538,7 @@ static int setup_mixer(struct pw_port *port, const struct spa_pod *param)
 	}
 
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, fallback_lib);
-	handle = pw_core_load_spa_handle(port->node->core, factory_name,
+	handle = pw_context_load_spa_handle(port->node->context, factory_name,
 			&SPA_DICT_INIT_ARRAY(items));
 	if (handle == NULL)
 		return -errno;
@@ -645,7 +645,7 @@ static int check_param_io(void *data, int seq, uint32_t id,
 	switch (pid) {
 	case SPA_IO_Control:
 	case SPA_IO_Notify:
-		pw_control_new(node->core, port, pid, psize, 0);
+		pw_control_new(node->context, port, pid, psize, 0);
 		SPA_FLAG_SET(port->flags, PW_PORT_FLAG_CONTROL);
 		break;
 	case SPA_IO_Buffers:
@@ -804,7 +804,7 @@ int pw_port_register(struct pw_port *port,
 	pw_properties_setf(properties, PW_KEY_NODE_ID, "%d", node->global->id);
 	pw_properties_update_keys(properties, &port->properties->dict, keys);
 
-	port->global = pw_global_new(node->core,
+	port->global = pw_global_new(node->context,
 				PW_TYPE_INTERFACE_Port,
 				PW_VERSION_PORT_PROXY,
 				properties,
@@ -1215,7 +1215,7 @@ static int negotiate_mixer_buffers(struct pw_port *port, uint32_t flags,
 
 		pw_buffers_clear(&port->mix_buffers);
 
-		if ((res = pw_buffers_negotiate(node->core, alloc_flags,
+		if ((res = pw_buffers_negotiate(node->context, alloc_flags,
 				port->mix, 0,
 				node->node, port->port_id,
 				&port->mix_buffers)) < 0) {

@@ -39,7 +39,7 @@
 #include "pipewire/private.h"
 
 struct impl {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_device *device;
 	struct spa_hook device_listener;
 
@@ -108,7 +108,7 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 	struct impl *impl;
 	struct pw_device *device;
 	struct pw_client *client = pw_resource_get_client(resource);
-	struct pw_core *core = pw_client_get_core(client);
+	struct pw_context *context = pw_client_get_context(client);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -117,13 +117,13 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 
 	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
 
-	device = pw_device_new(core, properties, sizeof(struct impl));
+	device = pw_device_new(context, properties, sizeof(struct impl));
 	if (device == NULL)
 		return NULL;
 
 	impl = pw_device_get_user_data(device);
 	impl->device = device;
-	impl->core = core;
+	impl->context = context;
 	impl->resource = resource;
 
 	pw_resource_install_marshal(resource, true);

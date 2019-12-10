@@ -55,7 +55,7 @@ struct factory_data {
 
 	struct spa_list node_list;
 
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_module *module;
 	struct spa_hook module_listener;
 };
@@ -175,7 +175,7 @@ static void *create_object(void *_data,
 		if (factory_name == NULL)
 			goto error_properties;
 
-		slave = pw_spa_node_load(d->core,
+		slave = pw_spa_node_load(d->context,
 					factory_name,
 					PW_SPA_NODE_FLAG_ACTIVATE |
 					PW_SPA_NODE_FLAG_NO_REGISTER,
@@ -184,7 +184,7 @@ static void *create_object(void *_data,
 			goto error_no_mem;
 	}
 
-	adapter = pw_adapter_new(pw_module_get_core(d->module),
+	adapter = pw_adapter_new(pw_module_get_context(d->module),
 			slave,
 			properties,
 			sizeof(struct node_data));
@@ -283,11 +283,11 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "adapter",
 				 PW_TYPE_INTERFACE_Node,
 				 PW_VERSION_NODE_PROXY,
@@ -300,7 +300,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
-	data->core = core;
+	data->context = context;
 	data->module = module;
 	spa_list_init(&data->node_list);
 

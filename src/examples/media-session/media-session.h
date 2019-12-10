@@ -198,7 +198,7 @@ struct sm_media_session {
 	struct sm_session *session;	/** session object managed by this session */
 
 	struct pw_loop *loop;		/** the main loop */
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct spa_dbus_connection *dbus_connection;
 };

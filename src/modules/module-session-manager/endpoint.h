@@ -43,7 +43,7 @@ struct endpoint {
 
 int endpoint_init(struct endpoint *this,
 		struct client_endpoint *client_ep,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties);
 
 void endpoint_clear(struct endpoint *this);

@@ -267,7 +267,7 @@ static int session_bind(void *_data, struct pw_client *client,
 
 int session_init(struct session *this,
 		struct client_session *client_sess,
-		struct pw_core *core,
+		struct pw_context *context,
 		struct pw_properties *properties)
 {
 	const char *keys[] = {
@@ -287,7 +287,7 @@ int session_init(struct session *this,
 
 	pw_properties_update_keys(properties, &this->props->dict, keys);
 
-	this->global = pw_global_new (core,
+	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_Session,
 			PW_VERSION_SESSION_PROXY,
 			properties, session_bind, this);

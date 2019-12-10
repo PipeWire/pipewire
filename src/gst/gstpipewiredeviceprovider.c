@@ -361,7 +361,7 @@ on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 }
 
 static const struct pw_core_proxy_events core_events = {
-  PW_VERSION_CORE_EVENTS,
+  PW_VERSION_CORE_PROXY_EVENTS,
   .info = on_core_info,
   .done = on_core_done,
   .error = on_core_error,
@@ -524,7 +524,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 {
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
   struct pw_loop *l = NULL;
-  struct pw_core *c = NULL;
+  struct pw_context *c = NULL;
   struct core_data *data;
 
   GST_DEBUG_OBJECT (self, "starting probe");
@@ -532,16 +532,16 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   if (!(l = pw_loop_new (NULL)))
     return NULL;
 
-  if (!(c = pw_core_new (l, NULL, sizeof(*data))))
+  if (!(c = pw_context_new (l, NULL, sizeof(*data))))
     return NULL;
 
-  data = pw_core_get_user_data(c);
+  data = pw_context_get_user_data(c);
   data->self = self;
   spa_list_init(&data->nodes);
   spa_list_init(&data->ports);
 
   spa_list_init(&self->pending);
-  self->core_proxy = pw_core_connect (c, NULL, 0);
+  self->core_proxy = pw_context_connect (c, NULL, 0);
   if (self->core_proxy == NULL)
     goto failed;
 
@@ -567,7 +567,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "disconnect");
   pw_core_proxy_disconnect (self->core_proxy);
-  pw_core_destroy (c);
+  pw_context_destroy (c);
   pw_loop_destroy (l);
 
   return *self->devices;
@@ -594,9 +594,9 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
     goto failed_main_loop;
   }
 
-  if (!(self->core = pw_core_new (self->loop, NULL, sizeof(*data)))) {
-    GST_ERROR_OBJECT (self, "Could not create PipeWire core");
-    goto failed_core;
+  if (!(self->context = pw_context_new (self->loop, NULL, sizeof(*data)))) {
+    GST_ERROR_OBJECT (self, "Could not create PipeWire context");
+    goto failed_context;
   }
 
   if (pw_thread_loop_start (self->main_loop) < 0) {
@@ -606,14 +606,14 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   pw_thread_loop_lock (self->main_loop);
 
-  if ((self->core_proxy = pw_core_connect (self->core, NULL, 0)) == NULL) {
+  if ((self->core_proxy = pw_context_connect (self->context, NULL, 0)) == NULL) {
     GST_ERROR_OBJECT (self, "Failed to connect");
     goto failed_connect;
   }
 
   GST_DEBUG_OBJECT (self, "connected");
 
-  data = pw_core_get_user_data(self->core);
+  data = pw_context_get_user_data(self->context);
   data->self = self;
   spa_list_init(&data->nodes);
   spa_list_init(&data->ports);
@@ -643,9 +643,9 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 failed_connect:
   pw_thread_loop_unlock (self->main_loop);
 failed_start:
-  pw_core_destroy (self->core);
-  self->core = NULL;
-failed_core:
+  pw_context_destroy (self->context);
+  self->context = NULL;
+failed_context:
   pw_thread_loop_destroy (self->main_loop);
   self->main_loop = NULL;
 failed_main_loop:
@@ -665,9 +665,9 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
     pw_core_proxy_disconnect (self->core_proxy);
     self->core_proxy = NULL;
   }
-  if (self->core) {
-    pw_core_destroy (self->core);
-    self->core = NULL;
+  if (self->context) {
+    pw_context_destroy (self->context);
+    self->context = NULL;
   }
   if (self->main_loop) {
     pw_thread_loop_destroy (self->main_loop);

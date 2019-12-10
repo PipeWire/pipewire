@@ -63,7 +63,7 @@ struct buffer {
 
 struct impl {
 	struct pw_protocol_native_connection this;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct buffer in, out;
 	struct spa_pod_builder builder;
@@ -225,7 +225,7 @@ static void clear_buffer(struct buffer *buf)
  *
  * \memberof pw_protocol_native_connection
  */
-struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct pw_core *core, int fd)
+struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct pw_context *context, int fd)
 {
 	struct impl *impl;
 	struct pw_protocol_native_connection *this;
@@ -235,7 +235,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 		return NULL;
 
 	debug_messages = pw_debug_is_category_enabled("connection");
-	impl->core = core;
+	impl->context = context;
 
 	this = &impl->this;
 

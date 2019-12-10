@@ -32,7 +32,7 @@ extern "C" {
 /** \page page_global Global
  *
  * Global objects represent resources that are available on the PipeWire
- * core and are accessible to remote clients.
+ * context and are accessible to remote clients.
  * Globals come and go when devices or other resources become available for
  * clients.
  *
@@ -53,7 +53,7 @@ extern "C" {
  */
 struct pw_global;
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/client.h>
 #include <pipewire/properties.h>
 
@@ -81,14 +81,14 @@ struct pw_global_events {
 
 /** Create a new global object */
 struct pw_global *
-pw_global_new(struct pw_core *core,		/**< the core */
+pw_global_new(struct pw_context *context,		/**< the context */
 	      uint32_t type,			/**< the interface type of the global */
 	      uint32_t version,			/**< the interface version of the global */
 	      struct pw_properties *properties,	/**< extra properties */
 	      pw_global_bind_func_t func,	/**< function to bind */
 	      void *object			/**< global object */);
 
-/** Register a global object to the core registry */
+/** Register a global object to the context registry */
 int pw_global_register(struct pw_global *global);
 
 /** Add an event listener on the global */
@@ -100,8 +100,8 @@ void pw_global_add_listener(struct pw_global *global,
 /** Get the permissions of the global for a given client */
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client);
 
-/** Get the core object of this global */
-struct pw_core *pw_global_get_core(struct pw_global *global);
+/** Get the context object of this global */
+struct pw_context *pw_global_get_context(struct pw_global *global);
 
 /** Get the global type */
 uint32_t pw_global_get_type(struct pw_global *global);

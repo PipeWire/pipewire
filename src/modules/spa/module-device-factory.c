@@ -47,7 +47,7 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct factory_data {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_module *module;
 	struct pw_factory *this;
 
@@ -83,7 +83,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *data = _data;
-	struct pw_core *core = data->core;
+	struct pw_context *context = data->context;
 	struct pw_device *device;
 	const char *factory_name;
 	struct device_data *nd;
@@ -107,7 +107,7 @@ static void *create_object(void *_data,
 			pw_global_get_id(pw_client_get_global(client)));
 	}
 
-	device = pw_spa_device_load(core,
+	device = pw_spa_device_load(context,
 				factory_name,
 				0,
 				properties,
@@ -201,11 +201,11 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "spa-device-factory",
 				 PW_TYPE_INTERFACE_Device,
 				 PW_VERSION_DEVICE_PROXY,
@@ -217,7 +217,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	data = pw_factory_get_user_data(factory);
 	data->this = factory;
 	data->module = module;
-	data->core = core;
+	data->context = context;
 	spa_list_init(&data->device_list);
 
 	pw_factory_add_listener(factory, &data->factory_listener, &factory_events, data);

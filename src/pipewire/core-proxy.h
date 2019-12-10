@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/properties.h>
 #include <pipewire/node.h>
 #include <pipewire/proxy.h>
@@ -39,7 +39,7 @@ extern "C" {
 /** Connect to a PipeWire instance \memberof pw_core_proxy
  * \return a pw_core_proxy on success or NULL with errno set on error */
 struct pw_core_proxy *
-pw_core_connect(struct pw_core *core,		/**< a \ref pw_core */
+pw_context_connect(struct pw_context *context,		/**< a \ref pw_context */
 	      struct pw_properties *properties,	/**< optional properties, ownership of
 						  *  the properties is taken.*/
 	      size_t user_data_size		/**< extra user data size */);
@@ -49,7 +49,7 @@ pw_core_connect(struct pw_core *core,		/**< a \ref pw_core */
  *	automatically on disconnect or error.
  * \return a pw_core_proxy on success or NULL with errno set on error */
 struct pw_core_proxy *
-pw_core_connect_fd(struct pw_core *core,	/**< a \ref pw_core */
+pw_context_connect_fd(struct pw_context *context,	/**< a \ref pw_context */
 	      int fd,				/**< an fd */
 	      struct pw_properties *properties,	/**< optional properties, ownership of
 						  *  the properties is taken.*/
@@ -58,7 +58,7 @@ pw_core_connect_fd(struct pw_core *core,	/**< a \ref pw_core */
 /** Connect to a given PipeWire instance \memberof pw_core_proxy
  * \return a pw_core_proxy on success or NULL with errno set on error */
 struct pw_core_proxy *
-pw_core_connect_self(struct pw_core *core,	/**< a \ref pw_core to connect to */
+pw_context_connect_self(struct pw_context *context,	/**< a \ref pw_context to connect to */
 	      struct pw_properties *properties,	/**< optional properties, ownership of
 						  *  the properties is taken.*/
 	      size_t user_data_size		/**< extra user data size */);
@@ -77,8 +77,8 @@ void *pw_core_proxy_get_user_data(struct pw_core_proxy *core_proxy);
 /** Get the client proxy */
 struct pw_client_proxy * pw_core_proxy_get_client_proxy(struct pw_core_proxy *proxy);
 
-/** Get the core object used to created this core_proxy */
-struct pw_core * pw_core_proxy_get_core(struct pw_core_proxy *proxy);
+/** Get the context object used to created this core_proxy */
+struct pw_context * pw_core_proxy_get_context(struct pw_core_proxy *proxy);
 
 /** Get properties from the core_proxy */
 const struct pw_properties *pw_core_proxy_get_properties(struct pw_core_proxy *proxy);

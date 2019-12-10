@@ -167,7 +167,7 @@ static const struct pw_global_events global_events = {
 
 /** Load a module
  *
- * \param core a \ref pw_core
+ * \param context a \ref pw_context
  * \param name name of the module to load
  * \param args A string with arguments for the module
  * \param[out] error Return location for an error string, or NULL
@@ -177,7 +177,7 @@ static const struct pw_global_events global_events = {
  */
 SPA_EXPORT
 struct pw_module *
-pw_module_load(struct pw_core *core,
+pw_module_load(struct pw_context *context,
 	       const char *name, const char *args,
 	       struct pw_properties *properties)
 {
@@ -234,7 +234,7 @@ pw_module_load(struct pw_core *core,
 	hnd = NULL;
 
 	this = &impl->this;
-	this->core = core;
+	this->context = context;
 	this->properties = properties;
 	properties = NULL;
 
@@ -247,7 +247,7 @@ pw_module_load(struct pw_core *core,
 	filename = NULL;
 	this->info.args = args ? strdup(args) : NULL;
 
-	this->global = pw_global_new(core,
+	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Module,
 				     PW_VERSION_MODULE_PROXY,
 				     pw_properties_new(
@@ -259,7 +259,7 @@ pw_module_load(struct pw_core *core,
 	if (this->global == NULL)
 		goto error_no_global;
 
-	spa_list_append(&core->module_list, &this->link);
+	spa_list_append(&context->module_list, &this->link);
 
 	this->info.id = this->global->id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
@@ -351,10 +351,10 @@ void pw_module_destroy(struct pw_module *module)
 }
 
 SPA_EXPORT
-struct pw_core *
-pw_module_get_core(struct pw_module *module)
+struct pw_context *
+pw_module_get_context(struct pw_module *module)
 {
-	return module->core;
+	return module->context;
 }
 
 SPA_EXPORT

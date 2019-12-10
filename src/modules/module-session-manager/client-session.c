@@ -78,7 +78,7 @@ static int client_session_link_update(void *object,
 	struct pw_properties *props = NULL;
 
 	if (!link) {
-		struct pw_core *core = pw_global_get_core(session->global);
+		struct pw_context *context = pw_global_get_context(session->global);
 		const char *keys[] = {
 			PW_KEY_FACTORY_ID,
 			PW_KEY_CLIENT_ID,
@@ -102,7 +102,7 @@ static int client_session_link_update(void *object,
 			pw_properties_update_keys(props, info->props, keys);
 
 		if (endpoint_link_init(link, link_id, session->info.id,
-					this, core, props) < 0)
+					this, context, props) < 0)
 			goto no_mem;
 
 		spa_list_append(&this->links, &link->link);
@@ -168,7 +168,7 @@ static void *create_object(void *data,
 	struct pw_factory *factory = d->factory;
 	struct client_session *this;
 	struct pw_client *owner = pw_resource_get_client(owner_resource);
-	struct pw_core *core = pw_client_get_core(owner);
+	struct pw_context *context = pw_client_get_context(owner);
 
 	this = calloc(1, sizeof(struct client_session));
 	if (this == NULL)
@@ -190,7 +190,7 @@ static void *create_object(void *data,
 	if (this->resource == NULL)
 		goto no_mem;
 
-	if (session_init(&this->session, this, core, properties) < 0)
+	if (session_init(&this->session, this, context, properties) < 0)
 		goto no_mem;
 
 	pw_resource_add_listener(this->resource, &this->resource_listener,
@@ -251,11 +251,11 @@ static const struct pw_module_events module_events = {
 
 int client_session_factory_init(struct pw_module *module)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "client-session",
 				 PW_TYPE_INTERFACE_ClientSession,
 				 PW_VERSION_CLIENT_SESSION_PROXY,

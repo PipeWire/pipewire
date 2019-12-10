@@ -503,11 +503,11 @@ static const struct pw_protocol_marshal pw_protocol_native_client_node_marshal =
 	NULL,
 };
 
-struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_core *core)
+struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_context *context)
 {
 	struct pw_protocol *protocol;
 
-	protocol = pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native);
+	protocol = pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native);
 
 	if (protocol == NULL)
 		return NULL;

@@ -900,7 +900,7 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 SPA_EXPORT
 pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *name, PA_CONST pa_proplist *p)
 {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_loop *loop;
 	struct pw_properties *props;
 	pa_context *c;
@@ -915,14 +915,14 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 		pw_properties_update(props, &p->props->dict);
 
 	loop = mainloop->userdata;
-	core = pw_core_new(loop, NULL, sizeof(struct pa_context));
-	if (core == NULL)
+	context = pw_context_new(loop, NULL, sizeof(struct pa_context));
+	if (context == NULL)
 		return NULL;
 
-	c = pw_core_get_user_data(core);
+	c = pw_context_get_user_data(context);
 	c->props = props;
 	c->loop = loop;
-	c->core = core;
+	c->context = context;
 	c->proplist = p ? pa_proplist_copy(p) : pa_proplist_new();
 	c->refcount = 1;
 	c->client_index = PA_INVALID_INDEX;
@@ -942,10 +942,10 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	return c;
 }
 
-static void do_core_destroy(pa_mainloop_api*m, void *userdata)
+static void do_context_destroy(pa_mainloop_api*m, void *userdata)
 {
 	pa_context *c = userdata;
-	pw_core_destroy(c->core);
+	pw_context_destroy(c->context);
 }
 
 static void context_free(pa_context *c)
@@ -960,7 +960,7 @@ static void context_free(pa_context *c)
 	if (c->core_info)
 		pw_core_info_free(c->core_info);
 
-	pa_mainloop_api_once(c->mainloop, do_core_destroy, c);
+	pa_mainloop_api_once(c->mainloop, do_context_destroy, c);
 }
 
 SPA_EXPORT
@@ -1056,7 +1056,7 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 
 	pa_context_set_state(c, PA_CONTEXT_CONNECTING);
 
-	c->core_proxy = pw_core_connect(c->core, pw_properties_copy(c->props), 0);
+	c->core_proxy = pw_context_connect(c->context, pw_properties_copy(c->props), 0);
 	if (c->core_proxy == NULL) {
                 context_fail(c, PA_ERR_CONNECTIONREFUSED);
 		res = -1;

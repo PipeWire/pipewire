@@ -36,7 +36,7 @@
 #include "pipewire/interfaces.h"
 #include "pipewire/private.h"
 
-#include "pipewire/core.h"
+#include "pipewire/context.h"
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
 #include "transport.h"
@@ -136,7 +136,7 @@ struct impl {
 
 	bool client_reuse;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct node node;
 
@@ -600,7 +600,7 @@ impl_node_port_set_io(void *object,
 
 
 	if (data) {
-		if ((mem = pw_mempool_find_ptr(impl->core->pool, data)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->context->pool, data)) == NULL)
 			return -EINVAL;
 
 		mem_offset = SPA_PTRDIFF(data, mem->map->ptr);
@@ -683,7 +683,7 @@ impl_node_port_use_buffers(void *object,
 		else
 			return -EINVAL;
 
-		if ((mem = pw_mempool_find_ptr(impl->core->pool, baseptr)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->context->pool, baseptr)) == NULL)
 			return -EINVAL;
 
 		data_size = 0;
@@ -910,7 +910,7 @@ static void setup_transport(struct impl *impl)
 	n_outputs = this->n_outputs;
 	max_outputs = this->info.max_output_ports == 0 ? this->n_outputs : this->info.max_output_ports;
 
-	impl->transport = pw_client_node0_transport_new(impl->core, max_inputs, max_outputs);
+	impl->transport = pw_client_node0_transport_new(impl->context, max_inputs, max_outputs);
 	impl->transport->area->n_input_ports = n_inputs;
 	impl->transport->area->n_output_ports = n_outputs;
 }
@@ -1256,7 +1256,7 @@ struct pw_client_node0 *pw_client_node0_new(struct pw_resource *resource,
 	struct impl *impl;
 	struct pw_client_node0 *this;
 	struct pw_client *client = pw_resource_get_client(resource);
-	struct pw_core *core = pw_client_get_core(client);
+	struct pw_context *context = pw_client_get_context(client);
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *name;
@@ -1279,11 +1279,11 @@ struct pw_client_node0 *pw_client_node0_new(struct pw_resource *resource,
 
 	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
 
-	impl->core = core;
+	impl->context = context;
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 
-	support = pw_core_get_support(impl->core, &n_support);
+	support = pw_context_get_support(impl->context, &n_support);
 
 	node_init(&impl->node, NULL, support, n_support);
 	impl->node.impl = impl;
@@ -1297,7 +1297,7 @@ struct pw_client_node0 *pw_client_node0_new(struct pw_resource *resource,
 
 	impl->node.resource = resource;
 	this->resource = resource;
-	this->node = pw_spa_node_new(core,
+	this->node = pw_spa_node_new(context,
 				     PW_SPA_NODE_FLAG_ASYNC,
 				     &impl->node.node,
 				     NULL,

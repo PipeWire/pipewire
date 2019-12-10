@@ -31,7 +31,7 @@
 #include <getopt.h>
 #include <limits.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/keys.h>
 #include <pipewire/log.h>
 #include <pipewire/module.h>
@@ -50,7 +50,7 @@ static const struct spa_dict_item module_props[] = {
 
 struct node_data {
 	struct pw_node *this;
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_properties *properties;
 
 	struct spa_hook module_listener;
@@ -74,7 +74,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	struct pw_properties *props = NULL;
 	char **argv = NULL;
 	int n_tokens, res;
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_node *node;
         struct node_data *data;
 
@@ -93,7 +93,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 		}
 	}
 
-	node = pw_spa_node_load(core,
+	node = pw_spa_node_load(context,
 				argv[0],
 				PW_SPA_NODE_FLAG_ACTIVATE,
 				props,
@@ -108,7 +108,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	data = pw_spa_node_get_user_data(node);
 	data->this = node;
-	data->core = core;
+	data->context = context;
 	data->properties = props;
 
 	pw_log_debug("module %p: new", module);

@@ -34,7 +34,7 @@ extern "C" {
 #define ADAPTER_USAGE	PW_KEY_NODE_NAME"=<string> "
 
 struct pw_node *
-pw_adapter_new(struct pw_core *core,
+pw_adapter_new(struct pw_context *context,
 		struct pw_node *slave,
 		struct pw_properties *properties,
 		size_t user_data_size);

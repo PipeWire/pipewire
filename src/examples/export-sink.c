@@ -69,7 +69,7 @@ struct data {
 
 	struct pw_main_loop *loop;
 
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
-	data.core = pw_core_new(pw_main_loop_get_loop(data.loop), NULL, 0);
+	data.context = pw_context_new(pw_main_loop_get_loop(data.loop), NULL, 0);
 	data.path = argc > 1 ? argv[1] : NULL;
 
 	spa_hook_list_init(&data.hooks);
@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-        data.core_proxy = pw_core_connect(data.core, NULL, 0);
+        data.core_proxy = pw_context_connect(data.context, NULL, 0);
 	if (data.core_proxy == NULL) {
 		printf("can't connect: %m\n");
 		return -1;
@@ -561,7 +561,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

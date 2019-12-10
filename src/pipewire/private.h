@@ -64,8 +64,8 @@ struct ucred {
 #define pw_protocol_emit_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
 
 struct pw_protocol {
-	struct spa_list link;                   /**< link in core protocol_list */
-	struct pw_core *core;                   /**< core for this protocol */
+	struct spa_list link;                   /**< link in context protocol_list */
+	struct pw_context *context;                   /**< context for this protocol */
 
 	char *name;                             /**< type name of the protocol */
 
@@ -103,8 +103,8 @@ struct protocol_compat_v2 {
 };
 
 struct pw_client {
-	struct pw_core *core;		/**< core object */
-	struct spa_list link;		/**< link in core object client list */
+	struct pw_context *context;		/**< context object */
+	struct spa_list link;		/**< link in context object client list */
 	struct pw_global *global;	/**< global object created for this client */
 	struct spa_hook global_listener;
 
@@ -147,9 +147,9 @@ struct pw_client {
 #define pw_global_emit_permissions_changed(g,...)	pw_global_emit(g, permissions_changed, 0, __VA_ARGS__)
 
 struct pw_global {
-	struct pw_core *core;		/**< the core */
+	struct pw_context *context;		/**< the context */
 
-	struct spa_list link;		/**< link in core list of globals */
+	struct spa_list link;		/**< link in context list of globals */
 	uint32_t id;			/**< server id of the object */
 
 	struct pw_properties *properties;	/**< properties of the global */
@@ -165,13 +165,13 @@ struct pw_global {
 	struct spa_list resource_list;	/**< The list of resources of this global */
 };
 
-#define pw_core_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_core_events, m, v, ##__VA_ARGS__)
-#define pw_core_emit_destroy(c)			pw_core_emit(c, destroy, 0)
-#define pw_core_emit_free(c)			pw_core_emit(c, free, 0)
-#define pw_core_emit_info_changed(c,i)		pw_core_emit(c, info_changed, 0, i)
-#define pw_core_emit_check_access(c,cl)		pw_core_emit(c, check_access, 0, cl)
-#define pw_core_emit_global_added(c,g)		pw_core_emit(c, global_added, 0, g)
-#define pw_core_emit_global_removed(c,g)	pw_core_emit(c, global_removed, 0, g)
+#define pw_context_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_context_events, m, v, ##__VA_ARGS__)
+#define pw_context_emit_destroy(c)		pw_context_emit(c, destroy, 0)
+#define pw_context_emit_free(c)			pw_context_emit(c, free, 0)
+#define pw_context_emit_info_changed(c,i)	pw_context_emit(c, info_changed, 0, i)
+#define pw_context_emit_check_access(c,cl)	pw_context_emit(c, check_access, 0, cl)
+#define pw_context_emit_global_added(c,g)	pw_context_emit(c, global_added, 0, g)
+#define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
 
 #define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_proxy_events, m, v, ##__VA_ARGS__)
 #define pw_core_resource_info(r,...)		pw_core_resource(r,info,0,__VA_ARGS__)
@@ -208,13 +208,13 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 #define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)
 
 
-struct pw_core {
-	struct pw_global *global;	/**< the global of the core */
+struct pw_context {
+	struct pw_global *global;	/**< the global of the context */
 	struct spa_hook global_listener;
 
 	struct pw_core_info info;	/**< info about the core */
 
-	struct pw_properties *properties;	/**< properties of the core */
+	struct pw_properties *properties;	/**< properties of the context */
 
 	struct pw_mempool *pool;		/**< global memory pool */
 
@@ -285,8 +285,8 @@ struct pw_main_loop {
 #define pw_device_emit_info_changed(n,i)	pw_device_emit(n, info_changed, 0, i)
 
 struct pw_device {
-	struct pw_core *core;           /**< the core object */
-	struct spa_list link;           /**< link in the core device_list */
+	struct pw_context *context;           /**< the context object */
+	struct spa_list link;           /**< link in the context device_list */
 	struct pw_global *global;       /**< global object for this device */
 	struct spa_hook global_listener;
 
@@ -314,8 +314,8 @@ struct pw_device {
 #define pw_module_emit_registered(m)	pw_module_emit(m, registered, 0)
 
 struct pw_module {
-	struct pw_core *core;           /**< the core object */
-	struct spa_list link;           /**< link in the core module_list */
+	struct pw_context *context;           /**< the context object */
+	struct spa_list link;           /**< link in the context module_list */
 	struct pw_global *global;       /**< global object for this module */
 	struct spa_hook global_listener;
 
@@ -439,8 +439,8 @@ struct pw_node_activation {
 #define pw_node_emit_peer_removed(n,p)		pw_node_emit(n, peer_removed, 0, p)
 
 struct pw_node {
-	struct pw_core *core;		/**< core object */
-	struct spa_list link;		/**< link in core node_list */
+	struct pw_context *context;		/**< context object */
+	struct spa_list link;		/**< link in context node_list */
 	struct pw_global *global;	/**< global for this node */
 	struct spa_hook global_listener;
 
@@ -642,8 +642,8 @@ struct pw_control_link {
 #define pw_link_emit_port_unlinked(l,p)		pw_link_emit(l, port_unlinked, 0, p)
 
 struct pw_link {
-	struct pw_core *core;		/**< core object */
-	struct spa_list link;		/**< link in core link_list */
+	struct pw_context *context;		/**< context object */
+	struct spa_list link;		/**< link in context link_list */
 	struct pw_global *global;	/**< global for this link */
 	struct spa_hook global_listener;
 
@@ -683,7 +683,7 @@ struct pw_link {
 struct pw_resource {
 	struct spa_interface impl;	/**< object implementation */
 
-	struct pw_core *core;		/**< the core object */
+	struct pw_context *context;		/**< the context object */
 	struct spa_list link;		/**< link in global resource_list */
 
 	struct pw_client *client;	/**< owner client */
@@ -735,8 +735,8 @@ struct pw_proxy {
 struct pw_core_proxy {
 	struct pw_proxy proxy;
 
-	struct pw_core *core;			/**< core */
-	struct spa_list link;			/**< link in core core_proxy_list */
+	struct pw_context *context;			/**< context */
+	struct spa_list link;			/**< link in context core_proxy_list */
 	struct pw_properties *properties;	/**< extra properties */
 
 	struct pw_mempool *pool;		/**< memory pool */
@@ -839,8 +839,8 @@ struct pw_filter {
 #define pw_factory_emit_initialized(s)		pw_factory_emit(s, initialized, 0)
 
 struct pw_factory {
-	struct pw_core *core;		/**< the core */
-	struct spa_list link;		/**< link in core node_factory_list */
+	struct pw_context *context;		/**< the context */
+	struct spa_list link;		/**< link in context node_factory_list */
 	struct pw_global *global;	/**< global for this factory */
 	struct spa_hook global_listener;
 
@@ -863,8 +863,8 @@ struct pw_factory {
 #define pw_control_emit_unlinked(c,o)	pw_control_emit(c, unlinked, 0, o)
 
 struct pw_control {
-	struct spa_list link;		/**< link in core control_list */
-	struct pw_core *core;		/**< the core */
+	struct spa_list link;		/**< link in context control_list */
+	struct pw_context *context;		/**< the context */
 
 	struct pw_port *port;		/**< owner port or NULL */
 	struct spa_list port_link;	/**< link in port control_list */
@@ -881,7 +881,7 @@ struct pw_control {
 };
 
 /** Find a good format between 2 ports */
-int pw_core_find_format(struct pw_core *core,
+int pw_context_find_format(struct pw_context *context,
 			struct pw_port *output,
 			struct pw_port *input,
 			struct pw_properties *props,
@@ -893,7 +893,7 @@ int pw_core_find_format(struct pw_core *core,
 
 /** Find a ports compatible with \a other_port and the format filters */
 struct pw_port *
-pw_core_find_port(struct pw_core *core,
+pw_context_find_port(struct pw_context *context,
 		  struct pw_port *other_port,
 		  uint32_t id,
 		  struct pw_properties *props,
@@ -901,7 +901,7 @@ pw_core_find_port(struct pw_core *core,
 		  struct spa_pod **format_filters,
 		  char **error);
 
-const struct pw_export_type *pw_core_find_export_type(struct pw_core *core, uint32_t type);
+const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, uint32_t type);
 
 int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version);
 
@@ -911,7 +911,7 @@ void pw_proxy_remove(struct pw_proxy *proxy);
 int pw_resource_install_marshal(struct pw_resource *resource, bool implementor);
 void pw_resource_remove(struct pw_resource *resource);
 
-int pw_core_recalc_graph(struct pw_core *core);
+int pw_context_recalc_graph(struct pw_context *context);
 
 /** Create a new port \memberof pw_port
  * \return a newly allocated port */
@@ -1010,7 +1010,7 @@ int pw_link_activate(struct pw_link *link);
 int pw_link_deactivate(struct pw_link *link);
 
 struct pw_control *
-pw_control_new(struct pw_core *core,
+pw_control_new(struct pw_context *context,
 	       struct pw_port *owner,		/**< can be NULL */
 	       uint32_t id, uint32_t size,
 	       size_t user_data_size		/**< extra user data */);

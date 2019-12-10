@@ -48,7 +48,7 @@ struct param {
 
 struct data {
 	struct pw_main_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_core_proxy *core_proxy;
 	struct spa_hook core_listener;
@@ -707,8 +707,8 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 
-	data.core = pw_core_new(l, NULL, 0);
-	if (data.core == NULL)
+	data.context = pw_context_new(l, NULL, 0);
+	if (data.context == NULL)
 		return -1;
 
 	if (argc > 1)
@@ -716,7 +716,7 @@ int main(int argc, char *argv[])
 
 	spa_list_init(&data.pending_list);
 
-	data.core_proxy = pw_core_connect(data.core, props, 0);
+	data.core_proxy = pw_context_connect(data.context, props, 0);
 	if (data.core_proxy == NULL)
 		return -1;
 
@@ -731,7 +731,7 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_core_destroy(data.core);
+	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	return 0;

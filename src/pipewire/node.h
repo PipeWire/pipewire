@@ -46,7 +46,7 @@ struct pw_node;
 #include <spa/node/node.h>
 #include <spa/node/event.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/global.h>
 #include <pipewire/introspect.h>
 #include <pipewire/port.h>
@@ -102,7 +102,7 @@ struct pw_node_events {
 
 /** Create a new node \memberof pw_node */
 struct pw_node *
-pw_node_new(struct pw_core *core,		/**< the core */
+pw_node_new(struct pw_context *context,		/**< the context */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 
@@ -119,8 +119,8 @@ const struct pw_node_info *pw_node_get_info(struct pw_node *node);
 /** Get node user_data. The size of the memory was given in \ref pw_node_new */
 void * pw_node_get_user_data(struct pw_node *node);
 
-/** Get the core of this node */
-struct pw_core *pw_node_get_core(struct pw_node *node);
+/** Get the context of this node */
+struct pw_context *pw_node_get_context(struct pw_node *node);
 
 /** Get the global of this node */
 struct pw_global *pw_node_get_global(struct pw_node *node);

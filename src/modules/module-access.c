@@ -43,10 +43,10 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct impl {
-	struct pw_core *core;
+	struct pw_context *context;
 	struct pw_properties *properties;
 
-	struct spa_hook core_listener;
+	struct spa_hook context_listener;
 	struct spa_hook module_listener;
 };
 
@@ -112,7 +112,7 @@ static int check_flatpak(struct pw_client *client, int pid)
 }
 
 static void
-core_check_access(void *data, struct pw_client *client)
+context_check_access(void *data, struct pw_client *client)
 {
 	struct impl *impl = data;
 	struct pw_permission permissions[1];
@@ -190,16 +190,16 @@ blacklisted:
 	return;
 }
 
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.check_access = core_check_access,
+static const struct pw_context_events context_events = {
+	PW_VERSION_CONTEXT_EVENTS,
+	.check_access = context_check_access,
 };
 
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 
-	spa_hook_remove(&impl->core_listener);
+	spa_hook_remove(&impl->context_listener);
 	spa_hook_remove(&impl->module_listener);
 
 	if (impl->properties)
@@ -216,7 +216,7 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
 
@@ -231,10 +231,10 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	else
 		props = NULL;
 
-	impl->core = core;
+	impl->context = context;
 	impl->properties = props;
 
-	pw_core_add_listener(core, &impl->core_listener, &core_events, impl);
+	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
 	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));

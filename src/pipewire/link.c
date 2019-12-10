@@ -227,7 +227,7 @@ static int do_negotiate(struct pw_link *this)
 	output = this->output;
 
 	/* find a common format for the ports */
-	if ((res = pw_core_find_format(this->core,
+	if ((res = pw_context_find_format(this->context,
 					output, input, NULL, 0, NULL,
 					&format, &b, &error)) < 0)
 		goto error;
@@ -453,7 +453,7 @@ static int do_allocation(struct pw_link *this)
 			flags |= SPA_NODE_BUFFERS_FLAG_ALLOC;
 		}
 
-		if ((res = pw_buffers_negotiate(this->core, alloc_flags,
+		if ((res = pw_buffers_negotiate(this->context, alloc_flags,
 						output->node->node, output->port_id,
 						input->node->node, input->port_id,
 						&output->buffers)) < 0) {
@@ -987,7 +987,7 @@ static void try_unlink_controls(struct impl *impl, struct pw_port *output, struc
 }
 
 static int
-check_permission(struct pw_core *core,
+check_permission(struct pw_context *context,
 		 struct pw_port *output,
 		 struct pw_port *input,
 		 struct pw_properties *properties)
@@ -1005,7 +1005,7 @@ static void permissions_changed(struct pw_link *this, struct pw_port *other,
 	new &= perm;
 	pw_log_debug(NAME" %p: permissions changed %08x -> %08x", this, old, new);
 
-	if (check_permission(this->core, this->output, this->input, this->properties) < 0) {
+	if (check_permission(this->context, this->output, this->input, this->properties) < 0) {
 		pw_link_destroy(this);
 	} else {
 		pw_global_update_permissions(this->global, client, old, new);
@@ -1037,7 +1037,7 @@ static const struct pw_global_events input_global_events = {
 };
 
 SPA_EXPORT
-struct pw_link *pw_link_new(struct pw_core *core,
+struct pw_link *pw_link_new(struct pw_context *context,
 			    struct pw_port *output,
 			    struct pw_port *input,
 			    struct spa_pod *format_filter,
@@ -1060,7 +1060,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	if (pw_link_find(output, input))
 		goto error_link_exists;
 
-	if (check_permission(core, output, input, properties) < 0)
+	if (check_permission(context, output, input, properties) < 0)
 		goto error_link_not_allowed;
 
 	output_node = output->node;
@@ -1082,9 +1082,9 @@ struct pw_link *pw_link_new(struct pw_core *core,
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
-	impl->work = pw_work_queue_new(core->main_loop);
+	impl->work = pw_work_queue_new(context->main_loop);
 
-	this->core = core;
+	this->context = context;
 	this->properties = properties;
 	this->info.state = PW_LINK_STATE_INIT;
 
@@ -1149,7 +1149,7 @@ struct pw_link *pw_link_new(struct pw_core *core,
 
 	pw_node_emit_peer_added(output_node, input_node);
 
-	pw_core_recalc_graph(core);
+	pw_context_recalc_graph(context);
 
 	return this;
 
@@ -1202,7 +1202,7 @@ SPA_EXPORT
 int pw_link_register(struct pw_link *link,
 		     struct pw_properties *properties)
 {
-	struct pw_core *core = link->core;
+	struct pw_context *context = link->context;
 	struct pw_node *output_node, *input_node;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
@@ -1233,7 +1233,7 @@ int pw_link_register(struct pw_link *link,
 	pw_properties_setf(properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
 	pw_properties_setf(properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
 
-	link->global = pw_global_new(core,
+	link->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Link,
 				     PW_VERSION_LINK_PROXY,
 				     properties,
@@ -1242,7 +1242,7 @@ int pw_link_register(struct pw_link *link,
 	if (link->global == NULL)
 		return -errno;
 
-	spa_list_append(&core->link_list, &link->link);
+	spa_list_append(&context->link_list, &link->link);
 	link->registered = true;
 
 	link->info.id = link->global->id;
@@ -1301,7 +1301,7 @@ void pw_link_destroy(struct pw_link *link)
 
 	pw_properties_free(link->properties);
 
-	pw_core_recalc_graph(link->core);
+	pw_context_recalc_graph(link->context);
 
 	free(link->info.format);
 	free(impl);
@@ -1329,9 +1329,9 @@ struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_
 }
 
 SPA_EXPORT
-struct pw_core *pw_link_get_core(struct pw_link *link)
+struct pw_context *pw_link_get_context(struct pw_link *link)
 {
-	return link->core;
+	return link->context;
 }
 
 SPA_EXPORT

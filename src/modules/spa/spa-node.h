@@ -27,7 +27,7 @@
 
 #include <spa/node/node.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/node.h>
 
 #ifdef __cplusplus
@@ -41,7 +41,7 @@ enum pw_spa_node_flags {
 };
 
 struct pw_node *
-pw_spa_node_new(struct pw_core *core,
+pw_spa_node_new(struct pw_context *context,
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
 		struct spa_handle *handle,
@@ -49,7 +49,7 @@ pw_spa_node_new(struct pw_core *core,
 		size_t user_data_size);
 
 struct pw_node *
-pw_spa_node_load(struct pw_core *core,
+pw_spa_node_load(struct pw_context *context,
 		 const char *factory_name,
 		 enum pw_spa_node_flags flags,
 		 struct pw_properties *properties,

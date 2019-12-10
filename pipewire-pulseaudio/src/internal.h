@@ -282,7 +282,7 @@ struct pa_context {
 	uint32_t client_index;
 
 	struct pw_loop *loop;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct pw_properties *props;
 

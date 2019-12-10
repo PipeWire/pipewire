@@ -86,7 +86,7 @@ struct _GstPipeWireSink {
   struct pw_loop *loop;
   struct pw_thread_loop *main_loop;
 
-  struct pw_core *core;
+  struct pw_context *context;
   struct pw_core_proxy *core_proxy;
 
   struct pw_stream *stream;

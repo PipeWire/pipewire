@@ -37,7 +37,7 @@ struct impl {
 };
 
 struct pw_control *
-pw_control_new(struct pw_core *core,
+pw_control_new(struct pw_context *context,
 	       struct pw_port *port,
 	       uint32_t id, uint32_t size,
 	       size_t user_data_size)
@@ -69,7 +69,7 @@ pw_control_new(struct pw_core *core,
 	pw_log_debug(NAME" %p: new %s %d", this,
 			spa_debug_type_find_name(spa_type_io, this->id), direction);
 
-	this->core = core;
+	this->context = context;
 	this->port = port;
 	this->direction = direction;
 
@@ -80,7 +80,7 @@ pw_control_new(struct pw_core *core,
 
 	spa_hook_list_init(&this->listener_list);
 
-	spa_list_append(&core->control_list[direction], &this->link);
+	spa_list_append(&context->control_list[direction], &this->link);
 	if (port) {
 		spa_list_append(&port->control_list[direction], &this->port_link);
 		pw_port_emit_control_added(port, this);
@@ -185,7 +185,7 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 	size = SPA_MAX(control->size, other->size);
 
 	if (impl->mem == NULL) {
-		impl->mem = pw_mempool_alloc(control->core->pool,
+		impl->mem = pw_mempool_alloc(control->context->pool,
 						PW_MEMBLOCK_FLAG_READWRITE |
 						PW_MEMBLOCK_FLAG_SEAL |
 						PW_MEMBLOCK_FLAG_MAP,

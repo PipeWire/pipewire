@@ -68,7 +68,7 @@ static const char whitespace[] = " \t";
 /** \endcond */
 
 static int
-execute_command_help(struct pw_command *command, struct pw_core *core, char **err)
+execute_command_help(struct pw_command *command, struct pw_context *context, char **err)
 {
 	int i;
 
@@ -100,7 +100,7 @@ no_mem:
 }
 
 static int
-execute_command_set_prop(struct pw_command *command, struct pw_core *core, char **err)
+execute_command_set_prop(struct pw_command *command, struct pw_context *context, char **err)
 {
 	return 0;
 }
@@ -136,11 +136,11 @@ error_alloc:
 }
 
 static int
-execute_command_add_spa_lib(struct pw_command *command, struct pw_core *core, char **err)
+execute_command_add_spa_lib(struct pw_command *command, struct pw_context *context, char **err)
 {
 	int res;
 
-	res = pw_core_add_spa_lib(core, command->args[1], command->args[2]);
+	res = pw_context_add_spa_lib(context, command->args[1], command->args[2]);
 	if (res < 0) {
 		asprintf(err, "could not add spa library \"%s\"", command->args[1]);
 		return res;
@@ -176,11 +176,11 @@ no_mem:
 }
 
 static int
-execute_command_module_load(struct pw_command *command, struct pw_core *core, char **err)
+execute_command_module_load(struct pw_command *command, struct pw_context *context, char **err)
 {
 	struct pw_module *module;
 
-	module = pw_module_load(core, command->args[1], command->args[2], NULL);
+	module = pw_module_load(context, command->args[1], command->args[2], NULL);
 	if (module == NULL) {
 		asprintf(err, "could not load module \"%s\": %m", command->args[1]);
 		return -errno;
@@ -216,7 +216,7 @@ no_mem:
 }
 
 static int
-execute_command_exec(struct pw_command *command, struct pw_core *core, char **err)
+execute_command_exec(struct pw_command *command, struct pw_context *context, char **err)
 {
 	int pid;
 
@@ -315,14 +315,14 @@ out:
 /** Run a command
  *
  * \param command A \ref pw_command
- * \param core A \ref pw_core
+ * \param context A \ref pw_context
  * \param err Return location for an error string, or NULL
  * \return 0 on success, < 0 on error
  *
  * \memberof pw_command
  */
 SPA_EXPORT
-int pw_command_run(struct pw_command *command, struct pw_core *core, char **err)
+int pw_command_run(struct pw_command *command, struct pw_context *context, char **err)
 {
-	return command->func(command, core, err);
+	return command->func(command, context, err);
 }

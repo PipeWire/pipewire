@@ -49,8 +49,8 @@ struct pw_proxy *pw_core_proxy_node_export(struct pw_core_proxy *core_proxy,
 struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
 
-struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_core *core);
-struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_core *core);
+struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_context *context);
+struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_context *context);
 
 struct factory_data {
 	struct pw_factory *this;
@@ -151,11 +151,11 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(core,
+	factory = pw_factory_new(context,
 				 "client-node",
 				 PW_TYPE_INTERFACE_ClientNode,
 				 PW_VERSION_CLIENT_NODE,
@@ -174,16 +174,16 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				      &impl_factory,
 				      data);
 
-	pw_protocol_native_ext_client_node_init(core);
-	pw_protocol_native_ext_client_node0_init(core);
+	pw_protocol_native_ext_client_node_init(context);
+	pw_protocol_native_ext_client_node0_init(context);
 
 	data->export_node.type = PW_TYPE_INTERFACE_Node;
 	data->export_node.func = pw_core_proxy_node_export;
-	pw_core_register_export_type(core, &data->export_node);
+	pw_context_register_export_type(context, &data->export_node);
 
 	data->export_spanode.type = SPA_TYPE_INTERFACE_Node;
 	data->export_spanode.func = pw_core_proxy_spa_node_export;
-	pw_core_register_export_type(core, &data->export_spanode);
+	pw_context_register_export_type(context, &data->export_spanode);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

@@ -186,21 +186,21 @@ int pw_daemon_config_load(struct pw_daemon_config *config, char **err)
 /**
  * pw_daemon_config_run_commands:
  * @config: A #struct pw_daemon_config
- * @core: A #struct pw_core
+ * @context: A #struct pw_context
  *
  * Run all commands that have been parsed. The list of commands will be cleared
  * when this function has been called.
  *
  * Returns: 0 if all commands where executed with success, otherwise < 0.
  */
-int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_core *core)
+int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_context *context)
 {
 	char *err = NULL;
 	int ret = 0;
 	struct pw_command *command;
 
 	spa_list_for_each(command, &config->commands, link) {
-		if ((ret = pw_command_run(command, core, &err)) < 0) {
+		if ((ret = pw_command_run(command, context, &err)) < 0) {
 			pw_log_warn("could not run command %s: %s", command->args[0], err);
 			free(err);
 			break;

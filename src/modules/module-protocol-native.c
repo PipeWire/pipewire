@@ -81,7 +81,7 @@ struct protocol_data {
 
 struct client {
 	struct pw_protocol_client this;
-	struct pw_core *core;
+	struct pw_context *context;
 
 	struct spa_source *source;
 
@@ -124,12 +124,12 @@ process_messages(struct client_data *data)
 {
 	struct pw_protocol_native_connection *conn = data->connection;
 	struct pw_client *client = data->client;
-	struct pw_core *core = client->core;
+	struct pw_context *context = client->context;
 	const struct pw_protocol_native_message *msg;
 	struct pw_resource *resource;
 	int res;
 
-	core->current_client = client;
+	context->current_client = client;
 
 	/* when the client is busy processing an async action, stop processing messages
 	 * for the client until it finishes the action */
@@ -197,7 +197,7 @@ process_messages(struct client_data *data)
 			goto invalid_message;
 	}
 done:
-	core->current_client = NULL;
+	context->current_client = NULL;
 	return;
 
 invalid_method:
@@ -233,7 +233,7 @@ client_busy_changed(void *data, bool busy)
 	SPA_FLAG_UPDATE(mask, SPA_IO_IN, !busy);
 
 	pw_log_debug(NAME" %p: busy changed %d", client->protocol, busy);
-	pw_loop_update_io(client->core->main_loop, c->source, mask);
+	pw_loop_update_io(client->context->main_loop, c->source, mask);
 
 	if (!busy)
 		process_messages(c);
@@ -262,7 +262,7 @@ connection_data(void *data, int fd, uint32_t mask)
 		if (res >= 0) {
 			int mask = this->source->mask;
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
-			pw_loop_update_io(client->protocol->core->main_loop,
+			pw_loop_update_io(client->protocol->context->main_loop,
 					this->source, mask);
 		} else if (res != EAGAIN) {
 			pw_log_error("client %p: could not flush: %s",
@@ -283,7 +283,7 @@ static void client_free(void *data)
 	spa_list_remove(&client->protocol_link);
 
 	if (this->source)
-		pw_loop_destroy_source(client->protocol->core->main_loop, this->source);
+		pw_loop_destroy_source(client->protocol->context->main_loop, this->source);
 	if (this->connection)
 		pw_protocol_native_connection_destroy(this->connection);
 
@@ -300,11 +300,11 @@ static void on_start(void *data, uint32_t version)
 {
 	struct client_data *this = data;
 	struct pw_client *client = this->client;
-	struct pw_core *core = client->core;
+	struct pw_context *context = client->context;
 
 	pw_log_debug("version %d", version);
 
-	if (pw_global_bind(pw_core_get_global(core), client,
+	if (pw_global_bind(pw_context_get_global(context), client,
 			PW_PERM_RWX, version, 0) < 0)
 		return;
 
@@ -326,7 +326,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	struct pw_protocol *protocol = s->this.protocol;
 	socklen_t len;
 	struct ucred ucred;
-	struct pw_core *core = protocol->core;
+	struct pw_context *context = protocol->context;
 	struct pw_properties *props;
 	char buffer[1024];
 	struct protocol_data *d = pw_protocol_get_user_data(protocol);
@@ -356,7 +356,7 @@ static struct client_data *client_new(struct server *s, int fd)
 
 	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 
-	client = pw_client_new(protocol->core,
+	client = pw_client_new(protocol->context,
 			       props,
 			       sizeof(struct client_data));
 	if (client == NULL)
@@ -368,7 +368,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	spa_list_append(&s->this.client_list, &client->protocol_link);
 
 	this->client = client;
-	this->source = pw_loop_add_io(pw_core_get_main_loop(core),
+	this->source = pw_loop_add_io(pw_context_get_main_loop(context),
 				      fd, SPA_IO_ERR | SPA_IO_HUP, true,
 				      connection_data, this);
 	if (this->source == NULL) {
@@ -376,7 +376,7 @@ static struct client_data *client_new(struct server *s, int fd)
 		goto cleanup_client;
 	}
 
-	this->connection = pw_protocol_native_connection_new(protocol->core, fd);
+	this->connection = pw_protocol_native_connection_new(protocol->context, fd);
 	if (this->connection == NULL) {
 		res = -errno;
 		goto cleanup_client;
@@ -395,7 +395,7 @@ static struct client_data *client_new(struct server *s, int fd)
 		goto cleanup_client;
 
 	if (!client->busy)
-		pw_loop_update_io(pw_core_get_main_loop(core),
+		pw_loop_update_io(pw_context_get_main_loop(context),
 				this->source, this->source->mask | SPA_IO_IN);
 
 	return this;
@@ -554,7 +554,7 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 	}
 
 	s->activated = activated;
-	s->loop = pw_core_get_main_loop(protocol->core);
+	s->loop = pw_context_get_main_loop(protocol->context);
 	if (s->loop == NULL) {
 		res = -errno;
 		goto error_close;
@@ -595,8 +595,8 @@ on_remote_data(void *data, int fd, uint32_t mask)
 	struct client *impl = data;
 	struct pw_core_proxy *this = impl->this.core_proxy;
 	struct pw_protocol_native_connection *conn = impl->connection;
-	struct pw_core *core = pw_core_proxy_get_core(this);
-	struct pw_loop *loop = pw_core_get_main_loop(core);
+	struct pw_context *context = pw_core_proxy_get_context(this);
+	struct pw_loop *loop = pw_context_get_main_loop(context);
 	int res;
 
         if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
@@ -698,7 +698,7 @@ static void on_need_flush(void *data)
 		int mask = impl->source->mask;
 		impl->flushing = true;
 		SPA_FLAG_SET(mask, SPA_IO_OUT);
-		pw_loop_update_io(impl->core->main_loop,
+		pw_loop_update_io(impl->context->main_loop,
 					impl->source, mask);
 	}
 }
@@ -717,7 +717,7 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_cl
 
 	pw_protocol_native_connection_set_fd(impl->connection, fd);
 	impl->flushing = true;
-	impl->source = pw_loop_add_io(impl->core->main_loop,
+	impl->source = pw_loop_add_io(impl->context->main_loop,
 					fd,
 					SPA_IO_IN | SPA_IO_OUT | SPA_IO_HUP | SPA_IO_ERR,
 					do_close, on_remote_data, impl);
@@ -747,7 +747,7 @@ static void impl_disconnect(struct pw_protocol_client *client)
 	impl->disconnecting = true;
 
 	if (impl->source)
-                pw_loop_destroy_source(impl->core->main_loop, impl->source);
+                pw_loop_destroy_source(impl->context->main_loop, impl->source);
 	impl->source = NULL;
 
 	if (impl->connection)
@@ -825,8 +825,8 @@ impl_new_client(struct pw_protocol *protocol,
 	this = &impl->this;
 	this->protocol = protocol;
 
-	impl->core = protocol->core;
-	impl->connection = pw_protocol_native_connection_new(protocol->core, -1);
+	impl->context = protocol->context;
+	impl->connection = pw_protocol_native_connection_new(protocol->context, -1);
 	if (impl->connection == NULL) {
 		res = -errno;
 		goto error_free;
@@ -836,7 +836,7 @@ impl_new_client(struct pw_protocol *protocol,
 		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
 		if (str == NULL &&
 		    (str = pw_properties_get(properties, PW_KEY_REMOTE_NAME)) != NULL &&
-		    strcmp(str, impl->core->info.name) == 0)
+		    strcmp(str, impl->context->info.name) == 0)
 			str = "internal";
 	}
 	if (str == NULL)
@@ -905,7 +905,7 @@ static void on_before_hook(void *_data)
 		if (res == -EAGAIN) {
 			int mask = data->source->mask;
 			SPA_FLAG_SET(mask, SPA_IO_OUT);
-			pw_loop_update_io(client->protocol->core->main_loop,
+			pw_loop_update_io(client->protocol->context->main_loop,
 					data->source, mask);
 		} else if (res < 0) {
 			pw_log_warn("client %p: could not flush: %s",
@@ -940,7 +940,7 @@ create_server(struct pw_protocol *protocol,
                 const struct pw_properties *properties)
 {
 	struct pw_protocol_server *this;
-	struct pw_core *core = protocol->core;
+	struct pw_context *context = protocol->context;
 	struct server *s;
 
 	if ((s = calloc(1, sizeof(struct server))) == NULL)
@@ -955,7 +955,7 @@ create_server(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->server_list, &this->link);
 
-	pw_loop_add_hook(pw_core_get_main_loop(core), &s->hook, &impl_hooks, s);
+	pw_loop_add_hook(pw_context_get_main_loop(context), &s->hook, &impl_hooks, s);
 
 	pw_log_info(NAME" %p: created server %p", protocol, this);
 
@@ -1085,17 +1085,17 @@ static const struct pw_module_events module_events = {
 SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
-	struct pw_core *core = pw_module_get_core(module);
+	struct pw_context *context = pw_module_get_context(module);
 	struct pw_protocol *this;
 	const char *val;
 	struct protocol_data *d;
 	const struct pw_properties *props;
 	int res;
 
-	if (pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
+	if (pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
 		return 0;
 
-	this = pw_protocol_new(core, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
+	this = pw_protocol_new(context, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
 	if (this == NULL)
 		return -errno;
 
@@ -1115,7 +1115,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	d->local = create_server(this, props);
 
-	props = pw_core_get_properties(core);
+	props = pw_context_get_properties(context);
 
 	val = getenv("PIPEWIRE_DAEMON");
 	if (val == NULL)

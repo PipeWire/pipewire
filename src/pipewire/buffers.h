@@ -27,7 +27,7 @@
 
 #include <spa/node/node.h>
 
-#include <pipewire/core.h>
+#include <pipewire/context.h>
 #include <pipewire/mem.h>
 
 #ifdef __cplusplus
@@ -46,7 +46,7 @@ struct pw_buffers {
 	uint32_t flags;			/**< flags */
 };
 
-int pw_buffers_negotiate(struct pw_core *core, uint32_t flags,
+int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		struct spa_node *outnode, uint32_t out_port_id,
 		struct spa_node *innode, uint32_t in_port_id,
 		struct pw_buffers *result);

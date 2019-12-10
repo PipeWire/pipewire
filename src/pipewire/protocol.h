@@ -91,9 +91,9 @@ struct pw_protocol_implementaton {
 	uint32_t version;
 
 	struct pw_protocol_client * (*new_client) (struct pw_protocol *protocol,
-						   struct pw_properties *properties);
+						   const struct pw_properties *properties);
 	struct pw_protocol_server * (*add_server) (struct pw_protocol *protocol,
-						   struct pw_properties *properties);
+						   const struct pw_properties *properties);
 };
 
 struct pw_protocol_events {

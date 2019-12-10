@@ -285,6 +285,7 @@ static struct pw_core_proxy *core_proxy_new(struct pw_core *core,
 		res = -errno;
 		goto exit_cleanup;
 	}
+	pw_log_debug(NAME" %p: new", p);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);

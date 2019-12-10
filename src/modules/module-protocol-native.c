@@ -75,6 +75,8 @@ struct protocol_data {
 	struct pw_module *module;
 	struct spa_hook module_listener;
 	struct pw_protocol *protocol;
+
+	struct server *local;
 };
 
 struct client {
@@ -317,7 +319,7 @@ static const struct pw_protocol_native_connection_events server_conn_events = {
 	.start = on_start,
 };
 
-static struct pw_client *client_new(struct server *s, int fd)
+static struct client_data *client_new(struct server *s, int fd)
 {
 	struct client_data *this;
 	struct pw_client *client;
@@ -360,6 +362,7 @@ static struct pw_client *client_new(struct server *s, int fd)
 	if (client == NULL)
 		goto exit;
 
+
 	this = pw_client_get_user_data(client);
 	client->protocol = protocol;
 	spa_list_append(&s->this.client_list, &client->protocol_link);
@@ -391,7 +394,11 @@ static struct pw_client *client_new(struct server *s, int fd)
 	if ((res = pw_client_register(client, NULL)) < 0)
 		goto cleanup_client;
 
-	return client;
+	if (!client->busy)
+		pw_loop_update_io(pw_core_get_main_loop(core),
+				this->source, this->source->mask | SPA_IO_IN);
+
+	return this;
 
 cleanup_client:
 	pw_client_destroy(client);
@@ -472,8 +479,7 @@ static void
 socket_data(void *data, int fd, uint32_t mask)
 {
 	struct server *s = data;
-	struct pw_client *client;
-	struct client_data *c;
+	struct client_data *client;
 	struct sockaddr_un name;
 	socklen_t length;
 	int client_fd;
@@ -491,11 +497,6 @@ socket_data(void *data, int fd, uint32_t mask)
 		close(client_fd);
 		return;
 	}
-	c = client->user_data;
-
-	if (!client->busy)
-		pw_loop_update_io(client->protocol->core->main_loop,
-				c->source, c->source->mask | SPA_IO_IN);
 }
 
 static int add_socket(struct pw_protocol *protocol, struct server *s)
@@ -764,9 +765,52 @@ static void impl_destroy(struct pw_protocol_client *client)
 	free(impl);
 }
 
+static int pw_protocol_native_connect_internal(struct pw_protocol_client *client,
+					    const struct spa_dict *props,
+					    void (*done_callback) (void *data, int res),
+					    void *data)
+{
+	int res, sv[2];
+	struct pw_protocol *protocol = client->protocol;
+	struct protocol_data *d = pw_protocol_get_user_data(protocol);
+	struct server *s = d->local;
+	struct pw_permission permissions[1];
+	struct client_data *c;
+
+	pw_log_debug("server %p: internal connect", s);
+
+	if (socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, sv) < 0) {
+		res = -errno;
+		pw_log_error("server %p: socketpair() failed with error: %m", s);
+		goto error;
+	}
+
+	c = client_new(s, sv[0]);
+	if (c == NULL) {
+		res = -errno;
+		pw_log_error("server %p: failed to create client: %m", s);
+		goto error_close;
+	}
+	permissions[0].id = SPA_ID_INVALID;
+	permissions[0].permissions = PW_PERM_RWX;
+	pw_client_update_permissions(c->client, 1, permissions);
+
+	res = pw_protocol_client_connect_fd(client, sv[1], true);
+done:
+	if (done_callback)
+		done_callback(data, res);
+	return res;
+
+error_close:
+	close(sv[0]);
+	close(sv[1]);
+error:
+	goto done;
+}
+
 static struct pw_protocol_client *
 impl_new_client(struct pw_protocol *protocol,
-		struct pw_properties *properties)
+		const struct pw_properties *properties)
 {
 	struct client *impl;
 	struct pw_protocol_client *this;
@@ -775,6 +819,8 @@ impl_new_client(struct pw_protocol *protocol,
 
 	if ((impl = calloc(1, sizeof(struct client))) == NULL)
 		return NULL;
+
+	pw_log_debug(NAME" %p: new client %p", protocol, impl);
 
 	this = &impl->this;
 	this->protocol = protocol;
@@ -786,13 +832,22 @@ impl_new_client(struct pw_protocol *protocol,
 		goto error_free;
 	}
 
-	if (properties)
+	if (properties) {
 		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
+		if (str == NULL &&
+		    (str = pw_properties_get(properties, PW_KEY_REMOTE_NAME)) != NULL &&
+		    strcmp(str, impl->core->info.name) == 0)
+			str = "internal";
+	}
 	if (str == NULL)
 		str = "generic";
 
+	pw_log_debug(NAME" %p: connect %s", protocol, str);
+
 	if (!strcmp(str, "screencast"))
 		this->connect = pw_protocol_native_connect_portal_screencast;
+	else if (!strcmp(str, "internal"))
+		this->connect = pw_protocol_native_connect_internal;
 	else
 		this->connect = pw_protocol_native_connect_local_socket;
 
@@ -880,15 +935,13 @@ get_name(const struct pw_properties *properties)
 	return name;
 }
 
-static struct pw_protocol_server *
-impl_add_server(struct pw_protocol *protocol,
-                struct pw_properties *properties)
+static struct server *
+create_server(struct pw_protocol *protocol,
+                const struct pw_properties *properties)
 {
 	struct pw_protocol_server *this;
 	struct pw_core *core = protocol->core;
 	struct server *s;
-	const char *name;
-	int res;
 
 	if ((s = calloc(1, sizeof(struct server))) == NULL)
 		return NULL;
@@ -902,9 +955,28 @@ impl_add_server(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->server_list, &this->link);
 
-	name = get_name(pw_core_get_properties(core));
-
 	pw_loop_add_hook(pw_core_get_main_loop(core), &s->hook, &impl_hooks, s);
+
+	pw_log_info(NAME" %p: created server %p", protocol, this);
+
+	return s;
+}
+
+static struct pw_protocol_server *
+impl_add_server(struct pw_protocol *protocol,
+                const struct pw_properties *properties)
+{
+	struct pw_protocol_server *this;
+	struct server *s;
+	const char *name;
+	int res;
+
+	if ((s = create_server(protocol, properties)) == NULL)
+		return NULL;
+
+	this = &s->this;
+
+	name = get_name(properties);
 
 	if ((res = init_socket_name(s, name)) < 0)
 		goto error;
@@ -915,7 +987,7 @@ impl_add_server(struct pw_protocol *protocol,
 	if ((res = add_socket(protocol, s)) < 0)
 		goto error;
 
-	pw_log_info(NAME" %p: Added server %p %s", protocol, this, name);
+	pw_log_info(NAME" %p: Listening on '%s'", protocol, name);
 
 	return this;
 
@@ -1017,6 +1089,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	struct pw_protocol *this;
 	const char *val;
 	struct protocol_data *d;
+	const struct pw_properties *props;
 	int res;
 
 	if (pw_core_find_protocol(core, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
@@ -1040,11 +1113,15 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	d->protocol = this;
 	d->module = module;
 
+	d->local = create_server(this, props);
+
+	props = pw_core_get_properties(core);
+
 	val = getenv("PIPEWIRE_DAEMON");
 	if (val == NULL)
-		val = pw_properties_get(pw_core_get_properties(core), PW_KEY_CORE_DAEMON);
+		val = pw_properties_get(props, PW_KEY_CORE_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
-		if (impl_add_server(this, NULL) == NULL) {
+		if (impl_add_server(this, props) == NULL) {
 			res = -errno;
 			goto error_cleanup;
 		}

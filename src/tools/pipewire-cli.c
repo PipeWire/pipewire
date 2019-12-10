@@ -423,8 +423,10 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, a[0], NULL);
 	}
 	core_proxy = pw_core_connect(data->core, props, sizeof(struct remote_data));
-	if (core_proxy == NULL)
+	if (core_proxy == NULL) {
+		asprintf(error, "failed to connect: %m");
 		return false;
+	}
 
 	rd = pw_proxy_get_user_data((struct pw_proxy*)core_proxy);
 	rd->core_proxy = core_proxy;

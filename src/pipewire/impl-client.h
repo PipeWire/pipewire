@@ -110,9 +110,10 @@ struct pw_impl_client_events {
 
 /** Create a new client. This is mainly used by protocols. */
 struct pw_impl_client *
-pw_impl_client_new(struct pw_context *context,		/**< the context object */
-	      struct pw_properties *properties,	/**< client properties */
-	      size_t user_data_size		/**< extra user data size */);
+pw_impl_client_new(struct pw_context *context,			/**< the context object */
+			struct pw_protocol *prototol,		/**< the client protocol */
+			struct pw_properties *properties,	/**< client properties */
+			size_t user_data_size			/**< extra user data size */);
 
 /** Destroy a previously created client */
 void pw_impl_client_destroy(struct pw_impl_client *client);
@@ -139,6 +140,8 @@ const struct pw_properties *pw_impl_client_get_properties(struct pw_impl_client 
 
 /** Get the context used to create this client */
 struct pw_context *pw_impl_client_get_context(struct pw_impl_client *client);
+/** Get the protocol used to create this client */
+struct pw_protocol *pw_impl_client_get_protocol(struct pw_impl_client *client);
 
 /** Get the client context resource */
 struct pw_resource *pw_impl_client_get_core_resource(struct pw_impl_client *client);

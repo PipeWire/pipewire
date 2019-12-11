@@ -281,6 +281,7 @@ static const struct pw_context_events context_events = {
  */
 SPA_EXPORT
 struct pw_impl_client *pw_impl_client_new(struct pw_context *context,
+				struct pw_protocol *protocol,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
@@ -299,6 +300,7 @@ struct pw_impl_client *pw_impl_client_new(struct pw_context *context,
 	pw_log_debug(NAME" %p: new", this);
 
 	this->context = context;
+	this->protocol = protocol;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -426,6 +428,12 @@ SPA_EXPORT
 struct pw_context *pw_impl_client_get_context(struct pw_impl_client *client)
 {
 	return client->context;
+}
+
+SPA_EXPORT
+struct pw_protocol *pw_impl_client_get_protocol(struct pw_impl_client *client)
+{
+	return client->protocol;
 }
 
 SPA_EXPORT

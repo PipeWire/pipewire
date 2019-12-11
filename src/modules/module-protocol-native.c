@@ -108,6 +108,8 @@ struct client_data {
 	struct pw_impl_client *client;
 	struct spa_hook client_listener;
 
+	struct spa_list protocol_link;
+
 	struct spa_source *source;
 	struct pw_protocol_native_connection *connection;
 	struct spa_hook conn_listener;
@@ -261,7 +263,7 @@ connection_data(void *data, int fd, uint32_t mask)
 		if (res >= 0) {
 			int mask = this->source->mask;
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
-			pw_loop_update_io(client->protocol->context->main_loop,
+			pw_loop_update_io(client->context->main_loop,
 					this->source, mask);
 		} else if (res != EAGAIN) {
 			pw_log_error("client %p: could not flush: %s",
@@ -279,10 +281,10 @@ static void client_free(void *data)
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
 
-	spa_list_remove(&client->protocol_link);
+	spa_list_remove(&this->protocol_link);
 
 	if (this->source)
-		pw_loop_destroy_source(client->protocol->context->main_loop, this->source);
+		pw_loop_destroy_source(client->context->main_loop, this->source);
 	if (this->connection)
 		pw_protocol_native_connection_destroy(this->connection);
 
@@ -356,15 +358,13 @@ static struct client_data *client_new(struct server *s, int fd)
 	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 
 	client = pw_impl_client_new(protocol->context,
-			       props,
-			       sizeof(struct client_data));
+			protocol, props, sizeof(struct client_data));
 	if (client == NULL)
 		goto exit;
 
 
 	this = pw_impl_client_get_user_data(client);
-	client->protocol = protocol;
-	spa_list_append(&s->this.client_list, &client->protocol_link);
+	spa_list_append(&s->this.client_list, &this->protocol_link);
 
 	this->client = client;
 	this->source = pw_loop_add_io(pw_context_get_main_loop(context),
@@ -868,13 +868,13 @@ error_free:
 static void destroy_server(struct pw_protocol_server *server)
 {
 	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
-	struct pw_impl_client *client, *tmp;
+	struct client_data *data, *tmp;
 
 	spa_list_remove(&server->link);
 	spa_hook_remove(&s->hook);
 
-	spa_list_for_each_safe(client, tmp, &server->client_list, protocol_link)
-		pw_impl_client_destroy(client);
+	spa_list_for_each_safe(data, tmp, &server->client_list, protocol_link)
+		pw_impl_client_destroy(data->client);
 
 	if (s->source) {
 		spa_hook_remove(&s->hook);
@@ -893,23 +893,20 @@ static void on_before_hook(void *_data)
 {
 	struct server *server = _data;
 	struct pw_protocol_server *this = &server->this;
-	struct pw_impl_client *client, *tmp;
-	struct client_data *data;
+	struct client_data *data, *tmp;
 	int res;
 
-	spa_list_for_each_safe(client, tmp, &this->client_list, protocol_link) {
-		data = client->user_data;
-
+	spa_list_for_each_safe(data, tmp, &this->client_list, protocol_link) {
 		res = pw_protocol_native_connection_flush(data->connection);
 		if (res == -EAGAIN) {
 			int mask = data->source->mask;
 			SPA_FLAG_SET(mask, SPA_IO_OUT);
-			pw_loop_update_io(client->protocol->context->main_loop,
+			pw_loop_update_io(data->client->context->main_loop,
 					data->source, mask);
 		} else if (res < 0) {
 			pw_log_warn("client %p: could not flush: %s",
 					data->client, spa_strerror(res));
-			pw_impl_client_destroy(client);
+			pw_impl_client_destroy(data->client);
 		}
 
 	}

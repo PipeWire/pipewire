@@ -117,7 +117,6 @@ struct pw_impl_client {
 	struct spa_hook_list listener_list;
 
 	struct pw_protocol *protocol;	/**< protocol in use */
-	struct spa_list protocol_link;	/**< link in the protocol client_list */
 	int recv_seq;			/**< last received sequence number */
 	int send_seq;			/**< last sender sequence number */
 

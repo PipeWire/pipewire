@@ -99,7 +99,7 @@ struct pw_impl_node_events {
 
 /** Create a new node \memberof pw_impl_node */
 struct pw_impl_node *
-pw_impl_node_new(struct pw_context *context,		/**< the context */
+pw_impl_node_new(struct pw_context *context,	/**< the context */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 

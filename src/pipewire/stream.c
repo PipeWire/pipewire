@@ -1406,7 +1406,7 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "resample.peaks", "1");
 	}
 
-	slave = pw_impl_node_new(impl->context, pw_properties_copy(props), 0);
+	slave = pw_context_create_node(impl->context, pw_properties_copy(props), 0);
 	if (slave == NULL) {
 		res = -errno;
 		goto error_node;

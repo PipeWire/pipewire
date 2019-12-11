@@ -563,7 +563,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	case SPA_TYPE_INTERFACE_Node:
 	{
 		struct pw_impl_node *node;
-		node = pw_impl_node_new(context, props, sizeof(struct object_data));
+		node = pw_context_create_node(context, props, sizeof(struct object_data));
 
 		od = pw_impl_node_get_user_data(node);
 		od->object = node;

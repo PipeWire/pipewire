@@ -113,7 +113,7 @@ pw_spa_node_new(struct pw_context *context,
 	struct impl *impl;
 	int res;
 
-	this = pw_impl_node_new(context, properties, sizeof(struct impl) + user_data_size);
+	this = pw_context_create_node(context, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL) {
 		res = -errno;
 		goto error_exit;

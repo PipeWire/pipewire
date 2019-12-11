@@ -99,7 +99,7 @@ struct pw_impl_node_events {
 
 /** Create a new node \memberof pw_impl_node */
 struct pw_impl_node *
-pw_impl_node_new(struct pw_context *context,	/**< the context */
+pw_context_create_node(struct pw_context *context,	/**< the context */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 
@@ -113,7 +113,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node);
 /** Get the node info */
 const struct pw_node_info *pw_impl_node_get_info(struct pw_impl_node *node);
 
-/** Get node user_data. The size of the memory was given in \ref pw_impl_node_new */
+/** Get node user_data. The size of the memory was given in \ref pw_context_create_node */
 void * pw_impl_node_get_user_data(struct pw_impl_node *node);
 
 /** Get the context of this node */

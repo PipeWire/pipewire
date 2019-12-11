@@ -1183,7 +1183,7 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 {
 	struct pw_impl_node *node;
 
-	node = pw_impl_node_new(pw_core_get_context(core), props, 0);
+	node = pw_context_create_node(pw_core_get_context(core), props, 0);
 	if (node == NULL)
 		return NULL;
 

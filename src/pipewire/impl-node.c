@@ -936,7 +936,7 @@ static void reset_position(struct spa_io_position *pos)
 }
 
 SPA_EXPORT
-struct pw_impl_node *pw_impl_node_new(struct pw_context *context,
+struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
 {

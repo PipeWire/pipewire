@@ -32,26 +32,26 @@
 extern "C" {
 #endif
 
-/** \class pw_client_node
+/** \class pw_impl_client_node
  *
  * PipeWire client node interface
  */
-struct pw_client_node {
+struct pw_impl_client_node {
 	struct pw_impl_node *node;
 
 	struct pw_resource *resource;
 	uint32_t flags;
 };
 
-struct pw_client_node *
-pw_client_node_new(struct pw_resource *resource,
+struct pw_impl_client_node *
+pw_impl_client_node_new(struct pw_resource *resource,
 		   struct pw_properties *properties,
 		   bool do_register);
 
 void
-pw_client_node_destroy(struct pw_client_node *node);
+pw_impl_client_node_destroy(struct pw_impl_client_node *node);
 
-void pw_client_node_registered(struct pw_client_node *node, struct pw_global *global);
+void pw_impl_client_node_registered(struct pw_impl_client_node *node, struct pw_global *global);
 
 #ifdef __cplusplus
 }

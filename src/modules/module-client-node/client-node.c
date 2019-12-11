@@ -136,7 +136,7 @@ struct node {
 };
 
 struct impl {
-	struct pw_client_node this;
+	struct pw_impl_client_node this;
 
 	struct pw_context *context;
 
@@ -160,7 +160,7 @@ struct impl {
 };
 
 #define pw_client_node_resource(r,m,v,...)	\
-	pw_resource_call_res(r,struct pw_client_node_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call_res(r,struct pw_client_node_events,m,v,__VA_ARGS__)
 
 #define pw_client_node_resource_transport(r,...)	\
 	pw_client_node_resource(r,transport,0,__VA_ARGS__)
@@ -877,7 +877,7 @@ static int impl_node_process(void *object)
 	return SPA_STATUS_OK;
 }
 
-static struct pw_node_proxy *
+static struct pw_node *
 client_node_get_node(void *data,
 		   uint32_t version,
 		   size_t user_data_size)
@@ -1033,8 +1033,8 @@ static int client_node_port_buffers(void *data,
 	return 0;
 }
 
-static struct pw_client_node_proxy_methods client_node_methods = {
-	PW_VERSION_CLIENT_NODE_PROXY_METHODS,
+static struct pw_client_node_methods client_node_methods = {
+	PW_VERSION_CLIENT_NODE_METHODS,
 	.get_node = client_node_get_node,
 	.update = client_node_update,
 	.port_update = client_node_port_update,
@@ -1154,7 +1154,7 @@ static int do_remove_source(struct spa_loop *loop,
 static void client_node_resource_destroy(void *data)
 {
 	struct impl *impl = data;
-	struct pw_client_node *this = &impl->this;
+	struct pw_impl_client_node *this = &impl->this;
 	struct node *node = &impl->node;
 
 	pw_log_debug(NAME " %p: destroy", node);
@@ -1196,7 +1196,7 @@ static void client_node_resource_pong(void *data, int seq)
 	spa_node_emit_result(&this->hooks, seq, 0, 0, NULL);
 }
 
-void pw_client_node_registered(struct pw_client_node *this, struct pw_global *global)
+void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_impl_node *node = this->node;
@@ -1234,7 +1234,7 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 static void node_initialized(void *data)
 {
 	struct impl *impl = data;
-	struct pw_client_node *this = &impl->this;
+	struct pw_impl_client_node *this = &impl->this;
 	struct node *node = &impl->node;
 	struct pw_global *global;
 	struct spa_system *data_system = impl->node.data_system;
@@ -1263,13 +1263,13 @@ static void node_initialized(void *data)
 	pw_log_debug(NAME " %p: io areas %p", node, impl->io_areas->map->ptr);
 
 	if ((global = pw_impl_node_get_global(this->node)) != NULL)
-		pw_client_node_registered(this, global);
+		pw_impl_client_node_registered(this, global);
 }
 
 static void node_free(void *data)
 {
 	struct impl *impl = data;
-	struct pw_client_node *this = &impl->this;
+	struct pw_impl_client_node *this = &impl->this;
 	struct node *node = &impl->node;
 	struct spa_system *data_system = node->data_system;
 
@@ -1610,14 +1610,14 @@ static int process_node(void *data)
  *
  * Create a new \ref pw_impl_node.
  *
- * \memberof pw_client_node
+ * \memberof pw_impl_client_node
  */
-struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
+struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource,
 					  struct pw_properties *properties,
 					  bool do_register)
 {
 	struct impl *impl;
-	struct pw_client_node *this;
+	struct pw_impl_client_node *this;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct pw_context *context = pw_impl_client_get_context(client);
 	const struct spa_support *support;
@@ -1705,9 +1705,9 @@ error_exit_cleanup:
 
 /** Destroy a client node
  * \param node the client node to destroy
- * \memberof pw_client_node
+ * \memberof pw_impl_client_node
  */
-void pw_client_node_destroy(struct pw_client_node *node)
+void pw_impl_client_node_destroy(struct pw_impl_client_node *node)
 {
 	pw_resource_destroy(node->resource);
 }

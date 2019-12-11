@@ -131,7 +131,7 @@ struct node {
 };
 
 struct impl {
-	struct pw_client_node0 this;
+	struct pw_impl_client_node0 this;
 
 	bool client_reuse;
 
@@ -1010,8 +1010,8 @@ static void client_node0_event(void *data, struct spa_event *event)
 	spa_node_emit_event(&this->hooks, event);
 }
 
-static struct pw_client_node0_proxy_methods client_node0_methods = {
-	PW_VERSION_CLIENT_NODE0_PROXY_METHODS,
+static struct pw_client_node0_methods client_node0_methods = {
+	PW_VERSION_CLIENT_NODE0_METHODS,
 	.done = client_node0_done,
 	.update = client_node0_update,
 	.port_update = client_node0_port_update,
@@ -1139,7 +1139,7 @@ static int do_remove_source(struct spa_loop *loop,
 static void client_node0_resource_destroy(void *data)
 {
 	struct impl *impl = data;
-	struct pw_client_node0 *this = &impl->this;
+	struct pw_impl_client_node0 *this = &impl->this;
 	struct node *node = &impl->node;
 
 	pw_log_debug("client-node %p: destroy", impl);
@@ -1163,7 +1163,7 @@ static void client_node0_resource_destroy(void *data)
 static void node_initialized(void *data)
 {
 	struct impl *impl = data;
-	struct pw_client_node0 *this = &impl->this;
+	struct pw_impl_client_node0 *this = &impl->this;
 	struct pw_impl_node *node = this->node;
 	struct spa_system *data_system = impl->node.data_system;
 
@@ -1247,13 +1247,13 @@ static void convert_properties(struct pw_properties *properties)
  *
  * Create a new \ref pw_impl_node.
  *
- * \memberof pw_client_node
+ * \memberof pw_impl_client_node
  */
-struct pw_client_node0 *pw_client_node0_new(struct pw_resource *resource,
+struct pw_impl_client_node0 *pw_impl_client_node0_new(struct pw_resource *resource,
 					  struct pw_properties *properties)
 {
 	struct impl *impl;
-	struct pw_client_node0 *this;
+	struct pw_impl_client_node0 *this;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct pw_context *context = pw_impl_client_get_context(client);
 	const struct spa_support *support;
@@ -1334,9 +1334,9 @@ error_exit_free:
 
 /** Destroy a client node
  * \param node the client node to destroy
- * \memberof pw_client_node
+ * \memberof pw_impl_client_node
  */
-void pw_client_node0_destroy(struct pw_client_node0 *node)
+void pw_impl_client_node0_destroy(struct pw_impl_client_node0 *node)
 {
 	pw_resource_destroy(node->resource);
 }

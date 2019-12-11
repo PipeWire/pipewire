@@ -156,17 +156,17 @@ struct pw_client_node0_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_CLIENT_NODE0_PROXY_METHOD_DONE		0
-#define PW_CLIENT_NODE0_PROXY_METHOD_UPDATE		1
-#define PW_CLIENT_NODE0_PROXY_METHOD_PORT_UPDATE	2
-#define PW_CLIENT_NODE0_PROXY_METHOD_SET_ACTIVE		3
-#define PW_CLIENT_NODE0_PROXY_METHOD_EVENT		4
-#define PW_CLIENT_NODE0_PROXY_METHOD_DESTROY		5
-#define PW_CLIENT_NODE0_PROXY_METHOD_NUM		6
+#define PW_CLIENT_NODE0_METHOD_DONE		0
+#define PW_CLIENT_NODE0_METHOD_UPDATE		1
+#define PW_CLIENT_NODE0_METHOD_PORT_UPDATE	2
+#define PW_CLIENT_NODE0_METHOD_SET_ACTIVE		3
+#define PW_CLIENT_NODE0_METHOD_EVENT		4
+#define PW_CLIENT_NODE0_METHOD_DESTROY		5
+#define PW_CLIENT_NODE0_METHOD_NUM		6
 
 /** \ref pw_client_node methods */
-struct pw_client_node0_proxy_methods {
-#define PW_VERSION_CLIENT_NODE0_PROXY_METHODS		0
+struct pw_client_node0_methods {
+#define PW_VERSION_CLIENT_NODE0_METHODS		0
 	uint32_t version;
 
 	/** Complete an async operation */
@@ -227,22 +227,22 @@ struct pw_client_node0_proxy_methods {
 	void (*destroy) (void *object);
 };
 
-#define PW_CLIENT_NODE0_PROXY_EVENT_ADD_MEM		0
-#define PW_CLIENT_NODE0_PROXY_EVENT_TRANSPORT		1
-#define PW_CLIENT_NODE0_PROXY_EVENT_SET_PARAM		2
-#define PW_CLIENT_NODE0_PROXY_EVENT_EVENT		3
-#define PW_CLIENT_NODE0_PROXY_EVENT_COMMAND		4
-#define PW_CLIENT_NODE0_PROXY_EVENT_ADD_PORT		5
-#define PW_CLIENT_NODE0_PROXY_EVENT_REMOVE_PORT		6
-#define PW_CLIENT_NODE0_PROXY_EVENT_PORT_SET_PARAM	7
-#define PW_CLIENT_NODE0_PROXY_EVENT_PORT_USE_BUFFERS	8
-#define PW_CLIENT_NODE0_PROXY_EVENT_PORT_COMMAND	9
-#define PW_CLIENT_NODE0_PROXY_EVENT_PORT_SET_IO		10
-#define PW_CLIENT_NODE0_PROXY_EVENT_NUM			11
+#define PW_CLIENT_NODE0_EVENT_ADD_MEM		0
+#define PW_CLIENT_NODE0_EVENT_TRANSPORT		1
+#define PW_CLIENT_NODE0_EVENT_SET_PARAM		2
+#define PW_CLIENT_NODE0_EVENT_EVENT		3
+#define PW_CLIENT_NODE0_EVENT_COMMAND		4
+#define PW_CLIENT_NODE0_EVENT_ADD_PORT		5
+#define PW_CLIENT_NODE0_EVENT_REMOVE_PORT	6
+#define PW_CLIENT_NODE0_EVENT_PORT_SET_PARAM	7
+#define PW_CLIENT_NODE0_EVENT_PORT_USE_BUFFERS	8
+#define PW_CLIENT_NODE0_EVENT_PORT_COMMAND	9
+#define PW_CLIENT_NODE0_EVENT_PORT_SET_IO	10
+#define PW_CLIENT_NODE0_EVENT_NUM		11
 
 /** \ref pw_client_node events */
-struct pw_client_node0_proxy_events {
-#define PW_VERSION_CLIENT_NODE0_PROXY_EVENTS		0
+struct pw_client_node0_events {
+#define PW_VERSION_CLIENT_NODE0_EVENTS		0
 	uint32_t version;
 	/**
 	 * Memory was added to a node
@@ -386,7 +386,7 @@ struct pw_client_node0_proxy_events {
 			     uint32_t offset,
 			     uint32_t size);
 };
-#define pw_client_node0_resource(r,m,v,...) pw_resource_call(r, struct pw_client_node0_proxy_events, m, v, ##__VA_ARGS__)
+#define pw_client_node0_resource(r,m,v,...) pw_resource_call(r, struct pw_client_node0_events, m, v, ##__VA_ARGS__)
 
 #define pw_client_node0_resource_add_mem(r,...)		 pw_client_node0_resource(r,add_mem,0,__VA_ARGS__)
 #define pw_client_node0_resource_transport(r,...)	 pw_client_node0_resource(r,transport,0,__VA_ARGS__)

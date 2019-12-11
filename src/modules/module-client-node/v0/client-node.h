@@ -28,22 +28,22 @@
 extern "C" {
 #endif
 
-/** \class pw_client_node0
+/** \class pw_impl_client_node0
  *
  * PipeWire client node interface
  */
-struct pw_client_node0 {
+struct pw_impl_client_node0 {
 	struct pw_impl_node *node;
 
 	struct pw_resource *resource;
 };
 
-struct pw_client_node0 *
-pw_client_node0_new(struct pw_resource *resource,
+struct pw_impl_client_node0 *
+pw_impl_client_node0_new(struct pw_resource *resource,
 		   struct pw_properties *properties);
 
 void
-pw_client_node0_destroy(struct pw_client_node0 *node);
+pw_impl_client_node0_destroy(struct pw_impl_client_node0 *node);
 
 #ifdef __cplusplus
 }

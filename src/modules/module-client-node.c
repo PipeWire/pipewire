@@ -81,9 +81,9 @@ static void *create_object(void *_data,
 	}
 
 	if (version == 0) {
-		result = pw_client_node0_new(node_resource, properties);
+		result = pw_impl_client_node0_new(node_resource, properties);
 	} else {
-		result = pw_client_node_new(node_resource, properties, true);
+		result = pw_impl_client_node_new(node_resource, properties, true);
 	}
 	if (result == NULL) {
 		res = -errno;

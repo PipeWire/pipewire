@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 
-struct pw_client_node_proxy;
+struct pw_client_node;
 
 #define PW_VERSION_CLIENT_NODE			3
 
@@ -46,22 +46,22 @@ struct pw_client_node_buffer {
 	struct spa_buffer *buffer;	/**< buffer describing metadata and buffer memory */
 };
 
-#define PW_CLIENT_NODE_PROXY_EVENT_TRANSPORT		0
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_PARAM		1
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_IO		2
-#define PW_CLIENT_NODE_PROXY_EVENT_EVENT		3
-#define PW_CLIENT_NODE_PROXY_EVENT_COMMAND		4
-#define PW_CLIENT_NODE_PROXY_EVENT_ADD_PORT		5
-#define PW_CLIENT_NODE_PROXY_EVENT_REMOVE_PORT		6
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_PARAM	7
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_USE_BUFFERS	8
-#define PW_CLIENT_NODE_PROXY_EVENT_PORT_SET_IO		9
-#define PW_CLIENT_NODE_PROXY_EVENT_SET_ACTIVATION	10
-#define PW_CLIENT_NODE_PROXY_EVENT_NUM			11
+#define PW_CLIENT_NODE_EVENT_TRANSPORT		0
+#define PW_CLIENT_NODE_EVENT_SET_PARAM		1
+#define PW_CLIENT_NODE_EVENT_SET_IO		2
+#define PW_CLIENT_NODE_EVENT_EVENT		3
+#define PW_CLIENT_NODE_EVENT_COMMAND		4
+#define PW_CLIENT_NODE_EVENT_ADD_PORT		5
+#define PW_CLIENT_NODE_EVENT_REMOVE_PORT	6
+#define PW_CLIENT_NODE_EVENT_PORT_SET_PARAM	7
+#define PW_CLIENT_NODE_EVENT_PORT_USE_BUFFERS	8
+#define PW_CLIENT_NODE_EVENT_PORT_SET_IO	9
+#define PW_CLIENT_NODE_EVENT_SET_ACTIVATION	10
+#define PW_CLIENT_NODE_EVENT_NUM		11
 
 /** \ref pw_client_node events */
-struct pw_client_node_proxy_events {
-#define PW_VERSION_CLIENT_NODE_PROXY_EVENTS		0
+struct pw_client_node_events {
+#define PW_VERSION_CLIENT_NODE_EVENTS		0
 	uint32_t version;
 	/**
 	 * Notify of a new transport area
@@ -200,27 +200,27 @@ struct pw_client_node_proxy_events {
 				uint32_t size);
 };
 
-#define PW_CLIENT_NODE_PROXY_METHOD_ADD_LISTENER	0
-#define PW_CLIENT_NODE_PROXY_METHOD_GET_NODE		1
-#define PW_CLIENT_NODE_PROXY_METHOD_UPDATE		2
-#define PW_CLIENT_NODE_PROXY_METHOD_PORT_UPDATE		3
-#define PW_CLIENT_NODE_PROXY_METHOD_SET_ACTIVE		4
-#define PW_CLIENT_NODE_PROXY_METHOD_EVENT		5
-#define PW_CLIENT_NODE_PROXY_METHOD_PORT_BUFFERS	6
-#define PW_CLIENT_NODE_PROXY_METHOD_NUM			7
+#define PW_CLIENT_NODE_METHOD_ADD_LISTENER	0
+#define PW_CLIENT_NODE_METHOD_GET_NODE		1
+#define PW_CLIENT_NODE_METHOD_UPDATE		2
+#define PW_CLIENT_NODE_METHOD_PORT_UPDATE	3
+#define PW_CLIENT_NODE_METHOD_SET_ACTIVE	4
+#define PW_CLIENT_NODE_METHOD_EVENT		5
+#define PW_CLIENT_NODE_METHOD_PORT_BUFFERS	6
+#define PW_CLIENT_NODE_METHOD_NUM		7
 
 /** \ref pw_client_node methods */
-struct pw_client_node_proxy_methods {
-#define PW_VERSION_CLIENT_NODE_PROXY_METHODS		0
+struct pw_client_node_methods {
+#define PW_VERSION_CLIENT_NODE_METHODS		0
 	uint32_t version;
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_client_node_proxy_events *events,
+			const struct pw_client_node_events *events,
 			void *data);
 	/** get the node object
 	 */
-	struct pw_node_proxy * (*get_node) (void *object, uint32_t version, size_t user_data_size);
+	struct pw_node * (*get_node) (void *object, uint32_t version, size_t user_data_size);
 	/**
 	 * Update the node ports and properties
 	 *
@@ -281,32 +281,32 @@ struct pw_client_node_proxy_methods {
 };
 
 
-#define pw_client_node_proxy_method(o,method,version,...)		\
+#define pw_client_node_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_client_node_proxy_methods, _res,	\
+			struct pw_client_node_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_client_node_proxy_add_listener(c,...)	pw_client_node_proxy_method(c,add_listener,0,__VA_ARGS__)
+#define pw_client_node_add_listener(c,...)	pw_client_node_method(c,add_listener,0,__VA_ARGS__)
 
-static inline struct pw_node_proxy *
-pw_client_node_proxy_get_node(struct pw_client_node_proxy *p, uint32_t version, size_t user_data_size)
+static inline struct pw_node *
+pw_client_node_get_node(struct pw_client_node *p, uint32_t version, size_t user_data_size)
 {
-	struct pw_node_proxy *res = NULL;
+	struct pw_node *res = NULL;
 	spa_interface_call_res((struct spa_interface*)p,
-			struct pw_client_node_proxy_methods, res,
+			struct pw_client_node_methods, res,
 			get_node, 0, version, user_data_size);
 	return res;
 }
 
-#define pw_client_node_proxy_update(c,...)		pw_client_node_proxy_method(c,update,0,__VA_ARGS__)
-#define pw_client_node_proxy_port_update(c,...)		pw_client_node_proxy_method(c,port_update,0,__VA_ARGS__)
-#define pw_client_node_proxy_set_active(c,...)		pw_client_node_proxy_method(c,set_active,0,__VA_ARGS__)
-#define pw_client_node_proxy_event(c,...)		pw_client_node_proxy_method(c,event,0,__VA_ARGS__)
-#define pw_client_node_proxy_port_buffers(c,...)	pw_client_node_proxy_method(c,port_buffers,0,__VA_ARGS__)
+#define pw_client_node_update(c,...)		pw_client_node_method(c,update,0,__VA_ARGS__)
+#define pw_client_node_port_update(c,...)	pw_client_node_method(c,port_update,0,__VA_ARGS__)
+#define pw_client_node_set_active(c,...)	pw_client_node_method(c,set_active,0,__VA_ARGS__)
+#define pw_client_node_event(c,...)		pw_client_node_method(c,event,0,__VA_ARGS__)
+#define pw_client_node_port_buffers(c,...)	pw_client_node_method(c,port_buffers,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

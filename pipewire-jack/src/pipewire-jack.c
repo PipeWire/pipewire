@@ -239,7 +239,7 @@ struct client {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
-	struct pw_client_node_proxy *node_proxy;
+	struct pw_client_node *node;
 	struct spa_hook node_listener;
         struct spa_hook proxy_listener;
 
@@ -583,16 +583,16 @@ static int do_sync(struct client *client)
 	return 0;
 }
 
-static void on_node_proxy_destroy(void *data)
+static void on_node_destroy(void *data)
 {
 	struct client *client = data;
 
-	client->node_proxy = NULL;
+	client->node = NULL;
 	spa_hook_remove(&client->proxy_listener);
 
 }
 
-static void on_node_proxy_bound(void *data, uint32_t global_id)
+static void on_node_bound(void *data, uint32_t global_id)
 {
 	struct client *client = data;
 	client->node_id = global_id;
@@ -600,8 +600,8 @@ static void on_node_proxy_bound(void *data, uint32_t global_id)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.destroy = on_node_proxy_destroy,
-	.bound = on_node_proxy_bound,
+	.destroy = on_node_destroy,
+	.bound = on_node_bound,
 };
 
 static struct link *find_activation(struct pw_array *links, uint32_t node_id)
@@ -1121,7 +1121,7 @@ static int client_node_set_param(void *object,
 			const struct spa_pod *param)
 {
 	struct client *c = (struct client *) object;
-	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "not supported");
+	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "not supported");
 	return -ENOTSUP;
 }
 
@@ -1212,7 +1212,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 		break;
 	default:
 		pw_log_warn(NAME" %p: unhandled node command %d", c, SPA_COMMAND_TYPE(command));
-		pw_proxy_errorf((struct pw_proxy*)c->node_proxy, -ENOTSUP,
+		pw_proxy_errorf((struct pw_proxy*)c->node, -ENOTSUP,
 				"unhandled command %d", SPA_COMMAND_TYPE(command));
 	}
 	return 0;
@@ -1223,7 +1223,7 @@ static int client_node_add_port(void *object,
                           uint32_t port_id, const struct spa_dict *props)
 {
 	struct client *c = (struct client *) object;
-	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "add port not supported");
+	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "add port not supported");
 	return -ENOTSUP;
 }
 
@@ -1232,7 +1232,7 @@ static int client_node_remove_port(void *object,
                              uint32_t port_id)
 {
 	struct client *c = (struct client *) object;
-	pw_proxy_error((struct pw_proxy*)c->node_proxy, -ENOTSUP, "remove port not supported");
+	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "remove port not supported");
 	return -ENOTSUP;
 }
 
@@ -1468,7 +1468,7 @@ static int client_node_port_set_param(void *object,
 	param_buffers(c, p, &params[2], &b);
 	param_io(c, p, &params[3], &b);
 
-	return pw_client_node_proxy_port_update(c->node_proxy,
+	return pw_client_node_port_update(c->node,
 					 direction,
 					 port_id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS,
@@ -1627,7 +1627,7 @@ static int client_node_port_use_buffers(void *object,
 
       done:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node_proxy, res, spa_strerror(res));
+		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
 	return res;
 }
 
@@ -1684,7 +1684,7 @@ static int client_node_port_set_io(void *object,
 
       exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node_proxy, res, spa_strerror(res));
+		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
 	return res;
 }
 
@@ -1751,12 +1751,12 @@ static int client_node_set_activation(void *object,
 
       exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node_proxy, res, spa_strerror(res));
+		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
 	return res;
 }
 
-static const struct pw_client_node_proxy_events client_node_events = {
-	PW_VERSION_CLIENT_NODE_PROXY_EVENTS,
+static const struct pw_client_node_events client_node_events = {
+	PW_VERSION_CLIENT_NODE_EVENTS,
 	.transport = client_node_transport,
 	.set_param = client_node_set_param,
 	.set_io = client_node_set_io,
@@ -2172,18 +2172,18 @@ jack_client_t * jack_client_open (const char *client_name,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "1");
 
-	client->node_proxy = pw_core_create_object(client->core,
+	client->node = pw_core_create_object(client->core,
 				"client-node",
 				PW_TYPE_INTERFACE_ClientNode,
 				PW_VERSION_CLIENT_NODE,
 				&props,
 				0);
-	if (client->node_proxy == NULL)
+	if (client->node == NULL)
 		goto init_failed;
 
-	pw_client_node_proxy_add_listener(client->node_proxy,
+	pw_client_node_add_listener(client->node,
 			&client->node_listener, &client_node_events, client);
-        pw_proxy_add_listener((struct pw_proxy*)client->node_proxy,
+        pw_proxy_add_listener((struct pw_proxy*)client->node,
 			&client->proxy_listener, &proxy_events, client);
 
 	ni = SPA_NODE_INFO_INIT();
@@ -2192,7 +2192,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	ni.change_mask = SPA_NODE_CHANGE_MASK_FLAGS;
 	ni.flags = SPA_NODE_FLAG_RT;
 
-	pw_client_node_proxy_update(client->node_proxy,
+	pw_client_node_update(client->node,
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &ni);
 
@@ -2341,7 +2341,7 @@ static int do_activate(struct client *c)
 
 	pw_thread_loop_lock(c->context.loop);
 	pw_log_debug(NAME" %p: activate", c);
-	pw_client_node_proxy_set_active(c->node_proxy, true);
+	pw_client_node_set_active(c->node, true);
 
 	res = do_sync(c);
 
@@ -2379,7 +2379,7 @@ int jack_deactivate (jack_client_t *client)
 
 	pw_thread_loop_lock(c->context.loop);
 	pw_log_debug(NAME" %p: deactivate", c);
-	pw_client_node_proxy_set_active(c->node_proxy, false);
+	pw_client_node_set_active(c->node, false);
 
 	c->activation->pending_new_pos = false;
 	c->activation->pending_sync = false;
@@ -2706,7 +2706,7 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	ni.props = &SPA_DICT_INIT_ARRAY(items);
 
-	pw_client_node_proxy_update(c->node_proxy,
+	pw_client_node_update(c->node,
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &ni);
 
@@ -2822,7 +2822,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	pw_thread_loop_lock(c->context.loop);
 
-	pw_client_node_proxy_port_update(c->node_proxy,
+	pw_client_node_port_update(c->node,
 					 direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
@@ -2861,7 +2861,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 
 	free_port(c, p);
 
-	pw_client_node_proxy_port_update(c->node_proxy,
+	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 0, 0, NULL, NULL);
@@ -3197,7 +3197,7 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_NAME, port_name);
 	port_info.props = &dict;
 
-	pw_client_node_proxy_port_update(c->node_proxy,
+	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
@@ -3243,7 +3243,7 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT(key, alias);
 	port_info.props = &dict;
 
-	pw_client_node_proxy_port_update(c->node_proxy,
+	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
@@ -3289,7 +3289,7 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT(key, NULL);
 	port_info.props = &dict;
 
-	pw_client_node_proxy_port_update(c->node_proxy,
+	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,

@@ -3422,7 +3422,7 @@ int jack_connect (jack_client_t *client,
 	pw_core_create_object(c->core,
 				    "link-factory",
 				    PW_TYPE_INTERFACE_Link,
-				    PW_VERSION_LINK_PROXY,
+				    PW_VERSION_LINK,
 				    &props,
 				    0);
 	res = do_sync(c);

@@ -386,7 +386,7 @@ static int make_nodes(struct data *data)
 	pw_core_create_object(data->core,
 			"link-factory",
 			PW_TYPE_INTERFACE_Link,
-			PW_VERSION_LINK_PROXY,
+			PW_VERSION_LINK,
 			&props->dict, 0);
 
 	pw_properties_free(props);

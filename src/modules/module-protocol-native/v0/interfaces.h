@@ -507,12 +507,12 @@ struct pw_client_v0_events {
 
 #define PW_VERSION_LINK_V0		0
 
-#define PW_LINK_PROXY_V0_EVENT_INFO	0
-#define PW_LINK_PROXY_V0_EVENT_NUM	1
+#define PW_LINK_V0_EVENT_INFO	0
+#define PW_LINK_V0_EVENT_NUM	1
 
 /** Link events */
-struct pw_link_proxy_v0_events {
-#define PW_VERSION_LINK_PROXY_V0_EVENTS	0
+struct pw_link_v0_events {
+#define PW_VERSION_LINK_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify link info
@@ -522,7 +522,7 @@ struct pw_link_proxy_v0_events {
 	void (*info) (void *object, struct pw_link_info *info);
 };
 
-#define pw_link_resource_v0_info(r,...)      pw_resource_notify(r,struct pw_link_proxy_v0_events,info,__VA_ARGS__)
+#define pw_link_resource_v0_info(r,...)      pw_resource_notify(r,struct pw_link_v0_events,info,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

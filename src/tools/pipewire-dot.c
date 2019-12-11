@@ -531,8 +531,8 @@ static void link_event_info(void *data, const struct pw_link_info *info)
 	global_event_info(data, info);
 }
 
-static const struct pw_link_proxy_events link_events = {
-	PW_VERSION_LINK_PROXY_EVENTS,
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
 	.info = link_event_info
 };
 
@@ -629,7 +629,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		info_destroy = (pw_destroy_t)pw_link_info_free;
 		info_update = (info_update_t)pw_link_info_update;
 		draw = draw_link;
-		client_version = PW_VERSION_LINK_PROXY;
+		client_version = PW_VERSION_LINK;
 		break;
 	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;

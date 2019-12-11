@@ -118,7 +118,7 @@ static void link_initialized(void *data)
 	ld->global = pw_impl_link_get_global(ld->link);
 	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
 
-	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK_PROXY, ld->new_id);
+	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK, ld->new_id);
 	if (res < 0)
 		goto error_bind;
 
@@ -371,7 +371,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	factory = pw_impl_factory_new(context,
 				 "link-factory",
 				 PW_TYPE_INTERFACE_Link,
-				 PW_VERSION_LINK_PROXY,
+				 PW_VERSION_LINK,
 				 pw_properties_new(
 					 PW_KEY_FACTORY_USAGE, FACTORY_USAGE,
 					 NULL),

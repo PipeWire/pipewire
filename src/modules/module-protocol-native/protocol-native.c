@@ -1741,7 +1741,7 @@ static int client_demarshal_update_permissions(void *object, const struct pw_pro
 
 static int link_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_link_proxy_events *events,
+			const struct pw_link_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -1755,7 +1755,7 @@ static void link_marshal_info(void *object, const struct pw_link_info *info)
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_LINK_PROXY_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_LINK_EVENT_INFO, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -1807,7 +1807,7 @@ static int link_demarshal_info(void *object, const struct pw_protocol_native_mes
 	if (parse_dict(&prs, &props) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_link_proxy_events, info, 0, &info);
+	return pw_proxy_notify(proxy, struct pw_link_events, info, 0, &info);
 }
 
 static int registry_demarshal_global(void *object, const struct pw_protocol_native_message *msg)
@@ -2229,34 +2229,34 @@ static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
 };
 
 
-static const struct pw_link_proxy_methods pw_protocol_native_link_method_marshal = {
-	PW_VERSION_LINK_PROXY_METHODS,
+static const struct pw_link_methods pw_protocol_native_link_method_marshal = {
+	PW_VERSION_LINK_METHODS,
 	.add_listener = &link_method_marshal_add_listener,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_link_method_demarshal[PW_LINK_PROXY_METHOD_NUM] =
+pw_protocol_native_link_method_demarshal[PW_LINK_METHOD_NUM] =
 {
-	[PW_LINK_PROXY_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_LINK_METHOD_ADD_LISTENER] = { NULL, 0, },
 };
 
-static const struct pw_link_proxy_events pw_protocol_native_link_event_marshal = {
-	PW_VERSION_LINK_PROXY_EVENTS,
+static const struct pw_link_events pw_protocol_native_link_event_marshal = {
+	PW_VERSION_LINK_EVENTS,
 	.info = &link_marshal_info,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_link_event_demarshal[PW_LINK_PROXY_EVENT_NUM] =
+pw_protocol_native_link_event_demarshal[PW_LINK_EVENT_NUM] =
 {
-	[PW_LINK_PROXY_EVENT_INFO] = { &link_demarshal_info, 0, }
+	[PW_LINK_EVENT_INFO] = { &link_demarshal_info, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {
 	PW_TYPE_INTERFACE_Link,
-	PW_VERSION_LINK_PROXY,
+	PW_VERSION_LINK,
 	0,
-	PW_LINK_PROXY_METHOD_NUM,
-	PW_LINK_PROXY_EVENT_NUM,
+	PW_LINK_METHOD_NUM,
+	PW_LINK_EVENT_NUM,
 	.client_marshal = &pw_protocol_native_link_method_marshal,
 	.server_demarshal = pw_protocol_native_link_method_demarshal,
 	.server_marshal = &pw_protocol_native_link_event_marshal,

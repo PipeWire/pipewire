@@ -41,7 +41,7 @@
 
 #define NAME "link"
 
-#define pw_link_resource_info(r,...)      pw_resource_call(r,struct pw_link_proxy_events,info,0,__VA_ARGS__)
+#define pw_link_resource_info(r,...)      pw_resource_call(r,struct pw_link_events,info,0,__VA_ARGS__)
 
 /** \cond */
 struct impl {
@@ -1230,7 +1230,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 
 	link->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Link,
-				     PW_VERSION_LINK_PROXY,
+				     PW_VERSION_LINK,
 				     properties,
 				     global_bind,
 				     link);

@@ -1332,7 +1332,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 			p = pw_core_create_object(impl->policy_core,
 						"link-factory",
 						PW_TYPE_INTERFACE_Link,
-						PW_VERSION_LINK_PROXY,
+						PW_VERSION_LINK,
 						&props->dict, sizeof(struct link));
 			if (p == NULL)
 				return -errno;

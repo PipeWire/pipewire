@@ -871,8 +871,8 @@ static void link_event_info(void *object, const struct pw_link_info *info)
 	}
 }
 
-static const struct pw_link_proxy_events link_events = {
-	PW_VERSION_LINK_PROXY_EVENTS,
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
 	.info = link_event_info
 };
 
@@ -1134,7 +1134,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Link:
 		events = &link_events;
-		client_version = PW_VERSION_LINK_PROXY;
+		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
 		info_func = info_link;
 		break;
@@ -1366,7 +1366,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	proxy = (struct pw_proxy*)pw_core_create_object(rd->core,
 					  "link-factory",
 					  PW_TYPE_INTERFACE_Link,
-					  PW_VERSION_LINK_PROXY,
+					  PW_VERSION_LINK,
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
 

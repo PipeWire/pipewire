@@ -993,7 +993,7 @@ static void link_marshal_info(void *object, const struct pw_link_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_resource(resource, PW_LINK_PROXY_V0_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_LINK_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -1165,8 +1165,8 @@ static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
 	NULL,
 };
 
-static const struct pw_link_proxy_events pw_protocol_native_link_event_marshal = {
-	PW_VERSION_LINK_PROXY_EVENTS,
+static const struct pw_link_events pw_protocol_native_link_event_marshal = {
+	PW_VERSION_LINK_EVENTS,
 	.info = &link_marshal_info,
 };
 
@@ -1174,7 +1174,7 @@ static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {
 	PW_TYPE_INTERFACE_Link,
 	PW_VERSION_LINK_V0,
 	0,
-	PW_LINK_PROXY_EVENT_NUM,
+	PW_LINK_EVENT_NUM,
 	0,
 	NULL, NULL,
 	&pw_protocol_native_link_event_marshal,

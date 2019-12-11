@@ -1157,7 +1157,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
         do_node_init(client_node);
 
 	data->proxy = (struct pw_proxy*) pw_client_node_proxy_get_node(data->client_node,
-			PW_VERSION_NODE_PROXY, user_data_size);
+			PW_VERSION_NODE, user_data_size);
 
 	pw_proxy_add_listener(data->proxy, &data->proxy_listener, &proxy_events, data);
 

@@ -427,7 +427,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		if (n_subscribe > 0) {
 			pw_log_debug(NAME" %p: node %d subscribe %d params", impl,
 					node->obj.id, n_subscribe);
-			pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->obj.proxy,
+			pw_node_subscribe_params((struct pw_node*)node->obj.proxy,
 					subscribe, n_subscribe);
 			node->subscribe = true;
 		}
@@ -458,8 +458,8 @@ static void node_event_param(void *object, int seq,
 	node->obj.changed |= SM_NODE_CHANGE_MASK_PARAMS;
 }
 
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.info = node_event_info,
 	.param = node_event_param,
 };
@@ -508,7 +508,7 @@ static void node_destroy(void *object)
 
 static const struct object_info node_info = {
 	.type = PW_TYPE_INTERFACE_Node,
-	.version = PW_VERSION_NODE_PROXY,
+	.version = PW_VERSION_NODE,
 	.events = &node_events,
 	.size = sizeof(struct sm_node),
 	.init = node_init,
@@ -1256,7 +1256,7 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 	proxy = pw_core_create_object(impl->policy_core,
 				factory_name,
 				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
+				PW_VERSION_NODE,
 				props,
 				sizeof(struct sm_node));
 

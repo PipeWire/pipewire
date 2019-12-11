@@ -60,8 +60,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	}
 }
 
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.info = node_event_info,
 };
 
@@ -97,7 +97,7 @@ static int make_node(struct data *data)
 	if (data->proxy == NULL)
 		return -errno;
 
-	pw_node_proxy_add_listener((struct pw_node_proxy*)data->proxy,
+	pw_node_add_listener((struct pw_node*)data->proxy,
 			&data->node_listener, &node_events, data);
 
 	return 0;

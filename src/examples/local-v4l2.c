@@ -363,7 +363,7 @@ static int make_nodes(struct data *data)
 	out = pw_core_create_object(data->core,
 			"spa-node-factory",
 			PW_TYPE_INTERFACE_Node,
-			PW_VERSION_NODE_PROXY,
+			PW_VERSION_NODE,
 			&props->dict, 0);
 
 

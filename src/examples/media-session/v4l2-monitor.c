@@ -146,7 +146,7 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 	node->proxy = sm_media_session_create_object(impl->session,
 				"spa-node-factory",
 				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
+				PW_VERSION_NODE,
 				&node->props->dict,
                                 0);
 	if (node->proxy == NULL) {

@@ -182,7 +182,7 @@ struct core_data {
 struct node_data {
   struct spa_list link;
   GstPipeWireDeviceProvider *self;
-  struct pw_node_proxy *proxy;
+  struct pw_node *proxy;
   struct spa_hook proxy_listener;
   uint32_t id;
   struct spa_hook node_listener;
@@ -400,13 +400,13 @@ static void node_event_info(void *data, const struct pw_node_info *info)
   node_data->info = pw_node_info_update(node_data->info, info);
 }
 
-static const struct pw_node_proxy_events node_events = {
-  PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+  PW_VERSION_NODE_EVENTS,
   .info = node_event_info
 };
 
 static void
-destroy_node_proxy (void *data)
+destroy_node (void *data)
 {
   struct node_data *nd = data;
   GstPipeWireDeviceProvider *self = nd->self;
@@ -429,7 +429,7 @@ destroy_node_proxy (void *data)
 
 static const struct pw_proxy_events proxy_node_events = {
   PW_VERSION_PROXY_EVENTS,
-  .destroy = destroy_node_proxy,
+  .destroy = destroy_node,
 };
 
 static void
@@ -455,11 +455,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
   struct node_data *nd;
 
   if (type == PW_TYPE_INTERFACE_Node) {
-    struct pw_node_proxy *node;
+    struct pw_node *node;
 
     node = pw_registry_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Node,
-		    PW_VERSION_NODE_PROXY, sizeof(*nd));
+		    PW_VERSION_NODE, sizeof(*nd));
     if (node == NULL)
       goto no_mem;
 
@@ -469,7 +469,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     nd->id = id;
     nd->caps = gst_caps_new_empty ();
     spa_list_append(&rd->nodes, &nd->link);
-    pw_node_proxy_add_listener(node, &nd->node_listener, &node_events, nd);
+    pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
     add_pending(self, &nd->pending, NULL, NULL);
   }

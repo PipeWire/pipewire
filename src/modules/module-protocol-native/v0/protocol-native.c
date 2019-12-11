@@ -823,7 +823,7 @@ static void node_marshal_info(void *object, const struct pw_node_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_resource(resource, PW_NODE_PROXY_V0_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_NODE_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -856,7 +856,7 @@ static void node_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_NODE_PROXY_V0_EVENT_PARAM, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_NODE_V0_EVENT_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b, "I", id, "i", index, "i", next, "P", param);
 
@@ -882,7 +882,7 @@ static int node_demarshal_enum_params(void *object, const struct pw_protocol_nat
 	id = pw_protocol_native0_type_from_v2(client, id);
 	filter = NULL;
 
-        return pw_resource_notify(resource, struct pw_node_proxy_methods, enum_params, 0,
+        return pw_resource_notify(resource, struct pw_node_methods, enum_params, 0,
                         0, id, index, num, filter);
 }
 
@@ -1104,11 +1104,11 @@ static const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_node_method_demarshal[] = {
-	[PW_NODE_PROXY_V0_METHOD_ENUM_PARAMS] = { &node_demarshal_enum_params, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
+	[PW_NODE_V0_METHOD_ENUM_PARAMS] = { &node_demarshal_enum_params, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
 };
 
-static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events pw_protocol_native_node_event_marshal = {
+	PW_VERSION_NODE_EVENTS,
 	.info = &node_marshal_info,
 	.param = &node_marshal_param,
 };
@@ -1116,8 +1116,8 @@ static const struct pw_node_proxy_events pw_protocol_native_node_event_marshal =
 static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
 	PW_TYPE_INTERFACE_Node,
 	PW_VERSION_NODE_V0,
-	PW_NODE_PROXY_V0_METHOD_NUM,
-	PW_NODE_PROXY_EVENT_NUM,
+	PW_NODE_V0_METHOD_NUM,
+	PW_NODE_EVENT_NUM,
 	0,
 	NULL,
 	pw_protocol_native_node_method_demarshal,

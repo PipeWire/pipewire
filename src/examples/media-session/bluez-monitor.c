@@ -152,7 +152,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	node->adapter = pw_impl_factory_create_object(factory,
 			NULL,
 			PW_TYPE_INTERFACE_Node,
-			PW_VERSION_NODE_PROXY,
+			PW_VERSION_NODE,
 			pw_properties_copy(node->props),
 			0);
 	if (node->adapter == NULL) {

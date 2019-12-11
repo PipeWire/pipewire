@@ -445,7 +445,7 @@ static void endpoint_event_param(void *object, int seq,
 }
 
 static const struct pw_endpoint_proxy_events endpoint_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+	PW_VERSION_ENDPOINT_PROXY_EVENTS,
 	.info = endpoint_event_info,
 	.param = endpoint_event_param,
 };

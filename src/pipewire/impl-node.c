@@ -50,7 +50,7 @@ struct impl {
 	unsigned int pause_on_idle:1;
 };
 
-#define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_proxy_events,m,v,__VA_ARGS__)
+#define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
 #define pw_node_resource_info(r,...)	pw_node_resource(r,info,0,__VA_ARGS__)
 #define pw_node_resource_param(r,...)	pw_node_resource(r,param,0,__VA_ARGS__)
 
@@ -479,8 +479,8 @@ static int node_send_command(void *object, const struct spa_command *command)
 	return 0;
 }
 
-static const struct pw_node_proxy_methods node_methods = {
-	PW_VERSION_NODE_PROXY_METHODS,
+static const struct pw_node_methods node_methods = {
+	PW_VERSION_NODE_METHODS,
 	.subscribe_params = node_subscribe_params,
 	.enum_params = node_enum_params,
 	.set_param = node_set_param,
@@ -589,7 +589,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Node,
-				     PW_VERSION_NODE_PROXY,
+				     PW_VERSION_NODE,
 				     properties,
 				     global_bind,
 				     this);

@@ -521,8 +521,8 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 	global_event_info(data, info);
 }
 
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.info = node_event_info,
 };
 
@@ -622,7 +622,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		info_destroy = (pw_destroy_t)pw_node_info_free;
 		info_update = (info_update_t)pw_node_info_update;
 		draw = draw_node;
-		client_version = PW_VERSION_NODE_PROXY;
+		client_version = PW_VERSION_NODE;
 		break;
 	case PW_TYPE_INTERFACE_Link:
 		events = &link_events;

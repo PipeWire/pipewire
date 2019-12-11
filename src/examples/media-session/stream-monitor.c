@@ -112,7 +112,7 @@ static int client_endpoint_set_param(void *object,
 	struct node *node = endpoint->node;
 
 	pw_log_debug(NAME " %p: node %d set param %d", impl, node->obj->obj.id, id);
-	return pw_node_proxy_set_param((struct pw_node_proxy*)node->obj->obj.proxy,
+	return pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
 			id, flags, param);
 }
 
@@ -150,7 +150,7 @@ static int stream_set_active(struct stream *stream, bool active)
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(2, NULL, param);
 
-		pw_node_proxy_set_param((struct pw_node_proxy*)node->obj->obj.proxy,
+		pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
 				SPA_PARAM_PortConfig, 0, param);
 	}
 	stream->active = active;
@@ -451,7 +451,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	subscribe[n_subscribe++] = SPA_PARAM_PropInfo;
 	pw_log_debug(NAME" %p: node %p proxy %p subscribe %d params", impl,
 				node->obj, node->obj->obj.proxy, n_subscribe);
-	pw_node_proxy_subscribe_params((struct pw_node_proxy*)node->obj->obj.proxy,
+	pw_node_subscribe_params((struct pw_node*)node->obj->obj.proxy,
 				subscribe, n_subscribe);
 
 	sm_media_session_sync(impl->session, complete_endpoint, endpoint);

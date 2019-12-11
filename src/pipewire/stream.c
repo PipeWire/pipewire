@@ -1429,7 +1429,7 @@ pw_stream_connect(struct pw_stream *stream,
 		impl->node = pw_impl_factory_create_object(factory,
 				NULL,
 				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
+				PW_VERSION_NODE,
 				props,
 				0);
 		if (impl->node == NULL) {

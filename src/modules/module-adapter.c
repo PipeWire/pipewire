@@ -113,7 +113,7 @@ static void node_initialized(void *data)
 	global = pw_impl_node_get_global(nd->adapter);
 
 	res = pw_global_bind(global, client,
-			PW_PERM_RWX, PW_VERSION_NODE_PROXY, nd->new_id);
+			PW_PERM_RWX, PW_VERSION_NODE, nd->new_id);
 	if (res < 0)
 		goto error_bind;
 
@@ -290,7 +290,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	factory = pw_impl_factory_new(context,
 				 "adapter",
 				 PW_TYPE_INTERFACE_Node,
-				 PW_VERSION_NODE_PROXY,
+				 PW_VERSION_NODE,
 				 pw_properties_new(
 					 PW_KEY_FACTORY_USAGE, FACTORY_USAGE,
 					 NULL),

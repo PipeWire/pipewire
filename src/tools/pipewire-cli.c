@@ -768,8 +768,8 @@ static void event_param(void *object, int seq, uint32_t id,
 		spa_debug_pod(2, NULL, param);
 }
 
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
 	.info = node_event_info,
 	.param = event_param
 };
@@ -1110,7 +1110,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
-		client_version = PW_VERSION_NODE_PROXY;
+		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
 		break;
@@ -1297,7 +1297,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 
 	proxy = pw_core_create_object(rd->core, a[0],
 					    PW_TYPE_INTERFACE_Node,
-					    PW_VERSION_NODE_PROXY,
+					    PW_VERSION_NODE,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
@@ -1456,7 +1456,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 
 	switch (global->type) {
 	case PW_TYPE_INTERFACE_Node:
-		pw_node_proxy_enum_params((struct pw_node_proxy*)global->proxy, 0,
+		pw_node_enum_params((struct pw_node*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Port:

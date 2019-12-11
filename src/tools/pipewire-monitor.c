@@ -285,7 +285,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
-			pw_node_proxy_enum_params((struct pw_node_proxy*)data->proxy,
+			pw_node_enum_params((struct pw_node*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
 		}
 		add_pending(data);
@@ -296,8 +296,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		data->print_func(data);
 }
 
-static const struct pw_node_proxy_events node_events = {
-	PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
         .info = node_event_info,
         .param = event_param
 };
@@ -578,7 +578,7 @@ static void registry_event_global(void *data, uint32_t id,
 	switch (type) {
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;
-		client_version = PW_VERSION_NODE_PROXY;
+		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		print_func = print_node;
 		break;

@@ -63,7 +63,7 @@ void * sm_alsa_midi_start(struct sm_media_session *session)
 	impl->proxy = sm_media_session_create_object(session,
 				"spa-node-factory",
 				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE_PROXY,
+				PW_VERSION_NODE,
 				&impl->props->dict,
                                 0);
 

@@ -39,8 +39,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-#define PW_VERSION_NODE_PROXY		3
-struct pw_node_proxy;
+#define PW_VERSION_NODE		3
+struct pw_node;
 
 /** \enum pw_node_state The different node states \memberof pw_node */
 enum pw_node_state {
@@ -84,13 +84,13 @@ pw_node_info_update(struct pw_node_info *info,
 void
 pw_node_info_free(struct pw_node_info *info);
 
-#define PW_NODE_PROXY_EVENT_INFO	0
-#define PW_NODE_PROXY_EVENT_PARAM	1
-#define PW_NODE_PROXY_EVENT_NUM		2
+#define PW_NODE_EVENT_INFO	0
+#define PW_NODE_EVENT_PARAM	1
+#define PW_NODE_EVENT_NUM	2
 
 /** Node events */
-struct pw_node_proxy_events {
-#define PW_VERSION_NODE_PROXY_EVENTS	0
+struct pw_node_events {
+#define PW_VERSION_NODE_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify node info
@@ -114,21 +114,21 @@ struct pw_node_proxy_events {
 		      const struct spa_pod *param);
 };
 
-#define PW_NODE_PROXY_METHOD_ADD_LISTENER	0
-#define PW_NODE_PROXY_METHOD_SUBSCRIBE_PARAMS	1
-#define PW_NODE_PROXY_METHOD_ENUM_PARAMS	2
-#define PW_NODE_PROXY_METHOD_SET_PARAM		3
-#define PW_NODE_PROXY_METHOD_SEND_COMMAND	4
-#define PW_NODE_PROXY_METHOD_NUM		5
+#define PW_NODE_METHOD_ADD_LISTENER	0
+#define PW_NODE_METHOD_SUBSCRIBE_PARAMS	1
+#define PW_NODE_METHOD_ENUM_PARAMS	2
+#define PW_NODE_METHOD_SET_PARAM	3
+#define PW_NODE_METHOD_SEND_COMMAND	4
+#define PW_NODE_METHOD_NUM		5
 
 /** Node methods */
-struct pw_node_proxy_methods {
-#define PW_VERSION_NODE_PROXY_METHODS	0
+struct pw_node_methods {
+#define PW_VERSION_NODE_METHODS		0
 	uint32_t version;
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_node_proxy_events *events,
+			const struct pw_node_events *events,
 			void *data);
 	/**
 	 * Subscribe to parameter changes
@@ -175,21 +175,21 @@ struct pw_node_proxy_methods {
 	int (*send_command) (void *object, const struct spa_command *command);
 };
 
-#define pw_node_proxy_method(o,method,version,...)			\
+#define pw_node_method(o,method,version,...)				\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_node_proxy_methods, _res,		\
+			struct pw_node_methods, _res,			\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
 /** Node */
-#define pw_node_proxy_add_listener(c,...)	pw_node_proxy_method(c,add_listener,0,__VA_ARGS__)
-#define pw_node_proxy_subscribe_params(c,...)	pw_node_proxy_method(c,subscribe_params,0,__VA_ARGS__)
-#define pw_node_proxy_enum_params(c,...)	pw_node_proxy_method(c,enum_params,0,__VA_ARGS__)
-#define pw_node_proxy_set_param(c,...)		pw_node_proxy_method(c,set_param,0,__VA_ARGS__)
-#define pw_node_proxy_send_command(c,...)	pw_node_proxy_method(c,send_command,0,__VA_ARGS__)
+#define pw_node_add_listener(c,...)	pw_node_method(c,add_listener,0,__VA_ARGS__)
+#define pw_node_subscribe_params(c,...)	pw_node_method(c,subscribe_params,0,__VA_ARGS__)
+#define pw_node_enum_params(c,...)	pw_node_method(c,enum_params,0,__VA_ARGS__)
+#define pw_node_set_param(c,...)	pw_node_method(c,set_param,0,__VA_ARGS__)
+#define pw_node_send_command(c,...)	pw_node_method(c,send_command,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

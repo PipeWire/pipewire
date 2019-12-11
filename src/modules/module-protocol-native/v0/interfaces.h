@@ -356,13 +356,13 @@ struct pw_module_v0_events {
 
 #define PW_VERSION_NODE_V0		0
 
-#define PW_NODE_PROXY_V0_EVENT_INFO	0
-#define PW_NODE_PROXY_V0_EVENT_PARAM	1
-#define PW_NODE_PROXY_V0_EVENT_NUM	2
+#define PW_NODE_V0_EVENT_INFO	0
+#define PW_NODE_V0_EVENT_PARAM	1
+#define PW_NODE_V0_EVENT_NUM	2
 
 /** Node events */
-struct pw_node_proxy_v0_events {
-#define PW_VERSION_NODE_PROXY_V0_EVENTS	0
+struct pw_node_v0_events {
+#define PW_VERSION_NODE_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify node info
@@ -385,15 +385,15 @@ struct pw_node_proxy_v0_events {
 		       const struct spa_pod *param);
 };
 
-#define pw_node_resource_v0_info(r,...) pw_resource_notify(r,struct pw_node_proxy_v0_events,info,__VA_ARGS__)
-#define pw_node_resource_v0_param(r,...) pw_resource_notify(r,struct pw_node_proxy_v0_events,param,__VA_ARGS__)
+#define pw_node_resource_v0_info(r,...) pw_resource_notify(r,struct pw_node_v0_events,info,__VA_ARGS__)
+#define pw_node_resource_v0_param(r,...) pw_resource_notify(r,struct pw_node_v0_events,param,__VA_ARGS__)
 
-#define PW_NODE_PROXY_V0_METHOD_ENUM_PARAMS	0
-#define PW_NODE_PROXY_V0_METHOD_NUM		1
+#define PW_NODE_V0_METHOD_ENUM_PARAMS	0
+#define PW_NODE_V0_METHOD_NUM		1
 
 /** Node methods */
-struct pw_node_proxy_v0_methods {
-#define PW_VERSION_NODE_PROXY_V0_METHODS	0
+struct pw_node_v0_methods {
+#define PW_VERSION_NODE_V0_METHODS	0
 	uint32_t version;
 	/**
 	 * Enumerate node parameters

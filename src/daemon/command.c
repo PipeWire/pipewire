@@ -179,7 +179,7 @@ execute_command_module_load(struct pw_command *command, struct pw_context *conte
 {
 	struct pw_impl_module *module;
 
-	module = pw_impl_module_load(context, command->args[1], command->args[2], NULL);
+	module = pw_context_load_module(context, command->args[1], command->args[2], NULL);
 	if (module == NULL) {
 		asprintf(err, "could not load module \"%s\": %m", command->args[1]);
 		return -errno;

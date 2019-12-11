@@ -249,7 +249,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	module = pw_impl_module_load(data->context, a[0], n == 2 ? a[1] : NULL, NULL);
+	module = pw_context_load_module(data->context, a[0], n == 2 ? a[1] : NULL, NULL);
 	if (module == NULL) {
 		asprintf(error, "Could not load module");
 		return false;
@@ -1648,7 +1648,7 @@ int main(int argc, char *argv[])
 	data.context = pw_context_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
 	info = pw_context_get_info(data.context);
 
-	pw_impl_module_load(data.context, "libpipewire-module-link-factory", NULL, NULL);
+	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
 	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
 

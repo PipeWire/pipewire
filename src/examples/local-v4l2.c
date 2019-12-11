@@ -409,8 +409,8 @@ int main(int argc, char *argv[])
 
 	spa_hook_list_init(&data.hooks);
 
-	pw_impl_module_load(data.context, "libpipewire-module-spa-node-factory", NULL, NULL);
-	pw_impl_module_load(data.context, "libpipewire-module-link-factory", NULL, NULL);
+	pw_context_load_module(data.context, "libpipewire-module-spa-node-factory", NULL, NULL);
+	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());

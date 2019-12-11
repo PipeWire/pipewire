@@ -74,7 +74,7 @@ struct pw_impl_module_events {
 };
 
 struct pw_impl_module *
-pw_impl_module_load(struct pw_context *context,
+pw_context_load_module(struct pw_context *context,
 	       const char *name,		/**< name of the module */
 	       const char *args			/**< arguments of the module */,
 	       struct pw_properties *properties	/**< extra global properties */);

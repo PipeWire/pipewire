@@ -455,13 +455,13 @@ static int load_module_profile(struct pw_context *this, const char *profile)
 {
 	pw_log_debug(NAME" %p: module profile %s", this, profile);
 	if (strcmp(profile, "default") == 0) {
-		pw_impl_module_load(this, "libpipewire-module-rtkit", NULL, NULL);
-		pw_impl_module_load(this, "libpipewire-module-protocol-native", NULL, NULL);
-		pw_impl_module_load(this, "libpipewire-module-client-node", NULL, NULL);
-		pw_impl_module_load(this, "libpipewire-module-client-device", NULL, NULL);
-		pw_impl_module_load(this, "libpipewire-module-adapter", NULL, NULL);
-		pw_impl_module_load(this, "libpipewire-module-metadata", NULL, NULL);
-		pw_impl_module_load(this, "libpipewire-module-session-manager", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-rtkit", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-protocol-native", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-client-node", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-client-device", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-adapter", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-metadata", NULL, NULL);
+		pw_context_load_module(this, "libpipewire-module-session-manager", NULL, NULL);
 	}
 	return 0;
 }

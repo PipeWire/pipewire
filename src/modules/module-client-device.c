@@ -50,7 +50,7 @@ struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
 struct pw_protocol *pw_protocol_native_ext_client_device_init(struct pw_context *context);
 
 struct factory_data {
-	struct pw_factory *this;
+	struct pw_impl_factory *this;
 
 	struct pw_module *module;
 	struct spa_hook module_listener;
@@ -66,7 +66,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *data = _data;
-	struct pw_factory *this = data->this;
+	struct pw_impl_factory *this = data->this;
 	void *result;
 	struct pw_resource *device_resource;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
@@ -86,7 +86,7 @@ static void *create_object(void *_data,
 	}
 
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
-			pw_global_get_id(pw_factory_get_global(this)));
+			pw_global_get_id(pw_impl_factory_get_global(this)));
 	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
 			pw_global_get_id(pw_impl_client_get_global(client)));
 
@@ -117,8 +117,8 @@ error_exit:
 	return NULL;
 }
 
-static const struct pw_factory_implementation impl_factory = {
-	PW_VERSION_FACTORY_IMPLEMENTATION,
+static const struct pw_impl_factory_implementation impl_factory = {
+	PW_VERSION_IMPL_FACTORY_IMPLEMENTATION,
 	.create_object = create_object,
 };
 
@@ -130,23 +130,23 @@ static void module_destroy(void *data)
 
 	spa_list_remove(&d->export_spadevice.link);
 
-	pw_factory_destroy(d->this);
+	pw_impl_factory_destroy(d->this);
 }
 
 static void module_registered(void *data)
 {
 	struct factory_data *d = data;
 	struct pw_module *module = d->module;
-	struct pw_factory *factory = d->this;
+	struct pw_impl_factory *factory = d->this;
 	struct spa_dict_item items[1];
 	char id[16];
 	int res;
 
 	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_module_get_global(module)));
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
-	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 
-	if ((res = pw_factory_register(factory, NULL)) < 0) {
+	if ((res = pw_impl_factory_register(factory, NULL)) < 0) {
 		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
 	}
 }
@@ -161,10 +161,10 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_module *module, const char *args)
 {
 	struct pw_context *context = pw_module_get_context(module);
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(context,
+	factory = pw_impl_factory_new(context,
 				 "client-device",
 				 SPA_TYPE_INTERFACE_Device,
 				 SPA_VERSION_DEVICE,
@@ -175,13 +175,13 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	if (factory == NULL)
 		return -errno;
 
-	data = pw_factory_get_user_data(factory);
+	data = pw_impl_factory_get_user_data(factory);
 	data->this = factory;
 	data->module = module;
 
 	pw_log_debug("module %p: new", module);
 
-	pw_factory_set_implementation(factory,
+	pw_impl_factory_set_implementation(factory,
 				      &impl_factory,
 				      data);
 

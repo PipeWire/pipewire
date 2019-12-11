@@ -38,7 +38,7 @@
 #define NAME "client-session"
 
 struct factory_data {
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	struct pw_module *module;
 	struct spa_hook module_listener;
 };
@@ -165,7 +165,7 @@ static void *create_object(void *data,
 			   uint32_t new_id)
 {
 	struct factory_data *d = data;
-	struct pw_factory *factory = d->factory;
+	struct pw_impl_factory *factory = d->factory;
 	struct client_session *this;
 	struct pw_impl_client *owner = pw_resource_get_client(owner_resource);
 	struct pw_context *context = pw_impl_client_get_context(owner);
@@ -212,8 +212,8 @@ static void *create_object(void *data,
 	return NULL;
 }
 
-static const struct pw_factory_implementation impl_factory = {
-	PW_VERSION_FACTORY_IMPLEMENTATION,
+static const struct pw_impl_factory_implementation impl_factory = {
+	PW_VERSION_IMPL_FACTORY_IMPLEMENTATION,
 	.create_object = create_object,
 };
 
@@ -222,23 +222,23 @@ static void module_destroy(void *data)
 	struct factory_data *d = data;
 
 	spa_hook_remove(&d->module_listener);
-	pw_factory_destroy(d->factory);
+	pw_impl_factory_destroy(d->factory);
 }
 
 static void module_registered(void *data)
 {
 	struct factory_data *d = data;
 	struct pw_module *module = d->module;
-	struct pw_factory *factory = d->factory;
+	struct pw_impl_factory *factory = d->factory;
 	struct spa_dict_item items[1];
 	char id[16];
 	int res;
 
 	snprintf(id, sizeof(id), "%d", module->global->id);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
-	pw_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
+	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 
-	if ((res = pw_factory_register(factory, NULL)) < 0) {
+	if ((res = pw_impl_factory_register(factory, NULL)) < 0) {
 		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
 	}
 }
@@ -252,10 +252,10 @@ static const struct pw_module_events module_events = {
 int client_session_factory_init(struct pw_module *module)
 {
 	struct pw_context *context = pw_module_get_context(module);
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_factory_new(context,
+	factory = pw_impl_factory_new(context,
 				 "client-session",
 				 PW_TYPE_INTERFACE_ClientSession,
 				 PW_VERSION_CLIENT_SESSION_PROXY,
@@ -264,11 +264,11 @@ int client_session_factory_init(struct pw_module *module)
 	if (factory == NULL)
 		return -ENOMEM;
 
-	data = pw_factory_get_user_data(factory);
+	data = pw_impl_factory_get_user_data(factory);
 	data->factory = factory;
 	data->module = module;
 
-	pw_factory_set_implementation(factory, &impl_factory, data);
+	pw_impl_factory_set_implementation(factory, &impl_factory, data);
 
 	pw_module_add_listener(module, &data->module_listener, &module_events, data);
 

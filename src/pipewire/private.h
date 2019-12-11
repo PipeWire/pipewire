@@ -825,13 +825,13 @@ struct pw_filter {
 	struct spa_list controls;
 };
 
-#define pw_factory_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_factory_events, m, v, ##__VA_ARGS__)
+#define pw_impl_factory_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_impl_factory_events, m, v, ##__VA_ARGS__)
 
-#define pw_factory_emit_destroy(s)		pw_factory_emit(s, destroy, 0)
-#define pw_factory_emit_free(s)			pw_factory_emit(s, free, 0)
-#define pw_factory_emit_initialized(s)		pw_factory_emit(s, initialized, 0)
+#define pw_impl_factory_emit_destroy(s)		pw_impl_factory_emit(s, destroy, 0)
+#define pw_impl_factory_emit_free(s)		pw_impl_factory_emit(s, free, 0)
+#define pw_impl_factory_emit_initialized(s)	pw_impl_factory_emit(s, initialized, 0)
 
-struct pw_factory {
+struct pw_impl_factory {
 	struct pw_context *context;		/**< the context */
 	struct spa_list link;		/**< link in context node_factory_list */
 	struct pw_global *global;	/**< global for this factory */

@@ -44,6 +44,7 @@ struct pw_context;
 
 struct pw_global;
 struct pw_impl_client;
+struct pw_impl_factory;
 
 #include <pipewire/introspect.h>
 #include <pipewire/interfaces.h>
@@ -145,7 +146,7 @@ struct pw_global *pw_context_find_global(struct pw_context *context,	/**< the co
 				      uint32_t id		/**< the global id */);
 
 /** Find a factory by name */
-struct pw_factory *
+struct pw_impl_factory *
 pw_context_find_factory(struct pw_context *context	/**< the context */,
 		     const char *name		/**< the factory name */);
 

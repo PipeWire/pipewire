@@ -107,7 +107,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	struct bluez5_node *node;
 	struct impl *impl = obj->impl;
 	struct pw_context *context = impl->session->context;
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	int res;
 	const char *str;
 
@@ -149,7 +149,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 		res = -EIO;
 		goto clean_node;
 	}
-	node->adapter = pw_factory_create_object(factory,
+	node->adapter = pw_impl_factory_create_object(factory,
 			NULL,
 			PW_TYPE_INTERFACE_Node,
 			PW_VERSION_NODE_PROXY,

@@ -38,14 +38,14 @@ struct resource_data {
 };
 
 SPA_EXPORT
-struct pw_factory *pw_factory_new(struct pw_context *context,
+struct pw_impl_factory *pw_impl_factory_new(struct pw_context *context,
 				  const char *name,
 				  uint32_t type,
 				  uint32_t version,
 				  struct pw_properties *properties,
 				  size_t user_data_size)
 {
-	struct pw_factory *this;
+	struct pw_impl_factory *this;
 	int res;
 
 	if (properties == NULL)
@@ -83,10 +83,10 @@ error_exit:
 }
 
 SPA_EXPORT
-void pw_factory_destroy(struct pw_factory *factory)
+void pw_impl_factory_destroy(struct pw_impl_factory *factory)
 {
 	pw_log_debug(NAME" %p: destroy", factory);
-	pw_factory_emit_destroy(factory);
+	pw_impl_factory_emit_destroy(factory);
 
 	if (factory->registered)
 		spa_list_remove(&factory->link);
@@ -96,7 +96,7 @@ void pw_factory_destroy(struct pw_factory *factory)
 		pw_global_destroy(factory->global);
 	}
 
-	pw_factory_emit_free(factory);
+	pw_impl_factory_emit_free(factory);
 	pw_log_debug(NAME" %p: free", factory);
 	free((char *)factory->info.name);
 
@@ -120,7 +120,7 @@ static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
 {
-	struct pw_factory *this = _data;
+	struct pw_impl_factory *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -150,10 +150,10 @@ error_resource:
 
 static void global_destroy(void *object)
 {
-	struct pw_factory *factory = object;
+	struct pw_impl_factory *factory = object;
 	spa_hook_remove(&factory->global_listener);
 	factory->global = NULL;
-	pw_factory_destroy(factory);
+	pw_impl_factory_destroy(factory);
 }
 
 static const struct pw_global_events global_events = {
@@ -162,13 +162,13 @@ static const struct pw_global_events global_events = {
 };
 
 SPA_EXPORT
-const struct pw_properties *pw_factory_get_properties(struct pw_factory *factory)
+const struct pw_properties *pw_impl_factory_get_properties(struct pw_impl_factory *factory)
 {
 	return factory->properties;
 }
 
 SPA_EXPORT
-int pw_factory_update_properties(struct pw_factory *factory, const struct spa_dict *dict)
+int pw_impl_factory_update_properties(struct pw_impl_factory *factory, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
 	int changed;
@@ -191,7 +191,7 @@ int pw_factory_update_properties(struct pw_factory *factory, const struct spa_di
 }
 
 SPA_EXPORT
-int pw_factory_register(struct pw_factory *factory,
+int pw_impl_factory_register(struct pw_impl_factory *factory,
 			 struct pw_properties *properties)
 {
 	struct pw_context *context = factory->context;
@@ -231,7 +231,7 @@ int pw_factory_register(struct pw_factory *factory,
 	pw_properties_setf(factory->properties, PW_KEY_OBJECT_ID, "%d", factory->info.id);
 	factory->info.props = &factory->properties->dict;
 
-	pw_factory_emit_initialized(factory);
+	pw_impl_factory_emit_initialized(factory);
 
 	pw_global_add_listener(factory->global, &factory->global_listener, &global_events, factory);
 	pw_global_register(factory->global);
@@ -245,36 +245,36 @@ error_existed:
 }
 
 SPA_EXPORT
-void *pw_factory_get_user_data(struct pw_factory *factory)
+void *pw_impl_factory_get_user_data(struct pw_impl_factory *factory)
 {
 	return factory->user_data;
 }
 
 SPA_EXPORT
-struct pw_global *pw_factory_get_global(struct pw_factory *factory)
+struct pw_global *pw_impl_factory_get_global(struct pw_impl_factory *factory)
 {
 	return factory->global;
 }
 
 SPA_EXPORT
-void pw_factory_add_listener(struct pw_factory *factory,
+void pw_impl_factory_add_listener(struct pw_impl_factory *factory,
 			     struct spa_hook *listener,
-			     const struct pw_factory_events *events,
+			     const struct pw_impl_factory_events *events,
 			     void *data)
 {
 	spa_hook_list_append(&factory->listener_list, listener, events, data);
 }
 
 SPA_EXPORT
-void pw_factory_set_implementation(struct pw_factory *factory,
-				   const struct pw_factory_implementation *implementation,
+void pw_impl_factory_set_implementation(struct pw_impl_factory *factory,
+				   const struct pw_impl_factory_implementation *implementation,
 				   void *data)
 {
 	factory->impl = SPA_CALLBACKS_INIT(implementation, data);
 }
 
 SPA_EXPORT
-void *pw_factory_create_object(struct pw_factory *factory,
+void *pw_impl_factory_create_object(struct pw_impl_factory *factory,
 			       struct pw_resource *resource,
 			       uint32_t type,
 			       uint32_t version,
@@ -283,7 +283,7 @@ void *pw_factory_create_object(struct pw_factory *factory,
 {
 	void *res = NULL;
 	spa_callbacks_call_res(&factory->impl,
-			struct pw_factory_implementation,
+			struct pw_impl_factory_implementation,
 			res, create_object, 0,
 			resource, type, version, properties, new_id);
 	return res;

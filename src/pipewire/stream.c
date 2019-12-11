@@ -1318,7 +1318,7 @@ pw_stream_connect(struct pw_stream *stream,
 		  uint32_t n_params)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	struct pw_properties *props;
 	struct pw_node *slave;
 	const char *str;
@@ -1426,7 +1426,7 @@ pw_stream_connect(struct pw_stream *stream,
 			goto error_node;
 		}
 		pw_properties_setf(props, "adapt.slave.node", "pointer:%p", slave);
-		impl->node = pw_factory_create_object(factory,
+		impl->node = pw_impl_factory_create_object(factory,
 				NULL,
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,

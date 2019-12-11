@@ -48,7 +48,7 @@ struct data {
 
 static int make_device(struct data *data)
 {
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	struct pw_properties *props;
 
         factory = pw_context_find_factory(data->context, "spa-device-factory");
@@ -58,7 +58,7 @@ static int make_device(struct data *data)
         props = pw_properties_new(SPA_KEY_LIBRARY_NAME, data->library,
                                   SPA_KEY_FACTORY_NAME, data->factory, NULL);
 
-	data->device = pw_factory_create_object(factory,
+	data->device = pw_impl_factory_create_object(factory,
 					      NULL,
 					      PW_TYPE_INTERFACE_Device,
 					      PW_VERSION_DEVICE_PROXY,

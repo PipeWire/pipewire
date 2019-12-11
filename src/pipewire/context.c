@@ -298,7 +298,7 @@ core_create_object(void *object,
 {
 	struct pw_resource *resource = object;
 	struct pw_impl_client *client = resource->client;
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 	void *obj;
 	struct pw_properties *properties;
 	struct pw_context *this = client->context;
@@ -326,7 +326,7 @@ core_create_object(void *object,
 		properties = NULL;
 
 	/* error will be posted */
-	obj = pw_factory_create_object(factory, resource, type, version, properties, new_id);
+	obj = pw_impl_factory_create_object(factory, resource, type, version, properties, new_id);
 	if (obj == NULL)
 		goto error_create_failed;
 
@@ -1078,10 +1078,10 @@ error:
  * \memberof pw_context
  */
 SPA_EXPORT
-struct pw_factory *pw_context_find_factory(struct pw_context *context,
+struct pw_impl_factory *pw_context_find_factory(struct pw_context *context,
 					const char *name)
 {
-	struct pw_factory *factory;
+	struct pw_impl_factory *factory;
 
 	spa_list_for_each(factory, &context->factory_list, link) {
 		if (strcmp(factory->info.name, name) == 0)

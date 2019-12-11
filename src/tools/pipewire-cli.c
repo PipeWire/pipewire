@@ -74,9 +74,9 @@ struct remote_data {
 
 	int prompt_pending;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
-	struct spa_hook core_proxy_listener;
+	struct spa_hook proxy_core_listener;
 	struct pw_registry_proxy *registry_proxy;
 	struct spa_hook registry_listener;
 
@@ -383,8 +383,8 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 	}
 }
 
-static const struct pw_core_proxy_events remote_core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events remote_core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.info = on_core_info,
 	.done = on_core_done,
 	.error = on_core_error,
@@ -405,7 +405,7 @@ static void on_core_destroy(void *_data)
 	free(rd->name);
 }
 
-static const struct pw_proxy_events core_proxy_events = {
+static const struct pw_proxy_events proxy_core_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = on_core_destroy,
 };
@@ -415,41 +415,41 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	char *a[1];
         int n;
 	struct pw_properties *props = NULL;
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct remote_data *rd;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n == 1) {
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, a[0], NULL);
 	}
-	core_proxy = pw_context_connect(data->context, props, sizeof(struct remote_data));
-	if (core_proxy == NULL) {
+	core = pw_context_connect(data->context, props, sizeof(struct remote_data));
+	if (core == NULL) {
 		asprintf(error, "failed to connect: %m");
 		return false;
 	}
 
-	rd = pw_proxy_get_user_data((struct pw_proxy*)core_proxy);
-	rd->core_proxy = core_proxy;
+	rd = pw_proxy_get_user_data((struct pw_proxy*)core);
+	rd->core = core;
 	rd->data = data;
 	pw_map_init(&rd->globals, 64, 16);
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
-	fprintf(stdout, "%d = @remote:%p\n", rd->id, rd->core_proxy);
+	fprintf(stdout, "%d = @remote:%p\n", rd->id, rd->core);
 	data->current = rd;
 
-	pw_core_proxy_add_listener(rd->core_proxy,
+	pw_core_add_listener(rd->core,
 				   &rd->core_listener,
 				   &remote_core_events, rd);
-	pw_proxy_add_listener((struct pw_proxy*)rd->core_proxy,
-			&rd->core_proxy_listener,
-			&core_proxy_events, rd);
-	rd->registry_proxy = pw_core_proxy_get_registry(rd->core_proxy,
+	pw_proxy_add_listener((struct pw_proxy*)rd->core,
+			&rd->proxy_core_listener,
+			&proxy_core_events, rd);
+	rd->registry_proxy = pw_core_get_registry(rd->core,
 							PW_VERSION_REGISTRY_PROXY, 0);
 	pw_registry_proxy_add_listener(rd->registry_proxy,
 				       &rd->registry_listener,
 				       &registry_events, rd);
-	rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0, 0);
+	rd->prompt_pending = pw_core_sync(rd->core, 0, 0);
 
 	return true;
 }
@@ -469,7 +469,7 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 			goto no_remote;
 
 	}
-	pw_core_proxy_disconnect(rd->core_proxy);
+	pw_core_disconnect(rd->core);
 
 	if (data->current == NULL) {
 		if (spa_list_is_empty(&data->remotes)) {
@@ -490,7 +490,7 @@ static bool do_list_remotes(struct data *data, const char *cmd, char *args, char
 	struct remote_data *rd;
 
 	spa_list_for_each(rd, &data->remotes, link)
-		fprintf(stdout, "\t%d = @remote:%p '%s'\n", rd->id, rd->core_proxy, rd->name);
+		fprintf(stdout, "\t%d = @remote:%p '%s'\n", rd->id, rd->core, rd->name);
 
 	return true;
 }
@@ -717,8 +717,8 @@ static void core_event_info(void *object, const struct pw_core_info *info)
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.info = core_event_info
 };
 
@@ -1097,7 +1097,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	switch (global->type) {
 	case PW_TYPE_INTERFACE_Core:
 		events = &core_events;
-		client_version = PW_VERSION_CORE_PROXY;
+		client_version = PW_VERSION_CORE;
 		destroy = (pw_destroy_t) pw_core_info_free;
 		info_func = info_core;
 		break;
@@ -1263,7 +1263,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	if (n == 2)
 		props = parse_props(a[1]);
 
-	proxy = pw_core_proxy_create_object(rd->core_proxy, a[0],
+	proxy = pw_core_create_object(rd->core, a[0],
 					    PW_TYPE_INTERFACE_Device,
 					    PW_VERSION_DEVICE_PROXY,
 					    props ? &props->dict : NULL,
@@ -1300,7 +1300,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	if (n == 2)
 		props = parse_props(a[1]);
 
-	proxy = pw_core_proxy_create_object(rd->core_proxy, a[0],
+	proxy = pw_core_create_object(rd->core, a[0],
 					    PW_TYPE_INTERFACE_Node,
 					    PW_VERSION_NODE_PROXY,
 					    props ? &props->dict : NULL,
@@ -1368,7 +1368,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	pw_properties_set(props, PW_KEY_LINK_INPUT_NODE, a[2]);
 	pw_properties_set(props, PW_KEY_LINK_INPUT_PORT, a[3]);
 
-	proxy = (struct pw_proxy*)pw_core_proxy_create_object(rd->core_proxy,
+	proxy = (struct pw_proxy*)pw_core_create_object(rd->core,
 					  "link-factory",
 					  PW_TYPE_INTERFACE_Link,
 					  PW_VERSION_LINK_PROXY,
@@ -1420,7 +1420,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	node = pw_global_get_object(global);
-	proxy = pw_core_proxy_export(rd->core_proxy, PW_TYPE_INTERFACE_Node, NULL, node, 0);
+	proxy = pw_core_export(rd->core, PW_TYPE_INTERFACE_Node, NULL, node, 0);
 
 	id = pw_map_insert_new(&data->vars, proxy);
 	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
@@ -1621,8 +1621,8 @@ static void do_input(void *data, int fd, uint32_t mask)
 			pw_main_loop_quit(d->loop);
 		else  {
 			struct remote_data *rd = d->current;
-			if (rd->core_proxy)
-				rd->prompt_pending = pw_core_proxy_sync(rd->core_proxy, 0, 0);
+			if (rd->core)
+				rd->prompt_pending = pw_core_sync(rd->core, 0, 0);
 		}
 	}
 }

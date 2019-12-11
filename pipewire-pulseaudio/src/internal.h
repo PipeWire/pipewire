@@ -286,7 +286,7 @@ struct pa_context {
 
 	struct pw_properties *props;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 	struct pw_core_info *core_info;
 

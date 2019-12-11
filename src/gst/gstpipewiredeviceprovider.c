@@ -285,7 +285,7 @@ static void add_pending(GstPipeWireDeviceProvider *self, struct pending *p,
   p->callback = callback;
   p->data = data;
   pw_log_debug("add pending %d", p->seq);
-  self->seq = p->seq = pw_core_proxy_sync(self->core_proxy, 0, self->seq);
+  self->seq = p->seq = pw_core_sync(self->core, 0, self->seq);
 }
 
 static void remove_pending(struct pending *p)
@@ -360,8 +360,8 @@ on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
   pw_thread_loop_signal(self->main_loop, FALSE);
 }
 
-static const struct pw_core_proxy_events core_events = {
-  PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+  PW_VERSION_CORE_EVENTS,
   .info = on_core_info,
   .done = on_core_done,
   .error = on_core_error,
@@ -541,21 +541,21 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   spa_list_init(&data->ports);
 
   spa_list_init(&self->pending);
-  self->core_proxy = pw_context_connect (c, NULL, 0);
-  if (self->core_proxy == NULL)
+  self->core = pw_context_connect (c, NULL, 0);
+  if (self->core == NULL)
     goto failed;
 
   GST_DEBUG_OBJECT (self, "connected");
-  pw_core_proxy_add_listener(self->core_proxy, &data->core_listener, &core_events, self);
+  pw_core_add_listener(self->core, &data->core_listener, &core_events, self);
 
   self->end = FALSE;
   self->list_only = TRUE;
   self->devices = NULL;
 
-  data->registry = pw_core_proxy_get_registry(self->core_proxy, PW_VERSION_REGISTRY_PROXY, 0);
+  data->registry = pw_core_get_registry(self->core, PW_VERSION_REGISTRY_PROXY, 0);
   pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
 
-  pw_core_proxy_sync(self->core_proxy, 0, self->seq++);
+  pw_core_sync(self->core, 0, self->seq++);
 
   for (;;) {
     if (self->error < 0)
@@ -566,7 +566,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   }
 
   GST_DEBUG_OBJECT (self, "disconnect");
-  pw_core_proxy_disconnect (self->core_proxy);
+  pw_core_disconnect (self->core);
   pw_context_destroy (c);
   pw_loop_destroy (l);
 
@@ -606,7 +606,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   pw_thread_loop_lock (self->main_loop);
 
-  if ((self->core_proxy = pw_context_connect (self->context, NULL, 0)) == NULL) {
+  if ((self->core = pw_context_connect (self->context, NULL, 0)) == NULL) {
     GST_ERROR_OBJECT (self, "Failed to connect");
     goto failed_connect;
   }
@@ -618,13 +618,13 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   spa_list_init(&data->nodes);
   spa_list_init(&data->ports);
 
-  pw_core_proxy_add_listener(self->core_proxy, &data->core_listener, &core_events, self);
+  pw_core_add_listener(self->core, &data->core_listener, &core_events, self);
 
-  self->registry = pw_core_proxy_get_registry(self->core_proxy, PW_VERSION_REGISTRY_PROXY, 0);
+  self->registry = pw_core_get_registry(self->core, PW_VERSION_REGISTRY_PROXY, 0);
   data->registry = self->registry;
   pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
 
-  pw_core_proxy_sync(self->core_proxy, 0, self->seq++);
+  pw_core_sync(self->core, 0, self->seq++);
 
   for (;;) {
     if (self->error < 0)
@@ -661,9 +661,9 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "stopping provider");
 
-  if (self->core_proxy) {
-    pw_core_proxy_disconnect (self->core_proxy);
-    self->core_proxy = NULL;
+  if (self->core) {
+    pw_core_disconnect (self->core);
+    self->core = NULL;
   }
   if (self->context) {
     pw_context_destroy (self->context);

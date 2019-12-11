@@ -134,7 +134,7 @@ static void test_create(void)
 {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct pw_stream *stream;
 	struct pw_stream_events stream_events = stream_events_error;
 	struct spa_hook listener = { 0, };
@@ -147,9 +147,9 @@ static void test_create(void)
 				PW_KEY_CORE_DAEMON, "1",
 				NULL), 12);
 	spa_assert(context != NULL);
-	core_proxy = pw_context_connect_self(context, NULL, 0);
-	spa_assert(core_proxy != NULL);
-	stream = pw_stream_new(core_proxy, "test", NULL);
+	core = pw_context_connect_self(context, NULL, 0);
+	spa_assert(core != NULL);
+	stream = pw_stream_new(core, "test", NULL);
 	spa_assert(stream != NULL);
 	pw_stream_add_listener(stream, &listener, &stream_events, stream);
 
@@ -186,7 +186,7 @@ static void test_properties(void)
 {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	const struct pw_properties *props;
 	struct pw_stream *stream;
 	struct pw_stream_events stream_events = stream_events_error;
@@ -199,9 +199,9 @@ static void test_properties(void)
 				PW_KEY_CORE_DAEMON, "1",
 				NULL), 12);
 	spa_assert(context != NULL);
-	core_proxy = pw_context_connect_self(context, NULL, 0);
-	spa_assert(core_proxy != NULL);
-	stream = pw_stream_new(core_proxy, "test",
+	core = pw_context_connect_self(context, NULL, 0);
+	spa_assert(core != NULL);
+	stream = pw_stream_new(core, "test",
 			pw_properties_new("foo", "bar",
 					  "biz", "fuzz",
 					  NULL));

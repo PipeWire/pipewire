@@ -872,7 +872,7 @@ static int create_stream(pa_stream_direction_t direction,
 
 	name = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_NAME);
 
-	s->stream = pw_stream_new(c->core_proxy,
+	s->stream = pw_stream_new(c->core,
 			name, pw_properties_copy(c->props));
 	pw_stream_add_listener(s->stream, &s->stream_listener, &stream_events, s);
 

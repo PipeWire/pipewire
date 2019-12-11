@@ -890,8 +890,8 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -960,21 +960,21 @@ error_cleanup:
 }
 
 SPA_EXPORT
-struct pw_filter * pw_filter_new(struct pw_core_proxy *core_proxy, const char *name,
+struct pw_filter * pw_filter_new(struct pw_core *core, const char *name,
 	      struct pw_properties *props)
 {
 	struct filter *impl;
 	struct pw_filter *this;
-	struct pw_context *context = core_proxy->context;
+	struct pw_context *context = core->context;
 
-	impl = filter_new(context, name, props, core_proxy->properties);
+	impl = filter_new(context, name, props, core->properties);
 	if (impl == NULL)
 		return NULL;
 
 	this = &impl->this;
-	this->core_proxy = core_proxy;
-	spa_list_append(&this->core_proxy->filter_list, &this->link);
-	pw_core_proxy_add_listener(core_proxy,
+	this->core = core;
+	spa_list_append(&this->core->filter_list, &this->link);
+	pw_core_add_listener(core,
 			&this->core_listener, &core_events, this);
 
 	return this;
@@ -1050,7 +1050,7 @@ void pw_filter_destroy(struct pw_filter *filter)
 
 	pw_filter_disconnect(filter);
 
-	if (filter->core_proxy) {
+	if (filter->core) {
 		spa_hook_remove(&filter->core_listener);
 		spa_list_remove(&filter->link);
 	}
@@ -1088,9 +1088,9 @@ enum pw_filter_state pw_filter_get_state(struct pw_filter *filter, const char **
 }
 
 SPA_EXPORT
-struct pw_core_proxy *pw_filter_get_core_proxy(struct pw_filter *filter)
+struct pw_core *pw_filter_get_core(struct pw_filter *filter)
 {
-	return filter->core_proxy;
+	return filter->core;
 }
 
 SPA_EXPORT
@@ -1183,21 +1183,21 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->disconnecting = false;
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, NULL);
 
-	if (filter->core_proxy == NULL) {
-		filter->core_proxy = pw_context_connect(impl->context,
+	if (filter->core == NULL) {
+		filter->core = pw_context_connect(impl->context,
 				pw_properties_copy(filter->properties), 0);
-		if (filter->core_proxy == NULL) {
+		if (filter->core == NULL) {
 			res = -errno;
 			goto error_connect;
 		}
-		spa_list_append(&filter->core_proxy->filter_list, &filter->link);
-		pw_core_proxy_add_listener(filter->core_proxy,
+		spa_list_append(&filter->core->filter_list, &filter->link);
+		pw_core_add_listener(filter->core,
 				&filter->core_listener, &core_events, filter);
 		impl->free_proxy = true;
 	}
 
 	pw_log_debug(NAME" %p: export node %p", filter, &impl->impl_node);
-	filter->proxy = pw_core_proxy_export(filter->core_proxy,
+	filter->proxy = pw_core_export(filter->core,
 			SPA_TYPE_INTERFACE_Node, NULL, &impl->impl_node, 0);
 	if (filter->proxy == NULL) {
 		res = -errno;
@@ -1237,8 +1237,8 @@ int pw_filter_disconnect(struct pw_filter *filter)
 		impl->free_proxy = false;
 		spa_hook_remove(&filter->core_listener);
 		spa_list_remove(&filter->link);
-		pw_core_proxy_disconnect(filter->core_proxy);
-		filter->core_proxy = NULL;
+		pw_core_disconnect(filter->core);
+		filter->core = NULL;
 	}
 	return 0;
 }

@@ -1009,8 +1009,8 @@ static void on_core_error(void *object, uint32_t id, int seq, int res, const cha
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -1081,21 +1081,21 @@ error_cleanup:
 }
 
 SPA_EXPORT
-struct pw_stream * pw_stream_new(struct pw_core_proxy *core_proxy, const char *name,
+struct pw_stream * pw_stream_new(struct pw_core *core, const char *name,
 	      struct pw_properties *props)
 {
 	struct stream *impl;
 	struct pw_stream *this;
-	struct pw_context *context = core_proxy->context;
+	struct pw_context *context = core->context;
 
-	impl = stream_new(context, name, props, core_proxy->properties);
+	impl = stream_new(context, name, props, core->properties);
 	if (impl == NULL)
 		return NULL;
 
 	this = &impl->this;
-	this->core_proxy = core_proxy;
-	spa_list_append(&core_proxy->stream_list, &this->link);
-	pw_core_proxy_add_listener(core_proxy,
+	this->core = core;
+	spa_list_append(&core->stream_list, &this->link);
+	pw_core_add_listener(core,
 			&this->core_listener, &core_events, this);
 
 	return this;
@@ -1171,10 +1171,10 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_stream_disconnect(stream);
 
-	if (stream->core_proxy) {
+	if (stream->core) {
 		spa_hook_remove(&stream->core_listener);
 		spa_list_remove(&stream->link);
-		stream->core_proxy = NULL;
+		stream->core = NULL;
 	}
 
 	clear_params(impl, SPA_ID_INVALID);
@@ -1244,9 +1244,9 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 }
 
 SPA_EXPORT
-struct pw_core_proxy *pw_stream_get_core_proxy(struct pw_stream *stream)
+struct pw_core *pw_stream_get_core(struct pw_stream *stream)
 {
-	return stream->core_proxy;
+	return stream->core;
 }
 
 static void add_params(struct stream *impl)
@@ -1385,15 +1385,15 @@ pw_stream_connect(struct pw_stream *stream,
 			direction == PW_DIRECTION_INPUT ? "Input" : "Output",
 			get_media_class(impl));
 
-	if (stream->core_proxy == NULL) {
-		stream->core_proxy = pw_context_connect(impl->context,
+	if (stream->core == NULL) {
+		stream->core = pw_context_connect(impl->context,
 				pw_properties_copy(stream->properties), 0);
-		if (stream->core_proxy == NULL) {
+		if (stream->core == NULL) {
 			res = -errno;
 			goto error_connect;
 		}
-		spa_list_append(&stream->core_proxy->stream_list, &stream->link);
-		pw_core_proxy_add_listener(stream->core_proxy,
+		spa_list_append(&stream->core->stream_list, &stream->link);
+		pw_core_add_listener(stream->core,
 				&stream->core_listener, &core_events, stream);
 		impl->free_proxy = true;
 	}
@@ -1441,7 +1441,7 @@ pw_stream_connect(struct pw_stream *stream,
 	}
 
 	pw_log_debug(NAME" %p: export node %p", stream, impl->node);
-	stream->proxy = pw_core_proxy_export(stream->core_proxy,
+	stream->proxy = pw_core_export(stream->core,
 			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
 	if (stream->proxy == NULL) {
 		res = -errno;
@@ -1494,8 +1494,8 @@ int pw_stream_disconnect(struct pw_stream *stream)
 		impl->free_proxy = false;
 		spa_hook_remove(&stream->core_listener);
 		spa_list_remove(&stream->link);
-		pw_core_proxy_disconnect(stream->core_proxy);
-		stream->core_proxy = NULL;
+		pw_core_disconnect(stream->core);
+		stream->core = NULL;
 	}
 	return 0;
 }

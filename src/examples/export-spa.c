@@ -37,7 +37,7 @@ struct data {
 
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	struct spa_node *node;
@@ -91,7 +91,7 @@ static int make_node(struct data *data)
 		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
 	}
 
-	data->proxy = pw_core_proxy_export(data->core_proxy,
+	data->proxy = pw_core_export(data->core,
 			SPA_TYPE_INTERFACE_Node, props,
 			data->node, 0);
 	if (data->proxy == NULL)
@@ -115,8 +115,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -152,12 +152,12 @@ int main(int argc, char *argv[])
 
 	pw_module_load(data.context, "libpipewire-module-spa-node-factory", NULL, NULL);
 
-        data.core_proxy = pw_context_connect(data.context, NULL, 0);
-	if (data.core_proxy == NULL) {
+        data.core = pw_context_connect(data.context, NULL, 0);
+	if (data.core == NULL) {
 		printf("can't connect: %m\n");
 		return -1;
 	}
-	pw_core_proxy_add_listener(data.core_proxy,
+	pw_core_add_listener(data.core,
 				   &data.core_listener,
 				   &core_events, &data);
 

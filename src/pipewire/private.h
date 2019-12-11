@@ -173,7 +173,7 @@ struct pw_global {
 #define pw_context_emit_global_added(c,g)	pw_context_emit(c, global_added, 0, g)
 #define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
 
-#define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_proxy_events, m, v, ##__VA_ARGS__)
+#define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_events, m, v, ##__VA_ARGS__)
 #define pw_core_resource_info(r,...)		pw_core_resource(r,info,0,__VA_ARGS__)
 #define pw_core_resource_done(r,...)		pw_core_resource(r,done,0,__VA_ARGS__)
 #define pw_core_resource_ping(r,...)		pw_core_resource(r,ping,0,__VA_ARGS__)
@@ -221,7 +221,7 @@ struct pw_context {
 	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list protocol_list;		/**< list of protocols */
-	struct spa_list core_proxy_list;	/**< list of remote connections */
+	struct spa_list core_list;		/**< list of core connections */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
 	struct spa_list module_list;		/**< list of modules */
 	struct spa_list device_list;		/**< list of devices */
@@ -713,7 +713,7 @@ struct pw_resource {
 struct pw_proxy {
 	struct spa_interface impl;	/**< object implementation */
 
-	struct pw_core_proxy *core_proxy;	/**< the owner core_proxy of this proxy */
+	struct pw_core *core;		/**< the owner core of this proxy */
 
 	uint32_t id;			/**< client side id */
 	uint32_t type;			/**< type of the interface */
@@ -732,17 +732,17 @@ struct pw_proxy {
 	void *user_data;		/**< extra user data */
 };
 
-struct pw_core_proxy {
+struct pw_core {
 	struct pw_proxy proxy;
 
-	struct pw_context *context;			/**< context */
-	struct spa_list link;			/**< link in context core_proxy_list */
+	struct pw_context *context;		/**< context */
+	struct spa_list link;			/**< link in context core_list */
 	struct pw_properties *properties;	/**< extra properties */
 
 	struct pw_mempool *pool;		/**< memory pool */
-	struct pw_core_proxy *core_proxy;	/**< proxy for the core object */
+	struct pw_core *core;			/**< proxy for the core object */
 	struct spa_hook core_listener;
-	struct spa_hook core_proxy_listener;
+	struct spa_hook proxy_core_listener;
 
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
@@ -773,10 +773,10 @@ struct pw_core_proxy {
 
 
 struct pw_stream {
-	struct pw_core_proxy *core_proxy;	/**< the owner core_proxy */
+	struct pw_core *core;			/**< the owner core */
 	struct spa_hook core_listener;
 
-	struct spa_list link;			/**< link in the core_proxy */
+	struct spa_list link;			/**< link in the core */
 
 	char *name;				/**< the name of the stream */
 	struct pw_properties *properties;	/**< properties of the stream */
@@ -809,7 +809,7 @@ struct pw_stream {
 
 
 struct pw_filter {
-	struct pw_core_proxy *core_proxy;	/**< the owner core proxy */
+	struct pw_core *core;	/**< the owner core proxy */
 	struct spa_hook core_listener;
 
 	struct spa_list link;			/**< link in the core proxy */

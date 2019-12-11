@@ -44,7 +44,7 @@ struct pw_filter;
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 
-#include <pipewire/core-proxy.h>
+#include <pipewire/core.h>
 
 /** \enum pw_filter_state The state of a filter \memberof pw_filter */
 enum pw_filter_state {
@@ -124,7 +124,7 @@ enum pw_filter_port_flags {
 /** Create a new unconneced \ref pw_filter \memberof pw_filter
  * \return a newly allocated \ref pw_filter */
 struct pw_filter *
-pw_filter_new(struct pw_core_proxy *proxy,	/**< a \ref pw_core_proxy */
+pw_filter_new(struct pw_core *core,		/**< a \ref pw_core */
 	      const char *name,			/**< a filter media name */
 	      struct pw_properties *props	/**< filter properties, ownership is taken */);
 
@@ -147,7 +147,7 @@ enum pw_filter_state pw_filter_get_state(struct pw_filter *filter, const char **
 
 const char *pw_stream_get_name(struct pw_stream *stream);
 
-struct pw_core_proxy *pw_filter_get_core_proxy(struct pw_filter *filter);
+struct pw_core *pw_filter_get_core(struct pw_filter *filter);
 
 /** Connect a filter for processing. \memberof pw_filter
  * \return 0 on success < 0 on error.

@@ -75,7 +75,7 @@ struct impl {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	struct spa_handle *handle;
@@ -140,7 +140,7 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	node->id = id;
 	node->handle = handle;
 	node->node = iface;
-	node->proxy = pw_core_proxy_export(impl->core_proxy,
+	node->proxy = pw_core_export(impl->core,
 			info->type, pw_properties_new_dict(info->props), node->node, 0);
 	if (node->proxy == NULL)
 		goto clean_node;
@@ -248,7 +248,7 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	obj->id = id;
 	obj->handle = handle;
 	obj->device = iface;
-	obj->proxy = pw_core_proxy_export(impl->core_proxy,
+	obj->proxy = pw_core_export(impl->core,
 			info->type, pw_properties_new_dict(info->props), obj->device, 0);
 	if (obj->proxy == NULL)
 		goto clean_object;
@@ -350,8 +350,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -371,13 +371,13 @@ int main(int argc, char *argv[])
 
 	spa_list_init(&impl.device_list);
 
-        impl.core_proxy = pw_context_connect(impl.context, NULL, 0);
-	if (impl.core_proxy == NULL) {
+        impl.core = pw_context_connect(impl.context, NULL, 0);
+	if (impl.core == NULL) {
 		pw_log_error(NAME" %p: can't connect %m", &impl);
 		return -1;
 	}
 
-	pw_core_proxy_add_listener(impl.core_proxy,
+	pw_core_add_listener(impl.core,
 			&impl.core_listener,
 			&core_events, &impl);
 

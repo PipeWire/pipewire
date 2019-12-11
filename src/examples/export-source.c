@@ -56,7 +56,7 @@ struct data {
 
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	uint64_t info_all;
@@ -482,7 +482,7 @@ static void make_node(struct data *data)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
-	pw_core_proxy_export(data->core_proxy, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
+	pw_core_export(data->core, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
 }
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -497,8 +497,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -531,12 +531,12 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.empty);
 	spa_hook_list_init(&data.hooks);
 
-	if ((data.core_proxy = pw_context_connect(data.context, NULL, 0)) == NULL) {
+	if ((data.core = pw_context_connect(data.context, NULL, 0)) == NULL) {
 		printf("can't connect: %m\n");
 		return -1;
 	}
 
-	pw_core_proxy_add_listener(data.core_proxy, &data.core_listener, &core_events, &data);
+	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
 	make_node(&data);
 

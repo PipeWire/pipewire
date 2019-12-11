@@ -50,7 +50,7 @@ struct data {
 	struct spa_source *timer;
 
 	struct pw_context *context;
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_port_info port_info;
 
 	struct spa_node impl_node;
@@ -349,7 +349,7 @@ static int make_nodes(struct data *data)
 			SPA_VERSION_NODE,
 			&impl_node, data);
 
-	in = pw_core_proxy_export(data->core_proxy,
+	in = pw_core_export(data->core,
 			SPA_TYPE_INTERFACE_Node,
 			NULL,
 			&data->impl_node,
@@ -360,7 +360,7 @@ static int make_nodes(struct data *data)
 			SPA_KEY_FACTORY_NAME, SPA_NAME_API_V4L2_SOURCE,
 			NULL);
 
-	out = pw_core_proxy_create_object(data->core_proxy,
+	out = pw_core_create_object(data->core,
 			"spa-node-factory",
 			PW_TYPE_INTERFACE_Node,
 			PW_VERSION_NODE_PROXY,
@@ -383,7 +383,7 @@ static int make_nodes(struct data *data)
 	pw_properties_setf(props,
 			PW_KEY_LINK_INPUT_NODE, "%d", pw_proxy_get_bound_id(in));
 
-	pw_core_proxy_create_object(data->core_proxy,
+	pw_core_create_object(data->core,
 			"link-factory",
 			PW_TYPE_INTERFACE_Link,
 			PW_VERSION_LINK_PROXY,
@@ -423,8 +423,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	data.core_proxy = pw_context_connect_self(data.context, NULL, 0);
-	if (data.core_proxy == NULL) {
+	data.core = pw_context_connect_self(data.context, NULL, 0);
+	if (data.core == NULL) {
 		printf("can't connect to core: %m\n");
 		return -1;
 	}

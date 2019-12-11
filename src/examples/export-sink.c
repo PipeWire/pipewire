@@ -71,7 +71,7 @@ struct data {
 
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	struct spa_node impl_node;
@@ -474,7 +474,7 @@ static void make_node(struct data *data)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
-	pw_core_proxy_export(data->core_proxy, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
+	pw_core_export(data->core, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
 }
 
 static void set_permissions(struct data *data)
@@ -490,7 +490,7 @@ static void set_permissions(struct data *data)
 	permissions[1].permissions = PW_PERM_R;
 
 	pw_client_proxy_update_permissions(
-			pw_core_proxy_get_client_proxy(data->core_proxy),
+			pw_core_get_client_proxy(data->core),
 			2, permissions);
 }
 
@@ -506,8 +506,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -548,12 +548,12 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-        data.core_proxy = pw_context_connect(data.context, NULL, 0);
-	if (data.core_proxy == NULL) {
+        data.core = pw_context_connect(data.context, NULL, 0);
+	if (data.core == NULL) {
 		printf("can't connect: %m\n");
 		return -1;
 	}
-	pw_core_proxy_add_listener(data.core_proxy, &data.core_listener, &core_events, &data);
+	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
 	set_permissions(&data);
 

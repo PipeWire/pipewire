@@ -45,7 +45,7 @@ struct pw_context;
 #include <pipewire/client.h>
 #include <pipewire/introspect.h>
 #include <pipewire/interfaces.h>
-#include <pipewire/core-proxy.h>
+#include <pipewire/core.h>
 #include <pipewire/global.h>
 #include <pipewire/loop.h>
 #include <pipewire/factory.h>
@@ -164,7 +164,7 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 struct pw_export_type {
 	struct spa_list link;
 	uint32_t type;
-	struct pw_proxy * (*func) (struct pw_core_proxy *core_proxy,
+	struct pw_proxy * (*func) (struct pw_core *core,
 		uint32_t type, struct pw_properties *properties, void *object,
 		size_t user_data_size);
 };

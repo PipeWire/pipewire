@@ -33,13 +33,13 @@ do {				\
 
 static void test_core_abi(void)
 {
-	struct pw_core_proxy_methods m;
-	struct pw_core_proxy_events e;
+	struct pw_core_methods m;
+	struct pw_core_events e;
 	struct {
 		uint32_t version;
 		int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_core_proxy_events *events,
+			const struct pw_core_events *events,
 			void *data);
 		int (*hello) (void *object, uint32_t version);
 		int (*sync) (void *object, uint32_t id, int seq);
@@ -54,7 +54,7 @@ static void test_core_abi(void)
 				       const struct spa_dict *props,
 				       size_t user_data_size);
 		int (*destroy) (void *object, void *proxy);
-	} methods = { PW_VERSION_CORE_PROXY_METHODS, };
+	} methods = { PW_VERSION_CORE_METHODS, };
 	struct {
 		uint32_t version;
 		void (*info) (void *object, const struct pw_core_info *info);
@@ -65,7 +65,7 @@ static void test_core_abi(void)
 		void (*bound_id) (void *object, uint32_t id, uint32_t global_id);
 		void (*add_mem) (void *object, uint32_t id, uint32_t type, int fd, uint32_t flags);
 		void (*remove_mem) (void *object, uint32_t id);
-	} events = { PW_VERSION_CORE_PROXY_EVENTS, };
+	} events = { PW_VERSION_CORE_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);
@@ -76,7 +76,7 @@ static void test_core_abi(void)
 	TEST_FUNC(m, methods, get_registry);
 	TEST_FUNC(m, methods, create_object);
 	TEST_FUNC(m, methods, destroy);
-	spa_assert(PW_VERSION_CORE_PROXY_METHODS == 0);
+	spa_assert(PW_VERSION_CORE_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
 	TEST_FUNC(e, events, version);
@@ -88,7 +88,7 @@ static void test_core_abi(void)
 	TEST_FUNC(e, events, bound_id);
 	TEST_FUNC(e, events, add_mem);
 	TEST_FUNC(e, events, remove_mem);
-	spa_assert(PW_VERSION_CORE_PROXY_EVENTS == 0);
+	spa_assert(PW_VERSION_CORE_EVENTS == 0);
 	spa_assert(sizeof(e) == sizeof(events));
 }
 

@@ -230,7 +230,7 @@ struct client {
 
 	struct pw_data_loop *loop;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 	struct pw_mempool *pool;
 	int last_sync;
@@ -559,8 +559,8 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 	pw_thread_loop_signal(client->context.loop, false);
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.done = on_sync_reply,
 	.error = on_error,
 };
@@ -569,7 +569,7 @@ static int do_sync(struct client *client)
 {
 	int seq;
 
-	seq = pw_proxy_sync((struct pw_proxy*)client->core_proxy, client->last_sync);
+	seq = pw_proxy_sync((struct pw_proxy*)client->core, client->last_sync);
 
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
@@ -2142,21 +2142,21 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	pw_thread_loop_lock(client->context.loop);
 
-        client->core_proxy = pw_context_connect(client->context.context,
+        client->core = pw_context_connect(client->context.context,
 				pw_properties_new(
 					PW_KEY_CLIENT_NAME, client_name,
 					PW_KEY_CLIENT_API, "jack",
 					NULL),
 				0);
-	if (client->core_proxy == NULL)
+	if (client->core == NULL)
 		goto server_failed;
 
-	client->pool = pw_core_proxy_get_mempool(client->core_proxy);
+	client->pool = pw_core_get_mempool(client->core);
 
-	pw_core_proxy_add_listener(client->core_proxy,
+	pw_core_add_listener(client->core,
                                                &client->core_listener,
                                                &core_events, client);
-	client->registry_proxy = pw_core_proxy_get_registry(client->core_proxy,
+	client->registry_proxy = pw_core_get_registry(client->core,
 						PW_VERSION_REGISTRY_PROXY, 0);
 	pw_registry_proxy_add_listener(client->registry_proxy,
                                                &client->registry_listener,
@@ -2172,7 +2172,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "1");
 
-	client->node_proxy = pw_core_proxy_create_object(client->core_proxy,
+	client->node_proxy = pw_core_create_object(client->core,
 				"client-node",
 				PW_TYPE_INTERFACE_ClientNode,
 				PW_VERSION_CLIENT_NODE,
@@ -3419,7 +3419,7 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "1");
 
-	pw_core_proxy_create_object(c->core_proxy,
+	pw_core_create_object(c->core,
 				    "link-factory",
 				    PW_TYPE_INTERFACE_Link,
 				    PW_VERSION_LINK_PROXY,

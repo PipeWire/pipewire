@@ -940,11 +940,11 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   pw_thread_loop_lock (pwsrc->main_loop);
 
   if (pwsrc->fd == -1)
-    pwsrc->core_proxy = pw_context_connect (pwsrc->context, NULL, 0);
+    pwsrc->core = pw_context_connect (pwsrc->context, NULL, 0);
   else
-    pwsrc->core_proxy = pw_context_connect_fd (pwsrc->context, dup(pwsrc->fd), NULL, 0);
+    pwsrc->core = pw_context_connect_fd (pwsrc->context, dup(pwsrc->fd), NULL, 0);
 
-  if (pwsrc->core_proxy == NULL)
+  if (pwsrc->core == NULL)
       goto connect_error;
 
   if (pwsrc->properties) {
@@ -954,7 +954,7 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
     props = NULL;
   }
 
-  if ((pwsrc->stream = pw_stream_new (pwsrc->core_proxy,
+  if ((pwsrc->stream = pw_stream_new (pwsrc->core,
 				  pwsrc->client_name, props)) == NULL)
     goto no_stream;
 
@@ -1010,8 +1010,8 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   pw_stream_destroy (pwsrc->stream);
   pwsrc->stream = NULL;
 
-  pw_core_proxy_disconnect (pwsrc->core_proxy);
-  pwsrc->core_proxy = NULL;
+  pw_core_disconnect (pwsrc->core);
+  pwsrc->core = NULL;
 }
 
 static GstStateChangeReturn

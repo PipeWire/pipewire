@@ -377,8 +377,8 @@ static int core_destroy(void *object, void *proxy)
 	return 0;
 }
 
-static const struct pw_core_proxy_methods core_methods = {
-	PW_VERSION_CORE_PROXY_METHODS,
+static const struct pw_core_methods core_methods = {
+	PW_VERSION_CORE_METHODS,
 	.hello = core_hello,
 	.sync = core_sync,
 	.pong = core_pong,
@@ -570,7 +570,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_map_init(&this->globals, 128, 32);
 
 	spa_list_init(&this->protocol_list);
-	spa_list_init(&this->core_proxy_list);
+	spa_list_init(&this->core_list);
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
 	spa_list_init(&this->module_list);
@@ -607,7 +607,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this->global = pw_global_new(this,
 				     PW_TYPE_INTERFACE_Core,
-				     PW_VERSION_CORE_PROXY,
+				     PW_VERSION_CORE,
 				     pw_properties_new(
 					     PW_KEY_USER_NAME, this->info.user_name,
 					     PW_KEY_HOST_NAME, this->info.host_name,
@@ -660,7 +660,7 @@ void pw_context_destroy(struct pw_context *context)
 	struct pw_global *global;
 	struct pw_module *module;
 	struct pw_device *device;
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct pw_resource *resource;
 	struct pw_node *node;
 	struct factory_entry *entry;
@@ -670,8 +670,8 @@ void pw_context_destroy(struct pw_context *context)
 
 	spa_hook_remove(&context->global_listener);
 
-	spa_list_consume(core_proxy, &context->core_proxy_list, link)
-		pw_core_proxy_disconnect(core_proxy);
+	spa_list_consume(core, &context->core_list, link)
+		pw_core_disconnect(core);
 
 	spa_list_consume(module, &context->module_list, link)
 		pw_module_destroy(module);

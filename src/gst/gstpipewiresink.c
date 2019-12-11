@@ -665,7 +665,7 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   }
 
   pw_thread_loop_lock (pwsink->main_loop);
-  pwsink->stream = pw_stream_new (pwsink->core_proxy, pwsink->client_name, props);
+  pwsink->stream = pw_stream_new (pwsink->core, pwsink->client_name, props);
   pwsink->pool->stream = pwsink->stream;
 
   pw_stream_add_listener(pwsink->stream,
@@ -706,11 +706,11 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
   pw_thread_loop_lock (pwsink->main_loop);
 
   if (pwsink->fd == -1)
-    pwsink->core_proxy = pw_context_connect (pwsink->context, NULL, 0);
+    pwsink->core = pw_context_connect (pwsink->context, NULL, 0);
   else
-    pwsink->core_proxy = pw_context_connect_fd (pwsink->context, dup(pwsink->fd), NULL, 0);
+    pwsink->core = pw_context_connect_fd (pwsink->context, dup(pwsink->fd), NULL, 0);
 
-  if (pwsink->core_proxy == NULL)
+  if (pwsink->core == NULL)
     goto connect_error;
 
   pw_thread_loop_unlock (pwsink->main_loop);
@@ -740,9 +740,9 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
   if (pwsink->stream) {
     pw_stream_disconnect (pwsink->stream);
   }
-  if (pwsink->core_proxy) {
-    pw_core_proxy_disconnect (pwsink->core_proxy);
-    pwsink->core_proxy = NULL;
+  if (pwsink->core) {
+    pw_core_disconnect (pwsink->core);
+    pwsink->core = NULL;
   }
   pw_thread_loop_unlock (pwsink->main_loop);
 

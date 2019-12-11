@@ -48,7 +48,7 @@ int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version)
 	proxy->version = version;
 	proxy->bound_id = SPA_ID_INVALID;
 
-	proxy->id = pw_map_insert_new(&proxy->core_proxy->objects, proxy);
+	proxy->id = pw_map_insert_new(&proxy->core->objects, proxy);
 	if (proxy->id == SPA_ID_INVALID) {
 		res = -errno;
 		pw_log_error(NAME" %p: can't allocate new id: %m", proxy);
@@ -67,7 +67,7 @@ int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version)
 	return 0;
 
 error_clean:
-	pw_map_remove(&proxy->core_proxy->objects, proxy->id);
+	pw_map_remove(&proxy->core->objects, proxy->id);
 error:
 	return res;
 }
@@ -82,7 +82,7 @@ error:
  * This function creates a new proxy object with the supplied id and type. The
  * proxy object will have an id assigned from the client id space.
  *
- * \sa pw_core_proxy
+ * \sa pw_core
  *
  * \memberof pw_proxy
  */
@@ -100,7 +100,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 		return NULL;
 
 	this = &impl->this;
-	this->core_proxy = factory->core_proxy;
+	this->core = factory->core;
 
 	if ((res = pw_proxy_init(this, type, version)) < 0)
 		goto error_init;
@@ -111,7 +111,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	pw_log_debug(NAME" %p: new %u type %s/%d core-proxy:%p, marshal:%p",
 			this, this->id,
 			spa_debug_type_find_name(pw_type_info(), type), version,
-			this->core_proxy, this->marshal);
+			this->core, this->marshal);
 	return this;
 
 error_init:
@@ -123,10 +123,10 @@ error_init:
 SPA_EXPORT
 int pw_proxy_install_marshal(struct pw_proxy *this, bool implementor)
 {
-	struct pw_core_proxy *core_proxy = this->core_proxy;
+	struct pw_core *core = this->core;
 	const struct pw_protocol_marshal *marshal;
 
-	marshal = pw_protocol_get_marshal(core_proxy->conn->protocol,
+	marshal = pw_protocol_get_marshal(core->conn->protocol,
 			this->type, this->version,
 			implementor ? PW_PROTOCOL_MARSHAL_FLAG_IMPL : 0);
 	if (marshal == NULL)
@@ -175,15 +175,15 @@ uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version)
 }
 
 SPA_EXPORT
-struct pw_core_proxy *pw_proxy_get_core_proxy(struct pw_proxy *proxy)
+struct pw_core *pw_proxy_get_core(struct pw_proxy *proxy)
 {
-	return proxy->core_proxy;
+	return proxy->core;
 }
 
 SPA_EXPORT
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
 {
-	return proxy->core_proxy->conn->protocol;
+	return proxy->core->conn->protocol;
 }
 
 SPA_EXPORT
@@ -208,7 +208,7 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
  *
  * \param proxy Proxy object to destroy
  *
- * \note This is normally called by \ref pw_core_proxy when the server
+ * \note This is normally called by \ref pw_core when the server
  *       decides to destroy the server side object
  * \memberof pw_proxy
  */
@@ -222,16 +222,16 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	if (!proxy->removed) {
 		/* if the server did not remove this proxy, remove ourselves
 		 * from the proxy objects and schedule a destroy. */
-		if (proxy->core_proxy && !proxy->core_proxy->destroyed) {
+		if (proxy->core && !proxy->core->destroyed) {
 			proxy->zombie = true;
-			pw_core_proxy_destroy(proxy->core_proxy, proxy);
+			pw_core_destroy(proxy->core, proxy);
 		} else {
 			proxy->removed = true;
 		}
 	}
 	if (proxy->removed) {
-		if (proxy->core_proxy)
-			pw_map_remove(&proxy->core_proxy->objects, proxy->id);
+		if (proxy->core)
+			pw_map_remove(&proxy->core->objects, proxy->id);
 
 		pw_proxy_unref(proxy);
 	}
@@ -257,10 +257,10 @@ SPA_EXPORT
 int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 {
 	int res = -EIO;
-	struct pw_core_proxy *core_proxy = proxy->core_proxy;
+	struct pw_core *core = proxy->core;
 
-	if (core_proxy != NULL) {
-		res = pw_core_proxy_sync(core_proxy, proxy->id, seq);
+	if (core != NULL) {
+		res = pw_core_sync(core, proxy->id, seq);
 		pw_log_debug(NAME" %p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
 	}
 	return res;
@@ -271,12 +271,12 @@ int pw_proxy_errorf(struct pw_proxy *proxy, int res, const char *error, ...)
 {
 	va_list ap;
 	int r = -EIO;
-	struct pw_core_proxy *core_proxy = proxy->core_proxy;
+	struct pw_core *core = proxy->core;
 
 	va_start(ap, error);
-	if (core_proxy != NULL)
-		r = pw_core_proxy_errorv(core_proxy, proxy->id,
-				core_proxy->recv_seq, res, error, ap);
+	if (core != NULL)
+		r = pw_core_errorv(core, proxy->id,
+				core->recv_seq, res, error, ap);
 	va_end(ap);
 	return r;
 }
@@ -285,10 +285,10 @@ SPA_EXPORT
 int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error)
 {
 	int r = -EIO;
-	struct pw_core_proxy *core_proxy = proxy->core_proxy;
-	if (core_proxy != NULL)
-		r = pw_core_proxy_error(core_proxy, proxy->id,
-				core_proxy->recv_seq, res, error);
+	struct pw_core *core = proxy->core;
+	if (core != NULL)
+		r = pw_core_error(core, proxy->id,
+				core->recv_seq, res, error);
 	return r;
 }
 

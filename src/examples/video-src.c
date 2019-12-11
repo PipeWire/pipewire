@@ -47,7 +47,7 @@ struct data {
 	struct spa_source *timer;
 
 	struct pw_context *context;
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
@@ -284,11 +284,11 @@ int main(int argc, char *argv[])
 
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 
-	data.core_proxy = pw_context_connect(data.context, NULL, 0);
-	if (data.core_proxy == NULL)
+	data.core = pw_context_connect(data.context, NULL, 0);
+	if (data.core == NULL)
 		return -1;
 
-	data.stream = pw_stream_new(data.core_proxy, "video-src",
+	data.stream = pw_stream_new(data.core, "video-src",
 		pw_properties_new(
 			PW_KEY_MEDIA_CLASS, "Video/Source",
 			NULL));

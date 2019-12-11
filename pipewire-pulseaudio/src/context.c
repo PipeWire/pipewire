@@ -844,8 +844,8 @@ static void core_done(void *data, uint32_t id, int seq)
 	complete_operations(c, seq);
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.info = core_info,
 	.done = core_done,
 	.error = core_error
@@ -880,7 +880,7 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 	c->subscribe_mask = m;
 
 	if (c->registry_proxy == NULL) {
-		c->registry_proxy = pw_core_proxy_get_registry(c->core_proxy,
+		c->registry_proxy = pw_core_get_registry(c->core,
 				PW_VERSION_REGISTRY_PROXY, 0);
 		pw_registry_proxy_add_listener(c->registry_proxy,
 				&c->registry_listener,
@@ -1056,13 +1056,13 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 
 	pa_context_set_state(c, PA_CONTEXT_CONNECTING);
 
-	c->core_proxy = pw_context_connect(c->context, pw_properties_copy(c->props), 0);
-	if (c->core_proxy == NULL) {
+	c->core = pw_context_connect(c->context, pw_properties_copy(c->props), 0);
+	if (c->core == NULL) {
                 context_fail(c, PA_ERR_CONNECTIONREFUSED);
 		res = -1;
 		goto exit;
 	}
-	pw_core_proxy_add_listener(c->core_proxy, &c->core_listener, &core_events, c);
+	pw_core_add_listener(c->core, &c->core_listener, &core_events, c);
 
 exit:
 	pa_context_unref(c);
@@ -1077,9 +1077,9 @@ void pa_context_disconnect(pa_context *c)
 	pa_assert(c->refcount >= 1);
 
 	c->disconnect = true;
-	if (c->core_proxy) {
-		pw_core_proxy_disconnect(c->core_proxy);
-		c->core_proxy = NULL;
+	if (c->core) {
+		pw_core_disconnect(c->core);
+		c->core = NULL;
 	}
 	if (PA_CONTEXT_IS_GOOD(c->state))
 		pa_context_set_state(c, PA_CONTEXT_TERMINATED);
@@ -1198,7 +1198,7 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 	if (changed) {
 		struct pw_client_proxy *client_proxy;
 
-		client_proxy = pw_core_proxy_get_client_proxy(c->core_proxy);
+		client_proxy = pw_core_get_client_proxy(c->core);
 		pw_client_proxy_update_properties(client_proxy, &c->props->dict);
 	}
 

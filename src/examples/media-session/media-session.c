@@ -91,10 +91,10 @@ struct impl {
 	struct pw_main_loop *loop;
 	struct spa_dbus *dbus;
 
-	struct pw_core_proxy *monitor_core;
+	struct pw_core *monitor_core;
 	struct spa_hook monitor_listener;
 
-	struct pw_core_proxy *policy_core;
+	struct pw_core *policy_core;
 	struct spa_hook policy_listener;
 
 	struct pw_registry_proxy *registry_proxy;
@@ -1131,7 +1131,7 @@ int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	if (impl->policy_core)
-		impl->rescan_seq = pw_core_proxy_sync(impl->policy_core, 0, impl->last_seq);
+		impl->rescan_seq = pw_core_sync(impl->policy_core, 0, impl->last_seq);
 	return impl->rescan_seq;
 }
 
@@ -1148,7 +1148,7 @@ int sm_media_session_sync(struct sm_media_session *sess,
 	spa_list_append(&impl->sync_list, &sync->link);
 	sync->callback = callback;
 	sync->data = data;
-	sync->seq = pw_core_proxy_sync(impl->policy_core, 0, impl->last_seq);
+	sync->seq = pw_core_sync(impl->policy_core, 0, impl->last_seq);
 	return sync->seq;
 }
 
@@ -1213,7 +1213,7 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		void *object, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	return pw_core_proxy_export(impl->monitor_core, type,
+	return pw_core_export(impl->monitor_core, type,
 			properties, object, user_data_size);
 }
 
@@ -1226,7 +1226,7 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 
 	pw_log_debug(NAME " %p: device %p", impl, object);
 
-	proxy = pw_core_proxy_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
+	proxy = pw_core_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
 			properties, object, sizeof(struct sm_device));
 
 	device = (struct sm_device *) create_object(impl, proxy, &properties->dict);
@@ -1239,7 +1239,7 @@ struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 		const struct spa_dict *props, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	return pw_core_proxy_create_object(impl->policy_core,
+	return pw_core_create_object(impl->policy_core,
 			factory_name, type, version, props, user_data_size);
 }
 
@@ -1252,7 +1252,7 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 
 	pw_log_debug(NAME " %p: node '%s'", impl, factory_name);
 
-	proxy = pw_core_proxy_create_object(impl->policy_core,
+	proxy = pw_core_create_object(impl->policy_core,
 				factory_name,
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE_PROXY,
@@ -1328,7 +1328,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", outport->obj.id);
 			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", inport->obj.id);
 
-			p = pw_core_proxy_create_object(impl->policy_core,
+			p = pw_core_create_object(impl->policy_core,
 						"link-factory",
 						PW_TYPE_INTERFACE_Link,
 						PW_VERSION_LINK_PROXY,
@@ -1529,7 +1529,7 @@ static int start_session(struct impl *impl)
 		return -errno;
 	}
 
-	impl->client_session = pw_core_proxy_create_object(impl->monitor_core,
+	impl->client_session = pw_core_create_object(impl->monitor_core,
                                             "client-session",
                                             PW_TYPE_INTERFACE_ClientSession,
                                             PW_VERSION_CLIENT_SESSION_PROXY,
@@ -1578,8 +1578,8 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 }
 
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.done = core_done,
 	.error = core_error
 };
@@ -1592,10 +1592,10 @@ static int start_policy(struct impl *impl)
 		return -errno;
 	}
 
-	pw_core_proxy_add_listener(impl->policy_core,
+	pw_core_add_listener(impl->policy_core,
 				   &impl->policy_listener,
 				   &core_events, impl);
-	impl->registry_proxy = pw_core_proxy_get_registry(impl->policy_core,
+	impl->registry_proxy = pw_core_get_registry(impl->policy_core,
                                                PW_VERSION_REGISTRY_PROXY, 0);
 	pw_registry_proxy_add_listener(impl->registry_proxy,
                                               &impl->registry_listener,

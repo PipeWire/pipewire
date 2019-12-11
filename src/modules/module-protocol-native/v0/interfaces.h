@@ -35,36 +35,36 @@ extern "C" {
 
 #define PW_VERSION_CORE_V0			0
 
-#define PW_CORE_PROXY_V0_METHOD_HELLO		0
-#define PW_CORE_PROXY_V0_METHOD_UPDATE_TYPES	1
-#define PW_CORE_PROXY_V0_METHOD_SYNC		2
-#define PW_CORE_PROXY_V0_METHOD_GET_REGISTRY	3
-#define PW_CORE_PROXY_V0_METHOD_CLIENT_UPDATE	4
-#define PW_CORE_PROXY_V0_METHOD_PERMISSIONS	5
-#define PW_CORE_PROXY_V0_METHOD_CREATE_OBJECT	6
-#define PW_CORE_PROXY_V0_METHOD_DESTROY		7
-#define PW_CORE_PROXY_V0_METHOD_NUM		8
+#define PW_CORE_V0_METHOD_HELLO		0
+#define PW_CORE_V0_METHOD_UPDATE_TYPES	1
+#define PW_CORE_V0_METHOD_SYNC		2
+#define PW_CORE_V0_METHOD_GET_REGISTRY	3
+#define PW_CORE_V0_METHOD_CLIENT_UPDATE	4
+#define PW_CORE_V0_METHOD_PERMISSIONS	5
+#define PW_CORE_V0_METHOD_CREATE_OBJECT	6
+#define PW_CORE_V0_METHOD_DESTROY		7
+#define PW_CORE_V0_METHOD_NUM		8
 
 #if 0
 /**
  * Key to update default permissions of globals without specific
  * permissions. value is "[r][w][x]" */
-#define PW_CORE_PROXY_PERMISSIONS_DEFAULT	"permissions.default"
+#define PW_CORE_PERMISSIONS_DEFAULT	"permissions.default"
 
 /**
  * Key to update specific permissions of a global. If the global
  * did not have specific permissions, it will first be assigned
  * the default permissions before it is updated.
  * Value is "<global-id>:[r][w][x]"*/
-#define PW_CORE_PROXY_PERMISSIONS_GLOBAL	"permissions.global"
+#define PW_CORE_PERMISSIONS_GLOBAL	"permissions.global"
 
 /**
  * Key to update specific permissions of all existing globals.
- * This is equivalent to using \ref PW_CORE_PROXY_PERMISSIONS_GLOBAL
+ * This is equivalent to using \ref PW_CORE_PERMISSIONS_GLOBAL
  * on each global id individually that did not have specific
  * permissions.
  * Value is "[r][w][x]" */
-#define PW_CORE_PROXY_PERMISSIONS_EXISTING	"permissions.existing"
+#define PW_CORE_PERMISSIONS_EXISTING	"permissions.existing"
 
 #define PW_LINK_OUTPUT_NODE_ID	"link.output_node.id"
 #define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
@@ -73,15 +73,15 @@ extern "C" {
 #endif
 
 /**
- * \struct pw_core_proxy_v0_methods
+ * \struct pw_core_v0_methods
  * \brief Core methods
  *
  * The core global object. This is a singleton object used for
  * creating new objects in the remote PipeWire intance. It is
  * also used for internal features.
  */
-struct pw_core_proxy_v0_methods {
-#define PW_VERSION_CORE_PROXY_V0_METHODS	0
+struct pw_core_v0_methods {
+#define PW_VERSION_CORE_V0_METHODS	0
 	uint32_t version;
 	/**
 	 * Start a conversation with the server. This will send
@@ -167,19 +167,19 @@ struct pw_core_proxy_v0_methods {
 	void (*destroy) (void *object, uint32_t id);
 };
 
-#define PW_CORE_PROXY_V0_EVENT_UPDATE_TYPES 0
-#define PW_CORE_PROXY_V0_EVENT_DONE         1
-#define PW_CORE_PROXY_V0_EVENT_ERROR        2
-#define PW_CORE_PROXY_V0_EVENT_REMOVE_ID    3
-#define PW_CORE_PROXY_V0_EVENT_INFO         4
-#define PW_CORE_PROXY_V0_EVENT_NUM          5
+#define PW_CORE_V0_EVENT_UPDATE_TYPES 0
+#define PW_CORE_V0_EVENT_DONE         1
+#define PW_CORE_V0_EVENT_ERROR        2
+#define PW_CORE_V0_EVENT_REMOVE_ID    3
+#define PW_CORE_V0_EVENT_INFO         4
+#define PW_CORE_V0_EVENT_NUM          5
 
-/** \struct pw_core_proxy_v0_events
+/** \struct pw_core_v0_events
  *  \brief Core events
  *  \ingroup pw_core_interface The pw_core interface
  */
-struct pw_core_proxy_v0_events {
-#define PW_VERSION_CORE_PROXY_V0_EVENTS		0
+struct pw_core_v0_events {
+#define PW_VERSION_CORE_V0_EVENTS		0
 	uint32_t version;
 	/**
 	 * Update the type map
@@ -234,11 +234,11 @@ struct pw_core_proxy_v0_events {
 	void (*info) (void *object, struct pw_core_info *info);
 };
 
-#define pw_core_resource_v0_update_types(r,...) pw_resource_notify(r,struct pw_core_proxy_v0_events,update_types,__VA_ARGS__)
-#define pw_core_resource_v0_done(r,...)         pw_resource_notify(r,struct pw_core_proxy_v0_events,done,__VA_ARGS__)
-#define pw_core_resource_v0_error(r,...)        pw_resource_notify(r,struct pw_core_proxy_v0_events,error,__VA_ARGS__)
-#define pw_core_resource_v0_remove_id(r,...)    pw_resource_notify(r,struct pw_core_proxy_v0_events,remove_id,__VA_ARGS__)
-#define pw_core_resource_v0_info(r,...)         pw_resource_notify(r,struct pw_core_proxy_v0_events,info,__VA_ARGS__)
+#define pw_core_resource_v0_update_types(r,...) pw_resource_notify(r,struct pw_core_v0_events,update_types,__VA_ARGS__)
+#define pw_core_resource_v0_done(r,...)         pw_resource_notify(r,struct pw_core_v0_events,done,__VA_ARGS__)
+#define pw_core_resource_v0_error(r,...)        pw_resource_notify(r,struct pw_core_v0_events,error,__VA_ARGS__)
+#define pw_core_resource_v0_remove_id(r,...)    pw_resource_notify(r,struct pw_core_v0_events,remove_id,__VA_ARGS__)
+#define pw_core_resource_v0_info(r,...)         pw_resource_notify(r,struct pw_core_v0_events,info,__VA_ARGS__)
 
 
 #define PW_VERSION_REGISTRY_V0			0

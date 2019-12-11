@@ -37,7 +37,7 @@ struct data {
 
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	struct pw_device *device;
@@ -64,7 +64,7 @@ static int make_device(struct data *data)
 					      PW_VERSION_DEVICE_PROXY,
 					      props, SPA_ID_INVALID);
 
-	pw_core_proxy_export(data->core_proxy, SPA_TYPE_INTERFACE_Device, NULL,
+	pw_core_export(data->core, SPA_TYPE_INTERFACE_Device, NULL,
 			pw_device_get_implementation(data->device), 0);
 
 	return 0;
@@ -82,8 +82,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
 
@@ -117,13 +117,13 @@ int main(int argc, char *argv[])
 
 	pw_module_load(data.context, "libpipewire-module-spa-device-factory", NULL, NULL);
 
-        data.core_proxy = pw_context_connect(data.context, NULL, 0);
-	if (data.core_proxy == NULL) {
+        data.core = pw_context_connect(data.context, NULL, 0);
+	if (data.core == NULL) {
 		pw_log_error("can't connect %m");
 		return -1;
 	}
 
-	pw_core_proxy_add_listener(data.core_proxy, &data.core_listener, &core_events, &data);
+	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
 	if (make_device(&data) < 0) {
 		pw_log_error("can't make device");

@@ -44,7 +44,7 @@ struct pw_protocol_client {
 	struct spa_list link;		/**< link in protocol client_list */
 	struct pw_protocol *protocol;	/**< the owner protocol */
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 
 	int (*connect) (struct pw_protocol_client *client,
 			const struct spa_dict *props,

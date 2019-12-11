@@ -37,21 +37,21 @@
 
 #include "extensions/protocol-native.h"
 
-#define NAME "core-proxy"
+#define NAME "core"
 
 /** \cond */
 
 /** \endcond */
 static void core_event_ping(void *data, uint32_t id, int seq)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	pw_log_debug(NAME" %p: object %u ping %u", this, id, seq);
-	pw_core_proxy_pong(this->core_proxy, id, seq);
+	pw_core_pong(this->core, id, seq);
 }
 
 static void core_event_done(void *data, uint32_t id, int seq)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
 	pw_log_trace(NAME" %p: object %u done %d", this, id, seq);
@@ -63,7 +63,7 @@ static void core_event_done(void *data, uint32_t id, int seq)
 
 static void core_event_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
 	pw_log_error(NAME" %p: object error %u: seq:%d %d (%s): %s", this, id, seq,
@@ -76,7 +76,7 @@ static void core_event_error(void *data, uint32_t id, int seq, int res, const ch
 
 static void core_event_remove_id(void *data, uint32_t id)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
 	pw_log_debug(NAME" %p: object remove %u", this, id);
@@ -86,7 +86,7 @@ static void core_event_remove_id(void *data, uint32_t id)
 
 static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
 	pw_log_debug(NAME" %p: proxy %u bound %u", this, id, global_id);
@@ -97,7 +97,7 @@ static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
 
 static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, uint32_t flags)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	struct pw_memblock *m;
 
 	pw_log_debug(NAME" %p: add mem %u type:%u fd:%d flags:%u", this, id, type, fd, flags);
@@ -112,13 +112,13 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 
 static void core_event_remove_mem(void *data, uint32_t id)
 {
-	struct pw_core_proxy *this = data;
+	struct pw_core *this = data;
 	pw_log_debug(NAME" %p: remove mem %u", this, id);
 	pw_mempool_unref_id(this->pool, id);
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.error = core_event_error,
 	.ping = core_event_ping,
 	.done = core_event_done,
@@ -129,115 +129,115 @@ static const struct pw_core_proxy_events core_events = {
 };
 
 SPA_EXPORT
-struct pw_context *pw_core_proxy_get_context(struct pw_core_proxy *core_proxy)
+struct pw_context *pw_core_get_context(struct pw_core *core)
 {
-	return core_proxy->context;
+	return core->context;
 }
 
 SPA_EXPORT
-const struct pw_properties *pw_core_proxy_get_properties(struct pw_core_proxy *core_proxy)
+const struct pw_properties *pw_core_get_properties(struct pw_core *core)
 {
-	return core_proxy->properties;
+	return core->properties;
 }
 
 SPA_EXPORT
-int pw_core_proxy_update_properties(struct pw_core_proxy *core_proxy, const struct spa_dict *dict)
+int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 {
 	int changed;
 
-	changed = pw_properties_update(core_proxy->properties, dict);
+	changed = pw_properties_update(core->properties, dict);
 
-	pw_log_debug(NAME" %p: updated %d properties", core_proxy, changed);
+	pw_log_debug(NAME" %p: updated %d properties", core, changed);
 
 	if (!changed)
 		return 0;
 
-	if (core_proxy->client_proxy)
-		pw_client_proxy_update_properties(core_proxy->client_proxy, &core_proxy->properties->dict);
+	if (core->client_proxy)
+		pw_client_proxy_update_properties(core->client_proxy, &core->properties->dict);
 
 	return changed;
 }
 
 SPA_EXPORT
-void *pw_core_proxy_get_user_data(struct pw_core_proxy *core_proxy)
+void *pw_core_get_user_data(struct pw_core *core)
 {
-	return core_proxy->user_data;
+	return core->user_data;
 }
 
 static int destroy_proxy(void *object, void *data)
 {
-	struct pw_core_proxy *core_proxy = data;
+	struct pw_core *core = data;
 	struct pw_proxy *p = object;
 
 	if (object == NULL)
 		return 0;
 
-	p->core_proxy = NULL;
-	if (object != core_proxy)
+	p->core = NULL;
+	if (object != core)
 		pw_proxy_remove(p);
 
 	return 0;
 }
 
-static void core_proxy_destroy(void *data)
+static void proxy_core_destroy(void *data)
 {
-	struct pw_core_proxy *core_proxy = data;
+	struct pw_core *core = data;
 	struct pw_stream *stream, *s2;
 	struct pw_filter *filter, *f2;
 
-	if (core_proxy->destroyed)
+	if (core->destroyed)
 		return;
 
-	core_proxy->destroyed = true;
+	core->destroyed = true;
 
-	pw_log_debug(NAME" %p: core proxy destroy", core_proxy);
-	spa_list_remove(&core_proxy->link);
+	pw_log_debug(NAME" %p: core proxy destroy", core);
+	spa_list_remove(&core->link);
 
-	spa_list_for_each_safe(stream, s2, &core_proxy->stream_list, link)
+	spa_list_for_each_safe(stream, s2, &core->stream_list, link)
 		pw_stream_disconnect(stream);
-	spa_list_for_each_safe(filter, f2, &core_proxy->filter_list, link)
+	spa_list_for_each_safe(filter, f2, &core->filter_list, link)
 		pw_filter_disconnect(filter);
 
-	pw_protocol_client_disconnect(core_proxy->conn);
-	core_proxy->client_proxy = NULL;
+	pw_protocol_client_disconnect(core->conn);
+	core->client_proxy = NULL;
 
-	pw_map_for_each(&core_proxy->objects, destroy_proxy, core_proxy);
-	pw_map_reset(&core_proxy->objects);
+	pw_map_for_each(&core->objects, destroy_proxy, core);
+	pw_map_reset(&core->objects);
 
-	spa_list_consume(stream, &core_proxy->stream_list, link)
+	spa_list_consume(stream, &core->stream_list, link)
 		pw_stream_destroy(stream);
-	spa_list_consume(filter, &core_proxy->filter_list, link)
+	spa_list_consume(filter, &core->filter_list, link)
 		pw_filter_destroy(filter);
 
-	pw_mempool_destroy(core_proxy->pool);
+	pw_mempool_destroy(core->pool);
 
-	pw_protocol_client_destroy(core_proxy->conn);
+	pw_protocol_client_destroy(core->conn);
 
-	pw_map_clear(&core_proxy->objects);
+	pw_map_clear(&core->objects);
 
-	pw_log_debug(NAME" %p: free", core_proxy);
-	pw_properties_free(core_proxy->properties);
+	pw_log_debug(NAME" %p: free", core);
+	pw_properties_free(core->properties);
 }
 
-static const struct pw_proxy_events core_proxy_events = {
+static const struct pw_proxy_events proxy_core_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.destroy = core_proxy_destroy,
+	.destroy = proxy_core_destroy,
 };
 
 SPA_EXPORT
-struct pw_client_proxy * pw_core_proxy_get_client_proxy(struct pw_core_proxy *core_proxy)
+struct pw_client_proxy * pw_core_get_client_proxy(struct pw_core *core)
 {
-	return core_proxy->client_proxy;
+	return core->client_proxy;
 }
 
 SPA_EXPORT
-struct pw_proxy *pw_core_proxy_find_proxy(struct pw_core_proxy *core_proxy, uint32_t id)
+struct pw_proxy *pw_core_find_proxy(struct pw_core *core, uint32_t id)
 {
-	return pw_map_lookup(&core_proxy->objects, id);
+	return pw_map_lookup(&core->objects, id);
 }
 
 SPA_EXPORT
-struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *core_proxy,
+struct pw_proxy *pw_core_export(struct pw_core *core,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
@@ -245,13 +245,13 @@ struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *core_proxy,
 	const struct pw_export_type *t;
 	int res;
 
-	t = pw_context_find_export_type(core_proxy->context, type);
+	t = pw_context_find_export_type(core->context, type);
 	if (t == NULL) {
 		res = -EPROTO;
 		goto error_export_type;
 	}
 
-	proxy = t->func(core_proxy, type, props, object, user_data_size);
+	proxy = t->func(core, type, props, object, user_data_size);
         if (proxy == NULL) {
 		res = -errno;
 		goto error_proxy_failed;
@@ -259,10 +259,10 @@ struct pw_proxy *pw_core_proxy_export(struct pw_core_proxy *core_proxy,
 	return proxy;
 
 error_export_type:
-	pw_log_error(NAME" %p: can't export type %d: %s", core_proxy, type, spa_strerror(res));
+	pw_log_error(NAME" %p: can't export type %d: %s", core, type, spa_strerror(res));
 	goto exit_free;
 error_proxy_failed:
-	pw_log_error(NAME" %p: failed to create proxy: %s", core_proxy, spa_strerror(res));
+	pw_log_error(NAME" %p: failed to create proxy: %s", core, spa_strerror(res));
 	goto exit;
 exit_free:
 	if (props)
@@ -272,15 +272,15 @@ exit:
 	return NULL;
 }
 
-static struct pw_core_proxy *core_proxy_new(struct pw_context *context,
+static struct pw_core *core_new(struct pw_context *context,
 		struct pw_properties *properties, size_t user_data_size)
 {
-	struct pw_core_proxy *p;
+	struct pw_core *p;
 	struct pw_protocol *protocol = NULL;
 	const char *protocol_name;
 	int res;
 
-	p = calloc(1, sizeof(struct pw_core_proxy) + user_data_size);
+	p = calloc(1, sizeof(struct pw_core) + user_data_size);
 	if (p == NULL) {
 		res = -errno;
 		goto exit_cleanup;
@@ -294,13 +294,13 @@ static struct pw_core_proxy *core_proxy_new(struct pw_context *context,
 
 	pw_fill_connect_properties(context, properties);
 
-	p->proxy.core_proxy = p;
+	p->proxy.core = p;
 	p->context = context;
 	p->properties = properties;
 	p->pool = pw_mempool_new(NULL);
-	p->core_proxy = p;
+	p->core = p;
 	if (user_data_size > 0)
-		p->user_data = SPA_MEMBER(p, sizeof(struct pw_core_proxy), void);
+		p->user_data = SPA_MEMBER(p, sizeof(struct pw_core), void);
 	p->proxy.user_data = p->user_data;
 
 	pw_map_init(&p->objects, 64, 32);
@@ -324,9 +324,9 @@ static struct pw_core_proxy *core_proxy_new(struct pw_context *context,
 	if (p->conn == NULL)
 		goto error_connection;
 
-	p->conn->core_proxy = p;
+	p->conn->core = p;
 
-	if ((res = pw_proxy_init(&p->proxy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE_PROXY)) < 0)
+	if ((res = pw_proxy_init(&p->proxy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE)) < 0)
 		goto error_proxy;
 
 	p->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&p->proxy,
@@ -336,13 +336,13 @@ static struct pw_core_proxy *core_proxy_new(struct pw_context *context,
 		goto error_proxy;
 	}
 
-	pw_core_proxy_add_listener(p, &p->core_listener, &core_events, p);
-	pw_proxy_add_listener(&p->proxy, &p->core_proxy_listener, &core_proxy_events, p);
+	pw_core_add_listener(p, &p->core_listener, &core_events, p);
+	pw_proxy_add_listener(&p->proxy, &p->proxy_core_listener, &proxy_core_events, p);
 
-	pw_core_proxy_hello(p, PW_VERSION_CORE_PROXY);
+	pw_core_hello(p, PW_VERSION_CORE);
 	pw_client_proxy_update_properties(p->client_proxy, &p->properties->dict);
 
-	spa_list_append(&context->core_proxy_list, &p->link);
+	spa_list_append(&context->core_list, &p->link);
 
 	return p;
 
@@ -371,55 +371,55 @@ exit_cleanup:
 }
 
 SPA_EXPORT
-struct pw_core_proxy *
+struct pw_core *
 pw_context_connect(struct pw_context *context, struct pw_properties *properties,
 	      size_t user_data_size)
 {
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	int res;
 
-	core_proxy = core_proxy_new(context, properties, user_data_size);
-	if (core_proxy == NULL)
+	core = core_new(context, properties, user_data_size);
+	if (core == NULL)
 		return NULL;
 
-	if ((res = pw_protocol_client_connect(core_proxy->conn,
-					&core_proxy->properties->dict,
+	if ((res = pw_protocol_client_connect(core->conn,
+					&core->properties->dict,
 					NULL, NULL)) < 0)
 		goto error_free;
 
-	return core_proxy;
+	return core;
 
 error_free:
-	pw_core_proxy_disconnect(core_proxy);
+	pw_core_disconnect(core);
 	errno = -res;
 	return NULL;
 }
 
 SPA_EXPORT
-struct pw_core_proxy *
+struct pw_core *
 pw_context_connect_fd(struct pw_context *context, int fd, struct pw_properties *properties,
 	      size_t user_data_size)
 {
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	int res;
 
-	core_proxy = core_proxy_new(context, properties, user_data_size);
-	if (core_proxy == NULL)
+	core = core_new(context, properties, user_data_size);
+	if (core == NULL)
 		return NULL;
 
-	if ((res = pw_protocol_client_connect_fd(core_proxy->conn, fd, true)) < 0)
+	if ((res = pw_protocol_client_connect_fd(core->conn, fd, true)) < 0)
 		goto error_free;
 
-	return core_proxy;
+	return core;
 
 error_free:
-	pw_core_proxy_disconnect(core_proxy);
+	pw_core_disconnect(core);
 	errno = -res;
 	return NULL;
 }
 
 SPA_EXPORT
-struct pw_core_proxy *
+struct pw_core *
 pw_context_connect_self(struct pw_context *context, struct pw_properties *properties,
 	      size_t user_data_size)
 {
@@ -437,19 +437,19 @@ pw_context_connect_self(struct pw_context *context, struct pw_properties *proper
 }
 
 SPA_EXPORT
-int pw_core_proxy_steal_fd(struct pw_core_proxy *proxy)
+int pw_core_steal_fd(struct pw_core *proxy)
 {
 	return pw_protocol_client_steal_fd(proxy->conn);
 }
 
 SPA_EXPORT
-struct pw_mempool * pw_core_proxy_get_mempool(struct pw_core_proxy *proxy)
+struct pw_mempool * pw_core_get_mempool(struct pw_core *proxy)
 {
 	return proxy->pool;
 }
 
 SPA_EXPORT
-int pw_core_proxy_disconnect(struct pw_core_proxy *proxy)
+int pw_core_disconnect(struct pw_core *proxy)
 {
 	pw_proxy_destroy(&proxy->proxy);
 	return 0;

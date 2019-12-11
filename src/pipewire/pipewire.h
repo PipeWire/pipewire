@@ -47,7 +47,7 @@ extern "C" {
 #include <pipewire/port.h>
 #include <pipewire/properties.h>
 #include <pipewire/proxy.h>
-#include <pipewire/core-proxy.h>
+#include <pipewire/core.h>
 #include <pipewire/resource.h>
 #include <pipewire/stream.h>
 #include <pipewire/thread-loop.h>

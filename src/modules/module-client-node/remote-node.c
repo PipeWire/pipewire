@@ -1107,7 +1107,7 @@ static const struct spa_node_callbacks node_callbacks = {
 	.xrun = node_xrun
 };
 
-static struct pw_proxy *node_export(struct pw_core_proxy *core_proxy, void *object, bool do_free,
+static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_free,
 		size_t user_data_size)
 {
 	struct pw_node *node = object;
@@ -1115,7 +1115,7 @@ static struct pw_proxy *node_export(struct pw_core_proxy *core_proxy, void *obje
 	struct node_data *data;
 	int i;
 
-	client_node = pw_core_proxy_create_object(core_proxy,
+	client_node = pw_core_create_object(core,
 					    "client-node",
 					    PW_TYPE_INTERFACE_ClientNode,
 					    PW_VERSION_CLIENT_NODE,
@@ -1125,7 +1125,7 @@ static struct pw_proxy *node_export(struct pw_core_proxy *core_proxy, void *obje
                 return NULL;
 
 	data = pw_proxy_get_user_data(client_node);
-	data->pool = pw_core_proxy_get_mempool(core_proxy);
+	data->pool = pw_core_get_mempool(core);
 	data->node = node;
 	data->do_free = do_free;
 	data->context = pw_node_get_context(node);
@@ -1164,7 +1164,7 @@ static struct pw_proxy *node_export(struct pw_core_proxy *core_proxy, void *obje
 	return data->proxy;
 }
 
-struct pw_proxy *pw_core_proxy_node_export(struct pw_core_proxy *core_proxy,
+struct pw_proxy *pw_core_node_export(struct pw_core *core,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
@@ -1174,16 +1174,16 @@ struct pw_proxy *pw_core_proxy_node_export(struct pw_core_proxy *core_proxy,
 		pw_node_update_properties(node, &props->dict);
 		pw_properties_free(props);
 	}
-	return node_export(core_proxy, object, false, user_data_size);
+	return node_export(core, object, false, user_data_size);
 }
 
-struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
+struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_node *node;
 
-	node = pw_node_new(pw_core_proxy_get_context(core_proxy), props, 0);
+	node = pw_node_new(pw_core_get_context(core), props, 0);
 	if (node == NULL)
 		return NULL;
 
@@ -1191,5 +1191,5 @@ struct pw_proxy *pw_core_proxy_spa_node_export(struct pw_core_proxy *core_proxy,
 	pw_node_register(node, NULL);
 	pw_node_set_active(node, true);
 
-	return node_export(core_proxy, node, true, user_data_size);
+	return node_export(core, node, true, user_data_size);
 }

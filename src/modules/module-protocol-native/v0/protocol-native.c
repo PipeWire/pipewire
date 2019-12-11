@@ -54,7 +54,7 @@ update_types_server(struct pw_resource *resource)
 	struct spa_pod_frame f;
 	uint32_t i;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_V0_EVENT_UPDATE_TYPES, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_UPDATE_TYPES, NULL);
 
         spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -78,11 +78,11 @@ static void core_marshal_info(void *object, const struct pw_core_info *info)
         struct spa_pod_frame f;
 	struct pw_protocol_native_message *msg;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_V0_EVENT_INFO, &msg);
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
 
 	if (msg->seq == 0) {
 		update_types_server(resource);
-		b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_V0_EVENT_INFO, &msg);
+		b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
 	}
 
 	n_items = info->props ? info->props->n_items : 0;
@@ -113,7 +113,7 @@ static void core_marshal_done(void *object, uint32_t id, int seq)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_V0_EVENT_DONE, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_DONE, NULL);
 
 	spa_pod_builder_add_struct(b, "i", seq);
 
@@ -125,7 +125,7 @@ static void core_marshal_error(void *object, uint32_t id, int seq, int res, cons
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_V0_EVENT_ERROR, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_ERROR, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       "i", id,
@@ -140,7 +140,7 @@ static void core_marshal_remove_id(void *object, uint32_t id)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_PROXY_V0_EVENT_REMOVE_ID, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_REMOVE_ID, NULL);
 
 	spa_pod_builder_add_struct(b, "i", id);
 
@@ -211,7 +211,7 @@ static int core_demarshal_hello(void *object, const struct pw_protocol_native_me
 				"P", &ptr) < 0)
 		return -EINVAL;
 
-        return pw_resource_notify(resource, struct pw_core_proxy_methods, hello, 0, 2);
+        return pw_resource_notify(resource, struct pw_core_methods, hello, 0, 2);
 }
 
 static int core_demarshal_sync(void *object, const struct pw_protocol_native_message *msg)
@@ -224,7 +224,7 @@ static int core_demarshal_sync(void *object, const struct pw_protocol_native_mes
 	if (spa_pod_parser_get_struct(&prs, "i", &seq) < 0)
 		return -EINVAL;
 
-        return pw_resource_notify(resource, struct pw_core_proxy_methods, sync, 0, 0, seq);
+        return pw_resource_notify(resource, struct pw_core_methods, sync, 0, 0, seq);
 }
 
 static int core_demarshal_get_registry(void *object, const struct pw_protocol_native_message *msg)
@@ -239,7 +239,7 @@ static int core_demarshal_get_registry(void *object, const struct pw_protocol_na
 				"i", &new_id) < 0)
 		return -EINVAL;
 
-        return pw_resource_notify(resource, struct pw_core_proxy_methods, get_registry, 0, version, new_id);
+        return pw_resource_notify(resource, struct pw_core_methods, get_registry, 0, version, new_id);
 }
 
 SPA_EXPORT
@@ -622,7 +622,7 @@ static int core_demarshal_create_object(void *object, const struct pw_protocol_n
 
 	type = pw_protocol_native0_type_from_v2(client, type);
 
-	return pw_resource_notify(resource, struct pw_core_proxy_methods, create_object, 0, factory_name,
+	return pw_resource_notify(resource, struct pw_core_methods, create_object, 0, factory_name,
                                                                       type, version,
                                                                       &props, new_id);
 }
@@ -644,7 +644,7 @@ static int core_demarshal_destroy(void *object, const struct pw_protocol_native_
 	if ((r = pw_client_find_resource(client, id)) == NULL)
 		goto no_resource;
 
-	return pw_resource_notify(resource, struct pw_core_proxy_methods, destroy, 0, r);
+	return pw_resource_notify(resource, struct pw_core_methods, destroy, 0, r);
 
 no_resource:
 	pw_log_error("client %p: unknown resouce %u op:%u", client, id, msg->opcode);
@@ -1018,19 +1018,19 @@ static void link_marshal_info(void *object, const struct pw_link_info *info)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_demarshal[PW_CORE_PROXY_V0_METHOD_NUM] = {
-	[PW_CORE_PROXY_V0_METHOD_HELLO] = { &core_demarshal_hello, 0, },
-	[PW_CORE_PROXY_V0_METHOD_UPDATE_TYPES] = { &core_demarshal_update_types_server, 0, },
-	[PW_CORE_PROXY_V0_METHOD_SYNC] = { &core_demarshal_sync, 0, },
-	[PW_CORE_PROXY_V0_METHOD_GET_REGISTRY] = { &core_demarshal_get_registry, 0, },
-	[PW_CORE_PROXY_V0_METHOD_CLIENT_UPDATE] = { &core_demarshal_client_update, 0, },
-	[PW_CORE_PROXY_V0_METHOD_PERMISSIONS] = { &core_demarshal_permissions, 0, },
-	[PW_CORE_PROXY_V0_METHOD_CREATE_OBJECT] = { &core_demarshal_create_object, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
-	[PW_CORE_PROXY_V0_METHOD_DESTROY] = { &core_demarshal_destroy, 0, }
+static const struct pw_protocol_native_demarshal pw_protocol_native_core_method_demarshal[PW_CORE_V0_METHOD_NUM] = {
+	[PW_CORE_V0_METHOD_HELLO] = { &core_demarshal_hello, 0, },
+	[PW_CORE_V0_METHOD_UPDATE_TYPES] = { &core_demarshal_update_types_server, 0, },
+	[PW_CORE_V0_METHOD_SYNC] = { &core_demarshal_sync, 0, },
+	[PW_CORE_V0_METHOD_GET_REGISTRY] = { &core_demarshal_get_registry, 0, },
+	[PW_CORE_V0_METHOD_CLIENT_UPDATE] = { &core_demarshal_client_update, 0, },
+	[PW_CORE_V0_METHOD_PERMISSIONS] = { &core_demarshal_permissions, 0, },
+	[PW_CORE_V0_METHOD_CREATE_OBJECT] = { &core_demarshal_create_object, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
+	[PW_CORE_V0_METHOD_DESTROY] = { &core_demarshal_destroy, 0, }
 };
 
-static const struct pw_core_proxy_events pw_protocol_native_core_event_marshal = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events pw_protocol_native_core_event_marshal = {
+	PW_VERSION_CORE_EVENTS,
 	.info = &core_marshal_info,
 	.done = &core_marshal_done,
 	.error = &core_marshal_error,
@@ -1040,8 +1040,8 @@ static const struct pw_core_proxy_events pw_protocol_native_core_event_marshal =
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 	PW_TYPE_INTERFACE_Core,
 	PW_VERSION_CORE_V0,
-	PW_CORE_PROXY_V0_METHOD_NUM,
-	PW_CORE_PROXY_EVENT_NUM,
+	PW_CORE_V0_METHOD_NUM,
+	PW_CORE_EVENT_NUM,
 	0,
 	NULL,
 	pw_protocol_native_core_method_demarshal,

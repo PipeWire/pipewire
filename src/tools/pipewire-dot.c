@@ -48,7 +48,7 @@ struct data {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	struct pw_registry_proxy *registry_proxy;
@@ -664,7 +664,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		break;
 	case PW_TYPE_INTERFACE_Core:
 		/* sync to notify we are done with globals */
-		pw_core_proxy_sync(d->core_proxy, 0, 0);
+		pw_core_sync(d->core, 0, 0);
 		return;
 	default:
 		return;
@@ -720,8 +720,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_proxy_events core_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
 	.done = on_core_done,
 	.error = on_core_error,
 };
@@ -820,8 +820,8 @@ int main(int argc, char *argv[])
 	if (remote_name)
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, remote_name, NULL);
 
-	data.core_proxy = pw_context_connect(data.context, props, 0);
-	if (data.core_proxy == NULL)
+	data.core = pw_context_connect(data.context, props, 0);
+	if (data.core == NULL)
 		return -1;
 
 	data.dot_str = dot_str_new();
@@ -830,10 +830,10 @@ int main(int argc, char *argv[])
 
 	spa_list_init(&data.globals);
 
-	pw_core_proxy_add_listener(data.core_proxy,
+	pw_core_add_listener(data.core,
 				   &data.core_listener,
 				   &core_events, &data);
-	data.registry_proxy = pw_core_proxy_get_registry(data.core_proxy,
+	data.registry_proxy = pw_core_get_registry(data.core,
 					  PW_VERSION_REGISTRY_PROXY, 0);
 	pw_registry_proxy_add_listener(data.registry_proxy,
 				       &data.registry_listener,

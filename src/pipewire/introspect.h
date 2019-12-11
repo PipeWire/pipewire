@@ -76,28 +76,6 @@ const char * pw_link_state_as_string(enum pw_link_state state);
  * about the object in the PipeWire server
  */
 
-/**  The core information. Extra information can be added in later versions \memberof pw_introspect */
-struct pw_core_info {
-	uint32_t id;			/**< id of the global */
-	uint32_t cookie;		/**< a random cookie for identifying this instance of PipeWire */
-	const char *user_name;		/**< name of the user that started the core */
-	const char *host_name;		/**< name of the machine the core is running on */
-	const char *version;		/**< version of the core */
-	const char *name;		/**< name of the core */
-#define PW_CORE_CHANGE_MASK_PROPS      (1 << 0)
-#define PW_CORE_CHANGE_MASK_ALL        ((1 << 1)-1)
-	uint64_t change_mask;		/**< bitfield of changed fields since last call */
-	struct spa_dict *props;		/**< extra properties */
-};
-
-/** Update and existing \ref pw_core_info with \a update  \memberof pw_introspect */
-struct pw_core_info *
-pw_core_info_update(struct pw_core_info *info,
-		    const struct pw_core_info *update);
-
-/** Free a \ref pw_core_info  \memberof pw_introspect */
-void pw_core_info_free(struct pw_core_info *info);
-
 /** The module information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_module_info {
 	uint32_t id;		/**< id of the global */

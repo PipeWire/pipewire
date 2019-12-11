@@ -70,7 +70,7 @@ typedef struct {
 
 	struct pw_context *context;
 
-	struct pw_core_proxy *core_proxy;
+	struct pw_core *core;
 	struct spa_hook core_listener;
 
 	uint32_t flags;
@@ -410,7 +410,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 			"Playback" : "Capture");
 	pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Music");
 
-	pw->stream = pw_stream_new(pw->core_proxy, pw->node_name, props);
+	pw->stream = pw_stream_new(pw->core, pw->node_name, props);
 	if (pw->stream == NULL)
 		goto error;
 
@@ -765,8 +765,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	pw_thread_loop_signal(pw->main_loop, false);
 }
 
-static const struct pw_core_proxy_events core_proxy_events = {
-	PW_VERSION_CORE_PROXY_EVENTS,
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
         .error = on_core_error,
 };
 
@@ -827,13 +827,13 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		goto error;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw->core_proxy = pw_context_connect(pw->context, props, 0);
-	if (pw->core_proxy == NULL) {
+	pw->core = pw_context_connect(pw->context, props, 0);
+	if (pw->core == NULL) {
 		err = -errno;
 		pw_thread_loop_unlock(pw->main_loop);
 		goto error;
 	}
-	pw_core_proxy_add_listener(pw->core_proxy, &pw->core_listener, &core_proxy_events, pw);
+	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
 	pw_thread_loop_unlock(pw->main_loop);
 
 	pw->fd = spa_system_eventfd_create(pw->loop->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);

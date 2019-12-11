@@ -36,7 +36,7 @@ struct impl {
 	struct pw_impl_device this;
 };
 
-#define pw_device_resource(r,m,v,...)	pw_resource_call(r,struct pw_device_proxy_events,m,v,__VA_ARGS__)
+#define pw_device_resource(r,m,v,...)	pw_resource_call(r,struct pw_device_events,m,v,__VA_ARGS__)
 #define pw_device_resource_info(r,...)	pw_device_resource(r,info,0,__VA_ARGS__)
 #define pw_device_resource_param(r,...) pw_device_resource(r,param,0,__VA_ARGS__)
 
@@ -337,8 +337,8 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 	return res;
 }
 
-static const struct pw_device_proxy_methods device_methods = {
-	PW_VERSION_DEVICE_PROXY_METHODS,
+static const struct pw_device_methods device_methods = {
+	PW_VERSION_DEVICE_METHODS,
 	.enum_params = device_enum_params,
 	.set_param = device_set_param
 };
@@ -428,7 +428,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
 
         device->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Device,
-				       PW_VERSION_DEVICE_PROXY,
+				       PW_VERSION_DEVICE,
 				       properties,
 				       global_bind,
 				       device);

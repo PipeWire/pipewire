@@ -323,7 +323,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	device->obj.changed |= SM_DEVICE_CHANGE_MASK_INFO;
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
-		pw_device_proxy_enum_params((struct pw_device_proxy*)device->obj.proxy,
+		pw_device_enum_params((struct pw_device*)device->obj.proxy,
 				1, SPA_PARAM_Profile, 0, UINT32_MAX, NULL);
 	}
 	pw_proxy_sync(device->obj.proxy, 1);
@@ -346,8 +346,8 @@ static void device_event_param(void *object, int seq,
 	device->obj.changed |= SM_DEVICE_CHANGE_MASK_PARAMS;
 }
 
-static const struct pw_device_proxy_events device_events = {
-	PW_VERSION_DEVICE_PROXY_EVENTS,
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
 	.info = device_event_info,
 	.param = device_event_param,
 };
@@ -378,7 +378,7 @@ static void device_destroy(void *object)
 
 static const struct object_info device_info = {
 	.type = PW_TYPE_INTERFACE_Device,
-	.version = PW_VERSION_DEVICE_PROXY,
+	.version = PW_VERSION_DEVICE,
 	.events = &device_events,
 	.size = sizeof(struct sm_device),
 	.init = device_init,

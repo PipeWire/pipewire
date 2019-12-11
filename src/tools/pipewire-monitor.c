@@ -524,7 +524,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
-			pw_device_proxy_enum_params((struct pw_device_proxy*)data->proxy,
+			pw_device_enum_params((struct pw_device*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
 		}
 		add_pending(data);
@@ -536,8 +536,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 		data->print_func(data);
 }
 
-static const struct pw_device_proxy_events device_events = {
-	PW_VERSION_DEVICE_PROXY_EVENTS,
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
 	.info = device_event_info,
         .param = event_param
 };
@@ -595,7 +595,7 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		events = &device_events;
-		client_version = PW_VERSION_DEVICE_PROXY;
+		client_version = PW_VERSION_DEVICE;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		print_func = print_device;
 		break;

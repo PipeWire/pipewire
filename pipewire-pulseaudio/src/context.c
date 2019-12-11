@@ -231,11 +231,11 @@ static void device_event_info(void *object, const struct pw_device_info *update)
 
 			switch (info->params[n].id) {
 			case SPA_PARAM_EnumProfile:
-				pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
+				pw_device_enum_params((struct pw_device*)g->proxy,
 					0, SPA_PARAM_EnumProfile, 0, -1, NULL);
 				break;
 			case SPA_PARAM_Profile:
-				pw_device_proxy_enum_params((struct pw_device_proxy*)g->proxy,
+				pw_device_enum_params((struct pw_device*)g->proxy,
 					0, SPA_PARAM_Profile, 0, -1, NULL);
 				break;
 			default:
@@ -296,8 +296,8 @@ static void device_event_param(void *object, int seq,
 	}
 }
 
-static const struct pw_device_proxy_events device_events = {
-	PW_VERSION_ENDPOINT_PROXY_EVENTS,
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
 	.info = device_event_info,
 	.param = device_event_param,
 };
@@ -592,7 +592,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->event = PA_SUBSCRIPTION_EVENT_CARD;
 
 		events = &device_events;
-                client_version = PW_VERSION_DEVICE_PROXY;
+                client_version = PW_VERSION_DEVICE;
                 destroy = device_destroy;
                 spa_list_init(&g->card_info.profiles);
 		break;

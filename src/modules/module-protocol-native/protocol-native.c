@@ -793,7 +793,7 @@ static int module_demarshal_info(void *object, const struct pw_protocol_native_m
 
 static int device_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_device_proxy_events *events,
+			const struct pw_device_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -807,7 +807,7 @@ static void device_marshal_info(void *object, const struct pw_device_info *info)
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_DEVICE_PROXY_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_DEVICE_EVENT_INFO, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -862,7 +862,7 @@ static int device_demarshal_info(void *object, const struct pw_protocol_native_m
 			return -EINVAL;
 	}
 
-	return pw_proxy_notify(proxy, struct pw_device_proxy_events, info, 0, &info);
+	return pw_proxy_notify(proxy, struct pw_device_events, info, 0, &info);
 }
 
 static void device_marshal_param(void *object, int seq, uint32_t id, uint32_t index, uint32_t next,
@@ -871,7 +871,7 @@ static void device_marshal_param(void *object, int seq, uint32_t id, uint32_t in
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_DEVICE_PROXY_EVENT_PARAM, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_DEVICE_EVENT_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(seq),
@@ -900,7 +900,7 @@ static int device_demarshal_param(void *object, const struct pw_protocol_native_
 				SPA_POD_Pod(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_device_proxy_events, param, 0,
+	return pw_proxy_notify(proxy, struct pw_device_events, param, 0,
 			seq, id, index, next, param);
 }
 
@@ -911,7 +911,7 @@ static int device_marshal_enum_params(void *object, int seq,
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_PROXY_METHOD_ENUM_PARAMS, &msg);
+	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_METHOD_ENUM_PARAMS, &msg);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
@@ -940,7 +940,7 @@ static int device_demarshal_enum_params(void *object, const struct pw_protocol_n
 				SPA_POD_Pod(&filter)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_device_proxy_methods, enum_params, 0,
+	return pw_resource_notify(resource, struct pw_device_methods, enum_params, 0,
 			seq, id, index, num, filter);
 }
 
@@ -950,7 +950,7 @@ static int device_marshal_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_PROXY_METHOD_SET_PARAM, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_DEVICE_METHOD_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Id(id),
@@ -973,7 +973,7 @@ static int device_demarshal_set_param(void *object, const struct pw_protocol_nat
 				SPA_POD_Pod(&param)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_device_proxy_methods, set_param, 0, id, flags, param);
+	return pw_resource_notify(resource, struct pw_device_methods, set_param, 0, id, flags, param);
 }
 
 static int factory_method_marshal_add_listener(void *object,
@@ -2062,38 +2062,38 @@ const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	.client_demarshal = pw_protocol_native_factory_event_demarshal,
 };
 
-static const struct pw_device_proxy_methods pw_protocol_native_device_method_marshal = {
-	PW_VERSION_DEVICE_PROXY_METHODS,
+static const struct pw_device_methods pw_protocol_native_device_method_marshal = {
+	PW_VERSION_DEVICE_METHODS,
 	.add_listener = &device_method_marshal_add_listener,
 	.enum_params = &device_marshal_enum_params,
 	.set_param = &device_marshal_set_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_device_method_demarshal[PW_DEVICE_PROXY_METHOD_NUM] = {
-	[PW_DEVICE_PROXY_METHOD_ADD_LISTENER] = { NULL, 0, },
-	[PW_DEVICE_PROXY_METHOD_ENUM_PARAMS] = { &device_demarshal_enum_params, 0, },
-	[PW_DEVICE_PROXY_METHOD_SET_PARAM] = { &device_demarshal_set_param, PW_PERM_W, },
+pw_protocol_native_device_method_demarshal[PW_DEVICE_METHOD_NUM] = {
+	[PW_DEVICE_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_DEVICE_METHOD_ENUM_PARAMS] = { &device_demarshal_enum_params, 0, },
+	[PW_DEVICE_METHOD_SET_PARAM] = { &device_demarshal_set_param, PW_PERM_W, },
 };
 
-static const struct pw_device_proxy_events pw_protocol_native_device_event_marshal = {
-	PW_VERSION_DEVICE_PROXY_EVENTS,
+static const struct pw_device_events pw_protocol_native_device_event_marshal = {
+	PW_VERSION_DEVICE_EVENTS,
 	.info = &device_marshal_info,
 	.param = &device_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_device_event_demarshal[PW_DEVICE_PROXY_EVENT_NUM] = {
-	[PW_DEVICE_PROXY_EVENT_INFO] = { &device_demarshal_info, 0, },
-	[PW_DEVICE_PROXY_EVENT_PARAM] = { &device_demarshal_param, 0, }
+pw_protocol_native_device_event_demarshal[PW_DEVICE_EVENT_NUM] = {
+	[PW_DEVICE_EVENT_INFO] = { &device_demarshal_info, 0, },
+	[PW_DEVICE_EVENT_PARAM] = { &device_demarshal_param, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_device_marshal = {
 	PW_TYPE_INTERFACE_Device,
-	PW_VERSION_DEVICE_PROXY,
+	PW_VERSION_DEVICE,
 	0,
-	PW_DEVICE_PROXY_METHOD_NUM,
-	PW_DEVICE_PROXY_EVENT_NUM,
+	PW_DEVICE_METHOD_NUM,
+	PW_DEVICE_EVENT_NUM,
 	.client_marshal = &pw_protocol_native_device_method_marshal,
 	.server_demarshal = pw_protocol_native_device_method_demarshal,
 	.server_marshal = &pw_protocol_native_device_event_marshal,

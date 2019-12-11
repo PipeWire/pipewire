@@ -208,7 +208,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	factory = pw_impl_factory_new(context,
 				 "spa-device-factory",
 				 PW_TYPE_INTERFACE_Device,
-				 PW_VERSION_DEVICE_PROXY,
+				 PW_VERSION_DEVICE,
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)

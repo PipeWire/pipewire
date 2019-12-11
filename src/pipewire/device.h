@@ -34,8 +34,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-#define PW_VERSION_DEVICE_PROXY		3
-struct pw_device_proxy;
+#define PW_VERSION_DEVICE		3
+struct pw_device;
 
 /** The device information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_device_info {
@@ -57,13 +57,13 @@ pw_device_info_update(struct pw_device_info *info,
 /** Free a \ref pw_device_info \memberof pw_introspect */
 void pw_device_info_free(struct pw_device_info *info);
 
-#define PW_DEVICE_PROXY_EVENT_INFO	0
-#define PW_DEVICE_PROXY_EVENT_PARAM	1
-#define PW_DEVICE_PROXY_EVENT_NUM	2
+#define PW_DEVICE_EVENT_INFO	0
+#define PW_DEVICE_EVENT_PARAM	1
+#define PW_DEVICE_EVENT_NUM	2
 
 /** Device events */
-struct pw_device_proxy_events {
-#define PW_VERSION_DEVICE_PROXY_EVENTS	0
+struct pw_device_events {
+#define PW_VERSION_DEVICE_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify device info
@@ -88,19 +88,19 @@ struct pw_device_proxy_events {
 };
 
 
-#define PW_DEVICE_PROXY_METHOD_ADD_LISTENER	0
-#define PW_DEVICE_PROXY_METHOD_ENUM_PARAMS	1
-#define PW_DEVICE_PROXY_METHOD_SET_PARAM	2
-#define PW_DEVICE_PROXY_METHOD_NUM		3
+#define PW_DEVICE_METHOD_ADD_LISTENER	0
+#define PW_DEVICE_METHOD_ENUM_PARAMS	1
+#define PW_DEVICE_METHOD_SET_PARAM	2
+#define PW_DEVICE_METHOD_NUM		3
 
 /** Device methods */
-struct pw_device_proxy_methods {
-#define PW_VERSION_DEVICE_PROXY_METHODS	0
+struct pw_device_methods {
+#define PW_VERSION_DEVICE_METHODS	0
 	uint32_t version;
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_device_proxy_events *events,
+			const struct pw_device_events *events,
 			void *data);
 	/**
 	 * Enumerate device parameters
@@ -127,18 +127,18 @@ struct pw_device_proxy_methods {
 			  const struct spa_pod *param);
 };
 
-#define pw_device_proxy_method(o,method,version,...)			\
+#define pw_device_method(o,method,version,...)				\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_device_proxy_methods, _res,		\
+			struct pw_device_methods, _res,			\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_device_proxy_add_listener(c,...)	pw_device_proxy_method(c,add_listener,0,__VA_ARGS__)
-#define pw_device_proxy_enum_params(c,...)	pw_device_proxy_method(c,enum_params,0,__VA_ARGS__)
-#define pw_device_proxy_set_param(c,...)	pw_device_proxy_method(c,set_param,0,__VA_ARGS__)
+#define pw_device_add_listener(c,...)	pw_device_method(c,add_listener,0,__VA_ARGS__)
+#define pw_device_enum_params(c,...)	pw_device_method(c,enum_params,0,__VA_ARGS__)
+#define pw_device_set_param(c,...)	pw_device_method(c,set_param,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

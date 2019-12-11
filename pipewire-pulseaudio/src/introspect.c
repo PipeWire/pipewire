@@ -1372,7 +1372,7 @@ static void card_profile(pa_operation *o, void *userdata)
 	if (id == SPA_ID_INVALID)
 		goto done;;
 
-	pw_device_proxy_set_param((struct pw_device_proxy*)g->proxy,
+	pw_device_set_param((struct pw_device*)g->proxy,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,

@@ -892,8 +892,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	}
 }
 
-static const struct pw_device_proxy_events device_events = {
-	PW_VERSION_DEVICE_PROXY_EVENTS,
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
 	.info = device_event_info,
 	.param = event_param
 };
@@ -1104,7 +1104,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		events = &device_events;
-		client_version = PW_VERSION_DEVICE_PROXY;
+		client_version = PW_VERSION_DEVICE;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		info_func = info_device;
 		break;
@@ -1260,7 +1260,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 
 	proxy = pw_core_create_object(rd->core, a[0],
 					    PW_TYPE_INTERFACE_Device,
-					    PW_VERSION_DEVICE_PROXY,
+					    PW_VERSION_DEVICE,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
@@ -1464,7 +1464,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 			param_id, 0, 0, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Device:
-		pw_device_proxy_enum_params((struct pw_device_proxy*)global->proxy, 0,
+		pw_device_enum_params((struct pw_device*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Endpoint:

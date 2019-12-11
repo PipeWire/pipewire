@@ -156,39 +156,39 @@ static void test_module_abi(void)
 
 static void test_device_abi(void)
 {
-	struct pw_device_proxy_methods m;
-	struct pw_device_proxy_events e;
+	struct pw_device_methods m;
+	struct pw_device_events e;
 	struct {
 		uint32_t version;
 		int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_device_proxy_events *events,
+			const struct pw_device_events *events,
 			void *data);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
 		int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			const struct spa_pod *param);
-	} methods = { PW_VERSION_DEVICE_PROXY_METHODS, };
+	} methods = { PW_VERSION_DEVICE_METHODS, };
 	struct {
 		uint32_t version;
 		void (*info) (void *object, const struct pw_device_info *info);
 		void (*param) (void *object, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param);
-	} events = { PW_VERSION_DEVICE_PROXY_EVENTS, };
+	} events = { PW_VERSION_DEVICE_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, enum_params);
 	TEST_FUNC(m, methods, set_param);
-	spa_assert(PW_VERSION_DEVICE_PROXY_METHODS == 0);
+	spa_assert(PW_VERSION_DEVICE_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
 	TEST_FUNC(e, events, version);
 	TEST_FUNC(e, events, info);
 	TEST_FUNC(e, events, param);
-	spa_assert(PW_VERSION_DEVICE_PROXY_EVENTS == 0);
+	spa_assert(PW_VERSION_DEVICE_EVENTS == 0);
 	spa_assert(sizeof(e) == sizeof(events));
 }
 

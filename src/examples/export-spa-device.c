@@ -61,7 +61,7 @@ static int make_device(struct data *data)
 	data->device = pw_impl_factory_create_object(factory,
 					      NULL,
 					      PW_TYPE_INTERFACE_Device,
-					      PW_VERSION_DEVICE_PROXY,
+					      PW_VERSION_DEVICE,
 					      props, SPA_ID_INVALID);
 
 	pw_core_export(data->core, SPA_TYPE_INTERFACE_Device, NULL,

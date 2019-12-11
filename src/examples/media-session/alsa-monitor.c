@@ -401,7 +401,7 @@ static void set_jack_profile(struct impl *impl, int index)
 	if (impl->jack_device == NULL)
 		return;
 
-	pw_device_proxy_set_param((struct pw_device_proxy*)impl->jack_device,
+	pw_device_set_param((struct pw_device*)impl->jack_device,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
@@ -687,7 +687,7 @@ static int alsa_start_jack_device(struct impl *impl)
 	impl->jack_device = sm_media_session_create_object(impl->session,
 				"spa-device-factory",
 				PW_TYPE_INTERFACE_Device,
-				PW_VERSION_DEVICE_PROXY,
+				PW_VERSION_DEVICE,
 				&props->dict,
                                 0);
 

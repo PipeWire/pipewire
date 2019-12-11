@@ -79,7 +79,7 @@ struct pw_impl_link_events {
 /** Make a new link between two ports \memberof pw_impl_link
  * \return a newly allocated link */
 struct pw_impl_link *
-pw_impl_link_new(struct pw_context *context,		/**< the context object */
+pw_context_create_link(struct pw_context *context,		/**< the context object */
 	    struct pw_impl_port *output,		/**< an output port */
 	    struct pw_impl_port *input,		/**< an input port */
 	    struct spa_pod *format_filter,	/**< an optional format filter */

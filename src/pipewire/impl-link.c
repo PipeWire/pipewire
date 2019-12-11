@@ -1032,7 +1032,7 @@ static const struct pw_global_events input_global_events = {
 };
 
 SPA_EXPORT
-struct pw_impl_link *pw_impl_link_new(struct pw_context *context,
+struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 			    struct pw_impl_port *output,
 			    struct pw_impl_port *input,
 			    struct spa_pod *format_filter,

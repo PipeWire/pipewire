@@ -258,7 +258,7 @@ static void *create_object(void *_data,
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
 
 
-	link = pw_impl_link_new(context, outport, inport, NULL, properties, sizeof(struct link_data));
+	link = pw_context_create_link(context, outport, inport, NULL, properties, sizeof(struct link_data));
 	properties = NULL;
 	if (link == NULL) {
 		res = -errno;

@@ -357,7 +357,7 @@ static struct client_data *client_new(struct server *s, int fd)
 
 	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 
-	client = pw_impl_client_new(protocol->context,
+	client = pw_context_create_client(protocol->context,
 			protocol, props, sizeof(struct client_data));
 	if (client == NULL)
 		goto exit;

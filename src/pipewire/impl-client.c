@@ -280,7 +280,7 @@ static const struct pw_context_events context_events = {
  * \memberof pw_impl_client
  */
 SPA_EXPORT
-struct pw_impl_client *pw_impl_client_new(struct pw_context *context,
+struct pw_impl_client *pw_context_create_client(struct pw_context *context,
 				struct pw_protocol *protocol,
 				struct pw_properties *properties,
 				size_t user_data_size)

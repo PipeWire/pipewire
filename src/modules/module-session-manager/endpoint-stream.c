@@ -47,7 +47,7 @@ struct resource_data {
 };
 
 #define pw_endpoint_stream_resource(r,m,v,...)	\
-	pw_resource_call(r,struct pw_endpoint_stream_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call(r,struct pw_endpoint_stream_events,m,v,__VA_ARGS__)
 #define pw_endpoint_stream_resource_info(r,...)	\
 	pw_endpoint_stream_resource(r,info,0,__VA_ARGS__)
 #define pw_endpoint_stream_resource_param(r,...)	\
@@ -123,8 +123,8 @@ static int endpoint_stream_set_param (void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
-static const struct pw_endpoint_stream_proxy_methods methods = {
-	PW_VERSION_ENDPOINT_STREAM_PROXY_METHODS,
+static const struct pw_endpoint_stream_methods methods = {
+	PW_VERSION_ENDPOINT_STREAM_METHODS,
 	.subscribe_params = endpoint_stream_subscribe_params,
 	.enum_params = endpoint_stream_enum_params,
 	.set_param = endpoint_stream_set_param,
@@ -293,7 +293,7 @@ int endpoint_stream_init(struct endpoint_stream *this,
 
 	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_EndpointStream,
-			PW_VERSION_ENDPOINT_STREAM_PROXY,
+			PW_VERSION_ENDPOINT_STREAM,
 			properties, endpoint_stream_bind, this);
 	if (!this->global)
 		goto no_mem;

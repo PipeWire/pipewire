@@ -765,8 +765,8 @@ static void endpoint_stream_event_info(void *object, const struct pw_endpoint_st
 	pw_proxy_sync(stream->obj.proxy, 1);
 }
 
-static const struct pw_endpoint_stream_proxy_events endpoint_stream_events = {
-	PW_VERSION_ENDPOINT_STREAM_PROXY_EVENTS,
+static const struct pw_endpoint_stream_events endpoint_stream_events = {
+	PW_VERSION_ENDPOINT_STREAM_EVENTS,
 	.info = endpoint_stream_event_info,
 };
 
@@ -808,7 +808,7 @@ static void endpoint_stream_destroy(void *object)
 
 static const struct object_info endpoint_stream_info = {
 	.type = PW_TYPE_INTERFACE_EndpointStream,
-	.version = PW_VERSION_ENDPOINT_STREAM_PROXY,
+	.version = PW_VERSION_ENDPOINT_STREAM,
 	.events = &endpoint_stream_events,
 	.size = sizeof(struct sm_endpoint_stream),
 	.init = endpoint_stream_init,
@@ -866,7 +866,7 @@ static void endpoint_link_destroy(void *object)
 
 static const struct object_info endpoint_link_info = {
 	.type = PW_TYPE_INTERFACE_EndpointLink,
-	.version = PW_VERSION_ENDPOINT_STREAM_PROXY,
+	.version = PW_VERSION_ENDPOINT_LINK,
 	.events = &endpoint_link_events,
 	.size = sizeof(struct sm_endpoint_link),
 	.init = NULL,

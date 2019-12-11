@@ -1046,8 +1046,8 @@ static void endpoint_stream_event_info(void *object,
 	}
 }
 
-static const struct pw_endpoint_stream_proxy_events endpoint_stream_events = {
-	PW_VERSION_ENDPOINT_STREAM_PROXY_EVENTS,
+static const struct pw_endpoint_stream_events endpoint_stream_events = {
+	PW_VERSION_ENDPOINT_STREAM_EVENTS,
 	.info = endpoint_stream_event_info,
 	.param = event_param
 };
@@ -1152,7 +1152,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_EndpointStream:
 		events = &endpoint_stream_events;
-		client_version = PW_VERSION_ENDPOINT_STREAM_PROXY;
+		client_version = PW_VERSION_ENDPOINT_STREAM;
 		destroy = (pw_destroy_t) endpoint_stream_info_free;
 		info_func = info_endpoint_stream;
 		break;

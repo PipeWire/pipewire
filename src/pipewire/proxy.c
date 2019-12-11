@@ -27,7 +27,6 @@
 #include <pipewire/core.h>
 #include <pipewire/private.h>
 #include <pipewire/type.h>
-#include <pipewire/interfaces.h>
 
 #include <spa/debug/types.h>
 

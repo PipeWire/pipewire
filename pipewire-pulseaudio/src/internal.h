@@ -33,10 +33,7 @@
 #include <pulse/introspect.h>
 #include <pulse/version.h>
 
-#include <pipewire/array.h>
-#include <pipewire/utils.h>
-#include <pipewire/interfaces.h>
-#include <pipewire/log.h>
+#include <pipewire/pipewire.h>
 #include <extensions/session-manager.h>
 
 /* Some PulseAudio API added const qualifiers in 13.0 */

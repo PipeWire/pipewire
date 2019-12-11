@@ -33,7 +33,6 @@
 #include <spa/utils/keys.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/interfaces.h"
 #include "pipewire/private.h"
 
 #include "pipewire/context.h"

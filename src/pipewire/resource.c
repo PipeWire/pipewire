@@ -24,7 +24,6 @@
 
 #include <string.h>
 
-#include "pipewire/interfaces.h"
 #include "pipewire/private.h"
 #include "pipewire/protocol.h"
 #include "pipewire/resource.h"

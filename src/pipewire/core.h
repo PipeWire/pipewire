@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
+#include <errno.h>
 
 #include <spa/utils/hook.h>
 

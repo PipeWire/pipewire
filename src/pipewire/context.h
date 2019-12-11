@@ -46,8 +46,6 @@ struct pw_global;
 struct pw_impl_client;
 struct pw_impl_factory;
 
-#include <pipewire/introspect.h>
-#include <pipewire/interfaces.h>
 #include <pipewire/core.h>
 #include <pipewire/loop.h>
 #include <pipewire/properties.h>

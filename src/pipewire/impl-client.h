@@ -45,7 +45,6 @@ struct pw_impl_client;
 
 #include <pipewire/context.h>
 #include <pipewire/global.h>
-#include <pipewire/introspect.h>
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>
 #include <pipewire/permission.h>

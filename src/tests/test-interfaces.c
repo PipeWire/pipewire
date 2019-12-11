@@ -23,7 +23,6 @@
  */
 
 #include <pipewire/pipewire.h>
-#include <pipewire/interfaces.h>
 
 #define TEST_FUNC(a,b,func)	\
 do {				\

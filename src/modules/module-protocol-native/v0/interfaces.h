@@ -28,8 +28,7 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/node/node.h>
 
-#include <pipewire/introspect.h>
-#include <pipewire/proxy.h>
+#include <pipewire/pipewire.h>
 
 /** Core */
 

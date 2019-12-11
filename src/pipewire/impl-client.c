@@ -25,12 +25,8 @@
 #include <errno.h>
 #include <string.h>
 
-#include "pipewire/interfaces.h"
-#include "pipewire/impl-client.h"
+#include "pipewire/impl.h"
 #include "pipewire/private.h"
-#include "pipewire/resource.h"
-#include "pipewire/type.h"
-#include "pipewire/keys.h"
 
 #define NAME "client"
 

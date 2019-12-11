@@ -156,7 +156,7 @@ static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_directi
 		if (port_id == SPA_ID_INVALID)
 			return NULL;
 
-		p = pw_impl_port_new(direction, port_id, NULL, 0);
+		p = pw_context_create_port(node->context, direction, port_id, NULL, 0);
 		if (p == NULL)
 			return NULL;
 

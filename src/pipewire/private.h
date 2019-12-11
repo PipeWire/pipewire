@@ -905,17 +905,18 @@ int pw_context_recalc_graph(struct pw_context *context);
 /** Create a new port \memberof pw_impl_port
  * \return a newly allocated port */
 struct pw_impl_port *
-pw_impl_port_new(enum pw_direction direction,
-	    uint32_t port_id,
-	    const struct spa_port_info *info,
-	    size_t user_data_size);
+pw_context_create_port(struct pw_context *context,
+	enum pw_direction direction,
+	uint32_t port_id,
+	const struct spa_port_info *info,
+	size_t user_data_size);
 
 void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);
 
 int pw_impl_port_register(struct pw_impl_port *port,
 		     struct pw_properties *properties);
 
-/** Get the user data of a port, the size of the memory was given \ref in pw_impl_port_new */
+/** Get the user data of a port, the size of the memory was given \ref in pw_context_create_port */
 void * pw_impl_port_get_user_data(struct pw_impl_port *port);
 
 int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint32_t flags);

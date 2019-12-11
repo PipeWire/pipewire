@@ -354,10 +354,12 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 }
 
 SPA_EXPORT
-struct pw_impl_port *pw_impl_port_new(enum pw_direction direction,
-			    uint32_t port_id,
-			    const struct spa_port_info *info,
-			    size_t user_data_size)
+struct pw_impl_port *pw_context_create_port(
+		struct pw_context *context,
+		enum pw_direction direction,
+		uint32_t port_id,
+		const struct spa_port_info *info,
+		size_t user_data_size)
 {
 	struct impl *impl;
 	struct pw_impl_port *this;

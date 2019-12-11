@@ -1171,7 +1171,7 @@ static void node_port_info(void *data, enum spa_direction direction, uint32_t po
 		pw_log_debug(NAME" %p: %s port %d added", node,
 				pw_direction_as_string(direction), port_id);
 
-		if ((port = pw_impl_port_new(direction, port_id, info,
+		if ((port = pw_context_create_port(node->context, direction, port_id, info,
 					node->port_user_data_size))) {
 			if ((res = pw_impl_port_add(port, node)) < 0) {
 				pw_log_error(NAME" %p: can't add port %p: %d, %s",

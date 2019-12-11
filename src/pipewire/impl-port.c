@@ -919,9 +919,9 @@ int pw_port_add(struct pw_port *port, struct pw_node *node)
 	return 0;
 }
 
-static int do_destroy_link(void *data, struct pw_link *link)
+static int do_destroy_link(void *data, struct pw_impl_link *link)
 {
-	pw_link_destroy(link);
+	pw_impl_link_destroy(link);
 	return 0;
 }
 
@@ -1113,10 +1113,10 @@ int pw_port_for_each_filtered_param(struct pw_port *in_port,
 }
 
 int pw_port_for_each_link(struct pw_port *port,
-			  int (*callback) (void *data, struct pw_link *link),
+			  int (*callback) (void *data, struct pw_impl_link *link),
 			  void *data)
 {
-	struct pw_link *l, *t;
+	struct pw_impl_link *l, *t;
 	int res = 0;
 
 	if (port->direction == PW_DIRECTION_OUTPUT) {

@@ -75,16 +75,16 @@ struct resource_data {
 static void node_deactivate(struct pw_node *this)
 {
 	struct pw_port *port;
-	struct pw_link *link;
+	struct pw_impl_link *link;
 
 	pw_log_debug(NAME" %p: deactivate", this);
 	spa_list_for_each(port, &this->input_ports, link) {
 		spa_list_for_each(link, &port->links, input_link)
-			pw_link_deactivate(link);
+			pw_impl_link_deactivate(link);
 	}
 	spa_list_for_each(port, &this->output_ports, link) {
 		spa_list_for_each(link, &port->links, output_link)
-			pw_link_deactivate(link);
+			pw_impl_link_deactivate(link);
 	}
 }
 
@@ -1734,14 +1734,14 @@ static void node_activate(struct pw_node *this)
 
 	pw_log_debug(NAME" %p: activate", this);
 	spa_list_for_each(port, &this->input_ports, link) {
-		struct pw_link *link;
+		struct pw_impl_link *link;
 		spa_list_for_each(link, &port->links, input_link)
-			pw_link_activate(link);
+			pw_impl_link_activate(link);
 	}
 	spa_list_for_each(port, &this->output_ports, link) {
-		struct pw_link *link;
+		struct pw_impl_link *link;
 		spa_list_for_each(link, &port->links, output_link)
-			pw_link_activate(link);
+			pw_impl_link_activate(link);
 	}
 }
 

@@ -1095,7 +1095,7 @@ static int collect_nodes(struct pw_node *driver)
 	struct spa_list queue;
 	struct pw_node *n, *t;
 	struct pw_port *p;
-	struct pw_link *l;
+	struct pw_impl_link *l;
 	uint32_t max_quantum = 0;
 	uint32_t min_quantum = 0;
 	uint32_t quantum;

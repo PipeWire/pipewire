@@ -585,7 +585,7 @@ struct pw_port {
 	struct pw_buffers buffers;	/**< buffers managed by this port, only on
 					  *  output ports, shared with all links */
 
-	struct spa_list links;		/**< list of \ref pw_link */
+	struct spa_list links;		/**< list of \ref pw_impl_link */
 
 	struct spa_list control_list[2];/**< list of \ref pw_control indexed by direction */
 
@@ -626,15 +626,15 @@ struct pw_control_link {
 	unsigned int valid:1;
 };
 
-#define pw_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_link_events, m, v, ##__VA_ARGS__)
-#define pw_link_emit_destroy(l)			pw_link_emit(l, destroy, 0)
-#define pw_link_emit_free(l)			pw_link_emit(l, free, 0)
-#define pw_link_emit_initialized(l)		pw_link_emit(l, initialized, 0)
-#define pw_link_emit_info_changed(l,i)		pw_link_emit(l, info_changed, 0, i)
-#define pw_link_emit_state_changed(l,...)	pw_link_emit(l, state_changed, 0, __VA_ARGS__)
-#define pw_link_emit_port_unlinked(l,p)		pw_link_emit(l, port_unlinked, 0, p)
+#define pw_impl_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_link_events, m, v, ##__VA_ARGS__)
+#define pw_impl_link_emit_destroy(l)		pw_impl_link_emit(l, destroy, 0)
+#define pw_impl_link_emit_free(l)		pw_impl_link_emit(l, free, 0)
+#define pw_impl_link_emit_initialized(l)	pw_impl_link_emit(l, initialized, 0)
+#define pw_impl_link_emit_info_changed(l,i)	pw_impl_link_emit(l, info_changed, 0, i)
+#define pw_impl_link_emit_state_changed(l,...)	pw_impl_link_emit(l, state_changed, 0, __VA_ARGS__)
+#define pw_impl_link_emit_port_unlinked(l,p)	pw_impl_link_emit(l, port_unlinked, 0, p)
 
-struct pw_link {
+struct pw_impl_link {
 	struct pw_context *context;		/**< context object */
 	struct spa_list link;		/**< link in context link_list */
 	struct pw_global *global;	/**< global for this link */
@@ -966,7 +966,7 @@ int pw_port_for_each_filtered_param(struct pw_port *in_port,
  * the value. When all callbacks return 0, this function returns 0 when all
  * items are iterated. */
 int pw_port_for_each_link(struct pw_port *port,
-			   int (*callback) (void *data, struct pw_link *link),
+			   int (*callback) (void *data, struct pw_impl_link *link),
 			   void *data);
 
 /** check is a port has links, return 0 if not, 1 if it is linked */
@@ -993,14 +993,14 @@ int pw_node_initialized(struct pw_node *node);
 
 int pw_node_set_driver(struct pw_node *node, struct pw_node *driver);
 
-/** Prepare a link \memberof pw_link
+/** Prepare a link \memberof pw_impl_link
   * Starts the negotiation of formats and buffers on \a link */
-int pw_link_prepare(struct pw_link *link);
+int pw_impl_link_prepare(struct pw_impl_link *link);
 /** starts streaming on a link */
-int pw_link_activate(struct pw_link *link);
+int pw_impl_link_activate(struct pw_impl_link *link);
 
-/** Deactivate a link \memberof pw_link */
-int pw_link_deactivate(struct pw_link *link);
+/** Deactivate a link \memberof pw_impl_link */
+int pw_impl_link_deactivate(struct pw_impl_link *link);
 
 struct pw_control *
 pw_control_new(struct pw_context *context,

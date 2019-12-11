@@ -45,7 +45,7 @@
 
 /** \cond */
 struct impl {
-	struct pw_link this;
+	struct pw_impl_link this;
 
 	unsigned int prepare:1;
 	unsigned int io_set:1;
@@ -75,7 +75,7 @@ struct resource_data {
 
 /** \endcond */
 
-static void debug_link(struct pw_link *link)
+static void debug_link(struct pw_impl_link *link)
 {
 	struct pw_node *in = link->input->node, *out = link->output->node;
 
@@ -94,11 +94,11 @@ static void debug_link(struct pw_link *link)
 			in->idle_used_output_links);
 }
 
-static void info_changed(struct pw_link *link)
+static void info_changed(struct pw_impl_link *link)
 {
 	struct pw_resource *resource;
 
-	pw_link_emit_info_changed(link, &link->info);
+	pw_impl_link_emit_info_changed(link, &link->info);
 
 	if (link->global)
 		spa_list_for_each(resource, &link->global->resource_list, link)
@@ -107,7 +107,7 @@ static void info_changed(struct pw_link *link)
 	link->info.change_mask = 0;
 }
 
-static void pw_link_update_state(struct pw_link *link, enum pw_link_state state, char *error)
+static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_state state, char *error)
 {
 	enum pw_link_state old = link->info.state;
 	struct pw_node *in = link->input->node, *out = link->output->node;
@@ -127,7 +127,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 	free((char*)link->info.error);
 	link->info.error = error;
 
-	pw_link_emit_state_changed(link, old, state, error);
+	pw_impl_link_emit_state_changed(link, old, state, error);
 
 	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
 	info_changed(link);
@@ -141,7 +141,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 		if (++in->n_ready_input_links == in->n_used_input_links &&
 		    in->n_ready_output_links == in->n_used_output_links)
 			pw_node_set_state(in, PW_NODE_STATE_RUNNING);
-		pw_link_activate(link);
+		pw_impl_link_activate(link);
 	}
 	else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
 		if (--out->n_ready_output_links == 0 &&
@@ -156,7 +156,7 @@ static void pw_link_update_state(struct pw_link *link, enum pw_link_state state,
 static void complete_ready(void *obj, void *data, int res, uint32_t id)
 {
 	struct pw_port *port = obj;
-	struct pw_link *this = data;
+	struct pw_impl_link *this = data;
 
 	pw_log_debug(NAME" %p: obj:%p port %p complete READY: %s", this, obj, port, spa_strerror(res));
 
@@ -167,13 +167,13 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 	}
 	if (this->input->state >= PW_PORT_STATE_READY &&
 	    this->output->state >= PW_PORT_STATE_READY)
-		pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
+		pw_impl_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
 }
 
 static void complete_paused(void *obj, void *data, int res, uint32_t id)
 {
 	struct pw_port *port = obj;
-	struct pw_link *this = data;
+	struct pw_impl_link *this = data;
 	struct pw_port_mix *mix = port == this->input ? &this->rt.in_mix : &this->rt.out_mix;
 
 	pw_log_debug(NAME" %p: obj:%p port %p complete PAUSED: %s", this, obj, port, spa_strerror(res));
@@ -186,10 +186,10 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 		mix->have_buffers = false;
 	}
 	if (this->rt.in_mix.have_buffers && this->rt.out_mix.have_buffers)
-		pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
+		pw_impl_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
 }
 
-static int do_negotiate(struct pw_link *this)
+static int do_negotiate(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = -EIO, res2;
@@ -216,7 +216,7 @@ static int do_negotiate(struct pw_link *this)
 	if (in_state != PW_PORT_STATE_CONFIGURE && out_state != PW_PORT_STATE_CONFIGURE)
 		return 0;
 
-	pw_link_update_state(this, PW_LINK_STATE_NEGOTIATING, NULL);
+	pw_impl_link_update_state(this, PW_LINK_STATE_NEGOTIATING, NULL);
 
 	input = this->input;
 	output = this->output;
@@ -355,12 +355,12 @@ static int do_negotiate(struct pw_link *this)
 	return res;
 
 error:
-	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
+	pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	free(format);
 	return res;
 }
 
-static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
+static int port_set_io(struct pw_impl_link *this, struct pw_port *port, uint32_t id,
 		void *data, size_t size, struct pw_port_mix *mix)
 {
 	int res = 0;
@@ -383,7 +383,7 @@ static int port_set_io(struct pw_link *this, struct pw_port *port, uint32_t id,
 	return res;
 }
 
-static int select_io(struct pw_link *this)
+static int select_io(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct spa_io_buffers *io;
@@ -402,7 +402,7 @@ static int select_io(struct pw_link *this)
 	return 0;
 }
 
-static int do_allocation(struct pw_link *this)
+static int do_allocation(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
@@ -418,7 +418,7 @@ static int do_allocation(struct pw_link *this)
 
 	pw_log_debug(NAME" %p: out-state:%d in-state:%d", this, output->state, input->state);
 
-	pw_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
+	pw_impl_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
 
 	out_flags = output->spa_flags;
 	in_flags = input->spa_flags;
@@ -499,7 +499,7 @@ static int do_allocation(struct pw_link *this)
 
 error:
 	pw_buffers_clear(&output->buffers);
-	pw_link_update_state(this, PW_LINK_STATE_ERROR, error);
+	pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	return res;
 }
 
@@ -507,7 +507,7 @@ static int
 do_activate_link(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-	struct pw_link *this = user_data;
+	struct pw_impl_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
 	pw_log_trace(NAME" %p: activate", this);
@@ -527,7 +527,7 @@ do_activate_link(struct spa_loop *loop,
 	return 0;
 }
 
-int pw_link_activate(struct pw_link *this)
+int pw_impl_link_activate(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
@@ -537,7 +537,7 @@ int pw_link_activate(struct pw_link *this)
 	if (impl->activated)
 		return 0;
 
-	pw_link_prepare(this);
+	pw_impl_link_prepare(this);
 
 	if (!impl->io_set) {
 		if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
@@ -559,7 +559,7 @@ int pw_link_activate(struct pw_link *this)
 }
 static void check_states(void *obj, void *user_data, int res, uint32_t id)
 {
-	struct pw_link *this = obj;
+	struct pw_impl_link *this = obj;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int in_state, out_state;
 	struct pw_port *input, *output;
@@ -574,7 +574,7 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	input = this->input;
 
 	if (output == NULL || input == NULL) {
-		pw_link_update_state(this, PW_LINK_STATE_ERROR,
+		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR,
 				strdup(NAME" without input or output port"));
 		return;
 	}
@@ -593,14 +593,14 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	pw_log_debug(NAME" %p: output state %d, input state %d", this, out_state, in_state);
 
 	if (out_state == PW_PORT_STATE_ERROR || in_state == PW_PORT_STATE_ERROR) {
-		pw_link_update_state(this, PW_LINK_STATE_ERROR, strdup("ports are in error"));
+		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, strdup("ports are in error"));
 		return;
 	}
 
 	if (PW_PORT_IS_CONTROL(output) && PW_PORT_IS_CONTROL(input)) {
 		pw_port_update_state(output, PW_PORT_STATE_PAUSED, NULL);
 		pw_port_update_state(input, PW_PORT_STATE_PAUSED, NULL);
-		pw_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
+		pw_impl_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
 	}
 
 	if ((res = do_negotiate(this)) != 0)
@@ -619,7 +619,7 @@ exit:
 			  this, -EBUSY, (pw_work_func_t) check_states, this);
 }
 
-static void input_remove(struct pw_link *this, struct pw_port *port)
+static void input_remove(struct pw_impl_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
 	struct pw_port_mix *mix = &this->rt.in_mix;
@@ -640,7 +640,7 @@ static void input_remove(struct pw_link *this, struct pw_port *port)
 	this->input = NULL;
 }
 
-static void output_remove(struct pw_link *this, struct pw_port *port)
+static void output_remove(struct pw_impl_link *this, struct pw_port *port)
 {
 	struct impl *impl = (struct impl *) this;
 	struct pw_port_mix *mix = &this->rt.out_mix;
@@ -660,13 +660,13 @@ static void output_remove(struct pw_link *this, struct pw_port *port)
 	this->output = NULL;
 }
 
-static void on_port_destroy(struct pw_link *this, struct pw_port *port)
+static void on_port_destroy(struct pw_impl_link *this, struct pw_port *port)
 {
 	pw_log_debug(NAME" %p: port %p", this, port);
-	pw_link_emit_port_unlinked(this, port);
+	pw_impl_link_emit_port_unlinked(this, port);
 
-	pw_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
-	pw_link_destroy(this);
+	pw_impl_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
+	pw_impl_link_destroy(this);
 }
 
 static void input_port_destroy(void *data)
@@ -681,7 +681,7 @@ static void output_port_destroy(void *data)
 	on_port_destroy(&impl->this, impl->this.output);
 }
 
-int pw_link_prepare(struct pw_link *this)
+int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
@@ -713,7 +713,7 @@ static int
 do_deactivate_link(struct spa_loop *loop,
 		   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-        struct pw_link *this = user_data;
+        struct pw_impl_link *this = user_data;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
 	pw_log_trace(NAME" %p: disable %p and %p", this, &this->rt.in_mix, &this->rt.out_mix);
@@ -733,7 +733,7 @@ do_deactivate_link(struct spa_loop *loop,
 	return 0;
 }
 
-int pw_link_deactivate(struct pw_link *this)
+int pw_impl_link_deactivate(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *input_node, *output_node;
@@ -784,7 +784,7 @@ int pw_link_deactivate(struct pw_link *this)
 				this->output, this->output->state, PW_PORT_STATE_PAUSED);
 	}
 
-	pw_link_update_state(this, PW_LINK_STATE_INIT, NULL);
+	pw_impl_link_update_state(this, PW_LINK_STATE_INIT, NULL);
 
 	return 0;
 }
@@ -804,7 +804,7 @@ static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
-	struct pw_link *this = _data;
+	struct pw_impl_link *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -832,12 +832,12 @@ error_resource:
 	return -errno;
 }
 
-static void port_state_changed(struct pw_link *this, struct pw_port *port, struct pw_port *other,
+static void port_state_changed(struct pw_impl_link *this, struct pw_port *port, struct pw_port *other,
 			enum pw_port_state state, const char *error)
 {
 	switch (state) {
 	case PW_PORT_STATE_ERROR:
-		pw_link_update_state(this, PW_LINK_STATE_ERROR, error ? strdup(error) : NULL);
+		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error ? strdup(error) : NULL);
 		break;
 	default:
 		break;
@@ -848,7 +848,7 @@ static void input_port_state_changed(void *data, enum pw_port_state old,
 			enum pw_port_state state, const char *error)
 {
 	struct impl *impl = data;
-	struct pw_link *this = &impl->this;
+	struct pw_impl_link *this = &impl->this;
 	port_state_changed(this, this->input, this->output, state, error);
 }
 
@@ -856,7 +856,7 @@ static void output_port_state_changed(void *data, enum pw_port_state old,
 			enum pw_port_state state, const char *error)
 {
 	struct impl *impl = data;
-	struct pw_link *this = &impl->this;
+	struct pw_impl_link *this = &impl->this;
 	port_state_changed(this, this->output, this->input, state, error);
 }
 
@@ -916,7 +916,7 @@ static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
 		return true;
 
 	spa_list_for_each(p, &output->output_ports, link) {
-		struct pw_link *l;
+		struct pw_impl_link *l;
 
 		spa_list_for_each(l, &p->links, output_link) {
 			if (l->feedback)
@@ -937,7 +937,7 @@ static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
 static void try_link_controls(struct impl *impl, struct pw_port *output, struct pw_port *input)
 {
 	struct pw_control *cin, *cout;
-	struct pw_link *this = &impl->this;
+	struct pw_impl_link *this = &impl->this;
 	uint32_t omix, imix;
 	int res;
 
@@ -965,7 +965,7 @@ static void try_link_controls(struct impl *impl, struct pw_port *output, struct 
 
 static void try_unlink_controls(struct impl *impl, struct pw_port *output, struct pw_port *input)
 {
-	struct pw_link *this = &impl->this;
+	struct pw_impl_link *this = &impl->this;
 	int res;
 
 	pw_log_debug(NAME" %p: unlinking controls", impl);
@@ -990,7 +990,7 @@ check_permission(struct pw_context *context,
 	return 0;
 }
 
-static void permissions_changed(struct pw_link *this, struct pw_port *other,
+static void permissions_changed(struct pw_impl_link *this, struct pw_port *other,
 		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
 	uint32_t perm;
@@ -1001,7 +1001,7 @@ static void permissions_changed(struct pw_link *this, struct pw_port *other,
 	pw_log_debug(NAME" %p: permissions changed %08x -> %08x", this, old, new);
 
 	if (check_permission(this->context, this->output, this->input, this->properties) < 0) {
-		pw_link_destroy(this);
+		pw_impl_link_destroy(this);
 	} else {
 		pw_global_update_permissions(this->global, client, old, new);
 	}
@@ -1010,7 +1010,7 @@ static void permissions_changed(struct pw_link *this, struct pw_port *other,
 static void output_permissions_changed(void *data,
 		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
-	struct pw_link *this = data;
+	struct pw_impl_link *this = data;
 	permissions_changed(this, this->input, client, old, new);
 }
 
@@ -1022,7 +1022,7 @@ static const struct pw_global_events output_global_events = {
 static void input_permissions_changed(void *data,
 		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
-	struct pw_link *this = data;
+	struct pw_impl_link *this = data;
 	permissions_changed(this, this->output, client, old, new);
 }
 
@@ -1032,7 +1032,7 @@ static const struct pw_global_events input_global_events = {
 };
 
 SPA_EXPORT
-struct pw_link *pw_link_new(struct pw_context *context,
+struct pw_impl_link *pw_impl_link_new(struct pw_context *context,
 			    struct pw_port *output,
 			    struct pw_port *input,
 			    struct spa_pod *format_filter,
@@ -1040,7 +1040,7 @@ struct pw_link *pw_link_new(struct pw_context *context,
 			    size_t user_data_size)
 {
 	struct impl *impl;
-	struct pw_link *this;
+	struct pw_impl_link *this;
 	struct pw_node *input_node, *output_node;
 	const char *str;
 	int res;
@@ -1052,7 +1052,7 @@ struct pw_link *pw_link_new(struct pw_context *context,
 	    input->direction != PW_DIRECTION_INPUT)
 		goto error_wrong_direction;
 
-	if (pw_link_find(output, input))
+	if (pw_impl_link_find(output, input))
 		goto error_link_exists;
 
 	if (check_permission(context, output, input, properties) < 0)
@@ -1182,10 +1182,10 @@ error_exit:
 
 static void global_destroy(void *object)
 {
-	struct pw_link *link = object;
+	struct pw_impl_link *link = object;
 	spa_hook_remove(&link->global_listener);
 	link->global = NULL;
-	pw_link_destroy(link);
+	pw_impl_link_destroy(link);
 }
 
 static const struct pw_global_events global_events = {
@@ -1194,7 +1194,7 @@ static const struct pw_global_events global_events = {
 };
 
 SPA_EXPORT
-int pw_link_register(struct pw_link *link,
+int pw_impl_link_register(struct pw_impl_link *link,
 		     struct pw_properties *properties)
 {
 	struct pw_context *context = link->context;
@@ -1244,7 +1244,7 @@ int pw_link_register(struct pw_link *link,
 	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%d", link->info.id);
 	link->info.props = &link->properties->dict;
 
-	pw_link_emit_initialized(link);
+	pw_impl_link_emit_initialized(link);
 
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 	pw_global_register(link->global);
@@ -1254,7 +1254,7 @@ int pw_link_register(struct pw_link *link,
 	if ((input_node->n_used_input_links >= input_node->idle_used_input_links ||
 	    output_node->n_used_output_links >= output_node->idle_used_output_links) &&
 	    input_node->active && output_node->active)
-		pw_link_prepare(link);
+		pw_impl_link_prepare(link);
 
 	return 0;
 
@@ -1265,14 +1265,14 @@ error_existed:
 }
 
 SPA_EXPORT
-void pw_link_destroy(struct pw_link *link)
+void pw_impl_link_destroy(struct pw_impl_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 
 	pw_log_debug(NAME" %p: destroy", impl);
-	pw_link_emit_destroy(link);
+	pw_impl_link_emit_destroy(link);
 
-	pw_link_deactivate(link);
+	pw_impl_link_deactivate(link);
 
 	if (link->registered)
 		spa_list_remove(&link->link);
@@ -1290,7 +1290,7 @@ void pw_link_destroy(struct pw_link *link)
 	}
 
 	pw_log_debug(NAME" %p: free", impl);
-	pw_link_emit_free(link);
+	pw_impl_link_emit_free(link);
 
 	pw_work_queue_destroy(impl->work);
 
@@ -1303,18 +1303,18 @@ void pw_link_destroy(struct pw_link *link)
 }
 
 SPA_EXPORT
-void pw_link_add_listener(struct pw_link *link,
+void pw_impl_link_add_listener(struct pw_impl_link *link,
 			  struct spa_hook *listener,
-			  const struct pw_link_events *events,
+			  const struct pw_impl_link_events *events,
 			  void *data)
 {
 	pw_log_debug(NAME" %p: add listener %p", link, listener);
 	spa_hook_list_append(&link->listener_list, listener, events, data);
 }
 
-struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_port)
+struct pw_impl_link *pw_impl_link_find(struct pw_port *output_port, struct pw_port *input_port)
 {
-	struct pw_link *pl;
+	struct pw_impl_link *pl;
 
 	spa_list_for_each(pl, &output_port->links, output_link) {
 		if (pl->input == input_port)
@@ -1324,37 +1324,37 @@ struct pw_link *pw_link_find(struct pw_port *output_port, struct pw_port *input_
 }
 
 SPA_EXPORT
-struct pw_context *pw_link_get_context(struct pw_link *link)
+struct pw_context *pw_impl_link_get_context(struct pw_impl_link *link)
 {
 	return link->context;
 }
 
 SPA_EXPORT
-void *pw_link_get_user_data(struct pw_link *link)
+void *pw_impl_link_get_user_data(struct pw_impl_link *link)
 {
 	return link->user_data;
 }
 
 SPA_EXPORT
-const struct pw_link_info *pw_link_get_info(struct pw_link *link)
+const struct pw_link_info *pw_impl_link_get_info(struct pw_impl_link *link)
 {
 	return &link->info;
 }
 
 SPA_EXPORT
-struct pw_global *pw_link_get_global(struct pw_link *link)
+struct pw_global *pw_impl_link_get_global(struct pw_impl_link *link)
 {
 	return link->global;
 }
 
 SPA_EXPORT
-struct pw_port *pw_link_get_output(struct pw_link *link)
+struct pw_port *pw_impl_link_get_output(struct pw_impl_link *link)
 {
 	return link->output;
 }
 
 SPA_EXPORT
-struct pw_port *pw_link_get_input(struct pw_link *link)
+struct pw_port *pw_impl_link_get_input(struct pw_impl_link *link)
 {
 	return link->input;
 }

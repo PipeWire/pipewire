@@ -22,18 +22,18 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_LINK_H
-#define PIPEWIRE_LINK_H
+#ifndef PIPEWIRE_IMPL_LINK_H
+#define PIPEWIRE_IMPL_LINK_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** \class pw_link
+/** \class pw_impl_link
  *
  * PipeWire link object.
  */
-struct pw_link;
+struct pw_impl_link;
 
 #include <pipewire/impl.h>
 
@@ -48,9 +48,9 @@ struct pw_link;
  * the nodes.
  */
 
-/** link events added with \ref pw_link_add_listener */
-struct pw_link_events {
-#define PW_VERSION_LINK_EVENTS	0
+/** link events added with \ref pw_impl_link_add_listener */
+struct pw_impl_link_events {
+#define PW_VERSION_IMPL_LINK_EVENTS	0
 	uint32_t version;
 
 	/** A link is destroyed */
@@ -75,53 +75,53 @@ struct pw_link_events {
 };
 
 
-/** Make a new link between two ports \memberof pw_link
+/** Make a new link between two ports \memberof pw_impl_link
  * \return a newly allocated link */
-struct pw_link *
-pw_link_new(struct pw_context *context,		/**< the context object */
+struct pw_impl_link *
+pw_impl_link_new(struct pw_context *context,		/**< the context object */
 	    struct pw_port *output,		/**< an output port */
 	    struct pw_port *input,		/**< an input port */
 	    struct spa_pod *format_filter,	/**< an optional format filter */
 	    struct pw_properties *properties	/**< extra properties */,
 	    size_t user_data_size		/**< extra user data size */);
 
-/** Destroy a link \memberof pw_link */
-void pw_link_destroy(struct pw_link *link);
+/** Destroy a link \memberof pw_impl_link */
+void pw_impl_link_destroy(struct pw_impl_link *link);
 
 /** Add an event listener to \a link */
-void pw_link_add_listener(struct pw_link *link,
+void pw_impl_link_add_listener(struct pw_impl_link *link,
 			  struct spa_hook *listener,
-			  const struct pw_link_events *events,
+			  const struct pw_impl_link_events *events,
 			  void *data);
 
 /** Finish link configuration and register */
-int pw_link_register(struct pw_link *link,		/**< the link to register */
+int pw_impl_link_register(struct pw_impl_link *link,		/**< the link to register */
 		     struct pw_properties *properties	/**< extra properties */);
 
 /** Get the context of a link */
-struct pw_context *pw_link_get_context(struct pw_link *link);
+struct pw_context *pw_impl_link_get_context(struct pw_impl_link *link);
 
 /** Get the user_data of a link, the size of the memory is given when
   * constructing the link */
-void *pw_link_get_user_data(struct pw_link *link);
+void *pw_impl_link_get_user_data(struct pw_impl_link *link);
 
 /** Get the link info */
-const struct pw_link_info *pw_link_get_info(struct pw_link *link);
+const struct pw_link_info *pw_impl_link_get_info(struct pw_impl_link *link);
 
 /** Get the global of the link */
-struct pw_global *pw_link_get_global(struct pw_link *link);
+struct pw_global *pw_impl_link_get_global(struct pw_impl_link *link);
 
 /** Get the output port of the link */
-struct pw_port *pw_link_get_output(struct pw_link *link);
+struct pw_port *pw_impl_link_get_output(struct pw_impl_link *link);
 
 /** Get the input port of the link */
-struct pw_port *pw_link_get_input(struct pw_link *link);
+struct pw_port *pw_impl_link_get_input(struct pw_impl_link *link);
 
-/** Find the link between 2 ports \memberof pw_link */
-struct pw_link *pw_link_find(struct pw_port *output, struct pw_port *input);
+/** Find the link between 2 ports \memberof pw_impl_link */
+struct pw_impl_link *pw_impl_link_find(struct pw_port *output, struct pw_port *input);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* PIPEWIRE_LINK_H */
+#endif /* PIPEWIRE_IMPL_LINK_H */

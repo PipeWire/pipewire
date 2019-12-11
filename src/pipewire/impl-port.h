@@ -42,7 +42,7 @@ extern "C" {
  * The port object
  */
 struct pw_port;
-struct pw_link;
+struct pw_impl_link;
 struct pw_control;
 
 #include <pipewire/impl.h>
@@ -73,10 +73,10 @@ struct pw_port_events {
 	void (*info_changed) (void *data, const struct pw_port_info *info);
 
 	/** a new link is added on this port */
-	void (*link_added) (void *data, struct pw_link *link);
+	void (*link_added) (void *data, struct pw_impl_link *link);
 
 	/** a link is removed from this port */
-	void (*link_removed) (void *data, struct pw_link *link);
+	void (*link_removed) (void *data, struct pw_impl_link *link);
 
 	/** the state of the port changed */
 	void (*state_changed) (void *data, enum pw_port_state old,

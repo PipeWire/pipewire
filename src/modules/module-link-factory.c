@@ -59,7 +59,7 @@ struct factory_data {
 struct link_data {
 	struct factory_data *data;
 	struct spa_list l;
-	struct pw_link *link;
+	struct pw_impl_link *link;
 	struct spa_hook link_listener;
 
 	struct pw_resource *resource;
@@ -115,7 +115,7 @@ static void link_initialized(void *data)
 	struct pw_impl_client *client = pw_resource_get_client(ld->factory_resource);
 	int res;
 
-	ld->global = pw_link_get_global(ld->link);
+	ld->global = pw_impl_link_get_global(ld->link);
 	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
 
 	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK_PROXY, ld->new_id);
@@ -136,8 +136,8 @@ error_bind:
 	pw_resource_errorf(ld->factory_resource, res, "can't bind link: %s", spa_strerror(res));
 }
 
-static const struct pw_link_events link_events = {
-	PW_VERSION_LINK_EVENTS,
+static const struct pw_impl_link_events link_events = {
+	PW_VERSION_IMPL_LINK_EVENTS,
 	.destroy = link_destroy,
 	.initialized = link_initialized
 };
@@ -183,7 +183,7 @@ static void *create_object(void *_data,
 	struct pw_port *outport, *inport;
 	struct pw_context *context;
 	struct pw_global *global;
-	struct pw_link *link;
+	struct pw_impl_link *link;
 	uint32_t output_node_id, input_node_id;
 	uint32_t output_port_id, input_port_id;
 	struct link_data *ld;
@@ -258,14 +258,14 @@ static void *create_object(void *_data,
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
 
 
-	link = pw_link_new(context, outport, inport, NULL, properties, sizeof(struct link_data));
+	link = pw_impl_link_new(context, outport, inport, NULL, properties, sizeof(struct link_data));
 	properties = NULL;
 	if (link == NULL) {
 		res = -errno;
 		goto error_create_link;
 	}
 
-	ld = pw_link_get_user_data(link);
+	ld = pw_impl_link_get_user_data(link);
 	ld->data = d;
 	ld->factory_resource = resource;
 	ld->link = link;
@@ -273,8 +273,8 @@ static void *create_object(void *_data,
 	ld->linger = linger;
 	spa_list_append(&d->link_list, &ld->l);
 
-	pw_link_add_listener(link, &ld->link_listener, &link_events, ld);
-	if ((res = pw_link_register(link, NULL)) < 0)
+	pw_impl_link_add_listener(link, &ld->link_listener, &link_events, ld);
+	if ((res = pw_impl_link_register(link, NULL)) < 0)
 		goto error_link_register;
 
 	return link;
@@ -332,7 +332,7 @@ static void module_destroy(void *data)
 	spa_hook_remove(&d->module_listener);
 
 	spa_list_for_each_safe(ld, t, &d->link_list, l)
-		pw_link_destroy(ld->link);
+		pw_impl_link_destroy(ld->link);
 
 	pw_impl_factory_destroy(d->this);
 }

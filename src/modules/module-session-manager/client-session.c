@@ -255,7 +255,7 @@ int client_session_factory_init(struct pw_impl_module *module)
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_impl_factory_new(context,
+	factory = pw_context_create_factory(context,
 				 "client-session",
 				 PW_TYPE_INTERFACE_ClientSession,
 				 PW_VERSION_CLIENT_SESSION,

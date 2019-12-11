@@ -239,7 +239,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_impl_factory_new(context,
+	factory = pw_context_create_factory(context,
 				 "spa-node-factory",
 				 PW_TYPE_INTERFACE_Node,
 				 PW_VERSION_NODE,

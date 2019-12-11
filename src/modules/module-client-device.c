@@ -164,7 +164,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
-	factory = pw_impl_factory_new(context,
+	factory = pw_context_create_factory(context,
 				 "client-device",
 				 SPA_TYPE_INTERFACE_Device,
 				 SPA_VERSION_DEVICE,

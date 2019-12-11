@@ -154,7 +154,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((res = pw_protocol_native_ext_metadata_init(context)) < 0)
 		return res;
 
-	factory = pw_impl_factory_new(context,
+	factory = pw_context_create_factory(context,
 				 "metadata",
 				 PW_TYPE_INTERFACE_Metadata,
 				 PW_VERSION_METADATA,

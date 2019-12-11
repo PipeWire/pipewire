@@ -38,7 +38,7 @@ struct resource_data {
 };
 
 SPA_EXPORT
-struct pw_impl_factory *pw_impl_factory_new(struct pw_context *context,
+struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 				  const char *name,
 				  uint32_t type,
 				  uint32_t version,

@@ -63,7 +63,7 @@ static void * registry_bind(void *object, uint32_t id,
 		uint32_t type, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_context *context = resource->context;
 	struct pw_global *global;
 	uint32_t permissions, new_id = user_data_size;
@@ -107,7 +107,7 @@ error_exit_clean:
 static int registry_destroy(void *object, uint32_t id)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_context *context = resource->context;
 	struct pw_global *global;
 	uint32_t permissions;
@@ -161,7 +161,7 @@ static const struct pw_resource_events resource_events = {
 static int destroy_resource(void *object, void *data)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 
 	if (resource &&
 	    resource != client->core_resource) {
@@ -173,7 +173,7 @@ static int destroy_resource(void *object, void *data)
 static int core_hello(void *object, uint32_t version)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_context *this = resource->context;
 	int res;
 
@@ -202,12 +202,12 @@ static int core_sync(void *object, uint32_t id, int seq)
 static int core_pong(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_resource *r;
 
 	pw_log_debug(NAME" %p: pong %d for resource %d", resource->context, seq, id);
 
-	if ((r = pw_client_find_resource(client, id)) == NULL)
+	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
 
 	pw_resource_emit_pong(r, seq);
@@ -217,12 +217,12 @@ static int core_pong(void *object, uint32_t id, int seq)
 static int core_error(void *object, uint32_t id, int seq, int res, const char *message)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_resource *r;
 
 	pw_log_debug(NAME" %p: error %d for resource %d: %s", resource->context, res, id, message);
 
-	if ((r = pw_client_find_resource(client, id)) == NULL)
+	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
 
 	pw_resource_emit_error(r, seq, res, message);
@@ -232,7 +232,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 static struct pw_registry * core_get_registry(void *object, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_context *this = resource->context;
 	struct pw_global *global;
 	struct pw_resource *registry_resource;
@@ -297,7 +297,7 @@ core_create_object(void *object,
 		   size_t user_data_size)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_factory *factory;
 	void *obj;
 	struct pw_properties *properties;
@@ -361,7 +361,7 @@ error_exit:
 static int core_destroy(void *object, void *proxy)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct pw_resource *r = proxy;
 	pw_log_debug(NAME" %p: destroy resource %p from client %p", resource->context, r, client);
 	pw_resource_destroy(r);
@@ -394,7 +394,7 @@ static const struct pw_resource_events core_resource_events = {
 
 static int
 global_bind(void *_data,
-	    struct pw_client *client,
+	    struct pw_impl_client *client,
 	    uint32_t permissions,
 	    uint32_t version,
 	    uint32_t id)

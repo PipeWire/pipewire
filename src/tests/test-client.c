@@ -33,7 +33,7 @@ do {				\
 
 static void test_abi(void)
 {
-	struct pw_client_events ev;
+	struct pw_impl_client_events ev;
 	struct {
 		uint32_t version;
 		void (*destroy) (void *data);
@@ -43,7 +43,7 @@ static void test_abi(void)
 		void (*resource_added) (void *data, struct pw_resource *resource);
 		void (*resource_removed) (void *data, struct pw_resource *resource);
 		void (*busy_changed) (void *data, bool busy);
-	} test = { PW_VERSION_CLIENT_EVENTS, NULL };
+	} test = { PW_VERSION_IMPL_CLIENT_EVENTS, NULL };
 
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, free);
@@ -53,7 +53,7 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, resource_removed);
 	TEST_FUNC(ev, test, busy_changed);
 
-	spa_assert(PW_VERSION_CLIENT_EVENTS == 0);
+	spa_assert(PW_VERSION_IMPL_CLIENT_EVENTS == 0);
 	spa_assert(sizeof(ev) == sizeof(test));
 }
 

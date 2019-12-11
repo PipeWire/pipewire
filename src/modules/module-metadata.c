@@ -69,7 +69,7 @@ static void *create_object(void *_data,
 {
 	void *result;
 	struct pw_resource *metadata_resource;
-	struct pw_client *client = pw_resource_get_client(resource);
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	int res;
 
 	metadata_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
@@ -79,7 +79,7 @@ static void *create_object(void *_data,
 	}
 
 	pw_log_debug(".");
-	result = pw_metadata_new(pw_client_get_context(client), metadata_resource, properties);
+	result = pw_metadata_new(pw_impl_client_get_context(client), metadata_resource, properties);
 	if (result == NULL) {
 		res = -errno;
 		goto error_node;

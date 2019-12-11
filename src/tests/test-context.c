@@ -39,7 +39,7 @@ static void test_abi(void)
 		void (*destroy) (void *data);
 		void (*free) (void *data);
 		void (*info_changed) (void *data, const struct pw_core_info *info);
-		void (*check_access) (void *data, struct pw_client *client);
+		void (*check_access) (void *data, struct pw_impl_client *client);
 		void (*global_added) (void *data, struct pw_global *global);
 		void (*global_removed) (void *data, struct pw_global *global);
 	} test = { PW_VERSION_CONTEXT_EVENTS, NULL };
@@ -67,7 +67,7 @@ static void context_info_changed_error(void *data, const struct pw_core_info *in
 {
 	spa_assert_not_reached();
 }
-static void context_check_access_error(void *data, struct pw_client *client)
+static void context_check_access_error(void *data, struct pw_impl_client *client)
 {
 	spa_assert_not_reached();
 }

@@ -69,7 +69,7 @@ static void *create_object(void *_data,
 	struct pw_factory *this = data->this;
 	void *result;
 	struct pw_resource *device_resource;
-	struct pw_client *client = pw_resource_get_client(resource);
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	int res;
 
 	device_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
@@ -88,7 +88,7 @@ static void *create_object(void *_data,
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_global_get_id(pw_factory_get_global(this)));
 	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
-			pw_global_get_id(pw_client_get_global(client)));
+			pw_global_get_id(pw_impl_client_get_global(client)));
 
 	result = pw_client_device_new(device_resource, properties);
 	if (result == NULL) {

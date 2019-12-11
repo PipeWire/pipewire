@@ -101,7 +101,7 @@ static void node_free(void *data)
 static void node_initialized(void *data)
 {
 	struct node_data *nd = data;
-	struct pw_client *client;
+	struct pw_impl_client *client;
 	struct pw_resource *bound_resource;
 	struct pw_global *global;
 	int res;
@@ -117,7 +117,7 @@ static void node_initialized(void *data)
 	if (res < 0)
 		goto error_bind;
 
-	if ((bound_resource = pw_client_find_resource(client, nd->new_id)) == NULL)
+	if ((bound_resource = pw_impl_client_find_resource(client, nd->new_id)) == NULL)
 		goto error_bind;
 
 	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
@@ -144,7 +144,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *d = _data;
-	struct pw_client *client;
+	struct pw_impl_client *client;
 	struct pw_node *adapter, *slave;
 	const char *str, *factory_name;
 	int res;

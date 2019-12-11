@@ -44,7 +44,7 @@ struct impl {
 
 /** \endcond */
 SPA_EXPORT
-uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client)
+uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_client *client)
 {
 	if (client->permission_func == NULL)
 		return PW_PERM_RWX;
@@ -244,7 +244,7 @@ void pw_global_add_listener(struct pw_global *global,
  * \memberof pw_global
  */
 SPA_EXPORT int
-pw_global_bind(struct pw_global *global, struct pw_client *client, uint32_t permissions,
+pw_global_bind(struct pw_global *global, struct pw_impl_client *client, uint32_t permissions,
               uint32_t version, uint32_t id)
 {
 	int res;
@@ -281,7 +281,7 @@ error_exit:
 }
 
 SPA_EXPORT
-int pw_global_update_permissions(struct pw_global *global, struct pw_client *client,
+int pw_global_update_permissions(struct pw_global *global, struct pw_impl_client *client,
 		uint32_t old_permissions, uint32_t new_permissions)
 {
 	struct pw_context *context = global->context;

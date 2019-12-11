@@ -87,7 +87,7 @@ static void *create_object(void *_data,
 	struct pw_device *device;
 	const char *factory_name;
 	struct device_data *nd;
-	struct pw_client *client;
+	struct pw_impl_client *client;
 	int res;
 
 	if (properties == NULL)
@@ -104,7 +104,7 @@ static void *create_object(void *_data,
 
 	if (client) {
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
-			pw_global_get_id(pw_client_get_global(client)));
+			pw_global_get_id(pw_impl_client_get_global(client)));
 	}
 
 	device = pw_spa_device_load(context,

@@ -284,7 +284,7 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 	if (seq == d->end) {
 		spa_hook_remove(&d->listener);
 		d->end = -1;
-		pw_client_set_busy(d->resource->client, false);
+		pw_impl_client_set_busy(d->resource->client, false);
 	}
 	if (seq == d->seq)
 		result_device_params(&d->data, seq, res, type, result);
@@ -297,7 +297,7 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_device *device = data->device;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	int res;
 	static const struct spa_device_events device_events = {
 		SPA_VERSION_DEVICE_EVENTS,
@@ -311,7 +311,7 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 		pw_core_resource_error(client->core_resource,
 				resource->id, seq, res, spa_strerror(res));
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
-		pw_client_set_busy(client, true);
+		pw_impl_client_set_busy(client, true);
 		data->data.data = data;
 		data->data.callback = reply_param;
 		if (data->end == -1)
@@ -344,7 +344,7 @@ static const struct pw_device_proxy_methods device_methods = {
 };
 
 static int
-global_bind(void *_data, struct pw_client *client, uint32_t permissions,
+global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
 {
 	struct pw_device *this = _data;

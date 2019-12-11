@@ -119,7 +119,7 @@ struct node {
 	struct spa_callbacks callbacks;
 
 	struct pw_resource *resource;
-	struct pw_client *client;
+	struct pw_impl_client *client;
 
 	struct spa_source data_source;
 	int writefd;
@@ -1200,7 +1200,7 @@ void pw_client_node_registered(struct pw_client_node *this, struct pw_global *gl
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_node *node = this->node;
-	struct pw_client *client = impl->node.client;
+	struct pw_impl_client *client = impl->node.client;
 	uint32_t node_id = global->id;
 	struct pw_memblock *m;
 
@@ -1618,8 +1618,8 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 {
 	struct impl *impl;
 	struct pw_client_node *this;
-	struct pw_client *client = pw_resource_get_client(resource);
-	struct pw_context *context = pw_client_get_context(client);
+	struct pw_impl_client *client = pw_resource_get_client(resource);
+	struct pw_context *context = pw_impl_client_get_context(client);
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res;

@@ -50,7 +50,7 @@ struct impl {
 	struct spa_hook module_listener;
 };
 
-static int check_cmdline(struct pw_client *client, int pid, const char *str)
+static int check_cmdline(struct pw_impl_client *client, int pid, const char *str)
 {
 	char path[2048];
 	int fd;
@@ -75,7 +75,7 @@ static int check_cmdline(struct pw_client *client, int pid, const char *str)
 	return 0;
 }
 
-static int check_flatpak(struct pw_client *client, int pid)
+static int check_flatpak(struct pw_impl_client *client, int pid)
 {
 	char root_path[2048];
 	int root_fd, info_fd, res;
@@ -112,7 +112,7 @@ static int check_flatpak(struct pw_client *client, int pid)
 }
 
 static void
-context_check_access(void *data, struct pw_client *client)
+context_check_access(void *data, struct pw_impl_client *client)
 {
 	struct impl *impl = data;
 	struct pw_permission permissions[1];
@@ -122,7 +122,7 @@ context_check_access(void *data, struct pw_client *client)
 	int pid, res;
 
 	pid = -EINVAL;
-	if ((props = pw_client_get_properties(client)) != NULL) {
+	if ((props = pw_impl_client_get_properties(client)) != NULL) {
 		if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) != NULL)
 			pid = atoi(str);
 	}
@@ -175,18 +175,18 @@ context_check_access(void *data, struct pw_client *client)
 granted:
 	pw_log_debug("module %p: client %p access granted", impl, client);
 	permissions[0] = PW_PERMISSION_INIT(-1, PW_PERM_RWX);
-	pw_client_update_permissions(client, 1, permissions);
+	pw_impl_client_update_permissions(client, 1, permissions);
 	return;
 
 wait_permissions:
 	pw_log_debug("module %p: client %p wait for permissions", impl, client);
-	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
-	pw_client_set_busy(client, true);
+	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
+	pw_impl_client_set_busy(client, true);
 	return;
 
 blacklisted:
-	pw_resource_error(pw_client_get_core_resource(client), res, "blacklisted");
-	pw_client_update_properties(client, &SPA_DICT_INIT(items, 1));
+	pw_resource_error(pw_impl_client_get_core_resource(client), res, "blacklisted");
+	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	return;
 }
 

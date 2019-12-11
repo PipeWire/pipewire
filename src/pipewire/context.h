@@ -43,7 +43,7 @@ extern "C" {
 struct pw_context;
 
 struct pw_global;
-struct pw_client;
+struct pw_impl_client;
 
 #include <pipewire/introspect.h>
 #include <pipewire/interfaces.h>
@@ -90,7 +90,7 @@ struct pw_context_events {
 	/** The context info changed,  use \ref pw_context_get_info() to get the updated info */
 	void (*info_changed) (void *data, const struct pw_core_info *info);
 	/** a new client object is added */
-	void (*check_access) (void *data, struct pw_client *client);
+	void (*check_access) (void *data, struct pw_impl_client *client);
 	/** a new global object was added */
 	void (*global_added) (void *data, struct pw_global *global);
 	/** a global object was removed */

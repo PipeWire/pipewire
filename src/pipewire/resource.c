@@ -41,7 +41,7 @@ struct impl {
 /** \endcond */
 
 SPA_EXPORT
-struct pw_resource *pw_resource_new(struct pw_client *client,
+struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 				    uint32_t id,
 				    uint32_t permissions,
 				    uint32_t type,
@@ -96,7 +96,7 @@ struct pw_resource *pw_resource_new(struct pw_client *client,
 			spa_debug_type_find_name(pw_type_info(), type), version,
 			client, this->marshal);
 
-	pw_client_emit_resource_added(client, this);
+	pw_impl_client_emit_resource_added(client, this);
 
 	return this;
 
@@ -109,7 +109,7 @@ error_clean:
 SPA_EXPORT
 int pw_resource_install_marshal(struct pw_resource *this, bool implementor)
 {
-	struct pw_client *client = this->client;
+	struct pw_impl_client *client = this->client;
 	const struct pw_protocol_marshal *marshal;
 
 	marshal = pw_protocol_get_marshal(client->protocol,
@@ -127,7 +127,7 @@ int pw_resource_install_marshal(struct pw_resource *this, bool implementor)
 }
 
 SPA_EXPORT
-struct pw_client *pw_resource_get_client(struct pw_resource *resource)
+struct pw_impl_client *pw_resource_get_client(struct pw_resource *resource)
 {
 	return resource->client;
 }
@@ -198,7 +198,7 @@ SPA_EXPORT
 int pw_resource_ping(struct pw_resource *resource, int seq)
 {
 	int res = -EIO;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 
 	if (client->core_resource != NULL) {
 		pw_core_resource_ping(client->core_resource, resource->id, seq);
@@ -211,7 +211,7 @@ int pw_resource_ping(struct pw_resource *resource, int seq)
 SPA_EXPORT
 int pw_resource_set_bound_id(struct pw_resource *resource, uint32_t global_id)
 {
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 
 	resource->bound_id = global_id;
 	if (client->core_resource != NULL) {
@@ -231,7 +231,7 @@ SPA_EXPORT
 void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...)
 {
 	va_list ap;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 
 	va_start(ap, error);
 	if (client->core_resource != NULL)
@@ -243,7 +243,7 @@ void pw_resource_errorf(struct pw_resource *resource, int res, const char *error
 SPA_EXPORT
 void pw_resource_error(struct pw_resource *resource, int res, const char *error)
 {
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	if (client->core_resource != NULL)
 		pw_core_resource_error(client->core_resource,
 				resource->id, client->recv_seq, res, error);
@@ -252,13 +252,13 @@ void pw_resource_error(struct pw_resource *resource, int res, const char *error)
 SPA_EXPORT
 void pw_resource_destroy(struct pw_resource *resource)
 {
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 
 	pw_log_debug(NAME" %p: destroy %u", resource, resource->id);
 	pw_resource_emit_destroy(resource);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
-	pw_client_emit_resource_removed(client, resource);
+	pw_impl_client_emit_resource_removed(client, resource);
 
 	if (client->core_resource && !resource->removed)
 		pw_core_resource_remove_id(client->core_resource, resource->id);

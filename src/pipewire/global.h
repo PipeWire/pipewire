@@ -56,7 +56,7 @@ struct pw_global;
 #include <pipewire/impl.h>
 
 typedef int (*pw_global_bind_func_t) (void *object,
-		      struct pw_client *client,	/**< client that binds */
+		      struct pw_impl_client *client,	/**< client that binds */
 		      uint32_t permissions,	/**< permissions for the bind */
 		      uint32_t version,		/**< client interface version */
 		      uint32_t id		/**< client proxy id */);
@@ -72,7 +72,7 @@ struct pw_global_events {
 	void (*free) (void *data);
 	/** The permissions changed for a client */
 	void (*permissions_changed) (void *data,
-			struct pw_client *client,
+			struct pw_impl_client *client,
 			uint32_t old_permissions,
 			uint32_t new_permissions);
 };
@@ -96,7 +96,7 @@ void pw_global_add_listener(struct pw_global *global,
 			    void *data);
 
 /** Get the permissions of the global for a given client */
-uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_client *client);
+uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_client *client);
 
 /** Get the context object of this global */
 struct pw_context *pw_global_get_context(struct pw_global *global);
@@ -119,12 +119,12 @@ uint32_t pw_global_get_id(struct pw_global *global);
 
 /** Let a client bind to a global */
 int pw_global_bind(struct pw_global *global,
-		   struct pw_client *client,
+		   struct pw_impl_client *client,
 		   uint32_t permissions,
 		   uint32_t version,
 		   uint32_t id);
 
-int pw_global_update_permissions(struct pw_global *global, struct pw_client *client,
+int pw_global_update_permissions(struct pw_global *global, struct pw_impl_client *client,
 		uint32_t old_permissions, uint32_t new_permissions);
 
 /** Destroy a global */

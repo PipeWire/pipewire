@@ -630,7 +630,7 @@ static int core_method_demarshal_create_object(void *object, const struct pw_pro
 static int core_method_demarshal_destroy(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = pw_resource_get_client(resource);
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct pw_resource *r;
 	struct spa_pod_parser prs;
 	uint32_t id;
@@ -642,7 +642,7 @@ static int core_method_demarshal_destroy(void *object, const struct pw_protocol_
 
 	pw_log_debug("client %p: destroy resource %u", client, id);
 
-	if ((r = pw_client_find_resource(client, id)) == NULL)
+	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
 		goto no_resource;
 
 	return pw_resource_notify(resource, struct pw_core_methods, destroy, 0, r);

@@ -255,7 +255,7 @@ static const struct pw_resource_events resource_events = {
 	.destroy = endpoint_link_unbind,
 };
 
-static int endpoint_link_bind(void *_data, struct pw_client *client,
+static int endpoint_link_bind(void *_data, struct pw_impl_client *client,
 			uint32_t permissions, uint32_t version, uint32_t id)
 {
 	struct endpoint_link *this = _data;

@@ -720,7 +720,7 @@ static const struct pw_port_proxy_methods port_methods = {
 };
 
 static int
-global_bind(void *_data, struct pw_client *client, uint32_t permissions,
+global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
 	struct pw_port *this = _data;

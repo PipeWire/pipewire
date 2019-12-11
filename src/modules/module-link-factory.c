@@ -112,7 +112,7 @@ static void link_destroy(void *data)
 static void link_initialized(void *data)
 {
 	struct link_data *ld = data;
-	struct pw_client *client = pw_resource_get_client(ld->factory_resource);
+	struct pw_impl_client *client = pw_resource_get_client(ld->factory_resource);
 	int res;
 
 	ld->global = pw_link_get_global(ld->link);
@@ -123,7 +123,7 @@ static void link_initialized(void *data)
 		goto error_bind;
 
 	if (!ld->linger) {
-		ld->resource = pw_client_find_resource(client, ld->new_id);
+		ld->resource = pw_impl_client_find_resource(client, ld->new_id);
 		if (ld->resource == NULL) {
 			res = -ENOENT;
 			goto error_bind;
@@ -178,7 +178,7 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *d = _data;
-	struct pw_client *client = NULL;
+	struct pw_impl_client *client = NULL;
 	struct pw_node *output_node, *input_node;
 	struct pw_port *outport, *inport;
 	struct pw_context *context;
@@ -192,7 +192,7 @@ static void *create_object(void *_data,
 	bool linger;
 
 	client = pw_resource_get_client(resource);
-	context = pw_client_get_context(client);
+	context = pw_impl_client_get_context(client);
 
 	if (properties == NULL)
 		goto error_properties;

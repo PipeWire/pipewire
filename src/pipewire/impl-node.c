@@ -379,7 +379,7 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	int res;
 
 	pw_log_debug(NAME" %p: resource %p enum params %d %s %u %u",
@@ -425,7 +425,7 @@ static void result_node_sync(void *data, int seq, int res, uint32_t type, const 
 	if (seq == d->end) {
 		spa_hook_remove(&d->listener);
 		d->end = -1;
-		pw_client_set_busy(d->resource->client, false);
+		pw_impl_client_set_busy(d->resource->client, false);
 	}
 }
 
@@ -435,7 +435,7 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_node *node = data->node;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	int res;
 	static const struct spa_node_events node_events = {
 		SPA_VERSION_NODE_EVENTS,
@@ -452,7 +452,7 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 				resource, resource->id, res, spa_strerror(res));
 		pw_resource_error(resource, res, spa_strerror(res));
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
-		pw_client_set_busy(client, true);
+		pw_impl_client_set_busy(client, true);
 		if (data->end == -1)
 			spa_node_add_listener(node->node, &data->listener,
 				&node_events, data);
@@ -488,7 +488,7 @@ static const struct pw_node_proxy_methods node_methods = {
 };
 
 static int
-global_bind(void *_data, struct pw_client *client, uint32_t permissions,
+global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	    uint32_t version, uint32_t id)
 {
 	struct pw_node *this = _data;

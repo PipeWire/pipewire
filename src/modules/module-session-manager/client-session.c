@@ -167,8 +167,8 @@ static void *create_object(void *data,
 	struct factory_data *d = data;
 	struct pw_factory *factory = d->factory;
 	struct client_session *this;
-	struct pw_client *owner = pw_resource_get_client(owner_resource);
-	struct pw_context *context = pw_client_get_context(owner);
+	struct pw_impl_client *owner = pw_resource_get_client(owner_resource);
+	struct pw_context *context = pw_impl_client_get_context(owner);
 
 	this = calloc(1, sizeof(struct client_session));
 	if (this == NULL)

@@ -366,11 +366,11 @@ impl_node_sync(void *object, int seq)
 	return this->init_pending;
 }
 
-extern uint32_t pw_protocol_native0_type_from_v2(struct pw_client *client, uint32_t type);
-extern uint32_t pw_protocol_native0_type_to_v2(struct pw_client *client, uint32_t type);
+extern uint32_t pw_protocol_native0_type_from_v2(struct pw_impl_client *client, uint32_t type);
+extern uint32_t pw_protocol_native0_type_to_v2(struct pw_impl_client *client, uint32_t type);
 
-extern struct spa_pod *pw_protocol_native0_pod_from_v2(struct pw_client *client, const struct spa_pod *pod);
-extern int pw_protocol_native0_pod_to_v2(struct pw_client *client, const struct spa_pod *pod,
+extern struct spa_pod *pw_protocol_native0_pod_from_v2(struct pw_impl_client *client, const struct spa_pod *pod);
+extern int pw_protocol_native0_pod_to_v2(struct pw_impl_client *client, const struct spa_pod *pod,
 		struct spa_pod_builder *b);
 
 static void
@@ -1255,8 +1255,8 @@ struct pw_client_node0 *pw_client_node0_new(struct pw_resource *resource,
 {
 	struct impl *impl;
 	struct pw_client_node0 *this;
-	struct pw_client *client = pw_resource_get_client(resource);
-	struct pw_context *context = pw_client_get_context(client);
+	struct pw_impl_client *client = pw_resource_get_client(resource);
+	struct pw_context *context = pw_impl_client_get_context(client);
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *name;

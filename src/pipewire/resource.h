@@ -35,7 +35,7 @@ extern "C" {
  *
  * \section sec_page_resource Overview
  *
- * Resources represent objects owned by a \ref pw_client. They are
+ * Resources represent objects owned by a \ref pw_impl_client. They are
  * the result of binding to a global resource or by calling API that
  * creates client owned objects.
  *
@@ -77,7 +77,7 @@ struct pw_resource_events {
 
 /** Make a new resource for client */
 struct pw_resource *
-pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
+pw_resource_new(struct pw_impl_client *client,	/**< the client owning the resource */
 		uint32_t id,			/**< the remote per client id */
 		uint32_t permissions,		/**< permissions on this resource */
 		uint32_t type,			/**< interface of the resource */
@@ -88,7 +88,7 @@ pw_resource_new(struct pw_client *client,	/**< the client owning the resource */
 void pw_resource_destroy(struct pw_resource *resource);
 
 /** Get the client owning this resource */
-struct pw_client *pw_resource_get_client(struct pw_resource *resource);
+struct pw_impl_client *pw_resource_get_client(struct pw_resource *resource);
 
 /** Get the unique id of this resource */
 uint32_t pw_resource_get_id(struct pw_resource *resource);

@@ -106,7 +106,7 @@ static void *create_object(void *_data,
 	const char *factory_name;
 	struct node_data *nd;
 	int res;
-	struct pw_client *client;
+	struct pw_impl_client *client;
 
 	if (properties == NULL)
 		goto error_properties;
@@ -122,7 +122,7 @@ static void *create_object(void *_data,
 
 	if (client) {
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
-			pw_global_get_id(pw_client_get_global(client)));
+			pw_global_get_id(pw_impl_client_get_global(client)));
 	}
 
 	node = pw_spa_node_load(context,
@@ -150,7 +150,7 @@ static void *create_object(void *_data,
 		if (res < 0)
 			goto error_bind;
 
-		if ((bound_resource = pw_client_find_resource(client, new_id)) == NULL)
+		if ((bound_resource = pw_impl_client_find_resource(client, new_id)) == NULL)
 			goto error_bind;
 
 		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);

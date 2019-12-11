@@ -801,7 +801,7 @@ static const struct pw_resource_events resource_events = {
 };
 
 static int
-global_bind(void *_data, struct pw_client *client, uint32_t permissions,
+global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
 	struct pw_link *this = _data;
@@ -991,7 +991,7 @@ check_permission(struct pw_context *context,
 }
 
 static void permissions_changed(struct pw_link *this, struct pw_port *other,
-		struct pw_client *client, uint32_t old, uint32_t new)
+		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
 	uint32_t perm;
 
@@ -1008,7 +1008,7 @@ static void permissions_changed(struct pw_link *this, struct pw_port *other,
 }
 
 static void output_permissions_changed(void *data,
-		struct pw_client *client, uint32_t old, uint32_t new)
+		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
 	struct pw_link *this = data;
 	permissions_changed(this, this->input, client, old, new);
@@ -1020,7 +1020,7 @@ static const struct pw_global_events output_global_events = {
 };
 
 static void input_permissions_changed(void *data,
-		struct pw_client *client, uint32_t old, uint32_t new)
+		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
 	struct pw_link *this = data;
 	permissions_changed(this, this->output, client, old, new);

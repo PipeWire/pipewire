@@ -35,10 +35,10 @@
 
 #define PW_PROTOCOL_NATIVE_FLAG_REMAP        (1<<0)
 
-extern uint32_t pw_protocol_native0_find_type(struct pw_client *client, const char *type);
-extern int pw_protocol_native0_pod_to_v2(struct pw_client *client, const struct spa_pod *pod,
+extern uint32_t pw_protocol_native0_find_type(struct pw_impl_client *client, const char *type);
+extern int pw_protocol_native0_pod_to_v2(struct pw_impl_client *client, const struct spa_pod *pod,
 		struct spa_pod_builder *b);
-extern uint32_t pw_protocol_native0_type_to_v2(struct pw_client *client,
+extern uint32_t pw_protocol_native0_type_to_v2(struct pw_impl_client *client,
 		const struct spa_type_info *info, uint32_t type);
 
 static void
@@ -130,7 +130,7 @@ static void
 client_node_marshal_command(void *object, uint32_t seq, const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
@@ -188,7 +188,7 @@ client_node_marshal_port_set_param(void *object,
 				   const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	const char *typename;
@@ -227,7 +227,7 @@ client_node_marshal_port_use_buffers(void *object,
 				     uint32_t n_buffers, struct pw_client_node0_buffer *buffers)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, j;
@@ -280,7 +280,7 @@ client_node_marshal_port_command(void *object,
 				 const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 

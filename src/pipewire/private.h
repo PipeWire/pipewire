@@ -77,25 +77,25 @@ struct pw_protocol {
 /** the permission function. It returns the allowed access permissions for \a global
   * for \a client */
 typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
-					  struct pw_client *client, void *data);
+					  struct pw_impl_client *client, void *data);
 
-#define pw_client_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_client_events, m, v, ##__VA_ARGS__)
+#define pw_impl_client_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_client_events, m, v, ##__VA_ARGS__)
 
-#define pw_client_emit_destroy(o)		pw_client_emit(o, destroy, 0)
-#define pw_client_emit_free(o)			pw_client_emit(o, free, 0)
-#define pw_client_emit_initialized(o)		pw_client_emit(o, initialized, 0)
-#define pw_client_emit_info_changed(o,i)	pw_client_emit(o, info_changed, 0, i)
-#define pw_client_emit_resource_added(o,r)	pw_client_emit(o, resource_added, 0, r)
-#define pw_client_emit_resource_impl(o,r)	pw_client_emit(o, resource_impl, 0, r)
-#define pw_client_emit_resource_removed(o,r)	pw_client_emit(o, resource_removed, 0, r)
-#define pw_client_emit_busy_changed(o,b)	pw_client_emit(o, busy_changed, 0, b)
+#define pw_impl_client_emit_destroy(o)			pw_impl_client_emit(o, destroy, 0)
+#define pw_impl_client_emit_free(o)			pw_impl_client_emit(o, free, 0)
+#define pw_impl_client_emit_initialized(o)		pw_impl_client_emit(o, initialized, 0)
+#define pw_impl_client_emit_info_changed(o,i)		pw_impl_client_emit(o, info_changed, 0, i)
+#define pw_impl_client_emit_resource_added(o,r)		pw_impl_client_emit(o, resource_added, 0, r)
+#define pw_impl_client_emit_resource_impl(o,r)		pw_impl_client_emit(o, resource_impl, 0, r)
+#define pw_impl_client_emit_resource_removed(o,r)	pw_impl_client_emit(o, resource_removed, 0, r)
+#define pw_impl_client_emit_busy_changed(o,b)		pw_impl_client_emit(o, busy_changed, 0, b)
 
 struct protocol_compat_v2 {
 	/* v2 typemap */
 	struct pw_map types;
 };
 
-struct pw_client {
+struct pw_impl_client {
 	struct pw_context *context;		/**< context object */
 	struct spa_list link;		/**< link in context object client list */
 	struct pw_global *global;	/**< global object created for this client */
@@ -238,7 +238,7 @@ struct pw_context {
 	uint32_t n_support;		/**< number of support items */
 	struct pw_array factory_lib;	/**< mapping of factory_name regexp to library */
 
-	struct pw_client *current_client;	/**< client currently executing code in mainloop */
+	struct pw_impl_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;
 
@@ -679,7 +679,7 @@ struct pw_resource {
 	struct pw_context *context;		/**< the context object */
 	struct spa_list link;		/**< link in global resource_list */
 
-	struct pw_client *client;	/**< owner client */
+	struct pw_impl_client *client;	/**< owner client */
 
 	uint32_t id;			/**< per client unique id, index in client objects */
 	uint32_t permissions;		/**< resource permissions */

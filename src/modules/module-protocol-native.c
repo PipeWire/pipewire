@@ -105,7 +105,7 @@ struct server {
 };
 
 struct client_data {
-	struct pw_client *client;
+	struct pw_impl_client *client;
 	struct spa_hook client_listener;
 
 	struct spa_source *source;
@@ -122,7 +122,7 @@ static void
 process_messages(struct client_data *data)
 {
 	struct pw_protocol_native_connection *conn = data->connection;
-	struct pw_client *client = data->client;
+	struct pw_impl_client *client = data->client;
 	struct pw_context *context = client->context;
 	const struct pw_protocol_native_message *msg;
 	struct pw_resource *resource;
@@ -162,7 +162,7 @@ process_messages(struct client_data *data)
 		        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
 		}
 
-		resource = pw_client_find_resource(client, msg->id);
+		resource = pw_impl_client_find_resource(client, msg->id);
 		if (resource == NULL) {
 			pw_log_error(NAME" %p: unknown resource %u op:%u",
 				     client->protocol, msg->id, msg->opcode);
@@ -204,7 +204,7 @@ invalid_method:
 		     client->protocol, msg->id, msg->opcode);
 	pw_resource_errorf(resource, -EINVAL, "invalid method id:%u op:%u",
 			msg->id, msg->opcode);
-	pw_client_destroy(client);
+	pw_impl_client_destroy(client);
 	goto done;
 invalid_message:
 	pw_log_error(NAME" %p: invalid message received id:%u op:%u (%s)",
@@ -212,11 +212,11 @@ invalid_message:
 	pw_resource_errorf(resource, res, "invalid message received id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
 	spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
-	pw_client_destroy(client);
+	pw_impl_client_destroy(client);
 	goto done;
 error:
 	pw_log_error(NAME" %p: client error (%s)", client->protocol, spa_strerror(res));
-	pw_client_destroy(client);
+	pw_impl_client_destroy(client);
 	goto done;
 }
 
@@ -224,7 +224,7 @@ static void
 client_busy_changed(void *data, bool busy)
 {
 	struct client_data *c = data;
-	struct pw_client *client = c->client;
+	struct pw_impl_client *client = c->client;
 	uint32_t mask = c->source->mask;
 
 	c->busy = busy;
@@ -243,17 +243,17 @@ static void
 connection_data(void *data, int fd, uint32_t mask)
 {
 	struct client_data *this = data;
-	struct pw_client *client = this->client;
+	struct pw_impl_client *client = this->client;
 	int res;
 
 	if (mask & SPA_IO_HUP) {
 		pw_log_info(NAME" %p: client %p disconnected", client->protocol, client);
-		pw_client_destroy(client);
+		pw_impl_client_destroy(client);
 		return;
 	}
 	if (mask & SPA_IO_ERR) {
 		pw_log_error(NAME" %p: client %p error", client->protocol, client);
-		pw_client_destroy(client);
+		pw_impl_client_destroy(client);
 		return;
 	}
 	if (mask & SPA_IO_OUT) {
@@ -266,7 +266,7 @@ connection_data(void *data, int fd, uint32_t mask)
 		} else if (res != EAGAIN) {
 			pw_log_error("client %p: could not flush: %s",
 					client, spa_strerror(res));
-			pw_client_destroy(client);
+			pw_impl_client_destroy(client);
 			return;
 		}
 	}
@@ -277,7 +277,7 @@ connection_data(void *data, int fd, uint32_t mask)
 static void client_free(void *data)
 {
 	struct client_data *this = data;
-	struct pw_client *client = this->client;
+	struct pw_impl_client *client = this->client;
 
 	spa_list_remove(&client->protocol_link);
 
@@ -289,8 +289,8 @@ static void client_free(void *data)
 	pw_map_clear(&this->compat_v2.types);
 }
 
-static const struct pw_client_events client_events = {
-	PW_VERSION_CLIENT_EVENTS,
+static const struct pw_impl_client_events client_events = {
+	PW_VERSION_IMPL_CLIENT_EVENTS,
 	.free = client_free,
 	.busy_changed = client_busy_changed,
 };
@@ -298,7 +298,7 @@ static const struct pw_client_events client_events = {
 static void on_start(void *data, uint32_t version)
 {
 	struct client_data *this = data;
-	struct pw_client *client = this->client;
+	struct pw_impl_client *client = this->client;
 	struct pw_context *context = client->context;
 
 	pw_log_debug("version %d", version);
@@ -321,7 +321,7 @@ static const struct pw_protocol_native_connection_events server_conn_events = {
 static struct client_data *client_new(struct server *s, int fd)
 {
 	struct client_data *this;
-	struct pw_client *client;
+	struct pw_impl_client *client;
 	struct pw_protocol *protocol = s->this.protocol;
 	socklen_t len;
 	struct ucred ucred;
@@ -355,14 +355,14 @@ static struct client_data *client_new(struct server *s, int fd)
 
 	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 
-	client = pw_client_new(protocol->context,
+	client = pw_impl_client_new(protocol->context,
 			       props,
 			       sizeof(struct client_data));
 	if (client == NULL)
 		goto exit;
 
 
-	this = pw_client_get_user_data(client);
+	this = pw_impl_client_get_user_data(client);
 	client->protocol = protocol;
 	spa_list_append(&s->this.client_list, &client->protocol_link);
 
@@ -388,9 +388,9 @@ static struct client_data *client_new(struct server *s, int fd)
 						   &server_conn_events,
 						   this);
 
-	pw_client_add_listener(client, &this->client_listener, &client_events, this);
+	pw_impl_client_add_listener(client, &this->client_listener, &client_events, this);
 
-	if ((res = pw_client_register(client, NULL)) < 0)
+	if ((res = pw_impl_client_register(client, NULL)) < 0)
 		goto cleanup_client;
 
 	if (!client->busy)
@@ -400,7 +400,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	return this;
 
 cleanup_client:
-	pw_client_destroy(client);
+	pw_impl_client_destroy(client);
 	errno = -res;
 exit:
 	return NULL;
@@ -792,7 +792,7 @@ static int pw_protocol_native_connect_internal(struct pw_protocol_client *client
 	}
 	permissions[0].id = SPA_ID_INVALID;
 	permissions[0].permissions = PW_PERM_RWX;
-	pw_client_update_permissions(c->client, 1, permissions);
+	pw_impl_client_update_permissions(c->client, 1, permissions);
 
 	res = pw_protocol_client_connect_fd(client, sv[1], true);
 done:
@@ -868,13 +868,13 @@ error_free:
 static void destroy_server(struct pw_protocol_server *server)
 {
 	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
-	struct pw_client *client, *tmp;
+	struct pw_impl_client *client, *tmp;
 
 	spa_list_remove(&server->link);
 	spa_hook_remove(&s->hook);
 
 	spa_list_for_each_safe(client, tmp, &server->client_list, protocol_link)
-		pw_client_destroy(client);
+		pw_impl_client_destroy(client);
 
 	if (s->source) {
 		spa_hook_remove(&s->hook);
@@ -893,7 +893,7 @@ static void on_before_hook(void *_data)
 {
 	struct server *server = _data;
 	struct pw_protocol_server *this = &server->this;
-	struct pw_client *client, *tmp;
+	struct pw_impl_client *client, *tmp;
 	struct client_data *data;
 	int res;
 
@@ -909,7 +909,7 @@ static void on_before_hook(void *_data)
 		} else if (res < 0) {
 			pw_log_warn("client %p: could not flush: %s",
 					data->client, spa_strerror(res));
-			pw_client_destroy(client);
+			pw_impl_client_destroy(client);
 		}
 
 	}
@@ -1052,7 +1052,7 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 				  struct spa_pod_builder *builder)
 {
 	struct client_data *data = resource->client->user_data;
-	struct pw_client *client = resource->client;
+	struct pw_impl_client *client = resource->client;
 	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);
 }
 const static struct pw_protocol_native_ext protocol_ext_impl = {

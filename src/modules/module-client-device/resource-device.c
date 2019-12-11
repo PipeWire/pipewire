@@ -118,8 +118,8 @@ struct pw_device *pw_client_device_new(struct pw_resource *resource,
 {
 	struct impl *impl;
 	struct pw_device *device;
-	struct pw_client *client = pw_resource_get_client(resource);
-	struct pw_context *context = pw_client_get_context(client);
+	struct pw_impl_client *client = pw_resource_get_client(resource);
+	struct pw_context *context = pw_impl_client_get_context(client);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);

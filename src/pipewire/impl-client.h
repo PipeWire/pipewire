@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \class pw_client
+/** \class pw_impl_client
  *
  * \brief PipeWire client object class.
  *
@@ -41,7 +41,7 @@ extern "C" {
  * Each client has its own list of resources it is bound to along with
  * a mapping between the client types and server types.
  */
-struct pw_client;
+struct pw_impl_client;
 
 #include <pipewire/context.h>
 #include <pipewire/global.h>
@@ -54,7 +54,7 @@ struct pw_client;
  *
  * \section sec_page_client_overview Overview
  *
- * The \ref pw_client object is created by a protocol implementation when
+ * The \ref pw_impl_client object is created by a protocol implementation when
  * a new client connects.
  *
  * The client is used to keep track of all resources belonging to one
@@ -81,8 +81,8 @@ struct pw_client;
  */
 
 /** The events that a client can emit */
-struct pw_client_events {
-#define PW_VERSION_CLIENT_EVENTS	0
+struct pw_impl_client_events {
+#define PW_VERSION_IMPL_CLIENT_EVENTS	0
         uint32_t version;
 
 	/** emited when the client is destroyed */
@@ -110,56 +110,56 @@ struct pw_client_events {
 };
 
 /** Create a new client. This is mainly used by protocols. */
-struct pw_client *
-pw_client_new(struct pw_context *context,		/**< the context object */
+struct pw_impl_client *
+pw_impl_client_new(struct pw_context *context,		/**< the context object */
 	      struct pw_properties *properties,	/**< client properties */
 	      size_t user_data_size		/**< extra user data size */);
 
 /** Destroy a previously created client */
-void pw_client_destroy(struct pw_client *client);
+void pw_impl_client_destroy(struct pw_impl_client *client);
 
 /** Finish configuration and register a client */
-int pw_client_register(struct pw_client *client,	/**< the client to register */
+int pw_impl_client_register(struct pw_impl_client *client,	/**< the client to register */
 		       struct pw_properties *properties/**< extra properties */);
 
 /** Get the client user data */
-void *pw_client_get_user_data(struct pw_client *client);
+void *pw_impl_client_get_user_data(struct pw_impl_client *client);
 
 /** Get the client information */
-const struct pw_client_info *pw_client_get_info(struct pw_client *client);
+const struct pw_client_info *pw_impl_client_get_info(struct pw_impl_client *client);
 
 /** Update the client properties */
-int pw_client_update_properties(struct pw_client *client, const struct spa_dict *dict);
+int pw_impl_client_update_properties(struct pw_impl_client *client, const struct spa_dict *dict);
 
 /** Update the client permissions */
-int pw_client_update_permissions(struct pw_client *client, uint32_t n_permissions,
+int pw_impl_client_update_permissions(struct pw_impl_client *client, uint32_t n_permissions,
 		const struct pw_permission *permissions);
 
 /** Get the client properties */
-const struct pw_properties *pw_client_get_properties(struct pw_client *client);
+const struct pw_properties *pw_impl_client_get_properties(struct pw_impl_client *client);
 
 /** Get the context used to create this client */
-struct pw_context *pw_client_get_context(struct pw_client *client);
+struct pw_context *pw_impl_client_get_context(struct pw_impl_client *client);
 
 /** Get the client context resource */
-struct pw_resource *pw_client_get_core_resource(struct pw_client *client);
+struct pw_resource *pw_impl_client_get_core_resource(struct pw_impl_client *client);
 
 /** Get a resource with the given id */
-struct pw_resource *pw_client_find_resource(struct pw_client *client, uint32_t id);
+struct pw_resource *pw_impl_client_find_resource(struct pw_impl_client *client, uint32_t id);
 
 /** Get the global associated with this client */
-struct pw_global *pw_client_get_global(struct pw_client *client);
+struct pw_global *pw_impl_client_get_global(struct pw_impl_client *client);
 
 /** listen to events from this client */
-void pw_client_add_listener(struct pw_client *client,
+void pw_impl_client_add_listener(struct pw_impl_client *client,
 			    struct spa_hook *listener,
-			    const struct pw_client_events *events,
+			    const struct pw_impl_client_events *events,
 			    void *data);
 
 
 /** Mark the client busy. This can be used when an asynchronous operation is
   * started and no further processing is allowed to happen for the client */
-void pw_client_set_busy(struct pw_client *client, bool busy);
+void pw_impl_client_set_busy(struct pw_impl_client *client, bool busy);
 
 #ifdef __cplusplus
 }

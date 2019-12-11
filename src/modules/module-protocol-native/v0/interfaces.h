@@ -466,14 +466,14 @@ struct pw_port_proxy_v0_methods {
 			const struct spa_pod *filter);
 };
 
-#define PW_VERSION_FACTORY_V0			0
+#define PW_VERSION_FACTORY_V0		0
 
-#define PW_FACTORY_PROXY_V0_EVENT_INFO		0
-#define PW_FACTORY_PROXY_V0_EVENT_NUM		1
+#define PW_FACTORY_V0_EVENT_INFO	0
+#define PW_FACTORY_V0_EVENT_NUM		1
 
 /** Factory events */
-struct pw_factory_proxy_v0_events {
-#define PW_VERSION_FACTORY_PROXY_V0_EVENTS	0
+struct pw_factory_v0_events {
+#define PW_VERSION_FACTORY_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify factory info
@@ -483,9 +483,9 @@ struct pw_factory_proxy_v0_events {
 	void (*info) (void *object, struct pw_factory_info *info);
 };
 
-#define pw_factory_resource_v0_info(r,...) pw_resource_notify(r,struct pw_factory_proxy_v0_events,info,__VA_ARGS__)
+#define pw_factory_resource_v0_info(r,...) pw_resource_notify(r,struct pw_factory_v0_events,info,__VA_ARGS__)
 
-#define PW_VERSION_CLIENT_V0			0
+#define PW_VERSION_CLIENT_V0		0
 
 #define PW_CLIENT_V0_EVENT_INFO		0
 #define PW_CLIENT_V0_EVENT_NUM		1

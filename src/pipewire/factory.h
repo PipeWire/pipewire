@@ -37,8 +37,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-#define PW_VERSION_FACTORY_PROXY	3
-struct pw_factory_proxy;
+#define PW_VERSION_FACTORY	3
+struct pw_factory;
 
 /** The factory information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_factory_info {
@@ -60,12 +60,12 @@ void
 pw_factory_info_free(struct pw_factory_info *info);
 
 
-#define PW_FACTORY_PROXY_EVENT_INFO		0
-#define PW_FACTORY_PROXY_EVENT_NUM		1
+#define PW_FACTORY_EVENT_INFO		0
+#define PW_FACTORY_EVENT_NUM		1
 
 /** Factory events */
-struct pw_factory_proxy_events {
-#define PW_VERSION_FACTORY_PROXY_EVENTS	0
+struct pw_factory_events {
+#define PW_VERSION_FACTORY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify factory info
@@ -75,30 +75,30 @@ struct pw_factory_proxy_events {
 	void (*info) (void *object, const struct pw_factory_info *info);
 };
 
-#define PW_FACTORY_PROXY_METHOD_ADD_LISTENER	0
-#define PW_FACTORY_PROXY_METHOD_NUM		1
+#define PW_FACTORY_METHOD_ADD_LISTENER	0
+#define PW_FACTORY_METHOD_NUM		1
 
 /** Factory methods */
-struct pw_factory_proxy_methods {
-#define PW_VERSION_FACTORY_PROXY_METHODS	0
+struct pw_factory_methods {
+#define PW_VERSION_FACTORY_METHODS	0
 	uint32_t version;
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_factory_proxy_events *events,
+			const struct pw_factory_events *events,
 			void *data);
 };
 
-#define pw_factory_proxy_method(o,method,version,...)			\
+#define pw_factory_method(o,method,version,...)				\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_factory_proxy_methods, _res,		\
+			struct pw_factory_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_factory_proxy_add_listener(c,...)	pw_factory_proxy_method(c,add_listener,0,__VA_ARGS__)
+#define pw_factory_add_listener(c,...)	pw_factory_method(c,add_listener,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

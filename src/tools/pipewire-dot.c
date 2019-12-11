@@ -561,8 +561,8 @@ static void factory_event_info(void *data, const struct pw_factory_info *info)
 	global_event_info(data, info);
 }
 
-static const struct pw_factory_proxy_events factory_events = {
-	PW_VERSION_FACTORY_PROXY_EVENTS,
+static const struct pw_factory_events factory_events = {
+	PW_VERSION_FACTORY_EVENTS,
 	.info = factory_event_info
 };
 
@@ -650,7 +650,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		info_destroy = (pw_destroy_t)pw_factory_info_free;
 		info_update = (info_update_t)pw_factory_info_update;
 		draw = draw_factory;
-		client_version = PW_VERSION_FACTORY_PROXY;
+		client_version = PW_VERSION_FACTORY;
 		break;
 	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;

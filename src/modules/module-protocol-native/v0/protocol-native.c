@@ -790,7 +790,7 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 	struct spa_pod_frame f;
 	uint32_t i, n_items, type, version;
 
-	b = pw_protocol_native_begin_resource(resource, PW_FACTORY_PROXY_V0_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_FACTORY_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -1087,8 +1087,8 @@ static const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	NULL
 };
 
-static const struct pw_factory_proxy_events pw_protocol_native_factory_event_marshal = {
-	PW_VERSION_FACTORY_PROXY_EVENTS,
+static const struct pw_factory_events pw_protocol_native_factory_event_marshal = {
+	PW_VERSION_FACTORY_EVENTS,
 	.info = &factory_marshal_info,
 };
 
@@ -1096,7 +1096,7 @@ static const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	PW_TYPE_INTERFACE_Factory,
 	PW_VERSION_FACTORY_V0,
 	0,
-	PW_FACTORY_PROXY_EVENT_NUM,
+	PW_FACTORY_EVENT_NUM,
 	0,
 	NULL, NULL,
 	&pw_protocol_native_factory_event_marshal,

@@ -978,7 +978,7 @@ static int device_demarshal_set_param(void *object, const struct pw_protocol_nat
 
 static int factory_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_factory_proxy_events *events,
+			const struct pw_factory_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -992,7 +992,7 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_FACTORY_PROXY_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_FACTORY_EVENT_INFO, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -1036,7 +1036,7 @@ static int factory_demarshal_info(void *object, const struct pw_protocol_native_
 	if (parse_dict(&prs, &props) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_factory_proxy_events, info, 0, &info);
+	return pw_proxy_notify(proxy, struct pw_factory_events, info, 0, &info);
 }
 
 static int node_method_marshal_add_listener(void *object,
@@ -2028,34 +2028,34 @@ const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	.client_demarshal = pw_protocol_native_module_event_demarshal,
 };
 
-static const struct pw_factory_proxy_events pw_protocol_native_factory_event_marshal = {
-	PW_VERSION_FACTORY_PROXY_EVENTS,
+static const struct pw_factory_events pw_protocol_native_factory_event_marshal = {
+	PW_VERSION_FACTORY_EVENTS,
 	.info = &factory_marshal_info,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_factory_event_demarshal[PW_FACTORY_PROXY_EVENT_NUM] =
+pw_protocol_native_factory_event_demarshal[PW_FACTORY_EVENT_NUM] =
 {
-	[PW_FACTORY_PROXY_EVENT_INFO] = { &factory_demarshal_info, 0, },
+	[PW_FACTORY_EVENT_INFO] = { &factory_demarshal_info, 0, },
 };
 
-static const struct pw_factory_proxy_methods pw_protocol_native_factory_method_marshal = {
-	PW_VERSION_FACTORY_PROXY_METHODS,
+static const struct pw_factory_methods pw_protocol_native_factory_method_marshal = {
+	PW_VERSION_FACTORY_METHODS,
 	.add_listener = &factory_method_marshal_add_listener,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_factory_method_demarshal[PW_FACTORY_PROXY_METHOD_NUM] =
+pw_protocol_native_factory_method_demarshal[PW_FACTORY_METHOD_NUM] =
 {
-	[PW_FACTORY_PROXY_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_FACTORY_METHOD_ADD_LISTENER] = { NULL, 0, },
 };
 
 const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	PW_TYPE_INTERFACE_Factory,
-	PW_VERSION_FACTORY_PROXY,
+	PW_VERSION_FACTORY,
 	0,
-	PW_FACTORY_PROXY_METHOD_NUM,
-	PW_FACTORY_PROXY_EVENT_NUM,
+	PW_FACTORY_METHOD_NUM,
+	PW_FACTORY_EVENT_NUM,
 	.client_marshal = &pw_protocol_native_factory_method_marshal,
 	.server_demarshal = pw_protocol_native_factory_method_demarshal,
 	.server_marshal = &pw_protocol_native_factory_event_marshal,

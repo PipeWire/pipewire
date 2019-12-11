@@ -128,8 +128,8 @@ static int client_session_link_update(void *object,
 	return -ENOMEM;
 }
 
-static struct pw_client_session_proxy_methods methods = {
-	PW_VERSION_CLIENT_SESSION_PROXY_METHODS,
+static struct pw_client_session_methods methods = {
+	PW_VERSION_CLIENT_SESSION_METHODS,
 	.update = client_session_update,
 	.link_update = client_session_link_update,
 };
@@ -258,7 +258,7 @@ int client_session_factory_init(struct pw_impl_module *module)
 	factory = pw_impl_factory_new(context,
 				 "client-session",
 				 PW_TYPE_INTERFACE_ClientSession,
-				 PW_VERSION_CLIENT_SESSION_PROXY,
+				 PW_VERSION_CLIENT_SESSION,
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)

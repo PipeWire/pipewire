@@ -87,7 +87,7 @@ struct endpoint {
 	struct pw_properties *props;
 	struct node *node;
 
-	struct pw_client_endpoint_proxy *client_endpoint;
+	struct pw_client_endpoint *client_endpoint;
 	struct spa_hook client_endpoint_listener;
 	struct spa_hook proxy_listener;
 	struct pw_endpoint_info info;
@@ -216,8 +216,8 @@ exit:
 	return res;
 }
 
-static const struct pw_client_endpoint_proxy_events client_endpoint_events = {
-	PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS,
+static const struct pw_client_endpoint_events client_endpoint_events = {
+	PW_VERSION_CLIENT_ENDPOINT_EVENTS,
 	.set_session_id = client_endpoint_set_session_id,
 	.set_param = client_endpoint_set_param,
 	.stream_set_param = client_endpoint_stream_set_param,
@@ -254,7 +254,7 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	spa_list_append(&endpoint->stream_list, &s->link);
 
 	pw_log_debug("stream %d", node->id);
-	pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
+	pw_client_endpoint_stream_update(endpoint->client_endpoint,
 			s->info.id,
 			PW_CLIENT_ENDPOINT_STREAM_UPDATE_INFO,
 			0, NULL,
@@ -266,7 +266,7 @@ static void destroy_stream(struct stream *stream)
 {
 	struct endpoint *endpoint = stream->endpoint;
 
-	pw_client_endpoint_proxy_stream_update(endpoint->client_endpoint,
+	pw_client_endpoint_stream_update(endpoint->client_endpoint,
 			stream->info.id,
 			PW_CLIENT_ENDPOINT_STREAM_UPDATE_DESTROYED,
 			0, NULL,
@@ -312,7 +312,7 @@ static void complete_endpoint(void *data)
 			break;
 		}
 	}
-	pw_client_endpoint_proxy_update(endpoint->client_endpoint,
+	pw_client_endpoint_update(endpoint->client_endpoint,
 			PW_CLIENT_ENDPOINT_UPDATE_INFO,
 			0, NULL,
 			&endpoint->info);
@@ -344,7 +344,7 @@ static void update_params(void *data)
 		}
 	}
 
-	pw_client_endpoint_proxy_update(endpoint->client_endpoint,
+	pw_client_endpoint_update(endpoint->client_endpoint,
 			PW_CLIENT_ENDPOINT_UPDATE_PARAMS |
 			PW_CLIENT_ENDPOINT_UPDATE_INFO,
 			n_params, params,
@@ -406,7 +406,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	proxy = sm_media_session_create_object(impl->session,
 						"client-endpoint",
 						PW_TYPE_INTERFACE_ClientEndpoint,
-						PW_VERSION_CLIENT_ENDPOINT_PROXY,
+						PW_VERSION_CLIENT_ENDPOINT,
 						&props->dict, sizeof(*endpoint));
 	if (proxy == NULL) {
 		pw_properties_free(props);
@@ -417,7 +417,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	endpoint->impl = impl;
 	endpoint->node = node;
 	endpoint->props = props;
-	endpoint->client_endpoint = (struct pw_client_endpoint_proxy *) proxy;
+	endpoint->client_endpoint = (struct pw_client_endpoint *) proxy;
 	endpoint->info.version = PW_VERSION_ENDPOINT_INFO;
 	endpoint->info.name = (char*)pw_properties_get(props, PW_KEY_ENDPOINT_NAME);
 	endpoint->info.media_class = (char*)pw_properties_get(props, PW_KEY_MEDIA_CLASS);
@@ -441,7 +441,7 @@ static struct endpoint *create_endpoint(struct node *node)
 			&endpoint->proxy_listener,
 			&proxy_events, endpoint);
 
-	pw_client_endpoint_proxy_add_listener(endpoint->client_endpoint,
+	pw_client_endpoint_add_listener(endpoint->client_endpoint,
 			&endpoint->client_endpoint_listener,
 			&client_endpoint_events,
 			endpoint);

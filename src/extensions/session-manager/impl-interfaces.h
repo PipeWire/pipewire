@@ -36,17 +36,17 @@
 extern "C" {
 #endif
 
-#define PW_VERSION_CLIENT_ENDPOINT_PROXY 0
-struct pw_client_endpoint_proxy;
+#define PW_VERSION_CLIENT_ENDPOINT 0
+struct pw_client_endpoint;
 
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID		0
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM		1
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM		2
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_CREATE_LINK		3
-#define PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM			4
+#define PW_CLIENT_ENDPOINT_EVENT_SET_SESSION_ID		0
+#define PW_CLIENT_ENDPOINT_EVENT_SET_PARAM		1
+#define PW_CLIENT_ENDPOINT_EVENT_STREAM_SET_PARAM	2
+#define PW_CLIENT_ENDPOINT_EVENT_CREATE_LINK		3
+#define PW_CLIENT_ENDPOINT_EVENT_NUM			4
 
-struct pw_client_endpoint_proxy_events {
-#define PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS		0
+struct pw_client_endpoint_events {
+#define PW_VERSION_CLIENT_ENDPOINT_EVENTS		0
 	uint32_t version;		/**< version of this structure */
 
 	/**
@@ -118,18 +118,18 @@ struct pw_client_endpoint_proxy_events {
 	int (*create_link) (void *object, const struct spa_dict *props);
 };
 
-#define PW_CLIENT_ENDPOINT_PROXY_METHOD_ADD_LISTENER	0
-#define PW_CLIENT_ENDPOINT_PROXY_METHOD_UPDATE		1
-#define PW_CLIENT_ENDPOINT_PROXY_METHOD_STREAM_UPDATE	2
-#define PW_CLIENT_ENDPOINT_PROXY_METHOD_NUM		3
+#define PW_CLIENT_ENDPOINT_METHOD_ADD_LISTENER	0
+#define PW_CLIENT_ENDPOINT_METHOD_UPDATE	1
+#define PW_CLIENT_ENDPOINT_METHOD_STREAM_UPDATE	2
+#define PW_CLIENT_ENDPOINT_METHOD_NUM		3
 
-struct pw_client_endpoint_proxy_methods {
-#define PW_VERSION_CLIENT_ENDPOINT_PROXY_METHODS	0
+struct pw_client_endpoint_methods {
+#define PW_VERSION_CLIENT_ENDPOINT_METHODS	0
 	uint32_t version;		/**< version of this structure */
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_client_endpoint_proxy_events *events,
+			const struct pw_client_endpoint_events *events,
 			void *data);
 
 	/** Update endpoint information */
@@ -153,30 +153,30 @@ struct pw_client_endpoint_proxy_methods {
 				const struct pw_endpoint_stream_info *info);
 };
 
-#define pw_client_endpoint_proxy_method(o,method,version,...)		\
+#define pw_client_endpoint_method(o,method,version,...)		\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_client_endpoint_proxy_methods, _res,	\
+			struct pw_client_endpoint_methods, _res,	\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_client_endpoint_proxy_add_listener(o,...)	pw_client_endpoint_proxy_method(o,add_listener,0,__VA_ARGS__)
-#define pw_client_endpoint_proxy_update(o,...)		pw_client_endpoint_proxy_method(o,update,0,__VA_ARGS__)
-#define pw_client_endpoint_proxy_stream_update(o,...)	pw_client_endpoint_proxy_method(o,stream_update,0,__VA_ARGS__)
+#define pw_client_endpoint_add_listener(o,...)	pw_client_endpoint_method(o,add_listener,0,__VA_ARGS__)
+#define pw_client_endpoint_update(o,...)	pw_client_endpoint_method(o,update,0,__VA_ARGS__)
+#define pw_client_endpoint_stream_update(o,...)	pw_client_endpoint_method(o,stream_update,0,__VA_ARGS__)
 
 
-#define PW_VERSION_CLIENT_SESSION_PROXY 0
-struct pw_client_session_proxy;
+#define PW_VERSION_CLIENT_SESSION 0
+struct pw_client_session;
 
-#define PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM			0
-#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM		1
-#define PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE	2
-#define PW_CLIENT_SESSION_PROXY_EVENT_NUM			3
+#define PW_CLIENT_SESSION_EVENT_SET_PARAM		0
+#define PW_CLIENT_SESSION_EVENT_LINK_SET_PARAM		1
+#define PW_CLIENT_SESSION_EVENT_LINK_REQUEST_STATE	2
+#define PW_CLIENT_SESSION_EVENT_NUM			3
 
-struct pw_client_session_proxy_events {
-#define PW_VERSION_CLIENT_SESSION_PROXY_EVENTS		0
+struct pw_client_session_events {
+#define PW_VERSION_CLIENT_SESSION_EVENTS		0
 	uint32_t version;		/**< version of this structure */
 
 	/**
@@ -231,18 +231,18 @@ struct pw_client_session_proxy_events {
 	int (*link_request_state) (void *object, uint32_t link_id, uint32_t state);
 };
 
-#define PW_CLIENT_SESSION_PROXY_METHOD_ADD_LISTENER	0
-#define PW_CLIENT_SESSION_PROXY_METHOD_UPDATE		1
-#define PW_CLIENT_SESSION_PROXY_METHOD_LINK_UPDATE	2
-#define PW_CLIENT_SESSION_PROXY_METHOD_NUM		3
+#define PW_CLIENT_SESSION_METHOD_ADD_LISTENER	0
+#define PW_CLIENT_SESSION_METHOD_UPDATE		1
+#define PW_CLIENT_SESSION_METHOD_LINK_UPDATE	2
+#define PW_CLIENT_SESSION_METHOD_NUM		3
 
-struct pw_client_session_proxy_methods {
-#define PW_VERSION_CLIENT_SESSION_PROXY_METHODS		0
+struct pw_client_session_methods {
+#define PW_VERSION_CLIENT_SESSION_METHODS		0
 	uint32_t version;		/**< version of this structure */
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_client_session_proxy_events *events,
+			const struct pw_client_session_events *events,
 			void *data);
 
 	/** Update session information */
@@ -266,18 +266,18 @@ struct pw_client_session_proxy_methods {
 				const struct pw_endpoint_link_info *info);
 };
 
-#define pw_client_session_proxy_method(o,method,version,...)		\
+#define pw_client_session_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_client_session_proxy_methods, _res,	\
+			struct pw_client_session_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_client_session_proxy_add_listener(o,...)	pw_client_session_proxy_method(o,add_listener,0,__VA_ARGS__)
-#define pw_client_session_proxy_update(o,...)		pw_client_session_proxy_method(o,update,0,__VA_ARGS__)
-#define pw_client_session_proxy_link_update(o,...)	pw_client_session_proxy_method(o,link_update,0,__VA_ARGS__)
+#define pw_client_session_add_listener(o,...)	pw_client_session_method(o,add_listener,0,__VA_ARGS__)
+#define pw_client_session_update(o,...)		pw_client_session_method(o,update,0,__VA_ARGS__)
+#define pw_client_session_link_update(o,...)	pw_client_session_method(o,link_update,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

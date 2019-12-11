@@ -41,7 +41,7 @@ struct client_endpoint {
 };
 
 #define pw_client_endpoint_resource(r,m,v,...)	\
-	pw_resource_call_res(r,struct pw_client_endpoint_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call_res(r,struct pw_client_endpoint_events,m,v,__VA_ARGS__)
 #define pw_client_endpoint_resource_set_id(r,...)	\
 	pw_client_endpoint_resource(r,set_id,0,__VA_ARGS__)
 #define pw_client_endpoint_resource_set_session_id(r,...)	\

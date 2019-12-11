@@ -314,7 +314,7 @@ static int client_endpoint_marshal_set_session_id (void *object, uint32_t id)
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID, NULL);
+		PW_CLIENT_ENDPOINT_EVENT_SET_SESSION_ID, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id));
@@ -330,7 +330,7 @@ static int client_endpoint_marshal_set_param (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM, NULL);
+		PW_CLIENT_ENDPOINT_EVENT_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 				SPA_POD_Id(id),
@@ -348,7 +348,7 @@ static int client_endpoint_marshal_stream_set_param (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM, NULL);
+		PW_CLIENT_ENDPOINT_EVENT_STREAM_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 				SPA_POD_Int(stream_id),
@@ -366,7 +366,7 @@ static int client_endpoint_marshal_create_link (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_ENDPOINT_PROXY_EVENT_CREATE_LINK, NULL);
+		PW_CLIENT_ENDPOINT_EVENT_CREATE_LINK, NULL);
 
 	push_dict(b, props);
 
@@ -375,7 +375,7 @@ static int client_endpoint_marshal_create_link (void *object,
 
 static int client_endpoint_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_client_endpoint_proxy_events *events,
+			const struct pw_client_endpoint_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -395,7 +395,7 @@ static int client_endpoint_marshal_update(void *object,
 	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_CLIENT_ENDPOINT_PROXY_METHOD_UPDATE, NULL);
+		PW_CLIENT_ENDPOINT_METHOD_UPDATE, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -429,7 +429,7 @@ static int client_endpoint_marshal_stream_update(void *object,
 	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_CLIENT_ENDPOINT_PROXY_METHOD_STREAM_UPDATE, NULL);
+		PW_CLIENT_ENDPOINT_METHOD_STREAM_UPDATE, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -463,7 +463,7 @@ static int client_endpoint_demarshal_set_session_id(void *object,
 			SPA_POD_Int(&id)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_endpoint_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_endpoint_events,
 				set_session_id, 0, id);
 }
 
@@ -482,7 +482,7 @@ static int client_endpoint_demarshal_set_param(void *object,
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_endpoint_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_endpoint_events,
 				set_param, 0, id, flags, param);
 }
 
@@ -502,7 +502,7 @@ static int client_endpoint_demarshal_stream_set_param(void *object,
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_endpoint_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_endpoint_events,
 				stream_set_param, 0, stream_id, id, flags, param);
 }
 
@@ -518,7 +518,7 @@ static int client_endpoint_demarshal_create_link(void *object,
 
 	parse_dict(&prs, &f, &props);
 
-	return pw_proxy_notify(proxy, struct pw_client_endpoint_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_endpoint_events,
 				create_link, 0, &props);
 }
 
@@ -557,7 +557,7 @@ static int client_endpoint_demarshal_update(void *object,
 		demarshal_pw_endpoint_info(&prs[1], &f[1], infop);
 	}
 
-	return pw_resource_notify(resource, struct pw_client_endpoint_proxy_methods,
+	return pw_resource_notify(resource, struct pw_client_endpoint_methods,
 			update, 0, change_mask, n_params, params, infop);
 }
 
@@ -597,12 +597,12 @@ static int client_endpoint_demarshal_stream_update(void *object,
 		demarshal_pw_endpoint_stream_info(&prs[1], &f[1], infop);
 	}
 
-	return pw_resource_notify(resource, struct pw_client_endpoint_proxy_methods,
+	return pw_resource_notify(resource, struct pw_client_endpoint_methods,
 			stream_update, 0, stream_id, change_mask, n_params, params, infop);
 }
 
-static const struct pw_client_endpoint_proxy_events pw_protocol_native_client_endpoint_event_marshal = {
-	PW_VERSION_CLIENT_ENDPOINT_PROXY_EVENTS,
+static const struct pw_client_endpoint_events pw_protocol_native_client_endpoint_event_marshal = {
+	PW_VERSION_CLIENT_ENDPOINT_EVENTS,
 	.set_session_id = client_endpoint_marshal_set_session_id,
 	.set_param = client_endpoint_marshal_set_param,
 	.stream_set_param = client_endpoint_marshal_stream_set_param,
@@ -610,35 +610,35 @@ static const struct pw_client_endpoint_proxy_events pw_protocol_native_client_en
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_client_endpoint_event_demarshal[PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM] =
+pw_protocol_native_client_endpoint_event_demarshal[PW_CLIENT_ENDPOINT_EVENT_NUM] =
 {
-	[PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_SESSION_ID] = { client_endpoint_demarshal_set_session_id, 0 },
-	[PW_CLIENT_ENDPOINT_PROXY_EVENT_SET_PARAM] = { client_endpoint_demarshal_set_param, 0 },
-	[PW_CLIENT_ENDPOINT_PROXY_EVENT_STREAM_SET_PARAM] = { client_endpoint_demarshal_stream_set_param, 0 },
-	[PW_CLIENT_ENDPOINT_PROXY_EVENT_CREATE_LINK] = { client_endpoint_demarshal_create_link, 0 },
+	[PW_CLIENT_ENDPOINT_EVENT_SET_SESSION_ID] = { client_endpoint_demarshal_set_session_id, 0 },
+	[PW_CLIENT_ENDPOINT_EVENT_SET_PARAM] = { client_endpoint_demarshal_set_param, 0 },
+	[PW_CLIENT_ENDPOINT_EVENT_STREAM_SET_PARAM] = { client_endpoint_demarshal_stream_set_param, 0 },
+	[PW_CLIENT_ENDPOINT_EVENT_CREATE_LINK] = { client_endpoint_demarshal_create_link, 0 },
 };
 
-static const struct pw_client_endpoint_proxy_methods pw_protocol_native_client_endpoint_method_marshal = {
-	PW_VERSION_CLIENT_ENDPOINT_PROXY_METHODS,
+static const struct pw_client_endpoint_methods pw_protocol_native_client_endpoint_method_marshal = {
+	PW_VERSION_CLIENT_ENDPOINT_METHODS,
 	.add_listener = client_endpoint_marshal_add_listener,
 	.update = client_endpoint_marshal_update,
 	.stream_update = client_endpoint_marshal_stream_update,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_client_endpoint_method_demarshal[PW_CLIENT_ENDPOINT_PROXY_METHOD_NUM] =
+pw_protocol_native_client_endpoint_method_demarshal[PW_CLIENT_ENDPOINT_METHOD_NUM] =
 {
-	[PW_CLIENT_ENDPOINT_PROXY_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_CLIENT_ENDPOINT_PROXY_METHOD_UPDATE] = { client_endpoint_demarshal_update, 0 },
-	[PW_CLIENT_ENDPOINT_PROXY_METHOD_STREAM_UPDATE] = { client_endpoint_demarshal_stream_update, 0 },
+	[PW_CLIENT_ENDPOINT_METHOD_ADD_LISTENER] = { NULL, 0 },
+	[PW_CLIENT_ENDPOINT_METHOD_UPDATE] = { client_endpoint_demarshal_update, 0 },
+	[PW_CLIENT_ENDPOINT_METHOD_STREAM_UPDATE] = { client_endpoint_demarshal_stream_update, 0 },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_endpoint_marshal = {
 	PW_TYPE_INTERFACE_ClientEndpoint,
-	PW_VERSION_CLIENT_ENDPOINT_PROXY,
+	PW_VERSION_CLIENT_ENDPOINT,
 	0,
-	PW_CLIENT_ENDPOINT_PROXY_METHOD_NUM,
-	PW_CLIENT_ENDPOINT_PROXY_EVENT_NUM,
+	PW_CLIENT_ENDPOINT_METHOD_NUM,
+	PW_CLIENT_ENDPOINT_EVENT_NUM,
 	&pw_protocol_native_client_endpoint_method_marshal,
 	&pw_protocol_native_client_endpoint_method_demarshal,
 	&pw_protocol_native_client_endpoint_event_marshal,
@@ -657,7 +657,7 @@ static int client_session_marshal_set_param (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM, NULL);
+		PW_CLIENT_SESSION_EVENT_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 				SPA_POD_Id(id),
@@ -675,7 +675,7 @@ static int client_session_marshal_link_set_param (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM, NULL);
+		PW_CLIENT_SESSION_EVENT_LINK_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 				SPA_POD_Int(link_id),
@@ -693,7 +693,7 @@ static int client_session_marshal_link_request_state (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE, NULL);
+		PW_CLIENT_SESSION_EVENT_LINK_REQUEST_STATE, NULL);
 
 	spa_pod_builder_add_struct(b,
 				SPA_POD_Int(link_id),
@@ -704,7 +704,7 @@ static int client_session_marshal_link_request_state (void *object,
 
 static int client_session_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_client_session_proxy_events *events,
+			const struct pw_client_session_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -724,7 +724,7 @@ static int client_session_marshal_update(void *object,
 	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_CLIENT_SESSION_PROXY_METHOD_UPDATE, NULL);
+		PW_CLIENT_SESSION_METHOD_UPDATE, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -758,7 +758,7 @@ static int client_session_marshal_link_update(void *object,
 	uint32_t i;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_CLIENT_SESSION_PROXY_METHOD_LINK_UPDATE, NULL);
+		PW_CLIENT_SESSION_METHOD_LINK_UPDATE, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -795,7 +795,7 @@ static int client_session_demarshal_set_param(void *object,
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_session_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_session_events,
 				set_param, 0, id, flags, param);
 }
 
@@ -815,7 +815,7 @@ static int client_session_demarshal_link_set_param(void *object,
 			SPA_POD_PodObject(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_session_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_session_events,
 				link_set_param, 0, link_id, id, flags, param);
 }
 
@@ -832,7 +832,7 @@ static int client_session_demarshal_link_request_state(void *object,
 			SPA_POD_Int(&state)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_session_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_client_session_events,
 				link_request_state, 0, link_id, state);
 }
 
@@ -871,7 +871,7 @@ static int client_session_demarshal_update(void *object,
 		demarshal_pw_session_info(&prs[1], &f[1], infop);
 	}
 
-	return pw_resource_notify(resource, struct pw_client_session_proxy_methods,
+	return pw_resource_notify(resource, struct pw_client_session_methods,
 			update, 0, change_mask, n_params, params, infop);
 }
 
@@ -911,46 +911,46 @@ static int client_session_demarshal_link_update(void *object,
 		demarshal_pw_endpoint_link_info(&prs[1], &f[1], infop);
 	}
 
-	return pw_resource_notify(resource, struct pw_client_session_proxy_methods,
+	return pw_resource_notify(resource, struct pw_client_session_methods,
 			link_update, 0, link_id, change_mask, n_params, params, infop);
 }
 
-static const struct pw_client_session_proxy_events pw_protocol_native_client_session_event_marshal = {
-	PW_VERSION_CLIENT_SESSION_PROXY_EVENTS,
+static const struct pw_client_session_events pw_protocol_native_client_session_event_marshal = {
+	PW_VERSION_CLIENT_SESSION_EVENTS,
 	.set_param = client_session_marshal_set_param,
 	.link_set_param = client_session_marshal_link_set_param,
 	.link_request_state = client_session_marshal_link_request_state,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_client_session_event_demarshal[PW_CLIENT_SESSION_PROXY_EVENT_NUM] =
+pw_protocol_native_client_session_event_demarshal[PW_CLIENT_SESSION_EVENT_NUM] =
 {
-	[PW_CLIENT_SESSION_PROXY_EVENT_SET_PARAM] = { client_session_demarshal_set_param, 0 },
-	[PW_CLIENT_SESSION_PROXY_EVENT_LINK_SET_PARAM] = { client_session_demarshal_link_set_param, 0 },
-	[PW_CLIENT_SESSION_PROXY_EVENT_LINK_REQUEST_STATE] = { client_session_demarshal_link_request_state, 0 },
+	[PW_CLIENT_SESSION_EVENT_SET_PARAM] = { client_session_demarshal_set_param, 0 },
+	[PW_CLIENT_SESSION_EVENT_LINK_SET_PARAM] = { client_session_demarshal_link_set_param, 0 },
+	[PW_CLIENT_SESSION_EVENT_LINK_REQUEST_STATE] = { client_session_demarshal_link_request_state, 0 },
 };
 
-static const struct pw_client_session_proxy_methods pw_protocol_native_client_session_method_marshal = {
-	PW_VERSION_CLIENT_SESSION_PROXY_METHODS,
+static const struct pw_client_session_methods pw_protocol_native_client_session_method_marshal = {
+	PW_VERSION_CLIENT_SESSION_METHODS,
 	.add_listener = client_session_marshal_add_listener,
 	.update = client_session_marshal_update,
 	.link_update = client_session_marshal_link_update,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_client_session_method_demarshal[PW_CLIENT_SESSION_PROXY_METHOD_NUM] =
+pw_protocol_native_client_session_method_demarshal[PW_CLIENT_SESSION_METHOD_NUM] =
 {
-	[PW_CLIENT_SESSION_PROXY_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_CLIENT_SESSION_PROXY_METHOD_UPDATE] = { client_session_demarshal_update, 0 },
-	[PW_CLIENT_SESSION_PROXY_METHOD_LINK_UPDATE] = { client_session_demarshal_link_update, 0 },
+	[PW_CLIENT_SESSION_METHOD_ADD_LISTENER] = { NULL, 0 },
+	[PW_CLIENT_SESSION_METHOD_UPDATE] = { client_session_demarshal_update, 0 },
+	[PW_CLIENT_SESSION_METHOD_LINK_UPDATE] = { client_session_demarshal_link_update, 0 },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_session_marshal = {
 	PW_TYPE_INTERFACE_ClientSession,
-	PW_VERSION_CLIENT_SESSION_PROXY,
+	PW_VERSION_CLIENT_SESSION,
 	0,
-	PW_CLIENT_SESSION_PROXY_METHOD_NUM,
-	PW_CLIENT_SESSION_PROXY_EVENT_NUM,
+	PW_CLIENT_SESSION_METHOD_NUM,
+	PW_CLIENT_SESSION_EVENT_NUM,
 	&pw_protocol_native_client_session_method_marshal,
 	&pw_protocol_native_client_session_method_demarshal,
 	&pw_protocol_native_client_session_event_marshal,

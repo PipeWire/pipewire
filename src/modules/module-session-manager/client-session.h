@@ -41,7 +41,7 @@ struct client_session {
 };
 
 #define pw_client_session_resource(r,m,v,...)	\
-	pw_resource_call_res(r,struct pw_client_session_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call_res(r,struct pw_client_session_events,m,v,__VA_ARGS__)
 #define pw_client_session_resource_set_id(r,...)	\
 	pw_client_session_resource(r,set_id,0,__VA_ARGS__)
 #define pw_client_session_resource_set_param(r,...)	\

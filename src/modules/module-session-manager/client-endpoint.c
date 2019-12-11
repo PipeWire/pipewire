@@ -129,8 +129,8 @@ static int client_endpoint_stream_update(void *object,
 	return -ENOMEM;
 }
 
-static struct pw_client_endpoint_proxy_methods methods = {
-	PW_VERSION_CLIENT_ENDPOINT_PROXY_METHODS,
+static struct pw_client_endpoint_methods methods = {
+	PW_VERSION_CLIENT_ENDPOINT_METHODS,
 	.update = client_endpoint_update,
 	.stream_update = client_endpoint_stream_update,
 };
@@ -259,7 +259,7 @@ int client_endpoint_factory_init(struct pw_impl_module *module)
 	factory = pw_impl_factory_new(context,
 				 "client-endpoint",
 				 PW_TYPE_INTERFACE_ClientEndpoint,
-				 PW_VERSION_CLIENT_ENDPOINT_PROXY,
+				 PW_VERSION_CLIENT_ENDPOINT,
 				 NULL,
 				 sizeof(*data));
 	if (factory == NULL)

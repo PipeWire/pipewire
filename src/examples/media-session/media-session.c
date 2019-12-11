@@ -106,8 +106,8 @@ struct impl {
 
 	struct spa_hook_list hooks;
 
-	struct pw_client_session_proxy *client_session;
-	struct spa_hook client_session_proxy_listener;
+	struct pw_client_session *client_session;
+	struct spa_hook proxy_client_session_listener;
 	struct spa_hook client_session_listener;
 
 	struct spa_list endpoint_link_list;	/** list of struct endpoint_link */
@@ -1274,7 +1274,7 @@ static void check_endpoint_link(struct endpoint_link *link)
 		spa_list_remove(&link->link);
 		pw_map_remove(&link->impl->endpoint_links, link->id);
 
-		pw_client_session_proxy_link_update(link->impl->client_session,
+		pw_client_session_link_update(link->impl->client_session,
 				link->id,
 				PW_CLIENT_SESSION_LINK_UPDATE_DESTROYED,
 				0, NULL, NULL);
@@ -1447,7 +1447,7 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 
 	if (link != NULL) {
 		/* now create the endpoint link */
-		pw_client_session_proxy_link_update(impl->client_session,
+		pw_client_session_link_update(impl->client_session,
 				link->id,
 				PW_CLIENT_SESSION_UPDATE_INFO,
 				0, NULL,
@@ -1482,14 +1482,14 @@ static int client_session_link_request_state(void *object, uint32_t link_id, uin
 	return -ENOTSUP;
 }
 
-static const struct pw_client_session_proxy_events client_session_events = {
-	PW_VERSION_CLIENT_SESSION_PROXY_METHODS,
+static const struct pw_client_session_events client_session_events = {
+	PW_VERSION_CLIENT_SESSION_METHODS,
 	.set_param = client_session_set_param,
 	.link_set_param = client_session_link_set_param,
 	.link_request_state = client_session_link_request_state,
 };
 
-static void client_session_proxy_bound(void *data, uint32_t id)
+static void proxy_client_session_bound(void *data, uint32_t id)
 {
 	struct impl *impl = data;
 	struct pw_session_info info;
@@ -1502,7 +1502,7 @@ static void client_session_proxy_bound(void *data, uint32_t id)
 
 	pw_log_debug("got sesssion id:%d", id);
 
-	pw_client_session_proxy_update(impl->client_session,
+	pw_client_session_update(impl->client_session,
 			PW_CLIENT_SESSION_UPDATE_INFO,
 			0, NULL,
 			&info);
@@ -1517,9 +1517,9 @@ static void client_session_proxy_bound(void *data, uint32_t id)
 	sm_stream_monitor_start(&impl->this);
 }
 
-static const struct pw_proxy_events client_session_proxy_events = {
+static const struct pw_proxy_events proxy_client_session_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.bound = client_session_proxy_bound,
+	.bound = proxy_client_session_bound,
 };
 
 static int start_session(struct impl *impl)
@@ -1533,14 +1533,14 @@ static int start_session(struct impl *impl)
 	impl->client_session = pw_core_create_object(impl->monitor_core,
                                             "client-session",
                                             PW_TYPE_INTERFACE_ClientSession,
-                                            PW_VERSION_CLIENT_SESSION_PROXY,
+                                            PW_VERSION_CLIENT_SESSION,
                                             NULL, 0);
 
 	pw_proxy_add_listener((struct pw_proxy*)impl->client_session,
-			&impl->client_session_proxy_listener,
-			&client_session_proxy_events, impl);
+			&impl->proxy_client_session_listener,
+			&proxy_client_session_events, impl);
 
-	pw_client_session_proxy_add_listener(impl->client_session,
+	pw_client_session_add_listener(impl->client_session,
 			&impl->client_session_listener,
 			&client_session_events, impl);
 

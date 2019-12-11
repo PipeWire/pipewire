@@ -34,6 +34,7 @@ extern "C" {
  * PipeWire link object.
  */
 struct pw_impl_link;
+struct pw_impl_port;
 
 #include <pipewire/impl.h>
 
@@ -71,7 +72,7 @@ struct pw_impl_link_events {
 					   enum pw_link_state state, const char *error);
 
 	/** A port is unlinked */
-	void (*port_unlinked) (void *data, struct pw_port *port);
+	void (*port_unlinked) (void *data, struct pw_impl_port *port);
 };
 
 
@@ -79,8 +80,8 @@ struct pw_impl_link_events {
  * \return a newly allocated link */
 struct pw_impl_link *
 pw_impl_link_new(struct pw_context *context,		/**< the context object */
-	    struct pw_port *output,		/**< an output port */
-	    struct pw_port *input,		/**< an input port */
+	    struct pw_impl_port *output,		/**< an output port */
+	    struct pw_impl_port *input,		/**< an input port */
 	    struct spa_pod *format_filter,	/**< an optional format filter */
 	    struct pw_properties *properties	/**< extra properties */,
 	    size_t user_data_size		/**< extra user data size */);
@@ -112,13 +113,13 @@ const struct pw_link_info *pw_impl_link_get_info(struct pw_impl_link *link);
 struct pw_global *pw_impl_link_get_global(struct pw_impl_link *link);
 
 /** Get the output port of the link */
-struct pw_port *pw_impl_link_get_output(struct pw_impl_link *link);
+struct pw_impl_port *pw_impl_link_get_output(struct pw_impl_link *link);
 
 /** Get the input port of the link */
-struct pw_port *pw_impl_link_get_input(struct pw_impl_link *link);
+struct pw_impl_port *pw_impl_link_get_input(struct pw_impl_link *link);
 
 /** Find the link between 2 ports \memberof pw_impl_link */
-struct pw_impl_link *pw_impl_link_find(struct pw_port *output, struct pw_port *input);
+struct pw_impl_link *pw_impl_link_find(struct pw_impl_port *output, struct pw_impl_port *input);
 
 #ifdef __cplusplus
 }

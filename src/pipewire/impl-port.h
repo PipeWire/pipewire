@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_PORT_H
-#define PIPEWIRE_PORT_H
+#ifndef PIPEWIRE_IMPL_PORT_H
+#define PIPEWIRE_IMPL_PORT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,27 +37,27 @@ extern "C" {
  *
  * A port can be used to link two nodes.
  */
-/** \class pw_port
+/** \class pw_impl_port
  *
  * The port object
  */
-struct pw_port;
+struct pw_impl_port;
 struct pw_impl_link;
 struct pw_control;
 
 #include <pipewire/impl.h>
 
-enum pw_port_state {
-	PW_PORT_STATE_ERROR = -1,	/**< the port is in error */
-	PW_PORT_STATE_INIT = 0,		/**< the port is being created */
-	PW_PORT_STATE_CONFIGURE = 1,	/**< the port is ready for format negotiation */
-	PW_PORT_STATE_READY = 2,	/**< the port is ready for buffer allocation */
-	PW_PORT_STATE_PAUSED = 3,	/**< the port is paused */
+enum pw_impl_port_state {
+	PW_IMPL_PORT_STATE_ERROR = -1,	/**< the port is in error */
+	PW_IMPL_PORT_STATE_INIT = 0,		/**< the port is being created */
+	PW_IMPL_PORT_STATE_CONFIGURE = 1,	/**< the port is ready for format negotiation */
+	PW_IMPL_PORT_STATE_READY = 2,	/**< the port is ready for buffer allocation */
+	PW_IMPL_PORT_STATE_PAUSED = 3,	/**< the port is paused */
 };
 
-/** Port events, use \ref pw_port_add_listener */
-struct pw_port_events {
-#define PW_VERSION_PORT_EVENTS 0
+/** Port events, use \ref pw_impl_port_add_listener */
+struct pw_impl_port_events {
+#define PW_VERSION_IMPL_PORT_EVENTS 0
 	uint32_t version;
 
 	/** The port is destroyed */
@@ -79,8 +79,8 @@ struct pw_port_events {
 	void (*link_removed) (void *data, struct pw_impl_link *link);
 
 	/** the state of the port changed */
-	void (*state_changed) (void *data, enum pw_port_state old,
-			enum pw_port_state state, const char *error);
+	void (*state_changed) (void *data, enum pw_impl_port_state old,
+			enum pw_impl_port_state state, const char *error);
 
 	/** a control was added to the port */
 	void (*control_added) (void *data, struct pw_control *control);
@@ -90,28 +90,28 @@ struct pw_port_events {
 };
 
 /** Get the port direction */
-enum pw_direction pw_port_get_direction(struct pw_port *port);
+enum pw_direction pw_impl_port_get_direction(struct pw_impl_port *port);
 
 /** Get the port properties */
-const struct pw_properties *pw_port_get_properties(struct pw_port *port);
+const struct pw_properties *pw_impl_port_get_properties(struct pw_impl_port *port);
 
 /** Update the port properties */
-int pw_port_update_properties(struct pw_port *port, const struct spa_dict *dict);
+int pw_impl_port_update_properties(struct pw_impl_port *port, const struct spa_dict *dict);
 
 /** Get the port id */
-uint32_t pw_port_get_id(struct pw_port *port);
+uint32_t pw_impl_port_get_id(struct pw_impl_port *port);
 
 /** Get the port parent node or NULL when not yet set */
-struct pw_node *pw_port_get_node(struct pw_port *port);
+struct pw_node *pw_impl_port_get_node(struct pw_impl_port *port);
 
 /** Add an event listener on the port */
-void pw_port_add_listener(struct pw_port *port,
+void pw_impl_port_add_listener(struct pw_impl_port *port,
 			  struct spa_hook *listener,
-			  const struct pw_port_events *events,
+			  const struct pw_impl_port_events *events,
 			  void *data);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* PIPEWIRE_PORT_H */
+#endif /* PIPEWIRE_IMPL_PORT_H */

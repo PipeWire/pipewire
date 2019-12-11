@@ -834,15 +834,15 @@ struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id
  *
  * \memberof pw_context
  */
-struct pw_port *pw_context_find_port(struct pw_context *context,
-				  struct pw_port *other_port,
+struct pw_impl_port *pw_context_find_port(struct pw_context *context,
+				  struct pw_impl_port *other_port,
 				  uint32_t id,
 				  struct pw_properties *props,
 				  uint32_t n_format_filters,
 				  struct spa_pod **format_filters,
 				  char **error)
 {
-	struct pw_port *best = NULL;
+	struct pw_impl_port *best = NULL;
 	bool have_id;
 	struct pw_node *n;
 
@@ -875,7 +875,7 @@ struct pw_port *pw_context_find_port(struct pw_context *context,
 					break;
 			}
 		} else {
-			struct pw_port *p, *pin, *pout;
+			struct pw_impl_port *p, *pin, *pout;
 			uint8_t buf[4096];
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 			struct spa_pod *dummy;
@@ -933,8 +933,8 @@ struct pw_port *pw_context_find_port(struct pw_context *context,
  * \memberof pw_context
  */
 int pw_context_find_format(struct pw_context *context,
-			struct pw_port *output,
-			struct pw_port *input,
+			struct pw_impl_port *output,
+			struct pw_impl_port *input,
 			struct pw_properties *props,
 			uint32_t n_format_filters,
 			struct spa_pod **format_filters,
@@ -955,14 +955,14 @@ int pw_context_find_format(struct pw_context *context,
 	pw_log_debug(NAME" %p: finding best format %d %d", context, out_state, in_state);
 
 	/* when a port is configured but the node is idle, we can reconfigure with a different format */
-	if (out_state > PW_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
-		out_state = PW_PORT_STATE_CONFIGURE;
-	if (in_state > PW_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
-		in_state = PW_PORT_STATE_CONFIGURE;
+	if (out_state > PW_IMPL_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
+		out_state = PW_IMPL_PORT_STATE_CONFIGURE;
+	if (in_state > PW_IMPL_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
+		in_state = PW_IMPL_PORT_STATE_CONFIGURE;
 
 	pw_log_debug(NAME" %p: states %d %d", context, out_state, in_state);
 
-	if (in_state == PW_PORT_STATE_CONFIGURE && out_state > PW_PORT_STATE_CONFIGURE) {
+	if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
@@ -989,7 +989,7 @@ int pw_context_find_format(struct pw_context *context,
 				asprintf(error, "no input formats");
 			goto error;
 		}
-	} else if (out_state >= PW_PORT_STATE_CONFIGURE && in_state > PW_PORT_STATE_CONFIGURE) {
+	} else if (out_state >= PW_IMPL_PORT_STATE_CONFIGURE && in_state > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
@@ -1016,7 +1016,7 @@ int pw_context_find_format(struct pw_context *context,
 				asprintf(error, "no output format");
 			goto error;
 		}
-	} else if (in_state == PW_PORT_STATE_CONFIGURE && out_state == PW_PORT_STATE_CONFIGURE) {
+	} else if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 	      again:
 		/* both ports need a format */
 		pw_log_debug(NAME" %p: do enum input %d", context, iidx);
@@ -1094,7 +1094,7 @@ static int collect_nodes(struct pw_node *driver)
 {
 	struct spa_list queue;
 	struct pw_node *n, *t;
-	struct pw_port *p;
+	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 	uint32_t max_quantum = 0;
 	uint32_t min_quantum = 0;

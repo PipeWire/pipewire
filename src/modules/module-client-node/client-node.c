@@ -87,7 +87,7 @@ struct mix {
 };
 
 struct port {
-	struct pw_port *port;
+	struct pw_impl_port *port;
 	struct node *node;
 	struct impl *impl;
 
@@ -1295,7 +1295,7 @@ static void node_free(void *data)
 	free(impl);
 }
 
-static int port_init_mix(void *data, struct pw_port_mix *mix)
+static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 {
 	struct port *port = data;
 	struct impl *impl = port->impl;
@@ -1319,7 +1319,7 @@ static int port_init_mix(void *data, struct pw_port_mix *mix)
 	return 0;
 }
 
-static int port_release_mix(void *data, struct pw_port_mix *mix)
+static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 {
 	struct port *port = data;
 	struct impl *impl = port->impl;
@@ -1338,7 +1338,7 @@ static int port_release_mix(void *data, struct pw_port_mix *mix)
 	return 0;
 }
 
-static const struct pw_port_implementation port_impl = {
+static const struct pw_impl_port_implementation port_impl = {
 	PW_VERSION_PORT_IMPLEMENTATION,
 	.init_mix = port_init_mix,
 	.release_mix = port_release_mix,
@@ -1404,9 +1404,9 @@ static int impl_mix_port_set_io(void *object,
 			   uint32_t id, void *data, size_t size)
 {
 	struct port *p = object;
-	struct pw_port *port = p->port;
+	struct pw_impl_port *port = p->port;
 	struct impl *impl = port->owner_data;
-	struct pw_port_mix *mix;
+	struct pw_impl_port_mix *mix;
 
 	mix = pw_map_lookup(&port->mix_port_map, mix_id);
 	if (mix == NULL)
@@ -1448,10 +1448,10 @@ static const struct spa_node_methods impl_port_mix = {
 	.process = impl_mix_process,
 };
 
-static void node_port_init(void *data, struct pw_port *port)
+static void node_port_init(void *data, struct pw_impl_port *port)
 {
 	struct impl *impl = data;
-	struct port *p = pw_port_get_user_data(port);
+	struct port *p = pw_impl_port_get_user_data(port);
 	struct node *this = &impl->node;
 
 	pw_log_debug(NAME " %p: port %p init", this, port);
@@ -1478,26 +1478,26 @@ static void node_port_init(void *data, struct pw_port *port)
 	return;
 }
 
-static void node_port_added(void *data, struct pw_port *port)
+static void node_port_added(void *data, struct pw_impl_port *port)
 {
 	struct impl *impl = data;
-	struct port *p = pw_port_get_user_data(port);
+	struct port *p = pw_impl_port_get_user_data(port);
 
-	pw_port_set_mix(port, &p->mix_node,
-			PW_PORT_MIX_FLAG_MULTI |
-			PW_PORT_MIX_FLAG_MIX_ONLY);
+	pw_impl_port_set_mix(port, &p->mix_node,
+			PW_IMPL_PORT_MIX_FLAG_MULTI |
+			PW_IMPL_PORT_MIX_FLAG_MIX_ONLY);
 
-	port->flags |= PW_PORT_FLAG_NO_MIXER;
+	port->flags |= PW_IMPL_PORT_FLAG_NO_MIXER;
 
 	port->impl = SPA_CALLBACKS_INIT(&port_impl, p);
 	port->owner_data = impl;
 }
 
-static void node_port_removed(void *data, struct pw_port *port)
+static void node_port_removed(void *data, struct pw_impl_port *port)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	struct port *p = pw_port_get_user_data(port);
+	struct port *p = pw_impl_port_get_user_data(port);
 
 	pw_log_debug(NAME " %p: port %p remove", this, port);
 

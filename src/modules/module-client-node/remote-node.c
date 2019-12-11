@@ -53,9 +53,9 @@ struct buffer {
 
 struct mix {
 	struct spa_list link;
-	struct pw_port *port;
+	struct pw_impl_port *port;
 	uint32_t mix_id;
-	struct pw_port_mix mix;
+	struct pw_impl_port_mix mix;
 	struct pw_array buffers;
 	bool active;
 };
@@ -144,11 +144,11 @@ static void clean_transport(struct node_data *data)
 	data->have_transport = false;
 }
 
-static void mix_init(struct mix *mix, struct pw_port *port, uint32_t mix_id)
+static void mix_init(struct mix *mix, struct pw_impl_port *port, uint32_t mix_id)
 {
 	mix->port = port;
 	mix->mix_id = mix_id;
-	pw_port_init_mix(port, &mix->mix);
+	pw_impl_port_init_mix(port, &mix->mix);
 	mix->active = false;
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
@@ -214,7 +214,7 @@ static struct mix *ensure_mix(struct node_data *data,
 		enum spa_direction direction, uint32_t port_id, uint32_t mix_id)
 {
 	struct mix *mix;
-	struct pw_port *port;
+	struct pw_impl_port *port;
 
 	if ((mix = find_mix(data, direction, port_id, mix_id)))
 		return mix;
@@ -328,7 +328,7 @@ static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
 	return res;
 }
 
-static int add_port_update(struct pw_proxy *proxy, struct pw_port *port, uint32_t change_mask)
+static int add_port_update(struct pw_proxy *proxy, struct pw_impl_port *port, uint32_t change_mask)
 {
 	struct node_data *data = proxy->user_data;
 	struct spa_port_info pi = SPA_PORT_INFO_INIT();
@@ -510,13 +510,13 @@ client_node_remove_port(void *object, enum spa_direction direction, uint32_t por
 
 static int clear_buffers(struct node_data *data, struct mix *mix)
 {
-	struct pw_port *port = mix->port;
+	struct pw_impl_port *port = mix->port;
         struct buffer *b;
 	int res;
 
         pw_log_debug("port %p: clear buffers mix:%d %zd", port, mix->mix_id, mix->buffers.size);
 
-	if ((res = pw_port_use_buffers(port, &mix->mix, 0, NULL, 0)) < 0) {
+	if ((res = pw_impl_port_use_buffers(port, &mix->mix, 0, NULL, 0)) < 0) {
 		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
 		return res;
 	}
@@ -539,7 +539,7 @@ client_node_port_set_param(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_port *port;
+	struct pw_impl_port *port;
 	int res;
 
 	port = pw_node_find_port(data->node, direction, port_id);
@@ -558,7 +558,7 @@ client_node_port_set_param(void *object,
 		}
 	}
 
-	res = pw_port_set_param(port, id, flags, param);
+	res = pw_impl_port_set_param(port, id, flags, param);
 	if (res < 0)
 		goto error_exit;
 
@@ -690,7 +690,7 @@ client_node_port_use_buffers(void *object,
 		bufs[i] = b;
 	}
 
-	if ((res = pw_port_use_buffers(mix->port, &mix->mix, flags, bufs, n_buffers)) < 0)
+	if ((res = pw_impl_port_use_buffers(mix->port, &mix->mix, flags, bufs, n_buffers)) < 0)
 		goto error_exit_cleanup;
 
 	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
@@ -888,7 +888,7 @@ static const struct pw_client_node_proxy_events client_node_events = {
 static void do_node_init(struct pw_proxy *proxy)
 {
 	struct node_data *data = proxy->user_data;
-	struct pw_port *port;
+	struct pw_impl_port *port;
 
 	pw_log_debug("%p: init", data);
 	add_node_update(proxy, PW_CLIENT_NODE_UPDATE_PARAMS |
@@ -968,7 +968,7 @@ static void node_info_changed(void *data, const struct pw_node_info *info)
 	add_node_update((struct pw_proxy*)d->client_node, change_mask);
 }
 
-static void node_port_info_changed(void *data, struct pw_port *port,
+static void node_port_info_changed(void *data, struct pw_impl_port *port,
 		const struct pw_port_info *info)
 {
 	struct node_data *d = data;
@@ -1057,7 +1057,7 @@ static int node_ready(void *d, int status)
 	struct pw_node *node = data->node;
 	struct pw_node_activation *a = node->rt.activation;
 	struct timespec ts;
-	struct pw_port *p;
+	struct pw_impl_port *p;
 	uint64_t cmd = 1;
 
 	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,

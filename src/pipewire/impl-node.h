@@ -42,6 +42,7 @@ extern "C" {
  * PipeWire node class.
  */
 struct pw_node;
+struct pw_impl_port;
 
 #include <spa/node/node.h>
 #include <spa/node/event.h>
@@ -61,16 +62,16 @@ struct pw_node_events {
         void (*initialized) (void *data);
 
 	/** a port is being initialized on the node */
-        void (*port_init) (void *data, struct pw_port *port);
+        void (*port_init) (void *data, struct pw_impl_port *port);
 	/** a port was added */
-        void (*port_added) (void *data, struct pw_port *port);
+        void (*port_added) (void *data, struct pw_impl_port *port);
 	/** a port was removed */
-        void (*port_removed) (void *data, struct pw_port *port);
+        void (*port_removed) (void *data, struct pw_impl_port *port);
 
 	/** the node info changed */
 	void (*info_changed) (void *data, const struct pw_node_info *info);
 	/** a port on the node changed info */
-	void (*port_info_changed) (void *data, struct pw_port *port,
+	void (*port_info_changed) (void *data, struct pw_impl_port *port,
 			const struct pw_port_info *info);
 	/** the node active state changed */
 	void (*active_changed) (void *data, bool active);
@@ -145,7 +146,7 @@ void pw_node_add_listener(struct pw_node *node,
  * items are iterated. */
 int pw_node_for_each_port(struct pw_node *node,
 			  enum pw_direction direction,
-			  int (*callback) (void *data, struct pw_port *port),
+			  int (*callback) (void *data, struct pw_impl_port *port),
 			  void *data);
 
 int pw_node_for_each_param(struct pw_node *node,
@@ -159,7 +160,7 @@ int pw_node_for_each_param(struct pw_node *node,
 
 /** Find the port with direction and port_id or NULL when not found. Passing
  * SPA_ID_INVALID for port_id will return any port, preferably an unlinked one. */
-struct pw_port *
+struct pw_impl_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
 
 /** Get a free unused port_id from the node */

@@ -74,7 +74,7 @@ struct resource_data {
 
 static void node_deactivate(struct pw_node *this)
 {
-	struct pw_port *port;
+	struct pw_impl_port *port;
 	struct pw_impl_link *link;
 
 	pw_log_debug(NAME" %p: deactivate", this);
@@ -314,7 +314,7 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 static int suspend_node(struct pw_node *this)
 {
 	int res = 0;
-	struct pw_port *p;
+	struct pw_impl_port *p;
 
 	pw_log_debug(NAME" %p: suspend node state:%s", this,
 			pw_node_state_as_string(this->info.state));
@@ -322,19 +322,19 @@ static int suspend_node(struct pw_node *this)
 	pause_node(this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
+		if ((res = pw_impl_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn(NAME" %p: error unset format input: %s",
 					this, spa_strerror(res));
 		/* force CONFIGURE in case of async */
-		p->state = PW_PORT_STATE_CONFIGURE;
+		p->state = PW_IMPL_PORT_STATE_CONFIGURE;
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
-		if ((res = pw_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
+		if ((res = pw_impl_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn(NAME" %p: error unset format output: %s",
 					this, spa_strerror(res));
 		/* force CONFIGURE in case of async */
-		p->state = PW_PORT_STATE_CONFIGURE;
+		p->state = PW_IMPL_PORT_STATE_CONFIGURE;
 	}
 
 	res = spa_node_send_command(this->node,
@@ -557,7 +557,7 @@ int pw_node_register(struct pw_node *this,
 		     struct pw_properties *properties)
 {
 	struct pw_context *context = this->context;
-	struct pw_port *port;
+	struct pw_impl_port *port;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
@@ -613,9 +613,9 @@ int pw_node_register(struct pw_node *this,
 	pw_global_register(this->global);
 
 	spa_list_for_each(port, &this->input_ports, link)
-		pw_port_register(port, NULL);
+		pw_impl_port_register(port, NULL);
 	spa_list_for_each(port, &this->output_ports, link)
-		pw_port_register(port, NULL);
+		pw_impl_port_register(port, NULL);
 
 	pw_context_recalc_graph(context);
 
@@ -844,7 +844,7 @@ static inline int process_node(void *data)
 {
 	struct pw_node *this = data;
 	struct timespec ts;
-        struct pw_port *p;
+        struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.activation;
 	struct spa_system *data_system = this->context->data_system;
 	int status;
@@ -1150,13 +1150,13 @@ static void node_port_info(void *data, enum spa_direction direction, uint32_t po
 		const struct spa_port_info *info)
 {
 	struct pw_node *node = data;
-	struct pw_port *port = pw_node_find_port(node, direction, port_id);
+	struct pw_impl_port *port = pw_node_find_port(node, direction, port_id);
 
 	if (info == NULL) {
 		if (port) {
 			pw_log_debug(NAME" %p: %s port %d removed", node,
 					pw_direction_as_string(direction), port_id);
-			pw_port_destroy(port);
+			pw_impl_port_destroy(port);
 		} else {
 			pw_log_warn(NAME" %p: %s port %d unknown", node,
 					pw_direction_as_string(direction), port_id);
@@ -1164,19 +1164,19 @@ static void node_port_info(void *data, enum spa_direction direction, uint32_t po
 	} else if (port) {
 		pw_log_debug(NAME" %p: %s port %d changed", node,
 				pw_direction_as_string(direction), port_id);
-		pw_port_update_info(port, info);
+		pw_impl_port_update_info(port, info);
 	} else {
 		int res;
 
 		pw_log_debug(NAME" %p: %s port %d added", node,
 				pw_direction_as_string(direction), port_id);
 
-		if ((port = pw_port_new(direction, port_id, info,
+		if ((port = pw_impl_port_new(direction, port_id, info,
 					node->port_user_data_size))) {
-			if ((res = pw_port_add(port, node)) < 0) {
+			if ((res = pw_impl_port_add(port, node)) < 0) {
 				pw_log_error(NAME" %p: can't add port %p: %d, %s",
 						node, port, res, spa_strerror(res));
-				pw_port_destroy(port);
+				pw_impl_port_destroy(port);
 			}
 		}
 	}
@@ -1307,7 +1307,7 @@ static int node_ready(void *data, int status)
 	struct pw_node *node = data, *reposition_node = NULL;
 	struct pw_node *driver = node->driver_node;
 	struct pw_node_target *t;
-	struct pw_port *p;
+	struct pw_impl_port *p;
 
 	pw_log_trace_fp(NAME" %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
@@ -1378,7 +1378,7 @@ static int node_ready(void *data, int status)
 static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 {
 	struct pw_node *node = data;
-	struct pw_port *p;
+	struct pw_impl_port *p;
 
 	spa_list_for_each(p, &node->rt.input_mix, rt.node_link) {
 		if (p->port_id != port_id)
@@ -1476,7 +1476,7 @@ SPA_EXPORT
 void pw_node_destroy(struct pw_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_port *port;
+	struct pw_impl_port *port;
 	struct pw_node *slave;
 
 	node->active = false;
@@ -1510,15 +1510,15 @@ void pw_node_destroy(struct pw_node *node)
 
 	pw_log_debug(NAME" %p: unlink ports", node);
 	spa_list_for_each(port, &node->input_ports, link)
-		pw_port_unlink(port);
+		pw_impl_port_unlink(port);
 	spa_list_for_each(port, &node->output_ports, link)
-		pw_port_unlink(port);
+		pw_impl_port_unlink(port);
 
 	pw_log_debug(NAME" %p: destroy ports", node);
 	spa_list_consume(port, &node->input_ports, link)
-		pw_port_destroy(port);
+		pw_impl_port_destroy(port);
 	spa_list_consume(port, &node->output_ports, link)
-		pw_port_destroy(port);
+		pw_impl_port_destroy(port);
 
 	if (node->global) {
 		spa_hook_remove(&node->global_listener);
@@ -1548,11 +1548,11 @@ void pw_node_destroy(struct pw_node *node)
 SPA_EXPORT
 int pw_node_for_each_port(struct pw_node *node,
 			  enum pw_direction direction,
-			  int (*callback) (void *data, struct pw_port *port),
+			  int (*callback) (void *data, struct pw_impl_port *port),
 			  void *data)
 {
 	struct spa_list *ports;
-	struct pw_port *p, *t;
+	struct pw_impl_port *p, *t;
 	int res;
 
 	if (direction == PW_DIRECTION_INPUT)
@@ -1635,10 +1635,10 @@ int pw_node_set_param(struct pw_node *node,
 }
 
 SPA_EXPORT
-struct pw_port *
+struct pw_impl_port *
 pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
 {
-	struct pw_port *port, *p;
+	struct pw_impl_port *port, *p;
 	struct pw_map *portmap;
 	struct spa_list *ports;
 
@@ -1661,7 +1661,7 @@ pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t po
 				break;
 			}
 			/* We can use this port if it can multiplex */
-			if (SPA_FLAG_IS_SET(p->mix_flags, PW_PORT_MIX_FLAG_MULTI))
+			if (SPA_FLAG_IS_SET(p->mix_flags, PW_IMPL_PORT_MIX_FLAG_MULTI))
 				port = p;
 		}
 	}
@@ -1730,7 +1730,7 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 
 static void node_activate(struct pw_node *this)
 {
-	struct pw_port *port;
+	struct pw_impl_port *port;
 
 	pw_log_debug(NAME" %p: activate", this);
 	spa_list_for_each(port, &this->input_ports, link) {

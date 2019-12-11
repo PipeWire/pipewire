@@ -47,7 +47,7 @@ struct pw_control;
 
 /** Port events, use \ref pw_control_add_listener */
 struct pw_control_events {
-#define PW_VERSION_PORT_EVENTS 0
+#define PW_VERSION_CONTROL_EVENTS 0
 	uint32_t version;
 
 	/** The control is destroyed */
@@ -64,7 +64,7 @@ struct pw_control_events {
 };
 
 /** Get the control parent port or NULL when not set */
-struct pw_port *pw_control_get_port(struct pw_control *control);
+struct pw_impl_port *pw_control_get_port(struct pw_control *control);
 
 /** Add an event listener on the control */
 void pw_control_add_listener(struct pw_control *control,

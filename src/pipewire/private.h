@@ -510,10 +510,10 @@ struct pw_node {
         void *user_data;                /**< extra user data */
 };
 
-struct pw_port_mix {
+struct pw_impl_port_mix {
 	struct spa_list link;
 	struct spa_list rt_link;
-	struct pw_port *p;
+	struct pw_impl_port *p;
 	struct {
 		enum spa_direction direction;
 		uint32_t port_id;
@@ -523,59 +523,59 @@ struct pw_port_mix {
 	unsigned int have_buffers:1;
 };
 
-struct pw_port_implementation {
+struct pw_impl_port_implementation {
 #define PW_VERSION_PORT_IMPLEMENTATION       0
 	uint32_t version;
 
-	int (*init_mix) (void *data, struct pw_port_mix *mix);
-	int (*release_mix) (void *data, struct pw_port_mix *mix);
+	int (*init_mix) (void *data, struct pw_impl_port_mix *mix);
+	int (*release_mix) (void *data, struct pw_impl_port_mix *mix);
 };
 
-#define pw_port_call(p,m,v,...)				\
-({							\
-	int _res = 0;					\
-	spa_callbacks_call_res(&(p)->impl,		\
-			struct pw_port_implementation,	\
-			_res, m, v, ## __VA_ARGS__);	\
-	_res;						\
+#define pw_impl_port_call(p,m,v,...)				\
+({								\
+	int _res = 0;						\
+	spa_callbacks_call_res(&(p)->impl,			\
+			struct pw_impl_port_implementation,	\
+			_res, m, v, ## __VA_ARGS__);		\
+	_res;							\
 })
 
-#define pw_port_call_init_mix(p,m)		pw_port_call(p,init_mix,0,m)
-#define pw_port_call_release_mix(p,m)		pw_port_call(p,release_mix,0,m)
+#define pw_impl_port_call_init_mix(p,m)		pw_impl_port_call(p,init_mix,0,m)
+#define pw_impl_port_call_release_mix(p,m)	pw_impl_port_call(p,release_mix,0,m)
 
-#define pw_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_port_events, m, v, ##__VA_ARGS__)
-#define pw_port_emit_destroy(p)			pw_port_emit(p, destroy, 0)
-#define pw_port_emit_free(p)			pw_port_emit(p, free, 0)
-#define pw_port_emit_initialized(p)		pw_port_emit(p, initialized, 0)
-#define pw_port_emit_info_changed(p,i)		pw_port_emit(p, info_changed, 0, i)
-#define pw_port_emit_link_added(p,l)		pw_port_emit(p, link_added, 0, l)
-#define pw_port_emit_link_removed(p,l)		pw_port_emit(p, link_removed, 0, l)
-#define pw_port_emit_state_changed(p,o,s,e)	pw_port_emit(p, state_changed, 0, o, s, e)
-#define pw_port_emit_control_added(p,c)		pw_port_emit(p, control_added, 0, c)
-#define pw_port_emit_control_removed(p,c)	pw_port_emit(p, control_removed, 0, c)
+#define pw_impl_port_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_port_events, m, v, ##__VA_ARGS__)
+#define pw_impl_port_emit_destroy(p)			pw_impl_port_emit(p, destroy, 0)
+#define pw_impl_port_emit_free(p)			pw_impl_port_emit(p, free, 0)
+#define pw_impl_port_emit_initialized(p)		pw_impl_port_emit(p, initialized, 0)
+#define pw_impl_port_emit_info_changed(p,i)		pw_impl_port_emit(p, info_changed, 0, i)
+#define pw_impl_port_emit_link_added(p,l)		pw_impl_port_emit(p, link_added, 0, l)
+#define pw_impl_port_emit_link_removed(p,l)		pw_impl_port_emit(p, link_removed, 0, l)
+#define pw_impl_port_emit_state_changed(p,o,s,e)	pw_impl_port_emit(p, state_changed, 0, o, s, e)
+#define pw_impl_port_emit_control_added(p,c)		pw_impl_port_emit(p, control_added, 0, c)
+#define pw_impl_port_emit_control_removed(p,c)		pw_impl_port_emit(p, control_removed, 0, c)
 
-#define PW_PORT_IS_CONTROL(port)	SPA_FLAG_MASK(port->flags, \
-						PW_PORT_FLAG_BUFFERS|PW_PORT_FLAG_CONTROL,\
-						PW_PORT_FLAG_CONTROL)
-struct pw_port {
+#define PW_IMPL_PORT_IS_CONTROL(port)	SPA_FLAG_MASK(port->flags, \
+						PW_IMPL_PORT_FLAG_BUFFERS|PW_IMPL_PORT_FLAG_CONTROL,\
+						PW_IMPL_PORT_FLAG_CONTROL)
+struct pw_impl_port {
 	struct spa_list link;		/**< link in node port_list */
 
 	struct pw_node *node;		/**< owner node */
 	struct pw_global *global;	/**< global for this port */
 	struct spa_hook global_listener;
 
-#define PW_PORT_FLAG_TO_REMOVE		(1<<0)		/**< if the port should be removed from the
+#define PW_IMPL_PORT_FLAG_TO_REMOVE		(1<<0)		/**< if the port should be removed from the
 							  *  implementation when destroyed */
-#define PW_PORT_FLAG_BUFFERS		(1<<1)		/**< port has data */
-#define PW_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
-#define PW_PORT_FLAG_NO_MIXER		(1<<3)		/**< don't try to add mixer to port */
+#define PW_IMPL_PORT_FLAG_BUFFERS		(1<<1)		/**< port has data */
+#define PW_IMPL_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
+#define PW_IMPL_PORT_FLAG_NO_MIXER		(1<<3)		/**< don't try to add mixer to port */
 	uint32_t flags;
 	uint32_t spa_flags;
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */
 
-	enum pw_port_state state;	/**< state of the port */
+	enum pw_impl_port_state state;	/**< state of the port */
 	const char *error;		/**< error state */
 
 	struct pw_properties *properties;	/**< properties of the port */
@@ -594,14 +594,14 @@ struct pw_port {
 	struct spa_callbacks impl;
 
 	struct spa_node *mix;		/**< port buffer mix/split */
-#define PW_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
-#define PW_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
-#define PW_PORT_MIX_FLAG_NEGOTIATE	(1<<2)	/**< negotiate buffers  */
+#define PW_IMPL_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
+#define PW_IMPL_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
+#define PW_IMPL_PORT_MIX_FLAG_NEGOTIATE	(1<<2)	/**< negotiate buffers  */
 	uint32_t mix_flags;		/**< flags for the mixing */
 	struct spa_handle *mix_handle;	/**< mix plugin handle */
 	struct pw_buffers mix_buffers;	/**< buffers between mixer and node */
 
-	struct spa_list mix_list;	/**< list of \ref pw_port_mix */
+	struct spa_list mix_list;	/**< list of \ref pw_impl_port_mix */
 	struct pw_map mix_port_map;	/**< map from port_id from mixer */
 	uint32_t n_mix;
 
@@ -645,9 +645,9 @@ struct pw_impl_link {
 
 	struct spa_io_buffers *io;	/**< link io area */
 
-	struct pw_port *output;		/**< output port */
+	struct pw_impl_port *output;		/**< output port */
 	struct spa_list output_link;	/**< link in output port links */
-	struct pw_port *input;		/**< input port */
+	struct pw_impl_port *input;		/**< input port */
 	struct spa_list input_link;	/**< link in input port links */
 
 	struct spa_hook_list listener_list;
@@ -656,8 +656,8 @@ struct pw_impl_link {
 	struct pw_control_link notify;
 
 	struct {
-		struct pw_port_mix out_mix;	/**< port added to the output mixer */
-		struct pw_port_mix in_mix;	/**< port added to the input mixer */
+		struct pw_impl_port_mix out_mix;	/**< port added to the output mixer */
+		struct pw_impl_port_mix in_mix;	/**< port added to the input mixer */
 		struct pw_node_target target;	/**< target to trigger the input node */
 	} rt;
 
@@ -859,7 +859,7 @@ struct pw_control {
 	struct spa_list link;		/**< link in context control_list */
 	struct pw_context *context;		/**< the context */
 
-	struct pw_port *port;		/**< owner port or NULL */
+	struct pw_impl_port *port;		/**< owner port or NULL */
 	struct spa_list port_link;	/**< link in port control_list */
 
 	enum spa_direction direction;	/**< the direction */
@@ -875,8 +875,8 @@ struct pw_control {
 
 /** Find a good format between 2 ports */
 int pw_context_find_format(struct pw_context *context,
-			struct pw_port *output,
-			struct pw_port *input,
+			struct pw_impl_port *output,
+			struct pw_impl_port *input,
 			struct pw_properties *props,
 			uint32_t n_format_filters,
 			struct spa_pod **format_filters,
@@ -885,9 +885,9 @@ int pw_context_find_format(struct pw_context *context,
 			char **error);
 
 /** Find a ports compatible with \a other_port and the format filters */
-struct pw_port *
+struct pw_impl_port *
 pw_context_find_port(struct pw_context *context,
-		  struct pw_port *other_port,
+		  struct pw_impl_port *other_port,
 		  uint32_t id,
 		  struct pw_properties *props,
 		  uint32_t n_format_filters,
@@ -906,42 +906,42 @@ void pw_resource_remove(struct pw_resource *resource);
 
 int pw_context_recalc_graph(struct pw_context *context);
 
-/** Create a new port \memberof pw_port
+/** Create a new port \memberof pw_impl_port
  * \return a newly allocated port */
-struct pw_port *
-pw_port_new(enum pw_direction direction,
+struct pw_impl_port *
+pw_impl_port_new(enum pw_direction direction,
 	    uint32_t port_id,
 	    const struct spa_port_info *info,
 	    size_t user_data_size);
 
-void pw_port_update_info(struct pw_port *port, const struct spa_port_info *info);
+void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);
 
-int pw_port_register(struct pw_port *port,
+int pw_impl_port_register(struct pw_impl_port *port,
 		     struct pw_properties *properties);
 
-/** Get the user data of a port, the size of the memory was given \ref in pw_port_new */
-void * pw_port_get_user_data(struct pw_port *port);
+/** Get the user data of a port, the size of the memory was given \ref in pw_impl_port_new */
+void * pw_impl_port_get_user_data(struct pw_impl_port *port);
 
-int pw_port_set_mix(struct pw_port *port, struct spa_node *node, uint32_t flags);
+int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint32_t flags);
 
-/** Add a port to a node \memberof pw_port */
-int pw_port_add(struct pw_port *port, struct pw_node *node);
+/** Add a port to a node \memberof pw_impl_port */
+int pw_impl_port_add(struct pw_impl_port *port, struct pw_node *node);
 
-int pw_port_init_mix(struct pw_port *port, struct pw_port_mix *mix);
-int pw_port_release_mix(struct pw_port *port, struct pw_port_mix *mix);
+int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
+int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
 
-void pw_port_update_state(struct pw_port *port, enum pw_port_state state, char *error);
+void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, char *error);
 
-/** Unlink a port \memberof pw_port */
-void pw_port_unlink(struct pw_port *port);
+/** Unlink a port \memberof pw_impl_port */
+void pw_impl_port_unlink(struct pw_impl_port *port);
 
-/** Destroy a port \memberof pw_port */
-void pw_port_destroy(struct pw_port *port);
+/** Destroy a port \memberof pw_impl_port */
+void pw_impl_port_destroy(struct pw_impl_port *port);
 
 /** Iterate the params of the given port. The callback should return
  * 1 to fetch the next item, 0 to stop iteration or <0 on error.
  * The function returns 0 on success or the error returned by the callback. */
-int pw_port_for_each_param(struct pw_port *port,
+int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			   int seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
@@ -950,8 +950,8 @@ int pw_port_for_each_param(struct pw_port *port,
 					    struct spa_pod *param),
 			   void *data);
 
-int pw_port_for_each_filtered_param(struct pw_port *in_port,
-				    struct pw_port *out_port,
+int pw_impl_port_for_each_filtered_param(struct pw_impl_port *in_port,
+				    struct pw_impl_port *out_port,
 				    int seq,
 				    uint32_t in_param_id,
 				    uint32_t out_param_id,
@@ -965,20 +965,20 @@ int pw_port_for_each_filtered_param(struct pw_port *in_port,
  * 0 to fetch the next item, any other value stops the iteration and returns
  * the value. When all callbacks return 0, this function returns 0 when all
  * items are iterated. */
-int pw_port_for_each_link(struct pw_port *port,
+int pw_impl_port_for_each_link(struct pw_impl_port *port,
 			   int (*callback) (void *data, struct pw_impl_link *link),
 			   void *data);
 
 /** check is a port has links, return 0 if not, 1 if it is linked */
-int pw_port_is_linked(struct pw_port *port);
+int pw_impl_port_is_linked(struct pw_impl_port *port);
 
-/** Set a param on a port \memberof pw_port, use SPA_ID_INVALID for mix_id to set
+/** Set a param on a port \memberof pw_impl_port, use SPA_ID_INVALID for mix_id to set
  * the param on all mix ports */
-int pw_port_set_param(struct pw_port *port,
+int pw_impl_port_set_param(struct pw_impl_port *port,
 		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
-/** Use buffers on a port \memberof pw_port */
-int pw_port_use_buffers(struct pw_port *port, struct pw_port_mix *mix, uint32_t flags,
+/** Use buffers on a port \memberof pw_impl_port */
+int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Change the state of the node */
@@ -1004,7 +1004,7 @@ int pw_impl_link_deactivate(struct pw_impl_link *link);
 
 struct pw_control *
 pw_control_new(struct pw_context *context,
-	       struct pw_port *owner,		/**< can be NULL */
+	       struct pw_impl_port *owner,		/**< can be NULL */
 	       uint32_t id, uint32_t size,
 	       size_t user_data_size		/**< extra user data */);
 

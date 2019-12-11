@@ -29,11 +29,11 @@
 extern "C" {
 #endif
 
-struct pw_client;
-struct pw_module;
+struct pw_impl_client;
+struct pw_impl_module;
 struct pw_global;
 struct pw_node;
-struct pw_port;
+struct pw_impl_port;
 struct pw_resource;
 
 #include <pipewire/pipewire.h>

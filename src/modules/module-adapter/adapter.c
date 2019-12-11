@@ -80,7 +80,7 @@ static void node_free(void *data)
 	pw_properties_free(n->props);
 }
 
-static void node_port_init(void *data, struct pw_port *port)
+static void node_port_init(void *data, struct pw_impl_port *port)
 {
 	struct node *n = data;
 	const struct pw_properties *old;
@@ -90,9 +90,9 @@ static void node_port_init(void *data, struct pw_port *port)
 	char position[8], *prefix;
 	bool is_monitor, is_device;
 
-	direction = pw_port_get_direction(port);
+	direction = pw_impl_port_get_direction(port);
 
-	old = pw_port_get_properties(port);
+	old = pw_impl_port_get_properties(port);
 
 	is_monitor = (str = pw_properties_get(old, PW_KEY_PORT_MONITOR)) != NULL &&
 			pw_properties_parse_bool(str);
@@ -145,7 +145,7 @@ static void node_port_init(void *data, struct pw_port *port)
 	pw_properties_setf(new, PW_KEY_PORT_ALIAS, "%s:%s_%s",
 			node_name, prefix, str);
 
-	pw_port_update_properties(port, &new->dict);
+	pw_impl_port_update_properties(port, &new->dict);
 	pw_properties_free(new);
 }
 

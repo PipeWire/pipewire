@@ -142,25 +142,25 @@ static const struct pw_impl_link_events link_events = {
 	.initialized = link_initialized
 };
 
-static struct pw_port *get_port(struct pw_node *node, enum spa_direction direction)
+static struct pw_impl_port *get_port(struct pw_node *node, enum spa_direction direction)
 {
-	struct pw_port *p;
+	struct pw_impl_port *p;
 	int res;
 
 	p = pw_node_find_port(node, direction, SPA_ID_INVALID);
 
-	if (p == NULL || pw_port_is_linked(p)) {
+	if (p == NULL || pw_impl_port_is_linked(p)) {
 		uint32_t port_id;
 
 		port_id = pw_node_get_free_port_id(node, direction);
 		if (port_id == SPA_ID_INVALID)
 			return NULL;
 
-		p = pw_port_new(direction, port_id, NULL, 0);
+		p = pw_impl_port_new(direction, port_id, NULL, 0);
 		if (p == NULL)
 			return NULL;
 
-		if ((res = pw_port_add(p, node)) < 0) {
+		if ((res = pw_impl_port_add(p, node)) < 0) {
 			pw_log_warn("can't add port: %s", spa_strerror(res));
 			errno = -res;
 			return NULL;
@@ -180,7 +180,7 @@ static void *create_object(void *_data,
 	struct factory_data *d = _data;
 	struct pw_impl_client *client = NULL;
 	struct pw_node *output_node, *input_node;
-	struct pw_port *outport, *inport;
+	struct pw_impl_port *outport, *inport;
 	struct pw_context *context;
 	struct pw_global *global;
 	struct pw_impl_link *link;

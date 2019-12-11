@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_NODE_H
-#define PIPEWIRE_NODE_H
+#ifndef PIPEWIRE_IMPL_NODE_H
+#define PIPEWIRE_IMPL_NODE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -177,4 +177,4 @@ bool pw_impl_node_is_active(struct pw_impl_node *node);
 }
 #endif
 
-#endif /* PIPEWIRE_NODE_H */
+#endif /* PIPEWIRE_IMPL_NODE_H */

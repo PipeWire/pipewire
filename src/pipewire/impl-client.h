@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_CLIENT_H
-#define PIPEWIRE_CLIENT_H
+#ifndef PIPEWIRE_IMPL_CLIENT_H
+#define PIPEWIRE_IMPL_CLIENT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -165,4 +165,4 @@ void pw_impl_client_set_busy(struct pw_impl_client *client, bool busy);
 }
 #endif
 
-#endif /* PIPEWIRE_CLIENT_H */
+#endif /* PIPEWIRE_IMPL_CLIENT_H */

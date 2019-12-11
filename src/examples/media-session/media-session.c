@@ -607,8 +607,8 @@ static void session_event_info(void *object, const struct pw_session_info *info)
 	pw_proxy_sync(sess->obj.proxy, 1);
 }
 
-static const struct pw_session_proxy_events session_events = {
-	PW_VERSION_SESSION_PROXY_EVENTS,
+static const struct pw_session_events session_events = {
+	PW_VERSION_SESSION_EVENTS,
 	.info = session_event_info,
 };
 
@@ -641,7 +641,7 @@ static void session_destroy(void *object)
 
 static const struct object_info session_info = {
 	.type = PW_TYPE_INTERFACE_Session,
-	.version = PW_VERSION_SESSION_PROXY,
+	.version = PW_VERSION_SESSION,
 	.events = &session_events,
 	.size = sizeof(struct sm_session),
 	.init = session_init,

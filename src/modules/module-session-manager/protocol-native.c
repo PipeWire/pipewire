@@ -1767,7 +1767,7 @@ static void session_marshal_info (void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_SESSION_PROXY_EVENT_INFO, NULL);
+		PW_SESSION_EVENT_INFO, NULL);
 
 	marshal_pw_session_info(b, info);
 
@@ -1782,7 +1782,7 @@ static void session_marshal_param (void *object, int seq, uint32_t id,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource,
-		PW_SESSION_PROXY_EVENT_PARAM, NULL);
+		PW_SESSION_EVENT_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 				SPA_POD_Int(seq),
@@ -1796,7 +1796,7 @@ static void session_marshal_param (void *object, int seq, uint32_t id,
 
 static int session_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_session_proxy_events *events,
+			const struct pw_session_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -1811,7 +1811,7 @@ static int session_marshal_subscribe_params(void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_SESSION_PROXY_METHOD_SUBSCRIBE_PARAMS, NULL);
+		PW_SESSION_METHOD_SUBSCRIBE_PARAMS, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
@@ -1829,7 +1829,7 @@ static int session_marshal_enum_params(void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_SESSION_PROXY_METHOD_ENUM_PARAMS, &msg);
+		PW_SESSION_METHOD_ENUM_PARAMS, &msg);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
@@ -1849,7 +1849,7 @@ static int session_marshal_set_param(void *object,
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_proxy(proxy,
-		PW_SESSION_PROXY_METHOD_SET_PARAM, NULL);
+		PW_SESSION_METHOD_SET_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Id(id),
@@ -1872,7 +1872,7 @@ static int session_demarshal_info(void *object,
 
 	demarshal_pw_session_info(&prs, &f, &info);
 
-	return pw_proxy_notify(proxy, struct pw_session_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_session_events,
 				info, 0, &info);
 }
 
@@ -1894,7 +1894,7 @@ static int session_demarshal_param(void *object,
 				SPA_POD_Pod(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_session_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_session_events,
 				param, 0, seq, id, index, next, param);
 }
 
@@ -1914,7 +1914,7 @@ static int session_demarshal_subscribe_params(void *object,
 	if (ctype != SPA_TYPE_Id)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_session_proxy_methods,
+	return pw_resource_notify(resource, struct pw_session_methods,
 				subscribe_params, 0, ids, n_ids);
 }
 
@@ -1936,7 +1936,7 @@ static int session_demarshal_enum_params(void *object,
 				SPA_POD_Pod(&filter)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_session_proxy_methods,
+	return pw_resource_notify(resource, struct pw_session_methods,
 				enum_params, 0, seq, id, index, num, filter);
 }
 
@@ -1955,25 +1955,25 @@ static int session_demarshal_set_param(void *object,
 				SPA_POD_Pod(&param)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_session_proxy_methods,
+	return pw_resource_notify(resource, struct pw_session_methods,
 				set_param, 0, id, flags, param);
 }
 
-static const struct pw_session_proxy_events pw_protocol_native_session_event_marshal = {
-	PW_VERSION_SESSION_PROXY_EVENTS,
+static const struct pw_session_events pw_protocol_native_session_event_marshal = {
+	PW_VERSION_SESSION_EVENTS,
 	.info = session_marshal_info,
 	.param = session_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_session_event_demarshal[PW_SESSION_PROXY_EVENT_NUM] =
+pw_protocol_native_session_event_demarshal[PW_SESSION_EVENT_NUM] =
 {
-	[PW_SESSION_PROXY_EVENT_INFO] = { session_demarshal_info, 0 },
-	[PW_SESSION_PROXY_EVENT_PARAM] = { session_demarshal_param, 0 },
+	[PW_SESSION_EVENT_INFO] = { session_demarshal_info, 0 },
+	[PW_SESSION_EVENT_PARAM] = { session_demarshal_param, 0 },
 };
 
-static const struct pw_session_proxy_methods pw_protocol_native_session_method_marshal = {
-	PW_VERSION_SESSION_PROXY_METHODS,
+static const struct pw_session_methods pw_protocol_native_session_method_marshal = {
+	PW_VERSION_SESSION_METHODS,
 	.add_listener = session_marshal_add_listener,
 	.subscribe_params = session_marshal_subscribe_params,
 	.enum_params = session_marshal_enum_params,
@@ -1981,20 +1981,20 @@ static const struct pw_session_proxy_methods pw_protocol_native_session_method_m
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_session_method_demarshal[PW_SESSION_PROXY_METHOD_NUM] =
+pw_protocol_native_session_method_demarshal[PW_SESSION_METHOD_NUM] =
 {
-	[PW_SESSION_PROXY_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_SESSION_PROXY_METHOD_SUBSCRIBE_PARAMS] = { session_demarshal_subscribe_params, 0 },
-	[PW_SESSION_PROXY_METHOD_ENUM_PARAMS] = { session_demarshal_enum_params, 0 },
-	[PW_SESSION_PROXY_METHOD_SET_PARAM] = { session_demarshal_set_param, PW_PERM_W },
+	[PW_SESSION_METHOD_ADD_LISTENER] = { NULL, 0 },
+	[PW_SESSION_METHOD_SUBSCRIBE_PARAMS] = { session_demarshal_subscribe_params, 0 },
+	[PW_SESSION_METHOD_ENUM_PARAMS] = { session_demarshal_enum_params, 0 },
+	[PW_SESSION_METHOD_SET_PARAM] = { session_demarshal_set_param, PW_PERM_W },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_session_marshal = {
 	PW_TYPE_INTERFACE_Session,
-	PW_VERSION_SESSION_PROXY,
+	PW_VERSION_SESSION,
 	0,
-	PW_SESSION_PROXY_METHOD_NUM,
-	PW_SESSION_PROXY_EVENT_NUM,
+	PW_SESSION_METHOD_NUM,
+	PW_SESSION_EVENT_NUM,
 	&pw_protocol_native_session_method_marshal,
 	&pw_protocol_native_session_method_demarshal,
 	&pw_protocol_native_session_event_marshal,

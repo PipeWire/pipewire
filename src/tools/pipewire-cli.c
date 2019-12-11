@@ -939,8 +939,8 @@ static void session_event_info(void *object,
 	}
 }
 
-static const struct pw_session_proxy_events session_events = {
-	PW_VERSION_SESSION_PROXY_EVENTS,
+static const struct pw_session_events session_events = {
+	PW_VERSION_SESSION_EVENTS,
 	.info = session_event_info,
 	.param = event_param
 };
@@ -1140,7 +1140,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Session:
 		events = &session_events;
-		client_version = PW_VERSION_SESSION_PROXY;
+		client_version = PW_VERSION_SESSION;
 		destroy = (pw_destroy_t) session_info_free;
 		info_func = info_session;
 		break;

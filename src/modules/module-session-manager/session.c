@@ -47,7 +47,7 @@ struct resource_data {
 };
 
 #define pw_session_resource(r,m,v,...)	\
-	pw_resource_call(r,struct pw_session_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call(r,struct pw_session_events,m,v,__VA_ARGS__)
 #define pw_session_resource_info(r,...)	\
 	pw_session_resource(r,info,0,__VA_ARGS__)
 #define pw_session_resource_param(r,...)	\
@@ -123,8 +123,8 @@ static int session_set_param (void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
-static const struct pw_session_proxy_methods methods = {
-	PW_VERSION_SESSION_PROXY_METHODS,
+static const struct pw_session_methods methods = {
+	PW_VERSION_SESSION_METHODS,
 	.subscribe_params = session_subscribe_params,
 	.enum_params = session_enum_params,
 	.set_param = session_set_param,
@@ -289,7 +289,7 @@ int session_init(struct session *this,
 
 	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_Session,
-			PW_VERSION_SESSION_PROXY,
+			PW_VERSION_SESSION,
 			properties, session_bind, this);
 	if (!this->global)
 		goto no_mem;

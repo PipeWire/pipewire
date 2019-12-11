@@ -44,7 +44,6 @@ struct pw_context;
 
 struct pw_global;
 struct pw_impl_client;
-struct pw_impl_factory;
 
 #include <pipewire/core.h>
 #include <pipewire/loop.h>
@@ -142,11 +141,6 @@ int pw_context_for_each_global(struct pw_context *context,	/**< the context */
 /** Find a context global by id */
 struct pw_global *pw_context_find_global(struct pw_context *context,	/**< the context */
 				      uint32_t id		/**< the global id */);
-
-/** Find a factory by name */
-struct pw_impl_factory *
-pw_context_find_factory(struct pw_context *context	/**< the context */,
-		     const char *name		/**< the factory name */);
 
 /** add a spa library for the given factory_name regex */
 int pw_context_add_spa_lib(struct pw_context *context, const char *factory_regex, const char *lib);

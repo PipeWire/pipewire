@@ -109,6 +109,11 @@ void *pw_impl_factory_create_object(struct pw_impl_factory *factory,
 			       struct pw_properties *properties,
 			       uint32_t new_id);
 
+/** Find a factory by name */
+struct pw_impl_factory *
+pw_context_find_factory(struct pw_context *context	/**< the context */,
+		     const char *name			/**< the factory name */);
+
 #ifdef __cplusplus
 }
 #endif

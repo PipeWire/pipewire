@@ -1067,29 +1067,6 @@ error:
 	return res;
 }
 
-/** Find a factory by name
- *
- * \param context the context object
- * \param name the name of the factory to find
- *
- * Find in the list of factories registered in \a context for one with
- * the given \a name.
- *
- * \memberof pw_context
- */
-SPA_EXPORT
-struct pw_impl_factory *pw_context_find_factory(struct pw_context *context,
-					const char *name)
-{
-	struct pw_impl_factory *factory;
-
-	spa_list_for_each(factory, &context->factory_list, link) {
-		if (strcmp(factory->info.name, name) == 0)
-			return factory;
-	}
-	return NULL;
-}
-
 static int collect_nodes(struct pw_impl_node *driver)
 {
 	struct spa_list queue;

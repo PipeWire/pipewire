@@ -412,13 +412,13 @@ struct pw_node_v0_methods {
 
 #define PW_VERSION_PORT_V0		0
 
-#define PW_PORT_PROXY_V0_EVENT_INFO	0
-#define PW_PORT_PROXY_V0_EVENT_PARAM	1
-#define PW_PORT_PROXY_V0_EVENT_NUM		2
+#define PW_PORT_V0_EVENT_INFO	0
+#define PW_PORT_V0_EVENT_PARAM	1
+#define PW_PORT_V0_EVENT_NUM		2
 
 /** Port events */
-struct pw_port_proxy_v0_events {
-#define PW_VERSION_PORT_PROXY_V0_EVENTS	0
+struct pw_port_v0_events {
+#define PW_VERSION_PORT_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify port info
@@ -441,15 +441,15 @@ struct pw_port_proxy_v0_events {
 		       const struct spa_pod *param);
 };
 
-#define pw_port_resource_v0_info(r,...) pw_resource_notify(r,struct pw_port_proxy_v0_events,info,__VA_ARGS__)
-#define pw_port_resource_v0_param(r,...) pw_resource_notify(r,struct pw_port_proxy_v0_events,param,__VA_ARGS__)
+#define pw_port_resource_v0_info(r,...) pw_resource_notify(r,struct pw_port_v0_events,info,__VA_ARGS__)
+#define pw_port_resource_v0_param(r,...) pw_resource_notify(r,struct pw_port_v0_events,param,__VA_ARGS__)
 
-#define PW_PORT_PROXY_V0_METHOD_ENUM_PARAMS	0
-#define PW_PORT_PROXY_V0_METHOD_NUM		1
+#define PW_PORT_V0_METHOD_ENUM_PARAMS	0
+#define PW_PORT_V0_METHOD_NUM		1
 
 /** Port methods */
-struct pw_port_proxy_v0_methods {
-#define PW_VERSION_PORT_PROXY_V0_METHODS	0
+struct pw_port_v0_methods {
+#define PW_VERSION_PORT_V0_METHODS	0
 	uint32_t version;
 	/**
 	 * Enumerate port parameters

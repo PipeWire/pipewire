@@ -531,8 +531,8 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 	pw_proxy_sync(port->obj.proxy, 1);
 }
 
-static const struct pw_port_proxy_events port_events = {
-	PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events port_events = {
+	PW_VERSION_PORT_EVENTS,
 	.info = port_event_info,
 };
 
@@ -573,7 +573,7 @@ static void port_destroy(void *object)
 
 static const struct object_info port_info = {
 	.type = PW_TYPE_INTERFACE_Port,
-	.version = PW_VERSION_PORT_PROXY,
+	.version = PW_VERSION_PORT,
 	.events = &port_events,
 	.size = sizeof(struct sm_port),
 	.init = port_init,

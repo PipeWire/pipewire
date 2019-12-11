@@ -893,7 +893,7 @@ static void port_marshal_info(void *object, const struct pw_port_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_resource(resource, PW_PORT_PROXY_V0_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_PORT_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -921,7 +921,7 @@ static void port_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 	struct pw_impl_client *client = resource->client;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_PORT_PROXY_V0_EVENT_PARAM, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_PORT_V0_EVENT_PARAM, NULL);
 
 	id = pw_protocol_native0_type_to_v2(client, pw_type_info(), id),
 
@@ -949,7 +949,7 @@ static int port_demarshal_enum_params(void *object, const struct pw_protocol_nat
 	id = pw_protocol_native0_type_from_v2(client, id);
 	filter = NULL;
 
-        return pw_resource_notify(resource, struct pw_port_proxy_methods, enum_params, 0,
+        return pw_resource_notify(resource, struct pw_port_methods, enum_params, 0,
                         0, id, index, num, filter);
 }
 
@@ -1127,11 +1127,11 @@ static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
 
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_port_method_demarshal[] = {
-	[PW_PORT_PROXY_V0_METHOD_ENUM_PARAMS] = { &port_demarshal_enum_params, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
+	[PW_PORT_V0_METHOD_ENUM_PARAMS] = { &port_demarshal_enum_params, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
 };
 
-static const struct pw_port_proxy_events pw_protocol_native_port_event_marshal = {
-	PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events pw_protocol_native_port_event_marshal = {
+	PW_VERSION_PORT_EVENTS,
 	.info = &port_marshal_info,
 	.param = &port_marshal_param,
 };
@@ -1139,8 +1139,8 @@ static const struct pw_port_proxy_events pw_protocol_native_port_event_marshal =
 static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
 	PW_TYPE_INTERFACE_Port,
 	PW_VERSION_PORT_V0,
-	PW_PORT_PROXY_V0_METHOD_NUM,
-	PW_PORT_PROXY_EVENT_NUM,
+	PW_PORT_V0_METHOD_NUM,
+	PW_PORT_EVENT_NUM,
 	0,
 	NULL,
 	pw_protocol_native_port_method_demarshal,

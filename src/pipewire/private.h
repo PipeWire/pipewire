@@ -784,7 +784,6 @@ struct pw_stream {
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 
-	struct pw_node_proxy *node;
 	struct spa_hook node_listener;
 
 	struct spa_list controls;
@@ -819,8 +818,6 @@ struct pw_filter {
 
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
-
-	struct pw_node_proxy *node;
 
 	struct spa_list controls;
 };

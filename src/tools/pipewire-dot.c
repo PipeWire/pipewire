@@ -511,8 +511,8 @@ static void port_event_info(void *data, const struct pw_port_info *info)
         global_event_info(data, info);
 }
 
-static const struct pw_port_proxy_events port_events = {
-        PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events port_events = {
+        PW_VERSION_PORT_EVENTS,
         .info = port_event_info,
 };
 
@@ -615,7 +615,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		info_destroy = (pw_destroy_t)pw_port_info_free;
 		info_update = (info_update_t)pw_port_info_update;
 		draw = draw_port;
-		client_version = PW_VERSION_PORT_PROXY;
+		client_version = PW_VERSION_PORT;
 		break;
 	case PW_TYPE_INTERFACE_Node:
 		events = &node_events;

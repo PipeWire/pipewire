@@ -195,7 +195,7 @@ struct node_data {
 struct port_data {
   struct spa_list link;
   struct node_data *node_data;
-  struct pw_port_proxy *proxy;
+  struct pw_port *proxy;
   struct spa_hook proxy_listener;
   uint32_t id;
   struct spa_hook port_listener;
@@ -387,8 +387,8 @@ static void port_event_param(void *data, int seq, uint32_t id,
       gst_caps_append (node_data->caps, c1);
 }
 
-static const struct pw_port_proxy_events port_events = {
-  PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events port_events = {
+  PW_VERSION_PORT_EVENTS,
   .info = port_event_info,
   .param = port_event_param
 };
@@ -433,7 +433,7 @@ static const struct pw_proxy_events proxy_node_events = {
 };
 
 static void
-destroy_port_proxy (void *data)
+destroy_port (void *data)
 {
   struct port_data *pd = data;
   pw_log_debug("destroy %p", pd);
@@ -443,7 +443,7 @@ destroy_port_proxy (void *data)
 
 static const struct pw_proxy_events proxy_port_events = {
         PW_VERSION_PROXY_EVENTS,
-        .destroy = destroy_port_proxy,
+        .destroy = destroy_port,
 };
 
 static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
@@ -474,7 +474,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     add_pending(self, &nd->pending, NULL, NULL);
   }
   else if (type == PW_TYPE_INTERFACE_Port) {
-    struct pw_port_proxy *port;
+    struct pw_port *port;
     struct port_data *pd;
     const char *str;
 
@@ -486,7 +486,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 
     port = pw_registry_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Port,
-		    PW_VERSION_PORT_PROXY, sizeof(*pd));
+		    PW_VERSION_PORT, sizeof(*pd));
     if (port == NULL)
       goto no_mem;
 
@@ -495,9 +495,9 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pd->proxy = port;
     pd->id = id;
     spa_list_append(&rd->ports, &pd->link);
-    pw_port_proxy_add_listener(port, &pd->port_listener, &port_events, pd);
+    pw_port_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
-    pw_port_proxy_enum_params((struct pw_port_proxy*)port,
+    pw_port_enum_params((struct pw_port*)port,
 				0, SPA_PARAM_EnumFormat, 0, 0, NULL);
     add_pending(self, &pd->pending, do_add_node, pd);
   }

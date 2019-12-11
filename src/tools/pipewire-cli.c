@@ -790,8 +790,8 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 	}
 }
 
-static const struct pw_port_proxy_events port_events = {
-	PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events port_events = {
+	PW_VERSION_PORT_EVENTS,
 	.info = port_event_info,
 	.param = event_param
 };
@@ -1116,7 +1116,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Port:
 		events = &port_events;
-		client_version = PW_VERSION_PORT_PROXY;
+		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		info_func = info_port;
 		break;
@@ -1460,7 +1460,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 			param_id, 0, 0, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Port:
-		pw_port_proxy_enum_params((struct pw_port_proxy*)global->proxy, 0,
+		pw_port_enum_params((struct pw_port*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Device:

@@ -1295,7 +1295,7 @@ static int node_demarshal_send_command(void *object, const struct pw_protocol_na
 
 static int port_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_port_proxy_events *events,
+			const struct pw_port_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -1309,7 +1309,7 @@ static void port_marshal_info(void *object, const struct pw_port_info *info)
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_PORT_PROXY_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_PORT_EVENT_INFO, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -1365,7 +1365,7 @@ static int port_demarshal_info(void *object, const struct pw_protocol_native_mes
 				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
 			return -EINVAL;
 	}
-	return pw_proxy_notify(proxy, struct pw_port_proxy_events, info, 0, &info);
+	return pw_proxy_notify(proxy, struct pw_port_events, info, 0, &info);
 }
 
 static void port_marshal_param(void *object, int seq, uint32_t id,
@@ -1374,7 +1374,7 @@ static void port_marshal_param(void *object, int seq, uint32_t id,
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_PORT_PROXY_EVENT_PARAM, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_PORT_EVENT_PARAM, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(seq),
@@ -1403,7 +1403,7 @@ static int port_demarshal_param(void *object, const struct pw_protocol_native_me
 				SPA_POD_Pod(&param)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_port_proxy_events, param, 0,
+	return pw_proxy_notify(proxy, struct pw_port_events, param, 0,
 			seq, id, index, next, param);
 }
 
@@ -1412,7 +1412,7 @@ static int port_marshal_subscribe_params(void *object, uint32_t *ids, uint32_t n
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_PORT_PROXY_METHOD_SUBSCRIBE_PARAMS, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_PORT_METHOD_SUBSCRIBE_PARAMS, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
@@ -1435,7 +1435,7 @@ static int port_demarshal_subscribe_params(void *object, const struct pw_protoco
 	if (ctype != SPA_TYPE_Id)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_port_proxy_methods, subscribe_params, 0,
+	return pw_resource_notify(resource, struct pw_port_methods, subscribe_params, 0,
 			ids, n_ids);
 }
 
@@ -1446,7 +1446,7 @@ static int port_marshal_enum_params(void *object, int seq, uint32_t id,
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_PORT_PROXY_METHOD_ENUM_PARAMS, &msg);
+	b = pw_protocol_native_begin_proxy(proxy, PW_PORT_METHOD_ENUM_PARAMS, &msg);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
@@ -1475,7 +1475,7 @@ static int port_demarshal_enum_params(void *object, const struct pw_protocol_nat
 				SPA_POD_Pod(&filter)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_port_proxy_methods, enum_params, 0,
+	return pw_resource_notify(resource, struct pw_port_methods, enum_params, 0,
 			seq, id, index, num, filter);
 }
 
@@ -2144,40 +2144,40 @@ static const struct pw_protocol_marshal pw_protocol_native_node_marshal = {
 };
 
 
-static const struct pw_port_proxy_methods pw_protocol_native_port_method_marshal = {
-	PW_VERSION_PORT_PROXY_METHODS,
+static const struct pw_port_methods pw_protocol_native_port_method_marshal = {
+	PW_VERSION_PORT_METHODS,
 	.add_listener = &port_method_marshal_add_listener,
 	.subscribe_params = &port_marshal_subscribe_params,
 	.enum_params = &port_marshal_enum_params,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_port_method_demarshal[PW_PORT_PROXY_METHOD_NUM] =
+pw_protocol_native_port_method_demarshal[PW_PORT_METHOD_NUM] =
 {
-	[PW_PORT_PROXY_METHOD_ADD_LISTENER] = { NULL, 0, },
-	[PW_PORT_PROXY_METHOD_SUBSCRIBE_PARAMS] = { &port_demarshal_subscribe_params, 0, },
-	[PW_PORT_PROXY_METHOD_ENUM_PARAMS] = { &port_demarshal_enum_params, 0, },
+	[PW_PORT_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_PORT_METHOD_SUBSCRIBE_PARAMS] = { &port_demarshal_subscribe_params, 0, },
+	[PW_PORT_METHOD_ENUM_PARAMS] = { &port_demarshal_enum_params, 0, },
 };
 
-static const struct pw_port_proxy_events pw_protocol_native_port_event_marshal = {
-	PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events pw_protocol_native_port_event_marshal = {
+	PW_VERSION_PORT_EVENTS,
 	.info = &port_marshal_info,
 	.param = &port_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_port_event_demarshal[PW_PORT_PROXY_EVENT_NUM] =
+pw_protocol_native_port_event_demarshal[PW_PORT_EVENT_NUM] =
 {
-	[PW_PORT_PROXY_EVENT_INFO] = { &port_demarshal_info, 0, },
-	[PW_PORT_PROXY_EVENT_PARAM] = { &port_demarshal_param, 0, }
+	[PW_PORT_EVENT_INFO] = { &port_demarshal_info, 0, },
+	[PW_PORT_EVENT_PARAM] = { &port_demarshal_param, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
 	PW_TYPE_INTERFACE_Port,
-	PW_VERSION_PORT_PROXY,
+	PW_VERSION_PORT,
 	0,
-	PW_PORT_PROXY_METHOD_NUM,
-	PW_PORT_PROXY_EVENT_NUM,
+	PW_PORT_METHOD_NUM,
+	PW_PORT_EVENT_NUM,
 	.client_marshal = &pw_protocol_native_port_method_marshal,
 	.server_demarshal = pw_protocol_native_port_method_demarshal,
 	.server_marshal = &pw_protocol_native_port_event_marshal,

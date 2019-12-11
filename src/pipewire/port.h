@@ -38,8 +38,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-#define PW_VERSION_PORT_PROXY		3
-struct pw_port_proxy;
+#define PW_VERSION_PORT		3
+struct pw_port;
 
 /** \enum pw_direction The direction of a port \memberof pw_introspect */
 enum pw_direction {
@@ -76,13 +76,13 @@ pw_port_info_update(struct pw_port_info *info,
 void
 pw_port_info_free(struct pw_port_info *info);
 
-#define PW_PORT_PROXY_EVENT_INFO	0
-#define PW_PORT_PROXY_EVENT_PARAM	1
-#define PW_PORT_PROXY_EVENT_NUM		2
+#define PW_PORT_EVENT_INFO	0
+#define PW_PORT_EVENT_PARAM	1
+#define PW_PORT_EVENT_NUM	2
 
 /** Port events */
-struct pw_port_proxy_events {
-#define PW_VERSION_PORT_PROXY_EVENTS	0
+struct pw_port_events {
+#define PW_VERSION_PORT_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify port info
@@ -106,19 +106,19 @@ struct pw_port_proxy_events {
 		       const struct spa_pod *param);
 };
 
-#define PW_PORT_PROXY_METHOD_ADD_LISTENER	0
-#define PW_PORT_PROXY_METHOD_SUBSCRIBE_PARAMS	1
-#define PW_PORT_PROXY_METHOD_ENUM_PARAMS	2
-#define PW_PORT_PROXY_METHOD_NUM		3
+#define PW_PORT_METHOD_ADD_LISTENER	0
+#define PW_PORT_METHOD_SUBSCRIBE_PARAMS	1
+#define PW_PORT_METHOD_ENUM_PARAMS	2
+#define PW_PORT_METHOD_NUM		3
 
 /** Port methods */
-struct pw_port_proxy_methods {
-#define PW_VERSION_PORT_PROXY_METHODS	0
+struct pw_port_methods {
+#define PW_VERSION_PORT_METHODS		0
 	uint32_t version;
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_port_proxy_events *events,
+			const struct pw_port_events *events,
 			void *data);
 	/**
 	 * Subscribe to parameter changes
@@ -148,18 +148,18 @@ struct pw_port_proxy_methods {
 			const struct spa_pod *filter);
 };
 
-#define pw_port_proxy_method(o,method,version,...)			\
+#define pw_port_method(o,method,version,...)				\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_port_proxy_methods, _res,		\
+			struct pw_port_methods, _res,			\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_port_proxy_add_listener(c,...)	pw_port_proxy_method(c,add_listener,0,__VA_ARGS__)
-#define pw_port_proxy_subscribe_params(c,...)	pw_port_proxy_method(c,subscribe_params,0,__VA_ARGS__)
-#define pw_port_proxy_enum_params(c,...)	pw_port_proxy_method(c,enum_params,0,__VA_ARGS__)
+#define pw_port_add_listener(c,...)	pw_port_method(c,add_listener,0,__VA_ARGS__)
+#define pw_port_subscribe_params(c,...)	pw_port_method(c,subscribe_params,0,__VA_ARGS__)
+#define pw_port_enum_params(c,...)	pw_port_method(c,enum_params,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

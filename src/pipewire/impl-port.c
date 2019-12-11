@@ -43,7 +43,7 @@ struct impl {
 	struct spa_node mix_node;	/**< mix node implementation */
 };
 
-#define pw_port_resource(r,m,v,...)	pw_resource_call(r,struct pw_port_proxy_events,m,v,__VA_ARGS__)
+#define pw_port_resource(r,m,v,...)	pw_resource_call(r,struct pw_port_events,m,v,__VA_ARGS__)
 #define pw_port_resource_info(r,...)	pw_port_resource(r,info,0,__VA_ARGS__)
 #define pw_port_resource_param(r,...)	pw_port_resource(r,param,0,__VA_ARGS__)
 
@@ -713,8 +713,8 @@ static int port_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 	return 0;
 }
 
-static const struct pw_port_proxy_methods port_methods = {
-	PW_VERSION_PORT_PROXY_METHODS,
+static const struct pw_port_methods port_methods = {
+	PW_VERSION_PORT_METHODS,
 	.subscribe_params = port_subscribe_params,
 	.enum_params = port_enum_params
 };
@@ -803,7 +803,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 
 	port->global = pw_global_new(node->context,
 				PW_TYPE_INTERFACE_Port,
-				PW_VERSION_PORT_PROXY,
+				PW_VERSION_PORT,
 				properties,
 				global_bind,
 				port);

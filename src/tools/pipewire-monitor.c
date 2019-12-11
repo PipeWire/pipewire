@@ -345,7 +345,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
-			pw_port_proxy_enum_params((struct pw_port_proxy*)data->proxy,
+			pw_port_enum_params((struct pw_port*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
 		}
 		add_pending(data);
@@ -356,8 +356,8 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 		data->print_func(data);
 }
 
-static const struct pw_port_proxy_events port_events = {
-	PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events port_events = {
+	PW_VERSION_PORT_EVENTS,
         .info = port_event_info,
         .param = event_param
 };
@@ -584,7 +584,7 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 	case PW_TYPE_INTERFACE_Port:
 		events = &port_events;
-		client_version = PW_VERSION_PORT_PROXY;
+		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		print_func = print_port;
 		break;

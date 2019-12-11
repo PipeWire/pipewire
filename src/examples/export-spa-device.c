@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	data.library = argv[1];
 	data.factory = argv[2];
 
-	pw_module_load(data.context, "libpipewire-module-spa-device-factory", NULL, NULL);
+	pw_impl_module_load(data.context, "libpipewire-module-spa-device-factory", NULL, NULL);
 
         data.core = pw_context_connect(data.context, NULL, 0);
 	if (data.core == NULL) {

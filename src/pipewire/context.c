@@ -455,13 +455,13 @@ static int load_module_profile(struct pw_context *this, const char *profile)
 {
 	pw_log_debug(NAME" %p: module profile %s", this, profile);
 	if (strcmp(profile, "default") == 0) {
-		pw_module_load(this, "libpipewire-module-rtkit", NULL, NULL);
-		pw_module_load(this, "libpipewire-module-protocol-native", NULL, NULL);
-		pw_module_load(this, "libpipewire-module-client-node", NULL, NULL);
-		pw_module_load(this, "libpipewire-module-client-device", NULL, NULL);
-		pw_module_load(this, "libpipewire-module-adapter", NULL, NULL);
-		pw_module_load(this, "libpipewire-module-metadata", NULL, NULL);
-		pw_module_load(this, "libpipewire-module-session-manager", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-rtkit", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-protocol-native", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-client-node", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-client-device", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-adapter", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-metadata", NULL, NULL);
+		pw_impl_module_load(this, "libpipewire-module-session-manager", NULL, NULL);
 	}
 	return 0;
 }
@@ -649,7 +649,7 @@ void pw_context_destroy(struct pw_context *context)
 {
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_global *global;
-	struct pw_module *module;
+	struct pw_impl_module *module;
 	struct pw_impl_device *device;
 	struct pw_core *core;
 	struct pw_resource *resource;
@@ -665,7 +665,7 @@ void pw_context_destroy(struct pw_context *context)
 		pw_core_disconnect(core);
 
 	spa_list_consume(module, &context->module_list, link)
-		pw_module_destroy(module);
+		pw_impl_module_destroy(module);
 
 	spa_list_consume(node, &context->node_list, link)
 		pw_node_destroy(node);

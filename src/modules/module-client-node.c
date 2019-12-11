@@ -55,7 +55,7 @@ struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_context *
 struct factory_data {
 	struct pw_impl_factory *this;
 
-	struct pw_module *module;
+	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 
 	struct pw_export_type export_node;
@@ -127,13 +127,13 @@ static void module_destroy(void *data)
 static void module_registered(void *data)
 {
 	struct factory_data *d = data;
-	struct pw_module *module = d->module;
+	struct pw_impl_module *module = d->module;
 	struct pw_impl_factory *factory = d->this;
 	struct spa_dict_item items[1];
 	char id[16];
 	int res;
 
-	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_module_get_global(module)));
+	snprintf(id, sizeof(id), "%d", pw_global_get_id(pw_impl_module_get_global(module)));
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 
@@ -142,16 +142,16 @@ static void module_registered(void *data)
 	}
 }
 
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
 	.registered = module_registered,
 };
 
 SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
-	struct pw_context *context = pw_module_get_context(module);
+	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
@@ -185,9 +185,9 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	data->export_spanode.func = pw_core_spa_node_export;
 	pw_context_register_export_type(context, &data->export_spanode);
 
-	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 }

@@ -71,7 +71,7 @@ void pw_protocol_native_init(struct pw_protocol *protocol);
 void pw_protocol_native0_init(struct pw_protocol *protocol);
 
 struct protocol_data {
-	struct pw_module *module;
+	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 	struct pw_protocol *protocol;
 
@@ -1076,15 +1076,15 @@ static void module_destroy(void *data)
 	pw_protocol_destroy(d->protocol);
 }
 
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
 };
 
 SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
-	struct pw_context *context = pw_module_get_context(module);
+	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_protocol *this;
 	const char *val;
 	struct protocol_data *d;
@@ -1126,9 +1126,9 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 		}
 	}
 
-	pw_module_add_listener(module, &d->module_listener, &module_events, d);
+	pw_impl_module_add_listener(module, &d->module_listener, &module_events, d);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

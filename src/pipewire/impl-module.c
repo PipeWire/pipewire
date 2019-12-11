@@ -40,7 +40,7 @@
 
 /** \cond */
 struct impl {
-	struct pw_module this;
+	struct pw_impl_module this;
 	void *hnd;
 };
 
@@ -120,7 +120,7 @@ static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		 uint32_t version, uint32_t id)
 {
-	struct pw_module *this = _data;
+	struct pw_impl_module *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -150,10 +150,10 @@ error_resource:
 
 static void global_destroy(void *object)
 {
-	struct pw_module *module = object;
+	struct pw_impl_module *module = object;
 	spa_hook_remove(&module->global_listener);
 	module->global = NULL;
-	pw_module_destroy(module);
+	pw_impl_module_destroy(module);
 }
 
 static const struct pw_global_events global_events = {
@@ -167,23 +167,23 @@ static const struct pw_global_events global_events = {
  * \param name name of the module to load
  * \param args A string with arguments for the module
  * \param[out] error Return location for an error string, or NULL
- * \return A \ref pw_module if the module could be loaded, or NULL on failure.
+ * \return A \ref pw_impl_module if the module could be loaded, or NULL on failure.
  *
- * \memberof pw_module
+ * \memberof pw_impl_module
  */
 SPA_EXPORT
-struct pw_module *
-pw_module_load(struct pw_context *context,
+struct pw_impl_module *
+pw_impl_module_load(struct pw_context *context,
 	       const char *name, const char *args,
 	       struct pw_properties *properties)
 {
-	struct pw_module *this;
+	struct pw_impl_module *this;
 	struct impl *impl;
 	void *hnd;
 	char *filename = NULL;
 	const char *module_dir;
 	int res;
-	pw_module_init_func_t init_func;
+	pw_impl_module_init_func_t init_func;
 
 	module_dir = getenv("PIPEWIRE_MODULE_DIR");
 	if (module_dir != NULL) {
@@ -261,7 +261,7 @@ pw_module_load(struct pw_context *context,
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 
-	pw_module_emit_initialized(this);
+	pw_impl_module_emit_initialized(this);
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 
@@ -270,7 +270,7 @@ pw_module_load(struct pw_context *context,
 
 	pw_global_register(this->global);
 
-	pw_module_emit_registered(this);
+	pw_impl_module_emit_registered(this);
 
 	pw_log_debug(NAME" %p: loaded module: %s", this, this->info.name);
 
@@ -301,7 +301,7 @@ error_init_failed:
 	goto error_free_module;
 
 error_free_module:
-	pw_module_destroy(this);
+	pw_impl_module_destroy(this);
 error_close:
 	if (hnd)
 		dlclose(hnd);
@@ -317,15 +317,15 @@ error_cleanup:
 
 /** Destroy a module
  * \param module the module to destroy
- * \memberof pw_module
+ * \memberof pw_impl_module
  */
 SPA_EXPORT
-void pw_module_destroy(struct pw_module *module)
+void pw_impl_module_destroy(struct pw_impl_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 
 	pw_log_debug(NAME" %p: destroy", module);
-	pw_module_emit_destroy(module);
+	pw_impl_module_emit_destroy(module);
 
 	if (module->global) {
 		spa_list_remove(&module->link);
@@ -334,7 +334,7 @@ void pw_module_destroy(struct pw_module *module)
 	}
 
 	pw_log_debug(NAME" %p: free", module);
-	pw_module_emit_free(module);
+	pw_impl_module_emit_free(module);
 	free((char *) module->info.name);
 	free((char *) module->info.filename);
 	free((char *) module->info.args);
@@ -348,25 +348,25 @@ void pw_module_destroy(struct pw_module *module)
 
 SPA_EXPORT
 struct pw_context *
-pw_module_get_context(struct pw_module *module)
+pw_impl_module_get_context(struct pw_impl_module *module)
 {
 	return module->context;
 }
 
 SPA_EXPORT
-struct pw_global * pw_module_get_global(struct pw_module *module)
+struct pw_global * pw_impl_module_get_global(struct pw_impl_module *module)
 {
 	return module->global;
 }
 
 SPA_EXPORT
-const struct pw_properties *pw_module_get_properties(struct pw_module *module)
+const struct pw_properties *pw_impl_module_get_properties(struct pw_impl_module *module)
 {
 	return module->properties;
 }
 
 SPA_EXPORT
-int pw_module_update_properties(struct pw_module *module, const struct spa_dict *dict)
+int pw_impl_module_update_properties(struct pw_impl_module *module, const struct spa_dict *dict)
 {
 	struct pw_resource *resource;
 	int changed;
@@ -390,15 +390,15 @@ int pw_module_update_properties(struct pw_module *module, const struct spa_dict 
 
 SPA_EXPORT
 const struct pw_module_info *
-pw_module_get_info(struct pw_module *module)
+pw_impl_module_get_info(struct pw_impl_module *module)
 {
 	return &module->info;
 }
 
 SPA_EXPORT
-void pw_module_add_listener(struct pw_module *module,
+void pw_impl_module_add_listener(struct pw_impl_module *module,
 			    struct spa_hook *listener,
-			    const struct pw_module_events *events,
+			    const struct pw_impl_module_events *events,
 			    void *data)
 {
 	spa_hook_list_append(&module->listener_list, listener, events, data);

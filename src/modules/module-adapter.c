@@ -56,7 +56,7 @@ struct factory_data {
 	struct spa_list node_list;
 
 	struct pw_context *context;
-	struct pw_module *module;
+	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 };
 
@@ -184,7 +184,7 @@ static void *create_object(void *_data,
 			goto error_no_mem;
 	}
 
-	adapter = pw_adapter_new(pw_module_get_context(d->module),
+	adapter = pw_adapter_new(pw_impl_module_get_context(d->module),
 			slave,
 			properties,
 			sizeof(struct node_data));
@@ -259,7 +259,7 @@ static void module_destroy(void *data)
 static void module_registered(void *data)
 {
 	struct factory_data *d = data;
-	struct pw_module *module = d->module;
+	struct pw_impl_module *module = d->module;
 	struct pw_impl_factory *factory = d->this;
 	struct spa_dict_item items[1];
 	char id[16];
@@ -274,16 +274,16 @@ static void module_registered(void *data)
 	}
 }
 
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
 	.registered = module_registered,
 };
 
 SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
-	struct pw_context *context = pw_module_get_context(module);
+	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
@@ -310,9 +310,9 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 				      &impl_factory,
 				      data);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	return 0;
 }

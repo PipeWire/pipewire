@@ -300,13 +300,13 @@ struct pw_impl_device {
 	unsigned int registered:1;
 };
 
-#define pw_module_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_module_events, m, v, ##__VA_ARGS__)
-#define pw_module_emit_destroy(m)	pw_module_emit(m, destroy, 0)
-#define pw_module_emit_free(m)		pw_module_emit(m, free, 0)
-#define pw_module_emit_initialized(m)	pw_module_emit(m, initialized, 0)
-#define pw_module_emit_registered(m)	pw_module_emit(m, registered, 0)
+#define pw_impl_module_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_module_events, m, v, ##__VA_ARGS__)
+#define pw_impl_module_emit_destroy(m)		pw_impl_module_emit(m, destroy, 0)
+#define pw_impl_module_emit_free(m)		pw_impl_module_emit(m, free, 0)
+#define pw_impl_module_emit_initialized(m)	pw_impl_module_emit(m, initialized, 0)
+#define pw_impl_module_emit_registered(m)	pw_impl_module_emit(m, registered, 0)
 
-struct pw_module {
+struct pw_impl_module {
 	struct pw_context *context;           /**< the context object */
 	struct spa_list link;           /**< link in the context module_list */
 	struct pw_global *global;       /**< global object for this module */

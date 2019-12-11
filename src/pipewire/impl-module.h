@@ -23,8 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_MODULE_H
-#define PIPEWIRE_MODULE_H
+#ifndef PIPEWIRE_IMPL_MODULE_H
+#define PIPEWIRE_IMPL_MODULE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,28 +37,28 @@ extern "C" {
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
 #define PIPEWIRE_MODULE_PREFIX "libpipewire-"
 
-/** \class pw_module
+/** \class pw_impl_module
  *
  * A dynamically loadable module
  */
-struct pw_module;
+struct pw_impl_module;
 
 /** Module init function signature
  *
- * \param module A \ref pw_module
+ * \param module A \ref pw_impl_module
  * \param args Arguments to the module
  * \return 0 on success, < 0 otherwise with an errno style error
  *
  * A module should provide an init function with this signature. This function
  * will be called when a module is loaded.
  *
- * \memberof pw_module
+ * \memberof pw_impl_module
  */
-typedef int (*pw_module_init_func_t) (struct pw_module *module, const char *args);
+typedef int (*pw_impl_module_init_func_t) (struct pw_impl_module *module, const char *args);
 
-/** Module events added with \ref pw_module_add_listener */
-struct pw_module_events {
-#define PW_VERSION_MODULE_EVENTS	0
+/** Module events added with \ref pw_impl_module_add_listener */
+struct pw_impl_module_events {
+#define PW_VERSION_IMPL_MODULE_EVENTS	0
 	uint32_t version;
 
 	/** The module is destroyed */
@@ -73,38 +73,38 @@ struct pw_module_events {
 	void (*registered) (void *data);
 };
 
-struct pw_module *
-pw_module_load(struct pw_context *context,
+struct pw_impl_module *
+pw_impl_module_load(struct pw_context *context,
 	       const char *name,		/**< name of the module */
 	       const char *args			/**< arguments of the module */,
 	       struct pw_properties *properties	/**< extra global properties */);
 
 /** Get the context of a module */
-struct pw_context * pw_module_get_context(struct pw_module *module);
+struct pw_context * pw_impl_module_get_context(struct pw_impl_module *module);
 
 /** Get the global of a module */
-struct pw_global * pw_module_get_global(struct pw_module *module);
+struct pw_global * pw_impl_module_get_global(struct pw_impl_module *module);
 
 /** Get the node properties */
-const struct pw_properties *pw_module_get_properties(struct pw_module *module);
+const struct pw_properties *pw_impl_module_get_properties(struct pw_impl_module *module);
 
 /** Update the module properties */
-int pw_module_update_properties(struct pw_module *module, const struct spa_dict *dict);
+int pw_impl_module_update_properties(struct pw_impl_module *module, const struct spa_dict *dict);
 
 /** Get the module info */
-const struct pw_module_info *pw_module_get_info(struct pw_module *module);
+const struct pw_module_info *pw_impl_module_get_info(struct pw_impl_module *module);
 
 /** Add an event listener to a module */
-void pw_module_add_listener(struct pw_module *module,
+void pw_impl_module_add_listener(struct pw_impl_module *module,
 			    struct spa_hook *listener,
-			    const struct pw_module_events *events,
+			    const struct pw_impl_module_events *events,
 			    void *data);
 
 /** Destroy a module */
-void pw_module_destroy(struct pw_module *module);
+void pw_impl_module_destroy(struct pw_impl_module *module);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* PIPEWIRE_MODULE_H */
+#endif /* PIPEWIRE_IMPL_MODULE_H */

@@ -426,8 +426,8 @@ static void module_destroy(void *data)
 	free(impl);
 }
 
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
 };
 
@@ -484,9 +484,9 @@ static void idle_func(struct spa_source *source)
 }
 
 SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
-	struct pw_context *context = pw_module_get_context(module);
+	struct pw_context *context = pw_impl_module_get_context(module);
 	struct impl *impl;
 	struct spa_loop *loop;
 	struct spa_system *system;
@@ -526,9 +526,9 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 
 	spa_loop_add_source(impl->loop, &impl->source);
 
-	pw_module_add_listener(module, &impl->module_listener, &module_events, impl);
+	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

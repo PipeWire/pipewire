@@ -39,7 +39,7 @@
 
 struct factory_data {
 	struct pw_impl_factory *factory;
-	struct pw_module *module;
+	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 };
 
@@ -228,7 +228,7 @@ static void module_destroy(void *data)
 static void module_registered(void *data)
 {
 	struct factory_data *d = data;
-	struct pw_module *module = d->module;
+	struct pw_impl_module *module = d->module;
 	struct pw_impl_factory *factory = d->factory;
 	struct spa_dict_item items[1];
 	char id[16];
@@ -243,15 +243,15 @@ static void module_registered(void *data)
 	}
 }
 
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
 	.registered = module_registered,
 };
 
-int client_session_factory_init(struct pw_module *module)
+int client_session_factory_init(struct pw_impl_module *module)
 {
-	struct pw_context *context = pw_module_get_context(module);
+	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 
@@ -270,7 +270,7 @@ int client_session_factory_init(struct pw_module *module)
 
 	pw_impl_factory_set_implementation(factory, &impl_factory, data);
 
-	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	return 0;
 }

@@ -53,7 +53,7 @@ struct client_endpoint {
 #define pw_client_endpoint_resource_create_link(r,...)	\
 	pw_client_endpoint_resource(r,create_link,0,__VA_ARGS__)
 
-int client_endpoint_factory_init(struct pw_module *module);
+int client_endpoint_factory_init(struct pw_impl_module *module);
 
 #ifdef __cplusplus
 }  /* extern "C" */

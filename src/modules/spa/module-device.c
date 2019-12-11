@@ -58,18 +58,18 @@ static void module_destroy(void *_data)
 	pw_impl_device_destroy(data->this);
 }
 
-static const struct pw_module_events module_events = {
-	PW_VERSION_MODULE_EVENTS,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
 };
 
 SPA_EXPORT
-int pipewire__module_init(struct pw_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
 	char **argv = NULL;
 	int n_tokens;
-	struct pw_context *context = pw_module_get_context(module);
+	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_device *device;
         struct device_data *data;
 	int res;
@@ -106,9 +106,9 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	data->context = context;
 
 	pw_log_debug("module %p: new", module);
-	pw_module_add_listener(module, &data->module_listener, &module_events, data);
+	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
-	pw_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
 

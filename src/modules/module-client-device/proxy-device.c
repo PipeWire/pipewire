@@ -41,7 +41,7 @@ struct device_data {
 	struct spa_hook proxy_listener;
 };
 
-static void device_proxy_destroy(void *_data)
+static void proxy_device_destroy(void *_data)
 {
 	struct device_data *data = _data;
 	spa_hook_remove(&data->device_listener);
@@ -49,7 +49,7 @@ static void device_proxy_destroy(void *_data)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.destroy = device_proxy_destroy,
+	.destroy = proxy_device_destroy,
 };
 
 struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,

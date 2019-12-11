@@ -481,7 +481,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		else {
 			str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
 			if (str != NULL && pw_properties_parse_bool(str)) {
-//				pw_registry_proxy_destroy(impl->registry_proxy, ep->id);
+//				pw_registry_destroy(impl->registry, ep->id);
 				return -ENOENT;
 			}
 		}

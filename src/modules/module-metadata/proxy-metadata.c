@@ -41,7 +41,7 @@ struct object_data {
 	struct spa_hook proxy_listener;
 };
 
-static void object_proxy_destroy(void *_data)
+static void proxy_object_destroy(void *_data)
 {
 	struct object_data *data = _data;
 	spa_hook_remove(&data->object_listener);
@@ -49,7 +49,7 @@ static void object_proxy_destroy(void *_data)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.destroy = object_proxy_destroy,
+	.destroy = proxy_object_destroy,
 };
 
 struct pw_proxy *pw_core_metadata_export(struct pw_core *core,

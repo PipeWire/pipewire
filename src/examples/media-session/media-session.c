@@ -1284,7 +1284,7 @@ static void check_endpoint_link(struct endpoint_link *link)
 	}
 }
 
-static void link_proxy_destroy(void *data)
+static void proxy_link_destroy(void *data)
 {
 	struct link *l = data;
 
@@ -1295,9 +1295,9 @@ static void link_proxy_destroy(void *data)
 	}
 }
 
-static const struct pw_proxy_events link_proxy_events = {
+static const struct pw_proxy_events proxy_link_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.destroy = link_proxy_destroy
+	.destroy = proxy_link_destroy
 };
 
 static int link_nodes(struct impl *impl, struct endpoint_link *link,
@@ -1343,7 +1343,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 			l->output_port = outport->obj.id;
 			l->input_node = innode->obj.id;
 			l->input_port = inport->obj.id;
-			pw_proxy_add_listener(p, &l->listener, &link_proxy_events, l);
+			pw_proxy_add_listener(p, &l->listener, &proxy_link_events, l);
 
 			if (link) {
 				l->endpoint_link = link;

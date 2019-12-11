@@ -841,8 +841,8 @@ static void endpoint_link_event_info(void *object, const struct pw_endpoint_link
 	pw_proxy_sync(link->obj.proxy, 1);
 }
 
-static const struct pw_endpoint_link_proxy_events endpoint_link_events = {
-	PW_VERSION_ENDPOINT_LINK_PROXY_EVENTS,
+static const struct pw_endpoint_link_events endpoint_link_events = {
+	PW_VERSION_ENDPOINT_LINK_EVENTS,
 	.info = endpoint_link_event_info,
 };
 

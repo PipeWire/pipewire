@@ -41,8 +41,8 @@ struct pw_session_proxy;
 struct pw_endpoint_proxy;
 #define PW_VERSION_ENDPOINT_STREAM_PROXY	0
 struct pw_endpoint_stream_proxy;
-#define PW_VERSION_ENDPOINT_LINK_PROXY		0
-struct pw_endpoint_link_proxy;
+#define PW_VERSION_ENDPOINT_LINK		0
+struct pw_endpoint_link;
 
 /* Session */
 
@@ -352,12 +352,12 @@ struct pw_endpoint_stream_proxy_methods {
 
 /* Endpoint Link */
 
-#define PW_ENDPOINT_LINK_PROXY_EVENT_INFO		0
-#define PW_ENDPOINT_LINK_PROXY_EVENT_PARAM		1
-#define PW_ENDPOINT_LINK_PROXY_EVENT_NUM		2
+#define PW_ENDPOINT_LINK_EVENT_INFO		0
+#define PW_ENDPOINT_LINK_EVENT_PARAM		1
+#define PW_ENDPOINT_LINK_EVENT_NUM		2
 
-struct pw_endpoint_link_proxy_events {
-#define PW_VERSION_ENDPOINT_LINK_PROXY_EVENTS	0
+struct pw_endpoint_link_events {
+#define PW_VERSION_ENDPOINT_LINK_EVENTS	0
 	uint32_t version;			/**< version of this structure */
 
 	/**
@@ -383,21 +383,21 @@ struct pw_endpoint_link_proxy_events {
 		       const struct spa_pod *param);
 };
 
-#define PW_ENDPOINT_LINK_PROXY_METHOD_ADD_LISTENER		0
-#define PW_ENDPOINT_LINK_PROXY_METHOD_SUBSCRIBE_PARAMS		1
-#define PW_ENDPOINT_LINK_PROXY_METHOD_ENUM_PARAMS		2
-#define PW_ENDPOINT_LINK_PROXY_METHOD_SET_PARAM			3
-#define PW_ENDPOINT_LINK_PROXY_METHOD_REQUEST_STATE		4
-#define PW_ENDPOINT_LINK_PROXY_METHOD_DESTROY			5
-#define PW_ENDPOINT_LINK_PROXY_METHOD_NUM			6
+#define PW_ENDPOINT_LINK_METHOD_ADD_LISTENER		0
+#define PW_ENDPOINT_LINK_METHOD_SUBSCRIBE_PARAMS	1
+#define PW_ENDPOINT_LINK_METHOD_ENUM_PARAMS		2
+#define PW_ENDPOINT_LINK_METHOD_SET_PARAM		3
+#define PW_ENDPOINT_LINK_METHOD_REQUEST_STATE		4
+#define PW_ENDPOINT_LINK_METHOD_DESTROY			5
+#define PW_ENDPOINT_LINK_METHOD_NUM			6
 
-struct pw_endpoint_link_proxy_methods {
-#define PW_VERSION_ENDPOINT_LINK_PROXY_METHODS	0
+struct pw_endpoint_link_methods {
+#define PW_VERSION_ENDPOINT_LINK_METHODS	0
 	uint32_t version;			/**< version of this structure */
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_endpoint_link_proxy_events *events,
+			const struct pw_endpoint_link_events *events,
 			void *data);
 
 	/**
@@ -440,20 +440,20 @@ struct pw_endpoint_link_proxy_methods {
 	int (*request_state) (void *object, enum pw_endpoint_link_state state);
 };
 
-#define pw_endpoint_link_proxy_method(o,method,version,...)			\
+#define pw_endpoint_link_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_endpoint_link_proxy_methods, _res,		\
+			struct pw_endpoint_link_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
-#define pw_endpoint_link_proxy_add_listener(c,...)	pw_endpoint_link_proxy_method(c,add_listener,0,__VA_ARGS__)
-#define pw_endpoint_link_proxy_subscribe_params(c,...)	pw_endpoint_link_proxy_method(c,subscribe_params,0,__VA_ARGS__)
-#define pw_endpoint_link_proxy_enum_params(c,...)	pw_endpoint_link_proxy_method(c,enum_params,0,__VA_ARGS__)
-#define pw_endpoint_link_proxy_set_param(c,...)		pw_endpoint_link_proxy_method(c,set_param,0,__VA_ARGS__)
-#define pw_endpoint_link_proxy_request_state(c,...)	pw_endpoint_link_proxy_method(c,request_state,0,__VA_ARGS__)
+#define pw_endpoint_link_add_listener(c,...)		pw_endpoint_link_method(c,add_listener,0,__VA_ARGS__)
+#define pw_endpoint_link_subscribe_params(c,...)	pw_endpoint_link_method(c,subscribe_params,0,__VA_ARGS__)
+#define pw_endpoint_link_enum_params(c,...)		pw_endpoint_link_method(c,enum_params,0,__VA_ARGS__)
+#define pw_endpoint_link_set_param(c,...)		pw_endpoint_link_method(c,set_param,0,__VA_ARGS__)
+#define pw_endpoint_link_request_state(c,...)		pw_endpoint_link_method(c,request_state,0,__VA_ARGS__)
 
 
 #ifdef __cplusplus

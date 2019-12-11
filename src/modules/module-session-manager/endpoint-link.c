@@ -47,7 +47,7 @@ struct resource_data {
 };
 
 #define pw_endpoint_link_resource(r,m,v,...)	\
-	pw_resource_call(r,struct pw_endpoint_link_proxy_events,m,v,__VA_ARGS__)
+	pw_resource_call(r,struct pw_endpoint_link_events,m,v,__VA_ARGS__)
 #define pw_endpoint_link_resource_info(r,...)	\
 	pw_endpoint_link_resource(r,info,0,__VA_ARGS__)
 #define pw_endpoint_link_resource_param(r,...)	\
@@ -135,8 +135,8 @@ static int endpoint_link_request_state(void *object, enum pw_endpoint_link_state
 	return 0;
 }
 
-static const struct pw_endpoint_link_proxy_methods methods = {
-	PW_VERSION_ENDPOINT_LINK_PROXY_METHODS,
+static const struct pw_endpoint_link_methods methods = {
+	PW_VERSION_ENDPOINT_LINK_METHODS,
 	.subscribe_params = endpoint_link_subscribe_params,
 	.enum_params = endpoint_link_enum_params,
 	.set_param = endpoint_link_set_param,
@@ -311,7 +311,7 @@ int endpoint_link_init(struct endpoint_link *this,
 
 	this->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_EndpointLink,
-			PW_VERSION_ENDPOINT_LINK_PROXY,
+			PW_VERSION_ENDPOINT_LINK,
 			properties, endpoint_link_bind, this);
 	if (!this->global)
 		goto no_mem;

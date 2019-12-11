@@ -684,8 +684,8 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *inf
 	pw_proxy_sync(endpoint->obj.proxy, 1);
 }
 
-static const struct pw_endpoint_proxy_events endpoint_events = {
-	PW_VERSION_ENDPOINT_PROXY_EVENTS,
+static const struct pw_endpoint_events endpoint_events = {
+	PW_VERSION_ENDPOINT_EVENTS,
 	.info = endpoint_event_info,
 };
 
@@ -734,7 +734,7 @@ static void endpoint_destroy(void *object)
 
 static const struct object_info endpoint_info = {
 	.type = PW_TYPE_INTERFACE_Endpoint,
-	.version = PW_VERSION_ENDPOINT_PROXY,
+	.version = PW_VERSION_ENDPOINT,
 	.events = &endpoint_events,
 	.size = sizeof(struct sm_endpoint),
 	.init = endpoint_init,

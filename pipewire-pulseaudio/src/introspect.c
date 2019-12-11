@@ -317,7 +317,7 @@ static void set_endpoint_volume(pa_context *c, struct global *g, const pa_cvolum
 	}
 	g->endpoint_info.mute = mute;
 
-	pw_endpoint_proxy_set_param((struct pw_endpoint_proxy*)g->proxy,
+	pw_endpoint_set_param((struct pw_endpoint*)g->proxy,
 		SPA_PARAM_Props, 0,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props,	SPA_PARAM_Props,

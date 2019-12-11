@@ -996,8 +996,8 @@ static void endpoint_event_info(void *object,
 	}
 }
 
-static const struct pw_endpoint_proxy_events endpoint_events = {
-	PW_VERSION_ENDPOINT_PROXY_EVENTS,
+static const struct pw_endpoint_events endpoint_events = {
+	PW_VERSION_ENDPOINT_EVENTS,
 	.info = endpoint_event_info,
 	.param = event_param
 };
@@ -1146,7 +1146,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Endpoint:
 		events = &endpoint_events;
-		client_version = PW_VERSION_ENDPOINT_PROXY;
+		client_version = PW_VERSION_ENDPOINT;
 		destroy = (pw_destroy_t) endpoint_info_free;
 		info_func = info_endpoint;
 		break;
@@ -1468,7 +1468,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 			param_id, 0, 0, NULL);
 		break;
 	case PW_TYPE_INTERFACE_Endpoint:
-		pw_endpoint_proxy_enum_params((struct pw_endpoint_proxy*)global->proxy, 0,
+		pw_endpoint_enum_params((struct pw_endpoint*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 		break;
 	default:

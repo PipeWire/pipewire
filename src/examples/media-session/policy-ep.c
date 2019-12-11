@@ -326,7 +326,7 @@ static int link_endpoints(struct endpoint *endpoint, enum pw_direction direction
 	pw_log_debug(NAME " %p: endpoint %d -> endpoint %d", impl,
 			endpoint->id, peer->id);
 
-	pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)endpoint->obj->obj.proxy,
+	pw_endpoint_create_link((struct pw_endpoint*)endpoint->obj->obj.proxy,
                                          &props->dict);
 
 	pw_properties_free(props);

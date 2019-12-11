@@ -200,7 +200,7 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 			res = -EINVAL;
 			goto exit;
 		}
-		pw_endpoint_proxy_create_link((struct pw_endpoint_proxy*)obj->proxy, &p->dict);
+		pw_endpoint_create_link((struct pw_endpoint*)obj->proxy, &p->dict);
 	} else {
 		pw_properties_setf(p, PW_KEY_LINK_INPUT_NODE, "%d", endpoint->node->id);
 		pw_properties_setf(p, PW_KEY_LINK_INPUT_PORT, "-1");

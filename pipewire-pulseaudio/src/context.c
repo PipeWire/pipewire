@@ -358,7 +358,7 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *upd
 			}
 		}
 		if (n_subscribed > 0) {
-			pw_endpoint_proxy_subscribe_params((struct pw_endpoint_proxy*)g->proxy,
+			pw_endpoint_subscribe_params((struct pw_endpoint*)g->proxy,
 					subscribed, n_subscribed);
 			g->subscribed = true;
 		}
@@ -444,8 +444,8 @@ static void endpoint_event_param(void *object, int seq,
 	}
 }
 
-static const struct pw_endpoint_proxy_events endpoint_events = {
-	PW_VERSION_ENDPOINT_PROXY_EVENTS,
+static const struct pw_endpoint_events endpoint_events = {
+	PW_VERSION_ENDPOINT_EVENTS,
 	.info = endpoint_event_info,
 	.param = endpoint_event_param,
 };
@@ -656,7 +656,7 @@ static int set_mask(pa_context *c, struct global *g)
 		}
 
 		events = &endpoint_events;
-                client_version = PW_VERSION_ENDPOINT_PROXY;
+                client_version = PW_VERSION_ENDPOINT;
                 destroy = endpoint_destroy;
 		g->endpoint_info.volume = 1.0;
 		g->endpoint_info.mute = false;

@@ -38,7 +38,7 @@ enum pw_spa_device_flags {
 	PW_SPA_DEVICE_FLAG_NO_REGISTER	= (1 << 1),
 };
 
-struct pw_device *
+struct pw_impl_device *
 pw_spa_device_new(struct pw_context *context,
 		  enum pw_spa_device_flags flags,
 		  struct spa_device *device,
@@ -46,14 +46,14 @@ pw_spa_device_new(struct pw_context *context,
 		  struct pw_properties *properties,
 		  size_t user_data_size);
 
-struct pw_device *
+struct pw_impl_device *
 pw_spa_device_load(struct pw_context *context,
 		   const char *factory_name,
 		   enum pw_spa_device_flags flags,
 		   struct pw_properties *properties,
 		   size_t user_data_size);
 
-void *pw_spa_device_get_user_data(struct pw_device *device);
+void *pw_spa_device_get_user_data(struct pw_impl_device *device);
 
 #ifdef __cplusplus
 }

@@ -43,7 +43,7 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct device_data {
-	struct pw_device *this;
+	struct pw_impl_device *this;
 	struct pw_context *context;
 
 	struct spa_hook module_listener;
@@ -55,7 +55,7 @@ static void module_destroy(void *_data)
 
 	spa_hook_remove(&data->module_listener);
 
-	pw_device_destroy(data->this);
+	pw_impl_device_destroy(data->this);
 }
 
 static const struct pw_module_events module_events = {
@@ -70,7 +70,7 @@ int pipewire__module_init(struct pw_module *module, const char *args)
 	char **argv = NULL;
 	int n_tokens;
 	struct pw_context *context = pw_module_get_context(module);
-	struct pw_device *device;
+	struct pw_impl_device *device;
         struct device_data *data;
 	int res;
 

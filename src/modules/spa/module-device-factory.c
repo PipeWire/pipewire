@@ -59,7 +59,7 @@ struct factory_data {
 
 struct device_data {
 	struct spa_list link;
-	struct pw_device *device;
+	struct pw_impl_device *device;
 	struct spa_hook device_listener;
 };
 
@@ -70,8 +70,8 @@ static void device_destroy(void *data)
 	spa_hook_remove(&nd->device_listener);
 }
 
-static const struct pw_device_events device_events = {
-	PW_VERSION_DEVICE_EVENTS,
+static const struct pw_impl_device_events device_events = {
+	PW_VERSION_IMPL_DEVICE_EVENTS,
 	.destroy = device_destroy,
 };
 
@@ -84,7 +84,7 @@ static void *create_object(void *_data,
 {
 	struct factory_data *data = _data;
 	struct pw_context *context = data->context;
-	struct pw_device *device;
+	struct pw_impl_device *device;
 	const char *factory_name;
 	struct device_data *nd;
 	struct pw_impl_client *client;
@@ -121,10 +121,10 @@ static void *create_object(void *_data,
 	nd->device = device;
 	spa_list_append(&data->device_list, &nd->link);
 
-	pw_device_add_listener(device, &nd->device_listener, &device_events, nd);
+	pw_impl_device_add_listener(device, &nd->device_listener, &device_events, nd);
 
 	if (client) {
-		pw_global_bind(pw_device_get_global(device),
+		pw_global_bind(pw_impl_device_get_global(device),
 				client,
 				PW_PERM_RWX, version,
 				new_id);
@@ -160,7 +160,7 @@ static void factory_destroy(void *_data)
 	spa_hook_remove(&data->module_listener);
 
 	spa_list_consume(nd, &data->device_list, link)
-		pw_device_destroy(nd->device);
+		pw_impl_device_destroy(nd->device);
 }
 
 static const struct pw_factory_events factory_events = {

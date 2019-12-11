@@ -271,13 +271,13 @@ struct pw_main_loop {
 	unsigned int running:1;
 };
 
-#define pw_device_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_device_events, m, v, ##__VA_ARGS__)
-#define pw_device_emit_destroy(m)		pw_device_emit(m, destroy, 0)
-#define pw_device_emit_free(m)			pw_device_emit(m, free, 0)
-#define pw_device_emit_initialized(m)		pw_device_emit(m, initialized, 0)
-#define pw_device_emit_info_changed(n,i)	pw_device_emit(n, info_changed, 0, i)
+#define pw_impl_device_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_device_events, m, v, ##__VA_ARGS__)
+#define pw_impl_device_emit_destroy(m)		pw_impl_device_emit(m, destroy, 0)
+#define pw_impl_device_emit_free(m)		pw_impl_device_emit(m, free, 0)
+#define pw_impl_device_emit_initialized(m)	pw_impl_device_emit(m, initialized, 0)
+#define pw_impl_device_emit_info_changed(n,i)	pw_impl_device_emit(n, info_changed, 0, i)
 
-struct pw_device {
+struct pw_impl_device {
 	struct pw_context *context;           /**< the context object */
 	struct spa_list link;           /**< link in the context device_list */
 	struct pw_global *global;       /**< global object for this device */

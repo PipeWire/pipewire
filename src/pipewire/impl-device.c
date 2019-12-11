@@ -33,7 +33,7 @@
 #define NAME "device"
 
 struct impl {
-	struct pw_device this;
+	struct pw_impl_device this;
 };
 
 #define pw_device_resource(r,m,v,...)	pw_resource_call(r,struct pw_device_proxy_events,m,v,__VA_ARGS__)
@@ -48,7 +48,7 @@ struct result_device_params_data {
 };
 
 struct resource_data {
-	struct pw_device *device;
+	struct pw_impl_device *device;
 	struct pw_resource *resource;
 
 	struct spa_hook resource_listener;
@@ -77,7 +77,7 @@ static void object_destroy(struct object_data *od)
 		pw_node_destroy(od->object);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
-		pw_device_destroy(od->object);
+		pw_impl_device_destroy(od->object);
 		break;
 	}
 }
@@ -89,7 +89,7 @@ static void object_update(struct object_data *od, const struct spa_dict *props)
 		pw_node_update_properties(od->object, props);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
-		pw_device_update_properties(od->object, props);
+		pw_impl_device_update_properties(od->object, props);
 		break;
 	}
 }
@@ -102,12 +102,12 @@ static void object_register(struct object_data *od)
 		pw_node_set_active(od->object, true);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
-		pw_device_register(od->object, NULL);
+		pw_impl_device_register(od->object, NULL);
 		break;
 	}
 }
 
-static void check_properties(struct pw_device *device)
+static void check_properties(struct pw_impl_device *device)
 {
 	const char *str;
 
@@ -119,12 +119,12 @@ static void check_properties(struct pw_device *device)
 }
 
 SPA_EXPORT
-struct pw_device *pw_device_new(struct pw_context *context,
+struct pw_impl_device *pw_impl_device_new(struct pw_context *context,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
 	struct impl *impl;
-	struct pw_device *this;
+	struct pw_impl_device *this;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -169,12 +169,12 @@ error_cleanup:
 }
 
 SPA_EXPORT
-void pw_device_destroy(struct pw_device *device)
+void pw_impl_device_destroy(struct pw_impl_device *device)
 {
 	struct object_data *od;
 
 	pw_log_debug(NAME" %p: destroy", device);
-	pw_device_emit_destroy(device);
+	pw_impl_device_emit_destroy(device);
 
 	spa_list_consume(od, &device->object_list, link)
 		object_destroy(od);
@@ -187,7 +187,7 @@ void pw_device_destroy(struct pw_device *device)
 		pw_global_destroy(device->global);
 	}
 	pw_log_debug(NAME" %p: free", device);
-	pw_device_emit_free(device);
+	pw_impl_device_emit_free(device);
 
 	pw_properties_free(device->properties);
 	free(device->name);
@@ -232,7 +232,7 @@ static void result_device_params(void *data, int seq, int res, uint32_t type, co
 }
 
 SPA_EXPORT
-int pw_device_for_each_param(struct pw_device *device,
+int pw_impl_device_for_each_param(struct pw_impl_device *device,
 			     int seq, uint32_t param_id,
 			     uint32_t index, uint32_t max,
 			     const struct spa_pod *filter,
@@ -296,7 +296,7 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 {
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
-	struct pw_device *device = data->device;
+	struct pw_impl_device *device = data->device;
 	struct pw_impl_client *client = resource->client;
 	int res;
 	static const struct spa_device_events device_events = {
@@ -304,7 +304,7 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 		.result = result_device_params_async,
 	};
 
-	res = pw_device_for_each_param(device, seq, id, start, num,
+	res = pw_impl_device_for_each_param(device, seq, id, start, num,
 				filter, reply_param, data);
 
 	if (res < 0) {
@@ -329,7 +329,7 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 {
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
-	struct pw_device *device = data->device;
+	struct pw_impl_device *device = data->device;
 	int res;
 
 	if ((res = spa_device_set_param(device->device, id, flags, param)) < 0)
@@ -347,7 +347,7 @@ static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
 {
-	struct pw_device *this = _data;
+	struct pw_impl_device *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -386,10 +386,10 @@ error_resource:
 
 static void global_destroy(void *object)
 {
-	struct pw_device *device = object;
+	struct pw_impl_device *device = object;
 	spa_hook_remove(&device->global_listener);
 	device->global = NULL;
-	pw_device_destroy(device);
+	pw_impl_device_destroy(device);
 }
 
 static const struct pw_global_events global_events = {
@@ -398,7 +398,7 @@ static const struct pw_global_events global_events = {
 };
 
 SPA_EXPORT
-int pw_device_register(struct pw_device *device,
+int pw_impl_device_register(struct pw_impl_device *device,
 		       struct pw_properties *properties)
 {
 	struct pw_context *context = device->context;
@@ -442,7 +442,7 @@ int pw_device_register(struct pw_device *device,
 	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%d", device->info.id);
 	device->info.props = &device->properties->dict;
 
-	pw_device_emit_initialized(device);
+	pw_impl_device_emit_initialized(device);
 
 	pw_global_add_listener(device->global, &device->global_listener, &global_events, device);
 	pw_global_register(device->global);
@@ -476,17 +476,17 @@ static const struct pw_node_events node_object_events = {
 	.free = on_object_free,
 };
 
-static const struct pw_device_events device_object_events = {
-	PW_VERSION_DEVICE_EVENTS,
+static const struct pw_impl_device_events device_object_events = {
+	PW_VERSION_IMPL_DEVICE_EVENTS,
 	.destroy = on_object_destroy,
 	.free = on_object_free,
 };
 
-static void emit_info_changed(struct pw_device *device)
+static void emit_info_changed(struct pw_impl_device *device)
 {
 	struct pw_resource *resource;
 
-	pw_device_emit_info_changed(device, &device->info);
+	pw_impl_device_emit_info_changed(device, &device->info);
 
 	if (device->global)
 		spa_list_for_each(resource, &device->global->resource_list, link)
@@ -495,7 +495,7 @@ static void emit_info_changed(struct pw_device *device)
 	device->info.change_mask = 0;
 }
 
-static int update_properties(struct pw_device *device, const struct spa_dict *dict)
+static int update_properties(struct pw_impl_device *device, const struct spa_dict *dict)
 {
 	int changed;
 
@@ -514,7 +514,7 @@ static int update_properties(struct pw_device *device, const struct spa_dict *di
 
 static void device_info(void *data, const struct spa_device_info *info)
 {
-	struct pw_device *device = data;
+	struct pw_impl_device *device = data;
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
 		update_properties(device, info->props);
 	}
@@ -527,7 +527,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 	emit_info_changed(device);
 }
 
-static void device_add_object(struct pw_device *device, uint32_t id,
+static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_context *context = device->context;
@@ -573,13 +573,13 @@ static void device_add_object(struct pw_device *device, uint32_t id,
 	}
 	case SPA_TYPE_INTERFACE_Device:
 	{
-		struct pw_device *dev;
-		dev = pw_device_new(context, props, sizeof(struct object_data));
+		struct pw_impl_device *dev;
+		dev = pw_impl_device_new(context, props, sizeof(struct object_data));
 
-		od = pw_device_get_user_data(dev);
+		od = pw_impl_device_get_user_data(dev);
 		od->object = dev;
-		pw_device_add_listener(dev, &od->listener, &device_object_events, od);
-		pw_device_set_implementation(dev, iface);
+		pw_impl_device_add_listener(dev, &od->listener, &device_object_events, od);
+		pw_impl_device_set_implementation(dev, iface);
 		break;
 	}
 	default:
@@ -599,7 +599,7 @@ static void device_add_object(struct pw_device *device, uint32_t id,
 	return;
 }
 
-static struct object_data *find_object(struct pw_device *device, uint32_t id)
+static struct object_data *find_object(struct pw_impl_device *device, uint32_t id)
 {
 	struct object_data *od;
 	spa_list_for_each(od, &device->object_list, link) {
@@ -612,7 +612,7 @@ static struct object_data *find_object(struct pw_device *device, uint32_t id)
 static void device_object_info(void *data, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_device *device = data;
+	struct pw_impl_device *device = data;
 	struct object_data *od;
 
 	od = find_object(device, id);
@@ -642,7 +642,7 @@ static const struct spa_device_events device_events = {
 };
 
 SPA_EXPORT
-int pw_device_set_implementation(struct pw_device *device, struct spa_device *spa_device)
+int pw_impl_device_set_implementation(struct pw_impl_device *device, struct spa_device *spa_device)
 {
 	pw_log_debug(NAME" %p: implementation %p", device, spa_device);
 
@@ -659,19 +659,19 @@ int pw_device_set_implementation(struct pw_device *device, struct spa_device *sp
 }
 
 SPA_EXPORT
-struct spa_device *pw_device_get_implementation(struct pw_device *device)
+struct spa_device *pw_impl_device_get_implementation(struct pw_impl_device *device)
 {
 	return device->device;
 }
 
 SPA_EXPORT
-const struct pw_properties *pw_device_get_properties(struct pw_device *device)
+const struct pw_properties *pw_impl_device_get_properties(struct pw_impl_device *device)
 {
 	return device->properties;
 }
 
 SPA_EXPORT
-int pw_device_update_properties(struct pw_device *device, const struct spa_dict *dict)
+int pw_impl_device_update_properties(struct pw_impl_device *device, const struct spa_dict *dict)
 {
 	int changed = update_properties(device, dict);
 	emit_info_changed(device);
@@ -679,21 +679,21 @@ int pw_device_update_properties(struct pw_device *device, const struct spa_dict 
 }
 
 SPA_EXPORT
-void *pw_device_get_user_data(struct pw_device *device)
+void *pw_impl_device_get_user_data(struct pw_impl_device *device)
 {
 	return device->user_data;
 }
 
 SPA_EXPORT
-struct pw_global *pw_device_get_global(struct pw_device *device)
+struct pw_global *pw_impl_device_get_global(struct pw_impl_device *device)
 {
 	return device->global;
 }
 
 SPA_EXPORT
-void pw_device_add_listener(struct pw_device *device,
+void pw_impl_device_add_listener(struct pw_impl_device *device,
 			    struct spa_hook *listener,
-			    const struct pw_device_events *events,
+			    const struct pw_impl_device_events *events,
 			    void *data)
 {
 	spa_hook_list_append(&device->listener_list, listener, events, data);

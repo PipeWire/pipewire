@@ -650,7 +650,7 @@ void pw_context_destroy(struct pw_context *context)
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_global *global;
 	struct pw_module *module;
-	struct pw_device *device;
+	struct pw_impl_device *device;
 	struct pw_core *core;
 	struct pw_resource *resource;
 	struct pw_node *node;
@@ -671,7 +671,7 @@ void pw_context_destroy(struct pw_context *context)
 		pw_node_destroy(node);
 
 	spa_list_consume(device, &context->device_list, link)
-		pw_device_destroy(device);
+		pw_impl_device_destroy(device);
 
 	spa_list_consume(resource, &context->registry_resource_list, link)
 		pw_resource_destroy(resource);

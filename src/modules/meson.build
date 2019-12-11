@@ -83,7 +83,6 @@ pipewire_module_client_node = shared_library('pipewire-module-client-node',
 
 pipewire_module_metadata = shared_library('pipewire-module-metadata',
   [ 'module-metadata.c',
-    'module-metadata/resource-metadata.c',
     'module-metadata/proxy-metadata.c',
     'module-metadata/metadata.c',
     'module-metadata/protocol-native.c'],

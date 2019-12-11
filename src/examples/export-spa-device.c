@@ -40,7 +40,7 @@ struct data {
 	struct pw_core *core;
 	struct spa_hook core_listener;
 
-	struct pw_device *device;
+	struct pw_impl_device *device;
 	const char *library;
 	const char *factory;
 	const char *path;
@@ -65,7 +65,7 @@ static int make_device(struct data *data)
 					      props, SPA_ID_INVALID);
 
 	pw_core_export(data->core, SPA_TYPE_INTERFACE_Device, NULL,
-			pw_device_get_implementation(data->device), 0);
+			pw_impl_device_get_implementation(data->device), 0);
 
 	return 0;
 }

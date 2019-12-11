@@ -529,7 +529,7 @@ int pw_core_disconnect(struct pw_core *core);
 void *pw_core_get_user_data(struct pw_core *core);
 
 /** Get the client proxy */
-struct pw_client_proxy * pw_core_get_client_proxy(struct pw_core *core);
+struct pw_client * pw_core_get_client(struct pw_core *core);
 
 /** Get the context object used to created this core */
 struct pw_context * pw_core_get_context(struct pw_core *core);

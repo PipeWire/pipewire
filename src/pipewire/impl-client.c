@@ -38,7 +38,7 @@ struct impl {
 	struct spa_hook pool_listener;
 };
 
-#define pw_client_resource(r,m,v,...)		pw_resource_call(r,struct pw_client_proxy_events,m,v,__VA_ARGS__)
+#define pw_client_resource(r,m,v,...)		pw_resource_call(r,struct pw_client_events,m,v,__VA_ARGS__)
 #define pw_client_resource_info(r,...)		pw_client_resource(r,info,0,__VA_ARGS__)
 #define pw_client_resource_permissions(r,...)	pw_client_resource(r,permissions,0,__VA_ARGS__)
 
@@ -162,8 +162,8 @@ static int client_update_permissions(void *object,
 	return pw_impl_client_update_permissions(client, n_permissions, permissions);
 }
 
-static const struct pw_client_proxy_methods client_methods = {
-	PW_VERSION_CLIENT_PROXY_METHODS,
+static const struct pw_client_methods client_methods = {
+	PW_VERSION_CLIENT_METHODS,
 	.error = client_error,
 	.update_properties = client_update_properties,
 	.get_permissions = client_get_permissions,
@@ -395,7 +395,7 @@ int pw_impl_client_register(struct pw_impl_client *client,
 
 	client->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Client,
-				       PW_VERSION_CLIENT_PROXY,
+				       PW_VERSION_CLIENT,
 				       properties,
 				       global_bind,
 				       client);

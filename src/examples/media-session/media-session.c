@@ -287,8 +287,8 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	pw_proxy_sync(client->obj.proxy, 1);
 }
 
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.info = client_event_info,
 };
 
@@ -301,7 +301,7 @@ static void client_destroy(void *object)
 
 static const struct object_info client_info = {
 	.type = PW_TYPE_INTERFACE_Client,
-	.version = PW_VERSION_CLIENT_PROXY,
+	.version = PW_VERSION_CLIENT,
 	.events = &client_events,
 	.size = sizeof(struct sm_client),
 	.init = NULL,

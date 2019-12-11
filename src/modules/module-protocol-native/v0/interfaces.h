@@ -487,12 +487,12 @@ struct pw_factory_proxy_v0_events {
 
 #define PW_VERSION_CLIENT_V0			0
 
-#define PW_CLIENT_PROXY_V0_EVENT_INFO		0
-#define PW_CLIENT_PROXY_V0_EVENT_NUM		1
+#define PW_CLIENT_V0_EVENT_INFO		0
+#define PW_CLIENT_V0_EVENT_NUM		1
 
 /** Client events */
-struct pw_client_proxy_v0_events {
-#define PW_VERSION_CLIENT_PROXY_V0_EVENTS	0
+struct pw_client_v0_events {
+#define PW_VERSION_CLIENT_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify client info
@@ -502,7 +502,7 @@ struct pw_client_proxy_v0_events {
 	void (*info) (void *object, struct pw_client_info *info);
 };
 
-#define pw_client_resource_v0_info(r,...) pw_resource_notify(r,struct pw_client_proxy_v0_events,info,__VA_ARGS__)
+#define pw_client_resource_v0_info(r,...) pw_resource_notify(r,struct pw_client_v0_events,info,__VA_ARGS__)
 
 
 #define PW_VERSION_LINK_V0		0

@@ -185,7 +185,7 @@ static int core_hello(void *object, uint32_t version)
 
 	if (version >= 3) {
 		if ((res = pw_global_bind(client->global, client,
-				PW_PERM_RWX, PW_VERSION_CLIENT_PROXY, 1)) < 0)
+				PW_PERM_RWX, PW_VERSION_CLIENT, 1)) < 0)
 			return res;
 	}
 	return 0;

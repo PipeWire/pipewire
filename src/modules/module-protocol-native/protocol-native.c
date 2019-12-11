@@ -1481,7 +1481,7 @@ static int port_demarshal_enum_params(void *object, const struct pw_protocol_nat
 
 static int client_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_client_proxy_events *events,
+			const struct pw_client_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -1495,7 +1495,7 @@ static void client_marshal_info(void *object, const struct pw_client_info *info)
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_PROXY_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_EVENT_INFO, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -1533,7 +1533,7 @@ static int client_demarshal_info(void *object, const struct pw_protocol_native_m
 	if (parse_dict(&prs, &props) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_client_proxy_events, info, 0, &info);
+	return pw_proxy_notify(proxy, struct pw_client_events, info, 0, &info);
 }
 
 static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_permissions,
@@ -1544,7 +1544,7 @@ static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_
 	struct spa_pod_frame f[2];
 	uint32_t i, n = 0;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_PROXY_EVENT_PERMISSIONS, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_EVENT_PERMISSIONS, NULL);
 
 	for (i = 0; i < n_permissions; i++) {
 		if (permissions[i].permissions != SPA_ID_INVALID)
@@ -1594,7 +1594,7 @@ static int client_demarshal_permissions(void *object, const struct pw_protocol_n
 				SPA_POD_Int(&permissions[i].permissions), NULL) < 0)
 			return -EINVAL;
 	}
-	return pw_proxy_notify(proxy, struct pw_client_proxy_events, permissions, 0, index, n_permissions, permissions);
+	return pw_proxy_notify(proxy, struct pw_client_events, permissions, 0, index, n_permissions, permissions);
 }
 
 static int client_marshal_error(void *object, uint32_t id, int res, const char *error)
@@ -1602,7 +1602,7 @@ static int client_marshal_error(void *object, uint32_t id, int res, const char *
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_ERROR, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_METHOD_ERROR, NULL);
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id),
 			       SPA_POD_Int(res),
@@ -1624,7 +1624,7 @@ static int client_demarshal_error(void *object, const struct pw_protocol_native_
 				SPA_POD_String(&error)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_client_proxy_methods, error, 0, id, res, error);
+	return pw_resource_notify(resource, struct pw_client_methods, error, 0, id, res, error);
 }
 
 static int client_marshal_get_permissions(void *object, uint32_t index, uint32_t num)
@@ -1632,7 +1632,7 @@ static int client_marshal_get_permissions(void *object, uint32_t index, uint32_t
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_METHOD_GET_PERMISSIONS, NULL);
 
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(index),
@@ -1647,7 +1647,7 @@ static int client_marshal_update_properties(void *object, const struct spa_dict 
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_UPDATE_PROPERTIES, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_METHOD_UPDATE_PROPERTIES, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	push_dict(b, props);
@@ -1674,7 +1674,7 @@ static int client_demarshal_update_properties(void *object, const struct pw_prot
 	if (parse_dict(&prs, &props) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_client_proxy_methods, update_properties, 0,
+	return pw_resource_notify(resource, struct pw_client_methods, update_properties, 0,
 			&props);
 }
 
@@ -1690,7 +1690,7 @@ static int client_demarshal_get_permissions(void *object, const struct pw_protoc
 				SPA_POD_Int(&num)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_client_proxy_methods, get_permissions, 0, index, num);
+	return pw_resource_notify(resource, struct pw_client_methods, get_permissions, 0, index, num);
 }
 
 static int client_marshal_update_permissions(void *object, uint32_t n_permissions,
@@ -1701,7 +1701,7 @@ static int client_marshal_update_permissions(void *object, uint32_t n_permission
 	struct spa_pod_frame f;
 	uint32_t i;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_METHOD_UPDATE_PERMISSIONS, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_int(b, n_permissions);
@@ -1735,7 +1735,7 @@ static int client_demarshal_update_permissions(void *object, const struct pw_pro
 				SPA_POD_Int(&permissions[i].permissions), NULL) < 0)
 			return -EINVAL;
 	}
-	return pw_resource_notify(resource, struct pw_client_proxy_methods, update_permissions, 0,
+	return pw_resource_notify(resource, struct pw_client_methods, update_permissions, 0,
 			n_permissions, permissions);
 }
 
@@ -2184,8 +2184,8 @@ static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
 	.client_demarshal = pw_protocol_native_port_event_demarshal,
 };
 
-static const struct pw_client_proxy_methods pw_protocol_native_client_method_marshal = {
-	PW_VERSION_CLIENT_PROXY_METHODS,
+static const struct pw_client_methods pw_protocol_native_client_method_marshal = {
+	PW_VERSION_CLIENT_METHODS,
 	.add_listener = &client_method_marshal_add_listener,
 	.error = &client_marshal_error,
 	.update_properties = &client_marshal_update_properties,
@@ -2194,34 +2194,34 @@ static const struct pw_client_proxy_methods pw_protocol_native_client_method_mar
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_client_method_demarshal[PW_CLIENT_PROXY_METHOD_NUM] =
+pw_protocol_native_client_method_demarshal[PW_CLIENT_METHOD_NUM] =
 {
-	[PW_CLIENT_PROXY_METHOD_ADD_LISTENER] = { NULL, 0, },
-	[PW_CLIENT_PROXY_METHOD_ERROR] = { &client_demarshal_error, PW_PERM_W, },
-	[PW_CLIENT_PROXY_METHOD_UPDATE_PROPERTIES] = { &client_demarshal_update_properties, PW_PERM_W, },
-	[PW_CLIENT_PROXY_METHOD_GET_PERMISSIONS] = { &client_demarshal_get_permissions, 0, },
-	[PW_CLIENT_PROXY_METHOD_UPDATE_PERMISSIONS] = { &client_demarshal_update_permissions, PW_PERM_W, },
+	[PW_CLIENT_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_CLIENT_METHOD_ERROR] = { &client_demarshal_error, PW_PERM_W, },
+	[PW_CLIENT_METHOD_UPDATE_PROPERTIES] = { &client_demarshal_update_properties, PW_PERM_W, },
+	[PW_CLIENT_METHOD_GET_PERMISSIONS] = { &client_demarshal_get_permissions, 0, },
+	[PW_CLIENT_METHOD_UPDATE_PERMISSIONS] = { &client_demarshal_update_permissions, PW_PERM_W, },
 };
 
-static const struct pw_client_proxy_events pw_protocol_native_client_event_marshal = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events pw_protocol_native_client_event_marshal = {
+	PW_VERSION_CLIENT_EVENTS,
 	.info = &client_marshal_info,
 	.permissions = &client_marshal_permissions,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_client_event_demarshal[PW_CLIENT_PROXY_EVENT_NUM] =
+pw_protocol_native_client_event_demarshal[PW_CLIENT_EVENT_NUM] =
 {
-	[PW_CLIENT_PROXY_EVENT_INFO] = { &client_demarshal_info, 0, },
-	[PW_CLIENT_PROXY_EVENT_PERMISSIONS] = { &client_demarshal_permissions, 0, }
+	[PW_CLIENT_EVENT_INFO] = { &client_demarshal_info, 0, },
+	[PW_CLIENT_EVENT_PERMISSIONS] = { &client_demarshal_permissions, 0, }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
 	PW_TYPE_INTERFACE_Client,
-	PW_VERSION_CLIENT_PROXY,
+	PW_VERSION_CLIENT,
 	0,
-	PW_CLIENT_PROXY_METHOD_NUM,
-	PW_CLIENT_PROXY_EVENT_NUM,
+	PW_CLIENT_METHOD_NUM,
+	PW_CLIENT_EVENT_NUM,
 	.client_marshal = &pw_protocol_native_client_method_marshal,
 	.server_demarshal = pw_protocol_native_client_method_demarshal,
 	.server_marshal = &pw_protocol_native_client_event_marshal,

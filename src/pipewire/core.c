@@ -152,8 +152,8 @@ int pw_core_update_properties(struct pw_core *core, const struct spa_dict *dict)
 	if (!changed)
 		return 0;
 
-	if (core->client_proxy)
-		pw_client_proxy_update_properties(core->client_proxy, &core->properties->dict);
+	if (core->client)
+		pw_client_update_properties(core->client, &core->properties->dict);
 
 	return changed;
 }
@@ -199,7 +199,7 @@ static void proxy_core_destroy(void *data)
 		pw_filter_disconnect(filter);
 
 	pw_protocol_client_disconnect(core->conn);
-	core->client_proxy = NULL;
+	core->client = NULL;
 
 	pw_map_for_each(&core->objects, destroy_proxy, core);
 	pw_map_reset(&core->objects);
@@ -225,9 +225,9 @@ static const struct pw_proxy_events proxy_core_events = {
 };
 
 SPA_EXPORT
-struct pw_client_proxy * pw_core_get_client_proxy(struct pw_core *core)
+struct pw_client * pw_core_get_client(struct pw_core *core)
 {
-	return core->client_proxy;
+	return core->client;
 }
 
 SPA_EXPORT
@@ -329,9 +329,9 @@ static struct pw_core *core_new(struct pw_context *context,
 	if ((res = pw_proxy_init(&p->proxy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE)) < 0)
 		goto error_proxy;
 
-	p->client_proxy = (struct pw_client_proxy*)pw_proxy_new(&p->proxy,
-			PW_TYPE_INTERFACE_Client, PW_VERSION_CLIENT_PROXY, 0);
-	if (p->client_proxy == NULL) {
+	p->client = (struct pw_client*)pw_proxy_new(&p->proxy,
+			PW_TYPE_INTERFACE_Client, PW_VERSION_CLIENT, 0);
+	if (p->client == NULL) {
 		res = -errno;
 		goto error_proxy;
 	}
@@ -340,7 +340,7 @@ static struct pw_core *core_new(struct pw_context *context,
 	pw_proxy_add_listener(&p->proxy, &p->proxy_core_listener, &proxy_core_events, p);
 
 	pw_core_hello(p, PW_VERSION_CORE);
-	pw_client_proxy_update_properties(p->client_proxy, &p->properties->dict);
+	pw_client_update_properties(p->client, &p->properties->dict);
 
 	spa_list_append(&context->core_list, &p->link);
 

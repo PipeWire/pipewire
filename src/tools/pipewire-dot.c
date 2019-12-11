@@ -541,8 +541,8 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 	global_event_info(data, info);
 }
 
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.info = client_event_info
 };
 
@@ -636,7 +636,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		info_destroy = (pw_destroy_t)pw_client_info_free;
 		info_update = (info_update_t)pw_client_info_update;
 		draw = draw_client;
-		client_version = PW_VERSION_CLIENT_PROXY;
+		client_version = PW_VERSION_CLIENT;
 		break;
 	case PW_TYPE_INTERFACE_Device:
 		events = &device_events;

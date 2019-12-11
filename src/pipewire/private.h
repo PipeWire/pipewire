@@ -739,7 +739,7 @@ struct pw_core {
 
 	struct pw_map objects;			/**< map of client side proxy objects
 						 *   indexed with the client id */
-	struct pw_client_proxy *client_proxy;	/**< proxy for the client object */
+	struct pw_client *client;		/**< proxy for the client object */
 
 	struct spa_list stream_list;		/**< list of \ref pw_stream objects */
 	struct spa_list filter_list;		/**< list of \ref pw_stream objects */

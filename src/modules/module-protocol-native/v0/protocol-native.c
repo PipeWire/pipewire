@@ -195,7 +195,7 @@ static int core_demarshal_permissions(void *object, const struct pw_protocol_nat
 			return -EINVAL;
 	}
 	/* FIXME */
-	//return pw_resource_notify(resource, struct pw_impl_client_proxy_methods, update_permissions, 0,
+	//return pw_resource_notify(resource, struct pw_impl_client_methods, update_permissions, 0,
         //                n_permissions, permissions);
 	return 0;
 }
@@ -960,7 +960,7 @@ static void client_marshal_info(void *object, const struct pw_client_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_PROXY_V0_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -1148,8 +1148,8 @@ static const struct pw_protocol_marshal pw_protocol_native_port_marshal = {
 	NULL
 };
 
-static const struct pw_client_proxy_events pw_protocol_native_client_event_marshal = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events pw_protocol_native_client_event_marshal = {
+	PW_VERSION_CLIENT_EVENTS,
 	.info = &client_marshal_info,
 	.permissions = &client_marshal_permissions,
 };
@@ -1158,7 +1158,7 @@ static const struct pw_protocol_marshal pw_protocol_native_client_marshal = {
 	PW_TYPE_INTERFACE_Client,
 	PW_VERSION_CLIENT_V0,
 	0,
-	PW_CLIENT_PROXY_EVENT_NUM,
+	PW_CLIENT_EVENT_NUM,
 	0,
 	NULL, NULL,
 	&pw_protocol_native_client_event_marshal,

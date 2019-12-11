@@ -427,8 +427,8 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	}
 }
 
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
         .info = client_event_info
 };
 
@@ -606,7 +606,7 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
-		client_version = PW_VERSION_CLIENT_PROXY;
+		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		break;
 	case PW_TYPE_INTERFACE_Link:

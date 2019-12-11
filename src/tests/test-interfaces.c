@@ -297,26 +297,26 @@ static void test_factory_abi(void)
 
 static void test_client_abi(void)
 {
-	struct pw_client_proxy_methods m;
-	struct pw_client_proxy_events e;
+	struct pw_client_methods m;
+	struct pw_client_events e;
 	struct {
 		uint32_t version;
 		int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_client_proxy_events *events,
+			const struct pw_client_events *events,
 			void *data);
 		int (*error) (void *object, uint32_t id, int res, const char *error);
 		int (*update_properties) (void *object, const struct spa_dict *props);
 		int (*get_permissions) (void *object, uint32_t index, uint32_t num);
 		int (*update_permissions) (void *object, uint32_t n_permissions,
 			const struct pw_permission *permissions);
-	} methods = { PW_VERSION_CLIENT_PROXY_METHODS, };
+	} methods = { PW_VERSION_CLIENT_METHODS, };
 	struct {
 		uint32_t version;
 		void (*info) (void *object, const struct pw_client_info *info);
 		void (*permissions) (void *object, uint32_t index,
 			uint32_t n_permissions, const struct pw_permission *permissions);
-	} events = { PW_VERSION_CLIENT_PROXY_EVENTS, };
+	} events = { PW_VERSION_CLIENT_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);
@@ -324,13 +324,13 @@ static void test_client_abi(void)
 	TEST_FUNC(m, methods, update_properties);
 	TEST_FUNC(m, methods, get_permissions);
 	TEST_FUNC(m, methods, update_permissions);
-	spa_assert(PW_VERSION_CLIENT_PROXY_METHODS == 0);
+	spa_assert(PW_VERSION_CLIENT_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
 	TEST_FUNC(e, events, version);
 	TEST_FUNC(e, events, info);
 	TEST_FUNC(e, events, permissions);
-	spa_assert(PW_VERSION_CLIENT_PROXY_EVENTS == 0);
+	spa_assert(PW_VERSION_CLIENT_EVENTS == 0);
 	spa_assert(sizeof(e) == sizeof(events));
 }
 

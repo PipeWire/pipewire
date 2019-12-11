@@ -527,8 +527,8 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	g->pending_seq = pw_proxy_sync(g->proxy, 0);
 }
 
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.info = client_event_info,
 };
 
@@ -688,7 +688,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
 		events = &client_events;
-                client_version = PW_VERSION_CLIENT_PROXY;
+                client_version = PW_VERSION_CLIENT;
                 destroy = client_destroy;
 		break;
 
@@ -1196,10 +1196,10 @@ pa_operation* pa_context_set_name(pa_context *c, const char *name, pa_context_su
 	changed = pw_properties_update(c->props, &dict);
 
 	if (changed) {
-		struct pw_client_proxy *client_proxy;
+		struct pw_client *client;
 
-		client_proxy = pw_core_get_client_proxy(c->core);
-		pw_client_proxy_update_properties(client_proxy, &c->props->dict);
+		client = pw_core_get_client(c->core);
+		pw_client_update_properties(client, &c->props->dict);
 	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));

@@ -494,7 +494,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 
 		obj = sm_media_session_find_object(impl->session, ep->client_id);
 		if (obj && obj->type == PW_TYPE_INTERFACE_Client) {
-			pw_client_proxy_error((struct pw_client_proxy*)obj->proxy,
+			pw_client_error((struct pw_client*)obj->proxy,
 				ep->id, -ENOENT, "no endpoint available");
 		}
 		return -ENOENT;

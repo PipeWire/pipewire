@@ -489,8 +489,8 @@ static void set_permissions(struct data *data)
 	permissions[1].id = SPA_ID_INVALID;
 	permissions[1].permissions = PW_PERM_R;
 
-	pw_client_proxy_update_permissions(
-			pw_core_get_client_proxy(data->core),
+	pw_client_update_permissions(
+			pw_core_get_client(data->core),
 			2, permissions);
 }
 

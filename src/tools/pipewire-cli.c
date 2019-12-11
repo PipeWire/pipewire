@@ -850,8 +850,8 @@ static void client_event_permissions(void *object, uint32_t index,
 	}
 }
 
-static const struct pw_client_proxy_events client_events = {
-	PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events client_events = {
+	PW_VERSION_CLIENT_EVENTS,
 	.info = client_event_info,
 	.permissions = client_event_permissions
 };
@@ -1128,7 +1128,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Client:
 		events = &client_events;
-		client_version = PW_VERSION_CLIENT_PROXY;
+		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		info_func = info_client;
 		break;
@@ -1511,7 +1511,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 
 	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), atoi(a[2]));
 
-	pw_client_proxy_update_permissions((struct pw_client_proxy*)global->proxy,
+	pw_client_update_permissions((struct pw_client*)global->proxy,
 			1, permissions);
 
 	return true;
@@ -1545,7 +1545,7 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 		if (!bind_global(rd, global, error))
 			return false;
 	}
-	pw_client_proxy_get_permissions((struct pw_client_proxy*)global->proxy,
+	pw_client_get_permissions((struct pw_client*)global->proxy,
 			0, UINT32_MAX);
 
 	return true;

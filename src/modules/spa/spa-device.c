@@ -80,7 +80,7 @@ pw_spa_device_new(struct pw_context *context,
 	struct impl *impl;
 	int res;
 
-	this = pw_impl_device_new(context, properties, sizeof(struct impl) + user_data_size);
+	this = pw_context_create_device(context, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL)
 		return NULL;
 

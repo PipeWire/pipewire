@@ -65,7 +65,7 @@ struct pw_impl_device_events {
 	void (*info_changed) (void *data, const struct pw_device_info *info);
 };
 
-struct pw_impl_device *pw_impl_device_new(struct pw_context *context,
+struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 				struct pw_properties *properties,
 				size_t user_data_size);
 

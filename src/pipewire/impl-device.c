@@ -119,7 +119,7 @@ static void check_properties(struct pw_impl_device *device)
 }
 
 SPA_EXPORT
-struct pw_impl_device *pw_impl_device_new(struct pw_context *context,
+struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 				struct pw_properties *properties,
 				size_t user_data_size)
 {
@@ -574,7 +574,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	case SPA_TYPE_INTERFACE_Device:
 	{
 		struct pw_impl_device *dev;
-		dev = pw_impl_device_new(context, props, sizeof(struct object_data));
+		dev = pw_context_create_device(context, props, sizeof(struct object_data));
 
 		od = pw_impl_device_get_user_data(dev);
 		od->object = dev;

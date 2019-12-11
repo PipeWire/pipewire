@@ -335,7 +335,7 @@ static inline void pw_node_activation_state_reset(struct pw_node_activation_stat
 
 struct pw_node_target {
 	struct spa_list link;
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct pw_node_activation *activation;
 	int (*signal) (void *data);
 	void *data;
@@ -412,26 +412,26 @@ struct pw_node_activation {
 #define SEQ_READ(s)			ATOMIC_LOAD(s)
 #define SEQ_READ_SUCCESS(s1,s2)		((s1) == (s2) && ((s2) & 1) == 0)
 
-#define pw_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_node_events, m, v, ##__VA_ARGS__)
-#define pw_node_emit_destroy(n)			pw_node_emit(n, destroy, 0)
-#define pw_node_emit_free(n)			pw_node_emit(n, free, 0)
-#define pw_node_emit_initialized(n)		pw_node_emit(n, initialized, 0)
-#define pw_node_emit_port_init(n,p)		pw_node_emit(n, port_init, 0, p)
-#define pw_node_emit_port_added(n,p)		pw_node_emit(n, port_added, 0, p)
-#define pw_node_emit_port_removed(n,p)		pw_node_emit(n, port_removed, 0, p)
-#define pw_node_emit_info_changed(n,i)		pw_node_emit(n, info_changed, 0, i)
-#define pw_node_emit_port_info_changed(n,p,i)	pw_node_emit(n, port_info_changed, 0, p, i)
-#define pw_node_emit_active_changed(n,a)	pw_node_emit(n, active_changed, 0, a)
-#define pw_node_emit_state_request(n,s)		pw_node_emit(n, state_request, 0, s)
-#define pw_node_emit_state_changed(n,o,s,e)	pw_node_emit(n, state_changed, 0, o, s, e)
-#define pw_node_emit_async_complete(n,s,r)	pw_node_emit(n, async_complete, 0, s, r)
-#define pw_node_emit_result(n,s,r,t,result)	pw_node_emit(n, result, 0, s, r, t, result)
-#define pw_node_emit_event(n,e)			pw_node_emit(n, event, 0, e)
-#define pw_node_emit_driver_changed(n,o,d)	pw_node_emit(n, driver_changed, 0, o, d)
-#define pw_node_emit_peer_added(n,p)		pw_node_emit(n, peer_added, 0, p)
-#define pw_node_emit_peer_removed(n,p)		pw_node_emit(n, peer_removed, 0, p)
+#define pw_impl_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_node_events, m, v, ##__VA_ARGS__)
+#define pw_impl_node_emit_destroy(n)			pw_impl_node_emit(n, destroy, 0)
+#define pw_impl_node_emit_free(n)			pw_impl_node_emit(n, free, 0)
+#define pw_impl_node_emit_initialized(n)		pw_impl_node_emit(n, initialized, 0)
+#define pw_impl_node_emit_port_init(n,p)		pw_impl_node_emit(n, port_init, 0, p)
+#define pw_impl_node_emit_port_added(n,p)		pw_impl_node_emit(n, port_added, 0, p)
+#define pw_impl_node_emit_port_removed(n,p)		pw_impl_node_emit(n, port_removed, 0, p)
+#define pw_impl_node_emit_info_changed(n,i)		pw_impl_node_emit(n, info_changed, 0, i)
+#define pw_impl_node_emit_port_info_changed(n,p,i)	pw_impl_node_emit(n, port_info_changed, 0, p, i)
+#define pw_impl_node_emit_active_changed(n,a)		pw_impl_node_emit(n, active_changed, 0, a)
+#define pw_impl_node_emit_state_request(n,s)		pw_impl_node_emit(n, state_request, 0, s)
+#define pw_impl_node_emit_state_changed(n,o,s,e)	pw_impl_node_emit(n, state_changed, 0, o, s, e)
+#define pw_impl_node_emit_async_complete(n,s,r)		pw_impl_node_emit(n, async_complete, 0, s, r)
+#define pw_impl_node_emit_result(n,s,r,t,result)	pw_impl_node_emit(n, result, 0, s, r, t, result)
+#define pw_impl_node_emit_event(n,e)			pw_impl_node_emit(n, event, 0, e)
+#define pw_impl_node_emit_driver_changed(n,o,d)		pw_impl_node_emit(n, driver_changed, 0, o, d)
+#define pw_impl_node_emit_peer_added(n,p)		pw_impl_node_emit(n, peer_added, 0, p)
+#define pw_impl_node_emit_peer_removed(n,p)		pw_impl_node_emit(n, peer_removed, 0, p)
 
-struct pw_node {
+struct pw_impl_node {
 	struct pw_context *context;		/**< context object */
 	struct spa_list link;		/**< link in context node_list */
 	struct pw_global *global;	/**< global for this node */
@@ -461,7 +461,7 @@ struct pw_node {
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
 	struct spa_list driver_link;
-	struct pw_node *driver_node;
+	struct pw_impl_node *driver_node;
 	struct spa_list slave_list;
 	struct spa_list slave_link;
 
@@ -560,7 +560,7 @@ struct pw_impl_port_implementation {
 struct pw_impl_port {
 	struct spa_list link;		/**< link in node port_list */
 
-	struct pw_node *node;		/**< owner node */
+	struct pw_impl_node *node;		/**< owner node */
 	struct pw_global *global;	/**< global for this port */
 	struct spa_hook global_listener;
 
@@ -925,7 +925,7 @@ void * pw_impl_port_get_user_data(struct pw_impl_port *port);
 int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint32_t flags);
 
 /** Add a port to a node \memberof pw_impl_port */
-int pw_impl_port_add(struct pw_impl_port *port, struct pw_node *node);
+int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node);
 
 int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
 int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
@@ -982,16 +982,16 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 		struct spa_buffer **buffers, uint32_t n_buffers);
 
 /** Change the state of the node */
-int pw_node_set_state(struct pw_node *node, enum pw_node_state state);
+int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state);
 
-int pw_node_set_param(struct pw_node *node,
+int pw_impl_node_set_param(struct pw_impl_node *node,
 		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
-int pw_node_update_ports(struct pw_node *node);
+int pw_impl_node_update_ports(struct pw_impl_node *node);
 
-int pw_node_initialized(struct pw_node *node);
+int pw_impl_node_initialized(struct pw_impl_node *node);
 
-int pw_node_set_driver(struct pw_node *node, struct pw_node *driver);
+int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driver);
 
 /** Prepare a link \memberof pw_impl_link
   * Starts the negotiation of formats and buffers on \a link */

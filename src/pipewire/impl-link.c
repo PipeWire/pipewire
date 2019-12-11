@@ -66,7 +66,7 @@ struct impl {
 
 	struct spa_io_buffers io;
 
-	struct pw_node *inode, *onode;
+	struct pw_impl_node *inode, *onode;
 };
 
 struct resource_data {
@@ -77,7 +77,7 @@ struct resource_data {
 
 static void debug_link(struct pw_impl_link *link)
 {
-	struct pw_node *in = link->input->node, *out = link->output->node;
+	struct pw_impl_node *in = link->input->node, *out = link->output->node;
 
 	pw_log_debug(NAME" %p: %d %d %d out %d %d %d , %d %d %d in %d %d %d", link,
 			out->n_used_input_links,
@@ -110,7 +110,7 @@ static void info_changed(struct pw_impl_link *link)
 static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_state state, char *error)
 {
 	enum pw_link_state old = link->info.state;
-	struct pw_node *in = link->input->node, *out = link->output->node;
+	struct pw_impl_node *in = link->input->node, *out = link->output->node;
 
 	if (state == old)
 		return;
@@ -137,19 +137,19 @@ static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_st
 	if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
 		if (++out->n_ready_output_links == out->n_used_output_links &&
 		    out->n_ready_input_links == out->n_used_input_links)
-			pw_node_set_state(out, PW_NODE_STATE_RUNNING);
+			pw_impl_node_set_state(out, PW_NODE_STATE_RUNNING);
 		if (++in->n_ready_input_links == in->n_used_input_links &&
 		    in->n_ready_output_links == in->n_used_output_links)
-			pw_node_set_state(in, PW_NODE_STATE_RUNNING);
+			pw_impl_node_set_state(in, PW_NODE_STATE_RUNNING);
 		pw_impl_link_activate(link);
 	}
 	else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
 		if (--out->n_ready_output_links == 0 &&
 		    out->n_ready_input_links == 0)
-			pw_node_set_state(out, PW_NODE_STATE_IDLE);
+			pw_impl_node_set_state(out, PW_NODE_STATE_IDLE);
 		if (--in->n_ready_input_links == 0 &&
 		    in->n_ready_output_links == 0)
-			pw_node_set_state(in, PW_NODE_STATE_IDLE);
+			pw_impl_node_set_state(in, PW_NODE_STATE_IDLE);
 	}
 }
 
@@ -260,7 +260,7 @@ static int do_negotiate(struct pw_impl_link *this)
 					spa_debug_pod(2, NULL, current);
 				spa_debug_pod(2, NULL, format);
 			}
-			pw_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
+			pw_impl_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
 			out_state = PW_IMPL_PORT_STATE_CONFIGURE;
 		}
 		else {
@@ -296,7 +296,7 @@ static int do_negotiate(struct pw_impl_link *this)
 					spa_debug_pod(2, NULL, current);
 				spa_debug_pod(2, NULL, format);
 			}
-			pw_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
+			pw_impl_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
 			in_state = PW_IMPL_PORT_STATE_CONFIGURE;
 		}
 		else {
@@ -736,7 +736,7 @@ do_deactivate_link(struct spa_loop *loop,
 int pw_impl_link_deactivate(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_node *input_node, *output_node;
+	struct pw_impl_node *input_node, *output_node;
 
 	pw_log_debug(NAME" %p: deactivate %d %d", this, impl->prepare, impl->activated);
 
@@ -771,7 +771,7 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 	if (input_node->n_used_input_links <= input_node->idle_used_input_links &&
 	    input_node->n_used_output_links <= input_node->idle_used_output_links &&
 	    input_node->info.state > PW_NODE_STATE_IDLE) {
-		pw_node_set_state(input_node, PW_NODE_STATE_IDLE);
+		pw_impl_node_set_state(input_node, PW_NODE_STATE_IDLE);
 		pw_log_debug(NAME" %p: input port %p state %d -> %d", this,
 				this->input, this->input->state, PW_IMPL_PORT_STATE_PAUSED);
 	}
@@ -779,7 +779,7 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 	if (output_node->n_used_input_links <= output_node->idle_used_input_links &&
 	    output_node->n_used_output_links <= output_node->idle_used_output_links &&
 	    output_node->info.state > PW_NODE_STATE_IDLE) {
-		pw_node_set_state(output_node, PW_NODE_STATE_IDLE);
+		pw_impl_node_set_state(output_node, PW_NODE_STATE_IDLE);
 		pw_log_debug(NAME" %p: output port %p state %d -> %d", this,
 				this->output, this->output->state, PW_IMPL_PORT_STATE_PAUSED);
 	}
@@ -898,17 +898,17 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 	node_result(impl, port, seq, res, type, result);
 }
 
-static const struct pw_node_events input_node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events input_node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.result = input_node_result,
 };
 
-static const struct pw_node_events output_node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events output_node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.result = output_node_result,
 };
 
-static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
+static bool pw_impl_node_can_reach(struct pw_impl_node *output, struct pw_impl_node *input)
 {
 	struct pw_impl_port *p;
 
@@ -927,7 +927,7 @@ static bool pw_node_can_reach(struct pw_node *output, struct pw_node *input)
 		spa_list_for_each(l, &p->links, output_link) {
 			if (l->feedback)
 				continue;
-			if (pw_node_can_reach(l->input->node, input))
+			if (pw_impl_node_can_reach(l->input->node, input))
 				return true;
 		}
 	}
@@ -1041,7 +1041,7 @@ struct pw_impl_link *pw_impl_link_new(struct pw_context *context,
 {
 	struct impl *impl;
 	struct pw_impl_link *this;
-	struct pw_node *input_node, *output_node;
+	struct pw_impl_node *input_node, *output_node;
 	const char *str;
 	int res;
 
@@ -1071,7 +1071,7 @@ struct pw_impl_link *pw_impl_link_new(struct pw_context *context,
 		goto error_no_mem;
 
 	this = &impl->this;
-	this->feedback = pw_node_can_reach(input_node, output_node);
+	this->feedback = pw_impl_node_can_reach(input_node, output_node);
 	pw_log_debug(NAME" %p: new out-port:%p -> in-port:%p", this, output, input);
 
 	if (user_data_size > 0)
@@ -1095,10 +1095,10 @@ struct pw_impl_link *pw_impl_link_new(struct pw_context *context,
 	impl->format_filter = format_filter;
 
 	pw_impl_port_add_listener(input, &impl->input_port_listener, &input_port_events, impl);
-	pw_node_add_listener(input_node, &impl->input_node_listener, &input_node_events, impl);
+	pw_impl_node_add_listener(input_node, &impl->input_node_listener, &input_node_events, impl);
 	pw_global_add_listener(input->global, &impl->input_global_listener, &input_global_events, impl);
 	pw_impl_port_add_listener(output, &impl->output_port_listener, &output_port_events, impl);
-	pw_node_add_listener(output_node, &impl->output_node_listener, &output_node_events, impl);
+	pw_impl_node_add_listener(output_node, &impl->output_node_listener, &output_node_events, impl);
 	pw_global_add_listener(output->global, &impl->output_global_listener, &output_global_events, impl);
 
 	input_node->live = output_node->live;
@@ -1142,7 +1142,7 @@ struct pw_impl_link *pw_impl_link_new(struct pw_context *context,
 
 	try_link_controls(impl, output, input);
 
-	pw_node_emit_peer_added(output_node, input_node);
+	pw_impl_node_emit_peer_added(output_node, input_node);
 
 	pw_context_recalc_graph(context);
 
@@ -1198,7 +1198,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 		     struct pw_properties *properties)
 {
 	struct pw_context *context = link->context;
-	struct pw_node *output_node, *input_node;
+	struct pw_impl_node *output_node, *input_node;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
@@ -1277,7 +1277,7 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 	if (link->registered)
 		spa_list_remove(&link->link);
 
-	pw_node_emit_peer_removed(link->output->node, link->input->node);
+	pw_impl_node_emit_peer_removed(link->output->node, link->input->node);
 
 	try_unlink_controls(impl, link->output, link->input);
 

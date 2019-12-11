@@ -39,7 +39,7 @@ enum pw_spa_node_flags {
 	PW_SPA_NODE_FLAG_ASYNC		= (1 << 2),
 };
 
-struct pw_node *
+struct pw_impl_node *
 pw_spa_node_new(struct pw_context *context,
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
@@ -47,14 +47,14 @@ pw_spa_node_new(struct pw_context *context,
 		struct pw_properties *properties,
 		size_t user_data_size);
 
-struct pw_node *
+struct pw_impl_node *
 pw_spa_node_load(struct pw_context *context,
 		 const char *factory_name,
 		 enum pw_spa_node_flags flags,
 		 struct pw_properties *properties,
 		 size_t user_data_size);
 
-void *pw_spa_node_get_user_data(struct pw_node *node);
+void *pw_spa_node_get_user_data(struct pw_impl_node *node);
 
 #ifdef __cplusplus
 }

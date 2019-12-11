@@ -102,7 +102,7 @@ int pw_impl_port_update_properties(struct pw_impl_port *port, const struct spa_d
 uint32_t pw_impl_port_get_id(struct pw_impl_port *port);
 
 /** Get the port parent node or NULL when not yet set */
-struct pw_node *pw_impl_port_get_node(struct pw_impl_port *port);
+struct pw_impl_node *pw_impl_port_get_node(struct pw_impl_port *port);
 
 /** Add an event listener on the port */
 void pw_impl_port_add_listener(struct pw_impl_port *port,

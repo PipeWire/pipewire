@@ -58,10 +58,10 @@ struct buffer {
 struct node {
 	struct pw_context *context;
 
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct spa_hook node_listener;
 
-	struct pw_node *slave;
+	struct pw_impl_node *slave;
 
 	void *user_data;
 	enum pw_direction direction;
@@ -149,14 +149,14 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	pw_properties_free(new);
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.free = node_free,
 	.port_init = node_port_init,
 };
 
 
-static int find_format(struct pw_node *node, enum pw_direction direction,
+static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 		uint32_t *media_type, uint32_t *media_subtype)
 {
 	uint32_t state = 0;
@@ -186,12 +186,12 @@ static int find_format(struct pw_node *node, enum pw_direction direction,
 }
 
 
-struct pw_node *pw_adapter_new(struct pw_context *context,
-		struct pw_node *slave,
+struct pw_impl_node *pw_adapter_new(struct pw_context *context,
+		struct pw_impl_node *slave,
 		struct pw_properties *props,
 		size_t user_data_size)
 {
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct node *n;
 	const char *str, *factory_name;
 	const struct pw_node_info *info;
@@ -199,7 +199,7 @@ struct pw_node *pw_adapter_new(struct pw_context *context,
 	int res;
 	uint32_t media_type, media_subtype;
 
-	info = pw_node_get_info(slave);
+	info = pw_impl_node_get_info(slave);
 	if (info == NULL) {
 		res = -EINVAL;
 		goto error;
@@ -279,7 +279,7 @@ struct pw_node *pw_adapter_new(struct pw_context *context,
 	if (user_data_size > 0)
 		n->user_data = SPA_MEMBER(n, sizeof(struct node), void);
 
-	pw_node_add_listener(node, &n->node_listener, &node_events, n);
+	pw_impl_node_add_listener(node, &n->node_listener, &node_events, n);
 
 	return node;
 
@@ -290,7 +290,7 @@ error:
 	return NULL;
 }
 
-void *pw_adapter_get_user_data(struct pw_node *node)
+void *pw_adapter_get_user_data(struct pw_impl_node *node)
 {
 	struct node *n = pw_spa_node_get_user_data(node);
 	return n->user_data;

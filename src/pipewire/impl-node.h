@@ -37,11 +37,11 @@ extern "C" {
  * input and output ports (\ref page_port) on which it
  * will receive and send out buffers respectively.
  */
-/** \class pw_node
+/** \class pw_impl_node
  *
  * PipeWire node class.
  */
-struct pw_node;
+struct pw_impl_node;
 struct pw_impl_port;
 
 #include <spa/node/node.h>
@@ -49,9 +49,9 @@ struct pw_impl_port;
 
 #include <pipewire/impl.h>
 
-/** Node events, listen to them with \ref pw_node_add_listener */
-struct pw_node_events {
-#define PW_VERSION_NODE_EVENTS	0
+/** Node events, listen to them with \ref pw_impl_node_add_listener */
+struct pw_impl_node_events {
+#define PW_VERSION_IMPL_NODE_EVENTS	0
 	uint32_t version;
 
 	/** the node is destroyed */
@@ -89,67 +89,67 @@ struct pw_node_events {
 	void (*event) (void *data, const struct spa_event *event);
 
 	/** the driver of the node changed */
-	void (*driver_changed) (void *data, struct pw_node *old, struct pw_node *driver);
+	void (*driver_changed) (void *data, struct pw_impl_node *old, struct pw_impl_node *driver);
 
 	/** a peer was added */
-	void (*peer_added) (void *data, struct pw_node *peer);
+	void (*peer_added) (void *data, struct pw_impl_node *peer);
 	/** a peer was removed */
-	void (*peer_removed) (void *data, struct pw_node *peer);
+	void (*peer_removed) (void *data, struct pw_impl_node *peer);
 };
 
-/** Create a new node \memberof pw_node */
-struct pw_node *
-pw_node_new(struct pw_context *context,		/**< the context */
+/** Create a new node \memberof pw_impl_node */
+struct pw_impl_node *
+pw_impl_node_new(struct pw_context *context,		/**< the context */
 	    struct pw_properties *properties,	/**< extra properties */
 	    size_t user_data_size		/**< user data size */);
 
 /** Complete initialization of the node and register */
-int pw_node_register(struct pw_node *node,		/**< node to register */
+int pw_impl_node_register(struct pw_impl_node *node,		/**< node to register */
 		     struct pw_properties *properties	/**< extra properties */);
 
 /** Destroy a node */
-void pw_node_destroy(struct pw_node *node);
+void pw_impl_node_destroy(struct pw_impl_node *node);
 
 /** Get the node info */
-const struct pw_node_info *pw_node_get_info(struct pw_node *node);
+const struct pw_node_info *pw_impl_node_get_info(struct pw_impl_node *node);
 
-/** Get node user_data. The size of the memory was given in \ref pw_node_new */
-void * pw_node_get_user_data(struct pw_node *node);
+/** Get node user_data. The size of the memory was given in \ref pw_impl_node_new */
+void * pw_impl_node_get_user_data(struct pw_impl_node *node);
 
 /** Get the context of this node */
-struct pw_context *pw_node_get_context(struct pw_node *node);
+struct pw_context *pw_impl_node_get_context(struct pw_impl_node *node);
 
 /** Get the global of this node */
-struct pw_global *pw_node_get_global(struct pw_node *node);
+struct pw_global *pw_impl_node_get_global(struct pw_impl_node *node);
 
 /** Get the node properties */
-const struct pw_properties *pw_node_get_properties(struct pw_node *node);
+const struct pw_properties *pw_impl_node_get_properties(struct pw_impl_node *node);
 
 /** Update the node properties */
-int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict);
+int pw_impl_node_update_properties(struct pw_impl_node *node, const struct spa_dict *dict);
 
 /** Set the node implementation */
-int pw_node_set_implementation(struct pw_node *node, struct spa_node *spa_node);
+int pw_impl_node_set_implementation(struct pw_impl_node *node, struct spa_node *spa_node);
 
 /** Get the node implementation */
-struct spa_node *pw_node_get_implementation(struct pw_node *node);
+struct spa_node *pw_impl_node_get_implementation(struct pw_impl_node *node);
 
 /** Add an event listener */
-void pw_node_add_listener(struct pw_node *node,
+void pw_impl_node_add_listener(struct pw_impl_node *node,
 			  struct spa_hook *listener,
-			  const struct pw_node_events *events,
+			  const struct pw_impl_node_events *events,
 			  void *data);
 
 /** Iterate the ports in the given direction. The callback should return
  * 0 to fetch the next item, any other value stops the iteration and returns
  * the value. When all callbacks return 0, this function returns 0 when all
  * items are iterated. */
-int pw_node_for_each_port(struct pw_node *node,
+int pw_impl_node_for_each_port(struct pw_impl_node *node,
 			  enum pw_direction direction,
 			  int (*callback) (void *data, struct pw_impl_port *port),
 			  void *data);
 
-int pw_node_for_each_param(struct pw_node *node,
+int pw_impl_node_for_each_param(struct pw_impl_node *node,
 			   int seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
@@ -161,17 +161,17 @@ int pw_node_for_each_param(struct pw_node *node,
 /** Find the port with direction and port_id or NULL when not found. Passing
  * SPA_ID_INVALID for port_id will return any port, preferably an unlinked one. */
 struct pw_impl_port *
-pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id);
+pw_impl_node_find_port(struct pw_impl_node *node, enum pw_direction direction, uint32_t port_id);
 
 /** Get a free unused port_id from the node */
-uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction);
+uint32_t pw_impl_node_get_free_port_id(struct pw_impl_node *node, enum pw_direction direction);
 
 /** Set a node active. This will start negotiation with all linked active
   * nodes and start data transport */
-int pw_node_set_active(struct pw_node *node, bool active);
+int pw_impl_node_set_active(struct pw_impl_node *node, bool active);
 
 /** Check if a node is active */
-bool pw_node_is_active(struct pw_node *node);
+bool pw_impl_node_is_active(struct pw_impl_node *node);
 
 #ifdef __cplusplus
 }

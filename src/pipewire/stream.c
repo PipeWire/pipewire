@@ -96,7 +96,7 @@ struct stream {
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
 
-	struct pw_node *node;
+	struct pw_impl_node *node;
 
 	struct spa_node impl_node;
 	struct spa_node_methods node_methods;
@@ -979,7 +979,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			switch (info->params[i].id) {
 			case SPA_PARAM_PropInfo:
 			case SPA_PARAM_Props:
-				pw_node_for_each_param(impl->node,
+				pw_impl_node_for_each_param(impl->node,
 						0, info->params[i].id,
 						0, UINT32_MAX,
 						NULL,
@@ -993,8 +993,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	}
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.info_changed = node_event_info,
 };
 
@@ -1238,7 +1238,7 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 		return 0;
 
 	if (impl->node)
-		res = pw_node_update_properties(impl->node, dict);
+		res = pw_impl_node_update_properties(impl->node, dict);
 
 	return res;
 }
@@ -1320,7 +1320,7 @@ pw_stream_connect(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_impl_factory *factory;
 	struct pw_properties *props;
-	struct pw_node *slave;
+	struct pw_impl_node *slave;
 	const char *str;
 	uint32_t i;
 	int res;
@@ -1406,16 +1406,16 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "resample.peaks", "1");
 	}
 
-	slave = pw_node_new(impl->context, pw_properties_copy(props), 0);
+	slave = pw_impl_node_new(impl->context, pw_properties_copy(props), 0);
 	if (slave == NULL) {
 		res = -errno;
 		goto error_node;
 	}
 
-	pw_node_set_implementation(slave, &impl->impl_node);
+	pw_impl_node_set_implementation(slave, &impl->impl_node);
 
 	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
-		pw_node_set_active(slave, true);
+		pw_impl_node_set_active(slave, true);
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
@@ -1451,7 +1451,7 @@ pw_stream_connect(struct pw_stream *stream,
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 
 
-	pw_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
+	pw_impl_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
 
 	return 0;
 
@@ -1481,13 +1481,13 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	impl->disconnecting = true;
 
 	if (impl->node)
-		pw_node_set_active(impl->node, false);
+		pw_impl_node_set_active(impl->node, false);
 
 	if (stream->proxy)
 		pw_proxy_destroy(stream->proxy);
 
 	if (impl->node) {
-		pw_node_destroy(impl->node);
+		pw_impl_node_destroy(impl->node);
 		impl->node = NULL;
 	}
 	if (impl->free_proxy) {
@@ -1583,7 +1583,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	}
 	pod = spa_pod_builder_pop(&b, &f[0]);
 
-	pw_node_set_param(impl->node, SPA_PARAM_Props, 0, pod);
+	pw_impl_node_set_param(impl->node, SPA_PARAM_Props, 0, pod);
 
 	return 0;
 }
@@ -1608,7 +1608,7 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	pw_log_debug(NAME" %p: active:%d", stream, active);
 	if (impl->node)
-		pw_node_set_active(impl->node, active);
+		pw_impl_node_set_active(impl->node, active);
 	return 0;
 }
 

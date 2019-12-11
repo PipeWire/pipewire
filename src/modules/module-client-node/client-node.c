@@ -862,7 +862,7 @@ static int impl_node_process(void *object)
 {
 	struct node *this = object;
 	struct impl *impl = this->impl;
-	struct pw_node *n = impl->this.node;
+	struct pw_impl_node *n = impl->this.node;
 	struct timespec ts;
 
 	spa_log_trace_fp(this->log, "%p: send process driver:%p", this, impl->this.node->driver_node);
@@ -971,7 +971,7 @@ client_node_port_update(void *data,
 static int client_node_set_active(void *data, bool active)
 {
 	struct impl *impl = data;
-	return pw_node_set_active(impl->this.node, active);
+	return pw_impl_node_set_active(impl->this.node, active);
 }
 
 static int client_node_event(void *data, const struct spa_event *event)
@@ -1173,7 +1173,7 @@ static void client_node_resource_destroy(void *data)
 				&node->data_source);
 	}
 	if (this->node)
-		pw_node_destroy(this->node);
+		pw_impl_node_destroy(this->node);
 }
 
 static void client_node_resource_error(void *data, int seq, int res, const char *message)
@@ -1199,7 +1199,7 @@ static void client_node_resource_pong(void *data, int seq)
 void pw_client_node_registered(struct pw_client_node *this, struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
-	struct pw_node *node = this->node;
+	struct pw_impl_node *node = this->node;
 	struct pw_impl_client *client = impl->node.client;
 	uint32_t node_id = global->id;
 	struct pw_memblock *m;
@@ -1262,7 +1262,7 @@ static void node_initialized(void *data)
 
 	pw_log_debug(NAME " %p: io areas %p", node, impl->io_areas->map->ptr);
 
-	if ((global = pw_node_get_global(this->node)) != NULL)
+	if ((global = pw_impl_node_get_global(this->node)) != NULL)
 		pw_client_node_registered(this, global);
 }
 
@@ -1505,7 +1505,7 @@ static void node_port_removed(void *data, struct pw_impl_port *port)
 	clear_port(this, p);
 }
 
-static void node_peer_added(void *data, struct pw_node *peer)
+static void node_peer_added(void *data, struct pw_impl_node *peer)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
@@ -1533,7 +1533,7 @@ static void node_peer_added(void *data, struct pw_node *peer)
 					  sizeof(struct pw_node_activation));
 }
 
-static void node_peer_removed(void *data, struct pw_node *peer)
+static void node_peer_removed(void *data, struct pw_impl_node *peer)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
@@ -1563,7 +1563,7 @@ static void node_peer_removed(void *data, struct pw_node *peer)
 	pw_memblock_unref(m);
 }
 
-static void node_driver_changed(void *data, struct pw_node *old, struct pw_node *driver)
+static void node_driver_changed(void *data, struct pw_impl_node *old, struct pw_impl_node *driver)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
@@ -1574,8 +1574,8 @@ static void node_driver_changed(void *data, struct pw_node *old, struct pw_node 
 	node_peer_added(data, driver);
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.free = node_free,
 	.initialized = node_initialized,
 	.port_init = node_port_init,
@@ -1608,7 +1608,7 @@ static int process_node(void *data)
  * \param properties extra properties
  * \return a newly allocated client node
  *
- * Create a new \ref pw_node.
+ * Create a new \ref pw_impl_node.
  *
  * \memberof pw_client_node
  */
@@ -1682,7 +1682,7 @@ struct pw_client_node *pw_client_node_new(struct pw_resource *resource,
 
 	this->node->port_user_data_size = sizeof(struct port);
 
-	pw_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
+	pw_impl_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
 
 	return this;
 

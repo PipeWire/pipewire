@@ -51,7 +51,7 @@ struct bluez5_node {
 
 	struct pw_properties *props;
 
-	struct pw_node *adapter;
+	struct pw_impl_node *adapter;
 	struct pw_proxy *proxy;
 };
 
@@ -182,7 +182,7 @@ static void bluez5_remove_node(struct bluez5_object *obj, struct bluez5_node *no
 {
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
-	pw_node_destroy(node->adapter);
+	pw_impl_node_destroy(node->adapter);
 	pw_properties_free(node->props);
 	free(node);
 }

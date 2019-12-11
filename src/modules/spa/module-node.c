@@ -45,7 +45,7 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct node_data {
-	struct pw_node *this;
+	struct pw_impl_node *this;
 	struct pw_context *context;
 	struct pw_properties *properties;
 
@@ -56,7 +56,7 @@ static void module_destroy(void *_data)
 {
 	struct node_data *data = _data;
 	spa_hook_remove(&data->module_listener);
-	pw_node_destroy(data->this);
+	pw_impl_node_destroy(data->this);
 }
 
 static const struct pw_impl_module_events module_events = {
@@ -71,7 +71,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	char **argv = NULL;
 	int n_tokens, res;
 	struct pw_context *context = pw_impl_module_get_context(module);
-	struct pw_node *node;
+	struct pw_impl_node *node;
         struct node_data *data;
 
 	if (args == NULL)

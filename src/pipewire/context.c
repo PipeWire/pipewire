@@ -653,7 +653,7 @@ void pw_context_destroy(struct pw_context *context)
 	struct pw_impl_device *device;
 	struct pw_core *core;
 	struct pw_resource *resource;
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct factory_entry *entry;
 
 	pw_log_debug(NAME" %p: destroy", context);
@@ -668,7 +668,7 @@ void pw_context_destroy(struct pw_context *context)
 		pw_impl_module_destroy(module);
 
 	spa_list_consume(node, &context->node_list, link)
-		pw_node_destroy(node);
+		pw_impl_node_destroy(node);
 
 	spa_list_consume(device, &context->device_list, link)
 		pw_impl_device_destroy(device);
@@ -844,7 +844,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 {
 	struct pw_impl_port *best = NULL;
 	bool have_id;
-	struct pw_node *n;
+	struct pw_impl_node *n;
 
 	have_id = id != SPA_ID_INVALID;
 
@@ -868,7 +868,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 				pw_log_debug(NAME" %p: id:%u matches node %p", context, id, n);
 
 				best =
-				    pw_node_find_port(n,
+				    pw_impl_node_find_port(n,
 						pw_direction_reverse(other_port->direction),
 						SPA_ID_INVALID);
 				if (best)
@@ -880,7 +880,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 			struct spa_pod *dummy;
 
-			p = pw_node_find_port(n,
+			p = pw_impl_node_find_port(n,
 					pw_direction_reverse(other_port->direction),
 					SPA_ID_INVALID);
 			if (p == NULL)
@@ -1090,10 +1090,10 @@ struct pw_impl_factory *pw_context_find_factory(struct pw_context *context,
 	return NULL;
 }
 
-static int collect_nodes(struct pw_node *driver)
+static int collect_nodes(struct pw_impl_node *driver)
 {
 	struct spa_list queue;
-	struct pw_node *n, *t;
+	struct pw_impl_node *n, *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 	uint32_t max_quantum = 0;
@@ -1113,7 +1113,7 @@ static int collect_nodes(struct pw_node *driver)
 
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
-		pw_node_set_driver(n, driver);
+		pw_impl_node_set_driver(n, driver);
 
 		if (n->quantum_size > 0) {
 			if (min_quantum == 0 || n->quantum_size < min_quantum)
@@ -1155,7 +1155,7 @@ static int collect_nodes(struct pw_node *driver)
 
 int pw_context_recalc_graph(struct pw_context *context)
 {
-	struct pw_node *n, *s, *target;
+	struct pw_impl_node *n, *s, *target;
 
 	/* start from all drivers and group all nodes that are linked
 	 * to it. Some nodes are not (yet) linked to anything and they
@@ -1209,8 +1209,8 @@ int pw_context_recalc_graph(struct pw_context *context)
 				if (n->quantum_size > 0 && n->quantum_size < target->quantum_current)
 					target->quantum_current = SPA_MAX(MIN_QUANTUM, n->quantum_size);
 			}
-			pw_node_set_driver(n, target);
-			pw_node_set_state(n, target && n->active ?
+			pw_impl_node_set_driver(n, target);
+			pw_impl_node_set_state(n, target && n->active ?
 					PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
 		}
 		n->visited = false;

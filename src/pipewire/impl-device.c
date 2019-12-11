@@ -74,7 +74,7 @@ static void object_destroy(struct object_data *od)
 {
 	switch (od->type) {
 	case SPA_TYPE_INTERFACE_Node:
-		pw_node_destroy(od->object);
+		pw_impl_node_destroy(od->object);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
 		pw_impl_device_destroy(od->object);
@@ -86,7 +86,7 @@ static void object_update(struct object_data *od, const struct spa_dict *props)
 {
 	switch (od->type) {
 	case SPA_TYPE_INTERFACE_Node:
-		pw_node_update_properties(od->object, props);
+		pw_impl_node_update_properties(od->object, props);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
 		pw_impl_device_update_properties(od->object, props);
@@ -98,8 +98,8 @@ static void object_register(struct object_data *od)
 {
 	switch (od->type) {
 	case SPA_TYPE_INTERFACE_Node:
-		pw_node_register(od->object, NULL);
-		pw_node_set_active(od->object, true);
+		pw_impl_node_register(od->object, NULL);
+		pw_impl_node_set_active(od->object, true);
 		break;
 	case SPA_TYPE_INTERFACE_Device:
 		pw_impl_device_register(od->object, NULL);
@@ -470,8 +470,8 @@ static void on_object_free(void *data)
 	pw_unload_spa_handle(od->handle);
 }
 
-static const struct pw_node_events node_object_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_object_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.destroy = on_object_destroy,
 	.free = on_object_free,
 };
@@ -562,13 +562,13 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	switch (info->type) {
 	case SPA_TYPE_INTERFACE_Node:
 	{
-		struct pw_node *node;
-		node = pw_node_new(context, props, sizeof(struct object_data));
+		struct pw_impl_node *node;
+		node = pw_impl_node_new(context, props, sizeof(struct object_data));
 
-		od = pw_node_get_user_data(node);
+		od = pw_impl_node_get_user_data(node);
 		od->object = node;
-		pw_node_add_listener(node, &od->listener, &node_object_events, od);
-		pw_node_set_implementation(node, iface);
+		pw_impl_node_add_listener(node, &od->listener, &node_object_events, od);
+		pw_impl_node_set_implementation(node, iface);
 		break;
 	}
 	case SPA_TYPE_INTERFACE_Device:

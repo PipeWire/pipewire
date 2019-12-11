@@ -846,7 +846,7 @@ static int impl_node_process(void *object)
 {
 	struct node *this = object;
 	struct impl *impl = this->impl;
-	struct pw_node *n = impl->this.node;
+	struct pw_impl_node *n = impl->this.node;
 
 	return impl_node_process_input(n->node);
 }
@@ -1001,7 +1001,7 @@ client_node0_port_update(void *data,
 static void client_node0_set_active(void *data, bool active)
 {
 	struct impl *impl = data;
-	pw_node_set_active(impl->this.node, active);
+	pw_impl_node_set_active(impl->this.node, active);
 }
 
 static void client_node0_event(void *data, struct spa_event *event)
@@ -1158,14 +1158,14 @@ static void client_node0_resource_destroy(void *data)
 				true,
 				&node->data_source);
 	}
-	pw_node_destroy(this->node);
+	pw_impl_node_destroy(this->node);
 }
 
 static void node_initialized(void *data)
 {
 	struct impl *impl = data;
 	struct pw_client_node0 *this = &impl->this;
-	struct pw_node *node = this->node;
+	struct pw_impl_node *node = this->node;
 	struct spa_system *data_system = impl->node.data_system;
 
 	if (this->resource == NULL)
@@ -1182,7 +1182,7 @@ static void node_initialized(void *data)
 	pw_log_debug("client-node %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
 
 	pw_client_node0_resource_transport(this->resource,
-					  pw_global_get_id(pw_node_get_global(node)),
+					  pw_global_get_id(pw_impl_node_get_global(node)),
 					  impl->other_fds[0],
 					  impl->other_fds[1],
 					  impl->transport);
@@ -1210,8 +1210,8 @@ static void node_free(void *data)
 	free(impl);
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.free = node_free,
 	.initialized = node_initialized,
 };
@@ -1246,7 +1246,7 @@ static void convert_properties(struct pw_properties *properties)
  * \param properties extra properties
  * \return a newly allocated client node
  *
- * Create a new \ref pw_node.
+ * Create a new \ref pw_impl_node.
  *
  * \memberof pw_client_node
  */
@@ -1320,7 +1320,7 @@ struct pw_client_node0 *pw_client_node0_new(struct pw_resource *resource,
 				impl);
 
 
-	pw_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
+	pw_impl_node_add_listener(this->node, &impl->node_listener, &node_events, impl);
 
 	return this;
 

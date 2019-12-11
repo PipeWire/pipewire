@@ -80,7 +80,7 @@ struct node_data {
 	struct spa_list mix[2];
 	struct spa_list free_mix;
 
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct spa_hook node_listener;
 	int do_free:1;
 	int have_transport:1;
@@ -222,7 +222,7 @@ static struct mix *ensure_mix(struct node_data *data,
 	if (spa_list_is_empty(&data->free_mix))
 		return NULL;
 
-	port = pw_node_find_port(data->node, direction, port_id);
+	port = pw_impl_node_find_port(data->node, direction, port_id);
 	if (port == NULL)
 		return NULL;
 
@@ -271,7 +271,7 @@ static int client_node_transport(void *object,
 static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
 {
 	struct node_data *data = proxy->user_data;
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 	struct spa_node_info ni = SPA_NODE_INFO_INIT();
 	uint32_t n_params = 0;
 	struct spa_pod **params = NULL;
@@ -458,7 +458,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Pause:
 		pw_log_debug("node %p: pause", proxy);
 
-		if ((res = pw_node_set_state(data->node, PW_NODE_STATE_IDLE)) < 0) {
+		if ((res = pw_impl_node_set_state(data->node, PW_NODE_STATE_IDLE)) < 0) {
 			pw_log_warn("node %p: pause failed", proxy);
 			pw_proxy_error(proxy, res, "pause failed");
 		}
@@ -467,7 +467,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Start:
 		pw_log_debug("node %p: start", proxy);
 
-		if ((res = pw_node_set_state(data->node, PW_NODE_STATE_RUNNING)) < 0) {
+		if ((res = pw_impl_node_set_state(data->node, PW_NODE_STATE_RUNNING)) < 0) {
 			pw_log_warn("node %p: start failed", proxy);
 			pw_proxy_error(proxy, res, "start failed");
 		}
@@ -475,7 +475,7 @@ static int client_node_command(void *object, const struct spa_command *command)
 
 	case SPA_NODE_COMMAND_Suspend:
 		pw_log_debug("node %p: suspend", proxy);
-		if ((res = pw_node_set_state(data->node, PW_NODE_STATE_SUSPENDED)) < 0) {
+		if ((res = pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED)) < 0) {
 			pw_log_warn("node %p: suspend failed", proxy);
 			pw_proxy_error(proxy, res, "suspend failed");
 		}
@@ -542,7 +542,7 @@ client_node_port_set_param(void *object,
 	struct pw_impl_port *port;
 	int res;
 
-	port = pw_node_find_port(data->node, direction, port_id);
+	port = pw_impl_node_find_port(data->node, direction, port_id);
 	if (port == NULL) {
 		res = -EINVAL;
 		goto error_exit;
@@ -804,7 +804,7 @@ client_node_set_activation(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 	struct pw_memmap *mm;
 	void *ptr;
 	struct link *link;
@@ -992,8 +992,8 @@ static void node_active_changed(void *data, bool active)
 	pw_client_node_proxy_set_active(d->client_node, active);
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.destroy = node_destroy,
 	.free = node_free,
 	.info_changed = node_info_changed,
@@ -1017,7 +1017,7 @@ static void client_node_proxy_destroy(void *_data)
 		pw_proxy_destroy(data->proxy);
 
 	if (data->do_free)
-		pw_node_destroy(data->node);
+		pw_impl_node_destroy(data->node);
 }
 
 static void client_node_proxy_bound(void *_data, uint32_t global_id)
@@ -1054,7 +1054,7 @@ static const struct pw_proxy_events proxy_events = {
 static int node_ready(void *d, int status)
 {
 	struct node_data *data = d;
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 	struct pw_node_activation *a = node->rt.activation;
 	struct timespec ts;
 	struct pw_impl_port *p;
@@ -1086,7 +1086,7 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 static int node_xrun(void *d, uint64_t trigger, uint64_t delay, struct spa_pod *info)
 {
 	struct node_data *data = d;
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 	struct pw_node_activation *a = node->rt.activation;
 
 	a->xrun_count++;
@@ -1110,7 +1110,7 @@ static const struct spa_node_callbacks node_callbacks = {
 static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_free,
 		size_t user_data_size)
 {
-	struct pw_node *node = object;
+	struct pw_impl_node *node = object;
 	struct pw_proxy *client_node;
 	struct node_data *data;
 	int i;
@@ -1128,7 +1128,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	data->pool = pw_core_get_mempool(core);
 	data->node = node;
 	data->do_free = do_free;
-	data->context = pw_node_get_context(node);
+	data->context = pw_impl_node_get_context(node);
 	data->client_node = (struct pw_client_node_proxy *)client_node;
 	data->remote_id = SPA_ID_INVALID;
 
@@ -1148,7 +1148,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 			&client_node_proxy_events, data);
 
 	spa_node_set_callbacks(node->node, &node_callbacks, data);
-	pw_node_add_listener(node, &data->node_listener, &node_events, data);
+	pw_impl_node_add_listener(node, &data->node_listener, &node_events, data);
 
         pw_client_node_proxy_add_listener(data->client_node,
 					  &data->client_node_listener,
@@ -1168,10 +1168,10 @@ struct pw_proxy *pw_core_node_export(struct pw_core *core,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
-	struct pw_node *node = object;
+	struct pw_impl_node *node = object;
 
 	if (props) {
-		pw_node_update_properties(node, &props->dict);
+		pw_impl_node_update_properties(node, &props->dict);
 		pw_properties_free(props);
 	}
 	return node_export(core, object, false, user_data_size);
@@ -1181,15 +1181,15 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 		uint32_t type, struct pw_properties *props, void *object,
 		size_t user_data_size)
 {
-	struct pw_node *node;
+	struct pw_impl_node *node;
 
-	node = pw_node_new(pw_core_get_context(core), props, 0);
+	node = pw_impl_node_new(pw_core_get_context(core), props, 0);
 	if (node == NULL)
 		return NULL;
 
-	pw_node_set_implementation(node, (struct spa_node*)object);
-	pw_node_register(node, NULL);
-	pw_node_set_active(node, true);
+	pw_impl_node_set_implementation(node, (struct spa_node*)object);
+	pw_impl_node_register(node, NULL);
+	pw_impl_node_set_active(node, true);
 
 	return node_export(core, node, true, user_data_size);
 }

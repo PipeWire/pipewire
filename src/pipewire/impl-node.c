@@ -41,7 +41,7 @@
 
 /** \cond */
 struct impl {
-	struct pw_node this;
+	struct pw_impl_node this;
 
 	struct pw_work_queue *work;
 
@@ -55,7 +55,7 @@ struct impl {
 #define pw_node_resource_param(r,...)	pw_node_resource(r,param,0,__VA_ARGS__)
 
 struct resource_data {
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct pw_resource *resource;
 
 	struct spa_hook resource_listener;
@@ -72,7 +72,7 @@ struct resource_data {
 
 /** \endcond */
 
-static void node_deactivate(struct pw_node *this)
+static void node_deactivate(struct pw_impl_node *this)
 {
 	struct pw_impl_port *port;
 	struct pw_impl_link *link;
@@ -88,7 +88,7 @@ static void node_deactivate(struct pw_node *this)
 	}
 }
 
-static void add_node(struct pw_node *this, struct pw_node *driver)
+static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 {
 	uint32_t rdriver, rnode;
 
@@ -110,7 +110,7 @@ static void add_node(struct pw_node *this, struct pw_node *driver)
 	pw_log_trace(NAME" %p: required driver:%d node:%d", this, rdriver, rnode);
 }
 
-static void remove_node(struct pw_node *this)
+static void remove_node(struct pw_impl_node *this)
 {
 	uint32_t rdriver, rnode;
 
@@ -134,7 +134,7 @@ static int
 do_node_remove(struct spa_loop *loop,
 	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-	struct pw_node *this = user_data;
+	struct pw_impl_node *this = user_data;
 	if (this->source.loop != NULL) {
 		spa_loop_remove_source(loop, &this->source);
 		remove_node(this);
@@ -142,7 +142,7 @@ do_node_remove(struct spa_loop *loop,
 	return 0;
 }
 
-static int pause_node(struct pw_node *this)
+static int pause_node(struct pw_impl_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
@@ -169,8 +169,8 @@ static int
 do_node_add(struct spa_loop *loop,
 	    bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-	struct pw_node *this = user_data;
-	struct pw_node *driver = this->driver_node;
+	struct pw_impl_node *this = user_data;
+	struct pw_impl_node *driver = this->driver_node;
 
 	if (this->source.loop == NULL) {
 		spa_loop_add_source(loop, &this->source);
@@ -179,7 +179,7 @@ do_node_add(struct spa_loop *loop,
 	return 0;
 }
 
-static int start_node(struct pw_node *this)
+static int start_node(struct pw_impl_node *this)
 {
 	int res = 0;
 
@@ -204,14 +204,14 @@ static int start_node(struct pw_node *this)
 	return res;
 }
 
-static void emit_info_changed(struct pw_node *node)
+static void emit_info_changed(struct pw_impl_node *node)
 {
 	struct pw_resource *resource;
 
 	if (node->info.change_mask == 0)
 		return;
 
-	pw_node_emit_info_changed(node, &node->info);
+	pw_impl_node_emit_info_changed(node, &node->info);
 
 	if (node->global)
 		spa_list_for_each(resource, &node->global->resource_list, link)
@@ -235,7 +235,7 @@ static int resource_is_subscribed(struct pw_resource *resource, uint32_t id)
 static int notify_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
 {
-	struct pw_node *node = data;
+	struct pw_impl_node *node = data;
 	struct pw_resource *resource;
 
 	spa_list_for_each(resource, &node->global->resource_list, link) {
@@ -248,7 +248,7 @@ static int notify_param(void *data, int seq, uint32_t id,
 	return 0;
 }
 
-static void emit_params(struct pw_node *node, uint32_t *changed_ids, uint32_t n_changed_ids)
+static void emit_params(struct pw_impl_node *node, uint32_t *changed_ids, uint32_t n_changed_ids)
 {
 	uint32_t i;
 	int res;
@@ -270,14 +270,14 @@ static void emit_params(struct pw_node *node, uint32_t *changed_ids, uint32_t n_
 		if (!subscribed)
 			continue;
 
-		if ((res = pw_node_for_each_param(node, 1, changed_ids[i], 0, UINT32_MAX,
+		if ((res = pw_impl_node_for_each_param(node, 1, changed_ids[i], 0, UINT32_MAX,
 					NULL, notify_param, node)) < 0) {
 			pw_log_error(NAME" %p: error %d (%s)", node, res, spa_strerror(res));
 		}
 	}
 }
 
-static void node_update_state(struct pw_node *node, enum pw_node_state state, char *error)
+static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, char *error)
 {
 	enum pw_node_state old;
 
@@ -305,13 +305,13 @@ static void node_update_state(struct pw_node *node, enum pw_node_state state, ch
 		break;
 	}
 
-	pw_node_emit_state_changed(node, old, state, error);
+	pw_impl_node_emit_state_changed(node, old, state, error);
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
 	emit_info_changed(node);
 }
 
-static int suspend_node(struct pw_node *this)
+static int suspend_node(struct pw_impl_node *this)
 {
 	int res = 0;
 	struct pw_impl_port *p;
@@ -353,7 +353,7 @@ static void node_unbind_func(void *data)
 }
 
 static void
-clear_info(struct pw_node *this)
+clear_info(struct pw_impl_node *this)
 {
 	free(this->name);
 	free((char*)this->info.error);
@@ -378,7 +378,7 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 	struct pw_impl_client *client = resource->client;
 	int res;
 
@@ -386,7 +386,7 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 			node, resource, seq,
 			spa_debug_type_find_name(spa_type_param, id), index, num);
 
-	if ((res = pw_node_for_each_param(node, seq, id, index, num,
+	if ((res = pw_impl_node_for_each_param(node, seq, id, index, num,
 				filter, reply_param, data)) < 0) {
 		pw_log_error(NAME" %p: resource %p %d error %d (%s)", node,
 				resource, resource->id, res, spa_strerror(res));
@@ -434,7 +434,7 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 	struct pw_impl_client *client = resource->client;
 	int res;
 	static const struct spa_node_events node_events = {
@@ -466,7 +466,7 @@ static int node_send_command(void *object, const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
-	struct pw_node *node = data->node;
+	struct pw_impl_node *node = data->node;
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Suspend:
@@ -491,7 +491,7 @@ static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	    uint32_t version, uint32_t id)
 {
-	struct pw_node *this = _data;
+	struct pw_impl_node *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -530,10 +530,10 @@ error_resource:
 
 static void global_destroy(void *data)
 {
-	struct pw_node *this = data;
+	struct pw_impl_node *this = data;
 	spa_hook_remove(&this->global_listener);
 	this->global = NULL;
-	pw_node_destroy(this);
+	pw_impl_node_destroy(this);
 }
 
 static const struct pw_global_events global_events = {
@@ -541,9 +541,9 @@ static const struct pw_global_events global_events = {
 	.destroy = global_destroy,
 };
 
-static inline void insert_driver(struct pw_context *context, struct pw_node *node)
+static inline void insert_driver(struct pw_context *context, struct pw_impl_node *node)
 {
-	struct pw_node *n, *t;
+	struct pw_impl_node *n, *t;
 
 	spa_list_for_each_safe(n, t, &context->driver_list, driver_link) {
 		if (n->priority_master < node->priority_master)
@@ -553,7 +553,7 @@ static inline void insert_driver(struct pw_context *context, struct pw_node *nod
 }
 
 SPA_EXPORT
-int pw_node_register(struct pw_node *this,
+int pw_impl_node_register(struct pw_impl_node *this,
 		     struct pw_properties *properties)
 {
 	struct pw_context *context = this->context;
@@ -607,7 +607,7 @@ int pw_node_register(struct pw_node *this,
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
 
-	pw_node_initialized(this);
+	pw_impl_node_initialized(this);
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global);
@@ -628,10 +628,10 @@ error_existed:
 }
 
 SPA_EXPORT
-int pw_node_initialized(struct pw_node *this)
+int pw_impl_node_initialized(struct pw_impl_node *this)
 {
 	pw_log_debug(NAME" %p initialized", this);
-	pw_node_emit_initialized(this);
+	pw_impl_node_emit_initialized(this);
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
 	return 0;
 }
@@ -641,8 +641,8 @@ do_move_nodes(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *src = user_data;
-	struct pw_node *driver = *(struct pw_node **)data;
-	struct pw_node *this = &src->this;
+	struct pw_impl_node *driver = *(struct pw_impl_node **)data;
+	struct pw_impl_node *this = &src->this;
 
 	pw_log_trace(NAME" %p: driver:%p->%p", this, this->driver_node, driver);
 
@@ -653,7 +653,7 @@ do_move_nodes(struct spa_loop *loop,
 	return 0;
 }
 
-static void remove_segment_master(struct pw_node *driver, uint32_t node_id)
+static void remove_segment_master(struct pw_impl_node *driver, uint32_t node_id)
 {
 	struct pw_node_activation *a = driver->rt.activation;
 	ATOMIC_CAS(a->segment_owner[0], node_id, 0);
@@ -661,10 +661,10 @@ static void remove_segment_master(struct pw_node *driver, uint32_t node_id)
 }
 
 SPA_EXPORT
-int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
+int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driver)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct pw_node *old = node->driver_node;
+	struct pw_impl_node *old = node->driver_node;
 	int res;
 
 	if (driver == NULL)
@@ -683,7 +683,7 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 
 	node->driver_node = driver;
 
-	pw_node_emit_driver_changed(node, old, driver);
+	pw_impl_node_emit_driver_changed(node, old, driver);
 
 	if ((res = spa_node_set_io(node->node,
 		    SPA_IO_Position,
@@ -696,7 +696,7 @@ int pw_node_set_driver(struct pw_node *node, struct pw_node *driver)
 	}
 
 	pw_loop_invoke(node->data_loop,
-		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_node *),
+		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_impl_node *),
 		       true, impl);
 	return 0;
 }
@@ -711,7 +711,7 @@ static uint32_t flp2(uint32_t x)
 	return x - (x >> 1);
 }
 
-static void check_properties(struct pw_node *node)
+static void check_properties(struct pw_impl_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	const char *str;
@@ -775,7 +775,7 @@ static void check_properties(struct pw_node *node)
 		pw_context_recalc_graph(node->context);
 }
 
-static void dump_states(struct pw_node *driver)
+static void dump_states(struct pw_impl_node *driver)
 {
 	struct pw_node_target *t;
 
@@ -796,7 +796,7 @@ static void dump_states(struct pw_node *driver)
 	}
 }
 
-static inline int resume_node(struct pw_node *this, int status)
+static inline int resume_node(struct pw_impl_node *this, int status)
 {
 	struct pw_node_target *t;
 	struct timespec ts;
@@ -828,7 +828,7 @@ static inline int resume_node(struct pw_node *this, int status)
 	return 0;
 }
 
-static inline void calculate_stats(struct pw_node *this,  struct pw_node_activation *a)
+static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
 {
 	if (a->signal_time > a->prev_signal_time) {
 		uint64_t process_time = a->finish_time - a->signal_time;
@@ -842,7 +842,7 @@ static inline void calculate_stats(struct pw_node *this,  struct pw_node_activat
 
 static inline int process_node(void *data)
 {
-	struct pw_node *this = data;
+	struct pw_impl_node *this = data;
 	struct timespec ts;
         struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.activation;
@@ -897,7 +897,7 @@ static inline int process_node(void *data)
 
 static void node_on_fd_events(struct spa_source *source)
 {
-	struct pw_node *this = source->data;
+	struct pw_impl_node *this = source->data;
 	struct spa_system *data_system = this->context->data_system;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
@@ -936,12 +936,12 @@ static void reset_position(struct spa_io_position *pos)
 }
 
 SPA_EXPORT
-struct pw_node *pw_node_new(struct pw_context *context,
+struct pw_impl_node *pw_impl_node_new(struct pw_context *context,
 			    struct pw_properties *properties,
 			    size_t user_data_size)
 {
 	struct impl *impl;
-	struct pw_node *this;
+	struct pw_impl_node *this;
 	size_t size;
 	struct spa_system *data_system = context->data_system;
 	int res;
@@ -1048,36 +1048,36 @@ error_exit:
 }
 
 SPA_EXPORT
-const struct pw_node_info *pw_node_get_info(struct pw_node *node)
+const struct pw_node_info *pw_impl_node_get_info(struct pw_impl_node *node)
 {
 	return &node->info;
 }
 
 SPA_EXPORT
-void * pw_node_get_user_data(struct pw_node *node)
+void * pw_impl_node_get_user_data(struct pw_impl_node *node)
 {
 	return node->user_data;
 }
 
 SPA_EXPORT
-struct pw_context * pw_node_get_context(struct pw_node *node)
+struct pw_context * pw_impl_node_get_context(struct pw_impl_node *node)
 {
 	return node->context;
 }
 
 SPA_EXPORT
-struct pw_global *pw_node_get_global(struct pw_node *node)
+struct pw_global *pw_impl_node_get_global(struct pw_impl_node *node)
 {
 	return node->global;
 }
 
 SPA_EXPORT
-const struct pw_properties *pw_node_get_properties(struct pw_node *node)
+const struct pw_properties *pw_impl_node_get_properties(struct pw_impl_node *node)
 {
 	return node->properties;
 }
 
-static int update_properties(struct pw_node *node, const struct spa_dict *dict)
+static int update_properties(struct pw_impl_node *node, const struct spa_dict *dict)
 {
 	int changed;
 
@@ -1094,7 +1094,7 @@ static int update_properties(struct pw_node *node, const struct spa_dict *dict)
 }
 
 SPA_EXPORT
-int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
+int pw_impl_node_update_properties(struct pw_impl_node *node, const struct spa_dict *dict)
 {
 	int changed = update_properties(node, dict);
 	emit_info_changed(node);
@@ -1103,7 +1103,7 @@ int pw_node_update_properties(struct pw_node *node, const struct spa_dict *dict)
 
 static void node_info(void *data, const struct spa_node_info *info)
 {
-	struct pw_node *node = data;
+	struct pw_impl_node *node = data;
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 
 	node->info.max_input_ports = info->max_input_ports;
@@ -1149,8 +1149,8 @@ static void node_info(void *data, const struct spa_node_info *info)
 static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
 {
-	struct pw_node *node = data;
-	struct pw_impl_port *port = pw_node_find_port(node, direction, port_id);
+	struct pw_impl_node *node = data;
+	struct pw_impl_port *port = pw_impl_node_find_port(node, direction, port_id);
 
 	if (info == NULL) {
 		if (port) {
@@ -1184,7 +1184,7 @@ static void node_port_info(void *data, enum spa_direction direction, uint32_t po
 
 static void node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
-	struct pw_node *node = data;
+	struct pw_impl_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace(NAME" %p: result seq:%d res:%d type:%u", node, seq, res, type);
@@ -1193,12 +1193,12 @@ static void node_result(void *data, int seq, int res, uint32_t type, const void 
 	if (SPA_RESULT_IS_ASYNC(seq))
 	        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
 
-	pw_node_emit_result(node, seq, res, type, result);
+	pw_impl_node_emit_result(node, seq, res, type, result);
 }
 
 static void node_event(void *data, const struct spa_event *event)
 {
-	struct pw_node *node = data;
+	struct pw_impl_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace(NAME" %p: event %d", node, SPA_EVENT_TYPE(event));
@@ -1211,7 +1211,7 @@ static void node_event(void *data, const struct spa_event *event)
 	default:
 		break;
 	}
-	pw_node_emit_event(node, event);
+	pw_impl_node_emit_event(node, event);
 }
 
 static const struct spa_node_events node_events = {
@@ -1226,7 +1226,7 @@ static const struct spa_node_events node_events = {
 #define SYNC_START	1
 #define SYNC_STOP	2
 
-static int check_updates(struct pw_node *node, uint32_t *reposition_owner)
+static int check_updates(struct pw_impl_node *node, uint32_t *reposition_owner)
 {
 	int res = SYNC_CHECK;
 	struct pw_node_activation *a = node->rt.activation;
@@ -1261,7 +1261,7 @@ static int check_updates(struct pw_node *node, uint32_t *reposition_owner)
 	return res;
 }
 
-static void do_reposition(struct pw_node *driver, struct pw_node *node)
+static void do_reposition(struct pw_impl_node *driver, struct pw_impl_node *node)
 {
 	struct pw_node_activation *a = driver->rt.activation;
 	struct spa_io_segment *dst, *src;
@@ -1285,7 +1285,7 @@ static void do_reposition(struct pw_node *driver, struct pw_node *node)
 	}
 }
 
-static void update_position(struct pw_node *node, int all_ready)
+static void update_position(struct pw_impl_node *node, int all_ready)
 {
 	struct pw_node_activation *a = node->rt.activation;
 
@@ -1304,8 +1304,8 @@ static void update_position(struct pw_node *node, int all_ready)
 
 static int node_ready(void *data, int status)
 {
-	struct pw_node *node = data, *reposition_node = NULL;
-	struct pw_node *driver = node->driver_node;
+	struct pw_impl_node *node = data, *reposition_node = NULL;
+	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_target *t;
 	struct pw_impl_port *p;
 
@@ -1377,7 +1377,7 @@ static int node_ready(void *data, int status)
 
 static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 {
-	struct pw_node *node = data;
+	struct pw_impl_node *node = data;
 	struct pw_impl_port *p;
 
 	spa_list_for_each(p, &node->rt.input_mix, rt.node_link) {
@@ -1392,7 +1392,7 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 
 static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_pod *info)
 {
-	struct pw_node *this = data;
+	struct pw_impl_node *this = data;
 	struct pw_node_activation *a = this->rt.activation;
 
 	a->xrun_count++;
@@ -1414,7 +1414,7 @@ static const struct spa_node_callbacks node_callbacks = {
 };
 
 SPA_EXPORT
-int pw_node_set_implementation(struct pw_node *node,
+int pw_impl_node_set_implementation(struct pw_impl_node *node,
 			struct spa_node *spa_node)
 {
 	int res;
@@ -1450,15 +1450,15 @@ int pw_node_set_implementation(struct pw_node *node,
 }
 
 SPA_EXPORT
-struct spa_node *pw_node_get_implementation(struct pw_node *node)
+struct spa_node *pw_impl_node_get_implementation(struct pw_impl_node *node)
 {
 	return node->node;
 }
 
 SPA_EXPORT
-void pw_node_add_listener(struct pw_node *node,
+void pw_impl_node_add_listener(struct pw_impl_node *node,
 			   struct spa_hook *listener,
-			   const struct pw_node_events *events,
+			   const struct pw_impl_node_events *events,
 			   void *data)
 {
 	spa_hook_list_append(&node->listener_list, listener, events, data);
@@ -1470,19 +1470,19 @@ void pw_node_add_listener(struct pw_node *node,
  * Remove \a node. This will stop the transfer on the node and
  * free the resources allocated by \a node.
  *
- * \memberof pw_node
+ * \memberof pw_impl_node
  */
 SPA_EXPORT
-void pw_node_destroy(struct pw_node *node)
+void pw_impl_node_destroy(struct pw_impl_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_port *port;
-	struct pw_node *slave;
+	struct pw_impl_node *slave;
 
 	node->active = false;
 
 	pw_log_debug(NAME" %p: destroy", impl);
-	pw_node_emit_destroy(node);
+	pw_impl_node_emit_destroy(node);
 
 	suspend_node(node);
 
@@ -1494,7 +1494,7 @@ void pw_node_destroy(struct pw_node *node)
 
 	spa_list_consume(slave, &node->slave_list, slave_link) {
 		pw_log_debug(NAME" %p: reslave %p", impl, slave);
-		pw_node_set_driver(slave, NULL);
+		pw_impl_node_set_driver(slave, NULL);
 	}
 
 	if (node->registered) {
@@ -1528,7 +1528,7 @@ void pw_node_destroy(struct pw_node *node)
 	pw_context_recalc_graph(node->context);
 
 	pw_log_debug(NAME" %p: free", node);
-	pw_node_emit_free(node);
+	pw_impl_node_emit_free(node);
 
 	pw_memblock_unref(node->activation);
 
@@ -1546,7 +1546,7 @@ void pw_node_destroy(struct pw_node *node)
 }
 
 SPA_EXPORT
-int pw_node_for_each_port(struct pw_node *node,
+int pw_impl_node_for_each_port(struct pw_impl_node *node,
 			  enum pw_direction direction,
 			  int (*callback) (void *data, struct pw_impl_port *port),
 			  void *data)
@@ -1591,7 +1591,7 @@ static void result_node_params(void *data, int seq, int res, uint32_t type, cons
 }
 
 SPA_EXPORT
-int pw_node_for_each_param(struct pw_node *node,
+int pw_impl_node_for_each_param(struct pw_impl_node *node,
 			   int seq, uint32_t param_id,
 			   uint32_t index, uint32_t max,
 			   const struct spa_pod *filter,
@@ -1626,7 +1626,7 @@ int pw_node_for_each_param(struct pw_node *node,
 }
 
 SPA_EXPORT
-int pw_node_set_param(struct pw_node *node,
+int pw_impl_node_set_param(struct pw_impl_node *node,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	pw_log_debug(NAME" %p: set_param %s flags:%08x param:%p", node,
@@ -1636,7 +1636,7 @@ int pw_node_set_param(struct pw_node *node,
 
 SPA_EXPORT
 struct pw_impl_port *
-pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t port_id)
+pw_impl_node_find_port(struct pw_impl_node *node, enum pw_direction direction, uint32_t port_id)
 {
 	struct pw_impl_port *port, *p;
 	struct pw_map *portmap;
@@ -1671,7 +1671,7 @@ pw_node_find_port(struct pw_node *node, enum pw_direction direction, uint32_t po
 }
 
 SPA_EXPORT
-uint32_t pw_node_get_free_port_id(struct pw_node *node, enum pw_direction direction)
+uint32_t pw_impl_node_get_free_port_id(struct pw_impl_node *node, enum pw_direction direction)
 {
 	uint32_t n_ports, max_ports;
 	struct pw_map *portmap;
@@ -1716,7 +1716,7 @@ error:
 
 static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 {
-	struct pw_node *node = obj;
+	struct pw_impl_node *node = obj;
 	enum pw_node_state state = SPA_PTR_TO_INT(data);
 	char *error = NULL;
 
@@ -1728,7 +1728,7 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	node_update_state(node, state, error);
 }
 
-static void node_activate(struct pw_node *this)
+static void node_activate(struct pw_impl_node *this)
 {
 	struct pw_impl_port *port;
 
@@ -1746,16 +1746,16 @@ static void node_activate(struct pw_node *this)
 }
 
 /** Set the node state
- * \param node a \ref pw_node
+ * \param node a \ref pw_impl_node
  * \param state a \ref pw_node_state
  * \return 0 on success < 0 on error
  *
  * Set the state of \a node to \a state.
  *
- * \memberof pw_node
+ * \memberof pw_impl_node
  */
 SPA_EXPORT
-int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
+int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 {
 	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -1769,7 +1769,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 	if (old == state)
 		return 0;
 
-	pw_node_emit_state_request(node, state);
+	pw_impl_node_emit_state_request(node, state);
 
 	switch (state) {
 	case PW_NODE_STATE_CREATING:
@@ -1807,7 +1807,7 @@ int pw_node_set_state(struct pw_node *node, enum pw_node_state state)
 }
 
 SPA_EXPORT
-int pw_node_set_active(struct pw_node *node, bool active)
+int pw_impl_node_set_active(struct pw_impl_node *node, bool active)
 {
 	bool old = node->active;
 
@@ -1815,10 +1815,10 @@ int pw_node_set_active(struct pw_node *node, bool active)
 		pw_log_debug(NAME" %p: %s", node, active ? "activate" : "deactivate");
 
 		if (!active)
-			pw_node_set_state(node, PW_NODE_STATE_IDLE);
+			pw_impl_node_set_state(node, PW_NODE_STATE_IDLE);
 
 		node->active = active;
-		pw_node_emit_active_changed(node, active);
+		pw_impl_node_emit_active_changed(node, active);
 
 		if (active)
 			node_activate(node);
@@ -1830,7 +1830,7 @@ int pw_node_set_active(struct pw_node *node, bool active)
 }
 
 SPA_EXPORT
-bool pw_node_is_active(struct pw_node *node)
+bool pw_impl_node_is_active(struct pw_impl_node *node)
 {
 	return node->active;
 }

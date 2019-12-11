@@ -37,7 +37,7 @@ extern "C" {
  * PipeWire client node interface
  */
 struct pw_client_node {
-	struct pw_node *node;
+	struct pw_impl_node *node;
 
 	struct pw_resource *resource;
 	uint32_t flags;

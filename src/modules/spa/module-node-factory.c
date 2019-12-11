@@ -60,7 +60,7 @@ struct factory_data {
 struct node_data {
 	struct factory_data *data;
 	struct spa_list link;
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	struct spa_hook node_listener;
 	struct spa_hook resource_listener;
 };
@@ -71,7 +71,7 @@ static void resource_destroy(void *data)
 	pw_log_debug("node %p", nd);
 	spa_hook_remove(&nd->resource_listener);
 	if (nd->node)
-		pw_node_destroy(nd->node);
+		pw_impl_node_destroy(nd->node);
 }
 
 static const struct pw_resource_events resource_events = {
@@ -88,8 +88,8 @@ static void node_destroy(void *data)
 	nd->node = NULL;
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.destroy = node_destroy,
 };
 
@@ -102,7 +102,7 @@ static void *create_object(void *_data,
 {
 	struct factory_data *data = _data;
 	struct pw_context *context = data->context;
-	struct pw_node *node;
+	struct pw_impl_node *node;
 	const char *factory_name;
 	struct node_data *nd;
 	int res;
@@ -138,12 +138,12 @@ static void *create_object(void *_data,
 	nd->node = node;
 	spa_list_append(&data->node_list, &nd->link);
 
-	pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
+	pw_impl_node_add_listener(node, &nd->node_listener, &node_events, nd);
 
 	if (client) {
 		struct pw_resource *bound_resource;
 
-		res = pw_global_bind(pw_node_get_global(node),
+		res = pw_global_bind(pw_impl_node_get_global(node),
 			       client,
 			       PW_PERM_RWX,
 			       version, new_id);
@@ -194,7 +194,7 @@ static void factory_destroy(void *_data)
 	spa_hook_remove(&data->module_listener);
 
 	spa_list_consume(nd, &data->node_list, link)
-		pw_node_destroy(nd->node);
+		pw_impl_node_destroy(nd->node);
 }
 
 static const struct pw_impl_factory_events factory_events = {

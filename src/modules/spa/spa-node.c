@@ -40,7 +40,7 @@
 #include "pipewire/private.h"
 
 struct impl {
-	struct pw_node *this;
+	struct pw_impl_node *this;
 
 	enum pw_spa_node_flags flags;
 
@@ -59,7 +59,7 @@ struct impl {
 static void spa_node_free(void *data)
 {
 	struct impl *impl = data;
-	struct pw_node *node = impl->this;
+	struct pw_impl_node *node = impl->this;
 
 	pw_log_debug("spa-node %p: free", node);
 
@@ -71,23 +71,23 @@ static void spa_node_free(void *data)
 
 static void complete_init(struct impl *impl)
 {
-        struct pw_node *this = impl->this;
+        struct pw_impl_node *this = impl->this;
 
 	impl->init_pending = SPA_ID_INVALID;
 
 	if (SPA_FLAG_IS_SET(impl->flags, PW_SPA_NODE_FLAG_ACTIVATE))
-		pw_node_set_active(this, true);
+		pw_impl_node_set_active(this, true);
 
 	if (!SPA_FLAG_IS_SET(impl->flags, PW_SPA_NODE_FLAG_NO_REGISTER))
-		pw_node_register(this, NULL);
+		pw_impl_node_register(this, NULL);
 	else
-		pw_node_initialized(this);
+		pw_impl_node_initialized(this);
 }
 
 static void spa_node_result(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct impl *impl = data;
-	struct pw_node *node = impl->this;
+	struct pw_impl_node *node = impl->this;
 
 	if (seq == impl->init_pending) {
 		pw_log_debug("spa-node %p: init complete event %d %d", node, seq, res);
@@ -95,13 +95,13 @@ static void spa_node_result(void *data, int seq, int res, uint32_t type, const v
 	}
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.free = spa_node_free,
 	.result = spa_node_result,
 };
 
-struct pw_node *
+struct pw_impl_node *
 pw_spa_node_new(struct pw_context *context,
 		enum pw_spa_node_flags flags,
 		struct spa_node *node,
@@ -109,11 +109,11 @@ pw_spa_node_new(struct pw_context *context,
 		struct pw_properties *properties,
 		size_t user_data_size)
 {
-	struct pw_node *this;
+	struct pw_impl_node *this;
 	struct impl *impl;
 	int res;
 
-	this = pw_node_new(context, properties, sizeof(struct impl) + user_data_size);
+	this = pw_impl_node_new(context, properties, sizeof(struct impl) + user_data_size);
 	if (this == NULL) {
 		res = -errno;
 		goto error_exit;
@@ -128,8 +128,8 @@ pw_spa_node_new(struct pw_context *context,
 	if (user_data_size > 0)
                 impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
-	pw_node_add_listener(this, &impl->node_listener, &node_events, impl);
-	if ((res = pw_node_set_implementation(this, impl->node)) < 0)
+	pw_impl_node_add_listener(this, &impl->node_listener, &node_events, impl);
+	if ((res = pw_impl_node_set_implementation(this, impl->node)) < 0)
 		goto error_exit_clean_node;
 
 	if (flags & PW_SPA_NODE_FLAG_ASYNC) {
@@ -140,7 +140,7 @@ pw_spa_node_new(struct pw_context *context,
 	return this;
 
 error_exit_clean_node:
-	pw_node_destroy(this);
+	pw_impl_node_destroy(this);
 	handle = NULL;
 error_exit:
 	if (handle)
@@ -150,7 +150,7 @@ error_exit:
 
 }
 
-void *pw_spa_node_get_user_data(struct pw_node *node)
+void *pw_spa_node_get_user_data(struct pw_impl_node *node)
 {
 	struct impl *impl = node->user_data;
 	return impl->user_data;
@@ -230,13 +230,13 @@ setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_pro
 }
 
 
-struct pw_node *pw_spa_node_load(struct pw_context *context,
+struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 				 const char *factory_name,
 				 enum pw_spa_node_flags flags,
 				 struct pw_properties *properties,
 				 size_t user_data_size)
 {
-	struct pw_node *this;
+	struct pw_impl_node *this;
 	struct impl *impl;
 	struct spa_node *spa_node;
 	int res;

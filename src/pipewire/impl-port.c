@@ -69,7 +69,7 @@ static void emit_info_changed(struct pw_impl_port *port)
 
 	pw_impl_port_emit_info_changed(port, &port->info);
 	if (port->node)
-		pw_node_emit_port_info_changed(port->node, port, &port->info);
+		pw_impl_node_emit_port_info_changed(port->node, port, &port->info);
 
 	if (port->global)
 		spa_list_for_each(resource, &port->global->resource_list, link)
@@ -590,7 +590,7 @@ void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_i
 }
 
 SPA_EXPORT
-struct pw_node *pw_impl_port_get_node(struct pw_impl_port *port)
+struct pw_impl_node *pw_impl_port_get_node(struct pw_impl_port *port)
 {
 	return port->node;
 }
@@ -627,7 +627,7 @@ static int check_param_io(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_impl_port *port = data;
-	struct pw_node *node = port->node;
+	struct pw_impl_node *node = port->node;
 	uint32_t pid, psize;
 
 	if (spa_pod_parse_object(param,
@@ -777,7 +777,7 @@ static const struct pw_global_events global_events = {
 int pw_impl_port_register(struct pw_impl_port *port,
 		     struct pw_properties *properties)
 {
-	struct pw_node *node = port->node;
+	struct pw_impl_node *node = port->node;
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_FORMAT_DSP,
@@ -823,7 +823,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 }
 
 SPA_EXPORT
-int pw_impl_port_add(struct pw_impl_port *port, struct pw_node *node)
+int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 {
 	uint32_t port_id = port->port_id;
 	struct spa_list *ports;
@@ -853,7 +853,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_node *node)
 
 	port->node = node;
 
-	pw_node_emit_port_init(node, port);
+	pw_impl_node_emit_port_init(node, port);
 
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
 
@@ -913,7 +913,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_node *node)
 	if (port->state <= PW_IMPL_PORT_STATE_INIT)
 		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, NULL);
 
-	pw_node_emit_port_added(node, port);
+	pw_impl_node_emit_port_added(node, port);
 	emit_info_changed(port);
 
 	return 0;
@@ -942,7 +942,7 @@ static int do_remove_port(struct spa_loop *loop,
 
 static void pw_impl_port_remove(struct pw_impl_port *port)
 {
-	struct pw_node *node = port->node;
+	struct pw_impl_node *node = port->node;
 	int res;
 
 	if (node == NULL)
@@ -969,7 +969,7 @@ static void pw_impl_port_remove(struct pw_impl_port *port)
 	pw_impl_port_set_mix(port, NULL, 0);
 
 	spa_list_remove(&port->link);
-	pw_node_emit_port_removed(node, port);
+	pw_impl_node_emit_port_removed(node, port);
 	port->node = NULL;
 }
 
@@ -1043,7 +1043,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			   void *data)
 {
 	int res;
-	struct pw_node *node = port->node;
+	struct pw_impl_node *node = port->node;
 	struct result_port_params_data user_data = { data, callback, seq };
 	struct spa_hook listener;
 	static const struct spa_node_events node_events = {
@@ -1142,7 +1142,7 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 		      const struct spa_pod *param)
 {
 	int res;
-	struct pw_node *node = port->node;
+	struct pw_impl_node *node = port->node;
 
 	pw_log_debug(NAME" %p: %d set param %d %p", port, port->state, id, param);
 
@@ -1196,7 +1196,7 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
                 struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	int res;
-	struct pw_node *node = port->node;
+	struct pw_impl_node *node = port->node;
 
 	if (SPA_FLAG_IS_SET(port->mix_flags, PW_IMPL_PORT_MIX_FLAG_MIX_ONLY))
 		return 0;

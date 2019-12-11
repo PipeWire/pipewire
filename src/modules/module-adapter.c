@@ -63,8 +63,8 @@ struct factory_data {
 struct node_data {
 	struct factory_data *data;
 	struct spa_list link;
-	struct pw_node *adapter;
-	struct pw_node *slave;
+	struct pw_impl_node *adapter;
+	struct pw_impl_node *slave;
 	struct spa_hook adapter_listener;
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
@@ -77,7 +77,7 @@ static void resource_destroy(void *data)
 
 	spa_hook_remove(&nd->resource_listener);
 	if (nd->adapter)
-		pw_node_destroy(nd->adapter);
+		pw_impl_node_destroy(nd->adapter);
 }
 
 static const struct pw_resource_events resource_events = {
@@ -95,7 +95,7 @@ static void node_destroy(void *data)
 static void node_free(void *data)
 {
 	struct node_data *nd = data;
-	pw_node_destroy(nd->slave);
+	pw_impl_node_destroy(nd->slave);
 }
 
 static void node_initialized(void *data)
@@ -110,7 +110,7 @@ static void node_initialized(void *data)
 		return;
 
 	client = pw_resource_get_client(nd->resource);
-	global = pw_node_get_global(nd->adapter);
+	global = pw_impl_node_get_global(nd->adapter);
 
 	res = pw_global_bind(global, client,
 			PW_PERM_RWX, PW_VERSION_NODE_PROXY, nd->new_id);
@@ -129,8 +129,8 @@ error_bind:
 }
 
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
 	.destroy = node_destroy,
 	.free = node_free,
 	.initialized = node_initialized,
@@ -145,7 +145,7 @@ static void *create_object(void *_data,
 {
 	struct factory_data *d = _data;
 	struct pw_impl_client *client;
-	struct pw_node *adapter, *slave;
+	struct pw_impl_node *adapter, *slave;
 	const char *str, *factory_name;
 	int res;
 	struct node_data *nd;
@@ -205,11 +205,11 @@ static void *create_object(void *_data,
 	nd->new_id = new_id;
 	spa_list_append(&d->node_list, &nd->link);
 
-	pw_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);
+	pw_impl_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);
 
-	pw_node_register(adapter, NULL);
+	pw_impl_node_register(adapter, NULL);
 
-	pw_node_set_active(adapter, true);
+	pw_impl_node_set_active(adapter, true);
 
 	return adapter;
 
@@ -251,7 +251,7 @@ static void module_destroy(void *data)
 	spa_hook_remove(&d->module_listener);
 
 	spa_list_for_each_safe(nd, t, &d->node_list, link)
-		pw_node_destroy(nd->adapter);
+		pw_impl_node_destroy(nd->adapter);
 
 	pw_impl_factory_destroy(d->this);
 }

@@ -337,12 +337,12 @@ struct pw_registry_v0_events {
 
 #define PW_VERSION_MODULE_V0			0
 
-#define PW_MODULE_PROXY_V0_EVENT_INFO		0
-#define PW_MODULE_PROXY_V0_EVENT_NUM		1
+#define PW_MODULE_V0_EVENT_INFO		0
+#define PW_MODULE_V0_EVENT_NUM		1
 
 /** Module events */
-struct pw_module_proxy_v0_events {
-#define PW_VERSION_MODULE_PROXY_V0_EVENTS	0
+struct pw_module_v0_events {
+#define PW_VERSION_MODULE_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify module info
@@ -352,7 +352,7 @@ struct pw_module_proxy_v0_events {
 	void (*info) (void *object, struct pw_module_info *info);
 };
 
-#define pw_module_resource_v0_info(r,...)	pw_resource_notify(r,struct pw_module_proxy_v0_events,info,__VA_ARGS__)
+#define pw_module_resource_v0_info(r,...)	pw_resource_notify(r,struct pw_module_v0_events,info,__VA_ARGS__)
 
 #define PW_VERSION_NODE_V0		0
 

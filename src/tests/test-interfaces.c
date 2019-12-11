@@ -129,28 +129,28 @@ static void test_registry_abi(void)
 
 static void test_module_abi(void)
 {
-	struct pw_module_proxy_methods m;
-	struct pw_module_proxy_events e;
+	struct pw_module_methods m;
+	struct pw_module_events e;
 	struct {
 		uint32_t version;
 		int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_module_proxy_events *events,
+			const struct pw_module_events *events,
 			void *data);
-	} methods = { PW_VERSION_MODULE_PROXY_METHODS, };
+	} methods = { PW_VERSION_MODULE_METHODS, };
 	struct {
 		uint32_t version;
 		void (*info) (void *object, const struct pw_module_info *info);
-	} events = { PW_VERSION_MODULE_PROXY_EVENTS, };
+	} events = { PW_VERSION_MODULE_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);
-	spa_assert(PW_VERSION_MODULE_PROXY_METHODS == 0);
+	spa_assert(PW_VERSION_MODULE_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
 	TEST_FUNC(e, events, version);
 	TEST_FUNC(e, events, info);
-	spa_assert(PW_VERSION_MODULE_PROXY_EVENTS == 0);
+	spa_assert(PW_VERSION_MODULE_EVENTS == 0);
 	spa_assert(sizeof(e) == sizeof(events));
 }
 

@@ -571,8 +571,8 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 	global_event_info(data, info);
 }
 
-static const struct pw_module_proxy_events module_events = {
-	PW_VERSION_MODULE_PROXY_EVENTS,
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
 	.info = module_event_info
 };
 
@@ -657,7 +657,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		info_destroy = (pw_destroy_t)pw_module_info_free;
 		info_update = (info_update_t)pw_module_info_update;
 		draw = draw_module;
-		client_version = PW_VERSION_MODULE_PROXY;
+		client_version = PW_VERSION_MODULE;
 		break;
 	case PW_TYPE_INTERFACE_Core:
 		/* sync to notify we are done with globals */

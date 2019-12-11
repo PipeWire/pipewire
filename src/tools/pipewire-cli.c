@@ -733,8 +733,8 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 	}
 }
 
-static const struct pw_module_proxy_events module_events = {
-	PW_VERSION_MODULE_PROXY_EVENTS,
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
 	.info = module_event_info
 };
 
@@ -1098,7 +1098,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		break;
 	case PW_TYPE_INTERFACE_Module:
 		events = &module_events;
-		client_version = PW_VERSION_MODULE_PROXY;
+		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		info_func = info_module;
 		break;

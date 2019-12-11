@@ -44,7 +44,7 @@ struct impl {
 	void *hnd;
 };
 
-#define pw_module_resource_info(r,...)	pw_resource_call(r,struct pw_module_proxy_events,info,0,__VA_ARGS__)
+#define pw_module_resource_info(r,...)	pw_resource_call(r,struct pw_module_events,info,0,__VA_ARGS__)
 
 struct resource_data {
 	struct spa_hook resource_listener;
@@ -245,7 +245,7 @@ pw_impl_module_load(struct pw_context *context,
 
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Module,
-				     PW_VERSION_MODULE_PROXY,
+				     PW_VERSION_MODULE,
 				     pw_properties_new(
 					     PW_KEY_MODULE_NAME, name,
 					     NULL),

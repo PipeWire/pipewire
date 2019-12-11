@@ -759,7 +759,7 @@ static void module_marshal_info(void *object, const struct pw_module_info *info)
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
 
-	b = pw_protocol_native_begin_resource(resource, PW_MODULE_PROXY_V0_EVENT_INFO, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_MODULE_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -1071,8 +1071,8 @@ static const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
 	NULL
 };
 
-static const struct pw_module_proxy_events pw_protocol_native_module_event_marshal = {
-	PW_VERSION_MODULE_PROXY_EVENTS,
+static const struct pw_module_events pw_protocol_native_module_event_marshal = {
+	PW_VERSION_MODULE_EVENTS,
 	.info = &module_marshal_info,
 };
 
@@ -1080,7 +1080,7 @@ static const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	PW_TYPE_INTERFACE_Module,
 	PW_VERSION_MODULE_V0,
 	0,
-	PW_MODULE_PROXY_EVENT_NUM,
+	PW_MODULE_EVENT_NUM,
 	0,
 	NULL, NULL,
 	&pw_protocol_native_module_event_marshal,

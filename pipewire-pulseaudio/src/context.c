@@ -487,8 +487,8 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 	g->pending_seq = pw_proxy_sync(g->proxy, 0);
 }
 
-static const struct pw_module_proxy_events module_events = {
-	PW_VERSION_MODULE_PROXY_EVENTS,
+static const struct pw_module_events module_events = {
+	PW_VERSION_MODULE_EVENTS,
 	.info = module_event_info,
 };
 
@@ -679,7 +679,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
 		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
 		events = &module_events;
-                client_version = PW_VERSION_MODULE_PROXY;
+                client_version = PW_VERSION_MODULE;
                 destroy = module_destroy;
 		break;
 

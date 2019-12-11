@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 /* client-endpoint.c */
 int client_endpoint_factory_init(struct pw_module *module);

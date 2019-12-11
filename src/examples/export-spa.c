@@ -30,7 +30,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 struct data {
 	struct pw_main_loop *loop;

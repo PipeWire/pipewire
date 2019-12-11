@@ -35,7 +35,7 @@
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include "pipewire/private.h"
 
 struct impl {

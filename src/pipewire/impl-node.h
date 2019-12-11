@@ -46,11 +46,7 @@ struct pw_node;
 #include <spa/node/node.h>
 #include <spa/node/event.h>
 
-#include <pipewire/context.h>
-#include <pipewire/global.h>
-#include <pipewire/introspect.h>
-#include <pipewire/port.h>
-#include <pipewire/resource.h>
+#include <pipewire/impl.h>
 
 /** Node events, listen to them with \ref pw_node_add_listener */
 struct pw_node_events {

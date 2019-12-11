@@ -42,13 +42,13 @@ extern "C" {
  */
 struct pw_context;
 
-#include <pipewire/client.h>
+struct pw_global;
+struct pw_client;
+
 #include <pipewire/introspect.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/core.h>
-#include <pipewire/global.h>
 #include <pipewire/loop.h>
-#include <pipewire/factory.h>
 #include <pipewire/properties.h>
 
 /** \page page_context_api Core API

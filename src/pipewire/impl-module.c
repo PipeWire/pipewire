@@ -33,12 +33,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "pipewire/keys.h"
+#include "pipewire/impl.h"
 #include "pipewire/private.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/utils.h"
-#include "pipewire/module.h"
-#include "pipewire/type.h"
 
 #define NAME "module"
 

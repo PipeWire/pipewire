@@ -24,7 +24,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/node/io.h>
 
-#include <pipewire/log.h>
+#include <pipewire/impl.h>
 #include <pipewire/private.h>
 
 #include "ext-client-node.h"

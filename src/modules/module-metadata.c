@@ -31,7 +31,7 @@
 
 #include <spa/utils/result.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include <extensions/metadata.h>
 
 #define NAME "metadata"

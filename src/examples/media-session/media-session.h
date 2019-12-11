@@ -26,6 +26,8 @@
 #ifndef SM_MEDIA_SESSION_H
 #define SM_MEDIA_SESSION_H
 
+#include <spa/monitor/device.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

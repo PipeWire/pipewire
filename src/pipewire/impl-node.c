@@ -34,15 +34,8 @@
 #include <spa/node/utils.h>
 #include <spa/debug/types.h>
 
-#include "pipewire/interfaces.h"
+#include "pipewire/impl-node.h"
 #include "pipewire/private.h"
-
-#include "pipewire/keys.h"
-#include "pipewire/node.h"
-#include "pipewire/data-loop.h"
-#include "pipewire/main-loop.h"
-#include "pipewire/type.h"
-#include "pipewire/work-queue.h"
 
 #define NAME "node"
 

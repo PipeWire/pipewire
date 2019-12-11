@@ -36,6 +36,7 @@
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
 #include <spa/support/dbus.h>
+#include <spa/monitor/device.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"

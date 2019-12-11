@@ -25,7 +25,7 @@
 #ifndef PIPEWIRE_CLIENT_NODE_H
 #define PIPEWIRE_CLIENT_NODE_H
 
-#include <pipewire/node.h>
+#include <pipewire/impl.h>
 #include <extensions/client-node.h>
 
 #ifdef __cplusplus

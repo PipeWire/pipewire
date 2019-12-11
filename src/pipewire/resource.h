@@ -58,7 +58,7 @@ extern "C" {
  */
 struct pw_resource;
 
-#include <pipewire/client.h>
+#include <pipewire/impl-client.h>
 
 /** Resource events */
 struct pw_resource_events {

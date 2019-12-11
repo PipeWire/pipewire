@@ -31,26 +31,26 @@ extern "C" {
 
 #include <spa/support/plugin.h>
 
-#include <pipewire/client.h>
+#include <pipewire/array.h>
 #include <pipewire/context.h>
-#include <pipewire/device.h>
+#include <pipewire/buffers.h>
+#include <pipewire/core.h>
 #include <pipewire/interfaces.h>
 #include <pipewire/introspect.h>
 #include <pipewire/keys.h>
-#include <pipewire/link.h>
 #include <pipewire/log.h>
 #include <pipewire/loop.h>
 #include <pipewire/main-loop.h>
-#include <pipewire/module.h>
-#include <pipewire/factory.h>
-#include <pipewire/node.h>
-#include <pipewire/port.h>
+#include <pipewire/map.h>
+#include <pipewire/mem.h>
 #include <pipewire/properties.h>
 #include <pipewire/proxy.h>
-#include <pipewire/core.h>
-#include <pipewire/resource.h>
+#include <pipewire/permission.h>
+#include <pipewire/protocol.h>
 #include <pipewire/stream.h>
+#include <pipewire/filter.h>
 #include <pipewire/thread-loop.h>
+#include <pipewire/data-loop.h>
 #include <pipewire/type.h>
 #include <pipewire/utils.h>
 #include <pipewire/version.h>

@@ -27,9 +27,7 @@
 
 #include <spa/utils/result.h>
 
-#include <pipewire/pipewire.h>
-#include <pipewire/context.h>
-#include <pipewire/module.h>
+#include <pipewire/impl.h>
 
 #include "config.h"
 #include "daemon-config.h"

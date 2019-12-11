@@ -34,7 +34,7 @@
 
 #include <spa/utils/result.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

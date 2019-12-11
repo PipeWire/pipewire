@@ -43,9 +43,7 @@ extern "C" {
  */
 struct pw_control;
 
-#include <pipewire/context.h>
-#include <pipewire/introspect.h>
-#include <pipewire/node.h>
+#include <pipewire/impl.h>
 
 /** Port events, use \ref pw_control_add_listener */
 struct pw_control_events {

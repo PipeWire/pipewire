@@ -29,7 +29,7 @@
 #include <spa/pod/parser.h>
 #include <spa/utils/result.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include <extensions/protocol-native.h>
 
 #include "connection.h"

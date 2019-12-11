@@ -31,7 +31,7 @@
 
 #include "config.h"
 
-#include "pipewire/pipewire.h"
+#include "pipewire/impl.h"
 
 #include "spa-node.h"
 

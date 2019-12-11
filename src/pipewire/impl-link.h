@@ -35,9 +35,7 @@ extern "C" {
  */
 struct pw_link;
 
-#include <pipewire/context.h>
-#include <pipewire/introspect.h>
-#include <pipewire/port.h>
+#include <pipewire/impl.h>
 
 /** \page page_link Link
  *

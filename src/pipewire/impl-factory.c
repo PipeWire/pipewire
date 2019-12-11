@@ -26,11 +26,8 @@
 
 #include <spa/debug/types.h>
 
-#include "pipewire/factory.h"
+#include "pipewire/impl.h"
 #include "pipewire/private.h"
-#include "pipewire/type.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/keys.h"
 
 #define NAME "factory"
 

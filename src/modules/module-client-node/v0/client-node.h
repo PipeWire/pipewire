@@ -20,7 +20,7 @@
 #ifndef PIPEWIRE_CLIENT_NODE0_H
 #define PIPEWIRE_CLIENT_NODE0_H
 
-#include <pipewire/node.h>
+#include <pipewire/impl.h>
 
 #include "ext-client-node.h"
 

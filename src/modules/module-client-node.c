@@ -31,7 +31,7 @@
 
 #include <spa/utils/result.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 #include "module-client-node/v0/client-node.h"
 #include "module-client-node/client-node.h"

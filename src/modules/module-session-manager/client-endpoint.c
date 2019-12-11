@@ -26,7 +26,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include <extensions/session-manager.h>
 
 #include "client-endpoint.h"

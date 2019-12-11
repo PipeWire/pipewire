@@ -42,10 +42,9 @@
 #include <systemd/sd-daemon.h>
 #endif
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include <extensions/protocol-native.h>
 
-#include "pipewire/map.h"
 #include "pipewire/private.h"
 
 #include "modules/module-protocol-native/connection.h"

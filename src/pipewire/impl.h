@@ -1,6 +1,6 @@
 /* PipeWire
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2019 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,41 +22,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PIPEWIRE_SPA_DEVICE_H
-#define PIPEWIRE_SPA_DEVICE_H
-
-#include <spa/monitor/device.h>
-
-#include <pipewire/impl.h>
+#ifndef PIPEWIRE_IMPL_H
+#define PIPEWIRE_IMPL_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum pw_spa_device_flags {
-	PW_SPA_DEVICE_FLAG_DISABLE	= (1 << 0),
-	PW_SPA_DEVICE_FLAG_NO_REGISTER	= (1 << 1),
-};
+struct pw_client;
+struct pw_module;
+struct pw_global;
+struct pw_node;
+struct pw_port;
+struct pw_resource;
 
-struct pw_device *
-pw_spa_device_new(struct pw_context *context,
-		  enum pw_spa_device_flags flags,
-		  struct spa_device *device,
-		  struct spa_handle *handle,
-		  struct pw_properties *properties,
-		  size_t user_data_size);
-
-struct pw_device *
-pw_spa_device_load(struct pw_context *context,
-		   const char *factory_name,
-		   enum pw_spa_device_flags flags,
-		   struct pw_properties *properties,
-		   size_t user_data_size);
-
-void *pw_spa_device_get_user_data(struct pw_device *device);
+#include <pipewire/pipewire.h>
+#include <pipewire/control.h>
+#include <pipewire/impl-client.h>
+#include <pipewire/impl-device.h>
+#include <pipewire/impl-factory.h>
+#include <pipewire/global.h>
+#include <pipewire/impl-link.h>
+#include <pipewire/impl-module.h>
+#include <pipewire/impl-node.h>
+#include <pipewire/impl-port.h>
+#include <pipewire/resource.h>
+#include <pipewire/work-queue.h>
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* PIPEWIRE_SPA_DEVICE_H */
+#endif /* PIPEWIRE_IMPL_H */

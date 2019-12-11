@@ -31,11 +31,7 @@
 #include <getopt.h>
 #include <limits.h>
 
-#include <pipewire/context.h>
-#include <pipewire/keys.h>
-#include <pipewire/log.h>
-#include <pipewire/module.h>
-#include <pipewire/utils.h>
+#include <pipewire/impl.h>
 
 #include "spa-node.h"
 

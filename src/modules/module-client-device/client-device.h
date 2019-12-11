@@ -25,7 +25,7 @@
 #ifndef PIPEWIRE_CLIENT_DEVICE_H
 #define PIPEWIRE_CLIENT_DEVICE_H
 
-#include <pipewire/device.h>
+#include <pipewire/impl.h>
 
 #ifdef __cplusplus
 extern "C" {

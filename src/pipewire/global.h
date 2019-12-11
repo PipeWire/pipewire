@@ -53,9 +53,7 @@ extern "C" {
  */
 struct pw_global;
 
-#include <pipewire/context.h>
-#include <pipewire/client.h>
-#include <pipewire/properties.h>
+#include <pipewire/impl.h>
 
 typedef int (*pw_global_bind_func_t) (void *object,
 		      struct pw_client *client,	/**< client that binds */

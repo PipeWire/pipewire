@@ -152,8 +152,6 @@ struct pw_stream;
 #include <spa/buffer/buffer.h>
 #include <spa/param/param.h>
 
-#include <pipewire/core.h>
-
 /** \enum pw_stream_state The state of a stream \memberof pw_stream */
 enum pw_stream_state {
 	PW_STREAM_STATE_ERROR = -1,		/**< the strean is in error */
@@ -183,6 +181,22 @@ struct pw_stream_control {
 	uint32_t n_values;		/**< number of values in array */
 	uint32_t max_values;		/**< max values that can be set on this control */
 };
+
+/** A time structure \memberof pw_stream */
+struct pw_time {
+	int64_t now;			/**< the monotonic time */
+	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
+	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
+					  *  the remote end is reading/writing. */
+	int64_t delay;			/**< delay to device, add to ticks to get the time of the
+					  *  device. Positive for INPUT streams and
+					  *  negative for OUTPUT streams. */
+	uint64_t queued;		/**< data queued in the stream, this is the sum
+					  *  of the size fields in the pw_buffer that are
+					  *  currently queued */
+};
+
+#include <pipewire/core.h>
 
 /** Events for a stream. These events are always called from the mainloop
  * unless explicitly documented otherwise. */
@@ -322,19 +336,6 @@ pw_stream_update_params(struct pw_stream *stream,	/**< a \ref pw_stream */
 /** Set control values */
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 
-/** A time structure \memberof pw_stream */
-struct pw_time {
-	int64_t now;			/**< the monotonic time */
-	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
-	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
-					  *  the remote end is reading/writing. */
-	int64_t delay;			/**< delay to device, add to ticks to get the time of the
-					  *  device. Positive for INPUT streams and
-					  *  negative for OUTPUT streams. */
-	uint64_t queued;		/**< data queued in the stream, this is the sum
-					  *  of the size fields in the pw_buffer that are
-					  *  currently queued */
-};
 /** Query the time on the stream \memberof pw_stream */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 

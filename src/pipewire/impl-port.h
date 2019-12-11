@@ -45,9 +45,7 @@ struct pw_port;
 struct pw_link;
 struct pw_control;
 
-#include <pipewire/context.h>
-#include <pipewire/introspect.h>
-#include <pipewire/node.h>
+#include <pipewire/impl.h>
 
 enum pw_port_state {
 	PW_PORT_STATE_ERROR = -1,	/**< the port is in error */

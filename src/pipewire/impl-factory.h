@@ -38,7 +38,7 @@ extern "C" {
 struct pw_factory;
 
 #include <pipewire/context.h>
-#include <pipewire/client.h>
+#include <pipewire/impl-client.h>
 #include <pipewire/global.h>
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>

@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <stdarg.h>
+
 #include <spa/utils/hook.h>
 
 #define PW_VERSION_CORE		3
@@ -52,7 +54,6 @@ struct pw_core_info {
 
 #include <pipewire/context.h>
 #include <pipewire/properties.h>
-#include <pipewire/node.h>
 #include <pipewire/proxy.h>
 
 /** Update and existing \ref pw_core_info with \a update  \memberof pw_introspect */

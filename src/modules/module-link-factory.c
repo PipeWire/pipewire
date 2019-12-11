@@ -29,7 +29,7 @@
 
 #include "config.h"
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include "pipewire/private.h"
 
 #define NAME "link-factory"

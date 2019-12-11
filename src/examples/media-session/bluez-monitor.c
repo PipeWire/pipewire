@@ -30,6 +30,7 @@
 
 #include "config.h"
 
+#include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
@@ -37,7 +38,7 @@
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
 
-#include "pipewire/pipewire.h"
+#include "pipewire/impl.h"
 #include "media-session.h"
 
 struct bluez5_object;

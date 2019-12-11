@@ -39,7 +39,7 @@
 #include <spa/debug/format.h>
 #include <spa/utils/names.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 struct data {
 	SDL_Renderer *renderer;

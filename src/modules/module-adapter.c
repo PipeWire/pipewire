@@ -32,7 +32,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"

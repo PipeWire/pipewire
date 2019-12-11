@@ -27,12 +27,8 @@
 #include <spa/debug/types.h>
 #include <spa/monitor/utils.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/device.h"
+#include "pipewire/impl.h"
 #include "pipewire/private.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/type.h"
-#include "pipewire/keys.h"
 
 #define NAME "device"
 

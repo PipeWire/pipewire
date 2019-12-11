@@ -32,14 +32,7 @@ extern "C" {
 #include <sys/socket.h>
 #include <sys/types.h> /* for pthread_t */
 
-#include "pipewire/buffers.h"
-#include "pipewire/map.h"
-#include "pipewire/mem.h"
-#include "pipewire/introspect.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/stream.h"
-#include "pipewire/filter.h"
-#include "pipewire/log.h"
+#include "pipewire/impl.h"
 
 #include <spa/support/plugin.h>
 #include <spa/pod/builder.h>

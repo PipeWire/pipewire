@@ -26,7 +26,7 @@
 #include <string.h>
 
 #include "pipewire/interfaces.h"
-#include "pipewire/client.h"
+#include "pipewire/impl-client.h"
 #include "pipewire/private.h"
 #include "pipewire/resource.h"
 #include "pipewire/type.h"

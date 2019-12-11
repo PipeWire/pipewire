@@ -30,6 +30,7 @@
 
 #include "config.h"
 
+#include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>

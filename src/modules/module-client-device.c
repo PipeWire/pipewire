@@ -31,7 +31,7 @@
 
 #include <spa/utils/result.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 #include "module-client-device/client-device.h"
 

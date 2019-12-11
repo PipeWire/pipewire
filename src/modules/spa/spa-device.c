@@ -35,11 +35,7 @@
 #include <spa/debug/types.h>
 
 #include "spa-device.h"
-#include "pipewire/device.h"
-#include "pipewire/port.h"
-#include "pipewire/log.h"
 #include "pipewire/private.h"
-#include "pipewire/pipewire.h"
 
 struct impl {
 	struct pw_device *this;

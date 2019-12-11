@@ -32,11 +32,7 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 
-#include <pipewire/map.h>
-#include <pipewire/pipewire.h>
-#include <pipewire/interfaces.h>
-#include <pipewire/type.h>
-#include <pipewire/permission.h>
+#include <pipewire/impl.h>
 
 #include <extensions/session-manager.h>
 

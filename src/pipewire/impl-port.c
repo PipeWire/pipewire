@@ -32,11 +32,8 @@
 #include <spa/utils/names.h>
 #include <spa/debug/types.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/interfaces.h"
+#include "pipewire/impl.h"
 #include "pipewire/private.h"
-#include "pipewire/port.h"
-#include "pipewire/link.h"
 
 #define NAME "port"
 

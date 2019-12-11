@@ -30,8 +30,9 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
-#include <spa/param/param.h>
-#include <spa/node/node.h>
+
+#include <pipewire/proxy.h>
+#include <pipewire/resource.h>
 
 #define PW_TYPE_INFO_PROTOCOL_Native		PW_TYPE_INFO_PROTOCOL_BASE "Native"
 

@@ -29,8 +29,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#include <pipewire/utils.h>
-#include <pipewire/module.h>
+#include <pipewire/impl.h>
 #include <pipewire/private.h>
 
 #include "command.h"

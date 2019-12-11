@@ -32,6 +32,7 @@
 
 #include <alsa/asoundlib.h>
 
+#include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/keys.h>
 #include <spa/utils/hook.h>

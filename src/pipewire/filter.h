@@ -45,6 +45,7 @@ struct pw_filter;
 #include <spa/param/param.h>
 
 #include <pipewire/core.h>
+#include <pipewire/stream.h>
 
 /** \enum pw_filter_state The state of a filter \memberof pw_filter */
 enum pw_filter_state {

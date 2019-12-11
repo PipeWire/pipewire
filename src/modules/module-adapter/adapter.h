@@ -25,7 +25,7 @@
 #ifndef PIPEWIRE_ADAPTER_H
 #define PIPEWIRE_ADAPTER_H
 
-#include <pipewire/node.h>
+#include <pipewire/impl.h>
 
 #ifdef __cplusplus
 extern "C" {

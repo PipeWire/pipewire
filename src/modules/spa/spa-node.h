@@ -27,8 +27,7 @@
 
 #include <spa/node/node.h>
 
-#include <pipewire/context.h>
-#include <pipewire/node.h>
+#include <pipewire/impl.h>
 
 #ifdef __cplusplus
 extern "C" {

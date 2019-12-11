@@ -32,13 +32,8 @@
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
 
-#include "pipewire/keys.h"
+#include "pipewire/impl-link.h"
 #include "pipewire/private.h"
-#include "pipewire/interfaces.h"
-#include "pipewire/control.h"
-#include "pipewire/link.h"
-#include "pipewire/type.h"
-#include "pipewire/work-queue.h"
 
 #include <spa/debug/node.h>
 #include <spa/debug/pod.h>

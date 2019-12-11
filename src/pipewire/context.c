@@ -36,17 +36,8 @@
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include <pipewire/private.h>
-#include <pipewire/interfaces.h>
-#include <pipewire/protocol.h>
-#include <pipewire/context.h>
-#include <pipewire/data-loop.h>
-#include <pipewire/device.h>
-#include <pipewire/map.h>
-#include <pipewire/type.h>
-#include <pipewire/module.h>
-#include <pipewire/version.h>
 
 #define NAME "context"
 

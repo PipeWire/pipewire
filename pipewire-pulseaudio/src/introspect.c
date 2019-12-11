@@ -1160,7 +1160,7 @@ pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_suc
 	if (!(g->mask & PA_SUBSCRIPTION_MASK_CLIENT))
 		return NULL;
 
-	pw_registry_proxy_destroy(c->registry_proxy, g->id);
+	pw_registry_destroy(c->registry, g->id);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -1761,7 +1761,7 @@ pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context
 		pw_stream_destroy(s->stream);
 	}
 	else if (g) {
-		pw_registry_proxy_destroy(c->registry_proxy, g->id);
+		pw_registry_destroy(c->registry, g->id);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -2054,7 +2054,7 @@ pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_cont
 		pw_stream_destroy(s->stream);
 	}
 	else if (g) {
-		pw_registry_proxy_destroy(c->registry_proxy, g->id);
+		pw_registry_destroy(c->registry, g->id);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;

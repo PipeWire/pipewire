@@ -290,7 +290,7 @@ struct pa_context {
 	struct spa_hook core_listener;
 	struct pw_core_info *core_info;
 
-        struct pw_registry_proxy *registry_proxy;
+        struct pw_registry *registry;
         struct spa_hook registry_listener;
 
 	pa_proplist *proplist;

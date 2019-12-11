@@ -236,7 +236,7 @@ struct client {
 	int last_sync;
 	bool error;
 
-	struct pw_registry_proxy *registry_proxy;
+	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
 	struct pw_client_node_proxy *node_proxy;
@@ -1980,7 +1980,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if (c->metadata)
 			goto exit;
 
-		proxy = pw_registry_proxy_bind(c->registry_proxy,
+		proxy = pw_registry_bind(c->registry,
 				id, type, PW_VERSION_METADATA, sizeof(struct metadata));
 
 		c->metadata = pw_proxy_get_user_data(proxy);
@@ -2068,8 +2068,8 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	return;
 }
 
-static const struct pw_registry_proxy_events registry_events = {
-        PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events registry_events = {
+        PW_VERSION_REGISTRY_EVENTS,
         .global = registry_event_global,
         .global_remove = registry_event_global_remove,
 };
@@ -2156,9 +2156,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_core_add_listener(client->core,
                                                &client->core_listener,
                                                &core_events, client);
-	client->registry_proxy = pw_core_get_registry(client->core,
-						PW_VERSION_REGISTRY_PROXY, 0);
-	pw_registry_proxy_add_listener(client->registry_proxy,
+	client->registry = pw_core_get_registry(client->core,
+						PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(client->registry,
                                                &client->registry_listener,
                                                &registry_events, client);
 
@@ -3463,7 +3463,7 @@ int jack_disconnect (jack_client_t *client,
 		goto exit;
 	}
 
-	pw_registry_proxy_destroy(c->registry_proxy, l->id);
+	pw_registry_destroy(c->registry, l->id);
 
 	res = do_sync(c);
 
@@ -3488,7 +3488,7 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	spa_list_for_each(l, &c->context.links, link) {
 		if (l->port_link.src == o->id ||
 		    l->port_link.dst == o->id) {
-			pw_registry_proxy_destroy(c->registry_proxy, l->id);
+			pw_registry_destroy(c->registry, l->id);
 		}
 	}
 	res = do_sync(c);

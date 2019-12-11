@@ -45,7 +45,7 @@ static void test_core_abi(void)
 		int (*sync) (void *object, uint32_t id, int seq);
 		int (*pong) (void *object, uint32_t id, int seq);
 		int (*error) (void *object, uint32_t id, int seq, int res, const char *error);
-		struct pw_registry_proxy * (*get_registry) (void *object,
+		struct pw_registry * (*get_registry) (void *object,
 				uint32_t version, size_t user_data_size);
 		void * (*create_object) (void *object,
 				       const char *factory_name,
@@ -94,37 +94,37 @@ static void test_core_abi(void)
 
 static void test_registry_abi(void)
 {
-	struct pw_registry_proxy_methods m;
-	struct pw_registry_proxy_events e;
+	struct pw_registry_methods m;
+	struct pw_registry_events e;
 	struct {
 		uint32_t version;
 		int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_registry_proxy_events *events,
+			const struct pw_registry_events *events,
 			void *data);
 		void * (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version,
 				size_t user_data_size);
 		int (*destroy) (void *object, uint32_t id);
-	} methods = { PW_VERSION_REGISTRY_PROXY_METHODS, };
+	} methods = { PW_VERSION_REGISTRY_METHODS, };
 	struct {
 		uint32_t version;
 		void (*global) (void *object, uint32_t id,
 			uint32_t permissions, uint32_t type, uint32_t version,
 			const struct spa_dict *props);
 		void (*global_remove) (void *object, uint32_t id);
-	} events = { PW_VERSION_REGISTRY_PROXY_EVENTS, };
+	} events = { PW_VERSION_REGISTRY_EVENTS, };
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);
 	TEST_FUNC(m, methods, bind);
 	TEST_FUNC(m, methods, destroy);
-	spa_assert(PW_VERSION_REGISTRY_PROXY_METHODS == 0);
+	spa_assert(PW_VERSION_REGISTRY_METHODS == 0);
 	spa_assert(sizeof(m) == sizeof(methods));
 
 	TEST_FUNC(e, events, version);
 	TEST_FUNC(e, events, global);
 	TEST_FUNC(e, events, global_remove);
-	spa_assert(PW_VERSION_REGISTRY_PROXY_EVENTS == 0);
+	spa_assert(PW_VERSION_REGISTRY_EVENTS == 0);
 	spa_assert(sizeof(e) == sizeof(events));
 }
 

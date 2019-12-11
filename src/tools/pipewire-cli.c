@@ -77,7 +77,7 @@ struct remote_data {
 	struct pw_core *core;
 	struct spa_hook core_listener;
 	struct spa_hook proxy_core_listener;
-	struct pw_registry_proxy *registry_proxy;
+	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
 	struct pw_map globals;
@@ -364,8 +364,8 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	destroy_global(global, rd);
 }
 
-static const struct pw_registry_proxy_events registry_events = {
-	PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
 	.global = registry_event_global,
 	.global_remove = registry_event_global_remove,
 };
@@ -444,9 +444,8 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	pw_proxy_add_listener((struct pw_proxy*)rd->core,
 			&rd->proxy_core_listener,
 			&proxy_core_events, rd);
-	rd->registry_proxy = pw_core_get_registry(rd->core,
-							PW_VERSION_REGISTRY_PROXY, 0);
-	pw_registry_proxy_add_listener(rd->registry_proxy,
+	rd->registry = pw_core_get_registry(rd->core, PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(rd->registry,
 				       &rd->registry_listener,
 				       &registry_events, rd);
 	rd->prompt_pending = pw_core_sync(rd->core, 0, 0);
@@ -1166,7 +1165,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		return false;
 	}
 
-	proxy = pw_registry_proxy_bind(rd->registry_proxy,
+	proxy = pw_registry_bind(rd->registry,
 				       global->id,
 				       global->type,
 				       client_version,
@@ -1338,7 +1337,7 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	pw_registry_proxy_destroy(rd->registry_proxy, id);
+	pw_registry_destroy(rd->registry, id);
 
 	return true;
 }

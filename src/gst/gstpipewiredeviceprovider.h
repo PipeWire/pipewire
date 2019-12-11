@@ -92,7 +92,7 @@ struct _GstPipeWireDeviceProvider {
   struct spa_list pending;
   int seq;
 
-  struct pw_registry_proxy *registry;
+  struct pw_registry *registry;
 
   int error;
   gboolean end;

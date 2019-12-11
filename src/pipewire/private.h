@@ -203,7 +203,7 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 	va_end(args);
 }
 
-#define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_proxy_events,m,v,##__VA_ARGS__)
+#define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_events,m,v,##__VA_ARGS__)
 #define pw_registry_resource_global(r,...)        pw_registry_resource(r,global,0,__VA_ARGS__)
 #define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)
 

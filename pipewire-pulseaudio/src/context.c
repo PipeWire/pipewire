@@ -721,7 +721,7 @@ static int set_mask(pa_context *c, struct global *g)
 	if (events) {
 		pw_log_debug("bind %d", g->id);
 
-		g->proxy = pw_registry_proxy_bind(c->registry_proxy, g->id, g->type,
+		g->proxy = pw_registry_bind(c->registry, g->id, g->type,
 	                                      client_version, 0);
 		if (g->proxy == NULL)
 	                return -ENOMEM;
@@ -786,9 +786,9 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	global_free(c, g);
 }
 
-static const struct pw_registry_proxy_events registry_events =
+static const struct pw_registry_events registry_events =
 {
-	PW_VERSION_REGISTRY_PROXY_EVENTS,
+	PW_VERSION_REGISTRY_EVENTS,
 	.global = registry_event_global,
 	.global_remove = registry_event_global_remove,
 };
@@ -879,10 +879,10 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 
 	c->subscribe_mask = m;
 
-	if (c->registry_proxy == NULL) {
-		c->registry_proxy = pw_core_get_registry(c->core,
-				PW_VERSION_REGISTRY_PROXY, 0);
-		pw_registry_proxy_add_listener(c->registry_proxy,
+	if (c->registry == NULL) {
+		c->registry = pw_core_get_registry(c->core,
+				PW_VERSION_REGISTRY, 0);
+		pw_registry_add_listener(c->registry,
 				&c->registry_listener,
 				&registry_events, c);
 	}

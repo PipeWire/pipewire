@@ -694,7 +694,7 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 	struct spa_pod_frame f;
 	uint32_t i, n_items, parent_id;
 
-	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_PROXY_V0_EVENT_GLOBAL, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_V0_EVENT_GLOBAL, NULL);
 
 	n_items = props ? props->n_items : 0;
 
@@ -726,7 +726,7 @@ static void registry_marshal_global_remove(void *object, uint32_t id)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_PROXY_V0_EVENT_GLOBAL_REMOVE, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_V0_EVENT_GLOBAL_REMOVE, NULL);
 
 	spa_pod_builder_add_struct(b, "i", id);
 
@@ -749,7 +749,7 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 
 	type = pw_protocol_native0_type_from_v2(resource->client, type);
 
-	return pw_resource_notify(resource, struct pw_registry_proxy_methods, bind, 0, id, type, version, new_id);
+	return pw_resource_notify(resource, struct pw_registry_methods, bind, 0, id, type, version, new_id);
 }
 
 static void module_marshal_info(void *object, const struct pw_module_info *info)
@@ -1050,11 +1050,11 @@ static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 };
 
 static const struct pw_protocol_native_demarshal pw_protocol_native_registry_method_demarshal[] = {
-	[PW_REGISTRY_PROXY_V0_METHOD_BIND] = { &registry_demarshal_bind, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
+	[PW_REGISTRY_V0_METHOD_BIND] = { &registry_demarshal_bind, 0, PW_PROTOCOL_NATIVE_FLAG_REMAP, },
 };
 
-static const struct pw_registry_proxy_events pw_protocol_native_registry_event_marshal = {
-	PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events pw_protocol_native_registry_event_marshal = {
+	PW_VERSION_REGISTRY_EVENTS,
 	.global = &registry_marshal_global,
 	.global_remove = &registry_marshal_global_remove,
 };
@@ -1062,8 +1062,8 @@ static const struct pw_registry_proxy_events pw_protocol_native_registry_event_m
 static const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
 	PW_TYPE_INTERFACE_Registry,
 	PW_VERSION_REGISTRY_V0,
-	PW_REGISTRY_PROXY_V0_METHOD_NUM,
-	PW_REGISTRY_PROXY_EVENT_NUM,
+	PW_REGISTRY_V0_METHOD_NUM,
+	PW_REGISTRY_EVENT_NUM,
 	0,
 	NULL,
 	pw_protocol_native_registry_method_demarshal,

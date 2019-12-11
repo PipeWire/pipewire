@@ -102,7 +102,7 @@ static int core_method_marshal_error(void *object, uint32_t id, int seq, int res
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static struct pw_registry_proxy * core_method_marshal_get_registry(void *object,
+static struct pw_registry * core_method_marshal_get_registry(void *object,
 		uint32_t version, size_t user_data_size)
 {
 	struct pw_proxy *proxy = object;
@@ -124,7 +124,7 @@ static struct pw_registry_proxy * core_method_marshal_get_registry(void *object,
 
 	pw_protocol_native_end_proxy(proxy, b);
 
-	return (struct pw_registry_proxy *) res;
+	return (struct pw_registry *) res;
 }
 
 static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_item *item)
@@ -655,7 +655,7 @@ static int core_method_demarshal_destroy(void *object, const struct pw_protocol_
 
 static int registry_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
-			const struct pw_registry_proxy_events *events,
+			const struct pw_registry_events *events,
 			void *data)
 {
 	struct pw_proxy *proxy = object;
@@ -670,7 +670,7 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
-	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_PROXY_EVENT_GLOBAL, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_EVENT_GLOBAL, NULL);
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
@@ -690,7 +690,7 @@ static void registry_marshal_global_remove(void *object, uint32_t id)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_PROXY_EVENT_GLOBAL_REMOVE, NULL);
+	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_EVENT_GLOBAL_REMOVE, NULL);
 
 	spa_pod_builder_add_struct(b, SPA_POD_Int(id));
 
@@ -711,7 +711,7 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 			SPA_POD_Int(&new_id)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_registry_proxy_methods, bind, 0, id, type, version, new_id);
+	return pw_resource_notify(resource, struct pw_registry_methods, bind, 0, id, type, version, new_id);
 }
 
 static int registry_demarshal_destroy(void *object, const struct pw_protocol_native_message *msg)
@@ -725,7 +725,7 @@ static int registry_demarshal_destroy(void *object, const struct pw_protocol_nat
 			SPA_POD_Int(&id)) < 0)
 		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_registry_proxy_methods, destroy, 0, id);
+	return pw_resource_notify(resource, struct pw_registry_methods, destroy, 0, id);
 }
 
 static int module_method_marshal_add_listener(void *object,
@@ -1836,7 +1836,7 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 	if (parse_dict(&prs, &props) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_registry_proxy_events,
+	return pw_proxy_notify(proxy, struct pw_registry_events,
 			global, 0, id, permissions, type, version,
 			props.n_items > 0 ? &props : NULL);
 }
@@ -1852,7 +1852,7 @@ static int registry_demarshal_global_remove(void *object, const struct pw_protoc
 				SPA_POD_Int(&id)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_registry_proxy_events, global_remove, 0, id);
+	return pw_proxy_notify(proxy, struct pw_registry_events, global_remove, 0, id);
 }
 
 static void * registry_marshal_bind(void *object, uint32_t id,
@@ -1869,7 +1869,7 @@ static void * registry_marshal_bind(void *object, uint32_t id,
 
 	new_id = pw_proxy_get_id(res);
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_REGISTRY_PROXY_METHOD_BIND, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_REGISTRY_METHOD_BIND, NULL);
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id),
@@ -1887,7 +1887,7 @@ static int registry_marshal_destroy(void *object, uint32_t id)
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, PW_REGISTRY_PROXY_METHOD_DESTROY, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, PW_REGISTRY_METHOD_DESTROY, NULL);
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id));
 	return pw_protocol_native_end_proxy(proxy, b);
@@ -1953,40 +1953,40 @@ static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {
 	.client_demarshal = pw_protocol_native_core_event_demarshal,
 };
 
-static const struct pw_registry_proxy_methods pw_protocol_native_registry_method_marshal = {
-	PW_VERSION_REGISTRY_PROXY_METHODS,
+static const struct pw_registry_methods pw_protocol_native_registry_method_marshal = {
+	PW_VERSION_REGISTRY_METHODS,
 	.add_listener = &registry_method_marshal_add_listener,
 	.bind = &registry_marshal_bind,
 	.destroy = &registry_marshal_destroy,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_registry_method_demarshal[PW_REGISTRY_PROXY_METHOD_NUM] =
+pw_protocol_native_registry_method_demarshal[PW_REGISTRY_METHOD_NUM] =
 {
-	[PW_REGISTRY_PROXY_METHOD_ADD_LISTENER] = { NULL, 0, },
-	[PW_REGISTRY_PROXY_METHOD_BIND] = { &registry_demarshal_bind, 0, },
-	[PW_REGISTRY_PROXY_METHOD_DESTROY] = { &registry_demarshal_destroy, 0, },
+	[PW_REGISTRY_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_REGISTRY_METHOD_BIND] = { &registry_demarshal_bind, 0, },
+	[PW_REGISTRY_METHOD_DESTROY] = { &registry_demarshal_destroy, 0, },
 };
 
-static const struct pw_registry_proxy_events pw_protocol_native_registry_event_marshal = {
-	PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events pw_protocol_native_registry_event_marshal = {
+	PW_VERSION_REGISTRY_EVENTS,
 	.global = &registry_marshal_global,
 	.global_remove = &registry_marshal_global_remove,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_registry_event_demarshal[PW_REGISTRY_PROXY_EVENT_NUM] =
+pw_protocol_native_registry_event_demarshal[PW_REGISTRY_EVENT_NUM] =
 {
-	[PW_REGISTRY_PROXY_EVENT_GLOBAL] = { &registry_demarshal_global, 0, },
-	[PW_REGISTRY_PROXY_EVENT_GLOBAL_REMOVE] = { &registry_demarshal_global_remove, 0, }
+	[PW_REGISTRY_EVENT_GLOBAL] = { &registry_demarshal_global, 0, },
+	[PW_REGISTRY_EVENT_GLOBAL_REMOVE] = { &registry_demarshal_global_remove, 0, }
 };
 
 const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
 	PW_TYPE_INTERFACE_Registry,
-	PW_VERSION_REGISTRY_PROXY,
+	PW_VERSION_REGISTRY,
 	0,
-	PW_REGISTRY_PROXY_METHOD_NUM,
-	PW_REGISTRY_PROXY_EVENT_NUM,
+	PW_REGISTRY_METHOD_NUM,
+	PW_REGISTRY_EVENT_NUM,
 	.client_marshal = &pw_protocol_native_registry_method_marshal,
 	.server_demarshal = pw_protocol_native_registry_method_demarshal,
 	.server_marshal = &pw_protocol_native_registry_event_marshal,

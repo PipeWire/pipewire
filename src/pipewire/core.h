@@ -31,10 +31,10 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-#define PW_VERSION_CORE			3
+#define PW_VERSION_CORE		3
 struct pw_core;
-#define PW_VERSION_REGISTRY_PROXY	3
-struct pw_registry_proxy;
+#define PW_VERSION_REGISTRY	3
+struct pw_registry;
 
 /**  The core information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_core_info {
@@ -262,7 +262,7 @@ struct pw_core_methods {
 	 * \param version the client version
 	 * \param user_data_size extra size
 	 */
-	struct pw_registry_proxy * (*get_registry) (void *object, uint32_t version,
+	struct pw_registry * (*get_registry) (void *object, uint32_t version,
 			size_t user_data_size);
 
 	/**
@@ -327,10 +327,10 @@ pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 	return r;
 }
 
-static inline struct pw_registry_proxy *
+static inline struct pw_registry *
 pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_size)
 {
-	struct pw_registry_proxy *res = NULL;
+	struct pw_registry *res = NULL;
 	spa_interface_call_res((struct spa_interface*)core,
 			struct pw_core_methods, res,
 			get_registry, 0, version, user_data_size);
@@ -387,13 +387,13 @@ pw_core_create_object(struct pw_core *core,
  * the access permissions on an object.
  */
 
-#define PW_REGISTRY_PROXY_EVENT_GLOBAL             0
-#define PW_REGISTRY_PROXY_EVENT_GLOBAL_REMOVE      1
-#define PW_REGISTRY_PROXY_EVENT_NUM                2
+#define PW_REGISTRY_EVENT_GLOBAL             0
+#define PW_REGISTRY_EVENT_GLOBAL_REMOVE      1
+#define PW_REGISTRY_EVENT_NUM                2
 
 /** Registry events */
-struct pw_registry_proxy_events {
-#define PW_VERSION_REGISTRY_PROXY_EVENTS	0
+struct pw_registry_events {
+#define PW_VERSION_REGISTRY_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify of a new global object
@@ -422,19 +422,19 @@ struct pw_registry_proxy_events {
 	void (*global_remove) (void *object, uint32_t id);
 };
 
-#define PW_REGISTRY_PROXY_METHOD_ADD_LISTENER	0
-#define PW_REGISTRY_PROXY_METHOD_BIND		1
-#define PW_REGISTRY_PROXY_METHOD_DESTROY	2
-#define PW_REGISTRY_PROXY_METHOD_NUM		3
+#define PW_REGISTRY_METHOD_ADD_LISTENER	0
+#define PW_REGISTRY_METHOD_BIND		1
+#define PW_REGISTRY_METHOD_DESTROY	2
+#define PW_REGISTRY_METHOD_NUM		3
 
 /** Registry methods */
-struct pw_registry_proxy_methods {
-#define PW_VERSION_REGISTRY_PROXY_METHODS	0
+struct pw_registry_methods {
+#define PW_VERSION_REGISTRY_METHODS	0
 	uint32_t version;
 
 	int (*add_listener) (void *object,
 			struct spa_hook *listener,
-			const struct pw_registry_proxy_events *events,
+			const struct pw_registry_events *events,
 			void *data);
 	/**
 	 * Bind to a global object
@@ -461,31 +461,31 @@ struct pw_registry_proxy_methods {
 	int (*destroy) (void *object, uint32_t id);
 };
 
-#define pw_registry_proxy_method(o,method,version,...)			\
+#define pw_registry_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
 	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_registry_proxy_methods, _res,		\
+			struct pw_registry_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
 
 /** Registry */
-#define pw_registry_proxy_add_listener(p,...)	pw_registry_proxy_method(p,add_listener,0,__VA_ARGS__)
+#define pw_registry_add_listener(p,...)	pw_registry_method(p,add_listener,0,__VA_ARGS__)
 
 static inline void *
-pw_registry_proxy_bind(struct pw_registry_proxy *registry,
+pw_registry_bind(struct pw_registry *registry,
 		       uint32_t id, uint32_t type, uint32_t version,
 		       size_t user_data_size)
 {
 	void *res = NULL;
 	spa_interface_call_res((struct spa_interface*)registry,
-			struct pw_registry_proxy_methods, res,
+			struct pw_registry_methods, res,
 			bind, 0, id, type, version, user_data_size);
 	return res;
 }
 
-#define pw_registry_proxy_destroy(p,...)	pw_registry_proxy_method(p,destroy,0,__VA_ARGS__)
+#define pw_registry_destroy(p,...)	pw_registry_method(p,destroy,0,__VA_ARGS__)
 
 
 /** Connect to a PipeWire instance \memberof pw_core

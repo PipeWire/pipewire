@@ -97,7 +97,7 @@ struct impl {
 	struct pw_core *policy_core;
 	struct spa_hook policy_listener;
 
-	struct pw_registry_proxy *registry_proxy;
+	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
 	struct pw_map globals;
@@ -1023,7 +1023,7 @@ bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
 	struct pw_proxy *proxy;
 	struct sm_object *obj;
 
-	proxy = pw_registry_proxy_bind(impl->registry_proxy,
+	proxy = pw_registry_bind(impl->registry,
 			id, type, info->version, info->size);
 	if (proxy == NULL) {
 		res = -errno;
@@ -1056,7 +1056,7 @@ update_object(struct impl *impl, const struct object_info *info,
 	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER))
 		spa_hook_remove(&obj->object_listener);
 
-	obj->proxy = pw_registry_proxy_bind(impl->registry_proxy,
+	obj->proxy = pw_registry_bind(impl->registry,
 			id, info->type, info->version, 0);
 	obj->type = type;
 
@@ -1202,8 +1202,8 @@ registry_global_remove(void *data, uint32_t id)
 	remove_object(impl, obj);
 }
 
-static const struct pw_registry_proxy_events registry_events = {
-	PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
         .global = registry_global,
         .global_remove = registry_global_remove,
 };
@@ -1595,9 +1595,9 @@ static int start_policy(struct impl *impl)
 	pw_core_add_listener(impl->policy_core,
 				   &impl->policy_listener,
 				   &core_events, impl);
-	impl->registry_proxy = pw_core_get_registry(impl->policy_core,
-                                               PW_VERSION_REGISTRY_PROXY, 0);
-	pw_registry_proxy_add_listener(impl->registry_proxy,
+	impl->registry = pw_core_get_registry(impl->policy_core,
+                                               PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(impl->registry,
                                               &impl->registry_listener,
                                               &registry_events, impl);
 

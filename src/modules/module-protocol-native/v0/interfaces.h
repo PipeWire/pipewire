@@ -274,12 +274,12 @@ struct pw_core_v0_events {
  * can, for example, hide certain existing or new objects or limit
  * the access permissions on an object.
  */
-#define PW_REGISTRY_PROXY_V0_METHOD_BIND	0
-#define PW_REGISTRY_PROXY_V0_METHOD_NUM		1
+#define PW_REGISTRY_V0_METHOD_BIND	0
+#define PW_REGISTRY_V0_METHOD_NUM		1
 
 /** Registry methods */
-struct pw_registry_proxy_v0_methods {
-#define PW_VERSION_REGISTRY_PROXY_V0_METHODS	0
+struct pw_registry_v0_methods {
+#define PW_VERSION_REGISTRY_V0_METHODS	0
 	uint32_t version;
 	/**
 	 * Bind to a global object
@@ -296,13 +296,13 @@ struct pw_registry_proxy_v0_methods {
 	void (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version, uint32_t new_id);
 };
 
-#define PW_REGISTRY_PROXY_V0_EVENT_GLOBAL             0
-#define PW_REGISTRY_PROXY_V0_EVENT_GLOBAL_REMOVE      1
-#define PW_REGISTRY_PROXY_V0_EVENT_NUM                2
+#define PW_REGISTRY_V0_EVENT_GLOBAL             0
+#define PW_REGISTRY_V0_EVENT_GLOBAL_REMOVE      1
+#define PW_REGISTRY_V0_EVENT_NUM                2
 
 /** Registry events */
-struct pw_registry_proxy_v0_events {
-#define PW_VERSION_REGISTRY_PROXY_V0_EVENTS	0
+struct pw_registry_v0_events {
+#define PW_VERSION_REGISTRY_V0_EVENTS	0
 	uint32_t version;
 	/**
 	 * Notify of a new global object
@@ -332,8 +332,8 @@ struct pw_registry_proxy_v0_events {
 	void (*global_remove) (void *object, uint32_t id);
 };
 
-#define pw_registry_resource_v0_global(r,...)        pw_resource_notify(r,struct pw_registry_proxy_v0_events,global,__VA_ARGS__)
-#define pw_registry_resource_v0_global_remove(r,...) pw_resource_notify(r,struct pw_registry_proxy_v0_events,global_remove,__VA_ARGS__)
+#define pw_registry_resource_v0_global(r,...)        pw_resource_notify(r,struct pw_registry_v0_events,global,__VA_ARGS__)
+#define pw_registry_resource_v0_global_remove(r,...) pw_resource_notify(r,struct pw_registry_v0_events,global_remove,__VA_ARGS__)
 
 
 #define PW_VERSION_MODULE_V0			0

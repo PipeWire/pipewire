@@ -53,7 +53,7 @@ struct data {
 	struct pw_core *core;
 	struct spa_hook core_listener;
 
-	struct pw_registry_proxy *registry_proxy;
+	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
 	struct spa_list pending_list;
@@ -628,7 +628,7 @@ static void registry_event_global(void *data, uint32_t id,
 		return;
 	}
 
-        proxy = pw_registry_proxy_bind(d->registry_proxy, id, type,
+        proxy = pw_registry_bind(d->registry, id, type,
 				       client_version,
 				       sizeof(struct proxy_data));
         if (proxy == NULL)
@@ -661,8 +661,8 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	printf("\tid: %u\n", id);
 }
 
-static const struct pw_registry_proxy_events registry_events = {
-	PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
 	.global = registry_event_global,
 	.global_remove = registry_event_global_remove,
 };
@@ -723,9 +723,9 @@ int main(int argc, char *argv[])
 	pw_core_add_listener(data.core,
 				   &data.core_listener,
 				   &core_events, &data);
-	data.registry_proxy = pw_core_get_registry(data.core,
-					  PW_VERSION_REGISTRY_PROXY, 0);
-	pw_registry_proxy_add_listener(data.registry_proxy,
+	data.registry = pw_core_get_registry(data.core,
+					  PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(data.registry,
 				       &data.registry_listener,
 				       &registry_events, &data);
 

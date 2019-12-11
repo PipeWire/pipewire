@@ -150,8 +150,8 @@ error_exit:
 	return res;
 }
 
-static const struct pw_registry_proxy_methods registry_methods = {
-	PW_VERSION_REGISTRY_PROXY_METHODS,
+static const struct pw_registry_methods registry_methods = {
+	PW_VERSION_REGISTRY_METHODS,
 	.bind = registry_bind,
 	.destroy = registry_destroy
 };
@@ -238,7 +238,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	return 0;
 }
 
-static struct pw_registry_proxy * core_get_registry(void *object, uint32_t version, size_t user_data_size)
+static struct pw_registry * core_get_registry(void *object, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
 	struct pw_client *client = resource->client;
@@ -284,7 +284,7 @@ static struct pw_registry_proxy * core_get_registry(void *object, uint32_t versi
 		}
 	}
 
-	return (struct pw_registry_proxy *)registry_resource;
+	return (struct pw_registry *)registry_resource;
 
 error_resource:
 	pw_log_error(NAME" %p: can't create registry resource: %m", this);

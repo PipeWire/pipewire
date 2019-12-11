@@ -173,7 +173,7 @@ struct core_data {
   int seq;
   GstPipeWireDeviceProvider *self;
   struct spa_hook core_listener;
-  struct pw_registry_proxy *registry;
+  struct pw_registry *registry;
   struct spa_hook registry_listener;
   struct spa_list nodes;
   struct spa_list ports;
@@ -457,7 +457,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
   if (type == PW_TYPE_INTERFACE_Node) {
     struct pw_node_proxy *node;
 
-    node = pw_registry_proxy_bind(rd->registry,
+    node = pw_registry_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Node,
 		    PW_VERSION_NODE_PROXY, sizeof(*nd));
     if (node == NULL)
@@ -484,7 +484,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     if ((nd = find_node_data(rd, atoi(str))) == NULL)
       return;
 
-    port = pw_registry_proxy_bind(rd->registry,
+    port = pw_registry_bind(rd->registry,
 		    id, PW_TYPE_INTERFACE_Port,
 		    PW_VERSION_PORT_PROXY, sizeof(*pd));
     if (port == NULL)
@@ -513,8 +513,8 @@ static void registry_event_global_remove(void *data, uint32_t id)
 {
 }
 
-static const struct pw_registry_proxy_events registry_events = {
-  PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events registry_events = {
+  PW_VERSION_REGISTRY_EVENTS,
   .global = registry_event_global,
   .global_remove = registry_event_global_remove,
 };
@@ -552,8 +552,8 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   self->list_only = TRUE;
   self->devices = NULL;
 
-  data->registry = pw_core_get_registry(self->core, PW_VERSION_REGISTRY_PROXY, 0);
-  pw_registry_proxy_add_listener(data->registry, &data->registry_listener, &registry_events, data);
+  data->registry = pw_core_get_registry(self->core, PW_VERSION_REGISTRY, 0);
+  pw_registry_add_listener(data->registry, &data->registry_listener, &registry_events, data);
 
   pw_core_sync(self->core, 0, self->seq++);
 
@@ -620,9 +620,9 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   pw_core_add_listener(self->core, &data->core_listener, &core_events, self);
 
-  self->registry = pw_core_get_registry(self->core, PW_VERSION_REGISTRY_PROXY, 0);
+  self->registry = pw_core_get_registry(self->core, PW_VERSION_REGISTRY, 0);
   data->registry = self->registry;
-  pw_registry_proxy_add_listener(self->registry, &data->registry_listener, &registry_events, data);
+  pw_registry_add_listener(self->registry, &data->registry_listener, &registry_events, data);
 
   pw_core_sync(self->core, 0, self->seq++);
 

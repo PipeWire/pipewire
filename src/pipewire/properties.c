@@ -267,6 +267,59 @@ int pw_properties_update(struct pw_properties *props,
 	return changed;
 }
 
+/** Add properties
+ *
+ * \param props properties to add
+ * \param dict new properties
+ * \return the number of added properties
+ *
+ * The properties from \a dict that are not yet in \a props are added.
+ *
+ * \memberof pw_properties
+ */
+SPA_EXPORT
+int pw_properties_add(struct pw_properties *props,
+		         const struct spa_dict *dict)
+{
+	uint32_t i;
+	int added = 0;
+
+	for (i = 0; i < dict->n_items; i++) {
+		if (pw_properties_get(props, dict->items[i].key) == NULL)
+			added += pw_properties_set(props, dict->items[i].key, dict->items[i].value);
+	}
+	return added;
+}
+
+/** Add keys
+ *
+ * \param props properties to add
+ * \param dict new properties
+ * \param keys a NULL terminated list of keys to add
+ * \return the number of added properties
+ *
+ * The properties with \a keys from \a dict that are not yet
+ * in \a props are added.
+ *
+ * \memberof pw_properties
+ */
+SPA_EXPORT
+int pw_properties_add_keys(struct pw_properties *props,
+		const struct spa_dict *dict, const char *keys[])
+{
+	uint32_t i;
+	int added = 0;
+	const char *str;
+
+	for (i = 0; keys[i]; i++) {
+		if ((str = spa_dict_lookup(dict, keys[i])) == NULL)
+			continue;
+		if (pw_properties_get(props, keys[i]) == NULL)
+			added += pw_properties_set(props, keys[i], str);
+	}
+	return added;
+}
+
 /** Free a properties object
  *
  * \param properties the properties to free

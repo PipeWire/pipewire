@@ -63,6 +63,11 @@ int pw_properties_update_keys(struct pw_properties *props,
 int pw_properties_update(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);
 
+int pw_properties_add(struct pw_properties *oldprops,
+		     const struct spa_dict *dict);
+int pw_properties_add_keys(struct pw_properties *oldprops,
+		     const struct spa_dict *dict, const char *keys[]);
+
 void pw_properties_clear(struct pw_properties *properties);
 
 void

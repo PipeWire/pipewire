@@ -618,7 +618,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global);
 
-	if ((str = pw_properties_get(properties, PW_KEY_CORE_PROFILE_MODULES)) == NULL)
+	if ((str = pw_properties_get(properties, PW_KEY_CONTEXT_PROFILE_MODULES)) == NULL)
 		str = "default";
 
 	load_module_profile(this, str);

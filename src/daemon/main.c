@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 
 	properties = pw_properties_new(
                                 PW_KEY_CORE_NAME, daemon_name,
-                                PW_KEY_CORE_PROFILE_MODULES, "none",
+                                PW_KEY_CONTEXT_PROFILE_MODULES, "none",
                                 PW_KEY_CORE_DAEMON, "1", NULL);
 
 	/* parse configuration */
@@ -112,9 +112,7 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGINT, do_quit, loop);
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGTERM, do_quit, loop);
 
-	context = pw_context_new(pw_main_loop_get_loop(loop),
-			properties, 0);
-
+	context = pw_context_new(pw_main_loop_get_loop(loop), properties, 0);
 	if (context == NULL) {
 		pw_log_error("failed to create context: %m");
 		return -1;

@@ -133,12 +133,6 @@ pw_get_host_name(void);
 const char *
 pw_get_client_name(void);
 
-void
-pw_fill_connect_properties(struct pw_context *context, struct pw_properties *properties);
-
-void
-pw_fill_stream_properties(struct pw_context *context, struct pw_properties *properties);
-
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);
 

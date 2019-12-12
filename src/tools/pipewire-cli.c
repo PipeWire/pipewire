@@ -1632,8 +1632,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
-	const struct pw_core_info *info;
-	char *error, args[128];
+	char *error;
 
 	pw_init(&argc, &argv);
 
@@ -1646,16 +1645,15 @@ int main(int argc, char *argv[])
 	pw_map_init(&data.vars, 64, 16);
 
 	data.context = pw_context_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
-	info = pw_context_get_info(data.context);
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
 	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
 
-	fprintf(stdout, "Welcome to PipeWire \"%s\" version %s. Type 'help' for usage.\n", info->name, info->version);
+	fprintf(stdout, "Welcome to PipeWire version %s. Type 'help' for usage.\n",
+			pw_get_library_version());
 
-	snprintf(args, sizeof(args), "%s", info->name);
-	do_connect(&data, "connect", args, &error);
+	do_connect(&data, "connect", "internal", &error);
 
 	pw_main_loop_run(data.loop);
 

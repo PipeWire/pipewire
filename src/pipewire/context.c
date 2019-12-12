@@ -39,6 +39,8 @@
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
 
+#include <extensions/protocol-native.h>
+
 #define NAME "context"
 
 /** \cond */
@@ -58,399 +60,6 @@ struct factory_entry {
 	char *lib;
 };
 
-/** \endcond */
-static void * registry_bind(void *object, uint32_t id,
-		uint32_t type, uint32_t version, size_t user_data_size)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_context *context = resource->context;
-	struct pw_global *global;
-	uint32_t permissions, new_id = user_data_size;
-
-	if ((global = pw_context_find_global(context, id)) == NULL)
-		goto error_no_id;
-
-	permissions = pw_global_get_permissions(global, client);
-
-	if (!PW_PERM_IS_R(permissions))
-		goto error_no_id;
-
-	if (global->type != type)
-		goto error_wrong_interface;
-
-	pw_log_debug("global %p: bind global id %d, iface %s/%d to %d", global, id,
-		     spa_debug_type_find_name(pw_type_info(), type), version, new_id);
-
-	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
-		goto error_exit_clean;
-
-	return NULL;
-
-error_no_id:
-	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
-	pw_resource_errorf(resource, -ENOENT, "no such global %u", id);
-	goto error_exit_clean;
-error_wrong_interface:
-	pw_log_debug("registry %p: global with id %u has no interface %u", resource, id, type);
-	pw_resource_errorf(resource, -ENOENT, "no such interface %u", type);
-	goto error_exit_clean;
-error_exit_clean:
-	/* unmark the new_id the map, the client does not yet know about the failed
-	 * bind and will choose the next id, which we would refuse when we don't mark
-	 * new_id as 'used and freed' */
-	pw_map_insert_at(&client->objects, new_id, NULL);
-	pw_core_resource_remove_id(client->core_resource, new_id);
-	return NULL;
-}
-
-static int registry_destroy(void *object, uint32_t id)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_context *context = resource->context;
-	struct pw_global *global;
-	uint32_t permissions;
-	int res;
-
-	if ((global = pw_context_find_global(context, id)) == NULL)
-		goto error_no_id;
-
-	permissions = pw_global_get_permissions(global, client);
-
-	if (!PW_PERM_IS_R(permissions))
-		goto error_no_id;
-
-	if (!PW_PERM_IS_X(permissions))
-		goto error_not_allowed;
-
-	pw_log_debug("global %p: destroy global id %d", global, id);
-
-	pw_global_destroy(global);
-	return 0;
-
-error_no_id:
-	pw_log_debug("registry %p: no global with id %u to destroy", resource, id);
-	res = -ENOENT;
-	goto error_exit;
-error_not_allowed:
-	pw_log_debug("registry %p: destroy of id %u not allowed", resource, id);
-	res = -EPERM;
-	goto error_exit;
-error_exit:
-	return res;
-}
-
-static const struct pw_registry_methods registry_methods = {
-	PW_VERSION_REGISTRY_METHODS,
-	.bind = registry_bind,
-	.destroy = registry_destroy
-};
-
-static void destroy_registry_resource(void *object)
-{
-	struct pw_resource *resource = object;
-	spa_list_remove(&resource->link);
-}
-
-static const struct pw_resource_events resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = destroy_registry_resource
-};
-
-static int destroy_resource(void *object, void *data)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-
-	if (resource &&
-	    resource != client->core_resource) {
-		pw_resource_remove(resource);
-	}
-	return 0;
-}
-
-static int core_hello(void *object, uint32_t version)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_context *this = resource->context;
-	int res;
-
-	pw_log_debug(NAME" %p: hello %d from resource %p", this, version, resource);
-	pw_map_for_each(&client->objects, destroy_resource, client);
-
-	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
-	pw_core_resource_info(resource, &this->info);
-
-	if (version >= 3) {
-		if ((res = pw_global_bind(client->global, client,
-				PW_PERM_RWX, PW_VERSION_CLIENT, 1)) < 0)
-			return res;
-	}
-	return 0;
-}
-
-static int core_sync(void *object, uint32_t id, int seq)
-{
-	struct pw_resource *resource = object;
-	pw_log_trace(NAME" %p: sync %d for resource %d", resource->context, seq, id);
-	pw_core_resource_done(resource, id, seq);
-	return 0;
-}
-
-static int core_pong(void *object, uint32_t id, int seq)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_resource *r;
-
-	pw_log_debug(NAME" %p: pong %d for resource %d", resource->context, seq, id);
-
-	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
-		return -EINVAL;
-
-	pw_resource_emit_pong(r, seq);
-	return 0;
-}
-
-static int core_error(void *object, uint32_t id, int seq, int res, const char *message)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_resource *r;
-
-	pw_log_debug(NAME" %p: error %d for resource %d: %s", resource->context, res, id, message);
-
-	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
-		return -EINVAL;
-
-	pw_resource_emit_error(r, seq, res, message);
-	return 0;
-}
-
-static struct pw_registry * core_get_registry(void *object, uint32_t version, size_t user_data_size)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_context *this = resource->context;
-	struct pw_global *global;
-	struct pw_resource *registry_resource;
-	struct resource_data *data;
-	uint32_t new_id = user_data_size;
-	int res;
-
-	registry_resource = pw_resource_new(client,
-					    new_id,
-					    PW_PERM_RWX,
-					    PW_TYPE_INTERFACE_Registry,
-					    version,
-					    sizeof(*data));
-	if (registry_resource == NULL) {
-		res = -errno;
-		goto error_resource;
-	}
-
-	data = pw_resource_get_user_data(registry_resource);
-	pw_resource_add_listener(registry_resource,
-				&data->resource_listener,
-				&resource_events,
-				registry_resource);
-	pw_resource_add_object_listener(registry_resource,
-				&data->object_listener,
-				&registry_methods,
-				registry_resource);
-
-	spa_list_append(&this->registry_resource_list, &registry_resource->link);
-
-	spa_list_for_each(global, &this->global_list, link) {
-		uint32_t permissions = pw_global_get_permissions(global, client);
-		if (PW_PERM_IS_R(permissions)) {
-			pw_registry_resource_global(registry_resource,
-						    global->id,
-						    permissions,
-						    global->type,
-						    global->version,
-						    &global->properties->dict);
-		}
-	}
-
-	return (struct pw_registry *)registry_resource;
-
-error_resource:
-	pw_log_error(NAME" %p: can't create registry resource: %m", this);
-	pw_core_resource_errorf(client->core_resource, new_id,
-			client->recv_seq, res,
-			"can't create registry resource: %s", spa_strerror(res));
-	pw_map_insert_at(&client->objects, new_id, NULL);
-	pw_core_resource_remove_id(client->core_resource, new_id);
-	errno = -res;
-	return NULL;
-}
-
-static void *
-core_create_object(void *object,
-		   const char *factory_name,
-		   uint32_t type,
-		   uint32_t version,
-		   const struct spa_dict *props,
-		   size_t user_data_size)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_impl_factory *factory;
-	void *obj;
-	struct pw_properties *properties;
-	struct pw_context *this = client->context;
-	uint32_t new_id = user_data_size;
-	int res;
-
-	factory = pw_context_find_factory(this, factory_name);
-	if (factory == NULL || factory->global == NULL)
-		goto error_no_factory;
-
-	if (!PW_PERM_IS_R(pw_global_get_permissions(factory->global, client)))
-		goto error_no_factory;
-
-	if (factory->info.type != type)
-		goto error_type;
-
-	if (factory->info.version < version)
-		goto error_version;
-
-	if (props) {
-		properties = pw_properties_new_dict(props);
-		if (properties == NULL)
-			goto error_properties;
-	} else
-		properties = NULL;
-
-	/* error will be posted */
-	obj = pw_impl_factory_create_object(factory, resource, type, version, properties, new_id);
-	if (obj == NULL)
-		goto error_create_failed;
-
-	return 0;
-
-error_no_factory:
-	res = -ENOENT;
-	pw_log_error(NAME" %p: can't find factory '%s'", this, factory_name);
-	pw_resource_errorf(resource, res, "unknown factory name %s", factory_name);
-	goto error_exit;
-error_version:
-error_type:
-	res = -EPROTO;
-	pw_log_error(NAME" %p: invalid resource type/version", this);
-	pw_resource_errorf(resource, res, "wrong resource type/version");
-	goto error_exit;
-error_properties:
-	res = -errno;
-	pw_log_error(NAME" %p: can't create properties: %m", this);
-	pw_resource_errorf(resource, res, "can't create properties: %s", spa_strerror(res));
-	goto error_exit;
-error_create_failed:
-	res = -errno;
-	goto error_exit;
-error_exit:
-	pw_map_insert_at(&client->objects, new_id, NULL);
-	pw_core_resource_remove_id(client->core_resource, new_id);
-	errno = -res;
-	return NULL;
-}
-
-static int core_destroy(void *object, void *proxy)
-{
-	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
-	struct pw_resource *r = proxy;
-	pw_log_debug(NAME" %p: destroy resource %p from client %p", resource->context, r, client);
-	pw_resource_destroy(r);
-	return 0;
-}
-
-static const struct pw_core_methods core_methods = {
-	PW_VERSION_CORE_METHODS,
-	.hello = core_hello,
-	.sync = core_sync,
-	.pong = core_pong,
-	.error = core_error,
-	.get_registry = core_get_registry,
-	.create_object = core_create_object,
-	.destroy = core_destroy,
-};
-
-static void core_unbind_func(void *data)
-{
-	struct pw_resource *resource = data;
-	if (resource->id == 0)
-		resource->client->core_resource = NULL;
-	spa_list_remove(&resource->link);
-}
-
-static const struct pw_resource_events core_resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = core_unbind_func,
-};
-
-static int
-global_bind(void *_data,
-	    struct pw_impl_client *client,
-	    uint32_t permissions,
-	    uint32_t version,
-	    uint32_t id)
-{
-	struct pw_context *this = _data;
-	struct pw_global *global = this->global;
-	struct pw_resource *resource;
-	struct resource_data *data;
-	int res;
-
-	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
-	if (resource == NULL) {
-		res = -errno;
-		goto error;
-	}
-
-	data = pw_resource_get_user_data(resource);
-
-	pw_resource_add_listener(resource,
-			&data->resource_listener,
-			&core_resource_events,
-			resource);
-	pw_resource_add_object_listener(resource,
-			&data->object_listener,
-			&core_methods, resource);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
-
-	if (resource->id == 0)
-		client->core_resource = resource;
-	else
-		pw_core_resource_info(resource, &this->info);
-
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	return 0;
-
-error:
-	pw_log_error(NAME" %p: can't create resource: %m", this);
-	return res;
-}
-
-static void global_destroy(void *object)
-{
-	struct pw_context *context = object;
-	spa_hook_remove(&context->global_listener);
-	context->global = NULL;
-	pw_context_destroy(context);
-}
-
-static const struct pw_global_events global_events = {
-	PW_VERSION_GLOBAL_EVENTS,
-	.destroy = global_destroy,
-};
-
 static int load_module_profile(struct pw_context *this, const char *profile)
 {
 	pw_log_debug(NAME" %p: module profile %s", this, profile);
@@ -465,6 +74,41 @@ static int load_module_profile(struct pw_context *this, const char *profile)
 	}
 	return 0;
 }
+
+static void fill_properties(struct pw_context *context)
+{
+	struct pw_properties *properties = context->properties;
+
+	if (!pw_properties_get(properties, PW_KEY_APP_NAME))
+		pw_properties_set(properties, PW_KEY_APP_NAME, pw_get_client_name());
+
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_BINARY))
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_BINARY, pw_get_prgname());
+
+	if (!pw_properties_get(properties, PW_KEY_APP_LANGUAGE)) {
+		pw_properties_set(properties, PW_KEY_APP_LANGUAGE, getenv("LANG"));
+	}
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_ID)) {
+		pw_properties_setf(properties, PW_KEY_APP_PROCESS_ID, "%zd", (size_t) getpid());
+	}
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_USER))
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_USER, pw_get_user_name());
+
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_HOST))
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_HOST, pw_get_host_name());
+
+	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_SESSION_ID)) {
+		pw_properties_set(properties, PW_KEY_APP_PROCESS_SESSION_ID,
+				  getenv("XDG_SESSION_ID"));
+	}
+	if (!pw_properties_get(properties, PW_KEY_WINDOW_X11_DISPLAY)) {
+		pw_properties_set(properties, PW_KEY_WINDOW_X11_DISPLAY,
+				  getenv("DISPLAY"));
+	}
+	pw_properties_set(properties, PW_KEY_CORE_VERSION, context->core->info.version);
+	pw_properties_set(properties, PW_KEY_CORE_NAME, context->core->info.name);
+}
+
 
 /** Create a new context object
  *
@@ -481,7 +125,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 {
 	struct impl *impl;
 	struct pw_context *this;
-	const char *name, *lib, *str;
+	const char *lib, *str;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
 	struct pw_properties *pr;
@@ -560,6 +204,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_array_init(&this->factory_lib, 32);
 	pw_map_init(&this->globals, 128, 32);
 
+	spa_list_init(&this->core_impl_list);
 	spa_list_init(&this->protocol_list);
 	spa_list_init(&this->core_list);
 	spa_list_init(&this->registry_resource_list);
@@ -576,47 +221,19 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	spa_list_init(&this->driver_list);
 	spa_hook_list_init(&this->listener_list);
 
-	if ((name = pw_properties_get(properties, PW_KEY_CORE_NAME)) == NULL) {
-		pw_properties_setf(properties,
-				   PW_KEY_CORE_NAME, "pipewire-%s-%d",
-				   pw_get_user_name(), getpid());
-		name = pw_properties_get(properties, PW_KEY_CORE_NAME);
+	this->core = pw_context_create_core(this, pw_properties_copy(properties), 0);
+	if (this->core == NULL) {
+		res = -errno;
+		goto error_free_loop;
 	}
+	pw_impl_core_register(this->core, NULL);
+
+	fill_properties(this);
 
 	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
 		goto error_free_loop;
 
-	this->info.change_mask = 0;
-	this->info.user_name = pw_get_user_name();
-	this->info.host_name = pw_get_host_name();
-	this->info.version = pw_get_library_version();
-	srandom(time(NULL));
-	this->info.cookie = random();
-	this->info.name = name;
-
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
-
-	this->global = pw_global_new(this,
-				     PW_TYPE_INTERFACE_Core,
-				     PW_VERSION_CORE,
-				     pw_properties_new(
-					     PW_KEY_USER_NAME, this->info.user_name,
-					     PW_KEY_HOST_NAME, this->info.host_name,
-					     PW_KEY_CORE_NAME, this->info.name,
-					     PW_KEY_CORE_VERSION, this->info.version,
-					     NULL),
-				     global_bind,
-				     this);
-	if (this->global == NULL) {
-		res = -errno;
-		goto error_free_loop;
-	}
-	this->info.id = this->global->id;
-	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
-	this->info.props = &this->properties->dict;
-
-	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
-	pw_global_register(this->global);
 
 	if ((str = pw_properties_get(properties, PW_KEY_CONTEXT_PROFILE_MODULES)) == NULL)
 		str = "default";
@@ -655,11 +272,10 @@ void pw_context_destroy(struct pw_context *context)
 	struct pw_resource *resource;
 	struct pw_impl_node *node;
 	struct factory_entry *entry;
+	struct pw_impl_core *core_impl;
 
 	pw_log_debug(NAME" %p: destroy", context);
 	pw_context_emit_destroy(context);
-
-	spa_hook_remove(&context->global_listener);
 
 	spa_list_consume(core, &context->core_list, link)
 		pw_core_disconnect(core);
@@ -678,6 +294,9 @@ void pw_context_destroy(struct pw_context *context)
 
 	spa_list_consume(global, &context->global_list, link)
 		pw_global_destroy(global);
+
+	spa_list_consume(core_impl, &context->core_impl_list, link)
+		pw_impl_core_destroy(core_impl);
 
 	pw_log_debug(NAME" %p: free", context);
 	pw_context_emit_free(context);
@@ -706,18 +325,6 @@ SPA_EXPORT
 void *pw_context_get_user_data(struct pw_context *context)
 {
 	return context->user_data;
-}
-
-SPA_EXPORT
-const struct pw_core_info *pw_context_get_info(struct pw_context *context)
-{
-	return &context->info;
-}
-
-SPA_EXPORT
-struct pw_global *pw_context_get_global(struct pw_context *context)
-{
-	return context->global;
 }
 
 SPA_EXPORT
@@ -760,26 +367,10 @@ const struct pw_properties *pw_context_get_properties(struct pw_context *context
 SPA_EXPORT
 int pw_context_update_properties(struct pw_context *context, const struct spa_dict *dict)
 {
-	struct pw_resource *resource;
 	int changed;
 
 	changed = pw_properties_update(context->properties, dict);
-	context->info.props = &context->properties->dict;
-
 	pw_log_debug(NAME" %p: updated %d properties", context, changed);
-
-	if (!changed)
-		return 0;
-
-	context->info.change_mask = PW_CORE_CHANGE_MASK_PROPS;
-
-	pw_context_emit_info_changed(context, &context->info);
-
-	if (context->global)
-		spa_list_for_each(resource, &context->global->resource_list, link)
-			pw_core_resource_info(resource, &context->info);
-
-	context->info.change_mask = 0;
 
 	return changed;
 }

@@ -85,8 +85,6 @@ struct pw_context_events {
 	void (*destroy) (void *data);
 	/** The context is being freed */
 	void (*free) (void *data);
-	/** The context info changed,  use \ref pw_context_get_info() to get the updated info */
-	void (*info_changed) (void *data, const struct pw_core_info *info);
 	/** a new client object is added */
 	void (*check_access) (void *data, struct pw_impl_client *client);
 	/** a new global object was added */
@@ -111,12 +109,6 @@ void pw_context_add_listener(struct pw_context *context,
 			  struct spa_hook *listener,
 			  const struct pw_context_events *events,
 			  void *data);
-
-/** Get the context info object */
-const struct pw_core_info *pw_context_get_info(struct pw_context *context);
-
-/** Get the context global object */
-struct pw_global *pw_context_get_global(struct pw_context *context);
 
 /** Get the context properties */
 const struct pw_properties *pw_context_get_properties(struct pw_context *context);

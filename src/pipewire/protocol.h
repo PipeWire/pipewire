@@ -66,6 +66,8 @@ struct pw_protocol_server {
 	struct spa_list link;		/**< link in protocol server_list */
 	struct pw_protocol *protocol;	/**< the owner protocol */
 
+	struct pw_impl_core *core;
+
 	struct spa_list client_list;	/**< list of clients of this protocol */
 
 	void (*destroy) (struct pw_protocol_server *listen);
@@ -91,8 +93,10 @@ struct pw_protocol_implementaton {
 	uint32_t version;
 
 	struct pw_protocol_client * (*new_client) (struct pw_protocol *protocol,
+						   struct pw_core *core,
 						   const struct pw_properties *properties);
 	struct pw_protocol_server * (*add_server) (struct pw_protocol *protocol,
+						   struct pw_impl_core *core,
 						   const struct pw_properties *properties);
 };
 

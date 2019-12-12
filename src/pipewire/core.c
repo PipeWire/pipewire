@@ -276,7 +276,7 @@ static struct pw_core *core_new(struct pw_context *context,
 		struct pw_properties *properties, size_t user_data_size)
 {
 	struct pw_core *p;
-	struct pw_protocol *protocol = NULL;
+	struct pw_protocol *protocol;
 	const char *protocol_name;
 	int res;
 
@@ -292,7 +292,7 @@ static struct pw_core *core_new(struct pw_context *context,
 	if (properties == NULL)
 		goto error_properties;
 
-	pw_fill_connect_properties(context, properties);
+	pw_properties_add(properties, &context->properties->dict);
 
 	p->proxy.core = p;
 	p->context = context;
@@ -307,24 +307,19 @@ static struct pw_core *core_new(struct pw_context *context,
 	spa_list_init(&p->stream_list);
 	spa_list_init(&p->filter_list);
 
-	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL) {
-		if ((protocol_name = pw_properties_get(context->properties, PW_KEY_PROTOCOL)) == NULL) {
-			protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
-		}
-	}
+	if ((protocol_name = pw_properties_get(properties, PW_KEY_PROTOCOL)) == NULL &&
+	    (protocol_name = pw_properties_get(context->properties, PW_KEY_PROTOCOL)) == NULL)
+		protocol_name = PW_TYPE_INFO_PROTOCOL_Native;
 
-	if (protocol == NULL)
-		protocol = pw_context_find_protocol(context, protocol_name);
+	protocol = pw_context_find_protocol(context, protocol_name);
 	if (protocol == NULL) {
 		res = -ENOTSUP;
 		goto error_protocol;
 	}
 
-	p->conn = pw_protocol_new_client(protocol, properties);
+	p->conn = pw_protocol_new_client(protocol, p, properties);
 	if (p->conn == NULL)
 		goto error_connection;
-
-	p->conn->core = p;
 
 	if ((res = pw_proxy_init(&p->proxy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE)) < 0)
 		goto error_proxy;
@@ -423,15 +418,12 @@ struct pw_core *
 pw_context_connect_self(struct pw_context *context, struct pw_properties *properties,
 	      size_t user_data_size)
 {
-	const struct pw_core_info *info;
-
 	if (properties == NULL)
                 properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL)
 		return NULL;
 
-	info = pw_context_get_info(context);
-	pw_properties_set(properties, PW_KEY_REMOTE_NAME, info->name);
+	pw_properties_set(properties, PW_KEY_REMOTE_NAME, "internal");
 
 	return pw_context_connect(context, properties, user_data_size);
 }

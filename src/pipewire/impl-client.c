@@ -280,7 +280,7 @@ static const struct pw_context_events context_events = {
  * \memberof pw_impl_client
  */
 SPA_EXPORT
-struct pw_impl_client *pw_context_create_client(struct pw_context *context,
+struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 				struct pw_protocol *protocol,
 				struct pw_properties *properties,
 				size_t user_data_size)
@@ -299,7 +299,8 @@ struct pw_impl_client *pw_context_create_client(struct pw_context *context,
 	this = &impl->this;
 	pw_log_debug(NAME" %p: new", this);
 
-	this->context = context;
+	this->context = core->context;
+	this->core = core;
 	this->protocol = protocol;
 
 	if (properties == NULL)
@@ -336,11 +337,11 @@ struct pw_impl_client *pw_context_create_client(struct pw_context *context,
 
 	pw_map_init(&this->objects, 0, 32);
 
-	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
+	pw_context_add_listener(this->context, &impl->context_listener, &context_events, impl);
 
 	this->info.props = &this->properties->dict;
 
-	pw_context_emit_check_access(context, this);
+	pw_context_emit_check_access(this->context, this);
 
 	return this;
 
@@ -427,7 +428,7 @@ error_existed:
 SPA_EXPORT
 struct pw_context *pw_impl_client_get_context(struct pw_impl_client *client)
 {
-	return client->context;
+	return client->core->context;
 }
 
 SPA_EXPORT
@@ -569,7 +570,8 @@ SPA_EXPORT
 int pw_impl_client_update_permissions(struct pw_impl_client *client,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
-	struct pw_context *context = client->context;
+	struct pw_impl_core *core = client->core;
+	struct pw_context *context = core->context;
 	struct pw_permission *def;
 	uint32_t i;
 
@@ -603,7 +605,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 		else  {
 			struct pw_global *global;
 
-			global = pw_context_find_global(client->context, permissions[i].id);
+			global = pw_context_find_global(context, permissions[i].id);
 			if (global == NULL || global->id != permissions[i].id) {
 				pw_log_warn(NAME" %p: invalid global %d", client, permissions[i].id);
 				continue;

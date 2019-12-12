@@ -301,11 +301,10 @@ static void on_start(void *data, uint32_t version)
 {
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
-	struct pw_context *context = client->context;
 
 	pw_log_debug("version %d", version);
 
-	if (pw_global_bind(pw_context_get_global(context), client,
+	if (pw_global_bind(pw_impl_core_get_global(client->core), client,
 			PW_PERM_RWX, version, 0) < 0)
 		return;
 
@@ -357,7 +356,7 @@ static struct client_data *client_new(struct server *s, int fd)
 
 	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
 
-	client = pw_context_create_client(protocol->context,
+	client = pw_context_create_client(s->this.core,
 			protocol, props, sizeof(struct client_data));
 	if (client == NULL)
 		goto exit;
@@ -809,6 +808,7 @@ error:
 
 static struct pw_protocol_client *
 impl_new_client(struct pw_protocol *protocol,
+		struct pw_core *core,
 		const struct pw_properties *properties)
 {
 	struct client *impl;
@@ -823,6 +823,7 @@ impl_new_client(struct pw_protocol *protocol,
 
 	this = &impl->this;
 	this->protocol = protocol;
+	this->core = core;
 
 	impl->context = protocol->context;
 	impl->connection = pw_protocol_native_connection_new(protocol->context, -1);
@@ -834,8 +835,8 @@ impl_new_client(struct pw_protocol *protocol,
 	if (properties) {
 		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
 		if (str == NULL &&
-		    (str = pw_properties_get(properties, PW_KEY_REMOTE_NAME)) != NULL &&
-		    strcmp(str, impl->context->info.name) == 0)
+		   (str = pw_properties_get(properties, PW_KEY_REMOTE_NAME)) != NULL &&
+		    strcmp(str, "internal") == 0)
 			str = "internal";
 	}
 	if (str == NULL)
@@ -933,6 +934,7 @@ get_name(const struct pw_properties *properties)
 
 static struct server *
 create_server(struct pw_protocol *protocol,
+		struct pw_impl_core *core,
                 const struct pw_properties *properties)
 {
 	struct pw_protocol_server *this;
@@ -946,6 +948,7 @@ create_server(struct pw_protocol *protocol,
 
 	this = &s->this;
 	this->protocol = protocol;
+	this->core = core;
 	spa_list_init(&this->client_list);
 	this->destroy = destroy_server;
 
@@ -960,6 +963,7 @@ create_server(struct pw_protocol *protocol,
 
 static struct pw_protocol_server *
 impl_add_server(struct pw_protocol *protocol,
+		struct pw_impl_core *core,
                 const struct pw_properties *properties)
 {
 	struct pw_protocol_server *this;
@@ -967,7 +971,7 @@ impl_add_server(struct pw_protocol *protocol,
 	const char *name;
 	int res;
 
-	if ((s = create_server(protocol, properties)) == NULL)
+	if ((s = create_server(protocol, core, properties)) == NULL)
 		return NULL;
 
 	this = &s->this;
@@ -1083,9 +1087,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_protocol *this;
-	const char *val;
 	struct protocol_data *d;
 	const struct pw_properties *props;
+	const char *val;
 	int res;
 
 	if (pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
@@ -1109,15 +1113,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	d->protocol = this;
 	d->module = module;
 
-	d->local = create_server(this, props);
-
 	props = pw_context_get_properties(context);
+	d->local = create_server(this, context->core, props);
 
 	val = getenv("PIPEWIRE_DAEMON");
 	if (val == NULL)
 		val = pw_properties_get(props, PW_KEY_CORE_DAEMON);
 	if (val && pw_properties_parse_bool(val)) {
-		if (impl_add_server(this, props) == NULL) {
+		if (impl_add_server(this, context->core, props) == NULL) {
 			res = -errno;
 			goto error_cleanup;
 		}

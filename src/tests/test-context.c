@@ -38,7 +38,6 @@ static void test_abi(void)
 		uint32_t version;
 		void (*destroy) (void *data);
 		void (*free) (void *data);
-		void (*info_changed) (void *data, const struct pw_core_info *info);
 		void (*check_access) (void *data, struct pw_impl_client *client);
 		void (*global_added) (void *data, struct pw_global *global);
 		void (*global_removed) (void *data, struct pw_global *global);
@@ -46,7 +45,6 @@ static void test_abi(void)
 
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, free);
-	TEST_FUNC(ev, test, info_changed);
 	TEST_FUNC(ev, test, check_access);
 	TEST_FUNC(ev, test, global_added);
 	TEST_FUNC(ev, test, global_removed);
@@ -60,10 +58,6 @@ static void context_destroy_error(void *data)
 	spa_assert_not_reached();
 }
 static void context_free_error(void *data)
-{
-	spa_assert_not_reached();
-}
-static void context_info_changed_error(void *data, const struct pw_core_info *info)
 {
 	spa_assert_not_reached();
 }
@@ -85,7 +79,6 @@ static const struct pw_context_events context_events_error =
 	PW_VERSION_CONTEXT_EVENTS,
 	.destroy = context_destroy_error,
 	.free = context_free_error,
-	.info_changed = context_info_changed_error,
 	.check_access = context_check_access_error,
 	.global_added = context_global_added_error,
 	.global_removed = context_global_removed_error,
@@ -123,7 +116,6 @@ static void test_create(void)
 	struct pw_context *context;
 	struct spa_hook listener = { NULL, };
 	struct pw_context_events context_events = context_events_error;
-	struct pw_global *global;
 	int res;
 
 	loop = pw_main_loop_new(NULL);
@@ -131,7 +123,7 @@ static void test_create(void)
 
 	context = pw_context_new(pw_main_loop_get_loop(loop),
 			pw_properties_new(
-				PW_KEY_CORE_PROFILE_MODULES, "none",
+				PW_KEY_CONTEXT_PROFILE_MODULES, "none",
 				NULL), 12);
 	spa_assert(context != NULL);
 	pw_context_add_listener(context, &listener, &context_events, context);
@@ -140,19 +132,6 @@ static void test_create(void)
 	spa_assert(pw_context_get_main_loop(context) == pw_main_loop_get_loop(loop));
 	/* check user data */
 	spa_assert(pw_context_get_user_data(context) != NULL);
-
-	/* check info */
-	spa_assert(pw_context_get_info(context) != NULL);
-
-	/* check global */
-	global = pw_context_get_global(context);
-	spa_assert(global != NULL);
-	spa_assert(pw_context_find_global(context, 0) == global);
-	spa_assert(pw_global_get_context(global) == context);
-	spa_assert(pw_global_get_type(global) == PW_TYPE_INTERFACE_Core);
-	spa_assert(pw_global_get_version(global) == PW_VERSION_CORE);
-	spa_assert(pw_global_get_id(global) == 0);
-	spa_assert(pw_global_get_object(global) == (void*)context);
 
 	/* iterate globals */
 	spa_assert(context_foreach_count == 0);
@@ -178,15 +157,6 @@ static void test_create(void)
 	pw_main_loop_destroy(loop);
 }
 
-static int info_changed_count = 0;
-static void context_info_changed_count(void *data, const struct pw_core_info *info)
-{
-	spa_assert(spa_dict_lookup(info->props, "foo") == NULL);
-	spa_assert(!strcmp(spa_dict_lookup(info->props, "biz"), "buzz"));
-	spa_assert(!strcmp(spa_dict_lookup(info->props, "buzz"), "frizz"));
-	info_changed_count++;
-}
-
 static void test_properties(void)
 {
 	struct pw_main_loop *loop;
@@ -206,9 +176,6 @@ static void test_properties(void)
 	spa_assert(pw_context_get_user_data(context) == NULL);
 	pw_context_add_listener(context, &listener, &context_events, context);
 
-	context_events.info_changed = context_info_changed_count;
-	spa_assert(info_changed_count == 0);
-
 	props = pw_context_get_properties(context);
 	spa_assert(props != NULL);
 	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
@@ -222,8 +189,6 @@ static void test_properties(void)
 	/* add buzz */
 	items[2] = SPA_DICT_ITEM_INIT("buzz", "frizz");
 	pw_context_update_properties(context, &SPA_DICT_INIT(items, 3));
-
-	spa_assert(info_changed_count == 1);
 
 	spa_assert(props == pw_context_get_properties(context));
 	spa_assert(pw_properties_get(props, "foo") == NULL);

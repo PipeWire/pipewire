@@ -38,6 +38,7 @@ struct pw_resource;
 
 #include <pipewire/pipewire.h>
 #include <pipewire/control.h>
+#include <pipewire/impl-core.h>
 #include <pipewire/impl-client.h>
 #include <pipewire/impl-device.h>
 #include <pipewire/impl-factory.h>

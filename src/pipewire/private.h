@@ -95,10 +95,33 @@ struct protocol_compat_v2 {
 	struct pw_map types;
 };
 
+#define pw_impl_core_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_impl_core_events, m, v, ##__VA_ARGS__)
+
+#define pw_impl_core_emit_destroy(s)		pw_impl_core_emit(s, destroy, 0)
+#define pw_impl_core_emit_free(s)		pw_impl_core_emit(s, free, 0)
+#define pw_impl_core_emit_initialized(s)	pw_impl_core_emit(s, initialized, 0)
+
+struct pw_impl_core {
+	struct pw_context *context;
+	struct spa_list link;			/**< link in context object core_impl list */
+	struct pw_global *global;		/**< global object created for this core */
+	struct spa_hook global_listener;
+
+	struct pw_properties *properties;	/**< core properties */
+	struct pw_core_info info;		/**< core info */
+
+	struct spa_hook_list listener_list;
+	void *user_data;			/**< extra user data */
+
+	unsigned int registered:1;
+};
+
 struct pw_impl_client {
+	struct pw_impl_core *core;		/**< core object */
 	struct pw_context *context;		/**< context object */
-	struct spa_list link;		/**< link in context object client list */
-	struct pw_global *global;	/**< global object created for this client */
+
+	struct spa_list link;			/**< link in context object client list */
+	struct pw_global *global;		/**< global object created for this client */
 	struct spa_hook global_listener;
 
 	pw_permission_func_t permission_func;	/**< get permissions of an object */
@@ -201,10 +224,7 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 
 
 struct pw_context {
-	struct pw_global *global;	/**< the global of the context */
-	struct spa_hook global_listener;
-
-	struct pw_core_info info;	/**< info about the core */
+	struct pw_impl_core *core;		/**< core object */
 
 	struct pw_properties *properties;	/**< properties of the context */
 
@@ -212,6 +232,7 @@ struct pw_context {
 
 	struct pw_map globals;			/**< map of globals */
 
+	struct spa_list core_impl_list;		/**< list of core_imp */
 	struct spa_list protocol_list;		/**< list of protocols */
 	struct spa_list core_list;		/**< list of core connections */
 	struct spa_list registry_resource_list;	/**< list of registry resources */
@@ -675,7 +696,7 @@ struct pw_impl_link {
 struct pw_resource {
 	struct spa_interface impl;	/**< object implementation */
 
-	struct pw_context *context;		/**< the context object */
+	struct pw_context *context;	/**< the context object */
 	struct spa_list link;		/**< link in global resource_list */
 
 	struct pw_impl_client *client;	/**< owner client */

@@ -496,63 +496,6 @@ const char *pw_get_client_name(void)
 	}
 }
 
-/** Fill connectremote properties
- * \param properties a \ref pw_properties
- *
- * Fill \a properties with a set of default properties for connecting to a PipeWire instance.
- *
- * \memberof pw_pipewire
- */
-SPA_EXPORT
-void pw_fill_connect_properties(struct pw_context *context, struct pw_properties *properties)
-{
-	const char *val;
-
-	if (!pw_properties_get(properties, PW_KEY_APP_NAME))
-		pw_properties_set(properties, PW_KEY_APP_NAME, pw_get_client_name());
-
-	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_BINARY))
-		pw_properties_set(properties, PW_KEY_APP_PROCESS_BINARY, pw_get_prgname());
-
-	if (!pw_properties_get(properties, PW_KEY_APP_LANGUAGE)) {
-		pw_properties_set(properties, PW_KEY_APP_LANGUAGE, getenv("LANG"));
-	}
-	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_ID)) {
-		pw_properties_setf(properties, PW_KEY_APP_PROCESS_ID, "%zd", (size_t) getpid());
-	}
-	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_USER))
-		pw_properties_set(properties, PW_KEY_APP_PROCESS_USER, pw_get_user_name());
-
-	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_HOST))
-		pw_properties_set(properties, PW_KEY_APP_PROCESS_HOST, pw_get_host_name());
-
-	if (!pw_properties_get(properties, PW_KEY_APP_PROCESS_SESSION_ID)) {
-		pw_properties_set(properties, PW_KEY_APP_PROCESS_SESSION_ID,
-				  getenv("XDG_SESSION_ID"));
-	}
-	if (!pw_properties_get(properties, PW_KEY_WINDOW_X11_DISPLAY)) {
-		pw_properties_set(properties, PW_KEY_WINDOW_X11_DISPLAY,
-				  getenv("DISPLAY"));
-	}
-	pw_properties_set(properties, PW_KEY_CORE_VERSION, context->info.version);
-	pw_properties_set(properties, PW_KEY_CORE_NAME, context->info.name);
-
-	if ((val = pw_properties_get(context->properties, PW_KEY_CORE_DAEMON)))
-		pw_properties_set(properties, PW_KEY_CORE_DAEMON, val);
-}
-
-/** Fill stream properties
- * \param properties a \ref pw_properties
- *
- * Fill \a properties with a set of default stream properties.
- *
- * \memberof pw_pipewire
- */
-SPA_EXPORT
-void pw_fill_stream_properties(struct pw_context *context, struct pw_properties *properties)
-{
-}
-
 /** Reverse the direction \memberof pw_pipewire */
 SPA_EXPORT
 enum pw_direction pw_direction_reverse(enum pw_direction direction)

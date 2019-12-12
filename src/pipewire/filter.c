@@ -999,8 +999,8 @@ pw_filter_new_simple(struct pw_loop *loop,
 		return NULL;
 
 	context = pw_context_new(loop, NULL, 0);
-
-	pw_fill_connect_properties(context, props);
+	if (context == NULL)
+		return NULL;
 
 	impl = filter_new(context, name, props, props);
 	if (impl == NULL) {

@@ -15,6 +15,7 @@ pipewire_headers = [
   'filter.h',
   'global.h',
   'keys.h',
+  'impl.h',
   'impl-link.h',
   'link.h',
   'log.h',

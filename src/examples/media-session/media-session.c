@@ -97,6 +97,7 @@ struct impl {
 
 	struct pw_core *policy_core;
 	struct spa_hook policy_listener;
+	struct spa_hook proxy_policy_listener;
 
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
@@ -1585,6 +1586,18 @@ static const struct pw_core_events core_events = {
 	.error = core_error
 };
 
+static void policy_core_destroy(void *data)
+{
+	struct impl *impl = data;
+	pw_log_debug(NAME" %p: policy core destroy", impl);
+	impl->policy_core = NULL;
+}
+
+static const struct pw_proxy_events proxy_core_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = policy_core_destroy,
+};
+
 static int start_policy(struct impl *impl)
 {
 	impl->policy_core = pw_context_connect(impl->this.context, NULL, 0);
@@ -1596,6 +1609,9 @@ static int start_policy(struct impl *impl)
 	pw_core_add_listener(impl->policy_core,
 				   &impl->policy_listener,
 				   &core_events, impl);
+	pw_proxy_add_listener((struct pw_proxy*)impl->policy_core,
+				   &impl->proxy_policy_listener,
+				   &proxy_core_events, impl);
 	impl->registry = pw_core_get_registry(impl->policy_core,
                                                PW_VERSION_REGISTRY, 0);
 	pw_registry_add_listener(impl->registry,

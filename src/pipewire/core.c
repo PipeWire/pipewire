@@ -172,7 +172,6 @@ static int destroy_proxy(void *object, void *data)
 	if (object == NULL)
 		return 0;
 
-	p->core = NULL;
 	if (object != core)
 		pw_proxy_remove(p);
 
@@ -198,9 +197,6 @@ static void proxy_core_destroy(void *data)
 	spa_list_for_each_safe(filter, f2, &core->filter_list, link)
 		pw_filter_disconnect(filter);
 
-	pw_protocol_client_disconnect(core->conn);
-	core->client = NULL;
-
 	pw_map_for_each(&core->objects, destroy_proxy, core);
 	pw_map_reset(&core->objects);
 
@@ -208,6 +204,9 @@ static void proxy_core_destroy(void *data)
 		pw_stream_destroy(stream);
 	spa_list_consume(filter, &core->filter_list, link)
 		pw_filter_destroy(filter);
+
+	pw_protocol_client_disconnect(core->conn);
+	core->client = NULL;
 
 	pw_mempool_destroy(core->pool);
 

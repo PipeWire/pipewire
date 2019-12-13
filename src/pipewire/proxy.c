@@ -229,7 +229,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 		}
 	}
 	if (proxy->removed) {
-		if (proxy->core)
+		if (proxy->core && !proxy->core->destroyed)
 			pw_map_remove(&proxy->core->objects, proxy->id);
 
 		pw_proxy_unref(proxy);

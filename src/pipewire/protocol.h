@@ -94,10 +94,10 @@ struct pw_protocol_implementaton {
 
 	struct pw_protocol_client * (*new_client) (struct pw_protocol *protocol,
 						   struct pw_core *core,
-						   const struct pw_properties *properties);
+						   const struct spa_dict *props);
 	struct pw_protocol_server * (*add_server) (struct pw_protocol *protocol,
 						   struct pw_impl_core *core,
-						   const struct pw_properties *properties);
+						   const struct spa_dict *props);
 };
 
 struct pw_protocol_events {

@@ -142,7 +142,7 @@ static struct node *create_node(struct object *obj, uint32_t id,
 	node->handle = handle;
 	node->node = iface;
 	node->proxy = pw_core_export(impl->core,
-			info->type, pw_properties_new_dict(info->props), node->node, 0);
+			info->type, info->props, node->node, 0);
 	if (node->proxy == NULL)
 		goto clean_node;
 
@@ -250,7 +250,7 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 	obj->handle = handle;
 	obj->device = iface;
 	obj->proxy = pw_core_export(impl->core,
-			info->type, pw_properties_new_dict(info->props), obj->device, 0);
+			info->type, info->props, obj->device, 0);
 	if (obj->proxy == NULL)
 		goto clean_object;
 

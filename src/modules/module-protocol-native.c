@@ -809,7 +809,7 @@ error:
 static struct pw_protocol_client *
 impl_new_client(struct pw_protocol *protocol,
 		struct pw_core *core,
-		const struct pw_properties *properties)
+		const struct spa_dict *props)
 {
 	struct client *impl;
 	struct pw_protocol_client *this;
@@ -832,10 +832,10 @@ impl_new_client(struct pw_protocol *protocol,
 		goto error_free;
 	}
 
-	if (properties) {
-		str = pw_properties_get(properties, PW_KEY_REMOTE_INTENTION);
+	if (props) {
+		str = spa_dict_lookup(props, PW_KEY_REMOTE_INTENTION);
 		if (str == NULL &&
-		   (str = pw_properties_get(properties, PW_KEY_REMOTE_NAME)) != NULL &&
+		   (str = spa_dict_lookup(props, PW_KEY_REMOTE_NAME)) != NULL &&
 		    strcmp(str, "internal") == 0)
 			str = "internal";
 	}
@@ -919,12 +919,12 @@ static const struct spa_loop_control_hooks impl_hooks = {
 };
 
 static const char *
-get_name(const struct pw_properties *properties)
+get_name(const struct spa_dict *props)
 {
 	const char *name = NULL;
 
-	if (properties)
-		name = pw_properties_get(properties, PW_KEY_CORE_NAME);
+	if (props)
+		name = spa_dict_lookup(props, PW_KEY_CORE_NAME);
 	if (name == NULL)
 		name = getenv("PIPEWIRE_CORE");
 	if (name == NULL)
@@ -935,7 +935,7 @@ get_name(const struct pw_properties *properties)
 static struct server *
 create_server(struct pw_protocol *protocol,
 		struct pw_impl_core *core,
-                const struct pw_properties *properties)
+                const struct spa_dict *props)
 {
 	struct pw_protocol_server *this;
 	struct pw_context *context = protocol->context;
@@ -964,19 +964,19 @@ create_server(struct pw_protocol *protocol,
 static struct pw_protocol_server *
 impl_add_server(struct pw_protocol *protocol,
 		struct pw_impl_core *core,
-                const struct pw_properties *properties)
+                const struct spa_dict *props)
 {
 	struct pw_protocol_server *this;
 	struct server *s;
 	const char *name;
 	int res;
 
-	if ((s = create_server(protocol, core, properties)) == NULL)
+	if ((s = create_server(protocol, core, props)) == NULL)
 		return NULL;
 
 	this = &s->this;
 
-	name = get_name(properties);
+	name = get_name(props);
 
 	if ((res = init_socket_name(s, name)) < 0)
 		goto error;
@@ -1082,6 +1082,18 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
+static int need_server(struct pw_context *context, const struct spa_dict *props)
+{
+	const char *val;
+
+	val = getenv("PIPEWIRE_DAEMON");
+	if (val == NULL)
+		val = spa_dict_lookup(props, PW_KEY_CORE_DAEMON);
+	if (val && pw_properties_parse_bool(val))
+		return 1;
+	return 0;
+}
+
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
@@ -1089,7 +1101,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_protocol *this;
 	struct protocol_data *d;
 	const struct pw_properties *props;
-	const char *val;
 	int res;
 
 	if (pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
@@ -1114,13 +1125,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	d->module = module;
 
 	props = pw_context_get_properties(context);
-	d->local = create_server(this, context->core, props);
+	d->local = create_server(this, context->core, &props->dict);
 
-	val = getenv("PIPEWIRE_DAEMON");
-	if (val == NULL)
-		val = pw_properties_get(props, PW_KEY_CORE_DAEMON);
-	if (val && pw_properties_parse_bool(val)) {
-		if (impl_add_server(this, context->core, props) == NULL) {
+	if (need_server(context, &props->dict)) {
+		if (impl_add_server(this, context->core, &props->dict) == NULL) {
 			res = -errno;
 			goto error_cleanup;
 		}

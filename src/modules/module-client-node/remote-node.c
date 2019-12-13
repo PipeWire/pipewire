@@ -1165,25 +1165,24 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 }
 
 struct pw_proxy *pw_core_node_export(struct pw_core *core,
-		uint32_t type, struct pw_properties *props, void *object,
+		uint32_t type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_impl_node *node = object;
 
-	if (props) {
-		pw_impl_node_update_properties(node, &props->dict);
-		pw_properties_free(props);
-	}
+	if (props)
+		pw_impl_node_update_properties(node, props);
 	return node_export(core, object, false, user_data_size);
 }
 
 struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
-		uint32_t type, struct pw_properties *props, void *object,
+		uint32_t type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_impl_node *node;
 
-	node = pw_context_create_node(pw_core_get_context(core), props, 0);
+	node = pw_context_create_node(pw_core_get_context(core),
+			props ? pw_properties_new_dict(props) : NULL, 0);
 	if (node == NULL)
 		return NULL;
 

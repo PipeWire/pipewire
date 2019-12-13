@@ -47,7 +47,7 @@ void * pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		   struct pw_properties *properties);
 
 struct pw_proxy *pw_core_metadata_export(struct pw_core *core,
-		uint32_t type, struct pw_properties *props, void *object, size_t user_data_size);
+		uint32_t type, const struct spa_dict *props, void *object, size_t user_data_size);
 
 int pw_protocol_native_ext_metadata_init(struct pw_context *context);
 

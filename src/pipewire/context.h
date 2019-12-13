@@ -150,7 +150,7 @@ struct pw_export_type {
 	struct spa_list link;
 	uint32_t type;
 	struct pw_proxy * (*func) (struct pw_core *core,
-		uint32_t type, struct pw_properties *properties, void *object,
+		uint32_t type, const struct spa_dict *props, void *object,
 		size_t user_data_size);
 };
 

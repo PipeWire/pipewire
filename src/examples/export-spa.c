@@ -92,8 +92,10 @@ static int make_node(struct data *data)
 	}
 
 	data->proxy = pw_core_export(data->core,
-			SPA_TYPE_INTERFACE_Node, props,
+			SPA_TYPE_INTERFACE_Node, &props->dict,
 			data->node, 0);
+	pw_properties_free(props);
+
 	if (data->proxy == NULL)
 		return -errno;
 

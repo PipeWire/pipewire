@@ -583,8 +583,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	update_device_props(device);
 
 	device->sdevice = sm_media_session_export_device(impl->session,
-			pw_properties_copy(device->props),
-			device->device);
+			&device->props->dict, device->device);
 	if (device->sdevice == NULL) {
 		res = -errno;
 		goto clean_device;

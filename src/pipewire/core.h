@@ -551,7 +551,7 @@ struct pw_proxy *pw_core_find_proxy(struct pw_core *core, uint32_t id);
 /** Export an object into the PipeWire instance associated with core */
 struct pw_proxy *pw_core_export(struct pw_core *core,			/**< the core */
 				  uint32_t type,			/**< the type of object */
-				  struct pw_properties *properties,	/**< extra properties */
+				  const struct spa_dict *props,		/**< extra properties */
 				  void *object,				/**< object to export */
 				  size_t user_data_size			/**< extra user data */);
 

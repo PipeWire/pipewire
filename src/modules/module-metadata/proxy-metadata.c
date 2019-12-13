@@ -53,7 +53,7 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 struct pw_proxy *pw_core_metadata_export(struct pw_core *core,
-		uint32_t type, struct pw_properties *props, void *object,
+		uint32_t type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_metadata *meta = object;
@@ -62,13 +62,11 @@ struct pw_proxy *pw_core_metadata_export(struct pw_core *core,
 	struct object_data *data;
 
 	proxy = pw_core_create_object(core,
-					    "metadata",
-					    PW_TYPE_INTERFACE_Metadata,
-					    PW_VERSION_METADATA,
-					    props ? &props->dict : NULL,
-					    user_data_size + sizeof(struct object_data));
-	if (props)
-		pw_properties_free(props);
+				    "metadata",
+				    PW_TYPE_INTERFACE_Metadata,
+				    PW_VERSION_METADATA,
+				    props,
+				    user_data_size + sizeof(struct object_data));
         if (proxy == NULL)
 		return NULL;
 

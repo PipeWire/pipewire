@@ -474,7 +474,9 @@ static void make_node(struct data *data)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
-	pw_core_export(data->core, SPA_TYPE_INTERFACE_Node, props, &data->impl_node, 0);
+	pw_core_export(data->core, SPA_TYPE_INTERFACE_Node,
+			&props->dict, &data->impl_node, 0);
+	pw_properties_free(props);
 }
 
 static void set_permissions(struct data *data)

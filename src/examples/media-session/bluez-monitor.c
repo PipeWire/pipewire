@@ -161,7 +161,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	}
 	node->proxy = sm_media_session_export(impl->session,
 			PW_TYPE_INTERFACE_Node,
-			pw_properties_copy(node->props),
+			&node->props->dict,
 			node->adapter, 0);
 
 	spa_list_append(&obj->node_list, &node->link);
@@ -276,7 +276,7 @@ static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id
 	obj->device = iface;
 	obj->props = pw_properties_new_dict(info->props);
 	obj->proxy = sm_media_session_export(impl->session,
-			info->type, pw_properties_copy(obj->props), obj->device, 0);
+			info->type, &obj->props->dict, obj->device, 0);
 	if (obj->proxy == NULL) {
 		res = -errno;
 		goto clean_object;

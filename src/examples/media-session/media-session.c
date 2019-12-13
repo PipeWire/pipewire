@@ -1210,16 +1210,16 @@ static const struct pw_registry_events registry_events = {
 };
 
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
-		uint32_t type, struct pw_properties *properties,
+		uint32_t type, const struct spa_dict *props,
 		void *object, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	return pw_core_export(impl->monitor_core, type,
-			properties, object, user_data_size);
+			props, object, user_data_size);
 }
 
 struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
-		struct pw_properties *properties, struct spa_device *object)
+		const struct spa_dict *props, struct spa_device *object)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	struct sm_device *device;
@@ -1228,9 +1228,9 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 	pw_log_debug(NAME " %p: device %p", impl, object);
 
 	proxy = pw_core_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
-			properties, object, sizeof(struct sm_device));
+			props, object, sizeof(struct sm_device));
 
-	device = (struct sm_device *) create_object(impl, proxy, &properties->dict);
+	device = (struct sm_device *) create_object(impl, proxy, props);
 
 	return device;
 }

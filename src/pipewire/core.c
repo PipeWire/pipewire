@@ -237,7 +237,7 @@ struct pw_proxy *pw_core_find_proxy(struct pw_core *core, uint32_t id)
 
 SPA_EXPORT
 struct pw_proxy *pw_core_export(struct pw_core *core,
-		uint32_t type, struct pw_properties *props, void *object,
+		uint32_t type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_proxy *proxy;
@@ -259,13 +259,10 @@ struct pw_proxy *pw_core_export(struct pw_core *core,
 
 error_export_type:
 	pw_log_error(NAME" %p: can't export type %d: %s", core, type, spa_strerror(res));
-	goto exit_free;
+	goto exit;
 error_proxy_failed:
 	pw_log_error(NAME" %p: failed to create proxy: %s", core, spa_strerror(res));
 	goto exit;
-exit_free:
-	if (props)
-		pw_properties_free(props);
 exit:
 	errno = -res;
 	return NULL;
@@ -316,7 +313,7 @@ static struct pw_core *core_new(struct pw_context *context,
 		goto error_protocol;
 	}
 
-	p->conn = pw_protocol_new_client(protocol, p, properties);
+	p->conn = pw_protocol_new_client(protocol, p, &properties->dict);
 	if (p->conn == NULL)
 		goto error_connection;
 

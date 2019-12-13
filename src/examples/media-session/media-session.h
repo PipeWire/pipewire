@@ -218,11 +218,11 @@ struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, ui
 int sm_media_session_schedule_rescan(struct sm_media_session *sess);
 
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
-		uint32_t type, struct pw_properties *properties,
+		uint32_t type, const struct spa_dict *props,
 		void *object, size_t user_data_size);
 
 struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
-		struct pw_properties *properties, struct spa_device *device);
+		const struct spa_dict *props, struct spa_device *device);
 
 struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
 		const char *factory_name, uint32_t type, uint32_t version,

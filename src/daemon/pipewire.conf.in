@@ -1,7 +1,7 @@
 #daemon config file for PipeWire version @VERSION@
 
 #set-prop library.name.system			support/libspa-support
-#set-prop core.data-loop.library.name.system	support/libspa-support
+#set-prop context.data-loop.library.name.system	support/libspa-support
 #set-prop link.max-buffers	64
 
 add-spa-lib audio.convert* audioconvert/libspa-audioconvert

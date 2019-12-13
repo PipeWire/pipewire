@@ -44,7 +44,7 @@ pa_threaded_mainloop *pa_threaded_mainloop_new(void)
 	if (m->loop == NULL)
 		goto no_mem;
 
-	m->tloop = pw_thread_loop_new(m->loop->loop, NULL);
+	m->tloop = pw_thread_loop_new_full(m->loop->loop, "pipewire-pulse", NULL);
 	if (m->tloop == NULL)
 		goto no_mem;
 

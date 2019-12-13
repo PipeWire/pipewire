@@ -39,7 +39,6 @@ extern "C" {
 struct pw_main_loop;
 
 #include <pipewire/loop.h>
-#include <pipewire/properties.h>
 
 /** Events of the main loop */
 struct pw_main_loop_events {
@@ -50,9 +49,9 @@ struct pw_main_loop_events {
 	void (*destroy) (void *data);
 };
 
-/** Create a new main loop */
+/** Create a new main loop. */
 struct pw_main_loop *
-pw_main_loop_new(struct pw_properties *properties);
+pw_main_loop_new(const struct spa_dict *props);
 
 /** Add an event listener */
 void pw_main_loop_add_listener(struct pw_main_loop *loop,

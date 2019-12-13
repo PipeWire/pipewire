@@ -86,13 +86,7 @@ static void do_stop(void *data, uint64_t count)
 	this->running = false;
 }
 
-/** Create a new \ref pw_data_loop.
- * \return a newly allocated data loop
- *
- * \memberof pw_data_loop
- */
-SPA_EXPORT
-struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
+static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict *props)
 {
 	struct pw_data_loop *this;
 	int res;
@@ -105,13 +99,16 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 
 	pw_log_debug(NAME" %p: new", this);
 
-	this->loop = pw_loop_new(properties);
-	properties = NULL;
-	if (this->loop == NULL) {
+	if (loop == NULL) {
+		loop = pw_loop_new(props);
+		this->created = true;
+	}
+	if (loop == NULL) {
 		res = -errno;
 		pw_log_error(NAME" %p: can't create loop: %m", this);
 		goto error_free;
 	}
+	this->loop = loop;
 
 	this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
@@ -125,15 +122,26 @@ struct pw_data_loop *pw_data_loop_new(struct pw_properties *properties)
 	return this;
 
 error_loop_destroy:
-	pw_loop_destroy(this->loop);
+	if (this->created && this->loop)
+		pw_loop_destroy(this->loop);
 error_free:
 	free(this);
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
+
+/** Create a new \ref pw_data_loop.
+ * \return a newly allocated data loop
+ *
+ * \memberof pw_data_loop
+ */
+SPA_EXPORT
+struct pw_data_loop *pw_data_loop_new(const struct spa_dict *props)
+{
+	return loop_new(NULL, props);
+}
+
 
 /** Destroy a data loop
  * \param loop the data loop to destroy
@@ -149,7 +157,8 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 	pw_data_loop_stop(loop);
 
 	pw_loop_destroy_source(loop->loop, loop->event);
-	pw_loop_destroy(loop->loop);
+	if (loop->created)
+		pw_loop_destroy(loop->loop);
 	free(loop);
 }
 

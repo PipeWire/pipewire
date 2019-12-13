@@ -276,6 +276,7 @@ struct pw_data_loop {
 	struct spa_source *event;
 
 	pthread_t thread;
+	unsigned int created:1;
 	unsigned int running:1;
 };
 
@@ -288,6 +289,7 @@ struct pw_main_loop {
 	struct spa_hook_list listener_list;
 	struct spa_source *event;
 
+	unsigned int created:1;
 	unsigned int running:1;
 };
 

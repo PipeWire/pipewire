@@ -201,7 +201,6 @@ struct port {
 };
 
 struct context {
-	struct pw_main_loop *main;
 	struct pw_thread_loop *loop;
 	struct pw_context *context;
 
@@ -2100,8 +2099,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
-	client->context.main = pw_main_loop_new(NULL);
-	client->context.loop = pw_thread_loop_new(pw_main_loop_get_loop(client->context.main), client_name);
+	client->context.loop = pw_thread_loop_new(client_name, NULL);
         client->context.context = pw_context_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
 	spa_list_init(&client->context.free_objects);
 	spa_list_init(&client->context.nodes);
@@ -2252,7 +2250,6 @@ int jack_client_close (jack_client_t *client)
 	c->destroyed = true;
 	pw_context_destroy(c->context.context);
 	pw_thread_loop_destroy(c->context.loop);
-	pw_main_loop_destroy(c->context.main);
 
 	pw_log_debug(NAME" %p: free", client);
 	free(c);

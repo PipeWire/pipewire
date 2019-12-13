@@ -30,8 +30,7 @@ extern "C" {
 #endif
 
 #include <spa/support/loop.h>
-
-#include <pipewire/properties.h>
+#include <spa/utils/dict.h>
 
 /** \class pw_loop
  *
@@ -47,7 +46,7 @@ struct pw_loop {
 };
 
 struct pw_loop *
-pw_loop_new(struct pw_properties *properties);
+pw_loop_new(const struct spa_dict *props);
 
 void
 pw_loop_destroy(struct pw_loop *loop);

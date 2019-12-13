@@ -340,8 +340,8 @@ on_core_done (void *data, uint32_t id, int seq)
   pw_log_debug("check %d %d", seq, self->seq);
   if (seq == self->seq) {
     self->end = true;
-    if (self->main_loop)
-      pw_thread_loop_signal (self->main_loop, FALSE);
+    if (self->loop)
+      pw_thread_loop_signal (self->loop, FALSE);
   }
 }
 
@@ -357,7 +357,7 @@ on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
   if (id == 0) {
     self->error = res;
   }
-  pw_thread_loop_signal(self->main_loop, FALSE);
+  pw_thread_loop_signal(self->loop, FALSE);
 }
 
 static const struct pw_core_events core_events = {
@@ -585,26 +585,25 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "starting provider");
 
-  self->loop = pw_loop_new (NULL);
   self->list_only = FALSE;
   spa_list_init(&self->pending);
 
-  if (!(self->main_loop = pw_thread_loop_new (self->loop, "pipewire-device-monitor"))) {
+  if (!(self->loop = pw_thread_loop_new ("pipewire-device-monitor", NULL))) {
     GST_ERROR_OBJECT (self, "Could not create PipeWire mainloop");
-    goto failed_main_loop;
+    goto failed_loop;
   }
 
-  if (!(self->context = pw_context_new (self->loop, NULL, sizeof(*data)))) {
+  if (!(self->context = pw_context_new (pw_thread_loop_get_loop(self->loop), NULL, sizeof(*data)))) {
     GST_ERROR_OBJECT (self, "Could not create PipeWire context");
     goto failed_context;
   }
 
-  if (pw_thread_loop_start (self->main_loop) < 0) {
+  if (pw_thread_loop_start (self->loop) < 0) {
     GST_ERROR_OBJECT (self, "Could not start PipeWire mainloop");
     goto failed_start;
   }
 
-  pw_thread_loop_lock (self->main_loop);
+  pw_thread_loop_lock (self->loop);
 
   if ((self->core = pw_context_connect (self->context, NULL, 0)) == NULL) {
     GST_ERROR_OBJECT (self, "Failed to connect");
@@ -631,26 +630,24 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
       break;
     if (self->end)
       break;
-    pw_thread_loop_wait (self->main_loop);
+    pw_thread_loop_wait (self->loop);
   }
 
   GST_DEBUG_OBJECT (self, "started");
 
-  pw_thread_loop_unlock (self->main_loop);
+  pw_thread_loop_unlock (self->loop);
 
   return TRUE;
 
 failed_connect:
-  pw_thread_loop_unlock (self->main_loop);
+  pw_thread_loop_unlock (self->loop);
 failed_start:
   pw_context_destroy (self->context);
   self->context = NULL;
 failed_context:
-  pw_thread_loop_destroy (self->main_loop);
-  self->main_loop = NULL;
-failed_main_loop:
-  pw_loop_destroy (self->loop);
+  pw_thread_loop_destroy (self->loop);
   self->loop = NULL;
+failed_loop:
   return TRUE;
 }
 
@@ -669,12 +666,8 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
     pw_context_destroy (self->context);
     self->context = NULL;
   }
-  if (self->main_loop) {
-    pw_thread_loop_destroy (self->main_loop);
-    self->main_loop = NULL;
-  }
   if (self->loop) {
-    pw_loop_destroy (self->loop);
+    pw_thread_loop_destroy (self->loop);
     self->loop = NULL;
   }
 }

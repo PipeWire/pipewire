@@ -35,13 +35,7 @@ static void do_stop(void *data, uint64_t count)
 	this->running = false;
 }
 
-/** Create a new new main loop
- * \return a newly allocated \ref pw_main_loop
- *
- * \memberof pw_main_loop
- */
-SPA_EXPORT
-struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
+static struct pw_main_loop *loop_new(struct pw_loop *loop, const struct spa_dict *props)
 {
 	struct pw_main_loop *this;
 	int res;
@@ -54,12 +48,15 @@ struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 
 	pw_log_debug(NAME" %p: new", this);
 
-	this->loop = pw_loop_new(properties);
-	properties = NULL;
-	if (this->loop == NULL) {
+	if (loop == NULL) {
+		loop = pw_loop_new(props);
+		this->created = true;
+	}
+	if (loop == NULL) {
 		res = -errno;
 		goto error_free;
 	}
+	this->loop = loop;
 
         this->event = pw_loop_add_event(this->loop, do_stop, this);
 	if (this->event == NULL) {
@@ -72,14 +69,24 @@ struct pw_main_loop *pw_main_loop_new(struct pw_properties *properties)
 	return this;
 
 error_free_loop:
-	pw_loop_destroy(this->loop);
+	if (this->created && this->loop)
+		pw_loop_destroy(this->loop);
 error_free:
 	free(this);
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
+}
+
+/** Create a new new main loop
+ * \return a newly allocated \ref pw_main_loop
+ *
+ * \memberof pw_main_loop
+ */
+SPA_EXPORT
+struct pw_main_loop *pw_main_loop_new(const struct spa_dict *props)
+{
+	return loop_new(NULL, props);
 }
 
 /** Destroy a main loop
@@ -93,7 +100,8 @@ void pw_main_loop_destroy(struct pw_main_loop *loop)
 	pw_log_debug(NAME" %p: destroy", loop);
 	pw_main_loop_emit_destroy(loop);
 
-	pw_loop_destroy(loop->loop);
+	if (loop->created)
+		pw_loop_destroy(loop->loop);
 
 	free(loop);
 }

@@ -49,9 +49,9 @@ struct pw_data_loop_events {
 	void (*destroy) (void *data);
 };
 
-/** Make a new loop */
+/** Make a new loop. */
 struct pw_data_loop *
-pw_data_loop_new(struct pw_properties *properties);
+pw_data_loop_new(const struct spa_dict *props);
 
 /** Add an event listener to loop */
 void pw_data_loop_add_listener(struct pw_data_loop *loop,

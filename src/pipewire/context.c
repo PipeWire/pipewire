@@ -158,7 +158,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if ((str = pw_properties_get(pr, "context.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
 		pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, str);
 
-	this->data_loop_impl = pw_data_loop_new(pr);
+	this->data_loop_impl = pw_data_loop_new(&pr->dict);
+	pw_properties_free(pr);
 	if (this->data_loop_impl == NULL)  {
 		res = -errno;
 		goto error_free;

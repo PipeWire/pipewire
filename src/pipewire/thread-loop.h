@@ -103,9 +103,14 @@ struct pw_thread_loop_events {
         void (*destroy) (void *data);
 };
 
-/** Make a new thread loop with the given name */
+/** Make a new thread loop with the given name and optional properties. */
 struct pw_thread_loop *
-pw_thread_loop_new(struct pw_loop *loop, const char *name);
+pw_thread_loop_new(const char *name, const struct spa_dict *props);
+
+/** Make a new thread loop with the given loop, name and optional properties.
+ * When \a loop is NULL, a new loop will be created. */
+struct pw_thread_loop *
+pw_thread_loop_new_full(struct pw_loop *loop, const char *name, const struct spa_dict *props);
 
 /** Destroy a thread loop */
 void pw_thread_loop_destroy(struct pw_thread_loop *loop);

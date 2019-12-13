@@ -119,10 +119,7 @@ gst_pipewire_sink_finalize (GObject * object)
 
   g_object_unref (pwsink->pool);
 
-  pw_thread_loop_destroy (pwsink->main_loop);
-  pwsink->main_loop = NULL;
-
-  pw_loop_destroy (pwsink->loop);
+  pw_thread_loop_destroy (pwsink->loop);
   pwsink->loop = NULL;
 
   if (pwsink->properties)
@@ -264,9 +261,9 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
 
-  pw_thread_loop_lock (sink->main_loop);
+  pw_thread_loop_lock (sink->loop);
   pw_stream_update_params (sink->stream, port_params, 2);
-  pw_thread_loop_unlock (sink->main_loop);
+  pw_thread_loop_unlock (sink->loop);
 }
 
 static void
@@ -281,10 +278,9 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   g_queue_init (&sink->queue);
 
-  sink->loop = pw_loop_new (NULL);
-  sink->main_loop = pw_thread_loop_new (sink->loop, "pipewire-sink-loop");
-  sink->context = pw_context_new (sink->loop, NULL, 0);
-  GST_DEBUG ("loop %p %p", sink->loop, sink->main_loop);
+  sink->loop = pw_thread_loop_new ("pipewire-sink-loop", NULL);
+  sink->context = pw_context_new (pw_thread_loop_get_loop(sink->loop), NULL, 0);
+  GST_DEBUG ("loop %p context %p", sink->loop, sink->context);
 }
 
 static GstCaps *
@@ -406,7 +402,7 @@ on_add_buffer (void *_data, struct pw_buffer *b)
 {
   GstPipeWireSink *pwsink = _data;
   gst_pipewire_pool_wrap_buffer (pwsink->pool, b);
-  pw_thread_loop_signal (pwsink->main_loop, FALSE);
+  pw_thread_loop_signal (pwsink->loop, FALSE);
 }
 
 static void
@@ -455,7 +451,7 @@ do_send_buffer (GstPipeWireSink *pwsink)
 
   if ((res = pw_stream_queue_buffer (pwsink->stream, data->b)) < 0) {
     g_warning ("can't send buffer %s", spa_strerror(res));
-    pw_thread_loop_signal (pwsink->main_loop, FALSE);
+    pw_thread_loop_signal (pwsink->loop, FALSE);
   } else
     pwsink->need_ready--;
 }
@@ -496,7 +492,7 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
           ("stream error: %s", error), (NULL));
       break;
   }
-  pw_thread_loop_signal (pwsink->main_loop, FALSE);
+  pw_thread_loop_signal (pwsink->loop, FALSE);
 }
 
 static void
@@ -524,7 +520,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   possible = gst_caps_to_format_all (caps, SPA_PARAM_EnumFormat);
 
-  pw_thread_loop_lock (pwsink->main_loop);
+  pw_thread_loop_lock (pwsink->loop);
   state = pw_stream_get_state (pwsink->stream, &error);
 
   if (state == PW_STREAM_STATE_ERROR)
@@ -554,12 +550,12 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       if (state == PW_STREAM_STATE_ERROR)
         goto start_error;
 
-      pw_thread_loop_wait (pwsink->main_loop);
+      pw_thread_loop_wait (pwsink->loop);
     }
   }
   res = TRUE;
 
-  pw_thread_loop_unlock (pwsink->main_loop);
+  pw_thread_loop_unlock (pwsink->loop);
 
   pwsink->negotiated = res;
 
@@ -568,7 +564,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 start_error:
   {
     GST_ERROR ("could not start stream: %s", error);
-    pw_thread_loop_unlock (pwsink->main_loop);
+    pw_thread_loop_unlock (pwsink->loop);
     g_ptr_array_unref (possible);
     return FALSE;
   }
@@ -586,7 +582,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (!pwsink->negotiated)
     goto not_negotiated;
 
-  pw_thread_loop_lock (pwsink->main_loop);
+  pw_thread_loop_lock (pwsink->loop);
   if (pw_stream_get_state (pwsink->stream, &error) != PW_STREAM_STATE_STREAMING)
     goto done;
 
@@ -616,7 +612,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     do_send_buffer (pwsink);
 
 done:
-  pw_thread_loop_unlock (pwsink->main_loop);
+  pw_thread_loop_unlock (pwsink->loop);
 
   return res;
 
@@ -664,7 +660,7 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
     props = NULL;
   }
 
-  pw_thread_loop_lock (pwsink->main_loop);
+  pw_thread_loop_lock (pwsink->loop);
   pwsink->stream = pw_stream_new (pwsink->core, pwsink->client_name, props);
   pwsink->pool->stream = pwsink->stream;
 
@@ -673,7 +669,7 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
 			 &stream_events,
 			 pwsink);
 
-  pw_thread_loop_unlock (pwsink->main_loop);
+  pw_thread_loop_unlock (pwsink->loop);
 
   return TRUE;
 }
@@ -683,14 +679,14 @@ gst_pipewire_sink_stop (GstBaseSink * basesink)
 {
   GstPipeWireSink *pwsink = GST_PIPEWIRE_SINK (basesink);
 
-  pw_thread_loop_lock (pwsink->main_loop);
+  pw_thread_loop_lock (pwsink->loop);
   if (pwsink->stream) {
     pw_stream_disconnect (pwsink->stream);
     pw_stream_destroy (pwsink->stream);
     pwsink->stream = NULL;
     pwsink->pool->stream = NULL;
   }
-  pw_thread_loop_unlock (pwsink->main_loop);
+  pw_thread_loop_unlock (pwsink->loop);
 
   pwsink->negotiated = FALSE;
 
@@ -700,10 +696,10 @@ gst_pipewire_sink_stop (GstBaseSink * basesink)
 static gboolean
 gst_pipewire_sink_open (GstPipeWireSink * pwsink)
 {
-  if (pw_thread_loop_start (pwsink->main_loop) < 0)
+  if (pw_thread_loop_start (pwsink->loop) < 0)
     goto mainloop_error;
 
-  pw_thread_loop_lock (pwsink->main_loop);
+  pw_thread_loop_lock (pwsink->loop);
 
   if (pwsink->fd == -1)
     pwsink->core = pw_context_connect (pwsink->context, NULL, 0);
@@ -713,7 +709,7 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
   if (pwsink->core == NULL)
     goto connect_error;
 
-  pw_thread_loop_unlock (pwsink->main_loop);
+  pw_thread_loop_unlock (pwsink->loop);
 
   return TRUE;
 
@@ -728,7 +724,7 @@ connect_error:
   {
     GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
         ("Failed to connect"), (NULL));
-    pw_thread_loop_unlock (pwsink->main_loop);
+    pw_thread_loop_unlock (pwsink->loop);
     return FALSE;
   }
 }
@@ -736,7 +732,7 @@ connect_error:
 static gboolean
 gst_pipewire_sink_close (GstPipeWireSink * pwsink)
 {
-  pw_thread_loop_lock (pwsink->main_loop);
+  pw_thread_loop_lock (pwsink->loop);
   if (pwsink->stream) {
     pw_stream_disconnect (pwsink->stream);
   }
@@ -744,9 +740,9 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
     pw_core_disconnect (pwsink->core);
     pwsink->core = NULL;
   }
-  pw_thread_loop_unlock (pwsink->main_loop);
+  pw_thread_loop_unlock (pwsink->loop);
 
-  pw_thread_loop_stop (pwsink->main_loop);
+  pw_thread_loop_stop (pwsink->loop);
 
   if (pwsink->stream) {
     pw_stream_destroy (pwsink->stream);

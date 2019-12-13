@@ -44,7 +44,6 @@ struct impl {
 
 	struct spa_handle *system_handle;
 	struct spa_handle *loop_handle;
-	struct pw_properties *properties;
 };
 /** \endcond */
 
@@ -53,7 +52,7 @@ struct impl {
  * \memberof pw_loop
  */
 SPA_EXPORT
-struct pw_loop *pw_loop_new(struct pw_properties *properties)
+struct pw_loop *pw_loop_new(const struct spa_dict *props)
 {
 	int res;
 	struct impl *impl;
@@ -72,17 +71,15 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 	}
 
 	this = &impl->this;
-	impl->properties = properties;
 
-	if (properties)
-		lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_SYSTEM);
+	if (props)
+		lib = spa_dict_lookup(props, PW_KEY_LIBRARY_NAME_SYSTEM);
 	else
 		lib = NULL;
 
 	impl->system_handle = pw_load_spa_handle(lib,
 			SPA_NAME_SUPPORT_SYSTEM,
-			properties ? &properties->dict : NULL,
-			n_support, support);
+			props, n_support, support);
 	if (impl->system_handle == NULL) {
 		res = -errno;
 		pw_log_error(NAME" %p: can't make "SPA_NAME_SUPPORT_SYSTEM" handle: %m", this);
@@ -99,14 +96,13 @@ struct pw_loop *pw_loop_new(struct pw_properties *properties)
 
 	support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, iface);
 
-	if (properties)
-		lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_LOOP);
+	if (props)
+		lib = spa_dict_lookup(props, PW_KEY_LIBRARY_NAME_LOOP);
 	else
 		lib = NULL;
 
 	impl->loop_handle = pw_load_spa_handle(lib,
-			SPA_NAME_SUPPORT_LOOP,
-			properties ? &properties->dict : NULL,
+			SPA_NAME_SUPPORT_LOOP, props,
 			n_support, support);
 	if (impl->loop_handle == NULL) {
 		res = -errno;
@@ -150,8 +146,6 @@ error_unload_system:
 error_free:
 	free(impl);
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -165,8 +159,6 @@ void pw_loop_destroy(struct pw_loop *loop)
 {
 	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
 
-	if (impl->properties)
-		pw_properties_free(impl->properties);
 	pw_unload_spa_handle(impl->loop_handle);
 	pw_unload_spa_handle(impl->system_handle);
 	free(impl);

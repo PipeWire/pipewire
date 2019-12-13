@@ -59,6 +59,7 @@ struct pw_thread_loop {
 
 	int n_waiting;
 	int n_waiting_for_accept;
+	unsigned int created:1;
 	unsigned int running:1;
 };
 /** \endcond */
@@ -96,23 +97,9 @@ do {									\
 	}								\
 } while(false);
 
-/** Create a new \ref pw_thread_loop
- *
- * \param loop the loop to wrap
- * \param name the name of the thread or NULL
- * \return a newly allocated \ref  pw_thread_loop
- *
- * Make a new \ref pw_thread_loop that will run \a loop in
- * a thread with \a name.
- *
- * After this function you should probably call pw_thread_loop_start() to
- * actually start the thread
- *
- * \memberof pw_thread_loop
- */
-SPA_EXPORT
-struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
-					  const char *name)
+static struct pw_thread_loop *loop_new(struct pw_loop *loop,
+					  const char *name,
+					  const struct spa_dict *props)
 {
 	struct pw_thread_loop *this;
 	pthread_mutexattr_t attr;
@@ -125,6 +112,14 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 
 	pw_log_debug(NAME" %p: new", this);
 
+	if (loop == NULL) {
+		loop = pw_loop_new(props);
+		this->created = true;
+	}
+	if (loop == NULL) {
+		res = -errno;
+		goto clean_this;
+	}
 	this->loop = loop;
 	this->name = name ? strdup(name) : NULL;
 
@@ -149,17 +144,47 @@ struct pw_thread_loop *pw_thread_loop_new(struct pw_loop *loop,
 
 	return this;
 
-      clean_acceptcond:
+clean_acceptcond:
 	pthread_cond_destroy(&this->accept_cond);
-      clean_cond:
+clean_cond:
 	pthread_cond_destroy(&this->cond);
-      clean_lock:
+clean_lock:
 	pthread_mutex_destroy(&this->lock);
-      clean_this:
+clean_this:
+	if (this->created && this->loop)
+		pw_loop_destroy(this->loop);
 	free(this->name);
 	free(this);
 	errno = -res;
 	return NULL;
+}
+
+/** Create a new \ref pw_thread_loop
+ *
+ * \param loop the loop to wrap
+ * \param name the name of the thread or NULL
+ * \return a newly allocated \ref  pw_thread_loop
+ *
+ * Make a new \ref pw_thread_loop that will run \a loop in
+ * a thread with \a name.
+ *
+ * After this function you should probably call pw_thread_loop_start() to
+ * actually start the thread
+ *
+ * \memberof pw_thread_loop
+ */
+SPA_EXPORT
+struct pw_thread_loop *pw_thread_loop_new(const char *name,
+					  const struct spa_dict *props)
+{
+	return loop_new(NULL, name, props);
+}
+
+SPA_EXPORT
+struct pw_thread_loop *pw_thread_loop_new_full(struct pw_loop *loop,
+		const char *name, const struct spa_dict *props)
+{
+	return loop_new(loop, name, props);
 }
 
 /** Destroy a threaded loop \memberof pw_thread_loop */
@@ -173,6 +198,9 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	spa_hook_remove(&loop->hook);
 
 	pw_loop_destroy_source(loop->loop, loop->event);
+
+	if (loop->created && loop->loop)
+		pw_loop_destroy(loop->loop);
 
 	pthread_cond_destroy(&loop->accept_cond);
 	pthread_cond_destroy(&loop->cond);

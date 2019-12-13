@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	loop = pw_main_loop_new(pw_properties_copy(properties));
+	loop = pw_main_loop_new(&properties->dict);
 	if (loop == NULL) {
 		pw_log_error("failed to create main-loop: %m");
 		return -1;

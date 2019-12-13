@@ -65,7 +65,7 @@ typedef struct {
 	unsigned int sample_bits;
 	snd_pcm_uframes_t min_avail;
 
-	struct pw_loop *loop;
+	struct spa_system *system;
 	struct pw_thread_loop *main_loop;
 
 	struct pw_context *context;
@@ -93,7 +93,7 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 	    (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
 		avail = snd_pcm_avail_update(io->pcm);
 		if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
-			spa_system_eventfd_read(pw->loop->system, io->poll_fd, &val);
+			spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 			return 1;
 		}
 	}
@@ -104,7 +104,7 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 static inline int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	spa_system_eventfd_write(pw->loop->system, pw->fd, 1);
+	spa_system_eventfd_write(pw->system, pw->fd, 1);
 	return 1;
 }
 
@@ -115,12 +115,10 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 			pw_thread_loop_stop(pw->main_loop);
 		if (pw->context)
 			pw_context_destroy(pw->context);
+		if (pw->fd >= 0)
+			spa_system_close(pw->system, pw->fd);
 		if (pw->main_loop)
 			pw_thread_loop_destroy(pw->main_loop);
-		if (pw->fd >= 0)
-			spa_system_close(pw->loop->system, pw->fd);
-		if (pw->loop)
-			pw_loop_destroy(pw->loop);
 		free(pw);
 	}
 }
@@ -782,6 +780,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	int err;
 	const char *str;
 	struct pw_properties *props;
+	struct pw_loop *loop;
 
 	assert(pcmp);
 	pw = calloc(1, sizeof(*pw));
@@ -812,9 +811,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 			pw->target = capture_node ? (uint32_t)atoi(capture_node) : SPA_ID_INVALID;
 	}
 
-        pw->loop = pw_loop_new(NULL);
-        pw->main_loop = pw_thread_loop_new(pw->loop, "alsa-pipewire");
-        pw->context = pw_context_new(pw->loop, NULL, 0);
+	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);
+	loop = pw_thread_loop_get_loop(pw->main_loop);
+	pw->system = loop->system;
+	pw->context = pw_context_new(loop, NULL, 0);
 
 	props = pw_properties_new(NULL, NULL);
 	str = pw_get_prgname();
@@ -836,7 +836,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
 	pw_thread_loop_unlock(pw->main_loop);
 
-	pw->fd = spa_system_eventfd_create(pw->loop->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	pw->fd = spa_system_eventfd_create(pw->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
 	pw->io.version = SND_PCM_IOPLUG_VERSION;
 	pw->io.name = "ALSA <-> PipeWire PCM I/O Plugin";

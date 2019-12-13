@@ -885,6 +885,8 @@ destroy_proxy(void *data)
 
 	sm_media_session_emit_remove(impl, obj);
 
+	remove_object(impl, obj);
+
 	if (obj->destroy)
 		obj->destroy(obj);
 }

@@ -621,26 +621,26 @@ static inline int spa_pod_builder_add(struct spa_pod_builder *builder, ...)
 
 #define spa_pod_builder_add_object(b,type,id,...)				\
 ({										\
-	struct spa_pod_frame f;							\
-	spa_pod_builder_push_object(b, &f, type, id);				\
+	struct spa_pod_frame _f;						\
+	spa_pod_builder_push_object(b, &_f, type, id);				\
 	spa_pod_builder_add(b, ##__VA_ARGS__, 0);				\
-	spa_pod_builder_pop(b, &f);						\
+	spa_pod_builder_pop(b, &_f);						\
 })
 
 #define spa_pod_builder_add_struct(b,...)					\
 ({										\
-	struct spa_pod_frame f;							\
-	spa_pod_builder_push_struct(b, &f);					\
+	struct spa_pod_frame _f;						\
+	spa_pod_builder_push_struct(b, &_f);					\
 	spa_pod_builder_add(b, ##__VA_ARGS__, NULL);				\
-	spa_pod_builder_pop(b, &f);						\
+	spa_pod_builder_pop(b, &_f);						\
 })
 
 #define spa_pod_builder_add_sequence(b,unit,...)				\
 ({										\
-	struct spa_pod_frame f;							\
-	spa_pod_builder_push_sequence(b, &f, unit);				\
+	struct spa_pod_frame _f;						\
+	spa_pod_builder_push_sequence(b, &_f, unit);				\
 	spa_pod_builder_add(b, ##__VA_ARGS__, 0, 0);				\
-	spa_pod_builder_pop(b, &f);						\
+	spa_pod_builder_pop(b, &_f);						\
 })
 
 /** Copy a pod structure */

@@ -31,7 +31,7 @@ fi
 export PIPEWIRE_CONFIG_FILE="${BUILDDIR}/src/daemon/pipewire.conf"
 export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export PIPEWIRE_MODULE_DIR="${BUILDDIR}/src/modules"
-export PATH="${BUILDDIR}/src/daemon:${PATH}"
+export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${PATH}"
 export LD_LIBRARY_PATH="${BUILDDIR}/pipewire-pulseaudio/src/:${BUILDDIR}/src/pipewire/:${BUILDDIR}/pipewire-jack/src/"
 export GST_PLUGIN_PATH="${BUILDDIR}/src/gst/"
 

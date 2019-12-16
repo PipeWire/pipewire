@@ -70,10 +70,11 @@ struct pw_array {
 	     (pos)++)
 
 #define pw_array_remove(a,p)						\
+({									\
 	(a)->size -= sizeof(*(p));					\
 	memmove(p, SPA_MEMBER((p), sizeof(*(p)), void),			\
-                SPA_PTRDIFF(pw_array_end(a),(p)));
-
+                SPA_PTRDIFF(pw_array_end(a),(p)));			\
+})
 
 /** Initialize the array with given extend \memberof pw_array */
 static inline void pw_array_init(struct pw_array *arr, size_t extend)

@@ -247,9 +247,9 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 		if (endpoint->monitor != NULL)
 			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Monitor");
 		else
-			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
+			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
 	} else {
-		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
+		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
 	}
 
 	s->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;

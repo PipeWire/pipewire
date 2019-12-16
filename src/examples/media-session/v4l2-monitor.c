@@ -41,11 +41,11 @@
 
 #include "media-session.h"
 
-struct v4l2_object;
+struct device;
 
-struct v4l2_node {
+struct node {
 	struct impl *impl;
-	struct v4l2_object *object;
+	struct device *device;
 	struct spa_list link;
 	uint32_t id;
 
@@ -55,7 +55,7 @@ struct v4l2_node {
 	struct spa_node *node;
 };
 
-struct v4l2_object {
+struct device {
 	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
@@ -77,21 +77,21 @@ struct impl {
 	struct spa_device *monitor;
 	struct spa_hook listener;
 
-	struct spa_list object_list;
+	struct spa_list device_list;
 };
 
-static struct v4l2_node *v4l2_find_node(struct v4l2_object *obj, uint32_t id)
+static struct node *v4l2_find_node(struct device *dev, uint32_t id)
 {
-	struct v4l2_node *node;
+	struct node *node;
 
-	spa_list_for_each(node, &obj->node_list, link) {
+	spa_list_for_each(node, &dev->node_list, link) {
 		if (node->id == id)
 			return node;
 	}
 	return NULL;
 }
 
-static void v4l2_update_node(struct v4l2_object *obj, struct v4l2_node *node,
+static void v4l2_update_node(struct device *dev, struct node *node,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update node %u", node->id);
@@ -102,11 +102,11 @@ static void v4l2_update_node(struct v4l2_object *obj, struct v4l2_node *node,
 	pw_properties_update(node->props, info->props);
 }
 
-static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
+static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct v4l2_node *node;
-	struct impl *impl = obj->impl;
+	struct node *node;
+	struct impl *impl = dev->impl;
 	int res;
 	const char *str;
 
@@ -124,16 +124,16 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 
 	node->props = pw_properties_new_dict(info->props);
 
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
+	str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
+		str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_ALIAS);
+		str = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
 	if (str == NULL)
 		str = "v4l2-device";
 	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
 
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION);
+	str = pw_properties_get(dev->props, SPA_KEY_DEVICE_DESCRIPTION);
 	if (str == NULL)
 		str = "v4l2-device";
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
@@ -141,7 +141,7 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
 	node->impl = impl;
-	node->object = obj;
+	node->device = dev;
 	node->id = id;
 	node->proxy = sm_media_session_create_object(impl->session,
 				"spa-node-factory",
@@ -154,7 +154,7 @@ static struct v4l2_node *v4l2_create_node(struct v4l2_object *obj, uint32_t id,
 		goto clean_node;
 	}
 
-	spa_list_append(&obj->node_list, &node->link);
+	spa_list_append(&dev->node_list, &node->link);
 
 	return node;
 
@@ -166,7 +166,7 @@ exit:
 	return NULL;
 }
 
-static void v4l2_remove_node(struct v4l2_object *obj, struct v4l2_node *node)
+static void v4l2_remove_node(struct device *dev, struct node *node)
 {
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
@@ -176,32 +176,32 @@ static void v4l2_remove_node(struct v4l2_object *obj, struct v4l2_node *node)
 
 static void v4l2_device_info(void *data, const struct spa_device_info *info)
 {
-	struct v4l2_object *obj = data;
+	struct device *dev = data;
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_dict(0, info->props);
 
-	pw_properties_update(obj->props, info->props);
+	pw_properties_update(dev->props, info->props);
 }
 
 static void v4l2_device_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct v4l2_object *obj = data;
-	struct v4l2_node *node;
+	struct device *dev = data;
+	struct node *node;
 
-	node = v4l2_find_node(obj, id);
+	node = v4l2_find_node(dev, id);
 
 	if (info == NULL) {
 		if (node == NULL) {
-			pw_log_warn("object %p: unknown node %u", obj, id);
+			pw_log_warn("device %p: unknown node %u", dev, id);
 			return;
 		}
-		v4l2_remove_node(obj, node);
+		v4l2_remove_node(dev, node);
 	} else if (node == NULL) {
-		v4l2_create_node(obj, id, info);
+		v4l2_create_node(dev, id, info);
 	} else {
-		v4l2_update_node(obj, node, info);
+		v4l2_update_node(dev, node, info);
 	}
 }
 
@@ -211,38 +211,38 @@ static const struct spa_device_events v4l2_device_events = {
 	.object_info = v4l2_device_object_info
 };
 
-static struct v4l2_object *v4l2_find_object(struct impl *impl, uint32_t id)
+static struct device *v4l2_find_device(struct impl *impl, uint32_t id)
 {
-	struct v4l2_object *obj;
+	struct device *dev;
 
-	spa_list_for_each(obj, &impl->object_list, link) {
-		if (obj->id == id)
-			return obj;
+	spa_list_for_each(dev, &impl->device_list, link) {
+		if (dev->id == id)
+			return dev;
 	}
 	return NULL;
 }
 
-static void v4l2_update_object(struct impl *impl, struct v4l2_object *obj,
+static void v4l2_update_device(struct impl *impl, struct device *dev,
 		const struct spa_device_object_info *info)
 {
-	pw_log_debug("update object %u", obj->id);
+	pw_log_debug("update device %u", dev->id);
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_dict(0, info->props);
 
-	pw_properties_update(obj->props, info->props);
+	pw_properties_update(dev->props, info->props);
 }
 
-static int v4l2_update_device_props(struct v4l2_object *obj)
+static int v4l2_update_device_props(struct device *dev)
 {
-	struct pw_properties *p = obj->props;
+	struct pw_properties *p = dev->props;
 	const char *s, *d;
 	char temp[32];
 
 	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
 		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_ID)) == NULL) {
 			if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
-				snprintf(temp, sizeof(temp), "%d", obj->id);
+				snprintf(temp, sizeof(temp), "%d", dev->id);
 				s = temp;
 			}
 		}
@@ -259,16 +259,16 @@ static int v4l2_update_device_props(struct v4l2_object *obj)
 	return 0;
 }
 
-static struct v4l2_object *v4l2_create_object(struct impl *impl, uint32_t id,
+static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_context *context = impl->session->context;
-	struct v4l2_object *obj;
+	struct device *dev;
 	struct spa_handle *handle;
 	int res;
 	void *iface;
 
-	pw_log_debug("new object %u", id);
+	pw_log_debug("new device %u", id);
 
 	if (info->type != SPA_TYPE_INTERFACE_Device) {
 		errno = EINVAL;
@@ -289,37 +289,37 @@ static struct v4l2_object *v4l2_create_object(struct impl *impl, uint32_t id,
 		goto unload_handle;
 	}
 
-	obj = calloc(1, sizeof(*obj));
-	if (obj == NULL) {
+	dev = calloc(1, sizeof(*dev));
+	if (dev == NULL) {
 		res = -errno;
 		goto unload_handle;
 	}
 
-	obj->impl = impl;
-	obj->id = id;
-	obj->handle = handle;
-	obj->device = iface;
-	obj->props = pw_properties_new_dict(info->props);
-	v4l2_update_device_props(obj);
+	dev->impl = impl;
+	dev->id = id;
+	dev->handle = handle;
+	dev->device = iface;
+	dev->props = pw_properties_new_dict(info->props);
+	v4l2_update_device_props(dev);
 
-	obj->proxy = sm_media_session_export(impl->session,
-			info->type, &obj->props->dict, obj->device, 0);
-	if (obj->proxy == NULL) {
+	dev->proxy = sm_media_session_export(impl->session,
+			info->type, &dev->props->dict, dev->device, 0);
+	if (dev->proxy == NULL) {
 		res = -errno;
-		goto clean_object;
+		goto clean_device;
 	}
 
-	spa_list_init(&obj->node_list);
+	spa_list_init(&dev->node_list);
 
-	spa_device_add_listener(obj->device,
-			&obj->device_listener, &v4l2_device_events, obj);
+	spa_device_add_listener(dev->device,
+			&dev->device_listener, &v4l2_device_events, dev);
 
-	spa_list_append(&impl->object_list, &obj->link);
+	spa_list_append(&impl->device_list, &dev->link);
 
-	return obj;
+	return dev;
 
-clean_object:
-	free(obj);
+clean_device:
+	free(dev);
 unload_handle:
 	pw_unload_spa_handle(handle);
 exit:
@@ -327,33 +327,33 @@ exit:
 	return NULL;
 }
 
-static void v4l2_remove_object(struct impl *impl, struct v4l2_object *obj)
+static void v4l2_remove_device(struct impl *impl, struct device *dev)
 {
-	pw_log_debug("remove object %u", obj->id);
-	spa_list_remove(&obj->link);
-	spa_hook_remove(&obj->device_listener);
-	pw_proxy_destroy(obj->proxy);
-	pw_unload_spa_handle(obj->handle);
-	free(obj);
+	pw_log_debug("remove device %u", dev->id);
+	spa_list_remove(&dev->link);
+	spa_hook_remove(&dev->device_listener);
+	pw_proxy_destroy(dev->proxy);
+	pw_unload_spa_handle(dev->handle);
+	free(dev);
 }
 
 static void v4l2_udev_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
 	struct impl *impl = data;
-	struct v4l2_object *obj;
+	struct device *dev;
 
-	obj = v4l2_find_object(impl, id);
+	dev = v4l2_find_device(impl, id);
 
 	if (info == NULL) {
-		if (obj == NULL)
+		if (dev == NULL)
 			return;
-		v4l2_remove_object(impl, obj);
-	} else if (obj == NULL) {
-		if ((obj = v4l2_create_object(impl, id, info)) == NULL)
+		v4l2_remove_device(impl, dev);
+	} else if (dev == NULL) {
+		if ((dev = v4l2_create_device(impl, id, info)) == NULL)
 			return;
 	} else {
-		v4l2_update_object(impl, obj, info);
+		v4l2_update_device(impl, dev, info);
 	}
 }
 
@@ -388,7 +388,7 @@ void * sm_v4l2_monitor_start(struct sm_media_session *sess)
 	}
 
 	impl->monitor = iface;
-	spa_list_init(&impl->object_list);
+	spa_list_init(&impl->device_list);
 
 	spa_device_add_listener(impl->monitor, &impl->listener,
 			&v4l2_udev_callbacks, impl);

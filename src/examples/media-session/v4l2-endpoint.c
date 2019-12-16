@@ -30,15 +30,12 @@
 
 #include "config.h"
 
-#include <alsa/asoundlib.h>
-#include <alsa/use-case.h>
-
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>
-#include <spa/param/audio/format-utils.h>
+#include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/pod.h>
@@ -48,8 +45,8 @@
 
 #include "media-session.h"
 
-#define NAME		"alsa-endpoint"
-#define SESSION_KEY	"alsa-endpoint"
+#define NAME		"v4l2-endpoint"
+#define SESSION_KEY	"v4l2-endpoint"
 
 struct endpoint {
 	struct spa_list link;
@@ -68,13 +65,6 @@ struct endpoint {
 
 	struct spa_param_info params[5];
 
-	struct endpoint *monitor;
-
-	unsigned int use_ucm:1;
-	snd_use_case_mgr_t *ucm;
-
-	struct spa_audio_info format;
-
 	struct spa_list stream_list;
 };
 
@@ -84,8 +74,6 @@ struct stream {
 
 	struct pw_properties *props;
 	struct pw_endpoint_stream_info info;
-
-	struct spa_audio_info format;
 
 	unsigned int active:1;
 };
@@ -139,31 +127,9 @@ static int client_endpoint_stream_set_param(void *object, uint32_t stream_id,
 
 static int stream_set_active(struct endpoint *endpoint, struct stream *stream, bool active)
 {
-	char buf[1024];
-	struct spa_pod_builder b = { 0, };
-	struct spa_pod *param;
-
 	if (stream->active == active)
 		return 0;
 
-	if (active) {
-		stream->format.info.raw.rate = 48000;
-
-		spa_pod_builder_init(&b, buf, sizeof(buf));
-		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &stream->format.info.raw);
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(endpoint->info.direction),
-			SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
-			SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
-
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(2, NULL, param);
-
-		pw_node_set_param((struct pw_node*)endpoint->node->node->obj.proxy,
-				SPA_PARAM_PortConfig, 0, param);
-	}
 	stream->active = active;
 	return 0;
 }
@@ -244,10 +210,7 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	if ((str = pw_properties_get(endpoint->props, PW_KEY_PRIORITY_SESSION)) != NULL)
 		pw_properties_set(s->props, PW_KEY_PRIORITY_SESSION, str);
 	if (endpoint->info.direction == PW_DIRECTION_OUTPUT) {
-		if (endpoint->monitor != NULL)
-			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Monitor");
-		else
-			pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
+		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Capture");
 	} else {
 		pw_properties_set(s->props, PW_KEY_ENDPOINT_STREAM_NAME, "Playback");
 	}
@@ -258,7 +221,6 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	s->info.name = (char*)pw_properties_get(s->props, PW_KEY_ENDPOINT_STREAM_NAME);
 	s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 	s->info.props = &s->props->dict;
-	s->format = endpoint->format;
 
 	pw_log_debug("stream %d", s->info.id);
 	pw_client_endpoint_stream_update(endpoint->client_endpoint,
@@ -320,7 +282,7 @@ static void update_params(void *data)
 			&endpoint->info);
 }
 
-static struct endpoint *create_endpoint(struct node *node, struct endpoint *monitor);
+static struct endpoint *create_endpoint(struct node *node);
 
 static void object_update(void *data)
 {
@@ -348,7 +310,7 @@ static void complete_endpoint(void *data)
 	pw_log_debug("endpoint %p: complete", endpoint);
 
 	spa_list_for_each(p, &endpoint->node->node->param_list, link) {
-		struct spa_audio_info info = { 0, };
+		struct spa_video_info info = { 0, };
 
 		if (p->id != SPA_PARAM_EnumFormat)
 			continue;
@@ -356,7 +318,7 @@ static void complete_endpoint(void *data)
 		if (spa_format_parse(p->param, &info.media_type, &info.media_subtype) < 0)
 			continue;
 
-		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+		if (info.media_type != SPA_MEDIA_TYPE_video ||
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			continue;
 
@@ -364,11 +326,8 @@ static void complete_endpoint(void *data)
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(2, NULL, p->param);
 
-		if (spa_format_audio_raw_parse(p->param, &info.info.raw) < 0)
+		if (spa_format_video_raw_parse(p->param, &info.info.raw) < 0)
 			continue;
-
-		if (endpoint->format.info.raw.channels < info.info.raw.channels)
-			endpoint->format = info;
 	}
 
 	pw_client_endpoint_update(endpoint->client_endpoint,
@@ -377,17 +336,6 @@ static void complete_endpoint(void *data)
 			&endpoint->info);
 
 	stream = endpoint_add_stream(endpoint);
-
-	if (endpoint->info.direction == PW_DIRECTION_INPUT) {
-		struct endpoint *monitor;
-
-		/* make monitor for sinks */
-		monitor = create_endpoint(endpoint->node, endpoint);
-		if (monitor == NULL)
-			return;
-
-		endpoint_add_stream(monitor);
-	}
 	stream_set_active(endpoint, stream, true);
 
 	sm_object_add_listener(&endpoint->node->node->obj, &endpoint->listener, &object_events, endpoint);
@@ -417,7 +365,7 @@ static const struct pw_proxy_events proxy_events = {
 	.bound = proxy_bound,
 };
 
-static struct endpoint *create_endpoint(struct node *node, struct endpoint *monitor)
+static struct endpoint *create_endpoint(struct node *node)
 {
 	struct impl *impl = node->impl;
 	struct device *device = node->device;
@@ -452,22 +400,12 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 		return NULL;
 	}
 
-	if (monitor != NULL) {
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
-		direction = PW_DIRECTION_OUTPUT;
-	} else {
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
-	}
+	pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
 
 	if ((str = pw_properties_get(pr, PW_KEY_PRIORITY_SESSION)) != NULL)
 		pw_properties_set(props, PW_KEY_PRIORITY_SESSION, str);
 	if ((name = pw_properties_get(pr, PW_KEY_NODE_DESCRIPTION)) != NULL) {
-		if (monitor != NULL) {
-			pw_properties_setf(props, PW_KEY_ENDPOINT_NAME, "Monitor of %s", monitor->info.name);
-			pw_properties_setf(props, PW_KEY_ENDPOINT_MONITOR, "%d", monitor->info.id);
-		} else {
-			pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
-		}
+		pw_properties_set(props, PW_KEY_ENDPOINT_NAME, name);
 	}
 	if ((str = pw_properties_get(pr, PW_KEY_DEVICE_ICON_NAME)) != NULL)
 		pw_properties_set(props, PW_KEY_ENDPOINT_ICON_NAME, str);
@@ -485,7 +423,6 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 	endpoint = pw_proxy_get_user_data(proxy);
 	endpoint->impl = impl;
 	endpoint->node = node;
-	endpoint->monitor = monitor;
 	endpoint->props = props;
 	endpoint->client_endpoint = (struct pw_client_endpoint *) proxy;
 	endpoint->info.version = PW_VERSION_ENDPOINT_INFO;
@@ -507,7 +444,7 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 	endpoint->info.n_params = 2;
 	spa_list_init(&endpoint->stream_list);
 
-	pw_log_debug(NAME" %p: new endpoint %p for alsa node %p", impl, endpoint, node);
+	pw_log_debug(NAME" %p: new endpoint %p for v4l2 node %p", impl, endpoint, node);
 	pw_proxy_add_listener(proxy,
 			&endpoint->proxy_listener,
 			&proxy_events, endpoint);
@@ -527,8 +464,7 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 
 	spa_list_append(&device->endpoint_list, &endpoint->link);
 
-	if (monitor == NULL)
-		sm_media_session_sync(impl->session, complete_endpoint, endpoint);
+	sm_media_session_sync(impl->session, complete_endpoint, endpoint);
 
 	return endpoint;
 }
@@ -539,13 +475,13 @@ static void destroy_endpoint(struct endpoint *endpoint)
 }
 
 /** fallback, one stream for each node */
-static int setup_alsa_fallback_endpoint(struct device *device)
+static int setup_v4l2_endpoint(struct device *device)
 {
 	struct impl *impl = device->impl;
 	struct sm_node *n;
 	struct sm_device *d = device->device;
 
-	pw_log_debug(NAME" %p: device %p fallback", impl, d);
+	pw_log_debug(NAME" %p: device %p setup", impl, d);
 
 	spa_list_for_each(n, &d->node_list, link) {
 		struct node *node;
@@ -556,74 +492,16 @@ static int setup_alsa_fallback_endpoint(struct device *device)
 		node->device = device;
 		node->node = n;
 		node->impl = impl;
-		node->endpoint = create_endpoint(node, NULL);
+		node->endpoint = create_endpoint(node);
 		if (node->endpoint == NULL)
 			return -errno;
 	}
 	return 0;
 }
 
-/** UCM.
- *
- * We create 1 stream for each verb + modifier combination
- */
-static int setup_alsa_ucm_endpoint(struct device *device)
-{
-	const char *str, *card_name = NULL;
-	char *name_free = NULL;
-	int i, res, num_verbs;
-	const char **verb_list = NULL;
-	struct spa_dict *props = device->device->info->props;
-	snd_use_case_mgr_t *ucm;
-
-	card_name = spa_dict_lookup(props, SPA_KEY_API_ALSA_CARD_NAME);
-	if (card_name == NULL &&
-	    (str = spa_dict_lookup(props, SPA_KEY_API_ALSA_CARD)) != NULL) {
-		snd_card_get_name(atoi(str), &name_free);
-		card_name = name_free;
-		pw_log_debug("got card name %s for index %s", card_name, str);
-	}
-	if (card_name == NULL) {
-		pw_log_error("can't get card name for index %s", str);
-		res = -ENOTSUP;
-		goto exit;
-	}
-
-	if ((res = snd_use_case_mgr_open(&ucm, card_name)) < 0) {
-		pw_log_error("can not open UCM for %s: %s", card_name, snd_strerror(res));
-		goto exit;
-	}
-
-	num_verbs = snd_use_case_verb_list(ucm, &verb_list);
-	if (num_verbs < 0) {
-		res = num_verbs;
-		pw_log_error("UCM verb list not found for %s: %s", card_name, snd_strerror(num_verbs));
-		goto close_exit;
-	}
-
-	for (i = 0; i < num_verbs; i++) {
-		pw_log_debug("verb: %s", verb_list[i]);
-	}
-
-	snd_use_case_free_list(verb_list, num_verbs);
-
-	res = -ENOTSUP;
-
-close_exit:
-	snd_use_case_mgr_close(ucm);
-exit:
-	free(name_free);
-	return res;
-}
-
 static int activate_device(struct device *device)
 {
-	int res;
-
-	if ((res = setup_alsa_ucm_endpoint(device)) < 0)
-		res = setup_alsa_fallback_endpoint(device);
-
-	return res;
+	return setup_v4l2_endpoint(device);
 }
 
 static int deactivate_device(struct device *device)
@@ -644,13 +522,11 @@ static void device_update(void *data)
 
 	if (!SPA_FLAG_IS_SET(device->device->obj.avail,
 			SM_DEVICE_CHANGE_MASK_INFO |
-			SM_DEVICE_CHANGE_MASK_NODES |
-			SM_DEVICE_CHANGE_MASK_PARAMS))
+			SM_DEVICE_CHANGE_MASK_NODES))
 		return;
 
 	if (SPA_FLAG_IS_SET(device->device->obj.changed,
-			SM_DEVICE_CHANGE_MASK_NODES |
-			SM_DEVICE_CHANGE_MASK_PARAMS)) {
+			SM_DEVICE_CHANGE_MASK_NODES)) {
 		activate_device(device);
 	}
 }
@@ -674,9 +550,9 @@ handle_device(struct impl *impl, struct sm_object *obj)
 
 	pw_log_debug(NAME" %p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
 
-	if (strstr(media_class, "Audio/") != media_class)
+	if (strstr(media_class, "Video/") != media_class)
 		return 0;
-	if (strcmp(str, "alsa") != 0)
+	if (strcmp(str, "v4l2") != 0)
 		return 0;
 
 	device = sm_object_add_data(obj, SESSION_KEY, sizeof(struct device));
@@ -684,7 +560,7 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	device->id = obj->id;
 	device->device = (struct sm_device*)obj;
 	spa_list_init(&device->endpoint_list);
-	pw_log_debug(NAME" %p: found alsa device %d media_class %s", impl, obj->id, media_class);
+	pw_log_debug(NAME" %p: found v4l2 device %d media_class %s", impl, obj->id, media_class);
 
 	sm_object_add_listener(obj, &device->listener, &device_events, device);
 
@@ -739,7 +615,7 @@ static const struct sm_media_session_events session_events = {
 	.remove = session_remove,
 };
 
-void *sm_alsa_endpoint_start(struct sm_media_session *session)
+void *sm_v4l2_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
@@ -753,7 +629,7 @@ void *sm_alsa_endpoint_start(struct sm_media_session *session)
 	return impl;
 }
 
-int sm_alsa_endpoint_stop(void *data)
+int sm_v4l2_endpoint_stop(void *data)
 {
 	return 0;
 }

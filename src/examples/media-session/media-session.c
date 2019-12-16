@@ -62,6 +62,7 @@ void * sm_stream_endpoint_start(struct sm_media_session *sess);
 void * sm_metadata_start(struct sm_media_session *sess);
 void * sm_alsa_midi_start(struct sm_media_session *sess);
 void * sm_v4l2_monitor_start(struct sm_media_session *sess);
+void * sm_v4l2_endpoint_start(struct sm_media_session *sess);
 void * sm_bluez5_monitor_start(struct sm_media_session *sess);
 void * sm_alsa_monitor_start(struct sm_media_session *sess);
 void * sm_alsa_endpoint_start(struct sm_media_session *sess);
@@ -1533,6 +1534,7 @@ static void proxy_client_session_bound(void *data, uint32_t id)
 	sm_alsa_monitor_start(&impl->this);
 	sm_alsa_endpoint_start(&impl->this);
 	sm_v4l2_monitor_start(&impl->this);
+	sm_v4l2_endpoint_start(&impl->this);
 	sm_stream_endpoint_start(&impl->this);
 }
 

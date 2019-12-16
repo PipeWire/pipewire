@@ -36,6 +36,7 @@
 #include <spa/utils/names.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
+#include <spa/pod/builder.h>
 
 #include "pipewire/pipewire.h"
 
@@ -59,14 +60,21 @@ struct device {
 	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
+	uint32_t device_id;
+
+	int priority;
+	int profile;
 
 	struct pw_properties *props;
 
 	struct spa_handle *handle;
-	struct pw_proxy *proxy;
 	struct spa_device *device;
 	struct spa_hook device_listener;
 
+	struct sm_device *sdevice;
+	struct spa_hook listener;
+
+	unsigned int appeared:1;
 	struct spa_list node_list;
 };
 
@@ -123,6 +131,8 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 	}
 
 	node->props = pw_properties_new_dict(info->props);
+
+	pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", dev->device_id);
 
 	str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
 	if (str == NULL)
@@ -259,6 +269,49 @@ static int v4l2_update_device_props(struct device *dev)
 	return 0;
 }
 
+static void set_profile(struct device *device, int index)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
+
+	device->profile = index;
+	if (device->device_id != 0) {
+		spa_device_set_param(device->device,
+				SPA_PARAM_Profile, 0,
+				spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+					SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
+	}
+}
+
+static void device_update(void *data)
+{
+	struct device *device = data;
+
+	pw_log_debug("device %p appeared %d %d", device, device->appeared, device->profile);
+
+	if (device->appeared)
+		return;
+
+	device->device_id = device->sdevice->obj.id;
+	device->appeared = true;
+
+	spa_device_add_listener(device->device,
+		&device->device_listener,
+		&v4l2_device_events, device);
+
+	set_profile(device, 1);
+	sm_object_sync_update(&device->sdevice->obj);
+}
+
+static const struct sm_object_events device_events = {
+	SM_VERSION_OBJECT_EVENTS,
+        .update = device_update,
+};
+
+
 static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
@@ -302,18 +355,19 @@ static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 	dev->props = pw_properties_new_dict(info->props);
 	v4l2_update_device_props(dev);
 
-	dev->proxy = sm_media_session_export(impl->session,
-			info->type, &dev->props->dict, dev->device, 0);
-	if (dev->proxy == NULL) {
+	dev->sdevice = sm_media_session_export_device(impl->session,
+			&dev->props->dict, dev->device);
+
+	if (dev->sdevice == NULL) {
 		res = -errno;
 		goto clean_device;
 	}
 
+	sm_object_add_listener(&dev->sdevice->obj,
+			&dev->listener,
+			&device_events, dev);
+
 	spa_list_init(&dev->node_list);
-
-	spa_device_add_listener(dev->device,
-			&dev->device_listener, &v4l2_device_events, dev);
-
 	spa_list_append(&impl->device_list, &dev->link);
 
 	return dev;
@@ -331,8 +385,10 @@ static void v4l2_remove_device(struct impl *impl, struct device *dev)
 {
 	pw_log_debug("remove device %u", dev->id);
 	spa_list_remove(&dev->link);
+	spa_hook_remove(&dev->listener);
 	spa_hook_remove(&dev->device_listener);
-	pw_proxy_destroy(dev->proxy);
+	if (dev->sdevice)
+		sm_object_destroy(&dev->sdevice->obj);
 	pw_unload_spa_handle(dev->handle);
 	free(dev);
 }

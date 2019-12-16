@@ -41,8 +41,8 @@
 #include "extensions/session-manager.h"
 #include "media-session.h"
 
-#define NAME "stream-monitor"
-#define SESSION_KEY	"stream-monitor"
+#define NAME "stream-endpoint"
+#define SESSION_KEY	"stream-endpoint"
 
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
@@ -578,7 +578,7 @@ static const struct sm_media_session_events session_events = {
 	.remove = session_remove,
 };
 
-void * sm_stream_monitor_start(struct sm_media_session *session)
+void * sm_stream_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
@@ -592,7 +592,7 @@ void * sm_stream_monitor_start(struct sm_media_session *session)
 	return impl;
 }
 
-int sm_stream_monitor_stop(void *data)
+int sm_stream_endpoint_stop(void *data)
 {
 	struct impl *impl = data;
 	spa_hook_remove(&impl->listener);

@@ -521,7 +521,8 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	node->id = obj->id;
 	node->direction = direction;
 	node->media = strdup(media_class);
-	pw_log_debug(NAME "%p: node %d is stream %s", impl, node->id, node->media);
+	pw_log_debug(NAME "%p: node %d is stream %d:%s", impl, node->id,
+			node->direction, node->media);
 
 	sm_object_add_listener(obj, &node->listener, &object_events, node);
 

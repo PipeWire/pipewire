@@ -150,26 +150,31 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 		pw_log_debug(NAME "%p: endpoint %d is stream %s", impl, object->id, ep->media);
 	}
 	else {
+		const char *media;
 		if (strstr(media_class, "Audio/") == media_class) {
 			media_class += strlen("Audio/");
+			media = "Audio";
 		}
 		else if (strstr(media_class, "Video/") == media_class) {
 			media_class += strlen("Video/");
+			media = "Video";
 		}
 		else
 			return 0;
 
 		if (strcmp(media_class, "Sink") == 0)
-			direction = PW_DIRECTION_OUTPUT;
-		else if (strcmp(media_class, "Source") == 0)
 			direction = PW_DIRECTION_INPUT;
+		else if (strcmp(media_class, "Source") == 0)
+			direction = PW_DIRECTION_OUTPUT;
 		else
 			return 0;
 
 		ep->direction = direction;
 		ep->type = ENDPOINT_TYPE_DEVICE;
+		ep->media = strdup(media);
 
-		pw_log_debug(NAME" %p: endpoint %d prio:%d", impl, object->id, ep->priority);
+		pw_log_debug(NAME" %p: endpoint %d '%s' prio:%d", impl,
+				object->id, ep->media, ep->priority);
 	}
 	return 1;
 }
@@ -247,7 +252,7 @@ static void session_remove(void *data, struct sm_object *object)
 struct find_data {
 	struct impl *impl;
 	uint32_t path_id;
-	const char *media_class;
+	struct endpoint *ep;
 	struct endpoint *endpoint;
 	bool exclusive;
 	int priority;
@@ -258,8 +263,6 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 {
 	struct find_data *find = data;
 	struct impl *impl = find->impl;
-	const struct spa_dict *props;
-	const char *str;
 	int priority = 0;
 	uint64_t plugged = 0;
 
@@ -273,15 +276,14 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 		return 0;
 
 	if (find->path_id == SPA_ID_INVALID) {
-		if (endpoint->obj->info == NULL ||
-		    (props = endpoint->obj->info->props) == NULL)
+		if (endpoint->direction == find->ep->direction) {
+			pw_log_debug(".. same direction");
 			return 0;
-
-		if ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL)
+		}
+		if (strcmp(endpoint->media, find->ep->media) != 0) {
+			pw_log_debug(".. incompatible media %s <-> %s", endpoint->media, find->ep->media);
 			return 0;
-
-		if (strcmp(str, find->media_class) != 0)
-			return 0;
+		}
 
 		plugged = endpoint->plugged;
 		priority = endpoint->priority;
@@ -340,7 +342,7 @@ static int link_endpoints(struct endpoint *endpoint, enum pw_direction direction
 static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 {
 	struct spa_dict *props;
-        const char *str, *media, *category, *role;
+        const char *str;
         bool exclusive;
         struct find_data find;
 	struct pw_endpoint_info *info;
@@ -355,8 +357,10 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		return 0;
 	}
 
-	if (ep->peer != NULL)
+	if (ep->peer != NULL) {
+		pw_log_debug(NAME " %p: endpoint %d already has peer", impl, ep->id);
 		return 0;
+	}
 
 	info = ep->obj->info;
 	props = info->props;
@@ -367,88 +371,17 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
                 return 0;
 	}
 
-	if ((media = spa_dict_lookup(props, PW_KEY_MEDIA_TYPE)) == NULL)
-		media = ep->media;
-	if (media == NULL) {
+	if (ep->media == NULL) {
 		pw_log_debug(NAME" %p: endpoint %d has unknown media", impl, ep->id);
 		return 0;
 	}
 
 	spa_zero(find);
 
-	if ((category = spa_dict_lookup(props, PW_KEY_MEDIA_CATEGORY)) == NULL) {
-		pw_log_debug(NAME" %p: endpoint %d find category",
-			impl, ep->id);
-		if (ep->direction == PW_DIRECTION_INPUT) {
-			category = "Capture";
-		} else if (ep->direction == PW_DIRECTION_OUTPUT) {
-			category = "Playback";
-		} else {
-			pw_log_warn(NAME" %p: endpoint %d can't determine category",
-					impl, ep->id);
-			return -EINVAL;
-		}
-	}
-
-	if ((role = spa_dict_lookup(props, PW_KEY_MEDIA_ROLE)) == NULL) {
-		if (strcmp(media, "Audio") == 0) {
-			if (strcmp(category, "Duplex") == 0)
-				role = "Communication";
-			else if (strcmp(category, "Capture") == 0)
-				role = "Production";
-			else
-				role = "Music";
-		}
-		else if (strcmp(media, "Video") == 0) {
-			if (strcmp(category, "Duplex") == 0)
-				role = "Communication";
-			else if (strcmp(category, "Capture") == 0)
-				role = "Camera";
-			else
-				role = "Video";
-		}
-	}
-
 	if ((str = spa_dict_lookup(props, PW_KEY_NODE_EXCLUSIVE)) != NULL)
 		exclusive = pw_properties_parse_bool(str);
 	else
 		exclusive = false;
-
-	if (strcmp(media, "Audio") == 0) {
-		if (strcmp(category, "Playback") == 0)
-			find.media_class = "Audio/Sink";
-		else if (strcmp(category, "Capture") == 0)
-			find.media_class = "Audio/Source";
-		else {
-			pw_log_debug(NAME" %p: endpoint %d unhandled category %s",
-					impl, ep->id, category);
-			return -EINVAL;
-		}
-	}
-	else if (strcmp(media, "Video") == 0) {
-		if (strcmp(category, "Capture") == 0)
-			find.media_class = "Video/Source";
-		else {
-			pw_log_debug(NAME" %p: endpoint %d unhandled category %s",
-					impl, ep->id, category);
-			return -EINVAL;
-		}
-	}
-	else {
-		pw_log_debug(NAME" %p: endpoint %d unhandled media %s",
-				impl, ep->id, media);
-		return -EINVAL;
-	}
-
-	if (strcmp(category, "Capture") == 0)
-		direction = PW_DIRECTION_OUTPUT;
-	else if (strcmp(category, "Playback") == 0)
-		direction = PW_DIRECTION_INPUT;
-	else {
-		pw_log_debug(NAME" %p: endpoint %d unhandled category %s",
-				impl, ep->id, category);
-		return -EINVAL;
-	}
 
 	str = spa_dict_lookup(props, PW_KEY_ENDPOINT_TARGET);
 	if (str != NULL)
@@ -456,10 +389,10 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 	else
 		find.path_id = SPA_ID_INVALID;
 
-	pw_log_info(NAME " %p: '%s' '%s' '%s' exclusive:%d target %d", impl,
-			media, category, role, exclusive, find.path_id);
+	pw_log_info(NAME " %p: exclusive:%d target %d", impl, exclusive, find.path_id);
 
 	find.impl = impl;
+	find.ep = ep;
 	find.exclusive = exclusive;
 
 	spa_list_for_each(peer, &impl->endpoint_list, link)

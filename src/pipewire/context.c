@@ -203,6 +203,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->n_support = n_support;
 
 	pw_array_init(&this->factory_lib, 32);
+	pw_array_init(&this->objects, 32);
 	pw_map_init(&this->globals, 128, 32);
 
 	spa_list_init(&this->core_impl_list);
@@ -316,6 +317,8 @@ void pw_context_destroy(struct pw_context *context)
 		free(entry->lib);
 	}
 	pw_array_clear(&context->factory_lib);
+
+	pw_array_clear(&context->objects);
 
 	pw_map_clear(&context->globals);
 
@@ -887,5 +890,53 @@ const struct pw_export_type *pw_context_find_export_type(struct pw_context *cont
 		if (t->type == type)
 			return t;
 	}
+	return NULL;
+}
+
+struct object_entry {
+	const char *type;
+	void *value;
+};
+
+static struct object_entry *find_object(struct pw_context *context, const char *type)
+{
+	struct object_entry *entry;
+	pw_array_for_each(entry, &context->objects) {
+		if (strcmp(entry->type, type) == 0)
+			return entry;
+	}
+	return NULL;
+}
+
+SPA_EXPORT
+int pw_context_set_object(struct pw_context *context, const char *type, void *value)
+{
+	struct object_entry *entry;
+
+	entry = find_object(context, type);
+
+	if (value == NULL) {
+		if (entry)
+			pw_array_remove(&context->objects, entry);
+	} else {
+		if (entry == NULL) {
+			entry = pw_array_add(&context->objects, sizeof(*entry));
+			if (entry == NULL)
+				return -errno;
+			entry->type = type;
+		}
+		entry->value = value;
+	}
+	return 0;
+}
+
+SPA_EXPORT
+void *pw_context_get_object(struct pw_context *context, const char *type)
+{
+	struct object_entry *entry;
+
+	if ((entry = find_object(context, type)) != NULL)
+		return entry->value;
+
 	return NULL;
 }

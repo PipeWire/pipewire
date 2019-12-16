@@ -160,6 +160,11 @@ int pw_context_register_export_type(struct pw_context *context, struct pw_export
 /** find information about registered export type */
 const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, uint32_t type);
 
+/** add an object to the context */
+int pw_context_set_object(struct pw_context *context, const char *type, void *value);
+/** get an object from the context */
+void *pw_context_get_object(struct pw_context *context, const char *type);
+
 #ifdef __cplusplus
 }
 #endif

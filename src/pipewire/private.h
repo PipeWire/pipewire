@@ -258,6 +258,8 @@ struct pw_context {
 	uint32_t n_support;		/**< number of support items */
 	struct pw_array factory_lib;	/**< mapping of factory_name regexp to library */
 
+	struct pw_array objects;	/**< objects */
+
 	struct pw_impl_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;

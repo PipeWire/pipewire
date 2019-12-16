@@ -1639,6 +1639,8 @@ int main(int argc, char *argv[])
 	pw_context_add_spa_lib(impl.this.context, "api.alsa.*", "alsa/libspa-alsa");
 	pw_context_add_spa_lib(impl.this.context, "api.v4l2.*", "v4l2/libspa-v4l2");
 
+	pw_context_set_object(impl.this.context, SM_TYPE_MEDIA_SESSION, &impl);
+
 	pw_map_init(&impl.globals, 64, 64);
 	spa_list_init(&impl.global_list);
 	pw_map_init(&impl.endpoint_links, 64, 64);

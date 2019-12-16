@@ -32,6 +32,8 @@
 extern "C" {
 #endif
 
+#define SM_TYPE_MEDIA_SESSION	PW_TYPE_INFO_OBJECT_BASE "SessionManager"
+
 struct sm_media_session;
 
 struct sm_object_events {

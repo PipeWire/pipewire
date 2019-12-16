@@ -529,7 +529,6 @@ static void device_update(void *data)
 		&alsa_device_events, device);
 
 	set_profile(device, device->profile);
-
 }
 
 static const struct sm_object_events device_events = {

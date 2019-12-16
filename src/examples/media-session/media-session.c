@@ -285,7 +285,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 
 	client->obj.avail |= SM_CLIENT_CHANGE_MASK_INFO;
 	client->obj.changed |= SM_CLIENT_CHANGE_MASK_INFO;
-	pw_proxy_sync(client->obj.proxy, 1);
+	sm_object_sync_update(&client->obj);
 }
 
 static const struct pw_client_events client_events = {
@@ -327,7 +327,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 		pw_device_enum_params((struct pw_device*)device->obj.proxy,
 				1, SPA_PARAM_Profile, 0, UINT32_MAX, NULL);
 	}
-	pw_proxy_sync(device->obj.proxy, 1);
+	sm_object_sync_update(&device->obj);
 }
 
 static void device_event_param(void *object, int seq,
@@ -434,7 +434,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		}
 	}
 	node->last_id = SPA_ID_INVALID;
-	pw_proxy_sync(node->obj.proxy, 1);
+	sm_object_sync_update(&node->obj);
 }
 
 static void node_event_param(void *object, int seq,
@@ -478,9 +478,11 @@ static int node_init(void *object)
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_DEVICE_ID)) != NULL)
 			node->device = find_object(impl, atoi(str));
-		pw_log_debug(NAME" %p: node %d parent device %s", impl, node->obj.id, str);
+		pw_log_debug(NAME" %p: node %d parent device %s (%p)", impl,
+				node->obj.id, str, node->device);
 		if (node->device) {
 			spa_list_append(&node->device->node_list, &node->link);
+			node->device->obj.avail |= SM_DEVICE_CHANGE_MASK_NODES;
 			node->device->obj.changed |= SM_DEVICE_CHANGE_MASK_NODES;
 		}
 	}
@@ -529,7 +531,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 
 	port->obj.avail |= SM_PORT_CHANGE_MASK_INFO;
 	port->obj.changed |= SM_PORT_CHANGE_MASK_INFO;
-	pw_proxy_sync(port->obj.proxy, 1);
+	sm_object_sync_update(&port->obj);
 }
 
 static const struct pw_port_events port_events = {
@@ -551,10 +553,11 @@ static int port_init(void *object)
 		if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 			port->node = find_object(impl, atoi(str));
 
-		pw_log_debug(NAME" %p: port %d parent node %s direction:%d", impl,
-				port->obj.id, str, port->direction);
+		pw_log_debug(NAME" %p: port %d parent node %s (%p) direction:%d", impl,
+				port->obj.id, str, port->node, port->direction);
 		if (port->node) {
 			spa_list_append(&port->node->port_list, &port->link);
+			port->node->obj.avail |= SM_NODE_CHANGE_MASK_PORTS;
 			port->node->obj.changed |= SM_NODE_CHANGE_MASK_PORTS;
 		}
 	}
@@ -605,7 +608,7 @@ static void session_event_info(void *object, const struct pw_session_info *info)
 
 	sess->obj.avail |= SM_SESSION_CHANGE_MASK_INFO;
 	sess->obj.changed |= SM_SESSION_CHANGE_MASK_INFO;
-	pw_proxy_sync(sess->obj.proxy, 1);
+	sm_object_sync_update(&sess->obj);
 }
 
 static const struct pw_session_events session_events = {
@@ -682,7 +685,7 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *inf
 
 	endpoint->obj.avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	endpoint->obj.changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
-	pw_proxy_sync(endpoint->obj.proxy, 1);
+	sm_object_sync_update(&endpoint->obj);
 }
 
 static const struct pw_endpoint_events endpoint_events = {
@@ -704,6 +707,7 @@ static int endpoint_init(void *object)
 				endpoint->obj.id, str);
 		if (endpoint->session) {
 			spa_list_append(&endpoint->session->endpoint_list, &endpoint->link);
+			endpoint->session->obj.avail |= SM_SESSION_CHANGE_MASK_ENDPOINTS;
 			endpoint->session->obj.changed |= SM_SESSION_CHANGE_MASK_ENDPOINTS;
 		}
 	}
@@ -763,7 +767,7 @@ static void endpoint_stream_event_info(void *object, const struct pw_endpoint_st
 
 	stream->obj.avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	stream->obj.changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
-	pw_proxy_sync(stream->obj.proxy, 1);
+	sm_object_sync_update(&stream->obj);
 }
 
 static const struct pw_endpoint_stream_events endpoint_stream_events = {
@@ -785,6 +789,7 @@ static int endpoint_stream_init(void *object)
 				stream->obj.id, str);
 		if (stream->endpoint) {
 			spa_list_append(&stream->endpoint->stream_list, &stream->link);
+			stream->endpoint->obj.avail |= SM_ENDPOINT_CHANGE_MASK_STREAMS;
 			stream->endpoint->obj.changed |= SM_ENDPOINT_CHANGE_MASK_STREAMS;
 		}
 	}
@@ -839,7 +844,7 @@ static void endpoint_link_event_info(void *object, const struct pw_endpoint_link
 
 	link->obj.avail |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
 	link->obj.changed |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
-	pw_proxy_sync(link->obj.proxy, 1);
+	sm_object_sync_update(&link->obj);
 }
 
 static const struct pw_endpoint_link_events endpoint_link_events = {
@@ -894,12 +899,16 @@ destroy_proxy(void *data)
 static void done_proxy(void *data, int seq)
 {
 	struct sm_object *obj = data;
-	pw_log_debug("done %p proxy %p avail:%08x update:%08x", obj,
-			obj->proxy, obj->avail, obj->changed);
-	if (obj->changed) {
-		sm_object_emit_update(obj);
+
+	pw_log_debug("done %p proxy %p avail:%08x update:%08x %d/%d", obj,
+			obj->proxy, obj->avail, obj->changed, obj->pending, seq);
+
+	if (obj->pending == seq) {
+		obj->pending = SPA_ID_INVALID;
+		if (obj->changed)
+			sm_object_emit_update(obj);
+		obj->changed = 0;
 	}
-	obj->changed = 0;
 }
 
 static void bound_proxy(void *data, uint32_t id)
@@ -923,6 +932,13 @@ static const struct pw_proxy_events proxy_events = {
         .done = done_proxy,
         .bound = bound_proxy,
 };
+
+int sm_object_sync_update(struct sm_object *obj)
+{
+	obj->pending = pw_proxy_sync(obj->proxy, 1);
+	pw_log_debug("sync %p proxy %p %d", obj, obj->proxy, obj->pending);
+	return obj->pending;
+}
 
 static const struct object_info *get_object_info(struct impl *impl, uint32_t type)
 {

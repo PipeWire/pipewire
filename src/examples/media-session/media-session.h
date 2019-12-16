@@ -64,6 +64,7 @@ struct sm_object {
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 	pw_destroy_t destroy;
+	int pending;
 
 	struct spa_hook_list hooks;
 
@@ -83,6 +84,8 @@ struct sm_param {
 void *sm_object_add_data(struct sm_object *obj, const char *id, size_t size);
 void *sm_object_get_data(struct sm_object *obj, const char *id);
 int sm_object_remove_data(struct sm_object *obj, const char *id);
+
+int sm_object_sync_update(struct sm_object *obj);
 
 int sm_object_destroy(struct sm_object *obj);
 

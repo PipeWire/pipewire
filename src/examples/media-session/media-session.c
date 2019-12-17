@@ -51,6 +51,7 @@
 #define sm_object_emit(o,m,v,...) spa_hook_list_call(&(o)->hooks, struct sm_object_events, m, v, ##__VA_ARGS__)
 
 #define sm_object_emit_update(s)		sm_object_emit(s, update, 0)
+#define sm_object_emit_destroy(s)		sm_object_emit(s, destroy, 0)
 
 #define sm_media_session_emit(s,m,v,...) spa_hook_list_call(&s->hooks, struct sm_media_session_events, m, v, ##__VA_ARGS__)
 
@@ -228,7 +229,10 @@ int sm_object_remove_data(struct sm_object *obj, const char *id)
 
 int sm_object_destroy(struct sm_object *obj)
 {
+	pw_log_debug(NAME" %p: object %d", obj->session, obj->id);
 	pw_proxy_destroy(obj->proxy);
+	if (obj->handle)
+		pw_proxy_destroy(obj->handle);
 	return 0;
 }
 
@@ -893,6 +897,8 @@ destroy_proxy(void *data)
 
 	remove_object(impl, obj);
 
+	sm_object_emit_destroy(obj);
+
 	if (obj->destroy)
 		obj->destroy(obj);
 }
@@ -1073,7 +1079,10 @@ update_object(struct impl *impl, const struct object_info *info,
 	if (obj->type == type)
 		return 0;
 
+	pw_log_debug(NAME" %p: update type:%d -> type:%d", impl, obj->type, type);
+	obj->handle = obj->proxy;
 	spa_hook_remove(&obj->proxy_listener);
+
 	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER))
 		spa_hook_remove(&obj->object_listener);
 

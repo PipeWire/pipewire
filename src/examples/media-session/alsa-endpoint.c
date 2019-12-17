@@ -403,6 +403,8 @@ static void proxy_destroy(void *data)
 
 	pw_properties_free(endpoint->props);
 	spa_list_remove(&endpoint->link);
+	spa_hook_remove(&endpoint->proxy_listener);
+	spa_hook_remove(&endpoint->listener);
 }
 
 static void proxy_bound(void *data, uint32_t id)

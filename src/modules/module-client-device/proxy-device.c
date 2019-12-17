@@ -62,11 +62,11 @@ struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
 	struct device_data *data;
 
 	proxy = pw_core_create_object(core,
-					    "client-device",
-					    SPA_TYPE_INTERFACE_Device,
-					    SPA_VERSION_DEVICE,
-					    props,
-					    user_data_size + sizeof(struct device_data));
+				    "client-device",
+				    SPA_TYPE_INTERFACE_Device,
+				    SPA_VERSION_DEVICE,
+				    props,
+				    user_data_size + sizeof(struct device_data));
         if (proxy == NULL)
 		return NULL;
 

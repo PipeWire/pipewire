@@ -413,7 +413,7 @@ static void set_profile(struct device *device, int index)
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-	pw_log_debug("%p: set profile %d", device, device->device_id);
+	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
 
 	device->profile = index;
 	if (device->device_id != 0) {
@@ -511,6 +511,16 @@ static const struct rd_device_callbacks reserve_callbacks = {
 	.release = reserve_release,
 };
 
+static void device_destroy(void *data)
+{
+	struct device *device = data;
+	struct node *node;
+
+	pw_log_debug("device %p destroy", device);
+
+	spa_list_consume(node, &device->node_list, link)
+		alsa_remove_node(device, node);
+}
 
 static void device_update(void *data)
 {
@@ -529,10 +539,12 @@ static void device_update(void *data)
 		&alsa_device_events, device);
 
 	set_profile(device, device->profile);
+	sm_object_sync_update(&device->sdevice->obj);
 }
 
 static const struct sm_object_events device_events = {
 	SM_VERSION_OBJECT_EVENTS,
+        .destroy = device_destroy,
         .update = device_update,
 };
 
@@ -634,14 +646,15 @@ static void alsa_remove_device(struct impl *impl, struct device *device)
 {
 	pw_log_debug("remove device %u", device->id);
 	spa_list_remove(&device->link);
-	spa_hook_remove(&device->listener);
-	spa_hook_remove(&device->device_listener);
+	if (device->appeared)
+		spa_hook_remove(&device->device_listener);
 	if (device->seq != 0)
 		spa_hook_remove(&device->sync_listener);
 	if (device->reserve)
 		rd_device_destroy(device->reserve);
 	if (device->sdevice)
 		sm_object_destroy(&device->sdevice->obj);
+	spa_hook_remove(&device->listener);
 	pw_unload_spa_handle(device->handle);
 	free(device);
 }

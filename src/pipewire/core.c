@@ -425,20 +425,20 @@ pw_context_connect_self(struct pw_context *context, struct pw_properties *proper
 }
 
 SPA_EXPORT
-int pw_core_steal_fd(struct pw_core *proxy)
+int pw_core_steal_fd(struct pw_core *core)
 {
-	return pw_protocol_client_steal_fd(proxy->conn);
+	return pw_protocol_client_steal_fd(core->conn);
 }
 
 SPA_EXPORT
-struct pw_mempool * pw_core_get_mempool(struct pw_core *proxy)
+struct pw_mempool * pw_core_get_mempool(struct pw_core *core)
 {
-	return proxy->pool;
+	return core->pool;
 }
 
 SPA_EXPORT
-int pw_core_disconnect(struct pw_core *proxy)
+int pw_core_disconnect(struct pw_core *core)
 {
-	pw_proxy_destroy(&proxy->proxy);
+	pw_proxy_remove(&core->proxy);
 	return 0;
 }

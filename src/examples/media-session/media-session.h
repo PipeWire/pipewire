@@ -66,6 +66,7 @@ struct sm_object {
 	pw_destroy_t destroy;
 	int pending;
 
+	struct pw_proxy *handle;
 	struct spa_hook_list hooks;
 
 	struct spa_list data;

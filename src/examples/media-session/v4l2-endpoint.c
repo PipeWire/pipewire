@@ -346,11 +346,15 @@ static void proxy_destroy(void *data)
 	struct endpoint *endpoint = data;
 	struct stream *s;
 
+	pw_log_debug("endpoint %p: destroy", endpoint);
+
 	spa_list_consume(s, &endpoint->stream_list, link)
 		destroy_stream(s);
 
 	pw_properties_free(endpoint->props);
 	spa_list_remove(&endpoint->link);
+	spa_hook_remove(&endpoint->proxy_listener);
+	spa_hook_remove(&endpoint->listener);
 }
 
 static void proxy_bound(void *data, uint32_t id)
@@ -471,7 +475,10 @@ static struct endpoint *create_endpoint(struct node *node)
 
 static void destroy_endpoint(struct endpoint *endpoint)
 {
-	pw_proxy_destroy((struct pw_proxy*)endpoint->client_endpoint);
+	pw_log_debug("endpoint %p: destroy", endpoint);
+	if (endpoint->client_endpoint) {
+		pw_proxy_destroy((struct pw_proxy*)endpoint->client_endpoint);
+	}
 }
 
 /** fallback, one stream for each node */
@@ -507,6 +514,7 @@ static int activate_device(struct device *device)
 static int deactivate_device(struct device *device)
 {
 	struct endpoint *e;
+	pw_log_debug("device %p: deactivate", device->device);
 	spa_list_consume(e, &device->endpoint_list, link)
 		destroy_endpoint(e);
 	return 0;

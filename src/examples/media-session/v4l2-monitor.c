@@ -286,6 +286,17 @@ static void set_profile(struct device *device, int index)
 	}
 }
 
+static void device_destroy(void *data)
+{
+	struct device *device = data;
+	struct node *node;
+
+	pw_log_debug("device %p destroy", device);
+
+	spa_list_consume(node, &device->node_list, link)
+		v4l2_remove_node(device, node);
+}
+
 static void device_update(void *data)
 {
 	struct device *device = data;
@@ -308,6 +319,7 @@ static void device_update(void *data)
 
 static const struct sm_object_events device_events = {
 	SM_VERSION_OBJECT_EVENTS,
+        .destroy = device_destroy,
         .update = device_update,
 };
 
@@ -363,6 +375,8 @@ static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 		goto clean_device;
 	}
 
+	pw_log_debug("got object %p", &dev->sdevice->obj);
+
 	sm_object_add_listener(&dev->sdevice->obj,
 			&dev->listener,
 			&device_events, dev);
@@ -385,10 +399,11 @@ static void v4l2_remove_device(struct impl *impl, struct device *dev)
 {
 	pw_log_debug("remove device %u", dev->id);
 	spa_list_remove(&dev->link);
-	spa_hook_remove(&dev->listener);
-	spa_hook_remove(&dev->device_listener);
+	if (dev->appeared)
+		spa_hook_remove(&dev->device_listener);
 	if (dev->sdevice)
 		sm_object_destroy(&dev->sdevice->obj);
+	spa_hook_remove(&dev->listener);
 	pw_unload_spa_handle(dev->handle);
 	free(dev);
 }

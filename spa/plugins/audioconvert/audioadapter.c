@@ -309,7 +309,7 @@ static int negotiate_buffers(struct impl *this)
 	aligns = alloca(sizeof(uint32_t) * blocks);
 	for (i = 0; i < blocks; i++) {
 		datas[i].type = SPA_DATA_MemPtr;
-		datas[i].flags = SPA_DATA_FLAG_DYNAMIC;
+		datas[i].flags = SPA_DATA_FLAG_READWRITE | SPA_DATA_FLAG_DYNAMIC;
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}

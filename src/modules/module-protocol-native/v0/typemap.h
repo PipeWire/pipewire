@@ -17,8 +17,18 @@ const struct type_info {
 	{ "PipeWire:Interface:Link",  PW_TYPE_INFO_INTERFACE_BASE "Link", PW_TYPE_INTERFACE_Link, },
 	{ "PipeWire:Interface:Client", PW_TYPE_INFO_INTERFACE_BASE "Client", PW_TYPE_INTERFACE_Client, },
 	{ "PipeWire:Interface:Module", PW_TYPE_INFO_INTERFACE_BASE "Module", PW_TYPE_INTERFACE_Module, },
-	{ "PipeWire:Interface:ClientNode", PW_TYPE_INFO_INTERFACE_BASE "ClientNode", PW_TYPE_INTERFACE_ClientNode, },
 	{ "PipeWire:Interface:Device", PW_TYPE_INFO_INTERFACE_BASE "Device", PW_TYPE_INTERFACE_Device, },
+
+	{ "PipeWire:Interface:Metadata", PW_TYPE_INFO_INTERFACE_BASE "Metadata", PW_TYPE_INTERFACE_Metadata, },
+	{ "PipeWire:Interface:Session", PW_TYPE_INFO_INTERFACE_BASE "Session", PW_TYPE_INTERFACE_Session, },
+	{ "PipeWire:Interface:Endpoint", PW_TYPE_INFO_INTERFACE_BASE "Endpoint", PW_TYPE_INTERFACE_Endpoint, },
+	{ "PipeWire:Interface:EndpointStream", PW_TYPE_INFO_INTERFACE_BASE "EndpointStream", PW_TYPE_INTERFACE_EndpointStream, },
+	{ "PipeWire:Interface:EndpointLink", PW_TYPE_INFO_INTERFACE_BASE "EndpointLink", PW_TYPE_INTERFACE_EndpointLink, },
+
+	{ "PipeWire:Interface:ClientNode", PW_TYPE_INFO_INTERFACE_BASE "ClientNode", PW_TYPE_INTERFACE_ClientNode, },
+	{ "PipeWire:Interface:ClientSession", PW_TYPE_INFO_INTERFACE_BASE "ClientSession", PW_TYPE_INTERFACE_ClientSession, },
+	{ "PipeWire:Interface:ClientEndpoint", PW_TYPE_INFO_INTERFACE_BASE "ClientEndpoint", PW_TYPE_INTERFACE_ClientEndpoint, },
+
 	{ "Spa:Interface:Node", SPA_TYPE_INFO_INTERFACE_BASE "Node", SPA_TYPE_INTERFACE_Node, },
 	{ "Spa:Interface:Clock", },
 	{ "Spa:Interface:Monitor", },

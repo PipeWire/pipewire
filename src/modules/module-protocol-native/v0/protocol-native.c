@@ -75,22 +75,38 @@ static void core_marshal_info(void *object, const struct pw_core_info *info)
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
 	uint32_t i, n_items;
-        struct spa_pod_frame f;
+	uint64_t change_mask = 0;
+	struct spa_pod_frame f;
 	struct pw_protocol_native_message *msg;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
 
+#define PW_CORE_V0_CHANGE_MASK_USER_NAME  (1 << 0)
+#define PW_CORE_V0_CHANGE_MASK_HOST_NAME  (1 << 1)
+#define PW_CORE_V0_CHANGE_MASK_VERSION    (1 << 2)
+#define PW_CORE_V0_CHANGE_MASK_NAME       (1 << 3)
+#define PW_CORE_V0_CHANGE_MASK_COOKIE     (1 << 4)
+#define PW_CORE_V0_CHANGE_MASK_PROPS      (1 << 5)
+
 	if (msg->seq == 0) {
 		update_types_server(resource);
 		b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
+		change_mask |= PW_CORE_V0_CHANGE_MASK_USER_NAME |
+			PW_CORE_V0_CHANGE_MASK_HOST_NAME |
+			PW_CORE_V0_CHANGE_MASK_VERSION |
+			PW_CORE_V0_CHANGE_MASK_NAME |
+			PW_CORE_V0_CHANGE_MASK_COOKIE;
 	}
 
 	n_items = info->props ? info->props->n_items : 0;
 
+	if (info->change_mask & PW_CORE_CHANGE_MASK_PROPS)
+		change_mask |= PW_CORE_V0_CHANGE_MASK_PROPS;
+
         spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    "i", info->id,
-			    "l", info->change_mask,
+			    "l", change_mask,
 			    "s", info->user_name,
 			    "s", info->host_name,
 			    "s", info->version,

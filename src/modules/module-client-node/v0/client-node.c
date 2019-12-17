@@ -903,6 +903,7 @@ static void setup_transport(struct impl *impl)
 {
 	struct node *this = &impl->node;
 	uint32_t max_inputs = 0, max_outputs = 0, n_inputs = 0, n_outputs = 0;
+	struct spa_dict_item items[1];
 
 	n_inputs = this->n_inputs;
 	max_inputs = this->info.max_input_ports == 0 ? this->n_inputs : this->info.max_input_ports;
@@ -912,6 +913,13 @@ static void setup_transport(struct impl *impl)
 	impl->transport = pw_client_node0_transport_new(impl->context, max_inputs, max_outputs);
 	impl->transport->area->n_input_ports = n_inputs;
 	impl->transport->area->n_output_ports = n_outputs;
+
+	if (n_inputs > 0) {
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Stream/Input/Video");
+	} else {
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Stream/Output/Video");
+	}
+	pw_impl_node_update_properties(impl->this.node, &SPA_DICT_INIT(items, 1));
 }
 
 static void
@@ -1292,7 +1300,6 @@ struct pw_impl_client_node0 *pw_impl_client_node0_new(struct pw_resource *resour
 	if ((name = pw_properties_get(properties, "node.name")) == NULL)
 		name = "client-node";
 	pw_properties_set(properties, PW_KEY_MEDIA_TYPE, "Video");
-	pw_properties_set(properties, SPA_KEY_MEDIA_CLASS, "Stream/Duplex/Video");
 
 	impl->node.resource = resource;
 	this->resource = resource;

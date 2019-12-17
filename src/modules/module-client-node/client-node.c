@@ -565,8 +565,8 @@ impl_node_port_enum_params(void *object, int seq,
 
 	port = GET_PORT(this, direction, port_id);
 
-	pw_log_debug(NAME " %p: %d port %d.%d %u %u %u", this, seq,
-			direction, port_id, id, start, num);
+	pw_log_debug(NAME " %p: seq:%d port %d.%d id:%u start:%u num:%u n_params:%d",
+			this, seq, direction, port_id, id, start, num, port->n_params);
 
 	result.id = id;
 	result.next = start;
@@ -938,7 +938,8 @@ client_node_port_update(void *data,
 	struct port *port;
 	bool remove;
 
-	spa_log_debug(this->log, NAME" %p: got port update", this);
+	spa_log_debug(this->log, NAME" %p: got port update change:%08x params:%d",
+			this, change_mask, n_params);
 	if (!CHECK_PORT_ID(this, direction, port_id))
 		return -EINVAL;
 

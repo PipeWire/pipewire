@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <assert.h>
+
 #include <pipewire/log.h>
 #include <pipewire/proxy.h>
 #include <pipewire/core.h>
@@ -214,15 +216,20 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
+	assert(!proxy->destroyed);
+	proxy->destroyed = true;
+
+	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u", proxy,
+			proxy->id, proxy->removed, proxy->zombie);
+
 	if (!proxy->zombie) {
-		pw_log_debug(NAME" %p: destroy %u", proxy, proxy->id);
+		proxy->zombie = true;
 		pw_proxy_emit_destroy(proxy);
 	}
 	if (!proxy->removed) {
 		/* if the server did not remove this proxy, remove ourselves
 		 * from the proxy objects and schedule a destroy. */
 		if (proxy->core && !proxy->core->destroyed) {
-			proxy->zombie = true;
 			pw_core_destroy(proxy->core, proxy);
 		} else {
 			proxy->removed = true;
@@ -239,12 +246,14 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 void pw_proxy_remove(struct pw_proxy *proxy)
 {
 	proxy->removed = true;
+	proxy->destroyed = false;
 	pw_proxy_destroy(proxy);
 }
 
 SPA_EXPORT
 void pw_proxy_unref(struct pw_proxy *proxy)
 {
+	assert(proxy->refcount > 0);
 	if (--proxy->refcount > 0)
 		return;
 

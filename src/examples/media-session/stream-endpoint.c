@@ -136,22 +136,34 @@ static int stream_set_active(struct stream *stream, bool active)
 
 	if (active) {
 		stream->format = node->format;
-		stream->format.info.raw.rate = 48000;
 
-		spa_pod_builder_init(&b, buf, sizeof(buf));
-		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &stream->format.info.raw);
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(endpoint->info.direction),
-			SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(false),
-			SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
+		switch (stream->format.media_type) {
+		case SPA_MEDIA_TYPE_audio:
+			switch (stream->format.media_subtype) {
+			case SPA_MEDIA_SUBTYPE_raw:
+				stream->format.info.raw.rate = 48000;
 
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(2, NULL, param);
+				spa_pod_builder_init(&b, buf, sizeof(buf));
+				param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &stream->format.info.raw);
+				param = spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+					SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(endpoint->info.direction),
+					SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+					SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(false),
+					SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
 
-		pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
-				SPA_PARAM_PortConfig, 0, param);
+				if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+					spa_debug_pod(2, NULL, param);
+
+				pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
+						SPA_PARAM_PortConfig, 0, param);
+				break;
+			default:
+				break;
+			}
+		default:
+			break;
+		}
 	}
 	stream->active = active;
 	return 0;

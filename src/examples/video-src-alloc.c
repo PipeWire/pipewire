@@ -353,8 +353,8 @@ int main(int argc, char *argv[])
 	/* create a main loop */
 	data.loop = pw_main_loop_new(NULL);
 
-	/* create a simple stream, the simple stream manages to core and remote
-	 * objects for you if you don't need to deal with them
+	/* create a simple stream, the simple stream manages the core
+	 * object for you if you don't want to deal with them.
 	 *
 	 * We're making a new video provider. We need to set the media-class
 	 * property.
@@ -373,13 +373,13 @@ int main(int argc, char *argv[])
 			&stream_events,
 			&data);
 
-	/* make a timer to schedule out frames */
+	/* make a timer to schedule our frames */
 	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
 
 	/* build the extra parameter for the connection. Here we make an
 	 * EnumFormat parameter which lists the possible formats we can provide.
 	 * The server will select a format that matches and informs us about this
-	 * in the stream format_changed event.
+	 * in the stream param_changed event.
 	 */
 	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,

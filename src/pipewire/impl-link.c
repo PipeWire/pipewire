@@ -309,6 +309,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(2, NULL, format);
 
+	SPA_POD_OBJECT_ID(format) = SPA_PARAM_Format;
+
 	if (out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 		pw_log_debug(NAME" %p: doing set format on output", this);
 		if ((res = pw_impl_port_set_param(output,

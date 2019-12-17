@@ -1233,7 +1233,8 @@ static void convert_properties(struct pw_properties *properties)
 	struct {
 		const char *from, *to;
 	} props[] = {
-		{ "pipewire.autoconnect", PW_KEY_NODE_AUTOCONNECT, }
+		{ "pipewire.autoconnect", PW_KEY_NODE_AUTOCONNECT, },
+		{ "pipewire.target.node", PW_KEY_NODE_TARGET, }
 	};
 	uint32_t i;
 	const char *str;

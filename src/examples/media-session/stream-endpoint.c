@@ -400,6 +400,8 @@ static struct endpoint *create_endpoint(struct node *node)
 		if ((str = spa_dict_lookup(dict, PW_KEY_NODE_AUTOCONNECT)) != NULL)
 			pw_properties_set(props, PW_KEY_ENDPOINT_AUTOCONNECT, str);
 		if ((str = spa_dict_lookup(dict, PW_KEY_NODE_TARGET)) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_TARGET, str);
+		if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_TARGET)) != NULL)
 			pw_properties_set(props, PW_KEY_ENDPOINT_TARGET, str);
 	}
 

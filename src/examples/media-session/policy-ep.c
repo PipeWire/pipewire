@@ -71,7 +71,7 @@ struct endpoint {
 	struct spa_list link;		/**< link in impl endpoint_list */
 	enum pw_direction direction;
 
-	struct endpoint *peer;
+	uint32_t linked;
 
 	uint32_t client_id;
 	int32_t priority;
@@ -251,7 +251,6 @@ static void session_remove(void *data, struct sm_object *object)
 
 struct find_data {
 	struct impl *impl;
-	uint32_t path_id;
 	struct endpoint *ep;
 	struct endpoint *endpoint;
 	bool exclusive;
@@ -272,22 +271,17 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 	if (!endpoint->enabled)
 		return 0;
 
-	if (find->path_id != SPA_ID_INVALID && endpoint->id != find->path_id)
+	if (endpoint->direction == find->ep->direction) {
+		pw_log_debug(".. same direction");
 		return 0;
-
-	if (find->path_id == SPA_ID_INVALID) {
-		if (endpoint->direction == find->ep->direction) {
-			pw_log_debug(".. same direction");
-			return 0;
-		}
-		if (strcmp(endpoint->media, find->ep->media) != 0) {
-			pw_log_debug(".. incompatible media %s <-> %s", endpoint->media, find->ep->media);
-			return 0;
-		}
-
-		plugged = endpoint->plugged;
-		priority = endpoint->priority;
 	}
+	if (strcmp(endpoint->media, find->ep->media) != 0) {
+		pw_log_debug(".. incompatible media %s <-> %s", endpoint->media, find->ep->media);
+		return 0;
+	}
+
+	plugged = endpoint->plugged;
+	priority = endpoint->priority;
 
 	if ((find->exclusive && endpoint->busy) || endpoint->exclusive) {
 		pw_log_debug(NAME " %p: endpoint '%d' in use", impl, endpoint->id);
@@ -308,12 +302,12 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 	return 0;
 }
 
-static int link_endpoints(struct endpoint *endpoint, enum pw_direction direction, struct endpoint *peer, int max)
+static int link_endpoints(struct endpoint *endpoint, struct endpoint *peer)
 {
-	struct impl *impl = peer->impl;
+	struct impl *impl = endpoint->impl;
 	struct pw_properties *props;
 
-	pw_log_debug(NAME " %p: link endpoints %d %d %d", impl, max, endpoint->id, peer->id);
+	pw_log_debug(NAME " %p: link endpoints %d %d", impl, endpoint->id, peer->id);
 
 	if (endpoint->direction == PW_DIRECTION_INPUT) {
 		struct endpoint *t = endpoint;
@@ -333,8 +327,43 @@ static int link_endpoints(struct endpoint *endpoint, enum pw_direction direction
 
 	pw_properties_free(props);
 
-	endpoint->peer = peer;
-	peer->peer = endpoint;
+	endpoint->linked++;
+	peer->linked++;
+
+	return 0;
+}
+
+static int link_node(struct endpoint *endpoint, struct sm_node *peer)
+{
+	struct impl *impl = endpoint->impl;
+	struct pw_properties *props;
+
+	pw_log_debug(NAME " %p: link endpoint %d to node %d", impl, endpoint->id, peer->obj.id);
+
+	props = pw_properties_new(NULL, NULL);
+
+	if (endpoint->direction == PW_DIRECTION_INPUT) {
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", peer->obj.id);
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
+		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d", endpoint->id);
+		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d", -1);
+		pw_log_debug(NAME " %p: node %d -> endpoint %d", impl,
+				peer->obj.id, endpoint->id);
+	} else {
+		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%d", endpoint->id);
+		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d", -1);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->obj.id);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
+		pw_log_debug(NAME " %p: endpoint %d -> node %d", impl,
+				endpoint->id, peer->obj.id);
+	}
+
+	pw_endpoint_create_link((struct pw_endpoint*)endpoint->obj->obj.proxy,
+                                         &props->dict);
+
+	pw_properties_free(props);
+
+	endpoint->linked++;
 
 	return 0;
 }
@@ -347,7 +376,8 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
         struct find_data find;
 	struct pw_endpoint_info *info;
 	struct endpoint *peer;
-	enum pw_direction direction;
+	struct sm_object *obj;
+	struct sm_node *node;
 
 	if (ep->type == ENDPOINT_TYPE_DEVICE)
 		return 0;
@@ -357,8 +387,8 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		return 0;
 	}
 
-	if (ep->peer != NULL) {
-		pw_log_debug(NAME " %p: endpoint %d already has peer", impl, ep->id);
+	if (ep->linked > 0) {
+		pw_log_debug(NAME " %p: endpoint %d is already linked", impl, ep->id);
 		return 0;
 	}
 
@@ -383,47 +413,43 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 	else
 		exclusive = false;
 
-	str = spa_dict_lookup(props, PW_KEY_ENDPOINT_TARGET);
-	if (str != NULL)
-		find.path_id = atoi(str);
-	else
-		find.path_id = SPA_ID_INVALID;
-
-	pw_log_info(NAME " %p: exclusive:%d target %d", impl, exclusive, find.path_id);
-
 	find.impl = impl;
 	find.ep = ep;
 	find.exclusive = exclusive;
 
-	spa_list_for_each(peer, &impl->endpoint_list, link)
-		find_endpoint(&find, peer);
+	pw_log_info(NAME " %p: exclusive:%d", impl, exclusive);
 
-	if (find.endpoint == NULL && find.path_id != SPA_ID_INVALID) {
-		struct sm_object *obj;
-		pw_log_debug(NAME " %p: no endpoint found for %d, try endpoint", impl, ep->id);
+	str = spa_dict_lookup(props, PW_KEY_ENDPOINT_TARGET);
+	if (str == NULL)
+		str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
+	if (str != NULL) {
+		uint32_t path_id = atoi(str);
+		pw_log_info(NAME " %p: target:%d", impl, path_id);
 
-		if ((obj = sm_media_session_find_object(impl->session, find.path_id)) != NULL) {
-			if (obj->type == PW_TYPE_INTERFACE_Endpoint) {
+		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
+			switch (obj->type) {
+			case PW_TYPE_INTERFACE_Endpoint:
 				peer = sm_object_get_data(obj, SESSION_KEY);
 				goto do_link;
-			}
-			if (obj->type == PW_TYPE_INTERFACE_Node) {
-				pw_log_debug(NAME " %p: target is node", impl);
-			}
-		}
-		else {
-			str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
-			if (str != NULL && pw_properties_parse_bool(str)) {
-//				pw_registry_destroy(impl->registry, ep->id);
-				return -ENOENT;
+			case PW_TYPE_INTERFACE_Node:
+				node = (struct sm_node*)obj;
+				goto do_link_node;
 			}
 		}
 	}
+
+	spa_list_for_each(peer, &impl->endpoint_list, link)
+		find_endpoint(&find, peer);
 
 	if (find.endpoint == NULL) {
 		struct sm_object *obj;
 
 		pw_log_warn(NAME " %p: no endpoint found for %d", impl, ep->id);
+
+		str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
+		if (str != NULL && pw_properties_parse_bool(str)) {
+//			pw_registry_destroy(impl->registry, ep->id);
+		}
 
 		obj = sm_media_session_find_object(impl->session, ep->client_id);
 		if (obj && obj->type == PW_TYPE_INTERFACE_Client) {
@@ -445,8 +471,10 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
         peer->busy = true;
 
 do_link:
-	link_endpoints(ep, direction, peer, 1);
-
+	link_endpoints(ep, peer);
+        return 1;
+do_link_node:
+	link_node(ep, node);
         return 1;
 }
 

@@ -639,7 +639,7 @@ static int impl_port_use_buffers(void *object,
 			} else
 				size = buf_size;
 		}
-		pw_log_debug(NAME" %p: got buffer %d %d datas, mapped size %d", stream, i,
+		pw_log_debug(NAME" %p: got buffer id:%d datas:%d, mapped size %d", stream, i,
 				buffers[i]->n_datas, size);
 	}
 

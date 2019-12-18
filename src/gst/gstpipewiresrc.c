@@ -359,7 +359,7 @@ on_add_buffer (void *_data, struct pw_buffer *b)
   GstPipeWireSrc *pwsrc = _data;
   GstPipeWirePoolData *data;
 
-  GST_LOG_OBJECT (pwsrc, "add buffer");
+  GST_DEBUG_OBJECT (pwsrc, "add buffer");
   gst_pipewire_pool_wrap_buffer (pwsrc->pool, b);
   data = b->user_data;
   data->owner = pwsrc;
@@ -374,7 +374,7 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
   GstBuffer *buf = data->buf;
   GList *walk;
 
-  GST_LOG_OBJECT (pwsrc, "remove buffer %p", buf);
+  GST_DEBUG_OBJECT (pwsrc, "remove buffer %p", buf);
 
   GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
 
@@ -415,7 +415,7 @@ on_process (void *_data)
 
   h = data->header;
   if (h) {
-    GST_INFO ("pts %" G_GUINT64_FORMAT ", dts_offset %"G_GUINT64_FORMAT, h->pts, h->dts_offset);
+    GST_LOG_OBJECT (pwsrc, "pts %" G_GUINT64_FORMAT ", dts_offset %" G_GUINT64_FORMAT, h->pts, h->dts_offset);
 
     if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
       GST_BUFFER_PTS (buf) = h->pts + GST_PIPEWIRE_CLOCK (pwsrc->clock)->time_offset;
@@ -827,7 +827,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       goto streaming_stopped;
 
     buf = g_queue_pop_head (&pwsrc->queue);
-    GST_DEBUG ("popped buffer %p", buf);
+    GST_LOG_OBJECT (pwsrc, "popped buffer %p", buf);
     if (buf != NULL)
       break;
 
@@ -857,8 +857,8 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   if (GST_CLOCK_TIME_IS_VALID (dts))
     dts = (dts >= base_time ? dts - base_time : 0);
 
-  GST_INFO ("pts %" G_GUINT64_FORMAT ", dts %"G_GUINT64_FORMAT
-      ", base-time %"GST_TIME_FORMAT" -> %"GST_TIME_FORMAT", %"GST_TIME_FORMAT,
+  GST_LOG_OBJECT (pwsrc,
+      "pts %" G_GUINT64_FORMAT ", dts %" G_GUINT64_FORMAT ", base-time %" GST_TIME_FORMAT " -> %" GST_TIME_FORMAT ", %" GST_TIME_FORMAT,
       GST_BUFFER_PTS (*buffer), GST_BUFFER_DTS (*buffer), GST_TIME_ARGS (base_time),
       GST_TIME_ARGS (pts), GST_TIME_ARGS (dts));
 

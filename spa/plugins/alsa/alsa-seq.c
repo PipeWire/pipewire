@@ -655,6 +655,13 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool slave)
 	double err, corr;
 	uint64_t clock_elapsed, queue_elapsed;
 
+	if (state->position) {
+		struct spa_io_clock *clock = &state->position->clock;
+		state->rate = clock->rate;
+		state->duration = clock->duration;
+		state->threshold = state->duration;
+	}
+
 	/* take queue time */
 	snd_seq_queue_status_alloca(&status);
         snd_seq_get_queue_status(state->event.hndl, state->event.queue_id, status);
@@ -740,13 +747,6 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	state->current_time = state->next_time;
 
 	spa_log_trace(state->log, "timeout %"PRIu64, state->current_time);
-
-	if (state->position) {
-		struct spa_io_clock *clock = &state->position->clock;
-		state->rate = clock->rate;
-		state->duration = clock->duration;
-		state->threshold = state->duration;
-	}
 
 	update_time(state, state->current_time, false);
 

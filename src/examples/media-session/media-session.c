@@ -1672,6 +1672,16 @@ static int start_policy(struct impl *impl)
 	return 0;
 }
 
+static void session_shutdown(struct impl *impl)
+{
+	struct sm_object *obj;
+
+	spa_list_for_each(obj, &impl->global_list, link)
+		sm_media_session_emit_remove(impl, obj);
+
+	sm_media_session_emit_destroy(impl);
+}
+
 int main(int argc, char *argv[])
 {
 	struct impl impl = { 0, };
@@ -1714,8 +1724,9 @@ int main(int argc, char *argv[])
 		goto exit;
 
 	pw_main_loop_run(impl.loop);
+
 exit:
-	sm_media_session_emit_destroy(&impl);
+	session_shutdown(&impl);
 
 	pw_context_destroy(impl.this.context);
 	pw_main_loop_destroy(impl.loop);

@@ -405,6 +405,7 @@ static void proxy_destroy(void *data)
 	spa_list_remove(&endpoint->link);
 	spa_hook_remove(&endpoint->proxy_listener);
 	spa_hook_remove(&endpoint->client_endpoint_listener);
+	endpoint->client_endpoint = NULL;
 }
 
 static void proxy_bound(void *data, uint32_t id)
@@ -537,7 +538,8 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 
 static void destroy_endpoint(struct endpoint *endpoint)
 {
-	pw_proxy_destroy((struct pw_proxy*)endpoint->client_endpoint);
+	if (endpoint->client_endpoint)
+		pw_proxy_destroy((struct pw_proxy*)endpoint->client_endpoint);
 }
 
 /** fallback, one stream for each node */

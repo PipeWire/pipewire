@@ -355,6 +355,7 @@ static void proxy_destroy(void *data)
 	spa_list_remove(&endpoint->link);
 	spa_hook_remove(&endpoint->proxy_listener);
 	spa_hook_remove(&endpoint->client_endpoint_listener);
+	endpoint->client_endpoint = NULL;
 }
 
 static void proxy_bound(void *data, uint32_t id)
@@ -473,7 +474,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	return endpoint;
 }
 
-static void destroy_endpoint(struct endpoint *endpoint)
+static void destroy_endpoint(struct impl *impl, struct endpoint *endpoint)
 {
 	pw_log_debug("endpoint %p: destroy", endpoint);
 	if (endpoint->client_endpoint) {
@@ -513,10 +514,13 @@ static int activate_device(struct device *device)
 
 static int deactivate_device(struct device *device)
 {
+	struct impl *impl = device->impl;
 	struct endpoint *e;
-	pw_log_debug("device %p: deactivate", device->device);
+
+	pw_log_debug(NAME" %p: device %p deactivate", impl, device->device);
 	spa_list_consume(e, &device->endpoint_list, link)
-		destroy_endpoint(e);
+		destroy_endpoint(impl, e);
+
 	return 0;
 }
 

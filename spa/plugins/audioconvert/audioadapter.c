@@ -875,16 +875,21 @@ static int impl_node_process(void *object)
 			status = spa_node_process(this->convert);
 	}
 
-again:
 	status = spa_node_process(this->slave);
 
 	if (this->direction == SPA_DIRECTION_OUTPUT &&
 	    !this->master && this->use_converter) {
-		status = spa_node_process(this->convert);
+		while (true) {
+			status = spa_node_process(this->convert);
+			if (status & SPA_STATUS_HAVE_DATA)
+				break;
 
-		if (!(status & SPA_STATUS_HAVE_DATA) &&
-		    (status & SPA_STATUS_NEED_DATA))
-			goto again;
+			if (status & SPA_STATUS_NEED_DATA) {
+				status = spa_node_process(this->slave);
+				if (!(status & SPA_STATUS_HAVE_DATA))
+					break;
+			}
+		}
 	}
 	spa_log_trace_fp(this->log, "%p: process status:%d", this, status);
 

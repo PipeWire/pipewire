@@ -404,7 +404,7 @@ static void proxy_destroy(void *data)
 	pw_properties_free(endpoint->props);
 	spa_list_remove(&endpoint->link);
 	spa_hook_remove(&endpoint->proxy_listener);
-	spa_hook_remove(&endpoint->listener);
+	spa_hook_remove(&endpoint->client_endpoint_listener);
 }
 
 static void proxy_bound(void *data, uint32_t id)
@@ -693,10 +693,11 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	return 0;
 }
 
-static void destroy_device(struct device *device)
+static void destroy_device(struct impl *impl, struct device *device)
 {
 	deactivate_device(device);
 	spa_hook_remove(&device->listener);
+	sm_object_remove_data((struct sm_object*)device->device, SESSION_KEY);
 }
 
 static void session_create(void *data, struct sm_object *object)
@@ -721,12 +722,14 @@ static void session_create(void *data, struct sm_object *object)
 
 static void session_remove(void *data, struct sm_object *object)
 {
+	struct impl *impl = data;
+
 	switch (object->type) {
 	case PW_TYPE_INTERFACE_Device:
 	{
 		struct device *device;
 		if ((device = sm_object_get_data(object, SESSION_KEY)) != NULL)
-			destroy_device(device);
+			destroy_device(impl, device);
 		break;
 	}
 	default:
@@ -734,28 +737,29 @@ static void session_remove(void *data, struct sm_object *object)
 	}
 }
 
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->listener);
+	free(impl);
+}
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.create = session_create,
 	.remove = session_remove,
+	.destroy = session_destroy,
 };
 
-void *sm_alsa_endpoint_start(struct sm_media_session *session)
+int sm_alsa_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->session = session;
 	sm_media_session_add_listener(session, &impl->listener, &session_events, impl);
-
-	return impl;
-}
-
-int sm_alsa_endpoint_stop(void *data)
-{
 	return 0;
 }

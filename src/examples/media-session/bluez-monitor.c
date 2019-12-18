@@ -33,6 +33,7 @@
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
@@ -72,6 +73,7 @@ struct bluez5_object {
 
 struct impl {
 	struct sm_media_session *session;
+	struct spa_hook session_listener;
 
 	struct spa_handle *handle;
 
@@ -294,6 +296,7 @@ static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id
 	return obj;
 
 clean_object:
+	pw_properties_free(obj->props);
 	free(obj);
 unload_handle:
 	pw_unload_spa_handle(handle);
@@ -315,6 +318,7 @@ static void bluez5_remove_object(struct impl *impl, struct bluez5_object *obj)
 
 	pw_proxy_destroy(obj->proxy);
 	pw_unload_spa_handle(obj->handle);
+	pw_properties_free(obj->props);
 	free(obj);
 }
 
@@ -344,7 +348,21 @@ static const struct spa_device_events bluez5_enum_callbacks =
 	.object_info = bluez5_enum_object_info,
 };
 
-void *sm_bluez5_monitor_start(struct sm_media_session *session)
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->session_listener);
+	spa_hook_remove(&impl->listener);
+	pw_unload_spa_handle(impl->handle);
+	free(impl);
+}
+
+static const struct sm_media_session_events session_events = {
+	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.destroy = session_destroy,
+};
+
+int sm_bluez5_monitor_start(struct sm_media_session *session)
 {
 	struct spa_handle *handle;
 	struct pw_context *context = session->context;
@@ -355,11 +373,12 @@ void *sm_bluez5_monitor_start(struct sm_media_session *session)
 	handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
 	if (handle == NULL) {
 		res = -errno;
+		pw_log_error("can't load %s: %m", SPA_NAME_API_BLUEZ5_ENUM_DBUS);
 		goto out;
 	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
-		pw_log_error("can't get Device interface: %d", res);
+		pw_log_error("can't get Device interface: %s", spa_strerror(res));
 		goto out_unload;
 	}
 
@@ -377,19 +396,13 @@ void *sm_bluez5_monitor_start(struct sm_media_session *session)
 	spa_device_add_listener(impl->monitor, &impl->listener,
 			&bluez5_enum_callbacks, impl);
 
-	return impl;
+	sm_media_session_add_listener(session, &impl->session_listener,
+			&session_events, impl);
 
-      out_unload:
-	pw_unload_spa_handle(handle);
-      out:
-	errno = -res;
-	return NULL;
-}
-
-int sm_bluez5_monitor_stop(void *data)
-{
-	struct impl *impl = data;
-	pw_unload_spa_handle(impl->handle);
-	free(impl);
 	return 0;
+
+out_unload:
+	pw_unload_spa_handle(handle);
+out:
+	return res;
 }

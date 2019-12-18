@@ -80,6 +80,7 @@ struct device {
 
 struct impl {
 	struct sm_media_session *session;
+	struct spa_hook session_listener;
 
 	struct spa_handle *handle;
 	struct spa_device *monitor;
@@ -181,6 +182,7 @@ static void v4l2_remove_node(struct device *dev, struct node *node)
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
 	pw_proxy_destroy(node->proxy);
+	pw_properties_free(node->props);
 	free(node);
 }
 
@@ -405,6 +407,7 @@ static void v4l2_remove_device(struct impl *impl, struct device *dev)
 		sm_object_destroy(&dev->sdevice->obj);
 	spa_hook_remove(&dev->listener);
 	pw_unload_spa_handle(dev->handle);
+	pw_properties_free(dev->props);
 	free(dev);
 }
 
@@ -434,7 +437,21 @@ static const struct spa_device_events v4l2_udev_callbacks =
 	.object_info = v4l2_udev_object_info,
 };
 
-void * sm_v4l2_monitor_start(struct sm_media_session *sess)
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->session_listener);
+	spa_hook_remove(&impl->listener);
+	pw_unload_spa_handle(impl->handle);
+	free(impl);
+}
+
+static const struct sm_media_session_events session_events = {
+	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.destroy = session_destroy,
+};
+
+int sm_v4l2_monitor_start(struct sm_media_session *sess)
 {
 	struct pw_context *context = sess->context;
 	struct impl *impl;
@@ -443,7 +460,7 @@ void * sm_v4l2_monitor_start(struct sm_media_session *sess)
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->session = sess;
 
@@ -464,20 +481,13 @@ void * sm_v4l2_monitor_start(struct sm_media_session *sess)
 	spa_device_add_listener(impl->monitor, &impl->listener,
 			&v4l2_udev_callbacks, impl);
 
-	return impl;
+	sm_media_session_add_listener(sess, &impl->session_listener, &session_events, impl);
+
+	return 0;
 
 out_unload:
 	pw_unload_spa_handle(impl->handle);
 out_free:
 	free(impl);
-	errno = -res;
-	return NULL;
-}
-
-int sm_v4l2_monitor_stop(void *data)
-{
-	struct impl *impl = data;
-	pw_unload_spa_handle(impl->handle);
-	free(impl);
-	return 0;
+	return res;
 }

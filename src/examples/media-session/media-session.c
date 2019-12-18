@@ -53,20 +53,21 @@
 #define sm_object_emit_update(s)		sm_object_emit(s, update, 0)
 #define sm_object_emit_destroy(s)		sm_object_emit(s, destroy, 0)
 
-#define sm_media_session_emit(s,m,v,...) spa_hook_list_call(&s->hooks, struct sm_media_session_events, m, v, ##__VA_ARGS__)
+#define sm_media_session_emit(s,m,v,...) spa_hook_list_call(&(s)->hooks, struct sm_media_session_events, m, v, ##__VA_ARGS__)
 
 #define sm_media_session_emit_create(s,obj)		sm_media_session_emit(s, create, 0, obj)
 #define sm_media_session_emit_remove(s,obj)		sm_media_session_emit(s, remove, 0, obj)
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
+#define sm_media_session_emit_destroy(s)		sm_media_session_emit(s, destroy, 0)
 
-void * sm_stream_endpoint_start(struct sm_media_session *sess);
-void * sm_metadata_start(struct sm_media_session *sess);
-void * sm_alsa_midi_start(struct sm_media_session *sess);
-void * sm_v4l2_monitor_start(struct sm_media_session *sess);
-void * sm_v4l2_endpoint_start(struct sm_media_session *sess);
-void * sm_bluez5_monitor_start(struct sm_media_session *sess);
-void * sm_alsa_monitor_start(struct sm_media_session *sess);
-void * sm_alsa_endpoint_start(struct sm_media_session *sess);
+int sm_stream_endpoint_start(struct sm_media_session *sess);
+int sm_metadata_start(struct sm_media_session *sess);
+int sm_alsa_midi_start(struct sm_media_session *sess);
+int sm_v4l2_monitor_start(struct sm_media_session *sess);
+int sm_v4l2_endpoint_start(struct sm_media_session *sess);
+int sm_bluez5_monitor_start(struct sm_media_session *sess);
+int sm_alsa_monitor_start(struct sm_media_session *sess);
+int sm_alsa_endpoint_start(struct sm_media_session *sess);
 int sm_policy_ep_start(struct sm_media_session *sess);
 
 /** user data to add to an object */
@@ -154,19 +155,25 @@ struct object_info {
 	void (*destroy) (void *object);
 };
 
-static void add_object(struct impl *impl, struct sm_object *obj)
+static void add_object(struct impl *impl, struct sm_object *obj, uint32_t id)
 {
 	size_t size = pw_map_get_size(&impl->globals);
+	obj->id = id;
+	pw_log_debug("add %u %p", obj->id, obj);
 	while (obj->id > size)
 		pw_map_insert_at(&impl->globals, size++, NULL);
 	pw_map_insert_at(&impl->globals, obj->id, obj);
 	spa_list_append(&impl->global_list, &obj->link);
+	sm_media_session_emit_create(impl, obj);
 }
 
 static void remove_object(struct impl *impl, struct sm_object *obj)
 {
+	pw_log_debug("remove %u %p", obj->id, obj);
 	pw_map_insert_at(&impl->globals, obj->id, NULL);
 	spa_list_remove(&obj->link);
+	sm_media_session_emit_remove(impl, obj);
+	obj->id = SPA_ID_INVALID;
 }
 
 static void *find_object(struct impl *impl, uint32_t id)
@@ -637,15 +644,18 @@ static void session_destroy(void *object)
 {
 	struct sm_session *sess = object;
 	struct sm_endpoint *endpoint;
-
-	if (sess->info) {
-		free(sess->info);
-	}
+	struct pw_session_info *i = sess->info;
 
 	spa_list_consume(endpoint, &sess->endpoint_list, link) {
 		endpoint->session = NULL;
 		spa_list_remove(&endpoint->link);
 	}
+	if (i) {
+		if (i->props)
+			pw_properties_free ((struct pw_properties *)i->props);
+		free(i);
+	}
+
 }
 
 static const struct object_info session_info = {
@@ -725,12 +735,7 @@ static void endpoint_destroy(void *object)
 {
 	struct sm_endpoint *endpoint = object;
 	struct sm_endpoint_stream *stream;
-
-	if (endpoint->info) {
-		free(endpoint->info->name);
-		free(endpoint->info->media_class);
-		free(endpoint->info);
-	}
+	struct pw_endpoint_info *i = endpoint->info;
 
 	spa_list_consume(stream, &endpoint->stream_list, link) {
 		stream->endpoint = NULL;
@@ -739,6 +744,13 @@ static void endpoint_destroy(void *object)
 	if (endpoint->session) {
 		endpoint->session = NULL;
 		spa_list_remove(&endpoint->link);
+	}
+	if (i) {
+		if (i->props)
+			pw_properties_free ((struct pw_properties *)i->props);
+		free(i->name);
+		free(i->media_class);
+		free(i);
 	}
 }
 
@@ -892,15 +904,27 @@ destroy_proxy(void *data)
 {
 	struct sm_object *obj = data;
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
+	struct data *d;
 
-	sm_media_session_emit_remove(impl, obj);
+	pw_log_debug("object %p: proxy:%p id:%d", obj, obj->proxy, obj->id);
 
-	remove_object(impl, obj);
+	spa_hook_remove(&obj->proxy_listener);
+	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER))
+		spa_hook_remove(&obj->object_listener);
+
+	if (obj->id != SPA_ID_INVALID)
+		remove_object(impl, obj);
 
 	sm_object_emit_destroy(obj);
 
 	if (obj->destroy)
 		obj->destroy(obj);
+
+	pw_properties_free(obj->props);
+	spa_list_consume(d, &obj->data, link) {
+		spa_list_remove(&d->link);
+		free(d);
+	}
 }
 
 static void done_proxy(void *data, int seq)
@@ -923,14 +947,10 @@ static void bound_proxy(void *data, uint32_t id)
 	struct sm_object *obj = data;
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
 
-	pw_log_debug("bound %p proxy %p id:%d", obj, obj->proxy, id);
+	pw_log_debug("bound %p proxy %p id:%d->%d", obj, obj->proxy, obj->id, id);
 
-	if (obj->id == SPA_ID_INVALID) {
-		obj->id = id;
-		pw_log_debug("bound %p proxy %p id:%d", obj, obj->proxy, id);
-		add_object(impl, obj);
-		sm_media_session_emit_create(impl, obj);
-	}
+	if (obj->id == SPA_ID_INVALID)
+		add_object(impl, obj, id);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -1011,10 +1031,9 @@ static struct sm_object *init_object(struct impl *impl, const struct object_info
 	if (info->init)
 		info->init(obj);
 
-	if (id != SPA_ID_INVALID) {
-		add_object(impl, obj);
-		sm_media_session_emit_create(impl, obj);
-	}
+	if (id != SPA_ID_INVALID)
+		add_object(impl, obj, id);
+
 	return obj;
 }
 
@@ -1082,6 +1101,7 @@ update_object(struct impl *impl, const struct object_info *info,
 	pw_log_debug(NAME" %p: update type:%d -> type:%d", impl, obj->type, type);
 	obj->handle = obj->proxy;
 	spa_hook_remove(&obj->proxy_listener);
+	pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
 
 	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER))
 		spa_hook_remove(&obj->object_listener);
@@ -1636,18 +1656,20 @@ static int start_policy(struct impl *impl)
 	}
 
 	pw_core_add_listener(impl->policy_core,
-				   &impl->policy_listener,
-				   &core_events, impl);
+			&impl->policy_listener,
+			&core_events, impl);
 	pw_proxy_add_listener((struct pw_proxy*)impl->policy_core,
-				   &impl->proxy_policy_listener,
-				   &proxy_core_events, impl);
-	impl->registry = pw_core_get_registry(impl->policy_core,
-                                               PW_VERSION_REGISTRY, 0);
-	pw_registry_add_listener(impl->registry,
-                                              &impl->registry_listener,
-                                              &registry_events, impl);
+			&impl->proxy_policy_listener,
+			&proxy_core_events, impl);
 
-	return sm_policy_ep_start(&impl->this);
+	impl->registry = pw_core_get_registry(impl->policy_core,
+			PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(impl->registry,
+			&impl->registry_listener,
+			&registry_events, impl);
+
+	sm_policy_ep_start(&impl->this);
+	return 0;
 }
 
 int main(int argc, char *argv[])
@@ -1655,6 +1677,7 @@ int main(int argc, char *argv[])
 	struct impl impl = { 0, };
 	const struct spa_support *support;
 	uint32_t n_support;
+	int res = 0;
 
 	pw_init(&argc, &argv);
 
@@ -1685,15 +1708,20 @@ int main(int argc, char *argv[])
 	else
 		pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
 
-	if (start_session(&impl) < 0)
-		return -1;
-	if (start_policy(&impl) < 0)
-		return -1;
+	if ((res = start_session(&impl)) < 0)
+		goto exit;
+	if ((res = start_policy(&impl)) < 0)
+		goto exit;
 
 	pw_main_loop_run(impl.loop);
+exit:
+	sm_media_session_emit_destroy(&impl);
 
 	pw_context_destroy(impl.this.context);
 	pw_main_loop_destroy(impl.loop);
 
-	return 0;
+	pw_map_clear(&impl.endpoint_links);
+	pw_map_clear(&impl.globals);
+
+	return res;
 }

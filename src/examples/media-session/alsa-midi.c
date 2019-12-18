@@ -39,26 +39,44 @@
 
 struct impl {
 	struct sm_media_session *session;
+	struct spa_hook listener;
 
 	struct pw_properties *props;
 	struct pw_proxy *proxy;
 };
 
-void * sm_alsa_midi_start(struct sm_media_session *session)
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->listener);
+	pw_proxy_destroy(impl->proxy);
+	pw_properties_free(impl->props);
+	free(impl);
+}
+
+static const struct sm_media_session_events session_events = {
+	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.destroy = session_destroy,
+};
+
+int sm_alsa_midi_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->session = session;
 	impl->props = pw_properties_new(
 			SPA_KEY_FACTORY_NAME, SPA_NAME_API_ALSA_SEQ_BRIDGE,
 			SPA_KEY_NODE_NAME, "Midi-Bridge",
 			NULL);
-	if (impl->props == NULL)
+	if (impl->props == NULL) {
+		res = -errno;
 		goto cleanup;
+	}
 
 	impl->proxy = sm_media_session_create_object(session,
 				"spa-node-factory",
@@ -67,23 +85,17 @@ void * sm_alsa_midi_start(struct sm_media_session *session)
 				&impl->props->dict,
                                 0);
 
-	if (impl->proxy == NULL)
+	if (impl->proxy == NULL) {
+		res = -errno;
 		goto cleanup_props;
+	}
+	sm_media_session_add_listener(session, &impl->listener, &session_events, impl);
 
-	return impl;
+	return 0;
 
 cleanup_props:
 	pw_properties_free(impl->props);
 cleanup:
 	free(impl);
-	return NULL;
-}
-
-int sm_alsa_midi_stop(void *data)
-{
-	struct impl *impl = data;
-	pw_proxy_destroy(impl->proxy);
-	pw_properties_free(impl->props);
-	free(impl);
-	return 0;
+	return res;
 }

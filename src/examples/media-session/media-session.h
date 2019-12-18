@@ -67,6 +67,7 @@ struct sm_object {
 	int pending;
 
 	struct pw_proxy *handle;
+	struct spa_hook handle_listener;
 	struct spa_hook_list hooks;
 
 	struct spa_list data;
@@ -200,6 +201,7 @@ struct sm_media_session_events {
 	void (*remove) (void *data, struct sm_object *object);
 
 	void (*rescan) (void *data, int seq);
+	void (*destroy) (void *data);
 };
 
 struct sm_media_session {

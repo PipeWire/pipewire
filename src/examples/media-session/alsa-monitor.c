@@ -96,6 +96,7 @@ struct device {
 
 struct impl {
 	struct sm_media_session *session;
+	struct spa_hook session_listener;
 
 	DBusConnection *conn;
 
@@ -255,6 +256,7 @@ static void alsa_remove_node(struct device *device, struct node *node)
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
 	sm_object_destroy(&node->snode->obj);
+	pw_properties_free(node->props);
 	free(node);
 }
 
@@ -484,8 +486,16 @@ static void sync_complete_done(void *data, int seq)
 	add_jack_timeout(impl);
 }
 
+static void sync_destroy(void *data)
+{
+	struct device *device = data;
+	if (device->seq != 0)
+		sync_complete_done(data, device->seq);
+}
+
 static const struct pw_proxy_events sync_complete_release = {
 	PW_VERSION_PROXY_EVENTS,
+	.destroy = sync_destroy,
 	.done = sync_complete_done
 };
 
@@ -656,6 +666,7 @@ static void alsa_remove_device(struct impl *impl, struct device *device)
 		sm_object_destroy(&device->sdevice->obj);
 	spa_hook_remove(&device->listener);
 	pw_unload_spa_handle(device->handle);
+	pw_properties_free(device->props);
 	free(device);
 }
 
@@ -710,7 +721,22 @@ static int alsa_start_jack_device(struct impl *impl)
 	return res;
 }
 
-void *sm_alsa_monitor_start(struct sm_media_session *session)
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->session_listener);
+	spa_hook_remove(&impl->listener);
+	pw_proxy_destroy(impl->jack_device);
+	pw_unload_spa_handle(impl->handle);
+	free(impl);
+}
+
+static const struct sm_media_session_events session_events = {
+	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.destroy = session_destroy,
+};
+
+int sm_alsa_monitor_start(struct sm_media_session *session)
 {
 	struct pw_context *context = session->context;
 	struct impl *impl;
@@ -719,7 +745,7 @@ void *sm_alsa_monitor_start(struct sm_media_session *session)
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->session = session;
 
@@ -747,20 +773,13 @@ void *sm_alsa_monitor_start(struct sm_media_session *session)
 	if ((res = alsa_start_jack_device(impl)) < 0)
 		goto out_unload;
 
-	return impl;
+	sm_media_session_add_listener(session, &impl->session_listener, &session_events, impl);
+
+	return 0;
 
 out_unload:
 	pw_unload_spa_handle(impl->handle);
 out_free:
 	free(impl);
-	errno = -res;
-	return NULL;
-}
-
-int sm_alsa_monitor_stop(void *data)
-{
-	struct impl *impl = data;
-	pw_unload_spa_handle(impl->handle);
-	free(impl);
-	return 0;
+	return res;
 }

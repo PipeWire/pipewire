@@ -179,6 +179,13 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 	return 1;
 }
 
+static void destroy_endpoint(struct impl *impl, struct endpoint *ep)
+{
+	spa_list_remove(&ep->link);
+	free(ep->media);
+	sm_object_remove_data((struct sm_object*)ep->obj, SESSION_KEY);
+}
+
 static int
 handle_stream(struct impl *impl, struct sm_object *object)
 {
@@ -200,6 +207,11 @@ handle_stream(struct impl *impl, struct sm_object *object)
 	s->endpoint = ep;
 
 	return 0;
+}
+
+static void destroy_stream(struct impl *impl, struct stream *s)
+{
+	sm_object_remove_data((struct sm_object*)s->obj, SESSION_KEY);
 }
 
 static void session_create(void *data, struct sm_object *object)
@@ -236,10 +248,15 @@ static void session_remove(void *data, struct sm_object *object)
 	case PW_TYPE_INTERFACE_Endpoint:
 	{
 		struct endpoint *ep;
-		if ((ep = sm_object_get_data(object, SESSION_KEY)) != NULL) {
-			spa_list_remove(&ep->link);
-			free(ep->media);
-		}
+		if ((ep = sm_object_get_data(object, SESSION_KEY)) != NULL)
+			destroy_endpoint(impl, ep);
+		break;
+	}
+	case PW_TYPE_INTERFACE_EndpointStream:
+	{
+		struct stream *s;
+		if ((s = sm_object_get_data(object, SESSION_KEY)) != NULL)
+			destroy_stream(impl, s);
 		break;
 	}
 	default:
@@ -490,20 +507,28 @@ static void session_rescan(void *data, int seq)
 		rescan_endpoint(impl, ep);
 }
 
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->listener);
+	free(impl);
+}
+
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.create = session_create,
 	.remove = session_remove,
 	.rescan = session_rescan,
+	.destroy = session_destroy,
 };
 
-void *sm_policy_ep_start(struct sm_media_session *session)
+int sm_policy_ep_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->session = session;
 	impl->context = session->context;
@@ -512,12 +537,5 @@ void *sm_policy_ep_start(struct sm_media_session *session)
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
 
-	return impl;
-}
-
-int sm_policy_ep_stop(void *data)
-{
-	struct impl *impl = data;
-	free(impl);
 	return 0;
 }

@@ -65,6 +65,8 @@ struct metadata {
 	struct spa_interface iface;
 
 	struct sm_media_session *session;
+	struct spa_hook session_listener;
+
 	struct spa_hook_list hooks;
 
 	struct pw_properties *properties;
@@ -180,11 +182,33 @@ struct pw_metadata_methods impl_metadata = {
 	.clear = impl_clear,
 };
 
-void *sm_metadata_start(struct sm_media_session *sess)
+static void session_destroy(void *data)
+{
+	struct metadata *this = data;
+
+	spa_hook_remove(&this->session_listener);
+	pw_proxy_destroy(this->proxy);
+
+	clear_items(this);
+	pw_array_clear(&this->metadata);
+	pw_properties_free(this->properties);
+	free(this);
+}
+
+static const struct sm_media_session_events session_events = {
+	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.destroy = session_destroy,
+};
+
+int sm_metadata_start(struct sm_media_session *sess)
 {
 	struct metadata *md;
+	int res;
 
 	md = calloc(1, sizeof(*md));
+	if (md == NULL)
+		return -errno;
+
 	md->session = sess;
 	md->properties = pw_properties_new(NULL, NULL);
 	pw_array_init(&md->metadata, 4096);
@@ -200,18 +224,18 @@ void *sm_metadata_start(struct sm_media_session *sess)
 			NULL,
 			md,
 			0);
-	return md;
-}
+	if (md->proxy == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 
-int sm_metadata_stop(void *data)
-{
-	struct metadata *this = data;
-
-	pw_proxy_destroy(this->proxy);
-
-	clear_items(this);
-	pw_array_clear(&this->metadata);
-	pw_properties_free(this->properties);
-	free(this);
+	sm_media_session_add_listener(sess, &md->session_listener,
+			&session_events, md);
 	return 0;
+
+error_free:
+	pw_array_clear(&md->metadata);
+	pw_properties_free(md->properties);
+	free(md);
+	return res;
 }

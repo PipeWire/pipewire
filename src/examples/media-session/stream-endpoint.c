@@ -543,12 +543,13 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	return 1;
 }
 
-static void destroy_node(struct node *node)
+static void destroy_node(struct impl *impl, struct node *node)
 {
 	if (node->endpoint)
 		destroy_endpoint(node->endpoint);
 	free(node->media);
 	spa_hook_remove(&node->listener);
+	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
 }
 
 static void session_create(void *data, struct sm_object *object)
@@ -573,12 +574,14 @@ static void session_create(void *data, struct sm_object *object)
 
 static void session_remove(void *data, struct sm_object *object)
 {
+	struct impl *impl = data;
+
 	switch (object->type) {
 	case PW_TYPE_INTERFACE_Node:
 	{
 		struct node *node;
 		if ((node = sm_object_get_data(object, SESSION_KEY)) != NULL)
-			destroy_node(node);
+			destroy_node(impl, node);
 		break;
 	}
 	default:
@@ -586,29 +589,30 @@ static void session_remove(void *data, struct sm_object *object)
 	}
 }
 
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->listener);
+	free(impl);
+}
+
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.create = session_create,
 	.remove = session_remove,
+	.destroy = session_destroy,
 };
 
-void * sm_stream_endpoint_start(struct sm_media_session *session)
+int sm_stream_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->session = session;
 	sm_media_session_add_listener(session, &impl->listener, &session_events, impl);
 
-	return impl;
-}
-
-int sm_stream_endpoint_stop(void *data)
-{
-	struct impl *impl = data;
-	spa_hook_remove(&impl->listener);
 	return 0;
 }

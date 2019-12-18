@@ -334,7 +334,7 @@ on_core_done (void *data, uint32_t id, int seq)
     if (p->seq == seq) {
       remove_pending(p);
       if (p->callback)
-	      p->callback(p->data);
+              p->callback(p->data);
     }
   }
   pw_log_debug("check %d %d", seq, self->seq);
@@ -374,7 +374,7 @@ static void port_event_info(void *data, const struct pw_port_info *info)
 }
 
 static void port_event_param(void *data, int seq, uint32_t id,
-		uint32_t index, uint32_t next, const struct spa_pod *param)
+                uint32_t index, uint32_t next, const struct spa_pod *param)
 {
   struct port_data *port_data = data;
   struct node_data *node_data = port_data->node_data;
@@ -447,8 +447,8 @@ static const struct pw_proxy_events proxy_port_events = {
 };
 
 static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
-				 const char *type, uint32_t version,
-				 const struct spa_dict *props)
+                                const char *type, uint32_t version,
+                                const struct spa_dict *props)
 {
   struct core_data *rd = data;
   GstPipeWireDeviceProvider *self = rd->self;
@@ -458,7 +458,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     struct pw_node *node;
 
     node = pw_registry_bind(rd->registry,
-		    id, type, PW_VERSION_NODE, sizeof(*nd));
+                    id, type, PW_VERSION_NODE, sizeof(*nd));
     if (node == NULL)
       goto no_mem;
 
@@ -484,7 +484,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
       return;
 
     port = pw_registry_bind(rd->registry,
-		    id, type, PW_VERSION_PORT, sizeof(*pd));
+                    id, type, PW_VERSION_PORT, sizeof(*pd));
     if (port == NULL)
       goto no_mem;
 
@@ -496,7 +496,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pw_port_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
     pw_port_enum_params((struct pw_port*)port,
-				0, SPA_PARAM_EnumFormat, 0, 0, NULL);
+                    0, SPA_PARAM_EnumFormat, 0, 0, NULL);
     add_pending(self, &pd->pending, do_add_node, pd);
   }
 

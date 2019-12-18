@@ -241,16 +241,16 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   if (size == 0)
     spa_pod_builder_add (&b,
         SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-	0);
+        0);
   else
     spa_pod_builder_add (&b,
         SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
-	0);
+        0);
 
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
       SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(min_buffers, min_buffers,
-					       max_buffers ? max_buffers : INT32_MAX),
+                                               max_buffers ? max_buffers : INT32_MAX),
       SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16),
       0);
   port_params[0] = spa_pod_builder_pop (&b, &f);
@@ -501,7 +501,7 @@ on_param_changed (void *data, uint32_t id, const struct spa_pod *param)
   GstPipeWireSink *pwsink = data;
 
   if (param == NULL || id != SPA_PARAM_Format)
-	  return;
+          return;
 
   if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->pool)))
     pool_activated (pwsink->pool, pwsink);
@@ -637,12 +637,12 @@ copy_properties (GQuark field_id,
 }
 
 static const struct pw_stream_events stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.state_changed = on_state_changed,
-	.param_changed = on_param_changed,
-	.add_buffer = on_add_buffer,
-	.remove_buffer = on_remove_buffer,
-	.process = on_process,
+        PW_VERSION_STREAM_EVENTS,
+        .state_changed = on_state_changed,
+        .param_changed = on_param_changed,
+        .add_buffer = on_add_buffer,
+        .remove_buffer = on_remove_buffer,
+        .process = on_process,
 };
 
 static gboolean
@@ -665,9 +665,9 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   pwsink->pool->stream = pwsink->stream;
 
   pw_stream_add_listener(pwsink->stream,
-			 &pwsink->stream_listener,
-			 &stream_events,
-			 pwsink);
+                         &pwsink->stream_listener,
+                         &stream_events,
+                         pwsink);
 
   pw_thread_loop_unlock (pwsink->loop);
 

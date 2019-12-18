@@ -403,7 +403,7 @@ on_process (void *_data)
 
   b = pw_stream_dequeue_buffer (pwsrc->stream);
   if (b == NULL)
-	  return;
+          return;
 
   data = b->user_data;
   buf = data->buf;
@@ -441,8 +441,8 @@ on_process (void *_data)
 
 static void
 on_state_changed (void *data,
-		  enum pw_stream_state old,
-		  enum pw_stream_state state, const char *error)
+                  enum pw_stream_state old,
+                  enum pw_stream_state state, const char *error)
 {
   GstPipeWireSrc *pwsrc = data;
 
@@ -698,15 +698,15 @@ on_param_changed (void *data, uint32_t id,
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_add_object (&b,
-	SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-	SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(16, 1, INT32_MAX),
-	SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
-	SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-	SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-	SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+        SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+        SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(16, 1, INT32_MAX),
+        SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
+        SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+        SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+        SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
     params[1] = spa_pod_builder_add_object (&b,
-	SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+        SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
@@ -918,12 +918,12 @@ copy_properties (GQuark field_id,
 }
 
 static const struct pw_stream_events stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.state_changed = on_state_changed,
-	.param_changed = on_param_changed,
-	.add_buffer = on_add_buffer,
-	.remove_buffer = on_remove_buffer,
-	.process = on_process,
+        PW_VERSION_STREAM_EVENTS,
+        .state_changed = on_state_changed,
+        .param_changed = on_param_changed,
+        .add_buffer = on_add_buffer,
+        .remove_buffer = on_remove_buffer,
+        .process = on_process,
 };
 
 static gboolean
@@ -952,14 +952,14 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   }
 
   if ((pwsrc->stream = pw_stream_new (pwsrc->core,
-				  pwsrc->client_name, props)) == NULL)
+                                  pwsrc->client_name, props)) == NULL)
     goto no_stream;
 
 
   pw_stream_add_listener(pwsrc->stream,
-			 &pwsrc->stream_listener,
-			 &stream_events,
-			 pwsrc);
+                         &pwsrc->stream_listener,
+                         &stream_events,
+                         pwsrc);
 
 
   pwsrc->clock = gst_pipewire_clock_new (pwsrc->stream, pwsrc->last_time);

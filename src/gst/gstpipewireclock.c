@@ -69,7 +69,7 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
   pclock->last_time = result;
 
   GST_DEBUG ("%"PRId64", %d/%d %"PRId64" %"PRId64,
-		  t.ticks, t.rate.num, t.rate.denom, t.now, result);
+                t.ticks, t.rate.num, t.rate.denom, t.now, result);
 
   return result;
 }

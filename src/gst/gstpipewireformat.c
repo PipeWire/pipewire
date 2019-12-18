@@ -372,7 +372,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_format, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       idx = gst_video_format_from_string (v);
@@ -390,7 +390,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_size, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type2 (value, value2), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type2 (value, value2), 0);
       }
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
@@ -406,7 +406,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_framerate, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
@@ -422,7 +422,7 @@ handle_video_fields (ConvertData *d)
     for (i = 0; get_nth_fraction (value, i, &v); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_maxFramerate, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
@@ -449,7 +449,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; (v = get_nth_string (value, i)); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_format, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       idx = gst_audio_format_from_string (v);
@@ -477,7 +477,7 @@ handle_audio_fields (ConvertData *d)
 
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_layout, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       spa_pod_builder_id (&d->b, layout);
@@ -493,7 +493,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_rate, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       spa_pod_builder_int (&d->b, v);
@@ -508,7 +508,7 @@ handle_audio_fields (ConvertData *d)
     for (i = 0; get_nth_int (value, i, &v); i++) {
       if (i == 0) {
         spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_channels, 0);
-	spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
+        spa_pod_builder_push_choice(&d->b, &f, get_range_type (value), 0);
       }
 
       spa_pod_builder_int (&d->b, v);
@@ -532,8 +532,8 @@ builder_overflow (void *event_data, uint32_t size)
 }
 
 static const struct spa_pod_builder_callbacks builder_callbacks = {
-	SPA_VERSION_POD_BUILDER_CALLBACKS,
-	.overflow = builder_overflow
+        SPA_VERSION_POD_BUILDER_CALLBACKS,
+        .overflow = builder_overflow
 };
 
 static struct spa_pod *
@@ -643,7 +643,7 @@ handle_id_prop (const struct spa_pod_prop *prop, const char *key, id_to_string_f
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
   if (val->type != SPA_TYPE_Id)
-	  return;
+          return;
 
   id = SPA_POD_BODY(val);
 
@@ -684,7 +684,7 @@ handle_int_prop (const struct spa_pod_prop *prop, const char *key, GstCaps *res)
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
   if (val->type != SPA_TYPE_Int)
-	  return;
+          return;
 
   ints = SPA_POD_BODY(val);
 
@@ -728,7 +728,7 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
   if (val->type != SPA_TYPE_Rectangle)
-	  return;
+          return;
 
   rect = SPA_POD_BODY(val);
 
@@ -781,7 +781,7 @@ handle_fraction_prop (const struct spa_pod_prop *prop, const char *key, GstCaps 
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
   if (val->type != SPA_TYPE_Fraction)
-	  return;
+          return;
 
   fract = SPA_POD_BODY(val);
 

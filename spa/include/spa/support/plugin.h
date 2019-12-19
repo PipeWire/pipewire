@@ -50,7 +50,7 @@ struct spa_handle {
 	 *         -ENOTSUP when there are no interfaces
 	 *         -EINVAL when handle or info is NULL
 	 */
-	int (*get_interface) (struct spa_handle *handle, uint32_t type, void **interface);
+	int (*get_interface) (struct spa_handle *handle, const char *type, void **interface);
 	/**
 	 * Clean up the memory of \a handle. After this, \a handle should not be used
 	 * anymore.
@@ -69,8 +69,8 @@ struct spa_handle {
  * handles.
  */
 struct spa_interface_info {
-	uint32_t type;	/*< the type of the interface, can be
-			 *  used to get the interface */
+	const char *type;	/*< the type of the interface, can be
+				 *  used to get the interface */
 };
 
 /**
@@ -78,18 +78,18 @@ struct spa_interface_info {
  * a factory. It can be extra information or interfaces such as logging.
  */
 struct spa_support {
-	uint32_t type;	/*< the type of the support item */
-	void *data;	/*< specific data for the item */
+	const char *type;	/*< the type of the support item */
+	void *data;		/*< specific data for the item */
 };
 
 /** Find a support item of the given type */
 static inline void *spa_support_find(const struct spa_support *support,
 				     uint32_t n_support,
-				     uint32_t type)
+				     const char *type)
 {
 	uint32_t i;
 	for (i = 0; i < n_support; i++) {
-		if (support[i].type == type)
+		if (strcmp(support[i].type, type) == 0)
 			return support[i].data;
 	}
 	return NULL;

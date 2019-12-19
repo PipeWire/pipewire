@@ -34,6 +34,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+#define PW_TYPE_INTERFACE_Link	PW_TYPE_INFO_INTERFACE_BASE "Link"
+
 #define PW_VERSION_LINK		3
 struct pw_link;
 

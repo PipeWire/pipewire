@@ -823,7 +823,7 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
 
@@ -832,7 +832,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	this = (struct impl *) handle;
 
-	if (type == SPA_TYPE_INTERFACE_Node)
+	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -860,7 +860,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
-	uint32_t i;
+	const char *str;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -870,15 +870,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 
-	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
-			this->log = support[i].data;
-	}
+	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
-	for (i = 0; info && i < info->n_items; i++) {
-		if (strcmp(info->items[i].key, SPA_KEY_API_JACK_CLIENT) == 0)
-			sscanf(info->items[i].value, "pointer:%p", &this->client);
-	}
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_JACK_CLIENT)))
+		sscanf(str, "pointer:%p", &this->client);
+
 	if (this->client == NULL) {
 		spa_log_error(this->log, NAME" %p: missing "SPA_KEY_API_JACK_CLIENT
 				" property", this);

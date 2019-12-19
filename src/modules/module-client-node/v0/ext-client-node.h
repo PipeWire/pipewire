@@ -30,6 +30,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+#define PW_TYPE_INTERFACE_ClientNode            PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
+
 #define PW_VERSION_CLIENT_NODE0		0
 
 struct pw_client_node0_message;

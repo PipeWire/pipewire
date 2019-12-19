@@ -46,10 +46,13 @@ enum spa_log_level {
 /**
  * The Log interface
  */
+#define SPA_TYPE_INTERFACE_Log	SPA_TYPE_INFO_INTERFACE_BASE "Log"
+
+#define SPA_VERSION_LOG		0
+
 struct spa_log {
 	/** the version of this log. This can be used to expand this
 	 * structure in the future */
-#define SPA_VERSION_LOG	0
 	struct spa_interface iface;
 	/**
 	 * Logging level, everything above this level is not logged

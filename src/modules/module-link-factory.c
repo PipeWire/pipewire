@@ -172,7 +172,7 @@ static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_directi
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
-			   uint32_t type,
+			   const char *type,
 			   uint32_t version,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
@@ -214,13 +214,13 @@ static void *create_object(void *_data,
 	input_port_id = str ? pw_properties_parse_int(str) : -1;
 
 	global = pw_context_find_global(context, output_node_id);
-	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
+	if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Node))
 		goto error_output;
 
 	output_node = pw_global_get_object(global);
 
 	global = pw_context_find_global(context, input_node_id);
-	if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Node)
+	if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Node))
 		goto error_input;
 
 	input_node = pw_global_get_object(global);
@@ -230,7 +230,7 @@ static void *create_object(void *_data,
 	}
 	else {
 		global = pw_context_find_global(context, output_port_id);
-		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
+		if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
 			goto error_output_port;
 
 		outport = pw_global_get_object(global);
@@ -242,7 +242,7 @@ static void *create_object(void *_data,
 		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	else {
 		global = pw_context_find_global(context, input_port_id);
-		if (global == NULL || pw_global_get_type(global) != PW_TYPE_INTERFACE_Port)
+		if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
 			goto error_input_port;
 
 		inport = pw_global_get_object(global);

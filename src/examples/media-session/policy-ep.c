@@ -219,19 +219,13 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	int res;
 
-	switch (object->type) {
-	case PW_TYPE_INTERFACE_Endpoint:
+	if (strcmp(object->type, PW_TYPE_INTERFACE_Endpoint) == 0)
 		res = handle_endpoint(impl, object);
-		break;
-
-	case PW_TYPE_INTERFACE_EndpointStream:
+	else if (strcmp(object->type, PW_TYPE_INTERFACE_EndpointStream) == 0)
 		res = handle_stream(impl, object);
-		break;
-
-	default:
+	else
 		res = 0;
-		break;
-	}
+
 	if (res < 0) {
 		pw_log_warn(NAME" %p: can't handle global %d", impl, object->id);
 	}
@@ -244,23 +238,15 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
-	switch (object->type) {
-	case PW_TYPE_INTERFACE_Endpoint:
-	{
+	if (strcmp(object->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
 		struct endpoint *ep;
 		if ((ep = sm_object_get_data(object, SESSION_KEY)) != NULL)
 			destroy_endpoint(impl, ep);
-		break;
 	}
-	case PW_TYPE_INTERFACE_EndpointStream:
-	{
+	else if (strcmp(object->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
 		struct stream *s;
 		if ((s = sm_object_get_data(object, SESSION_KEY)) != NULL)
 			destroy_stream(impl, s);
-		break;
-	}
-	default:
-		break;
 	}
 
 	sm_media_session_schedule_rescan(impl->session);
@@ -444,11 +430,11 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		pw_log_info(NAME " %p: target:%d", impl, path_id);
 
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
-			switch (obj->type) {
-			case PW_TYPE_INTERFACE_Endpoint:
+			if (strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
 				peer = sm_object_get_data(obj, SESSION_KEY);
 				goto do_link;
-			case PW_TYPE_INTERFACE_Node:
+			}
+			else if (strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
 				node = (struct sm_node*)obj;
 				goto do_link_node;
 			}
@@ -469,7 +455,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		}
 
 		obj = sm_media_session_find_object(impl->session, ep->client_id);
-		if (obj && obj->type == PW_TYPE_INTERFACE_Client) {
+		if (obj && strcmp(obj->type, PW_TYPE_INTERFACE_Client) == 0) {
 			pw_client_error((struct pw_client*)obj->proxy,
 				ep->id, -ENOENT, "no endpoint available");
 		}

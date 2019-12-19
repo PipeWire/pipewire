@@ -314,7 +314,7 @@ int pw_unload_spa_handle(struct spa_handle *handle)
 
 static void *add_interface(struct support *support,
 		const char *factory_name,
-		uint32_t type,
+		const char *type,
 		const struct spa_dict *info)
 {
 	struct spa_handle *handle;
@@ -327,7 +327,7 @@ static void *add_interface(struct support *support,
 
 	if (handle == NULL ||
 	    (res = spa_handle_get_interface(handle, type, &iface)) < 0) {
-			pw_log_error("can't get %d interface %d", type, res);
+			pw_log_error("can't get %s interface %d", type, res);
 	} else {
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(type, iface);
@@ -515,28 +515,6 @@ const char* pw_get_library_version(void)
 }
 
 static const struct spa_type_info type_info[] = {
-	{ PW_TYPE_INTERFACE_Core, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Core", NULL },
-	{ PW_TYPE_INTERFACE_Registry, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Registry", NULL },
-	{ PW_TYPE_INTERFACE_Node, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Node", NULL },
-	{ PW_TYPE_INTERFACE_Port, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Port", NULL },
-	{ PW_TYPE_INTERFACE_Factory, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Factory", NULL },
-	{ PW_TYPE_INTERFACE_Link, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Link", NULL },
-	{ PW_TYPE_INTERFACE_Client, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Client", NULL },
-	{ PW_TYPE_INTERFACE_Module, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Module", NULL },
-	{ PW_TYPE_INTERFACE_Device, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Device", NULL },
-
-	/* extensions */
-	{ PW_TYPE_INTERFACE_Metadata, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Metadata", NULL },
-	{ PW_TYPE_INTERFACE_Session, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Session", NULL},
-	{ PW_TYPE_INTERFACE_Endpoint, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "Endpoint", NULL},
-	{ PW_TYPE_INTERFACE_EndpointStream, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "EndpointStream", NULL},
-	{ PW_TYPE_INTERFACE_EndpointLink, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "EndpointLink", NULL},
-
-	/* implementations */
-	{ PW_TYPE_INTERFACE_ClientNode, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "ClientNode", NULL },
-	{ PW_TYPE_INTERFACE_ClientSession, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "ClientSession", NULL},
-	{ PW_TYPE_INTERFACE_ClientEndpoint, SPA_TYPE_Pointer, PW_TYPE_INFO_INTERFACE_BASE "ClientEndpoint", NULL},
-
 	{ SPA_ID_INVALID, SPA_ID_INVALID, "spa_types", spa_types },
 	{ 0, 0, NULL, NULL },
 };

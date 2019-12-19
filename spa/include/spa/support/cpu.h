@@ -37,7 +37,9 @@ extern "C" {
 /**
  * The CPU features interface
  */
-#define SPA_VERSION_CPU	0
+#define SPA_TYPE_INTERFACE_CPU	SPA_TYPE_INFO_INTERFACE_BASE "CPU"
+
+#define SPA_VERSION_CPU		0
 struct spa_cpu { struct spa_interface iface; };
 
 /* x86 specific */

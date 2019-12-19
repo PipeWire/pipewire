@@ -160,7 +160,7 @@ static const struct pw_resource_events resource_events = {
 
 static void *create_object(void *data,
 			   struct pw_resource *owner_resource,
-			   uint32_t type,
+			   const char *type,
 			   uint32_t version,
 			   struct pw_properties *properties,
 			   uint32_t new_id)

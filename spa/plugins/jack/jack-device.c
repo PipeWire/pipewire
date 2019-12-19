@@ -34,6 +34,7 @@
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/node/node.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
@@ -335,7 +336,7 @@ static const struct spa_device_methods impl_device = {
 	.set_param = impl_set_param,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
 
@@ -344,13 +345,10 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	this = (struct impl *) handle;
 
-	switch (type) {
-	case SPA_TYPE_INTERFACE_Device:
+	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
 		*interface = &this->device;
-		break;
-	default:
+	else
 		return -ENOENT;
-	}
 
 	return 0;
 }
@@ -383,7 +381,6 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	const char *str;
-	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -393,13 +390,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 
-	for (i = 0; i < n_support; i++) {
-		switch (support[i].type) {
-		case SPA_TYPE_INTERFACE_Log:
-			this->log = support[i].data;
-			break;
-		}
-	}
+	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
 	this->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,
@@ -409,10 +400,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info) {
-		if ((str = spa_dict_lookup(info, SPA_KEY_API_JACK_SERVER)))
-			snprintf(this->props.server, 64, "%s", str);
-	}
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_JACK_SERVER)))
+		snprintf(this->props.server, 64, "%s", str);
 	return 0;
 }
 

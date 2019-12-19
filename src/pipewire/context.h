@@ -148,9 +148,9 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 /** data for registering export functions */
 struct pw_export_type {
 	struct spa_list link;
-	uint32_t type;
+	const char *type;
 	struct pw_proxy * (*func) (struct pw_core *core,
-		uint32_t type, const struct spa_dict *props, void *object,
+		const char *type, const struct spa_dict *props, void *object,
 		size_t user_data_size);
 };
 
@@ -158,7 +158,7 @@ struct pw_export_type {
  * extension modules */
 int pw_context_register_export_type(struct pw_context *context, struct pw_export_type *type);
 /** find information about registered export type */
-const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, uint32_t type);
+const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, const char *type);
 
 /** add an object to the context */
 int pw_context_set_object(struct pw_context *context, const char *type, void *value);

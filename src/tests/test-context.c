@@ -22,6 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/support/dbus.h>
+#include <spa/support/cpu.h>
+
 #include <pipewire/pipewire.h>
 #include <pipewire/global.h>
 
@@ -206,7 +209,7 @@ static void test_support(void)
 	struct pw_context *context;
 	const struct spa_support *support;
 	uint32_t n_support;
-	uint32_t types[] = {
+	const char * types[] = {
 		SPA_TYPE_INTERFACE_DataSystem,
 		SPA_TYPE_INTERFACE_DataLoop,
 		SPA_TYPE_INTERFACE_System,

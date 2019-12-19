@@ -149,28 +149,26 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->marshal_list, &impl->link);
 
-	pw_log_debug(NAME" %p: Add marshal %d/%s:%d to protocol %s", protocol,
-			marshal->type, spa_debug_type_find_name(pw_type_info(), marshal->type),
-			marshal->version, protocol->name);
+	pw_log_debug(NAME" %p: Add marshal %s/%d to protocol %s", protocol,
+			marshal->type, marshal->version, protocol->name);
 
 	return 0;
 }
 
 SPA_EXPORT
 const struct pw_protocol_marshal *
-pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t version, uint32_t flags)
+pw_protocol_get_marshal(struct pw_protocol *protocol, const char *type, uint32_t version, uint32_t flags)
 {
 	struct marshal *impl;
 
 	spa_list_for_each(impl, &protocol->marshal_list, link) {
-		if (impl->marshal->type == type &&
+		if (strcmp(impl->marshal->type, type) == 0 &&
 		    impl->marshal->version == version &&
 		    (impl->marshal->flags & flags) == flags)
                         return impl->marshal;
         }
-	pw_log_debug(NAME" %p: No marshal %d/%s:%d for protocol %s", protocol,
-			type, spa_debug_type_find_name(pw_type_info(), type),
-			version, protocol->name);
+	pw_log_debug(NAME" %p: No marshal %s/%d for protocol %s", protocol,
+			type, version, protocol->name);
 	return NULL;
 }
 

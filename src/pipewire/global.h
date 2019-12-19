@@ -79,8 +79,8 @@ struct pw_global_events {
 
 /** Create a new global object */
 struct pw_global *
-pw_global_new(struct pw_context *context,		/**< the context */
-	      uint32_t type,			/**< the interface type of the global */
+pw_global_new(struct pw_context *context,	/**< the context */
+	      const char *type,			/**< the interface type of the global */
 	      uint32_t version,			/**< the interface version of the global */
 	      struct pw_properties *properties,	/**< extra properties */
 	      pw_global_bind_func_t func,	/**< function to bind */
@@ -102,7 +102,10 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_clie
 struct pw_context *pw_global_get_context(struct pw_global *global);
 
 /** Get the global type */
-uint32_t pw_global_get_type(struct pw_global *global);
+const char *pw_global_get_type(struct pw_global *global);
+
+/** Check a global type */
+bool pw_global_is_type(struct pw_global *global, const char *type);
 
 /** Get the global version */
 uint32_t pw_global_get_version(struct pw_global *global);

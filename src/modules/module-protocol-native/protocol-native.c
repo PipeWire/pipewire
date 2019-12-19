@@ -193,7 +193,7 @@ static void push_params(struct spa_pod_builder *b, uint32_t n_params,
 static void *
 core_method_marshal_create_object(void *object,
 			   const char *factory_name,
-			   uint32_t type, uint32_t version,
+			   const char *type, uint32_t version,
 			   const struct spa_dict *props, size_t user_data_size)
 {
 	struct pw_proxy *proxy = object;
@@ -213,7 +213,7 @@ core_method_marshal_create_object(void *object,
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			SPA_POD_String(factory_name),
-			SPA_POD_Id(type),
+			SPA_POD_String(type),
 			SPA_POD_Int(version),
 			NULL);
 	push_dict(b, props);
@@ -595,15 +595,15 @@ static int core_method_demarshal_create_object(void *object, const struct pw_pro
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	uint32_t version, type, new_id;
-	const char *factory_name;
+	uint32_t version, new_id;
+	const char *factory_name, *type;
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
 			SPA_POD_String(&factory_name),
-			SPA_POD_Id(&type),
+			SPA_POD_String(&type),
 			SPA_POD_Int(&version),
 			NULL) < 0)
 		return -EINVAL;
@@ -664,7 +664,7 @@ static int registry_method_marshal_add_listener(void *object,
 }
 
 static void registry_marshal_global(void *object, uint32_t id, uint32_t permissions,
-				    uint32_t type, uint32_t version, const struct spa_dict *props)
+				    const char *type, uint32_t version, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -676,7 +676,7 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(id),
 			    SPA_POD_Int(permissions),
-			    SPA_POD_Id(type),
+			    SPA_POD_String(type),
 			    SPA_POD_Int(version),
 			    NULL);
 	push_dict(b, props);
@@ -701,12 +701,13 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	uint32_t id, version, type, new_id;
+	uint32_t id, version, new_id;
+	char *type;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_Int(&id),
-			SPA_POD_Id(&type),
+			SPA_POD_String(&type),
 			SPA_POD_Int(&version),
 			SPA_POD_Int(&new_id)) < 0)
 		return -EINVAL;
@@ -998,7 +999,7 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 	spa_pod_builder_add(b,
 			    SPA_POD_Int(info->id),
 			    SPA_POD_String(info->name),
-			    SPA_POD_Id(info->type),
+			    SPA_POD_String(info->type),
 			    SPA_POD_Int(info->version),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
@@ -1021,7 +1022,7 @@ static int factory_demarshal_info(void *object, const struct pw_protocol_native_
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&info.id),
 			SPA_POD_String(&info.name),
-			SPA_POD_Id(&info.type),
+			SPA_POD_String(&info.type),
 			SPA_POD_Int(&info.version),
 			SPA_POD_Long(&info.change_mask), NULL) < 0)
 		return -EINVAL;
@@ -1815,7 +1816,8 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 	struct pw_proxy *proxy = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	uint32_t id, permissions, type, version;
+	uint32_t id, permissions, version;
+	char *type;
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -1823,7 +1825,7 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&id),
 			SPA_POD_Int(&permissions),
-			SPA_POD_Id(&type),
+			SPA_POD_String(&type),
 			SPA_POD_Int(&version), NULL) < 0)
 		return -EINVAL;
 
@@ -1856,7 +1858,7 @@ static int registry_demarshal_global_remove(void *object, const struct pw_protoc
 }
 
 static void * registry_marshal_bind(void *object, uint32_t id,
-				  uint32_t type, uint32_t version, size_t user_data_size)
+				  const char *type, uint32_t version, size_t user_data_size)
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
@@ -1873,7 +1875,7 @@ static void * registry_marshal_bind(void *object, uint32_t id,
 
 	spa_pod_builder_add_struct(b,
 			       SPA_POD_Int(id),
-			       SPA_POD_Id(type),
+			       SPA_POD_String(type),
 			       SPA_POD_Int(version),
 			       SPA_POD_Int(new_id));
 

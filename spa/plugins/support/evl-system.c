@@ -362,7 +362,7 @@ static const struct spa_system_methods impl_system = {
 	.signalfd_read = impl_signalfd_read,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *impl;
 
@@ -371,13 +371,11 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	impl = (struct impl *) handle;
 
-	switch (type) {
-	case SPA_TYPE_INTERFACE_System:
+	if (strcmp(type, SPA_TYPE_INTERFACE_System) == 0)
 		*interface = &impl->system;
-		break;
-	default:
+	else
 		return -ENOENT;
-	}
+
 	return 0;
 }
 
@@ -402,7 +400,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *impl;
-	uint32_t i;
 	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -417,13 +414,8 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_SYSTEM,
 			&impl_system, impl);
 
-	for (i = 0; i < n_support; i++) {
-		switch (support[i].type) {
-		case SPA_TYPE_INTERFACE_Log:
-			impl->log = support[i].data;
-			break;
-		}
-	}
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+
 	impl->pid = getpid();
 
 	if ((res = evl_attach_self("evl-system-%d-%p", impl->pid, impl)) < 0) {

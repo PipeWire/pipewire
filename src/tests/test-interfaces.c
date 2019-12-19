@@ -48,7 +48,7 @@ static void test_core_abi(void)
 				uint32_t version, size_t user_data_size);
 		void * (*create_object) (void *object,
 				       const char *factory_name,
-				       uint32_t type,
+				       const char *type,
 				       uint32_t version,
 				       const struct spa_dict *props,
 				       size_t user_data_size);
@@ -101,14 +101,14 @@ static void test_registry_abi(void)
 			struct spa_hook *listener,
 			const struct pw_registry_events *events,
 			void *data);
-		void * (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version,
+		void * (*bind) (void *object, uint32_t id, const char *type, uint32_t version,
 				size_t user_data_size);
 		int (*destroy) (void *object, uint32_t id);
 	} methods = { PW_VERSION_REGISTRY_METHODS, };
 	struct {
 		uint32_t version;
 		void (*global) (void *object, uint32_t id,
-			uint32_t permissions, uint32_t type, uint32_t version,
+			uint32_t permissions, const char *type, uint32_t version,
 			const struct spa_dict *props);
 		void (*global_remove) (void *object, uint32_t id);
 	} events = { PW_VERSION_REGISTRY_EVENTS, };

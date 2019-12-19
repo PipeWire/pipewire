@@ -32,9 +32,10 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 
-struct pw_client_node;
+#define PW_TYPE_INTERFACE_ClientNode		PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
 
 #define PW_VERSION_CLIENT_NODE			3
+struct pw_client_node;
 
 #define PW_EXTENSION_MODULE_CLIENT_NODE		PIPEWIRE_MODULE_PREFIX "module-client-node"
 

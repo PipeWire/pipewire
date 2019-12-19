@@ -63,7 +63,7 @@ struct pw_impl_factory_implementation {
 	/** The function to create an object from this factory */
 	void *(*create_object) (void *data,
 				struct pw_resource *resource,
-				uint32_t type,
+				const char *type,
 				uint32_t version,
 				struct pw_properties *properties,
 				uint32_t new_id);
@@ -71,7 +71,7 @@ struct pw_impl_factory_implementation {
 
 struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 				  const char *name,
-				  uint32_t type,
+				  const char *type,
 				  uint32_t version,
 				  struct pw_properties *properties,
 				  size_t user_data_size);
@@ -104,7 +104,7 @@ void pw_impl_factory_set_implementation(struct pw_impl_factory *factory,
 
 void *pw_impl_factory_create_object(struct pw_impl_factory *factory,
 			       struct pw_resource *resource,
-			       uint32_t type,
+			       const char *type,
 			       uint32_t version,
 			       struct pw_properties *properties,
 			       uint32_t new_id);

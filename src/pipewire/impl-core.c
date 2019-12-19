@@ -40,7 +40,7 @@ struct resource_data {
 };
 
 static void * registry_bind(void *object, uint32_t id,
-		uint32_t type, uint32_t version, size_t user_data_size)
+		const char *type, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
 	struct pw_impl_client *client = resource->client;
@@ -56,11 +56,11 @@ static void * registry_bind(void *object, uint32_t id,
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
 
-	if (global->type != type)
+	if (strcmp(global->type, type) != 0)
 		goto error_wrong_interface;
 
 	pw_log_debug("global %p: bind global id %d, iface %s/%d to %d", global, id,
-		     spa_debug_type_find_name(pw_type_info(), type), version, new_id);
+		     type, version, new_id);
 
 	if (pw_global_bind(global, client, permissions, version, new_id) < 0)
 		goto error_exit_clean;
@@ -72,8 +72,8 @@ error_no_id:
 	pw_resource_errorf(resource, -ENOENT, "no such global %u", id);
 	goto error_exit_clean;
 error_wrong_interface:
-	pw_log_debug("registry %p: global with id %u has no interface %u", resource, id, type);
-	pw_resource_errorf(resource, -ENOENT, "no such interface %u", type);
+	pw_log_debug("registry %p: global with id %u has no interface %s", resource, id, type);
+	pw_resource_errorf(resource, -ENOENT, "no such interface %s", type);
 	goto error_exit_clean;
 error_exit_clean:
 	/* unmark the new_id the map, the client does not yet know about the failed
@@ -272,7 +272,7 @@ error_resource:
 static void *
 core_create_object(void *object,
 		   const char *factory_name,
-		   uint32_t type,
+		   const char *type,
 		   uint32_t version,
 		   const struct spa_dict *props,
 		   size_t user_data_size)
@@ -293,7 +293,7 @@ core_create_object(void *object,
 	if (!PW_PERM_IS_R(pw_global_get_permissions(factory->global, client)))
 		goto error_no_factory;
 
-	if (factory->info.type != type)
+	if (strcmp(factory->info.type, type) != 0)
 		goto error_type;
 
 	if (factory->info.version < version)

@@ -40,7 +40,7 @@ struct resource_data {
 SPA_EXPORT
 struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 				  const char *name,
-				  uint32_t type,
+				  const char *type,
 				  uint32_t version,
 				  struct pw_properties *properties,
 				  size_t user_data_size)
@@ -211,8 +211,7 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
 	pw_properties_update_keys(properties, &factory->properties->dict, keys);
 
 	pw_properties_set(properties, PW_KEY_FACTORY_NAME, factory->info.name);
-	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_NAME, "%s",
-			spa_debug_type_find_name(pw_type_info(), factory->info.type));
+	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_NAME, "%s", factory->info.type);
 	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
 
         factory->global = pw_global_new(context,
@@ -276,7 +275,7 @@ void pw_impl_factory_set_implementation(struct pw_impl_factory *factory,
 SPA_EXPORT
 void *pw_impl_factory_create_object(struct pw_impl_factory *factory,
 			       struct pw_resource *resource,
-			       uint32_t type,
+			       const char *type,
 			       uint32_t version,
 			       struct pw_properties *properties,
 			       uint32_t new_id)

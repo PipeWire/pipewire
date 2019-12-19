@@ -34,6 +34,9 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
+#define PW_TYPE_INTERFACE_Core		PW_TYPE_INFO_INTERFACE_BASE "Core"
+#define PW_TYPE_INTERFACE_Registry	PW_TYPE_INFO_INTERFACE_BASE "Registry"
+
 #define PW_VERSION_CORE		3
 struct pw_core;
 #define PW_VERSION_REGISTRY	3
@@ -278,7 +281,7 @@ struct pw_core_methods {
 	 */
 	void * (*create_object) (void *object,
 			       const char *factory_name,
-			       uint32_t type,
+			       const char *type,
 			       uint32_t version,
 			       const struct spa_dict *props,
 			       size_t user_data_size);
@@ -342,7 +345,7 @@ pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_si
 static inline void *
 pw_core_create_object(struct pw_core *core,
 			    const char *factory_name,
-			    uint32_t type,
+			    const char *type,
 			    uint32_t version,
 			    const struct spa_dict *props,
 			    size_t user_data_size)
@@ -410,7 +413,7 @@ struct pw_registry_events {
 	 * \param props extra properties of the global
 	 */
 	void (*global) (void *object, uint32_t id,
-		       uint32_t permissions, uint32_t type, uint32_t version,
+		       uint32_t permissions, const char *type, uint32_t version,
 		       const struct spa_dict *props);
 	/**
 	 * Notify of a global object removal
@@ -450,7 +453,7 @@ struct pw_registry_methods {
 	 * \param version the interface version to use
 	 * \returns the new object
 	 */
-	void * (*bind) (void *object, uint32_t id, uint32_t type, uint32_t version,
+	void * (*bind) (void *object, uint32_t id, const char *type, uint32_t version,
 			size_t use_data_size);
 
 	/**
@@ -477,7 +480,7 @@ struct pw_registry_methods {
 
 static inline void *
 pw_registry_bind(struct pw_registry *registry,
-		       uint32_t id, uint32_t type, uint32_t version,
+		       uint32_t id, const char *type, uint32_t version,
 		       size_t user_data_size)
 {
 	void *res = NULL;
@@ -550,7 +553,7 @@ struct pw_proxy *pw_core_find_proxy(struct pw_core *core, uint32_t id);
 
 /** Export an object into the PipeWire instance associated with core */
 struct pw_proxy *pw_core_export(struct pw_core *core,			/**< the core */
-				  uint32_t type,			/**< the type of object */
+				  const char *type,			/**< the type of object */
 				  const struct spa_dict *props,		/**< extra properties */
 				  void *object,				/**< object to export */
 				  size_t user_data_size			/**< extra user data */);

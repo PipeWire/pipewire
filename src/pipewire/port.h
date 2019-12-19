@@ -38,6 +38,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+#define PW_TYPE_INTERFACE_Port	PW_TYPE_INFO_INTERFACE_BASE "Port"
+
 #define PW_VERSION_PORT		3
 struct pw_port;
 

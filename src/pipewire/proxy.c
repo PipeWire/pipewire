@@ -40,7 +40,7 @@ struct proxy {
 };
 /** \endcond */
 
-int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version)
+int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version)
 {
 	int res;
 
@@ -61,8 +61,7 @@ int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version)
 
 	if ((res = pw_proxy_install_marshal(proxy, false)) < 0) {
 		pw_log_error(NAME" %p: no marshal for type %s/%d", proxy,
-				spa_debug_type_find_name(pw_type_info(), type),
-				version);
+				type, version);
 		goto error_clean;
 	}
 	return 0;
@@ -89,7 +88,7 @@ error:
  */
 SPA_EXPORT
 struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
-			      uint32_t type, uint32_t version,
+			      const char *type, uint32_t version,
 			      size_t user_data_size)
 {
 	struct proxy *impl;
@@ -110,9 +109,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
 
 	pw_log_debug(NAME" %p: new %u type %s/%d core-proxy:%p, marshal:%p",
-			this, this->id,
-			spa_debug_type_find_name(pw_type_info(), type), version,
-			this->core, this->marshal);
+			this, this->id, type, version, this->core, this->marshal);
 	return this;
 
 error_init:
@@ -127,6 +124,9 @@ int pw_proxy_install_marshal(struct pw_proxy *this, bool implementor)
 	struct pw_core *core = this->core;
 	const struct pw_protocol_marshal *marshal;
 
+	if (core == NULL)
+		return -EIO;
+
 	marshal = pw_protocol_get_marshal(core->conn->protocol,
 			this->type, this->version,
 			implementor ? PW_PROTOCOL_MARSHAL_FLAG_IMPL : 0);
@@ -134,6 +134,8 @@ int pw_proxy_install_marshal(struct pw_proxy *this, bool implementor)
 		return -EPROTO;
 
 	this->marshal = marshal;
+	this->type = marshal->type;
+
 	this->impl = SPA_INTERFACE_INIT(
 			this->type,
 			this->marshal->version,
@@ -168,7 +170,7 @@ uint32_t pw_proxy_get_bound_id(struct pw_proxy *proxy)
 }
 
 SPA_EXPORT
-uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version)
+const char *pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version)
 {
 	if (version)
 		*version = proxy->version;
@@ -184,6 +186,8 @@ struct pw_core *pw_proxy_get_core(struct pw_proxy *proxy)
 SPA_EXPORT
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
 {
+	if (proxy->core == NULL || proxy->core->conn == NULL)
+		return NULL;
 	return proxy->core->conn->protocol;
 }
 

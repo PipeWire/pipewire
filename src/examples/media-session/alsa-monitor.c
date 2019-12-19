@@ -35,6 +35,7 @@
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/keys.h>
+#include <spa/utils/result.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>
@@ -147,7 +148,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 
 	pw_log_debug("new node %u", id);
 
-	if (info->type != SPA_TYPE_INTERFACE_Node) {
+	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -570,7 +571,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 
 	pw_log_debug("new device %u", id);
 
-	if (info->type != SPA_TYPE_INTERFACE_Device) {
+	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -585,7 +586,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get %d interface: %d", info->type, res);
+		pw_log_error("can't get %s interface: %s", info->type, spa_strerror(res));
 		goto unload_handle;
 	}
 

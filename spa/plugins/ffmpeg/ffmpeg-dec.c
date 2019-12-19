@@ -436,7 +436,7 @@ static const struct spa_node_methods impl_node = {
 };
 
 static int
-impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
 
@@ -445,7 +445,7 @@ impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
 
 	this = (struct impl *) handle;
 
-	if (type == SPA_TYPE_INTERFACE_Node)
+	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -461,16 +461,12 @@ spa_ffmpeg_dec_init(struct spa_handle *handle,
 {
 	struct impl *this;
 	struct port *port;
-	uint32_t i;
 
 	handle->get_interface = impl_get_interface;
 
 	this = (struct impl *) handle;
 
-	for (i = 0; i < n_support; i++) {
-		if (support[i].type == SPA_TYPE_INTERFACE_Log)
-			this->log = support[i].data;
-	}
+	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
 	spa_hook_list_init(&this->hooks);
 

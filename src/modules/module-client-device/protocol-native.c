@@ -425,7 +425,7 @@ static void device_marshal_object_info(void *object, uint32_t id,
 
 		spa_pod_builder_push_struct(b, &f[1]);
 		spa_pod_builder_add(b,
-			    SPA_POD_Id(info->type),
+			    SPA_POD_String(info->type),
 			    SPA_POD_Long(change_mask),
 			    SPA_POD_Long(info->flags),
 			    SPA_POD_Int(n_items), NULL);
@@ -465,7 +465,7 @@ static int device_demarshal_object_info(void *object,
 		spa_pod_parser_pod(&p2, ipod);
 		if (spa_pod_parser_push_struct(&p2, &f2) < 0 ||
 		    spa_pod_parser_get(&p2,
-				SPA_POD_Id(&info.type),
+				SPA_POD_String(&info.type),
 				SPA_POD_Long(&info.change_mask),
 				SPA_POD_Long(&info.flags),
 				SPA_POD_Int(&props.n_items), NULL) < 0)

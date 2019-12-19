@@ -36,7 +36,9 @@
 extern "C" {
 #endif
 
-#define PW_VERSION_CLIENT_ENDPOINT 0
+#define PW_TYPE_INTERFACE_ClientEndpoint	PW_TYPE_INFO_INTERFACE_BASE "ClientEndpoint"
+
+#define PW_VERSION_CLIENT_ENDPOINT		0
 struct pw_client_endpoint;
 
 #define PW_CLIENT_ENDPOINT_EVENT_SET_SESSION_ID		0
@@ -166,6 +168,7 @@ struct pw_client_endpoint_methods {
 #define pw_client_endpoint_update(o,...)	pw_client_endpoint_method(o,update,0,__VA_ARGS__)
 #define pw_client_endpoint_stream_update(o,...)	pw_client_endpoint_method(o,stream_update,0,__VA_ARGS__)
 
+#define PW_TYPE_INTERFACE_ClientSession		PW_TYPE_INFO_INTERFACE_BASE "ClientSession"
 
 #define PW_VERSION_CLIENT_SESSION 0
 struct pw_client_session;

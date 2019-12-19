@@ -2199,7 +2199,7 @@ static const struct spa_device_methods impl_device = {
 	.add_listener = impl_device_add_listener,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct spa_bt_monitor *this;
 
@@ -2208,13 +2208,11 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	this = (struct spa_bt_monitor *) handle;
 
-	switch (type) {
-	case SPA_TYPE_INTERFACE_Device:
+	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
 		*interface = &this->device;
-		break;
-	default:
+	else
 		return -ENOENT;
-	}
+
 	return 0;
 }
 
@@ -2238,7 +2236,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct spa_bt_monitor *this;
-	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -2248,22 +2245,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct spa_bt_monitor *) handle;
 
-	for (i = 0; i < n_support; i++) {
-		switch (support[i].type) {
-		case SPA_TYPE_INTERFACE_Log:
-			this->log = support[i].data;
-			break;
-		case SPA_TYPE_INTERFACE_DBus:
-			this->dbus = support[i].data;
-			break;
-		case SPA_TYPE_INTERFACE_Loop:
-			this->main_loop = support[i].data;
-			break;
-		case SPA_TYPE_INTERFACE_System:
-			this->main_system = support[i].data;
-			break;
-		}
-	}
+	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	this->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
+	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	this->main_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+
 	if (this->dbus == NULL) {
 		spa_log_error(this->log, "a dbus is needed");
 		return -EINVAL;

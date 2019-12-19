@@ -35,6 +35,11 @@ extern "C" {
 #include <pipewire/proxy.h>
 #include <pipewire/permission.h>
 
+#define PW_TYPE_INTERFACE_Client	PW_TYPE_INFO_INTERFACE_BASE "Client"
+
+#define PW_VERSION_CLIENT		3
+struct pw_client;
+
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
 	uint32_t id;			/**< id of the global */
@@ -52,9 +57,6 @@ pw_client_info_update(struct pw_client_info *info,
 /** Free a \ref pw_client_info \memberof pw_introspect */
 void pw_client_info_free(struct pw_client_info *info);
 
-
-#define PW_VERSION_CLIENT		3
-struct pw_client;
 
 #define PW_CLIENT_EVENT_INFO		0
 #define PW_CLIENT_EVENT_PERMISSIONS	1

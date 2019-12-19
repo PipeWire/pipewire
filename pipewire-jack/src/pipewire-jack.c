@@ -96,6 +96,9 @@ struct object {
 
 	struct client *client;
 
+#define INTERFACE_Port	0
+#define INTERFACE_Node	1
+#define INTERFACE_Link	2
 	uint32_t type;
 	uint32_t id;
 
@@ -410,7 +413,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	spa_list_remove(&p->link);
 
 	o = alloc_object(c);
-	o->type = PW_TYPE_INTERFACE_Port;
+	o->type = INTERFACE_Port;
 	o->id = SPA_ID_INVALID;
 	o->port.node_id = c->node_id;
 	o->port.port_id = p->id;
@@ -1838,20 +1841,21 @@ static const struct pw_metadata_events metadata_events = {
 };
 
 static void registry_event_global(void *data, uint32_t id,
-                                  uint32_t permissions, uint32_t type, uint32_t version,
+                                  uint32_t permissions, const char *type, uint32_t version,
                                   const struct spa_dict *props)
 {
 	struct client *c = (struct client *) data;
 	struct object *o, *ot;
 	const char *str;
+	uint32_t object_type;
 	size_t size;
 
 	if (props == NULL)
 		return;
 
-	switch (type) {
-	case PW_TYPE_INTERFACE_Node:
+	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
 		o = alloc_object(c);
+		object_type = INTERFACE_Node;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
@@ -1865,16 +1869,15 @@ static void registry_event_global(void *data, uint32_t id,
 
 		pw_log_debug(NAME" %p: add node %d", c, id);
 		spa_list_append(&c->context.nodes, &o->link);
-		break;
-
-	case PW_TYPE_INTERFACE_Port:
-	{
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
 		const struct spa_dict_item *item;
 		unsigned long flags = 0;
 		jack_port_type_id_t type_id;
 		uint32_t node_id;
 		char full_name[1024];
 
+		object_type = INTERFACE_Port;
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
 			str = "other";
 		if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
@@ -1923,7 +1926,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 			spa_list_append(&c->context.ports, &o->link);
 			ot = pw_map_lookup(&c->context.globals, node_id);
-			if (ot == NULL || ot->type != PW_TYPE_INTERFACE_Node)
+			if (ot == NULL || ot->type != INTERFACE_Node)
 				goto exit_free;
 
 			snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
@@ -1954,10 +1957,11 @@ static void registry_event_global(void *data, uint32_t id,
 		}
 
 		pw_log_debug(NAME" %p: add port %d %s %d", c, id, o->port.name, type_id);
-		break;
 	}
-	case PW_TYPE_INTERFACE_Link:
+	else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
 		o = alloc_object(c);
+		object_type = INTERFACE_Link;
+
 		spa_list_append(&c->context.links, &o->link);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
@@ -1970,10 +1974,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,
 				o->port_link.src, o->port_link.dst);
-		break;
-
-	case PW_TYPE_INTERFACE_Metadata:
-	{
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		struct pw_proxy *proxy;
 
 		if (c->metadata)
@@ -1990,11 +1992,11 @@ static void registry_event_global(void *data, uint32_t id,
 				&metadata_events, c);
 		goto exit;
 	}
-	default:
+	else {
 		goto exit;
 	}
 
-	o->type = type;
+	o->type = object_type;
 	o->id = id;
 
         size = pw_map_get_size(&c->context.globals);
@@ -2004,18 +2006,18 @@ static void registry_event_global(void *data, uint32_t id,
 
 	pw_thread_loop_unlock(c->context.loop);
 
-	switch (type) {
-	case PW_TYPE_INTERFACE_Node:
+	switch (o->type) {
+	case INTERFACE_Node:
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 1, c->registration_arg);
 		break;
 
-	case PW_TYPE_INTERFACE_Port:
+	case INTERFACE_Port:
 		if (c->portregistration_callback)
 			c->portregistration_callback(o->id, 1, c->portregistration_arg);
 		break;
 
-	case PW_TYPE_INTERFACE_Link:
+	case INTERFACE_Link:
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 1, c->connect_arg);
 		break;
@@ -2043,15 +2045,15 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	pw_thread_loop_unlock(c->context.loop);
 
 	switch (o->type) {
-	case PW_TYPE_INTERFACE_Node:
+	case INTERFACE_Node:
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 0, c->registration_arg);
 		break;
-	case PW_TYPE_INTERFACE_Port:
+	case INTERFACE_Port:
 		if (c->portregistration_callback)
 			c->portregistration_callback(o->id, 0, c->portregistration_arg);
 		break;
-	case PW_TYPE_INTERFACE_Link:
+	case INTERFACE_Link:
 		if (c->connect_callback)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 		break;
@@ -2846,7 +2848,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	struct port *p;
 	int res;
 
-	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
+	if (o->type != INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error(NAME" %p: invalid port %p", client, port);
 		return -EINVAL;
 	}
@@ -2963,7 +2965,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 	c = o->client;
 
-	if (o->type != PW_TYPE_INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
+	if (o->type != INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
 		pw_log_error(NAME" %p: invalid port %p", c, port);
 		return NULL;
 	}
@@ -3052,7 +3054,7 @@ SPA_EXPORT
 int jack_port_is_mine (const jack_client_t *client, const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
-	return o->type == PW_TYPE_INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
+	return o->type == INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
 }
 
 SPA_EXPORT
@@ -3714,7 +3716,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	o = pw_map_lookup(&c->context.globals, port_id);
 	pw_log_debug(NAME" %p: port %d -> %p", c, port_id, o);
 
-	if (o == NULL || o->type != PW_TYPE_INTERFACE_Port)
+	if (o == NULL || o->type != INTERFACE_Port)
 		goto exit;
 
 	res = o;

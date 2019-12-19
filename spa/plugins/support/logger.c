@@ -174,7 +174,7 @@ static const struct spa_log_methods impl_log = {
 	.logv = impl_log_logv,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
 
@@ -183,7 +183,7 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	this = (struct impl *) handle;
 
-	if (type == SPA_TYPE_INTERFACE_Log)
+	if (strcmp(type, SPA_TYPE_INTERFACE_Log) == 0)
 		*interface = &this->log;
 	else
 		return -ENOENT;
@@ -222,7 +222,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
-	uint32_t i;
 	struct spa_loop *loop = NULL;
 	const char *str;
 
@@ -240,16 +239,9 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_log, this);
 	this->log.level = DEFAULT_LOG_LEVEL;
 
-	for (i = 0; i < n_support; i++) {
-		switch (support[i].type) {
-		case SPA_TYPE_INTERFACE_Loop:
-			loop = support[i].data;
-			break;
-		case SPA_TYPE_INTERFACE_System:
-			this->system = support[i].data;
-			break;
-		}
-	}
+	loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	this->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+
 	if (loop != NULL && this->system != NULL) {
 		this->source.func = on_trace_event;
 		this->source.data = this;

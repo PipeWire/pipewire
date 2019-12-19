@@ -28,6 +28,9 @@
 #include "pipewire/protocol.h"
 #include "pipewire/resource.h"
 #include "extensions/protocol-native.h"
+#include "extensions/metadata.h"
+#include "extensions/session-manager.h"
+#include "extensions/client-node.h"
 
 #include "interfaces.h"
 #include "typemap.h"
@@ -273,6 +276,23 @@ uint32_t pw_protocol_native0_type_from_v2(struct pw_impl_client *client, uint32_
 		return SPA_ID_INVALID;
 
 	return type_map[index].id;
+}
+
+SPA_EXPORT
+const char * pw_protocol_native0_name_from_v2(struct pw_impl_client *client, uint32_t type)
+{
+	void *t;
+	uint32_t index;
+	struct protocol_compat_v2 *compat_v2 = client->compat_v2;
+
+	if ((t = pw_map_lookup(&compat_v2->types, type)) == NULL)
+		return NULL;
+
+	index = PW_MAP_PTR_TO_ID(t);
+	if (index >= SPA_N_ELEMENTS(type_map))
+		return NULL;
+
+	return type_map[index].name;
 }
 
 SPA_EXPORT
@@ -614,7 +634,7 @@ static int core_demarshal_create_object(void *object, const struct pw_protocol_n
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
 	uint32_t version, type, new_id, i;
-	const char *factory_name;
+	const char *factory_name, *type_name;
 	struct spa_dict props;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -636,10 +656,12 @@ static int core_demarshal_create_object(void *object, const struct pw_protocol_n
 	if (spa_pod_parser_get(&prs, "i", &new_id, NULL) < 0)
 		return -EINVAL;
 
-	type = pw_protocol_native0_type_from_v2(client, type);
+	type_name = pw_protocol_native0_name_from_v2(client, type);
+	if (type_name == NULL)
+		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_core_methods, create_object, 0, factory_name,
-                                                                      type, version,
+                                                                      type_name, version,
                                                                       &props, new_id);
 }
 
@@ -702,19 +724,20 @@ static int core_demarshal_update_types_server(void *object, const struct pw_prot
 }
 
 static void registry_marshal_global(void *object, uint32_t id, uint32_t permissions,
-				    uint32_t type, uint32_t version, const struct spa_dict *props)
+				    const char *type, uint32_t version, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
 	struct pw_impl_client *client = resource->client;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items, parent_id;
+	uint32_t type_id;
 
 	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_V0_EVENT_GLOBAL, NULL);
 
 	n_items = props ? props->n_items : 0;
 
-	type = pw_protocol_native0_type_to_v2(client, pw_type_info(), type);
+	type_id = pw_protocol_native0_find_type(client, type);
 	parent_id = 0;
 	version = 0;
 
@@ -723,7 +746,7 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 			    "i", id,
 			    "i", parent_id,
 			    "i", permissions,
-			    "I", type,
+			    "I", type_id,
 			    "i", version,
 			    "i", n_items, NULL);
 
@@ -754,6 +777,7 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	uint32_t id, version, type, new_id;
+	const char *type_name;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
@@ -763,9 +787,11 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 			"i", &new_id) < 0)
 		return -EINVAL;
 
-	type = pw_protocol_native0_type_from_v2(resource->client, type);
+	type_name = pw_protocol_native0_name_from_v2(resource->client, type);
+	if (type_name == NULL)
+		return -EINVAL;
 
-	return pw_resource_notify(resource, struct pw_registry_methods, bind, 0, id, type, version, new_id);
+	return pw_resource_notify(resource, struct pw_registry_methods, bind, 0, id, type_name, version, new_id);
 }
 
 static void module_marshal_info(void *object, const struct pw_module_info *info)
@@ -810,7 +836,7 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 
 	n_items = info->props ? info->props->n_items : 0;
 
-	type = pw_protocol_native0_type_to_v2(client, pw_type_info(), info->type);
+	type = pw_protocol_native0_find_type(client, info->type);
 	version = 0;
 
         spa_pod_builder_push_struct(b, &f);

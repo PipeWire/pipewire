@@ -447,19 +447,18 @@ static const struct pw_proxy_events proxy_port_events = {
 };
 
 static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
-				 uint32_t type, uint32_t version,
+				 const char *type, uint32_t version,
 				 const struct spa_dict *props)
 {
   struct core_data *rd = data;
   GstPipeWireDeviceProvider *self = rd->self;
   struct node_data *nd;
 
-  if (type == PW_TYPE_INTERFACE_Node) {
+  if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
     struct pw_node *node;
 
     node = pw_registry_bind(rd->registry,
-		    id, PW_TYPE_INTERFACE_Node,
-		    PW_VERSION_NODE, sizeof(*nd));
+		    id, type, PW_VERSION_NODE, sizeof(*nd));
     if (node == NULL)
       goto no_mem;
 
@@ -473,7 +472,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
     add_pending(self, &nd->pending, NULL, NULL);
   }
-  else if (type == PW_TYPE_INTERFACE_Port) {
+  else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
     struct pw_port *port;
     struct port_data *pd;
     const char *str;
@@ -485,8 +484,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
       return;
 
     port = pw_registry_bind(rd->registry,
-		    id, PW_TYPE_INTERFACE_Port,
-		    PW_VERSION_PORT, sizeof(*pd));
+		    id, type, PW_VERSION_PORT, sizeof(*pd));
     if (port == NULL)
       goto no_mem;
 

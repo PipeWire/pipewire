@@ -147,7 +147,7 @@ struct link {
 };
 
 struct object_info {
-	uint32_t type;
+	const char *type;
 	uint32_t version;
 	const void *events;
 	size_t size;
@@ -387,6 +387,7 @@ static void device_destroy(void *object)
 
 	if (device->info)
 		pw_device_info_free(device->info);
+	device->info = NULL;
 }
 
 static const struct object_info device_info = {
@@ -920,7 +921,10 @@ destroy_proxy(void *data)
 	if (obj->destroy)
 		obj->destroy(obj);
 
-	pw_properties_free(obj->props);
+	if (obj->props)
+		pw_properties_free(obj->props);
+	obj->props = NULL;
+
 	spa_list_consume(d, &obj->data, link) {
 		spa_list_remove(&d->link);
 		free(d);
@@ -967,41 +971,31 @@ int sm_object_sync_update(struct sm_object *obj)
 	return obj->pending;
 }
 
-static const struct object_info *get_object_info(struct impl *impl, uint32_t type)
+static const struct object_info *get_object_info(struct impl *impl, const char *type)
 {
 	const struct object_info *info;
-	switch (type) {
-	case PW_TYPE_INTERFACE_Client:
+
+	if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0)
 		info = &client_info;
-		break;
-	case SPA_TYPE_INTERFACE_Device:
+	else if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
 		info = &spa_device_info;
-		break;
-	case PW_TYPE_INTERFACE_Device:
+	else if (strcmp(type, PW_TYPE_INTERFACE_Device) == 0)
 		info = &device_info;
-		break;
-	case PW_TYPE_INTERFACE_Node:
+	else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0)
 		info = &node_info;
-		break;
-	case PW_TYPE_INTERFACE_Port:
+	else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0)
 		info = &port_info;
-		break;
-	case PW_TYPE_INTERFACE_Session:
+	else if (strcmp(type, PW_TYPE_INTERFACE_Session) == 0)
 		info = &session_info;
-		break;
-	case PW_TYPE_INTERFACE_Endpoint:
+	else if (strcmp(type, PW_TYPE_INTERFACE_Endpoint) == 0)
 		info = &endpoint_info;
-		break;
-	case PW_TYPE_INTERFACE_EndpointStream:
+	else if (strcmp(type, PW_TYPE_INTERFACE_EndpointStream) == 0)
 		info = &endpoint_stream_info;
-		break;
-	case PW_TYPE_INTERFACE_EndpointLink:
+	else if (strcmp(type, PW_TYPE_INTERFACE_EndpointLink) == 0)
 		info = &endpoint_link_info;
-		break;
-	default:
+	else
 		info = NULL;
-		break;
-	}
+
 	return info;
 }
 
@@ -1041,7 +1035,7 @@ static struct sm_object *
 create_object(struct impl *impl, struct pw_proxy *proxy,
 		const struct spa_dict *props)
 {
-	uint32_t type;
+	const char *type;
 	const struct object_info *info;
 	struct sm_object *obj;
 
@@ -1049,7 +1043,7 @@ create_object(struct impl *impl, struct pw_proxy *proxy,
 
 	info = get_object_info(impl, type);
 	if (info == NULL) {
-		pw_log_error(NAME" %p: unknown object type %d", impl, type);
+		pw_log_error(NAME" %p: unknown object type %s", impl, type);
 		errno = ENOTSUP;
 		return NULL;
 	}
@@ -1062,7 +1056,7 @@ create_object(struct impl *impl, struct pw_proxy *proxy,
 
 static struct sm_object *
 bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
-		uint32_t permissions, uint32_t type, uint32_t version,
+		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
 	int res;
@@ -1090,15 +1084,15 @@ error:
 static int
 update_object(struct impl *impl, const struct object_info *info,
 		struct sm_object *obj, uint32_t id,
-		uint32_t permissions, uint32_t type, uint32_t version,
+		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
 	pw_properties_update(obj->props, props);
 
-	if (obj->type == type)
+	if (strcmp(obj->type, type) == 0)
 		return 0;
 
-	pw_log_debug(NAME" %p: update type:%d -> type:%d", impl, obj->type, type);
+	pw_log_debug(NAME" %p: update type:%s -> type:%s", impl, obj->type, type);
 	obj->handle = obj->proxy;
 	spa_hook_remove(&obj->proxy_listener);
 	pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
@@ -1108,7 +1102,7 @@ update_object(struct impl *impl, const struct object_info *info,
 
 	obj->proxy = pw_registry_bind(impl->registry,
 			id, info->type, info->version, 0);
-	obj->type = type;
+	obj->type = info->type;
 
 	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
 	if (info->events)
@@ -1123,15 +1117,14 @@ update_object(struct impl *impl, const struct object_info *info,
 
 static void
 registry_global(void *data, uint32_t id,
-		uint32_t permissions, uint32_t type, uint32_t version,
+		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
 	struct impl *impl = data;
         struct sm_object *obj;
 	const struct object_info *info;
 
-	pw_log_debug(NAME " %p: new global '%d' %s/%d", impl, id,
-			spa_debug_type_find_name(pw_type_info(), type), version);
+	pw_log_debug(NAME " %p: new global '%d' %s/%d", impl, id, type, version);
 
 	info = get_object_info(impl, type);
 	if (info == NULL)
@@ -1141,7 +1134,7 @@ registry_global(void *data, uint32_t id,
 	if (obj == NULL) {
 		bind_object(impl, info, id, permissions, type, version, props);
 	} else {
-		pw_log_debug(NAME " %p: our object %d appeared %d/%d",
+		pw_log_debug(NAME " %p: our object %d appeared %s/%s",
 				impl, id, obj->type, type);
 		update_object(impl, info, obj, id, permissions, type, version, props);
 	}
@@ -1259,7 +1252,7 @@ static const struct pw_registry_events registry_events = {
 };
 
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
-		uint32_t type, const struct spa_dict *props,
+		const char *type, const struct spa_dict *props,
 		void *object, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
@@ -1285,7 +1278,7 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 }
 
 struct pw_proxy *sm_media_session_create_object(struct sm_media_session *sess,
-		const char *factory_name, uint32_t type, uint32_t version,
+		const char *factory_name, const char *type, uint32_t version,
 		const struct spa_dict *props, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
@@ -1431,36 +1424,36 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 	/* find output node */
 	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_OUTPUT_NODE)) != NULL &&
 	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    obj->type == PW_TYPE_INTERFACE_Node) {
+	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
 		outnode = (struct sm_node*)obj;
 	}
 
 	/* find input node */
 	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_INPUT_NODE)) != NULL &&
 	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    obj->type == PW_TYPE_INTERFACE_Node) {
+	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
 		innode = (struct sm_node*)obj;
 	}
 
 	/* find endpoints and streams */
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT)) != NULL &&
 	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    obj->type == PW_TYPE_INTERFACE_Endpoint) {
+	    strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
 		outendpoint = (struct sm_endpoint*)obj;
 	}
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM)) != NULL &&
 	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    obj->type == PW_TYPE_INTERFACE_EndpointStream) {
+	    strcmp(obj->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
 		outstream = (struct sm_endpoint_stream*)obj;
 	}
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT)) != NULL &&
 	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    obj->type == PW_TYPE_INTERFACE_Endpoint) {
+	    strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
 		inendpoint = (struct sm_endpoint*)obj;
 	}
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_INPUT_STREAM)) != NULL &&
 	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    obj->type == PW_TYPE_INTERFACE_EndpointStream) {
+	    strcmp(obj->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
 		instream = (struct sm_endpoint_stream*)obj;
 	}
 

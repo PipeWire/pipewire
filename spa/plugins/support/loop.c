@@ -664,7 +664,7 @@ static const struct spa_loop_utils_methods impl_loop_utils = {
 	.destroy_source = loop_destroy_source,
 };
 
-static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **interface)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *impl;
 
@@ -673,19 +673,15 @@ static int impl_get_interface(struct spa_handle *handle, uint32_t type, void **i
 
 	impl = (struct impl *) handle;
 
-	switch (type) {
-	case SPA_TYPE_INTERFACE_Loop:
+	if (strcmp(type, SPA_TYPE_INTERFACE_Loop) == 0)
 		*interface = &impl->loop;
-		break;
-	case SPA_TYPE_INTERFACE_LoopControl:
+	else if (strcmp(type, SPA_TYPE_INTERFACE_LoopControl) == 0)
 		*interface = &impl->control;
-		break;
-	case SPA_TYPE_INTERFACE_LoopUtils:
+	else if (strcmp(type, SPA_TYPE_INTERFACE_LoopUtils) == 0)
 		*interface = &impl->utils;
-		break;
-	default:
+	else
 		return -ENOENT;
-	}
+
 	return 0;
 }
 
@@ -724,7 +720,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *impl;
-	uint32_t i;
 	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -747,16 +742,9 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_LOOP_UTILS,
 			&impl_loop_utils, impl);
 
-	for (i = 0; i < n_support; i++) {
-		switch (support[i].type) {
-		case SPA_TYPE_INTERFACE_Log:
-			impl->log = support[i].data;
-			break;
-		case SPA_TYPE_INTERFACE_System:
-			impl->system = support[i].data;
-			break;
-		}
-	}
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+
 	if (impl->system == NULL) {
 		spa_log_error(impl->log, NAME " %p: a System is needed", impl);
 		res = -EINVAL;

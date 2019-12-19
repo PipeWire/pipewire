@@ -171,7 +171,7 @@ struct pw_global {
 
 	struct spa_hook_list listener_list;
 
-	uint32_t type;			/**< type of interface */
+	const char *type;		/**< type of interface */
 	uint32_t version;		/**< version of interface */
 
 	pw_global_bind_func_t func;	/**< bind function */
@@ -707,7 +707,7 @@ struct pw_resource {
 
 	uint32_t id;			/**< per client unique id, index in client objects */
 	uint32_t permissions;		/**< resource permissions */
-	uint32_t type;			/**< type of the client interface */
+	const char *type;		/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
 	uint32_t bound_id;		/**< global id we are bound to */
 
@@ -733,7 +733,7 @@ struct pw_proxy {
 	struct pw_core *core;		/**< the owner core of this proxy */
 
 	uint32_t id;			/**< client side id */
-	uint32_t type;			/**< type of the interface */
+	const char *type;		/**< type of the interface */
 	uint32_t version;		/**< client side version */
 	uint32_t bound_id;		/**< global id we are bound to */
 	int refcount;
@@ -916,9 +916,9 @@ pw_context_find_port(struct pw_context *context,
 		  struct spa_pod **format_filters,
 		  char **error);
 
-const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, uint32_t type);
+const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, const char *type);
 
-int pw_proxy_init(struct pw_proxy *proxy, uint32_t type, uint32_t version);
+int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version);
 
 int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
 void pw_proxy_remove(struct pw_proxy *proxy);

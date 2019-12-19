@@ -76,7 +76,7 @@ struct pw_protocol_server {
 #define pw_protocol_server_destroy(l)	((l)->destroy(l))
 
 struct pw_protocol_marshal {
-	uint32_t type;			/**< interface type */
+	const char *type;		/**< interface type */
 	uint32_t version;		/**< version */
 #define PW_PROTOCOL_MARSHAL_FLAG_IMPL	(1 << 0)	/**< marshal for implementations */
 	uint32_t flags;			/**< version */
@@ -139,7 +139,7 @@ int pw_protocol_add_marshal(struct pw_protocol *protocol,
 			    const struct pw_protocol_marshal *marshal);
 
 const struct pw_protocol_marshal *
-pw_protocol_get_marshal(struct pw_protocol *protocol, uint32_t type, uint32_t version, uint32_t flags);
+pw_protocol_get_marshal(struct pw_protocol *protocol, const char *type, uint32_t version, uint32_t flags);
 
 struct pw_protocol * pw_context_find_protocol(struct pw_context *context, const char *name);
 

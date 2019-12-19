@@ -218,7 +218,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 						 spa_strerror(res));
 			break;
 		}
-		printf(" interface: '%d'\n", info->type);
+		printf(" interface: '%s'\n", info->type);
 	}
 
 	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
@@ -237,14 +237,14 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 						 spa_strerror(res));
 			break;
 		}
-		printf(" interface: '%d'\n", info->type);
+		printf(" interface: '%s'\n", info->type);
 
 		if ((res = spa_handle_get_interface(handle, info->type, &interface)) < 0) {
-			printf("can't get interface: %d %d\n", info->type, res);
+			printf("can't get interface: %s: %d\n", info->type, res);
 			continue;
 		}
 
-		if (info->type == SPA_TYPE_INTERFACE_Node)
+		if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) == 0)
 			inspect_node(data, interface);
 		else
 			printf("skipping unknown interface\n");

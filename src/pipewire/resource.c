@@ -43,7 +43,7 @@ SPA_EXPORT
 struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 				    uint32_t id,
 				    uint32_t permissions,
-				    uint32_t type,
+				    const char *type,
 				    uint32_t version,
 				    size_t user_data_size)
 {
@@ -81,8 +81,7 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 
 	if ((res = pw_resource_install_marshal(this, false)) < 0) {
 		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
-				spa_debug_type_find_name(pw_type_info(), type),
-				version);
+				type, version);
 		goto error_clean;
 	}
 
@@ -91,9 +90,7 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
 
 	pw_log_debug(NAME" %p: new %u type %s/%d client:%p marshal:%p",
-			this, id,
-			spa_debug_type_find_name(pw_type_info(), type), version,
-			client, this->marshal);
+			this, id, type, version, client, this->marshal);
 
 	pw_impl_client_emit_resource_added(client, this);
 
@@ -118,6 +115,8 @@ int pw_resource_install_marshal(struct pw_resource *this, bool implementor)
 		return -EPROTO;
 
 	this->marshal = marshal;
+	this->type = marshal->type;
+
 	this->impl = SPA_INTERFACE_INIT(
 			this->type,
 			this->marshal->version,
@@ -144,7 +143,7 @@ uint32_t pw_resource_get_permissions(struct pw_resource *resource)
 }
 
 SPA_EXPORT
-uint32_t pw_resource_get_type(struct pw_resource *resource, uint32_t *version)
+const char *pw_resource_get_type(struct pw_resource *resource, uint32_t *version)
 {
 	if (version)
 		*version = resource->version;

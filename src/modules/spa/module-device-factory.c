@@ -77,7 +77,7 @@ static const struct pw_impl_device_events device_events = {
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
-			   uint32_t type,
+			   const char *type,
 			   uint32_t version,
 			   struct pw_properties *properties,
 			   uint32_t new_id)

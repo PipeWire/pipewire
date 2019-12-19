@@ -54,7 +54,7 @@ struct spa_callbacks {
 #define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }
 
 struct spa_interface {
-	uint32_t type;
+	const char *type;
 	uint32_t version;
 	struct spa_callbacks cb;
 };

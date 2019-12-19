@@ -54,6 +54,7 @@ static void global_free(pa_context *c, struct global *g)
 	}
 	if (g->props)
 		pw_properties_free(g->props);
+	free(g->type);
 	free(g);
 }
 
@@ -152,7 +153,7 @@ struct global *pa_context_find_linked(pa_context *c, uint32_t idx)
 	struct global *g, *f;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (g->type != PW_TYPE_INTERFACE_EndpointLink)
+		if (strcmp(g->type, PW_TYPE_INTERFACE_EndpointLink) != 0)
 			continue;
 
 		pw_log_debug("context %p: %p %d %d:%d %d:%d", c, g, idx,
@@ -577,8 +578,7 @@ static int set_mask(pa_context *c, struct global *g)
 	pw_destroy_t destroy;
 	uint32_t client_version;
 
-	switch (g->type) {
-	case PW_TYPE_INTERFACE_Device:
+	if (strcmp(g->type, PW_TYPE_INTERFACE_Device) == 0) {
 		if (g->props == NULL)
 			return 0;
 		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL)
@@ -595,9 +595,7 @@ static int set_mask(pa_context *c, struct global *g)
                 client_version = PW_VERSION_DEVICE;
                 destroy = device_destroy;
                 spa_list_init(&g->card_info.profiles);
-		break;
-
-	case PW_TYPE_INTERFACE_Endpoint:
+	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
 		if (g->props == NULL)
 			return 0;
 
@@ -660,9 +658,7 @@ static int set_mask(pa_context *c, struct global *g)
                 destroy = endpoint_destroy;
 		g->endpoint_info.volume = 1.0;
 		g->endpoint_info.mute = false;
-		break;
-
-	case PW_TYPE_INTERFACE_EndpointStream:
+	} else if (strcmp(g->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
 		if (g->props == NULL)
 			return 0;
 
@@ -672,27 +668,21 @@ static int set_mask(pa_context *c, struct global *g)
 		}
 		/* streams get transformed into profiles on the device */
 		pw_log_debug("found endpoint stream %d", g->id);
-		break;
-
-	case PW_TYPE_INTERFACE_Module:
+	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Module) == 0) {
 		pw_log_debug("found module %d", g->id);
 		g->mask = PA_SUBSCRIPTION_MASK_MODULE;
 		g->event = PA_SUBSCRIPTION_EVENT_MODULE;
 		events = &module_events;
                 client_version = PW_VERSION_MODULE;
                 destroy = module_destroy;
-		break;
-
-	case PW_TYPE_INTERFACE_Client:
+	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Client) == 0) {
 		pw_log_debug("found client %d", g->id);
 		g->mask = PA_SUBSCRIPTION_MASK_CLIENT;
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
 		events = &client_events;
                 client_version = PW_VERSION_CLIENT;
                 destroy = client_destroy;
-		break;
-
-	case PW_TYPE_INTERFACE_EndpointLink:
+	} else if (strcmp(g->type, PW_TYPE_INTERFACE_EndpointLink) == 0) {
 		if ((str = pw_properties_get(g->props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT)) == NULL)
 			return 0;
 		g->link_info.output = pa_context_find_global(c, pw_properties_parse_int(str));
@@ -710,9 +700,7 @@ static int set_mask(pa_context *c, struct global *g)
 		if (!g->link_info.input->init)
 			emit_event(c, g->link_info.input, PA_SUBSCRIPTION_EVENT_CHANGE);
 
-		break;
-
-	default:
+	} else {
 		return 0;
 	}
 
@@ -749,7 +737,7 @@ static inline void insert_global(pa_context *c, struct global *global)
 }
 
 static void registry_event_global(void *data, uint32_t id,
-                                  uint32_t permissions, uint32_t type, uint32_t version,
+                                  uint32_t permissions, const char *type, uint32_t version,
                                   const struct spa_dict *props)
 {
 	pa_context *c = data;
@@ -757,10 +745,10 @@ static void registry_event_global(void *data, uint32_t id,
 	int res;
 
 	g = calloc(1, sizeof(struct global));
-	pw_log_debug("context %p: global %d %u %p", c, id, type, g);
+	pw_log_debug("context %p: global %d %s %p", c, id, type, g);
 	g->context = c;
 	g->id = id;
-	g->type = type;
+	g->type = strdup(type);
 	g->init = true;
 	g->props = props ? pw_properties_new_dict(props) : NULL;
 

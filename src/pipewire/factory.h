@@ -37,14 +37,16 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-#define PW_VERSION_FACTORY	3
+#define PW_TYPE_INTERFACE_Factory	PW_TYPE_INFO_INTERFACE_BASE "Factory"
+
+#define PW_VERSION_FACTORY		3
 struct pw_factory;
 
 /** The factory information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_factory_info {
 	uint32_t id;			/**< id of the global */
 	const char *name;		/**< name the factory */
-	uint32_t type;			/**< type of the objects created by this factory */
+	const char *type;		/**< type of the objects created by this factory */
 	uint32_t version;		/**< version of the objects */
 #define PW_FACTORY_CHANGE_MASK_PROPS	(1 << 0)
 #define PW_FACTORY_CHANGE_MASK_ALL	((1 << 1)-1)

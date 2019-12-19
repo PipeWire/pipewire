@@ -285,7 +285,7 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 
 		info->id = update->id;
 		info->name = update->name ? strdup(update->name) : NULL;
-		info->type = update->type;
+		info->type = update->type ? strdup(update->type) : NULL;
 		info->version = update->version;
 	}
 	info->change_mask = update->change_mask;
@@ -302,6 +302,7 @@ SPA_EXPORT
 void pw_factory_info_free(struct pw_factory_info *info)
 {
 	free((void *) info->name);
+	free((void *) info->type);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free(info);

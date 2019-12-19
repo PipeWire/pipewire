@@ -80,7 +80,7 @@ struct pw_resource *
 pw_resource_new(struct pw_impl_client *client,	/**< the client owning the resource */
 		uint32_t id,			/**< the remote per client id */
 		uint32_t permissions,		/**< permissions on this resource */
-		uint32_t type,			/**< interface of the resource */
+		const char *type,		/**< interface of the resource */
 		uint32_t version,		/**< requested interface version */
 		size_t user_data_size		/**< extra user data size */);
 
@@ -97,7 +97,7 @@ uint32_t pw_resource_get_id(struct pw_resource *resource);
 uint32_t pw_resource_get_permissions(struct pw_resource *resource);
 
 /** Get the type and optionally the version of this resource */
-uint32_t pw_resource_get_type(struct pw_resource *resource, uint32_t *version);
+const char *pw_resource_get_type(struct pw_resource *resource, uint32_t *version);
 
 /** Get the protocol used for this resource */
 struct pw_protocol *pw_resource_get_protocol(struct pw_resource *resource);

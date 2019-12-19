@@ -64,6 +64,8 @@ struct resource_data {
 struct object_data {
 	struct spa_list link;
 	uint32_t id;
+#define OBJECT_NODE	0
+#define OBJECT_DEVICE	1
 	uint32_t type;
 	struct spa_handle *handle;
 	void *object;
@@ -73,10 +75,10 @@ struct object_data {
 static void object_destroy(struct object_data *od)
 {
 	switch (od->type) {
-	case SPA_TYPE_INTERFACE_Node:
+	case OBJECT_NODE:
 		pw_impl_node_destroy(od->object);
 		break;
-	case SPA_TYPE_INTERFACE_Device:
+	case OBJECT_DEVICE:
 		pw_impl_device_destroy(od->object);
 		break;
 	}
@@ -85,10 +87,10 @@ static void object_destroy(struct object_data *od)
 static void object_update(struct object_data *od, const struct spa_dict *props)
 {
 	switch (od->type) {
-	case SPA_TYPE_INTERFACE_Node:
+	case OBJECT_NODE:
 		pw_impl_node_update_properties(od->object, props);
 		break;
-	case SPA_TYPE_INTERFACE_Device:
+	case OBJECT_DEVICE:
 		pw_impl_device_update_properties(od->object, props);
 		break;
 	}
@@ -97,11 +99,11 @@ static void object_update(struct object_data *od, const struct spa_dict *props)
 static void object_register(struct object_data *od)
 {
 	switch (od->type) {
-	case SPA_TYPE_INTERFACE_Node:
+	case OBJECT_NODE:
 		pw_impl_node_register(od->object, NULL);
 		pw_impl_node_set_active(od->object, true);
 		break;
-	case SPA_TYPE_INTERFACE_Device:
+	case OBJECT_DEVICE:
 		pw_impl_device_register(od->object, NULL);
 		break;
 	}
@@ -550,7 +552,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error(NAME" %p: can't get NODE interface: %s", device,
+		pw_log_error(NAME" %p: can't get %s interface: %s", device, info->type,
 				spa_strerror(res));
 		return;
 	}
@@ -559,38 +561,31 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	if (info->props && props)
 		pw_properties_update(props, info->props);
 
-	switch (info->type) {
-	case SPA_TYPE_INTERFACE_Node:
-	{
+	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) == 0) {
 		struct pw_impl_node *node;
 		node = pw_context_create_node(context, props, sizeof(struct object_data));
 
 		od = pw_impl_node_get_user_data(node);
 		od->object = node;
+		od->type = OBJECT_NODE;
 		pw_impl_node_add_listener(node, &od->listener, &node_object_events, od);
 		pw_impl_node_set_implementation(node, iface);
-		break;
-	}
-	case SPA_TYPE_INTERFACE_Device:
-	{
+	} else if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) == 0) {
 		struct pw_impl_device *dev;
 		dev = pw_context_create_device(context, props, sizeof(struct object_data));
 
 		od = pw_impl_device_get_user_data(dev);
 		od->object = dev;
+		od->type = OBJECT_DEVICE;
 		pw_impl_device_add_listener(dev, &od->listener, &device_object_events, od);
 		pw_impl_device_set_implementation(dev, iface);
-		break;
-	}
-	default:
-		pw_log_warn(NAME" %p: unknown type %d", device, info->type);
+	} else {
+		pw_log_warn(NAME" %p: unknown type %s", device, info->type);
 		pw_properties_free(props);
-		break;
 	}
 
 	if (od) {
 		od->id = id;
-		od->type = info->type;
 		od->handle = handle;
 		spa_list_append(&device->object_list, &od->link);
 		if (device->global)

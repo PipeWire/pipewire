@@ -40,7 +40,9 @@ extern "C" {
 /**
  * A spa_node is a component that can consume and produce buffers.
  */
-#define SPA_VERSION_NODE	0
+#define SPA_TYPE_INTERFACE_Node		SPA_TYPE_INFO_INTERFACE_BASE "Node"
+
+#define SPA_VERSION_NODE		0
 struct spa_node { struct spa_interface iface; };
 
 /**

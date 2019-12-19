@@ -54,8 +54,8 @@ struct global {
 	struct remote_data *rd;
 	uint32_t id;
 	uint32_t permissions;
-	uint32_t type;
 	uint32_t version;
+	char *type;
 	struct pw_proxy *proxy;
 	bool info_pending;
 	struct pw_properties *properties;
@@ -287,18 +287,15 @@ static int print_global(void *obj, void *data)
 {
 	struct global *global = obj;
 	const char *filter = data;
-	const char *type_name = NULL;
 
 	if (global == NULL)
 		return 0;
 
-	type_name = spa_debug_type_find_name(pw_type_info(), global->type);
-	if (filter && !strstr(type_name, filter))
+	if (filter && !strstr(global->type, filter))
 		return 0;
 
 	fprintf(stdout, "\tid %d, type %s/%d\n", global->id,
-					type_name,
-					global->version);
+					global->type, global->version);
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
 
@@ -306,7 +303,7 @@ static int print_global(void *obj, void *data)
 }
 
 static void registry_event_global(void *data, uint32_t id,
-		uint32_t permissions, uint32_t type, uint32_t version,
+		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
 	struct remote_data *rd = data;
@@ -317,7 +314,7 @@ static void registry_event_global(void *data, uint32_t id,
 	global->rd = rd;
 	global->id = id;
 	global->permissions = permissions;
-	global->type = type;
+	global->type = strdup(type);
 	global->version = version;
 	global->properties = props ? pw_properties_new_dict(props) : NULL;
 
@@ -340,6 +337,7 @@ static int destroy_global(void *obj, void *data)
 	pw_map_remove(&global->rd->globals, global->id);
 	if (global->properties)
 		pw_properties_free(global->properties);
+	free(global->type);
 	free(global);
 	return 0;
 }
@@ -528,9 +526,7 @@ static void info_global(struct proxy_data *pd)
 	fprintf(stdout, "\tpermissions: %c%c%c\n", global->permissions & PW_PERM_R ? 'r' : '-',
 					  global->permissions & PW_PERM_W ? 'w' : '-',
 					  global->permissions & PW_PERM_X ? 'x' : '-');
-	fprintf(stdout, "\ttype: %s/%d\n",
-			spa_debug_type_find_name(pw_type_info(), global->type),
-			pd->global->version);
+	fprintf(stdout, "\ttype: %s/%d\n", global->type, global->version);
 }
 
 static void info_core(struct proxy_data *pd)
@@ -596,8 +592,7 @@ static void info_factory(struct proxy_data *pd)
 
 	info_global(pd);
 	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	fprintf(stdout, "\tobject-type: %s/%d\n",
-			spa_debug_type_find_name(pw_type_info(), info->type), info->version);
+	fprintf(stdout, "\tobject-type: %s/%d\n", info->type, info->version);
 	print_properties(info->props, MARK_CHANGE(PW_FACTORY_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
@@ -1089,75 +1084,63 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	struct proxy_data *pd;
 	struct pw_proxy *proxy;
 
-	switch (global->type) {
-	case PW_TYPE_INTERFACE_Core:
+	if (strcmp(global->type, PW_TYPE_INTERFACE_Core) == 0) {
 		events = &core_events;
 		client_version = PW_VERSION_CORE;
 		destroy = (pw_destroy_t) pw_core_info_free;
 		info_func = info_core;
-		break;
-	case PW_TYPE_INTERFACE_Module:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Module) == 0) {
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		info_func = info_module;
-		break;
-	case PW_TYPE_INTERFACE_Device:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0) {
 		events = &device_events;
 		client_version = PW_VERSION_DEVICE;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		info_func = info_device;
-		break;
-	case PW_TYPE_INTERFACE_Node:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
-		break;
-	case PW_TYPE_INTERFACE_Port:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Port) == 0) {
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		info_func = info_port;
-		break;
-	case PW_TYPE_INTERFACE_Factory:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Factory) == 0) {
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 		info_func = info_factory;
-		break;
-	case PW_TYPE_INTERFACE_Client:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Client) == 0) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		info_func = info_client;
-		break;
-	case PW_TYPE_INTERFACE_Link:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Link) == 0) {
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
 		info_func = info_link;
-		break;
-	case PW_TYPE_INTERFACE_Session:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Session) == 0) {
 		events = &session_events;
 		client_version = PW_VERSION_SESSION;
 		destroy = (pw_destroy_t) session_info_free;
 		info_func = info_session;
-		break;
-	case PW_TYPE_INTERFACE_Endpoint:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
 		events = &endpoint_events;
 		client_version = PW_VERSION_ENDPOINT;
 		destroy = (pw_destroy_t) endpoint_info_free;
 		info_func = info_endpoint;
-		break;
-	case PW_TYPE_INTERFACE_EndpointStream:
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
 		events = &endpoint_stream_events;
 		client_version = PW_VERSION_ENDPOINT_STREAM;
 		destroy = (pw_destroy_t) endpoint_stream_info_free;
 		info_func = info_endpoint_stream;
-		break;
-	default:
-		asprintf(error, "unsupported type %s", spa_debug_type_find_name(pw_type_info(), global->type));
+	} else {
+		asprintf(error, "unsupported type %s", global->type);
 		return false;
 	}
 
@@ -1410,7 +1393,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "object %d does not exist", atoi(a[0]));
 		return false;
 	}
-	if (pw_global_get_type(global) != PW_TYPE_INTERFACE_Node) {
+	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Node)) {
 		asprintf(error, "object %d is not a node", atoi(a[0]));
 		return false;
 	}
@@ -1454,25 +1437,21 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 			return false;
 	}
 
-	switch (global->type) {
-	case PW_TYPE_INTERFACE_Node:
+	if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0)
 		pw_node_enum_params((struct pw_node*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-		break;
-	case PW_TYPE_INTERFACE_Port:
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Port) == 0)
 		pw_port_enum_params((struct pw_port*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-		break;
-	case PW_TYPE_INTERFACE_Device:
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0)
 		pw_device_enum_params((struct pw_device*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-		break;
-	case PW_TYPE_INTERFACE_Endpoint:
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0)
 		pw_endpoint_enum_params((struct pw_endpoint*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-		break;
-	default:
-		asprintf(error, "enum-params not implemented on object %d", atoi(a[0]));
+	else {
+		asprintf(error, "enum-params not implemented on object %d type:%s",
+				atoi(a[0]), global->type);
 		return false;
 	}
 	return true;
@@ -1499,7 +1478,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (global->type != PW_TYPE_INTERFACE_Client) {
+	if (strcmp(global->type, PW_TYPE_INTERFACE_Client) != 0) {
 		asprintf(error, "object %d is not a client", atoi(a[0]));
 		return false;
 	}
@@ -1537,7 +1516,7 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 		asprintf(error, "%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (global->type != PW_TYPE_INTERFACE_Client) {
+	if (strcmp(global->type, PW_TYPE_INTERFACE_Client) != 0) {
 		asprintf(error, "object %d is not a client", atoi(a[0]));
 		return false;
 	}

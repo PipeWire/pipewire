@@ -31,7 +31,9 @@ extern "C" {
 
 #include <spa/support/loop.h>
 
-#define SPA_VERSION_DBUS	0
+#define SPA_TYPE_INTERFACE_DBus		SPA_TYPE_INFO_INTERFACE_BASE "DBus"
+
+#define SPA_VERSION_DBUS		0
 struct spa_dbus { struct spa_interface iface; };
 
 enum spa_dbus_type {

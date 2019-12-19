@@ -66,6 +66,13 @@ struct global {
 	struct pw_proxy *proxy;
 
 	uint32_t id;
+#define INTERFACE_Port		0
+#define INTERFACE_Node		1
+#define INTERFACE_Link		2
+#define INTERFACE_Client	3
+#define INTERFACE_Device	4
+#define INTERFACE_Module	5
+#define INTERFACE_Factory	6
 	uint32_t type;
 	struct pw_properties *props;
 	void *info;
@@ -175,7 +182,7 @@ static void draw_port(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Port);
+	spa_assert(g->type == INTERFACE_Port);
 
 	struct pw_port_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -202,7 +209,7 @@ static void draw_node(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Node);
+	spa_assert(g->type == INTERFACE_Node);
 
 	struct pw_node_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -242,7 +249,7 @@ static void draw_node(struct global *g)
 	spa_list_for_each(p, &g->data->globals, link) {
 		if (p == NULL || p->info == NULL)
 			continue;
-		if (p->type != PW_TYPE_INTERFACE_Port)
+		if (p->type != INTERFACE_Port)
 			continue;
 		prop_node_id = pw_properties_get(p->props, PW_KEY_NODE_ID);
 		if (!prop_node_id || (uint32_t)atoi(prop_node_id) != g->id)
@@ -271,7 +278,7 @@ static void draw_link(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Link);
+	spa_assert(g->type == INTERFACE_Link);
 
 	struct pw_link_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -299,7 +306,7 @@ static void draw_client(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Client);
+	spa_assert(g->type == INTERFACE_Client);
 
 	struct pw_client_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -321,7 +328,7 @@ static void draw_device(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Device);
+	spa_assert(g->type == INTERFACE_Device);
 
 	struct pw_device_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -354,7 +361,7 @@ static void draw_factory(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Factory);
+	spa_assert(g->type == INTERFACE_Factory);
 
 	struct pw_factory_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -380,7 +387,7 @@ static void draw_module(struct global *g)
 {
 	spa_assert(g != NULL);
 	spa_assert(g->info != NULL);
-	spa_assert(g->type == PW_TYPE_INTERFACE_Module);
+	spa_assert(g->type == INTERFACE_Module);
 
 	struct pw_module_info *info = g->info;
 	char **dot_str = &g->data->dot_str;
@@ -403,7 +410,7 @@ static bool is_node_id_link_referenced(uint32_t id, struct spa_list *globals)
         spa_list_for_each(g, globals, link) {
                 if (g == NULL || g->info == NULL)
                         continue;
-                if (g->type != PW_TYPE_INTERFACE_Link)
+                if (g->type != INTERFACE_Link)
                         continue;
                 info = g->info;
                 if (info->input_node_id == id || info->output_node_id == id)
@@ -420,7 +427,7 @@ static bool is_module_id_factory_referenced(uint32_t id, struct spa_list *global
         spa_list_for_each(g, globals, link) {
                 if (g == NULL || g->info == NULL)
                         continue;
-                if (g->type != PW_TYPE_INTERFACE_Factory)
+                if (g->type != INTERFACE_Factory)
                         continue;
                 info = g->info;
                 module_id_str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
@@ -433,9 +440,9 @@ static bool is_module_id_factory_referenced(uint32_t id, struct spa_list *global
 static bool is_global_referenced(struct global *g)
 {
 	switch (g->type) {
-	case PW_TYPE_INTERFACE_Node:
+	case INTERFACE_Node:
 		return is_node_id_link_referenced(g->id, &g->data->globals);
-	case PW_TYPE_INTERFACE_Module:
+	case INTERFACE_Module:
 		return is_module_id_factory_referenced(g->id, &g->data->globals);
 	default:
 		break;
@@ -459,16 +466,16 @@ static int draw_graph(struct data *d, const char *path)
 			continue;
 
 		/* always skip ports since they are drawn by the nodes */
-		if (g->type == PW_TYPE_INTERFACE_Port)
+		if (g->type == INTERFACE_Port)
 			continue;
 
 		/* skip clients, devices, factories and modules if all option is disabled */
 		if (!d->show_all) {
 			switch (g->type) {
-				case PW_TYPE_INTERFACE_Client:
-				case PW_TYPE_INTERFACE_Device:
-				case PW_TYPE_INTERFACE_Factory:
-				case PW_TYPE_INTERFACE_Module:
+				case INTERFACE_Client:
+				case INTERFACE_Device:
+				case INTERFACE_Factory:
+				case INTERFACE_Module:
 					continue;
 				default:
 					break;
@@ -597,73 +604,81 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
-				  uint32_t type, uint32_t version,
+				  const char *type, uint32_t version,
 				  const struct spa_dict *props)
 {
         struct data *d = data;
         struct pw_proxy *proxy;
         uint32_t client_version;
+	uint32_t object_type;
         const void *events;
         pw_destroy_t info_destroy;
         info_update_t info_update;
         draw_t draw;
         struct global *g;
 
-	switch (type) {
-	case PW_TYPE_INTERFACE_Port:
+	if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
 		events = &port_events;
 		info_destroy = (pw_destroy_t)pw_port_info_free;
 		info_update = (info_update_t)pw_port_info_update;
 		draw = draw_port;
 		client_version = PW_VERSION_PORT;
-		break;
-	case PW_TYPE_INTERFACE_Node:
+		object_type = INTERFACE_Port;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
 		events = &node_events;
 		info_destroy = (pw_destroy_t)pw_node_info_free;
 		info_update = (info_update_t)pw_node_info_update;
 		draw = draw_node;
 		client_version = PW_VERSION_NODE;
-		break;
-	case PW_TYPE_INTERFACE_Link:
+		object_type = INTERFACE_Node;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
 		events = &link_events;
 		info_destroy = (pw_destroy_t)pw_link_info_free;
 		info_update = (info_update_t)pw_link_info_update;
 		draw = draw_link;
 		client_version = PW_VERSION_LINK;
-		break;
-	case PW_TYPE_INTERFACE_Client:
+		object_type = INTERFACE_Link;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0) {
 		events = &client_events;
 		info_destroy = (pw_destroy_t)pw_client_info_free;
 		info_update = (info_update_t)pw_client_info_update;
 		draw = draw_client;
 		client_version = PW_VERSION_CLIENT;
-		break;
-	case PW_TYPE_INTERFACE_Device:
+		object_type = INTERFACE_Client;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Device) == 0) {
 		events = &device_events;
 		info_destroy = (pw_destroy_t)pw_device_info_free;
 		info_update = (info_update_t)pw_device_info_update;
 		draw = draw_device;
 		client_version = PW_VERSION_DEVICE;
-		break;
-	case PW_TYPE_INTERFACE_Factory:
+		object_type = INTERFACE_Device;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Factory) == 0) {
 		events = &factory_events;
 		info_destroy = (pw_destroy_t)pw_factory_info_free;
 		info_update = (info_update_t)pw_factory_info_update;
 		draw = draw_factory;
 		client_version = PW_VERSION_FACTORY;
-		break;
-	case PW_TYPE_INTERFACE_Module:
+		object_type = INTERFACE_Factory;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Module) == 0) {
 		events = &module_events;
 		info_destroy = (pw_destroy_t)pw_module_info_free;
 		info_update = (info_update_t)pw_module_info_update;
 		draw = draw_module;
 		client_version = PW_VERSION_MODULE;
-		break;
-	case PW_TYPE_INTERFACE_Core:
+		object_type = INTERFACE_Module;
+	}
+	else if (strcmp(type, PW_TYPE_INTERFACE_Core) == 0) {
 		/* sync to notify we are done with globals */
 		pw_core_sync(d->core, 0, 0);
 		return;
-	default:
+	}
+	else {
 		return;
 	}
 
@@ -679,7 +694,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	g->proxy = proxy;
 
 	g->id = id;
-	g->type = type;
+	g->type = object_type;
 	g->props = props ? pw_properties_new_dict(props) : NULL;
 	g->info = NULL;
 

@@ -47,7 +47,7 @@ void * pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		   struct pw_properties *properties);
 
 struct pw_proxy *pw_core_metadata_export(struct pw_core *core,
-		uint32_t type, const struct spa_dict *props, void *object, size_t user_data_size);
+		const char *type, const struct spa_dict *props, void *object, size_t user_data_size);
 
 int pw_protocol_native_ext_metadata_init(struct pw_context *context);
 
@@ -62,7 +62,7 @@ struct factory_data {
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
-			   uint32_t type,
+			   const char *type,
 			   uint32_t version,
 			   struct pw_properties *properties,
 			   uint32_t new_id)

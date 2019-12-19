@@ -876,18 +876,17 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 SPA_EXPORT
 int pw_context_register_export_type(struct pw_context *context, struct pw_export_type *type)
 {
-	pw_log_debug("context %p: Add export type %d/%s to context", context, type->type,
-			spa_debug_type_find_name(pw_type_info(), type->type));
+	pw_log_debug("context %p: Add export type %s to context", context, type->type);
 	spa_list_append(&context->export_list, &type->link);
 	return 0;
 }
 
 SPA_EXPORT
-const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, uint32_t type)
+const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, const char *type)
 {
 	const struct pw_export_type *t;
 	spa_list_for_each(t, &context->export_list, link) {
-		if (t->type == type)
+		if (strcmp(t->type, type) == 0)
 			return t;
 	}
 	return NULL;

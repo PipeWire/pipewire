@@ -37,6 +37,9 @@ extern "C" {
 /**
  * a collection of core system functions
  */
+#define SPA_TYPE_INTERFACE_System	SPA_TYPE_INFO_INTERFACE_BASE "System"
+#define SPA_TYPE_INTERFACE_DataSystem	SPA_TYPE_INFO_INTERFACE_BASE "DataSystem"
+
 #define SPA_VERSION_SYSTEM		0
 struct spa_system { struct spa_interface iface; };
 

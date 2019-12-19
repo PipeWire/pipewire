@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (info->type == SPA_TYPE_INTERFACE_Device) {
+			if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) == 0) {
 				struct spa_handle *handle;
 				void *interface;
 

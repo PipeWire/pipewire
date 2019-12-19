@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
@@ -115,7 +116,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 
 	pw_log_debug("new node %u", id);
 
-	if (info->type != SPA_TYPE_INTERFACE_Node) {
+	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -247,7 +248,7 @@ static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id
 
 	pw_log_debug("new object %u", id);
 
-	if (info->type != SPA_TYPE_INTERFACE_Device) {
+	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -262,7 +263,7 @@ static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get %d interface: %d", info->type, res);
+		pw_log_error("can't get %s interface: %s", info->type, spa_strerror(res));
 		goto unload_handle;
 	}
 

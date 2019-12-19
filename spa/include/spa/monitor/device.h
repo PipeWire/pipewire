@@ -42,7 +42,9 @@ extern "C" {
  * Devices or Nodes.
  *
  */
-#define SPA_VERSION_DEVICE 0
+#define SPA_TYPE_INTERFACE_Device	SPA_TYPE_INFO_INTERFACE_BASE "Device"
+
+#define SPA_VERSION_DEVICE		0
 struct spa_device { struct spa_interface iface; };
 
 /**
@@ -75,7 +77,7 @@ struct spa_device_object_info {
 #define SPA_VERSION_DEVICE_OBJECT_INFO 0
 	uint32_t version;
 
-	uint32_t type;				/**< the object type managed by this device */
+	const char *type;			/**< the object type managed by this device */
 	const char *factory_name;		/**< a factory name that implements the object */
 
 #define SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS	(1u<<0)

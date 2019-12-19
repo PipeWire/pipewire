@@ -219,7 +219,7 @@ struct param {
 struct global {
 	struct spa_list link;
 	uint32_t id;
-	uint32_t type;
+	char *type;
 	struct pw_properties *props;
 
 	pa_context *context;

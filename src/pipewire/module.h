@@ -34,6 +34,8 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+#define PW_TYPE_INTERFACE_Module	PW_TYPE_INFO_INTERFACE_BASE "Module"
+
 #define PW_VERSION_MODULE		3
 struct pw_module;
 

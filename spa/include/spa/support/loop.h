@@ -33,12 +33,19 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/support/system.h>
 
+#define SPA_TYPE_INTERFACE_Loop		SPA_TYPE_INFO_INTERFACE_BASE "Loop"
+#define SPA_TYPE_INTERFACE_DataLoop	SPA_TYPE_INFO_INTERFACE_BASE "DataLoop"
 #define SPA_VERSION_LOOP		0
 struct spa_loop { struct spa_interface iface; };
+
+#define SPA_TYPE_INTERFACE_LoopControl	SPA_TYPE_INFO_INTERFACE_BASE "LoopControl"
 #define SPA_VERSION_LOOP_CONTROL	0
 struct spa_loop_control { struct spa_interface iface; };
+
+#define SPA_TYPE_INTERFACE_LoopUtils	SPA_TYPE_INFO_INTERFACE_BASE "LoopUtils"
 #define SPA_VERSION_LOOP_UTILS		0
 struct spa_loop_utils { struct spa_interface iface; };
+
 struct spa_source;
 
 typedef void (*spa_source_func_t) (struct spa_source *source);

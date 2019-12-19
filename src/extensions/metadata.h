@@ -31,9 +31,10 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-struct pw_metadata;
+#define PW_TYPE_INTERFACE_Metadata		PW_TYPE_INFO_INTERFACE_BASE "Metadata"
 
 #define PW_VERSION_METADATA			3
+struct pw_metadata;
 
 #define PW_EXTENSION_MODULE_METADATA		PIPEWIRE_MODULE_PREFIX "module-metadata"
 

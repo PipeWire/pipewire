@@ -124,7 +124,7 @@ struct pw_proxy_events {
   * can be retrieved with \ref pw_proxy_get_id . */
 struct pw_proxy *
 pw_proxy_new(struct pw_proxy *factory,	/**< factory */
-	     uint32_t type,		/**< interface type */
+	     const char *type,		/**< interface type */
 	     uint32_t version,		/**< interface version */
 	     size_t user_data_size	/**< size of user data */);
 
@@ -151,7 +151,7 @@ void *pw_proxy_get_user_data(struct pw_proxy *proxy);
 uint32_t pw_proxy_get_id(struct pw_proxy *proxy);
 
 /** Get the type and version of the proxy */
-uint32_t pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version);
+const char *pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version);
 
 /** Get the protocol used for the proxy */
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy);

@@ -65,7 +65,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_clie
 SPA_EXPORT
 struct pw_global *
 pw_global_new(struct pw_context *context,
-	      uint32_t type,
+	      const char *type,
 	      uint32_t version,
 	      struct pw_properties *properties,
 	      pw_global_bind_func_t func,
@@ -104,9 +104,7 @@ pw_global_new(struct pw_context *context,
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
-	pw_log_debug(NAME" %p: new %s %d", this,
-			spa_debug_type_find_name(pw_type_info(), this->type),
-			this->id);
+	pw_log_debug(NAME" %p: new %s %d", this, this->type, this->id);
 
 	return this;
 
@@ -190,9 +188,15 @@ struct pw_context *pw_global_get_context(struct pw_global *global)
 }
 
 SPA_EXPORT
-uint32_t pw_global_get_type(struct pw_global *global)
+const char * pw_global_get_type(struct pw_global *global)
 {
 	return global->type;
+}
+
+SPA_EXPORT
+bool pw_global_is_type(struct pw_global *global, const char *type)
+{
+	return strcmp(global->type, type) == 0;
 }
 
 SPA_EXPORT

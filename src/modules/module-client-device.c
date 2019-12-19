@@ -44,7 +44,7 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
-		uint32_t type, const struct spa_dict *props, void *object,
+		const char *type, const struct spa_dict *props, void *object,
 		size_t user_data_size);
 
 struct pw_protocol *pw_protocol_native_ext_client_device_init(struct pw_context *context);
@@ -60,7 +60,7 @@ struct factory_data {
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
-			   uint32_t type,
+			   const char *type,
 			   uint32_t version,
 			   struct pw_properties *properties,
 			   uint32_t new_id)

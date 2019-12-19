@@ -237,9 +237,14 @@ int sm_object_remove_data(struct sm_object *obj, const char *id)
 int sm_object_destroy(struct sm_object *obj)
 {
 	pw_log_debug(NAME" %p: object %d", obj->session, obj->id);
-	pw_proxy_destroy(obj->proxy);
-	if (obj->handle)
+	if (obj->proxy) {
+		pw_proxy_destroy(obj->proxy);
+		obj->proxy = NULL;
+	}
+	if (obj->handle) {
 		pw_proxy_destroy(obj->handle);
+		obj->handle = NULL;
+	}
 	return 0;
 }
 
@@ -958,10 +963,10 @@ static void bound_proxy(void *data, uint32_t id)
 }
 
 static const struct pw_proxy_events proxy_events = {
-        PW_VERSION_PROXY_EVENTS,
-        .destroy = destroy_proxy,
-        .done = done_proxy,
-        .bound = bound_proxy,
+	PW_VERSION_PROXY_EVENTS,
+	.destroy = destroy_proxy,
+	.done = done_proxy,
+	.bound = bound_proxy,
 };
 
 int sm_object_sync_update(struct sm_object *obj)
@@ -1617,7 +1622,8 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == 0) {
-		pw_main_loop_quit(impl->loop);
+		if (res == -EPIPE)
+			pw_main_loop_quit(impl->loop);
 	}
 }
 
@@ -1673,6 +1679,9 @@ static void session_shutdown(struct impl *impl)
 		sm_media_session_emit_remove(impl, obj);
 
 	sm_media_session_emit_destroy(impl);
+
+	pw_proxy_destroy((struct pw_proxy*)impl->registry);
+	pw_core_disconnect(impl->policy_core);
 }
 
 int main(int argc, char *argv[])

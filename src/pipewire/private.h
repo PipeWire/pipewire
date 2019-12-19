@@ -724,6 +724,7 @@ struct pw_resource {
 #define pw_proxy_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_proxy_events, m, v, ##__VA_ARGS__)
 #define pw_proxy_emit_destroy(p)	pw_proxy_emit(p, destroy, 0)
 #define pw_proxy_emit_bound(p,g)	pw_proxy_emit(p, bound, 0, g)
+#define pw_proxy_emit_removed(p)	pw_proxy_emit(p, removed, 0)
 #define pw_proxy_emit_done(p,s)		pw_proxy_emit(p, done, 0, s)
 #define pw_proxy_emit_error(p,s,r,m)	pw_proxy_emit(p, error, 0, s, r, m)
 

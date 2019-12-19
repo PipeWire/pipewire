@@ -113,6 +113,10 @@ struct pw_proxy_events {
 	/** a proxy is bound to a global id */
         void (*bound) (void *data, uint32_t global_id);
 
+	/** a proxy is removed from the server. Use pw_proxy_destroy to
+	 * free the proxy. */
+        void (*removed) (void *data);
+
 	/** a reply to a sync method completed */
         void (*done) (void *data, int seq);
 

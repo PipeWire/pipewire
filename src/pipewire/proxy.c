@@ -220,38 +220,58 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
+	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u ref:%u", proxy,
+			proxy->id, proxy->removed, proxy->zombie, proxy->refcount);
+
 	assert(!proxy->destroyed);
 	proxy->destroyed = true;
 
-	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u", proxy,
-			proxy->id, proxy->removed, proxy->zombie);
-
-	if (!proxy->zombie) {
-		proxy->zombie = true;
-		pw_proxy_emit_destroy(proxy);
-	}
 	if (!proxy->removed) {
-		/* if the server did not remove this proxy, remove ourselves
-		 * from the proxy objects and schedule a destroy. */
-		if (proxy->core && !proxy->core->destroyed) {
+		/* if the server did not remove this proxy, schedule a
+		 * destroy if we can */
+		if (proxy->core) {
 			pw_core_destroy(proxy->core, proxy);
+			proxy->refcount++;
 		} else {
 			proxy->removed = true;
 		}
 	}
 	if (proxy->removed) {
-		if (proxy->core && !proxy->core->destroyed)
+		if (proxy->core)
 			pw_map_remove(&proxy->core->objects, proxy->id);
-
-		pw_proxy_unref(proxy);
 	}
+
+	if (!proxy->zombie) {
+		/* mark zombie and emit destroyed. No more
+		 * events will be emited on zombie objects */
+		proxy->zombie = true;
+		pw_proxy_emit_destroy(proxy);
+	}
+	pw_proxy_unref(proxy);
 }
 
+/** called when cleaning up or when the server removed the resource. Can
+ * be called multiple times */
 void pw_proxy_remove(struct pw_proxy *proxy)
 {
-	proxy->removed = true;
-	proxy->destroyed = false;
-	pw_proxy_destroy(proxy);
+	assert(proxy->refcount > 0);
+
+	pw_log_debug(NAME" %p: remove id:%u removed:%u destroyed:%u zombie:%u", proxy,
+			proxy->id, proxy->removed, proxy->destroyed, proxy->zombie);
+
+	proxy->refcount++;
+	if (!proxy->removed) {
+		/* mark removed and emit the removed signal only once and
+		 * only when not already destroyed */
+		proxy->removed = true;
+		if (!proxy->destroyed)
+			pw_proxy_emit_removed(proxy);
+	}
+	if (proxy->destroyed) {
+		proxy->destroyed = false;
+		pw_proxy_destroy(proxy);
+	}
+	pw_proxy_unref(proxy);
 }
 
 SPA_EXPORT
@@ -262,6 +282,8 @@ void pw_proxy_unref(struct pw_proxy *proxy)
 		return;
 
 	pw_log_debug(NAME" %p: free %u", proxy, proxy->id);
+	/** client must explicitly destroy all proxies */
+	assert(proxy->destroyed);
 	free(proxy);
 }
 

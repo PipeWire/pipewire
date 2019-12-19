@@ -164,7 +164,7 @@ void *pw_core_get_user_data(struct pw_core *core)
 	return core->user_data;
 }
 
-static int destroy_proxy(void *object, void *data)
+static int remove_proxy(void *object, void *data)
 {
 	struct pw_core *core = data;
 	struct pw_proxy *p = object;
@@ -172,8 +172,10 @@ static int destroy_proxy(void *object, void *data)
 	if (object == NULL)
 		return 0;
 
-	if (object != core)
+	if (object != core) {
+		p->core = NULL;
 		pw_proxy_remove(p);
+	}
 
 	return 0;
 }
@@ -197,7 +199,7 @@ static void proxy_core_destroy(void *data)
 	spa_list_for_each_safe(filter, f2, &core->filter_list, link)
 		pw_filter_disconnect(filter);
 
-	pw_map_for_each(&core->objects, destroy_proxy, core);
+	pw_map_for_each(&core->objects, remove_proxy, core);
 	pw_map_reset(&core->objects);
 
 	spa_list_consume(stream, &core->stream_list, link)
@@ -206,7 +208,7 @@ static void proxy_core_destroy(void *data)
 		pw_filter_destroy(filter);
 
 	pw_protocol_client_disconnect(core->conn);
-	core->client = NULL;
+	pw_proxy_destroy((struct pw_proxy*)core->client);
 
 	pw_mempool_destroy(core->pool);
 
@@ -439,6 +441,8 @@ struct pw_mempool * pw_core_get_mempool(struct pw_core *core)
 SPA_EXPORT
 int pw_core_disconnect(struct pw_core *core)
 {
+	pw_log_debug(NAME" %p: disconnect", core);
 	pw_proxy_remove(&core->proxy);
+	pw_proxy_destroy(&core->proxy);
 	return 0;
 }

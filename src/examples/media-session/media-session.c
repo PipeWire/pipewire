@@ -1680,8 +1680,14 @@ static void session_shutdown(struct impl *impl)
 
 	sm_media_session_emit_destroy(impl);
 
-	pw_proxy_destroy((struct pw_proxy*)impl->registry);
-	pw_core_disconnect(impl->policy_core);
+	if (impl->registry)
+		pw_proxy_destroy((struct pw_proxy*)impl->registry);
+	if (impl->policy_core)
+		pw_core_disconnect(impl->policy_core);
+	if (impl->client_session)
+		pw_proxy_destroy((struct pw_proxy*)impl->client_session);
+	if (impl->monitor_core)
+		pw_core_disconnect(impl->monitor_core);
 }
 
 int main(int argc, char *argv[])

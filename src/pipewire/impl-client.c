@@ -175,7 +175,6 @@ static void client_unbind_func(void *data)
 	struct pw_resource *resource = data;
 	if (resource->id == 1)
 		resource->client->client_resource = NULL;
-	spa_list_remove(&resource->link);
 }
 
 static const struct pw_resource_events resource_events = {
@@ -206,9 +205,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 			&client_methods, resource);
 
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	if (resource->id == 1)
 		client->client_resource = resource;

@@ -35,7 +35,6 @@
 #include <spa/debug/types.h>
 
 #include "spa-device.h"
-#include "pipewire/private.h"
 
 struct impl {
 	struct pw_impl_device *this;
@@ -84,7 +83,7 @@ pw_spa_device_new(struct pw_context *context,
 	if (this == NULL)
 		return NULL;
 
-	impl = this->user_data;
+	impl = pw_impl_device_get_user_data(this);
 	impl->this = this;
 	impl->device = device;
 	impl->handle = handle;
@@ -110,7 +109,7 @@ error_register:
 
 void *pw_spa_device_get_user_data(struct pw_impl_device *device)
 {
-	struct impl *impl = device->user_data;
+	struct impl *impl = pw_impl_device_get_user_data(device);
 	return impl->user_data;
 }
 

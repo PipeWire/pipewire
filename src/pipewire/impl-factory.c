@@ -33,10 +33,6 @@
 
 #define pw_factory_resource_info(r,...) pw_resource_call(r,struct pw_factory_events,info,0,__VA_ARGS__)
 
-struct resource_data {
-	struct spa_hook resource_listener;
-};
-
 SPA_EXPORT
 struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 				  const char *name,
@@ -105,17 +101,6 @@ void pw_impl_factory_destroy(struct pw_impl_factory *factory)
 	free(factory);
 }
 
-static void factory_unbind_func(void *data)
-{
-	struct pw_resource *resource = data;
-	spa_list_remove(&resource->link);
-}
-
-static const struct pw_resource_events resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = factory_unbind_func,
-};
-
 static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
@@ -123,19 +108,13 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	struct pw_impl_factory *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
-	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0);
 	if (resource == NULL)
 		goto error_resource;
 
-	data = pw_resource_get_user_data(resource);
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
-
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = ~0;
 	pw_factory_resource_info(resource, &this->info);
@@ -247,6 +226,12 @@ SPA_EXPORT
 void *pw_impl_factory_get_user_data(struct pw_impl_factory *factory)
 {
 	return factory->user_data;
+}
+
+SPA_EXPORT
+const struct pw_factory_info *pw_impl_factory_get_info(struct pw_impl_factory *factory)
+{
+	return &factory->info;
 }
 
 SPA_EXPORT

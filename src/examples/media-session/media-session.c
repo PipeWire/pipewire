@@ -32,6 +32,7 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
@@ -39,7 +40,6 @@
 #include <spa/monitor/device.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 #include "extensions/session-manager.h"
 
 #include <dbus/dbus.h>

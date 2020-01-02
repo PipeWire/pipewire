@@ -33,6 +33,7 @@
 #include <sys/file.h>
 
 #include <spa/pod/iter.h>
+#include <spa/utils/result.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
 

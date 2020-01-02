@@ -32,6 +32,7 @@
 
 #include <spa/pod/parser.h>
 #include <spa/node/utils.h>
+#include <spa/utils/result.h>
 #include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"

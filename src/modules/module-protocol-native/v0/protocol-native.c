@@ -21,6 +21,7 @@
 #include <errno.h>
 
 #include "spa/pod/parser.h"
+#include "spa/pod/builder.h"
 #include "spa/debug/pod.h"
 
 #include "pipewire/pipewire.h"
@@ -169,6 +170,7 @@ static void core_marshal_remove_id(void *object, uint32_t id)
 static int core_demarshal_client_update(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_dict props;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
@@ -188,7 +190,7 @@ static int core_demarshal_client_update(void *object, const struct pw_protocol_n
 				NULL) < 0)
 			return -EINVAL;
 	}
-	pw_impl_client_update_properties(resource->client, &props);
+	pw_impl_client_update_properties(client, &props);
 	return 0;
 }
 
@@ -727,7 +729,7 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 				    const char *type, uint32_t version, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items, parent_id;
@@ -775,6 +777,7 @@ static void registry_marshal_global_remove(void *object, uint32_t id)
 static int registry_demarshal_bind(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_parser prs;
 	uint32_t id, version, type, new_id;
 	const char *type_name;
@@ -787,7 +790,7 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 			"i", &new_id) < 0)
 		return -EINVAL;
 
-	type_name = pw_protocol_native0_name_from_v2(resource->client, type);
+	type_name = pw_protocol_native0_name_from_v2(client, type);
 	if (type_name == NULL)
 		return -EINVAL;
 
@@ -827,7 +830,7 @@ static void module_marshal_info(void *object, const struct pw_module_info *info)
 static void factory_marshal_info(void *object, const struct pw_factory_info *info)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items, type, version;
@@ -908,7 +911,7 @@ static void node_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 static int node_demarshal_enum_params(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_parser prs;
 	uint32_t id, index, num;
 	struct spa_pod *filter;
@@ -960,7 +963,7 @@ static void port_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 		const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_PORT_V0_EVENT_PARAM, NULL);
@@ -975,7 +978,7 @@ static void port_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 static int port_demarshal_enum_params(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_parser prs;
 	uint32_t id, index, num;
 	struct spa_pod *filter;

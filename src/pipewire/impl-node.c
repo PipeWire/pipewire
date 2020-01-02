@@ -58,7 +58,6 @@ struct resource_data {
 	struct pw_impl_node *node;
 	struct pw_resource *resource;
 
-	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 
 	uint32_t subscribe_ids[MAX_PARAMS];
@@ -346,11 +345,6 @@ static int suspend_node(struct pw_impl_node *this)
 
 	return res;
 }
-static void node_unbind_func(void *data)
-{
-	struct pw_resource *resource = data;
-	spa_list_remove(&resource->link);
-}
 
 static void
 clear_info(struct pw_impl_node *this)
@@ -358,11 +352,6 @@ clear_info(struct pw_impl_node *this)
 	free(this->name);
 	free((char*)this->info.error);
 }
-
-static const struct pw_resource_events resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = node_unbind_func,
-};
 
 static int reply_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
@@ -505,17 +494,12 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	data->resource = resource;
 	data->end = -1;
 
-	pw_resource_add_listener(resource,
-			&data->resource_listener,
-			&resource_events, resource);
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
 			&node_methods, resource);
 
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = PW_NODE_CHANGE_MASK_ALL;
 	pw_node_resource_info(resource, &this->info);

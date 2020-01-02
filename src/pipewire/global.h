@@ -120,6 +120,17 @@ void *pw_global_get_object(struct pw_global *global);
 /** Get the unique id of the global */
 uint32_t pw_global_get_id(struct pw_global *global);
 
+/** Add a resource to a global */
+int pw_global_add_resource(struct pw_global *global, struct pw_resource *resource);
+
+/** Iterate all resources added to the global The callback should return
+ * 0 to fetch the next item, any other value stops the iteration and returns
+ * the value. When all callbacks return 0, this function returns 0 when all
+ * items are iterated. */
+int pw_global_for_each_resource(struct pw_global *global,
+			   int (*callback) (void *data, struct pw_resource *resource),
+			   void *data);
+
 /** Let a client bind to a global */
 int pw_global_bind(struct pw_global *global,
 		   struct pw_impl_client *client,

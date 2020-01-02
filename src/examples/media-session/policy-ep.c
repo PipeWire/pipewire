@@ -37,7 +37,6 @@
 #include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 #include "extensions/session-manager.h"
 
 #include "media-session.h"

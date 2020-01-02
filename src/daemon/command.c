@@ -30,7 +30,6 @@
 #include <limits.h>
 
 #include <pipewire/impl.h>
-#include <pipewire/private.h>
 
 #include "command.h"
 

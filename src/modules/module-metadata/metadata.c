@@ -22,8 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <pipewire/pipewire.h>
-#include "pipewire/private.h"
+#include <pipewire/impl.h>
 
 #include <extensions/metadata.h>
 

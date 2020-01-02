@@ -26,14 +26,14 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <spa/utils/result.h>
+
 #include <pipewire/impl.h>
 #include <extensions/session-manager.h>
 
 #include "client-session.h"
 #include "session.h"
 #include "endpoint-link.h"
-
-#include <pipewire/private.h>
 
 #define NAME "client-session"
 
@@ -183,8 +183,10 @@ static void *create_object(void *data,
 	if (!properties)
 		goto no_mem;
 
-	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", owner->global->id);
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d", factory->global->id);
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+			pw_impl_client_get_info(owner)->id);
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_impl_factory_get_info(factory)->id);
 
 	this->resource = pw_resource_new(owner, new_id, PW_PERM_RWX, type, version, 0);
 	if (this->resource == NULL)
@@ -234,7 +236,7 @@ static void module_registered(void *data)
 	char id[16];
 	int res;
 
-	snprintf(id, sizeof(id), "%d", module->global->id);
+	snprintf(id, sizeof(id), "%d", pw_impl_module_get_info(module)->id);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 

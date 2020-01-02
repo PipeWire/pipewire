@@ -701,6 +701,7 @@ struct pw_resource {
 	struct spa_interface impl;	/**< object implementation */
 
 	struct pw_context *context;	/**< the context object */
+	struct pw_global *global;	/**< global of resource */
 	struct spa_list link;		/**< link in global resource_list */
 
 	struct pw_impl_client *client;	/**< owner client */
@@ -921,22 +922,11 @@ const struct pw_export_type *pw_context_find_export_type(struct pw_context *cont
 
 int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version);
 
-int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
 void pw_proxy_remove(struct pw_proxy *proxy);
 
-int pw_resource_install_marshal(struct pw_resource *resource, bool implementor);
 void pw_resource_remove(struct pw_resource *resource);
 
 int pw_context_recalc_graph(struct pw_context *context);
-
-/** Create a new port \memberof pw_impl_port
- * \return a newly allocated port */
-struct pw_impl_port *
-pw_context_create_port(struct pw_context *context,
-	enum pw_direction direction,
-	uint32_t port_id,
-	const struct spa_port_info *info,
-	size_t user_data_size);
 
 void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);
 
@@ -947,9 +937,6 @@ int pw_impl_port_register(struct pw_impl_port *port,
 void * pw_impl_port_get_user_data(struct pw_impl_port *port);
 
 int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint32_t flags);
-
-/** Add a port to a node \memberof pw_impl_port */
-int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node);
 
 int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
 int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
@@ -993,9 +980,6 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 			   int (*callback) (void *data, struct pw_impl_link *link),
 			   void *data);
 
-/** check is a port has links, return 0 if not, 1 if it is linked */
-int pw_impl_port_is_linked(struct pw_impl_port *port);
-
 /** Set a param on a port \memberof pw_impl_port, use SPA_ID_INVALID for mix_id to set
  * the param on all mix ports */
 int pw_impl_port_set_param(struct pw_impl_port *port,
@@ -1012,8 +996,6 @@ int pw_impl_node_set_param(struct pw_impl_node *node,
 		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
 int pw_impl_node_update_ports(struct pw_impl_node *node);
-
-int pw_impl_node_initialized(struct pw_impl_node *node);
 
 int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driver);
 

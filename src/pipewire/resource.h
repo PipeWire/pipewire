@@ -137,6 +137,9 @@ struct spa_hook_list *pw_resource_get_object_listeners(struct pw_resource *resou
 /** Get the marshal functions for the resource */
 const struct pw_protocol_marshal *pw_resource_get_marshal(struct pw_resource *resource);
 
+/** install a marshal function on a resource */
+int pw_resource_install_marshal(struct pw_resource *resource, bool implementor);
+
 #define pw_resource_notify(r,type,event,version,...)			\
 	spa_hook_list_call(pw_resource_get_object_listeners(r),		\
 			type, event, version, ## __VA_ARGS__)

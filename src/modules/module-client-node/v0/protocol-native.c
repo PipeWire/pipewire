@@ -20,9 +20,10 @@
 #include <errno.h>
 
 #include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
+#include <spa/utils/type-info.h>
 
 #include "pipewire/impl.h"
-#include "pipewire/private.h"
 
 #include "extensions/protocol-native.h"
 
@@ -45,6 +46,7 @@ client_node_marshal_add_mem(void *object,
 			    int memfd, uint32_t flags)
 {
 	struct pw_resource *resource = object;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	const char *typename;
 
@@ -64,7 +66,7 @@ client_node_marshal_add_mem(void *object,
 
 	spa_pod_builder_add_struct(b,
 			       "i", mem_id,
-			       "I", pw_protocol_native0_find_type(resource->client, typename),
+			       "I", pw_protocol_native0_find_type(client, typename),
 			       "i", pw_protocol_native_add_resource_fd(resource, memfd),
 			       "i", flags);
 
@@ -127,7 +129,7 @@ static void
 client_node_marshal_command(void *object, uint32_t seq, const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
@@ -185,7 +187,7 @@ client_node_marshal_port_set_param(void *object,
 				   const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	const char *typename;
@@ -224,7 +226,7 @@ client_node_marshal_port_use_buffers(void *object,
 				     uint32_t n_buffers, struct pw_client_node0_buffer *buffers)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, j;
@@ -277,7 +279,7 @@ client_node_marshal_port_command(void *object,
 				 const struct spa_command *command)
 {
 	struct pw_resource *resource = object;
-	struct pw_impl_client *client = resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 

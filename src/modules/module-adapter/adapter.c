@@ -40,7 +40,6 @@
 #include <spa/debug/types.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"
 
@@ -123,7 +122,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 
 	if ((str = pw_properties_get(old, PW_KEY_AUDIO_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {
-		snprintf(position, 7, "%d", port->port_id);
+		snprintf(position, 7, "%d", pw_impl_port_get_id(port));
 		str = position;
 	}
 	if (direction == n->direction) {
@@ -139,7 +138,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 		node_name = "node";
 	}
 	pw_properties_setf(new, PW_KEY_OBJECT_PATH, "%s:%s_%d",
-			path ? path : node_name, prefix, port->port_id);
+			path ? path : node_name, prefix, pw_impl_port_get_id(port));
 
 	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
 	pw_properties_setf(new, PW_KEY_PORT_ALIAS, "%s:%s_%s",
@@ -166,7 +165,7 @@ static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 	struct spa_pod *format;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	if ((res = spa_node_port_enum_params_sync(node->node,
+	if ((res = spa_node_port_enum_params_sync(pw_impl_node_get_implementation(node),
 				direction == PW_DIRECTION_INPUT ?
 					SPA_DIRECTION_INPUT :
 					SPA_DIRECTION_OUTPUT, 0,
@@ -236,7 +235,8 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		goto error;
 
 	if (media_type == SPA_MEDIA_TYPE_audio) {
-		pw_properties_setf(props, "audio.adapt.slave", "pointer:%p", slave->node);
+		pw_properties_setf(props, "audio.adapt.slave", "pointer:%p",
+				pw_impl_node_get_implementation(slave));
 		pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "audioconvert/libspa-audioconvert");
 		if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 			pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Audio/%s",
@@ -244,7 +244,8 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		factory_name = SPA_NAME_AUDIO_ADAPT;
 	}
 	else if (media_type == SPA_MEDIA_TYPE_video) {
-		pw_properties_setf(props, "video.adapt.slave", "pointer:%p", slave->node);
+		pw_properties_setf(props, "video.adapt.slave", "pointer:%p",
+				pw_impl_node_get_implementation(slave));
 		pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "videoconvert/libspa-videoconvert");
 		if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 			pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "Video/%s",

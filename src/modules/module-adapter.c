@@ -31,9 +31,9 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 
 #include <pipewire/impl.h>
-#include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"
 #include "module-adapter/adapter.h"
@@ -153,13 +153,14 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto error_properties;
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d", d->this->global->id);
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_impl_factory_get_info(d->this)->id);
 
 	client = resource ? pw_resource_get_client(resource): NULL;
 
 	if (client) {
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
-				client->global->id);
+				pw_impl_client_get_info(client)->id);
 	}
 
 	slave = NULL;
@@ -265,7 +266,7 @@ static void module_registered(void *data)
 	char id[16];
 	int res;
 
-	snprintf(id, sizeof(id), "%d", module->global->id);
+	snprintf(id, sizeof(id), "%d", pw_impl_module_get_info(module)->id);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 

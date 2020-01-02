@@ -32,7 +32,6 @@
 #include <errno.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 
 #include "daemon/command.h"
 #include "daemon/daemon-config.h"

@@ -69,10 +69,6 @@ struct impl {
 	struct pw_impl_node *inode, *onode;
 };
 
-struct resource_data {
-	struct spa_hook resource_listener;
-};
-
 /** \endcond */
 
 static void debug_link(struct pw_impl_link *link)
@@ -791,17 +787,6 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 	return 0;
 }
 
-static void link_unbind_func(void *data)
-{
-	struct pw_resource *resource = data;
-	spa_list_remove(&resource->link);
-}
-
-static const struct pw_resource_events resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = link_unbind_func,
-};
-
 static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
@@ -809,19 +794,13 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	struct pw_impl_link *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
-	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0);
 	if (resource == NULL)
 		goto error_resource;
 
-	data = pw_resource_get_user_data(resource);
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
-
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = ~0;
 	pw_link_resource_info(resource, &this->info);

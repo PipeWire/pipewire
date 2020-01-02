@@ -30,7 +30,6 @@
 #include <spa/monitor/device.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 
 struct device_data {
 	struct spa_device *device;

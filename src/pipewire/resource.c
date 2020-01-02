@@ -252,6 +252,11 @@ void pw_resource_destroy(struct pw_resource *resource)
 {
 	struct pw_impl_client *client = resource->client;
 
+	if (resource->global) {
+		spa_list_remove(&resource->link);
+		resource->global = NULL;
+	}
+
 	pw_log_debug(NAME" %p: destroy %u", resource, resource->id);
 	pw_resource_emit_destroy(resource);
 

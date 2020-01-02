@@ -29,7 +29,6 @@
 #include <spa/pod/parser.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 #include "extensions/metadata.h"
 
 struct object_data {

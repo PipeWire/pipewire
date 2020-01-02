@@ -40,7 +40,6 @@
 #include <spa/debug/dict.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 
 #define NAME "media-session"
 

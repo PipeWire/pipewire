@@ -26,7 +26,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 #include <extensions/session-manager.h>
 
 #include <spa/pod/filter.h>
@@ -34,13 +34,10 @@
 #include "endpoint-link.h"
 #include "client-session.h"
 
-#include <pipewire/private.h>
-
 #define NAME "endpoint-link"
 
 struct resource_data {
 	struct endpoint_link *link;
-	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 	uint32_t n_subscribe_ids;
 	uint32_t subscribe_ids[32];
@@ -104,7 +101,7 @@ static int endpoint_link_subscribe_params (void *object, uint32_t *ids, uint32_t
 	for (i = 0; i < n_ids; i++) {
 		data->subscribe_ids[i] = ids[i];
 		pw_log_debug(NAME" %p: resource %d subscribe param %u",
-			data->link, resource->id, ids[i]);
+			data->link, pw_resource_get_id(resource), ids[i]);
 		endpoint_link_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
 	return 0;
@@ -143,30 +140,54 @@ static const struct pw_endpoint_link_methods methods = {
 	.request_state = endpoint_link_request_state,
 };
 
+struct emit_param_data {
+	struct endpoint_link *this;
+	struct spa_pod *param;
+	uint32_t id;
+	uint32_t index;
+	uint32_t next;
+};
+
+static int emit_param(void *_data, struct pw_resource *resource)
+{
+	struct emit_param_data *d = _data;
+	struct resource_data *data;
+	uint32_t i;
+
+	data = pw_resource_get_user_data(resource);
+	for (i = 0; i < data->n_subscribe_ids; i++) {
+		if (data->subscribe_ids[i] == d->id) {
+			pw_endpoint_link_resource_param(resource, 1,
+				d->id, d->index, d->next, d->param);
+		}
+	}
+	return 0;
+}
+
 static void endpoint_link_notify_subscribed(struct endpoint_link *this,
 					uint32_t index, uint32_t next)
 {
 	struct pw_global *global = this->global;
-	struct pw_resource *resource;
-	struct resource_data *data;
+	struct emit_param_data data;
 	struct spa_pod *param = this->params[index];
-	uint32_t id;
-	uint32_t i;
 
 	if (!param || !spa_pod_is_object (param))
 		return;
 
-	id = SPA_POD_OBJECT_ID (param);
+	data.this = this;
+	data.param = param;
+	data.id = SPA_POD_OBJECT_ID (param);
+	data.index = index;
+	data.next = next;
 
-	spa_list_for_each(resource, &global->resource_list, link) {
-		data = pw_resource_get_user_data(resource);
-		for (i = 0; i < data->n_subscribe_ids; i++) {
-			if (data->subscribe_ids[i] == id) {
-				pw_endpoint_link_resource_param(resource, 1,
-					id, index, next, param);
-			}
-		}
-	}
+	pw_global_for_each_resource(global, emit_param, &data);
+}
+
+static int emit_info(void *data, struct pw_resource *resource)
+{
+	struct endpoint_link *this = data;
+	pw_endpoint_link_resource_info(resource, &this->info);
+	return 0;
 }
 
 int endpoint_link_update(struct endpoint_link *this,
@@ -197,8 +218,6 @@ int endpoint_link_update(struct endpoint_link *this,
 	}
 
 	if (change_mask & PW_CLIENT_SESSION_UPDATE_INFO) {
-		struct pw_resource *resource;
-
 		if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE) {
 			this->info.state = info->state;
 			free(this->info.error);
@@ -229,9 +248,7 @@ int endpoint_link_update(struct endpoint_link *this,
 		}
 
 		this->info.change_mask = info->change_mask;
-		spa_list_for_each(resource, &this->global->resource_list, link) {
-			pw_endpoint_link_resource_info(resource, &this->info);
-		}
+		pw_global_for_each_resource(this->global, emit_info, this);
 		this->info.change_mask = 0;
 	}
 
@@ -244,17 +261,6 @@ int endpoint_link_update(struct endpoint_link *this,
 	return -ENOMEM;
 }
 
-static void endpoint_link_unbind(void *data)
-{
-	struct pw_resource *resource = data;
-	spa_list_remove(&resource->link);
-}
-
-static const struct pw_resource_events resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = endpoint_link_unbind,
-};
-
 static int endpoint_link_bind(void *_data, struct pw_impl_client *client,
 			uint32_t permissions, uint32_t version, uint32_t id)
 {
@@ -263,20 +269,18 @@ static int endpoint_link_bind(void *_data, struct pw_impl_client *client,
 	struct pw_resource *resource;
 	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
+	resource = pw_resource_new(client, id, permissions,
+			pw_global_get_type(global), version, sizeof(*data));
 	if (resource == NULL)
 		goto no_mem;
 
 	data = pw_resource_get_user_data(resource);
 	data->link = this;
-	pw_resource_add_listener(resource, &data->resource_listener,
-				&resource_events, resource);
 	pw_resource_add_object_listener(resource, &data->object_listener,
 					&methods, resource);
 
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
+	pw_log_debug(NAME" %p: bound to %d", this, pw_resource_get_id(resource));
+	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = PW_ENDPOINT_LINK_CHANGE_MASK_ALL;
 	pw_endpoint_link_resource_info(resource, &this->info);
@@ -316,10 +320,11 @@ int endpoint_link_init(struct endpoint_link *this,
 	if (!this->global)
 		goto no_mem;
 
-	pw_properties_setf(this->props, PW_KEY_OBJECT_ID, "%u", this->global->id);
+	pw_properties_setf(this->props, PW_KEY_OBJECT_ID, "%u",
+			pw_global_get_id(this->global));
 
 	this->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
-	this->info.id = this->global->id;
+	this->info.id = pw_global_get_id(this->global);
 	this->info.session_id = session_id;
 	this->info.props = &this->props->dict;
 

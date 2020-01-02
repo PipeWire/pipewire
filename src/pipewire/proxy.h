@@ -181,6 +181,9 @@ struct spa_hook_list *pw_proxy_get_object_listeners(struct pw_proxy *proxy);
 /** Get the marshal functions for the proxy */
 const struct pw_protocol_marshal *pw_proxy_get_marshal(struct pw_proxy *proxy);
 
+/** Install a marshal function on a proxy */
+int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
+
 #define pw_proxy_notify(p,type,event,version,...)			\
 	spa_hook_list_call(pw_proxy_get_object_listeners(p),		\
 			type, event, version, ## __VA_ARGS__)

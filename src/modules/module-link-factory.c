@@ -29,8 +29,9 @@
 
 #include "config.h"
 
+#include <spa/utils/result.h>
+
 #include <pipewire/impl.h>
-#include "pipewire/private.h"
 
 #define NAME "link-factory"
 
@@ -145,6 +146,7 @@ static const struct pw_impl_link_events link_events = {
 static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_direction direction)
 {
 	struct pw_impl_port *p;
+	struct pw_context *context = pw_impl_node_get_context(node);
 	int res;
 
 	p = pw_impl_node_find_port(node, direction, SPA_ID_INVALID);
@@ -156,7 +158,7 @@ static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_directi
 		if (port_id == SPA_ID_INVALID)
 			return NULL;
 
-		p = pw_context_create_port(node->context, direction, port_id, NULL, 0);
+		p = pw_context_create_port(context, direction, port_id, NULL, 0);
 		if (p == NULL)
 			return NULL;
 
@@ -253,9 +255,11 @@ static void *create_object(void *_data,
 	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
 	linger = str ? pw_properties_parse_bool(str) : false;
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d", d->this->global->id);
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_impl_factory_get_info(d->this)->id);
 	if (!linger)
-		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+				pw_impl_client_get_info(client)->id);
 
 
 	link = pw_context_create_link(context, outport, inport, NULL, properties, sizeof(struct link_data));

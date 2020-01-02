@@ -89,6 +89,15 @@ struct pw_impl_port_events {
 	void (*control_removed) (void *data, struct pw_control *control);
 };
 
+/** Create a new port \memberof pw_impl_port
+ * \return a newly allocated port */
+struct pw_impl_port *
+pw_context_create_port(struct pw_context *context,
+	enum pw_direction direction,
+	uint32_t port_id,
+	const struct spa_port_info *info,
+	size_t user_data_size);
+
 /** Get the port direction */
 enum pw_direction pw_impl_port_get_direction(struct pw_impl_port *port);
 
@@ -103,6 +112,12 @@ uint32_t pw_impl_port_get_id(struct pw_impl_port *port);
 
 /** Get the port parent node or NULL when not yet set */
 struct pw_impl_node *pw_impl_port_get_node(struct pw_impl_port *port);
+
+/** check is a port has links, return 0 if not, 1 if it is linked */
+int pw_impl_port_is_linked(struct pw_impl_port *port);
+
+/** Add a port to a node \memberof pw_impl_port */
+int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node);
 
 /** Add an event listener on the port */
 void pw_impl_port_add_listener(struct pw_impl_port *port,

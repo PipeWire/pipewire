@@ -166,6 +166,8 @@ pw_impl_node_find_port(struct pw_impl_node *node, enum pw_direction direction, u
 /** Get a free unused port_id from the node */
 uint32_t pw_impl_node_get_free_port_id(struct pw_impl_node *node, enum pw_direction direction);
 
+int pw_impl_node_initialized(struct pw_impl_node *node);
+
 /** Set a node active. This will start negotiation with all linked active
   * nodes and start data transport */
 int pw_impl_node_set_active(struct pw_impl_node *node, bool active);

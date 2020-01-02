@@ -32,12 +32,12 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
+#include <spa/utils/result.h>
 #include <spa/param/props.h>
 #include <spa/pod/iter.h>
 #include <spa/debug/types.h>
 
 #include "spa-node.h"
-#include "pipewire/private.h"
 
 struct impl {
 	struct pw_impl_node *this;
@@ -119,7 +119,7 @@ pw_spa_node_new(struct pw_context *context,
 		goto error_exit;
 	}
 
-	impl = this->user_data;
+	impl = pw_impl_node_get_user_data(this);
 	impl->this = this;
 	impl->node = node;
 	impl->handle = handle;
@@ -152,7 +152,7 @@ error_exit:
 
 void *pw_spa_node_get_user_data(struct pw_impl_node *node)
 {
-	struct impl *impl = node->user_data;
+	struct impl *impl = pw_impl_node_get_user_data(node);
 	return impl->user_data;
 }
 
@@ -273,7 +273,7 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 		goto error_exit;
 	}
 
-	impl = this->user_data;
+	impl = pw_impl_node_get_user_data(this);
 	impl->factory_name = strdup(factory_name);
 
 	return this;

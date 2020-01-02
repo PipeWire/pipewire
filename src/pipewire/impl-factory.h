@@ -79,6 +79,9 @@ struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 /** Get the factory properties */
 const struct pw_properties *pw_impl_factory_get_properties(struct pw_impl_factory *factory);
 
+/** Get the factory info */
+const struct pw_factory_info *pw_impl_factory_get_info(struct pw_impl_factory *factory);
+
 /** Update the factory properties */
 int pw_impl_factory_update_properties(struct pw_impl_factory *factory, const struct spa_dict *dict);
 

@@ -31,9 +31,10 @@
 #include <sys/socket.h>
 
 #include <spa/debug/pod.h>
+#include <spa/utils/result.h>
+#include <spa/pod/builder.h>
 
 #include <pipewire/pipewire.h>
-#include "pipewire/private.h"
 
 #include "connection.h"
 

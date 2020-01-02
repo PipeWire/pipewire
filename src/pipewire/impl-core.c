@@ -446,7 +446,6 @@ static void core_unbind_func(void *data)
 	struct pw_resource *resource = data;
 	if (resource->id == 0)
 		resource->client->core_resource = NULL;
-	spa_list_remove(&resource->link);
 }
 
 static const struct pw_resource_events core_resource_events = {
@@ -483,8 +482,7 @@ global_bind(void *_data,
 			&data->object_listener,
 			&core_methods, resource);
 
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	if (resource->id == 0) {
 		client->core_resource = resource;

@@ -224,6 +224,31 @@ uint32_t pw_global_get_id(struct pw_global *global)
 }
 
 SPA_EXPORT
+int pw_global_add_resource(struct pw_global *global, struct pw_resource *resource)
+{
+	resource->global = global;
+	pw_log_debug(NAME" %p: resource %p id:%d global:%d", global, resource,
+			resource->id, global->id);
+	spa_list_append(&global->resource_list, &resource->link);
+	pw_resource_set_bound_id(resource, global->id);
+	return 0;
+}
+
+SPA_EXPORT
+int pw_global_for_each_resource(struct pw_global *global,
+			   int (*callback) (void *data, struct pw_resource *resource),
+			   void *data)
+{
+	struct pw_resource *resource, *t;
+	int res;
+
+	spa_list_for_each_safe(resource, t, &global->resource_list, link)
+		if ((res = callback(data, resource)) != 0)
+			return res;
+	return 0;
+}
+
+SPA_EXPORT
 void pw_global_add_listener(struct pw_global *global,
 			    struct spa_hook *listener,
 			    const struct pw_global_events *events,

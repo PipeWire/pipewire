@@ -197,13 +197,6 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	free(device);
 }
 
-static void device_unbind_func(void *data)
-{
-	struct resource_data *d = data;
-	struct pw_resource *resource = d->resource;
-	spa_list_remove(&resource->link);
-}
-
 static void device_pong(void *data, int seq)
 {
 	struct resource_data *d = data;
@@ -214,7 +207,6 @@ static void device_pong(void *data, int seq)
 
 static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = device_unbind_func,
 	.pong = device_pong,
 };
 
@@ -371,9 +363,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 			&device_methods, data);
 
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = PW_DEVICE_CHANGE_MASK_ALL;
 	pw_device_resource_info(resource, &this->info);

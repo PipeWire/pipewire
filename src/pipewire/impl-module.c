@@ -46,10 +46,6 @@ struct impl {
 
 #define pw_module_resource_info(r,...)	pw_resource_call(r,struct pw_module_events,info,0,__VA_ARGS__)
 
-struct resource_data {
-	struct spa_hook resource_listener;
-};
-
 
 /** \endcond */
 
@@ -105,17 +101,6 @@ static char *find_module(const char *path, const char *name)
 	return filename;
 }
 
-static void module_unbind_func(void *data)
-{
-	struct pw_resource *resource = data;
-	spa_list_remove(&resource->link);
-}
-
-static const struct pw_resource_events resource_events = {
-	PW_VERSION_RESOURCE_EVENTS,
-	.destroy = module_unbind_func,
-};
-
 static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		 uint32_t version, uint32_t id)
@@ -123,19 +108,13 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	struct pw_impl_module *this = _data;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
-	struct resource_data *data;
 
-	resource = pw_resource_new(client, id, permissions, global->type, version, sizeof(*data));
+	resource = pw_resource_new(client, id, permissions, global->type, version, 0);
 	if (resource == NULL)
 		goto error_resource;
 
-	data = pw_resource_get_user_data(resource);
-	pw_resource_add_listener(resource, &data->resource_listener, &resource_events, resource);
-
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
-
-	spa_list_append(&global->resource_list, &resource->link);
-	pw_resource_set_bound_id(resource, global->id);
+	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = ~0;
 	pw_module_resource_info(resource, &this->info);

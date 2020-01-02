@@ -36,7 +36,6 @@
 #include <spa/debug/types.h>
 
 #include <pipewire/impl.h>
-#include "pipewire/private.h"
 
 struct impl {
 	struct pw_context *context;
@@ -102,9 +101,10 @@ static void device_initialized(void *data)
 	struct impl *impl = data;
 	struct pw_impl_device *device = impl->device;
 	struct pw_global *global = pw_impl_device_get_global(device);
+	uint32_t id = pw_global_get_id(global);
 
-	pw_log_debug("client-device %p: initialized global:%d", impl, global->id);
-	pw_resource_set_bound_id(impl->resource, global->id);
+	pw_log_debug("client-device %p: initialized global:%d", impl, id);
+	pw_resource_set_bound_id(impl->resource, id);
 }
 
 static const struct pw_impl_device_events device_events = {
@@ -126,7 +126,8 @@ struct pw_impl_device *pw_client_device_new(struct pw_resource *resource,
 	if (properties == NULL)
 		return NULL;
 
-	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+			pw_impl_client_get_info(client)->id);
 
 	device = pw_context_create_device(context, properties, sizeof(struct impl));
 	if (device == NULL)

@@ -47,7 +47,6 @@ struct data {
 	SDL_Texture *texture;
 
 	struct pw_main_loop *loop;
-	struct spa_source *timer;
 
 	struct pw_context *context;
 	struct pw_core *core;

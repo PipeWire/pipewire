@@ -234,7 +234,6 @@ static const struct pw_filter_events filter_events = {
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	const struct spa_pod *params[1];
 
 	pw_init(&argc, &argv);
 
@@ -276,10 +275,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	/* build the extra parameters to connect with. To connect, we can provide
-	 * a list of supported formats.  We use a builder that writes the param
-	 * object to the stack. */
-
+	/* Make a new DSP port. This will automatically set up the right
+	 * parameters for the port */
 	data.in_port = pw_filter_add_port(data.filter,
 			PW_DIRECTION_INPUT,
 			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
@@ -288,7 +285,7 @@ int main(int argc, char *argv[])
 				PW_KEY_FORMAT_DSP, "32 bit float RGBA video",
 				PW_KEY_PORT_NAME, "input",
 				NULL),
-			params, 1);
+			NULL, 0);
 
 	pw_filter_connect(data.filter,
 			0,

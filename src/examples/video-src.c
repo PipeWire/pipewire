@@ -192,6 +192,8 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 
 	case PW_STREAM_STATE_PAUSED:
 		printf("node id: %d\n", pw_stream_get_node_id(data->stream));
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+				data->timer, NULL, NULL, false);
 		break;
 	case PW_STREAM_STATE_STREAMING:
 	{
@@ -207,8 +209,6 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 		break;
 	}
 	default:
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
-				data->timer, NULL, NULL, false);
 		break;
 	}
 }
@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 						&SPA_RECTANGLE(320, 240),
 						&SPA_RECTANGLE(1, 1),
 						&SPA_RECTANGLE(4096, 4096)),
-	SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(25, 1)));
+		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(25, 1)));
 
 	pw_stream_add_listener(data.stream,
 			       &data.stream_listener,

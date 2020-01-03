@@ -190,6 +190,8 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
 		printf("node id: %d\n", pw_stream_get_node_id(data->stream));
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+				data->timer, NULL, NULL, false);
 		break;
 	case PW_STREAM_STATE_STREAMING:
 	{
@@ -205,8 +207,6 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 		break;
 	}
 	default:
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
-				data->timer, NULL, NULL, false);
 		break;
 	}
 }

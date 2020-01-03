@@ -39,6 +39,10 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+#include <spa/pod/filter.h>
+#include <spa/pod/parser.h>
+#include <spa/param/param.h>
+#include <spa/debug/pod.h>
 
 #include "defs.h"
 
@@ -70,6 +74,7 @@ struct impl {
 	struct spa_bt_device *bt_dev;
 
 	uint32_t next_id;
+	uint32_t profile;
 };
 
 static void emit_node (struct impl *this, struct spa_bt_transport *t, const char *factory_name)
@@ -162,24 +167,122 @@ static int impl_add_listener(void *object,
 	return 0;
 }
 
+static int impl_sync(void *object, int seq)
+{
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	spa_device_emit_result(&this->hooks, seq, 0, 0, NULL);
+
+	return 0;
+}
 
 static int impl_enum_params(void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_result_device_params result;
+	uint32_t count = 0;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(num != 0, -EINVAL);
+
+	result.id = id;
+	result.next = start;
+      next:
+	result.index = result.next++;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	switch (id) {
+	case SPA_PARAM_EnumProfile:
+	{
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(0),
+				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
+				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	case SPA_PARAM_Profile:
+	{
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(this->profile));
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	default:
+		return -ENOENT;
+	}
+
+	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+		goto next;
+
+	spa_device_emit_result(&this->hooks, seq, 0,
+			SPA_RESULT_TYPE_DEVICE_PARAMS, &result);
+
+	if (++count != num)
+		goto next;
+
+	return 0;
 }
 
 static int impl_set_param(void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+	int res;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_PARAM_Profile:
+	{
+		uint32_t id;
+
+		if ((res = spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id))) < 0) {
+			spa_log_warn(this->log, "can't parse profile");
+			spa_debug_pod(0, NULL, param);
+			return res;
+		}
+
+		break;
+	}
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static const struct spa_device_methods impl_device = {
 	SPA_VERSION_DEVICE_METHODS,
 	.add_listener = impl_add_listener,
+	.sync = impl_sync,
 	.enum_params = impl_enum_params,
 	.set_param = impl_set_param,
 };

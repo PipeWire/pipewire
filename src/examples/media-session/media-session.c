@@ -1261,6 +1261,7 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		void *object, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	pw_log_debug(NAME " %p: object %s %p", impl, type, object);
 	return pw_core_export(impl->monitor_core, type,
 			props, object, user_data_size);
 }

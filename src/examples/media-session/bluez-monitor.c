@@ -43,11 +43,11 @@
 #include "pipewire/impl.h"
 #include "media-session.h"
 
-struct bluez5_object;
+struct device;
 
-struct bluez5_node {
+struct node {
 	struct impl *impl;
-	struct bluez5_object *object;
+	struct device *device;
 	struct spa_list link;
 	uint32_t id;
 
@@ -57,7 +57,7 @@ struct bluez5_node {
 	struct pw_proxy *proxy;
 };
 
-struct bluez5_object {
+struct device {
 	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
@@ -65,8 +65,9 @@ struct bluez5_object {
 	struct pw_properties *props;
 
 	struct spa_handle *handle;
-	struct pw_proxy *proxy;
 	struct spa_device *device;
+
+	struct sm_device *sdevice;
 	struct spa_hook device_listener;
 
 	struct spa_list node_list;
@@ -81,21 +82,21 @@ struct impl {
 	struct spa_device *monitor;
 	struct spa_hook listener;
 
-	struct spa_list object_list;
+	struct spa_list device_list;
 };
 
-static struct bluez5_node *bluez5_find_node(struct bluez5_object *obj, uint32_t id)
+static struct node *bluez5_find_node(struct device *device, uint32_t id)
 {
-	struct bluez5_node *node;
+	struct node *node;
 
-	spa_list_for_each(node, &obj->node_list, link) {
+	spa_list_for_each(node, &device->node_list, link) {
 		if (node->id == id)
 			return node;
 	}
 	return NULL;
 }
 
-static void bluez5_update_node(struct bluez5_object *obj, struct bluez5_node *node,
+static void bluez5_update_node(struct device *device, struct node *node,
 		const struct spa_device_object_info *info)
 {
 	pw_log_debug("update node %u", node->id);
@@ -104,11 +105,11 @@ static void bluez5_update_node(struct bluez5_object *obj, struct bluez5_node *no
 		spa_debug_dict(0, info->props);
 }
 
-static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_t id,
+static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct bluez5_node *node;
-	struct impl *impl = obj->impl;
+	struct node *node;
+	struct impl *impl = device->impl;
 	struct pw_context *context = impl->session->context;
 	struct pw_impl_factory *factory;
 	int res;
@@ -128,13 +129,13 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 
 	node->props = pw_properties_new_dict(info->props);
 
-	str = pw_properties_get(obj->props, SPA_KEY_DEVICE_DESCRIPTION);
+	str = pw_properties_get(device->props, SPA_KEY_DEVICE_DESCRIPTION);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NAME);
+		str = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_NICK);
+		str = pw_properties_get(device->props, SPA_KEY_DEVICE_NICK);
 	if (str == NULL)
-		str = pw_properties_get(obj->props, SPA_KEY_DEVICE_ALIAS);
+		str = pw_properties_get(device->props, SPA_KEY_DEVICE_ALIAS);
 	if (str == NULL)
 		str = "bluetooth-device";
 
@@ -143,7 +144,7 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 	pw_properties_set(node->props, "factory.name", info->factory_name);
 
 	node->impl = impl;
-	node->object = obj;
+	node->device = device;
 	node->id = id;
 
 	factory = pw_context_find_factory(context, "adapter");
@@ -167,9 +168,9 @@ static struct bluez5_node *bluez5_create_node(struct bluez5_object *obj, uint32_
 			&node->props->dict,
 			node->adapter, 0);
 
-	spa_list_append(&obj->node_list, &node->link);
+	spa_list_append(&device->node_list, &node->link);
 
-	bluez5_update_node(obj, node, info);
+	bluez5_update_node(device, node, info);
 
 	return node;
 
@@ -181,7 +182,7 @@ exit:
 	return NULL;
 }
 
-static void bluez5_remove_node(struct bluez5_object *obj, struct bluez5_node *node)
+static void bluez5_remove_node(struct device *device, struct node *node)
 {
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
@@ -193,21 +194,21 @@ static void bluez5_remove_node(struct bluez5_object *obj, struct bluez5_node *no
 static void bluez5_device_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct bluez5_object *obj = data;
-	struct bluez5_node *node;
+	struct device *device = data;
+	struct node *node;
 
-	node = bluez5_find_node(obj, id);
+	node = bluez5_find_node(device, id);
 
 	if (info == NULL) {
 		if (node == NULL) {
-			pw_log_warn("object %p: unknown node %u", obj, id);
+			pw_log_warn("device %p: unknown node %u", device, id);
 			return;
 		}
-		bluez5_remove_node(obj, node);
+		bluez5_remove_node(device, node);
 	} else if (node == NULL) {
-		bluez5_create_node(obj, id, info);
+		bluez5_create_node(device, id, info);
 	} else {
-		bluez5_update_node(obj, node, info);
+		bluez5_update_node(device, node, info);
 	}
 
 }
@@ -217,36 +218,36 @@ static const struct spa_device_events bluez5_device_events = {
 	.object_info = bluez5_device_object_info
 };
 
-static struct bluez5_object *bluez5_find_object(struct impl *impl, uint32_t id)
+static struct device *bluez5_find_device(struct impl *impl, uint32_t id)
 {
-	struct bluez5_object *obj;
+	struct device *device;
 
-	spa_list_for_each(obj, &impl->object_list, link) {
-		if (obj->id == id)
-			return obj;
+	spa_list_for_each(device, &impl->device_list, link) {
+		if (device->id == id)
+			return device;
 	}
 	return NULL;
 }
 
-static void bluez5_update_object(struct impl *impl, struct bluez5_object *obj,
+static void bluez5_update_device(struct impl *impl, struct device *device,
 		const struct spa_device_object_info *info)
 {
-	pw_log_debug("update object %u", obj->id);
+	pw_log_debug("update device %u", device->id);
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_dict(0, info->props);
 }
 
-static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id,
+static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_context *context = impl->session->context;
-	struct bluez5_object *obj;
+	struct device *device;
 	struct spa_handle *handle;
 	int res;
 	void *iface;
 
-	pw_log_debug("new object %u", id);
+	pw_log_debug("new device %u", id);
 
 	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
 		errno = EINVAL;
@@ -267,38 +268,38 @@ static struct bluez5_object *bluez5_create_object(struct impl *impl, uint32_t id
 		goto unload_handle;
 	}
 
-	obj = calloc(1, sizeof(*obj));
-	if (obj == NULL) {
+	device = calloc(1, sizeof(*device));
+	if (device == NULL) {
 		res = -errno;
 		goto unload_handle;
 	}
 
-	obj->impl = impl;
-	obj->id = id;
-	obj->handle = handle;
-	obj->device = iface;
-	obj->props = pw_properties_new_dict(info->props);
-	obj->proxy = sm_media_session_export(impl->session,
-			info->type, &obj->props->dict, obj->device, 0);
-	if (obj->proxy == NULL) {
+	device->impl = impl;
+	device->id = id;
+	device->handle = handle;
+	device->device = iface;
+	device->props = pw_properties_new_dict(info->props);
+	device->sdevice = sm_media_session_export_device(impl->session,
+			&device->props->dict, device->device);
+	if (device->sdevice == NULL) {
 		res = -errno;
-		goto clean_object;
+		goto clean_device;
 	}
 
-	spa_list_init(&obj->node_list);
+	spa_list_init(&device->node_list);
 
-	spa_device_add_listener(obj->device,
-			&obj->device_listener, &bluez5_device_events, obj);
+	spa_device_add_listener(device->device,
+			&device->device_listener, &bluez5_device_events, device);
 
-	spa_list_append(&impl->object_list, &obj->link);
+	spa_list_append(&impl->device_list, &device->link);
 
-	bluez5_update_object(impl, obj, info);
+	bluez5_update_device(impl, device, info);
 
-	return obj;
+	return device;
 
-clean_object:
-	pw_properties_free(obj->props);
-	free(obj);
+clean_device:
+	pw_properties_free(device->props);
+	free(device);
 unload_handle:
 	pw_unload_spa_handle(handle);
 exit:
@@ -306,40 +307,42 @@ exit:
 	return NULL;
 }
 
-static void bluez5_remove_object(struct impl *impl, struct bluez5_object *obj)
+static void bluez5_remove_device(struct impl *impl, struct device *device)
 {
-	struct bluez5_node *node;
+	struct node *node;
 
-	pw_log_debug("remove object %u", obj->id);
-	spa_list_remove(&obj->link);
-	spa_hook_remove(&obj->device_listener);
+	pw_log_debug("remove device %u", device->id);
+	spa_list_remove(&device->link);
+	spa_hook_remove(&device->device_listener);
 
-	spa_list_consume(node, &obj->node_list, link)
-		bluez5_remove_node(obj, node);
+	spa_list_consume(node, &device->node_list, link)
+		bluez5_remove_node(device, node);
 
-	pw_proxy_destroy(obj->proxy);
-	pw_unload_spa_handle(obj->handle);
-	pw_properties_free(obj->props);
-	free(obj);
+	if (device->sdevice)
+		sm_object_destroy(&device->sdevice->obj);
+
+	pw_unload_spa_handle(device->handle);
+	pw_properties_free(device->props);
+	free(device);
 }
 
 static void bluez5_enum_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
 	struct impl *impl = data;
-	struct bluez5_object *obj;
+	struct device *device;
 
-	obj = bluez5_find_object(impl, id);
+	device = bluez5_find_device(impl, id);
 
 	if (info == NULL) {
-		if (obj == NULL)
+		if (device == NULL)
 			return;
-		bluez5_remove_object(impl, obj);
-	} else if (obj == NULL) {
-		if ((obj = bluez5_create_object(impl, id, info)) == NULL)
+		bluez5_remove_device(impl, device);
+	} else if (device == NULL) {
+		if ((device = bluez5_create_device(impl, id, info)) == NULL)
 			return;
 	} else {
-		bluez5_update_object(impl, obj, info);
+		bluez5_update_device(impl, device, info);
 	}
 }
 
@@ -392,7 +395,7 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 	impl->session = session;
 	impl->handle = handle;
 	impl->monitor = iface;
-	spa_list_init(&impl->object_list);
+	spa_list_init(&impl->device_list);
 
 	spa_device_add_listener(impl->monitor, &impl->listener,
 			&bluez5_enum_callbacks, impl);

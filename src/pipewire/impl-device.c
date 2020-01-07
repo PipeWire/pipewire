@@ -318,16 +318,44 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 	return res;
 }
 
+static void result_device_done(void *data, int seq, int res, uint32_t type, const void *result)
+{
+	struct resource_data *d = data;
+
+	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
+			res, seq, d->seq, d->end);
+
+	if (seq == d->end) {
+		spa_hook_remove(&d->listener);
+		d->end = -1;
+		pw_impl_client_set_busy(d->resource->client, false);
+	}
+}
+
 static int device_set_param(void *object, uint32_t id, uint32_t flags,
                            const struct spa_pod *param)
 {
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_impl_device *device = data->device;
+	struct pw_impl_client *client = resource->client;
 	int res;
+	static const struct spa_device_events device_events = {
+		SPA_VERSION_DEVICE_EVENTS,
+		.result = result_device_done,
+	};
 
-	if ((res = spa_device_set_param(device->device, id, flags, param)) < 0)
+	if ((res = spa_device_set_param(device->device, id, flags, param)) < 0) {
 		pw_resource_error(resource, res, spa_strerror(res));
+	} else if (SPA_RESULT_IS_ASYNC(res)) {
+		pw_impl_client_set_busy(client, true);
+		data->data.data = data;
+		if (data->end == -1)
+			spa_device_add_listener(device->device, &data->listener,
+				&device_events, data);
+		data->seq = res;
+		data->end = spa_device_sync(device->device, res);
+	}
 	return res;
 }
 

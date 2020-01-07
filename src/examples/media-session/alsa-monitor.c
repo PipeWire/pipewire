@@ -39,9 +39,10 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>
-#include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/pod/builder.h>
 #include <spa/debug/dict.h>
+#include <spa/debug/pod.h>
 #include <spa/support/dbus.h>
 
 #include <pipewire/pipewire.h>
@@ -240,6 +241,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		res = -errno;
 		goto clean_node;
 	}
+
 	spa_list_append(&device->node_list, &node->link);
 
 	return node;

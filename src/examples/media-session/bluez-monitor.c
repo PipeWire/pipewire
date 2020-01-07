@@ -36,17 +36,21 @@
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
-#include <spa/param/audio/format-utils.h>
+#include <spa/pod/builder.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
+#include <spa/debug/pod.h>
 
 #include "pipewire/impl.h"
 #include "media-session.h"
+
+#define NAME "bluez5-monitor"
 
 struct device;
 
 struct node {
 	struct impl *impl;
+	enum pw_direction direction;
 	struct device *device;
 	struct spa_list link;
 	uint32_t id;
@@ -54,22 +58,29 @@ struct node {
 	struct pw_properties *props;
 
 	struct pw_impl_node *adapter;
-	struct pw_proxy *proxy;
+
+	struct sm_node *snode;
 };
 
 struct device {
 	struct impl *impl;
 	struct spa_list link;
 	uint32_t id;
+	uint32_t device_id;
+
+	int priority;
+	int profile;
 
 	struct pw_properties *props;
 
 	struct spa_handle *handle;
 	struct spa_device *device;
-
-	struct sm_device *sdevice;
 	struct spa_hook device_listener;
 
+	struct sm_device *sdevice;
+	struct spa_hook listener;
+
+	unsigned int appeared:1;
 	struct spa_list node_list;
 };
 
@@ -139,6 +150,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	if (str == NULL)
 		str = "bluetooth-device";
 
+	pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", device->device_id);
 	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
 	pw_properties_set(node->props, "factory.name", info->factory_name);
@@ -163,10 +175,13 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		res = -errno;
 		goto clean_node;
 	}
-	node->proxy = sm_media_session_export(impl->session,
-			PW_TYPE_INTERFACE_Node,
+	node->snode = sm_media_session_export_node(impl->session,
 			&node->props->dict,
-			node->adapter, 0);
+			node->adapter);
+	if (node->snode == NULL) {
+		res = -errno;
+		goto clean_node;
+	}
 
 	spa_list_append(&device->node_list, &node->link);
 
@@ -229,14 +244,71 @@ static struct device *bluez5_find_device(struct impl *impl, uint32_t id)
 	return NULL;
 }
 
-static void bluez5_update_device(struct impl *impl, struct device *device,
+static void bluez5_update_device(struct impl *impl, struct device *dev,
 		const struct spa_device_object_info *info)
 {
-	pw_log_debug("update device %u", device->id);
+	pw_log_debug("update device %u", dev->id);
 
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_dict(0, info->props);
+
+	pw_properties_update(dev->props, info->props);
 }
+
+static void set_profile(struct device *device, int index)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
+
+	device->profile = index;
+	if (device->device_id != 0) {
+		spa_device_set_param(device->device,
+				SPA_PARAM_Profile, 0,
+				spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+					SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
+	}
+}
+
+static void device_destroy(void *data)
+{
+	struct device *device = data;
+	struct node *node;
+
+	pw_log_debug("device %p destroy", device);
+
+	spa_list_consume(node, &device->node_list, link)
+		bluez5_remove_node(device, node);
+}
+
+static void device_update(void *data)
+{
+	struct device *device = data;
+
+	pw_log_debug("device %p appeared %d %d", device, device->appeared, device->profile);
+
+	if (device->appeared)
+		return;
+
+	device->device_id = device->sdevice->obj.id;
+	device->appeared = true;
+
+	spa_device_add_listener(device->device,
+		&device->device_listener,
+		&bluez5_device_events, device);
+
+	set_profile(device, 1);
+	sm_object_sync_update(&device->sdevice->obj);
+}
+
+static const struct sm_object_events device_events = {
+	SM_VERSION_OBJECT_EVENTS,
+        .destroy = device_destroy,
+        .update = device_update,
+};
+
 
 static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
@@ -288,12 +360,12 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 
 	spa_list_init(&device->node_list);
 
-	spa_device_add_listener(device->device,
-			&device->device_listener, &bluez5_device_events, device);
+
+	sm_object_add_listener(&device->sdevice->obj,
+			&device->listener,
+			&device_events, device);
 
 	spa_list_append(&impl->device_list, &device->link);
-
-	bluez5_update_device(impl, device, info);
 
 	return device;
 

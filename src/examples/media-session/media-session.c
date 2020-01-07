@@ -60,15 +60,15 @@
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
 #define sm_media_session_emit_destroy(s)		sm_media_session_emit(s, destroy, 0)
 
-int sm_stream_endpoint_start(struct sm_media_session *sess);
 int sm_metadata_start(struct sm_media_session *sess);
 int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
-int sm_v4l2_endpoint_start(struct sm_media_session *sess);
 int sm_bluez5_monitor_start(struct sm_media_session *sess);
 int sm_alsa_monitor_start(struct sm_media_session *sess);
-int sm_alsa_endpoint_start(struct sm_media_session *sess);
-int sm_policy_ep_start(struct sm_media_session *sess);
+
+int sm_policy_node_start(struct sm_media_session *sess);
+
+int sm_session_manager_start(struct sm_media_session *sess);
 
 /** user data to add to an object */
 struct data {
@@ -90,7 +90,6 @@ struct sync {
 
 struct impl {
 	struct sm_media_session this;
-	uint32_t session_id;
 
 	struct pw_main_loop *loop;
 	struct spa_dbus *dbus;
@@ -109,10 +108,6 @@ struct impl {
 	struct spa_list global_list;
 
 	struct spa_hook_list hooks;
-
-	struct pw_client_session *client_session;
-	struct spa_hook proxy_client_session_listener;
-	struct spa_hook client_session_listener;
 
 	struct spa_list endpoint_link_list;	/** list of struct endpoint_link */
 	struct pw_map endpoint_links;		/** map of endpoint_link */
@@ -639,7 +634,7 @@ static int session_init(void *object)
 	struct sm_session *sess = object;
 	struct impl *impl = SPA_CONTAINER_OF(sess->obj.session, struct impl, this);
 
-	if (sess->obj.id == impl->session_id)
+	if (sess->obj.id == impl->this.session_id)
 		impl->this.session = sess;
 
 	spa_list_init(&sess->endpoint_list);
@@ -1005,27 +1000,33 @@ static const struct object_info *get_object_info(struct impl *impl, const char *
 }
 
 static struct sm_object *init_object(struct impl *impl, const struct object_info *info,
-		struct pw_proxy *proxy, uint32_t id,
+		struct pw_proxy *proxy, struct pw_proxy *handle, uint32_t id,
 		const struct spa_dict *props)
 {
 	struct sm_object *obj;
 
-	obj = pw_proxy_get_user_data(proxy);
+	obj = pw_proxy_get_user_data(handle);
 	obj->session = &impl->this;
 	obj->id = id;
 	obj->type = info->type;
 	obj->props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
 	obj->proxy = proxy;
+	obj->handle = handle;
 	obj->destroy = info->destroy;
 	obj->mask |= SM_OBJECT_CHANGE_MASK_PROPERTIES | SM_OBJECT_CHANGE_MASK_BIND;
 	obj->avail |= obj->mask;
 	spa_hook_list_init(&obj->hooks);
 	spa_list_init(&obj->data);
 
-	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
-	if (info->events != NULL)
-		pw_proxy_add_object_listener(obj->proxy, &obj->object_listener, info->events, obj);
-	SPA_FLAG_UPDATE(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER, info->events != NULL);
+	if (proxy) {
+		pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
+		if (info->events != NULL)
+			pw_proxy_add_object_listener(obj->proxy, &obj->object_listener, info->events, obj);
+		SPA_FLAG_UPDATE(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER, info->events != NULL);
+	}
+	if (handle) {
+		pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
+	}
 
 	if (info->init)
 		info->init(obj);
@@ -1037,14 +1038,14 @@ static struct sm_object *init_object(struct impl *impl, const struct object_info
 }
 
 static struct sm_object *
-create_object(struct impl *impl, struct pw_proxy *proxy,
+create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle,
 		const struct spa_dict *props)
 {
 	const char *type;
 	const struct object_info *info;
 	struct sm_object *obj;
 
-	type = pw_proxy_get_type(proxy, NULL);
+	type = pw_proxy_get_type(handle, NULL);
 
 	info = get_object_info(impl, type);
 	if (info == NULL) {
@@ -1052,7 +1053,7 @@ create_object(struct impl *impl, struct pw_proxy *proxy,
 		errno = ENOTSUP;
 		return NULL;
 	}
-	obj = init_object(impl, info, proxy, SPA_ID_INVALID, props);
+	obj = init_object(impl, info, proxy, handle, SPA_ID_INVALID, props);
 
 	pw_log_debug(NAME" %p: created new object %p proxy %p", impl, obj, obj->proxy);
 
@@ -1074,7 +1075,7 @@ bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
 		res = -errno;
 		goto error;
 	}
-	obj = init_object(impl, info, proxy, id, props);
+	obj = init_object(impl, info, proxy, proxy, id, props);
 
 	pw_log_debug(NAME" %p: bound new object %p proxy %p id:%d", impl, obj, obj->proxy, obj->id);
 
@@ -1094,19 +1095,16 @@ update_object(struct impl *impl, const struct object_info *info,
 {
 	pw_properties_update(obj->props, props);
 
-	if (strcmp(obj->type, type) == 0)
+	if (obj->proxy != NULL)
 		return 0;
 
-	pw_log_debug(NAME" %p: update type:%s -> type:%s", impl, obj->type, type);
-	obj->handle = obj->proxy;
-	spa_hook_remove(&obj->proxy_listener);
-	pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
-
-	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER))
-		spa_hook_remove(&obj->object_listener);
+	pw_log_debug(NAME" %p: update type:%s", impl, obj->type);
 
 	obj->proxy = pw_registry_bind(impl->registry,
 			id, info->type, info->version, 0);
+	if (obj->proxy == NULL)
+		return -errno;
+
 	obj->type = info->type;
 
 	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
@@ -1266,19 +1264,36 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 			props, object, user_data_size);
 }
 
+struct sm_node *sm_media_session_export_node(struct sm_media_session *sess,
+		const struct spa_dict *props, struct pw_impl_node *object)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct sm_node *node;
+	struct pw_proxy *handle;
+
+	pw_log_debug(NAME " %p: node %p", impl, object);
+
+	handle = pw_core_export(impl->monitor_core, PW_TYPE_INTERFACE_Node,
+			props, object, sizeof(struct sm_node));
+
+	node = (struct sm_node *) create_object(impl, NULL, handle, props);
+
+	return node;
+}
+
 struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 		const struct spa_dict *props, struct spa_device *object)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	struct sm_device *device;
-	struct pw_proxy *proxy;
+	struct pw_proxy *handle;
 
 	pw_log_debug(NAME " %p: device %p", impl, object);
 
-	proxy = pw_core_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
+	handle = pw_core_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
 			props, object, sizeof(struct sm_device));
 
-	device = (struct sm_device *) create_object(impl, proxy, props);
+	device = (struct sm_device *) create_object(impl, NULL, handle, props);
 
 	return device;
 }
@@ -1308,7 +1323,7 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 				props,
 				sizeof(struct sm_node));
 
-	node = (struct sm_node *)create_object(impl, proxy, props);
+	node = (struct sm_node *)create_object(impl, proxy, proxy, props);
 
 	return node;
 }
@@ -1322,7 +1337,7 @@ static void check_endpoint_link(struct endpoint_link *link)
 		spa_list_remove(&link->link);
 		pw_map_remove(&link->impl->endpoint_links, link->id);
 
-		pw_client_session_link_update(link->impl->client_session,
+		pw_client_session_link_update(link->impl->this.client_session,
 				link->id,
 				PW_CLIENT_SESSION_LINK_UPDATE_DESTROYED,
 				0, NULL, NULL);
@@ -1495,7 +1510,7 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 
 	if (link != NULL) {
 		/* now create the endpoint link */
-		pw_client_session_link_update(impl->client_session,
+		pw_client_session_link_update(impl->this.client_session,
 				link->id,
 				PW_CLIENT_SESSION_UPDATE_INFO,
 				0, NULL,
@@ -1504,73 +1519,6 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 	return res;
 }
 
-/**
- * Session implementation
- */
-static int client_session_set_param(void *object, uint32_t id, uint32_t flags,
-			const struct spa_pod *param)
-{
-	struct impl *impl = object;
-	pw_proxy_error((struct pw_proxy*)impl->client_session,
-			-ENOTSUP, "Session:SetParam not supported");
-	return -ENOTSUP;
-}
-
-static int client_session_link_set_param(void *object, uint32_t link_id, uint32_t id, uint32_t flags,
-			const struct spa_pod *param)
-{
-	struct impl *impl = object;
-	pw_proxy_error((struct pw_proxy*)impl->client_session,
-			-ENOTSUP, "Session:LinkSetParam not supported");
-	return -ENOTSUP;
-}
-
-static int client_session_link_request_state(void *object, uint32_t link_id, uint32_t state)
-{
-	return -ENOTSUP;
-}
-
-static const struct pw_client_session_events client_session_events = {
-	PW_VERSION_CLIENT_SESSION_METHODS,
-	.set_param = client_session_set_param,
-	.link_set_param = client_session_link_set_param,
-	.link_request_state = client_session_link_request_state,
-};
-
-static void proxy_client_session_bound(void *data, uint32_t id)
-{
-	struct impl *impl = data;
-	struct pw_session_info info;
-
-	impl->session_id = id;
-
-	spa_zero(info);
-	info.version = PW_VERSION_SESSION_INFO;
-	info.id = id;
-
-	pw_log_debug("got sesssion id:%d", id);
-
-	pw_client_session_update(impl->client_session,
-			PW_CLIENT_SESSION_UPDATE_INFO,
-			0, NULL,
-			&info);
-
-	/* start monitors */
-	sm_metadata_start(&impl->this);
-	sm_alsa_midi_start(&impl->this);
-	sm_bluez5_monitor_start(&impl->this);
-	sm_alsa_monitor_start(&impl->this);
-	sm_alsa_endpoint_start(&impl->this);
-	sm_v4l2_monitor_start(&impl->this);
-	sm_v4l2_endpoint_start(&impl->this);
-	sm_stream_endpoint_start(&impl->this);
-}
-
-static const struct pw_proxy_events proxy_client_session_events = {
-	PW_VERSION_PROXY_EVENTS,
-	.bound = proxy_client_session_bound,
-};
-
 static int start_session(struct impl *impl)
 {
 	impl->monitor_core = pw_context_connect(impl->this.context, NULL, 0);
@@ -1578,21 +1526,6 @@ static int start_session(struct impl *impl)
 		pw_log_error("can't start monitor: %m");
 		return -errno;
 	}
-
-	impl->client_session = pw_core_create_object(impl->monitor_core,
-                                            "client-session",
-                                            PW_TYPE_INTERFACE_ClientSession,
-                                            PW_VERSION_CLIENT_SESSION,
-                                            NULL, 0);
-
-	pw_proxy_add_listener((struct pw_proxy*)impl->client_session,
-			&impl->proxy_client_session_listener,
-			&proxy_client_session_events, impl);
-
-	pw_client_session_add_listener(impl->client_session,
-			&impl->client_session_listener,
-			&client_session_events, impl);
-
 	return 0;
 }
 
@@ -1610,8 +1543,17 @@ static void core_done(void *data, uint32_t id, int seq)
 		}
 	}
 	if (impl->rescan_seq == seq) {
+		struct sm_object *obj, *to;
+
 		pw_log_trace(NAME" %p: rescan %u %d", impl, id, seq);
 		sm_media_session_emit_rescan(impl, seq);
+
+		spa_list_for_each_safe(obj, to, &impl->global_list, link) {
+			pw_log_trace(NAME" %p: obj %p %08x", impl, obj, obj->changed);
+			if (obj->changed)
+				sm_object_emit_update(obj);
+			obj->changed = 0;
+		}
 	}
 }
 
@@ -1668,7 +1610,6 @@ static int start_policy(struct impl *impl)
 			&impl->registry_listener,
 			&registry_events, impl);
 
-	sm_policy_ep_start(&impl->this);
 	return 0;
 }
 
@@ -1685,8 +1626,6 @@ static void session_shutdown(struct impl *impl)
 		pw_proxy_destroy((struct pw_proxy*)impl->registry);
 	if (impl->policy_core)
 		pw_core_disconnect(impl->policy_core);
-	if (impl->client_session)
-		pw_proxy_destroy((struct pw_proxy*)impl->client_session);
 	if (impl->monitor_core)
 		pw_core_disconnect(impl->monitor_core);
 }
@@ -1731,6 +1670,16 @@ int main(int argc, char *argv[])
 		goto exit;
 	if ((res = start_policy(&impl)) < 0)
 		goto exit;
+
+	sm_metadata_start(&impl.this);
+	sm_alsa_midi_start(&impl.this);
+	sm_bluez5_monitor_start(&impl.this);
+	sm_alsa_monitor_start(&impl.this);
+	sm_v4l2_monitor_start(&impl.this);
+
+	sm_policy_node_start(&impl.this);
+
+//	sm_session_manager_start(&impl.this);
 
 	pw_main_loop_run(impl.loop);
 

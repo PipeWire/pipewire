@@ -27,6 +27,7 @@
 #define SM_MEDIA_SESSION_H
 
 #include <spa/monitor/device.h>
+#include <pipewire/impl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -207,6 +208,9 @@ struct sm_media_session_events {
 struct sm_media_session {
 	struct sm_session *session;	/** session object managed by this session */
 
+	uint32_t session_id;
+	struct pw_client_session *client_session;
+
 	struct pw_loop *loop;		/** the main loop */
 	struct pw_context *context;
 
@@ -229,6 +233,8 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		const char *type, const struct spa_dict *props,
 		void *object, size_t user_data_size);
 
+struct sm_node *sm_media_session_export_node(struct sm_media_session *sess,
+		const struct spa_dict *props, struct pw_impl_node *node);
 struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 		const struct spa_dict *props, struct spa_device *device);
 

@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
 
 	if ((res = pw_daemon_config_run_commands(config, context)) < 0) {
 		pw_log_error("failed to run config commands: %s", spa_strerror(res));
+		pw_main_loop_quit(loop);
 		return -1;
 	}
 

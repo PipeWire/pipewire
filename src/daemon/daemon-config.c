@@ -200,7 +200,7 @@ int pw_daemon_config_run_commands(struct pw_daemon_config *config, struct pw_con
 
 	spa_list_for_each(command, &config->commands, link) {
 		if ((ret = pw_command_run(command, context, &err)) < 0) {
-			pw_log_warn("could not run command %s: %s", command->args[0], err);
+			pw_log_error("could not run command %s: %s", command->args[0], err);
 			free(err);
 			break;
 		}

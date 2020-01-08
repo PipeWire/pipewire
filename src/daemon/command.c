@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <limits.h>
+#include <sys/wait.h>
 
 #include <pipewire/impl.h>
 
@@ -216,16 +217,23 @@ no_mem:
 static int
 execute_command_exec(struct pw_command *command, struct pw_context *context, char **err)
 {
-	int pid;
+	int pid, res;
 
 	pid = fork();
 
 	if (pid == 0) {
 		pw_log_info("exec %s", command->args[1]);
-		execv(command->args[1], command->args);
+		res = execv(command->args[1], command->args);
+		if (res == -1) {
+			res = -errno;
+			asprintf(err, "'%s': %m", command->args[1]);
+			return res;
+		}
 	}
 	else {
-		pw_log_info("exec got pid %d", pid);
+		int status;
+		res = waitpid(pid, &status, WNOHANG);
+		pw_log_info("exec got pid %d res:%d status:%d", pid, res, status);
 	}
 	return 0;
 }

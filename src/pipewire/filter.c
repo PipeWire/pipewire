@@ -517,10 +517,10 @@ static int port_set_param(struct filter *impl, struct port *port,
 	int res;
 
 	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_pod(2, NULL, param);
 
-	if ((res = update_params(impl, port, id, &param, 1)) < 0)
+	if ((res = update_params(impl, port, id, &param, param ? 1 : 0)) < 0)
 		return res;
 
 	pw_filter_emit_param_changed(filter, port->user_data, id, param);

@@ -518,10 +518,10 @@ static int impl_port_set_param(void *object,
 		return param == NULL ? 0 : -EIO;
 
 	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 		spa_debug_pod(2, NULL, param);
 
-	if ((res = update_params(impl, id, &param, 1)) < 0)
+	if ((res = update_params(impl, id, &param, param ? 1 : 0)) < 0)
 		return res;
 
 	pw_stream_emit_param_changed(stream, id, param);

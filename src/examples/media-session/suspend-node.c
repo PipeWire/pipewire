@@ -158,6 +158,15 @@ static int
 handle_node(struct impl *impl, struct sm_object *object)
 {
 	struct node *node;
+	const char *media_class;
+
+	media_class = object->props ? pw_properties_get(object->props, PW_KEY_MEDIA_CLASS) : NULL;
+	if (media_class == NULL)
+		return 0;
+
+	if (strstr(media_class, "Audio/") != media_class &&
+	    (strstr(media_class, "Video/") != media_class))
+		return 0;
 
 	node = sm_object_add_data(object, SESSION_KEY, sizeof(struct node));
 	node->obj = (struct sm_node*)object;

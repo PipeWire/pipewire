@@ -173,6 +173,7 @@ configinc = include_directories('.')
 pipewire_inc = include_directories('src')
 
 makedata = configuration_data()
+  makedata.set('BUILD_ROOT', meson.build_root())
   makedata.set('VERSION', pipewire_version)
 if version_arr.length() == 4
   makedata.set('TAG', 'HEAD')

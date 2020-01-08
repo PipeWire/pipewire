@@ -14,7 +14,7 @@ run: all
 	SPA_PLUGIN_DIR=@BUILD_ROOT@/spa/plugins \
 	PIPEWIRE_MODULE_DIR=@BUILD_ROOT@ \
 	PIPEWIRE_CONFIG_FILE=@BUILD_ROOT@/src/daemon/pipewire.conf \
-	$(DBG) ./@BUILD_ROOT@/src/daemon/pipewire
+	$(DBG) @BUILD_ROOT@/src/daemon/pipewire
 
 gdb:
 	$(MAKE) run DBG=gdb

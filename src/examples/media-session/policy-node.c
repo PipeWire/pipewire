@@ -250,6 +250,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 static void destroy_node(struct impl *impl, struct node *node)
 {
 	spa_list_remove(&node->link);
+	spa_hook_remove(&node->listener);
 	free(node->media);
 	if (node->peer)
 		node->peer->peer = NULL;

@@ -65,6 +65,7 @@ int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
 int sm_bluez5_monitor_start(struct sm_media_session *sess);
 int sm_alsa_monitor_start(struct sm_media_session *sess);
+int sm_suspend_node_start(struct sm_media_session *sess);
 
 int sm_policy_node_start(struct sm_media_session *sess);
 
@@ -1677,6 +1678,7 @@ int main(int argc, char *argv[])
 	sm_alsa_monitor_start(&impl.this);
 	sm_v4l2_monitor_start(&impl.this);
 
+	sm_suspend_node_start(&impl.this);
 	sm_policy_node_start(&impl.this);
 
 //	sm_session_manager_start(&impl.this);

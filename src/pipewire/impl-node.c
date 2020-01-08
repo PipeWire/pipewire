@@ -555,6 +555,8 @@ int pw_impl_node_register(struct pw_impl_node *this,
 		PW_KEY_NODE_NICK,
 		PW_KEY_NODE_SESSION,
 		PW_KEY_MEDIA_CLASS,
+		PW_KEY_MEDIA_TYPE,
+		PW_KEY_MEDIA_CATEGORY,
 		PW_KEY_MEDIA_ROLE,
 		NULL
 	};

@@ -233,6 +233,16 @@ handle_node(struct impl *impl, struct sm_object *object)
 		else
 			return 0;
 
+		if ((str = pw_properties_get(object->props, PW_KEY_NODE_PLUGGED)) != NULL)
+			node->plugged = pw_properties_parse_uint64(str);
+		else
+			node->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
+
+		if ((str = pw_properties_get(object->props, PW_KEY_PRIORITY_SESSION)) != NULL)
+			node->priority = pw_properties_parse_int(str);
+		else
+			node->priority = 0;
+
 		node->direction = direction;
 		node->type = NODE_TYPE_DEVICE;
 		node->media = strdup(media);

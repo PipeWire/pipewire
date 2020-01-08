@@ -414,6 +414,7 @@ static void free_callback(pa_mainloop_api *m, pa_defer_event *e, void *userdata)
 }
 
 
+SPA_EXPORT
 void pa_mainloop_api_once(pa_mainloop_api* m, void (*callback)(pa_mainloop_api *m, void *userdata), void *userdata) {
 	struct once_info *i;
 	pa_defer_event *e;

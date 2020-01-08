@@ -71,7 +71,7 @@ struct node {
 
 	struct spa_hook listener;
 
-	uint32_t linked;
+	struct node *peer;
 
 	uint32_t client_id;
 	int32_t priority;
@@ -88,7 +88,6 @@ struct node {
 	unsigned int active:1;
 	unsigned int exclusive:1;
 	unsigned int enabled:1;
-	unsigned int busy:1;
 };
 
 static int activate_node(struct node *node)
@@ -205,6 +204,9 @@ handle_node(struct impl *impl, struct sm_object *object)
 		else
 			return 0;
 
+		if (strstr(media_class, "Video") == media_class)
+			node->active = true;
+
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
 		node->media = strdup(media_class);
@@ -219,6 +221,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 		else if (strstr(media_class, "Video/") == media_class) {
 			media_class += strlen("Video/");
 			media = "Video";
+			node->active = true;
 		}
 		else
 			return 0;
@@ -248,6 +251,8 @@ static void destroy_node(struct impl *impl, struct node *node)
 {
 	spa_list_remove(&node->link);
 	free(node->media);
+	if (node->peer)
+		node->peer->peer = NULL;
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
 }
 
@@ -274,9 +279,15 @@ static void session_remove(void *data, struct sm_object *object)
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0) {
-		struct node *node;
+		struct node *n, *node;
+
 		if ((node = sm_object_get_data(object, SESSION_KEY)) != NULL)
 			destroy_node(impl, node);
+
+		spa_list_for_each(n, &impl->node_list, link) {
+			if (n->peer == node)
+				n->peer = NULL;
+		}
 	}
 
 	sm_media_session_schedule_rescan(impl->session);
@@ -298,8 +309,8 @@ static int find_node(void *data, struct node *node)
 	int priority = 0;
 	uint64_t plugged = 0;
 
-	pw_log_debug(NAME " %p: looking at node '%d' enabled:%d busy:%d exclusive:%d",
-			impl, node->id, node->enabled, node->busy, node->exclusive);
+	pw_log_debug(NAME " %p: looking at node '%d' enabled:%d state:%d peer:%p exclusive:%d",
+			impl, node->id, node->enabled, node->obj->info->state, node->peer, node->exclusive);
 
 	if (!node->enabled || node->type == NODE_TYPE_UNKNOWN)
 		return 0;
@@ -316,7 +327,8 @@ static int find_node(void *data, struct node *node)
 	plugged = node->plugged;
 	priority = node->priority;
 
-	if ((find->exclusive && node->busy) || node->exclusive) {
+	if ((find->exclusive && node->obj->info->state == PW_NODE_STATE_RUNNING) ||
+	    (node->peer && node->peer->exclusive)) {
 		pw_log_debug(NAME " %p: node '%d' in use", impl, node->id);
 		return 0;
 	}
@@ -342,6 +354,9 @@ static int link_nodes(struct node *node, struct node *peer)
 
 	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->id, peer->id);
 
+	peer->peer = node;
+	node->peer = peer;
+
 	if (node->direction == PW_DIRECTION_INPUT) {
 		struct node *t = node;
 		node = peer;
@@ -356,9 +371,6 @@ static int link_nodes(struct node *node, struct node *peer)
 	sm_media_session_create_links(impl->session, &props->dict);
 
 	pw_properties_free(props);
-
-	node->linked++;
-	peer->linked++;
 
 	return 0;
 }
@@ -376,15 +388,17 @@ static int rescan_node(struct impl *impl, struct node *n)
 	if (n->type == NODE_TYPE_DEVICE)
 		return 0;
 
-	if (!n->active)
+	if (!n->active) {
+		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
 		return 0;
+	}
 
 	if (n->obj->info == NULL || n->obj->info->props == NULL) {
 		pw_log_debug(NAME " %p: node %d has no properties", impl, n->id);
 		return 0;
 	}
 
-	if (n->linked > 0) {
+	if (n->peer != NULL) {
 		pw_log_debug(NAME " %p: node %d is already linked", impl, n->id);
 		return 0;
 	}
@@ -451,15 +465,13 @@ static int rescan_node(struct impl *impl, struct node *n)
 	}
 	peer = find.node;
 
-	if (exclusive && peer->busy) {
+	if (exclusive && peer->obj->info->state == PW_NODE_STATE_RUNNING) {
 		pw_log_warn(NAME" %p: node %d busy, can't get exclusive access", impl, peer->id);
 		return -EBUSY;
 	}
-	peer->exclusive = exclusive;
+	n->exclusive = exclusive;
 
 	pw_log_debug(NAME" %p: linking to node '%d'", impl, peer->id);
-
-        peer->busy = true;
 
 do_link:
 	link_nodes(n, peer);

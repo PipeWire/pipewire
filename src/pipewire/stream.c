@@ -1381,9 +1381,11 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
 
-	pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
-			direction == PW_DIRECTION_INPUT ? "Input" : "Output",
-			get_media_class(impl));
+	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
+		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
+				direction == PW_DIRECTION_INPUT ? "Input" : "Output",
+				get_media_class(impl));
+	}
 
 	if (stream->core == NULL) {
 		stream->core = pw_context_connect(impl->context,

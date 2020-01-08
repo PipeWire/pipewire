@@ -1534,11 +1534,11 @@ static int spa_v4l2_stream_off(struct impl *this)
 	enum v4l2_buf_type type;
 	uint32_t i;
 
-	if (dev->fd == -1)
-		return -EIO;
-
 	if (!dev->active)
 		return 0;
+
+	if (dev->fd == -1)
+		return -EIO;
 
 	spa_log_debug(this->log, "stopping");
 

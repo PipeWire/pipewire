@@ -166,6 +166,7 @@ enum spa_video_interlace_mode {
 /**
  * spa_video_info_raw:
  * @format: the format
+ * @modifier: format modifier
  * @size: the frame size of the video
  * @framerate: the framerate of the video 0/1 means variable rate
  * @max_framerate: the maximum framerate of the video. This is only valid when
@@ -185,6 +186,7 @@ enum spa_video_interlace_mode {
  */
 struct spa_video_info_raw {
 	enum spa_video_format format;
+	int64_t modifier;
 	struct spa_rectangle size;
 	struct spa_fraction framerate;
 	struct spa_fraction max_framerate;

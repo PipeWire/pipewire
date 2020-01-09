@@ -225,6 +225,7 @@ static const struct spa_type_info spa_type_format[] = {
 
 	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "format",
 		spa_type_video_format, },
+	{ SPA_FORMAT_VIDEO_modifier, SPA_TYPE_Long, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "modifier", NULL },
 	{ SPA_FORMAT_VIDEO_size,  SPA_TYPE_Rectangle, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "size", NULL },
 	{ SPA_FORMAT_VIDEO_framerate, SPA_TYPE_Fraction, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "framerate", NULL },
 	{ SPA_FORMAT_VIDEO_maxFramerate, SPA_TYPE_Fraction, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "maxFramerate", NULL },

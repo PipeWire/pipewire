@@ -331,6 +331,7 @@ static void call_drained(struct stream *impl)
 static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct stream *impl = object;
+	struct pw_stream *stream = &impl->this;
 
 	pw_log_debug(NAME" %p: io %d %p/%zd", impl, id, data, size);
 
@@ -341,9 +342,9 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 		else
 			impl->position = NULL;
 		break;
-	default:
-		return -ENOENT;
 	}
+	pw_stream_emit_io_changed(stream, id, data, size);
+
 	return 0;
 }
 

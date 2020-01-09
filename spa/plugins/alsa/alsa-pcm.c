@@ -258,7 +258,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	bool opened;
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
-	uint32_t count = 0;
+	uint32_t count = 0, rate;
 
 	opened = state->opened;
 	if ((err = spa_alsa_open(state)) < 0)
@@ -323,7 +323,9 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
 	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
 
-	spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_RATE, min, max));
+	rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
+
+	spa_pod_builder_int(&b, SPA_CLAMP(rate, min, max));
 	if (min != max) {
 		spa_pod_builder_int(&b, min);
 		spa_pod_builder_int(&b, max);

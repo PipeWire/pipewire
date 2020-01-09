@@ -45,7 +45,7 @@
 
 #define NAME "resample"
 
-#define DEFAULT_RATE		44100
+#define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
 #define MAX_SAMPLES	8192

@@ -153,7 +153,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", device->device_id);
 	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
-	pw_properties_set(node->props, "factory.name", info->factory_name);
+	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
 	node->impl = impl;
 	node->device = device;

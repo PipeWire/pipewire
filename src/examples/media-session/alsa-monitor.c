@@ -163,7 +163,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 
 	pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", device->device_id);
 
-	pw_properties_set(node->props, "factory.name", info->factory_name);
+	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
 	if ((dev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_DEVICE)) == NULL)
 		dev = "0";

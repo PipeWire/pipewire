@@ -150,7 +150,7 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 		str = "v4l2-device";
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
 
-	pw_properties_set(node->props, "factory.name", info->factory_name);
+	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
 	node->impl = impl;
 	node->device = dev;

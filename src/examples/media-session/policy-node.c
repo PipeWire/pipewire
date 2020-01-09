@@ -43,9 +43,6 @@
 #define NAME		"policy-node"
 #define SESSION_KEY	"policy-node"
 
-#define DEFAULT_CHANNELS	2
-#define DEFAULT_SAMPLERATE	48000
-
 #define DEFAULT_IDLE_SECONDS	3
 
 struct impl {
@@ -55,6 +52,8 @@ struct impl {
 	struct spa_hook listener;
 
 	struct pw_context *context;
+
+	uint32_t sample_rate;
 
 	struct spa_list node_list;
 	int seq;
@@ -123,7 +122,7 @@ static int activate_node(struct node *node)
 		if (node->format.info.raw.channels < info.info.raw.channels)
 			node->format = info;
 	}
-	node->format.info.raw.rate = 48000;
+	node->format.info.raw.rate = impl->sample_rate;
 
 	spa_pod_builder_init(&b, buf, sizeof(buf));
 	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
@@ -489,6 +488,20 @@ do_link:
         return 1;
 }
 
+static void session_info(void *data, const struct pw_core_info *info)
+{
+	struct impl *impl = data;
+
+	if (info && (info->change_mask & PW_CORE_CHANGE_MASK_PROPS)) {
+		const char *str;
+
+		if ((str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
+			impl->sample_rate = atoi(str);
+
+		pw_log_debug(NAME" %p: props changed sample_rate:%d", impl, impl->sample_rate);
+	}
+}
+
 static void session_rescan(void *data, int seq)
 {
 	struct impl *impl = data;
@@ -510,6 +523,7 @@ static void session_destroy(void *data)
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.info = session_info,
 	.create = session_create,
 	.remove = session_remove,
 	.rescan = session_rescan,
@@ -526,6 +540,8 @@ int sm_policy_node_start(struct sm_media_session *session)
 
 	impl->session = session;
 	impl->context = session->context;
+
+	impl->sample_rate = 48000;
 
 	spa_list_init(&impl->node_list);
 

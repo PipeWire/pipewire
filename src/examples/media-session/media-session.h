@@ -198,6 +198,8 @@ struct sm_media_session_events {
 #define SM_VERSION_MEDIA_SESSION_EVENTS	0
 	uint32_t version;
 
+	void (*info) (void *data, const struct pw_core_info *info);
+
 	void (*create) (void *data, struct sm_object *object);
 	void (*remove) (void *data, struct sm_object *object);
 
@@ -215,6 +217,8 @@ struct sm_media_session {
 	struct pw_context *context;
 
 	struct spa_dbus_connection *dbus_connection;
+
+	struct pw_core_info *info;
 };
 
 int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook *listener,

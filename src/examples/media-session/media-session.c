@@ -55,6 +55,7 @@
 
 #define sm_media_session_emit(s,m,v,...) spa_hook_list_call(&(s)->hooks, struct sm_media_session_events, m, v, ##__VA_ARGS__)
 
+#define sm_media_session_emit_info(s,i)			sm_media_session_emit(s, info, 0, i)
 #define sm_media_session_emit_create(s,obj)		sm_media_session_emit(s, create, 0, obj)
 #define sm_media_session_emit_remove(s,obj)		sm_media_session_emit(s, remove, 0, obj)
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
@@ -1530,6 +1531,17 @@ static int start_session(struct impl *impl)
 	return 0;
 }
 
+static void core_info(void *data, const struct pw_core_info *info)
+{
+	struct impl *impl = data;
+	pw_log_debug(NAME" %p: info", impl);
+	impl->this.info = pw_core_info_update(impl->this.info, info);
+
+	if (impl->this.info->change_mask != 0)
+		sm_media_session_emit_info(impl, impl->this.info);
+	impl->this.info->change_mask = 0;
+}
+
 static void core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
@@ -1574,6 +1586,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
+	.info = core_info,
 	.done = core_done,
 	.error = core_error
 };
@@ -1629,6 +1642,8 @@ static void session_shutdown(struct impl *impl)
 		pw_core_disconnect(impl->policy_core);
 	if (impl->monitor_core)
 		pw_core_disconnect(impl->monitor_core);
+	if (impl->this.info)
+		pw_core_info_free(impl->this.info);
 }
 
 int main(int argc, char *argv[])

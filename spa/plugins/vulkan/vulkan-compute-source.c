@@ -46,10 +46,12 @@
 
 #define NAME "vulkan-compute-source"
 
-#define FRAMES_TO_TIME(port,f) ((port->current_format.info.raw.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
-                                (port->current_format.info.raw.framerate.num))
+#define FRAMES_TO_TIME(this,f) ((this->position->video.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
+                                (this->position->video.framerate.num))
 
 #define DEFAULT_LIVE true
+
+#define MAX_HEIGHT 1024
 
 struct props {
 	bool live;
@@ -80,8 +82,6 @@ struct port {
 
 	bool have_format;
 	struct spa_video_info current_format;
-	size_t bpp;
-	int stride;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -97,6 +97,9 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
+
+	struct spa_io_clock *clock;
+	struct spa_io_position *position;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -193,7 +196,23 @@ static int impl_node_enum_params(void *object, int seq,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		if (size > 0 && size < sizeof(struct spa_io_clock))
+			return -EINVAL;
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -300,7 +319,7 @@ static int make_buffer(struct impl *this)
 
 		b->outbuf->datas[0].chunk->offset = 0;
 		b->outbuf->datas[0].chunk->size = n_bytes;
-		b->outbuf->datas[0].chunk->stride = port->stride;
+		b->outbuf->datas[0].chunk->stride = this->position->video.stride;
 
 		if (b->h) {
 			b->h->seq = this->frame_count;
@@ -315,7 +334,7 @@ static int make_buffer(struct impl *this)
 	}
 next:
 	this->frame_count++;
-	this->elapsed_time = FRAMES_TO_TIME(port, this->frame_count);
+	this->elapsed_time = FRAMES_TO_TIME(this, this->frame_count);
 	set_timer(this, true);
 
 	return res;
@@ -507,16 +526,8 @@ static int port_enum_formats(void *object,
 		*param = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
-			SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
-							&SPA_RECTANGLE(320, 240),
-							&SPA_RECTANGLE(1, 1),
-							&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
-							&SPA_FRACTION(25,1),
-							&SPA_FRACTION(0, 1),
-							&SPA_FRACTION(INT32_MAX, 1)));
+			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32));
 		break;
 	default:
 		return 0;
@@ -565,14 +576,14 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		param = spa_format_video_raw_build(&b, id, &port->current_format.info.raw);
+		param = spa_format_video_dsp_build(&b, id, &port->current_format.info.dsp);
 		break;
 
 	case SPA_PARAM_Buffers:
 	{
-		struct spa_video_info_raw *raw_info = &port->current_format.info.raw;
-
 		if (!port->have_format)
+			return -EIO;
+		if (this->position == NULL)
 			return -EIO;
 		if (result.index > 0)
 			return 0;
@@ -581,8 +592,8 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(port->stride * raw_info->size.height),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(this->position->video.stride * MAX_HEIGHT),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->position->video.stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 	}
@@ -645,19 +656,17 @@ static int port_set_format(struct impl *this, struct port *port,
 			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_video &&
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_dsp)
 			return -EINVAL;
 
-		if (spa_format_video_raw_parse(format, &info.info.raw) < 0)
+		if (spa_format_video_dsp_parse(format, &info.info.dsp) < 0)
 			return -EINVAL;
 
-		if (info.info.raw.format == SPA_VIDEO_FORMAT_RGBA_F32)
-			port->bpp = 16;
-		else
+		if (info.info.dsp.format != SPA_VIDEO_FORMAT_DSP_F32)
 			return -EINVAL;
 
-		this->state.constants.width = info.info.raw.size.width;
-		this->state.constants.height = info.info.raw.size.height;
+		this->state.constants.width = this->position->video.size.width;
+		this->state.constants.height = this->position->video.size.height;
 
 		port->current_format = info;
 		port->have_format = true;
@@ -666,8 +675,6 @@ static int port_set_format(struct impl *this, struct port *port,
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->have_format) {
-		struct spa_video_info_raw *raw_info = &port->current_format.info.raw;
-		port->stride = SPA_ROUND_UP_N(port->bpp * raw_info->size.width, 4);
 		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
 	} else {

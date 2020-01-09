@@ -57,6 +57,16 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 		SPA_FORMAT_VIDEO_colorPrimaries,	SPA_POD_OPT_Id(&info->color_primaries));
 }
 
+static inline int
+spa_format_video_dsp_parse(const struct spa_pod *format,
+			   struct spa_video_info_dsp *info)
+{
+	return spa_pod_parse_object(format,
+		SPA_TYPE_OBJECT_Format, NULL,
+		SPA_FORMAT_VIDEO_format,		SPA_POD_Id(&info->format),
+		SPA_FORMAT_VIDEO_modifier,		SPA_POD_OPT_Long(&info->modifier));
+}
+
 static inline struct spa_pod *
 spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 			   struct spa_video_info_raw *info)
@@ -106,6 +116,23 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->color_primaries != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_colorPrimaries,SPA_POD_Id(info->color_primaries), 0);
+	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
+}
+
+static inline struct spa_pod *
+spa_format_video_dsp_build(struct spa_pod_builder *builder, uint32_t id,
+			   struct spa_video_info_dsp *info)
+{
+	struct spa_pod_frame f;
+	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);
+	spa_pod_builder_add(builder,
+			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format),
+			0);
+	if (info->modifier)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
 }
 

@@ -315,16 +315,14 @@ static int port_enum_formats(void *object,
 	switch (index) {
 	case 0:
 		if (this->have_format) {
-			*param = spa_format_audio_raw_build(builder, SPA_PARAM_EnumFormat,
-					&this->format.info.raw);
+			*param = spa_format_audio_dsp_build(builder, SPA_PARAM_EnumFormat,
+					&this->format.info.dsp);
 		} else {
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
-				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1));
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32));
 		}
 		break;
 	default:
@@ -373,7 +371,7 @@ next:
 		if (result.index > 0)
 			return 0;
 
-		param = spa_format_audio_raw_build(&b, id, &this->format.info.raw);
+		param = spa_format_audio_dsp_build(&b, id, &this->format.info.dsp);
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -495,23 +493,18 @@ static int port_set_format(void *object,
 			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_dsp)
 			return -EINVAL;
 
-		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+		if (spa_format_audio_dsp_parse(format, &info.info.dsp) < 0)
 			return -EINVAL;
 
-		if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P)
-			return -EINVAL;
-		if (info.info.raw.channels != 1)
+		if (info.info.dsp.format != SPA_AUDIO_FORMAT_DSP_F32)
 			return -EINVAL;
 
-		if (this->have_format) {
-			if (info.info.raw.rate != this->format.info.raw.rate)
-				return -EINVAL;
-		} else {
-			this->ops.fmt = info.info.raw.format;
-			this->ops.n_channels = info.info.raw.channels;
+		if (!this->have_format) {
+			this->ops.fmt = info.info.dsp.format;
+			this->ops.n_channels = 1;
 			this->ops.cpu_flags = this->cpu_flags;
 
 			if ((res = mix_ops_init(&this->ops)) < 0)

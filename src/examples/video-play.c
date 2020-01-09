@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
@@ -34,7 +35,6 @@
 
 #define WIDTH   640
 #define HEIGHT  480
-#define BPP    3
 
 #define MAX_BUFFERS	64
 
@@ -57,8 +57,11 @@ struct data {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
-	struct spa_video_info_raw format;
+	struct spa_io_position *position;
+
+	struct spa_video_info format;
 	int32_t stride;
+	struct spa_rectangle size;
 
 	int counter;
 	SDL_Rect rect;
@@ -177,10 +180,10 @@ on_process(void *_data)
 	src = sdata;
 	dst = ddata;
 
-	if (data->format.format == SPA_VIDEO_FORMAT_RGBA_F32) {
-		for (i = 0; i < data->format.size.height; i++) {
+	if (data->format.media_subtype == SPA_MEDIA_SUBTYPE_dsp) {
+		for (i = 0; i < data->size.height; i++) {
 			struct pixel *p = (struct pixel *) src;
-			for (j = 0; j < data->format.size.width; j++) {
+			for (j = 0; j < data->size.width; j++) {
 				dst[j * 4 + 0] = SPA_CLAMP(lrintf(p[j].r * 255.0f), 0, 255);
 				dst[j * 4 + 1] = SPA_CLAMP(lrintf(p[j].g * 255.0f), 0, 255);
 				dst[j * 4 + 2] = SPA_CLAMP(lrintf(p[j].b * 255.0f), 0, 255);
@@ -191,7 +194,7 @@ on_process(void *_data)
 		}
 	}
 	else {
-		for (i = 0; i < data->format.size.height; i++) {
+		for (i = 0; i < data->size.height; i++) {
 			memcpy(dst, src, ostride);
 			src += sstride;
 			dst += dstride;
@@ -229,6 +232,18 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	}
 }
 
+static void
+on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t size)
+{
+	struct data *data = _data;
+
+	switch (id) {
+	case SPA_IO_Position:
+		data->position = area;
+		break;
+	}
+}
+
 /* Be notified when the stream param changes. We're only looking at the
  * format changes.
  *
@@ -258,13 +273,32 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	fprintf(stderr, "got format:\n");
 	spa_debug_format(2, NULL, param);
 
-	/* call a helper function to parse the format for us. */
-	spa_format_video_raw_parse(param, &data->format);
+	if (spa_format_parse(param, &data->format.media_type, &data->format.media_subtype) < 0)
+		return;
 
-	if (data->format.format == SPA_VIDEO_FORMAT_RGBA_F32)
+	if (data->format.media_type != SPA_MEDIA_TYPE_video)
+		return;
+
+	switch (data->format.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		/* call a helper function to parse the format for us. */
+		spa_format_video_raw_parse(param, &data->format.info.raw);
+		sdl_format = id_to_sdl_format(data->format.info.raw.format);
+		data->size = SPA_RECTANGLE(data->format.info.raw.size.width,
+				data->format.info.raw.size.height);
+		break;
+	case SPA_MEDIA_SUBTYPE_dsp:
+		spa_format_video_dsp_parse(param, &data->format.info.dsp);
+		if (data->format.info.dsp.format != SPA_VIDEO_FORMAT_DSP_F32)
+			return;
 		sdl_format = SDL_PIXELFORMAT_RGBA32;
-	else
-		sdl_format = id_to_sdl_format(data->format.format);
+		data->size = SPA_RECTANGLE(data->position->video.size.width,
+				data->position->video.size.height);
+		break;
+	default:
+		sdl_format = SDL_PIXELFORMAT_UNKNOWN;
+		break;
+	}
 
 	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
 		pw_stream_set_error(stream, -EINVAL, "unknown pixel format");
@@ -274,15 +308,15 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	data->texture = SDL_CreateTexture(data->renderer,
 					  sdl_format,
 					  SDL_TEXTUREACCESS_STREAMING,
-					  data->format.size.width,
-					  data->format.size.height);
+					  data->size.width,
+					  data->size.height);
 	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
 	SDL_UnlockTexture(data->texture);
 
 	data->rect.x = 0;
 	data->rect.y = 0;
-	data->rect.w = data->format.size.width;
-	data->rect.h = data->format.size.height;
+	data->rect.w = data->size.width;
+	data->rect.h = data->size.height;
 
 	/* a SPA_TYPE_OBJECT_ParamBuffers object defines the acceptable size,
 	 * number, stride etc of the buffers */
@@ -290,7 +324,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->format.size.height),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->size.height),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
@@ -323,6 +357,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_stream_state_changed,
+	.io_changed = on_stream_io_changed,
 	.param_changed = on_stream_param_changed,
 	.process = on_process,
 };
@@ -334,18 +369,28 @@ static int build_format(struct data *data, struct spa_pod_builder *b, const stru
 	SDL_GetRendererInfo(data->renderer, &info);
 	params[0] = sdl_build_formats(&info, b);
 
-	fprintf(stderr, "supported formats:\n");
+	fprintf(stderr, "supported SDL formats:\n");
 	spa_debug_format(2, NULL, params[0]);
 
-	return 0;
+	params[1] = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_video),
+			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32));
+
+	fprintf(stderr, "supported DSP formats:\n");
+	spa_debug_format(2, NULL, params[1]);
+
+	return 2;
 }
 
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	int res, n_params;
 
 	pw_init(&argc, &argv);
 
@@ -390,19 +435,22 @@ int main(int argc, char *argv[])
 	/* build the extra parameters to connect with. To connect, we can provide
 	 * a list of supported formats.  We use a builder that writes the param
 	 * object to the stack. */
-	build_format(&data, &b, params);
+	n_params = build_format(&data, &b, params);
 
 	/* now connect the stream, we need a direction (input/output),
 	 * an optional target node to connect to, some flags and parameters
 	 */
-	pw_stream_connect(data.stream,
+	if ((res = pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
 			  data.path ? (uint32_t)atoi(data.path) : SPA_ID_INVALID,
 			  PW_STREAM_FLAG_AUTOCONNECT |	/* try to automatically connect this stream */
 			  PW_STREAM_FLAG_INACTIVE |	/* we will activate ourselves */
 			  PW_STREAM_FLAG_EXCLUSIVE |	/* require exclusive access */
 			  PW_STREAM_FLAG_MAP_BUFFERS,	/* mmap the buffer data for us */
-			  params, 1);			/* extra parameters, see above */
+			  params, n_params))		/* extra parameters, see above */ < 0) {
+		fprintf(stderr, "can't connect: %s\n", spa_strerror(res));
+		return -1;
+	}
 
 	/* do things until we quit the mainloop */
 	pw_main_loop_run(data.loop);

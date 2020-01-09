@@ -48,9 +48,14 @@ struct ucred {
 #define spa_debug pw_log_trace
 #endif
 
-#define DEFAULT_QUANTUM		1024u
-#define MIN_QUANTUM		32u
-#define MAX_QUANTUM		8192u
+struct defaults {
+	uint32_t clock_rate;
+	uint32_t clock_quantum;
+	uint32_t clock_min_quantum;
+	uint32_t clock_max_quantum;
+	struct spa_rectangle video_size;
+	struct spa_fraction video_rate;
+};
 
 #define MAX_PARAMS	32
 
@@ -227,6 +232,8 @@ struct pw_context {
 	struct pw_impl_core *core;		/**< core object */
 
 	struct pw_properties *properties;	/**< properties of the context */
+
+	struct defaults defaults;		/**< default parameters */
 
 	struct pw_mempool *pool;		/**< global memory pool */
 

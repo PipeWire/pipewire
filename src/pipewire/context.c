@@ -43,6 +43,16 @@
 
 #define NAME "context"
 
+
+#define DEFAULT_CLOCK_RATE		48000u
+#define DEFAULT_CLOCK_QUANTUM		1024u
+#define DEFAULT_CLOCK_MIN_QUANTUM	32u
+#define DEFAULT_CLOCK_MAX_QUANTUM	8192u
+#define DEFAULT_VIDEO_WIDTH		640
+#define DEFAULT_VIDEO_HEIGHT		480
+#define DEFAULT_VIDEO_RATE_NUM		25u
+#define DEFAULT_VIDEO_RATE_DENOM	1u
+
 /** \cond */
 struct impl {
 	struct pw_context this;
@@ -109,6 +119,29 @@ static void fill_properties(struct pw_context *context)
 	pw_properties_set(properties, PW_KEY_CORE_NAME, context->core->info.name);
 }
 
+static uint32_t get_default(struct pw_properties *properties, const char *name, uint32_t def)
+{
+	uint32_t val;
+	const char *str;
+	if ((str = pw_properties_get(properties, name)) != NULL)
+		val = atoi(str);
+	else
+		val = def;
+	return val;
+}
+
+static void fill_defaults(struct pw_context *this)
+{
+	struct pw_properties *p = this->properties;
+	this->defaults.clock_rate = get_default(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
+	this->defaults.clock_quantum = get_default(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
+	this->defaults.clock_min_quantum = get_default(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
+	this->defaults.clock_max_quantum = get_default(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
+	this->defaults.video_size.width = get_default(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
+	this->defaults.video_size.height = get_default(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
+	this->defaults.video_rate.num = get_default(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
+	this->defaults.video_rate.denom = get_default(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
+}
 
 /** Create a new context object
  *
@@ -153,6 +186,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 
 	this->properties = properties;
+
+	fill_defaults(this);
 
 	pr = pw_properties_copy(properties);
 	if ((str = pw_properties_get(pr, "context.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
@@ -716,11 +751,13 @@ static int collect_nodes(struct pw_impl_node *driver)
 
 	quantum = min_quantum;
 	if (quantum == 0)
-		quantum = DEFAULT_QUANTUM;
+		quantum = driver->context->defaults.clock_quantum;
 
 	/* for now, we try to limit the latency between min and default, We can
 	 * go to max but we should really only do this when in power save mode */
-	driver->quantum_current = SPA_CLAMP(quantum, MIN_QUANTUM, DEFAULT_QUANTUM);
+	driver->quantum_current = SPA_CLAMP(quantum,
+			driver->context->defaults.clock_min_quantum,
+			driver->context->defaults.clock_quantum);
 
 	return 0;
 }
@@ -779,7 +816,8 @@ int pw_context_recalc_graph(struct pw_context *context)
 
 			if (target != NULL) {
 				if (n->quantum_size > 0 && n->quantum_size < target->quantum_current)
-					target->quantum_current = SPA_MAX(MIN_QUANTUM, n->quantum_size);
+					target->quantum_current =
+						SPA_MAX(context->defaults.clock_min_quantum, n->quantum_size);
 			}
 			pw_impl_node_set_driver(n, target);
 			pw_impl_node_set_state(n, target && n->active ?

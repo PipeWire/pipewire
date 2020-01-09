@@ -120,6 +120,9 @@ enum spa_video_format {
 
 	SPA_VIDEO_FORMAT_RGBA_F16,
 	SPA_VIDEO_FORMAT_RGBA_F32,
+
+	/* Aliases */
+	SPA_VIDEO_FORMAT_DSP_F32 = SPA_VIDEO_FORMAT_RGBA_F32,
 };
 
 /**
@@ -203,6 +206,13 @@ struct spa_video_info_raw {
 };
 
 #define SPA_VIDEO_INFO_RAW_INIT(...)	(struct spa_video_info_raw) { __VA_ARGS__ }
+
+struct spa_video_info_dsp {
+	enum spa_video_format format;
+	int64_t modifier;
+};
+
+#define SPA_VIDEO_INFO_DSP_INIT(...)	(struct spa_video_info_dsp) { __VA_ARGS__ }
 
 #ifdef __cplusplus
 } /* extern "C" */

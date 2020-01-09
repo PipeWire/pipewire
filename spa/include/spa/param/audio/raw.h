@@ -82,8 +82,17 @@ enum spa_audio_format {
 	SPA_AUDIO_FORMAT_F32P,
 	SPA_AUDIO_FORMAT_F64P,
 
-	SPA_AUDIO_FORMAT_START_Other		= 0x300,
+	/* other formats start here */
+	SPA_AUDIO_FORMAT_START_Other		= 0x400,
 
+	/* Aliases */
+
+	/* DSP formats */
+	SPA_AUDIO_FORMAT_DSP_S32 = SPA_AUDIO_FORMAT_S24_32P,
+	SPA_AUDIO_FORMAT_DSP_F32 = SPA_AUDIO_FORMAT_F32P,
+	SPA_AUDIO_FORMAT_DSP_F64 = SPA_AUDIO_FORMAT_F64P,
+
+	/* native endian */
 #if __BYTE_ORDER == __BIG_ENDIAN
 	SPA_AUDIO_FORMAT_S16 = SPA_AUDIO_FORMAT_S16_BE,
 	SPA_AUDIO_FORMAT_U16 = SPA_AUDIO_FORMAT_U16_BE,
@@ -210,6 +219,11 @@ struct spa_audio_info_raw {
 
 #define SPA_KEY_AUDIO_CHANNEL		"audio.channel"		/**< an audio channel as string,
 								  *  Ex. "FL" */
+struct spa_audio_info_dsp {
+	enum spa_audio_format format;		/*< format, one of the DSP formats in enum spa_audio_format_dsp */
+};
+
+#define SPA_AUDIO_INFO_DSP_INIT(...)		(struct spa_audio_info_dsp) { __VA_ARGS__ }
 
 #ifdef __cplusplus
 }  /* extern "C" */

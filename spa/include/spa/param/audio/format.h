@@ -37,6 +37,7 @@ struct spa_audio_info {
 	uint32_t media_subtype;
 	union {
 		struct spa_audio_info_raw raw;
+		struct spa_audio_info_dsp dsp;
 	} info;
 };
 

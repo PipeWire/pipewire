@@ -195,9 +195,6 @@ struct port {
 	struct spa_io_buffers io;
 	struct spa_list mix;
 
-	bool have_format;
-	uint32_t rate;
-
 	bool zeroed;
 	float *emptyptr;
 	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
@@ -1267,10 +1264,8 @@ static int param_enum_format(struct client *c, struct port *p,
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-	                SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(DEFAULT_SAMPLE_RATE, 1, INT32_MAX),
-	                SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32));
 		break;
 	case 1:
 		*param = spa_pod_builder_add_object(b,
@@ -1282,16 +1277,8 @@ static int param_enum_format(struct client *c, struct port *p,
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
-			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
-                                                        &SPA_RECTANGLE(320, 240),
-                                                        &SPA_RECTANGLE(1,1),
-                                                        &SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
-                                                        &SPA_FRACTION(25,1),
-                                                        &SPA_FRACTION(0,1),
-                                                        &SPA_FRACTION(INT32_MAX,1)));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+	                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32));
 		break;
 	default:
 		return -EINVAL;
@@ -1302,48 +1289,26 @@ static int param_enum_format(struct client *c, struct port *p,
 static int param_format(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
-	uint32_t channels[] = { SPA_AUDIO_CHANNEL_MONO };
-	struct spa_pod_frame f;
 	switch (p->object->port.type_id) {
 	case 0:
-		spa_pod_builder_push_object(b, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_Format);
-		spa_pod_builder_add(b,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P), NULL);
-		if (p->have_format) {
-			spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_Int(p->rate), NULL);
-		} else {
-			spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(DEFAULT_SAMPLE_RATE,
-								1, INT32_MAX), NULL);
-		}
-		spa_pod_builder_add(b,
-			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
-	                SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, 1, channels), NULL);
-		*param = spa_pod_builder_pop(b, &f);
+		*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+		                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32));
 		break;
 	case 1:
 		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
 	case 2:
 		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
-			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
-                                                        &SPA_RECTANGLE(320, 240),
-                                                        &SPA_RECTANGLE(1,1),
-                                                        &SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
-                                                        &SPA_FRACTION(25,1),
-                                                        &SPA_FRACTION(0,1),
-                                                        &SPA_FRACTION(INT32_MAX,1)));
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+		                SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32));
 		break;
 	default:
 		return -EINVAL;
@@ -1407,7 +1372,6 @@ static int port_set_format(struct client *c, struct port *p,
 
 		spa_list_for_each(mix, &p->mix, port_link)
 			clear_buffers(c, mix);
-		p->have_format = false;
 	}
 	else {
 		struct spa_audio_info info = { 0 };
@@ -1416,13 +1380,13 @@ static int port_set_format(struct client *c, struct port *p,
 		switch (info.media_type) {
 		case SPA_MEDIA_TYPE_audio:
 		{
-			if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			if (info.media_subtype != SPA_MEDIA_SUBTYPE_dsp)
 				return -EINVAL;
 
-			if (spa_format_audio_raw_parse(param, &info.info.raw) < 0)
+			if (spa_format_audio_dsp_parse(param, &info.info.dsp) < 0)
 				return -EINVAL;
-
-			p->rate = info.info.raw.rate;
+			if (info.info.dsp.format != SPA_AUDIO_FORMAT_DSP_F32)
+				return -EINVAL;
 			break;
 		}
 		case SPA_MEDIA_TYPE_application:
@@ -1433,16 +1397,17 @@ static int port_set_format(struct client *c, struct port *p,
 		{
 			struct spa_video_info vinfo = { 0 };
 
-			if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			if (info.media_subtype != SPA_MEDIA_SUBTYPE_dsp)
 				return -EINVAL;
-			if (spa_format_video_raw_parse(param, &vinfo.info.raw) < 0)
+			if (spa_format_video_dsp_parse(param, &vinfo.info.dsp) < 0)
+				return -EINVAL;
+			if (vinfo.info.dsp.format != SPA_VIDEO_FORMAT_DSP_F32)
 				return -EINVAL;
 			break;
 		}
 		default:
 			return -EINVAL;
 		}
-		p->have_format = true;
 	}
 	return 0;
 }

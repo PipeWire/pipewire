@@ -158,7 +158,7 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 }
 
 static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id,
-		uint32_t rate, uint32_t position)
+		uint32_t position)
 {
 	struct port *port = GET_PORT(this, direction, port_id);
 
@@ -184,15 +184,12 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->n_buffers = 0;
 	port->have_format = false;
 	port->format.media_type = SPA_MEDIA_TYPE_audio;
-	port->format.media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	port->format.info.raw.format = SPA_AUDIO_FORMAT_F32P;
-	port->format.info.raw.rate = rate;
-	port->format.info.raw.channels = 1;
-	port->format.info.raw.position[0] = position;
+	port->format.media_subtype = SPA_MEDIA_SUBTYPE_dsp;
+	port->format.info.dsp.format = SPA_AUDIO_FORMAT_DSP_F32;
 	spa_list_init(&port->queue);
 
-	spa_log_debug(this->log, NAME " %p: add port %d:%d rate:%d position:%s",
-			this, direction, port_id, rate, port->position);
+	spa_log_debug(this->log, NAME " %p: add port %d:%d position:%s",
+			this, direction, port_id, port->position);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -310,10 +307,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		this->port_count = info.info.raw.channels;
 		this->monitor_count = this->monitor ? this->port_count : 0;
 		for (i = 0; i < this->port_count; i++) {
-			init_port(this, SPA_DIRECTION_INPUT, i, info.info.raw.rate,
-					info.info.raw.position[i]);
+			init_port(this, SPA_DIRECTION_INPUT, i, info.info.raw.position[i]);
 			if (this->monitor)
-				init_port(this, SPA_DIRECTION_OUTPUT, i+1, info.info.raw.rate,
+				init_port(this, SPA_DIRECTION_OUTPUT, i+1,
 					info.info.raw.position[i]);
 		}
 		return 0;
@@ -403,7 +399,10 @@ static int port_enum_formats(void *object,
 
 	switch (index) {
 	case 0:
-		if (PORT_IS_DSP(direction, port_id) || port->have_format) {
+		if (PORT_IS_DSP(direction, port_id)) {
+			*param = spa_format_audio_dsp_build(builder,
+				SPA_PARAM_EnumFormat, &port->format.info.dsp);
+		} else if (port->have_format) {
 			*param = spa_format_audio_raw_build(builder,
 				SPA_PARAM_EnumFormat, &port->format.info.raw);
 		}
@@ -481,7 +480,10 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		param = spa_format_audio_raw_build(&b, id, &port->format.info.raw);
+		if (PORT_IS_DSP(direction, port_id))
+			param = spa_format_audio_dsp_build(&b, id, &port->format.info.dsp);
+		else
+			param = spa_format_audio_raw_build(&b, id, &port->format.info.raw);
 		break;
 	case SPA_PARAM_Buffers:
 		if (!port->have_format)
@@ -557,7 +559,7 @@ static int setup_convert(struct impl *this)
 
 	outport = GET_OUT_PORT(this, 0);
 
-	src_fmt = SPA_AUDIO_FORMAT_F32P;
+	src_fmt = SPA_AUDIO_FORMAT_DSP_F32;
 	dst_fmt = outport->format.info.raw.format;
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%dx%d->%s/%d@%d", this,
@@ -630,53 +632,52 @@ static int port_set_format(void *object,
 			spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
 			return res;
 		}
-
-		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-			spa_log_error(this->log, "unexpected types %d/%d",
-					info.media_type, info.media_subtype);
-			return -EINVAL;
-		}
-
-		if ((res = spa_format_audio_raw_parse(format, &info.info.raw)) < 0) {
-			spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
-			return res;
-		}
-
 		if (PORT_IS_DSP(direction, port_id)) {
-			if (info.info.raw.rate != port->format.info.raw.rate) {
-				spa_log_error(this->log, "unexpected rate %d<->%d",
-					info.info.raw.rate, port->format.info.raw.rate);
+			if (info.media_type != SPA_MEDIA_TYPE_audio ||
+			    info.media_subtype != SPA_MEDIA_SUBTYPE_dsp) {
+				spa_log_error(this->log, "unexpected types %d/%d",
+						info.media_type, info.media_subtype);
 				return -EINVAL;
 			}
-			if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P) {
+			if ((res = spa_format_audio_dsp_parse(format, &info.info.dsp)) < 0) {
+				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
+				return res;
+			}
+			if (info.info.dsp.format != SPA_AUDIO_FORMAT_DSP_F32) {
 				spa_log_error(this->log, "unexpected format %d<->%d",
-					info.info.raw.format, SPA_AUDIO_FORMAT_F32P);
+					info.info.dsp.format, SPA_AUDIO_FORMAT_DSP_F32);
 				return -EINVAL;
 			}
-			if (info.info.raw.channels != 1) {
-				spa_log_error(this->log, "unexpected channels %d<->1",
-					info.info.raw.channels);
-				return -EINVAL;
-			}
+			port->blocks = 1;
+			port->stride = 4;
 		}
 		else {
+			if (info.media_type != SPA_MEDIA_TYPE_audio ||
+			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+				spa_log_error(this->log, "unexpected types %d/%d",
+						info.media_type, info.media_subtype);
+				return -EINVAL;
+			}
+			if ((res = spa_format_audio_raw_parse(format, &info.info.raw)) < 0) {
+				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
+				return res;
+			}
 			if (info.info.raw.channels != this->port_count) {
 				spa_log_error(this->log, "unexpected channels %d<->%d",
 					info.info.raw.channels, this->port_count);
 				return -EINVAL;
 			}
+			port->stride = calc_width(&info);
+			if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
+				port->blocks = info.info.raw.channels;
+			}
+			else {
+				port->stride *= info.info.raw.channels;
+				port->blocks = 1;
+			}
 		}
-
 		port->format = info;
-		port->stride = calc_width(&info);
-		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
-			port->blocks = info.info.raw.channels;
-		}
-		else {
-			port->stride *= info.info.raw.channels;
-			port->blocks = 1;
-		}
+
 		spa_log_debug(this->log, NAME " %p: %d %d %d", this,
 				port_id, port->stride, port->blocks);
 

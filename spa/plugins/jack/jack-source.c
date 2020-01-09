@@ -148,8 +148,8 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_Format:
 		switch (result.index) {
 		case 0:
-			param = spa_format_audio_raw_build(&b,
-					id, &this->current_format.info.raw);
+			param = spa_format_audio_dsp_build(&b,
+					id, &this->current_format.info.dsp);
 			break;
 		default:
 			return 0;
@@ -446,11 +446,8 @@ static int init_ports(struct impl *this)
 	}
 	this->n_out_ports = i;
 
-	this->current_format.info.raw = SPA_AUDIO_INFO_RAW_INIT(
-			.format = SPA_AUDIO_FORMAT_F32P,
-			.flags = SPA_AUDIO_FLAG_UNPOSITIONED,
-			.rate = jack_get_sample_rate(client),
-			.channels = this->n_out_ports);
+	this->current_format.info.dsp = SPA_AUDIO_INFO_DSP_INIT(
+			.format = SPA_AUDIO_FORMAT_DSP_F32);
 
 	spa_jack_client_add_listener(this->client,
 			&this->client_listener,
@@ -498,10 +495,8 @@ static int port_enum_formats(struct impl *this,
 		*param = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,    SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-			SPA_FORMAT_AUDIO_rate,      SPA_POD_Int(this->client->frame_rate),
-			SPA_FORMAT_AUDIO_channels,  SPA_POD_Int(1));
+			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+			SPA_FORMAT_AUDIO_format,    SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32));
 		break;
 	default:
 		return 0;
@@ -551,7 +546,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		param = spa_format_audio_raw_build(&b, id, &port->current_format.info.raw);
+		param = spa_format_audio_dsp_build(&b, id, &port->current_format.info.dsp);
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -627,17 +622,16 @@ static int port_set_format(struct impl *this, struct port *port,
 			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_audio &&
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_dsp)
 			return -EINVAL;
 
-		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+		if (spa_format_audio_dsp_parse(format, &info.info.dsp) < 0)
 			return -EINVAL;
 
-		if (info.info.raw.format == SPA_AUDIO_FORMAT_F32P)
-			port->stride = 4;
-		else
+		if (info.info.dsp.format != SPA_AUDIO_FORMAT_DSP_F32)
 			return -EINVAL;
 
+		port->stride = 4;
 		port->current_format = info;
 		port->have_format = true;
 	}

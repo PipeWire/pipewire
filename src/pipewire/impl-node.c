@@ -908,12 +908,17 @@ static void reset_segment(struct spa_io_segment *seg)
 	seg->rate = 1.0;
 }
 
-static void reset_position(struct spa_io_position *pos)
+static void reset_position(struct pw_impl_node *this, struct spa_io_position *pos)
 {
 	uint32_t i;
+	struct defaults *def = &this->context->defaults;
 
-	pos->clock.rate = SPA_FRACTION(1, 48000);
-	pos->clock.duration = DEFAULT_QUANTUM;
+	pos->clock.rate = SPA_FRACTION(1, def->clock_rate);
+	pos->clock.duration = def->clock_quantum;
+	pos->video.flags = SPA_IO_VIDEO_SIZE_VALID;
+	pos->video.size = def->video_size;
+	pos->video.stride = pos->video.size.width * 16;
+	pos->video.framerate = def->video_rate;
 	pos->offset = INT64_MIN;
 
 	pos->n_segments = 1;
@@ -1008,7 +1013,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.target.data = this;
 	this->rt.driver_target.signal = process_node;
 
-	reset_position(&this->rt.activation->position);
+	reset_position(this, &this->rt.activation->position);
 	this->rt.activation->sync_timeout = 5 * SPA_NSEC_PER_SEC;
 	this->rt.activation->sync_left = 0;
 

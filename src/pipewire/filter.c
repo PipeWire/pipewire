@@ -1266,11 +1266,8 @@ static void add_audio_dsp_port_params(struct filter *impl, struct port *port)
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
-						48000, 1, INT32_MAX),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1)));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32)));
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	add_param(impl, port, SPA_PARAM_Buffers,
@@ -1297,16 +1294,8 @@ static void add_video_dsp_port_params(struct filter *impl, struct port *port)
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA_F32),
-			SPA_FORMAT_VIDEO_size,	   SPA_POD_CHOICE_RANGE_Rectangle(
-							&SPA_RECTANGLE(320, 240),
-							&SPA_RECTANGLE(1,1),
-							&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
-							&SPA_FRACTION(25,1),
-							&SPA_FRACTION(0,1),
-							&SPA_FRACTION(INT32_MAX,1))));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
+			SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32)));
 }
 
 SPA_EXPORT

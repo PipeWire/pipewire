@@ -502,13 +502,13 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	switch (media_type) {
 	case SPA_MEDIA_TYPE_audio:
 		switch (media_subtype) {
-		case SPA_MEDIA_SUBTYPE_raw:
+		case SPA_MEDIA_SUBTYPE_dsp:
 		{
-			struct spa_audio_info_raw info;
-			if ((res = spa_format_audio_raw_parse(param, &info)) < 0)
+			struct spa_audio_info_dsp info;
+			if ((res = spa_format_audio_dsp_parse(param, &info)) < 0)
 				return res;
 
-			if (info.format != SPA_AUDIO_FORMAT_F32P || info.channels != 1)
+			if (info.format != SPA_AUDIO_FORMAT_DSP_F32)
 				return -ENOTSUP;
 
 			fallback_lib = "audiomixer/libspa-audiomixer";

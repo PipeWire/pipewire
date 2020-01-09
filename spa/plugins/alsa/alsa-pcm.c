@@ -1117,6 +1117,7 @@ static void reset_buffers(struct state *this)
 		struct buffer *b = &this->buffers[i];
 		if (this->stream == SND_PCM_STREAM_PLAYBACK) {
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
 		} else {
 			spa_list_append(&this->free, &b->link);
 			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);

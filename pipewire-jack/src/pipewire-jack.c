@@ -1169,6 +1169,8 @@ static int client_node_set_io(void *object,
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
+		if (ptr)
+			c->sample_rate = c->position->clock.rate.denom;
 		break;
 	default:
 		break;

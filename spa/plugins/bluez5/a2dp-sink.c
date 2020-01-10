@@ -911,6 +911,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		if ((res = do_start(this)) < 0)
 			return res;
 		break;
+	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
 		if ((res = do_stop(this)) < 0)
 			return res;

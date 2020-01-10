@@ -109,8 +109,8 @@ extern "C" {
 
 enum spa_bt_profile {
         SPA_BT_PROFILE_NULL =		0,
-        SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 0),
-        SPA_BT_PROFILE_A2DP_SINK =	(1 << 1),
+        SPA_BT_PROFILE_A2DP_SINK =	(1 << 0),
+        SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 1),
         SPA_BT_PROFILE_HSP_HS =		(1 << 2),
         SPA_BT_PROFILE_HSP_AG =		(1 << 3),
         SPA_BT_PROFILE_HFP_HF =		(1 << 4),

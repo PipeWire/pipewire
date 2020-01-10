@@ -473,10 +473,8 @@ static int add_data(struct impl *this, const void *data, int size)
 	while (size > 0) {
 		processed = encode_buffer(this, data, size);
 
-		if (processed == -ENOSPC || processed == 0)
-			break;
-		if (processed < 0)
-			return 0;
+		if (processed <= 0)
+			return total > 0 ? total : processed;
 
 		data = SPA_MEMBER(data, processed, void);
 		size -= processed;
@@ -557,21 +555,25 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		l0 = SPA_MIN(n_bytes, d[0].maxsize - offs);
 		l1 = n_bytes - l0;
 
-		n_bytes = add_data(this, src + offs, l0);
-		if (n_bytes > 0 && l1 > 0)
-			n_bytes += add_data(this, src, l1);
-		if (n_bytes <= 0) {
+		written = add_data(this, src + offs, l0);
+		if (written > 0 && l1 > 0)
+			written += add_data(this, src, l1);
+		if (written <= 0) {
 			port->need_data = true;
-			spa_list_remove(&b->link);
-			b->outstanding = true;
-			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
-			port->ready_offset = 0;
+			if (written < 0 && written != -ENOSPC) {
+				spa_list_remove(&b->link);
+				b->outstanding = true;
+				spa_log_trace(this->log, NAME " %p: error %s, reuse buffer %u",
+						this, spa_strerror(written), b->id);
+				spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+				port->ready_offset = 0;
+			}
 			break;
 		}
 
-		n_frames = n_bytes / port->frame_size;
+		n_frames = written / port->frame_size;
 
-		port->ready_offset += n_bytes;
+		port->ready_offset += written;
 
 		if (port->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);

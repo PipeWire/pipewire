@@ -200,7 +200,7 @@ static void configure_device(pa_stream *s)
 	else {
 		if (s->direction == PA_STREAM_RECORD) {
 			if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))
-				s->device_index = g->endpoint_info.monitor;
+				s->device_index = g->node_info.monitor;
 			else
 				s->device_index = g->id;
 		}
@@ -208,7 +208,7 @@ static void configure_device(pa_stream *s)
 			s->device_index = g->id;
 		}
 
-		if ((str = pw_properties_get(g->props, PW_KEY_ENDPOINT_NAME)) == NULL)
+		if ((str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
 			s->device_name = strdup("unknown");
 		else
 			s->device_name = strdup(str);
@@ -565,7 +565,6 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 	s->context = c;
 	spa_list_init(&s->pending);
 
-	s->endpoint_id = SPA_ID_INVALID;
 	s->direction = PA_STREAM_NODIRECTION;
 	s->state = PA_STREAM_UNCONNECTED;
 	s->flags = 0;
@@ -737,10 +736,8 @@ uint32_t pa_stream_get_index(PA_CONST pa_stream *s)
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
-	if (s->endpoint_id != SPA_ID_INVALID)
-		idx = s->endpoint_id;
-	else
-		idx = pw_stream_get_node_id(s->stream);
+
+	idx = pw_stream_get_node_id(s->stream);
 	pw_log_debug("stream %p: index %u", s, idx);
 	return idx;
 }

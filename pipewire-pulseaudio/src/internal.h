@@ -34,7 +34,6 @@
 #include <pulse/version.h>
 
 #include <pipewire/pipewire.h>
-#include <extensions/session-manager.h>
 
 /* Some PulseAudio API added const qualifiers in 13.0 */
 #if PA_MAJOR >= 13
@@ -216,6 +215,9 @@ struct param {
 	void *param;
 };
 
+#define PA_IDX_FLAG_DSP		0x800000U
+#define PA_IDX_MASK_DSP		0x7fffffU
+
 struct global {
 	struct spa_list link;
 	uint32_t id;
@@ -226,7 +228,7 @@ struct global {
 	pa_subscription_mask_t mask;
 	pa_subscription_event_type_t event;
 
-	int priority_session;
+	int priority_master;
 	int pending_seq;
 	int init:1;
 	int subscribed:1;
@@ -239,15 +241,12 @@ struct global {
         struct spa_hook object_listener;
 
 	union {
-		/* for links, globals are endpoints */
+		/* for links */
 		struct {
-			struct global *output;
-			struct global *input;
+			struct global *src;
+			struct global *dst;
 		} link_info;
-		struct {
-			uint32_t endpoint_id;
-		} stream_info;
-		/* for endpoints */
+		/* for sink/source */
 		struct {
 			uint32_t client_id;
 			uint32_t monitor;
@@ -256,8 +255,10 @@ struct global {
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 			uint32_t device_id;
+		} node_info;
+		struct {
 			uint32_t node_id;
-		} endpoint_info;
+		} port_info;
 		/* for devices */
 		struct {
 			struct spa_list profiles;
@@ -341,7 +342,6 @@ struct pa_stream {
 	pa_format_info *req_formats[PA_MAX_FORMATS];
 	pa_format_info *format;
 
-	uint32_t endpoint_id;
 	uint32_t stream_index;
 
 	pa_buffer_attr buffer_attr;

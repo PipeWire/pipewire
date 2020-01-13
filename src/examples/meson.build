@@ -44,7 +44,7 @@ executable('export-spa-device',
   dependencies : [pipewire_dep, mathlib],
 )
 
-executable('media-session',
+executable('pipewire-media-session',
   'media-session/alsa-midi.c',
   'media-session/alsa-monitor.c',
   'media-session/alsa-endpoint.c',
@@ -60,7 +60,7 @@ executable('media-session',
   'media-session/v4l2-endpoint.c',
   'media-session/suspend-node.c',
   c_args : [ '-D_GNU_SOURCE' ],
-  install: false,
+  install: true,
   dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib],
 )
 

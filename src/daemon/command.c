@@ -223,7 +223,7 @@ execute_command_exec(struct pw_command *command, struct pw_context *context, cha
 
 	if (pid == 0) {
 		pw_log_info("exec %s", command->args[1]);
-		res = execv(command->args[1], command->args);
+		res = execvp(command->args[1], command->args);
 		if (res == -1) {
 			res = -errno;
 			asprintf(err, "'%s': %m", command->args[1]);

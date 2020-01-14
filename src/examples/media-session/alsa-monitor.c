@@ -484,7 +484,8 @@ static void sync_complete_done(void *data, int seq)
 	spa_hook_remove(&device->sync_listener);
 	device->seq = 0;
 
-	rd_device_complete_release(device->reserve, true);
+	if (device->reserve)
+		rd_device_complete_release(device->reserve, true);
 
 	add_jack_timeout(impl);
 }
@@ -617,7 +618,8 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 			&device->listener,
 			&device_events, device);
 
-	if ((card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
+	if (impl->conn &&
+	    (card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		const char *reserve;
 
 		pw_properties_setf(device->props, "api.dbus.ReserveDevice1", "Audio%s", card);
@@ -758,6 +760,7 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 		pw_log_warn("no dbus connection, device reservation disabled");
 	else
 		pw_log_debug("got dbus connection %p", impl->conn);
+
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {

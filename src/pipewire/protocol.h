@@ -54,6 +54,7 @@ struct pw_protocol_client {
 	int (*steal_fd) (struct pw_protocol_client *client);
 	void (*disconnect) (struct pw_protocol_client *client);
 	void (*destroy) (struct pw_protocol_client *client);
+	int (*set_paused) (struct pw_protocol_client *client, bool paused);
 };
 
 #define pw_protocol_client_connect(c,p,cb,d)	((c)->connect(c,p,cb,d))
@@ -61,6 +62,7 @@ struct pw_protocol_client {
 #define pw_protocol_client_steal_fd(c)		((c)->steal_fd(c))
 #define pw_protocol_client_disconnect(c)	((c)->disconnect(c))
 #define pw_protocol_client_destroy(c)		((c)->destroy(c))
+#define pw_protocol_client_set_paused(c,p)	((c)->set_paused(c,p))
 
 struct pw_protocol_server {
 	struct spa_list link;		/**< link in protocol server_list */

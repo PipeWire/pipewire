@@ -528,6 +528,10 @@ pw_context_connect_self(struct pw_context *context,	/**< a \ref pw_context to co
   * will be disconnected after this call. */
 int pw_core_steal_fd(struct pw_core *core);
 
+/** Pause or resume the core. When the core is paused, no new events
+ *  will be dispatched until the core is resumed again. */
+int pw_core_set_paused(struct pw_core *core, bool paused);
+
 /** disconnect and destroy a core */
 int pw_core_disconnect(struct pw_core *core);
 

@@ -433,6 +433,12 @@ int pw_core_steal_fd(struct pw_core *core)
 }
 
 SPA_EXPORT
+int pw_core_set_paused(struct pw_core *core, bool paused)
+{
+	return pw_protocol_client_set_paused(core->conn, paused);
+}
+
+SPA_EXPORT
 struct pw_mempool * pw_core_get_mempool(struct pw_core *core)
 {
 	return core->pool;

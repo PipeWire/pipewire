@@ -98,6 +98,7 @@ struct impl {
 
 	struct pw_core *monitor_core;
 	struct spa_hook monitor_listener;
+	int monitor_seq;
 
 	struct pw_core *policy_core;
 	struct spa_hook policy_listener;
@@ -953,7 +954,8 @@ static void bound_proxy(void *data, uint32_t id)
 	struct sm_object *obj = data;
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
 
-	pw_log_debug("bound %p proxy %p id:%d->%d", obj, obj->proxy, obj->id, id);
+	pw_log_debug("bound %p proxy %p handle %p id:%d->%d",
+			obj, obj->proxy, obj->handle, obj->id, id);
 
 	if (obj->id == SPA_ID_INVALID)
 		add_object(impl, obj, id);
@@ -1256,14 +1258,28 @@ static const struct pw_registry_events registry_events = {
         .global_remove = registry_global_remove,
 };
 
+static void monitor_sync(struct impl *impl)
+{
+	pw_core_set_paused(impl->policy_core, true);
+	impl->monitor_seq = pw_core_sync(impl->monitor_core, 0, impl->monitor_seq);
+	pw_log_debug(NAME " %p: monitor sync start %d", impl, impl->monitor_seq);
+}
+
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		const char *type, const struct spa_dict *props,
 		void *object, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct pw_proxy *handle;
+
 	pw_log_debug(NAME " %p: object %s %p", impl, type, object);
-	return pw_core_export(impl->monitor_core, type,
+
+	handle = pw_core_export(impl->monitor_core, type,
 			props, object, user_data_size);
+
+	monitor_sync(impl);
+
+	return handle;
 }
 
 struct sm_node *sm_media_session_export_node(struct sm_media_session *sess,
@@ -1279,6 +1295,8 @@ struct sm_node *sm_media_session_export_node(struct sm_media_session *sess,
 			props, object, sizeof(struct sm_node));
 
 	node = (struct sm_node *) create_object(impl, NULL, handle, props);
+
+	monitor_sync(impl);
 
 	return node;
 }
@@ -1296,6 +1314,8 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 			props, object, sizeof(struct sm_device));
 
 	device = (struct sm_device *) create_object(impl, NULL, handle, props);
+
+	monitor_sync(impl);
 
 	return device;
 }
@@ -1521,6 +1541,21 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 	return res;
 }
 
+static void monitor_core_done(void *data, uint32_t id, int seq)
+{
+	struct impl *impl = data;
+
+	if (seq == impl->monitor_seq) {
+		pw_log_debug(NAME " %p: monitor sync stop %d", impl, seq);
+		pw_core_set_paused(impl->policy_core, false);
+	}
+}
+
+static const struct pw_core_events monitor_core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.done = monitor_core_done,
+};
+
 static int start_session(struct impl *impl)
 {
 	impl->monitor_core = pw_context_connect(impl->this.context, NULL, 0);
@@ -1528,6 +1563,11 @@ static int start_session(struct impl *impl)
 		pw_log_error("can't start monitor: %m");
 		return -errno;
 	}
+
+	pw_core_add_listener(impl->monitor_core,
+			&impl->monitor_listener,
+			&monitor_core_events, impl);
+
 	return 0;
 }
 
@@ -1584,7 +1624,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 }
 
 
-static const struct pw_core_events core_events = {
+static const struct pw_core_events policy_core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.info = core_info,
 	.done = core_done,
@@ -1613,7 +1653,7 @@ static int start_policy(struct impl *impl)
 
 	pw_core_add_listener(impl->policy_core,
 			&impl->policy_listener,
-			&core_events, impl);
+			&policy_core_events, impl);
 	pw_proxy_add_listener((struct pw_proxy*)impl->policy_core,
 			&impl->proxy_policy_listener,
 			&proxy_core_events, impl);

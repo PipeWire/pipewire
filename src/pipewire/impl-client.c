@@ -593,6 +593,8 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 			def->permissions = new_perm;
 
 			spa_list_for_each(global, &context->global_list, link) {
+				if (global->id == client->info.id)
+					continue;
 				p = find_permission(client, global->id);
 				if (p->id != SPA_ID_INVALID)
 					continue;

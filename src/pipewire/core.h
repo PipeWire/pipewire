@@ -42,6 +42,9 @@ struct pw_core;
 #define PW_VERSION_REGISTRY	3
 struct pw_registry;
 
+/* default ID for the core object after connect */
+#define PW_ID_CORE		0
+
 /**  The core information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_core_info {
 	uint32_t id;			/**< id of the global */
@@ -494,7 +497,8 @@ pw_registry_bind(struct pw_registry *registry,
 
 
 /** Connect to a PipeWire instance \memberof pw_core
- * \return a pw_core on success or NULL with errno set on error */
+ * \return a pw_core on success or NULL with errno set on error. The core
+ * will have an id of PW_ID_CORE (0) */
 struct pw_core *
 pw_context_connect(struct pw_context *context,		/**< a \ref pw_context */
 	      struct pw_properties *properties,	/**< optional properties, ownership of
@@ -531,7 +535,8 @@ int pw_core_disconnect(struct pw_core *core);
  * constructed */
 void *pw_core_get_user_data(struct pw_core *core);
 
-/** Get the client proxy */
+/** Get the client proxy of the connected core. This will have the id
+ * of PW_ID_CLIENT (1) */
 struct pw_client * pw_core_get_client(struct pw_core *core);
 
 /** Get the context object used to created this core */

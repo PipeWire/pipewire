@@ -40,6 +40,9 @@ extern "C" {
 #define PW_VERSION_CLIENT		3
 struct pw_client;
 
+/* default ID of the current client after connect */
+#define PW_ID_CLIENT			1
+
 /** The client information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_client_info {
 	uint32_t id;			/**< id of the global */

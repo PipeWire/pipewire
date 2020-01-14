@@ -28,6 +28,7 @@ endif
 benchmark_apps = [
 	'stress-ringbuffer',
 	'benchmark-pod',
+	'benchmark-dict',
 ]
 
 foreach a : benchmark_apps

@@ -60,6 +60,8 @@ struct impl {
 # elif defined (__arm__) || defined (__aarch64__)
 #include "cpu-arm.c"
 #define init(t)	arm_init(t)
+# else
+#define init(t)
 #endif
 
 static uint32_t

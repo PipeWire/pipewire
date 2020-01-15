@@ -333,7 +333,7 @@ static inline bool spa_pod_parser_can_collect(const struct spa_pod *pod, char ty
 do {											\
 	switch (_type) {								\
 	case 'b':									\
-		*va_arg(args, int*) = SPA_POD_VALUE(struct spa_pod_bool, pod);		\
+		*va_arg(args, bool*) = SPA_POD_VALUE(struct spa_pod_bool, pod);		\
 		break;									\
 	case 'I':									\
 	case 'i':									\

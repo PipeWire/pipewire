@@ -459,7 +459,7 @@ static inline uint32_t spa_choice_from_id(char id)
 do {										\
 	switch (type) {								\
 	case 'b':								\
-		spa_pod_builder_bool(builder, va_arg(args, int));		\
+		spa_pod_builder_bool(builder, !!va_arg(args, int));		\
 		break;								\
 	case 'I':								\
 		spa_pod_builder_id(builder, va_arg(args, uint32_t));		\

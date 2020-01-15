@@ -313,7 +313,7 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 
 	if (buf->first) {
 		buf->first = false;
-		if (p[2] != 0) {
+		if (p[3] != 0) {
 			pw_log_warn("old version detected");
 			impl->version = 0;
 			impl->hdr_size = 8;

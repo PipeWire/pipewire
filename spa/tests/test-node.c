@@ -42,6 +42,7 @@ static void test_io_abi(void)
 	spa_assert(SPA_IO_RateMatch == 8);
 	spa_assert(SPA_IO_Memory == 9);
 
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct spa_io_buffers) == 8);
 	spa_assert(sizeof(struct spa_io_memory) == 16);
 	spa_assert(sizeof(struct spa_io_range) == 16);
@@ -50,17 +51,31 @@ static void test_io_abi(void)
 	spa_assert(sizeof(struct spa_io_sequence) == 16);
 	spa_assert(sizeof(struct spa_io_segment_bar) == 64);
 	spa_assert(sizeof(struct spa_io_segment_video) == 80);
-	fprintf(stderr, "%zd", sizeof(struct spa_io_segment));
 	spa_assert(sizeof(struct spa_io_segment) == 184);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_buffers));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_memory));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_range));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_clock));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_latency));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_sequence));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_segment_bar));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_segment_video));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_segment));
+#endif
 
 	/* position state */
 	spa_assert(SPA_IO_POSITION_STATE_STOPPED == 0);
 	spa_assert(SPA_IO_POSITION_STATE_STARTING == 1);
 	spa_assert(SPA_IO_POSITION_STATE_RUNNING == 2);
 
-	fprintf(stderr, "%zd", sizeof(struct spa_io_position));
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct spa_io_position) == 1688);
 	spa_assert(sizeof(struct spa_io_rate_match) == 48);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_position));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_io_rate_match));
+#endif
 }
 
 static void test_command_abi(void)
@@ -195,11 +210,20 @@ static void test_node_abi(void)
 	spa_assert(SPA_NODE_METHOD_NUM == 15);
 	spa_assert(sizeof(m) == sizeof(methods));
 
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct spa_node_info) == 48);
 	spa_assert(sizeof(struct spa_port_info) == 48);
 
 	spa_assert(sizeof(struct spa_result_node_error) == 8);
 	spa_assert(sizeof(struct spa_result_node_params) == 24);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct spa_node_info));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_port_info));
+
+	fprintf(stderr, "%zd\n", sizeof(struct spa_result_node_error));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_result_node_params));
+#endif
+
 }
 
 int main(int argc, char *argv[])

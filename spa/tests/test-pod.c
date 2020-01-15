@@ -35,6 +35,7 @@
 static void test_abi(void)
 {
 	/* pod */
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct spa_pod) == 8);
 	spa_assert(sizeof(struct spa_pod_bool) == 16);
 	spa_assert(sizeof(struct spa_pod_id) == 16);
@@ -85,6 +86,7 @@ static void test_abi(void)
 	/* parser */
 	spa_assert(sizeof(struct spa_pod_parser_state) == 16);
 	spa_assert(sizeof(struct spa_pod_parser) == 32);
+#endif
 
 }
 

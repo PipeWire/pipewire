@@ -59,8 +59,13 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, process);
 	TEST_FUNC(ev, test, drained);
 
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct pw_buffer) == 24);
 	spa_assert(sizeof(struct pw_time) == 40);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct pw_buffer));
+	fprintf(stderr, "%zd\n", sizeof(struct pw_time));
+#endif
 
 	spa_assert(PW_VERSION_STREAM_EVENTS == 0);
 	spa_assert(sizeof(ev) == sizeof(test));
@@ -142,10 +147,7 @@ static void test_create(void)
 	struct pw_time tm;
 
 	loop = pw_main_loop_new(NULL);
-	context = pw_context_new(pw_main_loop_get_loop(loop),
-			pw_properties_new(
-				PW_KEY_CORE_DAEMON, "1",
-				NULL), 12);
+	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
 	spa_assert(context != NULL);
 	core = pw_context_connect_self(context, NULL, 0);
 	spa_assert(core != NULL);
@@ -194,10 +196,7 @@ static void test_properties(void)
 	struct spa_dict_item items[3];
 
 	loop = pw_main_loop_new(NULL);
-	context = pw_context_new(pw_main_loop_get_loop(loop),
-			pw_properties_new(
-				PW_KEY_CORE_DAEMON, "1",
-				NULL), 12);
+	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
 	spa_assert(context != NULL);
 	core = pw_context_connect_self(context, NULL, 0);
 	spa_assert(core != NULL);

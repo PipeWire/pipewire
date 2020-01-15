@@ -63,6 +63,7 @@ static void test_abi(void)
 		spa_assert(f.denom == 125);
 	}
 
+#if defined(__x86_64__)
 	/* dict */
 	spa_assert(sizeof(struct spa_dict_item) == 16);
 	spa_assert(sizeof(struct spa_dict) == 16);
@@ -73,6 +74,7 @@ static void test_abi(void)
 
 	/* list */
 	spa_assert(sizeof(struct spa_list) == 16);
+#endif
 
 	/* ringbuffer */
 	spa_assert(sizeof(struct spa_ringbuffer) == 8);

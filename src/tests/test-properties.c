@@ -26,7 +26,11 @@
 
 static void test_abi(void)
 {
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct pw_properties) == 24);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct pw_properties));
+#endif
 }
 
 static void test_empty(void)

@@ -36,9 +36,15 @@ static void test_abi(void)
 	spa_assert(SPA_DATA_MemId == 4);
 	spa_assert(SPA_DATA_LAST == 5);
 
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct spa_chunk) == 16);
 	spa_assert(sizeof(struct spa_data) == 40);
 	spa_assert(sizeof(struct spa_buffer) == 24);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct spa_chunk));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_data));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_buffer));
+#endif
 
 	/* meta */
 	spa_assert(SPA_META_Invalid == 0);
@@ -50,13 +56,19 @@ static void test_abi(void)
 	spa_assert(SPA_META_Control == 6);
 	spa_assert(SPA_META_LAST == 7);
 
+#if defined(__x86_64__)
 	spa_assert(sizeof(struct spa_meta) == 16);
-	fprintf(stderr, "%zd", sizeof(struct spa_meta_header));
 	spa_assert(sizeof(struct spa_meta_header) == 32);
 	spa_assert(sizeof(struct spa_meta_region) == 16);
 	spa_assert(sizeof(struct spa_meta_bitmap) == 20);
 	spa_assert(sizeof(struct spa_meta_cursor) == 28);
-
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct spa_meta));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_header));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_region));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_bitmap));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_cursor));
+#endif
 }
 
 static void test_alloc(void)

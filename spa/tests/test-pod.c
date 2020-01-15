@@ -968,7 +968,8 @@ static void test_varargs2(void)
 			break;
 		case 11:
 			spa_assert(prop->key == 12);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 32);
+			spa_assert(SPA_POD_PROP_SIZE(prop) == (sizeof(struct spa_pod_prop) +
+					sizeof(struct spa_pod_pointer_body)));
 			spa_assert(spa_pod_get_pointer(&prop->value, &val.ptype, &val.p) == 0);
 			spa_assert(val.ptype == SPA_TYPE_Object);
 			spa_assert(val.p == &b);

@@ -51,7 +51,7 @@ pipewire_pulseaudio = shared_library('pulse',
     link_args : vflag,
     include_directories : [configinc],
     dependencies : [pipewire_dep, pulseaudio_dep, mathlib],
-    install : false,
+    install : true,
 )
 
 pipewire_pulseaudio = shared_library('pulse-mainloop-glib',
@@ -61,5 +61,5 @@ pipewire_pulseaudio = shared_library('pulse-mainloop-glib',
     link_args : vflag,
     include_directories : [configinc],
     dependencies : [pipewire_dep, pulseaudio_dep, mathlib, glib_dep],
-    install : false,
+    install : true,
 )

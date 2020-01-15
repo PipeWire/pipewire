@@ -837,7 +837,7 @@ static void client_event_permissions(void *object, uint32_t index,
 			rd->id, data->global->id, index);
 
 	for (i = 0; i < n_permissions; i++) {
-		if (permissions[i].id == SPA_ID_INVALID)
+		if (permissions[i].id == PW_ID_ANY)
 			fprintf(stdout, "  default:");
 		else
 			fprintf(stdout, "  %u:", permissions[i].id);
@@ -1486,7 +1486,6 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 		if (!bind_global(rd, global, error))
 			return false;
 	}
-
 
 	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), atoi(a[2]));
 

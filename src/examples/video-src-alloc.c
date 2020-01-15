@@ -401,7 +401,7 @@ int main(int argc, char *argv[])
 	 * the server.  */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  SPA_ID_INVALID,
+			  PW_ID_ANY,
 			  PW_STREAM_FLAG_DRIVER |
 			  PW_STREAM_FLAG_ALLOC_BUFFERS,
 			  params, 1);

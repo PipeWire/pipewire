@@ -612,7 +612,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pwsrc->path);
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
-                     pwsrc->path ? (uint32_t)atoi(pwsrc->path) : SPA_ID_INVALID,
+                     pwsrc->path ? (uint32_t)atoi(pwsrc->path) : PW_ID_ANY,
                      PW_STREAM_FLAG_AUTOCONNECT,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);

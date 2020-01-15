@@ -941,13 +941,13 @@ static int create_stream(pa_stream_direction_t direction,
 	if (direction == PA_STREAM_RECORD)
 		devid = s->direct_on_input;
 	else
-		devid = SPA_ID_INVALID;
+		devid = PW_ID_ANY;
 
 	if (dev == NULL) {
 		if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 			devid = atoi(str);
 	}
-	else if (devid == SPA_ID_INVALID) {
+	else if (devid == PW_ID_ANY) {
 		uint32_t mask;
 
 		if (direction == PA_STREAM_PLAYBACK)

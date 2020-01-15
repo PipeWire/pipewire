@@ -1641,7 +1641,7 @@ pw_impl_node_find_port(struct pw_impl_node *node, enum pw_direction direction, u
 		ports = &node->output_ports;
 	}
 
-	if (port_id != SPA_ID_INVALID)
+	if (port_id != PW_ID_ANY)
 		port = pw_map_lookup(portmap, port_id);
 	else {
 		port = NULL;

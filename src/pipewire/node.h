@@ -150,7 +150,7 @@ struct pw_node_methods {
 	 * param event will be emited.
 	 *
 	 * \param seq a sequence number to place in the reply
-	 * \param id the parameter id to enum or SPA_ID_INVALID for all
+	 * \param id the parameter id to enum or PW_ID_ANY for all
 	 * \param start the start index or 0 for the first param
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL

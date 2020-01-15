@@ -159,7 +159,7 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 			   void *data);
 
 /** Find the port with direction and port_id or NULL when not found. Passing
- * SPA_ID_INVALID for port_id will return any port, preferably an unlinked one. */
+ * PW_ID_ANY for port_id will return any port, preferably an unlinked one. */
 struct pw_impl_port *
 pw_impl_node_find_port(struct pw_impl_node *node, enum pw_direction direction, uint32_t port_id);
 

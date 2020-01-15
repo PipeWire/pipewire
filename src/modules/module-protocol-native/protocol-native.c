@@ -1548,7 +1548,7 @@ static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_EVENT_PERMISSIONS, NULL);
 
 	for (i = 0; i < n_permissions; i++) {
-		if (permissions[i].permissions != SPA_ID_INVALID)
+		if (permissions[i].permissions != PW_PERM_INVALID)
 			n++;
 	}
 
@@ -1558,7 +1558,7 @@ static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_
 	spa_pod_builder_int(b, n);
 
 	for (i = 0; i < n_permissions; i++) {
-		if (permissions[i].permissions == SPA_ID_INVALID)
+		if (permissions[i].permissions == PW_PERM_INVALID)
 			continue;
 		spa_pod_builder_int(b, permissions[i].id);
 		spa_pod_builder_int(b, permissions[i].permissions);

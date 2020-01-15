@@ -149,7 +149,7 @@ static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_directi
 	struct pw_context *context = pw_impl_node_get_context(node);
 	int res;
 
-	p = pw_impl_node_find_port(node, direction, SPA_ID_INVALID);
+	p = pw_impl_node_find_port(node, direction, PW_ID_ANY);
 
 	if (p == NULL || pw_impl_port_is_linked(p)) {
 		uint32_t port_id;
@@ -227,7 +227,7 @@ static void *create_object(void *_data,
 
 	input_node = pw_global_get_object(global);
 
-	if (output_port_id == SPA_ID_INVALID) {
+	if (output_port_id == PW_ID_ANY) {
 		outport = get_port(output_node, SPA_DIRECTION_OUTPUT);
 	}
 	else {
@@ -240,7 +240,7 @@ static void *create_object(void *_data,
 	if (outport == NULL)
 		goto error_output_port;
 
-	if (input_port_id == SPA_ID_INVALID)
+	if (input_port_id == PW_ID_ANY)
 		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	else {
 		global = pw_context_find_global(context, input_port_id);

@@ -45,6 +45,9 @@ struct pw_registry;
 /* default ID for the core object after connect */
 #define PW_ID_CORE		0
 
+/* invalid ID that matches any object when used for permissions */
+#define PW_ID_ANY		(uint32_t)(0xffffffff)
+
 /**  The core information. Extra information can be added in later versions \memberof pw_introspect */
 struct pw_core_info {
 	uint32_t id;			/**< id of the global */

@@ -298,9 +298,9 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 int
 pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 		  enum pw_direction direction,		/**< the stream direction */
-		  uint32_t target_id,			/**< the target node to connect to or
-							  *  SPA_ID_INVALID to let the manager
-							  *  select a node. */
+		  uint32_t target_id,			/**< the target object id to connect to or
+							  *  PW_ID_ANY to let the manager
+							  *  select a target. */
 		  enum pw_stream_flags flags,		/**< stream flags */
 		  const struct spa_pod **params,	/**< an array with params. The params
 							  *  should ideally contain supported

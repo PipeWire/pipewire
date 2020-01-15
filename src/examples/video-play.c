@@ -442,7 +442,7 @@ int main(int argc, char *argv[])
 	 */
 	if ((res = pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
-			  data.path ? (uint32_t)atoi(data.path) : SPA_ID_INVALID,
+			  data.path ? (uint32_t)atoi(data.path) : PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |	/* try to automatically connect this stream */
 			  PW_STREAM_FLAG_INACTIVE |	/* we will activate ourselves */
 			  PW_STREAM_FLAG_EXCLUSIVE |	/* require exclusive access */

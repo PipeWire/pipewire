@@ -486,11 +486,9 @@ static void set_permissions(struct data *data)
 
 	/* an example, set specific permissions on one object, this is the
 	 * core object. */
-	permissions[0].id = 0;
-	permissions[0].permissions = PW_PERM_R | PW_PERM_X;
+	permissions[0] = PW_PERMISSION_INIT(PW_ID_CORE, PW_PERM_R | PW_PERM_X);
 	/* remove WX from all other objects */
-	permissions[1].id = SPA_ID_INVALID;
-	permissions[1].permissions = PW_PERM_R;
+	permissions[1] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_R);
 
 	pw_client_update_permissions(
 			pw_core_get_client(data->core),

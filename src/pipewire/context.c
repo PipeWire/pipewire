@@ -455,7 +455,7 @@ struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id
  *
  * \param context a context
  * \param other_port a port to find a link with
- * \param id the id of a port or SPA_ID_INVALID
+ * \param id the id of a port or PW_ID_ANY
  * \param props extra properties
  * \param n_format_filters number of filters
  * \param format_filters array of format filters
@@ -476,7 +476,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 	bool have_id;
 	struct pw_impl_node *n;
 
-	have_id = id != SPA_ID_INVALID;
+	have_id = id != PW_ID_ANY;
 
 	pw_log_debug(NAME" %p: id:%u", context, id);
 
@@ -500,7 +500,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 				best =
 				    pw_impl_node_find_port(n,
 						pw_direction_reverse(other_port->direction),
-						SPA_ID_INVALID);
+						PW_ID_ANY);
 				if (best)
 					break;
 			}
@@ -512,7 +512,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 
 			p = pw_impl_node_find_port(n,
 					pw_direction_reverse(other_port->direction),
-					SPA_ID_INVALID);
+					PW_ID_ANY);
 			if (p == NULL)
 				continue;
 

@@ -174,7 +174,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 
 granted:
 	pw_log_debug("module %p: client %p access granted", impl, client);
-	permissions[0] = PW_PERMISSION_INIT(-1, PW_PERM_RWX);
+	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
 	pw_impl_client_update_permissions(client, 1, permissions);
 	return;
 

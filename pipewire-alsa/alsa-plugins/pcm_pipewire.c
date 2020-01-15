@@ -801,14 +801,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	else
 		pw->node_name = strdup(node_name);
 
-	pw->target = SPA_ID_INVALID;
+	pw->target = PW_ID_ANY;
 	if (str != NULL)
 		pw->target = atoi(str);
 	else {
 		if (stream == SND_PCM_STREAM_PLAYBACK)
-			pw->target = playback_node ? (uint32_t)atoi(playback_node) : SPA_ID_INVALID;
+			pw->target = playback_node ? (uint32_t)atoi(playback_node) : PW_ID_ANY;
 		else
-			pw->target = capture_node ? (uint32_t)atoi(capture_node) : SPA_ID_INVALID;
+			pw->target = capture_node ? (uint32_t)atoi(capture_node) : PW_ID_ANY;
 	}
 
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);

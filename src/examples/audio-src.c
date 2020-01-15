@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 	 * called in a realtime thread. */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  argc > 1 ? (uint32_t)atoi(argv[1]) : SPA_ID_INVALID,
+			  argc > 1 ? (uint32_t)atoi(argv[1]) : PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
 			  PW_STREAM_FLAG_RT_PROCESS,

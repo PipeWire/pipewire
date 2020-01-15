@@ -311,7 +311,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  SPA_ID_INVALID,
+			  PW_ID_ANY,
 			  PW_STREAM_FLAG_DRIVER |
 			  PW_STREAM_FLAG_MAP_BUFFERS,
 			  params, 1);

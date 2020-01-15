@@ -56,14 +56,14 @@ find_permission(struct pw_impl_client *client, uint32_t id)
 	struct pw_permission *p;
 	uint32_t idx = id + 1;
 
-	if (id == SPA_ID_INVALID)
+	if (id == PW_ID_ANY)
 		goto do_default;
 
 	if (!pw_array_check_index(&impl->permissions, idx, struct pw_permission))
 		goto do_default;
 
 	p = pw_array_get_unchecked(&impl->permissions, idx, struct pw_permission);
-	if (p->permissions == SPA_ID_INVALID)
+	if (p->permissions == PW_PERM_INVALID)
 		goto do_default;
 
 	return p;
@@ -88,8 +88,7 @@ static struct pw_permission *ensure_permissions(struct pw_impl_client *client, u
 			return NULL;
 
 		for (i = 0; i < diff; i++) {
-			p[i].id = len + i - 1;
-			p[i].permissions = SPA_ID_INVALID;
+			p[i] = PW_PERMISSION_INIT(len + i - 1, PW_PERM_INVALID);
 		}
 	}
 	p = pw_array_get_unchecked(&impl->permissions, idx, struct pw_permission);
@@ -258,8 +257,8 @@ context_global_removed(void *data, struct pw_global *global)
 
 	p = find_permission(client, global->id);
 	pw_log_debug(NAME" %p: global %d removed, %p", client, global->id, p);
-	if (p->id != SPA_ID_INVALID)
-		p->permissions = SPA_ID_INVALID;
+	if (p->id != PW_ID_ANY)
+		p->permissions = PW_PERM_INVALID;
 }
 
 static const struct pw_context_events context_events = {
@@ -313,7 +312,7 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 		res = -errno;
 		goto error_clear_array;
 	}
-	p->id = SPA_ID_INVALID;
+	p->id = PW_ID_ANY;
 	p->permissions = 0;
 
 	this->pool = pw_mempool_new(NULL);
@@ -572,7 +571,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 	struct pw_permission *def;
 	uint32_t i;
 
-	if ((def = find_permission(client, SPA_ID_INVALID)) == NULL)
+	if ((def = find_permission(client, PW_ID_ANY)) == NULL)
 		return -EIO;
 
 	for (i = 0; i < n_permissions; i++) {
@@ -580,7 +579,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 		uint32_t old_perm, new_perm;
 		struct pw_global *global;
 
-		if (permissions[i].id == SPA_ID_INVALID) {
+		if (permissions[i].id == PW_ID_ANY) {
 			old_perm = def->permissions;
 			new_perm = permissions[i].permissions;
 
@@ -596,7 +595,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 				if (global->id == client->info.id)
 					continue;
 				p = find_permission(client, global->id);
-				if (p->id != SPA_ID_INVALID)
+				if (p->id != PW_ID_ANY)
 					continue;
 				pw_global_update_permissions(global, client, old_perm, new_perm);
 			}
@@ -614,7 +613,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 				pw_log_warn(NAME" %p: can't ensure permission: %m", client);
 				continue;
 			}
-			old_perm = p->permissions == SPA_ID_INVALID ? def->permissions : p->permissions;
+			old_perm = p->permissions == PW_PERM_INVALID ? def->permissions : p->permissions;
 			new_perm = permissions[i].permissions;
 
 			if (context->current_client == client)

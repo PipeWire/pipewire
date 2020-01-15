@@ -51,8 +51,10 @@ extern "C" {
 #define PW_PERM_IS_W(p) (((p)&PW_PERM_W) == PW_PERM_W)
 #define PW_PERM_IS_X(p) (((p)&PW_PERM_X) == PW_PERM_X)
 
+#define PW_PERM_INVALID	(uint32_t)(0xffffffff)
+
 struct pw_permission {
-	uint32_t id;		/**< id of object, SPA_ID_INVALID for default permission */
+	uint32_t id;		/**< id of object, PW_ID_ANY for default permission */
 	uint32_t permissions;	/**< bitmask of above permissions */
 };
 

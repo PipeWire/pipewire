@@ -1371,7 +1371,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->disconnecting = false;
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
-	if (target_id != SPA_ID_INVALID)
+	if (target_id != PW_ID_ANY)
 		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "1");

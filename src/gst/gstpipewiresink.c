@@ -536,7 +536,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
     pw_stream_connect (pwsink->stream,
                           PW_DIRECTION_OUTPUT,
-                          pwsink->path ? (uint32_t)atoi(pwsink->path) : SPA_ID_INVALID,
+                          pwsink->path ? (uint32_t)atoi(pwsink->path) : PW_ID_ANY,
                           flags,
                           (const struct spa_pod **) possible->pdata,
                           possible->len);

@@ -824,8 +824,7 @@ static int pw_protocol_native_connect_internal(struct pw_protocol_client *client
 		pw_log_error("server %p: failed to create client: %m", s);
 		goto error_close;
 	}
-	permissions[0].id = SPA_ID_INVALID;
-	permissions[0].permissions = PW_PERM_RWX;
+	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
 	pw_impl_client_update_permissions(c->client, 1, permissions);
 
 	res = pw_protocol_client_connect_fd(client, sv[1], true);

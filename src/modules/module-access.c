@@ -164,6 +164,8 @@ context_check_access(void *data, struct pw_impl_client *client)
 		if (res < 0) {
 			pw_log_warn("module %p: client %p sandbox check failed: %s",
 				impl, client, spa_strerror(res));
+			if (res == -EACCES)
+				goto granted;
 		}
 		else if (res > 0) {
 			pw_log_debug("module %p: sandboxed client %p added", impl, client);

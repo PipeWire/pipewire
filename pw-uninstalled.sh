@@ -2,10 +2,13 @@
 
 set -e
 
-while getopts ":b:" opt; do
+while getopts ":b:v:" opt; do
 	case ${opt} in
 		b)
 			BUILDDIR=${OPTARG}
+			;;
+		v)
+			VERSION=${OPTARG}
 			;;
 		\?)
 			echo "Invalid option: -${OPTARG}"
@@ -17,6 +20,12 @@ while getopts ":b:" opt; do
 			;;
 	esac
 done
+
+if [ ! -z "${VERSION}" ]; then
+  ln -frs ${BUILDDIR}/pipewire-pulseaudio/src/libpulse-pw.so.${VERSION} ${BUILDDIR}/pipewire-pulseaudio/src/libpulse.so.0
+  ln -frs ${BUILDDIR}/pipewire-pulseaudio/src/libpulse-mainloop-glib-pw.so.${VERSION} ${BUILDDIR}/pipewire-pulseaudio/src/libpulse-mainloop-glib.so.0
+  ln -frs ${BUILDDIR}/pipewire-jack/src/libjack-pw.so.${VERSION} ${BUILDDIR}/pipewire-jack/src/libjack.so.0
+fi
 
 if [ -z "${BUILDDIR}" ]; then
 	BUILDDIR=${PWD}/build

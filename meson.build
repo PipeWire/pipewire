@@ -250,4 +250,5 @@ if get_option('man')
 endif
 
 setenv = find_program('pw-uninstalled.sh')
-run_target('uninstalled', command : [setenv, '-b@0@'.format(meson.build_root())])
+run_target('uninstalled', command : [setenv,
+    '-b@0@'.format(meson.build_root()), '-v@0@'.format(pipewire_version)])

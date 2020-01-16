@@ -27,10 +27,13 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#include <ctype.h>
+#include <alloca.h>
 
 #include <spa/utils/result.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
+#include <spa/utils/keys.h>
 
 #include <pipewire/impl.h>
 
@@ -204,6 +207,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error);
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
+static bool do_dump(struct data *data, const char *cmd, char *args, char **error);
 
 static struct command command_list[] = {
 	{ "help", "h", "Show this help", do_help },
@@ -223,6 +227,7 @@ static struct command command_list[] = {
 	{ "enum-params", "e", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
 	{ "permissions", "sp", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
 	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
+	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand", do_dump },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -1539,6 +1544,1099 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 			0, UINT32_MAX);
 
 	return true;
+}
+
+static const char *
+pw_interface_short(const char *type)
+{
+	size_t ilen;
+
+	ilen = strlen(PW_TYPE_INFO_INTERFACE_BASE);
+
+	if (!type || strlen(type) <= ilen ||
+	    memcmp(type, PW_TYPE_INFO_INTERFACE_BASE, ilen))
+		return NULL;
+
+	return type + ilen;
+}
+
+static struct global *
+obj_global(struct remote_data *rd, uint32_t id)
+{
+	struct global *global;
+	struct proxy_data *pd;
+
+	if (!rd)
+		return NULL;
+
+	global = pw_map_lookup(&rd->globals, id);
+	if (!global)
+		return NULL;
+
+	pd = pw_proxy_get_user_data(global->proxy);
+	if (!pd || !pd->info)
+		return NULL;
+
+	return global;
+}
+
+static struct spa_dict *
+global_props(struct global *global)
+{
+	struct proxy_data *pd;
+
+	if (!global)
+		return NULL;
+
+	pd = pw_proxy_get_user_data(global->proxy);
+	if (!pd || !pd->info)
+		return NULL;
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Core))
+		return ((struct pw_core_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Module))
+		return ((struct pw_module_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
+		return ((struct pw_device_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
+		return ((struct pw_node_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
+		return ((struct pw_port_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory))
+		return ((struct pw_factory_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Client))
+		return ((struct pw_client_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Link))
+		return ((struct pw_link_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Session))
+		return ((struct pw_session_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
+		return ((struct pw_endpoint_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
+		return ((struct pw_endpoint_stream_info *)pd->info)->props;
+
+	return NULL;
+}
+
+static struct spa_dict *
+obj_props(struct remote_data *rd, uint32_t id)
+{
+	struct global *global;
+
+	if (!rd)
+		return NULL;
+
+	global = obj_global(rd, id);
+	if (!global)
+		return NULL;
+	return global_props(global);
+}
+
+static const char *
+global_lookup(struct global *global, const char *key)
+{
+	struct spa_dict *dict;
+
+	dict = global_props(global);
+	if (!dict)
+		return NULL;
+	return spa_dict_lookup(dict, key);
+}
+
+static const char *
+obj_lookup(struct remote_data *rd, uint32_t id, const char *key)
+{
+	struct spa_dict *dict;
+
+	dict = obj_props(rd, id);
+	if (!dict)
+		return NULL;
+	return spa_dict_lookup(dict, key);
+}
+
+static int
+children_of(struct remote_data *rd, uint32_t parent_id,
+	    const char *child_type, uint32_t **children)
+{
+	const char *parent_type;
+	union pw_map_item *item;
+	struct global *global;
+	struct proxy_data *pd;
+	const char *parent_key = NULL, *child_key = NULL;
+	const char *parent_value = NULL, *child_value = NULL;
+	int pass, i, count;
+
+	if (!rd || !children)
+		return -1;
+
+	/* get the device info */
+	global = obj_global(rd, parent_id);
+	if (!global)
+		return -1;
+	parent_type = global->type;
+	pd = pw_proxy_get_user_data(global->proxy);
+	if (!pd || !pd->info)
+		return -1;
+
+	/* supported combinations */
+	if (!strcmp(parent_type, PW_TYPE_INTERFACE_Device) &&
+	    !strcmp(child_type, PW_TYPE_INTERFACE_Node)) {
+		parent_key = PW_KEY_OBJECT_ID;
+		child_key = PW_KEY_DEVICE_ID;
+	} else if (!strcmp(parent_type, PW_TYPE_INTERFACE_Node) &&
+		   !strcmp(child_type, PW_TYPE_INTERFACE_Port)) {
+		parent_key = PW_KEY_OBJECT_ID;
+		child_key = PW_KEY_NODE_ID;
+	} else if (!strcmp(parent_type, PW_TYPE_INTERFACE_Module) &&
+		   !strcmp(child_type, PW_TYPE_INTERFACE_Factory)) {
+		parent_key = PW_KEY_OBJECT_ID;
+		child_key = PW_KEY_MODULE_ID;
+	} else if (!strcmp(parent_type, PW_TYPE_INTERFACE_Factory) &&
+		   !strcmp(child_type, PW_TYPE_INTERFACE_Device)) {
+		parent_key = PW_KEY_OBJECT_ID;
+		child_key = PW_KEY_FACTORY_ID;
+	} else
+		return -1;
+
+	/* get the parent key value */
+	if (parent_key) {
+		parent_value = global_lookup(global, parent_key);
+		if (!parent_value)
+			return -1;
+	}
+
+	count = 0;
+	*children = NULL;
+	i = 0;
+	for (pass = 1; pass <= 2; pass++) {
+		if (pass == 2) {
+			count = i;
+			if (!count)
+				return 0;
+
+			*children = malloc(sizeof(*children) * count);
+			if (!*children)
+				return -1;
+		}
+		i = 0;
+		pw_array_for_each(item, &rd->globals.items) {
+			if (pw_map_item_is_free(item))
+				continue;
+			global = item->data;
+			if (strcmp(global->type, child_type))
+				continue;
+
+			pd = pw_proxy_get_user_data(global->proxy);
+			if (!pd || !pd->info)
+				return -1;
+
+			if (child_key) {
+				/* get the device path */
+				child_value = global_lookup(global, child_key);
+				if (!child_value)
+					continue;
+			}
+
+			/* match? */
+			if (strcmp(parent_value, child_value))
+				continue;
+
+			if (*children)
+				(*children)[i] = global->id;
+			i++;
+
+		}
+	}
+
+	if (!count)
+		return 0;
+
+	return count;
+}
+
+#ifndef BIT
+#define BIT(x) (1U << (x))
+#endif
+
+enum dump_flags {
+	is_default = 0,
+	is_short = BIT(0),
+	is_deep = BIT(1),
+	is_resolve = BIT(2),
+	is_notype = BIT(3)
+};
+
+static const char *dump_types[] = {
+	PW_TYPE_INTERFACE_Core,
+	PW_TYPE_INTERFACE_Module,
+	PW_TYPE_INTERFACE_Device,
+	PW_TYPE_INTERFACE_Node,
+	PW_TYPE_INTERFACE_Port,
+	PW_TYPE_INTERFACE_Factory,
+	PW_TYPE_INTERFACE_Client,
+	PW_TYPE_INTERFACE_Link,
+	PW_TYPE_INTERFACE_Session,
+	PW_TYPE_INTERFACE_Endpoint,
+	PW_TYPE_INTERFACE_EndpointStream,
+};
+
+int dump_type_index(const char *type)
+{
+	unsigned int i;
+
+	if (!type)
+		return -1;
+
+	for (i = 0; i < SPA_N_ELEMENTS(dump_types); i++) {
+		if (!strcmp(dump_types[i], type))
+			return (int)i;
+	}
+
+	return -1;
+}
+
+static inline unsigned int dump_type_count(void)
+{
+	return SPA_N_ELEMENTS(dump_types);
+}
+
+static const char *name_to_dump_type(const char *name)
+{
+	unsigned int i;
+
+	if (!name)
+		return NULL;
+
+	for (i = 0; i < SPA_N_ELEMENTS(dump_types); i++) {
+		if (!strcmp(name, pw_interface_short(dump_types[i])))
+			return dump_types[i];
+	}
+
+	return NULL;
+}
+
+#define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
+
+#define INDENT(_level) \
+	({ \
+		int __level = (_level); \
+		char *_indent = alloca(__level + 1); \
+		memset(_indent, '\t', __level); \
+		_indent[__level] = '\0'; \
+		(const char *)_indent; \
+	})
+
+static void
+dump(struct data *data, struct global *global,
+     enum dump_flags flags, int level);
+
+static void
+dump_properties(struct data *data, struct global *global,
+		enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct spa_dict *props;
+	const struct spa_dict_item *item;
+	const char *ind;
+	int id;
+	const char *extra;
+
+	if (!global)
+		return;
+
+	props = global_props(global);
+	if (!props || !props->n_items)
+		return;
+
+	ind = INDENT(level + 2);
+	spa_dict_for_each(item, props) {
+		fprintf(stdout, "%s%s = \"%s\"",
+				ind, item->key, item->value);
+
+		extra = NULL;
+		id = -1;
+		if (!strcmp(global->type, PW_TYPE_INTERFACE_Port) && !strcmp(item->key, PW_KEY_NODE_ID)) {
+			id = atoi(item->value);
+			if (id >= 0)
+				extra = obj_lookup(rd, id, PW_KEY_NODE_NAME);
+		} else if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory) && !strcmp(item->key, PW_KEY_MODULE_ID)) {
+			id = atoi(item->value);
+			if (id >= 0)
+				extra = obj_lookup(rd, id, PW_KEY_MODULE_NAME);
+		} else if (!strcmp(global->type, PW_TYPE_INTERFACE_Device) && !strcmp(item->key, PW_KEY_FACTORY_ID)) {
+			id = atoi(item->value);
+			if (id >= 0)
+				extra = obj_lookup(rd, id, PW_KEY_FACTORY_NAME);
+		} else if (!strcmp(global->type, PW_TYPE_INTERFACE_Device) && !strcmp(item->key, PW_KEY_CLIENT_ID)) {
+			id = atoi(item->value);
+			if (id >= 0)
+				extra = obj_lookup(rd, id, PW_KEY_CLIENT_NAME);
+		}
+
+		if (extra)
+			fprintf(stdout, " (\"%s\")", extra);
+
+		fprintf(stdout, "\n");
+	}
+}
+
+static void
+dump_params(struct data *data, struct global *global,
+	    struct spa_param_info *params, uint32_t n_params,
+	    enum dump_flags flags, int level)
+{
+	uint32_t i;
+	const char *ind;
+
+	if (params == NULL || n_params == 0)
+		return;
+
+	ind = INDENT(level + 1);
+	for (i = 0; i < n_params; i++) {
+		const struct spa_type_info *type_info = spa_type_param;
+
+		fprintf(stdout, "%s  %d (%s) %c%c\n", ind,
+			params[i].id,
+			spa_debug_type_find_name(type_info, params[i].id),
+			params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
+			params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
+	}
+}
+
+
+static void
+dump_global_common(struct data *data, struct global *global,
+	    enum dump_flags flags, int level)
+{
+	const char *ind;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sid: %"PRIu32"\n", ind, global->id);
+		fprintf(stdout, "%spermissions: %c%c%c\n", ind,
+				global->permissions & PW_PERM_R ? 'r' : '-',
+				global->permissions & PW_PERM_W ? 'w' : '-',
+				global->permissions & PW_PERM_X ? 'x' : '-');
+		fprintf(stdout, "%stype: %s/%d\n", ind,
+				global->type, global->version);
+	} else {
+		ind = INDENT(level);
+		fprintf(stdout, "%s%"PRIu32":", ind, global->id);
+		if (!(flags & is_notype))
+			fprintf(stdout, " %s", pw_interface_short(global->type));
+	}
+}
+
+static bool
+dump_core(struct data *data, struct global *global,
+	  enum dump_flags flags, int level)
+{
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_core_info *info;
+	const char *ind;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%scookie: %u\n", ind, info->cookie);
+		fprintf(stdout, "%suser-name: \"%s\"\n", ind, info->user_name);
+		fprintf(stdout, "%shost-name: \"%s\"\n", ind, info->host_name);
+		fprintf(stdout, "%sversion: \"%s\"\n", ind, info->version);
+		fprintf(stdout, "%sname: \"%s\"\n", ind, info->name);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+	} else {
+		fprintf(stdout, " u=\"%s\" h=\"%s\" v=\"%s\" n=\"%s\"",
+				info->user_name, info->host_name, info->version, info->name);
+		fprintf(stdout, "\n");
+	}
+
+	return true;
+}
+
+static bool
+dump_module(struct data *data, struct global *global,
+	    enum dump_flags flags, int level)
+{
+	struct remote_data *rd = global->rd;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_module_info *info;
+	const char *args, *desc;
+	const char *ind;
+	uint32_t *factories = NULL;
+	int i, factory_count;
+	struct global *global_factory;
+
+	if (!pd->info)
+		return false;
+
+	info = pd->info;
+
+	dump_global_common(data, global, flags, level);
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sname: \"%s\"\n", ind, info->name);
+		fprintf(stdout, "%sfilename: \"%s\"\n", ind, info->filename);
+		fprintf(stdout, "%sargs: \"%s\"\n", ind, info->args);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+	} else {
+		desc = spa_dict_lookup(info->props, PW_KEY_MODULE_DESCRIPTION);
+		args = info->args && strcmp(info->args, "(null)") ? info->args : NULL;
+		fprintf(stdout, " n=\"%s\" f=\"%s\"" "%s%s%s" "%s%s%s",
+				info->name, info->filename,
+				args ? " a=\"" : "",
+				args ? args : "",
+				args ? "\"" : "",
+				desc ? " d=\"" : "",
+				desc ? desc : "",
+				desc ? "\"" : "");
+		fprintf(stdout, "\n");
+	}
+
+	if (!(flags & is_deep))
+		return true;
+
+	factory_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Factory, &factories);
+	if (factory_count >= 0) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sfactories:\n", ind);
+		for (i = 0; i < factory_count; i++) {
+			global_factory = obj_global(rd, factories[i]);
+			if (!global_factory)
+				continue;
+			dump(data, global_factory, flags | is_notype, level + 1);
+		}
+		free(factories);
+	}
+
+	return true;
+}
+
+static bool
+dump_device(struct data *data, struct global *global,
+	    enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_device_info *info;
+	const char *media_class, *api, *desc, *name;
+	const char *alsa_path, *alsa_card_id;
+	const char *ind;
+	uint32_t *nodes = NULL;
+	int i, node_count;
+	struct global *global_node;
+
+	if (!pd->info)
+		return false;
+
+	info = pd->info;
+
+	dump_global_common(data, global, flags, level);
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		media_class = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
+		name = spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME);
+		desc = spa_dict_lookup(info->props, PW_KEY_DEVICE_DESCRIPTION);
+		api = spa_dict_lookup(info->props, PW_KEY_DEVICE_API);
+
+		fprintf(stdout, "%s%s%s" "%s%s%s" "%s%s%s" "%s%s%s",
+				media_class ? " c=\"" : "",
+				media_class ? media_class : "",
+				media_class ? "\"" : "",
+				name ? " n=\"" : "",
+				name ? name : "",
+				name ? "\"" : "",
+				desc ? " d=\"" : "",
+				desc ? desc : "",
+				desc ? "\"" : "",
+				api ? " a=\"" : "",
+				api ? api : "",
+				api ? "\"" : "");
+
+		if (media_class && !strcmp(media_class, "Audio/Device") &&
+		    api && !strcmp(api, "alsa:pcm")) {
+
+			alsa_path = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH);
+			alsa_card_id = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD_ID);
+
+			fprintf(stdout, "%s%s%s" "%s%s%s",
+					alsa_path ? " p=\"" : "",
+					alsa_path ? alsa_path : "",
+					alsa_path ? "\"" : "",
+					alsa_card_id ? " id=\"" : "",
+					alsa_card_id ? alsa_card_id : "",
+					alsa_card_id ? "\"" : "");
+		}
+
+		fprintf(stdout, "\n");
+	}
+
+	if (!(flags & is_deep))
+		return true;
+
+	node_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Node, &nodes);
+	if (node_count >= 0) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%snodes:\n", ind);
+		for (i = 0; i < node_count; i++) {
+			global_node = obj_global(rd, nodes[i]);
+			if (!global_node)
+				continue;
+			dump(data, global_node, flags | is_notype, level + 1);
+		}
+		free(nodes);
+	}
+
+	return true;
+}
+
+static bool
+dump_node(struct data *data, struct global *global,
+	  enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_node_info *info;
+	const char *name, *path;
+	const char *ind;
+	uint32_t *ports = NULL;
+	int i, port_count;
+	struct global *global_port;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sinput ports: %u/%u\n", ind, info->n_input_ports, info->max_input_ports);
+		fprintf(stdout, "%soutput ports: %u/%u\n", ind, info->n_output_ports, info->max_output_ports);
+		fprintf(stdout, "%sstate: \"%s\"", ind, pw_node_state_as_string(info->state));
+		if (info->state == PW_NODE_STATE_ERROR && info->error)
+			fprintf(stdout, " \"%s\"\n", info->error);
+		else
+			fprintf(stdout, "\n");
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+		path = spa_dict_lookup(info->props, SPA_KEY_OBJECT_PATH);
+
+		fprintf(stdout, " s=\"%s\"", pw_node_state_as_string(info->state));
+
+		if (info->max_input_ports) {
+			fprintf(stdout, " i=%u/%u", info->n_input_ports, info->max_input_ports);
+		}
+		if (info->max_output_ports) {
+			fprintf(stdout, " o=%u/%u", info->n_output_ports, info->max_output_ports);
+		}
+
+		fprintf(stdout, "%s%s%s" "%s%s%s",
+				name ? " n=\"" : "",
+				name ? name : "",
+				name ? "\"" : "",
+				path ? " p=\"" : "",
+				path ? path : "",
+				path ? "\"" : "");
+
+		fprintf(stdout, "\n");
+	}
+
+	if (!(flags & is_deep))
+		return true;
+
+	port_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Port, &ports);
+	if (port_count >= 0) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sports:\n", ind);
+		for (i = 0; i < port_count; i++) {
+			global_port = obj_global(rd, ports[i]);
+			if (!global_port)
+				continue;
+			dump(data, global_port, flags | is_notype, level + 1);
+		}
+		free(ports);
+	}
+	return true;
+}
+
+static bool
+dump_port(struct data *data, struct global *global,
+	  enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_port_info *info;
+	const char *ind;
+	const char *name, *format;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sdirection: \"%s\"\n", ind,
+				pw_direction_as_string(info->direction));
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		fprintf(stdout, " d=\"%s\"", pw_direction_as_string(info->direction));
+
+		name = spa_dict_lookup(info->props, PW_KEY_PORT_NAME);
+		format = spa_dict_lookup(info->props, PW_KEY_FORMAT_DSP);
+
+		fprintf(stdout, "%s%s%s" "%s%s%s",
+				name ? " n=\"" : "",
+				name ? name : "",
+				name ? "\"" : "",
+				format ? " f=\"" : "",
+				format ? format : "",
+				format ? "\"" : "");
+
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
+static bool
+dump_factory(struct data *data, struct global *global,
+	     enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_factory_info *info;
+	const char *ind;
+	const char *module_id, *module_name;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sname: \"%s\"\n", ind, info->name);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+	} else {
+		fprintf(stdout, " n=\"%s\"", info->name);
+
+		module_id = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
+		module_name = module_id ? obj_lookup(rd, atoi(module_id), PW_KEY_MODULE_NAME) : NULL;
+
+		fprintf(stdout, "%s%s%s",
+				module_name ? " m=\"" : "",
+				module_name ? module_name : "",
+				module_name ? "\"" : "");
+
+		fprintf(stdout, "\n");
+	}
+
+	return true;
+}
+
+static bool
+dump_client(struct data *data, struct global *global,
+	    enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_client_info *info;
+	const char *ind;
+	const char *app_name, *app_pid;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+	} else {
+		app_name = spa_dict_lookup(info->props, PW_KEY_APP_NAME);
+		app_pid = spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_ID);
+
+		fprintf(stdout, "%s%s%s" "%s%s%s",
+				app_name ? " ap=\"" : "",
+				app_name ? app_name : "",
+				app_name ? "\"" : "",
+				app_pid ? " ai=\"" : "",
+				app_pid ? app_pid : "",
+				app_pid ? "\"" : "");
+
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
+static bool
+dump_link(struct data *data, struct global *global,
+	  enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_link_info *info;
+	const char *ind;
+	const char *in_node_name, *in_port_name;
+	const char *out_node_name, *out_port_name;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%soutput-node-id: %u\n", ind, info->output_node_id);
+		fprintf(stdout, "%soutput-port-id: %u\n", ind, info->output_port_id);
+		fprintf(stdout, "%sinput-node-id: %u\n", ind, info->input_node_id);
+		fprintf(stdout, "%sinput-port-id: %u\n", ind, info->input_port_id);
+
+		fprintf(stdout, "%sstate: \"%s\"", ind,
+				pw_link_state_as_string(info->state));
+		if (info->state == PW_LINK_STATE_ERROR && info->error)
+			printf(" \"%s\"\n", info->error);
+		else
+			printf("\n");
+		fprintf(stdout, "%sformat:\n", ind);
+		if (info->format)
+			spa_debug_format(8 * (level + 1) + 2, NULL, info->format);
+		else
+			fprintf(stdout, "%s\tnone\n", ind);
+
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+	} else {
+		out_node_name = obj_lookup(rd, info->output_node_id, PW_KEY_NODE_NAME);
+		in_node_name = obj_lookup(rd, info->input_node_id, PW_KEY_NODE_NAME);
+		out_port_name = obj_lookup(rd, info->output_port_id, PW_KEY_PORT_NAME);
+		in_port_name = obj_lookup(rd, info->input_port_id, PW_KEY_PORT_NAME);
+
+		fprintf(stdout, " s=\"%s\"", pw_link_state_as_string(info->state));
+
+		if (out_node_name && out_port_name)
+			fprintf(stdout, " on=\"%s\"" " op=\"%s\"",
+					out_node_name, out_port_name);
+		if (in_node_name && in_port_name)
+			fprintf(stdout, " in=\"%s\"" " ip=\"%s\"",
+					in_node_name, in_port_name);
+
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
+static bool
+dump_session(struct data *data, struct global *global,
+	     enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_session_info *info;
+	const char *ind;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
+static bool
+dump_endpoint(struct data *data, struct global *global,
+	      enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_endpoint_info *info;
+	const char *ind;
+	const char *direction;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	switch(info->direction) {
+	case PW_DIRECTION_OUTPUT:
+		direction = "source";
+		break;
+	case PW_DIRECTION_INPUT:
+		direction = "sink";
+		break;
+	default:
+		direction = "invalid";
+		break;
+	}
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sname: %s\n", ind, info->name);
+		fprintf(stdout, "%smedia-class: %s\n", ind, info->media_class);
+		fprintf(stdout, "%sdirection: %s\n", ind, direction);
+		fprintf(stdout, "%sflags: 0x%x\n", ind, info->flags);
+		fprintf(stdout, "%sstreams: %u\n", ind, info->n_streams);
+		fprintf(stdout, "%ssession: %u\n", ind, info->session_id);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		fprintf(stdout, " n=\"%s\" c=\"%s\" d=\"%s\" s=%u si=%"PRIu32"",
+				info->name, info->media_class, direction,
+				info->n_streams, info->session_id);
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
+static bool
+dump_endpoint_stream(struct data *data, struct global *global,
+		     enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_endpoint_stream_info *info;
+	const char *ind;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sid: %u\n", ind, info->id);
+		fprintf(stdout, "%sendpoint-id: %u\n", ind, info->endpoint_id);
+		fprintf(stdout, "%sname: %s\n", ind, info->name);
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		fprintf(stdout, " n=\"%s\" i=%"PRIu32" ei=%"PRIu32"",
+				info->name, info->id, info->endpoint_id);
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
+static void
+dump(struct data *data, struct global *global,
+     enum dump_flags flags, int level)
+{
+	if (!global)
+		return;
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Core))
+		dump_core(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Module))
+		dump_module(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
+		dump_device(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
+		dump_node(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
+		dump_port(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory))
+		dump_factory(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Client))
+		dump_client(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Link))
+		dump_link(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Session))
+		dump_session(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
+		dump_endpoint(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
+		dump_endpoint_stream(data, global, flags, level);
+}
+
+static bool do_dump(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	union pw_map_item *item;
+	struct global *global;
+	char *aa[32], **a;
+	char c;
+	int i, n, idx;
+	enum dump_flags flags = is_default;
+	bool match;
+	unsigned int type_mask;
+
+	n = pw_split_ip(args, WHITESPACE, SPA_N_ELEMENTS(aa), aa);
+	if (n < 0)
+		goto usage;
+
+	a = aa;
+	while (n > 0 &&
+		(!strcmp(a[0], "short") ||
+		 !strcmp(a[0], "deep") ||
+		 !strcmp(a[0], "resolve") ||
+		 !strcmp(a[0], "notype"))) {
+		if (!strcmp(a[0], "short"))
+			flags |= is_short;
+		else if (!strcmp(a[0], "deep"))
+			flags |= is_deep;
+		else if (!strcmp(a[0], "resolve"))
+			flags |= is_resolve;
+		else if (!strcmp(a[0], "notype"))
+			flags |= is_notype;
+		n--;
+		a++;
+	}
+
+	while (n > 0 && a[0][0] == '-') {
+		for (i = 1; (c = a[0][i]) != '\0'; i++) {
+			if (c == 's')
+				flags |= is_short;
+			else if (c == 'd')
+				flags |= is_deep;
+			else if (c == 'r')
+				flags |= is_resolve;
+			else if (c == 't')
+				flags |= is_notype;
+			else
+				goto usage;
+		}
+		n--;
+		a++;
+	}
+
+	if (n == 0 || !strcmp(a[0], "all")) {
+		type_mask = (1U << dump_type_count()) - 1;
+		flags &= ~is_notype;
+	} else {
+		type_mask = 0;
+		for (i = 0; i < n; i++) {
+			/* skip direct IDs */
+			if (isdigit(a[i][0]))
+				continue;
+			idx = dump_type_index(name_to_dump_type(a[i]));
+			if (idx < 0)
+				goto usage;
+			type_mask |= 1U << idx;
+		}
+
+		/* single bit set? disable type */
+		if ((type_mask & (type_mask - 1)) == 0)
+			flags |= is_notype;
+	}
+
+	pw_array_for_each(item, &rd->globals.items) {
+		if (pw_map_item_is_free(item))
+			continue;
+		global = item->data;
+
+		/* unknown type, ignore completely */
+		idx = dump_type_index(global->type);
+		if (idx < 0)
+			continue;
+
+		match = false;
+
+		/* first check direct ids */
+		for (i = 0; i < n; i++) {
+			/* skip non direct IDs */
+			if (!isdigit(a[i][0]))
+				continue;
+			if (atoi(a[i]) == (int)global->id) {
+				match = true;
+				break;
+			}
+		}
+
+		/* if type match */
+		if (!match && (type_mask & (1U << idx)))
+			match = true;
+
+		if (!match)
+			continue;
+
+		dump(data, global, flags, 0);
+	}
+
+	return true;
+usage:
+	*error = spa_aprintf("%s [short|deep|resolve|notype] [-sdrt] [all|%s|<id>]",
+			cmd, DUMP_NAMES);
+	return false;
 }
 
 static bool parse(struct data *data, char *buf, size_t size, char **error)

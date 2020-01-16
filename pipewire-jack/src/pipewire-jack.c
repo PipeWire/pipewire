@@ -2121,13 +2121,13 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->pool = pw_core_get_mempool(client->core);
 
 	pw_core_add_listener(client->core,
-                                               &client->core_listener,
-                                               &core_events, client);
+			&client->core_listener,
+			&core_events, client);
 	client->registry = pw_core_get_registry(client->core,
-						PW_VERSION_REGISTRY, 0);
+			PW_VERSION_REGISTRY, 0);
 	pw_registry_add_listener(client->registry,
-                                               &client->registry_listener,
-                                               &registry_events, client);
+			&client->registry_listener,
+			&registry_events, client);
 
 	props = SPA_DICT_INIT(items, 0);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_NAME, client_name);
@@ -2209,21 +2209,23 @@ SPA_EXPORT
 int jack_client_close (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	int res;
 
 	pw_log_debug(NAME" %p: close", client);
 
-	do_sync(c);
+	c->destroyed = true;
+
+	res = jack_deactivate(client);
 
 	pw_thread_loop_stop(c->context.loop);
 
-	c->destroyed = true;
 	pw_context_destroy(c->context.context);
 	pw_thread_loop_destroy(c->context.loop);
 
 	pw_log_debug(NAME" %p: free", client);
 	free(c);
 
-	return 0;
+	return res;
 }
 
 SPA_EXPORT

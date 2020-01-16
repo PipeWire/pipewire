@@ -1696,8 +1696,12 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	impl.loop = pw_main_loop_new(NULL);
+	if (impl.loop == NULL)
+		return -1;
 	impl.this.loop = pw_main_loop_get_loop(impl.loop);
 	impl.this.context = pw_context_new(impl.this.loop, NULL, 0);
+	if (impl.this.context == NULL)
+		return -1;
 
 	pw_context_add_spa_lib(impl.this.context, "api.bluez5.*", "bluez5/libspa-bluez5");
 	pw_context_add_spa_lib(impl.this.context, "api.alsa.*", "alsa/libspa-alsa");

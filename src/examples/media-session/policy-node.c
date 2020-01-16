@@ -448,6 +448,8 @@ static int rescan_node(struct impl *impl, struct node *n)
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
 			if (strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
 				peer = sm_object_get_data(obj, SESSION_KEY);
+				if (peer == NULL)
+					return -ENOENT;
 				goto do_link;
 			}
 		}

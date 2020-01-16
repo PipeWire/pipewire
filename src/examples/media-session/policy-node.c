@@ -186,7 +186,6 @@ handle_node(struct impl *impl, struct sm_object *object)
 	node->impl = impl;
 	node->client_id = client_id;
 	node->type = NODE_TYPE_UNKNOWN;
-	node->enabled = true;
 	spa_list_append(&impl->node_list, &node->link);
 
 	if (strstr(media_class, "Stream/") == media_class) {
@@ -250,6 +249,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 				object->id, node->media, node->priority);
 	}
 
+	node->enabled = true;
 	node->obj->obj.mask |= SM_NODE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&node->obj->obj, &node->listener, &object_events, node);
 
@@ -259,7 +259,8 @@ handle_node(struct impl *impl, struct sm_object *object)
 static void destroy_node(struct impl *impl, struct node *node)
 {
 	spa_list_remove(&node->link);
-	spa_hook_remove(&node->listener);
+	if (node->enabled)
+		spa_hook_remove(&node->listener);
 	free(node->media);
 	if (node->peer)
 		node->peer->peer = NULL;

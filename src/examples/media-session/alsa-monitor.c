@@ -667,9 +667,10 @@ static void alsa_remove_device(struct impl *impl, struct device *device)
 		spa_hook_remove(&device->sync_listener);
 	if (device->reserve)
 		rd_device_destroy(device->reserve);
-	if (device->sdevice)
+	if (device->sdevice) {
+		spa_hook_remove(&device->listener);
 		sm_object_destroy(&device->sdevice->obj);
-	spa_hook_remove(&device->listener);
+	}
 	pw_unload_spa_handle(device->handle);
 	pw_properties_free(device->props);
 	free(device);

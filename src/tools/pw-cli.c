@@ -302,6 +302,9 @@ static int print_global(void *obj, void *data)
 	return 0;
 }
 
+
+static bool bind_global(struct remote_data *rd, struct global *global, char **error);
+
 static void registry_event_global(void *data, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
@@ -309,6 +312,8 @@ static void registry_event_global(void *data, uint32_t id,
 	struct remote_data *rd = data;
 	struct global *global;
 	size_t size;
+	char *error;
+	bool ret;
 
 	global = calloc(1, sizeof(struct global));
 	global->rd = rd;
@@ -325,6 +330,13 @@ static void registry_event_global(void *data, uint32_t id,
 	while (id > size)
 		pw_map_insert_at(&rd->globals, size++, NULL);
 	pw_map_insert_at(&rd->globals, id, global);
+
+	/* immediately bind the object always */
+	ret = bind_global(rd, global, &error);
+	if (!ret) {
+		fprintf(stdout, "Error: \"%s\"\n", error);
+		free(error);
+	}
 }
 
 static int destroy_global(void *obj, void *data)

@@ -122,6 +122,20 @@ struct client_data {
 	struct protocol_compat_v2 compat_v2;
 };
 
+static void debug_msg(const char *prefix, const struct pw_protocol_native_message *msg, bool hex)
+{
+	struct spa_pod *pod;
+	fprintf(stderr, "%s: id:%d op:%d size:%d seq:%d\n", prefix,
+			msg->id, msg->opcode, msg->size, msg->seq);
+
+	if ((pod = spa_pod_from_data(msg->data, msg->size, 0, msg->size)) != NULL)
+		spa_debug_pod(0, NULL, pod);
+	else
+		hex = true;
+	if (hex)
+		spa_debug_mem(0, msg->data, msg->size);
+}
+
 static int
 process_messages(struct client_data *data)
 {
@@ -160,11 +174,8 @@ process_messages(struct client_data *data)
 		pw_log_trace(NAME" %p: got message %d from %u", client->protocol,
 			     msg->opcode, msg->id);
 
-		if (debug_messages) {
-			fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d seq:%d\n",
-					msg->id, msg->opcode, msg->size, msg->seq);
-		        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
-		}
+		if (debug_messages)
+			debug_msg("<<<<<< in", msg, false);
 
 		resource = pw_impl_client_find_resource(client, msg->id);
 		if (resource == NULL) {
@@ -217,7 +228,7 @@ invalid_message:
 		     client->protocol, msg->id, msg->opcode, spa_strerror(res));
 	pw_resource_errorf(resource, res, "invalid message received id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
-	spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
+	debug_msg("*invalid message*", msg, true);
 	goto done;
 error:
 	pw_log_error(NAME" %p: client error (%s)", client->protocol, spa_strerror(res));
@@ -619,11 +630,8 @@ process_remote(struct client *impl)
 
 		this->recv_seq = msg->seq;
 
-		if (debug_messages) {
-			fprintf(stderr, "<<<<<<<<< in: id:%d op:%d size:%d seq:%d\n",
-					msg->id, msg->opcode, msg->size, msg->seq);
-		        spa_debug_pod(0, NULL, (struct spa_pod *)msg->data);
-		}
+		if (debug_messages)
+			debug_msg("<<<<<< in", msg, false);
 
 		proxy = pw_core_find_proxy(this, msg->id);
 		if (proxy == NULL || proxy->zombie) {
@@ -657,6 +665,7 @@ process_remote(struct client *impl)
 		if (res < 0) {
 			pw_log_error (NAME" %p: invalid message received %u for %u",
 					this, msg->opcode, msg->id);
+			debug_msg("*invalid*", msg, true);
 			continue;
 		}
 	}

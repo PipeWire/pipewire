@@ -43,6 +43,7 @@ build-container:
       vulkan-loader-devel
       which
       xmltoman
+      libsndfile-devel
 
 build:
   stage: build

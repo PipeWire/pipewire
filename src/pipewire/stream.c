@@ -1417,9 +1417,6 @@ pw_stream_connect(struct pw_stream *stream,
 
 	pw_impl_node_set_implementation(slave, &impl->impl_node);
 
-	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
-		pw_impl_node_set_active(slave, true);
-
 	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		factory = pw_context_find_factory(impl->context, "adapter");
@@ -1442,6 +1439,8 @@ pw_stream_connect(struct pw_stream *stream,
 	} else {
 		impl->node = slave;
 	}
+	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
+		pw_impl_node_set_active(impl->node, true);
 
 	pw_log_debug(NAME" %p: export node %p", stream, impl->node);
 	stream->proxy = pw_core_export(stream->core,

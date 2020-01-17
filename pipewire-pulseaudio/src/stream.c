@@ -1537,8 +1537,8 @@ pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, voi
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
 	s->corked = b;
-
-	pw_stream_set_active(s->stream, !b);
+	if (!b)
+		pw_stream_set_active(s->stream, true);
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

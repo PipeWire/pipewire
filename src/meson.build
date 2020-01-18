@@ -4,7 +4,9 @@ subdir('extensions')
 subdir('daemon')
 subdir('tools')
 subdir('modules')
-subdir('examples')
+if get_option('examples')
+  subdir('examples')
+endif
 subdir('tests')
 
 if get_option('gstreamer')

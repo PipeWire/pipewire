@@ -39,7 +39,9 @@ endif
 
 subdir('tools')
 subdir('tests')
-subdir('examples')
+if get_option('examples')
+  subdir('examples')
+endif
 
 pkgconfig.generate(filebase : 'libspa-@0@'.format(spaversion),
   name : 'libspa',

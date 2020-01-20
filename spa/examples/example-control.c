@@ -64,9 +64,10 @@ struct buffer {
 
 struct data {
 	struct spa_log *log;
-	struct spa_loop data_loop;
-
-	struct spa_support support[4];
+	struct spa_system *system;
+	struct spa_loop *loop;
+	struct spa_loop_control *control;
+	struct spa_support support[5];
 	uint32_t n_support;
 
 	struct spa_graph graph;
@@ -91,18 +92,11 @@ struct data {
 
 	bool running;
 	pthread_t thread;
-
-	struct spa_source sources[16];
-	unsigned int n_sources;
-
-	bool rebuild_fds;
-	struct pollfd fds[16];
-	unsigned int n_fds;
 };
 
 #define MIN_LATENCY     1024
 
-#define BUFFER_SIZE    MIN_LATENCY
+#define BUFFER_SIZE     4096
 
 static void
 init_buffer(struct data *data, struct spa_buffer **bufs, struct buffer *ba, int n_buffers,
@@ -251,30 +245,6 @@ static const struct spa_node_callbacks sink_callbacks = {
 	.reuse_buffer = on_sink_reuse_buffer
 };
 
-static int do_add_source(void *object, struct spa_source *source)
-{
-	struct data *data = object;
-
-	data->sources[data->n_sources] = *source;
-	data->n_sources++;
-	data->rebuild_fds = true;
-
-	return 0;
-}
-
-static int
-do_invoke(void *object,
-	  spa_invoke_func_t func, uint32_t seq, const void *data, size_t size, bool block, void *user_data)
-{
-	return func(object, false, seq, data, size, user_data);
-}
-
-static const struct spa_loop_methods impl_loop = {
-	SPA_VERSION_LOOP_METHODS,
-	.add_source = do_add_source,
-	.invoke = do_invoke,
-};
-
 static int make_nodes(struct data *data, const char *device)
 {
 	int res;
@@ -358,30 +328,16 @@ static int make_nodes(struct data *data, const char *device)
 static int negotiate_formats(struct data *data)
 {
 	int res;
-	struct spa_pod *format, *filter;
-	uint32_t state = 0;
+	struct spa_pod *format;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	filter = spa_format_audio_raw_build(&b, 0,
+	format = spa_format_audio_raw_build(&b, 0,
 			&SPA_AUDIO_INFO_RAW_INIT(
 				.format = SPA_AUDIO_FORMAT_S16,
-				.rate = 44100,
+				.rate = 48000,
 				.channels = 2 ));
-
-	spa_debug_pod(0, NULL, filter);
-
-	spa_log_debug(&default_log.log, "enum_params");
-	if ((res = spa_node_port_enum_params_sync(data->sink,
-					     SPA_DIRECTION_INPUT, 0,
-					     SPA_PARAM_EnumFormat, &state,
-					     filter, &format, &b)) != 1)
-		return -EBADF;
-
-	spa_log_debug(&default_log.log, "sink set_param");
-	spa_debug_pod(0, NULL, format);
-	spa_pod_fixate(format);
 
 	if ((res = spa_node_port_set_param(data->sink,
 					   SPA_DIRECTION_INPUT, 0,
@@ -412,61 +368,29 @@ static void *loop(void *user_data)
 {
 	struct data *data = user_data;
 
-	printf("enter thread %d\n", data->n_sources);
+	printf("enter thread\n");
+	spa_loop_control_enter(data->control);
+
 	while (data->running) {
-		int r;
-		unsigned int i;
-
-		/* rebuild */
-		if (data->rebuild_fds) {
-			for (i = 0; i < data->n_sources; i++) {
-				struct spa_source *p = &data->sources[i];
-				data->fds[i].fd = p->fd;
-				data->fds[i].events = p->mask;
-			}
-			data->n_fds = data->n_sources;
-			data->rebuild_fds = false;
-		}
-
-		r = poll(data->fds, data->n_fds, -1);
-		if (r < 0) {
-			if (errno == EINTR)
-				continue;
-			break;
-		}
-		if (r == 0) {
-			fprintf(stderr, "select timeout");
-			break;
-		}
-
-		/* after */
-		for (i = 0; i < data->n_sources; i++) {
-			struct spa_source *p = &data->sources[i];
-			p->rmask = data->fds[i].revents;
-		}
-		for (i = 0; i < data->n_sources; i++) {
-			struct spa_source *p = &data->sources[i];
-			if (p->rmask)
-				p->func(p);
-		}
+		spa_loop_control_iterate(data->control, -1);
 	}
+
 	printf("leave thread\n");
+	spa_loop_control_leave(data->control);
 
 	return NULL;
 }
 
 static void run_async_sink(struct data *data)
 {
-	int res;
-	int err;
+	int res, err;
+	struct spa_command cmd;
 
-	{
-		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
-		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
-			printf("got source error %d\n", res);
-		if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
-			printf("got sink error %d\n", res);
-	}
+	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
+	if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
+		printf("got error %d\n", res);
+
+	spa_loop_control_leave(data->control);
 
 	data->running = true;
 	if ((err = pthread_create(&data->thread, NULL, loop, data)) != 0) {
@@ -482,34 +406,113 @@ static void run_async_sink(struct data *data)
 		pthread_join(data->thread, NULL);
 	}
 
-	{
-		struct spa_command cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
-		if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
-			printf("got error %d\n", res);
-		if ((res = spa_node_send_command(data->source, &cmd)) < 0)
-			printf("got source error %d\n", res);
+	spa_loop_control_enter(data->control);
+
+	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
+	if ((res = spa_node_send_command(data->sink, &cmd)) < 0)
+		printf("got error %d\n", res);
+}
+
+static int load_handle(struct data *data, struct spa_handle **handle, const char *lib, const char *name)
+{
+	int res;
+	void *hnd;
+	spa_handle_factory_enum_func_t enum_func;
+	uint32_t i;
+
+	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
+		printf("can't load %s: %s\n", lib, dlerror());
+		return -errno;
 	}
+	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
+		printf("can't find enum function\n");
+		return -errno;
+	}
+
+	for (i = 0;;) {
+		const struct spa_handle_factory *factory;
+
+		if ((res = enum_func(&factory, &i)) <= 0) {
+			if (res != 0)
+				printf("can't enumerate factories: %s\n", spa_strerror(res));
+			break;
+		}
+		if (strcmp(factory->name, name))
+			continue;
+
+		*handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+		if ((res = spa_handle_factory_init(factory, *handle,
+						NULL, data->support,
+						data->n_support)) < 0) {
+			printf("can't make factory instance: %d\n", res);
+			return res;
+		}
+		return 0;
+	}
+	return -EBADF;
+}
+
+int init_data(struct data *data)
+{
+	int res;
+	const char *str;
+	struct spa_handle *handle = NULL;
+	void *iface;
+
+	/* init the graph */
+	spa_graph_init(&data->graph, &data->graph_state);
+
+	/* set the default log */
+	data->log = &default_log.log;
+	data->support[data->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data->log);
+
+	/* load and set support system */
+	if ((res = load_handle(data, &handle,
+					"build/spa/plugins/support/libspa-support.so",
+					SPA_NAME_SUPPORT_SYSTEM)) < 0)
+		return res;
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_System, &iface)) < 0) {
+		printf("can't get System interface %d\n", res);
+		return res;
+	}
+	data->system = iface;
+	data->support[data->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, data->system);
+	data->support[data->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, data->system);
+
+	/* load and set support loop and loop control */
+	if ((res = load_handle(data, &handle,
+					"build/spa/plugins/support/libspa-support.so",
+					SPA_NAME_SUPPORT_LOOP)) < 0)
+		return res;
+
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Loop, &iface)) < 0) {
+		printf("can't get interface %d\n", res);
+		return res;
+	}
+	data->loop = iface;
+	data->support[data->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, data->loop);
+	data->support[data->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, data->loop);
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_LoopControl, &iface)) < 0) {
+		printf("can't get interface %d\n", res);
+		return res;
+	}
+	data->control = iface;
+
+	if ((str = getenv("SPA_DEBUG")))
+		data->log->level = atoi(str);
+
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
 	struct data data = { NULL };
 	int res;
-	const char *str;
 
-	spa_graph_init(&data.graph, &data.graph_state);
-
-	data.log = &default_log.log;
-	data.data_loop.iface = SPA_INTERFACE_INIT(
-			SPA_TYPE_INTERFACE_Loop, SPA_VERSION_LOOP, &impl_loop, &data);
-
-	if ((str = getenv("SPA_DEBUG")))
-		data.log->level = atoi(str);
-
-	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
-	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, &data.data_loop);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, &data.data_loop);
-	data.n_support = 3;
+	if ((res = init_data(&data)) < 0) {
+		printf("can't init data: %d (%s)\n", res, spa_strerror(res));
+		return -1;
+	}
 
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 		printf("can't make nodes: %d (%s)\n", res, spa_strerror(res));
@@ -520,5 +523,9 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	spa_loop_control_enter(data.control);
 	run_async_sink(&data);
+	spa_loop_control_leave(data.control);
+
+	return 0;
 }

@@ -716,8 +716,8 @@ int main(int argc, char *argv[])
 			break;
 
 		case OPT_TARGET:
+			data.target = optarg;
 			if (!strcmp(optarg, "auto")) {
-				data.target = optarg;
 				data.target_id = PW_ID_ANY;
 				break;
 			}
@@ -725,6 +725,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "error: bad target option \"%s\"\n", optarg);
 				goto error_usage;
 			}
+			data.target_id = atoi(optarg);
 			break;
 
 		case OPT_LATENCY:
@@ -936,6 +937,11 @@ int main(int argc, char *argv[])
 				.format = data.spa_format,
 				.channels = data.channels,
 				.rate = data.rate ));
+
+	if (data.verbose)
+		printf("connecting %s stream; target_id=%"PRIu32"\n",
+				data.mode == mode_playback ? "playback" : "record",
+				data.target_id);
 
 	ret = pw_stream_connect(data.stream,
 			  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,

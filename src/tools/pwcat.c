@@ -51,6 +51,7 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_FORMAT		"s16"
+#define DEFAULT_VOLUME		1.0
 
 enum mode {
 	mode_none,
@@ -98,6 +99,8 @@ struct data {
 	unsigned int latency_value;
 
 	enum spa_audio_format spa_format;
+
+	float volume;
 
 	fill_fn fill;
 
@@ -435,11 +438,25 @@ on_state_changed(void *userdata, enum pw_stream_state old,
 		 enum pw_stream_state state, const char *error)
 {
 	struct data *data = userdata;
+	int ret;
 
 	if (data->verbose)
 		printf("stream state changed %s -> %s\n",
 				pw_stream_state_as_string(old),
 				pw_stream_state_as_string(state));
+
+	if (state == PW_STREAM_STATE_STREAMING) {
+		if (data->verbose)
+			printf("stream node %"PRIu32"\n",
+				pw_stream_get_node_id(data->stream));
+		ret = pw_stream_set_control(data->stream,
+				SPA_PROP_volume, 1, &data->volume,
+				0);
+		if (data->verbose)
+			printf("set stream volume to %.3f - %s\n", data->volume,
+					ret == 0 ? "success" : "FAILED");
+
+	}
 }
 
 static void
@@ -544,6 +561,7 @@ enum {
 	OPT_RATE,
 	OPT_CHANNELS,
 	OPT_FORMAT,
+	OPT_VOLUME,
 };
 
 static const struct option long_options[] = {
@@ -565,6 +583,8 @@ static const struct option long_options[] = {
 	{"rate",		required_argument, NULL, OPT_RATE },
 	{"channels",		required_argument, NULL, OPT_CHANNELS },
 	{"format",		required_argument, NULL, OPT_FORMAT },
+
+	{"volume",		required_argument, NULL, OPT_VOLUME },
 
 	{NULL, 0, NULL, 0 }
 };
@@ -602,8 +622,9 @@ static void show_usage(const char *name, bool is_error)
              "      --rate                            Sample rate (req. for rec) (default %u)\n"
              "      --channels                        Number of channels (req. for rec) (default %u)\n"
              "      --format                          Sample format %s (req. for rec) (default %s)\n"
+	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "\n",
-	     DEFAULT_RATE, DEFAULT_CHANNELS, STR_FMTS, DEFAULT_FORMAT);
+	     DEFAULT_RATE, DEFAULT_CHANNELS, STR_FMTS, DEFAULT_FORMAT, DEFAULT_VOLUME);
 
 	if (!strcmp(name, "pwcat")) {
 		fprintf(fp,
@@ -645,6 +666,9 @@ int main(int argc, char *argv[])
 		data.mode = mode_record;
 	else
 		data.mode = mode_none;
+
+	/* negative means no volume adjustment */
+	data.volume = -1.0;
 
 	while ((c = getopt_long(argc, argv, "hvprR:", long_options, NULL)) != -1) {
 
@@ -733,6 +757,10 @@ int main(int argc, char *argv[])
 			format = sf_str_to_fmt(optarg);
 			break;
 
+		case OPT_VOLUME:
+			data.volume = atof(optarg);
+			break;
+
 		default:
 			fprintf(stderr, "error: unknown option '%c'\n", c);
 			goto error_usage;
@@ -762,6 +790,8 @@ int main(int argc, char *argv[])
 		data.rate = DEFAULT_RATE;
 	if (!data.channels)
 		data.rate = DEFAULT_CHANNELS;
+	if (data.volume < 0)
+		data.volume = DEFAULT_VOLUME;
 	if (data.mode == mode_record && !format)
 		format = sf_str_to_fmt(DEFAULT_FORMAT);
 

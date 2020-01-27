@@ -1036,6 +1036,7 @@ int main(int argc, char *argv[])
 			PW_KEY_MEDIA_CATEGORY, data.media_category,
 			PW_KEY_MEDIA_ROLE, data.media_role,
 			PW_KEY_APP_NAME, prog,
+			PW_KEY_MEDIA_NAME, data.filename,
 			PW_KEY_NODE_NAME, prog,
 			NULL);
 	if (!props) {

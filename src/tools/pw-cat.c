@@ -223,11 +223,7 @@ sf_format_to_pw(int format)
 		return endianess == 1 ? SPA_AUDIO_FORMAT_S16_LE :
 		       endianess == 2 ? SPA_AUDIO_FORMAT_S16_BE :
 		                        SPA_AUDIO_FORMAT_S16;
-
 	case SF_FORMAT_PCM_24:
-		return endianess == 1 ? SPA_AUDIO_FORMAT_S24_LE :
-		       endianess == 2 ? SPA_AUDIO_FORMAT_S24_BE :
-		                        SPA_AUDIO_FORMAT_S24;
 	case SF_FORMAT_PCM_32:
 		return endianess == 1 ? SPA_AUDIO_FORMAT_S32_LE :
 		       endianess == 2 ? SPA_AUDIO_FORMAT_S32_BE :
@@ -258,7 +254,6 @@ sf_format_samplesize(int format)
 	case SF_FORMAT_PCM_16:
 		return 2;
 	case SF_FORMAT_PCM_24:
-		return 3;
 	case SF_FORMAT_PCM_32:
 		return 4;
 	case SF_FORMAT_FLOAT:
@@ -286,13 +281,6 @@ static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frame
 	assert(sizeof(short) == sizeof(int16_t));
 	rn = sf_readf_short(d->file, dest, n_frames);
 	return (int)rn;
-}
-
-static int sf_playback_fill_s24(struct data *d, void *dest, unsigned int n_frames)
-{
-	sf_count_t rn;
-	rn = sf_read_raw(d->file, dest, (sf_count_t) n_frames * d->stride);
-	return (int)rn / d->stride;
 }
 
 static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frames)
@@ -336,8 +324,6 @@ sf_fmt_playback_fill_fn(int format)
 		if (sizeof(int16_t) != sizeof(short))
 			return NULL;
 		return sf_playback_fill_s16;
-	case SPA_AUDIO_FORMAT_S24:
-		return sf_playback_fill_s24;
 	case SPA_AUDIO_FORMAT_S32_LE:
 	case SPA_AUDIO_FORMAT_S32_BE:
 		/* sndfile check */

@@ -127,28 +127,6 @@ struct data {
 	bool drained;
 };
 
-static inline bool
-sf_is_valid_type(int format)
-{
-	int type = (format & SF_FORMAT_TYPEMASK);
-
-	return true;
-	return type == SF_FORMAT_WAV || type == SF_FORMAT_WAVEX;
-}
-
-static inline bool
-sf_is_valid_subtype(int format)
-{
-	int sub_type = (format & SF_FORMAT_SUBMASK);
-
-	return sub_type == SF_FORMAT_PCM_S8 ||
-	       sub_type == SF_FORMAT_PCM_16 ||
-	       sub_type == SF_FORMAT_PCM_24 ||
-	       sub_type == SF_FORMAT_PCM_32 ||
-	       sub_type == SF_FORMAT_FLOAT ||
-	       sub_type == SF_FORMAT_DOUBLE;
-}
-
 static inline int
 sf_str_to_fmt(const char *str)
 {
@@ -197,13 +175,6 @@ sf_fmt_to_str(int format)
 static inline int
 sf_format_endianess(int format)
 {
-	switch (format & SF_FORMAT_TYPEMASK) {
-	case SF_FORMAT_WAV:
-	case SF_FORMAT_WAVEX:
-		return 0;	/* sf_readf_* return native format */
-	default:
-		break;
-	}
 	return 0;		/* native */
 }
 
@@ -228,15 +199,15 @@ sf_format_to_pw(int format)
 		return endianess == 1 ? SPA_AUDIO_FORMAT_S32_LE :
 		       endianess == 2 ? SPA_AUDIO_FORMAT_S32_BE :
 		                        SPA_AUDIO_FORMAT_S32;
-	case SF_FORMAT_FLOAT:
-		return endianess == 1 ? SPA_AUDIO_FORMAT_F32_LE :
-		       endianess == 2 ? SPA_AUDIO_FORMAT_F32_BE :
-		                        SPA_AUDIO_FORMAT_F32;
 	case SF_FORMAT_DOUBLE:
 		return endianess == 1 ? SPA_AUDIO_FORMAT_F64_LE :
 		       endianess == 2 ? SPA_AUDIO_FORMAT_F64_BE :
 		                        SPA_AUDIO_FORMAT_F64;
+	case SF_FORMAT_FLOAT:
 	default:
+		return endianess == 1 ? SPA_AUDIO_FORMAT_F32_LE :
+		       endianess == 2 ? SPA_AUDIO_FORMAT_F32_BE :
+		                        SPA_AUDIO_FORMAT_F32;
 		break;
 	}
 
@@ -253,15 +224,13 @@ sf_format_samplesize(int format)
 		return 1;
 	case SF_FORMAT_PCM_16:
 		return 2;
-	case SF_FORMAT_PCM_24:
 	case SF_FORMAT_PCM_32:
-		return 4;
-	case SF_FORMAT_FLOAT:
 		return 4;
 	case SF_FORMAT_DOUBLE:
 		return 8;
+	case SF_FORMAT_FLOAT:
 	default:
-		break;
+		return 4;
 	}
 	return -1;
 }
@@ -969,8 +938,8 @@ int main(int argc, char *argv[])
 				data.mode == mode_playback ? SFM_READ : SFM_WRITE,
 				&data.info);
 		if (!data.file) {
-			fprintf(stderr, "error: failed to open audio file \"%s\"n",
-					data.filename);
+			fprintf(stderr, "error: failed to open audio file \"%s\": %s\n",
+					data.filename, sf_strerror(NULL));
 			goto error_open_file;
 		}
 
@@ -978,13 +947,6 @@ int main(int argc, char *argv[])
 			printf("opened file \"%s\" format %08x\n", data.filename, data.info.format);
 
 		format = data.info.format;
-		if (!sf_is_valid_type(format) ||
-		    !sf_is_valid_subtype(format) ||
-		     sf_format_samplesize(format) <= 0) {
-			fprintf(stderr, "error: Invalid file format, require WAV PCM8/16/32 or float/double\n");
-			goto error_bad_file;
-		}
-
 		if (data.mode == mode_playback) {
 			data.rate = data.info.samplerate;
 			data.channels = data.info.channels;

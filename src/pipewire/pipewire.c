@@ -101,8 +101,8 @@ open_plugin(struct registry *registry,
 	spa_handle_factory_enum_func_t enum_func;
 	int res;
 
-        if (asprintf(&filename, "%s/%s.so", path, lib) < 0) {
-		res = -ENOMEM;
+        if ((filename = spa_aprintf("%s/%s.so", path, lib)) == NULL) {
+		res = -errno;
 		goto error_out;
 	}
 

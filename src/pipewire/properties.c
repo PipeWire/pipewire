@@ -402,8 +402,10 @@ int pw_properties_setva(struct pw_properties *properties,
 		   const char *key, const char *format, va_list args)
 {
 	char *value = NULL;
-	if (format != NULL)
-		vasprintf(&value, format, args);
+	if (format != NULL) {
+		if (vasprintf(&value, format, args) < 0)
+			return -errno;
+	}
 	return do_replace(properties, key, value, false);
 }
 

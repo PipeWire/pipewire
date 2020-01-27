@@ -541,7 +541,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 		}
 	}
 	if (best == NULL) {
-		asprintf(error, "No matching Node found");
+		*error = spa_aprintf("No matching Node found");
 	}
 	return best;
 }
@@ -600,9 +600,9 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_Format, &oidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res < 0)
-				asprintf(error, "error get output format: %s", spa_strerror(res));
+				*error = spa_aprintf("error get output format: %s", spa_strerror(res));
 			else
-				asprintf(error, "no output formats");
+				*error = spa_aprintf("no output formats");
 			goto error;
 		}
 		pw_log_debug(NAME" %p: Got output format:", context);
@@ -614,9 +614,9 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     filter, format, builder)) <= 0) {
 			if (res < 0)
-				asprintf(error, "error input enum formats: %s", spa_strerror(res));
+				*error = spa_aprintf("error input enum formats: %s", spa_strerror(res));
 			else
-				asprintf(error, "no input formats");
+				*error = spa_aprintf("no input formats");
 			goto error;
 		}
 	} else if (out_state >= PW_IMPL_PORT_STATE_CONFIGURE && in_state > PW_IMPL_PORT_STATE_CONFIGURE) {
@@ -627,9 +627,9 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_Format, &iidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res < 0)
-				asprintf(error, "error get input format: %s", spa_strerror(res));
+				*error = spa_aprintf("error get input format: %s", spa_strerror(res));
 			else
-				asprintf(error, "no input format");
+				*error = spa_aprintf("no input format");
 			goto error;
 		}
 		pw_log_debug(NAME" %p: Got input format:", context);
@@ -641,9 +641,9 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) <= 0) {
 			if (res < 0)
-				asprintf(error, "error output enum formats: %s", spa_strerror(res));
+				*error = spa_aprintf("error output enum formats: %s", spa_strerror(res));
 			else
-				asprintf(error, "no output format");
+				*error = spa_aprintf("no output format");
 			goto error;
 		}
 	} else if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
@@ -656,13 +656,13 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res == 0 && iidx == 0) {
-				asprintf(error, "no compatible formats");
+				*error = spa_aprintf("no compatible formats");
 				goto error;
 			}
 			if (res < 0)
-				asprintf(error, "error input enum formats: %s", spa_strerror(res));
+				*error = spa_aprintf("error input enum formats: %s", spa_strerror(res));
 			else
-				asprintf(error, "no more input formats");
+				*error = spa_aprintf("no more input formats");
 			goto error;
 		}
 		pw_log_debug(NAME" %p: enum output %d with filter: %p", context, oidx, filter);
@@ -677,7 +677,7 @@ int pw_context_find_format(struct pw_context *context,
 				oidx = 0;
 				goto again;
 			}
-			asprintf(error, "error output enum formats: %s", spa_strerror(res));
+			*error = spa_aprintf("error output enum formats: %s", spa_strerror(res));
 			goto error;
 		}
 
@@ -686,7 +686,7 @@ int pw_context_find_format(struct pw_context *context,
 			spa_debug_format(2, NULL, *format);
 	} else {
 		res = -EBADF;
-		asprintf(error, "error bad node state");
+		*error = spa_aprintf("error bad node state");
 		goto error;
 	}
 	return res;

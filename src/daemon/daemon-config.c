@@ -64,7 +64,7 @@ out:
 	return 0;
 
 error_parse:
-	asprintf(err, "%s:%u: %s", filename, lineno, local_err);
+	*err = spa_aprintf("%s:%u: %s", filename, lineno, local_err);
 	free(local_err);
 	return -EINVAL;
 }
@@ -126,7 +126,7 @@ int pw_daemon_config_load_file(struct pw_daemon_config *config, const char *file
 	pw_log_debug("deamon-config %p: loading configuration file '%s'", config, filename);
 
 	if ((f = fopen(filename, "r")) == NULL) {
-		asprintf(err, "failed to open configuration file '%s': %s", filename,
+		*err = spa_aprintf("failed to open configuration file '%s': %s", filename,
 			 strerror(errno));
 		goto open_error;
 	}
@@ -137,8 +137,7 @@ int pw_daemon_config_load_file(struct pw_daemon_config *config, const char *file
 		if (!fgets(buf, sizeof(buf), f)) {
 			if (feof(f))
 				break;
-
-			asprintf(err, "failed to read configuration file '%s': %s",
+			*err = spa_aprintf("failed to read configuration file '%s': %s",
 				 filename, strerror(errno));
 			goto read_error;
 		}

@@ -796,10 +796,13 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw->flags = flags;
 
 	if (node_name == NULL)
-		err = asprintf(&pw->node_name, "ALSA %s",
+		pw->node_name = spa_aprintf("ALSA %s",
 			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture");
 	else
 		pw->node_name = strdup(node_name);
+
+	if (pw->node_name == NULL)
+		return -errno;
 
 	pw->target = PW_ID_ANY;
 	if (str != NULL)

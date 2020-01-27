@@ -241,6 +241,14 @@ struct spa_fraction {
 #define spa_memmove(d,s,n)	memmove(d,s,n)
 #endif
 
+#define spa_aprintf(_fmt, ...)						\
+({									\
+	char *_strp;							\
+	if (asprintf(&(_strp), (_fmt), ## __VA_ARGS__ ) == -1)		\
+		_strp = NULL;						\
+	_strp;								\
+})
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

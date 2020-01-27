@@ -94,7 +94,7 @@ static struct pw_command *parse_command_help(struct pw_properties *properties, c
 	return this;
 
 no_mem:
-	asprintf(err, "alloc failed: %m");
+	*err = spa_aprintf("alloc failed: %m");
 	return NULL;
 }
 
@@ -126,11 +126,11 @@ static struct pw_command *parse_command_set_prop(struct pw_properties *propertie
 	return this;
 
 error_arguments:
-	asprintf(err, "%s requires <property-name> <value>", this->args[0]);
+	*err = spa_aprintf("%s requires <property-name> <value>", this->args[0]);
 	pw_free_strv(this->args);
 	return NULL;
 error_alloc:
-	asprintf(err, "alloc failed: %m");
+	*err = spa_aprintf("alloc failed: %m");
 	return NULL;
 }
 
@@ -141,7 +141,7 @@ execute_command_add_spa_lib(struct pw_command *command, struct pw_context *conte
 
 	res = pw_context_add_spa_lib(context, command->args[1], command->args[2]);
 	if (res < 0) {
-		asprintf(err, "could not add spa library \"%s\"", command->args[1]);
+		*err = spa_aprintf("could not add spa library \"%s\"", command->args[1]);
 		return res;
 	}
 	return 0;
@@ -166,11 +166,11 @@ static struct pw_command *parse_command_add_spa_lib(struct pw_properties *proper
 	return this;
 
 no_library:
-	asprintf(err, "%s requires <factory-regex> <library-name>", this->args[0]);
+	*err = spa_aprintf("%s requires <factory-regex> <library-name>", this->args[0]);
 	pw_free_strv(this->args);
 	return NULL;
 no_mem:
-	asprintf(err, "alloc failed: %m");
+	*err = spa_aprintf("alloc failed: %m");
 	return NULL;
 }
 
@@ -181,7 +181,7 @@ execute_command_module_load(struct pw_command *command, struct pw_context *conte
 
 	module = pw_context_load_module(context, command->args[1], command->args[2], NULL);
 	if (module == NULL) {
-		asprintf(err, "could not load module \"%s\": %m", command->args[1]);
+		*err = spa_aprintf("could not load module \"%s\": %m", command->args[1]);
 		return -errno;
 	}
 	return 0;
@@ -206,11 +206,11 @@ static struct pw_command *parse_command_module_load(struct pw_properties *proper
 	return this;
 
 no_module:
-	asprintf(err, "%s requires a module name", this->args[0]);
+	*err = spa_aprintf("%s requires a module name", this->args[0]);
 	pw_free_strv(this->args);
 	return NULL;
 no_mem:
-	asprintf(err, "alloc failed: %m");
+	*err = spa_aprintf("alloc failed: %m");
 	return NULL;
 }
 
@@ -226,7 +226,7 @@ execute_command_exec(struct pw_command *command, struct pw_context *context, cha
 		res = execvp(command->args[1], command->args);
 		if (res == -1) {
 			res = -errno;
-			asprintf(err, "'%s': %m", command->args[1]);
+			*err = spa_aprintf("'%s': %m", command->args[1]);
 			return res;
 		}
 	}
@@ -257,11 +257,11 @@ static struct pw_command *parse_command_exec(struct pw_properties *properties, c
 	return this;
 
 no_executable:
-	asprintf(err, "requires an executable name");
+	*err = spa_aprintf("requires an executable name");
 	pw_free_strv(this->args);
 	return NULL;
 no_mem:
-	asprintf(err, "alloc failed: %m");
+	*err = spa_aprintf("alloc failed: %m");
 	return NULL;
 }
 
@@ -312,7 +312,7 @@ struct pw_command *pw_command_parse(struct pw_properties *properties, const char
 		}
 	}
 
-	asprintf(err, "Command \"%s\" does not exist", name);
+	*err = spa_aprintf("Command \"%s\" does not exist", name);
 out:
 	free(name);
 	return command;

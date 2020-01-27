@@ -1511,7 +1511,8 @@ int pw_stream_set_error(struct pw_stream *stream,
 		char *value;
 
 		va_start(args, error);
-		vasprintf(&value, error, args);
+		if (vasprintf(&value, error, args) < 0)
+			return -errno;
 
 		if (stream->proxy)
 			pw_proxy_error(stream->proxy, res, value);

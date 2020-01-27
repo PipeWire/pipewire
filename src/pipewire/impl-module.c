@@ -57,7 +57,9 @@ static char *find_module(const char *path, const char *name)
 	DIR *dir;
 	int res;
 
-	asprintf(&filename, "%s/%s.so", path, name);
+	filename = spa_aprintf("%s/%s.so", path, name);
+	if (filename == NULL)
+		return NULL;
 
 	if (stat(filename, &s) == 0 && S_ISREG(s.st_mode)) {
 		/* found a regular file with name */
@@ -83,7 +85,7 @@ static char *find_module(const char *path, const char *name)
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
 			continue;
 
-		asprintf(&newpath, "%s/%s", path, entry->d_name);
+		newpath = spa_aprintf("%s/%s", path, entry->d_name);
 		if (newpath == NULL)
 			return NULL;
 

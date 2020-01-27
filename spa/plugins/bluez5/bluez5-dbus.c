@@ -1266,7 +1266,9 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 		return -ENOTSUP;
 	}
 
-	asprintf(&object_path, "%s/%d", profile_path, monitor->count++);
+	object_path = spa_aprintf("%s/%d", profile_path, monitor->count++);
+	if (object_path == NULL)
+		return -errno;
 
 	spa_log_debug(monitor->log, "Registering endpoint: %s", object_path);
 
@@ -1714,7 +1716,9 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	spa_log_debug(monitor->log, "NewConnection path=%s, fd=%d, profile %s", path, fd, handler);
 
-	asprintf(&pathfd, "%s/fd%d", path, fd);
+	if ((pathfd = spa_aprintf("%s/fd%d", path, fd)) == NULL)
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
 	t = transport_create(monitor, pathfd, sizeof(struct transport_data));
 	if (t == NULL) {
 		spa_log_warn(monitor->log, "can't create transport: %m");

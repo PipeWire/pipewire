@@ -322,12 +322,12 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 
 	d->application_name = strdup(application_name);
 
-	asprintf(&d->object_path, OBJECT_PREFIX "%s", device_name);
+	d->object_path = spa_aprintf(OBJECT_PREFIX "%s", device_name);
 	if (d->object_path == NULL) {
 		res = -errno;
 		goto error_free;
 	}
-	asprintf(&d->service_name, SERVICE_PREFIX "%s", device_name);
+	d->service_name = spa_aprintf(SERVICE_PREFIX "%s", device_name);
 	if (d->service_name == NULL) {
 		res = -errno;
 		goto error_free;

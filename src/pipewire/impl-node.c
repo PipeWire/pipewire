@@ -1713,7 +1713,7 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 
 	pw_log_debug(NAME" %p: state complete %d", node, res);
 	if (SPA_RESULT_IS_ERROR(res)) {
-		asprintf(&error, "error changing node state: %s", spa_strerror(res));
+		error = spa_aprintf("error changing node state: %s", spa_strerror(res));
 		state = PW_NODE_STATE_ERROR;
 	}
 	node_update_state(node, state, error);

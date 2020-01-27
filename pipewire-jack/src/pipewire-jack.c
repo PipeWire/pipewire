@@ -2254,8 +2254,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 
 	spa_list_for_each(o, &c->context.nodes, link) {
 		if (strcmp(o->node.name, client_name) == 0) {
-			char *uuid;
-			asprintf(&uuid, "%" PRIu64, (cuuid << 32) | o->id);
+			char *uuid = spa_aprintf( "%" PRIu64, (cuuid << 32) | o->id);
 			pw_log_debug(NAME" %p: name %s -> %s",
 					client, client_name, uuid);
 			return uuid;
@@ -4053,9 +4052,7 @@ SPA_EXPORT
 char *jack_client_get_uuid (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	char *uuid = NULL;
-	asprintf(&uuid, "%d", c->node_id);
-	return uuid;
+	return spa_aprintf("%d", c->node_id);
 }
 
 SPA_EXPORT

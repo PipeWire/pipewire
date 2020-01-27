@@ -246,7 +246,7 @@ static int do_negotiate(struct pw_impl_link *this)
 			res = -EBADF;
 			/* fallthrough */
 		default:
-			asprintf(&error, "error get output format: %s", spa_strerror(res));
+			error = spa_aprintf("error get output format: %s", spa_strerror(res));
 			goto error;
 		}
 		if (current == NULL || spa_pod_compare(current, format) != 0) {
@@ -282,7 +282,7 @@ static int do_negotiate(struct pw_impl_link *this)
 			res = -EBADF;
 			/* fallthrough */
 		default:
-			asprintf(&error, "error get input format: %s", spa_strerror(res));
+			error = spa_aprintf("error get input format: %s", spa_strerror(res));
 			goto error;
 		}
 		if (current == NULL || spa_pod_compare(current, format) != 0) {
@@ -312,7 +312,7 @@ static int do_negotiate(struct pw_impl_link *this)
 		if ((res = pw_impl_port_set_param(output,
 					     SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					     format)) < 0) {
-			asprintf(&error, "error set output format: %d (%s)", res, spa_strerror(res));
+			error = spa_aprintf("error set output format: %d (%s)", res, spa_strerror(res));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
@@ -328,7 +328,7 @@ static int do_negotiate(struct pw_impl_link *this)
 		if ((res2 = pw_impl_port_set_param(input,
 					      SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					      format)) < 0) {
-			asprintf(&error, "error set input format: %d (%s)", res2, spa_strerror(res2));
+			error = spa_aprintf("error set input format: %d (%s)", res2, spa_strerror(res2));
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
@@ -450,7 +450,7 @@ static int do_allocation(struct pw_impl_link *this)
 						output->node->node, output->port_id,
 						input->node->node, input->port_id,
 						&output->buffers)) < 0) {
-			asprintf(&error, "error alloc buffers: %s", spa_strerror(res));
+			error = spa_aprintf("error alloc buffers: %s", spa_strerror(res));
 			goto error;
 		}
 
@@ -460,7 +460,7 @@ static int do_allocation(struct pw_impl_link *this)
 		if ((res = pw_impl_port_use_buffers(output, &this->rt.out_mix, flags,
 						output->buffers.buffers,
 						output->buffers.n_buffers)) < 0) {
-			asprintf(&error, "error use output buffers: %d (%s)", res,
+			error = spa_aprintf("error use output buffers: %d (%s)", res,
 					spa_strerror(res));
 			goto error;
 		}
@@ -481,7 +481,7 @@ static int do_allocation(struct pw_impl_link *this)
 	if ((res = pw_impl_port_use_buffers(input, &this->rt.in_mix, 0,
 				output->buffers.buffers,
 				output->buffers.n_buffers)) < 0) {
-		asprintf(&error, "error use input buffers: %d (%s)", res,
+		error = spa_aprintf("error use input buffers: %d (%s)", res,
 				spa_strerror(res));
 		goto error;
 	}

@@ -184,7 +184,7 @@ static void print_params(struct spa_param_info *params, uint32_t n_params, char 
 
 static bool do_not_implemented(struct data *data, const char *cmd, char *args, char **error)
 {
-        asprintf(error, "Command \"%s\" not yet implemented", cmd);
+        *error = spa_aprintf("Command \"%s\" not yet implemented", cmd);
 	return false;
 }
 
@@ -245,13 +245,13 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
-		asprintf(error, "%s <module-name> [<module-arguments>]", cmd);
+		*error = spa_aprintf("%s <module-name> [<module-arguments>]", cmd);
 		return false;
 	}
 
 	module = pw_context_load_module(data->context, a[0], n == 2 ? a[1] : NULL, NULL);
 	if (module == NULL) {
-		asprintf(error, "Could not load module");
+		*error = spa_aprintf("Could not load module");
 		return false;
 	}
 
@@ -418,7 +418,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	}
 	core = pw_context_connect(data->context, props, sizeof(struct remote_data));
 	if (core == NULL) {
-		asprintf(error, "failed to connect: %m");
+		*error = spa_aprintf("failed to connect: %m");
 		return false;
 	}
 
@@ -474,7 +474,7 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 	return true;
 
       no_remote:
-        asprintf(error, "Remote %d does not exist", idx);
+        *error = spa_aprintf("Remote %d does not exist", idx);
 	return false;
 }
 
@@ -509,7 +509,7 @@ static bool do_switch_remote(struct data *data, const char *cmd, char *args, cha
 	return true;
 
       no_remote:
-        asprintf(error, "Remote %d does not exist", idx);
+        *error = spa_aprintf("Remote %d does not exist", idx);
 	return false;
 }
 
@@ -1140,7 +1140,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		destroy = (pw_destroy_t) endpoint_stream_info_free;
 		info_func = info_endpoint_stream;
 	} else {
-		asprintf(error, "unsupported type %s", global->type);
+		*error = spa_aprintf("unsupported type %s", global->type);
 		return false;
 	}
 
@@ -1205,7 +1205,7 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
-		asprintf(error, "%s <object-id>|all", cmd);
+		*error = spa_aprintf("%s <object-id>|all", cmd);
 		return false;
 	}
 	if (strcmp(a[0], "all") == 0) {
@@ -1215,7 +1215,7 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 		id = atoi(a[0]);
 		global = pw_map_lookup(&rd->globals, id);
 		if (global == NULL) {
-			asprintf(error, "%s: unknown global %d", cmd, id);
+			*error = spa_aprintf("%s: unknown global %d", cmd, id);
 			return false;
 		}
 		return do_global_info(global, error);
@@ -1235,7 +1235,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
-		asprintf(error, "%s <factory-name> [<properties>]", cmd);
+		*error = spa_aprintf("%s <factory-name> [<properties>]", cmd);
 		return false;
 	}
 	if (n == 2)
@@ -1272,7 +1272,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
-		asprintf(error, "%s <factory-name> [<properties>]", cmd);
+		*error = spa_aprintf("%s <factory-name> [<properties>]", cmd);
 		return false;
 	}
 	if (n == 2)
@@ -1307,13 +1307,13 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
-		asprintf(error, "%s <object-id>", cmd);
+		*error = spa_aprintf("%s <object-id>", cmd);
 		return false;
 	}
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
-		asprintf(error, "%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
 	pw_registry_destroy(rd->registry, id);
@@ -1333,7 +1333,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 
 	n = pw_split_ip(args, WHITESPACE, 5, a);
 	if (n < 4) {
-		asprintf(error, "%s <node-id> <port> <node-id> <port> [<properties>]", cmd);
+		*error = spa_aprintf("%s <node-id> <port> <node-id> <port> [<properties>]", cmd);
 		return false;
 	}
 	if (n == 5)
@@ -1378,7 +1378,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
-		asprintf(error, "%s <node-id> [<remote-var>]", cmd);
+		*error = spa_aprintf("%s <node-id> [<remote-var>]", cmd);
 		return false;
 	}
 	if (n == 2) {
@@ -1390,11 +1390,11 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 
 	global = pw_context_find_global(data->context, atoi(a[0]));
 	if (global == NULL) {
-		asprintf(error, "object %d does not exist", atoi(a[0]));
+		*error = spa_aprintf("object %d does not exist", atoi(a[0]));
 		return false;
 	}
 	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Node)) {
-		asprintf(error, "object %d is not a node", atoi(a[0]));
+		*error = spa_aprintf("object %d is not a node", atoi(a[0]));
 		return false;
 	}
 	node = pw_global_get_object(global);
@@ -1406,7 +1406,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	return true;
 
       no_remote:
-        asprintf(error, "Remote %d does not exist", idx);
+        *error = spa_aprintf("Remote %d does not exist", idx);
 	return false;
 }
 
@@ -1420,7 +1420,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 2) {
-		asprintf(error, "%s <object-id> <param-id>", cmd);
+		*error = spa_aprintf("%s <object-id> <param-id>", cmd);
 		return false;
 	}
 
@@ -1429,7 +1429,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
-		asprintf(error, "%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
 	if (global->proxy == NULL) {
@@ -1450,7 +1450,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 		pw_endpoint_enum_params((struct pw_endpoint*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 	else {
-		asprintf(error, "enum-params not implemented on object %d type:%s",
+		*error = spa_aprintf("enum-params not implemented on object %d type:%s",
 				atoi(a[0]), global->type);
 		return false;
 	}
@@ -1468,18 +1468,18 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 
 	n = pw_split_ip(args, WHITESPACE, 3, a);
 	if (n < 3) {
-		asprintf(error, "%s <client-id> <object> <permission>", cmd);
+		*error = spa_aprintf("%s <client-id> <object> <permission>", cmd);
 		return false;
 	}
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
-		asprintf(error, "%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
 	if (strcmp(global->type, PW_TYPE_INTERFACE_Client) != 0) {
-		asprintf(error, "object %d is not a client", atoi(a[0]));
+		*error = spa_aprintf("object %d is not a client", atoi(a[0]));
 		return false;
 	}
 	if (global->proxy == NULL) {
@@ -1505,18 +1505,18 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
-		asprintf(error, "%s <client-id>", cmd);
+		*error = spa_aprintf("%s <client-id>", cmd);
 		return false;
 	}
 
 	id = atoi(a[0]);
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
-		asprintf(error, "%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
 	if (strcmp(global->type, PW_TYPE_INTERFACE_Client) != 0) {
-		asprintf(error, "object %d is not a client", atoi(a[0]));
+		*error = spa_aprintf("object %d is not a client", atoi(a[0]));
 		return false;
 	}
 	if (global->proxy == NULL) {
@@ -1557,7 +1557,7 @@ static bool parse(struct data *data, char *buf, size_t size, char **error)
 			return command_list[i].func(data, cmd, args, error);
 		}
 	}
-        asprintf(error, "Command \"%s\" does not exist. Type 'help' for usage.", cmd);
+        *error = spa_aprintf("Command \"%s\" does not exist. Type 'help' for usage.", cmd);
 	return false;
 }
 

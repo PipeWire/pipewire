@@ -132,7 +132,8 @@ sf_is_valid_type(int format)
 {
 	int type = (format & SF_FORMAT_TYPEMASK);
 
-	return type == SF_FORMAT_WAV;
+	return true;
+	return type == SF_FORMAT_WAV || type == SF_FORMAT_WAVEX;
 }
 
 static inline bool
@@ -142,6 +143,7 @@ sf_is_valid_subtype(int format)
 
 	return sub_type == SF_FORMAT_PCM_S8 ||
 	       sub_type == SF_FORMAT_PCM_16 ||
+	       sub_type == SF_FORMAT_PCM_24 ||
 	       sub_type == SF_FORMAT_PCM_32 ||
 	       sub_type == SF_FORMAT_FLOAT ||
 	       sub_type == SF_FORMAT_DOUBLE;
@@ -157,6 +159,8 @@ sf_str_to_fmt(const char *str)
 		return SF_FORMAT_PCM_S8 | SF_FORMAT_WAV;
 	if (!strcmp(str, "s16"))
 		return SF_FORMAT_PCM_16 | SF_FORMAT_WAV;
+	if (!strcmp(str, "s24"))
+		return SF_FORMAT_PCM_24 | SF_FORMAT_WAV;
 	if (!strcmp(str, "s32"))
 		return SF_FORMAT_PCM_32 | SF_FORMAT_WAV;
 	if (!strcmp(str, "f32"))
@@ -176,6 +180,8 @@ sf_fmt_to_str(int format)
 		return "s8";
 	if (sub_type == SF_FORMAT_PCM_16)
 		return "s16";
+	if (sub_type == SF_FORMAT_PCM_24)
+		return "s24";
 	if (sub_type == SF_FORMAT_PCM_32)
 		return "s32";
 	if (sub_type == SF_FORMAT_FLOAT)
@@ -193,6 +199,7 @@ sf_format_endianess(int format)
 {
 	switch (format & SF_FORMAT_TYPEMASK) {
 	case SF_FORMAT_WAV:
+	case SF_FORMAT_WAVEX:
 		return 0;	/* sf_readf_* return native format */
 	default:
 		break;
@@ -216,6 +223,11 @@ sf_format_to_pw(int format)
 		return endianess == 1 ? SPA_AUDIO_FORMAT_S16_LE :
 		       endianess == 2 ? SPA_AUDIO_FORMAT_S16_BE :
 		                        SPA_AUDIO_FORMAT_S16;
+
+	case SF_FORMAT_PCM_24:
+		return endianess == 1 ? SPA_AUDIO_FORMAT_S24_LE :
+		       endianess == 2 ? SPA_AUDIO_FORMAT_S24_BE :
+		                        SPA_AUDIO_FORMAT_S24;
 	case SF_FORMAT_PCM_32:
 		return endianess == 1 ? SPA_AUDIO_FORMAT_S32_LE :
 		       endianess == 2 ? SPA_AUDIO_FORMAT_S32_BE :
@@ -245,6 +257,8 @@ sf_format_samplesize(int format)
 		return 1;
 	case SF_FORMAT_PCM_16:
 		return 2;
+	case SF_FORMAT_PCM_24:
+		return 3;
 	case SF_FORMAT_PCM_32:
 		return 4;
 	case SF_FORMAT_FLOAT:
@@ -272,6 +286,13 @@ static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frame
 	assert(sizeof(short) == sizeof(int16_t));
 	rn = sf_readf_short(d->file, dest, n_frames);
 	return (int)rn;
+}
+
+static int sf_playback_fill_s24(struct data *d, void *dest, unsigned int n_frames)
+{
+	sf_count_t rn;
+	rn = sf_read_raw(d->file, dest, (sf_count_t) n_frames * d->stride);
+	return (int)rn / d->stride;
 }
 
 static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frames)
@@ -305,49 +326,35 @@ static inline fill_fn
 sf_fmt_playback_fill_fn(int format)
 {
 	enum spa_audio_format fmt = sf_format_to_pw(format);
-	int type = (format & SF_FORMAT_TYPEMASK);
 
 	switch (fmt) {
 	case SPA_AUDIO_FORMAT_S8:
-		if (type == SF_FORMAT_WAV)
-			return sf_playback_fill_s8;
-		break;
+		return sf_playback_fill_s8;
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(int16_t) != sizeof(short))
-				return NULL;
-			return sf_playback_fill_s16;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(int16_t) != sizeof(short))
+			return NULL;
+		return sf_playback_fill_s16;
+	case SPA_AUDIO_FORMAT_S24:
+		return sf_playback_fill_s24;
 	case SPA_AUDIO_FORMAT_S32_LE:
 	case SPA_AUDIO_FORMAT_S32_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(int32_t) != sizeof(int))
-				return NULL;
-			return sf_playback_fill_s32;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(int32_t) != sizeof(int))
+			return NULL;
+		return sf_playback_fill_s32;
 	case SPA_AUDIO_FORMAT_F32_LE:
 	case SPA_AUDIO_FORMAT_F32_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(float) != 4)
-				return NULL;
-			return sf_playback_fill_f32;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(float) != 4)
+			return NULL;
+		return sf_playback_fill_f32;
 	case SPA_AUDIO_FORMAT_F64_LE:
 	case SPA_AUDIO_FORMAT_F64_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(double) != 8)
-				return NULL;
-			return sf_playback_fill_f64;
-		}
-		break;
+		if (sizeof(double) != 8)
+			return NULL;
+		return sf_playback_fill_f64;
 	default:
 		break;
 	}
@@ -402,49 +409,34 @@ static inline fill_fn
 sf_fmt_record_fill_fn(int format)
 {
 	enum spa_audio_format fmt = sf_format_to_pw(format);
-	int type = (format & SF_FORMAT_TYPEMASK);
 
 	switch (fmt) {
 	case SPA_AUDIO_FORMAT_S8:
-		if (type == SF_FORMAT_WAV)
-			return sf_record_fill_s8;
-		break;
+		return sf_record_fill_s8;
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(int16_t) != sizeof(short))
-				return NULL;
-			return sf_record_fill_s16;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(int16_t) != sizeof(short))
+			return NULL;
+		return sf_record_fill_s16;
 	case SPA_AUDIO_FORMAT_S32_LE:
 	case SPA_AUDIO_FORMAT_S32_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(int32_t) != sizeof(int))
-				return NULL;
-			return sf_record_fill_s32;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(int32_t) != sizeof(int))
+			return NULL;
+		return sf_record_fill_s32;
 	case SPA_AUDIO_FORMAT_F32_LE:
 	case SPA_AUDIO_FORMAT_F32_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(float) != 4)
-				return NULL;
-			return sf_record_fill_f32;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(float) != 4)
+			return NULL;
+		return sf_record_fill_f32;
 	case SPA_AUDIO_FORMAT_F64_LE:
 	case SPA_AUDIO_FORMAT_F64_BE:
-		if (type == SF_FORMAT_WAV) {
-			/* sndfile check */
-			if (sizeof(double) != 8)
-				return NULL;
-			return sf_record_fill_f64;
-		}
-		break;
+		/* sndfile check */
+		if (sizeof(double) != 8)
+			return NULL;
+		return sf_record_fill_f64;
 	default:
 		break;
 	}
@@ -997,7 +989,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (data.verbose)
-			printf("opened file \"%s\"\n", data.filename);
+			printf("opened file \"%s\" format %08x\n", data.filename, data.info.format);
 
 		format = data.info.format;
 		if (!sf_is_valid_type(format) ||

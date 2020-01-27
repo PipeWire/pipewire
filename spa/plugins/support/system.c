@@ -42,6 +42,10 @@
 
 #define NAME "system"
 
+#ifndef TFD_TIMER_CANCEL_ON_SET
+#  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
+#endif
+
 struct impl {
 	struct spa_handle handle;
 	struct spa_system system;

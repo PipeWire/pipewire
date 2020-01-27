@@ -32,12 +32,12 @@ benchmark: all
 monitor: all
 	SPA_PLUGIN_DIR=@BUILD_ROOT@/spa/plugins \
 	PIPEWIRE_MODULE_DIR=@BUILD_ROOT@/src/modules/ \
-	@BUILD_ROOT@/src/tools/pipewire-monitor
+	@BUILD_ROOT@/src/tools/pw-mon
 
 cli: all
 	SPA_PLUGIN_DIR=@BUILD_ROOT@/spa/plugins \
 	PIPEWIRE_MODULE_DIR=@BUILD_ROOT@/src/modules/ \
-	@BUILD_ROOT@/src/tools/pipewire-cli
+	@BUILD_ROOT@/src/tools/pw-cli
 
 shell: all
 	ninja -C @BUILD_ROOT@ uninstalled

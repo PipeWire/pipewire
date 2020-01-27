@@ -1,4 +1,4 @@
-/* PipeWire - pwcat
+/* PipeWire - pw-cat
  *
  * Copyright © 2020 Konsulko Group
 

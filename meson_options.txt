@@ -98,7 +98,7 @@ option('vulkan',
        description: 'Enable vulkan spa plugin integration',
        type: 'boolean',
        value: true)
-option('pwcat',
-       description: 'Build pwcat/pwplay/pwrecord',
+option('pw-cat',
+       description: 'Build pw-cat/pw-play/pw-record',
        type: 'boolean',
        value: true)

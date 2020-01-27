@@ -89,6 +89,8 @@ static struct conv_info conv_table[] =
 	{ SPA_AUDIO_FORMAT_S24, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s24_to_f32d_c },
 	{ SPA_AUDIO_FORMAT_S24P, SPA_AUDIO_FORMAT_F32, 0, 0, conv_s24d_to_f32_c },
 
+	{ SPA_AUDIO_FORMAT_S24_OE, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s24s_to_f32d_c },
+
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32, 0, 0, conv_s24_32_to_f32_c },
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s24_32d_to_f32d_c },
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s24_32_to_f32d_c },

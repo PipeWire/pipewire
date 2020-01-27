@@ -63,6 +63,16 @@ static inline int32_t read_s24(const void *src)
 #endif
 }
 
+static inline int32_t read_s24s(const void *src)
+{
+	const int8_t *s = src;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
+#else
+	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
+#endif
+}
+
 static inline void write_s24(void *dst, int32_t val)
 {
 	uint8_t *d = dst;
@@ -74,6 +84,20 @@ static inline void write_s24(void *dst, int32_t val)
 	d[0] = (uint8_t) (val >> 16);
 	d[1] = (uint8_t) (val >> 8);
 	d[2] = (uint8_t) (val);
+#endif
+}
+
+static inline void write_s24s(void *dst, int32_t val)
+{
+	uint8_t *d = dst;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	d[0] = (uint8_t) (val >> 16);
+	d[1] = (uint8_t) (val >> 8);
+	d[2] = (uint8_t) (val);
+#else
+	d[0] = (uint8_t) (val);
+	d[1] = (uint8_t) (val >> 8);
+	d[2] = (uint8_t) (val >> 16);
 #endif
 }
 
@@ -127,6 +151,7 @@ DEFINE_FUNCTION(s32d_to_f32, c);
 DEFINE_FUNCTION(s24d_to_f32d, c);
 DEFINE_FUNCTION(s24_to_f32, c);
 DEFINE_FUNCTION(s24_to_f32d, c);
+DEFINE_FUNCTION(s24s_to_f32d, c);
 DEFINE_FUNCTION(s24d_to_f32, c);
 DEFINE_FUNCTION(s24_32d_to_f32d, c);
 DEFINE_FUNCTION(s24_32_to_f32, c);

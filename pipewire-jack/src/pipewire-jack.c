@@ -3850,7 +3850,7 @@ int jack_set_sync_timeout (jack_client_t *client,
 			   jack_time_t timeout)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
+	struct pw_node_activation *a = c->activation;
 
 	if (a == NULL)
 		return -EIO;

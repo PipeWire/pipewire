@@ -237,6 +237,8 @@ int sm_object_destroy(struct sm_object *obj)
 	pw_log_debug(NAME" %p: object %d", obj->session, obj->id);
 	if (obj->proxy) {
 		pw_proxy_destroy(obj->proxy);
+		if (obj->handle == obj->proxy)
+			obj->handle = NULL;
 		obj->proxy = NULL;
 	}
 	if (obj->handle) {
@@ -521,8 +523,10 @@ static void node_destroy(void *object)
 		spa_list_remove(&node->link);
 		node->device->obj.changed |= SM_DEVICE_CHANGE_MASK_NODES;
 	}
-	if (node->info)
+	if (node->info) {
 		pw_node_info_free(node->info);
+		node->info = NULL;
+	}
 }
 
 static const struct object_info node_info = {

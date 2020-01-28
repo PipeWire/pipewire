@@ -209,6 +209,8 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error);
 
+#define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
+
 static struct command command_list[] = {
 	{ "help", "h", "Show this help", do_help },
 	{ "load-module", "lm", "Load a module. <module-name> [<module-arguments>]", do_load_module },
@@ -227,7 +229,8 @@ static struct command command_list[] = {
 	{ "enum-params", "e", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
 	{ "permissions", "sp", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
 	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
-	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand", do_dump },
+	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand "
+		 "[short|deep|resolve|notype] [-sdrt] [all|"DUMP_NAMES"|<id>]", do_dump },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -1816,8 +1819,6 @@ static const char *name_to_dump_type(const char *name)
 
 	return NULL;
 }
-
-#define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
 
 #define INDENT(_level) \
 	({ \

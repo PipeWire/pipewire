@@ -1017,7 +1017,7 @@ int main(int argc, char *argv[])
 	 * the fd of this pipewire mainloop to it. */
 	data.loop = pw_main_loop_new(NULL);
 	if (!data.loop) {
-		fprintf(stderr, "error: pw_main_loop_new() failed\n");
+		fprintf(stderr, "error: pw_main_loop_new() failed: %m\n");
 		goto error_no_main_loop;
 	}
 
@@ -1027,7 +1027,7 @@ int main(int argc, char *argv[])
 
 	data.context = pw_context_new(l, NULL, 0);
 	if (!data.context) {
-		fprintf(stderr, "error: pw_context_new() failed\n");
+		fprintf(stderr, "error: pw_context_new() failed: %m\n");
 		goto error_no_context;
 	}
 
@@ -1040,7 +1040,7 @@ int main(int argc, char *argv[])
 			PW_KEY_NODE_NAME, prog,
 			NULL);
 	if (!props) {
-		fprintf(stderr, "error: pw_properties_new() failed\n");
+		fprintf(stderr, "error: pw_properties_new() failed: %m\n");
 		goto error_no_props;
 	}
 
@@ -1049,14 +1049,14 @@ int main(int argc, char *argv[])
 
 	data.core = pw_context_connect(data.context, NULL, 0);
 	if (!data.core) {
-		fprintf(stderr, "error: pw_context_connect() failed\n");
+		fprintf(stderr, "error: pw_context_connect() failed: %m\n");
 		goto error_ctx_connect_failed;
 	}
 	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
 	data.registry = pw_core_get_registry(data.core, PW_VERSION_REGISTRY, 0);
 	if (!data.registry) {
-		fprintf(stderr, "error: pw_core_get_registry() failed\n");
+		fprintf(stderr, "error: pw_core_get_registry() failed: %m\n");
 		goto error_no_registry;
 	}
 	pw_registry_add_listener(data.registry, &data.registry_listener, &registry_events, &data);
@@ -1066,7 +1066,7 @@ int main(int argc, char *argv[])
 	if (!data.list_targets) {
 		data.stream = pw_stream_new(data.core, prog, props);
 		if (!data.stream) {
-			fprintf(stderr, "error: failed to create simple stream\n");
+			fprintf(stderr, "error: failed to create simple stream: %m\n");
 			goto error_no_stream;
 		}
 		props = NULL;
@@ -1090,8 +1090,8 @@ int main(int argc, char *argv[])
 				  PW_STREAM_FLAG_MAP_BUFFERS |
 				  PW_STREAM_FLAG_RT_PROCESS,
 				  params, 1);
-		if (ret != 0) {
-			fprintf(stderr, "error: failed connect\n");
+		if (ret < 0) {
+			fprintf(stderr, "error: failed connect: %s\n", spa_strerror(ret));
 			goto error_connect_fail;
 		}
 

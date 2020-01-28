@@ -57,7 +57,7 @@ plugin_init (GstPlugin *plugin)
        GST_RANK_PRIMARY + 1, GST_TYPE_PIPEWIRE_DEVICE_PROVIDER))
     return FALSE;
 
-  GST_DEBUG_CATEGORY_INIT (pipewire_debug, "pipewire", 0, "PipeWirie elements");
+  GST_DEBUG_CATEGORY_INIT (pipewire_debug, "pipewire", 0, "PipeWire elements");
 
   return TRUE;
 }

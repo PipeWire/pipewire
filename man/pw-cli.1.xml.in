@@ -6,18 +6,18 @@
 This file is part of PipeWire.
 -->
 
-<manpage name="pipewire-cli" section="1" desc="The PipeWire Command Line Interface">
+<manpage name="pw-cli" section="1" desc="The PipeWire Command Line Interface">
 
   <synopsis>
-    <cmd>pipewire-cli</cmd>
+    <cmd>pw-cli</cmd>
   </synopsis>
 
   <description>
     <p>Interact with a PipeWire instance.</p>
 
-    <p><manref name="pipewire-cli" section="1"/> starts an interactive session
+    <p><manref name="pw-cli" section="1"/> starts an interactive session
     with a pipewire instance. By default, a connection is made with the local
-    PipeWire instance, that of the pipewire-cli command itself.</p>
+    PipeWire instance, that of the pw-cli command itself.</p>
 
     <p>Connections to other, remote instances can be made. The current instance
       name is displayed at the prompt. Some commands operate on the current
@@ -145,7 +145,7 @@ This file is part of PipeWire.
   <section name="See also">
     <p>
       <manref name="pipewire" section="1"/>,
-      <manref name="pipewire-monitor" section="1"/>,
+      <manref name="pw-mon" section="1"/>,
     </p>
   </section>
 

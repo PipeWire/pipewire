@@ -48,7 +48,7 @@ This file is part of PipeWire.
   <section name="See also">
     <p>
       <manref name="pipewire" section="1"/>,
-      <manref name="pipewire-monitor" section="1"/>,
+      <manref name="pw-mon" section="1"/>,
     </p>
   </section>
 

@@ -34,7 +34,7 @@ This file is part of PipeWire.
     <option>
       <p><opt>-n | --name</opt></p>
 
-      <optdesc><p>Set the daemon name (Default pipewire-1).</p></optdesc>
+      <optdesc><p>Set the daemon name (Default pipewire-0).</p></optdesc>
     </option>
 
   </options>
@@ -45,7 +45,8 @@ This file is part of PipeWire.
 
   <section name="See also">
     <p>
-      <manref name="pipewire-monitor" section="1"/>,
+      <manref name="pw-mon" section="1"/>,
+      <manref name="pw-cli" section="1"/>,
     </p>
   </section>
 

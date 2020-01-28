@@ -6,10 +6,10 @@
 This file is part of PipeWire.
 -->
 
-<manpage name="pipewire-monitor" section="1" desc="The PipeWire monitor">
+<manpage name="pw-mon" section="1" desc="The PipeWire monitor">
 
   <synopsis>
-    <cmd>pipewire-monitor [<arg>remote-name</arg>]</cmd>
+    <cmd>pw-mon [<arg>remote-name</arg>]</cmd>
   </synopsis>
 
   <description>

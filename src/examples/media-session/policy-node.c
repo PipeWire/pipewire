@@ -96,6 +96,7 @@ static int activate_node(struct node *node)
 	char buf[1024];
 	struct spa_pod_builder b = { 0, };
 	struct spa_pod *param;
+	bool have_format = false;
 
 	pw_log_debug(NAME" %p: node %p activate", impl, node);
 
@@ -121,23 +122,28 @@ static int activate_node(struct node *node)
 
 		if (node->format.info.raw.channels < info.info.raw.channels)
 			node->format = info;
+
+		have_format = true;
 	}
-	node->format.info.raw.rate = impl->sample_rate;
 
-	spa_pod_builder_init(&b, buf, sizeof(buf));
-	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
-	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
-		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
-		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
+	if (have_format) {
+		node->format.info.raw.rate = impl->sample_rate;
 
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, param);
+		spa_pod_builder_init(&b, buf, sizeof(buf));
+		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
+		param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
+			SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
+			SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
 
-	pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
-			SPA_PARAM_PortConfig, 0, param);
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(2, NULL, param);
+
+		pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
+				SPA_PARAM_PortConfig, 0, param);
+	}
 
 	node->active = true;
 	return 0;

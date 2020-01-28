@@ -1720,9 +1720,11 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 		}
 		i = 0;
 		pw_array_for_each(item, &rd->globals.items) {
-			if (pw_map_item_is_free(item))
+			if (pw_map_item_is_free(item) || item->data == NULL)
 				continue;
+
 			global = item->data;
+
 			if (strcmp(global->type, child_type))
 				continue;
 
@@ -2600,8 +2602,9 @@ static bool do_dump(struct data *data, const char *cmd, char *args, char **error
 	}
 
 	pw_array_for_each(item, &rd->globals.items) {
-		if (pw_map_item_is_free(item))
+		if (pw_map_item_is_free(item) || item->data == NULL)
 			continue;
+
 		global = item->data;
 
 		/* unknown type, ignore completely */

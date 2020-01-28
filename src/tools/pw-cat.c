@@ -1087,8 +1087,7 @@ int main(int argc, char *argv[])
 				  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
 				  data.target_id,
 				  PW_STREAM_FLAG_AUTOCONNECT |
-				  PW_STREAM_FLAG_MAP_BUFFERS |
-				  PW_STREAM_FLAG_RT_PROCESS,
+				  PW_STREAM_FLAG_MAP_BUFFERS,
 				  params, 1);
 		if (ret < 0) {
 			fprintf(stderr, "error: failed connect: %s\n", spa_strerror(ret));

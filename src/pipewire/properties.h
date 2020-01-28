@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <stdarg.h>
+	
 #include <spa/utils/dict.h>
 
 /** \class pw_properties

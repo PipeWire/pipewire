@@ -776,9 +776,9 @@ int main(int argc, char *argv[])
 		prog = argv[0];
 
 	/* prime the mode from the program name */
-	if (!strcmp(prog, "pwplay"))
+	if (!strcmp(prog, "pw-play"))
 		data.mode = mode_playback;
-	else if (!strcmp(prog, "pwrecord"))
+	else if (!strcmp(prog, "pw-record"))
 		data.mode = mode_record;
 	else
 		data.mode = mode_none;

@@ -1594,9 +1594,13 @@ static int client_node_port_use_buffers(void *object,
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}
-			if (mlock(d->data, d->maxsize) < 0)
-				pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %m", c,
-						d->data, d->maxsize);
+			if (mlock(d->data, d->maxsize) < 0) {
+				pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", c,
+						d->data, d->maxsize,
+						errno == ENOMEM ?
+						"This is not a problem but for best performance, "
+						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+			}
 		}
 
 		init_buffer(p, p->emptyptr, MAX_BUFFER_FRAMES);

@@ -619,8 +619,11 @@ client_node_port_use_buffers(void *object,
 		bid->mem = mm;
 
 		if (mlock(mm->ptr, mm->size) < 0)
-			pw_log_warn("Failed to mlock memory %p %u: %m",
-					mm->ptr, mm->size);
+			pw_log_warn("Failed to mlock memory %p %u: %s",
+					mm->ptr, mm->size,
+					errno == ENOMEM ?
+					"This is not a problem but for best performance, "
+					"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
 
 		size = sizeof(struct spa_buffer);
 		for (j = 0; j < buffers[i].buffer->n_metas; j++)

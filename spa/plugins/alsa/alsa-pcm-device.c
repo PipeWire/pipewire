@@ -114,7 +114,7 @@ static const char *get_subclass(snd_pcm_info_t *pcminfo)
 	}
 }
 
-static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
+static int emit_node(struct impl *this, snd_ctl_card_info_t *cardinfo, snd_pcm_info_t *pcminfo, uint32_t id)
 {
 	struct spa_dict_item items[12];
 	char device_name[128], path[180];
@@ -140,7 +140,7 @@ static int emit_node(struct impl *this, snd_pcm_info_t *pcminfo, uint32_t id)
 	snprintf(dev, sizeof(dev), "%d", snd_pcm_info_get_device(pcminfo));
 	snprintf(subdev, sizeof(subdev), "%d", snd_pcm_info_get_subdevice(pcminfo));
 	snprintf(device_name, sizeof(device_name), "%s,%s", this->props.device, dev);
-	snprintf(path, sizeof(path), "alsa:pcm:%s:%s", device_name, stream);
+	snprintf(path, sizeof(path), "alsa:pcm:%s:%s", snd_ctl_card_info_get_id(cardinfo), stream);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH,	       path);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card);
@@ -168,9 +168,16 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 	int err = 0, dev;
 	uint32_t i;
 	snd_pcm_info_t *pcminfo;
+	snd_ctl_card_info_t *cardinfo;
 
 	spa_log_debug(this->log, "profile %d", id);
 	this->profile = id;
+
+	snd_ctl_card_info_alloca(&cardinfo);
+	if ((err = snd_ctl_card_info(ctl_hndl, cardinfo)) < 0) {
+		spa_log_error(this->log, "error card info: %s", snd_strerror(err));
+		return err;
+	}
 
 	for (i = 0; i < this->n_nodes; i++)
 		spa_device_emit_object_info(&this->hooks, i, NULL);
@@ -200,7 +207,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0)
-			emit_node(this, pcminfo, i++);
+			emit_node(this, cardinfo, pcminfo, i++);
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
 		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
@@ -208,7 +215,7 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0)
-			emit_node(this, pcminfo, i++);
+			emit_node(this, cardinfo, pcminfo, i++);
 	}
 	this->n_nodes = i;
 exit:
@@ -264,7 +271,7 @@ static int emit_info(struct impl *this, bool full)
 	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 
 #define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
-	snprintf(path, sizeof(path), "alsa:pcm:%s", this->props.device);
+	snprintf(path, sizeof(path), "alsa:pcm:%s", snd_ctl_card_info_get_id(info));
 	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
 	ADD_ITEM(SPA_KEY_DEVICE_API, "alsa:pcm");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Audio/Device");

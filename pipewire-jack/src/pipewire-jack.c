@@ -195,7 +195,9 @@ struct port {
 	struct spa_io_buffers io;
 	struct spa_list mix;
 
-	bool zeroed;
+	unsigned int empty_out:1;
+	unsigned int zeroed:1;
+
 	float *emptyptr;
 	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
 };
@@ -749,16 +751,31 @@ done:
 	return ptr;
 }
 
-static void process_tee(struct client *c)
+static void process_tee(struct client *c, uint32_t frames)
 {
 	struct port *p;
 
 	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
-		if (p->object->port.type_id != 1)
+		void *ptr;
+
+		if (!p->empty_out)
 			continue;
-		void *ptr = get_buffer_output(c, p, MAX_BUFFER_FRAMES, 1);
-		if (ptr != NULL)
-			convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
+
+		switch (p->object->port.type_id) {
+		case 0:
+			ptr = get_buffer_output(c, p, frames, sizeof(float));
+			if (ptr != NULL)
+				memcpy(ptr, p->emptyptr, frames * sizeof(float));
+			break;
+		case 1:
+			ptr = get_buffer_output(c, p, MAX_BUFFER_FRAMES, 1);
+			if (ptr != NULL)
+				convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
+			break;
+		default:
+			pw_log_warn("port %p: unhandled format", p);
+			break;
+		}
 	}
 }
 
@@ -973,7 +990,7 @@ static inline void signal_sync(struct client *c)
 	struct link *l;
 	struct pw_node_activation *activation = c->activation;
 
-	process_tee(c);
+	process_tee(c, c->buffer_frames);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
@@ -2909,14 +2926,18 @@ static inline void *get_buffer_output_float(struct client *c, struct port *p, ja
 	void *ptr;
 
 	ptr = get_buffer_output(c, p, frames, sizeof(float));
-	if (ptr == NULL)
+	if (ptr == NULL) {
+		p->empty_out = true;
 		ptr = p->emptyptr;
-
+	} else {
+		p->empty_out = false;
+	}
 	return ptr;
 }
 
 static inline void *get_buffer_output_midi(struct client *c, struct port *p, jack_nframes_t frames)
 {
+	p->empty_out = true;
 	return p->emptyptr;
 }
 
@@ -2972,7 +2993,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		}
 	}
 
-	pw_log_trace(NAME" %p: port %p buffer %p", c, p, ptr);
+	pw_log_trace(NAME" %p: port %p buffer %p empty:%u", c, p, ptr, p->empty_out);
 	return ptr;
 }
 

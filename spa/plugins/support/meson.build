@@ -10,7 +10,7 @@ spa_support_lib = shared_library('spa-support',
 			include_directories : [ spa_inc ],
 			dependencies : [ pthread_lib, epoll_shim_dep ],
 			install : true,
-			install_dir : '@0@/spa/support'.format(get_option('libdir')))
+		        install_dir : join_paths(spa_plugindir, 'support'))
 
 
 if get_option('evl')
@@ -27,7 +27,7 @@ if get_option('evl')
 			include_directories : [ spa_inc, evl_inc],
 			dependencies : [ pthread_lib, evl_lib],
 			install : true,
-			install_dir : '@0@/spa/support'.format(get_option('libdir')))
+		        install_dir : join_paths(spa_plugindir, 'support'))
 endif
 
 spa_dbus_sources = ['dbus.c']
@@ -37,4 +37,4 @@ spa_dbus_lib = shared_library('spa-dbus',
 			include_directories : [ spa_inc],
 			dependencies : [dbus_dep, ],
 			install : true,
-			install_dir : '@0@/spa/support'.format(get_option('libdir')))
+		        install_dir : join_paths(spa_plugindir, 'support'))

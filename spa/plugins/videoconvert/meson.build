@@ -11,4 +11,4 @@ videoconvertlib = shared_library('spa-videoconvert',
                           dependencies : [ mathlib ],
 			  link_with : simd_dependencies,
                           install : true,
-                          install_dir : '@0@/spa/videoconvert/'.format(get_option('libdir')))
+		          install_dir : join_paths(spa_plugindir, 'videoconvert'))

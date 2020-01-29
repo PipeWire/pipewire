@@ -12,4 +12,4 @@ spa_alsa = shared_library('spa-alsa',
                            include_directories : [spa_inc],
                            dependencies : [ alsa_dep, libudev_dep, mathlib, ],
                            install : true,
-                           install_dir : '@0@/spa/alsa'.format(get_option('libdir')))
+                           install_dir : join_paths(spa_plugindir, 'alsa'))

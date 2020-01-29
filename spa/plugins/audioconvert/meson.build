@@ -82,7 +82,7 @@ audioconvertlib = shared_library('spa-audioconvert',
                           dependencies : [ mathlib ],
 			  link_with : simd_dependencies,
                           install : true,
-                          install_dir : '@0@/spa/audioconvert/'.format(get_option('libdir')))
+                          install_dir : join_paths(spa_plugindir, 'audioconvert'))
 
 test_lib = static_library('test_lib',
 	['test-source.c' ],

@@ -9,4 +9,4 @@ spa_jack = shared_library('spa-jack',
                            include_directories : [spa_inc],
                            dependencies : [ jack_dep, mathlib ],
                            install : true,
-                           install_dir : '@0@/spa/jack'.format(get_option('libdir')))
+		           install_dir : join_paths(spa_plugindir, 'jack'))

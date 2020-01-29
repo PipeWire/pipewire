@@ -18,7 +18,7 @@ else
   pipewire_version_nano = 0
 endif
 
-spaversion = '0.1'
+spaversion = '0.2'
 apiversion = '0.3'
 soversion = 0
 libversion = '@0@.@1@.0'.format(soversion, pipewire_version_minor.to_int() * 100 + pipewire_version_micro.to_int())
@@ -32,7 +32,7 @@ pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
 
 pipewire_configdir = join_paths(pipewire_sysconfdir, 'pipewire')
 modules_install_dir = join_paths(pipewire_libdir, 'pipewire-@0@'.format(apiversion))
-spa_plugindir = join_paths(pipewire_libdir, 'spa')
+spa_plugindir = join_paths(pipewire_libdir, 'spa-@0@'.format(spaversion))
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')

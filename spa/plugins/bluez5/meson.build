@@ -14,4 +14,4 @@ bluez5lib = shared_library('spa-bluez5',
 	c_args : [ '-D_GNU_SOURCE' ],
 	dependencies : [ dbus_dep, sbc_dep, bluez_dep ],
 	install : true,
-	install_dir : '@0@/spa/bluez5'.format(get_option('libdir')))
+        install_dir : join_paths(spa_plugindir, 'bluez5'))

@@ -53,4 +53,4 @@ audiomixerlib = shared_library('spa-audiomixer',
                           include_directories : [spa_inc],
                           dependencies : [ mathlib ],
                           install : true,
-                          install_dir : '@0@/spa/audiomixer/'.format(get_option('libdir')))
+                          install_dir : join_paths(spa_plugindir, 'audiomixer'))

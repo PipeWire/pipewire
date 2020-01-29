@@ -7,4 +7,4 @@ ffmpeglib = shared_library('spa-ffmpeg',
                           include_directories : [spa_inc],
                           dependencies : [ avcodec_dep, avformat_dep ],
                           install : true,
-                          install_dir : '@0@/spa/ffmpeg'.format(get_option('libdir')))
+		          install_dir : join_paths(spa_plugindir, 'fmmpeg'))

@@ -7,4 +7,4 @@ spa_vulkan = shared_library('spa-vulkan',
                            include_directories : [spa_inc],
                            dependencies : [ vulkan_dep, mathlib ],
                            install : true,
-                           install_dir : '@0@/spa/vulkan'.format(get_option('libdir')))
+		           install_dir : join_paths(spa_plugindir, 'vulkan'))

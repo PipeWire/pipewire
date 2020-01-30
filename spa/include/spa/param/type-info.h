@@ -294,6 +294,7 @@ static const struct spa_type_info spa_type_param_port_config[] = {
 	{ SPA_PARAM_PORT_CONFIG_direction, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "direction", spa_type_direction, },
 	{ SPA_PARAM_PORT_CONFIG_mode, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "mode", spa_type_param_port_config_mode },
 	{ SPA_PARAM_PORT_CONFIG_monitor, SPA_TYPE_Bool, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "monitor", NULL },
+	{ SPA_PARAM_PORT_CONFIG_control, SPA_TYPE_Bool, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "control", NULL },
 	{ SPA_PARAM_PORT_CONFIG_format, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "format", NULL },
 	{ 0, 0, NULL, NULL },
 };

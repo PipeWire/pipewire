@@ -111,6 +111,7 @@ enum spa_param_port_config {
 	SPA_PARAM_PORT_CONFIG_direction,	/**< direction, input/output (Id enum spa_direction) */
 	SPA_PARAM_PORT_CONFIG_mode,		/**< (Id enum spa_param_port_config_mode) mode */
 	SPA_PARAM_PORT_CONFIG_monitor,		/**< (Bool) enable monitor output ports on input ports */
+	SPA_PARAM_PORT_CONFIG_control,		/**< (Bool) enable control ports */
 	SPA_PARAM_PORT_CONFIG_format,		/**< (Object) format filter */
 };
 

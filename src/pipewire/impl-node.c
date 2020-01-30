@@ -39,6 +39,8 @@
 
 #define NAME "node"
 
+#define DEFAULT_SYNC_TIMEOUT  ((uint64_t)(5 * SPA_NSEC_PER_SEC))
+
 /** \cond */
 struct impl {
 	struct pw_impl_node this;
@@ -1014,7 +1016,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.driver_target.signal = process_node;
 
 	reset_position(this, &this->rt.activation->position);
-	this->rt.activation->sync_timeout = 5 * SPA_NSEC_PER_SEC;
+	this->rt.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;
 	this->rt.activation->sync_left = 0;
 
 	check_properties(this);
@@ -1307,6 +1309,7 @@ static int node_ready(void *data, int status)
 		struct pw_node_activation *a = node->rt.activation;
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
+		uint64_t min_timeout = UINT64_MAX;
 
 		if (a->state[0].pending != 0) {
 			pw_log_warn(NAME" %p: graph not finished", node);
@@ -1339,6 +1342,8 @@ static int node_ready(void *data, int status)
 					a->position.segments[0].bar = ta->segment.bar;
 				if (id == owner[1])
 					a->position.segments[0].video = ta->segment.video;
+
+				min_timeout = SPA_MIN(min_timeout, ta->sync_timeout);
 			}
 
 			if (update_sync) {
@@ -1349,6 +1354,7 @@ static int node_ready(void *data, int status)
 			}
 		}
 		a->prev_signal_time = a->signal_time;
+		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
 		if (reposition_node)
 			do_reposition(node, reposition_node);

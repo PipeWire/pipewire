@@ -185,14 +185,6 @@ struct pw_global {
 	struct spa_list resource_list;	/**< The list of resources of this global */
 };
 
-#define pw_context_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_context_events, m, v, ##__VA_ARGS__)
-#define pw_context_emit_destroy(c)		pw_context_emit(c, destroy, 0)
-#define pw_context_emit_free(c)			pw_context_emit(c, free, 0)
-#define pw_context_emit_info_changed(c,i)	pw_context_emit(c, info_changed, 0, i)
-#define pw_context_emit_check_access(c,cl)	pw_context_emit(c, check_access, 0, cl)
-#define pw_context_emit_global_added(c,g)	pw_context_emit(c, global_added, 0, g)
-#define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
-
 #define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_events, m, v, ##__VA_ARGS__)
 #define pw_core_resource_info(r,...)		pw_core_resource(r,info,0,__VA_ARGS__)
 #define pw_core_resource_done(r,...)		pw_core_resource(r,done,0,__VA_ARGS__)
@@ -223,10 +215,37 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 	va_end(args);
 }
 
+#define pw_context_driver_emit(c,m,v,...) spa_hook_list_call_simple(&c->driver_listener_list, struct pw_context_driver_events, m, v, ##__VA_ARGS__)
+#define pw_context_driver_emit_start(c,n)	pw_context_driver_emit(c, start, 0, n)
+#define pw_context_driver_emit_xrun(c,n)	pw_context_driver_emit(c, xrun, 0, n)
+#define pw_context_driver_emit_incomplete(c,n)	pw_context_driver_emit(c, incomplete, 0, n)
+#define pw_context_driver_emit_timeout(c,n)	pw_context_driver_emit(c, timeout, 0, n)
+
+struct pw_context_driver_events {
+#define PW_VERSION_CONTEXT_DRIVER_EVENTS	0
+	uint32_t version;
+
+	/** The driver graph is started */
+	void (*start) (void *data, struct pw_impl_node *node);
+	/** The driver under/overruns */
+	void (*xrun) (void *data, struct pw_impl_node *node);
+	/** The driver could not complete the graph */
+	void (*incomplete) (void *data, struct pw_impl_node *node);
+	/** The driver got a sync timeout */
+	void (*timeout) (void *data, struct pw_impl_node *node);
+};
+
 #define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_events,m,v,##__VA_ARGS__)
 #define pw_registry_resource_global(r,...)        pw_registry_resource(r,global,0,__VA_ARGS__)
 #define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)
 
+#define pw_context_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_context_events, m, v, ##__VA_ARGS__)
+#define pw_context_emit_destroy(c)		pw_context_emit(c, destroy, 0)
+#define pw_context_emit_free(c)			pw_context_emit(c, free, 0)
+#define pw_context_emit_info_changed(c,i)	pw_context_emit(c, info_changed, 0, i)
+#define pw_context_emit_check_access(c,cl)	pw_context_emit(c, check_access, 0, cl)
+#define pw_context_emit_global_added(c,g)	pw_context_emit(c, global_added, 0, g)
+#define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
 
 struct pw_context {
 	struct pw_impl_core *core;		/**< core object */
@@ -254,6 +273,7 @@ struct pw_context {
 	struct spa_list export_list;		/**< list of export types */
 	struct spa_list driver_list;		/**< list of driver nodes */
 
+	struct spa_hook_list driver_listener_list;
 	struct spa_hook_list listener_list;
 
 	struct pw_loop *main_loop;	/**< main loop for control */

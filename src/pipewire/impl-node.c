@@ -780,7 +780,7 @@ static void dump_states(struct pw_impl_node *driver)
 				a->finish_time,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time,
-				t->activation->status, t->activation->pending_sync);
+				a->status, a->pending_sync);
 	}
 }
 
@@ -1285,6 +1285,7 @@ static void update_position(struct pw_impl_node *node, int all_ready)
 	if (a->position.state == SPA_IO_POSITION_STATE_STARTING) {
 		if (!all_ready && --a->sync_left == 0) {
 			pw_log_warn(NAME" %p: sync timeout, going to RUNNING", node);
+			pw_context_driver_emit_timeout(node->context, node);
 			dump_states(node);
 			all_ready = true;
 		}
@@ -1313,9 +1314,11 @@ static int node_ready(void *data, int status)
 
 		if (a->state[0].pending != 0) {
 			pw_log_warn(NAME" %p: graph not finished", node);
+			pw_context_driver_emit_incomplete(node->context, node);
 			dump_states(node);
 			node->rt.target.signal(node->rt.target.data);
 		}
+		pw_context_driver_emit_start(node->context, node);
 
 		sync_type = check_updates(node, &reposition_owner);
 		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);
@@ -1399,6 +1402,8 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 
 	pw_log_debug(NAME" %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
 			this, a->xrun_count, trigger, delay, a->max_delay);
+
+	pw_context_driver_emit_xrun(this->context, this);
 
 	return 0;
 }

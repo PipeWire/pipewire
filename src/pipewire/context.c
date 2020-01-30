@@ -257,6 +257,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	spa_list_init(&this->export_list);
 	spa_list_init(&this->driver_list);
 	spa_hook_list_init(&this->listener_list);
+	spa_hook_list_init(&this->driver_listener_list);
 
 	this->core = pw_context_create_core(this, pw_properties_copy(properties), 0);
 	if (this->core == NULL) {

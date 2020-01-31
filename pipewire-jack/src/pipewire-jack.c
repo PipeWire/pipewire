@@ -905,7 +905,8 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 
 static inline uint32_t cycle_run(struct client *c)
 {
-	uint64_t cmd, nsec;
+	uint64_t cmd;
+	struct timespec ts;
 	int fd = c->socket_source->fd;
 	uint32_t buffer_frames, sample_rate;
 	struct spa_io_position *pos = c->position;
@@ -926,9 +927,10 @@ static inline uint32_t cycle_run(struct client *c)
 		return 0;
 	}
 
-	nsec = pos->clock.nsec;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 	activation->status = PW_NODE_ACTIVATION_AWAKE;
-	activation->awake_time = nsec;
+	activation->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+
 	if (c->first) {
 		if (c->thread_init_callback)
 			c->thread_init_callback(c->thread_init_arg);

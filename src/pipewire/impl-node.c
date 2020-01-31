@@ -1312,8 +1312,8 @@ static int node_ready(void *data, int status)
 		uint32_t owner[2], reposition_owner;
 		uint64_t min_timeout = UINT64_MAX;
 
-		if (a->state[0].pending != 0) {
-			pw_log_warn(NAME" %p: graph not finished", node);
+		if (a->state[0].pending > 0) {
+			pw_log_warn(NAME" %p: graph not finished: pending %d", node, a->state[0].pending);
 			pw_context_driver_emit_incomplete(node->context, node);
 			dump_states(node);
 			node->rt.target.signal(node->rt.target.data);

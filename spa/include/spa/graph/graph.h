@@ -46,8 +46,8 @@ struct spa_graph_port;
 
 struct spa_graph_state {
 	int status;			/**< current status */
-	uint32_t required;		/**< required number of signals */
-	uint32_t pending;		/**< number of pending signals */
+	int32_t required;		/**< required number of signals */
+	int32_t pending;		/**< number of pending signals */
 };
 
 static inline void spa_graph_state_reset(struct spa_graph_state *state)

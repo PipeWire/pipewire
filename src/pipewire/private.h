@@ -356,23 +356,23 @@ struct pw_impl_device {
 #define pw_impl_module_emit_registered(m)	pw_impl_module_emit(m, registered, 0)
 
 struct pw_impl_module {
-	struct pw_context *context;           /**< the context object */
-	struct spa_list link;           /**< link in the context module_list */
-	struct pw_global *global;       /**< global object for this module */
+	struct pw_context *context;	/**< the context object */
+	struct spa_list link;		/**< link in the context module_list */
+	struct pw_global *global;	/**< global object for this module */
 	struct spa_hook global_listener;
 
 	struct pw_properties *properties;	/**< properties of the module */
-	struct pw_module_info info;     /**< introspectable module info */
+	struct pw_module_info info;	/**< introspectable module info */
 
 	struct spa_hook_list listener_list;
 
-	void *user_data;                /**< module user_data */
+	void *user_data;		/**< module user_data */
 };
 
 struct pw_node_activation_state {
-        int status;                     /**< current status */
-        uint32_t required;              /**< required number of signals */
-        uint32_t pending;               /**< number of pending signals */
+	int status;			/**< current status */
+	int32_t required;		/**< required number of signals */
+	int32_t pending;		/**< number of pending signals */
 };
 
 static inline void pw_node_activation_state_reset(struct pw_node_activation_state *state)

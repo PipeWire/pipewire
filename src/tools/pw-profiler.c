@@ -121,7 +121,8 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	else if (d->driver_id != driver_id)
 		return -1;
 
-	*point = p;
+	point->period_usecs = p.period_usecs;
+	point->driver = p.driver;
 	return 0;
 }
 
@@ -395,7 +396,6 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 
 		spa_zero(point);
 		SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)o, p) {
-
 			switch(p->key) {
 			case SPA_PROFILER_driverBlock:
 				res = process_driver_block(d, &p->value, &point);

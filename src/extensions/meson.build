@@ -8,6 +8,7 @@ pipewire_ext_sm_headers = [
 pipewire_ext_headers = [
   'client-node.h',
   'metadata.h',
+  'profiler.h',
   'protocol-native.h',
   'session-manager.h',
 ]

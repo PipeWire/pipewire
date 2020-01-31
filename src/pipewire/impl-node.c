@@ -875,6 +875,8 @@ static inline int process_node(void *data)
 				a->signal_time - a->prev_signal_time,
 				a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
 
+		pw_context_driver_emit_start(this->context, this);
+
 	} else if (status == SPA_STATUS_OK) {
 		pw_log_trace_fp(NAME" %p: async continue", this);
 	} else {
@@ -1318,7 +1320,6 @@ static int node_ready(void *data, int status)
 			dump_states(node);
 			node->rt.target.signal(node->rt.target.data);
 		}
-		pw_context_driver_emit_start(node->context, node);
 
 		sync_type = check_updates(node, &reposition_owner);
 		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);

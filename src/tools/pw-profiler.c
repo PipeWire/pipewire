@@ -74,7 +74,7 @@ struct measurement {
 };
 
 struct point {
-	float period_usecs;
+	struct spa_io_clock clock;
 	struct measurement driver;
 	struct measurement follower[MAX_FOLLOWERS];
 };
@@ -91,7 +91,7 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	} dummy;
 	struct spa_io_clock clock;
 	uint32_t driver_id;
-	struct point p;
+	struct measurement driver;
 
 	spa_pod_parse_struct(pod,
 			SPA_POD_Long(&dummy.l),
@@ -107,13 +107,12 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 			SPA_POD_Long(&clock.delay),
 			SPA_POD_Double(&clock.rate_diff),
 			SPA_POD_Long(&clock.next_nsec),
-			SPA_POD_Long(&p.driver.prev_signal),
-			SPA_POD_Long(&p.driver.signal),
-			SPA_POD_Long(&p.driver.awake),
-			SPA_POD_Long(&p.driver.finish),
-			SPA_POD_Int(&p.driver.status));
+			SPA_POD_Long(&driver.prev_signal),
+			SPA_POD_Long(&driver.signal),
+			SPA_POD_Long(&driver.awake),
+			SPA_POD_Long(&driver.finish),
+			SPA_POD_Int(&driver.status));
 
-	p.period_usecs = clock.duration * (float)SPA_USEC_PER_SEC / (clock.rate.denom * clock.rate_diff);
 	if (d->driver_id == 0) {
 		d->driver_id = driver_id;
 		fprintf(stderr, "logging driver %u\n", driver_id);
@@ -121,8 +120,8 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	else if (d->driver_id != driver_id)
 		return -1;
 
-	point->period_usecs = p.period_usecs;
-	point->driver = p.driver;
+	point->clock = clock;
+	point->driver = driver;
 	return 0;
 }
 
@@ -183,25 +182,35 @@ static void dump_point(struct data *d, struct point *point)
 {
 	int i;
 	int64_t d1, d2;
+	int64_t delay, period_usecs;
+
+#define CLOCK_AS_USEC(cl,val) (val * (float)SPA_USEC_PER_SEC / (cl)->rate.denom)
+#define CLOCK_AS_SUSEC(cl,val) (val * (float)SPA_USEC_PER_SEC / ((cl)->rate.denom * (cl)->rate_diff))
+
+	delay = CLOCK_AS_USEC(&point->clock, point->clock.delay);
+	period_usecs = CLOCK_AS_SUSEC(&point->clock, point->clock.duration);
 
 	d1 = (point->driver.signal - point->driver.prev_signal) / 1000;
 	d2 = (point->driver.finish - point->driver.signal) / 1000;
 
-	if (d1 > point->period_usecs * 1.3 ||
-	    d2 > point->period_usecs * 1.3)
-		d1 = d2 = point->period_usecs * 1.4;
+	if (d1 > period_usecs * 1.3 ||
+	    d2 > period_usecs * 1.3)
+		d1 = d2 = period_usecs * 1.4;
 
-	fprintf(d->output, "%"PRIi64"\t%"PRIi64"\t", d1 > 0 ? d1 : 0, d2 > 0 ? d2 : 0);
+	/* 4 columns for the driver */
+	fprintf(d->output, "%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t",
+			d1 > 0 ? d1 : 0, d2 > 0 ? d2 : 0, delay, period_usecs);
 
 	for (i = 0; i < MAX_FOLLOWERS; i++) {
+		/* 8 columns for each follower */
 		if (point->follower[i].status == 0) {
-			fprintf(d->output, " \t \t \t \t \t \t \t");
+			fprintf(d->output, " \t \t \t \t \t \t \t \t");
 		} else {
 			int64_t d4 = (point->follower[i].signal - point->driver.signal) / 1000;
 			int64_t d5 = (point->follower[i].awake - point->driver.signal) / 1000;
 			int64_t d6 = (point->follower[i].finish - point->driver.signal) / 1000;
 
-			fprintf(d->output, "%u\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%d\t",
+			fprintf(d->output, "%u\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%d\t0\t",
 					d->followers[i].id,
 					d4 > 0 ? d4 : 0,
 					d5 > 0 ? d5 : 0,
@@ -231,11 +240,15 @@ static void dump_scripts(struct data *d)
 		fprintf(out,
 			"set output 'Timing1.svg\n"
 			"set terminal svg\n"
+			"set multiplot\n"
 			"set grid\n"
 			"set title \"Audio driver timing\"\n"
 			"set xlabel \"audio cycles\"\n"
 			"set ylabel \"usec\"\n"
-			"plot \"%s\" using 1 title \"Audio period\" with lines \n"
+			"plot \"%1$s\" using 3 title \"Audio driver delay\" with lines, "
+			"\"%1$s\" using 1 title \"Audio period\" with lines,"
+			"\"%1$s\" using 4 title \"Audio estimated\" with lines\n"
+			"unset multiplot\n"
 			"unset output\n", d->filename);
 		fclose(out);
 	}
@@ -276,7 +289,7 @@ static void dump_scripts(struct data *d)
 		for (i = 0; i < d->n_followers; i++) {
 			fprintf(out,
 				"\"%s\" using %d title \"%s/%u\" with lines%s",
-					d->filename, ((i + 1) * 7) - 1,
+					d->filename, 4 + (i * 8) + 4,
 					d->followers[i].name, d->followers[i].id,
 					i+1 < d->n_followers ? ", " : "");
 		}
@@ -303,7 +316,7 @@ static void dump_scripts(struct data *d)
 		for (i = 0; i < d->n_followers; i++) {
 			fprintf(out,
 				"\"%s\" using %d title \"%s/%u\" with lines%s",
-					d->filename, ((i + 1) * 7),
+					d->filename, 4 + (i * 8) + 5,
 					d->followers[i].name, d->followers[i].id,
 					i+1 < d->n_followers ? ", " : "");
 		}
@@ -330,7 +343,7 @@ static void dump_scripts(struct data *d)
 		for (i = 0; i < d->n_followers; i++) {
 			fprintf(out,
 				"\"%s\" using %d title \"%s/%u\" with lines%s",
-					d->filename, ((i + 1) * 7) + 1,
+					d->filename, 4 + (i * 8) + 6,
 					d->followers[i].name, d->followers[i].id,
 					i+1 < d->n_followers ? ", " : "");
 		}

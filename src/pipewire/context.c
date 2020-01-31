@@ -137,6 +137,8 @@ static void fill_defaults(struct pw_context *this)
 	this->defaults.clock_quantum = get_default(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
 	this->defaults.clock_min_quantum = get_default(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
 	this->defaults.clock_max_quantum = get_default(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
+	this->defaults.clock_quantum = SPA_CLAMP(this->defaults.clock_quantum,
+			this->defaults.clock_min_quantum, this->defaults.clock_max_quantum);
 	this->defaults.video_size.width = get_default(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
 	this->defaults.video_size.height = get_default(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
 	this->defaults.video_rate.num = get_default(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);

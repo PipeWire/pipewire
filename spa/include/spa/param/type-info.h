@@ -322,6 +322,19 @@ static const struct spa_type_info spa_type_param_route[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+#include <spa/param/profiler.h>
+
+#define SPA_TYPE_INFO_Profiler		SPA_TYPE_INFO_OBJECT_BASE "Profiler"
+#define SPA_TYPE_INFO_PROFILER_BASE	SPA_TYPE_INFO_Profiler ":"
+
+static const struct spa_type_info spa_type_profiler[] = {
+	{ SPA_PROFILER_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROFILER_BASE, spa_type_param, },
+	{ SPA_PROFILER_driverBlock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "driverBlock", NULL, },
+	{ SPA_PROFILER_followerBlock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "followerBlock", NULL, },
+	{ 0, 0, NULL, NULL },
+};
+
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

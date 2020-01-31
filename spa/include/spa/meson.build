@@ -60,6 +60,7 @@ spa_param_headers = [
   'param/format.h',
   'param/format-utils.h',
   'param/param.h',
+  'param/profiler.h',
   'param/props.h',
   'param/type-info.h',
 ]

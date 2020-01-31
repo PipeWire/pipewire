@@ -123,7 +123,8 @@ static void test_abi(void)
 	spa_assert(SPA_TYPE_OBJECT_ParamProfile == 0x40007);
 	spa_assert(SPA_TYPE_OBJECT_ParamPortConfig == 0x40008);
 	spa_assert(SPA_TYPE_OBJECT_ParamRoute == 0x40009);
-	spa_assert(SPA_TYPE_OBJECT_LAST == 0x4000a);
+	spa_assert(SPA_TYPE_OBJECT_Profiler == 0x4000a);
+	spa_assert(SPA_TYPE_OBJECT_LAST == 0x4000b);
 
 	spa_assert(SPA_TYPE_VENDOR_PipeWire == 0x02000000);
 	spa_assert(SPA_TYPE_VENDOR_Other == 0x7f000000);

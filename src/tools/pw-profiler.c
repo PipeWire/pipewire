@@ -54,14 +54,14 @@ struct data {
 	const char *filename;
 	FILE *output;
 
+	struct pw_proxy *profiler;
+	struct spa_hook profiler_listener;
+	int check_profiler;
+
+	uint32_t driver_id;
+
 	int n_followers;
 	struct follower followers[MAX_FOLLOWERS];
-};
-
-struct proxy_data {
-	struct data *data;
-	struct pw_proxy *proxy;
-	struct spa_hook object_listener;
 };
 
 struct measurement {
@@ -79,7 +79,7 @@ struct point {
 	struct measurement follower[MAX_FOLLOWERS];
 };
 
-static void process_driver_block(struct data *d, const struct spa_pod *pod, struct point *point)
+static int process_driver_block(struct data *d, const struct spa_pod *pod, struct point *point)
 {
 	union {
 		int64_t l;
@@ -90,10 +90,12 @@ static void process_driver_block(struct data *d, const struct spa_pod *pod, stru
 		struct spa_fraction F;
 	} dummy;
 	struct spa_io_clock clock;
+	uint32_t driver_id;
+	struct point p;
 
 	spa_pod_parse_struct(pod,
 			SPA_POD_Long(&dummy.l),
-			SPA_POD_Int(&dummy.i),
+			SPA_POD_Int(&driver_id),
 			SPA_POD_String(&dummy.s),
 			SPA_POD_Float(&dummy.f),
 			SPA_POD_Float(&dummy.f),
@@ -105,13 +107,22 @@ static void process_driver_block(struct data *d, const struct spa_pod *pod, stru
 			SPA_POD_Long(&clock.delay),
 			SPA_POD_Double(&clock.rate_diff),
 			SPA_POD_Long(&clock.next_nsec),
-			SPA_POD_Long(&point->driver.prev_signal),
-			SPA_POD_Long(&point->driver.signal),
-			SPA_POD_Long(&point->driver.awake),
-			SPA_POD_Long(&point->driver.finish),
-			SPA_POD_Int(&point->driver.status));
+			SPA_POD_Long(&p.driver.prev_signal),
+			SPA_POD_Long(&p.driver.signal),
+			SPA_POD_Long(&p.driver.awake),
+			SPA_POD_Long(&p.driver.finish),
+			SPA_POD_Int(&p.driver.status));
 
-	point->period_usecs = clock.duration * (float)SPA_USEC_PER_SEC / (clock.rate.denom * clock.rate_diff);
+	p.period_usecs = clock.duration * (float)SPA_USEC_PER_SEC / (clock.rate.denom * clock.rate_diff);
+	if (d->driver_id == 0) {
+		d->driver_id = driver_id;
+		fprintf(stderr, "logging driver %u\n", driver_id);
+	}
+	else if (d->driver_id != driver_id)
+		return -1;
+
+	*point = p;
+	return 0;
 }
 
 static int find_follower(struct data *d, uint32_t id, const char *name)
@@ -123,6 +134,7 @@ static int find_follower(struct data *d, uint32_t id, const char *name)
 	}
 	return -1;
 }
+
 static int add_follower(struct data *d, uint32_t id, const char *name)
 {
 	int idx = d->n_followers;
@@ -135,11 +147,12 @@ static int add_follower(struct data *d, uint32_t id, const char *name)
 	strncpy(d->followers[idx].name, name, MAX_NAME);
 	d->followers[idx].name[MAX_NAME-1] = '\0';
 	d->followers[idx].id = id;
+	fprintf(stderr, "logging follower %u (\"%s\")\n", id, name);
 
 	return idx;
 }
 
-static void process_follower_block(struct data *d, const struct spa_pod *pod, struct point *point)
+static int process_follower_block(struct data *d, const struct spa_pod *pod, struct point *point)
 {
 	uint32_t id;
 	const char *name;
@@ -158,10 +171,11 @@ static void process_follower_block(struct data *d, const struct spa_pod *pod, st
 	if ((idx = find_follower(d, id, name)) < 0) {
 		if ((idx = add_follower(d, id, name)) < 0) {
 			pw_log_warn("too many followers");
-			return;
+			return -ENOSPC;
 		}
 	}
 	point->follower[idx] = m;
+	return 0;
 }
 
 static void dump_point(struct data *d, struct point *point)
@@ -203,6 +217,11 @@ static void dump_scripts(struct data *d)
 {
 	FILE *out;
 	int i;
+
+	if (d->driver_id == 0)
+		return;
+
+	fprintf(stderr, "dumping scripts for %d followers\n", d->n_followers);
 
 	out = fopen("Timing1.plot", "w");
 	if (out == NULL) {
@@ -352,13 +371,14 @@ static void dump_scripts(struct data *d)
 		pw_log_error("Can't open generate_timings.sh: %m");
 	} else {
 		fprintf(out,
-			"gnuplot -persist Timing1.plot\n"
-			"gnuplot -persist Timing2.plot\n"
-			"gnuplot -persist Timing3.plot\n"
-			"gnuplot -persist Timing4.plot\n"
-			"gnuplot -persist Timing5.plot\n");
+			"gnuplot Timing1.plot\n"
+			"gnuplot Timing2.plot\n"
+			"gnuplot Timing3.plot\n"
+			"gnuplot Timing4.plot\n"
+			"gnuplot Timing5.plot\n");
 		fclose(out);
 	}
+	fprintf(stderr, "run 'sh generate_timings.sh' and load Timings.html in a browser\n");
 }
 
 static void profiler_profile(void *data, const struct spa_pod *pod)
@@ -369,14 +389,16 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 	struct point point;
 
 	SPA_POD_STRUCT_FOREACH(pod, o) {
+		int res = 0;
 		if (!spa_pod_is_object_type(o, SPA_TYPE_OBJECT_Profiler))
 			continue;
 
 		spa_zero(point);
 		SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)o, p) {
+
 			switch(p->key) {
 			case SPA_PROFILER_driverBlock:
-				process_driver_block(d, &p->value, &point);
+				res = process_driver_block(d, &p->value, &point);
 				break;
 			case SPA_PROFILER_followerBlock:
 				process_follower_block(d, &p->value, &point);
@@ -384,7 +406,12 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 			default:
 				break;
 			}
+			if (res < 0)
+				break;
 		}
+		if (res < 0)
+			continue;
+
 		dump_point(d, &point);
 	}
 }
@@ -398,29 +425,30 @@ static void registry_event_global(void *data, uint32_t id,
 				  uint32_t permissions, const char *type, uint32_t version,
 				  const struct spa_dict *props)
 {
-        struct data *d = data;
-        struct pw_proxy *proxy;
-	struct proxy_data *pd;
+	struct data *d = data;
+	struct pw_proxy *proxy;
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Profiler) != 0)
 		return;
 
-        proxy = pw_registry_bind(d->registry, id, type,
-			PW_VERSION_PROFILER, sizeof(struct proxy_data));
-        if (proxy == NULL)
-                goto no_mem;
+	if (d->profiler != NULL) {
+		fprintf(stderr, "Ignoring profiler %d: already attached\n", id);
+		return;
+	}
 
-	pd = pw_proxy_get_user_data(proxy);
-	pd->data = d;
-	pd->proxy = proxy;
+	proxy = pw_registry_bind(d->registry, id, type, PW_VERSION_PROFILER, 0);
+	if (proxy == NULL)
+		goto no_mem;
 
-        pw_proxy_add_object_listener(proxy, &pd->object_listener, &profiler_events, d);
+	fprintf(stderr, "Attaching to Profiler id:%d\n", id);
+	d->profiler = proxy;
+	pw_proxy_add_object_listener(proxy, &d->profiler_listener, &profiler_events, d);
 
-        return;
+	return;
 
 no_mem:
 	pw_log_error("failed to create proxy");
-        return;
+	return;
 }
 
 static const struct pw_registry_events registry_events = {
@@ -439,9 +467,23 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 	}
 }
 
+static void on_core_done(void *_data, uint32_t id, int seq)
+{
+	struct data *d = _data;
+
+	if (seq == d->check_profiler) {
+		if (d->profiler == NULL) {
+			pw_log_error("no Profiler Interface found, please load one in the server");
+			pw_main_loop_quit(d->loop);
+		}
+	}
+}
+
+
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
+	.done = on_core_done,
 };
 
 static void do_quit(void *data, int signal_number)
@@ -493,6 +535,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	fprintf(stderr, "Logging to %s\n", data.filename);
+
 	pw_core_add_listener(data.core,
 				   &data.core_listener,
 				   &core_events, &data);
@@ -501,6 +545,9 @@ int main(int argc, char *argv[])
 	pw_registry_add_listener(data.registry,
 				       &data.registry_listener,
 				       &registry_events, &data);
+
+
+	data.check_profiler = pw_core_sync(data.core, 0, 0);
 
 	pw_main_loop_run(data.loop);
 

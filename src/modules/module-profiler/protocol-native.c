@@ -49,7 +49,7 @@ static int profiler_demarshal_add_listener(void *object,
 	return -ENOTSUP;
 }
 
-static int profiler_resource_marshal_profile(void *object, const struct spa_pod *pod)
+static void profiler_resource_marshal_profile(void *object, const struct spa_pod *pod)
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
@@ -58,7 +58,7 @@ static int profiler_resource_marshal_profile(void *object, const struct spa_pod 
 
 	spa_pod_builder_add_struct(b, SPA_POD_Pod(pod));
 
-	return pw_protocol_native_end_resource(resource, b);
+	pw_protocol_native_end_resource(resource, b);
 }
 
 static int profiler_proxy_demarshal_profile(void *object,

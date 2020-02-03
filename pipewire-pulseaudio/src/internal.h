@@ -124,6 +124,7 @@ static inline const char *pa_strnull(const char *x) {
 }
 
 int pa_context_set_error(PA_CONST pa_context *c, int error);
+void pa_context_fail(PA_CONST pa_context *c, int error);
 
 #define PA_CHECK_VALIDITY(context, expression, error)			\
 do {									\

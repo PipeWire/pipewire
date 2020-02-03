@@ -36,7 +36,6 @@ int pa_context_set_error(PA_CONST pa_context *c, int error) {
 	if (c && c->error != error) {
 		pw_log_debug("context %p: error %d %s", c, error, pa_strerror(error));
 		((pa_context*)c)->error = error;
-
 	}
 	return error;
 }
@@ -103,14 +102,14 @@ void pa_context_set_state(pa_context *c, pa_context_state_t st) {
 	pa_context_unref(c);
 }
 
-static void context_fail(pa_context *c, int error) {
+void pa_context_fail(PA_CONST pa_context *c, int error) {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
 
 	pw_log_debug("context %p: error %d", c, error);
 
 	pa_context_set_error(c, error);
-	pa_context_set_state(c, PA_CONTEXT_FAILED);
+	pa_context_set_state((pa_context*)c, PA_CONTEXT_FAILED);
 }
 
 SPA_EXPORT
@@ -763,7 +762,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 
 	if (id == 0) {
 		if (!c->disconnect)
-			context_fail(c, PA_ERR_CONNECTIONTERMINATED);
+			pa_context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 	}
 }
 
@@ -784,16 +783,18 @@ static const struct pw_core_events core_events = {
 struct success_data {
 	pa_context_success_cb_t cb;
 	void *userdata;
-	int ret;
+	int error;
 };
 
 static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_data *d = userdata;
 	pa_context *c = o->context;
-	pa_operation_done(o);
+	if (d->error != 0)
+		pa_context_set_error(c, d->error);
 	if (d->cb)
-		d->cb(c, d->ret, d->userdata);
+		d->cb(c, d->error ? 0 : 1, d->userdata);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT
@@ -819,7 +820,6 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
-	d->ret = 0;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -988,7 +988,7 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 
 	c->core = pw_context_connect(c->context, pw_properties_copy(c->props), 0);
 	if (c->core == NULL) {
-                context_fail(c, PA_ERR_CONNECTIONREFUSED);
+                pa_context_fail(c, PA_ERR_CONNECTIONREFUSED);
 		res = -1;
 		goto exit;
 	}
@@ -1052,7 +1052,7 @@ pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, 
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
-	d->ret = PA_ERR_ACCESS;
+	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -1069,7 +1069,7 @@ pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_co
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
-	d->ret = PA_ERR_ACCESS;
+	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -1086,7 +1086,7 @@ pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
-	d->ret = PA_ERR_ACCESS;
+	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);

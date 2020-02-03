@@ -230,8 +230,8 @@ static void dump_point(struct data *d, struct point *point)
 					d4 > 0 ? d4 : 0,
 					d5 > 0 ? d5 : 0,
 					d6 > 0 ? d6 : 0,
-					(d5 > 0 && d4 > 0) ? d5 - d4 : 0,
-					(d6 > 0 && d5 > 0) ? d6 - d5 : 0,
+					(d5 > 0 && d4 > 0 && d5 > d4) ? d5 - d4 : 0,
+					(d6 > 0 && d5 > 0 && d6 > d5) ? d6 - d5 : 0,
 					point->follower[i].status);
 		}
 	}

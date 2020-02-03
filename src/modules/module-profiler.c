@@ -166,21 +166,30 @@ static void context_start(void *data, struct pw_impl_node *node)
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Profiler, 0);
 
-	spa_pod_builder_prop(&b, SPA_PROFILER_driverBlock, 0);
+	spa_pod_builder_prop(&b, SPA_PROFILER_info, 0);
 	spa_pod_builder_add_struct(&b,
 			SPA_POD_Long(impl->count),
-			SPA_POD_Int(node->info.id),
-			SPA_POD_String(node->name),
 			SPA_POD_Float(a->cpu_load[0]),
 			SPA_POD_Float(a->cpu_load[1]),
-			SPA_POD_Float(a->cpu_load[2]),
+			SPA_POD_Float(a->cpu_load[2]));
+
+	spa_pod_builder_prop(&b, SPA_PROFILER_clock, 0);
+	spa_pod_builder_add_struct(&b,
+			SPA_POD_Int(pos->clock.flags),
+			SPA_POD_Int(pos->clock.id),
+			SPA_POD_String(pos->clock.name),
 			SPA_POD_Long(pos->clock.nsec),
 			SPA_POD_Fraction(&pos->clock.rate),
 			SPA_POD_Long(pos->clock.position),
 			SPA_POD_Long(pos->clock.duration),
 			SPA_POD_Long(pos->clock.delay),
 			SPA_POD_Double(pos->clock.rate_diff),
-			SPA_POD_Long(pos->clock.next_nsec),
+			SPA_POD_Long(pos->clock.next_nsec));
+
+	spa_pod_builder_prop(&b, SPA_PROFILER_driverBlock, 0);
+	spa_pod_builder_add_struct(&b,
+			SPA_POD_Int(node->info.id),
+			SPA_POD_String(node->name),
 			SPA_POD_Long(a->prev_signal_time),
 			SPA_POD_Long(a->signal_time),
 			SPA_POD_Long(a->awake_time),
@@ -199,6 +208,7 @@ static void context_start(void *data, struct pw_impl_node *node)
 		spa_pod_builder_add_struct(&b,
 			SPA_POD_Int(n->info.id),
 			SPA_POD_String(n->name),
+			SPA_POD_Long(a->signal_time),
 			SPA_POD_Long(na->signal_time),
 			SPA_POD_Long(na->awake_time),
 			SPA_POD_Long(na->finish_time),

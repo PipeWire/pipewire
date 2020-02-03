@@ -54,6 +54,10 @@ struct data {
 	const char *filename;
 	FILE *output;
 
+	int64_t count;
+	int64_t start_status;
+	int64_t last_status;
+
 	struct pw_proxy *profiler;
 	struct spa_hook profiler_listener;
 	int check_profiler;
@@ -66,47 +70,58 @@ struct data {
 
 struct measurement {
 	int64_t period;
-	int32_t status;
 	int64_t prev_signal;
 	int64_t signal;
 	int64_t awake;
 	int64_t finish;
+	int32_t status;
 };
 
 struct point {
+	int64_t count;
+	float cpu_load[3];
 	struct spa_io_clock clock;
 	struct measurement driver;
 	struct measurement follower[MAX_FOLLOWERS];
 };
 
+static int process_info(struct data *d, const struct spa_pod *pod, struct point *point)
+{
+	spa_pod_parse_struct(pod,
+			SPA_POD_Long(&point->count),
+			SPA_POD_Float(&point->cpu_load[0]),
+			SPA_POD_Float(&point->cpu_load[1]),
+			SPA_POD_Float(&point->cpu_load[2]));
+	return 0;
+}
+
+static int process_clock(struct data *d, const struct spa_pod *pod, struct point *point)
+{
+	spa_pod_parse_struct(pod,
+			SPA_POD_Int(&point->clock.flags),
+			SPA_POD_Int(&point->clock.id),
+			SPA_POD_Stringn(point->clock.name, sizeof(point->clock.name)),
+			SPA_POD_Long(&point->clock.nsec),
+			SPA_POD_Fraction(&point->clock.rate),
+			SPA_POD_Long(&point->clock.position),
+			SPA_POD_Long(&point->clock.duration),
+			SPA_POD_Long(&point->clock.delay),
+			SPA_POD_Double(&point->clock.rate_diff),
+			SPA_POD_Long(&point->clock.next_nsec));
+	return 0;
+}
+
 static int process_driver_block(struct data *d, const struct spa_pod *pod, struct point *point)
 {
 	union {
-		int64_t l;
-		int32_t i;
 		char *s;
-		float f;
-		double d;
-		struct spa_fraction F;
 	} dummy;
-	struct spa_io_clock clock;
 	uint32_t driver_id;
 	struct measurement driver;
 
 	spa_pod_parse_struct(pod,
-			SPA_POD_Long(&dummy.l),
 			SPA_POD_Int(&driver_id),
 			SPA_POD_String(&dummy.s),
-			SPA_POD_Float(&dummy.f),
-			SPA_POD_Float(&dummy.f),
-			SPA_POD_Float(&dummy.f),
-			SPA_POD_Long(&clock.nsec),
-			SPA_POD_Fraction(&clock.rate),
-			SPA_POD_Long(&clock.position),
-			SPA_POD_Long(&clock.duration),
-			SPA_POD_Long(&clock.delay),
-			SPA_POD_Double(&clock.rate_diff),
-			SPA_POD_Long(&clock.next_nsec),
 			SPA_POD_Long(&driver.prev_signal),
 			SPA_POD_Long(&driver.signal),
 			SPA_POD_Long(&driver.awake),
@@ -120,7 +135,6 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	else if (d->driver_id != driver_id)
 		return -1;
 
-	point->clock = clock;
 	point->driver = driver;
 	return 0;
 }
@@ -163,6 +177,7 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 	spa_pod_parse_struct(pod,
 			SPA_POD_Int(&id),
 			SPA_POD_String(&name),
+			SPA_POD_Long(&m.prev_signal),
 			SPA_POD_Long(&m.signal),
 			SPA_POD_Long(&m.awake),
 			SPA_POD_Long(&m.finish),
@@ -221,6 +236,17 @@ static void dump_point(struct data *d, struct point *point)
 		}
 	}
 	fprintf(d->output, "\n");
+	if (d->count == 0) {
+		d->start_status = point->clock.nsec;
+		d->last_status = point->clock.nsec;
+	}
+	else if (point->clock.nsec - d->last_status > SPA_NSEC_PER_SEC) {
+		fprintf(stderr, "logging %"PRIi64" samples  %"PRIi64" seconds [CPU %f %f %f]\r",
+				d->count, (int64_t) ((d->last_status - d->start_status) / SPA_NSEC_PER_SEC),
+				point->cpu_load[0], point->cpu_load[1], point->cpu_load[2]);
+		d->last_status = point->clock.nsec;
+	}
+	d->count++;
 }
 
 static void dump_scripts(struct data *d)
@@ -231,7 +257,7 @@ static void dump_scripts(struct data *d)
 	if (d->driver_id == 0)
 		return;
 
-	fprintf(stderr, "dumping scripts for %d followers\n", d->n_followers);
+	fprintf(stderr, "\ndumping scripts for %d followers\n", d->n_followers);
 
 	out = fopen("Timing1.plot", "w");
 	if (out == NULL) {
@@ -410,6 +436,12 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 		spa_zero(point);
 		SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)o, p) {
 			switch(p->key) {
+			case SPA_PROFILER_info:
+				res = process_info(d, &p->value, &point);
+				break;
+			case SPA_PROFILER_clock:
+				res = process_clock(d, &p->value, &point);
+				break;
 			case SPA_PROFILER_driverBlock:
 				res = process_driver_block(d, &p->value, &point);
 				break;

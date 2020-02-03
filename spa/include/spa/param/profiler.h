@@ -36,6 +36,8 @@ enum spa_profiler {
 	SPA_PROFILER_START,
 
 	SPA_PROFILER_START_Driver	= 0x10000,	/**< driver related profiler properties */
+	SPA_PROFILER_info,				/**< Generic info, counter and CPU load */
+	SPA_PROFILER_clock,				/**< clock information */
 	SPA_PROFILER_driverBlock,			/**< generic driver info block */
 
 	SPA_PROFILER_START_Follower	= 0x20000,	/**< follower related profiler properties */

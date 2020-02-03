@@ -348,8 +348,8 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_impl_client
 		if (resource->client != client)
 			continue;
 
-		/* don't ever destroy the context resource */
-		if (!PW_PERM_IS_R(new_permissions) && global->id != 0)
+		/* don't ever destroy the core resource */
+		if (!PW_PERM_IS_R(new_permissions) && global->id != PW_ID_CORE)
 			pw_resource_destroy(resource);
 		else
 			resource->permissions = new_permissions;

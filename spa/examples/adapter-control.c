@@ -327,7 +327,7 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-	/* make the sink salve node (alsa-pcm-sink) */
+	/* make the sink slave node (alsa-pcm-sink) */
 	if ((res = make_node(data, &data->sink_slave_node,
 				   "build/spa/plugins/alsa/libspa-alsa.so",
 				   SPA_NAME_API_ALSA_PCM_SINK,
@@ -350,7 +350,7 @@ static int make_nodes(struct data *data, const char *device)
 	/* add sink slave node callbacks */
 	spa_node_set_callbacks(data->sink_node, &sink_node_callbacks, data);
 
-	/* setup the sink node porps */
+	/* setup the sink node props */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
@@ -398,17 +398,17 @@ static int make_nodes(struct data *data, const char *device)
 
 	/* add source node to the graph */
 	spa_graph_node_init(&data->graph_source_node, &data->graph_source_state);
-		spa_graph_node_set_callbacks(&data->graph_source_node, &spa_graph_node_impl_default, data->source_node);
-		spa_graph_node_add(&data->graph, &data->graph_source_node);
-		spa_graph_port_init(&data->graph_source_port_0, SPA_DIRECTION_OUTPUT, 0, 0);
-		spa_graph_port_add(&data->graph_source_node, &data->graph_source_port_0);
+	spa_graph_node_set_callbacks(&data->graph_source_node, &spa_graph_node_impl_default, data->source_node);
+	spa_graph_node_add(&data->graph, &data->graph_source_node);
+	spa_graph_port_init(&data->graph_source_port_0, SPA_DIRECTION_OUTPUT, 0, 0);
+	spa_graph_port_add(&data->graph_source_node, &data->graph_source_port_0);
 
 	/* add sink node to the graph */
 	spa_graph_node_init(&data->graph_sink_node, &data->graph_sink_state);
-		spa_graph_node_set_callbacks(&data->graph_sink_node, &spa_graph_node_impl_default, data->sink_node);
-		spa_graph_node_add(&data->graph, &data->graph_sink_node);
-		spa_graph_port_init(&data->graph_sink_port_0, SPA_DIRECTION_INPUT, 0, 0);
-		spa_graph_port_add(&data->graph_sink_node, &data->graph_sink_port_0);
+	spa_graph_node_set_callbacks(&data->graph_sink_node, &spa_graph_node_impl_default, data->sink_node);
+	spa_graph_node_add(&data->graph, &data->graph_sink_node);
+	spa_graph_port_init(&data->graph_sink_port_0, SPA_DIRECTION_INPUT, 0, 0);
+	spa_graph_port_add(&data->graph_sink_node, &data->graph_sink_port_0);
 
 	/* link source and sink nodes */
 	spa_graph_port_link(&data->graph_source_port_0, &data->graph_sink_port_0);

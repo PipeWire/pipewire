@@ -37,7 +37,9 @@
 
 #include <sndfile.h>
 
+#include <spa/param/audio/layout.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/type-info.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>
 
@@ -82,6 +84,11 @@ struct target {
 	int prio;
 };
 
+struct channelmap {
+	int n_channels;
+	int channels[SPA_AUDIO_MAX_CHANNELS];
+};
+
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
@@ -106,7 +113,8 @@ struct data {
 	SF_INFO info;
 
 	unsigned int rate;
-	unsigned int channels;
+	int channels;
+	struct channelmap channelmap;
 	unsigned int samplesize;
 	unsigned int stride;
 	enum unit latency_unit;
@@ -398,6 +406,99 @@ sf_fmt_record_fill_fn(int format)
 	return NULL;
 }
 
+static int channelmap_from_sf(struct channelmap *map)
+{
+	static const enum spa_audio_channel table[] = {
+		[SF_CHANNEL_MAP_MONO] =                  SPA_AUDIO_CHANNEL_MONO,
+		[SF_CHANNEL_MAP_LEFT] =                  SPA_AUDIO_CHANNEL_FL, /* libsndfile distinguishes left and front-left, which we don't */
+		[SF_CHANNEL_MAP_RIGHT] =                 SPA_AUDIO_CHANNEL_FR,
+		[SF_CHANNEL_MAP_CENTER] =                SPA_AUDIO_CHANNEL_FC,
+		[SF_CHANNEL_MAP_FRONT_LEFT] =            SPA_AUDIO_CHANNEL_FL,
+		[SF_CHANNEL_MAP_FRONT_RIGHT] =           SPA_AUDIO_CHANNEL_FR,
+		[SF_CHANNEL_MAP_FRONT_CENTER] =          SPA_AUDIO_CHANNEL_FC,
+		[SF_CHANNEL_MAP_REAR_CENTER] =           SPA_AUDIO_CHANNEL_RC,
+		[SF_CHANNEL_MAP_REAR_LEFT] =             SPA_AUDIO_CHANNEL_RL,
+		[SF_CHANNEL_MAP_REAR_RIGHT] =            SPA_AUDIO_CHANNEL_RR,
+		[SF_CHANNEL_MAP_LFE] =                   SPA_AUDIO_CHANNEL_LFE,
+		[SF_CHANNEL_MAP_FRONT_LEFT_OF_CENTER] =  SPA_AUDIO_CHANNEL_FLC,
+		[SF_CHANNEL_MAP_FRONT_RIGHT_OF_CENTER] = SPA_AUDIO_CHANNEL_FRC,
+		[SF_CHANNEL_MAP_SIDE_LEFT] =             SPA_AUDIO_CHANNEL_SL,
+		[SF_CHANNEL_MAP_SIDE_RIGHT] =            SPA_AUDIO_CHANNEL_SR,
+		[SF_CHANNEL_MAP_TOP_CENTER] =            SPA_AUDIO_CHANNEL_TC,
+		[SF_CHANNEL_MAP_TOP_FRONT_LEFT] =        SPA_AUDIO_CHANNEL_TFL,
+		[SF_CHANNEL_MAP_TOP_FRONT_RIGHT] =       SPA_AUDIO_CHANNEL_TFR,
+		[SF_CHANNEL_MAP_TOP_FRONT_CENTER] =      SPA_AUDIO_CHANNEL_TFC,
+		[SF_CHANNEL_MAP_TOP_REAR_LEFT] =         SPA_AUDIO_CHANNEL_TRL,
+		[SF_CHANNEL_MAP_TOP_REAR_RIGHT] =        SPA_AUDIO_CHANNEL_TRR,
+		[SF_CHANNEL_MAP_TOP_REAR_CENTER] =       SPA_AUDIO_CHANNEL_TRC
+	};
+	int i;
+
+	for (i = 0; i < map->n_channels; i++) {
+		if (map->channels[i] >= 0 && map->channels[i] < (int) SPA_N_ELEMENTS(table))
+			map->channels[i] = table[map->channels[i]];
+		else
+			map->channels[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
+	}
+	return 0;
+}
+
+struct mapping {
+	const char *name;
+	unsigned int values[33];
+};
+
+static const struct mapping maps[] =
+{
+	{ "stereo",      { SPA_AUDIO_LAYOUT_Stereo } },
+	{ "quad",        { SPA_AUDIO_LAYOUT_Quad } },
+	{ "surround-40", { SPA_AUDIO_LAYOUT_Quad } },
+	{ "surround-31", { SPA_AUDIO_LAYOUT_3_1 } },
+	{ "surround-41", { SPA_AUDIO_LAYOUT_4_1 } },
+	{ "surround-50", { SPA_AUDIO_LAYOUT_5_0 } },
+	{ "surround-51", { SPA_AUDIO_LAYOUT_5_1 } },
+	{ "surround-71", { SPA_AUDIO_LAYOUT_7_1 } },
+};
+
+static unsigned int find_channel(const char *name)
+{
+	int i;
+
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (strcmp(name, rindex(spa_type_audio_channel[i].name, ':')+1) == 0)
+			return i;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+static int parse_channelmap(const char *channelmap, struct channelmap *map)
+{
+	int i, nch;
+	char **ch;
+
+	for (i = 0; i < (int) SPA_N_ELEMENTS(maps); i++) {
+		if (strcmp(maps[i].name, channelmap) == 0) {
+			map->n_channels = maps[i].values[0];
+			spa_memcpy(map->channels, &maps[i].values[1],
+					map->n_channels * sizeof(unsigned int));
+			return 0;
+		}
+	}
+
+	ch = pw_split_strv(channelmap, ",", SPA_AUDIO_MAX_CHANNELS, &nch);
+	if (ch == NULL)
+		return -1;
+
+	map->n_channels = nch;
+	for (i = 0; i < map->n_channels; i++) {
+		int c = find_channel(ch[i]);
+		if (c == SPA_AUDIO_CHANNEL_UNKNOWN)
+			return -1;
+		map->channels[i] = c;
+	}
+	return 0;
+}
+
 static void
 target_destroy(struct target *target)
 {
@@ -672,6 +773,7 @@ enum {
 	OPT_LATENCY,
 	OPT_RATE,
 	OPT_CHANNELS,
+	OPT_CHANNELMAP,
 	OPT_FORMAT,
 	OPT_VOLUME,
 	OPT_LIST_TARGETS,
@@ -695,6 +797,7 @@ static const struct option long_options[] = {
 
 	{"rate",		required_argument, NULL, OPT_RATE },
 	{"channels",		required_argument, NULL, OPT_CHANNELS },
+	{"channel-map",		required_argument, NULL, OPT_CHANNELMAP },
 	{"format",		required_argument, NULL, OPT_FORMAT },
 
 	{"volume",		required_argument, NULL, OPT_VOLUME },
@@ -722,6 +825,7 @@ static void show_usage(const char *name, bool is_error)
              "      --media-category                  Set media category (default %s)\n"
              "      --media-role                      Set media role (default %s)\n"
              "      --target                          Set node target (default %s)\n"
+	     "                                          0 means don't link\n"
              "      --latency                         Set node latency (default %s)\n"
 	     "                                          Xunit (unit = s, ms, us, ns)\n"
 	     "                                          or direct samples (256)\n"
@@ -736,6 +840,9 @@ static void show_usage(const char *name, bool is_error)
 	fprintf(fp,
              "      --rate                            Sample rate (req. for rec) (default %u)\n"
              "      --channels                        Number of channels (req. for rec) (default %u)\n"
+             "      --channel-map                     Channel map\n"
+	     "                                            one of: \"stereo\", \"surround-51\",... or\n"
+	     "                                            comma separated list of channel names: eg. \"FL,FR\"\n"
              "      --format                          Sample format %s (req. for rec) (default %s)\n"
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "\n",
@@ -760,14 +867,17 @@ int main(int argc, char *argv[])
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	const char *prog;
+	const char *prog, *channelmap = NULL;
 	int exit_code = EXIT_FAILURE, c, format = 0, ret;
 	struct pw_properties *props = NULL;
 	const char *s;
 	unsigned int nom = 0;
 	struct target *target, *target_default;
+	enum pw_stream_flags flags = 0;
 
 	pw_init(&argc, &argv);
+
+	flags |= PW_STREAM_FLAG_AUTOCONNECT;
 
 	prog = argv[0];
 	if ((prog = strrchr(argv[0], '/')) != NULL)
@@ -845,6 +955,10 @@ int main(int argc, char *argv[])
 				goto error_usage;
 			}
 			data.target_id = atoi(optarg);
+			if (data.target_id == 0) {
+				data.target_id = PW_ID_ANY;
+				flags &= ~PW_STREAM_FLAG_AUTOCONNECT;
+			}
 			break;
 
 		case OPT_LATENCY:
@@ -869,12 +983,16 @@ int main(int argc, char *argv[])
 			data.channels = (unsigned int)ret;
 			break;
 
+		case OPT_CHANNELMAP:
+			channelmap = optarg;
+			break;
+
 		case OPT_FORMAT:
-			if (sf_str_to_fmt(optarg) == -1) {
+			format = sf_str_to_fmt(optarg);
+			if (format == -1) {
 				fprintf(stderr, "error: unknown format \"%s\"\n", optarg);
 				goto error_usage;
 			}
-			format = sf_str_to_fmt(optarg);
 			break;
 
 		case OPT_VOLUME:
@@ -912,6 +1030,19 @@ int main(int argc, char *argv[])
 		data.latency = DEFAULT_LATENCY;
 	if (!data.rate)
 		data.rate = DEFAULT_RATE;
+	if (channelmap != NULL) {
+		if (parse_channelmap(channelmap, &data.channelmap) < 0) {
+			fprintf(stderr, "error: can parse channel-map \"%s\"\n", channelmap);
+			goto error_usage;
+
+		} else {
+			if (data.channels > 0 && data.channelmap.n_channels != data.channels) {
+				fprintf(stderr, "error: channels and channel-map incompatible\n");
+				goto error_usage;
+			}
+			data.channels = data.channelmap.n_channels;
+		}
+	}
 	if (!data.channels)
 		data.rate = DEFAULT_CHANNELS;
 	if (data.volume < 0)
@@ -949,7 +1080,29 @@ int main(int argc, char *argv[])
 		format = data.info.format;
 		if (data.mode == mode_playback) {
 			data.rate = data.info.samplerate;
+
+			if (data.channels > 0 && data.info.channels != data.channels) {
+				printf("given channels (%u) don't match file channels (%d)\n",
+						data.channels, data.info.channels);
+				goto error_bad_file;
+			}
+
 			data.channels = data.info.channels;
+
+			if (data.channelmap.n_channels == 0) {
+				if (!sf_command(data.file, SFC_GET_CHANNEL_MAP_INFO,
+						data.channelmap.channels,
+						sizeof(data.channelmap.channels[0]) * data.channels)) {
+					printf("no channel map, assuming default\n");
+					data.channelmap.n_channels = 0;
+				} else {
+					data.channelmap.n_channels = data.channels;
+					if (channelmap_from_sf(&data.channelmap) < 0)
+						data.channelmap.n_channels = 0;
+				}
+				if (data.channelmap.n_channels > 0)
+					printf("got channel map\n");
+			}
 		}
 		data.samplesize = sf_format_samplesize(format);
 		data.stride = data.samplesize * data.channels;
@@ -1064,6 +1217,8 @@ int main(int argc, char *argv[])
 	pw_core_sync(data.core, 0, 0);
 
 	if (!data.list_targets) {
+		struct spa_audio_info_raw info;
+
 		data.stream = pw_stream_new(data.core, prog, props);
 		if (!data.stream) {
 			fprintf(stderr, "error: failed to create simple stream: %m\n");
@@ -1072,11 +1227,15 @@ int main(int argc, char *argv[])
 		props = NULL;
 		pw_stream_add_listener(data.stream, &data.stream_listener, &stream_events, &data);
 
-		params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-				&SPA_AUDIO_INFO_RAW_INIT(
-					.format = data.spa_format,
-					.channels = data.channels,
-					.rate = data.rate ));
+		info = SPA_AUDIO_INFO_RAW_INIT(
+				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
+				.format = data.spa_format,
+				.channels = data.channels,
+				.rate = data.rate);
+		if (data.channelmap.n_channels)
+			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
+
+		params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 
 		if (data.verbose)
 			printf("connecting %s stream; target_id=%"PRIu32"\n",
@@ -1086,7 +1245,7 @@ int main(int argc, char *argv[])
 		ret = pw_stream_connect(data.stream,
 				  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
 				  data.target_id,
-				  PW_STREAM_FLAG_AUTOCONNECT |
+				  flags |
 				  PW_STREAM_FLAG_MAP_BUFFERS,
 				  params, 1);
 		if (ret < 0) {

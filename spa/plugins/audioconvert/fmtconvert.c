@@ -180,7 +180,8 @@ static int setup_convert(struct impl *this)
 				continue;
 			this->remap[i] = j;
 			outformat.info.raw.position[j] = -1;
-			spa_log_debug(this->log, NAME " %p: channel %d -> %d", this, i, j);
+			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%d)", this,
+					i, j, informat.info.raw.position[i]);
 			break;
 		}
 	}

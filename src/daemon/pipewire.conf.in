@@ -3,6 +3,7 @@
 #set-prop library.name.system			support/libspa-support
 #set-prop context.data-loop.library.name.system	support/libspa-support
 #set-prop link.max-buffers	64
+#set-prop mem.allow-mlock		true
 
 #set-prop default.clock.rate		48000
 #set-prop default.clock.quantum		1024

@@ -311,6 +311,7 @@ struct client {
 	unsigned int first:1;
 	unsigned int thread_entered:1;
 	unsigned int has_transport:1;
+	unsigned int allow_mlock:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -1596,7 +1597,7 @@ static int client_node_port_use_buffers(void *object,
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}
-			if (mlock(d->data, d->maxsize) < 0) {
+			if (c->allow_mlock && mlock(d->data, d->maxsize) < 0) {
 				pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", c,
 						d->data, d->maxsize,
 						errno == ENOMEM ?
@@ -2092,7 +2093,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
 	client->context.loop = pw_thread_loop_new(client_name, NULL);
-        client->context.context = pw_context_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
+	client->context.context = pw_context_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
+	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
 	spa_list_init(&client->context.free_objects);
 	spa_list_init(&client->context.nodes);
 	spa_list_init(&client->context.ports);

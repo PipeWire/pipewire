@@ -76,8 +76,9 @@ struct node_data {
 
 	struct pw_impl_node *node;
 	struct spa_hook node_listener;
-	int do_free:1;
-	int have_transport:1;
+	unsigned int do_free:1;
+	unsigned int have_transport:1;
+	unsigned int allow_mlock:1;
 
 	struct pw_client_node *client_node;
 	struct spa_hook client_node_listener;
@@ -629,7 +630,7 @@ client_node_port_use_buffers(void *object,
 		bid->id = i;
 		bid->mem = mm;
 
-		if (mlock(mm->ptr, mm->size) < 0)
+		if (data->allow_mlock && mlock(mm->ptr, mm->size) < 0)
 			pw_log_warn("Failed to mlock memory %p %u: %s",
 					mm->ptr, mm->size,
 					errno == ENOMEM ?
@@ -1144,11 +1145,11 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	int i;
 
 	client_node = pw_core_create_object(core,
-					    "client-node",
-					    PW_TYPE_INTERFACE_ClientNode,
-					    PW_VERSION_CLIENT_NODE,
-					    &node->properties->dict,
-					    sizeof(struct node_data));
+			"client-node",
+			PW_TYPE_INTERFACE_ClientNode,
+			PW_VERSION_CLIENT_NODE,
+			&node->properties->dict,
+			sizeof(struct node_data));
         if (client_node == NULL)
                 return NULL;
 
@@ -1159,6 +1160,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	data->context = pw_impl_node_get_context(node);
 	data->client_node = (struct pw_client_node *)client_node;
 	data->remote_id = SPA_ID_INVALID;
+	data->allow_mlock = data->context->defaults.mem_allow_mlock;
 
 	node->exported = true;
 

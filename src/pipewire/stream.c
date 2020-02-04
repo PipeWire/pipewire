@@ -126,6 +126,7 @@ struct stream {
 	unsigned int disconnecting:1;
 	unsigned int free_proxy:1;
 	unsigned int draining:1;
+	unsigned int allow_mlock:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -547,10 +548,18 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 		pw_log_error(NAME" %p: failed to mmap buffer mem: %m", impl);
 		return -errno;
 	}
+
 	data->data = SPA_MEMBER(ptr, range.start, void);
 	pw_log_debug(NAME" %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
+	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
+		pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", impl,
+						data->data, data->maxsize,
+						errno == ENOMEM ?
+						"This is not a problem but for best performance, "
+						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+	}
 	return 0;
 }
 
@@ -1068,7 +1077,7 @@ stream_new(struct pw_context *context, const char *name,
 	this->state = PW_STREAM_STATE_UNCONNECTED;
 
 	impl->context = context;
-
+	impl->allow_mlock = context->defaults.mem_allow_mlock;
 
 	return impl;
 

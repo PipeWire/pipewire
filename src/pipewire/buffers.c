@@ -39,7 +39,6 @@
 #define NAME "buffers"
 
 #define MAX_ALIGN	32
-#define MAX_BUFFERS	64
 
 struct port {
 	struct spa_node *node;
@@ -241,10 +240,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 	}
 
-	if ((str = pw_properties_get(context->properties, "link.max-buffers")) != NULL)
-		max_buffers = pw_properties_parse_int(str);
-	else
-		max_buffers = MAX_BUFFERS;
+	max_buffers = context->defaults.link_max_buffers;
 
 	if ((str = pw_properties_get(context->properties, PW_KEY_CPU_MAX_ALIGN)) != NULL)
 		align = pw_properties_parse_int(str);

@@ -52,6 +52,8 @@
 #define DEFAULT_VIDEO_HEIGHT		480
 #define DEFAULT_VIDEO_RATE_NUM		25u
 #define DEFAULT_VIDEO_RATE_DENOM	1u
+#define DEFAULT_LINK_MAX_BUFFERS	64u
+#define DEFAULT_MEM_ALLOW_MLOCK		true
 
 /** \cond */
 struct impl {
@@ -119,7 +121,7 @@ static void fill_properties(struct pw_context *context)
 	pw_properties_set(properties, PW_KEY_CORE_NAME, context->core->info.name);
 }
 
-static uint32_t get_default(struct pw_properties *properties, const char *name, uint32_t def)
+static uint32_t get_default_int(struct pw_properties *properties, const char *name, uint32_t def)
 {
 	uint32_t val;
 	const char *str;
@@ -130,19 +132,32 @@ static uint32_t get_default(struct pw_properties *properties, const char *name, 
 	return val;
 }
 
+static bool get_default_bool(struct pw_properties *properties, const char *name, bool def)
+{
+	bool val;
+	const char *str;
+	if ((str = pw_properties_get(properties, name)) != NULL)
+		val = pw_properties_parse_bool(str);
+	else
+		val = def;
+	return val;
+}
+
 static void fill_defaults(struct pw_context *this)
 {
 	struct pw_properties *p = this->properties;
-	this->defaults.clock_rate = get_default(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
-	this->defaults.clock_quantum = get_default(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
-	this->defaults.clock_min_quantum = get_default(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
-	this->defaults.clock_max_quantum = get_default(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
+	this->defaults.clock_rate = get_default_int(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
+	this->defaults.clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
+	this->defaults.clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
+	this->defaults.clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
 	this->defaults.clock_quantum = SPA_CLAMP(this->defaults.clock_quantum,
 			this->defaults.clock_min_quantum, this->defaults.clock_max_quantum);
-	this->defaults.video_size.width = get_default(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
-	this->defaults.video_size.height = get_default(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
-	this->defaults.video_rate.num = get_default(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
-	this->defaults.video_rate.denom = get_default(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
+	this->defaults.video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
+	this->defaults.video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
+	this->defaults.video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
+	this->defaults.video_rate.denom = get_default_int(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
+	this->defaults.link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
+	this->defaults.mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
 }
 
 /** Create a new context object

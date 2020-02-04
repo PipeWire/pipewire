@@ -55,6 +55,8 @@ struct defaults {
 	uint32_t clock_max_quantum;
 	struct spa_rectangle video_size;
 	struct spa_fraction video_rate;
+	uint32_t link_max_buffers;
+	unsigned int mem_allow_mlock;
 };
 
 #define MAX_PARAMS	32

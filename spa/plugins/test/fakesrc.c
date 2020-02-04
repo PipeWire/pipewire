@@ -688,8 +688,7 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (this->callbacks.funcs == NULL &&
-			(io->status == SPA_STATUS_NEED_DATA))
+	if (this->callbacks.funcs == NULL)
 		return make_buffer(this);
 	else
 		return SPA_STATUS_OK;

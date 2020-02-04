@@ -425,7 +425,7 @@ static int process_recycle(struct seq_state *state)
 		if (!port->valid || io == NULL)
 			continue;
 
-		if (io->status == SPA_STATUS_NEED_DATA &&
+		if (io->status != SPA_STATUS_HAVE_DATA &&
 		    io->buffer_id < port->n_buffers) {
 			spa_alsa_seq_recycle_buffer(state, port, io->buffer_id);
 			io->buffer_id = SPA_ID_INVALID;

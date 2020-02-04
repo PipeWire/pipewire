@@ -1045,7 +1045,7 @@ static int impl_node_process(void *object)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_trace_fp(this->log, NAME " %p: process %d", this, this->n_links);
+	spa_log_trace_fp(this->log, NAME " %p: process %d %d", this, this->n_links, this->n_nodes);
 
 	while (1) {
 		res = SPA_STATUS_OK;

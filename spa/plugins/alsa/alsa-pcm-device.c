@@ -140,7 +140,7 @@ static int emit_node(struct impl *this, snd_ctl_card_info_t *cardinfo, snd_pcm_i
 	snprintf(dev, sizeof(dev), "%d", snd_pcm_info_get_device(pcminfo));
 	snprintf(subdev, sizeof(subdev), "%d", snd_pcm_info_get_subdevice(pcminfo));
 	snprintf(device_name, sizeof(device_name), "%s,%s", this->props.device, dev);
-	snprintf(path, sizeof(path), "alsa:pcm:%s:%s", snd_ctl_card_info_get_id(cardinfo), stream);
+	snprintf(path, sizeof(path), "alsa:pcm:%s:%s:%s", snd_ctl_card_info_get_id(cardinfo), dev, stream);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH,	       path);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card);

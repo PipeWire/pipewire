@@ -605,7 +605,7 @@ impl_node_port_enum_params(void *object, int seq,
 							MAX_SAMPLES * port->bpf,
 							16 * port->bpf,
 							INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->bpf),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 	case SPA_PARAM_Meta:

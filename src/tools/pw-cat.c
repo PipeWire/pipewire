@@ -442,22 +442,27 @@ static int channelmap_from_sf(struct channelmap *map)
 	}
 	return 0;
 }
-
 struct mapping {
 	const char *name;
-	unsigned int values[33];
+	unsigned int channels;
+	unsigned int values[32];
 };
 
 static const struct mapping maps[] =
 {
-	{ "stereo",      { SPA_AUDIO_LAYOUT_Stereo } },
-	{ "quad",        { SPA_AUDIO_LAYOUT_Quad } },
-	{ "surround-40", { SPA_AUDIO_LAYOUT_Quad } },
-	{ "surround-31", { SPA_AUDIO_LAYOUT_3_1 } },
-	{ "surround-41", { SPA_AUDIO_LAYOUT_4_1 } },
-	{ "surround-50", { SPA_AUDIO_LAYOUT_5_0 } },
-	{ "surround-51", { SPA_AUDIO_LAYOUT_5_1 } },
-	{ "surround-71", { SPA_AUDIO_LAYOUT_7_1 } },
+	{ "mono",         SPA_AUDIO_LAYOUT_Mono },
+	{ "stereo",       SPA_AUDIO_LAYOUT_Stereo },
+	{ "surround-21",  SPA_AUDIO_LAYOUT_2_1 },
+	{ "quad",         SPA_AUDIO_LAYOUT_Quad },
+	{ "surround-22",  SPA_AUDIO_LAYOUT_2_2 },
+	{ "surround-40",  SPA_AUDIO_LAYOUT_4_0 },
+	{ "surround-31",  SPA_AUDIO_LAYOUT_3_1 },
+	{ "surround-41",  SPA_AUDIO_LAYOUT_4_1 },
+	{ "surround-50",  SPA_AUDIO_LAYOUT_5_0 },
+	{ "surround-51",  SPA_AUDIO_LAYOUT_5_1 },
+	{ "surround-51r", SPA_AUDIO_LAYOUT_5_1R },
+	{ "surround-70",  SPA_AUDIO_LAYOUT_7_0 },
+	{ "surround-71",  SPA_AUDIO_LAYOUT_7_1 },
 };
 
 static unsigned int find_channel(const char *name)
@@ -478,8 +483,8 @@ static int parse_channelmap(const char *channelmap, struct channelmap *map)
 
 	for (i = 0; i < (int) SPA_N_ELEMENTS(maps); i++) {
 		if (strcmp(maps[i].name, channelmap) == 0) {
-			map->n_channels = maps[i].values[0];
-			spa_memcpy(map->channels, &maps[i].values[1],
+			map->n_channels = maps[i].channels;
+			spa_memcpy(map->channels, &maps[i].values,
 					map->n_channels * sizeof(unsigned int));
 			return 0;
 		}
@@ -496,6 +501,41 @@ static int parse_channelmap(const char *channelmap, struct channelmap *map)
 			return -1;
 		map->channels[i] = c;
 	}
+	return 0;
+}
+
+static int channelmap_default(struct channelmap *map, int n_channels)
+{
+	switch(n_channels) {
+	case 1:
+		parse_channelmap("mono", map);
+		break;
+	case 2:
+		parse_channelmap("stereo", map);
+		break;
+	case 3:
+		parse_channelmap("surround-21", map);
+		break;
+	case 4:
+		parse_channelmap("quad", map);
+		break;
+	case 5:
+		parse_channelmap("surround-50", map);
+		break;
+	case 6:
+		parse_channelmap("surround-51", map);
+		break;
+	case 7:
+		parse_channelmap("surround-70", map);
+		break;
+	case 8:
+		parse_channelmap("surround-71", map);
+		break;
+	default:
+		n_channels = 0;
+		break;
+	}
+	map->n_channels = n_channels;
 	return 0;
 }
 
@@ -1090,18 +1130,19 @@ int main(int argc, char *argv[])
 			data.channels = data.info.channels;
 
 			if (data.channelmap.n_channels == 0) {
-				if (!sf_command(data.file, SFC_GET_CHANNEL_MAP_INFO,
+				if (sf_command(data.file, SFC_GET_CHANNEL_MAP_INFO,
 						data.channelmap.channels,
 						sizeof(data.channelmap.channels[0]) * data.channels)) {
-					printf("no channel map, assuming default\n");
-					data.channelmap.n_channels = 0;
-				} else {
 					data.channelmap.n_channels = data.channels;
 					if (channelmap_from_sf(&data.channelmap) < 0)
 						data.channelmap.n_channels = 0;
 				}
-				if (data.channelmap.n_channels > 0)
+				if (data.channelmap.n_channels > 0) {
 					printf("got channel map\n");
+				} else {
+					printf("no channel map, assuming default\n");
+					channelmap_default(&data.channelmap, data.channels);
+				}
 			}
 		}
 		data.samplesize = sf_format_samplesize(format);
@@ -1230,8 +1271,9 @@ int main(int argc, char *argv[])
 		info = SPA_AUDIO_INFO_RAW_INIT(
 				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
 				.format = data.spa_format,
-				.channels = data.channels,
-				.rate = data.rate);
+				.rate = data.rate,
+				.channels = data.channels);
+
 		if (data.channelmap.n_channels)
 			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
 

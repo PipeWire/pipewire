@@ -106,6 +106,7 @@ struct object {
 		struct {
 			char name[JACK_CLIENT_NAME_SIZE+1];
 			int32_t priority;
+			uint32_t client_id;
 		} node;
 		struct {
 			uint32_t src;
@@ -444,6 +445,17 @@ static void free_port(struct client *c, struct port *p)
 	p->valid = false;
 	free_object(c, p->object);
 	spa_list_append(&c->free_ports[p->direction], &p->link);
+}
+
+static struct object *find_node(struct client *c, const char *name)
+{
+	struct object *o;
+
+	spa_list_for_each(o, &c->context.nodes, link) {
+		if (!strcmp(o->node.name, name))
+			return o;
+	}
+	return NULL;
 }
 
 static struct object *find_port(struct client *c, const char *name)
@@ -1848,13 +1860,19 @@ static void registry_event_global(void *data, uint32_t id,
 		o = alloc_object(c);
 		object_type = INTERFACE_Node;
 
+		if ((str = spa_dict_lookup(props, PW_KEY_CLIENT_ID)) != NULL)
+			o->node.client_id = atoi(str);
+
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
 			str = "node";
 		}
-		snprintf(o->node.name, sizeof(o->node.name), "%s/%d", str, id);
-
+		snprintf(o->node.name, sizeof(o->node.name), "%s", str);
+		ot = find_node(c, o->node.name);
+		if (ot != NULL && o->node.client_id != ot->node.client_id) {
+			snprintf(o->node.name, sizeof(o->node.name), "%s-%d", str, id);
+		}
 		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_MASTER)) != NULL)
 			o->node.priority = pw_properties_parse_int(str);
 
@@ -2201,18 +2219,18 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_log_debug(NAME" %p: new", client);
 	return (jack_client_t *)client;
 
-      init_failed:
+init_failed:
 	if (status)
 		*status = JackFailure | JackInitFailure;
 	goto exit;
-      server_failed:
+server_failed:
 	if (status)
 		*status = JackFailure | JackServerFailed;
 	goto exit;
-     exit:
+exit:
 	pw_thread_loop_unlock(client->context.loop);
 	return NULL;
-     disabled:
+disabled:
 	if (status)
 		*status = JackFailure | JackServerFailed;
 	return NULL;

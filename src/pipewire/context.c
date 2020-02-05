@@ -127,8 +127,10 @@ static uint32_t get_default_int(struct pw_properties *properties, const char *na
 	const char *str;
 	if ((str = pw_properties_get(properties, name)) != NULL)
 		val = atoi(str);
-	else
+	else {
 		val = def;
+		pw_properties_setf(properties, name, "%d", val);
+	}
 	return val;
 }
 
@@ -138,8 +140,10 @@ static bool get_default_bool(struct pw_properties *properties, const char *name,
 	const char *str;
 	if ((str = pw_properties_get(properties, name)) != NULL)
 		val = pw_properties_parse_bool(str);
-	else
+	else {
 		val = def;
+		pw_properties_set(properties, name, val ? "true" : "false");
+	}
 	return val;
 }
 

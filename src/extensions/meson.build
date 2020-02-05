@@ -13,5 +13,8 @@ pipewire_ext_headers = [
   'session-manager.h',
 ]
 
-install_headers(pipewire_ext_sm_headers, subdir : 'pipewire/extensions/session-manager')
-install_headers(pipewire_ext_headers, subdir : 'pipewire/extensions')
+install_headers(pipewire_ext_sm_headers,
+  subdir : join_paths(pipewire_headers_dir, 'extensions', 'session-manager'))
+
+install_headers(pipewire_ext_headers,
+  subdir : join_paths(pipewire_headers_dir, 'extensions'))

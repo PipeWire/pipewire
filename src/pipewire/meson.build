@@ -76,10 +76,11 @@ pipewire_sources = [
 
 configure_file(input : 'version.h.in',
   output : 'version.h',
-  install_dir : join_paths(get_option('includedir'), 'pipewire'),
+  install_dir : join_paths(get_option('includedir'), pipewire_headers_dir),
   configuration : cdata)
 
-install_headers(pipewire_headers, subdir : 'pipewire')
+
+install_headers(pipewire_headers, subdir : pipewire_headers_dir)
 
 libpipewire_c_args = [
   '-DHAVE_CONFIG_H',
@@ -92,8 +93,7 @@ if build_machine.system() != 'freebsd'
   ]
 endif
 
-libpipewire_name = 'pipewire-@0@'.format(apiversion)
-libpipewire = shared_library(libpipewire_name, pipewire_sources,
+libpipewire = shared_library(pipewire_name, pipewire_sources,
   version : libversion,
   soversion : soversion,
   c_args : libpipewire_c_args,
@@ -107,10 +107,11 @@ pipewire_dep = declare_dependency(link_with : libpipewire,
   dependencies : [pthread_lib, ],
 )
 
-pkgconfig.generate(filebase : 'lib@0@'.format(libpipewire_name),
+pkgconfig.generate(filebase : 'lib@0@'.format(pipewire_name),
   libraries : [libpipewire],
   name : 'libpipewire',
+  subdirs : pipewire_name,
   description : 'PipeWire Interface',
   version : pipewire_version,
   extra_cflags : '-D_REENTRANT',
-  variables : ['moduledir=${libdir}/@0@'.format(libpipewire_name)])
+  variables : ['moduledir=${libdir}/@0@'.format(pipewire_name)])

@@ -23,6 +23,9 @@ apiversion = '0.3'
 soversion = 0
 libversion = '@0@.@1@.0'.format(soversion, pipewire_version_minor.to_int() * 100 + pipewire_version_micro.to_int())
 
+pipewire_name = 'pipewire-@0@'.format(apiversion)
+spa_name = 'spa-@0@'.format(spaversion)
+
 prefix = get_option('prefix')
 pipewire_bindir = join_paths(prefix, get_option('bindir'))
 pipewire_datadir = join_paths(prefix, get_option('datadir'))
@@ -31,8 +34,10 @@ pipewire_localedir = join_paths(prefix, get_option('localedir'))
 pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
 
 pipewire_configdir = join_paths(pipewire_sysconfdir, 'pipewire')
-modules_install_dir = join_paths(pipewire_libdir, 'pipewire-@0@'.format(apiversion))
-spa_plugindir = join_paths(pipewire_libdir, 'spa-@0@'.format(spaversion))
+modules_install_dir = join_paths(pipewire_libdir, pipewire_name)
+spa_plugindir = join_paths(pipewire_libdir, spa_name)
+
+pipewire_headers_dir = join_paths(pipewire_name, 'pipewire')
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')

@@ -43,8 +43,9 @@ if get_option('examples')
   subdir('examples')
 endif
 
-pkgconfig.generate(filebase : 'libspa-@0@'.format(spaversion),
+pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
   name : 'libspa',
+  subdirs : spa_name,
   description : 'Simple Plugin API',
-  version : pipewire_version,
+  version : spaversion,
   extra_cflags : '-D_REENTRANT')

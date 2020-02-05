@@ -47,6 +47,7 @@ enum spa_param_type {
 	SPA_PARAM_PortConfig,		/**< port configuration as SPA_TYPE_OBJECT_ParamPortConfig */
 	SPA_PARAM_EnumRoute,		/**< routing enumeration as SPA_TYPE_OBJECT_ParamRoute */
 	SPA_PARAM_Route,		/**< routing configuration as SPA_TYPE_OBJECT_ParamRoute */
+	SPA_PARAM_Control,		/**< Control parameter, a SPA_TYPE_Sequence */
 };
 
 /** information about a parameter */

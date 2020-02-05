@@ -51,6 +51,9 @@ static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_Profile, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "Profile", NULL },
 	{ SPA_PARAM_EnumPortConfig, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "EnumPortConfig", NULL },
 	{ SPA_PARAM_PortConfig, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "PortConfig", NULL },
+	{ SPA_PARAM_EnumRoute, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "EnumRoute", NULL },
+	{ SPA_PARAM_Route, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "Route", NULL },
+	{ SPA_PARAM_Control, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ID_BASE "Control", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

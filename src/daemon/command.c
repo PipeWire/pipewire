@@ -44,6 +44,7 @@ static struct pw_command *parse_command_exec(struct pw_properties *properties, c
 
 struct impl {
 	struct pw_command this;
+	int first_arg;
 };
 
 typedef struct pw_command *(*pw_command_parse_func_t) (struct pw_properties *properties, const char *line, char **err);
@@ -174,14 +175,32 @@ no_mem:
 	return NULL;
 }
 
+static bool has_option(struct pw_command *this, int first_arg, const char *option)
+{
+	int arg;
+	for (arg = 1; arg < first_arg; arg++) {
+		if (strstr(this->args[arg], "-") == this->args[arg]) {
+			if (strcmp(this->args[arg], option) == 0)
+				return true;
+		}
+	}
+	return false;
+}
+
 static int
 execute_command_module_load(struct pw_command *command, struct pw_context *context, char **err)
 {
 	struct pw_impl_module *module;
+	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
+	int arg = impl->first_arg;
 
-	module = pw_context_load_module(context, command->args[1], command->args[2], NULL);
+	module = pw_context_load_module(context, command->args[arg], command->args[arg+1], NULL);
 	if (module == NULL) {
-		*err = spa_aprintf("could not load module \"%s\": %m", command->args[1]);
+		if (errno == ENOENT && has_option(command, arg, "-ifexists")) {
+			pw_log_debug("skipping unavailable module %s", command->args[arg]);
+			return 0;
+		}
+		*err = spa_aprintf("could not load module \"%s\": %m", command->args[arg]);
 		return -errno;
 	}
 	return 0;
@@ -191,6 +210,7 @@ static struct pw_command *parse_command_module_load(struct pw_properties *proper
 {
 	struct impl *impl;
 	struct pw_command *this;
+	int arg;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -198,10 +218,16 @@ static struct pw_command *parse_command_module_load(struct pw_properties *proper
 
 	this = &impl->this;
 	this->func = execute_command_module_load;
-	this->args = pw_split_strv(line, whitespace, 3, &this->n_args);
+	this->args = pw_split_strv(line, whitespace, INT_MAX, &this->n_args);
 
-	if (this->n_args < 2)
+	for (arg = 1; arg < this->n_args; arg++) {
+		if (strstr(this->args[arg], "-") != this->args[arg])
+			break;
+	}
+	if (arg + 1 > this->n_args)
 		goto no_module;
+
+	impl->first_arg = arg;
 
 	return this;
 

@@ -42,6 +42,7 @@
 #include <spa/param/audio/type-info.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/global.h>
@@ -537,6 +538,18 @@ static int channelmap_default(struct channelmap *map, int n_channels)
 	}
 	map->n_channels = n_channels;
 	return 0;
+}
+
+static void channelmap_print(struct channelmap *map)
+{
+	int i;
+
+	for (i = 0; i < map->n_channels; i++) {
+		const char *name = spa_debug_type_find_name(spa_type_audio_channel, map->channels[i]);
+		if (name == NULL)
+			name = ":UNK";
+		printf("%s%s", rindex(name, ':')+1, i + 1 < map->n_channels ? "," : "");
+	}
 }
 
 static void
@@ -1130,6 +1143,8 @@ int main(int argc, char *argv[])
 			data.channels = data.info.channels;
 
 			if (data.channelmap.n_channels == 0) {
+				bool def = false;
+
 				if (sf_command(data.file, SFC_GET_CHANNEL_MAP_INFO,
 						data.channelmap.channels,
 						sizeof(data.channelmap.channels[0]) * data.channels)) {
@@ -1137,11 +1152,14 @@ int main(int argc, char *argv[])
 					if (channelmap_from_sf(&data.channelmap) < 0)
 						data.channelmap.n_channels = 0;
 				}
-				if (data.channelmap.n_channels > 0) {
-					printf("got channel map\n");
-				} else {
-					printf("no channel map, assuming default\n");
+				if (data.channelmap.n_channels == 0) {
 					channelmap_default(&data.channelmap, data.channels);
+					def = true;
+				}
+				if (data.verbose) {
+					printf("using %s channel map: ", def ? "default" : "file");
+					channelmap_print(&data.channelmap);
+					printf("\n");
 				}
 			}
 		}

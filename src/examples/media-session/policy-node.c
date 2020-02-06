@@ -208,8 +208,15 @@ handle_node(struct impl *impl, struct sm_object *object)
 		else
 			return 0;
 
-		if (strstr(media_class, "Video") == media_class)
+		if (strstr(media_class, "Video") == media_class) {
+			if (direction == PW_DIRECTION_OUTPUT) {
+				if ((str = pw_properties_get(object->props, PW_KEY_NODE_PLUGGED)) != NULL)
+					node->plugged = pw_properties_parse_uint64(str);
+				else
+					node->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
+			}
 			node->active = true;
+		}
 
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
@@ -277,6 +284,8 @@ static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	int res;
+
+	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0)
 		res = handle_node(impl, object);
@@ -516,7 +525,6 @@ static void session_rescan(void *data, int seq)
 	struct impl *impl = data;
 	struct node *node;
 
-	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 	pw_log_debug(NAME" %p: rescan", impl);
 
 	spa_list_for_each(node, &impl->node_list, link)

@@ -195,13 +195,34 @@ static int core_demarshal_client_update(void *object, const struct pw_protocol_n
 	return 0;
 }
 
+static uint32_t parse_perms(const char *str)
+{
+	uint32_t perms = 0;
+
+	while (*str != '\0') {
+		switch (*str++) {
+		case 'r':
+			perms |= PW_PERM_R;
+			break;
+		case 'w':
+			perms |= PW_PERM_W;
+			break;
+		case 'x':
+			perms |= PW_PERM_X;
+			break;
+		}
+	}
+	return perms;
+}
+
 static int core_demarshal_permissions(void *object, const struct pw_protocol_native_message *msg)
 {
-	//struct pw_resource *resource = object;
+	struct pw_resource *resource = object;
 	struct spa_dict props;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
-	uint32_t i;
+	uint32_t i, n_permissions;
+	struct pw_permission *permissions, defperm = { 0, };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0 ||
@@ -209,17 +230,47 @@ static int core_demarshal_permissions(void *object, const struct pw_protocol_nat
 		return -EINVAL;
 
 	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+
+	n_permissions = 0;
+	permissions = alloca(props.n_items * sizeof(struct pw_permission));
+
 	for (i = 0; i < props.n_items; i++) {
+		uint32_t id, perms;
+		const char *str;
+
 		if (spa_pod_parser_get(&prs,
 				"s", &props.items[i].key,
 				"s", &props.items[i].value,
 				NULL) < 0)
 			return -EINVAL;
+
+		str = props.items[i].value;
+		/* first set global permissions */
+		if (strcmp(props.items[i].key, PW_CORE_PERMISSIONS_GLOBAL) == 0) {
+			size_t len;
+
+                        /* <global-id>:[r][w][x] */
+			len = strcspn(str, ":");
+			if (len == 0)
+				continue;
+			id = atoi(str);
+			perms = parse_perms(str + len);
+			permissions[n_permissions++] = PW_PERMISSION_INIT(id, perms);
+		} else if (strcmp(props.items[i].key, PW_CORE_PERMISSIONS_DEFAULT) == 0) {
+			perms = parse_perms(str);
+			defperm = PW_PERMISSION_INIT(PW_ID_ANY, perms);
+		}
 	}
-	/* FIXME */
-	//return pw_resource_notify(resource, struct pw_impl_client_methods, update_permissions, 0,
-        //                n_permissions, permissions);
-	return 0;
+	/* add default permission if set */
+	if (defperm.id == PW_ID_ANY)
+		permissions[n_permissions++] = defperm;
+
+	for (i = 0; i < n_permissions; i++) {
+		pw_log_debug("%d: %d: %08x", i, permissions[i].id, permissions[i].permissions);
+	}
+
+	return pw_impl_client_update_permissions(resource->client,
+			n_permissions, permissions);
 }
 
 static int core_demarshal_hello(void *object, const struct pw_protocol_native_message *msg)

@@ -44,7 +44,6 @@ extern "C" {
 #define PW_CORE_V0_METHOD_DESTROY		7
 #define PW_CORE_V0_METHOD_NUM		8
 
-#if 0
 /**
  * Key to update default permissions of globals without specific
  * permissions. value is "[r][w][x]" */
@@ -69,7 +68,6 @@ extern "C" {
 #define PW_LINK_OUTPUT_PORT_ID	"link.output_port.id"
 #define PW_LINK_INPUT_NODE_ID	"link.input_node.id"
 #define PW_LINK_INPUT_PORT_ID	"link.input_port.id"
-#endif
 
 /**
  * \struct pw_core_v0_methods

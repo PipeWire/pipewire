@@ -100,6 +100,7 @@ typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
 struct protocol_compat_v2 {
 	/* v2 typemap */
 	struct pw_map types;
+	unsigned int send_types:1;
 };
 
 #define pw_impl_core_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_impl_core_events, m, v, ##__VA_ARGS__)

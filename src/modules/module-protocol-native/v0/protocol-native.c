@@ -77,13 +77,13 @@ update_types_server(struct pw_resource *resource)
 static void core_marshal_info(void *object, const struct pw_core_info *info)
 {
 	struct pw_resource *resource = object;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
+	struct protocol_compat_v2 *compat_v2 = client->compat_v2;
 	struct spa_pod_builder *b;
 	uint32_t i, n_items;
 	uint64_t change_mask = 0;
 	struct spa_pod_frame f;
 	struct pw_protocol_native_message *msg;
-
-	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
 
 #define PW_CORE_V0_CHANGE_MASK_USER_NAME  (1 << 0)
 #define PW_CORE_V0_CHANGE_MASK_HOST_NAME  (1 << 1)
@@ -92,15 +92,16 @@ static void core_marshal_info(void *object, const struct pw_core_info *info)
 #define PW_CORE_V0_CHANGE_MASK_COOKIE     (1 << 4)
 #define PW_CORE_V0_CHANGE_MASK_PROPS      (1 << 5)
 
-	if (msg->seq == 0) {
+	if (compat_v2->send_types) {
 		update_types_server(resource);
-		b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
 		change_mask |= PW_CORE_V0_CHANGE_MASK_USER_NAME |
 			PW_CORE_V0_CHANGE_MASK_HOST_NAME |
 			PW_CORE_V0_CHANGE_MASK_VERSION |
 			PW_CORE_V0_CHANGE_MASK_NAME |
 			PW_CORE_V0_CHANGE_MASK_COOKIE;
+		compat_v2->send_types = false;
 	}
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_INFO, &msg);
 
 	n_items = info->props ? info->props->n_items : 0;
 
@@ -710,6 +711,9 @@ static int core_demarshal_update_types_server(void *object, const struct pw_prot
 			"i", &n_types,
 			NULL) < 0)
 		return -EINVAL;
+
+	if (first_id == 0)
+		compat_v2->send_types = true;
 
 	types = alloca(n_types * sizeof(char *));
 	for (i = 0; i < n_types; i++) {

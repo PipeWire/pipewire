@@ -218,6 +218,7 @@ static struct pw_command *parse_command_module_load(struct pw_properties *proper
 
 	this = &impl->this;
 	this->func = execute_command_module_load;
+
 	this->args = pw_split_strv(line, whitespace, INT_MAX, &this->n_args);
 
 	for (arg = 1; arg < this->n_args; arg++) {
@@ -226,6 +227,9 @@ static struct pw_command *parse_command_module_load(struct pw_properties *proper
 	}
 	if (arg + 1 > this->n_args)
 		goto no_module;
+
+	pw_free_strv(this->args);
+	this->args = pw_split_strv(line, whitespace, arg + 2, &this->n_args);
 
 	impl->first_arg = arg;
 

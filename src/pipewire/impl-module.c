@@ -189,7 +189,7 @@ pw_context_load_module(struct pw_context *context,
 	if (filename == NULL)
 		goto error_not_found;
 
-	pw_log_debug("trying to load module: %s (%s)", name, filename);
+	pw_log_debug("trying to load module: %s (%s) args(%s)", name, filename, args);
 
 	hnd = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
 	if (hnd == NULL)

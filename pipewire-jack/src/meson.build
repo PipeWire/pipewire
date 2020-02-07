@@ -28,5 +28,6 @@ if sdl_dep.found()
     c_args : [ '-D_GNU_SOURCE' ],
     install: false,
     dependencies : [jack_dep, sdl_dep, mathlib],
+    link_with: pipewire_jack,
   )
 endif

@@ -29,10 +29,7 @@
 #include <SDL2/SDL.h>
 
 #include <jack/jack.h>
-
-#define WIDTH   320
-#define HEIGHT  240
-#define BPP     16
+#include <pipewire-jack-extensions.h>
 
 #define MAX_BUFFERS	64
 
@@ -62,9 +59,7 @@ struct data {
 	const char *client_name;
 	jack_port_t *in_port;
 
-	uint32_t width;
-	uint32_t height;
-	int32_t stride;
+	jack_image_size_t size;
 
 	int counter;
 	SDL_Rect rect;
@@ -102,14 +97,14 @@ process (jack_nframes_t nframes, void *arg)
 	}
 
 	/* copy video image in texture */
-	sstride = data->stride;
+	sstride = data->size.stride;
 
 	src = sdata;
 	dst = ddata;
 
-	for (i = 0; i < data->height; i++) {
+	for (i = 0; i < data->size.height; i++) {
 		struct pixel *p = (struct pixel *) src;
-		for (j = 0; j < data->width; j++) {
+		for (j = 0; j < data->size.width; j++) {
 			dst[j * 4 + 0] = CLAMP(lrintf(p[j].r * 255.0f), 0, 255);
 			dst[j * 4 + 1] = CLAMP(lrintf(p[j].g * 255.0f), 0, 255);
 			dst[j * 4 + 2] = CLAMP(lrintf(p[j].b * 255.0f), 0, 255);
@@ -133,6 +128,7 @@ int main(int argc, char *argv[])
 	struct data data = { 0, };
 	jack_options_t options = JackNullOption;
         jack_status_t status;
+	int res;
 
 	data.client = jack_client_open ("video-dsp-play", options, &status);
         if (data.client == NULL) {
@@ -153,9 +149,10 @@ int main(int argc, char *argv[])
 
         jack_set_process_callback (data.client, process, &data);
 
-	data.width = WIDTH;
-	data.height = HEIGHT;
-	data.stride = data.width * 4 * sizeof(float);
+	if ((res = jack_get_video_image_size(data.client, &data.size)) < 0) {
+		fprintf(stderr, "can't get video size: %d %s\n", res, strerror(-res));
+		return -1;
+	}
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());
@@ -163,7 +160,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (SDL_CreateWindowAndRenderer
-	    (WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
+	    (data.size.width, data.size.height, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
 		fprintf(stderr, "can't create window: %s\n", SDL_GetError());
 		return -1;
 	}
@@ -171,12 +168,12 @@ int main(int argc, char *argv[])
 	data.texture = SDL_CreateTexture(data.renderer,
 					  SDL_PIXELFORMAT_RGBA32,
 					  SDL_TEXTUREACCESS_STREAMING,
-					  data.width,
-					  data.height);
+					  data.size.width,
+					  data.size.height);
 	data.rect.x = 0;
 	data.rect.y = 0;
-	data.rect.w = data.width;
-	data.rect.h = data.height;
+	data.rect.w = data.size.width;
+	data.rect.h = data.size.height;
 
 	data.in_port = jack_port_register (data.client, "input",
                                           JACK_DEFAULT_VIDEO_TYPE,

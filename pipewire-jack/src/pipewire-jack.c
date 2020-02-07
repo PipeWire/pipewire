@@ -4351,22 +4351,18 @@ int jack_get_video_image_size(jack_client_t *client, jack_image_size_t *size)
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a = c->driver_activation;
 
-	printf("1\n");
 	if (a == NULL)
 		a = c->activation;
 	if (a == NULL)
 		return -EIO;
 
-	printf("2\n");
 	if (!(a->position.video.flags & SPA_IO_VIDEO_SIZE_VALID))
 		return -EIO;
 
-	printf("3\n");
 	size->width = a->position.video.size.width;
 	size->height = a->position.video.size.height;
 	size->stride = a->position.video.stride;
 	size->flags = 0;
-	printf("%d %d %d %d\n", size->width, size->height, size->stride, size->flags);
 	return size->stride * size->height;
 }
 

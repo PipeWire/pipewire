@@ -42,7 +42,7 @@ struct stats {
 #define MAX_SAMPLES	4096
 #define MAX_CHANNELS	11
 
-#define MAX_COUNT 1000
+#define MAX_COUNT 100
 
 static uint8_t samp_in[MAX_SAMPLES * MAX_CHANNELS * 4];
 static uint8_t samp_out[MAX_SAMPLES * MAX_CHANNELS * 4];

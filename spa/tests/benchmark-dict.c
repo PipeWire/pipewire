@@ -32,7 +32,7 @@
 
 #include <spa/utils/dict.h>
 
-#define MAX_COUNT 1000000
+#define MAX_COUNT 100000
 #define MAX_ITEMS 1000
 
 static struct spa_dict_item items[MAX_ITEMS];

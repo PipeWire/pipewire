@@ -1143,6 +1143,7 @@ static int client_node_transport(void *object,
 					  true, on_rtsocket_condition, c);
 
 	c->has_transport = true;
+	pw_thread_loop_signal(c->context.loop, false);
 
 	return 0;
 }
@@ -2206,8 +2207,15 @@ jack_client_t * jack_client_open (const char *client_name,
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &ni);
 
-	if (do_sync(client) < 0)
-		goto init_failed;
+	while (true) {
+	        pw_thread_loop_wait(client->context.loop);
+
+		if (client->error)
+			goto init_failed;
+
+		if (client->has_transport)
+			break;
+	}
 
 	pw_thread_loop_unlock(client->context.loop);
 

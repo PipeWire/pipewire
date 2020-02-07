@@ -39,7 +39,6 @@ static void test_create(struct pw_protocol_native_connection *conn)
 
 	res = pw_protocol_native_connection_get_next(conn, &msg);
 	spa_assert(res != 1);
-	spa_assert(msg != NULL);
 
 	res = pw_protocol_native_connection_get_fd(conn, 0);
 	spa_assert(res == -ENOENT);

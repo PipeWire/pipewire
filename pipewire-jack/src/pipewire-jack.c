@@ -169,13 +169,6 @@ struct buffer {
 	uint32_t n_mem;
 };
 
-struct link {
-	uint32_t node_id;
-	struct pw_memmap *mem;
-	struct pw_node_activation *activation;
-	int signalfd;
-};
-
 struct mix {
 	struct spa_list link;
 	struct spa_list port_link;
@@ -207,6 +200,16 @@ struct port {
 
 	float *emptyptr;
 	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
+};
+
+struct link {
+	struct spa_list link;
+	struct spa_list target_link;
+	struct client *client;
+	uint32_t node_id;
+	struct pw_memmap *mem;
+	struct pw_node_activation *activation;
+	int signalfd;
 };
 
 struct context {
@@ -304,13 +307,15 @@ struct client {
 	struct spa_list ports[2];
 	struct spa_list free_ports[2];
 
-	struct pw_array links;
+	struct spa_list links;
 	uint32_t driver_id;
 	struct pw_node_activation *driver_activation;
 
 	struct pw_memmap *mem;
 	struct pw_node_activation *activation;
 	uint32_t xrun_count;
+
+	struct spa_list target_links;
 
 	unsigned int started:1;
 	unsigned int active:1;
@@ -624,11 +629,11 @@ static const struct pw_proxy_events proxy_events = {
 	.bound = on_node_bound,
 };
 
-static struct link *find_activation(struct pw_array *links, uint32_t node_id)
+static struct link *find_activation(struct spa_list *links, uint32_t node_id)
 {
 	struct link *l;
 
-	pw_array_for_each(l, links) {
+	spa_list_for_each(l, links, link) {
 		if (l->node_id == node_id)
 			return l;
 	}
@@ -1019,7 +1024,7 @@ static inline void signal_sync(struct client *c)
 	activation->finish_time = nsec;
 
 	cmd = 1;
-	pw_array_for_each(l, &c->links) {
+	spa_list_for_each(l, &c->target_links, target_link) {
 		struct pw_node_activation_state *state;
 
 		if (l->activation == NULL)
@@ -1098,10 +1103,11 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 static void clear_link(struct client *c, struct link *link)
 {
-	link->node_id = SPA_ID_INVALID;
-	link->activation = NULL;
+	spa_list_remove(&link->target_link);
 	pw_memmap_free(link->mem);
 	close(link->signalfd);
+	spa_list_remove(&link->link);
+	free(link);
 }
 
 static void clean_transport(struct client *c)
@@ -1115,10 +1121,8 @@ static void clean_transport(struct client *c)
 
 	unhandle_socket(c);
 
-	pw_array_for_each(l, &c->links)
-		if (l->node_id != SPA_ID_INVALID)
-			clear_link(c, l);
-	pw_array_clear(&c->links);
+	spa_list_consume(l, &c->links, link)
+		clear_link(c, l);
 
 	c->has_transport = false;
 }
@@ -1700,6 +1704,17 @@ static int client_node_port_set_io(void *object,
 	return res;
 }
 
+static int
+do_activate_link(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct link *link = user_data;
+	struct client *c = link->client;
+	pw_log_trace("link %p activate", link);
+	spa_list_append(&c->target_links, &link->target_link);
+	return 0;
+}
+
 static int client_node_set_activation(void *object,
                              uint32_t node_id,
                              int signalfd,
@@ -1739,15 +1754,20 @@ static int client_node_set_activation(void *object,
 			mem_id, offset, size, ptr);
 
 	if (ptr) {
-		link = pw_array_add(&c->links, sizeof(struct link));
+		link = calloc(1, sizeof(struct link));
 		if (link == NULL) {
 			res = -errno;
 			goto exit;
 		}
+		link->client = c;
 		link->node_id = node_id;
 		link->mem = mm;
 		link->activation = ptr;
 		link->signalfd = signalfd;
+		spa_list_append(&c->links, &link->link);
+
+		pw_loop_invoke(c->loop->loop,
+                       do_activate_link, SPA_ID_INVALID, NULL, 0, false, link);
 	}
 	else {
 		link = find_activation(&c->links, node_id);
@@ -2141,7 +2161,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->loop == NULL)
 		goto init_failed;
 
-	pw_array_init(&client->links, 64);
+	spa_list_init(&client->links);
+	spa_list_init(&client->target_links);
 
 	client->buffer_frames = (uint32_t)-1;
 	client->sample_rate = (uint32_t)-1;

@@ -89,10 +89,11 @@ struct node_data {
 
 	struct spa_io_position *position;
 
-	struct pw_array links;
+	struct spa_list links;
 };
 
 struct link {
+	struct spa_list link;
 	struct node_data *data;
 	struct pw_memmap *map;
 	struct pw_node_target target;
@@ -102,11 +103,11 @@ struct link {
 
 /** \endcond */
 
-static struct link *find_activation(struct pw_array *links, uint32_t node_id)
+static struct link *find_activation(struct spa_list *links, uint32_t node_id)
 {
 	struct link *l;
 
-	pw_array_for_each(l, links) {
+	spa_list_for_each(l, links, link) {
 		if (l->node_id == node_id)
 			return l;
 	}
@@ -118,18 +119,19 @@ do_deactivate_link(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct link *link = user_data;
+	pw_log_trace("link %p deactivate", link);
 	spa_list_remove(&link->target.link);
-        return 0;
+	return 0;
 }
 
 static void clear_link(struct node_data *data, struct link *link)
 {
 	pw_loop_invoke(data->context->data_loop,
 		do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, link);
-	link->node_id = SPA_ID_INVALID;
-	link->target.activation = NULL;
 	pw_memmap_free(link->map);
 	close(link->signalfd);
+	spa_list_remove(&link->link);
+	free(link);
 }
 
 static void clean_transport(struct node_data *data)
@@ -141,11 +143,8 @@ static void clean_transport(struct node_data *data)
 	if (!data->have_transport)
 		return;
 
-	pw_array_for_each(l, &data->links) {
-		if (l->node_id != SPA_ID_INVALID)
-			clear_link(data, l);
-	}
-	pw_array_clear(&data->links);
+	spa_list_consume(l, &data->links, link)
+		clear_link(data, l);
 
 	while ((mm = pw_mempool_find_tag(data->pool, tag, sizeof(uint32_t))) != NULL)
 		pw_memmap_free(mm);
@@ -816,8 +815,9 @@ do_activate_link(struct spa_loop *loop,
 {
 	struct link *link = user_data;
 	struct node_data *d = link->data;
+	pw_log_trace("link %p activate", link);
 	spa_list_append(&d->node->rt.target_list, &link->target.link);
-        return 0;
+	return 0;
 }
 
 static int
@@ -860,7 +860,7 @@ client_node_set_activation(void *object,
 
 
 	if (ptr) {
-		link = pw_array_add(&data->links, sizeof(struct link));
+		link = calloc(1, sizeof(struct link));
 		if (link == NULL) {
 			res = -errno;
 			goto error_exit;
@@ -873,6 +873,7 @@ client_node_set_activation(void *object,
 		link->target.signal = link_signal_func;
 		link->target.data = link;
 		link->target.node = NULL;
+		spa_list_append(&data->links, &link->link);
 
 		pw_loop_invoke(data->context->data_loop,
                        do_activate_link, SPA_ID_INVALID, NULL, 0, false, link);
@@ -1170,8 +1171,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	for (i = 0; i < MAX_MIX; i++)
 		spa_list_append(&data->free_mix, &data->mix_pool[i].link);
 
-        pw_array_init(&data->links, 64);
-        pw_array_ensure_size(&data->links, sizeof(struct link) * 64);
+	spa_list_init(&data->links);
 
 	pw_proxy_add_listener(client_node,
 			&data->proxy_client_node_listener,

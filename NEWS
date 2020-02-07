@@ -1,12 +1,83 @@
-PipeWire 0.3.0
+PipeWire 0.2.95
 
-This is the first release of the 0.3 version. It consists of a
-major rewrite and is not API or ABI compatible with the 0.2
-branch.
+Sixth pre-release for upcomming 0.3:
 
-
+- Fix tests for big endian some more
+- Improve v2 compatibility mode: improve type negotiation and
+  update_permissions
+- Workaround for firefox screen sharing
 
 Older versions:
+
+PipeWire 0.2.94
+
+Fifth pre-release for upcomming 0.3:
+
+- Fix man page names
+- Fix jack set_sync_timeout
+- Improve JACK compatibility with apps that cache buffer pointers.
+- Improve mlock failure warning message, add property to configure
+  if mlock should be used.
+- Improve OBJECT_PATH in alsa objects
+- Install in versioned directory
+- Add pw-profiler tool
+- Improve pulseaudio compatibility wrt pa_operations
+- Thread safety fixes in remote nodes when activating/deactivating
+- Improve JACK names on duplicates
+- Add option to ignore failure when loading modules
+
+PipeWire 0.2.93
+
+Fourth pre-release for upcomming 0.3:
+
+- Fix unit tests on 32 bits
+- Append -pw version to pulse and jack libs. This way we can install
+  it next to the real libraries and use a symlink to enable it.
+- Improve jack support by killing threads with pthread_cancel. This
+  then also remove the eventfd from the data-loop, making it
+  maybe a little faster.
+- Fix jack_client_close() compatibility
+- Fix some segfaults in the session manager
+- Improve debug of protocol messages
+- Add examples options
+- Don't fail when alsa is not found
+- Fix some compiler warnings with a new spa_aprintf() helper.
+- Add pw-cat, the simple audio playback/record tool
+- Rename pipewire tools to pw- prefix
+- Add improve pw-cli object dump feature
+
+
+PipeWire 0.2.92
+
+Third pre-release for upcomming 0.3:
+
+- Improve old version check some more
+- Fix unit tests on little/big endian
+- Fix compilation when CPU has no optimisations
+- Install jack and pulse libraries
+- Handle -EACCESS in flatpack access module
+
+
+PipeWire 0.2.91
+
+It is mostly a bugfix release to make the new version install and
+run correctly in distros.
+
+- Install session manager, fix path to find the session manager
+- Fix alsa buffer reuse
+- Small fixes for crasher bugs
+- Implement pw_core_set_paused() to suspend/resume even
+  processing. This can be used when using multiple connections
+  to a daemon and one needs to pause one connection until the
+  other one completes an action. Used by session managers.
+- Improve old version check
+
+
+PipeWire 0.2.90
+
+This is the first pre-release of the 0.3 version. It consists of a
+major rewrite and is not API or ABI compatible with the 0.2
+branch.
 
 
 PipeWire 0.2.7

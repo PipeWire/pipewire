@@ -457,8 +457,10 @@ static void idle_func(struct spa_source *source)
 #endif
 
 	system_bus = pw_rtkit_bus_get_system();
-	if (system_bus == NULL)
+	if (system_bus == NULL) {
+		pw_log_warn("could not get system bus: %s", strerror(errno));
 		return;
+	}
 
 	rl.rlim_cur = rl.rlim_max = rttime;
 	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
@@ -476,9 +478,9 @@ static void idle_func(struct spa_source *source)
 	}
 
 	if ((r = pw_rtkit_make_realtime(system_bus, 0, rtprio)) < 0) {
-		pw_log_debug("could not make thread realtime: %s", spa_strerror(r));
+		pw_log_warn("could not make thread realtime: %s", spa_strerror(r));
 	} else {
-		pw_log_debug("thread made realtime");
+		pw_log_info("processing thread made realtime");
 	}
 	pw_rtkit_bus_free(system_bus);
 }
@@ -525,6 +527,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	spa_loop_add_source(impl->loop, &impl->source);
+	spa_system_eventfd_write(system, impl->source.fd, 1);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

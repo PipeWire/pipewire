@@ -167,6 +167,7 @@ static struct param *add_param(struct stream *impl,
 	p->id = id;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
+	SPA_POD_OBJECT_ID(p->param) = id;
 
 	spa_list_append(&impl->param_list, &p->link);
 
@@ -492,7 +493,7 @@ static int impl_port_enum_params(void *object, int seq,
 		result.index = result.next++;
 
 		param = p->param;
-		if (param == NULL || !spa_pod_is_object_id(param, id))
+		if (param == NULL || p->id != id)
 			continue;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));

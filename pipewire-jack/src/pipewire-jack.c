@@ -3879,6 +3879,11 @@ void default_jack_error_callback(const char *desc)
 }
 
 SPA_EXPORT
+void silent_jack_error_callback(const char *desc)
+{
+}
+
+SPA_EXPORT
 void (*jack_error_callback)(const char *msg);
 
 SPA_EXPORT
@@ -3888,9 +3893,24 @@ void jack_set_error_function (void (*func)(const char *))
 }
 
 SPA_EXPORT
+void default_jack_info_callback(const char *desc)
+{
+	pw_log_info("pw jack info: %s",desc);
+}
+
+SPA_EXPORT
+void silent_jack_info_callback(const char *desc)
+{
+}
+
+SPA_EXPORT
+void (*jack_info_callback)(const char *msg);
+
+
+SPA_EXPORT
 void jack_set_info_function (void (*func)(const char *))
 {
-	pw_log_warn("not implemented");
+	jack_info_callback = (func == NULL) ? &default_jack_info_callback : func;
 }
 
 SPA_EXPORT

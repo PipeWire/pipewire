@@ -320,6 +320,9 @@ static void on_start(void *data, uint32_t version)
 
 	pw_log_debug("version %d", version);
 
+	if (client->core_resource != NULL)
+		pw_resource_remove(client->core_resource);
+
 	if (pw_global_bind(pw_impl_core_get_global(client->core), client,
 			PW_PERM_RWX, version, 0) < 0)
 		return;

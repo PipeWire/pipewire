@@ -952,8 +952,6 @@ int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version);
 
 void pw_proxy_remove(struct pw_proxy *proxy);
 
-void pw_resource_remove(struct pw_resource *resource);
-
 int pw_context_recalc_graph(struct pw_context *context);
 
 void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);

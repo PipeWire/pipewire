@@ -271,6 +271,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 	free(resource);
 }
 
+SPA_EXPORT
 void pw_resource_remove(struct pw_resource *resource)
 {
 	resource->removed = true;

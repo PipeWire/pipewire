@@ -87,6 +87,10 @@ pw_resource_new(struct pw_impl_client *client,	/**< the client owning the resour
 /** Destroy a resource */
 void pw_resource_destroy(struct pw_resource *resource);
 
+/** Remove a resource, like pw_resource_destroy but without sending a
+ * remove_id message to the client */
+void pw_resource_remove(struct pw_resource *resource);
+
 /** Get the client owning this resource */
 struct pw_impl_client *pw_resource_get_client(struct pw_resource *resource);
 

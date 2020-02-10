@@ -540,8 +540,6 @@ static int remap_to_v2(struct pw_impl_client *client, const struct spa_type_info
 		ti = spa_debug_type_find(info, b->type);
 		ii = ti ? spa_debug_type_find(ti->values, 0) : NULL;
 
-		pw_log_debug("type:%d id:%d", b->type, b->id);
-
 		if (b->type == SPA_TYPE_COMMAND_Node) {
 			spa_pod_builder_push_object(builder, &f[0], 0,
 				pw_protocol_native0_type_to_v2(client, ii ? ii->values : NULL, b->id));
@@ -773,7 +771,9 @@ static int core_demarshal_update_types_server(void *object, const struct pw_prot
 	}
 
 	for (i = 0; i < n_types; i++, first_id++) {
-		int type_id = pw_protocol_native0_find_type(client, types[i]);
+		uint32_t type_id = pw_protocol_native0_find_type(client, types[i]);
+		if (type_id == SPA_ID_INVALID)
+			continue;
 		if (pw_map_insert_at(&compat_v2->types, first_id, PW_MAP_ID_TO_PTR(type_id)) < 0)
 			pw_log_error("can't add type %d->%d for client", first_id, type_id);
         }
@@ -789,13 +789,30 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 	struct spa_pod_frame f;
 	uint32_t i, n_items, parent_id;
 	uint32_t type_id;
+	const char *str;
+
+	type_id = pw_protocol_native0_find_type(client, type);
+	if (type_id == SPA_ID_INVALID)
+		return;
 
 	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_V0_EVENT_GLOBAL, NULL);
 
 	n_items = props ? props->n_items : 0;
 
-	type_id = pw_protocol_native0_find_type(client, type);
 	parent_id = 0;
+	if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+		if ((str = spa_dict_lookup(props, "node.id")) != NULL)
+			parent_id = atoi(str);
+	} else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+		if ((str = spa_dict_lookup(props, "device.id")) != NULL)
+			parent_id = atoi(str);
+	} else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0 ||
+	    strcmp(type, PW_TYPE_INTERFACE_Device) == 0 ||
+	    strcmp(type, PW_TYPE_INTERFACE_Factory) == 0) {
+		if ((str = spa_dict_lookup(props, "module.id")) != NULL)
+			parent_id = atoi(str);
+	}
+
 	version = 0;
 
         spa_pod_builder_push_struct(b, &f);
@@ -890,11 +907,14 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 	struct spa_pod_frame f;
 	uint32_t i, n_items, type, version;
 
+	type = pw_protocol_native0_find_type(client, info->type);
+	if (type == SPA_ID_INVALID)
+		return;
+
 	b = pw_protocol_native_begin_resource(resource, PW_FACTORY_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
-	type = pw_protocol_native0_find_type(client, info->type);
 	version = 0;
 
         spa_pod_builder_push_struct(b, &f);
@@ -954,11 +974,22 @@ static void node_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 		const struct spa_pod *param)
 {
 	struct pw_resource *resource = object;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
 
 	b = pw_protocol_native_begin_resource(resource, PW_NODE_V0_EVENT_PARAM, NULL);
 
-	spa_pod_builder_add_struct(b, "I", id, "i", index, "i", next, "P", param);
+	id = pw_protocol_native0_type_to_v2(client, spa_type_param, id),
+
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_add(b,
+			"I", id,
+			"i", index,
+			"i", next,
+			NULL);
+	pw_protocol_native0_pod_to_v2(client, (struct spa_pod *)param, b);
+	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -992,16 +1023,34 @@ static void port_marshal_info(void *object, const struct pw_port_info *info)
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
+	uint64_t change_mask = 0;
+	const char *port_name;
 
 	b = pw_protocol_native_begin_resource(resource, PW_PORT_V0_EVENT_INFO, NULL);
 
 	n_items = info->props ? info->props->n_items : 0;
 
+#define PW_PORT_V0_CHANGE_MASK_NAME                (1 << 0)
+#define PW_PORT_V0_CHANGE_MASK_PROPS               (1 << 1)
+#define PW_PORT_V0_CHANGE_MASK_ENUM_PARAMS         (1 << 2)
+
+	change_mask |= PW_PORT_V0_CHANGE_MASK_NAME;
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
+		change_mask |= PW_PORT_V0_CHANGE_MASK_PROPS;
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS)
+		change_mask |= PW_PORT_V0_CHANGE_MASK_ENUM_PARAMS;
+
+	port_name = NULL;
+	if (info->props != NULL)
+		port_name = spa_dict_lookup(info->props, "port.name");
+	if (port_name == NULL)
+		port_name = "port.name";
+
         spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			    "i", info->id,
-			    "l", info->change_mask,
-			    "s", "port.name",
+			    "l", change_mask,
+			    "s", port_name,
 			    "i", n_items, NULL);
 
 	for (i = 0; i < n_items; i++) {
@@ -1020,12 +1069,20 @@ static void port_marshal_param(void *object, int seq, uint32_t id, uint32_t inde
 	struct pw_resource *resource = object;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
 
 	b = pw_protocol_native_begin_resource(resource, PW_PORT_V0_EVENT_PARAM, NULL);
 
-	id = pw_protocol_native0_type_to_v2(client, pw_type_info(), id),
+	id = pw_protocol_native0_type_to_v2(client, spa_type_param, id),
 
-	spa_pod_builder_add_struct(b, "I", id, "i", index, "i", next, "P", param);
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_add(b,
+			"I", id,
+			"i", index,
+			"i", next,
+			NULL);
+	pw_protocol_native0_pod_to_v2(client, (struct spa_pod *)param, b);
+	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
 }

@@ -3873,9 +3873,18 @@ jack_time_t jack_get_time()
 }
 
 SPA_EXPORT
+void default_jack_error_callback(const char *desc)
+{
+	pw_log_error("pw jack error: %s",desc);
+}
+
+SPA_EXPORT
+void (*jack_error_callback)(const char *msg);
+
+SPA_EXPORT
 void jack_set_error_function (void (*func)(const char *))
 {
-	pw_log_warn("not implemented");
+	jack_error_callback = (func == NULL) ? &default_jack_error_callback : func;
 }
 
 SPA_EXPORT

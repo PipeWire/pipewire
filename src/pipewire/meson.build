@@ -109,6 +109,7 @@ pipewire_dep = declare_dependency(link_with : libpipewire,
 
 pkgconfig.generate(filebase : 'lib@0@'.format(pipewire_name),
   libraries : [libpipewire],
+  requires : ['lib@0@'.format(spa_name)],
   name : 'libpipewire',
   subdirs : pipewire_name,
   description : 'PipeWire Interface',

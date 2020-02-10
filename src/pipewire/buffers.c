@@ -60,7 +60,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 {
 	struct spa_buffer **buffers;
 	void *skel, *data;
-	uint32_t i, j;
+	uint32_t i;
 	uint32_t n_metas;
 	struct spa_meta *metas;
 	struct spa_data *datas;
@@ -138,14 +138,6 @@ static int alloc_buffers(struct pw_mempool *pool,
 
 	pw_log_debug(NAME" %p: layout buffers skel:%p data:%p", allocation, skel, data);
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, data);
-
-	/* v2 compat, they expect the stride to be set */
-	for (i = 0; i < n_buffers; i++) {
-		for (j = 0; j < n_datas; j++) {
-			struct spa_data *d = &buffers[i]->datas[j];
-			d->chunk->stride = data_strides[0];
-		}
-	}
 
 	allocation->mem = m;
 	allocation->n_buffers = n_buffers;

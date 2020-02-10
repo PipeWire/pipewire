@@ -57,9 +57,6 @@ struct buffer {
 	size_t offset;
 	size_t fds_offset;
 	struct pw_protocol_native_message msg;
-
-	bool update;
-	bool first;
 };
 
 struct impl {
@@ -252,8 +249,6 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 	impl->out.buffer_maxsize = MAX_BUFFER_SIZE;
 	impl->in.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->in.buffer_maxsize = MAX_BUFFER_SIZE;
-	impl->in.update = true;
-	impl->in.first = true;
 
 	if (impl->out.buffer_data == NULL || impl->in.buffer_data == NULL)
 		goto no_mem;
@@ -311,8 +306,7 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	buf->msg.opcode = p[1] >> 24;
 	len = p[1] & 0xffffff;
 
-	if (buf->first) {
-		buf->first = false;
+	if (buf->msg.id == 0 && buf->msg.opcode == 1) {
 		if (p[3] >= 4) {
 			pw_log_warn("old version detected");
 			impl->version = 0;
@@ -593,7 +587,6 @@ int pw_protocol_native_connection_clear(struct pw_protocol_native_connection *co
 
 	clear_buffer(&impl->out);
 	clear_buffer(&impl->in);
-	impl->in.update = true;
 
 	return 0;
 }

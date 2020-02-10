@@ -44,9 +44,18 @@
 
 #include <pipewire/impl.h>
 
+#define DEFAULT_RT_PRIO		20
+#define DEFAULT_RT_TIME_SOFT	200000
+#define DEFAULT_RT_TIME_HARD	200000
+
+#define MODULE_USAGE	"[rt.prio=<priority: default "SPA_STRINGIFY(DEFAULT_RT_PRIO) ">] "		\
+			"[rt.time.soft=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_SOFT)"] "	\
+			"[rt.time.hard=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_HARD)"] "
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Use RTKit to raise thread priorities" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -56,6 +65,11 @@ struct impl {
 	struct spa_loop *loop;
 	struct spa_system *system;
 	struct spa_source source;
+	struct pw_properties *props;
+
+	int rt_prio;
+	rlim_t rt_time_soft;
+	rlim_t rt_time_hard;
 
 	struct spa_hook module_listener;
 };
@@ -269,7 +283,7 @@ int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int *min_nice_l
 	return err;
 }
 
-long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
+long unsigned int pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
 {
 	long long retval;
 	int err;
@@ -423,6 +437,7 @@ static void module_destroy(void *data)
 		spa_system_close(impl->system, impl->source.fd);
 		impl->source.fd = -1;
 	}
+	pw_properties_free(impl->props);
 	free(impl);
 }
 
@@ -438,23 +453,10 @@ static void idle_func(struct spa_source *source)
 	struct pw_rtkit_bus *system_bus;
 	struct rlimit rl;
 	int r, rtprio;
-	long long rttime;
+	long unsigned int rttime;
 	uint64_t count;
 
 	spa_system_eventfd_read(impl->system, impl->source.fd, &count);
-
-	rtprio = 20;
-	rttime = 20000;
-
-	spa_zero(sp);
-	sp.sched_priority = rtprio;
-
-#ifndef __FreeBSD__
-	if (pthread_setschedparam(pthread_self(), SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
-		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
-		return;
-	}
-#endif
 
 	system_bus = pw_rtkit_bus_get_system();
 	if (system_bus == NULL) {
@@ -462,27 +464,57 @@ static void idle_func(struct spa_source *source)
 		return;
 	}
 
-	rl.rlim_cur = rl.rlim_max = rttime;
+	rtprio = pw_rtkit_get_max_realtime_priority(system_bus);
+	if (rtprio >= 0)
+		rtprio = SPA_MIN(rtprio, impl->rt_prio);
+	else
+		rtprio = impl->rt_prio;
+
+	spa_zero(sp);
+	sp.sched_priority = rtprio;
+
+#ifndef __FreeBSD__
+	if (pthread_setschedparam(pthread_self(), SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
+		pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
+		goto exit;
+	}
+#endif
+
+	rl.rlim_cur = impl->rt_time_soft;
+	rl.rlim_max = impl->rt_time_hard;
+
+	rttime = pw_rtkit_get_rttime_usec_max(system_bus);
+	if (rttime >= 0) {
+		rl.rlim_cur = SPA_MIN(rl.rlim_cur, rttime);
+		rl.rlim_max = SPA_MIN(rl.rlim_max, rttime);
+	}
+
+	pw_log_debug("rt.prio:%d rt.time.soft:%lu rt.time.hard:%lu",
+			rtprio, rl.rlim_cur, rl.rlim_max);
+
 	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
 		pw_log_debug("setrlimit() failed: %s", strerror(errno));
-
-	if (rttime >= 0) {
-		r = getrlimit(RLIMIT_RTTIME, &rl);
-		if (r >= 0 && (long long) rl.rlim_max > rttime) {
-			pw_log_debug("Clamping rlimit-rttime to %lld for RealtimeKit", rttime);
-			rl.rlim_cur = rl.rlim_max = rttime;
-
-			if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
-				pw_log_debug("setrlimit() failed: %s", strerror(errno));
-		}
-	}
 
 	if ((r = pw_rtkit_make_realtime(system_bus, 0, rtprio)) < 0) {
 		pw_log_warn("could not make thread realtime: %s", spa_strerror(r));
 	} else {
 		pw_log_info("processing thread made realtime");
 	}
+exit:
 	pw_rtkit_bus_free(system_bus);
+}
+
+static int get_default_int(struct pw_properties *properties, const char *name, int def)
+{
+	int val;
+	const char *str;
+	if ((str = pw_properties_get(properties, name)) != NULL)
+		val = atoi(str);
+	else {
+		val = def;
+		pw_properties_setf(properties, name, "%d", val);
+	}
+	return val;
 }
 
 SPA_EXPORT
@@ -515,6 +547,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->loop = loop;
 	impl->system = system;
+	impl->props = args ? pw_properties_new_string(args) : pw_properties_new(NULL, NULL);
+	if (impl->props == NULL) {
+		res = -errno;
+		goto error;
+	}
+
+	impl->rt_prio = get_default_int(impl->props, "rt.prio", DEFAULT_RT_PRIO);
+	impl->rt_time_soft = get_default_int(impl->props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
+	impl->rt_time_hard = get_default_int(impl->props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
 	impl->source.loop = loop;
 	impl->source.func = idle_func;
@@ -532,10 +573,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+	pw_impl_module_update_properties(module, &impl->props->dict);
 
 	return 0;
 
 error:
+	if (impl->props)
+		pw_properties_free(impl->props);
 	free(impl);
 	return res;
 }

@@ -24,7 +24,7 @@ add-spa-lib api.jack.* jack/libspa-jack
 #load-module -ifexists libpipewire-module-spa-device api.jack.device
 #load-module libpipewire-module-spa-device api.alsa.enum.udev
 #load-module libpipewire-module-spa-node api.alsa.seq.bridge node.name=MIDI-Bridge
-load-module libpipewire-module-rtkit
+load-module libpipewire-module-rtkit # rt.prio=20 rt.time.soft=200000 rt.time.hard=200000
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-profiler
 load-module libpipewire-module-metadata

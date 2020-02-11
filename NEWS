@@ -1,3 +1,21 @@
+PipeWire 0.2.96
+
+Seventh pre-release for upcomming 0.3:
+
+- jack: improve compatibility
+- Fix unit test
+- Fix license of jack and alsa libs
+- Make start/stop more threadsafe
+- Fix rt-kit again, add params to configure things, increase default
+  soft/hard limits to avoid being killed.
+- version 0 compatibility improvements, tested with firefox, cheese,
+  GStreamer and chrome using compat layers.
+- Fix timing for gstreamer source
+- Require libspa in pkg-config file
+- Limit buffers to 16 to support old clients
+
+Older versions:
+
 PipeWire 0.2.95
 
 Sixth pre-release for upcomming 0.3:
@@ -7,7 +25,6 @@ Sixth pre-release for upcomming 0.3:
   update_permissions
 - Workaround for firefox screen sharing
 
-Older versions:
 
 PipeWire 0.2.94
 

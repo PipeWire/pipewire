@@ -854,6 +854,9 @@ static int impl_node_process_input(struct spa_node *node)
 	return res;
 }
 
+#if 0
+/** this is used for clients providing data to pipewire and currently
+ * not supported in the compat layer */
 static int impl_node_process_output(struct spa_node *node)
 {
 	struct node *this;
@@ -889,6 +892,7 @@ static int impl_node_process_output(struct spa_node *node)
 
 	return SPA_STATUS_OK;
 }
+#endif
 
 static int impl_node_process(void *object)
 {

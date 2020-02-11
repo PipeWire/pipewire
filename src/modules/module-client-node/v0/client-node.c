@@ -718,7 +718,7 @@ impl_node_port_use_buffers(void *object,
 		struct buffer *b = &port->buffers[i];
 		struct pw_memblock *mem;
 		struct mem *m;
-		size_t data_size, size;
+		size_t data_size;
 		void *baseptr;
 
 		b->outbuf = buffers[i];
@@ -759,7 +759,6 @@ impl_node_port_use_buffers(void *object,
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
 		b->buffer.n_metas = j;
 
-		size = 0;
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 
@@ -770,8 +769,7 @@ impl_node_port_use_buffers(void *object,
 				m = ensure_mem(impl, d->fd, d->type, d->flags);
 				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
 			} else if (d->type == SPA_DATA_MemPtr) {
-				b->buffer.datas[j].data = SPA_INT_TO_PTR(size);
-				size += d->maxsize;
+				b->buffer.datas[j].data = SPA_INT_TO_PTR(SPA_PTRDIFF(d->data, baseptr));
 			} else {
 				b->buffer.datas[j].type = SPA_ID_INVALID;
 				b->buffer.datas[j].data = 0;

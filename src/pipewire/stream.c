@@ -1053,6 +1053,9 @@ stream_new(struct pw_context *context, const char *name,
 		goto error_properties;
 	}
 
+	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
+		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "1");
+
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
 		if ((str = pw_properties_get(extra, PW_KEY_APP_NAME)) != NULL)
 			pw_properties_set(props, PW_KEY_NODE_NAME, str);

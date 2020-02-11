@@ -146,8 +146,6 @@ void pw_filter_add_listener(struct pw_filter *filter,
 
 enum pw_filter_state pw_filter_get_state(struct pw_filter *filter, const char **error);
 
-const char *pw_stream_get_name(struct pw_stream *stream);
-
 struct pw_core *pw_filter_get_core(struct pw_filter *filter);
 
 /** Connect a filter for processing. \memberof pw_filter

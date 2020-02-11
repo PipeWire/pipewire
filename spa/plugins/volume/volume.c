@@ -808,7 +808,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->direction = SPA_DIRECTION_INPUT;
 	port->id = 0;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
-			SPA_NODE_CHANGE_MASK_PARAMS;
+			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_IN_PLACE;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
@@ -824,7 +824,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->direction = SPA_DIRECTION_OUTPUT;
 	port->id = 0;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
-			SPA_NODE_CHANGE_MASK_PARAMS;
+			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);

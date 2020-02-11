@@ -61,8 +61,9 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
       t.rate.denom == 0)
     return pclock->last_time;
 
-  result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
   clock_gettime(CLOCK_MONOTONIC, &ts);
+#if 0
+  result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
   result += SPA_TIMESPEC_TO_NSEC(&ts) - t.now;
 
   result += pclock->time_offset;
@@ -70,6 +71,11 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
 
   GST_DEBUG ("%"PRId64", %d/%d %"PRId64" %"PRId64,
                 t.ticks, t.rate.num, t.rate.denom, t.now, result);
+#else
+  result = SPA_TIMESPEC_TO_NSEC(&ts);
+  result += pclock->time_offset;
+  pclock->last_time = result;
+#endif
 
   return result;
 }

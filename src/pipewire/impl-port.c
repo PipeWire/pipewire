@@ -332,7 +332,7 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 		if (info->props) {
 			update_properties(port, info->props);
 		} else {
-			pw_log_warn(NAME" %p: port PROPS update but no properties");
+			pw_log_warn(NAME" %p: port PROPS update but no properties", port);
 		}
 	}
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {

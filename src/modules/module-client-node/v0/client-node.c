@@ -29,6 +29,7 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
+#include <spa/node/io.h>
 #include <spa/pod/filter.h>
 #include <spa/utils/keys.h>
 
@@ -64,6 +65,9 @@
 #define GET_PORT(this,d,p)	(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
+
+extern uint32_t pw_protocol_native0_type_from_v2(struct pw_impl_client *client, uint32_t type);
+extern uint32_t pw_protocol_native0_name_to_v2(struct pw_impl_client *client, const char *name);
 
 struct mem {
 	uint32_t id;
@@ -110,6 +114,8 @@ struct node {
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
+
+	struct spa_io_position *position;
 
 	struct pw_resource *resource;
 
@@ -310,7 +316,20 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct node *this = object;
+	int res;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch(id) {
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		res = -ENOTSUP;
+		break;
+	}
+	return res;
 }
 
 static inline void do_flush(struct node *this)
@@ -318,6 +337,36 @@ static inline void do_flush(struct node *this)
 	if (spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0)
 		spa_log_warn(this->log, "node %p: error flushing : %s", this, strerror(errno));
 
+}
+
+static int send_clock_update(struct node *this)
+{
+	struct pw_impl_client *client = this->resource->client;
+	uint32_t type = pw_protocol_native0_name_to_v2(client, SPA_TYPE_INFO_NODE_COMMAND_BASE "ClockUpdate");
+	struct timespec ts;
+	int64_t now;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	now = SPA_TIMESPEC_TO_NSEC(&ts);
+	pw_log_trace(NAME " %p: now %"PRIi64, this, now);
+
+	struct spa_command_node0_clock_update cu =
+		SPA_COMMAND_NODE0_CLOCK_UPDATE_INIT(type,
+						SPA_COMMAND_NODE0_CLOCK_UPDATE_TIME |
+						SPA_COMMAND_NODE0_CLOCK_UPDATE_SCALE |
+						SPA_COMMAND_NODE0_CLOCK_UPDATE_STATE |
+						SPA_COMMAND_NODE0_CLOCK_UPDATE_LATENCY,   /* change_mask */
+						SPA_USEC_PER_SEC,       /* rate */
+						now / SPA_NSEC_PER_USEC,       /* ticks */
+						now,       /* monotonic_time */
+						0,       /* offset */
+						(1 << 16) | 1,   /* scale */
+						SPA_CLOCK0_STATE_RUNNING, /* state */
+						SPA_COMMAND_NODE0_CLOCK_UPDATE_FLAG_LIVE,       /* flags */
+						0);      /* latency */
+
+	pw_client_node0_resource_command(this->resource, this->seq, (const struct spa_command*)&cu);
+	return SPA_RESULT_RETURN_ASYNC(this->seq++);
 }
 
 static int impl_node_send_command(void *object, const struct spa_command *command)
@@ -329,6 +378,10 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	if (this->resource == NULL)
 		return -EIO;
+
+	if (SPA_NODE_COMMAND_ID(command) == SPA_NODE_COMMAND_Start) {
+		send_clock_update(this);
+	}
 
 	pw_client_node0_resource_command(this->resource, this->seq, command);
 	return SPA_RESULT_RETURN_ASYNC(this->seq++);
@@ -365,8 +418,6 @@ impl_node_sync(void *object, int seq)
 	return this->init_pending;
 }
 
-extern uint32_t pw_protocol_native0_type_from_v2(struct pw_impl_client *client, uint32_t type);
-extern uint32_t pw_protocol_native0_type_to_v2(struct pw_impl_client *client, uint32_t type);
 
 extern struct spa_pod *pw_protocol_native0_pod_from_v2(struct pw_impl_client *client, const struct spa_pod *pod);
 extern int pw_protocol_native0_pod_to_v2(struct pw_impl_client *client, const struct spa_pod *pod,
@@ -1015,7 +1066,14 @@ static void client_node0_event(void *data, struct spa_event *event)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	spa_node_emit_event(&this->hooks, event);
+
+	switch (SPA_EVENT_TYPE(event)) {
+	case SPA_NODE0_EVENT_RequestClockUpdate:
+		send_clock_update(this);
+		break;
+	default:
+		spa_node_emit_event(&this->hooks, event);
+	}
 }
 
 static struct pw_client_node0_methods client_node0_methods = {

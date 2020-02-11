@@ -350,22 +350,28 @@ const char * pw_protocol_native0_name_from_v2(struct pw_impl_client *client, uin
 }
 
 SPA_EXPORT
-uint32_t pw_protocol_native0_type_to_v2(struct pw_impl_client *client,
-		const struct spa_type_info *info, uint32_t type)
+uint32_t pw_protocol_native0_name_to_v2(struct pw_impl_client *client, const char *name)
 {
 	uint32_t i;
-	const char *name;
-
-	/** find full name of type in type_info */
-	if ((name = spa_debug_type_find_name(info, type)) == NULL)
-		return SPA_ID_INVALID;
-
 	/* match name to type table and return index */
 	for (i = 0; i < SPA_N_ELEMENTS(type_map); i++) {
 		if (type_map[i].name != NULL && !strcmp(type_map[i].name, name))
 			return i;
 	}
 	return SPA_ID_INVALID;
+}
+
+SPA_EXPORT
+uint32_t pw_protocol_native0_type_to_v2(struct pw_impl_client *client,
+		const struct spa_type_info *info, uint32_t type)
+{
+	const char *name;
+
+	/** find full name of type in type_info */
+	if ((name = spa_debug_type_find_name(info, type)) == NULL)
+		return SPA_ID_INVALID;
+
+	return pw_protocol_native0_name_to_v2(client, name);
 }
 
 struct spa_pod_prop_body0 {
@@ -540,7 +546,8 @@ static int remap_to_v2(struct pw_impl_client *client, const struct spa_type_info
 		ti = spa_debug_type_find(info, b->type);
 		ii = ti ? spa_debug_type_find(ti->values, 0) : NULL;
 
-		if (b->type == SPA_TYPE_COMMAND_Node) {
+		if (b->type == SPA_TYPE_COMMAND_Node ||
+		    b->type == SPA_TYPE_EVENT_Node) {
 			spa_pod_builder_push_object(builder, &f[0], 0,
 				pw_protocol_native0_type_to_v2(client, ii ? ii->values : NULL, b->id));
 		} else {
@@ -654,7 +661,6 @@ struct spa_pod * pw_protocol_native0_pod_from_v2(struct pw_impl_client *client, 
 		return NULL;
 	}
 	copy = spa_pod_copy(b.data);
-	spa_debug_pod(0, NULL, copy);
 	return copy;
 }
 

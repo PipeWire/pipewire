@@ -1204,6 +1204,7 @@ static void node_event(void *data, const struct spa_event *event)
 		node_update_state(node, PW_NODE_STATE_ERROR, strdup("error"));
 		break;
 	default:
+		pw_log_debug("unhandled event");
 		break;
 	}
 	pw_impl_node_emit_event(node, event);

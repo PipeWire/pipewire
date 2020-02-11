@@ -97,6 +97,16 @@ typedef uint32_t (*pw_permission_func_t) (struct pw_global *global,
 #define pw_impl_client_emit_resource_removed(o,r)	pw_impl_client_emit(o, resource_removed, 0, r)
 #define pw_impl_client_emit_busy_changed(o,b)		pw_impl_client_emit(o, busy_changed, 0, b)
 
+enum spa_node0_event {
+	SPA_NODE0_EVENT_START	= SPA_TYPE_VENDOR_PipeWire,
+	SPA_NODE0_EVENT_RequestClockUpdate,
+};
+
+enum spa_node0_command {
+	SPA_NODE0_COMMAND_START	= SPA_TYPE_VENDOR_PipeWire,
+	SPA_NODE0_COMMAND_ClockUpdate,
+};
+
 struct protocol_compat_v2 {
 	/* v2 typemap */
 	struct pw_map types;

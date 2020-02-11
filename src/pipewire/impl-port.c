@@ -329,7 +329,11 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 		port->spa_flags = info->flags;
 	}
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PROPS) {
-		update_properties(port, info->props);
+		if (info->props) {
+			update_properties(port, info->props);
+		} else {
+			pw_log_warn(NAME" %p: port PROPS update but no properties");
+		}
 	}
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		uint32_t i;

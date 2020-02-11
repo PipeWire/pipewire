@@ -1196,8 +1196,10 @@ static int mmap_read(struct impl *this)
 		b->h->flags = 0;
 		if (buf.flags & V4L2_BUF_FLAG_ERROR)
 			b->h->flags |= SPA_META_HEADER_FLAG_CORRUPTED;
+		b->h->offset = 0;
 		b->h->seq = buf.sequence;
-		b->h->pts = buf.sequence * 1000000000LL / port->rate.denom;
+		b->h->pts = pts;
+		b->h->dts_offset = 0;
 	}
 
 	d = b->outbuf->datas;

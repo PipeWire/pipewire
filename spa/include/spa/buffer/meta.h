@@ -79,10 +79,10 @@ struct spa_meta_header {
 #define SPA_META_HEADER_FLAG_DELTA_UNIT	(1 << 5)	/**< cannot be decoded independently */
 	uint32_t flags;				/**< flags */
 	uint32_t offset;			/**< offset in current cycle */
-	uint64_t seq;				/**< sequence number, increments with a
-						  *  media specific frequency */
 	int64_t pts;				/**< presentation timestamp */
 	int64_t dts_offset;			/**< decoding timestamp as a difference with pts */
+	uint64_t seq;				/**< sequence number, increments with a
+						  *  media specific frequency */
 };
 
 /** metadata structure for Region or an array of these for RegionArray */

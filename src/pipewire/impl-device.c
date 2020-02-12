@@ -249,7 +249,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug(NAME" %p: params %s %u %u", device,
+	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u", device, param_id,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
@@ -332,8 +332,8 @@ static int device_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 
 	for (i = 0; i < n_ids; i++) {
 		data->subscribe_ids[i] = ids[i];
-		pw_log_debug(NAME" %p: resource %p subscribe param %s",
-				data->device, resource,
+		pw_log_debug(NAME" %p: resource %p subscribe param id:%d (%s)",
+				data->device, resource, ids[i],
 				spa_debug_type_find_name(spa_type_param, ids[i]));
 		device_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
 	}

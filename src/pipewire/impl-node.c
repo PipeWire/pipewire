@@ -373,8 +373,8 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 	struct pw_impl_client *client = resource->client;
 	int res;
 
-	pw_log_debug(NAME" %p: resource %p enum params %d %s %u %u",
-			node, resource, seq,
+	pw_log_debug(NAME" %p: resource %p enum params seq:%d id:%d (%s) index:%u num:%u",
+			node, resource, seq, id,
 			spa_debug_type_find_name(spa_type_param, id), index, num);
 
 	if ((res = pw_impl_node_for_each_param(node, seq, id, index, num,
@@ -383,7 +383,7 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 				resource, resource->id, res, spa_strerror(res));
 		pw_core_resource_errorf(client->core_resource,
 				resource->id, seq, res,
-				"enum params %s failed",
+				"enum params id:%d (%s) failed", id,
 				spa_debug_type_find_name(spa_type_param, id));
 	}
 	return 0;
@@ -400,8 +400,8 @@ static int node_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 
 	for (i = 0; i < n_ids; i++) {
 		data->subscribe_ids[i] = ids[i];
-		pw_log_debug(NAME" %p: resource %p subscribe param %s",
-				data->node, resource,
+		pw_log_debug(NAME" %p: resource %p subscribe param id:%d (%s)",
+				data->node, resource, ids[i],
 				spa_debug_type_find_name(spa_type_param, ids[i]));
 		node_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
@@ -433,8 +433,8 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 		.result = result_node_sync,
 	};
 
-	pw_log_debug(NAME" %p: resource %p set param %s %08x", node, resource,
-			spa_debug_type_find_name(spa_type_param, id), flags);
+	pw_log_debug(NAME" %p: resource %p set param id:%d (%s) %08x", node, resource,
+			id, spa_debug_type_find_name(spa_type_param, id), flags);
 
 	res = spa_node_set_param(node->node, id, flags, param);
 
@@ -1614,7 +1614,7 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug(NAME" %p: params %s %u %u", node,
+	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u", node, param_id,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
@@ -1632,7 +1632,7 @@ SPA_EXPORT
 int pw_impl_node_set_param(struct pw_impl_node *node,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
-	pw_log_debug(NAME" %p: set_param %s flags:%08x param:%p", node,
+	pw_log_debug(NAME" %p: set_param id:%d (%s) flags:%08x param:%p", node, id,
 			spa_debug_type_find_name(spa_type_param, id), flags, param);
 	return spa_node_set_param(node->node, id, flags, param);
 }

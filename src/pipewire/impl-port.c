@@ -641,7 +641,7 @@ static int check_param_io(void *data, int seq, uint32_t id,
 			SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
 		return 0;
 
-	pw_log_debug(NAME" %p: got io %s", port,
+	pw_log_debug(NAME" %p: got io id:%d (%s)", port, pid,
 			spa_debug_type_find_name(spa_type_io, pid));
 
 	switch (pid) {
@@ -678,8 +678,8 @@ static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, 
 	struct pw_impl_port *port = data->port;
 	int res;
 
-	pw_log_debug(NAME" %p: resource %p enum params %d %s %u %u", port,
-			resource, seq, spa_debug_type_find_name(spa_type_param, id),
+	pw_log_debug(NAME" %p: resource %p enum params seq:%d id:%d (%s) index:%u num:%u", port,
+			resource, seq, id, spa_debug_type_find_name(spa_type_param, id),
 			index, num);
 
 	if ((res = pw_impl_port_for_each_param(port, seq, id, index, num, filter,
@@ -700,8 +700,9 @@ static int port_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 
 	for (i = 0; i < n_ids; i++) {
 		data->subscribe_ids[i] = ids[i];
-		pw_log_debug(NAME" %p: resource %p subscribe param %s", data->port,
-				resource, spa_debug_type_find_name(spa_type_param, ids[i]));
+		pw_log_debug(NAME" %p: resource %p subscribe param id:%d (%s)", data->port,
+				resource, ids[i],
+				spa_debug_type_find_name(spa_type_param, ids[i]));
 		port_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
 	return 0;
@@ -1043,7 +1044,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug(NAME" %p: params %s %u %u", port,
+	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u", port, param_id,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max);
 
@@ -1140,9 +1141,10 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 			port->direction, port->port_id,
 			id, flags, param);
 
-	pw_log_debug(NAME" %p: %d set param on node %d:%d %s: %d (%s)", port, port->state,
-			port->direction, port->port_id,
-			spa_debug_type_find_name(spa_type_param, id), res, spa_strerror(res));
+	pw_log_debug(NAME" %p: %d set param on node %d:%d id:%d (%s): %d (%s)", port, port->state,
+			port->direction, port->port_id, id,
+			spa_debug_type_find_name(spa_type_param, id),
+			res, spa_strerror(res));
 
 	/* set the parameters on all ports of the mixer node if possible */
 	if (res >= 0) {

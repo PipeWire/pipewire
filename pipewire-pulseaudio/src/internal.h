@@ -51,8 +51,10 @@ extern "C" {
 #define pa_streq(a,b)		(!strcmp((a),(b)))
 #define pa_strneq(a,b,n)	(!strncmp((a),(b),(n)))
 
+#ifndef PA_LIKELY
 #define PA_UNLIKELY		SPA_UNLIKELY
 #define PA_LIKELY		SPA_LIKELY
+#endif
 #define PA_MIN			SPA_MIN
 #define PA_MAX			SPA_MAX
 #define pa_assert		spa_assert

@@ -367,8 +367,8 @@ static int reply_param(void *data, int seq, uint32_t id,
 static int node_enum_params(void *object, int seq, uint32_t id,
 		uint32_t index, uint32_t num, const struct spa_pod *filter)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_impl_node *node = data->node;
 	struct pw_impl_client *client = resource->client;
 	int res;
@@ -391,8 +391,8 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 
 static int node_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	uint32_t i;
 
 	n_ids = SPA_MIN(n_ids, SPA_N_ELEMENTS(data->subscribe_ids));
@@ -403,7 +403,7 @@ static int node_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 		pw_log_debug(NAME" %p: resource %p subscribe param %s",
 				data->node, resource,
 				spa_debug_type_find_name(spa_type_param, ids[i]));
-		node_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
+		node_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
 	return 0;
 }
@@ -423,8 +423,8 @@ static void result_node_sync(void *data, int seq, int res, uint32_t type, const 
 static int node_set_param(void *object, uint32_t id, uint32_t flags,
 		const struct spa_pod *param)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_impl_node *node = data->node;
 	struct pw_impl_client *client = resource->client;
 	int res;
@@ -455,8 +455,7 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static int node_send_command(void *object, const struct spa_command *command)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
 	struct pw_impl_node *node = data->node;
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
@@ -498,7 +497,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
-			&node_methods, resource);
+			&node_methods, data);
 
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);

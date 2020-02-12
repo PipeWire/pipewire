@@ -673,8 +673,8 @@ static int reply_param(void *data, int seq, uint32_t id,
 static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, uint32_t num,
 		const struct spa_pod *filter)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_impl_port *port = data->port;
 	int res;
 
@@ -691,8 +691,8 @@ static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, 
 
 static int port_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	uint32_t i;
 
 	n_ids = SPA_MIN(n_ids, SPA_N_ELEMENTS(data->subscribe_ids));
@@ -702,7 +702,7 @@ static int port_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 		data->subscribe_ids[i] = ids[i];
 		pw_log_debug(NAME" %p: resource %p subscribe param %s", data->port,
 				resource, spa_debug_type_find_name(spa_type_param, ids[i]));
-		port_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
+		port_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
 	return 0;
 }
@@ -735,7 +735,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
-			&port_methods, resource);
+			&port_methods, data);
 
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);

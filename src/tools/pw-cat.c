@@ -106,12 +106,14 @@ struct data {
 	const char *media_type;
 	const char *media_category;
 	const char *media_role;
+	const char *channel_map;
+	const char *format;
 	const char *target;
 	const char *latency;
+	struct pw_properties *props;
 
 	const char *filename;
 	SNDFILE *file;
-	SF_INFO info;
 
 	unsigned int rate;
 	int channels;
@@ -477,13 +479,13 @@ static unsigned int find_channel(const char *name)
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
-static int parse_channelmap(const char *channelmap, struct channelmap *map)
+static int parse_channelmap(const char *channel_map, struct channelmap *map)
 {
 	int i, nch;
 	char **ch;
 
 	for (i = 0; i < (int) SPA_N_ELEMENTS(maps); i++) {
-		if (strcmp(maps[i].name, channelmap) == 0) {
+		if (strcmp(maps[i].name, channel_map) == 0) {
 			map->n_channels = maps[i].channels;
 			spa_memcpy(map->channels, &maps[i].values,
 					map->n_channels * sizeof(unsigned int));
@@ -491,7 +493,7 @@ static int parse_channelmap(const char *channelmap, struct channelmap *map)
 		}
 	}
 
-	ch = pw_split_strv(channelmap, ",", SPA_AUDIO_MAX_CHANNELS, &nch);
+	ch = pw_split_strv(channel_map, ",", SPA_AUDIO_MAX_CHANNELS, &nch);
 	if (ch == NULL)
 		return -1;
 
@@ -913,6 +915,135 @@ static void show_usage(const char *name, bool is_error)
 	     "\n");
 }
 
+static int setup_sndfile(struct data *data)
+{
+	SF_INFO info;
+	const char *s;
+	unsigned int nom = 0;
+
+	/* for record, you fill in the info first */
+	if (data->mode == mode_record) {
+		memset(&info, 0, sizeof(info));
+		info.samplerate = data->rate;
+		info.channels = data->channels;
+		info.format = sf_str_to_fmt(data->format);
+		if (info.format == -1) {
+			fprintf(stderr, "error: unknown format \"%s\"\n", data->format);
+			return -EINVAL;
+		}
+	}
+
+	data->file = sf_open(data->filename,
+			data->mode == mode_playback ? SFM_READ : SFM_WRITE,
+			&info);
+	if (!data->file) {
+		fprintf(stderr, "error: failed to open audio file \"%s\": %s\n",
+				data->filename, sf_strerror(NULL));
+		return -EIO;
+	}
+
+	if (data->verbose)
+		printf("opened file \"%s\" format %08x\n", data->filename, info.format);
+
+	if (data->mode == mode_playback) {
+		data->rate = info.samplerate;
+
+		if (data->channels > 0 && info.channels != data->channels) {
+			printf("given channels (%u) don't match file channels (%d)\n",
+					data->channels, info.channels);
+			return -EINVAL;
+		}
+
+		data->channels = info.channels;
+
+		if (data->channelmap.n_channels == 0) {
+			bool def = false;
+
+			if (sf_command(data->file, SFC_GET_CHANNEL_MAP_INFO,
+					data->channelmap.channels,
+					sizeof(data->channelmap.channels[0]) * data->channels)) {
+				data->channelmap.n_channels = data->channels;
+				if (channelmap_from_sf(&data->channelmap) < 0)
+					data->channelmap.n_channels = 0;
+			}
+			if (data->channelmap.n_channels == 0) {
+				channelmap_default(&data->channelmap, data->channels);
+				def = true;
+			}
+			if (data->verbose) {
+				printf("using %s channel map: ", def ? "default" : "file");
+				channelmap_print(&data->channelmap);
+				printf("\n");
+			}
+		}
+	}
+	data->samplesize = sf_format_samplesize(info.format);
+	data->stride = data->samplesize * data->channels;
+	data->spa_format = sf_format_to_pw(info.format);
+	data->fill = data->mode == mode_playback ?
+			sf_fmt_playback_fill_fn(info.format) :
+			sf_fmt_record_fill_fn(info.format);
+
+	data->latency_unit = unit_none;
+
+	s = data->latency;
+	while (*s && isdigit(*s))
+		s++;
+	if (!*s)
+		data->latency_unit = unit_samples;
+	else if (!strcmp(s, "none"))
+		data->latency_unit = unit_none;
+	else if (!strcmp(s, "s") || !strcmp(s, "sec") || !strcmp(s, "secs"))
+		data->latency_unit = unit_sec;
+	else if (!strcmp(s, "ms") || !strcmp(s, "msec") || !strcmp(s, "msecs"))
+		data->latency_unit = unit_msec;
+	else if (!strcmp(s, "us") || !strcmp(s, "usec") || !strcmp(s, "usecs"))
+		data->latency_unit = unit_usec;
+	else if (!strcmp(s, "ns") || !strcmp(s, "nsec") || !strcmp(s, "nsecs"))
+		data->latency_unit = unit_nsec;
+	else {
+		fprintf(stderr, "error: bad latency value %s (bad unit)\n", data->latency);
+		return -EINVAL;
+	}
+	data->latency_value = atoi(data->latency);
+	if (!data->latency_value) {
+		fprintf(stderr, "error: bad latency value %s (is zero)\n", data->latency);
+		return -EINVAL;
+	}
+
+	switch (data->latency_unit) {
+	case unit_sec:
+		nom = data->latency_value * data->rate;
+		break;
+	case unit_msec:
+		nom = nearbyint((data->latency_value * data->rate) / 1000.0);
+		break;
+	case unit_usec:
+		nom = nearbyint((data->latency_value * data->rate) / 1000000.0);
+		break;
+	case unit_nsec:
+		nom = nearbyint((data->latency_value * data->rate) / 1000000000.0);
+		break;
+	case unit_samples:
+		nom = data->latency_value;
+		break;
+	default:
+		nom = 0;
+		break;
+	}
+
+	if (data->verbose)
+		printf("rate=%u channels=%u fmt=%s samplesize=%u stride=%u latency=%u (%.3fs)\n",
+				data->rate, data->channels,
+				sf_fmt_to_str(info.format),
+				data->samplesize,
+				data->stride, nom, (double)nom/data->rate);
+	if (nom)
+		pw_properties_setf(data->props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data->rate);
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
@@ -920,11 +1051,8 @@ int main(int argc, char *argv[])
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	const char *prog, *channelmap = NULL;
-	int exit_code = EXIT_FAILURE, c, format = 0, ret;
-	struct pw_properties *props = NULL;
-	const char *s;
-	unsigned int nom = 0;
+	const char *prog;
+	int exit_code = EXIT_FAILURE, c, ret;
 	struct target *target, *target_default;
 	enum pw_stream_flags flags = 0;
 
@@ -1037,15 +1165,11 @@ int main(int argc, char *argv[])
 			break;
 
 		case OPT_CHANNELMAP:
-			channelmap = optarg;
+			data.channel_map = optarg;
 			break;
 
 		case OPT_FORMAT:
-			format = sf_str_to_fmt(optarg);
-			if (format == -1) {
-				fprintf(stderr, "error: unknown format \"%s\"\n", optarg);
-				goto error_usage;
-			}
+			data.format = optarg;
 			break;
 
 		case OPT_VOLUME:
@@ -1083,9 +1207,9 @@ int main(int argc, char *argv[])
 		data.latency = DEFAULT_LATENCY;
 	if (!data.rate)
 		data.rate = DEFAULT_RATE;
-	if (channelmap != NULL) {
-		if (parse_channelmap(channelmap, &data.channelmap) < 0) {
-			fprintf(stderr, "error: can parse channel-map \"%s\"\n", channelmap);
+	if (data.channel_map != NULL) {
+		if (parse_channelmap(data.channel_map, &data.channelmap) < 0) {
+			fprintf(stderr, "error: can parse channel-map \"%s\"\n", data.channel_map);
 			goto error_usage;
 
 		} else {
@@ -1096,12 +1220,12 @@ int main(int argc, char *argv[])
 			data.channels = data.channelmap.n_channels;
 		}
 	}
-	if (!data.channels)
-		data.rate = DEFAULT_CHANNELS;
+	if (data.channels == 0)
+		data.channels = DEFAULT_CHANNELS;
 	if (data.volume < 0)
 		data.volume = DEFAULT_VOLUME;
-	if (data.mode == mode_record && !format)
-		format = sf_str_to_fmt(DEFAULT_FORMAT);
+	if (data.mode == mode_record && data.format == NULL)
+		data.format = DEFAULT_FORMAT;
 
 	if (!data.list_targets && optind >= argc) {
 		fprintf(stderr, "error: filename argument missing\n");
@@ -1109,120 +1233,18 @@ int main(int argc, char *argv[])
 	}
 	data.filename = argv[optind++];
 
-	/* for record, you fill in the info first */
-	if (data.mode == mode_record) {
-		memset(&data.info, 0, sizeof(data.info));
-		data.info.samplerate = data.rate;
-		data.info.channels = data.channels;
-		data.info.format = format;
-	}
+	data.props = pw_properties_new(
+			PW_KEY_MEDIA_TYPE, data.media_type,
+			PW_KEY_MEDIA_CATEGORY, data.media_category,
+			PW_KEY_MEDIA_ROLE, data.media_role,
+			PW_KEY_APP_NAME, prog,
+			PW_KEY_MEDIA_NAME, data.filename,
+			PW_KEY_NODE_NAME, prog,
+			NULL);
 
-	if (!data.list_targets) {
-		data.file = sf_open(data.filename,
-				data.mode == mode_playback ? SFM_READ : SFM_WRITE,
-				&data.info);
-		if (!data.file) {
-			fprintf(stderr, "error: failed to open audio file \"%s\": %s\n",
-					data.filename, sf_strerror(NULL));
-			goto error_open_file;
-		}
-
-		if (data.verbose)
-			printf("opened file \"%s\" format %08x\n", data.filename, data.info.format);
-
-		format = data.info.format;
-		if (data.mode == mode_playback) {
-			data.rate = data.info.samplerate;
-
-			if (data.channels > 0 && data.info.channels != data.channels) {
-				printf("given channels (%u) don't match file channels (%d)\n",
-						data.channels, data.info.channels);
-				goto error_bad_file;
-			}
-
-			data.channels = data.info.channels;
-
-			if (data.channelmap.n_channels == 0) {
-				bool def = false;
-
-				if (sf_command(data.file, SFC_GET_CHANNEL_MAP_INFO,
-						data.channelmap.channels,
-						sizeof(data.channelmap.channels[0]) * data.channels)) {
-					data.channelmap.n_channels = data.channels;
-					if (channelmap_from_sf(&data.channelmap) < 0)
-						data.channelmap.n_channels = 0;
-				}
-				if (data.channelmap.n_channels == 0) {
-					channelmap_default(&data.channelmap, data.channels);
-					def = true;
-				}
-				if (data.verbose) {
-					printf("using %s channel map: ", def ? "default" : "file");
-					channelmap_print(&data.channelmap);
-					printf("\n");
-				}
-			}
-		}
-		data.samplesize = sf_format_samplesize(format);
-		data.stride = data.samplesize * data.channels;
-		data.spa_format = sf_format_to_pw(format);
-		data.fill = data.mode == mode_playback ?
-				sf_fmt_playback_fill_fn(format) :
-				sf_fmt_record_fill_fn(format);
-
-		data.latency_unit = unit_none;
-		s = data.latency;
-		while (*s && isdigit(*s))
-			s++;
-		if (!*s)
-			data.latency_unit = unit_samples;
-		else if (!strcmp(s, "none"))
-			data.latency_unit = unit_none;
-		else if (!strcmp(s, "s") || !strcmp(s, "sec") || !strcmp(s, "secs"))
-			data.latency_unit = unit_sec;
-		else if (!strcmp(s, "ms") || !strcmp(s, "msec") || !strcmp(s, "msecs"))
-			data.latency_unit = unit_msec;
-		else if (!strcmp(s, "us") || !strcmp(s, "usec") || !strcmp(s, "usecs"))
-			data.latency_unit = unit_usec;
-		else if (!strcmp(s, "ns") || !strcmp(s, "nsec") || !strcmp(s, "nsecs"))
-			data.latency_unit = unit_nsec;
-		else {
-			fprintf(stderr, "error: bad latency value %s (bad unit)\n", data.latency);
-			goto error_bad_file;
-		}
-		data.latency_value = atoi(data.latency);
-		if (!data.latency_value) {
-			fprintf(stderr, "error: bad latency value %s (is zero)\n", data.latency);
-			goto error_bad_file;
-		}
-
-		switch (data.latency_unit) {
-		case unit_sec:
-			nom = data.latency_value * data.rate;
-			break;
-		case unit_msec:
-			nom = nearbyint((data.latency_value * data.rate) / 1000.0);
-			break;
-		case unit_usec:
-			nom = nearbyint((data.latency_value * data.rate) / 1000000.0);
-			break;
-		case unit_nsec:
-			nom = nearbyint((data.latency_value * data.rate) / 1000000000.0);
-			break;
-		case unit_samples:
-			nom = data.latency_value;
-			break;
-		default:
-			nom = 0;
-			break;
-		}
-
-		if (data.verbose)
-			printf("rate=%u channels=%u fmt=%s samplesize=%u stride=%u latency=%u (%.3fs)\n",
-					data.rate, data.channels,
-					sf_fmt_to_str(format),
-					data.samplesize,
-					data.stride, nom, (double)nom/data.rate);
+	if (data.props == NULL) {
+		fprintf(stderr, "error: pw_properties_new() failed: %m\n");
+		goto error_no_props;
 	}
 
 	/* make a main loop. If you already have another main loop, you can add
@@ -1242,22 +1264,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error: pw_context_new() failed: %m\n");
 		goto error_no_context;
 	}
-
-	props = pw_properties_new(
-			PW_KEY_MEDIA_TYPE, data.media_type,
-			PW_KEY_MEDIA_CATEGORY, data.media_category,
-			PW_KEY_MEDIA_ROLE, data.media_role,
-			PW_KEY_APP_NAME, prog,
-			PW_KEY_MEDIA_NAME, data.filename,
-			PW_KEY_NODE_NAME, prog,
-			NULL);
-
-	if (!props) {
-		fprintf(stderr, "error: pw_properties_new() failed: %m\n");
-		goto error_no_props;
-	}
-	if (nom)
-		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data.rate);
 
 	data.core = pw_context_connect(data.context,
 			pw_properties_new(
@@ -1282,24 +1288,36 @@ int main(int argc, char *argv[])
 	if (!data.list_targets) {
 		struct spa_audio_info_raw info;
 
-		data.stream = pw_stream_new(data.core, prog, props);
-		if (!data.stream) {
-			fprintf(stderr, "error: failed to create simple stream: %m\n");
-			goto error_no_stream;
+		ret = setup_sndfile(&data);
+		switch (ret) {
+		case -EINVAL:
+			goto error_usage;
+		case -EIO:
+			goto error_bad_file;
+		default:
+			fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
+			if (ret < 0)
+				goto error_usage;
 		}
-		props = NULL;
-		pw_stream_add_listener(data.stream, &data.stream_listener, &stream_events, &data);
-
 		info = SPA_AUDIO_INFO_RAW_INIT(
-				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
-				.format = data.spa_format,
-				.rate = data.rate,
-				.channels = data.channels);
+			.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
+			.format = data.spa_format,
+			.rate = data.rate,
+			.channels = data.channels);
 
 		if (data.channelmap.n_channels)
 			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
 
 		params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+
+		data.stream = pw_stream_new(data.core, prog, data.props);
+		data.props = NULL;
+
+		if (data.stream == NULL) {
+			fprintf(stderr, "error: failed to create stream: %m\n");
+			goto error_no_stream;
+		}
+		pw_stream_add_listener(data.stream, &data.stream_listener, &stream_events, &data);
 
 		if (data.verbose)
 			printf("connecting %s stream; target_id=%"PRIu32"\n",
@@ -1378,20 +1396,16 @@ error_no_stream:
 error_no_registry:
 	pw_core_disconnect(data.core);
 error_ctx_connect_failed:
-	if (props)
-		pw_properties_free(props);
-error_no_props:
 	pw_context_destroy(data.context);
-
 error_no_context:
 	pw_main_loop_destroy(data.loop);
+error_no_props:
 error_no_main_loop:
 error_bad_file:
-
+	if (data.props)
+		pw_properties_free(data.props);
 	if (data.file)
 		sf_close(data.file);
-error_open_file:
-
 	return exit_code;
 
 error_usage:

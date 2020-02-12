@@ -323,8 +323,8 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 
 static int device_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	uint32_t i;
 
 	n_ids = SPA_MIN(n_ids, SPA_N_ELEMENTS(data->subscribe_ids));

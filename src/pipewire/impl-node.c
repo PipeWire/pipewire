@@ -1137,7 +1137,7 @@ static void node_info(void *data, const struct spa_node_info *info)
 	}
 	emit_info_changed(node);
 
-	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS)
+	if (n_changed_ids > 0)
 		emit_params(node, changed_ids, n_changed_ids);
 }
 

@@ -54,6 +54,9 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 
+	uint32_t subscribe_ids[MAX_PARAMS];
+	uint32_t n_subscribe_ids;
+
 	/* for async replies */
 	int seq;
 	int end;
@@ -318,6 +321,25 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 	return res;
 }
 
+static int device_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	uint32_t i;
+
+	n_ids = SPA_MIN(n_ids, SPA_N_ELEMENTS(data->subscribe_ids));
+	data->n_subscribe_ids = n_ids;
+
+	for (i = 0; i < n_ids; i++) {
+		data->subscribe_ids[i] = ids[i];
+		pw_log_debug(NAME" %p: resource %p subscribe param %s",
+				data->device, resource,
+				spa_debug_type_find_name(spa_type_param, ids[i]));
+		device_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
+	}
+	return 0;
+}
+
 static void result_device_done(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct resource_data *d = data;
@@ -361,6 +383,7 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 
 static const struct pw_device_methods device_methods = {
 	PW_VERSION_DEVICE_METHODS,
+	.subscribe_params = device_subscribe_params,
 	.enum_params = device_enum_params,
 	.set_param = device_set_param
 };
@@ -532,19 +555,96 @@ static int update_properties(struct pw_impl_device *device, const struct spa_dic
 	return changed;
 }
 
+static int resource_is_subscribed(struct pw_resource *resource, uint32_t id)
+{
+	struct resource_data *data = pw_resource_get_user_data(resource);
+	uint32_t i;
+
+	for (i = 0; i < data->n_subscribe_ids; i++) {
+		if (data->subscribe_ids[i] == id)
+			return 1;
+	}
+	return 0;
+}
+
+static int notify_param(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_impl_device *device = data;
+	struct pw_resource *resource;
+
+	spa_list_for_each(resource, &device->global->resource_list, link) {
+		if (!resource_is_subscribed(resource, id))
+			continue;
+
+		pw_log_debug(NAME" %p: resource %p notify param %d", device, resource, id);
+		pw_device_resource_param(resource, seq, id, index, next, param);
+	}
+	return 0;
+}
+
+static void emit_params(struct pw_impl_device *device, uint32_t *changed_ids, uint32_t n_changed_ids)
+{
+	uint32_t i;
+	int res;
+
+	if (device->global == NULL)
+		return;
+
+	pw_log_debug(NAME" %p: emit %d params", device, n_changed_ids);
+
+	for (i = 0; i < n_changed_ids; i++) {
+		struct pw_resource *resource;
+		int subscribed = 0;
+
+		/* first check if anyone is subscribed */
+		spa_list_for_each(resource, &device->global->resource_list, link) {
+			if ((subscribed = resource_is_subscribed(resource, changed_ids[i])))
+				break;
+		}
+		if (!subscribed)
+			continue;
+
+		if ((res = pw_impl_device_for_each_param(device, 1, changed_ids[i], 0, UINT32_MAX,
+					NULL, notify_param, device)) < 0) {
+			pw_log_error(NAME" %p: error %d (%s)", device, res, spa_strerror(res));
+		}
+	}
+}
+
 static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_impl_device *device = data;
+	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
+
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
 		update_properties(device, info->props);
 	}
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+		uint32_t i;
+
 		device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PARAMS;
 		device->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(device->params));
-		memcpy(device->info.params, info->params,
-				device->info.n_params * sizeof(struct spa_param_info));
+
+		for (i = 0; i < device->info.n_params; i++) {
+			pw_log_debug(NAME" %p: param %d id:%d (%s) %08x:%08x", device, i,
+                                        info->params[i].id,
+                                        spa_debug_type_find_name(spa_type_param, info->params[i].id),
+                                        device->info.params[i].flags, info->params[i].flags);
+
+                        if (device->info.params[i].flags == info->params[i].flags)
+                                continue;
+
+                        if (info->params[i].flags & SPA_PARAM_INFO_READ)
+                                changed_ids[n_changed_ids++] = info->params[i].id;
+
+                        device->info.params[i] = info->params[i];
+                }
 	}
 	emit_info_changed(device);
+
+	if (n_changed_ids > 0)
+		emit_params(device, changed_ids, n_changed_ids);
 }
 
 static void device_add_object(struct pw_impl_device *device, uint32_t id,

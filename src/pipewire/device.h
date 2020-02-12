@@ -90,10 +90,11 @@ struct pw_device_events {
 };
 
 
-#define PW_DEVICE_METHOD_ADD_LISTENER	0
-#define PW_DEVICE_METHOD_ENUM_PARAMS	1
-#define PW_DEVICE_METHOD_SET_PARAM	2
-#define PW_DEVICE_METHOD_NUM		3
+#define PW_DEVICE_METHOD_ADD_LISTENER		0
+#define PW_DEVICE_METHOD_SUBSCRIBE_PARAMS	1
+#define PW_DEVICE_METHOD_ENUM_PARAMS		2
+#define PW_DEVICE_METHOD_SET_PARAM		3
+#define PW_DEVICE_METHOD_NUM			4
 
 /** Device methods */
 struct pw_device_methods {
@@ -104,6 +105,17 @@ struct pw_device_methods {
 			struct spa_hook *listener,
 			const struct pw_device_events *events,
 			void *data);
+	/**
+	 * Subscribe to parameter changes
+	 *
+	 * Automatically emit param events for the given ids when
+	 * they are changed.
+	 *
+	 * \param ids an array of param ids
+	 * \param n_ids the number of ids in \a ids
+	 */
+	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
+
 	/**
 	 * Enumerate device parameters
 	 *
@@ -138,9 +150,10 @@ struct pw_device_methods {
 	_res;								\
 })
 
-#define pw_device_add_listener(c,...)	pw_device_method(c,add_listener,0,__VA_ARGS__)
-#define pw_device_enum_params(c,...)	pw_device_method(c,enum_params,0,__VA_ARGS__)
-#define pw_device_set_param(c,...)	pw_device_method(c,set_param,0,__VA_ARGS__)
+#define pw_device_add_listener(c,...)		pw_device_method(c,add_listener,0,__VA_ARGS__)
+#define pw_device_subscribe_params(c,...)	pw_device_method(c,subscribe_params,0,__VA_ARGS__)
+#define pw_device_enum_params(c,...)		pw_device_method(c,enum_params,0,__VA_ARGS__)
+#define pw_device_set_param(c,...)		pw_device_method(c,set_param,0,__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

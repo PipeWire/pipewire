@@ -352,7 +352,7 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 		}
 	}
 
-	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS)
+	if (n_changed_ids > 0)
 		emit_params(port, changed_ids, n_changed_ids);
 }
 

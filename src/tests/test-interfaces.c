@@ -164,6 +164,7 @@ static void test_device_abi(void)
 			struct spa_hook *listener,
 			const struct pw_device_events *events,
 			void *data);
+		int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 		int (*enum_params) (void *object, int seq, uint32_t id,
 			uint32_t start, uint32_t num,
 			const struct spa_pod *filter);
@@ -180,6 +181,7 @@ static void test_device_abi(void)
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);
+	TEST_FUNC(m, methods, subscribe_params);
 	TEST_FUNC(m, methods, enum_params);
 	TEST_FUNC(m, methods, set_param);
 	spa_assert(PW_VERSION_DEVICE_METHODS == 0);

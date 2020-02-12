@@ -335,7 +335,7 @@ static int device_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 		pw_log_debug(NAME" %p: resource %p subscribe param %s",
 				data->device, resource,
 				spa_debug_type_find_name(spa_type_param, ids[i]));
-		device_enum_params(resource, 1, ids[i], 0, UINT32_MAX, NULL);
+		device_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
 	}
 	return 0;
 }

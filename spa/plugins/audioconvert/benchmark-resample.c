@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
 		r.cpu_flags = 0;
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
+		r.quality = RESAMPLE_DEFAULT_QUALITY;
 		impl_native_init(&r);
 		run_test("native", "c", &r);
 		resample_free(&r);
@@ -145,6 +146,7 @@ int main(int argc, char *argv[])
 		r.cpu_flags = SPA_CPU_FLAG_SSE;
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
+		r.quality = RESAMPLE_DEFAULT_QUALITY;
 		impl_native_init(&r);
 		run_test("native", "sse", &r);
 		resample_free(&r);
@@ -157,6 +159,7 @@ int main(int argc, char *argv[])
 		r.cpu_flags = SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED;
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
+		r.quality = RESAMPLE_DEFAULT_QUALITY;
 		impl_native_init(&r);
 		run_test("native", "ssse3", &r);
 		resample_free(&r);
@@ -169,6 +172,7 @@ int main(int argc, char *argv[])
 		r.cpu_flags = SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3;
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
+		r.quality = RESAMPLE_DEFAULT_QUALITY;
 		impl_native_init(&r);
 		run_test("native", "avx", &r);
 		resample_free(&r);

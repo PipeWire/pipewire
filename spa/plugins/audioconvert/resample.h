@@ -28,6 +28,8 @@
 #include <spa/support/cpu.h>
 #include <spa/support/log.h>
 
+#define RESAMPLE_DEFAULT_QUALITY	4
+
 struct resample {
 	uint32_t cpu_flags;
 	uint32_t channels;
@@ -35,6 +37,7 @@ struct resample {
 	uint32_t o_rate;
 	struct spa_log *log;
 	double rate;
+	int quality;
 
 	void (*free)		(struct resample *r);
 	void (*update_rate)	(struct resample *r, double rate);

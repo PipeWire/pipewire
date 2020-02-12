@@ -161,6 +161,7 @@ static int setup_convert(struct impl *this,
 	this->resample.i_rate = src_info->info.raw.rate;
 	this->resample.o_rate = dst_info->info.raw.rate;
 	this->resample.log = this->log;
+	this->resample.quality = RESAMPLE_DEFAULT_QUALITY;
 
 	if (this->peaks)
 		err = impl_peaks_init(&this->resample);

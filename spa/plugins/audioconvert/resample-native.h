@@ -29,8 +29,6 @@ struct quality {
 	double cutoff;
 };
 
-#define DEFAULT_QUALITY	4
-
 static const struct quality blackman_qualities[] = {
 	{ 8, 0.5, },
 	{ 16, 0.6, },
@@ -256,7 +254,7 @@ static uint32_t impl_native_delay (struct resample *r)
 static int impl_native_init(struct resample *r)
 {
 	struct native_data *d;
-	const struct quality *q = &blackman_qualities[DEFAULT_QUALITY];
+	const struct quality *q = &blackman_qualities[r->quality];
 	double scale;
 	uint32_t c, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, filter_stride;
 	uint32_t history_stride, history_size, oversample;

@@ -72,6 +72,7 @@ static void test_native(void)
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 44100;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	impl_native_init(&r);
 
 	feed_1(&r);
@@ -81,6 +82,7 @@ static void test_native(void)
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 48000;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	impl_native_init(&r);
 
 	feed_1(&r);
@@ -123,6 +125,7 @@ static void test_in_len(void)
 	r.channels = 1;
 	r.i_rate = 32000;
 	r.o_rate = 48000;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	impl_native_init(&r);
 
 	pull_blocks(&r, 1024);
@@ -132,6 +135,7 @@ static void test_in_len(void)
 	r.channels = 1;
 	r.i_rate = 44100;
 	r.o_rate = 48000;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	impl_native_init(&r);
 
 	pull_blocks(&r, 1024);
@@ -141,6 +145,7 @@ static void test_in_len(void)
 	r.channels = 1;
 	r.i_rate = 48000;
 	r.o_rate = 44100;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	impl_native_init(&r);
 
 	pull_blocks(&r, 1024);

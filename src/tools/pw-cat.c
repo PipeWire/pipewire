@@ -873,7 +873,7 @@ static void show_usage(const char *name, bool is_error)
 	     "\n");
 
 	fprintf(fp,
-             "  -r, --remote                          Remote daemon name\n"
+             "  -R, --remote                          Remote daemon name\n"
              "      --media-type                      Set media type (default %s)\n"
              "      --media-category                  Set media category (default %s)\n"
              "      --media-role                      Set media role (default %s)\n"
@@ -901,7 +901,7 @@ static void show_usage(const char *name, bool is_error)
 	     "\n",
 	     DEFAULT_RATE, DEFAULT_CHANNELS, STR_FMTS, DEFAULT_FORMAT, DEFAULT_VOLUME);
 
-	if (!strcmp(name, "pwcat")) {
+	if (!strcmp(name, "pw-cat")) {
 		fprintf(fp,
 		     "  -p, --playback                        Playback mode\n"
 		     "  -r, --record                          Recording mode\n"
@@ -1251,15 +1251,19 @@ int main(int argc, char *argv[])
 			PW_KEY_MEDIA_NAME, data.filename,
 			PW_KEY_NODE_NAME, prog,
 			NULL);
+
 	if (!props) {
 		fprintf(stderr, "error: pw_properties_new() failed: %m\n");
 		goto error_no_props;
 	}
-
 	if (nom)
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data.rate);
 
-	data.core = pw_context_connect(data.context, NULL, 0);
+	data.core = pw_context_connect(data.context,
+			pw_properties_new(
+				PW_KEY_REMOTE_NAME, data.remote_name,
+				NULL),
+			0);
 	if (!data.core) {
 		fprintf(stderr, "error: pw_context_connect() failed: %m\n");
 		goto error_ctx_connect_failed;

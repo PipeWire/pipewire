@@ -129,3 +129,17 @@ foreach a : benchmark_apps
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 	])
 endforeach
+
+if sndfile_dep.found()
+  sparesample_sources = [
+    'spa-resample.c',
+  ]
+  executable('spa-resample',
+    sparesample_sources,
+    c_args : [ '-D_GNU_SOURCE' ],
+    install: false,
+    include_directories : [spa_inc ],
+    link_with : [ simd_dependencies, test_lib, audioconvertlib ],
+    dependencies : [sndfile_dep, mathlib],
+  )
+endif

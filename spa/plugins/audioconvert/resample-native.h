@@ -242,7 +242,7 @@ static void impl_native_reset (struct resample *r)
 {
 	struct native_data *d = r->data;
 	memset(d->hist_mem, 0, r->channels * sizeof(float) * d->n_taps * 2);
-	d->hist = d->n_taps - 1;
+	d->hist = (d->n_taps / 2) - 1;
 	d->phase = 0;
 }
 

@@ -923,6 +923,13 @@ static int setup_sndfile(struct data *data)
 
 	/* for record, you fill in the info first */
 	if (data->mode == mode_record) {
+		if (data->format == NULL)
+			data->format = DEFAULT_FORMAT;
+		if (data->channels == 0)
+			data->channels = DEFAULT_CHANNELS;
+		if (data->rate == 0)
+			data->rate = DEFAULT_RATE;
+
 		memset(&info, 0, sizeof(info));
 		info.samplerate = data->rate;
 		info.channels = data->channels;
@@ -942,20 +949,18 @@ static int setup_sndfile(struct data *data)
 		return -EIO;
 	}
 
+	data->rate = info.samplerate;
+
 	if (data->verbose)
 		printf("opened file \"%s\" format %08x\n", data->filename, info.format);
+	if (data->channels > 0 && info.channels != data->channels) {
+		printf("given channels (%u) don't match file channels (%d)\n",
+				data->channels, info.channels);
+		return -EINVAL;
+	}
+	data->channels = info.channels;
 
 	if (data->mode == mode_playback) {
-		data->rate = info.samplerate;
-
-		if (data->channels > 0 && info.channels != data->channels) {
-			printf("given channels (%u) don't match file channels (%d)\n",
-					data->channels, info.channels);
-			return -EINVAL;
-		}
-
-		data->channels = info.channels;
-
 		if (data->channelmap.n_channels == 0) {
 			bool def = false;
 
@@ -1205,8 +1210,6 @@ int main(int argc, char *argv[])
 	}
 	if (!data.latency)
 		data.latency = DEFAULT_LATENCY;
-	if (!data.rate)
-		data.rate = DEFAULT_RATE;
 	if (data.channel_map != NULL) {
 		if (parse_channelmap(data.channel_map, &data.channelmap) < 0) {
 			fprintf(stderr, "error: can parse channel-map \"%s\"\n", data.channel_map);
@@ -1220,12 +1223,8 @@ int main(int argc, char *argv[])
 			data.channels = data.channelmap.n_channels;
 		}
 	}
-	if (data.channels == 0)
-		data.channels = DEFAULT_CHANNELS;
 	if (data.volume < 0)
 		data.volume = DEFAULT_VOLUME;
-	if (data.mode == mode_record && data.format == NULL)
-		data.format = DEFAULT_FORMAT;
 
 	if (!data.list_targets && optind >= argc) {
 		fprintf(stderr, "error: filename argument missing\n");
@@ -1289,15 +1288,15 @@ int main(int argc, char *argv[])
 		struct spa_audio_info_raw info;
 
 		ret = setup_sndfile(&data);
-		switch (ret) {
-		case -EINVAL:
-			goto error_usage;
-		case -EIO:
-			goto error_bad_file;
-		default:
+		if (ret < 0) {
 			fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
-			if (ret < 0)
+			switch (ret) {
+			case -EIO:
+				goto error_bad_file;
+			case -EINVAL:
+			default:
 				goto error_usage;
+			}
 		}
 		info = SPA_AUDIO_INFO_RAW_INIT(
 			.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,

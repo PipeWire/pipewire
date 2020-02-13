@@ -29,8 +29,8 @@
 #include "resample.h"
 
 typedef void (*resample_func_t)(struct resample *r,
-        const void * SPA_RESTRICT src[], uint32_t *in_len,
-        void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len);
+        const void * SPA_RESTRICT src[], uint32_t ioffs, uint32_t *in_len,
+        void * SPA_RESTRICT dst[], uint32_t ooffs, uint32_t *out_len);
 
 struct native_data {
 	double rate;
@@ -52,8 +52,8 @@ struct native_data {
 
 #define DEFINE_RESAMPLER(type,arch)						\
 void do_resample_##type##_##arch(struct resample *r,				\
-	const void * SPA_RESTRICT src[], uint32_t *in_len,			\
-	void * SPA_RESTRICT dst[], uint32_t offs, uint32_t *out_len)
+	const void * SPA_RESTRICT src[], uint32_t ioffs, uint32_t *in_len,	\
+	void * SPA_RESTRICT dst[], uint32_t ooffs, uint32_t *out_len)
 
 #define MAKE_RESAMPLER_COPY(arch)						\
 DEFINE_RESAMPLER(copy,arch)							\
@@ -65,21 +65,21 @@ DEFINE_RESAMPLER(copy,arch)							\
 	if (r->channels == 0)							\
 		return;								\
 										\
-	index = 0;								\
-	if (offs < olen && index + n_taps <= ilen) {				\
-		uint32_t to_copy = SPA_MIN(olen - offs,				\
+	index = ioffs;								\
+	if (ooffs < olen && index + n_taps <= ilen) {				\
+		uint32_t to_copy = SPA_MIN(olen - ooffs,			\
 				ilen - (index + n_taps) + 1);			\
 		for (c = 0; c < r->channels; c++) {				\
 			const float *s = src[c];				\
 			float *d = dst[c];					\
-			spa_memcpy(&d[offs], &s[index + n_taps2],		\
+			spa_memcpy(&d[ooffs], &s[index + n_taps2],		\
 					to_copy * sizeof(float));		\
 		}								\
 		index += to_copy;						\
-		offs += to_copy;						\
+		ooffs += to_copy;						\
 	}									\
 	*in_len = index;							\
-	*out_len = offs;							\
+	*out_len = ooffs;							\
 }
 
 #define MAKE_RESAMPLER_FULL(arch)						\
@@ -90,6 +90,7 @@ DEFINE_RESAMPLER(full,arch)							\
 	uint32_t index, phase, n_phases = data->out_rate;			\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
 	uint32_t inc = data->inc, frac = data->frac;				\
+	static int cnt = 0;				\
 										\
 	if (r->channels == 0)							\
 		return;								\
@@ -98,10 +99,10 @@ DEFINE_RESAMPLER(full,arch)							\
 		const float *s = src[c];					\
 		float *d = dst[c];						\
 										\
-		index = 0;							\
+		index = ioffs;							\
 		phase = data->phase;						\
 										\
-		for (o = offs; o < olen && index + n_taps <= ilen; o++) {	\
+		for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {	\
 			const float *ip, *taps;					\
 										\
 			ip = &s[index];						\
@@ -137,10 +138,10 @@ DEFINE_RESAMPLER(inter,arch)							\
 		const float *s = src[c];					\
 		float *d = dst[c];						\
 										\
-		index = 0;							\
+		index = ioffs;							\
 		phase = data->phase;						\
 										\
-		for (o = offs; o < olen && index + n_taps <= ilen; o++) {	\
+		for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {	\
 			const float *ip, *t0, *t1;				\
 			float ph, x;						\
 			uint32_t offset;					\

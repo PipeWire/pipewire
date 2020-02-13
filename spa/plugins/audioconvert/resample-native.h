@@ -184,7 +184,7 @@ static void impl_native_process(struct resample *r,
 		 * and we try to process it */
 		in = hist + refill;
 		out = *out_len;
-		data->func(r, (const void**)history, &in, dst, 0, &out);
+		data->func(r, (const void**)history, 0, &in, dst, 0, &out);
 		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d hist:%d",
 				r, hist + refill, in, *out_len, out, hist);
 	} else {
@@ -192,10 +192,11 @@ static void impl_native_process(struct resample *r,
 	}
 
 	if (in >= hist) {
+		int skip = in - hist;
 		/* we are past the history and can now work on the new
 		 * input data */
-		in = *in_len;
-		data->func(r, src, &in, dst, out, out_len);
+		in = *in_len - skip;
+		data->func(r, src, skip, &in, dst, out, out_len);
 		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d",
 				r, *in_len, in, *out_len, out);
 

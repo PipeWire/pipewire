@@ -90,7 +90,6 @@ DEFINE_RESAMPLER(full,arch)							\
 	uint32_t index, phase, n_phases = data->out_rate;			\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
 	uint32_t inc = data->inc, frac = data->frac;				\
-	static int cnt = 0;				\
 										\
 	if (r->channels == 0)							\
 		return;								\

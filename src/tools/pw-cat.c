@@ -145,17 +145,17 @@ sf_str_to_fmt(const char *str)
 		return -1;
 
 	if (!strcmp(str, "s8"))
-		return SF_FORMAT_PCM_S8 | SF_FORMAT_WAV;
+		return SF_FORMAT_PCM_S8;
 	if (!strcmp(str, "s16"))
-		return SF_FORMAT_PCM_16 | SF_FORMAT_WAV;
+		return SF_FORMAT_PCM_16;
 	if (!strcmp(str, "s24"))
-		return SF_FORMAT_PCM_24 | SF_FORMAT_WAV;
+		return SF_FORMAT_PCM_24;
 	if (!strcmp(str, "s32"))
-		return SF_FORMAT_PCM_32 | SF_FORMAT_WAV;
+		return SF_FORMAT_PCM_32;
 	if (!strcmp(str, "f32"))
-		return SF_FORMAT_FLOAT | SF_FORMAT_WAV;
+		return SF_FORMAT_FLOAT;
 	if (!strcmp(str, "f64"))
-		return SF_FORMAT_DOUBLE | SF_FORMAT_WAV;
+		return SF_FORMAT_DOUBLE;
 
 	return -1;
 }
@@ -938,6 +938,12 @@ static int setup_sndfile(struct data *data)
 			fprintf(stderr, "error: unknown format \"%s\"\n", data->format);
 			return -EINVAL;
 		}
+		info.format |= SF_FORMAT_WAV;
+#if __BYTE_ORDER == __BIG_ENDIAN
+		info.format |= SF_ENDIAN_BIG;
+#else
+		info.format |= SF_ENDIAN_LITTLE;
+#endif
 	}
 
 	data->file = sf_open(data->filename,
@@ -949,15 +955,16 @@ static int setup_sndfile(struct data *data)
 		return -EIO;
 	}
 
-	data->rate = info.samplerate;
-
 	if (data->verbose)
-		printf("opened file \"%s\" format %08x\n", data->filename, info.format);
+		printf("opened file \"%s\" format %08x channels:%d rate:%d\n",
+				data->filename, info.format, info.channels, info.samplerate);
 	if (data->channels > 0 && info.channels != data->channels) {
 		printf("given channels (%u) don't match file channels (%d)\n",
 				data->channels, info.channels);
 		return -EINVAL;
 	}
+
+	data->rate = info.samplerate;
 	data->channels = info.channels;
 
 	if (data->mode == mode_playback) {

@@ -481,7 +481,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (other->n_buffers > 0) {
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamBuffers, id,
-				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(other->size / other->stride * port->stride),
 				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
@@ -491,7 +491,7 @@ impl_node_port_enum_params(void *object, int seq,
 		} else {
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamBuffers, id,
-				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								MAX_SAMPLES * 2 * port->stride,
@@ -605,9 +605,10 @@ static int port_set_format(void *object,
 			return -EINVAL;
 
 		if (other->have_format) {
-			spa_log_info(this->log, NAME "%p: %d %d %d %d", this,
+			spa_log_info(this->log, NAME "%p: channels:%d<>%d rate:%d<>%d format:%d<>%d", this,
 				info.info.raw.channels, other->format.info.raw.channels,
-				info.info.raw.rate, other->format.info.raw.rate);
+				info.info.raw.rate, other->format.info.raw.rate,
+				info.info.raw.format, other->format.info.raw.format);
 			if (!can_convert(&info, &other->format))
 				return -ENOTSUP;
 		}

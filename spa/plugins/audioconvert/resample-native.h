@@ -249,7 +249,7 @@ static void impl_native_reset (struct resample *r)
 static uint32_t impl_native_delay (struct resample *r)
 {
 	struct native_data *d = r->data;
-	return d->n_taps;
+	return d->n_taps / 2;
 }
 
 static int impl_native_init(struct resample *r)

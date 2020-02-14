@@ -922,6 +922,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->resample.cpu_flags = spa_cpu_get_flags(this->cpu);
 
+	props_reset(&this->props);
+
 	if (info != NULL) {
 		if ((str = spa_dict_lookup(info, "resample.quality")) != NULL)
 			this->props.quality = atoi(str);
@@ -980,8 +982,6 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.params = port->params;
 	port->info.n_params = 5;
 	spa_list_init(&port->queue);
-
-	props_reset(&this->props);
 
 	return 0;
 }

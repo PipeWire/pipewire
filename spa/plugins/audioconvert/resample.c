@@ -55,11 +55,13 @@ struct impl;
 
 struct props {
 	double rate;
+	int quality;
 };
 
 static void props_reset(struct props *props)
 {
 	props->rate = 1.0;
+	props->quality = RESAMPLE_DEFAULT_QUALITY;
 }
 
 struct buffer {
@@ -161,7 +163,7 @@ static int setup_convert(struct impl *this,
 	this->resample.i_rate = src_info->info.raw.rate;
 	this->resample.o_rate = dst_info->info.raw.rate;
 	this->resample.log = this->log;
-	this->resample.quality = RESAMPLE_DEFAULT_QUALITY;
+	this->resample.quality = this->props.quality;
 
 	if (this->peaks)
 		err = impl_peaks_init(&this->resample);
@@ -190,6 +192,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			if (spa_pod_get_double(&prop->value, &p->rate) == 0) {
 				resample_update_rate(&this->resample, p->rate);
 			}
+			break;
+		case SPA_PROP_quality:
+			spa_pod_get_int(&prop->value, &p->quality);
 			break;
 		default:
 			break;

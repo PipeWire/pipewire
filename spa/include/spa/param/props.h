@@ -64,6 +64,7 @@ enum spa_prop {
 	SPA_PROP_periodEvent,
 	SPA_PROP_live,
 	SPA_PROP_rate,
+	SPA_PROP_quality,
 
 	SPA_PROP_START_Audio	= 0x10000,	/**< audio related properties */
 	SPA_PROP_waveType,

@@ -158,6 +158,7 @@ static int do_conversion(struct data *d)
 	void *dst[channels];
 	uint32_t i;
 	int j, k, queued;
+	bool flushing = false;
 
 	spa_zero(r);
 	r.log = &logger.log;
@@ -178,8 +179,18 @@ static int do_conversion(struct data *d)
                 in_len = SPA_MIN(MAX_SAMPLES, (int)resample_in_len(&r, out_len)) - queued;
 
 	        pin_len = in_len = sf_readf_float(d->ifile, &ibuf[queued * channels], in_len);
-		if (pin_len == 0)
-			break;
+		if (pin_len == 0) {
+			if (flushing)
+				break;
+
+			flushing = true;
+			pin_len = in_len = resample_delay(&r);
+
+			for (k = 0, i = 0; i < pin_len; i++) {
+				for (j = 0; j < channels; j++)
+					ibuf[k++] = 0.0;
+			}
+		}
 
 		in_len += queued;
 		pin_len = in_len;

@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'q':
 			ret = atoi(optarg);
-			if (ret <= 0) {
+			if (ret < 0) {
 				fprintf(stderr, "error: bad quality %s\n", optarg);
                                 goto error_usage;
 			}

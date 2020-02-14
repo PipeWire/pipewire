@@ -40,7 +40,11 @@ static const struct quality blackman_qualities[] = {
 	{ 96, 0.933, },
 	{ 128, 0.950, },
 	{ 144, 0.955, },
-	{ 160, 0.960, }
+	{ 160, 0.960, },
+	{ 180, 0.965, },
+	{ 256, 0.975, },
+	{ 896, 0.997, },
+	{ 1024, 0.998, },
 };
 
 static inline double sinc(double x)
@@ -255,17 +259,20 @@ static uint32_t impl_native_delay (struct resample *r)
 static int impl_native_init(struct resample *r)
 {
 	struct native_data *d;
-	const struct quality *q = &blackman_qualities[r->quality];
+	const struct quality *q;
 	double scale;
 	uint32_t c, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, filter_stride;
 	uint32_t history_stride, history_size, oversample;
 
+	r->quality = SPA_CLAMP(r->quality, 0, (int) SPA_N_ELEMENTS(blackman_qualities) - 1);
 	r->free = impl_native_free;
 	r->update_rate = impl_native_update_rate;
 	r->in_len = impl_native_in_len;
 	r->process = impl_native_process;
 	r->reset = impl_native_reset;
 	r->delay = impl_native_delay;
+
+	q = &blackman_qualities[r->quality];
 
 	gcd = calc_gcd(r->i_rate, r->o_rate);
 
@@ -311,8 +318,8 @@ static int impl_native_init(struct resample *r)
 
 	build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
 
-	spa_log_debug(r->log, "native %p: in:%d out:%d n_taps:%d n_phases:%d",
-			r, in_rate, out_rate, n_taps, n_phases);
+	spa_log_debug(r->log, "native %p: q:%d in:%d out:%d n_taps:%d n_phases:%d",
+			r, r->quality, in_rate, out_rate, n_taps, n_phases);
 
 	impl_native_reset(r);
 	impl_native_update_rate(r, 1.0);

@@ -42,7 +42,7 @@ SPA_LOG_IMPL(logger);
 
 #define DEFAULT_QUALITY	RESAMPLE_DEFAULT_QUALITY
 
-#define MAX_SAMPLES	1024
+#define MAX_SAMPLES	4096u
 
 struct data {
 	bool verbose;
@@ -165,7 +165,7 @@ static int do_conversion(struct data *d)
 	r.channels = channels;
 	r.i_rate = d->iinfo.samplerate;
 	r.o_rate = d->oinfo.samplerate;
-	r.quality = d->quality > 0 ? d->quality : DEFAULT_QUALITY;
+	r.quality = d->quality < 0 ? DEFAULT_QUALITY : d->quality;
 	impl_native_init(&r);
 
 	for (j = 0; j < channels; j++)
@@ -176,7 +176,7 @@ static int do_conversion(struct data *d)
 	queued = 0;
 	while (true) {
 		pout_len = out_len = MAX_SAMPLES;
-                in_len = SPA_MIN(MAX_SAMPLES, (int)resample_in_len(&r, out_len)) - queued;
+                in_len = SPA_MIN(MAX_SAMPLES, resample_in_len(&r, out_len)) - queued;
 
 	        pin_len = in_len = sf_readf_float(d->ifile, &ibuf[queued * channels], in_len);
 		if (pin_len == 0) {
@@ -226,6 +226,7 @@ int main(int argc, char *argv[])
 
 	logger.log.level = SPA_LOG_LEVEL_DEBUG;
 
+	data.quality = -1;
 	while ((c = getopt_long(argc, argv, OPTIONS, long_options, &longopt_index)) != -1) {
 		switch (c) {
 		case 'h':

@@ -923,6 +923,8 @@ impl_init(const struct spa_handle_factory *factory,
 		this->resample.cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	if (info != NULL) {
+		if ((str = spa_dict_lookup(info, "resample.quality")) != NULL)
+			this->props.quality = atoi(str);
 		if ((str = spa_dict_lookup(info, "resample.peaks")) != NULL)
 			this->peaks = atoi(str);
 		if ((str = spa_dict_lookup(info, "factory.mode")) != NULL) {

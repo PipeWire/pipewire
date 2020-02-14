@@ -111,7 +111,7 @@ static void pull_blocks(struct resample *r, uint32_t size)
 				in_len, pin_len, out_len, pout_len,
 				resample_in_len(r, size));
 
-		spa_assert(in_len == pin_len + resample_delay(r));
+		spa_assert(in_len == pin_len + (resample_delay(r) * 2));
 		spa_assert(out_len == pout_len);
 	}
 }

@@ -29,6 +29,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <alloca.h>
+#include <limits.h>
+#include <float.h>
 
 #include <spa/utils/result.h>
 #include <spa/debug/pod.h>
@@ -61,7 +63,7 @@ struct param_entry {
 
 struct param {
 	struct spa_list link;
-	uint32_t idx;
+	uint32_t index;
 	struct spa_param_info info;
 	struct spa_list entries;
 	uint32_t flags;
@@ -263,8 +265,9 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error);
+static bool do_graph(struct data *data, const char *cmd, char *args, char **error);
 
-#define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
+#define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream|EndpointLink"
 
 static struct command command_list[] = {
 	{ "help", "h", "Show this help", do_help },
@@ -286,6 +289,7 @@ static struct command command_list[] = {
 	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
 	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand "
 		 "[short|deep|resolve|notype] [-sdrt] [all|"DUMP_NAMES"|<id>]", do_dump },
+	{ "graph", "g", "Display tree graph in YAML/JSON format. <path>", do_graph },
 };
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
@@ -810,7 +814,7 @@ static void global_param_event_info(struct global *global)
 		if (!pfound) {
 			p = malloc(sizeof(*p));
 			spa_assert(p);
-			p->idx = i;
+			p->index = i;
 			memcpy(&p->info, &params[i], sizeof(p->info));
 			spa_list_init(&p->entries);
 			p->flags = 0;
@@ -1197,6 +1201,43 @@ static void info_endpoint_stream(struct proxy_data *pd)
 	fprintf(stdout, "\tid: %u\n", info->id);
 	fprintf(stdout, "\tendpoint-id: %u\n", info->endpoint_id);
 	fprintf(stdout, "\tname: %s\n", info->name);
+	print_properties(info->props, MARK_CHANGE(1), true);
+	print_params(info->params, info->n_params, MARK_CHANGE(2), true);
+	info->change_mask = 0;
+}
+
+const char *_pw_endpoint_link_state_as_string(enum pw_endpoint_link_state state)
+{
+	switch (state) {
+	case PW_ENDPOINT_LINK_STATE_ERROR:
+		return "error";
+	case PW_ENDPOINT_LINK_STATE_PREPARING:
+		return "preparing";
+	case PW_ENDPOINT_LINK_STATE_INACTIVE:
+		return "inactive";
+	case PW_ENDPOINT_LINK_STATE_ACTIVE:
+		return "active";
+	}
+	return "invalid-state";
+}
+
+static void info_endpoint_link(struct proxy_data *pd)
+{
+	struct pw_endpoint_link_info *info = pd->info;
+
+	info_global(pd);
+	fprintf(stdout, "\tid: %u\n", info->id);
+	fprintf(stdout, "\tsession-id: %u\n", info->session_id);
+	fprintf(stdout, "\toutput-endpoint-id: %u\n", info->output_endpoint_id);
+	fprintf(stdout, "\toutput-stream-id: %u\n", info->output_stream_id);
+	fprintf(stdout, "\tinput-endpoint-id: %u\n", info->input_endpoint_id);
+	fprintf(stdout, "\tinput-stream-id: %u\n", info->input_stream_id);
+	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(PW_ENDPOINT_LINK_CHANGE_MASK_STATE),
+			_pw_endpoint_link_state_as_string(info->state));
+	if (info->state == PW_ENDPOINT_LINK_STATE_ERROR && info->error)
+		fprintf(stdout, " \"%s\"\n", info->error);
+	else
+		fprintf(stdout, "\n");
 	print_properties(info->props, MARK_CHANGE(1), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(2), true);
 	info->change_mask = 0;
@@ -1669,6 +1710,72 @@ static const struct pw_endpoint_stream_events endpoint_stream_events = {
 	.param = event_param
 };
 
+static void endpoint_link_info_free(struct pw_endpoint_link_info *info)
+{
+	if (info->error)
+		free(info->error);
+	free(info->params);
+	if (info->props)
+		pw_properties_free ((struct pw_properties *)info->props);
+	free(info);
+}
+
+static void endpoint_link_event_info(void *object,
+				const struct pw_endpoint_link_info *update)
+{
+	struct proxy_data *pd = object;
+	struct remote_data *rd = pd->rd;
+	struct pw_endpoint_link_info *info = pd->info;
+	struct global *global;
+
+	if (!info) {
+		info = pd->info = calloc(1, sizeof(*info));
+		info->id = update->id;
+		info->session_id = update->session_id;
+		info->output_endpoint_id = update->output_endpoint_id;
+		info->output_stream_id = update->output_stream_id;
+		info->input_endpoint_id = update->input_endpoint_id;
+		info->input_stream_id = update->input_stream_id;
+		info->error = update->error ? strdup(update->error) : NULL;
+	}
+	if (update->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE)
+		info->state = update->state;
+	if (update->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS) {
+		info->n_params = update->n_params;
+		free(info->params);
+		info->params = malloc(info->n_params * sizeof(struct spa_param_info));
+		memcpy(info->params, update->params,
+			info->n_params * sizeof(struct spa_param_info));
+	}
+	if (update->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PROPS) {
+		if (info->props)
+			pw_properties_free ((struct pw_properties *)info->props);
+		info->props =
+			(struct spa_dict *) pw_properties_new_dict (update->props);
+	}
+
+	if (pd->global == NULL)
+		pd->global = pw_map_lookup(&rd->globals, info->id);
+
+	global = pd->global;
+
+	if (!global)
+		return;
+
+	if (global->info_pending) {
+		info_endpoint_link(pd);
+		global->info_pending = false;
+	}
+
+	global_param_event_info(global);
+}
+
+static const struct pw_endpoint_link_events endpoint_link_events = {
+	PW_VERSION_ENDPOINT_LINK_EVENTS,
+	.info = endpoint_link_event_info,
+	.param = event_param
+};
+
 static void
 destroy_proxy (void *data)
 {
@@ -1762,6 +1869,11 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 		client_version = PW_VERSION_ENDPOINT_STREAM;
 		destroy = (pw_destroy_t) endpoint_stream_info_free;
 		info_func = info_endpoint_stream;
+	} else if (strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink) == 0) {
+		events = &endpoint_link_events;
+		client_version = PW_VERSION_ENDPOINT_LINK;
+		destroy = (pw_destroy_t) endpoint_link_info_free;
+		info_func = info_endpoint_link;
 	} else {
 		*error = spa_aprintf("unsupported type %s", global->type);
 		return false;
@@ -2039,20 +2151,3083 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	return false;
 }
 
+enum var_format {
+	var_cmdline,	/* foo=bar format */
+	var_json,
+	var_yaml,
+};
+
+#define VF_TYPE_NUMERIC	SPA_TYPE_NUMERIC
+#define VF_TYPE_FULL	SPA_TYPE_FULL
+
+struct var_ctx {
+	char *bs, *be;
+	char *buf;
+	enum var_format fmt;
+	unsigned int flags;
+	int level;
+	int ind;	/* this is used by the formatters */
+	bool is_ind;	/* used by formatters (mainly YAML) */
+	unsigned int ind_top;
+	int ind_stack[32];
+};
+
+static int
+var_printf(struct var_ctx *v, const char *fmt, ...)
+	__attribute__((format(printf, 2, 3)));
+
+void
+var_init(struct var_ctx *v, char *buf, size_t bufsz, enum var_format fmt, unsigned int flags, int level, int ind)
+{
+	/* protect against stupidity */
+	spa_assert(v);
+	spa_assert(buf);
+	spa_assert(bufsz);
+
+	memset(v, 0, sizeof(*v));
+
+	v->buf = buf;
+	v->bs = v->buf;
+	v->be = v->buf + bufsz;
+	v->buf[0] = '\0';
+	v->fmt = fmt;
+	v->flags = flags;
+	v->level = level;
+	v->ind = ind;
+	v->is_ind = true;
+}
+
+static int
+var_vprintf(struct var_ctx *v, const char *fmt, va_list ap)
+{
+	int ret;
+
+	ret = vsnprintf(v->bs, v->be - v->bs, fmt, ap);
+	if (ret < 0)
+		return ret;
+	v->bs += ret;
+	return ret;
+}
+
+static int
+var_printf(struct var_ctx *v, const char *fmt, ...)
+{
+	va_list args;
+	int ret;
+
+	va_start(args, fmt);
+	ret = var_vprintf(v, fmt, args);
+	va_end(args);
+
+	return ret;
+}
+
+const char *
+var_get_index(struct var_ctx *v, const char *s, unsigned int *idxp)
+{
+	const char *ss;
+	unsigned long ul;
+	char cs;
+
+	if (!s || !idxp)
+		return NULL;
+	if (*s != '[' && *s != '/' && !isdigit(*s))
+		return NULL;
+	cs = *s;
+	if (*s == '[' || *s == '/')
+		s++;
+	ss = s;
+	while (isdigit(*s))
+		s++;
+	if (cs == '[') {
+		if (*s != ']')
+			return NULL;
+	} else {
+		if (*s != '/' && *s != '\0')
+			return NULL;
+	}
+	ul = strtoul(ss, NULL, 0);
+	if (ul > UINT_MAX)
+		return NULL;
+	*idxp = (unsigned int)ul;
+	return s + (*s ? 1 : 0);
+}
+
+const char *
+var_get_key(struct var_ctx *v, const char *s, char *buf, size_t sz)
+{
+	const char *ss;
+	size_t len;
+	char c;
+	char *bs, *be;
+
+	if (!s || !buf || !*s)
+		return NULL;
+
+	/* skip over . (or /) */
+	if (*s == '.' || *s == '/')
+		s++;
+
+	if (*s != '"') {
+		ss = s;
+		while (*s && !isspace(*s) && *s != '[' && *s != '.' && *s != '/')
+			s++;
+		len = s - ss;
+		if (len + 1 > sz)
+			return NULL;
+		memcpy(buf, ss, len);
+		buf[len] = '\0';
+		if (*s == '.' || *s == '/')
+			s++;
+		return s;
+	}
+
+	s++;
+	bs = buf;
+	be = bs + sz;
+	while ((c = *s) != '\0') {
+		if (c == '"') {
+			if (bs >= be)
+				return NULL;
+			*bs++ = '\0';
+			s++;
+			if (*s == '.' || *s == '/')
+				s++;
+			return s;
+		}
+		if (c == '\\') {
+			c = *++s;
+			switch (c) {
+			case '0':
+				c = '\0';
+				break;
+			case 't':
+				c = '\t';
+				break;
+			case 'n':
+				c = '\n';
+				break;
+			case 'a':
+				c = '\a';
+				break;
+			case 'b':
+				c = '\b';
+				break;
+			case 'v':
+				c = '\v';
+				break;
+			case 'f':
+				c = '\f';
+				break;
+			case '/':
+				c = '/';
+				break;
+			default:
+				break;
+			}
+		}
+		if (bs >= be)
+			return NULL;
+		*bs++ = c;
+		s++;
+	}
+
+	/* end without '"' */
+	return NULL;
+}
+
+#define quote_if_needed(_str) \
+	({ \
+		const char *__str = (_str), *_s; \
+		char *_as, *_ss; \
+		size_t _l; \
+		char _c; \
+		\
+		_s = __str; \
+		while ((_c = *_s++) != '\0' && isprint(_c)) { \
+			if (strchr(" {}<>[],\"", _c)) \
+				break; \
+			if (_c == ':' && isspace(*_s)) \
+				break; \
+		} \
+		if (_c) { \
+			_s = __str; \
+			_l = 0; \
+			while ((_c = *_s++) != '\0' && isprint(_c)) { \
+				if (_c == '\"' || _c == '\\') \
+					_l++; \
+				_l++; \
+			} \
+			_as = alloca(1 + _l + 1 + 1); \
+			_ss = _as; \
+			*_ss++ = '"'; \
+			_s = __str; \
+			while ((_c = *_s++) != '\0' && isprint(_c)) { \
+				if (_c == '\"' || _c == '\\') \
+					*_ss++ = '\\'; \
+				*_ss++ = _c; \
+			} \
+			*_ss++ = '"'; \
+			*_ss = '\0'; \
+			__str = _as; \
+		} \
+		__str; \
+	})
+
+#define SPA_TYPE_NUMERIC	(1U << 0)
+#define SPA_TYPE_FULL		(1U << 1)
+
+const char *
+spa_type_get_choice_key(enum spa_choice_type type, unsigned int idx, unsigned int flags)
+{
+	static const char *ranges[] = {
+		"default", "min", "max"
+	};
+	static const char *steps[] = {
+		"default", "min", "max", "step"
+	};
+	static const char *alts[] = {
+		"default",	/* default + 10 alternatives */
+		"alt0", "alt1", "alt2", "alt3",
+		"alt4", "alt5", "alt6", "alt7",
+		"alt8", "alt9"
+	};
+	static const char *ranges_n[] = {
+		"0", "1", "2"
+	};
+	static const char *steps_n[] = {
+		"0", "1", "2", "3"
+	};
+	static const char *alts_n[] = {
+		"0",	/* default + 10 alternatives */
+		"1", "2", "3", "4",
+		"5", "6", "7", "8",
+		"9", "10"
+	};
+	bool is_numeric = !!(flags & SPA_TYPE_NUMERIC);
+
+	switch (type) {
+	case SPA_CHOICE_None:
+		if (idx == 0)
+			return !is_numeric ? "None" : "0";
+		break;
+
+	case SPA_CHOICE_Range:
+		if (idx < SPA_N_ELEMENTS(ranges))
+			return !is_numeric ? ranges[idx] : ranges_n[idx];
+		break;
+
+	case SPA_CHOICE_Step:
+		if (idx < SPA_N_ELEMENTS(steps))
+			return !is_numeric ? steps[idx] : steps_n[idx];
+		break;
+
+	case SPA_CHOICE_Enum:
+	case SPA_CHOICE_Flags:
+		if (idx < SPA_N_ELEMENTS(alts))
+			return !is_numeric ? alts[idx] : alts_n[idx];
+		break;
+
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+static const char *
+spa_type_get_name(const struct spa_type_info *info, uint32_t type,
+		  unsigned int flags, char *buf, size_t bufsz)
+{
+	const char *str = NULL;
+
+	if (!(flags & SPA_TYPE_NUMERIC))
+		str = (flags & SPA_TYPE_FULL) ?
+			spa_debug_type_find_name(info, type) :
+			spa_debug_type_find_short_name(info, type);
+	if (str)
+		return str;
+
+	snprintf(buf, bufsz, "0x%08"PRIx32, type);
+	return buf;
+}
+
+static bool
+spa_type_key_eq(const struct spa_type_info *info, uint32_t type, const char *key)
+{
+	const char *str;
+
+	info = spa_debug_type_find(info, type);
+	if (!info)
+		return false;
+
+	/* compare against full name first */
+	if (!strcmp(key, info->name))
+		return true;
+
+	/* try short name now */
+	str = rindex(info->name, ':');
+	if (str)
+		str++;
+	if (!str)
+		return false;
+
+	return !strcmp(key, str);
+}
+
+static bool
+spa_choice_key_eq(enum spa_choice_type type, unsigned int idx, const char *key)
+{
+	const char *ckey = spa_type_get_choice_key(type, idx, 0);
+
+	if (!ckey)
+		return false;
+
+	return !strcmp(ckey, key);
+}
+
+static void
+var_seq_start(struct var_ctx *v, bool is_final, bool is_empty)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		if (is_empty)
+			var_printf(v, "[]");
+
+		spa_assert(v->ind_top < SPA_N_ELEMENTS(v->ind_stack));;
+		v->ind_stack[v->ind_top++] = v->ind;
+		if (v->level > 0 && !v->is_ind)
+			v->ind += 4;
+		else if (v->is_ind && v->ind == 0) {
+			v->ind = 2;	/* kick start special */
+			v->is_ind = true;
+			var_printf(v, "- ");
+		}
+		break;
+	case var_json:
+		if (!is_empty)
+			var_printf(v, "[\n");
+		else
+			var_printf(v, "[]");
+		v->ind += 4;
+		break;
+	case var_cmdline:
+	default:
+		if (!is_empty) {
+			var_printf(v, "[");
+			if (v->level <= 1) {
+				var_printf(v, "\n");
+				v->ind += 4;
+			}
+		} else
+			var_printf(v, "[]");
+		break;
+	}
+}
+
+static void
+var_seq_prefix(struct var_ctx *v, bool is_final, bool is_first)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		if (!v->is_ind) {
+			var_printf(v, "\n");
+			if (v->ind >= 2)
+				var_printf(v, "%*s- ", v->ind - 2, "");
+		}
+		v->is_ind = true;
+		break;
+	case var_json:
+		var_printf(v, "%*s", v->ind, "");
+		break;
+	case var_cmdline:
+	default:
+		if (v->level <= 1)
+			var_printf(v, "%*s", v->ind, "");
+		else
+			var_printf(v, "%s", " ");
+		break;
+	}
+}
+
+static void
+var_seq_suffix(struct var_ctx *v, bool is_final, bool is_last)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		v->is_ind = false;
+		break;
+	case var_json:
+		var_printf(v, "%s", !is_last ? ",\n" : "\n");
+		break;
+	case var_cmdline:
+	default:
+		var_printf(v, "%s", !is_last ? "," : "");
+		if (v->level <= 1)
+			var_printf(v, "\n");
+		break;
+	}
+}
+
+static void
+var_seq_end(struct var_ctx *v, bool is_final, bool is_empty)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		spa_assert(v->ind_top > 0);
+		v->ind = v->ind_stack[--v->ind_top];
+		v->is_ind = false;
+		break;
+	case var_json:
+		v->ind -= 4;
+		if (v->ind < 0)
+			v->ind = 0;
+		if (!is_empty) {
+			var_printf(v, "%*s", v->ind, "");
+			var_printf(v, "]");
+		}
+		break;
+	case var_cmdline:
+	default:
+		if (!is_empty) {
+			if (v->level <= 1) {
+				v->ind -= 4;
+				if (v->ind < 0)
+					v->ind = 0;
+				var_printf(v, "%*s", v->ind, "");
+			} else
+				var_printf(v, " ");
+			var_printf(v, "]");
+		}
+		break;
+	}
+}
+
+static void
+var_map_start(struct var_ctx *v, bool is_final, bool is_empty)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		if (is_empty)
+			var_printf(v, "{}");
+
+		spa_assert(v->ind_top < SPA_N_ELEMENTS(v->ind_stack));;
+		v->ind_stack[v->ind_top++] = v->ind;
+		if (v->level > 0 && !v->is_ind)
+			v->ind += 4;
+		break;
+	case var_json:
+		if (!is_empty)
+			var_printf(v, "{\n");
+		else
+			var_printf(v, "{}");
+		v->ind += 4;
+		break;
+	case var_cmdline:
+	default:
+		if (!is_empty) {
+			var_printf(v, "{");
+			if (v->level <= 1) {
+				var_printf(v, "\n");
+				v->ind += 4;
+			}
+		} else
+			var_printf(v, "{}");
+		break;
+	}
+}
+
+static void
+var_map_prefix(struct var_ctx *v, bool is_final, bool is_first, const char *key)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		if (!v->is_ind) {
+			var_printf(v, "\n");
+			var_printf(v, "%*s", v->ind, "");
+		}
+		var_printf(v, "%s: ", quote_if_needed(key));
+		v->is_ind = false;
+		break;
+	case var_json:
+		var_printf(v, "%*s", v->ind, "");
+		var_printf(v, "\"%s\": ", key);
+		break;
+	case var_cmdline:
+	default:
+		if (v->level <= 1)
+			var_printf(v, "%*s", v->ind, "");
+		else
+			var_printf(v, "%s", " ");
+		var_printf(v, "%s", key);
+		var_printf(v, "=");
+		break;
+	}
+}
+
+static void
+var_map_suffix(struct var_ctx *v, bool is_final, bool is_last)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		v->is_ind = false;
+		break;
+	case var_json:
+		var_printf(v, "%s", !is_last ? ",\n" : "\n");
+		break;
+	case var_cmdline:
+	default:
+		var_printf(v, "%s", !is_last ? "," : "");
+		if (v->level <= 1)
+			var_printf(v, "\n");
+		break;
+	}
+}
+
+static void
+var_map_end(struct var_ctx *v, bool is_final, bool is_empty)
+{
+	if (!is_final)
+		return;
+
+	switch (v->fmt) {
+	case var_yaml:
+		spa_assert(v->ind_top > 0);
+		v->ind = v->ind_stack[--v->ind_top];
+		v->is_ind = false;
+		break;
+	case var_json:
+		v->ind -= 4;
+		if (v->ind < 0)
+			v->ind = 0;
+		if (!is_empty) {
+			var_printf(v, "%*s", v->ind, "");
+			var_printf(v, "}");
+		}
+		break;
+	case var_cmdline:
+	default:
+		if (!is_empty) {
+			if (v->level <= 1) {
+				v->ind -= 4;
+				if (v->ind < 0)
+					v->ind = 0;
+				var_printf(v, "%*s", v->ind, "");
+			} else
+				var_printf(v, " ");
+			var_printf(v, "}");
+		}
+		break;
+	}
+}
+
+static const char *
+var_scalar_bool(struct var_ctx *v, const struct spa_type_info *info, bool val)
+{
+	var_printf(v, "%s", val ? "true" : "false");
+	return v->buf;
+}
+
+static const char *
+var_scalar_id(struct var_ctx *v, const struct spa_type_info *info, uint32_t id)
+{
+	char tbuf[80];
+	const char *str;
+
+	str = spa_type_get_name(info, id,
+				((v->flags & VF_TYPE_NUMERIC) ? SPA_TYPE_NUMERIC : 0) |
+				((v->flags & VF_TYPE_FULL) ? SPA_TYPE_FULL : 0),
+				tbuf, sizeof(tbuf));
+
+	switch (v->fmt) {
+	case var_yaml:
+		var_printf(v, "%s", quote_if_needed(str));
+		break;
+	case var_json:
+		var_printf(v, "\"%s\"", str);
+		break;
+	default:
+		var_printf(v, "%s", quote_if_needed(str));
+		break;
+	}
+	return v->buf;
+}
+
+static const char *
+var_scalar_int(struct var_ctx *v, const struct spa_type_info *info, int32_t val)
+{
+	var_printf(v, "%"PRIi32, val);
+	return v->buf;
+}
+
+static const char *
+var_scalar_long(struct var_ctx *v, const struct spa_type_info *info, int64_t val)
+{
+	var_printf(v, "%"PRIi64, val);
+	return v->buf;
+}
+
+static const char *
+var_scalar_float(struct var_ctx *v, const struct spa_type_info *info, float val)
+{
+	var_printf(v, "%f", val);
+	return v->buf;
+}
+
+static const char *
+var_scalar_double(struct var_ctx *v, const struct spa_type_info *info, double val)
+{
+	var_printf(v, "%f", val);
+	return v->buf;
+}
+
+static const char *
+var_scalar_string(struct var_ctx *v, const struct spa_type_info *info, const char *str)
+{
+	const char *tstr;
+
+	tstr = quote_if_needed(str);
+	switch (v->fmt) {
+	case var_yaml:
+		var_printf(v, "%s", tstr);
+		break;
+	case var_json:
+		if (*tstr != '"')
+			var_printf(v, "\"%s\"", str);
+		else
+			var_printf(v, "%s", tstr);
+		break;
+	default:
+		var_printf(v, "%s", tstr);
+		break;
+	}
+	return v->buf;
+}
+
+static const char *
+var_scalar_fd(struct var_ctx *v, const struct spa_type_info *info, int val)
+{
+	var_printf(v, "%d", val);
+	return v->buf;
+}
+
+static const char *
+var_scalar_property_value(struct var_ctx *v, const struct spa_type_info *info, const char *str)
+{
+	long long ll;
+	double d;
+	char *end;
+
+	if (!str)
+		str = "";
+
+	/* null string */
+	if (!*str)
+		return var_scalar_string(v, info, str);
+
+	/* try booleans */
+	if (!strcmp(str, "true"))
+		return var_scalar_bool(v, info, true);
+	if (!strcmp(str, "false"))
+		return var_scalar_bool(v, info, false);
+
+	/* try integers */
+	ll = strtoll(str, &end, 10);
+	if (*end == '\0') {
+		/* completely valid */
+		if (ll < INT32_MIN || ll > INT32_MAX)
+			return var_scalar_long(v, info, (int64_t)ll);
+		return var_scalar_int(v, info, (int32_t)ll);
+	}
+
+	/* try floats */
+	d = strtod(str, &end);
+	if (*end == '\0') {
+		if (d < FLT_MIN || d > FLT_MAX)
+			return var_scalar_double(v, info, d);
+		return var_scalar_float(v, info, d);
+	}
+
+	/* meh, just a string */
+	return var_scalar_string(v, info, str);
+}
+
+static bool
+var_is_final(struct var_ctx *v, const char *var)
+{
+	return !*var || (var[1] == '\0' && (*var == '.' || *var == '/'));
+}
+
+static const char *
+var_get(struct var_ctx *v, const char *var,
+	const struct spa_type_info *info, uint32_t type,
+	const void *body, uint32_t size)
+{
+	const char *s, *e;
+	bool is_final;
+	const char *tmp;
+
+	if (!info)
+		info = SPA_TYPE_ROOT;
+
+	/* fprintf(stderr, "%s: type=0x%08"PRIx32" (%s) var=%s size=%"PRIu32"\n",
+			__func__, info->name, var, size); */
+
+	s = var;
+	is_final = var_is_final(v, s);
+
+	switch (type) {
+	case SPA_TYPE_Bool:
+		if (size < sizeof(uint32_t) || !is_final)
+			return NULL;
+		return var_scalar_bool(v, info, !!*(const int32_t *)body);
+
+	case SPA_TYPE_Id:
+		if (size < sizeof(uint32_t) || !is_final)
+			return NULL;
+
+		return var_scalar_id(v, info, *(const int32_t *)body);
+
+	case SPA_TYPE_Int:
+		if (size < sizeof(int32_t) || !is_final)
+			return NULL;
+		return var_scalar_int(v, info, *(const int32_t *)body);
+
+	case SPA_TYPE_Long:
+		if (size < sizeof(int64_t) || !is_final)
+			return NULL;
+		return var_scalar_long(v, info, *(const int64_t *)body);
+
+	case SPA_TYPE_Float:
+		if (size < sizeof(float) || !is_final)
+			return NULL;
+		return var_scalar_float(v, info, *(const float *)body);
+
+	case SPA_TYPE_Double:
+		if (size < sizeof(double) || !is_final)
+			return NULL;
+		return var_scalar_double(v, info, *(const double *)body);
+
+	case SPA_TYPE_String:
+		if (size < 1 || !is_final)
+			return NULL;
+		return var_scalar_string(v, info, (const char *)body);
+
+	case SPA_TYPE_Fd:
+		if (size < sizeof(int) || !is_final)
+			return NULL;
+		return var_scalar_fd(v, info, *(const int *)body);
+
+	case SPA_TYPE_Pointer: {
+		const struct spa_pod_pointer_body *b = (const struct spa_pod_pointer_body *)body;
+
+		if (size < sizeof(*b) || !is_final)
+			return NULL;
+
+		var_printf(v, "%p", b->value);
+		return v->buf;
+		}
+
+	case SPA_TYPE_Rectangle: {
+		const struct spa_rectangle *r = (const struct spa_rectangle *)body;
+
+		if (size < sizeof(*r) || !is_final)
+			return NULL;
+
+		/* XXX should be an object { width=<>, height=<> } */
+		var_printf(v, "%"PRIu32"x%"PRIu32, r->width, r->height);
+		return v->buf;
+		}
+
+	case SPA_TYPE_Fraction: {
+		const struct spa_fraction *f = (const struct spa_fraction *)body;
+
+		if (size < sizeof(*f) || !is_final)
+			return NULL;
+
+		/* XXX should be an object { num=<>, denom=<> } */
+		var_printf(v, "%"PRIu32"/%"PRIu32, f->num, f->denom);
+		return v->buf;
+		}
+
+	case SPA_TYPE_Bitmap:
+		if (!is_final)
+			return NULL;
+		/* XXX should be a base64 encoded string */
+		var_printf(v, "Bitmap");
+		return v->buf;
+
+	case SPA_TYPE_Bytes:
+		if (!is_final)
+			return NULL;
+		/* XXX should be a base64 encoded string */
+		var_printf(v, "Bytes");
+		return v->buf;
+
+	case SPA_TYPE_Array: {
+		const struct spa_pod_array_body *b = (const struct spa_pod_array_body *)body;
+		const void *p;
+		unsigned int i, n, cnt;
+
+		if (size < sizeof(*b))
+			return NULL;
+
+		if (!is_final) {
+			e = var_get_index(v, s, &n);
+			if (!e)
+				return NULL;
+		} else {
+			e = "";
+			n = (unsigned int)-1;
+		}
+
+		/* count number of items */
+		cnt = 0;
+		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
+			cnt++;
+
+		var_seq_start(v, is_final, cnt == 0);
+
+		i = 0;
+		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
+
+			var_seq_prefix(v, is_final, i == 0);
+			if (n == i || is_final) {
+				v->level++;
+				tmp = var_get(v, e, info, b->child.type, p, b->child.size);
+				v->level--;
+				if (!tmp)
+					return NULL;
+				if (!is_final)
+					break;
+			}
+			var_seq_suffix(v, is_final, (i + 1) >= cnt);
+
+			i++;
+		}
+
+		var_seq_end(v, is_final, cnt == 0);
+
+		return v->buf;
+		}
+
+	case SPA_TYPE_Choice: {
+		const struct spa_pod_choice_body *b = (const struct spa_pod_choice_body *)body;
+		void *p;
+		unsigned int i, cnt;
+		char key[64];
+
+		if (size < sizeof(*b))
+			return NULL;
+
+		if (!is_final) {
+			e = var_get_key(v, s, key, sizeof(key));
+			if (!e)
+				return NULL;
+		} else
+			e = "";
+
+		cnt = 0;
+		SPA_POD_CHOICE_BODY_FOREACH(b, size, p)
+			cnt++;
+
+		var_map_start(v, is_final, cnt == 0);
+
+		i = 0;
+		SPA_POD_CHOICE_BODY_FOREACH(b, size, p) {
+
+			var_map_prefix(v, is_final, i == 0,
+					spa_type_get_choice_key(b->type, i,
+						(v->flags & VF_TYPE_NUMERIC) ? SPA_TYPE_NUMERIC : 0));
+
+			if (spa_choice_key_eq(b->type, i, key) || is_final) {
+				v->level++;
+				tmp = var_get(v, e, info, b->child.type, p, b->child.size);
+				v->level--;
+				if (!tmp)
+					return NULL;
+
+				if (!is_final)
+					break;
+			}
+			var_map_suffix(v, is_final, (i + 1) >= cnt);
+
+			i++;
+		}
+
+		var_map_end(v, is_final, cnt == 0);
+
+		return v->buf;
+		}
+
+	case SPA_TYPE_Struct: {
+		struct spa_pod *b = (struct spa_pod *)body, *p;
+		unsigned int i, n, cnt;
+
+		if (size < sizeof(*b))
+			return NULL;
+
+		if (!is_final) {
+			e = var_get_index(v, s, &n);
+			if (!e)
+				return NULL;
+		} else {
+			e = "";
+			n = (unsigned int)-1;
+		}
+
+		cnt = 0;
+		SPA_POD_FOREACH(b, size, p)
+			cnt++;
+
+		var_seq_start(v, is_final, cnt == 0);
+
+		i = 0;
+		SPA_POD_FOREACH(b, size, p) {
+
+			var_seq_prefix(v, is_final, i == 0);
+			if (n == i || is_final) {
+
+				v->level++;
+				tmp = var_get(v, e, info, p->type, SPA_POD_BODY(p), p->size);
+				v->level--;
+				if (!tmp)
+					return NULL;
+
+				if (!is_final)
+					break;
+			}
+			var_seq_suffix(v, is_final, (i + 1) >= cnt);
+
+			i++;
+		}
+
+		var_seq_end(v, is_final, cnt == 0);
+
+		return v->buf;
+		}
+
+	case SPA_TYPE_Sequence: {
+		struct spa_pod_sequence_body *b = (struct spa_pod_sequence_body *)body;
+		const struct spa_type_info *ii, *ni;
+		struct spa_pod_control *c;
+		unsigned int i, n, cnt;
+
+		if (size < sizeof(*b))
+			return NULL;
+
+		if (!is_final) {
+			e = var_get_index(v, s, &n);
+			if (!e)
+				return NULL;
+		} else {
+			e = "";
+			n = (unsigned int)-1;
+		}
+
+		cnt = 0;
+		SPA_POD_SEQUENCE_BODY_FOREACH(b, size, c)
+			cnt++;
+
+		var_seq_start(v, is_final, cnt == 0);
+
+		i = 0;
+		SPA_POD_SEQUENCE_BODY_FOREACH(b, size, c) {
+
+			var_seq_prefix(v, is_final, i == 0);
+			if (n == i || is_final) {
+
+				ii = spa_debug_type_find(spa_type_control, c->type);
+
+				ni = ii ? ii->values : NULL;
+				if (!ni)
+					ni = SPA_TYPE_ROOT;
+
+				v->level++;
+				tmp = var_get(v, e, ni, c->value.type,
+						SPA_POD_CONTENTS(struct spa_pod_control, c),
+						c->value.size);
+				v->level--;
+				if (!tmp)
+					return NULL;
+				if (!is_final)
+					break;
+			}
+			var_seq_suffix(v, is_final, (i + 1) >= cnt);
+
+			i++;
+		}
+
+		var_seq_end(v, is_final, cnt == 0);
+
+		return v->buf;
+		}
+
+	case SPA_TYPE_Object: {
+		const struct spa_pod_object_body *b = (const struct spa_pod_object_body *)body;
+		struct spa_pod_prop *p;
+		const struct spa_type_info *ti, *ii, *ni;
+		uint32_t i, cnt;
+		char key[64];
+		char tbuf[80];
+
+		if (size < sizeof(*b))
+			return NULL;
+
+		ti = spa_debug_type_find(info, b->type);
+		ii = ti ? spa_debug_type_find(ti->values, 0) : NULL;
+		ii = ii ? spa_debug_type_find(ii->values, b->id) : NULL;
+
+		ni = ti ? ti->values : info;
+
+		if (!is_final) {
+			e = var_get_key(v, s, key, sizeof(key));
+			if (!e)
+				return NULL;
+		} else {
+			e = "";
+			key[0] = '\0';
+		}
+
+		cnt = 0;
+		SPA_POD_OBJECT_BODY_FOREACH(b, size, p)
+			cnt++;
+
+		var_map_start(v, is_final, cnt == 0);
+
+		i = 0;
+		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
+
+			var_map_prefix(v, is_final, i == 0,
+					spa_type_get_name(ni, p->key, 
+						((v->flags & VF_TYPE_NUMERIC) ? SPA_TYPE_NUMERIC : 0) |
+						((v->flags & VF_TYPE_FULL) ? SPA_TYPE_FULL : 0),
+						tbuf, sizeof(tbuf)));
+
+			if (is_final || spa_type_key_eq(ni, p->key, key)) {
+				ii = spa_debug_type_find(ni, p->key);
+				if (ii)
+					ii = ii->values;
+				if (!ii)
+					ii = SPA_TYPE_ROOT;
+
+				v->level++;
+				tmp = var_get(v, e,
+						ii, p->value.type,
+						SPA_POD_CONTENTS(struct spa_pod_prop, p),
+						p->value.size);
+				v->level--;
+				if (!tmp)
+					return NULL;
+			}
+			var_map_suffix(v, is_final, (i + 1) >= cnt);
+
+			i++;
+		}
+
+		var_map_end(v, is_final, cnt == 0);
+
+		return v->buf;
+		}
+		break;
+	default:
+		break;
+	}
+	return NULL;
+}
+
+const char *
+global_param_get(struct global *global, struct var_ctx *v, const char *var)
+{
+	struct param *p;
+	struct param_entry *pe;
+	const char *s, *e, *ee, *value, *str;
+	unsigned int n_ps, n_pes, i_p, i_pe, n_pe;
+	char tbuf[80];
+	char key[64];
+	bool is_final, is_inner_final;
+
+	if (!global || !v)
+		return NULL;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+
+		ee = var_get_index(v, s, &n_pe);
+		if (ee)
+			e = ee;
+		else
+			n_pe = (unsigned int)-1;
+	} else {
+		e = "";
+		key[0] = '\0';
+		n_pe = (unsigned int)-1;
+	}
+
+	/* count number of parameters */
+	n_ps = 0;
+	spa_list_for_each(p, &global->params, link)
+		n_ps++;
+
+	var_map_start(v, is_final, n_ps == 0);
+	v->level++;
+
+	i_p = 0;
+	spa_list_for_each(p, &global->params, link) {
+
+		str = spa_type_get_name(spa_type_param, p->info.id,
+				((v->flags & VF_TYPE_NUMERIC) ? SPA_TYPE_NUMERIC : 0) |
+				((v->flags & VF_TYPE_FULL) ? SPA_TYPE_FULL : 0),
+				tbuf, sizeof(tbuf));
+
+		if (is_final || spa_type_key_eq(spa_type_param, p->info.id, key)) {
+
+			/* count number of parameter entries */
+			n_pes = 0;
+			spa_list_for_each(pe, &p->entries, link)
+				n_pes++;
+
+			/* if an index is provided is shouldn't be larger */
+			if (n_pe != (unsigned int)-1 && n_pe >= n_pes)
+				return NULL;
+
+			var_map_prefix(v, is_final, i_p == 0, str);
+
+			is_inner_final = is_final || n_pe == (unsigned int)-1;
+
+			if (n_pes > 1)
+				var_seq_start(v, is_inner_final, false);
+			else if (n_pes == 0)
+				var_map_start(v, is_inner_final, true);
+
+			i_pe = 0;
+			spa_list_for_each(pe, &p->entries, link) {
+
+				if (n_pes > 1)
+					var_seq_prefix(v, is_inner_final, i_pe == 0);
+
+				if (is_inner_final || i_pe == n_pe) {
+					v->level++;
+					value = var_get(v, e,
+							NULL, SPA_POD_TYPE(pe->param),
+							SPA_POD_BODY(pe->param),
+							SPA_POD_BODY_SIZE(pe->param));
+					v->level--;
+					if (!value)
+						return NULL;
+
+					if (!is_inner_final)
+						break;
+				}
+
+				if (n_pes > 1)
+					var_seq_suffix(v, is_inner_final, (i_pe + 1) >= n_pes);
+
+				i_pe++;
+			}
+
+			if (n_pes > 1)
+				var_seq_end(v, is_inner_final, false);
+			else if (n_pes == 0)
+				var_map_end(v, is_inner_final, true);
+
+			var_map_suffix(v, is_final, (i_p + 1) >= n_ps);
+
+			if (!is_final)
+				break;
+		}
+
+		i_p++;
+	}
+
+	v->level--;
+	var_map_end(v, is_final, n_ps == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static struct spa_dict *
+global_props(struct global *global, bool info_property);
+
+const char *
+global_property_get(struct global *global, struct var_ctx *v, const char *var, bool info_property)
+{
+	const char *s, *e, *value;
+	unsigned int i, count;
+	char key[64];
+	bool is_final;
+	struct spa_dict *props;
+	const struct spa_dict_item *item;
+
+	if (!global || !v)
+		return NULL;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	props = global_props(global, info_property);
+	count = props ? props->n_items : 0;
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	if (!count)
+		goto skip;
+
+	i = 0;
+	spa_dict_for_each(item, props) {
+
+		var_map_prefix(v, is_final, i == 0, item->key);
+
+		if (is_final || !strcmp(key, item->key)) {
+
+			v->level++;
+			value = var_scalar_property_value(v, SPA_TYPE_ROOT, item->value);
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+		i++;
+	}
+skip:
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_core_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIC_ID		0
+#define GIC_COOKIE	1
+#define GIC_USER_NAME	2
+#define GIC_HOST_NAME	3
+#define GIC_VERSION	4
+#define GIC_NAME	5
+#define GIC_CHANGE_MASK	6
+#define GIC_PROPS	7
+	static const char *keys[] = {
+		[GIC_ID]		= "id",
+		[GIC_COOKIE]		= "cookie",
+		[GIC_USER_NAME]		= "user_name",
+		[GIC_HOST_NAME]		= "host_name",
+		[GIC_VERSION]		= "version",
+		[GIC_NAME]		= "name",
+		[GIC_CHANGE_MASK]	= "change_mask",
+		[GIC_PROPS]		= "props",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_core_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIC_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIC_COOKIE:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->cookie);
+				break;
+			case GIC_USER_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->user_name);
+				break;
+			case GIC_HOST_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->host_name);
+				break;
+			case GIC_VERSION:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->version);
+				break;
+			case GIC_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->name);
+				break;
+			case GIC_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_CORE_CHANGE_MASK_PROPS) ? keys[GIC_PROPS] : "");
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+				break;
+			case GIC_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_module_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIM_ID		0
+#define GIM_NAME	1
+#define GIM_FILENAME	2
+#define GIM_ARGS	3
+#define GIM_CHANGE_MASK	4
+#define GIM_PROPS	5
+	static const char *keys[] = {
+		[GIM_ID]		= "id",
+		[GIM_NAME]		= "name",
+		[GIM_FILENAME]		= "filename",
+		[GIM_ARGS]		= "args",
+		[GIM_CHANGE_MASK]	= "change_mask",
+		[GIM_PROPS]		= "props",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_module_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIM_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIM_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->name);
+				break;
+			case GIM_FILENAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->filename);
+				break;
+			case GIM_ARGS:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->args ? : "");
+				break;
+			case GIM_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_MODULE_CHANGE_MASK_PROPS) ? keys[GIM_PROPS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+
+				break;
+			case GIM_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_device_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GID_ID		0
+#define GID_CHANGE_MASK	1
+#define GID_PROPS	2
+#define GID_PARAMS	3
+	static const char *keys[] = {
+		[GID_ID]		= "id",
+		[GID_CHANGE_MASK]	= "change_mask",
+		[GID_PROPS]		= "props",
+		[GID_PARAMS]		= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_device_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GID_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GID_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) ? keys[GID_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) ? keys[GID_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+				break;
+			case GID_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GID_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_node_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIN_ID			0
+#define GIN_MAX_INPUT_PORTS	1
+#define GIN_MAX_OUTPUT_PORTS	2
+#define GIN_N_INPUT_PORTS	3
+#define GIN_N_OUTPUT_PORTS	4
+#define GIN_STATE		5
+#define GIN_ERROR		6
+#define GIN_CHANGE_MASK		7
+#define GIN_PROPS		8
+#define GIN_PARAMS		9
+	static const char *keys[] = {
+		[GIN_ID]		= "id",
+		[GIN_MAX_INPUT_PORTS]	= "max_input_ports",
+		[GIN_MAX_OUTPUT_PORTS]	= "max_output_ports",
+		[GIN_N_INPUT_PORTS]	= "n_input_ports",
+		[GIN_N_OUTPUT_PORTS]	= "n_output_ports",
+		[GIN_STATE]		= "state",
+		[GIN_ERROR]		= "error",
+		[GIN_CHANGE_MASK]	= "change_mask",
+		[GIN_PROPS]		= "props",
+		[GIN_PARAMS]		= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_node_info *info = pd->info;
+	const char *s, *e, *value, *state;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIN_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIN_MAX_INPUT_PORTS:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->max_input_ports);
+				break;
+			case GIN_MAX_OUTPUT_PORTS:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->max_output_ports);
+				break;
+			case GIN_N_INPUT_PORTS:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->n_input_ports);
+				break;
+			case GIN_N_OUTPUT_PORTS:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->n_output_ports);
+				break;
+			case GIN_STATE:
+				switch (info->state) {
+				case PW_NODE_STATE_ERROR:
+					state = "error";
+					break;
+				case PW_NODE_STATE_CREATING:
+					state = "creating";
+					break;
+				case PW_NODE_STATE_SUSPENDED:
+					state = "suspended";
+					break;
+				case PW_NODE_STATE_IDLE:
+					state = "idle";
+					break;
+				case PW_NODE_STATE_RUNNING:
+					state = "running";
+					break;
+				default:
+					snprintf(tbuf, sizeof(tbuf), "unknown-%d", (int)info->state);
+					state = tbuf;
+					break;
+				}
+				value = var_scalar_string(v, SPA_TYPE_ROOT, state);
+				break;
+			case GIN_ERROR:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->error ? : "");
+				break;
+			case GIN_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) ? keys[GIN_N_INPUT_PORTS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) ? keys[GIN_N_OUTPUT_PORTS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_STATE) ? keys[GIN_STATE] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_PROPS) ? keys[GIN_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) ? keys[GIN_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+				break;
+			case GIN_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GIN_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_port_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIP_ID		0
+#define GIP_DIRECTION	1
+#define GIP_CHANGE_MASK	2
+#define GIP_PROPS	3
+#define GIP_PARAMS	4
+	static const char *keys[] = {
+		[GIP_ID]		= "id",
+		[GIP_DIRECTION]		= "direction",
+		[GIP_CHANGE_MASK]	= "change_mask",
+		[GIP_PROPS]		= "props",
+		[GIP_PARAMS]		= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_port_info *info = pd->info;
+	const char *s, *e, *value, *direction;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIP_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIP_DIRECTION:
+				switch (info->direction) {
+				case PW_DIRECTION_INPUT:
+					direction = "input";
+					break;
+				case PW_DIRECTION_OUTPUT:
+					direction = "output";
+					break;
+				default:
+					snprintf(tbuf, sizeof(tbuf), "unknown-%d", (int)info->direction);
+					direction = tbuf;
+					break;
+				}
+				value = var_scalar_string(v, SPA_TYPE_ROOT, direction);
+				break;
+			case GIP_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_PORT_CHANGE_MASK_PROPS) ? keys[GIP_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) ? keys[GIP_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+				break;
+			case GIP_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GIP_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_factory_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIF_ID		0
+#define GIF_NAME	1
+#define GIF_TYPE	2
+#define GIF_VERSION	3
+#define GIF_CHANGE_MASK	4
+#define GIF_PROPS	5
+	static const char *keys[] = {
+		[GIF_ID]		= "id",
+		[GIF_NAME]		= "name",
+		[GIF_TYPE]		= "type",
+		[GIF_VERSION]		= "version",
+		[GIF_CHANGE_MASK]	= "change_mask",
+		[GIF_PROPS]		= "props",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_factory_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIF_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIF_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->name);
+				break;
+			case GIF_TYPE:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->type);
+				break;
+			case GIF_VERSION:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, info->version);
+				break;
+			case GIF_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_FACTORY_CHANGE_MASK_PROPS) ? keys[GIF_PROPS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+
+				break;
+			case GIF_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_client_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GICL_ID			0
+#define GICL_CHANGE_MASK	1
+#define GICL_PROPS		2
+	static const char *keys[] = {
+		[GICL_ID]		= "id",
+		[GICL_CHANGE_MASK]	= "change_mask",
+		[GICL_PROPS]		= "props",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_client_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GICL_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GICL_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) ? keys[GICL_PROPS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+
+				break;
+			case GICL_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_link_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIL_ID			0
+#define GIL_OUTPUT_NODE_ID	1
+#define GIL_OUTPUT_PORT_ID	2
+#define GIL_INPUT_NODE_ID	3
+#define GIL_INPUT_PORT_ID	4
+#define GIL_STATE		5
+#define GIL_ERROR		6
+#define GIL_FORMAT		7
+#define GIL_CHANGE_MASK		8
+#define GIL_PROPS		9
+	static const char *keys[] = {
+		[GIL_ID]		= "id",
+		[GIL_OUTPUT_NODE_ID]	= "output_node_id",
+		[GIL_OUTPUT_PORT_ID]	= "output_port_id",
+		[GIL_INPUT_NODE_ID]	= "input_node_id",
+		[GIL_INPUT_PORT_ID]	= "input_port_id",
+		[GIL_STATE]		= "state",
+		[GIL_ERROR]		= "error",
+		[GIL_FORMAT]		= "format",
+		[GIL_CHANGE_MASK]	= "change_mask",
+		[GIL_PROPS]		= "props",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_link_info *info = pd->info;
+	const char *s, *e, *value, *state;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIL_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIL_OUTPUT_NODE_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->output_node_id);
+				break;
+			case GIL_OUTPUT_PORT_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->output_port_id);
+				break;
+			case GIL_INPUT_NODE_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->input_node_id);
+				break;
+			case GIL_INPUT_PORT_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->input_port_id);
+				break;
+			case GIL_STATE:
+				switch (info->state) {
+				case PW_LINK_STATE_ERROR:
+					state = "error";
+					break;
+				case PW_LINK_STATE_UNLINKED:
+					state = "unlinked";
+					break;
+				case PW_LINK_STATE_INIT:
+					state = "init";
+					break;
+				case PW_LINK_STATE_NEGOTIATING:
+					state = "negotiating";
+					break;
+				case PW_LINK_STATE_ALLOCATING:
+					state = "allocating";
+					break;
+				case PW_LINK_STATE_PAUSED:
+					state = "paused";
+					break;
+				default:
+					snprintf(tbuf, sizeof(tbuf), "unknown-%d", (int)info->state);
+					state = tbuf;
+					break;
+				}
+				value = var_scalar_string(v, SPA_TYPE_ROOT, state);
+				break;
+			case GIL_ERROR:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->error ? : "");
+				break;
+			case GIL_FORMAT:
+				if (info->format) {
+					value = var_get(v, e,
+							NULL, SPA_POD_TYPE(info->format),
+							SPA_POD_BODY(info->format),
+							SPA_POD_BODY_SIZE(info->format));
+				} else
+					value = var_scalar_string(v, SPA_TYPE_ROOT, "");
+				break;
+			case GIL_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_LINK_CHANGE_MASK_STATE) ? keys[GIL_STATE] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_LINK_CHANGE_MASK_FORMAT) ? keys[GIL_FORMAT] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_LINK_CHANGE_MASK_PROPS) ? keys[GIL_PROPS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+
+				break;
+			case GIL_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_session_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIS_VERSION	0
+#define GIS_ID		1
+#define GIS_CHANGE_MASK	2
+#define GIS_PROPS	3
+#define GIS_PARAMS	4
+	static const char *keys[] = {
+		[GIS_VERSION]		= "version",
+		[GIS_ID]		= "id",
+		[GIS_CHANGE_MASK]	= "change_mask",
+		[GIS_PROPS]		= "props",
+		[GIS_PARAMS]		= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_session_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIS_VERSION:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, info->version);
+				break;
+			case GIS_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIS_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) ? keys[GIS_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_SESSION_CHANGE_MASK_PARAMS) ? keys[GIS_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+				break;
+			case GIS_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GIS_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_endpoint_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIE_VERSION		0
+#define GIE_ID			1
+#define GIE_NAME		2
+#define GIE_MEDIA_CLASS		3
+#define GIE_DIRECTION		4
+#define GIE_FLAGS		5
+#define GIE_N_STREAMS		6
+#define GIE_SESSION_ID		7
+#define GIE_CHANGE_MASK		8
+#define GIE_PROPS		9
+#define GIE_PARAMS		10
+	static const char *keys[] = {
+		[GIE_VERSION]		= "version",
+		[GIE_ID]		= "id",
+		[GIE_NAME]		= "name",
+		[GIE_MEDIA_CLASS]	= "media_class",
+		[GIE_DIRECTION]		= "direction",
+		[GIE_FLAGS]		= "flags",
+		[GIE_N_STREAMS]		= "n_streams",
+		[GIE_SESSION_ID]	= "session_id",
+		[GIE_CHANGE_MASK]	= "change_mask",
+		[GIE_PROPS]		= "props",
+		[GIE_PARAMS]		= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_endpoint_info *info = pd->info;
+	const char *s, *e, *value, *direction;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIE_VERSION:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, info->version);
+				break;
+			case GIE_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIE_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->name);
+				break;
+			case GIE_MEDIA_CLASS:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->media_class);
+				break;
+			case GIE_DIRECTION:
+				switch (info->direction) {
+				case PW_DIRECTION_INPUT:
+					direction = "input";
+					break;
+				case PW_DIRECTION_OUTPUT:
+					direction = "output";
+					break;
+				default:
+					snprintf(tbuf, sizeof(tbuf), "unknown-%d", (int)info->direction);
+					direction = tbuf;
+					break;
+				}
+				value = var_scalar_string(v, SPA_TYPE_ROOT, direction);
+				break;
+			case GIE_FLAGS:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->flags & PW_ENDPOINT_FLAG_PROVIDES_SESSION) ? "PROVIDES_SESSION" : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+				break;
+			case GIE_N_STREAMS:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->n_streams);
+				break;
+			case GIE_SESSION_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->session_id);
+				break;
+			case GIE_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS) ? keys[GIE_N_STREAMS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION) ? keys[GIE_SESSION_ID] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) ? keys[GIE_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) ? keys[GIE_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+				break;
+			case GIE_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GIE_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_endpoint_stream_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIES_VERSION		0
+#define GIES_ID			1
+#define GIES_ENDPOINT_ID	2
+#define GIES_NAME		3
+#define GIES_LINK_PARAMS	4
+#define GIES_CHANGE_MASK	5
+#define GIES_PROPS		6
+#define GIES_PARAMS		7
+	static const char *keys[] = {
+		[GIES_VERSION]		= "version",
+		[GIES_ID]		= "id",
+		[GIES_ENDPOINT_ID]	= "endpoint_id",
+		[GIES_NAME]		= "name",
+		[GIES_LINK_PARAMS]	= "link_params",
+		[GIES_CHANGE_MASK]	= "change_mask",
+		[GIES_PROPS]		= "props",
+		[GIES_PARAMS]		= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_endpoint_stream_info *info = pd->info;
+	const char *s, *e, *value;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIES_VERSION:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, info->version);
+				break;
+			case GIES_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIES_ENDPOINT_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->endpoint_id);
+				break;
+			case GIES_NAME:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->name);
+				break;
+			case GIES_LINK_PARAMS:
+				if (info->link_params) {
+					value = var_get(v, e,
+							NULL, SPA_POD_TYPE(info->link_params),
+							SPA_POD_BODY(info->link_params),
+							SPA_POD_BODY_SIZE(info->link_params));
+				} else
+					value = var_scalar_string(v, SPA_TYPE_ROOT, "");
+				break;
+			case GIES_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_LINK_PARAMS) ? keys[GIES_LINK_PARAMS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) ? keys[GIES_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) ? keys[GIES_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+
+				break;
+			case GIES_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GIES_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static const char *
+global_info_endpoint_link_get(struct global *global, struct var_ctx *v, const char *var)
+{
+#define GIEL_VERSION		0
+#define GIEL_ID			1
+#define GIEL_SESSION_ID		2
+#define GIEL_OUTPUT_ENDPOINT_ID	3
+#define GIEL_OUTPUT_STREAM_ID	4
+#define GIEL_INPUT_ENDPOINT_ID	5
+#define GIEL_INPUT_STREAM_ID	6
+#define GIEL_STATE		7
+#define GIEL_ERROR		8
+#define GIEL_CHANGE_MASK	9
+#define GIEL_PROPS		10
+#define GIEL_PARAMS		11
+	static const char *keys[] = {
+		[GIEL_VERSION]			= "version",
+		[GIEL_ID]			= "id",
+		[GIEL_SESSION_ID]		= "session_id",
+		[GIEL_OUTPUT_ENDPOINT_ID]	= "output_endpoint_id",
+		[GIEL_OUTPUT_STREAM_ID]		= "output_stream_id",
+		[GIEL_INPUT_ENDPOINT_ID]	= "input_endpoint_id",
+		[GIEL_INPUT_STREAM_ID]		= "input_stream_id",
+		[GIEL_STATE]			= "state",
+		[GIEL_ERROR]			= "error",
+		[GIEL_CHANGE_MASK]		= "change_mask",
+		[GIEL_PROPS]			= "props",
+		[GIEL_PARAMS]			= "params",
+	};
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_endpoint_link_info *info = pd->info;
+	const char *s, *e, *value, *state;
+	char *ss, *ee;
+	unsigned int i, count;
+	char tbuf[256];
+	char key[64];
+	bool is_final;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case GIEL_VERSION:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, info->version);
+				break;
+			case GIEL_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
+				break;
+			case GIEL_SESSION_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->session_id);
+				break;
+			case GIEL_OUTPUT_ENDPOINT_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->output_endpoint_id);
+				break;
+			case GIEL_OUTPUT_STREAM_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->output_stream_id);
+				break;
+			case GIEL_INPUT_ENDPOINT_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->input_endpoint_id);
+				break;
+			case GIEL_INPUT_STREAM_ID:
+				value = var_scalar_long(v, SPA_TYPE_ROOT, info->input_stream_id);
+				break;
+			case GIEL_STATE:
+				switch (info->state) {
+				case PW_ENDPOINT_LINK_STATE_ERROR:
+					state = "error";
+					break;
+				case PW_ENDPOINT_LINK_STATE_PREPARING:
+					state = "preparing";
+					break;
+				case PW_ENDPOINT_LINK_STATE_INACTIVE:
+					state = "inactive";
+					break;
+				case PW_ENDPOINT_LINK_STATE_ACTIVE:
+					state = "active";
+					break;
+				default:
+					snprintf(tbuf, sizeof(tbuf), "unknown-%d", (int)info->state);
+					state = tbuf;
+					break;
+				}
+				value = var_scalar_string(v, SPA_TYPE_ROOT, state);
+				break;
+			case GIEL_ERROR:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, info->error ? : "");
+				break;
+			case GIEL_CHANGE_MASK:
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE) ? keys[GIEL_STATE] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PROPS) ? keys[GIEL_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS) ? keys[GIEL_PARAMS] : "");
+
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
+				info->change_mask = 0;	/* clear change bits */
+
+				break;
+			case GIEL_PROPS:
+				value = global_property_get(global, v, e, true);
+				break;
+			case GIEL_PARAMS:
+				value = global_param_get(global, v, e);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+const char *
+global_info_get(struct global *global, struct var_ctx *v, const char *var)
+{
+	if (!global || !v)
+		return NULL;
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Core))
+		return global_info_core_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Module))
+		return global_info_module_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
+		return global_info_device_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
+		return global_info_node_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
+		return global_info_port_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory))
+		return global_info_factory_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Client))
+		return global_info_client_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Link))
+		return global_info_link_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Session))
+		return global_info_session_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
+		return global_info_endpoint_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
+		return global_info_endpoint_stream_get(global, v, var);
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
+		return global_info_endpoint_link_get(global, v, var);
+
+	return NULL;
+}
+
+const char *
+global_graph_get(struct global *global, struct var_ctx *v, const char *var)
+{
+	const char *s, *e, *value;
+	unsigned int i, count;
+	char tbuf[80];
+	char key[64];
+	bool is_final;
+#define G_ID		0
+#define G_TYPE		1
+#define G_PERMISSIONS	2
+#define G_VERSION	3
+#define G_INFO		4
+#define G_PROPERTIES	5
+	static const char *keys[] = {
+		[G_ID]		= "id",
+		[G_TYPE]	= "type",
+		[G_PERMISSIONS]	= "permissions",
+		[G_VERSION]	= "version",
+		[G_INFO]	= "info",
+		[G_PROPERTIES]	= "properties",
+	};
+
+	if (!global || !v)
+		return NULL;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		s = var;
+		e = var_get_key(v, s, key, sizeof(key));
+		if (!e)
+			return NULL;
+		s = e;
+	} else {
+		e = "";
+		key[0] = '\0';
+	}
+
+	count = SPA_N_ELEMENTS(keys);	/* properties, parameters */
+
+	var_map_start(v, is_final, count == 0);
+	v->level++;
+
+	for (i = 0; i < count; i++) {
+
+		var_map_prefix(v, is_final, i == 0, keys[i]);
+
+		if (is_final || !strcmp(key, keys[i])) {
+			v->level++;
+
+			switch (i) {
+			case G_ID:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, global->id);
+				break;
+			case G_TYPE:
+				value = var_scalar_string(v, SPA_TYPE_ROOT, global->type);
+				break;
+			case G_PERMISSIONS:
+				snprintf(tbuf, sizeof(tbuf), "%c%c%c",
+						global->permissions & PW_PERM_R ? 'r' : '-',
+						global->permissions & PW_PERM_W ? 'w' : '-',
+						global->permissions & PW_PERM_X ? 'x' : '-');
+				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+				break;
+			case G_VERSION:
+				value = var_scalar_int(v, SPA_TYPE_ROOT, global->version);
+				break;
+			case G_INFO:
+				value = global_info_get(global, v, e);
+				break;
+			case G_PROPERTIES:
+				value = global_property_get(global, v, e, false);
+				break;
+			default:
+				value = NULL;
+				break;
+			}
+
+			v->level--;
+			if (!value)
+				return NULL;
+
+			if (!is_final)
+				break;
+		}
+
+		var_map_suffix(v, is_final, (i + 1) >= count);
+
+	}
+
+	v->level--;
+	var_map_end(v, is_final, count == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+const char *
+remote_graph_get(struct remote_data *rd, struct var_ctx *v, const char *var)
+{
+	const char *s, *e, *value;
+	unsigned int i, n, cnt;
+	struct global *global;
+	bool is_final;
+
+	if (!rd || !v)
+		return NULL;
+
+	if (!var)
+		var = "";
+	s = var;
+
+	is_final = var_is_final(v, var);
+
+	/* everything */
+	if (!is_final) {
+		e = var_get_index(v, s, &n);
+		if (!e)
+			return NULL;
+	} else {
+		e = "";
+		n = (unsigned int)-1;
+	}
+
+	/* count globals namespace */
+	cnt = pw_map_get_size(&rd->globals);
+
+	var_seq_start(v, is_final, cnt == 0);
+	v->level++;
+
+	/* iterate now */
+	for (i = 0; i < cnt; i++) {
+		global = remote_global(rd, i);
+
+		var_seq_prefix(v, is_final, i == 0);
+
+		if (n == i || is_final) {
+			if (global) {
+				value = global_graph_get(global, v, e);
+				if (!value)
+					return NULL;
+			} else {
+				var_map_start(v, true, true);
+				var_map_end(v, true, true);
+			}
+		}
+
+		var_seq_suffix(v, is_final, (i + 1) >= cnt);
+	}
+
+	v->level--;
+	var_seq_end(v, is_final, cnt == 0);
+
+	return v->buf[0] ? v->buf : NULL;
+}
+
+static void enum_single_param(struct global *global, struct param *p, bool is_short)
+{
+	struct var_ctx v;
+	const char *str, *value;
+	struct param_entry *pe;
+	char buf[4096];
+
+	if (!is_short) {
+		fprintf(stdout, "%c%c%c id=%"PRIu32" (%s)\n",
+				(p->info.flags & SPA_PARAM_INFO_SERIAL) ? 's' : '-',
+				(p->info.flags & SPA_PARAM_INFO_READ)   ? 'r' : '-',
+				(p->info.flags & SPA_PARAM_INFO_WRITE)  ? 'w' : '-',
+				p->info.id,
+				spa_debug_type_find_name(spa_type_param, p->info.id));
+
+		spa_list_for_each(pe, &p->entries, link) {
+			if (spa_pod_is_object_type(pe->param, SPA_TYPE_OBJECT_Format))
+				spa_debug_format(2, NULL, pe->param);
+			else
+				spa_debug_pod(2, NULL, pe->param);
+		}
+	} else {
+
+		str = spa_debug_type_find_short_name(spa_type_param, p->info.id);
+		spa_assert(str);
+
+		var_init(&v, buf, sizeof(buf), var_cmdline, 0, 0, 0);
+		value = global_param_get(global, &v, str);
+		if (!value) {
+			fprintf(stderr, "*error* global_param_get() failed");
+			return;
+		}
+		printf("%s=%s\n", str, value);
+	}
+}
+
 static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
-	char *a[2];
-        int n;
+	char *aa[16], **a;
+        int i, n;
+	char c;
 	uint32_t id, param_id;
 	struct global *global;
 	struct param *p;
-	struct param_entry *pe;
+	bool is_short = false;
 
-	n = pw_split_ip(args, WHITESPACE, 2, a);
+	n = pw_split_ip(args, WHITESPACE, SPA_N_ELEMENTS(aa), aa);
 	if (n < 1) {
 		*error = spa_aprintf("%s <object-id> [<param-id>]", cmd);
 		return false;
+	}
+
+	a = aa;
+	while (n > 0 && a[0][0] == '-') {
+		for (i = 1; (c = a[0][i]) != '\0'; i++) {
+			if (c == 's')
+				is_short = true;
+			else
+				goto usage;
+		}
+		n--;
+		a++;
 	}
 
 	id = atoi(a[0]);
@@ -2082,22 +5257,13 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 		if (param_id != (uint32_t)-1 && p->info.id != param_id)
 			continue;
 
-		fprintf(stdout, "%c%c%c id=%"PRIu32" (%s)\n",
-				(p->info.flags & SPA_PARAM_INFO_SERIAL) ? 's' : '-',
-				(p->info.flags & SPA_PARAM_INFO_READ)   ? 'r' : '-',
-				(p->info.flags & SPA_PARAM_INFO_WRITE)  ? 'w' : '-',
-				p->info.id,
-				spa_debug_type_find_name(spa_type_param, p->info.id));
-
-		spa_list_for_each(pe, &p->entries, link) {
-			if (spa_pod_is_object_type(pe->param, SPA_TYPE_OBJECT_Format))
-				spa_debug_format(2, NULL, pe->param);
-			else
-				spa_debug_pod(2, NULL, pe->param);
-		}
+		enum_single_param(global, p, is_short);
 	}
 
 	return true;
+usage:
+	*error = spa_aprintf("%s [-s] <id> [<param-id>]", cmd);
+	return false;
 }
 
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error)
@@ -2207,12 +5373,18 @@ obj_global(struct remote_data *rd, uint32_t id)
 }
 
 static struct spa_dict *
-global_props(struct global *global)
+global_props(struct global *global, bool info_property)
 {
 	struct proxy_data *pd;
 
 	if (!global)
 		return NULL;
+
+	if (!info_property) {
+		if (!global->properties)
+			return NULL;
+		return &global->properties->dict;
+	}
 
 	pd = pw_proxy_get_user_data(global->proxy);
 	if (!pd || !pd->info)
@@ -2240,6 +5412,8 @@ global_props(struct global *global)
 		return ((struct pw_endpoint_info *)pd->info)->props;
 	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
 		return ((struct pw_endpoint_stream_info *)pd->info)->props;
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink))
+		return ((struct pw_endpoint_link_info *)pd->info)->props;
 
 	return NULL;
 }
@@ -2255,7 +5429,7 @@ obj_props(struct remote_data *rd, uint32_t id)
 	global = obj_global(rd, id);
 	if (!global)
 		return NULL;
-	return global_props(global);
+	return global_props(global, true);
 }
 
 static const char *
@@ -2263,7 +5437,7 @@ global_lookup(struct global *global, const char *key)
 {
 	struct spa_dict *dict;
 
-	dict = global_props(global);
+	dict = global_props(global, true);
 	if (!dict)
 		return NULL;
 	return spa_dict_lookup(dict, key);
@@ -2406,6 +5580,7 @@ static const char *dump_types[] = {
 	PW_TYPE_INTERFACE_Session,
 	PW_TYPE_INTERFACE_Endpoint,
 	PW_TYPE_INTERFACE_EndpointStream,
+	PW_TYPE_INTERFACE_EndpointLink,
 };
 
 int dump_type_index(const char *type)
@@ -2470,7 +5645,7 @@ dump_properties(struct data *data, struct global *global,
 	if (!global)
 		return;
 
-	props = global_props(global);
+	props = global_props(global, true);
 	if (!props || !props->n_items)
 		return;
 
@@ -3125,6 +6300,52 @@ dump_endpoint_stream(struct data *data, struct global *global,
 	return true;
 }
 
+static bool
+dump_endpoint_link(struct data *data, struct global *global,
+		     enum dump_flags flags, int level)
+{
+	struct remote_data *rd = data->current;
+	struct proxy_data *pd = pw_proxy_get_user_data(global->proxy);
+	struct pw_endpoint_link_info *info;
+	const char *ind;
+
+	if (!pd->info)
+		return false;
+
+	dump_global_common(data, global, flags, level);
+
+	info = pd->info;
+
+	if (!(flags & is_short)) {
+		ind = INDENT(level + 1);
+		fprintf(stdout, "%sid: %u\n", ind, info->id);
+		fprintf(stdout, "%ssession-id: %u\n", ind, info->session_id);
+		fprintf(stdout, "%soutput-endpoint-id: %u\n", ind, info->output_endpoint_id);
+		fprintf(stdout, "%soutput-stream-id: %u\n", ind, info->output_stream_id);
+		fprintf(stdout, "%sinput-endpoint-id: %u\n", ind, info->input_endpoint_id);
+		fprintf(stdout, "%sinput-stream-id: %u\n", ind, info->input_stream_id);
+		fprintf(stdout, "%sstate: \"%s\"", ind,
+				_pw_endpoint_link_state_as_string(info->state));
+		if (info->state == PW_ENDPOINT_LINK_STATE_ERROR && info->error)
+			fprintf(stdout, " \"%s\"\n", info->error);
+		else
+			fprintf(stdout, "\n");
+		fprintf(stdout, "%sproperties:\n", ind);
+		dump_properties(data, global, flags, level);
+		fprintf(stdout, "%sparams:\n", ind);
+		dump_params(data, global, info->params, info->n_params, flags, level);
+	} else {
+		fprintf(stdout, " i=%"PRIu32" ei=%"PRIu32" s=%s",
+				info->id, info->session_id,
+				_pw_endpoint_link_state_as_string(info->state));
+		fprintf(stdout, "\n");
+	}
+
+	(void)rd;
+
+	return true;
+}
+
 static void
 dump(struct data *data, struct global *global,
      enum dump_flags flags, int level)
@@ -3164,6 +6385,9 @@ dump(struct data *data, struct global *global,
 
 	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
 		dump_endpoint_stream(data, global, flags, level);
+
+	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink))
+		dump_endpoint_link(data, global, flags, level);
 }
 
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error)
@@ -3275,6 +6499,65 @@ static bool do_dump(struct data *data, const char *cmd, char *args, char **error
 usage:
 	*error = spa_aprintf("%s [short|deep|resolve|notype] [-sdrt] [all|%s|<id>]",
 			cmd, DUMP_NAMES);
+	return false;
+}
+
+static bool do_graph(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	char *aa[16], **a, c;
+        int i, n;
+	const char *prop, *value;
+	struct var_ctx v;
+	char buf[256 * 1024];
+	enum var_format fmt = var_yaml;
+	unsigned int flags = 0;
+
+	n = pw_split_ip(args, WHITESPACE, SPA_N_ELEMENTS(aa), aa);
+	if (n < 1) {
+		*error = spa_aprintf("%s <path>", cmd);
+		return false;
+	}
+
+	a = aa;
+	while (n > 0 && a[0][0] == '-') {
+		for (i = 1; (c = a[0][i]) != '\0'; i++) {
+			switch (c) {
+			case 'j':
+				fmt = var_json;
+				break;
+			case 'y':
+				fmt = var_yaml;
+				break;
+			case 'n':
+				flags |= VF_TYPE_NUMERIC;
+				break;
+			case 'f':
+				flags |= VF_TYPE_FULL;
+				break;
+			default:
+				goto usage;
+			}
+		}
+		n--;
+		a++;
+	}
+
+	prop = n >= 1 ? a[0] : NULL;
+
+	var_init(&v, buf, sizeof(buf), fmt, flags, 0, 0);
+
+	value = remote_graph_get(rd, &v, prop ? prop : ".");
+	if (!value) {
+		*error = spa_aprintf("%s remote_graph_get() failed", cmd);
+		return false;
+	}
+
+	printf("%s\n", value);
+
+	return true;
+usage:
+	*error = spa_aprintf("%s [-jynf] <path>", cmd);
 	return false;
 }
 

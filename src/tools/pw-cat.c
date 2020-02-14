@@ -57,6 +57,7 @@
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_FORMAT		"s16"
 #define DEFAULT_VOLUME		1.0
+#define DEFAULT_QUALITY		4
 
 enum mode {
 	mode_none,
@@ -122,6 +123,7 @@ struct data {
 	unsigned int stride;
 	enum unit latency_unit;
 	unsigned int latency_value;
+	int quality;
 
 	enum spa_audio_format spa_format;
 
@@ -854,8 +856,9 @@ static const struct option long_options[] = {
 	{"channels",		required_argument, NULL, OPT_CHANNELS },
 	{"channel-map",		required_argument, NULL, OPT_CHANNELMAP },
 	{"format",		required_argument, NULL, OPT_FORMAT },
-
 	{"volume",		required_argument, NULL, OPT_VOLUME },
+	{"quality",		required_argument, NULL, 'q' },
+
 	{"list-targets",	no_argument, NULL, OPT_LIST_TARGETS },
 
 	{NULL, 0, NULL, 0 }
@@ -900,8 +903,13 @@ static void show_usage(const char *name, bool is_error)
 	     "                                            comma separated list of channel names: eg. \"FL,FR\"\n"
              "      --format                          Sample format %s (req. for rec) (default %s)\n"
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
+	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 	     "\n",
-	     DEFAULT_RATE, DEFAULT_CHANNELS, STR_FMTS, DEFAULT_FORMAT, DEFAULT_VOLUME);
+	     DEFAULT_RATE,
+	     DEFAULT_CHANNELS,
+	     STR_FMTS, DEFAULT_FORMAT,
+	     DEFAULT_VOLUME,
+	     DEFAULT_QUALITY);
 
 	if (!strcmp(name, "pw-cat")) {
 		fprintf(fp,
@@ -1053,6 +1061,9 @@ static int setup_sndfile(struct data *data)
 	if (nom)
 		pw_properties_setf(data->props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data->rate);
 
+	if (data->quality >= 0)
+		pw_properties_setf(data->props, "resample.quality", "%d", data->quality);
+
 	return 0;
 }
 
@@ -1088,11 +1099,12 @@ int main(int argc, char *argv[])
 
 	/* negative means no volume adjustment */
 	data.volume = -1.0;
+	data.quality = -1;
 
 	/* initialize list everytime */
 	spa_list_init(&data.targets);
 
-	while ((c = getopt_long(argc, argv, "hvprR:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprR:q:", long_options, NULL)) != -1) {
 
 		switch (c) {
 
@@ -1123,6 +1135,10 @@ int main(int argc, char *argv[])
 
 		case 'R':
 			data.remote_name = optarg;
+			break;
+
+		case 'q':
+			data.quality = atoi(optarg);
 			break;
 
 		case OPT_MEDIA_TYPE:

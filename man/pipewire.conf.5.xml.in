@@ -33,14 +33,35 @@ This file is part of PipeWire.
     </option>
   </section>
 
+  <section name="Properies">
+    <option>
+      <p><opt>set-prop</opt> <arg>key</arg> <arg>value</arg></p>
+      <optdesc><p>Sets a property with the given key to value.</p></optdesc>
+    </option>
+  </section>
+
+  <section name="Plugin mapping">
+    <option>
+      <p><opt>add-spa-lib</opt> <arg>pattern</arg> <arg>library</arg></p>
+      <optdesc><p>Maps the plugin features that match <opt>pattern</opt>
+	to <opt>library</opt>.</p> When the systen needs a plugin feature</optdesc>
+    </option>
+  </section>
+
   <section name="Module Management">
     <option>
-      <p><opt>load-module</opt> <arg>name</arg> [<arg>arguments...</arg>]</p>
+    <p><opt>load-module</opt> [<arg>options</arg>] <arg>name</arg> [<arg>arguments...</arg>]</p>
       <optdesc><p>Load a module specified by its name and arguments. For most
       modules it is OK to be loaded more than once.</p></optdesc>
     </option>
   </section>
 
+  <section name="Exec">
+    <option>
+    <p><opt>exec</opt> <arg>program</arg></p>
+      <optdesc><p>Execute program. This is usually the session manager.</p></optdesc>
+    </option>
+  </section>
   <section name="Authors">
     <p>The PipeWire Developers &lt;@PACKAGE_BUGREPORT@&gt;; PipeWire is available from <url href="@PACKAGE_URL@"/></p>
   </section>

@@ -15,6 +15,9 @@ This file is part of PipeWire.
   <description>
     <p>PipeWire is a service that allows access to multimedia devices
     and allows media sharing between applications. </p>
+
+    <p>The pipewire daemon reads a config file that is further documented in
+    <manref name="pipewire.conf" section="5"/></p>
   </description>
 
   <options>

@@ -47,6 +47,8 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/global.h>
 
+#include "midifile.h"
+
 #define DEFAULT_MEDIA_TYPE	"Audio"
 #define DEFAULT_MEDIA_CATEGORY_PLAYBACK	"Playback"
 #define DEFAULT_MEDIA_CATEGORY_RECORD	"Capture"
@@ -103,6 +105,7 @@ struct data {
 
 	enum mode mode;
 	bool verbose;
+	bool midi;
 	const char *remote_name;
 	const char *media_type;
 	const char *media_category;
@@ -137,7 +140,15 @@ struct data {
 	bool targets_listed;
 	struct spa_list targets;
 
+	struct spa_io_position *position;
 	bool drained;
+	uint64_t clock_start;
+
+	struct {
+		FILE *f;
+		struct midi_file file;
+		struct midi_track track[64];
+	} md;
 };
 
 static inline int
@@ -730,6 +741,20 @@ on_state_changed(void *userdata, enum pw_stream_state old,
 }
 
 static void
+on_io_changed(void *userdata, uint32_t id, void *data, uint32_t size)
+{
+	struct data *d = userdata;
+
+	switch (id) {
+	case SPA_IO_Position:
+		d->position = data;
+		break;
+	default:
+		break;
+	}
+}
+
+static void
 on_param_changed(void *userdata, uint32_t id, const struct spa_pod *format)
 {
 	struct data *data = userdata;
@@ -810,6 +835,7 @@ static void on_drained(void *userdata)
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = on_state_changed,
+	.io_changed = on_io_changed,
 	.param_changed = on_param_changed,
 	.process = on_process,
 	.drained = on_drained
@@ -843,6 +869,7 @@ static const struct option long_options[] = {
 
 	{"record",	no_argument,	   NULL, 'r'},
 	{"playback",	no_argument,	   NULL, 's'},
+	{"midi",	no_argument,	   NULL, 'm'},
 
 	{"remote",	required_argument, NULL, 'R'},
 
@@ -915,12 +942,107 @@ static void show_usage(const char *name, bool is_error)
 		fprintf(fp,
 		     "  -p, --playback                        Playback mode\n"
 		     "  -r, --record                          Recording mode\n"
+		     "  -m, --midi                            Midi mode\n"
 		     "\n");
 	}
 
         fprintf(fp,
              "  -v, --verbose                         Enable verbose operations\n"
 	     "\n");
+}
+
+static int midi_read(void *data, size_t offset, void *buf, size_t size)
+{
+	struct data *d = data;
+	fseek(d->md.f, offset, SEEK_SET);
+	return fread(buf, 1, size, d->md.f);
+}
+
+static const struct midi_events midi_events = {
+	.read = midi_read,
+};
+
+static int midi_play(struct data *d, void *src, unsigned int n_frames)
+{
+	int res;
+	struct midi_event ev;
+	struct spa_pod_builder b;
+	struct spa_pod_frame f;
+	uint8_t buf[4096];
+	uint32_t first_frame, last_frame;
+
+	spa_zero(b);
+	spa_pod_builder_init(&b, src, n_frames);
+
+        spa_pod_builder_push_sequence(&b, &f, 0);
+
+	if (d->clock_start == 0)
+		d->clock_start = d->position->clock.position;
+
+	first_frame = d->position->clock.position - d->clock_start;
+	last_frame = first_frame + d->position->clock.duration;
+
+	while (1) {
+		uint32_t frame;
+
+		res = midi_file_peek_event(&d->md.file, &ev);
+		if (res < 0)
+			return res;
+
+		frame = ev.tick * ((double)d->position->clock.rate.denom * d->md.file.tempo) /
+			(1000000.0 * d->md.file.division);
+
+		if (frame < first_frame)
+			frame = 0;
+		else if (frame < last_frame)
+			frame -= first_frame;
+		else
+			break;
+
+		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+		buf[0] = ev.status;
+		if (ev.status == 0xff)
+			buf[1] = ev.meta;
+		midi_read(d, ev.offset, ev.status == 0xff ? &buf[2] : &buf[1], ev.size);
+		spa_pod_builder_bytes(&b, buf, ev.size + 1);
+
+		midi_file_consume_event(&d->md.file, &ev);
+	}
+	spa_pod_builder_pop(&b, &f);
+
+	return b.state.offset;
+}
+
+static int setup_midifile(struct data *data)
+{
+	int res;
+	uint16_t i;
+
+	data->md.f = fopen(data->filename,
+			data->mode == mode_playback ? "r" : "w");
+	if (data->md.f == NULL) {
+		fprintf(stderr, "error: failed to open midi file \"%s\": %m\n",
+				data->filename);
+		return -errno;
+	}
+
+	if ((res = midi_file_open(&data->md.file, 0, &midi_events, data)) < 0)
+		return -errno;
+
+	if (data->verbose)
+		printf("opened file \"%s\" format %08x ntracks:%d div:%d\n",
+				data->filename,
+				data->md.file.format, data->md.file.ntracks,
+				data->md.file.division);
+
+	for (i = 0; i < data->md.file.ntracks; i++) {
+		midi_file_add_track(&data->md.file, &data->md.track[i]);
+	}
+	data->fill = data->mode == mode_playback ?
+		midi_play : midi_play;
+	data->stride = 1;
+
+	return 0;
 }
 
 static int setup_sndfile(struct data *data)
@@ -1104,7 +1226,7 @@ int main(int argc, char *argv[])
 	/* initialize list everytime */
 	spa_list_init(&data.targets);
 
-	while ((c = getopt_long(argc, argv, "hvprR:q:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmR:q:", long_options, NULL)) != -1) {
 
 		switch (c) {
 
@@ -1131,6 +1253,10 @@ int main(int argc, char *argv[])
 
 		case 'r':
 			data.mode = mode_record;
+			break;
+
+		case 'm':
+			data.midi = true;
 			break;
 
 		case 'R':
@@ -1310,7 +1436,11 @@ int main(int argc, char *argv[])
 	if (!data.list_targets) {
 		struct spa_audio_info_raw info;
 
-		ret = setup_sndfile(&data);
+		if (data.midi)
+			ret = setup_midifile(&data);
+		else
+			ret = setup_sndfile(&data);
+
 		if (ret < 0) {
 			fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
 			switch (ret) {
@@ -1321,16 +1451,26 @@ int main(int argc, char *argv[])
 				goto error_usage;
 			}
 		}
-		info = SPA_AUDIO_INFO_RAW_INIT(
-			.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
-			.format = data.spa_format,
-			.rate = data.rate,
-			.channels = data.channels);
 
-		if (data.channelmap.n_channels)
-			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
+		if (!data.midi) {
+			info = SPA_AUDIO_INFO_RAW_INIT(
+				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
+				.format = data.spa_format,
+				.rate = data.rate,
+				.channels = data.channels);
 
-		params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+			if (data.channelmap.n_channels)
+				memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
+
+			params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+		} else {
+			params[0] = spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+					SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
+					SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+
+			pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+		}
 
 		data.stream = pw_stream_new(data.core, prog, data.props);
 		data.props = NULL;

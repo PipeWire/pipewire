@@ -28,6 +28,7 @@ if get_option('pw-cat') and sndfile_dep.found()
 
   pwcat_sources = [
     'pw-cat.c',
+    'midifile.c',
   ]
 
   pwcat_aliases = [

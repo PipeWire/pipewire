@@ -408,7 +408,6 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 
 static void free_mix(struct client *c, struct mix *mix)
 {
-	spa_list_remove(&mix->link);
 	spa_list_remove(&mix->port_link);
 	spa_list_append(&c->free_mix, &mix->link);
 }
@@ -444,12 +443,12 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 
 static void free_port(struct client *c, struct port *p)
 {
-	struct mix *m, *t;
+	struct mix *m;
 
 	if (!p->valid)
 		return;
 
-	spa_list_for_each_safe(m, t, &p->mix, port_link)
+	spa_list_consume(m, &p->mix, port_link)
 		free_mix(c, m);
 
 	spa_list_remove(&p->link);
@@ -1531,6 +1530,9 @@ static int client_node_port_use_buffers(void *object,
 
 	pw_log_debug(NAME" %p: port %p %d %d.%d use_buffers %d", c, p, direction,
 			port_id, mix_id, n_buffers);
+
+	if (n_buffers > MAX_BUFFERS)
+		return -EINVAL;
 
 	if (p->object->port.type_id == 2 && direction == SPA_DIRECTION_INPUT) {
 		fl = PW_MEMMAP_FLAG_READ;

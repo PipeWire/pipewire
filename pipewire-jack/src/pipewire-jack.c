@@ -2930,7 +2930,9 @@ static inline void *get_buffer_input_float(struct client *c, struct port *p, jac
 		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
 				c, p, p->id, mix->id, frames);
 		io = mix->io;
-		if (io == NULL || io->buffer_id >= mix->n_buffers)
+		if (io == NULL ||
+		    io->status != SPA_STATUS_HAVE_DATA ||
+		    io->buffer_id >= mix->n_buffers)
 			continue;
 
 		io->status = SPA_STATUS_NEED_DATA;
@@ -2964,7 +2966,9 @@ static inline void *get_buffer_input_midi(struct client *c, struct port *p, jack
 				c, p, p->id, mix->id, frames);
 
 		io = mix->io;
-		if (io == NULL || io->buffer_id >= mix->n_buffers)
+		if (io == NULL ||
+		    io->status != SPA_STATUS_HAVE_DATA ||
+		    io->buffer_id >= mix->n_buffers)
 			continue;
 
 		io->status = SPA_STATUS_NEED_DATA;

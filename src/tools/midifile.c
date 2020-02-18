@@ -140,7 +140,7 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 		return res < 0 ? res : -EIO;
 
 	event->track = tr;
-	event->tick = tr->tick;
+	event->sec = mf->tick_sec + ((tr->tick - mf->tick_start) * (double)mf->tempo) / (1000000.0 * mf->division);
 	start = event->offset = tr->offset;
 
 	status = buffer[0];
@@ -183,6 +183,8 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 				if ((res = mf->events->read(mf->data, tr->start + tr->offset, buffer, 3)) != 3)
 					return res < 0 ? res : -EIO;
 
+				mf->tick_sec = event->sec;
+				mf->tick_start = tr->tick;
 				mf->tempo = (buffer[0]<<16) | (buffer[1]<<8) | buffer[2];
 				break;
 			}

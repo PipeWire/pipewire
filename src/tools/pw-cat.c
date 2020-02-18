@@ -989,8 +989,10 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 		if (res < 0)
 			return res;
 
-		frame = ev.tick * ((double)d->position->clock.rate.denom * d->md.file.tempo) /
-			(1000000.0 * d->md.file.division);
+		if (ev.status == 0xff)
+			goto next;
+
+		frame = ev.sec * d->position->clock.rate.denom;
 
 		if (frame < first_frame)
 			frame = 0;
@@ -1001,11 +1003,10 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 
 		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
 		buf[0] = ev.status;
-		if (ev.status == 0xff)
-			buf[1] = ev.meta;
-		midi_read(d, ev.offset, ev.status == 0xff ? &buf[2] : &buf[1], ev.size);
+		midi_read(d, ev.offset, &buf[1], ev.size);
 		spa_pod_builder_bytes(&b, buf, ev.size + 1);
 
+next:
 		midi_file_consume_event(&d->md.file, &ev);
 	}
 	spa_pod_builder_pop(&b, &f);

@@ -32,7 +32,7 @@ struct midi_event {
 
 	struct midi_track *track;
 
-	int64_t tick;
+	double sec;
 	uint8_t status;
 	uint8_t meta;
 	uint32_t offset;
@@ -69,6 +69,8 @@ struct midi_file {
 
 	uint32_t offset;
 	int64_t tick;
+	double tick_sec;
+	double tick_start;
 
 	const struct midi_events *events;
 	void *data;

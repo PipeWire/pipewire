@@ -776,10 +776,10 @@ again:
 
 	if (!impl->draining &&
 	    !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER) &&
-	    io->status == SPA_STATUS_NEED_DATA &&
 	    spa_ringbuffer_get_read_index(&impl->queued.ring, &index) < MIN_QUEUED) {
 		call_process(impl);
-		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) >= MIN_QUEUED)
+		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
+		    io->status == SPA_STATUS_NEED_DATA)
 			goto again;
 	}
 exit:

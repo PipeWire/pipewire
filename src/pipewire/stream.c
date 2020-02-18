@@ -107,6 +107,7 @@ struct stream {
 
 	uint32_t change_mask_all;
 	struct spa_port_info port_info;
+	struct pw_properties *port_props;
 	struct spa_list param_list;
 	struct spa_param_info params[5];
 
@@ -1039,6 +1040,11 @@ stream_new(struct pw_context *context, const char *name,
 		res = -errno;
 		goto error_cleanup;
 	}
+	impl->port_props = pw_properties_new(NULL, NULL);
+	if (impl->port_props == NULL) {
+		res = -errno;
+		goto error_properties;
+	}
 
 	this = &impl->this;
 	pw_log_debug(NAME" %p: new \"%s\"", impl, name);
@@ -1086,6 +1092,8 @@ stream_new(struct pw_context *context, const char *name,
 	return impl;
 
 error_properties:
+	if (impl->port_props)
+		pw_properties_free(impl->port_props);
 	free(impl);
 error_cleanup:
 	if (props)
@@ -1208,6 +1216,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	if (impl->data.context)
 		pw_context_destroy(impl->data.context);
 
+	pw_properties_free(impl->port_props);
 	free(impl);
 }
 
@@ -1311,6 +1320,12 @@ static const char *get_media_class(struct stream *impl)
 		return "Audio";
 	case SPA_MEDIA_TYPE_video:
 		return "Video";
+	case SPA_MEDIA_TYPE_application:
+		switch(impl->media_subtype) {
+		case SPA_MEDIA_SUBTYPE_control:
+			return "Midi";
+		}
+		return "Data";
 	case SPA_MEDIA_TYPE_stream:
 		switch(impl->media_subtype) {
 		case SPA_MEDIA_SUBTYPE_midi:
@@ -1357,6 +1372,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	impl->change_mask_all =
 		SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PROPS |
 		SPA_PORT_CHANGE_MASK_PARAMS;
 
 	impl->port_info = SPA_PORT_INFO_INIT();
@@ -1369,6 +1385,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	impl->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	impl->port_info.props = &impl->port_props->dict;
 	impl->port_info.params = impl->params;
 	impl->port_info.n_params = 5;
 
@@ -1400,6 +1417,13 @@ pw_stream_connect(struct pw_stream *stream,
 				direction == PW_DIRECTION_INPUT ? "Input" : "Output",
 				get_media_class(impl));
 	}
+	if ((str = pw_properties_get(stream->properties, PW_KEY_FORMAT_DSP)) != NULL)
+		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, str);
+	else if (impl->media_type == SPA_MEDIA_TYPE_application &&
+	    impl->media_subtype == SPA_MEDIA_SUBTYPE_control)
+		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+
+	impl->port_info.props = &impl->port_props->dict;
 
 	if (stream->core == NULL) {
 		stream->core = pw_context_connect(impl->context,

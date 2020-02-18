@@ -191,7 +191,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		nc->body.type = SPA_CHOICE_Enum;
 	}
 
-	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Range) {
+	if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Range) ||
+	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Step) ||
+	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Range) ||
+	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Step)) {
 		if (spa_pod_compare_value(type, alt1, alt2, size) < 0)
 			spa_pod_builder_raw(b, alt2, size);
 		else
@@ -211,9 +214,6 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	if (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
-	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Step)
-		return -ENOTSUP;
-
 	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
 
@@ -221,11 +221,6 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		return -ENOTSUP;
 
 	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_None)
-		return -ENOTSUP;
-	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Range)
-		return -ENOTSUP;
-
-	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Step)
 		return -ENOTSUP;
 	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Enum)
 		return -ENOTSUP;

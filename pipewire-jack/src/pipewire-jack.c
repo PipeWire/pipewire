@@ -1375,7 +1375,7 @@ static int param_buffers(struct client *c, struct port *p,
 								sizeof(float),
 								MAX_BUFFER_FRAMES * sizeof(float),
 								sizeof(float)),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(p->object->port.type_id == 0 ? sizeof(float) : 1),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 	case 2:
@@ -1531,8 +1531,10 @@ static int client_node_port_use_buffers(void *object,
 	pw_log_debug(NAME" %p: port %p %d %d.%d use_buffers %d", c, p, direction,
 			port_id, mix_id, n_buffers);
 
-	if (n_buffers > MAX_BUFFERS)
+	if (n_buffers > MAX_BUFFERS) {
+		pw_log_error(NAME" %p: too many buffers %u > %u", c, n_buffers, MAX_BUFFERS);
 		return -EINVAL;
+	}
 
 	if (p->object->port.type_id == 2 && direction == SPA_DIRECTION_INPUT) {
 		fl = PW_MEMMAP_FLAG_READ;

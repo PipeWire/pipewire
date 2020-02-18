@@ -179,12 +179,16 @@ param_filter(struct pw_buffers *this,
 
 		for (oidx = 0;;) {
 			pw_log_debug(NAME" %p: output param %d id:%d", this, oidx, id);
-			if (spa_node_port_enum_params_sync(out_port->node,
+			res = spa_node_port_enum_params_sync(out_port->node,
 						out_port->direction, out_port->port_id,
-						id, &oidx, iparam, &oparam, result) != 1) {
+						id, &oidx, iparam, &oparam, result);
+			if (res != 1) {
+				if (res == -ENOENT && iparam) {
+					spa_pod_builder_raw_padded(result, iparam, SPA_POD_SIZE(iparam));
+					num++;
+				}
 				break;
 			}
-
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_pod(2, NULL, oparam);
 

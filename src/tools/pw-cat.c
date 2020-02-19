@@ -144,7 +144,7 @@ struct data {
 
 	struct spa_io_position *position;
 	bool drained;
-	uint64_t clock_start;
+	uint64_t clock_time;
 
 	struct {
 		int fd;
@@ -968,11 +968,9 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 
         spa_pod_builder_push_sequence(&b, &f, 0);
 
-	if (d->clock_start == 0)
-		d->clock_start = d->position->clock.position;
-
-	first_frame = d->position->clock.position - d->clock_start;
+	first_frame = d->clock_time;
 	last_frame = first_frame + d->position->clock.duration;
+	d->clock_time = last_frame;
 
 	while (1) {
 		uint32_t frame, offset;

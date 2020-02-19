@@ -67,8 +67,8 @@
 #define MAX_OBJECTS			8192
 #define MAX_PORTS			1024
 #define MAX_BUFFERS			2
-#define MAX_BUFFER_DATAS		4u
-#define MAX_BUFFER_MEMS			4
+#define MAX_BUFFER_DATAS		1u
+#define MAX_BUFFER_MEMS			1
 #define MAX_MIX				4096
 #define MAX_IO				32
 
@@ -1368,7 +1368,7 @@ static int param_buffers(struct client *c, struct port *p,
 	case 1:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
 								MAX_BUFFER_FRAMES * sizeof(float),
@@ -1381,7 +1381,7 @@ static int param_buffers(struct client *c, struct port *p,
 	case 2:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								320 * 240 * 4 * 4,

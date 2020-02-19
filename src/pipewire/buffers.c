@@ -277,7 +277,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	} else {
 		pw_log_warn(NAME" %p: no buffers param", result);
 		minsize = 8192;
-		max_buffers = 4;
+		max_buffers = 2;
 	}
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_NO_MEM))

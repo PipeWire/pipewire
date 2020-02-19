@@ -50,8 +50,6 @@ struct midi_track {
 	int64_t tick;
 	uint8_t running_status;
 	unsigned int eof:1;
-
-	struct spa_list events;
 };
 
 struct midi_file {
@@ -79,7 +77,3 @@ int midi_file_add_track(struct midi_file *mf, struct midi_track *track);
 
 int midi_file_peek_event(struct midi_file *mf, struct midi_event *event);
 int midi_file_consume_event(struct midi_file *mf, struct midi_event *event);
-
-int midi_file_add_event(struct midi_file *mf, struct midi_track *track, struct midi_event *event);
-
-

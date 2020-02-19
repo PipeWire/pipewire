@@ -973,7 +973,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 	d->clock_time = last_frame;
 
 	while (1) {
-		uint32_t frame, offset;
+		uint32_t frame;
 		uint8_t *buf;
 
 		res = midi_file_peek_event(&d->midi.mf, &ev);
@@ -993,11 +993,10 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 			break;
 
 		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
-		offset = b.state.offset;
-		spa_pod_builder_bytes(&b, NULL, ev.size + 1);
-		buf = SPA_POD_BODY(spa_pod_builder_deref(&b, offset));
-		buf[0] = ev.status;
-		memcpy(&buf[1], ev.data, ev.size);
+		if ((buf = spa_pod_builder_reserve_bytes(&b, ev.size + 1)) != NULL) {
+			buf[0] = ev.status;
+			memcpy(&buf[1], ev.data, ev.size);
+		}
 next:
 		midi_file_consume_event(&d->midi.mf, &ev);
 	}

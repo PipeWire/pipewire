@@ -35,17 +35,18 @@ struct midi_event {
 	double sec;
 	uint8_t status;
 	uint8_t meta;
-	uint32_t offset;
-	size_t size;
+
+	uint8_t *data;
+	uint32_t size;
 };
 
 struct midi_track {
 	struct spa_list link;
 
-	uint32_t start;
+	uint8_t *data;
 	uint32_t size;
 
-	uint32_t offset;
+	uint8_t *p;
 	int64_t tick;
 	uint8_t running_status;
 	unsigned int eof:1;
@@ -53,13 +54,11 @@ struct midi_track {
 	struct spa_list events;
 };
 
-struct midi_events {
-	int (*read) (void *data, size_t offset, void *buf, size_t size);
-	int (*write) (void *data, size_t offset, void *buf, size_t size);
-};
-
 struct midi_file {
-	uint32_t size;
+	uint8_t *data;
+	size_t size;
+
+	uint32_t length;
 	uint16_t format;
 	uint16_t ntracks;
 	uint16_t division;
@@ -67,18 +66,14 @@ struct midi_file {
 
 	struct spa_list tracks;
 
-	uint32_t offset;
+	uint8_t *p;
 	int64_t tick;
 	double tick_sec;
 	double tick_start;
-
-	const struct midi_events *events;
-	void *data;
 };
 
-int midi_file_open(struct midi_file *mf, int mode,
-		const struct midi_events *events, void *data);
-int midi_file_close(struct midi_file *mf);
+int midi_file_init(struct midi_file *mf, const char *mode,
+		void *data, size_t size);
 
 int midi_file_add_track(struct midi_file *mf, struct midi_track *track);
 

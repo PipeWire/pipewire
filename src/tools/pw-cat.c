@@ -29,7 +29,9 @@
 #include <time.h>
 #include <math.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <unistd.h>
 #include <assert.h>
@@ -105,7 +107,7 @@ struct data {
 
 	enum mode mode;
 	bool verbose;
-	bool midi;
+	bool is_midi;
 	const char *remote_name;
 	const char *media_type;
 	const char *media_category;
@@ -145,10 +147,12 @@ struct data {
 	uint64_t clock_start;
 
 	struct {
-		FILE *f;
-		struct midi_file file;
+		int fd;
+		void *mem;
+		struct stat st;
+		struct midi_file mf;
 		struct midi_track track[64];
-	} md;
+	} midi;
 };
 
 static inline int
@@ -951,24 +955,12 @@ static void show_usage(const char *name, bool is_error)
 	     "\n");
 }
 
-static int midi_read(void *data, size_t offset, void *buf, size_t size)
-{
-	struct data *d = data;
-	fseek(d->md.f, offset, SEEK_SET);
-	return fread(buf, 1, size, d->md.f);
-}
-
-static const struct midi_events midi_events = {
-	.read = midi_read,
-};
-
 static int midi_play(struct data *d, void *src, unsigned int n_frames)
 {
 	int res;
 	struct midi_event ev;
 	struct spa_pod_builder b;
 	struct spa_pod_frame f;
-	uint8_t buf[4096];
 	uint32_t first_frame, last_frame;
 
 	spa_zero(b);
@@ -983,9 +975,10 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 	last_frame = first_frame + d->position->clock.duration;
 
 	while (1) {
-		uint32_t frame;
+		uint32_t frame, offset;
+		uint8_t *buf;
 
-		res = midi_file_peek_event(&d->md.file, &ev);
+		res = midi_file_peek_event(&d->midi.mf, &ev);
 		if (res < 0)
 			return res;
 
@@ -1002,12 +995,13 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 			break;
 
 		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+		offset = b.state.offset;
+		spa_pod_builder_bytes(&b, NULL, ev.size + 1);
+		buf = SPA_POD_BODY(spa_pod_builder_deref(&b, offset));
 		buf[0] = ev.status;
-		midi_read(d, ev.offset, &buf[1], ev.size);
-		spa_pod_builder_bytes(&b, buf, ev.size + 1);
-
+		memcpy(&buf[1], ev.data, ev.size);
 next:
-		midi_file_consume_event(&d->md.file, &ev);
+		midi_file_consume_event(&d->midi.mf, &ev);
 	}
 	spa_pod_builder_pop(&b, &f);
 
@@ -1019,28 +1013,35 @@ static int setup_midifile(struct data *data)
 	int res;
 	uint16_t i;
 
-	data->md.f = fopen(data->filename,
-			data->mode == mode_playback ? "r" : "w");
-	if (data->md.f == NULL) {
-		fprintf(stderr, "error: failed to open midi file \"%s\": %m\n",
-				data->filename);
+	if (stat(data->filename, &data->midi.st)) {
+		fprintf(stderr,"error: can't find file '%s': %m\n", data->filename);
 		return -errno;
 	}
 
-	if ((res = midi_file_open(&data->md.file, 0, &midi_events, data)) < 0)
+	if ((data->midi.fd = open(data->filename, O_RDONLY)) < 0) {
+		fprintf(stderr, "error: open '%s' failed : %m\n", data->filename);
+		return -errno;
+	}
+
+	data->midi.mem = mmap(NULL, data->midi.st.st_size, PROT_READ, MAP_SHARED, data->midi.fd, 0);
+	if (data->midi.mem == MAP_FAILED) {
+		fprintf(stderr, "error: mmap '%s' failed : %m\n", data->filename);
+		close(data->midi.fd);
+		return -errno;
+	}
+	if ((res = midi_file_init(&data->midi.mf, "r", data->midi.mem, data->midi.st.st_size)) < 0)
 		return -errno;
 
 	if (data->verbose)
 		printf("opened file \"%s\" format %08x ntracks:%d div:%d\n",
 				data->filename,
-				data->md.file.format, data->md.file.ntracks,
-				data->md.file.division);
+				data->midi.mf.format, data->midi.mf.ntracks,
+				data->midi.mf.division);
 
-	for (i = 0; i < data->md.file.ntracks; i++) {
-		midi_file_add_track(&data->md.file, &data->md.track[i]);
+	for (i = 0; i < data->midi.mf.ntracks; i++) {
+		midi_file_add_track(&data->midi.mf, &data->midi.track[i]);
 	}
-	data->fill = data->mode == mode_playback ?
-		midi_play : midi_play;
+	data->fill = data->mode == mode_playback ?  midi_play : midi_play;
 	data->stride = 1;
 
 	return 0;
@@ -1257,7 +1258,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'm':
-			data.midi = true;
+			data.is_midi = true;
 			break;
 
 		case 'R':
@@ -1437,7 +1438,7 @@ int main(int argc, char *argv[])
 	if (!data.list_targets) {
 		struct spa_audio_info_raw info;
 
-		if (data.midi)
+		if (data.is_midi)
 			ret = setup_midifile(&data);
 		else
 			ret = setup_sndfile(&data);
@@ -1453,7 +1454,7 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		if (!data.midi) {
+		if (!data.is_midi) {
 			info = SPA_AUDIO_INFO_RAW_INIT(
 				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
 				.format = data.spa_format,

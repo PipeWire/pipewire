@@ -38,122 +38,107 @@ static inline uint32_t parse_be32(const uint8_t *in)
 	return (in[0] << 24) | (in[1] << 16) | (in[2] << 8) | in[3];
 }
 
-static int read_mthd(struct midi_file *mf)
+static inline int avail(struct midi_file *mf)
 {
-	uint8_t buffer[14];
-	int res;
-
-	if ((res = mf->events->read(mf->data, mf->offset, buffer, 14)) != 14)
-		return res < 0 ? res : -EIO;
-
-	if (memcmp(buffer, "MThd", 4))
-		return -EIO;
-
-	mf->size = parse_be32(buffer + 4);
-	mf->format = parse_be16(buffer + 8);
-	mf->ntracks = parse_be16(buffer + 10);
-	mf->division = parse_be16(buffer + 12);
-	mf->offset += 14;
+	if (mf->p < mf->data + mf->size)
+		return mf->size + mf->data - mf->p;
 	return 0;
 }
 
-int midi_file_open(struct midi_file *mf, int mode,
-		const struct midi_events *events, void *data)
+static int read_mthd(struct midi_file *mf)
+{
+	if (avail(mf) < 14)
+		return -EIO;
+
+	if (memcmp(mf->p, "MThd", 4))
+		return -EIO;
+
+	mf->length = parse_be32(mf->p + 4);
+	mf->format = parse_be16(mf->p + 8);
+	mf->ntracks = parse_be16(mf->p + 10);
+	mf->division = parse_be16(mf->p + 12);
+	mf->p += 14;
+	return 0;
+}
+
+int midi_file_init(struct midi_file *mf, const char *mode,
+		void *data, size_t size)
 {
 	int res;
 
 	spa_zero(*mf);
-
-	mf->events = events;
 	mf->data = data;
+	mf->size = size;
+	mf->p = data;
 
 	if ((res = read_mthd(mf)) < 0)
 		return res;
 
 	spa_list_init(&mf->tracks);
-	mf->tick = 0;
+
 	mf->tempo = DEFAULT_TEMPO;
+	mf->tick = 0;
 
-	return 0;
-}
-
-int midi_file_close(struct midi_file *mf)
-{
 	return 0;
 }
 
 static int read_mtrk(struct midi_file *mf, struct midi_track *track)
 {
-	uint8_t buffer[8];
-	int res;
-
-	if ((res = mf->events->read(mf->data, mf->offset, buffer, 8)) != 8)
-		return res < 0 ? res : -EIO;
-
-	if (memcmp(buffer, "MTrk", 4))
+	if (avail(mf) < 8)
 		return -EIO;
 
-	track->start = mf->offset+8;
-	track->offset = 0;
-	track->size = parse_be32(buffer + 4);
-	mf->offset += track->size + 8;
+	if (memcmp(mf->p, "MTrk", 4))
+		return -EIO;
+
+	track->p = track->data = mf->p + 8;
+	track->size = parse_be32(mf->p + 4);
+	mf->p += track->size + 8;
 	return 0;
 }
 
 static int parse_varlen(struct midi_file *mf, struct midi_track *tr, uint32_t *result)
 {
-	uint32_t value;
-	uint8_t buffer[1];
-	int i, res;
+	uint32_t i, value = 0;
+	uint8_t b;
 
 	value = 0;
 	for (i = 0; i < 4; i++) {
-		if (tr->offset >= tr->size) {
+		if (tr->p >= tr->data + tr->size) {
 			tr->eof = true;
 			break;
 		}
-
-		if ((res = mf->events->read(mf->data, tr->start + tr->offset, buffer, 1)) != 1)
-			return res < 0 ? res : -EIO;
-
-		tr->offset++;
-
-		value = (value << 7) | ((buffer[0]) & 0x7f);
-		if ((buffer[0] & 0x80) == 0)
+		b = *tr->p++;
+		value = (value << 7) | (b & 0x7f);
+		if ((b & 0x80) == 0)
 			break;
 	}
 	*result = value;
 	return 0;
 }
 
-
 static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_event *event)
 {
-	uint8_t buffer[4], status;
-	uint32_t size = 0, start;
+	uint8_t *save, status;
+	uint32_t size = 0;
 	int res;
 
-	if (tr->eof || tr->offset > tr->size)
+	if (tr->eof || tr->p >= tr->data + tr->size)
 		return -EIO;
 
-	if ((res = mf->events->read(mf->data, tr->start + tr->offset, buffer, 1)) != 1)
-		return res < 0 ? res : -EIO;
+	save = tr->p;
+	status = *tr->p;
 
 	event->track = tr;
 	event->sec = mf->tick_sec + ((tr->tick - mf->tick_start) * (double)mf->tempo) / (1000000.0 * mf->division);
-	start = event->offset = tr->offset;
 
-	status = buffer[0];
 	if ((status & 0x80) == 0) {
 		status = tr->running_status;
+		event->data = tr->p;
 	} else {
 		tr->running_status = status;
-		event->offset++;
+		event->data = ++tr->p;
 	}
-
 	event->status = status;
-
-	tr->offset++;
 
 	if (status < 0xf0) {
 		size++;
@@ -161,16 +146,12 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 			size++;
 	} else {
 		if (status == 0xff) {
-			if ((res = mf->events->read(mf->data, tr->start + tr->offset, buffer, 1)) != 1)
-				return res < 0 ? res : -EIO;
-
-			tr->offset++;
+			event->meta = *tr->p++;
 
 			if ((res = parse_varlen(mf, tr, &size)) < 0)
 				return res;
 
-			event->meta = buffer[0];
-			event->offset = tr->offset;
+			event->data = tr->p;
 
 			switch (event->meta) {
 			case 0x2f:
@@ -179,27 +160,22 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 			case 0x51:
 				if (size < 3)
 					break;
-
-				if ((res = mf->events->read(mf->data, tr->start + tr->offset, buffer, 3)) != 3)
-					return res < 0 ? res : -EIO;
-
 				mf->tick_sec = event->sec;
 				mf->tick_start = tr->tick;
-				mf->tempo = (buffer[0]<<16) | (buffer[1]<<8) | buffer[2];
+				mf->tempo = (tr->p[0]<<16) | (tr->p[1]<<8) | tr->p[2];
 				break;
 			}
 
 		} else if (status == 0xf0 || status == 0xf7) {
 			if ((res = parse_varlen(mf, tr, &size)) < 0)
 				return res;
-			event->offset = tr->offset;
+			event->data = tr->p;
 		} else {
 			return -EIO;
 		}
 	}
-	tr->offset = start;
+	tr->p = save;
 
-	event->offset += tr->start;
 	event->size = size;
 
 	return 0;
@@ -245,7 +221,7 @@ int midi_file_consume_event(struct midi_file *mf, struct midi_event *event)
 	uint32_t delta_time;
 	int res;
 
-	tr->offset = event->offset - tr->start + event->size;
+	tr->p = event->data + event->size;
 	if ((res = parse_varlen(mf, tr, &delta_time)) < 0)
 		return res;
 	tr->tick += delta_time;

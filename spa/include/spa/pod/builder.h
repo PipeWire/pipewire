@@ -137,7 +137,7 @@ static inline int spa_pod_builder_raw(struct spa_pod_builder *builder, const voi
 		spa_callbacks_call_res(&builder->callbacks, struct spa_pod_builder_callbacks, res,
 				overflow, 0, offset + size);
 	}
-	if (res == 0)
+	if (res == 0 && data)
 		memcpy(SPA_MEMBER(builder->data, offset, void), data, size);
 
 	builder->state.offset += size;

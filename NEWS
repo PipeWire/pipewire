@@ -1,3 +1,22 @@
+PipeWire 0.2.97
+
+Eigth pre-release for upcomming 0.3:
+
+- Build fixes
+- pw-cat improvement: Fix remote name, add midi support
+- add device subscribe params for completeness
+- jack and pulseaudio compatibility fixes
+- Fix a bug in resampler, add quality option, tweaked quality
+  settings, tested now against https://src.infinitewave.ca/
+  testsignals and submitted results for publication.
+- Fix awkwardness in buffer negotiations, the default number of
+  buffers was 4 and jack could only handle 2, causing
+  corruption. Also implement negotiation of Step ranges.
+- Fix device reservation to work together with pulseaudio,
+  previously we would block pulseaudio.
+
+Older versions:
+
 PipeWire 0.2.96
 
 Seventh pre-release for upcomming 0.3:
@@ -13,8 +32,6 @@ Seventh pre-release for upcomming 0.3:
 - Fix timing for gstreamer source
 - Require libspa in pkg-config file
 - Limit buffers to 16 to support old clients
-
-Older versions:
 
 PipeWire 0.2.95
 

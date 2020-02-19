@@ -35,10 +35,14 @@ extern "C" {
 struct rd_device;
 
 struct rd_device_callbacks {
-	/** the device is acquired */
+	/** the device is acquired by us */
 	void (*acquired) (void *data, struct rd_device *d);
 	/** request a release of the device */
 	void (*release) (void *data, struct rd_device *d, int forced);
+	/** the device is busy by someone else */
+	void (*busy) (void *data, struct rd_device *d, const char *name, int32_t priority);
+	/** the device is made available by someone else */
+	void (*available) (void *data, struct rd_device *d, const char *name);
 };
 
 /* create a new device and start watching */
@@ -53,7 +57,7 @@ rd_device_new(DBusConnection *connection,		/**< Bus to watch */
 		void *data);
 
 /** try to acquire the device */
-int rd_device_request_acquire(struct rd_device *d);
+int rd_device_acquire(struct rd_device *d);
 
 /** request the owner to release the device */
 int rd_device_request_release(struct rd_device *d);

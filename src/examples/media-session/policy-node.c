@@ -334,12 +334,18 @@ static int find_node(void *data, struct node *node)
 	struct impl *impl = find->impl;
 	int priority = 0;
 	uint64_t plugged = 0;
+	struct sm_device *device = node->obj->device;
 
 	pw_log_debug(NAME " %p: looking at node '%d' enabled:%d state:%d peer:%p exclusive:%d",
 			impl, node->id, node->enabled, node->obj->info->state, node->peer, node->exclusive);
 
 	if (!node->enabled || node->type == NODE_TYPE_UNKNOWN)
 		return 0;
+
+	if (device && device->locked) {
+		pw_log_debug(".. device locked");
+		return 0;
+	}
 
 	if (node->direction == find->target->direction) {
 		pw_log_debug(".. same direction");

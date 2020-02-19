@@ -92,6 +92,8 @@ static void idle_timeout(void *data, uint64_t expirations)
 	remove_idle_timeout(node);
 
 	pw_node_send_command((struct pw_node*)node->obj->obj.proxy, cmd);
+
+	sm_object_release(&node->obj->obj);
 }
 
 static void add_idle_timeout(struct node *node)
@@ -118,6 +120,7 @@ static int on_node_idle(struct impl *impl, struct node *node)
 static int on_node_running(struct impl *impl, struct node *node)
 {
 	pw_log_debug(NAME" %p: node %d running", impl, node->id);
+	sm_object_acquire(&node->obj->obj);
 	remove_idle_timeout(node);
 	return 0;
 }

@@ -67,6 +67,7 @@ struct node {
 	struct spa_node *node;
 
 	struct sm_node *snode;
+	unsigned int acquired:1;
 };
 
 struct device {
@@ -81,6 +82,7 @@ struct device {
 	int priority;
 
 	int profile;
+	int pending_profile;
 
 	struct pw_properties *props;
 
@@ -90,6 +92,8 @@ struct device {
 
 	struct sm_device *sdevice;
 	struct spa_hook listener;
+
+	uint32_t n_acquired;
 
 	unsigned int first:1;
 	unsigned int appeared:1;
@@ -137,6 +141,46 @@ static void alsa_update_node(struct device *device, struct node *node,
 
 	pw_properties_update(node->props, info->props);
 }
+
+static int node_acquire(void *data)
+{
+	struct node *node = data;
+	struct device *device = node->device;
+
+	pw_log_debug("acquire %u", node->id);
+
+	if (node->acquired)
+		return 0;
+
+	node->acquired = true;
+
+	if (device && device->n_acquired++ == 0)
+		rd_device_acquire(device->reserve);
+	return 0;
+}
+
+static int node_release(void *data)
+{
+	struct node *node = data;
+	struct device *device = node->device;
+
+	pw_log_debug("release %u", node->id);
+
+	if (!node->acquired)
+		return 0;
+
+	node->acquired = false;
+
+	if (device && --device->n_acquired == 0)
+		rd_device_release(device->reserve);
+	return 0;
+}
+
+static const struct sm_object_methods node_methods = {
+	SM_VERSION_OBJECT_METHODS,
+	.acquire = node_acquire,
+	.release = node_release,
+};
 
 static struct node *alsa_create_node(struct device *device, uint32_t id,
 		const struct spa_device_object_info *info)
@@ -241,6 +285,8 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		res = -errno;
 		goto clean_node;
 	}
+
+	node->snode->obj.methods = SPA_CALLBACKS_INIT(&node_methods, node);
 
 	spa_list_append(&device->node_list, &node->link);
 
@@ -398,6 +444,23 @@ static int update_device_props(struct device *device)
 	return 1;
 }
 
+static void set_profile(struct device *device, int index)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
+
+	if (device->device_id != 0) {
+		device->profile = index;
+		spa_device_set_param(device->device,
+				SPA_PARAM_Profile, 0,
+				spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+					SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
+	}
+}
+
 static void set_jack_profile(struct impl *impl, int index)
 {
 	char buf[1024];
@@ -411,23 +474,6 @@ static void set_jack_profile(struct impl *impl, int index)
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
-}
-
-static void set_profile(struct device *device, int index)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
-
-	device->profile = index;
-	if (device->device_id != 0) {
-		spa_device_set_param(device->device,
-				SPA_PARAM_Profile, 0,
-				spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-					SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
-	}
 }
 
 static void remove_jack_timeout(struct impl *impl)
@@ -463,19 +509,18 @@ static void add_jack_timeout(struct impl *impl)
 static void reserve_acquired(void *data, struct rd_device *d)
 {
 	struct device *device = data;
-	struct impl *impl = device->impl;
 
-	pw_log_debug("%p: reserve acquired", device);
+	pw_log_debug("%p: reserve acquired %d", device, device->n_acquired);
 
-	remove_jack_timeout(impl);
-	set_jack_profile(impl, 0);
-	set_profile(device, 1);
+	device->sdevice->locked = false;
+
+	if (device->n_acquired == 0)
+		rd_device_release(device->reserve);
 }
 
 static void sync_complete_done(void *data, int seq)
 {
 	struct device *device = data;
-	struct impl *impl = device->impl;
 
 	pw_log_debug("%d %d", device->seq, seq);
 	if (seq != device->seq)
@@ -486,8 +531,6 @@ static void sync_complete_done(void *data, int seq)
 
 	if (device->reserve)
 		rd_device_complete_release(device->reserve, true);
-
-	add_jack_timeout(impl);
 }
 
 static void sync_destroy(void *data)
@@ -506,11 +549,9 @@ static const struct pw_proxy_events sync_complete_release = {
 static void reserve_release(void *data, struct rd_device *d, int forced)
 {
 	struct device *device = data;
-	struct impl *impl = device->impl;
 
 	pw_log_debug("%p: reserve release", device);
 
-	remove_jack_timeout(impl);
 	set_profile(device, 0);
 
 	if (device->seq == 0)
@@ -520,9 +561,41 @@ static void reserve_release(void *data, struct rd_device *d, int forced)
 	device->seq = pw_proxy_sync(device->sdevice->obj.proxy, 0);
 }
 
+static void reserve_busy(void *data, struct rd_device *d, const char *name, int32_t prio)
+{
+	struct device *device = data;
+	struct impl *impl = device->impl;
+
+	pw_log_debug("%p: reserve busy %s", device, name);
+	device->sdevice->locked = true;
+
+	if (strcmp(name, "jack") == 0) {
+		add_jack_timeout(impl);
+	} else {
+		remove_jack_timeout(impl);
+	}
+}
+
+static void reserve_available(void *data, struct rd_device *d, const char *name)
+{
+	struct device *device = data;
+	struct impl *impl = device->impl;
+
+	pw_log_debug("%p: reserve available %s", device, name);
+	device->sdevice->locked = false;
+
+	remove_jack_timeout(impl);
+	if (strcmp(name, "jack") == 0) {
+		set_jack_profile(impl, 0);
+	}
+
+}
+
 static const struct rd_device_callbacks reserve_callbacks = {
 	.acquired = reserve_acquired,
 	.release = reserve_release,
+	.busy = reserve_busy,
+	.available = reserve_available,
 };
 
 static void device_destroy(void *data)
@@ -542,18 +615,17 @@ static void device_update(void *data)
 
 	pw_log_debug("device %p appeared %d %d", device, device->appeared, device->profile);
 
-	if (device->appeared)
-		return;
+	if (!device->appeared) {
+		device->device_id = device->sdevice->obj.id;
+		device->appeared = true;
 
-	device->device_id = device->sdevice->obj.id;
-	device->appeared = true;
-
-	spa_device_add_listener(device->device,
-		&device->device_listener,
-		&alsa_device_events, device);
-
-	set_profile(device, device->profile);
-	sm_object_sync_update(&device->sdevice->obj);
+		spa_device_add_listener(device->device,
+			&device->device_listener,
+			&alsa_device_events, device);
+		sm_object_sync_update(&device->sdevice->obj);
+	}
+	if (device->pending_profile != device->profile && !device->sdevice->locked)
+		set_profile(device, device->pending_profile);
 }
 
 static const struct sm_object_events device_events = {
@@ -634,14 +706,12 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		} else {
 			rd_device_set_application_device_name(device->reserve,
 				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
+
+			rd_device_acquire(device->reserve);
 		}
 		device->priority -= atol(card) * 64;
 	}
-
-	/* no device reservation, activate device right now */
-	if (device->reserve == NULL)
-		set_profile(device, 1);
-
+	device->pending_profile = 1;
 	device->first = true;
 	spa_list_init(&device->node_list);
 	spa_list_append(&impl->device_list, &device->link);

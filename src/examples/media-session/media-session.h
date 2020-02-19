@@ -45,6 +45,14 @@ struct sm_object_events {
 	void (*destroy) (void *data);
 };
 
+struct sm_object_methods {
+#define SM_VERSION_OBJECT_METHODS	0
+	uint32_t version;
+
+	int (*acquire) (void *data);
+	int (*release) (void *data);
+};
+
 struct sm_object {
 	uint32_t id;
 	const char *type;
@@ -71,11 +79,19 @@ struct sm_object {
 	struct spa_hook handle_listener;
 	struct spa_hook_list hooks;
 
+	struct spa_callbacks methods;
+
 	struct spa_list data;
 };
 
 int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,
 		const struct sm_object_events *events, void *data);
+
+#define sm_object_call(o,...)		spa_callbacks_call(&(o)->methods, struct sm_object_methods, __VA_ARGS__)
+#define sm_object_call_res(o,...)	spa_callbacks_call_res(&(o)->methods, struct sm_object_methods, 0, __VA_ARGS__)
+
+#define sm_object_acquire(o)		sm_object_call(o, acquire, 0)
+#define sm_object_release(o)		sm_object_call(o, release, 0)
 
 struct sm_param {
 	uint32_t id;
@@ -104,6 +120,7 @@ struct sm_device {
 	struct sm_object obj;
 
 	unsigned int subscribe:1;	/**< if we subscribed to param changes */
+	unsigned int locked:1;		/**< if the device is locked by someone else right now */
 
 #define SM_DEVICE_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 #define SM_DEVICE_CHANGE_MASK_PARAMS	(SM_OBJECT_CHANGE_MASK_LAST<<1)
@@ -113,7 +130,6 @@ struct sm_device {
 	struct pw_device_info *info;
 	struct spa_list node_list;
 };
-
 
 struct sm_node {
 	struct sm_object obj;

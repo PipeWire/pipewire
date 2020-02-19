@@ -297,6 +297,28 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 			d->registered = false;
 		}
 	}
+	if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged")) {
+		const char *old, *new;
+		if (!dbus_message_get_args( m, &error,
+			    DBUS_TYPE_STRING, &name,
+			    DBUS_TYPE_STRING, &old,
+			    DBUS_TYPE_STRING, &new,
+			    DBUS_TYPE_INVALID))
+			goto invalid;
+
+		if (strcmp(name, d->service_name) != 0)
+			goto invalid;
+
+		pw_log_debug(NAME" %p: changed %s: %s -> %s", d, name, old, new);
+
+		if (old == NULL || *old == 0) {
+			if (d->callbacks->busy)
+				d->callbacks->busy(d->data, d, new, 0);
+		} else {
+			if (d->callbacks->available)
+				d->callbacks->available(d->data, d, old);
+		}
+	}
 
 invalid:
 	dbus_error_free(&error);
@@ -308,7 +330,6 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 		int32_t priority, const struct rd_device_callbacks *callbacks, void *data)
 {
 	struct rd_device *d;
-	DBusError error;
 	int res;
 
 	d = calloc(1, sizeof(struct rd_device));
@@ -333,8 +354,6 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 		goto error_free;
 	}
 
-	dbus_error_init(&error);
-
 	if (!dbus_connection_add_filter(d->connection,
 				filter_handler,
 				d,
@@ -348,19 +367,13 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 	dbus_bus_add_match(d->connection,
                         "type='signal',sender='org.freedesktop.DBus',"
                         "interface='org.freedesktop.DBus',member='NameAcquired'", NULL);
-
-	if ((res = dbus_bus_request_name(d->connection,
-					d->service_name,
-					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
-					&error)) < 0) {
-			dbus_error_free(&error);
-			res = -EIO;
-			goto error_free;
-	}
+	dbus_bus_add_match(d->connection,
+                        "type='signal',sender='org.freedesktop.DBus',"
+                        "interface='org.freedesktop.DBus',member='NameOwnerChanged'", NULL);
 
 	dbus_connection_ref(d->connection);
 
-	pw_log_debug(NAME"%p: new device %s: res %d", d, device_name, res);
+	pw_log_debug(NAME"%p: new device %s", d, device_name);
 
 	return d;
 
@@ -370,6 +383,23 @@ error_free:
 	free(d);
 	errno = -res;
 	return NULL;
+}
+
+int rd_device_acquire(struct rd_device *d)
+{
+	int res;
+	DBusError error;
+
+	dbus_error_init(&error);
+
+	if ((res = dbus_bus_request_name(d->connection,
+					d->service_name,
+					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
+					&error)) < 0) {
+			dbus_error_free(&error);
+			res = -EBUSY;
+	}
+	return res;
 }
 
 int rd_device_request_release(struct rd_device *d)

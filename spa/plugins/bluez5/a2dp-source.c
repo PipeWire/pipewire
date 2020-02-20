@@ -303,7 +303,7 @@ static void reset_buffers(struct port *port)
 
 static void decode_sbc_data(struct impl *this, uint8_t *src, size_t src_size)
 {
-	const ssize_t header_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+	const size_t header_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 	struct port *port = &this->port;
 	struct spa_io_buffers *io = port->io;
 	int32_t io_done_status = io->status;

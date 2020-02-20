@@ -114,7 +114,8 @@ struct impl {
 };
 
 #define IS_MONITOR_PORT(this,dir,port_id) (dir == SPA_DIRECTION_OUTPUT && port_id > 0 &&	\
-		this->mode[SPA_DIRECTION_INPUT] == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+		this->mode[SPA_DIRECTION_INPUT] == SPA_PARAM_PORT_CONFIG_MODE_dsp &&		\
+		this->mode[SPA_DIRECTION_OUTPUT] != SPA_PARAM_PORT_CONFIG_MODE_dsp)
 
 static void emit_node_info(struct impl *this, bool full)
 {

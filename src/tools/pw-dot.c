@@ -98,7 +98,7 @@ static void dot_str_clear(char **str)
 	}
 }
 
-static void dot_str_vadd(char **str, const char *fmt, va_list varargs)
+static SPA_PRINTF_FUNC(2,0) void dot_str_vadd(char **str, const char *fmt, va_list varargs)
 {
 	char *res = NULL;
 	char *fmt2 = NULL;
@@ -122,7 +122,7 @@ static void dot_str_vadd(char **str, const char *fmt, va_list varargs)
 	*str = res;
 }
 
-static void dot_str_add(char **str, const char *fmt, ...)
+static SPA_PRINTF_FUNC(2,3) void dot_str_add(char **str, const char *fmt, ...)
 {
 	va_list varargs;
 	va_start(varargs, fmt);
@@ -149,7 +149,7 @@ static void draw_dict(char **str, const char *title,
 	}
 }
 
-static void draw_vlabel(char **str, const char *name, uint32_t id, bool detail,
+static SPA_PRINTF_FUNC(7,0) void draw_vlabel(char **str, const char *name, uint32_t id, bool detail,
 		       const struct spa_dict *info_p, const struct spa_dict *p,
 		       const char *fmt, va_list varargs)
 {
@@ -168,7 +168,7 @@ static void draw_vlabel(char **str, const char *name, uint32_t id, bool detail,
 	dot_str_add(str, "%s", "\"];\n");
 }
 
-static void draw_label(char **str, const char *name, uint32_t id, bool detail,
+static SPA_PRINTF_FUNC(7,8) void draw_label(char **str, const char *name, uint32_t id, bool detail,
 		       const struct spa_dict *info_p, const struct spa_dict *p,
 		       const char *fmt, ...)
 {
@@ -233,8 +233,7 @@ static void draw_node(struct global *g)
 	dot_str_add(dot_str, "node_id: %u\\lname: %s\\lmedia_class: %s\\l",
 		g->id,
 		spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
-		spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS),
-		spa_dict_lookup(info->props, PW_KEY_OBJECT_ID));
+		spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS));
 	if (g->data->show_detail) {
 		draw_dict(dot_str, "info_props", info->props);
 		draw_dict(dot_str, "properties", &g->props->dict);

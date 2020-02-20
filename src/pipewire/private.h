@@ -208,7 +208,7 @@ struct pw_global {
 #define pw_core_resource_add_mem(r,...)		pw_core_resource(r,add_mem,0,__VA_ARGS__)
 #define pw_core_resource_remove_mem(r,...)	pw_core_resource(r,remove_mem,0,__VA_ARGS__)
 
-static inline void
+static inline SPA_PRINTF_FUNC(5,0) void
 pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
 		int res, const char *message, va_list args)
 {
@@ -218,7 +218,7 @@ pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
 	pw_core_resource_error(resource, id, seq, res, buffer);
 }
 
-static inline void
+static inline SPA_PRINTF_FUNC(5,6) void
 pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 		int res, const char *message, ...)
 {

@@ -34,7 +34,7 @@ extern "C" {
 #include <spa/utils/type.h>
 #include <spa/support/log.h>
 
-static inline void spa_log_impl_logv(void *object,
+static inline SPA_PRINTF_FUNC(6, 0) void spa_log_impl_logv(void *object,
 				     enum spa_log_level level,
 				     const char *file,
 				     int line,
@@ -50,7 +50,7 @@ static inline void spa_log_impl_logv(void *object,
                 levels[level], strrchr(file, '/') + 1, line, func, text);
         fputs(location, stderr);
 }
-static inline void spa_log_impl_log(void *object,
+static inline SPA_PRINTF_FUNC(6,7) void spa_log_impl_log(void *object,
 				    enum spa_log_level level,
 				    const char *file,
 				    int line,

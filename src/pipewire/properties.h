@@ -83,7 +83,7 @@ pw_properties_setf(struct pw_properties *properties,
 		   const char *key, const char *format, ...) SPA_PRINTF_FUNC(3, 4);
 int
 pw_properties_setva(struct pw_properties *properties,
-		   const char *key, const char *format, va_list args);
+		   const char *key, const char *format, va_list args) SPA_PRINTF_FUNC(3,0);
 const char *
 pw_properties_get(const struct pw_properties *properties, const char *key);
 

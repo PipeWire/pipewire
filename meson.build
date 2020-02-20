@@ -52,6 +52,7 @@ if cc.get_id() == 'gcc'
 			'-Wimplicit-fallthrough',
 			'-Wpointer-arith',
 			'-Wformat-security',
+			'-Werror=suggest-attribute=format',
 #			'-DSPA_DEBUG_MEMCPY',
 #			'-DFASTPATH',
 			language : 'c')

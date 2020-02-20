@@ -63,7 +63,7 @@ struct impl {
 	unsigned int timestamp:1;
 };
 
-static void
+static SPA_PRINTF_FUNC(6,0) void
 impl_log_logv(void *object,
 	      enum spa_log_level level,
 	      const char *file,
@@ -125,7 +125,7 @@ impl_log_logv(void *object,
 }
 
 
-static void
+static SPA_PRINTF_FUNC(6,7) void
 impl_log_log(void *object,
 	     enum spa_log_level level,
 	     const char *file,

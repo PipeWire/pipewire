@@ -1,3 +1,41 @@
+PipeWire 0.3.0
+
+The 0.3 release is a major milestone in the developement of
+PipeWire. It features a complete redesign of the scheduling
+mechanisms that make it possible to run a JACK compatibility
+layer with comparable performance to JACK2.
+
+The API has been reworked and is declared stable now. All
+developement files and runtime paths are versioned so that
+future incompatible changes can be done without breaking
+exising applications.
+
+PipeWire 0.3 also includes a (now mandatory) session manager
+that populates and controls the PipeWire graph. This example
+session manager is very simple and not configurable. It is
+expected that future version will either switch to a more
+flexible session manager (like WirePlumber) or improve the
+configuration options of the example session manager.
+
+PipeWire 0.3 includes both PulseAudio, JACK and ALSA
+compatibility libraries that are known to support a wide range
+of applications. The ALSA library is pretty complete at this
+point. The JACK and mostly the PulseAudio compatibility
+libraries need more work. See the Wiki pages for the current
+compatibility problems. We do not yet encourage people to
+switch away from their existing audio solutions (PulseAudio
+or JACK) but we would love to hear from people who try it
+anyways. Future versions will mostly focus on improving
+compatibility further to make PipeWire a drop-in replacement.
+
+PipeWire comes with some GStreamer plugins to consume and
+produce data for PipeWire. The consumer (pipewiresrc) is
+working well in most cases. The sink (pipewiresink) is known
+to be somewhat problematic for now.
+
+
+Older versions:
+
 PipeWire 0.2.97
 
 Eigth pre-release for upcomming 0.3:
@@ -14,8 +52,6 @@ Eigth pre-release for upcomming 0.3:
   corruption. Also implement negotiation of Step ranges.
 - Fix device reservation to work together with pulseaudio,
   previously we would block pulseaudio.
-
-Older versions:
 
 PipeWire 0.2.96
 

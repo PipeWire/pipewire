@@ -224,7 +224,7 @@ static void draw_node(struct global *g)
 
 	/* draw the node header */
 	dot_str_add(dot_str, "subgraph cluster_node_%u {\n", g->id);
-	dot_str_add(dot_str, "bgcolor=lightgreen;\n");
+	dot_str_add(dot_str, "bgcolor=palegreen;\n");
 
 	/* draw the label header */
 	dot_str_add(dot_str, "label=\"");

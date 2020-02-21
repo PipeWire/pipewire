@@ -576,6 +576,18 @@ impl_node_port_enum_params(void *object, int seq,
 			return 0;
 		}
 		break;
+	case SPA_PARAM_IO:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
+			break;
+		default:
+			return 0;
+		}
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -728,11 +740,13 @@ impl_node_port_set_io(void *object,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 	port = &this->port;
 
-	if (id == SPA_IO_Buffers)
+	switch (id) {
+	case SPA_IO_Buffers:
 		port->io = data;
-	else
+		break;
+	default:
 		return -ENOENT;
-
+	}
 	return 0;
 }
 

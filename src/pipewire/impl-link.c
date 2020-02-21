@@ -52,6 +52,9 @@ struct impl {
 	unsigned int activated:1;
 	unsigned int passive:1;
 
+	unsigned int output_destroyed:1;
+	unsigned int input_destroyed:1;
+
 	struct pw_work_queue *work;
 
 	struct spa_pod *format_filter;
@@ -359,14 +362,17 @@ error:
 }
 
 static int port_set_io(struct pw_impl_link *this, struct pw_impl_port *port, uint32_t id,
-		void *data, size_t size, struct pw_impl_port_mix *mix)
+		void *data, size_t size, struct pw_impl_port_mix *mix, bool destroyed)
 {
 	int res = 0;
 
 	mix->io = data;
-	pw_log_debug(NAME" %p: %s port %p %d.%d set io: %d %p %zd", this,
+	pw_log_debug(NAME" %p: %s port %p %d.%d set io: %d %p %zd destroyed:%d", this,
 			pw_direction_as_string(port->direction),
-			port, port->port_id, mix->port.port_id, id, data, size);
+			port, port->port_id, mix->port.port_id, id, data, size, destroyed);
+
+	if (destroyed)
+		return 0;
 
 	if ((res = spa_node_port_set_io(port->mix,
 			     mix->port.direction,
@@ -541,11 +547,13 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 
 	if (!impl->io_set) {
 		if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-				sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+				sizeof(struct spa_io_buffers), &this->rt.out_mix,
+				impl->output_destroyed)) < 0)
 			return res;
 
 		if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
-				sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
+				sizeof(struct spa_io_buffers), &this->rt.in_mix,
+				impl->input_destroyed)) < 0)
 			return res;
 		impl->io_set = true;
 	}
@@ -633,10 +641,12 @@ static void input_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	spa_list_remove(&this->input_link);
 	pw_impl_port_emit_link_removed(this->input, this);
 
-	if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
-		pw_log_warn(NAME" %p: port %p clear error %s", this, port, spa_strerror(res));
+	if (!impl->input_destroyed) {
+		if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
+			pw_log_warn(NAME" %p: port %p clear error %s", this, port, spa_strerror(res));
+		}
+		pw_impl_port_release_mix(port, mix);
 	}
-	pw_impl_port_release_mix(port, mix);
 	this->input = NULL;
 }
 
@@ -653,10 +663,11 @@ static void output_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	spa_list_remove(&this->output_link);
 	pw_impl_port_emit_link_removed(this->output, this);
 
-	/* we don't clear output buffers when the link goes away. They will get
-	 * cleared when the node goes to suspend */
-
-	pw_impl_port_release_mix(port, mix);
+	if (!impl->output_destroyed) {
+		/* we don't clear output buffers when the link goes away. They will get
+		 * cleared when the node goes to suspend */
+		pw_impl_port_release_mix(port, mix);
+	}
 	this->output = NULL;
 }
 
@@ -672,12 +683,14 @@ static void on_port_destroy(struct pw_impl_link *this, struct pw_impl_port *port
 static void input_port_destroy(void *data)
 {
 	struct impl *impl = data;
+	impl->input_destroyed = true;
 	on_port_destroy(&impl->this, impl->this.input);
 }
 
 static void output_port_destroy(void *data)
 {
 	struct impl *impl = data;
+	impl->output_destroyed = true;
 	on_port_destroy(&impl->this, impl->this.output);
 }
 
@@ -748,8 +761,10 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 		pw_loop_invoke(this->output->node->data_loop,
 			       do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, this);
 
-		port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0, &this->rt.out_mix);
-		port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
+		port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0,
+				&this->rt.out_mix, impl->output_destroyed);
+		port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0,
+				&this->rt.in_mix, impl->input_destroyed);
 
 		impl->io_set = false;
 		impl->activated = false;

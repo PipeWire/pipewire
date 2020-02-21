@@ -62,7 +62,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 
 	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
 		pw_log_error("connect failed: XDG_RUNTIME_DIR not set in the environment");
-		res = -EIO;
+		res = -ENOENT;
 		goto error;
         }
 
@@ -80,13 +80,15 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
         if (name_size > (int) sizeof addr.sun_path) {
                 pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
                              runtime_dir, name);
-		res = -ENOSPC;
-                goto error_close;
+		res = -ENAMETOOLONG;
+		goto error_close;
         };
 
         size = offsetof(struct sockaddr_un, sun_path) + name_size;
 
         if (connect(fd, (struct sockaddr *) &addr, size) < 0) {
+		if (errno == ENOENT)
+			errno = EHOSTDOWN;
 		res = -errno;
                 goto error_close;
 	}

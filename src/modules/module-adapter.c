@@ -64,7 +64,7 @@ struct node_data {
 	struct factory_data *data;
 	struct spa_list link;
 	struct pw_impl_node *adapter;
-	struct pw_impl_node *slave;
+	struct pw_impl_node *follower;
 	struct spa_hook adapter_listener;
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
@@ -95,7 +95,7 @@ static void node_destroy(void *data)
 static void node_free(void *data)
 {
 	struct node_data *nd = data;
-	pw_impl_node_destroy(nd->slave);
+	pw_impl_node_destroy(nd->follower);
 }
 
 static void node_initialized(void *data)
@@ -145,7 +145,7 @@ static void *create_object(void *_data,
 {
 	struct factory_data *d = _data;
 	struct pw_impl_client *client;
-	struct pw_impl_node *adapter, *slave;
+	struct pw_impl_node *adapter, *follower;
 	const char *str, *factory_name;
 	int res;
 	struct node_data *nd;
@@ -163,30 +163,30 @@ static void *create_object(void *_data,
 				pw_impl_client_get_info(client)->id);
 	}
 
-	slave = NULL;
-	str = pw_properties_get(properties, "adapt.slave.node");
+	follower = NULL;
+	str = pw_properties_get(properties, "adapt.follower.node");
 	if (str != NULL) {
-		if (sscanf(str, "pointer:%p", &slave) != 1)
+		if (sscanf(str, "pointer:%p", &follower) != 1)
 			goto error_properties;
 
-		pw_properties_setf(properties, "audio.adapt.slave", "pointer:%p", slave);
+		pw_properties_setf(properties, "audio.adapt.follower", "pointer:%p", follower);
 	}
-	if (slave == NULL) {
+	if (follower == NULL) {
 		factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 		if (factory_name == NULL)
 			goto error_properties;
 
-		slave = pw_spa_node_load(d->context,
+		follower = pw_spa_node_load(d->context,
 					factory_name,
 					PW_SPA_NODE_FLAG_ACTIVATE |
 					PW_SPA_NODE_FLAG_NO_REGISTER,
 					pw_properties_copy(properties), 0);
-		if (slave == NULL)
+		if (follower == NULL)
 			goto error_no_mem;
 	}
 
 	adapter = pw_adapter_new(pw_impl_module_get_context(d->module),
-			slave,
+			follower,
 			properties,
 			sizeof(struct node_data));
 	properties = NULL;
@@ -201,7 +201,7 @@ static void *create_object(void *_data,
 	nd = pw_adapter_get_user_data(adapter);
 	nd->data = d;
 	nd->adapter = adapter;
-	nd->slave = slave;
+	nd->follower = follower;
 	nd->resource = resource;
 	nd->new_id = new_id;
 	spa_list_append(&d->node_list, &nd->link);

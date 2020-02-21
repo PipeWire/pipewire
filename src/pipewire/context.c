@@ -729,12 +729,12 @@ static int collect_nodes(struct pw_impl_node *driver)
 	uint32_t min_quantum = 0;
 	uint32_t quantum;
 
-	spa_list_consume(t, &driver->slave_list, slave_link) {
-		spa_list_remove(&t->slave_link);
-		spa_list_init(&t->slave_link);
+	spa_list_consume(t, &driver->follower_list, follower_link) {
+		spa_list_remove(&t->follower_link);
+		spa_list_init(&t->follower_link);
 	}
 
-	pw_log_info("driver %p: '%s'", driver, driver->name);
+	pw_log_debug("driver %p: '%s'", driver, driver->name);
 
 	spa_list_init(&queue);
 	spa_list_append(&queue, &driver->sort_link);
@@ -791,34 +791,34 @@ int pw_context_recalc_graph(struct pw_context *context)
 	/* start from all drivers and group all nodes that are linked
 	 * to it. Some nodes are not (yet) linked to anything and they
 	 * will end up 'unassigned' to a master. Other nodes are master
-	 * and if they have active slaves, we can use them to schedule
+	 * and if they have active followers, we can use them to schedule
 	 * the unassigned nodes. */
 	target = NULL;
 	spa_list_for_each(n, &context->driver_list, driver_link) {
-		uint32_t active_slaves;
+		uint32_t active_followers;
 
 		if (n->active && !n->visited)
 			collect_nodes(n);
 
 		/* from now on we are only interested in nodes that are
-		 * a master. We're going to count the number of slaves it
+		 * a master. We're going to count the number of followers it
 		 * has. */
 		if (!n->master)
 			continue;
 
-		active_slaves = 0;
-		spa_list_for_each(s, &n->slave_list, slave_link) {
-			pw_log_info(NAME" %p: driver %p: slave %p %s: %d",
+		active_followers = 0;
+		spa_list_for_each(s, &n->follower_list, follower_link) {
+			pw_log_debug(NAME" %p: driver %p: follower %p %s: %d",
 					context, n, s, s->name, s->active);
 			if (s != n && s->active)
-				active_slaves++;
+				active_followers++;
 		}
-		pw_log_info(NAME" %p: driver %p active slaves %d",
-				context, n, active_slaves);
+		pw_log_debug(NAME" %p: driver %p active followers %d",
+				context, n, active_followers);
 
-		/* if the master has active slaves, it is a target for our
+		/* if the master has active followers, it is a target for our
 		 * unassigned nodes */
-		if (active_slaves > 0) {
+		if (active_followers > 0) {
 			if (target == NULL)
 				target = n;
 		}
@@ -830,7 +830,7 @@ int pw_context_recalc_graph(struct pw_context *context)
 	spa_list_for_each(n, &context->node_list, link) {
 		if (!n->visited) {
 
-			pw_log_info(NAME" %p: unassigned node %p: '%s' %d %d", context,
+			pw_log_debug(NAME" %p: unassigned node %p: '%s' %d %d", context,
 					n, n->name, n->active, n->want_driver);
 
 			if (!n->want_driver)
@@ -848,7 +848,7 @@ int pw_context_recalc_graph(struct pw_context *context)
 		n->visited = false;
 	}
 
-	/* assign final quantum and debug masters and slaves */
+	/* assign final quantum and debug masters and followers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		if (!n->master)
 			continue;
@@ -859,8 +859,8 @@ int pw_context_recalc_graph(struct pw_context *context)
 		pw_log_info(NAME" %p: master %p quantum:%u '%s'", context, n,
 				n->quantum_current, n->name);
 
-		spa_list_for_each(s, &n->slave_list, slave_link)
-			pw_log_info(NAME" %p: slave %p: active:%d '%s'",
+		spa_list_for_each(s, &n->follower_list, follower_link)
+			pw_log_info(NAME" %p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
 	}
 	return 0;

@@ -112,7 +112,7 @@ struct impl {
 
 	/* Flags */
 	unsigned int started:1;
-	unsigned int slaved:1;
+	unsigned int following:1;
 
 	/* Sources */
 	struct spa_source source;
@@ -238,7 +238,7 @@ static void set_timeout(struct impl *this, time_t sec, long nsec)
 
 static void reset_timeout(struct impl *this)
 {
-	set_timeout(this, 0, this->slaved ? 0 : 1);
+	set_timeout(this, 0, this->following ? 0 : 1);
 }
 
 
@@ -246,8 +246,8 @@ static void set_next_timeout(struct impl *this, uint64_t now_time)
 {
 	struct port *port = &this->port;
 
-	/* Set the next timeout if not slaved, otherwise reset values */
-	if (!this->slaved) {
+	/* Set the next timeout if not following, otherwise reset values */
+	if (!this->following) {
 		/* Get the elapsed time */
 		uint64_t elapsed_time = 0;
 		if (now_time > this->start_time)
@@ -271,7 +271,7 @@ static void set_next_timeout(struct impl *this, uint64_t now_time)
 	}
 }
 
-static int do_reslave(struct spa_loop *loop,
+static int do_reassign_follower(struct spa_loop *loop,
 			bool async,
 			uint32_t seq,
 			const void *data,
@@ -283,7 +283,7 @@ static int do_reslave(struct spa_loop *loop,
 	return 0;
 }
 
-static inline bool is_slaved(struct impl *this)
+static inline bool is_following(struct impl *this)
 {
 	return this->position && this->clock && this->position->clock.id != this->clock->id;
 }
@@ -291,7 +291,7 @@ static inline bool is_slaved(struct impl *this)
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *this = object;
-	bool slaved;
+	bool following;
 
 	spa_return_val_if_fail(object != NULL, -EINVAL);
 
@@ -306,11 +306,11 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		return -ENOENT;
 	}
 
-	slaved = is_slaved(this);
-	if (this->started && slaved != this->slaved) {
-		spa_log_debug(this->log, "sco-sink %p: reslave %d->%d", this, this->slaved, slaved);
-		this->slaved = slaved;
-		spa_loop_invoke(this->data_loop, do_reslave, 0, NULL, 0, true, this);
+	following = is_following(this);
+	if (this->started && following != this->following) {
+		spa_log_debug(this->log, "sco-sink %p: reassign follower %d->%d", this, this->following, following);
+		this->following = following;
+		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
 	}
 	return 0;
 }
@@ -505,8 +505,8 @@ static int do_start(struct impl *this)
 	/* Make sure the transport is valid */
 	spa_return_val_if_fail (this->transport != NULL, -EIO);
 
-	/* Set the slaved flag */
-	this->slaved = is_slaved(this);
+	/* Set the following flag */
+	this->following = is_following(this);
 
 	/* Do accept if Gateway; otherwise do connect for Head Unit */
 	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;

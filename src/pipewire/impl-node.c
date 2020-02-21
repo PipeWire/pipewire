@@ -657,8 +657,8 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	if (driver == NULL)
 		driver = node;
 
-	spa_list_remove(&node->slave_link);
-	spa_list_append(&driver->slave_list, &node->slave_link);
+	spa_list_remove(&node->follower_link);
+	spa_list_append(&driver->follower_list, &node->follower_link);
 
 	if (old == driver)
 		return 0;
@@ -992,7 +992,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this->data_loop = context->data_loop;
 
-	spa_list_init(&this->slave_list);
+	spa_list_init(&this->follower_list);
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -1023,7 +1023,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	check_properties(this);
 
 	this->driver_node = this;
-	spa_list_append(&this->slave_list, &this->slave_link);
+	spa_list_append(&this->follower_list, &this->follower_link);
 	this->master = true;
 
 	return this;
@@ -1480,7 +1480,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_port *port;
-	struct pw_impl_node *slave;
+	struct pw_impl_node *follower;
 
 	node->active = false;
 
@@ -1491,13 +1491,13 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	pw_log_debug(NAME" %p: driver node %p", impl, node->driver_node);
 
-	/* remove ourself as a slave from the driver node */
-	spa_list_remove(&node->slave_link);
+	/* remove ourself as a follower from the driver node */
+	spa_list_remove(&node->follower_link);
 	remove_segment_master(node->driver_node, node->info.id);
 
-	spa_list_consume(slave, &node->slave_list, slave_link) {
-		pw_log_debug(NAME" %p: reslave %p", impl, slave);
-		pw_impl_node_set_driver(slave, NULL);
+	spa_list_consume(follower, &node->follower_list, follower_link) {
+		pw_log_debug(NAME" %p: reassign follower %p", impl, follower);
+		pw_impl_node_set_driver(follower, NULL);
 	}
 
 	if (node->registered) {

@@ -108,7 +108,7 @@ struct impl {
 	struct port port;
 
 	unsigned int started:1;
-	unsigned int slaved:1;
+	unsigned int following:1;
 
 	struct spa_source source;
 
@@ -209,7 +209,7 @@ static int impl_node_enum_params(void *object, int seq,
 	return 0;
 }
 
-static int do_reslave(struct spa_loop *loop,
+static int do_reassign_follower(struct spa_loop *loop,
 			bool async,
 			uint32_t seq,
 			const void *data,
@@ -219,7 +219,7 @@ static int do_reslave(struct spa_loop *loop,
 	return 0;
 }
 
-static inline bool is_slaved(struct impl *this)
+static inline bool is_following(struct impl *this)
 {
 	return this->position && this->clock && this->position->clock.id != this->clock->id;
 }
@@ -227,7 +227,7 @@ static inline bool is_slaved(struct impl *this)
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *this = object;
-	bool slaved;
+	bool following;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -242,11 +242,11 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		return -ENOENT;
 	}
 
-	slaved = is_slaved(this);
-	if (this->started && slaved != this->slaved) {
-		spa_log_debug(this->log, "sco-source %p: reslave %d->%d", this, this->slaved, slaved);
-		this->slaved = slaved;
-		spa_loop_invoke(this->data_loop, do_reslave, 0, NULL, 0, true, this);
+	following = is_following(this);
+	if (this->started && following != this->following) {
+		spa_log_debug(this->log, "sco-source %p: reassign follower %d->%d", this, this->following, following);
+		this->following = following;
+		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
 	}
 	return 0;
 }

@@ -524,8 +524,8 @@ struct pw_impl_node {
 
 	struct spa_list driver_link;
 	struct pw_impl_node *driver_node;
-	struct spa_list slave_list;
-	struct spa_list slave_link;
+	struct spa_list follower_list;
+	struct spa_list follower_link;
 
 	struct spa_list sort_link;	/**< link used to sort nodes */
 

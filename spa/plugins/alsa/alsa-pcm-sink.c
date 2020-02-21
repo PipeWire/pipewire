@@ -189,7 +189,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	default:
 		return -ENOENT;
 	}
-	spa_alsa_reslave(this);
+	spa_alsa_reassign_follower(this);
 
 	return 0;
 }

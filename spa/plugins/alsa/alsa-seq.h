@@ -149,7 +149,7 @@ struct seq_state {
 
 	unsigned int opened:1;
 	unsigned int started:1;
-	unsigned int slaved:1;
+	unsigned int following:1;
 
 	struct seq_stream streams[2];
 
@@ -171,7 +171,7 @@ int spa_alsa_seq_close(struct seq_state *state);
 
 int spa_alsa_seq_start(struct seq_state *state);
 int spa_alsa_seq_pause(struct seq_state *state);
-int spa_alsa_seq_reslave(struct seq_state *state);
+int spa_alsa_seq_reassign_follower(struct seq_state *state);
 
 int spa_alsa_seq_recycle_buffer(struct seq_state *state, struct seq_port *port, uint32_t buffer_id);
 

@@ -647,7 +647,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 }
 
 static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay,
-		snd_pcm_sframes_t target, bool slave)
+		snd_pcm_sframes_t target, bool follower)
 {
 	double err, corr;
 
@@ -669,8 +669,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	if (state->last_threshold != state->threshold) {
 		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
-		spa_log_trace(state->log, NAME" %p: slave:%d quantum change %d",
-				state, slave, diff);
+		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d",
+				state, follower, diff);
 		state->next_time += diff / corr * 1e9 / state->rate;
 		state->last_threshold = state->threshold;
 	}
@@ -682,8 +682,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		else if (state->bw == BW_MED)
 			set_loop(state, BW_MIN);
 
-		spa_log_debug(state->log, NAME" %p: slave:%d match:%d rate:%f bw:%f del:%d target:%ld err:%f (%f %f %f)",
-				state, slave, state->matching, corr, state->bw, state->delay, target,
+		spa_log_debug(state->log, NAME" %p: follower:%d match:%d rate:%f bw:%f del:%d target:%ld err:%f (%f %f %f)",
+				state, follower, state->matching, corr, state->bw, state->delay, target,
 				err, state->z1, state->z2, state->z3);
 	}
 
@@ -698,7 +698,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate;
 
-	if (!slave && state->clock) {
+	if (!follower && state->clock) {
 		state->clock->nsec = nsec;
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
@@ -707,8 +707,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, NAME" %p: slave:%d %"PRIu64" %f %ld %f %f %d",
-			state, slave, nsec, corr, delay, err, state->threshold * corr,
+	spa_log_trace_fp(state->log, NAME" %p: follower:%d %"PRIu64" %f %ld %f %f %d",
+			state, follower, nsec, corr, delay, err, state->threshold * corr,
 			state->threshold);
 
 	return 0;
@@ -726,7 +726,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}
 
-	if (state->slaved && state->alsa_started) {
+	if (state->following && state->alsa_started) {
 		uint64_t nsec;
 		snd_pcm_uframes_t delay, target;
 
@@ -734,7 +734,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 			return res;
 
 		if (!state->alsa_recovering && delay > target + state->threshold) {
-			spa_log_warn(state->log, NAME" %p: slave delay:%ld resync %f %f %f",
+			spa_log_warn(state->log, NAME" %p: follower delay:%ld resync %f %f %f",
 					state, delay, state->z1, state->z2, state->z3);
 			init_loop(state);
 			state->alsa_sync = true;
@@ -927,7 +927,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			state->duration = state->position->clock.duration;
 			state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 		}
-		if (!state->slaved) {
+		if (!state->following) {
 			uint64_t position;
 
 			position = state->position->clock.position;
@@ -941,7 +941,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		}
 	}
 
-	if (state->slaved && state->alsa_started) {
+	if (state->following && state->alsa_started) {
 		uint64_t nsec;
 		snd_pcm_uframes_t delay, target;
 		uint32_t threshold = state->threshold;
@@ -950,13 +950,13 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			return res;
 
 		if (!state->alsa_recovering && (delay < target || delay > target * 2)) {
-			spa_log_warn(state->log, NAME" %p: slave delay:%lu target:%lu resync %f %f %f",
+			spa_log_warn(state->log, NAME" %p: follower delay:%lu target:%lu resync %f %f %f",
 					state, delay, target, state->z1, state->z2, state->z3);
 			init_loop(state);
 			state->alsa_sync = true;
 		}
 		if (state->alsa_sync) {
-			spa_log_warn(state->log, NAME" %p: slave resync %ld %d %ld",
+			spa_log_warn(state->log, NAME" %p: follower resync %ld %d %ld",
 					state, delay, threshold, target);
 			if (delay < target)
 				snd_pcm_rewind(state->hndl, target - delay + 32);
@@ -1131,7 +1131,7 @@ static int set_timers(struct state *state)
 	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now);
 	state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
 
-	if (state->slaved) {
+	if (state->following) {
 		set_timeout(state, 0);
 	} else {
 		set_timeout(state, state->next_time);
@@ -1139,7 +1139,7 @@ static int set_timers(struct state *state)
 	return 0;
 }
 
-static inline bool is_slaved(struct state *state)
+static inline bool is_following(struct state *state)
 {
 	return state->position && state->clock && state->position->clock.id != state->clock->id;
 }
@@ -1151,8 +1151,8 @@ int spa_alsa_start(struct state *state)
 	if (state->started)
 		return 0;
 
-	state->slaved = is_slaved(state);
-	state->matching = state->slaved;
+	state->following = is_following(state);
+	state->matching = state->following;
 
 	if (state->position) {
 		int card;
@@ -1175,9 +1175,9 @@ int spa_alsa_start(struct state *state)
 	init_loop(state);
 	state->safety = 0.0;
 
-	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d slave:%d match:%d",
+	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d follower:%d match:%d",
 			state, state->threshold, state->duration, state->rate_denom,
-			state->slaved, state->matching);
+			state->following, state->matching);
 
 	CHECK(set_swparams(state), "swparams");
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
@@ -1218,7 +1218,7 @@ int spa_alsa_start(struct state *state)
 	return 0;
 }
 
-static int do_reslave(struct spa_loop *loop,
+static int do_reassign_follower(struct spa_loop *loop,
 			    bool async,
 			    uint32_t seq,
 			    const void *data,
@@ -1231,18 +1231,18 @@ static int do_reslave(struct spa_loop *loop,
 	return 0;
 }
 
-int spa_alsa_reslave(struct state *state)
+int spa_alsa_reassign_follower(struct state *state)
 {
-	bool slaved;
+	bool following;
 
 	if (!state->started)
 		return 0;
 
-	slaved = is_slaved(state);
-	if (slaved != state->slaved) {
-		spa_log_debug(state->log, NAME" %p: reslave %d->%d", state, state->slaved, slaved);
-		state->slaved = slaved;
-		spa_loop_invoke(state->data_loop, do_reslave, 0, NULL, 0, true, state);
+	following = is_following(state);
+	if (following != state->following) {
+		spa_log_debug(state->log, NAME" %p: reassign follower %d->%d", state, state->following, following);
+		state->following = following;
+		spa_loop_invoke(state->data_loop, do_reassign_follower, 0, NULL, 0, true, state);
 	}
 	return 0;
 }

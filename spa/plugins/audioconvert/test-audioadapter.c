@@ -43,8 +43,8 @@ SPA_LOG_IMPL(logger);
 extern const struct spa_handle_factory test_source_factory;
 
 struct context {
-	struct spa_handle *slave_handle;
-	struct spa_node *slave_node;
+	struct spa_handle *follower_handle;
+	struct spa_node *follower_node;
 
 	struct spa_handle *adapter_handle;
 	struct spa_node *adapter_node;
@@ -75,22 +75,22 @@ static int setup_context(struct context *ctx)
 	logger.log.level = SPA_LOG_LEVEL_TRACE;
 	support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, &logger.log);
 
-	/* make slave */
+	/* make follower */
 	factory = &test_source_factory;
 	size = spa_handle_factory_get_size(factory, NULL);
-	ctx->slave_handle = calloc(1, size);
-	spa_assert(ctx->slave_handle != NULL);
+	ctx->follower_handle = calloc(1, size);
+	spa_assert(ctx->follower_handle != NULL);
 
 	res = spa_handle_factory_init(factory,
-			ctx->slave_handle,
+			ctx->follower_handle,
 			NULL, support, 1);
 	spa_assert(res >= 0);
 
-	res = spa_handle_get_interface(ctx->slave_handle,
+	res = spa_handle_get_interface(ctx->follower_handle,
 			SPA_TYPE_INTERFACE_Node, &iface);
 	spa_assert(res >= 0);
 
-	ctx->slave_node = iface;
+	ctx->follower_node = iface;
 
 	/* make adapter */
 	factory = find_factory(SPA_NAME_AUDIO_ADAPT);
@@ -101,8 +101,8 @@ static int setup_context(struct context *ctx)
 	ctx->adapter_handle = calloc(1, size);
 	spa_assert(ctx->adapter_handle != NULL);
 
-	snprintf(value, sizeof(value), "pointer:%p", ctx->slave_node);
-	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.slave", value);
+	snprintf(value, sizeof(value), "pointer:%p", ctx->follower_node);
+	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
 
 	res = spa_handle_factory_init(factory,
 			ctx->adapter_handle,
@@ -121,9 +121,9 @@ static int setup_context(struct context *ctx)
 static int clean_context(struct context *ctx)
 {
 	spa_handle_clear(ctx->adapter_handle);
-	spa_handle_clear(ctx->slave_handle);
+	spa_handle_clear(ctx->follower_handle);
 	free(ctx->adapter_handle);
-	free(ctx->slave_handle);
+	free(ctx->follower_handle);
 	return 0;
 }
 

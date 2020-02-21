@@ -188,7 +188,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	default:
 		return -ENOENT;
 	}
-	spa_alsa_reslave(this);
+	spa_alsa_reassign_follower(this);
 	return 0;
 }
 
@@ -647,10 +647,10 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (spa_list_is_empty(&this->ready) && this->slaved)
+	if (spa_list_is_empty(&this->ready) && this->following)
 		spa_alsa_read(this, 0);
 
-	if (spa_list_is_empty(&this->ready) || !this->slaved)
+	if (spa_list_is_empty(&this->ready) || !this->following)
 		return SPA_STATUS_OK;
 
 	b = spa_list_first(&this->ready, struct buffer, link);

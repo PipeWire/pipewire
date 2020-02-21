@@ -1349,7 +1349,7 @@ pw_stream_connect(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_impl_factory *factory;
 	struct pw_properties *props;
-	struct pw_impl_node *slave;
+	struct pw_impl_node *follower;
 	const char *str;
 	uint32_t i;
 	int res;
@@ -1446,13 +1446,13 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "resample.peaks", "1");
 	}
 
-	slave = pw_context_create_node(impl->context, pw_properties_copy(props), 0);
-	if (slave == NULL) {
+	follower = pw_context_create_node(impl->context, pw_properties_copy(props), 0);
+	if (follower == NULL) {
 		res = -errno;
 		goto error_node;
 	}
 
-	pw_impl_node_set_implementation(slave, &impl->impl_node);
+	pw_impl_node_set_implementation(follower, &impl->impl_node);
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
@@ -1462,7 +1462,7 @@ pw_stream_connect(struct pw_stream *stream,
 			res = -ENOENT;
 			goto error_node;
 		}
-		pw_properties_setf(props, "adapt.slave.node", "pointer:%p", slave);
+		pw_properties_setf(props, "adapt.follower.node", "pointer:%p", follower);
 		impl->node = pw_impl_factory_create_object(factory,
 				NULL,
 				PW_TYPE_INTERFACE_Node,
@@ -1474,7 +1474,7 @@ pw_stream_connect(struct pw_stream *stream,
 			goto error_node;
 		}
 	} else {
-		impl->node = slave;
+		impl->node = follower;
 	}
 	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
 		pw_impl_node_set_active(impl->node, true);

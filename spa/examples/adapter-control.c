@@ -75,9 +75,9 @@ struct data {
 	struct spa_graph_port graph_source_port_0;
 	struct spa_graph_port graph_sink_port_0;
 
-	struct spa_node *source_slave_node;  // audiotestsrc
+	struct spa_node *source_follower_node;  // audiotestsrc
 	struct spa_node *source_node;  // adapter for audiotestsrc
-	struct spa_node *sink_slave_node;  // alsa-pcm-sink
+	struct spa_node *sink_follower_node;  // alsa-pcm-sink
 	struct spa_node *sink_node;  // adapter for alsa-pcm-sink
 
 	struct spa_io_buffers source_sink_io[1];
@@ -264,11 +264,11 @@ static int make_nodes(struct data *data, const char *device)
 	struct spa_pod *param;
 
 	/* make the source node (audiotestsrc) */
-	if ((res = make_node(data, &data->source_slave_node,
+	if ((res = make_node(data, &data->source_follower_node,
 				   "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
 				   "audiotestsrc",
 				   NULL)) < 0) {
-		printf("can't create source slave node (audiotestsrc): %d\n", res);
+		printf("can't create source follower node (audiotestsrc): %d\n", res);
 		return res;
 	}
 
@@ -279,16 +279,16 @@ static int make_nodes(struct data *data, const char *device)
 				.format = SPA_AUDIO_FORMAT_S16,
 				.rate = 48000,
 				.channels = 2 ));
-	if ((res = spa_node_port_set_param(data->source_slave_node,
+	if ((res = spa_node_port_set_param(data->source_follower_node,
 					   SPA_DIRECTION_OUTPUT, 0,
 					   SPA_PARAM_Format, 0, param)) < 0) {
-		printf("can't set format on slave node (audiotestsrc): %d\n", res);
+		printf("can't set format on follower node (audiotestsrc): %d\n", res);
 		return res;
 	}
 
 	/* make the sink adapter node */
-	snprintf(value, sizeof(value), "pointer:%p", data->source_slave_node);
-	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.slave", value);
+	snprintf(value, sizeof(value), "pointer:%p", data->source_follower_node);
+	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
 	if ((res = make_node(data, &data->source_node,
 			     "build/spa/plugins/audioconvert/libspa-audioconvert.so",
 			     SPA_NAME_AUDIO_ADAPT,
@@ -305,7 +305,7 @@ static int make_nodes(struct data *data, const char *device)
 		SPA_PROP_volume,    SPA_POD_Float(0.5),
 		SPA_PROP_live,	    SPA_POD_Bool(false));
 	if ((res = spa_node_set_param(data->source_node, SPA_PARAM_Props, 0, props)) < 0) {
-		printf("can't setup source slave node %d\n", res);
+		printf("can't setup source follower node %d\n", res);
 		return res;
 	}
 
@@ -327,18 +327,18 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-	/* make the sink slave node (alsa-pcm-sink) */
-	if ((res = make_node(data, &data->sink_slave_node,
+	/* make the sink follower node (alsa-pcm-sink) */
+	if ((res = make_node(data, &data->sink_follower_node,
 				   "build/spa/plugins/alsa/libspa-alsa.so",
 				   SPA_NAME_API_ALSA_PCM_SINK,
 				   NULL)) < 0) {
-		printf("can't create sink slave node (alsa-pcm-sink): %d\n", res);
+		printf("can't create sink follower node (alsa-pcm-sink): %d\n", res);
 		return res;
 	}
 
 	/* make the sink adapter node */
-	snprintf(value, sizeof(value), "pointer:%p", data->sink_slave_node);
-	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.slave", value);
+	snprintf(value, sizeof(value), "pointer:%p", data->sink_follower_node);
+	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
 	if ((res = make_node(data, &data->sink_node,
 			     "build/spa/plugins/audioconvert/libspa-audioconvert.so",
 			     SPA_NAME_AUDIO_ADAPT,
@@ -347,7 +347,7 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-	/* add sink slave node callbacks */
+	/* add sink follower node callbacks */
 	spa_node_set_callbacks(data->sink_node, &sink_node_callbacks, data);
 
 	/* setup the sink node props */
@@ -356,8 +356,8 @@ static int make_nodes(struct data *data, const char *device)
 		SPA_TYPE_OBJECT_Props, 0,
 		SPA_PROP_device,     SPA_POD_String(device ? device : "hw:0"),
 		SPA_PROP_minLatency, SPA_POD_Int(MIN_LATENCY));
-	if ((res = spa_node_set_param(data->sink_slave_node, SPA_PARAM_Props, 0, props)) < 0) {
-		printf("can't setup sink slave node %d\n", res);
+	if ((res = spa_node_set_param(data->sink_follower_node, SPA_PARAM_Props, 0, props)) < 0) {
+		printf("can't setup sink follower node %d\n", res);
 		return res;
 	}
 
@@ -461,9 +461,9 @@ static int negotiate_formats(struct data *data)
 	uint32_t state = 0;
 	size_t buffer_size = 1024;
 
-	/* get the source slave node buffer size */
+	/* get the source follower node buffer size */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	if (spa_node_port_enum_params_sync(data->source_slave_node,
+	if (spa_node_port_enum_params_sync(data->source_follower_node,
 			SPA_DIRECTION_OUTPUT, 0,
 			SPA_PARAM_Buffers, &state, filter, &param, &b) != 1)
 		return res;
@@ -561,7 +561,7 @@ int main(int argc, char *argv[])
 	  return -1;
 	}
 
-	/* make the nodes (audiotestsrc and adapter with alsa-pcm-sink as slave) */
+	/* make the nodes (audiotestsrc and adapter with alsa-pcm-sink as follower) */
 	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
 	  printf("can't make nodes: %d (%s)\n", res, spa_strerror(res));
 		return -1;

@@ -35,7 +35,7 @@ extern "C" {
 
 struct pw_impl_node *
 pw_adapter_new(struct pw_context *context,
-		struct pw_impl_node *slave,
+		struct pw_impl_node *follower,
 		struct pw_properties *properties,
 		size_t user_data_size);
 

@@ -52,9 +52,9 @@ struct impl {
 	struct spa_node *target;
 	struct spa_hook target_listener;
 
-	struct spa_node *slave;
-	struct spa_hook slave_listener;
-	uint32_t slave_flags;
+	struct spa_node *follower;
+	struct spa_hook follower_listener;
+	uint32_t follower_flags;
 
 	struct spa_handle *hnd_convert;
 	struct spa_node *convert;
@@ -116,7 +116,7 @@ next:
 
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:
-		if ((res = spa_node_port_enum_params_sync(this->slave,
+		if ((res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
 				id, &start, filter, &param, &b)) != 1)
 			return res;
@@ -150,11 +150,11 @@ static int link_io(struct impl *this)
 	spa_zero(this->io_rate_match);
 	this->io_rate_match.rate = 1.0;
 
-	if ((res = spa_node_port_set_io(this->slave,
+	if ((res = spa_node_port_set_io(this->follower,
 			this->direction, 0,
 			SPA_IO_RateMatch,
 			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
-		spa_log_warn(this->log, NAME " %p: set RateMatch on slave failed %d %s", this,
+		spa_log_warn(this->log, NAME " %p: set RateMatch on follower failed %d %s", this,
 			res, spa_strerror(res));
 	}
 	else if ((res = spa_node_port_set_io(this->convert,
@@ -167,11 +167,11 @@ static int link_io(struct impl *this)
 
 	spa_zero(this->io_buffers);
 
-	if ((res = spa_node_port_set_io(this->slave,
+	if ((res = spa_node_port_set_io(this->follower,
 			this->direction, 0,
 			SPA_IO_Buffers,
 			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
-		spa_log_warn(this->log, NAME " %p: set Buffers on slave failed %d %s", this,
+		spa_log_warn(this->log, NAME " %p: set Buffers on follower failed %d %s", this,
 			res, spa_strerror(res));
 		return res;
 	}
@@ -216,13 +216,13 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_PortConfig:
 		if (this->started)
 			return -EIO;
-		if (this->target != this->slave) {
+		if (this->target != this->follower) {
 			if ((res = spa_node_set_param(this->target, id, flags, param)) < 0)
 				return res;
 		}
 		break;
 	case SPA_PARAM_Props:
-		if (this->target != this->slave) {
+		if (this->target != this->follower) {
 			if ((res = spa_node_set_param(this->target, id, flags, param)) < 0)
 				return res;
 
@@ -248,8 +248,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	if (this->target)
 		res = spa_node_set_io(this->target, id, data, size);
 
-	if (this->target != this->slave)
-		res = spa_node_set_io(this->slave, id, data, size);
+	if (this->target != this->follower)
+		res = spa_node_set_io(this->follower, id, data, size);
 
 	return res;
 }
@@ -278,9 +278,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		return res;
 	}
 
-	if (this->target != this->slave) {
-		if ((res = spa_node_send_command(this->slave, command)) < 0) {
-			spa_log_error(this->log, NAME " %p: can't start slave: %s",
+	if (this->target != this->follower) {
+		if ((res = spa_node_send_command(this->follower, command)) < 0) {
+			spa_log_error(this->log, NAME " %p: can't start follower: %s",
 					this, spa_strerror(res));
 			return res;
 		}
@@ -320,7 +320,7 @@ static const struct spa_node_events target_node_events = {
 	.result = target_result,
 };
 
-static void slave_info(void *data, const struct spa_node_info *info)
+static void follower_info(void *data, const struct spa_node_info *info)
 {
 	struct impl *this = data;
 	const char *str;
@@ -330,7 +330,7 @@ static void slave_info(void *data, const struct spa_node_info *info)
         else
 		this->direction = SPA_DIRECTION_OUTPUT;
 
-	spa_log_debug(this->log, NAME" %p: slave info %s", this,
+	spa_log_debug(this->log, NAME" %p: follower info %s", this,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output");
 
@@ -340,12 +340,12 @@ static void slave_info(void *data, const struct spa_node_info *info)
 	}
 }
 
-static const struct spa_node_events slave_node_events = {
+static const struct spa_node_events follower_node_events = {
 	SPA_VERSION_NODE_EVENTS,
-	.info = slave_info,
+	.info = follower_info,
 };
 
-static int slave_ready(void *data, int status)
+static int follower_ready(void *data, int status)
 {
 	struct impl *this = data;
 
@@ -357,7 +357,7 @@ static int slave_ready(void *data, int status)
 	return spa_node_call_ready(&this->callbacks, status);
 }
 
-static int slave_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
+static int follower_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 {
 	int res;
 	struct impl *this = data;
@@ -370,10 +370,10 @@ static int slave_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	return res;
 }
 
-static const struct spa_node_callbacks slave_node_callbacks = {
+static const struct spa_node_callbacks follower_node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
-	.ready = slave_ready,
-	.reuse_buffer = slave_reuse_buffer,
+	.ready = follower_ready,
+	.reuse_buffer = follower_reuse_buffer,
 };
 
 static int impl_node_add_listener(void *object,
@@ -424,7 +424,7 @@ impl_node_sync(void *object, int seq)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	return spa_node_sync(this->slave, seq);
+	return spa_node_sync(this->follower, seq);
 }
 
 static int
@@ -525,12 +525,12 @@ static int negotiate_format(struct impl *this)
 
 	state = 0;
 	format = NULL;
-	if ((res = spa_node_port_enum_params_sync(this->slave,
+	if ((res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
 				format, &format, &b)) < 0) {
-		debug_params(this, this->slave, this->direction, 0,
-				SPA_PARAM_EnumFormat, format, "slave format", res);
+		debug_params(this, this->follower, this->direction, 0,
+				SPA_PARAM_EnumFormat, format, "follower format", res);
 		return -ENOTSUP;
 	}
 
@@ -555,7 +555,7 @@ static int negotiate_format(struct impl *this)
 				   format)) < 0)
 			return res;
 
-	if ((res = spa_node_port_set_param(this->slave,
+	if ((res = spa_node_port_set_param(this->follower,
 					   this->direction, 0,
 					   SPA_PARAM_Format, 0,
 					   format)) < 0)
@@ -571,11 +571,11 @@ static int negotiate_buffers(struct impl *this)
 	uint32_t state;
 	struct spa_pod *param;
 	int res, i;
-	bool slave_alloc, conv_alloc;
+	bool follower_alloc, conv_alloc;
 	int32_t size, buffers, blocks, align, flags;
 	uint32_t *aligns;
 	struct spa_data *datas;
-	uint32_t slave_flags, conv_flags;
+	uint32_t follower_flags, conv_flags;
 
 	spa_log_debug(this->log, "%p: %d", this, this->n_buffers);
 
@@ -584,12 +584,12 @@ static int negotiate_buffers(struct impl *this)
 
 	state = 0;
 	param = NULL;
-	if ((res = spa_node_port_enum_params_sync(this->slave,
+	if ((res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) < 0) {
-		debug_params(this, this->slave, this->direction, 0,
-				SPA_PARAM_Buffers, param, "slave buffers", res);
+		debug_params(this, this->follower, this->direction, 0,
+				SPA_PARAM_Buffers, param, "follower buffers", res);
 		return -ENOTSUP;
 	}
 
@@ -606,17 +606,17 @@ static int negotiate_buffers(struct impl *this)
 
 	spa_pod_fixate(param);
 
-	slave_flags = this->slave_flags;
+	follower_flags = this->follower_flags;
 	conv_flags = this->convert_flags;
 
-	slave_alloc = SPA_FLAG_IS_SET(slave_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
+	follower_alloc = SPA_FLAG_IS_SET(follower_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 	conv_alloc = SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 
 	flags = 0;
-	if (conv_alloc || slave_alloc) {
+	if (conv_alloc || follower_alloc) {
 		flags |= SPA_BUFFER_ALLOC_FLAG_NO_DATA;
 		if (conv_alloc)
-			slave_alloc = false;
+			follower_alloc = false;
 	}
 
 	if ((res = spa_pod_parse_object(param,
@@ -628,7 +628,7 @@ static int negotiate_buffers(struct impl *this)
 		return res;
 
 	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
-			this, buffers, blocks, size, align, slave_alloc, conv_alloc);
+			this, buffers, blocks, size, align, follower_alloc, conv_alloc);
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
@@ -652,9 +652,9 @@ static int negotiate_buffers(struct impl *this)
 		       this->buffers, this->n_buffers)) < 0)
 		return res;
 
-	if ((res = spa_node_port_use_buffers(this->slave,
+	if ((res = spa_node_port_use_buffers(this->follower,
 		       this->direction, 0,
-		       slave_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+		       follower_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
 		       this->buffers, this->n_buffers)) < 0) {
 		return res;
 	}
@@ -770,7 +770,7 @@ static int impl_node_process(void *object)
 			status = spa_node_process(this->convert);
 	}
 
-	status = spa_node_process(this->slave);
+	status = spa_node_process(this->follower);
 
 	if (this->monitor)
 		status |= SPA_STATUS_HAVE_DATA;
@@ -826,8 +826,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	spa_hook_remove(&this->slave_listener);
-	spa_node_set_callbacks(this->slave, NULL, NULL);
+	spa_hook_remove(&this->follower_listener);
+	spa_node_set_callbacks(this->follower, NULL, NULL);
 
 	if (this->buffers)
 		free(this->buffers);
@@ -875,16 +875,16 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
-	if (info == NULL || (str = spa_dict_lookup(info, "video.adapt.slave")) == NULL)
+	if (info == NULL || (str = spa_dict_lookup(info, "video.adapt.follower")) == NULL)
 		return -EINVAL;
 
-	sscanf(str, "pointer:%p", &this->slave);
-	if (this->slave == NULL)
+	sscanf(str, "pointer:%p", &this->follower);
+	if (this->follower == NULL)
 		return -EINVAL;
 
-	spa_node_add_listener(this->slave,
-			&this->slave_listener, &slave_node_events, this);
-	spa_node_set_callbacks(this->slave, &slave_node_callbacks, this);
+	spa_node_add_listener(this->follower,
+			&this->follower_listener, &follower_node_events, this);
+	spa_node_set_callbacks(this->follower, &follower_node_callbacks, this);
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -908,7 +908,7 @@ impl_init(const struct spa_handle_factory *factory,
 	link_io(this);
 
 #else
-	this->target = this->slave;
+	this->target = this->follower;
 	spa_node_add_listener(this->target,
 			&this->target_listener, &target_node_events, this);
 

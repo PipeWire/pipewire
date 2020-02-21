@@ -124,7 +124,7 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 	int res;
 
 	if (tr_avail(tr) == 0)
-		return -EIO;
+		return 0;
 
 	save = tr->p;
 	status = *tr->p;
@@ -182,7 +182,7 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 	tr->p = save;
 
 	event->size = size;
-	return 0;
+	return 1;
 }
 
 int midi_file_add_track(struct midi_file *mf, struct midi_track *track)
@@ -213,7 +213,7 @@ int midi_file_peek_event(struct midi_file *mf, struct midi_event *event)
 			found = tr;
 	}
 	if (found == NULL)
-		return -EIO;
+		return 0;
 
 	return peek_event(mf, found, event);
 }

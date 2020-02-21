@@ -962,6 +962,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 	struct spa_pod_builder b;
 	struct spa_pod_frame f;
 	uint32_t first_frame, last_frame;
+	bool have_data = false;
 
 	spa_zero(b);
 	spa_pod_builder_init(&b, src, n_frames);
@@ -977,8 +978,11 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 		uint8_t *buf;
 
 		res = midi_file_peek_event(&d->midi.mf, &ev);
-		if (res < 0)
+		if (res <= 0) {
+			if (have_data)
+				break;
 			return res;
+		}
 
 		if (ev.status == 0xff)
 			goto next;
@@ -997,6 +1001,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 			buf[0] = ev.status;
 			memcpy(&buf[1], ev.data, ev.size);
 		}
+		have_data = true;
 next:
 		midi_file_consume_event(&d->midi.mf, &ev);
 	}

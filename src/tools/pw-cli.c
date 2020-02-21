@@ -93,7 +93,7 @@ struct global {
 	uint32_t flags;
 #define GLOBAL_CAN_SUBSCRIBE_PARAMS		(1U << 0)
 #define GLOBAL_CAN_ENUM_PARAMS			(1U << 1)
-#define GLOBAL_PARAM_LIST_VALID     		(1U << 2)
+#define GLOBAL_PARAM_LIST_VALID			(1U << 2)
 #define GLOBAL_PARAM_SUBSCRIBE_IN_PROGRESS	(1U << 3)
 #define GLOBAL_PARAM_ENUM_IN_PROGRESS		(1U << 5)
 #define GLOBAL_PARAM_ENUM_COMPLETE		(1U << 6)
@@ -121,7 +121,6 @@ struct remote_data {
 	struct spa_hook registry_listener;
 
 	struct pw_map globals;
-	struct pw_map globals_by_proxy;
 };
 
 struct proxy_data;
@@ -440,9 +439,6 @@ static int destroy_global(void *obj, void *data)
 
 	rd = global->rd;
 
-	if (global->proxy_id)
-		pw_map_remove(&rd->globals_by_proxy, global->proxy_id);
-
 	pw_map_remove(&rd->globals, global->id);
 	if (global->properties)
 		pw_properties_free(global->properties);
@@ -469,15 +465,21 @@ remote_global(struct remote_data *rd, uint32_t id)
 static struct global *
 remote_global_by_proxy(struct remote_data *rd, uint32_t id)
 {
-	struct global *global;
+	struct pw_proxy *proxy;
+	struct proxy_data *pd;
 
 	if (!rd)
 		return NULL;
 
-	global = pw_map_lookup(&rd->globals_by_proxy, id);
-	if (!global || !global->proxy || !pw_proxy_get_user_data(global->proxy))
+	proxy = pw_core_find_proxy(rd->core, id);
+	if (proxy == NULL)
 		return NULL;
-	return global;
+
+	pd = pw_proxy_get_user_data(proxy);
+	if (pd == NULL)
+		return NULL;
+
+	return pd->global;
 }
 
 static bool global_can_subscribe_params(struct global *global)
@@ -939,7 +941,6 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	rd->core = core;
 	rd->data = data;
 	pw_map_init(&rd->globals, 64, 16);
-	pw_map_init(&rd->globals_by_proxy, 64, 16);
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
@@ -1806,13 +1807,12 @@ static bool do_list_objects(struct data *data, const char *cmd, char *args, char
 
 static bool bind_global(struct remote_data *rd, struct global *global, char **error)
 {
-        const void *events;
-        uint32_t client_version;
+	const void *events;
+	uint32_t client_version;
 	info_func_t info_func;
-        pw_destroy_t destroy;
+	pw_destroy_t destroy;
 	struct proxy_data *pd;
 	struct pw_proxy *proxy;
-	size_t size;
 
 	if (strcmp(global->type, PW_TYPE_INTERFACE_Core) == 0) {
 		events = &core_events;
@@ -1896,11 +1896,6 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 
 	global->proxy = proxy;
 	global->proxy_id = pw_proxy_get_id(proxy);
-
-	size = pw_map_get_size(&rd->globals_by_proxy);
-	while (global->proxy_id > size)
-		pw_map_insert_at(&rd->globals_by_proxy, size++, NULL);
-	pw_map_insert_at(&rd->globals_by_proxy, global->proxy_id, global);
 
 	return true;
 }

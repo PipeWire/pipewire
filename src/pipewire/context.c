@@ -829,7 +829,6 @@ int pw_context_recalc_graph(struct pw_context *context)
 	 * to an active master */
 	spa_list_for_each(n, &context->node_list, link) {
 		if (!n->visited) {
-
 			pw_log_debug(NAME" %p: unassigned node %p: '%s' %d %d", context,
 					n, n->name, n->active, n->want_driver);
 
@@ -856,11 +855,11 @@ int pw_context_recalc_graph(struct pw_context *context)
 		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration)
 			n->rt.position->clock.duration = n->quantum_current;
 
-		pw_log_info(NAME" %p: master %p quantum:%u '%s'", context, n,
+		pw_log_debug(NAME" %p: master %p quantum:%u '%s'", context, n,
 				n->quantum_current, n->name);
 
 		spa_list_for_each(s, &n->follower_list, follower_link)
-			pw_log_info(NAME" %p: follower %p: active:%d '%s'",
+			pw_log_debug(NAME" %p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
 	}
 	return 0;

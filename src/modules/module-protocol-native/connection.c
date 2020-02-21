@@ -145,7 +145,7 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 			errno = -res;
 			return NULL;
 		}
-		pw_log_warn("connection %p: resize buffer to %zd %zd %zd",
+		pw_log_debug("connection %p: resize buffer to %zd %zd %zd",
 			    conn, buf->buffer_size, size, buf->buffer_maxsize);
 	}
 	return (uint8_t *) buf->buffer_data + buf->buffer_size;

@@ -245,7 +245,7 @@ static int setup_convert(struct impl *this,
 
 	emit_params_changed(this);
 
-	spa_log_info(this->log, NAME " %p: got channelmix features %08x:%08x identity:%d",
+	spa_log_debug(this->log, NAME " %p: got channelmix features %08x:%08x identity:%d",
 			this, this->cpu_flags, this->mix.cpu_flags,
 			this->mix.identity);
 

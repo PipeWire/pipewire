@@ -28,7 +28,7 @@ static int spa_alsa_open(struct state *state)
 
 	CHECK(snd_output_stdio_attach(&state->output, stderr, 0), "attach failed");
 
-	spa_log_info(state->log, NAME"%p: ALSA device open '%s' %s", state, props->device,
+	spa_log_info(state->log, NAME" %p: ALSA device open '%s' %s", state, props->device,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback");
 	CHECK(snd_pcm_open(&state->hndl,
 			   props->device,
@@ -71,7 +71,7 @@ int spa_alsa_close(struct state *state)
 	if (!state->opened)
 		return 0;
 
-	spa_log_info(state->log, NAME"%p: Device '%s' closing", state, state->props.device);
+	spa_log_info(state->log, NAME" %p: Device '%s' closing", state, state->props.device);
 	CHECK(snd_pcm_close(state->hndl), "close failed");
 
 	spa_system_close(state->data_system, state->timerfd);

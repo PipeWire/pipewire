@@ -340,7 +340,7 @@ static int suspend_node(struct pw_impl_node *this)
 
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));
-	if (res < 0)
+	if (res < 0 && res != -EIO)
 		pw_log_warn(NAME" %p: suspend node error %s", this, spa_strerror(res));
 
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
@@ -666,7 +666,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	remove_segment_master(old, node->info.id);
 
 	node->master = node->driver && driver == node;
-	pw_log_info(NAME" %p: driver %p master:%u", node, driver, node->master);
+	pw_log_info(NAME" %p: driver %p (%s) master:%u", node, driver, driver->name, node->master);
 
 	node->driver_node = driver;
 
@@ -709,7 +709,8 @@ static void check_properties(struct pw_impl_node *node)
 		pw_log_info(NAME" %p: priority master %d", node, node->priority_master);
 	}
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME))) {
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
+	    (node->name == NULL || strcmp(str, node->name) != 0)) {
 		free(node->name);
 		node->name = strdup(str);
 		pw_log_info(NAME" %p: name '%s'", node, node->name);
@@ -743,14 +744,13 @@ static void check_properties(struct pw_impl_node *node)
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_LATENCY))) {
 		uint32_t num, denom;
-		pw_log_info(NAME" %p: latency '%s'", node, str);
                 if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
 			uint32_t quantum_size;
 
-			quantum_size = flp2((num * 48000 / denom));
-			pw_log_info(NAME" %p: quantum %d", node, quantum_size);
+			quantum_size = flp2((num * node->context->defaults.clock_rate / denom));
 
 			if (quantum_size != node->quantum_size) {
+				pw_log_info(NAME" %p: latency '%s' quantum %d", node, str, quantum_size);
 				node->quantum_size = quantum_size;
 				do_recalc |= node->active;
 			}

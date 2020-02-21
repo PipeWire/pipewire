@@ -322,7 +322,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	if (this->resource == NULL)
-		return -EIO;
+		return param == NULL ? 0 : -EIO;
 
 	return pw_client_node_resource_set_param(this->resource, id, flags, param);
 }
@@ -357,7 +357,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	}
 
 	if (this->resource == NULL)
-		return -EIO;
+		return data == NULL ? 0 : -EIO;
 
 	return pw_client_node_resource_set_io(this->resource,
 				       id,
@@ -626,8 +626,7 @@ impl_node_port_set_param(void *object,
 		}
 	}
 	if (this->resource == NULL)
-		return -EIO;
-
+		return param == NULL ? 0 : -EIO;
 
 	return pw_client_node_resource_port_set_param(this->resource,
 					       direction, port_id,
@@ -677,7 +676,7 @@ static int do_port_set_io(struct impl *impl,
 	}
 
 	if (this->resource == NULL)
-		return -EIO;
+		return data == NULL ? 0 : -EIO;
 
 	return pw_client_node_resource_port_set_io(this->resource,
 					    direction, port_id,
@@ -740,7 +739,7 @@ do_port_use_buffers(struct impl *impl,
 	mix->n_buffers = n_buffers;
 
 	if (this->resource == NULL)
-		return -EIO;
+		return n_buffers == 0 ? 0 : -EIO;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
@@ -1404,7 +1403,7 @@ static int impl_mix_port_set_io(void *object,
 
 	mix = pw_map_lookup(&port->mix_port_map, mix_id);
 	if (mix == NULL)
-		return -EIO;
+		return -EINVAL;
 
 	if (id == SPA_IO_Buffers) {
 		if (data && size >= sizeof(struct spa_io_buffers))

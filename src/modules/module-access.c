@@ -128,10 +128,10 @@ context_check_access(void *data, struct pw_impl_client *client)
 	}
 
 	if (pid < 0) {
-		pw_log_info("no trusted pid found, assuming not sandboxed\n");
+		pw_log_info("client %p: no trusted pid found, assuming not sandboxed", client);
 		goto granted;
 	} else {
-		pw_log_info("client has trusted pid %d", pid);
+		pw_log_info("client %p has trusted pid %d", client, pid);
 	}
 
 	if (impl->properties && (str = pw_properties_get(impl->properties, "blacklisted")) != NULL) {

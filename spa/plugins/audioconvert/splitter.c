@@ -582,7 +582,7 @@ static int setup_convert(struct impl *this)
 	if ((res = convert_init(&this->conv)) < 0)
 		return res;
 
-	spa_log_info(this->log, NAME " %p: got converter features %08x:%08x", this,
+	spa_log_debug(this->log, NAME " %p: got converter features %08x:%08x", this,
 			this->cpu_flags, this->conv.cpu_flags);
 
 	this->is_passthrough &= this->conv.is_passthrough;

@@ -36,6 +36,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
+#include <spa/node/keys.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
@@ -50,7 +51,7 @@ enum pattern {
 	PATTERN_SNOW,
 };
 
-#define DEFAULT_LIVE false
+#define DEFAULT_LIVE true
 #define DEFAULT_PATTERN PATTERN_SMPTE_SNOW
 
 struct props {
@@ -398,6 +399,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static const struct spa_dict_item node_info_items[] = {
 	{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
+	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
 static void emit_node_info(struct impl *this, bool full)

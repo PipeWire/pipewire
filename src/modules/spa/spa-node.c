@@ -180,14 +180,14 @@ setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_pro
 	while ((key = pw_properties_iterate(pw_props, &state))) {
 		uint32_t type = 0;
 
-		type = spa_debug_type_find_type(NULL, key);
+		type = spa_debug_type_find_type(spa_type_props, key);
 		if (type == SPA_TYPE_None)
 			continue;
 
 		if ((prop = spa_pod_find_prop(props, prop, type))) {
 			const char *value = pw_properties_get(pw_props, key);
 
-			pw_log_info("configure prop %s", key);
+			pw_log_info("configure prop %s to %s", key, value);
 
 			switch(prop->value.type) {
 			case SPA_TYPE_Bool:
@@ -196,7 +196,7 @@ setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_pro
 				break;
 			case SPA_TYPE_Id:
 				SPA_POD_VALUE(struct spa_pod_id, &prop->value) =
-					spa_debug_type_find_type(NULL, value);
+					pw_properties_parse_int(value);
 				break;
 			case SPA_TYPE_Int:
 				SPA_POD_VALUE(struct spa_pod_int, &prop->value) =

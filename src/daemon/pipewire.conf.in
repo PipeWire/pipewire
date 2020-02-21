@@ -20,6 +20,7 @@ add-spa-lib api.v4l2.* v4l2/libspa-v4l2
 add-spa-lib api.bluez5.* bluez5/libspa-bluez5
 add-spa-lib api.vulkan.* vulkan/libspa-vulkan
 add-spa-lib api.jack.* jack/libspa-jack
+#add-spa-lib videotestsrc videotestsrc/libspa-videotestsrc
 
 #load-module -ifexists libpipewire-module-spa-device api.jack.device
 #load-module libpipewire-module-spa-device api.alsa.enum.udev
@@ -31,7 +32,7 @@ load-module libpipewire-module-metadata
 load-module libpipewire-module-spa-device-factory
 load-module libpipewire-module-spa-node-factory
 #load-module libpipewire-module-spa-node api.vulkan.compute.source node.name=my-compute-source
-#load-module libpipewire-module-spa-node videotestsrc/libspa-videotestsrc videotestsrc videotestsrc Spa:POD:Object:Props:patternType=Spa:POD:Object:Props:patternType:snow
+#load-module libpipewire-module-spa-node videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1
 load-module libpipewire-module-client-node
 load-module libpipewire-module-client-device
 load-module libpipewire-module-access

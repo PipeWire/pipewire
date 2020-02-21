@@ -474,6 +474,25 @@ static int impl_node_enum_params(void *object, int seq,
 		}
 		break;
 
+	case SPA_PARAM_PortConfig:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamPortConfig, id,
+				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_INPUT),
+				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(this->mode[SPA_DIRECTION_INPUT]));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamPortConfig, id,
+				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_OUTPUT),
+				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(this->mode[SPA_DIRECTION_OUTPUT]));
+			break;
+		default:
+			return 0;
+		}
+		break;
+
 	case SPA_PARAM_PropInfo:
 		return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
 

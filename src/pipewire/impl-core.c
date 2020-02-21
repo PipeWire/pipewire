@@ -69,11 +69,11 @@ static void * registry_bind(void *object, uint32_t id,
 
 error_no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
-	pw_resource_errorf(resource, -ENOENT, "no such global %u", id);
+	pw_resource_errorf(resource, -ENOENT, "no global %u", id);
 	goto error_exit_clean;
 error_wrong_interface:
 	pw_log_debug("registry %p: global with id %u has no interface %s", resource, id, type);
-	pw_resource_errorf(resource, -ENOENT, "no such interface %s", type);
+	pw_resource_errorf(resource, -ENOENT, "no interface %s", type);
 	goto error_exit_clean;
 error_exit_clean:
 	/* unmark the new_id the map, the client does not yet know about the failed
@@ -260,10 +260,10 @@ static struct pw_registry * core_get_registry(void *object, uint32_t version, si
 	return (struct pw_registry *)registry_resource;
 
 error_resource:
-	pw_log_error(NAME" %p: can't create registry resource: %m", context);
 	pw_core_resource_errorf(client->core_resource, new_id,
 			client->recv_seq, res,
-			"can't create registry resource: %s", spa_strerror(res));
+			"can't create registry resource: %d (%s)",
+			res, spa_strerror(res));
 	pw_map_insert_at(&client->objects, new_id, NULL);
 	pw_core_resource_remove_id(client->core_resource, new_id);
 	errno = -res;
@@ -316,18 +316,18 @@ core_create_object(void *object,
 
 error_no_factory:
 	res = -ENOENT;
-	pw_log_error(NAME" %p: can't find factory '%s'", context, factory_name);
+	pw_log_debug(NAME" %p: can't find factory '%s'", context, factory_name);
 	pw_resource_errorf(resource, res, "unknown factory name %s", factory_name);
 	goto error_exit;
 error_version:
 error_type:
 	res = -EPROTO;
-	pw_log_error(NAME" %p: invalid resource type/version", context);
+	pw_log_debug(NAME" %p: invalid resource type/version", context);
 	pw_resource_errorf(resource, res, "wrong resource type/version");
 	goto error_exit;
 error_properties:
 	res = -errno;
-	pw_log_error(NAME" %p: can't create properties: %m", context);
+	pw_log_debug(NAME" %p: can't create properties: %m", context);
 	pw_resource_errorf(resource, res, "can't create properties: %s", spa_strerror(res));
 	goto error_exit;
 error_create_failed:

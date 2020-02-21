@@ -118,7 +118,7 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 
 	index = buf->msg.n_fds;
 	if (index + buf->n_fds >= MAX_FDS) {
-		pw_log_error("connection %p: too many fds", conn);
+		pw_log_error("connection %p: too many fds (%d)", conn, MAX_FDS);
 		return SPA_IDX_INVALID;
 	}
 
@@ -204,7 +204,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 
 	/* ERRORS */
 recv_error:
-	pw_log_error("could not recvmsg on fd:%d: %s", conn->fd, strerror(errno));
+	pw_log_error("connection %p: could not recvmsg on fd:%d: %m", conn, conn->fd);
 	return -errno;
 }
 

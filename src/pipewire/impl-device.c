@@ -305,8 +305,9 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 				filter, reply_param, data);
 
 	if (res < 0) {
-		pw_core_resource_error(client->core_resource,
-				resource->id, seq, res, spa_strerror(res));
+		pw_resource_errorf(resource, res,
+				"enum params id:%d (%s) failed", id,
+				spa_debug_type_find_name(spa_type_param, id));
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
 		pw_impl_client_set_busy(client, true);
 		data->data.data = data;
@@ -368,7 +369,9 @@ static int device_set_param(void *object, uint32_t id, uint32_t flags,
 	};
 
 	if ((res = spa_device_set_param(device->device, id, flags, param)) < 0) {
-		pw_resource_error(resource, res, spa_strerror(res));
+		pw_resource_errorf(resource, res,
+				"set param id:%d (%s) flags:%08x failed", id,
+				spa_debug_type_find_name(spa_type_param, id), flags);
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
 		pw_impl_client_set_busy(client, true);
 		data->data.data = data;

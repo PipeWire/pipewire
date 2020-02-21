@@ -179,8 +179,6 @@ process_messages(struct client_data *data)
 
 		resource = pw_impl_client_find_resource(client, msg->id);
 		if (resource == NULL) {
-			pw_log_error(NAME" %p: unknown resource %u op:%u",
-				     client->protocol, msg->id, msg->opcode);
 			pw_resource_errorf(client->core_resource,
 					-EINVAL, "unknown resource %u op:%u", msg->id, msg->opcode);
 			continue;
@@ -202,10 +200,9 @@ process_messages(struct client_data *data)
 		required = demarshal[msg->opcode].permissions | PW_PERM_X;
 
 		if ((required & permissions) != required) {
-			pw_log_error(NAME" %p: method %u on %u requires %08x, have %08x",
-				     client->protocol, msg->opcode, msg->id, required, permissions);
 			pw_resource_errorf(resource,
-				-EACCES, "no permission to call method %u on %u", msg->opcode, msg->id);
+				-EACCES, "no permission to call method %u on %u (requires %08x, have %08x)",
+				msg->opcode, msg->id, required, permissions);
 			continue;
 		}
 
@@ -218,20 +215,17 @@ done:
 	return res;
 
 invalid_method:
-	pw_log_error(NAME" %p: invalid method id:%u op:%u",
-		     client->protocol, msg->id, msg->opcode);
 	pw_resource_errorf(resource, res, "invalid method id:%u op:%u",
 			msg->id, msg->opcode);
 	goto done;
 invalid_message:
-	pw_log_error(NAME" %p: invalid message received id:%u op:%u (%s)",
-		     client->protocol, msg->id, msg->opcode, spa_strerror(res));
 	pw_resource_errorf(resource, res, "invalid message received id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
 	debug_msg("*invalid message*", msg, true);
 	goto done;
 error:
-	pw_log_error(NAME" %p: client error (%s)", client->protocol, spa_strerror(res));
+	pw_resource_errorf(client->core_resource, res, "client error %d (%s)",
+			res, spa_strerror(res));
 	goto done;
 }
 
@@ -358,7 +352,7 @@ static struct client_data *client_new(struct server *s, int fd)
 #ifndef __FreeBSD__
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
-		pw_log_error("server %p: no peercred: %m", s);
+		pw_log_warn("server %p: no peercred: %m", s);
 	} else {
 		pw_properties_setf(props, PW_KEY_SEC_PID, "%d", ucred.pid);
 		pw_properties_setf(props, PW_KEY_SEC_UID, "%d", ucred.uid);
@@ -668,7 +662,7 @@ process_remote(struct client *impl)
 		pw_proxy_unref(proxy);
 
 		if (res < 0) {
-			pw_log_error (NAME" %p: invalid message received %u for %u",
+			pw_log_error(NAME" %p: invalid message received %u for %u",
 					this, msg->opcode, msg->id);
 			debug_msg("*invalid*", msg, true);
 			continue;
@@ -709,7 +703,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 	}
 	return;
 error:
-	pw_log_error(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
+	pw_log_debug(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
 	pw_proxy_notify((struct pw_proxy*)this,
 			struct pw_core_events, error, 0, 0,
 			this->recv_seq, res, "connection error");

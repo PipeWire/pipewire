@@ -370,7 +370,6 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_impl_node *node = data->node;
-	struct pw_impl_client *client = resource->client;
 	int res;
 
 	pw_log_debug(NAME" %p: resource %p enum params seq:%d id:%d (%s) index:%u num:%u",
@@ -379,10 +378,7 @@ static int node_enum_params(void *object, int seq, uint32_t id,
 
 	if ((res = pw_impl_node_for_each_param(node, seq, id, index, num,
 				filter, reply_param, data)) < 0) {
-		pw_log_error(NAME" %p: resource %p %d error %d (%s)", node,
-				resource, resource->id, res, spa_strerror(res));
-		pw_core_resource_errorf(client->core_resource,
-				resource->id, seq, res,
+		pw_resource_errorf(resource, res,
 				"enum params id:%d (%s) failed", id,
 				spa_debug_type_find_name(spa_type_param, id));
 	}
@@ -439,9 +435,10 @@ static int node_set_param(void *object, uint32_t id, uint32_t flags,
 	res = spa_node_set_param(node->node, id, flags, param);
 
 	if (res < 0) {
-		pw_log_error(NAME" %p: resource %p %d error %d (%s)", node,
-				resource, resource->id, res, spa_strerror(res));
-		pw_resource_error(resource, res, spa_strerror(res));
+		pw_resource_errorf(resource, res,
+				"set param id:%d (%s) flags:%08x failed", id,
+				spa_debug_type_find_name(spa_type_param, id), flags);
+
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
 		pw_impl_client_set_busy(client, true);
 		if (data->end == -1)

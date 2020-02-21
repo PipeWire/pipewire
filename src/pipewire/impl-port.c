@@ -684,8 +684,9 @@ static int port_enum_params(void *object, int seq, uint32_t id, uint32_t index, 
 
 	if ((res = pw_impl_port_for_each_param(port, seq, id, index, num, filter,
 			reply_param, data)) < 0)
-		pw_core_resource_error(resource->client->core_resource,
-				resource->id, seq, res, spa_strerror(res));
+		pw_resource_errorf(resource, res,
+				"enum params id:%d (%s) failed", id,
+				spa_debug_type_find_name(spa_type_param, id));
 	return res;
 }
 

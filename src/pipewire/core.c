@@ -66,10 +66,10 @@ static void core_event_error(void *data, uint32_t id, int seq, int res, const ch
 	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_error(NAME" %p: object error %u: seq:%d %d (%s): %s", this, id, seq,
-			res, spa_strerror(res), message);
-
 	proxy = pw_map_lookup(&this->objects, id);
+
+	pw_log_error(NAME" %p: proxy %p id:%u: seq:%d res:%d (%s) msg:\"%s\"",
+			this, proxy, id, seq, res, spa_strerror(res), message);
 	if (proxy)
 		pw_proxy_emit_error(proxy, seq, res, message);
 }

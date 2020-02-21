@@ -215,6 +215,8 @@ pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
 	char buffer[1024];
 	vsnprintf(buffer, sizeof(buffer), message, args);
 	buffer[1023] = '\0';
+	pw_log_error("resource %p: id:%d seq:%d res:%d (%s) msg:\"%s\"",
+			resource, id, seq, res, spa_strerror(res), buffer);
 	pw_core_resource_error(resource, id, seq, res, buffer);
 }
 

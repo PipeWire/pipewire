@@ -375,8 +375,10 @@ static int port_set_io(struct pw_impl_link *this, struct pw_impl_port *port, uin
 		if (res == -ENOTSUP)
 			res = 0;
 		else
-			pw_log_warn(NAME" %p: port %p can't set io: %s", this,
-					port, spa_strerror(res));
+			pw_log_warn(NAME" %p: port %p can't set io:%d (%s): %s",
+					this, port, id,
+					spa_debug_type_find_name(spa_type_io, id),
+					spa_strerror(res));
 	}
 	return res;
 }
@@ -1131,26 +1133,26 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 error_same_ports:
 	res = -EINVAL;
-	pw_log_error("can't link the same ports");
+	pw_log_debug("can't link the same ports");
 	goto error_exit;
 error_wrong_direction:
 	res = -EINVAL;
-	pw_log_error("ports have wrong direction");
+	pw_log_debug("ports have wrong direction");
 	goto error_exit;
 error_link_exists:
 	res = -EEXIST;
-	pw_log_error("link already exists");
+	pw_log_debug("link already exists");
 	goto error_exit;
 error_link_not_allowed:
 	res = -EPERM;
-	pw_log_error("link not allowed");
+	pw_log_debug("link not allowed");
 	goto error_exit;
 error_no_mem:
 	res = -errno;
-	pw_log_error("alloc failed: %m");
+	pw_log_debug("alloc failed: %m");
 	goto error_exit;
 error_no_io:
-	pw_log_error(NAME" %p: can't set io %d (%s)", this, res, spa_strerror(res));
+	pw_log_debug(NAME" %p: can't set io %d (%s)", this, res, spa_strerror(res));
 	goto error_free;
 error_free:
 	free(impl);

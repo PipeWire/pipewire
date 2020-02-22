@@ -7,7 +7,9 @@ subdir('modules')
 if get_option('examples')
   subdir('examples')
 endif
-subdir('tests')
+if get_option('tests')
+  subdir('tests')
+endif
 
 if get_option('gstreamer')
   subdir('gst')

@@ -10,6 +10,10 @@ option('man',
        description: 'Build manpages',
        type: 'boolean',
        value: true)
+option('tests',
+       description: 'Build tests',
+       type: 'boolean',
+       value: true)
 option('gstreamer',
        description: 'Build GStreamer plugins',
        type: 'boolean',

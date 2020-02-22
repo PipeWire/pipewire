@@ -46,7 +46,7 @@ struct pixel {
 };
 
 struct data {
-	const char *path;
+	const char *target;
 
 	SDL_Renderer *renderer;
 	SDL_Window *window;
@@ -60,8 +60,8 @@ struct data {
 
 	void *in_port;
 
-	struct spa_video_info_raw format;
-	int32_t stride;
+	struct spa_io_position *position;
+	struct spa_video_info_dsp format;
 
 	int counter;
 	SDL_Rect rect;
@@ -106,7 +106,8 @@ on_process(void *_data, struct spa_io_position *position)
 
 	buf = b->buffer;
 
-	pw_log_trace("new buffer %p %dx%d", buf, data->format.size.width, data->format.size.height);
+	pw_log_trace("new buffer %p %dx%d", buf,
+			data->position->video.size.width, data->position->video.size.height);
 
 	handle_events(data);
 
@@ -126,9 +127,9 @@ on_process(void *_data, struct spa_io_position *position)
 	src = sdata;
 	dst = ddata;
 
-	for (i = 0; i < data->format.size.height; i++) {
+	for (i = 0; i < data->position->video.size.height; i++) {
 		struct pixel *p = (struct pixel *) src;
-		for (j = 0; j < data->format.size.width; j++) {
+		for (j = 0; j < data->position->video.size.width; j++) {
 			dst[j * 4 + 0] = SPA_CLAMP(lrintf(p[j].r * 255.0f), 0, 255);
 			dst[j * 4 + 1] = SPA_CLAMP(lrintf(p[j].g * 255.0f), 0, 255);
 			dst[j * 4 + 2] = SPA_CLAMP(lrintf(p[j].b * 255.0f), 0, 255);
@@ -156,11 +157,19 @@ static void on_filter_state_changed(void *_data, enum pw_filter_state old,
 	case PW_FILTER_STATE_UNCONNECTED:
 		pw_main_loop_quit(data->loop);
 		break;
-	case PW_FILTER_STATE_PAUSED:
-		/* because we started inactive, activate ourselves now */
-		pw_filter_set_active(data->filter, true);
-		break;
 	default:
+		break;
+	}
+}
+
+static void
+on_filter_io_changed(void *_data, void *port_data, uint32_t id, void *area, uint32_t size)
+{
+	struct data *data = _data;
+
+	switch (id) {
+	case SPA_IO_Position:
+		data->position = area;
 		break;
 	}
 }
@@ -170,63 +179,40 @@ on_filter_param_changed(void *_data, void *port_data, uint32_t id, const struct 
 {
 	struct data *data = _data;
 	struct pw_filter *filter = data->filter;
-	uint8_t params_buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[5];
-	Uint32 sdl_format;
-	void *d;
 
 	/* NULL means to clear the format */
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
-	fprintf(stderr, "got format:\n");
-	spa_debug_format(2, NULL, param);
-
 	/* call a helper function to parse the format for us. */
-	spa_format_video_raw_parse(param, &data->format);
+	spa_format_video_dsp_parse(param, &data->format);
 
-	if (data->format.format == SPA_VIDEO_FORMAT_RGBA_F32)
-		sdl_format = SDL_PIXELFORMAT_RGBA32;
-	else
-		sdl_format = SDL_PIXELFORMAT_UNKNOWN;
-
-	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN) {
+	if (data->format.format != SPA_VIDEO_FORMAT_RGBA_F32) {
 		pw_filter_set_error(filter, -EINVAL, "unknown format");
 		return;
 	}
 
 	data->texture = SDL_CreateTexture(data->renderer,
-					  sdl_format,
+					  SDL_PIXELFORMAT_RGBA32,
 					  SDL_TEXTUREACCESS_STREAMING,
-					  data->format.size.width,
-					  data->format.size.height);
-	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
-	SDL_UnlockTexture(data->texture);
+					  data->position->video.size.width,
+					  data->position->video.size.height);
+	if (data->texture == NULL) {
+		pw_filter_set_error(filter, -errno, "can't create texture");
+		return;
+	}
 
 	data->rect.x = 0;
 	data->rect.y = 0;
-	data->rect.w = data->format.size.width;
-	data->rect.h = data->format.size.height;
-
-	/* a SPA_TYPE_OBJECT_ParamBuffers object defines the acceptable size,
-	 * number, stride etc of the buffers */
-	params[0] = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->format.size.height),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
-		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
-
-	/* we are done */
-	pw_filter_update_params(filter, port_data, params, 1);
+	data->rect.w = data->position->video.size.width;
+	data->rect.h = data->position->video.size.height;
 }
 
 /* these are the filter events we listen for */
 static const struct pw_filter_events filter_events = {
 	PW_VERSION_FILTER_EVENTS,
 	.state_changed = on_filter_state_changed,
+	.io_changed = on_filter_io_changed,
 	.param_changed = on_filter_param_changed,
 	.process = on_process,
 };
@@ -239,6 +225,8 @@ int main(int argc, char *argv[])
 
 	/* create a main loop */
 	data.loop = pw_main_loop_new(NULL);
+
+	data.target = argc > 1 ? argv[1] : NULL;
 
 	/* create a simple filter, the simple filter manages to core and remote
 	 * objects for you if you don't need to deal with them
@@ -258,11 +246,13 @@ int main(int argc, char *argv[])
 				PW_KEY_MEDIA_TYPE, "Video",
 				PW_KEY_MEDIA_CATEGORY, "Capture",
 				PW_KEY_MEDIA_ROLE, "DSP",
+				PW_KEY_NODE_AUTOCONNECT, "1",
+				PW_KEY_NODE_TARGET, data.target,
+				PW_KEY_MEDIA_CLASS, "Stream/Input/Video",
 				NULL),
 			&filter_events,
 			&data);
 
-	data.path = argc > 1 ? argv[1] : NULL;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());
@@ -288,8 +278,7 @@ int main(int argc, char *argv[])
 			NULL, 0);
 
 	pw_filter_connect(data.filter,
-			0,
-			//PW_FILTER_FLAG_RT_PROCESS,
+			0,		/* no flags */
 			NULL, 0);
 
 	/* do things until we quit the mainloop */

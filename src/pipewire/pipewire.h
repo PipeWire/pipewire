@@ -67,15 +67,16 @@ extern "C" {
  * This document describes the API for the PipeWire multimedia framework.
  * The API consists of two parts:
  *
- * \li The context API and tools to build new modules (See
- * \subpage page_context_api)
- * \li The remote API (See \subpage page_remote_api)
+ * \li The core API to access a PipeWire instance.
+ * (See \subpage page_core_api)
+ * \li The implementation API and tools to build new objects and
+ * modules (See \subpage page_implementation_api)
  *
  * \section sec_errors Error reporting
  *
- * Functions return either NULL or a negative int error code when an
- * error occurs. Error codes are used from the SPA plugin library on
- * which PipeWire is built.
+ * Functions return either NULL with errno set or a negative int error
+ * code when an error occurs. Error codes are used from the SPA plugin
+ * library on which PipeWire is built.
  *
  * Some functions might return asynchronously. The error code for such
  * functions is positive and SPA_RESULT_IS_ASYNC() will return true.

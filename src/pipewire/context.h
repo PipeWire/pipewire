@@ -36,9 +36,25 @@ extern "C" {
  *
  * \brief the PipeWire context
  *
- * The context object manages all available resources.
+ * The context object manages all locally available resources. It
+ * is used by both clients and servers.
  *
- * See \ref page_context_api
+ * The context is used to:
+ *
+ *  - Load modules and extend the functionality. This includes
+ *    extending the protocol with new object types or creating
+ *    any of the available objects.
+ *
+ *  - Create implementations of various objects like nodes,
+ *    devices, factories, modules, etc.. This will usually also
+ *    create pw_global objects that can then be shared with
+ *    clients.
+ *
+ *  - Connect to another PipeWire instance (the main daemon, for
+ *    example) and interact with it (See \subpage page_core_api).
+ *
+ *  - Export a local implementation of an object to another
+ *    instance.
  */
 struct pw_context;
 

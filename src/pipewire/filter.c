@@ -309,6 +309,9 @@ static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state stat
 			     pw_filter_state_as_string(old),
 			     pw_filter_state_as_string(state), filter->error);
 
+		if (state == PW_FILTER_STATE_ERROR)
+			pw_log_error(NAME" %p: error %s", filter, error);
+
 		filter->state = state;
 		pw_filter_emit_state_changed(filter, old, state, error);
 	}

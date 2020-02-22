@@ -274,6 +274,9 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 			     pw_stream_state_as_string(old),
 			     pw_stream_state_as_string(state), stream->error);
 
+		if (state == PW_STREAM_STATE_ERROR)
+			pw_log_error(NAME" %p: error %s", stream, error);
+
 		stream->state = state;
 		pw_stream_emit_state_changed(stream, old, state, error);
 	}

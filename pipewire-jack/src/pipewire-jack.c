@@ -934,12 +934,33 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 	return state;
 }
 
+static inline void check_buffer_frames(struct client *c)
+{
+	uint32_t buffer_frames = c->position->clock.duration;
+	if (buffer_frames != c->buffer_frames) {
+		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
+		c->buffer_frames = buffer_frames;
+		if (c->bufsize_callback)
+			c->bufsize_callback(c->buffer_frames, c->bufsize_arg);
+	}
+}
+
+static inline void check_sample_rate(struct client *c)
+{
+	uint32_t sample_rate = c->position->clock.rate.denom;
+	if (sample_rate != c->sample_rate) {
+		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
+		c->sample_rate = sample_rate;
+		if (c->srate_callback)
+			c->srate_callback(c->sample_rate, c->srate_arg);
+	}
+}
+
 static inline uint32_t cycle_run(struct client *c)
 {
 	uint64_t cmd;
 	struct timespec ts;
 	int fd = c->socket_source->fd;
-	uint32_t buffer_frames, sample_rate;
 	struct spa_io_position *pos = c->position;
 	struct pw_node_activation *activation = c->activation;
 	struct pw_node_activation *driver = c->driver_activation;
@@ -968,21 +989,8 @@ static inline uint32_t cycle_run(struct client *c)
 		c->first = false;
 	}
 
-	buffer_frames = pos->clock.duration;
-	if (buffer_frames != c->buffer_frames) {
-		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
-		c->buffer_frames = buffer_frames;
-		if (c->bufsize_callback)
-			c->bufsize_callback(c->buffer_frames, c->bufsize_arg);
-	}
-
-	sample_rate = pos->clock.rate.denom;
-	if (sample_rate != c->sample_rate) {
-		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
-		c->sample_rate = sample_rate;
-		if (c->srate_callback)
-			c->srate_callback(c->sample_rate, c->srate_arg);
-	}
+	check_buffer_frames(c);
+	check_sample_rate(c);
 
 	c->jack_state = position_to_jack(driver, &c->jack_position);
 
@@ -1001,7 +1009,7 @@ static inline uint32_t cycle_run(struct client *c)
 			activation->awake_time, c->buffer_frames, c->sample_rate,
 			c->jack_position.frame, pos->clock.delay, pos->clock.rate_diff);
 
-	return buffer_frames;
+	return c->buffer_frames;
 }
 
 static inline uint32_t cycle_wait(struct client *c)
@@ -1256,8 +1264,9 @@ static int client_node_set_io(void *object,
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
-		if (ptr)
-			c->sample_rate = c->position->clock.rate.denom;
+		if (ptr) {
+			check_sample_rate(c);
+		}
 		break;
 	default:
 		break;
@@ -2701,6 +2710,8 @@ int jack_set_sample_rate_callback (jack_client_t *client,
 	pw_log_debug(NAME" %p: %p %p", c, srate_callback, arg);
 	c->srate_callback = srate_callback;
 	c->srate_arg = arg;
+	if (c->srate_callback && c->sample_rate != (uint32_t)-1)
+		c->srate_callback(c->sample_rate, c->srate_arg);
 	return 0;
 }
 

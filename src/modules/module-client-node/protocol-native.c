@@ -1062,9 +1062,7 @@ static int client_node_demarshal_port_buffers(void *object, const struct pw_prot
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *buf = buffers[i] = alloca(sizeof(struct spa_buffer));
 
-		buf->n_metas = 0;
-		buf->metas = NULL;
-
+		spa_zero(*buf);
 		if (spa_pod_parser_get(&prs,
 					SPA_POD_Int(&buf->n_datas), NULL) < 0)
 			return -EINVAL;

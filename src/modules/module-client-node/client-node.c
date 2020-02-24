@@ -1024,11 +1024,19 @@ static int client_node_port_buffers(void *data,
 			return -EINVAL;
 
 		for (j = 0; j < newbuf->n_datas; j++) {
-			oldbuf->datas[j] = newbuf->datas[j];
+			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
 
-			spa_log_debug(this->log, " data %d type:%d fd:%d", j,
+			/* overwrite everything except the chunk */
+			oldbuf->datas[j] = newbuf->datas[j];
+			oldbuf->datas[j].chunk = oldchunk;
+
+			spa_log_debug(this->log, " data %d type:%d fl:%08x fd:%d, offs:%d max:%d",
+					j,
 					newbuf->datas[j].type,
-					(int) newbuf->datas[j].fd);
+					newbuf->datas[j].flags,
+					(int) newbuf->datas[j].fd,
+					newbuf->datas[j].mapoffset,
+					newbuf->datas[j].maxsize);
 		}
 	}
 	mix->n_buffers = n_buffers;

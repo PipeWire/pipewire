@@ -1246,10 +1246,6 @@ static int check_updates(struct pw_impl_node *node, uint32_t *reposition_owner)
 			break;
 		}
 	}
-
-	if (*reposition_owner)
-		res = SYNC_START;
-
 	return res;
 }
 
@@ -1261,9 +1257,19 @@ static void do_reposition(struct pw_impl_node *driver, struct pw_impl_node *node
 	src = &node->rt.activation->reposition;
 	dst = &a->position.segments[0];
 
-	pw_log_debug(NAME" %p: update position:%lu", node, src->position);
+	pw_log_trace(NAME" %p: update position:%lu", node, src->position);
 
-	memcpy(dst, src, sizeof(struct spa_io_segment));
+	dst->version = src->version;
+	dst->flags = src->flags;
+	dst->start = src->start;
+	dst->duration = src->duration;
+	dst->rate = src->rate;
+	dst->position = src->position;
+	if (src->bar.flags & SPA_IO_SEGMENT_BAR_FLAG_VALID)
+		dst->bar = src->bar;
+	if (src->video.flags & SPA_IO_SEGMENT_VIDEO_FLAG_VALID)
+		dst->video = src->video;
+
 	if (dst->start == 0)
 		dst->start = a->position.clock.position - a->position.offset;
 

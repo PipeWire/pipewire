@@ -736,8 +736,6 @@ do_port_use_buffers(struct impl *impl,
 		mb = NULL;
 	}
 
-	mix->n_buffers = n_buffers;
-
 	if (this->resource == NULL)
 		return n_buffers == 0 ? 0 : -EIO;
 
@@ -823,6 +821,7 @@ do_port_use_buffers(struct impl *impl,
 			}
 		}
 	}
+	mix->n_buffers = n_buffers;
 
 	return pw_client_node_resource_port_use_buffers(this->resource,
 						 direction, port_id, mix_id, flags,

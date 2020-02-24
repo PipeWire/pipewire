@@ -1031,8 +1031,11 @@ static int setup_midifile(struct data *data)
 		close(data->midi.fd);
 		return -errno;
 	}
-	if ((res = midi_file_init(&data->midi.mf, "r", data->midi.mem, data->midi.st.st_size)) < 0)
-		return -errno;
+	if ((res = midi_file_init(&data->midi.mf, "r", data->midi.mem, data->midi.st.st_size)) < 0) {
+		fprintf(stderr, "error: can't read midi file '%s': %s\n", data->filename, spa_strerror(res));
+		close(data->midi.fd);
+		return res;
+	}
 
 	if (data->verbose)
 		printf("opened file \"%s\" format %08x ntracks:%d div:%d\n",

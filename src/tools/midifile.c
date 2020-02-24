@@ -59,7 +59,7 @@ static int read_mthd(struct midi_file *mf)
 {
 	if (mf_avail(mf) < 14 ||
 	    memcmp(mf->p, "MThd", 4) != 0)
-		return -EIO;
+		return -EINVAL;
 
 	mf->length = parse_be32(mf->p + 4);
 	mf->format = parse_be16(mf->p + 8);
@@ -94,7 +94,7 @@ static int read_mtrk(struct midi_file *mf, struct midi_track *track)
 {
 	if (mf_avail(mf) < 8 ||
 	    memcmp(mf->p, "MTrk", 4) != 0)
-		return -EIO;
+		return -EINVAL;
 
 	track->data = track->p = mf->p + 8;
 	track->size = parse_be32(mf->p + 4);
@@ -162,7 +162,7 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 			break;
 		case 0x51:
 			if (size < 3)
-				return -EIO;
+				return -EINVAL;
 			mf->tick_sec = event->sec;
 			mf->tick_start = tr->tick;
 			mf->tempo = (tr->p[0]<<16) | (tr->p[1]<<8) | tr->p[2];
@@ -176,7 +176,7 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 			return res;
 		break;
 	default:
-		return -EIO;
+		return -ENOENT;
 	}
 	event->data = tr->p;
 	tr->p = save;

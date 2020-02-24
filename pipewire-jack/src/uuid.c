@@ -72,18 +72,23 @@ int  jack_uuid_compare (jack_uuid_t id1, jack_uuid_t id2)
 SPA_EXPORT
 void jack_uuid_copy (jack_uuid_t* dst, jack_uuid_t src)
 {
+	spa_return_if_fail(dst != NULL);
 	*dst = src;
 }
 
 SPA_EXPORT
 void jack_uuid_clear (jack_uuid_t *id)
 {
+	spa_return_if_fail(id != NULL);
 	*id = 0;
 }
 
 SPA_EXPORT
 int  jack_uuid_parse (const char *buf, jack_uuid_t *id)
 {
+	spa_return_val_if_fail(buf != NULL, -EINVAL);
+	spa_return_val_if_fail(id != NULL, -EINVAL);
+
 	if (sscanf (buf, "%" PRIu64, id) == 1) {
 		if (*id < (0x1LL << 32)) {
 			/* has not type bits set - not legal */
@@ -97,6 +102,7 @@ int  jack_uuid_parse (const char *buf, jack_uuid_t *id)
 SPA_EXPORT
 void jack_uuid_unparse (jack_uuid_t id, char buf[JACK_UUID_STRING_SIZE])
 {
+	spa_return_if_fail(buf != NULL);
 	snprintf (buf, JACK_UUID_STRING_SIZE, "%" PRIu64, id);
 }
 

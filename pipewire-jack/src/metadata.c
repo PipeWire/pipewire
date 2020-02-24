@@ -63,6 +63,11 @@ int jack_set_property(jack_client_t*client,
 	struct client *c = (struct client *) client;
 	uint32_t id;
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(key != NULL, -EINVAL);
+	spa_return_val_if_fail(value != NULL, -EINVAL);
+	spa_return_val_if_fail(type != NULL, -EINVAL);
+
 	id = jack_uuid_to_index(subject);
 
 	pw_log_debug("set id:%u (%lu) '%s' to '%s@%s'", id, subject, key, value, type);
@@ -77,11 +82,17 @@ int jack_get_property(jack_uuid_t subject,
 		      char**      value,
 		      char**      type)
 {
-	int keylen = strlen(key);
-	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
+	int keylen;
+	char *dst;
 	struct pw_properties * props = get_properties();
 	const char *str, *at;
 
+	spa_return_val_if_fail(key != NULL, -EINVAL);
+	spa_return_val_if_fail(value != NULL, -EINVAL);
+	spa_return_val_if_fail(type != NULL, -EINVAL);
+
+	keylen = strlen(key);
+	dst = alloca(JACK_UUID_STRING_SIZE + keylen);
 	make_key(dst, subject, key, keylen);
 
 	if ((str = pw_properties_get(props, dst)) == NULL) {
@@ -127,10 +138,15 @@ int jack_get_all_properties (jack_description_t** descs)
 SPA_EXPORT
 int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char* key)
 {
-	int keylen = strlen(key);
-	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
+	int keylen;
+	char *dst;
 	struct pw_properties * props = get_properties();
 
+	spa_return_val_if_fail(client != NULL, -EINVAL);
+	spa_return_val_if_fail(key != NULL, -EINVAL);
+
+	keylen = strlen(key);
+	dst = alloca(JACK_UUID_STRING_SIZE + keylen);
 	make_key(dst, subject, key, keylen);
 
 	pw_properties_set(props, dst, NULL);

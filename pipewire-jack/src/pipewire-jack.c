@@ -245,6 +245,7 @@ struct client {
 	struct spa_hook core_listener;
 	struct pw_mempool *pool;
 	int last_sync;
+	int last_res;
 	bool error;
 
 	struct pw_registry *registry;
@@ -545,10 +546,14 @@ static void mix2_c(float *dst, float *src1, float *src2, int n_samples)
 SPA_EXPORT
 void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto_ptr)
 {
-	*major_ptr = 0;
-	*minor_ptr = 0;
-	*micro_ptr = 0;
-	*proto_ptr = 0;
+	if (major_ptr)
+		*major_ptr = 0;
+	if (minor_ptr)
+		*minor_ptr = 0;
+	if (micro_ptr)
+		*micro_ptr = 0;
+	if (proto_ptr)
+		*proto_ptr = 0;
 }
 
 SPA_EXPORT
@@ -575,8 +580,9 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", client,
 			id, seq, res, spa_strerror(res), message);
 
-	if (id == 0) {
+	if (id == PW_ID_CORE) {
 		client->error = true;
+		client->last_res = res;
 		if (client->shutdown_callback && !client->destroyed)
 			client->shutdown_callback(client->shutdown_arg);
 	}
@@ -599,7 +605,7 @@ static int do_sync(struct client *client)
 	        pw_thread_loop_wait(client->context.loop);
 
 		if (client->error)
-			return -1;
+			return client->last_res;
 
 		if (client->last_sync == seq)
 			break;
@@ -2133,6 +2139,8 @@ jack_client_t * jack_client_open (const char *client_name,
         if (getenv("PIPEWIRE_NOJACK") != NULL)
 		goto disabled;
 
+	spa_return_val_if_fail(client_name != NULL, NULL);
+
 	client = calloc(1, sizeof(struct client));
 	if (client == NULL)
 		goto init_failed;
@@ -2293,6 +2301,8 @@ int jack_client_close (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	int res;
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	pw_log_debug(NAME" %p: close", client);
 
 	c->destroyed = true;
@@ -2321,7 +2331,7 @@ SPA_EXPORT
 char * jack_get_client_name (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	pw_log_trace(NAME" %p: %s", c, c->name);
+	spa_return_val_if_fail(c != NULL, NULL);
 	return c->name;
 }
 
@@ -2333,6 +2343,9 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 {
 	struct client *c = (struct client *) client;
 	struct object *o;
+
+	spa_return_val_if_fail(c != NULL, NULL);
+	spa_return_val_if_fail(client_name != NULL, NULL);
 
 	spa_list_for_each(o, &c->context.nodes, link) {
 		if (strcmp(o->node.name, client_name) == 0) {
@@ -2353,6 +2366,9 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	struct object *o;
 	jack_uuid_t uuid;
 	jack_uuid_t cuuid = 0x2;
+
+	spa_return_val_if_fail(c != NULL, NULL);
+	spa_return_val_if_fail(client_uuid != NULL, NULL);
 
 	if (jack_uuid_parse(client_uuid, &uuid) < 0)
 		return NULL;
@@ -2404,6 +2420,8 @@ int jack_activate (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	int res;
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active)
 		return 0;
 
@@ -2422,6 +2440,8 @@ int jack_deactivate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	int res;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
 
 	if (!c->active)
 		return 0;
@@ -2476,6 +2496,9 @@ SPA_EXPORT
 jack_nframes_t jack_cycle_wait (jack_client_t* client)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, 0);
+
 	jack_nframes_t res;
 	res = cycle_wait(c);
 	pw_log_trace(NAME" %p: result:%d", c, res);
@@ -2486,6 +2509,9 @@ SPA_EXPORT
 void jack_cycle_signal (jack_client_t* client, int status)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_if_fail(c != NULL);
+
 	pw_log_trace(NAME" %p: status:%d", c, status);
 	cycle_signal(c, status);
 }
@@ -2494,6 +2520,8 @@ SPA_EXPORT
 int jack_set_process_thread(jack_client_t* client, JackThreadCallback thread_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
 
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
@@ -2514,6 +2542,9 @@ int jack_set_thread_init_callback (jack_client_t *client,
                                    void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	pw_log_debug(NAME" %p: %p %p", c, thread_init_callback, arg);
 	c->thread_init_callback = thread_init_callback;
 	c->thread_init_arg = arg;
@@ -2525,6 +2556,8 @@ void jack_on_shutdown (jack_client_t *client,
                        JackShutdownCallback shutdown_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_if_fail(c != NULL);
 
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
@@ -2541,6 +2574,8 @@ void jack_on_info_shutdown (jack_client_t *client,
 {
 	struct client *c = (struct client *) client;
 
+	spa_return_if_fail(c != NULL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 	} else {
@@ -2556,6 +2591,8 @@ int jack_set_process_callback (jack_client_t *client,
                                void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
 
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
@@ -2577,6 +2614,9 @@ int jack_set_freewheel_callback (jack_client_t *client,
                                  void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2593,6 +2633,9 @@ int jack_set_buffer_size_callback (jack_client_t *client,
                                    void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2609,6 +2652,9 @@ int jack_set_sample_rate_callback (jack_client_t *client,
                                    void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2625,6 +2671,9 @@ int jack_set_client_registration_callback (jack_client_t *client,
                                             registration_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2641,6 +2690,9 @@ int jack_set_port_registration_callback (jack_client_t *client,
                                           registration_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2658,6 +2710,9 @@ int jack_set_port_connect_callback (jack_client_t *client,
                                     connect_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2674,6 +2729,9 @@ int jack_set_port_rename_callback (jack_client_t *client,
 				   void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2690,9 +2748,12 @@ int jack_set_graph_order_callback (jack_client_t *client,
                                    void *data)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
-		return -1;
+		return -EIO;
 	}
 	pw_log_trace(NAME" %p: %p %p", c, graph_callback, data);
 	c->graph_callback = graph_callback;
@@ -2705,9 +2766,12 @@ int jack_set_xrun_callback (jack_client_t *client,
                             JackXRunCallback xrun_callback, void *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
-		return -1;
+		return -EIO;
 	}
 	pw_log_debug(NAME" %p: %p %p", c, xrun_callback, arg);
 	c->xrun_callback = xrun_callback;
@@ -2721,6 +2785,9 @@ int jack_set_latency_callback (jack_client_t *client,
 			       void *data)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -2746,6 +2813,8 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 	struct spa_dict_item items[1];
 	char latency[128];
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	snprintf(latency, sizeof(latency), "%d/%d", nframes, jack_get_sample_rate(client));
 
 	ni = SPA_NODE_INFO_INIT();
@@ -2766,6 +2835,7 @@ SPA_EXPORT
 jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, 0);
 	if (c->sample_rate == (uint32_t)-1)
 		return DEFAULT_SAMPLE_RATE;
 	return c->sample_rate;
@@ -2775,6 +2845,7 @@ SPA_EXPORT
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, 0);
 	if (c->buffer_frames == (uint32_t)-1)
 		return DEFAULT_BUFFER_FRAMES;
 	return c->buffer_frames;
@@ -2792,6 +2863,8 @@ float jack_cpu_load (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	float res = 0.0f;
+
+	spa_return_val_if_fail(c != NULL, 0.0);
 
 	if (c->driver_activation)
 		res = c->driver_activation->cpu_load[0] * 100.0f;
@@ -2823,6 +2896,10 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	uint32_t n_params = 0;
 	struct port *p;
 	int res;
+
+	spa_return_val_if_fail(c != NULL, NULL);
+	spa_return_val_if_fail(port_name != NULL, NULL);
+	spa_return_val_if_fail(port_type != NULL, NULL);
 
 	pw_log_debug(NAME" %p: port register \"%s\" \"%s\" %08lx %ld",
 			c, port_name, port_type, flags, buffer_frames);
@@ -2893,12 +2970,16 @@ jack_port_t * jack_port_register (jack_client_t *client,
 SPA_EXPORT
 int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 {
+	struct client *c = (struct client *) client;
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
 	struct port *p;
 	int res;
 
-	if (o->type != INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+
+	if (o->type != INTERFACE_Port || o->port.port_id == SPA_ID_INVALID ||
+	    o->client != c) {
 		pw_log_error(NAME" %p: invalid port %p", client, port);
 		return -EINVAL;
 	}
@@ -3018,8 +3099,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct port *p;
 	void *ptr = NULL;
 
-	if (o == NULL)
-		return NULL;
+	spa_return_val_if_fail(o != NULL, NULL);
 
 	c = o->client;
 
@@ -3070,6 +3150,7 @@ SPA_EXPORT
 jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, 0);
 	return jack_port_uuid_generate(o->id);
 }
 
@@ -3077,6 +3158,7 @@ SPA_EXPORT
 const char * jack_port_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, NULL);
 	return o->port.name;
 }
 
@@ -3084,6 +3166,7 @@ SPA_EXPORT
 const char * jack_port_short_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, NULL);
 	return strchr(o->port.name, ':') + 1;
 }
 
@@ -3091,6 +3174,7 @@ SPA_EXPORT
 int jack_port_flags (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, 0);
 	return o->port.flags;
 }
 
@@ -3098,6 +3182,7 @@ SPA_EXPORT
 const char * jack_port_type (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, NULL);
 	return type_to_string(o->port.type_id);
 }
 
@@ -3105,6 +3190,7 @@ SPA_EXPORT
 jack_port_type_id_t jack_port_type_id (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, 0);
 	return o->port.type_id;
 }
 
@@ -3112,6 +3198,7 @@ SPA_EXPORT
 int jack_port_is_mine (const jack_client_t *client, const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, 0);
 	return o->type == INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
 }
 
@@ -3119,9 +3206,13 @@ SPA_EXPORT
 int jack_port_connected (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
+	struct client *c;
 	struct object *l;
 	int res = 0;
+
+	spa_return_val_if_fail(o != NULL, 0);
+
+	c = o->client;
 
 	pw_thread_loop_lock(c->context.loop);
 	spa_list_for_each(l, &c->context.links, link) {
@@ -3139,9 +3230,14 @@ int jack_port_connected_to (const jack_port_t *port,
                             const char *port_name)
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
+	struct client *c;
 	struct object *p, *l;
 	int res = 0;
+
+	spa_return_val_if_fail(o != NULL, 0);
+	spa_return_val_if_fail(port_name != NULL, 0);
+
+	c = o->client;
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3170,9 +3266,10 @@ SPA_EXPORT
 const char ** jack_port_get_connections (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
 
-	return jack_port_get_all_connections((jack_client_t *)c, port);
+	spa_return_val_if_fail(o != NULL, NULL);
+
+	return jack_port_get_all_connections((jack_client_t *)o->client, port);
 }
 
 SPA_EXPORT
@@ -3182,8 +3279,13 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	struct client *c = (struct client *) client;
 	struct object *o = (struct object *) port;
 	struct object *p, *l;
-	const char **res = malloc(sizeof(char*) * (CONNECTION_NUM_FOR_PORT + 1));
+	const char **res;
 	int count = 0;
+
+	spa_return_val_if_fail(c != NULL, NULL);
+	spa_return_val_if_fail(o != NULL, NULL);
+
+	res = malloc(sizeof(char*) * (CONNECTION_NUM_FOR_PORT + 1));
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3244,6 +3346,10 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 	struct spa_dict dict;
 	struct spa_dict_item items[1];
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+	spa_return_val_if_fail(port_name != NULL, -EINVAL);
+
 	pw_thread_loop_lock(c->context.loop);
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
@@ -3269,15 +3375,17 @@ SPA_EXPORT
 int jack_port_set_alias (jack_port_t *port, const char *alias)
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
+	struct client *c;
 	struct port *p;
 	struct spa_port_info port_info;
 	struct spa_dict dict;
 	struct spa_dict_item items[1];
 	const char *key;
 
-	if (c == NULL)
-		return -1;
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+	spa_return_val_if_fail(alias != NULL, -EINVAL);
+
+	c = o->client;
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3319,15 +3427,17 @@ SPA_EXPORT
 int jack_port_unset_alias (jack_port_t *port, const char *alias)
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
+	struct client *c;
 	struct port *p;
 	struct spa_port_info port_info;
 	struct spa_dict dict;
 	struct spa_dict_item items[1];
 	const char *key;
 
-	if (c == NULL)
-		return -1;
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+	spa_return_val_if_fail(alias != NULL, -EINVAL);
+
+	c = o->client;
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3365,8 +3475,15 @@ SPA_EXPORT
 int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 {
 	struct object *o = (struct object *) port;
-	struct client *c = o->client;
+	struct client *c;
 	int res = 0;
+
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+	spa_return_val_if_fail(aliases != NULL, -EINVAL);
+	spa_return_val_if_fail(aliases[0] != NULL, -EINVAL);
+	spa_return_val_if_fail(aliases[1] != NULL, -EINVAL);
+
+	c = o->client;
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3387,6 +3504,9 @@ SPA_EXPORT
 int jack_port_request_monitor (jack_port_t *port, int onoff)
 {
 	struct object *o = (struct object *) port;
+
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+
 	if (onoff)
 		o->port.monitor_requests++;
 	else if (o->port.monitor_requests > 0)
@@ -3400,6 +3520,9 @@ int jack_port_request_monitor_by_name (jack_client_t *client,
 {
 	struct client *c = (struct client *) client;
 	struct object *p;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(port_name != NULL, -EINVAL);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3420,6 +3543,9 @@ SPA_EXPORT
 int jack_port_ensure_monitor (jack_port_t *port, int onoff)
 {
 	struct object *o = (struct object *) port;
+
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+
 	if (onoff) {
 		if (o->port.monitor_requests == 0)
 			o->port.monitor_requests++;
@@ -3434,6 +3560,7 @@ SPA_EXPORT
 int jack_port_monitoring_input (jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
+	spa_return_val_if_fail(o != NULL, -EINVAL);
 	return o->port.monitor_requests > 0;
 }
 
@@ -3448,6 +3575,10 @@ int jack_connect (jack_client_t *client,
 	struct spa_dict_item items[5];
 	char val[4][16];
 	int res;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(source_port != NULL, -EINVAL);
+	spa_return_val_if_fail(destination_port != NULL, -EINVAL);
 
 	pw_log_debug(NAME" %p: connect %s %s", client, source_port, destination_port);
 
@@ -3499,6 +3630,10 @@ int jack_disconnect (jack_client_t *client,
 	struct object *src, *dst, *l;
 	int res;
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(source_port != NULL, -EINVAL);
+	spa_return_val_if_fail(destination_port != NULL, -EINVAL);
+
 	pw_log_debug(NAME" %p: disconnect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
@@ -3538,6 +3673,9 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	struct object *l;
 	int res;
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(o != NULL, -EINVAL);
+
 	pw_log_debug(NAME" %p: disconnect %p", client, port);
 
 	pw_thread_loop_lock(c->context.loop);
@@ -3570,6 +3708,9 @@ int jack_port_type_size(void)
 SPA_EXPORT
 size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_type)
 {
+	spa_return_val_if_fail(client != NULL, 0);
+	spa_return_val_if_fail(port_type != NULL, 0);
+
 	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
 		return jack_get_buffer_size(client) * sizeof(float);
 	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
@@ -3584,6 +3725,9 @@ SPA_EXPORT
 void jack_port_set_latency (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = (struct object *) port;
+
+	spa_return_if_fail(o != NULL);
+
 	jack_latency_range_t range = { frames, frames };
 	if (o->port.flags & JackPortIsOutput) {
 		jack_port_set_latency_range(port, JackCaptureLatency, &range);
@@ -3597,6 +3741,9 @@ SPA_EXPORT
 void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	struct object *o = (struct object *) port;
+
+	spa_return_if_fail(o != NULL);
+
 	if (mode == JackCaptureLatency) {
 		*range = o->port.capture_latency;
 	} else {
@@ -3608,6 +3755,9 @@ SPA_EXPORT
 void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	struct object *o = (struct object *) port;
+
+	spa_return_if_fail(o != NULL);
+
 	if (mode == JackCaptureLatency) {
 		o->port.capture_latency = *range;
 	} else {
@@ -3627,6 +3777,9 @@ jack_nframes_t jack_port_get_latency (jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	jack_latency_range_t range;
+
+	spa_return_val_if_fail(o != NULL, 0);
+
 	if (o->port.flags & JackPortIsOutput) {
 		jack_port_get_latency_range(port, JackCaptureLatency, &range);
         }
@@ -3683,6 +3836,8 @@ const char ** jack_get_ports (jack_client_t *client,
 	const char *str;
 	uint32_t i, count, id;
 	regex_t port_regex, type_regex;
+
+	spa_return_val_if_fail(c != NULL, NULL);
 
 	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 		id = pw_properties_parse_int(str);
@@ -3753,6 +3908,8 @@ jack_port_t * jack_port_by_name (jack_client_t *client, const char *port_name)
 	struct client *c = (struct client *) client;
 	struct object *res;
 
+	spa_return_val_if_fail(c != NULL, NULL);
+
 	pw_thread_loop_lock(c->context.loop);
 
 	res = find_port(c, port_name);
@@ -3768,6 +3925,8 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 {
 	struct client *c = (struct client *) client;
 	struct object *res = NULL, *o;
+
+	spa_return_val_if_fail(c != NULL, NULL);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3789,11 +3948,13 @@ SPA_EXPORT
 jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	struct spa_io_position *pos = c->position;
+	struct spa_io_position *pos;
 	struct timespec ts;
 	uint64_t diff;
 
-	if (pos == NULL)
+	spa_return_val_if_fail(c != NULL, 0);
+
+	if ((pos = c->position) == NULL)
 		return 0;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -3813,9 +3974,11 @@ SPA_EXPORT
 jack_nframes_t jack_last_frame_time (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	struct spa_io_position *pos = c->position;
+	struct spa_io_position *pos;
 
-	if (pos == NULL)
+	spa_return_val_if_fail(c != NULL, 0);
+
+	if ((pos = c->position) == NULL)
 		return 0;
 
 	return pos->clock.position;
@@ -3829,10 +3992,12 @@ int jack_get_cycle_times(const jack_client_t *client,
                         float          *period_usecs)
 {
 	struct client *c = (struct client *) client;
-	struct spa_io_position *pos = c->position;
+	struct spa_io_position *pos;
 
-	if (pos == NULL)
-		return -1;
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if ((pos = c->position) == NULL)
+		return -EIO;
 
 	*current_frames = pos->clock.position;
 	*current_usecs = pos->clock.nsec / SPA_NSEC_PER_USEC;
@@ -3848,10 +4013,12 @@ SPA_EXPORT
 jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t frames)
 {
 	struct client *c = (struct client *) client;
-	struct spa_io_position *pos = c->position;
+	struct spa_io_position *pos;
 	double df;
 
-	if (pos == NULL)
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if ((pos = c->position) == NULL)
 		return 0;
 
 	df = (frames - pos->clock.position) * (double)SPA_NSEC_PER_SEC / c->sample_rate;
@@ -3862,10 +4029,12 @@ SPA_EXPORT
 jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usecs)
 {
 	struct client *c = (struct client *) client;
-	struct spa_io_position *pos = c->position;
+	struct spa_io_position *pos;
 	double du;
 
-	if (pos == NULL)
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if ((pos = c->position) == NULL)
 		return 0;
 
 	du = (usecs - pos->clock.nsec/SPA_NSEC_PER_USEC) * (double)c->sample_rate / SPA_USEC_PER_SEC;
@@ -3931,9 +4100,11 @@ SPA_EXPORT
 int jack_release_timebase (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
+	struct pw_node_activation *a;
 
-	if (a == NULL)
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if ((a = c->driver_activation) == NULL)
 		return -EIO;
 
 	if (!ATOMIC_CAS(a->segment_owner[0], c->node_id, 0))
@@ -3954,6 +4125,8 @@ int jack_set_sync_callback (jack_client_t *client,
 	int res;
 	struct client *c = (struct client *) client;
 
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	c->sync_callback = sync_callback;
 	c->sync_arg = arg;
 
@@ -3969,9 +4142,11 @@ int jack_set_sync_timeout (jack_client_t *client,
 			   jack_time_t timeout)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->activation;
+	struct pw_node_activation *a;
 
-	if (a == NULL)
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if ((a = c->activation) == NULL)
 		return -EIO;
 
 	ATOMIC_STORE(a->sync_timeout, timeout);
@@ -3987,13 +4162,15 @@ int  jack_set_timebase_callback (jack_client_t *client,
 {
 	int res;
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
+	struct pw_node_activation *a;
 	uint32_t owner;
 
-	pw_log_debug(NAME" %p: activation %p", c, a);
+	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if (a == NULL)
+	if ((a = c->driver_activation) == NULL)
 		return -EIO;
+
+	pw_log_debug(NAME" %p: activation %p", c, a);
 
 	/* was ok */
 	owner = ATOMIC_LOAD(a->segment_owner[0]);
@@ -4038,10 +4215,12 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 					     jack_position_t *pos)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
+	struct pw_node_activation *a;
 	jack_transport_state_t jack_state = JackTransportStopped;
 
-	if (a != NULL)
+	spa_return_val_if_fail(c != NULL, JackTransportStopped);
+
+	if ((a = c->driver_activation) != NULL)
 		jack_state = position_to_jack(a, pos);
 	else if (pos != NULL)
 		memset(pos, 0, sizeof(jack_position_t));
@@ -4053,12 +4232,15 @@ SPA_EXPORT
 jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
+	struct pw_node_activation *a;
 	struct spa_io_position *pos;
 	struct spa_io_segment *seg;
 	uint64_t running;
-	if (!a)
-		return -1;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if ((a = c->driver_activation) == NULL)
+		return -EIO;
 
 	pos = &a->position;
 	running = pos->clock.position - pos->offset;
@@ -4079,8 +4261,12 @@ int  jack_transport_reposition (jack_client_t *client,
 				const jack_position_t *pos)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
-	struct pw_node_activation *na = c->activation;
+	struct pw_node_activation *a, *na;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	a = c->driver_activation;
+	na = c->activation;
 	if (!a || !na)
 		return -EIO;
 
@@ -4110,6 +4296,7 @@ SPA_EXPORT
 void jack_transport_start (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	spa_return_if_fail(c != NULL);
 	update_command(c, PW_NODE_ACTIVATION_COMMAND_START);
 }
 
@@ -4117,6 +4304,7 @@ SPA_EXPORT
 void jack_transport_stop (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	spa_return_if_fail(c != NULL);
 	update_command(c, PW_NODE_ACTIVATION_COMMAND_STOP);
 }
 
@@ -4144,6 +4332,9 @@ int jack_set_session_callback (jack_client_t       *client,
                                void                *arg)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
 	if (c->active) {
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
@@ -4171,6 +4362,9 @@ SPA_EXPORT
 char *jack_client_get_uuid (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+
+	spa_return_val_if_fail(c != NULL, NULL);
+
 	return spa_aprintf("%d", c->node_id);
 }
 
@@ -4217,6 +4411,8 @@ int jack_client_create_thread (jack_client_t* client,
                                void *(*start_routine)(void*),
                                void *arg)
 {
+	spa_return_val_if_fail(client != NULL, -EINVAL);
+
 	if (globals.creator == NULL)
 		globals.creator = pthread_create;
 
@@ -4237,7 +4433,7 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 	void* status;
 
 	if (thread == (jack_native_thread_t)NULL)
-		return -1;
+		return -EINVAL;
 
 	pw_log_debug("join thread %lu", thread);
         pthread_join(thread, &status);
@@ -4251,7 +4447,7 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 	void* status;
 
 	if (thread == (jack_native_thread_t)NULL)
-		return -1;
+		return -EINVAL;
 
 	pw_log_debug("cancel thread %lu", thread);
         pthread_cancel(thread);
@@ -4283,6 +4479,7 @@ SPA_EXPORT
 uint32_t jack_midi_get_event_count(void* port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
+	spa_return_val_if_fail(mb != NULL, 0);
 	return mb->event_count;
 }
 
@@ -4293,6 +4490,8 @@ int jack_midi_event_get(jack_midi_event_t *event,
 {
 	struct midi_buffer *mb = port_buffer;
 	struct midi_event *ev = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
+	spa_return_val_if_fail(mb != NULL, -EINVAL);
+	spa_return_val_if_fail(ev != NULL, -EINVAL);
 	ev += event_index;
 	event->time = ev->time;
 	event->size = ev->size;
@@ -4304,6 +4503,7 @@ SPA_EXPORT
 void jack_midi_clear_buffer(void *port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
+	spa_return_if_fail(mb != NULL);
 	mb->event_count = 0;
 	mb->write_pos = 0;
 	mb->lost_events = 0;
@@ -4319,7 +4519,11 @@ SPA_EXPORT
 size_t jack_midi_max_event_size(void* port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
-	size_t buffer_size = mb->buffer_size;
+	size_t buffer_size;
+
+	spa_return_val_if_fail(mb != NULL, 0);
+
+	buffer_size = mb->buffer_size;
 
         /* (event_count + 1) below accounts for jack_midi_port_internal_event_t
          * which would be needed to store the next event */
@@ -4344,7 +4548,11 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 {
 	struct midi_buffer *mb = port_buffer;
 	struct midi_event *events = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
-	size_t buffer_size = mb->buffer_size;
+	size_t buffer_size;
+
+	spa_return_val_if_fail(mb != NULL, NULL);
+
+	buffer_size = mb->buffer_size;
 
 	if (time < 0 || time >= mb->nframes) {
 		pw_log_warn("midi %p: time:%d frames:%d", port_buffer, time, mb->nframes);
@@ -4395,7 +4603,7 @@ int jack_midi_event_write(void *port_buffer,
                 memcpy (retbuf, data, data_size);
                 return 0;
         } else {
-                return ENOBUFS;
+                return -ENOBUFS;
         }
 }
 
@@ -4403,6 +4611,7 @@ SPA_EXPORT
 uint32_t jack_midi_get_lost_event_count(void *port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
+	spa_return_val_if_fail(mb != NULL, 0);
 	return mb->lost_events;
 }
 
@@ -4412,8 +4621,11 @@ SPA_EXPORT
 int jack_get_video_image_size(jack_client_t *client, jack_image_size_t *size)
 {
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a = c->driver_activation;
+	struct pw_node_activation *a;
 
+	spa_return_val_if_fail(c != NULL, 0);
+
+	a = c->driver_activation;
 	if (a == NULL)
 		a = c->activation;
 	if (a == NULL)

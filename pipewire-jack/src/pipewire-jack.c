@@ -325,6 +325,8 @@ struct client {
 	unsigned int thread_entered:1;
 	unsigned int has_transport:1;
 	unsigned int allow_mlock:1;
+	unsigned int timemaster_pending:1;
+	unsigned int timemaster_conditional:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -1172,6 +1174,40 @@ static int client_node_set_param(void *object,
 	return -ENOTSUP;
 }
 
+static int install_timemaster(struct client *c)
+{
+	struct pw_node_activation *a;
+	uint32_t owner;
+
+	if (!c->timemaster_pending)
+		return 0;
+
+	if ((a = c->driver_activation) == NULL)
+		return -EIO;
+
+	pw_log_debug(NAME" %p: activation %p", c, a);
+
+	/* was ok */
+	owner = ATOMIC_LOAD(a->segment_owner[0]);
+	if (owner == c->node_id)
+		return 0;
+
+	/* try to become master */
+	if (c->timemaster_conditional) {
+		if (!ATOMIC_CAS(a->segment_owner[0], 0, c->node_id)) {
+			pw_log_debug(NAME" %p: owner:%u id:%u", c, owner, c->node_id);
+			return -EBUSY;
+		}
+	} else {
+		ATOMIC_STORE(a->segment_owner[0], c->node_id);
+	}
+
+	pw_log_debug(NAME" %p: timebase installed for id:%u", c, c->node_id);
+	c->timemaster_pending = false;
+
+	return 0;
+}
+
 static int update_driver_activation(struct client *c)
 {
 	struct link *link;
@@ -1179,6 +1215,9 @@ static int update_driver_activation(struct client *c)
 
 	link = find_activation(&c->links, c->driver_id);
 	c->driver_activation = link ? link->activation : NULL;
+
+	install_timemaster(c);
+
 	return 0;
 }
 
@@ -4113,6 +4152,7 @@ int jack_release_timebase (jack_client_t *client)
 	c->timebase_callback = NULL;
 	c->timebase_arg = NULL;
 	c->activation->pending_new_pos = false;
+	c->timemaster_pending = false;
 
 	return 0;
 }
@@ -4162,33 +4202,15 @@ int  jack_set_timebase_callback (jack_client_t *client,
 {
 	int res;
 	struct client *c = (struct client *) client;
-	struct pw_node_activation *a;
-	uint32_t owner;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
-
-	if ((a = c->driver_activation) == NULL)
-		return -EIO;
-
-	pw_log_debug(NAME" %p: activation %p", c, a);
-
-	/* was ok */
-	owner = ATOMIC_LOAD(a->segment_owner[0]);
-	if (owner == c->node_id)
-		return 0;
-
-	/* try to become master */
-	if (conditional) {
-		if (!ATOMIC_CAS(a->segment_owner[0], 0, c->node_id)) {
-			pw_log_debug(NAME" %p: owner:%u id:%u", c, owner, c->node_id);
-			return -EBUSY;
-		}
-	} else {
-		ATOMIC_STORE(a->segment_owner[0], c->node_id);
-	}
+	spa_return_val_if_fail(timebase_callback != NULL, -EINVAL);
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
+	c->timemaster_pending = true;
+	c->timemaster_conditional = conditional;
+	install_timemaster(c);
 
 	pw_log_debug(NAME" %p: timebase set id:%u", c, c->node_id);
 

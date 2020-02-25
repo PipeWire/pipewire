@@ -134,6 +134,7 @@ uint32_t pw_resource_get_bound_id(struct pw_resource *resource);
 /** Generate an error for a resource */
 void pw_resource_error(struct pw_resource *resource, int res, const char *error);
 void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...) SPA_PRINTF_FUNC(3, 4);
+void pw_resource_errorf_id(struct pw_resource *resource, uint32_t id, int res, const char *error, ...) SPA_PRINTF_FUNC(4, 5);
 
 /** Get the list of object listeners from a resource */
 struct spa_hook_list *pw_resource_get_object_listeners(struct pw_resource *resource);

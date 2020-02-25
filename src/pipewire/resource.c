@@ -225,16 +225,30 @@ uint32_t pw_resource_get_bound_id(struct pw_resource *resource)
 	return resource->bound_id;
 }
 
+static void SPA_PRINTF_FUNC(4, 0)
+pw_resource_errorv_id(struct pw_resource *resource, uint32_t id, int res, const char *error, va_list ap)
+{
+	struct pw_impl_client *client = resource->client;
+	if (client->core_resource != NULL)
+		pw_core_resource_errorv(client->core_resource,
+				id, client->recv_seq, res, error, ap);
+}
+
 SPA_EXPORT
 void pw_resource_errorf(struct pw_resource *resource, int res, const char *error, ...)
 {
 	va_list ap;
-	struct pw_impl_client *client = resource->client;
-
 	va_start(ap, error);
-	if (client->core_resource != NULL)
-		pw_core_resource_errorv(client->core_resource,
-				resource->id, client->recv_seq, res, error, ap);
+	pw_resource_errorv_id(resource, resource->id, res, error, ap);
+	va_end(ap);
+}
+
+SPA_EXPORT
+void pw_resource_errorf_id(struct pw_resource *resource, uint32_t id, int res, const char *error, ...)
+{
+	va_list ap;
+	va_start(ap, error);
+	pw_resource_errorv_id(resource, id, res, error, ap);
 	va_end(ap);
 }
 

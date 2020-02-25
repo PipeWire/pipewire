@@ -285,31 +285,31 @@ static void *create_object(void *_data,
 
 error_properties:
 	res = -EINVAL;
-	pw_resource_error(resource, res, NAME": no properties. usage:"FACTORY_USAGE);
+	pw_resource_errorf_id(resource, new_id, res, NAME": no properties. usage:"FACTORY_USAGE);
 	goto error_exit;
 error_output:
 	res = -EINVAL;
-	pw_resource_errorf(resource, res, NAME": unknown output node %u", output_node_id);
+	pw_resource_errorf_id(resource, new_id, res, NAME": unknown output node %u", output_node_id);
 	goto error_exit;
 error_input:
 	res = -EINVAL;
-	pw_resource_errorf(resource, res, NAME": unknown input node %u", input_node_id);
+	pw_resource_errorf_id(resource, new_id, res, NAME": unknown input node %u", input_node_id);
 	goto error_exit;
 error_output_port:
 	res = -EINVAL;
-	pw_resource_errorf(resource, res, NAME": unknown output port %u", output_port_id);
+	pw_resource_errorf_id(resource, new_id, res, NAME": unknown output port %u", output_port_id);
 	goto error_exit;
 error_input_port:
 	res = -EINVAL;
-	pw_resource_errorf(resource, res, NAME": unknown input port %u", input_port_id);
+	pw_resource_errorf_id(resource, new_id, res, NAME": unknown input port %u", input_port_id);
 	goto error_exit;
 error_create_link:
-	pw_resource_errorf(resource, res, NAME": can't link ports %d and %d: %s",
-			pw_impl_port_get_id(outport), pw_impl_port_get_id(inport),
+	pw_resource_errorf_id(resource, new_id, res, NAME": can't link ports %d and %d: %s",
+			pw_impl_port_get_info(outport)->id, pw_impl_port_get_info(inport)->id,
 			spa_strerror(res));
 	goto error_exit;
 error_link_register:
-	pw_resource_errorf(resource, res, NAME": can't register link: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, NAME": can't register link: %s", spa_strerror(res));
 	goto error_exit;
 error_exit:
 	if (properties)

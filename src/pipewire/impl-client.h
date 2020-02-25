@@ -143,7 +143,7 @@ struct pw_context *pw_impl_client_get_context(struct pw_impl_client *client);
 /** Get the protocol used to create this client */
 struct pw_protocol *pw_impl_client_get_protocol(struct pw_impl_client *client);
 
-/** Get the client context resource */
+/** Get the client core resource */
 struct pw_resource *pw_impl_client_get_core_resource(struct pw_impl_client *client);
 
 /** Get a resource with the given id */

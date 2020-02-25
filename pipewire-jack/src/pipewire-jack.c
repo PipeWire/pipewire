@@ -2480,6 +2480,8 @@ int jack_activate (jack_client_t *client)
 	c->activation->pending_sync = true;
 	c->active = true;
 
+	check_buffer_frames(c);
+
 	return 0;
 }
 

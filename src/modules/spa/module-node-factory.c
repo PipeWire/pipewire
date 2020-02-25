@@ -161,16 +161,18 @@ error_properties:
 	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, data->this);
 	if (resource)
-		pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
+		pw_resource_errorf_id(resource, new_id, res,
+				"usage: "FACTORY_USAGE);
 	goto error_exit_cleanup;
 error_create_node:
 	res = -errno;
 	pw_log_error("can't create node: %m");
 	if (resource)
-		pw_resource_errorf(resource, res, "can't create node: %s", spa_strerror(res));
+		pw_resource_errorf_id(resource, new_id, res,
+				"can't create node: %s", spa_strerror(res));
 	goto error_exit;
 error_bind:
-	pw_resource_error(resource, res, "can't bind node");
+	pw_resource_errorf_id(resource, new_id, res, "can't bind node");
 	goto error_exit;
 
 error_exit_cleanup:

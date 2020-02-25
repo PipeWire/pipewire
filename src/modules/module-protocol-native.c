@@ -200,7 +200,7 @@ process_messages(struct client_data *data)
 		required = demarshal[msg->opcode].permissions | PW_PERM_X;
 
 		if ((required & permissions) != required) {
-			pw_resource_errorf(resource,
+			pw_resource_errorf_id(resource, msg->id,
 				-EACCES, "no permission to call method %u on %u (requires %08x, have %08x)",
 				msg->opcode, msg->id, required, permissions);
 			continue;
@@ -215,17 +215,18 @@ done:
 	return res;
 
 invalid_method:
-	pw_resource_errorf(resource, res, "invalid method id:%u op:%u",
+	pw_resource_errorf_id(resource, msg->id, res, "invalid method id:%u op:%u",
 			msg->id, msg->opcode);
 	goto done;
 invalid_message:
-	pw_resource_errorf(resource, res, "invalid message received id:%u op:%u (%s)",
+	pw_resource_errorf_id(resource, msg->id, res, "invalid message id:%u op:%u (%s)",
 			msg->id, msg->opcode, spa_strerror(res));
 	debug_msg("*invalid message*", msg, true);
 	goto done;
 error:
-	pw_resource_errorf(client->core_resource, res, "client error %d (%s)",
-			res, spa_strerror(res));
+	if (client->core_resource)
+		pw_resource_errorf(client->core_resource, res, "client error %d (%s)",
+				res, spa_strerror(res));
 	goto done;
 }
 

@@ -69,11 +69,11 @@ static void * registry_bind(void *object, uint32_t id,
 
 error_no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
-	pw_resource_errorf(resource, -ENOENT, "no global %u", id);
+	pw_resource_errorf_id(resource, new_id, -ENOENT, "no global %u", id);
 	goto error_exit_clean;
 error_wrong_interface:
 	pw_log_debug("registry %p: global with id %u has no interface %s", resource, id, type);
-	pw_resource_errorf(resource, -ENOENT, "no interface %s", type);
+	pw_resource_errorf_id(resource, new_id, -ENOENT, "no interface %s", type);
 	goto error_exit_clean;
 error_exit_clean:
 	/* unmark the new_id the map, the client does not yet know about the failed
@@ -317,18 +317,18 @@ core_create_object(void *object,
 error_no_factory:
 	res = -ENOENT;
 	pw_log_debug(NAME" %p: can't find factory '%s'", context, factory_name);
-	pw_resource_errorf(resource, res, "unknown factory name %s", factory_name);
+	pw_resource_errorf_id(resource, new_id, res, "unknown factory name %s", factory_name);
 	goto error_exit;
 error_version:
 error_type:
 	res = -EPROTO;
 	pw_log_debug(NAME" %p: invalid resource type/version", context);
-	pw_resource_errorf(resource, res, "wrong resource type/version");
+	pw_resource_errorf_id(resource, new_id, res, "wrong resource type/version");
 	goto error_exit;
 error_properties:
 	res = -errno;
 	pw_log_debug(NAME" %p: can't create properties: %m", context);
-	pw_resource_errorf(resource, res, "can't create properties: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create properties: %s", spa_strerror(res));
 	goto error_exit;
 error_create_failed:
 	res = -errno;

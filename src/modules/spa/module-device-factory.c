@@ -135,12 +135,14 @@ error_properties:
 	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, data->this);
 	if (resource)
-		pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
+		pw_resource_errorf_id(resource, new_id, res,
+				"usage: "FACTORY_USAGE);
 	goto error_exit;
 error_device:
 	pw_log_error("can't create device: %s", spa_strerror(res));
 	if (resource)
-		pw_resource_errorf(resource, res, "can't create device: %s", spa_strerror(res));
+		pw_resource_errorf_id(resource, new_id, res,
+				"can't create device: %s", spa_strerror(res));
 	goto error_exit;
 error_exit:
 	errno = -res;

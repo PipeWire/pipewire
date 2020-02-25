@@ -78,26 +78,24 @@ static void *create_object(void *_data,
 		goto error_resource;
 	}
 
-	pw_log_debug(".");
 	result = pw_metadata_new(pw_impl_client_get_context(client), metadata_resource, properties);
 	if (result == NULL) {
 		res = -errno;
 		goto error_node;
 	}
-	pw_log_debug(".");
 	return result;
 
 error_resource:
 	pw_log_error("can't create resource: %s", spa_strerror(res));
-	pw_resource_errorf(resource, res, "can't create resource: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create resource: %s", spa_strerror(res));
 	goto error_exit;
 error_node:
 	pw_log_error("can't create metadata: %s", spa_strerror(res));
-	pw_resource_errorf(resource, res, "can't create metadata: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create metadata: %s", spa_strerror(res));
 	goto error_exit_free;
 
 error_exit_free:
-	pw_resource_destroy(metadata_resource);
+	pw_resource_remove(metadata_resource);
 error_exit:
 	errno = -res;
 	return NULL;

@@ -99,19 +99,19 @@ static void *create_object(void *_data,
 
 error_resource:
 	pw_log_error("can't create resource: %s", spa_strerror(res));
-	pw_resource_errorf(resource, res, "can't create resource: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create resource: %s", spa_strerror(res));
 	goto error_exit;
 error_properties:
 	pw_log_error("can't create properties: %s", spa_strerror(res));
-	pw_resource_errorf(resource, res, "can't create properties: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create properties: %s", spa_strerror(res));
 	goto error_exit_free;
 error_device:
 	pw_log_error("can't create device: %s", spa_strerror(res));
-	pw_resource_errorf(resource, res, "can't create device: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create device: %s", spa_strerror(res));
 	goto error_exit_free;
 
 error_exit_free:
-	pw_resource_destroy(device_resource);
+	pw_resource_remove(device_resource);
 error_exit:
 	errno = -res;
 	return NULL;

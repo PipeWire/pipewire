@@ -134,7 +134,8 @@ static void link_initialized(void *data)
 	return;
 
 error_bind:
-	pw_resource_errorf(ld->factory_resource, res, "can't bind link: %s", spa_strerror(res));
+	pw_resource_errorf_id(ld->factory_resource, ld->new_id, res,
+			"can't bind link: %s", spa_strerror(res));
 }
 
 static const struct pw_impl_link_events link_events = {

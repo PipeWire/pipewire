@@ -117,14 +117,17 @@ static void node_initialized(void *data)
 	if (res < 0)
 		goto error_bind;
 
-	if ((bound_resource = pw_impl_client_find_resource(client, nd->new_id)) == NULL)
+	if ((bound_resource = pw_impl_client_find_resource(client, nd->new_id)) == NULL) {
+		res = -EIO;
 		goto error_bind;
+	}
 
 	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
 	return;
 
 error_bind:
-	pw_resource_error(nd->resource, res, "can't bind adapter node");
+	pw_resource_errorf_id(nd->resource, nd->new_id, res,
+			"can't bind adapter node: %s", spa_strerror(res));
 	return;
 }
 
@@ -218,19 +221,19 @@ error_properties:
 	res = -EINVAL;
 	pw_log_error("factory %p: usage: " FACTORY_USAGE, d->this);
 	if (resource)
-		pw_resource_error(resource, res, "usage: " FACTORY_USAGE);
+		pw_resource_errorf_id(resource, new_id, res, "usage: " FACTORY_USAGE);
 	goto error_cleanup;
 error_no_mem:
 	res = -errno;
 	pw_log_error("can't create node: %m");
 	if (resource)
-		pw_resource_errorf(resource, res, "can't create node: %s", spa_strerror(res));
+		pw_resource_errorf_id(resource, new_id, res, "can't create node: %s", spa_strerror(res));
 	goto error_cleanup;
 error_usage:
 	res = -EINVAL;
 	pw_log_error("usage: "ADAPTER_USAGE);
 	if (resource)
-		pw_resource_error(resource, res, "usage: "ADAPTER_USAGE);
+		pw_resource_errorf_id(resource, new_id, res, "usage: "ADAPTER_USAGE);
 	goto error_cleanup;
 error_cleanup:
 	if (properties)

@@ -107,6 +107,9 @@ const struct pw_properties *pw_impl_port_get_properties(struct pw_impl_port *por
 /** Update the port properties */
 int pw_impl_port_update_properties(struct pw_impl_port *port, const struct spa_dict *dict);
 
+/** Get the port info */
+const struct pw_port_info *pw_impl_port_get_info(struct pw_impl_port *port);
+
 /** Get the port id */
 uint32_t pw_impl_port_get_id(struct pw_impl_port *port);
 

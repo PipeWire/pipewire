@@ -610,6 +610,12 @@ void pw_impl_port_add_listener(struct pw_impl_port *port,
 }
 
 SPA_EXPORT
+const struct pw_port_info *pw_impl_port_get_info(struct pw_impl_port *port)
+{
+	return &port->info;
+}
+
+SPA_EXPORT
 void * pw_impl_port_get_user_data(struct pw_impl_port *port)
 {
 	return port->user_data;

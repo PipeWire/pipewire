@@ -1122,10 +1122,8 @@ static void node_info(void *data, const struct spa_node_info *info)
 					spa_debug_type_find_name(spa_type_param, info->params[i].id),
 					node->info.params[i].flags, info->params[i].flags);
 
-			if (node->info.params[i].flags == info->params[i].flags)
-				continue;
-
-			if (info->params[i].flags & SPA_PARAM_INFO_READ)
+			if (node->info.params[i].flags != info->params[i].flags &&
+			    info->params[i].flags & SPA_PARAM_INFO_READ)
 				changed_ids[n_changed_ids++] = info->params[i].id;
 
 			node->info.params[i] = info->params[i];

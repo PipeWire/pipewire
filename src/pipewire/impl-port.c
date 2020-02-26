@@ -342,10 +342,8 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 		port->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(port->params));
 
 		for (i = 0; i < port->info.n_params; i++) {
-			if (port->info.params[i].flags == info->params[i].flags)
-				continue;
-
-			if (info->params[i].flags & SPA_PARAM_INFO_READ)
+			if (port->info.params[i].flags != info->params[i].flags &&
+			    info->params[i].flags & SPA_PARAM_INFO_READ)
 				changed_ids[n_changed_ids++] = info->params[i].id;
 
 			port->info.params[i] = info->params[i];

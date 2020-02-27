@@ -1208,17 +1208,19 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 
 		pw_buffers_clear(&port->mix_buffers);
 
-		if ((res = pw_buffers_negotiate(node->context, alloc_flags,
-				port->mix, 0,
-				node->node, port->port_id,
-				&port->mix_buffers)) < 0) {
-			pw_log_warn(NAME" %p: can't negotiate buffers: %s",
-					port, spa_strerror(res));
-			return res;
+		if (n_buffers > 0) {
+			if ((res = pw_buffers_negotiate(node->context, alloc_flags,
+					port->mix, 0,
+					node->node, port->port_id,
+					&port->mix_buffers)) < 0) {
+				pw_log_warn(NAME" %p: can't negotiate buffers: %s",
+						port, spa_strerror(res));
+				return res;
+			}
+			buffers = port->mix_buffers.buffers;
+			n_buffers = port->mix_buffers.n_buffers;
+			flags = 0;
 		}
-		buffers = port->mix_buffers.buffers;
-		n_buffers = port->mix_buffers.n_buffers;
-		flags = 0;
 	}
 
 	pw_log_debug(NAME" %p: %d.%d use buffers on node: %p",

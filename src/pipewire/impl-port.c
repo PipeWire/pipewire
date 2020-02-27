@@ -1203,8 +1203,8 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 		/* try dynamic data */
 		alloc_flags = PW_BUFFERS_FLAG_DYNAMIC;
 
-		pw_log_debug(NAME" %p: %d.%d negotiate buffers on node: %p",
-				port, port->direction, port->port_id, node->node);
+		pw_log_debug(NAME" %p: %d.%d negotiate %d buffers on node: %p",
+				port, port->direction, port->port_id, n_buffers, node->node);
 
 		pw_buffers_clear(&port->mix_buffers);
 
@@ -1223,8 +1223,8 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 		}
 	}
 
-	pw_log_debug(NAME" %p: %d.%d use buffers on node: %p",
-			port, port->direction, port->port_id, node->node);
+	pw_log_debug(NAME" %p: %d.%d use %d buffers on node: %p",
+			port, port->direction, port->port_id, n_buffers, node->node);
 
 	res = spa_node_port_use_buffers(node->node,
 			port->direction, port->port_id,

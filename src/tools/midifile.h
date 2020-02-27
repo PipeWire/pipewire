@@ -25,55 +25,30 @@
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
-#include <spa/utils/list.h>
+
+struct midi_file;
 
 struct midi_event {
-	struct spa_list link;
-
-	struct midi_track *track;
-
+	uint32_t track;
 	double sec;
 	uint8_t status;
 	uint8_t meta;
-
 	uint8_t *data;
 	uint32_t size;
 };
 
-struct midi_track {
-	struct spa_list link;
-
-	uint8_t *data;
-	uint32_t size;
-
-	uint8_t *p;
-	int64_t tick;
-	uint8_t running_status;
-	unsigned int eof:1;
-};
-
-struct midi_file {
-	uint8_t *data;
-	size_t size;
-
-	uint32_t length;
+struct midi_file_info {
 	uint16_t format;
 	uint16_t ntracks;
 	uint16_t division;
-	uint32_t tempo;
-
-	struct spa_list tracks;
-
-	uint8_t *p;
-	int64_t tick;
-	double tick_sec;
-	double tick_start;
 };
 
-int midi_file_init(struct midi_file *mf, const char *mode,
-		void *data, size_t size);
+struct midi_file *
+midi_file_open(const char *filename, const char *mode, struct midi_file_info *info);
 
-int midi_file_add_track(struct midi_file *mf, struct midi_track *track);
+int midi_file_close(struct midi_file *mf);
 
 int midi_file_peek_event(struct midi_file *mf, struct midi_event *event);
-int midi_file_consume_event(struct midi_file *mf, struct midi_event *event);
+int midi_file_consume_event(struct midi_file *mf, const struct midi_event *event);
+
+int midi_file_add_event(struct midi_file *mf, const struct midi_event *event);

@@ -28,8 +28,6 @@
 #include <errno.h>
 #include <time.h>
 #include <math.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -147,11 +145,8 @@ struct data {
 	uint64_t clock_time;
 
 	struct {
-		int fd;
-		void *mem;
-		struct stat st;
-		struct midi_file mf;
-		struct midi_track track[64];
+		struct midi_file *file;
+		struct midi_file_info info;
 	} midi;
 };
 
@@ -977,7 +972,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 		uint32_t frame;
 		uint8_t *buf;
 
-		res = midi_file_peek_event(&d->midi.mf, &ev);
+		res = midi_file_peek_event(d->midi.file, &ev);
 		if (res <= 0) {
 			if (have_data)
 				break;
@@ -1003,50 +998,42 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 		}
 		have_data = true;
 next:
-		midi_file_consume_event(&d->midi.mf, &ev);
+		midi_file_consume_event(d->midi.file, &ev);
 	}
 	spa_pod_builder_pop(&b, &f);
 
 	return b.state.offset;
 }
 
+static int midi_record(struct data *d, void *src, unsigned int n_frames)
+{
+	return 0;
+}
+
 static int setup_midifile(struct data *data)
 {
-	int res;
-	uint16_t i;
-
-	if (stat(data->filename, &data->midi.st)) {
-		fprintf(stderr,"error: can't find file '%s': %m\n", data->filename);
-		return -errno;
+	if (data->mode == mode_record) {
+		spa_zero(data->midi.info);
+		data->midi.info.format = 0;
+		data->midi.info.ntracks = 1;
+		data->midi.info.division = 0;
 	}
 
-	if ((data->midi.fd = open(data->filename, O_RDONLY)) < 0) {
-		fprintf(stderr, "error: open '%s' failed : %m\n", data->filename);
+	data->midi.file = midi_file_open(data->filename,
+			data->mode == mode_playback ? "r" : "w",
+			&data->midi.info);
+	if (data->midi.file == NULL) {
+		fprintf(stderr, "error: can't read midi file '%s': %m\n", data->filename);
 		return -errno;
-	}
-
-	data->midi.mem = mmap(NULL, data->midi.st.st_size, PROT_READ, MAP_SHARED, data->midi.fd, 0);
-	if (data->midi.mem == MAP_FAILED) {
-		fprintf(stderr, "error: mmap '%s' failed : %m\n", data->filename);
-		close(data->midi.fd);
-		return -errno;
-	}
-	if ((res = midi_file_init(&data->midi.mf, "r", data->midi.mem, data->midi.st.st_size)) < 0) {
-		fprintf(stderr, "error: can't read midi file '%s': %s\n", data->filename, spa_strerror(res));
-		close(data->midi.fd);
-		return res;
 	}
 
 	if (data->verbose)
 		printf("opened file \"%s\" format %08x ntracks:%d div:%d\n",
 				data->filename,
-				data->midi.mf.format, data->midi.mf.ntracks,
-				data->midi.mf.division);
+				data->midi.info.format, data->midi.info.ntracks,
+				data->midi.info.division);
 
-	for (i = 0; i < data->midi.mf.ntracks; i++) {
-		midi_file_add_track(&data->midi.mf, &data->midi.track[i]);
-	}
-	data->fill = data->mode == mode_playback ?  midi_play : midi_play;
+	data->fill = data->mode == mode_playback ?  midi_play : midi_record;
 	data->stride = 1;
 
 	return 0;

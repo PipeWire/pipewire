@@ -144,7 +144,8 @@ struct spa_pod_choice_body {
 	uint32_t type;			/**< type of choice, one of enum spa_choice_type */
 	uint32_t flags;			/**< extra flags */
 	struct spa_pod child;
-	/* array with elements of child.size follows */
+	/* array with elements of child.size follows. Note that there might be more
+	 * elements than required by \a type, which should be ignored. */
 };
 
 struct spa_pod_choice {

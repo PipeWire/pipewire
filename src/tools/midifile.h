@@ -48,7 +48,8 @@ midi_file_open(const char *filename, const char *mode, struct midi_file_info *in
 
 int midi_file_close(struct midi_file *mf);
 
-int midi_file_peek_event(struct midi_file *mf, struct midi_event *event);
-int midi_file_consume_event(struct midi_file *mf, const struct midi_event *event);
+int midi_file_next_time(struct midi_file *mf, double *sec);
 
-int midi_file_add_event(struct midi_file *mf, const struct midi_event *event);
+int midi_file_read_event(struct midi_file *mf, struct midi_event *event);
+
+int midi_file_write_event(struct midi_file *mf, const struct midi_event *event);

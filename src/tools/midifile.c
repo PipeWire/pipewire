@@ -194,6 +194,8 @@ static int write_headers(struct midi_file *mf)
 	uint8_t buf[4];
 	struct midi_track *tr = &mf->tracks[0];
 
+	mf->length = 6;
+
 	lseek(mf->fd, 0, SEEK_SET);
 
 	write(mf->fd, "MThd", 4);
@@ -219,6 +221,8 @@ static int write_headers(struct midi_file *mf)
 	buf[3] = tr->size;
 	write(mf->fd, buf, 4);
 
+	tr->size = 4;
+
 	return 0;
 }
 
@@ -233,13 +237,15 @@ static int open_write(struct midi_file *mf, const char *filename, struct midi_fi
 	else if (info->ntracks != 1)
 		return -EINVAL;
 	if (info->division == 0)
-		info->division = 1920;
+		info->division = 96;
 
 	if ((mf->fd = open(filename, O_WRONLY | O_CREAT, 0660)) < 0) {
 		res = -errno;
 		goto exit;
 	}
 	mf->mode = 2;
+	mf->tempo = DEFAULT_TEMPO;
+	mf->info = *info;
 
 	write_headers(mf);
 
@@ -281,6 +287,8 @@ int midi_file_close(struct midi_file *mf)
 	if (mf->mode == 1) {
 		munmap(mf->data, mf->size);
 	} else if (mf->mode == 2) {
+		uint8_t buf[4] = { 0x00, 0xff, 0x2f, 0x00 };
+		write(mf->fd, buf, 4);
 		write_headers(mf);
 	} else
 		return -EINVAL;
@@ -290,20 +298,52 @@ int midi_file_close(struct midi_file *mf)
 	return 0;
 }
 
-static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_event *event)
+static int peek_next(struct midi_file *mf, struct midi_event *ev)
 {
-	uint8_t *save, status;
-	uint32_t size;
-	int res;
+	struct midi_track *tr, *found = NULL;
+	uint16_t i;
 
-	if (tr_avail(tr) == 0)
+	for (i = 0; i < mf->info.ntracks; i++) {
+		tr = &mf->tracks[i];
+		if (tr_avail(tr) == 0)
+			continue;
+		if (found == NULL || tr->tick < found->tick)
+			found = tr;
+	}
+	if (found == NULL ||
+	    tr_avail(found) == 0)
 		return 0;
 
-	save = tr->p;
-	status = *tr->p;
+	ev->track = found->id;
+	ev->sec = mf->tick_sec + ((found->tick - mf->tick_start) * (double)mf->tempo) / (1000000.0 * mf->info.division);
+	return 1;
+}
 
-	event->track = tr->id;
-	event->sec = mf->tick_sec + ((tr->tick - mf->tick_start) * (double)mf->tempo) / (1000000.0 * mf->info.division);
+int midi_file_next_time(struct midi_file *mf, double *sec)
+{
+	struct midi_event ev;
+	int res;
+
+	if ((res = peek_next(mf, &ev)) <= 0)
+		return res;
+
+	*sec = ev.sec;
+	return 1;
+}
+
+int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
+{
+	struct midi_track *tr;
+	uint32_t delta_time;
+	uint32_t size;
+	uint8_t status;
+	int res;
+
+	if ((res = peek_next(mf, event)) <= 0)
+		return res;
+
+	tr = &mf->tracks[event->track];
+	status = *tr->p;
 
 	if ((status & 0x80) == 0) {
 		status = tr->running_status;
@@ -351,57 +391,86 @@ static int peek_event(struct midi_file *mf, struct midi_track *tr, struct midi_e
 	default:
 		return -ENOENT;
 	}
+
 	event->data = tr->p;
-	tr->p = save;
-
 	event->size = size;
-	return 1;
-}
 
-int midi_file_peek_event(struct midi_file *mf, struct midi_event *event)
-{
-	struct midi_track *tr, *found = NULL;
-	uint16_t i;
-
-	for (i = 0; i < mf->info.ntracks; i++) {
-		tr = &mf->tracks[i];
-		if (tr_avail(tr) == 0)
-			continue;
-		if (found == NULL || tr->tick < found->tick)
-			found = tr;
-	}
-	if (found == NULL)
-		return 0;
-
-	return peek_event(mf, found, event);
-}
-
-int midi_file_consume_event(struct midi_file *mf, const struct midi_event *event)
-{
-	struct midi_track *tr = &mf->tracks[event->track];
-	uint32_t delta_time;
-	int res;
-
-	tr->p = event->data + event->size;
+	tr->p += size;
 
 	if ((res = parse_varlen(mf, tr, &delta_time)) < 0)
 		return res;
 
 	tr->tick += delta_time;
+	return 1;
+}
+
+static int write_varlen(struct midi_file *mf, struct midi_track *tr, uint32_t value)
+{
+	uint64_t buffer;
+
+	buffer = value & 0x7f;
+	while ((value >>= 7)) {
+		buffer <<= 8;
+		buffer |= ((value & 0x7f) | 0x80);
+	}
+        for (;;) {
+		uint8_t b = buffer & 0xff;
+		write(mf->fd, &b, 1);
+		tr->size++;
+                if (buffer & 0x80)
+                        buffer >>= 8;
+                else
+                        break;
+        }
 	return 0;
 }
 
-int midi_file_add_event(struct midi_file *mf, const struct midi_event *event)
+int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 {
 	struct midi_track *tr;
+	uint32_t size, tick;
+	uint8_t status, *data;
 
 	spa_return_val_if_fail(event != NULL, -EINVAL);
 	spa_return_val_if_fail(mf != NULL, -EINVAL);
 	spa_return_val_if_fail(event->track == 0, -EINVAL);
+	spa_return_val_if_fail(event->size > 1, -EINVAL);
 
 	tr = &mf->tracks[event->track];
+	data = event->data;
+	size = event->size;
 
+	tick = event->sec * (1000000.0 * mf->info.division) / (double)mf->tempo;
 
+	write_varlen(mf, tr, tick - tr->tick);
+	tr->tick = tick;
+
+	status = *data++;
+	size--;
+
+	switch (status) {
+	case 0xc0 ... 0xdf:
+		if (size != 1)
+			return -EINVAL;
+		break;
+
+	case 0x00 ... 0xbf:
+	case 0xe0 ... 0xef:
+		if (size != 2)
+			return -EINVAL;
+		break;
+
+	case 0xff:
+	case 0xf0:
+	case 0xf7:
+		return -ENOTSUP;
+	default:
+		return -EINVAL;
+	}
+
+	write(mf->fd, &status, 1);
+	write(mf->fd, data, size);
+	tr->size += 1 + size;
 
 	return 0;
 }

@@ -953,7 +953,6 @@ static void show_usage(const char *name, bool is_error)
 static int midi_play(struct data *d, void *src, unsigned int n_frames)
 {
 	int res;
-	struct midi_event ev;
 	struct spa_pod_builder b;
 	struct spa_pod_frame f;
 	uint32_t first_frame, last_frame;
@@ -971,19 +970,16 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 	while (1) {
 		uint32_t frame;
 		uint8_t *buf;
+		struct midi_event ev;
 
-		res = midi_file_peek_event(d->midi.file, &ev);
+		res = midi_file_next_time(d->midi.file, &ev.sec);
 		if (res <= 0) {
 			if (have_data)
 				break;
 			return res;
 		}
 
-		if (ev.status == 0xff)
-			goto next;
-
 		frame = ev.sec * d->position->clock.rate.denom;
-
 		if (frame < first_frame)
 			frame = 0;
 		else if (frame < last_frame)
@@ -991,14 +987,16 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 		else
 			break;
 
+		midi_file_read_event(d->midi.file, &ev);
+		if (ev.status == 0xff)
+			continue;
+
 		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
 		if ((buf = spa_pod_builder_reserve_bytes(&b, ev.size + 1)) != NULL) {
 			buf[0] = ev.status;
 			memcpy(&buf[1], ev.data, ev.size);
 		}
 		have_data = true;
-next:
-		midi_file_consume_event(d->midi.file, &ev);
 	}
 	spa_pod_builder_pop(&b, &f);
 
@@ -1007,6 +1005,33 @@ next:
 
 static int midi_record(struct data *d, void *src, unsigned int n_frames)
 {
+	struct spa_pod *pod;
+	struct spa_pod_control *c;
+	uint32_t frame;
+
+	frame = d->clock_time;
+	d->clock_time += d->position->clock.duration;
+
+	if ((pod = spa_pod_from_data(src, n_frames, 0, n_frames)) == NULL)
+		return 0;
+	if (!spa_pod_is_sequence(pod))
+		return 0;
+
+	SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
+		struct midi_event ev;
+
+		if (c->type != SPA_CONTROL_Midi)
+			continue;
+
+		ev.track = 0;
+		ev.sec = (frame + c->offset) / (float) d->position->clock.rate.denom;
+		ev.status = 0;
+		ev.meta = 0;
+		ev.data = SPA_POD_BODY(&c->value),
+		ev.size = SPA_POD_BODY_SIZE(&c->value);
+
+		midi_file_write_event(d->midi.file, &ev);
+	}
 	return 0;
 }
 
@@ -1562,6 +1587,8 @@ error_bad_file:
 		pw_properties_free(data.props);
 	if (data.file)
 		sf_close(data.file);
+	if (data.midi.file)
+		midi_file_close(data.midi.file);
 	return exit_code;
 
 error_usage:

@@ -1267,7 +1267,7 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 			pw_log_error(NAME" %p: negotiate buffers on node: %d (%s)",
 				port, res, spa_strerror(res));
 			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR,
-					"can't negotiate buffers on port");
+					strdup("can't negotiate buffers on port"));
 		} else if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
 			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_PAUSED, NULL);
 		}

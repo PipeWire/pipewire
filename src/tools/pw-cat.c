@@ -988,14 +988,13 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 			break;
 
 		midi_file_read_event(d->midi.file, &ev);
-		if (ev.status == 0xff)
+
+		if (ev.data[0] == 0xff)
 			continue;
 
 		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
-		if ((buf = spa_pod_builder_reserve_bytes(&b, ev.size + 1)) != NULL) {
-			buf[0] = ev.status;
-			memcpy(&buf[1], ev.data, ev.size);
-		}
+		if ((buf = spa_pod_builder_reserve_bytes(&b, ev.size)) != NULL)
+			memcpy(buf, ev.data, ev.size);
 		have_data = true;
 	}
 	spa_pod_builder_pop(&b, &f);
@@ -1025,8 +1024,6 @@ static int midi_record(struct data *d, void *src, unsigned int n_frames)
 
 		ev.track = 0;
 		ev.sec = (frame + c->offset) / (float) d->position->clock.rate.denom;
-		ev.status = 0;
-		ev.meta = 0;
 		ev.data = SPA_POD_BODY(&c->value),
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
 

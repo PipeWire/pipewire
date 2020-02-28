@@ -31,8 +31,6 @@ struct midi_file;
 struct midi_event {
 	uint32_t track;
 	double sec;
-	uint8_t status;
-	uint8_t meta;
 	uint8_t *data;
 	uint32_t size;
 };

@@ -1,4 +1,4 @@
-systemd_user_services_dir = systemd.get_pkgconfig_variable('systemduserunitdir')
+systemd_user_services_dir = systemd.get_pkgconfig_variable('systemduserunitdir', define_variable : [ 'prefix', prefix])
 
 install_data(sources : 'pipewire.socket', install_dir : systemd_user_services_dir)
 

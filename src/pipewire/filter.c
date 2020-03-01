@@ -1310,6 +1310,19 @@ static void add_video_dsp_port_params(struct filter *impl, struct port *port)
 			SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32)));
 }
 
+static void add_control_dsp_port_params(struct filter *impl, struct port *port)
+{
+	uint8_t buffer[4096];
+	struct spa_pod_builder b;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	add_param(impl, port, SPA_PARAM_EnumFormat,
+		spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control)));
+}
+
 SPA_EXPORT
 void *pw_filter_add_port(struct pw_filter *filter,
 		enum pw_direction direction,
@@ -1341,6 +1354,9 @@ void *pw_filter_add_port(struct pw_filter *filter,
 			add_audio_dsp_port_params(impl, p);
 		else if (!strcmp(str, "32 bit float RGBA video"))
 			add_video_dsp_port_params(impl, p);
+		else if (!strcmp(str, "8 bit raw midi") ||
+		    !strcmp(str, "8 bit raw control"))
+			add_control_dsp_port_params(impl, p);
 	}
 	/* then override with user provided if any */
 	if ((res = update_params(impl, p, SPA_ID_INVALID, params, n_params)) < 0)

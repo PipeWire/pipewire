@@ -60,3 +60,5 @@ int midi_file_next_time(struct midi_file *mf, double *sec);
 int midi_file_read_event(struct midi_file *mf, struct midi_event *event);
 
 int midi_file_write_event(struct midi_file *mf, const struct midi_event *event);
+
+int midi_file_dump_event(const struct midi_event *event);

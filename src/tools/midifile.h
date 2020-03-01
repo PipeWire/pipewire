@@ -33,6 +33,15 @@ struct midi_event {
 	double sec;
 	uint8_t *data;
 	uint32_t size;
+	struct {
+		uint32_t offset;
+		uint32_t size;
+		union {
+			struct {
+				uint32_t uspqn; /* microseconds per quarter note */
+			} tempo;
+		} parsed;
+	} meta;
 };
 
 struct midi_file_info {

@@ -364,6 +364,9 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
 		if ((res = parse_varlen(mf, tr, &size)) < 0)
 			return res;
 
+		event->meta.offset = tr->p - event->data;
+		event->meta.size = size;
+
 		switch (meta) {
 		case 0x2f:
 			tr->eof = true;
@@ -373,7 +376,7 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
 				return -EINVAL;
 			mf->tick_sec = event->sec;
 			mf->tick_start = tr->tick;
-			mf->tempo = (tr->p[0]<<16) | (tr->p[1]<<8) | tr->p[2];
+			event->meta.parsed.tempo.uspqn = mf->tempo = (tr->p[0]<<16) | (tr->p[1]<<8) | tr->p[2];
 			break;
 		}
 		size += tr->p - event->data;

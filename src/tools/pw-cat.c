@@ -50,6 +50,7 @@
 #include "midifile.h"
 
 #define DEFAULT_MEDIA_TYPE	"Audio"
+#define DEFAULT_MIDI_MEDIA_TYPE	"Midi"
 #define DEFAULT_MEDIA_CATEGORY_PLAYBACK	"Playback"
 #define DEFAULT_MEDIA_CATEGORY_RECORD	"Capture"
 #define DEFAULT_MEDIA_ROLE	"Music"
@@ -989,6 +990,9 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 
 		midi_file_read_event(d->midi.file, &ev);
 
+		if (d->verbose)
+			midi_file_dump_event(&ev);
+
 		if (ev.data[0] == 0xff)
 			continue;
 
@@ -1026,6 +1030,9 @@ static int midi_record(struct data *d, void *src, unsigned int n_frames)
 		ev.sec = (frame + c->offset) / (float) d->position->clock.rate.denom;
 		ev.data = SPA_POD_BODY(&c->value),
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
+
+		if (d->verbose)
+			midi_file_dump_event(&ev);
 
 		midi_file_write_event(d->midi.file, &ev);
 	}
@@ -1361,8 +1368,12 @@ int main(int argc, char *argv[])
 		goto error_usage;
 	}
 
-	if (!data.media_type)
-		data.media_type = DEFAULT_MEDIA_TYPE;
+	if (!data.media_type) {
+		if (data.is_midi)
+			data.media_type = DEFAULT_MIDI_MEDIA_TYPE;
+		else
+			data.media_type = DEFAULT_MEDIA_TYPE;
+	}
 	if (!data.media_category)
 		data.media_category = data.mode == mode_playback ?
 					DEFAULT_MEDIA_CATEGORY_PLAYBACK :

@@ -28,6 +28,7 @@
 
 struct impl {
 	struct pw_global *global;
+	struct spa_hook global_listener;
 
 	struct pw_metadata *metadata;
 	struct pw_resource *resource;
@@ -123,6 +124,8 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
         data->impl = impl;
         data->resource = resource;
 
+	pw_global_add_resource(impl->global, resource);
+
 	/* listen for when the resource goes away */
         pw_resource_add_listener(resource,
                         &data->resource_listener,
@@ -139,6 +142,35 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 
 	return 0;
 }
+
+static void global_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->global_listener);
+	impl->global = NULL;
+	if (impl->resource)
+		pw_resource_destroy(impl->resource);
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
+};
+
+static void global_resource_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->resource_listener);
+	impl->resource = NULL;
+	impl->metadata = NULL;
+	if (impl->global)
+		pw_global_destroy(impl->global);
+}
+
+static const struct pw_resource_events global_resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = global_resource_destroy,
+};
 
 void *
 pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
@@ -173,7 +205,15 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 	impl->resource = resource;
 	impl->metadata = (struct pw_metadata*)resource;
 
+	pw_global_add_listener(impl->global,
+			&impl->global_listener,
+			&global_events, impl);
+
 	pw_global_register(impl->global);
+
+	pw_resource_add_listener(resource,
+			&impl->resource_listener,
+			&global_resource_events, impl);
 
 	return impl;
 }

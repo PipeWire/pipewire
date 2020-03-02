@@ -602,38 +602,38 @@ int midi_file_dump_event(const struct midi_event *ev)
 	switch (ev->data[0]) {
 	case 0x80 ... 0x8f:
 		printf("Note Off   (channel %2d): note %3s%d, velocity %3d",
-				ev->data[0] & 0x0f,
+				(ev->data[0] & 0x0f) + 1,
 				note_names[ev->data[1] % 12], ev->data[1] / 12 -1,
 				ev->data[2]);
 		break;
 	case 0x90 ... 0x9f:
 		printf("Note On    (channel %2d): note %3s%d, velocity %3d",
-				ev->data[0] & 0x0f,
+				(ev->data[0] & 0x0f) + 1,
 				note_names[ev->data[1] % 12], ev->data[1] / 12 -1,
 				ev->data[2]);
 		break;
 	case 0xa0 ... 0xaf:
 		printf("Aftertouch (channel %2d): note %3s%d, pressure %3d",
-				ev->data[0] & 0x0f,
+				(ev->data[0] & 0x0f) + 1,
 				note_names[ev->data[1] % 12], ev->data[1] / 12 -1,
 				ev->data[2]);
 		break;
 	case 0xb0 ... 0xbf:
 		printf("Controller (channel %2d): controller %3d (%s), value %3d",
-				ev->data[0] & 0x0f, ev->data[1],
+				(ev->data[0] & 0x0f) + 1, ev->data[1],
 				controller_name(ev->data[1]), ev->data[2]);
 		break;
 	case 0xc0 ... 0xcf:
 		printf("Program    (channel %2d): program %3d (%s)",
-				ev->data[0] & 0x0f, ev->data[1],
+				(ev->data[0] & 0x0f) + 1, ev->data[1],
 				program_names[ev->data[1]]);
 		break;
 	case 0xd0 ... 0xdf:
 		printf("Channel Pressure (channel %2d): pressure %3d",
-				ev->data[0] & 0x0f, ev->data[1]);
+				(ev->data[0] & 0x0f) + 1, ev->data[1]);
 		break;
 	case 0xe0 ... 0xef:
-		printf("Pitch Bend (channel %2d): value %d", ev->data[0] & 0x0f,
+		printf("Pitch Bend (channel %2d): value %d", (ev->data[0] & 0x0f) + 1,
 				((int)ev->data[2] << 7 | ev->data[1]) - 0x2000);
 		break;
 	case 0xf0:

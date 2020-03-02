@@ -45,6 +45,7 @@ enum spa_meta_type {
 	SPA_META_Cursor,	/**< struct spa_meta_cursor */
 	SPA_META_Control,	/**< metadata contains a spa_meta_control
 				  *  associated with the data */
+	SPA_META_Busy,		/**< don't write to buffer when count > 0 */
 
 	SPA_META_LAST,		/**< not part of ABI/API */
 };
@@ -142,6 +143,12 @@ struct spa_meta_cursor {
 /** a timed set of events associated with the buffer */
 struct spa_meta_control {
 	struct spa_pod_sequence sequence;
+};
+
+/** a busy counter for the buffer */
+struct spa_meta_busy {
+	uint32_t flags;
+	uint32_t count;			/**< number of users busy with the buffer */
 };
 
 #ifdef __cplusplus

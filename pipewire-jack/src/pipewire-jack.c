@@ -2217,7 +2217,9 @@ jack_client_t * jack_client_open (const char *client_name,
 #endif
 	}
 
-	client->loop = pw_data_loop_new(NULL);
+	props = SPA_DICT_INIT(items, 0);
+	items[props.n_items++] = SPA_DICT_ITEM_INIT("loop.cancel", "1");
+	client->loop = pw_data_loop_new(&props);
 	if (client->loop == NULL)
 		goto init_failed;
 

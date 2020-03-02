@@ -72,6 +72,8 @@ struct data {
 
 struct param {
 	uint32_t id;
+#define PARAM_FLAG_LOCKED	(1 << 0)
+	uint32_t flags;
 	struct spa_list link;
 	struct spa_pod *param;
 };
@@ -149,7 +151,7 @@ static int get_param_index(uint32_t id)
 }
 
 static struct param *add_param(struct stream *impl,
-		uint32_t id, const struct spa_pod *param)
+		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct param *p;
 	int idx;
@@ -166,6 +168,7 @@ static struct param *add_param(struct stream *impl,
 		return NULL;
 
 	p->id = id;
+	p->flags = flags;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
@@ -186,7 +189,8 @@ static void clear_params(struct stream *impl, uint32_t id)
 	struct param *p, *t;
 
 	spa_list_for_each_safe(p, t, &impl->param_list, link) {
-		if (id == SPA_ID_INVALID || p->id == id) {
+		if (id == SPA_ID_INVALID ||
+		    (p->id == id && !(p->flags & PARAM_FLAG_LOCKED))) {
 			spa_list_remove(&p->link);
 			free(p);
 		}
@@ -209,7 +213,7 @@ static int update_params(struct stream *impl, uint32_t id,
 		}
 	}
 	for (i = 0; i < n_params; i++) {
-		if (add_param(impl, id, params[i]) == NULL) {
+		if (add_param(impl, id, 0, params[i]) == NULL) {
 			res = -errno;
 			break;
 		}
@@ -1282,7 +1286,7 @@ static void add_params(struct stream *impl)
 
 	spa_pod_builder_init(&b, buffer, 4096);
 
-	add_param(impl, SPA_PARAM_IO,
+	add_param(impl, SPA_PARAM_IO, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
 			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
@@ -1394,7 +1398,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	clear_params(impl, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++)
-		add_param(impl, SPA_ID_INVALID, params[i]);
+		add_param(impl, SPA_ID_INVALID, 0, params[i]);
 
 	add_params(impl);
 

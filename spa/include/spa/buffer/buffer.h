@@ -63,7 +63,9 @@ struct spa_chunk {
 
 /** Data for a buffer this stays constant for a buffer */
 struct spa_data {
-	uint32_t type;			/**< memory type, one of enum spa_data_type */
+	uint32_t type;			/**< memory type, one of enum spa_data_type, when
+					  *  allocating memory, the type contains a bitmask
+					  *  of allowed types */
 #define SPA_DATA_FLAG_NONE	 0
 #define SPA_DATA_FLAG_READABLE	(1u<<0)	/**< data is readable */
 #define SPA_DATA_FLAG_WRITABLE	(1u<<1)	/**< data is writable */

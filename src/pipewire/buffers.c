@@ -103,6 +103,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 			d->maxsize = data_sizes[i];
 			SPA_FLAG_SET(d->flags, SPA_DATA_FLAG_READWRITE);
 		} else {
+			/* type is a bitmask of allowed types */
 			d->type = SPA_ID_INVALID;
 			d->maxsize = 0;
 		}

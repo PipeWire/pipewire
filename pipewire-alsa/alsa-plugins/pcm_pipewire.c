@@ -948,6 +948,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 #else
 #warning hw_ptr updates of buffer_size will not be recognized by the ALSA library. Consider to update your ALSA library.
 #endif
+	pw->io.flags |= SND_PCM_IOPLUG_FLAG_MONOTONIC;
 
 	if ((err = snd_pcm_ioplug_create(&pw->io, name, stream, mode)) < 0)
 		goto error;

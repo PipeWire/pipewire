@@ -79,8 +79,10 @@ static void on_process(void *userdata)
 	int n_frames, stride;
 	uint8_t *p;
 
-	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL)
+	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
+		pw_log_warn("out of buffers: %m");
 		return;
+	}
 
 	buf = b->buffer;
 	if ((p = buf->datas[0].data) == NULL)

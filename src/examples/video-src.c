@@ -95,7 +95,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	pw_log_trace("timeout");
 
 	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
-		pw_log_warn("out of buffers");
+		pw_log_warn("out of buffers: %m");
 		return;
 	}
 

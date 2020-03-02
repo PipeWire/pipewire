@@ -104,9 +104,10 @@ on_process(void *_data)
 	uint8_t *src, *dst;
 	bool render_cursor = false;
 
-	b = pw_stream_dequeue_buffer(stream);
-	if (b == NULL)
+	if ((b = pw_stream_dequeue_buffer(stream)) == NULL) {
+		pw_log_warn("out of buffers: %m");
 		return;
+	}
 
 	buf = b->buffer;
 

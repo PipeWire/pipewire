@@ -100,9 +100,10 @@ on_process(void *_data, struct spa_io_position *position)
 	uint32_t i, j;
 	uint8_t *src, *dst;
 
-	b = pw_filter_dequeue_buffer(data->in_port);
-	if (b == NULL)
+	if ((b = pw_filter_dequeue_buffer(data->in_port)) == NULL) {
+		pw_log_warn("out of buffers: %m");
 		return;
+	}
 
 	buf = b->buffer;
 

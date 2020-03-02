@@ -80,6 +80,11 @@
 
 #define NAME	"jack-client"
 
+#define TYPE_ID_AUDIO	0
+#define TYPE_ID_MIDI	1
+#define TYPE_ID_VIDEO	2
+#define TYPE_ID_OTHER	3
+
 struct client;
 struct port;
 
@@ -793,12 +798,12 @@ static void process_tee(struct client *c, uint32_t frames)
 			continue;
 
 		switch (p->object->port.type_id) {
-		case 0:
+		case TYPE_ID_AUDIO:
 			ptr = get_buffer_output(c, p, frames, sizeof(float));
 			if (ptr != NULL)
 				memcpy(ptr, p->emptyptr, frames * sizeof(float));
 			break;
-		case 1:
+		case TYPE_ID_VIDEO:
 			ptr = get_buffer_output(c, p, MAX_BUFFER_FRAMES, 1);
 			if (ptr != NULL)
 				convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
@@ -1358,20 +1363,20 @@ static int param_enum_format(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (p->object->port.type_id) {
-	case 0:
+	case TYPE_ID_AUDIO:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
 	                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32));
 		break;
-	case 1:
+	case TYPE_ID_MIDI:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
-	case 2:
+	case TYPE_ID_VIDEO:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
@@ -1388,20 +1393,20 @@ static int param_format(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (p->object->port.type_id) {
-	case 0:
+	case TYPE_ID_AUDIO:
 		*param = spa_pod_builder_add_object(b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
 		                SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32));
 		break;
-	case 1:
+	case TYPE_ID_MIDI:
 		*param = spa_pod_builder_add_object(b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
-	case 2:
+	case TYPE_ID_VIDEO:
 		*param = spa_pod_builder_add_object(b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
@@ -1418,8 +1423,8 @@ static int param_buffers(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (p->object->port.type_id) {
-	case 0:
-	case 1:
+	case TYPE_ID_AUDIO:
+	case TYPE_ID_MIDI:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
@@ -1429,10 +1434,11 @@ static int param_buffers(struct client *c, struct port *p,
 								sizeof(float),
 								MAX_BUFFER_FRAMES * sizeof(float),
 								sizeof(float)),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(p->object->port.type_id == 0 ? sizeof(float) : 1),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(p->object->port.type_id == TYPE_ID_AUDIO ?
+									sizeof(float) : 1),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
-	case 2:
+	case TYPE_ID_VIDEO:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
@@ -1544,7 +1550,7 @@ static int client_node_port_set_param(void *object,
 
 static void init_buffer(struct port *p, void *data, size_t maxframes)
 {
-	if (p->object->port.type_id == 1) {
+	if (p->object->port.type_id == TYPE_ID_MIDI) {
 		struct midi_buffer *mb = data;
 		mb->magic = MIDI_BUFFER_MAGIC;
 		mb->buffer_size = MAX_BUFFER_FRAMES * sizeof(float);
@@ -1590,7 +1596,7 @@ static int client_node_port_use_buffers(void *object,
 		return -EINVAL;
 	}
 
-	if (p->object->port.type_id == 2 && direction == SPA_DIRECTION_INPUT) {
+	if (p->object->port.type_id == TYPE_ID_VIDEO && direction == SPA_DIRECTION_INPUT) {
 		fl = PW_MEMMAP_FLAG_READ;
 	} else {
 		/* some apps write to the input buffer so we want everything readwrite */
@@ -1863,13 +1869,13 @@ static const struct pw_client_node_events client_node_events = {
 static jack_port_type_id_t string_to_type(const char *port_type)
 {
 	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
-		return 0;
+		return TYPE_ID_AUDIO;
 	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
-		return 1;
+		return TYPE_ID_MIDI;
 	else if (!strcmp(JACK_DEFAULT_VIDEO_TYPE, port_type))
-		return 2;
+		return TYPE_ID_VIDEO;
 	else if (!strcmp("other", port_type))
-		return 3;
+		return TYPE_ID_OTHER;
 	else
 		return SPA_ID_INVALID;
 }
@@ -1877,13 +1883,13 @@ static jack_port_type_id_t string_to_type(const char *port_type)
 static const char* type_to_string(jack_port_type_id_t type_id)
 {
 	switch(type_id) {
-	case 0:
+	case TYPE_ID_AUDIO:
 		return JACK_DEFAULT_AUDIO_TYPE;
-	case 1:
+	case TYPE_ID_MIDI:
 		return JACK_DEFAULT_MIDI_TYPE;
-	case 2:
+	case TYPE_ID_VIDEO:
 		return JACK_DEFAULT_VIDEO_TYPE;
-	case 3:
+	case TYPE_ID_OTHER:
 		return "other";
 	default:
 		return NULL;
@@ -2002,7 +2008,7 @@ static void registry_event_global(void *data, uint32_t id,
 			}
 			else if (!strcmp(item->key, PW_KEY_PORT_CONTROL)) {
 				if (pw_properties_parse_bool(item->value))
-					type_id = 1;
+					type_id = TYPE_ID_MIDI;
 			}
 		}
 
@@ -3165,13 +3171,13 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		switch (p->object->port.type_id) {
-		case 0:
+		case TYPE_ID_AUDIO:
 			ptr = get_buffer_input_float(c, p, frames);
 			break;
-		case 1:
+		case TYPE_ID_MIDI:
 			ptr = get_buffer_input_midi(c, p, frames);
 			break;
-		case 2:
+		case TYPE_ID_VIDEO:
 			ptr = get_buffer_input_float(c, p, frames);
 			break;
 		}
@@ -3184,13 +3190,13 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		}
 	} else {
 		switch (p->object->port.type_id) {
-		case 0:
+		case TYPE_ID_AUDIO:
 			ptr = get_buffer_output_float(c, p, frames);
 			break;
-		case 1:
+		case TYPE_ID_MIDI:
 			ptr = get_buffer_output_midi(c, p, frames);
 			break;
-		case 2:
+		case TYPE_ID_VIDEO:
 			ptr = get_buffer_output_float(c, p, frames);
 			break;
 		}
@@ -3914,7 +3920,7 @@ const char ** jack_get_ports (jack_client_t *client,
 				o->port.type_id, o->port.flags, o->port.name);
 		if (count == JACK_PORT_MAX)
 			break;
-		if (o->port.type_id > 2)
+		if (o->port.type_id > TYPE_ID_VIDEO)
 			continue;
 		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
 			continue;

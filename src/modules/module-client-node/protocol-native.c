@@ -1021,7 +1021,7 @@ static int client_node_demarshal_set_active(void *object, const struct pw_protoc
 				SPA_POD_Bool(&active)) < 0)
 		return -EINVAL;
 
-	pw_resource_notify(resource, struct pw_client_node_methods, set_active, 0, active);
+	pw_resource_notify(resource, struct pw_client_node_methods, set_active, 0, active ? true : false);
 	return 0;
 }
 

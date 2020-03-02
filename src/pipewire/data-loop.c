@@ -60,7 +60,7 @@ static void thread_cleanup(void *arg)
 	struct pw_data_loop *this = arg;
 	pw_log_debug(NAME" %p: leave thread", this);
 	this->running = false;
-	pw_loop_enter(this->loop);
+	pw_loop_leave(this->loop);
 }
 
 static void *do_loop(void *user_data)

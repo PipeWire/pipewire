@@ -343,7 +343,8 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 
-	pw_log_debug(NAME" %p: io %d %p/%zd", impl, id, data, size);
+	pw_log_debug(NAME" %p: set io id %d (%s) %p %zd", impl, id,
+			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	switch(id) {
 	case SPA_IO_Position:
@@ -455,7 +456,7 @@ static int impl_port_set_io(void *object, enum spa_direction direction, uint32_t
 {
 	struct stream *impl = object;
 
-	pw_log_debug(NAME" %p: set io %s %p %zd", impl,
+	pw_log_debug(NAME" %p: set io id %d (%s) %p %zd", impl, id,
 			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	switch (id) {
@@ -513,35 +514,6 @@ static int impl_port_enum_params(void *object, int seq,
 		if (++count == num)
 			break;
 	}
-	return 0;
-}
-
-static int impl_port_set_param(void *object,
-			       enum spa_direction direction, uint32_t port_id,
-			       uint32_t id, uint32_t flags,
-			       const struct spa_pod *param)
-{
-	struct stream *impl = object;
-	struct pw_stream *stream = &impl->this;
-	int res;
-
-	if (impl->disconnecting)
-		return param == NULL ? 0 : -EIO;
-
-	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
-	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, param);
-
-	if ((res = update_params(impl, id, &param, param ? 1 : 0)) < 0)
-		return res;
-
-	pw_stream_emit_param_changed(stream, id, param);
-
-	if (stream->state == PW_STREAM_STATE_ERROR)
-		return -EIO;
-
-	emit_port_info(impl, false);
-
 	return 0;
 }
 
@@ -609,6 +581,40 @@ static void clear_buffers(struct pw_stream *stream)
 	impl->n_buffers = 0;
 	clear_queue(impl, &impl->dequeued);
 	clear_queue(impl, &impl->queued);
+}
+
+static int impl_port_set_param(void *object,
+			       enum spa_direction direction, uint32_t port_id,
+			       uint32_t id, uint32_t flags,
+			       const struct spa_pod *param)
+{
+	struct stream *impl = object;
+	struct pw_stream *stream = &impl->this;
+	int res;
+
+	if (impl->disconnecting)
+		return param == NULL ? 0 : -EIO;
+
+	pw_log_debug(NAME" %p: param id %d (%s) changed: %p", impl, id,
+			spa_debug_type_find_name(spa_type_param, id), param);
+
+	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
+
+	if ((res = update_params(impl, id, &param, param ? 1 : 0)) < 0)
+		return res;
+
+	if (id == SPA_PARAM_Format && param == NULL)
+		clear_buffers(stream);
+
+	pw_stream_emit_param_changed(stream, id, param);
+
+	if (stream->state == PW_STREAM_STATE_ERROR)
+		return -EIO;
+
+	emit_port_info(impl, false);
+
+	return 0;
 }
 
 static int impl_port_use_buffers(void *object,

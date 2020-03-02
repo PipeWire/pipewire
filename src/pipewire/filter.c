@@ -518,49 +518,6 @@ static int update_params(struct filter *impl, struct port *port, uint32_t id,
 	return res;
 }
 
-static int port_set_param(struct filter *impl, struct port *port,
-			   uint32_t id, uint32_t flags, const struct spa_pod *param)
-{
-	struct pw_filter *filter = &impl->this;
-	int res;
-
-	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
-	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, param);
-
-	if ((res = update_params(impl, port, id, &param, param ? 1 : 0)) < 0)
-		return res;
-
-	pw_filter_emit_param_changed(filter, port->user_data, id, param);
-
-	if (filter->state == PW_FILTER_STATE_ERROR)
-		return -EIO;
-
-	if (port)
-		emit_port_info(impl, port, false);
-	else
-		emit_node_info(impl, false);
-
-	return res;
-}
-
-static int impl_port_set_param(void *object,
-			       enum spa_direction direction, uint32_t port_id,
-			       uint32_t id, uint32_t flags,
-			       const struct spa_pod *param)
-{
-	struct filter *impl = object;
-	struct port *port;
-
-	if (impl->disconnecting)
-		return param == NULL ? 0 : -EIO;
-
-	if ((port = get_port(impl, direction, port_id)) == NULL)
-		return -EINVAL;
-
-	return port_set_param(impl, port, id, flags, param);
-}
-
 static int map_data(struct filter *impl, struct spa_data *data, int prot)
 {
 	void *ptr;
@@ -624,6 +581,46 @@ static void clear_buffers(struct port *port)
 	port->n_buffers = 0;
 	clear_queue(port, &port->dequeued);
 	clear_queue(port, &port->queued);
+}
+
+static int impl_port_set_param(void *object,
+			       enum spa_direction direction, uint32_t port_id,
+			       uint32_t id, uint32_t flags,
+			       const struct spa_pod *param)
+{
+	struct filter *impl = object;
+	struct pw_filter *filter = &impl->this;
+	struct port *port;
+	int res;
+
+	if (impl->disconnecting)
+		return param == NULL ? 0 : -EIO;
+
+	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
+
+	if ((port = get_port(impl, direction, port_id)) == NULL)
+		return -EINVAL;
+
+	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
+
+	if ((res = update_params(impl, port, id, &param, param ? 1 : 0)) < 0)
+		return res;
+
+	if (id == SPA_PARAM_Format && param == NULL)
+		clear_buffers(port);
+
+	pw_filter_emit_param_changed(filter, port->user_data, id, param);
+
+	if (filter->state == PW_FILTER_STATE_ERROR)
+		return -EIO;
+
+	if (port)
+		emit_port_info(impl, port, false);
+	else
+		emit_node_info(impl, false);
+
+	return res;
 }
 
 static int impl_port_use_buffers(void *object,

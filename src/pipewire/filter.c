@@ -75,6 +75,8 @@ struct data {
 
 struct param {
 	uint32_t id;
+#define PARAM_FLAG_LOCKED	(1 << 0)
+	uint32_t flags;
 	struct spa_list link;
 	struct spa_pod *param;
 };
@@ -160,7 +162,7 @@ static int get_param_index(uint32_t id)
 }
 
 static struct param *add_param(struct filter *impl, struct port *port,
-		uint32_t id, const struct spa_pod *param)
+		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct param *p;
 	int idx;
@@ -177,6 +179,7 @@ static struct param *add_param(struct filter *impl, struct port *port,
 		return NULL;
 
 	p->id = id;
+	p->flags = flags;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
@@ -212,7 +215,8 @@ static void clear_params(struct filter *impl, struct port *port, uint32_t id)
 		param_list = &impl->param_list;
 
 	spa_list_for_each_safe(p, t, param_list, link) {
-		if (id == SPA_ID_INVALID || p->id == id) {
+		if (id == SPA_ID_INVALID ||
+		    (p->id == id && !(p->flags & PARAM_FLAG_LOCKED))) {
 			spa_list_remove(&p->link);
 			free(p);
 		}
@@ -506,7 +510,7 @@ static int update_params(struct filter *impl, struct port *port, uint32_t id,
 		}
 	}
 	for (i = 0; i < n_params; i++) {
-		if (add_param(impl, port, id, params[i]) == NULL) {
+		if (add_param(impl, port, id, 0, params[i]) == NULL) {
 			res = -errno;
 			break;
 		}
@@ -1189,7 +1193,7 @@ pw_filter_connect(struct pw_filter *filter,
 
 	clear_params(impl, NULL, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++) {
-		add_param(impl, NULL, SPA_ID_INVALID, params[i]);
+		add_param(impl, NULL, SPA_ID_INVALID, 0, params[i]);
 	}
 
 	impl->disconnecting = false;
@@ -1261,7 +1265,7 @@ static void add_port_params(struct filter *impl, struct port *port)
 	struct spa_pod_builder b;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	add_param(impl, port, SPA_PARAM_IO,
+	add_param(impl, port, SPA_PARAM_IO, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
 			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
@@ -1274,7 +1278,7 @@ static void add_audio_dsp_port_params(struct filter *impl, struct port *port)
 	struct spa_pod_builder b;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	add_param(impl, port, SPA_PARAM_EnumFormat,
+	add_param(impl, port, SPA_PARAM_EnumFormat, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
@@ -1282,7 +1286,7 @@ static void add_audio_dsp_port_params(struct filter *impl, struct port *port)
 			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32)));
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	add_param(impl, port, SPA_PARAM_Buffers,
+	add_param(impl, port, SPA_PARAM_Buffers, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
@@ -1302,7 +1306,7 @@ static void add_video_dsp_port_params(struct filter *impl, struct port *port)
 	struct spa_pod_builder b;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	add_param(impl, port, SPA_PARAM_EnumFormat,
+	add_param(impl, port, SPA_PARAM_EnumFormat, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
@@ -1316,7 +1320,7 @@ static void add_control_dsp_port_params(struct filter *impl, struct port *port)
 	struct spa_pod_builder b;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	add_param(impl, port, SPA_PARAM_EnumFormat,
+	add_param(impl, port, SPA_PARAM_EnumFormat, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),

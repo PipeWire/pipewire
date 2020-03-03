@@ -40,6 +40,7 @@ static struct pw_command *parse_command_help(struct pw_properties *properties, c
 static struct pw_command *parse_command_set_prop(struct pw_properties *properties, const char *line, char **err);
 static struct pw_command *parse_command_add_spa_lib(struct pw_properties *properties, const char *line, char **err);
 static struct pw_command *parse_command_module_load(struct pw_properties *properties, const char *line, char **err);
+static struct pw_command *parse_command_create_object(struct pw_properties *properties, const char *line, char **err);
 static struct pw_command *parse_command_exec(struct pw_properties *properties, const char *line, char **err);
 
 struct impl {
@@ -60,6 +61,7 @@ static const struct command_parse parsers[] = {
 	{"set-prop", "Set a property", parse_command_set_prop},
 	{"add-spa-lib", "Add a library that provides a spa factory name regex", parse_command_add_spa_lib},
 	{"load-module", "Load a module", parse_command_module_load},
+	{"create-object", "Create an object from a factory", parse_command_create_object},
 	{"exec", "Execute a program", parse_command_exec},
 	{NULL, NULL, NULL }
 };
@@ -129,6 +131,7 @@ static struct pw_command *parse_command_set_prop(struct pw_properties *propertie
 error_arguments:
 	*err = spa_aprintf("%s requires <property-name> <value>", this->args[0]);
 	pw_free_strv(this->args);
+	free(impl);
 	return NULL;
 error_alloc:
 	*err = spa_aprintf("alloc failed: %m");
@@ -169,6 +172,7 @@ static struct pw_command *parse_command_add_spa_lib(struct pw_properties *proper
 no_library:
 	*err = spa_aprintf("%s requires <factory-regex> <library-name>", this->args[0]);
 	pw_free_strv(this->args);
+	free(impl);
 	return NULL;
 no_mem:
 	*err = spa_aprintf("alloc failed: %m");
@@ -238,6 +242,59 @@ static struct pw_command *parse_command_module_load(struct pw_properties *proper
 no_module:
 	*err = spa_aprintf("%s requires a module name", this->args[0]);
 	pw_free_strv(this->args);
+	free(impl);
+	return NULL;
+no_mem:
+	*err = spa_aprintf("alloc failed: %m");
+	return NULL;
+}
+
+static int
+execute_command_create_object(struct pw_command *command, struct pw_context *context, char **err)
+{
+	struct pw_impl_factory *factory;
+	void *obj;
+
+	factory = pw_context_find_factory(context, command->args[1]);
+	if (factory == NULL) {
+		pw_log_error("can't find factory %s", command->args[1]);
+		return -ENOENT;
+	}
+
+	obj = pw_impl_factory_create_object(factory,
+			NULL, NULL, 0,
+			pw_properties_new_string(command->args[2]),
+			SPA_ID_INVALID);
+	if (obj == NULL) {
+		pw_log_error("can't create object from factory %s: %m", command->args[1]);
+		return -errno;
+	}
+
+	return 0;
+}
+
+static struct pw_command *parse_command_create_object(struct pw_properties *properties, const char *line, char **err)
+{
+	struct impl *impl;
+	struct pw_command *this;
+
+	impl = calloc(1, sizeof(struct impl));
+	if (impl == NULL)
+		goto no_mem;
+
+	this = &impl->this;
+	this->func = execute_command_create_object;
+	this->args = pw_split_strv(line, whitespace, 3, &this->n_args);
+
+	if (this->n_args < 3)
+		goto no_factory;
+
+	return this;
+
+no_factory:
+	*err = spa_aprintf("%s requires <factory-name> [<key>=<value> ...]", this->args[0]);
+	pw_free_strv(this->args);
+	free(impl);
 	return NULL;
 no_mem:
 	*err = spa_aprintf("alloc failed: %m");
@@ -289,6 +346,7 @@ static struct pw_command *parse_command_exec(struct pw_properties *properties, c
 no_executable:
 	*err = spa_aprintf("requires an executable name");
 	pw_free_strv(this->args);
+	free(impl);
 	return NULL;
 no_mem:
 	*err = spa_aprintf("alloc failed: %m");

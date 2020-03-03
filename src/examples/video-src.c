@@ -40,6 +40,8 @@
 #define CURSOR_HEIGHT	64
 #define CURSOR_BPP	4
 
+#define MAX_BUFFERS	64
+
 #define M_PI_M2 ( M_PI + M_PI )
 
 struct data {
@@ -231,7 +233,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, 32),
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->format.size.height),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),

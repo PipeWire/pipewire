@@ -829,19 +829,20 @@ int pw_context_recalc_graph(struct pw_context *context)
 	 * to an active master */
 	spa_list_for_each(n, &context->node_list, link) {
 		if (!n->visited) {
+			struct pw_impl_node *t;
+
 			pw_log_debug(NAME" %p: unassigned node %p: '%s' %d %d", context,
 					n, n->name, n->active, n->want_driver);
 
-			if (!n->want_driver)
-				continue;
+			t = n->want_driver ? target : NULL;
 
-			if (target != NULL) {
-				if (n->quantum_size > 0 && n->quantum_size < target->quantum_current)
-					target->quantum_current =
+			if (t != NULL) {
+				if (n->quantum_size > 0 && n->quantum_size < t->quantum_current)
+					t->quantum_current =
 						SPA_MAX(context->defaults.clock_min_quantum, n->quantum_size);
 			}
-			pw_impl_node_set_driver(n, target);
-			pw_impl_node_set_state(n, target && n->active ?
+			pw_impl_node_set_driver(n, t);
+			pw_impl_node_set_state(n, t && n->active ?
 					PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
 		}
 		n->visited = false;

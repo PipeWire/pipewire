@@ -991,7 +991,7 @@ static int create_stream(pa_stream_direction_t direction,
 				direction == PA_STREAM_PLAYBACK ?
 					"Playback" : "Capture");
 	items[3] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
-	items[4] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "1" : "0");
+	items[4] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "true" : "false");
 
 	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 5));
 

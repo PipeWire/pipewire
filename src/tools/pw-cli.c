@@ -6579,7 +6579,7 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);
 
-	data.context = pw_context_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "1", NULL), 0);
+	data.context = pw_context_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "true", NULL), 0);
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 

@@ -469,8 +469,8 @@ static void make_node(struct data *data)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new(PW_KEY_NODE_AUTOCONNECT, "1",
-				  PW_KEY_NODE_EXCLUSIVE, "1",
+	props = pw_properties_new(PW_KEY_NODE_AUTOCONNECT, "true",
+				  PW_KEY_NODE_EXCLUSIVE, "true",
 				  PW_KEY_MEDIA_TYPE, "Audio",
 				  PW_KEY_MEDIA_CATEGORY, "Playback",
 				  PW_KEY_MEDIA_ROLE, "Music",

@@ -196,7 +196,7 @@ static void emit_node_info(struct impl *this, bool full)
 		struct spa_dict_item items[1];
 
 		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
-		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, this->driver ? "1" : "0");
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, this->driver ? "true" : "false");
 		this->info.props = &SPA_DICT_INIT(items, 1);
 
 		spa_node_emit_info(&this->hooks, &this->info);

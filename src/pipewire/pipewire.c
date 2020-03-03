@@ -378,8 +378,8 @@ void pw_init(int *argc, char **argv[])
 	support->registry = &global_registry;
 
 	n_items = 0;
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "1");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "1");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
 	snprintf(level, sizeof(level), "%d", pw_log_level);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
 	if ((str = getenv("PIPEWIRE_LOG")) != NULL)

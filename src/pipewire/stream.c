@@ -1073,7 +1073,7 @@ stream_new(struct pw_context *context, const char *name,
 	}
 
 	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
-		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "1");
+		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "true");
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
 		str = pw_properties_get(extra, PW_KEY_APP_NAME);
@@ -1417,13 +1417,13 @@ pw_stream_connect(struct pw_stream *stream,
 	if (target_id != PW_ID_ANY)
 		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
-		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "true");
 	if (flags & PW_STREAM_FLAG_DRIVER)
-		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "true");
 	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
-		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
-		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "1");
+		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
@@ -1456,7 +1456,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	if ((str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) &&
 	    pw_properties_parse_bool(str)) {
-		pw_properties_set(props, "resample.peaks", "1");
+		pw_properties_set(props, "resample.peaks", "true");
 	}
 
 	follower = pw_context_create_node(impl->context, pw_properties_copy(props), 0);

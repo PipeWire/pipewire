@@ -2224,7 +2224,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 
 	props = SPA_DICT_INIT(items, 0);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT("loop.cancel", "1");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT("loop.cancel", "true");
 	client->loop = pw_data_loop_new(&props);
 	if (client->loop == NULL)
 		goto init_failed;
@@ -2276,7 +2276,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	if ((str = getenv("PIPEWIRE_LATENCY")) == NULL)
 		str = DEFAULT_LATENCY;
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "1");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
 	client->node = pw_core_create_object(client->core,
 				"client-node",
@@ -3665,7 +3665,7 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_OUTPUT_PORT, val[1]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_NODE, val[2]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "1");
+	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "true");
 
 	pw_core_create_object(c->core,
 				    "link-factory",

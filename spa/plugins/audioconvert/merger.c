@@ -150,7 +150,7 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit float mono audio");
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNEL, port->position);
 			if (port->direction == SPA_DIRECTION_OUTPUT)
-				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_MONITOR, "1");
+				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_MONITOR, "true");
 		}
 		port->info.props = &SPA_DICT_INIT(items, n_items);
 

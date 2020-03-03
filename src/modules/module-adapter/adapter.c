@@ -127,8 +127,8 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	}
 	if (direction == n->direction) {
 		if (is_device) {
-			pw_properties_set(new, PW_KEY_PORT_PHYSICAL, "1");
-			pw_properties_set(new, PW_KEY_PORT_TERMINAL, "1");
+			pw_properties_set(new, PW_KEY_PORT_PHYSICAL, "true");
+			pw_properties_set(new, PW_KEY_PORT_TERMINAL, "true");
 		}
 	}
 

@@ -388,9 +388,9 @@ struct pw_impl_port *pw_context_create_port(
 
 	if (info) {
 		if (SPA_FLAG_IS_SET(info->flags, SPA_PORT_FLAG_PHYSICAL))
-			pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "1");
+			pw_properties_set(properties, PW_KEY_PORT_PHYSICAL, "true");
 		if (SPA_FLAG_IS_SET(info->flags, SPA_PORT_FLAG_TERMINAL))
-			pw_properties_set(properties, PW_KEY_PORT_TERMINAL, "1");
+			pw_properties_set(properties, PW_KEY_PORT_TERMINAL, "true");
 		this->spa_flags = info->flags;
 	}
 
@@ -855,7 +855,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	control = PW_IMPL_PORT_IS_CONTROL(port);
 	if (control) {
 		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
-		pw_properties_set(port->properties, PW_KEY_PORT_CONTROL, "1");
+		pw_properties_set(port->properties, PW_KEY_PORT_CONTROL, "true");
 	}
 	else {
 		dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";

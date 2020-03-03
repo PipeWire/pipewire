@@ -463,7 +463,7 @@ static void make_node(struct data *data)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new(PW_KEY_NODE_AUTOCONNECT, "1", NULL);
+	props = pw_properties_new(PW_KEY_NODE_AUTOCONNECT, "true", NULL);
 	if (data->path)
 		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
 	pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Stream/Input/Video");

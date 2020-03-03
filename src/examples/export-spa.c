@@ -87,7 +87,7 @@ static int make_node(struct data *data)
 	data->node = iface;
 
 	if (data->path) {
-		pw_properties_set(props, PW_KEY_NODE_AUTOCONNECT, "1");
+		pw_properties_set(props, PW_KEY_NODE_AUTOCONNECT, "true");
 		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
 	}
 

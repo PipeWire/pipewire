@@ -403,7 +403,7 @@ int main(int argc, char *argv[])
 	data.context = pw_context_new(
 			pw_main_loop_get_loop(data.loop),
 			pw_properties_new(
-				PW_KEY_CORE_DAEMON, "0",
+				PW_KEY_CORE_DAEMON, "false",
 				NULL), 0);
 
 	spa_hook_list_init(&data.hooks);

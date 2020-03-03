@@ -221,7 +221,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
 		node->media = strdup(media_class);
-		pw_log_debug(NAME "%p: node %d is stream %s", impl, object->id, node->media);
+		pw_log_debug(NAME" %p: node %d is stream %s", impl, object->id, node->media);
 	}
 	else {
 		const char *media;

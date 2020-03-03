@@ -1721,7 +1721,6 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	if ((b = pop_queue(impl, &impl->dequeued)) == NULL) {
 		res = -errno;
 		pw_log_trace(NAME" %p: no more buffers: %m", stream);
-		call_trigger(impl);
 		errno = -res;
 		return NULL;
 	}

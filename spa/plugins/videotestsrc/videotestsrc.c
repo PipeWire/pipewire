@@ -380,14 +380,8 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
-		if (!port->have_format)
-			return -EIO;
-		if (port->n_buffers == 0)
-			return -EIO;
-
 		if (!this->started)
 			return 0;
-
 		this->started = false;
 		set_timer(this, false);
 		break;

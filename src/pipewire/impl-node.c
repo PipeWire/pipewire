@@ -673,11 +673,11 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 		    SPA_IO_Position,
 		    &driver->rt.activation->position,
 		    sizeof(struct spa_io_position))) < 0) {
-		pw_log_warn(NAME" %p: set position %s", node, spa_strerror(res));
-	} else {
-		pw_log_trace(NAME" %p: set position %p", node, &driver->rt.activation->position);
-		node->rt.position = &driver->rt.activation->position;
+		pw_log_debug(NAME" %p: set position: %s", node, spa_strerror(res));
 	}
+
+	pw_log_trace(NAME" %p: set position %p", node, &driver->rt.activation->position);
+	node->rt.position = &driver->rt.activation->position;
 
 	pw_loop_invoke(node->data_loop,
 		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_impl_node *),

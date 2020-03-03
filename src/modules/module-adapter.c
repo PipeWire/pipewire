@@ -75,6 +75,7 @@ static void resource_destroy(void *data)
 {
 	struct node_data *nd = data;
 
+	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
 	spa_hook_remove(&nd->resource_listener);
 	if (nd->adapter)
 		pw_impl_node_destroy(nd->adapter);
@@ -88,6 +89,7 @@ static const struct pw_resource_events resource_events = {
 static void node_destroy(void *data)
 {
 	struct node_data *nd = data;
+	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
 	spa_list_remove(&nd->link);
 	nd->adapter = NULL;
 }
@@ -95,6 +97,7 @@ static void node_destroy(void *data)
 static void node_free(void *data)
 {
 	struct node_data *nd = data;
+	pw_log_debug(NAME" %p: free %p", nd, nd->follower);
 	pw_impl_node_destroy(nd->follower);
 }
 
@@ -250,11 +253,12 @@ static const struct pw_impl_factory_implementation impl_factory = {
 static void module_destroy(void *data)
 {
 	struct factory_data *d = data;
-	struct node_data *nd, *t;
+	struct node_data *nd;
 
+	pw_log_debug(NAME" %p: destroy", d);
 	spa_hook_remove(&d->module_listener);
 
-	spa_list_for_each_safe(nd, t, &d->node_list, link)
+	spa_list_consume(nd, &d->node_list, link)
 		pw_impl_node_destroy(nd->adapter);
 
 	pw_impl_factory_destroy(d->this);

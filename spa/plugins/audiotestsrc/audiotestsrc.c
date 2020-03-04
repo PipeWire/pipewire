@@ -37,6 +37,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
+#include <spa/node/keys.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
@@ -53,7 +54,7 @@ enum wave_type {
 	WAVE_SQUARE,
 };
 
-#define DEFAULT_LIVE false
+#define DEFAULT_LIVE true
 #define DEFAULT_WAVE WAVE_SINE
 #define DEFAULT_FREQ 440.0
 #define DEFAULT_VOLUME 1.0
@@ -121,6 +122,8 @@ struct impl {
 	struct spa_node_info info;
 	struct spa_param_info params[2];
 	struct props props;
+	struct spa_io_clock *clock;
+	struct spa_io_position *position;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -228,6 +231,26 @@ static int impl_node_enum_params(void *object, int seq,
 		}
 		break;
 	}
+	case SPA_PARAM_IO:
+	{
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_ParamIO, id,
+					SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Clock),
+					SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_clock)));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_ParamIO, id,
+					SPA_PARAM_IO_id,	SPA_POD_Id(SPA_IO_Position),
+					SPA_PARAM_IO_size,	SPA_POD_Int(sizeof(struct spa_io_position)));
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
 	default:
 		return -ENOENT;
 	}
@@ -277,7 +300,23 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		if (size > 0 && size < sizeof(struct spa_io_clock))
+			return -EINVAL;
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 #include "render.c"
@@ -347,12 +386,18 @@ static int make_buffer(struct impl *this)
 	filled = 0;
 	index = 0;
 	avail = maxsize - filled;
-	n_bytes = SPA_MIN(avail, n_bytes);
 
 	offset = index % maxsize;
 
-	n_samples = n_bytes / port->bpf;
-
+	if (this->position && this->position->clock.duration) {
+		n_bytes = SPA_MIN(avail, n_bytes);
+		n_samples = this->position->clock.duration;
+		if (n_samples * port->bpf < n_bytes)
+			n_bytes = n_samples * port->bpf;
+	} else {
+		n_bytes = SPA_MIN(avail, n_bytes);
+		n_samples = n_bytes / port->bpf;
+	}
 	l0 = SPA_MIN(n_bytes, maxsize - offset) / port->bpf;
 	l1 = n_samples - l0;
 
@@ -442,6 +487,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static const struct spa_dict_item node_info_items[] = {
 	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
+	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
 static void emit_node_info(struct impl *this, bool full)

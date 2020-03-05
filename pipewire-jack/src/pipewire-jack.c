@@ -2204,7 +2204,12 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
 	client->context.loop = pw_thread_loop_new(client_name, NULL);
-	client->context.context = pw_context_new(pw_thread_loop_get_loop(client->context.loop), NULL, 0);
+	client->context.context = pw_context_new(
+			pw_thread_loop_get_loop(client->context.loop),
+			pw_properties_new(
+				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				NULL),
+			0);
 	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
 	spa_list_init(&client->context.free_objects);
 	spa_list_init(&client->context.nodes);

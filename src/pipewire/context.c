@@ -74,15 +74,26 @@ struct factory_entry {
 
 static int load_module_profile(struct pw_context *this, const char *profile)
 {
+	const char *str, *state = NULL;
+	size_t len;
+
 	pw_log_debug(NAME" %p: module profile %s", this, profile);
-	if (strcmp(profile, "default") == 0) {
-		pw_context_load_module(this, "libpipewire-module-rtkit", NULL, NULL);
-		pw_context_load_module(this, "libpipewire-module-protocol-native", NULL, NULL);
-		pw_context_load_module(this, "libpipewire-module-client-node", NULL, NULL);
-		pw_context_load_module(this, "libpipewire-module-client-device", NULL, NULL);
-		pw_context_load_module(this, "libpipewire-module-adapter", NULL, NULL);
-		pw_context_load_module(this, "libpipewire-module-metadata", NULL, NULL);
-		pw_context_load_module(this, "libpipewire-module-session-manager", NULL, NULL);
+
+	while ((str = pw_split_walk(profile, ", ", &len, &state)) != NULL) {
+		if (strncmp(str, "default", len) == 0) {
+			pw_log_debug(NAME" %p: loading default profile", this);
+			pw_context_load_module(this, "libpipewire-module-protocol-native", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-client-node", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-client-device", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-adapter", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-metadata", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-session-manager", NULL, NULL);
+		} else if (strncmp(str, "rtkit", len) == 0) {
+			pw_log_debug(NAME" %p: loading rtkit profile", this);
+			pw_context_load_module(this, "libpipewire-module-rtkit", NULL, NULL);
+		} else {
+			pw_log_warn(NAME" %p: unknown profile %.*s", this, (int) len, str);
+		}
 	}
 	return 0;
 }

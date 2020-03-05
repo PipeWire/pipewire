@@ -198,9 +198,7 @@ dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1')
 sdl_dep = dependency('sdl2', required : false)
-if get_option('pw-cat')
-  sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : false)
-endif
+sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : false)
 
 if get_option('gstreamer') or get_option('pipewire-pulseaudio')
   glib_dep = dependency('glib-2.0', version : '>=2.32.0')

@@ -91,7 +91,7 @@ static int load_module_profile(struct pw_context *this, const char *profile)
 		} else if (strncmp(str, "rtkit", len) == 0) {
 			pw_log_debug(NAME" %p: loading rtkit profile", this);
 			pw_context_load_module(this, "libpipewire-module-rtkit", NULL, NULL);
-		} else {
+		} else if (strncmp(str, "none", len) != 0) {
 			pw_log_warn(NAME" %p: unknown profile %.*s", this, (int) len, str);
 		}
 	}

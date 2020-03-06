@@ -59,7 +59,9 @@ struct spa_param_info {
 #define SPA_PARAM_INFO_WRITE		(1<<2)
 #define SPA_PARAM_INFO_READWRITE	(SPA_PARAM_INFO_WRITE|SPA_PARAM_INFO_READ)
 	uint32_t flags;
-	uint32_t padding[6];
+	uint32_t user;			/**< private user field. You can use this to keep
+					  *  state. */
+	uint32_t padding[5];
 };
 
 #define SPA_PARAM_INFO(id,flags) (struct spa_param_info){ (id), (flags) }

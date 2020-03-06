@@ -970,7 +970,6 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 
 	while (1) {
 		uint32_t frame;
-		uint8_t *buf;
 		struct midi_event ev;
 
 		res = midi_file_next_time(d->midi.file, &ev.sec);
@@ -997,8 +996,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 			continue;
 
 		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
-		if ((buf = spa_pod_builder_reserve_bytes(&b, ev.size)) != NULL)
-			memcpy(buf, ev.data, ev.size);
+		spa_pod_builder_bytes(&b, ev.data, ev.size);
 		have_data = true;
 	}
 	spa_pod_builder_pop(&b, &f);

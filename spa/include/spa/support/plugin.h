@@ -139,7 +139,7 @@ struct spa_handle_factory {
 	 * \param factory a spa_handle_factory
 	 * \param handle a pointer to memory
 	 * \param info extra handle specific information, usually obtained
-	 *        from a spa_monitor. This can be used to configure the handle.
+	 *        from a spa_device. This can be used to configure the handle.
 	 * \param support support items
 	 * \param n_support number of elements in \a support
 	 * \return 0 on success

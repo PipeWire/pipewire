@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_NODE_UTILS_H
-#define SPA_NODE_UTILS_H
+#ifndef SPA_DEVICE_UTILS_H
+#define SPA_DEVICE_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,18 +79,6 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 	return res;
 }
 
-#define spa_monitor_call(callbacks,method,version,...)			\
-({									\
-	int __res = 0;							\
-	spa_callbacks_call_res(callbacks, struct spa_monitor_callbacks,	\
-			__res, method, version, ##__VA_ARGS__);		\
-	__res;								\
-})
-
-#define spa_monitor_call_info(hook,i)		spa_monitor_call(hook, info, 0, i)
-#define spa_monitor_call_event(hook,e)		spa_monitor_call(hook, event, 0, e)
-#define spa_monitor_call_object_info(hook,id,i)	spa_monitor_call(hook, object_info, 0, id, i)
-
 #define spa_device_emit(hooks,method,version,...)				\
 		spa_hook_list_call_simple(hooks, struct spa_device_events,	\
 				method, version, ##__VA_ARGS__)
@@ -104,4 +92,4 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_NODE_UTILS_H */
+#endif /* SPA_DEVICE_UTILS_H */

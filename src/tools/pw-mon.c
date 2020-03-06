@@ -41,6 +41,7 @@ struct param {
 	uint32_t id;
 	int seq;
 	struct spa_pod *param;
+	unsigned int changed:1;
 };
 
 struct data {
@@ -145,6 +146,7 @@ static void event_param(void *object, int seq, uint32_t id,
 	p->id = id;
 	p->seq = seq;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	p->changed = true;
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	spa_list_append(&data->param_list, &p->link);
 }
@@ -155,11 +157,12 @@ static void print_params(struct proxy_data *data, char mark)
 
 	printf("%c\tparams:\n", mark);
 	spa_list_for_each(p, &data->param_list, link) {
-		printf("%c\t  id:%u\n", mark, p->id);
+		printf("%c\t  id:%u\n", p->changed ? mark : ' ', p->id);
 		if (spa_pod_is_object_type(p->param, SPA_TYPE_OBJECT_Format))
 			spa_debug_format(10, NULL, p->param);
 		else
 			spa_debug_pod(10, NULL, p->param);
+		p->changed = false;
 	}
 }
 
@@ -273,22 +276,23 @@ static void print_node(struct proxy_data *data)
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
         struct proxy_data *data = object;
-	struct pw_node_info *old = data->info;
 	uint32_t i;
+
+	info = data->info = pw_node_info_update(data->info, info);
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
-			if (old != NULL && info->params[i].flags == old->params[i].flags)
+			if (info->params[i].user == 0)
 				continue;
 			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_node_enum_params((struct pw_node*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
+			info->params[i].user = 0;
 		}
 		add_pending(data);
 	}
-	data->info = pw_node_info_update(data->info, info);
 
 	if (data->pending_seq == 0)
 		data->print_func(data);
@@ -332,22 +336,23 @@ static void print_port(struct proxy_data *data)
 static void port_event_info(void *object, const struct pw_port_info *info)
 {
         struct proxy_data *data = object;
-	struct pw_port_info *old = data->info;
 	uint32_t i;
+
+	info = data->info = pw_port_info_update(data->info, info);
 
 	if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
-			if (old != NULL && info->params[i].flags == old->params[i].flags)
+			if (info->params[i].user == 0)
 				continue;
 			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_port_enum_params((struct pw_port*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
+			info->params[i].user = 0;
 		}
 		add_pending(data);
 	}
-	data->info = pw_port_info_update(data->info, info);
 
 	if (data->pending_seq == 0)
 		data->print_func(data);
@@ -507,24 +512,23 @@ static void print_device(struct proxy_data *data)
 static void device_event_info(void *object, const struct pw_device_info *info)
 {
         struct proxy_data *data = object;
-	struct pw_device_info *old = data->info;
 	uint32_t i;
+
+	info = data->info = pw_device_info_update(data->info, info);
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
-			if (old != NULL && info->params[i].flags == old->params[i].flags)
+			if (info->params[i].user == 0)
 				continue;
 			remove_params(data, info->params[i].id, 0);
 			if (!SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_READ))
 				continue;
 			pw_device_enum_params((struct pw_device*)data->proxy,
 					0, info->params[i].id, 0, 0, NULL);
+			info->params[i].user = 0;
 		}
 		add_pending(data);
 	}
-
-        data->info = pw_device_info_update(data->info, info);
-
 	if (data->pending_seq == 0)
 		data->print_func(data);
 }

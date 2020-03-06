@@ -234,10 +234,12 @@ static void print_params(struct spa_param_info *params, uint32_t n_params, char 
 	for (i = 0; i < n_params; i++) {
 		const struct spa_type_info *type_info = spa_type_param;
 
-		fprintf(stdout, "%c\t  %d (%s) %c%c\n", mark, params[i].id,
-			spa_debug_type_find_name(type_info, params[i].id),
-			params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
-			params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
+		fprintf(stdout, "%c\t  %d (%s) %c%c\n",
+				params[i].user > 0 ? mark : ' ', params[i].id,
+				spa_debug_type_find_name(type_info, params[i].id),
+				params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
+				params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
+		params[i].user = 0;
 	}
 }
 

@@ -1,10 +1,14 @@
 #daemon config file for PipeWire version @VERSION@
 
+## set-prop is used to configure properties in the system
+#
 #set-prop library.name.system			support/libspa-support
 #set-prop context.data-loop.library.name.system	support/libspa-support
-set-prop link.max-buffers	16
+set-prop link.max-buffers	16		# version < 3 clients can't handle more
 #set-prop mem.allow-mlock		true
 
+## Properties for the DSP configuration
+#
 #set-prop default.clock.rate		48000
 #set-prop default.clock.quantum		1024
 #set-prop default.clock.min-quantum	32
@@ -14,6 +18,12 @@ set-prop link.max-buffers	16
 #set-prop default.video.rate.num	25
 #set-prop default.video.rate.denom	1
 
+## add-spa-lib <factory-name regex> <library-name>
+#
+# used to find spa factory names. It maps an spa factory name
+# regular expression to a library name that should contain
+# that factory.
+#
 add-spa-lib audio.convert* audioconvert/libspa-audioconvert
 add-spa-lib api.alsa.* alsa/libspa-alsa
 add-spa-lib api.v4l2.* v4l2/libspa-v4l2
@@ -23,17 +33,17 @@ add-spa-lib api.jack.* jack/libspa-jack
 #add-spa-lib videotestsrc videotestsrc/libspa-videotestsrc
 #add-spa-lib audiotestsrc audiotestsrc/libspa-audiotestsrc
 
-#load-module -ifexists libpipewire-module-spa-device api.jack.device
-#load-module libpipewire-module-spa-device api.alsa.enum.udev
-#load-module libpipewire-module-spa-node api.alsa.seq.bridge node.name=MIDI-Bridge
+## load-module [-ifexists] <module-name> [<key>=<value> ...]
+#
+# Loads a module with the given parameters. Normally failure is
+# fatal if the module is not found, unless -ifexists is given.
+#
 load-module libpipewire-module-rtkit # rt.prio=20 rt.time.soft=200000 rt.time.hard=200000
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-profiler
 load-module libpipewire-module-metadata
 load-module libpipewire-module-spa-device-factory
 load-module libpipewire-module-spa-node-factory
-#load-module libpipewire-module-spa-node api.vulkan.compute.source node.name=my-compute-source
-#load-module libpipewire-module-spa-node videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1
 load-module libpipewire-module-client-node
 load-module libpipewire-module-client-device
 load-module libpipewire-module-access
@@ -41,6 +51,21 @@ load-module libpipewire-module-adapter
 load-module libpipewire-module-link-factory
 load-module libpipewire-module-session-manager
 
-#create-object adapter node.name=my-test factory.name=audiotestsrc
+## create-object [-nofail] <factory-name> [<key>=<value> ...]
+#
+# Creates an object from a PipeWire factory with the given parameters.
+# If -nofail is given, errors are ignored (and no object is created)
+#
+#create-object spa-node-factory factory.name=videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1
+#create-object -nofail spa-device-factory factory.name=api.jack.device foo=bar
+#create-object spa-device-factory factory.name=api.alsa.enum.udev
+#create-object spa-device-factory factory.name=api.alsa.seq.bridge node.name=Internal-MIDI-Bridge
+#create-object adapter factory.name=audiotestsrc node.name=my-test
+#create-object spa-node-factory factory.name=api.vulkan.compute.source node.name=my-compute-source
 
+## exec <program-name>
+#
+# Execute the given program. This is usually used to start the
+# session manager.
+#
 exec pipewire-media-session

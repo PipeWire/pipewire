@@ -3450,27 +3450,6 @@ skip:
 	return v->buf[0] ? v->buf : NULL;
 }
 
-/* NOTE: these macros have side effects,
- * so don't get too fancy with the arguments
- */
-#define G_COMMA_START(_buf, _s, _e) \
-	do { \
-		(_s) = (_buf); \
-		(_e) = (_buf) + sizeof(_buf); \
-	} while(0)
-
-#define G_COMMA_APPEND(_buf, _s, _e, _expr, _str) \
-	do { \
-		if ((_expr)) \
-			(_s) += snprintf((_s), (_e) - (_s), "%s%s", \
-				(_s) > (_buf) && (_s)[-1] != ',' ? "," : "", (_str)); \
-	} while(0)
-
-#define G_COMMA_END(_buf, _s, _e) \
-	do { \
-		*(_s) = '\0'; \
-	} while(0)
-
 static const char *
 global_info_core_get(struct global *global, struct var_ctx *v, const char *var)
 {
@@ -3551,10 +3530,14 @@ global_info_core_get(struct global *global, struct var_ctx *v, const char *var)
 				value = var_scalar_string(v, SPA_TYPE_ROOT, info->name);
 				break;
 			case GIC_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_CORE_CHANGE_MASK_PROPS, keys[GIC_PROPS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_CORE_CHANGE_MASK_PROPS) ? keys[GIC_PROPS] : "");
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
 				break;
 			case GIC_PROPS:
@@ -3653,9 +3636,12 @@ global_info_module_get(struct global *global, struct var_ctx *v, const char *var
 				value = var_scalar_string(v, SPA_TYPE_ROOT, info->args ? : "");
 				break;
 			case GIM_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_MODULE_CHANGE_MASK_PROPS, keys[GIM_PROPS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_MODULE_CHANGE_MASK_PROPS) ? keys[GIM_PROPS] : "");
 
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
 
@@ -3745,11 +3731,18 @@ global_info_device_get(struct global *global, struct var_ctx *v, const char *var
 				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
 				break;
 			case GID_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS, keys[GID_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS, keys[GID_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) ? keys[GID_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) ? keys[GID_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
 				break;
 			case GID_PROPS:
@@ -3889,14 +3882,27 @@ global_info_node_get(struct global *global, struct var_ctx *v, const char *var)
 				value = var_scalar_string(v, SPA_TYPE_ROOT, info->error ? : "");
 				break;
 			case GIN_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS, keys[GIN_N_INPUT_PORTS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS, keys[GIN_N_OUTPUT_PORTS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_NODE_CHANGE_MASK_STATE, keys[GIN_STATE]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_NODE_CHANGE_MASK_PROPS, keys[GIN_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_NODE_CHANGE_MASK_PARAMS, keys[GIN_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) ? keys[GIN_N_INPUT_PORTS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) ? keys[GIN_N_OUTPUT_PORTS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_STATE) ? keys[GIN_STATE] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_PROPS) ? keys[GIN_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) ? keys[GIN_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
 				break;
 			case GIN_PROPS:
@@ -4002,11 +4008,18 @@ global_info_port_get(struct global *global, struct var_ctx *v, const char *var)
 				value = var_scalar_string(v, SPA_TYPE_ROOT, direction);
 				break;
 			case GIP_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_PORT_CHANGE_MASK_PROPS, keys[GIP_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_PORT_CHANGE_MASK_PARAMS, keys[GIP_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_PORT_CHANGE_MASK_PROPS) ? keys[GIP_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) ? keys[GIP_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
 				break;
 			case GIP_PROPS:
@@ -4108,11 +4121,17 @@ global_info_factory_get(struct global *global, struct var_ctx *v, const char *va
 				value = var_scalar_int(v, SPA_TYPE_ROOT, info->version);
 				break;
 			case GIF_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_FACTORY_CHANGE_MASK_PROPS, keys[GIF_PROPS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_FACTORY_CHANGE_MASK_PROPS) ? keys[GIF_PROPS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
+
 				break;
 			case GIF_PROPS:
 				value = global_property_get(global, v, e, true);
@@ -4195,11 +4214,17 @@ global_info_client_get(struct global *global, struct var_ctx *v, const char *var
 				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
 				break;
 			case GICL_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS, keys[GICL_PROPS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) ? keys[GICL_PROPS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
+
 				break;
 			case GICL_PROPS:
 				value = global_property_get(global, v, e, true);
@@ -4347,13 +4372,23 @@ global_info_link_get(struct global *global, struct var_ctx *v, const char *var)
 					value = var_scalar_string(v, SPA_TYPE_ROOT, "");
 				break;
 			case GIL_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_LINK_CHANGE_MASK_STATE, keys[GIL_STATE]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_LINK_CHANGE_MASK_FORMAT, keys[GIL_FORMAT]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_LINK_CHANGE_MASK_PROPS, keys[GIL_PROPS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_LINK_CHANGE_MASK_STATE) ? keys[GIL_STATE] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_LINK_CHANGE_MASK_FORMAT) ? keys[GIL_FORMAT] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_LINK_CHANGE_MASK_PROPS) ? keys[GIL_PROPS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
+
 				break;
 			case GIL_PROPS:
 				value = global_property_get(global, v, e, true);
@@ -4443,11 +4478,18 @@ global_info_session_get(struct global *global, struct var_ctx *v, const char *va
 				value = var_scalar_long(v, SPA_TYPE_ROOT, info->id);
 				break;
 			case GIS_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_SESSION_CHANGE_MASK_PROPS, keys[GIS_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_SESSION_CHANGE_MASK_PARAMS, keys[GIS_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) ? keys[GIS_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_SESSION_CHANGE_MASK_PARAMS) ? keys[GIS_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
 				break;
 			case GIS_PROPS:
@@ -4578,7 +4620,7 @@ global_info_endpoint_get(struct global *global, struct var_ctx *v, const char *v
 				ee = tbuf + sizeof(tbuf);
 
 				ss += snprintf(ss, ee - ss, "%s%s",
-					ss > tbuf && ss[-1] != ',' ? "," : "",
+					ss > tbuf && s[-1] != ',' ? "," : "",
 					(info->flags & PW_ENDPOINT_FLAG_PROVIDES_SESSION) ? "PROVIDES_SESSION" : "");
 
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
@@ -4590,13 +4632,24 @@ global_info_endpoint_get(struct global *global, struct var_ctx *v, const char *v
 				value = var_scalar_long(v, SPA_TYPE_ROOT, info->session_id);
 				break;
 			case GIE_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee,info->change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS, keys[GIE_N_STREAMS]);
-				G_COMMA_APPEND(tbuf, ss, ee,info->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION, keys[GIE_SESSION_ID]);
-				G_COMMA_APPEND(tbuf, ss, ee,info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS, keys[GIE_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee,info->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS, keys[GIE_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS) ? keys[GIE_N_STREAMS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION) ? keys[GIE_SESSION_ID] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) ? keys[GIE_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) ? keys[GIE_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
 				break;
 			case GIE_PROPS:
@@ -4711,13 +4764,23 @@ global_info_endpoint_stream_get(struct global *global, struct var_ctx *v, const 
 					value = var_scalar_string(v, SPA_TYPE_ROOT, "");
 				break;
 			case GIES_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_LINK_PARAMS, keys[GIES_LINK_PARAMS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS, keys[GIES_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS, keys[GIES_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_LINK_PARAMS) ? keys[GIES_LINK_PARAMS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) ? keys[GIES_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) ? keys[GIES_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
+
 				break;
 			case GIES_PROPS:
 				value = global_property_get(global, v, e, true);
@@ -4863,13 +4926,23 @@ global_info_endpoint_link_get(struct global *global, struct var_ctx *v, const ch
 				value = var_scalar_string(v, SPA_TYPE_ROOT, info->error ? : "");
 				break;
 			case GIEL_CHANGE_MASK:
-				G_COMMA_START(tbuf, ss, ee);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE, keys[GIEL_STATE]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PROPS, keys[GIEL_PROPS]);
-				G_COMMA_APPEND(tbuf, ss, ee, info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS, keys[GIEL_PARAMS]);
-				G_COMMA_END(tbuf, ss, ee);
+				ss = tbuf;
+				ee = tbuf + sizeof(tbuf);
+
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE) ? keys[GIEL_STATE] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PROPS) ? keys[GIEL_PROPS] : "");
+				ss += snprintf(ss, ee - ss, "%s%s",
+					ss > tbuf && s[-1] != ',' ? "," : "",
+					(info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS) ? keys[GIEL_PARAMS] : "");
+
 				value = var_scalar_string(v, SPA_TYPE_ROOT, tbuf);
+
 				info->change_mask = 0;	/* clear change bits */
+
 				break;
 			case GIEL_PROPS:
 				value = global_property_get(global, v, e, true);

@@ -53,30 +53,6 @@ struct data {
 	struct pw_map vars;
 };
 
-struct param_entry {
-	struct spa_list link;
-	uint32_t index;
-	struct spa_pod *param;
-};
-
-struct param {
-	struct spa_list link;
-	uint32_t idx;
-	struct spa_param_info info;
-	struct spa_list entries;
-	uint32_t flags;
-#define PARAM_ENUMERATED	(1U << 0)
-#define PARAM_ENUMERATING	(1U << 1)
-#define PARAM_SUBSCRIBED	(1U << 2)
-#define PARAM_SUBSCRIBING	(1U << 3)
-#define PARAM_ENUM_ERROR	(1U << 4)
-#define PARAM_SUBSCRIBE_ERROR	(1U << 5)
-	int enum_req;		/* the enum req id */
-	int enum_pending;	/* core sync */
-	int subscribe_req;
-	int subscribe_pending;
-};
-
 struct global {
 	struct remote_data *rd;
 	uint32_t id;
@@ -84,23 +60,8 @@ struct global {
 	uint32_t version;
 	char *type;
 	struct pw_proxy *proxy;
-	uint32_t proxy_id;
 	bool info_pending;
 	struct pw_properties *properties;
-
-	uint32_t flags;
-#define GLOBAL_CAN_SUBSCRIBE_PARAMS		(1U << 0)
-#define GLOBAL_CAN_ENUM_PARAMS			(1U << 1)
-#define GLOBAL_PARAM_LIST_VALID     		(1U << 2)
-#define GLOBAL_PARAM_SUBSCRIBE_IN_PROGRESS	(1U << 3)
-#define GLOBAL_PARAM_ENUM_IN_PROGRESS		(1U << 5)
-#define GLOBAL_PARAM_ENUM_COMPLETE		(1U << 6)
-#define GLOBAL_PARAM_ENUM_DISPLAY		(1U << 7)
-
-	int param_enum_pending;
-	int param_subscribe_pending;
-
-	struct spa_list params;
 };
 
 struct remote_data {
@@ -119,7 +80,6 @@ struct remote_data {
 	struct spa_hook registry_listener;
 
 	struct pw_map globals;
-	struct pw_map globals_by_proxy;
 };
 
 struct proxy_data;
@@ -143,21 +103,6 @@ struct command {
 	const char *description;
 	bool (*func) (struct data *data, const char *cmd, char *args, char **error);
 };
-
-static struct global *remote_global(struct remote_data *rd, uint32_t id);
-static struct global *remote_global_by_proxy(struct remote_data *rd, uint32_t id);
-static bool bind_global(struct remote_data *rd, struct global *global, char **error);
-static bool global_can_subscribe_params(struct global *global);
-static bool global_can_enum_params(struct global *global);
-static int global_subscribe_params(struct global *global,
-				   uint32_t *sub_param_ids,
-				   uint32_t sub_n_params);
-static int global_enum_params(struct global *global, int seq, uint32_t id,
-			      uint32_t start, uint32_t num,
-			      const struct spa_pod *filter);
-static bool global_do_param_enum(struct global *global);
-static bool global_do_param_subscribe(struct global *global);
-static void global_done(struct global *global, int seq);
 
 static int pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[])
 {
@@ -344,10 +289,7 @@ static void on_core_done(void *_data, uint32_t id, int seq)
 {
 	struct remote_data *rd = _data;
 
-	if (id != 0)
-		global_done(remote_global(rd, id), seq);
-
-	if (id == 0 && seq == rd->prompt_pending)
+	if (seq == rd->prompt_pending)
 		show_prompt(rd);
 }
 
@@ -364,13 +306,14 @@ static int print_global(void *obj, void *data)
 
 	fprintf(stdout, "\tid %d, type %s/%d\n", global->id,
 					global->type, global->version);
-
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
 
 	return 0;
 }
 
+
+static bool bind_global(struct remote_data *rd, struct global *global, char **error);
 
 static void registry_event_global(void *data, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
@@ -390,12 +333,6 @@ static void registry_event_global(void *data, uint32_t id,
 	global->version = version;
 	global->properties = props ? pw_properties_new_dict(props) : NULL;
 
-	spa_list_init(&global->params);
-
-	global->flags =
-		(global_can_subscribe_params(global) ? GLOBAL_CAN_SUBSCRIBE_PARAMS : 0) |
-		(global_can_enum_params(global) ? GLOBAL_CAN_ENUM_PARAMS : 0);
-
 	fprintf(stdout, "remote %d added global: ", rd->id);
 	print_global(global, NULL);
 
@@ -414,415 +351,17 @@ static void registry_event_global(void *data, uint32_t id,
 
 static int destroy_global(void *obj, void *data)
 {
-	struct remote_data *rd;
 	struct global *global = obj;
-	struct param *p;
-	struct param_entry *pe;
 
 	if (global == NULL)
 		return 0;
 
-	while (!spa_list_is_empty(&global->params)) {
-		p = spa_list_last(&global->params, struct param, link);
-		spa_list_remove(&p->link);
-
-		while (!spa_list_is_empty(&p->entries)) {
-			pe = spa_list_last(&p->entries, struct param_entry, link);
-			spa_list_remove(&pe->link);
-			free(pe->param);
-			free(pe);
-		}
-
-		free(p);
-	}
-
-	rd = global->rd;
-
-	if (global->proxy_id)
-		pw_map_remove(&rd->globals_by_proxy, global->proxy_id);
-
-	pw_map_remove(&rd->globals, global->id);
+	pw_map_remove(&global->rd->globals, global->id);
 	if (global->properties)
 		pw_properties_free(global->properties);
 	free(global->type);
 	free(global);
 	return 0;
-}
-
-/* get a global object, but only when everything is right */
-static struct global *
-remote_global(struct remote_data *rd, uint32_t id)
-{
-	struct global *global;
-
-	if (!rd)
-		return NULL;
-
-	global = pw_map_lookup(&rd->globals, id);
-	if (!global || !global->proxy || !pw_proxy_get_user_data(global->proxy))
-		return NULL;
-	return global;
-}
-
-static struct global *
-remote_global_by_proxy(struct remote_data *rd, uint32_t id)
-{
-	struct global *global;
-
-	if (!rd)
-		return NULL;
-
-	global = pw_map_lookup(&rd->globals_by_proxy, id);
-	if (!global || !global->proxy || !pw_proxy_get_user_data(global->proxy))
-		return NULL;
-	return global;
-}
-
-static bool global_can_subscribe_params(struct global *global)
-{
-	if (!global)
-		return false;
-
-	return !strcmp(global->type, PW_TYPE_INTERFACE_Node) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_Port) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_Device) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink);
-}
-
-static bool global_can_enum_params(struct global *global)
-{
-	if (!global)
-		return false;
-
-	return !strcmp(global->type, PW_TYPE_INTERFACE_Node) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_Port) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_Device) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream) ||
-	       !strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink);
-}
-
-static int global_subscribe_params(struct global *global,
-				   uint32_t *sub_param_ids,
-				   uint32_t sub_n_params)
-{
-	int ret;
-
-	if (!global || !global->proxy)
-		return -1;
-
-	if (!sub_n_params)
-		return 0;
-
-	if (!sub_param_ids)
-		return -1;
-
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
-		ret = pw_node_subscribe_params((struct pw_node *)global->proxy,
-				sub_param_ids, sub_n_params);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
-		ret = pw_port_subscribe_params((struct pw_port *)global->proxy,
-				sub_param_ids, sub_n_params);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
-		ret = pw_device_subscribe_params((struct pw_device *)global->proxy,
-				sub_param_ids, sub_n_params);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
-		ret = pw_endpoint_subscribe_params((struct pw_endpoint *)global->proxy,
-				sub_param_ids, sub_n_params);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
-		ret = pw_endpoint_stream_subscribe_params((struct pw_endpoint_stream *)global->proxy,
-				sub_param_ids, sub_n_params);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink))
-		ret = pw_endpoint_link_subscribe_params((struct pw_endpoint_link *)global->proxy,
-				sub_param_ids, sub_n_params);
-	else
-		ret = -1;
-
-	return ret;
-}
-
-static int global_enum_params(struct global *global, int seq, uint32_t id,
-			      uint32_t start, uint32_t num,
-			      const struct spa_pod *filter)
-{
-	int ret;
-
-	if (!global || !global->proxy)
-		return -EINVAL;
-
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
-		ret = pw_node_enum_params((struct pw_node *)global->proxy,
-					  seq, id, start, num, filter);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
-		ret = pw_port_enum_params((struct pw_port *)global->proxy,
-					  seq, id, start, num, filter);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
-		ret = pw_device_enum_params((struct pw_device *)global->proxy,
-					    seq, id, start, num, filter);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
-		ret = pw_endpoint_enum_params((struct pw_endpoint *)global->proxy,
-					      seq, id, start, num, filter);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
-		ret = pw_endpoint_stream_enum_params((struct pw_endpoint_stream *)global->proxy,
-					      seq, id, start, num, filter);
-	else if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink))
-		ret = pw_endpoint_link_enum_params((struct pw_endpoint_link *)global->proxy,
-					      seq, id, start, num, filter);
-	else
-		ret = -EINVAL;
-
-	return ret;
-}
-
-static bool global_do_param_subscribe(struct global *global)
-{
-	struct remote_data *rd;
-	uint32_t subscribe_n_params;
-	struct param *p;
-	int ret;
-
-	if (!global)
-		return false;
-
-	if (!(global->flags & GLOBAL_CAN_SUBSCRIBE_PARAMS))
-		return false;
-
-	rd = global->rd;
-
-	subscribe_n_params = 0;
-	spa_list_for_each(p, &global->params, link) {
-		if ((p->flags & (PARAM_SUBSCRIBED | PARAM_SUBSCRIBING | PARAM_SUBSCRIBE_ERROR)))
-			continue;
-
-		/* can't subscribed non-readable */
-		if (!(p->info.flags & SPA_PARAM_INFO_READ))
-			continue;
-
-		ret = global_subscribe_params(global, &p->info.id, 1);
-
-		if (SPA_RESULT_IS_OK(ret)) {
-			subscribe_n_params++;
-			p->flags |= PARAM_SUBSCRIBING;
-			p->subscribe_req = ret;
-			p->subscribe_pending = pw_core_sync(rd->core, global->id, 0);
-
-		} else {
-			fprintf(stdout, "id=%"PRIu32" param.id=%"PRIu32" subscribe error\n",
-					global->id, p->info.id);
-			p->flags |= PARAM_SUBSCRIBE_ERROR;
-		}
-	}
-
-	if (!subscribe_n_params)
-		return false;
-
-	global->param_subscribe_pending = pw_core_sync(rd->core, global->id, 0);
-	global->flags |= GLOBAL_PARAM_SUBSCRIBE_IN_PROGRESS;
-
-	return true;
-}
-
-/* subscribe complete */
-static void global_done_param_subscribe(struct global *global, int seq)
-{
-	if (!global)
-		return;
-
-	if (!(global->flags & GLOBAL_PARAM_SUBSCRIBE_IN_PROGRESS))
-		return;
-
-	if (seq != global->param_subscribe_pending)
-		return;
-
-	global->flags &= ~GLOBAL_PARAM_SUBSCRIBE_IN_PROGRESS;
-
-	if (global->flags & GLOBAL_CAN_ENUM_PARAMS)
-		global_do_param_enum(global);
-}
-
-static bool global_do_param_enum(struct global *global)
-{
-	struct remote_data *rd;
-	uint32_t enum_n_params;
-	struct param *p;
-	int ret;
-
-	if (!global)
-		return false;
-
-	if (!(global->flags & GLOBAL_CAN_ENUM_PARAMS))
-		return false;
-
-	rd = global->rd;
-
-	enum_n_params = 0;
-	spa_list_for_each(p, &global->params, link) {
-		/* if enumerated, or enumerating or error skip */
-		if (p->flags & (PARAM_ENUMERATED | PARAM_ENUMERATING | PARAM_ENUM_ERROR))
-			continue;
-
-		/* can't enumerate non-readable */
-		if (!(p->info.flags & SPA_PARAM_INFO_READ))
-			continue;
-
-		ret = global_enum_params(global, 0, p->info.id, 0, 0, NULL);
-
-		if (SPA_RESULT_IS_OK(ret)) {
-			enum_n_params++;
-			p->flags |= PARAM_ENUMERATING;
-			p->enum_req = ret;
-			p->enum_pending = pw_core_sync(rd->core, global->id, 0);
-
-		} else {
-			fprintf(stdout, "id=%"PRIu32" param.id=%"PRIu32" enumeration error\n",
-					global->id, p->info.id);
-			p->flags |= PARAM_ENUM_ERROR;
-		}
-	}
-
-	if (!enum_n_params) {
-		global->flags |= GLOBAL_PARAM_ENUM_COMPLETE;
-		return false;
-	}
-
-	global->param_enum_pending = pw_core_sync(rd->core, global->id, 0);
-	global->flags |= GLOBAL_PARAM_ENUM_IN_PROGRESS;
-
-	return true;
-}
-
-/* parameter collection ended? */
-static void global_done_param_enum(struct global *global, int seq)
-{
-	struct param *p;
-
-	if (!global)
-		return;
-
-	if (!(global->flags & GLOBAL_PARAM_ENUM_IN_PROGRESS))
-		return;
-
-	spa_list_for_each(p, &global->params, link) {
-		if ((p->flags & PARAM_ENUMERATING) && seq == p->enum_pending) {
-			p->flags &= ~PARAM_ENUMERATING;
-			p->flags |= PARAM_ENUMERATED;
-		}
-	}
-
-	if (seq != global->param_enum_pending)
-		return;
-
-	global->flags &= ~GLOBAL_PARAM_ENUM_IN_PROGRESS;
-	global->flags |= GLOBAL_PARAM_ENUM_COMPLETE;
-}
-
-static void global_done(struct global *global, int seq)
-{
-	if (!global)
-		return;
-
-	global_done_param_subscribe(global, seq);
-	global_done_param_enum(global, seq);
-}
-
-static struct spa_param_info *
-global_info_params(struct global *global, uint32_t *n_paramsp)
-{
-	struct proxy_data *pd;
-
-	if (!global || !global->proxy || !n_paramsp)
-		return NULL;
-
-	pd = pw_proxy_get_user_data(global->proxy);
-	if (!pd)
-		return NULL;
-
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node)) {
-		struct pw_node_info *info = pd->info;
-		*n_paramsp = info->n_params;
-		return info->params;
-	}
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Port)) {
-		struct pw_port_info *info = pd->info;
-		*n_paramsp = info->n_params;
-		return info->params;
-	}
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Device)) {
-		struct pw_device_info *info = pd->info;
-		*n_paramsp = info->n_params;
-		return info->params;
-	}
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint)) {
-		struct pw_endpoint_info *info = pd->info;
-		*n_paramsp = info->n_params;
-		return info->params;
-	}
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream)) {
-		struct pw_endpoint_stream_info *info = pd->info;
-		*n_paramsp = info->n_params;
-		return info->params;
-	}
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointLink)) {
-		struct pw_endpoint_link_info *info = pd->info;
-		*n_paramsp = info->n_params;
-		return info->params;
-	}
-
-	*n_paramsp = 0;
-	return NULL;
-}
-
-static void global_param_event_info(struct global *global)
-{
-	struct proxy_data *pd;
-	struct remote_data *rd;
-	struct param *p, *pfound;
-	uint32_t i, param_id;
-	struct spa_param_info *params;
-	uint32_t n_params;
-
-	if (!global)
-		return;
-
-	params = global_info_params(global, &n_params);
-	if (!params || !n_params)
-		return;
-
-	pd = pw_proxy_get_user_data(global->proxy);
-	spa_assert(pd);
-
-	rd = pd->rd;
-	spa_assert(rd);
-
-	for (i = 0; i < n_params; i++) {
-
-		param_id = params[i].id;
-
-		/* lookup param */
-		pfound = NULL;
-		spa_list_for_each(p, &global->params, link) {
-			if (param_id == p->info.id) {
-				pfound = p;
-				break;
-			}
-		}
-		/* not found? create it */
-		if (!pfound) {
-			p = malloc(sizeof(*p));
-			spa_assert(p);
-			p->idx = i;
-			memcpy(&p->info, &params[i], sizeof(p->info));
-			spa_list_init(&p->entries);
-			p->flags = 0;
-
-			spa_list_append(&global->params, &p->link);
-		}
-	}
-
-	if (!global_do_param_subscribe(global))
-		global_do_param_enum(global);
 }
 
 static void registry_event_global_remove(void *data, uint32_t id)
@@ -851,41 +390,13 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 {
 	struct remote_data *rd = _data;
 	struct data *data = rd->data;
-	struct global *global;
-	struct param *p;
 
 	pw_log_error("remote %p: error id:%u seq:%d res:%d (%s): %s", rd,
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == 0) {
 		pw_main_loop_quit(data->loop);
-		return;
 	}
-
-	/* try to associate with an operation in progress */
-	global = remote_global_by_proxy(rd, id);
-	if (global == NULL)
-		return;
-
-	spa_list_for_each(p, &global->params, link) {
-		if ((p->flags & PARAM_ENUMERATING) && seq == p->enum_req) {
-			p->flags &= ~PARAM_ENUMERATING;
-			p->flags |= PARAM_ENUM_ERROR;
-			pw_log_error("param %u.%u (%s) failed to enumerate",
-					id, p->info.id,
-					spa_debug_type_find_name(spa_type_param, p->info.id));
-			continue;
-		}
-		if ((p->flags & PARAM_SUBSCRIBING) && seq == p->subscribe_req) {
-			p->flags &= ~PARAM_SUBSCRIBING;
-			p->flags |= PARAM_SUBSCRIBE_ERROR;
-			pw_log_error("param %u.%u (%s) failed to subscribe",
-					id, p->info.id,
-					spa_debug_type_find_name(spa_type_param, p->info.id));
-			continue;
-		}
-	}
-
 }
 
 static const struct pw_core_events remote_core_events = {
@@ -937,7 +448,6 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	rd->core = core;
 	rd->data = data;
 	pw_map_init(&rd->globals, 64, 16);
-	pw_map_init(&rd->globals_by_proxy, 64, 16);
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
@@ -1249,24 +759,15 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
-	struct global *global;
-
 	if (pd->info)
 		fprintf(stdout, "remote %d node %d changed\n", rd->id, info->id);
 	pd->info = pw_node_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
-
-	global = pd->global;
-	if (!global)
-		return;
-
-	if (global && global->info_pending) {
+	if (pd->global && pd->global->info_pending) {
 		info_node(pd);
-		global->info_pending = false;
+		pd->global->info_pending = false;
 	}
-
-	global_param_event_info(global);
 }
 
 static void event_param(void *object, int seq, uint32_t id,
@@ -1274,74 +775,14 @@ static void event_param(void *object, int seq, uint32_t id,
 {
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
-	struct global *global;
-	struct param *p, *pfound;
-	struct param_entry *pe, *pefound;
 
-	/* get global */
-	global = data->global;
-	if (!global)
-		return;
+	fprintf(stdout, "remote %d object %d param %d index %d\n",
+			rd->id, data->global->id, id, index);
 
-	if (global->flags & GLOBAL_PARAM_ENUM_DISPLAY) {
-		global->flags &= ~GLOBAL_PARAM_ENUM_DISPLAY;
-
-		fprintf(stdout, "remote %d object %d param %d index %d\n",
-				rd->id, global->id, id, index);
-
-		if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
-			spa_debug_format(2, NULL, param);
-		else
-			spa_debug_pod(2, NULL, param);
-	}
-
-	/* find param (it should exist) */
-	pfound = NULL;
-	spa_list_for_each(p, &global->params, link) {
-		if (p->info.id == id) {
-			pfound = p;
-			break;
-		}
-	}
-
-	if (!pfound) {
-		fprintf(stdout, "could not find object %d param %d index %d\n", global->id, id, index);
-		return;
-	}
-	p = pfound;
-
-	/* find param entry (it may not exist) */
-	pefound = NULL;
-	spa_list_for_each(pe, &pfound->entries, link) {
-		if (pe->index == index) {
-			pefound = pe;
-			break;
-		}
-	}
-
-	if (!pefound) {
-		pe = malloc(sizeof(*pe));
-		spa_assert(pe);
-		pe->index = index;
-		pe->param = malloc(SPA_POD_SIZE(param));
-		spa_assert(pe->param);
-		memcpy(pe->param, param, SPA_POD_SIZE(param));
-
-		spa_list_append(&p->entries, &pe->link);
-	} else {
-		pe = pefound;
-		if (SPA_POD_SIZE(param) != SPA_POD_SIZE(pe->param) ||
-		    memcmp(param, pe->param, SPA_POD_SIZE(pe->param))) {
-
-			/* updated */
-
-			free(pe->param);
-
-			pe->param = malloc(SPA_POD_SIZE(param));
-			spa_assert(pe->param);
-			memcpy(pe->param, param, SPA_POD_SIZE(param));
-		}
-	}
+	if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
+		spa_debug_format(2, NULL, param);
+	else
+		spa_debug_pod(2, NULL, param);
 }
 
 static const struct pw_node_events node_events = {
@@ -1355,24 +796,15 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
-	struct global *global;
-
 	if (pd->info)
 		fprintf(stdout, "remote %d port %d changed\n", rd->id, info->id);
 	pd->info = pw_port_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
-
-	global = pd->global;
-	if (!global)
-		return;
-
-	if (global->info_pending) {
+	if (pd->global && pd->global->info_pending) {
 		info_port(pd);
-		global->info_pending = false;
+		pd->global->info_pending = false;
 	}
-
-	global_param_event_info(global);
 }
 
 static const struct pw_port_events port_events = {
@@ -1466,24 +898,15 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 {
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
-	struct global *global;
-
 	if (pd->info)
 		fprintf(stdout, "remote %d device %d changed\n", rd->id, info->id);
 	pd->info = pw_device_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
-
-	global = pd->global;
-	if (!global)
-		return;
-
-	if (global->info_pending) {
+	if (pd->global && pd->global->info_pending) {
 		info_device(pd);
-		global->info_pending = false;
+		pd->global->info_pending = false;
 	}
-
-	global_param_event_info(global);
 }
 
 static const struct pw_device_events device_events = {
@@ -1506,7 +929,6 @@ static void session_event_info(void *object,
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	struct pw_session_info *info = pd->info;
-	struct global *global;
 
 	if (!info) {
 		info = pd->info = calloc(1, sizeof(*info));
@@ -1528,17 +950,10 @@ static void session_event_info(void *object,
 
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
-
-	global = pd->global;
-	if (!global)
-		return;
-
-	if (pd->global->info_pending) {
+	if (pd->global && pd->global->info_pending) {
 		info_session(pd);
-		global->info_pending = false;
+		pd->global->info_pending = false;
 	}
-
-	global_param_event_info(global);
 }
 
 static const struct pw_session_events session_events = {
@@ -1563,7 +978,6 @@ static void endpoint_event_info(void *object,
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	struct pw_endpoint_info *info = pd->info;
-	struct global *global;
 
 	if (!info) {
 		info = pd->info = calloc(1, sizeof(*info));
@@ -1593,17 +1007,10 @@ static void endpoint_event_info(void *object,
 
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
-
-	global = pd->global;
-	if (!global)
-		return;
-
-	if (global->info_pending) {
+	if (pd->global && pd->global->info_pending) {
 		info_endpoint(pd);
-		global->info_pending = false;
+		pd->global->info_pending = false;
 	}
-
-	global_param_event_info(global);
 }
 
 static const struct pw_endpoint_events endpoint_events = {
@@ -1627,7 +1034,6 @@ static void endpoint_stream_event_info(void *object,
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	struct pw_endpoint_stream_info *info = pd->info;
-	struct global *global;
 
 	if (!info) {
 		info = pd->info = calloc(1, sizeof(*info));
@@ -1651,18 +1057,10 @@ static void endpoint_stream_event_info(void *object,
 
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
-
-	global = pd->global;
-
-	if (!global)
-		return;
-
-	if (global->info_pending) {
+	if (pd->global && pd->global->info_pending) {
 		info_endpoint_stream(pd);
-		global->info_pending = false;
+		pd->global->info_pending = false;
 	}
-
-	global_param_event_info(global);
 }
 
 static const struct pw_endpoint_stream_events endpoint_stream_events = {
@@ -1707,7 +1105,6 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
         pw_destroy_t destroy;
 	struct proxy_data *pd;
 	struct pw_proxy *proxy;
-	size_t size;
 
 	if (strcmp(global->type, PW_TYPE_INTERFACE_Core) == 0) {
 		events = &core_events;
@@ -1785,12 +1182,6 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	global->proxy = proxy;
-	global->proxy_id = pw_proxy_get_id(proxy);
-
-	size = pw_map_get_size(&rd->globals_by_proxy);
-	while (global->proxy_id > size)
-		pw_map_insert_at(&rd->globals_by_proxy, size++, NULL);
-	pw_map_insert_at(&rd->globals_by_proxy, global->proxy_id, global);
 
 	return true;
 }
@@ -2048,57 +1439,43 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
         int n;
 	uint32_t id, param_id;
 	struct global *global;
-	struct param *p;
-	struct param_entry *pe;
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
-	if (n < 1) {
-		*error = spa_aprintf("%s <object-id> [<param-id>]", cmd);
+	if (n < 2) {
+		*error = spa_aprintf("%s <object-id> <param-id>", cmd);
 		return false;
 	}
 
 	id = atoi(a[0]);
-	param_id = n >= 2 ? (uint32_t)atoi(a[1]) : (uint32_t)-1;
+	param_id = atoi(a[1]);
 
-	global = remote_global(rd, id);
+	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
 
-	if (!global_can_enum_params(global)) {
+	if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0)
+		pw_node_enum_params((struct pw_node*)global->proxy, 0,
+			param_id, 0, 0, NULL);
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Port) == 0)
+		pw_port_enum_params((struct pw_port*)global->proxy, 0,
+			param_id, 0, 0, NULL);
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0)
+		pw_device_enum_params((struct pw_device*)global->proxy, 0,
+			param_id, 0, 0, NULL);
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0)
+		pw_endpoint_enum_params((struct pw_endpoint*)global->proxy, 0,
+			param_id, 0, 0, NULL);
+	else {
 		*error = spa_aprintf("enum-params not implemented on object %d type:%s",
-				id, global->type);
+				atoi(a[0]), global->type);
 		return false;
 	}
-
-	/* wait until param enum is complete */
-	if (!(global->flags & GLOBAL_PARAM_ENUM_COMPLETE)) {
-		*error = spa_aprintf("enum-params not complete on object %d type:%s",
-				id, global->type);
-		return false;
-	}
-
-	spa_list_for_each(p, &global->params, link) {
-		/* only if all, or selected */
-		if (param_id != (uint32_t)-1 && p->info.id != param_id)
-			continue;
-
-		fprintf(stdout, "%c%c%c id=%"PRIu32" (%s)\n",
-				(p->info.flags & SPA_PARAM_INFO_SERIAL) ? 's' : '-',
-				(p->info.flags & SPA_PARAM_INFO_READ)   ? 'r' : '-',
-				(p->info.flags & SPA_PARAM_INFO_WRITE)  ? 'w' : '-',
-				p->info.id,
-				spa_debug_type_find_name(spa_type_param, p->info.id));
-
-		spa_list_for_each(pe, &p->entries, link) {
-			if (spa_pod_is_object_type(pe->param, SPA_TYPE_OBJECT_Format))
-				spa_debug_format(2, NULL, pe->param);
-			else
-				spa_debug_pod(2, NULL, pe->param);
-		}
-	}
-
 	return true;
 }
 
@@ -2515,34 +1892,22 @@ dump_params(struct data *data, struct global *global,
 {
 	uint32_t i;
 	const char *ind;
-	struct param *p;
-	struct param_entry *pe;
 
 	if (params == NULL || n_params == 0)
 		return;
 
 	ind = INDENT(level + 1);
 	for (i = 0; i < n_params; i++) {
+		const struct spa_type_info *type_info = spa_type_param;
+
 		fprintf(stdout, "%s  %d (%s) %c%c\n", ind,
 			params[i].id,
-			spa_debug_type_find_name(spa_type_param, params[i].id),
+			spa_debug_type_find_name(type_info, params[i].id),
 			params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
 			params[i].flags & SPA_PARAM_INFO_WRITE ? 'w' : '-');
-
-		/* if params were enumerated display them */
-		spa_list_for_each(p, &global->params, link) {
-			spa_list_for_each(pe, &p->entries, link) {
-				if (p->info.id != params[i].id)
-					continue;
-
-				if (spa_pod_is_object_type(pe->param, SPA_TYPE_OBJECT_Format))
-					spa_debug_format(level + 12, NULL, pe->param);
-				else
-					spa_debug_pod(level + 12, NULL, pe->param);
-			}
-		}
 	}
 }
+
 
 static void
 dump_global_common(struct data *data, struct global *global,

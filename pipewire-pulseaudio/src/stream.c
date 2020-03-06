@@ -226,9 +226,10 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	enum pw_stream_state state, const char *error)
 {
 	pa_stream *s = data;
+	pa_context *c = s->context;
 
-	pw_log_debug("stream %p: state  '%s'->'%s'", s, pw_stream_state_as_string(old),
-			pw_stream_state_as_string(state));
+	pw_log_debug("stream %p: state  '%s'->'%s' (%d)", s, pw_stream_state_as_string(old),
+			pw_stream_state_as_string(state), s->state);
 
 	if (s->state == PA_STREAM_TERMINATED)
 		return;
@@ -239,7 +240,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (!s->disconnecting) {
-			pa_context_set_error(s->context, PA_ERR_KILLED);
+			pa_context_set_error(c, PA_ERR_KILLED);
 			pa_stream_set_state(s, PA_STREAM_FAILED);
 		} else {
 			pa_stream_set_state(s, PA_STREAM_TERMINATED);
@@ -249,16 +250,16 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		pa_stream_set_state(s, PA_STREAM_CREATING);
 		break;
 	case PW_STREAM_STATE_PAUSED:
-		if (!s->suspended && s->suspended_callback) {
-			s->suspended = true;
+		if (!s->suspended && !c->disconnect && s->suspended_callback) {
 			s->suspended_callback(s, s->suspended_userdata);
 		}
+		s->suspended = true;
 		break;
 	case PW_STREAM_STATE_STREAMING:
-		if (s->suspended && s->suspended_callback) {
-			s->suspended = false;
+		if (s->suspended && !c->disconnect && s->suspended_callback) {
 			s->suspended_callback(s, s->suspended_userdata);
 		}
+		s->suspended = false;
 		configure_device(s);
 		configure_buffers(s);
 		pa_stream_set_state(s, PA_STREAM_READY);

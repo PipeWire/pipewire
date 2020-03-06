@@ -253,30 +253,39 @@ static int
 execute_command_create_object(struct pw_command *command, struct pw_context *context, char **err)
 {
 	struct pw_impl_factory *factory;
+	struct impl *impl = SPA_CONTAINER_OF(command, struct impl, this);
+	int arg = impl->first_arg;
 	void *obj;
 
-	factory = pw_context_find_factory(context, command->args[1]);
+	pw_log_debug("find factory %s", command->args[arg]);
+	factory = pw_context_find_factory(context, command->args[arg]);
 	if (factory == NULL) {
-		pw_log_error("can't find factory %s", command->args[1]);
+		if (has_option(command, arg, "-nofail"))
+			return 0;
+		pw_log_error("can't find factory %s", command->args[arg]);
 		return -ENOENT;
 	}
 
+	pw_log_debug("create object with args %s", command->args[arg+1]);
 	obj = pw_impl_factory_create_object(factory,
 			NULL, NULL, 0,
-			pw_properties_new_string(command->args[2]),
+			pw_properties_new_string(command->args[arg+1]),
 			SPA_ID_INVALID);
 	if (obj == NULL) {
-		pw_log_error("can't create object from factory %s: %m", command->args[1]);
+		if (has_option(command, arg, "-nofail"))
+			return 0;
+		pw_log_error("can't create object from factory %s: %m", command->args[arg]);
 		return -errno;
 	}
-
 	return 0;
+
 }
 
 static struct pw_command *parse_command_create_object(struct pw_properties *properties, const char *line, char **err)
 {
 	struct impl *impl;
 	struct pw_command *this;
+	int arg;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -284,10 +293,19 @@ static struct pw_command *parse_command_create_object(struct pw_properties *prop
 
 	this = &impl->this;
 	this->func = execute_command_create_object;
-	this->args = pw_split_strv(line, whitespace, 3, &this->n_args);
+	this->args = pw_split_strv(line, whitespace, INT_MAX, &this->n_args);
 
-	if (this->n_args < 3)
+	for (arg = 1; arg < this->n_args; arg++) {
+		if (strstr(this->args[arg], "-") != this->args[arg])
+			break;
+	}
+	if (arg > this->n_args)
 		goto no_factory;
+
+	pw_free_strv(this->args);
+	this->args = pw_split_strv(line, whitespace, arg + 2, &this->n_args);
+
+	impl->first_arg = arg;
 
 	return this;
 

@@ -1,3 +1,43 @@
+PipeWire 0.3.1
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Don't load the rtkit module by default. It can cause a
+  sigkill, which is not desirable for mutter, for example.
+  Only enable this for the jack library for now.
+- Don't use pthread cancel by default because it uses a
+  signal that might crash some apps. Only use it for
+  the jack library because jack clients really expect this.
+- Build fixes for -Werror=suggest-attribute=format
+- improve error messages, don't report harmless errors and
+  warnings. Try to send error messages to the proxy that
+  started the operation or is the owner of the object.
+- pw-cat: midi improvement, add midi recording and dump
+  in verbose mode
+- fix properties when loading spa-nodes from the config
+- Fix and update some examples
+- jack: check arguments and don't crash when invalid
+- Fix buffer memory upload.
+- jack: fix compatibility with zrythm. Fix timemaster
+  install, improve sample_rate callback. Fix reposition
+  handling.
+- fix crash in port after buffer negotiation error.
+- add support for control ports in pw_filter
+- fix cleanup of the metadata module
+- improve param enumeration.
+- Clear stream buffers when the format is cleared.
+- Add create-object command in the config file to create
+  object from a factory.
+- Fix crash after the driver was not removed from unassigned
+  nodes. Also properly pause inactive nodes.
+- Use "true" and "false" in properties when we are talking
+  about a boolean.
+- pulseaudio: improve compatibility
+
+
+Older versions:
+
 PipeWire 0.3.0
 
 The 0.3 release is a major milestone in the developement of
@@ -32,9 +72,6 @@ PipeWire comes with some GStreamer plugins to consume and
 produce data for PipeWire. The consumer (pipewiresrc) is
 working well in most cases. The sink (pipewiresink) is known
 to be somewhat problematic for now.
-
-
-Older versions:
 
 PipeWire 0.2.97
 

@@ -2176,10 +2176,7 @@ struct var_ctx {
 
 static int
 var_printf(struct var_ctx *v, const char *fmt, ...)
-	 SPA_PRINTF_FUNC(2, 3);
-static int
-var_vprintf(struct var_ctx *v, const char *fmt, va_list ap)
-	 SPA_PRINTF_FUNC(2, 0);
+	__attribute__((format(printf, 2, 3)));
 
 void
 var_init(struct var_ctx *v, char *buf, size_t bufsz, enum var_format fmt, unsigned int flags, int level, int ind)

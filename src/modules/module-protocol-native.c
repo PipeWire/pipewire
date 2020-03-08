@@ -63,6 +63,11 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+/* Required for s390x */
+#ifndef SO_PEERSEC
+#define SO_PEERSEC 31
+#endif
+
 static bool debug_messages = 0;
 
 #define LOCK_SUFFIX     ".lock"

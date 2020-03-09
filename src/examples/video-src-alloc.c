@@ -224,6 +224,11 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 
 	d = buf->datas;
 
+	if ((d[0].type & (1<<SPA_DATA_MemFd)) == 0) {
+		pw_log_error("unsupported data type %08x", d[0].type);
+		return;
+	}
+
 	/* create the memfd on the buffer, set the type and flags */
 	d[0].type = SPA_DATA_MemFd;
 	d[0].flags = SPA_DATA_FLAG_READWRITE;
@@ -302,11 +307,12 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->format.size.height),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
-		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+		SPA_PARAM_BUFFERS_buffers,  SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
+		SPA_PARAM_BUFFERS_blocks,   SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size,     SPA_POD_Int(data->stride * data->format.size.height),
+		SPA_PARAM_BUFFERS_stride,   SPA_POD_Int(data->stride),
+		SPA_PARAM_BUFFERS_align,    SPA_POD_Int(16),
+		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_MemFd));
 
 	params[1] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,

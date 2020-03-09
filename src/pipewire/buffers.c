@@ -55,6 +55,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 			 uint32_t *data_sizes,
 			 int32_t *data_strides,
 			 uint32_t *data_aligns,
+			 uint32_t *data_types,
 			 uint32_t flags,
 			 struct pw_buffers *allocation)
 {
@@ -99,12 +100,14 @@ static int alloc_buffers(struct pw_mempool *pool,
 
 		spa_zero(*d);
 		if (data_sizes[i] > 0) {
+			/* we allocate memory */
 			d->type = SPA_DATA_MemPtr;
 			d->maxsize = data_sizes[i];
 			SPA_FLAG_SET(d->flags, SPA_DATA_FLAG_READWRITE);
 		} else {
-			/* type is a bitmask of allowed types */
-			d->type = SPA_ID_INVALID;
+			/* client allocates memory. Set the mask of possible
+			 * types in the type field */
+			d->type = data_types[i];
 			d->maxsize = 0;
 		}
 		if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_DYNAMIC))
@@ -240,6 +243,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	uint32_t data_sizes[1];
 	int32_t data_strides[1];
 	uint32_t data_aligns[1];
+	uint32_t types, data_types[1];
 	struct port output = { outnode, SPA_DIRECTION_OUTPUT, out_port_id };
 	struct port input = { innode, SPA_DIRECTION_INPUT, in_port_id };
 	const char *str;
@@ -270,17 +274,21 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		align = MAX_ALIGN;
 
 	minsize = stride = 0;
+	types = SPA_ID_INVALID; /* bitmask of allowed types */
+
 	param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
 	if (param) {
 		uint32_t qmax_buffers = max_buffers,
 		    qminsize = minsize, qstride = stride, qalign = align;
+		uint32_t qtypes = types;
 
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamBuffers, NULL,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&qmax_buffers),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&qminsize),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&qstride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&qalign));
+			SPA_PARAM_BUFFERS_buffers,  SPA_POD_OPT_Int(&qmax_buffers),
+			SPA_PARAM_BUFFERS_size,     SPA_POD_OPT_Int(&qminsize),
+			SPA_PARAM_BUFFERS_stride,   SPA_POD_OPT_Int(&qstride),
+			SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&qalign),
+			SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes));
 
 		max_buffers =
 		    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
@@ -288,10 +296,11 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		minsize = SPA_MAX(minsize, qminsize);
 		stride = SPA_MAX(stride, qstride);
 		align = SPA_MAX(align, qalign);
+		types = qtypes;
 
-		pw_log_debug(NAME" %p: %d %d %d %d -> %zd %zd %d %zd", result,
-				qminsize, qstride, qmax_buffers, qalign,
-				minsize, stride, max_buffers, align);
+		pw_log_debug(NAME" %p: %d %d %d %d %d -> %zd %zd %d %zd %d", result,
+				qminsize, qstride, qmax_buffers, qalign, qtypes,
+				minsize, stride, max_buffers, align, types);
 	} else {
 		pw_log_warn(NAME" %p: no buffers param", result);
 		minsize = 8192;
@@ -304,6 +313,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	data_sizes[0] = minsize;
 	data_strides[0] = stride;
 	data_aligns[0] = align;
+	data_types[0] = types;
 
 	if ((res = alloc_buffers(context->pool,
 				 max_buffers,
@@ -311,7 +321,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 				 params,
 				 1,
 				 data_sizes, data_strides,
-				 data_aligns,
+				 data_aligns, data_types,
 				 flags,
 				 result)) < 0) {
 		pw_log_error(NAME" %p: can't alloc buffers: %s", result, spa_strerror(res));

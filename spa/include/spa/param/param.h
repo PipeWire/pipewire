@@ -74,6 +74,7 @@ enum spa_param_buffers {
 	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory (Int)*/
 	SPA_PARAM_BUFFERS_stride,	/**< stride of data block memory (Int) */
 	SPA_PARAM_BUFFERS_align,	/**< alignment of data block memory (Int) */
+	SPA_PARAM_BUFFERS_dataType,	/**< possible memory types (Int, mask of enum spa_data_type) */
 };
 
 /** properties for SPA_TYPE_OBJECT_ParamMeta */

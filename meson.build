@@ -220,6 +220,13 @@ epoll_shim_dep = (build_machine.system() == 'freebsd'
     ? dependency('epoll-shim', required: true)
     : dependency('', required: false))
 
+alsa_dep = (get_option('pipewire-alsa')
+    ? dependency('alsa')
+    : dependency('', required: false))
+if get_option('pipewire-alsa')
+  subdir('pipewire-alsa/alsa-plugins')
+endif
+
 subdir('spa')
 subdir('src')
 
@@ -231,11 +238,6 @@ endif
 if get_option('pipewire-pulseaudio')
   pulseaudio_dep = dependency('libpulse', version : '>= 11.1')
   subdir('pipewire-pulseaudio/src')
-endif
-
-if get_option('pipewire-alsa')
-  alsa_dep = dependency('alsa')
-  subdir('pipewire-alsa/alsa-plugins')
 endif
 
 if get_option('docs')

@@ -42,6 +42,7 @@ extern "C" {
 #define SPA_CHOICE_RANGE(def,min,max)			3,(def),(min),(max)
 #define SPA_CHOICE_STEP(def,min,max,step)		4,(def),(min),(max),(step)
 #define SPA_CHOICE_ENUM(n_vals,...)			(n_vals),##__VA_ARGS__
+#define SPA_CHOICE_FLAGS(flags)				1, (flags)
 #define SPA_CHOICE_BOOL(def)				3,(def),(def),!(def)
 
 #define SPA_POD_Bool(val)				"b", val
@@ -54,11 +55,13 @@ extern "C" {
 #define SPA_POD_CHOICE_ENUM_Int(n_vals,...)		"?ei", SPA_CHOICE_ENUM(n_vals, __VA_ARGS__)
 #define SPA_POD_CHOICE_RANGE_Int(def,min,max)		"?ri", SPA_CHOICE_RANGE(def, min, max)
 #define SPA_POD_CHOICE_STEP_Int(def,min,max,step)	"?si", SPA_CHOICE_STEP(def, min, max, step)
+#define SPA_POD_CHOICE_FLAGS_Int(flags)			"?fi", SPA_CHOICE_FLAGS(flags)
 
 #define SPA_POD_Long(val)				"l", val
 #define SPA_POD_CHOICE_ENUM_Long(n_vals,...)		"?el", SPA_CHOICE_ENUM(n_vals, __VA_ARGS__)
 #define SPA_POD_CHOICE_RANGE_Long(def,min,max)		"?rl", SPA_CHOICE_RANGE(def, min, max)
 #define SPA_POD_CHOICE_STEP_Long(def,min,max,step)	"?sl", SPA_CHOICE_STEP(def, min, max, step)
+#define SPA_POD_CHOICE_FLAGS_Long(flags)		"?fl", SPA_CHOICE_FLAGS(flags)
 
 #define SPA_POD_Float(val)				"f", val
 #define SPA_POD_CHOICE_ENUM_Float(n_vals,...)		"?ef", SPA_CHOICE_ENUM(n_vals, __VA_ARGS__)

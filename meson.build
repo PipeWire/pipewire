@@ -226,6 +226,10 @@ epoll_shim_dep = (build_machine.system() == 'freebsd'
     ? dependency('epoll-shim', required: true)
     : dependency('', required: false))
 
+alsa_dep = (get_option('pipewire-alsa')
+    ? dependency('alsa')
+    : dependency('', required: false))
+
 subdir('spa')
 subdir('src')
 
@@ -240,7 +244,6 @@ if get_option('pipewire-pulseaudio')
 endif
 
 if get_option('pipewire-alsa')
-  alsa_dep = dependency('alsa')
   subdir('pipewire-alsa/alsa-plugins')
 endif
 

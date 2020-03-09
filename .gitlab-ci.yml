@@ -4,17 +4,18 @@ stages:
 
 variables:
   # Update this tag when you want to trigger a rebuild
-  FEDORA_TAG: '2019-11-21-01'
-  FEDORA_VERSION: '31'
-  FEDORA_IMAGE: "$CI_REGISTRY_IMAGE/fedora/$FEDORA_VERSION:$FEDORA_TAG"
+  FDO_DISTRIBUTION_TAG: '2019-11-21-01'
+  FDO_DISTRIBUTION_VERSION: '31'
+  FDO_UPSTREAM_REPO: 'pipewire/pipewire'
+  FDO_FEDORA_IMAGE: "$CI_REGISTRY_IMAGE/fedora/$FDO_DISTRIBUTION_VERSION:$FDO_DISTRIBUTION_TAG"
 
 include:
-  - project: 'wayland/ci-templates'
+ -  project: 'wayland/ci-templates'
     ref: master
     file: '/templates/fedora.yml'
 
-build-container:
-  extends: .fedora@container-ifnot-exists
+container_build:
+  extends: .fdo.container-ifnot-exists@fedora
   stage: container
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
@@ -47,7 +48,7 @@ build-container:
 
 build:
   stage: build
-  image: $FEDORA_IMAGE
+  image: $FDO_FEDORA_IMAGE
   script:
      - ./autogen.sh -Ddocs=true -Daudiomixer=true -Daudiotestsrc=true -Dtest=true -Dvideotestsrc=true -Dvolume=true
      - make

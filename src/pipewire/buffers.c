@@ -159,20 +159,24 @@ param_filter(struct pw_buffers *this,
         struct spa_pod_builder ib = { 0 };
 	struct spa_pod *oparam, *iparam;
 	uint32_t iidx, oidx, num = 0;
-	int res;
+	int in_res = -EIO, out_res = -EIO;
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
 		pw_log_debug(NAME" %p: input param %d id:%d", this, iidx, id);
-		if ((res = spa_node_port_enum_params_sync(in_port->node,
+		in_res = spa_node_port_enum_params_sync(in_port->node,
 						in_port->direction, in_port->port_id,
-						id, &iidx, NULL, &iparam, &ib)) < 0)
-			break;
+						id, &iidx, NULL, &iparam, &ib);
 
-		if (res != 1) {
-			if (num > 0)
+		if (in_res < 1) {
+			/* in_res == -ENOENT  : unknown parameter, assume NULL and we will
+			 *                      exit the loop below.
+			 * in_res < 1         : some error or no data, exit now
+			 */
+			if (in_res == -ENOENT)
+				iparam = NULL;
+			else
 				break;
-			iparam = NULL;
 		}
 
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
@@ -180,23 +184,32 @@ param_filter(struct pw_buffers *this,
 
 		for (oidx = 0;;) {
 			pw_log_debug(NAME" %p: output param %d id:%d", this, oidx, id);
-			res = spa_node_port_enum_params_sync(out_port->node,
+			out_res = spa_node_port_enum_params_sync(out_port->node,
 						out_port->direction, out_port->port_id,
 						id, &oidx, iparam, &oparam, result);
-			if (res != 1) {
-				if (res == -ENOENT && iparam) {
-					spa_pod_builder_raw_padded(result, iparam, SPA_POD_SIZE(iparam));
-					num++;
-				}
+
+			/* out_res < 1 : no value or error, exit now */
+			if (out_res < 1)
 				break;
-			}
+
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 				spa_debug_pod(2, NULL, oparam);
-
 			num++;
 		}
-		if (iparam == NULL && num == 0)
+		if (out_res == -ENOENT && iparam) {
+			/* no output param known but we have an input param,
+			 * use that one */
+			spa_pod_builder_raw_padded(result, iparam, SPA_POD_SIZE(iparam));
+			num++;
+		}
+		/* no more input values, exit */
+		if (in_res < 1)
 			break;
+	}
+	if (num == 0) {
+		if (out_res == -ENOENT && in_res == -ENOENT)
+			return 0;
+		return in_res < 0 ? in_res : out_res < 0 ? out_res : -EINVAL;
 	}
 	return num;
 }
@@ -232,8 +245,12 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	const char *str;
 	int res;
 
-	n_params = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
-	n_params += param_filter(result, &input, &output, SPA_PARAM_Meta, &b);
+	res = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
+	if (res < 0)
+		return res;
+	n_params = res;
+	if ((res = param_filter(result, &input, &output, SPA_PARAM_Meta, &b)) > 0)
+		n_params += res;
 
 	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0, offset = 0; i < n_params; i++) {

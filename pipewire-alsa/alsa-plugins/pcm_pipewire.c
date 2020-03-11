@@ -81,7 +81,6 @@ typedef struct {
 	struct spa_hook stream_listener;
 
         struct spa_audio_info_raw format;
-
 } snd_pcm_pipewire_t;
 
 static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io);
@@ -708,7 +707,8 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.query_chmaps = snd_pcm_pipewire_query_chmaps,
 };
 
-static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
+static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
+		snd_pcm_format_t format, int channels)
 {
 	unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
@@ -729,17 +729,31 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 		SND_PCM_FORMAT_S24_3BE,
 		SND_PCM_FORMAT_U8,
 	};
-
+	int min_rate;
+	int max_rate;
+	int min_channels;
+	int max_channels;
 	int err;
+
+	if (rate > 0) {
+		min_rate = max_rate = rate;
+	} else {
+		min_rate = 1;
+		max_rate = MAX_RATE;
+	}
+	if (channels > 0) {
+		min_channels = max_channels = channels;
+	} else {
+		min_channels = 1;
+		max_channels = MAX_RATE;
+	}
 
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
 						 SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_FORMAT,
-						 SPA_N_ELEMENTS(format_list), format_list)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_CHANNELS,
-						   1, MAX_CHANNELS)) < 0 ||
+						   min_channels, max_channels)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
-						   1, MAX_RATE)) < 0 ||
+						   min_rate, max_rate)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
                                                    16*1024, 4*1024*1024)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
@@ -747,6 +761,21 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
 						   3, 64)) < 0)
 		return err;
+
+	if (format != SND_PCM_FORMAT_UNKNOWN) {
+		err = snd_pcm_ioplug_set_param_list(&pw->io,
+				SND_PCM_IOPLUG_HW_FORMAT,
+				1, (unsigned int *)&format);
+		if (err < 0)
+			return err;
+	} else {
+		err = snd_pcm_ioplug_set_param_list(&pw->io,
+				SND_PCM_IOPLUG_HW_FORMAT,
+				SPA_N_ELEMENTS(format_list),
+				format_list);
+		if (err < 0)
+			return err;
+	}
 
 	return 0;
 }
@@ -777,7 +806,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 			     const char *capture_node,
 			     snd_pcm_stream_t stream,
 			     int mode,
-			     uint32_t flags)
+			     uint32_t flags,
+			     int rate,
+			     snd_pcm_format_t format,
+			     int channels)
 {
 	snd_pcm_pipewire_t *pw;
 	int err;
@@ -792,7 +824,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	str = getenv("PIPEWIRE_NODE");
 
-	pw_log_debug(NAME" %p: open %s %d %d %08x '%s'", pw, name, stream, mode, flags, str);
+	pw_log_debug(NAME" %p: open %s %d %d %08x %d %s %d '%s'", pw, name,
+			stream, mode, flags, rate,
+			format != SND_PCM_FORMAT_UNKNOWN ? snd_pcm_format_name(format) : "none",
+			channels, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
@@ -857,7 +892,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	pw_log_debug(NAME" %p: open %s %d %d", pw, name, pw->io.stream, mode);
 
-	if ((err = pipewire_set_hw_constraint(pw)) < 0)
+	if ((err = pipewire_set_hw_constraint(pw, rate, format, channels)) < 0)
 		goto error;
 
 	*pcmp = pw->io.pcm;
@@ -878,6 +913,9 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	const char *server_name = NULL;
 	const char *playback_node = NULL;
 	const char *capture_node = NULL;
+	snd_pcm_format_t format = SND_PCM_FORMAT_UNKNOWN;
+	int rate = 0;
+	int channels = 0;
 	uint32_t flags = 0;
 	int err;
 
@@ -911,11 +949,45 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 				flags |= PW_STREAM_FLAG_EXCLUSIVE;
 			continue;
 		}
+		if (strcmp(id, "rate") == 0) {
+			long val;
+
+			if (snd_config_get_integer(n, &val) == 0)
+				rate = val;
+			else
+				pw_log_error(NAME" %s: invalid type", id);
+			continue;
+		}
+		if (strcmp(id, "format") == 0) {
+			const char *str;
+
+			if (snd_config_get_string(n, &str) == 0) {
+				format = snd_pcm_format_value(str);
+				if (format == SND_PCM_FORMAT_UNKNOWN)
+					pw_log_error(NAME" invalid format %s",
+							str);
+			} else {
+				pw_log_error(NAME" %s: invalid type", id);
+			}
+			continue;
+		}
+
+		if (strcmp(id, "channels") == 0) {
+			long val;
+
+			if (snd_config_get_integer(n, &val) == 0)
+				channels = val;
+			else
+				pw_log_error(NAME" %s: invalid type", id);
+			continue;
+		}
 		SNDERR("Unknown field %s", id);
 		return -EINVAL;
 	}
 
-	err = snd_pcm_pipewire_open(pcmp, name, node_name, playback_node, capture_node, stream, mode, flags);
+	err = snd_pcm_pipewire_open(pcmp, name, node_name, playback_node,
+			capture_node, stream, mode, flags, rate, format,
+			channels);
 
 	return err;
 }

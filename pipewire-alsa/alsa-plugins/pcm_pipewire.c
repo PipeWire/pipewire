@@ -708,7 +708,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 };
 
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
-		snd_pcm_format_t format, int channels)
+		snd_pcm_format_t format, int channels, int period_bytes)
 {
 	unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
@@ -733,6 +733,8 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 	int max_rate;
 	int min_channels;
 	int max_channels;
+	int min_period_bytes;
+	int max_period_bytes;
 	int err;
 
 	if (rate > 0) {
@@ -747,6 +749,12 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 		min_channels = 1;
 		max_channels = MAX_CHANNELS;
 	}
+	if (period_bytes > 0) {
+		min_period_bytes = max_period_bytes = period_bytes;
+	} else {
+		min_period_bytes = 128;
+		max_period_bytes = 2*1024*1024;
+	}
 
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
 						 SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
@@ -756,8 +764,10 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 						   min_rate, max_rate)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
                                                    16*1024, 4*1024*1024)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIOD_BYTES,
-                                                   128, 2*1024*1024)) < 0 ||
+	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io,
+						   SND_PCM_IOPLUG_HW_PERIOD_BYTES,
+						   min_period_bytes,
+						   max_period_bytes)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
 						   3, 64)) < 0)
 		return err;
@@ -809,7 +819,8 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 			     uint32_t flags,
 			     int rate,
 			     snd_pcm_format_t format,
-			     int channels)
+			     int channels,
+			     int period_bytes)
 {
 	snd_pcm_pipewire_t *pw;
 	int err;
@@ -824,10 +835,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	str = getenv("PIPEWIRE_NODE");
 
-	pw_log_debug(NAME" %p: open %s %d %d %08x %d %s %d '%s'", pw, name,
+	pw_log_debug(NAME" %p: open %s %d %d %08x %d %s %d %d '%s'", pw, name,
 			stream, mode, flags, rate,
 			format != SND_PCM_FORMAT_UNKNOWN ? snd_pcm_format_name(format) : "none",
-			channels, str);
+			channels, period_bytes, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
@@ -892,7 +903,8 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	pw_log_debug(NAME" %p: open %s %d %d", pw, name, pw->io.stream, mode);
 
-	if ((err = pipewire_set_hw_constraint(pw, rate, format, channels)) < 0)
+	if ((err = pipewire_set_hw_constraint(pw, rate, format, channels,
+					period_bytes)) < 0)
 		goto error;
 
 	*pcmp = pw->io.pcm;
@@ -916,6 +928,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	snd_pcm_format_t format = SND_PCM_FORMAT_UNKNOWN;
 	int rate = 0;
 	int channels = 0;
+	int period_bytes = 0;
 	uint32_t flags = 0;
 	int err;
 
@@ -955,7 +968,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			if (snd_config_get_integer(n, &val) == 0)
 				rate = val;
 			else
-				pw_log_error(NAME" %s: invalid type", id);
+				SNDERR("%s: invalid type", id);
 			continue;
 		}
 		if (strcmp(id, "format") == 0) {
@@ -964,21 +977,28 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			if (snd_config_get_string(n, &str) == 0) {
 				format = snd_pcm_format_value(str);
 				if (format == SND_PCM_FORMAT_UNKNOWN)
-					pw_log_error(NAME" invalid format %s",
-							str);
+					SNDERR("%s: invalid value %s", id, str);
 			} else {
-				pw_log_error(NAME" %s: invalid type", id);
+				SNDERR("%s: invalid type", id);
 			}
 			continue;
 		}
-
 		if (strcmp(id, "channels") == 0) {
 			long val;
 
 			if (snd_config_get_integer(n, &val) == 0)
 				channels = val;
 			else
-				pw_log_error(NAME" %s: invalid type", id);
+				SNDERR("%s: invalid type", id);
+			continue;
+		}
+		if (strcmp(id, "period_bytes") == 0) {
+			long val;
+
+			if (snd_config_get_integer(n, &val) == 0)
+				period_bytes = val;
+			else
+				SNDERR("%s: invalid type", id);
 			continue;
 		}
 		SNDERR("Unknown field %s", id);
@@ -987,7 +1007,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 
 	err = snd_pcm_pipewire_open(pcmp, name, node_name, playback_node,
 			capture_node, stream, mode, flags, rate, format,
-			channels);
+			channels, period_bytes);
 
 	return err;
 }

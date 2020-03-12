@@ -745,7 +745,7 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 		min_channels = max_channels = channels;
 	} else {
 		min_channels = 1;
-		max_channels = MAX_RATE;
+		max_channels = MAX_CHANNELS;
 	}
 
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,

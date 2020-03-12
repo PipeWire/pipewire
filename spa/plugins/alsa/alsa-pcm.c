@@ -612,8 +612,11 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	if ((avail = snd_pcm_avail(state->hndl)) < 0) {
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
-		if ((avail = snd_pcm_avail(state->hndl)) < 0)
-			return avail;
+		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
+			spa_log_warn(state->log, NAME" %p: snd_pcm_avail after recover: %s",
+					state, snd_strerror(avail));
+			avail = state->threshold * 2;
+		}
 	} else {
 		state->alsa_recovering = false;
 	}

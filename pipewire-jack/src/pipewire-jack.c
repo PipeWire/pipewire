@@ -803,13 +803,13 @@ static void process_tee(struct client *c, uint32_t frames)
 			if (ptr != NULL)
 				memcpy(ptr, p->emptyptr, frames * sizeof(float));
 			break;
-		case TYPE_ID_VIDEO:
+		case TYPE_ID_MIDI:
 			ptr = get_buffer_output(c, p, MAX_BUFFER_FRAMES, 1);
 			if (ptr != NULL)
 				convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
 			break;
 		default:
-			pw_log_warn("port %p: unhandled format", p);
+			pw_log_warn("port %p: unhandled format %d", p, p->object->port.type_id);
 			break;
 		}
 	}

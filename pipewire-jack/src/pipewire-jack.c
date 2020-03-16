@@ -502,16 +502,16 @@ static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
 
 static struct buffer *dequeue_buffer(struct mix *mix)
 {
-        struct buffer *b;
+	struct buffer *b;
 
-        if (spa_list_is_empty(&mix->queue))
-                return NULL;
+	if (SPA_UNLIKELY(spa_list_is_empty(&mix->queue)))
+		return NULL;
 
-        b = spa_list_first(&mix->queue, struct buffer, link);
-        spa_list_remove(&b->link);
+	b = spa_list_first(&mix->queue, struct buffer, link);
+	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 
-        return b;
+	return b;
 }
 
 #if defined (__SSE__)
@@ -710,9 +710,8 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 	struct spa_pod_control *c[n_seq];
 	uint32_t i;
 
-	for (i = 0; i < n_seq; i++) {
+	for (i = 0; i < n_seq; i++)
 		c[i] = spa_pod_control_first(&seq[i]->body);
-	}
 
 	while (true) {
 		struct spa_pod_control *next = NULL;
@@ -728,7 +727,7 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 				next_index = i;
 			}
 		}
-		if (next == NULL)
+		if (SPA_UNLIKELY(next == NULL))
 			break;
 
 		switch(next->type) {
@@ -752,16 +751,16 @@ static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames
 	p->io.status = -EPIPE;
 	p->io.buffer_id = SPA_ID_INVALID;
 
-	if ((mix = find_mix(c, p, -1)) != NULL) {
+	if (SPA_LIKELY((mix = find_mix(c, p, -1)) != NULL)) {
 		struct buffer *b;
 
-		if (mix->n_buffers == 0)
+		if (SPA_UNLIKELY(mix->n_buffers == 0))
 			goto done;
 
 		pw_log_trace(NAME" %p: port %p %d get buffer %d n_buffers:%d",
 				c, p, p->id, frames, mix->n_buffers);
 
-		if ((b = dequeue_buffer(mix)) == NULL) {
+		if (SPA_UNLIKELY((b = dequeue_buffer(mix)) == NULL)) {
 			pw_log_warn("port %p: out of buffers", p);
 			goto done;
 		}
@@ -778,7 +777,7 @@ static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames
 done:
 	spa_list_for_each(mix, &p->mix, port_link) {
 		struct spa_io_buffers *mio = mix->io;
-		if (mio == NULL)
+		if (SPA_UNLIKELY(mio == NULL))
 			continue;
 		pw_log_trace(NAME" %p: port %p tee %d.%d get buffer %d io:%p",
 				c, p, p->id, mix->id, frames, mio);
@@ -794,18 +793,18 @@ static void process_tee(struct client *c, uint32_t frames)
 	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
 		void *ptr;
 
-		if (!p->empty_out)
+		if (SPA_LIKELY(!p->empty_out))
 			continue;
 
 		switch (p->object->port.type_id) {
 		case TYPE_ID_AUDIO:
 			ptr = get_buffer_output(c, p, frames, sizeof(float));
-			if (ptr != NULL)
+			if (SPA_LIKELY(ptr != NULL))
 				memcpy(ptr, p->emptyptr, frames * sizeof(float));
 			break;
 		case TYPE_ID_MIDI:
 			ptr = get_buffer_output(c, p, MAX_BUFFER_FRAMES, 1);
-			if (ptr != NULL)
+			if (SPA_LIKELY(ptr != NULL))
 				convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
 			break;
 		default:
@@ -892,9 +891,8 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 			state = JackTransportRolling;
 		break;
 	}
-	if (d == NULL)
+	if (SPA_UNLIKELY(d == NULL))
 		return state;
-
 
 	d->unique_1++;
 	d->usecs = s->clock.nsec / SPA_NSEC_PER_USEC;
@@ -942,7 +940,7 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 static inline void check_buffer_frames(struct client *c)
 {
 	uint32_t buffer_frames = c->position->clock.duration;
-	if (buffer_frames != c->buffer_frames) {
+	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
 		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
 		c->buffer_frames = buffer_frames;
 		if (c->bufsize_callback)
@@ -953,7 +951,7 @@ static inline void check_buffer_frames(struct client *c)
 static inline void check_sample_rate(struct client *c)
 {
 	uint32_t sample_rate = c->position->clock.rate.denom;
-	if (sample_rate != c->sample_rate) {
+	if (SPA_UNLIKELY(sample_rate != c->sample_rate)) {
 		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
 		c->sample_rate = sample_rate;
 		if (c->srate_callback)
@@ -971,15 +969,15 @@ static inline uint32_t cycle_run(struct client *c)
 	struct pw_node_activation *driver = c->driver_activation;
 
 	/* this is blocking if nothing ready */
-	if (read(fd, &cmd, sizeof(cmd)) != sizeof(cmd)) {
+	if (SPA_UNLIKELY(read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))) {
 		pw_log_warn(NAME" %p: read failed %m", c);
 		if (errno == EWOULDBLOCK)
 			return 0;
 	}
-	if (cmd > 1)
+	if (SPA_UNLIKELY(cmd > 1))
 		pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
-	if (pos == NULL) {
+	if (SPA_UNLIKELY(pos == NULL)) {
 		pw_log_error(NAME" %p: missing position", c);
 		return 0;
 	}
@@ -988,7 +986,7 @@ static inline uint32_t cycle_run(struct client *c)
 	activation->status = PW_NODE_ACTIVATION_AWAKE;
 	activation->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (c->first) {
+	if (SPA_UNLIKELY(c->first)) {
 		if (c->thread_init_callback)
 			c->thread_init_callback(c->thread_init_arg);
 		c->first = false;
@@ -999,14 +997,14 @@ static inline uint32_t cycle_run(struct client *c)
 
 	c->jack_state = position_to_jack(driver, &c->jack_position);
 
-	if (driver) {
-		if (activation->pending_sync) {
+	if (SPA_LIKELY(driver)) {
+		if (SPA_UNLIKELY(activation->pending_sync)) {
 			if (c->sync_callback == NULL ||
 			    c->sync_callback(c->jack_state, &c->jack_position, c->sync_arg))
 				activation->pending_sync = false;
 		}
-		if (c->xrun_count != driver->xrun_count &&
-		    c->xrun_count != 0 && c->xrun_callback)
+		if (SPA_UNLIKELY(c->xrun_count != driver->xrun_count &&
+		    c->xrun_count != 0 && c->xrun_callback))
 			c->xrun_callback(c->xrun_arg);
 		c->xrun_count = driver->xrun_count;
 	}
@@ -1022,7 +1020,7 @@ static inline uint32_t cycle_wait(struct client *c)
 	int res;
 
 	res = pw_data_loop_wait(c->loop, -1);
-	if (res <= 0) {
+	if (SPA_UNLIKELY(res <= 0)) {
 		pw_log_warn(NAME" %p: wait error %m", c);
 		return 0;
 	}
@@ -1047,7 +1045,7 @@ static inline void signal_sync(struct client *c)
 	spa_list_for_each(l, &c->target_links, target_link) {
 		struct pw_node_activation_state *state;
 
-		if (l->activation == NULL)
+		if (SPA_UNLIKELY(l->activation == NULL))
 			continue;
 
 		state = &l->activation->state[0];
@@ -1061,7 +1059,7 @@ static inline void signal_sync(struct client *c)
 
 			pw_log_trace(NAME" %p: signal %p %p", c, l, state);
 
-			if (write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
+			if (SPA_UNLIKELY(write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd)))
 				pw_log_warn(NAME" %p: write failed %m", c);
 		}
 	}
@@ -1072,7 +1070,7 @@ static inline void cycle_signal(struct client *c, int status)
 	struct pw_node_activation *driver = c->driver_activation;
 	struct pw_node_activation *activation = c->activation;
 
-	if (status == 0) {
+	if (SPA_LIKELY(status == 0)) {
 		if (c->timebase_callback && driver && driver->segment_owner[0] == c->node_id) {
 			if (activation->pending_new_pos ||
 			    c->jack_state == JackTransportRolling ||
@@ -1098,18 +1096,17 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 {
 	struct client *c = data;
 
-	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+	if (SPA_UNLIKELY(mask & (SPA_IO_ERR | SPA_IO_HUP))) {
 		pw_log_warn(NAME" %p: got error", c);
 		unhandle_socket(c);
 		return;
 	}
-	if (c->thread_callback) {
+	if (SPA_UNLIKELY(c->thread_callback)) {
 		if (!c->thread_entered) {
 			c->thread_entered = true;
 			c->thread_callback(c->thread_arg);
 		}
-		return;
-	} else if (mask & SPA_IO_IN) {
+	} else if (SPA_LIKELY(mask & SPA_IO_IN)) {
 		uint32_t buffer_frames;
 		int status;
 
@@ -3141,7 +3138,7 @@ static inline void *get_buffer_output_float(struct client *c, struct port *p, ja
 	void *ptr;
 
 	ptr = get_buffer_output(c, p, frames, sizeof(float));
-	if (ptr == NULL) {
+	if (SPA_UNLIKELY(ptr == NULL)) {
 		p->empty_out = true;
 		ptr = p->emptyptr;
 	} else {
@@ -3167,11 +3164,6 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	spa_return_val_if_fail(o != NULL, NULL);
 
 	c = o->client;
-
-	if (o->type != INTERFACE_Port || o->port.port_id == SPA_ID_INVALID) {
-		pw_log_error(NAME" %p: invalid port %p", c, port);
-		return NULL;
-	}
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
@@ -3206,7 +3198,6 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			break;
 		}
 	}
-
 	pw_log_trace(NAME" %p: port %p buffer %p empty:%u", c, p, ptr, p->empty_out);
 	return ptr;
 }
@@ -4019,7 +4010,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, 0);
 
-	if ((pos = c->position) == NULL)
+	if (SPA_UNLIKELY((pos = c->position) == NULL))
 		return 0;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -4043,7 +4034,7 @@ jack_nframes_t jack_last_frame_time (const jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, 0);
 
-	if ((pos = c->position) == NULL)
+	if (SPA_UNLIKELY((pos = c->position) == NULL))
 		return 0;
 
 	return pos->clock.position;
@@ -4061,7 +4052,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if ((pos = c->position) == NULL)
+	if (SPA_UNLIKELY((pos = c->position) == NULL))
 		return -EIO;
 
 	*current_frames = pos->clock.position;
@@ -4083,7 +4074,7 @@ jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t fram
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if ((pos = c->position) == NULL)
+	if (SPA_UNLIKELY((pos = c->position) == NULL))
 		return 0;
 
 	df = (frames - pos->clock.position) * (double)SPA_NSEC_PER_SEC / c->sample_rate;
@@ -4099,7 +4090,7 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if ((pos = c->position) == NULL)
+	if (SPA_UNLIKELY((pos = c->position) == NULL))
 		return 0;
 
 	du = (usecs - pos->clock.nsec/SPA_NSEC_PER_USEC) * (double)c->sample_rate / SPA_USEC_PER_SEC;
@@ -4268,7 +4259,7 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 
 	spa_return_val_if_fail(c != NULL, JackTransportStopped);
 
-	if ((a = c->driver_activation) != NULL)
+	if (SPA_LIKELY((a = c->driver_activation) != NULL))
 		jack_state = position_to_jack(a, pos);
 	else if (pos != NULL)
 		memset(pos, 0, sizeof(jack_position_t));
@@ -4287,7 +4278,7 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if ((a = c->driver_activation) == NULL)
+	if (SPA_UNLIKELY((a = c->driver_activation) == NULL))
 		return -EIO;
 
 	pos = &a->position;
@@ -4517,7 +4508,7 @@ void jack_set_thread_creator (jack_thread_creator_t creator)
 static inline uint8_t * midi_event_data (void* port_buffer,
                       const struct midi_event* event)
 {
-        if (event->size <= MIDI_INLINE_MAX)
+        if (SPA_LIKELY(event->size <= MIDI_INLINE_MAX))
                 return (uint8_t *)event->inline_data;
         else
                 return SPA_MEMBER(port_buffer, event->byte_offset, uint8_t);
@@ -4580,9 +4571,9 @@ size_t jack_midi_max_event_size(void* port_buffer)
                            + ((mb->event_count + 1)
                               * sizeof(struct midi_event));
 
-        if (used_size > buffer_size) {
+        if (SPA_UNLIKELY(used_size > buffer_size)) {
                 return 0;
-        } else if ((buffer_size - used_size) < MIDI_INLINE_MAX) {
+        } else if (SPA_LIKELY((buffer_size - used_size) < MIDI_INLINE_MAX)) {
                 return MIDI_INLINE_MAX;
         } else {
                 return buffer_size - used_size;
@@ -4602,21 +4593,21 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 
 	buffer_size = mb->buffer_size;
 
-	if (time < 0 || time >= mb->nframes) {
+	if (SPA_UNLIKELY(time < 0 || time >= mb->nframes)) {
 		pw_log_warn("midi %p: time:%d frames:%d", port_buffer, time, mb->nframes);
 		goto failed;
 	}
 
-	if (mb->event_count > 0 && time < events[mb->event_count - 1].time) {
+	if (SPA_UNLIKELY(mb->event_count > 0 && time < events[mb->event_count - 1].time)) {
 		pw_log_warn("midi %p: time:%d ev:%d", port_buffer, time, mb->event_count);
 		goto failed;
 	}
 
 	/* Check if data_size is >0 and there is enough space in the buffer for the event. */
-	if (data_size <= 0) {
+	if (SPA_UNLIKELY(data_size <= 0)) {
 		pw_log_warn("midi %p: data_size:%zd", port_buffer, data_size);
 		goto failed; // return NULL?
-	} else if (jack_midi_max_event_size (port_buffer) < data_size) {
+	} else if (SPA_UNLIKELY(jack_midi_max_event_size (port_buffer) < data_size)) {
 		pw_log_warn("midi %p: event too large: data_size:%zd", port_buffer, data_size);
 		goto failed;
 	} else {
@@ -4625,7 +4616,7 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 
 		ev->time = time;
 		ev->size = data_size;
-		if (data_size <= MIDI_INLINE_MAX) {
+		if (SPA_LIKELY(data_size <= MIDI_INLINE_MAX)) {
 			res = ev->inline_data;
 		} else {
 			mb->write_pos += data_size;
@@ -4647,12 +4638,10 @@ int jack_midi_event_write(void *port_buffer,
                       size_t data_size)
 {
 	jack_midi_data_t *retbuf = jack_midi_event_reserve (port_buffer, time, data_size);
-        if (retbuf) {
-                memcpy (retbuf, data, data_size);
-                return 0;
-        } else {
+        if (SPA_UNLIKELY(retbuf == NULL))
                 return -ENOBUFS;
-        }
+	memcpy (retbuf, data, data_size);
+	return 0;
 }
 
 SPA_EXPORT
@@ -4674,12 +4663,12 @@ int jack_get_video_image_size(jack_client_t *client, jack_image_size_t *size)
 	spa_return_val_if_fail(c != NULL, 0);
 
 	a = c->driver_activation;
-	if (a == NULL)
+	if (SPA_UNLIKELY(a == NULL))
 		a = c->activation;
-	if (a == NULL)
+	if (SPA_UNLIKELY(a == NULL))
 		return -EIO;
 
-	if (!(a->position.video.flags & SPA_IO_VIDEO_SIZE_VALID))
+	if (SPA_UNLIKELY(!(a->position.video.flags & SPA_IO_VIDEO_SIZE_VALID)))
 		return -EIO;
 
 	size->width = a->position.video.size.width;

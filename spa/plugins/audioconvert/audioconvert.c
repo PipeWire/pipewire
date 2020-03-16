@@ -1074,15 +1074,15 @@ static int impl_node_process(void *object)
 			r = spa_node_process(this->nodes[i]);
 			spa_log_trace_fp(this->log, NAME " %p: process %d %d: %s",
 					this, i, r, r < 0 ? spa_strerror(r) : "ok");
-			if (r < 0)
+			if (SPA_UNLIKELY(r < 0))
 				return r;
 
 			if (r & SPA_STATUS_HAVE_DATA)
 				ready++;
 
-			if (i == 0)
+			if (SPA_UNLIKELY(i == 0))
 				res |= r & SPA_STATUS_NEED_DATA;
-			if (i == this->n_nodes-1)
+			if (SPA_UNLIKELY(i == this->n_nodes-1))
 				res |= r & SPA_STATUS_HAVE_DATA;
 		}
 		if (res & SPA_STATUS_HAVE_DATA)

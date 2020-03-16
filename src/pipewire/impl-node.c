@@ -814,7 +814,7 @@ static inline int resume_node(struct pw_impl_node *this, int status)
 
 static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
 {
-	if (a->signal_time > a->prev_signal_time) {
+	if (SPA_LIKELY(a->signal_time > a->prev_signal_time)) {
 		uint64_t process_time = a->finish_time - a->signal_time;
 		uint64_t period_time = a->signal_time - a->prev_signal_time;
 		float load = (float) process_time / (float) period_time;
@@ -854,7 +854,7 @@ static inline int process_node(void *data)
 			spa_node_process(p->mix);
 	}
 
-	if (this == this->driver_node && !this->exported) {
+	if (SPA_UNLIKELY(this == this->driver_node && !this->exported)) {
 		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->signal_time = a->finish_time;
@@ -886,15 +886,15 @@ static void node_on_fd_events(struct spa_source *source)
 	struct pw_impl_node *this = source->data;
 	struct spa_system *data_system = this->context->data_system;
 
-	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
+	if (SPA_UNLIKELY(source->rmask & (SPA_IO_ERR | SPA_IO_HUP))) {
 		pw_log_warn(NAME" %p: got socket error %08x", this, source->rmask);
 		return;
 	}
 
-	if (source->rmask & SPA_IO_IN) {
+	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
 
-		if (spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0 || cmd != 1)
+		if (SPA_UNLIKELY(spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0 || cmd != 1))
 			pw_log_warn(NAME" %p: read %"PRIu64" failed %m", this, cmd);
 
 		pw_log_trace_fp(NAME" %p: got process", this);
@@ -1222,13 +1222,13 @@ static int check_updates(struct pw_impl_node *node, uint32_t *reposition_owner)
 	struct pw_node_activation *a = node->rt.activation;
 	uint32_t command;
 
-	if (a->position.offset == INT64_MIN)
+	if (SPA_UNLIKELY(a->position.offset == INT64_MIN))
 		a->position.offset = a->position.clock.position;
 
 	command = ATOMIC_XCHG(a->command, PW_NODE_ACTIVATION_COMMAND_NONE);
 	*reposition_owner = ATOMIC_XCHG(a->reposition_owner, 0);
 
-	if (command != PW_NODE_ACTIVATION_COMMAND_NONE) {
+	if (SPA_UNLIKELY(command != PW_NODE_ACTIVATION_COMMAND_NONE)) {
 		pw_log_debug(NAME" %p: update command:%u", node, command);
 		switch (command) {
 		case PW_NODE_ACTIVATION_COMMAND_STOP:
@@ -1309,13 +1309,13 @@ static int node_ready(void *data, int status)
 	pw_log_trace_fp(NAME" %p: ready driver:%d exported:%d %p status:%d", node,
 			node->driver, node->exported, driver, status);
 
-	if (node == driver) {
+	if (SPA_UNLIKELY(node == driver)) {
 		struct pw_node_activation *a = node->rt.activation;
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
 		uint64_t min_timeout = UINT64_MAX;
 
-		if (a->state[0].pending > 0) {
+		if (SPA_UNLIKELY(a->state[0].pending > 0)) {
 			pw_log_warn(NAME" %p: graph not finished: pending %d", node, a->state[0].pending);
 			pw_context_driver_emit_incomplete(node->context, node);
 			dump_states(node);
@@ -1335,23 +1335,23 @@ static int node_ready(void *data, int status)
 			ta->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
 			pw_node_activation_state_reset(&ta->state[0]);
 
-			if (t->node) {
+			if (SPA_LIKELY(t->node)) {
 				uint32_t id = t->node->info.id;
 
 				/* this is the node with reposition info */
-				if (id == reposition_owner)
+				if (SPA_UNLIKELY(id == reposition_owner))
 					reposition_node = t->node;
 
 				/* update extra segment info if it is the owner */
-				if (id == owner[0])
+				if (SPA_UNLIKELY(id == owner[0]))
 					a->position.segments[0].bar = ta->segment.bar;
-				if (id == owner[1])
+				if (SPA_UNLIKELY(id == owner[1]))
 					a->position.segments[0].video = ta->segment.video;
 
 				min_timeout = SPA_MIN(min_timeout, ta->sync_timeout);
 			}
 
-			if (update_sync) {
+			if (SPA_UNLIKELY(update_sync)) {
 				ta->pending_sync = target_sync;
 				ta->pending_new_pos = target_sync;
 			} else {
@@ -1361,19 +1361,18 @@ static int node_ready(void *data, int status)
 		a->prev_signal_time = a->signal_time;
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
-		if (reposition_node)
+		if (SPA_UNLIKELY(reposition_node))
 			do_reposition(node, reposition_node);
 
 		update_position(node, all_ready);
 	}
-	if (node->driver && !node->master)
+	if (SPA_UNLIKELY(node->driver && !node->master))
 		return 0;
 
 	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
 			spa_node_process(p->mix);
 	}
-
 	return resume_node(node, status);
 }
 

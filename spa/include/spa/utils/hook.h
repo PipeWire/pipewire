@@ -133,14 +133,14 @@ spa_hook_list_join(struct spa_hook_list *list,
 #define spa_callbacks_call(callbacks,type,method,vers,...)			\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (_f && _f->version >= (vers) && _f->method)				\
+	if (SPA_LIKELY(_f && _f->version >= (vers) && _f->method))				\
 		_f->method((callbacks)->data, ## __VA_ARGS__);			\
 })
 
 #define spa_callbacks_call_res(callbacks,type,res,method,vers,...)		\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (_f && _f->version >= (vers) && _f->method)				\
+	if (SPA_LIKELY(_f && _f->version >= (vers) && _f->method))				\
 		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
@@ -171,7 +171,7 @@ spa_hook_list_join(struct spa_hook_list *list,
 	spa_list_cursor_start(cursor, s, link);					\
 	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
 		const type *_f = (const type *)ci->cb.funcs;			\
-		if (_f && _f->version >= (vers) && _f->method) {		\
+		if (SPA_LIKELY(_f && _f->version >= (vers) && _f->method)) {	\
 			_f->method(ci->cb.data, ## __VA_ARGS__);		\
 			count++;						\
 			if (once)						\

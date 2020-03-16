@@ -37,8 +37,8 @@ static inline void mix_2(float * dst, const float * SPA_RESTRICT src, uint32_t n
 	uint32_t n, unrolled;
 	__m128 in1[4], in2[4];
 
-	if (SPA_IS_ALIGNED(src, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
+	if (SPA_LIKELY(SPA_IS_ALIGNED(src, 16) &&
+	    SPA_IS_ALIGNED(dst, 16)))
 		unrolled = n_samples & ~15;
 	else
 		unrolled = 0;

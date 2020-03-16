@@ -37,7 +37,7 @@ conv_s16_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	__m128i in;
 	__m128 out, factor = _mm_set1_ps(1.0f / S16_SCALE);
 
-	if (SPA_IS_ALIGNED(d0, 16))
+	if (SPA_LIKELY(SPA_IS_ALIGNED(d0, 16)))
 		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;

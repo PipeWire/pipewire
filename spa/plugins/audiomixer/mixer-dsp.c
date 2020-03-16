@@ -666,11 +666,11 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d",
 			this, outio, outio->status, outio->buffer_id);
 
-	if (outio->status == SPA_STATUS_HAVE_DATA)
+	if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA))
 		return outio->status;
 
 	/* recycle */
-	if (outio->buffer_id < outport->n_buffers) {
+	if (SPA_LIKELY(outio->buffer_id < outport->n_buffers)) {
 		queue_buffer(this, outport, &outport->buffers[outio->buffer_id]);
 		outio->buffer_id = SPA_ID_INVALID;
 	}
@@ -686,10 +686,10 @@ static int impl_node_process(void *object)
 		struct spa_io_buffers *inio = NULL;
 		struct buffer *inb;
 
-		if (!inport->valid ||
+		if (SPA_UNLIKELY(!inport->valid ||
 		    (inio = inport->io) == NULL ||
 		    inio->buffer_id >= inport->n_buffers ||
-		    inio->status != SPA_STATUS_HAVE_DATA) {
+		    inio->status != SPA_STATUS_HAVE_DATA)) {
 			spa_log_trace_fp(this->log, NAME " %p: skip input idx:%d valid:%d "
 					"io:%p status:%d buf_id:%d n_buffers:%d", this,
 				i, inport->valid, inio,
@@ -711,7 +711,7 @@ static int impl_node_process(void *object)
 	}
 
 	outb = dequeue_buffer(this, outport);
-        if (outb == NULL) {
+        if (SPA_UNLIKELY(outb == NULL)) {
                 spa_log_trace(this->log, NAME " %p: out of buffers", this);
                 return -EPIPE;
         }

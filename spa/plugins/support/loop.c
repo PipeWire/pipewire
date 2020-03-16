@@ -297,10 +297,11 @@ static int loop_iterate(void *object, int timeout)
 	}
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		if (s->rmask && s->fd != -1 && s->loop == loop)
+		if (SPA_LIKELY(s->rmask && s->fd != -1 && s->loop == loop))
 			s->func(s);
 	}
-	process_destroy(impl);
+	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
+		process_destroy(impl);
 
 	return nfds;
 }
@@ -478,7 +479,7 @@ static int loop_signal_event(void *object, struct spa_source *source)
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res;
 
-	if ((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0)
+	if (SPA_UNLIKELY((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0))
 		spa_log_warn(impl->impl->log, NAME " %p: failed to write event fd %d: %s",
 				source, source->fd, spa_strerror(res));
 	return res;
@@ -490,8 +491,8 @@ static void source_timer_func(struct spa_source *source)
 	uint64_t expirations;
 	int res;
 
-	if ((res = spa_system_timerfd_read(impl->impl->system,
-				source->fd, &expirations)) < 0)
+	if (SPA_UNLIKELY((res = spa_system_timerfd_read(impl->impl->system,
+				source->fd, &expirations)) < 0))
 		spa_log_warn(impl->impl->log, NAME " %p: failed to read timer fd %d: %s",
 				source, source->fd, spa_strerror(res));
 
@@ -547,18 +548,18 @@ loop_update_timer(void *object, struct spa_source *source,
 	int flags = 0, res;
 
 	spa_zero(its);
-	if (value) {
+	if (SPA_LIKELY(value)) {
 		its.it_value = *value;
 	} else if (interval) {
 		its.it_value = *interval;
 		absolute = true;
 	}
-	if (interval)
+	if (SPA_UNLIKELY(interval))
 		its.it_interval = *interval;
-	if (absolute)
+	if (SPA_LIKELY(absolute))
 		flags |= SPA_FD_TIMER_ABSTIME;
 
-	if ((res = spa_system_timerfd_settime(impl->system, source->fd, flags, &its, NULL)) < 0)
+	if (SPA_UNLIKELY((res = spa_system_timerfd_settime(impl->system, source->fd, flags, &its, NULL)) < 0))
 		return res;
 
 	return 0;

@@ -546,7 +546,7 @@ static int alsa_recover(struct state *state, int err)
 	snd_pcm_status_t *status;
 
 	snd_pcm_status_alloca(&status);
-	if ((res = snd_pcm_status(state->hndl, status)) < 0) {
+	if (SPA_UNLIKELY((res = snd_pcm_status(state->hndl, status)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_status error: %s",
 				state, snd_strerror(res));
 		return res;
@@ -581,7 +581,7 @@ static int alsa_recover(struct state *state, int err)
 		break;
 	}
 
-	if ((res = snd_pcm_recover(state->hndl, err, true)) < 0) {
+	if (SPA_UNLIKELY((res = snd_pcm_recover(state->hndl, err, true)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_recover error: %s",
 				state, snd_strerror(res));
 		return res;
@@ -609,7 +609,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	snd_pcm_sframes_t avail;
 	int res;
 
-	if ((avail = snd_pcm_avail(state->hndl)) < 0) {
+	if (SPA_UNLIKELY((avail = snd_pcm_avail(state->hndl)) < 0)) {
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
 		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
@@ -659,7 +659,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	else
 		err = (target + 128) - delay;
 
-	if (state->bw == 0.0) {
+	if (SPA_UNLIKELY(state->bw == 0.0)) {
 		set_loop(state, BW_MAX);
 		state->next_time = nsec;
 		state->base_time = nsec;
@@ -670,7 +670,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	corr = 1.0 - (state->z2 + state->z3);
 
-	if (state->last_threshold != state->threshold) {
+	if (SPA_UNLIKELY(state->last_threshold != state->threshold)) {
 		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
 		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d",
 				state, follower, diff);
@@ -678,7 +678,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->last_threshold = state->threshold;
 	}
 
-	if ((state->next_time - state->base_time) > BW_PERIOD) {
+	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
 		state->base_time = state->next_time;
 		if (state->bw == BW_MAX)
 			set_loop(state, BW_MED);
@@ -701,7 +701,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate;
 
-	if (!follower && state->clock) {
+	if (SPA_LIKELY(!follower && state->clock)) {
 		state->clock->nsec = nsec;
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
@@ -724,7 +724,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written;
 	int res;
 
-	if (state->position && state->duration != state->position->clock.duration) {
+	if (SPA_LIKELY(state->position && state->duration != state->position->clock.duration)) {
 		state->duration = state->position->clock.duration;
 		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}
@@ -733,16 +733,16 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		uint64_t nsec;
 		snd_pcm_uframes_t delay, target;
 
-		if ((res = get_status(state, &delay, &target)) < 0)
+		if (SPA_UNLIKELY((res = get_status(state, &delay, &target)) < 0))
 			return res;
 
-		if (!state->alsa_recovering && delay > target + state->threshold) {
+		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
 			spa_log_warn(state->log, NAME" %p: follower delay:%ld resync %f %f %f",
 					state, delay, state->z1, state->z2, state->z3);
 			init_loop(state);
 			state->alsa_sync = true;
 		}
-		if (state->alsa_sync) {
+		if (SPA_UNLIKELY(state->alsa_sync)) {
 			if (delay > target)
 				snd_pcm_rewind(state->hndl, delay - target);
 			else
@@ -753,14 +753,14 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 		}
 
 		nsec = state->position->clock.nsec;
-		if ((res = update_time(state, nsec, delay, target, true)) < 0)
+		if (SPA_UNLIKELY((res = update_time(state, nsec, delay, target, true)) < 0))
 			return res;
 	}
 
 	total_written = 0;
 again:
 	frames = state->buffer_frames;
-	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0) {
+	if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_mmap_begin error: %s",
 				state, snd_strerror(res));
 		return res;
@@ -801,7 +801,7 @@ again:
 		l1 = n_bytes - l0;
 
 		spa_memcpy(dst, src + offs, l0);
-		if (l1 > 0)
+		if (SPA_UNLIKELY(l1 > 0))
 			spa_memcpy(dst + l0, src, l1);
 
 		state->ready_offset += n_bytes;
@@ -825,7 +825,7 @@ again:
 			silence = 0;
 	}
 
-	if (silence > 0) {
+	if (SPA_UNLIKELY(silence > 0)) {
 		spa_log_trace_fp(state->log, NAME" %p: silence %ld", state, silence);
 		snd_pcm_areas_silence(my_areas, off, state->channels, silence, state->format);
 		written += silence;
@@ -835,7 +835,7 @@ again:
 			state, offset, written, state->sample_count);
 	total_written += written;
 
-	if ((res = snd_pcm_mmap_commit(hndl, offset, written)) < 0) {
+	if (SPA_UNLIKELY((res = snd_pcm_mmap_commit(hndl, offset, written)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_mmap_commit error: %s",
 				state, snd_strerror(res));
 		if (res != -EPIPE && res != -ESTRPIPE)
@@ -847,7 +847,7 @@ again:
 
 	state->sample_count += total_written;
 
-	if (!state->alsa_started && total_written > 0) {
+	if (SPA_UNLIKELY(!state->alsa_started && total_written > 0)) {
 		spa_log_trace(state->log, NAME" %p: snd_pcm_start %lu", state, written);
 		if ((res = snd_pcm_start(hndl)) < 0) {
 			spa_log_error(state->log, NAME" %p: snd_pcm_start: %s",
@@ -1012,13 +1012,13 @@ static int handle_play(struct state *state, uint64_t nsec,
 {
 	int res;
 
-	if (delay > target + state->last_threshold) {
+	if (SPA_UNLIKELY(delay > target + state->last_threshold)) {
 		spa_log_trace(state->log, NAME" %p: early wakeup %ld %ld", state, delay, target);
 		state->next_time = nsec + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;
 	}
 
-	if ((res = update_time(state, nsec, delay, target, false)) < 0)
+	if (SPA_UNLIKELY((res = update_time(state, nsec, delay, target, false)) < 0))
 		return res;
 
 	if (spa_list_is_empty(&state->ready)) {
@@ -1076,15 +1076,15 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	uint64_t expire;
 	int res;
 
-	if (state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0)
+	if (SPA_UNLIKELY(state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0))
 		spa_log_warn(state->log, NAME" %p: error reading timerfd: %m", state);
 
-	if (state->position) {
+	if (SPA_LIKELY(state->position)) {
 		state->duration = state->position->clock.duration;
 		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}
 
-	if ((res = get_status(state, &delay, &target)) < 0)
+	if (SPA_UNLIKELY((res = get_status(state, &delay, &target)) < 0))
 		return;
 
 	state->current_time = state->next_time;

@@ -339,7 +339,7 @@ void
 conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
-	const uint32_t *s = src;
+	const int32_t *s = src;
 	float **d = (float **) dst;
 	float *d0 = d[0];
 	uint32_t n, unrolled;
@@ -363,7 +363,7 @@ conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out = _mm_cvtsi32_ss(out, s[0]);
+		out = _mm_cvtsi32_ss(out, s[0]>>8);
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += n_channels;
@@ -650,8 +650,7 @@ static void
 conv_f32d_to_s16_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_channels, uint32_t n_samples)
 {
-	const float **s = (const float **) src;
-	const float *s0 = s[0], *s1 = s[1], *s2 = s[2], *s3 = s[3];
+	const float *s0 = src[0], *s1 = src[1], *s2 = src[2], *s3 = src[3];
 	int16_t *d = dst;
 	uint32_t n, unrolled;
 	__m128 in[4];

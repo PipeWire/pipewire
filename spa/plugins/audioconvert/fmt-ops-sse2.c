@@ -723,3 +723,55 @@ conv_f32d_to_s16_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	for(; i < n_channels; i++)
 		conv_f32d_to_s16_1s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
 }
+
+
+void
+conv_f32d_to_s16_2_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float *s0 = src[0], *s1 = src[1];
+	int16_t *d = dst[0];
+	uint32_t n, unrolled;
+	__m128 in[4];
+	__m128i out[4];
+	__m128 int_max = _mm_set1_ps(S16_MAX_F);
+        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+
+	if (SPA_IS_ALIGNED(s0, 16) &&
+	    SPA_IS_ALIGNED(s1, 16))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n+0]), int_max);
+		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n+0]), int_max);
+		in[2] = _mm_mul_ps(_mm_load_ps(&s0[n+4]), int_max);
+		in[3] = _mm_mul_ps(_mm_load_ps(&s1[n+4]), int_max);
+
+		out[0] = _mm_cvtps_epi32(in[0]);
+		out[1] = _mm_cvtps_epi32(in[1]);
+		out[2] = _mm_cvtps_epi32(in[2]);
+		out[3] = _mm_cvtps_epi32(in[3]);
+
+		out[0] = _mm_packs_epi32(out[0], out[2]);
+		out[1] = _mm_packs_epi32(out[1], out[3]);
+
+		out[2] = _mm_unpacklo_epi16(out[0], out[1]);
+		out[3] = _mm_unpackhi_epi16(out[0], out[1]);
+
+		_mm_storeu_si128((__m128i*)(d+0), out[2]);
+		_mm_storeu_si128((__m128i*)(d+8), out[3]);
+
+		d += 16;
+	}
+	for(; n < n_samples; n++) {
+		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
+		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_max);
+		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
+		in[1] = _mm_min_ss(int_max, _mm_max_ss(in[1], int_min));
+		d[0] = _mm_cvtss_si32(in[0]);
+		d[1] = _mm_cvtss_si32(in[1]);
+		d += 2;
+	}
+}

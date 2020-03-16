@@ -900,14 +900,14 @@ static inline int get_out_buffer(struct impl *this, struct port *port, struct bu
 {
 	struct spa_io_buffers *io;
 
-	if ((io = port->io) == NULL ||
-	    io->status == SPA_STATUS_HAVE_DATA)
+	if (SPA_UNLIKELY((io = port->io) == NULL ||
+	    io->status == SPA_STATUS_HAVE_DATA))
 		return SPA_STATUS_HAVE_DATA;
 
-	if (io->buffer_id < port->n_buffers)
+	if (SPA_LIKELY(io->buffer_id < port->n_buffers))
 		queue_buffer(this, port, io->buffer_id);
 
-	if ((*buf = dequeue_buffer(this, port)) == NULL)
+	if (SPA_UNLIKELY((*buf = dequeue_buffer(this, port)) == NULL))
 		return -EPIPE;
 
 	io->status = SPA_STATUS_HAVE_DATA;
@@ -922,7 +922,7 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
         struct spa_data *dd;
 	int res, size;
 
-	if ((res = get_out_buffer(this, outport, &dbuf)) != 0)
+	if (SPA_UNLIKELY((res = get_out_buffer(this, outport, &dbuf)) != 0))
 		return res;
 
 	dd = &dbuf->buf->datas[0];
@@ -963,7 +963,7 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d", this,
 			outio, outio->status, outio->buffer_id);
 
-	if ((res = get_out_buffer(this, outport, &dbuf)) != 0)
+	if (SPA_UNLIKELY((res = get_out_buffer(this, outport, &dbuf)) != 0))
 		return res;
 
 	dd = &dbuf->buf->datas[0];
@@ -981,7 +981,7 @@ static int impl_node_process(void *object)
 	for (i = 0; i < this->port_count; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
 
-		if (get_in_buffer(this, inport, &sbuf) < 0) {
+		if (SPA_UNLIKELY(get_in_buffer(this, inport, &sbuf) < 0)) {
 			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 			continue;
 		}

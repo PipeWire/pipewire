@@ -31,8 +31,7 @@ conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SP
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const uint8_t *s = src;
-	float **d = (float **) dst;
-	float *d0 = d[0];
+	float *d0 = dst[0];
 	uint32_t n, unrolled;
 	__m128i in;
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);

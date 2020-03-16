@@ -74,6 +74,16 @@ if have_avx and have_fma
 	simd_cargs += ['-DHAVE_AVX', '-DHAVE_FMA']
 	simd_dependencies += audioconvert_avx
 endif
+if have_avx2
+	audioconvert_avx2 = static_library('audioconvert_avx2',
+		['fmt-ops-avx2.c'],
+		c_args : [avx2_args, '-O3', '-DHAVE_AVX2'],
+		include_directories : [spa_inc],
+		install : false
+	)
+	simd_cargs += ['-DHAVE_AVX2']
+	simd_dependencies += audioconvert_avx2
+endif
 
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,

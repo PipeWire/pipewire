@@ -1385,8 +1385,7 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	spa_list_for_each(p, &node->rt.input_mix, rt.node_link) {
 		if (p->port_id != port_id)
 			continue;
-
-		spa_node_port_reuse_buffer(p->mix, p->port_id, buffer_id);
+		spa_node_port_reuse_buffer(p->mix, 0, buffer_id);
 		break;
 	}
 	return 0;

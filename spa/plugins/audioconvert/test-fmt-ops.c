@@ -41,6 +41,17 @@ static uint8_t samp_out[N_SAMPLES * 4];
 static uint8_t temp_in[N_SAMPLES * N_CHANNELS * 4];
 static uint8_t temp_out[N_SAMPLES * N_CHANNELS * 4];
 
+static void compare_mem(int i, int j, const void *m1, const void *m2, size_t size)
+{
+	int res = memcmp(m1, m2, size);
+	if (res != 0) {
+		fprintf(stderr, "%d %d:\n", i, j);
+		spa_debug_mem(0, m1, size);
+		spa_debug_mem(0, m2, size);
+	}
+//	spa_assert(res == 0);
+}
+
 static void run_test(const char *name,
 		const void *in, size_t in_size, const void *out, size_t out_size, size_t n_samples,
 		bool in_packed, bool out_packed, convert_func_t func)
@@ -87,21 +98,21 @@ static void run_test(const char *name,
 	for (j = 0; j < N_CHANNELS; j++)
 		tp[j] = &temp_out[j * N_SAMPLES * out_size];
 
+	fprintf(stderr, "test %s:\n", name);
 	func(&conv, tp, ip, N_SAMPLES);
 
-	fprintf(stderr, "test %s:\n", name);
 	if (out_packed) {
 		const uint8_t *d = tp[0], *s = samp_out;
 		for (i = 0; i < N_SAMPLES; i++) {
 			for (j = 0; j < N_CHANNELS; j++) {
-				spa_assert(memcmp(d, s, out_size) == 0);
+				compare_mem(i, j, d, s, out_size);
 				d += out_size;
 			}
 			s += out_size;
 		}
 	} else {
 		for (j = 0; j < N_CHANNELS; j++) {
-			spa_assert(memcmp(tp[j], samp_out, N_SAMPLES * out_size) == 0);
+			compare_mem(0, j, tp[j], samp_out, N_SAMPLES * out_size);
 		}
 	}
 }
@@ -149,6 +160,10 @@ static void test_f32_s16(void)
 			true, false, conv_f32_to_s16d_c);
 	run_test("test_f32d_s16d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_f32d_to_s16d_c);
+#if defined(HAVE_SSE2)
+	run_test("test_f32d_s16_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f32d_to_s16_sse2);
+#endif
 }
 
 static void test_s16_f32(void)
@@ -164,6 +179,10 @@ static void test_s16_f32(void)
 			true, true, conv_s16_to_f32_c);
 	run_test("test_s16d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_s16d_to_f32d_c);
+#if defined(HAVE_SSE2)
+	run_test("test_s16_f32d_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s16_to_f32d_sse2);
+#endif
 }
 
 static void test_f32_s32(void)
@@ -180,6 +199,10 @@ static void test_f32_s32(void)
 			true, false, conv_f32_to_s32d_c);
 	run_test("test_f32d_s32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_f32d_to_s32d_c);
+#if defined(HAVE_SSE2)
+	run_test("test_f32d_s32_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f32d_to_s32_sse2);
+#endif
 }
 
 static void test_s32_f32(void)
@@ -195,6 +218,10 @@ static void test_s32_f32(void)
 			true, true, conv_s32_to_f32_c);
 	run_test("test_s32d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_s32d_to_f32d_c);
+#if defined(HAVE_SSE2)
+	run_test("test_s32_f32d_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s32_to_f32d_sse2);
+#endif
 }
 
 static void test_f32_s24(void)
@@ -237,6 +264,18 @@ static void test_s24_f32(void)
 			true, true, conv_s24_to_f32_c);
 	run_test("test_s24d_f32d", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_s24d_to_f32d_c);
+#if defined(HAVE_SSE2)
+	run_test("test_s24_f32d_sse2", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s24_to_f32d_sse2);
+#endif
+#if defined(HAVE_SSSE3)
+	run_test("test_s24_f32d_ssse3", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s24_to_f32d_ssse3);
+#endif
+#if defined(HAVE_SSE41)
+	run_test("test_s24_f32d_sse41", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s24_to_f32d_sse41);
+#endif
 }
 
 static void test_f32_s24_32(void)

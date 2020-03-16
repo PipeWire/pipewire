@@ -105,7 +105,7 @@ foreach a : test_apps
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
 		link_with : [ simd_dependencies, test_lib, audioconvertlib ],
-		c_args : [ '-D_GNU_SOURCE' ],
+		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
 		install : false),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),

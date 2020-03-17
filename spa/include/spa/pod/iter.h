@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <errno.h>
+#include <sys/types.h>
 
 #include <spa/pod/pod.h>
 

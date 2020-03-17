@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <time.h>
+#include <sys/types.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>

@@ -199,7 +199,7 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 	uint32_t i, j, pos;
 
 	for (i = 0; i < map->channels; i++) {
-		if (map->pos[i] < 0 || map->pos[i] > SND_CHMAP_LAST)
+		if (map->pos[i] > SND_CHMAP_LAST)
 			map->pos[i] = SND_CHMAP_UNKNOWN;
 
 		p = 1LL << map->pos[i];

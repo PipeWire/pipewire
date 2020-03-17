@@ -1046,7 +1046,7 @@ error:
 	return NULL;
 }
 
-const static struct pw_protocol_implementaton protocol_impl = {
+static const struct pw_protocol_implementaton protocol_impl = {
 	PW_VERSION_PROTOCOL_IMPLEMENTATION,
 	.new_client = impl_new_client,
 	.add_server = impl_add_server,
@@ -1105,7 +1105,7 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 	struct pw_impl_client *client = resource->client;
 	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);
 }
-const static struct pw_protocol_native_ext protocol_ext_impl = {
+static const struct pw_protocol_native_ext protocol_ext_impl = {
 	PW_VERSION_PROTOCOL_NATIVE_EXT,
 	.begin_proxy = impl_ext_begin_proxy,
 	.add_proxy_fd = impl_ext_add_proxy_fd,

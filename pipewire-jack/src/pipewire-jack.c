@@ -1572,7 +1572,8 @@ static int client_node_port_use_buffers(void *object,
 	struct client *c = (struct client *) object;
 	struct port *p = GET_PORT(c, direction, port_id);
 	struct buffer *b;
-	uint32_t i, j, fl, res;
+	uint32_t i, j, fl;
+	int res;
 	struct mix *mix;
 
 	if (!p->valid) {
@@ -4593,7 +4594,7 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 
 	buffer_size = mb->buffer_size;
 
-	if (SPA_UNLIKELY(time < 0 || time >= mb->nframes)) {
+	if (SPA_UNLIKELY(time >= mb->nframes)) {
 		pw_log_warn("midi %p: time:%d frames:%d", port_buffer, time, mb->nframes);
 		goto failed;
 	}

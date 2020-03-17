@@ -283,7 +283,7 @@ int pw_rtkit_get_min_nice_level(struct pw_rtkit_bus *connection, int *min_nice_l
 	return err;
 }
 
-long unsigned int pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
+long long pw_rtkit_get_rttime_usec_max(struct pw_rtkit_bus *connection)
 {
 	long long retval;
 	int err;
@@ -453,7 +453,7 @@ static void idle_func(struct spa_source *source)
 	struct pw_rtkit_bus *system_bus;
 	struct rlimit rl;
 	int r, rtprio;
-	long unsigned int rttime;
+	long long rttime;
 	uint64_t count;
 
 	spa_system_eventfd_read(impl->system, impl->source.fd, &count);
@@ -485,8 +485,8 @@ static void idle_func(struct spa_source *source)
 
 	rttime = pw_rtkit_get_rttime_usec_max(system_bus);
 	if (rttime >= 0) {
-		rl.rlim_cur = SPA_MIN(rl.rlim_cur, rttime);
-		rl.rlim_max = SPA_MIN(rl.rlim_max, rttime);
+		rl.rlim_cur = SPA_MIN(rl.rlim_cur, (long unsigned int)rttime);
+		rl.rlim_max = SPA_MIN(rl.rlim_max, (long unsigned int)rttime);
 	}
 
 	pw_log_debug("rt.prio:%d rt.time.soft:%lu rt.time.hard:%lu",

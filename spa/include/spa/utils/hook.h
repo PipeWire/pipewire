@@ -51,6 +51,9 @@ struct spa_callbacks {
 	void *data;
 };
 
+/** Check if a callback \c has method \m of version \v */
+#define SPA_CALLBACK_CHECK(c,m,v) ((c) && ((v) == 0 || (c)->version > (v)-1) && (c)->m)
+
 #define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }
 
 struct spa_interface {
@@ -133,14 +136,14 @@ spa_hook_list_join(struct spa_hook_list *list,
 #define spa_callbacks_call(callbacks,type,method,vers,...)			\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (SPA_LIKELY(_f && _f->version >= (vers) && _f->method))				\
+	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
 		_f->method((callbacks)->data, ## __VA_ARGS__);			\
 })
 
 #define spa_callbacks_call_res(callbacks,type,res,method,vers,...)		\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (SPA_LIKELY(_f && _f->version >= (vers) && _f->method))				\
+	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
 		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
@@ -171,7 +174,7 @@ spa_hook_list_join(struct spa_hook_list *list,
 	spa_list_cursor_start(cursor, s, link);					\
 	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
 		const type *_f = (const type *)ci->cb.funcs;			\
-		if (SPA_LIKELY(_f && _f->version >= (vers) && _f->method)) {	\
+		if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers))) {		\
 			_f->method(ci->cb.data, ## __VA_ARGS__);		\
 			count++;						\
 			if (once)						\

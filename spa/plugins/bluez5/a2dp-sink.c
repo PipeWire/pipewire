@@ -1045,12 +1045,15 @@ impl_node_port_enum_params(void *object, int seq,
 		{
 			a2dp_sbc_t *config = this->transport->configuration;
 			struct spa_audio_info_raw info = { 0, };
+			int res;
 
 			info.format = SPA_AUDIO_FORMAT_S16;
-			if ((info.rate = a2dp_sbc_get_frequency(config)) < 0)
+			if ((res = a2dp_sbc_get_frequency(config)) < 0)
 				return -EIO;
-			if ((info.channels = a2dp_sbc_get_channels(config)) < 0)
+			info.rate = res;
+			if ((res = a2dp_sbc_get_channels(config)) < 0)
 				return -EIO;
+			info.channels = res;
 
 			switch (info.channels) {
 			case 1:

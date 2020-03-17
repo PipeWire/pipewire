@@ -53,6 +53,12 @@ if cc.get_id() == 'gcc'
 			'-Wpointer-arith',
 			'-Wformat-security',
 			'-Werror=suggest-attribute=format',
+			'-Wmissing-braces',
+		        '-Wno-missing-field-initializers',
+		        '-Wno-unused-parameter',
+			'-Wtype-limits',
+			'-Wold-style-declaration',
+			'-Wvariadic-macros',
 #			'-DSPA_DEBUG_MEMCPY',
 #			'-DFASTPATH',
 			language : 'c')

@@ -422,37 +422,47 @@ conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	const float *s0 = src[0], *s1 = src[1];
 	int32_t *d = dst;
 	uint32_t n, unrolled;
-	__m128 in[2];
-	__m128i out[2], t[2];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_min = _mm_set1_ps(S32_MIN);
+	__m256 in[2];
+	__m256i out[2], t[2];
+	__m256 scale = _mm256_set1_ps(S32_SCALE);
+	__m256 int_min = _mm256_set1_ps(S32_MIN);
 
-	if (SPA_IS_ALIGNED(s0, 16) &&
-	    SPA_IS_ALIGNED(s1, 16))
-		unrolled = n_samples & ~3;
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32))
+		unrolled = n_samples & ~7;
 	else
 		unrolled = 0;
 
-	for(n = 0; n < unrolled; n += 4) {
-		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
-		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), scale);
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_mul_ps(_mm256_load_ps(&s0[n]), scale);
+		in[1] = _mm256_mul_ps(_mm256_load_ps(&s1[n]), scale);
 
-		in[0] = _mm_min_ps(in[0], int_min);
-		in[1] = _mm_min_ps(in[1], int_min);
+		in[0] = _mm256_min_ps(in[0], int_min);
+		in[1] = _mm256_min_ps(in[1], int_min);
 
-		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_cvtps_epi32(in[1]);
+		out[0] = _mm256_cvtps_epi32(in[0]);	/* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_cvtps_epi32(in[1]);	/* b0 b1 b2 b3 b4 b5 b6 b7 */
 
-		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
-		t[1] = _mm_unpackhi_epi32(out[0], out[1]);
+		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
 
-		_mm_storel_pd((double*)(d + 0*n_channels), (__m128d)t[0]);
-		_mm_storeh_pd((double*)(d + 1*n_channels), (__m128d)t[0]);
-		_mm_storel_pd((double*)(d + 2*n_channels), (__m128d)t[1]);
-		_mm_storeh_pd((double*)(d + 3*n_channels), (__m128d)t[1]);
-		d += 4*n_channels;
+		*((int64_t*)(d + 0*n_channels)) = _mm256_extract_epi64(t[0], 0);
+		*((int64_t*)(d + 1*n_channels)) = _mm256_extract_epi64(t[0], 1);
+		*((int64_t*)(d + 2*n_channels)) = _mm256_extract_epi64(t[1], 0);
+		*((int64_t*)(d + 3*n_channels)) = _mm256_extract_epi64(t[1], 1);
+		*((int64_t*)(d + 4*n_channels)) = _mm256_extract_epi64(t[0], 2);
+		*((int64_t*)(d + 5*n_channels)) = _mm256_extract_epi64(t[0], 3);
+		*((int64_t*)(d + 6*n_channels)) = _mm256_extract_epi64(t[1], 2);
+		*((int64_t*)(d + 7*n_channels)) = _mm256_extract_epi64(t[1], 3);
+
+		d += 8*n_channels;
 	}
 	for(; n < n_samples; n++) {
+		__m128 in[2];
+		__m128i out[2];
+		__m128 scale = _mm_set1_ps(S32_SCALE);
+		__m128 int_min = _mm_set1_ps(S32_MIN);
+
 		in[0] = _mm_load_ss(&s0[n]);
 		in[1] = _mm_load_ss(&s1[n]);
 
@@ -473,44 +483,61 @@ conv_f32d_to_s32_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	const float *s0 = src[0], *s1 = src[1], *s2 = src[2], *s3 = src[3];
 	int32_t *d = dst;
 	uint32_t n, unrolled;
-	__m128 in[4];
-	__m128i out[4];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_min = _mm_set1_ps(S32_MIN);
+	__m256 in[4];
+	__m256i out[4], t[4];
+	__m256 scale = _mm256_set1_ps(S32_SCALE);
+	__m256 int_min = _mm256_set1_ps(S32_MIN);
 
-	if (SPA_IS_ALIGNED(s0, 16) &&
-	    SPA_IS_ALIGNED(s1, 16) &&
-	    SPA_IS_ALIGNED(s2, 16) &&
-	    SPA_IS_ALIGNED(s3, 16))
-		unrolled = n_samples & ~3;
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32) &&
+	    SPA_IS_ALIGNED(s2, 32) &&
+	    SPA_IS_ALIGNED(s3, 32))
+		unrolled = n_samples & ~7;
 	else
 		unrolled = 0;
 
-	for(n = 0; n < unrolled; n += 4) {
-		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
-		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), scale);
-		in[2] = _mm_mul_ps(_mm_load_ps(&s2[n]), scale);
-		in[3] = _mm_mul_ps(_mm_load_ps(&s3[n]), scale);
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_mul_ps(_mm256_load_ps(&s0[n]), scale);
+		in[1] = _mm256_mul_ps(_mm256_load_ps(&s1[n]), scale);
+		in[2] = _mm256_mul_ps(_mm256_load_ps(&s2[n]), scale);
+		in[3] = _mm256_mul_ps(_mm256_load_ps(&s3[n]), scale);
 
-		in[0] = _mm_min_ps(in[0], int_min);
-		in[1] = _mm_min_ps(in[1], int_min);
-		in[2] = _mm_min_ps(in[2], int_min);
-		in[3] = _mm_min_ps(in[3], int_min);
+		in[0] = _mm256_min_ps(in[0], int_min);
+		in[1] = _mm256_min_ps(in[1], int_min);
+		in[2] = _mm256_min_ps(in[2], int_min);
+		in[3] = _mm256_min_ps(in[3], int_min);
 
-		_MM_TRANSPOSE4_PS(in[0], in[1], in[2], in[3]);
+		out[0] = _mm256_cvtps_epi32(in[0]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_cvtps_epi32(in[1]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
+		out[2] = _mm256_cvtps_epi32(in[2]); /* c0 c1 c2 c3 c4 c5 c6 c7 */
+		out[3] = _mm256_cvtps_epi32(in[3]); /* d0 d1 d2 d3 d4 d5 d6 d7 */
 
-		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_cvtps_epi32(in[1]);
-		out[2] = _mm_cvtps_epi32(in[2]);
-		out[3] = _mm_cvtps_epi32(in[3]);
+		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
+		t[2] = _mm256_unpacklo_epi32(out[2], out[3]); /* c0 d0 c1 d1 c4 d4 c5 d5 */
+		t[3] = _mm256_unpackhi_epi32(out[2], out[3]); /* c2 d2 c3 d3 c6 d6 c7 d7 */
 
-		_mm_storeu_si128((__m128i*)(d + 0*n_channels), out[0]);
-		_mm_storeu_si128((__m128i*)(d + 1*n_channels), out[1]);
-		_mm_storeu_si128((__m128i*)(d + 2*n_channels), out[2]);
-		_mm_storeu_si128((__m128i*)(d + 3*n_channels), out[3]);
-		d += 4*n_channels;
+		out[0] = _mm256_unpacklo_epi64(t[0], t[2]);   /* a0 b0 c0 d0 a4 b4 c4 d4 */
+		out[1] = _mm256_unpackhi_epi64(t[0], t[2]);   /* a1 b1 c1 d1 a5 b5 c5 d5 */
+		out[2] = _mm256_unpacklo_epi64(t[1], t[3]);   /* a2 b2 c2 d2 a6 b6 c6 d6 */
+		out[3] = _mm256_unpackhi_epi64(t[1], t[3]);   /* a3 b3 c3 d3 a7 b7 c7 d7 */
+
+		_mm_storeu_si128((__m128i*)(d + 0*n_channels), _mm256_extracti128_si256(out[0], 0));
+		_mm_storeu_si128((__m128i*)(d + 1*n_channels), _mm256_extracti128_si256(out[1], 0));
+		_mm_storeu_si128((__m128i*)(d + 2*n_channels), _mm256_extracti128_si256(out[2], 0));
+		_mm_storeu_si128((__m128i*)(d + 3*n_channels), _mm256_extracti128_si256(out[3], 0));
+		_mm_storeu_si128((__m128i*)(d + 4*n_channels), _mm256_extracti128_si256(out[0], 1));
+		_mm_storeu_si128((__m128i*)(d + 5*n_channels), _mm256_extracti128_si256(out[1], 1));
+		_mm_storeu_si128((__m128i*)(d + 6*n_channels), _mm256_extracti128_si256(out[2], 1));
+		_mm_storeu_si128((__m128i*)(d + 7*n_channels), _mm256_extracti128_si256(out[3], 1));
+		d += 8*n_channels;
 	}
 	for(; n < n_samples; n++) {
+		__m128 in[4];
+		__m128i out[4];
+		__m128 scale = _mm_set1_ps(S32_SCALE);
+		__m128 int_min = _mm_set1_ps(S32_MIN);
+
 		in[0] = _mm_load_ss(&s0[n]);
 		in[1] = _mm_load_ss(&s1[n]);
 		in[2] = _mm_load_ss(&s2[n]);
@@ -592,39 +619,44 @@ conv_f32d_to_s16_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	const float *s0 = src[0], *s1 = src[1];
 	int16_t *d = dst;
 	uint32_t n, unrolled;
-	__m128 in[2];
-	__m128i out[4], t[2];
-	__m128 int_max = _mm_set1_ps(S16_MAX_F);
-        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+	__m256 in[2];
+	__m256i out[4], t[2];
+	__m256 int_max = _mm256_set1_ps(S16_MAX_F);
 
-	if (SPA_IS_ALIGNED(s0, 16) &&
-	    SPA_IS_ALIGNED(s1, 16))
-		unrolled = n_samples & ~3;
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32))
+		unrolled = n_samples & ~15;
 	else
 		unrolled = 0;
 
-	for(n = 0; n < unrolled; n += 4) {
-		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), int_max);
-		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), int_max);
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_mul_ps(_mm256_load_ps(&s0[n+0]), int_max);
+		in[1] = _mm256_mul_ps(_mm256_load_ps(&s1[n+0]), int_max);
 
-		t[0] = _mm_cvtps_epi32(in[0]);
-		t[1] = _mm_cvtps_epi32(in[1]);
+		out[0] = _mm256_cvtps_epi32(in[0]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_cvtps_epi32(in[1]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
 
-		t[0] = _mm_packs_epi32(t[0], t[0]);
-		t[1] = _mm_packs_epi32(t[1], t[1]);
+		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
 
-		out[0] = _mm_unpacklo_epi16(t[0], t[1]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
+		out[0] = _mm256_packs_epi32(t[0], t[1]); /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
 
-		*((int32_t*)(d + 0*n_channels)) = _mm_cvtsi128_si32(out[0]);
-		*((int32_t*)(d + 1*n_channels)) = _mm_cvtsi128_si32(out[1]);
-		*((int32_t*)(d + 2*n_channels)) = _mm_cvtsi128_si32(out[2]);
-		*((int32_t*)(d + 3*n_channels)) = _mm_cvtsi128_si32(out[3]);
-		d += 4*n_channels;
+		*((int32_t*)(d + 0*n_channels)) = _mm256_extract_epi32(out[0],0);
+		*((int32_t*)(d + 1*n_channels)) = _mm256_extract_epi32(out[0],1);
+		*((int32_t*)(d + 2*n_channels)) = _mm256_extract_epi32(out[0],2);
+		*((int32_t*)(d + 3*n_channels)) = _mm256_extract_epi32(out[0],3);
+		*((int32_t*)(d + 4*n_channels)) = _mm256_extract_epi32(out[0],4);
+		*((int32_t*)(d + 5*n_channels)) = _mm256_extract_epi32(out[0],5);
+		*((int32_t*)(d + 6*n_channels)) = _mm256_extract_epi32(out[0],6);
+		*((int32_t*)(d + 7*n_channels)) = _mm256_extract_epi32(out[0],7);
+
+		d += 8*n_channels;
 	}
 	for(; n < n_samples; n++) {
+		__m128 in[2];
+		__m128 int_max = _mm_set1_ps(S16_MAX_F);
+	        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+
 		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
 		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_max);
 		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
@@ -646,10 +678,10 @@ conv_f32d_to_s16_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	__m256i out[4], t[4];
 	__m256 int_max = _mm256_set1_ps(S16_MAX_F);
 
-	if (SPA_IS_ALIGNED(s0, 16) &&
-	    SPA_IS_ALIGNED(s1, 16) &&
-	    SPA_IS_ALIGNED(s2, 16) &&
-	    SPA_IS_ALIGNED(s3, 16))
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32) &&
+	    SPA_IS_ALIGNED(s2, 32) &&
+	    SPA_IS_ALIGNED(s3, 32))
 		unrolled = n_samples & ~7;
 	else
 		unrolled = 0;
@@ -660,27 +692,28 @@ conv_f32d_to_s16_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[2] = _mm256_mul_ps(_mm256_load_ps(&s2[n]), int_max);
 		in[3] = _mm256_mul_ps(_mm256_load_ps(&s3[n]), int_max);
 
-		t[0] = _mm256_cvtps_epi32(in[0]);
-		t[1] = _mm256_cvtps_epi32(in[1]);
-		t[2] = _mm256_cvtps_epi32(in[2]);
-		t[3] = _mm256_cvtps_epi32(in[3]);
+		t[0] = _mm256_cvtps_epi32(in[0]);  /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		t[1] = _mm256_cvtps_epi32(in[1]);  /* b0 b1 b2 b3 b4 b5 b6 b7 */
+		t[2] = _mm256_cvtps_epi32(in[2]);  /* c0 c1 c2 c3 c4 c5 c6 c7 */
+		t[3] = _mm256_cvtps_epi32(in[3]);  /* d0 d1 d2 d3 d4 d5 d6 d7 */
 
-		t[0] = _mm256_packs_epi32(t[0], t[2]);
-		t[1] = _mm256_packs_epi32(t[1], t[3]);
+		t[0] = _mm256_packs_epi32(t[0], t[2]); /* a0 a1 a2 a3 c0 c1 c2 c3 a4 a5 a6 a7 c4 c5 c6 c7 */
+		t[1] = _mm256_packs_epi32(t[1], t[3]); /* b0 b1 b2 b3 d0 d1 d2 d3 b4 b5 b6 b7 d4 d5 d6 d7 */
 
-		out[0] = _mm256_unpacklo_epi16(t[0], t[1]);
-		out[1] = _mm256_unpackhi_epi16(t[0], t[1]);
-		out[2] = _mm256_unpacklo_epi32(out[0], out[1]);
-		out[3] = _mm256_unpackhi_epi32(out[0], out[1]);
+		out[0] = _mm256_unpacklo_epi16(t[0], t[1]);     /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
+		out[1] = _mm256_unpackhi_epi16(t[0], t[1]);     /* c0 d0 c1 d1 c2 d2 c3 d3 c4 d4 c5 d5 c6 d6 c7 d7 */
 
-		*(int64_t*)(d + 0*n_channels) = _mm256_extract_epi64(out[2], 0);
-		*(int64_t*)(d + 1*n_channels) = _mm256_extract_epi64(out[2], 1);
-		*(int64_t*)(d + 2*n_channels) = _mm256_extract_epi64(out[3], 0);
-		*(int64_t*)(d + 3*n_channels) = _mm256_extract_epi64(out[3], 1);
-		*(int64_t*)(d + 4*n_channels) = _mm256_extract_epi64(out[2], 2);
-		*(int64_t*)(d + 5*n_channels) = _mm256_extract_epi64(out[2], 3);
-		*(int64_t*)(d + 6*n_channels) = _mm256_extract_epi64(out[3], 2);
-		*(int64_t*)(d + 7*n_channels) = _mm256_extract_epi64(out[3], 3);
+		out[2] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 c0 d0 a1 b1 c1 d1 a4 b4 c4 d4 a5 b5 c5 d5 */
+		out[3] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 c2 d2 a3 b3 c3 d3 a6 b6 c6 d6 a7 b7 c7 d7 */
+
+		*(int64_t*)(d + 0*n_channels) = _mm256_extract_epi64(out[2], 0); /* a0 b0 c0 d0 */
+		*(int64_t*)(d + 1*n_channels) = _mm256_extract_epi64(out[2], 1); /* a1 b1 c1 d1 */
+		*(int64_t*)(d + 2*n_channels) = _mm256_extract_epi64(out[3], 0); /* a2 b2 c2 d2 */
+		*(int64_t*)(d + 3*n_channels) = _mm256_extract_epi64(out[3], 1); /* a3 b3 c3 d3 */
+		*(int64_t*)(d + 4*n_channels) = _mm256_extract_epi64(out[2], 2); /* a4 b4 c4 d4 */
+		*(int64_t*)(d + 5*n_channels) = _mm256_extract_epi64(out[2], 3); /* a5 b5 c5 d5 */
+		*(int64_t*)(d + 6*n_channels) = _mm256_extract_epi64(out[3], 2); /* a6 b6 c6 d6 */
+		*(int64_t*)(d + 7*n_channels) = _mm256_extract_epi64(out[3], 3); /* a7 b7 c7 d7 */
 
 		d += 8*n_channels;
 	}
@@ -721,46 +754,117 @@ conv_f32d_to_s16_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 }
 
 void
+conv_f32d_to_s16_4_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float *s0 = src[0], *s1 = src[1], *s2 = src[2], *s3 = src[3];
+	int16_t *d = dst[0];
+	uint32_t n, unrolled;
+	__m256 in[4];
+	__m256i out[4], t[4];
+	__m256 int_max = _mm256_set1_ps(S16_MAX_F);
+
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32) &&
+	    SPA_IS_ALIGNED(s2, 32) &&
+	    SPA_IS_ALIGNED(s3, 32))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_mul_ps(_mm256_load_ps(&s0[n]), int_max);
+		in[1] = _mm256_mul_ps(_mm256_load_ps(&s1[n]), int_max);
+		in[2] = _mm256_mul_ps(_mm256_load_ps(&s2[n]), int_max);
+		in[3] = _mm256_mul_ps(_mm256_load_ps(&s3[n]), int_max);
+
+		t[0] = _mm256_cvtps_epi32(in[0]);  /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		t[1] = _mm256_cvtps_epi32(in[1]);  /* b0 b1 b2 b3 b4 b5 b6 b7 */
+		t[2] = _mm256_cvtps_epi32(in[2]);  /* c0 c1 c2 c3 c4 c5 c6 c7 */
+		t[3] = _mm256_cvtps_epi32(in[3]);  /* d0 d1 d2 d3 d4 d5 d6 d7 */
+
+		t[0] = _mm256_packs_epi32(t[0], t[2]); /* a0 a1 a2 a3 c0 c1 c2 c3 a4 a5 a6 a7 c4 c5 c6 c7 */
+		t[1] = _mm256_packs_epi32(t[1], t[3]); /* b0 b1 b2 b3 d0 d1 d2 d3 b4 b5 b6 b7 d4 d5 d6 d7 */
+
+		out[0] = _mm256_unpacklo_epi16(t[0], t[1]);     /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
+		out[1] = _mm256_unpackhi_epi16(t[0], t[1]);     /* c0 d0 c1 d1 c2 d2 c3 d3 c4 d4 c5 d5 c6 d6 c7 d7 */
+
+		t[0] = _mm256_unpacklo_epi32(out[0], out[1]);   /* a0 b0 c0 d0 a1 b1 c1 d1 a4 b4 c4 d4 a5 b5 c5 d5 */
+		t[2] = _mm256_unpackhi_epi32(out[0], out[1]);   /* a2 b2 c2 d2 a3 b3 c3 d3 a6 b6 c6 d6 a7 b7 c7 d7 */
+
+		out[0] = _mm256_inserti128_si256(t[0], _mm256_extracti128_si256(t[2], 0), 1);
+		out[2] = _mm256_inserti128_si256(t[2], _mm256_extracti128_si256(t[0], 1), 0);
+
+		_mm256_store_si256((__m256i*)(d+0), out[0]);
+		_mm256_store_si256((__m256i*)(d+16), out[2]);
+		d += 32;
+	}
+	for(; n < n_samples; n++) {
+		__m128 in[4];
+		__m128 int_max = _mm_set1_ps(S16_MAX_F);
+	        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+
+		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
+		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_max);
+		in[2] = _mm_mul_ss(_mm_load_ss(&s2[n]), int_max);
+		in[3] = _mm_mul_ss(_mm_load_ss(&s3[n]), int_max);
+		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
+		in[1] = _mm_min_ss(int_max, _mm_max_ss(in[1], int_min));
+		in[2] = _mm_min_ss(int_max, _mm_max_ss(in[2], int_min));
+		in[3] = _mm_min_ss(int_max, _mm_max_ss(in[3], int_min));
+		d[0] = _mm_cvtss_si32(in[0]);
+		d[1] = _mm_cvtss_si32(in[1]);
+		d[2] = _mm_cvtss_si32(in[2]);
+		d[3] = _mm_cvtss_si32(in[3]);
+		d += 4;
+	}
+}
+void
 conv_f32d_to_s16_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
 	const float *s0 = src[0], *s1 = src[1];
 	int16_t *d = dst[0];
 	uint32_t n, unrolled;
-	__m128 in[4];
-	__m128i out[4];
-	__m128 int_max = _mm_set1_ps(S16_MAX_F);
-        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+	__m256 in[4];
+	__m256i out[4], t[4];
+	__m256 int_max = _mm256_set1_ps(S16_MAX_F);
 
-	if (SPA_IS_ALIGNED(s0, 16) &&
-	    SPA_IS_ALIGNED(s1, 16))
-		unrolled = n_samples & ~7;
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32))
+		unrolled = n_samples & ~15;
 	else
 		unrolled = 0;
 
-	for(n = 0; n < unrolled; n += 8) {
-		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n+0]), int_max);
-		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n+0]), int_max);
-		in[2] = _mm_mul_ps(_mm_load_ps(&s0[n+4]), int_max);
-		in[3] = _mm_mul_ps(_mm_load_ps(&s1[n+4]), int_max);
+	for(n = 0; n < unrolled; n += 16) {
+		in[0] = _mm256_mul_ps(_mm256_load_ps(&s0[n+0]), int_max);
+		in[1] = _mm256_mul_ps(_mm256_load_ps(&s1[n+0]), int_max);
+		in[2] = _mm256_mul_ps(_mm256_load_ps(&s0[n+8]), int_max);
+		in[3] = _mm256_mul_ps(_mm256_load_ps(&s1[n+8]), int_max);
 
-		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_cvtps_epi32(in[1]);
-		out[2] = _mm_cvtps_epi32(in[2]);
-		out[3] = _mm_cvtps_epi32(in[3]);
+		out[0] = _mm256_cvtps_epi32(in[0]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_cvtps_epi32(in[1]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
+		out[2] = _mm256_cvtps_epi32(in[2]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[3] = _mm256_cvtps_epi32(in[3]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
 
-		out[0] = _mm_packs_epi32(out[0], out[2]);
-		out[1] = _mm_packs_epi32(out[1], out[3]);
+		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
+		t[2] = _mm256_unpacklo_epi32(out[2], out[3]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[3] = _mm256_unpackhi_epi32(out[2], out[3]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
 
-		out[2] = _mm_unpacklo_epi16(out[0], out[1]);
-		out[3] = _mm_unpackhi_epi16(out[0], out[1]);
+		out[0] = _mm256_packs_epi32(t[0], t[1]); /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
+		out[1] = _mm256_packs_epi32(t[2], t[3]); /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
 
-		_mm_storeu_si128((__m128i*)(d+0), out[2]);
-		_mm_storeu_si128((__m128i*)(d+8), out[3]);
+		_mm256_store_si256((__m256i*)(d+0), out[0]);
+		_mm256_store_si256((__m256i*)(d+16), out[1]);
 
-		d += 16;
+		d += 32;
 	}
 	for(; n < n_samples; n++) {
+		__m128 in[4];
+		__m128 int_max = _mm_set1_ps(S16_MAX_F);
+		__m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+
 		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_max);
 		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_max);
 		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));

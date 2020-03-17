@@ -314,7 +314,6 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(&b, &f[1]);
 
-
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 

@@ -143,6 +143,7 @@ static void test_f32_s16(void)
 #if defined (HAVE_AVX2)
 	run_test("test_f32d_s16", "avx2", false, true, conv_f32d_to_s16_avx2);
 	run_testc("test_f32d_s16_2", "avx2", false, true, conv_f32d_to_s16_2_avx2, 2);
+	run_testc("test_f32d_s16_4", "avx2", false, true, conv_f32d_to_s16_4_avx2, 4);
 #endif
 	run_test("test_f32_s16d", "c", true, false, conv_f32_to_s16d_c);
 	run_test("test_f32d_s16d", "c", false, false, conv_f32d_to_s16d_c);

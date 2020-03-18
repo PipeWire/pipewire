@@ -4,7 +4,8 @@
 #
 #set-prop library.name.system			support/libspa-support
 #set-prop context.data-loop.library.name.system	support/libspa-support
-set-prop link.max-buffers	16		# version < 3 clients can't handle more
+#set-prop link.max-buffers		64
+set-prop link.max-buffers		16		# version < 3 clients can't handle more
 #set-prop mem.allow-mlock		true
 
 ## Properties for the DSP configuration
@@ -13,8 +14,8 @@ set-prop link.max-buffers	16		# version < 3 clients can't handle more
 #set-prop default.clock.quantum		1024
 #set-prop default.clock.min-quantum	32
 #set-prop default.clock.max-quantum	8192
-#set-prop default.video.width		320
-#set-prop default.video.height		240
+#set-prop default.video.width		640
+#set-prop default.video.height		480
 #set-prop default.video.rate.num	25
 #set-prop default.video.rate.denom	1
 

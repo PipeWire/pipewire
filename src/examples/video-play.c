@@ -275,6 +275,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	const struct spa_pod *params[5];
 	Uint32 sdl_format;
 	void *d;
+	int32_t mult;
 
 	/* NULL means to clear the format */
 	if (param == NULL || id != SPA_PARAM_Format)
@@ -296,6 +297,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		sdl_format = id_to_sdl_format(data->format.info.raw.format);
 		data->size = SPA_RECTANGLE(data->format.info.raw.size.width,
 				data->format.info.raw.size.height);
+		mult = 1;
 		break;
 	case SPA_MEDIA_SUBTYPE_dsp:
 		spa_format_video_dsp_parse(param, &data->format.info.dsp);
@@ -304,6 +306,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		sdl_format = SDL_PIXELFORMAT_RGBA32;
 		data->size = SPA_RECTANGLE(data->position->video.size.width,
 				data->position->video.size.height);
+		mult = 4;
 		break;
 	default:
 		sdl_format = SDL_PIXELFORMAT_UNKNOWN;
@@ -334,8 +337,8 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->size.height),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * mult * data->size.height),
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride * mult),
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
 	/* a header metadata with timing information */

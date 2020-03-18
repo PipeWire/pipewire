@@ -853,7 +853,7 @@ static int create_stream(pa_stream_direction_t direction,
 	uint32_t i, n_params = 0;
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t sample_rate = 0, stride = 0;
+	uint32_t sample_rate = 0, stride = 0, latency_num;
 	const char *str;
 	uint32_t devid;
 	struct global *g;
@@ -985,7 +985,8 @@ static int create_stream(pa_stream_direction_t direction,
 	else
 		str = "Music";
 
-	sprintf(latency, "%u/%u", s->buffer_attr.minreq / stride, sample_rate);
+	latency_num = s->buffer_attr.minreq / stride;
+	sprintf(latency, "%u/%u", SPA_MAX(latency_num, 1u), sample_rate);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[1] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
 	items[2] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,

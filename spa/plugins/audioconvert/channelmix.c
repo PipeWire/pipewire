@@ -860,22 +860,22 @@ static int impl_node_process(void *object)
 
 	spa_log_trace_fp(this->log, NAME " %p: status %d %d", this, inio->status, outio->status);
 
-	if (outio->status == SPA_STATUS_HAVE_DATA)
-		goto done;
+	if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA))
+		return SPA_STATUS_HAVE_DATA;
 
-	if (inio->status != SPA_STATUS_HAVE_DATA)
+	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
 		return SPA_STATUS_NEED_DATA;
 
 	/* recycle */
-	if (outio->buffer_id < outport->n_buffers) {
+	if (SPA_LIKELY(outio->buffer_id < outport->n_buffers)) {
 		recycle_buffer(this, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (inio->buffer_id >= inport->n_buffers)
+	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
 		return inio->status = -EINVAL;
 
-	if ((dbuf = dequeue_buffer(this, outport)) == NULL)
+	if (SPA_UNLIKELY((dbuf = dequeue_buffer(this, outport)) == NULL))
 		return outio->status = -EPIPE;
 
 	sbuf = &inport->buffers[inio->buffer_id];
@@ -911,7 +911,6 @@ static int impl_node_process(void *object)
 
 	inio->status = SPA_STATUS_NEED_DATA;
 
-      done:
 	return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 

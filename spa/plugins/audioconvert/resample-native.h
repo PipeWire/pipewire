@@ -98,6 +98,9 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	struct native_data *data = r->data;
 	uint32_t in_rate, out_rate, phase, gcd, old_out_rate;
 
+	if (SPA_LIKELY(data->rate == rate))
+		return;
+
 	old_out_rate = data->out_rate;
 	in_rate = r->i_rate / rate;
 	out_rate = r->o_rate;
@@ -165,9 +168,9 @@ static void impl_native_process(struct resample *r,
 	hist = data->hist;
 	refill = 0;
 
-	if (hist) {
+	if (SPA_LIKELY(hist)) {
 		/* first work on the history if any. */
-		if (hist < n_taps) {
+		if (SPA_UNLIKELY(hist < n_taps)) {
 			/* we need at least n_taps to completely process the
 			 * history before we can work on the new input. When
 			 * we have less, refill the history. */
@@ -175,7 +178,7 @@ static void impl_native_process(struct resample *r,
 			for (c = 0; c < r->channels; c++)
 				spa_memcpy(&history[c][hist], s[c], refill * sizeof(float));
 
-			if (hist + refill < n_taps) {
+			if (SPA_UNLIKELY(hist + refill < n_taps)) {
 				/* not enough in the history, keep the input in
 				 * the history and produce no output */
 				data->hist = hist + refill;
@@ -195,12 +198,13 @@ static void impl_native_process(struct resample *r,
 		out = in = 0;
 	}
 
-	if (in >= hist) {
+	if (SPA_LIKELY(in >= hist)) {
 		int skip = in - hist;
 		/* we are past the history and can now work on the new
 		 * input data */
 		in = *in_len - skip;
 		data->func(r, src, skip, &in, dst, out, out_len);
+
 		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d",
 				r, *in_len, in, *out_len, out);
 

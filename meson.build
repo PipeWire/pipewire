@@ -60,7 +60,7 @@ if cc.get_id() == 'gcc'
 			'-Wold-style-declaration',
 			'-Wvariadic-macros',
 #			'-DSPA_DEBUG_MEMCPY',
-#			'-DFASTPATH',
+			'-DFASTPATH',
 			language : 'c')
 endif
 

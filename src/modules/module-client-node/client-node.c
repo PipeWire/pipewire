@@ -877,11 +877,13 @@ static int impl_node_process(void *object)
 
 	spa_log_trace_fp(this->log, "%p: send process driver:%p", this, impl->this.node->driver_node);
 
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts);
+	if (SPA_UNLIKELY(spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts) < 0))
+		spa_zero(ts);
+
 	n->rt.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0)
+	if (SPA_UNLIKELY(spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0))
 		spa_log_warn(this->log, NAME" %p: error %m", this);
 
 	return SPA_STATUS_OK;

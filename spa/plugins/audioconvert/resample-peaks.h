@@ -51,7 +51,7 @@ static void impl_peaks_process(struct resample *r,
 	struct peaks_data *pd = r->data;
 	uint32_t c, i, o, end, chunk, o_count, i_count;
 
-	if (r->channels == 0)
+	if (SPA_UNLIKELY(r->channels == 0))
 		return;
 
 	for (c = 0; c < r->channels; c++) {

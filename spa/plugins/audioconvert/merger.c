@@ -951,7 +951,7 @@ static int impl_node_process(void *object)
 	uint32_t n_src_datas, n_dst_datas;
 	const void **src_datas;
 	void **dst_datas;
-	int res = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 

@@ -640,7 +640,7 @@ static int follower_ready(void *data, int status)
 {
 	struct impl *this = data;
 
-	spa_log_trace(this->log, NAME " %p: ready %d", this, status);
+	spa_log_trace_fp(this->log, NAME " %p: ready %d", this, status);
 
 	this->master = true;
 

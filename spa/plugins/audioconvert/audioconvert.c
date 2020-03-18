@@ -1072,8 +1072,10 @@ static int impl_node_process(void *object)
 		ready = 0;
 		for (i = 0; i < this->n_nodes; i++) {
 			r = spa_node_process(this->nodes[i]);
+
 			spa_log_trace_fp(this->log, NAME " %p: process %d %d: %s",
 					this, i, r, r < 0 ? spa_strerror(r) : "ok");
+
 			if (SPA_UNLIKELY(r < 0))
 				return r;
 

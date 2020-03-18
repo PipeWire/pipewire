@@ -859,9 +859,10 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d", this,
 			inio, inio->status, inio->buffer_id);
 
-	if (inio->status != SPA_STATUS_HAVE_DATA)
+	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
 		return SPA_STATUS_NEED_DATA;
-	if (inio->buffer_id >= inport->n_buffers)
+
+	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
 		return inio->status = -EINVAL;
 
 	sbuf = &inport->buffers[inio->buffer_id];
@@ -885,23 +886,23 @@ static int impl_node_process(void *object)
 		struct port *outport = GET_OUT_PORT(this, i);
 		struct spa_io_buffers *outio;
 
-		if ((outio = outport->io) == NULL)
+		if (SPA_UNLIKELY((outio = outport->io) == NULL))
 			goto empty;
 
 		spa_log_trace_fp(this->log, NAME " %p: %d %p %d %d %d", this, i,
 				outio, outio->status, outio->buffer_id, outport->stride);
 
-		if (outio->status == SPA_STATUS_HAVE_DATA) {
+		if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA)) {
 			res |= SPA_STATUS_HAVE_DATA;
 			goto empty;
 		}
 
-		if (outio->buffer_id < outport->n_buffers) {
+		if (SPA_LIKELY(outio->buffer_id < outport->n_buffers)) {
 			queue_buffer(this, outport, outio->buffer_id);
 			outio->buffer_id = SPA_ID_INVALID;
 		}
 
-		if ((dbuf = dequeue_buffer(this, outport)) == NULL) {
+		if (SPA_UNLIKELY((dbuf = dequeue_buffer(this, outport)) == NULL)) {
 			outio->status = -EPIPE;
           empty:
 			spa_log_trace_fp(this->log, NAME" %p: %d skip output", this, i);

@@ -51,8 +51,6 @@
 
 #define DEFAULT_LIVE true
 
-#define MAX_HEIGHT 1024
-
 struct props {
 	bool live;
 };
@@ -588,11 +586,17 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
+		spa_log_debug(this->log, NAME" %p: %dx%d stride %d", this,
+				this->position->video.size.width,
+				this->position->video.size.height,
+				this->position->video.stride);
+
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(this->position->video.stride * MAX_HEIGHT),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(this->position->video.stride *
+								this->position->video.size.height),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->position->video.stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;

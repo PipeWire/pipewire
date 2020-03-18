@@ -194,10 +194,10 @@ on_process(void *_data)
 		for (i = 0; i < data->size.height; i++) {
 			struct pixel *p = (struct pixel *) src;
 			for (j = 0; j < data->size.width; j++) {
-				dst[j * 4 + 0] = SPA_CLAMP(lrintf(p[j].r * 255.0f), 0, 255);
-				dst[j * 4 + 1] = SPA_CLAMP(lrintf(p[j].g * 255.0f), 0, 255);
-				dst[j * 4 + 2] = SPA_CLAMP(lrintf(p[j].b * 255.0f), 0, 255);
-				dst[j * 4 + 3] = SPA_CLAMP(lrintf(p[j].a * 255.0f), 0, 255);
+				dst[j * 4 + 0] = SPA_CLAMP(p[j].r * 255.0f, 0, 255);
+				dst[j * 4 + 1] = SPA_CLAMP(p[j].g * 255.0f, 0, 255);
+				dst[j * 4 + 2] = SPA_CLAMP(p[j].b * 255.0f, 0, 255);
+				dst[j * 4 + 3] = SPA_CLAMP(p[j].a * 255.0f, 0, 255);
 			}
 			src += sstride;
 			dst += dstride;

@@ -72,10 +72,6 @@
 #define MAX_MIX				4096
 #define MAX_IO				32
 
-#define DEFAULT_SAMPLE_RATE	48000
-#define DEFAULT_BUFFER_FRAMES	1024
-#define DEFAULT_LATENCY		SPA_STRINGIFY(DEFAULT_BUFFER_FRAMES/DEFAULT_SAMPLE_RATE)
-
 #define REAL_JACK_PORT_NAME_SIZE (JACK_CLIENT_NAME_SIZE + JACK_PORT_NAME_SIZE)
 
 #define NAME	"jack-client"
@@ -2276,9 +2272,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY, "Duplex");
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, "DSP");
-	if ((str = getenv("PIPEWIRE_LATENCY")) == NULL)
-		str = DEFAULT_LATENCY;
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
+	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
+		items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
 	client->node = pw_core_create_object(client->core,
@@ -2900,7 +2895,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
 	if (c->sample_rate == (uint32_t)-1)
-		return DEFAULT_SAMPLE_RATE;
+		return 0;
 	return c->sample_rate;
 }
 
@@ -2910,7 +2905,7 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
 	if (c->buffer_frames == (uint32_t)-1)
-		return DEFAULT_BUFFER_FRAMES;
+		return 0;
 	return c->buffer_frames;
 }
 

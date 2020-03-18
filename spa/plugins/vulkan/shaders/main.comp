@@ -47,7 +47,8 @@ void main()
 }
 
 //#include "plasma-globe.comp"
-#include "mandelbrot-distance.comp"
+//#include "mandelbrot-distance.comp"
+#include "disk-intersection.comp"
 //#include "ring-twister.comp"
 //#include "gears.comp"
 //#include "protean-clouds.comp"

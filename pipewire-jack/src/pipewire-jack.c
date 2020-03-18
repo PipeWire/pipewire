@@ -2895,7 +2895,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
 	if (c->sample_rate == (uint32_t)-1)
-		return 0;
+		return c->position ? c->position->clock.rate.denom : 0;
 	return c->sample_rate;
 }
 
@@ -2905,7 +2905,7 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
 	if (c->buffer_frames == (uint32_t)-1)
-		return 0;
+		return c->position ? c->position->clock.duration : 0;
 	return c->buffer_frames;
 }
 

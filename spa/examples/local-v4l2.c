@@ -158,10 +158,11 @@ static int on_source_ready(void *_data, int status)
 	struct spa_io_buffers *io = &data->source_output[0];
 
 	if (io->status != SPA_STATUS_HAVE_DATA ||
-	    io->buffer_id > MAX_BUFFERS)
+	    io->buffer_id >= MAX_BUFFERS)
 		return -EINVAL;
 
 	b = &data->buffers[io->buffer_id];
+	io->status = SPA_STATUS_NEED_DATA;
 
 	datas = b->buffer.datas;
 
@@ -215,8 +216,6 @@ static int on_source_ready(void *_data, int status)
 		if (map)
 			munmap(map, datas[0].maxsize + datas[0].mapoffset);
 	}
-
-	io->status = SPA_STATUS_NEED_DATA;
 
 	if ((res = spa_node_process(data->source)) < 0)
 		printf("got process error %d\n", res);

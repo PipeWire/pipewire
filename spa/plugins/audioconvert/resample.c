@@ -594,7 +594,8 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d:%d", this,
+			n_buffers, direction, port_id);
 
 	clear_buffers(this, port);
 
@@ -612,8 +613,11 @@ impl_node_port_use_buffers(void *object,
 			if (size == SPA_ID_INVALID)
 				size = d[j].maxsize;
 			else
-				if (size != d[j].maxsize)
+				if (size != d[j].maxsize) {
+					spa_log_error(this->log, NAME " %p: invalid size %d on buffer %p", this,
+						      size, buffers[i]);
 					return -EINVAL;
+				}
 
 			if (d[j].data == NULL) {
 				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
@@ -734,8 +738,9 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %d %d %d",
-			this, inio->status, outio->status, inio->buffer_id);
+	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d -> %p %d %d", this,
+			inio, inio->status, inio->buffer_id,
+			outio, outio->status, outio->buffer_id);
 
 	if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA))
 		return SPA_STATUS_HAVE_DATA;

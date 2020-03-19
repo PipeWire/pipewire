@@ -859,6 +859,7 @@ static int impl_node_process(void *object)
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
+	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
 
 	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->id);
 

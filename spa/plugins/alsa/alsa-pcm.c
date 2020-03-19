@@ -858,6 +858,17 @@ again:
 	return 0;
 }
 
+void spa_alsa_recycle_buffer(struct state *this, uint32_t buffer_id)
+{
+	struct buffer *b = &this->buffers[buffer_id];
+
+	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
+		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
+		spa_list_append(&this->free, &b->link);
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
+	}
+}
+
 static snd_pcm_uframes_t
 push_frames(struct state *state,
 	    const snd_pcm_channel_area_t *my_areas,
@@ -909,7 +920,6 @@ push_frames(struct state *state,
 		d[0].chunk->size = n_bytes;
 		d[0].chunk->stride = state->frame_size;
 
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&state->ready, &b->link);
 	}
 	return total_frames - keep;
@@ -1054,15 +1064,22 @@ static int handle_capture(struct state *state, uint64_t nsec,
 	if ((res = spa_alsa_read(state, target)) < 0)
 		return res;
 
-	if (!spa_list_is_empty(&state->ready)) {
-		io = state->io;
-		if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
-			struct buffer *b = spa_list_first(&state->ready, struct buffer, link);
-			spa_list_remove(&b->link);
+	if (spa_list_is_empty(&state->ready))
+		return 0;
 
-			io->buffer_id = b->id;
-			io->status = SPA_STATUS_HAVE_DATA;
-		}
+	io = state->io;
+	if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
+		struct buffer *b;
+
+		if (io->buffer_id < state->n_buffers)
+			spa_alsa_recycle_buffer(state, io->buffer_id);
+
+		b = spa_list_first(&state->ready, struct buffer, link);
+		spa_list_remove(&b->link);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+
+		io->buffer_id = b->id;
+		io->status = SPA_STATUS_HAVE_DATA;
 	}
 	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);
 	return 0;

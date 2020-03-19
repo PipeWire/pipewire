@@ -172,6 +172,8 @@ int spa_alsa_close(struct state *state);
 int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
 int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence);
 
+void spa_alsa_recycle_buffer(struct state *state, uint32_t buffer_id);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

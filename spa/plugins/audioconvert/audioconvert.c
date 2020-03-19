@@ -143,8 +143,7 @@ static int make_link(struct impl *this,
 	l->in_port = in_port;
 	l->in_flags = 0;
 	l->negotiated = false;
-	l->io.status = SPA_STATUS_NEED_DATA;
-	l->io.buffer_id = SPA_ID_INVALID;
+	l->io = SPA_IO_BUFFERS_INIT;
 	l->n_buffers = 0;
 	l->min_buffers = min_buffers;
 

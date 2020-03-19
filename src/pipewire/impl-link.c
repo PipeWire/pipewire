@@ -1110,8 +1110,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	this->info.format = NULL;
 	this->info.props = &this->properties->dict;
 
-	impl->io.buffer_id = SPA_ID_INVALID;
-	impl->io.status = SPA_STATUS_NEED_DATA;
+	impl->io = SPA_IO_BUFFERS_INIT;
 
 	pw_impl_port_init_mix(output, &this->rt.out_mix);
 	pw_impl_port_init_mix(input, &this->rt.in_mix);

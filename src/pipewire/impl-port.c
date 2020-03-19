@@ -430,8 +430,6 @@ struct pw_impl_port *pw_context_create_port(
 
 	pw_map_init(&this->mix_port_map, 64, 64);
 
-	this->rt.io.status = SPA_STATUS_NEED_DATA;
-
 	if (info)
 		update_info(this, info);
 

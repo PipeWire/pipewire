@@ -169,7 +169,7 @@ static int link_io(struct impl *this)
 			res, spa_strerror(res));
 	}
 
-	spa_zero(this->io_buffers);
+	this->io_buffers = SPA_IO_BUFFERS_INIT;
 
 	if ((res = spa_node_port_set_io(this->follower,
 			this->direction, 0,

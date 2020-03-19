@@ -379,13 +379,11 @@ static int impl_send_command(void *object, const struct spa_command *command)
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			pw_log_debug(NAME" %p: start %d", stream, impl->direction);
 
-			if (impl->direction == SPA_DIRECTION_INPUT) {
+			if (impl->direction == SPA_DIRECTION_INPUT)
 				impl->io->status = SPA_STATUS_NEED_DATA;
-				impl->io->buffer_id = SPA_ID_INVALID;
-			}
-			else {
+			else
 				call_process(impl);
-			}
+
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
 		break;

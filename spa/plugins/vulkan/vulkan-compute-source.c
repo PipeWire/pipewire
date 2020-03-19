@@ -325,7 +325,6 @@ static int make_buffer(struct impl *this)
 			b->h->dts_offset = 0;
 		}
 
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->ready, &b->link);
 
 		res = SPA_STATUS_HAVE_DATA;
@@ -376,6 +375,7 @@ static void on_output(struct spa_source *source)
 	if (!spa_list_is_empty(&port->ready)) {
 		struct buffer *b = spa_list_first(&port->ready, struct buffer, link);
 		spa_list_remove(&b->link);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 
 		io->buffer_id = b->id;
 		io->status = SPA_STATUS_HAVE_DATA;

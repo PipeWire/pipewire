@@ -52,7 +52,7 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
-		uint32_t type, const struct spa_dict *props, void *object,
+		const char *type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct spa_device *device = object;

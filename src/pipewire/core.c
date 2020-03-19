@@ -252,7 +252,7 @@ struct pw_proxy *pw_core_export(struct pw_core *core,
 		goto error_export_type;
 	}
 
-	proxy = t->func(core, type, props, object, user_data_size);
+	proxy = t->func(core, t->type, props, object, user_data_size);
         if (proxy == NULL) {
 		res = -errno;
 		goto error_proxy_failed;

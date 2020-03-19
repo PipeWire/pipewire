@@ -1197,7 +1197,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 }
 
 struct pw_proxy *pw_core_node_export(struct pw_core *core,
-		uint32_t type, const struct spa_dict *props, void *object,
+		const char *type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_impl_node *node = object;
@@ -1208,7 +1208,7 @@ struct pw_proxy *pw_core_node_export(struct pw_core *core,
 }
 
 struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
-		uint32_t type, const struct spa_dict *props, void *object,
+		const char *type, const struct spa_dict *props, void *object,
 		size_t user_data_size)
 {
 	struct pw_impl_node *node;

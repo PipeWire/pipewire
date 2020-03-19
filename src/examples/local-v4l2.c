@@ -50,7 +50,9 @@ struct data {
 
 	struct pw_context *context;
 	struct pw_core *core;
-	struct spa_port_info port_info;
+
+	struct spa_port_info info;
+	struct spa_param_info params[4];
 
 	struct spa_node impl_node;
 	struct spa_io_buffers *io;
@@ -92,25 +94,11 @@ static int impl_add_listener(void *object,
 		void *data)
 {
 	struct data *d = object;
-	struct spa_port_info info;
 	struct spa_hook_list save;
-	struct spa_param_info params[4];
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
-	info = SPA_PORT_INFO_INIT();
-	info.change_mask =
-		SPA_PORT_CHANGE_MASK_FLAGS |
-		SPA_PORT_CHANGE_MASK_PARAMS;
-	info.flags = 0;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-	params[3] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	info.params = params;
-	info.n_params = SPA_N_ELEMENTS(params);
-
-	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &info);
+	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &d->info);
 
 	spa_hook_list_join(&d->hooks, &save);
 
@@ -231,6 +219,11 @@ static int port_set_format(void *object, enum spa_direction direction, uint32_t 
 	SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
 	SDL_UnlockTexture(d->texture);
 
+	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
+	d->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+	d->params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &d->info);
+
 	return 0;
 }
 
@@ -347,6 +340,18 @@ static int make_nodes(struct data *data)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, data);
+
+	data->info = SPA_PORT_INFO_INIT();
+	data->info.change_mask =
+		SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PARAMS;
+	data->info.flags = 0;
+	data->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	data->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	data->params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	data->params[3] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	data->info.params = data->params;
+	data->info.n_params = SPA_N_ELEMENTS(data->params);
 
 	in = pw_core_export(data->core,
 			SPA_TYPE_INTERFACE_Node,

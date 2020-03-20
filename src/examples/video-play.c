@@ -458,7 +458,6 @@ int main(int argc, char *argv[])
 			  data.path ? (uint32_t)atoi(data.path) : PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |	/* try to automatically connect this stream */
 			  PW_STREAM_FLAG_INACTIVE |	/* we will activate ourselves */
-			  PW_STREAM_FLAG_EXCLUSIVE |	/* require exclusive access */
 			  PW_STREAM_FLAG_MAP_BUFFERS,	/* mmap the buffer data for us */
 			  params, n_params))		/* extra parameters, see above */ < 0) {
 		fprintf(stderr, "can't connect: %s\n", spa_strerror(res));

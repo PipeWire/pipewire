@@ -130,6 +130,7 @@ struct stream {
 	unsigned int free_proxy:1;
 	unsigned int draining:1;
 	unsigned int allow_mlock:1;
+	unsigned int warn_mlock:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -533,11 +534,12 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 			range.offset, range.size, data->data);
 
 	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
-		pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", impl,
-						data->data, data->maxsize,
-						errno == ENOMEM ?
-						"This is not a problem but for best performance, "
-						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+		pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+				NAME" %p: Failed to mlock memory %p %u: %s", impl,
+				data->data, data->maxsize,
+				errno == ENOMEM ?
+				"This is not a problem but for best performance, "
+				"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
 	}
 	return 0;
 }
@@ -1422,6 +1424,9 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
+
+	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
+	pw_properties_set(stream->properties, "mem.warn-mlock", impl->warn_mlock ? "true" : "false");
 
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",

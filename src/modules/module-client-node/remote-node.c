@@ -79,6 +79,7 @@ struct node_data {
 	unsigned int do_free:1;
 	unsigned int have_transport:1;
 	unsigned int allow_mlock:1;
+	unsigned int warn_mlock:1;
 
 	struct pw_client_node *client_node;
 	struct spa_hook client_node_listener;
@@ -632,7 +633,8 @@ client_node_port_use_buffers(void *object,
 		bid->mem = mm;
 
 		if (data->allow_mlock && mlock(mm->ptr, mm->size) < 0)
-			pw_log_warn("Failed to mlock memory %p %u: %s",
+			pw_log(data->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+					"Failed to mlock memory %p %u: %s",
 					mm->ptr, mm->size,
 					errno == ENOMEM ?
 					"This is not a problem but for best performance, "
@@ -1145,6 +1147,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	struct pw_impl_node *node = object;
 	struct pw_proxy *client_node;
 	struct node_data *data;
+	const char *str;
 	int i;
 
 	client_node = pw_core_create_object(core,
@@ -1163,7 +1166,14 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	data->context = pw_impl_node_get_context(node);
 	data->client_node = (struct pw_client_node *)client_node;
 	data->remote_id = SPA_ID_INVALID;
+
 	data->allow_mlock = data->context->defaults.mem_allow_mlock;
+	if ((str = pw_properties_get(node->properties, "mem.allow-mlock")) != NULL)
+		data->allow_mlock = pw_properties_parse_bool(str);
+
+	data->warn_mlock = true;
+	if ((str = pw_properties_get(node->properties, "mem.warn-mlock")) != NULL)
+		data->warn_mlock = pw_properties_parse_bool(str);
 
 	node->exported = true;
 

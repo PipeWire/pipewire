@@ -141,6 +141,7 @@ struct filter {
 	unsigned int subscribe:1;
 	unsigned int draining:1;
 	unsigned int allow_mlock:1;
+	unsigned int warn_mlock:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -535,7 +536,8 @@ static int map_data(struct filter *impl, struct spa_data *data, int prot)
 			range.offset, range.size, data->data);
 
 	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
-		pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", impl,
+		pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+				NAME" %p: Failed to mlock memory %p %u: %s", impl,
 						data->data, data->maxsize,
 						errno == ENOMEM ?
 						"This is not a problem but for best performance, "
@@ -1164,6 +1166,10 @@ pw_filter_connect(struct pw_filter *filter,
 	pw_log_debug(NAME" %p: connect", filter);
 	impl->flags = flags;
 
+	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS);
+	pw_properties_set(filter->properties, "mem.warn-mlock",
+			impl->warn_mlock ? "true" : "false");
+
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
@@ -1177,7 +1183,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info = SPA_NODE_INFO_INIT();
 	impl->info.max_input_ports = MAX_PORTS;
 	impl->info.max_output_ports = MAX_PORTS;
-	impl->info.flags = SPA_NODE_FLAG_RT;
+	impl->info.flags = impl->warn_mlock ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
 	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);

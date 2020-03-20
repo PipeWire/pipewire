@@ -60,6 +60,8 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define GST_CAT_DEFAULT pipewire_src_debug
 
 #define DEFAULT_ALWAYS_COPY     false
+#define DEFAULT_MIN_BUFFERS     1
+#define DEFAULT_MAX_BUFFERS     INT32_MAX
 
 enum
 {
@@ -68,6 +70,8 @@ enum
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES,
   PROP_ALWAYS_COPY,
+  PROP_MIN_BUFFERS,
+  PROP_MAX_BUFFERS,
   PROP_FD,
 };
 
@@ -124,6 +128,14 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->always_copy = g_value_get_boolean (value);
       break;
 
+    case PROP_MIN_BUFFERS:
+      pwsrc->min_buffers = g_value_get_int (value);
+      break;
+
+    case PROP_MAX_BUFFERS:
+      pwsrc->max_buffers = g_value_get_int (value);
+      break;
+
     case PROP_FD:
       pwsrc->fd = g_value_get_int (value);
       break;
@@ -155,6 +167,14 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_ALWAYS_COPY:
       g_value_set_boolean (value, pwsrc->always_copy);
+      break;
+
+    case PROP_MIN_BUFFERS:
+      g_value_set_int (value, pwsrc->min_buffers);
+      break;
+
+    case PROP_MAX_BUFFERS:
+      g_value_set_int (value, pwsrc->max_buffers);
       break;
 
     case PROP_FD:
@@ -282,6 +302,24 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_MIN_BUFFERS,
+                                   g_param_spec_int ("min-buffers",
+                                                     "Min Buffers",
+                                                     "Minimum number of buffers to negotiate with PipeWire",
+                                                     1, G_MAXINT, DEFAULT_MIN_BUFFERS,
+                                                     G_PARAM_READWRITE |
+                                                     G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_MAX_BUFFERS,
+                                   g_param_spec_int ("max-buffers",
+                                                     "Max Buffers",
+                                                     "Maximum number of buffers to negotiate with PipeWire",
+                                                     1, G_MAXINT, DEFAULT_MAX_BUFFERS,
+                                                     G_PARAM_READWRITE |
+                                                     G_PARAM_STATIC_STRINGS));
+
    g_object_class_install_property (gobject_class,
                                     PROP_FD,
                                     g_param_spec_int ("fd",
@@ -325,6 +363,8 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   GST_OBJECT_FLAG_SET (src, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
   src->always_copy = DEFAULT_ALWAYS_COPY;
+  src->min_buffers = DEFAULT_MIN_BUFFERS;
+  src->max_buffers = DEFAULT_MAX_BUFFERS;
   src->fd = -1;
 
   g_queue_init (&src->queue);
@@ -699,11 +739,14 @@ on_param_changed (void *data, uint32_t id,
     const struct spa_pod *params[2];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
+    uint32_t buffers = buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-        SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(16, 1, INT32_MAX),
+        SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers,
+                                                            pwsrc->min_buffers,
+                                                            pwsrc->max_buffers),
         SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
         SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),

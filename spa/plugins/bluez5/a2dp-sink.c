@@ -361,6 +361,8 @@ static int send_buffer(struct impl *this)
 	struct rtp_header *header;
 	struct rtp_payload *payload;
 
+	spa_return_val_if_fail(this->transport, -EIO);
+
 	header = (struct rtp_header *)this->buffer;
 	payload = (struct rtp_payload *)(this->buffer + sizeof(struct rtp_header));
 	memset(this->buffer, 0, sizeof(struct rtp_header)+sizeof(struct rtp_payload));
@@ -486,6 +488,8 @@ static int add_data(struct impl *this, const void *data, int size)
 static int set_bitpool(struct impl *this, int bitpool)
 {
 	struct port *port = &this->port;
+
+	spa_return_val_if_fail(this->transport, -EIO);
 
 	if (bitpool < this->min_bitpool)
 		bitpool = this->min_bitpool;
@@ -715,7 +719,11 @@ static void a2dp_on_timeout(struct spa_source *source)
 static int init_sbc(struct impl *this)
 {
         struct spa_bt_transport *transport = this->transport;
-	a2dp_sbc_t *conf = transport->configuration;
+	a2dp_sbc_t *conf;
+
+	spa_return_val_if_fail(transport, -EIO);
+
+	conf = transport->configuration;
 
 	sbc_init(&this->sbc, 0);
 	this->sbc.endian = SBC_LE;
@@ -796,6 +804,8 @@ static int do_start(struct impl *this)
 
 	if (this->started)
 		return 0;
+
+	spa_return_val_if_fail(this->transport, -EIO);
 
 	this->following = is_following(this);
 
@@ -1039,6 +1049,8 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
+		if (this->transport == NULL)
+			return -EIO;
 
 		switch (this->transport->codec) {
 		case A2DP_CODEC_SBC:

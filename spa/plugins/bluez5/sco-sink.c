@@ -130,6 +130,7 @@ struct impl {
 
 	/* Counts */
 	uint64_t sample_count;
+	uint32_t write_mtu;
 };
 
 #define NAME "sco-sink"
@@ -347,7 +348,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 static bool write_data(struct impl *this, const uint8_t *data, uint32_t size, uint32_t *total_written)
 {
 	uint32_t local_total_written = 0;
-	const uint32_t mtu_size = this->transport->write_mtu;
+	const uint32_t mtu_size = this->write_mtu;
 
 	while (local_total_written <= (size - mtu_size)) {
 		const int bytes_written = write(this->sock_fd, data, mtu_size);
@@ -414,28 +415,29 @@ static int render_buffers(struct impl *this, uint64_t now_time)
 	return 0;
 }
 
-static void fill_socket (struct impl *this)
+static void fill_socket(struct impl *this)
 {
-  struct port *port = &this->port;
-  static const uint8_t zero_buffer[1024 * 4] = { 0, };
-  uint32_t fill_size = this->transport->write_mtu;
-  uint32_t fills = 0;
-  uint32_t total_written = 0;
+	struct port *port = &this->port;
+	static const uint8_t zero_buffer[1024 * 4] = { 0, };
+	uint32_t fill_size = this->write_mtu;
+	uint32_t fills = 0;
+	uint32_t total_written = 0;
 
-  /* Fill the socked */
-  while (fills < FILL_FRAMES) {
-          uint32_t written = 0;
 
-          /* Write the data */
-          if (!write_data(this, zero_buffer, fill_size, &written))
-                  break;
+	/* Fill the socket */
+	while (fills < FILL_FRAMES) {
+		uint32_t written = 0;
 
-          total_written += written;
-          fills++;
-  }
+		/* Write the data */
+		if (!write_data(this, zero_buffer, fill_size, &written))
+			break;
 
-  /* Update the sample count */
-  this->sample_count += total_written / port->frame_size;
+		total_written += written;
+		fills++;
+	}
+
+	/* Update the sample count */
+	this->sample_count += total_written / port->frame_size;
 }
 
 static void sco_on_flush(struct spa_source *source)
@@ -479,7 +481,7 @@ static void sco_on_timeout(struct spa_source *source)
 
 	/* If this is the first timeout, set the start time and fill the socked */
 	if (this->start_time == 0) {
-		fill_socket (this);
+		fill_socket(this);
 		this->start_time = now_time;
 	}
 
@@ -503,7 +505,7 @@ static int do_start(struct impl *this)
 		return 0;
 
 	/* Make sure the transport is valid */
-	spa_return_val_if_fail (this->transport != NULL, -EIO);
+	spa_return_val_if_fail(this->transport != NULL, -EIO);
 
 	/* Set the following flag */
 	this->following = is_following(this);
@@ -517,6 +519,7 @@ static int do_start(struct impl *this)
 		return -1;
 
 	/* Set the write MTU */
+	this->write_mtu = this->transport->write_mtu;
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->sock_fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "sco-sink %p: SO_SNDBUF %m", this);

@@ -117,6 +117,7 @@ struct impl {
 
 	struct timespec now;
 	uint32_t sample_count;
+	uint32_t read_mtu;
 };
 
 #define NAME "sco-source"
@@ -294,8 +295,9 @@ static void reset_buffers(struct port *port)
 	}
 }
 
-static bool read_data(struct impl *this, uint8_t *data, uint32_t size, uint32_t *total_read) {
-	const uint32_t mtu_size = this->transport->read_mtu;
+static bool read_data(struct impl *this, uint8_t *data, uint32_t size, uint32_t *total_read)
+{
+	const uint32_t mtu_size = this->read_mtu;
 	uint32_t local_total_read = 0;
 
 	/* Read chunks of mtu_size */
@@ -321,7 +323,7 @@ static bool read_data(struct impl *this, uint8_t *data, uint32_t size, uint32_t 
 
 done:
 	if (total_read)
-	  *total_read = local_total_read;
+		*total_read = local_total_read;
 	return true;
 }
 
@@ -428,7 +430,8 @@ static int do_start(struct impl *this)
 		spa_log_warn(this->log, "sco-source %p: SO_SNDBUF %m", this);
 
 	/* Set the read MTU */
-	val = FILL_FRAMES * this->transport->read_mtu;
+	this->read_mtu = this->transport->read_mtu;
+	val = FILL_FRAMES * this->read_mtu;
 	if (setsockopt(this->sock_fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "sco-source %p: SO_RCVBUF %m", this);
 
@@ -644,7 +647,6 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
-
 		if (this->transport == NULL)
 			return -EIO;
 

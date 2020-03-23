@@ -408,6 +408,10 @@ static void a2dp_on_ready_read(struct spa_source *source)
 		spa_log_error(this->log, "source is not an input, rmask=%d", source->rmask);
 		goto stop;
 	}
+	if (this->transport == NULL) {
+		spa_log_debug(this->log, "no transport, stop reading");
+		goto stop;
+	}
 
 	/* update the current pts */
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
@@ -494,10 +498,9 @@ static int do_start(struct impl *this)
 	if (this->started)
 		return 0;
 
-	if (this->transport == NULL)
-		return -EIO;
-
 	spa_log_debug(this->log, NAME" %p: start", this);
+
+	spa_return_val_if_fail(this->transport != NULL, -EIO);
 
 	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING)
 		res = transport_start(this);
@@ -693,7 +696,6 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
-
 		if (this->transport == NULL)
 			return -EIO;
 

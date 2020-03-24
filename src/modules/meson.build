@@ -146,6 +146,7 @@ pipewire_module_session_manager = shared_library('pipewire-module-session-manage
     'module-session-manager/client-session/endpoint-link.c',
     'module-session-manager/client-session/session.c',
     'module-session-manager/protocol-native.c',
+    'module-session-manager/proxy-session-manager.c',
   ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

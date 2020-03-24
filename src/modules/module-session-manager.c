@@ -32,7 +32,7 @@ int client_endpoint_factory_init(struct pw_impl_module *module);
 /* client-session.c */
 int client_session_factory_init(struct pw_impl_module *module);
 /* protocol-native.c */
-struct pw_protocol *pw_protocol_native_ext_session_manager_init(struct pw_context *context);
+int pw_protocol_native_ext_session_manager_init(struct pw_context *context);
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "George Kiagiadakis <george.kiagiadakis@collabora.com>" },
@@ -44,11 +44,13 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
+	int res;
+
+	if ((res = pw_protocol_native_ext_session_manager_init(context)) < 0)
+		return res;
 
 	client_endpoint_factory_init(module);
 	client_session_factory_init(module);
-
-	pw_protocol_native_ext_session_manager_init(context);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 

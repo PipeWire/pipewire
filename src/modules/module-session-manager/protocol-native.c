@@ -3039,14 +3039,13 @@ static const struct pw_protocol_marshal pw_protocol_native_session_impl_marshal 
 	.client_demarshal = pw_protocol_native_session_client_method_demarshal,
 };
 
-struct pw_protocol *pw_protocol_native_ext_session_manager_init(struct pw_context *context)
+int pw_protocol_native_ext_session_manager_init(struct pw_context *context)
 {
 	struct pw_protocol *protocol;
 
 	protocol = pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native);
-
 	if (protocol == NULL)
-		return NULL;
+		return -EPROTO;
 
 	/* deprecated */
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_client_endpoint_marshal);
@@ -3064,5 +3063,5 @@ struct pw_protocol *pw_protocol_native_ext_session_manager_init(struct pw_contex
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_impl_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_session_impl_marshal);
 
-	return protocol;
+	return 0;
 }

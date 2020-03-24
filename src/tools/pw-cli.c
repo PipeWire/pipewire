@@ -29,6 +29,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <alloca.h>
+#include <getopt.h>
 
 #include <spa/utils/result.h>
 #include <spa/debug/pod.h>
@@ -434,7 +435,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	struct pw_core *core;
 	struct remote_data *rd;
 
-	n = pw_split_ip(args, WHITESPACE, 1, a);
+	n = args ? pw_split_ip(args, WHITESPACE, 1, a) : 0;
 	if (n == 1) {
 		props = pw_properties_new(PW_KEY_REMOTE_NAME, a[0], NULL);
 	}
@@ -2722,13 +2723,57 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
+static void show_help(const char *name)
+{
+        fprintf(stdout, "%s [options]\n"
+             "  -h, --help                            Show this help\n"
+             "  -v, --version                         Show version\n"
+             "  -d, --daemon                          Start as daemon (Default false)\n"
+             "  -r, --remote                          Remote daemon name\n",
+	     name);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
+	char *opt_remote = NULL;
 	char *error;
+	bool daemon = false;
+	static const struct option long_options[] = {
+		{"help",	0, NULL, 'h'},
+		{"version",	0, NULL, 'v'},
+		{"daemon",	0, NULL, 'd'},
+		{"remote",	1, NULL, 'r'},
+		{NULL,		0, NULL, 0}
+	};
+	int c;
 
 	pw_init(&argc, &argv);
+
+	while ((c = getopt_long(argc, argv, "hvdr:", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			show_help(argv[0]);
+			return 0;
+		case 'v':
+			fprintf(stdout, "%s\n"
+				"Compiled with libpipewire %s\n"
+				"Linked with libpipewire %s\n",
+				argv[0],
+				pw_get_headers_version(),
+				pw_get_library_version());
+			return 0;
+		case 'd':
+			daemon = true;
+			break;
+		case 'r':
+			opt_remote = optarg;
+			break;
+		default:
+			return -1;
+		}
+	}
 
 	data.loop = pw_main_loop_new(NULL);
 	l = pw_main_loop_get_loop(data.loop);
@@ -2738,7 +2783,11 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);
 
-	data.context = pw_context_new(l, pw_properties_new(PW_KEY_CORE_DAEMON, "true", NULL), 0);
+	data.context = pw_context_new(l,
+			pw_properties_new(
+				PW_KEY_CORE_DAEMON, daemon ? "true" : NULL,
+				NULL),
+			0);
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
@@ -2747,7 +2796,7 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "Welcome to PipeWire version %s. Type 'help' for usage.\n",
 			pw_get_library_version());
 
-	do_connect(&data, "connect", "internal", &error);
+	do_connect(&data, "connect", opt_remote, &error);
 
 	pw_main_loop_run(data.loop);
 

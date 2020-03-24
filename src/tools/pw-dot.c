@@ -761,8 +761,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
-	struct pw_properties *props = NULL;
-	const char *remote_name = NULL;
+	const char *opt_remote = NULL;
 	const char *dot_path = DEFAULT_DOT_PATH;
 	static const struct option long_options[] = {
 		{"help",	0, NULL, 'h'},
@@ -804,8 +803,8 @@ int main(int argc, char *argv[])
 			fprintf(stdout, "detail option enabled\n");
 			break;
 		case 'r' :
-			remote_name = optarg;
-			fprintf(stdout, "set remote to %s\n", remote_name);
+			opt_remote = optarg;
+			fprintf(stdout, "set remote to %s\n", opt_remote);
 			break;
 		case 'o' :
 			dot_path = optarg;
@@ -828,10 +827,11 @@ int main(int argc, char *argv[])
 	if (data.context == NULL)
 		return -1;
 
-	if (remote_name)
-		props = pw_properties_new(PW_KEY_REMOTE_NAME, remote_name, NULL);
-
-	data.core = pw_context_connect(data.context, props, 0);
+	data.core = pw_context_connect(data.context,
+			pw_properties_new(
+				PW_KEY_REMOTE_NAME, opt_remote,
+				NULL),
+			0);
 	if (data.core == NULL)
 		return -1;
 

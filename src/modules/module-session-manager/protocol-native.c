@@ -304,6 +304,17 @@ do { \
 	spa_pod_parser_pop(p, f); \
 } while(0)
 
+
+/***********************************************
+ *                 COMMON
+ ***********************************************/
+
+static int demarshal_add_listener_enotsup(void *object,
+			const struct pw_protocol_native_message *msg)
+{
+	return -ENOTSUP;
+}
+
 /***********************************************
  *              CLIENT ENDPOINT
  ***********************************************/
@@ -961,7 +972,21 @@ static const struct pw_protocol_marshal pw_protocol_native_client_session_marsha
  *               ENDPOINT LINK
  ***********************************************/
 
-static void endpoint_link_marshal_info (void *object,
+static void endpoint_link_proxy_marshal_info (void *object,
+				const struct pw_endpoint_link_info *info)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_ENDPOINT_LINK_EVENT_INFO, NULL);
+
+	marshal_pw_endpoint_link_info(b, info);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void endpoint_link_resource_marshal_info (void *object,
 				const struct pw_endpoint_link_info *info)
 {
 	struct pw_resource *resource = object;
@@ -975,7 +1000,26 @@ static void endpoint_link_marshal_info (void *object,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void endpoint_link_marshal_param (void *object, int seq, uint32_t id,
+static void endpoint_link_proxy_marshal_param (void *object, int seq, uint32_t id,
+					uint32_t index, uint32_t next,
+					const struct spa_pod *param)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_ENDPOINT_LINK_EVENT_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+				SPA_POD_Int(seq),
+				SPA_POD_Id(id),
+				SPA_POD_Int(index),
+				SPA_POD_Int(next),
+				SPA_POD_Pod(param));
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+static void endpoint_link_resource_marshal_param (void *object, int seq, uint32_t id,
 					uint32_t index, uint32_t next,
 					const struct spa_pod *param)
 {
@@ -995,7 +1039,7 @@ static void endpoint_link_marshal_param (void *object, int seq, uint32_t id,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static int endpoint_link_marshal_add_listener(void *object,
+static int endpoint_link_proxy_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_endpoint_link_events *events,
 			void *data)
@@ -1005,7 +1049,17 @@ static int endpoint_link_marshal_add_listener(void *object,
 	return 0;
 }
 
-static int endpoint_link_marshal_subscribe_params(void *object,
+static int endpoint_link_resource_marshal_add_listener(void *object,
+			struct spa_hook *listener,
+			const struct pw_endpoint_link_events *events,
+			void *data)
+{
+	struct pw_resource *resource = object;
+	pw_resource_add_object_listener(resource, listener, events, data);
+	return 0;
+}
+
+static int endpoint_link_proxy_marshal_subscribe_params(void *object,
 						uint32_t *ids, uint32_t n_ids)
 {
 	struct pw_proxy *proxy = object;
@@ -1020,7 +1074,22 @@ static int endpoint_link_marshal_subscribe_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_link_marshal_enum_params(void *object,
+static int endpoint_link_resource_marshal_subscribe_params(void *object,
+						uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_LINK_METHOD_SUBSCRIBE_PARAMS, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_link_proxy_marshal_enum_params(void *object,
 					int seq, uint32_t id,
 					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
@@ -1042,7 +1111,29 @@ static int endpoint_link_marshal_enum_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_link_marshal_set_param(void *object,
+static int endpoint_link_resource_marshal_enum_params(void *object,
+					int seq, uint32_t id,
+					uint32_t index, uint32_t num,
+					const struct spa_pod *filter)
+{
+	struct pw_protocol_native_message *msg;
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_LINK_METHOD_ENUM_PARAMS, &msg);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
+			SPA_POD_Id(id),
+			SPA_POD_Int(index),
+			SPA_POD_Int(num),
+			SPA_POD_Pod(filter));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_link_proxy_marshal_set_param(void *object,
 					uint32_t id, uint32_t flags,
 					const struct spa_pod *param)
 {
@@ -1060,7 +1151,25 @@ static int endpoint_link_marshal_set_param(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_link_marshal_request_state(void *object,
+static int endpoint_link_resource_marshal_set_param(void *object,
+					uint32_t id, uint32_t flags,
+					const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_LINK_METHOD_SET_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Id(id),
+			SPA_POD_Int(flags),
+			SPA_POD_Pod(param));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_link_proxy_marshal_request_state(void *object,
 					enum pw_endpoint_link_state state)
 {
 	struct pw_proxy *proxy = object;
@@ -1074,7 +1183,21 @@ static int endpoint_link_marshal_request_state(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_link_demarshal_info(void *object,
+static int endpoint_link_resource_marshal_request_state(void *object,
+					enum pw_endpoint_link_state state)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_LINK_METHOD_REQUEST_STATE, NULL);
+
+	spa_pod_builder_add_struct(b, SPA_POD_Int(state));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_link_proxy_demarshal_info(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1091,7 +1214,24 @@ static int endpoint_link_demarshal_info(void *object,
 				info, 0, &info);
 }
 
-static int endpoint_link_demarshal_param(void *object,
+static int endpoint_link_resource_demarshal_info(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+	struct pw_endpoint_link_info info = { .props = &props };
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+
+	demarshal_pw_endpoint_link_info(&prs, &f, &info);
+
+	return pw_resource_notify(resource, struct pw_endpoint_link_events,
+				info, 0, &info);
+}
+
+static int endpoint_link_proxy_demarshal_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1113,7 +1253,49 @@ static int endpoint_link_demarshal_param(void *object,
 				param, 0, seq, id, index, next, param);
 }
 
-static int endpoint_link_demarshal_subscribe_params(void *object,
+static int endpoint_link_resource_demarshal_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, next;
+	int seq;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&next),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_resource_notify(resource, struct pw_endpoint_link_events,
+				param, 0, seq, id, index, next, param);
+}
+
+static int endpoint_link_proxy_demarshal_subscribe_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t csize, ctype, n_ids;
+	uint32_t *ids;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
+		return -EINVAL;
+
+	if (ctype != SPA_TYPE_Id)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_link_methods,
+				subscribe_params, 0, ids, n_ids);
+}
+
+static int endpoint_link_resource_demarshal_subscribe_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1133,7 +1315,29 @@ static int endpoint_link_demarshal_subscribe_params(void *object,
 				subscribe_params, 0, ids, n_ids);
 }
 
-static int endpoint_link_demarshal_enum_params(void *object,
+static int endpoint_link_proxy_demarshal_enum_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, num;
+	int seq;
+	struct spa_pod *filter;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&num),
+				SPA_POD_Pod(&filter)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_link_methods,
+				enum_params, 0, seq, id, index, num, filter);
+}
+
+static int endpoint_link_resource_demarshal_enum_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1155,7 +1359,26 @@ static int endpoint_link_demarshal_enum_params(void *object,
 				enum_params, 0, seq, id, index, num, filter);
 }
 
-static int endpoint_link_demarshal_set_param(void *object,
+static int endpoint_link_proxy_demarshal_set_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, flags;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&flags),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_link_methods,
+				set_param, 0, id, flags, param);
+}
+
+static int endpoint_link_resource_demarshal_set_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1174,7 +1397,23 @@ static int endpoint_link_demarshal_set_param(void *object,
 				set_param, 0, id, flags, param);
 }
 
-static int endpoint_link_demarshal_request_state(void *object,
+static int endpoint_link_proxy_demarshal_request_state(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	enum pw_endpoint_link_state state;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&state)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_link_methods,
+				request_state, 0, state);
+}
+
+static int endpoint_link_resource_demarshal_request_state(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1190,36 +1429,68 @@ static int endpoint_link_demarshal_request_state(void *object,
 				request_state, 0, state);
 }
 
-static const struct pw_endpoint_link_events pw_protocol_native_endpoint_link_event_marshal = {
+static const struct pw_endpoint_link_events pw_protocol_native_endpoint_link_client_event_marshal = {
 	PW_VERSION_ENDPOINT_LINK_EVENTS,
-	.info = endpoint_link_marshal_info,
-	.param = endpoint_link_marshal_param,
+	.info = endpoint_link_proxy_marshal_info,
+	.param = endpoint_link_proxy_marshal_param,
+};
+
+static const struct pw_endpoint_link_events pw_protocol_native_endpoint_link_server_event_marshal = {
+	PW_VERSION_ENDPOINT_LINK_EVENTS,
+	.info = endpoint_link_resource_marshal_info,
+	.param = endpoint_link_resource_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_endpoint_link_event_demarshal[PW_ENDPOINT_LINK_EVENT_NUM] =
+pw_protocol_native_endpoint_link_client_event_demarshal[PW_ENDPOINT_LINK_EVENT_NUM] =
 {
-	[PW_ENDPOINT_LINK_EVENT_INFO] = { endpoint_link_demarshal_info, 0 },
-	[PW_ENDPOINT_LINK_EVENT_PARAM] = { endpoint_link_demarshal_param, 0 },
+	[PW_ENDPOINT_LINK_EVENT_INFO] = { endpoint_link_proxy_demarshal_info, 0 },
+	[PW_ENDPOINT_LINK_EVENT_PARAM] = { endpoint_link_proxy_demarshal_param, 0 },
 };
 
-static const struct pw_endpoint_link_methods pw_protocol_native_endpoint_link_method_marshal = {
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_endpoint_link_server_event_demarshal[PW_ENDPOINT_LINK_EVENT_NUM] =
+{
+	[PW_ENDPOINT_LINK_EVENT_INFO] = { endpoint_link_resource_demarshal_info, 0 },
+	[PW_ENDPOINT_LINK_EVENT_PARAM] = { endpoint_link_resource_demarshal_param, 0 },
+};
+
+static const struct pw_endpoint_link_methods pw_protocol_native_endpoint_link_client_method_marshal = {
 	PW_VERSION_ENDPOINT_LINK_METHODS,
-	.add_listener = endpoint_link_marshal_add_listener,
-	.subscribe_params = endpoint_link_marshal_subscribe_params,
-	.enum_params = endpoint_link_marshal_enum_params,
-	.set_param = endpoint_link_marshal_set_param,
-	.request_state = endpoint_link_marshal_request_state,
+	.add_listener = endpoint_link_proxy_marshal_add_listener,
+	.subscribe_params = endpoint_link_proxy_marshal_subscribe_params,
+	.enum_params = endpoint_link_proxy_marshal_enum_params,
+	.set_param = endpoint_link_proxy_marshal_set_param,
+	.request_state = endpoint_link_proxy_marshal_request_state,
+};
+
+static const struct pw_endpoint_link_methods pw_protocol_native_endpoint_link_server_method_marshal = {
+	PW_VERSION_ENDPOINT_LINK_METHODS,
+	.add_listener = endpoint_link_resource_marshal_add_listener,
+	.subscribe_params = endpoint_link_resource_marshal_subscribe_params,
+	.enum_params = endpoint_link_resource_marshal_enum_params,
+	.set_param = endpoint_link_resource_marshal_set_param,
+	.request_state = endpoint_link_resource_marshal_request_state,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_endpoint_link_method_demarshal[PW_ENDPOINT_LINK_METHOD_NUM] =
+pw_protocol_native_endpoint_link_client_method_demarshal[PW_ENDPOINT_LINK_METHOD_NUM] =
 {
-	[PW_ENDPOINT_LINK_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_ENDPOINT_LINK_METHOD_SUBSCRIBE_PARAMS] = { endpoint_link_demarshal_subscribe_params, 0 },
-	[PW_ENDPOINT_LINK_METHOD_ENUM_PARAMS] = { endpoint_link_demarshal_enum_params, 0 },
-	[PW_ENDPOINT_LINK_METHOD_SET_PARAM] = { endpoint_link_demarshal_set_param, PW_PERM_W },
-	[PW_ENDPOINT_LINK_METHOD_REQUEST_STATE] = { endpoint_link_demarshal_request_state, PW_PERM_W },
+	[PW_ENDPOINT_LINK_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_ENDPOINT_LINK_METHOD_SUBSCRIBE_PARAMS] = { endpoint_link_proxy_demarshal_subscribe_params, 0 },
+	[PW_ENDPOINT_LINK_METHOD_ENUM_PARAMS] = { endpoint_link_proxy_demarshal_enum_params, 0 },
+	[PW_ENDPOINT_LINK_METHOD_SET_PARAM] = { endpoint_link_proxy_demarshal_set_param, PW_PERM_W },
+	[PW_ENDPOINT_LINK_METHOD_REQUEST_STATE] = { endpoint_link_proxy_demarshal_request_state, PW_PERM_W },
+};
+
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_endpoint_link_server_method_demarshal[PW_ENDPOINT_LINK_METHOD_NUM] =
+{
+	[PW_ENDPOINT_LINK_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_ENDPOINT_LINK_METHOD_SUBSCRIBE_PARAMS] = { endpoint_link_resource_demarshal_subscribe_params, 0 },
+	[PW_ENDPOINT_LINK_METHOD_ENUM_PARAMS] = { endpoint_link_resource_demarshal_enum_params, 0 },
+	[PW_ENDPOINT_LINK_METHOD_SET_PARAM] = { endpoint_link_resource_demarshal_set_param, PW_PERM_W },
+	[PW_ENDPOINT_LINK_METHOD_REQUEST_STATE] = { endpoint_link_resource_demarshal_request_state, PW_PERM_W },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_endpoint_link_marshal = {
@@ -1228,17 +1499,43 @@ static const struct pw_protocol_marshal pw_protocol_native_endpoint_link_marshal
 	0,
 	PW_ENDPOINT_LINK_METHOD_NUM,
 	PW_ENDPOINT_LINK_EVENT_NUM,
-	&pw_protocol_native_endpoint_link_method_marshal,
-	&pw_protocol_native_endpoint_link_method_demarshal,
-	&pw_protocol_native_endpoint_link_event_marshal,
-	&pw_protocol_native_endpoint_link_event_demarshal,
+	.client_marshal = &pw_protocol_native_endpoint_link_client_method_marshal,
+	.server_demarshal = pw_protocol_native_endpoint_link_server_method_demarshal,
+	.server_marshal = &pw_protocol_native_endpoint_link_server_event_marshal,
+	.client_demarshal = pw_protocol_native_endpoint_link_client_event_demarshal,
+};
+
+static const struct pw_protocol_marshal pw_protocol_native_endpoint_link_impl_marshal = {
+	PW_TYPE_INTERFACE_EndpointLink,
+	PW_VERSION_ENDPOINT_LINK,
+	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
+	PW_ENDPOINT_LINK_EVENT_NUM,
+	PW_ENDPOINT_LINK_METHOD_NUM,
+	.client_marshal = &pw_protocol_native_endpoint_link_client_event_marshal,
+	.server_demarshal = pw_protocol_native_endpoint_link_server_event_demarshal,
+	.server_marshal = &pw_protocol_native_endpoint_link_server_method_marshal,
+	.client_demarshal = pw_protocol_native_endpoint_link_client_method_demarshal,
 };
 
 /***********************************************
  *               ENDPOINT STREAM
  ***********************************************/
 
-static void endpoint_stream_marshal_info (void *object,
+static void endpoint_stream_proxy_marshal_info (void *object,
+				const struct pw_endpoint_stream_info *info)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_ENDPOINT_STREAM_EVENT_INFO, NULL);
+
+	marshal_pw_endpoint_stream_info(b, info);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void endpoint_stream_resource_marshal_info (void *object,
 				const struct pw_endpoint_stream_info *info)
 {
 	struct pw_resource *resource = object;
@@ -1252,7 +1549,27 @@ static void endpoint_stream_marshal_info (void *object,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void endpoint_stream_marshal_param (void *object, int seq, uint32_t id,
+static void endpoint_stream_proxy_marshal_param (void *object, int seq, uint32_t id,
+					uint32_t index, uint32_t next,
+					const struct spa_pod *param)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_ENDPOINT_STREAM_EVENT_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+				SPA_POD_Int(seq),
+				SPA_POD_Id(id),
+				SPA_POD_Int(index),
+				SPA_POD_Int(next),
+				SPA_POD_Pod(param));
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void endpoint_stream_resource_marshal_param (void *object, int seq, uint32_t id,
 					uint32_t index, uint32_t next,
 					const struct spa_pod *param)
 {
@@ -1272,7 +1589,7 @@ static void endpoint_stream_marshal_param (void *object, int seq, uint32_t id,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static int endpoint_stream_marshal_add_listener(void *object,
+static int endpoint_stream_proxy_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_endpoint_stream_events *events,
 			void *data)
@@ -1282,7 +1599,17 @@ static int endpoint_stream_marshal_add_listener(void *object,
 	return 0;
 }
 
-static int endpoint_stream_marshal_subscribe_params(void *object,
+static int endpoint_stream_resource_marshal_add_listener(void *object,
+			struct spa_hook *listener,
+			const struct pw_endpoint_stream_events *events,
+			void *data)
+{
+	struct pw_resource *resource = object;
+	pw_resource_add_object_listener(resource, listener, events, data);
+	return 0;
+}
+
+static int endpoint_stream_proxy_marshal_subscribe_params(void *object,
 						uint32_t *ids, uint32_t n_ids)
 {
 	struct pw_proxy *proxy = object;
@@ -1297,7 +1624,22 @@ static int endpoint_stream_marshal_subscribe_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_stream_marshal_enum_params(void *object,
+static int endpoint_stream_resource_marshal_subscribe_params(void *object,
+						uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_STREAM_METHOD_SUBSCRIBE_PARAMS, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_stream_proxy_marshal_enum_params(void *object,
 					int seq, uint32_t id,
 					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
@@ -1319,7 +1661,29 @@ static int endpoint_stream_marshal_enum_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_stream_marshal_set_param(void *object,
+static int endpoint_stream_resource_marshal_enum_params(void *object,
+					int seq, uint32_t id,
+					uint32_t index, uint32_t num,
+					const struct spa_pod *filter)
+{
+	struct pw_protocol_native_message *msg;
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_STREAM_METHOD_ENUM_PARAMS, &msg);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
+			SPA_POD_Id(id),
+			SPA_POD_Int(index),
+			SPA_POD_Int(num),
+			SPA_POD_Pod(filter));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_stream_proxy_marshal_set_param(void *object,
 					uint32_t id, uint32_t flags,
 					const struct spa_pod *param)
 {
@@ -1337,7 +1701,25 @@ static int endpoint_stream_marshal_set_param(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_stream_demarshal_info(void *object,
+static int endpoint_stream_resource_marshal_set_param(void *object,
+					uint32_t id, uint32_t flags,
+					const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_STREAM_METHOD_SET_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Id(id),
+			SPA_POD_Int(flags),
+			SPA_POD_Pod(param));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_stream_proxy_demarshal_info(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1354,7 +1736,24 @@ static int endpoint_stream_demarshal_info(void *object,
 				info, 0, &info);
 }
 
-static int endpoint_stream_demarshal_param(void *object,
+static int endpoint_stream_resource_demarshal_info(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+	struct pw_endpoint_stream_info info = { .props = &props };
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+
+	demarshal_pw_endpoint_stream_info(&prs, &f, &info);
+
+	return pw_resource_notify(resource, struct pw_endpoint_stream_events,
+				info, 0, &info);
+}
+
+static int endpoint_stream_proxy_demarshal_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1376,7 +1775,49 @@ static int endpoint_stream_demarshal_param(void *object,
 				param, 0, seq, id, index, next, param);
 }
 
-static int endpoint_stream_demarshal_subscribe_params(void *object,
+static int endpoint_stream_resource_demarshal_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, next;
+	int seq;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&next),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_resource_notify(resource, struct pw_endpoint_stream_events,
+				param, 0, seq, id, index, next, param);
+}
+
+static int endpoint_stream_proxy_demarshal_subscribe_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t csize, ctype, n_ids;
+	uint32_t *ids;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
+		return -EINVAL;
+
+	if (ctype != SPA_TYPE_Id)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_stream_methods,
+				subscribe_params, 0, ids, n_ids);
+}
+
+static int endpoint_stream_resource_demarshal_subscribe_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1396,7 +1837,29 @@ static int endpoint_stream_demarshal_subscribe_params(void *object,
 				subscribe_params, 0, ids, n_ids);
 }
 
-static int endpoint_stream_demarshal_enum_params(void *object,
+static int endpoint_stream_proxy_demarshal_enum_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, num;
+	int seq;
+	struct spa_pod *filter;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&num),
+				SPA_POD_Pod(&filter)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_stream_methods,
+				enum_params, 0, seq, id, index, num, filter);
+}
+
+static int endpoint_stream_resource_demarshal_enum_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1418,7 +1881,26 @@ static int endpoint_stream_demarshal_enum_params(void *object,
 				enum_params, 0, seq, id, index, num, filter);
 }
 
-static int endpoint_stream_demarshal_set_param(void *object,
+static int endpoint_stream_proxy_demarshal_set_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, flags;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&flags),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_stream_methods,
+				set_param, 0, id, flags, param);
+}
+
+static int endpoint_stream_resource_demarshal_set_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1437,34 +1919,64 @@ static int endpoint_stream_demarshal_set_param(void *object,
 				set_param, 0, id, flags, param);
 }
 
-static const struct pw_endpoint_stream_events pw_protocol_native_endpoint_stream_event_marshal = {
+static const struct pw_endpoint_stream_events pw_protocol_native_endpoint_stream_client_event_marshal = {
 	PW_VERSION_ENDPOINT_STREAM_EVENTS,
-	.info = endpoint_stream_marshal_info,
-	.param = endpoint_stream_marshal_param,
+	.info = endpoint_stream_proxy_marshal_info,
+	.param = endpoint_stream_proxy_marshal_param,
+};
+
+static const struct pw_endpoint_stream_events pw_protocol_native_endpoint_stream_server_event_marshal = {
+	PW_VERSION_ENDPOINT_STREAM_EVENTS,
+	.info = endpoint_stream_resource_marshal_info,
+	.param = endpoint_stream_resource_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_endpoint_stream_event_demarshal[PW_ENDPOINT_STREAM_EVENT_NUM] =
+pw_protocol_native_endpoint_stream_client_event_demarshal[PW_ENDPOINT_STREAM_EVENT_NUM] =
 {
-	[PW_ENDPOINT_STREAM_EVENT_INFO] = { endpoint_stream_demarshal_info, 0 },
-	[PW_ENDPOINT_STREAM_EVENT_PARAM] = { endpoint_stream_demarshal_param, 0 },
+	[PW_ENDPOINT_STREAM_EVENT_INFO] = { endpoint_stream_proxy_demarshal_info, 0 },
+	[PW_ENDPOINT_STREAM_EVENT_PARAM] = { endpoint_stream_proxy_demarshal_param, 0 },
 };
 
-static const struct pw_endpoint_stream_methods pw_protocol_native_endpoint_stream_method_marshal = {
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_endpoint_stream_server_event_demarshal[PW_ENDPOINT_STREAM_EVENT_NUM] =
+{
+	[PW_ENDPOINT_STREAM_EVENT_INFO] = { endpoint_stream_resource_demarshal_info, 0 },
+	[PW_ENDPOINT_STREAM_EVENT_PARAM] = { endpoint_stream_resource_demarshal_param, 0 },
+};
+
+static const struct pw_endpoint_stream_methods pw_protocol_native_endpoint_stream_client_method_marshal = {
 	PW_VERSION_ENDPOINT_STREAM_METHODS,
-	.add_listener = endpoint_stream_marshal_add_listener,
-	.subscribe_params = endpoint_stream_marshal_subscribe_params,
-	.enum_params = endpoint_stream_marshal_enum_params,
-	.set_param = endpoint_stream_marshal_set_param,
+	.add_listener = endpoint_stream_proxy_marshal_add_listener,
+	.subscribe_params = endpoint_stream_proxy_marshal_subscribe_params,
+	.enum_params = endpoint_stream_proxy_marshal_enum_params,
+	.set_param = endpoint_stream_proxy_marshal_set_param,
+};
+
+static const struct pw_endpoint_stream_methods pw_protocol_native_endpoint_stream_server_method_marshal = {
+	PW_VERSION_ENDPOINT_STREAM_METHODS,
+	.add_listener = endpoint_stream_resource_marshal_add_listener,
+	.subscribe_params = endpoint_stream_resource_marshal_subscribe_params,
+	.enum_params = endpoint_stream_resource_marshal_enum_params,
+	.set_param = endpoint_stream_resource_marshal_set_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_endpoint_stream_method_demarshal[PW_ENDPOINT_STREAM_METHOD_NUM] =
+pw_protocol_native_endpoint_stream_client_method_demarshal[PW_ENDPOINT_STREAM_METHOD_NUM] =
 {
-	[PW_ENDPOINT_STREAM_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_ENDPOINT_STREAM_METHOD_SUBSCRIBE_PARAMS] = { endpoint_stream_demarshal_subscribe_params, 0 },
-	[PW_ENDPOINT_STREAM_METHOD_ENUM_PARAMS] = { endpoint_stream_demarshal_enum_params, 0 },
-	[PW_ENDPOINT_STREAM_METHOD_SET_PARAM] = { endpoint_stream_demarshal_set_param, PW_PERM_W },
+	[PW_ENDPOINT_STREAM_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_ENDPOINT_STREAM_METHOD_SUBSCRIBE_PARAMS] = { endpoint_stream_proxy_demarshal_subscribe_params, 0 },
+	[PW_ENDPOINT_STREAM_METHOD_ENUM_PARAMS] = { endpoint_stream_proxy_demarshal_enum_params, 0 },
+	[PW_ENDPOINT_STREAM_METHOD_SET_PARAM] = { endpoint_stream_proxy_demarshal_set_param, PW_PERM_W },
+};
+
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_endpoint_stream_server_method_demarshal[PW_ENDPOINT_STREAM_METHOD_NUM] =
+{
+	[PW_ENDPOINT_STREAM_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_ENDPOINT_STREAM_METHOD_SUBSCRIBE_PARAMS] = { endpoint_stream_resource_demarshal_subscribe_params, 0 },
+	[PW_ENDPOINT_STREAM_METHOD_ENUM_PARAMS] = { endpoint_stream_resource_demarshal_enum_params, 0 },
+	[PW_ENDPOINT_STREAM_METHOD_SET_PARAM] = { endpoint_stream_resource_demarshal_set_param, PW_PERM_W },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_endpoint_stream_marshal = {
@@ -1473,17 +1985,43 @@ static const struct pw_protocol_marshal pw_protocol_native_endpoint_stream_marsh
 	0,
 	PW_ENDPOINT_STREAM_METHOD_NUM,
 	PW_ENDPOINT_STREAM_EVENT_NUM,
-	&pw_protocol_native_endpoint_stream_method_marshal,
-	&pw_protocol_native_endpoint_stream_method_demarshal,
-	&pw_protocol_native_endpoint_stream_event_marshal,
-	&pw_protocol_native_endpoint_stream_event_demarshal,
+	.client_marshal = &pw_protocol_native_endpoint_stream_client_method_marshal,
+	.server_demarshal = pw_protocol_native_endpoint_stream_server_method_demarshal,
+	.server_marshal = &pw_protocol_native_endpoint_stream_server_event_marshal,
+	.client_demarshal = pw_protocol_native_endpoint_stream_client_event_demarshal,
+};
+
+static const struct pw_protocol_marshal pw_protocol_native_endpoint_stream_impl_marshal = {
+	PW_TYPE_INTERFACE_EndpointStream,
+	PW_VERSION_ENDPOINT_STREAM,
+	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
+	PW_ENDPOINT_STREAM_EVENT_NUM,
+	PW_ENDPOINT_STREAM_METHOD_NUM,
+	.client_marshal = &pw_protocol_native_endpoint_stream_client_event_marshal,
+	.server_demarshal = pw_protocol_native_endpoint_stream_server_event_demarshal,
+	.server_marshal = &pw_protocol_native_endpoint_stream_server_method_marshal,
+	.client_demarshal = pw_protocol_native_endpoint_stream_client_method_demarshal,
 };
 
 /***********************************************
  *                  ENDPOINT
  ***********************************************/
 
-static void endpoint_marshal_info (void *object,
+static void endpoint_proxy_marshal_info (void *object,
+				const struct pw_endpoint_info *info)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_ENDPOINT_EVENT_INFO, NULL);
+
+	marshal_pw_endpoint_info(b, info);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void endpoint_resource_marshal_info (void *object,
 				const struct pw_endpoint_info *info)
 {
 	struct pw_resource *resource = object;
@@ -1497,7 +2035,27 @@ static void endpoint_marshal_info (void *object,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void endpoint_marshal_param (void *object, int seq, uint32_t id,
+static void endpoint_proxy_marshal_param (void *object, int seq, uint32_t id,
+					uint32_t index, uint32_t next,
+					const struct spa_pod *param)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_ENDPOINT_EVENT_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+				SPA_POD_Int(seq),
+				SPA_POD_Id(id),
+				SPA_POD_Int(index),
+				SPA_POD_Int(next),
+				SPA_POD_Pod(param));
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void endpoint_resource_marshal_param (void *object, int seq, uint32_t id,
 					uint32_t index, uint32_t next,
 					const struct spa_pod *param)
 {
@@ -1517,7 +2075,7 @@ static void endpoint_marshal_param (void *object, int seq, uint32_t id,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static int endpoint_marshal_add_listener(void *object,
+static int endpoint_proxy_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_endpoint_events *events,
 			void *data)
@@ -1527,7 +2085,17 @@ static int endpoint_marshal_add_listener(void *object,
 	return 0;
 }
 
-static int endpoint_marshal_subscribe_params(void *object,
+static int endpoint_resource_marshal_add_listener(void *object,
+			struct spa_hook *listener,
+			const struct pw_endpoint_events *events,
+			void *data)
+{
+	struct pw_resource *resource = object;
+	pw_resource_add_object_listener(resource, listener, events, data);
+	return 0;
+}
+
+static int endpoint_proxy_marshal_subscribe_params(void *object,
 						uint32_t *ids, uint32_t n_ids)
 {
 	struct pw_proxy *proxy = object;
@@ -1542,7 +2110,22 @@ static int endpoint_marshal_subscribe_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_marshal_enum_params(void *object,
+static int endpoint_resource_marshal_subscribe_params(void *object,
+						uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_METHOD_SUBSCRIBE_PARAMS, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_proxy_marshal_enum_params(void *object,
 					int seq, uint32_t id,
 					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
@@ -1564,7 +2147,29 @@ static int endpoint_marshal_enum_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_marshal_set_param(void *object,
+static int endpoint_resource_marshal_enum_params(void *object,
+					int seq, uint32_t id,
+					uint32_t index, uint32_t num,
+					const struct spa_pod *filter)
+{
+	struct pw_protocol_native_message *msg;
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_METHOD_ENUM_PARAMS, &msg);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
+			SPA_POD_Id(id),
+			SPA_POD_Int(index),
+			SPA_POD_Int(num),
+			SPA_POD_Pod(filter));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_proxy_marshal_set_param(void *object,
 					uint32_t id, uint32_t flags,
 					const struct spa_pod *param)
 {
@@ -1582,7 +2187,25 @@ static int endpoint_marshal_set_param(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_marshal_create_link(void *object,
+static int endpoint_resource_marshal_set_param(void *object,
+					uint32_t id, uint32_t flags,
+					const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_METHOD_SET_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Id(id),
+			SPA_POD_Int(flags),
+			SPA_POD_Pod(param));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_proxy_marshal_create_link(void *object,
 					const struct spa_dict *props)
 {
 	struct pw_proxy *proxy = object;
@@ -1596,7 +2219,21 @@ static int endpoint_marshal_create_link(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int endpoint_demarshal_info(void *object,
+static int endpoint_resource_marshal_create_link(void *object,
+					const struct spa_dict *props)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_ENDPOINT_METHOD_CREATE_LINK, NULL);
+
+	push_dict(b, props);
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int endpoint_proxy_demarshal_info(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1613,7 +2250,24 @@ static int endpoint_demarshal_info(void *object,
 				info, 0, &info);
 }
 
-static int endpoint_demarshal_param(void *object,
+static int endpoint_resource_demarshal_info(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+	struct pw_endpoint_info info = { .props = &props };
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+
+	demarshal_pw_endpoint_info(&prs, &f, &info);
+
+	return pw_resource_notify(resource, struct pw_endpoint_events,
+				info, 0, &info);
+}
+
+static int endpoint_proxy_demarshal_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1635,7 +2289,49 @@ static int endpoint_demarshal_param(void *object,
 				param, 0, seq, id, index, next, param);
 }
 
-static int endpoint_demarshal_subscribe_params(void *object,
+static int endpoint_resource_demarshal_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, next;
+	int seq;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&next),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_resource_notify(resource, struct pw_endpoint_events,
+				param, 0, seq, id, index, next, param);
+}
+
+static int endpoint_proxy_demarshal_subscribe_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t csize, ctype, n_ids;
+	uint32_t *ids;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
+		return -EINVAL;
+
+	if (ctype != SPA_TYPE_Id)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_methods,
+				subscribe_params, 0, ids, n_ids);
+}
+
+static int endpoint_resource_demarshal_subscribe_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1655,7 +2351,29 @@ static int endpoint_demarshal_subscribe_params(void *object,
 				subscribe_params, 0, ids, n_ids);
 }
 
-static int endpoint_demarshal_enum_params(void *object,
+static int endpoint_proxy_demarshal_enum_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, num;
+	int seq;
+	struct spa_pod *filter;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&num),
+				SPA_POD_Pod(&filter)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_methods,
+				enum_params, 0, seq, id, index, num, filter);
+}
+
+static int endpoint_resource_demarshal_enum_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1677,7 +2395,26 @@ static int endpoint_demarshal_enum_params(void *object,
 				enum_params, 0, seq, id, index, num, filter);
 }
 
-static int endpoint_demarshal_set_param(void *object,
+static int endpoint_proxy_demarshal_set_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, flags;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&flags),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_methods,
+				set_param, 0, id, flags, param);
+}
+
+static int endpoint_resource_demarshal_set_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1696,7 +2433,23 @@ static int endpoint_demarshal_set_param(void *object,
 				set_param, 0, id, flags, param);
 }
 
-static int endpoint_demarshal_create_link(void *object,
+static int endpoint_proxy_demarshal_create_link(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+
+	parse_dict(&prs, &f, &props);
+
+	return pw_proxy_notify(proxy, struct pw_endpoint_methods,
+				create_link, 0, &props);
+}
+
+static int endpoint_resource_demarshal_create_link(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1712,36 +2465,68 @@ static int endpoint_demarshal_create_link(void *object,
 				create_link, 0, &props);
 }
 
-static const struct pw_endpoint_events pw_protocol_native_endpoint_event_marshal = {
+static const struct pw_endpoint_events pw_protocol_native_endpoint_client_event_marshal = {
 	PW_VERSION_ENDPOINT_EVENTS,
-	.info = endpoint_marshal_info,
-	.param = endpoint_marshal_param,
+	.info = endpoint_proxy_marshal_info,
+	.param = endpoint_proxy_marshal_param,
+};
+
+static const struct pw_endpoint_events pw_protocol_native_endpoint_server_event_marshal = {
+	PW_VERSION_ENDPOINT_EVENTS,
+	.info = endpoint_resource_marshal_info,
+	.param = endpoint_resource_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_endpoint_event_demarshal[PW_ENDPOINT_EVENT_NUM] =
+pw_protocol_native_endpoint_client_event_demarshal[PW_ENDPOINT_EVENT_NUM] =
 {
-	[PW_ENDPOINT_EVENT_INFO] = { endpoint_demarshal_info, 0 },
-	[PW_ENDPOINT_EVENT_PARAM] = { endpoint_demarshal_param, 0 },
+	[PW_ENDPOINT_EVENT_INFO] = { endpoint_proxy_demarshal_info, 0 },
+	[PW_ENDPOINT_EVENT_PARAM] = { endpoint_proxy_demarshal_param, 0 },
 };
 
-static const struct pw_endpoint_methods pw_protocol_native_endpoint_method_marshal = {
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_endpoint_server_event_demarshal[PW_ENDPOINT_EVENT_NUM] =
+{
+	[PW_ENDPOINT_EVENT_INFO] = { endpoint_resource_demarshal_info, 0 },
+	[PW_ENDPOINT_EVENT_PARAM] = { endpoint_resource_demarshal_param, 0 },
+};
+
+static const struct pw_endpoint_methods pw_protocol_native_endpoint_client_method_marshal = {
 	PW_VERSION_ENDPOINT_METHODS,
-	.add_listener = endpoint_marshal_add_listener,
-	.subscribe_params = endpoint_marshal_subscribe_params,
-	.enum_params = endpoint_marshal_enum_params,
-	.set_param = endpoint_marshal_set_param,
-	.create_link = endpoint_marshal_create_link,
+	.add_listener = endpoint_proxy_marshal_add_listener,
+	.subscribe_params = endpoint_proxy_marshal_subscribe_params,
+	.enum_params = endpoint_proxy_marshal_enum_params,
+	.set_param = endpoint_proxy_marshal_set_param,
+	.create_link = endpoint_proxy_marshal_create_link,
+};
+
+static const struct pw_endpoint_methods pw_protocol_native_endpoint_server_method_marshal = {
+	PW_VERSION_ENDPOINT_METHODS,
+	.add_listener = endpoint_resource_marshal_add_listener,
+	.subscribe_params = endpoint_resource_marshal_subscribe_params,
+	.enum_params = endpoint_resource_marshal_enum_params,
+	.set_param = endpoint_resource_marshal_set_param,
+	.create_link = endpoint_resource_marshal_create_link,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_endpoint_method_demarshal[PW_ENDPOINT_METHOD_NUM] =
+pw_protocol_native_endpoint_client_method_demarshal[PW_ENDPOINT_METHOD_NUM] =
 {
-	[PW_ENDPOINT_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_ENDPOINT_METHOD_SUBSCRIBE_PARAMS] = { endpoint_demarshal_subscribe_params, 0 },
-	[PW_ENDPOINT_METHOD_ENUM_PARAMS] = { endpoint_demarshal_enum_params, 0 },
-	[PW_ENDPOINT_METHOD_SET_PARAM] = { endpoint_demarshal_set_param, PW_PERM_W },
-	[PW_ENDPOINT_METHOD_CREATE_LINK] = { endpoint_demarshal_create_link, PW_PERM_X },
+	[PW_ENDPOINT_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_ENDPOINT_METHOD_SUBSCRIBE_PARAMS] = { endpoint_proxy_demarshal_subscribe_params, 0 },
+	[PW_ENDPOINT_METHOD_ENUM_PARAMS] = { endpoint_proxy_demarshal_enum_params, 0 },
+	[PW_ENDPOINT_METHOD_SET_PARAM] = { endpoint_proxy_demarshal_set_param, PW_PERM_W },
+	[PW_ENDPOINT_METHOD_CREATE_LINK] = { endpoint_proxy_demarshal_create_link, PW_PERM_X },
+};
+
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_endpoint_server_method_demarshal[PW_ENDPOINT_METHOD_NUM] =
+{
+	[PW_ENDPOINT_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_ENDPOINT_METHOD_SUBSCRIBE_PARAMS] = { endpoint_resource_demarshal_subscribe_params, 0 },
+	[PW_ENDPOINT_METHOD_ENUM_PARAMS] = { endpoint_resource_demarshal_enum_params, 0 },
+	[PW_ENDPOINT_METHOD_SET_PARAM] = { endpoint_resource_demarshal_set_param, PW_PERM_W },
+	[PW_ENDPOINT_METHOD_CREATE_LINK] = { endpoint_resource_demarshal_create_link, PW_PERM_X },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_endpoint_marshal = {
@@ -1750,17 +2535,43 @@ static const struct pw_protocol_marshal pw_protocol_native_endpoint_marshal = {
 	0,
 	PW_ENDPOINT_METHOD_NUM,
 	PW_ENDPOINT_EVENT_NUM,
-	&pw_protocol_native_endpoint_method_marshal,
-	&pw_protocol_native_endpoint_method_demarshal,
-	&pw_protocol_native_endpoint_event_marshal,
-	&pw_protocol_native_endpoint_event_demarshal,
+	.client_marshal = &pw_protocol_native_endpoint_client_method_marshal,
+	.server_demarshal = pw_protocol_native_endpoint_server_method_demarshal,
+	.server_marshal = &pw_protocol_native_endpoint_server_event_marshal,
+	.client_demarshal = pw_protocol_native_endpoint_client_event_demarshal,
+};
+
+static const struct pw_protocol_marshal pw_protocol_native_endpoint_impl_marshal = {
+	PW_TYPE_INTERFACE_Endpoint,
+	PW_VERSION_ENDPOINT,
+	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
+	PW_ENDPOINT_EVENT_NUM,
+	PW_ENDPOINT_METHOD_NUM,
+	.client_marshal = &pw_protocol_native_endpoint_client_event_marshal,
+	.server_demarshal = pw_protocol_native_endpoint_server_event_demarshal,
+	.server_marshal = &pw_protocol_native_endpoint_server_method_marshal,
+	.client_demarshal = pw_protocol_native_endpoint_client_method_demarshal,
 };
 
 /***********************************************
  *                 SESSION
  ***********************************************/
 
-static void session_marshal_info (void *object,
+static void session_proxy_marshal_info (void *object,
+				const struct pw_session_info *info)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_SESSION_EVENT_INFO, NULL);
+
+	marshal_pw_session_info(b, info);
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void session_resource_marshal_info (void *object,
 				const struct pw_session_info *info)
 {
 	struct pw_resource *resource = object;
@@ -1774,7 +2585,27 @@ static void session_marshal_info (void *object,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void session_marshal_param (void *object, int seq, uint32_t id,
+static void session_proxy_marshal_param (void *object, int seq, uint32_t id,
+					uint32_t index, uint32_t next,
+					const struct spa_pod *param)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_proxy(proxy,
+		PW_SESSION_EVENT_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+				SPA_POD_Int(seq),
+				SPA_POD_Id(id),
+				SPA_POD_Int(index),
+				SPA_POD_Int(next),
+				SPA_POD_Pod(param));
+
+	pw_protocol_native_end_proxy(proxy, b);
+}
+
+static void session_resource_marshal_param (void *object, int seq, uint32_t id,
 					uint32_t index, uint32_t next,
 					const struct spa_pod *param)
 {
@@ -1794,7 +2625,7 @@ static void session_marshal_param (void *object, int seq, uint32_t id,
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static int session_marshal_add_listener(void *object,
+static int session_proxy_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_session_events *events,
 			void *data)
@@ -1804,7 +2635,17 @@ static int session_marshal_add_listener(void *object,
 	return 0;
 }
 
-static int session_marshal_subscribe_params(void *object,
+static int session_resource_marshal_add_listener(void *object,
+			struct spa_hook *listener,
+			const struct pw_session_events *events,
+			void *data)
+{
+	struct pw_resource *resource = object;
+	pw_resource_add_object_listener(resource, listener, events, data);
+	return 0;
+}
+
+static int session_proxy_marshal_subscribe_params(void *object,
 						uint32_t *ids, uint32_t n_ids)
 {
 	struct pw_proxy *proxy = object;
@@ -1819,7 +2660,22 @@ static int session_marshal_subscribe_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int session_marshal_enum_params(void *object,
+static int session_resource_marshal_subscribe_params(void *object,
+						uint32_t *ids, uint32_t n_ids)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_SESSION_METHOD_SUBSCRIBE_PARAMS, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, n_ids, ids));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int session_proxy_marshal_enum_params(void *object,
 					int seq, uint32_t id,
 					uint32_t index, uint32_t num,
 					const struct spa_pod *filter)
@@ -1841,7 +2697,29 @@ static int session_marshal_enum_params(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int session_marshal_set_param(void *object,
+static int session_resource_marshal_enum_params(void *object,
+					int seq, uint32_t id,
+					uint32_t index, uint32_t num,
+					const struct spa_pod *filter)
+{
+	struct pw_protocol_native_message *msg;
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_SESSION_METHOD_ENUM_PARAMS, &msg);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Int(SPA_RESULT_RETURN_ASYNC(msg->seq)),
+			SPA_POD_Id(id),
+			SPA_POD_Int(index),
+			SPA_POD_Int(num),
+			SPA_POD_Pod(filter));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int session_proxy_marshal_set_param(void *object,
 					uint32_t id, uint32_t flags,
 					const struct spa_pod *param)
 {
@@ -1859,7 +2737,25 @@ static int session_marshal_set_param(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int session_demarshal_info(void *object,
+static int session_resource_marshal_set_param(void *object,
+					uint32_t id, uint32_t flags,
+					const struct spa_pod *param)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
+	b = pw_protocol_native_begin_resource(resource,
+		PW_SESSION_METHOD_SET_PARAM, NULL);
+
+	spa_pod_builder_add_struct(b,
+			SPA_POD_Id(id),
+			SPA_POD_Int(flags),
+			SPA_POD_Pod(param));
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
+static int session_proxy_demarshal_info(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1876,7 +2772,24 @@ static int session_demarshal_info(void *object,
 				info, 0, &info);
 }
 
-static int session_demarshal_param(void *object,
+static int session_resource_demarshal_info(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+	struct pw_session_info info = { .props = &props };
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+
+	demarshal_pw_session_info(&prs, &f, &info);
+
+	return pw_resource_notify(resource, struct pw_session_events,
+				info, 0, &info);
+}
+
+static int session_proxy_demarshal_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -1898,7 +2811,49 @@ static int session_demarshal_param(void *object,
 				param, 0, seq, id, index, next, param);
 }
 
-static int session_demarshal_subscribe_params(void *object,
+static int session_resource_demarshal_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, next;
+	int seq;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&next),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_resource_notify(resource, struct pw_session_events,
+				param, 0, seq, id, index, next, param);
+}
+
+static int session_proxy_demarshal_subscribe_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t csize, ctype, n_ids;
+	uint32_t *ids;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
+		return -EINVAL;
+
+	if (ctype != SPA_TYPE_Id)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_session_methods,
+				subscribe_params, 0, ids, n_ids);
+}
+
+static int session_resource_demarshal_subscribe_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1918,7 +2873,29 @@ static int session_demarshal_subscribe_params(void *object,
 				subscribe_params, 0, ids, n_ids);
 }
 
-static int session_demarshal_enum_params(void *object,
+static int session_proxy_demarshal_enum_params(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, index, num;
+	int seq;
+	struct spa_pod *filter;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Int(&seq),
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&index),
+				SPA_POD_Int(&num),
+				SPA_POD_Pod(&filter)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_session_methods,
+				enum_params, 0, seq, id, index, num, filter);
+}
+
+static int session_resource_demarshal_enum_params(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1940,7 +2917,26 @@ static int session_demarshal_enum_params(void *object,
 				enum_params, 0, seq, id, index, num, filter);
 }
 
-static int session_demarshal_set_param(void *object,
+static int session_proxy_demarshal_set_param(void *object,
+				const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t id, flags;
+	struct spa_pod *param;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_get_struct(&prs,
+				SPA_POD_Id(&id),
+				SPA_POD_Int(&flags),
+				SPA_POD_Pod(&param)) < 0)
+		return -EINVAL;
+
+	return pw_proxy_notify(proxy, struct pw_session_methods,
+				set_param, 0, id, flags, param);
+}
+
+static int session_resource_demarshal_set_param(void *object,
 				const struct pw_protocol_native_message *msg)
 {
 	struct pw_resource *resource = object;
@@ -1959,34 +2955,64 @@ static int session_demarshal_set_param(void *object,
 				set_param, 0, id, flags, param);
 }
 
-static const struct pw_session_events pw_protocol_native_session_event_marshal = {
+static const struct pw_session_events pw_protocol_native_session_client_event_marshal = {
 	PW_VERSION_SESSION_EVENTS,
-	.info = session_marshal_info,
-	.param = session_marshal_param,
+	.info = session_proxy_marshal_info,
+	.param = session_proxy_marshal_param,
+};
+
+static const struct pw_session_events pw_protocol_native_session_server_event_marshal = {
+	PW_VERSION_SESSION_EVENTS,
+	.info = session_resource_marshal_info,
+	.param = session_resource_marshal_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_session_event_demarshal[PW_SESSION_EVENT_NUM] =
+pw_protocol_native_session_client_event_demarshal[PW_SESSION_EVENT_NUM] =
 {
-	[PW_SESSION_EVENT_INFO] = { session_demarshal_info, 0 },
-	[PW_SESSION_EVENT_PARAM] = { session_demarshal_param, 0 },
+	[PW_SESSION_EVENT_INFO] = { session_proxy_demarshal_info, 0 },
+	[PW_SESSION_EVENT_PARAM] = { session_proxy_demarshal_param, 0 },
 };
 
-static const struct pw_session_methods pw_protocol_native_session_method_marshal = {
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_session_server_event_demarshal[PW_SESSION_EVENT_NUM] =
+{
+	[PW_SESSION_EVENT_INFO] = { session_resource_demarshal_info, 0 },
+	[PW_SESSION_EVENT_PARAM] = { session_resource_demarshal_param, 0 },
+};
+
+static const struct pw_session_methods pw_protocol_native_session_client_method_marshal = {
 	PW_VERSION_SESSION_METHODS,
-	.add_listener = session_marshal_add_listener,
-	.subscribe_params = session_marshal_subscribe_params,
-	.enum_params = session_marshal_enum_params,
-	.set_param = session_marshal_set_param,
+	.add_listener = session_proxy_marshal_add_listener,
+	.subscribe_params = session_proxy_marshal_subscribe_params,
+	.enum_params = session_proxy_marshal_enum_params,
+	.set_param = session_proxy_marshal_set_param,
+};
+
+static const struct pw_session_methods pw_protocol_native_session_server_method_marshal = {
+	PW_VERSION_SESSION_METHODS,
+	.add_listener = session_resource_marshal_add_listener,
+	.subscribe_params = session_resource_marshal_subscribe_params,
+	.enum_params = session_resource_marshal_enum_params,
+	.set_param = session_resource_marshal_set_param,
 };
 
 static const struct pw_protocol_native_demarshal
-pw_protocol_native_session_method_demarshal[PW_SESSION_METHOD_NUM] =
+pw_protocol_native_session_client_method_demarshal[PW_SESSION_METHOD_NUM] =
 {
-	[PW_SESSION_METHOD_ADD_LISTENER] = { NULL, 0 },
-	[PW_SESSION_METHOD_SUBSCRIBE_PARAMS] = { session_demarshal_subscribe_params, 0 },
-	[PW_SESSION_METHOD_ENUM_PARAMS] = { session_demarshal_enum_params, 0 },
-	[PW_SESSION_METHOD_SET_PARAM] = { session_demarshal_set_param, PW_PERM_W },
+	[PW_SESSION_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_SESSION_METHOD_SUBSCRIBE_PARAMS] = { session_proxy_demarshal_subscribe_params, 0 },
+	[PW_SESSION_METHOD_ENUM_PARAMS] = { session_proxy_demarshal_enum_params, 0 },
+	[PW_SESSION_METHOD_SET_PARAM] = { session_proxy_demarshal_set_param, PW_PERM_W },
+};
+
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_session_server_method_demarshal[PW_SESSION_METHOD_NUM] =
+{
+	[PW_SESSION_METHOD_ADD_LISTENER] = { demarshal_add_listener_enotsup, 0 },
+	[PW_SESSION_METHOD_SUBSCRIBE_PARAMS] = { session_resource_demarshal_subscribe_params, 0 },
+	[PW_SESSION_METHOD_ENUM_PARAMS] = { session_resource_demarshal_enum_params, 0 },
+	[PW_SESSION_METHOD_SET_PARAM] = { session_resource_demarshal_set_param, PW_PERM_W },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_session_marshal = {
@@ -1995,10 +3021,22 @@ static const struct pw_protocol_marshal pw_protocol_native_session_marshal = {
 	0,
 	PW_SESSION_METHOD_NUM,
 	PW_SESSION_EVENT_NUM,
-	&pw_protocol_native_session_method_marshal,
-	&pw_protocol_native_session_method_demarshal,
-	&pw_protocol_native_session_event_marshal,
-	&pw_protocol_native_session_event_demarshal,
+	.client_marshal = &pw_protocol_native_session_client_method_marshal,
+	.server_demarshal = pw_protocol_native_session_server_method_demarshal,
+	.server_marshal = &pw_protocol_native_session_server_event_marshal,
+	.client_demarshal = pw_protocol_native_session_client_event_demarshal,
+};
+
+static const struct pw_protocol_marshal pw_protocol_native_session_impl_marshal = {
+	PW_TYPE_INTERFACE_Session,
+	PW_VERSION_SESSION,
+	PW_PROTOCOL_MARSHAL_FLAG_IMPL,
+	PW_SESSION_EVENT_NUM,
+	PW_SESSION_METHOD_NUM,
+	.client_marshal = &pw_protocol_native_session_client_event_marshal,
+	.server_demarshal = pw_protocol_native_session_server_event_demarshal,
+	.server_marshal = &pw_protocol_native_session_server_method_marshal,
+	.client_demarshal = pw_protocol_native_session_client_method_demarshal,
 };
 
 struct pw_protocol *pw_protocol_native_ext_session_manager_init(struct pw_context *context)
@@ -2010,12 +3048,21 @@ struct pw_protocol *pw_protocol_native_ext_session_manager_init(struct pw_contex
 	if (protocol == NULL)
 		return NULL;
 
+	/* deprecated */
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_client_endpoint_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_client_session_marshal);
+
+	/* client <-> server */
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_link_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_stream_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_session_marshal);
+
+	/* impl <-> server */
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_link_impl_marshal);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_stream_impl_marshal);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_endpoint_impl_marshal);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_session_impl_marshal);
 
 	return protocol;
 }

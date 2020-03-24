@@ -460,18 +460,17 @@ static int enum_devices(struct impl *this)
 	udev_enumerate_add_match_subsystem(enumerate, "sound");
 	udev_enumerate_scan_devices(enumerate);
 
-	devices = udev_enumerate_get_list_entry(enumerate);
-
-	while (devices) {
+	for (devices = udev_enumerate_get_list_entry(enumerate); devices;
+			devices = udev_list_entry_get_next(devices)) {
 		struct udev_device *dev;
 
 		dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(devices));
+		if (dev == NULL)
+			continue;
 
 		emit_device(this, ACTION_ADD, true, dev);
 
 		udev_device_unref(dev);
-
-		devices = udev_list_entry_get_next(devices);
 	}
 	udev_enumerate_unref(enumerate);
 

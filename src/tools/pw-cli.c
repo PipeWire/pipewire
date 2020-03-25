@@ -52,6 +52,8 @@ struct data {
 	struct remote_data *current;
 
 	struct pw_map vars;
+	unsigned int interactive:1;
+	unsigned int monitoring:1;
 };
 
 struct global {
@@ -277,11 +279,13 @@ static void on_core_info(void *_data, const struct pw_core_info *info)
 	struct remote_data *rd = _data;
 	free(rd->name);
 	rd->name = info->name ? strdup(info->name) : NULL;
-	fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
+	if (rd->data->interactive)
+		fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
 }
 
 static void show_prompt(struct remote_data *rd)
 {
+	rd->data->monitoring = true;
 	fprintf(stdout, "%s>>", rd->name);
 	fflush(stdout);
 }
@@ -289,9 +293,14 @@ static void show_prompt(struct remote_data *rd)
 static void on_core_done(void *_data, uint32_t id, int seq)
 {
 	struct remote_data *rd = _data;
+	struct data *d = rd->data;
 
-	if (seq == rd->prompt_pending)
-		show_prompt(rd);
+	if (seq == rd->prompt_pending) {
+		if (d->interactive)
+			show_prompt(rd);
+		else
+			pw_main_loop_quit(d->loop);
+	}
 }
 
 static int print_global(void *obj, void *data)
@@ -334,8 +343,10 @@ static void registry_event_global(void *data, uint32_t id,
 	global->version = version;
 	global->properties = props ? pw_properties_new_dict(props) : NULL;
 
-	fprintf(stdout, "remote %d added global: ", rd->id);
-	print_global(global, NULL);
+	if (rd->data->monitoring) {
+		fprintf(stdout, "remote %d added global: ", rd->id);
+		print_global(global, NULL);
+	}
 
 	size = pw_map_get_size(&rd->globals);
 	while (id > size)
@@ -345,7 +356,8 @@ static void registry_event_global(void *data, uint32_t id,
 	/* immediately bind the object always */
 	ret = bind_global(rd, global, &error);
 	if (!ret) {
-		fprintf(stdout, "Error: \"%s\"\n", error);
+		if (rd->data->interactive)
+			fprintf(stdout, "Error: \"%s\"\n", error);
 		free(error);
 	}
 }
@@ -376,8 +388,11 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		return;
 	}
 
-	fprintf(stdout, "remote %d removed global: ", rd->id);
-	print_global(global, NULL);
+	if (rd->data->monitoring) {
+		fprintf(stdout, "remote %d removed global: ", rd->id);
+		print_global(global, NULL);
+	}
+
 	destroy_global(global, rd);
 }
 
@@ -452,7 +467,9 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
-	fprintf(stdout, "%d = @remote:%p\n", rd->id, rd->core);
+	if (rd->data->interactive)
+		fprintf(stdout, "%d = @remote:%p\n", rd->id, rd->core);
+
 	data->current = rd;
 
 	pw_core_add_listener(rd->core,
@@ -777,8 +794,9 @@ static void event_param(void *object, int seq, uint32_t id,
         struct proxy_data *data = object;
 	struct remote_data *rd = data->rd;
 
-	fprintf(stdout, "remote %d object %d param %d index %d\n",
-			rd->id, data->global->id, id, index);
+	if (rd->data->interactive)
+		fprintf(stdout, "remote %d object %d param %d index %d\n",
+				rd->id, data->global->id, id, index);
 
 	if (spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Format))
 		spa_debug_format(2, NULL, param);
@@ -1183,6 +1201,8 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	global->proxy = proxy;
+
+	rd->prompt_pending = pw_core_sync(rd->core, 0, 0);
 
 	return true;
 }
@@ -2723,14 +2743,16 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
-static void show_help(const char *name)
+static void show_help(struct data *data, const char *name)
 {
-        fprintf(stdout, "%s [options]\n"
+        fprintf(stdout, "%s [options] [command]\n"
              "  -h, --help                            Show this help\n"
              "  -v, --version                         Show version\n"
              "  -d, --daemon                          Start as daemon (Default false)\n"
-             "  -r, --remote                          Remote daemon name\n",
+             "  -r, --remote                          Remote daemon name\n\n",
 	     name);
+
+	do_help(data, "help", "", NULL);
 }
 
 int main(int argc, char *argv[])
@@ -2747,14 +2769,14 @@ int main(int argc, char *argv[])
 		{"remote",	1, NULL, 'r'},
 		{NULL,		0, NULL, 0}
 	};
-	int c;
+	int c, i;
 
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hvdr:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(&data, argv[0]);
 			return 0;
 		case 'v':
 			fprintf(stdout, "%s\n"
@@ -2791,14 +2813,37 @@ int main(int argc, char *argv[])
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
-	pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
-
-	fprintf(stdout, "Welcome to PipeWire version %s. Type 'help' for usage.\n",
-			pw_get_library_version());
-
 	do_connect(&data, "connect", opt_remote, &error);
 
-	pw_main_loop_run(data.loop);
+	if (argc == 1) {
+		data.interactive = true;
+
+		pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
+
+		fprintf(stdout, "Welcome to PipeWire version %s. Type 'help' for usage.\n",
+				pw_get_library_version());
+
+		pw_main_loop_run(data.loop);
+	} else {
+		char buf[4096], *p, *error;
+
+		p = buf;
+		for (i = 1; i < argc; i++) {
+			p = stpcpy(p, argv[i]);
+			p = stpcpy(p, " ");
+		}
+
+		pw_main_loop_run(data.loop);
+
+		if (!parse(&data, buf, p - buf, &error)) {
+			fprintf(stdout, "Error: \"%s\"\n", error);
+			free(error);
+		}
+		if (data.current) {
+			data.current->prompt_pending = pw_core_sync(data.current->core, 0, 0);
+			pw_main_loop_run(data.loop);
+		}
+	}
 
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);

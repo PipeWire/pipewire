@@ -2815,7 +2815,7 @@ int main(int argc, char *argv[])
 
 	do_connect(&data, "connect", opt_remote, &error);
 
-	if (argc == 1) {
+	if (optind == argc) {
 		data.interactive = true;
 
 		pw_loop_add_io(l, STDIN_FILENO, SPA_IO_IN|SPA_IO_HUP, false, do_input, &data);
@@ -2828,7 +2828,7 @@ int main(int argc, char *argv[])
 		char buf[4096], *p, *error;
 
 		p = buf;
-		for (i = 1; i < argc; i++) {
+		for (i = optind; i < argc; i++) {
 			p = stpcpy(p, argv[i]);
 			p = stpcpy(p, " ");
 		}

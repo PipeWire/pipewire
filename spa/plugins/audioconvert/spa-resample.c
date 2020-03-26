@@ -218,7 +218,7 @@ static int do_conversion(struct data *d)
 
 int main(int argc, char *argv[])
 {
-	char c;
+	int c;
 	int longopt_index = 0, ret;
 	struct data data;
 

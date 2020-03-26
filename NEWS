@@ -1,3 +1,44 @@
+PipeWire 0.3.2
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- build fixes
+- Added support for data type negotiation. This makes it
+  possible for a client to say that it can handle DMABuf
+  and MemFd and then let the server select a compatible
+  format.
+- Handle errors when enumerating parameters better.
+- Add support for rate, format, channels and period_bytes
+  to the alsa config file to restrict what alsa apps can
+  negotiate.
+- Fix JACK midi output.
+- Optimizations in common audio format conversions using
+  AVX2. Small optimizations to plugins.
+- Change the vulkan compute example to an MIT licensed
+  shader.
+- Remove some hardcoded defaults in the audio and video
+  processing and use the values from the processing
+  context. This also fixes the vulkan example.
+- Correct the documentation and defaults in the daemon
+  config file.
+- Fix alsa and v4l2 buffer recycle. A paused client could
+  cause the server to leak all buffers.
+- Remove some warnings that should be ignored.
+- Fix a crash in the bluez5 plugins.
+- Try to select higher quality formats first when
+  negotiating a format with an audio device.
+- Fix an infinite loop in udev detection in some cases.
+- Add non-interactive mode to pw-cli. You can now just
+  do "pw-cli ls Port" to get a listing of all ports.
+  pw-cli will now also connect to the default server by
+  default and has options to select a different server.
+- Allow the server to go up to the maximum quantum (8192
+  samples or ~=180ms) if a client explicitly wants this.
+
+
+Older versions:
+
 PipeWire 0.3.1
 
 This is a bugfix release that is API and ABI compatible
@@ -35,8 +76,6 @@ with previous 0.3.x releases.
   about a boolean.
 - pulseaudio: improve compatibility
 
-
-Older versions:
 
 PipeWire 0.3.0
 

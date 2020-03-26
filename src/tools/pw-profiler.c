@@ -484,7 +484,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 	proxy = pw_registry_bind(d->registry, id, type, PW_VERSION_PROFILER, 0);
 	if (proxy == NULL)
-		goto no_mem;
+		goto error_proxy;
 
 	fprintf(stderr, "Attaching to Profiler id:%d\n", id);
 	d->profiler = proxy;
@@ -492,8 +492,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 	return;
 
-no_mem:
-	pw_log_error("failed to create proxy");
+error_proxy:
+	pw_log_error("failed to create proxy: %m");
 	return;
 }
 

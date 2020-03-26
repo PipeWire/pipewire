@@ -2,6 +2,7 @@ pipewire_ext_sm_headers = [
   'session-manager/impl-interfaces.h',
   'session-manager/interfaces.h',
   'session-manager/introspect.h',
+  'session-manager/introspect-funcs.h',
   'session-manager/keys.h',
 ]
 

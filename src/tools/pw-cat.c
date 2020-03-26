@@ -1169,7 +1169,7 @@ static int setup_sndfile(struct data *data)
 		return -EINVAL;
 	}
 	data->latency_value = atoi(data->latency);
-	if (!data->latency_value) {
+	if (!data->latency_value && data->latency_unit != unit_none) {
 		fprintf(stderr, "error: bad latency value %s (is zero)\n", data->latency);
 		return -EINVAL;
 	}

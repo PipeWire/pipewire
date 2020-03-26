@@ -32,7 +32,10 @@ int client_endpoint_factory_init(struct pw_impl_module *module);
 /* client-session.c */
 int client_session_factory_init(struct pw_impl_module *module);
 
+int session_factory_init(struct pw_impl_module *module);
 int endpoint_factory_init(struct pw_impl_module *module);
+int endpoint_stream_factory_init(struct pw_impl_module *module);
+int endpoint_link_factory_init(struct pw_impl_module *module);
 
 /* protocol-native.c */
 int pw_protocol_native_ext_session_manager_init(struct pw_context *context);
@@ -54,7 +57,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	client_endpoint_factory_init(module);
 	client_session_factory_init(module);
+	session_factory_init(module);
 	endpoint_factory_init(module);
+	endpoint_stream_factory_init(module);
+	endpoint_link_factory_init(module);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 

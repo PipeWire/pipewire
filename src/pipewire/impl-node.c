@@ -747,7 +747,8 @@ static void check_properties(struct pw_impl_node *node)
 			quantum_size = flp2((num * node->context->defaults.clock_rate / denom));
 
 			if (quantum_size != node->quantum_size) {
-				pw_log_info(NAME" %p: latency '%s' quantum %d", node, str, quantum_size);
+				pw_log_info(NAME" %p: latency '%s' quantum %u/%u",
+						node, str, quantum_size, node->context->defaults.clock_rate);
 				node->quantum_size = quantum_size;
 				do_recalc |= node->active;
 			}

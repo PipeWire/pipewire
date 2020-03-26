@@ -43,6 +43,8 @@
 
 #define NAME "context"
 
+#define CLOCK_MIN_QUANTUM		4u
+#define CLOCK_MAX_QUANTUM		8192u
 
 #define DEFAULT_CLOCK_RATE		48000u
 #define DEFAULT_CLOCK_QUANTUM		1024u
@@ -165,14 +167,19 @@ static void fill_defaults(struct pw_context *this)
 	this->defaults.clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
 	this->defaults.clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
 	this->defaults.clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
-	this->defaults.clock_quantum = SPA_CLAMP(this->defaults.clock_quantum,
-			this->defaults.clock_min_quantum, this->defaults.clock_max_quantum);
 	this->defaults.video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
 	this->defaults.video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
 	this->defaults.video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
 	this->defaults.video_rate.denom = get_default_int(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
 	this->defaults.link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
 	this->defaults.mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
+
+	this->defaults.clock_max_quantum = SPA_CLAMP(this->defaults.clock_max_quantum,
+			CLOCK_MIN_QUANTUM, CLOCK_MAX_QUANTUM);
+	this->defaults.clock_min_quantum = SPA_CLAMP(this->defaults.clock_min_quantum,
+			CLOCK_MIN_QUANTUM, this->defaults.clock_max_quantum);
+	this->defaults.clock_quantum = SPA_CLAMP(this->defaults.clock_quantum,
+			this->defaults.clock_min_quantum, this->defaults.clock_max_quantum);
 }
 
 /** Create a new context object
@@ -790,7 +797,7 @@ static int collect_nodes(struct pw_impl_node *driver)
 	 * go to max but we should really only do this when in power save mode */
 	driver->quantum_current = SPA_CLAMP(quantum,
 			driver->context->defaults.clock_min_quantum,
-			driver->context->defaults.clock_quantum);
+			driver->context->defaults.clock_max_quantum);
 
 	return 0;
 }

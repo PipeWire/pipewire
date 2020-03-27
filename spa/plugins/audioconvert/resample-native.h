@@ -127,6 +127,10 @@ static void impl_native_update_rate(struct resample *r, double rate)
 		bool is_full = rate == 1.0;
 
 		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
+#if defined (HAVE_NEON)
+		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_NEON))
+			data->func = is_full ? do_resample_full_neon : do_resample_inter_neon;
+#endif
 #if defined (HAVE_SSE)
 		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_SSE))
 			data->func = is_full ? do_resample_full_sse : do_resample_inter_sse;

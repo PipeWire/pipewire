@@ -85,6 +85,17 @@ if have_avx2
 	simd_dependencies += audioconvert_avx2
 endif
 
+if have_neon
+	audioconvert_neon = static_library('audioconvert_neon',
+		['resample-native-neon.c'],
+		c_args : ['-O3', '-DHAVE_NEON'],
+		include_directories : [spa_inc],
+		install : false
+	)
+	simd_cargs += ['-DHAVE_NEON']
+	simd_dependencies += audioconvert_neon
+endif
+
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,
 			  c_args : simd_cargs,
@@ -146,7 +157,7 @@ if sndfile_dep.found()
   ]
   executable('spa-resample',
     sparesample_sources,
-    c_args : [ '-D_GNU_SOURCE' ],
+    c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
     install: false,
     include_directories : [spa_inc ],
     link_with : [ simd_dependencies, test_lib, audioconvertlib ],

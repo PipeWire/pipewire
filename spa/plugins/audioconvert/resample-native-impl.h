@@ -171,6 +171,10 @@ DEFINE_RESAMPLER(copy,c);
 DEFINE_RESAMPLER(full,c);
 DEFINE_RESAMPLER(inter,c);
 
+#if defined (HAVE_NEON)
+DEFINE_RESAMPLER(full,neon);
+DEFINE_RESAMPLER(inter,neon);
+#endif
 #if defined (HAVE_SSE)
 DEFINE_RESAMPLER(full,sse);
 DEFINE_RESAMPLER(inter,sse);

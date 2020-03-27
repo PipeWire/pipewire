@@ -80,6 +80,21 @@ have_fma = cc.has_argument(fma_args)
 have_avx = cc.has_argument(avx_args)
 have_avx2 = cc.has_argument(avx2_args)
 
+have_neon = false
+if host_machine.cpu_family() == 'arm' or host_machine.cpu_family() == 'aarch64'
+  if cc.compiles(
+'''
+#include <arm_neon.h>
+int32x4_t testfunc(int16_t *a, int16_t *b) {
+return vmull_s16(vld1_s16(a), vld1_s16(b));
+}
+''',
+   name : 'NEON support')
+    have_neon = true
+  endif
+endif
+
+
 cdata = configuration_data()
 cdata.set('PIPEWIRE_VERSION_MAJOR', pipewire_version_major)
 cdata.set('PIPEWIRE_VERSION_MINOR', pipewire_version_minor)

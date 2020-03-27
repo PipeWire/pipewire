@@ -6,7 +6,9 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <string.h>
+#ifndef __FreeBSD__
 #include <alloca.h>
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <assert.h>

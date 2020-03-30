@@ -226,6 +226,8 @@ struct sm_media_session_events {
 struct sm_media_session {
 	struct sm_session *session;	/** session object managed by this session */
 
+	struct pw_properties *props;
+
 	uint32_t session_id;
 	struct pw_client_session *client_session;
 

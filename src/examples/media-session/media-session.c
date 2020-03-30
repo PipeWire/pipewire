@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>
+#include <getopt.h>
 #include <time.h>
 
 #include "config.h"
@@ -1690,14 +1691,110 @@ static void session_shutdown(struct impl *impl)
 		pw_core_info_free(impl->this.info);
 }
 
+#define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,bluez5,metadata,suspend-node,policy-node"
+#define DEFAULT_DISABLED	""
+
+static const struct {
+	const char *name;
+	const char *desc;
+	int (*start)(struct sm_media_session *sess);
+
+} modules[] = {
+	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start },
+	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start },
+	{ "v4l2", "video for linux udev detection", sm_v4l2_monitor_start },
+	{ "bluez5", "bluetooth support", sm_bluez5_monitor_start },
+	{ "metadata", "export metadata API", sm_metadata_start },
+	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start },
+	{ "policy-node", "configure and link nodes", sm_policy_node_start },
+};
+
+static int opt_contains(const char *opt, const char *val)
+{
+	const char *s, *state = NULL;
+	size_t len;
+	while((s = pw_split_walk(opt, ",", &len, &state)) != NULL) {
+		if (strncmp(val, s, len) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+static void show_help(const char *name)
+{
+	size_t i;
+
+        fprintf(stdout, "%s [options]\n"
+             "  -h, --help                            Show this help\n"
+             "  -v, --version                         Show version\n"
+             "  -e, --enabled                         Enabled options (default '%s')\n"
+             "  -d, --disabled                        Disabled options (default '%s')\n"
+             "  -p, --properties                      Extra properties as 'key=value { key=value }'\n",
+	     name, DEFAULT_ENABLED, DEFAULT_DISABLED);
+
+        fprintf(stdout,
+             "\noptions:\n");
+	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
+		fprintf(stdout, "\t%-15.15s: %s\n", modules[i].name, modules[i].desc);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct impl impl = { 0, };
 	const struct spa_support *support;
 	uint32_t n_support;
-	int res = 0;
+	int res = 0, c;
+	const char *opt_enabled = DEFAULT_ENABLED;
+	const char *opt_disabled = DEFAULT_DISABLED;
+	const char *opt_properties = NULL;
+	static const struct option long_options[] = {
+		{"help",	0, NULL, 'h'},
+		{"version",	0, NULL, 'v'},
+		{"enabled",	1, NULL, 'e'},
+		{"disabled",	1, NULL, 'd'},
+		{"properties",	1, NULL, 'p'},
+		{NULL,		0, NULL, 0}
+	};
+        size_t i;
+	const struct spa_dict_item *item;
 
 	pw_init(&argc, &argv);
+
+	while ((c = getopt_long(argc, argv, "hve:d:p:", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			show_help(argv[0]);
+			return 0;
+		case 'v':
+			fprintf(stdout, "%s\n"
+				"Compiled with libpipewire %s\n"
+				"Linked with libpipewire %s\n",
+				argv[0],
+				pw_get_headers_version(),
+				pw_get_library_version());
+			return 0;
+		case 'e':
+			opt_enabled = optarg;
+			break;
+		case 'd':
+			opt_disabled = optarg;
+			break;
+		case 'p':
+			opt_properties = optarg;
+			break;
+		default:
+			return -1;
+		}
+	}
+
+	impl.this.props = pw_properties_new_string(opt_properties ? opt_properties : "");
+	if (impl.this.props == NULL)
+		return -1;
+
+	spa_dict_for_each(item, &impl.this.props->dict) {
+		pw_log_info("  '%s' = '%s'", item->key, item->value);
+	}
 
 	impl.loop = pw_main_loop_new(NULL);
 	if (impl.loop == NULL)
@@ -1735,14 +1832,14 @@ int main(int argc, char *argv[])
 	if ((res = start_policy(&impl)) < 0)
 		goto exit;
 
-	sm_metadata_start(&impl.this);
-	sm_alsa_midi_start(&impl.this);
-	sm_bluez5_monitor_start(&impl.this);
-	sm_alsa_monitor_start(&impl.this);
-	sm_v4l2_monitor_start(&impl.this);
-
-	sm_suspend_node_start(&impl.this);
-	sm_policy_node_start(&impl.this);
+	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
+		const char *name = modules[i].name;
+		if (opt_contains(opt_enabled, name) &&
+		    !opt_contains(opt_disabled, name)) {
+			pw_log_info("enable: %s", name);
+			modules[i].start(&impl.this);
+		}
+	}
 
 //	sm_session_manager_start(&impl.this);
 

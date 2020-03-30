@@ -257,7 +257,6 @@ conv_f32d_to_s16_neon(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	int16_t *d = dst[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	for(; i + 1 < n_channels; i+=2)
 	for(; i + 1 < n_channels; i += 2)
 		conv_f32d_to_s16_2s_neon(conv, &d[i], &src[i], n_channels, n_samples);
 	for(; i < n_channels; i++)

@@ -87,7 +87,8 @@ endif
 
 if have_neon
 	audioconvert_neon = static_library('audioconvert_neon',
-		['resample-native-neon.c'],
+		['resample-native-neon.c',
+		 'fmt-ops-neon.c' ],
 		c_args : ['-O3', '-DHAVE_NEON'],
 		include_directories : [spa_inc],
 		install : false

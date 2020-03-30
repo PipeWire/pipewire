@@ -186,6 +186,10 @@ DEFINE_FUNCTION(interleave_16, c);
 DEFINE_FUNCTION(interleave_24, c);
 DEFINE_FUNCTION(interleave_32, c);
 
+#if defined(HAVE_NEON)
+DEFINE_FUNCTION(s16_to_f32d, neon);
+DEFINE_FUNCTION(f32d_to_s16, neon);
+#endif
 #if defined(HAVE_SSE2)
 DEFINE_FUNCTION(s16_to_f32d_2, sse2);
 DEFINE_FUNCTION(s16_to_f32d, sse2);

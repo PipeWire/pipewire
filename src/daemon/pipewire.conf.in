@@ -67,6 +67,6 @@ load-module libpipewire-module-session-manager
 ## exec <program-name>
 #
 # Execute the given program. This is usually used to start the
-# session manager.
+# session manager. run the session manager with -h for options
 #
-exec pipewire-media-session
+exec pipewire-media-session # -d alsa-seq,alsa-pcm,bluez5,metadata

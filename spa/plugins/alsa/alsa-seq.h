@@ -86,6 +86,7 @@ struct seq_port {
 	struct spa_audio_info current_format;
 	unsigned int have_format:1;
 	unsigned int valid:1;
+	unsigned int active:1;
 };
 
 struct seq_stream {
@@ -173,6 +174,7 @@ int spa_alsa_seq_start(struct seq_state *state);
 int spa_alsa_seq_pause(struct seq_state *state);
 int spa_alsa_seq_reassign_follower(struct seq_state *state);
 
+int spa_alsa_seq_activate_port(struct seq_state *state, struct seq_port *port, bool active);
 int spa_alsa_seq_recycle_buffer(struct seq_state *state, struct seq_port *port, uint32_t buffer_id);
 
 int spa_alsa_seq_process(struct seq_state *state);

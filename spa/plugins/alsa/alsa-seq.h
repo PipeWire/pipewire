@@ -94,6 +94,7 @@ struct seq_stream {
 	unsigned int caps;
 	snd_midi_event_t *codec;
 	struct seq_port ports[MAX_PORTS];
+	uint32_t last_port;
 };
 
 struct seq_conn {

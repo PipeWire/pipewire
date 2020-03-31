@@ -350,7 +350,7 @@ static struct seq_port *find_port(struct seq_state *state,
 		struct seq_stream *stream, const snd_seq_addr_t *addr)
 {
 	uint32_t i;
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
 		if (port->valid &&
 		    port->addr.client == addr->client &&
@@ -369,14 +369,23 @@ static struct seq_port *alloc_port(struct seq_state *state, struct seq_stream *s
 			port->id = i;
 			port->direction = stream->direction;
 			port->valid = true;
+			if (stream->last_port < i + 1)
+				stream->last_port = i + 1;
 			return port;
 		}
 	}
 	return NULL;
 }
 
-static void free_port(struct seq_state *state, struct seq_port *port)
+static void free_port(struct seq_state *state, struct seq_stream *stream, struct seq_port *port)
 {
+	if (port->id + 1 == stream->last_port) {
+		int i;
+		for (i = stream->last_port - 1; i >= 0; i--)
+			if (!stream->ports[i].valid)
+				break;
+		stream->last_port = i + 1;
+	}
 	spa_node_emit_port_info(&state->hooks,
 			port->direction, port->id, NULL);
 	spa_zero(*port);
@@ -417,7 +426,7 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 	if (info == NULL) {
 		spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);
 		if (port)
-			free_port(state, port);
+			free_port(state, stream, port);
 	} else {
 		if (port == NULL && (caps & stream->caps) == stream->caps) {
 			spa_log_debug(state->log, "new port %d.%d", addr->client, addr->port);
@@ -428,7 +437,7 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 		} else if (port != NULL) {
 			if ((caps & stream->caps) != stream->caps) {
 				spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);
-				free_port(state, port);
+				free_port(state, stream, port);
 			}
 			else {
 				spa_log_debug(state->log, "update port %d.%d", addr->client, addr->port);

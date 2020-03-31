@@ -366,7 +366,7 @@ static struct seq_port *find_port(struct seq_state *state,
 		struct seq_stream *stream, const snd_seq_addr_t *addr)
 {
 	uint32_t i;
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
 		if (port->valid &&
 		    port->addr.client == addr->client &&
@@ -460,7 +460,7 @@ static int process_recycle(struct seq_state *state)
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_OUTPUT];
 	uint32_t i;
 
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
 		struct spa_io_buffers *io = port->io;
 
@@ -547,7 +547,7 @@ static int process_read(struct seq_state *state)
 	/* prepare a buffer on each port, some ports might have their
 	 * buffer filled above */
 	res = 0;
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
 		struct spa_io_buffers *io = port->io;
 
@@ -599,7 +599,7 @@ static int process_write(struct seq_state *state)
 	uint32_t i;
 	int res = 0;
 
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
 		struct spa_io_buffers *io = port->io;
 		struct buffer *buffer;
@@ -819,7 +819,7 @@ static void reset_buffers(struct seq_state *this, struct seq_port *port)
 static void reset_stream(struct seq_state *this, struct seq_stream *stream, bool active)
 {
 	uint32_t i;
-	for (i = 0; i < MAX_PORTS; i++) {
+	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
 		if (port->valid) {
 			reset_buffers(this, port);

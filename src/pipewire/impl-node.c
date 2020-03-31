@@ -663,7 +663,8 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	remove_segment_master(old, node->info.id);
 
 	node->master = node->driver && driver == node;
-	pw_log_info(NAME" %p: driver %p (%s) master:%u", node, driver, driver->name, node->master);
+	pw_log_info(NAME" %p: driver %p (%s) quantum:%u master:%u", node,
+			driver, driver->name, driver->quantum_current, node->master);
 
 	node->driver_node = driver;
 
@@ -698,6 +699,7 @@ static uint32_t flp2(uint32_t x)
 static void check_properties(struct pw_impl_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	struct pw_context *context = node->context;
 	const char *str;
 	bool driver, do_recalc = false;
 
@@ -733,7 +735,7 @@ static void check_properties(struct pw_impl_node *node)
 		node->driver = driver;
 		if (node->registered) {
 			if (driver)
-				insert_driver(node->context, node);
+				insert_driver(context, node);
 			else
 				spa_list_remove(&node->driver_link);
 		}
@@ -744,11 +746,11 @@ static void check_properties(struct pw_impl_node *node)
                 if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
 			uint32_t quantum_size;
 
-			quantum_size = flp2((num * node->context->defaults.clock_rate / denom));
+			quantum_size = flp2((num * context->defaults.clock_rate / denom));
 
 			if (quantum_size != node->quantum_size) {
 				pw_log_info(NAME" %p: latency '%s' quantum %u/%u",
-						node, str, quantum_size, node->context->defaults.clock_rate);
+						node, str, quantum_size, context->defaults.clock_rate);
 				node->quantum_size = quantum_size;
 				do_recalc |= node->active;
 			}
@@ -757,7 +759,7 @@ static void check_properties(struct pw_impl_node *node)
 	pw_log_debug(NAME" %p: driver:%d recalc:%d", node, node->driver, do_recalc);
 
 	if (do_recalc)
-		pw_context_recalc_graph(node->context);
+		pw_context_recalc_graph(context);
 }
 
 static void dump_states(struct pw_impl_node *driver)

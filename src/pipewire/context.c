@@ -788,13 +788,10 @@ static int collect_nodes(struct pw_impl_node *driver)
 			}
 		}
 	}
-
 	quantum = min_quantum;
 	if (quantum == 0)
 		quantum = driver->context->defaults.clock_quantum;
 
-	/* for now, we try to limit the latency between min and default, We can
-	 * go to max but we should really only do this when in power save mode */
 	driver->quantum_current = SPA_CLAMP(quantum,
 			driver->context->defaults.clock_min_quantum,
 			driver->context->defaults.clock_max_quantum);
@@ -871,12 +868,14 @@ int pw_context_recalc_graph(struct pw_context *context)
 		if (!n->master)
 			continue;
 
-		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration)
+		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration) {
 			n->rt.position->clock.duration = n->quantum_current;
+			pw_log_info(NAME" %p: new quantum %u for master '%s'", context,
+					n->quantum_current, n->name);
+		}
 
 		pw_log_debug(NAME" %p: master %p quantum:%u '%s'", context, n,
 				n->quantum_current, n->name);
-
 		spa_list_for_each(s, &n->follower_list, follower_link)
 			pw_log_debug(NAME" %p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);

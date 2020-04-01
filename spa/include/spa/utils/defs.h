@@ -143,12 +143,14 @@ struct spa_fraction {
 #define SPA_DEPRECATED __attribute__ ((deprecated))
 #define SPA_EXPORT __attribute__((visibility("default")))
 #define SPA_SENTINEL __attribute__((__sentinel__))
+#define SPA_UNUSED __attribute__ ((unused))
 #else
 #define SPA_PRINTF_FUNC(fmt, arg1)
 #define SPA_ALIGNED(align)
 #define SPA_DEPRECATED
 #define SPA_EXPORT
 #define SPA_SENTINEL
+#define SPA_UNUSED
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L

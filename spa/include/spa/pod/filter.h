@@ -378,20 +378,18 @@ spa_pod_filter(struct spa_pod_builder *b,
         spa_return_val_if_fail(pod != NULL, -EINVAL);
         spa_return_val_if_fail(b != NULL, -EINVAL);
 
-	if (filter == NULL) {
-		spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
-		*result = (struct spa_pod*)b->data;
-		if (!*result)
-			return -EINVAL;
-		return 0;
-	}
-
 	spa_pod_builder_get_state(b, &state);
-	if ((res = spa_pod_filter_part(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter))) < 0) {
-		spa_pod_builder_reset(b, &state);
-	}
+	if (filter == NULL)
+		res = spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
 	else
-		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
+		res = spa_pod_filter_part(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter));
 
+	if (res < 0) {
+		spa_pod_builder_reset(b, &state);
+	} else if (result) {
+		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
+		if (*result == NULL)
+			res = -EINVAL;
+	}
 	return res;
 }

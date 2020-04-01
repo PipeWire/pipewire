@@ -389,7 +389,7 @@ spa_pod_filter(struct spa_pod_builder *b,
 	} else if (result) {
 		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
 		if (*result == NULL)
-			res = -EINVAL;
+			res = -ENOSPC;
 	}
 	return res;
 }

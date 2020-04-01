@@ -171,7 +171,7 @@ static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 		"      fadd v0.4s, v0.4s, v1.4s\n"	/* sum[0] */
 		"      fadd v2.4s, v2.4s, v3.4s\n"	/* sum[1] */
 		"      fsub v2.4s, v2.4s, v0.4s\n"	/* sum[1] -= sum[0] */
-		"      fmla v0.4s, v1.4s, v10.4s\n"	/* sum[0] += sum[1] * x */
+		"      fmla v0.4s, v2.4s, v10.4s\n"	/* sum[0] += sum[1] * x */
 		"      faddp v0.4s, v0.4s, v0.4s\n"
 		"      faddp v0.2s, v0.2s, v0.2s\n"
 		"      str s0, [%[d]]\n"
@@ -205,8 +205,8 @@ static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 		"3:"
 		"      vadd.f32 q0, q0, q1\n"		/* sum[0] */
 		"      vadd.f32 q2, q2, q3\n"		/* sum[1] */
-		"      vsub.f32 q2, q2, q0\n"		/* sum[1] - sum[0] */
-		"      vmla.f32 q0, q1, q10\n"		/* sum[0] += sum[1] * x */
+		"      vsub.f32 q2, q2, q0\n"		/* sum[1] -= sum[0] */
+		"      vmla.f32 q0, q2, q10\n"		/* sum[0] += sum[1] * x */
 		"      vadd.f32 d0, d0, d1\n"
 		"      vpadd.f32 d0, d0, d0\n"
 		"      str d0, [%[d]]\n"

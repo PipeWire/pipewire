@@ -194,10 +194,15 @@ clock_disabled:
   }
 }
 
+static void unref_queue_item(gpointer data, gpointer user_data)
+{
+  gst_mini_object_unref(data);
+}
+
 static void
 clear_queue (GstPipeWireSrc *pwsrc)
 {
-  g_queue_foreach (&pwsrc->queue, (GFunc) gst_mini_object_unref, NULL);
+  g_queue_foreach (&pwsrc->queue, unref_queue_item, pwsrc);
   g_queue_clear (&pwsrc->queue);
 }
 

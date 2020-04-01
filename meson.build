@@ -2,7 +2,7 @@ project('pipewire', ['c' ],
   version : '0.3.2',
   license : 'MIT',
   meson_version : '>= 0.50.0',
-  default_options : [ 'warning_level=1',
+  default_options : [ 'warning_level=3',
                       'c_std=gnu99',
                       'buildtype=debugoptimized' ])
 
@@ -54,14 +54,28 @@ if cc.get_id() == 'gcc'
 			'-Wformat-security',
 			'-Werror=suggest-attribute=format',
 			'-Wmissing-braces',
-		        '-Wno-missing-field-initializers',
-		        '-Wno-unused-parameter',
 			'-Wtype-limits',
 			'-Wold-style-declaration',
 			'-Wvariadic-macros',
-#			'-DSPA_DEBUG_MEMCPY',
+		        '-Wno-missing-field-initializers',
+		        '-Wno-unused-parameter',
+			'-Wno-pedantic',
 			'-DFASTPATH',
+#			'-DSPA_DEBUG_MEMCPY',
 			language : 'c')
+  add_global_arguments('-fvisibility=hidden',
+			'-Wsign-compare',
+			'-Wimplicit-fallthrough',
+			'-Wpointer-arith',
+			'-Wformat-security',
+			'-Werror=suggest-attribute=format',
+			'-Wmissing-braces',
+			'-Wtype-limits',
+			'-Wvariadic-macros',
+		        '-Wno-missing-field-initializers',
+		        '-Wno-unused-parameter',
+			'-Wno-pedantic',
+			language : 'cpp')
 endif
 
 sse_args = '-msse'

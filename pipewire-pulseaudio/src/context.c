@@ -73,6 +73,10 @@ static void context_unlink(pa_context *c)
 		pa_stream_set_state(s, c->state == PA_CONTEXT_FAILED ?
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
 	}
+	if (c->core) {
+		pw_core_disconnect(c->core);
+		c->core = NULL;
+	}
 	spa_list_consume(g, &c->globals, link)
 		global_free(c, g);
 

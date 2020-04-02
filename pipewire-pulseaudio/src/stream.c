@@ -700,6 +700,7 @@ void pa_stream_unref(pa_stream *s)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
+	pw_log_debug("stream %p: ref %d", s, s->refcount);
 	if (--s->refcount == 0)
 		stream_free(s);
 }
@@ -711,6 +712,7 @@ pa_stream *pa_stream_ref(pa_stream *s)
 	spa_assert(s->refcount >= 1);
 
 	s->refcount++;
+	pw_log_debug("stream %p: ref %d", s, s->refcount);
 	return s;
 }
 

@@ -63,14 +63,14 @@ struct data {
 
 #define OPTIONS		"hvr:f:q:"
 static const struct option long_options[] = {
-	{"help",	no_argument,		NULL, 'h'},
-	{"verbose",	no_argument,		NULL, 'v'},
+	{ "help",	no_argument,		NULL, 'h'},
+	{ "verbose",	no_argument,		NULL, 'v'},
 
-	{"rate",	required_argument,	NULL, 'r' },
-	{"format",	required_argument,	NULL, 'f' },
-	{"quality",	required_argument,	NULL, 'q' },
+	{ "rate",	required_argument,	NULL, 'r' },
+	{ "format",	required_argument,	NULL, 'f' },
+	{ "quality",	required_argument,	NULL, 'q' },
 
-        {NULL, 0, NULL, 0 }
+        { NULL, 0, NULL, 0 }
 };
 
 static void show_usage(const char *name, bool is_error)

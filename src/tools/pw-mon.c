@@ -682,10 +682,10 @@ static void do_quit(void *data, int signal_number)
 static void show_help(const char *name)
 {
         fprintf(stdout, "%s [options]\n"
-             "  -h, --help                            Show this help\n"
-             "  -v, --version                         Show version\n"
-             "  -r, --remote                          Remote daemon name\n",
-	     name);
+		"  -h, --help                            Show this help\n"
+		"      --version                         Show version\n"
+		"  -r, --remote                          Remote daemon name\n",
+		name);
 }
 
 int main(int argc, char *argv[])
@@ -694,21 +694,21 @@ int main(int argc, char *argv[])
 	struct pw_loop *l;
 	const char *opt_remote = NULL;
 	static const struct option long_options[] = {
-		{"help",	0, NULL, 'h'},
-		{"version",	0, NULL, 'v'},
-		{"remote",	1, NULL, 'r'},
-		{NULL,		0, NULL, 0}
+		{ "help",	no_argument,		NULL, 'h' },
+		{ "version",	no_argument,		NULL, 'V' },
+		{ "remote",	required_argument,	NULL, 'r' },
+		{ NULL,	0, NULL, 0}
 	};
 	int c;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hvr:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0]);
 			return 0;
-		case 'v':
+		case 'V':
 			fprintf(stdout, "%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",

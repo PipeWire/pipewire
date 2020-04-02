@@ -1726,7 +1726,7 @@ static void show_help(const char *name)
 
         fprintf(stdout, "%s [options]\n"
              "  -h, --help                            Show this help\n"
-             "  -v, --version                         Show version\n"
+             "      --version                         Show version\n"
              "  -e, --enabled                         Enabled options (default '%s')\n"
              "  -d, --disabled                        Disabled options (default '%s')\n"
              "  -p, --properties                      Extra properties as 'key=value { key=value }'\n",
@@ -1749,24 +1749,24 @@ int main(int argc, char *argv[])
 	const char *opt_disabled = DEFAULT_DISABLED;
 	const char *opt_properties = NULL;
 	static const struct option long_options[] = {
-		{"help",	0, NULL, 'h'},
-		{"version",	0, NULL, 'v'},
-		{"enabled",	1, NULL, 'e'},
-		{"disabled",	1, NULL, 'd'},
-		{"properties",	1, NULL, 'p'},
-		{NULL,		0, NULL, 0}
+		{ "help",	no_argument,		NULL, 'h' },
+		{ "version",	no_argument,		NULL, 'V' },
+		{ "enabled",	required_argument,	NULL, 'e' },
+		{ "disabled",	required_argument,	NULL, 'd' },
+		{ "properties",	required_argument,	NULL, 'p' },
+		{ NULL, 0, NULL, 0}
 	};
         size_t i;
 	const struct spa_dict_item *item;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hve:d:p:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVe:d:p:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0]);
 			return 0;
-		case 'v':
+		case 'V':
 			fprintf(stdout, "%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",

@@ -863,32 +863,32 @@ enum {
 };
 
 static const struct option long_options[] = {
-	{"help",	no_argument,	   NULL, 'h'},
-	{"version",	no_argument,	   NULL, OPT_VERSION},
-	{"verbose",	no_argument,	   NULL, 'v'},
+	{ "help",		no_argument,	   NULL, 'h' },
+	{ "version",		no_argument,	   NULL, OPT_VERSION},
+	{ "verbose",		no_argument,	   NULL, 'v' },
 
-	{"record",	no_argument,	   NULL, 'r'},
-	{"playback",	no_argument,	   NULL, 's'},
-	{"midi",	no_argument,	   NULL, 'm'},
+	{ "record",		no_argument,	   NULL, 'r' },
+	{ "playback",		no_argument,	   NULL, 's' },
+	{ "midi",		no_argument,	   NULL, 'm' },
 
-	{"remote",	required_argument, NULL, 'R'},
+	{ "remote",		required_argument, NULL, 'R' },
 
-	{"media-type",		required_argument, NULL, OPT_MEDIA_TYPE },
-	{"media-category",	required_argument, NULL, OPT_MEDIA_CATEGORY },
-	{"media-role",		required_argument, NULL, OPT_MEDIA_ROLE },
-	{"target",		required_argument, NULL, OPT_TARGET },
-	{"latency",		required_argument, NULL, OPT_LATENCY },
+	{ "media-type",		required_argument, NULL, OPT_MEDIA_TYPE },
+	{ "media-category",	required_argument, NULL, OPT_MEDIA_CATEGORY },
+	{ "media-role",		required_argument, NULL, OPT_MEDIA_ROLE },
+	{ "target",		required_argument, NULL, OPT_TARGET },
+	{ "latency",		required_argument, NULL, OPT_LATENCY },
 
-	{"rate",		required_argument, NULL, OPT_RATE },
-	{"channels",		required_argument, NULL, OPT_CHANNELS },
-	{"channel-map",		required_argument, NULL, OPT_CHANNELMAP },
-	{"format",		required_argument, NULL, OPT_FORMAT },
-	{"volume",		required_argument, NULL, OPT_VOLUME },
-	{"quality",		required_argument, NULL, 'q' },
+	{ "rate",		required_argument, NULL, OPT_RATE },
+	{ "channels",		required_argument, NULL, OPT_CHANNELS },
+	{ "channel-map",	required_argument, NULL, OPT_CHANNELMAP },
+	{ "format",		required_argument, NULL, OPT_FORMAT },
+	{ "volume",		required_argument, NULL, OPT_VOLUME },
+	{ "quality",		required_argument, NULL, 'q' },
 
-	{"list-targets",	no_argument, NULL, OPT_LIST_TARGETS },
+	{ "list-targets",	no_argument, NULL, OPT_LIST_TARGETS },
 
-	{NULL, 0, NULL, 0 }
+	{ NULL, 0, NULL, 0 }
 };
 
 static void show_usage(const char *name, bool is_error)
@@ -902,6 +902,7 @@ static void show_usage(const char *name, bool is_error)
 	fprintf(fp,
              "  -h, --help                            Show this help\n"
              "      --version                         Show version\n"
+             "  -v, --verbose                         Enable verbose operations\n"
 	     "\n");
 
 	fprintf(fp,
@@ -945,10 +946,6 @@ static void show_usage(const char *name, bool is_error)
 		     "  -m, --midi                            Midi mode\n"
 		     "\n");
 	}
-
-        fprintf(fp,
-             "  -v, --verbose                         Enable verbose operations\n"
-	     "\n");
 }
 
 static int midi_play(struct data *d, void *src, unsigned int n_frames)

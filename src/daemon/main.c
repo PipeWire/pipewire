@@ -43,11 +43,11 @@ static void do_quit(void *data, int signal_number)
 static void show_help(const char *name)
 {
 	fprintf(stdout, "%s [options]\n"
-             "  -h, --help                            Show this help\n"
-             "  -v, --version                         Show version\n"
-             "  -n, --name                            Daemon name (Default %s)\n",
-	     name,
-	     daemon_name);
+		"  -h, --help                            Show this help\n"
+		"      --version                         Show version\n"
+		"  -n, --name                            Daemon name (Default %s)\n",
+		name,
+		daemon_name);
 }
 
 int main(int argc, char *argv[])
@@ -58,21 +58,22 @@ int main(int argc, char *argv[])
 	struct pw_properties *properties;
 	char *err = NULL;
 	static const struct option long_options[] = {
-		{"help",	0, NULL, 'h'},
-		{"version",	0, NULL, 'v'},
-		{"name",	1, NULL, 'n'},
-		{NULL,		0, NULL, 0}
+		{ "help",	no_argument,		NULL, 'h' },
+		{ "version",	no_argument,		NULL, 'V' },
+		{ "name",	required_argument,	NULL, 'n' },
+
+		{ NULL, 0, NULL, 0}
 	};
 	int c, res;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hvn:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVn:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(argv[0]);
 			return 0;
-		case 'v' :
+		case 'V' :
 			fprintf(stdout, "%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",

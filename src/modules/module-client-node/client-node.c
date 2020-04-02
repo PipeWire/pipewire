@@ -1320,8 +1320,7 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 
 	mix->io = SPA_MEMBER(impl->io_areas->map->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
-	mix->io->buffer_id = SPA_ID_INVALID;
-	mix->io->status = SPA_STATUS_NEED_DATA;
+	*mix->io = SPA_IO_BUFFERS_INIT;
 
 	pw_log_debug(NAME " %p: init mix io %d %p %p", impl, mix->id, mix->io,
 			impl->io_areas->map->ptr);

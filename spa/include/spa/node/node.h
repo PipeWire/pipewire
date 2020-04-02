@@ -605,6 +605,8 @@ struct spa_node_methods {
 	/**
 	 * Process the node
 	 *
+	 * This function must be called from the data thread.
+	 *
 	 * Output io areas with SPA_STATUS_NEED_DATA will recycle the
 	 * buffers if any.
 	 *

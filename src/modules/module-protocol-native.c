@@ -713,8 +713,10 @@ error:
 	pw_proxy_notify((struct pw_proxy*)this,
 			struct pw_core_events, error, 0, 0,
 			this->recv_seq, res, "connection error");
-	pw_loop_destroy_source(loop, impl->source);
-	impl->source = NULL;
+	if (impl->source) {
+		pw_loop_destroy_source(loop, impl->source);
+		impl->source = NULL;
+	}
 }
 
 static void on_need_flush(void *data)

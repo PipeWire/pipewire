@@ -92,12 +92,10 @@ static void transport_reset_area(struct pw_client_node0_transport *trans)
 	struct pw_client_node0_area *a = trans->area;
 
 	for (i = 0; i < a->max_input_ports; i++) {
-		trans->inputs[i].status = SPA_STATUS_OK;
-		trans->inputs[i].buffer_id = SPA_ID_INVALID;
+		trans->inputs[i] = SPA_IO_BUFFERS_INIT;
 	}
 	for (i = 0; i < a->max_output_ports; i++) {
-		trans->outputs[i].status = SPA_STATUS_OK;
-		trans->outputs[i].buffer_id = SPA_ID_INVALID;
+		trans->outputs[i] = SPA_IO_BUFFERS_INIT;
 	}
 	spa_ringbuffer_init(trans->input_buffer);
 	spa_ringbuffer_init(trans->output_buffer);

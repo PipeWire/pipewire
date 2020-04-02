@@ -886,8 +886,10 @@ static int impl_node_process(void *object)
 
 			if (status & SPA_STATUS_NEED_DATA) {
 				status = spa_node_process(this->follower);
-				if (!(status & SPA_STATUS_HAVE_DATA))
+				if (!(status & SPA_STATUS_HAVE_DATA)) {
+					spa_node_call_xrun(&this->callbacks, 0, 0, NULL);
 					break;
+				}
 			}
 		}
 	}

@@ -1131,6 +1131,8 @@ static int node_xrun(void *d, uint64_t trigger, uint64_t delay, struct spa_pod *
 	pw_log_debug("node %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
 			node, a->xrun_count, trigger, delay, a->max_delay);
 
+	pw_context_driver_emit_xrun(data->context, node);
+
 	return 0;
 }
 

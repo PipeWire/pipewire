@@ -94,6 +94,7 @@ struct stream {
 	const char *path;
 
 	struct pw_context *context;
+	struct spa_hook context_listener;
 
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
@@ -780,10 +781,6 @@ again:
 			io->buffer_id = SPA_ID_INVALID;
 			io->status = SPA_STATUS_NEED_DATA;
 			pw_log_trace(NAME" %p: no more buffers %p", stream, io);
-			if (impl->draining) {
-				call_drained(impl);
-				goto exit;
-			}
 		}
 	}
 
@@ -795,7 +792,6 @@ again:
 		    io->status == SPA_STATUS_NEED_DATA)
 			goto again;
 	}
-exit:
 	copy_position(impl, impl->queued.outcount);
 
 	res = io->status;
@@ -1039,6 +1035,20 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
+static void context_xrun(void *data, struct pw_impl_node *node)
+{
+	struct stream *impl = data;
+	if (impl->node != node)
+		return;
+	if (impl->draining)
+		call_drained(impl);
+}
+
+static const struct pw_context_driver_events context_events = {
+	PW_VERSION_CONTEXT_DRIVER_EVENTS,
+	.xrun = context_xrun,
+};
+
 static struct stream *
 stream_new(struct pw_context *context, const char *name,
 		struct pw_properties *props, const struct pw_properties *extra)
@@ -1102,6 +1112,9 @@ stream_new(struct pw_context *context, const char *name,
 	impl->context = context;
 	impl->allow_mlock = context->defaults.mem_allow_mlock;
 
+	spa_hook_list_append(&impl->context->driver_listener_list,
+			&impl->context_listener,
+			&context_events, impl);
 	return impl;
 
 error_properties:
@@ -1225,6 +1238,8 @@ void pw_stream_destroy(struct pw_stream *stream)
 		spa_list_remove(&c->link);
 		free(c);
 	}
+
+	spa_hook_remove(&impl->context_listener);
 
 	if (impl->data.context)
 		pw_context_destroy(impl->data.context);
@@ -1504,7 +1519,6 @@ pw_stream_connect(struct pw_stream *stream,
 	}
 
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
-
 
 	pw_impl_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
 

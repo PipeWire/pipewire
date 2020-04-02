@@ -91,29 +91,35 @@ static void node_deactivate(struct pw_impl_node *this)
 
 static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 {
-	uint32_t rdriver, rnode;
+	struct pw_node_activation_state *dstate, *nstate;
 
 	if (this->exported)
 		return;
 
 	pw_log_trace(NAME" %p: add to driver %p %p %p", this, driver,
 			driver->rt.activation, this->rt.activation);
+
 	/* signal the driver */
 	this->rt.driver_target.activation = driver->rt.activation;
 	this->rt.driver_target.node = driver;
 	this->rt.driver_target.data = driver;
 	spa_list_append(&this->rt.target_list, &this->rt.driver_target.link);
-	rdriver = ++this->rt.driver_target.activation->state[0].required;
+
+	dstate = &this->rt.driver_target.activation->state[0];
+	dstate->required++;
 
 	spa_list_append(&driver->rt.target_list, &this->rt.target.link);
-	rnode = ++this->rt.activation->state[0].required;
+	nstate = &this->rt.activation->state[0];
+	nstate->required++;
 
-	pw_log_trace(NAME" %p: required driver:%d node:%d", this, rdriver, rnode);
+	pw_log_trace(NAME" %p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
+			this, dstate, dstate->pending, dstate->required,
+			nstate, nstate->pending, nstate->required);
 }
 
 static void remove_node(struct pw_impl_node *this)
 {
-	uint32_t rdriver, rnode;
+	struct pw_node_activation_state *dstate, *nstate;
 
 	if (this->exported)
 		return;
@@ -123,12 +129,16 @@ static void remove_node(struct pw_impl_node *this)
 			this->rt.driver_target.activation, this->rt.activation);
 
 	spa_list_remove(&this->rt.driver_target.link);
-	rdriver = --this->rt.driver_target.activation->state[0].required;
+	dstate = &this->rt.driver_target.activation->state[0];
+	dstate->required--;
 
 	spa_list_remove(&this->rt.target.link);
-	rnode = --this->rt.activation->state[0].required;
+	nstate = &this->rt.activation->state[0];
+	nstate->required--;
 
-	pw_log_trace(NAME" %p: required driver:%d node:%d", this, rdriver, rnode);
+	pw_log_trace(NAME" %p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
+			this, dstate, dstate->pending, dstate->required,
+			nstate, nstate->pending, nstate->required);
 }
 
 static int
@@ -164,20 +174,6 @@ static int pause_node(struct pw_impl_node *this)
 		pw_log_debug(NAME" %p: pause node error %s", this, spa_strerror(res));
 
 	return res;
-}
-
-static int
-do_node_add(struct spa_loop *loop,
-	    bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct pw_impl_node *this = user_data;
-	struct pw_impl_node *driver = this->driver_node;
-
-	if (this->source.loop == NULL) {
-		spa_loop_add_source(loop, &this->source);
-		add_node(this, driver);
-	}
-	return 0;
 }
 
 static int start_node(struct pw_impl_node *this)
@@ -276,6 +272,20 @@ static void emit_params(struct pw_impl_node *node, uint32_t *changed_ids, uint32
 			pw_log_error(NAME" %p: error %d (%s)", node, res, spa_strerror(res));
 		}
 	}
+}
+
+static int
+do_node_add(struct spa_loop *loop,
+	    bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_impl_node *this = user_data;
+	struct pw_impl_node *driver = this->driver_node;
+
+	if (this->source.loop == NULL) {
+		spa_loop_add_source(loop, &this->source);
+		add_node(this, driver);
+	}
+	return 0;
 }
 
 static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, char *error)
@@ -762,24 +772,40 @@ static void check_properties(struct pw_impl_node *node)
 		pw_context_recalc_graph(context);
 }
 
+static const char *str_status(uint32_t status)
+{
+	switch (status) {
+	case PW_NODE_ACTIVATION_NOT_TRIGGERED:
+		return "not-triggered";
+	case PW_NODE_ACTIVATION_TRIGGERED:
+		return "triggered";
+	case PW_NODE_ACTIVATION_AWAKE:
+		return "awake";
+	case PW_NODE_ACTIVATION_FINISHED:
+		return "finished";
+	}
+	return "unknown";
+}
+
 static void dump_states(struct pw_impl_node *driver)
 {
 	struct pw_node_target *t;
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
+		struct pw_node_activation_state *state = &a->state[0];
 		if (t->node == NULL)
 			continue;
-		pw_log_warn(NAME" %p (%s): pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
-				" waiting:%"PRIu64" process:%"PRIu64" status:%d sync:%d",
-				t->node, t->node->name,
-				a->state[0].pending, a->state[0].required,
+		pw_log_warn(NAME" %p (%s): state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
+				" waiting:%"PRIu64" process:%"PRIu64" status:%s sync:%d",
+				t->node, t->node->name, state,
+				state->pending, state->required,
 				a->signal_time,
 				a->awake_time,
 				a->finish_time,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time,
-				a->status, a->pending_sync);
+				str_status(a->status), a->pending_sync);
 	}
 }
 
@@ -799,16 +825,15 @@ static inline int resume_node(struct pw_impl_node *this, int status)
 	pw_log_trace_fp(NAME" %p: trigger peers %"PRIu64, this, nsec);
 
 	spa_list_for_each(t, &this->rt.target_list, link) {
-		struct pw_node_activation_state *state;
+		struct pw_node_activation *a = t->activation;
+		struct pw_node_activation_state *state = &a->state[0];
 
-		state = &t->activation->state[0];
-
-		pw_log_trace_fp(NAME" %p: state %p pending %d/%d", t->node, state,
+		pw_log_trace_fp(NAME" %p: state:%p pending:%d/%d", t->node, state,
                                 state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state, 1)) {
-			t->activation->status = PW_NODE_ACTIVATION_TRIGGERED;
-			t->activation->signal_time = nsec;
+			a->status = PW_NODE_ACTIVATION_TRIGGERED;
+			a->signal_time = nsec;
 			t->signal(t->data);
 		}
 	}
@@ -1314,12 +1339,14 @@ static int node_ready(void *data, int status)
 
 	if (SPA_UNLIKELY(node == driver)) {
 		struct pw_node_activation *a = node->rt.activation;
+		struct pw_node_activation_state *state = &a->state[0];
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
 		uint64_t min_timeout = UINT64_MAX;
 
-		if (SPA_UNLIKELY(a->state[0].pending > 0)) {
-			pw_log_warn(NAME" %p: graph not finished: pending %d", node, a->state[0].pending);
+		if (SPA_UNLIKELY(state->pending > 0)) {
+			pw_log_warn(NAME" %p: graph not finished: state:%p pending %d/%d",
+					node, state, state->pending, state->required);
 			pw_context_driver_emit_incomplete(node->context, node);
 			dump_states(node);
 			node->rt.target.signal(node->rt.target.data);

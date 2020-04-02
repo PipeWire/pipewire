@@ -522,13 +522,16 @@ do_activate_link(struct spa_loop *loop,
 	spa_list_append(&this->input->rt.mix_list, &this->rt.in_mix.rt_link);
 
 	if (impl->inode != impl->onode) {
-		uint32_t required;
+		struct pw_node_activation_state *state;
 
 		this->rt.target.activation = impl->inode->rt.activation;
 		spa_list_append(&impl->onode->rt.target_list, &this->rt.target.link);
-		required = ++this->rt.target.activation->state[0].required;
-		pw_log_trace(NAME" %p: node:%p required:%d", this,
-				impl->inode, required);
+
+		state = &this->rt.target.activation->state[0];
+		state->required++;
+
+		pw_log_trace(NAME" %p: node:%p state:%p pending:%d/%d", this, impl->inode,
+				state, state->pending, state->required);
 	}
 	return 0;
 }
@@ -735,12 +738,14 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_list_remove(&this->rt.in_mix.rt_link);
 
 	if (this->input->node != this->output->node) {
-		uint32_t required;
+		struct pw_node_activation_state *state;
 
 		spa_list_remove(&this->rt.target.link);
-		required = --this->rt.target.activation->state[0].required;
-		pw_log_trace(NAME" %p: node:%p required:%d", this,
-				impl->inode, required);
+		state = &this->rt.target.activation->state[0];
+		state->required--;
+
+		pw_log_trace(NAME" %p: node:%p state:%p pending:%d/%d", this, impl->inode,
+				state, state->pending, state->required);
 	}
 
 	return 0;

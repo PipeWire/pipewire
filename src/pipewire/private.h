@@ -386,7 +386,7 @@ struct pw_impl_module {
 };
 
 struct pw_node_activation_state {
-	int status;			/**< current status */
+	int status;                     /**< current status, the result of spa_node_process() */
 	int32_t required;		/**< required number of signals */
 	int32_t pending;		/**< number of pending signals */
 };

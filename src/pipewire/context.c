@@ -812,6 +812,9 @@ int pw_context_recalc_graph(struct pw_context *context)
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		uint32_t active_followers;
 
+		if (n->exported)
+			continue;
+
 		if (n->active && !n->visited)
 			collect_nodes(n);
 
@@ -843,6 +846,9 @@ int pw_context_recalc_graph(struct pw_context *context)
 	 * in collect_nodes() are not linked to any master. We assign them
 	 * to an active master */
 	spa_list_for_each(n, &context->node_list, link) {
+		if (n->exported)
+			continue;
+
 		if (!n->visited) {
 			struct pw_impl_node *t;
 
@@ -865,7 +871,7 @@ int pw_context_recalc_graph(struct pw_context *context)
 
 	/* assign final quantum and debug masters and followers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
-		if (!n->master)
+		if (!n->master || n->exported)
 			continue;
 
 		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration) {

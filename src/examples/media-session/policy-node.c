@@ -487,7 +487,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 
 		str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
 		if (str != NULL && pw_properties_parse_bool(str)) {
-//			pw_registry_destroy(impl->registry, n->id);
+			sm_media_session_destroy_object(impl->session, n->id);
 		}
 
 		obj = sm_media_session_find_object(impl->session, n->client_id);

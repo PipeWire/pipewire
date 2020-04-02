@@ -1182,6 +1182,13 @@ struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, ui
 	return find_object(impl, id);
 }
 
+int sm_media_session_destroy_object(struct sm_media_session *sess, uint32_t id)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	pw_registry_destroy(impl->registry, id);
+	return 0;
+}
+
 int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);

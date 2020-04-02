@@ -248,6 +248,7 @@ int sm_media_session_sync(struct sm_media_session *sess,
 		void (*callback) (void *data), void *data);
 
 struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, uint32_t id);
+int sm_media_session_destroy_object(struct sm_media_session *sess, uint32_t id);
 
 int sm_media_session_schedule_rescan(struct sm_media_session *sess);
 

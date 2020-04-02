@@ -420,8 +420,10 @@ static void parse_props(struct global *g, const struct spa_pod *param)
 				pw_log_debug("channel change %d->%d, trigger remove",
 						g->node_info.n_channel_volumes, n_vals);
 				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_REMOVE);
-				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_NEW);
 				g->node_info.n_channel_volumes = n_vals;
+				/* mark as init, this will emit the NEW event when the
+				 * params are updated */
+				g->init = true;
 			}
 			break;
 		}

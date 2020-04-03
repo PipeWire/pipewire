@@ -183,9 +183,9 @@ static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 #else
 	asm volatile(
 		"      vdup.32 q10, %[x]\n"
-		"      vld1.32 {q4, q5}, [%[taps]]!\n"
+		"      vld1.32 {q4, q5}, [%[t0]]!\n"
 		"      vld1.32 {q8, q9}, [%[s]]!\n"
-		"      vld1.32 {q6, q7}, [%[taps]]!\n"
+		"      vld1.32 {q6, q7}, [%[t1]]!\n"
 		"      subs %[n_taps], %[n_taps], #8\n"
 		"      vmul.f32 q0, q4, q8\n"
 		"      vmul.f32 q1, q5, q9\n"
@@ -193,9 +193,9 @@ static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 		"      vmul.f32 q3, q7, q9\n"
 		"      beq 3f\n"
 		"2:"
-		"      vld1.32 {q4, q5}, [%[taps]]!\n"
+		"      vld1.32 {q4, q5}, [%[t0]]!\n"
 		"      vld1.32 {q8, q9}, [%[s]]!\n"
-		"      vld1.32 {q6, q7}, [%[taps]]!\n"
+		"      vld1.32 {q6, q7}, [%[t1]]!\n"
 		"      subs %[n_taps], %[n_taps], #8\n"
 		"      vmla.f32 q0, q4, q8\n"
 		"      vmla.f32 q1, q5, q9\n"

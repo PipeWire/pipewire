@@ -1283,7 +1283,7 @@ static void do_reposition(struct pw_impl_node *driver, struct pw_impl_node *node
 	src = &node->rt.activation->reposition;
 	dst = &a->position.segments[0];
 
-	pw_log_trace(NAME" %p: update position:%lu", node, src->position);
+	pw_log_trace(NAME" %p: update position:%"PRIu64, node, src->position);
 
 	dst->version = src->version;
 	dst->flags = src->flags;

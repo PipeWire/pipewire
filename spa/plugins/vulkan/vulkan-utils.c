@@ -325,7 +325,7 @@ static VkShaderModule createShaderModule(struct vulkan_state *s, const char* sha
 
 	if ((fd = open(shaderFile, 0, O_RDONLY)) == -1) {
 		spa_log_error(s->log, "can't open %s: %m", shaderFile);
-		return NULL;
+		return VK_NULL_HANDLE;
 	}
 	fstat(fd, &stat);
 
@@ -344,7 +344,7 @@ static VkShaderModule createShaderModule(struct vulkan_state *s, const char* sha
 
 	if (result != VK_SUCCESS) {
 		spa_log_error(s->log, "can't create shader %s: %m", shaderFile);
-		return NULL;
+		return VK_NULL_HANDLE;
 	}
 	return shaderModule;
 }
@@ -369,7 +369,7 @@ static int createComputePipeline(struct vulkan_state *s, const char *shader_file
 				&s->pipelineLayout));
 
         s->computeShaderModule = createShaderModule(s, shader_file);
-	if (s->computeShaderModule == NULL)
+	if (s->computeShaderModule == VK_NULL_HANDLE)
 		return -ENOENT;
 
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {

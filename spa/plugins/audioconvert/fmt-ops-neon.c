@@ -34,12 +34,11 @@ conv_s16_to_f32d_2s_neon(void *data, void * SPA_RESTRICT dst[], const void * SPA
 {
 	const int16_t *s = src;
 	float *d0 = dst[0], *d1 = dst[1];
-
-#ifdef __aarch64__
 	uint32_t stride = n_channels << 1;
 	unsigned int remainder = n_samples & 3;
 	n_samples -= remainder;
 
+#ifdef __aarch64__
 	asm volatile(
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
@@ -75,12 +74,40 @@ conv_s16_to_f32d_2s_neon(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		: [stride] "r" (stride)
 		: "cc", "v0", "v1", "v2", "v3");
 #else
-	uint32_t n;
-	for(n = 0; n < n_samples; n++) {
-		*d0++ = S16_TO_F32(s[0]);
-		*d1++ = S16_TO_F32(s[1]);
-		s += n_channels;
-	}
+	asm volatile(
+		"      cmp %[n_samples], #0\n"
+		"      beq 2f\n"
+		"1:"
+		"      vld2.16 { d0[0], d1[0] }, [%[s]], %[stride]\n"
+		"      vld2.16 { d0[1], d1[1] }, [%[s]], %[stride]\n"
+		"      vld2.16 { d0[2], d1[2] }, [%[s]], %[stride]\n"
+		"      vld2.16 { d0[3], d1[3] }, [%[s]], %[stride]\n"
+		"      subs %[n_samples], %[n_samples], #4\n"
+		"      vmovl.s16 q1, d1\n"
+		"      vmovl.s16 q0, d0\n"
+		"      vcvt.f32.s32 q0, q0, #15\n"
+		"      vcvt.f32.s32 q1, q1, #15\n"
+		"      vst1.32 { q0 }, [%[d0]]!\n"
+		"      vst1.32 { q1 }, [%[d1]]!\n"
+		"      bne 1b\n"
+		"2:"
+		"      cmp %[remainder], #0\n"
+		"      beq 4f\n"
+		"3:"
+		"      vld2.16 { d0[0], d1[0] }, [%[s]], %[stride]\n"
+		"      subs %[remainder], %[remainder], #1\n"
+		"      vmovl.s16 q1, d1\n"
+		"      vmovl.s16 q0, d0\n"
+		"      vcvt.f32.s32 q0, q0, #15\n"
+		"      vcvt.f32.s32 q1, q1, #15\n"
+		"      vst1.32 { d0[0] }, [%[d0]]!\n"
+		"      vst1.32 { d1[0] }, [%[d1]]!\n"
+		"      bne 3b\n"
+		"4:"
+		: [d0] "+r" (d0), [d1] "+r" (d1), [s] "+r" (s), [n_samples] "+r" (n_samples),
+		  [remainder] "+r" (remainder)
+		: [stride] "r" (stride)
+		: "cc", "q0", "q1");
 #endif
 }
 
@@ -90,11 +117,11 @@ conv_s16_to_f32d_1s_neon(void *data, void * SPA_RESTRICT dst[], const void * SPA
 {
 	const int16_t *s = src;
 	float *d = dst[0];
-#ifdef __aarch64__
 	uint32_t stride = n_channels << 1;
 	uint32_t remainder = n_samples & 3;
 	n_samples -= remainder;
 
+#ifdef __aarch64__
 	asm volatile(
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
@@ -124,11 +151,34 @@ conv_s16_to_f32d_1s_neon(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		: [stride] "r" (stride)
 		: "cc", "v0", "v1");
 #else
-	uint32_t n;
-	for(n = 0; n < n_samples; n++) {
-		*d++ = S16_TO_F32(s[0]);
-		s += n_channels;
-	}
+	asm volatile(
+		"      cmp %[n_samples], #0\n"
+		"      beq 2f\n"
+		"1:"
+		"      vld1.16 { d0[0] }, [%[s]], %[stride]\n"
+		"      vld1.16 { d0[1] }, [%[s]], %[stride]\n"
+		"      vld1.16 { d0[2] }, [%[s]], %[stride]\n"
+		"      vld1.16 { d0[3] }, [%[s]], %[stride]\n"
+		"      subs %[n_samples], %[n_samples], #4\n"
+		"      vmovl.s16 q0, d0\n"
+		"      vcvt.f32.s32 q0, q0, #15\n"
+		"      vst1.32 { q0 }, [%[d]]!\n"
+		"      bne 1b\n"
+		"2:"
+		"      cmp %[remainder], #0\n"
+		"      beq 4f\n"
+		"3:"
+		"      vld1.16 { d0[0] }, [%[s]], %[stride]\n"
+		"      subs %[remainder], %[remainder], #1\n"
+		"      vmovl.s16 q0, d0\n"
+		"      vcvt.f32.s32 q0, q0, #15\n"
+		"      vst1.32 { d0[0] }, [%[d]]!\n"
+		"      bne 3b\n"
+		"4:"
+		: [d] "+r" (d), [s] "+r" (s), [n_samples] "+r" (n_samples),
+		  [remainder] "+r" (remainder)
+		: [stride] "r" (stride)
+		: "cc", "q0");
 #endif
 }
 
@@ -151,12 +201,11 @@ conv_f32d_to_s16_2s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 {
 	const float *s0 = src[0], *s1 = src[1];
 	int16_t *d = dst;
-
-#ifdef __aarch64__
 	uint32_t stride = n_channels << 1;
 	uint32_t remainder = n_samples & 3;
 	n_samples -= remainder;
 
+#ifdef __aarch64__
 	asm volatile(
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
@@ -192,12 +241,40 @@ conv_f32d_to_s16_2s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		: [stride] "r" (stride)
 		: "cc", "v0", "v1");
 #else
-	uint32_t n;
-	for(n = 0; n < n_samples; n++) {
-		d[0] = F32_TO_S16(s0[n]);
-		d[1] = F32_TO_S16(s1[n]);
-		d += n_channels;
-	}
+	asm volatile(
+		"      cmp %[n_samples], #0\n"
+		"      beq 2f\n"
+		"1:"
+		"      vld1.32 { q0 }, [%[s0]]!\n"
+		"      vld1.32 { q1 }, [%[s1]]!\n"
+		"      subs %[n_samples], %[n_samples], #4\n"
+		"      vcvt.s32.f32 q0, q0, #31\n"
+		"      vcvt.s32.f32 q1, q1, #31\n"
+		"      vqrshrn.s32 d0, q0, #16\n"
+		"      vqrshrn.s32 d1, q1, #16\n"
+		"      vst2.16 { d0[0], d1[0] }, [%[d]], %[stride]\n"
+		"      vst2.16 { d0[1], d1[1] }, [%[d]], %[stride]\n"
+		"      vst2.16 { d0[2], d1[2] }, [%[d]], %[stride]\n"
+		"      vst2.16 { d0[3], d1[3] }, [%[d]], %[stride]\n"
+		"      bne 1b\n"
+		"2:"
+		"      cmp %[remainder], #0\n"
+		"      beq 4f\n"
+		"3:"
+		"      vld1.32 { d0[0] }, [%[s0]]!\n"
+		"      vld1.32 { d2[0] }, [%[s1]]!\n"
+		"      subs %[remainder], %[remainder], #1\n"
+		"      vcvt.s32.f32 q0, q0, #31\n"
+		"      vcvt.s32.f32 q1, q1, #31\n"
+		"      vqrshrn.s32 d0, q0, #16\n"
+		"      vqrshrn.s32 d1, q1, #16\n"
+		"      vst2.16 { d0[0], d1[0] }, [%[d]], %[stride]\n"
+		"      bne 3b\n"
+		"4:"
+		: [d] "+r" (d), [s0] "+r" (s0), [s1] "+r" (s1), [n_samples] "+r" (n_samples),
+		  [remainder] "+r" (remainder)
+		: [stride] "r" (stride)
+		: "cc", "q0", "q1");
 #endif
 }
 
@@ -207,12 +284,11 @@ conv_f32d_to_s16_1s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 {
 	const float *s = src[0];
 	int16_t *d = dst;
-
-#ifdef __aarch64__
 	uint32_t stride = n_channels << 1;
 	uint32_t remainder = n_samples & 3;
 	n_samples -= remainder;
 
+#ifdef __aarch64__
 	asm volatile(
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
@@ -242,11 +318,34 @@ conv_f32d_to_s16_1s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		: [stride] "r" (stride)
 		: "cc", "v0");
 #else
-	uint32_t n;
-	for(n = 0; n < n_samples; n++) {
-		*d = F32_TO_S16(s[n]);
-		d += n_channels;
-	}
+	asm volatile(
+		"      cmp %[n_samples], #0\n"
+		"      beq 2f\n"
+		"1:"
+		"      vld1.32 { q0 }, [%[s]]!\n"
+		"      subs %[n_samples], %[n_samples], #4\n"
+		"      vcvt.s32.f32 q0, q0, #31\n"
+		"      vqrshrn.s32 d0, q0, #16\n"
+		"      vst1.16 { d0[0] }, [%[d]], %[stride]\n"
+		"      vst1.16 { d0[1] }, [%[d]], %[stride]\n"
+		"      vst1.16 { d0[2] }, [%[d]], %[stride]\n"
+		"      vst1.16 { d0[3] }, [%[d]], %[stride]\n"
+		"      bne 1b\n"
+		"2:"
+		"      cmp %[remainder], #0\n"
+		"      beq 4f\n"
+		"3:"
+		"      vld1.32 { d0[0] }, [%[s]]!\n"
+		"      subs %[remainder], %[remainder], #1\n"
+		"      vcvt.s32.f32 q0, q0, #31\n"
+		"      vqrshrn.s32 d0, q0, #16\n"
+		"      vst1.16 { d0[0] }, [%[d]], %[stride]\n"
+		"      bne 3b\n"
+		"4:"
+		: [d] "+r" (d), [s] "+r" (s), [n_samples] "+r" (n_samples),
+		  [remainder] "+r" (remainder)
+		: [stride] "r" (stride)
+		: "cc", "q0");
 #endif
 }
 

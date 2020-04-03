@@ -10,18 +10,6 @@ audioconvert_sources = ['audioadapter.c',
 simd_cargs = []
 simd_dependencies = []
 
-audioconvert_c = static_library('audioconvert_c',
-	['fmt-ops.c',
-	 'channelmix-ops.c',
-	 'channelmix-ops-c.c',
-	 'resample-native.c',
-	 'resample-peaks.c',
-	 'fmt-ops-c.c' ],
-	c_args : ['-O3'],
-	include_directories : [spa_inc],
-	install : false
-)
-simd_dependencies += audioconvert_c
 
 if have_sse
 	audioconvert_sse = static_library('audioconvert_sse',
@@ -98,6 +86,19 @@ if have_neon
 	simd_cargs += ['-DHAVE_NEON']
 	simd_dependencies += audioconvert_neon
 endif
+
+audioconvert_c = static_library('audioconvert_c',
+	['fmt-ops.c',
+	 'channelmix-ops.c',
+	 'channelmix-ops-c.c',
+	 'resample-native.c',
+	 'resample-peaks.c',
+	 'fmt-ops-c.c' ],
+	c_args : [simd_cargs, '-O3'],
+	include_directories : [spa_inc],
+	install : false
+)
+simd_dependencies += audioconvert_c
 
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,

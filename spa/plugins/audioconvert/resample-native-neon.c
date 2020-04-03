@@ -132,7 +132,7 @@ static void inner_product_neon(float *d, const float * SPA_RESTRICT s,
 		"5:"
 		"      vadd.f32 d0, d0, d1\n"
 		"      vpadd.f32 d0, d0, d0\n"
-		"      str d0, [%[d]]\n"
+		"      vstr d0, [%[d]]\n"
 		: [d] "+r" (d), [s] "+r" (s), [taps] "+r" (taps),
 		  [n_taps] "+l" (n_taps), [remainder] "+l" (remainder)
 		:
@@ -209,7 +209,7 @@ static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 		"      vmla.f32 q0, q2, q10\n"		/* sum[0] += sum[1] * x */
 		"      vadd.f32 d0, d0, d1\n"
 		"      vpadd.f32 d0, d0, d0\n"
-		"      str d0, [%[d]]\n"
+		"      vstr d0, [%[d]]\n"
 		: [d] "+r" (d), [s] "+r" (s), [t0] "+r" (t0), [t1] "+r" (t1),
 		  [n_taps] "+l" (n_taps), [x] "+l" (x)
 		:

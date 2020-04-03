@@ -95,17 +95,12 @@ have_avx = cc.has_argument(avx_args)
 have_avx2 = cc.has_argument(avx2_args)
 
 have_neon = false
-if host_machine.cpu_family() == 'arm' or host_machine.cpu_family() == 'aarch64'
-  if cc.compiles(
-'''
-#include <arm_neon.h>
-int32x4_t testfunc(int16_t *a, int16_t *b) {
-return vmull_s16(vld1_s16(a), vld1_s16(b));
-}
-''',
-   name : 'NEON support')
-    have_neon = true
-  endif
+if host_machine.cpu_family() == 'aarch64'
+  neon_args = []
+  have_neon = true
+elif cc.has_argument('-mfpu=neon')
+  neon_args = ['-mfpu=neon']
+  have_neon = true
 endif
 
 

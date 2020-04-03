@@ -244,7 +244,7 @@ conv_f32d_to_s16_1s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 #else
 	uint32_t n;
 	for(n = 0; n < n_samples; n++) {
-		*d = F32_TO_S16(s0[n]);
+		*d = F32_TO_S16(s[n]);
 		d += n_channels;
 	}
 #endif

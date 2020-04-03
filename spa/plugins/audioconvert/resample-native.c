@@ -22,6 +22,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <errno.h>
+
+#include <spa/param/audio/format.h>
+
 #include "resample-native-impl.h"
 
 struct quality {
@@ -77,6 +81,69 @@ static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t 
 	return 0;
 }
 
+static void inner_product_c(float *d, const float * SPA_RESTRICT s,
+		const float * SPA_RESTRICT taps, uint32_t n_taps)
+{
+	float sum = 0.0f;
+	uint32_t i;
+
+	for (i = 0; i < n_taps; i++)
+		sum += s[i] * taps[i];
+	*d = sum;
+}
+
+static void inner_product_ip_c(float *d, const float * SPA_RESTRICT s,
+	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
+	uint32_t n_taps)
+{
+	float sum[2] = { 0.0f, 0.0f };
+	uint32_t i;
+
+	for (i = 0; i < n_taps; i++) {
+		sum[0] += s[i] * t0[i];
+		sum[1] += s[i] * t1[i];
+	}
+	*d = (sum[1] - sum[0]) * x + sum[0];
+}
+
+MAKE_RESAMPLER_COPY(c);
+MAKE_RESAMPLER_FULL(c);
+MAKE_RESAMPLER_INTER(c);
+
+static struct resample_info resample_table[] =
+{
+#if defined (HAVE_NEON)
+	{ SPA_AUDIO_FORMAT_F32, SPA_CPU_FLAG_NEON,
+		do_resample_copy_c, do_resample_full_neon, do_resample_inter_neon },
+#endif
+#if defined(HAVE_AVX) && defined(HAVE_FMA)
+	{ SPA_AUDIO_FORMAT_F32, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3,
+		do_resample_copy_c, do_resample_full_avx, do_resample_inter_avx },
+#endif
+#if defined (HAVE_SSSE3)
+	{ SPA_AUDIO_FORMAT_F32, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED,
+		do_resample_copy_c, do_resample_full_ssse3, do_resample_inter_ssse3 },
+#endif
+#if defined (HAVE_SSE)
+	{ SPA_AUDIO_FORMAT_F32, SPA_CPU_FLAG_SSE,
+		do_resample_copy_c, do_resample_full_sse, do_resample_inter_sse },
+#endif
+	{ SPA_AUDIO_FORMAT_F32, 0,
+		do_resample_copy_c, do_resample_full_c, do_resample_inter_c },
+};
+
+#define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
+static const struct resample_info *find_resample_info(uint32_t format, uint32_t cpu_flags)
+{
+	size_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(resample_table); i++) {
+		if (resample_table[i].format == format &&
+		    MATCH_CPU_FLAGS(resample_table[i].cpu_flags, cpu_flags))
+			return &resample_table[i];
+	}
+	return NULL;
+}
+
 static void impl_native_free(struct resample *r)
 {
 	free(r->data);
@@ -118,32 +185,16 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	data->inc = data->in_rate / data->out_rate;
 	data->frac = data->in_rate % data->out_rate;
 
+	if (data->in_rate == data->out_rate)
+		data->func = data->info->process_copy;
+	else if (rate == 1.0)
+		data->func = data->info->process_full;
+	else
+		data->func = data->info->process_inter;
+
 	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d phase:%d inc:%d frac:%d", r,
 			rate, data->in_rate, data->out_rate, data->phase, data->inc, data->frac);
 
-	if (data->in_rate == data->out_rate)
-		data->func = do_resample_copy_c;
-	else {
-		bool is_full = rate == 1.0;
-
-		data->func = is_full ? do_resample_full_c : do_resample_inter_c;
-#if defined (HAVE_NEON)
-		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_NEON))
-			data->func = is_full ? do_resample_full_neon : do_resample_inter_neon;
-#endif
-#if defined (HAVE_SSE)
-		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_SSE))
-			data->func = is_full ? do_resample_full_sse : do_resample_inter_sse;
-#endif
-#if defined (HAVE_SSSE3)
-		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED))
-			data->func = is_full ? do_resample_full_ssse3 : do_resample_inter_ssse3;
-#endif
-#if defined(HAVE_AVX) && defined(HAVE_FMA)
-		if (SPA_FLAG_IS_SET(r->cpu_flags, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3))
-			data->func = is_full ? do_resample_full_avx : do_resample_inter_avx;
-#endif
-	}
 }
 
 static uint32_t impl_native_in_len(struct resample *r, uint32_t out_len)
@@ -264,7 +315,7 @@ static uint32_t impl_native_delay (struct resample *r)
 	return d->n_taps / 2;
 }
 
-static int impl_native_init(struct resample *r)
+int resample_native_init(struct resample *r)
 {
 	struct native_data *d;
 	const struct quality *q;
@@ -326,8 +377,13 @@ static int impl_native_init(struct resample *r)
 
 	build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
 
-	spa_log_debug(r->log, "native %p: q:%d in:%d out:%d n_taps:%d n_phases:%d",
-			r, r->quality, in_rate, out_rate, n_taps, n_phases);
+	d->info = find_resample_info(SPA_AUDIO_FORMAT_F32, r->cpu_flags);
+
+	spa_log_debug(r->log, "native %p: q:%d in:%d out:%d n_taps:%d n_phases:%d features:%08x:%08x",
+			r, r->quality, in_rate, out_rate, n_taps, n_phases,
+			r->cpu_flags, d->info->cpu_flags);
+
+	r->cpu_flags = d->info->cpu_flags;
 
 	impl_native_reset(r);
 	impl_native_update_rate(r, 1.0);

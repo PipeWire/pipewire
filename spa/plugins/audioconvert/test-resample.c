@@ -35,7 +35,6 @@
 SPA_LOG_IMPL(logger);
 
 #include "resample.h"
-#include "resample-native.h"
 
 #define N_SAMPLES	253
 #define N_CHANNELS	11
@@ -73,7 +72,7 @@ static void test_native(void)
 	r.i_rate = 44100;
 	r.o_rate = 44100;
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
-	impl_native_init(&r);
+	resample_native_init(&r);
 
 	feed_1(&r);
 
@@ -83,7 +82,7 @@ static void test_native(void)
 	r.i_rate = 44100;
 	r.o_rate = 48000;
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
-	impl_native_init(&r);
+	resample_native_init(&r);
 
 	feed_1(&r);
 }
@@ -126,7 +125,7 @@ static void test_in_len(void)
 	r.i_rate = 32000;
 	r.o_rate = 48000;
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
-	impl_native_init(&r);
+	resample_native_init(&r);
 
 	pull_blocks(&r, 1024);
 
@@ -136,7 +135,7 @@ static void test_in_len(void)
 	r.i_rate = 44100;
 	r.o_rate = 48000;
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
-	impl_native_init(&r);
+	resample_native_init(&r);
 
 	pull_blocks(&r, 1024);
 
@@ -146,7 +145,7 @@ static void test_in_len(void)
 	r.i_rate = 48000;
 	r.o_rate = 44100;
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
-	impl_native_init(&r);
+	resample_native_init(&r);
 
 	pull_blocks(&r, 1024);
 }

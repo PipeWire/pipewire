@@ -38,7 +38,6 @@
 SPA_LOG_IMPL(logger);
 
 #include "resample.h"
-#include "resample-native.h"
 
 #define DEFAULT_QUALITY	RESAMPLE_DEFAULT_QUALITY
 
@@ -166,7 +165,7 @@ static int do_conversion(struct data *d)
 	r.i_rate = d->iinfo.samplerate;
 	r.o_rate = d->oinfo.samplerate;
 	r.quality = d->quality < 0 ? DEFAULT_QUALITY : d->quality;
-	impl_native_init(&r);
+	resample_native_init(&r);
 
 	for (j = 0; j < channels; j++)
 		src[j] = &in[MAX_SAMPLES * j];

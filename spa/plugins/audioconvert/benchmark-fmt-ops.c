@@ -29,7 +29,10 @@
 #include <errno.h>
 #include <time.h>
 
-#include "fmt-ops.c"
+#include "fmt-ops.h"
+
+typedef void (*convert_func_t) (struct convert *conv, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples);
 
 struct stats {
 	uint32_t n_samples;

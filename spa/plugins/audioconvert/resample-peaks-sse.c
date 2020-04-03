@@ -24,34 +24,29 @@
 
 #include <math.h>
 
-struct peaks_data {
-	uint32_t o_count;
-	uint32_t i_count;
-	float max_f[0];
-};
+#include <xmmintrin.h>
 
-#if defined (__SSE__)
-#include "resample-peaks-sse.h"
-#endif
+#include "resample-peaks-impl.h"
 
-static void impl_peaks_free(struct resample *r)
+static inline float hmax_ps(__m128 val)
 {
-	free(r->data);
-	r->data = NULL;
+	__m128 t = _mm_movehl_ps(val, val);
+	t = _mm_max_ps(t, val);
+	val = _mm_shuffle_ps(val, t, 0x55);
+	val = _mm_max_ss(t, val);
+	return _mm_cvtss_f32(val);
 }
 
-static void impl_peaks_update_rate(struct resample *r, double rate)
-{
-}
-
-static void impl_peaks_process(struct resample *r,
+void resample_peaks_process_sse(struct resample *r,
 			const void * SPA_RESTRICT src[], uint32_t *in_len,
 			void * SPA_RESTRICT dst[], uint32_t *out_len)
 {
 	struct peaks_data *pd = r->data;
-	uint32_t c, i, o, end, chunk, o_count, i_count;
+	uint32_t c, i, o, end, chunk, unrolled, i_count, o_count;
+	__m128 in, max, mask = _mm_andnot_ps(_mm_set_ps1(-0.0f),
+			_mm_cmpeq_ps(_mm_setzero_ps(), _mm_setzero_ps()));
 
-	if (SPA_UNLIKELY(r->channels == 0))
+	if (r->channels == 0)
 		return;
 
 	for (c = 0; c < r->channels; c++) {
@@ -62,21 +57,31 @@ static void impl_peaks_process(struct resample *r,
 		i_count = pd->i_count;
 		o = i = 0;
 
+		max = _mm_set1_ps(m);
+
 		while (i < *in_len && o < *out_len) {
 			end = ((uint64_t) (o_count + 1) * r->i_rate) / r->o_rate;
 			end = end > i_count ? end - i_count : 0;
 			chunk = SPA_MIN(end, *in_len);
 
+			unrolled = chunk - ((chunk - i) & 3);
+
+			for (; i < unrolled; i+=4) {
+				in = _mm_loadu_ps(&s[i]);
+				in = _mm_and_ps(mask, in);
+				max = _mm_max_ps(in, max);
+			}
 			for (; i < chunk; i++)
 				m = SPA_MAX(fabsf(s[i]), m);
 
 			if (i == end) {
-				d[o++] = m;
+				d[o++] = SPA_MAX(hmax_ps(max), m);
 				m = 0.0f;
+				max = _mm_set1_ps(m);
 				o_count++;
 			}
 		}
-		pd->max_f[c] = m;
+		pd->max_f[c] = SPA_MAX(hmax_ps(max), m);
 	}
 
 	*out_len = o;
@@ -88,34 +93,4 @@ static void impl_peaks_process(struct resample *r,
 		pd->i_count -= r->i_rate;
 		pd->o_count -= r->o_rate;
 	}
-}
-
-static void impl_peaks_reset (struct resample *r)
-{
-	struct peaks_data *d = r->data;
-	d->i_count = d->o_count = 0;
-}
-
-static int impl_peaks_init(struct resample *r)
-{
-	struct peaks_data *d;
-
-	r->free = impl_peaks_free;
-	r->update_rate = impl_peaks_update_rate;
-#if defined (__SSE__)
-	if (r->cpu_flags & SPA_CPU_FLAG_SSE)
-		r->process = impl_peaks_process_sse;
-	else
-#endif
-		r->process = impl_peaks_process;
-
-	r->reset = impl_peaks_reset;
-	d = r->data = calloc(1, sizeof(struct peaks_data) * sizeof(float) * r->channels);
-	if (r->data == NULL)
-		return -errno;
-
-	spa_log_debug(r->log, "peaks %p: in:%d out:%d", r, r->i_rate, r->o_rate);
-
-	d->i_count = d->o_count = 0;
-	return 0;
 }

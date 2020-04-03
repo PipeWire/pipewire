@@ -32,6 +32,14 @@ typedef void (*resample_func_t)(struct resample *r,
         const void * SPA_RESTRICT src[], uint32_t ioffs, uint32_t *in_len,
         void * SPA_RESTRICT dst[], uint32_t ooffs, uint32_t *out_len);
 
+struct resample_info {
+	uint32_t format;
+	uint32_t cpu_flags;
+	resample_func_t process_copy;
+	resample_func_t process_full;
+	resample_func_t process_inter;
+};
+
 struct native_data {
 	double rate;
 	uint32_t n_taps;
@@ -48,6 +56,7 @@ struct native_data {
 	resample_func_t func;
 	float *filter;
 	float *hist_mem;
+	const struct resample_info *info;
 };
 
 #define DEFINE_RESAMPLER(type,arch)						\

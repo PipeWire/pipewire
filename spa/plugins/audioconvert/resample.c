@@ -40,9 +40,6 @@
 
 #include "resample.h"
 
-#include "resample-peaks.h"
-#include "resample-native.h"
-
 #define NAME "resample"
 
 #define DEFAULT_RATE		48000
@@ -166,9 +163,9 @@ static int setup_convert(struct impl *this,
 	this->resample.quality = this->props.quality;
 
 	if (this->peaks)
-		err = impl_peaks_init(&this->resample);
+		err = resample_peaks_init(&this->resample);
 	else
-		err = impl_native_init(&this->resample);
+		err = resample_native_init(&this->resample);
 
 	return err;
 }

@@ -1,9 +1,7 @@
 audioconvert_sources = ['audioadapter.c',
 			'audioconvert.c',
 			'fmtconvert.c',
-			'fmt-ops.c',
 			'channelmix.c',
-			'channelmix-ops.c',
 			'merger.c',
 			'plugin.c',
 			'resample.c',
@@ -13,8 +11,11 @@ simd_cargs = []
 simd_dependencies = []
 
 audioconvert_c = static_library('audioconvert_c',
-	['resample-native-c.c',
+	['fmt-ops.c',
+	 'channelmix-ops.c',
 	 'channelmix-ops-c.c',
+	 'resample-native.c',
+	 'resample-peaks.c',
 	 'fmt-ops-c.c' ],
 	c_args : ['-O3'],
 	include_directories : [spa_inc],
@@ -25,6 +26,7 @@ simd_dependencies += audioconvert_c
 if have_sse
 	audioconvert_sse = static_library('audioconvert_sse',
 		['resample-native-sse.c',
+		 'resample-peaks-sse.c',
 		 'channelmix-ops-sse.c' ],
 		c_args : [sse_args, '-O3', '-DHAVE_SSE'],
 		include_directories : [spa_inc],
@@ -145,7 +147,7 @@ foreach a : benchmark_apps
 		dependencies : [dl_lib, pthread_lib, mathlib, ],
 		include_directories : [spa_inc ],
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
-		link_with : simd_dependencies,
+		link_with : [ simd_dependencies, audioconvertlib ],
 		install : false),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),

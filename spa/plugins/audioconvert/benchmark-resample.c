@@ -30,7 +30,6 @@
 #include <time.h>
 
 #include "resample.h"
-#include "resample-native.h"
 
 #define MAX_SAMPLES	4096
 #define MAX_CHANNELS	11
@@ -135,7 +134,7 @@ int main(int argc, char *argv[])
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
 		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		impl_native_init(&r);
+		resample_native_init(&r);
 		run_test("native", "c", &r);
 		resample_free(&r);
 	}
@@ -147,7 +146,7 @@ int main(int argc, char *argv[])
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
 		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		impl_native_init(&r);
+		resample_native_init(&r);
 		run_test("native", "sse", &r);
 		resample_free(&r);
 	}
@@ -160,7 +159,7 @@ int main(int argc, char *argv[])
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
 		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		impl_native_init(&r);
+		resample_native_init(&r);
 		run_test("native", "ssse3", &r);
 		resample_free(&r);
 	}
@@ -173,7 +172,7 @@ int main(int argc, char *argv[])
 		r.i_rate = in_rates[i];
 		r.o_rate = out_rates[i];
 		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		impl_native_init(&r);
+		resample_native_init(&r);
 		run_test("native", "avx", &r);
 		resample_free(&r);
 	}

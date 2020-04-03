@@ -59,4 +59,7 @@ struct resample {
 #define resample_reset(r)		(r)->reset(r)
 #define resample_delay(r)		(r)->delay(r)
 
+int resample_native_init(struct resample *r);
+int resample_peaks_init(struct resample *r);
+
 #endif /* RESAMPLE_H */

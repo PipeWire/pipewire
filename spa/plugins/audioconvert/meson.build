@@ -10,7 +10,6 @@ audioconvert_sources = ['audioadapter.c',
 simd_cargs = []
 simd_dependencies = []
 
-
 if have_sse
 	audioconvert_sse = static_library('audioconvert_sse',
 		['resample-native-sse.c',
@@ -87,25 +86,25 @@ if have_neon
 	simd_dependencies += audioconvert_neon
 endif
 
-audioconvert_c = static_library('audioconvert_c',
+audioconvert = static_library('audioconvert',
 	['fmt-ops.c',
 	 'channelmix-ops.c',
 	 'channelmix-ops-c.c',
 	 'resample-native.c',
 	 'resample-peaks.c',
 	 'fmt-ops-c.c' ],
-	c_args : [simd_cargs, '-O3'],
+	c_args : [ simd_cargs, '-O3'],
+        link_with : simd_dependencies,
 	include_directories : [spa_inc],
 	install : false
 )
-simd_dependencies += audioconvert_c
 
 audioconvertlib = shared_library('spa-audioconvert',
                           audioconvert_sources,
 			  c_args : simd_cargs,
                           include_directories : [spa_inc],
                           dependencies : [ mathlib ],
-			  link_with : simd_dependencies,
+			  link_with : audioconvert,
                           install : true,
                           install_dir : join_paths(spa_plugindir, 'audioconvert'))
 
@@ -129,7 +128,7 @@ foreach a : test_apps
 	executable(a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
-		link_with : [ simd_dependencies, test_lib, audioconvertlib ],
+		link_with : [ audioconvert, test_lib, audioconvertlib ],
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
 		install : false),
 	env : [
@@ -148,7 +147,7 @@ foreach a : benchmark_apps
 		dependencies : [dl_lib, pthread_lib, mathlib, ],
 		include_directories : [spa_inc ],
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
-		link_with : [ simd_dependencies, audioconvertlib ],
+		link_with : [ audioconvert, audioconvertlib ],
 		install : false),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
@@ -164,7 +163,7 @@ if sndfile_dep.found()
     c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
     install: false,
     include_directories : [spa_inc ],
-    link_with : [ simd_dependencies, test_lib, audioconvertlib ],
+    link_with : [ audioconvert, test_lib ],
     dependencies : [sndfile_dep, mathlib],
   )
 endif

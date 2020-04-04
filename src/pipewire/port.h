@@ -44,10 +44,9 @@ extern "C" {
 struct pw_port;
 
 /** \enum pw_direction The direction of a port \memberof pw_introspect */
-enum pw_direction {
-	PW_DIRECTION_INPUT = SPA_DIRECTION_INPUT,	/**< an input port direction */
-	PW_DIRECTION_OUTPUT = SPA_DIRECTION_OUTPUT	/**< an output port direction */
-};
+#define pw_direction spa_direction
+#define PW_DIRECTION_INPUT SPA_DIRECTION_INPUT
+#define PW_DIRECTION_OUTPUT SPA_DIRECTION_OUTPUT
 
 /** Convert a \ref pw_direction to a readable string \memberof pw_introspect */
 const char * pw_direction_as_string(enum pw_direction direction);

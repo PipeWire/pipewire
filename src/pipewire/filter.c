@@ -1434,7 +1434,7 @@ int pw_filter_set_error(struct pw_filter *filter,
 		if (filter->proxy)
 			pw_proxy_error(filter->proxy, res, value);
 
-		filter_set_state(filter, PW_STREAM_STATE_ERROR, value);
+		filter_set_state(filter, PW_FILTER_STATE_ERROR, value);
 		va_end(args);
 		free(value);
 	}

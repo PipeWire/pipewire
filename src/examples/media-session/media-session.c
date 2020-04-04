@@ -1828,7 +1828,7 @@ int main(int argc, char *argv[])
 
 	impl.dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	if (impl.dbus)
-		impl.this.dbus_connection = spa_dbus_get_connection(impl.dbus, DBUS_BUS_SESSION);
+		impl.this.dbus_connection = spa_dbus_get_connection(impl.dbus, SPA_DBUS_TYPE_SESSION);
 	if (impl.this.dbus_connection == NULL)
 		pw_log_warn("no dbus connection");
 	else

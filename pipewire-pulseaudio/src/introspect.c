@@ -559,7 +559,7 @@ static void source_callback(struct source_data *d)
 	pa_source_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
-	enum pa_sink_flags flags;
+	enum pa_source_flags flags;
 
 	flags = PA_SOURCE_LATENCY | PA_SOURCE_DYNAMIC_LATENCY |
 		  PA_SOURCE_DECIBEL_VOLUME;

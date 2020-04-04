@@ -294,7 +294,7 @@ impl_get_connection(void *object,
 	conn = calloc(1, sizeof(struct connection));
 	conn->this = impl_connection;
 	conn->impl = impl;
-	conn->conn = dbus_bus_get_private(type, &error);
+	conn->conn = dbus_bus_get_private((DBusBusType)type, &error);
 	if (conn->conn == NULL)
 		goto error;
 

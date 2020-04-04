@@ -586,13 +586,14 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		default:
+			show_help(argv[0]);
 			return -1;
 		}
 	}
 
 	data.loop = pw_main_loop_new(NULL);
 	if (data.loop == NULL) {
-		fprintf(stderr, "Can't create data loop: %m");
+		fprintf(stderr, "Can't create data loop: %m\n");
 		return -1;
 	}
 
@@ -602,7 +603,7 @@ int main(int argc, char *argv[])
 
 	data.context = pw_context_new(l, NULL, 0);
 	if (data.context == NULL) {
-		fprintf(stderr, "Can't create context: %m");
+		fprintf(stderr, "Can't create context: %m\n");
 		return -1;
 	}
 
@@ -614,7 +615,7 @@ int main(int argc, char *argv[])
 				NULL),
 			0);
 	if (data.core == NULL) {
-		fprintf(stderr, "Can't connect: %m");
+		fprintf(stderr, "Can't connect: %m\n");
 		return -1;
 	}
 
@@ -622,7 +623,7 @@ int main(int argc, char *argv[])
 
 	data.output = fopen(data.filename, "w");
 	if (data.output == NULL) {
-		fprintf(stderr, "Can't open file %s: %m", data.filename);
+		fprintf(stderr, "Can't open file %s: %m\n", data.filename);
 		return -1;
 	}
 

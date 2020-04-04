@@ -2795,6 +2795,7 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		default:
+			show_help(&data, argv[0]);
 			return -1;
 		}
 	}

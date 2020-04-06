@@ -780,6 +780,12 @@ static int impl_node_process(void *object)
 		flush_out = true;
 		break;
 	}
+	if (size == 0) {
+		size = sb->datas[0].maxsize;
+		memset(sb->datas[0].data, 0, size);
+		inport->offset = 0;
+		flush_in = true;
+	}
 
 	if (this->io_rate_match) {
 		if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE)) {

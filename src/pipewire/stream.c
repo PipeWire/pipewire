@@ -130,6 +130,7 @@ struct stream {
 	unsigned int disconnecting:1;
 	unsigned int free_proxy:1;
 	unsigned int draining:1;
+	unsigned int drained:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
 };
@@ -781,6 +782,14 @@ again:
 			io->buffer_id = SPA_ID_INVALID;
 			io->status = SPA_STATUS_NEED_DATA;
 			pw_log_trace(NAME" %p: no more buffers %p", stream, io);
+			if (impl->draining && !impl->drained) {
+				b = pop_queue(impl, &impl->dequeued);
+				io->buffer_id = b->id;
+				io->status = SPA_STATUS_HAVE_DATA;
+				b->this.buffer->datas[0].chunk->size = 0;
+				pw_log_trace(NAME" %p: drain buffer %d", stream, b->id);
+				impl->drained = true;
+			}
 		}
 	}
 
@@ -1040,7 +1049,7 @@ static void context_xrun(void *data, struct pw_impl_node *node)
 	struct stream *impl = data;
 	if (impl->node != node)
 		return;
-	if (impl->draining)
+	if (impl->draining && impl->drained)
 		call_drained(impl);
 }
 
@@ -1785,7 +1794,9 @@ do_drain(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
+	pw_log_trace(NAME" %p", impl);
 	impl->draining = true;
+	impl->drained = false;
 	return 0;
 }
 

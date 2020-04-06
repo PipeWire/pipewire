@@ -903,6 +903,9 @@ static int impl_node_process(void *object)
 			db->datas[i].chunk->size = n_samples * outport->stride;
 		}
 
+		spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d p:%d",
+				this, n_src_datas, n_dst_datas, n_samples, is_passthrough);
+
 		if (!is_passthrough)
 			channelmix_process(&this->mix, n_dst_datas, dst_datas,
 				    n_src_datas, src_datas, n_samples);

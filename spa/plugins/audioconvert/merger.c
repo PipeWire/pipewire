@@ -1006,9 +1006,11 @@ static int impl_node_process(void *object)
 		dbuf->buf->datas[i].data = dst_datas[i];
 		dbuf->buf->datas[i].chunk->offset = 0;
 		dbuf->buf->datas[i].chunk->size = n_samples * outport->stride;
-		spa_log_trace_fp(this->log, NAME " %p %p %d", this, dst_datas[i],
-				n_samples * outport->stride);
 	}
+
+	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d p:%d", this,
+			n_src_datas, n_dst_datas, n_samples, maxsize, this->is_passthrough);
+
 	if (!this->is_passthrough)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 

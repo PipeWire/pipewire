@@ -152,11 +152,15 @@ do {									\
 
 #define PA_FAIL(context, error)                                 \
     do {                                                        \
-        return -pa_context_set_error((context), (error));          \
+	pw_log_debug("fail at %s:%u %s()",			\
+			, __FILE__, __LINE__, __func__);	\
+        return -pa_context_set_error((context), (error));	\
     } while(false)
 
 #define PA_FAIL_RETURN_ANY(context, error, value)      \
     do {                                               \
+	pw_log_debug("fail at %s:%u %s()",			\
+			, __FILE__, __LINE__, __func__);	\
         pa_context_set_error((context), (error));         \
         return value;                                  \
     } while(false)

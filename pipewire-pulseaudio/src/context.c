@@ -840,6 +840,7 @@ static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_data *d = userdata;
 	pa_context *c = o->context;
+	pw_log_debug("context %p: error %d", c, d->error);
 	if (d->error != 0)
 		pa_context_set_error(c, d->error);
 	if (d->cb)

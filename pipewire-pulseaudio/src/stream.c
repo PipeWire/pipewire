@@ -449,7 +449,7 @@ static void update_timing_info(pa_stream *s)
 	pw_stream_get_time(s->stream, &pwt);
 	s->timing_info_valid = false;
 	s->queued = pwt.queued;
-	pw_log_trace("stream %p: %"PRIu64, s, s->queued);
+	pw_log_debug("stream %p: %"PRIu64" rate:%d", s, s->queued, pwt.rate.denom);
 
 	if (pwt.rate.denom == 0)
 		return;
@@ -1334,6 +1334,7 @@ pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *use
 
 	pw_log_debug("stream %p", s);
 	pw_stream_flush(s->stream, true);
+	update_timing_info(s);
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

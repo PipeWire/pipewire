@@ -160,15 +160,9 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	snd_pcm_sframes_t hw_ptr = pw->hw_ptr;
-
 	if (pw->error < 0)
 		return pw->error;
-
-	if (pw->draining && !pw->drained)
-		hw_ptr = hw_ptr > 1 ? hw_ptr - 1 : (snd_pcm_sframes_t)(pw->boundary - 1);
-
-	return hw_ptr;
+	return pw->hw_ptr;
 }
 
 static int
@@ -393,6 +387,7 @@ static void on_stream_drained(void *data)
 {
 	snd_pcm_pipewire_t *pw = data;
 	pw->drained = true;
+	pw->draining = false;
 	pw_log_debug(NAME" %p: drained", pw);
 	pw_thread_loop_signal(pw->main_loop, false);
 }
@@ -403,6 +398,22 @@ static const struct pw_stream_events stream_events = {
         .process = on_stream_process,
         .drained = on_stream_drained,
 };
+
+static int snd_pcm_pipewire_drain(snd_pcm_ioplug_t *io)
+{
+	int res;
+	snd_pcm_pipewire_t *pw = io->private_data;
+
+	pw_thread_loop_lock(pw->main_loop);
+	pw->drained = false;
+	pw->draining = false;
+	while (!pw->drained && pw->error >= 0 && pw->activated) {
+		pw_thread_loop_wait(pw->main_loop);
+	}
+	res = pw->error;
+	pw_thread_loop_unlock(pw->main_loop);
+	return res;
+}
 
 static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 {
@@ -741,6 +752,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.start = snd_pcm_pipewire_start,
 	.stop = snd_pcm_pipewire_stop,
 	.pointer = snd_pcm_pipewire_pointer,
+	.drain = snd_pcm_pipewire_drain,
 	.prepare = snd_pcm_pipewire_prepare,
 	.poll_revents = snd_pcm_pipewire_poll_revents,
 	.hw_params = snd_pcm_pipewire_hw_params,

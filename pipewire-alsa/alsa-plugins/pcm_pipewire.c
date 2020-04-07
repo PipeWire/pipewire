@@ -60,8 +60,8 @@ typedef struct {
 	uint32_t target;
 
 	int fd;
+	int error;
 	unsigned int activated:1;	/* PipeWire is activated? */
-	unsigned int error:1;
 	unsigned int drained:1;
 	unsigned int draining:1;
 
@@ -147,8 +147,8 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 
 	assert(pfds && nfds == 1 && revents);
 
-	if (pw->error)
-		return -EBADFD;
+	if (pw->error < 0)
+		return pw->error;
 
 	*revents = pfds[0].revents & ~(POLLIN | POLLOUT);
 	if (pfds[0].revents & POLLIN && !pcm_poll_block_check(io))
@@ -162,8 +162,8 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_sframes_t hw_ptr = pw->hw_ptr;
 
-	if (pw->error)
-		return -EBADFD;
+	if (pw->error < 0)
+		return pw->error;
 
 	if (pw->draining && !pw->drained)
 		hw_ptr = hw_ptr > 1 ? hw_ptr - 1 : (snd_pcm_sframes_t)(pw->boundary - 1);
@@ -431,7 +431,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	pw_log_debug(NAME" %p: prepare %d %p %lu %ld", pw,
 			pw->error, pw->stream, io->period_size, pw->min_avail);
-	if (!pw->error && pw->stream != NULL)
+	if (pw->error >= 0 && pw->stream != NULL)
 		goto done;
 
 	if (pw->stream != NULL) {
@@ -455,7 +455,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
 
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
-	pw->error = false;
+	pw->error = 0;
 
 	pw_stream_connect(pw->stream,
 			  io->stream == SND_PCM_STREAM_PLAYBACK ?
@@ -839,8 +839,8 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", pw,
 			id, seq, res, spa_strerror(res), message);
 
-	if (id == 0) {
-		pw->error = true;
+	if (id == PW_ID_CORE) {
+		pw->error = res;
 		if (pw->fd != -1)
 			pcm_poll_unblock_check(&pw->io);
 	}

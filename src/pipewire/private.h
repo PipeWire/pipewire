@@ -235,6 +235,7 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 #define pw_context_driver_emit_xrun(c,n)	pw_context_driver_emit(c, xrun, 0, n)
 #define pw_context_driver_emit_incomplete(c,n)	pw_context_driver_emit(c, incomplete, 0, n)
 #define pw_context_driver_emit_timeout(c,n)	pw_context_driver_emit(c, timeout, 0, n)
+#define pw_context_driver_emit_drained(c,n)	pw_context_driver_emit(c, drained, 0, n)
 
 struct pw_context_driver_events {
 #define PW_VERSION_CONTEXT_DRIVER_EVENTS	0
@@ -248,6 +249,8 @@ struct pw_context_driver_events {
 	void (*incomplete) (void *data, struct pw_impl_node *node);
 	/** The driver got a sync timeout */
 	void (*timeout) (void *data, struct pw_impl_node *node);
+	/** a node drained */
+	void (*drained) (void *data, struct pw_impl_node *node);
 };
 
 #define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_events,m,v,##__VA_ARGS__)

@@ -906,6 +906,9 @@ static inline int process_node(void *data)
 	} else {
 		resume_node(this, status);
 	}
+	if (status & SPA_STATUS_DRAINED) {
+		pw_context_driver_emit_drained(this->context, this);
+	}
 	return 0;
 }
 

@@ -118,6 +118,7 @@ struct impl {
 	int mode;
 	unsigned int started:1;
 	unsigned int peaks:1;
+	unsigned int drained:1;
 
 	struct resample resample;
 };
@@ -723,6 +724,7 @@ static int impl_node_process(void *object)
 	void **dst_datas;
 	bool flush_out = false;
 	bool flush_in = false;
+	bool draining = false;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -741,14 +743,17 @@ static int impl_node_process(void *object)
 
 	if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA))
 		return SPA_STATUS_HAVE_DATA;
-
-	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
-		return SPA_STATUS_NEED_DATA;
-
 	/* recycle */
 	if (SPA_LIKELY(outio->buffer_id < outport->n_buffers)) {
 		recycle_buffer(this, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
+	}
+	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA)) {
+		if (inio->status != SPA_STATUS_DRAINED || this->drained)
+			return outio->status = inio->status;
+
+		inio->buffer_id = 0;
+		inport->buffers[0].outbuf->datas[0].chunk->size = 0;
 	}
 
 	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
@@ -784,7 +789,7 @@ static int impl_node_process(void *object)
 		size = sb->datas[0].maxsize;
 		memset(sb->datas[0].data, 0, size);
 		inport->offset = 0;
-		flush_in = true;
+		flush_in = draining = true;
 	}
 
 	if (this->io_rate_match) {
@@ -829,18 +834,19 @@ static int impl_node_process(void *object)
 	if (inport->offset >= size || flush_in) {
 		inio->status = SPA_STATUS_NEED_DATA;
 		inport->offset = 0;
-		SPA_FLAG_SET(res, SPA_STATUS_NEED_DATA);
-		spa_log_trace_fp(this->log, NAME " %p: return input buffer", this);
+		SPA_FLAG_SET(res, inio->status);
+		spa_log_trace_fp(this->log, NAME " %p: return input buffer of size %d", this, size);
 	}
 
 	outport->offset += out_len * sizeof(float);
 	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
 		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
+		spa_log_trace_fp(this->log, NAME " %p: have output buffer of size %d", this, outport->offset);
 		dequeue_buffer(this, dbuf);
 		outport->offset = 0;
+		this->drained = draining;
 		SPA_FLAG_SET(res, SPA_STATUS_HAVE_DATA);
-		spa_log_trace_fp(this->log, NAME " %p: have output buffer", this);
 	}
 	if (out_len == 0 && this->peaks) {
 		outio->status = SPA_STATUS_HAVE_DATA;

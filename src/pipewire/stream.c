@@ -331,7 +331,6 @@ do_call_drained(struct spa_loop *loop,
 	struct pw_stream *stream = &impl->this;
 	pw_log_trace(NAME" %p: drained", stream);
 	pw_stream_emit_drained(stream);
-	impl->draining = false;
 	return 0;
 }
 
@@ -765,8 +764,7 @@ again:
 	pw_log_trace(NAME" %p: process out status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64, stream,
 			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
-	res = 0;
-	if (io->status != SPA_STATUS_HAVE_DATA) {
+	if ((res = io->status) != SPA_STATUS_HAVE_DATA) {
 		/* recycle old buffer */
 		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
 			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
@@ -776,20 +774,17 @@ again:
 		/* pop new buffer */
 		if ((b = pop_queue(impl, &impl->queued)) != NULL) {
 			io->buffer_id = b->id;
-			io->status = SPA_STATUS_HAVE_DATA;
+			res = io->status = SPA_STATUS_HAVE_DATA;
 			pw_log_trace(NAME" %p: pop %d %p", stream, b->id, io);
+		} else if (impl->draining) {
+			impl->drained = true;
+			io->buffer_id = SPA_ID_INVALID;
+			res = io->status = SPA_STATUS_DRAINED;
+			pw_log_trace(NAME" %p: draining", stream);
 		} else {
 			io->buffer_id = SPA_ID_INVALID;
-			io->status = SPA_STATUS_NEED_DATA;
+			res = io->status = SPA_STATUS_NEED_DATA;
 			pw_log_trace(NAME" %p: no more buffers %p", stream, io);
-			if (impl->draining && !impl->drained) {
-				b = pop_queue(impl, &impl->dequeued);
-				io->buffer_id = b->id;
-				io->status = SPA_STATUS_HAVE_DATA;
-				b->this.buffer->datas[0].chunk->size = 0;
-				pw_log_trace(NAME" %p: drain buffer %d", stream, b->id);
-				impl->drained = true;
-			}
 		}
 	}
 
@@ -803,7 +798,6 @@ again:
 	}
 	copy_position(impl, impl->queued.outcount);
 
-	res = io->status;
 	pw_log_trace(NAME" %p: res %d", stream, res);
 
 	return res;
@@ -1044,7 +1038,7 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
-static void context_xrun(void *data, struct pw_impl_node *node)
+static void context_drained(void *data, struct pw_impl_node *node)
 {
 	struct stream *impl = data;
 	if (impl->node != node)
@@ -1055,7 +1049,7 @@ static void context_xrun(void *data, struct pw_impl_node *node)
 
 static const struct pw_context_driver_events context_events = {
 	PW_VERSION_CONTEXT_DRIVER_EVENTS,
-	.xrun = context_xrun,
+	.drained = context_drained,
 };
 
 static struct stream *

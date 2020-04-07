@@ -844,7 +844,8 @@ static int impl_node_process(void *object)
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
-		return SPA_STATUS_NEED_DATA;
+		return outio->status = inio->status;
+
 	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
 		return inio->status = -EINVAL;
 

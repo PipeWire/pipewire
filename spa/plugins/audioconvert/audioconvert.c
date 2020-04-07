@@ -1084,7 +1084,7 @@ static int impl_node_process(void *object)
 			if (SPA_UNLIKELY(i == 0))
 				res |= r & SPA_STATUS_NEED_DATA;
 			if (SPA_UNLIKELY(i == this->n_nodes-1))
-				res |= r & SPA_STATUS_HAVE_DATA;
+				res |= r & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED);
 		}
 		if (res & SPA_STATUS_HAVE_DATA)
 			break;

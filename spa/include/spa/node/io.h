@@ -77,6 +77,9 @@ enum spa_io_type {
  * If status is SPA_STATUS_STOPPED, some error occured on the
  * port.
  *
+ * If status is SPA_STATUS_DRAINED, data from the io area was
+ * used to drain.
+ *
  * Status can also be a negative errno value to indicate errors.
  * such as:
  * -EINVAL: buffer_id is invalid
@@ -87,6 +90,7 @@ struct spa_io_buffers {
 #define SPA_STATUS_NEED_DATA		(1<<0)
 #define SPA_STATUS_HAVE_DATA		(1<<1)
 #define SPA_STATUS_STOPPED		(1<<2)
+#define SPA_STATUS_DRAINED		(1<<3)
 	int32_t status;			/**< the status code */
 	uint32_t buffer_id;		/**< a buffer id */
 };

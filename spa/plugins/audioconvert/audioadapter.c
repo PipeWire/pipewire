@@ -865,7 +865,7 @@ impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	int status;
+	int status = 0;
 
 	spa_log_trace_fp(this->log, "%p: process convert:%u master:%d",
 			this, this->use_converter, this->master);
@@ -875,22 +875,17 @@ static int impl_node_process(void *object)
 			status = spa_node_process(this->convert);
 	}
 
-	status = spa_node_process(this->follower);
+	if (status >= 0)
+		status = spa_node_process(this->follower);
 
 	if (this->direction == SPA_DIRECTION_OUTPUT &&
 	    !this->master && this->use_converter) {
-		while (true) {
+		while (status >= 0) {
 			status = spa_node_process(this->convert);
-			if (status & SPA_STATUS_HAVE_DATA)
+			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED))
 				break;
-
-			if (status & SPA_STATUS_NEED_DATA) {
+			if (status & SPA_STATUS_NEED_DATA)
 				status = spa_node_process(this->follower);
-				if (!(status & SPA_STATUS_HAVE_DATA)) {
-					spa_node_call_xrun(&this->callbacks, 0, 0, NULL);
-					break;
-				}
-			}
 		}
 	}
 	spa_log_trace_fp(this->log, "%p: process status:%d", this, status);

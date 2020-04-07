@@ -864,15 +864,13 @@ static int impl_node_process(void *object)
 
 	if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA))
 		return SPA_STATUS_HAVE_DATA;
-
-	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
-		return SPA_STATUS_NEED_DATA;
-
 	/* recycle */
 	if (SPA_LIKELY(outio->buffer_id < outport->n_buffers)) {
 		recycle_buffer(this, outio->buffer_id);
 		outio->buffer_id = SPA_ID_INVALID;
 	}
+	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
+		return outio->status = inio->status;
 
 	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
 		return inio->status = -EINVAL;

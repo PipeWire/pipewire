@@ -860,7 +860,7 @@ static int impl_node_process(void *object)
 			inio, inio->status, inio->buffer_id);
 
 	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA))
-		return SPA_STATUS_NEED_DATA;
+		return inio->status;
 
 	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
 		return inio->status = -EINVAL;

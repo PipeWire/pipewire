@@ -45,7 +45,6 @@
 #define NAME "stream"
 
 #define MAX_BUFFERS	64
-#define MIN_QUEUED	1
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 #define MAX_PORTS	1
@@ -248,7 +247,7 @@ static inline struct buffer *pop_queue(struct stream *stream, struct queue *queu
 	uint32_t index, id;
 	struct buffer *buffer;
 
-	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < MIN_QUEUED) {
+	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < 1) {
 		errno = EPIPE;
 		return NULL;
 	}
@@ -761,8 +760,7 @@ static int impl_node_process_output(void *object)
 	uint32_t index;
 
 again:
-	pw_log_trace(NAME" %p: process out status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64, stream,
-			io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
+	pw_log_trace(NAME" %p: process out status:%d id:%d", stream, io->status, io->buffer_id);
 
 	if ((res = io->status) != SPA_STATUS_HAVE_DATA) {
 		/* recycle old buffer */
@@ -790,7 +788,7 @@ again:
 
 	if (!impl->draining &&
 	    !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER) &&
-	    spa_ringbuffer_get_read_index(&impl->queued.ring, &index) < MIN_QUEUED) {
+	    spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) > 0) {
 		call_process(impl);
 		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
 		    io->status == SPA_STATUS_NEED_DATA)

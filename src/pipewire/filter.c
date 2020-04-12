@@ -46,7 +46,6 @@
 
 #define MAX_SAMPLES	8192
 #define MAX_BUFFERS	64
-#define MIN_QUEUED	1
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 #define MAX_PORTS	1024
@@ -280,7 +279,7 @@ static inline struct buffer *pop_queue(struct port *port, struct queue *queue)
 	uint32_t index, id;
 	struct buffer *buffer;
 
-	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < MIN_QUEUED) {
+	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < 1) {
 		errno = EPIPE;
 		return NULL;
 	}

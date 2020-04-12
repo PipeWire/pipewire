@@ -80,7 +80,6 @@ struct impl {
 	struct spa_callbacks callbacks;
 
 	unsigned int add_listener:1;
-	unsigned int use_converter:1;
 	unsigned int have_format:1;
 	unsigned int started:1;
 	unsigned int master:1;
@@ -146,7 +145,7 @@ static int link_io(struct impl *this)
 {
 	int res;
 
-	if (!this->use_converter)
+	if (this->convert == NULL)
 		return 0;
 
 	spa_log_debug(this->log, NAME " %p: controls", this);
@@ -343,7 +342,7 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(0, NULL, format);
 
-	if (this->use_converter) {
+	if (this->convert) {
 		if ((res = spa_node_port_set_param(this->convert,
 					   SPA_DIRECTION_REVERSE(this->direction), 0,
 					   SPA_PARAM_Format, flags,
@@ -462,7 +461,7 @@ static int negotiate_format(struct impl *this)
 		return -ENOTSUP;
 	}
 
-	if (this->use_converter) {
+	if (this->convert) {
 		state = 0;
 		if ((res = spa_node_port_enum_params_sync(this->convert,
 					SPA_DIRECTION_REVERSE(this->direction), 0,
@@ -655,7 +654,7 @@ static int follower_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_i
 	int res;
 	struct impl *this = data;
 
-	if (this->use_converter)
+	if (this->convert)
 		res = spa_node_port_reuse_buffer(this->convert, port_id, buffer_id);
 	else
 		res = spa_node_call_reuse_buffer(&this->callbacks, port_id, buffer_id);
@@ -698,7 +697,7 @@ static int impl_node_add_listener(void *object,
 		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
 		spa_hook_remove(&l);
 
-		if (this->use_converter) {
+		if (this->convert) {
 			spa_zero(l);
 			spa_node_add_listener(this->convert, &l, &convert_node_events, this);
 			spa_hook_remove(&l);
@@ -867,11 +866,11 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	int status = 0;
 
-	spa_log_trace_fp(this->log, "%p: process convert:%u master:%d",
-			this, this->use_converter, this->master);
+	spa_log_trace_fp(this->log, "%p: process convert:%p master:%d",
+			this, this->convert, this->master);
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
-		if (this->use_converter)
+		if (this->convert)
 			status = spa_node_process(this->convert);
 	}
 
@@ -879,8 +878,8 @@ static int impl_node_process(void *object)
 		status = spa_node_process(this->follower);
 
 	if (this->direction == SPA_DIRECTION_OUTPUT &&
-	    !this->master && this->use_converter) {
-		while (status >= 0) {
+	    !this->master && this->convert) {
+		while (status > 0) {
 			status = spa_node_process(this->convert);
 			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED))
 				break;
@@ -1047,7 +1046,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_node_add_listener(this->convert,
 			&this->convert_listener, &convert_node_events, this);
-	this->use_converter = true;
 
 	configure_adapt(this);
 

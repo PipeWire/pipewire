@@ -883,8 +883,11 @@ static int impl_node_process(void *object)
 			status = spa_node_process(this->convert);
 			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED))
 				break;
-			if (status & SPA_STATUS_NEED_DATA)
+			if (status & SPA_STATUS_NEED_DATA) {
 				status = spa_node_process(this->follower);
+				if (status & SPA_STATUS_NEED_DATA)
+					break;
+			}
 		}
 	}
 	spa_log_trace_fp(this->log, "%p: process status:%d", this, status);

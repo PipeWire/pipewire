@@ -835,14 +835,14 @@ static int impl_node_process(void *object)
 		inio->status = SPA_STATUS_NEED_DATA;
 		inport->offset = 0;
 		SPA_FLAG_SET(res, inio->status);
-		spa_log_trace_fp(this->log, NAME " %p: return input buffer of size %d", this, size);
+		spa_log_trace_fp(this->log, NAME " %p: return input buffer of %zd samples", this, size / sizeof(float));
 	}
 
 	outport->offset += out_len * sizeof(float);
 	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
 		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
-		spa_log_trace_fp(this->log, NAME " %p: have output buffer of size %d", this, outport->offset);
+		spa_log_trace_fp(this->log, NAME " %p: have output buffer of %zd samples", this, outport->offset / sizeof(float));
 		dequeue_buffer(this, dbuf);
 		outport->offset = 0;
 		this->drained = draining;

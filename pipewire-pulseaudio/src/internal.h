@@ -357,12 +357,14 @@ struct pa_stream {
 	char *device_name;
 
 	pa_timing_info timing_info;
+	int64_t ticks_base;
 
 	uint32_t direct_on_input;
 
-	bool suspended:1;
-	bool corked:1;
-	bool timing_info_valid:1;
+	unsigned int suspended:1;
+	unsigned int corked:1;
+	unsigned int timing_info_valid:1;
+	unsigned int have_time:1;
 
 	pa_stream_notify_cb_t state_callback;
 	void *state_userdata;
@@ -387,8 +389,6 @@ struct pa_stream {
 	pa_stream_notify_cb_t buffer_attr_callback;
 	void *buffer_attr_userdata;
 
-	int64_t offset;
-
 	struct pw_buffer *dequeued[MAX_BUFFERS];
 	struct spa_ringbuffer dequeued_ring;
 	size_t dequeued_size;
@@ -405,7 +405,6 @@ struct pa_stream {
 	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 	bool mute;
 	pa_operation *drain;
-	uint64_t queued;
 };
 
 void pa_stream_set_state(pa_stream *s, pa_stream_state_t st);

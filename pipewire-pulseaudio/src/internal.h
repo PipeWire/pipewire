@@ -325,6 +325,14 @@ struct global *pa_context_find_global(pa_context *c, uint32_t id);
 struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name);
 struct global *pa_context_find_linked(pa_context *c, uint32_t id);
 
+struct pa_mem {
+	struct spa_list link;
+	void *data;
+	size_t maxsize;
+	size_t size;
+	size_t offset;
+};
+
 #define MAX_BUFFERS     64u
 #define MASK_BUFFERS    (MAX_BUFFERS-1)
 
@@ -357,7 +365,7 @@ struct pa_stream {
 	char *device_name;
 
 	pa_timing_info timing_info;
-	int64_t ticks_base;
+	uint64_t ticks_base;
 
 	uint32_t direct_on_input;
 
@@ -389,17 +397,16 @@ struct pa_stream {
 	pa_stream_notify_cb_t buffer_attr_callback;
 	void *buffer_attr_userdata;
 
-	struct pw_buffer *dequeued[MAX_BUFFERS];
-	struct spa_ringbuffer dequeued_ring;
-	size_t dequeued_size;
 	size_t maxsize;
-	struct spa_list pending;
+	size_t maxblock;
+	size_t requested_bytes;
 
-	struct pw_buffer *buffer;
-	uint32_t buffer_index;
-	void *buffer_data;
-	uint32_t buffer_size;
-	uint32_t buffer_offset;
+	struct pa_mem *mem;	/* current mem for playback */
+	struct spa_list free;	/* free to fill */
+	struct spa_list ready;	/* ready for playback */
+	size_t ready_bytes;
+
+	struct pw_buffer *buffer;	/* currently reading for capture */
 
 	uint32_t n_channel_volumes;
 	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];

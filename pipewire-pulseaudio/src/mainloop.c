@@ -72,6 +72,7 @@ static pa_io_event* api_io_new(pa_mainloop_api*a, int fd, pa_io_event_flags_t ev
 	ev->mainloop = mainloop;
 	ev->cb = cb;
 	ev->userdata = userdata;
+	pw_log_debug("new io %p %p %08x", ev, ev->source, events);
 
 	return ev;
 }
@@ -80,9 +81,10 @@ static void api_io_enable(pa_io_event* e, pa_io_event_flags_t events)
 {
 	pa_assert(e);
 
-	if (e->events == events)
+	if (e->events == events || e->source == NULL)
 		return;
 
+	pw_log_debug("io %p", e);
 	e->events = events;
 	pw_loop_update_io(e->mainloop->loop, e->source, map_flags_to_spa(events));
 }
@@ -90,7 +92,9 @@ static void api_io_enable(pa_io_event* e, pa_io_event_flags_t events)
 static void api_io_free(pa_io_event* e)
 {
 	pa_assert(e);
-	pw_loop_destroy_source(e->mainloop->loop, e->source);
+	pw_log_debug("io %p", e);
+	if (e->source)
+		pw_loop_destroy_source(e->mainloop->loop, e->source);
 	if (e->destroy)
 		e->destroy(&e->mainloop->api, e, e->userdata);
 	free(e);
@@ -150,12 +154,14 @@ static void api_time_restart(pa_time_event* e, const struct timeval *tv)
 		ts.tv_sec = tv->tv_sec;
 		ts.tv_nsec = tv->tv_usec * 1000LL;
 	}
+	pw_log_debug("io %p", e);
 	pw_loop_update_timer(e->mainloop->loop, e->source, &ts, NULL, true);
 }
 
 static void api_time_free(pa_time_event* e)
 {
 	pa_assert(e);
+	pw_log_debug("io %p", e);
 	pw_loop_destroy_source(e->mainloop->loop, e->source);
 	if (e->destroy)
 		e->destroy(&e->mainloop->api, e, e->userdata);
@@ -188,6 +194,7 @@ static pa_defer_event* api_defer_new(pa_mainloop_api*a, pa_defer_event_cb_t cb, 
 	ev->mainloop = mainloop;
 	ev->cb = cb;
 	ev->userdata = userdata;
+	pw_log_debug("new defer %p", ev);
 
 	return ev;
 }
@@ -201,6 +208,7 @@ static void api_defer_enable(pa_defer_event* e, int b)
 static void api_defer_free(pa_defer_event* e)
 {
 	pa_assert(e);
+	pw_log_debug("io %p", e);
 	pw_loop_destroy_source(e->mainloop->loop, e->source);
 	if (e->destroy)
 		e->destroy(&e->mainloop->api, e, e->userdata);

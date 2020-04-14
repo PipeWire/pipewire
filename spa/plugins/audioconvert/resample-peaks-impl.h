@@ -34,7 +34,7 @@ struct peaks_data {
 	float max_f[0];
 };
 
-#if defined (__SSE__)
+#if defined (HAVE_SSE)
 void resample_peaks_process_sse(struct resample *r,
 	const void * SPA_RESTRICT src[], uint32_t *in_len,
 	void * SPA_RESTRICT dst[], uint32_t *out_len);

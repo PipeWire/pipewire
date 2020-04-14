@@ -717,20 +717,15 @@ static int impl_node_process_input(void *object)
 	struct pw_stream *stream = &impl->this;
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
-	uint64_t size;
 
-	size = impl->time.ticks - impl->dequeued.incount;
-
-	pw_log_trace(NAME" %p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64" size:%"PRIi64,
-			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay, size);
+	pw_log_trace(NAME" %p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64,
+			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
 	if (io->status != SPA_STATUS_HAVE_DATA)
 		goto done;
 
 	if ((b = get_buffer(stream, io->buffer_id)) == NULL)
 		goto done;
-
-	b->this.size = size;
 
 	/* push new buffer */
 	if (push_queue(impl, &impl->dequeued, b) == 0)

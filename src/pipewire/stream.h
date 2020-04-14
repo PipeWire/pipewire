@@ -154,7 +154,7 @@ struct pw_stream;
 
 /** \enum pw_stream_state The state of a stream \memberof pw_stream */
 enum pw_stream_state {
-	PW_STREAM_STATE_ERROR = -1,		/**< the strean is in error */
+	PW_STREAM_STATE_ERROR = -1,		/**< the stream is in error */
 	PW_STREAM_STATE_UNCONNECTED = 0,	/**< unconnected */
 	PW_STREAM_STATE_CONNECTING = 1,		/**< connection is in progress */
 	PW_STREAM_STATE_PAUSED = 2,		/**< paused */
@@ -164,11 +164,8 @@ enum pw_stream_state {
 struct pw_buffer {
 	struct spa_buffer *buffer;	/**< the spa buffer */
 	void *user_data;		/**< user data attached to the buffer */
-	uint64_t size;			/**< For input streams, this field is set by pw_stream
-					  *  with the duration of the buffer in ticks.
-					  *  For output streams, this field is set by the user.
-					  *  This field is added for all queued buffers and
-					  *  returned in the time info. */
+	uint64_t size;			/**< This field is set by the user and the sum of
+					  *  all queued buffer is returned in the time info */
 };
 
 struct pw_stream_control {

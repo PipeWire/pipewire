@@ -306,8 +306,7 @@ static int peek_next(struct midi_file *mf, struct midi_event *ev)
 		if (found == NULL || tr->tick < found->tick)
 			found = tr;
 	}
-	if (found == NULL ||
-	    tr_avail(found) == 0)
+	if (found == NULL)
 		return 0;
 
 	ev->track = found->id;

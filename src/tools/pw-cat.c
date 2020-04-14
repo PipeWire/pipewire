@@ -987,7 +987,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 		midi_file_read_event(d->midi.file, &ev);
 
 		if (d->verbose)
-			midi_file_dump_event(&ev);
+			midi_file_dump_event(stdout, &ev);
 
 		if (ev.data[0] == 0xff)
 			continue;
@@ -1027,7 +1027,7 @@ static int midi_record(struct data *d, void *src, unsigned int n_frames)
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
 
 		if (d->verbose)
-			midi_file_dump_event(&ev);
+			midi_file_dump_event(stdout, &ev);
 
 		midi_file_write_event(d->midi.file, &ev);
 	}

@@ -61,4 +61,4 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event);
 
 int midi_file_write_event(struct midi_file *mf, const struct midi_event *event);
 
-int midi_file_dump_event(const struct midi_event *event);
+int midi_file_dump_event(FILE *out, const struct midi_event *event);

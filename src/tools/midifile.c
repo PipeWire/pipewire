@@ -587,95 +587,95 @@ static const char *controller_name(uint8_t ctrl)
 	return controller_names[ctrl];
 }
 
-static void dump_mem(const char *label, uint8_t *data, uint32_t size)
+static void dump_mem(FILE *out, const char *label, uint8_t *data, uint32_t size)
 {
-	printf("%s: ", label);
+	fprintf(out, "%s: ", label);
 	while (size--)
-		printf("%02x ", *data++);
+		fprintf(out, "%02x ", *data++);
 }
 
-int midi_file_dump_event(const struct midi_event *ev)
+int midi_file_dump_event(FILE *out, const struct midi_event *ev)
 {
-	printf("track:%2d sec:%f ", ev->track, ev->sec);
+	fprintf(out, "track:%2d sec:%f ", ev->track, ev->sec);
 
 	switch (ev->data[0]) {
 	case 0x80 ... 0x8f:
-		printf("Note Off   (channel %2d): note %3s%d, velocity %3d",
+		fprintf(out, "Note Off   (channel %2d): note %3s%d, velocity %3d",
 				(ev->data[0] & 0x0f) + 1,
 				note_names[ev->data[1] % 12], ev->data[1] / 12 -1,
 				ev->data[2]);
 		break;
 	case 0x90 ... 0x9f:
-		printf("Note On    (channel %2d): note %3s%d, velocity %3d",
+		fprintf(out, "Note On    (channel %2d): note %3s%d, velocity %3d",
 				(ev->data[0] & 0x0f) + 1,
 				note_names[ev->data[1] % 12], ev->data[1] / 12 -1,
 				ev->data[2]);
 		break;
 	case 0xa0 ... 0xaf:
-		printf("Aftertouch (channel %2d): note %3s%d, pressure %3d",
+		fprintf(out, "Aftertouch (channel %2d): note %3s%d, pressure %3d",
 				(ev->data[0] & 0x0f) + 1,
 				note_names[ev->data[1] % 12], ev->data[1] / 12 -1,
 				ev->data[2]);
 		break;
 	case 0xb0 ... 0xbf:
-		printf("Controller (channel %2d): controller %3d (%s), value %3d",
+		fprintf(out, "Controller (channel %2d): controller %3d (%s), value %3d",
 				(ev->data[0] & 0x0f) + 1, ev->data[1],
 				controller_name(ev->data[1]), ev->data[2]);
 		break;
 	case 0xc0 ... 0xcf:
-		printf("Program    (channel %2d): program %3d (%s)",
+		fprintf(out, "Program    (channel %2d): program %3d (%s)",
 				(ev->data[0] & 0x0f) + 1, ev->data[1],
 				program_names[ev->data[1]]);
 		break;
 	case 0xd0 ... 0xdf:
-		printf("Channel Pressure (channel %2d): pressure %3d",
+		fprintf(out, "Channel Pressure (channel %2d): pressure %3d",
 				(ev->data[0] & 0x0f) + 1, ev->data[1]);
 		break;
 	case 0xe0 ... 0xef:
-		printf("Pitch Bend (channel %2d): value %d", (ev->data[0] & 0x0f) + 1,
+		fprintf(out, "Pitch Bend (channel %2d): value %d", (ev->data[0] & 0x0f) + 1,
 				((int)ev->data[2] << 7 | ev->data[1]) - 0x2000);
 		break;
 	case 0xf0:
 	case 0xf7:
-		dump_mem("SysEx", ev->data, ev->size);
+		dump_mem(out, "SysEx", ev->data, ev->size);
 		break;
 	case 0xff:
-		printf("Meta: ");
+		fprintf(out, "Meta: ");
 		switch (ev->data[1]) {
 		case 0x00:
-			printf("Sequence Number %3d %3d", ev->data[3], ev->data[4]);
+			fprintf(out, "Sequence Number %3d %3d", ev->data[3], ev->data[4]);
 			break;
 		case 0x01 ... 0x09:
-			printf("%s: %s", event_names[ev->data[1] - 1], &ev->data[ev->meta.offset]);
+			fprintf(out, "%s: %s", event_names[ev->data[1] - 1], &ev->data[ev->meta.offset]);
 			break;
 		case 0x20:
-			printf("Channel Prefix: %03d", ev->data[3]);
+			fprintf(out, "Channel Prefix: %03d", ev->data[3]);
 			break;
 		case 0x21:
-			printf("Midi Port: %03d", ev->data[3]);
+			fprintf(out, "Midi Port: %03d", ev->data[3]);
 			break;
 		case 0x2f:
-			printf("End Of Track");
+			fprintf(out, "End Of Track");
 			break;
 		case 0x51:
-			printf("Tempo: %d microseconds per quarter note, %.2f BPM",
+			fprintf(out, "Tempo: %d microseconds per quarter note, %.2f BPM",
 					ev->meta.parsed.tempo.uspqn,
 					60000000.0 / (double)ev->meta.parsed.tempo.uspqn);
 			break;
 		case 0x54:
-			printf("SMPTE Offset: %s %02d:%02d:%02d:%02d.%03d",
+			fprintf(out, "SMPTE Offset: %s %02d:%02d:%02d:%02d.%03d",
 					smpte_rates[(ev->data[3] & 0x60) >> 5],
 					ev->data[3] & 0x1f, ev->data[4], ev->data[5],
 					ev->data[6], ev->data[7]);
 			break;
 		case 0x58:
-			printf("Time Signature: %d/%d, %d clocks per click, %d notated 32nd notes per quarter note",
+			fprintf(out, "Time Signature: %d/%d, %d clocks per click, %d notated 32nd notes per quarter note",
 				ev->data[3], (int)pow(2, ev->data[4]), ev->data[5], ev->data[6]);
 			break;
 		case 0x59:
 		{
 			int sf = ev->data[3];
-			printf("Key Signature: %d %s: %s", abs(sf),
+			fprintf(out, "Key Signature: %d %s: %s", abs(sf),
 					sf > 0 ? "sharps" : "flats",
 					ev->data[4] == 0 ?
 						major_keys[SPA_CLAMP(sf + 9, 0, 19)] :
@@ -683,13 +683,13 @@ int midi_file_dump_event(const struct midi_event *ev)
 			break;
 		}
 		case 0x7f:
-			dump_mem("Sequencer", ev->data, ev->size);
+			dump_mem(out, "Sequencer", ev->data, ev->size);
 			break;
 		default:
-			dump_mem("Invalid", ev->data, ev->size);
+			dump_mem(out, "Invalid", ev->data, ev->size);
 		}
 		break;
 	}
-	printf("\n");
+	fprintf(out, "\n");
 	return 0;
 }

@@ -97,6 +97,7 @@ struct source_impl {
 		spa_source_signal_func_t signal;
 	} func;
 	bool enabled;
+	struct spa_source *fallback;
 };
 /** \endcond */
 
@@ -309,6 +310,7 @@ static int loop_iterate(void *object, int timeout)
 static void source_io_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
+	spa_log_trace(impl->impl->log, NAME" %p: io %08x", impl, source->rmask);
 	impl->func.io(source->data, source->fd, source->rmask);
 }
 
@@ -334,8 +336,20 @@ static struct spa_source *loop_add_io(void *object,
 	source->close = close;
 	source->func.io = func;
 
-	if ((res = loop_add_source(impl, &source->source)) < 0)
-		goto error_exit_free;
+	if ((res = loop_add_source(impl, &source->source)) < 0) {
+		if (res != -EPERM)
+			goto error_exit_free;
+
+		/* file fds (stdin/stdout/...) give EPERM in epoll. Those fds always
+		 * return from epoll with the mask set, so we can handle this with
+		 * an idle source */
+		source->source.rmask = mask;
+		source->fallback = spa_loop_utils_add_idle(&impl->utils,
+				mask & (SPA_IO_IN | SPA_IO_OUT) ? true : false,
+				(spa_source_idle_func_t) source_io_func, source);
+		spa_log_trace(impl->log, NAME" %p: adding fallback %p", impl,
+				source->fallback);
+	}
 
 	spa_list_insert(&impl->source_list, &source->link);
 
@@ -350,17 +364,24 @@ error_exit:
 
 static int loop_update_io(void *object, struct spa_source *source, uint32_t mask)
 {
+	struct impl *impl = object;
+	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
+	int res;
 	source->mask = mask;
-	return loop_update_source(object, source);
+	spa_log_trace(impl->log, NAME" %p: update %08x", s, mask);
+	if (s->fallback)
+		res = spa_loop_utils_enable_idle(&impl->utils, s->fallback,
+				mask & (SPA_IO_IN | SPA_IO_OUT) ? true : false);
+	else
+		res = loop_update_source(object, source);
+	return res;
 }
-
 
 static void source_idle_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 	impl->func.idle(source->data);
 }
-
 
 static int loop_enable_idle(void *object, struct spa_source *source, bool enabled)
 {
@@ -380,6 +401,7 @@ static int loop_enable_idle(void *object, struct spa_source *source, bool enable
 	impl->enabled = enabled;
 	return res;
 }
+
 static struct spa_source *loop_add_idle(void *object,
 					bool enabled, spa_source_idle_func_t func, void *data)
 {
@@ -622,9 +644,13 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 
+	spa_log_trace(impl->impl->log, NAME" %p ", impl);
+
 	spa_list_remove(&impl->link);
 
-	if (source->loop)
+	if (impl->fallback)
+		loop_destroy_source(impl->impl, impl->fallback);
+	else if (source->loop)
 		loop_remove_source(impl->impl, source);
 
 	if (source->fd != -1 && impl->close) {

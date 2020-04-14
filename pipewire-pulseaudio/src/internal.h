@@ -331,6 +331,7 @@ struct pa_mem {
 	size_t maxsize;
 	size_t size;
 	size_t offset;
+	void *user_data;
 };
 
 #define MAX_BUFFERS     64u

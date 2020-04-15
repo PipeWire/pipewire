@@ -367,6 +367,7 @@ struct pa_stream {
 
 	pa_timing_info timing_info;
 	uint64_t ticks_base;
+	size_t queued_bytes;
 
 	uint32_t direct_on_input;
 

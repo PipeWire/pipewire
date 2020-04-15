@@ -412,8 +412,9 @@ static void stream_control_info(void *data, uint32_t id, const struct pw_stream_
 static void stream_add_buffer(void *data, struct pw_buffer *buffer)
 {
 	pa_stream *s = data;
-	s->maxsize += buffer->buffer->datas[0].maxsize;
-	s->maxblock = SPA_MIN(buffer->buffer->datas[0].maxsize, s->maxblock);
+	buffer->size = buffer->buffer->datas[0].maxsize;
+	s->maxsize += buffer->size;
+	s->maxblock = SPA_MIN(buffer->size, s->maxblock);
 }
 
 static void stream_remove_buffer(void *data, struct pw_buffer *buffer)
@@ -468,6 +469,7 @@ static void update_timing_info(pa_stream *s)
 	}
 	ti->since_underrun = 0;
 	s->timing_info_valid = true;
+	s->queued_bytes = pwt.queued;
 
 	pw_log_debug("stream %p: %"PRIu64" rate:%d/%d ticks:%"PRIu64" pos:%"PRIu64" delay:%"PRIi64 " read:%"PRIu64
 			" write:%"PRIu64" queued:%"PRIi64,

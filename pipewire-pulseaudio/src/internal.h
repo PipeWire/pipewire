@@ -400,7 +400,6 @@ struct pa_stream {
 
 	size_t maxsize;
 	size_t maxblock;
-	size_t requested_bytes;
 
 	struct pa_mem *mem;	/* current mem for playback */
 	struct spa_list free;	/* free to fill */

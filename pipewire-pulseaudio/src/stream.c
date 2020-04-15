@@ -552,15 +552,10 @@ static void stream_process(void *data)
 	update_timing_info(s);
 
 	if (s->direction == PA_STREAM_PLAYBACK) {
-		int64_t queued, requested;
-
 		queue_output(s);
 
-		queued = s->timing_info.write_index - s->timing_info.read_index;
-		requested = s->maxsize - SPA_MIN(queued, (int64_t)s->maxsize);
-
-		if (s->write_callback && requested > 0)
-			s->write_callback(s, requested, s->write_userdata);
+		if (s->write_callback)
+			s->write_callback(s, s->maxblock, s->write_userdata);
 	}
 	else {
 		pull_input(s);
@@ -1329,7 +1324,7 @@ SPA_EXPORT
 size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 {
 	const pa_timing_info *i;
-	uint64_t now, queued, writable, elapsed, min;
+	uint64_t now, queued, writable, elapsed;
 	struct timespec ts;
 
 	spa_assert(s);
@@ -1345,15 +1340,11 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 
 	i = &s->timing_info;
 
-	min = SPA_MIN(i->read_index, i->write_index);
-	if (s->direction == PA_STREAM_PLAYBACK)
-		queued = i->write_index - min;
-	else
-		queued = i->read_index - min;
-
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	now = SPA_TIMESPEC_TO_USEC(&ts);
 	elapsed = pa_usec_to_bytes(now - SPA_TIMEVAL_TO_USEC(&i->timestamp), &s->sample_spec);
+
+	queued = i->write_index - SPA_MIN(i->read_index, i->write_index);
 	queued -= SPA_MIN(queued, elapsed);
 
 	writable = s->maxblock - SPA_MIN(queued, s->maxblock);

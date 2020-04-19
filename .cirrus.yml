@@ -1,0 +1,20 @@
+task:
+  freebsd_instance:
+    matrix:
+      - image_family: freebsd-11-3-snap
+      - image_family: freebsd-13-0-snap
+  deps_script:
+    - sed -i.bak -e 's/quarterly/latest/' /etc/pkg/FreeBSD.conf
+    - env ASSUME_ALWAYS_YES=yes pkg bootstrap -f
+    - pkg update -f
+    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins
+    - sysrc dbus_enable=YES
+    - service dbus restart
+  build_script:
+    - mkdir build
+    - cd build
+    - meson setup -Dalsa=false -Dpipewire-alsa=false -Dbluez5=false -Djack=false -Dpipewire-jack=false -Dpipewire-pulseaudio=false -Dv4l2=false -Dsystemd=false ..
+    - ninja
+  test_script:
+    - cd build
+    - ninja test

@@ -33,6 +33,9 @@ if get_option('spa-plugins')
   if get_option('vulkan')
     vulkan_dep = dependency('vulkan')
   endif
+  if get_option('libcamera')
+    libcamera_dep = dependency('camera')
+  endif
 
   subdir('plugins')
 endif

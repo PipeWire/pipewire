@@ -239,7 +239,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	struct spa_pod **params, *param;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t i, offset, n_params;
+	uint32_t i, offset, n_params, n_datas = 1;
 	uint32_t max_buffers;
 	size_t minsize, stride, align;
 	uint32_t data_sizes[1];
@@ -288,7 +288,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	if (param) {
 		uint32_t qmax_buffers = max_buffers,
 		    qminsize = minsize, qstride = stride, qalign = align;
-		uint32_t qtypes = types;
+		uint32_t qtypes = types, qn_datas = n_datas;
 
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamBuffers, NULL,
@@ -296,7 +296,8 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 			SPA_PARAM_BUFFERS_size,     SPA_POD_OPT_Int(&qminsize),
 			SPA_PARAM_BUFFERS_stride,   SPA_POD_OPT_Int(&qstride),
 			SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&qalign),
-			SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes));
+			SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes),
+			SPA_PARAM_BUFFERS_datas,	SPA_POD_OPT_Int(&qn_datas));
 
 		max_buffers =
 		    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
@@ -305,6 +306,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		stride = SPA_MAX(stride, qstride);
 		align = SPA_MAX(align, qalign);
 		types = qtypes;
+		n_datas = SPA_MAX(n_datas, qn_datas);
 
 		pw_log_debug(NAME" %p: %d %d %d %d %d -> %zd %zd %d %zd %d", result,
 				qminsize, qstride, qmax_buffers, qalign, qtypes,
@@ -327,7 +329,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 				 max_buffers,
 				 n_params,
 				 params,
-				 1,
+				 n_datas,
 				 data_sizes, data_strides,
 				 data_aligns, data_types,
 				 flags,

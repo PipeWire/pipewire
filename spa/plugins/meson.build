@@ -43,3 +43,6 @@ endif
 if get_option('v4l2')
   subdir('v4l2')
 endif
+if get_option('libcamera')
+  subdir('libcamera')
+endif

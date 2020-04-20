@@ -29,6 +29,7 @@ set-prop link.max-buffers		16		# version < 3 clients can't handle more
 add-spa-lib audio.convert* audioconvert/libspa-audioconvert
 add-spa-lib api.alsa.* alsa/libspa-alsa
 add-spa-lib api.v4l2.* v4l2/libspa-v4l2
+add-spa-lib api.libcamera.* libcamera/libspa-libcamera
 add-spa-lib api.bluez5.* bluez5/libspa-bluez5
 add-spa-lib api.vulkan.* vulkan/libspa-vulkan
 add-spa-lib api.jack.* jack/libspa-jack
@@ -41,7 +42,7 @@ add-spa-lib support.* support/libspa-support
 # Loads a module with the given parameters. Normally failure is
 # fatal if the module is not found, unless -ifexists is given.
 #
-load-module libpipewire-module-rtkit # rt.prio=20 rt.time.soft=200000 rt.time.hard=200000
+#load-module libpipewire-module-rtkit # rt.prio=20 rt.time.soft=200000 rt.time.hard=200000
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-profiler
 load-module libpipewire-module-metadata

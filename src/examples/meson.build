@@ -65,6 +65,7 @@ if alsa_dep.found()
     'media-session/policy-node.c',
     'media-session/v4l2-monitor.c',
     'media-session/v4l2-endpoint.c',
+    'media-session/libcamera-monitor.c',
     'media-session/suspend-node.c',
     c_args : [ '-D_GNU_SOURCE' ],
     install: true,
@@ -99,6 +100,7 @@ if sdl_dep.found()
     install: false,
     dependencies : [pipewire_dep, sdl_dep],
   )
+
   executable('export-sink',
     'export-sink.c',
     c_args : [ '-D_GNU_SOURCE' ],

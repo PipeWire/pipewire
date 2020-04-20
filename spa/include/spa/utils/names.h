@@ -112,6 +112,13 @@ extern "C" {
 #define SPA_NAME_API_V4L2_DEVICE	"api.v4l2.device"		/**< a v4l2 Device interface */
 #define SPA_NAME_API_V4L2_SOURCE	"api.v4l2.source"		/**< a v4l2 Node interface for
 									  *  capturing */
+
+/** keys for libcamera factory names */
+#define SPA_NAME_API_LIBCAMERA_ENUM_CLIENT	"api.libcamera.enum.client"	/**< a libcamera client Device interface */
+#define SPA_NAME_API_LIBCAMERA_DEVICE		"api.libcamera.device"		/**< a libcamera Device interface */
+#define SPA_NAME_API_LIBCAMERA_SOURCE		"api.libcamera.source"		/**< a libcamera Node interface for
+									  *  capturing */
+
 /** keys for jack factory names */
 #define SPA_NAME_API_JACK_DEVICE	"api.jack.device"		/**< a jack device. This is a
 									  *  client connected to a server */

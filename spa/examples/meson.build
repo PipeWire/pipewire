@@ -3,6 +3,10 @@ if sdl_dep.found()
              include_directories : [spa_inc ],
              dependencies : [dl_lib, sdl_dep, pthread_lib],
              install : false)
+  executable('local-libcamera', 'local-libcamera.c',
+             include_directories : [spa_inc ],
+             dependencies : [dl_lib, sdl_dep, pthread_lib, libcamera_dep],
+             install : false)
 endif
 
 executable('example-control', 'example-control.c',

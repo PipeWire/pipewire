@@ -66,6 +66,7 @@
 int sm_metadata_start(struct sm_media_session *sess);
 int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
+int sm_libcamera_monitor_start(struct sm_media_session *sess);
 int sm_bluez5_monitor_start(struct sm_media_session *sess);
 int sm_alsa_monitor_start(struct sm_media_session *sess);
 int sm_suspend_node_start(struct sm_media_session *sess);
@@ -1715,8 +1716,7 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(impl->loop);
 }
 
-
-#define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,bluez5,metadata,suspend-node,policy-node"
+#define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,libcamera,bluez5,metadata,suspend-node,policy-node"
 #define DEFAULT_DISABLED	""
 
 static const struct {
@@ -1728,6 +1728,7 @@ static const struct {
 	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start },
 	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start },
 	{ "v4l2", "video for linux udev detection", sm_v4l2_monitor_start },
+	{ "libcamera", "libcamera udev detection", sm_libcamera_monitor_start },
 	{ "bluez5", "bluetooth support", sm_bluez5_monitor_start },
 	{ "metadata", "export metadata API", sm_metadata_start },
 	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start },
@@ -1836,6 +1837,7 @@ int main(int argc, char *argv[])
 	pw_context_add_spa_lib(impl.this.context, "api.bluez5.*", "bluez5/libspa-bluez5");
 	pw_context_add_spa_lib(impl.this.context, "api.alsa.*", "alsa/libspa-alsa");
 	pw_context_add_spa_lib(impl.this.context, "api.v4l2.*", "v4l2/libspa-v4l2");
+	pw_context_add_spa_lib(impl.this.context, "api.libcamera.*", "libcamera/libspa-libcamera");
 
 	pw_context_set_object(impl.this.context, SM_TYPE_MEDIA_SESSION, &impl);
 
@@ -1865,7 +1867,7 @@ int main(int argc, char *argv[])
 		const char *name = modules[i].name;
 		if (opt_contains(opt_enabled, name) &&
 		    !opt_contains(opt_disabled, name)) {
-			pw_log_info("enable: %s", name);
+			pw_log_info("enable: %s. Starting module.", name);
 			modules[i].start(&impl.this);
 		}
 	}

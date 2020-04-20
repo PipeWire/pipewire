@@ -333,6 +333,8 @@ struct client {
 	jack_transport_state_t jack_state;
 };
 
+static int do_sync(struct client *client);
+
 #include "metadata.c"
 
 static void init_port_pool(struct client *c, enum spa_direction direction)
@@ -1894,31 +1896,12 @@ static int metadata_property(void *object, uint32_t id,
 		const char *key, const char *type, const char *value)
 {
 	struct client *c = (struct client *) object;
-	int keylen = strlen(key);
-	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
-	struct pw_properties * props = get_properties();
-	jack_property_change_t change;
 	jack_uuid_t uuid;
 
+	pw_log_info("set id:%u '%s' to '%s@%s'", id, key, value, type);
+
 	uuid = jack_port_uuid_generate(id);
-
-	make_key(dst, uuid, key, keylen);
-
-	if (value == NULL || type == NULL) {
-		pw_properties_setf(props, dst, NULL);
-		change = PropertyDeleted;
-	} else {
-		change = PropertyCreated;
-		if (pw_properties_get(props, dst) != NULL)
-			change = PropertyChanged;
-
-		pw_properties_setf(props, dst, "%s@%s", value, type);
-	}
-
-	pw_log_debug("set id:%u '%s' to '%s@%s'", id, dst, value, type);
-
-	if (c->property_callback)
-		c->property_callback(uuid, key, change, c->property_arg);
+	update_property(c, uuid, key, type, value);
 
 	return 0;
 }
@@ -2081,7 +2064,7 @@ static void registry_event_global(void *data, uint32_t id,
 		c->metadata = pw_proxy_get_user_data(proxy);
 		c->metadata->proxy = (struct pw_metadata*)proxy;
 
-		pw_proxy_add_object_listener(proxy,
+		pw_metadata_add_listener(proxy,
 				&c->metadata->listener,
 				&metadata_events, c);
 		goto exit;

@@ -39,8 +39,12 @@ static int metadata_resource_marshal_add_listener(void *object,
 			void *data)
 {
 	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+
 	pw_resource_add_object_listener(resource, listener, events, data);
-	return 0;
+
+	b = pw_protocol_native_begin_resource(resource, PW_METADATA_METHOD_ADD_LISTENER, NULL);
+	return pw_protocol_native_end_resource(resource, b);
 }
 
 static int metadata_proxy_marshal_add_listener(void *object,
@@ -53,10 +57,27 @@ static int metadata_proxy_marshal_add_listener(void *object,
 	return 0;
 }
 
-static int metadata_demarshal_add_listener(void *object,
+static int metadata_resource_demarshal_add_listener(void *object,
 			const struct pw_protocol_native_message *msg)
 {
 	return -ENOTSUP;
+}
+
+static const struct pw_metadata_events pw_protocol_native_metadata_client_event_marshal;
+
+static int metadata_proxy_demarshal_add_listener(void *object,
+			const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_hook listener;
+	int res;
+
+	spa_zero(listener);
+	res = pw_proxy_notify(proxy, struct pw_metadata_methods, add_listener, 0,
+			&listener, &pw_protocol_native_metadata_client_event_marshal, object);
+	spa_hook_remove(&listener);
+
+	return res;
 }
 
 static void metadata_marshal_set_property(struct spa_pod_builder *b, uint32_t subject,
@@ -187,7 +208,6 @@ static int metadata_proxy_marshal_property(void *object, uint32_t subject,
 {
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
-	pw_log_debug(".");
 	b = pw_protocol_native_begin_proxy(proxy, PW_METADATA_EVENT_PROPERTY, NULL);
 	metadata_marshal_property(b, subject, key, type, value);
 	return pw_protocol_native_end_proxy(proxy, b);
@@ -198,7 +218,6 @@ static int metadata_resource_marshal_property(void *object, uint32_t subject,
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_builder *b;
-	pw_log_debug(".");
 	b = pw_protocol_native_begin_resource(resource, PW_METADATA_EVENT_PROPERTY, NULL);
 	metadata_marshal_property(b, subject, key, type, value);
 	return pw_protocol_native_end_resource(resource, b);
@@ -262,7 +281,7 @@ static const struct pw_metadata_methods pw_protocol_native_metadata_server_metho
 static const struct pw_protocol_native_demarshal
 pw_protocol_native_metadata_client_method_demarshal[PW_METADATA_METHOD_NUM] =
 {
-	[PW_METADATA_METHOD_ADD_LISTENER] = { &metadata_demarshal_add_listener, 0 },
+	[PW_METADATA_METHOD_ADD_LISTENER] = { &metadata_proxy_demarshal_add_listener, 0 },
 	[PW_METADATA_METHOD_SET_PROPERTY] = { &metadata_proxy_demarshal_set_property, 0 },
 	[PW_METADATA_METHOD_CLEAR] = { &metadata_proxy_demarshal_clear, 0 },
 };
@@ -270,7 +289,7 @@ pw_protocol_native_metadata_client_method_demarshal[PW_METADATA_METHOD_NUM] =
 static const struct pw_protocol_native_demarshal
 pw_protocol_native_metadata_server_method_demarshal[PW_METADATA_METHOD_NUM] =
 {
-	[PW_METADATA_METHOD_ADD_LISTENER] = { &metadata_demarshal_add_listener, 0 },
+	[PW_METADATA_METHOD_ADD_LISTENER] = { &metadata_resource_demarshal_add_listener, 0 },
 	[PW_METADATA_METHOD_SET_PROPERTY] = { &metadata_resource_demarshal_set_property, 0 },
 	[PW_METADATA_METHOD_CLEAR] = { &metadata_resource_demarshal_clear, 0 },
 };

@@ -33,6 +33,7 @@ struct impl {
 	struct pw_metadata *metadata;
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
+	int pending;
 };
 
 struct resource_data {
@@ -42,35 +43,8 @@ struct resource_data {
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 	struct spa_hook metadata_listener;
-};
-
-static int metadata_set_property(void *object,
-			uint32_t subject,
-			const char *key,
-			const char *type,
-			const char *value)
-{
-        struct resource_data *d = object;
-	struct impl *impl = d->impl;
-	pw_log_debug("%p", impl->metadata);
-	pw_metadata_set_property(impl->metadata, subject, key, type, value);
-	return 0;
-}
-
-
-static int metadata_clear(void *object)
-{
-        struct resource_data *d = object;
-	struct impl *impl = d->impl;
-	pw_log_debug("%p", impl->metadata);
-	pw_metadata_clear(impl->metadata);
-	return 0;
-}
-
-static const struct pw_metadata_methods metadata_methods = {
-	PW_VERSION_METADATA_METHODS,
-	.set_property = metadata_set_property,
-	.clear = metadata_clear,
+	struct spa_hook impl_resource_listener;
+	int pong_seq;
 };
 
 #define pw_metadata_resource(r,m,v,...)      \
@@ -85,9 +59,10 @@ static int metadata_property(void *object,
 			const char *type,
 			const char *value)
 {
-        struct resource_data *d = object;
-	pw_log_debug("%p", d->resource);
-	pw_metadata_resource_property(d->resource, subject, key, type, value);
+	struct resource_data *d = object;
+	struct impl *impl = d->impl;
+	if (impl->pending == 0 || d->pong_seq != 0)
+		pw_metadata_resource_property(d->resource, subject, key, type, value);
 	return 0;
 }
 
@@ -96,16 +71,61 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
+static int metadata_set_property(void *object,
+			uint32_t subject,
+			const char *key,
+			const char *type,
+			const char *value)
+{
+	struct resource_data *d = object;
+	struct impl *impl = d->impl;
+	pw_metadata_set_property(impl->metadata, subject, key, type, value);
+	return 0;
+}
+
+static int metadata_clear(void *object)
+{
+	struct resource_data *d = object;
+	struct impl *impl = d->impl;
+	pw_metadata_clear(impl->metadata);
+	return 0;
+}
+
+static const struct pw_metadata_methods metadata_methods = {
+	PW_VERSION_METADATA_METHODS,
+	.set_property = metadata_set_property,
+	.clear = metadata_clear,
+};
+
+
 static void global_unbind(void *data)
 {
-        struct resource_data *d = data;
-	if (d->resource)
+	struct resource_data *d = data;
+	if (d->resource) {
 	        spa_hook_remove(&d->metadata_listener);
+	        spa_hook_remove(&d->impl_resource_listener);
+	}
 }
 
 static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = global_unbind,
+};
+
+static void impl_resource_pong(void *data, int seq)
+{
+	struct resource_data *d = data;
+
+	if (d->pong_seq == seq) {
+		pw_impl_client_set_busy(pw_resource_get_client(d->resource), false);
+		d->pong_seq = 0;
+		d->impl->pending--;
+	}
+}
+
+static const struct pw_resource_events impl_resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.pong = impl_resource_pong,
 };
 
 static int
@@ -135,10 +155,20 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
                         &metadata_methods, data);
+
+	pw_impl_client_set_busy(client, true);
+
 	/* implementation events -> resource */
 	pw_metadata_add_listener(impl->metadata,
 			&data->metadata_listener,
 			&metadata_events, data);
+
+	pw_resource_add_listener(impl->resource,
+			&data->impl_resource_listener,
+                        &impl_resource_events, data);
+
+	data->pong_seq = pw_resource_ping(impl->resource, data->pong_seq);
+	impl->pending++;
 
 	return 0;
 }

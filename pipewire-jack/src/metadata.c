@@ -36,21 +36,125 @@
 #include <pipewire/pipewire.h>
 #include <extensions/metadata.h>
 
-static struct pw_properties * get_properties(void)
+static struct pw_array * get_descriptions(void)
 {
-	if (globals.properties == NULL) {
-		globals.properties = pw_properties_new(NULL, NULL);
+	if (globals.descriptions.extend == 0) {
+		pw_array_init(&globals.descriptions, 16);
 	}
-	return globals.properties;
+	return &globals.descriptions;
 }
 
-static void make_key(char *dst, jack_uuid_t subject, const char *key, int keylen)
+static jack_description_t *find_description(jack_uuid_t subject)
 {
-	int len;
-	jack_uuid_unparse(subject, dst);
-	len = strlen(dst);
-	dst[len] = '@';
-	memcpy(&dst[len+1], key, keylen+1);
+	struct pw_array *descriptions = get_descriptions();
+	jack_description_t *desc;
+
+	pw_array_for_each(desc, descriptions) {
+		if (jack_uuid_compare(desc->subject, subject) == 0)
+			return desc;
+	}
+	return NULL;
+}
+
+static void set_property(jack_property_t *prop, const char *key, const char *value, const char *type)
+{
+	prop->key = strdup(key);
+	prop->data = strdup(value);
+	prop->type = strdup(type);
+}
+
+static jack_property_t *copy_properties(jack_property_t *src, uint32_t cnt)
+{
+	jack_property_t *dst;
+	uint32_t i;
+	dst = malloc(sizeof(jack_property_t) * cnt);
+	if (dst != NULL) {
+		for (i = 0; i < cnt; i++)
+			set_property(&dst[i], src[i].key, src[i].data, src[i].type);
+	}
+	return dst;
+}
+
+static int copy_description(jack_description_t *dst, jack_description_t *src)
+{
+	dst->properties = copy_properties(src->properties, src->property_cnt);
+	if (dst->properties == NULL)
+		return -errno;
+	jack_uuid_copy(&dst->subject, src->subject);
+	dst->property_cnt = src->property_cnt;
+	dst->property_size = src->property_size;
+	return dst->property_cnt;
+}
+
+static jack_description_t *add_description(jack_uuid_t subject)
+{
+	struct pw_array *descriptions = get_descriptions();
+	jack_description_t *desc;
+	desc = pw_array_add(descriptions, sizeof(*desc));
+	if (desc != NULL) {
+		spa_zero(*desc);
+		jack_uuid_copy(&desc->subject, subject);
+	}
+	return desc;
+}
+
+static void remove_description(jack_description_t *desc)
+{
+	struct pw_array *descriptions = get_descriptions();
+	jack_free_description(desc, false);
+	pw_array_remove(descriptions, desc);
+}
+
+static jack_property_t *find_property(jack_description_t *desc, const char *key)
+{
+	uint32_t i;
+	for (i = 0; i < desc->property_cnt; i++) {
+		jack_property_t *prop = &desc->properties[i];
+		if (strcmp(prop->key, key) == 0)
+			return prop;
+	}
+	return NULL;
+}
+
+static jack_property_t *add_property(jack_description_t *desc, const char *key,
+		const char *value, const char *type)
+{
+	jack_property_t *prop;
+
+	if (desc->property_cnt == desc->property_size) {
+		desc->property_size = desc->property_size > 0 ? desc->property_size * 2 : 8;
+		desc->properties = realloc(desc->properties, sizeof(*prop) * desc->property_size);
+	}
+	prop = &desc->properties[desc->property_cnt++];
+	set_property(prop, key, value, type);
+	return prop;
+}
+
+static void clear_property(jack_property_t *prop)
+{
+	free((char*)prop->key);
+	free((char*)prop->data);
+	free((char*)prop->type);
+}
+
+static void remove_property(jack_description_t *desc, jack_property_t *prop)
+{
+	clear_property(prop);
+	desc->property_cnt--;
+        memmove(desc->properties, SPA_MEMBER(prop, sizeof(*prop), void),
+                SPA_PTRDIFF(SPA_MEMBER(desc->properties, sizeof(*prop) * desc->property_cnt, void),
+			prop));
+
+	if (desc->property_cnt == 0)
+		remove_description(desc);
+}
+
+static void change_property(jack_property_t *prop, const char *value, const char *type)
+{
+	free((char*)prop->data);
+	prop->data = strdup(value);
+	free((char*)prop->type);
+	prop->type = strdup(type);
 }
 
 static int update_property(struct client *c,
@@ -59,27 +163,38 @@ static int update_property(struct client *c,
 		      const char* value,
 		      const char* type)
 {
-	int keylen = strlen(key);
-	char *dst = alloca(JACK_UUID_STRING_SIZE + keylen);
-	struct pw_properties * props = get_properties();
 	jack_property_change_t change;
+	jack_description_t *desc;
 
-	make_key(dst, subject, key, keylen);
+	desc = find_description(subject);
 
-	if (value == NULL || type == NULL) {
-		pw_properties_setf(props, dst, NULL);
+	if (key == NULL) {
+		if (desc == NULL)
+			return 0;
+		remove_description(desc);
 		change = PropertyDeleted;
 	} else {
-		change = PropertyCreated;
-		if (pw_properties_get(props, dst) != NULL)
+		jack_property_t *prop;
+
+		prop = desc ? find_property(desc, key) : NULL;
+
+		if (value == NULL || type == NULL) {
+			if (prop == NULL)
+				return 0;
+			remove_property(desc, prop);
+			change = PropertyDeleted;
+		} else if (prop == NULL) {
+			if (desc == NULL)
+				desc = add_description(subject);
+			prop = add_property(desc, key, value, type);
+			change = PropertyCreated;
+		} else {
+			change_property(prop, value, type);
 			change = PropertyChanged;
-
-		pw_properties_setf(props, dst, "%s@%s", value, type);
+		}
 	}
-
 	if (c->property_callback)
 		c->property_callback(subject, key, change, c->property_arg);
-
 	return 0;
 }
 
@@ -119,35 +234,22 @@ int jack_get_property(jack_uuid_t subject,
 		      char**      value,
 		      char**      type)
 {
-	int keylen;
-	char *dst;
-	struct pw_properties * props = get_properties();
-	const char *str, *at;
+	jack_description_t *desc;
+	jack_property_t *prop;
 
-	spa_return_val_if_fail(props != NULL, -EIO);
-	spa_return_val_if_fail(key != NULL, -EINVAL);
-	spa_return_val_if_fail(value != NULL, -EINVAL);
-	spa_return_val_if_fail(type != NULL, -EINVAL);
-
-	keylen = strlen(key);
-	dst = alloca(JACK_UUID_STRING_SIZE + keylen);
-	make_key(dst, subject, key, keylen);
-
-	if ((str = pw_properties_get(props, dst)) == NULL) {
-		pw_log_warn("no property '%s'", dst);
+	desc = find_description(subject);
+	if (desc == NULL)
 		return -1;
-	}
 
-	at = strrchr(str, '@');
-	if (at == NULL) {
-		pw_log_warn("property '%s' invalid value '%s'", dst, str);
+	prop = find_property(desc, key);
+	if (prop == NULL)
 		return -1;
-	}
 
-	*value = strndup(str, at - str);
-	*type = strdup(at + 1);
+	*value = strdup(prop->data);
+	*type = strdup(prop->type);
 
-	pw_log_info("got '%s' with value:'%s' type:'%s'", dst, *value, *type);
+	pw_log_info("subject:%"PRIu64" key:'%s' value:'%s' type:'%s'",
+			subject, key, *value, *type);
 
 	return 0;
 }
@@ -157,15 +259,9 @@ void jack_free_description (jack_description_t* desc, int free_description_itsel
 {
 	uint32_t n;
 
-	for (n = 0; n < desc->property_cnt; ++n) {
-		free((char*)desc->properties[n].key);
-		free((char*)desc->properties[n].data);
-		if (desc->properties[n].type)
-			free((char*)desc->properties[n].type);
-	}
-
+	for (n = 0; n < desc->property_cnt; ++n)
+		clear_property(&desc->properties[n]);
 	free(desc->properties);
-
 	if (free_description_itself)
 		free(desc);
 }
@@ -174,134 +270,50 @@ SPA_EXPORT
 int jack_get_properties (jack_uuid_t         subject,
 			 jack_description_t* desc)
 {
-	const struct spa_dict_item *item;
-	struct pw_properties * props = get_properties();
-	char dst[JACK_UUID_STRING_SIZE+2], *at;
-	uint32_t props_size, cnt;
-	int len;
+	jack_description_t *d;
 
-	spa_return_val_if_fail(props != NULL, -EIO);
 	spa_return_val_if_fail(desc != NULL, -EINVAL);
 
-        jack_uuid_copy(&desc->subject, subject);
-	desc->properties = NULL;
-	cnt = props_size = 0;
-
-	jack_uuid_unparse(subject, dst);
-	len = strlen(dst);
-	dst[len] = '@';
-	dst[len+1] = 0;
-
-	pw_log_debug("keys for: %s", dst);
-
-	spa_dict_for_each(item, &props->dict) {
-		jack_property_t* prop;
-
-		pw_log_debug("keys %s <-> %s", item->key, dst);
-
-		if (strstr(item->key, dst) != item->key)
-			continue;
-
-		if (cnt == props_size) {
-		        props_size = props_size > 0 ? props_size * 2 : 8;
-			desc->properties = realloc(desc->properties, sizeof(jack_property_t) * props_size);
-		}
-		prop = &desc->properties[cnt];
-
-		pw_log_debug("match %s", item->value);
-		at = strrchr(item->value, '@');
-		if (at == NULL)
-			continue;
-
-		prop->key = strdup(item->key + len + 1);
-		prop->data = strndup(item->value, at - item->value);
-		prop->type = strdup(at + 1);
-		cnt++;
-        }
-	desc->property_cnt = cnt;
-	return cnt;
+	d = find_description(subject);
+	if (d == NULL)
+		return -1;
+	return copy_description(desc, d);
 }
 
 SPA_EXPORT
-int jack_get_all_properties (jack_description_t** descriptions)
+int jack_get_all_properties (jack_description_t** result)
 {
-	const struct spa_dict_item *item;
-	struct pw_properties * props = get_properties();
-	char *at;
-	jack_description_t *desc, *cdesc;
-	uint32_t dsize, dcnt, n, len;
-	jack_uuid_t uuid;
+	uint32_t i;
+	jack_description_t *dst, *src;
+	struct pw_array *descriptions = get_descriptions();
+	uint32_t len = pw_array_get_len(descriptions, jack_description_t);
+	src = descriptions->data;
 
-	spa_return_val_if_fail(props != NULL, -EIO);
-	spa_return_val_if_fail(descriptions != NULL, -EINVAL);
+	dst = malloc(descriptions->size);
+	for (i = 0; i < len; i++)
+		copy_description(&dst[i], &src[i]);
 
-	dsize = dcnt = 0;
-	desc = NULL;
-
-	spa_dict_for_each(item, &props->dict) {
-		jack_property_t* prop;
-
-		at = strrchr(item->key, '@');
-		if (at == NULL)
-			continue;
-
-		len = at - item->key;
-
-		jack_uuid_parse(item->key, &uuid);
-
-		at = strrchr(item->value, '@');
-		if (at == NULL)
-			continue;
-
-		for (n = 0; n < dcnt; n++) {
-			if (jack_uuid_compare(uuid, desc[n].subject) == 0)
-				break;
-		}
-		if (n == dcnt) {
-			if (dcnt == dsize) {
-				dsize = dsize > 0 ? dsize * 2 : 8;
-				desc = realloc (desc, sizeof(jack_description_t) * dsize);
-			}
-			desc[n].property_size = 0;
-			desc[n].property_cnt = 0;
-			desc[n].properties = NULL;
-
-			jack_uuid_copy (&desc[n].subject, uuid);
-			dcnt++;
-		}
-		cdesc = &desc[n];
-
-		if (cdesc->property_cnt == cdesc->property_size) {
-			cdesc->property_size = cdesc->property_size > 0 ? cdesc->property_size * 2 : 8;
-			cdesc->properties = realloc (cdesc->properties,
-					sizeof(jack_property_t) * cdesc->property_size);
-		}
-
-		prop = &cdesc->properties[cdesc->property_cnt++];
-		prop->key = strdup(item->key + len + 1);
-		prop->data = strndup(item->value, at - item->value);
-		prop->type = strdup(at + 1);
-        }
-	*descriptions = desc;
-	return dcnt;
+	*result = dst;
+	return len;
 }
 
 SPA_EXPORT
 int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char* key)
 {
-	int keylen;
-	char *dst;
-	struct pw_properties * props = get_properties();
+	struct client *c = (struct client *) client;
+	uint32_t id;
 
-	spa_return_val_if_fail(client != NULL, -EINVAL);
+	spa_return_val_if_fail(c != NULL, -EINVAL);
 	spa_return_val_if_fail(key != NULL, -EINVAL);
 
-	keylen = strlen(key);
-	dst = alloca(JACK_UUID_STRING_SIZE + keylen);
-	make_key(dst, subject, key, keylen);
+	if (c->metadata == NULL)
+		return -1;
 
-	pw_properties_set(props, dst, NULL);
-	pw_log_debug("removed %s", dst);
+	id = jack_uuid_to_index(subject);
+
+	pw_log_info("remove id:%u (%lu) '%s'", id, subject, key);
+	pw_metadata_set_property(c->metadata->proxy,
+			id, key, NULL, NULL);
 
 	return 0;
 }
@@ -309,8 +321,21 @@ int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char
 SPA_EXPORT
 int jack_remove_properties (jack_client_t* client, jack_uuid_t subject)
 {
-	pw_log_warn("not implemented");
-	return -1;
+	struct client *c = (struct client *) client;
+	uint32_t id;
+
+	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	if (c->metadata == NULL)
+		return -1;
+
+	id = jack_uuid_to_index(subject);
+
+	pw_log_info("remove id:%u (%lu)", id, subject);
+	pw_metadata_set_property(c->metadata->proxy,
+			id, NULL, NULL, NULL);
+
+	return 0;
 }
 
 SPA_EXPORT

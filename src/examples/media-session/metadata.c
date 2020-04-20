@@ -78,6 +78,8 @@ static void emit_properties(struct metadata *this, const struct spa_dict *dict)
 {
 	struct item *item;
 	pw_array_for_each(item, &this->metadata) {
+		pw_log_debug("metadata %p: %d %s %s %s",
+				this, item->subject, item->key, item->type, item->value);
 		pw_metadata_emit_property(&this->hooks,
 				item->subject,
 				item->key,
@@ -97,6 +99,8 @@ static int impl_add_listener(void *object,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
+	pw_log_debug("metadata %p:", this);
+
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_properties(this, &this->properties->dict);
@@ -111,10 +115,31 @@ static struct item *find_item(struct metadata *this, uint32_t subject, const cha
 	struct item *item;
 
 	pw_array_for_each(item, &this->metadata) {
-		if (item->subject == subject && !strcmp(item->key, key))
+		if (item->subject == subject && (key == NULL || !strcmp(item->key, key)))
 			return item;
 	}
 	return NULL;
+}
+
+static int clear_subjects(struct metadata *this, uint32_t subject)
+{
+	struct item *item;
+	uint32_t removed = 0;
+
+	while (true) {
+		item = find_item(this, subject, NULL);
+		if (item == NULL)
+			break;
+
+		pw_log_debug(NAME" %p: remove id:%d key:%s", this, subject, item->key);
+
+		clear_item(item);
+		pw_array_remove(&this->metadata, item);
+		removed++;
+	}
+	if (removed > 0)
+		pw_metadata_emit_property(&this->hooks, subject, NULL, NULL, NULL);
+	return 0;
 }
 
 static void clear_items(struct metadata *this)
@@ -137,7 +162,7 @@ static int impl_set_property(void *object,
 	struct item *item = NULL;
 
 	if (key == NULL)
-		return -EINVAL;
+		return clear_subjects(this, subject);
 
 	item = find_item(this, subject, key);
 	if (item == NULL) {
@@ -162,7 +187,6 @@ static int impl_set_property(void *object,
 		pw_log_debug(NAME" %p: remove id:%d key:%s", this, subject, key);
 	}
 
-
 	pw_metadata_emit_property(&this->hooks,
 				subject, key, type, value);
 	return 0;
@@ -182,6 +206,12 @@ struct pw_metadata_methods impl_metadata = {
 	.clear = impl_clear,
 };
 
+static void session_remove(void *data, struct sm_object *object)
+{
+	struct metadata *this = data;
+	clear_subjects(this, object->id);
+}
+
 static void session_destroy(void *data)
 {
 	struct metadata *this = data;
@@ -198,6 +228,7 @@ static void session_destroy(void *data)
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.destroy = session_destroy,
+	.remove = session_remove,
 };
 
 int sm_metadata_start(struct sm_media_session *sess)

@@ -87,7 +87,7 @@ struct port;
 struct globals {
 	jack_thread_creator_t creator;
 	jack_client_t *client;
-	struct pw_properties *properties;
+	struct pw_array descriptions;
 };
 
 static struct globals globals;

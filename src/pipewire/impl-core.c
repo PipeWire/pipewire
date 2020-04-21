@@ -202,7 +202,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	struct pw_impl_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug(NAME" %p: error %d for resource %d: %s", resource->context, res, id, message);
+	pw_log_error(NAME" %p: error %d for resource %d: %s", resource->context, res, id, message);
 
 	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
 		return -EINVAL;

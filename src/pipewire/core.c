@@ -106,6 +106,7 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 	if (m->id != id) {
 		pw_log_error(NAME" %p: invalid mem id %u, expected %u",
 				this, id, m->id);
+		pw_proxy_errorf(&this->proxy, -EINVAL, "invalid mem id %u, expected %u", id, m->id);
 		pw_memblock_unref(m);
 	}
 }

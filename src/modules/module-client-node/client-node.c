@@ -99,9 +99,11 @@ struct port {
 	struct spa_port_info info;
 	struct pw_properties *properties;
 
-	unsigned int removed:1;
 	uint32_t n_params;
 	struct spa_pod **params;
+
+	unsigned int removed:1;
+	unsigned int destroyed:1;
 
 	struct mix mix[MAX_MIX+1];
 };
@@ -747,6 +749,9 @@ do_port_use_buffers(struct impl *impl,
 	if (this->resource == NULL)
 		return n_buffers == 0 ? 0 : -EIO;
 
+	if (p->destroyed)
+		return 0;
+
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
 		struct pw_memblock *mem, *m;
@@ -960,6 +965,7 @@ client_node_port_update(void *data,
 	port = GET_PORT(this, direction, port_id);
 
 	if (remove) {
+		port->destroyed = true;
 		clear_port(this, port);
 	} else {
 		struct port *target;

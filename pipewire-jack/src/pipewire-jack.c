@@ -1015,9 +1015,9 @@ static inline uint32_t cycle_run(struct client *c)
 	check_buffer_frames(c);
 	check_sample_rate(c);
 
-	c->jack_state = position_to_jack(driver, &c->jack_position);
-
 	if (SPA_LIKELY(driver)) {
+		c->jack_state = position_to_jack(driver, &c->jack_position);
+
 		if (SPA_UNLIKELY(activation->pending_sync)) {
 			if (c->sync_callback == NULL ||
 			    c->sync_callback(c->jack_state, &c->jack_position, c->sync_arg))

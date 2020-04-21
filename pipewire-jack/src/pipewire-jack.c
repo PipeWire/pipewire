@@ -412,8 +412,30 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 	return mix;
 }
 
+static int clear_buffers(struct client *c, struct mix *mix)
+{
+	struct port *port = mix->port;
+	struct buffer *b;
+	uint32_t i, j;
+
+	pw_log_debug(NAME" %p: port %p clear buffers", c, port);
+
+	for (i = 0; i < mix->n_buffers; i++) {
+		b = &mix->buffers[i];
+
+		for (j = 0; j < b->n_mem; j++)
+			pw_memmap_free(b->mem[j]);
+
+		b->n_mem = 0;
+	}
+	mix->n_buffers = 0;
+	spa_list_init(&mix->queue);
+	return 0;
+}
+
 static void free_mix(struct client *c, struct mix *mix)
 {
+	clear_buffers(c, mix);
 	spa_list_remove(&mix->port_link);
 	spa_list_append(&c->free_mix, &mix->link);
 }
@@ -1331,27 +1353,6 @@ static int client_node_remove_port(void *object,
 	struct client *c = (struct client *) object;
 	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "remove port not supported");
 	return -ENOTSUP;
-}
-
-static int clear_buffers(struct client *c, struct mix *mix)
-{
-	struct port *port = mix->port;
-        struct buffer *b;
-	uint32_t i, j;
-
-        pw_log_debug(NAME" %p: port %p clear buffers", c, port);
-
-	for (i = 0; i < mix->n_buffers; i++) {
-		b = &mix->buffers[i];
-
-		for (j = 0; j < b->n_mem; j++)
-			pw_memmap_free(b->mem[j]);
-
-		b->n_mem = 0;
-        }
-	mix->n_buffers = 0;
-	spa_list_init(&mix->queue);
-	return 0;
 }
 
 static int param_enum_format(struct client *c, struct port *p,

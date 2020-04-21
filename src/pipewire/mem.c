@@ -315,8 +315,8 @@ static struct mapping * memblock_map(struct memblock *b,
 	b->this.ref++;
 	spa_list_append(&b->mappings, &m->link);
 
-        pw_log_debug(NAME" %p: fd:%d map:%p ptr:%p (%d %d)", p,
-			b->this.fd, m, m->ptr, offset, size);
+        pw_log_debug(NAME" %p: block:%p fd:%d map:%p ptr:%p (%d %d) block-ref:%d", p, &b->this,
+			b->this.fd, m, m->ptr, offset, size, b->this.ref);
 
 	return m;
 }
@@ -326,8 +326,8 @@ static void mapping_unmap(struct mapping *m)
 	struct memblock *b = m->block;
 	struct mempool *p = SPA_CONTAINER_OF(b->this.pool, struct mempool, this);
 
-        pw_log_debug(NAME" %p: mapping:%p fd:%d ptr:%p size:%d block-ref:%d",
-			p, m, b->this.fd, m->ptr, m->size, b->this.ref);
+        pw_log_debug(NAME" %p: mapping:%p block:%p fd:%d ptr:%p size:%d block-ref:%d",
+			p, m, b, b->this.fd, m->ptr, m->size, b->this.ref);
 
 	if (m->do_unmap)
 		munmap(m->ptr, m->size);
@@ -374,8 +374,8 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 
 	spa_list_append(&b->maps, &mm->link);
 
-        pw_log_debug(NAME" %p: map:%p fd:%d ptr:%p (%d %d) mapping:%p ref:%d", p,
-			&mm->this, b->this.fd, mm->this.ptr, offset, size, m, m->ref);
+        pw_log_debug(NAME" %p: map:%p block:%p fd:%d ptr:%p (%d %d) mapping:%p ref:%d", p,
+			&mm->this, b, b->this.fd, mm->this.ptr, offset, size, m, m->ref);
 
 	return &mm->this;
 }
@@ -403,8 +403,8 @@ int pw_memmap_free(struct pw_memmap *map)
 	struct memblock *b = m->block;
 	struct mempool *p = SPA_CONTAINER_OF(b->this.pool, struct mempool, this);
 
-        pw_log_debug(NAME" %p: map:%p fd:%d ptr:%p mapping:%p ref:%d", p,
-			&mm->this, b->this.fd, mm->this.ptr, m, m->ref);
+        pw_log_debug(NAME" %p: map:%p block:%p fd:%d ptr:%p mapping:%p ref:%d", p,
+			&mm->this, b, b->this.fd, mm->this.ptr, m, m->ref);
 
 	spa_list_remove(&mm->link);
 
@@ -500,7 +500,7 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 
 	b->this.id = pw_map_insert_new(&impl->map, b);
 	spa_list_append(&impl->blocks, &b->link);
-	pw_log_debug(NAME" %p: mem %p alloc id:%d type:%u", pool, &b->this, b->this.id, type);
+	pw_log_debug(NAME" %p: block:%p id:%d type:%u", pool, &b->this, b->this.id, type);
 
 	pw_mempool_emit_added(impl, &b->this);
 
@@ -557,7 +557,7 @@ struct pw_memblock * pw_mempool_import(struct pw_mempool *pool,
 	b->this.id = pw_map_insert_new(&impl->map, b);
 	spa_list_append(&impl->blocks, &b->link);
 
-	pw_log_debug(NAME" %p: import %p id:%u flags:%08x type:%u fd:%d",
+	pw_log_debug(NAME" %p: block:%p id:%u flags:%08x type:%u fd:%d",
 			pool, b, b->this.id, flags, type, fd);
 
 	pw_mempool_emit_added(impl, &b->this);
@@ -618,6 +618,8 @@ struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
 	if (map == NULL)
 		return NULL;
 
+	pw_log_debug(NAME" %p: block:%p id:%u", pool, block, block->id);
+
 	return map;
 }
 
@@ -630,6 +632,9 @@ int pw_mempool_unref_id(struct pw_mempool *pool, uint32_t id)
 	b = pw_map_lookup(&impl->map, id);
 	if (b == NULL)
 		return -ENOENT;
+
+	pw_log_debug(NAME" %p: block:%p id:%d fd:%d ref:%d",
+			pool, b, id, b->this.fd, b->this.ref);
 
 	pw_memblock_unref(&b->this);
 	return 0;
@@ -649,7 +654,7 @@ void pw_memblock_free(struct pw_memblock *block)
 
 	spa_return_if_fail(block != NULL);
 
-	pw_log_debug(NAME" %p: free mem %p id:%d fd:%d ref:%d",
+	pw_log_debug(NAME" %p: block:%p id:%d fd:%d ref:%d",
 			pool, block, block->id, block->fd, block->ref);
 
 	block->ref++;
@@ -681,8 +686,8 @@ struct pw_memblock * pw_mempool_find_ptr(struct pw_mempool *pool, const void *pt
 	spa_list_for_each(b, &impl->blocks, link) {
 		spa_list_for_each(m, &b->mappings, link) {
 			if (ptr >= m->ptr && ptr < SPA_MEMBER(m->ptr, m->size, void)) {
-				pw_log_debug(NAME" %p: found %p id:%d for %p", pool,
-						m->block, b->this.id, ptr);
+				pw_log_debug(NAME" %p: block:%p id:%d for %p", pool,
+						b, b->this.id, ptr);
 				return &b->this;
 			}
 		}
@@ -697,7 +702,7 @@ struct pw_memblock * pw_mempool_find_id(struct pw_mempool *pool, uint32_t id)
 	struct memblock *b;
 
 	b = pw_map_lookup(&impl->map, id);
-	pw_log_debug(NAME" %p: found %p for %d", pool, b, id);
+	pw_log_debug(NAME" %p: block:%p for %d", pool, b, id);
 	if (b == NULL)
 		return NULL;
 

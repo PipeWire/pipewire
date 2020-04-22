@@ -772,7 +772,7 @@ static int collect_nodes(struct pw_impl_node *driver)
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
 				t = l->output->node;
-				if (!t->visited && t->active) {
+				if (l->prepared && !t->visited && t->active) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
 				}
@@ -781,7 +781,7 @@ static int collect_nodes(struct pw_impl_node *driver)
 		spa_list_for_each(p, &n->output_ports, link) {
 			spa_list_for_each(l, &p->links, output_link) {
 				t = l->input->node;
-				if (!t->visited && t->active) {
+				if (l->prepared && !t->visited && t->active) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
 				}
@@ -810,7 +810,7 @@ int pw_context_recalc_graph(struct pw_context *context)
 	 * the unassigned nodes. */
 	target = NULL;
 	spa_list_for_each(n, &context->driver_list, driver_link) {
-		uint32_t active_followers;
+		n->active_followers = 0;
 
 		if (n->exported)
 			continue;
@@ -824,19 +824,18 @@ int pw_context_recalc_graph(struct pw_context *context)
 		if (!n->master)
 			continue;
 
-		active_followers = 0;
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 			pw_log_debug(NAME" %p: driver %p: follower %p %s: %d",
 					context, n, s, s->name, s->active);
 			if (s != n && s->active)
-				active_followers++;
+				n->active_followers++;
 		}
 		pw_log_debug(NAME" %p: driver %p active followers %d",
-				context, n, active_followers);
+				context, n, n->active_followers);
 
 		/* if the master has active followers, it is a target for our
 		 * unassigned nodes */
-		if (active_followers > 0) {
+		if (n->active_followers > 0) {
 			if (target == NULL)
 				target = n;
 		}
@@ -871,8 +870,16 @@ int pw_context_recalc_graph(struct pw_context *context)
 
 	/* assign final quantum and debug masters and followers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
+		enum pw_node_state state;
+
 		if (!n->master || n->exported)
 			continue;
+
+		state = n->info.state;
+		if (n->active_followers > 0)
+			state = PW_NODE_STATE_RUNNING;
+		else if (state > PW_NODE_STATE_IDLE)
+			state = PW_NODE_STATE_IDLE;
 
 		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration) {
 			n->rt.position->clock.duration = n->quantum_current;
@@ -882,9 +889,13 @@ int pw_context_recalc_graph(struct pw_context *context)
 
 		pw_log_debug(NAME" %p: master %p quantum:%u '%s'", context, n,
 				n->quantum_current, n->name);
-		spa_list_for_each(s, &n->follower_list, follower_link)
+		spa_list_for_each(s, &n->follower_list, follower_link) {
 			pw_log_debug(NAME" %p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
+			if (s != n && s->active)
+				pw_impl_node_set_state(s, state);
+		}
+		pw_impl_node_set_state(n, state);
 	}
 	return 0;
 }

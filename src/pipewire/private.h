@@ -532,6 +532,7 @@ struct pw_impl_node {
 	struct pw_impl_node *driver_node;
 	struct spa_list follower_list;
 	struct spa_list follower_link;
+	uint32_t active_followers;
 
 	struct spa_list sort_link;	/**< link used to sort nodes */
 
@@ -542,14 +543,6 @@ struct pw_impl_node {
 	struct pw_map input_port_map;		/**< map from port_id to port */
 	struct spa_list output_ports;		/**< list of output ports */
 	struct pw_map output_port_map;		/**< map from port_id to port */
-
-	uint32_t n_used_input_links;		/**< number of active input links */
-	uint32_t idle_used_input_links;		/**< number of active input to be idle */
-	uint32_t n_ready_input_links;		/**< number of ready input links */
-
-	uint32_t n_used_output_links;		/**< number of active output links */
-	uint32_t idle_used_output_links;	/**< number of active output to be idle */
-	uint32_t n_ready_output_links;		/**< number of ready output links */
 
 	struct spa_hook_list listener_list;
 
@@ -735,6 +728,7 @@ struct pw_impl_link {
 
 	unsigned int registered:1;
 	unsigned int feedback:1;
+	unsigned int prepared:1;
 };
 
 #define pw_resource_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)

@@ -140,6 +140,7 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 	}
 
 	this = &impl->this;
+	this->name = strdup("device");
 	pw_log_debug(NAME" %p: new", this);
 
 	if (properties == NULL)

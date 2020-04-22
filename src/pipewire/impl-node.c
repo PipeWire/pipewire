@@ -183,13 +183,7 @@ static int start_node(struct pw_impl_node *this)
 	if (this->info.state >= PW_NODE_STATE_RUNNING)
 		return 0;
 
-	pw_log_debug(NAME" %p: start node %d %d %d %d", this, this->n_ready_output_links,
-			this->n_used_output_links, this->n_ready_input_links,
-			this->n_used_input_links);
-
-	if (this->n_ready_output_links != this->n_used_output_links ||
-	    this->n_ready_input_links != this->n_used_input_links)
-		return 0;
+	pw_log_debug(NAME" %p: start node", this);
 
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
@@ -984,6 +978,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this = &impl->this;
 	this->context = context;
+	this->name = strdup("node");
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
@@ -1812,10 +1807,8 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 			pw_node_state_as_string(state),
 			node->active);
 
-	if (old == state)
-		return 0;
-
-	pw_impl_node_emit_state_request(node, state);
+	if (old != state)
+		pw_impl_node_emit_state_request(node, state);
 
 	switch (state) {
 	case PW_NODE_STATE_CREATING:
@@ -1846,8 +1839,9 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 	if (SPA_RESULT_IS_ASYNC(res)) {
 		res = spa_node_sync(node->node, res);
 	}
-	pw_work_queue_add(impl->work,
-			node, res, on_state_complete, SPA_INT_TO_PTR(state));
+	if (old != state)
+		pw_work_queue_add(impl->work,
+				node, res, on_state_complete, SPA_INT_TO_PTR(state));
 
 	return res;
 }
@@ -1860,14 +1854,8 @@ int pw_impl_node_set_active(struct pw_impl_node *node, bool active)
 	if (old != active) {
 		pw_log_debug(NAME" %p: %s", node, active ? "activate" : "deactivate");
 
-		if (!active)
-			pw_impl_node_set_state(node, PW_NODE_STATE_IDLE);
-
 		node->active = active;
 		pw_impl_node_emit_active_changed(node, active);
-
-		if (active)
-			node_activate(node);
 
 		if (node->registered)
 			pw_context_recalc_graph(node->context);

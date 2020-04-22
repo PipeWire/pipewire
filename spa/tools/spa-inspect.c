@@ -203,7 +203,13 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	const struct spa_interface_info *info;
 	uint32_t index;
 
+	printf("factory version:\t\t%d\n", factory->version);
 	printf("factory name:\t\t'%s'\n", factory->name);
+	if (factory->version < SPA_VERSION_HANDLE_FACTORY) {
+		printf("\tno further info for version < %d\n", SPA_VERSION_HANDLE_FACTORY);
+		return;
+	}
+
 	printf("factory info:\n");
 	if (factory->info)
 		spa_debug_dict(2, factory->info);

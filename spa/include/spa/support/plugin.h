@@ -99,7 +99,7 @@ static inline void *spa_support_find(const struct spa_support *support,
 
 struct spa_handle_factory {
 	/** The version of this structure */
-#define SPA_VERSION_HANDLE_FACTORY	0
+#define SPA_VERSION_HANDLE_FACTORY	1
 	uint32_t version;
 	/**
 	 * The name of the factory contains a logical name that describes

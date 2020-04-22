@@ -205,8 +205,8 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 
 	printf("factory version:\t\t%d\n", factory->version);
 	printf("factory name:\t\t'%s'\n", factory->name);
-	if (factory->version < SPA_VERSION_HANDLE_FACTORY) {
-		printf("\tno further info for version < %d\n", SPA_VERSION_HANDLE_FACTORY);
+	if (factory->version < 1) {
+		printf("\tno further info for version %d < 1\n", factory->version);
 		return;
 	}
 

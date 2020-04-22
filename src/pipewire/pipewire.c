@@ -172,6 +172,11 @@ static const struct spa_handle_factory *find_factory(struct plugin *plugin, cons
 				break;
                         goto out;
                 }
+		if (factory->version < 1) {
+			pw_log_warn("factory version %d < 1 not supported",
+					factory->version);
+			continue;
+		}
                 if (strcmp(factory->name, factory_name) == 0)
                         return factory;
 	}

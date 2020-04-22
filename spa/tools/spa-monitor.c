@@ -184,6 +184,12 @@ int main(int argc, char *argv[])
 			break;
 		}
 
+		if (factory->version < 1) {
+			printf("factories version %d < %d not supported\n",
+					factory->version, 1);
+			continue;
+		}
+
 		for (iidx = 0;;) {
 			const struct spa_interface_info *info;
 

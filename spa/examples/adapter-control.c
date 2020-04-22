@@ -113,6 +113,8 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
+		if (factory->version < 1)
+			continue;
 		if (strcmp(factory->name, name))
 			continue;
 
@@ -207,6 +209,8 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
+		if (factory->version < 1)
+			continue;
 		if (strcmp(factory->name, name))
 			continue;
 

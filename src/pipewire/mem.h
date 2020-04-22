@@ -134,8 +134,8 @@ static inline void pw_memblock_unref(struct pw_memblock *mem)
 		pw_memblock_free(mem);
 }
 
-/** Unref a memblock for given \a id */
-int pw_mempool_unref_id(struct pw_mempool *pool, uint32_t id);
+/** Remove a memblock for given \a id */
+int pw_mempool_remove_id(struct pw_mempool *pool, uint32_t id);
 
 /** Find memblock for given \a ptr */
 struct pw_memblock * pw_mempool_find_ptr(struct pw_mempool *pool, const void *ptr);

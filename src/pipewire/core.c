@@ -115,7 +115,7 @@ static void core_event_remove_mem(void *data, uint32_t id)
 {
 	struct pw_core *this = data;
 	pw_log_debug(NAME" %p: remove mem %u", this, id);
-	pw_mempool_unref_id(this->pool, id);
+	pw_mempool_remove_id(this->pool, id);
 }
 
 static const struct pw_core_events core_events = {

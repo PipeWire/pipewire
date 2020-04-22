@@ -623,8 +623,7 @@ struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
 	return map;
 }
 
-
-int pw_mempool_unref_id(struct pw_mempool *pool, uint32_t id)
+int pw_mempool_remove_id(struct pw_mempool *pool, uint32_t id)
 {
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
 	struct memblock *b;
@@ -636,7 +635,10 @@ int pw_mempool_unref_id(struct pw_mempool *pool, uint32_t id)
 	pw_log_debug(NAME" %p: block:%p id:%d fd:%d ref:%d",
 			pool, b, id, b->this.fd, b->this.ref);
 
+	b->this.id = SPA_ID_INVALID;
+	pw_map_remove(&impl->map, id);
 	pw_memblock_unref(&b->this);
+
 	return 0;
 }
 
@@ -661,7 +663,8 @@ void pw_memblock_free(struct pw_memblock *block)
 	if (block->map)
 		block->ref++;
 
-	pw_map_remove(&impl->map, block->id);
+	if (block->id != SPA_ID_INVALID)
+		pw_map_remove(&impl->map, block->id);
 	spa_list_remove(&b->link);
 
 	pw_mempool_emit_removed(impl, block);

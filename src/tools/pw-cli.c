@@ -2816,7 +2816,11 @@ int main(int argc, char *argv[])
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
-	do_connect(&data, "connect", opt_remote, &error);
+	if (!do_connect(&data, "connect", opt_remote, &error)) {
+		fprintf(stderr, "Error: \"%s\"\n", error);
+		return -1;
+	}
+
 
 	if (optind == argc) {
 		data.interactive = true;

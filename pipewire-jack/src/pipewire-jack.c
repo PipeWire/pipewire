@@ -4108,7 +4108,7 @@ void jack_set_error_function (void (*func)(const char *))
 SPA_EXPORT
 void default_jack_info_callback(const char *desc)
 {
-	pw_log_info("pw jack info: %s",desc);
+	pw_log_info("pw jack info: %s", desc);
 }
 
 SPA_EXPORT
@@ -4435,7 +4435,7 @@ int jack_client_create_thread (jack_client_t* client,
 	if (globals.creator == NULL)
 		globals.creator = pthread_create;
 
-	pw_log_info("client %p: create thread", client);
+	pw_log_debug("client %p: create thread", client);
 	return globals.creator(thread, NULL, start_routine, arg);
 }
 

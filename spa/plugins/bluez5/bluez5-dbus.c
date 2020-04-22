@@ -1449,7 +1449,7 @@ static int sco_do_accept(struct spa_bt_transport *t)
 	memset(&addr, 0, sizeof(addr));
 	optlen = sizeof(addr);
 
-	spa_log_info(monitor->log, "transport %p: doing accept", t);
+	spa_log_debug(monitor->log, "transport %p: doing accept", t);
 	sock = accept(td->sco.fd, (struct sockaddr *) &addr, &optlen);
 	if (sock < 0) {
 		if (errno != EAGAIN)
@@ -1505,7 +1505,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	addr.sco_family = AF_BLUETOOTH;
 	bacpy(&addr.sco_bdaddr, &dst);
 
-	spa_log_info(monitor->log, "transport %p: doing connect", t);
+	spa_log_debug(monitor->log, "transport %p: doing connect", t);
 	err = connect(sock, (struct sockaddr *) &addr, len);
 	if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
 		spa_log_error(monitor->log, "connect(): %s", strerror(errno));
@@ -1621,7 +1621,7 @@ static int sco_listen(struct spa_bt_transport *t)
 		goto fail_close;
 	}
 
-	spa_log_info(monitor->log, "transport %p: doing listen", t);
+	spa_log_debug(monitor->log, "transport %p: doing listen", t);
 	if (listen(sock, 1) < 0) {
 		spa_log_error(monitor->log, "listen(): %m");
 		goto fail_close;

@@ -605,7 +605,7 @@ static int port_set_format(void *object,
 			return -EINVAL;
 
 		if (other->have_format) {
-			spa_log_info(this->log, NAME "%p: channels:%d<>%d rate:%d<>%d format:%d<>%d", this,
+			spa_log_debug(this->log, NAME "%p: channels:%d<>%d rate:%d<>%d format:%d<>%d", this,
 				info.info.raw.channels, other->format.info.raw.channels,
 				info.info.raw.rate, other->format.info.raw.rate,
 				info.info.raw.format, other->format.info.raw.format);

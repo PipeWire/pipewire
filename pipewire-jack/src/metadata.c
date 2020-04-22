@@ -248,7 +248,7 @@ int jack_get_property(jack_uuid_t subject,
 	*value = strdup(prop->data);
 	*type = strdup(prop->type);
 
-	pw_log_info("subject:%"PRIu64" key:'%s' value:'%s' type:'%s'",
+	pw_log_debug("subject:%"PRIu64" key:'%s' value:'%s' type:'%s'",
 			subject, key, *value, *type);
 
 	return 0;

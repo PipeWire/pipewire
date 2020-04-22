@@ -704,19 +704,21 @@ struct pw_control_link {
 
 struct pw_impl_link {
 	struct pw_context *context;		/**< context object */
-	struct spa_list link;		/**< link in context link_list */
-	struct pw_global *global;	/**< global for this link */
+	struct spa_list link;			/**< link in context link_list */
+	struct pw_global *global;		/**< global for this link */
 	struct spa_hook global_listener;
 
-        struct pw_link_info info;		/**< introspectable link info */
+	char *name;
+
+	struct pw_link_info info;		/**< introspectable link info */
 	struct pw_properties *properties;	/**< extra link properties */
 
-	struct spa_io_buffers *io;	/**< link io area */
+	struct spa_io_buffers *io;		/**< link io area */
 
 	struct pw_impl_port *output;		/**< output port */
-	struct spa_list output_link;	/**< link in output port links */
+	struct spa_list output_link;		/**< link in output port links */
 	struct pw_impl_port *input;		/**< input port */
-	struct spa_list input_link;	/**< link in input port links */
+	struct spa_list input_link;		/**< link in input port links */
 
 	struct spa_hook_list listener_list;
 
@@ -725,8 +727,8 @@ struct pw_impl_link {
 
 	struct {
 		struct pw_impl_port_mix out_mix;	/**< port added to the output mixer */
-		struct pw_impl_port_mix in_mix;	/**< port added to the input mixer */
-		struct pw_node_target target;	/**< target to trigger the input node */
+		struct pw_impl_port_mix in_mix;		/**< port added to the input mixer */
+		struct pw_node_target target;		/**< target to trigger the input node */
 	} rt;
 
 	void *user_data;

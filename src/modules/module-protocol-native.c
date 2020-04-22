@@ -1012,7 +1012,7 @@ create_server(struct pw_protocol *protocol,
 
 	pw_loop_add_hook(pw_context_get_main_loop(context), &s->hook, &impl_hooks, s);
 
-	pw_log_info(NAME" %p: created server %p", protocol, this);
+	pw_log_debug(NAME" %p: created server %p", protocol, this);
 
 	return s;
 }

@@ -339,7 +339,7 @@ static int impl_port_use_buffers(void *object,
 		}
 		b->id = i;
 		b->buffer = buffers[i];
-		pw_log_info("got buffer %d size %d", i, datas[0].maxsize);
+		pw_log_debug("got buffer %d size %d", i, datas[0].maxsize);
 		spa_list_append(&d->empty, &b->link);
 	}
 	d->n_buffers = n_buffers;

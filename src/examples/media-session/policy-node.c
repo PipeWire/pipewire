@@ -460,12 +460,12 @@ static int rescan_node(struct impl *impl, struct node *n)
 	find.target = n;
 	find.exclusive = exclusive;
 
-	pw_log_info(NAME " %p: exclusive:%d", impl, exclusive);
+	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
 
 	str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
 	if (str != NULL) {
 		uint32_t path_id = atoi(str);
-		pw_log_info(NAME " %p: target:%d", impl, path_id);
+		pw_log_debug(NAME " %p: target:%d", impl, path_id);
 
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
 			if (strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {

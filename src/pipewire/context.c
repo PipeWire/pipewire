@@ -876,8 +876,8 @@ int pw_context_recalc_graph(struct pw_context *context)
 
 		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration) {
 			n->rt.position->clock.duration = n->quantum_current;
-			pw_log_info(NAME" %p: new quantum %u for master '%s'", context,
-					n->quantum_current, n->name);
+			pw_log_info("(%s-%u) new quantum:%u",
+					n->name, n->info.id, n->quantum_current);
 		}
 
 		pw_log_debug(NAME" %p: master %p quantum:%u '%s'", context, n,

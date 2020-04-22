@@ -57,7 +57,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 		return -EIO;
 	}
 
-	spa_log_info(dev->log, "v4l2: Playback device is '%s'", path);
+	spa_log_debug(dev->log, "v4l2: Playback device is '%s'", path);
 
 	if (stat(path, &st) < 0) {
 		err = errno;
@@ -111,7 +111,7 @@ int spa_v4l2_close(struct spa_v4l2_device *dev)
 	if (dev->active || dev->have_format)
 		return 0;
 
-	spa_log_info(dev->log, "v4l2: close");
+	spa_log_debug(dev->log, "v4l2: close");
 
 	if (close(dev->fd))
 		spa_log_warn(dev->log, "close: %m");
@@ -159,7 +159,7 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 		d = b->outbuf->datas;
 
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING)) {
-			spa_log_info(this->log, "v4l2: queueing outstanding buffer %p", b);
+			spa_log_debug(this->log, "v4l2: queueing outstanding buffer %p", b);
 			spa_v4l2_buffer_recycle(this, i);
 		}
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
@@ -881,7 +881,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	streamparm.parm.capture.timeperframe.numerator = framerate->denom;
 	streamparm.parm.capture.timeperframe.denominator = framerate->num;
 
-	spa_log_info(this->log, "v4l2: set %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
+	spa_log_debug(this->log, "v4l2: set %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
@@ -1286,7 +1286,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		spa_log_error(this->log, "v4l2: VIDIOC_REQBUFS %m");
 		return -errno;
 	}
-	spa_log_info(this->log, "v4l2: got %d buffers", reqbuf.count);
+	spa_log_debug(this->log, "v4l2: got %d buffers", reqbuf.count);
 	if (reqbuf.count < n_buffers) {
 		spa_log_error(this->log, "v4l2: can't allocate enough buffers");
 		return -ENOMEM;
@@ -1301,7 +1301,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		b->flags = BUFFER_FLAG_OUTSTANDING;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
-		spa_log_info(this->log, "v4l2: import buffer %p", buffers[i]);
+		spa_log_debug(this->log, "v4l2: import buffer %p", buffers[i]);
 
 		if (buffers[i]->n_datas < 1) {
 			spa_log_error(this->log, "v4l2: invalid memory on buffer %p", buffers[i]);
@@ -1369,7 +1369,7 @@ mmap_init(struct impl *this,
 		return -errno;
 	}
 
-	spa_log_info(this->log, "v4l2: got %d buffers", reqbuf.count);
+	spa_log_debug(this->log, "v4l2: got %d buffers", reqbuf.count);
 	n_buffers = reqbuf.count;
 
 	if (reqbuf.count < 2) {
@@ -1377,7 +1377,7 @@ mmap_init(struct impl *this,
 		return -ENOMEM;
 	}
 	if (port->export_buf)
-		spa_log_info(this->log, "v4l2: using EXPBUF");
+		spa_log_debug(this->log, "v4l2: using EXPBUF");
 
 	for (i = 0; i < reqbuf.count; i++) {
 		struct buffer *b;

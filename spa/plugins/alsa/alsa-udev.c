@@ -199,7 +199,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 
 	snprintf(path, sizeof(path), "hw:%d", atoi(str));
 
-	spa_log_info(this->log, "open card %s", path);
+	spa_log_debug(this->log, "open card %s", path);
 
 	if ((res = snd_ctl_open(&ctl_hndl, path, 0)) < 0) {
 		spa_log_error(this->log, "can't open control for card %s: %s",
@@ -210,7 +210,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	pcm = -1;
 	res = snd_ctl_pcm_next_device(ctl_hndl, &pcm);
 
-	spa_log_info(this->log, "close card %s", path);
+	spa_log_debug(this->log, "close card %s", path);
 	snd_ctl_close(ctl_hndl);
 
 	if (res < 0) {

@@ -114,12 +114,17 @@ static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_st
 	if (state == old)
 		return;
 
+	pw_log_debug(NAME" %p: %s -> %s (%s)", link,
+		     pw_link_state_as_string(old),
+		     pw_link_state_as_string(state), error);
+
 	if (state == PW_LINK_STATE_ERROR) {
-		pw_log_error(NAME" %p: update state %s -> error (%s)", link,
-		     pw_link_state_as_string(old), error);
+		pw_log_error("(%s) %s -> error (%s)", link->name,
+				pw_link_state_as_string(old), error);
 	} else {
-		pw_log_debug(NAME" %p: update state %s -> %s", link,
-		     pw_link_state_as_string(old), pw_link_state_as_string(state));
+		pw_log_info("(%s) %s -> %s", link->name,
+				pw_link_state_as_string(old),
+				pw_link_state_as_string(state));
 	}
 
 	link->info.state = state;
@@ -1139,6 +1144,11 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,
 		     input_node, input->port_id, this->rt.in_mix.port.port_id);
 
+	asprintf(&this->name, "%d.%d -> %d.%d",
+			output_node->info.id, output->port_id,
+			input_node->info.id, input->port_id);
+	pw_log_info("(%s) (%s) -> (%s)", this->name, output_node->name, input_node->name);
+
 	pw_impl_port_emit_link_added(output, this);
 	pw_impl_port_emit_link_added(input, this);
 
@@ -1272,6 +1282,7 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 
 	pw_log_debug(NAME" %p: destroy", impl);
+	pw_log_info("(%s) destroy", link->name);
 	pw_impl_link_emit_destroy(link);
 
 	pw_impl_link_deactivate(link);
@@ -1300,6 +1311,7 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 
 	pw_context_recalc_graph(link->context);
 
+	free(link->name);
 	free(link->info.format);
 	free(impl);
 }

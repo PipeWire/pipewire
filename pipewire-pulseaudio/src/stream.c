@@ -152,11 +152,11 @@ static inline pa_channel_position_t channel_id2pa(pa_stream *s, uint32_t id)
 
 static void dump_buffer_attr(pa_stream *s, pa_buffer_attr *attr)
 {
-	pw_log_info("stream %p: maxlength: %u", s, attr->maxlength);
-	pw_log_info("stream %p: tlength: %u", s, attr->tlength);
-	pw_log_info("stream %p: minreq: %u", s, attr->minreq);
-	pw_log_info("stream %p: prebuf: %u", s, attr->prebuf);
-	pw_log_info("stream %p: fragsize: %u", s, attr->fragsize);
+	pw_log_debug("stream %p: maxlength: %u", s, attr->maxlength);
+	pw_log_debug("stream %p: tlength: %u", s, attr->tlength);
+	pw_log_debug("stream %p: minreq: %u", s, attr->minreq);
+	pw_log_debug("stream %p: prebuf: %u", s, attr->prebuf);
+	pw_log_debug("stream %p: fragsize: %u", s, attr->fragsize);
 }
 
 static void configure_buffers(pa_stream *s)
@@ -271,7 +271,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 	else
 		buffers = SPA_CLAMP(attr->maxlength / (size * stride), 3u, MAX_BUFFERS);
 
-	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
+	pw_log_debug("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
 			size, buffers);
 
 	param = spa_pod_builder_add_object(b,

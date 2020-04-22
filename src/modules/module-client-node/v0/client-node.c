@@ -437,7 +437,7 @@ do_update_port(struct node *this,
 	port = GET_PORT(this, direction, port_id);
 
 	if (!port->valid) {
-		spa_log_info(this->log, "node %p: adding port %d", this, port_id);
+		spa_log_debug(this->log, "node %p: adding port %d", this, port_id);
 		port->id = port_id;
 		port->direction = direction;
 		port->have_format = false;
@@ -454,7 +454,7 @@ do_update_port(struct node *this,
 
 		port->have_format = false;
 
-		spa_log_info(this->log, "node %p: port %u update %d params", this, port_id, n_params);
+		spa_log_debug(this->log, "node %p: port %u update %d params", this, port_id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
@@ -504,7 +504,7 @@ static void do_uninit_port(struct node *this, enum spa_direction direction, uint
 {
 	struct port *port;
 
-	spa_log_info(this->log, "node %p: removing port %d", this, port_id);
+	spa_log_debug(this->log, "node %p: removing port %d", this, port_id);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		port = GET_IN_PORT(this, port_id);
@@ -637,7 +637,7 @@ impl_node_port_set_io(void *object,
 
 	impl = this->impl;
 
-	spa_log_info(this->log, "node %p: port %d.%d set io %d %p", this,
+	spa_log_debug(this->log, "node %p: port %d.%d set io %d %p", this,
 			direction, port_id, id, data);
 
 	if (id == SPA_IO_Buffers) {
@@ -694,7 +694,7 @@ impl_node_port_use_buffers(void *object,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	impl = this->impl;
-	spa_log_info(this->log, "node %p: use buffers %p %u", this, buffers, n_buffers);
+	spa_log_debug(this->log, "node %p: use buffers %p %u", this, buffers, n_buffers);
 
 	port = GET_PORT(this, direction, port_id);
 
@@ -1010,7 +1010,7 @@ client_node0_update(void *data,
 		this->info.max_output_ports = max_output_ports;
 	if (change_mask & PW_CLIENT_NODE0_UPDATE_PARAMS) {
 		uint32_t i;
-		spa_log_info(this->log, "node %p: update %d params", this, n_params);
+		spa_log_debug(this->log, "node %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
@@ -1024,7 +1024,7 @@ client_node0_update(void *data,
 		spa_node_emit_info(&this->hooks, &this->info);
 	}
 
-	spa_log_info(this->log, "node %p: got node update max_in %u, max_out %u", this,
+	spa_log_debug(this->log, "node %p: got node update max_in %u, max_out %u", this,
 		     this->info.max_input_ports, this->info.max_output_ports);
 }
 
@@ -1041,7 +1041,7 @@ client_node0_port_update(void *data,
 	struct node *this = &impl->node;
 	bool remove;
 
-	spa_log_info(this->log, "node %p: got port update", this);
+	spa_log_debug(this->log, "node %p: got port update", this);
 	if (!CHECK_PORT_ID(this, direction, port_id))
 		return;
 

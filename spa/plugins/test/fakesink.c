@@ -512,7 +512,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers", this);
+		spa_log_debug(this->log, NAME " %p: clear buffers", this);
 		port->n_buffers = 0;
 		spa_list_init(&port->ready);
 		this->started = false;
@@ -787,8 +787,6 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 
 	spa_list_init(&port->ready);
-
-	spa_log_info(this->log, NAME " %p: initialized", this);
 
 	return 0;
 }

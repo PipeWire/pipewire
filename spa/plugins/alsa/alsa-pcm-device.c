@@ -227,16 +227,16 @@ static int set_profile(struct impl *this, uint32_t id)
 	snd_ctl_t *ctl_hndl;
 	int err;
 
-        spa_log_info(this->log, "open card %s", this->props.device);
-        if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
-                spa_log_error(this->log, "can't open control for card %s: %s",
-                                this->props.device, snd_strerror(err));
-                return err;
-        }
+	spa_log_debug(this->log, "open card %s", this->props.device);
+	if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
+		spa_log_error(this->log, "can't open control for card %s: %s",
+				this->props.device, snd_strerror(err));
+		return err;
+	}
 
 	err = activate_profile(this, ctl_hndl, id);
 
-        spa_log_info(this->log, "close card %s", this->props.device);
+	spa_log_debug(this->log, "close card %s", this->props.device);
 	snd_ctl_close(ctl_hndl);
 
 	return err;
@@ -253,12 +253,12 @@ static int emit_info(struct impl *this, bool full)
 	struct spa_param_info params[2];
 	char path[128];
 
-        spa_log_info(this->log, "open card %s", this->props.device);
-        if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
-                spa_log_error(this->log, "can't open control for card %s: %s",
-                                this->props.device, snd_strerror(err));
-                return err;
-        }
+	spa_log_debug(this->log, "open card %s", this->props.device);
+	if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
+		spa_log_error(this->log, "can't open control for card %s: %s",
+				this->props.device, snd_strerror(err));
+		return err;
+	}
 
 	snd_ctl_card_info_alloca(&info);
 	if ((err = snd_ctl_card_info(ctl_hndl, info)) < 0) {
@@ -294,7 +294,7 @@ static int emit_info(struct impl *this, bool full)
 	spa_device_emit_info(&this->hooks, &dinfo);
 
       exit:
-        spa_log_info(this->log, "close card %s", this->props.device);
+	spa_log_debug(this->log, "close card %s", this->props.device);
 	snd_ctl_close(ctl_hndl);
 	return err;
 }

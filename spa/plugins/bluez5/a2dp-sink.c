@@ -1167,7 +1167,7 @@ static int port_set_format(struct impl *this, struct port *port,
 	int err;
 
 	if (format == NULL) {
-		spa_log_info(this->log, "clear format");
+		spa_log_debug(this->log, "clear format");
 		clear_buffers(this, port);
 		port->have_format = false;
 	} else {
@@ -1245,7 +1245,7 @@ impl_node_port_use_buffers(void *object,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 	port = &this->port;
 
-	spa_log_info(this->log, "use buffers %d", n_buffers);
+	spa_log_debug(this->log, "use buffers %d", n_buffers);
 
 	if (!port->have_format)
 		return -EIO;

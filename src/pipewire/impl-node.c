@@ -195,8 +195,8 @@ static int start_node(struct pw_impl_node *this)
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
 
 	if (res < 0)
-		pw_log_error(NAME" %p: start node error %d: %s",
-				this, res, spa_strerror(res));
+		pw_log_error("(%s-%u) start node error %d: %s", this->name, this->info.id,
+				res, spa_strerror(res));
 
 	return res;
 }
@@ -296,11 +296,14 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	if (old == state)
 		return;
 
+	pw_log_debug(NAME" %p: (%s) %s -> %s (%s)", node, node->name,
+		     pw_node_state_as_string(old), pw_node_state_as_string(state), error);
+
 	if (state == PW_NODE_STATE_ERROR) {
-		pw_log_error(NAME" %p: update state from %s -> error (%s)", node,
+		pw_log_error("(%s-%u) %s -> error (%s)", node->name, node->info.id,
 		     pw_node_state_as_string(old), error);
 	} else {
-		pw_log_debug(NAME" %p: update state from %s -> %s", node,
+		pw_log_info("(%s-%u) %s -> %s", node->name, node->info.id,
 		     pw_node_state_as_string(old), pw_node_state_as_string(state));
 	}
 
@@ -673,8 +676,11 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	remove_segment_master(old, node->info.id);
 
 	node->master = node->driver && driver == node;
-	pw_log_info(NAME" %p: driver %p (%s) quantum:%u master:%u", node,
-			driver, driver->name, driver->quantum_current, node->master);
+	pw_log_debug(NAME" %p: driver %p quantum:%u master:%u", node,
+		driver, driver->quantum_current, node->master);
+	pw_log_info("(%s-%u) -> driver (%s-%d) quantum:%u",
+			node->name, node->info.id, driver->name,
+			driver->info.id, driver->quantum_current);
 
 	node->driver_node = driver;
 
@@ -715,14 +721,14 @@ static void check_properties(struct pw_impl_node *node)
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_MASTER))) {
 		node->priority_master = pw_properties_parse_int(str);
-		pw_log_info(NAME" %p: priority master %d", node, node->priority_master);
+		pw_log_debug(NAME" %p: priority master %d", node, node->priority_master);
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
-	    (node->name == NULL || strcmp(str, node->name) != 0)) {
+	    (node->name == NULL || strcmp(node->name, str) != 0)) {
 		free(node->name);
 		node->name = strdup(str);
-		pw_log_info(NAME" %p: name '%s'", node, node->name);
+		pw_log_debug(NAME" %p: name '%s'", node, node->name);
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE)))
@@ -741,7 +747,7 @@ static void check_properties(struct pw_impl_node *node)
 		node->want_driver = false;
 
 	if (node->driver != driver) {
-		pw_log_info(NAME" %p: driver %d -> %d", node, node->driver, driver);
+		pw_log_debug(NAME" %p: driver %d -> %d", node, node->driver, driver);
 		node->driver = driver;
 		if (node->registered) {
 			if (driver)
@@ -759,8 +765,10 @@ static void check_properties(struct pw_impl_node *node)
 			quantum_size = flp2((num * context->defaults.clock_rate / denom));
 
 			if (quantum_size != node->quantum_size) {
-				pw_log_info(NAME" %p: latency '%s' quantum %u/%u",
+				pw_log_debug(NAME" %p: latency '%s' quantum %u/%u",
 						node, str, quantum_size, context->defaults.clock_rate);
+				pw_log_info("(%s-%u) quantum %u/%u", node->name, node->info.id,
+						quantum_size, context->defaults.clock_rate);
 				node->quantum_size = quantum_size;
 				do_recalc |= node->active;
 			}
@@ -796,9 +804,9 @@ static void dump_states(struct pw_impl_node *driver)
 		struct pw_node_activation_state *state = &a->state[0];
 		if (t->node == NULL)
 			continue;
-		pw_log_warn(NAME" %p (%s): state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
+		pw_log_warn("(%s-%u) state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%s sync:%d",
-				t->node, t->node->name, state,
+				t->node->name, t->node->info.id, state,
 				state->pending, state->required,
 				a->signal_time,
 				a->awake_time,
@@ -1318,7 +1326,8 @@ static void update_position(struct pw_impl_node *node, int all_ready)
 
 	if (a->position.state == SPA_IO_POSITION_STATE_STARTING) {
 		if (!all_ready && --a->sync_left == 0) {
-			pw_log_warn(NAME" %p: sync timeout, going to RUNNING", node);
+			pw_log_warn("(%s-%u) sync timeout, going to RUNNING",
+					node->name, node->info.id);
 			pw_context_driver_emit_timeout(node->context, node);
 			dump_states(node);
 			all_ready = true;
@@ -1348,8 +1357,9 @@ static int node_ready(void *data, int status)
 		uint64_t min_timeout = UINT64_MAX;
 
 		if (SPA_UNLIKELY(state->pending > 0)) {
-			pw_log_warn(NAME" %p: graph not finished: state:%p pending %d/%d",
-					node, state, state->pending, state->required);
+			pw_log_warn("(%s-%u) graph not finished: state:%p pending %d/%d",
+					node->name, node->info.id, state, state->pending,
+					state->required);
 			pw_context_driver_emit_incomplete(node->context, node);
 			dump_states(node);
 			node->rt.target.signal(node->rt.target.data);
@@ -1517,6 +1527,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	node->active = false;
 
 	pw_log_debug(NAME" %p: destroy", impl);
+	pw_log_info("(%s-%u) destroy", node->name, node->info.id);
 	pw_impl_node_emit_destroy(node);
 
 	suspend_node(node);

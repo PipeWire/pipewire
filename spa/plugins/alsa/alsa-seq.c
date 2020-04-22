@@ -50,7 +50,7 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
         snd_seq_port_info_t *pinfo;
 	int res;
 
-	spa_log_info(state->log, "%p: ALSA seq open '%s' duplex", state, props->device);
+	spa_log_debug(state->log, "%p: ALSA seq open '%s' duplex", state, props->device);
 
 	if ((res = snd_seq_open(&conn->hndl,
 			   props->device,
@@ -111,7 +111,7 @@ error_exit_close:
 static int seq_close(struct seq_state *state, struct seq_conn *conn)
 {
 	int res;
-	spa_log_info(state->log, "%p: Device '%s' closing", state, state->props.device);
+	spa_log_debug(state->log, "%p: Device '%s' closing", state, state->props.device);
 	if ((res = snd_seq_close(conn->hndl)) < 0) {
 		spa_log_warn(state->log, "close failed: %s", snd_strerror(res));
 	}
@@ -407,13 +407,14 @@ int spa_alsa_seq_activate_port(struct seq_state *state, struct seq_port *port, b
 				port->addr.client, port->addr.port, snd_strerror(res));
 			active = false;
 		}
+		spa_log_info(state->log, "subscribe: %d.%d", port->addr.client, port->addr.port);
 	} else {
 		if ((res = snd_seq_unsubscribe_port(state->event.hndl, sub)) < 0) {
 			spa_log_warn(state->log, "can't unsubscribe from %d:%d - %s",
 				port->addr.client, port->addr.port, snd_strerror(res));
 		}
+		spa_log_info(state->log, "unsubscribe: %d.%d", port->addr.client, port->addr.port);
 	}
-	spa_log_info(state->log, "activate: %d.%d: %d", port->addr.client, port->addr.port, active);
 	port->active = active;
 	return res;
 }

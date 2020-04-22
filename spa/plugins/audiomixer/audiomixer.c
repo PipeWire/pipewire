@@ -260,7 +260,7 @@ static int impl_node_add_port(void *object, enum spa_direction direction, uint32
 	if (this->last_port <= port_id)
 		this->last_port = port_id + 1;
 
-	spa_log_info(this->log, NAME " %p: add port %d", this, port_id);
+	spa_log_debug(this->log, NAME " %p: add port %d", this, port_id);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -293,7 +293,7 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 
 		this->last_port = i + 1;
 	}
-	spa_log_info(this->log, NAME " %p: remove port %d", this, port_id);
+	spa_log_debug(this->log, NAME " %p: remove port %d", this, port_id);
 	spa_node_emit_port_info(&this->hooks, direction, port_id, NULL);
 
 	return 0;
@@ -437,7 +437,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -493,7 +493,7 @@ static int port_set_format(void *object,
 		if (!port->have_format) {
 			this->n_formats++;
 			port->have_format = true;
-			spa_log_info(this->log, NAME " %p: set format on port %d", this, port_id);
+			spa_log_debug(this->log, NAME " %p: set format on port %d", this, port_id);
 		}
 	}
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -547,7 +547,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_info(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 

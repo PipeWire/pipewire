@@ -53,16 +53,16 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
 {
   GstPipeWireClock *pclock = (GstPipeWireClock *) clock;
   GstClockTime result;
-  struct pw_time t;
   struct timespec ts;
 
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+#if 0
+  struct pw_time t;
   if (pclock->stream == NULL ||
       pw_stream_get_time (pclock->stream, &t) < 0 ||
       t.rate.denom == 0)
     return pclock->last_time;
 
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-#if 0
   result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
   result += SPA_TIMESPEC_TO_NSEC(&ts) - t.now;
 

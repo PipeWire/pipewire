@@ -95,8 +95,6 @@ struct _GstPipeWireSink {
   GstPipeWireSinkMode mode;
 
   GstPipeWirePool *pool;
-  GQueue queue;
-  guint need_ready;
 };
 
 struct _GstPipeWireSinkClass {

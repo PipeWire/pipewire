@@ -1822,7 +1822,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		break;
 
 	case PW_NODE_STATE_IDLE:
-		if (node->active && impl->pause_on_idle)
+		if (impl->pause_on_idle)
 			res = pause_node(node);
 		break;
 

@@ -84,7 +84,6 @@ struct _GstPipeWireSrc {
   GstStructure *properties;
 
   GstPipeWirePool *pool;
-  GQueue queue;
   GstClock *clock;
   GstClockTime last_time;
 };

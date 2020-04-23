@@ -158,8 +158,8 @@ static int pause_node(struct pw_impl_node *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	pw_log_debug(NAME" %p: pause node state:%s", this,
-			pw_node_state_as_string(this->info.state));
+	pw_log_debug(NAME" %p: pause node state:%s pause-on-idle:%d", this,
+			pw_node_state_as_string(this->info.state), impl->pause_on_idle);
 
 	if (this->info.state <= PW_NODE_STATE_IDLE && impl->pause_on_idle)
 		return 0;
@@ -326,6 +326,9 @@ static int suspend_node(struct pw_impl_node *this)
 
 	pw_log_debug(NAME" %p: suspend node state:%s", this,
 			pw_node_state_as_string(this->info.state));
+
+	if (this->info.state <= PW_NODE_STATE_SUSPENDED)
+		return 0;
 
 	pause_node(this);
 

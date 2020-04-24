@@ -171,6 +171,7 @@ static inline void spa_log_trace_fp (struct spa_log *l, const char *format, ...)
 #define SPA_KEY_LOG_FILE		"log.file"		/**< log to the specified file instead of
 								  *  stderr. */
 #define SPA_KEY_LOG_TIMESTAMP		"log.timestamp"		/**< log timestamps */
+#define SPA_KEY_LOG_LINE		"log.line"		/**< log file and line numbers */
 
 #ifdef __cplusplus
 }  /* extern "C" */

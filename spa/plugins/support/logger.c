@@ -61,6 +61,7 @@ struct impl {
 	unsigned int have_source:1;
 	unsigned int colors:1;
 	unsigned int timestamp:1;
+	unsigned int line:1;
 };
 
 static SPA_PRINTF_FUNC(6,0) void
@@ -73,10 +74,10 @@ impl_log_logv(void *object,
 	      va_list args)
 {
 	struct impl *impl = object;
-	char text[512], location[1024];
+	char location[1024], *p;
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
-	int size;
+	int size, len;
 	bool do_trace;
 
 	if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && impl->have_source)))
@@ -93,21 +94,27 @@ impl_log_logv(void *object,
 			suffix = "\x1B[0m";
 	}
 
-	vsnprintf(text, sizeof(text), fmt, args);
+	p = location;
+	len = sizeof(location);
+
+	size = snprintf(p, len, "%s[%s]", prefix, levels[level]);
 
 	if (impl->timestamp) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+		size += snprintf(p + size, len - size, "[%09lu.%06lu]",
+			now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000);
 
-		size = snprintf(location, sizeof(location), "%s[%s][%09lu.%06lu][%s:%i %s()] %s%s\n",
-			prefix, levels[level], now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000,
-			strrchr(file, '/') + 1, line, func, text, suffix);
-
-	} else {
-		size = snprintf(location, sizeof(location), "%s[%s][%s:%i %s()] %s%s\n",
-			prefix, levels[level], strrchr(file, '/') + 1, line, func, text, suffix);
 	}
+	if (impl->line) {
+		size += snprintf(p + size, len - size, "[%s:%i %s()]",
+			strrchr(file, '/') + 1, line, func);
+	}
+	size += snprintf(p + size, len - size, " ");
+	size += vsnprintf(p + size, len - size, fmt, args);
 
+	if (impl->colors)
+		size += snprintf(p + size, len - size, "%s\n", suffix);
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;
@@ -256,10 +263,11 @@ impl_init(const struct spa_handle_factory *factory,
 			this->have_source = true;
 		}
 	}
-
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_TIMESTAMP)) != NULL)
 			this->timestamp = (strcmp(str, "true") == 0 || atoi(str) == 1);
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LINE)) != NULL)
+			this->line = (strcmp(str, "true") == 0 || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
 			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)

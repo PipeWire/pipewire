@@ -29,9 +29,7 @@
 extern "C" {
 #endif
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+struct itimerspec;
 
 #include <time.h>
 #include <sys/types.h>

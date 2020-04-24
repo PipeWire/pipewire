@@ -161,7 +161,7 @@ static int pause_node(struct pw_impl_node *this)
 	pw_log_debug(NAME" %p: pause node state:%s pause-on-idle:%d", this,
 			pw_node_state_as_string(this->info.state), impl->pause_on_idle);
 
-	if (this->info.state <= PW_NODE_STATE_IDLE && impl->pause_on_idle)
+	if (this->info.state <= PW_NODE_STATE_IDLE)
 		return 0;
 
 	node_deactivate(this);
@@ -611,7 +611,8 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	spa_list_for_each(port, &this->output_ports, link)
 		pw_impl_port_register(port, NULL);
 
-	pw_context_recalc_graph(context);
+	if (this->active || this->want_driver)
+		pw_context_recalc_graph(context, "active node register");
 
 	return 0;
 
@@ -774,7 +775,7 @@ static void check_properties(struct pw_impl_node *node)
 	pw_log_debug(NAME" %p: driver:%d recalc:%d", node, node->driver, do_recalc);
 
 	if (do_recalc)
-		pw_context_recalc_graph(context);
+		pw_context_recalc_graph(context, "quantum change");
 }
 
 static const char *str_status(uint32_t status)
@@ -1521,7 +1522,9 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_port *port;
 	struct pw_impl_node *follower;
+	bool active;
 
+	active = node->active;
 	node->active = false;
 
 	pw_log_debug(NAME" %p: destroy", impl);
@@ -1569,7 +1572,8 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 		pw_global_destroy(node->global);
 	}
 
-	pw_context_recalc_graph(node->context);
+	if (active)
+		pw_context_recalc_graph(node->context, "active node destroy");
 
 	pw_log_debug(NAME" %p: free", node);
 	pw_impl_node_emit_free(node);
@@ -1861,7 +1865,8 @@ int pw_impl_node_set_active(struct pw_impl_node *node, bool active)
 		pw_impl_node_emit_active_changed(node, active);
 
 		if (node->registered)
-			pw_context_recalc_graph(node->context);
+			pw_context_recalc_graph(node->context,
+					active ? "node activate" : "node deactivate");
 	}
 	return 0;
 }

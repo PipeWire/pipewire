@@ -61,6 +61,7 @@
 struct impl {
 	struct pw_context this;
 	struct spa_handle *dbus_handle;
+	unsigned int recalc;
 };
 
 
@@ -799,9 +800,17 @@ static int collect_nodes(struct pw_impl_node *driver)
 	return 0;
 }
 
-int pw_context_recalc_graph(struct pw_context *context)
+int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 {
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_impl_node *n, *s, *target;
+
+	pw_log_info(NAME" %p: busy:%d reason:%s", context, impl->recalc, reason);
+
+	if (impl->recalc)
+		return -EBUSY;
+
+	impl->recalc = true;
 
 	/* start from all drivers and group all nodes that are linked
 	 * to it. Some nodes are not (yet) linked to anything and they
@@ -882,9 +891,11 @@ int pw_context_recalc_graph(struct pw_context *context)
 			state = PW_NODE_STATE_IDLE;
 
 		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration) {
+			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
+					n->name, n->info.id,
+					n->rt.position->clock.duration,
+					n->quantum_current);
 			n->rt.position->clock.duration = n->quantum_current;
-			pw_log_info("(%s-%u) new quantum:%u",
-					n->name, n->info.id, n->quantum_current);
 		}
 
 		pw_log_debug(NAME" %p: master %p quantum:%u '%s'", context, n,
@@ -897,6 +908,7 @@ int pw_context_recalc_graph(struct pw_context *context)
 		}
 		pw_impl_node_set_state(n, state);
 	}
+	impl->recalc = false;
 	return 0;
 }
 

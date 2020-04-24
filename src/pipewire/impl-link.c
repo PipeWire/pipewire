@@ -117,10 +117,10 @@ static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_st
 
 	if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
 		link->prepared = true;
-		pw_context_recalc_graph(link->context);
+		pw_context_recalc_graph(link->context, "link prepared");
 	} else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
 		link->prepared = false;
-		pw_context_recalc_graph(link->context);
+		pw_context_recalc_graph(link->context, "link unprepared");
 	}
 }
 
@@ -1080,8 +1080,6 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	pw_impl_node_emit_peer_added(output_node, input_node);
 
-	pw_context_recalc_graph(context);
-
 	return this;
 
 error_same_ports:
@@ -1228,8 +1226,6 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 	pw_work_queue_destroy(impl->work);
 
 	pw_properties_free(link->properties);
-
-	pw_context_recalc_graph(link->context);
 
 	free(link->name);
 	free(link->info.format);

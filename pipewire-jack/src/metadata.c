@@ -160,8 +160,8 @@ static void change_property(jack_property_t *prop, const char *value, const char
 static int update_property(struct client *c,
 		      jack_uuid_t subject,
 		      const char* key,
-		      const char* value,
-		      const char* type)
+		      const char* type,
+		      const char* value)
 {
 	jack_property_change_t change;
 	jack_description_t *desc;

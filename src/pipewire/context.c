@@ -803,7 +803,7 @@ static int collect_nodes(struct pw_impl_node *driver)
 int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 {
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
-	struct pw_impl_node *n, *s, *target;
+	struct pw_impl_node *n, *s, *target, *fallback;
 
 	pw_log_info(NAME" %p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -817,7 +817,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	 * will end up 'unassigned' to a master. Other nodes are master
 	 * and if they have active followers, we can use them to schedule
 	 * the unassigned nodes. */
-	target = NULL;
+	target = fallback = NULL;
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		n->active_followers = 0;
 
@@ -842,6 +842,9 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		pw_log_debug(NAME" %p: driver %p active followers %d",
 				context, n, n->active_followers);
 
+		/* first active master node is fallback */
+		if (fallback == NULL)
+			fallback = n;
 		/* if the master has active followers, it is a target for our
 		 * unassigned nodes */
 		if (n->active_followers > 0) {
@@ -849,10 +852,13 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 				target = n;
 		}
 	}
+	/* no active node, use fallback master */
+	if (target == NULL)
+		target = fallback;
 
 	/* now go through all available nodes. The ones we didn't visit
 	 * in collect_nodes() are not linked to any master. We assign them
-	 * to an active master */
+	 * to either an active master of the first master */
 	spa_list_for_each(n, &context->node_list, link) {
 		if (n->exported)
 			continue;
@@ -863,21 +869,22 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			pw_log_debug(NAME" %p: unassigned node %p: '%s' %d %d", context,
 					n, n->name, n->active, n->want_driver);
 
-			t = n->want_driver ? target : NULL;
+			t = n->active && n->want_driver ? target : NULL;
 
 			if (t != NULL) {
 				if (n->quantum_size > 0 && n->quantum_size < t->quantum_current)
 					t->quantum_current =
 						SPA_MAX(context->defaults.clock_min_quantum, n->quantum_size);
+				t->active_followers++;
 			}
 			pw_impl_node_set_driver(n, t);
-			pw_impl_node_set_state(n, t && n->active ?
-					PW_NODE_STATE_RUNNING : PW_NODE_STATE_IDLE);
+			if (t == NULL)
+				pw_impl_node_set_state(n, PW_NODE_STATE_IDLE);
 		}
 		n->visited = false;
 	}
 
-	/* assign final quantum and debug masters and followers */
+	/* assign final quantum and set state followers and master */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		enum pw_node_state state;
 

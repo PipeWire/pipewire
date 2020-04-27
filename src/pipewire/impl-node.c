@@ -611,8 +611,8 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	spa_list_for_each(port, &this->output_ports, link)
 		pw_impl_port_register(port, NULL);
 
-	if (this->active || this->want_driver)
-		pw_context_recalc_graph(context, "active node register");
+	if (this->active)
+		pw_context_recalc_graph(context, "register active node");
 
 	return 0;
 

@@ -37,6 +37,7 @@ extern "C" {
 									  *  interface */
 #define SPA_NAME_SUPPORT_SYSTEM		"support.system"		/**< A System interface */
 
+#define SPA_NAME_SUPPORT_NODE_DRIVER	"support.node.driver"		/**< A dummy driver node */
 
 /* control mixer */
 #define SPA_NAME_CONTROL_MIXER		"control.mixer"			/**< mixes control streams */

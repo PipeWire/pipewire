@@ -1,6 +1,7 @@
 spa_support_sources = ['cpu.c',
 		       'logger.c',
 		       'loop.c',
+		       'node-driver.c',
 		       'plugin.c',
 		       'system.c']
 

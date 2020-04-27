@@ -31,6 +31,7 @@ add-spa-lib api.v4l2.* v4l2/libspa-v4l2
 add-spa-lib api.bluez5.* bluez5/libspa-bluez5
 add-spa-lib api.vulkan.* vulkan/libspa-vulkan
 add-spa-lib api.jack.* jack/libspa-jack
+add-spa-lib support.* support/libspa-support
 #add-spa-lib videotestsrc videotestsrc/libspa-videotestsrc
 #add-spa-lib audiotestsrc audiotestsrc/libspa-audiotestsrc
 
@@ -63,6 +64,7 @@ load-module libpipewire-module-session-manager
 #create-object spa-device-factory factory.name=api.alsa.seq.bridge node.name=Internal-MIDI-Bridge
 #create-object adapter factory.name=audiotestsrc node.name=my-test
 #create-object spa-node-factory factory.name=api.vulkan.compute.source node.name=my-compute-source
+create-object spa-node-factory factory.name=support.node.driver node.name=Dummy priority.master=8000
 
 ## exec <program-name>
 #

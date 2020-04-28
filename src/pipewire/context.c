@@ -744,9 +744,6 @@ static int collect_nodes(struct pw_impl_node *driver)
 	struct pw_impl_node *n, *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
-	uint32_t max_quantum = 0;
-	uint32_t min_quantum = 0;
-	uint32_t quantum;
 
 	spa_list_consume(t, &driver->follower_list, follower_link) {
 		spa_list_remove(&t->follower_link);
@@ -762,13 +759,6 @@ static int collect_nodes(struct pw_impl_node *driver)
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
 		pw_impl_node_set_driver(n, driver);
-
-		if (n->quantum_size > 0) {
-			if (min_quantum == 0 || n->quantum_size < min_quantum)
-				min_quantum = n->quantum_size;
-			if (n->quantum_size > max_quantum)
-				max_quantum = n->quantum_size;
-		}
 
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
@@ -789,14 +779,6 @@ static int collect_nodes(struct pw_impl_node *driver)
 			}
 		}
 	}
-	quantum = min_quantum;
-	if (quantum == 0)
-		quantum = driver->context->defaults.clock_quantum;
-
-	driver->quantum_current = SPA_CLAMP(quantum,
-			driver->context->defaults.clock_min_quantum,
-			driver->context->defaults.clock_max_quantum);
-
 	return 0;
 }
 
@@ -819,37 +801,31 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	 * the unassigned nodes. */
 	target = fallback = NULL;
 	spa_list_for_each(n, &context->driver_list, driver_link) {
-		n->active_followers = 0;
-
 		if (n->exported)
 			continue;
 
-		if (n->active && !n->visited)
+		if (!n->visited)
 			collect_nodes(n);
 
-		/* from now on we are only interested in nodes that are
-		 * a master. We're going to count the number of followers it
-		 * has. */
-		if (!n->master)
+		/* from now on we are only interested in active master nodes.
+		 * We're going to see if there are active followers. */
+		if (!n->master || !n->active)
 			continue;
-
-		spa_list_for_each(s, &n->follower_list, follower_link) {
-			pw_log_debug(NAME" %p: driver %p: follower %p %s: %d",
-					context, n, s, s->name, s->active);
-			if (s != n && s->active)
-				n->active_followers++;
-		}
-		pw_log_debug(NAME" %p: driver %p active followers %d",
-				context, n, n->active_followers);
 
 		/* first active master node is fallback */
 		if (fallback == NULL)
 			fallback = n;
-		/* if the master has active followers, it is a target for our
-		 * unassigned nodes */
-		if (n->active_followers > 0) {
-			if (target == NULL)
-				target = n;
+
+		spa_list_for_each(s, &n->follower_list, follower_link) {
+			pw_log_debug(NAME" %p: driver %p: follower %p %s: %d",
+					context, n, s, s->name, s->active);
+			if (s != n && s->active) {
+				/* if the master has active followers, it is a target for our
+				 * unassigned nodes */
+				if (target == NULL)
+					target = n;
+				break;
+			}
 		}
 	}
 	/* no active node, use fallback master */
@@ -871,12 +847,6 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 			t = n->active && n->want_driver ? target : NULL;
 
-			if (t != NULL) {
-				if (n->quantum_size > 0 && n->quantum_size < t->quantum_current)
-					t->quantum_current =
-						SPA_MAX(context->defaults.clock_min_quantum, n->quantum_size);
-				t->active_followers++;
-			}
 			pw_impl_node_set_driver(n, t);
 			if (t == NULL)
 				pw_impl_node_set_state(n, PW_NODE_STATE_IDLE);
@@ -884,33 +854,60 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		n->visited = false;
 	}
 
-	/* assign final quantum and set state followers and master */
+	/* assign final quantum and set state for followers and master */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		enum pw_node_state state;
+		uint32_t n_active = 0;
+		uint32_t max_quantum = 0;
+		uint32_t min_quantum = 0;
+		uint32_t quantum;
 
 		if (!n->master || n->exported)
 			continue;
 
+		/* collect quantum and count active nodes */
+		spa_list_for_each(s, &n->follower_list, follower_link) {
+			if (s == n)
+				continue;
+			if (s->active)
+				n_active++;
+			if (s->quantum_size > 0) {
+				if (min_quantum == 0 || s->quantum_size < min_quantum)
+					min_quantum = s->quantum_size;
+				if (s->quantum_size > max_quantum)
+					max_quantum = s->quantum_size;
+			}
+		}
+		quantum = min_quantum;
+		if (quantum == 0)
+			quantum = context->defaults.clock_quantum;
+		quantum = SPA_CLAMP(quantum,
+				context->defaults.clock_min_quantum,
+				context->defaults.clock_max_quantum);
+
+		if (n->rt.position && quantum != n->rt.position->clock.duration) {
+			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
+					n->name, n->info.id,
+					n->rt.position->clock.duration,
+					quantum);
+			n->rt.position->clock.duration = quantum;
+		}
+
+		pw_log_debug(NAME" %p: master %p n_active:%d quantum:%u '%s'", context, n,
+				n_active, quantum, n->name);
+
 		state = n->info.state;
-		if (n->active_followers > 0)
+		if (n_active > 0)
 			state = PW_NODE_STATE_RUNNING;
 		else if (state > PW_NODE_STATE_IDLE)
 			state = PW_NODE_STATE_IDLE;
 
-		if (n->rt.position && n->quantum_current != n->rt.position->clock.duration) {
-			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
-					n->name, n->info.id,
-					n->rt.position->clock.duration,
-					n->quantum_current);
-			n->rt.position->clock.duration = n->quantum_current;
-		}
-
-		pw_log_debug(NAME" %p: master %p quantum:%u '%s'", context, n,
-				n->quantum_current, n->name);
 		spa_list_for_each(s, &n->follower_list, follower_link) {
+			if (s == n)
+				continue;
 			pw_log_debug(NAME" %p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
-			if (s != n && s->active)
+			if (s->active)
 				pw_impl_node_set_state(s, state);
 		}
 		pw_impl_node_set_state(n, state);

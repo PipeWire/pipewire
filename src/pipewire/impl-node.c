@@ -674,12 +674,11 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	remove_segment_master(old, node->info.id);
 
 	node->master = node->driver && driver == node;
-	pw_log_debug(NAME" %p: driver %p quantum:%u master:%u", node,
-		driver, driver->quantum_current, node->master);
-	pw_log_info("(%s-%u) -> change driver (%s-%d -> %s-%d) quantum:%u",
+	pw_log_debug(NAME" %p: driver %p master:%u", node,
+		driver, node->master);
+	pw_log_info("(%s-%u) -> change driver (%s-%d -> %s-%d)",
 			node->name, node->info.id,
-			old->name, old->info.id, driver->name, driver->info.id,
-			driver->quantum_current);
+			old->name, old->info.id, driver->name, driver->info.id);
 
 	node->driver_node = driver;
 

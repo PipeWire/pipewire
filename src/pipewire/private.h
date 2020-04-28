@@ -532,7 +532,6 @@ struct pw_impl_node {
 	struct pw_impl_node *driver_node;
 	struct spa_list follower_list;
 	struct spa_list follower_link;
-	uint32_t active_followers;
 
 	struct spa_list sort_link;	/**< link used to sort nodes */
 
@@ -549,7 +548,6 @@ struct pw_impl_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	uint32_t quantum_size;			/**< desired quantum */
-	uint32_t quantum_current;		/**< current quantum for driver */
 	struct spa_source source;		/**< source to remotely trigger this node */
 	struct pw_memblock *activation;
 	struct {

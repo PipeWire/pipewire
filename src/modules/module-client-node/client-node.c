@@ -660,7 +660,8 @@ static int do_port_set_io(struct impl *impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, data, size);
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	if (!CHECK_PORT(this, direction, port_id))
+		return data == NULL ? 0 : -EINVAL;
 
 	port = GET_PORT(this, direction, port_id);
 

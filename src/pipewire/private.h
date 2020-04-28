@@ -624,7 +624,7 @@ struct pw_impl_port {
 	struct spa_hook global_listener;
 
 #define PW_IMPL_PORT_FLAG_TO_REMOVE		(1<<0)		/**< if the port should be removed from the
-							  *  implementation when destroyed */
+								  *  implementation when destroyed */
 #define PW_IMPL_PORT_FLAG_BUFFERS		(1<<1)		/**< port has data */
 #define PW_IMPL_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
 #define PW_IMPL_PORT_FLAG_NO_MIXER		(1<<3)		/**< don't try to add mixer to port */
@@ -653,7 +653,7 @@ struct pw_impl_port {
 	struct spa_callbacks impl;
 
 	struct spa_node *mix;		/**< port buffer mix/split */
-#define PW_IMPL_PORT_MIX_FLAG_MULTI		(1<<0)	/**< multi input or output */
+#define PW_IMPL_PORT_MIX_FLAG_MULTI	(1<<0)	/**< multi input or output */
 #define PW_IMPL_PORT_MIX_FLAG_MIX_ONLY	(1<<1)	/**< only negotiate mix ports */
 #define PW_IMPL_PORT_MIX_FLAG_NEGOTIATE	(1<<2)	/**< negotiate buffers  */
 	uint32_t mix_flags;		/**< flags for the mixing */

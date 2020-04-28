@@ -517,7 +517,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	pw_log_debug(NAME" %p: activate activated:%d state:%s", this, impl->activated,
 			pw_link_state_as_string(this->info.state));
 
-	if (impl->activated || !this->prepared)
+	if (impl->activated || !this->prepared || !impl->inode->active || !impl->onode->active)
 		return 0;
 
 	if (!impl->io_set) {
@@ -673,9 +673,9 @@ int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_debug(NAME" %p: prepare busy:%d", this, this->preparing);
+	pw_log_debug(NAME" %p: prepare prepared:%d busy:%d", this, this->prepared, this->preparing);
 
-	if (this->preparing)
+	if (this->preparing || this->prepared)
 		return 0;
 
 	this->preparing = true;
@@ -771,7 +771,7 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error ? strdup(error) : NULL);
 		break;
 	default:
-		if (state < PW_IMPL_PORT_STATE_PAUSED) {
+		if (state < PW_IMPL_PORT_STATE_PAUSED && this->prepared) {
 			this->preparing = false;
 			this->prepared = false;
 			pw_impl_link_update_state(this, PW_LINK_STATE_INIT, NULL);

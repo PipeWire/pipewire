@@ -1603,8 +1603,7 @@ pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, voi
 
 	pw_log_debug("stream %p: cork %d->%d", s, s->corked, b);
 	s->corked = b;
-	if (!b)
-		pw_stream_set_active(s->stream, true);
+	pw_stream_set_active(s->stream, !b);
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

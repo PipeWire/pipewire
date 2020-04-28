@@ -1544,20 +1544,26 @@ static int client_node_port_set_param(void *object,
 					 NULL);
 }
 
-static void init_buffer(struct port *p, void *data, size_t maxframes)
+static void *init_buffer(struct port *p)
 {
+	void *data = p->emptyptr;
+	if (p->zeroed)
+		return data;
+
 	if (p->object->port.type_id == TYPE_ID_MIDI) {
 		struct midi_buffer *mb = data;
 		mb->magic = MIDI_BUFFER_MAGIC;
 		mb->buffer_size = MAX_BUFFER_FRAMES * sizeof(float);
-		mb->nframes = maxframes;
+		mb->nframes = MAX_BUFFER_FRAMES;
 		mb->write_pos = 0;
 		mb->event_count = 0;
 		mb->lost_events = 0;
-		pw_log_debug("port %p: init midi buffer %p size:%d", p, data, mb->buffer_size);
-	}
-	else
-		memset(data, 0, maxframes * sizeof(float));
+		pw_log_debug("port %p: init midi buffer size:%d", p, mb->buffer_size);
+	} else
+		memset(data, 0, MAX_BUFFER_FRAMES * sizeof(float));
+
+	p->zeroed = true;
+	return data;
 }
 
 static int client_node_port_use_buffers(void *object,
@@ -1689,10 +1695,6 @@ static int client_node_port_use_buffers(void *object,
 						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
 			}
 		}
-
-		init_buffer(p, p->emptyptr, MAX_BUFFER_FRAMES);
-		p->zeroed = true;
-
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		if (direction == SPA_DIRECTION_OUTPUT)
 			reuse_buffer(c, mix, b->id);
@@ -2964,6 +2966,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	snprintf(o->port.name, sizeof(o->port.name), "%s:%s", c->name, port_name);
 	o->port.type_id = type_id;
 
+	init_buffer(p);
+
 	pw_log_debug(NAME" %p: port %p", c, p);
 
 	spa_list_init(&p->mix);
@@ -3159,11 +3163,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			break;
 		}
 		if (ptr == NULL) {
-			ptr = p->emptyptr;
-			if (!p->zeroed) {
-				init_buffer(p, ptr, MAX_BUFFER_FRAMES);
-				p->zeroed = true;
-			}
+			ptr = init_buffer(p);
 		}
 	} else {
 		switch (p->object->port.type_id) {

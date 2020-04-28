@@ -726,6 +726,7 @@ struct pw_impl_link {
 
 	unsigned int registered:1;
 	unsigned int feedback:1;
+	unsigned int preparing:1;
 	unsigned int prepared:1;
 };
 

@@ -738,6 +738,16 @@ error:
 	return res;
 }
 
+static int ensure_state(struct pw_impl_node *node, bool running)
+{
+	enum pw_node_state state = node->info.state;
+	if (node->active && running)
+		state = PW_NODE_STATE_RUNNING;
+	else if (state > PW_NODE_STATE_IDLE)
+		state = PW_NODE_STATE_IDLE;
+	return pw_impl_node_set_state(node, state);
+}
+
 static int collect_nodes(struct pw_impl_node *driver)
 {
 	struct spa_list queue;
@@ -849,15 +859,14 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 			pw_impl_node_set_driver(n, t);
 			if (t == NULL)
-				pw_impl_node_set_state(n, PW_NODE_STATE_IDLE);
+				ensure_state(n, false);
 		}
 		n->visited = false;
 	}
 
 	/* assign final quantum and set state for followers and master */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
-		enum pw_node_state state;
-		uint32_t n_active = 0;
+		bool running = false;
 		uint32_t max_quantum = 0;
 		uint32_t min_quantum = 0;
 		uint32_t quantum;
@@ -870,7 +879,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			if (s == n)
 				continue;
 			if (s->active)
-				n_active++;
+				running = true;
 			if (s->quantum_size > 0) {
 				if (min_quantum == 0 || s->quantum_size < min_quantum)
 					min_quantum = s->quantum_size;
@@ -893,24 +902,17 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			n->rt.position->clock.duration = quantum;
 		}
 
-		pw_log_debug(NAME" %p: master %p n_active:%d quantum:%u '%s'", context, n,
-				n_active, quantum, n->name);
-
-		state = n->info.state;
-		if (n_active > 0)
-			state = PW_NODE_STATE_RUNNING;
-		else if (state > PW_NODE_STATE_IDLE)
-			state = PW_NODE_STATE_IDLE;
+		pw_log_debug(NAME" %p: master %p running:%d quantum:%u '%s'", context, n,
+				running, quantum, n->name);
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 			if (s == n)
 				continue;
 			pw_log_debug(NAME" %p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
-			if (s->active)
-				pw_impl_node_set_state(s, state);
+			ensure_state(s, running);
 		}
-		pw_impl_node_set_state(n, state);
+		ensure_state(n, running);
 	}
 	impl->recalc = false;
 	return 0;

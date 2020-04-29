@@ -800,6 +800,7 @@ static int alsa_start_jack_device(struct impl *impl)
 static void session_destroy(void *data)
 {
 	struct impl *impl = data;
+	remove_jack_timeout(impl);
 	spa_hook_remove(&impl->session_listener);
 	spa_hook_remove(&impl->listener);
 	pw_proxy_destroy(impl->jack_device);

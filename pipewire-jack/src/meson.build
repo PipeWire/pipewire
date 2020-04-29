@@ -18,6 +18,15 @@ if libjack_path == ''
   libjack_path = join_paths(modules_install_dir, 'jack')
 endif
 
+tools_config = configuration_data()
+tools_config.set('LIBJACK_PATH', libjack_path)
+
+configure_file(input : 'pw-jack.in',
+               output : 'pw-jack',
+               configuration : tools_config,
+               install: true,
+               install_dir : pipewire_bindir)
+
 pipewire_jack = shared_library('jack',
     pipewire_jack_sources,
     soversion : soversion,

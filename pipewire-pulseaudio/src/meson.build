@@ -53,6 +53,14 @@ if libpulse_path == ''
   libpulse_path = join_paths(modules_install_dir, 'pulse')
 endif
 
+tools_config = configuration_data()
+tools_config.set('LIBPULSE_PATH', libpulse_path)
+
+configure_file(input : 'pw-pulse.in',
+               output : 'pw-pulse',
+               configuration : tools_config,
+               install: true,
+               install_dir : pipewire_bindir)
 
 pipewire_pulseaudio = shared_library('pulse',
     pipewire_pulseaudio_sources,

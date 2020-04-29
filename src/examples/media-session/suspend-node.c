@@ -184,6 +184,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 
 static void destroy_node(struct impl *impl, struct node *node)
 {
+	remove_idle_timeout(node);
 	spa_list_remove(&node->link);
 	spa_hook_remove(&node->listener);
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);

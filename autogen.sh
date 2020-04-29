@@ -21,13 +21,3 @@ fi
 mkdir -p build
 $MESON setup "$@" build # use 'autogen.sh --reconfigure' to update
 ln -sf build/Makefile Makefile
-
-ln -sf libjack.so.0 build/pipewire-jack/src/libjack.so
-ln -sf libjack-pw.so build/pipewire-jack/src/libjack.so.0
-
-ln -sf libpulse.so.0 build/pipewire-pulseaudio/src/libpulse.so
-ln -sf libpulse-pw.so build/pipewire-pulseaudio/src/libpulse.so.0
-ln -sf libpulse-simple.so.0 build/pipewire-pulseaudio/src/libpulse-simple.so
-ln -sf libpulse-simple-pw.so build/pipewire-pulseaudio/src/libpulse-simple.so.0
-ln -sf libpulse-mainloop-glib.so.0 build/pipewire-pulseaudio/src/libpulse-mainloop-glib.so
-ln -sf libpulse-mainloop-glib-pw.so build/pipewire-pulseaudio/src/libpulse-mainloop-glib.so.0

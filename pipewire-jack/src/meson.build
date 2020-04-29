@@ -13,13 +13,20 @@ pipewire_jack_c_args = [
 #optional dependencies
 jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 
-pipewire_jack = shared_library('jack-pw',
+libjack_path = get_option('libjack-path')
+if libjack_path == ''
+  libjack_path = join_paths(modules_install_dir, 'jack')
+endif
+
+pipewire_jack = shared_library('jack',
     pipewire_jack_sources,
-    soversion : pipewire_version,
+    soversion : soversion,
+    version : libversion,
     c_args : pipewire_jack_c_args,
     include_directories : [configinc],
     dependencies : [pipewire_dep, jack_dep, mathlib],
     install : true,
+    install_dir : libjack_path,
 )
 
 if sdl_dep.found()

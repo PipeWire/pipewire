@@ -4,6 +4,10 @@ pipewire_jack_sources = [
   'uuid.c',
 ]
 
+pipewire_dummy_sources = [
+  'dummy.c',
+]
+
 pipewire_jack_c_args = [
   '-DHAVE_CONFIG_H',
   '-D_GNU_SOURCE',
@@ -29,6 +33,28 @@ configure_file(input : 'pw-jack.in',
 
 pipewire_jack = shared_library('jack',
     pipewire_jack_sources,
+    soversion : soversion,
+    version : libversion,
+    c_args : pipewire_jack_c_args,
+    include_directories : [configinc],
+    dependencies : [pipewire_dep, jack_dep, mathlib],
+    install : true,
+    install_dir : libjack_path,
+)
+
+pipewire_jackserver = shared_library('jackserver',
+    pipewire_dummy_sources,
+    soversion : soversion,
+    version : libversion,
+    c_args : pipewire_jack_c_args,
+    include_directories : [configinc],
+    dependencies : [pipewire_dep, jack_dep, mathlib],
+    install : true,
+    install_dir : libjack_path,
+)
+
+pipewire_jackserver = shared_library('jacknet',
+    pipewire_dummy_sources,
     soversion : soversion,
     version : libversion,
     c_args : pipewire_jack_c_args,

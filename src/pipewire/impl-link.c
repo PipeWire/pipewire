@@ -1078,9 +1078,10 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,
 		     input_node, input->port_id, this->rt.in_mix.port.port_id);
 
-	asprintf(&this->name, "%d.%d -> %d.%d",
+	if (asprintf(&this->name, "%d.%d -> %d.%d",
 			output_node->info.id, output->port_id,
-			input_node->info.id, input->port_id);
+			input_node->info.id, input->port_id) < 0)
+		this->name = NULL;
 	pw_log_info("(%s) (%s) -> (%s)", this->name, output_node->name, input_node->name);
 
 	pw_impl_port_emit_link_added(output, this);

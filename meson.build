@@ -60,6 +60,7 @@ if cc.get_id() == 'gcc'
 		        '-Wno-missing-field-initializers',
 		        '-Wno-unused-parameter',
 			'-Wno-pedantic',
+			'-Wunused-result',
 			'-DFASTPATH',
 #			'-DSPA_DEBUG_MEMCPY',
 			language : 'c')
@@ -75,6 +76,7 @@ if cc.get_id() == 'gcc'
 		        '-Wno-missing-field-initializers',
 		        '-Wno-unused-parameter',
 			'-Wno-pedantic',
+			'-Wunused-result',
 			language : 'cpp')
 endif
 

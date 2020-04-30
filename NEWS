@@ -1,3 +1,13 @@
+PipeWire 0.3.4
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- A quick update with some important stability fixes.
+
+
+Older versions:
+
 PipeWire 0.3.3
 
 This is a bugfix release that is API and ABI compatible
@@ -25,8 +35,6 @@ with previous 0.3.x releases.
 - Add pw-jack and pw-pulse scripts to run pulseaudio and
   jack applications with the right library path.
 
-
-Older versions:
 
 PipeWire 0.3.2
 

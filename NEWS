@@ -1,3 +1,33 @@
+PipeWire 0.3.3
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- NEON optimizations for audio conversion (32 and 64 bits)
+- rework of session manager implementation
+- Add option to disable modules in the session manager
+- Release midi hardware devices when suspended
+- various build fixes
+- Clean up options of various utils
+- Stability improvements
+- Mayor improvements in pulseaudio emulation. Improved
+  timings and compatibility.
+- Implementation of drain and flush in pulse and alsa
+  emulation.
+- Implement poll on file descriptors.
+- Improvement of metadata for jack emulation.
+- Fix memory and thread problems in jack emulation.
+- Simplification of state changes. Should make more use
+  cases work in the jack emulation.
+- Improvements in the gstreamer elements. Removal of
+  extra internal queue. pipewiresink can now be used to
+  play audio.
+- Add pw-jack and pw-pulse scripts to run pulseaudio and
+  jack applications with the right library path.
+
+
+Older versions:
+
 PipeWire 0.3.2
 
 This is a bugfix release that is API and ABI compatible
@@ -36,8 +66,6 @@ with previous 0.3.x releases.
 - Allow the server to go up to the maximum quantum (8192
   samples or ~=180ms) if a client explicitly wants this.
 
-
-Older versions:
 
 PipeWire 0.3.1
 

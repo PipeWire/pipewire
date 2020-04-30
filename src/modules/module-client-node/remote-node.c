@@ -418,18 +418,17 @@ client_node_set_io(void *object,
 {
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
-	struct pw_memmap *mm;
+	struct pw_memmap *old, *mm;
 	void *ptr;
 	uint32_t tag[5] = { data->remote_id, id, };
+	int res;
 
-	if ((mm = pw_mempool_find_tag(data->pool, tag, sizeof(tag))) != NULL)
-		pw_memmap_free(mm);
+	old = pw_mempool_find_tag(data->pool, tag, sizeof(tag));
 
 	if (memid == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
-	}
-	else {
+	} else {
 		mm = pw_mempool_map_id(data->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
@@ -442,7 +441,12 @@ client_node_set_io(void *object,
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
-	return spa_node_set_io(data->node->node, id, ptr, size);
+	res =  spa_node_set_io(data->node->node, id, ptr, size);
+
+	if (old != NULL)
+		pw_memmap_free(old);
+
+	return res;
 }
 
 static int client_node_event(void *object, const struct spa_event *event)
@@ -840,8 +844,7 @@ client_node_set_activation(void *object,
 	if (memid == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
-	}
-	else {
+	} else {
 		mm = pw_mempool_map_id(data->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
@@ -851,7 +854,6 @@ client_node_set_activation(void *object,
 		ptr = mm->ptr;
 	}
 	pw_log_debug("node %p: set activation %d %p %u %u", node, node_id, ptr, offset, size);
-
 
 	if (ptr) {
 		link = calloc(1, sizeof(struct link));

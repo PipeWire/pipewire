@@ -1287,26 +1287,24 @@ static int client_node_set_io(void *object,
 			uint32_t size)
 {
 	struct client *c = (struct client *) object;
-        struct pw_memmap *mm;
-        void *ptr;
+	struct pw_memmap *old, *mm;
+	void *ptr;
 	uint32_t tag[5] = { c->node_id, id, };
 
-	if ((mm = pw_mempool_find_tag(c->pool, tag, sizeof(tag))) != NULL)
-		pw_memmap_free(mm);
+	old = pw_mempool_find_tag(c->pool, tag, sizeof(tag));
 
-        if (mem_id == SPA_ID_INVALID) {
+	if (mem_id == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
-        }
-        else {
+	} else {
 		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
-                if (mm == NULL) {
+		if (mm == NULL) {
                         pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
 			return -errno;
-                }
+		}
 		ptr = mm->ptr;
-        }
+	}
 	pw_log_debug(NAME" %p: set io %s %p", c,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
@@ -1323,6 +1321,8 @@ static int client_node_set_io(void *object,
 	default:
 		break;
 	}
+	if (old != NULL)
+		pw_memmap_free(old);
 
 	return 0;
 }

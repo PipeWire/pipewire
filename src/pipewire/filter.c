@@ -123,6 +123,10 @@ struct filter {
 	struct spa_callbacks callbacks;
 	struct spa_io_position *position;
 
+	struct {
+		struct spa_io_position *position;
+	} rt;
+
 	struct spa_list port_list;;
 	struct port *ports[2][MAX_PORTS];
 
@@ -322,6 +326,15 @@ static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state stat
 	return res;
 }
 
+static int
+do_set_position(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct filter *impl = user_data;
+	impl->rt.position = impl->position;
+	return 0;
+}
+
 static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct filter *impl = object;
@@ -334,6 +347,8 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 			impl->position = data;
 		else
 			impl->position = NULL;
+		pw_loop_invoke(impl->context->data_loop,
+			do_set_position, 1, NULL, 0, true, impl);
 		break;
 	}
 	pw_filter_emit_io_changed(&impl->this, NULL, id, data, size);
@@ -717,7 +732,7 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 
 static inline void copy_position(struct filter *impl)
 {
-	struct spa_io_position *p = impl->position;
+	struct spa_io_position *p = impl->rt.position;
 	if (p != NULL) {
 		SEQ_WRITE(impl->seq);
 		impl->time.now = p->clock.nsec;
@@ -741,9 +756,10 @@ do_call_process(struct spa_loop *loop,
 
 static void call_process(struct filter *impl)
 {
+	struct pw_filter *filter = &impl->this;
 	pw_log_trace(NAME" %p: call process", impl);
 	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_RT_PROCESS)) {
-		do_call_process(NULL, false, 1, NULL, 0, impl);
+		pw_filter_emit_process(filter, impl->rt.position);
 	}
 	else {
 		pw_loop_invoke(impl->context->main_loop,
@@ -776,7 +792,7 @@ static int impl_node_process(void *object)
 	struct buffer *b;
 	bool drained = true;
 
-	pw_log_trace(NAME" %p: do process %p", impl, impl->position);
+	pw_log_trace(NAME" %p: do process %p", impl, impl->rt.position);
 
 	/** first dequeue and recycle buffers */
 	spa_list_for_each(p, &impl->port_list, link) {

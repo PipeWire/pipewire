@@ -320,6 +320,7 @@ struct client {
 	uint32_t xrun_count;
 
 	struct {
+		struct spa_io_position *position;
 		struct pw_node_activation *driver_activation;
 		struct spa_list target_links;
 	} rt;
@@ -967,9 +968,9 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 	return state;
 }
 
-static inline void check_buffer_frames(struct client *c)
+static inline void check_buffer_frames(struct client *c, struct spa_io_position *pos)
 {
-	uint32_t buffer_frames = c->position->clock.duration;
+	uint32_t buffer_frames = pos->clock.duration;
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
 		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
 		c->buffer_frames = buffer_frames;
@@ -978,9 +979,9 @@ static inline void check_buffer_frames(struct client *c)
 	}
 }
 
-static inline void check_sample_rate(struct client *c)
+static inline void check_sample_rate(struct client *c, struct spa_io_position *pos)
 {
-	uint32_t sample_rate = c->position->clock.rate.denom;
+	uint32_t sample_rate = pos->clock.rate.denom;
 	if (SPA_UNLIKELY(sample_rate != c->sample_rate)) {
 		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
 		c->sample_rate = sample_rate;
@@ -994,7 +995,7 @@ static inline uint32_t cycle_run(struct client *c)
 	uint64_t cmd;
 	struct timespec ts;
 	int fd = c->socket_source->fd;
-	struct spa_io_position *pos = c->position;
+	struct spa_io_position *pos = c->rt.position;
 	struct pw_node_activation *activation = c->activation;
 	struct pw_node_activation *driver = c->rt.driver_activation;
 
@@ -1007,11 +1008,6 @@ static inline uint32_t cycle_run(struct client *c)
 	if (SPA_UNLIKELY(cmd > 1))
 		pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
-	if (SPA_UNLIKELY(pos == NULL)) {
-		pw_log_error(NAME" %p: missing position", c);
-		return 0;
-	}
-
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	activation->status = PW_NODE_ACTIVATION_AWAKE;
 	activation->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
@@ -1022,8 +1018,13 @@ static inline uint32_t cycle_run(struct client *c)
 		c->first = false;
 	}
 
-	check_buffer_frames(c);
-	check_sample_rate(c);
+	if (SPA_UNLIKELY(pos == NULL)) {
+		pw_log_error(NAME" %p: missing position", c);
+		return 0;
+	}
+
+	check_buffer_frames(c, pos);
+	check_sample_rate(c, pos);
 
 	if (SPA_LIKELY(driver)) {
 		c->jack_state = position_to_jack(driver, &c->jack_position);
@@ -1261,6 +1262,7 @@ do_update_driver_activation(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct client *c = user_data;
+	c->rt.position = c->position;
 	c->rt.driver_activation = c->driver_activation;
 	return 0;
 }
@@ -1273,8 +1275,7 @@ static int update_driver_activation(struct client *c)
 	link = find_activation(&c->links, c->driver_id);
 	c->driver_activation = link ? link->activation : NULL;
 	pw_data_loop_invoke(c->loop,
-                       do_update_driver_activation, SPA_ID_INVALID, NULL, 0,
-		       c->driver_activation == NULL, c);
+                       do_update_driver_activation, SPA_ID_INVALID, NULL, 0, true, c);
 	install_timemaster(c);
 
 	return 0;
@@ -1310,13 +1311,11 @@ static int client_node_set_io(void *object,
 
 	switch (id) {
 	case SPA_IO_Position:
-		if (ptr == NULL)
-			pw_data_loop_stop(c->loop);
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
 		if (ptr)
-			check_sample_rate(c);
+			check_sample_rate(c, c->position);
 		break;
 	default:
 		break;
@@ -2523,7 +2522,8 @@ int jack_activate (jack_client_t *client)
 	c->activation->pending_sync = true;
 	c->active = true;
 
-	check_buffer_frames(c);
+	if (c->position)
+		check_buffer_frames(c, c->position);
 
 	return 0;
 }
@@ -2933,7 +2933,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
 	if (c->sample_rate == (uint32_t)-1)
-		return c->position ? c->position->clock.rate.denom : 0;
+		return c->rt.position ? c->rt.position->clock.rate.denom : 0;
 	return c->sample_rate;
 }
 
@@ -2943,7 +2943,7 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
 	if (c->buffer_frames == (uint32_t)-1)
-		return c->position ? c->position->clock.duration : 0;
+		return c->rt.position ? c->rt.position->clock.duration : 0;
 	return c->buffer_frames;
 }
 
@@ -4037,7 +4037,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, 0);
 
-	if (SPA_UNLIKELY((pos = c->position) == NULL))
+	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
 		return 0;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -4061,7 +4061,7 @@ jack_nframes_t jack_last_frame_time (const jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, 0);
 
-	if (SPA_UNLIKELY((pos = c->position) == NULL))
+	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
 		return 0;
 
 	return pos->clock.position;
@@ -4079,7 +4079,7 @@ int jack_get_cycle_times(const jack_client_t *client,
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if (SPA_UNLIKELY((pos = c->position) == NULL))
+	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
 		return -EIO;
 
 	*current_frames = pos->clock.position;
@@ -4101,7 +4101,7 @@ jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t fram
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if (SPA_UNLIKELY((pos = c->position) == NULL))
+	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
 		return 0;
 
 	df = (frames - pos->clock.position) * (double)SPA_NSEC_PER_SEC / c->sample_rate;
@@ -4117,7 +4117,7 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if (SPA_UNLIKELY((pos = c->position) == NULL))
+	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
 		return 0;
 
 	du = (usecs - pos->clock.nsec/SPA_NSEC_PER_USEC) * (double)c->sample_rate / SPA_USEC_PER_SEC;

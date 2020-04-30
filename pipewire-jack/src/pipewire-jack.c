@@ -2394,6 +2394,8 @@ int jack_client_close (jack_client_t *client)
 	pw_thread_loop_destroy(c->context.loop);
 
 	pw_log_debug(NAME" %p: free", client);
+	pthread_mutex_destroy(&c->context.lock);
+	pw_data_loop_destroy(c->loop);
 	free(c);
 
 	return res;

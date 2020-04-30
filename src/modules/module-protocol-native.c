@@ -135,7 +135,7 @@ struct client_data {
 static void debug_msg(const char *prefix, const struct pw_protocol_native_message *msg, bool hex)
 {
 	struct spa_pod *pod;
-	pw_log_debug("%s: id:%d op:%d size:%d seq:%d\n", prefix,
+	pw_log_debug("%s: id:%d op:%d size:%d seq:%d", prefix,
 			msg->id, msg->opcode, msg->size, msg->seq);
 
 	if ((pod = spa_pod_from_data(msg->data, msg->size, 0, msg->size)) != NULL)

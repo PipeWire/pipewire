@@ -1014,14 +1014,14 @@ static int client_node_demarshal_set_active(void *object, const struct pw_protoc
 {
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
-	int active;
+	bool active;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 				SPA_POD_Bool(&active)) < 0)
 		return -EINVAL;
 
-	pw_resource_notify(resource, struct pw_client_node_methods, set_active, 0, active ? true : false);
+	pw_resource_notify(resource, struct pw_client_node_methods, set_active, 0, active);
 	return 0;
 }
 

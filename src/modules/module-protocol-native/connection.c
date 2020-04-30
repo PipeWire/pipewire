@@ -468,7 +468,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 		buf->n_fds = buf->msg.n_fds;
 
 	if (debug_messages) {
-		pw_log_debug(">>>>>>>>> out: id:%d op:%d size:%d seq:%d\n",
+		pw_log_debug(">>>>>>>>> out: id:%d op:%d size:%d seq:%d",
 				buf->msg.id, buf->msg.opcode, size, buf->msg.seq);
 	        spa_debug_pod(0, NULL, SPA_MEMBER(p, impl->hdr_size, struct spa_pod));
 	}

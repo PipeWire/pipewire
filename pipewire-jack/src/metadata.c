@@ -36,20 +36,10 @@
 #include <pipewire/pipewire.h>
 #include <extensions/metadata.h>
 
-static struct pw_array * get_descriptions(void)
-{
-	if (globals.descriptions.extend == 0) {
-		pw_array_init(&globals.descriptions, 16);
-	}
-	return &globals.descriptions;
-}
-
 static jack_description_t *find_description(jack_uuid_t subject)
 {
-	struct pw_array *descriptions = get_descriptions();
 	jack_description_t *desc;
-
-	pw_array_for_each(desc, descriptions) {
+	pw_array_for_each(desc, &globals.descriptions) {
 		if (jack_uuid_compare(desc->subject, subject) == 0)
 			return desc;
 	}
@@ -88,9 +78,8 @@ static int copy_description(jack_description_t *dst, jack_description_t *src)
 
 static jack_description_t *add_description(jack_uuid_t subject)
 {
-	struct pw_array *descriptions = get_descriptions();
 	jack_description_t *desc;
-	desc = pw_array_add(descriptions, sizeof(*desc));
+	desc = pw_array_add(&globals.descriptions, sizeof(*desc));
 	if (desc != NULL) {
 		spa_zero(*desc);
 		jack_uuid_copy(&desc->subject, subject);
@@ -100,9 +89,8 @@ static jack_description_t *add_description(jack_uuid_t subject)
 
 static void remove_description(jack_description_t *desc)
 {
-	struct pw_array *descriptions = get_descriptions();
 	jack_free_description(desc, false);
-	pw_array_remove(descriptions, desc);
+	pw_array_remove(&globals.descriptions, desc);
 }
 
 static jack_property_t *find_property(jack_description_t *desc, const char *key)
@@ -149,12 +137,25 @@ static void remove_property(jack_description_t *desc, jack_property_t *prop)
 		remove_description(desc);
 }
 
+static inline int strzcmp(const char *s1, const char *s2)
+{
+	if (s1 == s2)
+		return 0;
+	if (s1 == NULL || s2 == NULL)
+		return 1;
+	return strcmp(s1, s1);
+}
+
 static void change_property(jack_property_t *prop, const char *value, const char *type)
 {
-	free((char*)prop->data);
-	prop->data = strdup(value);
-	free((char*)prop->type);
-	prop->type = strdup(type);
+	if (strzcmp(prop->data, value) != 0) {
+		free((char*)prop->data);
+		prop->data = strdup(value);
+	}
+	if (strzcmp(prop->type, type) != 0) {
+		free((char*)prop->type);
+		prop->type = strdup(type);
+	}
 }
 
 static int update_property(struct client *c,
@@ -166,12 +167,12 @@ static int update_property(struct client *c,
 	jack_property_change_t change;
 	jack_description_t *desc;
 
+	pthread_mutex_lock(&globals.lock);
 	desc = find_description(subject);
 
 	if (key == NULL) {
-		if (desc == NULL)
-			return 0;
-		remove_description(desc);
+		if (desc != NULL)
+			remove_description(desc);
 		change = PropertyDeleted;
 	} else {
 		jack_property_t *prop;
@@ -180,8 +181,7 @@ static int update_property(struct client *c,
 
 		if (value == NULL || type == NULL) {
 			if (prop == NULL)
-				return 0;
-			remove_property(desc, prop);
+				remove_property(desc, prop);
 			change = PropertyDeleted;
 		} else if (prop == NULL) {
 			if (desc == NULL)
@@ -193,6 +193,8 @@ static int update_property(struct client *c,
 			change = PropertyChanged;
 		}
 	}
+	pthread_mutex_unlock(&globals.lock);
+
 	if (c->property_callback)
 		c->property_callback(subject, key, change, c->property_arg);
 	return 0;
@@ -208,13 +210,15 @@ int jack_set_property(jack_client_t*client,
 {
 	struct client *c = (struct client *) client;
 	uint32_t id;
+	int res = -1;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 	spa_return_val_if_fail(key != NULL, -EINVAL);
 	spa_return_val_if_fail(value != NULL, -EINVAL);
 
+	pw_thread_loop_lock(c->context.loop);
 	if (c->metadata == NULL)
-		return -1;
+		goto done;
 
 	id = jack_uuid_to_index(subject);
 
@@ -222,10 +226,12 @@ int jack_set_property(jack_client_t*client,
 		type = "";
 
 	pw_log_info("set id:%u (%lu) '%s' to '%s@%s'", id, subject, key, value, type);
-	pw_metadata_set_property(c->metadata->proxy,
-			id, key, type, value);
+	pw_metadata_set_property(c->metadata->proxy, id, key, type, value);
+	res = 0;
+done:
+	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
+	return res;
 }
 
 SPA_EXPORT
@@ -236,22 +242,26 @@ int jack_get_property(jack_uuid_t subject,
 {
 	jack_description_t *desc;
 	jack_property_t *prop;
+	int res = -1;
 
+	pthread_mutex_lock(&globals.lock);
 	desc = find_description(subject);
 	if (desc == NULL)
-		return -1;
+		goto done;
 
 	prop = find_property(desc, key);
 	if (prop == NULL)
-		return -1;
+		goto done;
 
 	*value = strdup(prop->data);
 	*type = strdup(prop->type);
+	res = 0;
 
 	pw_log_debug("subject:%"PRIu64" key:'%s' value:'%s' type:'%s'",
 			subject, key, *value, *type);
-
-	return 0;
+done:
+	pthread_mutex_unlock(&globals.lock);
+	return res;
 }
 
 SPA_EXPORT
@@ -271,13 +281,19 @@ int jack_get_properties (jack_uuid_t         subject,
 			 jack_description_t* desc)
 {
 	jack_description_t *d;
+	int res = -1;
 
 	spa_return_val_if_fail(desc != NULL, -EINVAL);
 
+	pthread_mutex_lock(&globals.lock);
 	d = find_description(subject);
 	if (d == NULL)
-		return -1;
-	return copy_description(desc, d);
+		goto done;
+
+	res = copy_description(desc, d);
+done:
+	pthread_mutex_unlock(&globals.lock);
+	return res;
 }
 
 SPA_EXPORT
@@ -285,15 +301,19 @@ int jack_get_all_properties (jack_description_t** result)
 {
 	uint32_t i;
 	jack_description_t *dst, *src;
-	struct pw_array *descriptions = get_descriptions();
-	uint32_t len = pw_array_get_len(descriptions, jack_description_t);
-	src = descriptions->data;
+	struct pw_array *descriptions;
+	uint32_t len;
 
+	pthread_mutex_lock(&globals.lock);
+	descriptions = &globals.descriptions;
+	len = pw_array_get_len(descriptions, jack_description_t);
+	src = descriptions->data;
 	dst = malloc(descriptions->size);
 	for (i = 0; i < len; i++)
 		copy_description(&dst[i], &src[i]);
-
 	*result = dst;
+	pthread_mutex_unlock(&globals.lock);
+
 	return len;
 }
 
@@ -302,20 +322,26 @@ int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char
 {
 	struct client *c = (struct client *) client;
 	uint32_t id;
+	int res = -1;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 	spa_return_val_if_fail(key != NULL, -EINVAL);
 
+	pw_thread_loop_lock(c->context.loop);
+
 	if (c->metadata == NULL)
-		return -1;
+		goto done;
 
 	id = jack_uuid_to_index(subject);
 
 	pw_log_info("remove id:%u (%lu) '%s'", id, subject, key);
 	pw_metadata_set_property(c->metadata->proxy,
 			id, key, NULL, NULL);
+	res = 0;
+done:
+	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
+	return res;
 }
 
 SPA_EXPORT
@@ -323,19 +349,24 @@ int jack_remove_properties (jack_client_t* client, jack_uuid_t subject)
 {
 	struct client *c = (struct client *) client;
 	uint32_t id;
+	int res = -1;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
+	pw_thread_loop_lock(c->context.loop);
 	if (c->metadata == NULL)
-		return -1;
+		goto done;
 
 	id = jack_uuid_to_index(subject);
 
 	pw_log_info("remove id:%u (%lu)", id, subject);
 	pw_metadata_set_property(c->metadata->proxy,
 			id, NULL, NULL, NULL);
+	res = 0;
+done:
+	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
+	return res;
 }
 
 SPA_EXPORT
@@ -345,7 +376,10 @@ int jack_remove_all_properties (jack_client_t* client)
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
+	pw_thread_loop_lock(c->context.loop);
 	pw_metadata_clear(c->metadata->proxy);
+	pw_thread_loop_unlock(c->context.loop);
+
 	return 0;
 }
 

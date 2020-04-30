@@ -3345,7 +3345,7 @@ int jack_port_connected_to (const jack_port_t *port,
 		res = 1;
 
      exit:
-	pthread_mutex_lock(&c->context.lock);
+	pthread_mutex_unlock(&c->context.lock);
 
 	return res;
 }

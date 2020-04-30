@@ -252,3 +252,16 @@ bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
 	return pthread_equal(loop->thread, pthread_self());
 }
+
+SPA_EXPORT
+int pw_data_loop_invoke(struct pw_data_loop *loop,
+		spa_invoke_func_t func, uint32_t seq, const void *data, size_t size,
+		bool block, void *user_data)
+{
+	int res;
+	if (loop->running)
+		res = pw_loop_invoke(loop->loop, func, seq, data, size, block, user_data);
+	else
+		res = func(loop->loop->loop, false, seq, data, size, user_data);
+	return res;
+}

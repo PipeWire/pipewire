@@ -88,8 +88,6 @@ struct node_data {
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 
-	struct spa_io_position *position;
-
 	struct spa_list links;
 };
 
@@ -443,14 +441,6 @@ client_node_set_io(void *object,
 
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
-
-	switch (id) {
-	case SPA_IO_Position:
-		data->position = ptr;
-		break;
-	default:
-		break;
-	}
 
 	return spa_node_set_io(data->node->node, id, ptr, size);
 }

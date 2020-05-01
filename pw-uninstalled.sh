@@ -21,12 +21,6 @@ while getopts ":b:v:" opt; do
 	esac
 done
 
-if [ ! -z "${VERSION}" ]; then
-  ln -frs ${BUILDDIR}/pipewire-pulseaudio/src/libpulse-pw.so.${VERSION} ${BUILDDIR}/pipewire-pulseaudio/src/libpulse.so.0
-  ln -frs ${BUILDDIR}/pipewire-pulseaudio/src/libpulse-mainloop-glib-pw.so.${VERSION} ${BUILDDIR}/pipewire-pulseaudio/src/libpulse-mainloop-glib.so.0
-  ln -frs ${BUILDDIR}/pipewire-jack/src/libjack-pw.so.${VERSION} ${BUILDDIR}/pipewire-jack/src/libjack.so.0
-fi
-
 if [ -z "${BUILDDIR}" ]; then
 	BUILDDIR=${PWD}/build
 	echo "Using default build directory: ${BUILDDIR}"

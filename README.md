@@ -13,37 +13,127 @@ Nodes in the graph can be implemented as separate processes,
 communicating with sockets and exchanging multimedia content using fd
 passing.
 
-## Building
+## Building and installation
 
-Pipewire uses the Meson and Ninja build system to compile. You can run it
-with:
+The prefered way to install PipeWire is to install it with your
+distribution package system. This ensures PipeWire is integrated
+into the rest of your system for the best experience.
+
+If you want to build and install PipeWire yourself, refer to
+INSTALL.md for instructions.
+
+## Usage
+
+The most important purpose of PipeWire is to run your favorite apps.
+
+Some application use the native PipeWire API, such as most compositors
+(gnome-shell, wayland, ..) to implement screen sharing. These apps will
+just work automatically. 
+
+Most audio applications can use either ALSA, JACK or PulseAudio as a
+backend. PipeWire provides support for all 3 backends. Depending on how
+your distríbution has configured things this should just work automatically
+or with the provided scripts shown below.
+
+PipeWire can use environment variables to control the behaviour of
+applications:
+
+PIPEWIRE_DEBUG=&lt;level&gt;         to increase the debug level
+PIPEWIRE_LOG=&lt;filename&gt;        to redirect log to filename
+PIPEWIRE_LATENCY=&lt;num/denom&gt;   to configure latency
+PIPEWIRE_NODE=&lt;id&gt;             to request link to specified node
+
+### Using tools
+
+pw-cat can be used to play and record audio and midi. Use pw-cat -h to get
+some more help. There are some aliases like pw-play and pw-record to make
+things easier:
 
 ```
-$ meson build
-$ cd build
-$ ninja
+$ pw-play /home/wim/data/01.\ Firepower.wav
 ```
 
-You can see the available meson options in `meson_options.txt` file.
+### Running JACK applications
 
-If you're not familiar with these tools, the included `autogen.sh` script will
-automatically run the correct `meson`/`ninja` commands, and output a Makefile.
-It follows that there are two methods to build Pipewire, however both rely
-on Meson and Ninja to actually perform the compilation:
+Depending on how the system was configured, your can either run PipeWire and
+JACK side-by-side or have PipeWire take over the functionality of JACK
+completely.
 
-```
-$ ./autogen.sh
-$ make
-```
-
-## Running
-
-If you want to run PipeWire without installing it on your system, there is a
-script that you can run. This puts you in an environment in which PipeWire can
-be run from the build directory, and ALSA, PulseAudio and JACK applications
-will use the PipeWire emulation libraries automatically
-in this environment. You can get into this environment with:
+In dual mode, JACK apps will by default use the JACK server. To direct a JACK
+app to PipeWire, you can use the pw-jack script like this:
 
 ```
-$ ./pw-uninstalled.sh
+$ pw-jack &lt;appname&gt;
 ```
+
+If you replaced JACK with PipeWire completely, pw-jack does not have any
+effect and can be ommited.
+
+### Running PulseAudio applications
+
+Depending on how the system was configured, your can either run PipeWire and
+PulseAudio side-by-side or have PipeWire take over the functionality of
+PulseAudio completely. We don't recommend to completely replace PulseAudio
+at this point.
+
+Use the pw-pulse script to launch a PulseAudio application on PipeWire, like:
+
+```
+$ pw-pulse &lt;appname&gt;
+```
+
+### Running ALSA applications
+
+If the PipeWire alsa module is installed, it can be seen with
+
+```
+$ aplay -L
+```
+
+Alsa application can then use the pipewire: device to use PipeWire
+as the audio system.
+
+### Running GStreamer applications
+
+PipeWire includes 2 GStreamer elements called pipewiresrc and
+pipewiresink. They can be used in pipelines like this:
+
+```
+$ gst-launch-1.0 pipewiresrc ! videoconvert ! autovideosink
+```
+
+Or to play a beeping sound:
+
+```
+$ gst-launch-1.0 audiotestsrc ! pipewiresink
+```
+
+PipeWire provides a device monitor as well so that:
+
+```
+$ gst-device-monitor-1.0
+```
+
+Shows the PipeWire devices and applications like cheese will
+automatically use the PipeWire video source when possible.
+
+### Inspecting the PipeWire state
+
+There is currently no native graphical tool to inspect the PipeWire graph
+but we recommend to use one of the excellent JACK tools, such as Carla,
+catia, qjackctl,... You will not be able to see all features like the video
+ports but it is a good start.
+
+pw-mon dumps and monitors the state of the PipeWire daemon.
+
+pw-dot can dump a graph of the pipeline, checkout out the help for
+how to do this.
+
+There is a more complicated tools to inspect the state of the server
+with pw-cli. This tools can be used interactively or it can execute
+single commands like this to get the server information:
+
+```
+$ pw-cli info 0
+```
+

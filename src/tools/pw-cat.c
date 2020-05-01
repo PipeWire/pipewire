@@ -1234,7 +1234,13 @@ int main(int argc, char *argv[])
 		data.mode = mode_playback;
 	else if (!strcmp(prog, "pw-record"))
 		data.mode = mode_record;
-	else
+	else if (!strcmp(prog, "pw-midiplay")) {
+		data.mode = mode_playback;
+		data.is_midi = true;
+	} else if (!strcmp(prog, "pw-midirecord")) {
+		data.mode = mode_record;
+		data.is_midi = true;
+	} else
 		data.mode = mode_none;
 
 	/* negative means no volume adjustment */

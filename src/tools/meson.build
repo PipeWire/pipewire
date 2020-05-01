@@ -34,6 +34,8 @@ if get_option('pw-cat') and sndfile_dep.found()
   pwcat_aliases = [
     'pw-play',
     'pw-record',
+    'pw-midiplay',
+    'pw-midirecord',
   ]
 
   executable('pw-cat',

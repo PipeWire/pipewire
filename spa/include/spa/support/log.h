@@ -139,7 +139,7 @@ struct spa_log_methods {
 #else
 
 #define SPA_LOG_FUNC(name,lev)							\
-static inline void spa_log_##name (struct spa_log *l, const char *format, ...)  \
+static inline SPA_PRINTF_FUNC(2,3) void spa_log_##name (struct spa_log *l, const char *format, ...)  \
 {										\
 	if (SPA_UNLIKELY(spa_log_level_enabled(l, lev))) {			\
 		va_list varargs;						\

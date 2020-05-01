@@ -931,8 +931,10 @@ static void node_on_fd_events(struct spa_source *source)
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
 
-		if (SPA_UNLIKELY(spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0 || cmd != 1))
-			pw_log_warn(NAME" %p: read %"PRIu64" failed %m", this, cmd);
+		if (SPA_UNLIKELY(spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0))
+			pw_log_warn(NAME" %p: read failed %m", this);
+		if (SPA_UNLIKELY(cmd > 1))
+			pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", this, cmd - 1);
 
 		pw_log_trace_fp(NAME" %p: got process", this);
 		this->rt.target.signal(this->rt.target.data);

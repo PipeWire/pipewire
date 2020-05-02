@@ -9,15 +9,18 @@ This file is part of PipeWire.
 <manpage name="pw-cli" section="1" desc="The PipeWire Command Line Interface">
 
   <synopsis>
-    <cmd>pw-cli</cmd>
+    <cmd>pw-cli [<arg>command</arg>]</cmd>
   </synopsis>
 
   <description>
     <p>Interact with a PipeWire instance.</p>
 
-    <p><manref name="pw-cli" section="1"/> starts an interactive session
-    with a pipewire instance. By default, a connection is made with the local
-    PipeWire instance, that of the pw-cli command itself.</p>
+    <p>When a command is given, <manref name="pw-cli" section="1"/> 
+    will execute the command and exit</p>
+
+    <p>When no command is given, <manref name="pw-cli" section="1"/> 
+    starts an interactive session with the default pipewire instance
+    pipewire-0.</p>
 
     <p>Connections to other, remote instances can be made. The current instance
       name is displayed at the prompt. Some commands operate on the current

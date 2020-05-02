@@ -11,6 +11,7 @@ manpages = [
   [ 'pipewire', '1' ],
   [ 'pipewire.conf', '5' ],
   [ 'pw-cli', '1' ],
+  [ 'pw-profiler', '1' ],
   [ 'pw-mon', '1' ]
 ]
 

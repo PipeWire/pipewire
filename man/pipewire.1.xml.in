@@ -13,8 +13,8 @@ This file is part of PipeWire.
   </synopsis>
 
   <description>
-    <p>PipeWire is a service that allows access to multimedia devices
-    and allows media sharing between applications. </p>
+    <p>PipeWire is a service that facilitates sharing of multimedia content
+	  between devices and applications. </p>
 
     <p>The pipewire daemon reads a config file that is further documented in
     <manref name="pipewire.conf" section="5"/></p>
@@ -29,7 +29,7 @@ This file is part of PipeWire.
     </option>
 
     <option>
-      <p><opt>-v | --version</opt></p>
+      <p><opt> --version</opt></p>
 
       <optdesc><p>Show version information.</p></optdesc>
     </option>
@@ -43,12 +43,14 @@ This file is part of PipeWire.
   </options>
 
   <section name="Authors">
-    <p>The PipeWire Developers &lt;@PACKAGE_BUGREPORT@&gt;; PipeWire is available from <url href="@PACKAGE_URL@"/></p>
+    <p>The PipeWire Developers &lt;@PACKAGE_BUGREPORT@&gt;;
+		  PipeWire is available from <url href="@PACKAGE_URL@"/></p>
   </section>
 
   <section name="See also">
     <p>
       <manref name="pw-mon" section="1"/>,
+      <manref name="pw-cat" section="1"/>,
       <manref name="pw-cli" section="1"/>,
     </p>
   </section>

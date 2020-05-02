@@ -13,8 +13,8 @@ This file is part of PipeWire.
   </synopsis>
 
   <description>
-    <p>PipeWire is a service that allows access to multimedia devices
-    and allows media sharing between applications. </p>
+    <p>PipeWire is a service that facilitates sharing of multimedia content
+       between devices and applications. </p>
 
     <p>On startup, the daemon reads a configuration file to configure
     itself. It executes a series of commands listed in the config
@@ -53,6 +53,14 @@ This file is part of PipeWire.
     <p><opt>load-module</opt> [<arg>options</arg>] <arg>name</arg> [<arg>arguments...</arg>]</p>
       <optdesc><p>Load a module specified by its name and arguments. For most
       modules it is OK to be loaded more than once.</p></optdesc>
+    </option>
+  </section>
+
+  <section name="Object Create">
+    <option>
+    <p><opt>create-object</opt> [<arg>options</arg>] <arg>factory</arg> [<arg>arguments...</arg>]</p>
+      <optdesc><p>Create an object from the specified factory with arguments.
+      </p></optdesc>
     </option>
   </section>
 

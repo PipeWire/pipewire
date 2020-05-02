@@ -38,10 +38,10 @@ or with the provided scripts shown below.
 PipeWire can use environment variables to control the behaviour of
 applications:
 
-PIPEWIRE_DEBUG=&lt;level&gt;         to increase the debug level
-PIPEWIRE_LOG=&lt;filename&gt;        to redirect log to filename
-PIPEWIRE_LATENCY=&lt;num/denom&gt;   to configure latency
-PIPEWIRE_NODE=&lt;id&gt;             to request link to specified node
+* PIPEWIRE_DEBUG=<level>         to increase the debug level
+* PIPEWIRE_LOG=<filename>        to redirect log to filename
+* PIPEWIRE_LATENCY=<num/denom>   to configure latency
+* PIPEWIRE_NODE=<id>             to request link to specified node
 
 ### Using tools
 
@@ -63,7 +63,7 @@ In dual mode, JACK apps will by default use the JACK server. To direct a JACK
 app to PipeWire, you can use the pw-jack script like this:
 
 ```
-$ pw-jack &lt;appname&gt;
+$ pw-jack <appname>
 ```
 
 If you replaced JACK with PipeWire completely, pw-jack does not have any
@@ -79,7 +79,7 @@ at this point.
 Use the pw-pulse script to launch a PulseAudio application on PipeWire, like:
 
 ```
-$ pw-pulse &lt;appname&gt;
+$ pw-pulse <appname>
 ```
 
 ### Running ALSA applications

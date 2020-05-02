@@ -273,6 +273,7 @@ endif
 
 if get_option('pipewire-alsa')
   subdir('pipewire-alsa/alsa-plugins')
+  subdir('pipewire-alsa/conf')
 endif
 
 if get_option('docs')

@@ -1,0 +1,78 @@
+<?xml version="1.0"?><!--*-nxml-*-->
+<!DOCTYPE manpage SYSTEM "xmltoman.dtd">
+<?xml-stylesheet type="text/xsl" href="xmltoman.xsl" ?>
+
+<!--
+This file is part of PipeWire.
+-->
+
+<manpage name="pw-cat" section="1" desc="Play an Record media with PipeWire">
+
+  <synopsis>
+	  <cmd>pw-cat [<arg>options</arg>] [<arg>FILE</arg>]</cmd>
+	  <cmd>pw-play [<arg>options</arg>] [<arg>FILE</arg>]</cmd>
+	  <cmd>pw-record [<arg>options</arg>] [<arg>FILE</arg>]</cmd>
+	  <cmd>pw-midiplay [<arg>options</arg>] [<arg>FILE</arg>]</cmd>
+	  <cmd>pw-midirecord [<arg>options</arg>] [<arg>FILE</arg>]</cmd>
+  </synopsis>
+
+  <description>
+    <p><file>pw-cat</file> is a simple tool for playing back or
+    capturing raw or encoded media files on a PipeWire
+    server. It understands all audio file formats supported by
+    <file>libsndfile</file>.</p>
+  </description>
+
+  <options>
+
+     <option>
+      <p><opt>-h | --help</opt></p>
+
+      <optdesc><p>Show help.</p></optdesc>
+    </option>
+
+    <option>
+      <p><opt>--version</opt></p>
+      <optdesc><p>Show version information.</p></optdesc>
+    </option>
+
+    <option>
+      <p><opt>-v | --verbose</opt></p>
+      <optdesc><p>Verbose operation.</p></optdesc>
+    </option>
+
+    <option>
+       <p><opt>-R | --remote</opt></p>
+       <optdesc><p>The name the remote instance to connect to. If left unspecified,
+       a connection is made to the default PipeWire instance.</p></optdesc>
+     </option>
+
+    <option>
+       <p><opt>-p | --playback</opt></p>
+       <optdesc><p>Playback mode. Read data from the specified file, and play it back. If the tool is called under the name <file>pw-play</file> or <file>pw-midiplay</file> this is the default.</p></optdesc>
+    </option>
+
+    <option>
+       <p><opt>-r | --record</opt></p>
+       <optdesc><p>Recording mode. Capture data and write it to the specified file. If the tool is called under the name <file>pw-record</file> or <file>pw-midirecord</file> this is the default.</p></optdesc>
+    </option>
+
+    <option>
+       <p><opt>-m | --midi</opt></p>
+       <optdesc><p>Midi mode. FILE is a midi file. If the tool is called under the name <file>pw-midiplay</file> or <file>pw-midirecord</file> this is the default.</p></optdesc>
+    </option>
+
+  </options>
+
+  <section name="Authors">
+    <p>The PipeWire Developers &lt;@PACKAGE_BUGREPORT@&gt;; PipeWire is available from <url href="@PACKAGE_URL@"/></p>
+  </section>
+
+  <section name="See also">
+    <p>
+      <manref name="pipewire" section="1"/>,
+      <manref name="pw-mon" section="1"/>,
+    </p>
+  </section>
+
+</manpage>

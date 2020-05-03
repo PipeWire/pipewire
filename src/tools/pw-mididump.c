@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <math.h>
+#include <getopt.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/defs.h>
@@ -45,6 +46,7 @@ struct port {
 
 struct data {
 	struct pw_main_loop *loop;
+	const char *opt_remote;
 	struct pw_filter *filter;
 	struct port *in_port;
 	int64_t clock_time;
@@ -139,6 +141,7 @@ static int dump_filter(struct data *data)
 			pw_main_loop_get_loop(data->loop),
 			"midi-dump",
 			pw_properties_new(
+				PW_KEY_REMOTE_NAME, data->opt_remote,
 				PW_KEY_MEDIA_TYPE, "Midi",
 				PW_KEY_MEDIA_CATEGORY, "Filter",
 				PW_KEY_MEDIA_ROLE, "DSP",
@@ -169,15 +172,52 @@ static int dump_filter(struct data *data)
 	return 0;
 }
 
+static void show_help(const char *name)
+{
+        fprintf(stdout, "%s [options] [FILE]\n"
+		"  -h, --help                            Show this help\n"
+		"      --version                         Show version\n"
+		"  -r, --remote                          Remote daemon name\n",
+		name);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	int res = 0;
+	int res = 0, c;
+	static const struct option long_options[] = {
+		{ "help",	no_argument,		NULL, 'h' },
+		{ "version",	no_argument,		NULL, 'V' },
+		{ "remote",	required_argument,	NULL, 'r' },
+		{ NULL,	0, NULL, 0}
+	};
 
 	pw_init(&argc, &argv);
 
-	if (argc > 1) {
-		res = dump_file(argv[1]);
+	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			show_help(argv[0]);
+			return 0;
+		case 'V':
+			fprintf(stdout, "%s\n"
+				"Compiled with libpipewire %s\n"
+				"Linked with libpipewire %s\n",
+				argv[0],
+				pw_get_headers_version(),
+				pw_get_library_version());
+			return 0;
+		case 'r':
+			data.opt_remote = optarg;
+			break;
+		default:
+			show_help(argv[0]);
+			return -1;
+		}
+	}
+
+	if (optind < argc) {
+		res = dump_file(argv[optind]);
 	} else {
 		res = dump_filter(&data);
 	}

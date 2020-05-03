@@ -31,6 +31,11 @@ if get_option('pw-cat') and sndfile_dep.found()
     'midifile.c',
   ]
 
+  pwmididump_sources = [
+    'pw-mididump.c',
+    'midifile.c',
+  ]
+
   pwcat_aliases = [
     'pw-play',
     'pw-record',
@@ -43,6 +48,13 @@ if get_option('pw-cat') and sndfile_dep.found()
     c_args : [ '-D_GNU_SOURCE' ],
     install: true,
     dependencies : [sndfile_dep, pipewire_dep, mathlib],
+  )
+
+  executable('pw-mididump',
+    pwmididump_sources,
+    c_args : [ '-D_GNU_SOURCE' ],
+    install: true,
+    dependencies : [pipewire_dep, mathlib],
   )
 
   foreach alias : pwcat_aliases

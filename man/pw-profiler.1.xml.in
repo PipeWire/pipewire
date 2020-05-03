@@ -31,7 +31,7 @@ This file is part of PipeWire.
   <options>
 
     <option>
-       <p><opt>-r | --remote</opt></p>
+       <p><opt>-r | --remote</opt><arg>=NAME</arg></p>
        <optdesc><p>The name the remote instance to monitor. If left unspecified,
        a connection is made to the default PipeWire instance.</p></optdesc>
      </option>
@@ -49,7 +49,7 @@ This file is part of PipeWire.
     </option>
 
      <option>
-      <p><opt>-o | --output</opt></p>
+      <p><opt>-o | --output</opt><arg>=FILE</arg></p>
 
       <optdesc><p>Profiler output name (default "profiler.log").</p></optdesc>
     </option>

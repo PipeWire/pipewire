@@ -42,7 +42,7 @@ This file is part of PipeWire.
     </option>
 
     <option>
-       <p><opt>-R | --remote</opt></p>
+      <p><opt>-R | --remote</opt><arg>=NAME</arg></p>
        <optdesc><p>The name the remote instance to connect to. If left unspecified,
        a connection is made to the default PipeWire instance.</p></optdesc>
      </option>

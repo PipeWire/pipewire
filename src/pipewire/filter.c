@@ -470,14 +470,14 @@ static int impl_port_enum_params(void *object, int seq,
 	struct spa_result_node_params result;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
-	uint32_t idx = 0, count = 0;
+	uint32_t count = 0;
 	struct param *p;
 	bool found = false;
 
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	result.id = id;
-	result.next = start;
+	result.next = 0;
 
 	if ((port = get_port(d, direction, port_id)) == NULL)
 		return -EINVAL;
@@ -489,17 +489,15 @@ static int impl_port_enum_params(void *object, int seq,
 	spa_list_for_each(p, &port->param_list, link) {
 		struct spa_pod *param;
 
-		idx++;
 		result.index = result.next++;
+		if (result.index < start)
+			continue;
 
 		param = p->param;
 		if (param == NULL || p->id != id)
 			continue;
 
 		found = true;
-
-		if (idx < start)
-			continue;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)

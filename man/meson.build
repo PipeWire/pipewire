@@ -13,6 +13,7 @@ manpages = [
   [ 'pw-cat', '1' ],
   [ 'pw-cli', '1' ],
   [ 'pw-profiler', '1' ],
+  [ 'pw-mididump', '1' ],
   [ 'pw-mon', '1' ]
 ]
 

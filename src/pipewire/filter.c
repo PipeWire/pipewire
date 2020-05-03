@@ -472,6 +472,7 @@ static int impl_port_enum_params(void *object, int seq,
 	struct spa_pod_builder b = { 0 };
 	uint32_t idx = 0, count = 0;
 	struct param *p;
+	bool found = false;
 
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
@@ -488,13 +489,16 @@ static int impl_port_enum_params(void *object, int seq,
 	spa_list_for_each(p, &port->param_list, link) {
 		struct spa_pod *param;
 
-		if (idx++ < start)
-			continue;
-
+		idx++;
 		result.index = result.next++;
 
 		param = p->param;
 		if (param == NULL || p->id != id)
+			continue;
+
+		found = true;
+
+		if (idx < start)
 			continue;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -506,7 +510,7 @@ static int impl_port_enum_params(void *object, int seq,
 		if (++count == num)
 			break;
 	}
-	return 0;
+	return found ? 0 : -ENOENT;
 }
 
 static int update_params(struct filter *impl, struct port *port, uint32_t id,

@@ -1057,6 +1057,9 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;
 	this->rt.activation->sync_left = 0;
 
+	this->rt.rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	this->rt.rate_limit.burst = 1;
+
 	check_properties(this);
 
 	this->driver_node = this;
@@ -1358,11 +1361,13 @@ static int node_ready(void *data, int status)
 		uint64_t min_timeout = UINT64_MAX;
 
 		if (SPA_UNLIKELY(state->pending > 0)) {
-			pw_log_warn("(%s-%u) graph not finished: state:%p pending %d/%d",
+			pw_context_driver_emit_incomplete(node->context, node);
+			if (ratelimit_test(&node->rt.rate_limit, a->signal_time)) {
+				pw_log_warn("(%s-%u) graph not finished: state:%p pending %d/%d",
 					node->name, node->info.id, state, state->pending,
 					state->required);
-			pw_context_driver_emit_incomplete(node->context, node);
-			dump_states(node);
+				dump_states(node);
+			}
 			node->rt.target.signal(node->rt.target.data);
 		}
 

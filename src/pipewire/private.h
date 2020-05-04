@@ -59,6 +59,29 @@ struct defaults {
 	unsigned int mem_allow_mlock;
 };
 
+struct ratelimit {
+	uint64_t interval;
+	uint64_t begin;
+	unsigned burst;
+	unsigned n_printed, n_missed;
+};
+
+static inline bool ratelimit_test(struct ratelimit *r, uint64_t now)
+{
+	if (r->begin + r->interval < now) {
+		if (r->n_missed)
+			pw_log_warn("%u events suppressed", r->n_missed);
+		r->begin = now;
+		r->n_printed = 0;
+		r->n_missed = 0;
+	} else if (r->n_printed >= r->burst) {
+		r->n_missed++;
+		return false;
+	}
+	r->n_printed++;
+	return true;
+}
+
 #define MAX_PARAMS	32
 
 #define pw_protocol_emit_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
@@ -564,6 +587,8 @@ struct pw_impl_node {
 		struct pw_node_target target;		/* our target that is signaled by the
 							   driver */
 		struct spa_list driver_link;		/* our link in driver */
+
+		struct ratelimit rate_limit;
 	} rt;
 
         void *user_data;                /**< extra user data */

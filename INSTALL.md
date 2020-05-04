@@ -150,6 +150,11 @@ a symlink in /usr/lib64/ as follows:
 /usr/lib64/libjack.so.0.1.0 -> pipewire-0.3/jack/libjack.so.0
 ```
 
+Note that when JACK is replaced by PipeWire, the SPA JACK plugin (installed
+in /usr/lib64/spa-0.2/jack/libspa-jack.so) is not useful anymore and
+distributions should make them conflict.
+
+
 ### PulseAudio emulation
 
 PipeWire reimplements the 3 libraries that PulseAudio applications use to make

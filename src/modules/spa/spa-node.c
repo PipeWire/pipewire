@@ -173,7 +173,9 @@ setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_pro
 					&b);
 	if (res != 1) {
 		if (res < 0)
-			pw_log_debug("spa_node_get_props failed: %s", spa_strerror(res));
+			pw_log_debug("spa_node_get_props result: %s", spa_strerror(res));
+		if (res == -ENOTSUP || res == -ENOENT)
+			res = 0;
 		return res;
 	}
 
@@ -261,7 +263,7 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 	spa_node = iface;
 
 	if (properties != NULL) {
-		if (setup_props(context, spa_node, properties) < 0) {
+		if ((res = setup_props(context, spa_node, properties)) < 0) {
 			pw_log_warn("can't setup properties: %s", spa_strerror(res));
 		}
 	}

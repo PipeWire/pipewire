@@ -56,6 +56,7 @@ struct _GstPipeWirePoolData {
   goffset offset;
   struct pw_buffer *b;
   GstBuffer *buf;
+  gboolean queued;
 };
 
 struct _GstPipeWirePool {

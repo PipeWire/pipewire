@@ -373,6 +373,7 @@ buffer_recycle (GstMiniObject *obj)
 
   GST_BUFFER_FLAGS (obj) = data->flags;
   src = data->owner;
+  data->queued = TRUE;
 
   GST_LOG_OBJECT (obj, "recycle buffer");
   pw_thread_loop_lock (src->loop);
@@ -392,6 +393,7 @@ on_add_buffer (void *_data, struct pw_buffer *b)
   gst_pipewire_pool_wrap_buffer (pwsrc->pool, b);
   data = b->user_data;
   data->owner = pwsrc;
+  data->queued = TRUE;
   GST_MINI_OBJECT_CAST (data->buf)->dispose = buffer_recycle;
 }
 
@@ -426,6 +428,11 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
   GST_LOG_OBJECT (pwsrc, "got new buffer %p", buf);
 
+  if (!data->queued) {
+    GST_WARNING_OBJECT (pwsrc, "buffer %p was not recycled", buf);
+    gst_buffer_ref (buf);
+  }
+  data->queued = FALSE;
   GST_BUFFER_PTS (buf) = GST_CLOCK_TIME_NONE;
   GST_BUFFER_DTS (buf) = GST_CLOCK_TIME_NONE;
 

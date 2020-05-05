@@ -49,7 +49,7 @@ extern "C" {
 #define PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT	"endpoint-link.output.endpoint"	/**< output endpoint of link */
 #define PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM	"endpoint-link.output.stream"	/**< output stream of link */
 #define PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT	"endpoint-link.input.endpoint"	/**< input endpoint of link */
-#define PW_KEY_ENDPOINT_LINK_INPUT_STREAM	"endpoint-link.inut.stream"	/**< input stream of link */
+#define PW_KEY_ENDPOINT_LINK_INPUT_STREAM	"endpoint-link.input.stream"	/**< input stream of link */
 
 #ifdef __cplusplus
 }

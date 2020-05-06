@@ -145,14 +145,8 @@ static int clear_subjects(struct metadata *this, uint32_t subject)
 static void clear_items(struct metadata *this)
 {
 	struct item *item;
-
-	while (true) {
-		item = pw_array_first(&this->metadata);
-		if (!pw_array_check(&this->metadata, item))
-			break;
-
+	pw_array_consume(item, &this->metadata)
 		clear_subjects(this, item->subject);
-	}
 	pw_array_reset(&this->metadata);
 }
 

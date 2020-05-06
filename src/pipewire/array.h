@@ -69,6 +69,11 @@ struct pw_array {
 	     pw_array_check(array, pos);				\
 	     (pos)++)
 
+#define pw_array_consume(pos, array)					\
+	for (pos = (__typeof__(pos)) pw_array_first(array);		\
+	     pw_array_check(array, pos);				\
+	     pos = (__typeof__(pos)) pw_array_first(array))
+
 #define pw_array_remove(a,p)						\
 ({									\
 	(a)->size -= sizeof(*(p));					\

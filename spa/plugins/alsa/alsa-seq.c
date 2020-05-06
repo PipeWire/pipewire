@@ -43,7 +43,7 @@
 
 #define CHECK(s,msg) if ((res = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(res)); return res; }
 
-static int seq_open(struct seq_state *state, struct seq_conn *conn)
+static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_queue)
 {
 	struct props *props = &state->props;
 	struct pollfd pfd;
@@ -68,11 +68,15 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
 	conn->addr.client = res;
 
 	/* queue */
-	if ((res = snd_seq_alloc_queue(conn->hndl)) < 0) {
-		spa_log_error(state->log, "failed to create queue: %d", res);
-		goto error_exit_close;
+	if (with_queue) {
+		if ((res = snd_seq_alloc_queue(conn->hndl)) < 0) {
+			spa_log_error(state->log, "failed to create queue: %d", res);
+			goto error_exit_close;
+		}
+		conn->queue_id = res;
+	} else {
+		conn->queue_id = -1;
 	}
-	conn->queue_id = res;
 
 	if ((res = snd_seq_nonblock(conn->hndl, 1)) < 0)
 		spa_log_warn(state->log, "can't set nonblock mode: %s", snd_strerror(res));
@@ -86,7 +90,8 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn)
         /* Enable timestamping for events sent by external subscribers. */
         snd_seq_port_info_set_timestamping(pinfo, 1);
         snd_seq_port_info_set_timestamp_real(pinfo, 1);
-        snd_seq_port_info_set_timestamp_queue(pinfo, conn->queue_id);
+	if (with_queue)
+	        snd_seq_port_info_set_timestamp_queue(pinfo, conn->queue_id);
 
         if ((res = snd_seq_create_port(conn->hndl, pinfo)) < 0) {
 		spa_log_error(state->log, "failed to create port: %s", snd_strerror(res));
@@ -115,28 +120,6 @@ static int seq_close(struct seq_state *state, struct seq_conn *conn)
 	if ((res = snd_seq_close(conn->hndl)) < 0) {
 		spa_log_warn(state->log, "close failed: %s", snd_strerror(res));
 	}
-	return res;
-}
-
-static int seq_start(struct seq_state *state, struct seq_conn *conn)
-{
-	int res;
-	if ((res = snd_seq_start_queue(conn->hndl, conn->queue_id, NULL)) < 0) {
-		spa_log_warn(state->log, "failed to start queue: %s", snd_strerror(res));
-	}
-	while (snd_seq_drain_output(conn->hndl) > 0)
-		sleep(1);
-	return res;
-}
-
-static int seq_stop(struct seq_state *state, struct seq_conn *conn)
-{
-	int res;
-	if ((res = snd_seq_stop_queue(conn->hndl, conn->queue_id, NULL)) < 0) {
-		spa_log_warn(state->log, "failed to stop queue: %s", snd_strerror(res));
-	}
-	while (snd_seq_drain_output(conn->hndl) > 0)
-		sleep(1);
 	return res;
 }
 
@@ -183,6 +166,9 @@ static void init_ports(struct seq_state *state)
 
 static void debug_event(struct seq_state *state, snd_seq_event_t *ev)
 {
+	if (SPA_LIKELY(!spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE)))
+		return;
+
 	spa_log_trace(state->log, "event type:%d flags:0x%x", ev->type, ev->flags);
 	switch (ev->flags & SND_SEQ_TIME_STAMP_MASK) {
 	case SND_SEQ_TIME_STAMP_TICK:
@@ -208,7 +194,7 @@ static void alsa_seq_on_sys(struct spa_source *source)
 	snd_seq_event_t *ev;
 	int res;
 
-	while (snd_seq_event_input (state->sys.hndl, &ev) > 0) {
+	while (snd_seq_event_input(state->sys.hndl, &ev) > 0) {
 		const snd_seq_addr_t *addr = &ev->data.addr;
 
 		if (addr->client == state->event.addr.client)
@@ -219,9 +205,10 @@ static void alsa_seq_on_sys(struct spa_source *source)
 		switch (ev->type) {
 		case SND_SEQ_EVENT_CLIENT_START:
 		case SND_SEQ_EVENT_CLIENT_CHANGE:
-			spa_log_debug(state->log, "client add/change %d", addr->client);
+			spa_log_info(state->log, "client add/change %d", addr->client);
 			break;
 		case SND_SEQ_EVENT_CLIENT_EXIT:
+			spa_log_info(state->log, "client exit %d", addr->client);
 			break;
 
 		case SND_SEQ_EVENT_PORT_START:
@@ -236,14 +223,14 @@ static void alsa_seq_on_sys(struct spa_source *source)
 				spa_log_warn(state->log, "can't get port info %d.%d: %s",
 						addr->client, addr->port, snd_strerror(res));
 			} else {
-				spa_log_debug(state->log, "port add/change %d:%d",
+				spa_log_info(state->log, "port add/change %d:%d",
 						addr->client, addr->port);
 				state->port_info(state->port_info_data, addr, info);
 			}
 			break;
 		}
 		case SND_SEQ_EVENT_PORT_EXIT:
-			spa_log_debug(state->log, "port_event: del %d:%d",
+			spa_log_info(state->log, "port_event: del %d:%d",
 					addr->client, addr->port);
 			state->port_info(state->port_info_data, addr, NULL);
 			break;
@@ -265,12 +252,12 @@ int spa_alsa_seq_open(struct seq_state *state)
 	init_stream(state, SPA_DIRECTION_INPUT);
 	init_stream(state, SPA_DIRECTION_OUTPUT);
 
-	if ((res = seq_open(state, &state->sys)) < 0)
+	if ((res = seq_open(state, &state->sys, false)) < 0)
 		return res;
 
 	snd_seq_set_client_name(state->sys.hndl, "PipeWire-System");
 
-	if ((res = seq_open(state, &state->event)) < 0)
+	if ((res = seq_open(state, &state->event, true)) < 0)
 		goto error_close_sys;
 
 	snd_seq_set_client_name(state->event.hndl, "PipeWire-RT-Event");
@@ -281,9 +268,6 @@ int spa_alsa_seq_open(struct seq_state *state)
 	addr.port = SND_SEQ_PORT_SYSTEM_ANNOUNCE;
 	snd_seq_port_subscribe_set_sender(sub, &addr);
 	snd_seq_port_subscribe_set_dest(sub, &state->sys.addr);
-	snd_seq_port_subscribe_set_queue(sub, state->sys.queue_id);
-	snd_seq_port_subscribe_set_time_update(sub, 1);
-	snd_seq_port_subscribe_set_time_real(sub, 1);
 	if ((res = snd_seq_subscribe_port(state->sys.hndl, sub)) < 0) {
 		spa_log_warn(state->log, "failed to connect announce port: %s", snd_strerror(res));
 	}
@@ -299,9 +283,7 @@ int spa_alsa_seq_open(struct seq_state *state)
 	state->sys.source.data = state;
 	spa_loop_add_source(state->main_loop, &state->sys.source);
 
-	seq_start(state, &state->sys);
-
-	/* increase queue timer resolution */
+	/* increase event queue timer resolution */
 	snd_seq_queue_timer_alloca(&timer);
 	if ((res = snd_seq_get_queue_timer(state->event.hndl, state->event.queue_id, timer)) < 0) {
 		spa_log_warn(state->log, "failed to get queue timer: %s", snd_strerror(res));
@@ -337,7 +319,6 @@ int spa_alsa_seq_close(struct seq_state *state)
 	if (!state->opened)
 		return 0;
 
-	seq_stop(state, &state->sys);
 	spa_loop_remove_source(state->main_loop, &state->sys.source);
 
 	seq_close(state, &state->sys);
@@ -407,13 +388,17 @@ int spa_alsa_seq_activate_port(struct seq_state *state, struct seq_port *port, b
 				port->addr.client, port->addr.port, snd_strerror(res));
 			active = false;
 		}
-		spa_log_info(state->log, "subscribe: %d.%d", port->addr.client, port->addr.port);
+		spa_log_info(state->log, "subscribe: %s port %d.%d",
+				port->direction == SPA_DIRECTION_OUTPUT ? "output" : "input",
+				port->addr.client, port->addr.port);
 	} else {
 		if ((res = snd_seq_unsubscribe_port(state->event.hndl, sub)) < 0) {
 			spa_log_warn(state->log, "can't unsubscribe from %d:%d - %s",
 				port->addr.client, port->addr.port, snd_strerror(res));
 		}
-		spa_log_info(state->log, "unsubscribe: %d.%d", port->addr.client, port->addr.port);
+		spa_log_info(state->log, "unsubscribe: %s port %d.%d",
+				port->direction == SPA_DIRECTION_OUTPUT ? "output" : "input",
+				port->addr.client, port->addr.port);
 	}
 	port->active = active;
 	return res;
@@ -860,8 +845,12 @@ int spa_alsa_seq_start(struct seq_state *state)
 
 	spa_log_debug(state->log, "alsa %p: start follower:%d", state, state->following);
 
-	if ((res = seq_start(state, &state->event)) < 0)
+	if ((res = snd_seq_start_queue(state->event.hndl, state->event.queue_id, NULL)) < 0) {
+		spa_log_error(state->log, "failed to start queue: %s", snd_strerror(res));
 		return res;
+	}
+	while (snd_seq_drain_output(state->event.hndl) > 0)
+		sleep(1);
 
 	if (state->position) {
 		struct spa_io_clock *clock = &state->position->clock;
@@ -934,6 +923,8 @@ static int do_remove_source(struct spa_loop *loop,
 
 int spa_alsa_seq_pause(struct seq_state *state)
 {
+	int res;
+
 	if (!state->started)
 		return 0;
 
@@ -941,7 +932,11 @@ int spa_alsa_seq_pause(struct seq_state *state)
 
 	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
 
-	seq_stop(state, &state->event);
+	if ((res = snd_seq_stop_queue(state->event.hndl, state->event.queue_id, NULL)) < 0) {
+		spa_log_warn(state->log, "failed to stop queue: %s", snd_strerror(res));
+	}
+	while (snd_seq_drain_output(state->event.hndl) > 0)
+		sleep(1);
 
 	state->started = false;
 

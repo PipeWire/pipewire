@@ -146,9 +146,13 @@ static void clear_items(struct metadata *this)
 {
 	struct item *item;
 
-	pw_array_for_each(item, &this->metadata)
-		clear_item(item);
+	while (true) {
+		item = pw_array_first(&this->metadata);
+		if (!pw_array_check(&this->metadata, item))
+			break;
 
+		clear_subjects(this, item->subject);
+	}
 	pw_array_reset(&this->metadata);
 }
 
@@ -160,6 +164,8 @@ static int impl_set_property(void *object,
 {
 	struct metadata *this = object;
 	struct item *item = NULL;
+
+	pw_log_debug(NAME" %p: id:%d key:%s type:%s value:%s", this, subject, key, type, value);
 
 	if (key == NULL)
 		return clear_subjects(this, subject);

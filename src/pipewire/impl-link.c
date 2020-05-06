@@ -1231,6 +1231,9 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 		pw_global_destroy(link->global);
 	}
 
+	if (link->prepared)
+		pw_context_recalc_graph(link->context, "link destroy");
+
 	pw_log_debug(NAME" %p: free", impl);
 	pw_impl_link_emit_free(link);
 

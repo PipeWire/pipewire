@@ -398,10 +398,13 @@ do {											\
 	case 'T':									\
 	case 'O':									\
 	case 'V':									\
-		*va_arg(args, const struct spa_pod**) =					\
-			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)		\
+	{										\
+		const struct spa_pod **d = va_arg(args, const struct spa_pod**);	\
+		if (d)									\
+			*d = (pod == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)	\
 				? NULL : pod);						\
 		break;									\
+	}										\
 	default:									\
 		break;									\
 	}										\

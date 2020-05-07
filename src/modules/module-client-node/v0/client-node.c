@@ -267,12 +267,13 @@ static int impl_node_enum_params(void *object, int seq,
 	struct spa_pod_builder b = { 0 };
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	bool found = false;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	result.id = id;
-	result.next = start;
+	result.next = 0;
 
 	while (true) {
 		struct spa_pod *param;
@@ -286,6 +287,11 @@ static int impl_node_enum_params(void *object, int seq,
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
+		found = true;
+
+		if (result.index < start)
+			continue;
+
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
 			continue;
@@ -296,7 +302,7 @@ static int impl_node_enum_params(void *object, int seq,
 		if (++count == num)
 			break;
 	}
-	return 0;
+	return found ? 0 : -ENOENT;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -559,6 +565,7 @@ impl_node_port_enum_params(void *object, int seq,
 	struct spa_pod_builder b = { 0 };
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	bool found = false;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -570,7 +577,7 @@ impl_node_port_enum_params(void *object, int seq,
 			direction, port_id, id, start, num);
 
 	result.id = id;
-	result.next = start;
+	result.next = 0;
 
 	while (true) {
 		struct spa_pod *param;
@@ -584,6 +591,11 @@ impl_node_port_enum_params(void *object, int seq,
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
+		found = true;
+
+		if (result.index < start)
+			continue;
+
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 			continue;
@@ -594,7 +606,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (++count == num)
 			break;
 	}
-	return 0;
+	return found ? 0 : -ENOENT;
 }
 
 static int

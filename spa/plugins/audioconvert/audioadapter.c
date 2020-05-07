@@ -212,6 +212,8 @@ static int debug_params(struct impl *this, struct spa_node *node,
         spa_log_error(this->log, "params %s: %d:%d (%s) %s",
 			spa_debug_type_find_name(spa_type_param, id),
 			direction, port_id, debug, spa_strerror(err));
+	if (err == -EBUSY)
+		return 0;
 
         state = 0;
         while (true) {

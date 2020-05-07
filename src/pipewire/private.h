@@ -807,6 +807,7 @@ struct pw_proxy {
 					  *  be removed from server */
 	unsigned int removed:1;		/**< proxy was removed from server */
 	unsigned int destroyed:1;	/**< proxy was destroyed by client */
+	unsigned int in_map:1;		/**< proxy is in core object map */
 
 	struct spa_hook_list listener_list;
 	struct spa_hook_list object_listener_list;

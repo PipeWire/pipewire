@@ -64,6 +64,7 @@ int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version)
 				type, version);
 		goto error_clean;
 	}
+	proxy->in_map = true;
 	return 0;
 
 error_clean:
@@ -209,6 +210,15 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 	spa_hook_list_append(&proxy->object_listener_list, listener, funcs, data);
 }
 
+static inline void remove_from_map(struct pw_proxy *proxy)
+{
+	if (proxy->in_map) {
+		if (proxy->core)
+			pw_map_remove(&proxy->core->objects, proxy->id);
+		proxy->in_map = false;
+	}
+}
+
 /** Destroy a proxy object
  *
  * \param proxy Proxy object to destroy
@@ -236,10 +246,8 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 			proxy->removed = true;
 		}
 	}
-	if (proxy->removed) {
-		if (proxy->core)
-			pw_map_remove(&proxy->core->objects, proxy->id);
-	}
+	if (proxy->removed)
+		remove_from_map(proxy);
 
 	if (!proxy->zombie) {
 		/* mark zombie and emit destroyed. No more
@@ -267,10 +275,9 @@ void pw_proxy_remove(struct pw_proxy *proxy)
 		if (!proxy->destroyed)
 			pw_proxy_emit_removed(proxy);
 	}
-	if (proxy->destroyed) {
-		proxy->destroyed = false;
-		pw_proxy_destroy(proxy);
-	}
+	if (proxy->destroyed)
+		remove_from_map(proxy);
+
 	pw_proxy_unref(proxy);
 }
 

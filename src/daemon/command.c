@@ -126,6 +126,11 @@ static struct pw_command *parse_command_set_prop(struct pw_properties *propertie
 	pw_log_debug("set property: '%s' = '%s'", this->args[1], this->args[2]);
 	pw_properties_set(properties, this->args[1], this->args[2]);
 
+	if (strcmp(this->args[1], SPA_KEY_LOG_LEVEL) == 0) {
+		pw_log_set_level(atoi(this->args[2]));
+		setenv("PIPEWIRE_DEBUG", this->args[2], 1);
+	}
+
 	return this;
 
 error_arguments:

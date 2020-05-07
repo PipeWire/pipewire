@@ -7,6 +7,7 @@
 #set-prop link.max-buffers		64
 set-prop link.max-buffers		16		# version < 3 clients can't handle more
 #set-prop mem.allow-mlock		true
+#set-prop log.level			2
 
 ## Properties for the DSP configuration
 #

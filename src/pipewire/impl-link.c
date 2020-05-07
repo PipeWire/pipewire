@@ -163,6 +163,7 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 
 static int do_negotiate(struct pw_impl_link *this)
 {
+	struct pw_context *context = this->context;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = -EIO, res2;
 	struct spa_pod *format = NULL, *current;
@@ -194,10 +195,17 @@ static int do_negotiate(struct pw_impl_link *this)
 	output = this->output;
 
 	/* find a common format for the ports */
-	if ((res = pw_context_find_format(this->context,
+	if ((res = pw_context_find_format(context,
 					output, input, NULL, 0, NULL,
-					&format, &b, &error)) < 0)
+					&format, &b, &error)) < 0) {
+		pw_context_debug_port_params(context, input->node->node, input->direction,
+				input->port_id, SPA_PARAM_EnumFormat,
+				"input format", res);
+		pw_context_debug_port_params(context, output->node->node, output->direction,
+				output->port_id, SPA_PARAM_EnumFormat,
+				"output format", res);
 		goto error;
+	}
 
 	format = spa_pod_copy(format);
 	spa_pod_fixate(format);
@@ -227,11 +235,9 @@ static int do_negotiate(struct pw_impl_link *this)
 		}
 		if (current == NULL || spa_pod_compare(current, format) != 0) {
 			pw_log_debug(NAME" %p: output format change, renegotiate", this);
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
-				if (current)
-					spa_debug_pod(2, NULL, current);
-				spa_debug_pod(2, NULL, format);
-			}
+			if (current)
+				pw_log_pod(SPA_LOG_LEVEL_DEBUG, current);
+			pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
 			pw_impl_node_set_state(output->node, PW_NODE_STATE_SUSPENDED);
 			out_state = PW_IMPL_PORT_STATE_CONFIGURE;
 		}
@@ -263,11 +269,9 @@ static int do_negotiate(struct pw_impl_link *this)
 		}
 		if (current == NULL || spa_pod_compare(current, format) != 0) {
 			pw_log_debug(NAME" %p: input format change, renegotiate", this);
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG)) {
-				if (current)
-					spa_debug_pod(2, NULL, current);
-				spa_debug_pod(2, NULL, format);
-			}
+			if (current)
+				pw_log_pod(SPA_LOG_LEVEL_DEBUG, current);
+			pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
 			pw_impl_node_set_state(input->node, PW_NODE_STATE_SUSPENDED);
 			in_state = PW_IMPL_PORT_STATE_CONFIGURE;
 		}
@@ -278,8 +282,7 @@ static int do_negotiate(struct pw_impl_link *this)
 	}
 
 	pw_log_debug(NAME" %p: doing set format %p", this, format);
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_format(2, NULL, format);
+	pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
 
 	SPA_POD_OBJECT_ID(format) = SPA_PARAM_Format;
 

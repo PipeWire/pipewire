@@ -45,7 +45,7 @@ struct ucred {
 #endif
 
 #ifndef spa_debug
-#define spa_debug pw_log_trace
+#define spa_debug(...) pw_log_trace(__VA_ARGS__)
 #endif
 
 struct defaults {
@@ -983,6 +983,10 @@ pw_context_find_port(struct pw_context *context,
 		  struct spa_pod **format_filters,
 		  char **error);
 
+int pw_context_debug_port_params(struct pw_context *context,
+		struct spa_node *node, enum spa_direction direction,
+		uint32_t port_id, uint32_t id, const char *debug, int err);
+
 const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, const char *type);
 
 int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version);
@@ -1086,6 +1090,19 @@ int pw_control_remove_link(struct pw_control_link *link);
 void pw_control_destroy(struct pw_control *control);
 
 void pw_proxy_unref(struct pw_proxy *proxy);
+
+#define PW_LOG_OBJECT_POD	(1<<0)
+void pw_log_log_object(enum spa_log_level level, const char *file, int line,
+	   const char *func, uint32_t flags, const void *object);
+
+#define pw_log_object(lev,fl,obj)						\
+({										\
+	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))				\
+		pw_log_log_object(lev,__FILE__,__LINE__,__func__,(fl),(obj));	\
+})
+
+#define pw_log_pod(lev,pod) pw_log_object(lev,PW_LOG_OBJECT_POD,pod)
+#define pw_log_format(lev,pod) pw_log_object(lev,PW_LOG_OBJECT_POD,pod)
 
 /** \endcond */
 

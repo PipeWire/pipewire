@@ -616,8 +616,8 @@ static int impl_port_set_param(void *object,
 	pw_log_debug(NAME" %p: param id %d (%s) changed: %p", impl, id,
 			spa_debug_type_find_name(spa_type_param, id), param);
 
-	if (param && pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, param);
+	if (param)
+		pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);
 
 	if ((res = update_params(impl, id, &param, param ? 1 : 0)) < 0)
 		return res;

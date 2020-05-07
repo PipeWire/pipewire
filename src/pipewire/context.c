@@ -587,6 +587,37 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 	return best;
 }
 
+int pw_context_debug_port_params(struct pw_context *this,
+		struct spa_node *node, enum spa_direction direction,
+		uint32_t port_id, uint32_t id, const char *debug, int err)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[4096];
+	uint32_t state;
+	struct spa_pod *param;
+	int res;
+
+	pw_log_error("params %s: %d:%d (%s) %s",
+			spa_debug_type_find_name(spa_type_param, id),
+			direction, port_id, debug, spa_strerror(err));
+
+        state = 0;
+        while (true) {
+                spa_pod_builder_init(&b, buffer, sizeof(buffer));
+                res = spa_node_port_enum_params_sync(node,
+                                       direction, port_id,
+                                       id, &state,
+                                       NULL, &param, &b);
+                if (res != 1) {
+			if (res < 0)
+				pw_log_error("  error: %s", spa_strerror(res));
+                        break;
+		}
+                pw_log_pod(SPA_LOG_LEVEL_ERROR, param);
+        }
+        return 0;
+}
+
 /** Find a common format between two ports
  *
  * \param context a context object
@@ -647,8 +678,7 @@ int pw_context_find_format(struct pw_context *context,
 			goto error;
 		}
 		pw_log_debug(NAME" %p: Got output format:", context);
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, NULL, filter);
+		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
@@ -674,8 +704,7 @@ int pw_context_find_format(struct pw_context *context,
 			goto error;
 		}
 		pw_log_debug(NAME" %p: Got input format:", context);
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, NULL, filter);
+		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
 						     output->direction, output->port_id,
@@ -707,8 +736,7 @@ int pw_context_find_format(struct pw_context *context,
 			goto error;
 		}
 		pw_log_debug(NAME" %p: enum output %d with filter: %p", context, oidx, filter);
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, NULL, filter);
+		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
 						     output->direction, output->port_id,
@@ -723,18 +751,16 @@ int pw_context_find_format(struct pw_context *context,
 		}
 
 		pw_log_debug(NAME" %p: Got filtered:", context);
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_format(2, NULL, *format);
+		pw_log_format(SPA_LOG_LEVEL_DEBUG, *format);
 	} else {
 		res = -EBADF;
 		*error = spa_aprintf("error bad node state");
 		goto error;
 	}
 	return res;
-
 error:
 	if (res == 0)
-		res = -ENOENT;
+		res = -EINVAL;
 	return res;
 }
 

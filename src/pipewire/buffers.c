@@ -182,8 +182,7 @@ param_filter(struct pw_buffers *this,
 				break;
 		}
 
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG) && iparam != NULL)
-			spa_debug_pod(2, NULL, iparam);
+		pw_log_pod(SPA_LOG_LEVEL_DEBUG, iparam);
 
 		for (oidx = 0;;) {
 			pw_log_debug(NAME" %p: output param %d id:%d", this, oidx, id);
@@ -195,8 +194,7 @@ param_filter(struct pw_buffers *this,
 			if (out_res < 1)
 				break;
 
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, NULL, oparam);
+			pw_log_pod(SPA_LOG_LEVEL_DEBUG, oparam);
 			num++;
 		}
 		if (out_res == -ENOENT && iparam) {
@@ -212,7 +210,11 @@ param_filter(struct pw_buffers *this,
 	if (num == 0) {
 		if (out_res == -ENOENT && in_res == -ENOENT)
 			return 0;
-		return in_res < 0 ? in_res : out_res < 0 ? out_res : -EINVAL;
+		if (in_res < 0)
+			return in_res;
+		if (out_res < 0)
+			return out_res;
+		return -EINVAL;
 	}
 	return num;
 }
@@ -250,8 +252,15 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	int res;
 
 	res = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
-	if (res < 0)
+	if (res < 0) {
+		pw_context_debug_port_params(context, input.node, input.direction,
+				input.port_id, SPA_PARAM_Buffers,
+				"input param", res);
+		pw_context_debug_port_params(context, output.node, output.direction,
+				output.port_id, SPA_PARAM_Buffers,
+				"output param", res);
 		return res;
+	}
 	n_params = res;
 	if ((res = param_filter(result, &input, &output, SPA_PARAM_Meta, &b)) > 0)
 		n_params += res;
@@ -261,8 +270,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		params[i] = SPA_MEMBER(buffer, offset, struct spa_pod);
 		spa_pod_fixate(params[i]);
 		pw_log_debug(NAME" %p: fixated param %d:", result, i);
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(2, NULL, params[i]);
+		pw_log_pod(SPA_LOG_LEVEL_DEBUG, params[i]);
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 	}
 

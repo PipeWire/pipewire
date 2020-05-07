@@ -106,7 +106,7 @@ impl_log_logv(void *object,
 			now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000);
 
 	}
-	if (impl->line) {
+	if (impl->line && line != 0) {
 		size += snprintf(p + size, len - size, "[%s:%i %s()]",
 			strrchr(file, '/') + 1, line, func);
 	}

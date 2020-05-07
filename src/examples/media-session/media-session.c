@@ -438,7 +438,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			case SPA_PARAM_PropInfo:
 			case SPA_PARAM_Props:
 			case SPA_PARAM_EnumFormat:
-				subscribe[n_subscribe++] = info->params[i].id;
+				if (info->params[i].flags & SPA_PARAM_INFO_READ)
+					subscribe[n_subscribe++] = info->params[i].id;
 				break;
 			default:
 				break;

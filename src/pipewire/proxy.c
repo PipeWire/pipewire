@@ -230,7 +230,7 @@ static inline void remove_from_map(struct pw_proxy *proxy)
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
-	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u ref:%u", proxy,
+	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u ref:%d", proxy,
 			proxy->id, proxy->removed, proxy->zombie, proxy->refcount);
 
 	assert(!proxy->destroyed);
@@ -264,10 +264,13 @@ void pw_proxy_remove(struct pw_proxy *proxy)
 {
 	assert(proxy->refcount > 0);
 
-	pw_log_debug(NAME" %p: remove id:%u removed:%u destroyed:%u zombie:%u", proxy,
-			proxy->id, proxy->removed, proxy->destroyed, proxy->zombie);
+	pw_log_debug(NAME" %p: remove id:%u removed:%u destroyed:%u zombie:%u ref:%d", proxy,
+			proxy->id, proxy->removed, proxy->destroyed, proxy->zombie,
+			proxy->refcount);
 
-	proxy->refcount++;
+	if (!proxy->destroyed)
+		proxy->refcount++;
+
 	if (!proxy->removed) {
 		/* mark removed and emit the removed signal only once and
 		 * only when not already destroyed */

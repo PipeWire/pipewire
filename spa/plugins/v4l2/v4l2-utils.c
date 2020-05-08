@@ -826,7 +826,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	return res;
 }
 
-static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format, bool try_only)
+static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format, uint32_t flags)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
@@ -837,6 +837,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	uint32_t video_format;
 	struct spa_rectangle *size = NULL;
 	struct spa_fraction *framerate = NULL;
+	bool match;
 
 	spa_zero(fmt);
 	spa_zero(streamparm);
@@ -891,7 +892,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
-	cmd = try_only ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
+	cmd = (flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
 	if (xioctl(dev->fd, cmd, &fmt) < 0) {
 		res = -errno;
 		spa_log_error(this->log, "VIDIOC_S_FMT: %m");
@@ -902,9 +903,11 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (xioctl(dev->fd, VIDIOC_S_PARM, &streamparm) < 0)
 		spa_log_warn(this->log, "VIDIOC_S_PARM: %m");
 
-	if (reqfmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat ||
-	    reqfmt.fmt.pix.width != fmt.fmt.pix.width ||
-	    reqfmt.fmt.pix.height != fmt.fmt.pix.height) {
+	match = (reqfmt.fmt.pix.pixelformat == fmt.fmt.pix.pixelformat &&
+			reqfmt.fmt.pix.width == fmt.fmt.pix.width &&
+			reqfmt.fmt.pix.height == fmt.fmt.pix.height);
+
+	if (!match && !SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST)) {
 		spa_log_error(this->log, "v4l2: wanted %.4s %dx%d, got %.4s %dx%d",
 				(char *)&reqfmt.fmt.pix.pixelformat,
 				reqfmt.fmt.pix.width, reqfmt.fmt.pix.height,
@@ -913,13 +916,13 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		return -EINVAL;
 	}
 
+	if (flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)
+		return match ? 0 : 1;
+
 	spa_log_info(this->log, "v4l2: got %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
-
-	if (try_only)
-		return 0;
 
 	dev->have_format = true;
 	size->width = fmt.fmt.pix.width;
@@ -935,7 +938,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		SPA_PORT_FLAG_TERMINAL;
 	port->info.rate = SPA_FRACTION(port->rate.num, port->rate.denom);
 
-	return 0;
+	return match ? 0 : 1;
 }
 
 static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *qctrl)

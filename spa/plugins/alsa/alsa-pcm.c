@@ -404,6 +404,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	struct spa_audio_info_raw *info = &fmt->info.raw;
 	snd_pcm_t *hndl;
 	unsigned int periods;
+	bool match = true;
 
 	if ((err = spa_alsa_open(state)) < 0)
 		return err;
@@ -439,10 +440,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	if (rchannels != info->channels) {
 		spa_log_warn(state->log, NAME" %p: Channels doesn't match (requested %u, get %u",
 				state, info->channels, rchannels);
-		if (flags & SPA_NODE_PARAM_FLAG_NEAREST)
-			info->channels = rchannels;
-		else
+		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
+		info->channels = rchannels;
+		match = false;
 	}
 
 	/* set the stream rate */
@@ -451,10 +452,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	if (rrate != info->rate) {
 		spa_log_warn(state->log, NAME" %p: Rate doesn't match (requested %iHz, get %iHz)",
 				state, info->rate, rrate);
-		if (flags & SPA_NODE_PARAM_FLAG_NEAREST)
-			info->rate = rrate;
-		else
+		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
+		info->rate = rrate;
+		match = false;
 	}
 
 	state->format = format;
@@ -480,7 +481,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
 
-	return 0;
+	return match ? 0 : 1;
 }
 
 static int set_swparams(struct state *state)

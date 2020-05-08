@@ -639,7 +639,7 @@ static int port_set_format(void *object,
 		port->have_format = false;
 	}
 
-	if (spa_v4l2_set_format(this, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
+	if (spa_v4l2_set_format(this, &info, flags) < 0)
 		return -EINVAL;
 
 	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {

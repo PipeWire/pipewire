@@ -168,13 +168,11 @@ do {									\
 #define PA_FAIL_RETURN_NULL(context, error)     \
     PA_FAIL_RETURN_ANY(context, error, NULL)
 
-struct pa_proplist {
-	struct pw_properties *props;
-};
 
 pa_proplist* pa_proplist_new_props(struct pw_properties *props);
 pa_proplist* pa_proplist_new_dict(struct spa_dict *dict);
 int pa_proplist_update_dict(pa_proplist *p, struct spa_dict *dict);
+int pw_properties_update_proplist(struct pw_properties *props, const pa_proplist *p);
 
 struct pa_io_event {
 	struct spa_source *source;

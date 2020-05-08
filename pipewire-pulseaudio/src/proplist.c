@@ -29,18 +29,27 @@
 #include "internal.h"
 #include "strbuf.h"
 
+struct pa_proplist {
+	struct pw_properties *props;
+};
+
+int pa_proplist_update_dict(pa_proplist *p, struct spa_dict *dict)
+{
+	const struct spa_dict_item *item;
+	spa_dict_for_each(item, dict)
+		pa_proplist_sets(p, item->key, item->value);
+	return 0;
+}
+
 pa_proplist* pa_proplist_new_dict(struct spa_dict *dict)
 {
 	pa_proplist *p;
 
-	p = calloc(1, sizeof(struct pa_proplist));
+	p = pa_proplist_new();
 	if (p == NULL)
 		return NULL;
 
-	if (dict)
-		p->props = pw_properties_new_dict(dict);
-	else
-		p->props = pw_properties_new(NULL, NULL);
+	pa_proplist_update_dict(p, dict);
 
 	return p;
 }
@@ -52,14 +61,16 @@ pa_proplist* pa_proplist_new_props(struct pw_properties *props)
 SPA_EXPORT
 pa_proplist* pa_proplist_new(void)
 {
-	return pa_proplist_new_dict(NULL);
-}
+	pa_proplist *p;
 
-int pa_proplist_update_dict(pa_proplist *p, struct spa_dict *dict)
-{
-	return pw_properties_update(p->props, dict);
-}
+	p = calloc(1, sizeof(struct pa_proplist));
+	if (p == NULL)
+		return NULL;
 
+	p->props = pw_properties_new(NULL, NULL);
+
+	return p;
+}
 
 SPA_EXPORT
 void pa_proplist_free(pa_proplist* p)
@@ -369,4 +380,26 @@ int pa_proplist_equal(PA_CONST pa_proplist *a, PA_CONST pa_proplist *b)
 			return 0;
 	}
 	return 1;
+}
+
+
+int pw_properties_update_proplist(struct pw_properties *props,
+		     const pa_proplist *p)
+{
+	void *state = NULL;
+	const char *key, *val;
+	int changed = 0;
+
+	while (true) {
+		key = pa_proplist_iterate(p, &state);
+		if (key == NULL)
+			break;
+
+		val = pa_proplist_gets(p, key);
+		if (val == NULL)
+			continue;
+
+		changed += pw_properties_set(props, key, val);
+	}
+	return changed;
 }

@@ -894,7 +894,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 		pw_properties_set(props, PA_PROP_APPLICATION_NAME, name);
 	pw_properties_set(props, PW_KEY_CLIENT_API, "pulseaudio");
 	if (p)
-		pw_properties_update(props, &p->props->dict);
+		pw_properties_update_proplist(props, p);
 
 	loop = mainloop->userdata;
 	context = pw_context_new(loop, NULL, sizeof(struct pa_context));

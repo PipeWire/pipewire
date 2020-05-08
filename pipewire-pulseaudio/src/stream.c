@@ -622,7 +622,7 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 
 	props = pw_properties_new(PW_KEY_CLIENT_API, "pulseaudio",
 				NULL);
-	pw_properties_update(props, &s->proplist->props->dict);
+	pw_properties_update_proplist(props, s->proplist);
 
 	s->refcount = 1;
 	s->context = c;

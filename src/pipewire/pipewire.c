@@ -382,19 +382,24 @@ void pw_init(int *argc, char **argv[])
 	spa_list_init(&global_registry.plugins);
 	support->registry = &global_registry;
 
-	n_items = 0;
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
-	snprintf(level, sizeof(level), "%d", pw_log_level);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
-	if ((str = getenv("PIPEWIRE_LOG")) != NULL)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, str);
-	info = SPA_DICT_INIT(items, n_items);
+	if (pw_log_is_default()) {
+		n_items = 0;
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
+		snprintf(level, sizeof(level), "%d", pw_log_level);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
+		if ((str = getenv("PIPEWIRE_LOG")) != NULL)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, str);
+		info = SPA_DICT_INIT(items, n_items);
 
-	log = add_interface(support, SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log, &info);
-	if (log)
-		pw_log_set(log);
+		log = add_interface(support, SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log, &info);
+		if (log)
+			pw_log_set(log);
+	} else {
+		support->support[support->n_support++] =
+			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
+	}
 
 	n_items = 0;
 	if ((str = getenv("PIPEWIRE_CPU")))

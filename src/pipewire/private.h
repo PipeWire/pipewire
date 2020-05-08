@@ -1104,6 +1104,8 @@ void pw_log_log_object(enum spa_log_level level, const char *file, int line,
 #define pw_log_pod(lev,pod) pw_log_object(lev,PW_LOG_OBJECT_POD,pod)
 #define pw_log_format(lev,pod) pw_log_object(lev,PW_LOG_OBJECT_POD,pod)
 
+bool pw_log_is_default(void);
+
 /** \endcond */
 
 #ifdef __cplusplus

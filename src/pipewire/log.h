@@ -43,19 +43,26 @@ extern "C" {
 /** The global log level */
 extern enum spa_log_level pw_log_level;
 
+/** Configure a logging module. This is usually done automatically
+ * in pw_init() but you can install a custom logger before calling
+ * pw_init(). */
 void pw_log_set(struct spa_log *log);
+
+/** Get the log interface */
 struct spa_log *pw_log_get(void);
 
-void
-pw_log_set_level(enum spa_log_level level);
+/** Configure the logging level */
+void pw_log_set_level(enum spa_log_level level);
 
 
+/** Log a message */
 void
 pw_log_log(enum spa_log_level level,
 	   const char *file,
 	   int line, const char *func,
 	   const char *fmt, ...) SPA_PRINTF_FUNC(5, 6);
 
+/** Log a message */
 void
 pw_log_logv(enum spa_log_level level,
 	    const char *file,

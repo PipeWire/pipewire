@@ -48,9 +48,13 @@ static struct spa_log *global_log = &default_log.log;
 SPA_EXPORT
 void pw_log_set(struct spa_log *log)
 {
-	global_log = log;
-	if (global_log)
-		global_log->level = pw_log_level;
+	global_log = log ? log : &default_log.log;
+	global_log->level = pw_log_level;
+}
+
+bool pw_log_is_default(void)
+{
+	return global_log == &default_log.log;
 }
 
 /** Get the global log interface
@@ -71,8 +75,7 @@ SPA_EXPORT
 void pw_log_set_level(enum spa_log_level level)
 {
 	pw_log_level = level;
-	if (global_log)
-		global_log->level = level;
+	global_log->level = level;
 }
 
 /** Log a message

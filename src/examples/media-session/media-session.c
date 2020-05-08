@@ -918,9 +918,10 @@ destroy_proxy(void *data)
 
 	pw_log_debug("object %p: proxy:%p id:%d", obj, obj->proxy, obj->id);
 
-	spa_hook_remove(&obj->proxy_listener);
-	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER))
+	if (SPA_FLAG_IS_SET(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER)) {
+		SPA_FLAG_CLEAR(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER);
 		spa_hook_remove(&obj->object_listener);
+	}
 
 	if (obj->id != SPA_ID_INVALID)
 		remove_object(impl, obj);
@@ -930,6 +931,14 @@ destroy_proxy(void *data)
 	if (obj->destroy)
 		obj->destroy(obj);
 
+	if (obj->proxy) {
+		spa_hook_remove(&obj->proxy_listener);
+		obj->proxy = NULL;
+	}
+	if (obj->handle) {
+		spa_hook_remove(&obj->handle_listener);
+		obj->handle = NULL;
+	}
 	if (obj->props)
 		pw_properties_free(obj->props);
 	obj->props = NULL;

@@ -902,15 +902,21 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (xioctl(dev->fd, VIDIOC_S_PARM, &streamparm) < 0)
 		spa_log_warn(this->log, "VIDIOC_S_PARM: %m");
 
+	if (reqfmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat ||
+	    reqfmt.fmt.pix.width != fmt.fmt.pix.width ||
+	    reqfmt.fmt.pix.height != fmt.fmt.pix.height) {
+		spa_log_error(this->log, "v4l2: wanted %.4s %dx%d, got %.4s %dx%d",
+				(char *)&reqfmt.fmt.pix.pixelformat,
+				reqfmt.fmt.pix.width, reqfmt.fmt.pix.height,
+				(char *)&fmt.fmt.pix.pixelformat,
+				fmt.fmt.pix.width, fmt.fmt.pix.height);
+		return -EINVAL;
+	}
+
 	spa_log_info(this->log, "v4l2: got %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
-
-	if (reqfmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat ||
-	    reqfmt.fmt.pix.width != fmt.fmt.pix.width ||
-	    reqfmt.fmt.pix.height != fmt.fmt.pix.height)
-		return -EINVAL;
 
 	if (try_only)
 		return 0;

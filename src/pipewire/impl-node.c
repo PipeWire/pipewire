@@ -1363,9 +1363,10 @@ static int node_ready(void *data, int status)
 		if (SPA_UNLIKELY(state->pending > 0)) {
 			pw_context_driver_emit_incomplete(node->context, node);
 			if (ratelimit_test(&node->rt.rate_limit, a->signal_time)) {
-				pw_log_warn("(%s-%u) graph not finished: state:%p pending %d/%d",
-					node->name, node->info.id, state, state->pending,
-					state->required);
+				pw_log_warn("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
+						" pending %d/%d", node->name, node->info.id,
+						state, a->position.clock.duration,
+						state->pending, state->required);
 				dump_states(node);
 			}
 			node->rt.target.signal(node->rt.target.data);
@@ -1449,8 +1450,10 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	a->xrun_delay = delay;
 	a->max_delay = SPA_MAX(a->max_delay, delay);
 
-	pw_log_debug(NAME" %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
-			this, a->xrun_count, trigger, delay, a->max_delay);
+	if (ratelimit_test(&this->rt.rate_limit, a->signal_time)) {
+		pw_log_error(NAME" %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
+				this, a->xrun_count, trigger, delay, a->max_delay);
+	}
 
 	pw_context_driver_emit_xrun(this->context, this);
 

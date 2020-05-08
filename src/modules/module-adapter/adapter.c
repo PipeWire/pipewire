@@ -33,6 +33,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/type-info.h>
 #include <spa/param/format.h>
@@ -171,8 +172,8 @@ static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 					SPA_DIRECTION_OUTPUT, 0,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) != 1) {
-		pw_log_warn(NAME " %p: no format given", node);
-		return -ENOENT;
+		pw_log_warn(NAME " %p: can't get format: %s", node, spa_strerror(res));
+		return res;
 	}
 
 	if ((res = spa_format_parse(format, media_type, media_subtype)) < 0)

@@ -188,7 +188,7 @@ static void *create_object(void *_data,
 					PW_SPA_NODE_FLAG_NO_REGISTER,
 					pw_properties_copy(properties), 0);
 		if (follower == NULL)
-			goto error_no_mem;
+			goto error_errno;
 	}
 
 	adapter = pw_adapter_new(pw_impl_module_get_context(d->module),
@@ -198,8 +198,8 @@ static void *create_object(void *_data,
 	properties = NULL;
 
 	if (adapter == NULL) {
-		if (errno == ENOMEM)
-			goto error_no_mem;
+		if (errno == ENOMEM || errno == EBUSY)
+			goto error_errno;
 		else
 			goto error_usage;
 	}
@@ -226,7 +226,7 @@ error_properties:
 	if (resource)
 		pw_resource_errorf_id(resource, new_id, res, "usage: " FACTORY_USAGE);
 	goto error_cleanup;
-error_no_mem:
+error_errno:
 	res = -errno;
 	pw_log_error("can't create node: %m");
 	if (resource)

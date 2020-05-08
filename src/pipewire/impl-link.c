@@ -282,8 +282,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	if (out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 		pw_log_debug(NAME" %p: doing set format on output", this);
 		if ((res = pw_impl_port_set_param(output,
-					     SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
-					     format)) < 0) {
+						SPA_PARAM_Format, 0,
+						format)) < 0) {
 			error = spa_aprintf("error set output format: %d (%s)", res, spa_strerror(res));
 			pw_log_error("tried to set output format:");
 			pw_log_pod(SPA_LOG_LEVEL_ERROR, format);
@@ -300,8 +300,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	if (in_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 		pw_log_debug(NAME" %p: doing set format on input", this);
 		if ((res2 = pw_impl_port_set_param(input,
-					      SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
-					      format)) < 0) {
+						SPA_PARAM_Format, 0,
+						format)) < 0) {
 			error = spa_aprintf("error set input format: %d (%s)", res2, spa_strerror(res2));
 			pw_log_error("tried to set input format:");
 			pw_log_pod(SPA_LOG_LEVEL_ERROR, format);

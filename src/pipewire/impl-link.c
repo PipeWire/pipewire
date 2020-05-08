@@ -197,15 +197,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	/* find a common format for the ports */
 	if ((res = pw_context_find_format(context,
 					output, input, NULL, 0, NULL,
-					&format, &b, &error)) < 0) {
-		pw_context_debug_port_params(context, input->node->node, input->direction,
-				input->port_id, SPA_PARAM_EnumFormat,
-				"input format", res);
-		pw_context_debug_port_params(context, output->node->node, output->direction,
-				output->port_id, SPA_PARAM_EnumFormat,
-				"output format", res);
+					&format, &b, &error)) < 0)
 		goto error;
-	}
 
 	format = spa_pod_copy(format);
 	spa_pod_fixate(format);
@@ -292,6 +285,8 @@ static int do_negotiate(struct pw_impl_link *this)
 					     SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					     format)) < 0) {
 			error = spa_aprintf("error set output format: %d (%s)", res, spa_strerror(res));
+			pw_log_error("tried to set output format:");
+			pw_log_pod(SPA_LOG_LEVEL_ERROR, format);
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
@@ -308,6 +303,8 @@ static int do_negotiate(struct pw_impl_link *this)
 					      SPA_PARAM_Format, SPA_NODE_PARAM_FLAG_NEAREST,
 					      format)) < 0) {
 			error = spa_aprintf("error set input format: %d (%s)", res2, spa_strerror(res2));
+			pw_log_error("tried to set input format:");
+			pw_log_pod(SPA_LOG_LEVEL_ERROR, format);
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
@@ -332,6 +329,12 @@ static int do_negotiate(struct pw_impl_link *this)
 	return res;
 
 error:
+	pw_context_debug_port_params(context, input->node->node, input->direction,
+			input->port_id, SPA_PARAM_EnumFormat,
+			"input format", res);
+	pw_context_debug_port_params(context, output->node->node, output->direction,
+			output->port_id, SPA_PARAM_EnumFormat,
+			"output format", res);
 	pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	free(format);
 	return res;

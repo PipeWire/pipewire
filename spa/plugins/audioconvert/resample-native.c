@@ -353,7 +353,7 @@ int resample_native_init(struct resample *r)
 	history_stride = SPA_ROUND_UP_N(2 * n_taps * sizeof(float), 64);
 	history_size = r->channels * history_stride;
 
-	d = malloc(sizeof(struct native_data) +
+	d = calloc(1, sizeof(struct native_data) +
 			filter_size +
 			history_size +
 			(r->channels * sizeof(float*)) +

@@ -847,7 +847,7 @@ static void process_tee(struct client *c, uint32_t frames)
 
 static inline void debug_position(struct client *c, jack_position_t *p)
 {
-	pw_log_trace("usecs:       %lu", p->usecs);
+	pw_log_trace("usecs:       %"PRIu64, p->usecs);
 	pw_log_trace("frame_rate:  %u", p->frame_rate);
 	pw_log_trace("frame:       %u", p->frame);
 	pw_log_trace("valid:       %08x", p->valid);

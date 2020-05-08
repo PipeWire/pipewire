@@ -1348,7 +1348,7 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 	queued -= SPA_MIN(queued, elapsed);
 
 	writable = s->maxblock - SPA_MIN(queued, s->maxblock);
-	pw_log_debug("stream %p: %lu", s, writable);
+	pw_log_debug("stream %p: %"PRIu64, s, writable);
 	return writable;
 }
 

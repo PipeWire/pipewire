@@ -225,7 +225,7 @@ int jack_set_property(jack_client_t*client,
 	if (type == NULL)
 		type = "";
 
-	pw_log_info("set id:%u (%lu) '%s' to '%s@%s'", id, subject, key, value, type);
+	pw_log_info("set id:%u (%"PRIu64") '%s' to '%s@%s'", id, subject, key, value, type);
 	pw_metadata_set_property(c->metadata->proxy, id, key, type, value);
 	res = 0;
 done:
@@ -334,7 +334,7 @@ int jack_remove_property (jack_client_t* client, jack_uuid_t subject, const char
 
 	id = jack_uuid_to_index(subject);
 
-	pw_log_info("remove id:%u (%lu) '%s'", id, subject, key);
+	pw_log_info("remove id:%u (%"PRIu64") '%s'", id, subject, key);
 	pw_metadata_set_property(c->metadata->proxy,
 			id, key, NULL, NULL);
 	res = 0;
@@ -359,7 +359,7 @@ int jack_remove_properties (jack_client_t* client, jack_uuid_t subject)
 
 	id = jack_uuid_to_index(subject);
 
-	pw_log_info("remove id:%u (%lu)", id, subject);
+	pw_log_info("remove id:%u (%"PRIu64")", id, subject);
 	pw_metadata_set_property(c->metadata->proxy,
 			id, NULL, NULL, NULL);
 	res = 0;

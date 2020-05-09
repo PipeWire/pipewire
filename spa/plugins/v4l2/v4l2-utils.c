@@ -1221,7 +1221,7 @@ static int mmap_read(struct impl *this)
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 	d[0].chunk->flags = 0;
 	if (buf.flags & V4L2_BUF_FLAG_ERROR)
-		d[0].flags |= SPA_CHUNK_FLAG_CORRUPTED;
+		d[0].chunk->flags |= SPA_CHUNK_FLAG_CORRUPTED;
 
 	spa_list_append(&port->queue, &b->link);
 	return 0;

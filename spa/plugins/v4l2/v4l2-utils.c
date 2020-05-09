@@ -83,7 +83,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 
 	if (xioctl(dev->fd, VIDIOC_QUERYCAP, &dev->cap) < 0) {
 		err = errno;
-		spa_log_error(dev->log, "QUERYCAP: %m");
+		spa_log_error(dev->log, "v4l2: '%s' QUERYCAP: %m", path);
 		goto error_close;
 	}
 	return 0;
@@ -135,7 +135,7 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 
 	if (xioctl(dev->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
 		err = errno;
-		spa_log_error(this->log, "VIDIOC_QBUF: %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_QBUF: %m", this->props.device);
 		return -err;
 	}
 
@@ -587,7 +587,8 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 					goto enum_end;
 
 				res = -errno;
-				spa_log_error(this->log, "VIDIOC_ENUM_FMT: %m");
+				spa_log_error(this->log, "v4l2: '%s' VIDIOC_ENUM_FMT: %m",
+						this->props.device);
 				goto exit;
 			}
 		}
@@ -632,7 +633,8 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 				goto next_fmtdesc;
 
 			res = -errno;
-			spa_log_error(this->log, "VIDIOC_ENUM_FRAMESIZES: %m");
+			spa_log_error(this->log, "v4l2: '%s' VIDIOC_ENUM_FRAMESIZES: %m",
+					this->props.device);
 			goto exit;
 		}
 		if (filter) {
@@ -722,7 +724,8 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 					goto next_frmsize;
 				break;
 			}
-			spa_log_error(this->log, "VIDIOC_ENUM_FRAMEINTERVALS: %m");
+			spa_log_error(this->log, "v4l2: '%s' VIDIOC_ENUM_FRAMEINTERVALS: %m",
+					this->props.device);
 			goto exit;
 		}
 		if (filter) {
@@ -895,7 +898,8 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	cmd = (flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
 	if (xioctl(dev->fd, cmd, &fmt) < 0) {
 		res = -errno;
-		spa_log_error(this->log, "VIDIOC_S_FMT: %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_S_FMT: %m",
+				this->props.device);
 		return res;
 	}
 
@@ -919,10 +923,11 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	if (flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)
 		return match ? 0 : 1;
 
-	spa_log_info(this->log, "v4l2: got %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
-		     fmt.fmt.pix.width, fmt.fmt.pix.height,
-		     streamparm.parm.capture.timeperframe.denominator,
-		     streamparm.parm.capture.timeperframe.numerator);
+	spa_log_info(this->log, "v4l2: '%s' got %.4s %dx%d %d/%d",
+			this->props.device, (char *)&fmt.fmt.pix.pixelformat,
+			fmt.fmt.pix.width, fmt.fmt.pix.height,
+			streamparm.parm.capture.timeperframe.denominator,
+			streamparm.parm.capture.timeperframe.numerator);
 
 	dev->have_format = true;
 	size->width = fmt.fmt.pix.width;
@@ -1064,7 +1069,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 			goto next;
 		}
 		res = -errno;
-		spa_log_error(this->log, "VIDIOC_QUERYCTRL: %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_QUERYCTRL: %m", this->props.device);
 		return res;
 	}
 	if (result.next & next_fl)
@@ -1231,7 +1236,7 @@ static void v4l2_on_fd_events(struct spa_source *source)
 
 	if (source->rmask & SPA_IO_ERR) {
 		struct port *port = &this->out_ports[0];
-		spa_log_error(this->log, "v4l2 %p: error %08x", this, source->rmask);
+		spa_log_error(this->log, "v4l2: '%p' error %08x", this->props.device, source->rmask);
 		if (port->source.loop)
 			spa_loop_remove_source(this->data_loop, &port->source);
 		return;
@@ -1292,12 +1297,13 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 	reqbuf.count = n_buffers;
 
 	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
-		spa_log_error(this->log, "v4l2: VIDIOC_REQBUFS %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_REQBUFS %m", this->props.device);
 		return -errno;
 	}
 	spa_log_debug(this->log, "v4l2: got %d buffers", reqbuf.count);
 	if (reqbuf.count < n_buffers) {
-		spa_log_error(this->log, "v4l2: can't allocate enough buffers");
+		spa_log_error(this->log, "v4l2: '%s' can't allocate enough buffers %d < %d",
+				this->props.device, reqbuf.count, n_buffers);
 		return -ENOMEM;
 	}
 
@@ -1374,7 +1380,7 @@ mmap_init(struct impl *this,
 	reqbuf.count = n_buffers;
 
 	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
-		spa_log_error(this->log, "VIDIOC_REQBUFS: %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_REQBUFS: %m", this->props.device);
 		return -errno;
 	}
 
@@ -1382,7 +1388,8 @@ mmap_init(struct impl *this,
 	n_buffers = reqbuf.count;
 
 	if (reqbuf.count < 2) {
-		spa_log_error(this->log, "v4l2: can't allocate enough buffers");
+		spa_log_error(this->log, "v4l2: '%s' can't allocate enough buffers (%d)",
+				this->props.device, reqbuf.count);
 		return -ENOMEM;
 	}
 	if (port->export_buf)
@@ -1409,7 +1416,7 @@ mmap_init(struct impl *this,
 		b->v4l2_buffer.index = i;
 
 		if (xioctl(dev->fd, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
-			spa_log_error(this->log, "VIDIOC_QUERYBUF: %m");
+			spa_log_error(this->log, "v4l2: '%s' VIDIOC_QUERYBUF: %m", this->props.device);
 			return -errno;
 		}
 
@@ -1429,7 +1436,7 @@ mmap_init(struct impl *this,
 			expbuf.index = i;
 			expbuf.flags = O_CLOEXEC | O_RDONLY;
 			if (xioctl(dev->fd, VIDIOC_EXPBUF, &expbuf) < 0) {
-				spa_log_error(this->log, "VIDIOC_EXPBUF: %m");
+				spa_log_error(this->log, "v4l2: '%s' VIDIOC_EXPBUF: %m", this->props.device);
 				continue;
 			}
 			d[0].type = SPA_DATA_DmaBuf;
@@ -1448,7 +1455,7 @@ mmap_init(struct impl *this,
 					 dev->fd,
 					 b->v4l2_buffer.m.offset);
 			if (d[0].data == MAP_FAILED) {
-				spa_log_error(this->log, "mmap: %m");
+				spa_log_error(this->log, "v4l2: '%s' mmap: %m", this->props.device);
 				continue;
 			}
 			b->ptr = d[0].data;
@@ -1516,7 +1523,7 @@ static int spa_v4l2_stream_on(struct impl *this)
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(dev->fd, VIDIOC_STREAMON, &type) < 0) {
-		spa_log_error(this->log, "VIDIOC_STREAMON: %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_STREAMON: %m", this->props.device);
 		return -errno;
 	}
 
@@ -1564,7 +1571,7 @@ static int spa_v4l2_stream_off(struct impl *this)
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(dev->fd, VIDIOC_STREAMOFF, &type) < 0) {
-		spa_log_error(this->log, "VIDIOC_STREAMOFF: %m");
+		spa_log_error(this->log, "v4l2: '%s' VIDIOC_STREAMOFF: %m", this->props.device);
 		return -errno;
 	}
 	for (i = 0; i < port->n_buffers; i++) {

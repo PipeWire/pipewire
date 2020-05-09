@@ -41,7 +41,7 @@
 
 #include "alsa-seq.h"
 
-#define CHECK(s,msg) if ((res = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(res)); return res; }
+#define CHECK(s,msg,...) if ((res = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(res)); return res; }
 
 static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_queue)
 {

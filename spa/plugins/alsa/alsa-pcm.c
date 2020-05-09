@@ -15,7 +15,7 @@
 
 #include "alsa-pcm.h"
 
-#define CHECK(s,msg) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", snd_strerror(err)); return err; }
+#define CHECK(s,msg,...) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(err)); return err; }
 
 static int spa_alsa_open(struct state *state)
 {
@@ -35,7 +35,7 @@ static int spa_alsa_open(struct state *state)
 			   state->stream,
 			   SND_PCM_NONBLOCK |
 			   SND_PCM_NO_AUTO_RESAMPLE |
-			   SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT), "open failed");
+			   SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT), "%s: open failed", props->device);
 
 	if ((err = spa_system_timerfd_create(state->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
@@ -72,7 +72,7 @@ int spa_alsa_close(struct state *state)
 		return 0;
 
 	spa_log_debug(state->log, NAME" %p: Device '%s' closing", state, state->props.device);
-	CHECK(snd_pcm_close(state->hndl), "close failed");
+	CHECK(snd_pcm_close(state->hndl), "%s: close failed", state->props.device);
 
 	spa_system_close(state->data_system, state->timerfd);
 	state->opened = false;

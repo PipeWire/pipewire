@@ -1,3 +1,38 @@
+PipeWire 0.3.5
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Compiler fixes
+- Add pw-midiplay and pw-midirecord aliases
+- Add pw-mididump tool
+- Add pw-metadata tool to inspect, add and remove metadata
+  for objects.
+- Docs updates, man pages
+- install alsa config files
+- Fix linked sink/source in pulseaudio
+- ratelimit graph processing warnings
+- improve buffer handling in GStreamer elements
+- Fix power usage by removing the queue for the alsa
+  sequencer system announce messages.
+- Fix metadata clear() method dispatch.
+- Improve parameter enumeration, make it possible to detect
+  missing parameters vs no-compatible parameters so that we
+  can use defaults in the first case and error in the second
+  case.
+- Fix cleanup of proxy objects. Stability improvements on
+  plug/unplug in session manager.
+- Make it possible to set log level from config file
+- improve debug of param negotiation errors. Log the
+  parameters to stderr/journal.
+- Make it possible to configure global logger
+  implementation.
+- Fix NEON detection
+- JACK and PulseAudio compatibility improvements
+
+
+Older versions:
+
 PipeWire 0.3.4
 
 This is a bugfix release that is API and ABI compatible
@@ -5,8 +40,6 @@ with previous 0.3.x releases.
 
 - A quick update with some important stability fixes.
 
-
-Older versions:
 
 PipeWire 0.3.3
 

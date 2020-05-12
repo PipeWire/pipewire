@@ -497,9 +497,6 @@ clear_port(struct node *this, struct port *port)
 
 	spa_log_debug(this->log, NAME" %p: clear port %p", this, port);
 
-	if (port == NULL)
-		return;
-
 	do_update_port(this, port,
 		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 		       PW_CLIENT_NODE_PORT_UPDATE_INFO, 0, NULL, NULL);
@@ -966,6 +963,8 @@ client_node_port_update(void *data,
 	port = GET_PORT(this, direction, port_id);
 
 	if (remove) {
+		if (port == NULL)
+			return 0;
 		port->destroyed = true;
 		clear_port(this, port);
 	} else {

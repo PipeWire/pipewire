@@ -88,7 +88,7 @@ struct buffer {
 
 struct impl;
 
-typedef int (*render_func_t) (struct impl *this, void *samples, size_t n_samples);
+typedef void (*render_func_t) (struct impl *this, void *samples, size_t n_samples);
 
 struct port {
 	uint64_t info_all;

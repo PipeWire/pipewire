@@ -98,11 +98,11 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 
 	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
-		return -errno;
+		return -ENOENT;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return -errno;
+		return -ENOENT;
 	}
 
 	for (i = 0;;) {
@@ -193,11 +193,11 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 
 	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
-		return -errno;
+		return -ENOENT;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return -errno;
+		return -ENOENT;
 	}
 
 	for (i = 0;;) {

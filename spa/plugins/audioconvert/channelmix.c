@@ -47,11 +47,11 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	8192
+#define DEFAULT_SAMPLES	8192
 #define MAX_BUFFERS	32
 #define MAX_DATAS	32
 
-#define MIN_CONTROL_BUFFER_SIZE	32768
+#define DEFAULT_CONTROL_BUFFER_SIZE	32768
 
 struct impl;
 
@@ -604,8 +604,8 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								MIN_CONTROL_BUFFER_SIZE,
-								MIN_CONTROL_BUFFER_SIZE,
+								DEFAULT_CONTROL_BUFFER_SIZE,
+								1024,
 								INT32_MAX),
 				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1),
 				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
@@ -615,7 +615,7 @@ impl_node_port_enum_params(void *object, int seq,
 				size = other->size / other->stride;
 			} else {
 				buffers = 1;
-				size = MAX_SAMPLES;
+				size = DEFAULT_SAMPLES;
 			}
 
 			param = spa_pod_builder_add_object(&b,

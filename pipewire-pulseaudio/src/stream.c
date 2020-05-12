@@ -807,7 +807,6 @@ uint32_t pa_stream_get_index(PA_CONST pa_stream *s)
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
-	PA_CHECK_VALIDITY_RETURN_ANY(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE, PA_INVALID_INDEX);
 
 	idx = s->stream ? pw_stream_get_node_id(s->stream) : PA_INVALID_INDEX;
 	pw_log_debug("stream %p: index %u", s, idx);

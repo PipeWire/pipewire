@@ -105,6 +105,9 @@ struct port {
 	uint32_t n_buffers;
 
 	struct spa_list queue;
+
+	struct spa_pod_sequence *ctrl;
+	uint32_t ctrl_offset;
 };
 
 struct impl {
@@ -897,106 +900,48 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static int update_control_sequence(struct spa_pod_sequence *ctrl_sequence,
-		uint32_t ctrl_size, uint32_t curr_ctrl, uint32_t curr_offset)
-{
-	struct spa_pod_control *c;
-	struct spa_pod_builder b;
-	struct spa_pod_frame f[1];
-	uint32_t i = 0;
-
-	spa_return_val_if_fail(ctrl_sequence != NULL, -EINVAL);
-	spa_return_val_if_fail(ctrl_size > 0, -EINVAL);
-	spa_return_val_if_fail(curr_offset > 0, -EINVAL);
-
-	/* copy the sequence */
-	uint8_t old[ctrl_size];
-	memcpy(old, ctrl_sequence, ctrl_size);
-
-	/* reset the current sequence */
-	spa_pod_builder_init(&b, ctrl_sequence, ctrl_size);
-	spa_pod_builder_push_sequence(&b, &f[0], 0);
-
-	/* add the remaining controls */
-	SPA_POD_SEQUENCE_FOREACH(&((struct spa_io_sequence *)old)->sequence, c) {
-		switch (c->type) {
-		case SPA_CONTROL_Properties:
-		{
-			if (i >= curr_ctrl) {
-				spa_pod_builder_control(&b,
-					i == curr_ctrl ? curr_offset : c->offset,
-					SPA_CONTROL_Properties);
-				spa_pod_builder_primitive(&b, &c->value);
-			}
-
-			i++;
-			break;
-		}
-		default:
-			break;
-		}
-	}
-
-	spa_pod_builder_pop(&b, &f[0]);
-
-	return 0;
-}
-
-static int channelmix_process_control(struct impl *this, struct buffer *cbuf,
+static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 				      uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
 				      uint32_t n_src, const void * SPA_RESTRICT src[n_src],
 				      uint32_t n_samples)
 {
-	struct spa_pod_sequence *ctrl_sequence;
-	uint32_t ctrl_size;
-	struct spa_pod_control *c;
+	struct spa_pod_control *c, *prev = NULL;
 	uint32_t avail_samples = n_samples;
-	uint32_t i, j;
+	uint32_t i;
 	const float **s = (const float **)src;
 	float **d = (float **)dst;
 
-	/* get the control sequence */
-	spa_return_val_if_fail(cbuf != NULL, -EINVAL);
-	spa_return_val_if_fail(cbuf->outbuf->n_datas == 1, -EINVAL);
-	ctrl_sequence = (struct spa_pod_sequence *)cbuf->outbuf->datas[0].data;
-	ctrl_size = cbuf->outbuf->datas[0].maxsize;
-
-	i = 0;
-	SPA_POD_SEQUENCE_FOREACH(ctrl_sequence, c) {
+	SPA_POD_SEQUENCE_FOREACH(ctrlport->ctrl, c) {
 		switch (c->type) {
 		case SPA_CONTROL_Properties:
 		{
-			/* update the sequence and return if all samples were processed */
-			if (avail_samples == 0) {
-				update_control_sequence(ctrl_sequence, ctrl_size, i, c->offset);
+			uint32_t chunk;
+
+			if (avail_samples == 0)
 				return 0;
+
+			/* ignore old control offsets */
+			if (c->offset <= ctrlport->ctrl_offset) {
+				prev = c;
+				continue;
 			}
+			if (prev)
+				apply_props(this, &prev->value);
+			prev = c;
 
-			/* apply the sequence control props */
-			apply_props(this, &c->value);
+			chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
 
-			if (c->offset > 0) {
-				/* get the minimum offset for this buffer */
-				uint32_t offset = SPA_MIN(avail_samples, c->offset);
+			spa_log_trace_fp(this->log, NAME " %p: process %d %d", this,
+					c->offset, chunk);
 
-				/* process the control sequence */
-				channelmix_process(&this->mix, n_dst, dst, n_src, src, offset);
-				for (j = 0; j < n_src; j++)
-					s[j] += offset;
-				for (j = 0; j < n_dst; j++)
-					d[j] += offset;
+			channelmix_process(&this->mix, n_dst, dst, n_src, src, chunk);
+			for (i = 0; i < n_src; i++)
+				s[i] += chunk;
+			for (i = 0; i < n_dst; i++)
+				d[i] += chunk;
 
-				/* update the sequence with the remaining offset samples */
-				if (avail_samples < c->offset) {
-					update_control_sequence(ctrl_sequence, ctrl_size, i, c->offset - avail_samples);
-					return 0;
-				}
-
-				/* decrease available samples */
-				avail_samples -= offset;
-			}
-
-			i++;
+			avail_samples -= chunk;
+			ctrlport->ctrl_offset += chunk;
 			break;
 		}
 		default:
@@ -1004,10 +949,11 @@ static int channelmix_process_control(struct impl *this, struct buffer *cbuf,
 		}
 	}
 
-	/* process the remaining samples */
+	/* when we get here we run out of control points but still have some
+	 * remaining samples */
+	spa_log_trace_fp(this->log, NAME " %p: remain %d", this, avail_samples);
 	if (avail_samples > 0)
 		channelmix_process(&this->mix, n_dst, dst, n_src, src, avail_samples);
-
 	return 1;
 }
 
@@ -1016,7 +962,8 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *outport, *inport, *ctrlport;
 	struct spa_io_buffers *outio, *inio, *ctrlio;
-	struct buffer *sbuf, *dbuf, *cbuf = NULL;
+	struct buffer *sbuf, *dbuf;
+	struct spa_pod_sequence *ctrl = NULL;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -1055,8 +1002,18 @@ static int impl_node_process(void *object)
 
 	if (ctrlio != NULL &&
 	    ctrlio->status == SPA_STATUS_HAVE_DATA &&
-	    ctrlio->buffer_id < ctrlport->n_buffers)
-		cbuf = &ctrlport->buffers[ctrlio->buffer_id];
+	    ctrlio->buffer_id < ctrlport->n_buffers) {
+		struct buffer *cbuf = &ctrlport->buffers[ctrlio->buffer_id];
+		struct spa_data *d = &cbuf->outbuf->datas[0];
+
+		ctrl = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size);
+		if (ctrl && !spa_pod_is_sequence(&ctrl->pod))
+			ctrl = NULL;
+		if (ctrl != ctrlport->ctrl) {
+			ctrlport->ctrl = ctrl;
+			ctrlport->ctrl_offset = 0;
+		}
+	}
 
 	{
 		uint32_t i, n_samples;
@@ -1067,7 +1024,7 @@ static int impl_node_process(void *object)
 		void *dst_datas[n_dst_datas];
 		bool is_passthrough;
 
-		is_passthrough = this->is_passthrough && this->mix.identity && cbuf == NULL;
+		is_passthrough = this->is_passthrough && this->mix.identity && ctrlport->ctrl == NULL;
 
 		n_samples = sb->datas[0].chunk->size / inport->stride;
 
@@ -1083,11 +1040,12 @@ static int impl_node_process(void *object)
 				this, n_src_datas, n_dst_datas, n_samples, is_passthrough);
 
 		if (!is_passthrough) {
-			if (cbuf != NULL) {
+			if (ctrlport->ctrl != NULL) {
 				/* if return value is 1, the sequence has been processed */
-				if (channelmix_process_control(this, cbuf, n_dst_datas, dst_datas,
+				if (channelmix_process_control(this, ctrlport, n_dst_datas, dst_datas,
 						n_src_datas, src_datas, n_samples) == 1) {
 					ctrlio->status = SPA_STATUS_OK;
+					ctrlport->ctrl = NULL;
 				}
 			} else {
 				channelmix_process(&this->mix, n_dst_datas, dst_datas,

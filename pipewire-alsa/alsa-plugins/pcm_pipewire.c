@@ -281,7 +281,7 @@ snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd
 	avail = SPA_MIN(maxsize, *hw_avail * bpf);
 	index = d[0].chunk->offset;
 
-	if (maxsize > *hw_avail)
+	if (avail < maxsize)
 		pw->xrun_detected = true;
 
 	do {

@@ -114,6 +114,7 @@ static void on_process(void *userdata, struct spa_io_position *position)
 		ev.data = SPA_POD_BODY(&c->value),
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
 
+		fprintf(stdout, "%4d: ", c->offset);
 		midi_file_dump_event(stdout, &ev);
 	}
 

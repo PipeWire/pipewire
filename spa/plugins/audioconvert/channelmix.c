@@ -386,6 +386,25 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	return changed;
 }
 
+static int apply_midi(struct impl *this, const struct spa_pod *value)
+{
+	const uint8_t *val = SPA_POD_BODY(value);
+	uint32_t size = SPA_POD_BODY_SIZE(value);
+	struct props *p = &this->props;
+
+	if (size < 3)
+		return -EINVAL;
+
+	if ((val[0] & 0xf0) != 0xb0 || val[1] != 7)
+		return 0;
+
+	p->volume = val[2] / 127.0;
+	if (this->mix.set_volume)
+		channelmix_set_volume(&this->mix, p->volume, p->mute,
+			p->n_channel_volumes, p->channel_volumes);
+	return 1;
+}
+
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	return -ENOTSUP;
@@ -448,7 +467,7 @@ impl_node_add_listener(void *object,
 {
 	struct impl *this = object;
 	struct spa_hook_list save;
-	struct spa_dict_item items[1];
+	struct spa_dict_item items[2];
 	uint32_t n_items = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -461,6 +480,7 @@ impl_node_add_listener(void *object,
 
 	struct port *control_port = GET_CONTROL_PORT(this, 1);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "control");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
 	control_port->info.props = &SPA_DICT_INIT(items, n_items);
 	emit_port_info(this, control_port, true);
 
@@ -916,41 +936,49 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 	float **d = (float **)dst;
 
 	SPA_POD_SEQUENCE_FOREACH(ctrlport->ctrl, c) {
+		uint32_t chunk;
+
+		if (avail_samples == 0)
+			return 0;
+
+		/* ignore old control offsets */
+		if (c->offset <= ctrlport->ctrl_offset) {
+			prev = c;
+			continue;
+		}
+
 		switch (c->type) {
+		case SPA_CONTROL_Midi:
+		{
+			if (prev)
+				apply_midi(this, &prev->value);
+			break;
+		}
 		case SPA_CONTROL_Properties:
 		{
-			uint32_t chunk;
-
-			if (avail_samples == 0)
-				return 0;
-
-			/* ignore old control offsets */
-			if (c->offset <= ctrlport->ctrl_offset) {
-				prev = c;
-				continue;
-			}
 			if (prev)
 				apply_props(this, &prev->value);
-			prev = c;
-
-			chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
-
-			spa_log_trace_fp(this->log, NAME " %p: process %d %d", this,
-					c->offset, chunk);
-
-			channelmix_process(&this->mix, n_dst, dst, n_src, src, chunk);
-			for (i = 0; i < n_src; i++)
-				s[i] += chunk;
-			for (i = 0; i < n_dst; i++)
-				d[i] += chunk;
-
-			avail_samples -= chunk;
-			ctrlport->ctrl_offset += chunk;
 			break;
 		}
 		default:
-			break;
+			continue;
 		}
+
+		chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
+
+		spa_log_trace_fp(this->log, NAME " %p: process %d %d", this,
+				c->offset, chunk);
+
+		channelmix_process(&this->mix, n_dst, dst, n_src, src, chunk);
+		for (i = 0; i < n_src; i++)
+			s[i] += chunk;
+		for (i = 0; i < n_dst; i++)
+			d[i] += chunk;
+
+		avail_samples -= chunk;
+		ctrlport->ctrl_offset += chunk;
+
+		prev = c;
 	}
 
 	/* when we get here we run out of control points but still have some

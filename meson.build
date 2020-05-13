@@ -49,7 +49,6 @@ cc = meson.get_compiler('c')
 if cc.get_id() == 'gcc'
   add_global_arguments('-fvisibility=hidden',
 			'-Wsign-compare',
-			'-Wimplicit-fallthrough',
 			'-Wpointer-arith',
 			'-Wformat',
 			'-Wformat-security',
@@ -67,7 +66,6 @@ if cc.get_id() == 'gcc'
 			language : 'c')
   add_global_arguments('-fvisibility=hidden',
 			'-Wsign-compare',
-			'-Wimplicit-fallthrough',
 			'-Wpointer-arith',
 			'-Wformat',
 			'-Wformat-security',
@@ -80,6 +78,12 @@ if cc.get_id() == 'gcc'
 			'-Wno-pedantic',
 			'-Wunused-result',
 			language : 'cpp')
+  # warn on implicit fall-through if supported by compiler (gcc >= 7.x)
+  gcc_major_version = cc.version().split('.')[0]
+  if(gcc_major_version.to_int() >= 7)
+    add_global_arguments('-Wimplicit-fallthrough', language : 'c')
+    add_global_arguments('-Wimplicit-fallthrough', language : 'cpp')
+  endif
 endif
 
 sse_args = '-msse'
@@ -281,7 +285,7 @@ epoll_shim_dep = (build_machine.system() == 'freebsd'
     : dependency('', required: false))
 
 alsa_dep = (get_option('pipewire-alsa')
-    ? dependency('alsa')
+    ? dependency('alsa', version : '>=1.1.7')
     : dependency('', required: false))
 
 subdir('spa')

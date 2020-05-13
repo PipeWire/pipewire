@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+
 #ifndef __FreeBSD__
 #include <endian.h>
 #endif

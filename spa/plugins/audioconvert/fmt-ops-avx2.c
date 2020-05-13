@@ -25,6 +25,14 @@
 #include "fmt-ops.h"
 
 #include <immintrin.h>
+// GCC: workaround for missing AVX intrinsic: "_mm256_setr_m128()"
+//      (see https://stackoverflow.com/questions/32630458/setting-m256i-to-the-value-of-two-m128i-values)
+#ifndef _mm256_setr_m128i
+#  ifndef _mm256_set_m128i
+#    define _mm256_set_m128i(v0, v1)  _mm256_insertf128_si256(_mm256_castsi128_si256(v1), (v0), 1)
+#  endif
+#  define _mm256_setr_m128i(v0, v1) _mm256_set_m128i((v1), (v0))
+#endif
 
 static void
 conv_s16_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
@@ -489,10 +497,10 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	for(n = 0; n < unrolled; n += 16) {
 		in[0] = _mm256_setr_m128i(
 				_mm256_i64gather_epi32(&s[ 0*n_channels], mask1, 4),
-				_mm256_i64gather_epi32(&s[ 0*n_channels], mask2, 4)),
+				_mm256_i64gather_epi32(&s[ 0*n_channels], mask2, 4));
 		in[1] = _mm256_setr_m128i(
 				_mm256_i64gather_epi32(&s[ 8*n_channels], mask1, 4),
-				_mm256_i64gather_epi32(&s[ 8*n_channels], mask2, 4)),
+				_mm256_i64gather_epi32(&s[ 8*n_channels], mask2, 4));
 
 		in[0] = _mm256_srai_epi32(in[0], 8);
 		in[1] = _mm256_srai_epi32(in[1], 8);

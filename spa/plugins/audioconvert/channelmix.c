@@ -497,36 +497,40 @@ static int port_enum_formats(void *object,
 			     struct spa_pod_builder *builder)
 {
 	struct impl *this = object;
-	struct port *other;
-
-	if (IS_CONTROL_PORT(this, direction, port_id)) {
-		*param = spa_pod_builder_add_object(builder,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,	   SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
-		return 1;
-	}
-
-	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
 	switch (index) {
 	case 0:
-		if (other->have_format) {
+		if (IS_CONTROL_PORT(this, direction, port_id)) {
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_Int(other->format.info.raw.rate),
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX));
+				SPA_FORMAT_mediaType,	   SPA_POD_Id(SPA_MEDIA_TYPE_application),
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		} else {
-			*param = spa_pod_builder_add_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			struct spa_pod_frame f;
+			struct port *other;
+
+			other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
+
+			spa_pod_builder_push_object(builder, &f,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+			spa_pod_builder_add(builder,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(DEFAULT_RATE, 1, INT32_MAX),
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX));
+				0);
+			if (other->have_format) {
+				spa_pod_builder_add(builder,
+					SPA_FORMAT_AUDIO_rate, SPA_POD_Int(other->format.info.raw.rate),
+					0);
+			} else {
+				spa_pod_builder_add(builder,
+					SPA_FORMAT_AUDIO_rate, SPA_POD_CHOICE_RANGE_Int(DEFAULT_RATE, 1, INT32_MAX),
+					0);
+			}
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX),
+				0);
+			*param = spa_pod_builder_pop(builder, &f);
 		}
 		break;
 	default:
@@ -954,6 +958,7 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 	spa_log_trace_fp(this->log, NAME " %p: remain %d", this, avail_samples);
 	if (avail_samples > 0)
 		channelmix_process(&this->mix, n_dst, dst, n_src, src, avail_samples);
+
 	return 1;
 }
 

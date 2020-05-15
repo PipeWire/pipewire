@@ -31,6 +31,7 @@ extern const struct spa_handle_factory spa_alsa_sink_factory;
 extern const struct spa_handle_factory spa_alsa_udev_factory;
 extern const struct spa_handle_factory spa_alsa_device_factory;
 extern const struct spa_handle_factory spa_alsa_seq_bridge_factory;
+extern const struct spa_handle_factory spa_alsa_acp_device_factory;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -53,6 +54,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		break;
 	case 4:
 		*factory = &spa_alsa_seq_bridge_factory;
+		break;
+	case 5:
+		*factory = &spa_alsa_acp_device_factory;
 		break;
 	default:
 		return 0;

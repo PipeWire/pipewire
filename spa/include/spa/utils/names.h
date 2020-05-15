@@ -98,6 +98,7 @@ extern "C" {
 									  *  playback of midi */
 #define SPA_NAME_API_ALSA_SEQ_BRIDGE	"api.alsa.seq.bridge"		/**< an alsa Node interface for
 									  *  bridging midi ports */
+#define SPA_NAME_API_ALSA_ACP_DEVICE	"api.alsa.acp.device"		/**< an alsa ACP Device interface */
 
 /** keys for bluez5 factory names */
 #define SPA_NAME_API_BLUEZ5_ENUM_DBUS	"api.bluez5.enum.dbus"		/**< a dbus Device interface */

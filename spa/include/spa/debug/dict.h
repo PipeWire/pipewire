@@ -38,9 +38,9 @@ extern "C" {
 static inline int spa_debug_dict(int indent, const struct spa_dict *dict)
 {
 	const struct spa_dict_item *item;
-	spa_debug("%*s flags:%08x n_items:%d", indent, "", dict->flags, dict->n_items);
+	spa_debug("%*sflags:%08x n_items:%d", indent, "", dict->flags, dict->n_items);
 	spa_dict_for_each(item, dict) {
-		spa_debug("%*s%s = \"%s\"", indent, "", item->key, item->value);
+		spa_debug("%*s  %s = \"%s\"", indent, "", item->key, item->value);
 	}
 	return 0;
 }

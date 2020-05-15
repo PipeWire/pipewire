@@ -188,7 +188,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	struct node *node;
 	struct impl *impl = device->impl;
 	int res;
-	const char *dev, *subdev, *stream;
+	const char *dev, *subdev, *stream, *profile;
 	int priority;
 
 	pw_log_debug("new node %u", id);
@@ -210,11 +210,15 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
 	if ((dev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_DEVICE)) == NULL)
-		dev = "0";
+		if ((dev = pw_properties_get(node->props, "alsa.device")) == NULL)
+			dev = "0";
 	if ((subdev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_SUBDEVICE)) == NULL)
-		subdev = "0";
+		if ((subdev = pw_properties_get(node->props, "alsa.subdevice")) == NULL)
+			subdev = "0";
 	if ((stream = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_STREAM)) == NULL)
 		stream = "unknown";
+	if ((profile = pw_properties_get(node->props, "device.profile.name")) == NULL)
+		profile = "unknown";
 
 	if (!strcmp(stream, "capture"))
 		node->direction = PW_DIRECTION_OUTPUT;
@@ -232,6 +236,11 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		priority += 1000;
 	priority -= atol(dev) * 16;
 	priority -= atol(subdev);
+
+	if (strstr(profile, "analog-") == profile)
+		priority += 9;
+	else if (strstr(profile, "iec958-") == profile)
+		priority += 8;
 
 	if (pw_properties_get(node->props, PW_KEY_PRIORITY_MASTER) == NULL) {
 		pw_properties_setf(node->props, PW_KEY_PRIORITY_MASTER, "%d", priority);

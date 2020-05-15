@@ -453,3 +453,6 @@
 #mesondefine PIPEWIRE_VERSION_MAJOR
 #mesondefine PIPEWIRE_VERSION_MINOR
 #mesondefine PIPEWIRE_VERSION_MICRO
+
+#mesondefine PA_ALSA_PATHS_DIR
+#mesondefine PA_ALSA_PROFILE_SETS_DIR

@@ -52,6 +52,7 @@ else
 endif
 
 spa_plugindir = join_paths(pipewire_libdir, spa_name)
+alsadatadir = join_paths('/usr', 'share', 'pulseaudio', 'alsa-mixer')
 
 pipewire_headers_dir = join_paths(pipewire_name, 'pipewire')
 
@@ -179,6 +180,8 @@ cdata.set('VERSION', '"@0@"'.format(pipewire_version))
 cdata.set('PLUGINDIR', '"@0@"'.format(spa_plugindir))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
+cdata.set_quoted('PA_ALSA_PATHS_DIR', join_paths(alsadatadir, 'paths'))
+cdata.set_quoted('PA_ALSA_PROFILE_SETS_DIR', join_paths(alsadatadir, 'profile-sets'))
 
 
 check_headers = [['dlfcn.h','HAVE_DLFCN_H'],

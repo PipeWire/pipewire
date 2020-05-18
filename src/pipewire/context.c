@@ -455,6 +455,14 @@ int pw_context_update_properties(struct pw_context *context, const struct spa_di
 	return changed;
 }
 
+static bool global_can_read(struct pw_context *context, struct pw_global *global)
+{
+	if (context->current_client &&
+	    !PW_PERM_IS_R(pw_global_get_permissions(global, context->current_client)))
+		return false;
+	return true;
+}
+
 SPA_EXPORT
 int pw_context_for_each_global(struct pw_context *context,
 			    int (*callback) (void *data, struct pw_global *global),
@@ -464,8 +472,7 @@ int pw_context_for_each_global(struct pw_context *context,
 	int res;
 
 	spa_list_for_each_safe(g, t, &context->global_list, link) {
-		if (context->current_client &&
-		    !PW_PERM_IS_R(pw_global_get_permissions(g, context->current_client)))
+		if (!global_can_read(context, g))
 			continue;
 		if ((res = callback(data, g)) != 0)
 			return res;
@@ -484,8 +491,7 @@ struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id
 		return NULL;
 	}
 
-	if (context->current_client &&
-	    !PW_PERM_IS_R(pw_global_get_permissions(global, context->current_client))) {
+	if (!global_can_read(context, global)) {
 		errno = EACCES;
 		return NULL;
 	}
@@ -528,8 +534,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 		if (other_port->node == n)
 			continue;
 
-		if (context->current_client &&
-		    !PW_PERM_IS_R(pw_global_get_permissions(n->global, context->current_client)))
+		if (!global_can_read(context, n->global))
 			continue;
 
 		pw_log_debug(NAME" %p: node id:%d", context, n->global->id);

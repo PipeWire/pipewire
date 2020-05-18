@@ -203,10 +203,11 @@ struct spa_fraction {
  * i.e. is never optimized away, regardless of NDEBUG or FASTPATH. */
 #define spa_assert_se(expr)						\
 	do {								\
-		if (SPA_UNLIKELY(!(expr)))				\
+		if (SPA_UNLIKELY(!(expr))) {				\
 			fprintf(stderr, "'%s' failed at %s:%u %s()\n",	\
 				#expr , __FILE__, __LINE__, __func__);	\
 			abort();					\
+		}							\
 	} while (false)
 
 #define spa_assert(expr)						\

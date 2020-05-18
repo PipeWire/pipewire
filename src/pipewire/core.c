@@ -258,6 +258,7 @@ struct pw_proxy *pw_core_export(struct pw_core *core,
 		res = -errno;
 		goto error_proxy_failed;
 	}
+	pw_log_debug(NAME" %p: export:%s proxy:%p", core, type, proxy);
 	return proxy;
 
 error_export_type:
@@ -376,6 +377,8 @@ pw_context_connect(struct pw_context *context, struct pw_properties *properties,
 	if (core == NULL)
 		return NULL;
 
+	pw_log_debug(NAME" %p: connect", core);
+
 	if ((res = pw_protocol_client_connect(core->conn,
 					&core->properties->dict,
 					NULL, NULL)) < 0)
@@ -400,6 +403,8 @@ pw_context_connect_fd(struct pw_context *context, int fd, struct pw_properties *
 	core = core_new(context, properties, user_data_size);
 	if (core == NULL)
 		return NULL;
+
+	pw_log_debug(NAME" %p: connect fd:%d", core, fd);
 
 	if ((res = pw_protocol_client_connect_fd(core->conn, fd, true)) < 0)
 		goto error_free;
@@ -430,12 +435,15 @@ pw_context_connect_self(struct pw_context *context, struct pw_properties *proper
 SPA_EXPORT
 int pw_core_steal_fd(struct pw_core *core)
 {
-	return pw_protocol_client_steal_fd(core->conn);
+	int fd = pw_protocol_client_steal_fd(core->conn);
+	pw_log_debug(NAME" %p: fd:%d", core, fd);
+	return fd;
 }
 
 SPA_EXPORT
 int pw_core_set_paused(struct pw_core *core, bool paused)
 {
+	pw_log_debug(NAME" %p: state:%s", core, paused ? "pause" : "resume");
 	return pw_protocol_client_set_paused(core->conn, paused);
 }
 

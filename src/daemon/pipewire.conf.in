@@ -50,6 +50,7 @@ load-module libpipewire-module-spa-node-factory
 load-module libpipewire-module-client-node
 load-module libpipewire-module-client-device
 load-module libpipewire-module-access
+load-module libpipewire-module-portal
 load-module libpipewire-module-adapter
 load-module libpipewire-module-link-factory
 load-module libpipewire-module-session-manager

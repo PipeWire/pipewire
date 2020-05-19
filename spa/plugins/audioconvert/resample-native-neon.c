@@ -80,7 +80,7 @@ static void inner_product_neon(float *d, const float * SPA_RESTRICT s,
 		"      faddp v0.4s, v0.4s, v0.4s\n"
 		"      faddp v0.2s, v0.2s, v0.2s\n"
 		"      str s0, [%[d]]\n"
-		: [d] "+X" (d), [s] "+X" (s), [taps] "+X" (taps),
+		: [d] "+r" (d), [s] "+r" (s), [taps] "+r" (taps),
 		  [n_taps] "+r" (n_taps), [remainder] "+r" (remainder)
 		:
 		: "cc", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8",
@@ -175,7 +175,7 @@ static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 		"      faddp v0.4s, v0.4s, v0.4s\n"
 		"      faddp v0.2s, v0.2s, v0.2s\n"
 		"      str s0, [%[d]]\n"
-		: [d] "+X" (d), [s] "+X" (s), [t0] "+X" (t0), [t1] "+X" (t1),
+		: [d] "+r" (d), [s] "+r" (s), [t0] "+r" (t0), [t1] "+r" (t1),
 		  [n_taps] "+r" (n_taps), [x] "+r" (x)
 		:
 		: "cc", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8",

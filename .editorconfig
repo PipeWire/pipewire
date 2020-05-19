@@ -13,3 +13,7 @@ insert_final_newline = true
 [*.build]
 indent_style = space
 indent_size = 2
+
+[*.yml]
+indent_style = space
+indent_size = 2

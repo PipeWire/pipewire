@@ -1,6 +1,7 @@
 stages:
   - container
   - build
+  - pages
 
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/pipewire'
@@ -80,3 +81,17 @@ build_on_fedora:
     - .fdo.distribution-image@fedora
     - .build
   stage: build
+
+pages:
+  stage: pages
+  dependencies:
+    - build_on_fedora
+  script:
+    - export PREFIX="$PWD/prefix-build_on_fedora"
+    - mkdir public
+    - cp -R $PREFIX/share/doc/pipewire/html/* public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - master

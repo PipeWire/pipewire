@@ -3,23 +3,22 @@ stages:
   - build
 
 variables:
-  # Update this tag when you want to trigger a rebuild
-  FDO_DISTRIBUTION_TAG: '2019-11-21-01'
-  FDO_DISTRIBUTION_VERSION: '31'
   FDO_UPSTREAM_REPO: 'pipewire/pipewire'
-  FDO_FEDORA_IMAGE: "$CI_REGISTRY_IMAGE/fedora/$FDO_DISTRIBUTION_VERSION:$FDO_DISTRIBUTION_TAG"
+
+# ci-templates as of May 1st 2020
+.templates_sha: &templates_sha 59de540b620c45739871d1a073d76d5521989d11
 
 include:
- -  project: 'wayland/ci-templates'
-    ref: master
+  - project: 'freedesktop/ci-templates'
+    ref: *templates_sha
     file: '/templates/fedora.yml'
 
-container_build:
-  extends: .fdo.container-ifnot-exists@fedora
-  stage: container
+.fedora:
   variables:
-    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
-    FEDORA_RPMS: >-
+    # Update this tag when you want to trigger a rebuild
+    FDO_DISTRIBUTION_TAG: '2020-05-19.1'
+    FDO_DISTRIBUTION_VERSION: '32'
+    FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
       bluez-libs-devel
       dbus-devel
@@ -35,7 +34,6 @@ container_build:
       libv4l-devel
       libva-devel
       libX11-devel
-      make
       meson
       pulseaudio-libs-devel
       sbc-devel
@@ -46,15 +44,39 @@ container_build:
       xmltoman
       libsndfile-devel
 
-build:
-  stage: build
-  image: $FDO_FEDORA_IMAGE
+.build:
+  before_script:
+    # setup the environment
+    - export BUILD_ID="$CI_JOB_NAME"
+    - export PREFIX="$PWD/prefix-$BUILD_ID"
+    - export BUILD_DIR="$PWD/build-$BUILD_ID"
+    - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
   script:
-     - ./autogen.sh -Ddocs=true -Daudiomixer=true -Daudiotestsrc=true -Dtest=true -Dvideotestsrc=true -Dvolume=true
-     - make
-     - XDG_RUNTIME_DIR=$PWD/build make test
-     - DESTDIR=$PWD/build/i make install
-     - PREFIX=$PWD/build/i/usr/local ./check_missing_headers.sh
+    - meson "$BUILD_DIR" . --prefix="$PREFIX"
+        -Ddocs=true -Daudiomixer=true -Daudiotestsrc=true
+        -Dtest=true -Dvideotestsrc=true -Dvolume=true
+    - ninja -C "$BUILD_DIR"
+    - ninja -C "$BUILD_DIR" test
+    - ninja -C "$BUILD_DIR" install
+    - ./check_missing_headers.sh
   artifacts:
+    name: pipewire-$CI_COMMIT_SHA
+    when: always
     paths:
-      - build/
+      - build-*/meson-logs
+      - prefix-*
+
+container_fedora:
+  extends:
+    - .fedora
+    - .fdo.container-build@fedora
+  stage: container
+  variables:
+    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
+
+build_on_fedora:
+  extends:
+    - .fedora
+    - .fdo.distribution-image@fedora
+    - .build
+  stage: build

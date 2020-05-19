@@ -22,8 +22,7 @@ doxyfile_conf.set('inputs', inputs)
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
-                          configuration: doxyfile_conf,
-                          install: false)
+                          configuration: doxyfile_conf)
 
 docdir = join_paths(pipewire_datadir, 'doc')
 

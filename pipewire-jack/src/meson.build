@@ -28,7 +28,6 @@ tools_config.set('LIBJACK_PATH', libjack_path)
 configure_file(input : 'pw-jack.in',
                output : 'pw-jack',
                configuration : tools_config,
-               install: true,
                install_dir : pipewire_bindir)
 
 pipewire_jack = shared_library('jack',

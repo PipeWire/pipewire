@@ -125,10 +125,11 @@ do_deactivate_link(struct spa_loop *loop,
 
 static void clear_link(struct node_data *data, struct link *link)
 {
-	pw_loop_invoke(data->context->data_loop,
+	struct pw_context *context = data->context;
+	pw_loop_invoke(context->data_loop,
 		do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, link);
 	pw_memmap_free(link->map);
-	close(link->signalfd);
+	spa_system_close(context->data_system, link->signalfd);
 	spa_list_remove(&link->link);
 	free(link);
 }
@@ -151,7 +152,7 @@ static void clean_transport(struct node_data *data)
 	pw_memmap_free(data->activation);
 	data->node->rt.activation = data->node->activation->map->ptr;
 
-	close(data->rtwritefd);
+	spa_system_close(data->context->data_system, data->rtwritefd);
 	data->have_transport = false;
 }
 
@@ -267,8 +268,8 @@ static int client_node_transport(void *object,
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
 
-        data->rtwritefd = writefd;
-	close(data->node->source.fd);
+	data->rtwritefd = writefd;
+	spa_system_close(data->context->data_system, data->node->source.fd);
 	data->node->source.fd = readfd;
 
 	data->have_transport = true;
@@ -792,16 +793,16 @@ error_exit:
 static int link_signal_func(void *user_data)
 {
 	struct link *link = user_data;
-	uint64_t cmd = 1;
+	struct spa_system *data_system = link->data->context->data_system;
 	struct timespec ts;
 
 	pw_log_trace("link %p: signal", link);
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	link->target.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 	link->target.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (write(link->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd))
+	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, link->signalfd, 1) < 0))
 		pw_log_warn("link %p: write failed %m", link);
 
 	return 0;
@@ -837,7 +838,7 @@ client_node_set_activation(void *object,
 	if (data->remote_id == node_id) {
 		pw_log_debug("node %p: our activation %u: %u %u %u", node, node_id,
 				memid, offset, size);
-		close(signalfd);
+		spa_system_close(data->context->data_system, signalfd);
 		return 0;
 	}
 
@@ -1082,9 +1083,9 @@ static int node_ready(void *d, int status)
 	struct node_data *data = d;
 	struct pw_impl_node *node = data->node;
 	struct pw_node_activation *a = node->rt.activation;
+	struct spa_system *data_system = data->context->data_system;
 	struct timespec ts;
 	struct pw_impl_port *p;
-	uint64_t cmd = 1;
 
 	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
@@ -1094,11 +1095,11 @@ static int node_ready(void *d, int status)
 			spa_node_process(p->mix);
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->status = PW_NODE_ACTIVATION_TRIGGERED;
 	a->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (write(data->rtwritefd, &cmd, sizeof(cmd)) != sizeof(cmd))
+	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))
 		pw_log_warn("node %p: write failed %m", node);
 
 	return 0;

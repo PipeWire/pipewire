@@ -173,7 +173,7 @@ static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) != 1) {
 		pw_log_warn(NAME " %p: can't get format: %s", node, spa_strerror(res));
-		return res;
+		return res < 0 ? res : -ENOENT;
 	}
 
 	if ((res = spa_format_parse(format, media_type, media_subtype)) < 0)

@@ -1742,7 +1742,7 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 			if (!count)
 				return 0;
 
-			*children = malloc(sizeof(*children) * count);
+			*children = malloc(sizeof(uint32_t) * count);
 			if (!*children)
 				return -1;
 		}

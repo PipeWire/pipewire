@@ -163,7 +163,7 @@ static inline int spa_debug_format(int indent,
 			rindex(spa_types[type].name, ':') + 1);
 
 		if (choice == SPA_CHOICE_None) {
-			spa_debug_format_value(ti->values, type, vals, size);
+			spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);
 		} else {
 			const char *ssep, *esep, *sep;
 
@@ -189,7 +189,7 @@ static inline int spa_debug_format(int indent,
 				vals = SPA_MEMBER(vals, size, void);
 				if (i > 1)
 					fprintf(stderr, "%s", sep);
-				spa_debug_format_value(ti->values, type, vals, size);
+				spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);
 			}
 			fprintf(stderr, "%s", esep);
 		}

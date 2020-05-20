@@ -570,7 +570,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   pw_thread_loop_lock (pwsink->loop);
   if (pw_stream_get_state (pwsink->stream, &error) != PW_STREAM_STATE_STREAMING)
-    goto done;
+    goto done_unlock;
 
   if (buffer->pool != GST_BUFFER_POOL_CAST (pwsink->pool)) {
     GstBuffer *b = NULL;
@@ -592,15 +592,15 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
     pw_thread_loop_lock (pwsink->loop);
     if (pw_stream_get_state (pwsink->stream, &error) != PW_STREAM_STATE_STREAMING)
-      goto done;
+      goto done_unlock;
   }
 
   GST_DEBUG ("push buffer");
   do_send_buffer (pwsink, buffer);
 
-done:
+done_unlock:
   pw_thread_loop_unlock (pwsink->loop);
-
+done:
   return res;
 
 not_negotiated:

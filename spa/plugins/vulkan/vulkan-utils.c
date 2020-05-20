@@ -90,11 +90,11 @@ static int vkresult_to_errno(VkResult result)
 
 #define VK_CHECK_RESULT(f)								\
 {											\
-	VkResult result = (f);								\
-	int res = -vkresult_to_errno(result);						\
-	if (result != VK_SUCCESS) {							\
-		spa_log_debug(s->log, "error: %d (%s)", result, spa_strerror(res));	\
-		return res;								\
+	VkResult _result = (f);								\
+	int _res = -vkresult_to_errno(_result);						\
+	if (_result != VK_SUCCESS) {							\
+		spa_log_debug(s->log, "error: %d (%s)", _result, spa_strerror(_res));	\
+		return _res;								\
 	}										\
 }
 

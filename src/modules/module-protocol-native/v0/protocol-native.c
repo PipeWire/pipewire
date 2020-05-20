@@ -806,17 +806,19 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 	n_items = props ? props->n_items : 0;
 
 	parent_id = 0;
-	if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
-		if ((str = spa_dict_lookup(props, "node.id")) != NULL)
-			parent_id = atoi(str);
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
-		if ((str = spa_dict_lookup(props, "device.id")) != NULL)
-			parent_id = atoi(str);
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0 ||
-	    strcmp(type, PW_TYPE_INTERFACE_Device) == 0 ||
-	    strcmp(type, PW_TYPE_INTERFACE_Factory) == 0) {
-		if ((str = spa_dict_lookup(props, "module.id")) != NULL)
-			parent_id = atoi(str);
+	if (props) {
+		if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+			if ((str = spa_dict_lookup(props, "node.id")) != NULL)
+				parent_id = atoi(str);
+		} else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+			if ((str = spa_dict_lookup(props, "device.id")) != NULL)
+				parent_id = atoi(str);
+		} else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0 ||
+		    strcmp(type, PW_TYPE_INTERFACE_Device) == 0 ||
+		    strcmp(type, PW_TYPE_INTERFACE_Factory) == 0) {
+			if ((str = spa_dict_lookup(props, "module.id")) != NULL)
+				parent_id = atoi(str);
+		}
 	}
 
 	version = 0;

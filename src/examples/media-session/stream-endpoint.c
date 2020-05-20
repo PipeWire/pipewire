@@ -490,7 +490,8 @@ static void object_update(void *data)
 	    node->obj->obj.avail & SM_OBJECT_CHANGE_MASK_PROPERTIES)
 		node->endpoint = create_endpoint(node);
 
-	if (node->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
+	if (node->endpoint &&
+	    node->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
 		update_params(node->endpoint);
 }
 

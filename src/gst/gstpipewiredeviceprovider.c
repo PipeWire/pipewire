@@ -239,11 +239,10 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
       gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
 
     klass = spa_dict_lookup (info->props, PW_KEY_MEDIA_CLASS);
+    name = spa_dict_lookup (info->props, PW_KEY_NODE_DESCRIPTION);
   }
   if (klass == NULL)
     klass = "unknown/unknown";
-
-  name = spa_dict_lookup (info->props, PW_KEY_NODE_DESCRIPTION);
   if (name == NULL)
     name = "unknown";
 

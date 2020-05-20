@@ -430,8 +430,8 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
 			if (strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
-				peer = sm_object_get_data(obj, SESSION_KEY);
-				goto do_link;
+				if ((peer = sm_object_get_data(obj, SESSION_KEY)) != NULL)
+					goto do_link;
 			}
 			else if (strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
 				node = (struct sm_node*)obj;

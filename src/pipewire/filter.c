@@ -633,10 +633,7 @@ static int impl_port_set_param(void *object,
 	if (filter->state == PW_FILTER_STATE_ERROR)
 		return -EIO;
 
-	if (port)
-		emit_port_info(impl, port, false);
-	else
-		emit_node_info(impl, false);
+	emit_port_info(impl, port, false);
 
 	return res;
 }

@@ -199,7 +199,7 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	pw_loop_destroy_source(loop->loop, loop->event);
 
-	if (loop->created && loop->loop)
+	if (loop->created)
 		pw_loop_destroy(loop->loop);
 
 	pthread_cond_destroy(&loop->accept_cond);

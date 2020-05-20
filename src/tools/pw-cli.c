@@ -1777,10 +1777,6 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 
 		}
 	}
-
-	if (!count)
-		return 0;
-
 	return count;
 }
 

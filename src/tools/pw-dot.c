@@ -246,7 +246,7 @@ static void draw_node(struct global *g)
 	struct global *p;
 	const char *prop_node_id;
 	spa_list_for_each(p, &g->data->globals, link) {
-		if (p == NULL || p->info == NULL)
+		if (p->info == NULL)
 			continue;
 		if (p->type != INTERFACE_Port)
 			continue;
@@ -407,7 +407,7 @@ static bool is_node_id_link_referenced(uint32_t id, struct spa_list *globals)
         struct global *g;
         struct pw_link_info *info;
         spa_list_for_each(g, globals, link) {
-                if (g == NULL || g->info == NULL)
+                if (g->info == NULL)
                         continue;
                 if (g->type != INTERFACE_Link)
                         continue;
@@ -424,7 +424,7 @@ static bool is_module_id_factory_referenced(uint32_t id, struct spa_list *global
         struct pw_factory_info *info;
         const char *module_id_str;
         spa_list_for_each(g, globals, link) {
-                if (g == NULL || g->info == NULL)
+                if (g->info == NULL)
                         continue;
                 if (g->type != INTERFACE_Factory)
                         continue;
@@ -461,7 +461,7 @@ static int draw_graph(struct data *d, const char *path)
 	/* iterate the globals */
 	spa_list_for_each(g, &d->globals, link) {
 		/* skip null and non-info globals */
-		if (g == NULL || g->info == NULL)
+		if (g->info == NULL)
 			continue;
 
 		/* always skip ports since they are drawn by the nodes */

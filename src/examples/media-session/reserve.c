@@ -214,9 +214,6 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 invalid:
-	if (reply)
-		dbus_message_unref(reply);
-
 	if (!(reply = dbus_message_new_error(m,
 					DBUS_ERROR_INVALID_ARGS,
 					"Invalid arguments")))

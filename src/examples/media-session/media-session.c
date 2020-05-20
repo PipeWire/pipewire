@@ -1043,9 +1043,7 @@ static struct sm_object *init_object(struct impl *impl, const struct object_info
 			pw_proxy_add_object_listener(obj->proxy, &obj->object_listener, info->events, obj);
 		SPA_FLAG_UPDATE(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER, info->events != NULL);
 	}
-	if (handle) {
-		pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
-	}
+	pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
 
 	if (info->init)
 		info->init(obj);

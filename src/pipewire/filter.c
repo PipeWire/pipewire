@@ -1449,16 +1449,18 @@ int pw_filter_set_error(struct pw_filter *filter,
 	if (res < 0) {
 		va_list args;
 		char *value;
+		int r;
 
 		va_start(args, error);
-		if (vasprintf(&value, error, args) < 0)
+		r = vasprintf(&value, error, args);
+		va_end(args);
+		if (r <  0)
 			return -errno;
 
 		if (filter->proxy)
 			pw_proxy_error(filter->proxy, res, value);
-
 		filter_set_state(filter, PW_FILTER_STATE_ERROR, value);
-		va_end(args);
+
 		free(value);
 	}
 	return res;

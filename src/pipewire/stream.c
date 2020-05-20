@@ -1597,16 +1597,18 @@ int pw_stream_set_error(struct pw_stream *stream,
 	if (res < 0) {
 		va_list args;
 		char *value;
+		int r;
 
 		va_start(args, error);
-		if (vasprintf(&value, error, args) < 0)
+		r = vasprintf(&value, error, args);
+		va_end(args);
+		if (r < 0)
 			return -errno;
 
 		if (stream->proxy)
 			pw_proxy_error(stream->proxy, res, value);
 		stream_set_state(stream, PW_STREAM_STATE_ERROR, value);
 
-		va_end(args);
 		free(value);
 	}
 	return res;
@@ -1640,7 +1642,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	struct spa_pod *pod;
 	struct control *c;
 
-        va_start(varargs, values);
+	va_start(varargs, values);
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 	while (1) {
@@ -1673,6 +1675,8 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 		values = va_arg(varargs, float *);
 	}
 	pod = spa_pod_builder_pop(&b, &f[0]);
+
+	va_end(varargs);
 
 	pw_impl_node_set_param(impl->node, SPA_PARAM_Props, 0, pod);
 

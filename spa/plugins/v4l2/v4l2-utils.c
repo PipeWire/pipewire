@@ -59,26 +59,25 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 
 	spa_log_debug(dev->log, "v4l2: Playback device is '%s'", path);
 
-	if (stat(path, &st) < 0) {
-		err = errno;
-		spa_log_error(dev->log, "v4l2: Cannot identify '%s': %d, %s",
-				path, err, strerror(err));
-		goto error;
-	}
-
-	if (!S_ISCHR(st.st_mode)) {
-		spa_log_error(dev->log, "v4l2: %s is no device", path);
-		err = ENODEV;
-		goto error;
-	}
-
 	dev->fd = open(path, O_RDWR | O_NONBLOCK, 0);
-
 	if (dev->fd == -1) {
 		err = errno;
 		spa_log_error(dev->log, "v4l2: Cannot open '%s': %d, %s",
 			      path, err, strerror(err));
 		goto error;
+	}
+
+	if (fstat(dev->fd, &st) < 0) {
+		err = errno;
+		spa_log_error(dev->log, "v4l2: Cannot identify '%s': %d, %s",
+				path, err, strerror(err));
+		goto error_close;
+	}
+
+	if (!S_ISCHR(st.st_mode)) {
+		spa_log_error(dev->log, "v4l2: %s is no device", path);
+		err = ENODEV;
+		goto error_close;
 	}
 
 	if (xioctl(dev->fd, VIDIOC_QUERYCAP, &dev->cap) < 0) {

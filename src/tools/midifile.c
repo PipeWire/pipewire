@@ -139,17 +139,15 @@ static int open_read(struct midi_file *mf, const char *filename, struct midi_fil
 	uint16_t i;
 	struct stat st;
 
-	if (stat(filename, &st) < 0) {
-		res = -errno;
-		goto exit;
-	}
-
-	mf->size = st.st_size;
-
 	if ((mf->fd = open(filename, O_RDONLY)) < 0) {
 		res = -errno;
 		goto exit;
 	}
+	if (fstat(mf->fd, &st) < 0) {
+		res = -errno;
+		goto exit_close;
+	}
+	mf->size = st.st_size;
 
 	mf->data = mmap(NULL, mf->size, PROT_READ, MAP_SHARED, mf->fd, 0);
 	if (mf->data == MAP_FAILED) {

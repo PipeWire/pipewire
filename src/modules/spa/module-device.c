@@ -95,6 +95,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				props,
 				sizeof(struct device_data));
 	if (device == NULL) {
+		props = NULL;
 		res = -errno;
 		goto error_exit_cleanup;
 	}
@@ -119,5 +120,7 @@ error_arguments:
 error_exit_cleanup:
 	if (argv)
 		pw_free_strv(argv);
+	if (props)
+		pw_properties_free(props);
 	return res;
 }

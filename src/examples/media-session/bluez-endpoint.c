@@ -437,10 +437,6 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 		return NULL;
 	}
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL)
-		return NULL;
-
 	if (strstr(media_class, "Source") != NULL) {
 		direction = PW_DIRECTION_OUTPUT;
 	} else if (strstr(media_class, "Sink") != NULL) {
@@ -449,6 +445,10 @@ static struct endpoint *create_endpoint(struct node *node, struct endpoint *moni
 		errno = EINVAL;
 		return NULL;
 	}
+
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		return NULL;
 
 	if (monitor != NULL) {
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");

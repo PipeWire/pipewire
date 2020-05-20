@@ -392,10 +392,6 @@ static struct endpoint *create_endpoint(struct node *node)
 		return NULL;
 	}
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL)
-		return NULL;
-
 	if (strstr(media_class, "Source") != NULL) {
 		direction = PW_DIRECTION_OUTPUT;
 	} else if (strstr(media_class, "Sink") != NULL) {
@@ -404,6 +400,10 @@ static struct endpoint *create_endpoint(struct node *node)
 		errno = EINVAL;
 		return NULL;
 	}
+
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		return NULL;
 
 	pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
 

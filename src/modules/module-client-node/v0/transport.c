@@ -210,8 +210,10 @@ pw_client_node0_transport_new(struct pw_context *context,
 			PW_MEMBLOCK_FLAG_MAP |
 			PW_MEMBLOCK_FLAG_SEAL,
 			SPA_DATA_MemFd, area_get_size(&area));
-	if (impl->mem == NULL)
+	if (impl->mem == NULL) {
+		free(impl);
 		return NULL;
+	}
 
 	memcpy(impl->mem->map->ptr, &area, sizeof(struct pw_client_node0_area));
 	transport_setup_area(impl->mem->map->ptr, trans);

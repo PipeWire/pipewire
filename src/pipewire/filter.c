@@ -1031,11 +1031,14 @@ pw_filter_new_simple(struct pw_loop *loop,
 		return NULL;
 
 	context = pw_context_new(loop, NULL, 0);
-	if (context == NULL)
-		return NULL;
+	if (context == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	impl = filter_new(context, name, props, props);
 	if (impl == NULL) {
+		props = NULL;
 		res = -errno;
 		goto error_cleanup;
 	}
@@ -1048,7 +1051,10 @@ pw_filter_new_simple(struct pw_loop *loop,
 	return this;
 
 error_cleanup:
-	pw_context_destroy(context);
+	if (context)
+		pw_context_destroy(context);
+	if (props)
+		pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }

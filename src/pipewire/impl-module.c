@@ -87,7 +87,7 @@ static char *find_module(const char *path, const char *name)
 
 		newpath = spa_aprintf("%s/%s", path, entry->d_name);
 		if (newpath == NULL)
-			return NULL;
+			break;
 
 		if (stat(newpath, &s) == 0 && S_ISDIR(s.st_mode)) {
 			filename = find_module(newpath, name);

@@ -1182,12 +1182,15 @@ pw_stream_new_simple(struct pw_loop *loop,
 		return NULL;
 
 	context = pw_context_new(loop, NULL, 0);
-	if (context == NULL)
-		return NULL;
+	if (context == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	impl = stream_new(context, name, props, NULL);
 	if (impl == NULL) {
 		res = -errno;
+		props = NULL;
 		goto error_cleanup;
 	}
 
@@ -1198,7 +1201,10 @@ pw_stream_new_simple(struct pw_loop *loop,
 	return this;
 
 error_cleanup:
-	pw_context_destroy(context);
+	if (context)
+		pw_context_destroy(context);
+	if (props)
+		pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }
@@ -1390,7 +1396,7 @@ pw_stream_connect(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_impl_factory *factory;
-	struct pw_properties *props;
+	struct pw_properties *props = NULL;
 	struct pw_impl_node *follower;
 	const char *str;
 	uint32_t i;
@@ -1520,6 +1526,7 @@ pw_stream_connect(struct pw_stream *stream,
 		}
 	} else {
 		impl->node = follower;
+		pw_properties_free(props);
 	}
 	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
 		pw_impl_node_set_active(impl->node, true);

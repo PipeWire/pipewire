@@ -53,6 +53,7 @@ struct impl {
 static int check_cmdline(struct pw_impl_client *client, int pid, const char *str)
 {
 	char path[2048];
+	ssize_t len;
 	int fd;
 
 	sprintf(path, "/proc/%u/cmdline", pid);
@@ -61,10 +62,11 @@ static int check_cmdline(struct pw_impl_client *client, int pid, const char *str
 	if (fd < 0)
 		return -errno;
 
-	if (read(fd, path, 1024) <= 0) {
+	if ((len = read(fd, path, sizeof(path)-1)) < 0) {
 		close(fd);
-		return -EIO;
+		return -errno;
 	}
+	path[len] = '\0';
 
 	if (strcmp(path, str) == 0) {
 		close(fd);

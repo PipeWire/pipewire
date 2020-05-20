@@ -1085,7 +1085,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 		if (SPA_UNLIKELY(spa_system_eventfd_read(this->data_system,
 					this->data_source.fd, &cmd) < 0))
 			pw_log_warn(NAME" %p: read failed %m", this);
-		if (SPA_UNLIKELY(cmd > 1))
+		else if (SPA_UNLIKELY(cmd > 1))
 			pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", this, cmd - 1);
 
 		spa_log_trace_fp(this->log, NAME" %p: got ready", this);

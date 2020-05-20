@@ -1004,8 +1004,7 @@ static inline uint32_t cycle_run(struct client *c)
 		pw_log_warn(NAME" %p: read failed %m", c);
 		if (errno == EWOULDBLOCK)
 			return 0;
-	}
-	if (SPA_UNLIKELY(cmd > 1))
+	} else if (SPA_UNLIKELY(cmd > 1))
 		pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);

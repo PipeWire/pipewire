@@ -463,7 +463,8 @@ static int transport_start(struct impl *this)
 		this->transport->configuration_len);
 
 	val = fcntl(this->transport->fd, F_GETFL);
-	fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK);
+	if (fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK) < 0)
+		spa_log_warn(this->log, NAME" %p: fcntl %u %m", this, val | O_NONBLOCK);
 
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)

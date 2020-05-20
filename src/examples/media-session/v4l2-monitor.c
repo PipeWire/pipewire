@@ -425,7 +425,7 @@ static void v4l2_udev_object_info(void *data, uint32_t id,
 			return;
 		v4l2_remove_device(impl, dev);
 	} else if (dev == NULL) {
-		if ((dev = v4l2_create_device(impl, id, info)) == NULL)
+		if (v4l2_create_device(impl, id, info) == NULL)
 			return;
 	} else {
 		v4l2_update_device(impl, dev, info);

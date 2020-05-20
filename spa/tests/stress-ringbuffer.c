@@ -107,7 +107,6 @@ int main(int argc, char *argv[])
 {
 	pthread_t reader_thread, writer_thread;
 	struct timespec ts;
-	int s;
 
 	printf("starting ringbuffer stress test\n");
 
@@ -133,9 +132,9 @@ int main(int argc, char *argv[])
 
 	ts.tv_sec += 2;
 
-	while ((s = sem_timedwait(&sem, &ts)) == -1 && errno == EINTR)
+	while (sem_timedwait(&sem, &ts) == -1 && errno == EINTR)
 		continue;
-	while ((s = sem_timedwait(&sem, &ts)) == -1 && errno == EINTR)
+	while (sem_timedwait(&sem, &ts) == -1 && errno == EINTR)
 		continue;
 
 	printf("read %u, written %u\n", rb.readindex, rb.writeindex);

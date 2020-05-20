@@ -411,7 +411,7 @@ static void bluez5_enum_object_info(void *data, uint32_t id,
 			return;
 		bluez5_remove_device(impl, device);
 	} else if (device == NULL) {
-		if ((device = bluez5_create_device(impl, id, info)) == NULL)
+		if (bluez5_create_device(impl, id, info) == NULL)
 			return;
 	} else {
 		bluez5_update_device(impl, device, info);

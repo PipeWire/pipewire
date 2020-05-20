@@ -296,7 +296,7 @@ static void dbus_device_object_info(void *data, uint32_t id,
 			return;
 		remove_object(impl, obj);
 	} else if (obj == NULL) {
-		if ((obj = create_object(impl, id, info)) == NULL)
+		if (create_object(impl, id, info) == NULL)
 			return;
 	} else {
 		update_object(impl, obj, info);

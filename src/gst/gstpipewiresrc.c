@@ -721,7 +721,7 @@ on_param_changed (void *data, uint32_t id,
     const struct spa_pod *params[2];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
-    uint32_t buffers = buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
+    uint32_t buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_add_object (&b,

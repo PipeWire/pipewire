@@ -223,12 +223,11 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
 
-	if ((str = pw_properties_get(props, "factory.mode")) == NULL) {
-		if (direction == PW_DIRECTION_INPUT) {
+	if (pw_properties_get(props, "factory.mode") == NULL) {
+		if (direction == PW_DIRECTION_INPUT)
 			str = "merge";
-		} else {
+		else
 			str = "split";
-		}
 		pw_properties_set(props, "factory.mode", str);
 	}
 

@@ -379,9 +379,11 @@ handle_video_fields (ConvertData *d)
       if (idx != GST_VIDEO_FORMAT_UNKNOWN && idx < (int)SPA_N_ELEMENTS (video_format_map))
         spa_pod_builder_id (&d->b, video_format_map[idx]);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
   value = gst_structure_get_value (d->cs, "width");
   value2 = gst_structure_get_value (d->cs, "height");
@@ -395,9 +397,11 @@ handle_video_fields (ConvertData *d)
 
       spa_pod_builder_rectangle (&d->b, v.width, v.height);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
 
   value = gst_structure_get_value (d->cs, "framerate");
@@ -411,9 +415,11 @@ handle_video_fields (ConvertData *d)
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
 
   value = gst_structure_get_value (d->cs, "max-framerate");
@@ -427,9 +433,11 @@ handle_video_fields (ConvertData *d)
 
       spa_pod_builder_fraction (&d->b, v.num, v.denom);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
   return TRUE;
 }
@@ -456,9 +464,11 @@ handle_audio_fields (ConvertData *d)
       if (idx < (int)SPA_N_ELEMENTS (audio_format_map))
         spa_pod_builder_id (&d->b, audio_format_map[idx]);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
 
 #if 0
@@ -482,9 +492,11 @@ handle_audio_fields (ConvertData *d)
 
       spa_pod_builder_id (&d->b, layout);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
 #endif
   value = gst_structure_get_value (d->cs, "rate");
@@ -498,9 +510,11 @@ handle_audio_fields (ConvertData *d)
 
       spa_pod_builder_int (&d->b, v);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
   value = gst_structure_get_value (d->cs, "channels");
   if (value) {
@@ -513,9 +527,11 @@ handle_audio_fields (ConvertData *d)
 
       spa_pod_builder_int (&d->b, v);
     }
-    choice = spa_pod_builder_pop(&d->b, &f);
-    if (i <= 1)
-      choice->body.type = SPA_CHOICE_None;
+    if (i > 0) {
+      choice = spa_pod_builder_pop(&d->b, &f);
+      if (i == 1)
+        choice->body.type = SPA_CHOICE_None;
+    }
   }
   return TRUE;
 }

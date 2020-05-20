@@ -676,8 +676,8 @@ int midi_file_dump_event(FILE *out, const struct midi_event *ev)
 			fprintf(out, "Key Signature: %d %s: %s", abs(sf),
 					sf > 0 ? "sharps" : "flats",
 					ev->data[4] == 0 ?
-						major_keys[SPA_CLAMP(sf + 9, 0, 19)] :
-						minor_keys[SPA_CLAMP(sf + 9, 0, 19)]);
+						major_keys[SPA_CLAMP(sf + 9, 0, 18)] :
+						minor_keys[SPA_CLAMP(sf + 9, 0, 18)]);
 			break;
 		}
 		case 0x7f:

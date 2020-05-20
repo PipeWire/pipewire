@@ -97,11 +97,8 @@ error_resource:
 	goto error_exit;
 error_node:
 	pw_log_error("can't create node: %s", spa_strerror(res));
-	pw_resource_errorf(node_resource, res, "can't create node: %s", spa_strerror(res));
-	goto error_exit_free;
-
-error_exit_free:
-	pw_resource_remove(node_resource);
+	pw_resource_errorf_id(resource, new_id, res, "can't create node: %s", spa_strerror(res));
+	goto error_exit;
 error_exit:
 	errno = -res;
 	return NULL;

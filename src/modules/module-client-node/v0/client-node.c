@@ -323,7 +323,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct node *this = object;
-	int res;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 

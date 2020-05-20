@@ -105,6 +105,7 @@ static void handle_device(struct data *data, struct spa_device *device)
 {
 	struct spa_hook listener;
 
+	spa_zero(listener);
 	spa_device_add_listener(device, &listener, &impl_device_events, data);
 
 	while (true) {

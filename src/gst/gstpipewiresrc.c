@@ -1086,9 +1086,11 @@ gst_pipewire_src_change_state (GstElement * element, GstStateChange transition)
       break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* uncork and start recording */
+      pw_stream_set_active(this->stream, true);
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       /* stop recording ASAP by corking */
+      pw_stream_set_active(this->stream, false);
       break;
     default:
       break;

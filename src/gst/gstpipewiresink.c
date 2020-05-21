@@ -648,7 +648,9 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   }
 
   pw_thread_loop_lock (pwsink->loop);
-  pwsink->stream = pw_stream_new (pwsink->core, pwsink->client_name, props);
+  if ((pwsink->stream = pw_stream_new (pwsink->core, pwsink->client_name, props)) == NULL)
+    goto no_stream;
+
   pwsink->pool->stream = pwsink->stream;
 
   pw_stream_add_listener(pwsink->stream,
@@ -659,6 +661,13 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
   pw_thread_loop_unlock (pwsink->loop);
 
   return TRUE;
+
+no_stream:
+  {
+    GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED, ("can't create stream"), (NULL));
+    pw_thread_loop_unlock (pwsink->loop);
+    return FALSE;
+  }
 }
 
 static gboolean

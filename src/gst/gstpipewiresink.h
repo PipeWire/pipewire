@@ -87,6 +87,10 @@ struct _GstPipeWireSink {
 
   struct pw_context *context;
   struct pw_core *core;
+  struct spa_hook core_listener;
+  int pending_seq;
+  int last_seq;
+  int last_error;
 
   struct pw_stream *stream;
   struct spa_hook stream_listener;

@@ -689,6 +689,30 @@ gst_pipewire_sink_stop (GstBaseSink * basesink)
   return TRUE;
 }
 
+static void on_core_done (void *object, uint32_t id, int seq)
+{
+  GstPipeWireSink * pwsink = object;
+  if (id == PW_ID_CORE) {
+    pwsink->last_seq = seq;
+    pw_thread_loop_signal (pwsink->loop, FALSE);
+  }
+}
+
+static const struct pw_core_events core_events = {
+  PW_VERSION_CORE_EVENTS,
+  .done = on_core_done,
+};
+
+static void do_sync(GstPipeWireSink * pwsink)
+{
+  pwsink->pending_seq = pw_core_sync(pwsink->core, 0, pwsink->pending_seq);
+  while (true) {
+    if (pwsink->last_seq == pwsink->pending_seq || pwsink->last_error < 0)
+      break;
+    pw_thread_loop_wait (pwsink->loop);
+  }
+}
+
 static gboolean
 gst_pipewire_sink_open (GstPipeWireSink * pwsink)
 {
@@ -704,6 +728,11 @@ gst_pipewire_sink_open (GstPipeWireSink * pwsink)
 
   if (pwsink->core == NULL)
     goto connect_error;
+
+  pw_core_add_listener(pwsink->core,
+                       &pwsink->core_listener,
+                       &core_events,
+                       pwsink);
 
   pw_thread_loop_unlock (pwsink->loop);
 
@@ -730,9 +759,11 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
 {
   pw_thread_loop_lock (pwsink->loop);
   if (pwsink->stream) {
-    pw_stream_disconnect (pwsink->stream);
+    pw_stream_destroy (pwsink->stream);
+    pwsink->stream = NULL;
   }
   if (pwsink->core) {
+    do_sync(pwsink);
     pw_core_disconnect (pwsink->core);
     pwsink->core = NULL;
   }
@@ -740,10 +771,6 @@ gst_pipewire_sink_close (GstPipeWireSink * pwsink)
 
   pw_thread_loop_stop (pwsink->loop);
 
-  if (pwsink->stream) {
-    pw_stream_destroy (pwsink->stream);
-    pwsink->stream = NULL;
-  }
   return TRUE;
 }
 

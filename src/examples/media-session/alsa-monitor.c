@@ -154,7 +154,7 @@ static int node_acquire(void *data)
 
 	node->acquired = true;
 
-	if (device && device->n_acquired++ == 0)
+	if (device && device->n_acquired++ == 0 && device->reserve)
 		rd_device_acquire(device->reserve);
 	return 0;
 }
@@ -171,7 +171,7 @@ static int node_release(void *data)
 
 	node->acquired = false;
 
-	if (device && --device->n_acquired == 0)
+	if (device && --device->n_acquired == 0 && device->reserve)
 		rd_device_release(device->reserve);
 	return 0;
 }

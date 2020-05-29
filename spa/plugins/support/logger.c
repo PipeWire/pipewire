@@ -74,7 +74,7 @@ impl_log_logv(void *object,
 	      va_list args)
 {
 	struct impl *impl = object;
-	char location[1024], *p;
+	char location[1024], *p, *s;
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
 	int size, len;
@@ -107,8 +107,9 @@ impl_log_logv(void *object,
 
 	}
 	if (impl->line && line != 0) {
+		s = strrchr(file, '/');
 		size += snprintf(p + size, len - size, "[%s:%i %s()]",
-			strrchr(file, '/') + 1, line, func);
+			s ? s + 1 : file, line, func);
 	}
 	size += snprintf(p + size, len - size, " ");
 	size += vsnprintf(p + size, len - size, fmt, args);

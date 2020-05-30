@@ -91,6 +91,12 @@ enum spa_param_io {
 	SPA_PARAM_IO_size,	/**< size of the io area (Int) */
 };
 
+enum spa_param_availability {
+	SPA_PARAM_AVAILABILITY_unknown,	/**< unknown availability */
+	SPA_PARAM_AVAILABILITY_no,	/**< not available */
+	SPA_PARAM_AVAILABILITY_yes,	/**< available */
+};
+
 /** properties for SPA_TYPE_OBJECT_ParamProfile */
 enum spa_param_profile {
 	SPA_PARAM_PROFILE_START,
@@ -98,6 +104,8 @@ enum spa_param_profile {
 	SPA_PARAM_PROFILE_name,		/**< profile name (String) */
 	SPA_PARAM_PROFILE_description,	/**< profile description (String) */
 	SPA_PARAM_PROFILE_priority,	/**< profile priority (Int) */
+	SPA_PARAM_PROFILE_available,	/**< availability of the profile
+					  *  (Id enum spa_param_availability) */
 };
 
 enum spa_param_port_config_mode {
@@ -119,12 +127,6 @@ enum spa_param_port_config {
 	SPA_PARAM_PORT_CONFIG_format,		/**< (Object) format filter */
 };
 
-enum spa_param_route_availability {
-	SPA_PARAM_ROUTE_AVAILABILITY_unknown,	/**< unknown if route is available */
-	SPA_PARAM_ROUTE_AVAILABILITY_no,	/**< route is not available */
-	SPA_PARAM_ROUTE_AVAILABILITY_yes,	/**< route is available */
-};
-
 /** properties for SPA_TYPE_OBJECT_ParamRoute */
 enum spa_param_route {
 	SPA_PARAM_ROUTE_START,
@@ -133,7 +135,7 @@ enum spa_param_route {
 	SPA_PARAM_ROUTE_description,		/**< description of the destination (String) */
 	SPA_PARAM_ROUTE_priority,		/**< priority of the destination (Int) */
 	SPA_PARAM_ROUTE_available,		/**< availability of the destination
-						  *  (Id enum spa_param_route_availability) */
+						  *  (Id enum spa_param_availability) */
 };
 
 

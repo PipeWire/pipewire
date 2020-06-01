@@ -349,7 +349,7 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 
 	pw_map_range_init(&range, offset, size, p->pagesize);
 
-	m = memblock_find_mapping(b, flags, range.offset, range.size);
+	m = memblock_find_mapping(b, flags, offset, size);
 	if (m == NULL)
 		m = memblock_map(b, flags, range.offset, range.size);
 	if (m == NULL)

@@ -197,7 +197,8 @@ pw_endpoint_stream_info_update (struct pw_endpoint_stream_info *info,
 
 	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_LINK_PARAMS) {
 		free(info->link_params);
-		info->link_params = spa_pod_copy(update->link_params);
+		info->link_params = update->link_params ?
+			spa_pod_copy(update->link_params) : NULL;
 	}
 	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
 		if (!ext->props_storage) {

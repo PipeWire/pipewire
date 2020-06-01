@@ -28,6 +28,7 @@
 #include <math.h>
 #include <getopt.h>
 #include <time.h>
+#include <signal.h>
 
 #include "config.h"
 
@@ -1637,7 +1638,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
 
-	if (id == 0) {
+	if (id == PW_ID_CORE) {
 		if (res == -EPIPE)
 			pw_main_loop_quit(impl->loop);
 	}
@@ -1691,6 +1692,8 @@ static void session_shutdown(struct impl *impl)
 {
 	struct sm_object *obj;
 
+	pw_log_info(NAME" %p", impl);
+
 	spa_list_for_each(obj, &impl->global_list, link)
 		sm_media_session_emit_remove(impl, obj);
 
@@ -1705,6 +1708,13 @@ static void session_shutdown(struct impl *impl)
 	if (impl->this.info)
 		pw_core_info_free(impl->this.info);
 }
+
+static void do_quit(void *data, int signal_number)
+{
+	struct impl *impl = data;
+	pw_main_loop_quit(impl->loop);
+}
+
 
 #define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,bluez5,metadata,suspend-node,policy-node"
 #define DEFAULT_DISABLED	""
@@ -1815,6 +1825,10 @@ int main(int argc, char *argv[])
 	if (impl.loop == NULL)
 		return -1;
 	impl.this.loop = pw_main_loop_get_loop(impl.loop);
+
+	pw_loop_add_signal(impl.this.loop, SIGINT, do_quit, &impl);
+	pw_loop_add_signal(impl.this.loop, SIGTERM, do_quit, &impl);
+
 	impl.this.context = pw_context_new(impl.this.loop, NULL, 0);
 	if (impl.this.context == NULL)
 		return -1;

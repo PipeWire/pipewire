@@ -611,8 +611,8 @@ static int impl_port_set_param(void *object,
 	struct port *port;
 	int res;
 
-	if (impl->disconnecting)
-		return param == NULL ? 0 : -EIO;
+	if (impl->disconnecting && param != NULL)
+		return -EIO;
 
 	pw_log_debug(NAME" %p: param changed: %p %d", impl, param, impl->disconnecting);
 
@@ -650,8 +650,8 @@ static int impl_port_use_buffers(void *object,
 	int prot, res;
 	int size = 0;
 
-	if (impl->disconnecting)
-		return n_buffers == 0 ? 0 : -EIO;
+	if (impl->disconnecting && n_buffers > 0)
+		return -EIO;
 
 	if ((port = get_port(impl, direction, port_id)) == NULL)
 		return -EINVAL;

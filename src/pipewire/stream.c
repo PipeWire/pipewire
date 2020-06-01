@@ -610,8 +610,8 @@ static int impl_port_set_param(void *object,
 	struct pw_stream *stream = &impl->this;
 	int res;
 
-	if (impl->disconnecting)
-		return param == NULL ? 0 : -EIO;
+	if (impl->disconnecting && param != NULL)
+		return -EIO;
 
 	pw_log_debug(NAME" %p: param id %d (%s) changed: %p", impl, id,
 			spa_debug_type_find_name(spa_type_param, id), param);
@@ -646,8 +646,8 @@ static int impl_port_use_buffers(void *object,
 	int prot, res;
 	int size = 0;
 
-	if (impl->disconnecting)
-		return n_buffers == 0 ? 0 : -EIO;
+	if (impl->disconnecting && n_buffers > 0)
+		return -EIO;
 
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 

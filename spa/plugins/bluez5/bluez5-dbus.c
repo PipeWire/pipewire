@@ -1319,7 +1319,8 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, register_endpoint_reply, monitor, NULL);
-        dbus_message_unref(m);
+	dbus_message_unref(m);
+	free(object_path);
 
 	return 0;
 }

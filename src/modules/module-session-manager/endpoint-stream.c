@@ -198,7 +198,9 @@ static int global_bind(void *_data, struct pw_impl_client *client,
 			&data->object_listener,
 			&stream_methods, data);
 
+	impl->cached_info->change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_ALL;
 	pw_endpoint_stream_resource_info(resource, impl->cached_info);
+	impl->cached_info->change_mask = 0;
 
 	return 0;
 }

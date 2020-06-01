@@ -55,6 +55,9 @@ enum pw_memmap_flags {
 
 struct pw_memchunk;
 
+/** \class pw_memblock
+ *
+ * A memory pool is a collection of pw_memblocks */
 struct pw_mempool {
 	struct pw_properties *props;
 };

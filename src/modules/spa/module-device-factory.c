@@ -61,6 +61,21 @@ struct device_data {
 	struct spa_list link;
 	struct pw_impl_device *device;
 	struct spa_hook device_listener;
+	struct spa_hook resource_listener;
+};
+
+static void resource_destroy(void *data)
+{
+	struct device_data *nd = data;
+	pw_log_debug("device %p", nd);
+	spa_hook_remove(&nd->resource_listener);
+	if (nd->device)
+		pw_impl_device_destroy(nd->device);
+}
+
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = resource_destroy
 };
 
 static void device_destroy(void *data)
@@ -68,6 +83,7 @@ static void device_destroy(void *data)
 	struct device_data *nd = data;
 	spa_list_remove(&nd->link);
 	spa_hook_remove(&nd->device_listener);
+	nd->device = NULL;
 }
 
 static const struct pw_impl_device_events device_events = {
@@ -124,10 +140,19 @@ static void *create_object(void *_data,
 	pw_impl_device_add_listener(device, &nd->device_listener, &device_events, nd);
 
 	if (client) {
-		pw_global_bind(pw_impl_device_get_global(device),
+		struct pw_resource *bound_resource;
+
+		res = pw_global_bind(pw_impl_device_get_global(device),
 				client,
 				PW_PERM_RWX, version,
 				new_id);
+		if (res < 0)
+			goto error_bind;
+
+		if ((bound_resource = pw_impl_client_find_resource(client, new_id)) == NULL)
+			goto error_bind;
+
+		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
 	}
 	return device;
 
@@ -143,6 +168,10 @@ error_device:
 	if (resource)
 		pw_resource_errorf_id(resource, new_id, res,
 				"can't create device: %s", spa_strerror(res));
+	goto error_exit;
+error_bind:
+	pw_resource_errorf_id(resource, new_id, res, "can't bind device");
+	pw_impl_device_destroy(device);
 	goto error_exit;
 error_exit:
 	errno = -res;

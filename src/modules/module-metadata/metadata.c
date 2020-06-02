@@ -195,6 +195,7 @@ static void global_resource_destroy(void *data)
 	impl->metadata = NULL;
 	if (impl->global)
 		pw_global_destroy(impl->global);
+	free(impl);
 }
 
 static const struct pw_resource_events global_resource_events = {

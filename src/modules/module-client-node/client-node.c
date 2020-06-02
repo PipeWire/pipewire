@@ -1028,6 +1028,9 @@ static int client_node_port_buffers(void *data,
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
 
+	if (mix->n_buffers != n_buffers)
+		return -EINVAL;
+
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *oldbuf, *newbuf;
 

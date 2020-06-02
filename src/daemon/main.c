@@ -132,6 +132,7 @@ int main(int argc, char *argv[])
 	pw_daemon_config_free(config);
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
+	pw_deinit();
 
 	return 0;
 }

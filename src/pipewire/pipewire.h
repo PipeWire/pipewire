@@ -116,6 +116,8 @@ extern "C" {
 void
 pw_init(int *argc, char **argv[]);
 
+void pw_deinit(void);
+
 bool
 pw_debug_is_category_enabled(const char *name);
 

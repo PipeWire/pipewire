@@ -409,6 +409,30 @@ void pw_init(int *argc, char **argv[])
 	pw_log_info("version %s", pw_get_library_version());
 }
 
+SPA_EXPORT
+void pw_deinit(void)
+{
+	struct support *support = &global_support;
+	struct registry *registry = &global_registry;
+	struct plugin *p;
+
+	support->plugin_dir = NULL;
+	if (support->categories)
+		pw_free_strv(support->categories);
+	support->categories = NULL;
+	support->support_lib = NULL;
+
+	pw_log_set(NULL);
+
+	spa_list_consume(p, &registry->plugins, link) {
+		struct handle *h;
+		p->ref++;
+		spa_list_consume(h, &p->handles, link)
+			unref_handle(h);
+		unref_plugin(p);
+	}
+}
+
 /** Check if a debug category is enabled
  *
  * \param name the name of the category to check

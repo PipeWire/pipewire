@@ -137,6 +137,13 @@ static int init_stream(struct seq_state *state, enum spa_direction direction)
 	return 0;
 }
 
+static int uninit_stream(struct seq_state *state, enum spa_direction direction)
+{
+	struct seq_stream *stream = &state->streams[direction];
+	snd_midi_event_free(stream->codec);
+	return 0;
+}
+
 static void init_ports(struct seq_state *state)
 {
 	snd_seq_addr_t addr;
@@ -323,6 +330,9 @@ int spa_alsa_seq_close(struct seq_state *state)
 
 	seq_close(state, &state->sys);
 	seq_close(state, &state->event);
+
+	uninit_stream(state, SPA_DIRECTION_INPUT);
+	uninit_stream(state, SPA_DIRECTION_OUTPUT);
 
 	spa_system_close(state->data_system, state->timerfd);
 	state->opened = false;

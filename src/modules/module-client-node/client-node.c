@@ -231,30 +231,46 @@ static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id
 	return mix;
 }
 
+static void clear_data(struct node *this, struct spa_data *d)
+{
+	struct impl *impl = this->impl;
+
+	switch (d->type) {
+	case SPA_DATA_MemId:
+	{
+		uint32_t id;
+		struct pw_memblock *m;
+
+		id = SPA_PTR_TO_UINT32(d->data);
+		m = pw_mempool_find_id(this->client->pool, id);
+		if (m) {
+			pw_log_debug(NAME " %p: mem %d", impl, m->id);
+			pw_memblock_unref(m);
+		}
+		break;
+	}
+	case SPA_DATA_MemFd:
+	case SPA_DATA_DmaBuf:
+		pw_log_debug(NAME " %p: close fd:%d", impl, (int)d->fd);
+		close(d->fd);
+		break;
+	default:
+		break;
+	}
+}
+
 static int clear_buffers(struct node *this, struct mix *mix)
 {
 	uint32_t i, j;
-	struct impl *impl = this->impl;
 
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
-		struct pw_memblock *m;
 
 		spa_log_debug(this->log, NAME" %p: clear buffer %d", this, i);
 
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &b->datas[j];
-
-			if (d->type == SPA_DATA_MemId) {
-				uint32_t id;
-
-				id = SPA_PTR_TO_UINT32(b->buffer.datas[j].data);
-				m = pw_mempool_find_id(this->client->pool, id);
-				if (m) {
-					pw_log_debug(NAME " %p: mem %d", impl, m->id);
-					pw_memblock_unref(m);
-				}
-			}
+			clear_data(this, d);
 		}
 		pw_memblock_unref(b->mem);
 	}
@@ -801,13 +817,15 @@ do_port_use_buffers(struct impl *impl,
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 
-			memcpy(&b->buffer.datas[j], d, sizeof(struct spa_data));
+			memcpy(&b->datas[j], d, sizeof(struct spa_data));
 
 			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC)
 				continue;
 
-			if (d->type == SPA_DATA_DmaBuf ||
-			    d->type == SPA_DATA_MemFd) {
+			switch (d->type) {
+			case SPA_DATA_DmaBuf:
+			case SPA_DATA_MemFd:
+			{
 				uint32_t flags = PW_MEMBLOCK_FLAG_DONT_CLOSE;
 
 				if (d->flags & SPA_DATA_FLAG_READABLE)
@@ -815,20 +833,25 @@ do_port_use_buffers(struct impl *impl,
 				if (d->flags & SPA_DATA_FLAG_WRITABLE)
 					flags |= PW_MEMBLOCK_FLAG_WRITABLE;
 
+				spa_log_debug(this->log, "mem %d type:%d fd:%d", j, d->type, (int)d->fd);
 				m = pw_mempool_import(this->client->pool,
 					flags, d->type, d->fd);
 				if (m == NULL)
 					return -errno;
 
-				b->buffer.datas[j].type = SPA_DATA_MemId;
-				b->buffer.datas[j].data = SPA_UINT32_TO_PTR(m->id);
-			} else if (d->type == SPA_DATA_MemPtr) {
+				b->datas[j].type = SPA_DATA_MemId;
+				b->datas[j].data = SPA_UINT32_TO_PTR(m->id);
+				break;
+			}
+			case SPA_DATA_MemPtr:
 				spa_log_debug(this->log, "mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));
-				b->buffer.datas[j].data = SPA_INT_TO_PTR(SPA_PTRDIFF(d->data, baseptr));
-			} else {
-				b->buffer.datas[j].type = SPA_ID_INVALID;
-				b->buffer.datas[j].data = NULL;
+				b->datas[j].data = SPA_INT_TO_PTR(SPA_PTRDIFF(d->data, baseptr));
+				break;
+			default:
+				b->datas[j].type = SPA_ID_INVALID;
+				b->datas[j].data = NULL;
 				spa_log_error(this->log, "invalid memory type %d", d->type);
+				break;
 			}
 		}
 	}
@@ -1033,8 +1056,9 @@ static int client_node_port_buffers(void *data,
 
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *oldbuf, *newbuf;
+		struct buffer *b = &mix->buffers[i];
 
-		oldbuf = mix->buffers[i].outbuf;
+		oldbuf = b->outbuf;
 		newbuf = buffers[i];
 
 		spa_log_debug(this->log, "buffer %d n_datas:%d", i, newbuf->n_datas);
@@ -1044,18 +1068,18 @@ static int client_node_port_buffers(void *data,
 
 		for (j = 0; j < newbuf->n_datas; j++) {
 			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
+			struct spa_data *d = &newbuf->datas[j];
 
 			/* overwrite everything except the chunk */
-			oldbuf->datas[j] = newbuf->datas[j];
+			oldbuf->datas[j] = *d;
 			oldbuf->datas[j].chunk = oldchunk;
 
+			b->datas[j].type = d->type;
+			b->datas[j].fd = d->fd;
+
 			spa_log_debug(this->log, " data %d type:%d fl:%08x fd:%d, offs:%d max:%d",
-					j,
-					newbuf->datas[j].type,
-					newbuf->datas[j].flags,
-					(int) newbuf->datas[j].fd,
-					newbuf->datas[j].mapoffset,
-					newbuf->datas[j].maxsize);
+					j, d->type, d->flags, (int) d->fd, d->mapoffset,
+					d->maxsize);
 		}
 	}
 	mix->n_buffers = n_buffers;

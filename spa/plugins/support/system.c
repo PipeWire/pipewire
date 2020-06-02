@@ -80,7 +80,9 @@ static int impl_ioctl(void *object, int fd, unsigned long request, ...)
 
 static int impl_close(void *object, int fd)
 {
+	struct impl *impl = object;
 	int res = close(fd);
+	spa_log_debug(impl->log, NAME " %p: close fd:%d", impl, fd);
 	return res < 0 ? -errno : res;
 }
 
@@ -102,10 +104,12 @@ static int impl_clock_getres(void *object,
 /* poll */
 static int impl_pollfd_create(void *object, int flags)
 {
+	struct impl *impl = object;
 	int fl = 0, res;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= EPOLL_CLOEXEC;
 	res = epoll_create1(fl);
+	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
 	return res < 0 ? -errno : res;
 }
 
@@ -160,12 +164,14 @@ static int impl_pollfd_wait(void *object, int pfd,
 /* timers */
 static int impl_timerfd_create(void *object, int clockid, int flags)
 {
+	struct impl *impl = object;
 	int fl = 0, res;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= TFD_CLOEXEC;
 	if (flags & SPA_FD_NONBLOCK)
 		fl |= TFD_NONBLOCK;
 	res = timerfd_create(clockid, fl);
+	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
 	return res < 0 ? -errno : res;
 }
 
@@ -200,6 +206,7 @@ static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
 /* events */
 static int impl_eventfd_create(void *object, int flags)
 {
+	struct impl *impl = object;
 	int fl = 0, res;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= EFD_CLOEXEC;
@@ -208,6 +215,7 @@ static int impl_eventfd_create(void *object, int flags)
 	if (flags & SPA_FD_EVENT_SEMAPHORE)
 		fl |= EFD_SEMAPHORE;
 	res = eventfd(0, fl);
+	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
 	return res < 0 ? -errno : res;
 }
 
@@ -228,6 +236,7 @@ static int impl_eventfd_read(void *object, int fd, uint64_t *count)
 /* signals */
 static int impl_signalfd_create(void *object, int signal, int flags)
 {
+	struct impl *impl = object;
 	sigset_t mask;
 	int res, fl = 0;
 
@@ -240,6 +249,7 @@ static int impl_signalfd_create(void *object, int signal, int flags)
 	sigaddset(&mask, signal);
 	res = signalfd(-1, &mask, fl);
 	sigprocmask(SIG_BLOCK, &mask, NULL);
+	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
 
 	return res < 0 ? -errno : res;
 }

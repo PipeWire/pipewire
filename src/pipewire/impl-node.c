@@ -996,12 +996,12 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 		goto error_clean;
 	}
 
-	pw_log_debug(NAME" %p: new", this);
-
 	this->properties = properties;
 
 	if ((res = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_clean;
+
+	pw_log_debug(NAME" %p: new fd:%d", this, res);
 
 	this->source.fd = res;
 	this->source.func = node_on_fd_events;

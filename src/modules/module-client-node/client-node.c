@@ -1266,7 +1266,7 @@ static void node_initialized(void *data)
 	node->writefd = impl->fds[1];
 
 	spa_loop_add_source(node->data_loop, &node->data_source);
-	pw_log_debug(NAME " %p: transport fd %d %d", node, impl->fds[0], impl->fds[1]);
+	pw_log_debug(NAME " %p: transport read-fd:%d write-fd:%d", node, impl->fds[0], impl->fds[1]);
 
 	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
 

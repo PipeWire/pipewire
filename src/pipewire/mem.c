@@ -515,7 +515,8 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	spa_list_append(&impl->blocks, &b->link);
 	pw_log_debug(NAME" %p: block:%p id:%d type:%u size:%zd", pool, &b->this, b->this.id, type, size);
 
-	pw_mempool_emit_added(impl, &b->this);
+	if (!SPA_FLAG_IS_SET(flags, PW_MEMBLOCK_FLAG_DONT_NOTIFY))
+		pw_mempool_emit_added(impl, &b->this);
 
 	return &b->this;
 
@@ -573,7 +574,8 @@ struct pw_memblock * pw_mempool_import(struct pw_mempool *pool,
 	pw_log_debug(NAME" %p: block:%p id:%u flags:%08x type:%u fd:%d",
 			pool, b, b->this.id, flags, type, fd);
 
-	pw_mempool_emit_added(impl, &b->this);
+	if (!SPA_FLAG_IS_SET(flags, PW_MEMBLOCK_FLAG_DONT_NOTIFY))
+		pw_mempool_emit_added(impl, &b->this);
 
 	return &b->this;
 }
@@ -687,7 +689,8 @@ void pw_memblock_free(struct pw_memblock *block)
 		pw_map_remove(&impl->map, block->id);
 	spa_list_remove(&b->link);
 
-	pw_mempool_emit_removed(impl, block);
+	if (!SPA_FLAG_IS_SET(block->flags, PW_MEMBLOCK_FLAG_DONT_NOTIFY))
+		pw_mempool_emit_removed(impl, block);
 
 	spa_list_consume(mm, &b->memmaps, link)
 		pw_memmap_free(&mm->this);

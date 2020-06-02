@@ -74,6 +74,7 @@ struct support {
 	struct registry *registry;
 	struct spa_support support[MAX_SUPPORT];
 	uint32_t n_support;
+	unsigned int in_valgrind:1;
 };
 
 static struct registry global_registry;
@@ -154,7 +155,8 @@ unref_plugin(struct plugin *plugin)
 	if (--plugin->ref == 0) {
 		spa_list_remove(&plugin->link);
 		pw_log_debug("unloaded plugin:'%s'", plugin->filename);
-		dlclose(plugin->hnd);
+		if (!global_support.in_valgrind)
+			dlclose(plugin->hnd);
 		free(plugin->filename);
 		free(plugin);
 	}
@@ -367,6 +369,9 @@ void pw_init(int *argc, char **argv[])
 	if (support->registry != NULL)
 		return;
 
+	if ((str = getenv("VALGRIND")))
+		support->in_valgrind = pw_properties_parse_bool(str);
+
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(support, str);
 
@@ -504,6 +509,12 @@ const char *pw_get_host_name(void)
 
 	hname[255] = 0;
 	return hname;
+}
+
+SPA_EXPORT
+bool pw_in_valgrind(void)
+{
+	return global_support.in_valgrind;
 }
 
 /** Get the client name

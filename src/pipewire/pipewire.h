@@ -136,6 +136,8 @@ pw_get_host_name(void);
 const char *
 pw_get_client_name(void);
 
+bool pw_in_valgrind(void);
+
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);
 

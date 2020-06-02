@@ -958,6 +958,8 @@ static int impl_clear(struct spa_handle *handle)
 	spa_hook_remove(&this->follower_listener);
 	spa_node_set_callbacks(this->follower, NULL, NULL);
 
+	spa_handle_clear(this->hnd_convert);
+
 	if (this->buffers)
 		free(this->buffers);
 	this->buffers = NULL;

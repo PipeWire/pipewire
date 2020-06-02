@@ -1539,9 +1539,10 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	pw_log_debug(NAME" %p: destroy", impl);
 	pw_log_info("(%s-%u) destroy", node->name, node->info.id);
-	pw_impl_node_emit_destroy(node);
 
 	suspend_node(node);
+
+	pw_impl_node_emit_destroy(node);
 
 	pw_log_debug(NAME" %p: driver node %p", impl, node->driver_node);
 

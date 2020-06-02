@@ -1883,5 +1883,7 @@ exit:
 	pw_map_clear(&impl.endpoint_links);
 	pw_map_clear(&impl.globals);
 
+	pw_deinit();
+
 	return res;
 }

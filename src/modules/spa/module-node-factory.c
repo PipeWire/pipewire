@@ -173,6 +173,7 @@ error_create_node:
 	goto error_exit;
 error_bind:
 	pw_resource_errorf_id(resource, new_id, res, "can't bind node");
+	pw_impl_node_destroy(node);
 	goto error_exit;
 
 error_exit_cleanup:

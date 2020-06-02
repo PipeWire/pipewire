@@ -146,6 +146,7 @@ static const struct resample_info *find_resample_info(uint32_t format, uint32_t 
 
 static void impl_native_free(struct resample *r)
 {
+	spa_log_debug(r->log, "native %p: free", r);
 	free(r->data);
 	r->data = NULL;
 }

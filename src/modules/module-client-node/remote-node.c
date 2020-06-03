@@ -1038,6 +1038,13 @@ static const struct pw_impl_node_events node_events = {
 	.active_changed = node_active_changed,
 };
 
+static void client_node_removed(void *_data)
+{
+	struct node_data *data = _data;
+	if (data->client_node)
+		pw_proxy_destroy((struct pw_proxy*)data->client_node);
+}
+
 static void client_node_destroy(void *_data)
 {
 	struct node_data *data = _data;
@@ -1068,9 +1075,18 @@ static void client_node_bound(void *_data, uint32_t global_id)
 
 static const struct pw_proxy_events proxy_client_node_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = client_node_removed,
 	.destroy = client_node_destroy,
 	.bound = client_node_bound,
 };
+
+static void proxy_removed(void *_data)
+{
+	struct node_data *data = _data;
+	pw_log_debug("%p: removed", data);
+	if (data->proxy)
+		pw_proxy_destroy(data->proxy);
+}
 
 static void proxy_destroy(void *_data)
 {
@@ -1087,6 +1103,7 @@ static void proxy_destroy(void *_data)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_removed,
 	.destroy = proxy_destroy,
 };
 

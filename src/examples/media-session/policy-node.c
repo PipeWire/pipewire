@@ -169,7 +169,7 @@ static const struct sm_object_events object_events = {
 static int
 handle_node(struct impl *impl, struct sm_object *object)
 {
-	const char *str, *media_class;
+	const char *str, *media_class = NULL, *role;
 	enum pw_direction direction;
 	struct node *node;
 	uint32_t client_id = SPA_ID_INVALID;
@@ -177,9 +177,10 @@ handle_node(struct impl *impl, struct sm_object *object)
 	if (object->props) {
 		if ((str = pw_properties_get(object->props, PW_KEY_CLIENT_ID)) != NULL)
 			client_id = atoi(str);
-	}
 
-	media_class = object->props ? pw_properties_get(object->props, PW_KEY_MEDIA_CLASS) : NULL;
+		media_class = pw_properties_get(object->props, PW_KEY_MEDIA_CLASS);
+		role = pw_properties_get(object->props, PW_KEY_MEDIA_ROLE);
+	}
 
 	pw_log_debug(NAME" %p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
 
@@ -193,6 +194,9 @@ handle_node(struct impl *impl, struct sm_object *object)
 	node->client_id = client_id;
 	node->type = NODE_TYPE_UNKNOWN;
 	spa_list_append(&impl->node_list, &node->link);
+
+	if (role && !strcmp(role, "DSP"))
+		node->active = true;
 
 	if (strstr(media_class, "Stream/") == media_class) {
 		media_class += strlen("Stream/");

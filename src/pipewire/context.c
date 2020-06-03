@@ -358,9 +358,6 @@ void pw_context_destroy(struct pw_context *context)
 	spa_list_consume(core, &context->core_list, link)
 		pw_core_disconnect(core);
 
-	spa_list_consume(module, &context->module_list, link)
-		pw_impl_module_destroy(module);
-
 	spa_list_consume(node, &context->node_list, link)
 		pw_impl_node_destroy(node);
 
@@ -369,6 +366,9 @@ void pw_context_destroy(struct pw_context *context)
 
 	spa_list_consume(resource, &context->registry_resource_list, link)
 		pw_resource_destroy(resource);
+
+	spa_list_consume(module, &context->module_list, link)
+		pw_impl_module_destroy(module);
 
 	spa_list_consume(global, &context->global_list, link)
 		pw_global_destroy(global);

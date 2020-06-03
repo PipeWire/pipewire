@@ -181,18 +181,18 @@ static int remove_proxy(void *object, void *data)
 	return 0;
 }
 
-static void proxy_core_destroy(void *data)
+static void proxy_core_removed(void *data)
 {
 	struct pw_core *core = data;
 	struct pw_stream *stream, *s2;
 	struct pw_filter *filter, *f2;
 
-	if (core->destroyed)
+	if (core->removed)
 		return;
 
-	core->destroyed = true;
+	core->removed = true;
 
-	pw_log_debug(NAME" %p: core proxy destroy", core);
+	pw_log_debug(NAME" %p: core proxy removed", core);
 	spa_list_remove(&core->link);
 
 	spa_list_for_each_safe(stream, s2, &core->stream_list, link)
@@ -202,6 +202,20 @@ static void proxy_core_destroy(void *data)
 
 	pw_map_for_each(&core->objects, remove_proxy, core);
 	pw_map_reset(&core->objects);
+}
+
+static void proxy_core_destroy(void *data)
+{
+	struct pw_core *core = data;
+	struct pw_stream *stream;
+	struct pw_filter *filter;
+
+	if (core->destroyed)
+		return;
+
+	core->destroyed = true;
+
+	pw_log_debug(NAME" %p: core proxy destroy", core);
 
 	spa_list_consume(stream, &core->stream_list, link)
 		pw_stream_destroy(stream);
@@ -223,6 +237,7 @@ static void proxy_core_destroy(void *data)
 
 static const struct pw_proxy_events proxy_core_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_core_removed,
 	.destroy = proxy_core_destroy,
 };
 

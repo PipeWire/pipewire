@@ -840,6 +840,7 @@ struct pw_core {
 	int recv_seq;				/**< last received sequence number */
 	int send_seq;				/**< last protocol result code */
 
+	unsigned int removed:1;
 	unsigned int destroyed:1;
 
 	void *user_data;			/**< extra user data */

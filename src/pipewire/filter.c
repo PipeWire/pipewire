@@ -1078,12 +1078,16 @@ SPA_EXPORT
 void pw_filter_destroy(struct pw_filter *filter)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
+	struct port *p;
 
 	pw_log_debug(NAME" %p: destroy", filter);
 
 	pw_filter_emit_destroy(filter);
 
 	pw_filter_disconnect(filter);
+
+	spa_list_consume(p, &impl->port_list, link)
+		pw_filter_remove_port(p->user_data);
 
 	if (filter->core) {
 		spa_hook_remove(&filter->core_listener);

@@ -35,6 +35,21 @@ pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
 
 pipewire_configdir = join_paths(pipewire_sysconfdir, 'pipewire')
 modules_install_dir = join_paths(pipewire_libdir, pipewire_name)
+
+if host_machine.system() == 'linux'
+  # glibc ld.so interprets ${LIB} in a library loading path with an
+  # appropriate value for the current architecture, typically something
+  # like lib, lib64 or lib/x86_64-linux-gnu.
+  # This allows the same pw-pulse script to work for both 32- and 64-bit
+  # applications on biarch/multiarch distributions, by setting something
+  # like LD_LIBRARY_PATH='/usr/${LIB}/pipewire-0.3/pulse'.
+  # Note that ${LIB} is a special token expanded by the runtime linker,
+  # not an environment variable, and must be passed through literally.
+  modules_install_dir_dlopen = join_paths(prefix, '${LIB}', pipewire_name)
+else
+  modules_install_dir_dlopen = modules_install_dir
+endif
+
 spa_plugindir = join_paths(pipewire_libdir, spa_name)
 
 pipewire_headers_dir = join_paths(pipewire_name, 'pipewire')

@@ -20,10 +20,13 @@ jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
 libjack_path = get_option('libjack-path')
 if libjack_path == ''
   libjack_path = join_paths(modules_install_dir, 'jack')
+  libjack_path_dlopen = join_paths(modules_install_dir_dlopen, 'jack')
+else
+  libjack_path_dlopen = libjack_path
 endif
 
 tools_config = configuration_data()
-tools_config.set('LIBJACK_PATH', libjack_path)
+tools_config.set('LIBJACK_PATH', libjack_path_dlopen)
 
 configure_file(input : 'pw-jack.in',
                output : 'pw-jack',

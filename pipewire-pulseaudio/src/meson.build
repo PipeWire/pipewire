@@ -51,10 +51,13 @@ vflag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfil
 libpulse_path = get_option('libpulse-path')
 if libpulse_path == ''
   libpulse_path = join_paths(modules_install_dir, 'pulse')
+  libpulse_path_dlopen = join_paths(modules_install_dir_dlopen, 'pulse')
+else
+  libpulse_path_dlopen = libpulse_path
 endif
 
 tools_config = configuration_data()
-tools_config.set('LIBPULSE_PATH', libpulse_path)
+tools_config.set('LIBPULSE_PATH', libpulse_path_dlopen)
 
 configure_file(input : 'pw-pulse.in',
                output : 'pw-pulse',

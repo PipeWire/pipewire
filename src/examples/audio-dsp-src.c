@@ -151,6 +151,7 @@ int main(int argc, char *argv[])
 
 	pw_filter_destroy(data.filter);
 	pw_main_loop_destroy(data.loop);
+	pw_deinit();
 
 	return 0;
 }

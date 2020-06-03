@@ -24,12 +24,10 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <time.h>
 #include <math.h>
-#include <sys/mman.h>
+#include <signal.h>
 
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
 
@@ -105,6 +103,12 @@ static const struct pw_stream_events stream_events = {
 	.process = on_process,
 };
 
+static void do_quit(void *userdata, int signal_number)
+{
+	struct data *data = userdata;
+	pw_main_loop_quit(data->loop);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
@@ -117,6 +121,9 @@ int main(int argc, char *argv[])
 	/* make a main loop. If you already have another main loop, you can add
 	 * the fd of this pipewire mainloop to it. */
 	data.loop = pw_main_loop_new(NULL);
+
+	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
+	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
 
 	/* Create a simple stream, the simple stream manages the core and remote
 	 * objects for you if you don't need to deal with them.
@@ -163,6 +170,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_destroy(data.stream);
 	pw_main_loop_destroy(data.loop);
+	pw_deinit();
 
 	return 0;
 }

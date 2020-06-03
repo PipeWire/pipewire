@@ -1021,6 +1021,10 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 SPA_EXPORT
 int pw_context_register_export_type(struct pw_context *context, struct pw_export_type *type)
 {
+	if (pw_context_find_export_type(context, type->type)) {
+		pw_log_warn("context %p: duplicate export type %s", context, type->type);
+		return -EEXIST;
+	}
 	pw_log_debug("context %p: Add export type %s to context", context, type->type);
 	spa_list_append(&context->export_list, &type->link);
 	return 0;

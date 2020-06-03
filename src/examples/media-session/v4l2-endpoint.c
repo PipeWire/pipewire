@@ -141,7 +141,6 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	struct pw_properties *p;
 	int res;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
 
 	if (props == NULL)

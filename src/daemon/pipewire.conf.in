@@ -42,7 +42,7 @@ add-spa-lib support.* support/libspa-support
 # Loads a module with the given parameters. Normally failure is
 # fatal if the module is not found, unless -ifexists is given.
 #
-#load-module libpipewire-module-rtkit # rt.prio=20 rt.time.soft=200000 rt.time.hard=200000
+load-module libpipewire-module-rtkit # rt.prio=20 rt.time.soft=200000 rt.time.hard=200000
 load-module libpipewire-module-protocol-native
 load-module libpipewire-module-profiler
 load-module libpipewire-module-metadata

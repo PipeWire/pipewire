@@ -160,15 +160,12 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 			res = -EINVAL;
 			goto exit;
 		}
-		pw_log_info(NAME " %s. Got %s from PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT", __FUNCTION__, str);
 
 		obj = sm_media_session_find_object(impl->session, atoi(str));
 		if (obj == NULL || strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) != 0) {
 			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
 			res = -EINVAL;
 			goto exit;
-		} else {
-			pw_log_info(NAME " %s: comparing obj->type[%s] with %s.", __FUNCTION__, obj->type, PW_TYPE_INTERFACE_Endpoint);
 		}
 
 		pw_properties_setf(p, PW_KEY_LINK_OUTPUT_NODE, "%d", endpoint->node->node->info->id);
@@ -202,7 +199,6 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	struct stream *s;
 	const char *str;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	s = calloc(1, sizeof(*s));
 	if (s == NULL)
 		return NULL;
@@ -227,7 +223,6 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 	s->info.props = &s->props->dict;
 
-	pw_log_info("%s:: stream %s %d", __FUNCTION__, s->info.name, s->info.id);
 	pw_client_endpoint_stream_update(endpoint->client_endpoint,
 			s->info.id,
 			PW_CLIENT_ENDPOINT_STREAM_UPDATE_INFO,
@@ -244,7 +239,6 @@ static void destroy_stream(struct stream *stream)
 {
 	struct endpoint *endpoint = stream->endpoint;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_client_endpoint_stream_update(endpoint->client_endpoint,
 			stream->info.id,
 			PW_CLIENT_ENDPOINT_STREAM_UPDATE_DESTROYED,
@@ -266,7 +260,6 @@ static void update_params(void *data)
 	struct sm_node *node = endpoint->node->node;
 	struct sm_param *p;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_debug(NAME" %p: endpoint", endpoint);
 
 	params = alloca(sizeof(struct spa_pod *) * node->n_params);
@@ -314,7 +307,6 @@ static void complete_endpoint(void *data)
 	struct stream *stream;
 	struct sm_param *p;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_debug("endpoint %p: complete", endpoint);
 
 	spa_list_for_each(p, &endpoint->node->node->param_list, link) {
@@ -354,7 +346,6 @@ static void proxy_destroy(void *data)
 	struct endpoint *endpoint = data;
 	struct stream *s;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_debug("endpoint %p: destroy", endpoint);
 
 	spa_list_consume(s, &endpoint->stream_list, link)
@@ -370,7 +361,6 @@ static void proxy_destroy(void *data)
 static void proxy_bound(void *data, uint32_t id)
 {
 	struct endpoint *endpoint = data;
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	endpoint->info.id = id;
 }
 
@@ -392,7 +382,6 @@ static struct endpoint *create_endpoint(struct node *node)
 	struct pw_properties *pr = node->node->obj.props;
 	enum pw_direction direction;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	if (pr == NULL) {
 		errno = EINVAL;
 		return NULL;
@@ -426,7 +415,6 @@ static struct endpoint *create_endpoint(struct node *node)
 	if ((str = pw_properties_get(pr, PW_KEY_DEVICE_ICON_NAME)) != NULL)
 		pw_properties_set(props, PW_KEY_ENDPOINT_ICON_NAME, str);
 
-	pw_log_info(NAME " %s. Invoking sm_media_session_create_object", __FUNCTION__);
 	proxy = sm_media_session_create_object(impl->session,
 						"client-endpoint",
 						PW_TYPE_INTERFACE_ClientEndpoint,
@@ -501,7 +489,6 @@ static int setup_v4l2_endpoint(struct device *device)
 	struct sm_node *n;
 	struct sm_device *d = device->device;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_debug(NAME" %p: device %p setup", impl, d);
 
 	spa_list_for_each(n, &d->node_list, link) {
@@ -513,7 +500,6 @@ static int setup_v4l2_endpoint(struct device *device)
 		node->device = device;
 		node->node = n;
 		node->impl = impl;
-		pw_log_info(NAME " %s. Invoking create_endpoint", __FUNCTION__);
 		node->endpoint = create_endpoint(node);
 		if (node->endpoint == NULL)
 			return -errno;
@@ -523,8 +509,6 @@ static int setup_v4l2_endpoint(struct device *device)
 
 static int activate_device(struct device *device)
 {
-	pw_log_info(NAME " In %s. Activating....", __FUNCTION__);
-	pw_log_info(NAME " In %s. Invoking setup_libcamera_endpoint", __FUNCTION__);
 	return setup_v4l2_endpoint(device);
 }
 
@@ -533,7 +517,6 @@ static int deactivate_device(struct device *device)
 	struct impl *impl = device->impl;
 	struct endpoint *e;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_debug(NAME" %p: device %p deactivate", impl, device->device);
 	spa_list_consume(e, &device->endpoint_list, link)
 		destroy_endpoint(impl, e);
@@ -546,7 +529,6 @@ static void device_update(void *data)
 	struct device *device = data;
 	struct impl *impl = device->impl;
 
-	pw_log_info(NAME " %s. ", __FUNCTION__);
 	pw_log_info(NAME" %p: device %p %08x %08x", impl, device,
 			device->device->obj.avail, device->device->obj.changed);
 
@@ -572,7 +554,6 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	const char *media_class, *str;
 	struct device *device;
 
-	pw_log_info(NAME " In %s. ", __FUNCTION__);
 	if (obj->props == NULL)
 		return 0;
 
@@ -600,7 +581,6 @@ handle_device(struct impl *impl, struct sm_object *obj)
 
 static void destroy_device(struct impl *impl, struct device *device)
 {
-	pw_log_info(NAME " In %s. Deactivating...", __FUNCTION__);
 	deactivate_device(device);
 	spa_hook_remove(&device->listener);
 	sm_object_remove_data((struct sm_object*)device->device, SESSION_KEY);
@@ -611,7 +591,6 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	int res;
 
-	pw_log_info(NAME " In %s. comparing object->type[%s] with %s", __FUNCTION__, object->type, PW_TYPE_INTERFACE_Device);
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) == 0)
 		res = handle_device(impl, object);
 	else
@@ -627,7 +606,6 @@ static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 
-	pw_log_info(NAME " In %s. ", __FUNCTION__);
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) == 0) {
 		struct device *device;
 		if ((device = sm_object_get_data(object, SESSION_KEY)) != NULL)
@@ -653,13 +631,11 @@ int sm_v4l2_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 
-	pw_log_info(NAME " In %s. ", __FUNCTION__);
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
 
 	impl->session = session;
-	pw_log_info(NAME " In %s. Invoking sm_media_session_add_listener", __FUNCTION__);
 	sm_media_session_add_listener(session, &impl->listener, &session_events, impl);
 
 	return 0;

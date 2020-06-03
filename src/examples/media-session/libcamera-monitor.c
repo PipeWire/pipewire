@@ -228,12 +228,10 @@ static struct device *libcamera_find_device(struct impl *impl, uint32_t id)
 {
 	struct device *dev;
 
-	pw_log_info("In %s:: Invoking spa_list_for_each for id = %d", __FUNCTION__, id);
 	spa_list_for_each(dev, &impl->device_list, link) {
 		if (dev->id == id)
 			return dev;
 	}
-	pw_log_info("In %s:: spa_list_for_each returns NULL for id = %d", __FUNCTION__, id);
 	return NULL;
 }
 
@@ -420,7 +418,6 @@ static void libcamera_udev_object_info(void *data, uint32_t id,
 	struct impl *impl = data;
 	struct device *dev = NULL;
 
-	pw_log_info("In %s:: Invoking libcamera_find_device for id = %d", __FUNCTION__, id);
 	dev = libcamera_find_device(impl, id);
 
 	if (info == NULL) {
@@ -467,7 +464,6 @@ int sm_libcamera_monitor_start(struct sm_media_session *sess)
 		return -errno;
 
 	impl->session = sess;
-	pw_log_info("%s:: Loading spa handle: %s", __FUNCTION__, SPA_NAME_API_LIBCAMERA_DEVICE);
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_LIBCAMERA_ENUM_CLIENT, NULL);
 	if (impl->handle == NULL) {

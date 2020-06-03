@@ -1034,9 +1034,11 @@ static void client_node_destroy(void *_data)
 
 	pw_log_debug("%p: destroy", data);
 
-	clean_node(data);
-
 	spa_hook_remove(&data->node_listener);
+
+	pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED);
+
+	clean_node(data);
 
 	data->client_node = NULL;
 

@@ -140,7 +140,7 @@ struct filter {
 	struct pw_time time;
 
 	unsigned int disconnecting:1;
-	unsigned int free_proxy:1;
+	unsigned int disconnect_core:1;
 	unsigned int subscribe:1;
 	unsigned int draining:1;
 	unsigned int allow_mlock:1;
@@ -1232,7 +1232,7 @@ pw_filter_connect(struct pw_filter *filter,
 		spa_list_append(&filter->core->filter_list, &filter->link);
 		pw_core_add_listener(filter->core,
 				&filter->core_listener, &core_events, filter);
-		impl->free_proxy = true;
+		impl->disconnect_core = true;
 	}
 
 	pw_log_debug(NAME" %p: export node %p", filter, &impl->impl_node);
@@ -1272,8 +1272,8 @@ int pw_filter_disconnect(struct pw_filter *filter)
 	if (filter->proxy)
 		pw_proxy_destroy(filter->proxy);
 
-	if (impl->free_proxy) {
-		impl->free_proxy = false;
+	if (impl->disconnect_core) {
+		impl->disconnect_core = false;
 		spa_hook_remove(&filter->core_listener);
 		spa_list_remove(&filter->link);
 		pw_core_disconnect(filter->core);

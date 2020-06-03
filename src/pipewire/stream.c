@@ -131,7 +131,7 @@ struct stream {
 	struct pw_time time;
 
 	unsigned int disconnecting:1;
-	unsigned int free_proxy:1;
+	unsigned int disconnect_core:1;
 	unsigned int draining:1;
 	unsigned int drained:1;
 	unsigned int allow_mlock:1;
@@ -1486,7 +1486,7 @@ pw_stream_connect(struct pw_stream *stream,
 		spa_list_append(&stream->core->stream_list, &stream->link);
 		pw_core_add_listener(stream->core,
 				&stream->core_listener, &core_events, stream);
-		impl->free_proxy = true;
+		impl->disconnect_core = true;
 	}
 
 	pw_log_debug(NAME" %p: creating node", stream);
@@ -1577,8 +1577,8 @@ int pw_stream_disconnect(struct pw_stream *stream)
 		pw_impl_node_destroy(impl->node);
 		impl->node = NULL;
 	}
-	if (impl->free_proxy) {
-		impl->free_proxy = false;
+	if (impl->disconnect_core) {
+		impl->disconnect_core = false;
 		spa_hook_remove(&stream->core_listener);
 		spa_list_remove(&stream->link);
 		pw_core_disconnect(stream->core);

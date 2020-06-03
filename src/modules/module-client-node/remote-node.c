@@ -985,6 +985,9 @@ static void node_info_changed(void *data, const struct pw_node_info *info)
 
 	pw_log_debug("info changed %p", d);
 
+	if (d->client_node == NULL)
+		return;
+
 	change_mask = 0;
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
 		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
@@ -1003,6 +1006,9 @@ static void node_port_info_changed(void *data, struct pw_impl_port *port,
 
 	pw_log_debug("info changed %p", d);
 
+	if (d->client_node == NULL)
+		return;
+
 	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
 		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_INFO;
 	if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
@@ -1016,6 +1022,10 @@ static void node_active_changed(void *data, bool active)
 {
 	struct node_data *d = data;
 	pw_log_debug("active %d", active);
+
+	if (d->client_node == NULL)
+		return;
+
 	pw_client_node_set_active(d->client_node, active);
 }
 

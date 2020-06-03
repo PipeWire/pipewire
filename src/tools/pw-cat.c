@@ -1069,6 +1069,7 @@ static int setup_sndfile(struct data *data)
 	const char *s;
 	unsigned int nom = 0;
 
+	spa_zero(info);
 	/* for record, you fill in the info first */
 	if (data->mode == mode_record) {
 		if (data->format == NULL)

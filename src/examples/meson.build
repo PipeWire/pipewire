@@ -16,6 +16,12 @@ executable('audio-src',
   install: false,
   dependencies : [pipewire_dep, mathlib],
 )
+executable('audio-dsp-src',
+  'audio-dsp-src.c',
+  c_args : [ '-D_GNU_SOURCE' ],
+  install: false,
+  dependencies : [pipewire_dep, mathlib],
+)
 executable('export-source',
   'export-source.c',
   c_args : [ '-D_GNU_SOURCE' ],

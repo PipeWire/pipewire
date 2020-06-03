@@ -475,6 +475,7 @@ int main(int argc, char *argv[])
 		SDL_DestroyTexture(data.cursor);
 	SDL_DestroyRenderer(data.renderer);
 	SDL_DestroyWindow(data.window);
+	pw_deinit();
 
 	return 0;
 }

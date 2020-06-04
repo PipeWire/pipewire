@@ -160,6 +160,7 @@ SPA_EXPORT
 int pw_proxy_set_bound_id(struct pw_proxy *proxy, uint32_t global_id)
 {
 	proxy->bound_id = global_id;
+	pw_log_debug(NAME" %p: id:%d bound:%d", proxy, proxy->id, global_id);
 	pw_proxy_emit_bound(proxy, global_id);
 	return 0;
 }

@@ -642,12 +642,16 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
+	pw_proxy_destroy((struct pw_proxy*)data.profiler);
+	pw_proxy_destroy((struct pw_proxy*)data.registry);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 
 	fclose(data.output);
 
 	dump_scripts(&data);
+
+	pw_deinit();
 
 	return 0;
 }

@@ -21,7 +21,7 @@ gdb:
 	$(MAKE) run DBG=gdb
 
 valgrind:
-	$(MAKE) run DBG="DISABLE_RTKIT=1 valgrind"
+	$(MAKE) run DBG="DISABLE_RTKIT=1 VALGRIND=1 valgrind"
 
 test: all
 	ninja -C @BUILD_ROOT@ test

@@ -3667,6 +3667,7 @@ int jack_connect (jack_client_t *client,
 	struct object *src, *dst;
 	struct spa_dict props;
 	struct spa_dict_item items[5];
+	struct pw_proxy *proxy;
 	char val[4][16];
 	int res;
 
@@ -3701,13 +3702,15 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "true");
 
-	pw_core_create_object(c->core,
+	proxy = pw_core_create_object(c->core,
 				    "link-factory",
 				    PW_TYPE_INTERFACE_Link,
 				    PW_VERSION_LINK,
 				    &props,
 				    0);
 	res = do_sync(c);
+
+	pw_proxy_destroy(proxy);
 
       exit:
 	pw_thread_loop_unlock(c->context.loop);

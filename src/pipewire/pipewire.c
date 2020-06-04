@@ -426,6 +426,7 @@ void pw_deinit(void)
 		pw_free_strv(support->categories);
 	support->categories = NULL;
 	support->support_lib = NULL;
+	support->registry = NULL;
 
 	pw_log_set(NULL);
 

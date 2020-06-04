@@ -272,7 +272,7 @@ if get_option('gstreamer')
   gobject_dep = dependency('gobject-2.0')
   gmodule_dep = dependency('gmodule-2.0')
   gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
-  gst_dep = [dependency('gstreamer-1.0'),
+  gst_dep = [dependency('gstreamer-1.0', version : '>= 1.10.0'),
              dependency('gstreamer-plugins-base-1.0'),
              dependency('gstreamer-video-1.0'),
              dependency('gstreamer-audio-1.0'),

@@ -24,14 +24,13 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <time.h>
+#include <signal.h>
 #include <math.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 
 #include <spa/param/video/format-utils.h>
-#include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
 
@@ -349,6 +348,12 @@ static const struct pw_stream_events stream_events = {
 	.remove_buffer = on_stream_remove_buffer,
 };
 
+static void do_quit(void *userdata, int signal_number)
+{
+	struct data *data = userdata;
+	pw_main_loop_quit(data->loop);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
@@ -360,6 +365,10 @@ int main(int argc, char *argv[])
 
 	/* create a main loop */
 	data.loop = pw_main_loop_new(NULL);
+
+	/* install some handlers to exit nicely */
+	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
+	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
 
 	/* create a simple stream, the simple stream manages the core
 	 * object for you if you don't want to deal with them.
@@ -409,7 +418,7 @@ int main(int argc, char *argv[])
 	 * the server.  */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  PW_ID_ANY,
+			  PW_ID_ANY,			/* link to any node */
 			  PW_STREAM_FLAG_DRIVER |
 			  PW_STREAM_FLAG_ALLOC_BUFFERS,
 			  params, 1);
@@ -419,6 +428,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_destroy(data.stream);
 	pw_main_loop_destroy(data.loop);
+	pw_deinit();
 
 	return 0;
 }

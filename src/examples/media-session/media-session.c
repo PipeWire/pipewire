@@ -1759,9 +1759,12 @@ static void show_help(const char *name)
 	     name, DEFAULT_ENABLED, DEFAULT_DISABLED);
 
         fprintf(stdout,
-             "\noptions:\n");
+             "\noptions: (*=enabled)\n");
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
-		fprintf(stdout, "\t%-15.15s: %s\n", modules[i].name, modules[i].desc);
+		fprintf(stdout, "\t  %c %-15.15s: %s\n",
+				opt_contains(DEFAULT_ENABLED, modules[i].name) &&
+				!opt_contains(DEFAULT_DISABLED, modules[i].name) ? '*' : ' ',
+				modules[i].name, modules[i].desc);
 	}
 }
 

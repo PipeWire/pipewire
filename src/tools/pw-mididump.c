@@ -221,5 +221,6 @@ int main(int argc, char *argv[])
 	} else {
 		res = dump_filter(&data);
 	}
+	pw_deinit();
 	return res;
 }

@@ -213,7 +213,8 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,
 static inline void remove_from_map(struct pw_proxy *proxy)
 {
 	if (proxy->in_map) {
-		pw_map_remove(&proxy->core->objects, proxy->id);
+		if (proxy->core)
+			pw_map_remove(&proxy->core->objects, proxy->id);
 		proxy->in_map = false;
 	}
 }
@@ -238,7 +239,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 	if (!proxy->removed) {
 		/* if the server did not remove this proxy, schedule a
 		 * destroy if we can */
-		if (!proxy->core->removed) {
+		if (proxy->core && !proxy->core->removed) {
 			pw_core_destroy(proxy->core, proxy);
 			proxy->refcount++;
 		} else {
@@ -302,7 +303,7 @@ int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 	int res = -EIO;
 	struct pw_core *core = proxy->core;
 
-	if (!core->removed) {
+	if (core && !core->removed) {
 		res = pw_core_sync(core, proxy->id, seq);
 		pw_log_debug(NAME" %p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
 	}
@@ -317,7 +318,7 @@ int pw_proxy_errorf(struct pw_proxy *proxy, int res, const char *error, ...)
 	struct pw_core *core = proxy->core;
 
 	va_start(ap, error);
-	if (!core->removed)
+	if (core && !core->removed)
 		r = pw_core_errorv(core, proxy->id,
 				core->recv_seq, res, error, ap);
 	va_end(ap);
@@ -330,7 +331,7 @@ int pw_proxy_error(struct pw_proxy *proxy, int res, const char *error)
 	int r = -EIO;
 	struct pw_core *core = proxy->core;
 
-	if (!core->removed)
+	if (core && !core->removed)
 		r = pw_core_error(core, proxy->id,
 				core->recv_seq, res, error);
 	return r;

@@ -188,8 +188,8 @@ static int destroy_proxy(void *object, void *data)
 		return 0;
 
 	if (object != core) {
-		pw_log_warn(NAME" %p: destroy leaked proxy %d", core, p->id);
-		pw_proxy_destroy(p);
+		pw_log_warn(NAME" %p: leaked proxy %d", core, p->id);
+		p->core = NULL;
 	}
 	return 0;
 }

@@ -39,7 +39,7 @@
 #define NAME "buffers"
 
 #define MAX_ALIGN	32
-#define MAX_BLOCKS	4
+#define MAX_BLOCKS	4u
 
 struct port {
 	struct spa_node *node;

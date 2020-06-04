@@ -89,7 +89,7 @@ static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
 	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
-	pw_log_debug(NAME" %p: proxy %u bound %u", this, id, global_id);
+	pw_log_debug(NAME" %p: proxy id %u bound %u", this, id, global_id);
 	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
 		pw_proxy_set_bound_id(proxy, global_id);
 	}
@@ -188,7 +188,7 @@ static int destroy_proxy(void *object, void *data)
 		return 0;
 
 	if (object != core) {
-		pw_log_warn(NAME" %p: leaked proxy %d", core, p->id);
+		pw_log_warn(NAME" %p: leaked proxy %p id:%d", core, p, p->id);
 		p->core = NULL;
 	}
 	return 0;

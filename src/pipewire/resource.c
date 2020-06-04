@@ -72,16 +72,15 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 	}
 
 	if ((res = pw_map_insert_at(&client->objects, id, this)) < 0) {
-		errno = -res;
-		pw_log_error(NAME" %p: can't add id %u for client %p: %m",
-			this, id, client);
+		pw_log_error(NAME" %p: can't add id %u for client %p: %s",
+			this, id, client, spa_strerror(res));
 		goto error_clean;
 	}
 	this->id = id;
 
 	if ((res = pw_resource_install_marshal(this, false)) < 0) {
-		pw_log_error(NAME" %p: no marshal for type %s/%d", this,
-				type, version);
+		pw_log_error(NAME" %p: no marshal for type %s/%d: %s", this,
+				type, version, spa_strerror(res));
 		goto error_clean;
 	}
 

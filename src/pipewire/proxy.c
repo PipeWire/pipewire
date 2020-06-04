@@ -60,8 +60,8 @@ int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version)
 	spa_hook_list_init(&proxy->object_listener_list);
 
 	if ((res = pw_proxy_install_marshal(proxy, false)) < 0) {
-		pw_log_error(NAME" %p: no marshal for type %s/%d", proxy,
-				type, version);
+		pw_log_error(NAME" %p: no marshal for type %s/%d: %s", proxy,
+				type, version, spa_strerror(res));
 		goto error_clean;
 	}
 	proxy->in_map = true;

@@ -582,23 +582,24 @@ static const struct pw_module_events module_events = {
 	.info = module_event_info
 };
 
+static void removed_proxy(void *user_data)
+{
+	struct global *g = user_data;
+	pw_proxy_destroy(g->proxy);
+}
+
 static void destroy_proxy(void *user_data)
 {
-        struct global *g = user_data;
-
-        if (g->props) {
-                pw_properties_free(g->props);
-                g->props = NULL;
-        }
-
-        if (g->info) {
-                g->info_destroy(g->info);
-                g->info = NULL;
-        }
+	struct global *g = user_data;
+	if (g->props)
+		pw_properties_free(g->props);
+	if (g->info)
+		g->info_destroy(g->info);
 }
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = removed_proxy,
 	.destroy = destroy_proxy,
 };
 
@@ -862,8 +863,10 @@ int main(int argc, char *argv[])
 	draw_graph(&data, dot_path);
 
 	dot_str_clear(&data.dot_str);
+	pw_proxy_destroy((struct pw_proxy*)data.registry);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
+	pw_deinit();
 
 	return 0;
 }

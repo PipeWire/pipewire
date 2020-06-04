@@ -72,7 +72,7 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 	}
 
 	if ((res = pw_map_insert_at(&client->objects, id, this)) < 0) {
-		res = -errno;
+		errno = -res;
 		pw_log_error(NAME" %p: can't add id %u for client %p: %m",
 			this, id, client);
 		goto error_clean;

@@ -604,9 +604,27 @@ static void device_destroy(void *data)
 	struct node *node;
 
 	pw_log_debug("device %p destroy", device);
+	spa_list_remove(&device->link);
 
 	spa_list_consume(node, &device->node_list, link)
 		alsa_remove_node(device, node);
+
+	if (device->appeared)
+		spa_hook_remove(&device->device_listener);
+	if (device->seq != 0)
+		spa_hook_remove(&device->sync_listener);
+	if (device->reserve)
+		rd_device_destroy(device->reserve);
+}
+
+static void device_free(void *data)
+{
+	struct device *device = data;
+	pw_log_debug("device %p free", device);
+	spa_hook_remove(&device->listener);
+	pw_unload_spa_handle(device->handle);
+	pw_properties_free(device->props);
+	free(device);
 }
 
 static void device_update(void *data)
@@ -630,8 +648,9 @@ static void device_update(void *data)
 
 static const struct sm_object_events device_events = {
 	SM_VERSION_OBJECT_EVENTS,
-        .destroy = device_destroy,
-        .update = device_update,
+	.destroy = device_destroy,
+	.free = device_free,
+	.update = device_update,
 };
 
 static struct device *alsa_create_device(struct impl *impl, uint32_t id,
@@ -729,21 +748,9 @@ exit:
 
 static void alsa_remove_device(struct impl *impl, struct device *device)
 {
-	pw_log_debug("remove device %u", device->id);
-	spa_list_remove(&device->link);
-	if (device->appeared)
-		spa_hook_remove(&device->device_listener);
-	if (device->seq != 0)
-		spa_hook_remove(&device->sync_listener);
-	if (device->reserve)
-		rd_device_destroy(device->reserve);
-	if (device->sdevice) {
+	pw_log_debug("%p: remove device %u", device, device->id);
+	if (device->sdevice)
 		sm_object_destroy(&device->sdevice->obj);
-		spa_hook_remove(&device->listener);
-	}
-	pw_unload_spa_handle(device->handle);
-	pw_properties_free(device->props);
-	free(device);
 }
 
 static void alsa_udev_object_info(void *data, uint32_t id,

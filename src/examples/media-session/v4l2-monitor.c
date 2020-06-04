@@ -295,9 +295,23 @@ static void device_destroy(void *data)
 	struct node *node;
 
 	pw_log_debug("device %p destroy", device);
+	spa_list_remove(&device->link);
 
 	spa_list_consume(node, &device->node_list, link)
 		v4l2_remove_node(device, node);
+
+	if (device->appeared)
+		spa_hook_remove(&device->device_listener);
+}
+
+static void device_free(void *data)
+{
+	struct device *device = data;
+	pw_log_debug("device %p free", device);
+	spa_hook_remove(&device->listener);
+	pw_unload_spa_handle(device->handle);
+	pw_properties_free(device->props);
+	free(device);
 }
 
 static void device_update(void *data)
@@ -322,10 +336,10 @@ static void device_update(void *data)
 
 static const struct sm_object_events device_events = {
 	SM_VERSION_OBJECT_EVENTS,
-        .destroy = device_destroy,
-        .update = device_update,
+	.destroy = device_destroy,
+	.free = device_free,
+	.update = device_update,
 };
-
 
 static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
@@ -401,15 +415,8 @@ exit:
 static void v4l2_remove_device(struct impl *impl, struct device *dev)
 {
 	pw_log_debug("remove device %u", dev->id);
-	spa_list_remove(&dev->link);
-	if (dev->appeared)
-		spa_hook_remove(&dev->device_listener);
 	if (dev->sdevice)
 		sm_object_destroy(&dev->sdevice->obj);
-	spa_hook_remove(&dev->listener);
-	pw_unload_spa_handle(dev->handle);
-	pw_properties_free(dev->props);
-	free(dev);
 }
 
 static void v4l2_udev_object_info(void *data, uint32_t id,

@@ -43,6 +43,7 @@ struct sm_object_events {
 
 	void (*update) (void *data);
 	void (*destroy) (void *data);
+	void (*free) (void *data);
 };
 
 struct sm_object_methods {

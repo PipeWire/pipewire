@@ -651,13 +651,17 @@ static int do_sync(struct client *client)
 	return 0;
 }
 
+static void on_node_removed(void *data)
+{
+	struct client *client = data;
+	pw_proxy_destroy((struct pw_proxy*)client->node);
+}
+
 static void on_node_destroy(void *data)
 {
 	struct client *client = data;
-
 	client->node = NULL;
 	spa_hook_remove(&client->proxy_listener);
-
 }
 
 static void on_node_bound(void *data, uint32_t global_id)
@@ -666,8 +670,9 @@ static void on_node_bound(void *data, uint32_t global_id)
 	client->node_id = global_id;
 }
 
-static const struct pw_proxy_events proxy_events = {
+static const struct pw_proxy_events node_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = on_node_removed,
 	.destroy = on_node_destroy,
 	.bound = on_node_bound,
 };
@@ -2313,7 +2318,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_client_node_add_listener(client->node,
 			&client->node_listener, &client_node_events, client);
         pw_proxy_add_listener((struct pw_proxy*)client->node,
-			&client->proxy_listener, &proxy_events, client);
+			&client->proxy_listener, &node_proxy_events, client);
 
 	ni = SPA_NODE_INFO_INIT();
 	ni.max_input_ports = MAX_PORTS;
@@ -2386,6 +2391,11 @@ int jack_client_close (jack_client_t *client)
 
 	res = jack_deactivate(client);
 
+	if (c->registry)
+		pw_proxy_destroy((struct pw_proxy*)c->registry);
+	if (c->metadata->proxy)
+		pw_proxy_destroy((struct pw_proxy*)c->metadata->proxy);
+	pw_core_disconnect(c->core);
 	pw_context_destroy(c->context.context);
 
 	pw_thread_loop_stop(c->context.loop);

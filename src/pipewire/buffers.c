@@ -39,6 +39,7 @@
 #define NAME "buffers"
 
 #define MAX_ALIGN	32
+#define MAX_BLOCKS	4
 
 struct port {
 	struct spa_node *node;
@@ -240,12 +241,12 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t i, offset, n_params;
-	uint32_t max_buffers;
+	uint32_t max_buffers, blocks;
 	size_t minsize, stride, align;
-	uint32_t data_sizes[1];
-	int32_t data_strides[1];
-	uint32_t data_aligns[1];
-	uint32_t types, data_types[1];
+	uint32_t *data_sizes;
+	int32_t *data_strides;
+	uint32_t *data_aligns;
+	uint32_t types, *data_types;
 	struct port output = { outnode, SPA_DIRECTION_OUTPUT, out_port_id };
 	struct port input = { innode, SPA_DIRECTION_INPUT, in_port_id };
 	const char *str;
@@ -283,16 +284,18 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 
 	minsize = stride = 0;
 	types = SPA_ID_INVALID; /* bitmask of allowed types */
+	blocks = 1;
 
 	param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
 	if (param) {
 		uint32_t qmax_buffers = max_buffers,
 		    qminsize = minsize, qstride = stride, qalign = align;
-		uint32_t qtypes = types;
+		uint32_t qtypes = types, qblocks = blocks;
 
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamBuffers, NULL,
 			SPA_PARAM_BUFFERS_buffers,  SPA_POD_OPT_Int(&qmax_buffers),
+			SPA_PARAM_BUFFERS_blocks,   SPA_POD_OPT_Int(&qblocks),
 			SPA_PARAM_BUFFERS_size,     SPA_POD_OPT_Int(&qminsize),
 			SPA_PARAM_BUFFERS_stride,   SPA_POD_OPT_Int(&qstride),
 			SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&qalign),
@@ -301,14 +304,15 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		max_buffers =
 		    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
 						      max_buffers);
+		blocks = SPA_CLAMP(qblocks, blocks, MAX_BLOCKS);
 		minsize = SPA_MAX(minsize, qminsize);
 		stride = SPA_MAX(stride, qstride);
 		align = SPA_MAX(align, qalign);
 		types = qtypes;
 
-		pw_log_debug(NAME" %p: %d %d %d %d %d -> %zd %zd %d %zd %d", result,
-				qminsize, qstride, qmax_buffers, qalign, qtypes,
-				minsize, stride, max_buffers, align, types);
+		pw_log_debug(NAME" %p: %d %d %d %d %d %d -> %d %zd %zd %d %zd %d", result,
+				qblocks, qminsize, qstride, qmax_buffers, qalign, qtypes,
+				blocks, minsize, stride, max_buffers, align, types);
 	} else {
 		pw_log_warn(NAME" %p: no buffers param", result);
 		minsize = 8192;
@@ -318,16 +322,23 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_NO_MEM))
 		minsize = 0;
 
-	data_sizes[0] = minsize;
-	data_strides[0] = stride;
-	data_aligns[0] = align;
-	data_types[0] = types;
+	data_sizes = alloca(sizeof(uint32_t) * blocks);
+	data_strides = alloca(sizeof(int32_t) * blocks);
+	data_aligns = alloca(sizeof(uint32_t) * blocks);
+	data_types = alloca(sizeof(uint32_t) * blocks);
+
+	for (i = 0; i < blocks; i++) {
+		data_sizes[i] = minsize;
+		data_strides[i] = stride;
+		data_aligns[i] = align;
+		data_types[i] = types;
+	}
 
 	if ((res = alloc_buffers(context->pool,
 				 max_buffers,
 				 n_params,
 				 params,
-				 1,
+				 blocks,
 				 data_sizes, data_strides,
 				 data_aligns, data_types,
 				 flags,

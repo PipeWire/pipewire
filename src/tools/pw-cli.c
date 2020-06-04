@@ -433,6 +433,7 @@ static void on_core_destroy(void *_data)
 
 	pw_map_remove(&data->vars, rd->id);
 	pw_map_for_each(&rd->globals, destroy_global, rd);
+	pw_map_clear(&rd->globals);
 
 	if (data->current == rd)
 		data->current = NULL;
@@ -443,6 +444,12 @@ static const struct pw_proxy_events proxy_core_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = on_core_destroy,
 };
+
+static void remote_data_free(struct remote_data *rd)
+{
+	pw_proxy_destroy((struct pw_proxy*)rd->registry);
+	pw_core_disconnect(rd->core);
+}
 
 static bool do_connect(struct data *data, const char *cmd, char *args, char **error)
 {
@@ -504,7 +511,8 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 			goto no_remote;
 
 	}
-	pw_core_disconnect(rd->core);
+	if (rd)
+		remote_data_free(rd);
 
 	if (data->current == NULL) {
 		if (spa_list_is_empty(&data->remotes)) {
@@ -1091,6 +1099,13 @@ static const struct pw_endpoint_stream_events endpoint_stream_events = {
 };
 
 static void
+removed_proxy (void *data)
+{
+	struct proxy_data *pd = data;
+	pw_proxy_destroy(pd->proxy);
+}
+
+static void
 destroy_proxy (void *data)
 {
 	struct proxy_data *pd = data;
@@ -1108,6 +1123,7 @@ destroy_proxy (void *data)
 
 static const struct pw_proxy_events proxy_events = {
         PW_VERSION_PROXY_EVENTS,
+        .removed = removed_proxy,
         .destroy = destroy_proxy,
 };
 
@@ -2760,6 +2776,7 @@ int main(int argc, char *argv[])
 	char *opt_remote = NULL;
 	char *error;
 	bool daemon = false;
+	struct remote_data *rd;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		 NULL, 'h' },
 		{ "version",	no_argument,		 NULL, 'V' },
@@ -2847,9 +2864,13 @@ int main(int argc, char *argv[])
 			pw_main_loop_run(data.loop);
 		}
 	}
+	spa_list_consume(rd, &data.remotes, link)
+		remote_data_free(rd);
 
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
+	pw_map_clear(&data.vars);
+	pw_deinit();
 
 	return 0;
 }

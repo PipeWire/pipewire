@@ -160,7 +160,6 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 			res = -EINVAL;
 			goto exit;
 		}
-
 		obj = sm_media_session_find_object(impl->session, atoi(str));
 		if (obj == NULL || strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) != 0) {
 			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
@@ -223,6 +222,7 @@ static struct stream *endpoint_add_stream(struct endpoint *endpoint)
 	s->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
 	s->info.props = &s->props->dict;
 
+	pw_log_debug("stream %d", s->info.id);
 	pw_client_endpoint_stream_update(endpoint->client_endpoint,
 			s->info.id,
 			PW_CLIENT_ENDPOINT_STREAM_UPDATE_INFO,
@@ -449,7 +449,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	endpoint->info.n_params = 2;
 	spa_list_init(&endpoint->stream_list);
 
-	pw_log_info(NAME" %p: new endpoint %p %s for v4l2 node %p", impl, endpoint, endpoint->info.name, node);
+	pw_log_debug(NAME" %p: new endpoint %p for v4l2 node %p", impl, endpoint, node);
 	pw_proxy_add_listener(proxy,
 			&endpoint->proxy_listener,
 			&proxy_events, endpoint);
@@ -529,7 +529,7 @@ static void device_update(void *data)
 	struct device *device = data;
 	struct impl *impl = device->impl;
 
-	pw_log_info(NAME" %p: device %p %08x %08x", impl, device,
+	pw_log_debug(NAME" %p: device %p %08x %08x", impl, device,
 			device->device->obj.avail, device->device->obj.changed);
 
 	if (!SPA_FLAG_IS_SET(device->device->obj.avail,
@@ -560,7 +560,7 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	media_class = pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS);
 	str = pw_properties_get(obj->props, PW_KEY_DEVICE_API);
 
-	pw_log_info(NAME" %p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
+	pw_log_debug(NAME" %p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
 
 	if (strstr(media_class, "Video/") != media_class)
 		return 0;
@@ -572,7 +572,7 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	device->id = obj->id;
 	device->device = (struct sm_device*)obj;
 	spa_list_init(&device->endpoint_list);
-	pw_log_info(NAME" %p: found v4l2 device %d media_class %s", impl, obj->id, media_class);
+	pw_log_debug(NAME" %p: found v4l2 device %d media_class %s", impl, obj->id, media_class);
 
 	sm_object_add_listener(obj, &device->listener, &device_events, device);
 

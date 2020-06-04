@@ -1867,7 +1867,7 @@ int main(int argc, char *argv[])
 		const char *name = modules[i].name;
 		if (opt_contains(opt_enabled, name) &&
 		    !opt_contains(opt_disabled, name)) {
-			pw_log_info("enable: %s. Starting module.", name);
+			pw_log_info("enable: %s", name);
 			modules[i].start(&impl.this);
 		}
 	}

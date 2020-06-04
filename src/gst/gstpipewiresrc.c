@@ -377,7 +377,8 @@ buffer_recycle (GstMiniObject *obj)
 
   GST_LOG_OBJECT (obj, "recycle buffer");
   pw_thread_loop_lock (src->loop);
-  pw_stream_queue_buffer (src->stream, data->b);
+  if (src->stream)
+    pw_stream_queue_buffer (src->stream, data->b);
   pw_thread_loop_unlock (src->loop);
 
   return FALSE;

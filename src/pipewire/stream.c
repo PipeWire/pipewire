@@ -622,7 +622,7 @@ static int impl_port_set_param(void *object,
 	if ((res = update_params(impl, id, &param, param ? 1 : 0)) < 0)
 		return res;
 
-	if (id == SPA_PARAM_Format && param == NULL)
+	if (id == SPA_PARAM_Format)
 		clear_buffers(stream);
 
 	pw_stream_emit_param_changed(stream, id, param);

@@ -558,9 +558,13 @@ client_node_port_set_param(void *object,
 		goto error_exit;
 	}
 
-        pw_log_debug("port %p: set param %d %p", port, id, param);
+	pw_log_debug("port %p: set param %d %p", port, id, param);
 
-        if (id == SPA_PARAM_Format) {
+	res = pw_impl_port_set_param(port, id, flags, param);
+	if (res < 0)
+		goto error_exit;
+
+	if (id == SPA_PARAM_Format) {
 		struct mix *mix;
 		spa_list_for_each(mix, &data->mix[direction], link) {
 			if (mix->port->port_id == port_id)
@@ -568,14 +572,10 @@ client_node_port_set_param(void *object,
 		}
 	}
 
-	res = pw_impl_port_set_param(port, id, flags, param);
-	if (res < 0)
-		goto error_exit;
-
 	return res;
 
 error_exit:
-        pw_log_error("port %p: set_param %d %p: %s", port, id, param, spa_strerror(res));
+	pw_log_error("port %p: set_param %d %p: %s", port, id, param, spa_strerror(res));
 	pw_proxy_errorf(proxy, res, "port_set_param: %s", spa_strerror(res));
 	return res;
 }

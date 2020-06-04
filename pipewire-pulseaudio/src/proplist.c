@@ -384,7 +384,7 @@ int pa_proplist_equal(PA_CONST pa_proplist *a, PA_CONST pa_proplist *b)
 
 
 int pw_properties_update_proplist(struct pw_properties *props,
-		     const pa_proplist *p)
+		     PA_CONST pa_proplist *p)
 {
 	void *state = NULL;
 	const char *key, *val;

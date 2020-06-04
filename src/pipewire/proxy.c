@@ -298,6 +298,13 @@ void pw_proxy_unref(struct pw_proxy *proxy)
 }
 
 SPA_EXPORT
+void pw_proxy_ref(struct pw_proxy *proxy)
+{
+	assert(proxy->refcount > 0);
+	proxy->refcount++;
+}
+
+SPA_EXPORT
 int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 {
 	int res = -EIO;

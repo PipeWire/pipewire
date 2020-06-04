@@ -1716,7 +1716,7 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(impl->loop);
 }
 
-#define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,libcamera,bluez5,metadata,suspend-node,policy-node"
+#define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,bluez5,metadata,suspend-node,policy-node"
 #define DEFAULT_DISABLED	""
 
 static const struct {

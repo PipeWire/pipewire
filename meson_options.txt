@@ -95,7 +95,7 @@ option('v4l2',
 option('libcamera',
        description: 'Enable libcamera spa plugin integration',
        type: 'boolean',
-       value: true)
+       value: false)
 option('videoconvert',
        description: 'Enable videoconvert spa plugin integration',
        type: 'boolean',

@@ -47,8 +47,6 @@ static void global_free(pa_context *c, struct global *g)
 	if (g->destroy)
 		g->destroy(g);
 	if (g->proxy) {
-		spa_hook_remove(&g->object_listener);
-		spa_hook_remove(&g->proxy_listener);
 		pw_proxy_destroy(g->proxy);
 	}
 	if (g->props)
@@ -72,6 +70,10 @@ static void context_unlink(pa_context *c)
 	spa_list_for_each_safe(s, t, &c->streams, link) {
 		pa_stream_set_state(s, c->state == PA_CONTEXT_FAILED ?
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
+	}
+	if (c->registry) {
+		pw_proxy_destroy((struct pw_proxy*)c->registry);
+		c->registry = NULL;
 	}
 	if (c->core) {
 		pw_core_disconnect(c->core);
@@ -545,10 +547,17 @@ static void client_destroy(void *data)
 		pw_client_info_free(global->info);
 }
 
+static void proxy_removed(void *data)
+{
+	struct global *g = data;
+	pw_proxy_destroy(g->proxy);
+}
+
 static void proxy_destroy(void *data)
 {
 	struct global *g = data;
 	spa_hook_remove(&g->proxy_listener);
+	spa_hook_remove(&g->object_listener);
 	g->proxy = NULL;
 }
 
@@ -571,6 +580,7 @@ static void proxy_done(void *data, int seq)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_removed,
 	.destroy = proxy_destroy,
 	.done = proxy_done,
 };
@@ -1059,6 +1069,10 @@ void pa_context_disconnect(pa_context *c)
 	pa_assert(c->refcount >= 1);
 
 	c->disconnect = true;
+	if (c->registry) {
+		pw_proxy_destroy((struct pw_proxy*)c->registry);
+		c->registry = NULL;
+	}
 	if (c->core) {
 		pw_core_disconnect(c->core);
 		c->core = NULL;

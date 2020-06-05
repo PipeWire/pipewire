@@ -935,6 +935,36 @@ static int create_stream(pa_stream_direction_t direction,
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
+	spa_assert(direction == PA_STREAM_PLAYBACK || direction == PA_STREAM_RECORD);
+
+	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_UNCONNECTED, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY(s->context, s->direct_on_input == PA_INVALID_INDEX || direction == PA_STREAM_RECORD, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY(s->context, !(flags & ~(PA_STREAM_START_CORKED|
+						PA_STREAM_INTERPOLATE_TIMING|
+						PA_STREAM_NOT_MONOTONIC|
+						PA_STREAM_AUTO_TIMING_UPDATE|
+						PA_STREAM_NO_REMAP_CHANNELS|
+						PA_STREAM_NO_REMIX_CHANNELS|
+						PA_STREAM_FIX_FORMAT|
+						PA_STREAM_FIX_RATE|
+						PA_STREAM_FIX_CHANNELS|
+						PA_STREAM_DONT_MOVE|
+						PA_STREAM_VARIABLE_RATE|
+						PA_STREAM_PEAK_DETECT|
+						PA_STREAM_START_MUTED|
+						PA_STREAM_ADJUST_LATENCY|
+						PA_STREAM_EARLY_REQUESTS|
+						PA_STREAM_DONT_INHIBIT_AUTO_SUSPEND|
+						PA_STREAM_START_UNMUTED|
+						PA_STREAM_FAIL_ON_SUSPEND|
+						PA_STREAM_RELATIVE_VOLUME|
+						PA_STREAM_PASSTHROUGH)), PA_ERR_INVALID);
+
+	PA_CHECK_VALIDITY(s->context, s->context->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+	PA_CHECK_VALIDITY(s->context, direction == PA_STREAM_RECORD || !(flags & (PA_STREAM_PEAK_DETECT)), PA_ERR_INVALID);
+	PA_CHECK_VALIDITY(s->context, !sync_stream || (direction == PA_STREAM_PLAYBACK && sync_stream->direction == PA_STREAM_PLAYBACK), PA_ERR_INVALID);
+	PA_CHECK_VALIDITY(s->context, (flags & (PA_STREAM_ADJUST_LATENCY|PA_STREAM_EARLY_REQUESTS)) != (PA_STREAM_ADJUST_LATENCY|PA_STREAM_EARLY_REQUESTS), PA_ERR_INVALID);
+
 
 	pw_log_debug("stream %p: connect %s %08x", s, dev, flags);
 

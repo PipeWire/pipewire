@@ -821,7 +821,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 	pw_log_error("context %p: error id:%u seq:%d res:%d (%s): %s", c,
 			id, seq, res, spa_strerror(res), message);
 
-	if (id == 0) {
+	if (id == PW_ID_CORE) {
 		if (!c->disconnect)
 			pa_context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 	}

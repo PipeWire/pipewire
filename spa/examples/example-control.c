@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -63,6 +65,7 @@ struct buffer {
 };
 
 struct data {
+	const char *plugin_dir;
 	struct spa_log *log;
 	struct spa_system *system;
 	struct spa_loop *loop;
@@ -141,11 +144,17 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t i;
+	char *path;
 
-	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
+	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL) {
+		return -ENOMEM;
+	}
+	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
+		free(path);
 		return -ENOENT;
 	}
+	free(path);
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
 		return -ENOENT;
@@ -256,7 +265,7 @@ static int make_nodes(struct data *data, const char *device)
 	//uint32_t idx;
 
 	if ((res = make_node(data, &data->sink,
-			     "build/spa/plugins/alsa/libspa-alsa.so",
+			     "alsa/libspa-alsa.so",
 			     SPA_NAME_API_ALSA_PCM_SINK)) < 0) {
 		printf("can't create alsa-sink: %d\n", res);
 		return res;
@@ -275,7 +284,7 @@ static int make_nodes(struct data *data, const char *device)
 		printf("got set_props error %d\n", res);
 
 	if ((res = make_node(data, &data->source,
-			     "build/spa/plugins/audiotestsrc/libspa-audiotestsrc.so",
+			     "audiotestsrc/libspa-audiotestsrc.so",
 			     "audiotestsrc")) < 0) {
 		printf("can't create audiotestsrc: %d\n", res);
 		return res;
@@ -421,11 +430,17 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t i;
+	char *path;
 
-	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
+	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL) {
+		return -ENOMEM;
+	}
+	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
+		free(path);
 		return -ENOENT;
 	}
+	free(path);
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
 		return -ENOENT;
@@ -463,6 +478,10 @@ int init_data(struct data *data)
 	struct spa_handle *handle = NULL;
 	void *iface;
 
+	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
+		str = PLUGINDIR;
+	data->plugin_dir = str;
+
 	/* init the graph */
 	spa_graph_init(&data->graph, &data->graph_state);
 
@@ -472,7 +491,7 @@ int init_data(struct data *data)
 
 	/* load and set support system */
 	if ((res = load_handle(data, &handle,
-					"build/spa/plugins/support/libspa-support.so",
+					"support/libspa-support.so",
 					SPA_NAME_SUPPORT_SYSTEM)) < 0)
 		return res;
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_System, &iface)) < 0) {
@@ -485,7 +504,7 @@ int init_data(struct data *data)
 
 	/* load and set support loop and loop control */
 	if ((res = load_handle(data, &handle,
-					"build/spa/plugins/support/libspa-support.so",
+					"support/libspa-support.so",
 					SPA_NAME_SUPPORT_LOOP)) < 0)
 		return res;
 

@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,8 +51,6 @@
 
 static SPA_LOG_IMPL(default_log);
 
-#define PATH "build/spa/plugins/"
-
 #define MAX_BUFFERS     8
 
 struct buffer {
@@ -63,6 +63,7 @@ struct buffer {
 };
 
 struct data {
+	const char *plugin_dir;
 	struct spa_log *log;
 	struct spa_system *system;
 	struct spa_loop *loop;
@@ -95,11 +96,17 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t i;
+	char *path = NULL;
 
-	if ((hnd = dlopen(lib, RTLD_NOW)) == NULL) {
-		printf("can't load %s: %s\n", lib, dlerror());
+	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL) {
+		return -ENOMEM;
+	}
+	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
+		printf("can't load %s: %s\n", path, dlerror());
+		free(path);
 		return -ENOENT;
 	}
+	free(path);
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
 		return -ENOENT;
@@ -240,7 +247,7 @@ static int make_nodes(struct data *data, const char *device)
 
 	if ((res =
 	     make_node(data, &data->source,
-		     PATH "v4l2/libspa-v4l2.so",
+		     "v4l2/libspa-v4l2.so",
 		     SPA_NAME_API_V4L2_SOURCE)) < 0) {
 		printf("can't create v4l2-source: %d\n", res);
 		return res;
@@ -465,8 +472,12 @@ int main(int argc, char *argv[])
 	struct spa_handle *handle = NULL;
 	void *iface;
 
+	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
+		str = PLUGINDIR;
+	data.plugin_dir = str;
+
 	if ((res = load_handle(&data, &handle,
-					PATH "support/libspa-support.so",
+					"support/libspa-support.so",
 					SPA_NAME_SUPPORT_SYSTEM)) < 0)
 		return res;
 
@@ -478,7 +489,7 @@ int main(int argc, char *argv[])
 	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, data.system);
 
 	if ((res = load_handle(&data, &handle,
-					PATH "support/libspa-support.so",
+					"support/libspa-support.so",
 					SPA_NAME_SUPPORT_LOOP)) < 0)
 		return res;
 

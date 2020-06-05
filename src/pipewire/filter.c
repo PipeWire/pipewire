@@ -878,13 +878,19 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static void proxy_destroy(void *_data)
+static void proxy_removed(void *_data)
 {
 	struct pw_filter *filter = _data;
-	filter->proxy = NULL;
 	spa_hook_remove(&filter->proxy_listener);
 	filter->node_id = SPA_ID_INVALID;
 	filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, NULL);
+}
+
+static void proxy_destroy(void *_data)
+{
+	struct pw_filter *filter = _data;
+	proxy_removed(_data);
+	filter->proxy = NULL;
 }
 
 static void proxy_error(void *_data, int seq, int res, const char *message)
@@ -902,6 +908,7 @@ static void proxy_bound(void *_data, uint32_t global_id)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_removed,
 	.destroy = proxy_destroy,
 	.error = proxy_error,
 	.bound = proxy_bound,

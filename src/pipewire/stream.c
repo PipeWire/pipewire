@@ -827,13 +827,21 @@ static const struct spa_node_methods impl_node = {
 	.port_reuse_buffer = impl_port_reuse_buffer,
 };
 
-static void proxy_destroy(void *_data)
+static void proxy_removed(void *_data)
 {
 	struct pw_stream *stream = _data;
-	stream->proxy = NULL;
+	pw_log_debug(NAME" %p: removed", stream);
 	spa_hook_remove(&stream->proxy_listener);
 	stream->node_id = SPA_ID_INVALID;
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
+}
+
+static void proxy_destroy(void *_data)
+{
+	struct pw_stream *stream = _data;
+	pw_log_debug(NAME" %p: destroy", stream);
+	proxy_removed(_data);
+	stream->proxy = NULL;
 }
 
 static void proxy_error(void *_data, int seq, int res, const char *message)
@@ -851,6 +859,7 @@ static void proxy_bound(void *data, uint32_t global_id)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_removed,
 	.destroy = proxy_destroy,
 	.error = proxy_error,
 	.bound = proxy_bound,
@@ -1572,6 +1581,9 @@ int pw_stream_disconnect(struct pw_stream *stream)
 
 	if (impl->node)
 		pw_impl_node_set_active(impl->node, false);
+
+	if (stream->proxy)
+		pw_proxy_destroy(stream->proxy);
 
 	if (impl->node) {
 		pw_impl_node_destroy(impl->node);

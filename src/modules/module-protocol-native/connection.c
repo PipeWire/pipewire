@@ -28,6 +28,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 
 #include <spa/utils/result.h>
@@ -124,7 +125,7 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 		return SPA_IDX_INVALID;
 	}
 
-	buf->msg.fds[index] = fd;
+	buf->msg.fds[index] = fcntl(fd, F_DUPFD_CLOEXEC, 0);
 	buf->msg.n_fds++;
 	pw_log_debug("connection %p: add fd %d at index %d", conn, fd, index);
 
@@ -210,8 +211,13 @@ recv_error:
 	return -errno;
 }
 
-static void clear_buffer(struct buffer *buf)
+static void clear_buffer(struct buffer *buf, bool fds)
 {
+	uint32_t i;
+	if (fds) {
+		for (i = 0; i < buf->n_fds; i++)
+			close(buf->fds[i]);
+	}
 	buf->n_fds = 0;
 	buf->buffer_size = 0;
 	buf->offset = 0;
@@ -285,6 +291,8 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 
 	spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, destroy, 0);
 
+	clear_buffer(&impl->out, true);
+	clear_buffer(&impl->in, true);
 	free(impl->out.buffer_data);
 	free(impl->in.buffer_data);
 	free(impl);
@@ -344,7 +352,7 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	buf->fds_offset += buf->msg.n_fds;
 
 	if (buf->offset >= buf->buffer_size)
-		clear_buffer(buf);
+		clear_buffer(buf, false);
 
 	return 0;
 }
@@ -501,7 +509,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 	struct cmsghdr *cmsg;
 	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
 	int res = 0, *fds;
-	uint32_t fds_len, n_fds, outfds;
+	uint32_t fds_len, to_close, n_fds, outfds, i;
 	struct buffer *buf;
 	void *data;
 	size_t size;
@@ -511,6 +519,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 	size = buf->buffer_size;
 	fds = buf->fds;
 	n_fds = buf->n_fds;
+	to_close = 0;
 
 	while (size > 0) {
 		if (n_fds > MAX_FDS_MSG) {
@@ -561,6 +570,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 		data = SPA_MEMBER(data, sent, void);
 		n_fds -= outfds;
 		fds += outfds;
+		to_close += outfds;
 	}
 
 	res = 0;
@@ -569,6 +579,8 @@ exit:
 	if (size > 0)
 		memmove(buf->buffer_data, data, size);
 	buf->buffer_size = size;
+	for (i = 0; i < to_close; i++)
+		close(buf->fds[i]);
 	if (n_fds > 0)
 		memmove(buf->fds, fds, n_fds * sizeof(int));
 	buf->n_fds = n_fds;
@@ -588,8 +600,8 @@ int pw_protocol_native_connection_clear(struct pw_protocol_native_connection *co
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 
-	clear_buffer(&impl->out);
-	clear_buffer(&impl->in);
+	clear_buffer(&impl->out, true);
+	clear_buffer(&impl->in, true);
 
 	return 0;
 }

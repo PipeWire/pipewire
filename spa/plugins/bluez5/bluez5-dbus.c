@@ -443,6 +443,19 @@ static struct spa_bt_adapter *adapter_create(struct spa_bt_monitor *monitor, con
 	return d;
 }
 
+static void adapter_free(struct spa_bt_adapter *adapter)
+{
+	struct spa_bt_monitor *monitor = adapter->monitor;
+	spa_log_debug(monitor->log, "%p", adapter);
+
+	spa_list_remove(&adapter->link);
+	free(adapter->alias);
+	free(adapter->name);
+	free(adapter->address);
+	free(adapter->path);
+	free(adapter);
+}
+
 static struct spa_bt_device *device_find(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_device *d;
@@ -470,13 +483,15 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	return d;
 }
 
-#if 0
-static int device_free(struct spa_bt_device *device)
+static int device_stop_timer(struct spa_bt_device *device);
+
+static void device_free(struct spa_bt_device *device)
 {
 	struct spa_bt_transport *t;
 	struct spa_bt_monitor *monitor = device->monitor;
 
 	spa_log_debug(monitor->log, "%p", device);
+	device_stop_timer(device);
 
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		if (t->device == device) {
@@ -486,10 +501,13 @@ static int device_free(struct spa_bt_device *device)
 	}
 	spa_list_remove(&device->link);
 	free(device->path);
+	free(device->alias);
+	free(device->address);
+	free(device->adapter_path);
+	free(device->name);
+	free(device->icon);
 	free(device);
-	return 0;
 }
-#endif
 
 static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
 {
@@ -2223,6 +2241,20 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct spa_bt_monitor *monitor;
+	struct spa_bt_adapter *a;
+	struct spa_bt_device *d;
+	struct spa_bt_transport *t;
+
+	monitor = (struct spa_bt_monitor *) handle;
+
+	spa_list_consume(t, &monitor->transport_list, link)
+		transport_free(t);
+	spa_list_consume(d, &monitor->device_list, link)
+		device_free(d);
+	spa_list_consume(a, &monitor->adapter_list, link)
+		adapter_free(a);
+
 	return 0;
 }
 

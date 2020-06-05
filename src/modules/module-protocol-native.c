@@ -302,6 +302,7 @@ static void client_free(void *data)
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
 
+	pw_log_debug(NAME" %p: free", this);
 	spa_list_remove(&this->protocol_link);
 
 	if (this->source)

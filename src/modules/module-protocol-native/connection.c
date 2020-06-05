@@ -239,7 +239,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 
 	this = &impl->this;
 
-	pw_log_debug("connection %p: new", this);
+	pw_log_debug("connection %p: new fd:%d", this, fd);
 
 	this->fd = fd;
 	spa_hook_list_init(&this->listener_list);
@@ -266,6 +266,7 @@ no_mem:
 
 int pw_protocol_native_connection_set_fd(struct pw_protocol_native_connection *conn, int fd)
 {
+	pw_log_debug("connection %p: fd:%d", conn, fd);
 	conn->fd = fd;
 	return 0;
 }

@@ -445,7 +445,7 @@ client_node_set_io(void *object,
 		pw_memmap_free(old);
 
 	if (res < 0) {
-	        pw_log_error("node %p: set_io: %s", proxy, spa_strerror(res));
+		pw_log_error("node %p: set_io: %s", proxy, spa_strerror(res));
 		pw_proxy_errorf(proxy, res, "node_set_io failed: %s", spa_strerror(res));
 	}
 	return res;
@@ -737,7 +737,7 @@ client_node_port_set_io(void *object,
 	struct pw_proxy *proxy = object;
 	struct node_data *data = proxy->user_data;
 	struct mix *mix;
-	struct pw_memmap *mm;
+	struct pw_memmap *mm, *old;
 	void *ptr;
 	int res = 0;
 	uint32_t tag[5] = { data->remote_id, direction, port_id, mix_id, id };
@@ -745,11 +745,10 @@ client_node_port_set_io(void *object,
 	mix = ensure_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
 		res = -ENOENT;
-		goto error_exit;
+		goto exit;
 	}
 
-	if ((mm = pw_mempool_find_tag(data->pool, tag, sizeof(tag))) != NULL)
-		pw_memmap_free(mm);
+	old = pw_mempool_find_tag(data->pool, tag, sizeof(tag));
 
 	if (memid == SPA_ID_INVALID) {
 		mm = ptr = NULL;
@@ -760,7 +759,7 @@ client_node_port_set_io(void *object,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			res = -errno;
-			goto error_exit;
+			goto exit_free;
 		}
 		ptr = mm->ptr;
 	}
@@ -771,9 +770,6 @@ client_node_port_set_io(void *object,
 	if (id == SPA_IO_Buffers) {
 		if (ptr == NULL && mix->mix.io)
 			deactivate_mix(data, mix);
-		mix->mix.io = ptr;
-		if (ptr)
-			activate_mix(data, mix);
 	}
 
 	if ((res = spa_node_port_set_io(mix->port->mix,
@@ -781,13 +777,21 @@ client_node_port_set_io(void *object,
 		if (res == -ENOTSUP)
 			res = 0;
 		else
-			goto error_exit;
+			goto exit_free;
 	}
-	return res;
-
-error_exit:
-        pw_log_error("port %p: set_io: %s", mix, spa_strerror(res));
-	pw_proxy_errorf(proxy, res, "port_set_io failed: %s", spa_strerror(res));
+	if (id == SPA_IO_Buffers) {
+		mix->mix.io = ptr;
+		if (ptr)
+			activate_mix(data, mix);
+	}
+exit_free:
+	if (old != NULL)
+		pw_memmap_free(old);
+exit:
+	if (res < 0) {
+		pw_log_error("port %p: set_io: %s", mix, spa_strerror(res));
+		pw_proxy_errorf(proxy, res, "port_set_io failed: %s", spa_strerror(res));
+	}
 	return res;
 }
 

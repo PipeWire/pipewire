@@ -64,6 +64,8 @@ struct data {
 
 	struct spa_buffer *buffers[32];
 	int n_buffers;
+
+	struct pw_proxy *out, *in, *link;
 };
 
 static void handle_events(struct data *data)
@@ -334,7 +336,6 @@ static const struct spa_node_methods impl_node = {
 static int make_nodes(struct data *data)
 {
 	struct pw_properties *props;
-	struct pw_proxy *out, *in;
 
 	data->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -353,7 +354,7 @@ static int make_nodes(struct data *data)
 	data->info.params = data->params;
 	data->info.n_params = SPA_N_ELEMENTS(data->params);
 
-	in = pw_core_export(data->core,
+	data->in = pw_core_export(data->core,
 			SPA_TYPE_INTERFACE_Node,
 			NULL,
 			&data->impl_node,
@@ -364,7 +365,7 @@ static int make_nodes(struct data *data)
 			SPA_KEY_FACTORY_NAME, SPA_NAME_API_V4L2_SOURCE,
 			NULL);
 
-	out = pw_core_create_object(data->core,
+	data->out = pw_core_create_object(data->core,
 			"spa-node-factory",
 			PW_TYPE_INTERFACE_Node,
 			PW_VERSION_NODE,
@@ -373,8 +374,8 @@ static int make_nodes(struct data *data)
 
 	while (true) {
 
-		if (pw_proxy_get_bound_id(out) != SPA_ID_INVALID &&
-		    pw_proxy_get_bound_id(in) != SPA_ID_INVALID)
+		if (pw_proxy_get_bound_id(data->out) != SPA_ID_INVALID &&
+		    pw_proxy_get_bound_id(data->in) != SPA_ID_INVALID)
 			break;
 
 		pw_loop_iterate(pw_main_loop_get_loop(data->loop), -1);
@@ -383,11 +384,11 @@ static int make_nodes(struct data *data)
 	pw_properties_clear(props);
 
 	pw_properties_setf(props,
-			PW_KEY_LINK_OUTPUT_NODE, "%d", pw_proxy_get_bound_id(out));
+			PW_KEY_LINK_OUTPUT_NODE, "%d", pw_proxy_get_bound_id(data->out));
 	pw_properties_setf(props,
-			PW_KEY_LINK_INPUT_NODE, "%d", pw_proxy_get_bound_id(in));
+			PW_KEY_LINK_INPUT_NODE, "%d", pw_proxy_get_bound_id(data->in));
 
-	pw_core_create_object(data->core,
+	data->link = pw_core_create_object(data->core,
 			"link-factory",
 			PW_TYPE_INTERFACE_Link,
 			PW_VERSION_LINK,
@@ -437,8 +438,12 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
+	pw_proxy_destroy(data.link);
+	pw_proxy_destroy(data.in);
+	pw_proxy_destroy(data.out);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
+	pw_deinit();
 
 	return 0;
 }

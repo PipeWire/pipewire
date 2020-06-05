@@ -1754,7 +1754,7 @@ static int client_node_port_set_io(void *object,
 {
 	struct client *c = (struct client *) object;
 	struct port *p = GET_PORT(c, direction, port_id);
-        struct pw_memmap *mm;
+        struct pw_memmap *mm, *old;
         struct mix *mix;
 	uint32_t tag[5] = { c->node_id, direction, port_id, mix_id, id };
         void *ptr;
@@ -1765,8 +1765,7 @@ static int client_node_port_set_io(void *object,
 		goto exit;
 	}
 
-	if ((mm = pw_mempool_find_tag(c->pool, tag, sizeof(tag))) != NULL)
-		pw_memmap_free(mm);
+	old = pw_mempool_find_tag(c->pool, tag, sizeof(tag));
 
         if (mem_id == SPA_ID_INVALID) {
                 mm = ptr = NULL;
@@ -1778,7 +1777,7 @@ static int client_node_port_set_io(void *object,
                 if (mm == NULL) {
                         pw_log_warn(NAME" %p: can't map memory id %u", c, mem_id);
 			res = -EINVAL;
-                        goto exit;
+                        goto exit_free;
                 }
 		ptr = mm->ptr;
         }
@@ -1793,8 +1792,10 @@ static int client_node_port_set_io(void *object,
 	default:
 		break;
 	}
-
-      exit:
+exit_free:
+	if (old != NULL)
+		pw_memmap_free(old);
+exit:
 	if (res < 0)
 		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
 	return res;

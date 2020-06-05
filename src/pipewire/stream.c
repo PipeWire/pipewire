@@ -841,7 +841,6 @@ static void proxy_destroy(void *_data)
 	struct pw_stream *stream = _data;
 	pw_log_debug(NAME" %p: destroy", stream);
 	proxy_removed(_data);
-	stream->proxy = NULL;
 }
 
 static void proxy_error(void *_data, int seq, int res, const char *message)
@@ -1582,8 +1581,10 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	if (impl->node)
 		pw_impl_node_set_active(impl->node, false);
 
-	if (stream->proxy)
+	if (stream->proxy) {
 		pw_proxy_destroy(stream->proxy);
+		stream->proxy = NULL;
+	}
 
 	if (impl->node) {
 		pw_impl_node_destroy(impl->node);

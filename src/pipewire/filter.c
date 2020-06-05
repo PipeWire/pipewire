@@ -881,6 +881,7 @@ static const struct spa_node_methods impl_node = {
 static void proxy_removed(void *_data)
 {
 	struct pw_filter *filter = _data;
+	pw_log_debug(NAME" %p: removed", filter);
 	spa_hook_remove(&filter->proxy_listener);
 	filter->node_id = SPA_ID_INVALID;
 	filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, NULL);
@@ -889,8 +890,8 @@ static void proxy_removed(void *_data)
 static void proxy_destroy(void *_data)
 {
 	struct pw_filter *filter = _data;
+	pw_log_debug(NAME" %p: destroy", filter);
 	proxy_removed(_data);
-	filter->proxy = NULL;
 }
 
 static void proxy_error(void *_data, int seq, int res, const char *message)
@@ -1280,9 +1281,10 @@ int pw_filter_disconnect(struct pw_filter *filter)
 	pw_log_debug(NAME" %p: disconnect", filter);
 	impl->disconnecting = true;
 
-	if (filter->proxy)
+	if (filter->proxy) {
 		pw_proxy_destroy(filter->proxy);
-
+		filter->proxy = NULL;
+	}
 	if (impl->disconnect_core) {
 		impl->disconnect_core = false;
 		spa_hook_remove(&filter->core_listener);

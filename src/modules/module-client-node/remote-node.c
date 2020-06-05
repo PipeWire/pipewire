@@ -444,6 +444,10 @@ client_node_set_io(void *object,
 	if (old != NULL)
 		pw_memmap_free(old);
 
+	if (res < 0) {
+	        pw_log_error("node %p: set_io: %s", proxy, spa_strerror(res));
+		pw_proxy_errorf(proxy, res, "node_set_io failed: %s", spa_strerror(res));
+	}
 	return res;
 }
 

@@ -127,11 +127,23 @@ test('pw-test-protocol-native',
 			c_args : libpipewire_c_args,
 			include_directories : [configinc, spa_inc ],
 			dependencies : [pipewire_dep],
-			install : false),
+			install : installed_tests_enabled,
+			install_dir : installed_tests_execdir),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 		'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.build_root())
 	])
+
+if installed_tests_enabled
+  test_conf = configuration_data()
+  test_conf.set('exec', join_paths(installed_tests_execdir, 'pw-test-protocol-native'))
+  configure_file(
+    input: installed_tests_template,
+    output: 'pw-test-protocol-native.test',
+    install_dir: installed_tests_metadir,
+    configuration: test_conf
+  )
+endif
 
 pipewire_module_adapter = shared_library('pipewire-module-adapter',
   [ 'module-adapter.c',

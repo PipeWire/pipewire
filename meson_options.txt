@@ -14,6 +14,10 @@ option('tests',
        description: 'Build tests',
        type: 'boolean',
        value: true)
+option('installed_tests',
+       description: 'Install manual and automated test executables',
+       type: 'boolean',
+       value: false)
 option('gstreamer',
        description: 'Build GStreamer plugins',
        type: 'boolean',

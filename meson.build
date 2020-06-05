@@ -30,6 +30,7 @@ prefix = get_option('prefix')
 pipewire_bindir = join_paths(prefix, get_option('bindir'))
 pipewire_datadir = join_paths(prefix, get_option('datadir'))
 pipewire_libdir = join_paths(prefix, get_option('libdir'))
+pipewire_libexecdir = join_paths(prefix, get_option('libexecdir'))
 pipewire_localedir = join_paths(prefix, get_option('localedir'))
 pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
 
@@ -302,6 +303,11 @@ epoll_shim_dep = (build_machine.system() == 'freebsd'
 alsa_dep = (get_option('pipewire-alsa')
     ? dependency('alsa', version : '>=1.1.7')
     : dependency('', required: false))
+
+installed_tests_metadir = join_paths(pipewire_datadir, 'installed-tests', pipewire_name)
+installed_tests_execdir = join_paths(pipewire_libexecdir, 'installed-tests', pipewire_name)
+installed_tests_enabled = get_option('installed_tests')
+installed_tests_template = files('template.test.in')
 
 subdir('spa')
 subdir('src')

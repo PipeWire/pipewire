@@ -129,11 +129,25 @@ foreach a : test_apps
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
 		link_with : [ audioconvert, test_lib, audioconvertlib ],
+		install_rpath : join_paths(spa_plugindir, 'audioconvert'),
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
-		install : false),
+		install : installed_tests_enabled,
+		install_dir : join_paths(installed_tests_execdir, 'audioconvert')),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 	])
+
+  if installed_tests_enabled
+    test_conf = configuration_data()
+    test_conf.set('exec',
+                  join_paths(installed_tests_execdir, 'audioconvert', a))
+    configure_file(
+      input: installed_tests_template,
+      output: a + '.test',
+      install_dir: join_paths(installed_tests_metadir, 'audioconvert'),
+      configuration: test_conf
+    )
+  endif
 endforeach
 
 benchmark_apps = [
@@ -148,10 +162,24 @@ foreach a : benchmark_apps
 		include_directories : [spa_inc ],
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
 		link_with : [ audioconvert, audioconvertlib ],
-		install : false),
+		install_rpath : join_paths(spa_plugindir, 'audioconvert'),
+		install : installed_tests_enabled,
+		install_dir : join_paths(installed_tests_execdir, 'audioconvert')),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 	])
+
+  if installed_tests_enabled
+    test_conf = configuration_data()
+    test_conf.set('exec',
+                  join_paths(installed_tests_execdir, 'audioconvert', a))
+    configure_file(
+      input: installed_tests_template,
+      output: a + '.test',
+      install_dir: join_paths(installed_tests_metadir, 'audioconvert'),
+      configuration: test_conf
+    )
+  endif
 endforeach
 
 if sndfile_dep.found()
@@ -161,9 +189,10 @@ if sndfile_dep.found()
   executable('spa-resample',
     sparesample_sources,
     c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
-    install: false,
     include_directories : [spa_inc ],
     link_with : [ audioconvert, test_lib ],
     dependencies : [sndfile_dep, mathlib],
+    install : installed_tests_enabled,
+    install_dir : join_paths(installed_tests_execdir, 'examples', 'audioconvert'),
   )
 endif

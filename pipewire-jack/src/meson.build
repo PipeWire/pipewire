@@ -70,7 +70,8 @@ if sdl_dep.found()
   executable('video-dsp-play',
     '../examples/video-dsp-play.c',
     c_args : [ '-D_GNU_SOURCE' ],
-    install: false,
+    install : installed_tests_enabled,
+    install_dir : join_paths(installed_tests_execdir, 'examples', 'jack'),
     dependencies : [jack_dep, sdl_dep, mathlib],
     link_with: pipewire_jack,
   )

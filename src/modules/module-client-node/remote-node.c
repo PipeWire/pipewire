@@ -85,9 +85,6 @@ struct node_data {
 	struct spa_hook client_node_listener;
 	struct spa_hook proxy_client_node_listener;
 
-	struct pw_proxy *proxy;
-	struct spa_hook proxy_listener;
-
 	struct spa_list links;
 };
 
@@ -971,11 +968,8 @@ static void node_destroy(void *data)
 static void node_free(void *data)
 {
 	struct node_data *d = data;
-
 	pw_log_debug("%p: free", d);
-
-	if (d->client_node)
-		pw_proxy_destroy((struct pw_proxy*)d->client_node);
+	d->node = NULL;
 }
 
 static void node_info_changed(void *data, const struct pw_node_info *info)
@@ -1041,8 +1035,20 @@ static const struct pw_impl_node_events node_events = {
 static void client_node_removed(void *_data)
 {
 	struct node_data *data = _data;
-	if (data->client_node)
-		pw_proxy_destroy((struct pw_proxy*)data->client_node);
+	pw_log_debug("%p: removed", data);
+
+	spa_hook_remove(&data->proxy_client_node_listener);
+
+	if (data->node) {
+		spa_hook_remove(&data->node_listener);
+		pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED);
+
+		clean_node(data);
+
+		if (data->do_free)
+			pw_impl_node_destroy(data->node);
+	}
+	data->client_node = NULL;
 }
 
 static void client_node_destroy(void *_data)
@@ -1050,20 +1056,7 @@ static void client_node_destroy(void *_data)
 	struct node_data *data = _data;
 
 	pw_log_debug("%p: destroy", data);
-
-	spa_hook_remove(&data->node_listener);
-
-	pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED);
-
-	clean_node(data);
-
-	data->client_node = NULL;
-
-	if (data->proxy)
-		pw_proxy_destroy(data->proxy);
-
-	if (data->do_free)
-		pw_impl_node_destroy(data->node);
+	client_node_removed(_data);
 }
 
 static void client_node_bound(void *_data, uint32_t global_id)
@@ -1078,33 +1071,6 @@ static const struct pw_proxy_events proxy_client_node_events = {
 	.removed = client_node_removed,
 	.destroy = client_node_destroy,
 	.bound = client_node_bound,
-};
-
-static void proxy_removed(void *_data)
-{
-	struct node_data *data = _data;
-	pw_log_debug("%p: removed", data);
-	if (data->proxy)
-		pw_proxy_destroy(data->proxy);
-}
-
-static void proxy_destroy(void *_data)
-{
-	struct node_data *data = _data;
-
-	pw_log_debug("%p: destroy", data);
-	spa_hook_remove(&data->proxy_listener);
-	data->proxy = NULL;
-
-	if (data->client_node)
-		pw_proxy_destroy((struct pw_proxy*)data->client_node);
-}
-
-
-static const struct pw_proxy_events proxy_events = {
-	PW_VERSION_PROXY_EVENTS,
-	.removed = proxy_removed,
-	.destroy = proxy_destroy,
 };
 
 static int node_ready(void *d, int status)
@@ -1222,12 +1188,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 					  client_node);
         do_node_init(client_node);
 
-	data->proxy = (struct pw_proxy*) pw_client_node_get_node(data->client_node,
-			PW_VERSION_NODE, user_data_size);
-
-	pw_proxy_add_listener(data->proxy, &data->proxy_listener, &proxy_events, data);
-
-	return data->proxy;
+	return client_node;
 }
 
 struct pw_proxy *pw_core_node_export(struct pw_core *core,

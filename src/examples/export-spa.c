@@ -46,23 +46,22 @@ struct data {
 	const char *path;
 
 	struct pw_proxy *proxy;
-	struct spa_hook node_listener;
+	struct spa_hook proxy_listener;
 	uint32_t id;
 };
 
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void proxy_event_bound(void *object, uint32_t global_id)
 {
 	struct data *data = object;
-
-	if (data->id != info->id) {
-		printf("node id: %u\n", info->id);
-		data->id = info->id;
+	if (data->id != global_id) {
+		printf("node id: %u\n", global_id);
+		data->id = global_id;
 	}
 }
 
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
-	.info = node_event_info,
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.bound = proxy_event_bound,
 };
 
 static int make_node(struct data *data)
@@ -99,8 +98,8 @@ static int make_node(struct data *data)
 	if (data->proxy == NULL)
 		return -errno;
 
-	pw_node_add_listener((struct pw_node*)data->proxy,
-			&data->node_listener, &node_events, data);
+	pw_proxy_add_listener(data->proxy,
+			&data->proxy_listener, &proxy_events, data);
 
 	return 0;
 }

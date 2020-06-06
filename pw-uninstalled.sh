@@ -31,7 +31,7 @@ if [ ! -d ${BUILDDIR} ]; then
 	exit -1
 fi
 
-export PIPEWIRE_CONFIG_FILE="${BUILDDIR}/src/daemon/pipewire.conf"
+export PIPEWIRE_CONFIG_FILE="${BUILDDIR}/src/daemon/pipewire-uninstalled.conf"
 export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export PIPEWIRE_MODULE_DIR="${BUILDDIR}/src/modules"
 export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${BUILDDIR}/src/examples:${PATH}"

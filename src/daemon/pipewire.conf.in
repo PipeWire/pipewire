@@ -74,4 +74,4 @@ create-object spa-node-factory factory.name=support.node.driver node.name=Dummy 
 # Execute the given program. This is usually used to start the
 # session manager. run the session manager with -h for options
 #
-exec pipewire-media-session # -d alsa-seq,alsa-pcm,bluez5,metadata
+exec @media_session_path@ # -d alsa-seq,alsa-pcm,bluez5,metadata

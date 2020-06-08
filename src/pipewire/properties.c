@@ -181,6 +181,8 @@ pw_properties_new_string(const char *str)
 		if (eq && eq != val) {
 			*eq = '\0';
 			add_func(&impl->this, val, strdup(eq+1));
+		} else {
+			free(val);
 		}
 		s = pw_split_walk(str, " \t\n\r", &len, &state);
 	}

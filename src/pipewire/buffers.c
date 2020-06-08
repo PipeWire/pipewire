@@ -132,8 +132,10 @@ static int alloc_buffers(struct pw_mempool *pool,
 				PW_MEMBLOCK_FLAG_MAP,
 				SPA_DATA_MemFd,
 				n_buffers * info.mem_size);
-		if (m == NULL)
+		if (m == NULL) {
+			free(buffers);
 			return -errno;
+		}
 
 		data = m->map->ptr;
 	} else {

@@ -19,6 +19,14 @@ manpages = [
   [ 'pw-mon', '1' ]
 ]
 
+if get_option('pipewire-jack')
+  manpages += [[ 'pw-jack', '1' ]]
+endif
+
+if get_option('pipewire-pulseaudio')
+  manpages += [[ 'pw-pulse', '1' ]]
+endif
+
 foreach m : manpages
   file = m.get(0) + '.' + m.get(1)
   infile = file + '.xml.in'

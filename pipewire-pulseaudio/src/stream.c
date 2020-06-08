@@ -1145,6 +1145,7 @@ int pa_stream_disconnect(pa_stream *s)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
+	PA_CHECK_VALIDITY(c, c != NULL, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("stream %p: disconnect", s);

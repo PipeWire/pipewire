@@ -822,7 +822,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
-		if (!c->disconnect)
+		if (res == -EPIPE && !c->disconnect)
 			pa_context_fail(c, PA_ERR_CONNECTIONTERMINATED);
 	}
 }

@@ -1227,7 +1227,8 @@ static void client_node0_resource_destroy(void *data)
 				true,
 				&node->data_source);
 	}
-	pw_impl_node_destroy(this->node);
+	if (this->node)
+		pw_impl_node_destroy(this->node);
 }
 
 static void node_initialized(void *data)
@@ -1260,7 +1261,10 @@ static void node_initialized(void *data)
 static void node_free(void *data)
 {
 	struct impl *impl = data;
+	struct pw_impl_client_node0 *this = &impl->this;
 	struct spa_system *data_system = impl->node.data_system;
+
+	this->node = NULL;
 
 	pw_log_debug("client-node %p: free", &impl->this);
 	node_clear(&impl->node);
@@ -1269,6 +1273,9 @@ static void node_free(void *data)
 		pw_client_node0_transport_destroy(impl->transport);
 
 	spa_hook_remove(&impl->node_listener);
+
+	if (this->resource)
+		pw_resource_destroy(this->resource);
 
 	pw_array_clear(&impl->mems);
 

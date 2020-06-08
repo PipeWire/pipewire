@@ -174,7 +174,8 @@ static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t bu
 
 	spa_list_for_each(mix, &this->rt.mix_list, rt_link) {
 		pw_log_trace_fp(NAME" %p: reuse buffer %d %d", this, port_id, buffer_id);
-		spa_node_port_reuse_buffer(this->node->node, port_id, buffer_id);
+		/* FIXME send reuse buffer to peer */
+		break;
 	}
 	return 0;
 }

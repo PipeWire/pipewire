@@ -443,7 +443,8 @@ do_update_port(struct node *this,
 	port = GET_PORT(this, direction, port_id);
 
 	if (!port->valid) {
-		spa_log_debug(this->log, "node %p: adding port %d", this, port_id);
+		spa_log_debug(this->log, "node %p: adding port %d, direction %d",
+				this, port_id, direction);
 		port->id = port_id;
 		port->direction = direction;
 		port->have_format = false;

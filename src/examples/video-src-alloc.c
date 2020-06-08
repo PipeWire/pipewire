@@ -47,7 +47,7 @@
 #define M_PI_M2 ( M_PI + M_PI )
 
 struct data {
-	struct pw_main_loop *loop;
+	struct pw_thread_loop *loop;
 	struct spa_source *timer;
 
 	struct pw_stream *stream;
@@ -191,7 +191,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
 		printf("node id: %d\n", pw_stream_get_node_id(data->stream));
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+		pw_loop_update_timer(pw_thread_loop_get_loop(data->loop),
 				data->timer, NULL, NULL, false);
 		break;
 	case PW_STREAM_STATE_STREAMING:
@@ -203,7 +203,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 		interval.tv_sec = 0;
 		interval.tv_nsec = 40 * SPA_NSEC_PER_MSEC;
 
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+		pw_loop_update_timer(pw_thread_loop_get_loop(data->loop),
 				data->timer, &timeout, &interval, false);
 		break;
 	}
@@ -351,7 +351,7 @@ static const struct pw_stream_events stream_events = {
 static void do_quit(void *userdata, int signal_number)
 {
 	struct data *data = userdata;
-	pw_main_loop_quit(data->loop);
+	pw_thread_loop_signal(data->loop, false);
 }
 
 int main(int argc, char *argv[])
@@ -363,12 +363,20 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	/* create a main loop */
-	data.loop = pw_main_loop_new(NULL);
+	/* create a thread loop and start it */
+	data.loop = pw_thread_loop_new("video-src-alloc", NULL);
+
+	/* take the lock around all PipeWire functions. In callbacks, the lock
+	 * is already taken for you but it's ok to lock again because the lock is
+	 * recursive */
+	pw_thread_loop_lock(data.loop);
 
 	/* install some handlers to exit nicely */
-	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
-	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
+	pw_loop_add_signal(pw_thread_loop_get_loop(data.loop), SIGINT, do_quit, &data);
+	pw_loop_add_signal(pw_thread_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
+
+	/* start after the signal handlers are set */
+	pw_thread_loop_start(data.loop);
 
 	/* create a simple stream, the simple stream manages the core
 	 * object for you if you don't want to deal with them.
@@ -382,7 +390,7 @@ int main(int argc, char *argv[])
 	 * the data.
 	 */
 	data.stream = pw_stream_new_simple(
-			pw_main_loop_get_loop(data.loop),
+			pw_thread_loop_get_loop(data.loop),
 			"video-src-alloc",
 			pw_properties_new(
 				PW_KEY_MEDIA_CLASS, "Video/Source",
@@ -391,7 +399,7 @@ int main(int argc, char *argv[])
 			&data);
 
 	/* make a timer to schedule our frames */
-	data.timer = pw_loop_add_timer(pw_main_loop_get_loop(data.loop), on_timeout, &data);
+	data.timer = pw_loop_add_timer(pw_thread_loop_get_loop(data.loop), on_timeout, &data);
 
 	/* build the extra parameter for the connection. Here we make an
 	 * EnumFormat parameter which lists the possible formats we can provide.
@@ -423,11 +431,17 @@ int main(int argc, char *argv[])
 			  PW_STREAM_FLAG_ALLOC_BUFFERS,
 			  params, 1);
 
-	/* run the loop, this will trigger the callbacks */
-	pw_main_loop_run(data.loop);
+	/* unlock, run the loop and wait, this will trigger the callbacks */
+	pw_thread_loop_wait(data.loop);
+
+	/* unlock before stop */
+	pw_thread_loop_unlock(data.loop);
+	pw_thread_loop_stop(data.loop);
 
 	pw_stream_destroy(data.stream);
-	pw_main_loop_destroy(data.loop);
+
+	/* destroy after dependent objects are destroyed */
+	pw_thread_loop_destroy(data.loop);
 	pw_deinit();
 
 	return 0;

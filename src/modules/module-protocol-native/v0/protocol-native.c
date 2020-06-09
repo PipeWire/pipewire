@@ -406,6 +406,8 @@ struct spa_pod_prop_body0 {
              (iter) <= SPA_MEMBER((body), (_size)-(body)->value.size, __typeof__(*iter));       \
              (iter) = SPA_MEMBER((iter), (body)->value.size, __typeof__(*iter)))
 
+#define SPA0_POD_PROP_N_VALUES(b,size)     ((size - sizeof(struct spa_pod_prop_body0)) / (b)->value.size)
+
 static int remap_from_v2(uint32_t type, void *body, uint32_t size, struct pw_impl_client *client,
 		struct spa_pod_builder *builder)
 {
@@ -445,7 +447,8 @@ static int remap_from_v2(uint32_t type, void *body, uint32_t size, struct pw_imp
 			type = SPA_CHOICE_Flags;
 			break;
 		}
-		if (!SPA_FLAG_IS_SET(b->flags, SPA_POD_PROP0_FLAG_UNSET))
+		if (!SPA_FLAG_IS_SET(b->flags, SPA_POD_PROP0_FLAG_UNSET) &&
+		    SPA0_POD_PROP_N_VALUES(b, size) == 1)
 			type = SPA_CHOICE_None;
 
 		spa_pod_builder_push_choice(builder, &f, type, 0);

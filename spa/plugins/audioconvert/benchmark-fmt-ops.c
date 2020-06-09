@@ -29,7 +29,10 @@
 #include <errno.h>
 #include <time.h>
 
+#include "test-helper.h"
 #include "fmt-ops.h"
+
+static uint32_t cpu_flags;
 
 typedef void (*convert_func_t) (struct convert *conv, void * SPA_RESTRICT dst[],
 		const void * SPA_RESTRICT src[], uint32_t n_samples);
@@ -140,13 +143,17 @@ static void test_f32_s16(void)
 	run_test("test_f32_s16", "c", true, true, conv_f32_to_s16_c);
 	run_test("test_f32d_s16", "c", false, true, conv_f32d_to_s16_c);
 #if defined (HAVE_SSE2)
-	run_test("test_f32d_s16", "sse2", false, true, conv_f32d_to_s16_sse2);
-	run_testc("test_f32d_s16_2", "sse2", false, true, conv_f32d_to_s16_2_sse2, 2);
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_f32d_s16", "sse2", false, true, conv_f32d_to_s16_sse2);
+		run_testc("test_f32d_s16_2", "sse2", false, true, conv_f32d_to_s16_2_sse2, 2);
+	}
 #endif
 #if defined (HAVE_AVX2)
-	run_test("test_f32d_s16", "avx2", false, true, conv_f32d_to_s16_avx2);
-	run_testc("test_f32d_s16_2", "avx2", false, true, conv_f32d_to_s16_2_avx2, 2);
-	run_testc("test_f32d_s16_4", "avx2", false, true, conv_f32d_to_s16_4_avx2, 4);
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_f32d_s16", "avx2", false, true, conv_f32d_to_s16_avx2);
+		run_testc("test_f32d_s16_2", "avx2", false, true, conv_f32d_to_s16_2_avx2, 2);
+		run_testc("test_f32d_s16_4", "avx2", false, true, conv_f32d_to_s16_4_avx2, 4);
+	}
 #endif
 	run_test("test_f32_s16d", "c", true, false, conv_f32_to_s16d_c);
 	run_test("test_f32d_s16d", "c", false, false, conv_f32d_to_s16d_c);
@@ -158,12 +165,16 @@ static void test_s16_f32(void)
 	run_test("test_s16d_f32", "c", false, true, conv_s16d_to_f32_c);
 	run_test("test_s16_f32d", "c", true, false, conv_s16_to_f32d_c);
 #if defined (HAVE_SSE2)
-	run_test("test_s16_f32d", "sse2", true, false, conv_s16_to_f32d_sse2);
-	run_testc("test_s16_f32d_2", "sse2", true, false, conv_s16_to_f32d_2_sse2, 2);
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_s16_f32d", "sse2", true, false, conv_s16_to_f32d_sse2);
+		run_testc("test_s16_f32d_2", "sse2", true, false, conv_s16_to_f32d_2_sse2, 2);
+	}
 #endif
 #if defined (HAVE_AVX2)
-	run_test("test_s16_f32d", "avx2", true, false, conv_s16_to_f32d_avx2);
-	run_testc("test_s16_f32d_2", "avx2", true, false, conv_s16_to_f32d_2_avx2, 2);
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_s16_f32d", "avx2", true, false, conv_s16_to_f32d_avx2);
+		run_testc("test_s16_f32d_2", "avx2", true, false, conv_s16_to_f32d_2_avx2, 2);
+	}
 #endif
 	run_test("test_s16d_f32d", "c", false, false, conv_s16d_to_f32d_c);
 }
@@ -173,10 +184,14 @@ static void test_f32_s32(void)
 	run_test("test_f32_s32", "c", true, true, conv_f32_to_s32_c);
 	run_test("test_f32d_s32", "c", false, true, conv_f32d_to_s32_c);
 #if defined (HAVE_SSE2)
-	run_test("test_f32d_s32", "sse2", false, true, conv_f32d_to_s32_sse2);
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_f32d_s32", "sse2", false, true, conv_f32d_to_s32_sse2);
+	}
 #endif
 #if defined (HAVE_AVX2)
-	run_test("test_f32d_s32", "avx2", false, true, conv_f32d_to_s32_avx2);
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_f32d_s32", "avx2", false, true, conv_f32d_to_s32_avx2);
+	}
 #endif
 	run_test("test_f32_s32d", "c", true, false, conv_f32_to_s32d_c);
 	run_test("test_f32d_s32d", "c", false, false, conv_f32d_to_s32d_c);
@@ -187,10 +202,14 @@ static void test_s32_f32(void)
 	run_test("test_s32_f32", "c", true, true, conv_s32_to_f32_c);
 	run_test("test_s32d_f32", "c", false, true, conv_s32d_to_f32_c);
 #if defined (HAVE_SSE2)
-	run_test("test_s32_f32d", "sse2", true, false, conv_s32_to_f32d_sse2);
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_s32_f32d", "sse2", true, false, conv_s32_to_f32d_sse2);
+	}
 #endif
 #if defined (HAVE_AVX2)
-	run_test("test_s32_f32d", "avx2", true, false, conv_s32_to_f32d_avx2);
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_s32_f32d", "avx2", true, false, conv_s32_to_f32d_avx2);
+	}
 #endif
 	run_test("test_s32_f32d", "c", true, false, conv_s32_to_f32d_c);
 	run_test("test_s32d_f32d", "c", false, false, conv_s32d_to_f32d_c);
@@ -210,16 +229,24 @@ static void test_s24_f32(void)
 	run_test("test_s24d_f32", "c", false, true, conv_s24d_to_f32_c);
 	run_test("test_s24_f32d", "c", true, false, conv_s24_to_f32d_c);
 #if defined (HAVE_SSE2)
-	run_test("test_s24_f32d", "sse2", true, false, conv_s24_to_f32d_sse2);
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_s24_f32d", "sse2", true, false, conv_s24_to_f32d_sse2);
+	}
 #endif
 #if defined (HAVE_AVX2)
-	run_test("test_s24_f32d", "avx2", true, false, conv_s24_to_f32d_avx2);
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_s24_f32d", "avx2", true, false, conv_s24_to_f32d_avx2);
+	}
 #endif
 #if defined (HAVE_SSSE3)
-	run_test("test_s24_f32d", "ssse3", true, false, conv_s24_to_f32d_ssse3);
+	if (cpu_flags & SPA_CPU_FLAG_SSSE3) {
+		run_test("test_s24_f32d", "ssse3", true, false, conv_s24_to_f32d_ssse3);
+	}
 #endif
 #if defined (HAVE_SSE41)
-	run_test("test_s24_f32d", "sse41", true, false, conv_s24_to_f32d_sse41);
+	if (cpu_flags & SPA_CPU_FLAG_SSE41) {
+		run_test("test_s24_f32d", "sse41", true, false, conv_s24_to_f32d_sse41);
+	}
 #endif
 	run_test("test_s24d_f32d", "c", false, false, conv_s24d_to_f32d_c);
 }
@@ -270,6 +297,9 @@ static int compare_func(const void *_a, const void *_b)
 int main(int argc, char *argv[])
 {
 	uint32_t i;
+
+	cpu_flags = get_cpu_flags();
+	printf("got get CPU flags %d\n", cpu_flags);
 
 	test_f32_u8();
 	test_u8_f32();

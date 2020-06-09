@@ -31,10 +31,13 @@
 
 #include <spa/debug/mem.h>
 
+#include "test-helper.h"
 #include "fmt-ops.c"
 
 #define N_SAMPLES	253
 #define N_CHANNELS	11
+
+static uint32_t cpu_flags;
 
 static uint8_t samp_in[N_SAMPLES * 4];
 static uint8_t samp_out[N_SAMPLES * 4];
@@ -161,8 +164,10 @@ static void test_f32_s16(void)
 	run_test("test_f32d_s16d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_f32d_to_s16d_c);
 #if defined(HAVE_SSE2)
-	run_test("test_f32d_s16_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_f32d_s16_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, true, conv_f32d_to_s16_sse2);
+	}
 #endif
 }
 
@@ -180,8 +185,10 @@ static void test_s16_f32(void)
 	run_test("test_s16d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_s16d_to_f32d_c);
 #if defined(HAVE_SSE2)
-	run_test("test_s16_f32d_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_s16_f32d_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s16_to_f32d_sse2);
+	}
 #endif
 }
 
@@ -200,8 +207,10 @@ static void test_f32_s32(void)
 	run_test("test_f32d_s32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_f32d_to_s32d_c);
 #if defined(HAVE_SSE2)
-	run_test("test_f32d_s32_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_f32d_s32_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, true, conv_f32d_to_s32_sse2);
+	}
 #endif
 }
 
@@ -219,8 +228,10 @@ static void test_s32_f32(void)
 	run_test("test_s32d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_s32d_to_f32d_c);
 #if defined(HAVE_SSE2)
-	run_test("test_s32_f32d_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_s32_f32d_sse2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s32_to_f32d_sse2);
+	}
 #endif
 }
 
@@ -265,16 +276,22 @@ static void test_s24_f32(void)
 	run_test("test_s24d_f32d", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_s24d_to_f32d_c);
 #if defined(HAVE_SSE2)
-	run_test("test_s24_f32d_sse2", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_s24_f32d_sse2", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s24_to_f32d_sse2);
+	}
 #endif
 #if defined(HAVE_SSSE3)
-	run_test("test_s24_f32d_ssse3", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSSE3) {
+		run_test("test_s24_f32d_ssse3", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s24_to_f32d_ssse3);
+	}
 #endif
 #if defined(HAVE_SSE41)
-	run_test("test_s24_f32d_sse41", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+	if (cpu_flags & SPA_CPU_FLAG_SSE41) {
+		run_test("test_s24_f32d_sse41", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s24_to_f32d_sse41);
+	}
 #endif
 }
 
@@ -311,6 +328,8 @@ static void test_s24_32_f32(void)
 
 int main(int argc, char *argv[])
 {
+	cpu_flags = get_cpu_flags();
+	printf("got get CPU flags %d\n", cpu_flags);
 
 	test_f32_u8();
 	test_u8_f32();

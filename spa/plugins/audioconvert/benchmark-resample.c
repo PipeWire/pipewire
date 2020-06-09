@@ -29,12 +29,15 @@
 #include <errno.h>
 #include <time.h>
 
+#include "test-helper.h"
 #include "resample.h"
 
 #define MAX_SAMPLES	4096
 #define MAX_CHANNELS	11
 
 #define MAX_COUNT 200
+
+static uint32_t cpu_flags;
 
 struct stats {
 	uint32_t in_rate;
@@ -127,6 +130,9 @@ int main(int argc, char *argv[])
 	struct resample r;
 	uint32_t i;
 
+	cpu_flags = get_cpu_flags();
+	printf("got get CPU flags %d\n", cpu_flags);
+
 	for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
 		spa_zero(r);
 		r.channels = 2;
@@ -139,42 +145,48 @@ int main(int argc, char *argv[])
 		resample_free(&r);
 	}
 #if defined (HAVE_SSE)
-	for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
-		spa_zero(r);
-		r.channels = 2;
-		r.cpu_flags = SPA_CPU_FLAG_SSE;
-		r.i_rate = in_rates[i];
-		r.o_rate = out_rates[i];
-		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		resample_native_init(&r);
-		run_test("native", "sse", &r);
-		resample_free(&r);
+	if (cpu_flags & SPA_CPU_FLAG_SSE) {
+		for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
+			spa_zero(r);
+			r.channels = 2;
+			r.cpu_flags = SPA_CPU_FLAG_SSE;
+			r.i_rate = in_rates[i];
+			r.o_rate = out_rates[i];
+			r.quality = RESAMPLE_DEFAULT_QUALITY;
+			resample_native_init(&r);
+			run_test("native", "sse", &r);
+			resample_free(&r);
+		}
 	}
 #endif
 #if defined (HAVE_SSSE3)
-	for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
-		spa_zero(r);
-		r.channels = 2;
-		r.cpu_flags = SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED;
-		r.i_rate = in_rates[i];
-		r.o_rate = out_rates[i];
-		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		resample_native_init(&r);
-		run_test("native", "ssse3", &r);
-		resample_free(&r);
+	if (cpu_flags & SPA_CPU_FLAG_SSSE3) {
+		for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
+			spa_zero(r);
+			r.channels = 2;
+			r.cpu_flags = SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED;
+			r.i_rate = in_rates[i];
+			r.o_rate = out_rates[i];
+			r.quality = RESAMPLE_DEFAULT_QUALITY;
+			resample_native_init(&r);
+			run_test("native", "ssse3", &r);
+			resample_free(&r);
+		}
 	}
 #endif
 #if defined (HAVE_AVX) && defined(HAVE_FMA)
-	for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
-		spa_zero(r);
-		r.channels = 2;
-		r.cpu_flags = SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3;
-		r.i_rate = in_rates[i];
-		r.o_rate = out_rates[i];
-		r.quality = RESAMPLE_DEFAULT_QUALITY;
-		resample_native_init(&r);
-		run_test("native", "avx", &r);
-		resample_free(&r);
+	if (SPA_FLAG_IS_SET(cpu_flags, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3)) {
+		for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
+			spa_zero(r);
+			r.channels = 2;
+			r.cpu_flags = SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3;
+			r.i_rate = in_rates[i];
+			r.o_rate = out_rates[i];
+			r.quality = RESAMPLE_DEFAULT_QUALITY;
+			resample_native_init(&r);
+			run_test("native", "avx", &r);
+			resample_free(&r);
+		}
 	}
 #endif
 

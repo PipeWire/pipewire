@@ -58,8 +58,9 @@ struct impl {
 
 struct resource_data {
 	struct pw_impl_node *node;
-	struct pw_resource *resource;
 
+	struct pw_resource *resource;
+	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 
 	uint32_t subscribe_ids[MAX_PARAMS];
@@ -414,16 +415,22 @@ static int node_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 	return 0;
 }
 
+static void remove_busy_resource(struct resource_data *d)
+{
+	if (d->end != -1) {
+		spa_hook_remove(&d->listener);
+		d->end = -1;
+		pw_impl_client_set_busy(d->resource->client, false);
+	}
+}
+
 static void result_node_sync(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct resource_data *d = data;
 
 	pw_log_debug(NAME" %p: sync result %d %d (%d/%d)", d->node, res, seq, d->seq, d->end);
-	if (seq == d->end) {
-		spa_hook_remove(&d->listener);
-		d->end = -1;
-		pw_impl_client_set_busy(d->resource->client, false);
-	}
+	if (seq == d->end)
+		remove_busy_resource(d);
 }
 
 static int node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -484,6 +491,26 @@ static const struct pw_node_methods node_methods = {
 	.send_command = node_send_command
 };
 
+static void resource_destroy(void *data)
+{
+	struct resource_data *d = data;
+	remove_busy_resource(d);
+}
+
+static void resource_pong(void *data, int seq)
+{
+	struct resource_data *d = data;
+	struct pw_resource *resource = d->resource;
+	pw_log_debug(NAME" %p: resource %p: got pong %d", d->node,
+			resource, seq);
+}
+
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = resource_destroy,
+	.pong = resource_pong,
+};
+
 static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	    uint32_t version, uint32_t id)
@@ -502,6 +529,9 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	data->resource = resource;
 	data->end = -1;
 
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, data);
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
 			&node_methods, data);

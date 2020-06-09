@@ -112,19 +112,31 @@ static const struct pw_resource_events resource_events = {
 	.destroy = global_unbind,
 };
 
-static void impl_resource_pong(void *data, int seq)
+static void remove_pending(struct resource_data *d)
 {
-	struct resource_data *d = data;
-
-	if (d->pong_seq == seq) {
+	if (d->pong_seq != 0) {
 		pw_impl_client_set_busy(pw_resource_get_client(d->resource), false);
 		d->pong_seq = 0;
 		d->impl->pending--;
 	}
 }
 
+static void impl_resource_destroy(void *data)
+{
+	struct resource_data *d = data;
+	remove_pending(d);
+}
+
+static void impl_resource_pong(void *data, int seq)
+{
+	struct resource_data *d = data;
+	if (d->pong_seq == seq)
+		remove_pending(d);
+}
+
 static const struct pw_resource_events impl_resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = impl_resource_destroy,
 	.pong = impl_resource_pong,
 };
 

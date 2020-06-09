@@ -202,7 +202,22 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	free(device);
 }
 
-static void device_pong(void *data, int seq)
+static void remove_busy_resource(struct resource_data *d)
+{
+	if (d->end != -1) {
+		spa_hook_remove(&d->listener);
+		d->end = -1;
+		pw_impl_client_set_busy(d->resource->client, false);
+	}
+}
+
+static void resource_destroy(void *data)
+{
+	struct resource_data *d = data;
+	remove_busy_resource(d);
+}
+
+static void resource_pong(void *data, int seq)
 {
 	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
@@ -212,7 +227,8 @@ static void device_pong(void *data, int seq)
 
 static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
-	.pong = device_pong,
+	.destroy = resource_destroy,
+	.pong = resource_pong,
 };
 
 static void result_device_params(void *data, int seq, int res, uint32_t type, const void *result)
@@ -280,11 +296,8 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
 			res, seq, d->seq, d->end);
 
-	if (seq == d->end) {
-		spa_hook_remove(&d->listener);
-		d->end = -1;
-		pw_impl_client_set_busy(d->resource->client, false);
-	}
+	if (seq == d->end)
+		remove_busy_resource(d);
 	if (seq == d->seq)
 		result_device_params(&d->data, seq, res, type, result);
 
@@ -350,11 +363,8 @@ static void result_device_done(void *data, int seq, int res, uint32_t type, cons
 	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
 			res, seq, d->seq, d->end);
 
-	if (seq == d->end) {
-		spa_hook_remove(&d->listener);
-		d->end = -1;
-		pw_impl_client_set_busy(d->resource->client, false);
-	}
+	if (seq == d->end)
+		remove_busy_resource(d);
 }
 
 static int device_set_param(void *object, uint32_t id, uint32_t flags,

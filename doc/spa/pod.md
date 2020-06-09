@@ -1,17 +1,17 @@
 # POD
 
 POD (plan old data) is a sort of data container. It is comparable to
-DBus Variant of LV2 Atom.
+DBus Variant or LV2 Atom.
 
 A POD can express nested structures of Objects (with properties), Vectors,
 Arrays, sequences and various primitives types. All information in the POD
-is layed out sequenctially in memory and can be written directly do
+is layed out sequentially in memory and can be written directly to
 storage or exchanged between processes or threads without additional
 marshalling..
 
 Each POD is made of a 32 bits size followed by a 32 bits type field,
 followed by the pod contents. This makes it possible to skip over unknown
-POD type.
+POD type. The POD start is always aligned to 8 bytes.
 
 PODs can be efficiently constructed and parsed in real-time threads without
 requiring memory allocations. 
@@ -285,7 +285,7 @@ an object of the expected type.
 
 ## Struct fields
 
-To iterate over the fields of a struct use:
+To iterate over the fields of a Struct use:
 
 ```
 struct spa_pod *pod, *obj;
@@ -470,7 +470,7 @@ Given 2 pod objects of the same type (Object, Struct, ..) one can
 run a filter and generate a new pod that only contains values that
 are compatibe with both input pods.
 
-This is, for example, used to find a compatible format between to ports.
+This is, for example, used to find a compatible format between two ports.
 
 As an example we can run a filter on two simple PODs:
 

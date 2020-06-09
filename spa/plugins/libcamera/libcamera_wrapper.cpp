@@ -39,6 +39,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <drm_fourcc.h>
+
 #include <spa/support/log.h>
 #include <spa/param/props.h>
 #include <spa/param/video/raw.h>
@@ -62,6 +64,14 @@ using namespace controls;
 #define DEFAULT_WIDTH			640
 #define DEFAULT_HEIGHT			480
 #define DEFAULT_PIXEL_FMT		DRM_FORMAT_YUYV
+
+/* Compressed formats
+ *
+ * TODO: Should be removed when the format gets merged in the
+ * libdrm.*/
+#ifndef DRM_FORMAT_MJPEG
+# define DRM_FORMAT_MJPEG	fourcc_code('M', 'J', 'P', 'G') /* Motion-JPEG */
+#endif
 
 extern "C" {
 

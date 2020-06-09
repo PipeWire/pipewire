@@ -62,7 +62,7 @@ appropriate error will be generated.
 The code fragment below initializes a pod builder to write into
 the stack allocated buffer.
 
-```
+```c
 uint8_t buffer[4096];
 struct spa_pod_builder b;
 spa_pod_builder_init(&b, buffer, sizeof(buffer));                       
@@ -72,7 +72,7 @@ Next we need to write some object into the builder. Let's write
 a simple struct with an Int and Float in it. Structs are comparable
 to JSON arrays.
 
-```
+```c
 struct spa_pod_frame f;
 spa_pod_builder_push_struct(&b, &f);
 ```
@@ -81,14 +81,14 @@ First we open the struct container, the `struct spa_pod_frame` keeps
 track of the container context. Next we add some values to
 the container like this:
 
-```
+```c
 spa_pod_builder_int(&b, 5);
 spa_pod_builder_float(&b, 3.1415f);
 ```
 
 The we close the container by popping the frame again:
 
-```
+```c
 struct spa_pod *pod;
 pod = spa_pod_builder_pop(&b, &f);
 ```
@@ -100,7 +100,7 @@ on the stack.
 
 We can also use the following construct to make POD objects:
 
-```
+```c
 spa_pod_builder_push_struct(&b, &f);
 spa_pod_builder_add(&b,
 	SPA_POD_Int(5),
@@ -110,7 +110,7 @@ pod = spa_pod_builder_pop(&b, &f);
 
 Or even shorter:
 
-```
+```c
 pod = spa_pod_builder_add_struct(&b,
 	SPA_POD_Int(5),
 	SPA_POD_Float(3.1415f));
@@ -126,7 +126,7 @@ objects.
 
 Start by pushing an object:
 
-```
+```c
 spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 ```
 
@@ -137,7 +137,7 @@ make this connection (See the type system).
 
 Next we can push some properties in the object:
 
-```
+```c
 spa_pod_builder_prop(&b, SPA_PROP_device, 0);
 spa_pod_builder_string(&b, "hw:0");
 spa_pod_builder_prop(&b, SPA_PROP_frequency, 0);
@@ -150,13 +150,13 @@ idea to always push (and parse) the object keys in ascending order.
 
 Don't forget to pop the result when the object is finished:
 
-```
+```c
 pod = spa_pod_builder_pop(&b, &f);
 ```
 
 There is a shortcut for making objects:
 
-```
+```c
 pod = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 	SPA_PROP_device,    SPA_POD_String("hw:0"),
@@ -182,7 +182,7 @@ interpreted in different ways:
 Let's illustrate this with a Props object that specifies a range of
 possible values for the frequency:
 
-```
+```c
 struct spa_pod_frame f2;
 
 spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
@@ -199,7 +199,7 @@ As you can see, first push the choice as a Range, then the values. A Range
 choice expects at least 3 values, the default value, mininum and maximum
 values. There is a shotcut for this as well using varargs:
 
-```
+```c
 pod = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 	SPA_PROP_frequency, SPA_POD_CHOICE_RANGE_Float(440.0f, 110.0f, 880.0f));
@@ -210,7 +210,7 @@ pod = spa_pod_builder_add_object(&b,
 This is a description of a possible `SPA_TYPE_OBJECT_Format` as used when
 enumerating allowed formats (`SPA_PARAM_EnumFormat`) in SPA objects:
 
-```
+```c
 pod = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	/* specify the media type and subtype */
@@ -241,7 +241,7 @@ only available value in the choice.
 Running fixate on our previous example would result in an object equivalent
 to:
 
-```
+```c
 pod = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	/* specify the media type and subtype */
@@ -268,7 +268,7 @@ Use `spa_pod_from_data()` to check if maxsize of bytes in data contain
 a POD at the size bytes starting at offset. This function checks that
 the POD size will fit and not overflow.
 
-```
+```c
 struct spa_pod *pod;
 pod = spa_pod_from_data(data, maxsize, offset, size);
 ```
@@ -287,7 +287,7 @@ an object of the expected type.
 
 To iterate over the fields of a Struct use:
 
-```
+```c
 struct spa_pod *pod, *obj;
 SPA_POD_STRUCT_FOREACH(obj, pod) {
 	printf("field type:%d\n", pod->type);
@@ -301,7 +301,7 @@ below.
 
 To iterate over the properies in an object you can do:
 
-```
+```c
 struct spa_pod_prop *prop;
 struct spa_pod_object *obj = (struct spa_pod_object*)pod;
 SPA_POD_OBJECT_FOREACH(pod, prop) {
@@ -313,7 +313,7 @@ There is a function to retrieve the property for a certain key
 in the object. If the properties of the object are in ascending
 order, you can start searching from the previous key.
 
-```
+```c
 struct spa_pod_prop *prop;
 prop = spa_pod_find_prop(obj, NULL, SPA_FORMAT_AUDIO_format);
   /* .. use first prop */
@@ -331,7 +331,7 @@ the parser is easier.
 
 First initialize a `struct spa_pod_parser`:
 
-```
+```c
 struct spa_pod_parser p;
 spa_pod_parser_pod(&p, obj);
 ```
@@ -339,7 +339,7 @@ spa_pod_parser_pod(&p, obj);
 You can then enter containers such as objects or structs with a push
 operation:
 
-```
+```c
 struct spa_pod_frame f;
 spa_pod_parser_push_struct(&p, &f);
 ```
@@ -350,7 +350,7 @@ to exit the container again later.
 You can then parse each field. The parser takes care of moving to the
 next field.
 
-```
+```c
 uint32_t id, val;
 spa_pod_parser_get_id(&p, &id);
 spa_pod_parser_get_int(&p, &val);
@@ -359,7 +359,7 @@ spa_pod_parser_get_int(&p, &val);
 
 And finally exit the container again:
 
-```
+```c
 spa_pod_parser_pop(&p, &f);
 ```
 
@@ -371,7 +371,7 @@ functions.
 
 To parse a struct:
 
-```
+```c
 spa_pod_parser_get_struct(&p,
 	SPA_POD_Id(&id),
 	SPA_POD_Int(&val));
@@ -379,7 +379,7 @@ spa_pod_parser_get_struct(&p,
 
 To parse properties in an object:
 
-```
+```c
 uint32_t type, subtype, format, rate, channels;
 spa_pod_parser_get_object(&p,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
@@ -397,7 +397,7 @@ for the type.
 In the next example, the rate and channels fields are optional
 and when they are not present, the variables will not be changed.
 
-```
+```c
 uint32_t type, subtype, format, rate = 0, channels = 0;
 spa_pod_parser_get_object(&p,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
@@ -421,7 +421,7 @@ manually, if needed.
 
 Here is an example of parsing the format values as a POD:
 
-```
+```c
 uint32_t type, subtype;
 struct spa_pod *format;
 spa_pod_parser_get_object(&p,
@@ -437,7 +437,7 @@ and Choice None values, it simply returns the POD and 1 value.
 For other Choice values it returns the Choice type and an array
 of values:
 
-```
+```c
 struct spa_pod *value;
 uint32_t n_vals, choice;
 
@@ -474,7 +474,7 @@ This is, for example, used to find a compatible format between two ports.
 
 As an example we can run a filter on two simple PODs:
 
-```
+```c
 pod = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
@@ -503,7 +503,7 @@ if (spa_pod_filter(&b, &result, pod, filter) < 0)
 
 Filter will contain a POD equivalent to:
 
-```
+```c
 result = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),

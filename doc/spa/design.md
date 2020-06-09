@@ -32,6 +32,38 @@ minimal problems.
 This document introduces the basic concepts of SPA plugins. It first covers using
 the API and then talks about implementing new Plugins.
 
+# Conventions
+
+## Types
+
+Types are generally divided into two categories:
+
+* String types: They identify interfaces and highlevel object types.
+* integer types: These are enumerations used in the parts where high
+                 performance/ease of use/low space overhead is needed.
+
+The SPA type is system is statis and very simple but still allows you
+to make and introspect complex object type hierarchies.
+
+See the type system docs for more info.
+
+## Error codes
+
+SPA uses negative integers as errno style error codes. Functions that return an
+int result code generated an error when < 0. `spa_strerror()` can be used to
+get a string representation of the error code.
+
+SPA also has a way to encode asynchronous results. This is done by setting a
+high bit (bit 30, the `ASYNC_BIT`) in the result code and a sequence number
+in the lower bits. This result is normally identified as a positive success
+result code and the sequence number can later be matched to the completion
+event.
+
+## Useful macros
+
+SPA comes with some useful macros defined in `<spa/utils/defs.h>`.
+
+
 # SPA Plugin
 
 The SPA plugin is the starting point for the API. A plugin is an OS specific
@@ -143,7 +175,7 @@ contain a string type and a pointer to extra support objects. This can
 be a logging API or a main loop API, for example. Some plugins require
 certain support libraries to function.
 
-## Retrieving and interface
+## Retrieving an interface
 
 When a SPA handle is made, you can retrieve any of the interfaces that
 it provides:
@@ -155,6 +187,12 @@ spa_handle_get_interface(handle, SPA_NAME_SUPPORT_LOG, &iface);
 
 If this method succeeds, you can cast the `iface` variable to
 `struct spa_log *` and start using the log interface methods.
+
+```c
+struct spa_log *log;
+spa_log_warn(log, "Hello World!\n");
+```
+
 
 ## Clearing an object
 
@@ -184,10 +222,10 @@ log interface above that has the log level as a read/write parameter.
 
 ## SPA Events
 
-Some interfaces will also allow you to register a callback (a hook) to
-receive a set of events. This is usually when something changed internally
-in the interface and it wants to notify the registered listeners about
-this.
+Some interfaces will also allow you to register a callback (a hook or
+listener) to be notified of events. This is usually when something
+changed internally in the interface and it wants to notify the registered
+listeners about this.
 
 For example, the `struct spa_node` interface has a method to register such
 an event handler like this:

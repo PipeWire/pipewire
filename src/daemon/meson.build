@@ -17,7 +17,7 @@ pipewire_c_args = [
 
 conf_config = configuration_data()
 conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
-conf_config.set('media_session_path', pipewire_bindir / 'pipewire-media-session')
+conf_config.set('media_session_path', join_paths(pipewire_bindir, 'pipewire-media-session'))
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 conf_config_uninstalled = conf_config

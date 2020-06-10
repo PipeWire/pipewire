@@ -1,3 +1,23 @@
+PipeWire 0.3.6
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Extensive memory leak fixing and stress testing was done.
+  A big leak in screen sharing with DMA-BUF was fixed.
+- Compile fixes
+- Stability improvements in jack and pulseaudio layers.
+- Added the old portal module to make the Camera portal
+  work again. This will be moved to the session manager in
+  future versions.
+- Improvements to the GStreamer source and sink shutdown.
+- Fix compatibility with v2 clients again when negotiating
+  buffers.
+
+
+Older versions:
+
+
 PipeWire 0.3.5
 
 This is a bugfix release that is API and ABI compatible
@@ -30,8 +50,6 @@ with previous 0.3.x releases.
 - Fix NEON detection
 - JACK and PulseAudio compatibility improvements
 
-
-Older versions:
 
 PipeWire 0.3.4
 

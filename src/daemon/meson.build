@@ -30,7 +30,7 @@ configure_file(input : 'pipewire.conf.in',
 
 configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
-               configuration : conf_config)
+               configuration : conf_config_uninstalled)
 
 executable('pipewire',
   pipewire_daemon_sources,

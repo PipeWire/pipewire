@@ -252,7 +252,9 @@ and then use `spa_node_add_listener()` to register a listener. The
 event listeners.
 
 Whenever the node information is changed, your `node_info` method will
-be called with `my_data` as the first data field.
+be called with `my_data` as the first data field. The events are usually
+also triggered when the listener is added, to enumerate the current
+state of the object.
 
 You can remove your listener with:
 
@@ -271,11 +273,65 @@ problems. The application can look at the pushed result and keep/copy
 only what it wants to keep.
 
 
-## Asynchronous results
+### Synchronous results
+
+Here is an example of enumerating parameters on a node interface.
+
+First install a listener for the result:
+
+```c
+static void node_result(void *data, int seq, int res,
+		uint32_t type, const void *result)
+{
+        const struct spa_result_node_params *r =
+                (const struct spa_result_node_params *) result;
+	printf("got param:\n");
+	spa_debug_pod(0, NULL, r->param);
+}
+
+struct spa_hook listener = { 0 };
+static const struct spa_node_events node_events = {
+	SPA_VERSION_NODE_EVENTS,
+	.result = node_result,
+};
+
+spa_node_add_listener(node, &listener, &node_events, node);
+```
+
+Then perform the `enum_param` method:
+
+```c
+int res = spa_node_enum_params(node, 0, SPA_PARAM_EnumFormat, 0, MAXINT, NULL);
+```
+
+This triggers the result event handler with a 0 sequence number for each
+supported format. After this completes, remove the listener again:
+
+```c
+spa_hook_remove(&listener);
+```
+
+
+### Asynchronous results
 
 Asynchronous results are pushed to the application in the same way as
-synchronous results, they are just pushed later.
+synchronous results, they are just pushed later. You can check that
+a result is asynchronous by the return value of the enum function:
 
+```c
+int res = spa_node_enum_params(node, 0, SPA_PARAM_EnumFormat, 0, MAXINT, NULL);
 
+if (SPA_RESULT_IS_ASYNC(res)) {
+	/* result will be received later */
+	...
+}
+```
+
+In the case of async results, the result callback will be called with the
+sequence number of the async result code, which can be obtained with:
+
+```c
+expected_seq = SPA_RESULT_ASYNC_SEQ(res);
+```
 
 # Implementing a new plugin

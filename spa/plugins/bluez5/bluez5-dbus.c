@@ -1097,7 +1097,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		spa_log_warn(monitor->log, "no device found for transport");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
-	spa_list_append(&transport->device->transport_list, &transport->device_link);
+	if (is_new)
+		spa_list_append(&transport->device->transport_list, &transport->device_link);
 
 	device_connect_profile(transport->device, transport->profile);
 

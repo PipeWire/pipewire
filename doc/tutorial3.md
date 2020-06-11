@@ -205,4 +205,32 @@ use:
 gcc -Wall tutorial3.c -o tutorial3 $(pkg-config --cflags --libs libpipewire-0.3)
 ```
 
+Now that our program completes, we can take a look at how we can destroy
+the objects we created. Let's destroy each of them in reverse order that we
+created them:
+
+```c
+        pw_proxy_destroy((struct pw_proxy*)registry);
+```
+
+The registry is a proxy and can be destroyed with the generic proxy destroy
+method. After destroying the object, you should not use it anymore. It is
+an error to destroy an object more than once.
+
+We can disconnect from the server with:
+
+```c
+        pw_core_disconnect(core);
+```
+
+This will also destroy the core proxy object and will remove the proxies
+that might have been created on this connection.
+
+We can finally destroy our context and mainloop to conclude this tutorial:
+
+```c
+        pw_context_destroy(context);
+        pw_main_loop_destroy(loop);
+```
+
 [[previous]](tutorial2.md) [[index](tutorial-index.md) [[next]](tutorial4.md)

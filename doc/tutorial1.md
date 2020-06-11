@@ -1,4 +1,6 @@
-# Tutorial 1
+[index](tutorial-index.md)  [next](tutorial2.md)
+
+# Getting started (Tutorial 1)
 
 In this tutorial we show the basics of a simple PipeWire application.
 Use this tutorial to get started and help you set up your development
@@ -43,3 +45,4 @@ Linked with libpipewire 0.3.5
 #
 ```
 
+[index](tutorial-index.md)  [next](tutorial2.md)

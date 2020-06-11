@@ -17,6 +17,28 @@ The framework is used to build a modular daemon that can be configured to:
 * a central hub where video can be made available for other applications
   such as the gnome-shell screencast API.
 
+## Motivation
+
+Linux has no unified framework for exchanging multimedia content between
+applications or even devices. Im most cases, developers realized that
+a user-space daemon is needed to make this possible:
+
+* For video content, we typically rely on the compositor to render our
+  data.
+* For video capture, we usually go directly to the hardware devices, with
+  all security implications and inflexible routing that this brings.
+* For consumer audio, we use PulseAudio to manage and mix multiple streams
+  from clients
+* For Pro audio, we use JACK to manage the graph of nodes.
+
+None of these solutions (with perhaps to some extend Wayland), however,
+were designed to support the security features that are required when
+daeling with flatpaks or other containerized applications. PipeWire
+aims to solve this problem and provides a unified framework to run both
+consumer and Pro audio as well as video capture and processing in a
+secure way.
+
+
 ## Components
 
 Currently PipeWire ships with the following components:

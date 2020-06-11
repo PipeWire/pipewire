@@ -59,11 +59,11 @@ int main(int argc, char *argv[])
 }                                  
 ```
 
-To compile the simple test application, copy it into a test2.c file and
+To compile the simple test application, copy it into a tutorial2.c file and
 use:
 
 ```
-gcc -Wall test2.c -o test2 $(pkg-config --cflags --libs libpipewire-0.3)
+gcc -Wall tutorial2.c -o tutorial2 $(pkg-config --cflags --libs libpipewire-0.3)
 ```
 
 Let's break this down:

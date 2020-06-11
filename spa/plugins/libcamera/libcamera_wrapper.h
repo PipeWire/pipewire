@@ -114,13 +114,15 @@ void libcamera_reset_ring_buffer_data(LibCamera *camera);
 
 void libcamera_ringbuffer_read_update(LibCamera *camera);
 
-bool libcamera_is_data_available(LibCamera *camera);
-
 void libcamera_consume_data(LibCamera *camera);
 
 void libcamera_free_CamData(LibCamera *camera, CamData *p);
 
 void libcamera_free_OutBuf(LibCamera *camera, OutBuf *p);
+
+void libcamera_set_spa_system(LibCamera *camera, struct spa_system *system);
+
+void libcamera_set_eventfd(LibCamera *camera, int fd);
 
 #ifdef __cplusplus
 }

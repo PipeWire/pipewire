@@ -42,6 +42,7 @@
 #include <drm_fourcc.h>
 
 #include <spa/support/log.h>
+#include <spa/support/system.h>
 #include <spa/param/props.h>
 #include <spa/param/video/raw.h>
 
@@ -121,6 +122,8 @@ extern "C" {
 		struct ring_buf ringbuf_;
 		void *ringbuf_data_[MAX_NUM_BUFFERS] = {};
 		struct spa_log *log_;
+		struct spa_system *system_;
+		int eventfd_ = -1;
 		pthread_mutex_t lock;
 
 		/* Methods */
@@ -130,8 +133,6 @@ extern "C" {
 		void ring_buffer_init();
 		void *ring_buffer_read();
 		void ring_buffer_write(void *p);
-		void empty_data();
-		void fill_data();
 		bool open();
 		void close();
 		int request_capture();
@@ -170,12 +171,7 @@ extern "C" {
 		uint32_t get_stride();
 		uint32_t ring_buffer_get_read_index();
 		uint32_t ring_buffer_get_write_index();
-		bool is_data_available();
 	}LibCamera;
-
-	bool LibCamera::is_data_available() {
-		return this->isAvail_;
-	}
 
 	uint32_t LibCamera::get_max_size() {
 		return this->maxSize_;
@@ -295,18 +291,6 @@ extern "C" {
 		pthread_mutex_unlock(&this->lock);
 
 		return p;
-	}
-
-	void LibCamera::empty_data() {
-		pthread_mutex_lock(&this->lock);
-		this->isAvail_ = true;
-		pthread_mutex_unlock(&this->lock);
-	}
-
-	void LibCamera::fill_data() {
-		pthread_mutex_lock(&this->lock);
-		this->isAvail_ = false;
-		pthread_mutex_unlock(&this->lock);
 	}
 
 	void LibCamera::item_free_fn() {
@@ -604,7 +588,6 @@ extern "C" {
 	}
 
 	void libcamera_ringbuffer_read_update(LibCamera *camera) {
-		camera->fill_data();
 		camera->ring_buffer_update_read_index();
 	}
 
@@ -634,8 +617,12 @@ extern "C" {
 		camera->log_ = log;
 	}
 
-	bool libcamera_is_data_available(LibCamera *camera) {
-		return camera->is_data_available();
+	void libcamera_set_spa_system(LibCamera *camera, struct spa_system *system) {
+		camera->system_ = system;
+	}
+
+	void libcamera_set_eventfd(LibCamera *camera, int fd) {
+		camera->eventfd_ = fd;
 	}
 
 	spa_video_format libcamera_map_drm_fourcc_format(unsigned int fourcc) {
@@ -887,7 +874,11 @@ extern "C" {
 				spa_log_trace(log_, "%s::Pushing buffer %p at index: %d\n", __FUNCTION__, pBuf, ringbuf_write_index);
 				/* Now update the write index of the ring buffer */
 				this->ring_buffer_update_write_index();
-				this->empty_data();
+				if(this->system_ && (this->eventfd_ > 0)) {
+					if (spa_system_eventfd_write(this->system_, this->eventfd_, 1) < 0) {
+						spa_log_error(log_, "Failed to write on event fd");
+					}
+				}
 			}
 		}
 

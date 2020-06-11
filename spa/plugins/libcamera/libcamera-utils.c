@@ -579,10 +579,6 @@ static int mmap_read(struct impl *this)
 	uint32_t bytesused;
 
 	if(dev->camera) {
-		if(!libcamera_is_data_available(dev->camera)) {
-			return -1;
-		}
-
 		pOut = (struct OutBuf *)libcamera_get_ring_buffer_data(dev->camera);
 		if(!pOut) {
 			spa_log_debug(this->log, "Exiting %s as pOut is NULL\n", __FUNCTION__);
@@ -672,6 +668,7 @@ static void libcamera_on_fd_events(struct spa_source *source)
 	struct spa_io_buffers *io;
 	struct port *port = &this->out_ports[0];
 	struct buffer *b;
+	uint64_t cnt;
 
 	if (source->rmask & SPA_IO_ERR) {
 		struct port *port = &this->out_ports[0];
@@ -683,6 +680,11 @@ static void libcamera_on_fd_events(struct spa_source *source)
 
 	if (!(source->rmask & SPA_IO_IN)) {
 		spa_log_warn(this->log, "libcamera %p: spurious wakeup %d", this, source->rmask);
+		return;
+	}
+	
+	if (spa_system_eventfd_read(this->system, port->source.fd, &cnt) < 0) {
+		spa_log_error(this->log, "Failed to read on event fd");
 		return;
 	}
 
@@ -911,10 +913,18 @@ static int spa_libcamera_stream_on(struct impl *this)
 
 	port->source.func = libcamera_on_fd_events;
 	port->source.data = this;
-	port->source.fd = get_dev_fd(dev);
+	port->source.fd = spa_system_eventfd_create(this->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	port->source.mask = SPA_IO_IN | SPA_IO_ERR;
 	port->source.rmask = 0;
-	spa_loop_add_source(this->data_loop, &port->source);
+	if (port->source.fd < 0) {
+		spa_log_error(this->log, "Failed to create eventfd. Exting %s with -EIO\n", __FUNCTION__);
+	} else {
+		spa_loop_add_source(this->data_loop, &port->source);
+		this->have_source = true;
+
+		libcamera_set_spa_system(dev->camera, this->system);
+		libcamera_set_eventfd(dev->camera, port->source.fd);
+	}	
 
 	dev->active = true;
 

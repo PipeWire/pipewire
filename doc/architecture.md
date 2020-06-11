@@ -34,7 +34,7 @@ described in an external protocol file but implemented directly in
 a protocol plugin. Protocol plugins can be added to add new
 objects or even protocols when required.
 
-Messages are encoded with [SPA PODs][spa/pod.md], which make it
+Messages are encoded with [SPA PODs](spa/pod.md), which make it
 possible to encode complex objects with right types.
 
 Events from the server can be a reply to a method or can be emited

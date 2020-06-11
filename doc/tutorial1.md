@@ -1,4 +1,4 @@
-[[index](tutorial-index.md) [[next]](tutorial2.md)
+[[index]](tutorial-index.md) [[next]](tutorial2.md)
 
 # Getting started (Tutorial 1)
 
@@ -45,4 +45,4 @@ Linked with libpipewire 0.3.5
 #
 ```
 
-[[index](tutorial-index.md) [[next]](tutorial2.md)
+[[index]](tutorial-index.md) [[next]](tutorial2.md)

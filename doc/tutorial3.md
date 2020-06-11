@@ -1,4 +1,4 @@
-[[previous]](tutorial2.md) [[index](tutorial-index.md) [[next]](tutorial4.md)
+[[previous]](tutorial2.md) [[index]](tutorial-index.md) [[next]](tutorial4.md)
 
 # Forcing a roundtrip (Tutorial 3)
 
@@ -233,4 +233,4 @@ We can finally destroy our context and mainloop to conclude this tutorial:
         pw_main_loop_destroy(loop);
 ```
 
-[[previous]](tutorial2.md) [[index](tutorial-index.md) [[next]](tutorial4.md)
+[[previous]](tutorial2.md) [[index]](tutorial-index.md) [[next]](tutorial4.md)

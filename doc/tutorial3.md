@@ -1,4 +1,4 @@
-[previous](tutorial2.md) [index](tutorial-index.md)  [next](tutorial4.md)
+[[previous]](tutorial2.md) [[index](tutorial-index.md) [[next]](tutorial4.md)
 
 # Forcing a roundtrip (Tutorial 3)
 
@@ -85,7 +85,7 @@ This triggers the `sync` method on the core object with id
 Because this is a method on a proxy object, it will be executed
 asynchronously and the returns value will reflect this. PipeWire
 uses the return values of the underlying SPA (Simple Plugin API)
-helper objects (See also [error codes](spa/design.md#error-codes).
+helper objects (See also [error codes](spa/design.md#error-codes)).
 
 Because all messages on the PipeWire server are handled sequencially,
 the sync method will be executed after all previous methods are
@@ -109,8 +109,6 @@ remove the listener:
 
 ```c
         spa_hook_remove(&core_listener);
-        return 0;
-}
 ```
 
 If we add this roundtrip method to our code and call it instead of the
@@ -207,4 +205,4 @@ use:
 gcc -Wall tutorial3.c -o tutorial3 $(pkg-config --cflags --libs libpipewire-0.3)
 ```
 
-[previous](tutorial2.md) [index](tutorial-index.md)  [next](tutorial4.md)
+[[previous]](tutorial2.md) [[index](tutorial-index.md) [[next]](tutorial4.md)

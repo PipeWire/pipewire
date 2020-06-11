@@ -1,4 +1,4 @@
-[previous](tutorial1.md) [index](tutorial-index.md)  [next](tutorial3.md)
+[[previous]](tutorial1.md) [[index](tutorial-index.md) [[next]](tutorial3.md)
 
 # Enumerating objects (Tutorial 2)
 
@@ -177,4 +177,4 @@ continue forever. In the next tutorial we'll see how we can nicely
 exit our application after we received all server objects.
 
 
-[previous](tutorial1.md) [index](tutorial-index.md)  [next](tutorial3.md)
+[[previous]](tutorial1.md) [[index](tutorial-index.md) [[next]](tutorial3.md)

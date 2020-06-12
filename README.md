@@ -140,10 +140,11 @@ $ pw-cli info 0
 ## Contributing
 
 PipeWire is Free Software and is developed in the open. It is licensed under
-the MIT license.
+the [MIT license](COPYING).
 
-Contributors are encouraged to submit merge requests or file bugs on gitlab,
+Contributors are encouraged to submit merge requests or file bugs on
+[gitlab](https://gitlab.freedesktop.org/pipewire).
 
-Join us on IRC at #pipewire on Freenode.
+Join us on IRC at #pipewire on [Freenode](freenode.net).
 
 We adhere to the Contributor Covenant for our [code of conduct](CODE_OF_CONDUCT.md).

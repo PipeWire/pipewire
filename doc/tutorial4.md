@@ -184,7 +184,7 @@ static const struct pw_stream_events stream_events = {
 ```
 
 We are for the moment only interested now in the `process` event. This event
-is called whenever we need to produce more data. We'll wee how that function 
+is called whenever we need to produce more data. We'll see how that function 
 is implemented but first we need to setup the format of the stream:
 
 ```c
@@ -208,7 +208,7 @@ which means that it enumerates the possible formats for this stream. We have
 only one, a Signed 16 bit stereo format at 44.1KHz.
 
 We use `spa_format_audio_raw_build()` which is a helper function to make the param
-with the builder. See [SPA POD](spa/POD.md) for more information about how to
+with the builder. See [SPA POD](spa/pod.md) for more information about how to
 make these POD objects.
 
 Now we're ready to connect the stream and run the main loop:
@@ -238,7 +238,7 @@ means that we are ok with conneting to any consumer. Next we set some flags:
 				uses functions that are realtime safe, this means
 				no allocation or file access or locking.
 
-An last we pass the extra parameters for our stream. Here we only have the
+And last we pass the extra parameters for our stream. Here we only have the
 allowed formats (`SPA_PARAM_EnumFormat`).
 
 Running the mainloop will then start processing and will result in our

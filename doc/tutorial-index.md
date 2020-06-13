@@ -8,3 +8,6 @@ PipeWire API step-by-step with simple short examples.
 2) Enumerating objects ([tutorial 2](tutorial2.md)).
 
 3) Forcing a roundtrip ([tutorial 3](tutorial3.md)).
+
+4) Playing a tone with `pw_stream` ([tutorial 4](tutorial4.md)).
+

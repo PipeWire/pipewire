@@ -697,8 +697,6 @@ static int impl_port_use_buffers(void *object,
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
 
-		b->flags = 0;
-		b->id = i;
 		b->this.buffer = buffers[i];
 
 		if (port->direction == SPA_DIRECTION_OUTPUT) {

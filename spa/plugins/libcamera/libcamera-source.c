@@ -900,7 +900,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	if(port->dev.camera) {
 		deleteLibCamera(port->dev.camera);
-		free(port->dev.camera);
 		port->dev.camera = NULL;
 	}
 	if(this->have_source) {

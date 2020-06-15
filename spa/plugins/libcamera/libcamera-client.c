@@ -162,7 +162,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	if(this->dev.camera) {
 		deleteLibCamera(this->dev.camera);
-		free(this->dev.camera);
 		this->dev.camera = NULL;
 	}
 	return 0;

@@ -529,21 +529,22 @@ extern "C" {
 	void LibCamera::stop() {
 		this->disconnect();
 
+		uint32_t bufIdx = 0;
+		StreamConfiguration &cfg = this->config_->at(0);
+		Stream *stream = cfg.stream();
+
+		for (const std::unique_ptr<FrameBuffer> &buffer : this->allocator_->buffers(stream)) {
+			delete [] this->fd_[bufIdx];
+			bufIdx++;
+		}
+		delete [] this->fd_;
+
     	spa_log_info(this->log_, "Stopping camera ...");
     	this->cam_->stop();
     	if(this->allocator_) {
 	    	delete this->allocator_;
 	    	this->allocator_ = nullptr;
     	}
-
-    	if(this->fd_) {
-    		for(uint32_t i = 0; i < this->nplanes_; i++) {
-    			delete this->fd_[i];
-    			this->fd_[i] = nullptr;
-    		}
-	    	delete this->fd_;
-	    	this->fd_ = nullptr;
-	    }
 
 	    this->item_free_fn();
 	}

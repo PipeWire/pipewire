@@ -677,6 +677,7 @@ static int impl_port_use_buffers(void *object,
 				    d->type == SPA_DATA_DmaBuf) {
 					if ((res = map_data(impl, d, prot)) < 0)
 						return res;
+					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 				}
 				else if (d->data == NULL) {
 					pw_log_error(NAME" %p: invalid buffer mem", filter);
@@ -684,7 +685,6 @@ static int impl_port_use_buffers(void *object,
 				}
 				buf_size += d->maxsize;
 			}
-			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 
 			if (size > 0 && buf_size != size) {
 				pw_log_error(NAME" %p: invalid buffer size %d", filter, buf_size);

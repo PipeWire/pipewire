@@ -653,7 +653,7 @@ client_node_port_use_buffers(void *object,
 		b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
 
-		pw_log_debug("add buffer %d %d %u %u %p", mm->block->id,
+		pw_log_debug("add buffer mem:%d id:%d offset:%u size:%u %p", mm->block->id,
 				bid->id, buffers[i].offset, buffers[i].size, bid->buf);
 
 		offset = 0;
@@ -696,8 +696,8 @@ client_node_port_use_buffers(void *object,
 				int offs = SPA_PTR_TO_INT(d->data);
 				d->data = SPA_MEMBER(mm->ptr, offs, void);
 				d->fd = -1;
-				pw_log_debug(" data %d %u -> mem %p maxsize %d",
-						j, bid->id, d->data, d->maxsize);
+				pw_log_debug(" data %d id:%u -> mem:%p offs:%d maxsize:%d",
+						j, bid->id, d->data, offs, d->maxsize);
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}

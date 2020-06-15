@@ -769,8 +769,7 @@ do_port_use_buffers(struct impl *impl,
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
 		struct pw_memblock *mem, *m;
-		size_t data_size;
-		void *baseptr;
+		void *baseptr, *endptr;
 
 		b->outbuf = buffers[i];
 		memcpy(&b->buffer, buffers[i], sizeof(struct spa_buffer));
@@ -787,14 +786,14 @@ do_port_use_buffers(struct impl *impl,
 		if ((mem = pw_mempool_find_ptr(impl->context->pool, baseptr)) == NULL)
 			return -EINVAL;
 
-		data_size = buffers[i]->n_datas * sizeof(struct spa_chunk);
+		endptr = SPA_MEMBER(baseptr, buffers[i]->n_datas * sizeof(struct spa_chunk), void);
 		for (j = 0; j < buffers[i]->n_metas; j++) {
-			data_size += SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8);
+			endptr = SPA_MEMBER(endptr, SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8), void);
 		}
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = buffers[i]->datas;
 			if (d->type == SPA_DATA_MemPtr)
-				data_size += d->maxsize;
+				endptr = SPA_MEMBER(d->data, d->maxsize, void);
 		}
 
 		m = pw_mempool_import_block(this->client->pool, mem);
@@ -805,8 +804,8 @@ do_port_use_buffers(struct impl *impl,
 
 		mb[i].buffer = &b->buffer;
 		mb[i].mem_id = m->id;
-		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->map->ptr, 0, void));
-		mb[i].size = data_size;
+		mb[i].offset = SPA_PTRDIFF(baseptr, mem->map->ptr);
+		mb[i].size = SPA_PTRDIFF(endptr, baseptr);
 		spa_log_debug(this->log, NAME" %p: buffer %d %d %d %d", this, i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
 

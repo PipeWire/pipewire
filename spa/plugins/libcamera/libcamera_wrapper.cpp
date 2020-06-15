@@ -113,7 +113,6 @@ extern "C" {
 		uint32_t bufIdx_;
 		int64_t **fd_;
 		uint32_t maxSize_;
-		bool isAvail_;
 		uint32_t width_;
 		uint32_t height_;
 		uint32_t pixelFormat_;
@@ -475,7 +474,6 @@ extern "C" {
 
 	bool LibCamera::open() {
 		std::shared_ptr<Camera> cam;
-		int err;
 		int ret = 0;
 
 		cam = this->get_camera();
@@ -485,7 +483,6 @@ extern "C" {
 
 		ret = cam->acquire();
 		if (ret) {
-			err = errno;
 			return false;
 		}
 
@@ -663,7 +660,6 @@ extern "C" {
 			return -EINVAL;
 		}
 
-		uint32_t index = 0;
 		for (const StreamConfiguration &cfg : *camera->config_) {
 			uint32_t index = 0;
 			const StreamFormats &formats = cfg.formats();
@@ -688,7 +684,6 @@ extern "C" {
 		}
 
 		for (const StreamConfiguration &cfg : *camera->config_) {
-			uint32_t index = 0;
 			const StreamFormats &formats = cfg.formats();
 			for (PixelFormat pixelformat : formats.pixelformats()) {
 				uint32_t index = 0;
@@ -779,7 +774,6 @@ extern "C" {
     }
 
 	LibCamera* newLibCamera() {
-		int err;
 		int ret = 0;
 		pthread_mutexattr_t attr;
 		std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
@@ -787,7 +781,6 @@ extern "C" {
 
 		ret = cm->start();
 		if (ret) {
-			err = errno;
 			return nullptr;
 		}
 
@@ -838,17 +831,12 @@ extern "C" {
 			bufIdx_ = 0;
 		}
 
-		StreamConfiguration &cfg = config_->at(0);
 		const std::map<Stream *, FrameBuffer *> &buffers = request->buffers();
 
-		unsigned int idx = 0;
 		for (auto it = buffers.begin(); it != buffers.end(); ++it) {
-			Stream *stream = it->first;
 			FrameBuffer *buffer = it->second;
-			const std::string &name = streamName_[stream];
 			unsigned int nplanes = buffer->planes().size();
 			OutBuf *pBuf = new OutBuf();
-			uint32_t ringbuf_write_index;
 
 			pBuf->bufIdx = bufIdx_;
 			pBuf->n_datas = nplanes;
@@ -872,7 +860,6 @@ extern "C" {
 			/* Push the buffer to ring buffer */
 			if(pBuf && pBuf->datas) {
 				this->ring_buffer_write(pBuf);
-				spa_log_trace(log_, "%s::Pushing buffer %p at index: %d\n", __FUNCTION__, pBuf, ringbuf_write_index);
 				/* Now update the write index of the ring buffer */
 				this->ring_buffer_update_write_index();
 				if(this->system_ && (this->eventfd_ > 0)) {

@@ -927,7 +927,6 @@ impl_init(const struct spa_handle_factory *factory,
 	const char *str;
 	struct port *port;
 	int res;
-	int err;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);

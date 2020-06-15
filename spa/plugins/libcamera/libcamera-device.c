@@ -75,12 +75,12 @@ struct impl {
 
 static int emit_info(struct impl *this, bool full)
 {
-	int res, err, fd;
+	int res, err;
 	struct spa_dict_item items[10];
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-    char path[128], version[16], capabilities[16], device_caps[16];
+    char path[128], version[16];
 
 	if ((res = spa_libcamera_open(&this->dev)) < 0)
 		return res;
@@ -88,7 +88,6 @@ static int emit_info(struct impl *this, bool full)
 	info = SPA_DEVICE_INFO_INIT();
 
 	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-	fd = get_dev_fd(&this->dev);
 
 	do {
 		err = ioctl(this->dev.fd, MEDIA_IOC_DEVICE_INFO, &this->dev.dev_info);
@@ -233,7 +232,6 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	const char *str;
-	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);

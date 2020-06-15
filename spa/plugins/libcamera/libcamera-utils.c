@@ -47,8 +47,6 @@ int get_dev_fd(struct spa_libcamera_device *dev) {
 
 int spa_libcamera_open(struct spa_libcamera_device *dev)
 {
-	int refCnt = 0;
-
 	if(!dev) {
 		return -1;
 	}
@@ -69,7 +67,6 @@ int spa_libcamera_is_capture(struct spa_libcamera_device *dev)
 
 int spa_libcamera_close(struct spa_libcamera_device *dev)
 {
-	int refCnt = 0;
 	if(!dev) {
 		spa_log_error(dev->log, "Invalid argument");
 		return -1;
@@ -95,8 +92,6 @@ static int spa_libcamera_buffer_recycle(struct impl *this, uint32_t buffer_id)
 {
 	struct port *port = &this->out_ports[0];
 	struct buffer *b = &port->buffers[buffer_id];
-	struct spa_libcamera_device *dev = &port->dev;
-	int err;
 
 	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING))
 		return 0;
@@ -377,16 +372,14 @@ spa_libcamera_enum_format(struct impl *this, int seq,
 		     const struct spa_pod *filter)
 {
 	struct port *port = &this->out_ports[0];
-	int res, n_fractions;
+	int res;
 	const struct format_info *info;
-	struct spa_pod_choice *choice;
-	uint32_t filter_media_type, filter_media_subtype, video_format;
+	uint32_t video_format;
 	struct spa_libcamera_device *dev = &port->dev;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
-	uint32_t count = 0;
 	uint32_t width = 0, height = 0;
 
 	if ((res = spa_libcamera_open(dev)) < 0) {
@@ -444,7 +437,6 @@ have_framerate:
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_framerate, 0);
 
 	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
 
 	/* Below framerates are hardcoded until framerates are queried from libcamera */
 	port->fmt.denominator = 30;
@@ -472,7 +464,7 @@ static int spa_libcamera_set_format(struct impl *this, struct spa_video_info *fo
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_libcamera_device *dev = &port->dev;
-	int res, cmd;
+	int res;
 	struct camera_fmt fmt;
 	const struct format_info *info = NULL;
 	uint32_t video_format;
@@ -729,7 +721,6 @@ static int spa_libcamera_use_buffers(struct impl *this, struct spa_buffer **buff
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
-		int64_t fd;
 
 		b = &port->buffers[i];
 		b->id = i;
@@ -881,7 +872,6 @@ spa_libcamera_alloc_buffers(struct impl *this,
 {
 	int res;
 	struct port *port = &this->out_ports[0];
-	struct spa_libcamera_device *dev = &port->dev;
 
 	if (port->n_buffers > 0)
 		return -EIO;

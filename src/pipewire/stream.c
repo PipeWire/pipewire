@@ -54,6 +54,7 @@ struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_MAPPED	(1 << 0)
 #define BUFFER_FLAG_QUEUED	(1 << 1)
+#define BUFFER_FLAG_ADDED	(1 << 2)
 	uint32_t flags;
 };
 
@@ -585,7 +586,8 @@ static void clear_buffers(struct pw_stream *stream)
 	for (i = 0; i < impl->n_buffers; i++) {
 		struct buffer *b = &impl->buffers[i];
 
-		pw_stream_emit_remove_buffer(stream, &b->this);
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_ADDED))
+			pw_stream_emit_remove_buffer(stream, &b->this);
 
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->this.buffer->n_datas; j++) {
@@ -696,6 +698,7 @@ static int impl_port_use_buffers(void *object,
 			push_queue(impl, &impl->dequeued, b);
 		}
 
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_ADDED);
 		pw_stream_emit_add_buffer(stream, &b->this);
 	}
 

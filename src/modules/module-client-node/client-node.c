@@ -202,10 +202,10 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 {
 	struct mix *mix;
 	if (mix_id == SPA_ID_INVALID)
-		return &p->mix[MAX_MIX];
-	if (mix_id >= MAX_MIX)
+		return &p->mix[0];
+	if (mix_id + 1 >= MAX_MIX)
 		return NULL;
-	mix = &p->mix[mix_id];
+	mix = &p->mix[mix_id + 1];
 	return mix;
 }
 
@@ -1507,7 +1507,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_port_mix, p);
-	mix_init(&p->mix[MAX_MIX], p, SPA_ID_INVALID);
+	ensure_mix(impl, p, SPA_ID_INVALID);
 
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		this->in_ports[p->id] = p;

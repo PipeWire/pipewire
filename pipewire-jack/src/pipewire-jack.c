@@ -64,13 +64,9 @@
 #define MAX_BUFFER_FRAMES		8192
 
 #define MAX_ALIGN			16
-#define MAX_OBJECTS			8192
 #define MAX_PORTS			1024
 #define MAX_BUFFERS			2
 #define MAX_BUFFER_DATAS		1u
-#define MAX_BUFFER_MEMS			1
-#define MAX_MIX				4096
-#define MAX_IO				32
 
 #define REAL_JACK_PORT_NAME_SIZE (JACK_CLIENT_NAME_SIZE + JACK_PORT_NAME_SIZE)
 
@@ -304,7 +300,6 @@ struct client {
 	uint32_t sample_rate;
 	uint32_t buffer_frames;
 
-	struct mix mix_pool[MAX_MIX];
 	struct spa_list free_mix;
 
 	uint32_t n_port_pool[2];
@@ -393,13 +388,18 @@ static struct mix *find_mix(struct client *c, struct port *port, uint32_t mix_id
 static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
 {
 	struct mix *mix;
+	uint32_t i;
 
 	if ((mix = find_mix(c, port, mix_id)) != NULL)
 		return mix;
 
-	if (spa_list_is_empty(&c->free_mix))
-		return NULL;
-
+	if (spa_list_is_empty(&c->free_mix)) {
+		mix = calloc(OBJECT_CHUNK, sizeof(struct mix));
+		if (mix == NULL)
+			return NULL;
+		for (i = 0; i < OBJECT_CHUNK; i++)
+			spa_list_append(&c->free_mix, &mix[i].link);
+	}
 	mix = spa_list_first(&c->free_mix, struct mix, link);
 	spa_list_remove(&mix->link);
 
@@ -409,6 +409,7 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 	mix->port = port;
 	mix->io = NULL;
 	mix->n_buffers = 0;
+	spa_list_init(&mix->queue);
 
 	return mix;
 }
@@ -2218,7 +2219,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	const char *str;
 	struct spa_cpu *cpu_iface;
 	struct spa_node_info ni;
-	int i;
 
         if (getenv("PIPEWIRE_NOJACK") != NULL)
 		goto disabled;
@@ -2272,8 +2272,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->sample_rate = (uint32_t)-1;
 
         spa_list_init(&client->free_mix);
-	for (i = 0; i < MAX_MIX; i++)
-		spa_list_append(&client->free_mix, &client->mix_pool[i].link);
 
 	init_port_pool(client, SPA_DIRECTION_INPUT);
 	init_port_pool(client, SPA_DIRECTION_OUTPUT);

@@ -53,9 +53,9 @@
 
 #define MAX_SAMPLES	8192
 #define MAX_ALIGN	16
-#define MAX_BUFFERS	64
-#define MAX_DATAS	32
-#define MAX_PORTS	128
+#define MAX_BUFFERS	32
+#define MAX_DATAS	64
+#define MAX_PORTS	64
 
 struct buffer {
 	uint32_t id;
@@ -116,7 +116,7 @@ struct impl {
 	unsigned int monitor:1;
 	unsigned int have_profile:1;
 
-	float empty[MAX_SAMPLES*2 + MAX_ALIGN];
+	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
 
 #define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && (p) < this->port_count)

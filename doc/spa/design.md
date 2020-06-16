@@ -189,7 +189,7 @@ If this method succeeds, you can cast the `iface` variable to
 `struct spa_log *` and start using the log interface methods.
 
 ```c
-struct spa_log *log;
+struct spa_log *log = iface;
 spa_log_warn(log, "Hello World!\n");
 ```
 

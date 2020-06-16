@@ -104,7 +104,7 @@ struct port {
 	unsigned int removed:1;
 	unsigned int destroyed:1;
 
-	struct mix mix[MAX_MIX+1];
+	struct pw_array mix;
 };
 
 struct node {
@@ -134,7 +134,6 @@ struct node {
 
 	uint32_t n_params;
 	struct spa_pod **params;
-
 };
 
 struct impl {
@@ -201,11 +200,21 @@ do_port_use_buffers(struct impl *impl,
 static struct mix *find_mix(struct port *p, uint32_t mix_id)
 {
 	struct mix *mix;
+	size_t len;
+
 	if (mix_id == SPA_ID_INVALID)
-		return &p->mix[0];
-	if (mix_id + 1 >= MAX_MIX)
+		mix_id = 0;
+	else
+		mix_id++;
+	if (mix_id >= MAX_MIX)
 		return NULL;
-	mix = &p->mix[mix_id + 1];
+	len = pw_array_get_len(&p->mix, struct mix);
+	if (mix_id >= len) {
+		size_t need = sizeof(struct mix) * (mix_id + 1 - len);
+		void *ptr = pw_array_add(&p->mix, need);
+		memset(ptr, 0, need);
+	}
+	mix = pw_array_get_unchecked(&p->mix, mix_id, struct mix);
 	return mix;
 }
 
@@ -507,7 +516,7 @@ do_update_port(struct node *this,
 static void
 clear_port(struct node *this, struct port *port)
 {
-	int i;
+	struct mix *mix;
 
 	spa_log_debug(this->log, NAME" %p: clear port %p", this, port);
 
@@ -515,10 +524,9 @@ clear_port(struct node *this, struct port *port)
 		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 		       PW_CLIENT_NODE_PORT_UPDATE_INFO, 0, NULL, NULL);
 
-	for (i = 0; i < MAX_MIX+1; i++) {
-		struct mix *mix = &port->mix[i];
+	pw_array_for_each(mix, &port->mix)
 		mix_clear(this, mix);
-	}
+	pw_array_clear(&port->mix);
 
 	if (port->direction == SPA_DIRECTION_INPUT) {
 		if (this->in_ports[port->id] == port) {
@@ -629,7 +637,7 @@ impl_node_port_set_param(void *object,
 {
 	struct node *this = object;
 	struct port *port;
-	uint32_t i;
+	struct mix *mix;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
@@ -641,10 +649,8 @@ impl_node_port_set_param(void *object,
 	port = GET_PORT(this, direction, port_id);
 
 	if (id == SPA_PARAM_Format) {
-		for (i = 0; i < MAX_MIX+1; i++) {
-			struct mix *mix = &port->mix[i];
+		pw_array_for_each(mix, &port->mix)
 			clear_buffers(this, mix);
-		}
 	}
 	if (this->resource == NULL)
 		return param == NULL ? 0 : -EIO;
@@ -1503,6 +1509,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	p->direction = port->direction;
 	p->id = port->port_id;
 	p->impl = impl;
+	pw_array_init(&p->mix, sizeof(struct mix) * 2);
 	p->mix_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,

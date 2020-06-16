@@ -405,6 +405,13 @@ static const struct pw_node_events node_events = {
 };
 
 static void
+removed_node (void *data)
+{
+  struct node_data *nd = data;
+  pw_proxy_destroy((struct pw_proxy*)nd->proxy);
+}
+
+static void
 destroy_node (void *data)
 {
   struct node_data *nd = data;
@@ -428,8 +435,16 @@ destroy_node (void *data)
 
 static const struct pw_proxy_events proxy_node_events = {
   PW_VERSION_PROXY_EVENTS,
+  .removed = removed_node,
   .destroy = destroy_node,
 };
+
+static void
+removed_port (void *data)
+{
+  struct port_data *pd = data;
+  pw_proxy_destroy((struct pw_proxy*)pd->proxy);
+}
 
 static void
 destroy_port (void *data)
@@ -442,6 +457,7 @@ destroy_port (void *data)
 
 static const struct pw_proxy_events proxy_port_events = {
         PW_VERSION_PROXY_EVENTS,
+        .removed = removed_port,
         .destroy = destroy_port,
 };
 
@@ -563,6 +579,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   }
 
   GST_DEBUG_OBJECT (self, "disconnect");
+  pw_proxy_destroy ((struct pw_proxy*)data->registry);
   pw_core_disconnect (self->core);
   pw_context_destroy (c);
   pw_loop_destroy (l);
@@ -654,7 +671,10 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
 
   GST_DEBUG_OBJECT (self, "stopping provider");
-
+  if (self->registry) {
+    pw_proxy_destroy ((struct pw_proxy*)self->registry);
+    self->registry = NULL;
+  }
   if (self->core) {
     pw_core_disconnect (self->core);
     self->core = NULL;

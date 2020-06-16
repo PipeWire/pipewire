@@ -527,6 +527,7 @@ clear_port(struct node *this, struct port *port)
 	pw_array_for_each(mix, &port->mix)
 		mix_clear(this, mix);
 	pw_array_clear(&port->mix);
+	pw_array_init(&port->mix, sizeof(struct mix) * 2);
 
 	if (port->direction == SPA_DIRECTION_INPUT) {
 		if (this->in_ports[port->id] == port) {

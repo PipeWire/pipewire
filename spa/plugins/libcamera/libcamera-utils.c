@@ -324,46 +324,6 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 	return NULL;
 }
 
-static uint32_t
-enum_filter_format(uint32_t media_type, int32_t media_subtype,
-		   const struct spa_pod *filter, uint32_t index)
-{
-	uint32_t video_format = 0;
-
-	switch (media_type) {
-	case SPA_MEDIA_TYPE_video:
-	case SPA_MEDIA_TYPE_image:
-		if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-			const struct spa_pod_prop *p;
-			const struct spa_pod *val;
-			uint32_t n_values, choice;
-			const uint32_t *values;
-
-			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_format)))
-				return SPA_VIDEO_FORMAT_UNKNOWN;
-
-			val = spa_pod_get_values(&p->value, &n_values, &choice);
-
-			if (val->type != SPA_TYPE_Id)
-				return SPA_VIDEO_FORMAT_UNKNOWN;
-
-			values = SPA_POD_BODY(val);
-
-			if (choice == SPA_CHOICE_None) {
-				if (index == 0)
-					video_format = values[0];
-			} else {
-				if (index + 1 < n_values)
-					video_format = values[index + 1];
-			}
-		} else {
-			if (index == 0)
-				video_format = SPA_VIDEO_FORMAT_ENCODED;
-		}
-	}
-	return video_format;
-}
-
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
 static int
@@ -398,7 +358,6 @@ spa_libcamera_enum_format(struct impl *this, int seq,
 next_fmtdesc:
 	port->fmtdesc_index++;
 
-next:
 	result.index = result.next++;
 
 	/* Enumerate all the video formats supported by libcamera */
@@ -427,15 +386,12 @@ next:
 		spa_pod_builder_id(&b, info->format);
 	}
 
-have_size:
 	spa_log_info(this->log, "%s:: In have_size: Got width = %u height = %u\n", __FUNCTION__, width, height);
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
 	spa_pod_builder_rectangle(&b, port->fmt.width, port->fmt.height);
 
-have_framerate:
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_framerate, 0);
-
 	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
 
 	/* Below framerates are hardcoded until framerates are queried from libcamera */
@@ -455,7 +411,7 @@ have_framerate:
 
 enum_end:
 	res = 0;
-exit:
+
 	spa_libcamera_close(dev);
 	return res;
 }
@@ -561,14 +517,17 @@ static int mmap_read(struct impl *this)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_libcamera_device *dev = &port->dev;
-	struct buffer *b;
-	struct spa_data *d;
-	unsigned int sequence;
+	struct buffer *b = NULL;
+	struct spa_data *d = NULL;
+	unsigned int sequence = 0;
 	struct timeval timestamp;
 	int64_t pts;
 	struct OutBuf *pOut = NULL;
 	struct CamData *pDatas = NULL;
-	uint32_t bytesused;
+	uint32_t bytesused = 0;
+
+	timestamp.tv_sec = 0;
+	timestamp.tv_usec = 0;
 
 	if(dev->camera) {
 		pOut = (struct OutBuf *)libcamera_get_ring_buffer_data(dev->camera);
@@ -853,16 +812,6 @@ mmap_init(struct impl *this,
 	}
 	port->n_buffers = libcamera_nbuffers;
 	return 0;
-}
-
-static int userptr_init(struct impl *this)
-{
-	return -ENOTSUP;
-}
-
-static int read_init(struct impl *this)
-{
-	return -ENOTSUP;
 }
 
 static int

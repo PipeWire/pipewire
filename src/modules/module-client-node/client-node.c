@@ -78,8 +78,7 @@ struct buffer {
 };
 
 struct mix {
-	bool valid;
-	bool active;
+	unsigned int valid:1;
 	uint32_t id;
 	struct port *port;
 	uint32_t n_buffers;
@@ -135,6 +134,7 @@ struct node {
 
 	uint32_t n_params;
 	struct spa_pod **params;
+
 };
 
 struct impl {
@@ -214,10 +214,8 @@ static void mix_init(struct mix *mix, struct port *p, uint32_t id)
 	mix->valid = true;
 	mix->id = id;
 	mix->port = p;
-	mix->active = false;
 	mix->n_buffers = 0;
 }
-
 
 static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id)
 {
@@ -1356,8 +1354,8 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 			mix->id * sizeof(struct spa_io_buffers), void);
 	*mix->io = SPA_IO_BUFFERS_INIT;
 
-	pw_log_debug(NAME " %p: init mix io %d %p %p", impl, mix->id, mix->io,
-			impl->io_areas->map->ptr);
+	pw_log_debug(NAME " %p: init mix id:%d io:%p base:%p", impl,
+			mix->id, mix->io, impl->io_areas->map->ptr);
 
 	return 0;
 }
@@ -1369,8 +1367,8 @@ static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 	struct node *this = &impl->node;
 	struct mix *m;
 
-	pw_log_debug(NAME " %p: remove mix io %d %p %p", this, mix->id, mix->io,
-			impl->io_areas->map->ptr);
+	pw_log_debug(NAME " %p: remove mix id:%d io:%p base:%p",
+			this, mix->id, mix->io, impl->io_areas->map->ptr);
 
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
 		return -EINVAL;

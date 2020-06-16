@@ -228,8 +228,8 @@ struct context {
 
 #define GET_DIRECTION(f)	((f) & JackPortIsInput ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT)
 
-#define GET_IN_PORT(c,p)	(&c->port_pool[SPA_DIRECTION_INPUT][p])
-#define GET_OUT_PORT(c,p)	(&c->port_pool[SPA_DIRECTION_OUTPUT][p])
+#define GET_IN_PORT(c,p)	(c->port_pool[SPA_DIRECTION_INPUT][p])
+#define GET_OUT_PORT(c,p)	(c->port_pool[SPA_DIRECTION_OUTPUT][p])
 #define GET_PORT(c,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(c,p) : GET_OUT_PORT(c,p))
 
 struct metadata {
@@ -307,7 +307,8 @@ struct client {
 	struct mix mix_pool[MAX_MIX];
 	struct spa_list free_mix;
 
-	struct port port_pool[2][MAX_PORTS];
+	uint32_t n_port_pool[2];
+	struct port *port_pool[2][MAX_PORTS];
 	struct spa_list ports[2];
 	struct spa_list free_ports[2];
 
@@ -345,17 +346,9 @@ static int do_sync(struct client *client);
 
 static void init_port_pool(struct client *c, enum spa_direction direction)
 {
-	int i;
-
 	spa_list_init(&c->ports[direction]);
 	spa_list_init(&c->free_ports[direction]);
-	for (i = 0; i < MAX_PORTS; i++) {
-		c->port_pool[direction][i].direction = direction;
-		c->port_pool[direction][i].id = i;
-		c->port_pool[direction][i].emptyptr =
-			SPA_PTR_ALIGN(c->port_pool[direction][i].empty, MAX_ALIGN, float);
-		spa_list_append(&c->free_ports[direction], &c->port_pool[direction][i].link);
-	}
+	c->n_port_pool[direction] = 0;
 }
 
 static struct object * alloc_object(struct client *c)
@@ -452,10 +445,23 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 {
 	struct port *p;
 	struct object *o;
+	uint32_t i, n;
 
-	if (spa_list_is_empty(&c->free_ports[direction]))
-		return NULL;
+	if (spa_list_is_empty(&c->free_ports[direction])) {
+		p = calloc(OBJECT_CHUNK, sizeof(struct port));
+		if (p == NULL)
+			return NULL;
+		n = c->n_port_pool[direction];
+		for (i = 0; i < OBJECT_CHUNK; i++, n++) {
+			p[i].direction = direction;
+			p[i].id = n;
+			p[i].emptyptr = SPA_PTR_ALIGN(p[i].empty, MAX_ALIGN, float);
+			c->port_pool[direction][n] = &p[i];
+			spa_list_append(&c->free_ports[direction], &p[i].link);
+		}
+		c->n_port_pool[direction] = n;
 
+	}
 	p = spa_list_first(&c->free_ports[direction], struct port, link);
 	spa_list_remove(&p->link);
 

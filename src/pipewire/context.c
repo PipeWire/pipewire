@@ -798,18 +798,22 @@ static int collect_nodes(struct pw_impl_node *driver)
 	spa_list_init(&queue);
 	spa_list_append(&queue, &driver->sort_link);
 	driver->visited = true;
-	driver->passive = true;
 
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
 		pw_impl_node_set_driver(n, driver);
+		n->passive = true;
 
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
 				t = l->output->node;
 				if (!l->passive)
-					driver->passive = false;
-				if (l->prepared && !t->visited && t->active) {
+					driver->passive = n->passive = false;
+				else
+					pw_impl_link_prepare(l);
+				if (t->visited || !t->active)
+					continue;
+				if (l->prepared) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
 				}
@@ -819,8 +823,12 @@ static int collect_nodes(struct pw_impl_node *driver)
 			spa_list_for_each(l, &p->links, output_link) {
 				t = l->input->node;
 				if (!l->passive)
-					driver->passive = false;
-				if (l->prepared && !t->visited && t->active) {
+					driver->passive = n->passive = false;
+				else
+					pw_impl_link_prepare(l);
+				if (t->visited || !t->active)
+					continue;
+				if (l->prepared) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
 				}

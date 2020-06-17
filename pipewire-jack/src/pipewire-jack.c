@@ -2400,7 +2400,7 @@ int jack_client_close (jack_client_t *client)
 
 	if (c->registry)
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
-	if (c->metadata->proxy)
+	if (c->metadata && c->metadata->proxy)
 		pw_proxy_destroy((struct pw_proxy*)c->metadata->proxy);
 	pw_core_disconnect(c->core);
 	pw_context_destroy(c->context.context);

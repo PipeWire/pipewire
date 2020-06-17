@@ -1239,13 +1239,13 @@ static void card_callback(struct card_data *d)
 {
 	struct global *g = d->global;
 	pa_card_info *i = &g->card_info.info;
-	int n_profiles, j;
+	int n_profiles, j = 0;
 	struct param *p;
 
 	n_profiles = g->card_info.n_profiles;
 
 	i->profiles = alloca(sizeof(pa_card_profile_info) * n_profiles);
-	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * n_profiles);
+	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * n_profiles + 1);
 	i->n_profiles = 0;
 
 	pw_log_debug("context %p: info for %d", g->context, g->id);
@@ -1282,6 +1282,7 @@ static void card_callback(struct card_data *d)
 			i->active_profile2 = i->profiles2[j];
 		}
 	}
+	i->profiles2[j] = NULL;
 	d->cb(d->context, i, 0, d->userdata);
 }
 

@@ -3672,9 +3672,10 @@ int jack_connect (jack_client_t *client,
 	struct client *c = (struct client *) client;
 	struct object *src, *dst;
 	struct spa_dict props;
-	struct spa_dict_item items[5];
+	struct spa_dict_item items[6];
 	struct pw_proxy *proxy;
 	char val[4][16];
+	const char *str;
 	int res;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
@@ -3707,6 +3708,9 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_NODE, val[2]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "true");
+	if ((str = getenv("PIPEWIRE_LINK_PASSIVE")) != NULL &&
+	    pw_properties_parse_bool(str))
+		items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_PASSIVE, "true");
 
 	proxy = pw_core_create_object(c->core,
 				    "link-factory",

@@ -548,6 +548,7 @@ struct pw_impl_node {
 					  *  is selected to drive the graph */
 	unsigned int visited:1;		/**< for sorting */
 	unsigned int want_driver:1;	/**< this node wants to be assigned to a driver */
+	unsigned int passive:1;		/**< driver graph only has passive links */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
@@ -753,6 +754,7 @@ struct pw_impl_link {
 	unsigned int feedback:1;
 	unsigned int preparing:1;
 	unsigned int prepared:1;
+	unsigned int passive:1;
 };
 
 #define pw_resource_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_resource_events, m, v, ##__VA_ARGS__)

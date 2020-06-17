@@ -995,6 +995,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	struct impl *impl;
 	struct pw_impl_link *this;
 	struct pw_impl_node *input_node, *output_node;
+	const char *str;
 	int res;
 
 	if (output == input)
@@ -1037,6 +1038,10 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	this->output = output;
 	this->input = input;
+
+	/* passive means that this link does not make the nodes active */
+	if ((str = pw_properties_get(properties, PW_KEY_LINK_PASSIVE)) != NULL)
+		this->passive = pw_properties_parse_bool(str);
 
 	spa_hook_list_init(&this->listener_list);
 

@@ -798,6 +798,7 @@ static int collect_nodes(struct pw_impl_node *driver)
 	spa_list_init(&queue);
 	spa_list_append(&queue, &driver->sort_link);
 	driver->visited = true;
+	driver->passive = true;
 
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
@@ -806,6 +807,8 @@ static int collect_nodes(struct pw_impl_node *driver)
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
 				t = l->output->node;
+				if (!l->passive)
+					driver->passive = false;
 				if (l->prepared && !t->visited && t->active) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
@@ -815,6 +818,8 @@ static int collect_nodes(struct pw_impl_node *driver)
 		spa_list_for_each(p, &n->output_ports, link) {
 			spa_list_for_each(l, &p->links, output_link) {
 				t = l->input->node;
+				if (!l->passive)
+					driver->passive = false;
 				if (l->prepared && !t->visited && t->active) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
@@ -852,7 +857,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 		/* from now on we are only interested in active master nodes.
 		 * We're going to see if there are active followers. */
-		if (!n->master || !n->active)
+		if (!n->master || !n->active || n->passive)
 			continue;
 
 		/* first active master node is fallback */
@@ -912,7 +917,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			if (s == n)
 				continue;
 			if (s->active)
-				running = true;
+				running = !n->passive;
 			if (s->quantum_size > 0) {
 				if (min_quantum == 0 || s->quantum_size < min_quantum)
 					min_quantum = s->quantum_size;
@@ -935,8 +940,8 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			n->rt.position->clock.duration = quantum;
 		}
 
-		pw_log_debug(NAME" %p: master %p running:%d quantum:%u '%s'", context, n,
-				running, quantum, n->name);
+		pw_log_debug(NAME" %p: master %p running:%d passive:%d quantum:%u '%s'", context, n,
+				running, n->passive, quantum, n->name);
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 			if (s == n)

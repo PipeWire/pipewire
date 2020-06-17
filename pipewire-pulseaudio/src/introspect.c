@@ -1245,7 +1245,7 @@ static void card_callback(struct card_data *d)
 	n_profiles = g->card_info.n_profiles;
 
 	i->profiles = alloca(sizeof(pa_card_profile_info) * n_profiles);
-	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * n_profiles + 1);
+	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * (n_profiles + 1));
 	i->n_profiles = 0;
 
 	pw_log_debug("context %p: info for %d", g->context, g->id);

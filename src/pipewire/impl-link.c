@@ -778,8 +778,6 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 		break;
 	default:
 		if (state < PW_IMPL_PORT_STATE_PAUSED && this->prepared) {
-			this->preparing = false;
-			this->prepared = false;
 			pw_impl_link_update_state(this, PW_LINK_STATE_INIT, NULL);
 		}
 		break;

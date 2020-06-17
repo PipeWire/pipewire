@@ -563,7 +563,10 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		if (written > 0 && l1 > 0)
 			written += add_data(this, src, l1);
 		if (written <= 0) {
-			port->need_data = true;
+		        /* only request new data when the current buffer will be fully processed in the next iteration */
+			if (port->ready_offset + (this->frame_count * this->codesize) >= d[0].chunk->size)
+			        port->need_data = true;
+
 			if (written < 0 && written != -ENOSPC) {
 				spa_list_remove(&b->link);
 				b->outstanding = true;

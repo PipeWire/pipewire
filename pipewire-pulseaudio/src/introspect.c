@@ -1262,7 +1262,6 @@ static void card_callback(struct card_data *d)
 			continue;
 		}
 
-		j = i->n_profiles++;
 		i->profiles[j].name = name;
 		i->profiles[j].description = name;
 		i->profiles[j].n_sinks = 1;
@@ -1281,6 +1280,7 @@ static void card_callback(struct card_data *d)
 			i->active_profile = &i->profiles[j];
 			i->active_profile2 = i->profiles2[j];
 		}
+		j = ++i->n_profiles;
 	}
 	i->profiles2[j] = NULL;
 	d->cb(d->context, i, 0, d->userdata);

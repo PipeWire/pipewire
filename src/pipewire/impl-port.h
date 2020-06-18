@@ -57,7 +57,7 @@ enum pw_impl_port_state {
 
 /** Port events, use \ref pw_impl_port_add_listener */
 struct pw_impl_port_events {
-#define PW_VERSION_IMPL_PORT_EVENTS 0
+#define PW_VERSION_IMPL_PORT_EVENTS 1
 	uint32_t version;
 
 	/** The port is destroyed */
@@ -87,6 +87,9 @@ struct pw_impl_port_events {
 
 	/** a control was removed from the port */
 	void (*control_removed) (void *data, struct pw_control *control);
+
+	/** a parameter changed, since version 1 */
+	void (*param_changed) (void *data, uint32_t id);
 };
 
 /** Create a new port \memberof pw_impl_port

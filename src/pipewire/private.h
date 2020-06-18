@@ -638,6 +638,7 @@ struct pw_impl_port_implementation {
 #define pw_impl_port_emit_state_changed(p,o,s,e)	pw_impl_port_emit(p, state_changed, 0, o, s, e)
 #define pw_impl_port_emit_control_added(p,c)		pw_impl_port_emit(p, control_added, 0, c)
 #define pw_impl_port_emit_control_removed(p,c)		pw_impl_port_emit(p, control_removed, 0, c)
+#define pw_impl_port_emit_param_changed(p,i)		pw_impl_port_emit(p, param_changed, 1, i)
 
 #define PW_IMPL_PORT_IS_CONTROL(port)	SPA_FLAG_MASK(port->flags, \
 						PW_IMPL_PORT_FLAG_BUFFERS|PW_IMPL_PORT_FLAG_CONTROL,\

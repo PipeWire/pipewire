@@ -133,6 +133,8 @@ struct impl {
 	int frame_count;
 	uint16_t seqnum;
 	uint32_t timestamp;
+	uint8_t tmp_buffer[512];
+	int tmp_buffer_used;
 
 	int min_bitpool;
 	int max_bitpool;
@@ -397,6 +399,8 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	int processed;
 	ssize_t out_encoded;
 	struct port *port = &this->port;
+	const void *from_data = data;
+	int from_size = size;
 
 	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d/%d",
 			this, size, this->buffer_used, port->frame_size, this->write_size,
@@ -405,7 +409,18 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	if (this->frame_count > MAX_FRAME_COUNT)
 		return -ENOSPC;
 
-	processed = sbc_encode(&this->sbc, data, size,
+	if (size < this->codesize - this->tmp_buffer_used) {
+		memcpy(this->tmp_buffer + this->tmp_buffer_used, data, size);
+		this->tmp_buffer_used += size;
+		return size;
+	} else if (this->tmp_buffer_used > 0) {
+		memcpy(this->tmp_buffer + this->tmp_buffer_used, data, this->codesize - this->tmp_buffer_used);
+		from_data = this->tmp_buffer;
+		from_size = this->codesize;
+		this->tmp_buffer_used = this->codesize - this->tmp_buffer_used;
+	}
+
+	processed = sbc_encode(&this->sbc, from_data, from_size,
 			       this->buffer + this->buffer_used,
 			       this->write_size - this->buffer_used,
 			       &out_encoded);
@@ -419,6 +434,11 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 
 	spa_log_trace(this->log, NAME " %p: processed %d %zd used %d",
 			this, processed, out_encoded, this->buffer_used);
+
+	if (this->tmp_buffer_used) {
+		processed = this->tmp_buffer_used;
+		this->tmp_buffer_used = 0;
+	}
 
 	return processed;
 }
@@ -504,6 +524,9 @@ static int set_bitpool(struct impl *this, int bitpool)
 	spa_log_debug(this->log, NAME" %p: set bitpool %d", this, this->sbc.bitpool);
 
 	this->codesize = sbc_get_codesize(&this->sbc);
+	/* make sure there's enough space in this->tmp_buffer */
+	spa_assert(this->codesize <= 512);
+
 	this->frame_length = sbc_get_frame_length(&this->sbc);
 
 	this->read_size = this->transport->read_mtu

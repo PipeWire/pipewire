@@ -31,10 +31,7 @@
 
 #include <pipewire/pipewire.h>
 
-#define BPP	3
-#define WIDTH	320
-#define HEIGHT	200
-#define CROP	8
+#define BPP		3
 #define CURSOR_WIDTH	64
 #define CURSOR_HEIGHT	64
 #define CURSOR_BPP	4
@@ -132,8 +129,8 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		data->crop = (sin(data->accumulator) + 1.0) * 32.0;
 		mc->region.position.x = data->crop;
 		mc->region.position.y = data->crop;
-		mc->region.size.width = WIDTH - data->crop*2;
-		mc->region.size.height = HEIGHT - data->crop*2;
+		mc->region.size.width = data->format.size.width - data->crop*2;
+		mc->region.size.height = data->format.size.height - data->crop*2;
 	}
 	if ((mcs = spa_buffer_find_meta_data(buf, SPA_META_Cursor, sizeof(*mcs)))) {
 		struct spa_meta_bitmap *mb;

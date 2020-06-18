@@ -354,6 +354,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 SPA_EXPORT
 void pw_buffers_clear(struct pw_buffers *buffers)
 {
+	pw_log_debug(NAME" %p: clear %d buffers:%p", buffers, buffers->n_buffers, buffers->buffers);
 	if (buffers->mem)
 		pw_memblock_unref(buffers->mem);
 	free(buffers->buffers);

@@ -603,33 +603,14 @@ static int port_set_format(void *object,
 				spa_log_error(this->log, "can't parse video raw");
 				return -EINVAL;
 			}
-
-			if (port->have_format && info.media_type == port->current_format.media_type &&
-			    info.media_subtype == port->current_format.media_subtype &&
-			    info.info.raw.format == port->current_format.info.raw.format &&
-			    info.info.raw.size.width == port->current_format.info.raw.size.width &&
-			    info.info.raw.size.height == port->current_format.info.raw.size.height)
-				return 0;
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:
 			if (spa_format_video_mjpg_parse(format, &info.info.mjpg) < 0)
 				return -EINVAL;
-
-			if (port->have_format && info.media_type == port->current_format.media_type &&
-			    info.media_subtype == port->current_format.media_subtype &&
-			    info.info.mjpg.size.width == port->current_format.info.mjpg.size.width &&
-			    info.info.mjpg.size.height == port->current_format.info.mjpg.size.height)
-				return 0;
 			break;
 		case SPA_MEDIA_SUBTYPE_h264:
 			if (spa_format_video_h264_parse(format, &info.info.h264) < 0)
 				return -EINVAL;
-
-			if (port->have_format && info.media_type == port->current_format.media_type &&
-			    info.media_subtype == port->current_format.media_subtype &&
-			    info.info.h264.size.width == port->current_format.info.h264.size.width &&
-			    info.info.h264.size.height == port->current_format.info.h264.size.height)
-				return 0;
 			break;
 		default:
 			return -EINVAL;

@@ -592,19 +592,25 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 	return best;
 }
 
-int pw_context_debug_port_params(struct pw_context *this,
+SPA_PRINTF_FUNC(7, 8) int pw_context_debug_port_params(struct pw_context *this,
 		struct spa_node *node, enum spa_direction direction,
-		uint32_t port_id, uint32_t id, const char *debug, int err)
+		uint32_t port_id, uint32_t id, int err, const char *debug, ...)
 {
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
 	uint32_t state;
 	struct spa_pod *param;
 	int res;
+	va_list args;
 
-	pw_log_error("params %s: %d:%d (%s) %s",
+	va_start(args, debug);
+	vsnprintf(buffer, sizeof(buffer), debug, args);
+	va_end(args);
+
+	pw_log_error("params %s: %d:%d %s (%s)",
 			spa_debug_type_find_name(spa_type_param, id),
-			direction, port_id, debug, spa_strerror(err));
+			direction, port_id, spa_strerror(err), buffer);
+
 	if (err == -EBUSY)
 		return 0;
 

@@ -988,7 +988,7 @@ pw_context_find_port(struct pw_context *context,
 
 int pw_context_debug_port_params(struct pw_context *context,
 		struct spa_node *node, enum spa_direction direction,
-		uint32_t port_id, uint32_t id, const char *debug, int err);
+		uint32_t port_id, uint32_t id, int err, const char *debug, ...);
 
 const struct pw_export_type *pw_context_find_export_type(struct pw_context *context, const char *type);
 

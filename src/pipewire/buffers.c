@@ -257,11 +257,11 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	res = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
 	if (res < 0) {
 		pw_context_debug_port_params(context, input.node, input.direction,
-				input.port_id, SPA_PARAM_Buffers,
-				"input param", res);
+				input.port_id, SPA_PARAM_Buffers, res,
+				"input param");
 		pw_context_debug_port_params(context, output.node, output.direction,
-				output.port_id, SPA_PARAM_Buffers,
-				"output param", res);
+				output.port_id, SPA_PARAM_Buffers, res,
+				"output param");
 		return res;
 	}
 	n_params = res;

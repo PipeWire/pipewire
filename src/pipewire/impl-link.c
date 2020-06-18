@@ -330,11 +330,11 @@ static int do_negotiate(struct pw_impl_link *this)
 
 error:
 	pw_context_debug_port_params(context, input->node->node, input->direction,
-			input->port_id, SPA_PARAM_EnumFormat,
-			"input format", res);
+			input->port_id, SPA_PARAM_EnumFormat, res,
+			"input format (%s)", error);
 	pw_context_debug_port_params(context, output->node->node, output->direction,
-			output->port_id, SPA_PARAM_EnumFormat,
-			"output format", res);
+			output->port_id, SPA_PARAM_EnumFormat, res,
+			"output format (%s)", error);
 	pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error);
 	free(format);
 	return res;

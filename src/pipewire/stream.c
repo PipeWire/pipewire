@@ -185,6 +185,7 @@ static struct param *add_param(struct stream *impl,
 	idx = get_param_index(id);
 	if (idx != -1) {
 		impl->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		impl->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
 		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
 	}
 

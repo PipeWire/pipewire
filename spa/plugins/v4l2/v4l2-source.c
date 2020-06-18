@@ -576,12 +576,14 @@ static int port_set_format(void *object,
 	struct port *port = GET_PORT(this, direction, port_id);
 	int res;
 
+	if (port->have_format) {
+		spa_v4l2_stream_off(this);
+		spa_v4l2_clear_buffers(this);
+	}
 	if (format == NULL) {
 		if (!port->have_format)
 			return 0;
 
-		spa_v4l2_stream_off(this);
-		spa_v4l2_clear_buffers(this);
 		port->have_format = false;
 		port->dev.have_format = false;
 		spa_v4l2_close(&port->dev);
@@ -634,15 +636,14 @@ static int port_set_format(void *object,
 		}
 	}
 
-	if (port->have_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
-		spa_v4l2_use_buffers(this, NULL, 0);
+	if (port->have_format && !SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 		port->have_format = false;
 	}
 
 	if (spa_v4l2_set_format(this, &info, flags) < 0)
 		return -EINVAL;
 
-	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+	if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 		port->current_format = info;
 		port->have_format = true;
 	}

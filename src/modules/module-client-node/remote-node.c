@@ -256,7 +256,7 @@ static int client_node_transport(void *object,
 	data->activation = pw_mempool_map_id(data->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 	if (data->activation == NULL) {
-		pw_log_debug("remote-node %p: can't map activation: %m", proxy);
+		pw_log_warn("remote-node %p: can't map activation: %m", proxy);
 		return -errno;
 	}
 
@@ -431,7 +431,8 @@ client_node_set_io(void *object,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
 			pw_log_warn("can't map memory id %u: %m", memid);
-			return -errno;
+			res = -errno;
+			goto exit;
 		}
 		ptr = mm->ptr;
 	}
@@ -443,7 +444,7 @@ client_node_set_io(void *object,
 
 	if (old != NULL)
 		pw_memmap_free(old);
-
+exit:
 	if (res < 0) {
 		pw_log_error("node %p: set_io: %s", proxy, spa_strerror(res));
 		pw_proxy_errorf(proxy, res, "node_set_io failed: %s", spa_strerror(res));
@@ -758,8 +759,9 @@ client_node_port_set_io(void *object,
 		mm = pw_mempool_map_id(data->pool, memid,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
+			pw_log_warn("can't map memory id %u: %m", memid);
 			res = -errno;
-			goto exit_free;
+			goto exit;
 		}
 		ptr = mm->ptr;
 	}

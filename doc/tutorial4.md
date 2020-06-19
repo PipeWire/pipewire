@@ -225,7 +225,7 @@ Now we're ready to connect the stream and run the main loop:
 	pw_main_loop_run(data.loop);
 ```
 
-To connect we speficy that we have an `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
+To connect we specify that we have an `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
 means that we are ok with conneting to any consumer. Next we set some flags:
 
 * `PW_STREAM_FLAG_AUTOCONNECT`  automatically connect this stream. This instructs

@@ -11,3 +11,5 @@ PipeWire API step-by-step with simple short examples.
 
 4) Playing a tone with `pw_stream` ([tutorial 4](tutorial4.md)).
 
+5) Capture video frames with `pw_stream` ([tutorial 5](tutorial5.md)).
+

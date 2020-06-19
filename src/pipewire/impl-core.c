@@ -162,6 +162,8 @@ static int core_hello(void *object, uint32_t version)
 	pw_log_debug(NAME" %p: hello %d from resource %p", context, version, resource);
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
+	pw_mempool_clear(client->pool);
+
 	this->info.change_mask = PW_CORE_CHANGE_MASK_ALL;
 	pw_core_resource_info(resource, &this->info);
 

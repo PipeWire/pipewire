@@ -411,6 +411,9 @@ static int do_allocation(struct pw_impl_link *this)
 	pw_log_debug(NAME" %p: out-node:%p in-node:%p: out-flags:%08x in-flags:%08x",
 			this, output->node, input->node, out_flags, in_flags);
 
+	this->rt.in_mix.have_buffers = false;
+	this->rt.out_mix.have_buffers = false;
+
 	if (out_flags & SPA_PORT_FLAG_LIVE) {
 		pw_log_debug(NAME" %p: setting link as live", this);
 		output->node->live = true;

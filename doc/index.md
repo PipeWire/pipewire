@@ -1,4 +1,4 @@
-# PipeWire
+# PipeWire Documentation
 
 Start with the [overview](overview.md) of PipeWire.
 

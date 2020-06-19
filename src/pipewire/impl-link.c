@@ -774,17 +774,58 @@ error_resource:
 static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *port, struct pw_impl_port *other,
 			enum pw_impl_port_state state, const char *error)
 {
-	pw_log_debug(NAME" %p: port state %d", this, state);
+	pw_log_debug(NAME" %p: port %p state %d", this, port, state);
+
 	switch (state) {
 	case PW_IMPL_PORT_STATE_ERROR:
 		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error ? strdup(error) : NULL);
 		break;
-	default:
-		if (state < PW_IMPL_PORT_STATE_PAUSED && this->prepared) {
+	case PW_IMPL_PORT_STATE_INIT:
+	case PW_IMPL_PORT_STATE_CONFIGURE:
+		if (this->prepared) {
+			this->prepared = false;
 			pw_impl_link_update_state(this, PW_LINK_STATE_INIT, NULL);
 		}
 		break;
+	case PW_IMPL_PORT_STATE_READY:
+		if (this->prepared) {
+			this->prepared = false;
+			pw_impl_link_update_state(this, PW_LINK_STATE_NEGOTIATING, NULL);
+		}
+		break;
+	case PW_IMPL_PORT_STATE_PAUSED:
+		break;
 	}
+}
+
+static void port_param_changed(struct pw_impl_link *this, uint32_t id,
+		struct pw_impl_port *outport, struct pw_impl_port *inport)
+{
+	enum pw_impl_port_state target;
+
+	switch (id) {
+	case SPA_PARAM_EnumFormat:
+		target = PW_IMPL_PORT_STATE_CONFIGURE;
+		break;
+//	case SPA_PARAM_Buffers:
+//		target = PW_IMPL_PORT_STATE_READY;
+//		break;
+	default:
+		return;
+	}
+	if (outport)
+		pw_impl_port_update_state(outport, target, NULL);
+	if (inport)
+		pw_impl_port_update_state(inport, target, NULL);
+
+	pw_impl_link_prepare(this);
+}
+
+static void input_port_param_changed(void *data, uint32_t id)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	port_param_changed(this, id, this->output, this->input);
 }
 
 static void input_port_state_changed(void *data, enum pw_impl_port_state old,
@@ -793,6 +834,13 @@ static void input_port_state_changed(void *data, enum pw_impl_port_state old,
 	struct impl *impl = data;
 	struct pw_impl_link *this = &impl->this;
 	port_state_changed(this, this->input, this->output, state, error);
+}
+
+static void output_port_param_changed(void *data, uint32_t id)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	port_param_changed(this, id, this->output, this->input);
 }
 
 static void output_port_state_changed(void *data, enum pw_impl_port_state old,
@@ -805,12 +853,14 @@ static void output_port_state_changed(void *data, enum pw_impl_port_state old,
 
 static const struct pw_impl_port_events input_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
+	.param_changed = input_port_param_changed,
 	.state_changed = input_port_state_changed,
 	.destroy = input_port_destroy,
 };
 
 static const struct pw_impl_port_events output_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
+	.param_changed = output_port_param_changed,
 	.state_changed = output_port_state_changed,
 	.destroy = output_port_destroy,
 };

@@ -218,6 +218,7 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 	struct spa_data *d;
 	unsigned int seals;
 
+	pw_log_info("add buffer %p", buffer);
 	d = buf->datas;
 
 	if ((d[0].type & (1<<SPA_DATA_MemFd)) == 0) {
@@ -269,6 +270,7 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 	struct spa_data *d;
 
 	d = buf->datas;
+	pw_log_info("remove buffer %p", buffer);
 
 	munmap(d[0].data, d[0].maxsize);
 	close(d[0].fd);

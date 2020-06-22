@@ -32,7 +32,7 @@ just work automatically.
 
 Most audio applications can use either ALSA, JACK or PulseAudio as a
 backend. PipeWire provides support for all 3 backends. Depending on how
-your distríbution has configured things this should just work automatically
+your distribution has configured things this should just work automatically
 or with the provided scripts shown below.
 
 PipeWire can use environment variables to control the behaviour of

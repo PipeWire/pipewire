@@ -490,10 +490,10 @@ static int negotiate_formats(struct data *data)
 	if (spa_node_port_enum_params_sync(data->source_follower_node,
 			SPA_DIRECTION_OUTPUT, 0,
 			SPA_PARAM_Buffers, &state, filter, &param, &b) != 1)
-		return res;
+		return -ENOTSUP;
 	spa_pod_fixate(param);
-	if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_ParamBuffers, NULL,
-		SPA_PARAM_BUFFERS_size, SPA_POD_Int(&buffer_size)) < 0)
+	if ((res = spa_pod_parse_object(param, SPA_TYPE_OBJECT_ParamBuffers, NULL,
+		SPA_PARAM_BUFFERS_size, SPA_POD_Int(&buffer_size))) < 0)
 		return res;
 
 	/* set the sink and source formats */

@@ -114,15 +114,14 @@ static int process_clock(struct data *d, const struct spa_pod *pod, struct point
 
 static int process_driver_block(struct data *d, const struct spa_pod *pod, struct point *point)
 {
-	union {
-		char *s;
-	} dummy;
-	uint32_t driver_id;
+	char *name = NULL;
+	uint32_t driver_id = 0;
 	struct measurement driver;
 
+	spa_zero(driver);
 	spa_pod_parse_struct(pod,
 			SPA_POD_Int(&driver_id),
-			SPA_POD_String(&dummy.s),
+			SPA_POD_String(&name),
 			SPA_POD_Long(&driver.prev_signal),
 			SPA_POD_Long(&driver.signal),
 			SPA_POD_Long(&driver.awake),
@@ -169,8 +168,8 @@ static int add_follower(struct data *d, uint32_t id, const char *name)
 
 static int process_follower_block(struct data *d, const struct spa_pod *pod, struct point *point)
 {
-	uint32_t id;
-	const char *name;
+	uint32_t id = 0;
+	const char *name =  NULL;
 	struct measurement m;
 	int idx;
 

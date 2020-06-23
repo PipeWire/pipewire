@@ -13,3 +13,4 @@ PipeWire API step-by-step with simple short examples.
 
 5) Capture video frames with `pw_stream` ([tutorial 5](tutorial5.md)).
 
+6) Bind to an object ([tutorial 6](tutorial6.md)).

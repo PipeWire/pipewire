@@ -120,7 +120,5 @@ error_arguments:
 error_exit_cleanup:
 	if (argv)
 		pw_free_strv(argv);
-	if (props)
-		pw_properties_free(props);
 	return res;
 }

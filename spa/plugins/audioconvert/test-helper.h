@@ -46,28 +46,33 @@ static inline struct spa_handle *load_handle(const struct spa_support *support,
 
 	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
 		fprintf(stderr, "can't load %s: %s\n", lib, dlerror());
-		errno = -ENOENT;
-		return NULL;
+		res = -ENOENT;
+		goto error;
 	}
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		fprintf(stderr, "can't find enum function\n");
-		errno = -ENOENT;
-		return NULL;
+		res = -ENXIO;
+		goto error_close;
 	}
 
 	if ((factory = get_factory(enum_func, name, SPA_VERSION_HANDLE_FACTORY)) == NULL) {
 		fprintf(stderr, "can't find factory\n");
-		errno = -ENOENT;
-		return NULL;
+		res = -ENOENT;
+		goto error_close;
 	}
 	handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
 	if ((res = spa_handle_factory_init(factory, handle,
 					NULL, support, n_support)) < 0) {
 		fprintf(stderr, "can't make factory instance: %d\n", res);
-		errno = -res;
-		return NULL;
+		goto error_close;
 	}
 	return handle;
+
+error_close:
+	dlclose(hnd);
+error:
+	errno = -res;
+	return NULL;
 }
 
 static inline uint32_t get_cpu_flags(void)

@@ -255,6 +255,8 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
+	pa_context_ensure_registry(c);
+
 	o = pa_operation_new(c, NULL, sink_info_list, sizeof(struct sink_data));
 	d = o->userdata;
 	d->context = c;
@@ -724,6 +726,8 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
+	pa_context_ensure_registry(c);
+
 	o = pa_operation_new(c, NULL, source_info_list, sizeof(struct source_data));
 	d = o->userdata;
 	d->context = c;
@@ -1070,6 +1074,8 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
+	pa_context_ensure_registry(c);
+
 	o = pa_operation_new(c, NULL, module_info_list, sizeof(struct module_data));
 	d = o->userdata;
 	d->context = c;
@@ -1188,6 +1194,8 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 	pa_assert(cb);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, client_info_list, sizeof(struct client_data));
 	d = o->userdata;
@@ -1393,6 +1401,7 @@ pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb,
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p", c);
+	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, card_info_list, sizeof(struct card_data));
 	d = o->userdata;
@@ -1707,6 +1716,7 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p", c);
+	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, sink_input_info_list, sizeof(struct sink_input_data));
 	d = o->userdata;
@@ -2014,6 +2024,8 @@ pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_ou
 	pa_assert(cb);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
+	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, source_output_info_list, sizeof(struct source_output_data));
 	d = o->userdata;

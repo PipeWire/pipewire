@@ -224,6 +224,16 @@ static const char *str_efac(pa_subscription_event_type_t event)
 	return "invalid";
 }
 
+static void global_sync(struct global *g)
+{
+	pa_operation *o;
+	pa_context *c = g->context;
+
+	g->pending_seq = pw_proxy_sync(g->proxy, 0);
+	spa_list_for_each(o, &c->operations, link)
+		o->seq = g->pending_seq;
+}
+
 static void emit_event(pa_context *c, struct global *g, pa_subscription_event_type_t event)
 {
 	if (c->subscribe_callback && (c->subscribe_mask & g->mask)) {
@@ -253,6 +263,7 @@ static void update_device_props(struct global *g)
 	if ((s = pa_proplist_gets(i->proplist, PW_KEY_DEVICE_ICON_NAME)))
 		pa_proplist_sets(i->proplist, PA_PROP_DEVICE_ICON_NAME, s);
 }
+
 
 static void device_event_info(void *object, const struct pw_device_info *info)
 {
@@ -299,7 +310,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			}
 		}
 	}
-	g->pending_seq = pw_proxy_sync(g->proxy, 0);
+	global_sync(g);
 }
 
 static void device_event_param(void *object, int seq,
@@ -400,7 +411,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			g->subscribed = true;
 		}
 	}
-	g->pending_seq = pw_proxy_sync(g->proxy, 0);
+	global_sync(g);
 }
 
 static void parse_props(struct global *g, const struct spa_pod *param)
@@ -490,7 +501,7 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 	i->argument = info->args;
 	i->n_used = -1;
 	i->auto_unload = false;
-	g->pending_seq = pw_proxy_sync(g->proxy, 0);
+	global_sync(g);
 }
 
 static const struct pw_module_events module_events = {
@@ -530,7 +541,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_KEY_PROTOCOL) : NULL;
 	}
-	g->pending_seq = pw_proxy_sync(g->proxy, 0);
+	global_sync(g);
 }
 
 static const struct pw_client_events client_events = {
@@ -718,6 +729,7 @@ static int set_mask(pa_context *c, struct global *g)
 		pw_proxy_add_object_listener(g->proxy, &g->object_listener, events, g);
 		pw_proxy_add_listener(g->proxy, &g->proxy_listener, &proxy_events, g);
 		g->destroy = destroy;
+		global_sync(g);
 	} else {
 		emit_event(c, g, PA_SUBSCRIPTION_EVENT_NEW);
 	}
@@ -830,7 +842,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 static void core_done(void *data, uint32_t id, int seq)
 {
 	pa_context *c = data;
-	pw_log_debug("done %d", seq);
+	pw_log_debug("done id:%u seq:%d", id, seq);
 	complete_operations(c, seq);
 }
 
@@ -859,6 +871,18 @@ static void on_success(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+void pa_context_ensure_registry(pa_context *c)
+{
+	if (c->registry != NULL)
+		return;
+
+	c->registry = pw_core_get_registry(c->core,
+			PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(c->registry,
+			&c->registry_listener,
+			&registry_events, c);
+}
+
 SPA_EXPORT
 pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_context_success_cb_t cb, void *userdata)
 {
@@ -872,13 +896,7 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 
 	c->subscribe_mask = m;
 
-	if (c->registry == NULL) {
-		c->registry = pw_core_get_registry(c->core,
-				PW_VERSION_REGISTRY, 0);
-		pw_registry_add_listener(c->registry,
-				&c->registry_listener,
-				&registry_events, c);
-	}
+	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;

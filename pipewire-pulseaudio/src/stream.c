@@ -212,7 +212,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	pw_log_debug("stream %p: state  '%s'->'%s' (%d)", s, pw_stream_state_as_string(old),
 			pw_stream_state_as_string(state), s->state);
 
-	if (s->state == PA_STREAM_TERMINATED)
+	if (s->state == PA_STREAM_TERMINATED || c == NULL)
 		return;
 
 	switch(state) {

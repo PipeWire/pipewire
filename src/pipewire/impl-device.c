@@ -744,13 +744,9 @@ static void device_object_info(void *data, uint32_t id,
 	od = find_object(device, id);
 
 	if (info == NULL) {
-		if (od) {
-			pw_log_debug(NAME" %p: remove node %d", device, id);
+		pw_log_debug(NAME" %p: remove node %d (%p)", device, id, od);
+		if (od)
 			object_destroy(od);
-		}
-		else {
-			pw_log_warn(NAME" %p: unknown node %d", device, id);
-		}
 	}
 	else if (od != NULL) {
 		if (info->change_mask & SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS)

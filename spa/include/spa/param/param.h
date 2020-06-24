@@ -106,6 +106,11 @@ enum spa_param_profile {
 	SPA_PARAM_PROFILE_priority,	/**< profile priority (Int) */
 	SPA_PARAM_PROFILE_available,	/**< availability of the profile
 					  *  (Id enum spa_param_availability) */
+	SPA_PARAM_PROFILE_classes,	/**< node classes provided by this profile
+					  *  (Struct(
+					  *        Struct(
+					  *           String : class name (eg. "Audio/Source"),
+					  *           Int : number of nodes)*)) */
 };
 
 enum spa_param_port_config_mode {

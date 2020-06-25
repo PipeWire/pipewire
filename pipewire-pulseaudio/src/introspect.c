@@ -91,12 +91,21 @@ static int wait_globals(pa_context *c, pa_subscription_mask_t mask, pa_operation
 	return 0;
 }
 
+static int has_profile(pa_card_profile_info2 **list, pa_card_profile_info2 *active)
+{
+	for(;*list; list++) {
+		if (*list == active)
+			return 1;
+	}
+	return 0;
+}
+
 static void sink_callback(struct sink_data *d)
 {
-	struct global *g = d->global;
+	struct global *g = d->global, *cg;
 	struct pw_node_info *info = g->info;
 	const char *str;
-	uint32_t n;
+	uint32_t n, j;
 	pa_sink_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
@@ -138,10 +147,40 @@ static void sink_callback(struct sink_data *d)
 	i.base_volume = PA_VOLUME_NORM;
 	i.state = node_state_to_sink(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
-	i.card = PA_INVALID_INDEX;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
+		i.card = atoi(str);
+	else
+		i.card = PA_INVALID_INDEX;
 	i.n_ports = 0;
 	i.ports = NULL;
 	i.active_port = NULL;
+	if ((cg = pa_context_find_global(d->context, i.card)) != NULL) {
+		pa_sink_port_info *spi;
+		pa_card_info *ci = &cg->card_info.info;
+
+		spi = alloca(ci->n_ports * sizeof(pa_sink_port_info));
+		i.ports = alloca((ci->n_ports + 1) * sizeof(pa_sink_port_info *));
+
+		for (n = 0,j = 0; n < ci->n_ports; n++) {
+			if (ci->ports[n]->direction != PA_DIRECTION_OUTPUT)
+				continue;
+			if (!has_profile(ci->ports[n]->profiles2, ci->active_profile2))
+				continue;
+			i.ports[j] = &spi[j];
+			spi[j].name = ci->ports[n]->name;
+			spi[j].description = ci->ports[n]->description;
+			spi[j].priority = ci->ports[n]->priority;
+			spi[j].available = ci->ports[n]->available;
+			if (n == cg->card_info.active_port_output)
+				i.active_port = i.ports[j];
+			j++;
+		}
+		i.n_ports = j;
+		if (i.n_ports == 0)
+			i.ports = NULL;
+		else
+			i.ports[j] = NULL;
+	}
 	i.n_formats = 1;
 	ii[0].encoding = PA_ENCODING_PCM;
 	ii[0].plist = pa_proplist_new();
@@ -555,10 +594,10 @@ static pa_source_state_t node_state_to_source(enum pw_node_state s)
 }
 static void source_callback(struct source_data *d)
 {
-	struct global *g = d->global;
+	struct global *g = d->global, *cg;
 	struct pw_node_info *info = g->info;
 	const char *str;
-	uint32_t n;
+	uint32_t n, j;
 	pa_source_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
@@ -606,10 +645,40 @@ static void source_callback(struct source_data *d)
 	i.base_volume = PA_VOLUME_NORM;
 	i.state = node_state_to_source(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
-	i.card = PA_INVALID_INDEX;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
+		i.card = atoi(str);
+	else
+		i.card = PA_INVALID_INDEX;
 	i.n_ports = 0;
 	i.ports = NULL;
 	i.active_port = NULL;
+	if ((cg = pa_context_find_global(d->context, i.card)) != NULL) {
+		pa_source_port_info *spi;
+		pa_card_info *ci = &cg->card_info.info;
+
+		spi = alloca(ci->n_ports * sizeof(pa_source_port_info));
+		i.ports = alloca((ci->n_ports + 1) * sizeof(pa_source_port_info *));
+
+		for (n = 0,j = 0; n < ci->n_ports; n++) {
+			if (ci->ports[n]->direction != PA_DIRECTION_INPUT)
+				continue;
+			if (!has_profile(ci->ports[n]->profiles2, ci->active_profile2))
+				continue;
+			i.ports[j] = &spi[j];
+			spi[j].name = ci->ports[n]->name;
+			spi[j].description = ci->ports[n]->description;
+			spi[j].priority = ci->ports[n]->priority;
+			spi[j].available = ci->ports[n]->available;
+			if (n == cg->card_info.active_port_input)
+				i.active_port = i.ports[j];
+			j++;
+		}
+		i.n_ports = j;
+		if (i.n_ports == 0)
+			i.ports = NULL;
+		else
+			i.ports[j] = NULL;
+	}
 	i.n_formats = 1;
 	ii[0].encoding = PA_ENCODING_PCM;
 	ii[0].plist = pa_proplist_new();
@@ -1247,160 +1316,6 @@ static void card_callback(struct card_data *d)
 {
 	struct global *g = d->global;
 	pa_card_info *i = &g->card_info.info;
-	int n_profiles, n_ports, j = 0;
-	struct param *p;
-
-	n_profiles = g->card_info.n_profiles;
-
-	i->profiles = alloca(sizeof(pa_card_profile_info) * n_profiles);
-	i->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * (n_profiles + 1));
-	i->n_profiles = 0;
-
-	pw_log_debug("context %p: info for %d", g->context, g->id);
-
-	spa_list_for_each(p, &g->card_info.profiles, link) {
-		uint32_t id, priority = 0, available = 0, n_cap = 0, n_play = 0;
-		const char *name = NULL;
-		const char *description = NULL;
-		struct spa_pod *classes = NULL;
-
-		if (spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name),
-				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&description),
-				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority),
-				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available),
-				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
-			pw_log_warn("device %d: can't parse profile", g->id);
-			continue;
-		}
-		if (classes != NULL) {
-			struct spa_pod *iter;
-
-			SPA_POD_STRUCT_FOREACH(classes, iter) {
-				struct spa_pod_parser prs;
-				struct spa_pod_frame f[1];
-				char *class;
-				uint32_t count;
-
-				spa_pod_parser_pod(&prs, iter);
-				if (spa_pod_parser_get_struct(&prs,
-						SPA_POD_String(&class),
-						SPA_POD_Int(&count)) < 0)
-					continue;
-
-				if (strcmp(class, "Audio/Sink") == 0)
-					n_play += count;
-				else if (strcmp(class, "Audio/Source") == 0)
-					n_cap += count;
-
-				spa_pod_parser_pop(&prs, &f[0]);
-			}
-		}
-		i->profiles[j].name = name;
-		i->profiles[j].description = description ? description : name;
-		i->profiles[j].n_sinks = n_play;
-		i->profiles[j].n_sources = n_cap;
-		i->profiles[j].priority = priority;
-
-		i->profiles2[j] = alloca(sizeof(pa_card_profile_info2));
-		i->profiles2[j]->name = i->profiles[j].name;
-		i->profiles2[j]->description = i->profiles[j].description;
-	        i->profiles2[j]->n_sinks = i->profiles[j].n_sinks;
-	        i->profiles2[j]->n_sources = i->profiles[j].n_sources;
-	        i->profiles2[j]->priority = i->profiles[j].priority;
-	        i->profiles2[j]->available = available != SPA_PARAM_AVAILABILITY_no;
-
-		if (g->card_info.active_profile == id) {
-			i->active_profile = &i->profiles[j];
-			i->active_profile2 = i->profiles2[j];
-		}
-		j = ++i->n_profiles;
-	}
-	i->profiles2[j] = NULL;
-
-	n_ports = g->card_info.n_ports;
-	i->ports = alloca(sizeof(pa_card_port_info *) * (n_ports + 1));
-	i->n_ports = 0;
-
-	j = 0;
-	spa_list_for_each(p, &g->card_info.ports, link) {
-		uint32_t id, priority;
-		enum spa_direction direction;
-		const char *name = NULL, *description = NULL;
-		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
-		struct spa_pod *profiles = NULL, *info = NULL;
-		pa_card_port_info *pi;
-
-		if (spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
-				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
-				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name),
-				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&description),
-				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&priority),
-				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&available),
-				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
-				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0) {
-			pw_log_warn("device %d: can't parse route", g->id);
-			continue;
-		}
-
-		pi = i->ports[j] = alloca(sizeof(pa_card_port_info));
-		spa_zero(*pi);
-		pi->name = name;
-		pi->description = description;
-		pi->priority = priority;
-		pi->available = available;
-		pi->direction = direction;
-		pi->proplist = pa_proplist_new();
-		while (info) {
-			struct spa_pod_parser prs;
-			struct spa_pod_frame f[1];
-			uint32_t n, n_items;
-			const char *key, *value;
-
-			spa_pod_parser_pod(&prs, info);
-			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
-			    spa_pod_parser_get_int(&prs, &n_items) < 0)
-				break;
-
-			for (n = 0; n < n_items; n++) {
-				if (spa_pod_parser_get(&prs,
-						SPA_POD_String(&key),
-						SPA_POD_String(&value),
-						NULL) < 0)
-					break;
-				pa_proplist_sets(pi->proplist, key, value);
-			}
-			spa_pod_parser_pop(&prs, &f[0]);
-			break;
-		}
-		while (profiles) {
-			uint32_t *pr, n, n_pr;
-
-			pr = spa_pod_get_array(profiles, &n_pr);
-			if (pr == NULL)
-				break;
-
-			pi->n_profiles = n_pr;
-			pi->profiles = alloca(sizeof(pa_card_profile_info *) * (n_pr + 1));
-			pi->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * (n_pr + 1));
-
-			for (n = 0; n < n_pr; n++) {
-				pi->profiles[n] = (pa_card_profile_info*)i->profiles2[pr[n]];
-				pi->profiles2[n] = i->profiles2[pr[n]];
-			}
-			pi->profiles[n_pr] = NULL;
-			pi->profiles2[n_pr] = NULL;
-			break;
-		}
-		j = ++i->n_ports;
-	}
-	i->ports[j] = NULL;
-	if (i->n_ports == 0)
-		i->ports = NULL;
 	d->cb(d->context, i, 0, d->userdata);
 }
 

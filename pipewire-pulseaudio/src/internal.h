@@ -223,6 +223,15 @@ struct param {
 #define PA_IDX_FLAG_DSP		0x800000U
 #define PA_IDX_MASK_DSP		0x7fffffU
 
+struct global;
+
+struct global_info {
+	uint32_t version;
+	const void *events;
+	pw_destroy_t destroy;
+	void (*sync) (struct global *g);
+};
+
 struct global {
 	struct spa_list link;
 	uint32_t id;
@@ -239,7 +248,7 @@ struct global {
 	int subscribed:1;
 
 	void *info;
-	pw_destroy_t destroy;
+	struct global_info *ginfo;
 
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
@@ -272,6 +281,12 @@ struct global {
 			struct spa_list ports;
 			uint32_t n_ports;
 			pa_card_info info;
+			pa_card_profile_info2 *card_profiles;
+			unsigned int pending_profiles:1;
+			pa_card_port_info *card_ports;
+			unsigned int pending_ports:1;
+			uint32_t active_port_output;
+			uint32_t active_port_input;
 		} card_info;
 		struct {
 			pa_module_info info;

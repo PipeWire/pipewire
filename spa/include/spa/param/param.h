@@ -106,8 +106,13 @@ enum spa_param_profile {
 	SPA_PARAM_PROFILE_priority,	/**< profile priority (Int) */
 	SPA_PARAM_PROFILE_available,	/**< availability of the profile
 					  *  (Id enum spa_param_availability) */
+	SPA_PARAM_PROFILE_properties,	/**< properties (Struct(
+					  *		  Int : n_items,
+					  *		  (String : key,
+					  *		   String : value)*)) */
 	SPA_PARAM_PROFILE_classes,	/**< node classes provided by this profile
 					  *  (Struct(
+					  *	   Int : number of items following
 					  *        Struct(
 					  *           String : class name (eg. "Audio/Source"),
 					  *           Int : number of nodes)*)) */
@@ -143,6 +148,10 @@ enum spa_param_route {
 	SPA_PARAM_ROUTE_priority,		/**< priority of the destination (Int) */
 	SPA_PARAM_ROUTE_available,		/**< availability of the destination
 						  *  (Id enum spa_param_availability) */
+	SPA_PARAM_ROUTE_properties,		/**< properties (Struct(
+						  *		  Int : n_items,
+						  *		  (String : key,
+						  *		   String : value)*)) */
 	SPA_PARAM_ROUTE_profiles,		/**< associated profile indexes (Array of Int) */
 };
 

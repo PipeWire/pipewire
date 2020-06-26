@@ -288,7 +288,7 @@ static const struct spa_type_info spa_type_param_profile[] = {
 	{ SPA_PARAM_PROFILE_description, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_PROFILE_BASE "description", NULL },
 	{ SPA_PARAM_PROFILE_priority, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PROFILE_BASE "priority", NULL },
 	{ SPA_PARAM_PROFILE_available, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_PROFILE_BASE "available", spa_type_param_availability, },
-	{ SPA_PARAM_PROFILE_properties, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_PROFILE_BASE "properties", NULL, },
+	{ SPA_PARAM_PROFILE_info, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_PROFILE_BASE "info", NULL, },
 	{ SPA_PARAM_PROFILE_classes, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_PROFILE_BASE "classes", NULL, },
 	{ 0, 0, NULL, NULL },
 };
@@ -325,13 +325,14 @@ static const struct spa_type_info spa_type_param_route[] = {
 	{ SPA_PARAM_ROUTE_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_ROUTE_BASE, spa_type_param, },
 	{ SPA_PARAM_ROUTE_index, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_BASE "index", NULL, },
 	{ SPA_PARAM_ROUTE_direction, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_ROUTE_BASE "direction", spa_type_direction, },
-	{ SPA_PARAM_ROUTE_active, SPA_TYPE_Bool, SPA_TYPE_INFO_PARAM_ROUTE_BASE "active", NULL, },
+	{ SPA_PARAM_ROUTE_device, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_BASE "device", NULL, },
 	{ SPA_PARAM_ROUTE_name, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_ROUTE_BASE "name", NULL, },
 	{ SPA_PARAM_ROUTE_description, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_ROUTE_BASE "description", NULL, },
 	{ SPA_PARAM_ROUTE_priority, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_ROUTE_BASE "priority", NULL, },
 	{ SPA_PARAM_ROUTE_available, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_ROUTE_BASE "available", spa_type_param_availability, },
-	{ SPA_PARAM_ROUTE_properties, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_ROUTE_BASE "properties", NULL, },
+	{ SPA_PARAM_ROUTE_info, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_ROUTE_BASE "info", NULL, },
 	{ SPA_PARAM_ROUTE_profiles, SPA_TYPE_Array, SPA_TYPE_INFO_PARAM_ROUTE_BASE "profiles", NULL, },
+	{ SPA_PARAM_ROUTE_props, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_ROUTE_BASE "props", NULL, },
 	{ 0, 0, NULL, NULL },
 };
 

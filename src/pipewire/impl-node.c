@@ -285,9 +285,12 @@ do_node_add(struct spa_loop *loop,
 
 static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, char *error)
 {
-	enum pw_node_state old;
+	enum pw_node_state old = node->info.state;
 
-	old = node->info.state;
+	free((char*)node->info.error);
+	node->info.error = error;
+	node->info.state = state;
+
 	if (old == state)
 		return;
 
@@ -301,10 +304,6 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 		pw_log_info("(%s-%u) %s -> %s", node->name, node->info.id,
 		     pw_node_state_as_string(old), pw_node_state_as_string(state));
 	}
-
-	free((char*)node->info.error);
-	node->info.error = error;
-	node->info.state = state;
 
 	switch (state) {
 	case PW_NODE_STATE_RUNNING:

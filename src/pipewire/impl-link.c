@@ -89,6 +89,10 @@ static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_st
 {
 	enum pw_link_state old = link->info.state;
 
+	link->info.state = state;
+	free((char*)link->info.error);
+	link->info.error = error;
+
 	if (state == old)
 		return;
 
@@ -104,10 +108,6 @@ static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_st
 				pw_link_state_as_string(old),
 				pw_link_state_as_string(state));
 	}
-
-	link->info.state = state;
-	free((char*)link->info.error);
-	link->info.error = error;
 
 	pw_impl_link_emit_state_changed(link, old, state, error);
 

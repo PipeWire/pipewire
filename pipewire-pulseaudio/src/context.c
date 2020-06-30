@@ -412,13 +412,13 @@ static void device_event_param(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
 	{
-		uint32_t id;
+		uint32_t index;
 		const char *name;
 		struct param *p;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&index),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
@@ -432,31 +432,32 @@ static void device_event_param(void *object, int seq,
 			spa_list_append(&g->card_info.profiles, &p->link);
 			g->card_info.n_profiles++;
 		}
-		pw_log_debug("device %d: enum profile %d: \"%s\"", g->id, id, name);
+		pw_log_debug("device %d: enum profile %d: \"%s\" n_profiles:%d", g->id,
+				index, name, g->card_info.n_profiles);
 		break;
 	}
 	case SPA_PARAM_Profile:
 	{
-		uint32_t id;
+		uint32_t index;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id)) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&index)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
-		g->card_info.active_profile = id;
-		pw_log_debug("device %d: current profile %d", g->id, id);
+		g->card_info.active_profile = index;
+		pw_log_debug("device %d: current profile %d", g->id, index);
 		break;
 	}
 	case SPA_PARAM_EnumRoute:
 	{
-		uint32_t id;
+		uint32_t index;
 		const char *name;
 		struct param *p;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
 				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name)) < 0) {
 			pw_log_warn("device %d: can't parse route", g->id);
 			return;
@@ -470,38 +471,40 @@ static void device_event_param(void *object, int seq,
 			spa_list_append(&g->card_info.ports, &p->link);
 			g->card_info.n_ports++;
 		}
-		pw_log_debug("device %d: enum route %d: \"%s\"", g->id, id, name);
+		pw_log_debug("device %d: enum route %d: \"%s\"", g->id, index, name);
 		break;
 	}
 	case SPA_PARAM_Route:
 	{
-		uint32_t id, device;
+		uint32_t index, device;
 		enum spa_direction direction;
 		struct spa_pod *props = NULL;
 		struct global *ng;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
 				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
 				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props)) < 0) {
 			pw_log_warn("device %d: can't parse route", g->id);
 			return;
 		}
-		ng = find_node_for_route(c, g, device);
-
-		if (props && ng) {
-			parse_props(ng, props, true);
-		}
 
 		if (direction == SPA_DIRECTION_OUTPUT)
-			g->card_info.active_port_output = id;
+			g->card_info.active_port_output = index;
 		else
-			g->card_info.active_port_input = id;
+			g->card_info.active_port_input = index;
 
 		pw_log_debug("device %d: active %s route %d", g->id,
-				direction == SPA_DIRECTION_OUTPUT ? "output" : "input", id);
+				direction == SPA_DIRECTION_OUTPUT ? "output" : "input",
+				index);
+
+		ng = find_node_for_route(c, g, device);
+		if (props && ng) {
+			parse_props(ng, props, true);
+			emit_event(c, ng, PA_SUBSCRIPTION_EVENT_CHANGE);
+		}
 		break;
 	}
 	default:
@@ -536,7 +539,7 @@ static void device_sync_profiles(struct global *g)
 	i->profiles2 = calloc(n_profiles + 1, sizeof(pa_card_profile_info2 *));
 	i->n_profiles = 0;
 
-	pw_log_debug("context %p: info for %d", g->context, g->id);
+	pw_log_debug("context %p: info for %d n_profiles:%d", g->context, g->id, n_profiles);
 
 	j = 0;
 	spa_list_for_each(p, &g->card_info.profiles, link) {
@@ -580,6 +583,7 @@ static void device_sync_profiles(struct global *g)
 				spa_pod_parser_pop(&prs, &f[0]);
 			}
 		}
+		pw_log_debug("profile %d: name:%s", j, name);
 
 		i->profiles[j].name = name;
 		i->profiles[j].description = description ? description : name;

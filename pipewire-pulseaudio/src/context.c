@@ -1674,7 +1674,17 @@ pa_operation *pa_context_proplist_remove(pa_context *c, const char *const keys[]
 SPA_EXPORT
 uint32_t pa_context_get_index(PA_CONST pa_context *c)
 {
-	return c->client_index;
+	struct pw_client *client;
+
+	pa_assert(c);
+	spa_assert(c->refcount >= 1);
+
+	PA_CHECK_VALIDITY_RETURN_ANY(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE, PA_INVALID_INDEX);
+	client = pw_core_get_client(c->core);
+	if (client == NULL)
+		return PA_INVALID_INDEX;
+
+	return pw_proxy_get_bound_id((struct pw_proxy*)client);
 }
 
 SPA_EXPORT

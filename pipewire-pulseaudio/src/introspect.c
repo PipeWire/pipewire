@@ -1282,6 +1282,8 @@ pa_operation* pa_context_get_server_info(pa_context *c, pa_server_info_cb_t cb, 
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	pa_context_ensure_registry(c);
+
 	o = pa_operation_new(c, NULL, server_info, sizeof(struct server_data));
 	d = o->userdata;
 	d->context = c;

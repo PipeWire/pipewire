@@ -338,11 +338,70 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	global_sync(g);
 }
 
+static void parse_props(struct global *g, const struct spa_pod *param, bool hw)
+{
+	struct spa_pod_prop *prop;
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		switch (prop->key) {
+		case SPA_PROP_volume:
+			spa_pod_get_float(&prop->value, &g->node_info.volume);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME, hw);
+			break;
+		case SPA_PROP_mute:
+			spa_pod_get_bool(&prop->value, &g->node_info.mute);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_MUTE, hw);
+			break;
+		case SPA_PROP_channelVolumes:
+		{
+			uint32_t n_vals;
+
+			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					g->node_info.channel_volumes, SPA_AUDIO_MAX_CHANNELS);
+
+			if (n_vals != g->node_info.n_channel_volumes) {
+				pw_log_debug("channel change %d->%d, trigger remove",
+						g->node_info.n_channel_volumes, n_vals);
+				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_REMOVE);
+				g->node_info.n_channel_volumes = n_vals;
+				/* mark as init, this will emit the NEW event when the
+				 * params are updated */
+				g->init = true;
+			}
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME, hw);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
+static struct global *find_node_for_route(pa_context *c, struct global *card, uint32_t device)
+{
+	struct global *n;
+	spa_list_for_each(n, &c->globals, link) {
+		if (strcmp(n->type, PW_TYPE_INTERFACE_Node) != 0)
+			continue;
+		pw_log_info("%d/%d %d/%d",
+				n->node_info.device_id, card->id,
+				n->node_info.profile_device_id, device);
+		if (n->node_info.device_id != card->id)
+			continue;
+		if (n->node_info.profile_device_id != device)
+			continue;
+		return n;
+	}
+	return NULL;
+}
+
 static void device_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
 	struct global *g = object;
+	pa_context *c = g->context;
 
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
@@ -410,16 +469,26 @@ static void device_event_param(void *object, int seq,
 	}
 	case SPA_PARAM_Route:
 	{
-		uint32_t id;
+		uint32_t id, device;
 		enum spa_direction direction;
+		struct spa_pod *props = NULL;
+		struct global *ng;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
-				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction)) < 0) {
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
+				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
+				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props)) < 0) {
 			pw_log_warn("device %d: can't parse route", g->id);
 			return;
 		}
+		ng = find_node_for_route(c, g, device);
+
+		if (props && ng) {
+			parse_props(ng, props, true);
+		}
+
 		if (direction == SPA_DIRECTION_OUTPUT)
 			g->card_info.active_port_output = id;
 		else
@@ -685,10 +754,16 @@ struct global_info device_info = {
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct global *g = object;
+	const char *str;
 	uint32_t i;
 
 	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
-	g->info = pw_node_info_update(g->info, info);
+	info = g->info = pw_node_info_update(g->info, info);
+
+	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
+		g->node_info.profile_device_id = atoi(str);
+	else
+		g->node_info.profile_device_id = SPA_ID_INVALID;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS && !g->subscribed) {
 		uint32_t subscribed[32], n_subscribed = 0;
@@ -712,43 +787,6 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	global_sync(g);
 }
 
-static void parse_props(struct global *g, const struct spa_pod *param)
-{
-	struct spa_pod_prop *prop;
-	struct spa_pod_object *obj = (struct spa_pod_object *) param;
-
-	SPA_POD_OBJECT_FOREACH(obj, prop) {
-		switch (prop->key) {
-		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &g->node_info.volume);
-			break;
-		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &g->node_info.mute);
-			break;
-		case SPA_PROP_channelVolumes:
-		{
-			uint32_t n_vals;
-
-			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					g->node_info.channel_volumes, SPA_AUDIO_MAX_CHANNELS);
-
-			if (n_vals != g->node_info.n_channel_volumes) {
-				pw_log_debug("channel change %d->%d, trigger remove",
-						g->node_info.n_channel_volumes, n_vals);
-				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_REMOVE);
-				g->node_info.n_channel_volumes = n_vals;
-				/* mark as init, this will emit the NEW event when the
-				 * params are updated */
-				g->init = true;
-			}
-			break;
-		}
-		default:
-			break;
-		}
-	}
-}
-
 static void node_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
@@ -758,7 +796,8 @@ static void node_event_param(void *object, int seq,
 
 	switch (id) {
 	case SPA_PARAM_Props:
-		parse_props(g, param);
+		if (!SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME | NODE_FLAG_HW_MUTE))
+			parse_props(g, param, false);
 		break;
 	default:
 		break;
@@ -933,8 +972,10 @@ static int set_mask(pa_context *c, struct global *g)
 		g->mask = PA_SUBSCRIPTION_MASK_CARD;
 		g->event = PA_SUBSCRIPTION_EVENT_CARD;
 		ginfo = &device_info;
-                spa_list_init(&g->card_info.profiles);
-                spa_list_init(&g->card_info.ports);
+		spa_list_init(&g->card_info.profiles);
+		spa_list_init(&g->card_info.ports);
+		g->card_info.active_port_output = SPA_ID_INVALID;
+		g->card_info.active_port_input = SPA_ID_INVALID;
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Node) == 0) {
 		if (g->props == NULL)
 			return 0;
@@ -971,8 +1012,13 @@ static int set_mask(pa_context *c, struct global *g)
 
 		if ((str = pw_properties_get(g->props, PW_KEY_CLIENT_ID)) != NULL)
 			g->node_info.client_id = atoi(str);
+		else
+			g->node_info.client_id = SPA_ID_INVALID;
+
 		if ((str = pw_properties_get(g->props, PW_KEY_DEVICE_ID)) != NULL)
 			g->node_info.device_id = atoi(str);
+		else
+			g->node_info.device_id = SPA_ID_INVALID;
 
 		ginfo = &node_info;
 		g->node_info.volume = 1.0;

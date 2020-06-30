@@ -141,18 +141,18 @@ static void sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 	i.latency = 0;
 	i.driver = "PipeWire";
 	i.flags = PA_SINK_HARDWARE |
-		  PA_SINK_HW_VOLUME_CTRL | PA_SINK_HW_MUTE_CTRL |
 		  PA_SINK_LATENCY | PA_SINK_DYNAMIC_LATENCY |
 		  PA_SINK_DECIBEL_VOLUME;
+	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME))
+		  i.flags |= PA_SINK_HW_VOLUME_CTRL;
+	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_MUTE))
+		  i.flags |= PA_SINK_HW_MUTE_CTRL;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
 	i.base_volume = PA_VOLUME_NORM;
 	i.state = node_state_to_sink(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
-		i.card = atoi(str);
-	else
-		i.card = PA_INVALID_INDEX;
+	i.card = g->node_info.device_id;
 	i.n_ports = 0;
 	i.ports = NULL;
 	i.active_port = NULL;
@@ -384,34 +384,16 @@ static int set_node_volume(pa_context *c, struct global *g, const pa_cvolume *vo
 	return 0;
 }
 
-static int set_device_volume(pa_context *c, struct global *g, const pa_cvolume *volume, bool mute)
+static int set_device_volume(pa_context *c, struct global *g, struct global *cg, uint32_t id,
+		uint32_t device_id, const pa_cvolume *volume, bool mute)
 {
-	struct global *cg;
-	uint32_t id = SPA_ID_INVALID, card_id, device_id;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
-	struct pw_node_info *info = g->info;
 	uint32_t i, n_channel_volumes;
 	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 	float *vols;
-	const char *str;
-
-	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
-		device_id = atoi(str);
-	else
-		device_id = 0;
-
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
-		card_id = atoi(str);
-	else
-		card_id = PA_INVALID_INDEX;
-
-	pw_log_info("card:%u device:%u global:%u", card_id, device_id, g->id);
-
-	if ((cg = pa_context_find_global(c, card_id)) == NULL)
-		return PA_ERR_NOENTITY;
 
 	if (volume) {
 		for (i = 0; i < volume->channels; i++)
@@ -455,6 +437,34 @@ static int set_device_volume(pa_context *c, struct global *g, const pa_cvolume *
 
 	return 0;
 }
+
+static int set_volume(pa_context *c, struct global *g, const pa_cvolume *volume, bool mute,
+		uint32_t mask)
+{
+	struct global *cg;
+	uint32_t id = SPA_ID_INVALID, card_id, device_id;
+	int res;
+
+	card_id = g->node_info.device_id;
+	device_id = g->node_info.profile_device_id;
+
+	pw_log_info("card:%u global:%u flags:%08x", card_id, g->id, g->node_info.flags);
+
+	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME | NODE_FLAG_HW_MUTE) &&
+	    (cg = pa_context_find_global(c, card_id)) != NULL) {
+		if (mask & PA_SUBSCRIPTION_MASK_SINK)
+			id = cg->card_info.active_port_output;
+		else if (mask & PA_SUBSCRIPTION_MASK_SOURCE)
+			id = cg->card_info.active_port_input;
+	}
+	if (id != SPA_ID_INVALID && device_id != SPA_ID_INVALID) {
+		res = set_device_volume(c, g, cg, id, device_id, volume, mute);
+	} else {
+		res = set_node_volume(c, g, volume, mute);
+	}
+	return res;
+}
+
 struct volume_data {
 	pa_context_success_cb_t cb;
 	uint32_t mask;
@@ -482,9 +492,10 @@ static void do_node_volume_mute(pa_operation *o, void *userdata)
 			g = NULL;
 	}
 	if (g) {
-		error = set_device_volume(c, g,
+		error = set_volume(c, g,
 				d->have_volume ? &d->volume : NULL,
-				d->have_volume ? g->node_info.mute : d->mute);
+				d->have_volume ? g->node_info.mute : d->mute,
+				d->mask);
 	} else {
 		error = PA_ERR_INVALID;
 	}
@@ -651,22 +662,13 @@ static int set_device_route(pa_context *c, struct global *g, const char *port, e
 	uint32_t id = SPA_ID_INVALID, card_id, device_id;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	struct pw_node_info *info = g->info;
-	const char *str;
 
-	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
-		device_id = atoi(str);
-	else
-		device_id = 0;
-
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
-		card_id = atoi(str);
-	else
-		card_id = PA_INVALID_INDEX;
+	card_id = g->node_info.device_id;
+	device_id = g->node_info.profile_device_id;
 
 	pw_log_info("port \"%s\": card:%u device:%u global:%u", port, card_id, device_id, g->id);
 
-	if ((cg = pa_context_find_global(c, card_id)) == NULL)
+	if ((cg = pa_context_find_global(c, card_id)) == NULL || device_id == SPA_ID_INVALID)
 		return PA_ERR_NOENTITY;
 
 	spa_list_for_each(p, &cg->card_info.ports, link) {
@@ -859,7 +861,11 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	} else {
 		i.monitor_of_sink = PA_INVALID_INDEX;
 		i.monitor_of_sink_name = NULL;
-		flags |= PA_SOURCE_HARDWARE | PA_SOURCE_HW_VOLUME_CTRL | PA_SOURCE_HW_MUTE_CTRL;
+		flags |= PA_SOURCE_HARDWARE;
+		if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME))
+			flags |= PA_SINK_HW_VOLUME_CTRL;
+		if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_MUTE))
+			flags |= PA_SINK_HW_MUTE_CTRL;
 	}
 	i.latency = 0;
 	i.driver = "PipeWire";
@@ -869,10 +875,7 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	i.base_volume = PA_VOLUME_NORM;
 	i.state = node_state_to_source(info->state);
 	i.n_volume_steps = PA_VOLUME_NORM+1;
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
-		i.card = atoi(str);
-	else
-		i.card = PA_INVALID_INDEX;
+	i.card = g->node_info.device_id;
 	i.n_ports = 0;
 	i.ports = NULL;
 	i.active_port = NULL;

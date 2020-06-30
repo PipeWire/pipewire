@@ -262,13 +262,17 @@ struct global {
 		} link_info;
 		/* for sink/source */
 		struct {
-			uint32_t client_id;
+			uint32_t client_id;	/* if of owner client */
 			uint32_t monitor;
+#define NODE_FLAG_HW_VOLUME	(1 << 0)
+#define NODE_FLAG_HW_MUTE	(1 << 4)
+			uint32_t flags;
 			float volume;
 			bool mute;
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
-			uint32_t device_id;
+			uint32_t device_id;		/* id of device (card) */
+			uint32_t profile_device_id;	/* id in profile */
 		} node_info;
 		struct {
 			uint32_t node_id;

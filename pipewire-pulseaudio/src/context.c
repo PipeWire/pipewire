@@ -1104,15 +1104,20 @@ static int set_mask(pa_context *c, struct global *g)
 
 static inline void insert_global(pa_context *c, struct global *global)
 {
-	struct global *g, *t;
+	struct global *g;
+	bool found = false;
 
-	spa_list_for_each_safe(g, t, &c->globals, link) {
+	spa_list_for_each(g, &c->globals, link) {
 		if (g->priority_master < global->priority_master) {
 			g = spa_list_prev(g, link);
+			found = true;
 			break;
 		}
 	}
-	spa_list_prepend(&g->link, &global->link);
+	if (!found)
+		spa_list_append(&g->link, &global->link);
+	else
+		spa_list_prepend(&g->link, &global->link);
 }
 
 static void registry_event_global(void *data, uint32_t id,

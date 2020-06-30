@@ -42,6 +42,8 @@ int pa_context_set_error(PA_CONST pa_context *c, int error) {
 
 static void global_free(pa_context *c, struct global *g)
 {
+	pw_log_debug("context %p: %d", c, g->id);
+
 	spa_list_remove(&g->link);
 
 	if (g->ginfo && g->ginfo->destroy)
@@ -309,6 +311,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 
 			switch (info->params[n].id) {
 			case SPA_PARAM_EnumProfile:
+				if (g->card_info.pending_profiles)
+					continue;
 				remove_params(&g->card_info.profiles, SPA_PARAM_EnumProfile);
 				g->card_info.n_profiles = 0;
 				g->card_info.pending_profiles = true;
@@ -320,6 +324,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 					0, SPA_PARAM_Profile, 0, -1, NULL);
 				break;
 			case SPA_PARAM_EnumRoute:
+				if (g->card_info.pending_ports)
+					continue;
 				remove_params(&g->card_info.ports, SPA_PARAM_EnumRoute);
 				g->card_info.n_ports = 0;
 				g->card_info.pending_ports = true;

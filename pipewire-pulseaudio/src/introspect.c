@@ -1244,10 +1244,26 @@ struct server_data {
 	struct global *global;
 };
 
+static const char *get_default_name(pa_context *c, uint32_t mask)
+{
+	struct global *g;
+	const char *str;
+
+	spa_list_for_each(g, &c->globals, link) {
+		if ((g->mask & mask) != mask)
+			continue;
+		if (g->props != NULL &&
+		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL)
+			return str;
+	}
+	return "unknown";
+}
+
 static void server_callback(struct server_data *d)
 {
 	pa_context *c = d->context;
 	const struct pw_core_info *info = c->core_info;
+	const char *str;
 	pa_server_info i;
 
 	spa_zero(i);
@@ -1255,11 +1271,14 @@ static void server_callback(struct server_data *d)
 	i.host_name = info->host_name;
 	i.server_version = info->version;
 	i.server_name = info->name;
-	i.sample_spec.format = PA_SAMPLE_S16LE;
-	i.sample_spec.rate = 44100;
+	i.sample_spec.format = PA_SAMPLE_FLOAT32NE;
+	if (info->props && (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
+		i.sample_spec.rate = atoi(str);
+	else
+		i.sample_spec.rate = 44100;
 	i.sample_spec.channels = 2;
-	i.default_sink_name = "unknown";
-	i.default_source_name = "unknown";
+	i.default_sink_name = get_default_name(c, PA_SUBSCRIPTION_MASK_SINK);
+	i.default_source_name = get_default_name(c, PA_SUBSCRIPTION_MASK_SOURCE);
 	i.cookie = info->cookie;
         pa_channel_map_init_extend(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 	d->cb(d->context, &i, d->userdata);

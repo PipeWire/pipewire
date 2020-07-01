@@ -1259,7 +1259,7 @@ static void card_callback(struct card_data *d)
 	pw_log_debug("context %p: info for %d", g->context, g->id);
 
 	spa_list_for_each(p, &g->card_info.profiles, link) {
-		uint32_t id, priority = 0;
+		uint32_t id, priority = 0, available = 0;
 		const char *name = NULL;
 		const char *description = NULL;
 
@@ -1268,7 +1268,8 @@ static void card_callback(struct card_data *d)
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name),
 				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&description),
-				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority)) < 0) {
+				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority),
+				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			continue;
 		}
@@ -1285,7 +1286,7 @@ static void card_callback(struct card_data *d)
 	        i->profiles2[j]->n_sinks = i->profiles[j].n_sinks;
 	        i->profiles2[j]->n_sources = i->profiles[j].n_sources;
 	        i->profiles2[j]->priority = i->profiles[j].priority;
-	        i->profiles2[j]->available = 1;
+	        i->profiles2[j]->available = available != SPA_PARAM_AVAILABILITY_no;
 
 		if (g->card_info.active_profile == id) {
 			i->active_profile = &i->profiles[j];

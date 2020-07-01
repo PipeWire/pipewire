@@ -190,6 +190,25 @@ static const struct def_mask default_layouts[] = {
 	{ 8, _M(FL) | _M(FR) | _M(RL) |_M(RR) | _M(SL) | _M(SR) | _M(FC) | _M(LFE) },
 };
 
+#define _C(ch)	(SPA_AUDIO_CHANNEL_ ##ch)
+
+struct def_map {
+	uint32_t channels;
+	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
+};
+
+static const struct def_map default_map[] = {
+	{ 0, { 0, } } ,
+	{ 1, { _C(MONO), } },
+	{ 2, { _C(FL), _C(FR), } },
+	{ 3, { _C(FL), _C(FR), _C(LFE) } },
+	{ 4, { _C(FL), _C(FR), _C(RL), _C(RR), } },
+	{ 5, { _C(FL), _C(FR), _C(RL), _C(RR), _C(FC) } },
+	{ 6, { _C(FL), _C(FR), _C(RL), _C(RR), _C(FC), _C(LFE), } },
+	{ 7, { _C(FL), _C(FR), _C(RL), _C(RR), _C(FC), _C(SL), _C(SR), } },
+	{ 8, { _C(FL), _C(FR), _C(RL), _C(RR), _C(FC), _C(LFE), _C(SL), _C(SR), } },
+};
+
 static enum spa_audio_channel chmap_position_to_channel(enum snd_pcm_chmap_position pos)
 {
 	return chmap_info[pos].channel;
@@ -344,13 +363,20 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 		uint32_t channel;
 		snd_pcm_chmap_t* map;
 
+skip_channels:
 		if (maps[result.index] == NULL) {
 			snd_pcm_free_chmaps(maps);
 			goto enum_end;
 		}
 		map = &maps[result.index]->map;
 
-		spa_log_debug(state->log, "map %d channels", map->channels);
+		spa_log_debug(state->log, "map %d channels (%d %d)", map->channels, min, max);
+
+		if (map->channels < min || map->channels > max) {
+			result.index = result.next++;
+			goto skip_channels;
+		}
+
 		sanitize_map(map);
 		spa_pod_builder_int(&b, map->channels);
 
@@ -378,6 +404,17 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 			choice->body.type = SPA_CHOICE_Range;
 		}
 		spa_pod_builder_pop(&b, &f[1]);
+
+		if (min == max && min <= 8) {
+			const struct def_map *map = &default_map[min];
+			spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);
+			spa_pod_builder_push_array(&b, &f[1]);
+			for (j = 0; j < map->channels; j++) {
+				spa_log_debug(state->log, NAME" %p: position %zd %d", state, j, map->pos[j]);
+				spa_pod_builder_id(&b, map->pos[j]);
+			}
+			spa_pod_builder_pop(&b, &f[1]);
+		}
 	}
 
 	fmt = spa_pod_builder_pop(&b, &f[0]);

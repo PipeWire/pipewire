@@ -357,6 +357,13 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
 
+	if (state->default_channels != 0) {
+		if (min < state->default_channels)
+			min = state->default_channels;
+		if (max > state->default_channels)
+			max = state->default_channels;
+	}
+
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channels, 0);
 
 	if ((maps = snd_pcm_query_chmaps(hndl)) != NULL) {

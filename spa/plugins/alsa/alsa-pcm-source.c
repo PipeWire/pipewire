@@ -770,6 +770,8 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		if (!strcmp(info->items[i].key, SPA_KEY_API_ALSA_PATH)) {
 			snprintf(this->props.device, 63, "%s", info->items[i].value);
+		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_CHANNELS)) {
+			this->default_channels = atoi(info->items[i].value);
 		}
 	}
 	return 0;

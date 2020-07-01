@@ -326,6 +326,10 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				pw_device_enum_params((struct pw_device*)g->proxy,
 					0, SPA_PARAM_EnumRoute, 0, -1, NULL);
 				break;
+			case SPA_PARAM_Route:
+				pw_device_enum_params((struct pw_device*)g->proxy,
+					0, SPA_PARAM_Route, 0, -1, NULL);
+				break;
 			default:
 				break;
 			}
@@ -402,6 +406,27 @@ static void device_event_param(void *object, int seq,
 			g->card_info.n_ports++;
 		}
 		pw_log_debug("device %d: enum route %d: \"%s\"", g->id, id, name);
+		break;
+	}
+	case SPA_PARAM_Route:
+	{
+		uint32_t id;
+		enum spa_direction direction;
+
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction)) < 0) {
+			pw_log_warn("device %d: can't parse route", g->id);
+			return;
+		}
+		if (direction == SPA_DIRECTION_OUTPUT)
+			g->card_info.active_port_output = id;
+		else
+			g->card_info.active_port_input = id;
+
+		pw_log_debug("device %d: active %s route %d", g->id,
+				direction == SPA_DIRECTION_OUTPUT ? "output" : "input", id);
 		break;
 	}
 	default:
@@ -532,8 +557,6 @@ static void device_sync_ports(struct global *g)
 	i->ports = calloc(n_ports+1, sizeof(pa_card_port_info *));
 	g->card_info.card_ports = calloc(n_ports, sizeof(pa_card_port_info));
 	i->n_ports = 0;
-	g->card_info.active_port_input = SPA_ID_INVALID;
-	g->card_info.active_port_output = SPA_ID_INVALID;
 
 	pw_log_debug("context %p: info for %d", g->context, g->id);
 
@@ -567,7 +590,7 @@ static void device_sync_ports(struct global *g)
 		pi->description = description;
 		pi->priority = priority;
 		pi->available = available;
-		pi->direction = direction;
+		pi->direction = direction == SPA_DIRECTION_INPUT ? PA_DIRECTION_INPUT : PA_DIRECTION_OUTPUT;
 		pi->proplist = pa_proplist_new();
 		while (info) {
 			struct spa_pod_parser prs;

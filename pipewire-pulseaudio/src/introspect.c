@@ -535,37 +535,109 @@ pa_operation* pa_context_suspend_sink_by_index(pa_context *c, uint32_t idx, int 
 	return o;
 }
 
+static int set_device_route(pa_context *c, struct global *g, const char *port, enum spa_direction direction)
+{
+	struct global *cg;
+	struct param *p;
+	uint32_t id = SPA_ID_INVALID, card_id, device_id;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct pw_node_info *info = g->info;
+	const char *str;
+
+	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
+		device_id = atoi(str);
+	else
+		device_id = 0;
+
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
+		card_id = atoi(str);
+	else
+		card_id = PA_INVALID_INDEX;
+
+	pw_log_info("port \"%s\": card:%u device:%u", port, card_id, device_id);
+
+	if ((cg = pa_context_find_global(c, card_id)) == NULL)
+		return PA_ERR_NOENTITY;
+
+	spa_list_for_each(p, &cg->card_info.ports, link) {
+		uint32_t test_id;
+		const char *name;
+		enum spa_direction test_direction;
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&test_id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&test_direction),
+				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name)) < 0) {
+			pw_log_warn("device %d: can't parse route", g->id);
+			continue;
+		}
+		pw_log_info("port id:%u name:\"%s\" dir:%d", test_id, name, test_direction);
+		if (test_direction != direction)
+			continue;
+		if (strcmp(name, port) == 0) {
+			id = test_id;
+			break;
+		}
+	}
+	pw_log_info("port %s, id %u", port, id);
+	if (id == SPA_ID_INVALID)
+		return PA_ERR_NOENTITY;
+
+	pw_device_set_param((struct pw_device*)cg->proxy,
+		SPA_PARAM_Route, 0,
+		spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamRoute,	SPA_PARAM_Route,
+			SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
+			SPA_PARAM_ROUTE_direction, SPA_POD_Id(direction),
+			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id)));
+
+	return 0;
+}
+
 SPA_EXPORT
 pa_operation* pa_context_set_sink_port_by_index(pa_context *c, uint32_t idx, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	int error;
 
+	if ((g = pa_context_find_global(c, idx)) == NULL ||
+	    !(g->mask & PA_SUBSCRIPTION_MASK_SINK)) {
+		error = PA_ERR_INVALID;
+	} else {
+		error = set_device_route(c, g, port, SPA_DIRECTION_OUTPUT);
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->error = error;
 	d->userdata = userdata;
 	pa_operation_sync(o);
-
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_sink_port_by_name(pa_context *c, const char*name, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	int error;
 
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL) {
+		error = PA_ERR_INVALID;
+	} else {
+		error = set_device_route(c, g, port, SPA_DIRECTION_OUTPUT);
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->error = error;
 	d->userdata = userdata;
 	pa_operation_sync(o);
-
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -974,34 +1046,45 @@ pa_operation* pa_context_suspend_source_by_index(pa_context *c, uint32_t idx, in
 SPA_EXPORT
 pa_operation* pa_context_set_source_port_by_index(pa_context *c, uint32_t idx, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	int error;
 
+	if ((g = pa_context_find_global(c, idx)) == NULL ||
+	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE)) {
+		error = PA_ERR_INVALID;
+	} else {
+		error = set_device_route(c, g, port, SPA_DIRECTION_INPUT);
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->error = error;
 	d->userdata = userdata;
 	pa_operation_sync(o);
-
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_set_source_port_by_name(pa_context *c, const char*name, const char*port, pa_context_success_cb_t cb, void *userdata)
 {
+	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
+	int error;
 
+	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL) {
+		error = PA_ERR_INVALID;
+	} else {
+		error = set_device_route(c, g, port, SPA_DIRECTION_INPUT);
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->error = error;
 	d->userdata = userdata;
 	pa_operation_sync(o);
-
-	pw_log_warn("Not Implemented");
 	return o;
 }
 

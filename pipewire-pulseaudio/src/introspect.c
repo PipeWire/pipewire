@@ -306,7 +306,7 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	return o;
 }
 
-static void set_stream_volume(pa_context *c, pa_stream *s, const pa_cvolume *volume, bool mute)
+static int set_stream_volume(pa_context *c, pa_stream *s, const pa_cvolume *volume, bool mute)
 {
 	uint32_t i, n_channel_volumes;
 	float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
@@ -331,9 +331,10 @@ static void set_stream_volume(pa_context *c, pa_stream *s, const pa_cvolume *vol
 				SPA_PROP_channelVolumes, n_channel_volumes, vols,
 				0);
 	}
+	return 0;
 }
 
-static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *volume, bool mute)
+static int set_node_volume(pa_context *c, struct global *g, const pa_cvolume *volume, bool mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -350,7 +351,7 @@ static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *v
 		if (n_channel_volumes == g->node_info.n_channel_volumes &&
 		    memcmp(g->node_info.channel_volumes, vols, n_channel_volumes * sizeof(float)) == 0 &&
 		    mute == g->node_info.mute)
-			return;
+			return 0;
 
 		memcpy(g->node_info.channel_volumes, vols, n_channel_volumes * sizeof(float));
 		g->node_info.n_channel_volumes = n_channel_volumes;
@@ -358,7 +359,7 @@ static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *v
 		n_channel_volumes = g->node_info.n_channel_volumes;
 		vols = g->node_info.channel_volumes;
 		if (mute == g->node_info.mute)
-			return;
+			return 0;
 	}
 	g->node_info.mute = mute;
 
@@ -371,6 +372,7 @@ static void set_node_volume(pa_context *c, struct global *g, const pa_cvolume *v
 								SPA_TYPE_Float,
 								n_channel_volumes,
 								vols)));
+	return 0;
 }
 
 
@@ -380,7 +382,7 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -395,7 +397,7 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	    !(g->mask & PA_SUBSCRIPTION_MASK_SINK)) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, volume, g->node_info.mute);
+		error = set_node_volume(c, g, volume, g->node_info.mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -412,7 +414,7 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -426,7 +428,7 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, volume, g->node_info.mute);
+		error = set_node_volume(c, g, volume, g->node_info.mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -443,7 +445,7 @@ pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -457,7 +459,7 @@ pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int
 	    !(g->mask & PA_SUBSCRIPTION_MASK_SINK)) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, NULL, mute);
+		error = set_node_volume(c, g, NULL, mute);
 	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -474,7 +476,7 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -487,7 +489,7 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, name)) == NULL) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, NULL, mute);
+		error = set_node_volume(c, g, NULL, mute);
 	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -813,7 +815,7 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -828,7 +830,7 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE)) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, volume, g->node_info.mute);
+		error = set_node_volume(c, g, volume, g->node_info.mute);
 	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -846,7 +848,7 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -860,7 +862,7 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, volume, g->node_info.mute);
+		error = set_node_volume(c, g, volume, g->node_info.mute);
 	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -878,7 +880,7 @@ pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, i
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -892,7 +894,7 @@ pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, i
 	    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE)) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, NULL, mute);
+		error = set_node_volume(c, g, NULL, mute);
 	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -910,7 +912,7 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 	pa_operation *o;
 	struct global *g;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -923,7 +925,7 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 	if ((g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SOURCE, name)) == NULL) {
 		error = PA_ERR_INVALID;
 	} else {
-		set_node_volume(c, g, NULL, mute);
+		error = set_node_volume(c, g, NULL, mute);
 	}
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -1794,7 +1796,7 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -1804,9 +1806,9 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 			g = NULL;
 	}
 	if (s) {
-		set_stream_volume(c, s, volume, s->mute);
+		error = set_stream_volume(c, s, volume, s->mute);
 	} else if (g) {
-		set_node_volume(c, g, volume, g->node_info.mute);
+		error = set_node_volume(c, g, volume, g->node_info.mute);
 	} else {
 		error = PA_ERR_INVALID;
 	}
@@ -1827,7 +1829,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -1838,9 +1840,9 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	}
 
 	if (s) {
-		set_stream_volume(c, s, NULL, mute);
+		error = set_stream_volume(c, s, NULL, mute);
 	} else if (g) {
-		set_node_volume(c, g, NULL, mute);
+		error = set_node_volume(c, g, NULL, mute);
 	} else {
 		error = PA_ERR_INVALID;
 	}
@@ -2103,7 +2105,7 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	pw_log_debug("contex %p: index %d", c, idx);
 
@@ -2114,9 +2116,9 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	}
 
 	if (s) {
-		set_stream_volume(c, s, volume, s->mute);
+		error = set_stream_volume(c, s, volume, s->mute);
 	} else if (g) {
-		set_node_volume(c, g, volume, g->node_info.mute);
+		error = set_node_volume(c, g, volume, g->node_info.mute);
 	} else {
 		error = PA_ERR_INVALID;
 	}
@@ -2137,7 +2139,7 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	struct global *g;
 	pa_operation *o;
 	struct success_ack *d;
-	int error = 0;
+	int error;
 
 	if ((s = find_stream(c, idx)) == NULL) {
 		if ((g = pa_context_find_global(c, idx)) == NULL ||
@@ -2145,9 +2147,9 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 			g = NULL;
 	}
 	if (s) {
-		set_stream_volume(c, s, NULL, mute);
+		error = set_stream_volume(c, s, NULL, mute);
 	} else if (g) {
-		set_node_volume(c, g, NULL, mute);
+		error = set_node_volume(c, g, NULL, mute);
 	} else {
 		error = PA_ERR_INVALID;
 	}

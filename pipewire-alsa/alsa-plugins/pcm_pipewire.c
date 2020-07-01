@@ -48,7 +48,7 @@
 #define MIN_BUFFERS	3u
 #define MAX_BUFFERS	64u
 
-#define MAX_CHANNELS	32
+#define MAX_CHANNELS	64
 #define MAX_RATE	(48000*8)
 
 #define MIN_PERIOD	64

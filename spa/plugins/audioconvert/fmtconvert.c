@@ -49,10 +49,9 @@
 #define DEFAULT_CHANNELS	2
 
 #define MAX_SAMPLES	8192
-#define MAX_BUFFERS	64
+#define MAX_BUFFERS	32
 #define MAX_ALIGN	16
-#define MAX_DATAS	32
-#define MAX_PORTS	128
+#define MAX_DATAS	64
 
 #define PROP_DEFAULT_TRUNCATE	false
 #define PROP_DEFAULT_DITHER	0
@@ -617,8 +616,7 @@ static int port_set_format(void *object,
 
 		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
 			port->blocks = info.info.raw.channels;
-		}
-		else {
+		} else {
 			port->stride *= info.info.raw.channels;
 			port->blocks = 1;
 		}

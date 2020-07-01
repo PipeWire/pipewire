@@ -114,12 +114,13 @@ static const struct format_info format_info[] = {
 	{ SPA_AUDIO_FORMAT_F64_BE, SPA_AUDIO_FORMAT_F64P, SND_PCM_FORMAT_FLOAT64_BE},
 };
 
-static snd_pcm_format_t spa_format_to_alsa(uint32_t format)
+static snd_pcm_format_t spa_format_to_alsa(uint32_t format, bool *planar)
 {
 	size_t i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].spa_format == format)
+		*planar = format_info[i].spa_pformat == format;
+		if (format_info[i].spa_format == format || *planar)
 			return format_info[i].format;
 	}
 	return SND_PCM_FORMAT_UNKNOWN;
@@ -406,7 +407,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	struct spa_audio_info_raw *info = &fmt->info.raw;
 	snd_pcm_t *hndl;
 	unsigned int periods;
-	bool match = true;
+	bool match = true, planar;
 
 	if ((err = spa_alsa_open(state)) < 0)
 		return err;
@@ -416,24 +417,29 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	snd_pcm_hw_params_alloca(&params);
 	/* choose all parameters */
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration for playback: no configurations available");
-	/* set hardware resampling */
+	/* set hardware resampling, no resample */
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
-	/* set the interleaved read/write format */
-	CHECK(snd_pcm_hw_params_set_access(hndl, params, SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
+
+	/* get format info */
+	format = spa_format_to_alsa(info->format, &planar);
+	if (format == SND_PCM_FORMAT_UNKNOWN) {
+		spa_log_warn(state->log, NAME" %p: unknown format %u", state, info->format);
+		return -EINVAL;
+	}
+
+	/* set the interleaved/planar read/write format */
+	CHECK(snd_pcm_hw_params_set_access(hndl, params,
+				planar ? SND_PCM_ACCESS_MMAP_NONINTERLEAVED
+				: SND_PCM_ACCESS_MMAP_INTERLEAVED), "set_access");
 
 	/* disable ALSA wakeups, we use a timer */
 	if (snd_pcm_hw_params_can_disable_period_wakeup(params))
 		CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
 
 	/* set the sample format */
-	format = spa_format_to_alsa(info->format);
-	if (format == SND_PCM_FORMAT_UNKNOWN) {
-		spa_log_warn(state->log, NAME" %p: unknown format %u", state, info->format);
-		return -EINVAL;
-	}
-
-	spa_log_debug(state->log, NAME" %p: Stream parameters are %iHz, %s, %i channels",
-			state, info->rate, snd_pcm_format_name(format), info->channels);
+	spa_log_debug(state->log, NAME" %p: Stream parameters are %iHz, %s %s, %i channels",
+			state, info->rate, snd_pcm_format_name(format),
+			planar ? "planar" : "interleaved", info->channels);
 	CHECK(snd_pcm_hw_params_set_format(hndl, params, format), "set_format");
 
 	/* set the count of channels */
@@ -463,7 +469,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->format = format;
 	state->channels = info->channels;
 	state->rate = info->rate;
-	state->frame_size = info->channels * (snd_pcm_format_physical_width(format) / 8);
+	state->frame_size = snd_pcm_format_physical_width(format) / 8;
+	state->blocks = 1;
+	if (planar)
+		state->blocks *= info->channels;
+	else
+		state->frame_size *= info->channels;
 
 	dir = 0;
 	period_size = 1024;
@@ -473,12 +484,13 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->period_frames = period_size;
 	periods = state->buffer_frames / state->period_frames;
 
-	spa_log_info(state->log, NAME" %s (%s): format:%s rate:%d channels:%d "
+	spa_log_info(state->log, NAME" %s (%s): format:%s %s rate:%d channels:%d "
 			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd",
 			state->props.device,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback",
-			snd_pcm_format_name(state->format), state->rate, state->channels,
-			state->buffer_frames, state->period_frames, periods, state->frame_size);
+			snd_pcm_format_name(state->format), planar ? "planar" : "interleaved",
+			state->rate, state->channels, state->buffer_frames, state->period_frames,
+			periods, state->frame_size);
 
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
@@ -783,13 +795,10 @@ again:
 		size_t n_bytes, n_frames;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t index, offs, avail, size, maxsize, l0, l1;
+		uint32_t i, index, offs, avail, size, maxsize, l0, l1;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->buf->datas;
-
-		dst = SPA_MEMBER(my_areas[0].addr, off * state->frame_size, uint8_t);
-		src = d[0].data;
 
 		size = d[0].chunk->size;
 		maxsize = d[0].maxsize;
@@ -805,10 +814,14 @@ again:
 		l0 = SPA_MIN(n_bytes, maxsize - offs);
 		l1 = n_bytes - l0;
 
-		spa_memcpy(dst, src + offs, l0);
-		if (SPA_UNLIKELY(l1 > 0))
-			spa_memcpy(dst + l0, src, l1);
+		for (i = 0; i < b->buf->n_datas; i++) {
+			dst = SPA_MEMBER(my_areas[i].addr, off * state->frame_size, uint8_t);
+			src = d[i].data;
 
+			spa_memcpy(dst, src + offs, l0);
+			if (SPA_UNLIKELY(l1 > 0))
+				spa_memcpy(dst + l0, src, l1);
+		}
 		state->ready_offset += n_bytes;
 
 		if (state->ready_offset >= size) {
@@ -892,7 +905,7 @@ push_frames(struct state *state,
 		size_t n_bytes, left;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t avail, l0, l1;
+		uint32_t i, avail, l0, l1;
 
 		b = spa_list_first(&state->free, struct buffer, link);
 		spa_list_remove(&b->link);
@@ -914,18 +927,23 @@ push_frames(struct state *state,
 			l0 = SPA_MIN(n_bytes, left * state->frame_size);
 			l1 = n_bytes - l0;
 
-			src = SPA_MEMBER(my_areas[0].addr, offset * state->frame_size, uint8_t);
-			spa_memcpy(d[0].data, src, l0);
-			if (l1 > 0)
-				spa_memcpy(SPA_MEMBER(d[0].data, l0, void), my_areas[0].addr, l1);
+			for (i = 0; i < b->buf->n_datas; i++) {
+				src = SPA_MEMBER(my_areas[i].addr, offset * state->frame_size, uint8_t);
+				spa_memcpy(d[i].data, src, l0);
+				if (l1 > 0)
+					spa_memcpy(SPA_MEMBER(d[i].data, l0, void), my_areas[i].addr, l1);
+				d[i].chunk->offset = 0;
+				d[i].chunk->size = n_bytes;
+				d[i].chunk->stride = state->frame_size;
+			}
 		} else {
-			memset(d[0].data, 0, n_bytes);
+			for (i = 0; i < b->buf->n_datas; i++) {
+				memset(d[i].data, 0, n_bytes);
+				d[i].chunk->offset = 0;
+				d[i].chunk->size = n_bytes;
+				d[i].chunk->stride = state->frame_size;
+			}
 		}
-
-		d[0].chunk->offset = 0;
-		d[0].chunk->size = n_bytes;
-		d[0].chunk->stride = state->frame_size;
-
 		spa_list_append(&state->ready, &b->link);
 	}
 	return total_frames - keep;

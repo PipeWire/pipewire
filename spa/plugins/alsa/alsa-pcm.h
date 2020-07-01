@@ -107,6 +107,7 @@ struct state {
 	int rate;
 	int channels;
 	size_t frame_size;
+	int blocks;
 	int rate_denom;
 	uint32_t delay;
 	uint32_t read_size;

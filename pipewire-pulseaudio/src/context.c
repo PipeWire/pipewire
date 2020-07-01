@@ -305,6 +305,10 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				pw_device_enum_params((struct pw_device*)g->proxy,
 					0, SPA_PARAM_Profile, 0, -1, NULL);
 				break;
+			case SPA_PARAM_EnumRoute:
+				pw_device_enum_params((struct pw_device*)g->proxy,
+					0, SPA_PARAM_EnumRoute, 0, -1, NULL);
+				break;
 			default:
 				break;
 			}
@@ -358,6 +362,31 @@ static void device_event_param(void *object, int seq,
 		pw_log_debug("device %d: current profile %d", g->id, id);
 		break;
 	}
+	case SPA_PARAM_EnumRoute:
+	{
+		uint32_t id;
+		const char *name;
+		struct param *p;
+
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name)) < 0) {
+			pw_log_warn("device %d: can't parse route", g->id);
+			return;
+		}
+		p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
+		if (p) {
+			p->id = id;
+			p->seq = seq;
+			p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+			memcpy(p->param, param, SPA_POD_SIZE(param));
+			spa_list_append(&g->card_info.ports, &p->link);
+			g->card_info.n_ports++;
+		}
+		pw_log_debug("device %d: enum route %d: \"%s\"", g->id, id, name);
+		break;
+	}
 	default:
 		break;
 	}
@@ -377,6 +406,10 @@ static void device_destroy(void *data)
 	if (global->card_info.info.proplist)
 		pa_proplist_free(global->card_info.info.proplist);
 	spa_list_consume(p, &global->card_info.profiles, link) {
+		spa_list_remove(&p->link);
+		free(p);
+	}
+	spa_list_consume(p, &global->card_info.ports, link) {
 		spa_list_remove(&p->link);
 		free(p);
 	}
@@ -617,9 +650,10 @@ static int set_mask(pa_context *c, struct global *g)
 		g->event = PA_SUBSCRIPTION_EVENT_CARD;
 
 		events = &device_events;
-                client_version = PW_VERSION_DEVICE;
-                destroy = device_destroy;
-                spa_list_init(&g->card_info.profiles);
+		client_version = PW_VERSION_DEVICE;
+		destroy = device_destroy;
+		spa_list_init(&g->card_info.profiles);
+		spa_list_init(&g->card_info.ports);
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Node) == 0) {
 		if (g->props == NULL)
 			return 0;

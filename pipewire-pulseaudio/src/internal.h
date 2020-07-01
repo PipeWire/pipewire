@@ -269,6 +269,8 @@ struct global {
 			struct spa_list profiles;
 			uint32_t n_profiles;
 			uint32_t active_profile;
+			struct spa_list ports;
+			uint32_t n_ports;
 			pa_card_info info;
 		} card_info;
 		struct {

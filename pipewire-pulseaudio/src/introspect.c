@@ -1247,7 +1247,7 @@ static void card_callback(struct card_data *d)
 {
 	struct global *g = d->global;
 	pa_card_info *i = &g->card_info.info;
-	int n_profiles, j = 0;
+	int n_profiles, n_ports, j = 0;
 	struct param *p;
 
 	n_profiles = g->card_info.n_profiles;
@@ -1262,7 +1262,7 @@ static void card_callback(struct card_data *d)
 		uint32_t id, priority = 0, available = 0, n_cap = 0, n_play = 0;
 		const char *name = NULL;
 		const char *description = NULL;
-		struct spa_pod *classes = NULL, *iter;
+		struct spa_pod *classes = NULL;
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
@@ -1276,6 +1276,8 @@ static void card_callback(struct card_data *d)
 			continue;
 		}
 		if (classes != NULL) {
+			struct spa_pod *iter;
+
 			SPA_POD_STRUCT_FOREACH(classes, iter) {
 				struct spa_pod_parser prs;
 				struct spa_pod_frame f[1];
@@ -1283,16 +1285,16 @@ static void card_callback(struct card_data *d)
 				uint32_t count;
 
 				spa_pod_parser_pod(&prs, iter);
-				spa_pod_parser_push_struct(&prs, &f[0]);
-				while (spa_pod_parser_get(&prs,
+				if (spa_pod_parser_get_struct(&prs,
 						SPA_POD_String(&class),
-						SPA_POD_Int(&count),
-						NULL) == 2) {
-					if (strcmp(class, "Audio/Sink") == 0)
-						n_play += count;
-					else if (strcmp(class, "Audio/Source") == 0)
-						n_cap += count;
-				}
+						SPA_POD_Int(&count)) < 0)
+					continue;
+
+				if (strcmp(class, "Audio/Sink") == 0)
+					n_play += count;
+				else if (strcmp(class, "Audio/Source") == 0)
+					n_cap += count;
+
 				spa_pod_parser_pop(&prs, &f[0]);
 			}
 		}
@@ -1317,6 +1319,88 @@ static void card_callback(struct card_data *d)
 		j = ++i->n_profiles;
 	}
 	i->profiles2[j] = NULL;
+
+	n_ports = g->card_info.n_ports;
+	i->ports = alloca(sizeof(pa_card_port_info *) * (n_ports + 1));
+	i->n_ports = 0;
+
+	j = 0;
+	spa_list_for_each(p, &g->card_info.ports, link) {
+		uint32_t id, priority;
+		enum spa_direction direction;
+		const char *name = NULL, *description = NULL;
+		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
+		struct spa_pod *profiles = NULL, *info = NULL;
+		pa_card_port_info *pi;
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
+				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name),
+				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&description),
+				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&priority),
+				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&available),
+				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
+				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0) {
+			pw_log_warn("device %d: can't parse route", g->id);
+			continue;
+		}
+
+		pi = i->ports[j] = alloca(sizeof(pa_card_port_info));
+		spa_zero(*pi);
+		pi->name = name;
+		pi->description = description;
+		pi->priority = priority;
+		pi->available = available;
+		pi->direction = direction;
+		pi->proplist = pa_proplist_new();
+		while (info) {
+			struct spa_pod_parser prs;
+			struct spa_pod_frame f[1];
+			uint32_t n, n_items;
+			const char *key, *value;
+
+			spa_pod_parser_pod(&prs, info);
+			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
+			    spa_pod_parser_get_int(&prs, &n_items) < 0)
+				break;
+
+			for (n = 0; n < n_items; n++) {
+				if (spa_pod_parser_get(&prs,
+						SPA_POD_String(&key),
+						SPA_POD_String(&value),
+						NULL) < 0)
+					break;
+				pa_proplist_sets(pi->proplist, key, value);
+			}
+			spa_pod_parser_pop(&prs, &f[0]);
+			break;
+		}
+		while (profiles) {
+			uint32_t *pr, n, n_pr;
+
+			pr = spa_pod_get_array(profiles, &n_pr);
+			if (pr == NULL)
+				break;
+
+			pi->n_profiles = n_pr;
+			pi->profiles = alloca(sizeof(pa_card_profile_info *) * (n_pr + 1));
+			pi->profiles2 = alloca(sizeof(pa_card_profile_info2 *) * (n_pr + 1));
+
+			for (n = 0; n < n_pr; n++) {
+				pi->profiles[n] = (pa_card_profile_info*)i->profiles2[pr[n]];
+				pi->profiles2[n] = i->profiles2[pr[n]];
+			}
+			pi->profiles[n_pr] = NULL;
+			pi->profiles2[n_pr] = NULL;
+			break;
+		}
+		j = ++i->n_ports;
+	}
+	i->ports[j] = NULL;
+	if (i->n_ports == 0)
+		i->ports = NULL;
 	d->cb(d->context, i, 0, d->userdata);
 }
 

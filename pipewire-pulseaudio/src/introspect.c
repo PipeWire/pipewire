@@ -1259,22 +1259,25 @@ static void card_callback(struct card_data *d)
 	pw_log_debug("context %p: info for %d", g->context, g->id);
 
 	spa_list_for_each(p, &g->card_info.profiles, link) {
-		uint32_t id;
-		const char *name;
+		uint32_t id, priority = 0;
+		const char *name = NULL;
+		const char *description = NULL;
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name)) < 0) {
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name),
+				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&description),
+				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			continue;
 		}
 
 		i->profiles[j].name = name;
-		i->profiles[j].description = name;
+		i->profiles[j].description = description ? description : name;
 		i->profiles[j].n_sinks = 1;
 		i->profiles[j].n_sources = 1;
-		i->profiles[j].priority = 1;
+		i->profiles[j].priority = priority;
 
 		i->profiles2[j] = alloca(sizeof(pa_card_profile_info2));
 		i->profiles2[j]->name = i->profiles[j].name;

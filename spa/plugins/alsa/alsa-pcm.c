@@ -35,7 +35,9 @@ static int spa_alsa_open(struct state *state)
 			   state->stream,
 			   SND_PCM_NONBLOCK |
 			   SND_PCM_NO_AUTO_RESAMPLE |
-			   SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT), "%s: open failed", props->device);
+			   SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT), "'%s': %s open failed",
+			props->device,
+			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback");
 
 	if ((err = spa_system_timerfd_create(state->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
@@ -356,6 +358,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 
 	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
+	spa_log_debug(state->log, "channels (%d %d)", min, max);
 
 	if (state->default_channels != 0) {
 		if (min < state->default_channels)

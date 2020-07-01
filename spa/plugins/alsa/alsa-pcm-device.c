@@ -70,6 +70,8 @@ struct impl {
 
 	struct props props;
 	uint32_t n_nodes;
+	uint32_t n_capture;
+	uint32_t n_playback;
 
 	uint32_t profile;
 };
@@ -166,7 +168,7 @@ static int emit_node(struct impl *this, snd_ctl_card_info_t *cardinfo, snd_pcm_i
 static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 {
 	int err = 0, dev;
-	uint32_t i;
+	uint32_t i, n_cap, n_play;
 	snd_pcm_info_t *pcminfo;
 	snd_ctl_card_info_t *cardinfo;
 
@@ -182,18 +184,18 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 	for (i = 0; i < this->n_nodes; i++)
 		spa_device_emit_object_info(&this->hooks, i, NULL);
 
-	this->n_nodes = 0;
+	this->n_nodes = this->n_capture = this->n_playback = 0;
 
 	if (id == 0)
 		return 0;
 
         snd_pcm_info_alloca(&pcminfo);
 	dev = -1;
-	i = 0;
+	i = n_cap = n_play = 0;
 	while (1) {
 		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
 			spa_log_error(this->log, "error iterating devices: %s", snd_strerror(err));
-			goto exit;
+			break;
 		}
 		if (dev < 0)
 			break;
@@ -206,19 +208,24 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0)
+		if (err >= 0) {
+			n_play++;
 			emit_node(this, cardinfo, pcminfo, i++);
+		}
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
 		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
 			if (err != -ENOENT)
 				spa_log_error(this->log, "error pcm info: %s", snd_strerror(err));
 		}
-		if (err >= 0)
+		if (err >= 0) {
+			n_cap++;
 			emit_node(this, cardinfo, pcminfo, i++);
+		}
 	}
+	this->n_capture = n_cap;
+	this->n_playback = n_play;
 	this->n_nodes = i;
-exit:
 	return err;
 }
 
@@ -356,6 +363,7 @@ static int impl_enum_params(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
 	{
+		struct spa_pod_frame f[2];
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -364,10 +372,25 @@ static int impl_enum_params(void *object, int seq,
 				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
+			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
+			spa_pod_builder_add(&b,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
+				SPA_PARAM_PROFILE_name, SPA_POD_String("On"),
+				0);
+			spa_pod_builder_prop(&b, SPA_PARAM_PROFILE_classes, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			if (this->n_capture) {
+				spa_pod_builder_add_struct(&b,
+					SPA_POD_String("Audio/Source"),
+					SPA_POD_Int(this->n_capture));
+			}
+			if (this->n_playback) {
+				spa_pod_builder_add_struct(&b,
+					SPA_POD_String("Audio/Sink"),
+					SPA_POD_Int(this->n_playback));
+			}
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
 		default:
 			return 0;

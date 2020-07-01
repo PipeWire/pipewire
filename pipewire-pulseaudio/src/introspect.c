@@ -1259,9 +1259,10 @@ static void card_callback(struct card_data *d)
 	pw_log_debug("context %p: info for %d", g->context, g->id);
 
 	spa_list_for_each(p, &g->card_info.profiles, link) {
-		uint32_t id, priority = 0, available = 0;
+		uint32_t id, priority = 0, available = 0, n_cap = 0, n_play = 0;
 		const char *name = NULL;
 		const char *description = NULL;
+		struct spa_pod *classes = NULL, *iter;
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
@@ -1269,15 +1270,36 @@ static void card_callback(struct card_data *d)
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name),
 				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&description),
 				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority),
-				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available)) < 0) {
+				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available),
+				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
 			pw_log_warn("device %d: can't parse profile", g->id);
 			continue;
 		}
+		if (classes != NULL) {
+			SPA_POD_STRUCT_FOREACH(classes, iter) {
+				struct spa_pod_parser prs;
+				struct spa_pod_frame f[1];
+				char *class;
+				uint32_t count;
 
+				spa_pod_parser_pod(&prs, iter);
+				spa_pod_parser_push_struct(&prs, &f[0]);
+				while (spa_pod_parser_get(&prs,
+						SPA_POD_String(&class),
+						SPA_POD_Int(&count),
+						NULL) == 2) {
+					if (strcmp(class, "Audio/Sink") == 0)
+						n_play += count;
+					else if (strcmp(class, "Audio/Source") == 0)
+						n_cap += count;
+				}
+				spa_pod_parser_pop(&prs, &f[0]);
+			}
+		}
 		i->profiles[j].name = name;
 		i->profiles[j].description = description ? description : name;
-		i->profiles[j].n_sinks = 1;
-		i->profiles[j].n_sources = 1;
+		i->profiles[j].n_sinks = n_play;
+		i->profiles[j].n_sources = n_cap;
 		i->profiles[j].priority = priority;
 
 		i->profiles2[j] = alloca(sizeof(pa_card_profile_info2));

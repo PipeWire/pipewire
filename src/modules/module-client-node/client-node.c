@@ -50,6 +50,8 @@
 #define MAX_OUTPUTS	64
 
 #define MAX_BUFFERS	64
+#define MAX_METAS	16u
+#define MAX_DATAS	64u
 #define MAX_AREAS	1024
 #define MAX_MIX		128
 
@@ -72,8 +74,8 @@
 struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_buffer buffer;
-	struct spa_meta metas[4];
-	struct spa_data datas[4];
+	struct spa_meta metas[MAX_METAS];
+	struct spa_data datas[MAX_DATAS];
 	struct pw_memblock *mem;
 };
 
@@ -814,11 +816,12 @@ do_port_use_buffers(struct impl *impl,
 		spa_log_debug(this->log, NAME" %p: buffer %d %d %d %d", this, i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
 
-		for (j = 0; j < buffers[i]->n_metas; j++)
+		b->buffer.n_metas = SPA_MIN(buffers[i]->n_metas, MAX_METAS);
+		for (j = 0; j < b->buffer.n_metas; j++)
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
-		b->buffer.n_metas = j;
 
-		for (j = 0; j < buffers[i]->n_datas; j++) {
+		b->buffer.n_datas = SPA_MIN(buffers[i]->n_datas, MAX_DATAS);
+		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 
 			memcpy(&b->datas[j], d, sizeof(struct spa_data));
@@ -1070,7 +1073,7 @@ static int client_node_port_buffers(void *data,
 		if (oldbuf->n_datas != newbuf->n_datas)
 			return -EINVAL;
 
-		for (j = 0; j < newbuf->n_datas; j++) {
+		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
 			struct spa_data *d = &newbuf->datas[j];
 

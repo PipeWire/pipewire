@@ -33,7 +33,7 @@ extern "C" {
 
 /** properties of SPA_TYPE_OBJECT_PropInfo */
 enum spa_prop_info {
-	SPA_PROP_INFO_START,		/**< id of object, one of enum spa_param_type */
+	SPA_PROP_INFO_START,
 	SPA_PROP_INFO_id,		/**< associated id of the property */
 	SPA_PROP_INFO_name,		/**< name of the property */
 	SPA_PROP_INFO_type,		/**< type and range/enums of property */
@@ -46,7 +46,7 @@ enum spa_prop_info {
 
 /** predefined properties for SPA_TYPE_OBJECT_Props */
 enum spa_prop {
-	SPA_PROP_START,			/**< id of object, one of enum spa_param_type */
+	SPA_PROP_START,
 
 	SPA_PROP_unknown,		/**< an unknown property */
 

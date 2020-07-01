@@ -92,7 +92,7 @@ enum spa_media_subtype {
 
 /** properties for audio SPA_TYPE_OBJECT_Format */
 enum spa_format {
-	SPA_FORMAT_START,		/**< id of the object, one of enum spa_param_type */
+	SPA_FORMAT_START,
 
 	SPA_FORMAT_mediaType,		/**< media type (Id enum spa_media_type) */
 	SPA_FORMAT_mediaSubtype,	/**< media subtype (Id enum spa_media_subtype) */

@@ -890,7 +890,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	snd_pcm_pipewire_t *pw;
 	int err;
 	const char *str;
-	struct pw_properties *props;
+	struct pw_properties *props = NULL;
 	struct pw_loop *loop;
 
 	assert(pcmp);
@@ -947,6 +947,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	pw_thread_loop_lock(pw->main_loop);
 	pw->core = pw_context_connect(pw->context, props, 0);
+	props = NULL;
 	if (pw->core == NULL) {
 		err = -errno;
 		pw_thread_loop_unlock(pw->main_loop);
@@ -983,7 +984,9 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	return 0;
 
-      error:
+error:
+	if (props)
+		pw_properties_free(props);
 	snd_pcm_pipewire_free(pw);
 	return err;
 }

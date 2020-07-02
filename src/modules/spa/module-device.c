@@ -95,7 +95,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				props,
 				sizeof(struct device_data));
 	if (device == NULL) {
-		props = NULL;
 		res = -errno;
 		goto error_exit_cleanup;
 	}

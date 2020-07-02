@@ -221,6 +221,9 @@ handle_node(struct impl *impl, struct sm_object *object)
 			}
 			node->active = true;
 		}
+		else if (strstr(media_class, "Unknown") == media_class) {
+			node->active = true;
+		}
 
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
@@ -495,6 +498,9 @@ static int rescan_node(struct impl *impl, struct node *n)
 		}
 
 		obj = sm_media_session_find_object(impl->session, n->client_id);
+		pw_log_debug(NAME " %p: client_id:%d object:%p type:%s", impl,
+				n->client_id, obj, obj ? obj->type : "None");
+
 		if (obj && strcmp(obj->type, PW_TYPE_INTERFACE_Client) == 0) {
 			pw_client_error((struct pw_client*)obj->proxy,
 				n->id, -ENOENT, "no node available");

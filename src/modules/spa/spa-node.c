@@ -253,7 +253,7 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 			properties ? &properties->dict : NULL);
 	if (handle == NULL) {
 		res = -errno;
-		goto error_exit_cleanup;
+		goto error_exit;
 	}
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
@@ -275,7 +275,8 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 			       spa_node, handle, properties, user_data_size);
 	if (this == NULL) {
 		res = -errno;
-		goto error_exit;
+		properties = NULL;
+		goto error_exit_unload;
 	}
 
 	impl = pw_impl_node_get_user_data(this);
@@ -285,10 +286,9 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 
 error_exit_unload:
 	pw_unload_spa_handle(handle);
-error_exit_cleanup:
+error_exit:
 	if (properties)
 		pw_properties_free(properties);
-error_exit:
 	errno = -res;
 	return NULL;
 }

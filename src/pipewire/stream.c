@@ -1047,9 +1047,10 @@ static void on_core_error(void *object, uint32_t id, int seq, int res, const cha
 {
 	struct pw_stream *stream = object;
 
-	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", stream,
+	pw_log_debug(NAME" %p: error id:%u seq:%d res:%d (%s): %s", stream,
 			id, seq, res, spa_strerror(res), message);
-	if (id == 0) {
+
+	if (id == PW_ID_CORE && res == -EPIPE) {
 		stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, message);
 	}
 }

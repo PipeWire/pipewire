@@ -915,8 +915,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	else
 		pw->node_name = strdup(node_name);
 
-	if (pw->node_name == NULL)
-		return -errno;
+	if (pw->node_name == NULL) {
+		err = -errno;
+		goto error;
+	}
 
 	pw->target = PW_ID_ANY;
 	if (str != NULL)

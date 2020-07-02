@@ -1474,7 +1474,6 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
 	pw_properties_set(stream->properties, "mem.warn-mlock", impl->warn_mlock ? "true" : "false");
 
-
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);
 		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
@@ -1504,6 +1503,10 @@ pw_stream_connect(struct pw_stream *stream,
 
 	pw_log_debug(NAME" %p: creating node", stream);
 	props = pw_properties_copy(stream->properties);
+	if (props == NULL) {
+		res = -errno;
+		goto error_node;
+	}
 
 	if ((str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) &&
 	    pw_properties_parse_bool(str)) {
@@ -1533,6 +1536,7 @@ pw_stream_connect(struct pw_stream *stream,
 				PW_VERSION_NODE,
 				props,
 				0);
+		props = NULL;
 		if (impl->node == NULL) {
 			res = -errno;
 			goto error_node;
@@ -1540,6 +1544,7 @@ pw_stream_connect(struct pw_stream *stream,
 	} else {
 		impl->node = follower;
 		pw_properties_free(props);
+		props = NULL;
 	}
 	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
 		pw_impl_node_set_active(impl->node, true);
@@ -1560,12 +1565,17 @@ pw_stream_connect(struct pw_stream *stream,
 
 error_connect:
 	pw_log_error(NAME" %p: can't connect: %s", stream, spa_strerror(res));
-	return res;
+	goto exit_cleanup;
 error_node:
 	pw_log_error(NAME" %p: can't make node: %s", stream, spa_strerror(res));
-	return res;
+	goto exit_cleanup;
 error_proxy:
 	pw_log_error(NAME" %p: can't make proxy: %s", stream, spa_strerror(res));
+	goto exit_cleanup;
+
+exit_cleanup:
+	if (props)
+		pw_properties_free(props);
 	return res;
 }
 

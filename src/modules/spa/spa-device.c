@@ -147,6 +147,7 @@ error_interface:
 	pw_log_error("can't get device interface %d", res);
 	goto error_exit_unload;
 error_device:
+	properties = NULL;
 	res = -errno;
 	pw_log_error("can't create device: %m");
 	goto error_exit_unload;
@@ -155,5 +156,7 @@ error_exit_unload:
 	pw_unload_spa_handle(handle);
 error_exit:
 	errno = -res;
+	if (properties)
+		pw_properties_free(properties);
 	return NULL;
 }

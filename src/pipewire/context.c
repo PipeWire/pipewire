@@ -697,11 +697,14 @@ int pw_context_find_format(struct pw_context *context,
 						     input->direction, input->port_id,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     filter, format, builder)) <= 0) {
-			if (res < 0)
+			if (res == -ENOENT || res == 0) {
+				pw_log_debug(NAME" %p: no input format filter, using output format: %s",
+						context, spa_strerror(res));
+				*format = filter;
+			} else {
 				*error = spa_aprintf("error input enum formats: %s", spa_strerror(res));
-			else
-				*error = spa_aprintf("no input formats");
-			goto error;
+				goto error;
+			}
 		}
 	} else if (out_state >= PW_IMPL_PORT_STATE_CONFIGURE && in_state > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
@@ -723,11 +726,14 @@ int pw_context_find_format(struct pw_context *context,
 						     output->direction, output->port_id,
 						     SPA_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) <= 0) {
-			if (res < 0)
+			if (res == -ENOENT || res == 0) {
+				pw_log_debug(NAME" %p: no output format filter, using input format: %s",
+						context, spa_strerror(res));
+				*format = filter;
+			} else {
 				*error = spa_aprintf("error output enum formats: %s", spa_strerror(res));
-			else
-				*error = spa_aprintf("no output format");
-			goto error;
+				goto error;
+			}
 		}
 	} else if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 	      again:
@@ -738,15 +744,16 @@ int pw_context_find_format(struct pw_context *context,
 						     input->direction, input->port_id,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     NULL, &filter, &fb)) != 1) {
-			if (res == 0 && iidx == 0) {
-				*error = spa_aprintf("no compatible formats");
+			if (res == -ENOENT) {
+				pw_log_debug(NAME" %p: no input filter", context);
+				filter = NULL;
+			} else {
+				if (res < 0)
+					*error = spa_aprintf("error input enum formats: %s", spa_strerror(res));
+				else
+					*error = spa_aprintf("no more input formats");
 				goto error;
 			}
-			if (res < 0)
-				*error = spa_aprintf("error input enum formats: %s", spa_strerror(res));
-			else
-				*error = spa_aprintf("no more input formats");
-			goto error;
 		}
 		pw_log_debug(NAME" %p: enum output %d with filter: %p", context, oidx, filter);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
@@ -755,7 +762,7 @@ int pw_context_find_format(struct pw_context *context,
 						     output->direction, output->port_id,
 						     SPA_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) != 1) {
-			if (res == 0) {
+			if (res == 0 && filter != NULL) {
 				oidx = 0;
 				goto again;
 			}

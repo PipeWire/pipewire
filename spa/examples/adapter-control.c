@@ -101,18 +101,20 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	uint32_t i;
 	char *path;
 
-	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL) {
+	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL)
 		return -ENOMEM;
-	}
-	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
+
+	hnd = dlopen(path, RTLD_NOW);
+	free(path);
+
+	if (hnd == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
-		free(path);
 		return -ENOENT;
 	}
-	free(path);
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return -ENOENT;
+		res = -ENOENT;
+		goto exit_cleanup;
 	}
 
 	for (i = 0;;) {
@@ -133,11 +135,15 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 						NULL, data->support,
 						data->n_support)) < 0) {
 			printf("can't make factory instance: %d\n", res);
-			return res;
+			goto exit_cleanup;
 		}
 		return 0;
 	}
 	return -EBADF;
+
+exit_cleanup:
+	dlclose(hnd);
+	return res;
 }
 
 int init_data(struct data *data)
@@ -201,23 +207,25 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 {
 	struct spa_handle *handle;
 	int res = 0;
-	void *hnd;
+	void *hnd = NULL;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t i;
 	char *path;
 
-	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL) {
+	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL)
 		return -ENOMEM;
-	}
-	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
+
+	hnd = dlopen(path, RTLD_NOW);
+	free(path);
+
+	if (hnd == NULL) {
 		printf("can't load %s: %s\n", lib, dlerror());
-		free(path);
 		return -ENOENT;
 	}
-	free(path);
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return -ENOENT;
+		res = -ENOENT;
+		goto exit_cleanup;
 	}
 
 	for (i = 0;;) {
@@ -239,16 +247,20 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 		     spa_handle_factory_init(factory, handle, props, data->support,
 					     data->n_support)) < 0) {
 			printf("can't make factory instance: %d\n", res);
-			return res;
+			goto exit_cleanup;
 		}
 		if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
 			printf("can't get interface %d\n", res);
-			return res;
+			goto exit_cleanup;
 		}
 		*node = iface;
 		return 0;
 	}
 	return -EBADF;
+
+exit_cleanup:
+	dlclose(hnd);
+	return res;
 }
 
 static int on_sink_node_ready(void *_data, int status)

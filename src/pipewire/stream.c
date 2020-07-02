@@ -1359,7 +1359,7 @@ static int find_format(struct stream *impl, enum pw_direction direction,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) != 1) {
 		pw_log_warn(NAME" %p: no format given", impl);
-		return -ENOENT;
+		return 0;
 	}
 
 	if ((res = spa_format_parse(format, media_type, media_subtype)) < 0)
@@ -1389,9 +1389,9 @@ static const char *get_media_class(struct stream *impl)
 		case SPA_MEDIA_SUBTYPE_midi:
 			return "Midi";
 		}
-		/* fallthrough */
-	default:
 		return "Data";
+	default:
+		return "Unknown";
 	}
 }
 
@@ -1473,10 +1473,12 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
 	pw_properties_set(stream->properties, "mem.warn-mlock", impl->warn_mlock ? "true" : "false");
 
+
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
+		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);
 		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
 				direction == PW_DIRECTION_INPUT ? "Input" : "Output",
-				get_media_class(impl));
+				media_type ? media_type : get_media_class(impl));
 	}
 	if ((str = pw_properties_get(stream->properties, PW_KEY_FORMAT_DSP)) != NULL)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, str);

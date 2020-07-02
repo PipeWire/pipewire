@@ -105,23 +105,30 @@ client_permission_func(struct pw_global *global,
 	return p->permissions;
 }
 
+struct error_data {
+	uint32_t id;
+	int res;
+	const char *error;
+};
+
+static int error_resource(void *object, void *data)
+{
+	struct pw_resource *r = object;
+	struct error_data *d = data;
+	if (r && r->bound_id == d->id)
+		pw_resource_error(r, d->res, d->error);
+	return 0;
+}
+
 static int client_error(void *object, uint32_t id, int res, const char *error)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_impl_client *client = data->client;
-	struct pw_global *global;
-	struct pw_resource *r, *t;
+	struct error_data d = { id, res, error };
 
-	global = pw_context_find_global(client->context, id);
-	if (global == NULL)
-		return -ENOENT;
-
-	spa_list_for_each_safe(r, t, &global->resource_list, link) {
-		if (t->client != client)
-			continue;
-		pw_resource_error(r, res, error);
-	}
+	pw_log_debug(NAME" %p: error for global %d", client, id);
+	pw_map_for_each(&client->objects, error_resource, &d);
 	return 0;
 }
 

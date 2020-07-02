@@ -111,24 +111,37 @@ static struct spa_bt_transport *find_transport(struct impl *this, int profile)
 static int emit_nodes(struct impl *this)
 {
 	struct spa_bt_transport *t;
-
-	t = find_transport(this, this->profile);
-	if (t == NULL)
-		return 0;
+	int index = 0;
 
 	switch (this->profile) {
-	case SPA_BT_PROFILE_A2DP_SOURCE:
-		emit_node(this, t, 0, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
+	case 1:
+		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
+			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE);
+			if (t)
+				emit_node(this, t, index++, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
+		}
+
+		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
+			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK);
+			if (t)
+				emit_node(this, t, index++, SPA_NAME_API_BLUEZ5_A2DP_SINK);
+		}
 		break;
-	case SPA_BT_PROFILE_A2DP_SINK:
-		emit_node(this, t, 0, SPA_NAME_API_BLUEZ5_A2DP_SINK);
-		break;
-	case SPA_BT_PROFILE_HSP_HS:
-	case SPA_BT_PROFILE_HSP_AG:
-	case SPA_BT_PROFILE_HFP_HF:
-	case SPA_BT_PROFILE_HFP_AG:
-		emit_node(this, t, 0, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
-		emit_node(this, t, 1, SPA_NAME_API_BLUEZ5_SCO_SINK);
+	case 2:
+		if (this->bt_dev->connected_profiles &
+		    (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) ) {
+			int i;
+
+			for (i = SPA_BT_PROFILE_HSP_HS ; i <= SPA_BT_PROFILE_HFP_AG ; i <<= 1) {
+				t = find_transport(this, i);
+				if (t)
+					break;
+			}
+			if (t == NULL)
+				return 0;
+			emit_node(this, t, index++, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
+			emit_node(this, t, index++, SPA_NAME_API_BLUEZ5_SCO_SINK);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -142,14 +155,10 @@ static int set_profile(struct impl *this, uint32_t profile)
 		return 0;
 
 	switch (this->profile) {
-	case SPA_BT_PROFILE_A2DP_SOURCE:
-	case SPA_BT_PROFILE_A2DP_SINK:
+	case 1:
 		spa_device_emit_object_info(&this->hooks, 0, NULL);
 		break;
-	case SPA_BT_PROFILE_HSP_HS:
-	case SPA_BT_PROFILE_HSP_AG:
-	case SPA_BT_PROFILE_HFP_HF:
-	case SPA_BT_PROFILE_HFP_AG:
+	case 2:
 		spa_device_emit_object_info(&this->hooks, 0, NULL);
 		spa_device_emit_object_info(&this->hooks, 1, NULL);
 		break;
@@ -215,18 +224,6 @@ static int impl_sync(void *object, int seq)
 	return 0;
 }
 
-static inline int maskn(int v, int n)
-{
-	int pos = 0, cnt = 0;
-	while (v) {
-		if ((v & 1) == 1 && (++cnt == n))
-			return 1 << pos;
-		v >>= 1;
-		pos++;
-	}
-	return 0;
-}
-
 static int impl_enum_params(void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
@@ -252,8 +249,6 @@ static int impl_enum_params(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
 	{
-		int profile;
-
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -261,18 +256,26 @@ static int impl_enum_params(void *object, int seq,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(0),
 				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
 			break;
-		default:
-		{
-			profile = maskn(device->connected_profiles, result.index);
-			if (profile == 0)
+		case 1:
+			if (!(device->connected_profiles &
+			      (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE)))
 				return 0;
-
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_index,   SPA_POD_Int(profile),
-				SPA_PARAM_PROFILE_name, SPA_POD_String(spa_bt_profile_name(profile)));
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
+				SPA_PARAM_PROFILE_name, SPA_POD_String("A2DP"));
 			break;
-		}
+		case 2:
+			if (!(device->connected_profiles &
+			      (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)))
+				return 0;
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, id,
+				SPA_PARAM_PROFILE_index,   SPA_POD_Int(2),
+				SPA_PARAM_PROFILE_name, SPA_POD_String("HSP/HFP"));
+			break;
+		default:
+			return 0;
 		}
 		break;
 	}

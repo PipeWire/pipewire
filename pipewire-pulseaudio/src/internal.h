@@ -58,8 +58,16 @@ extern "C" {
 #define PA_MIN			SPA_MIN
 #define PA_MAX			SPA_MAX
 #define pa_assert		spa_assert
-#define pa_assert_se		spa_assert
-#define pa_return_val_if_fail	spa_return_val_if_fail
+#define pa_assert_se		spa_assert_se
+#define pa_return_val_if_fail(expr, val)				\
+	do {								\
+		if (SPA_UNLIKELY(!(expr))) {				\
+			pa_log_debug("Assertion '%s' failed at %s:%u %s()\n",	\
+				#expr , __FILE__, __LINE__, __func__);	\
+			return (val);					\
+		}							\
+	} while(false)
+
 #define pa_assert_not_reached	spa_assert_not_reached
 
 #define PA_INT_TYPE_SIGNED(type) (!!((type) 0 > (type) -1))

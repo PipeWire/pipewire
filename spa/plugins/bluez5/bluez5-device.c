@@ -74,6 +74,7 @@ struct impl {
 	struct spa_bt_device *bt_dev;
 
 	uint32_t profile;
+	uint32_t n_nodes;
 };
 
 static void emit_node (struct impl *this, struct spa_bt_transport *t, uint32_t id, const char *factory_name)
@@ -114,6 +115,8 @@ static int emit_nodes(struct impl *this)
 	int index = 0;
 
 	switch (this->profile) {
+	case 0:
+		break;
 	case 1:
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE);
@@ -138,7 +141,7 @@ static int emit_nodes(struct impl *this)
 					break;
 			}
 			if (t == NULL)
-				return 0;
+				break;
 			emit_node(this, t, index++, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
 			emit_node(this, t, index++, SPA_NAME_API_BLUEZ5_SCO_SINK);
 		}
@@ -146,26 +149,23 @@ static int emit_nodes(struct impl *this)
 	default:
 		return -EINVAL;
 	}
+	this->n_nodes = index;
 	return 0;
 }
 
 static int set_profile(struct impl *this, uint32_t profile)
 {
+	uint32_t i;
+
 	if (this->profile == profile)
 		return 0;
 
-	switch (this->profile) {
-	case 1:
-		spa_device_emit_object_info(&this->hooks, 0, NULL);
-		break;
-	case 2:
-		spa_device_emit_object_info(&this->hooks, 0, NULL);
-		spa_device_emit_object_info(&this->hooks, 1, NULL);
-		break;
-	default:
-		break;
-	}
+	for (i = 0; i < this->n_nodes; i++)
+		spa_device_emit_object_info(&this->hooks, i, NULL);
+
+	this->n_nodes = 0;
 	this->profile = profile;
+
 	return emit_nodes(this);
 }
 

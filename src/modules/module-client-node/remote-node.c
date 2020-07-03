@@ -248,8 +248,8 @@ static struct mix *ensure_mix(struct node_data *data,
 static int client_node_transport(void *object,
 			int readfd, int writefd, uint32_t mem_id, uint32_t offset, uint32_t size)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 
 	clean_transport(data);
 
@@ -277,9 +277,8 @@ static int client_node_transport(void *object,
 	return 0;
 }
 
-static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
+static int add_node_update(struct node_data *data, uint32_t change_mask)
 {
-	struct node_data *data = proxy->user_data;
 	struct pw_impl_node *node = data->node;
 	struct spa_node_info ni = SPA_NODE_INFO_INIT();
 	uint32_t n_params = 0;
@@ -337,9 +336,8 @@ static int add_node_update(struct pw_proxy *proxy, uint32_t change_mask)
 	return res;
 }
 
-static int add_port_update(struct pw_proxy *proxy, struct pw_impl_port *port, uint32_t change_mask)
+static int add_port_update(struct node_data *data, struct pw_impl_port *port, uint32_t change_mask)
 {
-	struct node_data *data = proxy->user_data;
 	struct spa_port_info pi = SPA_PORT_INFO_INIT();
 	uint32_t n_params = 0;
 	struct spa_pod **params = NULL;
@@ -402,8 +400,7 @@ static int
 client_node_set_param(void *object, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
 	return spa_node_set_param(data->node->node, id, flags, param);
 }
 
@@ -414,8 +411,8 @@ client_node_set_io(void *object,
 		   uint32_t offset,
 		   uint32_t size)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	struct pw_memmap *old, *mm;
 	void *ptr;
 	uint32_t tag[5] = { data->remote_id, id, };
@@ -460,8 +457,8 @@ static int client_node_event(void *object, const struct spa_event *event)
 
 static int client_node_command(void *object, const struct spa_command *command)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	int res;
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
@@ -503,7 +500,8 @@ static int
 client_node_add_port(void *object, enum spa_direction direction, uint32_t port_id,
 		const struct spa_dict *props)
 {
-	struct pw_proxy *proxy = object;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	pw_log_warn("add port not supported");
 	pw_proxy_error(proxy, -ENOTSUP, "add port not supported");
 	return -ENOTSUP;
@@ -512,7 +510,8 @@ client_node_add_port(void *object, enum spa_direction direction, uint32_t port_i
 static int
 client_node_remove_port(void *object, enum spa_direction direction, uint32_t port_id)
 {
-	struct pw_proxy *proxy = object;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	pw_log_warn("remove port not supported");
 	pw_proxy_error(proxy, -ENOTSUP, "remove port not supported");
 	return -ENOTSUP;
@@ -549,8 +548,8 @@ client_node_port_set_param(void *object,
 			   uint32_t id, uint32_t flags,
 			   const struct spa_pod *param)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	struct pw_impl_port *port;
 	int res;
 
@@ -588,8 +587,8 @@ client_node_port_use_buffers(void *object,
 			     uint32_t flags,
 			     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	struct buffer *bid;
 	uint32_t i, j;
 	struct spa_buffer *b, **bufs;
@@ -735,8 +734,8 @@ client_node_port_set_io(void *object,
                         uint32_t offset,
                         uint32_t size)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	struct mix *mix;
 	struct pw_memmap *mm, *old;
 	void *ptr;
@@ -834,8 +833,8 @@ client_node_set_activation(void *object,
                         uint32_t offset,
                         uint32_t size)
 {
-	struct pw_proxy *proxy = object;
-	struct node_data *data = proxy->user_data;
+	struct node_data *data = object;
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	struct pw_impl_node *node = data->node;
 	struct pw_memmap *mm;
 	void *ptr;
@@ -919,22 +918,21 @@ static const struct pw_client_node_events client_node_events = {
 	.set_activation = client_node_set_activation,
 };
 
-static void do_node_init(struct pw_proxy *proxy)
+static void do_node_init(struct node_data *data)
 {
-	struct node_data *data = proxy->user_data;
 	struct pw_impl_port *port;
 
 	pw_log_debug("%p: init", data);
-	add_node_update(proxy, PW_CLIENT_NODE_UPDATE_PARAMS |
+	add_node_update(data, PW_CLIENT_NODE_UPDATE_PARAMS |
 				PW_CLIENT_NODE_UPDATE_INFO);
 
 	spa_list_for_each(port, &data->node->input_ports, link) {
-		add_port_update(proxy, port,
+		add_port_update(data, port,
 				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link) {
-		add_port_update(proxy, port,
+		add_port_update(data, port,
 				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
@@ -999,7 +997,7 @@ static void node_info_changed(void *data, const struct pw_node_info *info)
 		change_mask |= PW_CLIENT_NODE_UPDATE_PARAMS;
 		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
 	}
-	add_node_update((struct pw_proxy*)d->client_node, change_mask);
+	add_node_update(d, change_mask);
 }
 
 static void node_port_info_changed(void *data, struct pw_impl_port *port,
@@ -1019,7 +1017,7 @@ static void node_port_info_changed(void *data, struct pw_impl_port *port,
 		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_PARAMS;
 		change_mask |= PW_CLIENT_NODE_PORT_UPDATE_INFO;
 	}
-	add_port_update((struct pw_proxy*)d->client_node, port, change_mask);
+	add_port_update(d, port, change_mask);
 }
 
 static void node_active_changed(void *data, bool active)
@@ -1150,16 +1148,19 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	const char *str;
 	int i;
 
+	user_data_size = SPA_ROUND_UP_N(user_data_size, __alignof__(struct node_data));
+
 	client_node = pw_core_create_object(core,
 			"client-node",
 			PW_TYPE_INTERFACE_ClientNode,
 			PW_VERSION_CLIENT_NODE,
 			&node->properties->dict,
-			sizeof(struct node_data));
-        if (client_node == NULL)
-                return NULL;
+			user_data_size + sizeof(struct node_data));
+	if (client_node == NULL)
+		return NULL;
 
 	data = pw_proxy_get_user_data(client_node);
+	data = SPA_MEMBER(data, user_data_size, struct node_data);
 	data->pool = pw_core_get_mempool(core);
 	data->node = node;
 	data->do_free = do_free;
@@ -1192,11 +1193,11 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	spa_node_set_callbacks(node->node, &node_callbacks, data);
 	pw_impl_node_add_listener(node, &data->node_listener, &node_events, data);
 
-        pw_client_node_add_listener(data->client_node,
+	pw_client_node_add_listener(data->client_node,
 					  &data->client_node_listener,
 					  &client_node_events,
-					  client_node);
-        do_node_init(client_node);
+					  data);
+	do_node_init(data);
 
 	return client_node;
 }

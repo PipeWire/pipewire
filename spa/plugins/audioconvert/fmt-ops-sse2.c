@@ -544,6 +544,55 @@ conv_f32d_to_s32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 }
 
 static void
+conv_f32_to_s16_1_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src,
+		uint32_t n_samples)
+{
+	const float *s = src;
+	int16_t *d = dst;
+	uint32_t n, unrolled;
+	__m128 in[2];
+	__m128i out[2];
+	__m128 int_max = _mm_set1_ps(S16_MAX_F);
+        __m128 int_min = _mm_sub_ps(_mm_setzero_ps(), int_max);
+
+	if (SPA_IS_ALIGNED(s, 16))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm_mul_ps(_mm_load_ps(&s[n]), int_max);
+		in[1] = _mm_mul_ps(_mm_load_ps(&s[n+4]), int_max);
+		out[0] = _mm_cvtps_epi32(in[0]);
+		out[1] = _mm_cvtps_epi32(in[1]);
+		out[0] = _mm_packs_epi32(out[0], out[1]);
+		_mm_storeu_si128((__m128i*)(d+0), out[0]);
+		d += 8;
+	}
+	for(; n < n_samples; n++) {
+		in[0] = _mm_mul_ss(_mm_load_ss(&s[n]), int_max);
+		in[0] = _mm_min_ss(int_max, _mm_max_ss(in[0], int_min));
+		*d++ = _mm_cvtss_si32(in[0]);
+	}
+}
+
+void
+conv_f32d_to_s16d_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	uint32_t i, n_channels = conv->n_channels;
+	for(i = 0; i < n_channels; i++)
+		conv_f32_to_s16_1_sse2(conv, dst[i], src[i], n_samples);
+}
+
+void
+conv_f32_to_s16_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	conv_f32_to_s16_1_sse2(conv, dst[0], src[0], n_samples * conv->n_channels);
+}
+
+static void
 conv_f32d_to_s16_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_channels, uint32_t n_samples)
 {

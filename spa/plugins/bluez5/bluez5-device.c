@@ -259,20 +259,22 @@ static int impl_enum_params(void *object, int seq,
 		case 1:
 			if (!(device->connected_profiles &
 			      (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE)))
-				return 0;
+				goto next;
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("A2DP"));
+				SPA_PARAM_PROFILE_name, SPA_POD_String("A2DP"),
+				SPA_PARAM_PROFILE_description, SPA_POD_String("High Fidelity (A2DP)"));
 			break;
 		case 2:
 			if (!(device->connected_profiles &
 			      (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)))
-				return 0;
+				goto next;
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, id,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(2),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("HSP/HFP"));
+				SPA_PARAM_PROFILE_name, SPA_POD_String("HSP/HFP"),
+				SPA_PARAM_PROFILE_description, SPA_POD_String("Headset Audio (HSP/HFP)"));
 			break;
 		default:
 			return 0;

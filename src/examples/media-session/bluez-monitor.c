@@ -201,6 +201,7 @@ static void bluez5_remove_node(struct device *device, struct node *node)
 {
 	pw_log_debug("remove node %u", node->id);
 	spa_list_remove(&node->link);
+	sm_object_destroy(&node->snode->obj);
 	pw_impl_node_destroy(node->adapter);
 	pw_properties_free(node->props);
 	free(node);

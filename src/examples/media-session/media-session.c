@@ -44,6 +44,7 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 #include "extensions/session-manager.h"
+#include "extensions/client-node.h"
 
 #include <dbus/dbus.h>
 
@@ -1065,6 +1066,9 @@ create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle
 	struct sm_object *obj;
 
 	type = pw_proxy_get_type(handle, NULL);
+
+	if (strcmp(type, PW_TYPE_INTERFACE_ClientNode) == 0)
+		type = PW_TYPE_INTERFACE_Node;
 
 	info = get_object_info(impl, type);
 	if (info == NULL) {

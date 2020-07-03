@@ -350,6 +350,9 @@ static int suspend_node(struct pw_impl_node *this)
 
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));
+	if (res == -ENOTSUP)
+		res = spa_node_send_command(this->node,
+				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
 	if (res < 0 && res != -EIO)
 		pw_log_warn(NAME" %p: suspend node error %s", this, spa_strerror(res));
 

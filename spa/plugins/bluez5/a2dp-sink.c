@@ -1423,6 +1423,8 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
+	if (this->transport)
+		spa_hook_remove(&this->transport_listener);
 	spa_system_close(this->data_system, this->timerfd);
 	return 0;
 }

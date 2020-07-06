@@ -19,5 +19,5 @@ acp_lib = static_library(
   acp_sources,
   c_args : acp_c_args,
   include_directories : [configinc],
-  dependencies : [ alsa_dep, mathlib, ],
-  install : true)
+  dependencies : [ alsa_dep, mathlib, ]
+  )

@@ -273,7 +273,9 @@ struct global {
 			uint32_t client_id;	/* if of owner client */
 			uint32_t monitor;
 #define NODE_FLAG_HW_VOLUME	(1 << 0)
+#define NODE_FLAG_DEVICE_VOLUME	(1 << 1)
 #define NODE_FLAG_HW_MUTE	(1 << 4)
+#define NODE_FLAG_DEVICE_MUTE	(1 << 5)
 			uint32_t flags;
 			float volume;
 			bool mute;

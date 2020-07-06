@@ -194,6 +194,7 @@ struct spa_pod_fd {
 struct spa_pod_prop {
 	uint32_t key;			/**< key of property, list of valid keys depends on the
 					  *  object type */
+#define SPA_POD_PROP_FLAG_HARDWARE	(1u<<0)		/**< property for some sort of hardware parameter */
 	uint32_t flags;			/**< flags for property */
 	struct spa_pod value;
 	/* value follows */

@@ -344,7 +344,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	global_sync(g);
 }
 
-static void parse_props(struct global *g, const struct spa_pod *param, bool hw)
+static void parse_props(struct global *g, const struct spa_pod *param, bool device)
 {
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
@@ -353,11 +353,15 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool hw)
 		switch (prop->key) {
 		case SPA_PROP_volume:
 			spa_pod_get_float(&prop->value, &g->node_info.volume);
-			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME, hw);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME, device);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME,
+					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		case SPA_PROP_mute:
 			spa_pod_get_bool(&prop->value, &g->node_info.mute);
-			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_MUTE, hw);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_DEVICE_MUTE, device);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_MUTE,
+					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		case SPA_PROP_channelVolumes:
 		{
@@ -375,7 +379,9 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool hw)
 				 * params are updated */
 				g->init = true;
 			}
-			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME, hw);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME, device);
+			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME,
+					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		}
 		default:
@@ -806,7 +812,7 @@ static void node_event_param(void *object, int seq,
 
 	switch (id) {
 	case SPA_PARAM_Props:
-		if (!SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME | NODE_FLAG_HW_MUTE))
+		if (!SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME | NODE_FLAG_DEVICE_MUTE))
 			parse_props(g, param, false);
 		break;
 	default:

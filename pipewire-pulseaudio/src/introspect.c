@@ -450,7 +450,7 @@ static int set_volume(pa_context *c, struct global *g, const pa_cvolume *volume,
 
 	pw_log_info("card:%u global:%u flags:%08x", card_id, g->id, g->node_info.flags);
 
-	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME | NODE_FLAG_HW_MUTE) &&
+	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME | NODE_FLAG_DEVICE_MUTE) &&
 	    (cg = pa_context_find_global(c, card_id)) != NULL) {
 		if (mask & PA_SUBSCRIPTION_MASK_SINK)
 			id = cg->card_info.active_port_output;

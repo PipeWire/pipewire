@@ -181,13 +181,24 @@ static inline int pa_cvolume_compatible_with_channel_map(const pa_cvolume *v,
 
 static inline pa_volume_t pa_cvolume_max(const pa_cvolume *a)
 {
-    pa_volume_t m = PA_VOLUME_MUTED;
-    unsigned c;
-    for (c = 0; c < a->channels; c++)
-        if (a->values[c] > m)
-            m = a->values[c];
-    return m;
+	pa_volume_t m = PA_VOLUME_MUTED;
+	unsigned c;
+	for (c = 0; c < a->channels; c++)
+	        if (a->values[c] > m)
+			m = a->values[c];
+	return m;
 }
+
+static inline pa_volume_t pa_cvolume_min(const pa_cvolume *a)
+{
+	pa_volume_t m = PA_VOLUME_MAX;
+	unsigned c;
+	for (c = 0; c < a->channels; c++)
+		if (a->values[c] < m)
+			m = a->values[c];
+	return m;
+}
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

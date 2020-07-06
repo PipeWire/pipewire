@@ -127,6 +127,10 @@ struct acp_card_events {
 
 	void (*volume_changed) (void *data, struct acp_device *dev);
 	void (*mute_changed) (void *data, struct acp_device *dev);
+
+	void (*set_soft_volume) (void *data, struct acp_device *dev,
+			const float *volume, uint32_t n_volume);
+	void (*set_soft_mute) (void *data, struct acp_device *dev, bool mute);
 };
 
 struct acp_port {

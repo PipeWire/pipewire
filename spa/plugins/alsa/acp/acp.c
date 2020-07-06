@@ -30,6 +30,8 @@ int _acp_log_level = 1;
 acp_log_func _acp_log_func;
 void *_acp_log_data;
 
+#define VOLUME_ACCURACY (PA_VOLUME_NORM/100)  /* don't require volume adjustments to be perfectly correct. don't necessarily extend granularity in software unless the differences get greater than this level */
+
 static void profile_free(void *data)
 {
 }
@@ -53,6 +55,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.format.format_mask = m->sample_spec.format;
 	dev->device.format.rate_mask = m->sample_spec.rate;
 	dev->device.format.channels = m->channel_map.channels;
+	pa_cvolume_set(&dev->real_volume, m->channel_map.channels, PA_VOLUME_NORM);
 	for (i = 0; i < m->channel_map.channels; i++)
 		dev->device.format.map[i]= m->channel_map.map[i];
 	dev->direction = direction;
@@ -724,6 +727,7 @@ static int read_volume(pa_alsa_device *dev)
 
 static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 {
+	pa_card *impl = dev->card;
 	pa_cvolume r;
 
 	dev->real_volume = *v;
@@ -734,6 +738,46 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 	if (pa_alsa_path_set_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map,
 			&r, false, true) < 0)
 		return;
+
+	/* Shift down by the base volume, so that 0dB becomes maximum volume */
+	pa_sw_cvolume_multiply_scalar(&r, &r, dev->base_volume);
+
+	dev->hardware_volume = r;
+
+	if (dev->mixer_path->has_dB) {
+		pa_cvolume new_soft_volume;
+		bool accurate_enough;
+
+		/* Match exactly what the user requested by software */
+		pa_sw_cvolume_divide(&new_soft_volume, &dev->real_volume, &dev->hardware_volume);
+
+		/* If the adjustment to do in software is only minimal we
+		 * can skip it. That saves us CPU at the expense of a bit of
+		 * accuracy */
+		accurate_enough =
+			(pa_cvolume_min(&new_soft_volume) >= (PA_VOLUME_NORM - VOLUME_ACCURACY)) &&
+			(pa_cvolume_max(&new_soft_volume) <= (PA_VOLUME_NORM + VOLUME_ACCURACY));
+
+		pa_log_debug("Requested volume: %d", pa_cvolume_max(&dev->real_volume));
+		pa_log_debug("Got hardware volume: %d", pa_cvolume_max(&dev->hardware_volume));
+		pa_log_debug("Calculated software volume: %d (accurate-enough=%s)",
+				pa_cvolume_max(&new_soft_volume),
+				pa_yes_no(accurate_enough));
+
+		if (!accurate_enough && impl->events && impl->events->set_soft_volume) {
+			uint32_t i, n_volumes = new_soft_volume.channels;
+			float volumes[n_volumes];
+			for (i = 0; i < n_volumes; i++)
+				volumes[i] = ((float)new_soft_volume.values[i]) / PA_VOLUME_NORM;
+			impl->events->set_soft_volume(impl->user_data, &dev->device, volumes, n_volumes);
+		}
+
+	} else {
+		pa_log_debug("Wrote hardware volume: %d", pa_cvolume_max(&r));
+		/* We can't match exactly what the user requested, hence let's
+		 * at least tell the user about it */
+		dev->real_volume = r;
+	}
 }
 
 static int read_mute(pa_alsa_device *dev)
@@ -1302,15 +1346,23 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t n_volume)
 {
 	pa_alsa_device *d = (pa_alsa_device*)dev;
-	pa_cvolume v;
+	pa_card *impl = d->card;
 	uint32_t i;
-	v.channels = d->mapping->channel_map.channels;
+	pa_cvolume v;
 	if (n_volume == 0)
 		return -EINVAL;
+
+	v.channels = d->mapping->channel_map.channels;
 	for (i = 0; i < v.channels; i++)
 		v.values[i] = volume[i % n_volume] * PA_VOLUME_NORM;
-	if (d->set_volume)
+
+	if (d->set_volume) {
 		d->set_volume(d, &v);
+	} else {
+		d->real_volume = v;
+		if (impl->events && impl->events->set_soft_volume)
+			impl->events->set_soft_volume(impl->user_data, dev, volume, n_volume);
+	}
 	return 0;
 }
 
@@ -1330,8 +1382,16 @@ int acp_device_get_volume(struct acp_device *dev, float *volume, uint32_t n_volu
 int acp_device_set_mute(struct acp_device *dev, bool mute)
 {
 	pa_alsa_device *d = (pa_alsa_device*)dev;
-	if (d->set_mute)
+	pa_card *impl = d->card;
+	if (d->muted == mute)
+		return 0;
+	if (d->set_mute) {
 		d->set_mute(d, mute);
+	} else  {
+		d->muted = mute;
+		if (impl->events && impl->events->set_soft_mute)
+			impl->events->set_soft_mute(impl->user_data, dev, mute);
+	}
 	return 0;
 }
 
@@ -1341,6 +1401,7 @@ int acp_device_get_mute(struct acp_device *dev, bool *mute)
 	*mute = d->muted;
 	return 0;
 }
+
 void acp_set_log_func(acp_log_func func, void *data)
 {
 	_acp_log_func = func;

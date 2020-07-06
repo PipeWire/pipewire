@@ -378,7 +378,7 @@ static void device_marshal_event(void *object, const struct spa_event *event)
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 
-	b = pw_protocol_native_begin_proxy(proxy, SPA_DEVICE_EVENT_RESULT, NULL);
+	b = pw_protocol_native_begin_proxy(proxy, SPA_DEVICE_EVENT_EVENT, NULL);
 
 	spa_pod_builder_add_struct(b,
 			    SPA_POD_Pod(event));

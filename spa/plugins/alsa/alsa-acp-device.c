@@ -40,6 +40,7 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+#include <spa/monitor/event.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/parser.h>
@@ -344,26 +345,20 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 		float volumes[channels];
 		bool mute;
 
+		acp_device_get_mute(dev, &mute);
+		spa_zero(volumes);
+		acp_device_get_volume(dev, volumes, channels);
 
 		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_device, 0);
 		spa_pod_builder_int(b, dev->index);
 
 		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_props, 0);
 		spa_pod_builder_push_object(b, &f[1], SPA_TYPE_OBJECT_Props, id);
-		if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HW_MUTE)) {
-			acp_device_get_mute(dev, &mute);
-			spa_pod_builder_add(b,
-				SPA_PROP_mute, SPA_POD_Bool(mute),
-				0);
-		}
-		if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HW_VOLUME)) {
-			spa_zero(volumes);
-			acp_device_get_volume(dev, volumes, channels);
-			spa_pod_builder_add(b,
-				SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
-							SPA_TYPE_Float, channels, volumes),
-				0);
-		}
+		spa_pod_builder_add(b,
+			SPA_PROP_mute, SPA_POD_Bool(mute),
+			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+						SPA_TYPE_Float, channels, volumes),
+			0);
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	return spa_pod_builder_pop(b, &f[0]);
@@ -660,6 +655,57 @@ static void on_mute_changed(void *data, struct acp_device *dev)
 	emit_info(this, false);
 }
 
+static void on_set_soft_volume(void *data, struct acp_device *dev,
+		const float *volume, uint32_t n_volume)
+{
+	struct impl *this = data;
+	struct spa_event *event;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_frame f[1];
+
+	spa_log_debug(this->log, "device %s soft volume %f", dev->name, volume[0]);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_EVENT_Device, SPA_DEVICE_EVENT_ObjectConfig);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Object, 0);
+	spa_pod_builder_int(&b, dev->index);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
+			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+						SPA_TYPE_Float, n_volume, volume));
+	event = spa_pod_builder_pop(&b, &f[0]);
+
+	spa_device_emit_event(&this->hooks, event);
+}
+
+static void on_set_soft_mute(void *data, struct acp_device *dev,
+		bool mute)
+{
+	struct impl *this = data;
+	struct spa_event *event;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_frame f[1];
+
+	spa_log_debug(this->log, "device %s soft mute %d", dev->name, mute);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_EVENT_Device, SPA_DEVICE_EVENT_ObjectConfig);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Object, 0);
+	spa_pod_builder_int(&b, dev->index);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
+			SPA_PROP_mute, SPA_POD_Bool(mute));
+	event = spa_pod_builder_pop(&b, &f[0]);
+
+	spa_device_emit_event(&this->hooks, event);
+}
+
 struct acp_card_events card_events = {
 	ACP_VERSION_CARD_EVENTS,
 	.props_changed = card_props_changed,
@@ -668,6 +714,8 @@ struct acp_card_events card_events = {
 	.port_available = card_port_available,
 	.volume_changed = on_volume_changed,
 	.mute_changed = on_mute_changed,
+	.set_soft_volume = on_set_soft_volume,
+	.set_soft_mute = on_set_soft_mute,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)

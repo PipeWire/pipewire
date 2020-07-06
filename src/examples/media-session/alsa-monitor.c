@@ -33,6 +33,7 @@
 #include <alsa/asoundlib.h>
 
 #include <spa/monitor/device.h>
+#include <spa/monitor/event.h>
 #include <spa/node/node.h>
 #include <spa/node/keys.h>
 #include <spa/utils/result.h>
@@ -41,6 +42,7 @@
 #include <spa/utils/keys.h>
 #include <spa/param/props.h>
 #include <spa/pod/builder.h>
+#include <spa/pod/parser.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/pod.h>
 #include <spa/support/dbus.h>
@@ -351,10 +353,38 @@ static void alsa_device_object_info(void *data, uint32_t id,
 	}
 }
 
+static void alsa_device_event(void *data, const struct spa_event *event)
+{
+	struct device *device = data;
+	struct node *node;
+	uint32_t id, type;
+	struct spa_pod *props = NULL;
+
+	if (spa_pod_parse_object(&event->pod,
+			SPA_TYPE_EVENT_Device, &type,
+			SPA_EVENT_DEVICE_Object, SPA_POD_Int(&id),
+			SPA_EVENT_DEVICE_Props, SPA_POD_OPT_Pod(&props)) < 0)
+		return;
+
+	if ((node = alsa_find_node(device, id)) == NULL)
+		return;
+
+	switch (type) {
+	case SPA_DEVICE_EVENT_ObjectConfig:
+		if (props)
+			pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
+				SPA_PARAM_Props, 0, props);
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct spa_device_events alsa_device_events = {
 	SPA_VERSION_DEVICE_EVENTS,
 	.info = alsa_device_info,
-	.object_info = alsa_device_object_info
+	.object_info = alsa_device_object_info,
+	.event = alsa_device_event,
 };
 
 static struct device *alsa_find_device(struct impl *impl, uint32_t id)

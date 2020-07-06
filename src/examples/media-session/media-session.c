@@ -1735,16 +1735,18 @@ static const struct {
 	const char *name;
 	const char *desc;
 	int (*start)(struct sm_media_session *sess);
+	const char *props;
 
 } modules[] = {
-	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start },
-	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start },
-	{ "v4l2", "video for linux udev detection", sm_v4l2_monitor_start },
-	{ "libcamera", "libcamera udev detection", sm_libcamera_monitor_start },
-	{ "bluez5", "bluetooth support", sm_bluez5_monitor_start },
-	{ "metadata", "export metadata API", sm_metadata_start },
-	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start },
-	{ "policy-node", "configure and link nodes", sm_policy_node_start },
+	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start, NULL },
+	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start, NULL },
+	{ "alsa-acp", "alsa card profile udev detection", sm_alsa_monitor_start, "alsa.use-acp=true" },
+	{ "v4l2", "video for linux udev detection", sm_v4l2_monitor_start, NULL },
+	{ "libcamera", "libcamera udev detection", sm_libcamera_monitor_start, NULL },
+	{ "bluez5", "bluetooth support", sm_bluez5_monitor_start, NULL },
+	{ "metadata", "export metadata API", sm_metadata_start, NULL },
+	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start, NULL },
+	{ "policy-node", "configure and link nodes", sm_policy_node_start, NULL },
 };
 
 static int opt_contains(const char *opt, const char *val)
@@ -1833,9 +1835,8 @@ int main(int argc, char *argv[])
 	if (impl.this.props == NULL)
 		return -1;
 
-	spa_dict_for_each(item, &impl.this.props->dict) {
+	spa_dict_for_each(item, &impl.this.props->dict)
 		pw_log_info("  '%s' = '%s'", item->key, item->value);
-	}
 
 	impl.loop = pw_main_loop_new(NULL);
 	if (impl.loop == NULL)
@@ -1882,6 +1883,14 @@ int main(int argc, char *argv[])
 		const char *name = modules[i].name;
 		if (opt_contains(opt_enabled, name) &&
 		    !opt_contains(opt_disabled, name)) {
+			if (modules[i].props) {
+				struct pw_properties *props;
+				props = pw_properties_new_string(modules[i].props);
+				if (props) {
+					pw_properties_update(impl.this.props, &props->dict);
+					pw_properties_free(props);
+				}
+			}
 			pw_log_info("enable: %s", name);
 			modules[i].start(&impl.this);
 		}

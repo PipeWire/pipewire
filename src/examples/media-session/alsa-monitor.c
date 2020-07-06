@@ -115,6 +115,8 @@ struct impl {
 
 	struct spa_source *jack_timeout;
 	struct pw_proxy *jack_device;
+
+	unsigned int use_acp:1;
 };
 
 #undef NAME
@@ -455,8 +457,12 @@ static int update_device_props(struct device *device)
 
 static void set_profile(struct device *device, int index)
 {
+	struct impl *impl = device->impl;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	if (impl->use_acp)
+		return;
 
 	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
 
@@ -670,7 +676,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	struct spa_handle *handle;
 	int res;
 	void *iface;
-	const char *card;
+	const char *card, *factory_name;
 
 	pw_log_debug("new device %u", id);
 
@@ -679,9 +685,13 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		return NULL;
 	}
 
+	if (impl->use_acp)
+		factory_name = SPA_NAME_API_ALSA_ACP_DEVICE;
+	else
+		factory_name = info->factory_name;
+
 	handle = pw_context_load_spa_handle(context,
-			info->factory_name,
-			info->props);
+			factory_name, info->props);
 	if (handle == NULL) {
 		res = -errno;
 		pw_log_error("can't make factory instance: %m");
@@ -834,6 +844,7 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	struct pw_context *context = session->context;
 	struct impl *impl;
 	void *iface;
+	const char *str;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl));
@@ -841,6 +852,9 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 		return -errno;
 
 	impl->session = session;
+
+	if ((str = pw_properties_get(session->props, "alsa.use-acp")) != NULL)
+		impl->use_acp = pw_properties_parse_bool(str);
 
 	if (session->dbus_connection)
 		impl->conn = spa_dbus_connection_get(session->dbus_connection);

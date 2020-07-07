@@ -1247,13 +1247,25 @@ struct server_data {
 static const char *get_default_name(pa_context *c, uint32_t mask)
 {
 	struct global *g;
-	const char *str;
+	const char *str, *name = NULL, *type, *key;
 
+	if (c->metadata) {
+		if (mask & PA_SUBSCRIPTION_MASK_SINK)
+			key = "http://pipewire.org/metadata/default-audio-sink";
+		else if (mask & PA_SUBSCRIPTION_MASK_SOURCE)
+			key = "http://pipewire.org/metadata/default-audio-source";
+		else
+			return NULL;
+
+		if (pa_metadata_get(c->metadata, PW_ID_CORE, key, &type, &name) <= 0)
+			name = NULL;
+	}
 	spa_list_for_each(g, &c->globals, link) {
 		if ((g->mask & mask) != mask)
 			continue;
 		if (g->props != NULL &&
-		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL)
+		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
+		    (name == NULL || strcmp(name, str) == 0))
 			return str;
 	}
 	return "unknown";

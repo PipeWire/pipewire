@@ -23,10 +23,12 @@
 #include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
+#include <extensions/metadata.h>
 
 #include <pulse/context.h>
 #include <pulse/timeval.h>
 #include <pulse/error.h>
+#include <pulse/xmalloc.h>
 
 #include "internal.h"
 
@@ -402,7 +404,7 @@ static struct global *find_node_for_route(pa_context *c, struct global *card, ui
 	spa_list_for_each(n, &c->globals, link) {
 		if (strcmp(n->type, PW_TYPE_INTERFACE_Node) != 0)
 			continue;
-		pw_log_info("%d/%d %d/%d",
+		pw_log_debug("%d/%d %d/%d",
 				n->node_info.device_id, card->id,
 				n->node_info.profile_device_id, device);
 		if (n->node_info.device_id != card->id)
@@ -936,6 +938,36 @@ struct global_info client_info = {
 	.destroy = client_destroy,
 };
 
+static int metadata_property(void *object,
+                        uint32_t subject,
+                        const char *key,
+                        const char *type,
+                        const char *value)
+{
+	struct global *global = object;
+	return pa_metadata_update(global, subject, key, type, value);
+}
+
+static const struct pw_metadata_events metadata_events = {
+	PW_VERSION_METADATA_EVENTS,
+	.property = metadata_property,
+};
+
+static void metadata_destroy(void *data)
+{
+	struct global *global = data;
+	pa_context *c = global->context;
+	if (c->metadata == global)
+		c->metadata = NULL;
+	pw_array_clear(&global->metadata_info.metadata);
+}
+
+struct global_info metadata_info = {
+	.version = PW_VERSION_METADATA,
+	.events = &metadata_events,
+	.destroy = metadata_destroy,
+};
+
 static void proxy_removed(void *data)
 {
 	struct global *g = data;
@@ -1091,6 +1123,12 @@ static int set_mask(pa_context *c, struct global *g)
 		    !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
 
+	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Metadata) == 0) {
+		if (c->metadata == NULL) {
+			ginfo = &metadata_info;
+			c->metadata = g;
+		}
+		pw_array_init(&g->metadata_info.metadata, 64);
 	} else {
 		return 0;
 	}
@@ -1529,19 +1567,56 @@ pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, 
 	return o;
 }
 
+struct default_node {
+	uint32_t mask;
+	pa_context_success_cb_t cb;
+	void *userdata;
+	char *name;
+	const char *key;
+};
+
+static void do_default_node(pa_operation *o, void *userdata)
+{
+	struct default_node *d = userdata;
+	pa_context *c = o->context;
+	struct global *g;
+	int error = 0;
+
+	pw_log_debug("%p", c);
+
+	g = pa_context_find_global_by_name(c, d->mask, d->name);
+	if (g == NULL) {
+		error = PA_ERR_NOENTITY;
+	} else if (c->metadata) {
+		pw_metadata_set_property(c->metadata->proxy,
+				PW_ID_CORE, d->key, "text/plain", d->name);
+	} else {
+		error = PA_ERR_NOTIMPLEMENTED;
+	}
+	if (error != 0)
+		pa_context_set_error(c, error);
+	if (d->cb)
+		d->cb(c, error != 0 ? -1 : 1, d->userdata);
+	pa_operation_done(o);
+	pa_xfree(d->name);
+}
+
 SPA_EXPORT
 pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
-	struct success_data *d;
+	struct default_node *d;
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	pa_context_ensure_registry(c);
+
+	o = pa_operation_new(c, NULL, do_default_node, sizeof(*d));
 	d = o->userdata;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->mask = PA_SUBSCRIPTION_MASK_SINK;
+	d->name = pa_xstrdup(name);
+	d->key = "http://pipewire.org/metadata/default-audio-sink",
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
-	pw_log_warn("Not Implemented");
 
 	return o;
 }
@@ -1550,15 +1625,18 @@ SPA_EXPORT
 pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
-	struct success_data *d;
+	struct default_node *d;
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	pa_context_ensure_registry(c);
+
+	o = pa_operation_new(c, NULL, do_default_node, sizeof(*d));
 	d = o->userdata;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->mask = PA_SUBSCRIPTION_MASK_SOURCE;
+	d->name = pa_xstrdup(name);
+	d->key = "http://pipewire.org/metadata/default-audio-source",
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
-	pw_log_warn("Not Implemented");
 
 	return o;
 }

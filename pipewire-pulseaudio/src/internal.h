@@ -310,6 +310,9 @@ struct global {
 		struct {
 			pa_client_info info;
 		} client_info;
+		struct {
+			struct pw_array metadata;
+		} metadata_info;
 	};
 };
 
@@ -350,6 +353,8 @@ struct pa_context {
 
 	int no_fail:1;
 	int disconnect:1;
+
+	struct global *metadata;
 };
 
 struct global *pa_context_find_global(pa_context *c, uint32_t id);
@@ -473,6 +478,11 @@ struct pa_operation
 pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb, size_t userdata_size);
 void pa_operation_done(pa_operation *o);
 int pa_operation_sync(pa_operation *o);
+
+int pa_metadata_update(struct global *global, uint32_t subject, const char *key,
+                        const char *type, const char *value);
+int pa_metadata_get(struct global *global, uint32_t subject, const char *key,
+                        const char **type, const char **value);
 
 #ifdef __cplusplus
 }

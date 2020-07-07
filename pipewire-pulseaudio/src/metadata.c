@@ -30,16 +30,25 @@ struct metadata_item {
 	char *value;
 };
 
+static void clear_item(struct metadata_item *it)
+{
+	free(it->key);
+	free(it->type);
+	free(it->value);
+}
+
 void remove_all(struct global *global, uint32_t subject, const char *key)
 {
 	struct metadata_item *it;
 	for (it = pw_array_first(&global->metadata_info.metadata);
              pw_array_check(&global->metadata_info.metadata, it);) {
 		if (it->subject == subject &&
-		    (key == NULL || it->key == NULL || strcmp(key, it->key) == 0))
+		    (key == NULL || it->key == NULL || strcmp(key, it->key) == 0)) {
+			clear_item(it);
 			pw_array_remove(&global->metadata_info.metadata, it);
-		else
+		} else {
 			it++;
+		}
 	}
 }
 

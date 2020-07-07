@@ -139,7 +139,7 @@ void pa_context_fail(PA_CONST pa_context *c, int error);
 #define PA_CHECK_VALIDITY(context, expression, error)			\
 do {									\
 	if (!(expression)) {						\
-		pw_log_trace("'%s' failed at %s:%u %s()",		\
+		pw_log_debug("'%s' failed at %s:%u %s()",		\
 			#expression, __FILE__, __LINE__, __func__);	\
 		return -pa_context_set_error((context), (error));	\
 	}								\
@@ -148,7 +148,7 @@ do {									\
 #define PA_CHECK_VALIDITY_RETURN_ANY(context, expression, error, value)	\
 do {									\
 	if (!(expression)) {						\
-		pw_log_trace("'%s' failed at %s:%u %s()",		\
+		pw_log_debug("'%s' failed at %s:%u %s()",		\
 			#expression, __FILE__, __LINE__, __func__);	\
 		pa_context_set_error((context), (error));		\
 		return value;						\

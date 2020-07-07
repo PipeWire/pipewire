@@ -554,13 +554,13 @@ static void stream_process(void *data)
 	if (s->direction == PA_STREAM_PLAYBACK) {
 		queue_output(s);
 
-		if (s->write_callback)
+		if (s->write_callback && s->state == PA_STREAM_READY)
 			s->write_callback(s, s->maxblock, s->write_userdata);
 	}
 	else {
 		pull_input(s);
 
-		if (s->read_callback && s->ready_bytes > 0)
+		if (s->read_callback && s->ready_bytes > 0 && s->state == PA_STREAM_READY)
 			s->read_callback(s, s->ready_bytes, s->read_userdata);
 	}
 }

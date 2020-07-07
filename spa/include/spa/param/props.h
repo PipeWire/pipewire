@@ -69,12 +69,15 @@ enum spa_prop {
 	SPA_PROP_START_Audio	= 0x10000,	/**< audio related properties */
 	SPA_PROP_waveType,
 	SPA_PROP_frequency,
-	SPA_PROP_volume,
-	SPA_PROP_mute,
+	SPA_PROP_volume,			/**< a volume (Float), 0.0 silence, 1.0 normal */
+	SPA_PROP_mute,				/**< mute (Bool) */
 	SPA_PROP_patternType,
 	SPA_PROP_ditherType,
 	SPA_PROP_truncate,
-	SPA_PROP_channelVolumes,
+	SPA_PROP_channelVolumes,		/**< a volume array, one volume per
+						  *  channel (Array of Float) */
+	SPA_PROP_volumeBase,			/**< a volume base (Float) */
+	SPA_PROP_volumeStep,			/**< a volume step (Float) */
 
 	SPA_PROP_START_Video	= 0x20000,	/**< video related properties */
 	SPA_PROP_brightness,

@@ -55,7 +55,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.format.format_mask = m->sample_spec.format;
 	dev->device.format.rate_mask = m->sample_spec.rate;
 	dev->device.format.channels = m->channel_map.channels;
-	pa_cvolume_set(&dev->real_volume, m->channel_map.channels, PA_VOLUME_NORM);
+	pa_cvolume_reset(&dev->real_volume, m->channel_map.channels);
 	for (i = 0; i < m->channel_map.channels; i++)
 		dev->device.format.map[i]= m->channel_map.map[i];
 	dev->direction = direction;
@@ -813,6 +813,8 @@ static void mixer_volume_init(pa_alsa_device *dev) {
         dev->read_volume = NULL;
         dev->set_volume = NULL;
         pa_log_info("Driver does not support hardware volume control, falling back to software volume control.");
+	dev->base_volume = PA_VOLUME_NORM;
+	dev->n_volume_steps = PA_VOLUME_NORM+1;
 	dev->device.flags &= ~ACP_DEVICE_HW_VOLUME;
     } else {
         dev->read_volume = read_volume;
@@ -846,6 +848,8 @@ static void mixer_volume_init(pa_alsa_device *dev) {
         pa_log_info("Using hardware volume control. Hardware dB scale %s.",
 			dev->mixer_path->has_dB ? "supported" : "not supported");
     }
+    dev->device.base_volume = (float)dev->base_volume / PA_VOLUME_NORM;
+    dev->device.volume_step = 1.0f / dev->n_volume_steps;
 
     if (!dev->mixer_path || !dev->mixer_path->has_mute) {
         dev->read_mute = NULL;

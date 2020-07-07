@@ -384,6 +384,12 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		}
+		case SPA_PROP_volumeBase:
+			spa_pod_get_float(&prop->value, &g->node_info.base_volume);
+			break;
+		case SPA_PROP_volumeStep:
+			spa_pod_get_float(&prop->value, &g->node_info.volume_step);
+			break;
 		default:
 			break;
 		}
@@ -1037,8 +1043,10 @@ static int set_mask(pa_context *c, struct global *g)
 			g->node_info.device_id = SPA_ID_INVALID;
 
 		ginfo = &node_info;
-		g->node_info.volume = 1.0;
+		g->node_info.volume = 1.0f;
 		g->node_info.mute = false;
+		g->node_info.base_volume = 1.0f;
+		g->node_info.volume_step = 1.0f / (PA_VOLUME_NORM+1);
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Port) == 0) {
 		if (g->props == NULL)
 			return 0;

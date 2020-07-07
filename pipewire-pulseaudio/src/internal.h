@@ -283,6 +283,8 @@ struct global {
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 			uint32_t device_id;		/* id of device (card) */
 			uint32_t profile_device_id;	/* id in profile */
+			float base_volume;
+			float volume_step;
 		} node_info;
 		struct {
 			uint32_t node_id;

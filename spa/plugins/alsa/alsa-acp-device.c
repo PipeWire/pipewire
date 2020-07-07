@@ -354,15 +354,23 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 
 		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_props, 0);
 		spa_pod_builder_push_object(b, &f[1], SPA_TYPE_OBJECT_Props, id);
+
 		spa_pod_builder_prop(b, SPA_PROP_mute,
 			SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HW_MUTE) ?
 			SPA_POD_PROP_FLAG_HARDWARE : 0);
 		spa_pod_builder_bool(b, mute);
+
 		spa_pod_builder_prop(b, SPA_PROP_channelVolumes,
 			SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HW_VOLUME) ?
 			SPA_POD_PROP_FLAG_HARDWARE : 0);
 		spa_pod_builder_array(b, sizeof(float), SPA_TYPE_Float,
 				channels, volumes);
+
+		spa_pod_builder_prop(b, SPA_PROP_volumeBase, SPA_POD_PROP_FLAG_READONLY);
+		spa_pod_builder_float(b, dev->base_volume);
+		spa_pod_builder_prop(b, SPA_PROP_volumeStep, SPA_POD_PROP_FLAG_READONLY);
+		spa_pod_builder_float(b, dev->volume_step);
+
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	return spa_pod_builder_pop(b, &f[0]);
@@ -653,7 +661,7 @@ static void on_volume_changed(void *data, struct acp_device *dev)
 static void on_mute_changed(void *data, struct acp_device *dev)
 {
 	struct impl *this = data;
-	spa_log_debug(this->log, "device %s mute changed", dev->name);
+	spa_log_info(this->log, "device %s mute changed", dev->name);
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);

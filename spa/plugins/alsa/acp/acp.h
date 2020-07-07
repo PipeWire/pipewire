@@ -169,6 +169,9 @@ struct acp_device {
 	char **device_strings;
 	struct acp_format format;
 
+	float base_volume;
+	float volume_step;
+
 	struct acp_port **ports;
 	uint32_t n_ports;
 };

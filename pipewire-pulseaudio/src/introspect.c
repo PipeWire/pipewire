@@ -149,9 +149,9 @@ static void sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		  i.flags |= PA_SINK_HW_MUTE_CTRL;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
-	i.base_volume = PA_VOLUME_NORM;
+	i.base_volume = g->node_info.base_volume * PA_VOLUME_NORM;
+	i.n_volume_steps = g->node_info.volume_step * (PA_VOLUME_NORM+1);
 	i.state = node_state_to_sink(info->state);
-	i.n_volume_steps = PA_VOLUME_NORM+1;
 	i.card = g->node_info.device_id;
 	i.n_ports = 0;
 	i.ports = NULL;
@@ -872,9 +872,9 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	i.flags = flags;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
-	i.base_volume = PA_VOLUME_NORM;
+	i.base_volume = g->node_info.base_volume * PA_VOLUME_NORM;
+	i.n_volume_steps = g->node_info.volume_step * (PA_VOLUME_NORM+1);
 	i.state = node_state_to_source(info->state);
-	i.n_volume_steps = PA_VOLUME_NORM+1;
 	i.card = g->node_info.device_id;
 	i.n_ports = 0;
 	i.ports = NULL;

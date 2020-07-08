@@ -1264,9 +1264,9 @@ static const char *get_default_name(pa_context *c, uint32_t mask)
 
 	if (c->metadata) {
 		if (mask & PA_SUBSCRIPTION_MASK_SINK)
-			key = "http://pipewire.org/metadata/default-audio-sink";
+			key = METADATA_DEFAULT_SINK;
 		else if (mask & PA_SUBSCRIPTION_MASK_SOURCE)
-			key = "http://pipewire.org/metadata/default-audio-source";
+			key = METADATA_DEFAULT_SOURCE;
 		else
 			return NULL;
 

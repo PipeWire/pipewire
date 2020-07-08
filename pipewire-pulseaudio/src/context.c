@@ -962,7 +962,18 @@ static int metadata_property(void *object,
                         const char *value)
 {
 	struct global *global = object;
-	return pa_metadata_update(global, subject, key, type, value);
+	int res;
+
+	if ((res = pa_metadata_update(global, subject, key, type, value)) < 0)
+		return res;
+
+	if (key) {
+		if (strcmp(key, METADATA_DEFAULT_SINK) == 0 ||
+		    strcmp(key, METADATA_DEFAULT_SOURCE) == 0) {
+			emit_event(global->context, global, PA_SUBSCRIPTION_EVENT_CHANGE);
+		}
+	}
+	return res;
 }
 
 static const struct pw_metadata_events metadata_events = {
@@ -1144,6 +1155,8 @@ static int set_mask(pa_context *c, struct global *g)
 		if (c->metadata == NULL) {
 			ginfo = &metadata_info;
 			c->metadata = g;
+			g->mask = PA_SUBSCRIPTION_MASK_SERVER;
+			g->event = PA_SUBSCRIPTION_EVENT_SERVER;
 		}
 		pw_array_init(&g->metadata_info.metadata, 64);
 	} else {
@@ -1630,7 +1643,7 @@ pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_co
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SINK;
 	d->name = pa_xstrdup(name);
-	d->key = "http://pipewire.org/metadata/default-audio-sink",
+	d->key = METADATA_DEFAULT_SINK;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -1650,7 +1663,7 @@ pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SOURCE;
 	d->name = pa_xstrdup(name);
-	d->key = "http://pipewire.org/metadata/default-audio-source",
+	d->key = METADATA_DEFAULT_SOURCE;
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);

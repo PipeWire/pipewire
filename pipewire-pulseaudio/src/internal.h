@@ -480,6 +480,9 @@ pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb
 void pa_operation_done(pa_operation *o);
 int pa_operation_sync(pa_operation *o);
 
+#define METADATA_DEFAULT_SINK		"default.audio.sink.name"
+#define METADATA_DEFAULT_SOURCE		"default.audio.source.name"
+
 int pa_metadata_update(struct global *global, uint32_t subject, const char *key,
                         const char *type, const char *value);
 int pa_metadata_get(struct global *global, uint32_t subject, const char *key,

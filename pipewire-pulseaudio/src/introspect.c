@@ -137,7 +137,7 @@ static void sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->node_info.mute;
 	i.monitor_source = g->node_info.monitor;
-	i.monitor_source_name = "unknown";
+	i.monitor_source_name = pa_context_find_global_name(c, i.monitor_source);
 	i.latency = 0;
 	i.driver = "PipeWire";
 	i.flags = PA_SINK_HARDWARE |
@@ -828,17 +828,31 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
 	enum pa_source_flags flags;
+	bool monitor;
 
 	flags = PA_SOURCE_LATENCY | PA_SOURCE_DYNAMIC_LATENCY |
 		  PA_SOURCE_DECIBEL_VOLUME;
 
+	monitor = (g->mask & PA_SUBSCRIPTION_MASK_SINK) != 0;
+
 	spa_zero(i);
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)))
+
+	i.proplist = pa_proplist_new_dict(info->props);
+
+	if (monitor) {
+		if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)))
+			pa_proplist_setf(i.proplist, PW_KEY_NODE_NAME, "%s.monitor", str);
+		if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)))
+			pa_proplist_setf(i.proplist, PW_KEY_NODE_DESCRIPTION, "Monitor or %s", str);
+	}
+
+	if ((str = pa_proplist_gets(i.proplist, PW_KEY_NODE_NAME)))
 		i.name = str;
 	else
 		i.name = "unknown";
+
 	i.index = g->id;
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)))
+	if ((str = pa_proplist_gets(i.proplist, PW_KEY_NODE_DESCRIPTION)))
 		i.description = str;
 	else
 		i.description = "unknown";
@@ -854,9 +868,9 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->node_info.mute;
-	if (g->mask & PA_SUBSCRIPTION_MASK_SINK) {
+	if (monitor) {
 		i.monitor_of_sink = g->id;
-		i.monitor_of_sink_name = "unknown";
+		i.monitor_of_sink_name = pa_context_find_global_name(c, g->id);
 		i.index = g->node_info.monitor;
 	} else {
 		i.monitor_of_sink = PA_INVALID_INDEX;
@@ -870,7 +884,6 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	i.latency = 0;
 	i.driver = "PipeWire";
 	i.flags = flags;
-	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
 	i.base_volume = g->node_info.base_volume * PA_VOLUME_NORM;
 	i.n_volume_steps = g->node_info.volume_step * (PA_VOLUME_NORM+1);
@@ -879,7 +892,7 @@ static void source_callback(pa_context *c, struct global *g, struct source_data 
 	i.n_ports = 0;
 	i.ports = NULL;
 	i.active_port = NULL;
-	if ((cg = pa_context_find_global(c, i.card)) != NULL) {
+	if (!monitor && (cg = pa_context_find_global(c, i.card)) != NULL) {
 		pa_source_port_info *spi;
 		pa_card_info *ci = &cg->card_info.info;
 

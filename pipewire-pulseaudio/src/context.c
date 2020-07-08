@@ -138,6 +138,23 @@ struct global *pa_context_find_global(pa_context *c, uint32_t id)
 	return NULL;
 }
 
+const char *pa_context_find_global_name(pa_context *c, uint32_t id)
+{
+	struct global *g;
+	const char *name = NULL;
+
+	g = pa_context_find_global(c, id & PA_IDX_MASK_DSP);
+	if (g == NULL)
+		return "unknown object";
+
+	if (g->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) {
+		name = pw_properties_get(g->props, PW_KEY_NODE_NAME);
+	}
+	if (name == NULL)
+		name = "unknown";
+	return name;
+}
+
 struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name)
 {
 	struct global *g;

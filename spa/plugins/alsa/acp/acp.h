@@ -122,6 +122,8 @@ struct acp_card_events {
 	void (*profile_available) (void *data, uint32_t index,
 			enum acp_available old, enum acp_available available);
 
+	void (*port_changed) (void *data, uint32_t old_index, uint32_t new_index);
+
 	void (*port_available) (void *data, uint32_t index,
 			enum acp_available old, enum acp_available available);
 
@@ -144,7 +146,7 @@ struct acp_port {
 	enum acp_direction direction;
 	enum acp_available available;
 	char *available_group;		/* a string indentifier which determine the group of devices
-					 * handling the available state simulteneously */
+					 * handling the available state simultaneously */
 	enum acp_port_type type;
 
 	struct acp_dict props;

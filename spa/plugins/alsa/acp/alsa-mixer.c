@@ -1144,7 +1144,7 @@ int pa_alsa_path_select(pa_alsa_path *p, pa_alsa_setting *s, snd_mixer_t *m, boo
     pa_assert(m);
     pa_assert(p);
 
-    pa_log_debug("Activating path %s", p->name);
+    pa_log_info("Activating path %s", p->name);
     pa_alsa_path_dump(p);
 
     /* First turn on hw mute if available, to avoid noise

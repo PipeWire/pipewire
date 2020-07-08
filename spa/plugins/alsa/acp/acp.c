@@ -688,7 +688,7 @@ static int mixer_callback(snd_mixer_elem_t *elem, unsigned int mask)
     if (mask == SND_CTL_EVENT_MASK_REMOVE)
         return 0;
 
-    pa_log_debug("%p mixer changed %d", dev, mask);
+    pa_log_info("%p mixer changed %d", dev, mask);
 
     if (mask & SND_CTL_EVENT_MASK_VALUE) {
 	    if (dev->read_volume)
@@ -715,7 +715,7 @@ static int read_volume(pa_alsa_device *dev)
 		return 0;
 
 	dev->real_volume = r;
-	pa_log_debug("New hardware volume:");
+	pa_log_info("New hardware volume:");
 	for (i = 0; i < r.channels; i++)
 		pa_log_debug("  %d: %d", i, r.values[i]);
 
@@ -792,7 +792,7 @@ static int read_mute(pa_alsa_device *dev)
 		return 0;
 
 	dev->muted = mute;
-	pa_log_debug("New muted: %d", mute);
+	pa_log_info("New hardware muted: %d", mute);
 
 	if (impl->events && impl->events->mute_changed)
 		impl->events->mute_changed(impl->user_data, &dev->device);
@@ -862,10 +862,6 @@ static void mixer_volume_init(pa_alsa_device *dev) {
         pa_log_info("Using hardware mute control.");
 	dev->device.flags |= ACP_DEVICE_HW_MUTE;
     }
-    if (dev->read_volume)
-	    dev->read_volume(dev);
-    if (dev->read_mute)
-	    dev->read_mute(dev);
 }
 
 
@@ -1007,6 +1003,10 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	if (setup_mixer(impl, dev, ignore_dB) < 0)
 		return -1;
 
+	if (dev->read_volume)
+		dev->read_volume(dev);
+	if (dev->read_mute)
+		dev->read_mute(dev);
 	return 0;
 }
 
@@ -1303,20 +1303,21 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 {
 	pa_alsa_device *d = (pa_alsa_device*)dev;
 	pa_card *impl = d->card;
-	pa_device_port *p;
+	pa_device_port *p, *old = d->active_port;
+	int res;
 
 	if (port_index >= impl->card.n_ports)
 		return -EINVAL;
 
 	p = (pa_device_port*)impl->card.ports[port_index];
-	if (p == d->active_port)
+	if (p == old)
 		return 0;
 
 	if (!pa_hashmap_get(d->ports, p->port.name))
 		return -EINVAL;
 
-	if (d->active_port)
-		d->active_port->port.flags &= ~ACP_PORT_ACTIVE;
+	if (old)
+		old->port.flags &= ~ACP_PORT_ACTIVE;
 	d->active_port = p;
 	p->port.flags |= ACP_PORT_ACTIVE;
 
@@ -1328,7 +1329,7 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 		mixer_volume_init(d);
 
 		sync_mixer(d, p);
-		return pa_alsa_ucm_set_port(d->ucm_context, p, true);
+		res = pa_alsa_ucm_set_port(d->ucm_context, p, true);
 	} else {
 		pa_alsa_port_data *data;
 
@@ -1337,6 +1338,7 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 		mixer_volume_init(d);
 
 		sync_mixer(d, p);
+		res = 0;
 #if 0
 		if (data->suspend_when_unavailable && p->available == PA_AVAILABLE_NO)
 			pa_sink_suspend(s, true, PA_SUSPEND_UNAVAILABLE);
@@ -1344,7 +1346,10 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 			pa_sink_suspend(s, false, PA_SUSPEND_UNAVAILABLE);
 #endif
 	}
-	return 0;
+	if (impl->events && impl->events->port_changed)
+		impl->events->port_changed(impl->user_data,
+				old ? old->port.index : 0, p->port.index);
+	return res;
 }
 
 int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t n_volume)
@@ -1359,6 +1364,10 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 	v.channels = d->mapping->channel_map.channels;
 	for (i = 0; i < v.channels; i++)
 		v.values[i] = volume[i % n_volume] * PA_VOLUME_NORM;
+
+	pa_log_info("Set %s volume: %d", d->set_volume ? "hardware" : "software", pa_cvolume_max(&v));
+	for (i = 0; i < v.channels; i++)
+		pa_log_debug("  %d: %d", i, v.values[i]);
 
 	if (d->set_volume) {
 		d->set_volume(d, &v);
@@ -1389,6 +1398,9 @@ int acp_device_set_mute(struct acp_device *dev, bool mute)
 	pa_card *impl = d->card;
 	if (d->muted == mute)
 		return 0;
+
+	pa_log_info("Set %s mute: %d", d->set_mute ? "hardware" : "software", mute);
+
 	if (d->set_mute) {
 		d->set_mute(d, mute);
 	} else  {

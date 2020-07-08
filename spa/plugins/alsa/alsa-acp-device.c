@@ -636,6 +636,21 @@ static void card_profile_available(void *data, uint32_t index,
 	emit_info(this, false);
 }
 
+static void card_port_changed(void *data, uint32_t old_index, uint32_t new_index)
+{
+	struct impl *this = data;
+	struct acp_card *card = this->card;
+	struct acp_port *op = card->ports[old_index];
+	struct acp_port *np = card->ports[new_index];
+
+	spa_log_info(this->log, "card port changed from %s to %s",
+			op->name, np->name);
+
+	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_info(this, false);
+}
+
 static void card_port_available(void *data, uint32_t index,
                 enum acp_available old, enum acp_available available)
 {
@@ -724,6 +739,7 @@ struct acp_card_events card_events = {
 	.props_changed = card_props_changed,
 	.profile_changed = card_profile_changed,
 	.profile_available = card_profile_available,
+	.port_changed = card_port_changed,
 	.port_available = card_port_available,
 	.volume_changed = on_volume_changed,
 	.mute_changed = on_mute_changed,

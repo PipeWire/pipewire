@@ -1357,9 +1357,12 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 	pa_alsa_device *d = (pa_alsa_device*)dev;
 	pa_card *impl = d->card;
 	uint32_t i;
-	pa_cvolume v;
+	pa_cvolume v, old_volume;
+
 	if (n_volume == 0)
 		return -EINVAL;
+
+	old_volume = d->real_volume;
 
 	v.channels = d->mapping->channel_map.channels;
 	for (i = 0; i < v.channels; i++)
@@ -1376,6 +1379,9 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 		if (impl->events && impl->events->set_soft_volume)
 			impl->events->set_soft_volume(impl->user_data, dev, volume, n_volume);
 	}
+	if (!pa_cvolume_equal(&d->real_volume, &old_volume))
+		if (impl->events && impl->events->volume_changed)
+			impl->events->volume_changed(impl->user_data, dev);
 	return 0;
 }
 
@@ -1396,7 +1402,9 @@ int acp_device_set_mute(struct acp_device *dev, bool mute)
 {
 	pa_alsa_device *d = (pa_alsa_device*)dev;
 	pa_card *impl = d->card;
-	if (d->muted == mute)
+	bool old_muted = d->muted;
+
+	if (old_muted == mute)
 		return 0;
 
 	pa_log_info("Set %s mute: %d", d->set_mute ? "hardware" : "software", mute);
@@ -1408,6 +1416,10 @@ int acp_device_set_mute(struct acp_device *dev, bool mute)
 		if (impl->events && impl->events->set_soft_mute)
 			impl->events->set_soft_mute(impl->user_data, dev, mute);
 	}
+	if (old_muted != mute)
+		if (impl->events && impl->events->mute_changed)
+			impl->events->mute_changed(impl->user_data, dev);
+
 	return 0;
 }
 

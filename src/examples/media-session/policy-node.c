@@ -301,8 +301,7 @@ static void session_create(void *data, struct sm_object *object)
 
 	if (res < 0) {
 		pw_log_warn(NAME" %p: can't handle global %d", impl, object->id);
-	}
-	else
+	} else
 		sm_media_session_schedule_rescan(impl->session);
 }
 
@@ -404,8 +403,7 @@ static int link_nodes(struct node *node, struct node *peer)
 	props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", node->id);
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->id);
-	pw_log_debug(NAME " %p: node %d -> node %d", impl,
-			node->id, peer->id);
+	pw_log_info("linking node %d -> node %d", node->id, peer->id);
 
 	sm_media_session_create_links(impl->session, &props->dict);
 
@@ -417,9 +415,9 @@ static int link_nodes(struct node *node, struct node *peer)
 static int rescan_node(struct impl *impl, struct node *n)
 {
 	struct spa_dict *props;
-        const char *str;
-        bool exclusive;
-        struct find_data find;
+	const char *str;
+	bool exclusive, reconnect;
+	struct find_data find;
 	struct pw_node_info *info;
 	struct node *peer;
 	struct sm_object *obj;
@@ -469,7 +467,13 @@ static int rescan_node(struct impl *impl, struct node *n)
 
 	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
 
+	str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
+	reconnect = str ? !pw_properties_parse_bool(str) : true;
+
 	str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
+	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%s", n->id,
+			exclusive, reconnect, str);
+
 	if (str != NULL) {
 		uint32_t path_id = atoi(str);
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
@@ -484,20 +488,22 @@ static int rescan_node(struct impl *impl, struct node *n)
 				goto do_link;
 			}
 		}
+		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
+				path_id, reconnect);
 	}
 
-	spa_list_for_each(peer, &impl->node_list, link)
-		find_node(&find, peer);
+	if (str == NULL || reconnect) {
+		spa_list_for_each(peer, &impl->node_list, link)
+			find_node(&find, peer);
+	}
 
 	if (find.node == NULL) {
 		struct sm_object *obj;
 
-		pw_log_warn(NAME " %p: no node found for %d", impl, n->id);
+		pw_log_warn("no node found for %d", n->id);
 
-		str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
-		if (str != NULL && pw_properties_parse_bool(str)) {
+		if (!reconnect)
 			sm_media_session_destroy_object(impl->session, n->id);
-		}
 
 		obj = sm_media_session_find_object(impl->session, n->client_id);
 		pw_log_debug(NAME " %p: client_id:%d object:%p type:%s", impl,
@@ -512,7 +518,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	peer = find.node;
 
 	if (exclusive && peer->obj->info->state == PW_NODE_STATE_RUNNING) {
-		pw_log_warn(NAME" %p: node %d busy, can't get exclusive access", impl, peer->id);
+		pw_log_warn("node %d busy, can't get exclusive access", peer->id);
 		return -EBUSY;
 	}
 	n->exclusive = exclusive;

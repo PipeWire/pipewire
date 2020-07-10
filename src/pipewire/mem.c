@@ -162,6 +162,8 @@ void pw_mempool_clear(struct pw_mempool *pool)
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
 	struct memblock *b;
 
+	pw_log_debug(NAME" %p: clear", pool);
+
 	spa_list_consume(b, &impl->blocks, link)
 		pw_memblock_free(&b->this);
 	pw_map_reset(&impl->map);
@@ -383,13 +385,17 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 	mm->this.offset = offset;
 	mm->this.size = size;
 	mm->this.ptr = SPA_MEMBER(m->ptr, range.start, void);
-	if (tag)
-		memcpy(mm->this.tag, tag, sizeof(mm->this.tag));
-
-	spa_list_append(&b->memmaps, &mm->link);
 
         pw_log_debug(NAME" %p: map:%p block:%p fd:%d ptr:%p (%d %d) mapping:%p ref:%d", p,
 			&mm->this, b, b->this.fd, mm->this.ptr, offset, size, m, m->ref);
+
+	if (tag) {
+		memcpy(mm->this.tag, tag, sizeof(mm->this.tag));
+		pw_log_debug(NAME" %p: tag:%d:%d:%d:%d:%d", p,
+			tag[0], tag[1], tag[2], tag[3], tag[4]);
+	}
+
+	spa_list_append(&b->memmaps, &mm->link);
 
 	return &mm->this;
 }
@@ -760,7 +766,8 @@ struct pw_memmap * pw_mempool_find_tag(struct pw_mempool *pool, uint32_t tag[5],
 	struct memblock *b;
 	struct memmap *mm;
 
-	pw_log_debug(NAME" %p: find tag %zd", pool, size);
+	pw_log_debug(NAME" %p: find tag %d:%d:%d:%d:%d size:%zd", pool,
+			tag[0], tag[1], tag[2], tag[3], tag[4], size);
 
 	spa_list_for_each(b, &impl->blocks, link) {
 		spa_list_for_each(mm, &b->memmaps, link) {

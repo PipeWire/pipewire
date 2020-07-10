@@ -1324,6 +1324,8 @@ static void node_free(void *data)
 	struct pw_impl_client_node *this = &impl->this;
 	struct node *node = &impl->node;
 	struct spa_system *data_system = node->data_system;
+	uint32_t tag[5] = { impl->node_id, };
+	struct pw_memmap *mm;
 
 	this->node = NULL;
 
@@ -1331,6 +1333,9 @@ static void node_free(void *data)
 	node_clear(node);
 
 	spa_hook_remove(&impl->node_listener);
+
+	while ((mm = pw_mempool_find_tag(impl->context->pool, tag, sizeof(uint32_t))) != NULL)
+		pw_memmap_free(mm);
 
 	if (this->resource)
 		pw_resource_destroy(this->resource);

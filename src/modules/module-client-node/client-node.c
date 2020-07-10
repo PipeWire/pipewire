@@ -147,7 +147,8 @@ struct impl {
 
 	struct pw_map io_map;
 	struct pw_memblock *io_areas;
-	struct pw_node_activation *activation;
+
+	struct pw_memblock *activation;
 
 	struct spa_hook node_listener;
 	struct spa_hook resource_listener;
@@ -1256,12 +1257,11 @@ void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_
 	struct pw_impl_node *node = this->node;
 	struct pw_impl_client *client = impl->node.client;
 	uint32_t node_id = global->id;
-	struct pw_memblock *m;
 
 	pw_log_debug(NAME " %p: %d", &impl->node, node_id);
 
-	m = pw_mempool_import_block(client->pool, node->activation);
-	if (m == NULL) {
+	impl->activation = pw_mempool_import_block(client->pool, node->activation);
+	if (impl->activation == NULL) {
 		pw_log_debug(NAME " %p: can't import block: %m", &impl->node);
 		return;
 	}
@@ -1275,7 +1275,7 @@ void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_
 	pw_client_node_resource_transport(this->resource,
 					  impl->other_fds[0],
 					  impl->other_fds[1],
-					  m->id,
+					  impl->activation->id,
 					  0,
 					  sizeof(struct pw_node_activation));
 
@@ -1342,6 +1342,8 @@ static void node_free(void *data)
 	if (this->resource)
 		pw_resource_destroy(this->resource);
 
+	if (impl->activation)
+		pw_memblock_unref(impl->activation);
 	if (impl->io_areas)
 		pw_memblock_unref(impl->io_areas);
 

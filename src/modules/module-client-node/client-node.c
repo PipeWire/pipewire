@@ -362,15 +362,14 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct node *this = object;
 	struct impl *impl = this->impl;
-	struct pw_memmap *mm;
+	struct pw_memmap *mm, *old;
 	uint32_t memid, mem_offset, mem_size;
 	uint32_t tag[5] = { impl->node_id, id, };
 
 	if (impl->this.flags & 1)
 		return 0;
 
-	if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
-		pw_memmap_free(mm);
+	old = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag));
 
 	if (data) {
 		mm = pw_mempool_import_map(this->client->pool,
@@ -386,6 +385,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
+	if (old != NULL)
+		pw_memmap_free(old);
 
 	if (this->resource == NULL)
 		return data == NULL ? 0 : -EIO;
@@ -674,7 +675,7 @@ static int do_port_set_io(struct impl *impl,
 	struct port *port;
 	struct mix *mix;
 	uint32_t tag[5] = { impl->node_id, direction, port_id, mix_id, id };
-	struct pw_memmap *mm;
+	struct pw_memmap *mm, *old;
 
 	pw_log_debug(NAME " %p: %s port %d.%d set io %p %zd", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
@@ -688,8 +689,7 @@ static int do_port_set_io(struct impl *impl,
 	if ((mix = find_mix(port, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
 
-	if ((mm = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag))) != NULL)
-		pw_memmap_free(mm);
+	old = pw_mempool_find_tag(this->client->pool, tag, sizeof(tag));
 
 	if (data) {
 		mm = pw_mempool_import_map(this->client->pool,
@@ -705,6 +705,8 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
+	if (old != NULL)
+		pw_memmap_free(old);
 
 	if (this->resource == NULL)
 		return data == NULL ? 0 : -EIO;

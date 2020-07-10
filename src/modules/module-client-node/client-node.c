@@ -1336,7 +1336,7 @@ static void node_free(void *data)
 
 	spa_hook_remove(&impl->node_listener);
 
-	while ((mm = pw_mempool_find_tag(impl->context->pool, tag, sizeof(uint32_t))) != NULL)
+	while ((mm = pw_mempool_find_tag(node->client->pool, tag, sizeof(uint32_t))) != NULL)
 		pw_memmap_free(mm);
 
 	if (this->resource)

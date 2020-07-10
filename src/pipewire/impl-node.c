@@ -576,6 +576,28 @@ static inline void insert_driver(struct pw_context *context, struct pw_impl_node
 	spa_list_append(&n->driver_link, &node->driver_link);
 }
 
+static void update_io(struct pw_impl_node *node)
+{
+	pw_log_debug(NAME" %p: id:%d", node, node->info.id);
+
+	if (spa_node_set_io(node->node,
+			    SPA_IO_Position,
+			    &node->rt.activation->position,
+			    sizeof(struct spa_io_position)) >= 0) {
+		pw_log_debug(NAME" %p: set position %p", node, &node->rt.activation->position);
+		node->rt.position = &node->rt.activation->position;
+	} else if (node->driver) {
+		pw_log_warn(NAME" %p: can't set position on driver", node);
+	}
+	if (spa_node_set_io(node->node,
+			    SPA_IO_Clock,
+			    &node->rt.activation->position.clock,
+			    sizeof(struct spa_io_clock)) >= 0) {
+		pw_log_debug(NAME" %p: set clock %p", node, &node->rt.activation->position.clock);
+		node->rt.clock = &node->rt.activation->position.clock;
+	}
+}
+
 SPA_EXPORT
 int pw_impl_node_register(struct pw_impl_node *this,
 		     struct pw_properties *properties)
@@ -637,6 +659,9 @@ int pw_impl_node_register(struct pw_impl_node *this,
 
 	pw_global_add_listener(this->global, &this->global_listener, &global_events, this);
 	pw_global_register(this->global);
+
+	if (this->node)
+		update_io(this);
 
 	spa_list_for_each(port, &this->input_ports, link)
 		pw_impl_port_register(port, NULL);
@@ -1516,22 +1541,9 @@ int pw_impl_node_set_implementation(struct pw_impl_node *node,
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
 	res = spa_node_add_listener(node->node, &node->listener, &node_events, node);
 
-	if (spa_node_set_io(node->node,
-			    SPA_IO_Position,
-			    &node->rt.activation->position,
-			    sizeof(struct spa_io_position)) >= 0) {
-		pw_log_debug(NAME" %p: set position %p", node, &node->rt.activation->position);
-		node->rt.position = &node->rt.activation->position;
-	} else if (node->driver) {
-		pw_log_warn(NAME" %p: can't set position on driver", node);
-	}
-	if (spa_node_set_io(node->node,
-			    SPA_IO_Clock,
-			    &node->rt.activation->position.clock,
-			    sizeof(struct spa_io_clock)) >= 0) {
-		pw_log_debug(NAME" %p: set clock %p", node, &node->rt.activation->position.clock);
-		node->rt.clock = &node->rt.activation->position.clock;
-	}
+	if (node->registered)
+		update_io(node);
+
 	return res;
 }
 

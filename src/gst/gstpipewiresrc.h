@@ -64,10 +64,12 @@ struct _GstPipeWireSrc {
   gint min_buffers;
   gint max_buffers;
   int fd;
+  gboolean resend_last;
 
   gboolean negotiated;
   gboolean flushing;
   gboolean started;
+  gboolean eos;
 
   gboolean is_live;
   GstClockTime min_latency;
@@ -85,6 +87,7 @@ struct _GstPipeWireSrc {
   struct pw_stream *stream;
   struct spa_hook stream_listener;
 
+  GstBuffer *last_buffer;
   GstStructure *properties;
 
   GstPipeWirePool *pool;

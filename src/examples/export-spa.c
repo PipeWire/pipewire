@@ -169,6 +169,8 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
+	pw_proxy_destroy(data.proxy);
+	pw_core_disconnect(data.core);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 

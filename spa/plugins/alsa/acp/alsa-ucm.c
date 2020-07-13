@@ -920,14 +920,15 @@ static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle,
         mdev = NULL;
         PA_DYNARRAY_FOREACH(dev, data->devices, idx) {
             mdev2 = get_mixer_device(dev, is_sink);
-            if (mdev && !pa_streq(mdev, mdev2)) {
+            if (mdev && mdev2 && !pa_streq(mdev, mdev2)) {
                 pa_log_error("Two mixer device names found ('%s', '%s'), using s/w volume", mdev, mdev2);
                 goto fail;
             }
-            mdev = mdev2;
+            if (mdev2)
+                mdev = mdev2;
         }
 
-        if (!(mixer_handle = pa_alsa_open_mixer_by_name(mixers, mdev, true))) {
+        if (mdev == NULL || !(mixer_handle = pa_alsa_open_mixer_by_name(mixers, mdev, true))) {
             pa_log_error("Failed to find a working mixer device (%s).", mdev);
             goto fail;
         }

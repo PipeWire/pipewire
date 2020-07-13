@@ -30,6 +30,7 @@
 
 #include <pipewire/pipewire.h>
 #include <gst/gstpipewirepool.h>
+#include <gst/gstpipewirecore.h>
 
 G_BEGIN_DECLS
 
@@ -75,12 +76,8 @@ struct _GstPipeWireSrc {
   GstClockTime min_latency;
   GstClockTime max_latency;
 
-  struct pw_thread_loop *loop;
-
-  struct pw_context *context;
-  struct pw_core *core;
+  GstPipeWireCore *core;
   struct spa_hook core_listener;
-  int last_error;
   int last_seq;
   int pending_seq;
 

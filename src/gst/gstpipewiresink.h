@@ -30,6 +30,7 @@
 
 #include <pipewire/pipewire.h>
 #include <gst/gstpipewirepool.h>
+#include <gst/gstpipewirecore.h>
 
 G_BEGIN_DECLS
 
@@ -83,14 +84,8 @@ struct _GstPipeWireSink {
   /* video state */
   gboolean negotiated;
 
-  struct pw_thread_loop *loop;
-
-  struct pw_context *context;
-  struct pw_core *core;
+  GstPipeWireCore *core;
   struct spa_hook core_listener;
-  int pending_seq;
-  int last_seq;
-  int last_error;
 
   struct pw_stream *stream;
   struct spa_hook stream_listener;

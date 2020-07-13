@@ -1,5 +1,6 @@
 pipewire_gst_sources = [
   'gstpipewire.c',
+  'gstpipewirecore.c',
   'gstpipewireclock.c',
   'gstpipewiredeviceprovider.c',
   'gstpipewireformat.c',
@@ -10,6 +11,7 @@ pipewire_gst_sources = [
 
 pipewire_gst_headers = [
   'gstpipewireclock.h',
+  'gstpipewirecore.h',
   'gstpipewiredeviceprovider.h',
   'gstpipewireformat.h',
   'gstpipewirepool.h',

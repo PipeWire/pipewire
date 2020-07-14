@@ -39,6 +39,7 @@
 #include <spa/support/system.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
+#include <spa/utils/result.h>
 
 #define NAME "evl-system"
 

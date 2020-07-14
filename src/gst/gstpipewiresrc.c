@@ -345,7 +345,7 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                    PROP_KEEPALIVE_TIME,
                                    g_param_spec_int ("keepalive-time",
                                                      "Keepalive Time",
-                                                     "Periodically send last buffer (in seconds, 0 = disabled)",
+                                                     "Periodically send last buffer (in milliseconds, 0 = disabled)",
                                                      0, G_MAXINT, DEFAULT_KEEPALIVE_TIME,
                                                      G_PARAM_READWRITE |
                                                      G_PARAM_STATIC_STRINGS));
@@ -917,7 +917,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     }
     timeout = FALSE;
     if (pwsrc->keepalive_time > 0) {
-      if (pw_thread_loop_timed_wait (pwsrc->core->loop, pwsrc->keepalive_time) == ETIMEDOUT)
+      if (pw_thread_loop_timed_wait (pwsrc->core->loop, (pwsrc->keepalive_time + 999) / 1000) == ETIMEDOUT)
         timeout = TRUE;
     } else {
       pw_thread_loop_wait (pwsrc->core->loop);

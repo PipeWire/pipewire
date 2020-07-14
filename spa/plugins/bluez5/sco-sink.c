@@ -53,7 +53,6 @@ struct props {
 	uint32_t max_latency;
 };
 
-#define FILL_FRAMES 2
 #define MAX_BUFFERS 32
 
 struct buffer {
@@ -72,6 +71,7 @@ struct port {
 	uint64_t info_all;
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
+	struct spa_io_rate_match *rate_match;
 	struct spa_param_info params[8];
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -80,7 +80,10 @@ struct port {
 	struct spa_list free;
 	struct spa_list ready;
 
-	unsigned int need_data:1;
+	struct buffer *current_buffer;
+	uint32_t ready_offset;
+	uint8_t write_buffer[4096];
+	uint32_t write_buffer_size;
 };
 
 struct impl {
@@ -112,30 +115,27 @@ struct impl {
 
 	/* Flags */
 	unsigned int started:1;
-	unsigned int following:1;
 
 	/* Sources */
 	struct spa_source source;
-	struct spa_source flush_source;
 
 	/* Timer */
 	int timerfd;
 	struct timespec now;
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
-	int threshold;
 
 	/* Times */
 	uint64_t start_time;
+	uint64_t total_samples;
 
-	/* Counts */
-	uint64_t sample_count;
+	/* MTU */
 	uint32_t write_mtu;
 };
 
 #define NAME "sco-sink"
 
-#define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
+#define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
 static const uint32_t default_min_latency = MIN_LATENCY;
 static const uint32_t default_max_latency = MAX_LATENCY;
@@ -223,12 +223,12 @@ static int impl_node_enum_params(void *object, int seq,
 	return 0;
 }
 
-static void set_timeout(struct impl *this, time_t sec, long nsec)
+static void set_timeout(struct impl *this, uint64_t timeout)
 {
 	struct itimerspec ts;
 
-	ts.it_value.tv_sec = sec;
-	ts.it_value.tv_nsec = nsec;
+	ts.it_value.tv_sec = timeout / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = timeout % SPA_NSEC_PER_SEC;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
 
@@ -237,62 +237,25 @@ static void set_timeout(struct impl *this, time_t sec, long nsec)
 	spa_loop_update_source(this->data_loop, &this->source);
 }
 
-static void reset_timeout(struct impl *this)
-{
-	set_timeout(this, 0, this->following ? 0 : 1);
-}
-
-
-static void set_next_timeout(struct impl *this, uint64_t now_time)
+static uint64_t get_next_timeout(struct impl *this, uint64_t now_time, uint64_t processed_samples)
 {
 	struct port *port = &this->port;
+	uint64_t playback_time = 0, elapsed_time = 0, next_time = 1;
 
-	/* Set the next timeout if not following, otherwise reset values */
-	if (!this->following) {
-		/* Get the elapsed time */
-		uint64_t elapsed_time = 0;
-		if (now_time > this->start_time)
-			elapsed_time = now_time - this->start_time;
+	this->total_samples += processed_samples;
 
-		/* Get the elapsed samples */
-		const uint64_t elapsed_samples = elapsed_time * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+	playback_time = (this->total_samples * SPA_NSEC_PER_SEC) / port->current_format.info.raw.rate;
+	if (now_time > this->start_time)
+		elapsed_time = now_time - this->start_time;
+	if (elapsed_time < playback_time)
+		next_time = playback_time - elapsed_time;
 
-		/* Get the queued samples (processed - elapsed) */
-		const uint64_t queued_samples = (this->sample_count - elapsed_samples);
-
-		/* Get the queued time */
-		const uint64_t queued_time = (queued_samples * SPA_NSEC_PER_SEC) / port->current_format.info.raw.rate;
-
-		/* Set the next timeout */
-		set_timeout (this, queued_time / SPA_NSEC_PER_SEC, queued_time % SPA_NSEC_PER_SEC);
-
-	} else {
-		this->start_time = now_time;
-		this->sample_count = 0;
-	}
-}
-
-static int do_reassign_follower(struct spa_loop *loop,
-			bool async,
-			uint32_t seq,
-			const void *data,
-			size_t size,
-			void *user_data)
-{
-	struct impl *this = user_data;
-	reset_timeout(this);
-	return 0;
-}
-
-static inline bool is_following(struct impl *this)
-{
-	return this->position && this->clock && this->position->clock.id != this->clock->id;
+	return next_time;
 }
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *this = object;
-	bool following;
 
 	spa_return_val_if_fail(object != NULL, -EINVAL);
 
@@ -307,12 +270,6 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		return -ENOENT;
 	}
 
-	following = is_following(this);
-	if (this->started && following != this->following) {
-		spa_log_debug(this->log, "sco-sink %p: reassign follower %d->%d", this, this->following, following);
-		this->following = following;
-		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
-	}
 	return 0;
 }
 
@@ -345,159 +302,104 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
-static bool write_data(struct impl *this, const uint8_t *data, uint32_t size, uint32_t *total_written)
-{
-	uint32_t local_total_written = 0;
-	const uint32_t mtu_size = this->write_mtu;
-
-	while (local_total_written <= (size - mtu_size)) {
-		const int bytes_written = write(this->sock_fd, data, mtu_size);
-		if (bytes_written < 0) {
-			spa_log_warn(this->log, "error writting data: %s", strerror(errno));
-			return false;
-		}
-
-		data += bytes_written;
-		local_total_written += bytes_written;
-	}
-
-	/* TODO: For now we assume the size is always a mutliple of mtu_size */
-	if (local_total_written != size)
-		spa_log_warn(this->log, "dropping some audio as buffer size is not multiple of mtu");
-
-	if (total_written)
-		*total_written = local_total_written;
-	return true;
-}
-
-static int render_buffers(struct impl *this, uint64_t now_time)
+static void flush_data(struct impl *this)
 {
 	struct port *port = &this->port;
+	struct spa_data *datas;
+	uint64_t next_timeout = 1;
 
-	/* Render the buffer */
-	while (!spa_list_is_empty(&port->ready)) {
-		uint8_t *src;
-		struct buffer *b;
-		struct spa_data *d;
-		uint32_t offset, size;
-		uint32_t total_written = 0;
+	/* get buffer */
+	if (!port->current_buffer) {
+		spa_return_if_fail(!spa_list_is_empty(&port->ready));
+		port->current_buffer = spa_list_first(&port->ready, struct buffer, link);
+		port->ready_offset = 0;
+	}
+	datas = port->current_buffer->buf->datas;
 
-		/* Get the buffer and datas */
-		b = spa_list_first(&port->ready, struct buffer, link);
-		d = b->buf->datas;
-
-		/* Get the data, offset and size */
-		src = d[0].data;
-		offset = d[0].chunk->offset;
-		size = d[0].chunk->size;
-
-		/* Write data */
-		if (!write_data(this, src + offset, size, &total_written)) {
-			port->need_data = true;
-			spa_list_remove(&b->link);
-			b->outstanding = true;
-			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
-			break;
-		}
-
-		/* Update the sample count */
-		this->sample_count += total_written / port->frame_size;
-
-		/* Remove the buffer and mark it as reusable */
-		spa_list_remove(&b->link);
-		b->outstanding = true;
-		spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+	/* if buffer has data, copy it into the write buffer */
+	if (datas[0].chunk->size - port->ready_offset > 0) {
+		uint32_t avail = SPA_MIN(this->write_mtu, datas[0].chunk->size - port->ready_offset);
+		uint32_t size = (avail + port->write_buffer_size) > this->write_mtu ?
+			this->write_mtu - port->write_buffer_size : avail;
+		memcpy(port->write_buffer + port->write_buffer_size,
+			(uint8_t *)datas[0].data + port->ready_offset,
+			size);
+		port->write_buffer_size += size;
+		port->ready_offset += size;
 	}
 
-	/* Set next timeout */
-	set_next_timeout(this, now_time);
-
-	return 0;
-}
-
-static void fill_socket(struct impl *this)
-{
-	struct port *port = &this->port;
-	static const uint8_t zero_buffer[1024 * 4] = { 0, };
-	uint32_t fill_size = this->write_mtu;
-	uint32_t fills = 0;
-	uint32_t total_written = 0;
-
-
-	/* Fill the socket */
-	while (fills < FILL_FRAMES) {
-		uint32_t written = 0;
-
-		/* Write the data */
-		if (!write_data(this, zero_buffer, fill_size, &written))
-			break;
-
-		total_written += written;
-		fills++;
-	}
-
-	/* Update the sample count */
-	this->sample_count += total_written / port->frame_size;
-}
-
-static void sco_on_flush(struct spa_source *source)
-{
-	struct impl *this = source->data;
-	uint64_t now_time;
-
-	spa_log_trace(this->log, NAME" %p: flushing", this);
-
-	if ((source->rmask & SPA_IO_OUT) == 0) {
-		spa_log_warn(this->log, "error %d", source->rmask);
-		if (this->flush_source.loop)
-			spa_loop_remove_source(this->data_loop, &this->flush_source);
-		this->source.mask = 0;
-		spa_loop_update_source(this->data_loop, &this->source);
+	/* otherwise request a new buffer */
+	else {
+		spa_list_remove(&port->current_buffer->link);
+		port->current_buffer->outstanding = true;
+		port->current_buffer = NULL;
+		port->io->status = SPA_STATUS_NEED_DATA;
+		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 		return;
 	}
 
-	/* Get the current time */
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
-	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
+	/* send the data if the write buffer is full */
+	if (port->write_buffer_size >= this->write_mtu) {
+		uint64_t now_time;
+		int written;
 
-	/* Render buffers */
-	render_buffers(this, now_time);
+		spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
+		now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
+		if (this->start_time == 0)
+			this->start_time = now_time;
+
+		written = write(this->sock_fd, port->write_buffer, this->write_mtu);
+		if (written <= 0) {
+			spa_log_debug(this->log, "failed to write data");
+			goto stop;
+		}
+		port->write_buffer_size = 0;
+		spa_log_debug(this->log, "wrote socket data %d", written);
+
+		next_timeout = get_next_timeout(this, now_time, written / port->frame_size);
+	}
+
+
+	/* schedule next timeout */
+	set_timeout(this, next_timeout);
+	return;
+
+stop:
+	if (this->source.loop)
+		spa_loop_remove_source(this->data_loop, &this->source);
 }
 
 static void sco_on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct port *port = &this->port;
-	uint64_t exp, now_time;
-	struct spa_io_buffers *io = port->io;
+	uint64_t exp;
 
 	/* Read the timerfd */
 	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
 		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
 
-	/* Get the current time */
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
-	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
-
-	/* If this is the first timeout, set the start time and fill the socked */
+	/* Reset if start time is 0 */
 	if (this->start_time == 0) {
-		fill_socket(this);
-		this->start_time = now_time;
+		this->total_samples = 0;
+		port->ready_offset = 0;
+		port->write_buffer_size = 0;
 	}
 
-	/* Notify we need a new buffer if we have processed all of them */
-	if (spa_list_is_empty(&port->ready) || port->need_data) {
-		io->status = SPA_STATUS_NEED_DATA;
+	/* delay if no buffers available */
+	if (spa_list_is_empty(&port->ready)) {
+		set_timeout(this, this->write_mtu / port->frame_size * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
+		port->io->status = SPA_STATUS_NEED_DATA;
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
+		return;
 	}
 
-	/* Render the buffers */
-	render_buffers(this, now_time);
+	/* Flush data */
+	flush_data(this);
 }
 
 static int do_start(struct impl *this)
 {
-	int val;
 	bool do_accept;
 
 	/* Dont do anything if the node has already started */
@@ -507,9 +409,6 @@ static int do_start(struct impl *this)
 	/* Make sure the transport is valid */
 	spa_return_val_if_fail(this->transport != NULL, -EIO);
 
-	/* Set the following flag */
-	this->following = is_following(this);
-
 	/* Do accept if Gateway; otherwise do connect for Head Unit */
 	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
 
@@ -517,22 +416,6 @@ static int do_start(struct impl *this)
 	this->sock_fd = spa_bt_transport_acquire(this->transport, do_accept);
 	if (this->sock_fd < 0)
 		return -1;
-
-	/* Set the write MTU */
-	this->write_mtu = this->transport->write_mtu;
-	val = FILL_FRAMES * this->transport->write_mtu;
-	if (setsockopt(this->sock_fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "sco-sink %p: SO_SNDBUF %m", this);
-
-	/* Set the read MTU */
-	val = FILL_FRAMES * this->transport->read_mtu;
-	if (setsockopt(this->sock_fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "sco-sink %p: SO_RCVBUF %m", this);
-
-	/* Set the priority */
-	val = 6;
-	if (setsockopt(this->sock_fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "SO_PRIORITY failed: %m");
 
 	/* Add the timeout callback */
 	this->source.data = this;
@@ -542,16 +425,8 @@ static int do_start(struct impl *this)
 	this->source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->source);
 
-	/* Add the flush callback */
-	this->flush_source.data = this;
-	this->flush_source.fd = this->sock_fd;
-	this->flush_source.func = sco_on_flush;
-	this->flush_source.mask = 0;
-	this->flush_source.rmask = 0;
-	spa_loop_add_source(this->data_loop, &this->flush_source);
-
-	/* Reset timeout to start processing */
-	reset_timeout(this);
+	/* start processing */
+	set_timeout(this, 1);
 
 	/* Set the started flag */
 	this->started = true;
@@ -568,11 +443,10 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 
+	this->start_time = 0;
+	set_timeout(this, 0);
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
-	reset_timeout (this);
-	if (this->flush_source.loop)
-		spa_loop_remove_source(this->data_loop, &this->flush_source);
 
 	return 0;
 }
@@ -787,10 +661,10 @@ impl_node_port_enum_params(void *object, int seq,
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 2, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-							this->props.min_latency * port->frame_size,
+							this->props.max_latency * port->frame_size,
 							this->props.min_latency * port->frame_size,
 							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->frame_size),
@@ -804,6 +678,25 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+			break;
+		default:
+			return 0;
+		}
+		break;
+
+	case SPA_PARAM_IO:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_RateMatch),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_rate_match)));
 			break;
 		default:
 			return 0;
@@ -861,7 +754,6 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->frame_size = info.info.raw.channels * 2;
 		port->current_format = info;
 		port->have_format = true;
-		this->threshold = this->props.min_latency;
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -940,7 +832,6 @@ impl_node_port_use_buffers(void *object,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
-		this->threshold = buffers[i]->datas[0].maxsize / port->frame_size;
 	}
 	port->n_buffers = n_buffers;
 
@@ -966,6 +857,9 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
+	case SPA_IO_RateMatch:
+		port->rate_match = data;
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -982,7 +876,6 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *port;
 	struct spa_io_buffers *io;
-	uint64_t now_time;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -990,11 +883,8 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
-	now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
-
 	if (!spa_list_is_empty(&port->ready))
-		render_buffers(this, now_time);
+		flush_data(this);
 
 	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
@@ -1009,12 +899,8 @@ static int impl_node_process(void *object)
 
 		spa_list_append(&port->ready, &b->link);
 		b->outstanding = false;
-		port->need_data = false;
 
-		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / port->frame_size,
-				this->props.max_latency);
-
-		render_buffers(this, now_time);
+		flush_data(this);
 
 		io->status = SPA_STATUS_OK;
 	}
@@ -1050,7 +936,7 @@ static void transport_destroy(void *data)
 
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
-        .destroy = transport_destroy,
+	.destroy = transport_destroy,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
@@ -1162,6 +1048,16 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 	this->sock_fd = -1;
+
+	/* TODO: For now, we always use an MTU size of 48 bytes like bluezalsa
+	 * because the MTU size returned by the kernel is incorrect (or our
+	 * interpretation of it) */
+#if 0
+	this->write_mtu = this->transport->write_mtu;
+#else
+	this->write_mtu = 48;
+#endif
+	spa_return_val_if_fail(this->write_mtu <= sizeof(port->write_buffer), -EINVAL);
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);

@@ -366,7 +366,7 @@ void pw_thread_loop_wait(struct pw_thread_loop *loop)
  *
  * \param loop a \ref pw_thread_loop to signal
  * \param wait_max_sec the maximum number of seconds to wait for a \ref pw_thread_loop_signal()
- * \return 0 on success or ETIMEDOUT on timeout
+ * \return 0 on success or ETIMEDOUT on timeout or a negative errno value.
  *
  * \memberof pw_thread_loop
  */
@@ -375,15 +375,55 @@ int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec)
 {
 	struct timespec timeout;
 	int ret = 0;
+	if ((ret = pw_thread_loop_get_time(loop,
+			&timeout, wait_max_sec * SPA_NSEC_PER_SEC)) < 0)
+		return ret;
+	ret = pw_thread_loop_timed_wait_full(loop, &timeout);
+	return ret == -ETIMEDOUT ? ETIMEDOUT : ret;
+}
 
-	clock_gettime(CLOCK_REALTIME, &timeout);
+/** Get the current time of the loop + timeout. This can be used in
+ * pw_thread_loop_timed_wait_full().
+ *
+ * \param loop a \ref pw_thread_loop
+ * \param abstime the result struct timesspec
+ * \param timeout the time in nanoseconds to add to \a tp
+ * \return 0 on success or a negative errno value on error.
+ *
+ * \memberof pw_thread_loop
+ */
+SPA_EXPORT
+int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstime, int64_t timeout)
+{
+	if (clock_gettime(CLOCK_REALTIME, abstime) < 0)
+		return -errno;
 
-	timeout.tv_sec += wait_max_sec;
+	abstime->tv_sec += timeout / SPA_NSEC_PER_SEC;
+	abstime->tv_nsec += timeout % SPA_NSEC_PER_SEC;
+	if (abstime->tv_nsec >= SPA_NSEC_PER_SEC) {
+		abstime->tv_sec++;
+		abstime->tv_nsec -= SPA_NSEC_PER_SEC;
+	}
+	return 0;
+}
 
+/** Wait for the loop thread to call \ref pw_thread_loop_signal()
+ *  or time out.
+ *
+ * \param loop a \ref pw_thread_loop to signal
+ * \param abstime the absolute time to wait for a \ref pw_thread_loop_signal()
+ * \return 0 on success or -ETIMEDOUT on timeout or a negative error value
+ *
+ * \memberof pw_thread_loop
+ */
+SPA_EXPORT
+int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, struct timespec *abstime)
+{
+	int ret;
 	loop->n_waiting++;
-	ret = pthread_cond_timedwait(&loop->cond, &loop->lock, &timeout);
+	ret = pthread_cond_timedwait(&loop->cond, &loop->lock, abstime);
 	loop->n_waiting--;
-	return ret;
+	return -ret;
 }
 
 /** Signal the loop thread waiting for accept with \ref pw_thread_loop_signal()

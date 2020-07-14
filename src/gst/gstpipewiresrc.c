@@ -63,6 +63,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define DEFAULT_MIN_BUFFERS     1
 #define DEFAULT_MAX_BUFFERS     INT32_MAX
 #define DEFAULT_RESEND_LAST     false
+#define DEFAULT_KEEPALIVE_TIME  0
 
 enum
 {
@@ -75,6 +76,7 @@ enum
   PROP_MAX_BUFFERS,
   PROP_FD,
   PROP_RESEND_LAST,
+  PROP_KEEPALIVE_TIME,
 };
 
 
@@ -148,6 +150,10 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->resend_last = g_value_get_boolean (value);
       break;
 
+    case PROP_KEEPALIVE_TIME:
+      pwsrc->keepalive_time = g_value_get_int (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -191,6 +197,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_RESEND_LAST:
       g_value_set_boolean (value, pwsrc->resend_last);
+      break;
+
+    case PROP_KEEPALIVE_TIME:
+      g_value_set_int (value, pwsrc->keepalive_time);
       break;
 
     default:
@@ -313,14 +323,14 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                      G_PARAM_READWRITE |
                                                      G_PARAM_STATIC_STRINGS));
 
-   g_object_class_install_property (gobject_class,
-                                    PROP_FD,
-                                    g_param_spec_int ("fd",
-                                                      "Fd",
-                                                      "The fd to connect with",
-                                                      -1, G_MAXINT, -1,
-                                                      G_PARAM_READWRITE |
-                                                      G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+                                   PROP_FD,
+                                   g_param_spec_int ("fd",
+                                                     "Fd",
+                                                     "The fd to connect with",
+                                                     -1, G_MAXINT, -1,
+                                                     G_PARAM_READWRITE |
+                                                     G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_RESEND_LAST,
@@ -331,6 +341,14 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_KEEPALIVE_TIME,
+                                   g_param_spec_int ("keepalive-time",
+                                                     "Keepalive Time",
+                                                     "Periodically send last buffer (in seconds, 0 = disabled)",
+                                                     0, G_MAXINT, DEFAULT_KEEPALIVE_TIME,
+                                                     G_PARAM_READWRITE |
+                                                     G_PARAM_STATIC_STRINGS));
 
   gstelement_class->provide_clock = gst_pipewire_src_provide_clock;
   gstelement_class->change_state = gst_pipewire_src_change_state;
@@ -371,6 +389,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->max_buffers = DEFAULT_MAX_BUFFERS;
   src->fd = -1;
   src->resend_last = DEFAULT_RESEND_LAST;
+  src->keepalive_time = DEFAULT_KEEPALIVE_TIME;
 
   src->client_name = g_strdup(pw_get_client_name ());
 
@@ -848,6 +867,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   GstClockTime pts, dts, base_time;
   const char *error = NULL;
   GstBuffer *buf;
+  gboolean update_time = FALSE, timeout = FALSE;
 
   pwsrc = GST_PIPEWIRE_SRC (psrc);
 
@@ -876,17 +896,30 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
         goto streaming_eos;
       buf = pwsrc->last_buffer;
       pwsrc->last_buffer = NULL;
+      update_time = TRUE;
       break;
+    } else if (timeout) {
+      if (pwsrc->last_buffer != NULL) {
+        update_time = TRUE;
+        buf = gst_buffer_ref(pwsrc->last_buffer);
+        break;
+      }
     } else {
       buf = dequeue_buffer (pwsrc);
       GST_LOG_OBJECT (pwsrc, "popped buffer %p", buf);
       if (buf != NULL) {
-	if (pwsrc->resend_last)
+	if (pwsrc->resend_last || pwsrc->keepalive_time > 0)
           gst_buffer_replace (&pwsrc->last_buffer, buf);
         break;
       }
     }
-    pw_thread_loop_wait (pwsrc->core->loop);
+    timeout = FALSE;
+    if (pwsrc->keepalive_time > 0) {
+      if (pw_thread_loop_timed_wait (pwsrc->core->loop, pwsrc->keepalive_time) == ETIMEDOUT)
+        timeout = TRUE;
+    } else {
+      pw_thread_loop_wait (pwsrc->core->loop);
+    }
   }
   pw_thread_loop_unlock (pwsrc->core->loop);
 
@@ -902,7 +935,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   else
     base_time = 0;
 
-  if (pwsrc->last_buffer == NULL && pwsrc->resend_last) {
+  if (update_time) {
     GstClock *clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));
     if (clock != NULL) {
       pts = dts = gst_clock_get_time (clock);
@@ -1039,6 +1072,8 @@ no_stream:
   {
     GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED, ("can't create stream"), (NULL));
     pw_thread_loop_unlock (pwsrc->core->loop);
+    gst_pipewire_core_release (pwsrc->core);
+    pwsrc->core = NULL;
     return FALSE;
   }
 }

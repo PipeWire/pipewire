@@ -66,6 +66,7 @@ struct _GstPipeWireSrc {
   gint max_buffers;
   int fd;
   gboolean resend_last;
+  gint keepalive_time;
 
   gboolean negotiated;
   gboolean flushing;

@@ -111,7 +111,7 @@ enum spa_format {
 	SPA_FORMAT_VIDEO_modifier,		/**< format modifier (Long) */
 	SPA_FORMAT_VIDEO_size,			/**< size (Rectangle) */
 	SPA_FORMAT_VIDEO_framerate,		/**< frame rate (Fraction) */
-	SPA_FORMAT_VIDEO_maxFramerate,		/**< miximum frame rate (Fraction) */
+	SPA_FORMAT_VIDEO_maxFramerate,		/**< maximum frame rate (Fraction) */
 	SPA_FORMAT_VIDEO_views,			/**< number of views (Int) */
 	SPA_FORMAT_VIDEO_interlaceMode,		/**< (Id enum spa_video_interlace_mode) */
 	SPA_FORMAT_VIDEO_pixelAspectRatio,	/**< (Rectangle) */

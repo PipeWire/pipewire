@@ -897,11 +897,13 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       buf = pwsrc->last_buffer;
       pwsrc->last_buffer = NULL;
       update_time = TRUE;
+      GST_LOG_OBJECT (pwsrc, "EOS, send last buffer");
       break;
     } else if (timeout) {
       if (pwsrc->last_buffer != NULL) {
         update_time = TRUE;
         buf = gst_buffer_ref(pwsrc->last_buffer);
+        GST_LOG_OBJECT (pwsrc, "timeout, send keepalive buffer");
         break;
       }
     } else {

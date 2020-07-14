@@ -917,7 +917,10 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     }
     timeout = FALSE;
     if (pwsrc->keepalive_time > 0) {
-      if (pw_thread_loop_timed_wait (pwsrc->core->loop, (pwsrc->keepalive_time + 999) / 1000) == ETIMEDOUT)
+      struct timespec abstime;
+      pw_thread_loop_get_time(pwsrc->core->loop, &abstime,
+		      pwsrc->keepalive_time * SPA_NSEC_PER_MSEC);
+      if (pw_thread_loop_timed_wait_full (pwsrc->core->loop, &abstime) == -ETIMEDOUT)
         timeout = TRUE;
     } else {
       pw_thread_loop_wait (pwsrc->core->loop);

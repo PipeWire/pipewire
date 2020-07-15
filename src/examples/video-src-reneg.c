@@ -311,6 +311,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
+	pw_log_info("format changed");
 	spa_format_video_raw_parse(param, &data->format);
 
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);

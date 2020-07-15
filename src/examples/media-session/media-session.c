@@ -1738,13 +1738,13 @@ static const struct {
 	const char *props;
 
 } modules[] = {
+	{ "metadata", "export metadata API", sm_metadata_start, NULL },
 	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start, NULL },
 	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start, NULL },
 	{ "alsa-acp", "alsa card profile udev detection", sm_alsa_monitor_start, "alsa.use-acp=true" },
 	{ "v4l2", "video for linux udev detection", sm_v4l2_monitor_start, NULL },
 	{ "libcamera", "libcamera udev detection", sm_libcamera_monitor_start, NULL },
 	{ "bluez5", "bluetooth support", sm_bluez5_monitor_start, NULL },
-	{ "metadata", "export metadata API", sm_metadata_start, NULL },
 	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start, NULL },
 	{ "policy-node", "configure and link nodes", sm_policy_node_start, NULL },
 };

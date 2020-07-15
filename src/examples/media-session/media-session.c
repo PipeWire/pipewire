@@ -1581,6 +1581,39 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 	return res;
 }
 
+int sm_media_session_remove_links(struct sm_media_session *sess,
+		const struct spa_dict *dict)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct sm_object *obj;
+	struct sm_node *outnode = NULL, *innode = NULL;
+	const char *str;
+	struct link *l, *t;
+
+	/* find output node */
+	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_OUTPUT_NODE)) != NULL &&
+	    (obj = find_object(impl, atoi(str))) != NULL &&
+	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+		outnode = (struct sm_node*)obj;
+	}
+
+	/* find input node */
+	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_INPUT_NODE)) != NULL &&
+	    (obj = find_object(impl, atoi(str))) != NULL &&
+	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+		innode = (struct sm_node*)obj;
+	}
+	if (innode == NULL || outnode == NULL)
+		return -EINVAL;
+
+	spa_list_for_each_safe(l, t, &impl->link_list, link) {
+		if (l->output_node == outnode->obj.id && l->input_node == innode->obj.id) {
+			pw_proxy_destroy(l->proxy);
+		}
+	}
+	return 0;
+}
+
 static void monitor_core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;

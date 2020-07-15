@@ -271,6 +271,8 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 
 int sm_media_session_create_links(struct sm_media_session *sess,
 		const struct spa_dict *dict);
+int sm_media_session_remove_links(struct sm_media_session *sess,
+		const struct spa_dict *dict);
 
 #ifdef __cplusplus
 }

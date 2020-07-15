@@ -216,6 +216,7 @@ static void session_destroy(void *data)
 {
 	struct metadata *this = data;
 
+	this->session->metadata = NULL;
 	spa_hook_remove(&this->session_listener);
 	pw_proxy_destroy(this->proxy);
 
@@ -262,6 +263,9 @@ int sm_metadata_start(struct sm_media_session *sess)
 
 	sm_media_session_add_listener(sess, &md->session_listener,
 			&session_events, md);
+
+	sess->metadata = (struct pw_metadata *) &md->iface;
+
 	return 0;
 
 error_free:

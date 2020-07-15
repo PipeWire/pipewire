@@ -236,6 +236,7 @@ struct sm_media_session {
 	struct pw_context *context;
 
 	struct spa_dbus_connection *dbus_connection;
+	struct pw_metadata *metadata;
 
 	struct pw_core_info *info;
 };

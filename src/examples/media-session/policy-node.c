@@ -37,6 +37,7 @@
 #include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
+#include "extensions/metadata.h"
 
 #include "media-session.h"
 
@@ -51,12 +52,17 @@ struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
 
+	struct spa_hook meta_listener;
+
 	struct pw_context *context;
 
 	uint32_t sample_rate;
 
 	struct spa_list node_list;
 	int seq;
+
+	char *default_audio_sink;
+	char *default_audio_source;
 };
 
 struct node {
@@ -412,6 +418,34 @@ static int link_nodes(struct node *node, struct node *peer)
 	return 0;
 }
 
+static int unlink_nodes(struct node *node, struct node *peer)
+{
+	struct impl *impl = node->impl;
+	struct pw_properties *props;
+
+	pw_log_debug(NAME " %p: unlink nodes %d %d", impl, node->id, peer->id);
+
+	if (peer->peer == node)
+		peer->peer = NULL;
+	node->peer = NULL;
+
+	if (node->direction == PW_DIRECTION_INPUT) {
+		struct node *t = node;
+		node = peer;
+		peer = t;
+	}
+	props = pw_properties_new(NULL, NULL);
+	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", node->id);
+	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->id);
+	pw_log_info("unlinking node %d -> node %d", node->id, peer->id);
+
+	sm_media_session_remove_links(impl->session, &props->dict);
+
+	pw_properties_free(props);
+
+	return 0;
+}
+
 static int rescan_node(struct impl *impl, struct node *n)
 {
 	struct spa_dict *props;
@@ -559,6 +593,8 @@ static void session_destroy(void *data)
 {
 	struct impl *impl = data;
 	spa_hook_remove(&impl->listener);
+	if (impl->session->metadata)
+		spa_hook_remove(&impl->meta_listener);
 	free(impl);
 }
 
@@ -569,6 +605,86 @@ static const struct sm_media_session_events session_events = {
 	.remove = session_remove,
 	.rescan = session_rescan,
 	.destroy = session_destroy,
+};
+
+static struct node *find_node_by_name(struct impl *impl, const char *name)
+{
+	const char *str;
+	struct node *node;
+
+	spa_list_for_each(node, &impl->node_list, link) {
+		str = pw_properties_get(node->obj->obj.props, "node.name");
+		if (str && strcmp(str, name) == 0)
+			return node;
+	}
+	return NULL;
+}
+
+static int move_node(struct impl *impl, const char *source, const char *target)
+{
+	struct node *n, *src_node, *dst_node;
+	const char *str;
+
+	/* find source and dest node */
+	if ((src_node = find_node_by_name(impl, source)) == NULL)
+		return -ENOENT;
+	if ((dst_node = find_node_by_name(impl, target)) == NULL)
+		return -ENOENT;
+
+	if (src_node == dst_node)
+		return 0;
+
+	pw_log_info("move %d -> %d", src_node->obj->obj.id, dst_node->obj->obj.id);
+
+	/* unlink all nodes from source and link to target */
+	spa_list_for_each(n, &impl->node_list, link) {
+		struct pw_node_info *info;
+
+		pw_log_info("linked %d -> %d", n->obj->obj.id,
+				n->peer ? n->peer->obj->obj.id : SPA_ID_INVALID);
+
+		if (n->peer != src_node)
+			continue;
+
+		pw_log_info("linked %d", n->obj->obj.id);
+		if ((info = n->obj->info) == NULL)
+			continue;
+
+		if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_DONT_RECONNECT)) != NULL &&
+		    pw_properties_parse_bool(str))
+			continue;
+
+		unlink_nodes(n, src_node);
+		link_nodes(n, dst_node);
+	}
+	return 0;
+}
+
+static int metadata_property(void *object, uint32_t subject,
+		const char *key, const char *type, const char *value)
+{
+	struct impl *impl = object;
+
+	if (subject == PW_ID_CORE) {
+		if (strcmp(key, "default.audio.sink.name") == 0) {
+			if (impl->default_audio_sink && value)
+				move_node(impl, impl->default_audio_sink, value);
+			free(impl->default_audio_sink);
+			impl->default_audio_sink = value ? strdup(value) : NULL;
+		}
+		else if (strcmp(key, "default.audio.source.name") == 0) {
+			if (impl->default_audio_source && value)
+				move_node(impl, impl->default_audio_source, value);
+			free(impl->default_audio_source);
+			impl->default_audio_source = value ? strdup(value) : NULL;
+		}
+	}
+	return 0;
+}
+
+static const struct pw_metadata_events metadata_events = {
+	PW_VERSION_METADATA_EVENTS,
+	.property = metadata_property,
 };
 
 int sm_policy_node_start(struct sm_media_session *session)
@@ -586,7 +702,14 @@ int sm_policy_node_start(struct sm_media_session *session)
 
 	spa_list_init(&impl->node_list);
 
-	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
+	sm_media_session_add_listener(impl->session,
+			&impl->listener,
+			&session_events, impl);
 
+	if (session->metadata) {
+		pw_metadata_add_listener(session->metadata,
+				&impl->meta_listener,
+				&metadata_events, impl);
+	}
 	return 0;
 }

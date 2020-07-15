@@ -121,6 +121,8 @@ struct impl {
 	struct spa_list endpoint_link_list;	/** list of struct endpoint_link */
 	struct pw_map endpoint_links;		/** map of endpoint_link */
 
+	struct spa_list link_list;		/** list of struct link */
+
 	struct spa_list sync_list;		/** list of struct sync */
 	int rescan_seq;
 	int last_seq;
@@ -147,7 +149,8 @@ struct link {
 	uint32_t input_port;
 
 	struct endpoint_link *endpoint_link;
-	struct spa_list link;		/**< link in struct endpoint_link link_list */
+	struct spa_list link;		/**< link in struct endpoint_link link_list or
+					  *  struct impl link_list */
 };
 
 struct object_info {
@@ -1406,8 +1409,9 @@ static void proxy_link_destroy(void *data)
 {
 	struct link *l = data;
 
+	spa_list_remove(&l->link);
+
 	if (l->endpoint_link) {
-		spa_list_remove(&l->link);
 		check_endpoint_link(l->endpoint_link);
 		l->endpoint_link = NULL;
 	}
@@ -1467,6 +1471,8 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 			if (link) {
 				l->endpoint_link = link;
 				spa_list_append(&link->link_list, &l->link);
+			} else {
+				spa_list_append(&impl->link_list, &l->link);
 			}
 
 			outport = spa_list_next(outport, link);
@@ -1859,6 +1865,7 @@ int main(int argc, char *argv[])
 
 	pw_map_init(&impl.globals, 64, 64);
 	spa_list_init(&impl.global_list);
+	spa_list_init(&impl.link_list);
 	pw_map_init(&impl.endpoint_links, 64, 64);
 	spa_list_init(&impl.endpoint_link_list);
 	spa_list_init(&impl.sync_list);

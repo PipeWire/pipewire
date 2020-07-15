@@ -282,7 +282,7 @@ static void destroy_node(struct impl *impl, struct node *node)
 	if (node->enabled)
 		spa_hook_remove(&node->listener);
 	free(node->media);
-	if (node->peer)
+	if (node->peer && node->peer->peer == node)
 		node->peer->peer = NULL;
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
 }
@@ -392,7 +392,6 @@ static int link_nodes(struct node *node, struct node *peer)
 
 	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->id, peer->id);
 
-	peer->peer = node;
 	node->peer = peer;
 
 	if (node->direction == PW_DIRECTION_INPUT) {
@@ -400,6 +399,7 @@ static int link_nodes(struct node *node, struct node *peer)
 		node = peer;
 		peer = t;
 	}
+
 	props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", node->id);
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->id);

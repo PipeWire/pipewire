@@ -45,6 +45,8 @@
 struct impl {
 	struct pw_impl_node this;
 
+	enum pw_node_state pending;
+
 	struct pw_work_queue *work;
 
 	int last_error;
@@ -162,7 +164,7 @@ static int pause_node(struct pw_impl_node *this)
 	pw_log_debug(NAME" %p: pause node state:%s pause-on-idle:%d", this,
 			pw_node_state_as_string(this->info.state), impl->pause_on_idle);
 
-	if (this->info.state <= PW_NODE_STATE_IDLE)
+	if (impl->pending <= PW_NODE_STATE_IDLE)
 		return 0;
 
 	node_deactivate(this);
@@ -179,9 +181,10 @@ static int pause_node(struct pw_impl_node *this)
 
 static int start_node(struct pw_impl_node *this)
 {
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	if (this->info.state >= PW_NODE_STATE_RUNNING)
+	if (impl->pending >= PW_NODE_STATE_RUNNING)
 		return 0;
 
 	pw_log_debug(NAME" %p: start node", this);
@@ -285,11 +288,13 @@ do_node_add(struct spa_loop *loop,
 
 static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, char *error)
 {
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old = node->info.state;
 
 	free((char*)node->info.error);
 	node->info.error = error;
 	node->info.state = state;
+	impl->pending = state;
 
 	if (old == state)
 		return;
@@ -1862,7 +1867,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 {
 	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	enum pw_node_state old = node->info.state;
+	enum pw_node_state old = impl->pending;
 
 	pw_log_debug(NAME" %p: set state %s -> %s, active %d", node,
 			pw_node_state_as_string(old),
@@ -1901,6 +1906,8 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 	if (SPA_RESULT_IS_ASYNC(res)) {
 		res = spa_node_sync(node->node, res);
 	}
+	impl->pending = state;
+
 	if (old != state)
 		pw_work_queue_add(impl->work,
 				node, res, on_state_complete, SPA_INT_TO_PTR(state));

@@ -21,7 +21,8 @@ conf_config.set('media_session_path', join_paths(pipewire_bindir, 'pipewire-medi
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 conf_config_uninstalled = conf_config
-conf_config_uninstalled.set('media_session_path', 'pipewire-media-session')
+conf_config_uninstalled.set('media_session_path',
+  join_paths(meson.build_root(), 'src', 'examples', 'pipewire-media-session'))
 
 configure_file(input : 'pipewire.conf.in',
                output : 'pipewire.conf',

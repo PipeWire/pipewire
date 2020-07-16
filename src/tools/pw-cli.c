@@ -56,6 +56,7 @@ struct data {
 	struct pw_map vars;
 	unsigned int interactive:1;
 	unsigned int monitoring:1;
+	unsigned int quit:1;
 };
 
 struct global {
@@ -2754,6 +2755,7 @@ static void do_input(void *data, int fd, uint32_t mask)
 static void do_quit(void *data, int signal_number)
 {
 	struct data *d = data;
+	d->quit = true;
 	pw_main_loop_quit(d->loop);
 }
 
@@ -2834,7 +2836,6 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-
 	if (optind == argc) {
 		data.interactive = true;
 
@@ -2859,7 +2860,7 @@ int main(int argc, char *argv[])
 			fprintf(stdout, "Error: \"%s\"\n", error);
 			free(error);
 		}
-		if (data.current) {
+		if (!data.quit && data.current) {
 			data.current->prompt_pending = pw_core_sync(data.current->core, 0, 0);
 			pw_main_loop_run(data.loop);
 		}

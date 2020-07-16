@@ -76,8 +76,8 @@ static void object_update(void *data)
 		    strcmp(str, "flatpak") != 0)
 			return;
 
-		/* full access for now */
-		permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
+		/* limited access for now */
+		permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_R | PW_PERM_X);
 		pw_client_update_permissions(client->obj->obj.proxy,
 				1, permissions);
 		client->active = true;

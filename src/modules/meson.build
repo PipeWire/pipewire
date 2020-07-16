@@ -34,14 +34,6 @@ pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.
   install_rpath: modules_install_dir,
   dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
 )
-pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-portal.c' ],
-  c_args : pipewire_module_c_args,
-  include_directories : [configinc, spa_inc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
-)
 endif
 
 pipewire_module_client_node = shared_library('pipewire-module-client-device',

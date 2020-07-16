@@ -893,7 +893,9 @@ static void client_event_permissions(void *object, uint32_t index,
 			fprintf(stdout, "  default:");
 		else
 			fprintf(stdout, "  %u:", permissions[i].id);
-		fprintf(stdout, " %08x\n", permissions[i].permissions);
+		fprintf(stdout, " %c%c%c\n", permissions[i].permissions & PW_PERM_R ? 'r' : '-',
+					  permissions[i].permissions & PW_PERM_W ? 'w' : '-',
+					  permissions[i].permissions & PW_PERM_X ? 'x' : '-');
 	}
 }
 

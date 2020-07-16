@@ -36,9 +36,15 @@
 
 #include <pipewire/impl.h>
 
+#define MODULE_USAGE	"[ access.force=flatpak ] "		\
+			"[ access.allowed=<cmd-line> ] "	\
+			"[ access.rejected=<cmd-line> ] "	\
+			"[ access.restricted=<cmd-line> ] "	\
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Perform access check" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -136,32 +142,46 @@ context_check_access(void *data, struct pw_impl_client *client)
 		pw_log_info("client %p has trusted pid %d", client, pid);
 	}
 
-	if (impl->properties && (str = pw_properties_get(impl->properties, "blacklisted")) != NULL) {
+	if (impl->properties && (str = pw_properties_get(impl->properties, "access.allowed")) != NULL) {
 		res = check_cmdline(client, pid, str);
-		if (res == 0)
+		if (res < 0) {
+			pw_log_warn("module %p: client %p allowed check failed: %s",
+				impl, client, spa_strerror(res));
+		} else if (res > 0)
 			goto granted;
-		if (res > 0)
-			res = -EACCES;
-		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "blacklisted");
-		goto blacklisted;
 	}
 
-	if (impl->properties && (str = pw_properties_get(impl->properties, "restricted")) != NULL) {
+	if (impl->properties && (str = pw_properties_get(impl->properties, "access.rejected")) != NULL) {
 		res = check_cmdline(client, pid, str);
-		if (res == 0)
-			goto granted;
+		if (res < 0) {
+			pw_log_warn("module %p: client %p rejected check failed: %s",
+				impl, client, spa_strerror(res));
+		} else if (res > 0) {
+			res = -EACCES;
+			items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "rejected");
+			goto rejected;
+		}
+	}
+
+	if (impl->properties && (str = pw_properties_get(impl->properties, "access.restricted")) != NULL) {
+		res = check_cmdline(client, pid, str);
 		if (res < 0) {
 			pw_log_warn("module %p: client %p restricted check failed: %s",
 				impl, client, spa_strerror(res));
 		}
 		else if (res > 0) {
 			pw_log_debug("module %p: restricted client %p added", impl, client);
+			items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "restricted");
+			goto wait_permissions;
 		}
-		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "restricted");
-		goto wait_permissions;
 	}
-
-	res = check_flatpak(client, pid);
+	if (impl->properties &&
+	    (str = pw_properties_get(impl->properties, "access.force")) != NULL &&
+	    strcmp(str, "flatpak") == 0) {
+		res = 1;
+	} else {
+		res = check_flatpak(client, pid);
+	}
 	if (res != 0) {
 		if (res < 0) {
 			pw_log_warn("module %p: client %p sandbox check failed: %s",
@@ -188,8 +208,8 @@ wait_permissions:
 	pw_impl_client_set_busy(client, true);
 	return;
 
-blacklisted:
-	pw_resource_error(pw_impl_client_get_core_resource(client), res, "blacklisted");
+rejected:
+	pw_resource_error(pw_impl_client_get_core_resource(client), res, "rejected");
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	return;
 }

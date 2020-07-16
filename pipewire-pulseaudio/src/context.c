@@ -1214,6 +1214,7 @@ static void registry_event_global(void *data, uint32_t id,
 	pw_log_debug("context %p: global %d %s %p", c, id, type, g);
 	g->context = c;
 	g->id = id;
+	g->permissions = permissions;
 	g->type = strdup(type);
 	g->init = true;
 	g->props = props ? pw_properties_new_dict(props) : NULL;

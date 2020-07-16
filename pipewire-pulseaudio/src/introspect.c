@@ -372,6 +372,9 @@ static int set_node_volume(pa_context *c, struct global *g, const pa_cvolume *vo
 	}
 	g->node_info.mute = mute;
 
+	if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_W | PW_PERM_X))
+		return PA_ERR_ACCESS;
+
 	pw_node_set_param((struct pw_node*)g->proxy,
 		SPA_PARAM_Props, 0,
 		spa_pod_builder_add_object(&b,
@@ -415,6 +418,9 @@ static int set_device_volume(pa_context *c, struct global *g, struct global *cg,
 			return 0;
 	}
 	g->node_info.mute = mute;
+
+	if (!SPA_FLAG_IS_SET(cg->permissions, PW_PERM_W | PW_PERM_X))
+		return PA_ERR_ACCESS;
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
@@ -695,6 +701,9 @@ static int set_device_route(pa_context *c, struct global *g, const char *port, e
 	pw_log_info("port %s, id %u", port, id);
 	if (id == SPA_ID_INVALID)
 		return PA_ERR_NOENTITY;
+
+	if (!SPA_FLAG_IS_SET(cg->permissions, PW_PERM_W | PW_PERM_X))
+		return PA_ERR_ACCESS;
 
 	pw_device_set_param((struct pw_device*)cg->proxy,
 		SPA_PARAM_Route, 0,
@@ -1752,6 +1761,11 @@ static void card_profile(pa_operation *o, void *userdata)
 	}
 	if (id == SPA_ID_INVALID)
 		goto done;;
+
+	if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_W | PW_PERM_X)) {
+		pa_context_set_error(c, PA_ERR_ACCESS);
+		goto done;
+	}
 
 	pw_device_set_param((struct pw_device*)g->proxy,
 			SPA_PARAM_Profile, 0,

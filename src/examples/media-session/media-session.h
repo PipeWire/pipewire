@@ -252,6 +252,10 @@ int sm_media_session_sync(struct sm_media_session *sess,
 struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, uint32_t id);
 int sm_media_session_destroy_object(struct sm_media_session *sess, uint32_t id);
 
+int sm_media_session_for_each_object(struct sm_media_session *sess,
+                            int (*callback) (void *data, struct sm_object *object),
+                            void *data);
+
 int sm_media_session_schedule_rescan(struct sm_media_session *sess);
 
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,

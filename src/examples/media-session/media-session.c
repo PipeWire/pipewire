@@ -1244,6 +1244,21 @@ int sm_media_session_destroy_object(struct sm_media_session *sess, uint32_t id)
 	return 0;
 }
 
+int sm_media_session_for_each_object(struct sm_media_session *sess,
+                            int (*callback) (void *data, struct sm_object *object),
+                            void *data)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	struct sm_object *obj;
+	int res;
+
+	spa_list_for_each(obj, &impl->global_list, link) {
+		if ((res = callback(data, obj)) != 0)
+			return res;
+	}
+	return 0;
+}
+
 int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);

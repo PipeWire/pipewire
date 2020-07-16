@@ -68,6 +68,7 @@ executable('export-spa-device',
 if alsa_dep.found()
   executable('pipewire-media-session',
     'media-session/access-flatpak.c',
+    'media-session/access-portal.c',
     'media-session/alsa-midi.c',
     'media-session/alsa-monitor.c',
     'media-session/alsa-endpoint.c',

@@ -66,7 +66,6 @@ struct client_info {
 	struct impl *impl;
 	struct pw_impl_client *client;
 	struct spa_hook client_listener;
-        struct spa_list resources;
 
 	bool portal_managed;
 	bool setup_complete;

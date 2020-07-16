@@ -41,10 +41,7 @@ struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
 
-	struct pw_context *context;
-
 	struct spa_list client_list;
-	int seq;
 };
 
 struct client {
@@ -171,7 +168,6 @@ int sm_access_flatpak_start(struct sm_media_session *session)
 		return -errno;
 
 	impl->session = session;
-	impl->context = session->context;
 
 	spa_list_init(&impl->client_list);
 

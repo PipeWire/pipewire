@@ -339,6 +339,36 @@ static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 }
 
 /**
+ * Core
+ */
+static const struct object_info core_object_info = {
+	.type = PW_TYPE_INTERFACE_Core,
+	.version = PW_VERSION_CORE,
+	.size = sizeof(struct sm_object),
+	.init = NULL,
+};
+
+/**
+ * Module
+ */
+static const struct object_info module_info = {
+	.type = PW_TYPE_INTERFACE_Module,
+	.version = PW_VERSION_MODULE,
+	.size = sizeof(struct sm_object),
+	.init = NULL,
+};
+
+/**
+ * Factory
+ */
+static const struct object_info factory_info = {
+	.type = PW_TYPE_INTERFACE_Factory,
+	.version = PW_VERSION_FACTORY,
+	.size = sizeof(struct sm_object),
+	.init = NULL,
+};
+
+/**
  * Clients
  */
 static void client_event_info(void *object, const struct pw_client_info *info)
@@ -1001,7 +1031,13 @@ static const struct object_info *get_object_info(struct impl *impl, const char *
 {
 	const struct object_info *info;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0)
+	if (strcmp(type, PW_TYPE_INTERFACE_Core) == 0)
+		info = &core_object_info;
+	else if (strcmp(type, PW_TYPE_INTERFACE_Module) == 0)
+		info = &module_info;
+	else if (strcmp(type, PW_TYPE_INTERFACE_Factory) == 0)
+		info = &factory_info;
+	else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0)
 		info = &client_info;
 	else if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
 		info = &spa_device_info;

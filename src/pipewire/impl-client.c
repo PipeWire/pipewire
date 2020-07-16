@@ -633,9 +633,8 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 			pw_global_update_permissions(global, client, old_perm, new_perm);
 		}
 	}
-	if (n_permissions > 0)
-		pw_impl_client_set_busy(client, false);
-
+	def = find_permission(client, PW_ID_CORE);
+	pw_impl_client_set_busy(client, (def->permissions & PW_PERM_R) ? false : true);
 	return 0;
 }
 

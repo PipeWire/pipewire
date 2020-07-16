@@ -66,6 +66,7 @@
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
 #define sm_media_session_emit_destroy(s)		sm_media_session_emit(s, destroy, 0)
 
+int sm_access_flatpak_start(struct sm_media_session *sess);
 int sm_metadata_start(struct sm_media_session *sess);
 int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
@@ -1767,7 +1768,7 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(impl->loop);
 }
 
-#define DEFAULT_ENABLED		"alsa-pcm,alsa-seq,v4l2,bluez5,metadata,suspend-node,policy-node"
+#define DEFAULT_ENABLED		"flatpak,alsa-pcm,alsa-seq,v4l2,bluez5,metadata,suspend-node,policy-node"
 #define DEFAULT_DISABLED	""
 
 static const struct {
@@ -1777,6 +1778,7 @@ static const struct {
 	const char *props;
 
 } modules[] = {
+	{ "flatpak", "manage flatpak access", sm_access_flatpak_start, NULL },
 	{ "metadata", "export metadata API", sm_metadata_start, NULL },
 	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start, NULL },
 	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start, NULL },

@@ -69,7 +69,7 @@ static void object_update(void *data)
 		struct pw_permission permissions[1];
 
 		if (client->obj->info == NULL || client->obj->info->props == NULL ||
-		    (str = spa_dict_lookup(client->obj->info->props, "pipewire.access")) == NULL ||
+		    (str = spa_dict_lookup(client->obj->info->props, PW_KEY_ACCESS)) == NULL ||
 		    strcmp(str, "flatpak") != 0)
 			return;
 

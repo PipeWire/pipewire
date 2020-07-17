@@ -126,7 +126,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	struct pw_permission permissions[1];
 	struct spa_dict_item items[2];
 	const struct pw_properties *props;
-	const char *str;
+	const char *str, *access;
 	int pid, res;
 
 	pid = -EINVAL;
@@ -176,10 +176,10 @@ context_check_access(void *data, struct pw_impl_client *client)
 		}
 	}
 	if (impl->properties &&
-	    (str = pw_properties_get(impl->properties, "access.force")) != NULL &&
-	    strcmp(str, "flatpak") == 0) {
+	    (access = pw_properties_get(impl->properties, "access.force")) != NULL) {
 		res = 1;
 	} else {
+		access = "flatpak";
 		res = check_flatpak(client, pid);
 	}
 	if (res != 0) {
@@ -192,10 +192,9 @@ context_check_access(void *data, struct pw_impl_client *client)
 		else if (res > 0) {
 			pw_log_debug("module %p: sandboxed client %p added", impl, client);
 		}
-		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "flatpak");
+		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 		goto wait_permissions;
 	}
-
 granted:
 	pw_log_debug("module %p: client %p access granted", impl, client);
 	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);

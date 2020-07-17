@@ -273,6 +273,13 @@ static const struct pw_context_events context_events = {
 	.global_removed = context_global_removed,
 };
 
+static void update_busy(struct pw_impl_client *client)
+{
+	struct pw_permission *def;
+	def = find_permission(client, PW_ID_CORE);
+	pw_impl_client_set_busy(client, (def->permissions & PW_PERM_R) ? false : true);
+}
+
 /** Make a new client object
  *
  * \param context a \ref pw_context object to register the client with
@@ -345,6 +352,8 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 	this->info.props = &this->properties->dict;
 
 	pw_context_emit_check_access(this->context, this);
+
+	update_busy(this);
 
 	return this;
 
@@ -633,8 +642,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 			pw_global_update_permissions(global, client, old_perm, new_perm);
 		}
 	}
-	def = find_permission(client, PW_ID_CORE);
-	pw_impl_client_set_busy(client, (def->permissions & PW_PERM_R) ? false : true);
+	update_busy(client);
 	return 0;
 }
 

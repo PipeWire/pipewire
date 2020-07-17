@@ -117,7 +117,6 @@ struct impl {
 
 	struct timespec now;
 	uint32_t sample_count;
-	uint32_t read_mtu;
 };
 
 #define NAME "sco-source"
@@ -337,7 +336,7 @@ static void sco_on_ready_read(struct spa_source *source)
 	datas = port->current_buffer->buf->datas;
 
 	/* read */
-	size_read = read_data(this, (uint8_t *)datas[0].data + port->ready_offset, this->read_mtu);
+	size_read = read_data(this, (uint8_t *)datas[0].data + port->ready_offset, this->transport->read_mtu);
 	if (size_read < 0) {
 		spa_log_error(this->log, "failed to read data");
 		goto stop;
@@ -346,7 +345,7 @@ static void sco_on_ready_read(struct spa_source *source)
 
 	/* send buffer if full */
 	port->ready_offset += size_read;
-	if ((this->read_mtu + port->ready_offset) > (this->props.max_latency * port->frame_size)) {
+	if ((this->transport->read_mtu + port->ready_offset) > (this->props.max_latency * port->frame_size)) {
 		datas[0].chunk->offset = 0;
 		datas[0].chunk->size = port->ready_offset;
 		datas[0].chunk->stride = port->frame_size;
@@ -1064,15 +1063,6 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 	this->sock_fd = -1;
-
-	/* TODO: For now, we always use an MTU size of 48 bytes like bluezalsa
-	 * because the MTU size returned by the kernel is incorrect (or our
-	 * interpretation of it) */
-#if 0
-	this->read_mtu = this->transport->read_mtu;
-#else
-	this->read_mtu = 48;
-#endif
 
 	return 0;
 }

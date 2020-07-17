@@ -235,7 +235,7 @@ static int sco_acquire_cb(void *data, bool optional)
 	t->read_mtu = 48;
 	t->write_mtu = 48;
 
-	if (true) {
+	if (false) {
 		struct sco_options sco_opt;
 
 		len = sizeof(sco_opt);

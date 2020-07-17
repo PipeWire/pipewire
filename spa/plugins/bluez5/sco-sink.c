@@ -128,9 +128,6 @@ struct impl {
 	/* Times */
 	uint64_t start_time;
 	uint64_t total_samples;
-
-	/* MTU */
-	uint32_t write_mtu;
 };
 
 #define NAME "sco-sink"
@@ -318,9 +315,9 @@ static void flush_data(struct impl *this)
 
 	/* if buffer has data, copy it into the write buffer */
 	if (datas[0].chunk->size - port->ready_offset > 0) {
-		uint32_t avail = SPA_MIN(this->write_mtu, datas[0].chunk->size - port->ready_offset);
-		uint32_t size = (avail + port->write_buffer_size) > this->write_mtu ?
-			this->write_mtu - port->write_buffer_size : avail;
+		uint32_t avail = SPA_MIN(this->transport->write_mtu, datas[0].chunk->size - port->ready_offset);
+		uint32_t size = (avail + port->write_buffer_size) > this->transport->write_mtu ?
+			this->transport->write_mtu - port->write_buffer_size : avail;
 		memcpy(port->write_buffer + port->write_buffer_size,
 			(uint8_t *)datas[0].data + port->ready_offset,
 			size);
@@ -339,7 +336,7 @@ static void flush_data(struct impl *this)
 	}
 
 	/* send the data if the write buffer is full */
-	if (port->write_buffer_size >= this->write_mtu) {
+	if (port->write_buffer_size >= this->transport->write_mtu) {
 		uint64_t now_time;
 		int written;
 
@@ -348,7 +345,7 @@ static void flush_data(struct impl *this)
 		if (this->start_time == 0)
 			this->start_time = now_time;
 
-		written = write(this->sock_fd, port->write_buffer, this->write_mtu);
+		written = write(this->sock_fd, port->write_buffer, this->transport->write_mtu);
 		if (written <= 0) {
 			spa_log_debug(this->log, "failed to write data");
 			goto stop;
@@ -388,7 +385,7 @@ static void sco_on_timeout(struct spa_source *source)
 
 	/* delay if no buffers available */
 	if (spa_list_is_empty(&port->ready)) {
-		set_timeout(this, this->write_mtu / port->frame_size * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
+		set_timeout(this, this->transport->write_mtu / port->frame_size * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
 		port->io->status = SPA_STATUS_NEED_DATA;
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 		return;
@@ -416,6 +413,8 @@ static int do_start(struct impl *this)
 	this->sock_fd = spa_bt_transport_acquire(this->transport, do_accept);
 	if (this->sock_fd < 0)
 		return -1;
+
+	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
 
 	/* Add the timeout callback */
 	this->source.data = this;
@@ -1048,16 +1047,6 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 	this->sock_fd = -1;
-
-	/* TODO: For now, we always use an MTU size of 48 bytes like bluezalsa
-	 * because the MTU size returned by the kernel is incorrect (or our
-	 * interpretation of it) */
-#if 0
-	this->write_mtu = this->transport->write_mtu;
-#else
-	this->write_mtu = 48;
-#endif
-	spa_return_val_if_fail(this->write_mtu <= sizeof(port->write_buffer), -EINVAL);
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);

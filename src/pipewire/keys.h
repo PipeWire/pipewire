@@ -39,19 +39,7 @@ extern "C" {
  * Properties from other objects can also appear. This usually suggests some
  * sort of parent/child or owner/owned relationship.
  */
-
-/* Peroperties usually set on the core object */
-#define PW_KEY_USER_NAME		"pipewire.user-name"	/**< The user name that runs pipewire */
-#define PW_KEY_HOST_NAME		"pipewire.host-name"	/**< The host name of the machine */
-#define PW_KEY_CORE_NAME		"pipewire.core.name"	/**< The name of the core. Default is
-								  *  pipewire-<user-name>-<pid> */
-#define PW_KEY_CORE_VERSION		"pipewire.core.version"	/**< The version of the core. */
-#define PW_KEY_CORE_DAEMON		"pipewire.core.daemon"	/**< If the core is listening for connections. */
-
-/** The protocol key is usually set on a pw_client and contains a
- * string describing the protocol used by the client to access
- * PipeWire */
-#define PW_KEY_PROTOCOL			"pipewire.protocol"
+#define PW_KEY_PROTOCOL			"pipewire.protocol"	/**< protocol used for connection */
 #define PW_KEY_ACCESS			"pipewire.access"	/**< how the client access is controlled */
 
 /** Various keys related to the identity of a client process and its security.
@@ -71,8 +59,15 @@ extern "C" {
 
 /* context */
 #define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules */
+#define PW_KEY_USER_NAME		"context.user-name"	/**< The user name that runs pipewire */
+#define PW_KEY_HOST_NAME		"context.host-name"	/**< The host name of the machine */
 
 /* core */
+#define PW_KEY_CORE_NAME		"core.name"		/**< The name of the core. Default is
+								  *  pipewire-<user-name>-<pid> */
+#define PW_KEY_CORE_VERSION		"core.version"		/**< The version of the core. */
+#define PW_KEY_CORE_DAEMON		"core.daemon"		/**< If the core is listening for connections. */
+
 #define PW_KEY_CORE_ID			"core.id"		/**< the core id */
 #define PW_KEY_CORE_MONITORS		"core.monitors"		/**< the apis monitored by core. */
 

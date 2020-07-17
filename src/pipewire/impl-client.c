@@ -132,12 +132,47 @@ static int client_error(void *object, uint32_t id, int res, const char *error)
 	return 0;
 }
 
+static int update_properties(struct pw_impl_client *client, const struct spa_dict *dict, bool filter)
+{
+	struct pw_resource *resource;
+	int changed = 0;
+	uint32_t i;
+
+        for (i = 0; i < dict->n_items; i++) {
+		if (filter && strstr(dict->items[i].key, "pipewire.") == dict->items[i].key &&
+		    pw_properties_get(client->properties, dict->items[i].key) != NULL) {
+			pw_log_warn(NAME" %p: refuse property update '%s' to '%s'",
+					client, dict->items[i].key, dict->items[i].value);
+			continue;
+		}
+                changed += pw_properties_set(client->properties, dict->items[i].key, dict->items[i].value);
+	}
+	client->info.props = &client->properties->dict;
+
+	pw_log_debug(NAME" %p: updated %d properties", client, changed);
+
+	if (!changed)
+		return 0;
+
+	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
+
+	pw_impl_client_emit_info_changed(client, &client->info);
+
+	if (client->global)
+		spa_list_for_each(resource, &client->global->resource_list, link)
+			pw_client_resource_info(resource, &client->info);
+
+	client->info.change_mask = 0;
+
+	return changed;
+}
+
 static int client_update_properties(void *object, const struct spa_dict *props)
 {
 	struct pw_resource *resource = object;
 	struct resource_data *data = pw_resource_get_user_data(resource);
 	struct pw_impl_client *client = data->client;
-	return pw_impl_client_update_properties(client, props);
+	return update_properties(client, props, true);
 }
 
 static int client_get_permissions(void *object, uint32_t index, uint32_t num)
@@ -555,28 +590,7 @@ const struct pw_client_info *pw_impl_client_get_info(struct pw_impl_client *clie
 SPA_EXPORT
 int pw_impl_client_update_properties(struct pw_impl_client *client, const struct spa_dict *dict)
 {
-	struct pw_resource *resource;
-	int changed;
-
-	changed = pw_properties_update(client->properties, dict);
-	client->info.props = &client->properties->dict;
-
-	pw_log_debug(NAME" %p: updated %d properties", client, changed);
-
-	if (!changed)
-		return 0;
-
-	client->info.change_mask |= PW_CLIENT_CHANGE_MASK_PROPS;
-
-	pw_impl_client_emit_info_changed(client, &client->info);
-
-	if (client->global)
-		spa_list_for_each(resource, &client->global->resource_list, link)
-			pw_client_resource_info(resource, &client->info);
-
-	client->info.change_mask = 0;
-
-	return changed;
+	return update_properties(client, dict, false);
 }
 
 SPA_EXPORT

@@ -928,6 +928,8 @@ static void destroy_server(struct pw_protocol_server *server)
 	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
 	struct client_data *data, *tmp;
 
+	pw_log_debug(NAME" %p: server %p", s->this.protocol, s);
+
 	spa_list_remove(&server->link);
 	spa_hook_remove(&s->hook);
 

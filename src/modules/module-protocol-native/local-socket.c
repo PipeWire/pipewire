@@ -87,6 +87,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
         size = offsetof(struct sockaddr_un, sun_path) + name_size;
 
         if (connect(fd, (struct sockaddr *) &addr, size) < 0) {
+		pw_log_debug("connect to '%s' failed: %m", name);
 		if (errno == ENOENT)
 			errno = EHOSTDOWN;
 		res = -errno;

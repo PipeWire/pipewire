@@ -134,7 +134,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	pid = -EINVAL;
 	if ((props = pw_impl_client_get_properties(client)) != NULL) {
 		if ((str = pw_properties_get(props, PW_KEY_ACCESS)) != NULL) {
-			pw_log_info("client %p: already has access checked", client);
+			pw_log_info("client %p: has already access: '%s'", client, str);
 			return;
 		}
 		if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) != NULL)
@@ -143,6 +143,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 
 	if (pid < 0) {
 		pw_log_info("client %p: no trusted pid found, assuming not sandboxed", client);
+		access = "no-pid";
 		goto granted;
 	} else {
 		pw_log_info("client %p has trusted pid %d", client, pid);
@@ -153,8 +154,10 @@ context_check_access(void *data, struct pw_impl_client *client)
 		if (res < 0) {
 			pw_log_warn(NAME" %p: client %p allowed check failed: %s",
 				impl, client, spa_strerror(res));
-		} else if (res > 0)
+		} else if (res > 0) {
+			access = "allowed";
 			goto granted;
+		}
 	}
 
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.rejected")) != NULL) {
@@ -164,7 +167,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 				impl, client, spa_strerror(res));
 		} else if (res > 0) {
 			res = -EACCES;
-			items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "rejected");
+			access = "rejected";
 			goto rejected;
 		}
 	}
@@ -177,45 +180,50 @@ context_check_access(void *data, struct pw_impl_client *client)
 		}
 		else if (res > 0) {
 			pw_log_debug(NAME" %p: restricted client %p added", impl, client);
-			items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "restricted");
+			access = "restricted";
 			goto wait_permissions;
 		}
 	}
 	if (impl->properties &&
-	    (access = pw_properties_get(impl->properties, "access.force")) != NULL) {
-		res = 1;
-	} else {
-		access = "flatpak";
-		res = check_flatpak(client, pid);
-	}
+	    (access = pw_properties_get(impl->properties, "access.force")) != NULL)
+		goto wait_permissions;
+
+	res = check_flatpak(client, pid);
 	if (res != 0) {
 		if (res < 0) {
 			pw_log_warn(NAME" %p: client %p sandbox check failed: %s",
 				impl, client, spa_strerror(res));
-			if (res == -EACCES)
+			if (res == -EACCES) {
+				access = "unrestricted";
 				goto granted;
+			}
 		}
 		else if (res > 0) {
 			pw_log_debug(NAME" %p: sandboxed client %p added", impl, client);
 		}
-		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+		access = "flatpak";
 		goto wait_permissions;
 	}
+	access = "unrestricted";
+
 granted:
-	pw_log_info(NAME" %p: client %p full access granted", impl, client);
+	pw_log_info(NAME" %p: client %p '%s' access granted", impl, client, access);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
 	pw_impl_client_update_permissions(client, 1, permissions);
 	return;
 
 wait_permissions:
 	pw_log_debug(NAME " %p: client %p wait for '%s' permissions",
-			impl, client, items[0].value);
+			impl, client, access);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
-	pw_impl_client_set_busy(client, true);
 	return;
 
 rejected:
-	pw_resource_error(pw_impl_client_get_core_resource(client), res, "rejected");
+	pw_resource_error(pw_impl_client_get_core_resource(client), res, access);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	return;
 }

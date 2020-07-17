@@ -36,6 +36,8 @@
 
 #include <pipewire/impl.h>
 
+#define NAME "access"
+
 #define MODULE_USAGE	"[ access.force=flatpak ] "		\
 			"[ access.allowed=<cmd-line> ] "	\
 			"[ access.rejected=<cmd-line> ] "	\
@@ -131,6 +133,10 @@ context_check_access(void *data, struct pw_impl_client *client)
 
 	pid = -EINVAL;
 	if ((props = pw_impl_client_get_properties(client)) != NULL) {
+		if ((str = pw_properties_get(props, PW_KEY_ACCESS)) != NULL) {
+			pw_log_info("client %p: already has access checked", client);
+			return;
+		}
 		if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) != NULL)
 			pid = atoi(str);
 	}
@@ -145,7 +151,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.allowed")) != NULL) {
 		res = check_cmdline(client, pid, str);
 		if (res < 0) {
-			pw_log_warn("module %p: client %p allowed check failed: %s",
+			pw_log_warn(NAME" %p: client %p allowed check failed: %s",
 				impl, client, spa_strerror(res));
 		} else if (res > 0)
 			goto granted;
@@ -154,7 +160,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.rejected")) != NULL) {
 		res = check_cmdline(client, pid, str);
 		if (res < 0) {
-			pw_log_warn("module %p: client %p rejected check failed: %s",
+			pw_log_warn(NAME" %p: client %p rejected check failed: %s",
 				impl, client, spa_strerror(res));
 		} else if (res > 0) {
 			res = -EACCES;
@@ -166,11 +172,11 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.restricted")) != NULL) {
 		res = check_cmdline(client, pid, str);
 		if (res < 0) {
-			pw_log_warn("module %p: client %p restricted check failed: %s",
+			pw_log_warn(NAME" %p: client %p restricted check failed: %s",
 				impl, client, spa_strerror(res));
 		}
 		else if (res > 0) {
-			pw_log_debug("module %p: restricted client %p added", impl, client);
+			pw_log_debug(NAME" %p: restricted client %p added", impl, client);
 			items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "restricted");
 			goto wait_permissions;
 		}
@@ -184,25 +190,26 @@ context_check_access(void *data, struct pw_impl_client *client)
 	}
 	if (res != 0) {
 		if (res < 0) {
-			pw_log_warn("module %p: client %p sandbox check failed: %s",
+			pw_log_warn(NAME" %p: client %p sandbox check failed: %s",
 				impl, client, spa_strerror(res));
 			if (res == -EACCES)
 				goto granted;
 		}
 		else if (res > 0) {
-			pw_log_debug("module %p: sandboxed client %p added", impl, client);
+			pw_log_debug(NAME" %p: sandboxed client %p added", impl, client);
 		}
 		items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 		goto wait_permissions;
 	}
 granted:
-	pw_log_debug("module %p: client %p access granted", impl, client);
+	pw_log_info(NAME" %p: client %p full access granted", impl, client);
 	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
 	pw_impl_client_update_permissions(client, 1, permissions);
 	return;
 
 wait_permissions:
-	pw_log_debug("module %p: client %p wait for permissions", impl, client);
+	pw_log_debug(NAME " %p: client %p wait for '%s' permissions",
+			impl, client, items[0].value);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 	pw_impl_client_set_busy(client, true);
 	return;

@@ -56,8 +56,6 @@ struct impl {
 	struct spa_list client_list;
 
 	DBusConnection *bus;
-	DBusPendingCall *portal_pid_pending;
-	pid_t portal_pid;
 };
 
 
@@ -153,35 +151,11 @@ static const struct sm_object_events object_events = {
 	.update = object_update
 };
 
-static int check_portal_managed(struct client *client)
-{
-	struct impl *impl = client->impl;
-	const char *str;
-	pid_t pid;
-
-	if (impl->portal_pid == 0)
-		return -EBUSY;
-
-	if (client->obj->obj.props == NULL)
-		return -ENOTSUP;
-
-	if ((str = pw_properties_get(client->obj->obj.props, PW_KEY_SEC_PID)) == NULL)
-		return -ENOENT;
-
-	pid = atoi(str);
-
-	if (pid == impl->portal_pid) {
-		client->portal_managed = true;
-		pw_log_info(NAME " %p: portal managed client %d added",
-			     impl, client->id);
-	}
-	return 0;
-}
-
 static int
 handle_client(struct impl *impl, struct sm_object *object)
 {
 	struct client *client;
+	const char *str;
 
 	pw_log_debug(NAME" %p: client", impl);
 
@@ -194,8 +168,12 @@ handle_client(struct impl *impl, struct sm_object *object)
 	client->obj->obj.mask |= SM_CLIENT_CHANGE_MASK_INFO;
 	sm_object_add_listener(&client->obj->obj, &client->listener, &object_events, client);
 
-	check_portal_managed(client);
-
+	if ((str = pw_properties_get(client->obj->obj.props, PW_KEY_ACCESS)) != NULL &&
+	    strcmp(str, "portal") == 0) {
+		client->portal_managed = true;
+		pw_log_info(NAME " %p: portal managed client %d added",
+			     impl, client->id);
+	}
 	return 1;
 }
 
@@ -210,48 +188,28 @@ set_global_permissions(void *data, struct sm_object *object)
 	bool set_permission;
 	bool allowed = false;
 
-	props = object->props;
+	if ((props = object->props) == NULL)
+		return 0;
 
 	pw_log_debug(NAME" %p: object %d type:%s", impl, object->id, object->type);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Core) == 0) {
-		set_permission = true;
-		allowed = true;
-	} else if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0) {
+	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0) {
 		set_permission = allowed = object->id == client->id;
-	} else if (props) {
-		if (strcmp(object->type, PW_TYPE_INTERFACE_Factory) == 0) {
-			const char *factory_name;
+	} else if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0) {
+		enum media_role media_role;
 
-			factory_name = pw_properties_get(props, "factory.name");
-			if (factory_name &&
-			    strcmp(factory_name, "client-node") == 0) {
-				set_permission = true;
-				allowed = true;
-			}
-			else {
-				set_permission = false;
-			}
+		media_role = media_role_from_properties(props);
+
+		if (media_role == MEDIA_ROLE_INVALID) {
+			set_permission = false;
 		}
-		else if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0) {
-			enum media_role media_role;
-
-			media_role = media_role_from_properties(props);
-
-			if (media_role == MEDIA_ROLE_INVALID) {
-				set_permission = false;
-			}
-			else if (client->allowed_media_roles & media_role) {
-				set_permission = true;
-				allowed = true;
-			}
-			else if (client->media_roles & media_role) {
-				set_permission = true;
-				allowed = false;
-			}
-			else {
-				set_permission = false;
-			}
+		else if (client->allowed_media_roles & media_role) {
+			set_permission = true;
+			allowed = true;
+		}
+		else if (client->media_roles & media_role) {
+			set_permission = true;
+			allowed = false;
 		}
 		else {
 			set_permission = false;
@@ -263,8 +221,8 @@ set_global_permissions(void *data, struct sm_object *object)
 
 	if (set_permission) {
 		permissions[n_permissions++] =
-			PW_PERMISSION_INIT(object->id, allowed ? PW_PERM_R | PW_PERM_X : 0);
-		pw_log_debug(NAME" %p: object %d allowed:%d", impl, object->id, allowed);
+			PW_PERMISSION_INIT(object->id, allowed ? PW_PERM_RWX : 0);
+		pw_log_info(NAME" %p: object %d allowed:%d", impl, object->id, allowed);
 		pw_client_update_permissions(client->obj->obj.proxy,
 				n_permissions, permissions);
 	}
@@ -475,7 +433,7 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 	is_portal = spa_dict_lookup(props, "pipewire.access.portal.is_portal");
 	if (is_portal != NULL &&
 	    (strcmp(is_portal, "yes") == 0 || pw_properties_parse_bool(is_portal))) {
-		pw_log_debug(NAME " %p: client %d is the portal itself",
+		pw_log_info(NAME " %p: client %d is the portal itself",
 			     impl, client->id);
 		client->is_portal = true;
 		return;
@@ -503,111 +461,6 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 	do_permission_store_check(client);
 
 	client->setup_complete = true;
-}
-
-static void on_portal_pid_received(DBusPendingCall *pending,
-				   void *user_data)
-{
-	struct impl *impl = user_data;
-	DBusMessage *m;
-	DBusError error;
-	uint32_t portal_pid = 0;
-
-	m = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-	impl->portal_pid_pending = NULL;
-
-	if (!m) {
-		pw_log_error("Failed to receive portal pid");
-		return;
-	}
-
-	dbus_error_init(&error);
-	dbus_message_get_args(m, &error, DBUS_TYPE_UINT32, &portal_pid,
-			      DBUS_TYPE_INVALID);
-	dbus_message_unref(m);
-
-	if (dbus_error_is_set(&error)) {
-		impl->portal_pid = 0;
-	} else {
-		struct client *client;
-
-		pw_log_info("got portal pid %d", portal_pid);
-		impl->portal_pid = portal_pid;
-
-		spa_list_for_each(client, &impl->client_list, link) {
-			if (client->portal_managed)
-				continue;
-
-			check_portal_managed(client);
-		}
-	}
-}
-
-static void update_portal_pid(struct impl *impl)
-{
-	DBusMessage *m;
-	const char *name;
-	DBusPendingCall *pending;
-
-	impl->portal_pid = 0;
-
-	m = dbus_message_new_method_call("org.freedesktop.DBus",
-					 "/",
-					 "org.freedesktop.DBus",
-					 "GetConnectionUnixProcessID");
-
-	name = "org.freedesktop.portal.Desktop";
-	dbus_message_append_args(m,
-				 DBUS_TYPE_STRING, &name,
-				 DBUS_TYPE_INVALID);
-
-	dbus_connection_send_with_reply(impl->bus, m, &pending, -1);
-	dbus_pending_call_set_notify(pending, on_portal_pid_received, impl, NULL);
-	if (impl->portal_pid_pending != NULL) {
-		dbus_pending_call_cancel(impl->portal_pid_pending);
-		dbus_pending_call_unref(impl->portal_pid_pending);
-	}
-	impl->portal_pid_pending = pending;
-}
-
-static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
-						    DBusMessage *message,
-						    void *user_data)
-{
-	struct impl *impl = user_data;
-	const char *name;
-	const char *old_owner;
-	const char *new_owner;
-
-	if (!dbus_message_is_signal(message, "org.freedesktop.DBus",
-				   "NameOwnerChanged"))
-		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-
-	if (!dbus_message_get_args(message, NULL,
-				   DBUS_TYPE_STRING, &name,
-				   DBUS_TYPE_STRING, &old_owner,
-				   DBUS_TYPE_STRING, &new_owner,
-				   DBUS_TYPE_INVALID)) {
-		pw_log_error("Failed to get OwnerChanged args");
-		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-	}
-
-	if (strcmp(name, "org.freedesktop.portal.Desktop") != 0)
-		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-
-	if (strcmp(new_owner, "") == 0) {
-		impl->portal_pid = 0;
-		if (impl->portal_pid_pending != NULL) {
-			dbus_pending_call_cancel(impl->portal_pid_pending);
-			dbus_pending_call_unref(impl->portal_pid_pending);
-		}
-	}
-	else {
-		update_portal_pid(impl);
-	}
-
-	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static DBusHandlerResult permission_store_changed_handler(DBusConnection *connection,
@@ -703,19 +556,6 @@ static int init_dbus_connection(struct impl *impl)
 
 	dbus_bus_add_match(impl->bus,
 			   "type='signal',\
-			   sender='org.freedesktop.DBus',\
-			   interface='org.freedesktop.DBus',\
-			   member='NameOwnerChanged'",
-			   &error);
-	if (dbus_error_is_set(&error)) {
-		pw_log_error("Failed to add name owner changed listener: %s",
-			     error.message);
-		dbus_error_free(&error);
-		return -1;
-	}
-
-	dbus_bus_add_match(impl->bus,
-			   "type='signal',\
 			   sender='org.freedesktop.impl.portal.PermissionStore',\
 			   interface='org.freedesktop.impl.portal.PermissionStore',\
 			   member='Changed'",
@@ -727,11 +567,8 @@ static int init_dbus_connection(struct impl *impl)
 		return -1;
 	}
 
-	dbus_connection_add_filter(impl->bus, name_owner_changed_handler,
-				   impl, NULL);
 	dbus_connection_add_filter(impl->bus, permission_store_changed_handler,
 				   impl, NULL);
-	update_portal_pid(impl);
 
 	return 0;
 }

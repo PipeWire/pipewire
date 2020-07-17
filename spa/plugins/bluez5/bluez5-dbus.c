@@ -74,6 +74,7 @@ struct spa_bt_monitor {
 	unsigned int filters_added:1;
 
 	struct spa_bt_backend *backend_hsp_native;
+	struct spa_bt_backend *backend_ofono;
 };
 
 static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
@@ -1396,11 +1397,6 @@ static void interface_added(struct spa_bt_monitor *monitor,
 	}
 	else if (strcmp(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE) == 0) {
 		backend_hsp_native_register_profiles(monitor->backend_hsp_native);
-		/* HFP Profiles should be managed by an external program */
-		/*
-		register_profile(monitor, PROFILE_HFP_AG, SPA_BT_UUID_HFP_AG);
-		register_profile(monitor, PROFILE_HFP_HS, SPA_BT_UUID_HFP_HF);
-		*/
 	}
 	else if (strcmp(interface_name, BLUEZ_DEVICE_INTERFACE) == 0) {
 		struct spa_bt_device *d;
@@ -1626,6 +1622,9 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	add_filters(this);
 	get_managed_objects(this);
 
+	if (this->backend_ofono)
+		backend_ofono_add_filters(this->backend_ofono);
+
         spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
@@ -1672,6 +1671,11 @@ static int impl_clear(struct spa_handle *handle)
 	if (monitor->backend_hsp_native) {
 		backend_hsp_native_free(monitor->backend_hsp_native);
 		monitor->backend_hsp_native = NULL;
+	}
+
+	if (monitor->backend_ofono) {
+		backend_ofono_free(monitor->backend_ofono);
+		monitor->backend_ofono = NULL;
 	}
 
 	return 0;
@@ -1730,6 +1734,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->transport_list);
 
 	this->backend_hsp_native = backend_hsp_native_new(this, support, n_support);
+	this->backend_ofono = backend_ofono_new(this, support, n_support);
 
 	return 0;
 }

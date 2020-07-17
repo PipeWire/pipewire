@@ -102,10 +102,11 @@ extern "C" {
 
 #define PROFILE_HSP_AG	"/Profile/HSPAG"
 #define PROFILE_HSP_HS	"/Profile/HSPHS"
-#define PROFILE_HFP_AG	"/Profile/HFPAG"
-#define PROFILE_HFP_HS	"/Profile/HFPHS"
 
 #define HSP_HS_DEFAULT_CHANNEL  3
+
+#define HFP_AUDIO_CODEC_CVSD    0x01
+#define HFP_AUDIO_CODEC_MSBC    0x02
 
 enum spa_bt_profile {
         SPA_BT_PROFILE_NULL =		0,
@@ -297,6 +298,12 @@ struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
 	  uint32_t n_support);
 void backend_hsp_native_free(struct spa_bt_backend *backend);
 void backend_hsp_native_register_profiles(struct spa_bt_backend *backend);
+
+struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
+		const struct spa_support *support,
+	  uint32_t n_support);
+void backend_ofono_free(struct spa_bt_backend *backend);
+void backend_ofono_add_filters(struct spa_bt_backend *backend);
 
 #ifdef __cplusplus
 }  /* extern "C" */

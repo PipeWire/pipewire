@@ -6,7 +6,8 @@ bluez5_sources = ['plugin.c',
 		  'sco-sink.c',
 		  'sco-source.c',
 		  'bluez5-device.c',
-                  'bluez5-dbus.c']
+		  'bluez5-dbus.c',
+		  'backend-hsp-native.c']
 
 bluez5lib = shared_library('spa-bluez5',
 	bluez5_sources,

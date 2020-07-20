@@ -683,6 +683,9 @@ static int handle_move(struct impl *impl, struct node *src_node, struct node *ds
 	const char *str;
 	struct pw_node_info *info;
 
+	if (src_node->peer == dst_node)
+		return 0;
+
 	if ((info = src_node->obj->info) == NULL)
 		return -EIO;
 

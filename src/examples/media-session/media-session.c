@@ -1820,7 +1820,7 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(impl->loop);
 }
 
-#define DEFAULT_ENABLED		"flatpak,portal,metadata,alsa-pcm,alsa-seq,v4l2,bluez5,suspend-node,policy-node"
+#define DEFAULT_ENABLED		"flatpak,portal,metadata,alsa-acp,alsa-seq,v4l2,bluez5,suspend-node,policy-node"
 #define DEFAULT_DISABLED	""
 
 static const struct {

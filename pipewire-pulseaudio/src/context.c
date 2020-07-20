@@ -1627,7 +1627,7 @@ static void do_default_node(pa_operation *o, void *userdata)
 	if (error != 0)
 		pa_context_set_error(c, error);
 	if (d->cb)
-		d->cb(c, error != 0 ? -1 : 1, d->userdata);
+		d->cb(c, error != 0 ? 0 : 1, d->userdata);
 	pa_operation_done(o);
 	pa_xfree(d->name);
 }

@@ -22,6 +22,7 @@
 #include <spa/param/props.h>
 
 #include <pipewire/pipewire.h>
+#include <extensions/metadata.h>
 
 #include <pulse/introspect.h>
 #include <pulse/xmalloc.h>
@@ -2047,20 +2048,76 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	return o;
 }
 
+struct target_node {
+	uint32_t idx;
+	uint32_t mask;
+	uint32_t target_idx;
+	uint32_t target_mask;
+	char *target_name;
+	pa_context_success_cb_t cb;
+	void *userdata;
+	const char *key;
+};
+
+static void do_target_node(pa_operation *o, void *userdata)
+{
+	struct target_node *d = userdata;
+	pa_context *c = o->context;
+	struct global *g;
+	int error = 0;
+
+	pw_log_debug("%p", c);
+
+	if ((g = pa_context_find_global(c, d->idx)) == NULL ||
+	    !(g->mask & d->mask)) {
+		error = PA_ERR_NOENTITY;
+		goto done;
+	}
+
+	if (d->target_name) {
+		g = pa_context_find_global_by_name(c, d->target_mask, d->target_name);
+	} else {
+		if ((g = pa_context_find_global(c, d->target_idx)) == NULL ||
+		    !(g->mask & d->target_mask))
+			g = NULL;
+		else {
+			d->target_name = spa_aprintf("%d", g->id);
+		}
+	}
+	if (g == NULL) {
+		error = PA_ERR_NOENTITY;
+	} else if (c->metadata) {
+		pw_metadata_set_property(c->metadata->proxy,
+				d->idx, d->key, "text/plain", d->target_name);
+	} else {
+		error = PA_ERR_NOTIMPLEMENTED;
+	}
+done:
+	if (error != 0)
+		pa_context_set_error(c, error);
+	if (d->cb)
+		d->cb(c, error != 0 ? -1 : 1, d->userdata);
+	pa_operation_done(o);
+	pa_xfree(d->target_name);
+}
+
 SPA_EXPORT
 pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, const char *sink_name, pa_context_success_cb_t cb, void* userdata)
 {
 	pa_operation *o;
-	struct success_ack *d;
+	struct target_node *d;
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
+	d->idx = idx;
+	d->mask = PA_SUBSCRIPTION_MASK_SINK_INPUT;
+	d->target_name = pa_xstrdup(sink_name);
+	d->target_mask = PA_SUBSCRIPTION_MASK_SINK;
+	d->key = "target.node.name";
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -2068,18 +2125,23 @@ SPA_EXPORT
 pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, uint32_t sink_idx, pa_context_success_cb_t cb, void* userdata)
 {
 	pa_operation *o;
-	struct success_ack *d;
+	struct target_node *d;
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
+	d->idx = idx;
+	d->mask = PA_SUBSCRIPTION_MASK_SINK_INPUT;
+	d->target_idx = sink_idx;
+	d->target_mask = PA_SUBSCRIPTION_MASK_SINK;
+	d->key = "target.node";
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
+
+
 
 SPA_EXPORT
 pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, const pa_cvolume *volume, pa_context_success_cb_t cb, void *userdata)
@@ -2360,16 +2422,19 @@ SPA_EXPORT
 pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx, const char *source_name, pa_context_success_cb_t cb, void* userdata)
 {
 	pa_operation *o;
-	struct success_ack *d;
+	struct target_node *d;
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
+	d->idx = idx;
+	d->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
+	d->target_name = pa_xstrdup(source_name);
+	d->target_mask = PA_SUBSCRIPTION_MASK_SOURCE;
+	d->key = "target.node.name";
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -2377,16 +2442,19 @@ SPA_EXPORT
 pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx, uint32_t source_idx, pa_context_success_cb_t cb, void* userdata)
 {
 	pa_operation *o;
-	struct success_ack *d;
+	struct target_node *d;
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
+	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
+	d->idx = idx;
+	d->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
+	d->target_idx = source_idx;
+	d->target_mask = PA_SUBSCRIPTION_MASK_SOURCE;
+	d->key = "target.node";
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 

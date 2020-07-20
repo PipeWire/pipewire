@@ -925,9 +925,9 @@ static int create_stream(pa_stream_direction_t direction,
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t sample_rate = 0, stride = 0, latency_num;
 	const char *str;
-	uint32_t devid;
+	uint32_t devid, n_items;
 	struct global *g;
-	struct spa_dict_item items[5];
+	struct spa_dict_item items[6];
 	char latency[64];
 	bool monitor;
 	const char *name;
@@ -1060,6 +1060,8 @@ static int create_stream(pa_stream_direction_t direction,
 
 		if ((g = pa_context_find_global_by_name(s->context, mask, dev)) != NULL)
 			devid = g->id;
+		else if ((devid = atoi(dev)) == 0)
+			devid = PW_ID_ANY;
 	}
 
 	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) == NULL)
@@ -1087,15 +1089,17 @@ static int create_stream(pa_stream_direction_t direction,
 
 	latency_num = s->buffer_attr.minreq / stride;
 	sprintf(latency, "%u/%u", SPA_MAX(latency_num, 1u), sample_rate);
-	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
-	items[1] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
-	items[2] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,
+	n_items = 0;
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,
 				direction == PA_STREAM_PLAYBACK ?
 					"Playback" : "Capture");
-	items[3] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
-	items[4] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "true" : "false");
-
-	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 5));
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "true" : "false");
+	if (devid == PW_ID_ANY && dev != NULL)
+		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, dev);
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, n_items));
 
 	res = pw_stream_connect(s->stream,
 				direction == PA_STREAM_PLAYBACK ?

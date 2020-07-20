@@ -128,7 +128,7 @@ extern "C" {
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected
 								  *  to a compatible node */
-#define PW_KEY_NODE_TARGET		"node.target"		/**< node want to be connected to the target
+#define PW_KEY_NODE_TARGET		"node.target"		/**< node wants to be connected to the target
 								  *  node/session */
 #define PW_KEY_NODE_LATENCY		"node.latency"		/**< the requested latency of the node as
 								  *  a fraction. Ex: 128/48000 */

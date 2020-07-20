@@ -1972,7 +1972,7 @@ static void registry_event_global(void *data, uint32_t id,
                                   const struct spa_dict *props)
 {
 	struct client *c = (struct client *) data;
-	struct object *o, *ot;
+	struct object *o, *ot, *op;
 	const char *str;
 	uint32_t object_type;
 	size_t size;
@@ -1994,9 +1994,9 @@ static void registry_event_global(void *data, uint32_t id,
 		}
 		snprintf(o->node.name, sizeof(o->node.name), "%s", str);
 		ot = find_node(c, o->node.name);
-		if (ot != NULL && o->node.client_id != ot->node.client_id) {
+		if (ot != NULL && o->node.client_id != ot->node.client_id)
 			snprintf(o->node.name, sizeof(o->node.name), "%s-%d", str, id);
-		}
+
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL)
 			str = o->node.name;
 		snprintf(o->node.key, sizeof(o->node.key), "%s", str);
@@ -2099,6 +2099,10 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.playback_latency.min = 1024;
 			o->port.playback_latency.max = 1024;
 		}
+		op = find_port(c, o->port.name);
+		if (op != NULL && op != o)
+			snprintf(o->port.name, sizeof(o->port.name), "%.*s-%d",
+					(int)(sizeof(op->port.name)-11), op->port.name, id);
 
 		pw_log_debug(NAME" %p: add port %d %s %d", c, id, o->port.name, type_id);
 	}

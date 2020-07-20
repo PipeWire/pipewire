@@ -2043,6 +2043,7 @@ struct target_node {
 	pa_context_success_cb_t cb;
 	void *userdata;
 	const char *key;
+	const char *type;
 };
 
 static void do_target_node(pa_operation *o, void *userdata)
@@ -2074,7 +2075,7 @@ static void do_target_node(pa_operation *o, void *userdata)
 		error = PA_ERR_NOENTITY;
 	} else if (c->metadata) {
 		pw_metadata_set_property(c->metadata->proxy,
-				d->idx, d->key, "text/plain", d->target_name);
+				d->idx, d->key, d->type, d->target_name);
 	} else {
 		error = PA_ERR_NOTIMPLEMENTED;
 	}
@@ -2102,6 +2103,7 @@ pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, co
 	d->target_name = pa_xstrdup(sink_name);
 	d->target_mask = PA_SUBSCRIPTION_MASK_SINK;
 	d->key = "target.node.name";
+	d->type = SPA_TYPE_INFO_BASE "String";
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -2124,6 +2126,7 @@ pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, u
 	d->target_idx = sink_idx;
 	d->target_mask = PA_SUBSCRIPTION_MASK_SINK;
 	d->key = "target.node";
+	d->type = SPA_TYPE_INFO_BASE "Id";
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -2457,6 +2460,7 @@ pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx,
 	d->target_name = pa_xstrdup(source_name);
 	d->target_mask = PA_SUBSCRIPTION_MASK_SOURCE;
 	d->key = "target.node.name";
+	d->type = SPA_TYPE_INFO_BASE "String";
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);
@@ -2479,6 +2483,7 @@ pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx
 	d->target_idx = source_idx;
 	d->target_mask = PA_SUBSCRIPTION_MASK_SOURCE;
 	d->key = "target.node";
+	d->type = SPA_TYPE_INFO_BASE "Id";
 	d->cb = cb;
 	d->userdata = userdata;
 	pa_operation_sync(o);

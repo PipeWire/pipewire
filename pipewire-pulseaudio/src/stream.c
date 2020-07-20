@@ -1995,8 +1995,6 @@ int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
-	pw_log_warn("stream %p: Not implemented %d", s, sink_input_idx);
-
 	PA_CHECK_VALIDITY(s->context, sink_input_idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_UNCONNECTED, PA_ERR_BADSTATE);
 

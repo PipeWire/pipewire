@@ -803,6 +803,9 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 {
 	enum pw_impl_port_state target;
 
+	pw_log_debug(NAME" %p: outport %p input %p param %d", this,
+		outport, inport, id);
+
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
 		target = PW_IMPL_PORT_STATE_CONFIGURE;

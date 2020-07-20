@@ -309,6 +309,9 @@ static void emit_params(struct pw_impl_port *port, uint32_t *changed_ids, uint32
 		struct pw_resource *resource;
 		int subscribed = 0;
 
+		pw_log_debug(NAME" %p: emit param %d/%d: %d", port, i, n_changed_ids,
+				changed_ids[i]);
+
 		pw_impl_port_emit_param_changed(port, changed_ids[i]);
 
 		/* first check if anyone is subscribed */

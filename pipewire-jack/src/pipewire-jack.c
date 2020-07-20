@@ -1981,18 +1981,26 @@ static void registry_event_global(void *data, uint32_t id,
 		return;
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+		const char *app;
+
 		o = alloc_object(c);
 		object_type = INTERFACE_Node;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_CLIENT_ID)) != NULL)
 			o->node.client_id = atoi(str);
 
+		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
+
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
 			str = "node";
 		}
-		snprintf(o->node.name, sizeof(o->node.name), "%s", str);
+		if (app)
+			snprintf(o->node.name, sizeof(o->node.name), "%s:%s", app, str);
+		else
+			snprintf(o->node.name, sizeof(o->node.name), "%s", str);
+
 		ot = find_node(c, o->node.name);
 		if (ot != NULL && o->node.client_id != ot->node.client_id)
 			snprintf(o->node.name, sizeof(o->node.name), "%s-%d", str, id);

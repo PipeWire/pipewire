@@ -246,6 +246,7 @@ struct client {
 	struct context context;
 
 	struct pw_data_loop *loop;
+	struct pw_properties *props;
 
 	struct pw_core *core;
 	struct spa_hook core_listener;
@@ -2334,6 +2335,13 @@ jack_client_t * jack_client_open (const char *client_name,
 			&client->registry_listener,
 			&registry_events, client);
 
+        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+		client->props = pw_properties_new_string(str);
+	if (client->props == NULL)
+		client->props = pw_properties_new(NULL, NULL);
+	if (client->props == NULL)
+		goto init_failed;
+
 	props = SPA_DICT_INIT(items, 0);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_NAME, client_name);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
@@ -2343,11 +2351,13 @@ jack_client_t * jack_client_open (const char *client_name,
 		items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
+	pw_properties_add(client->props, &props);
+
 	client->node = pw_core_create_object(client->core,
 				"client-node",
 				PW_TYPE_INTERFACE_ClientNode,
 				PW_VERSION_CLIENT_NODE,
-				&props,
+				&client->props->dict,
 				0);
 	if (client->node == NULL)
 		goto init_failed;
@@ -2445,6 +2455,7 @@ int jack_client_close (jack_client_t *client)
 	pw_log_debug(NAME" %p: free", client);
 	pthread_mutex_destroy(&c->context.lock);
 	pw_data_loop_destroy(c->loop);
+	pw_properties_free(c->props);
 	free(c);
 
 	return res;

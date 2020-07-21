@@ -1954,10 +1954,10 @@ static int metadata_property(void *object, uint32_t id,
 	uuid = jack_port_uuid_generate(id);
 	update_property(c, uuid, key, type, value);
 
-	if (strcmp(key, "default.audio.sink.name") == 0) {
+	if (key && strcmp(key, "default.audio.sink.name") == 0) {
 		free(c->metadata->default_audio_sink);
 		c->metadata->default_audio_sink = value ? strdup(value) : NULL;
-	} else if (strcmp(key, "default.audio.source.name") == 0) {
+	} else if (key && strcmp(key, "default.audio.source.name") == 0) {
 		free(c->metadata->default_audio_source);
 		c->metadata->default_audio_source = value ? strdup(value) : NULL;
 	}

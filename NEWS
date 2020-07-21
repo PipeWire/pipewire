@@ -1,3 +1,82 @@
+PipeWire 0.3.7
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Improved PulseAudio compatibility. The alsa card profile
+  code was reused from PulseAudio. Devices now support
+  all profiles, ports, jack detection, UCM and hardware
+  mixers that PulseAudio implements. There should not
+  be (almost) any difference between PipeWire and PulseAudio
+  in how it presents and manages devices.
+  Other missing API pieces such as the default sink/source
+  and move_stream are implemented now.  At this point
+  it should be possible to replace PulseAudio with the
+  compatibility layer for those who want to try.
+
+- Many fixes and improvements to the GStreamer elements.
+  pipewiresrc now has the ability to periodically resend
+  the last frame. This makes it possible for use-cases like
+  screensharing to only update the screen on changes while
+  still keeping the client side encoder busy. PipeWire
+  elements can now also share a connection between them.
+
+- Improvements to the bluetooth nodes. Dynamically adding
+  and removing devices should work much smoother now. Many
+  fixes and improvements to a2dp and sco nodes.
+
+- Reduced memory usage by using less pre-allocated memory
+  where possible. JACK clients are especially using less
+  memory.
+
+- Support for passive links is added again. These are links
+  that don't cause the associated driver to become active.
+  This makes it possible to have blocks of effects+sinks go
+  to suspend as a group when not in use.
+
+- Both consumers and producers can now ask to renegotiate
+  the format. This required some cleanups and improvements
+  to how links and node states were handled. More work is
+  needed to implement more use cases.
+
+- Important fixes to how memory is shared with clients. Memory
+  was not correctly freed in all cases, which would result
+  in reuse of the wrong memory.
+
+- Support for planar formats for audio and video was added.
+
+- Improved error handling in the session manager.
+
+- Metadata is now used to manage default audio source and
+  sink devices. The session manager will try to link streams
+  to the default device. Changing the default device will
+  move streams to the new device. PulseAudio and JACK layers
+  respect the default source/sinks.
+
+- Metadata is used to tag the desired output device for
+  a stream and the session manager will move streams when
+  the metadata changes. The PulseAudio layer uses this to
+  implement the move_stream feature.
+
+- Many fixes to the security modules. The session manager now
+  has a flatpak module that grants permissions to flatpak
+  apps. The PulseAudio layer now respects the permissions of
+  objects. Security related properties are made read-only
+  now. Different access modules can now coexist.
+
+- The portal module has been split up in 2 parts:
+   1) a part living in the daemon that monitors the portal
+      dbus owner and tags all clients from this PID. This
+      part has to run in the daemon in order to securely
+      tag the clients.
+   2) a part in the session manager that uses the permission
+      store to manage the permissions of portal managed
+      clients.
+
+
+Older versions:
+
+
 PipeWire 0.3.6
 
 This is a bugfix release that is API and ABI compatible
@@ -13,9 +92,6 @@ with previous 0.3.x releases.
 - Improvements to the GStreamer source and sink shutdown.
 - Fix compatibility with v2 clients again when negotiating
   buffers.
-
-
-Older versions:
 
 
 PipeWire 0.3.5

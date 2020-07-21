@@ -56,6 +56,7 @@
 #define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"
 
 #define JACK_CLIENT_NAME_SIZE		64
+#define JACK_CLIENT_KEY_SIZE		256
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_MAX			4096
 #define JACK_PORT_TYPE_SIZE             32
@@ -69,6 +70,7 @@
 #define MAX_BUFFER_DATAS		1u
 
 #define REAL_JACK_PORT_NAME_SIZE (JACK_CLIENT_NAME_SIZE + JACK_PORT_NAME_SIZE)
+#define REAL_JACK_PORT_KEY_SIZE (JACK_CLIENT_KEY_SIZE + JACK_PORT_NAME_SIZE)
 
 #define NAME	"jack-client"
 
@@ -108,7 +110,7 @@ struct object {
 	union {
 		struct {
 			char name[JACK_CLIENT_NAME_SIZE+1];
-			char key[JACK_CLIENT_NAME_SIZE+1];
+			char key[JACK_CLIENT_KEY_SIZE+1];
 			int32_t priority;
 			uint32_t client_id;
 		} node;
@@ -121,7 +123,7 @@ struct object {
 			char name[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias1[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias2[REAL_JACK_PORT_NAME_SIZE+1];
-			char key[REAL_JACK_PORT_NAME_SIZE+1];
+			char key[REAL_JACK_PORT_KEY_SIZE+1];
 			uint32_t type_id;
 			uint32_t node_id;
 			uint32_t port_id;
@@ -2112,7 +2114,8 @@ static void registry_event_global(void *data, uint32_t id,
 			snprintf(o->port.name, sizeof(o->port.name), "%.*s-%d",
 					(int)(sizeof(op->port.name)-11), op->port.name, id);
 
-		pw_log_debug(NAME" %p: add port %d %s %d", c, id, o->port.name, type_id);
+		pw_log_debug(NAME" %p: add port %d name:%s key:%s %d", c, id,
+				o->port.name, o->port.key, type_id);
 	}
 	else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
 		o = alloc_object(c);
@@ -3974,7 +3977,8 @@ static int port_compare_func(const void *v1, const void *v2, void *arg)
 	else if ((res = strcmp((*o1)->port.alias1, (*o2)->port.alias1) == 0))
 		res = (*o1)->id - (*o2)->id;
 
-	pw_log_debug("port type:%d<->%d def:%d<->%d prio:%d<->%d id:%d<->%d res:%d",
+	pw_log_debug("port %s %s type:%d<->%d def:%d<->%d prio:%d<->%d id:%d<->%d res:%d",
+			(*o1)->port.key, (*o2)->port.key,
 			(*o1)->port.type_id, (*o2)->port.type_id,
 			is_def1, is_def2,
 			(*o1)->port.priority, (*o2)->port.priority,

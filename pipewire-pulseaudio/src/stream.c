@@ -600,7 +600,6 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 	pa_stream *s;
 	char str[1024];
 	unsigned int i;
-	struct pw_properties *props;
 
 	spa_assert(c);
 	spa_assert(c->refcount >= 1);
@@ -619,10 +618,6 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 		pa_proplist_sets(s->proplist, PA_PROP_MEDIA_NAME, name);
 	else
 		name = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_NAME);
-
-	props = pw_properties_new(PW_KEY_CLIENT_API, "pulseaudio",
-				NULL);
-	pw_properties_update_proplist(props, s->proplist);
 
 	s->refcount = 1;
 	s->context = c;

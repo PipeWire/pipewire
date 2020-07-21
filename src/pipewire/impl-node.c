@@ -1514,8 +1514,9 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	a->max_delay = SPA_MAX(a->max_delay, delay);
 
 	if (ratelimit_test(&this->rt.rate_limit, a->signal_time)) {
-		pw_log_error(NAME" %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
-				this, a->xrun_count, trigger, delay, a->max_delay);
+		pw_log_error("(%s-%d) XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
+				this->name, this->info.id, a->xrun_count,
+				trigger, delay, a->max_delay);
 	}
 
 	pw_context_driver_emit_xrun(this->context, this);

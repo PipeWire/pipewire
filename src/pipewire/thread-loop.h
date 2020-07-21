@@ -147,7 +147,7 @@ int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec);
  * Since: 0.3.7 */
 int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstime, int64_t timeout);
 
-/** Release the lock and wait until \a timeout until some thread calls
+/** Release the lock and wait up to \a abstime until some thread calls
  * \ref pw_thread_loop_signal. Use \ref pw_thread_loop_get_time to make a timeout.
  * Since: 0.3.7 */
 int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, struct timespec *abstime);

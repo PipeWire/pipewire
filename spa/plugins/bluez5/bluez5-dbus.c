@@ -462,6 +462,15 @@ struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const c
 	return NULL;
 }
 
+struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monitor, const char *remote_address, const char *local_address)
+{
+	struct spa_bt_device *d;
+	spa_list_for_each(d, &monitor->device_list, link)
+		if (strcmp(d->address, remote_address) == 0 && strcmp(d->adapter->address, local_address) == 0)
+			return d;
+	return NULL;
+}
+
 static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_device *d;
@@ -798,7 +807,7 @@ static int device_update_props(struct spa_bt_device *device,
 	return 0;
 }
 
-static struct spa_bt_transport *transport_find(struct spa_bt_monitor *monitor, const char *path)
+struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_transport *t;
 	spa_list_for_each(t, &monitor->transport_list, link)
@@ -1078,7 +1087,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	dbus_message_iter_next(&it[0]);
 	dbus_message_iter_recurse(&it[0], &it[1]);
 
-	transport = transport_find(monitor, transport_path);
+	transport = spa_bt_transport_find(monitor, transport_path);
 	is_new = transport == NULL;
 
 	if (is_new) {
@@ -1128,7 +1137,7 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	transport = transport_find(monitor, transport_path);
+	transport = spa_bt_transport_find(monitor, transport_path);
 
 	if (transport != NULL) {
 		struct spa_bt_device *device = transport->device;
@@ -1545,7 +1554,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		else if (strcmp(iface, BLUEZ_MEDIA_TRANSPORT_INTERFACE) == 0) {
 			struct spa_bt_transport *transport;
 
-			transport = transport_find(monitor, path);
+			transport = spa_bt_transport_find(monitor, path);
 			if (transport == NULL) {
 				spa_log_warn(monitor->log,
 						"Properties changed in unknown transport %s", path);

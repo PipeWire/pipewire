@@ -202,6 +202,7 @@ struct spa_bt_device {
 };
 
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);
+struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monitor, const char *remote_address, const char *local_address);
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
 
@@ -254,6 +255,7 @@ struct spa_bt_transport {
 
 struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor, char *path, size_t extra);
 void spa_bt_transport_free(struct spa_bt_transport *transport);
+struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, const char *path);
 
 #define spa_bt_transport_emit(t,m,v,...)		spa_hook_list_call(&(t)->listener_list, \
 								struct spa_bt_transport_events,	\

@@ -134,15 +134,18 @@ static PA_PRINTF_FUNC(3,4) inline int pa_proplist_setf(pa_proplist *p, const cha
 {
 	pa_proplist_item *item = pa_proplist_item_find(p, key);
 	va_list args;
+	int res;
+
 	va_start(args, format);
 	if (item != NULL)
 		pa_proplist_item_free(item);
         else
                 item = pa_array_add(&p->array, sizeof(*item));
 	item->key = strdup(key);
-	vasprintf(&item->value, format, args);
+	if ((res = vasprintf(&item->value, format, args)) < 0)
+		res = -errno;
 	va_end(args);
-	return 0;
+	return res;
 }
 
 static inline const char *pa_proplist_gets(const pa_proplist *p, const char *key)

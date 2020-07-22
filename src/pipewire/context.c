@@ -604,7 +604,7 @@ SPA_PRINTF_FUNC(7, 8) int pw_context_debug_port_params(struct pw_context *this,
 	va_list args;
 
 	va_start(args, debug);
-	vsnprintf(buffer, sizeof(buffer), debug, args);
+	vsnprintf((char*)buffer, sizeof(buffer), debug, args);
 	va_end(args);
 
 	pw_log_error("params %s: %d:%d %s (%s)",

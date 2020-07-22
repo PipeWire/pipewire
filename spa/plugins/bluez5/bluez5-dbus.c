@@ -773,7 +773,7 @@ static int device_update_props(struct spa_bt_device *device,
 			}
 			else if (strcmp(key, "ServicesResolved") == 0) {
 				if (value)
-					spa_bt_device_check_profiles(device, true);
+					spa_bt_device_check_profiles(device, false);
 			}
 		}
 		else if (strcmp(key, "UUIDs") == 0) {

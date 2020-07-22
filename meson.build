@@ -263,6 +263,9 @@ if get_option('bluez5')
   if get_option('bluez5-backend-ofono')
     cdata.set('HAVE_BLUEZ_5_BACKEND_OFONO', 1)
   endif
+  if get_option('bluez5-backend-hsphfpd')
+    cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', 1)
+  endif
 endif
 
 configure_file(input : 'config.h.meson',

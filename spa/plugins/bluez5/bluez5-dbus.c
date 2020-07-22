@@ -75,6 +75,7 @@ struct spa_bt_monitor {
 
 	struct spa_bt_backend *backend_hsp_native;
 	struct spa_bt_backend *backend_ofono;
+	struct spa_bt_backend *backend_hsphfpd;
 };
 
 static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
@@ -1634,6 +1635,9 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	if (this->backend_ofono)
 		backend_ofono_add_filters(this->backend_ofono);
 
+	if (this->backend_hsphfpd)
+		backend_hsphfpd_add_filters(this->backend_hsphfpd);
+
         spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
@@ -1685,6 +1689,11 @@ static int impl_clear(struct spa_handle *handle)
 	if (monitor->backend_ofono) {
 		backend_ofono_free(monitor->backend_ofono);
 		monitor->backend_ofono = NULL;
+	}
+
+	if (monitor->backend_hsphfpd) {
+		backend_hsphfpd_free(monitor->backend_hsphfpd);
+		monitor->backend_hsphfpd = NULL;
 	}
 
 	return 0;
@@ -1744,6 +1753,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->backend_hsp_native = backend_hsp_native_new(this, this->conn, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, support, n_support);
+	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, support, n_support);
 
 	return 0;
 }

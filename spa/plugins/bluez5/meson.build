@@ -16,6 +16,10 @@ if get_option('bluez5-backend-ofono')
   bluez5_sources += ['backend-ofono.c']
 endif
 
+if get_option('bluez5-backend-hsphfpd')
+  bluez5_sources += ['backend-hsphfpd.c']
+endif
+
 bluez5lib = shared_library('spa-bluez5',
 	bluez5_sources,
 	include_directories : [ spa_inc, configinc ],

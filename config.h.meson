@@ -329,6 +329,9 @@
 /* Define to 1 if oFono backend is enabled in bluez5 plugin. */
 #mesondefine HAVE_BLUEZ_5_BACKEND_OFONO
 
+/* Define to 1 if hsphfpd backend is enabled in bluez5 plugin. */
+#mesondefine HAVE_BLUEZ_5_BACKEND_HSPHFPD
+
 /* the host CPU */
 #mesondefine HOST_CPU
 

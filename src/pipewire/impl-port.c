@@ -782,6 +782,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 	const char *keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_FORMAT_DSP,
+		PW_KEY_AUDIO_CHANNEL,
 		PW_KEY_PORT_NAME,
 		PW_KEY_PORT_DIRECTION,
 		PW_KEY_PORT_PHYSICAL,

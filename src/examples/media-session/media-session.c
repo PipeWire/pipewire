@@ -185,12 +185,14 @@ static void remove_object(struct impl *impl, struct sm_object *obj)
 	obj->id = SPA_ID_INVALID;
 }
 
-static void *find_object(struct impl *impl, uint32_t id)
+static void *find_object(struct impl *impl, uint32_t id, const char *type)
 {
-	void *obj;
-	if ((obj = pw_map_lookup(&impl->globals, id)) != NULL)
-		return obj;
-	return NULL;
+	struct sm_object *obj;
+	if ((obj = pw_map_lookup(&impl->globals, id)) == NULL)
+		return NULL;
+	if (type != NULL && strcmp(obj->type, type) != 0)
+		return NULL;
+	return obj;
 }
 
 static struct data *object_find_data(struct sm_object *obj, const char *id)
@@ -576,7 +578,7 @@ static int node_init(void *object)
 
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_DEVICE_ID)) != NULL)
-			node->device = find_object(impl, atoi(str));
+			node->device = find_object(impl, atoi(str), NULL);
 		pw_log_debug(NAME" %p: node %d parent device %s (%p)", impl,
 				node->obj.id, str, node->device);
 		if (node->device) {
@@ -670,7 +672,7 @@ static int port_init(void *object)
 		if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNEL)) != NULL)
 			port->channel = find_channel(str);
 		if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
-			port->node = find_object(impl, atoi(str));
+			port->node = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node);
 
 		pw_log_debug(NAME" %p: port %d parent node %s (%p) direction:%d type:%d", impl,
 				port->obj.id, str, port->node, port->direction, port->type);
@@ -824,7 +826,7 @@ static int endpoint_init(void *object)
 
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_SESSION_ID)) != NULL)
-			endpoint->session = find_object(impl, atoi(str));
+			endpoint->session = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Session);
 		pw_log_debug(NAME" %p: endpoint %d parent session %s", impl,
 				endpoint->obj.id, str);
 		if (endpoint->session) {
@@ -908,7 +910,7 @@ static int endpoint_stream_init(void *object)
 
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_ENDPOINT_ID)) != NULL)
-			stream->endpoint = find_object(impl, atoi(str));
+			stream->endpoint = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Endpoint);
 		pw_log_debug(NAME" %p: stream %d parent endpoint %s", impl,
 				stream->obj.id, str);
 		if (stream->endpoint) {
@@ -1216,7 +1218,7 @@ registry_global(void *data, uint32_t id,
 	if (info == NULL)
 		return;
 
-	obj = find_object(impl, id);
+	obj = find_object(impl, id, NULL);
 	if (obj == NULL) {
 		bind_object(impl, info, id, permissions, type, version, props);
 	} else {
@@ -1253,7 +1255,7 @@ int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook
 struct sm_object *sm_media_session_find_object(struct sm_media_session *sess, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
-	return find_object(impl, id);
+	return find_object(impl, id, NULL);
 }
 
 int sm_media_session_destroy_object(struct sm_media_session *sess, uint32_t id)
@@ -1347,7 +1349,7 @@ registry_global_remove(void *data, uint32_t id)
 
 	pw_log_debug(NAME " %p: remove global '%d'", impl, id);
 
-	if ((obj = find_object(impl, id)) == NULL)
+	if ((obj = find_object(impl, id, NULL)) == NULL)
 		return;
 
 	sm_object_destroy(obj);
@@ -1577,39 +1579,30 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 
 	/* find output node */
 	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_OUTPUT_NODE)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node)) != NULL)
 		outnode = (struct sm_node*)obj;
-	}
 
 	/* find input node */
 	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_INPUT_NODE)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node)) != NULL)
 		innode = (struct sm_node*)obj;
-	}
 
 	/* find endpoints and streams */
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Endpoint)) != NULL)
 		outendpoint = (struct sm_endpoint*)obj;
-	}
+
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_EndpointStream)) != NULL)
 		outstream = (struct sm_endpoint_stream*)obj;
-	}
+
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Endpoint)) != NULL)
 		inendpoint = (struct sm_endpoint*)obj;
-	}
+
 	if ((str = spa_dict_lookup(dict, PW_KEY_ENDPOINT_LINK_INPUT_STREAM)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_EndpointStream)) != NULL)
 		instream = (struct sm_endpoint_stream*)obj;
-	}
 
 	if (outendpoint != NULL && inendpoint != NULL) {
 		link = calloc(1, sizeof(struct endpoint_link));
@@ -1663,17 +1656,14 @@ int sm_media_session_remove_links(struct sm_media_session *sess,
 
 	/* find output node */
 	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_OUTPUT_NODE)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node)) != NULL)
 		outnode = (struct sm_node*)obj;
-	}
 
 	/* find input node */
 	if ((str = spa_dict_lookup(dict, PW_KEY_LINK_INPUT_NODE)) != NULL &&
-	    (obj = find_object(impl, atoi(str))) != NULL &&
-	    strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+	    (obj = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node)) != NULL)
 		innode = (struct sm_node*)obj;
-	}
+
 	if (innode == NULL || outnode == NULL)
 		return -EINVAL;
 

@@ -44,13 +44,9 @@ spa_debug_format_value(const struct spa_type_info *info,
 		break;
 	case SPA_TYPE_Id:
 	{
-		const char *str = spa_debug_type_find_name(info, *(int32_t *) body);
+		const char *str = spa_debug_type_find_short_name(info, *(int32_t *) body);
 		char tmp[64];
-		if (str) {
-			const char *h = rindex(str, ':');
-			if (h)
-				str = h + 1;
-		} else {
+		if (str == NULL) {
 			snprintf(tmp, sizeof(tmp), "%d", *(int32_t*)body);
 			str = tmp;
 		}
@@ -132,8 +128,8 @@ static inline int spa_debug_format(int indent,
 	media_subtype = spa_debug_type_find_name(spa_type_media_subtype, mstype);
 
 	fprintf(stderr, "%*s %s/%s\n", indent, "",
-		media_type ? rindex(media_type, ':') + 1 : "unknown",
-		media_subtype ? rindex(media_subtype, ':') + 1 : "unknown");
+		media_type ? spa_debug_type_short_name(media_type) : "unknown",
+		media_subtype ? spa_debug_type_short_name(media_subtype) : "unknown");
 
 	SPA_POD_OBJECT_FOREACH((struct spa_pod_object*)format, prop) {
 		const char *key;
@@ -159,8 +155,8 @@ static inline int spa_debug_format(int indent,
 		key = ti ? ti->name : NULL;
 
 		fprintf(stderr, "%*s %16s : (%s) ", indent, "",
-			key ? rindex(key, ':') + 1 : "unknown",
-			rindex(spa_types[type].name, ':') + 1);
+			key ? spa_debug_type_short_name(key) : "unknown",
+			spa_debug_type_short_name(spa_types[type].name));
 
 		if (choice == SPA_CHOICE_None) {
 			spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);

@@ -486,8 +486,8 @@ static unsigned int find_channel(const char *name)
 	int i;
 
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, rindex(spa_type_audio_channel[i].name, ':')+1) == 0)
-			return i;
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
@@ -563,7 +563,7 @@ static void channelmap_print(struct channelmap *map)
 		const char *name = spa_debug_type_find_name(spa_type_audio_channel, map->channels[i]);
 		if (name == NULL)
 			name = ":UNK";
-		printf("%s%s", rindex(name, ':')+1, i + 1 < map->n_channels ? "," : "");
+		printf("%s%s", spa_debug_type_short_name(name), i + 1 < map->n_channels ? "," : "");
 	}
 }
 

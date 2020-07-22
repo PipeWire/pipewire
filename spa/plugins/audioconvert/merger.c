@@ -167,7 +167,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->direction = direction;
 	port->id = port_id;
 
-	snprintf(port->position, 16, "%s", rindex(spa_type_audio_channel[position].name, ':')+1);
+	snprintf(port->position, 16, "%s",
+			spa_debug_type_short_name(spa_type_audio_channel[position].name));
 
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |

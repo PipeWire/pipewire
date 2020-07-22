@@ -64,7 +64,8 @@ extern "C" {
 
 /* core */
 #define PW_KEY_CORE_NAME		"core.name"		/**< The name of the core. Default is
-								  *  pipewire-<user-name>-<pid> */
+								  *  pipewire-<user-name>-<pid>, overwritten
+								  *  by env(PIPEWIRE_CORE) */
 #define PW_KEY_CORE_VERSION		"core.version"		/**< The version of the core. */
 #define PW_KEY_CORE_DAEMON		"core.daemon"		/**< If the core is listening for connections. */
 
@@ -82,7 +83,8 @@ extern "C" {
 
 /* remote keys */
 #define PW_KEY_REMOTE_NAME		"remote.name"		/**< The name of the remote to connect to,
-								  *  default env(PIPEWIRE_REMOTE) or pipewire-0 */
+								  *  default pipewire-0, overwritten by
+								  *  env(PIPEWIRE_REMOTE) */
 #define PW_KEY_REMOTE_INTENTION		"remote.intention"	/**< The intention of the remote connection,
 								  *  "generic", "screencast" */
 

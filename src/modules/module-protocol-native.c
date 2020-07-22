@@ -980,12 +980,11 @@ static const struct spa_loop_control_hooks impl_hooks = {
 static const char *
 get_name(const struct spa_dict *props)
 {
-	const char *name = NULL;
+	const char *name;
 
-	if (props)
+	name = getenv("PIPEWIRE_CORE");
+	if (props && name == NULL)
 		name = spa_dict_lookup(props, PW_KEY_CORE_NAME);
-	if (name == NULL)
-		name = getenv("PIPEWIRE_CORE");
 	if (name == NULL)
 		name = "pipewire-0";
 	return name;

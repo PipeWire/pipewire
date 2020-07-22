@@ -320,6 +320,12 @@
 /* for the systemd header files */
 #mesondefine HAVE_SYSTEMD_DAEMON
 
+/* Define to 1 if native HSP backend is enabled in bluez5 plugin. */
+#mesondefine HAVE_BLUEZ_5_BACKEND_NATIVE
+
+/* Define to 1 if oFono backend is enabled in bluez5 plugin. */
+#mesondefine HAVE_BLUEZ_5_BACKEND_OFONO
+
 /* the host CPU */
 #mesondefine HOST_CPU
 

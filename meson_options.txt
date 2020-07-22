@@ -64,6 +64,14 @@ option('bluez5',
        description: 'Enable bluez5 spa plugin integration',
        type: 'boolean',
        value: true)
+option('bluez5-backend-native',
+       description: 'Enable native HSP backend in bluez5 spa plugin',
+       type: 'boolean',
+       value: true)
+option('bluez5-backend-ofono',
+       description: 'Enable oFono HFP backend in bluez5 spa plugin',
+       type: 'boolean',
+       value: true)
 option('control',
        description: 'Enable control spa plugin integration',
        type: 'boolean',

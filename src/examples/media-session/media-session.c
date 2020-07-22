@@ -1496,6 +1496,52 @@ static const struct pw_proxy_events proxy_link_events = {
 	.destroy = proxy_link_destroy
 };
 
+static int score_ports(struct sm_port *out, struct sm_port *in)
+{
+	int score = 0;
+
+	if (in->direction != PW_DIRECTION_INPUT || out->direction != PW_DIRECTION_OUTPUT)
+		return 0;
+
+	if (out->type != SM_PORT_TYPE_UNKNOWN && in->type != SM_PORT_TYPE_UNKNOWN &&
+	    in->type != out->type)
+		return 0;
+
+	if (!in->visited)
+		score += 5;
+	if (out->channel == in->channel)
+		score += 100;
+	else if ((out->channel == SPA_AUDIO_CHANNEL_SL && in->channel == SPA_AUDIO_CHANNEL_RL) ||
+	         (out->channel == SPA_AUDIO_CHANNEL_RL && in->channel == SPA_AUDIO_CHANNEL_SL) ||
+	         (out->channel == SPA_AUDIO_CHANNEL_SR && in->channel == SPA_AUDIO_CHANNEL_RR) ||
+	         (out->channel == SPA_AUDIO_CHANNEL_RR && in->channel == SPA_AUDIO_CHANNEL_SR))
+		score += 50;
+	else if ((out->channel == SPA_AUDIO_CHANNEL_FC && in->channel == SPA_AUDIO_CHANNEL_MONO) ||
+	         (out->channel == SPA_AUDIO_CHANNEL_MONO && in->channel == SPA_AUDIO_CHANNEL_FC))
+		score += 40;
+	else if (in->channel == SPA_AUDIO_CHANNEL_UNKNOWN)
+		score += 30;
+	else if (in->channel == SPA_AUDIO_CHANNEL_MONO)
+		score += 20;
+	return score;
+}
+
+static struct sm_port *find_input_port(struct impl *impl, struct sm_node *outnode,
+		struct sm_port *outport, struct sm_node *innode)
+{
+	struct sm_port *inport, *best_port = NULL;
+	int score, best_score = 0;
+
+	spa_list_for_each(inport, &innode->port_list, link) {
+		score = score_ports(outport, inport);
+		if (score > best_score) {
+			best_score = score;
+			best_port = inport;
+		}
+	}
+	return best_port;
+}
+
 static int link_nodes(struct impl *impl, struct endpoint_link *link,
 		struct sm_node *outnode, struct sm_node *innode)
 {
@@ -1508,53 +1554,52 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", outnode->obj.id);
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", innode->obj.id);
 
-	for (outport = spa_list_first(&outnode->port_list, struct sm_port, link),
-	    inport = spa_list_first(&innode->port_list, struct sm_port, link);
-	    !spa_list_is_end(outport, &outnode->port_list, link) &&
-	    !spa_list_is_end(inport, &innode->port_list, link);) {
+	spa_list_for_each(inport, &innode->port_list, link)
+		inport->visited = false;
+
+	spa_list_for_each(outport, &outnode->port_list, link) {
+		struct link *l;
+		struct pw_proxy *p;
+
+		if (outport->direction != PW_DIRECTION_OUTPUT)
+			continue;
+
+		inport = find_input_port(impl, outnode, outport, innode);
+		if (inport == NULL) {
+			pw_log_debug(NAME" %p: port %d:%d can't be linked", impl,
+				outport->direction, outport->obj.id);
+			continue;
+		}
+		inport->visited = true;
 
 		pw_log_debug(NAME" %p: port %d:%d -> %d:%d", impl,
 				outport->direction, outport->obj.id,
 				inport->direction, inport->obj.id);
 
-		if (outport->direction == PW_DIRECTION_OUTPUT &&
-		    inport->direction == PW_DIRECTION_INPUT) {
-			struct link *l;
-			struct pw_proxy *p;
+		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", outport->obj.id);
+		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", inport->obj.id);
 
-			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", outport->obj.id);
-			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", inport->obj.id);
+		p = pw_core_create_object(impl->policy_core,
+					"link-factory",
+					PW_TYPE_INTERFACE_Link,
+					PW_VERSION_LINK,
+					&props->dict, sizeof(struct link));
+		if (p == NULL)
+			return -errno;
 
-			p = pw_core_create_object(impl->policy_core,
-						"link-factory",
-						PW_TYPE_INTERFACE_Link,
-						PW_VERSION_LINK,
-						&props->dict, sizeof(struct link));
-			if (p == NULL)
-				return -errno;
+		l = pw_proxy_get_user_data(p);
+		l->proxy = p;
+		l->output_node = outnode->obj.id;
+		l->output_port = outport->obj.id;
+		l->input_node = innode->obj.id;
+		l->input_port = inport->obj.id;
+		pw_proxy_add_listener(p, &l->listener, &proxy_link_events, l);
 
-			l = pw_proxy_get_user_data(p);
-			l->proxy = p;
-			l->output_node = outnode->obj.id;
-			l->output_port = outport->obj.id;
-			l->input_node = innode->obj.id;
-			l->input_port = inport->obj.id;
-			pw_proxy_add_listener(p, &l->listener, &proxy_link_events, l);
-
-			if (link) {
-				l->endpoint_link = link;
-				spa_list_append(&link->link_list, &l->link);
-			} else {
-				spa_list_append(&impl->link_list, &l->link);
-			}
-
-			outport = spa_list_next(outport, link);
-			inport = spa_list_next(inport, link);
+		if (link) {
+			l->endpoint_link = link;
+			spa_list_append(&link->link_list, &l->link);
 		} else {
-			if (outport->direction != PW_DIRECTION_OUTPUT)
-				outport = spa_list_next(outport, link);
-			if (inport->direction != PW_DIRECTION_INPUT)
-				inport = spa_list_next(inport, link);
+			spa_list_append(&impl->link_list, &l->link);
 		}
 	}
 	pw_properties_free(props);

@@ -163,6 +163,8 @@ struct sm_port {
 
 #define SM_PORT_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 	struct pw_port_info *info;
+
+	unsigned int visited:1;
 };
 
 struct sm_session {

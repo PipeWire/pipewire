@@ -1617,12 +1617,6 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 		spa_node_set_callbacks(node->node, NULL, NULL);
 	}
 
-	pw_log_debug(NAME" %p: unlink ports", node);
-	spa_list_for_each(port, &node->input_ports, link)
-		pw_impl_port_unlink(port);
-	spa_list_for_each(port, &node->output_ports, link)
-		pw_impl_port_unlink(port);
-
 	pw_log_debug(NAME" %p: destroy ports", node);
 	spa_list_consume(port, &node->input_ports, link)
 		pw_impl_port_destroy(port);

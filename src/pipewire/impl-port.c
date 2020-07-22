@@ -983,6 +983,8 @@ void pw_impl_port_destroy(struct pw_impl_port *port)
 
 	pw_impl_port_emit_destroy(port);
 
+	pw_impl_port_unlink(port);
+
 	pw_log_debug(NAME" %p: control destroy", port);
 	spa_list_consume(control, &port->control_list[0], port_link)
 		pw_control_destroy(control);

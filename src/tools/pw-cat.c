@@ -513,10 +513,9 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 	map->n_channels = nch;
 	for (i = 0; i < map->n_channels; i++) {
 		int c = find_channel(ch[i]);
-		if (c == SPA_AUDIO_CHANNEL_UNKNOWN)
-			return -1;
 		map->channels[i] = c;
 	}
+	pw_free_strv(ch);
 	return 0;
 }
 

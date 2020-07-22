@@ -640,6 +640,16 @@ static const struct pw_port_events port_events = {
 	.info = port_event_info,
 };
 
+static enum spa_audio_channel find_channel(const char *name)
+{
+        int i;
+        for (i = 0; spa_type_audio_channel[i].name; i++) {
+                if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+                        return spa_type_audio_channel[i].type;
+        }
+        return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
 static int port_init(void *object)
 {
 	struct sm_port *port = object;
@@ -651,11 +661,19 @@ static int port_init(void *object)
 		if ((str = pw_properties_get(props, PW_KEY_PORT_DIRECTION)) != NULL)
 			port->direction = strcmp(str, "out") == 0 ?
 				PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+		if ((str = pw_properties_get(props, PW_KEY_FORMAT_DSP)) != NULL) {
+			if (strcmp(str, "32 bit float mono audio") == 0)
+				port->type = SM_PORT_TYPE_DSP_AUDIO;
+			else if (strcmp(str, "8 bit raw midi") == 0)
+				port->type = SM_PORT_TYPE_DSP_MIDI;
+		}
+		if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNEL)) != NULL)
+			port->channel = find_channel(str);
 		if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 			port->node = find_object(impl, atoi(str));
 
-		pw_log_debug(NAME" %p: port %d parent node %s (%p) direction:%d", impl,
-				port->obj.id, str, port->node, port->direction);
+		pw_log_debug(NAME" %p: port %d parent node %s (%p) direction:%d type:%d", impl,
+				port->obj.id, str, port->node, port->direction, port->type);
 		if (port->node) {
 			spa_list_append(&port->node->port_list, &port->link);
 			port->node->obj.avail |= SM_NODE_CHANGE_MASK_PORTS;

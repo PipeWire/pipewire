@@ -153,6 +153,11 @@ struct sm_port {
 	struct sm_object obj;
 
 	enum pw_direction direction;
+#define SM_PORT_TYPE_UNKNOWN	0
+#define SM_PORT_TYPE_DSP_AUDIO	1
+#define SM_PORT_TYPE_DSP_MIDI	2
+	uint32_t type;
+	uint32_t channel;
 	struct sm_node *node;
 	struct spa_list link;		/**< link in node port_list */
 

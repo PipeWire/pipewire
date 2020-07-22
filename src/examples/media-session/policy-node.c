@@ -95,13 +95,37 @@ struct node {
 	unsigned int enabled:1;
 };
 
+static int configure_node(struct node *node, struct spa_audio_info *info)
+{
+	struct impl *impl = node->impl;
+	char buf[1024];
+	struct spa_pod_builder b = { 0, };
+	struct spa_pod *param;
+
+	node->format = *info;
+	node->format.info.raw.rate = impl->sample_rate;
+
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
+		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
+		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
+
+	pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
+			SPA_PARAM_PortConfig, 0, param);
+	return 0;
+}
+
 static int activate_node(struct node *node)
 {
 	struct impl *impl = node->impl;
 	struct sm_param *p;
-	char buf[1024];
-	struct spa_pod_builder b = { 0, };
-	struct spa_pod *param;
 	bool have_format = false;
 
 	pw_log_debug(NAME" %p: node %p activate", impl, node);
@@ -132,24 +156,8 @@ static int activate_node(struct node *node)
 		have_format = true;
 	}
 
-	if (have_format) {
-		node->format.info.raw.rate = impl->sample_rate;
-
-		spa_pod_builder_init(&b, buf, sizeof(buf));
-		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
-			SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
-			SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
-
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(2, NULL, param);
-
-		pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
-				SPA_PARAM_PortConfig, 0, param);
-	}
+	if (have_format)
+		configure_node(node, &node->format);
 
 	node->active = true;
 	return 0;
@@ -409,6 +417,9 @@ static int link_nodes(struct node *node, struct node *peer)
 	struct pw_properties *props;
 
 	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->id, peer->id);
+#if 0
+	configure_node(node, &peer->format);
+#endif
 
 	node->peer = peer;
 

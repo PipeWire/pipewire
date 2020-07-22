@@ -255,7 +255,7 @@ static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, 
 
 	d = spa_bt_device_find_by_address(backend->monitor, remote_address, local_address);
 	if (!d) {
-		spa_log_error(backend->log, "Device doesnt exist for %s", path);
+		spa_log_error(backend->log, "Device doesn’t exist for %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 

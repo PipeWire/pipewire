@@ -48,7 +48,7 @@ This will use the default config file to configure and start the daemon.
 The default config will also start pipewire-media-session, a default
 example media session.
 
-You can also enable more debuging with the PIPEWIRE_DEBUG environment
+You can also enable more debugging with the PIPEWIRE_DEBUG environment
 variable like so:
 
 ```

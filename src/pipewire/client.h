@@ -78,7 +78,7 @@ struct pw_client_events {
 	/**
 	 * Notify a client permission
 	 *
-	 * Event emited as a result of the get_permissions method.
+	 * Event emitted as a result of the get_permissions method.
 	 *
 	 * \param default_permissions the default permissions
 	 * \param index the index of the first permission entry
@@ -126,7 +126,7 @@ struct pw_client_methods {
 	/**
 	 * Get client permissions
 	 *
-	 * A permissions event will be emited with the permissions.
+	 * A permissions event will be emitted with the permissions.
 	 *
 	 * \param index the first index to query, 0 for first
 	 * \param num the maximum number of items to get

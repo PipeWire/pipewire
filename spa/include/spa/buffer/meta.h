@@ -71,7 +71,7 @@ struct spa_meta {
  * timestamps.
  */
 struct spa_meta_header {
-#define SPA_META_HEADER_FLAG_DISCONT	(1 << 0)	/**< data is not continous with previous buffer */
+#define SPA_META_HEADER_FLAG_DISCONT	(1 << 0)	/**< data is not continuous with previous buffer */
 #define SPA_META_HEADER_FLAG_CORRUPTED	(1 << 1)	/**< data might be corrupted */
 #define SPA_META_HEADER_FLAG_MARKER	(1 << 2)	/**< media specific marker */
 #define SPA_META_HEADER_FLAG_HEADER	(1 << 3)	/**< data contains a codec specific header */
@@ -105,7 +105,7 @@ struct spa_meta_region {
  *
  * This metadata contains a bitmap image in the given format and size.
  * It is typically used for cursor images or other small images that are
- * better transfered inline.
+ * better transferred inline.
  */
 struct spa_meta_bitmap {
 	uint32_t format;		/**< bitmap video format, one of enum spa_video_format. 0 is

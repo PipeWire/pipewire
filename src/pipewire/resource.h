@@ -71,7 +71,7 @@ struct pw_resource_events {
 	/** a reply to a ping event completed */
         void (*pong) (void *data, int seq);
 
-	/** an error occured on the resource */
+	/** an error occurred on the resource */
         void (*error) (void *data, int seq, int res, const char *message);
 };
 

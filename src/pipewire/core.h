@@ -109,7 +109,7 @@ struct pw_core_events {
 	/**
 	 * Notify new core info
 	 *
-	 * This event is emited when first bound to the core or when the
+	 * This event is emitted when first bound to the core or when the
 	 * hello method is called.
 	 *
 	 * \param info new core info
@@ -118,7 +118,7 @@ struct pw_core_events {
 	/**
 	 * Emit a done event
 	 *
-	 * The done event is emited as a result of a sync method with the
+	 * The done event is emitted as a result of a sync method with the
 	 * same seq number.
 	 *
 	 * \param seq the seq number passed to the sync method call
@@ -141,7 +141,7 @@ struct pw_core_events {
          * object. The message is a brief description of the error,
          * for (debugging) convenience.
 	 *
-	 * This event is usually also emited on the proxy object with
+	 * This event is usually also emitted on the proxy object with
 	 * \a id.
 	 *
          * \param id object where the error occurred
@@ -166,8 +166,8 @@ struct pw_core_events {
 	/**
 	 * Notify an object binding
 	 *
-	 * This event is emited when a local object ID is bound to a
-	 * global ID. It is emited before the global becomes visible in the
+	 * This event is emitted when a local object ID is bound to a
+	 * global ID. It is emitted before the global becomes visible in the
 	 * registry.
 	 *
 	 * \param id bound object ID
@@ -214,7 +214,7 @@ struct pw_core_events {
  * \brief Core methods
  *
  * The core global object. This is a singleton object used for
- * creating new objects in the remote PipeWire intance. It is
+ * creating new objects in the remote PipeWire instance. It is
  * also used for internal features.
  */
 struct pw_core_methods {
@@ -260,7 +260,7 @@ struct pw_core_methods {
          * object. The message is a brief description of the error,
          * for (debugging) convenience.
 	 *
-	 * This method is usually also emited on the resource object with
+	 * This method is usually also emitted on the resource object with
 	 * \a id.
 	 *
          * \param id object where the error occurred
@@ -430,7 +430,7 @@ struct pw_registry_events {
 	/**
 	 * Notify of a global object removal
 	 *
-	 * Emited when a global object was removed from the registry.
+	 * Emitted when a global object was removed from the registry.
 	 * If the client has any bindings to the global, it should destroy
 	 * those.
 	 *

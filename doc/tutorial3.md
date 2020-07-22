@@ -87,7 +87,7 @@ asynchronously and the returns value will reflect this. PipeWire
 uses the return values of the underlying SPA (Simple Plugin API)
 helper objects (See also [error codes](spa/design.md#error-codes)).
 
-Because all messages on the PipeWire server are handled sequencially,
+Because all messages on the PipeWire server are handled sequentially,
 the sync method will be executed after all previous methods are
 completed. The PipeWire server will emit a `done` event with the
 same ID and the return value of the original `pw_core_sync()`

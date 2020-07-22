@@ -76,7 +76,7 @@ struct pw_device_events {
 	/**
 	 * Notify a device param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param seq the sequence number of the request
 	 * \param id the param id
@@ -120,7 +120,7 @@ struct pw_device_methods {
 	 * Enumerate device parameters
 	 *
 	 * Start enumeration of device parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param seq a sequence number to place in the reply
 	 * \param id the parameter id to enum or PW_ID_ANY for all

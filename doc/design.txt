@@ -43,7 +43,7 @@ Protocol
 
 The native protocol and object model is similar to wayland but with custom
 serialization/deserialization of messages. This is because the datastructures
-in the messages are more complicated and not easily expressable in xml format.
+in the messages are more complicated and not easily expressible in xml format.
 
 
 Extensibility

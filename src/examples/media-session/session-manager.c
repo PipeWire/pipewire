@@ -106,7 +106,7 @@ static void proxy_client_session_bound(void *data, uint32_t id)
 	info.version = PW_VERSION_SESSION_INFO;
 	info.id = id;
 
-	pw_log_debug("got sesssion id:%d", id);
+	pw_log_debug("got session id:%d", id);
 
 	pw_client_session_update(impl->session->client_session,
 			PW_CLIENT_SESSION_UPDATE_INFO,

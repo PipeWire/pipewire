@@ -103,7 +103,7 @@ static inline struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct s
 	uint32_t i, c;
 	struct spa_pod_frame f[2];
 
-	/* make an oject of type SPA_TYPE_OBJECT_Format and id SPA_PARAM_EnumFormat.
+	/* make an object of type SPA_TYPE_OBJECT_Format and id SPA_PARAM_EnumFormat.
 	 * The object type is important because it defines the properties that are
 	 * acceptable. The id gives more context about what the object is meant to
 	 * contain. In this case we enumerate supported formats. */

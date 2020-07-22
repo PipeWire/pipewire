@@ -24,7 +24,7 @@ The PipeWire API is, a object oriented asynchronous protocol.
 All requests and replies are method invocations on some object.
 
 Objects are identified with a unique ID. Each object implements an
-interface and requestes result in invocations of methods on the
+interface and requests result in invocations of methods on the
 interface.
 
 The protocol is message based. A message sent by a client to the
@@ -37,7 +37,7 @@ objects or even protocols when required.
 Messages are encoded with [SPA PODs](spa/pod.md), which make it
 possible to encode complex objects with right types.
 
-Events from the server can be a reply to a method or can be emited
+Events from the server can be a reply to a method or can be emitted
 when the server state changes.
 
 Upon connecting to a server, it will broadcast its state. Clients

@@ -212,33 +212,33 @@ sf_format_endianess(int format)
 static inline enum spa_audio_format
 sf_format_to_pw(int format)
 {
-	int endianess;
+	int endianness;
 
-	endianess = sf_format_endianess(format);
-	if (endianess < 0)
+	endianness = sf_format_endianess(format);
+	if (endianness < 0)
 		return SPA_AUDIO_FORMAT_UNKNOWN;
 
 	switch (format & SF_FORMAT_SUBMASK) {
 	case SF_FORMAT_PCM_S8:
 		return SPA_AUDIO_FORMAT_S8;
 	case SF_FORMAT_PCM_16:
-		return endianess == 1 ? SPA_AUDIO_FORMAT_S16_LE :
-		       endianess == 2 ? SPA_AUDIO_FORMAT_S16_BE :
-		                        SPA_AUDIO_FORMAT_S16;
+		return endianness == 1 ? SPA_AUDIO_FORMAT_S16_LE :
+		       endianness == 2 ? SPA_AUDIO_FORMAT_S16_BE :
+		                         SPA_AUDIO_FORMAT_S16;
 	case SF_FORMAT_PCM_24:
 	case SF_FORMAT_PCM_32:
-		return endianess == 1 ? SPA_AUDIO_FORMAT_S32_LE :
-		       endianess == 2 ? SPA_AUDIO_FORMAT_S32_BE :
-		                        SPA_AUDIO_FORMAT_S32;
+		return endianness == 1 ? SPA_AUDIO_FORMAT_S32_LE :
+		       endianness == 2 ? SPA_AUDIO_FORMAT_S32_BE :
+		                         SPA_AUDIO_FORMAT_S32;
 	case SF_FORMAT_DOUBLE:
-		return endianess == 1 ? SPA_AUDIO_FORMAT_F64_LE :
-		       endianess == 2 ? SPA_AUDIO_FORMAT_F64_BE :
-		                        SPA_AUDIO_FORMAT_F64;
+		return endianness == 1 ? SPA_AUDIO_FORMAT_F64_LE :
+		       endianness == 2 ? SPA_AUDIO_FORMAT_F64_BE :
+		                         SPA_AUDIO_FORMAT_F64;
 	case SF_FORMAT_FLOAT:
 	default:
-		return endianess == 1 ? SPA_AUDIO_FORMAT_F32_LE :
-		       endianess == 2 ? SPA_AUDIO_FORMAT_F32_BE :
-		                        SPA_AUDIO_FORMAT_F32;
+		return endianness == 1 ? SPA_AUDIO_FORMAT_F32_LE :
+		       endianness == 2 ? SPA_AUDIO_FORMAT_F32_BE :
+		                         SPA_AUDIO_FORMAT_F32;
 		break;
 	}
 
@@ -1294,7 +1294,7 @@ int main(int argc, char *argv[])
 	data.volume = -1.0;
 	data.quality = -1;
 
-	/* initialize list everytime */
+	/* initialize list every time */
 	spa_list_init(&data.targets);
 
 	while ((c = getopt_long(argc, argv, "hvprmR:q:", long_options, NULL)) != -1) {

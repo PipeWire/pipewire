@@ -217,7 +217,7 @@ In this example we use the builder to create some `CHOICE` entries for
 the format properties.
 
 We have an enumeration of formats, we need to first give the amount of enumerations
-that follow, then the default (prefered) value, followed by alternatives in order
+that follow, then the default (preferred) value, followed by alternatives in order
 of preference:
 
 ```c
@@ -231,7 +231,7 @@ of preference:
 					SPA_VIDEO_FORMAT_I420),
 ```
 
-We also have a `RANGE` of values for the size. We need to give a default (prefered)
+We also have a `RANGE` of values for the size. We need to give a default (preferred)
 size and then a min and max value:
 
 ```c

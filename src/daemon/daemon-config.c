@@ -164,7 +164,7 @@ int pw_daemon_config_load_file(struct pw_daemon_config *config, const char *file
  * @err: Return location for a #GError, or %NULL
  *
  * Loads the default config file for PipeWire. The filename can be overridden with
- * an evironment variable PIPEWIRE_CONFIG_FILE.
+ * an environment variable PIPEWIRE_CONFIG_FILE.
  *
  * Return: 0 on success, otherwise < 0 and @err is set.
  */

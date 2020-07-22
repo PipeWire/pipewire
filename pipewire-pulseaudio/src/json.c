@@ -197,7 +197,7 @@ static const char* parse_string(const char *str, pa_json_object *obj) {
                     goto error;
 
                 default:
-                    pa_log("Unexepcted escape value: %c", *str);
+                    pa_log("Unexpected escape value: %c", *str);
                     goto error;
             }
         }

@@ -5,7 +5,7 @@ DBus Variant or LV2 Atom.
 
 A POD can express nested structures of Objects (with properties), Vectors,
 Arrays, sequences and various primitives types. All information in the POD
-is layed out sequentially in memory and can be written directly to
+is laid out sequentially in memory and can be written directly to
 storage or exchanged between processes or threads without additional
 marshalling..
 
@@ -27,7 +27,7 @@ PODs can contain a number of basic SPA types:
  * `SPA_TYPE_Bool`: a boolean value
  * `SPA_TYPE_Id`: an enumerated value
  * `SPA_TYPE_Int`, `SPA_TYPE_Long`, `SPA_TYPE_Float`, `SPA_TYPE_Double`:
- 		various numerial types, 32 and 64 bits.
+ 		various numeral types, 32 and 64 bits.
  * `SPA_TYPE_String`: a string
  * `SPA_TYPE_Bytes`: a byte array
  * `SPA_TYPE_Rectangle`: a rectangle with width and height                                            
@@ -196,8 +196,8 @@ pod = spa_pod_builder_pop(&b, &f);
 ```
 
 As you can see, first push the choice as a Range, then the values. A Range
-choice expects at least 3 values, the default value, mininum and maximum
-values. There is a shotcut for this as well using varargs:
+choice expects at least 3 values, the default value, minimum and maximum
+values. There is a shortcut for this as well using varargs:
 
 ```c
 pod = spa_pod_builder_add_object(&b,
@@ -299,7 +299,7 @@ below.
 
 ## Object Properties
 
-To iterate over the properies in an object you can do:
+To iterate over the properties in an object you can do:
 
 ```c
 struct spa_pod_prop *prop;

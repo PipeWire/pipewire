@@ -84,25 +84,25 @@ struct pw_impl_client_events {
 #define PW_VERSION_IMPL_CLIENT_EVENTS	0
         uint32_t version;
 
-	/** emited when the client is destroyed */
+	/** emitted when the client is destroyed */
 	void (*destroy) (void *data);
 
-	/** emited right before the client is freed */
+	/** emitted right before the client is freed */
 	void (*free) (void *data);
 
 	/** the client is initialized */
 	void (*initialized) (void *data);
 
-	/** emited when the client info changed */
+	/** emitted when the client info changed */
 	void (*info_changed) (void *data, const struct pw_client_info *info);
 
-	/** emited when a new resource is added for client */
+	/** emitted when a new resource is added for client */
 	void (*resource_added) (void *data, struct pw_resource *resource);
 
-	/** emited when a resource is removed */
+	/** emitted when a resource is removed */
 	void (*resource_removed) (void *data, struct pw_resource *resource);
 
-	/** emited when the client becomes busy processing an asynchronous
+	/** emitted when the client becomes busy processing an asynchronous
 	 * message. In the busy state no messages should be processed.
 	 * Processing should resume when the client becomes not busy */
 	void (*busy_changed) (void *data, bool busy);

@@ -111,7 +111,7 @@ extern "C" {
 
 /** \class pw_pipewire
  *
- * \brief PipeWire initalization and infrasctructure functions
+ * \brief PipeWire initialization and infrastructure functions
  */
 void
 pw_init(int *argc, char **argv[]);

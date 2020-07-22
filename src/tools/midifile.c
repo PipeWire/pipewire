@@ -545,7 +545,7 @@ static const char *program_names[] = {
 	"Celesta", "Glockenspiel", "Music Box", "Vibraphone", "Marimba",
 	"Xylophone", "Tubular Bells", "Dulcimer", "Drawbar Organ", "Percussive Organ",
 	"Rock Organ", "Church Organ", "Reed Organ", "Accoridan", "Harmonica",
-	"Tango Accordian", "Nylon String Guitar", "Steel String Guitar",
+	"Tango Accordion", "Nylon String Guitar", "Steel String Guitar",
 	"Electric Jazz Guitar", "Electric Clean Guitar", "Electric Muted Guitar",
 	"Overdriven Guitar", "Distortion Guitar", "Guitar Harmonics",
 	"Acoustic Bass", "Electric Bass (fingered)", "Electric Bass (picked)",

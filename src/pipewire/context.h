@@ -92,7 +92,7 @@ struct pw_impl_client;
  * resources of a PipeWire instance.
  */
 
-/** context events emited by the context object added with \ref pw_context_add_listener */
+/** context events emitted by the context object added with \ref pw_context_add_listener */
 struct pw_context_events {
 #define PW_VERSION_CONTEXT_EVENTS	0
 	uint32_t version;

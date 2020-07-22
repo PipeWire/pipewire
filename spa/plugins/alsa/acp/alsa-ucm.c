@@ -123,7 +123,7 @@ static struct ucm_items item[] = {
     {NULL, NULL},
 };
 
-/* UCM verb info - this should eventually be part of policy manangement */
+/* UCM verb info - this should eventually be part of policy management */
 static struct ucm_info verb_info[] = {
     {SND_USE_CASE_VERB_INACTIVE, 0},
     {SND_USE_CASE_VERB_HIFI, 8000},
@@ -676,7 +676,7 @@ static char *modifier_name_to_role(const char *mod_name, bool *is_sink) {
 
     if (!sub || !*sub) {
         pa_xfree(sub);
-        pa_log_warn("Can't match media roles for modifer %s", mod_name);
+        pa_log_warn("Can't match media roles for modifier %s", mod_name);
         return NULL;
     }
 

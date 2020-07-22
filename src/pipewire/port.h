@@ -94,7 +94,7 @@ struct pw_port_events {
 	/**
 	 * Notify a port param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param seq the sequence number of the request
 	 * \param id the param id
@@ -136,7 +136,7 @@ struct pw_port_methods {
 	 * Enumerate port parameters
 	 *
 	 * Start enumeration of port parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param seq a sequence number returned in the reply
 	 * \param id the parameter id to enumerate

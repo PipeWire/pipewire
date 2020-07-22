@@ -101,7 +101,7 @@ int pw_protocol_native_connection_get_fd(struct pw_protocol_native_connection *c
  *
  * \param conn the connection
  * \param fd the fd to add
- * \return the index of the fd or SPA_IDX_INVALID when an error occured
+ * \return the index of the fd or SPA_IDX_INVALID when an error occurred
  *
  * \memberof pw_protocol_native_connection
  */
@@ -360,8 +360,8 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 /** Move to the next packet in the connection
  *
  * \param conn the connection
- * \param opcode addres of result opcode
- * \param dest_id addres of result destination id
+ * \param opcode address of result opcode
+ * \param dest_id address of result destination id
  * \param dt pointer to packet data
  * \param sz size of packet data
  * \return true on success

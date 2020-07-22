@@ -46,7 +46,7 @@ struct spa_dbus_connection {
 #define SPA_VERSION_DBUS_CONNECTION	0
         uint32_t version;
 	/**
-	 * Get the DBusConnection from a wraper
+	 * Get the DBusConnection from a wrapper
 	 *
 	 * \param conn the spa_dbus_connection wrapper
 	 * \return a pointer of type DBusConnection

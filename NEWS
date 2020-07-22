@@ -326,15 +326,15 @@ with previous 0.3.x releases.
 
 PipeWire 0.3.0
 
-The 0.3 release is a major milestone in the developement of
+The 0.3 release is a major milestone in the development of
 PipeWire. It features a complete redesign of the scheduling
 mechanisms that make it possible to run a JACK compatibility
 layer with comparable performance to JACK2.
 
 The API has been reworked and is declared stable now. All
-developement files and runtime paths are versioned so that
+development files and runtime paths are versioned so that
 future incompatible changes can be done without breaking
-exising applications.
+existing applications.
 
 PipeWire 0.3 also includes a (now mandatory) session manager
 that populates and controls the PipeWire graph. This example
@@ -361,7 +361,7 @@ to be somewhat problematic for now.
 
 PipeWire 0.2.97
 
-Eigth pre-release for upcomming 0.3:
+Eighth pre-release for upcoming 0.3:
 
 - Build fixes
 - pw-cat improvement: Fix remote name, add midi support
@@ -378,7 +378,7 @@ Eigth pre-release for upcomming 0.3:
 
 PipeWire 0.2.96
 
-Seventh pre-release for upcomming 0.3:
+Seventh pre-release for upcoming 0.3:
 
 - jack: improve compatibility
 - Fix unit test
@@ -394,7 +394,7 @@ Seventh pre-release for upcomming 0.3:
 
 PipeWire 0.2.95
 
-Sixth pre-release for upcomming 0.3:
+Sixth pre-release for upcoming 0.3:
 
 - Fix tests for big endian some more
 - Improve v2 compatibility mode: improve type negotiation and
@@ -404,7 +404,7 @@ Sixth pre-release for upcomming 0.3:
 
 PipeWire 0.2.94
 
-Fifth pre-release for upcomming 0.3:
+Fifth pre-release for upcoming 0.3:
 
 - Fix man page names
 - Fix jack set_sync_timeout
@@ -421,7 +421,7 @@ Fifth pre-release for upcomming 0.3:
 
 PipeWire 0.2.93
 
-Fourth pre-release for upcomming 0.3:
+Fourth pre-release for upcoming 0.3:
 
 - Fix unit tests on 32 bits
 - Append -pw version to pulse and jack libs. This way we can install
@@ -442,7 +442,7 @@ Fourth pre-release for upcomming 0.3:
 
 PipeWire 0.2.92
 
-Third pre-release for upcomming 0.3:
+Third pre-release for upcoming 0.3:
 
 - Improve old version check some more
 - Fix unit tests on little/big endian

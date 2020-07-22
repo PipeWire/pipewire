@@ -85,7 +85,7 @@ struct pw_impl_node_events {
         /** a result was received */
 	void (*result) (void *data, int seq, int res, uint32_t type, const void *result);
 
-        /** an event is emited */
+        /** an event is emitted */
 	void (*event) (void *data, const struct spa_event *event);
 
 	/** the driver of the node changed */

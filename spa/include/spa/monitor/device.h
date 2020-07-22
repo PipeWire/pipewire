@@ -107,7 +107,7 @@ struct spa_result_device_params {
 /**
  * spa_device_events:
  *
- * Events are always emited from the main thread
+ * Events are always emitted from the main thread
  */
 struct spa_device_events {
 	/** version of the structure */
@@ -194,7 +194,7 @@ struct spa_device_methods {
 	 * This function must be called from the main thread.
 	 *
 	 * \param device a \ref spa_device
-	 * \param seq a sequence numeber to pass to the result function
+	 * \param seq a sequence number to pass to the result function
 	 * \param id the param id to enumerate
 	 * \param index the index of enumeration, pass 0 for the first item.
 	 * \param max the maximum number of items to iterate
@@ -255,7 +255,7 @@ struct spa_device_methods {
 #define SPA_KEY_DEVICE_API		"device.api"		/**< the api used by the device
 								  *  Ex. "udev", "alsa", "v4l2". */
 #define SPA_KEY_DEVICE_NAME		"device.name"		/**< the name of the device */
-#define SPA_KEY_DEVICE_ALIAS		"device.alias"		/**< altenative name of the device */
+#define SPA_KEY_DEVICE_ALIAS		"device.alias"		/**< alternative name of the device */
 #define SPA_KEY_DEVICE_NICK		"device.nick"		/**< the device short name */
 #define SPA_KEY_DEVICE_DESCRIPTION	"device.description"	/**< a device description */
 #define SPA_KEY_DEVICE_ICON		"device.icon"		/**< icon for the device. A base64 blob

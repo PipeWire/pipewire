@@ -1,6 +1,6 @@
 # SPA Design
 
-SPA (Simple Plugin API) is an extensible API to implement alls kinds of plugins.
+SPA (Simple Plugin API) is an extensible API to implement all kinds of plugins.
 It is inspired by many other plugin APIs, mostly LV2 and GStreamer.
 
 Plugins are dynamically loadable objects that contain objects and interfaces that
@@ -14,7 +14,7 @@ SPA provides the following functionality:
 
 SPA was designed with the following goals in mind:
 
- * No dependencies, SPA is shipped as a set of header files that have no dependecies
+ * No dependencies, SPA is shipped as a set of header files that have no dependencies
    except for the standard c library.
  * Very efficient both in space and in time.
  * Very configurable and usable in many different environments. All aspects of
@@ -210,7 +210,7 @@ When you retrieve an interface from a handle, you get a reference to
 a small structure that contains the type (string) of the interface,
 a version and a structure with a set of methods (and data) that are
 the implementation of the interface. Calling a method on the interface
-will just call the apropriate method in the implementation.
+will just call the appropriate method in the implementation.
 
 Interfaces are defined in a header file (for example see
 `<spa/support/log.h>` for the logger API). It is a self contained

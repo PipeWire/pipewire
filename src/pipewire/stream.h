@@ -82,7 +82,7 @@ extern "C" {
  * parameters on the stream. You will be notified of these changes
  * with the param_changed event.
  *
- * When a format param change is emited, the client should now prepare
+ * When a format param change is emitted, the client should now prepare
  * itself to deal with the format and complete the negotiation procedure
  * with a call to \ref pw_stream_update_params().
  *
@@ -101,7 +101,7 @@ extern "C" {
  * that can be used for data transport. You can attach user_data to these
  * buffers.
  *
- * Afer the buffers are negotiated, the stream will transition to the
+ * After the buffers are negotiated, the stream will transition to the
  * \ref PW_STREAM_STATE_PAUSED state.
  *
  * \section sec_streaming Streaming
@@ -116,7 +116,7 @@ extern "C" {
  *
  * \subsection ssec_consume Consume data
  *
- * The process event is emited for each new buffer that can can be
+ * The process event is emitted for each new buffer that can can be
  * consumed.
  *
  * \ref pw_stream_dequeue_buffer() should be used to get the data and
@@ -131,7 +131,7 @@ extern "C" {
  *
  * Filled buffers should be queued with \ref pw_stream_queue_buffer().
  *
- * The process event is emited when PipeWire has emptied a buffer that
+ * The process event is emitted when PipeWire has emptied a buffer that
  * can now be refilled.
  *
  * \section sec_stream_disconnect Disconnect

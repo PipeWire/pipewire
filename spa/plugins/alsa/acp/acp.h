@@ -145,7 +145,7 @@ struct acp_port {
 	uint32_t priority;
 	enum acp_direction direction;
 	enum acp_available available;
-	char *available_group;		/* a string indentifier which determine the group of devices
+	char *available_group;		/* a string identifier which determine the group of devices
 					 * handling the available state simultaneously */
 	enum acp_port_type type;
 

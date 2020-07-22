@@ -74,7 +74,7 @@ extern "C" {
  * \brief Core methods
  *
  * The core global object. This is a singleton object used for
- * creating new objects in the remote PipeWire intance. It is
+ * creating new objects in the remote PipeWire instance. It is
  * also used for internal features.
  */
 struct pw_core_v0_methods {
@@ -194,7 +194,7 @@ struct pw_core_v0_events {
 	/**
 	 * Emit a done event
 	 *
-	 * The done event is emited as a result of a sync method with the
+	 * The done event is emitted as a result of a sync method with the
 	 * same sequence number.
 	 * \param seq the sequence number passed to the sync method call
 	 */
@@ -320,7 +320,7 @@ struct pw_registry_v0_events {
 	/**
 	 * Notify of a global object removal
 	 *
-	 * Emited when a global object was removed from the registry.
+	 * Emitted when a global object was removed from the registry.
 	 * If the client has any bindings to the global, it should destroy
 	 * those.
 	 *
@@ -371,7 +371,7 @@ struct pw_node_v0_events {
 	/**
 	 * Notify a node param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param id the param id
 	 * \param index the param index
@@ -397,7 +397,7 @@ struct pw_node_v0_methods {
 	 * Enumerate node parameters
 	 *
 	 * Start enumeration of node parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param id the parameter id to enum or PW_ID_ANY for all
 	 * \param start the start index or 0 for the first param
@@ -427,7 +427,7 @@ struct pw_port_v0_events {
 	/**
 	 * Notify a port param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param id the param id
 	 * \param index the param index
@@ -453,7 +453,7 @@ struct pw_port_v0_methods {
 	 * Enumerate port parameters
 	 *
 	 * Start enumeration of port parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param id the parameter id to enumerate
 	 * \param start the start index or 0 for the first param

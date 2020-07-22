@@ -45,7 +45,7 @@ struct pw_main_loop_events {
 #define PW_VERSION_MAIN_LOOP_EVENTS	0
 	uint32_t version;
 
-	/** Emited when the main loop is destroyed */
+	/** Emitted when the main loop is destroyed */
 	void (*destroy) (void *data);
 };
 

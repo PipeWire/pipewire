@@ -71,7 +71,7 @@ struct pw_session_events {
 	/**
 	 * Notify a session param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param seq the sequence number of the request
 	 * \param id the param id
@@ -115,7 +115,7 @@ struct pw_session_methods {
 	 * Enumerate session parameters
 	 *
 	 * Start enumeration of session parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param seq a sequence number returned in the reply
 	 * \param id the parameter id to enumerate
@@ -173,7 +173,7 @@ struct pw_endpoint_events {
 	/**
 	 * Notify a endpoint param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param seq the sequence number of the request
 	 * \param id the param id
@@ -217,7 +217,7 @@ struct pw_endpoint_methods {
 	 * Enumerate endpoint parameters
 	 *
 	 * Start enumeration of endpoint parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param seq a sequence number returned in the reply
 	 * \param id the parameter id to enumerate
@@ -277,7 +277,7 @@ struct pw_endpoint_stream_events {
 	/**
 	 * Notify a endpoint stream param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param seq the sequence number of the request
 	 * \param id the param id
@@ -320,7 +320,7 @@ struct pw_endpoint_stream_methods {
 	 * Enumerate stream parameters
 	 *
 	 * Start enumeration of stream parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param seq a sequence number returned in the reply
 	 * \param id the parameter id to enumerate
@@ -377,7 +377,7 @@ struct pw_endpoint_link_events {
 	/**
 	 * Notify a endpoint link param
 	 *
-	 * Event emited as a result of the enum_params method.
+	 * Event emitted as a result of the enum_params method.
 	 *
 	 * \param seq the sequence number of the request
 	 * \param id the param id
@@ -422,7 +422,7 @@ struct pw_endpoint_link_methods {
 	 * Enumerate link parameters
 	 *
 	 * Start enumeration of link parameters. For each param, a
-	 * param event will be emited.
+	 * param event will be emitted.
 	 *
 	 * \param seq a sequence number returned in the reply
 	 * \param id the parameter id to enumerate

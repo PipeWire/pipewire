@@ -134,7 +134,7 @@ automatically serialize the method calls and events between client and
 server for us.
 
 We can now listen for events by adding a listener. We're going to
-listen to the info event on the client object that is emited right
+listen to the info event on the client object that is emitted right
 after we bind to it or when it changes. This is not very different
 from the registry listener we added before:
 
@@ -169,7 +169,7 @@ static void registry_event_global(void *_data, uint32_t id,
 }
 ```
 
-We're also quiting the mainloop after we get the info to nicely stop
+We're also quitting the mainloop after we get the info to nicely stop
 our tutorial application.
 
 When we stop the application, don't forget to destroy all proxies that

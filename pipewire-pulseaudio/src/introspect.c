@@ -2159,7 +2159,7 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	pa_operation *o;
 	struct stream_volume *d;
 
-	pw_log_debug("contex %p: index %d", c, idx);
+	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2179,7 +2179,7 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	pa_operation *o;
 	struct stream_volume *d;
 
-	pw_log_debug("contex %p: index %d", c, idx);
+	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2232,7 +2232,7 @@ pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context
 	pa_operation *o;
 	struct kill_stream *d;
 
-	pw_log_debug("contex %p: index %d", c, idx);
+	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_kill_stream, sizeof(struct kill_stream));
 	d = o->userdata;
 	d->idx = idx;
@@ -2461,7 +2461,7 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	pa_operation *o;
 	struct stream_volume *d;
 
-	pw_log_debug("contex %p: index %d", c, idx);
+	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2481,7 +2481,7 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	pa_operation *o;
 	struct stream_volume *d;
 
-	pw_log_debug("contex %p: index %d", c, idx);
+	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2500,7 +2500,7 @@ pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_cont
 	pa_operation *o;
 	struct kill_stream *d;
 
-	pw_log_debug("contex %p: index %d", c, idx);
+	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_kill_stream, sizeof(struct kill_stream));
 	d = o->userdata;
 	d->idx = idx;

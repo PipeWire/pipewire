@@ -252,7 +252,7 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 
 	if (!proxy->zombie) {
 		/* mark zombie and emit destroyed. No more
-		 * events will be emited on zombie objects */
+		 * events will be emitted on zombie objects */
 		proxy->zombie = true;
 		pw_proxy_emit_destroy(proxy);
 	}

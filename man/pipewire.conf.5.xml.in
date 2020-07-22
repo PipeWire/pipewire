@@ -33,7 +33,7 @@ This file is part of PipeWire.
     </option>
   </section>
 
-  <section name="Properies">
+  <section name="Properties">
     <option>
       <p><opt>set-prop</opt> <arg>key</arg> <arg>value</arg></p>
       <optdesc><p>Sets a property with the given key to value.</p></optdesc>
@@ -44,7 +44,7 @@ This file is part of PipeWire.
     <option>
       <p><opt>add-spa-lib</opt> <arg>pattern</arg> <arg>library</arg></p>
       <optdesc><p>Maps the plugin features that match <opt>pattern</opt>
-	to <opt>library</opt>.</p> When the systen needs a plugin feature</optdesc>
+	to <opt>library</opt>.</p> When the system needs a plugin feature</optdesc>
     </option>
   </section>
 

@@ -254,7 +254,7 @@ int pa_alsa_set_hw_params(
             (id = snd_pcm_info_get_id(pcm_info))) {
             /* This horrible hack makes sure we don't disable tsched on USB
              * devices, which have a low enough transfer size for timer-based
-             * scheduling to work. This can go away when the ALSA API supprots
+             * scheduling to work. This can go away when the ALSA API supports
              * querying the block transfer size. */
             if (pa_streq(id, "USB Audio"))
                 is_usb = true;

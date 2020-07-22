@@ -202,7 +202,7 @@ static int global_bind(void *_data, struct pw_impl_client *client,
 
 	pw_global_add_resource(impl->global, resource);
 
-	/* resource methods -> implemention */
+	/* resource methods -> implementation */
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
 			&endpoint_methods, data);

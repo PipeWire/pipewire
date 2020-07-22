@@ -224,7 +224,7 @@ int pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 		}
 	}
 	if (!have_work) {
-		pw_log_debug(NAME" %p: no defered found for object %p", queue, obj);
+		pw_log_debug(NAME" %p: no deferred found for object %p", queue, obj);
 		return -EINVAL;
 	}
 
@@ -247,7 +247,7 @@ int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq,
 
 	spa_list_for_each(item, &queue->work_list, link) {
 		if (item->obj == obj && item->seq == seq) {
-			pw_log_debug(NAME" %p: found defered %d for object %p res:%d",
+			pw_log_debug(NAME" %p: found deferred %d for object %p res:%d",
 					queue, seq, obj, res);
 			item->seq = SPA_ID_INVALID;
 			item->res = res;
@@ -255,7 +255,7 @@ int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq,
 		}
 	}
 	if (!have_work) {
-		pw_log_trace(NAME" %p: no defered %d found for object %p", queue, seq, obj);
+		pw_log_trace(NAME" %p: no deferred %d found for object %p", queue, seq, obj);
 		return -EINVAL;
 	}
 

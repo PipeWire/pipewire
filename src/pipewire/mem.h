@@ -48,7 +48,7 @@ enum pw_memmap_flags {
 	PW_MEMMAP_FLAG_NONE =		0,
 	PW_MEMMAP_FLAG_READ =		(1 << 0),	/**< map in read mode */
 	PW_MEMMAP_FLAG_WRITE =		(1 << 1),	/**< map in write mode */
-	PW_MEMMAP_FLAG_TWICE =		(1 << 2),	/**< map the same area twice afer eachother,
+	PW_MEMMAP_FLAG_TWICE =		(1 << 2),	/**< map the same area twice after each other,
 							  *  creating a circular ringbuffer */
 	PW_MEMMAP_FLAG_PRIVATE =	(1 << 3),	/**< writes will be private */
 	PW_MEMMAP_FLAG_READWRITE = PW_MEMMAP_FLAG_READ | PW_MEMMAP_FLAG_WRITE,

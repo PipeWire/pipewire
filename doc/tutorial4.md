@@ -156,7 +156,7 @@ and a callback + data.
 ```
 
 We using `pw_stream_new_simple()` but there is also a `pw_stream_new()` that
-takes an exising `struct pw_core` as the first argument and that requires you
+takes an existing `struct pw_core` as the first argument and that requires you
 to add the event handle manually, for more control. The `pw_stream_new_simple()`
 is, as the name implies, easier to use because it creates  a `struct pw_context`
 and `struct pw_core` automatically.

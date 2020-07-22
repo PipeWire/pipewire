@@ -153,7 +153,7 @@ struct spa_loop_control_methods {
 	/** Enter a loop
 	 * \param ctrl the control
 	 *
-	 * Start an interation of the loop. This function should be called
+	 * Start an iteration of the loop. This function should be called
 	 * before calling iterate and is typically used to capture the thread
 	 * that this loop will run in.
 	 */
@@ -169,7 +169,7 @@ struct spa_loop_control_methods {
 	/** Perform one iteration of the loop.
 	 * \param ctrl the control
 	 * \param timeout an optional timeout in milliseconds.
-	 *	0 for no timeout, -1 for infinte timeout.
+	 *	0 for no timeout, -1 for infinite timeout.
 	 *
 	 * This function will block
 	 * up to \a timeout milliseconds and then dispatch the fds with activity.

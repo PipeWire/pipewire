@@ -120,7 +120,7 @@ struct pw_proxy_events {
 	/** a reply to a sync method completed */
         void (*done) (void *data, int seq);
 
-	/** an error occured on the proxy */
+	/** an error occurred on the proxy */
         void (*error) (void *data, int seq, int res, const char *message);
 };
 

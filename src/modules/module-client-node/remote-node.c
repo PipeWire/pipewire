@@ -1020,6 +1020,21 @@ static void node_port_info_changed(void *data, struct pw_impl_port *port,
 	add_port_update(d, port, change_mask);
 }
 
+static void node_port_removed(void *data, struct pw_impl_port *port)
+{
+	struct node_data *d = data;
+
+	pw_log_debug("removed %p", d);
+
+	if (d->client_node == NULL)
+		return;
+
+	pw_client_node_port_update(d->client_node,
+			port->direction,
+			port->port_id,
+			0, 0, NULL, NULL);
+}
+
 static void node_active_changed(void *data, bool active)
 {
 	struct node_data *d = data;
@@ -1037,6 +1052,7 @@ static const struct pw_impl_node_events node_events = {
 	.free = node_free,
 	.info_changed = node_info_changed,
 	.port_info_changed = node_port_info_changed,
+	.port_removed = node_port_removed,
 	.active_changed = node_active_changed,
 };
 

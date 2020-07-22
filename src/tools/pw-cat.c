@@ -1077,6 +1077,8 @@ static int setup_sndfile(struct data *data)
 			data->channels = DEFAULT_CHANNELS;
 		if (data->rate == 0)
 			data->rate = DEFAULT_RATE;
+		if (data->channelmap.n_channels == 0)
+			channelmap_default(&data->channelmap, data->channels);
 
 		memset(&info, 0, sizeof(info));
 		info.samplerate = data->rate;

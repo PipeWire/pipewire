@@ -39,13 +39,14 @@
 static const char *
 get_remote(const struct spa_dict *props)
 {
-	const char *name;
+	const char *name = NULL;
 
-	name = getenv("PIPEWIRE_REMOTE");
-	if (props && name == NULL)
+	if (props)
 		name = spa_dict_lookup(props, PW_KEY_REMOTE_NAME);
 	if (name == NULL)
-		name = "pipewire-0";
+		name = getenv("PIPEWIRE_REMOTE");
+	if (name == NULL)
+		name = PW_DEFAULT_REMOTE;
 	return name;
 }
 

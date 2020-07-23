@@ -32,7 +32,7 @@
 #include "config.h"
 #include "daemon-config.h"
 
-static const char *daemon_name = "pipewire-0";
+static const char *daemon_name = NULL;
 
 static void do_quit(void *data, int signal_number)
 {
@@ -47,7 +47,7 @@ static void show_help(const char *name)
 		"      --version                         Show version\n"
 		"  -n, --name                            Daemon name (Default %s)\n",
 		name,
-		daemon_name);
+		PW_DEFAULT_REMOTE);
 }
 
 int main(int argc, char *argv[])
@@ -67,6 +67,8 @@ int main(int argc, char *argv[])
 	int c, res;
 
 	pw_init(&argc, &argv);
+
+	daemon_name = getenv("PIPEWIRE_CORE");
 
 	while ((c = getopt_long(argc, argv, "hVn:", long_options, NULL)) != -1) {
 		switch (c) {

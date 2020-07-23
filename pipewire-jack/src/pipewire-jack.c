@@ -241,6 +241,11 @@ struct client {
 
 	struct context context;
 
+	char *server_name;
+	char *load_name;		/* load module name */
+	char *load_init;		/* initialization string */
+	jack_uuid_t session_id;		/* requested session_id */
+
 	struct pw_data_loop *loop;
 	struct pw_properties *props;
 
@@ -2237,6 +2242,24 @@ static const struct pw_registry_events registry_events = {
         .global_remove = registry_event_global_remove,
 };
 
+static void varargs_parse (struct client *c, jack_options_t options, va_list ap)
+{
+	if ((options & JackServerName))
+		c->server_name = va_arg(ap, char *);
+	if ((options & JackLoadName))
+		c->load_name = va_arg(ap, char *);
+	if ((options & JackLoadInit))
+		c->load_init = va_arg(ap, char *);
+	if ((options & JackSessionID)) {
+		char *sid = va_arg(ap, char *);
+		if (sid) {
+			const long long id = atoll(sid);
+			if (id > 0)
+				c->session_id = id;
+		}
+	}
+}
+
 SPA_EXPORT
 jack_client_t * jack_client_open (const char *client_name,
                                   jack_options_t options,
@@ -2250,6 +2273,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	const char *str;
 	struct spa_cpu *cpu_iface;
 	struct spa_node_info ni;
+	va_list ap;
 
         if (getenv("PIPEWIRE_NOJACK") != NULL)
 		goto disabled;
@@ -2261,6 +2285,10 @@ jack_client_t * jack_client_open (const char *client_name,
 		goto init_failed;
 
 	pw_log_debug(NAME" %p: open '%s' options:%d", client, client_name, options);
+
+	va_start(ap, status);
+	varargs_parse(client, options, ap);
+	va_end(ap);
 
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
@@ -2315,6 +2343,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
         client->core = pw_context_connect(client->context.context,
 				pw_properties_new(
+					PW_KEY_REMOTE_NAME, client->server_name,
 					PW_KEY_CLIENT_NAME, client_name,
 					PW_KEY_CLIENT_API, "jack",
 					NULL),

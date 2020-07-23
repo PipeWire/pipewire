@@ -1619,8 +1619,10 @@ static void do_default_node(pa_operation *o, void *userdata)
 	if (g == NULL) {
 		error = PA_ERR_NOENTITY;
 	} else if (c->metadata) {
+		char buf[16];
+		snprintf(buf, sizeof(buf), "%d", g->id);
 		pw_metadata_set_property(c->metadata->proxy,
-				PW_ID_CORE, d->key, "text/plain", d->name);
+				PW_ID_CORE, d->key, SPA_TYPE_INFO_BASE"Id", buf);
 	} else {
 		error = PA_ERR_NOTIMPLEMENTED;
 	}

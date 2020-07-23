@@ -877,6 +877,7 @@ static const struct pw_core_events core_events = {
 
 static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 			     const char *node_name,
+			     const char *server_name,
 			     const char *playback_node,
 			     const char *capture_node,
 			     snd_pcm_stream_t stream,
@@ -941,6 +942,9 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		pw_properties_setf(props, PW_KEY_APP_NAME, "ALSA plug-in [%s]", str);
 	else
 		pw_properties_set(props, PW_KEY_APP_NAME, "ALSA plug-in");
+
+	if (server_name)
+		pw_properties_set(props, PW_KEY_REMOTE_NAME, server_name);
 
 	if ((err = pw_thread_loop_start(pw->main_loop)) < 0)
 		goto error;
@@ -1080,7 +1084,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		return -EINVAL;
 	}
 
-	err = snd_pcm_pipewire_open(pcmp, name, node_name, playback_node,
+	err = snd_pcm_pipewire_open(pcmp, name, node_name, server_name, playback_node,
 			capture_node, stream, mode, flags, rate, format,
 			channels, period_bytes);
 

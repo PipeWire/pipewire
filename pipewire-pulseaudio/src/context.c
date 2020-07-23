@@ -1519,6 +1519,9 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 
 	pa_context_set_state(c, PA_CONTEXT_CONNECTING);
 
+	if (server)
+		pw_properties_set(c->props, PW_KEY_REMOTE_NAME, server);
+
 	c->core = pw_context_connect(c->context, pw_properties_copy(c->props), 0);
 	if (c->core == NULL) {
                 pa_context_fail(c, PA_ERR_CONNECTIONREFUSED);

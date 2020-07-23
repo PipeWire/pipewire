@@ -67,6 +67,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
         }
 
 	name = get_remote(props);
+	pw_log_info("connecting to '%s'", name);
 
         if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;

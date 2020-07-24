@@ -1742,8 +1742,8 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->device_list);
 	spa_list_init(&this->transport_list);
 
-	this->backend_hsp_native = backend_hsp_native_new(this, support, n_support);
-	this->backend_ofono = backend_ofono_new(this, support, n_support);
+	this->backend_hsp_native = backend_hsp_native_new(this, this->conn, support, n_support);
+	this->backend_ofono = backend_ofono_new(this, this->conn, support, n_support);
 
 	return 0;
 }

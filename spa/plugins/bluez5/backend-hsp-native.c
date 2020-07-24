@@ -44,7 +44,6 @@ struct spa_bt_backend {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 	struct spa_dbus *dbus;
-	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
 };
 
@@ -643,6 +642,7 @@ void backend_hsp_native_free(struct spa_bt_backend *backend)
 }
 
 struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
+		void *dbus_connection,
 		const struct spa_support *support,
 	  uint32_t n_support)
 {
@@ -656,14 +656,7 @@ struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
 	backend->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	backend->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
-
-	backend->dbus_connection = spa_dbus_get_connection(backend->dbus, SPA_DBUS_TYPE_SYSTEM);
-	if (backend->dbus_connection == NULL) {
-		spa_log_error(backend->log, "no dbus connection");
-		free(backend);
-		return NULL;
-	}
-	backend->conn = spa_dbus_connection_get(backend->dbus_connection);
+	backend->conn = dbus_connection;
 
 	return backend;
 }

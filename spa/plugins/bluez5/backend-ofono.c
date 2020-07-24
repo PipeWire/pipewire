@@ -444,7 +444,7 @@ static void ofono_register_reply(DBusPendingCall *pending, void *user_data)
 		goto finish;
 	}
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(backend->log, "RegisterProfile() failed: %s",
+		spa_log_error(backend->log, "Register() failed: %s",
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
@@ -553,8 +553,6 @@ static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, vo
 
 			return ofono_audio_card_removed(backend, p);
 	}
-
-	return DBUS_HANDLER_RESULT_HANDLED;
 
 fail:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;

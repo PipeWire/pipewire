@@ -256,6 +256,11 @@ be called with `my_data` as the first data field. The events are usually
 also triggered when the listener is added, to enumerate the current
 state of the object.
 
+Events have a `version` field, set to `SPA_VERSION_NODE_EVENTS` in the
+above example. It should contain the version of the event structure
+you compiled with. When new events are added later, the version field
+will be checked and the new signal will be ignored for older versions.
+
 You can remove your listener with:
 
 ```c

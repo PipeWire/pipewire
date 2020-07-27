@@ -1517,16 +1517,15 @@ static int score_ports(struct sm_port *out, struct sm_port *in)
 	else if ((out->channel == SPA_AUDIO_CHANNEL_FC && in->channel == SPA_AUDIO_CHANNEL_MONO) ||
 	         (out->channel == SPA_AUDIO_CHANNEL_MONO && in->channel == SPA_AUDIO_CHANNEL_FC))
 		score += 50;
-	else if (in->channel == SPA_AUDIO_CHANNEL_UNKNOWN)
-		score += 40;
-	else if (in->channel == SPA_AUDIO_CHANNEL_MONO)
-		score += 30;
-	else if (out->channel == SPA_AUDIO_CHANNEL_UNKNOWN)
-		score += 20;
-	else if (out->channel == SPA_AUDIO_CHANNEL_MONO)
+	else if (in->channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+	    in->channel == SPA_AUDIO_CHANNEL_MONO ||
+	    out->channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+	    out->channel == SPA_AUDIO_CHANNEL_MONO)
 		score += 10;
 	if (score > 0 && !in->visited)
 		score += 5;
+	if (score <= 10)
+		score = 0;
 	return score;
 }
 

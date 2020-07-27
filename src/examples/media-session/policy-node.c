@@ -359,7 +359,6 @@ static int find_node(void *data, struct node *node)
 	int priority = 0;
 	uint64_t plugged = 0;
 	struct sm_device *device = node->obj->device;
-	bool is_default = false;
 
 	pw_log_debug(NAME " %p: looking at node '%d' enabled:%d state:%d peer:%p exclusive:%d",
 			impl, node->id, node->enabled, node->obj->info->state, node->peer, node->exclusive);
@@ -380,15 +379,18 @@ static int find_node(void *data, struct node *node)
 		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->target->media);
 		return 0;
 	}
+	plugged = node->plugged;
+	priority = node->priority;
+
 	if (node->media && strcmp(node->media, "Audio") == 0) {
+		bool is_default = false;
 		if (node->direction == PW_DIRECTION_INPUT)
 			is_default = impl->default_audio_sink == node->id;
 		else if (node->direction == PW_DIRECTION_OUTPUT)
 			is_default = impl->default_audio_source == node->id;
+		if (is_default)
+			priority += 1000;
 	}
-
-	plugged = node->plugged;
-	priority = node->priority;
 
 	if ((find->exclusive && node->obj->info->state == PW_NODE_STATE_RUNNING) ||
 	    (node->peer && node->peer->exclusive)) {
@@ -399,7 +401,7 @@ static int find_node(void *data, struct node *node)
 	pw_log_debug(NAME " %p: found node '%d' %"PRIu64" prio:%d", impl,
 			node->id, plugged, priority);
 
-	if (find->node == NULL || is_default ||
+	if (find->node == NULL ||
 	    priority > find->priority ||
 	    (priority == find->priority && plugged > find->plugged)) {
 		pw_log_debug(NAME " %p: new best %d %" PRIu64, impl, priority, plugged);

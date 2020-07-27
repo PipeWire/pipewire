@@ -688,7 +688,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 
 	*target = state->last_threshold;
 
-	if (state->matching && state->rate_match) {
+	if (state->resample && state->rate_match) {
 		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
 		/* We try to compensate for the latency introduced by rate matching
@@ -1059,6 +1059,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	if (frames == 0)
 		frames = state->threshold + state->delay;
 
+
 	to_read = state->buffer_frames;
 	if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &to_read)) < 0) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_mmap_begin error: %s",
@@ -1066,12 +1067,12 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		return res;
 	}
 
-	spa_log_trace_fp(state->log, NAME" %p: begin %ld %ld %ld %d", state,
+	spa_log_trace_fp(state->log, NAME" %p: begin offs:%ld frames:%ld to_read:%ld thres:%d", state,
 			offset, frames, to_read, state->threshold);
 
 	read = push_frames(state, my_areas, offset, frames, state->delay);
 
-	spa_log_trace_fp(state->log, NAME" %p: commit %ld %ld %"PRIi64, state,
+	spa_log_trace_fp(state->log, NAME" %p: commit offs:%ld read:%ld count:%"PRIi64, state,
 			offset, read, state->sample_count);
 	total_read += read;
 
@@ -1259,15 +1260,16 @@ int spa_alsa_start(struct state *state)
 		state->rate_denom = state->rate;
 	}
 
+	state->resample = (state->rate != state->rate_denom) || state->matching;
 	state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	state->last_threshold = state->threshold;
 
 	init_loop(state);
 	state->safety = 0.0;
 
-	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d follower:%d match:%d",
+	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d follower:%d match:%d resample:%d",
 			state, state->threshold, state->duration, state->rate_denom,
-			state->following, state->matching);
+			state->following, state->matching, state->resample);
 
 	CHECK(set_swparams(state), "swparams");
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))

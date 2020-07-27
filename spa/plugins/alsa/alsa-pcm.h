@@ -144,6 +144,7 @@ struct state {
 	unsigned int alsa_recovering:1;
 	unsigned int following:1;
 	unsigned int matching:1;
+	unsigned int resample:1;
 
 	int64_t sample_count;
 

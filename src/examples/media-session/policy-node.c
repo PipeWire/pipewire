@@ -93,42 +93,14 @@ struct node {
 	unsigned int active:1;
 	unsigned int exclusive:1;
 	unsigned int enabled:1;
+	unsigned int configured:1;
+	unsigned int dont_remix:1;
 };
 
-static int configure_node(struct node *node, struct spa_audio_info *info)
+static bool find_format(struct node *node)
 {
-	struct impl *impl = node->impl;
-	char buf[1024];
-	struct spa_pod_builder b = { 0, };
-	struct spa_pod *param;
-
-	node->format = *info;
-	node->format.info.raw.rate = impl->sample_rate;
-
-	spa_pod_builder_init(&b, buf, sizeof(buf));
-	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
-	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
-		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
-		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
-
-	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		spa_debug_pod(2, NULL, param);
-
-	pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
-			SPA_PARAM_PortConfig, 0, param);
-	return 0;
-}
-
-static int activate_node(struct node *node)
-{
-	struct impl *impl = node->impl;
 	struct sm_param *p;
 	bool have_format = false;
-
-	pw_log_debug(NAME" %p: node %p activate", impl, node);
 
 	spa_list_for_each(p, &node->obj->param_list, link) {
 		struct spa_audio_info info = { 0, };
@@ -155,11 +127,45 @@ static int activate_node(struct node *node)
 
 		have_format = true;
 	}
+	return have_format;
+}
 
-	if (have_format)
-		configure_node(node, &node->format);
+static int configure_node(struct node *node, struct spa_audio_info *info)
+{
+	struct impl *impl = node->impl;
+	char buf[1024];
+	struct spa_pod_builder b = { 0, };
+	struct spa_pod *param;
 
-	node->active = true;
+	if (node->configured)
+		return 0;
+
+	if (info == NULL) {
+		if (!find_format(node))
+			return -EINVAL;
+	} else {
+		node->format = *info;
+	}
+
+	node->format.info.raw.rate = impl->sample_rate;
+
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
+		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
+		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
+
+	pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
+			SPA_PARAM_PortConfig, 0, param);
+
+	node->configured = true;
+
 	return 0;
 }
 
@@ -171,8 +177,10 @@ static void object_update(void *data)
 	pw_log_debug(NAME" %p: node %p %08x", impl, node, node->obj->obj.changed);
 
 	if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_PARAMS &&
-	    !node->active)
-		activate_node(node);
+	    !node->active) {
+		node->active = true;
+		sm_media_session_schedule_rescan(impl->session);
+	}
 }
 
 static const struct sm_object_events object_events = {
@@ -418,9 +426,26 @@ static int link_nodes(struct node *node, struct node *peer)
 	struct pw_properties *props;
 
 	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->id, peer->id);
+
+	if (node->dont_remix)
+		configure_node(node, NULL);
+	else {
 #if 0
-	configure_node(node, &peer->format);
+		bool configured = node->configured;
+		if (configured) {
+			node->configured = false;
+			pw_node_send_command((struct pw_node*)node->obj->obj.proxy,
+					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));
+		}
 #endif
+		configure_node(node, &peer->format);
+#if 0
+		if (configured) {
+			pw_node_send_command((struct pw_node*)node->obj->obj.proxy,
+					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
+		}
+#endif
+	}
 
 	node->peer = peer;
 
@@ -480,8 +505,10 @@ static int rescan_node(struct impl *impl, struct node *n)
 	struct node *peer;
 	struct sm_object *obj;
 
-	if (n->type == NODE_TYPE_DEVICE)
+	if (n->type == NODE_TYPE_DEVICE) {
+		configure_node(n, NULL);
 		return 0;
+	}
 
 	if (!n->active) {
 		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
@@ -504,8 +531,11 @@ static int rescan_node(struct impl *impl, struct node *n)
         str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT);
         if (str == NULL || !pw_properties_parse_bool(str)) {
 		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, n->id);
-                return 0;
+		configure_node(n, NULL);
+		return 0;
 	}
+        if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
+		n->dont_remix = pw_properties_parse_bool(str);
 
 	if (n->media == NULL) {
 		pw_log_debug(NAME" %p: node %d has unknown media", impl, n->id);

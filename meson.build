@@ -52,7 +52,8 @@ else
 endif
 
 spa_plugindir = join_paths(pipewire_libdir, spa_name)
-alsadatadir = join_paths('/usr', 'share', 'pulseaudio', 'alsa-mixer')
+
+alsadatadir = join_paths(pipewire_datadir, 'alsa-card-profile', 'mixer')
 
 pipewire_headers_dir = join_paths(pipewire_name, 'pipewire')
 

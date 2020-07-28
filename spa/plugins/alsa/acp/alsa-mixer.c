@@ -2441,12 +2441,17 @@ static int path_verify(pa_alsa_path *p) {
 }
 
 static const char *get_default_paths_dir(void) {
+    const char *str;
 #ifdef HAVE_RUNNING_FROM_BUILD_TREE
     if (pa_run_from_build_tree())
-        return PA_SRCDIR "/modules/alsa/mixer/paths/";
+        return PA_SRCDIR "mixer/paths";
     else
 #endif
-        return PA_ALSA_PATHS_DIR;
+    if (getenv("ACP_BUILDDIR") != NULL)
+        return "mixer/paths";
+    if ((str = getenv("ACP_PATHS_DIR")) != NULL)
+        return str;
+    return PA_ALSA_PATHS_DIR;
 }
 
 pa_alsa_path* pa_alsa_path_new(const char *paths_dir, const char *fname, pa_alsa_direction_t direction) {
@@ -4417,6 +4422,20 @@ void pa_alsa_decibel_fix_dump(pa_alsa_decibel_fix *db_fix) {
     pa_xfree(db_values);
 }
 
+static const char *get_default_profile_dir(void) {
+    const char *str;
+#ifdef HAVE_RUNNING_FROM_BUILD_TREE
+    if (pa_run_from_build_tree())
+        return PA_SRCDIR "mixer/profile-sets";
+    else
+#endif
+    if (getenv("ACP_BUILDDIR") != NULL)
+        return "mixer/profile-sets";
+    if ((str = getenv("ACP_PROFILES_DIR")) != NULL)
+        return str;
+    return PA_ALSA_PROFILE_SETS_DIR;
+}
+
 pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel_map *bonus) {
     pa_alsa_profile_set *ps;
     pa_alsa_profile *p;
@@ -4470,10 +4489,7 @@ pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel
         fname = "default.conf";
 
     fn = pa_maybe_prefix_path(fname,
-#ifdef HAVE_RUNNING_FROM_BUILD_TREE
-                              pa_run_from_build_tree() ? PA_SRCDIR "/modules/alsa/mixer/profile-sets/" :
-#endif
-                              PA_ALSA_PROFILE_SETS_DIR);
+		    get_default_profile_dir());
 
     r = pa_config_parse(fn, NULL, items, NULL, false, ps);
     pa_xfree(fn);

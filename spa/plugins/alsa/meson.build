@@ -1,4 +1,5 @@
 subdir('acp')
+subdir('mixer')
 
 spa_alsa_sources = ['alsa.c',
                 'alsa-udev.c',

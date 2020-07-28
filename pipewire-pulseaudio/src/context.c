@@ -705,7 +705,7 @@ static void device_sync_ports(struct global *g)
 		while (info) {
 			struct spa_pod_parser prs;
 			struct spa_pod_frame f[1];
-			uint32_t n, n_items;
+			int32_t n, n_items;
 			const char *key, *value;
 
 			spa_pod_parser_pod(&prs, info);

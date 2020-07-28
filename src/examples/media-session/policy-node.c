@@ -63,6 +63,7 @@ struct impl {
 
 	uint32_t default_audio_sink;
 	uint32_t default_audio_source;
+	uint32_t default_video_source;
 };
 
 struct node {
@@ -349,6 +350,8 @@ static void session_remove(void *data, struct sm_object *object)
 			impl->default_audio_sink = SPA_ID_INVALID;
 		if (impl->default_audio_source == object->id)
 			impl->default_audio_source = SPA_ID_INVALID;
+		if (impl->default_video_source == object->id)
+			impl->default_video_source = SPA_ID_INVALID;
 	}
 
 	sm_media_session_schedule_rescan(impl->session);
@@ -393,12 +396,17 @@ static int find_node(void *data, struct node *node)
 	plugged = node->plugged;
 	priority = node->priority;
 
-	if (node->media && strcmp(node->media, "Audio") == 0) {
+	if (node->media) {
 		bool is_default = false;
-		if (node->direction == PW_DIRECTION_INPUT)
-			is_default = impl->default_audio_sink == node->id;
-		else if (node->direction == PW_DIRECTION_OUTPUT)
-			is_default = impl->default_audio_source == node->id;
+		if (strcmp(node->media, "Audio") == 0) {
+			if (node->direction == PW_DIRECTION_INPUT)
+				is_default = impl->default_audio_sink == node->id;
+			else if (node->direction == PW_DIRECTION_OUTPUT)
+				is_default = impl->default_audio_source == node->id;
+		} else if (strcmp(node->media, "Video") == 0) {
+			if (node->direction == PW_DIRECTION_OUTPUT)
+				is_default = impl->default_video_source == node->id;
+		}
 		if (is_default)
 			priority += 1000;
 	}
@@ -762,6 +770,10 @@ static int metadata_property(void *object, uint32_t subject,
 			if (impl->default_audio_source != SPA_ID_INVALID && value)
 				move_node(impl, impl->default_audio_source, atoi(value));
 			impl->default_audio_source = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		} else if (strcmp(key, "default.video.source") == 0) {
+			if (impl->default_video_source != SPA_ID_INVALID && value)
+				move_node(impl, impl->default_video_source, atoi(value));
+			impl->default_video_source = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 		}
 	} else {
 		struct node *src_node, *dst_node = NULL;
@@ -797,6 +809,7 @@ int sm_policy_node_start(struct sm_media_session *session)
 	impl->sample_rate = 48000;
 	impl->default_audio_sink = SPA_ID_INVALID;
 	impl->default_audio_source = SPA_ID_INVALID;
+	impl->default_video_source = SPA_ID_INVALID;
 
 	spa_list_init(&impl->node_list);
 

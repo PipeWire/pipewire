@@ -821,10 +821,13 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)))
-		snprintf(this->props.device, 64, "%s", str);
+		snprintf(this->props.device, sizeof(this->props.device)-1, "%s", str);
 
 	spa_log_debug(this->log, "probe card %s", this->props.device);
-	this->card = acp_card_new(atoi(this->props.device+3), NULL);
+	if ((str = strchr(this->props.device, ':')) == NULL)
+		return -EINVAL;
+
+	this->card = acp_card_new(atoi(str+1), NULL);
 	if (this->card == NULL)
 		return -errno;
 

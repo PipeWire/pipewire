@@ -95,6 +95,7 @@ struct node {
 	unsigned int enabled:1;
 	unsigned int configured:1;
 	unsigned int dont_remix:1;
+	unsigned int monitor:1;
 };
 
 static bool find_format(struct node *node)
@@ -140,11 +141,9 @@ static int configure_node(struct node *node, struct spa_audio_info *info)
 	if (node->configured)
 		return 0;
 
-	if (info == NULL) {
-		if (!find_format(node))
-			return -EINVAL;
-	} else {
-		node->format = *info;
+	if (info != NULL) {
+		if (info->info.raw.channels < node->format.info.raw.channels || node->monitor)
+			node->format = *info;
 	}
 
 	node->format.info.raw.rate = impl->sample_rate;
@@ -178,6 +177,10 @@ static void object_update(void *data)
 
 	if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_PARAMS &&
 	    !node->active) {
+		if (!find_format(node)) {
+			pw_log_debug(NAME" %p: can't find format %p", impl, node);
+			return;
+		}
 		node->active = true;
 		sm_media_session_schedule_rescan(impl->session);
 	}
@@ -218,7 +221,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 	spa_list_append(&impl->node_list, &node->link);
 
 	if (role && !strcmp(role, "DSP"))
-		node->active = true;
+		node->active = node->configured = true;
 
 	if (strstr(media_class, "Stream/") == media_class) {
 		media_class += strlen("Stream/");
@@ -241,10 +244,10 @@ handle_node(struct impl *impl, struct sm_object *object)
 				else
 					node->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
 			}
-			node->active = true;
+			node->active = node->configured = true;
 		}
 		else if (strstr(media_class, "Unknown") == media_class) {
-			node->active = true;
+			node->active = node->configured = true;
 		}
 
 		node->direction = direction;
@@ -261,7 +264,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 		else if (strstr(media_class, "Video/") == media_class) {
 			media_class += strlen("Video/");
 			media = "Video";
-			node->active = true;
+			node->active = node->configured = true;
 		}
 		else
 			return 0;
@@ -528,14 +531,18 @@ static int rescan_node(struct impl *impl, struct node *n)
 	info = n->obj->info;
 	props = info->props;
 
+        if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
+		n->dont_remix = pw_properties_parse_bool(str);
+
+        if ((str = spa_dict_lookup(props, PW_KEY_STREAM_MONITOR)) != NULL)
+		n->monitor = pw_properties_parse_bool(str);
+
         str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT);
         if (str == NULL || !pw_properties_parse_bool(str)) {
 		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, n->id);
 		configure_node(n, NULL);
 		return 0;
 	}
-        if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
-		n->dont_remix = pw_properties_parse_bool(str);
 
 	if (n->media == NULL) {
 		pw_log_debug(NAME" %p: node %d has unknown media", impl, n->id);

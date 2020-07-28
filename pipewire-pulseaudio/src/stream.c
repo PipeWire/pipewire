@@ -1090,10 +1090,12 @@ static int create_stream(pa_stream_direction_t direction,
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,
 				direction == PA_STREAM_PLAYBACK ?
-					"Playback" : "Capture");
+					"Playback" : monitor ? "Monitor" : "Capture");
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
-	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "true" : "false");
-	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_DONT_REMIX, no_remix ? "true" : "false");
+	if (monitor)
+		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, "true");
+	if (no_remix)
+		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_DONT_REMIX, "true");
 	if (devid == PW_ID_ANY && dev != NULL)
 		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, dev);
 	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, n_items));

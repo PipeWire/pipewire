@@ -21,3 +21,13 @@ spa_alsa = shared_library(
   install : true,
   install_dir : join_paths(spa_plugindir, 'alsa')
 )
+
+alsa_udevrules = [
+  '90-pipewire-alsa.rules',
+]
+
+if libudev_dep.found()
+  install_data(alsa_udevrules,
+    install_dir : udevrulesdir,
+  )
+endif

@@ -10,6 +10,12 @@ spa_inc = include_directories('include')
 subdir('include')
 
 if get_option('spa-plugins')
+  udevrulesdir = get_option('udevrulesdir')
+  if udevrulesdir == ''
+    # absolute path, otherwise meson prepends the prefix
+    udevrulesdir = '/lib/udev/rules.d'
+  endif
+
   # common dependencies
   if get_option('alsa') or get_option('v4l2')
     libudev_dep = dependency('libudev')

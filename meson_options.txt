@@ -128,3 +128,6 @@ option('pw-cat',
        description: 'Build pw-cat/pw-play/pw-record',
        type: 'boolean',
        value: true)
+option('udevrulesdir',
+       type : 'string',
+       description : 'Directory for udev rules (defaults to /lib/udev/rules.d)')

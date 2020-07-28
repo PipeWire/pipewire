@@ -312,6 +312,7 @@ struct pa_alsa_mapping {
 
     char *name;
     char *description;
+    char *description_key;
     unsigned priority;
     pa_alsa_direction_t direction;
     /* These are copied over to the resultant sink/source */

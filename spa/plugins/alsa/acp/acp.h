@@ -185,6 +185,7 @@ struct acp_card_profile {
 
 	char *name;
 	char *description;
+	char *description_key;
 	uint32_t priority;
 	enum acp_available available;
 	struct acp_dict props;

@@ -922,9 +922,9 @@ static int create_stream(pa_stream_direction_t direction,
 	const char *str;
 	uint32_t devid, n_items;
 	struct global *g;
-	struct spa_dict_item items[6];
+	struct spa_dict_item items[7];
 	char latency[64];
-	bool monitor;
+	bool monitor, no_remix;
 	const char *name;
 	pa_context *c = s->context;
 
@@ -997,6 +997,7 @@ static int create_stream(pa_stream_direction_t direction,
 	if (flags & PA_STREAM_DONT_MOVE)
 		fl |= PW_STREAM_FLAG_DONT_RECONNECT;
 	monitor = (flags & PA_STREAM_PEAK_DETECT);
+	no_remix = (flags & PA_STREAM_NO_REMIX_CHANNELS);
 
 	if (pa_sample_spec_valid(&s->sample_spec)) {
 		params[n_params++] = get_param(s, &s->sample_spec, &s->channel_map, &b);
@@ -1092,6 +1093,7 @@ static int create_stream(pa_stream_direction_t direction,
 					"Playback" : "Capture");
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, monitor ? "true" : "false");
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_DONT_REMIX, no_remix ? "true" : "false");
 	if (devid == PW_ID_ANY && dev != NULL)
 		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, dev);
 	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, n_items));

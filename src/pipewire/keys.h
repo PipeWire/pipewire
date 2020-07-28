@@ -222,6 +222,7 @@ extern "C" {
 #define PW_KEY_STREAM_MONITOR		"stream.monitor"	/**< Indicates that the stream is monitoring
 								  *  and might select a less accurate but faster
 								  *  conversion algorithm. */
+#define PW_KEY_STREAM_DONT_REMIX	"stream.dont-remix"	/**< don't remix channels */
 
 /** object properties */
 #define PW_KEY_OBJECT_LINGER		"object.linger"		/**< the object lives on even after the client

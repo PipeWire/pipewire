@@ -793,6 +793,8 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	const char *str;
+	struct acp_dict_item items[4];
+	uint32_t n_items = 0;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -820,14 +822,20 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)))
-		snprintf(this->props.device, sizeof(this->props.device)-1, "%s", str);
+	if (info) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)) != NULL)
+			snprintf(this->props.device, sizeof(this->props.device)-1, "%s", str);
+		if ((str = spa_dict_lookup(info, SPA_KEY_DEVICE_PROFILE_SET)) != NULL)
+			items[n_items++] = ACP_DICT_ITEM_INIT("profile-set", str);
+		if ((str = spa_dict_lookup(info, SPA_KEY_DEVICE_PROFILE)) != NULL)
+			items[n_items++] = ACP_DICT_ITEM_INIT("profile", str);
+	}
 
 	spa_log_debug(this->log, "probe card %s", this->props.device);
 	if ((str = strchr(this->props.device, ':')) == NULL)
 		return -EINVAL;
 
-	this->card = acp_card_new(atoi(str+1), NULL);
+	this->card = acp_card_new(atoi(str+1), &ACP_DICT_INIT(items, n_items));
 	if (this->card == NULL)
 		return -errno;
 

@@ -190,7 +190,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	snd_ctl_t *ctl_hndl;
 	const char *str;
 	char path[32];
-	struct spa_dict_item items[22];
+	struct spa_dict_item items[23];
 	uint32_t n_items = 0;
 	int res, pcm;
 
@@ -238,6 +238,9 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 
 	if ((str = udev_device_get_property_value(dev, "PULSE_NAME")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, str);
+
+	if ((str = udev_device_get_property_value(dev, "PULSE_PROFILE_SET")) && *str)
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PROFILE_SET, str);
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_CLASS, str);

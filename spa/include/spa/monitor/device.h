@@ -286,6 +286,8 @@ struct spa_device_methods {
 								  *  "webcam", "microphone", "headset",
 								  *  "headphone", "hands-free", "car", "hifi",
 								  *  "computer", "portable" */
+#define SPA_KEY_DEVICE_PROFILE		"device.profile	"	/**< profile for the device */
+#define SPA_KEY_DEVICE_PROFILE_SET	"device.profile-set"	/**< profile set for the device */
 
 
 #ifdef __cplusplus

@@ -1,3 +1,50 @@
+PipeWire 0.3.8
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Fix an embarrassing crasher in the JACK layer when
+  metadata keys were removed.
+
+- Make it possible to add properties to jack clients with
+  a PIPEWIRE_PROPS env variable. This can be used to make
+  JACK nodes look like a device (like an effects rack).
+
+- Improvements in the session manager in how it links
+  ports. Now it will try to link matching channels first
+  and be more intelligent otherwise. The session manager
+  will also configure the stream to the device port
+  configuration when needed.
+
+- Add ofono backend for Bluetooth HeadSet support.
+
+- Improve default source and sink handling. They are now
+  stored with their id, instead of name, in the metadata.
+  This makes it work better with JACK because of JACK's
+  limited name length.
+
+- Improve environment variables to make it possible to
+  create and connect to servers other than "pipewire-0".
+  Implement this in pulseaudio, JACK and alsa layers.
+
+- Add an alsa mixer plugin so that alsamixer works with
+  PipeWire. It will configure the default source/sink
+  volumes.
+
+- Fix capture devices. There was something wrong with how
+  the resampler was used that caused corruption in the
+  signal when the resampler was active.
+
+- We now ship alsa card paths, profile-sets configuration
+  files and udev rules so that we don't have to rely on
+  the pulseaudio ones.
+
+- Many build and stability fixes.
+
+
+Older versions:
+
+
 PipeWire 0.3.7
 
 This is a bugfix release that is API and ABI compatible

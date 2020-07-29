@@ -99,13 +99,20 @@ static void handle_acp_poll(struct spa_source *source)
 		this->sources[i].rmask = 0;
 }
 
+static void remove_sources(struct impl *this)
+{
+	int i;
+	for (i = 0; i < this->n_pfds; i++) {
+		spa_loop_remove_source(this->loop, &this->sources[i]);
+	}
+	this->n_pfds = 0;
+}
+
 static int setup_sources(struct impl *this)
 {
 	int i;
 
-	for (i = 0; i < this->n_pfds; i++) {
-		spa_loop_remove_source(this->loop, &this->sources[i]);
-	}
+	remove_sources(this);
 
 	this->n_pfds = acp_card_poll_descriptors(this->card, this->pfds, MAX_POLL);
 
@@ -774,6 +781,8 @@ static SPA_PRINTF_FUNC(6,0) void impl_acp_log_func(void *data,
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this = (struct impl *) handle;
+	remove_sources(this);
 	return 0;
 }
 

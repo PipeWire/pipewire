@@ -38,117 +38,6 @@
 #define MAX_SIZE	(4*1024*1024)
 #define BLOCK_SIZE	(64*1024)
 
-static const uint32_t audio_formats[] = {
-	[PA_SAMPLE_U8] = SPA_AUDIO_FORMAT_U8,
-	[PA_SAMPLE_ALAW] = SPA_AUDIO_FORMAT_UNKNOWN,
-	[PA_SAMPLE_ULAW] = SPA_AUDIO_FORMAT_UNKNOWN,
-	[PA_SAMPLE_S16NE] = SPA_AUDIO_FORMAT_S16,
-	[PA_SAMPLE_S16RE] = SPA_AUDIO_FORMAT_S16_OE,
-	[PA_SAMPLE_FLOAT32NE] = SPA_AUDIO_FORMAT_F32,
-	[PA_SAMPLE_FLOAT32RE] = SPA_AUDIO_FORMAT_F32_OE,
-	[PA_SAMPLE_S32NE] = SPA_AUDIO_FORMAT_S32,
-	[PA_SAMPLE_S32RE] = SPA_AUDIO_FORMAT_S32_OE,
-	[PA_SAMPLE_S24NE] = SPA_AUDIO_FORMAT_S24,
-	[PA_SAMPLE_S24RE] = SPA_AUDIO_FORMAT_S24_OE,
-	[PA_SAMPLE_S24_32NE] = SPA_AUDIO_FORMAT_S24_32,
-	[PA_SAMPLE_S24_32RE] = SPA_AUDIO_FORMAT_S24_32_OE,
-};
-
-static inline uint32_t format_pa2id(pa_stream *s, pa_sample_format_t format)
-{
-	if (format < 0 || (size_t)format >= SPA_N_ELEMENTS(audio_formats))
-		return SPA_AUDIO_FORMAT_UNKNOWN;
-	return audio_formats[format];
-}
-
-static inline pa_sample_format_t format_id2pa(pa_stream *s, uint32_t id)
-{
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == audio_formats[i])
-			return i;
-	}
-	return PA_SAMPLE_INVALID;
-}
-
-static const uint32_t audio_channels[] = {
-	[PA_CHANNEL_POSITION_MONO] = SPA_AUDIO_CHANNEL_MONO,
-
-	[PA_CHANNEL_POSITION_FRONT_LEFT] = SPA_AUDIO_CHANNEL_FL,
-	[PA_CHANNEL_POSITION_FRONT_RIGHT] = SPA_AUDIO_CHANNEL_FR,
-	[PA_CHANNEL_POSITION_FRONT_CENTER] = SPA_AUDIO_CHANNEL_FC,
-
-	[PA_CHANNEL_POSITION_REAR_CENTER] = SPA_AUDIO_CHANNEL_RC,
-	[PA_CHANNEL_POSITION_REAR_LEFT] = SPA_AUDIO_CHANNEL_RL,
-	[PA_CHANNEL_POSITION_REAR_RIGHT] = SPA_AUDIO_CHANNEL_RR,
-
-	[PA_CHANNEL_POSITION_LFE] = SPA_AUDIO_CHANNEL_LFE,
-	[PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER] = SPA_AUDIO_CHANNEL_FLC,
-	[PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER] = SPA_AUDIO_CHANNEL_FRC,
-
-	[PA_CHANNEL_POSITION_SIDE_LEFT] = SPA_AUDIO_CHANNEL_SL,
-	[PA_CHANNEL_POSITION_SIDE_RIGHT] = SPA_AUDIO_CHANNEL_SR,
-
-	[PA_CHANNEL_POSITION_AUX0] = SPA_AUDIO_CHANNEL_CUSTOM_START + 1,
-	[PA_CHANNEL_POSITION_AUX1] = SPA_AUDIO_CHANNEL_CUSTOM_START + 2,
-	[PA_CHANNEL_POSITION_AUX2] = SPA_AUDIO_CHANNEL_CUSTOM_START + 3,
-	[PA_CHANNEL_POSITION_AUX3] = SPA_AUDIO_CHANNEL_CUSTOM_START + 4,
-	[PA_CHANNEL_POSITION_AUX4] = SPA_AUDIO_CHANNEL_CUSTOM_START + 5,
-	[PA_CHANNEL_POSITION_AUX5] = SPA_AUDIO_CHANNEL_CUSTOM_START + 6,
-	[PA_CHANNEL_POSITION_AUX6] = SPA_AUDIO_CHANNEL_CUSTOM_START + 7,
-	[PA_CHANNEL_POSITION_AUX7] = SPA_AUDIO_CHANNEL_CUSTOM_START + 8,
-	[PA_CHANNEL_POSITION_AUX8] = SPA_AUDIO_CHANNEL_CUSTOM_START + 9,
-	[PA_CHANNEL_POSITION_AUX9] = SPA_AUDIO_CHANNEL_CUSTOM_START + 10,
-	[PA_CHANNEL_POSITION_AUX10] = SPA_AUDIO_CHANNEL_CUSTOM_START + 11,
-	[PA_CHANNEL_POSITION_AUX11] = SPA_AUDIO_CHANNEL_CUSTOM_START + 12,
-	[PA_CHANNEL_POSITION_AUX12] = SPA_AUDIO_CHANNEL_CUSTOM_START + 13,
-	[PA_CHANNEL_POSITION_AUX13] = SPA_AUDIO_CHANNEL_CUSTOM_START + 14,
-	[PA_CHANNEL_POSITION_AUX14] = SPA_AUDIO_CHANNEL_CUSTOM_START + 15,
-	[PA_CHANNEL_POSITION_AUX15] = SPA_AUDIO_CHANNEL_CUSTOM_START + 16,
-	[PA_CHANNEL_POSITION_AUX16] = SPA_AUDIO_CHANNEL_CUSTOM_START + 17,
-	[PA_CHANNEL_POSITION_AUX17] = SPA_AUDIO_CHANNEL_CUSTOM_START + 18,
-	[PA_CHANNEL_POSITION_AUX18] = SPA_AUDIO_CHANNEL_CUSTOM_START + 19,
-	[PA_CHANNEL_POSITION_AUX19] = SPA_AUDIO_CHANNEL_CUSTOM_START + 20,
-	[PA_CHANNEL_POSITION_AUX20] = SPA_AUDIO_CHANNEL_CUSTOM_START + 21,
-	[PA_CHANNEL_POSITION_AUX21] = SPA_AUDIO_CHANNEL_CUSTOM_START + 22,
-	[PA_CHANNEL_POSITION_AUX22] = SPA_AUDIO_CHANNEL_CUSTOM_START + 23,
-	[PA_CHANNEL_POSITION_AUX23] = SPA_AUDIO_CHANNEL_CUSTOM_START + 24,
-	[PA_CHANNEL_POSITION_AUX24] = SPA_AUDIO_CHANNEL_CUSTOM_START + 25,
-	[PA_CHANNEL_POSITION_AUX25] = SPA_AUDIO_CHANNEL_CUSTOM_START + 26,
-	[PA_CHANNEL_POSITION_AUX26] = SPA_AUDIO_CHANNEL_CUSTOM_START + 27,
-	[PA_CHANNEL_POSITION_AUX27] = SPA_AUDIO_CHANNEL_CUSTOM_START + 28,
-	[PA_CHANNEL_POSITION_AUX28] = SPA_AUDIO_CHANNEL_CUSTOM_START + 29,
-	[PA_CHANNEL_POSITION_AUX29] = SPA_AUDIO_CHANNEL_CUSTOM_START + 30,
-	[PA_CHANNEL_POSITION_AUX30] = SPA_AUDIO_CHANNEL_CUSTOM_START + 31,
-	[PA_CHANNEL_POSITION_AUX31] = SPA_AUDIO_CHANNEL_CUSTOM_START + 32,
-
-	[PA_CHANNEL_POSITION_TOP_CENTER] = SPA_AUDIO_CHANNEL_TC,
-
-	[PA_CHANNEL_POSITION_TOP_FRONT_LEFT] = SPA_AUDIO_CHANNEL_TFL,
-	[PA_CHANNEL_POSITION_TOP_FRONT_RIGHT] = SPA_AUDIO_CHANNEL_TFR,
-	[PA_CHANNEL_POSITION_TOP_FRONT_CENTER] = SPA_AUDIO_CHANNEL_TFC,
-
-	[PA_CHANNEL_POSITION_TOP_REAR_LEFT] = SPA_AUDIO_CHANNEL_TRL,
-	[PA_CHANNEL_POSITION_TOP_REAR_RIGHT] = SPA_AUDIO_CHANNEL_TRR,
-	[PA_CHANNEL_POSITION_TOP_REAR_CENTER] = SPA_AUDIO_CHANNEL_TRC,
-};
-
-static inline uint32_t channel_pa2id(pa_stream *s, pa_channel_position_t channel)
-{
-	if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
-		return SPA_AUDIO_CHANNEL_UNKNOWN;
-	return audio_channels[channel];
-}
-
-static inline pa_channel_position_t channel_id2pa(pa_stream *s, uint32_t id)
-{
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
-		if (id == audio_channels[i])
-			return i;
-	}
-	return PA_CHANNEL_POSITION_INVALID;
-}
 
 static void dump_buffer_attr(pa_stream *s, pa_buffer_attr *attr)
 {
@@ -347,37 +236,15 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	uint32_t n_params = 0;
         uint8_t buffer[4096];
         struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct spa_audio_info info = { 0 };
-	unsigned int i;
+	int res;
 
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
-	spa_format_parse(param, &info.media_type, &info.media_subtype);
-
-	if (info.media_type != SPA_MEDIA_TYPE_audio ||
-	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    spa_format_audio_raw_parse(param, &info.info.raw) < 0 ||
-	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
-		pw_stream_set_error(s->stream, -EINVAL, "unhandled format");
+	if ((res = pa_format_parse_param(param, &s->sample_spec, &s->channel_map)) < 0) {
+		pw_stream_set_error(s->stream, res, "unhandled format");
 		return;
 	}
-
-	s->sample_spec.format = format_id2pa(s, info.info.raw.format);
-	if (s->sample_spec.format == PA_SAMPLE_INVALID) {
-		pw_stream_set_error(s->stream, -EINVAL, "invalid format");
-		return;
-	}
-	s->sample_spec.rate = info.info.raw.rate;
-	s->sample_spec.channels = info.info.raw.channels;
-
-	pa_channel_map_init(&s->channel_map);
-	s->channel_map.channels = info.info.raw.channels;
-	for (i = 0; i < info.info.raw.channels; i++)
-		s->channel_map.map[i] = channel_id2pa(s, info.info.raw.position[i]);
-
-	if (!pa_channel_map_valid(&s->channel_map))
-		pa_channel_map_init_auto(&s->channel_map, info.info.raw.channels, PA_CHANNEL_MAP_DEFAULT);
 
 	if (s->format)
 		pa_format_info_free(s->format);
@@ -894,22 +761,6 @@ int pa_stream_is_corked(PA_CONST pa_stream *s)
 	return s->corked;
 }
 
-static const struct spa_pod *get_param(pa_stream *s, pa_sample_spec *ss, pa_channel_map *map,
-		struct spa_pod_builder *b)
-{
-	struct spa_audio_info_raw info;
-
-	info = SPA_AUDIO_INFO_RAW_INIT( .format = format_pa2id(s, ss->format),
-		                .channels = ss->channels,
-		                .rate = ss->rate);
-	if (map) {
-		int i;
-		for (i = 0; i < map->channels; i++)
-			info.position[i] = channel_pa2id(s, map->map[i]);
-	}
-	return spa_format_audio_raw_build(b, SPA_PARAM_EnumFormat, &info);
-}
-
 static int create_stream(pa_stream_direction_t direction,
         pa_stream *s,
         const char *dev,
@@ -1006,7 +857,8 @@ static int create_stream(pa_stream_direction_t direction,
 	no_remix = (flags & PA_STREAM_NO_REMIX_CHANNELS);
 
 	if (pa_sample_spec_valid(&s->sample_spec)) {
-		params[n_params++] = get_param(s, &s->sample_spec, &s->channel_map, &b);
+		params[n_params++] = pa_format_build_param(&b, SPA_PARAM_EnumFormat,
+				&s->sample_spec, &s->channel_map);
 		sample_rate = s->sample_spec.rate;
 		stride = pa_frame_size(&s->sample_spec);
 	}
@@ -1025,7 +877,8 @@ static int create_stream(pa_stream_direction_t direction,
 			if (pa_format_info_get_channel_map(s->req_formats[i], &chmap) < 0)
 				pa_channel_map_init_auto(&chmap, ss.channels, PA_CHANNEL_MAP_DEFAULT);
 
-			params[n_params++] = get_param(s, &ss, &chmap, &b);
+			params[n_params++] = pa_format_build_param(&b, SPA_PARAM_EnumFormat,
+					&ss, &chmap);
 			if (ss.rate > sample_rate) {
 				sample_rate = ss.rate;
 				stride = pa_frame_size(&ss);

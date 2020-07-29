@@ -254,7 +254,6 @@ struct global {
 	int priority_master;
 	int pending_seq;
 	int init:1;
-	int subscribed:1;
 
 	void *info;
 	struct global_info *ginfo;
@@ -280,6 +279,8 @@ struct global {
 			uint32_t flags;
 			float volume;
 			bool mute;
+			pa_sample_spec sample_spec;
+			pa_channel_map channel_map;
 			uint32_t n_channel_volumes;
 			float channel_volumes[SPA_AUDIO_MAX_CHANNELS];
 			uint32_t device_id;		/* id of device (card) */
@@ -489,6 +490,11 @@ int pa_metadata_update(struct global *global, uint32_t subject, const char *key,
                         const char *type, const char *value);
 int pa_metadata_get(struct global *global, uint32_t subject, const char *key,
                         const char **type, const char **value);
+
+int pa_format_parse_param(const struct spa_pod *param,
+		pa_sample_spec *spec, pa_channel_map *map);
+const struct spa_pod *pa_format_build_param(struct spa_pod_builder *b,
+		uint32_t id, pa_sample_spec *spec, pa_channel_map *map);
 
 #ifdef __cplusplus
 }

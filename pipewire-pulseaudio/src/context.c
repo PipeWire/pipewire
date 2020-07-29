@@ -806,23 +806,20 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	else
 		g->node_info.profile_device_id = SPA_ID_INVALID;
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS && !g->subscribed) {
-		uint32_t subscribed[32], n_subscribed = 0;
-
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
+			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
+				continue;
+
 			switch (info->params[i].id) {
-			case SPA_PARAM_EnumFormat:
 			case SPA_PARAM_Props:
-				subscribed[n_subscribed++] = info->params[i].id;
+			case SPA_PARAM_Format:
+				pw_device_enum_params((struct pw_device*)g->proxy,
+					0, info->params[i].id, 0, -1, NULL);
 				break;
 			default:
 				break;
 			}
-		}
-		if (n_subscribed > 0) {
-			pw_node_subscribe_params((struct pw_node*)g->proxy,
-					subscribed, n_subscribed);
-			g->subscribed = true;
 		}
 	}
 	global_sync(g);
@@ -839,6 +836,9 @@ static void node_event_param(void *object, int seq,
 	case SPA_PARAM_Props:
 		if (!SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME | NODE_FLAG_DEVICE_MUTE))
 			parse_props(g, param, false);
+		break;
+	case SPA_PARAM_Format:
+		pa_format_parse_param(param, &g->node_info.sample_spec, &g->node_info.channel_map);
 		break;
 	default:
 		break;

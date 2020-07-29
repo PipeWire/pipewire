@@ -104,13 +104,15 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 	else
 		i.description = "Unknown";
 
-	i.sample_spec.format = PA_SAMPLE_S16LE;
-	i.sample_spec.rate = 44100;
+	i.sample_spec = g->node_info.sample_spec;
 	if (g->node_info.n_channel_volumes)
 		i.sample_spec.channels = g->node_info.n_channel_volumes;
 	else
 		i.sample_spec.channels = 2;
-	pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+	if (i.sample_spec.channels == g->node_info.channel_map.channels)
+		i.channel_map = g->node_info.channel_map;
+	else
+		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 	i.owner_module = 0;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
@@ -843,13 +845,15 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		i.description = str;
 	else
 		i.description = "unknown";
-	i.sample_spec.format = PA_SAMPLE_S16LE;
-	i.sample_spec.rate = 44100;
+	i.sample_spec = g->node_info.sample_spec;
 	if (g->node_info.n_channel_volumes)
 		i.sample_spec.channels = g->node_info.n_channel_volumes;
 	else
 		i.sample_spec.channels = 2;
-	pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+	if (i.sample_spec.channels == g->node_info.channel_map.channels)
+		i.channel_map = g->node_info.channel_map;
+	else
+		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 	i.owner_module = 0;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
@@ -1913,12 +1917,15 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 		i.format = s->format;
 	}
 	else {
-		i.sample_spec.format = PA_SAMPLE_S16LE;
-		i.sample_spec.rate = 44100;
-		i.sample_spec.channels = g->node_info.n_channel_volumes;
-		if (i.sample_spec.channels == 0)
+		i.sample_spec = g->node_info.sample_spec;
+		if (g->node_info.n_channel_volumes)
+			i.sample_spec.channels = g->node_info.n_channel_volumes;
+		else
 			i.sample_spec.channels = 2;
-		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+		if (i.sample_spec.channels == g->node_info.channel_map.channels)
+			i.channel_map = g->node_info.channel_map;
+		else
+			pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
@@ -2324,12 +2331,15 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 		i.format = s->format;
 	}
 	else {
-		i.sample_spec.format = PA_SAMPLE_S16LE;
-		i.sample_spec.rate = 44100;
-		i.sample_spec.channels = g->node_info.n_channel_volumes;
-		if (i.sample_spec.channels == 0)
+		i.sample_spec = g->node_info.sample_spec;
+		if (g->node_info.n_channel_volumes)
+			i.sample_spec.channels = g->node_info.n_channel_volumes;
+		else
 			i.sample_spec.channels = 2;
-		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+		if (i.sample_spec.channels == g->node_info.channel_map.channels)
+			i.channel_map = g->node_info.channel_map;
+		else
+			pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;

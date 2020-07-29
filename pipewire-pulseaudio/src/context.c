@@ -1103,6 +1103,8 @@ static int set_mask(pa_context *c, struct global *g)
 			g->node_info.device_id = SPA_ID_INVALID;
 
 		ginfo = &node_info;
+		g->node_info.sample_spec.format = PA_SAMPLE_S16NE;
+		g->node_info.sample_spec.rate = 44100;
 		g->node_info.volume = 1.0f;
 		g->node_info.mute = false;
 		g->node_info.base_volume = 1.0f;

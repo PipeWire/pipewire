@@ -552,10 +552,16 @@ static void stream_process(void *data)
 	update_timing_info(s);
 
 	if (s->direction == PA_STREAM_PLAYBACK) {
+		pa_timing_info *i = &s->timing_info;
+		uint64_t queued, writable;
+
 		queue_output(s);
 
-		if (s->write_callback && s->state == PA_STREAM_READY)
-			s->write_callback(s, s->maxblock, s->write_userdata);
+		queued = i->write_index - SPA_MIN(i->read_index, i->write_index);
+		writable = s->maxblock - SPA_MIN(queued, s->maxblock);
+
+		if (s->write_callback && s->state == PA_STREAM_READY && writable > 0)
+			s->write_callback(s, writable, s->write_userdata);
 	}
 	else {
 		pull_input(s);
@@ -1842,6 +1848,9 @@ int pa_stream_get_latency(pa_stream *s, pa_usec_t *r_usec, int *negative)
 		*r_usec = time_counter_diff(s, c, t, negative);
 	else
 		*r_usec = time_counter_diff(s, t, c, negative);
+
+	pw_log_debug("stream %p: now:%"PRIu64" stream:%"PRIu64
+			" res:%"PRIu64, s, t, c, *r_usec);
 
 	return 0;
 }

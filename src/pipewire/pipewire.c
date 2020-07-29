@@ -93,8 +93,7 @@ find_plugin(struct registry *registry, const char *filename)
 
 static struct plugin *
 open_plugin(struct registry *registry,
-	    const char *path,
-	    const char *lib)
+	    const char *path, const char *lib)
 {
 	struct plugin *plugin;
 	char *filename;
@@ -115,12 +114,12 @@ open_plugin(struct registry *registry,
 
         if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
 		res = -ENOENT;
-		pw_log_error("can't load %s: %s", filename, dlerror());
+		pw_log_debug("can't load %s: %s", filename, dlerror());
 		goto error_free_filename;
         }
         if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		res = -ENOSYS;
-		pw_log_error("can't find enum function: %s", dlerror());
+		pw_log_debug("can't find enum function: %s", dlerror());
 		goto error_dlclose;
         }
 
@@ -184,7 +183,7 @@ static const struct spa_handle_factory *find_factory(struct plugin *plugin, cons
 	}
 	res = -ENOENT;
 out:
-	pw_log_error("can't find factory %s: %s", factory_name, spa_strerror(res));
+	pw_log_debug("can't find factory %s: %s", factory_name, spa_strerror(res));
 	errno = -res;
 	return NULL;
 }
@@ -236,8 +235,8 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 	struct support *sup = &global_support;
 	struct plugin *plugin;
 	struct handle *handle;
-        const struct spa_handle_factory *factory;
-        int res;
+	const struct spa_handle_factory *factory;
+	int res;
 
 	if (factory_name == NULL) {
 		res = -EINVAL;
@@ -251,14 +250,12 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 
 	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL) {
 		res = -errno;
-		pw_log_error("can't load '%s': %m", lib);
 		goto error_out;
 	}
 
 	factory = find_factory(plugin, factory_name);
 	if (factory == NULL) {
 		res = -errno;
-		pw_log_error("can't find factory '%s': %m %s", factory_name, spa_strerror(res));
 		goto error_unref_plugin;
 	}
 
@@ -268,13 +265,13 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 		goto error_unref_plugin;
 	}
 
-        if ((res = spa_handle_factory_init(factory,
-                                           &handle->handle, info,
-					   support, n_support)) < 0) {
-                pw_log_error("can't make factory instance '%s': %d (%s)",
+	if ((res = spa_handle_factory_init(factory,
+					&handle->handle, info,
+					support, n_support)) < 0) {
+		pw_log_debug("can't make factory instance '%s': %d (%s)",
 				factory_name, res, spa_strerror(res));
-                goto error_free_handle;
-        }
+		goto error_free_handle;
+	}
 
 	handle->ref = 1;
 	handle->plugin = plugin;

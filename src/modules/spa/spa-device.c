@@ -141,15 +141,15 @@ struct pw_impl_device *pw_spa_device_load(struct pw_context *context,
 
 error_load:
 	res = -errno;
-	pw_log_error("can't load device handle: %m");
+	pw_log_debug("can't load device handle: %m");
 	goto error_exit;
 error_interface:
-	pw_log_error("can't get device interface %d", res);
+	pw_log_debug("can't get device interface %d", res);
 	goto error_exit_unload;
 error_device:
 	properties = NULL;
 	res = -errno;
-	pw_log_error("can't create device: %m");
+	pw_log_debug("can't create device: %m");
 	goto error_exit_unload;
 
 error_exit_unload:

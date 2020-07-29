@@ -164,7 +164,7 @@ error_properties:
 				"usage: "FACTORY_USAGE);
 	goto error_exit;
 error_device:
-	pw_log_error("can't create device: %s", spa_strerror(res));
+	pw_log_debug("can't create device: %s", spa_strerror(res));
 	if (resource)
 		pw_resource_errorf_id(resource, new_id, res,
 				"can't create device: %s", spa_strerror(res));

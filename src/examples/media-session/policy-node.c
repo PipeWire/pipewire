@@ -516,13 +516,13 @@ static int rescan_node(struct impl *impl, struct node *n)
 	struct node *peer;
 	struct sm_object *obj;
 
-	if (n->type == NODE_TYPE_DEVICE) {
-		configure_node(n, NULL);
+	if (!n->active) {
+		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
 		return 0;
 	}
 
-	if (!n->active) {
-		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
+	if (n->type == NODE_TYPE_DEVICE) {
+		configure_node(n, NULL);
 		return 0;
 	}
 

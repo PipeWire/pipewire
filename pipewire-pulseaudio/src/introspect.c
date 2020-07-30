@@ -2076,7 +2076,7 @@ static void do_target_node(pa_operation *o, void *userdata)
 	}
 	if (t == NULL) {
 		error = PA_ERR_NOENTITY;
-	} else if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_R) ||
+	} else if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_M) ||
 		(c->metadata && !SPA_FLAG_IS_SET(c->metadata->permissions, PW_PERM_W|PW_PERM_X))) {
 		error = PA_ERR_ACCESS;
 	} else if (c->metadata) {

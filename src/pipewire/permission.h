@@ -45,14 +45,17 @@ extern "C" {
 #define PW_PERM_W	0200	/**< methods can be called that modify the object */
 #define PW_PERM_X	0100	/**< methods can be called on the object. The W flag must be
 				  *  present in order to call methods that modify the object. */
+#define PW_PERM_M	0010	/**< metadata can be set on object, Since 0.3.9 */
 
 #define PW_PERM_RWX	(PW_PERM_R|PW_PERM_W|PW_PERM_X)
+#define PW_PERM_RWXM	(PW_PERM_RWX|PW_PERM_M)
 
 #define PW_PERM_IS_R(p) (((p)&PW_PERM_R) == PW_PERM_R)
 #define PW_PERM_IS_W(p) (((p)&PW_PERM_W) == PW_PERM_W)
 #define PW_PERM_IS_X(p) (((p)&PW_PERM_X) == PW_PERM_X)
+#define PW_PERM_IS_M(p) (((p)&PW_PERM_M) == PW_PERM_M)
 
-#define PW_PERM_ALL	PW_PERM_RWX
+#define PW_PERM_ALL	PW_PERM_RWXM
 #define PW_PERM_INVALID	(uint32_t)(0xffffffff)
 
 struct pw_permission {
@@ -62,11 +65,12 @@ struct pw_permission {
 
 #define PW_PERMISSION_INIT(id,p) (struct pw_permission){ (id), (p) }
 
-#define PW_PERMISSION_FORMAT "%c%c%c"
+#define PW_PERMISSION_FORMAT "%c%c%c%c"
 #define PW_PERMISSION_ARGS(permission)		\
 	(permission) & PW_PERM_R ? 'r' : '-',	\
 	(permission) & PW_PERM_W ? 'w' : '-',	\
-	(permission) & PW_PERM_X ? 'x' : '-'
+	(permission) & PW_PERM_X ? 'x' : '-',	\
+	(permission) & PW_PERM_M ? 'm' : '-'
 
 #ifdef __cplusplus
 }

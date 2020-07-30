@@ -2056,7 +2056,7 @@ static void do_target_node(pa_operation *o, void *userdata)
 {
 	struct target_node *d = userdata;
 	pa_context *c = o->context;
-	struct global *g;
+	struct global *g, *t;
 	int error = 0;
 
 	pw_log_debug("%p", c);
@@ -2068,19 +2068,22 @@ static void do_target_node(pa_operation *o, void *userdata)
 	}
 
 	if (d->target_name) {
-		g = pa_context_find_global_by_name(c, d->target_mask, d->target_name);
+		t = pa_context_find_global_by_name(c, d->target_mask, d->target_name);
 	} else {
-		if ((g = pa_context_find_global(c, d->target_idx)) == NULL ||
-		    !(g->mask & d->target_mask))
-			g = NULL;
+		if ((t = pa_context_find_global(c, d->target_idx)) == NULL ||
+		    !(t->mask & d->target_mask))
+			t = NULL;
 	}
-	if (g == NULL) {
+	if (t == NULL) {
 		error = PA_ERR_NOENTITY;
+	} else if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_R) ||
+		(c->metadata && !SPA_FLAG_IS_SET(c->metadata->permissions, PW_PERM_W|PW_PERM_X))) {
+		error = PA_ERR_ACCESS;
 	} else if (c->metadata) {
 		char buf[16];
-		snprintf(buf, sizeof(buf), "%d", g->id);
+		snprintf(buf, sizeof(buf), "%d", t->id);
 		pw_metadata_set_property(c->metadata->proxy,
-				d->idx, d->key, SPA_TYPE_INFO_BASE "Id", buf);
+				g->id, d->key, SPA_TYPE_INFO_BASE "Id", buf);
 	} else {
 		error = PA_ERR_NOTIMPLEMENTED;
 	}

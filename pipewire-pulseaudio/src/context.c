@@ -1623,6 +1623,9 @@ static void do_default_node(pa_operation *o, void *userdata)
 	g = pa_context_find_global_by_name(c, d->mask, d->name);
 	if (g == NULL) {
 		error = PA_ERR_NOENTITY;
+	} else if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_R) ||
+		(c->metadata && !SPA_FLAG_IS_SET(c->metadata->permissions, PW_PERM_W|PW_PERM_X))) {
+		error = PA_ERR_ACCESS;
 	} else if (c->metadata) {
 		char buf[16];
 		snprintf(buf, sizeof(buf), "%d", g->id);

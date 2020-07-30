@@ -439,7 +439,7 @@ static void *create_object(void *data,
 	void *result;
 	int res;
 
-	impl_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
+	impl_resource = pw_resource_new(client, new_id, PW_PERM_ALL, type, version, 0);
 	if (impl_resource == NULL) {
 		res = -errno;
 		goto error_resource;

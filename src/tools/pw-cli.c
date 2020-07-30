@@ -574,9 +574,8 @@ static void info_global(struct proxy_data *pd)
 		return;
 
 	fprintf(stdout, "\tid: %d\n", global->id);
-	fprintf(stdout, "\tpermissions: %c%c%c\n", global->permissions & PW_PERM_R ? 'r' : '-',
-					  global->permissions & PW_PERM_W ? 'w' : '-',
-					  global->permissions & PW_PERM_X ? 'x' : '-');
+	fprintf(stdout, "\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(global->permissions));
 	fprintf(stdout, "\ttype: %s/%d\n", global->type, global->version);
 }
 
@@ -893,9 +892,8 @@ static void client_event_permissions(void *object, uint32_t index,
 			fprintf(stdout, "  default:");
 		else
 			fprintf(stdout, "  %u:", permissions[i].id);
-		fprintf(stdout, " %c%c%c\n", permissions[i].permissions & PW_PERM_R ? 'r' : '-',
-					  permissions[i].permissions & PW_PERM_W ? 'w' : '-',
-					  permissions[i].permissions & PW_PERM_X ? 'x' : '-');
+		fprintf(stdout, " "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(permissions[i].permissions));
 	}
 }
 
@@ -1525,8 +1523,8 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 {
 	struct remote_data *rd = data->current;
 	char *a[3];
-        int n;
-	uint32_t id;
+	int n;
+	uint32_t id, p;
 	struct global *global;
 	struct pw_permission permissions[1];
 
@@ -1551,8 +1549,11 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 			return false;
 	}
 
-	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), atoi(a[2]));
+	p = strtol(a[2], NULL, 0);
+	fprintf(stderr, "setting permissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(p));
 
+	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), p);
 	pw_client_update_permissions((struct pw_client*)global->proxy,
 			1, permissions);
 
@@ -1956,10 +1957,8 @@ dump_global_common(struct data *data, struct global *global,
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
 		fprintf(stdout, "%sid: %"PRIu32"\n", ind, global->id);
-		fprintf(stdout, "%spermissions: %c%c%c\n", ind,
-				global->permissions & PW_PERM_R ? 'r' : '-',
-				global->permissions & PW_PERM_W ? 'w' : '-',
-				global->permissions & PW_PERM_X ? 'x' : '-');
+		fprintf(stdout, "%spermissions: "PW_PERMISSION_FORMAT"\n", ind,
+			PW_PERMISSION_ARGS(global->permissions));
 		fprintf(stdout, "%stype: %s/%d\n", ind,
 				global->type, global->version);
 	} else {

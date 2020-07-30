@@ -1280,7 +1280,7 @@ void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_
 					  sizeof(struct pw_node_activation));
 
 	if (impl->bind_node_id) {
-		pw_global_bind(global, client, PW_PERM_RWX,
+		pw_global_bind(global, client, PW_PERM_ALL,
 				impl->bind_node_version, impl->bind_node_id);
 	}
 }

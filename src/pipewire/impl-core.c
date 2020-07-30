@@ -169,7 +169,7 @@ static int core_hello(void *object, uint32_t version)
 
 	if (version >= 3) {
 		if ((res = pw_global_bind(client->global, client,
-				PW_PERM_RWX, PW_VERSION_CLIENT, 1)) < 0)
+				PW_PERM_ALL, PW_VERSION_CLIENT, 1)) < 0)
 			return res;
 	}
 	return 0;
@@ -226,7 +226,7 @@ static struct pw_registry * core_get_registry(void *object, uint32_t version, si
 
 	registry_resource = pw_resource_new(client,
 					    new_id,
-					    PW_PERM_RWX,
+					    PW_PERM_ALL,
 					    PW_TYPE_INTERFACE_Registry,
 					    version,
 					    sizeof(*data));

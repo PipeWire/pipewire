@@ -210,7 +210,7 @@ granted:
 	pw_log_info(NAME" %p: client %p '%s' access granted", impl, client, access);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
-	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
+	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
 	pw_impl_client_update_permissions(client, 1, permissions);
 	return;
 

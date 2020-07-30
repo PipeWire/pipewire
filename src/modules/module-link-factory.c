@@ -119,7 +119,7 @@ static void link_initialized(void *data)
 	ld->global = pw_impl_link_get_global(ld->link);
 	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
 
-	res = pw_global_bind(ld->global, client, PW_PERM_RWX, PW_VERSION_LINK, ld->new_id);
+	res = pw_global_bind(ld->global, client, PW_PERM_ALL, PW_VERSION_LINK, ld->new_id);
 	if (res < 0)
 		goto error_bind;
 

@@ -74,7 +74,7 @@ static void *create_object(void *_data,
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	int res;
 
-	node_resource = pw_resource_new(client, new_id, PW_PERM_RWX, type, version, 0);
+	node_resource = pw_resource_new(client, new_id, PW_PERM_ALL, type, version, 0);
 	if (node_resource == NULL) {
 		res = -errno;
 		goto error_resource;

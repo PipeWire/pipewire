@@ -221,9 +221,8 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 	info = data->info = pw_module_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 	printf("\tname: \"%s\"\n", info->name);
 	printf("\tfilename: \"%s\"\n", info->filename);
@@ -255,9 +254,8 @@ static void print_node(struct proxy_data *data)
 	}
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 	if (print_all) {
 		print_params(data, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS));
@@ -323,9 +321,8 @@ static void print_port(struct proxy_data *data)
 	}
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 
 	printf("\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
@@ -384,9 +381,8 @@ static void factory_event_info(void *object, const struct pw_factory_info *info)
         info = data->info = pw_factory_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 
 	printf("\tname: \"%s\"\n", info->name);
@@ -419,9 +415,8 @@ static void client_event_info(void *object, const struct pw_client_info *info)
         info = data->info = pw_client_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 
 	if (print_all) {
@@ -452,9 +447,8 @@ static void link_event_info(void *object, const struct pw_link_info *info)
         info = data->info = pw_link_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 
 	printf("\toutput-node-id: %u\n", info->output_node_id);
@@ -499,9 +493,8 @@ static void print_device(struct proxy_data *data)
 	}
 
 	printf("\tid: %d\n", data->id);
-	printf("\tpermissions: %c%c%c\n", data->permissions & PW_PERM_R ? 'r' : '-',
-					  data->permissions & PW_PERM_W ? 'w' : '-',
-					  data->permissions & PW_PERM_X ? 'x' : '-');
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+			PW_PERMISSION_ARGS(data->permissions));
 	printf("\ttype: %s (version %d)\n", data->type, data->version);
 
 	if (print_all) {
@@ -617,9 +610,8 @@ static void registry_event_global(void *data, uint32_t id,
 	} else {
 		printf("added:\n");
 		printf("\tid: %u\n", id);
-		printf("\tpermissions: %c%c%c\n", permissions & PW_PERM_R ? 'r' : '-',
-						  permissions & PW_PERM_W ? 'w' : '-',
-						  permissions & PW_PERM_X ? 'x' : '-');
+		printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
+				PW_PERMISSION_ARGS(permissions));
 		printf("\ttype: %s (version %d)\n", type, version);
 		print_properties(props, ' ');
 		return;

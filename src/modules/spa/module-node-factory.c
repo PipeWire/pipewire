@@ -144,9 +144,7 @@ static void *create_object(void *_data,
 		struct pw_resource *bound_resource;
 
 		res = pw_global_bind(pw_impl_node_get_global(node),
-			       client,
-			       PW_PERM_RWX,
-			       version, new_id);
+			       client, PW_PERM_ALL, version, new_id);
 		if (res < 0)
 			goto error_bind;
 

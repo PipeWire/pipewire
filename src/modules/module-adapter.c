@@ -116,7 +116,7 @@ static void node_initialized(void *data)
 	global = pw_impl_node_get_global(nd->adapter);
 
 	res = pw_global_bind(global, client,
-			PW_PERM_RWX, PW_VERSION_NODE, nd->new_id);
+			PW_PERM_ALL, PW_VERSION_NODE, nd->new_id);
 	if (res < 0)
 		goto error_bind;
 

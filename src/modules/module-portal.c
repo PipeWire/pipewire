@@ -86,7 +86,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 
 	/* portal makes this connection and will change the permissions before
 	 * handing this connection to the client */
-	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
+	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
 	pw_impl_client_update_permissions(client, 1, permissions);
 	return;
 }

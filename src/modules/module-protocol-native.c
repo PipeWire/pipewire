@@ -330,7 +330,7 @@ static void on_start(void *data, uint32_t version)
 		pw_resource_remove(client->core_resource);
 
 	if (pw_global_bind(pw_impl_core_get_global(client->core), client,
-			PW_PERM_RWX, version, 0) < 0)
+			PW_PERM_ALL, version, 0) < 0)
 		return;
 
 	if (version == 0)
@@ -846,7 +846,7 @@ static int pw_protocol_native_connect_internal(struct pw_protocol_client *client
 		pw_log_error("server %p: failed to create client: %m", s);
 		goto error_close;
 	}
-	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_RWX);
+	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
 	pw_impl_client_update_permissions(c->client, 1, permissions);
 
 	res = pw_protocol_client_connect_fd(client, sv[1], true);

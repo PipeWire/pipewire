@@ -45,7 +45,7 @@ SPA_EXPORT
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_client *client)
 {
 	if (client->permission_func == NULL)
-		return PW_PERM_RWX;
+		return PW_PERM_ALL;
 
 	return client->permission_func(global, client, client->permission_data);
 }

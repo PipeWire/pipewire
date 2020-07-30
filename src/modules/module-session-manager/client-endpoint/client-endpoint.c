@@ -189,7 +189,7 @@ static void *create_object(void *data,
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_impl_factory_get_info(factory)->id);
 
-	this->resource = pw_resource_new(owner, new_id, PW_PERM_RWX, type, version, 0);
+	this->resource = pw_resource_new(owner, new_id, PW_PERM_ALL, type, version, 0);
 	if (this->resource == NULL)
 		goto no_mem;
 

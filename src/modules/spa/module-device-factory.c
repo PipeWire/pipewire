@@ -144,7 +144,7 @@ static void *create_object(void *_data,
 
 		res = pw_global_bind(pw_impl_device_get_global(device),
 				client,
-				PW_PERM_RWX, version,
+				PW_PERM_ALL, version,
 				new_id);
 		if (res < 0)
 			goto error_bind;

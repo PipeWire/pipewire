@@ -22,9 +22,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/utils/result.h>
+
 #include <pipewire/impl.h>
 
 #include <extensions/metadata.h>
+
+#define NAME "metadata"
 
 struct impl {
 	struct pw_global *global;
@@ -60,9 +64,14 @@ static int metadata_property(void *object,
 			const char *value)
 {
 	struct resource_data *d = object;
+	struct pw_resource *resource = d->resource;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct impl *impl = d->impl;
-	if (impl->pending == 0 || d->pong_seq != 0)
-		pw_metadata_resource_property(d->resource, subject, key, type, value);
+
+	if (impl->pending == 0 || d->pong_seq != 0) {
+		if (pw_impl_client_check_permissions(client, subject, PW_PERM_R) >= 0)
+			pw_metadata_resource_property(d->resource, subject, key, type, value);
+	}
 	return 0;
 }
 
@@ -79,8 +88,20 @@ static int metadata_set_property(void *object,
 {
 	struct resource_data *d = object;
 	struct impl *impl = d->impl;
+	struct pw_resource *resource = d->resource;
+	struct pw_impl_client *client = pw_resource_get_client(resource);
+	int res;
+
+	if ((res = pw_impl_client_check_permissions(client, subject, PW_PERM_R)) < 0)
+		goto error;
+
 	pw_metadata_set_property(impl->metadata, subject, key, type, value);
 	return 0;
+
+error:
+	pw_resource_errorf(resource, res, "set property error for id %d: %s",
+		subject, spa_strerror(res));
+	return res;
 }
 
 static int metadata_clear(void *object)

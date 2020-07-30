@@ -135,6 +135,10 @@ int pw_impl_client_update_properties(struct pw_impl_client *client, const struct
 int pw_impl_client_update_permissions(struct pw_impl_client *client, uint32_t n_permissions,
 		const struct pw_permission *permissions);
 
+/** check if a client has permissions for global_id, Since 0.3.9 */
+int pw_impl_client_check_permissions(struct pw_impl_client *client,
+		uint32_t global_id, uint32_t permissions);
+
 /** Get the client properties */
 const struct pw_properties *pw_impl_client_get_properties(struct pw_impl_client *client);
 

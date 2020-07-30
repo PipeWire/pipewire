@@ -670,3 +670,20 @@ void pw_impl_client_set_busy(struct pw_impl_client *client, bool busy)
 		pw_impl_client_emit_busy_changed(client, busy);
 	}
 }
+SPA_EXPORT
+int pw_impl_client_check_permissions(struct pw_impl_client *client,
+		uint32_t global_id, uint32_t permissions)
+{
+	struct pw_context *context = client->context;
+	struct pw_global *global;
+	uint32_t perms;
+
+	if ((global = pw_context_find_global(context, global_id)) == NULL)
+		return -ENOENT;
+
+	perms = pw_global_get_permissions(global, client);
+	if ((perms & permissions) != permissions)
+		return -EPERM;
+
+	return 0;
+}

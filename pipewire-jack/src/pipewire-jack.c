@@ -2020,8 +2020,8 @@ static void registry_event_global(void *data, uint32_t id,
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
 			str = "node";
 		}
-		if (app)
-			snprintf(o->node.name, sizeof(o->node.name), "%s:%s", app, str);
+		if (app && strcmp(app, str) != 0)
+			snprintf(o->node.name, sizeof(o->node.name), "%s/%s", app, str);
 		else
 			snprintf(o->node.name, sizeof(o->node.name), "%s", str);
 

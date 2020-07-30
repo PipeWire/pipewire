@@ -232,7 +232,8 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		return NULL;
 	}
 
-	pw_properties_set(properties, PW_KEY_METADATA_NAME, "default");
+	if (pw_properties_get(properties, PW_KEY_METADATA_NAME) == NULL)
+		pw_properties_set(properties, PW_KEY_METADATA_NAME, "default");
 
 	pw_resource_install_marshal(resource, true);
 

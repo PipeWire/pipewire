@@ -196,7 +196,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 		if ((ms = atoi(e)) == 0) {
 			pa_log_debug("Failed to parse $PULSE_LATENCY_MSEC: %s", e);
 		}
-		else if (!pa_sample_spec_valid(&s->sample_spec)) {
+		else if (!pa_sample_spec_valid(&ss)) {
 			pa_log_debug("Ignoring $PULSE_LATENCY_MSEC: %s (invalid sample spec)", e);
 		}
 		else {

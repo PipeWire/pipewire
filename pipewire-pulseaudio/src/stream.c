@@ -177,12 +177,25 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 }
 
 static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flags_t *flags) {
-	const char *e;
+	const char *e, *str;
+	char buf[100];
 
 	pa_assert(s);
 	pa_assert(attr);
 
-	if ((e = getenv("PULSE_LATENCY_MSEC"))) {
+	e = getenv("PULSE_LATENCY_MSEC");
+	if (e == NULL) {
+		str = getenv("PIPEWIRE_LATENCY");
+		if (str) {
+			int num, denom;
+			if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
+				snprintf(buf, sizeof(buf)-1, "%lu", num * PA_MSEC_PER_SEC / denom);
+				e = buf;
+			}
+		}
+	}
+
+	if (e) {
 		uint32_t ms;
 		pa_sample_spec ss;
 

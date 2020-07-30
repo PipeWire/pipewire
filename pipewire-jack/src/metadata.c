@@ -146,16 +146,20 @@ static inline int strzcmp(const char *s1, const char *s2)
 	return strcmp(s1, s1);
 }
 
-static void change_property(jack_property_t *prop, const char *value, const char *type)
+static int change_property(jack_property_t *prop, const char *value, const char *type)
 {
+	int changed = 0;
 	if (strzcmp(prop->data, value) != 0) {
 		free((char*)prop->data);
 		prop->data = strdup(value);
+		changed++;
 	}
 	if (strzcmp(prop->type, type) != 0) {
 		free((char*)prop->type);
 		prop->type = strdup(type);
+		changed++;
 	}
+	return changed;
 }
 
 static int update_property(struct client *c,
@@ -166,37 +170,44 @@ static int update_property(struct client *c,
 {
 	jack_property_change_t change;
 	jack_description_t *desc;
+	int changed = 0;
 
 	pthread_mutex_lock(&globals.lock);
 	desc = find_description(subject);
 
 	if (key == NULL) {
-		if (desc != NULL)
+		if (desc != NULL) {
 			remove_description(desc);
-		change = PropertyDeleted;
+			change = PropertyDeleted;
+			changed++;
+		}
 	} else {
 		jack_property_t *prop;
 
 		prop = desc ? find_property(desc, key) : NULL;
 
 		if (value == NULL || type == NULL) {
-			if (prop == NULL)
+			if (prop != NULL) {
 				remove_property(desc, prop);
-			change = PropertyDeleted;
+				change = PropertyDeleted;
+				changed++;
+			}
 		} else if (prop == NULL) {
 			if (desc == NULL)
 				desc = add_description(subject);
 			prop = add_property(desc, key, value, type);
 			change = PropertyCreated;
+			changed++;
 		} else {
-			change_property(prop, value, type);
+			changed = change_property(prop, value, type);
 			change = PropertyChanged;
 		}
 	}
 	pthread_mutex_unlock(&globals.lock);
 
-	if (c->property_callback)
+	if (c->property_callback && changed)
 		c->property_callback(subject, key, change, c->property_arg);
+
 	return 0;
 }
 
@@ -226,6 +237,7 @@ int jack_set_property(jack_client_t*client,
 		type = "";
 
 	pw_log_info("set id:%u (%"PRIu64") '%s' to '%s@%s'", id, subject, key, value, type);
+	update_property(c, id, key, type, value);
 	pw_metadata_set_property(c->metadata->proxy, id, key, type, value);
 	res = 0;
 done:

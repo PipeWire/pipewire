@@ -1503,15 +1503,23 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 	return 0;
 }
 
-static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_pod *info)
+static void update_xrun_stats(struct pw_node_activation *a, uint64_t trigger, uint64_t delay)
 {
-	struct pw_impl_node *this = data;
-	struct pw_node_activation *a = this->rt.activation;
-
 	a->xrun_count++;
 	a->xrun_time = trigger;
 	a->xrun_delay = delay;
 	a->max_delay = SPA_MAX(a->max_delay, delay);
+}
+
+static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_pod *info)
+{
+	struct pw_impl_node *this = data;
+	struct pw_node_activation *a = this->rt.activation;
+	struct pw_node_activation *da = this->rt.driver_target.activation;
+
+	update_xrun_stats(a, trigger, delay);
+	if (da && da != a)
+		update_xrun_stats(da, trigger, delay);
 
 	if (ratelimit_test(&this->rt.rate_limit, a->signal_time)) {
 		pw_log_error("(%s-%d) XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,

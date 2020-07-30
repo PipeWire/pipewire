@@ -1945,15 +1945,37 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
+static jack_uuid_t client_make_uuid(uint32_t id)
+{
+	jack_uuid_t uuid = 0x2; /* JackUUIDClient */
+	uuid = (uuid << 32) | (id + 1);
+	pw_log_debug("uuid %d -> %"PRIu64, id, uuid);
+	return uuid;
+}
+
 static int metadata_property(void *object, uint32_t id,
 		const char *key, const char *type, const char *value)
 {
 	struct client *c = (struct client *) object;
+	struct object *o;
 	jack_uuid_t uuid;
 
 	pw_log_info("set id:%u '%s' to '%s@%s'", id, key, value, type);
 
-	uuid = jack_port_uuid_generate(id);
+	o = pw_map_lookup(&c->context.globals, id);
+	if (o == NULL)
+		return -EINVAL;
+
+	switch (o->type) {
+	case INTERFACE_Node:
+		uuid = client_make_uuid(id);
+		break;
+	case INTERFACE_Port:
+		uuid = jack_port_uuid_generate(id);
+		break;
+	default:
+		return -EINVAL;
+	}
 	update_property(c, uuid, key, type, value);
 
 	if (key && strcmp(key, "default.audio.sink") == 0) {
@@ -2501,8 +2523,6 @@ char * jack_get_client_name (jack_client_t *client)
 	return c->name;
 }
 
-static jack_uuid_t cuuid = 0x2;
-
 SPA_EXPORT
 char *jack_get_uuid_for_client_name (jack_client_t *client,
                                      const char    *client_name)
@@ -2518,7 +2538,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 
 	spa_list_for_each(o, &c->context.nodes, link) {
 		if (strcmp(o->node.name, client_name) == 0) {
-			uuid = spa_aprintf( "%" PRIu64, (cuuid << 32) | o->id);
+			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id));
 			pw_log_debug(NAME" %p: name %s -> %s",
 					client, client_name, uuid);
 			break;
@@ -2535,7 +2555,6 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	struct client *c = (struct client *) client;
 	struct object *o;
 	jack_uuid_t uuid;
-	jack_uuid_t cuuid = 0x2;
 	char *name = NULL;
 
 	spa_return_val_if_fail(c != NULL, NULL);
@@ -2546,7 +2565,7 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_for_each(o, &c->context.nodes, link) {
-		if ((cuuid << 32 | o->id) == uuid) {
+		if (client_make_uuid(o->id) == uuid) {
 			pw_log_debug(NAME" %p: uuid %s (%"PRIu64")-> %s",
 					client, client_uuid, uuid, o->node.name);
 			name = strdup(o->node.name);
@@ -4545,7 +4564,7 @@ char *jack_client_get_uuid (jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, NULL);
 
-	return spa_aprintf("%d", c->node_id);
+	return spa_aprintf("%"PRIu64, client_make_uuid(c->node_id));
 }
 
 SPA_EXPORT

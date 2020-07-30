@@ -282,16 +282,16 @@ static const struct pw_protocol_native_demarshal
 pw_protocol_native_metadata_client_method_demarshal[PW_METADATA_METHOD_NUM] =
 {
 	[PW_METADATA_METHOD_ADD_LISTENER] = { &metadata_proxy_demarshal_add_listener, 0 },
-	[PW_METADATA_METHOD_SET_PROPERTY] = { &metadata_proxy_demarshal_set_property, 0 },
-	[PW_METADATA_METHOD_CLEAR] = { &metadata_proxy_demarshal_clear, 0 },
+	[PW_METADATA_METHOD_SET_PROPERTY] = { &metadata_proxy_demarshal_set_property, PW_PERM_W },
+	[PW_METADATA_METHOD_CLEAR] = { &metadata_proxy_demarshal_clear, PW_PERM_W },
 };
 
 static const struct pw_protocol_native_demarshal
 pw_protocol_native_metadata_server_method_demarshal[PW_METADATA_METHOD_NUM] =
 {
 	[PW_METADATA_METHOD_ADD_LISTENER] = { &metadata_resource_demarshal_add_listener, 0 },
-	[PW_METADATA_METHOD_SET_PROPERTY] = { &metadata_resource_demarshal_set_property, 0 },
-	[PW_METADATA_METHOD_CLEAR] = { &metadata_resource_demarshal_clear, 0 },
+	[PW_METADATA_METHOD_SET_PROPERTY] = { &metadata_resource_demarshal_set_property, PW_PERM_W },
+	[PW_METADATA_METHOD_CLEAR] = { &metadata_resource_demarshal_clear, PW_PERM_W },
 };
 
 static const struct pw_metadata_events pw_protocol_native_metadata_client_event_marshal = {

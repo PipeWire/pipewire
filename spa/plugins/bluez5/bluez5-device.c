@@ -249,6 +249,7 @@ static int impl_enum_params(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
 	{
+		struct spa_pod_frame f[2];
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -271,11 +272,26 @@ static int impl_enum_params(void *object, int seq,
 			else
 				description = "High Fidelity Duplex (A2DP Source/Sink)";
 
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
+			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
+			spa_pod_builder_add(&b,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
 				SPA_PARAM_PROFILE_name, SPA_POD_String("A2DP"),
-				SPA_PARAM_PROFILE_description, SPA_POD_String(description));
+				SPA_PARAM_PROFILE_description, SPA_POD_String(description),
+				0);
+			spa_pod_builder_prop(&b, SPA_PARAM_PROFILE_classes, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			if (profile & SPA_BT_PROFILE_A2DP_SOURCE) {
+				spa_pod_builder_add_struct(&b,
+					SPA_POD_String("Audio/Source"),
+					SPA_POD_Int(1));
+			}
+			if (profile & SPA_BT_PROFILE_A2DP_SINK) {
+				spa_pod_builder_add_struct(&b,
+					SPA_POD_String("Audio/Sink"),
+					SPA_POD_Int(1));
+			}
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
 		}
 		case 2:
@@ -293,11 +309,22 @@ static int impl_enum_params(void *object, int seq,
 			else
 				description = "Headset Audio (HSP/HFP)";
 
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
+			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
+			spa_pod_builder_add(&b,
 				SPA_PARAM_PROFILE_index,   SPA_POD_Int(2),
 				SPA_PARAM_PROFILE_name, SPA_POD_String("HSP/HFP"),
-				SPA_PARAM_PROFILE_description, SPA_POD_String(description));
+				SPA_PARAM_PROFILE_description, SPA_POD_String(description),
+				0);
+			spa_pod_builder_prop(&b, SPA_PARAM_PROFILE_classes, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			spa_pod_builder_add_struct(&b,
+				SPA_POD_String("Audio/Source"),
+				SPA_POD_Int(1));
+			spa_pod_builder_add_struct(&b,
+				SPA_POD_String("Audio/Sink"),
+				SPA_POD_Int(1));
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
 		}
 		default:

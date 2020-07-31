@@ -66,6 +66,7 @@ struct data {
 	int counter;
 	SDL_Rect rect;
 	SDL_Rect cursor_rect;
+	bool is_yuv;
 };
 
 static void handle_events(struct data *data)
@@ -127,11 +128,6 @@ on_process(void *_data)
 	if ((sdata = buf->datas[0].data) == NULL)
 		goto done;
 
-	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
-		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		goto done;
-	}
-
 	/* get the videocrop metadata if any */
 	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc))) &&
 	    spa_meta_region_is_valid(mc)) {
@@ -184,33 +180,50 @@ on_process(void *_data)
 	}
 
 	/* copy video image in texture */
-	sstride = buf->datas[0].chunk->stride;
-	ostride = SPA_MIN(sstride, dstride);
-
-	src = sdata;
-	dst = ddata;
-
-	if (data->format.media_subtype == SPA_MEDIA_SUBTYPE_dsp) {
-		for (i = 0; i < data->size.height; i++) {
-			struct pixel *p = (struct pixel *) src;
-			for (j = 0; j < data->size.width; j++) {
-				dst[j * 4 + 0] = SPA_CLAMP(p[j].r * 255.0f, 0, 255);
-				dst[j * 4 + 1] = SPA_CLAMP(p[j].g * 255.0f, 0, 255);
-				dst[j * 4 + 2] = SPA_CLAMP(p[j].b * 255.0f, 0, 255);
-				dst[j * 4 + 3] = SPA_CLAMP(p[j].a * 255.0f, 0, 255);
-			}
-			src += sstride;
-			dst += dstride;
-		}
+	if (data->is_yuv) {
+		sstride = data->stride;
+		SDL_UpdateYUVTexture(data->texture,
+				NULL,
+				sdata,
+				sstride,
+				SPA_MEMBER(sdata, sstride * data->size.height, void),
+				sstride / 2,
+				SPA_MEMBER(sdata, 5 * (sstride * data->size.height) / 4, void),
+				sstride / 2);
 	}
 	else {
-		for (i = 0; i < data->size.height; i++) {
-			memcpy(dst, src, ostride);
-			src += sstride;
-			dst += dstride;
+		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
+			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+			goto done;
 		}
+
+		sstride = buf->datas[0].chunk->stride;
+		ostride = SPA_MIN(sstride, dstride);
+
+		src = sdata;
+		dst = ddata;
+
+		if (data->format.media_subtype == SPA_MEDIA_SUBTYPE_dsp) {
+			for (i = 0; i < data->size.height; i++) {
+				struct pixel *p = (struct pixel *) src;
+				for (j = 0; j < data->size.width; j++) {
+					dst[j * 4 + 0] = SPA_CLAMP(p[j].r * 255.0f, 0, 255);
+					dst[j * 4 + 1] = SPA_CLAMP(p[j].g * 255.0f, 0, 255);
+					dst[j * 4 + 2] = SPA_CLAMP(p[j].b * 255.0f, 0, 255);
+					dst[j * 4 + 3] = SPA_CLAMP(p[j].a * 255.0f, 0, 255);
+				}
+				src += sstride;
+				dst += dstride;
+			}
+		} else {
+			for (i = 0; i < data->size.height; i++) {
+				memcpy(dst, src, ostride);
+				src += sstride;
+				dst += dstride;
+			}
+		}
+		SDL_UnlockTexture(data->texture);
 	}
-	SDL_UnlockTexture(data->texture);
 
 	SDL_RenderClear(data->renderer);
 	/* now render the video and then the cursor if any */
@@ -275,7 +288,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	const struct spa_pod *params[5];
 	Uint32 sdl_format;
 	void *d;
-	int32_t mult;
+	int32_t mult, size;
 
 	/* NULL means to clear the format */
 	if (param == NULL || id != SPA_PARAM_Format)
@@ -326,6 +339,17 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
 	SDL_UnlockTexture(data->texture);
 
+	switch(sdl_format) {
+	case SDL_PIXELFORMAT_YV12:
+	case SDL_PIXELFORMAT_IYUV:
+		size = (data->stride * data->size.height) * 3 / 2;
+		data->is_yuv = true;
+		break;
+	default:
+		size = data->stride * data->size.height;
+		break;
+	}
+
 	data->rect.x = 0;
 	data->rect.y = 0;
 	data->rect.w = data->size.width;
@@ -337,7 +361,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * mult * data->size.height),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(size * mult),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride * mult),
 		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 

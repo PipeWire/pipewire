@@ -224,7 +224,6 @@ struct pa_mainloop {
 struct param {
 	struct spa_list link;
 	uint32_t id;
-	int seq;
 	void *param;
 };
 

@@ -276,6 +276,29 @@ static void emit_event(pa_context *c, struct global *g, pa_subscription_event_ty
 	}
 }
 
+static struct param *add_param(struct spa_list *params, uint32_t id, const struct spa_pod *param)
+{
+	struct param *p;
+
+	if (param == NULL || !spa_pod_is_object(param)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (id == SPA_ID_INVALID)
+		id = SPA_POD_OBJECT_ID(param);
+
+	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
+	if (p == NULL)
+		return NULL;
+
+	p->id = id;
+	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+	spa_list_append(params, &p->link);
+
+	return p;
+}
+
 static void remove_params(struct spa_list *params, uint32_t id)
 {
 	struct param *p, *t;
@@ -445,7 +468,6 @@ static void device_event_param(void *object, int seq,
 	{
 		uint32_t index;
 		const char *name;
-		struct param *p;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
@@ -454,15 +476,9 @@ static void device_event_param(void *object, int seq,
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
-		p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
-		if (p) {
-			p->id = id;
-			p->seq = seq;
-			p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
-			memcpy(p->param, param, SPA_POD_SIZE(param));
-			spa_list_append(&g->card_info.profiles, &p->link);
+		if (add_param(&g->card_info.profiles, id, param))
 			g->card_info.n_profiles++;
-		}
+
 		pw_log_debug("device %d: enum profile %d: \"%s\" n_profiles:%d", g->id,
 				index, name, g->card_info.n_profiles);
 		break;
@@ -484,7 +500,6 @@ static void device_event_param(void *object, int seq,
 	{
 		uint32_t index;
 		const char *name;
-		struct param *p;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
@@ -493,15 +508,9 @@ static void device_event_param(void *object, int seq,
 			pw_log_warn("device %d: can't parse route", g->id);
 			return;
 		}
-		p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
-		if (p) {
-			p->id = id;
-			p->seq = seq;
-			p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
-			memcpy(p->param, param, SPA_POD_SIZE(param));
-			spa_list_append(&g->card_info.ports, &p->link);
+		if (add_param(&g->card_info.ports, id, param))
 			g->card_info.n_ports++;
-		}
+
 		pw_log_debug("device %d: enum route %d: \"%s\"", g->id, index, name);
 		break;
 	}

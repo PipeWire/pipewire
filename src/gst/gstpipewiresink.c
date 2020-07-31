@@ -47,6 +47,8 @@
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 
+#include <gst/video/video.h>
+
 #include "gstpipewireformat.h"
 
 GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);
@@ -225,7 +227,7 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   guint size;
   guint min_buffers;
   guint max_buffers;
-  const struct spa_pod *port_params[2];
+  const struct spa_pod *port_params[3];
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
   struct spa_pod_frame f;
@@ -246,8 +248,8 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-      SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(min_buffers, min_buffers,
-                                               max_buffers ? max_buffers : INT32_MAX),
+      SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(SPA_MAX(4u, min_buffers),
+	      SPA_MAX(2u, min_buffers), max_buffers ? max_buffers : INT32_MAX),
       SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16),
       0);
   port_params[0] = spa_pod_builder_pop (&b, &f);
@@ -257,9 +259,13 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
       SPA_PARAM_META_type, SPA_POD_Int(SPA_META_Header),
       SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
+  port_params[2] = spa_pod_builder_add_object (&b,
+      SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+      SPA_PARAM_META_type, SPA_POD_Int(SPA_META_VideoCrop),
+      SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
 
   pw_thread_loop_lock (sink->core->loop);
-  pw_stream_update_params (sink->stream, port_params, 2);
+  pw_stream_update_params (sink->stream, port_params, 3);
   pw_thread_loop_unlock (sink->core->loop);
 }
 
@@ -422,6 +428,15 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     data->header->seq = GST_BUFFER_OFFSET (buffer);
     data->header->pts = GST_BUFFER_PTS (buffer);
     data->header->dts_offset = GST_BUFFER_DTS (buffer);
+  }
+  if (data->crop) {
+    GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta (buffer);
+    if (meta) {
+      data->crop->region.position.x = meta->x;
+      data->crop->region.position.y = meta->y;
+      data->crop->region.size.width = meta->width;
+      data->crop->region.size.height = meta->width;
+    }
   }
   for (i = 0; i < b->n_datas; i++) {
     struct spa_data *d = &b->datas[i];

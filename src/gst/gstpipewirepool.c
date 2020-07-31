@@ -33,6 +33,8 @@
 #include <gst/allocators/gstfdmemory.h>
 #include <gst/allocators/gstdmabuf.h>
 
+#include <gst/video/gstvideometa.h>
+
 #include "gstpipewirepool.h"
 
 GST_DEBUG_CATEGORY_STATIC (gst_pipewire_pool_debug_category);
@@ -115,6 +117,9 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   data->flags = GST_BUFFER_FLAGS (buf);
   data->b = b;
   data->buf = buf;
+  data->crop = spa_buffer_find_meta_data (b->buffer, SPA_META_VideoCrop, sizeof(*data->crop));
+  if (data->crop)
+	  gst_buffer_add_video_crop_meta(buf);
 
   gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
                              pool_data_quark,

@@ -452,6 +452,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   GstBuffer *buf;
   GstPipeWirePoolData *data;
   struct spa_meta_header *h;
+  struct spa_meta_region *crop;
   guint i;
 
   b = pw_stream_dequeue_buffer (pwsrc->stream);
@@ -481,6 +482,16 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
         GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
     }
     GST_BUFFER_OFFSET (buf) = h->seq;
+  }
+  crop = data->crop;
+  if (crop) {
+    GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta(buf);
+    if (meta) {
+      meta->x = crop->region.position.x;
+      meta->y = crop->region.position.y;
+      meta->width = crop->region.size.width;
+      meta->height = crop->region.size.height;
+    }
   }
   for (i = 0; i < b->buffer->n_datas; i++) {
     struct spa_data *d = &b->buffer->datas[i];
@@ -753,7 +764,7 @@ on_param_changed (void *data, uint32_t id,
   gst_caps_unref (caps);
 
   if (res) {
-    const struct spa_pod *params[2];
+    const struct spa_pod *params[3];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
     uint32_t buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
@@ -773,9 +784,13 @@ on_param_changed (void *data, uint32_t id,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
+    params[2] = spa_pod_builder_add_object (&b,
+        SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+        SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
+        SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_update_params (pwsrc->stream, params, 2);
+    pw_stream_update_params (pwsrc->stream, params, 3);
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
     pw_stream_set_error (pwsrc->stream, -EINVAL, "unhandled format");

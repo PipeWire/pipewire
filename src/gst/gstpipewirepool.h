@@ -57,6 +57,7 @@ struct _GstPipeWirePoolData {
   struct pw_buffer *b;
   GstBuffer *buf;
   gboolean queued;
+  struct spa_meta_region *crop;
 };
 
 struct _GstPipeWirePool {

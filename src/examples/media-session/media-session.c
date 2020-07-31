@@ -433,6 +433,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			device->n_params -= clear_params(&device->param_list, id);
 
 			if (info->params[i].flags & SPA_PARAM_INFO_READ) {
+				pw_log_debug(NAME" %p: device %d enum params %d", impl,
+						device->obj.id, id);
 				pw_device_enum_params((struct pw_device*)device->obj.proxy,
 						1, id, 0, UINT32_MAX, NULL);
 			}

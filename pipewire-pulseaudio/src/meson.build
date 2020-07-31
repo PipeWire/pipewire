@@ -13,7 +13,6 @@ pipewire_pulseaudio_sources = [
   'json.c',
   'mainloop.c',
   'mainloop-signal.c',
-  'metadata.c',
   'operation.c',
   'proplist.c',
   'rtclock.c',

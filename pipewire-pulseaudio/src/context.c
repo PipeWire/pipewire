@@ -984,18 +984,22 @@ static int metadata_property(void *object,
                         const char *value)
 {
 	struct global *global = object;
-	int res;
+	pa_context *c = global->context;
+	uint32_t val;
+	bool changed = false;
 
-	if ((res = pa_metadata_update(global, subject, key, type, value)) < 0)
-		return res;
-
-	if (key) {
-		if (strcmp(key, METADATA_DEFAULT_SINK) == 0 ||
-		    strcmp(key, METADATA_DEFAULT_SOURCE) == 0) {
-			emit_event(global->context, global, PA_SUBSCRIPTION_EVENT_CHANGE);
-		}
+	if (key && strcmp(key, METADATA_DEFAULT_SINK) == 0) {
+		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		changed = c->default_sink != val;
+		c->default_sink = val;
+	} else if (key && strcmp(key, METADATA_DEFAULT_SOURCE) == 0) {
+		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		changed = c->default_source != val;
 	}
-	return res;
+	if (changed)
+		emit_event(global->context, global, PA_SUBSCRIPTION_EVENT_CHANGE);
+
+	return 0;
 }
 
 static const struct pw_metadata_events metadata_events = {
@@ -1413,6 +1417,8 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	c->proplist = p ? pa_proplist_copy(p) : pa_proplist_new();
 	c->refcount = 1;
 	c->client_index = PA_INVALID_INDEX;
+	c->default_sink = SPA_ID_INVALID;
+	c->default_source = SPA_ID_INVALID;
 
 	if (name)
 		pa_proplist_sets(c->proplist, PA_PROP_APPLICATION_NAME, name);

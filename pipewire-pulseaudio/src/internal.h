@@ -356,6 +356,8 @@ struct pa_context {
 	int disconnect:1;
 
 	struct global *metadata;
+	uint32_t default_sink;
+	uint32_t default_source;
 };
 
 struct global *pa_context_find_global(pa_context *c, uint32_t id);

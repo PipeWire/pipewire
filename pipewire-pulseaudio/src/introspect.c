@@ -1248,25 +1248,23 @@ struct server_data {
 static const char *get_default_name(pa_context *c, uint32_t mask)
 {
 	struct global *g;
-	const char *str, *id = NULL, *type, *key;
+	const char *str;
+	uint32_t id = SPA_ID_INVALID;
 
 	if (c->metadata) {
 		if (mask & PA_SUBSCRIPTION_MASK_SINK)
-			key = METADATA_DEFAULT_SINK;
+			id = c->default_sink;
 		else if (mask & PA_SUBSCRIPTION_MASK_SOURCE)
-			key = METADATA_DEFAULT_SOURCE;
+			id = c->default_source;
 		else
 			return NULL;
-
-		if (pa_metadata_get(c->metadata, PW_ID_CORE, key, &type, &id) <= 0)
-			id = NULL;
 	}
 	spa_list_for_each(g, &c->globals, link) {
 		if ((g->mask & mask) != mask)
 			continue;
 		if (g->props != NULL &&
 		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
-		    (id == NULL || (uint32_t)atoi(id) == g->id))
+		    (id == SPA_ID_INVALID || id == g->id))
 			return str;
 	}
 	return "unknown";

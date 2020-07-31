@@ -415,16 +415,29 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 {
 	struct sm_device *device = object;
 	struct impl *impl = SPA_CONTAINER_OF(device->obj.session, struct impl, this);
+	uint32_t i;
 
 	pw_log_debug(NAME" %p: device %d info", impl, device->obj.id);
-	device->info = pw_device_info_update(device->info, info);
+	info = device->info = pw_device_info_update(device->info, info);
 
 	device->obj.avail |= SM_DEVICE_CHANGE_MASK_INFO;
 	device->obj.changed |= SM_DEVICE_CHANGE_MASK_INFO;
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
-		pw_device_enum_params((struct pw_device*)device->obj.proxy,
-				1, SPA_PARAM_Profile, 0, UINT32_MAX, NULL);
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t id = info->params[i].id;
+
+			if (info->params[i].user == 0)
+				continue;
+
+			device->n_params -= clear_params(&device->param_list, id);
+
+			if (info->params[i].flags & SPA_PARAM_INFO_READ) {
+				pw_device_enum_params((struct pw_device*)device->obj.proxy,
+						1, id, 0, UINT32_MAX, NULL);
+			}
+			info->params[i].user = 0;
+		}
 	}
 	sm_object_sync_update(&device->obj);
 }
@@ -437,8 +450,6 @@ static void device_event_param(void *object, int seq,
 	struct impl *impl = SPA_CONTAINER_OF(device->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: device %p param %d index:%d", impl, device, id, index);
-	device->n_params -= clear_params(&device->param_list, id);
-
 	if (add_param(&device->param_list, id, param) != NULL)
 		device->n_params++;
 
@@ -504,37 +515,30 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	uint32_t i;
 
 	pw_log_debug(NAME" %p: node %d info", impl, node->obj.id);
-	node->info = pw_node_info_update(node->info, info);
+	info = node->info = pw_node_info_update(node->info, info);
 
 	node->obj.avail |= SM_NODE_CHANGE_MASK_INFO;
 	node->obj.changed |= SM_NODE_CHANGE_MASK_INFO;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS &&
-	    (node->obj.mask & SM_NODE_CHANGE_MASK_PARAMS) &&
-	    !node->subscribe) {
-		uint32_t subscribe[info->n_params], n_subscribe = 0;
-
+	    (node->obj.mask & SM_NODE_CHANGE_MASK_PARAMS)) {
 		for (i = 0; i < info->n_params; i++) {
-			switch (info->params[i].id) {
-			case SPA_PARAM_PropInfo:
-			case SPA_PARAM_Props:
-			case SPA_PARAM_EnumFormat:
-				if (info->params[i].flags & SPA_PARAM_INFO_READ)
-					subscribe[n_subscribe++] = info->params[i].id;
-				break;
-			default:
-				break;
+			uint32_t id = info->params[i].id;
+
+			if (info->params[i].user == 0)
+				continue;
+
+			node->n_params -= clear_params(&node->param_list, id);
+
+			if (info->params[i].flags & SPA_PARAM_INFO_READ) {
+				pw_log_debug(NAME" %p: node %d enum params %d", impl,
+					node->obj.id, id);
+				pw_node_enum_params((struct pw_node*)node->obj.proxy,
+						1, id, 0, UINT32_MAX, NULL);
 			}
-		}
-		if (n_subscribe > 0) {
-			pw_log_debug(NAME" %p: node %d subscribe %d params", impl,
-					node->obj.id, n_subscribe);
-			pw_node_subscribe_params((struct pw_node*)node->obj.proxy,
-					subscribe, n_subscribe);
-			node->subscribe = true;
+			info->params[i].user = 0;
 		}
 	}
-	node->last_id = SPA_ID_INVALID;
 	sm_object_sync_update(&node->obj);
 }
 
@@ -546,13 +550,6 @@ static void node_event_param(void *object, int seq,
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: node %p param %d index:%d", impl, node, id, index);
-
-	if (node->last_id != id) {
-		pw_log_debug(NAME" %p: node %p clear param %d", impl, node, id);
-		node->n_params -= clear_params(&node->param_list, id);
-		node->last_id = id;
-	}
-
 	if (add_param(&node->param_list, id, param) != NULL)
 		node->n_params++;
 

@@ -120,7 +120,6 @@ struct sm_client {
 struct sm_device {
 	struct sm_object obj;
 
-	unsigned int subscribe:1;	/**< if we subscribed to param changes */
 	unsigned int locked:1;		/**< if the device is locked by someone else right now */
 
 #define SM_DEVICE_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
@@ -137,8 +136,6 @@ struct sm_node {
 
 	struct sm_device *device;	/**< optional device */
 	struct spa_list link;		/**< link in device node_list */
-	unsigned int subscribe:1;	/**< if we subscribed to param changes */
-	uint32_t last_id;
 
 #define SM_NODE_CHANGE_MASK_INFO	(SM_OBJECT_CHANGE_MASK_LAST<<0)
 #define SM_NODE_CHANGE_MASK_PARAMS	(SM_OBJECT_CHANGE_MASK_LAST<<1)

@@ -348,38 +348,47 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	}
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (n = 0; n < info->n_params; n++) {
-			if (!(info->params[n].flags & SPA_PARAM_INFO_READ))
+			uint32_t id = info->params[n].id;
+			bool do_enum = true;
+
+			if (info->params[n].user == 0)
 				continue;
 
-			switch (info->params[n].id) {
+			info->params[n].user = 0;
+
+			switch (id) {
 			case SPA_PARAM_EnumProfile:
 				if (g->card_info.pending_profiles)
 					continue;
-				remove_params(&g->card_info.profiles, SPA_PARAM_EnumProfile);
+				remove_params(&g->card_info.profiles, id);
 				g->card_info.n_profiles = 0;
-				g->card_info.pending_profiles = true;
-				pw_device_enum_params((struct pw_device*)g->proxy,
-					0, SPA_PARAM_EnumProfile, 0, -1, NULL);
-				break;
-			case SPA_PARAM_Profile:
-				pw_device_enum_params((struct pw_device*)g->proxy,
-					0, SPA_PARAM_Profile, 0, -1, NULL);
 				break;
 			case SPA_PARAM_EnumRoute:
 				if (g->card_info.pending_ports)
 					continue;
-				remove_params(&g->card_info.ports, SPA_PARAM_EnumRoute);
+				remove_params(&g->card_info.ports, id);
 				g->card_info.n_ports = 0;
-				g->card_info.pending_ports = true;
-				pw_device_enum_params((struct pw_device*)g->proxy,
-					0, SPA_PARAM_EnumRoute, 0, -1, NULL);
 				break;
 			case SPA_PARAM_Route:
-				pw_device_enum_params((struct pw_device*)g->proxy,
-					0, SPA_PARAM_Route, 0, -1, NULL);
+			case SPA_PARAM_Profile:
 				break;
 			default:
+				do_enum = false;
 				break;
+			}
+			if (!(info->params[n].flags & SPA_PARAM_INFO_READ))
+				continue;
+			if (do_enum) {
+				switch (id) {
+				case SPA_PARAM_EnumProfile:
+					g->card_info.pending_profiles = true;
+					break;
+				case SPA_PARAM_EnumRoute:
+					g->card_info.pending_ports = true;
+					break;
+				}
+				pw_device_enum_params((struct pw_device*)g->proxy,
+						0, id, 0, -1, NULL);
 			}
 		}
 	}
@@ -817,6 +826,10 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
+			if (info->params[i].user == 0)
+				continue;
+			info->params[i].user = 0;
+
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 

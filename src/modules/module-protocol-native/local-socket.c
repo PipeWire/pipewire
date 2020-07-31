@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -33,6 +35,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#if HAVE_PWD_H
+#include <pwd.h>
+#endif
 
 #include <pipewire/pipewire.h>
 
@@ -50,6 +55,27 @@ get_remote(const struct spa_dict *props)
 	return name;
 }
 
+static const char *
+get_runtime_dir(void)
+{
+	const char *runtime_dir;
+
+	runtime_dir = getenv("PIPEWIRE_RUNTIME_DIR");
+	if (runtime_dir == NULL)
+		runtime_dir = getenv("XDG_RUNTIME_DIR");
+	if (runtime_dir == NULL)
+		runtime_dir = getenv("HOME");
+	if (runtime_dir == NULL)
+		runtime_dir = getenv("USERPROFILE");
+	if (runtime_dir == NULL) {
+		struct passwd pwd, *result = NULL;
+		char buffer[4096];
+		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+			runtime_dir = result ? result->pw_dir : NULL;
+	}
+	return runtime_dir;
+}
+
 int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 					    const struct spa_dict *props,
 					    void (*done_callback) (void *data, int res),
@@ -57,42 +83,57 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 {
 	struct sockaddr_un addr;
 	socklen_t size;
-	const char *runtime_dir, *name = NULL;
+	const char *runtime_dir, *name;
 	int res, name_size, fd;
-
-	if ((runtime_dir = getenv("XDG_RUNTIME_DIR")) == NULL) {
-		pw_log_error("connect failed: XDG_RUNTIME_DIR not set in the environment");
-		res = -ENOENT;
-		goto error;
-        }
+	bool path_is_absolute;
 
 	name = get_remote(props);
-	pw_log_info("connecting to '%s'", name);
 
-        if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+	path_is_absolute = name[0] == '/';
+
+	runtime_dir = get_runtime_dir();
+
+	pw_log_info("connecting to '%s' runtime_dir:%s", name, runtime_dir);
+
+	if (runtime_dir == NULL && !path_is_absolute) {
+		pw_log_error("client %p: name %s is not an absolute path and no runtime dir found."
+				"set one of PIPEWIRE_RUNTIME_DIR, XDG_RUNTIME_DIR, HOME or "
+				"USERPROFILE in the environment", client, name);
+		res = -ENOENT;
+		goto error;
+	}
+
+	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
 		goto error;
 	}
 
-        memset(&addr, 0, sizeof(addr));
-        addr.sun_family = AF_LOCAL;
-        name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, name) + 1;
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_LOCAL;
+	if (!path_is_absolute)
+		name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, name) + 1;
+	else
+		name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", name) + 1;
 
-        if (name_size > (int) sizeof addr.sun_path) {
-                pw_log_error("socket path \"%s/%s\" plus null terminator exceeds 108 bytes",
-                             runtime_dir, name);
+	if (name_size > (int) sizeof addr.sun_path) {
+		if (path_is_absolute)
+			pw_log_error("client %p: socket path \"%s\" plus null terminator exceeds %i bytes",
+				client, name, (int) sizeof(addr.sun_path));
+		else
+			pw_log_error("client %p: socket path \"%s/%s\" plus null terminator exceeds %i bytes",
+				client, runtime_dir, name, (int) sizeof(addr.sun_path));
 		res = -ENAMETOOLONG;
 		goto error_close;
-        };
+	};
 
-        size = offsetof(struct sockaddr_un, sun_path) + name_size;
+	size = offsetof(struct sockaddr_un, sun_path) + name_size;
 
-        if (connect(fd, (struct sockaddr *) &addr, size) < 0) {
+	if (connect(fd, (struct sockaddr *) &addr, size) < 0) {
 		pw_log_debug("connect to '%s' failed: %m", name);
 		if (errno == ENOENT)
 			errno = EHOSTDOWN;
 		res = -errno;
-                goto error_close;
+		goto error_close;
 	}
 
 	res = pw_protocol_client_connect_fd(client, fd, true);

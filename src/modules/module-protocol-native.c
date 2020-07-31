@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -31,12 +33,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#if HAVE_PWD_H
+#include <pwd.h>
+#endif
 
 #include <spa/pod/iter.h>
 #include <spa/utils/result.h>
-
-
-#include "config.h"
 
 #ifdef HAVE_SYSTEMD_DAEMON
 #include <systemd/sd-daemon.h>
@@ -432,6 +434,28 @@ exit:
 	return NULL;
 }
 
+static const char *
+get_runtime_dir(void)
+{
+	const char *runtime_dir;
+
+	runtime_dir = getenv("PIPEWIRE_RUNTIME_DIR");
+	if (runtime_dir == NULL)
+		runtime_dir = getenv("XDG_RUNTIME_DIR");
+	if (runtime_dir == NULL)
+		runtime_dir = getenv("HOME");
+	if (runtime_dir == NULL)
+		runtime_dir = getenv("USERPROFILE");
+	if (runtime_dir == NULL) {
+		struct passwd pwd, *result = NULL;
+		char buffer[4096];
+		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+			runtime_dir = result ? result->pw_dir : NULL;
+	}
+	return runtime_dir;
+}
+
+
 static int init_socket_name(struct server *s, const char *name)
 {
 	int name_size;
@@ -440,9 +464,14 @@ static int init_socket_name(struct server *s, const char *name)
 
 	path_is_absolute = name[0] == '/';
 
-	runtime_dir = getenv("XDG_RUNTIME_DIR");
+	runtime_dir = get_runtime_dir();
+
+	pw_log_debug("name:%s runtime_dir:%s", name, runtime_dir);
+
 	if (runtime_dir == NULL && !path_is_absolute) {
-		pw_log_error("server %p: XDG_RUNTIME_DIR not set in the environment", s);
+		pw_log_error("server %p: name %s is not an absolute path and no runtime dir found."
+				"set one of PIPEWIRE_RUNTIME_DIR, XDG_RUNTIME_DIR, HOME or "
+				"USERPROFILE in the environment", s, name);
 		return -ENOENT;
 	}
 

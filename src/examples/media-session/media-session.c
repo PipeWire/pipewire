@@ -532,7 +532,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 			if (info->params[i].flags & SPA_PARAM_INFO_READ) {
 				pw_log_debug(NAME" %p: node %d enum params %d", impl,
-					node->obj.id, id);
+						node->obj.id, id);
 				pw_node_enum_params((struct pw_node*)node->obj.proxy,
 						1, id, 0, UINT32_MAX, NULL);
 			}

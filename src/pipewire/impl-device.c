@@ -59,6 +59,7 @@ struct resource_data {
 
 	/* for async replies */
 	int seq;
+	int orig_seq;
 	int end;
 	struct result_device_params_data data;
 	struct spa_hook listener;
@@ -299,7 +300,7 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 	if (seq == d->end)
 		remove_busy_resource(d);
 	if (seq == d->seq)
-		result_device_params(&d->data, seq, res, type, result);
+		result_device_params(&d->data, d->orig_seq, res, type, result);
 
 }
 
@@ -330,6 +331,7 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 		if (data->end == -1)
 			spa_device_add_listener(device->device, &data->listener,
 				&device_events, data);
+		data->orig_seq = seq;
 		data->seq = res;
 		data->end = spa_device_sync(device->device, res);
 	}

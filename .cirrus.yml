@@ -5,7 +5,7 @@ task:
       - image_family: freebsd-13-0-snap
   deps_script:
     - sed -i.bak -e 's/quarterly/latest/' /etc/pkg/FreeBSD.conf
-    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins
+    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libffi321
     - sysrc dbus_enable=YES
     - service dbus restart
   build_script:

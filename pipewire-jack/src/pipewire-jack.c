@@ -4001,10 +4001,10 @@ int jack_recompute_total_latency (jack_client_t *client, jack_port_t* port)
 	return 0;
 }
 
-static int port_compare_func(const void *v1, const void *v2, void *arg)
+static int port_compare_func(const void *v1, const void *v2)
 {
-	struct client *c = arg;
 	const struct object *const*o1 = v1, *const*o2 = v2;
+	struct client *c = (*o1)->client;
 	int res;
 	bool is_cap1, is_cap2, is_def1 = false, is_def2 = false;
 
@@ -4102,7 +4102,7 @@ const char ** jack_get_ports (jack_client_t *client,
 	pthread_mutex_unlock(&c->context.lock);
 
 	if (count > 0) {
-		qsort_r(tmp, count, sizeof(struct object *), port_compare_func, c);
+		qsort(tmp, count, sizeof(struct object *), port_compare_func);
 
 		res = malloc(sizeof(char*) * (count + 1));
 		for (i = 0; i < count; i++)

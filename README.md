@@ -40,7 +40,11 @@ applications:
 
 * `PIPEWIRE_DEBUG=<level>`         to increase the debug level
 * `PIPEWIRE_LOG=<filename>`        to redirect log to filename
-* `PIPEWIRE_LATENCY=<num/denom>`   to configure latency
+* `PIPEWIRE_LATENCY=<num/denom>`   to configure latency as a fraction. 10/1000
+                                   configures a 10ms latency. Usually this is
+				   expressed with a denom of the samplerate,
+				   like 256/48000, which uses 256 samples at a
+				   samplerate of 48KHz for a latency of 5.33ms.
 * `PIPEWIRE_NODE=<id>`             to request link to specified node
 
 ### Using tools

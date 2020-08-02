@@ -123,7 +123,7 @@ A core proxy can be used to receive errors from the remote daemon
 or to perform a roundtrip message to flush out pending requests.
 
 Other core methods and events are used internally for the object
-life cycle management internally.
+life cycle management.
 
 ### `struct pw_registry`
 
@@ -193,16 +193,19 @@ do the connection for the client and then hands the connection socket
 to the client.
 
 All objects in PipeWire have per client permission bits, currently
-READ, WRITE and EXECUTE. A client can not see an objects unless it
-has READ permissions. Similarly, a client can only execute methods
-on an object when the EXECUTE bit is set and to modify the state of
-an object, the client needs WRITE permissions.
+READ, WRITE, EXECUTE and METADATA. A client can not see an objects
+unless it has READ permissions. Similarly, a client can only execute
+methods on an object when the EXECUTE bit is set and to modify the
+state of an object, the client needs WRITE permissions.
 
 A client (the portal after it makes a connection) can drop permissions
 on an object. Once dropped, it can never reacquire the permission.
 
 Clients with WRITE/EXECUTE permissions on another client can
 add and remove permissions for the client at will.
+
+Clients with MODIFY permissions on another object can set or remove
+metadata on that object.
 
 Clients that need permissions assigned to them can be started in
 blocked mode and resume when perrmissions are assigned to them by

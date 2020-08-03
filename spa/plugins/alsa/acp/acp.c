@@ -1111,13 +1111,13 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->use_ucm = true;
 
 	if (props) {
-		if ((s = acp_dict_lookup(props, "use-ucm")) != NULL)
+		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
 			impl->use_ucm = (strcmp(s, "true") == 0 || atoi(s) == 1);
-		if ((s = acp_dict_lookup(props, "profile-set")) != NULL)
-			profile_set = s;
-		if ((s = acp_dict_lookup(props, "ignore-dB")) != NULL)
+		if ((s = acp_dict_lookup(props, "api.alsa.ignore-dB")) != NULL)
 			ignore_dB = (strcmp(s, "true") == 0 || atoi(s) == 1);
-		if ((s = acp_dict_lookup(props, "profile")) != NULL)
+		if ((s = acp_dict_lookup(props, "device.profile-set")) != NULL)
+			profile_set = s;
+		if ((s = acp_dict_lookup(props, "device.profile")) != NULL)
 			profile = s;
 	}
 

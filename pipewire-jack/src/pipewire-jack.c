@@ -2015,8 +2015,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
 
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
-		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
+		    (str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
 			str = "node";
 		}

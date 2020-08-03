@@ -258,6 +258,16 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		else
 			pw_properties_setf(node->props, SPA_KEY_MEDIA_CLASS, "Audio/Sink");
 	}
+	if (pw_properties_get(node->props, PW_KEY_NODE_NICK) == NULL) {
+		const char *s;
+		s = pw_properties_get(device->props, PW_KEY_DEVICE_NICK);
+		if (s == NULL)
+			s = pw_properties_get(device->props, SPA_KEY_API_ALSA_CARD_NAME);
+		if (s == NULL)
+			s = pw_properties_get(device->props, "alsa.card_name");
+		pw_properties_set(node->props, PW_KEY_NODE_NICK, s);
+
+	}
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
 		const char *devname;
 		if ((devname = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME)) == NULL)
@@ -419,13 +429,14 @@ static int update_device_props(struct device *device)
 	const char *s, *d;
 	char temp[32];
 
-	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
-		if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_ID)) == NULL) {
-			if ((s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
-				snprintf(temp, sizeof(temp), "%d", device->id);
-				s = temp;
-			}
-		}
+	s = pw_properties_get(p, SPA_KEY_DEVICE_NAME);
+	if (s == NULL)
+		s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_ID);
+	if (s == NULL)
+		s = pw_properties_get(p, SPA_KEY_DEVICE_BUS_PATH);
+	if (s == NULL) {
+		snprintf(temp, sizeof(temp), "%d", device->id);
+		s = temp;
 	}
 	pw_properties_setf(p, PW_KEY_DEVICE_NAME, "alsa_card.%s", s);
 
@@ -446,6 +457,12 @@ static int update_device_props(struct device *device)
 			d = "Unknown device";
 
 		pw_properties_set(p, PW_KEY_DEVICE_DESCRIPTION, d);
+	}
+
+	if (pw_properties_get(p, PW_KEY_DEVICE_NICK) == NULL) {
+		s = pw_properties_get(p, SPA_KEY_API_ALSA_CARD_NAME);
+		if (s != NULL)
+			pw_properties_set(p, PW_KEY_DEVICE_NICK, s);
 	}
 
 	if (pw_properties_get(p, PW_KEY_DEVICE_ICON_NAME) == NULL) {

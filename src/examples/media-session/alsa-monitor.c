@@ -192,7 +192,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	struct node *node;
 	struct impl *impl = device->impl;
 	int res;
-	const char *dev, *subdev, *stream, *profile;
+	const char *dev, *subdev, *stream, *profile, *profile_desc;
 	int priority;
 
 	pw_log_debug("new node %u", id);
@@ -223,6 +223,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		stream = "unknown";
 	if ((profile = pw_properties_get(node->props, "device.profile.name")) == NULL)
 		profile = "unknown";
+	profile_desc = pw_properties_get(node->props, "device.profile.description");
 
 	if (!strcmp(stream, "capture"))
 		node->direction = PW_DIRECTION_OUTPUT;
@@ -276,7 +277,10 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		if (name == NULL)
 			name = dev;
 
-		if (strcmp(subdev, "0")) {
+		if (profile_desc != NULL) {
+			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s %s",
+					desc, profile_desc);
+		} else if (strcmp(subdev, "0")) {
 			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s (%s %s)",
 					desc, name, subdev);
 		} else if (strcmp(dev, "0")) {

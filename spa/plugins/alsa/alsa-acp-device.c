@@ -802,7 +802,8 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	const char *str;
-	struct acp_dict_item items[4];
+	struct acp_dict_item *items = NULL;
+	const struct spa_dict_item *it;
 	uint32_t n_items = 0;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -834,10 +835,10 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)) != NULL)
 			snprintf(this->props.device, sizeof(this->props.device)-1, "%s", str);
-		if ((str = spa_dict_lookup(info, SPA_KEY_DEVICE_PROFILE_SET)) != NULL)
-			items[n_items++] = ACP_DICT_ITEM_INIT("profile-set", str);
-		if ((str = spa_dict_lookup(info, SPA_KEY_DEVICE_PROFILE)) != NULL)
-			items[n_items++] = ACP_DICT_ITEM_INIT("profile", str);
+
+		items = alloca((info->n_items) * sizeof(*items));
+		spa_dict_for_each(it, info)
+			items[n_items++] = ACP_DICT_ITEM_INIT(it->key, it->value);
 	}
 
 	spa_log_debug(this->log, "probe card %s", this->props.device);

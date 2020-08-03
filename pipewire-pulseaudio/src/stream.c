@@ -303,9 +303,12 @@ static void stream_remove_buffer(void *data, struct pw_buffer *buffer)
 	struct pa_mem *m = buffer->user_data;
 	s->maxsize -= buffer->buffer->datas[0].maxsize;
 	s->maxblock = INT_MAX;
-	if (m != NULL)
+	if (m != NULL) {
 		spa_list_append(&s->free, &m->link);
-	buffer->user_data = NULL;
+		m->user_data = NULL;
+		buffer->user_data = NULL;
+		pw_log_trace("remove %p", m);
+	}
 }
 
 static void update_timing_info(pa_stream *s)
@@ -367,9 +370,13 @@ static void queue_output(pa_stream *s)
 		if (buf == NULL)
 			break;
 
-		if ((old = buf->user_data) != NULL)
+		if ((old = buf->user_data) != NULL) {
+			pw_log_trace("queue %p", old);
 			spa_list_append(&s->free, &old->link);
+			old->user_data = NULL;
+		}
 
+		pw_log_trace("queue %p", m);
 		spa_list_remove(&m->link);
 		s->ready_bytes -= m->size;
 
@@ -378,6 +385,7 @@ static void queue_output(pa_stream *s)
 		buf->buffer->datas[0].chunk->offset = m->offset;
 		buf->buffer->datas[0].chunk->size = m->size;
 		buf->user_data = m;
+		m->user_data = buf;
 
 		pw_stream_queue_buffer(s->stream, buf);
 	}
@@ -394,9 +402,11 @@ struct pa_mem *alloc_mem(pa_stream *s, size_t len)
 			return NULL;
 		m->data = SPA_MEMBER(m, sizeof(struct pa_mem), void);
 		m->maxsize = len;
+		pw_log_trace("alloc %p", m);
 	} else {
 		m = spa_list_first(&s->free, struct pa_mem, link);
 		spa_list_remove(&m->link);
+		pw_log_trace("reuse %p", m);
 	}
 	return m;
 }
@@ -419,6 +429,7 @@ static void pull_input(pa_stream *s)
 		m->user_data = buf;
 		buf->user_data = m;
 
+		pw_log_trace("input %p", m);
 		spa_list_append(&s->ready, &m->link);
 		s->ready_bytes += m->size;
 	}
@@ -627,6 +638,7 @@ static void stream_free(pa_stream *s)
 	}
 
 	spa_list_consume(m, &s->free, link) {
+		pw_log_trace("free %p", m);
 		spa_list_remove(&m->link);
 		free(m);
 	}
@@ -1186,6 +1198,7 @@ int pa_stream_peek(pa_stream *s,
 		return 0;
 	}
 	s->mem = spa_list_first(&s->ready, struct pa_mem, link);
+	pw_log_trace("peek %p", s->mem);
 
 	*data = SPA_MEMBER(s->mem->data, s->mem->offset, void);
 	*nbytes = s->mem->size;
@@ -1220,7 +1233,9 @@ int pa_stream_drop(pa_stream *s)
 	pw_stream_queue_buffer(s->stream, buf);
 	buf->user_data = NULL;
 
+	pw_log_trace("drop %p", s->mem);
 	spa_list_append(&s->free, &s->mem->link);
+	s->mem->user_data = NULL;
 	s->mem = NULL;
 
 	return 0;
@@ -1541,8 +1556,12 @@ pa_operation* pa_stream_flush(pa_stream *s, pa_stream_success_cb_t cb, void *use
 	d->userdata = userdata;
 
 	spa_list_consume(m, &s->ready, link) {
+		struct pw_buffer *b = m->user_data;
+		pw_log_trace("flush %p", m);
 		spa_list_remove(&m->link);
 		spa_list_append(&s->free, &m->link);
+		m->user_data = NULL;
+		b->user_data = NULL;
 	}
 	s->ready_bytes = 0;
 	s->timing_info.write_index = s->timing_info.read_index = 0;

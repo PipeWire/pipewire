@@ -1443,7 +1443,7 @@ snd_mixer_t *pa_alsa_open_mixer_by_name(pa_hashmap *mixers, const char *dev, boo
     if (!pm && pa_strneq(dev, "hw:", 3)) {
         const char *s = dev + 3;
         int card_index;
-        while (*s && *s >= 0 && *s <= '9') s++;
+        while (*s && *s >= '0' && *s <= '9') s++;
         if (*s == '\0' && pa_atoi(dev + 3, &card_index) >= 0) {
             PA_HASHMAP_FOREACH_KV(dev2, pm, mixers, state) {
                 if (pm->card_index == card_index) {

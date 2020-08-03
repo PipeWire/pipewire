@@ -53,9 +53,9 @@ static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct impl *impl = data;
 	if (!impl->registered) {
-		pw_impl_device_register(impl->device, NULL);
 		pw_impl_device_set_implementation(impl->device,
 				(struct spa_device*)impl->resource);
+		pw_impl_device_register(impl->device, NULL);
 		impl->registered = true;
 	}
 }

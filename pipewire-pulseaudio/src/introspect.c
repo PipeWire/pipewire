@@ -220,8 +220,6 @@ pa_operation* pa_context_get_sink_info_by_name(pa_context *c, const char *name, 
 
 	pw_log_debug("%p", c);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, sink_info, sizeof(struct sink_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -244,8 +242,6 @@ pa_operation* pa_context_get_sink_info_by_index(pa_context *c, uint32_t idx, pa_
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, sink_info, sizeof(struct sink_data));
 	d = o->userdata;
@@ -283,8 +279,6 @@ pa_operation* pa_context_get_sink_info_list(pa_context *c, pa_sink_info_cb_t cb,
 	pa_assert(cb);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, sink_info_list, sizeof(struct sink_data));
 	d = o->userdata;
@@ -507,8 +501,6 @@ pa_operation* pa_context_set_sink_volume_by_index(pa_context *c, uint32_t idx, c
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, pa_cvolume_valid(volume), PA_ERR_INVALID);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SINK;
@@ -537,8 +529,6 @@ pa_operation* pa_context_set_sink_volume_by_name(pa_context *c, const char *name
 
 	pw_log_debug("context %p: name %s", c, name);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -566,8 +556,6 @@ pa_operation* pa_context_set_sink_mute_by_index(pa_context *c, uint32_t idx, int
 
 	pw_log_debug("context %p: index %d", c, idx);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SINK;
@@ -592,8 +580,6 @@ pa_operation* pa_context_set_sink_mute_by_name(pa_context *c, const char *name, 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: name %s", c, name);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
@@ -745,8 +731,6 @@ pa_operation* pa_context_set_sink_port_by_index(pa_context *c, uint32_t idx, con
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_device_route, sizeof(struct device_route));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SINK;
@@ -767,8 +751,6 @@ pa_operation* pa_context_set_sink_port_by_name(pa_context *c, const char*name, c
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_device_route, sizeof(struct device_route));
 	d = o->userdata;
@@ -963,8 +945,6 @@ pa_operation* pa_context_get_source_info_by_name(pa_context *c, const char *name
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, source_info, sizeof(struct source_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -988,8 +968,6 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: index %d", c, idx);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, source_info, sizeof(struct source_data));
 	d = o->userdata;
@@ -1028,8 +1006,6 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, source_info_list, sizeof(struct source_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -1053,8 +1029,6 @@ pa_operation* pa_context_set_source_volume_by_index(pa_context *c, uint32_t idx,
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, pa_cvolume_valid(volume), PA_ERR_INVALID);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
@@ -1084,8 +1058,6 @@ pa_operation* pa_context_set_source_volume_by_name(pa_context *c, const char *na
 
 	pw_log_debug("context %p: name %s", c, name);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SOURCE;
@@ -1113,8 +1085,6 @@ pa_operation* pa_context_set_source_mute_by_index(pa_context *c, uint32_t idx, i
 
 	pw_log_debug("context %p: index %d", c, idx);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SOURCE;
@@ -1140,8 +1110,6 @@ pa_operation* pa_context_set_source_mute_by_name(pa_context *c, const char *name
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: name %s", c, name);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_node_volume_mute, sizeof(struct volume_data));
 	d = o->userdata;
@@ -1200,8 +1168,6 @@ pa_operation* pa_context_set_source_port_by_index(pa_context *c, uint32_t idx, c
 
 	pw_log_debug("context %p: idx %d", c, idx);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_device_route, sizeof(struct device_route));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SOURCE;
@@ -1224,8 +1190,6 @@ pa_operation* pa_context_set_source_port_by_name(pa_context *c, const char*name,
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: name %s", c, name);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_device_route, sizeof(struct device_route));
 	d = o->userdata;
@@ -1250,6 +1214,7 @@ static const char *get_default_name(pa_context *c, uint32_t mask)
 	struct global *g;
 	const char *str;
 	uint32_t id = SPA_ID_INVALID;
+
 
 	if (c->metadata) {
 		if (mask & PA_SUBSCRIPTION_MASK_SINK)
@@ -1311,8 +1276,6 @@ pa_operation* pa_context_get_server_info(pa_context *c, pa_server_info_cb_t cb, 
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, server_info, sizeof(struct server_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -1368,8 +1331,6 @@ pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, module_info, sizeof(struct module_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -1406,8 +1367,6 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 	pa_assert(cb);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, module_info_list, sizeof(struct module_data));
 	d = o->userdata;
@@ -1488,8 +1447,6 @@ pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, client_info, sizeof(struct client_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -1526,8 +1483,6 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 	pa_assert(cb);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, client_info_list, sizeof(struct client_data));
 	d = o->userdata;
@@ -1574,8 +1529,6 @@ pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_suc
 	struct kill_client *d;
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_kill_client, sizeof(struct kill_client));
 	d = o->userdata;
@@ -1643,8 +1596,6 @@ pa_operation* pa_context_get_card_info_by_index(pa_context *c, uint32_t idx, pa_
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: %u", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, card_info, sizeof(struct card_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -1668,8 +1619,6 @@ pa_operation* pa_context_get_card_info_by_name(pa_context *c, const char *name, 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: %s", c, name);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, card_info, sizeof(struct card_data));
 	d = o->userdata;
 	d->name = pa_xstrdup(name);
@@ -1707,8 +1656,6 @@ pa_operation* pa_context_get_card_info_list(pa_context *c, pa_card_info_cb_t cb,
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p", c);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, card_info_list, sizeof(struct card_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -1794,8 +1741,6 @@ pa_operation* pa_context_set_card_profile_by_index(pa_context *c, uint32_t idx, 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("Card set profile %s", profile);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, card_profile, sizeof(struct card_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -1820,8 +1765,6 @@ pa_operation* pa_context_set_card_profile_by_name(pa_context *c, const char*name
 	PA_CHECK_VALIDITY_RETURN_NULL(c, !name || *name, PA_ERR_INVALID);
 
 	pw_log_debug("Card set profile %s", profile);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, card_profile, sizeof(struct card_data));
 	d = o->userdata;
 	d->name = pa_xstrdup(name);
@@ -1988,8 +1931,6 @@ pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sin
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: info for %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, sink_input_info, sizeof(struct sink_input_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -2028,8 +1969,6 @@ pa_operation* pa_context_get_sink_input_info_list(pa_context *c, pa_sink_input_i
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p", c);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, sink_input_info_list, sizeof(struct sink_input_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -2100,8 +2039,6 @@ pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, co
 	pa_operation *o;
 	struct target_node *d;
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
 	d->idx = idx;
@@ -2121,8 +2058,6 @@ pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, u
 {
 	pa_operation *o;
 	struct target_node *d;
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
@@ -2187,8 +2122,6 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	struct stream_volume *d;
 
 	pw_log_debug("contex %p: index %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2209,8 +2142,6 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 	struct stream_volume *d;
 
 	pw_log_debug("contex %p: index %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2264,8 +2195,6 @@ pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context
 	struct kill_stream *d;
 
 	pw_log_debug("contex %p: index %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_kill_stream, sizeof(struct kill_stream));
 	d = o->userdata;
 	d->idx = idx;
@@ -2402,8 +2331,6 @@ pa_operation* pa_context_get_source_output_info(pa_context *c, uint32_t idx, pa_
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, source_output_info, sizeof(struct source_output_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -2441,8 +2368,6 @@ pa_operation* pa_context_get_source_output_info_list(pa_context *c, pa_source_ou
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, source_output_info_list, sizeof(struct source_output_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -2457,8 +2382,6 @@ pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx,
 {
 	pa_operation *o;
 	struct target_node *d;
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
@@ -2479,8 +2402,6 @@ pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx
 {
 	pa_operation *o;
 	struct target_node *d;
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
@@ -2503,8 +2424,6 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	struct stream_volume *d;
 
 	pw_log_debug("contex %p: index %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2525,8 +2444,6 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	struct stream_volume *d;
 
 	pw_log_debug("contex %p: index %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
 	d->idx = idx;
@@ -2546,8 +2463,6 @@ pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_cont
 	struct kill_stream *d;
 
 	pw_log_debug("contex %p: index %d", c, idx);
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_kill_stream, sizeof(struct kill_stream));
 	d = o->userdata;
 	d->idx = idx;

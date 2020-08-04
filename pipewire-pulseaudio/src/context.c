@@ -1353,18 +1353,6 @@ static void on_success(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
-void pa_context_ensure_registry(pa_context *c)
-{
-	if (c->registry != NULL)
-		return;
-
-	c->registry = pw_core_get_registry(c->core,
-			PW_VERSION_REGISTRY, 0);
-	pw_registry_add_listener(c->registry,
-			&c->registry_listener,
-			&registry_events, c);
-}
-
 SPA_EXPORT
 pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_context_success_cb_t cb, void *userdata)
 {
@@ -1377,8 +1365,6 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	c->subscribe_mask = m;
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
@@ -1561,6 +1547,12 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 	}
 	pw_core_add_listener(c->core, &c->core_listener, &core_events, c);
 
+	c->registry = pw_core_get_registry(c->core,
+			PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(c->registry,
+			&c->registry_listener,
+			&registry_events, c);
+
 exit:
 	pa_context_unref(c);
 
@@ -1677,8 +1669,6 @@ pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_co
 	pa_operation *o;
 	struct default_node *d;
 
-	pa_context_ensure_registry(c);
-
 	o = pa_operation_new(c, NULL, do_default_node, sizeof(*d));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SINK;
@@ -1696,8 +1686,6 @@ pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_
 {
 	pa_operation *o;
 	struct default_node *d;
-
-	pa_context_ensure_registry(c);
 
 	o = pa_operation_new(c, NULL, do_default_node, sizeof(*d));
 	d = o->userdata;

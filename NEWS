@@ -1,3 +1,41 @@
+PipeWire 0.3.9
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Fix bad audio in chrome
+
+- Remove some errors that are not real errors.
+
+- Fix 100% cpu when disconnecting devices.
+
+- Improve pulseaudio introspection of formats
+
+- Fix JACK metadata handling, carla can now monitor the
+  port it creates and insert midi.
+
+- Add a new permission bit (M) that is needed to be able
+  to configure metadata on an object. Improve security of
+  metadata some more, only allow metadata on objects that
+  are visible to the client setting the metadata.
+
+- Add support for videocrop in the GStreamer elements.
+
+- Improve handling of the runtime directory for the
+  server sockets. Add some reasonable fallback when
+  XDG_RUNTIME_DIR is not set, as suggested in the spec.
+
+- Improve ALSA device names from ACP.
+
+- Fix various crasher bugs. One in the pulse layer, one in
+  the session manager.
+
+- Make alsa plugin respect the PIPEWIRE_REMOTE env variable.
+
+- Various compile fixes.
+
+
+
 PipeWire 0.3.8
 
 This is a bugfix release that is API and ABI compatible

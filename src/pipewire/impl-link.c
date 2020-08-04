@@ -50,9 +50,6 @@ struct impl {
 	unsigned int io_set:1;
 	unsigned int activated:1;
 
-	unsigned int output_destroyed:1;
-	unsigned int input_destroyed:1;
-
 	struct pw_work_queue *work;
 
 	struct spa_pod *format_filter;
@@ -341,17 +338,14 @@ error:
 }
 
 static int port_set_io(struct pw_impl_link *this, struct pw_impl_port *port, uint32_t id,
-		void *data, size_t size, struct pw_impl_port_mix *mix, bool destroyed)
+		void *data, size_t size, struct pw_impl_port_mix *mix)
 {
 	int res = 0;
 
 	mix->io = data;
-	pw_log_debug(NAME" %p: %s port %p %d.%d set io: %d %p %zd destroyed:%d", this,
+	pw_log_debug(NAME" %p: %s port %p %d.%d set io: %d %p %zd", this,
 			pw_direction_as_string(port->direction),
-			port, port->port_id, mix->port.port_id, id, data, size, destroyed);
-
-	if (destroyed)
-		return 0;
+			port, port->port_id, mix->port.port_id, id, data, size);
 
 	if ((res = spa_node_port_set_io(port->mix,
 			     mix->port.direction,
@@ -531,13 +525,11 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 
 	if (!impl->io_set) {
 		if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-				sizeof(struct spa_io_buffers), &this->rt.out_mix,
-				impl->output_destroyed)) < 0)
+				sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
 			return res;
 
 		if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
-				sizeof(struct spa_io_buffers), &this->rt.in_mix,
-				impl->input_destroyed)) < 0)
+				sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
 			return res;
 		impl->io_set = true;
 	}
@@ -625,12 +617,10 @@ static void input_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	spa_list_remove(&this->input_link);
 	pw_impl_port_emit_link_removed(this->input, this);
 
-	if (!impl->input_destroyed) {
-		if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
-			pw_log_warn(NAME" %p: port %p clear error %s", this, port, spa_strerror(res));
-		}
-		pw_impl_port_release_mix(port, mix);
+	if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
+		pw_log_warn(NAME" %p: port %p clear error %s", this, port, spa_strerror(res));
 	}
+	pw_impl_port_release_mix(port, mix);
 	this->input = NULL;
 }
 
@@ -647,35 +637,10 @@ static void output_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	spa_list_remove(&this->output_link);
 	pw_impl_port_emit_link_removed(this->output, this);
 
-	if (!impl->output_destroyed) {
-		/* we don't clear output buffers when the link goes away. They will get
-		 * cleared when the node goes to suspend */
-		pw_impl_port_release_mix(port, mix);
-	}
+	/* we don't clear output buffers when the link goes away. They will get
+	 * cleared when the node goes to suspend */
+	pw_impl_port_release_mix(port, mix);
 	this->output = NULL;
-}
-
-static void on_port_destroy(struct pw_impl_link *this, struct pw_impl_port *port)
-{
-	pw_log_debug(NAME" %p: port %p", this, port);
-	pw_impl_link_emit_port_unlinked(this, port);
-
-	pw_impl_link_update_state(this, PW_LINK_STATE_UNLINKED, NULL);
-	pw_impl_link_destroy(this);
-}
-
-static void input_port_destroy(void *data)
-{
-	struct impl *impl = data;
-	impl->input_destroyed = true;
-	on_port_destroy(&impl->this, impl->this.input);
-}
-
-static void output_port_destroy(void *data)
-{
-	struct impl *impl = data;
-	impl->output_destroyed = true;
-	on_port_destroy(&impl->this, impl->this.output);
 }
 
 int pw_impl_link_prepare(struct pw_impl_link *this)
@@ -734,9 +699,9 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 		       do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, this);
 
 	port_set_io(this, this->output, SPA_IO_Buffers, NULL, 0,
-			&this->rt.out_mix, impl->output_destroyed);
+			&this->rt.out_mix);
 	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0,
-			&this->rt.in_mix, impl->input_destroyed);
+			&this->rt.in_mix);
 
 	impl->io_set = false;
 	impl->activated = false;
@@ -858,14 +823,12 @@ static const struct pw_impl_port_events input_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
 	.param_changed = input_port_param_changed,
 	.state_changed = input_port_state_changed,
-	.destroy = input_port_destroy,
 };
 
 static const struct pw_impl_port_events output_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
 	.param_changed = output_port_param_changed,
 	.state_changed = output_port_state_changed,
-	.destroy = output_port_destroy,
 };
 
 static void node_result(struct impl *impl, struct pw_impl_port *port,

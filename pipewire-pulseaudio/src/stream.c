@@ -112,8 +112,6 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		if (!s->disconnecting) {
 			pa_context_set_error(c, PA_ERR_KILLED);
 			pa_stream_set_state(s, PA_STREAM_FAILED);
-		} else {
-			pa_stream_set_state(s, PA_STREAM_TERMINATED);
 		}
 		break;
 	case PW_STREAM_STATE_CONNECTING:
@@ -1020,6 +1018,7 @@ int pa_stream_connect_record(
 static void on_disconnected(pa_operation *o, void *userdata)
 {
 	pa_stream *s = o->stream;
+	pw_log_debug("stream %p", s);
 	pa_stream_set_state(s, PA_STREAM_TERMINATED);
 }
 

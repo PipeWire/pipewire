@@ -108,6 +108,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 static void destroy_client(struct impl *impl, struct client *client)
 {
 	spa_list_remove(&client->link);
+	spa_hook_remove(&client->listener);
 	sm_object_remove_data((struct sm_object*)client->obj, SESSION_KEY);
 }
 

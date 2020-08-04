@@ -1209,6 +1209,10 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		return -EINVAL;
 	}
 
+	str = getenv("PIPEWIRE_REMOTE");
+	if (str != NULL)
+		server = str;
+
 	if (fallback_name && name && !strcmp(name, fallback_name))
 		fallback_name = NULL; /* no fallback for the same name */
 
@@ -1269,6 +1273,9 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		pw_properties_setf(props, PW_KEY_APP_NAME, "ALSA plug-in [%s]", str);
 	else
 		pw_properties_set(props, PW_KEY_APP_NAME, "ALSA plug-in");
+
+	if (server)
+		pw_properties_set(props, PW_KEY_REMOTE_NAME, server);
 
 	if ((err = pw_thread_loop_start(ctl->mainloop)) < 0)
 		goto error;

@@ -899,6 +899,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	if (!pw)
 		return -ENOMEM;
 
+	str = getenv("PIPEWIRE_REMOTE");
+	if (str != NULL)
+		server_name = str;
+
 	str = getenv("PIPEWIRE_NODE");
 
 	pw_log_debug(NAME" %p: open %s %d %d %08x %d %s %d %d '%s'", pw, name,

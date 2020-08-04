@@ -317,7 +317,7 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
     pa_log_debug("Jack '%s' is now %s", pa_strnull(snd_hctl_elem_get_name(elem)),
 		    plugged_in ? "plugged in" : "unplugged");
 
-    size = sizeof(struct temp_port_avail) * pa_hashmap_size(impl->jacks)+1;
+    size = sizeof(struct temp_port_avail) * (pa_hashmap_size(impl->jacks)+1);
     tports = tp = alloca(size);
     memset(tports, 0, size);
 

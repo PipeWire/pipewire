@@ -995,6 +995,7 @@ static int metadata_property(void *object,
 	} else if (key && strcmp(key, METADATA_DEFAULT_SOURCE) == 0) {
 		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 		changed = c->default_source != val;
+		c->default_source = val;
 	}
 	if (changed)
 		emit_event(global->context, global, PA_SUBSCRIPTION_EVENT_CHANGE);

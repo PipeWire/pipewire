@@ -36,6 +36,8 @@ with previous 0.3.x releases.
 
 
 
+Older versions:
+
 PipeWire 0.3.8
 
 This is a bugfix release that is API and ABI compatible
@@ -78,9 +80,6 @@ with previous 0.3.x releases.
   the pulseaudio ones.
 
 - Many build and stability fixes.
-
-
-Older versions:
 
 
 PipeWire 0.3.7

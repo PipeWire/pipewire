@@ -53,7 +53,7 @@ int pa_operation_sync(pa_operation *o)
 {
 	pa_context *c = o->context;
 	o->seq = pw_core_sync(c->core, PW_ID_CORE, 0);
-	pw_log_debug("operation %p: sync %d", o, o->seq);
+	pw_log_debug("operation %p: sync seq:%d", o, o->seq);
 	return 0;
 }
 
@@ -68,16 +68,16 @@ pa_operation *pa_operation_ref(pa_operation *o)
 
 static void operation_free(pa_operation *o)
 {
-        pa_assert(!o->context);
-        pa_assert(!o->stream);
-	pw_log_debug("%p %d", o, o->seq);
+	pa_assert(!o->context);
+	pa_assert(!o->stream);
+	pw_log_debug("%p seq:%d", o, o->seq);
 	free(o);
 }
 
 static void operation_unlink(pa_operation *o) {
 	pa_assert(o);
 
-	pw_log_debug("%p %d", o, o->seq);
+	pw_log_debug("%p seq:%d", o, o->seq);
 	if (o->context) {
 		pa_assert(o->refcount >= 2);
 
@@ -95,12 +95,12 @@ static void operation_unlink(pa_operation *o) {
 	o->state_userdata = NULL;
 }
 
-
 SPA_EXPORT
 void pa_operation_unref(pa_operation *o)
 {
 	pa_assert(o);
 	pa_assert(o->refcount >= 1);
+	pw_log_debug("%p seq:%d ref:%d", o, o->seq, o->refcount);
 	if (--o->refcount == 0)
 		operation_free(o);
 }
@@ -114,7 +114,7 @@ static void operation_set_state(pa_operation *o, pa_operation_state_t st) {
 
 	pa_operation_ref(o);
 
-	pw_log_debug("new state %p %d %d", o, o->seq, st);
+	pw_log_debug("new state %p seq:%d state:%d", o, o->seq, st);
 	o->state = st;
 
 	if (o->state_callback)
@@ -132,7 +132,7 @@ void pa_operation_cancel(pa_operation *o)
 {
 	pa_assert(o);
 	pa_assert(o->refcount >= 1);
-	pw_log_debug("%p %d", o, o->seq);
+	pw_log_debug("%p seq:%d", o, o->seq);
 	operation_set_state(o, PA_OPERATION_CANCELED);
 }
 

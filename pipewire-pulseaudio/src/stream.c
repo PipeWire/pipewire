@@ -1561,7 +1561,8 @@ pa_operation* pa_stream_flush(pa_stream *s, pa_stream_success_cb_t cb, void *use
 		spa_list_remove(&m->link);
 		spa_list_append(&s->free, &m->link);
 		m->user_data = NULL;
-		b->user_data = NULL;
+		if (b)
+			b->user_data = NULL;
 	}
 	s->ready_bytes = 0;
 	s->timing_info.write_index = s->timing_info.read_index = 0;

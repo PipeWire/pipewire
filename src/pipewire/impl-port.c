@@ -1287,7 +1287,7 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 			mix->port.direction, mix->port.port_id, flags,
 			buffers, n_buffers);
 	if (res2 < 0) {
-		if (res2 != -ENOTSUP) {
+		if (res2 != -ENOTSUP && n_buffers > 0) {
 			pw_log_warn(NAME" %p: mix use buffers failed: %d (%s)",
 					port, res2, spa_strerror(res2));
 			return res2;

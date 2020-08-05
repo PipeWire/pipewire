@@ -89,6 +89,8 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_ditherType, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "ditherType", NULL },
 	{ SPA_PROP_truncate, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "truncate", NULL },
 	{ SPA_PROP_channelVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelVolumes", NULL },
+	{ SPA_PROP_volumeBase, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "volumeBase", NULL },
+	{ SPA_PROP_volumeStep, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "volumeStep", NULL },
 
 	{ SPA_PROP_brightness, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "brightness", NULL },
 	{ SPA_PROP_contrast, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "contrast", NULL },

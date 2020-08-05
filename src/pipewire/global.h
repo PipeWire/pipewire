@@ -113,6 +113,10 @@ uint32_t pw_global_get_version(struct pw_global *global);
 /** Get the global properties */
 const struct pw_properties *pw_global_get_properties(struct pw_global *global);
 
+/** Update the global properties, must be done when unregistered */
+int pw_global_update_keys(struct pw_global *global,
+		     const struct spa_dict *dict, const char *keys[]);
+
 /** Get the object associated with the global. This depends on the type of the
   * global */
 void *pw_global_get_object(struct pw_global *global);

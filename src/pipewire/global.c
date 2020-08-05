@@ -212,6 +212,16 @@ const struct pw_properties *pw_global_get_properties(struct pw_global *global)
 }
 
 SPA_EXPORT
+int pw_global_update_keys(struct pw_global *global,
+		     const struct spa_dict *dict, const char *keys[])
+{
+	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
+	if (impl->registered)
+		return -EINVAL;
+	return pw_properties_update_keys(global->properties, dict, keys);
+}
+
+SPA_EXPORT
 void * pw_global_get_object(struct pw_global *global)
 {
 	return global->object;

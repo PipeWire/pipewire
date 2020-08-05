@@ -437,13 +437,6 @@ int pw_impl_client_register(struct pw_impl_client *client,
 
 	pw_log_debug(NAME" %p: register", client);
 
-	if (properties == NULL)
-		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		return -errno;
-
-	pw_properties_update_keys(properties, &client->properties->dict, keys);
-
 	client->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Client,
 				       PW_VERSION_CLIENT,
@@ -459,6 +452,8 @@ int pw_impl_client_register(struct pw_impl_client *client,
 	client->info.id = client->global->id;
 	pw_properties_setf(client->properties, PW_KEY_OBJECT_ID, "%d", client->info.id);
 	client->info.props = &client->properties->dict;
+
+	pw_global_update_keys(client->global, client->info.props, keys);
 
 	pw_impl_client_emit_initialized(client);
 

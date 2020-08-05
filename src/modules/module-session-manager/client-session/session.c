@@ -286,16 +286,10 @@ int session_init(struct session *this,
 	this->client_sess = client_sess;
 	this->props = properties;
 
-	properties = pw_properties_new(NULL, NULL);
-	if (!properties)
-		goto no_mem;
-
-	pw_properties_update_keys(properties, &this->props->dict, keys);
-
 	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_Session,
 			PW_VERSION_SESSION,
-			properties, session_bind, this);
+			NULL, session_bind, this);
 	if (!this->global)
 		goto no_mem;
 
@@ -305,6 +299,8 @@ int session_init(struct session *this,
 	this->info.version = PW_VERSION_SESSION_INFO;
 	this->info.id = pw_global_get_id(this->global);
 	this->info.props = &this->props->dict;
+
+	pw_global_update_keys(this->global, &this->props->dict, keys);
 
 	pw_resource_set_bound_id(client_sess->resource, this->info.id);
 

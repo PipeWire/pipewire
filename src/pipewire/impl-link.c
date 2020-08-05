@@ -1177,16 +1177,13 @@ int pw_impl_link_register(struct pw_impl_link *link,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
+		PW_KEY_LINK_OUTPUT_PORT,
+		PW_KEY_LINK_INPUT_PORT,
 		NULL
 	};
 
 	if (link->registered)
 		goto error_existed;
-
-	if (properties == NULL)
-		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		return -errno;
 
 	output_node = link->output->node;
 	input_node = link->input->node;
@@ -1195,11 +1192,6 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	link->info.output_port_id = link->output->global->id;
 	link->info.input_node_id = input_node->global->id;
 	link->info.input_port_id = link->input->global->id;
-
-	pw_properties_update_keys(properties, &link->properties->dict, keys);
-
-	pw_properties_setf(properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
-	pw_properties_setf(properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
 
 	link->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Link,
@@ -1215,7 +1207,11 @@ int pw_impl_link_register(struct pw_impl_link *link,
 
 	link->info.id = link->global->id;
 	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%d", link->info.id);
+	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
+	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
 	link->info.props = &link->properties->dict;
+
+	pw_global_update_keys(link->global, link->info.props, keys);
 
 	pw_impl_link_emit_initialized(link);
 

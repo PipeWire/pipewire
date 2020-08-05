@@ -634,13 +634,6 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	if (this->registered)
 		goto error_existed;
 
-	if (properties == NULL)
-		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		return -errno;
-
-	pw_properties_update_keys(properties, &this->properties->dict, keys);
-
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Node,
 				     PW_VERSION_NODE,
@@ -660,6 +653,8 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	this->info.id = this->global->id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	this->info.props = &this->properties->dict;
+
+	pw_global_update_keys(this->global, &this->properties->dict, keys);
 
 	pw_impl_node_initialized(this);
 

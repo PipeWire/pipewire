@@ -176,22 +176,14 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
 	struct pw_context *context = factory->context;
 	const char *keys[] = {
 		PW_KEY_MODULE_ID,
+		PW_KEY_FACTORY_NAME,
+		PW_KEY_FACTORY_TYPE_NAME,
+		PW_KEY_FACTORY_TYPE_VERSION,
 		NULL
 	};
 
 	if (factory->registered)
 		goto error_existed;
-
-	if (properties == NULL)
-		properties = pw_properties_new(NULL, NULL);
-	if (properties == NULL)
-		return -errno;
-
-	pw_properties_update_keys(properties, &factory->properties->dict, keys);
-
-	pw_properties_set(properties, PW_KEY_FACTORY_NAME, factory->info.name);
-	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_NAME, "%s", factory->info.type);
-	pw_properties_setf(properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
 
         factory->global = pw_global_new(context,
 					PW_TYPE_INTERFACE_Factory,
@@ -207,7 +199,12 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
 
 	factory->info.id = factory->global->id;
 	pw_properties_setf(factory->properties, PW_KEY_OBJECT_ID, "%d", factory->info.id);
+	pw_properties_set(factory->properties, PW_KEY_FACTORY_NAME, factory->info.name);
+	pw_properties_setf(factory->properties, PW_KEY_FACTORY_TYPE_NAME, "%s", factory->info.type);
+	pw_properties_setf(factory->properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
 	factory->info.props = &factory->properties->dict;
+
+	pw_global_update_keys(factory->global, factory->info.props, keys);
 
 	pw_impl_factory_emit_initialized(factory);
 

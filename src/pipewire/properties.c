@@ -263,11 +263,11 @@ SPA_EXPORT
 int pw_properties_update(struct pw_properties *props,
 		         const struct spa_dict *dict)
 {
-	uint32_t i;
+	const struct spa_dict_item *it;
 	int changed = 0;
 
-	for (i = 0; i < dict->n_items; i++)
-		changed += pw_properties_set(props, dict->items[i].key, dict->items[i].value);
+	spa_dict_for_each(it, dict)
+		changed += pw_properties_set(props, it->key, it->value);
 
 	return changed;
 }

@@ -1116,7 +1116,7 @@ stream_new(struct pw_context *context, const char *name,
 			str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY);
 		if (str == NULL)
 			str = name;
-		pw_properties_set(props, PW_KEY_NODE_NAME, name);
+		pw_properties_set(props, PW_KEY_NODE_NAME, str);
 	}
 
 	spa_hook_list_init(&impl->hooks);

@@ -2005,7 +2005,7 @@ static void registry_event_global(void *data, uint32_t id,
 		return;
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
-		const char *app;
+		const char *app, *node_name;
 
 		o = alloc_object(c);
 		object_type = INTERFACE_Node;
@@ -2013,11 +2013,19 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_CLIENT_ID)) != NULL)
 			o->node.client_id = atoi(str);
 
+		node_name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
+
+		if (id == c->node_id) {
+			pw_log_debug(NAME" %p: add our node %d", c, id);
+			if (node_name != NULL)
+				strncpy(c->name, node_name, JACK_CLIENT_NAME_SIZE);
+		}
+
 		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
-		    (str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL) {
+		    (str = node_name) == NULL) {
 			str = "node";
 		}
 		if (app && strcmp(app, str) != 0)
@@ -2426,6 +2434,9 @@ jack_client_t * jack_client_open (const char *client_name,
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &ni);
 
+	if (status)
+		*status = 0;
+
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
 
@@ -2436,10 +2447,13 @@ jack_client_t * jack_client_open (const char *client_name,
 			break;
 	}
 
+	if (strcmp(client->name, client_name) != 0) {
+		if (status)
+			*status |= JackNameNotUnique;
+		if (options & JackUseExactName)
+			goto exit;
+	}
 	pw_thread_loop_unlock(client->context.loop);
-
-	if (status)
-		*status = 0;
 
 	pw_log_debug(NAME" %p: new", client);
 	return (jack_client_t *)client;

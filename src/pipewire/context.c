@@ -313,7 +313,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
-	if ((str = pw_properties_get(properties, PW_KEY_CONTEXT_PROFILE_MODULES)) == NULL)
+	str = pw_properties_get(properties, PW_KEY_CONTEXT_PROFILE_MODULES);
+	if (str == NULL)
+		str = getenv("PIPEWIRE_PROFILE_MODULES");
+	if (str == NULL)
 		str = "default";
 
 	load_module_profile(this, str);

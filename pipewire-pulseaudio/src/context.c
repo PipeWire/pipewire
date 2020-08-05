@@ -1393,7 +1393,11 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 		pw_properties_update_proplist(props, p);
 
 	loop = mainloop->userdata;
-	context = pw_context_new(loop, NULL, sizeof(struct pa_context));
+	context = pw_context_new(loop,
+			pw_properties_new(
+				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				NULL),
+			sizeof(struct pa_context));
 	if (context == NULL)
 		return NULL;
 

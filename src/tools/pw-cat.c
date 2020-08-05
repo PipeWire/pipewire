@@ -1437,7 +1437,11 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 
-	data.context = pw_context_new(l, NULL, 0);
+	data.context = pw_context_new(l,
+			pw_properties_new(
+				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				NULL),
+			0);
 	if (!data.context) {
 		fprintf(stderr, "error: pw_context_new() failed: %m\n");
 		goto error_no_context;

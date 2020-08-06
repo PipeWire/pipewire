@@ -68,6 +68,8 @@ struct _GstPipeWireSrc {
   gboolean resend_last;
   gint keepalive_time;
 
+  GstCaps *caps;
+
   gboolean negotiated;
   gboolean flushing;
   gboolean started;

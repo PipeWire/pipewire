@@ -60,7 +60,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define GST_CAT_DEFAULT pipewire_src_debug
 
 #define DEFAULT_ALWAYS_COPY     false
-#define DEFAULT_MIN_BUFFERS     1
+#define DEFAULT_MIN_BUFFERS     8
 #define DEFAULT_MAX_BUFFERS     INT32_MAX
 #define DEFAULT_RESEND_LAST     false
 #define DEFAULT_KEEPALIVE_TIME  0
@@ -561,6 +561,7 @@ static gboolean
 gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
 {
   const char *error = NULL;
+
   pw_thread_loop_lock (pwsrc->core->loop);
   GST_DEBUG_OBJECT (pwsrc, "doing stream start");
   while (TRUE) {
@@ -593,7 +594,7 @@ start_error:
 }
 
 static enum pw_stream_state
-wait_negotiated (GstPipeWireSrc *this)
+wait_started (GstPipeWireSrc *this)
 {
   enum pw_stream_state state;
   const char *error = NULL;
@@ -693,9 +694,8 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
 
-    GST_DEBUG_OBJECT (basesrc, "waiting for PAUSED, now %s", pw_stream_state_as_string (state));
-    if (state == PW_STREAM_STATE_PAUSED ||
-        state == PW_STREAM_STATE_STREAMING)
+    GST_DEBUG_OBJECT (basesrc, "waiting for NEGOTIATED, now %s", pw_stream_state_as_string (state));
+    if (pwsrc->negotiated)
       break;
 
     if (state == PW_STREAM_STATE_ERROR)
@@ -703,11 +703,19 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
     pw_thread_loop_wait (pwsrc->core->loop);
   }
+  caps = pwsrc->caps;
+  pwsrc->caps = NULL;
   pw_thread_loop_unlock (pwsrc->core->loop);
+
+  gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->clock), 0);
+
+  GST_DEBUG_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, caps);
+  result = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
+  gst_caps_unref (caps);
 
   result = gst_pipewire_src_stream_start (pwsrc);
 
-  pwsrc->negotiated = result;
+  pwsrc->started = result;
 
   return result;
 
@@ -748,22 +756,19 @@ on_param_changed (void *data, uint32_t id,
                    const struct spa_pod *param)
 {
   GstPipeWireSrc *pwsrc = data;
-  GstCaps *caps;
-  gboolean res;
 
   if (param == NULL || id != SPA_PARAM_Format) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
     return;
   }
+  if (pwsrc->caps)
+	  gst_caps_unref(pwsrc->caps);
+  pwsrc->caps = gst_caps_from_format (param);
+  GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, pwsrc->caps);
 
-  gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->clock), 0);
+  pwsrc->negotiated = pwsrc->caps != NULL;
 
-  caps = gst_caps_from_format (param);
-  GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, caps);
-  res = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
-  gst_caps_unref (caps);
-
-  if (res) {
+  if (pwsrc->negotiated) {
     const struct spa_pod *params[3];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
@@ -795,6 +800,7 @@ on_param_changed (void *data, uint32_t id,
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
     pw_stream_set_error (pwsrc->stream, -EINVAL, "unhandled format");
   }
+  pw_thread_loop_signal (pwsrc->core->loop, FALSE);
 }
 
 static gboolean
@@ -1021,6 +1027,7 @@ gst_pipewire_src_stop (GstBaseSrc * basesrc)
   pw_thread_loop_lock (pwsrc->core->loop);
   pwsrc->eos = false;
   gst_buffer_replace (&pwsrc->last_buffer, NULL);
+  gst_caps_replace(&pwsrc->caps, NULL);
   pw_thread_loop_unlock (pwsrc->core->loop);
 
   return TRUE;
@@ -1179,7 +1186,7 @@ gst_pipewire_src_change_state (GstElement * element, GstStateChange transition)
 
   switch (transition) {
     case GST_STATE_CHANGE_READY_TO_PAUSED:
-      if (wait_negotiated (this) == PW_STREAM_STATE_ERROR)
+      if (wait_started (this) == PW_STREAM_STATE_ERROR)
         goto open_failed;
 
       if (gst_base_src_is_live (GST_BASE_SRC (element)))

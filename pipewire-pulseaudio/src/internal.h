@@ -250,7 +250,7 @@ struct global {
 	pa_subscription_mask_t mask;
 	pa_subscription_event_type_t event;
 
-	int priority_master;
+	int priority_driver;
 	int pending_seq;
 	int init:1;
 

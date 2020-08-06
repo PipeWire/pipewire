@@ -79,7 +79,7 @@ extern "C" {
 
 /* priorities */
 #define PW_KEY_PRIORITY_SESSION		"priority.session"	/**< priority in session manager */
-#define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< priority to be a master */
+#define PW_KEY_PRIORITY_DRIVER		"priority.driver"	/**< priority to be a driver */
 
 /* remote keys */
 #define PW_KEY_REMOTE_NAME		"remote.name"		/**< The name of the remote to connect to,
@@ -264,6 +264,9 @@ extern "C" {
 #define PW_KEY_VIDEO_FORMAT		"video.format"		/**< a video format */
 #define PW_KEY_VIDEO_SIZE		"video.size"		/**< a video size as "<width>x<height" */
 
+#ifdef PW_ENABLE_DEPRECATED
+#define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< deprecated */
+#endif /* PW_ENABLE_DEPRECATED */
 
 #ifdef __cplusplus
 }

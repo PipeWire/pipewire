@@ -6,7 +6,7 @@ There are 2 main components that make up the PipeWire library:
  2) An asynchronous IPC mechanism to manipulate and introspect
     a graph in another process.
 
-There is usually a daemon that implements the master graph and
+There is usually a daemon that implements the global graph and
 clients that operate on this graph.
 
 The IPC mechanism in PipeWire is inspired by wayland in that it

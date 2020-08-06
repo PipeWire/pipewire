@@ -67,7 +67,7 @@ load-module libpipewire-module-session-manager
 #create-object spa-device-factory factory.name=api.alsa.seq.bridge node.name=Internal-MIDI-Bridge
 #create-object adapter factory.name=audiotestsrc node.name=my-test
 #create-object spa-node-factory factory.name=api.vulkan.compute.source node.name=my-compute-source
-create-object spa-node-factory factory.name=support.node.driver node.name=Dummy priority.master=8000
+create-object spa-node-factory factory.name=support.node.driver node.name=Dummy priority.driver=8000
 
 ## exec <program-name>
 #

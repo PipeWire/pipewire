@@ -254,7 +254,7 @@ enum spa_io_position_state {
  * The position information adds extra meaning to the raw clock times.
  *
  * It is set on all nodes and the clock id will contain the clock of the
- * master node in the graph.
+ * driving node in the graph.
  *
  * The position information contains 1 or more segments that convert the
  * raw clock times to a stream time. They are sorted based on their

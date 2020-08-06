@@ -1089,8 +1089,8 @@ static int set_mask(pa_context *c, struct global *g)
 		if (g->props == NULL)
 			return 0;
 
-		if ((str = pw_properties_get(g->props, PW_KEY_PRIORITY_MASTER)) != NULL)
-			g->priority_master = pw_properties_parse_int(str);
+		if ((str = pw_properties_get(g->props, PW_KEY_PRIORITY_DRIVER)) != NULL)
+			g->priority_driver = pw_properties_parse_int(str);
 
 		if ((str = pw_properties_get(g->props, PW_KEY_MEDIA_CLASS)) == NULL) {
 			pw_log_debug("node %d without "PW_KEY_MEDIA_CLASS, g->id);
@@ -1219,7 +1219,7 @@ static inline void insert_global(pa_context *c, struct global *global)
 	bool found = false;
 
 	spa_list_for_each(g, &c->globals, link) {
-		if (g->priority_master < global->priority_master) {
+		if (g->priority_driver < global->priority_driver) {
 			g = spa_list_prev(g, link);
 			found = true;
 			break;

@@ -337,8 +337,8 @@ struct client {
 	unsigned int thread_entered:1;
 	unsigned int has_transport:1;
 	unsigned int allow_mlock:1;
-	unsigned int timemaster_pending:1;
-	unsigned int timemaster_conditional:1;
+	unsigned int timeowner_pending:1;
+	unsigned int timeowner_conditional:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -1243,12 +1243,12 @@ static int client_node_set_param(void *object,
 	return -ENOTSUP;
 }
 
-static int install_timemaster(struct client *c)
+static int install_timeowner(struct client *c)
 {
 	struct pw_node_activation *a;
 	uint32_t owner;
 
-	if (!c->timemaster_pending)
+	if (!c->timeowner_pending)
 		return 0;
 
 	if ((a = c->driver_activation) == NULL)
@@ -1261,8 +1261,8 @@ static int install_timemaster(struct client *c)
 	if (owner == c->node_id)
 		return 0;
 
-	/* try to become master */
-	if (c->timemaster_conditional) {
+	/* try to become owner */
+	if (c->timeowner_conditional) {
 		if (!ATOMIC_CAS(a->segment_owner[0], 0, c->node_id)) {
 			pw_log_debug(NAME" %p: owner:%u id:%u", c, owner, c->node_id);
 			return -EBUSY;
@@ -1272,7 +1272,7 @@ static int install_timemaster(struct client *c)
 	}
 
 	pw_log_debug(NAME" %p: timebase installed for id:%u", c, c->node_id);
-	c->timemaster_pending = false;
+	c->timeowner_pending = false;
 
 	return 0;
 }
@@ -1296,7 +1296,7 @@ static int update_driver_activation(struct client *c)
 	c->driver_activation = link ? link->activation : NULL;
 	pw_data_loop_invoke(c->loop,
                        do_update_driver_activation, SPA_ID_INVALID, NULL, 0, true, c);
-	install_timemaster(c);
+	install_timeowner(c);
 
 	return 0;
 }
@@ -2037,7 +2037,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if (ot != NULL && o->node.client_id != ot->node.client_id)
 			snprintf(o->node.name, sizeof(o->node.name), "%s-%d", str, id);
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_MASTER)) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_DRIVER)) != NULL)
 			o->node.priority = pw_properties_parse_int(str);
 
 		pw_log_debug(NAME" %p: add node %d", c, id);
@@ -4343,7 +4343,7 @@ int jack_release_timebase (jack_client_t *client)
 	c->timebase_callback = NULL;
 	c->timebase_arg = NULL;
 	c->activation->pending_new_pos = false;
-	c->timemaster_pending = false;
+	c->timeowner_pending = false;
 
 	return 0;
 }
@@ -4399,9 +4399,9 @@ int  jack_set_timebase_callback (jack_client_t *client,
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
-	c->timemaster_pending = true;
-	c->timemaster_conditional = conditional;
-	install_timemaster(c);
+	c->timeowner_pending = true;
+	c->timeowner_conditional = conditional;
+	install_timeowner(c);
 
 	pw_log_debug(NAME" %p: timebase set id:%u", c, c->node_id);
 

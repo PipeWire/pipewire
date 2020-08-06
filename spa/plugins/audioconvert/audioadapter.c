@@ -82,7 +82,7 @@ struct impl {
 	unsigned int add_listener:1;
 	unsigned int have_format:1;
 	unsigned int started:1;
-	unsigned int master:1;
+	unsigned int driver:1;
 };
 
 /** \endcond */
@@ -655,7 +655,7 @@ static int follower_ready(void *data, int status)
 
 	spa_log_trace_fp(this->log, NAME " %p: ready %d", this, status);
 
-	this->master = true;
+	this->driver = true;
 
 	if (this->direction == SPA_DIRECTION_OUTPUT)
 		status = spa_node_process(this->convert);
@@ -880,8 +880,8 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	int status = 0;
 
-	spa_log_trace_fp(this->log, "%p: process convert:%p master:%d",
-			this, this->convert, this->master);
+	spa_log_trace_fp(this->log, "%p: process convert:%p driver:%d",
+			this, this->convert, this->driver);
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
 		if (this->convert)
@@ -892,7 +892,7 @@ static int impl_node_process(void *object)
 		status = spa_node_process(this->follower);
 
 	if (this->direction == SPA_DIRECTION_OUTPUT &&
-	    !this->master && this->convert) {
+	    !this->driver && this->convert) {
 		while (status > 0) {
 			status = spa_node_process(this->convert);
 			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED))
@@ -906,7 +906,7 @@ static int impl_node_process(void *object)
 	}
 	spa_log_trace_fp(this->log, "%p: process status:%d", this, status);
 
-	this->master = false;
+	this->driver = false;
 
 	return status;
 }

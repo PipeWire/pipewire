@@ -575,7 +575,7 @@ static inline void insert_driver(struct pw_context *context, struct pw_impl_node
 	struct pw_impl_node *n, *t;
 
 	spa_list_for_each_safe(n, t, &context->driver_list, driver_link) {
-		if (n->priority_master < node->priority_master)
+		if (n->priority_driver < node->priority_driver)
 			break;
 	}
 	spa_list_append(&n->driver_link, &node->driver_link);
@@ -616,7 +616,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,
 		PW_KEY_PRIORITY_SESSION,
-		PW_KEY_PRIORITY_MASTER,
+		PW_KEY_PRIORITY_DRIVER,
 		PW_KEY_APP_NAME,
 		PW_KEY_NODE_DESCRIPTION,
 		PW_KEY_NODE_NAME,
@@ -706,7 +706,7 @@ do_move_nodes(struct spa_loop *loop,
 	return 0;
 }
 
-static void remove_segment_master(struct pw_impl_node *driver, uint32_t node_id)
+static void remove_segment_owner(struct pw_impl_node *driver, uint32_t node_id)
 {
 	struct pw_node_activation *a = driver->rt.activation;
 	ATOMIC_CAS(a->segment_owner[0], node_id, 0);
@@ -729,11 +729,11 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	if (old == driver)
 		return 0;
 
-	remove_segment_master(old, node->info.id);
+	remove_segment_owner(old, node->info.id);
 
-	node->master = node->driver && driver == node;
-	pw_log_debug(NAME" %p: driver %p master:%u", node,
-		driver, node->master);
+	node->driving = node->driver && driver == node;
+	pw_log_debug(NAME" %p: driver %p driving:%u", node,
+		driver, node->driving);
 	pw_log_info("(%s-%u) -> change driver (%s-%d -> %s-%d)",
 			node->name, node->info.id,
 			old->name, old->info.id, driver->name, driver->info.id);
@@ -775,9 +775,9 @@ static void check_properties(struct pw_impl_node *node)
 	const char *str;
 	bool driver, do_recalc = false;
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_MASTER))) {
-		node->priority_master = pw_properties_parse_int(str);
-		pw_log_debug(NAME" %p: priority master %d", node, node->priority_master);
+	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
+		node->priority_driver = pw_properties_parse_int(str);
+		pw_log_debug(NAME" %p: priority driver %d", node, node->priority_driver);
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
@@ -1122,7 +1122,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this->driver_node = this;
 	spa_list_append(&this->follower_list, &this->follower_link);
-	this->master = true;
+	this->driving = true;
 
 	return this;
 
@@ -1474,7 +1474,7 @@ static int node_ready(void *data, int status)
 
 		update_position(node, all_ready);
 	}
-	if (SPA_UNLIKELY(node->driver && !node->master))
+	if (SPA_UNLIKELY(node->driver && !node->driving))
 		return 0;
 
 	if (status & SPA_STATUS_HAVE_DATA) {
@@ -1602,7 +1602,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	/* remove ourself as a follower from the driver node */
 	spa_list_remove(&node->follower_link);
-	remove_segment_master(node->driver_node, node->info.id);
+	remove_segment_owner(node->driver_node, node->info.id);
 
 	spa_list_consume(follower, &node->follower_list, follower_link) {
 		pw_log_debug(NAME" %p: reassign follower %p", impl, follower);

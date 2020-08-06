@@ -868,7 +868,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 	/* start from all drivers and group all nodes that are linked
 	 * to it. Some nodes are not (yet) linked to anything and they
-	 * will end up 'unassigned' to a master. Other nodes are master
+	 * will end up 'unassigned' to a driver. Other nodes are drivers
 	 * and if they have active followers, we can use them to schedule
 	 * the unassigned nodes. */
 	target = fallback = NULL;
@@ -879,12 +879,12 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		if (!n->visited)
 			collect_nodes(n);
 
-		/* from now on we are only interested in active master nodes.
+		/* from now on we are only interested in active driving nodes.
 		 * We're going to see if there are active followers. */
-		if (!n->master || !n->active || n->passive)
+		if (!n->driving || !n->active || n->passive)
 			continue;
 
-		/* first active master node is fallback */
+		/* first active driving node is fallback */
 		if (fallback == NULL)
 			fallback = n;
 
@@ -892,21 +892,21 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			pw_log_debug(NAME" %p: driver %p: follower %p %s: %d",
 					context, n, s, s->name, s->active);
 			if (s != n && s->active) {
-				/* if the master has active followers, it is a target for our
-				 * unassigned nodes */
+				/* if the driving node has active followers, it
+				 * is a target for our unassigned nodes */
 				if (target == NULL)
 					target = n;
 				break;
 			}
 		}
 	}
-	/* no active node, use fallback master */
+	/* no active node, use fallback driving node */
 	if (target == NULL)
 		target = fallback;
 
 	/* now go through all available nodes. The ones we didn't visit
-	 * in collect_nodes() are not linked to any master. We assign them
-	 * to either an active master of the first master */
+	 * in collect_nodes() are not linked to any driver. We assign them
+	 * to either an active driver of the first driver */
 	spa_list_for_each(n, &context->node_list, link) {
 		if (n->exported)
 			continue;
@@ -926,14 +926,14 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		n->visited = false;
 	}
 
-	/* assign final quantum and set state for followers and master */
+	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		bool running = false;
 		uint32_t max_quantum = 0;
 		uint32_t min_quantum = 0;
 		uint32_t quantum;
 
-		if (!n->master || n->exported)
+		if (!n->driving || n->exported)
 			continue;
 
 		/* collect quantum and count active nodes */
@@ -964,8 +964,8 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			n->rt.position->clock.duration = quantum;
 		}
 
-		pw_log_debug(NAME" %p: master %p running:%d passive:%d quantum:%u '%s'", context, n,
-				running, n->passive, quantum, n->name);
+		pw_log_debug(NAME" %p: driving %p running:%d passive:%d quantum:%u '%s'",
+				context, n, running, n->passive, quantum, n->name);
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 			if (s == n)

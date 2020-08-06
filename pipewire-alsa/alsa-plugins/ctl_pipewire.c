@@ -102,8 +102,6 @@ struct global {
 	uint32_t permissions;
 	struct pw_properties *props;
 
-	int priority_master;
-
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
@@ -905,7 +903,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	else
 		g->node.device_id = SPA_ID_INVALID;
 
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_MASTER)))
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_DRIVER)))
 		g->node.priority = atoi(str);
 	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS))) {
 		if (strcmp(str, "Audio/Sink") == 0)

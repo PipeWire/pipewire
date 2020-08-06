@@ -78,7 +78,7 @@ struct impl {
 	unsigned int started:1;
 	unsigned int active:1;
 	unsigned int driver:1;
-	unsigned int master:1;
+	unsigned int driving:1;
 	unsigned int monitor:1;
 };
 
@@ -775,7 +775,7 @@ static int impl_node_process(void *object)
 	if (this->monitor)
 		status |= SPA_STATUS_HAVE_DATA;
 
-	if (this->direction == SPA_DIRECTION_OUTPUT && !this->master) {
+	if (this->direction == SPA_DIRECTION_OUTPUT && !this->driving) {
 		if (this->use_converter)
 			status = spa_node_process(this->convert);
 	}

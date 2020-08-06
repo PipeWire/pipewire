@@ -247,8 +247,8 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	else if (strstr(profile, "iec958-") == profile)
 		priority += 8;
 
-	if (pw_properties_get(node->props, PW_KEY_PRIORITY_MASTER) == NULL) {
-		pw_properties_setf(node->props, PW_KEY_PRIORITY_MASTER, "%d", priority);
+	if (pw_properties_get(node->props, PW_KEY_PRIORITY_DRIVER) == NULL) {
+		pw_properties_setf(node->props, PW_KEY_PRIORITY_DRIVER, "%d", priority);
 		pw_properties_setf(node->props, PW_KEY_PRIORITY_SESSION, "%d", priority);
 	}
 

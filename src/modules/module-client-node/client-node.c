@@ -1023,6 +1023,8 @@ client_node_port_update(void *data,
 static int client_node_set_active(void *data, bool active)
 {
 	struct impl *impl = data;
+	struct node *this = &impl->node;
+	spa_log_debug(this->log, NAME" %p: active:%d", this, active);
 	return pw_impl_node_set_active(impl->this.node, active);
 }
 

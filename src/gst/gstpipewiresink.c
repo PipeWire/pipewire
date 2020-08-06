@@ -628,11 +628,17 @@ copy_properties (GQuark field_id,
                  gpointer user_data)
 {
   struct pw_properties *properties = user_data;
+  GValue dst = { 0 };
 
-  if (G_VALUE_HOLDS_STRING (value))
-    pw_properties_set (properties,
-                       g_quark_to_string (field_id),
-                       g_value_get_string (value));
+  if (g_value_type_transformable (G_VALUE_TYPE(value), G_TYPE_STRING)) {
+    g_value_init(&dst, G_TYPE_STRING);
+    if (g_value_transform(value, &dst)) {
+      pw_properties_set (properties,
+                         g_quark_to_string (field_id),
+                         g_value_get_string (&dst));
+    }
+    g_value_unset(&dst);
+  }
   return TRUE;
 }
 

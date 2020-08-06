@@ -442,6 +442,7 @@ static int link_nodes(struct node *node, struct node *peer)
 {
 	struct impl *impl = node->impl;
 	struct pw_properties *props;
+	struct node *output, *input;
 
 	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->id, peer->id);
 
@@ -468,15 +469,16 @@ static int link_nodes(struct node *node, struct node *peer)
 	node->peer = peer;
 
 	if (node->direction == PW_DIRECTION_INPUT) {
-		struct node *t = node;
-		node = peer;
-		peer = t;
+		output = peer;
+		input = node;
+	} else {
+		output = node;
+		input = peer;
 	}
-
 	props = pw_properties_new(NULL, NULL);
-	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", node->id);
-	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->id);
-	pw_log_info("linking node %d to node %d", node->id, peer->id);
+	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", output->id);
+	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", input->id);
+	pw_log_info("linking node %d to node %d", output->id, input->id);
 
 	sm_media_session_create_links(impl->session, &props->dict);
 

@@ -101,6 +101,7 @@ struct node {
 
 static bool find_format(struct node *node)
 {
+	struct impl *impl = node->impl;
 	struct sm_param *p;
 	bool have_format = false;
 
@@ -121,8 +122,14 @@ static bool find_format(struct node *node)
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
 			spa_debug_pod(2, NULL, p->param);
 
-		if (spa_format_audio_raw_parse(p->param, &info.info.raw) < 0)
-			continue;
+		/* defaults */
+		info.info.raw.format = SPA_AUDIO_FORMAT_F32;
+		info.info.raw.rate = impl->sample_rate;
+		info.info.raw.channels = 2;
+		info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+		info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+
+		spa_format_audio_raw_parse(p->param, &info.info.raw);
 
 		if (node->format.info.raw.channels < info.info.raw.channels)
 			node->format = info;

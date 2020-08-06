@@ -1314,16 +1314,16 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	struct pw_loop *loop = impl->this.loop;
-	int done, res;
+	int done, res, seq;
 
 	if (impl->policy_core == NULL)
 		return -EIO;
 
 	done = 0;
-	if ((res = sm_media_session_sync(sess, roundtrip_callback, &done)) < 0)
-		return res;
+	if ((seq = sm_media_session_sync(sess, roundtrip_callback, &done)) < 0)
+		return seq;
 
-	pw_log_debug(NAME" %p: roundtrip %d", impl, res);
+	pw_log_debug(NAME" %p: roundtrip %d", impl, seq);
 
 	pw_loop_enter(loop);
 	while (!done) {
@@ -1335,7 +1335,7 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 	}
         pw_loop_leave(loop);
 
-	pw_log_debug(NAME" %p: roundtrip done", impl);
+	pw_log_debug(NAME" %p: roundtrip %d done", impl, seq);
 
 	return 0;
 }

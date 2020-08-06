@@ -635,7 +635,7 @@ static int impl_steal_fd(struct pw_protocol_client *client)
 	if (impl->source == NULL)
 		return -EIO;
 
-	fd = dup(impl->source->fd);
+	fd = fcntl(impl->source->fd, F_DUPFD_CLOEXEC, 3);
 	if (fd < 0)
 		return -errno;
 

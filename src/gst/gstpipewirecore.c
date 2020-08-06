@@ -26,6 +26,7 @@
 #include "config.h"
 #endif
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <spa/utils/result.h>
 
@@ -83,7 +84,7 @@ static GstPipeWireCore *make_core (int fd)
   if (fd == -1)
     core->core = pw_context_connect (core->context, NULL, 0);
   else
-    core->core = pw_context_connect_fd (core->context, dup(fd), NULL, 0);
+    core->core = pw_context_connect_fd (core->context, fcntl(fd, F_DUPFD_CLOEXEC, 3), NULL, 0);
 
   if (core->core == NULL)
     goto connection_failed;

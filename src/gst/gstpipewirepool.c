@@ -180,6 +180,9 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
     if ((b = pw_stream_dequeue_buffer(p->stream)))
       break;
 
+    if (params && (params->flags & GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT))
+      goto no_more_buffers;
+
     GST_WARNING ("queue empty");
     g_cond_wait (&p->cond, GST_OBJECT_GET_LOCK (pool));
   }
@@ -196,6 +199,12 @@ flushing:
   {
     GST_OBJECT_UNLOCK (pool);
     return GST_FLOW_FLUSHING;
+  }
+no_more_buffers:
+  {
+    GST_LOG_OBJECT (pool, "no more buffers");
+    GST_OBJECT_UNLOCK (pool);
+    return GST_FLOW_EOS;
   }
 }
 

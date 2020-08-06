@@ -774,10 +774,23 @@ static void check_properties(struct pw_impl_node *node)
 	struct pw_context *context = node->context;
 	const char *str;
 	bool driver, do_recalc = false;
+	uint32_t group_id;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
 		node->priority_driver = pw_properties_parse_int(str);
 		pw_log_debug(NAME" %p: priority driver %d", node, node->priority_driver);
+	}
+
+	/* group_id defines what nodes are scheduled together */
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP)))
+		group_id = pw_properties_parse_int(str);
+	else
+		group_id = SPA_ID_INVALID;
+
+	if (group_id != node->group_id) {
+		pw_log_debug(NAME" %p: group %u->%u", node, node->group_id, group_id);
+		node->group_id = group_id;
+		do_recalc = true;
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
@@ -797,11 +810,6 @@ static void check_properties(struct pw_impl_node *node)
 	else
 		driver = false;
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_ALWAYS_PROCESS)))
-		node->want_driver = pw_properties_parse_bool(str);
-	else
-		node->want_driver = false;
-
 	if (node->driver != driver) {
 		pw_log_debug(NAME" %p: driver %d -> %d", node, node->driver, driver);
 		node->driver = driver;
@@ -811,7 +819,13 @@ static void check_properties(struct pw_impl_node *node)
 			else
 				spa_list_remove(&node->driver_link);
 		}
+		do_recalc = true;
 	}
+
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_ALWAYS_PROCESS)))
+		node->want_driver = pw_properties_parse_bool(str);
+	else
+		node->want_driver = false;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_LATENCY))) {
 		uint32_t num, denom;
@@ -826,13 +840,14 @@ static void check_properties(struct pw_impl_node *node)
 				pw_log_info("(%s-%u) quantum %u/%u", node->name, node->info.id,
 						quantum_size, context->defaults.clock_rate);
 				node->quantum_size = quantum_size;
-				do_recalc |= node->active;
+				do_recalc = true;
 			}
 		}
 	}
-	pw_log_debug(NAME" %p: driver:%d recalc:%d", node, node->driver, do_recalc);
+	pw_log_debug(NAME" %p: driver:%d recalc:%d active:%d", node, node->driver,
+			do_recalc, node->active);
 
-	if (do_recalc)
+	if (do_recalc && node->active)
 		pw_context_recalc_graph(context, "quantum change");
 }
 
@@ -1043,6 +1058,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this = &impl->this;
 	this->context = context;
 	this->name = strdup("node");
+	this->group_id = SPA_ID_INVALID;
 
 	if (user_data_size > 0)
                 this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);

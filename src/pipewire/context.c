@@ -797,7 +797,7 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 	return pw_impl_node_set_state(node, state);
 }
 
-static int collect_nodes(struct pw_impl_node *driver)
+static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver)
 {
 	struct spa_list queue;
 	struct pw_impl_node *n, *t;
@@ -811,10 +811,13 @@ static int collect_nodes(struct pw_impl_node *driver)
 
 	pw_log_debug("driver %p: '%s'", driver, driver->name);
 
+	/* start with driver in the queue */
 	spa_list_init(&queue);
 	spa_list_append(&queue, &driver->sort_link);
 	driver->visited = true;
 
+	/* now follow all the links from the nodes in the queue
+	 * and add the peers to the queue. */
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
 		pw_impl_node_set_driver(n, driver);
@@ -850,6 +853,19 @@ static int collect_nodes(struct pw_impl_node *driver)
 				}
 			}
 		}
+		/* now go through all the followers of this driver and add the
+		 * nodes that have the same group and that are not yet visited */
+		if (n->group_id == SPA_ID_INVALID)
+			continue;
+
+		spa_list_for_each(t, &context->node_list, link) {
+			if (t->exported || t == n || !t->active || t->visited)
+				continue;
+			if (t->group_id != n->group_id)
+				continue;
+			t->visited = true;
+			spa_list_append(&queue, &t->sort_link);
+		}
 	}
 	return 0;
 }
@@ -877,7 +893,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			continue;
 
 		if (!n->visited)
-			collect_nodes(n);
+			collect_nodes(context, n);
 
 		/* from now on we are only interested in active driving nodes.
 		 * We're going to see if there are active followers. */

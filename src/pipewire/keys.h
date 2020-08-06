@@ -127,6 +127,9 @@ extern "C" {
 								  *  nanoseconds. */
 
 #define PW_KEY_NODE_SESSION		"node.session"		/**< the session id this node is part of */
+#define PW_KEY_NODE_GROUP		"node.group"		/**< the group id this node is part of. Nodes
+								  *  in the same group are always scheduled
+								  *  with the same driver. */
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected
 								  *  to a compatible node */

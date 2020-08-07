@@ -1257,6 +1257,7 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 		size_t user_data_size)
 {
 	struct pw_impl_node *node;
+	struct pw_proxy *proxy;
 
 	node = pw_context_create_node(pw_core_get_context(core),
 			props ? pw_properties_new_dict(props) : NULL, 0);
@@ -1265,7 +1266,10 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 
 	pw_impl_node_set_implementation(node, (struct spa_node*)object);
 	pw_impl_node_register(node, NULL);
-	pw_impl_node_set_active(node, true);
 
-	return node_export(core, node, true, user_data_size);
+	proxy = node_export(core, node, true, user_data_size);
+	if (proxy)
+		pw_impl_node_set_active(node, true);
+
+	return proxy;
 }

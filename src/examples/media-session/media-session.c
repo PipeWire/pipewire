@@ -1549,6 +1549,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 {
 	struct pw_properties *props;
 	struct sm_port *outport, *inport;
+	int count = 0;
 
 	pw_log_debug(NAME" %p: linking %d -> %d", impl, outnode->obj.id, innode->obj.id);
 
@@ -1596,6 +1597,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 		l->input_node = innode->obj.id;
 		l->input_port = inport->obj.id;
 		pw_proxy_add_listener(p, &l->listener, &proxy_link_events, l);
+		count++;
 
 		if (link) {
 			l->endpoint_link = link;
@@ -1606,7 +1608,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 	}
 	pw_properties_free(props);
 
-	return 0;
+	return count;
 }
 
 

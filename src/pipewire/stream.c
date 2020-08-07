@@ -1466,6 +1466,8 @@ pw_stream_connect(struct pw_stream *stream,
 
 	if (target_id != PW_ID_ANY)
 		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
+	else if ((str = getenv("PIPEWIRE_NODE")) != NULL)
+		pw_properties_set(stream->properties, PW_KEY_NODE_TARGET, str);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "true");
 	if (flags & PW_STREAM_FLAG_DRIVER)

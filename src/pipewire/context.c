@@ -905,7 +905,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 			fallback = n;
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
-			pw_log_debug(NAME" %p: driver %p: follower %p %s: %d",
+			pw_log_debug(NAME" %p: driver %p: follower %p %s: active:%d",
 					context, n, s, s->name, s->active);
 			if (s != n && s->active) {
 				/* if the driving node has active followers, it
@@ -930,8 +930,8 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		if (!n->visited) {
 			struct pw_impl_node *t;
 
-			pw_log_debug(NAME" %p: unassigned node %p: '%s' %d %d", context,
-					n, n->name, n->active, n->want_driver);
+			pw_log_debug(NAME" %p: unassigned node %p: '%s' active:%d want_driver:%d",
+					context, n, n->name, n->active, n->want_driver);
 
 			t = n->active && n->want_driver ? target : NULL;
 

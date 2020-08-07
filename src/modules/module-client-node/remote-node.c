@@ -401,7 +401,23 @@ client_node_set_param(void *object, uint32_t id, uint32_t flags,
 		      const struct spa_pod *param)
 {
 	struct node_data *data = object;
-	return spa_node_set_param(data->node->node, id, flags, param);
+	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
+	int res;
+
+	pw_log_debug("node %p: set_param %s:", proxy,
+			spa_debug_type_find_name(spa_type_param, id));
+
+	res = spa_node_set_param(data->node->node, id, flags, param);
+
+	if (res < 0) {
+		pw_log_error("node %p: set_param %s (%d) %p: %s", proxy,
+				spa_debug_type_find_name(spa_type_param, id),
+				id, param, spa_strerror(res));
+		pw_proxy_errorf(proxy, res, "node_set_param(%s) failed: %s",
+				spa_debug_type_find_name(spa_type_param, id),
+				spa_strerror(res));
+	}
+	return res;
 }
 
 static int
@@ -559,7 +575,8 @@ client_node_port_set_param(void *object,
 		goto error_exit;
 	}
 
-	pw_log_debug("port %p: set param %d %p", port, id, param);
+	pw_log_debug("port %p: set_param %s %p", port,
+			spa_debug_type_find_name(spa_type_param, id), param);
 
 	res = pw_impl_port_set_param(port, id, flags, param);
 	if (res < 0)
@@ -572,12 +589,13 @@ client_node_port_set_param(void *object,
 				clear_buffers(data, mix);
 		}
 	}
-
 	return res;
 
 error_exit:
 	pw_log_error("port %p: set_param %d %p: %s", port, id, param, spa_strerror(res));
-	pw_proxy_errorf(proxy, res, "port_set_param: %s", spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "port_set_param(%s) failed: %s",
+				spa_debug_type_find_name(spa_type_param, id),
+				spa_strerror(res));
 	return res;
 }
 

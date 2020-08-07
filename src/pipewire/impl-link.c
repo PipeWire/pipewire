@@ -1218,6 +1218,8 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 	pw_global_register(link->global);
 
+	pw_log_debug(NAME" %p: output_active:%d input_active:%d", link,
+			input_node->active, output_node->active);
 	if (input_node->active && output_node->active)
 		pw_impl_link_prepare(link);
 

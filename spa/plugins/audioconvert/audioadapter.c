@@ -250,7 +250,7 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_data *datas;
 	uint32_t follower_flags, conv_flags;
 
-	spa_log_debug(this->log, "%p: %d", this, this->n_buffers);
+	spa_log_debug(this->log, NAME" %p: %d", this, this->n_buffers);
 
 	if (this->n_buffers > 0)
 		return 0;
@@ -452,7 +452,7 @@ static int negotiate_format(struct impl *this)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_debug(this->log, NAME "%p: negiotiate", this);
+	spa_log_debug(this->log, NAME " %p: negiotiate", this);
 
 	state = 0;
 	format = NULL;

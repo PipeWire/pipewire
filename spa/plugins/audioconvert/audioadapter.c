@@ -511,7 +511,6 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return res;
 		if ((res = negotiate_buffers(this)) < 0)
 			return res;
-		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		configure_format(this, 0, NULL);
@@ -535,6 +534,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 					this, spa_strerror(res));
 			return res;
 		}
+	}
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Start:
+		this->started = true;
+		break;
 	}
 	return res;
 }

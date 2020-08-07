@@ -969,6 +969,10 @@ filter_new(struct pw_context *context, const char *name,
 			str = name;
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);
 	}
+	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL) {
+		if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
+	}
 
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;

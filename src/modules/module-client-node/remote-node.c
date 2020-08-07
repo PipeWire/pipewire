@@ -1191,7 +1191,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 			&node->properties->dict,
 			user_data_size + sizeof(struct node_data));
 	if (client_node == NULL)
-		return NULL;
+		goto error;
 
 	data = pw_proxy_get_user_data(client_node);
 	data = SPA_MEMBER(data, user_data_size, struct node_data);
@@ -1234,6 +1234,11 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	do_node_init(data);
 
 	return client_node;
+error:
+	if (do_free)
+		pw_impl_node_destroy(node);
+	return NULL;
+
 }
 
 struct pw_proxy *pw_core_node_export(struct pw_core *core,

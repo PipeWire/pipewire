@@ -1213,16 +1213,19 @@ static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_impl_node *node = data;
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
+	bool recalc = false;
 
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
 
-	pw_log_debug(NAME" %p: change_mask %08"PRIx64" max_in:%u max_out:%u",
-			node, info->change_mask, info->max_input_ports,
+	pw_log_debug(NAME" %p: flags:%08"PRIx64" change_mask:%08"PRIx64" max_in:%u max_out:%u",
+			node, info->flags, info->change_mask, info->max_input_ports,
 			info->max_output_ports);
 
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_FLAGS) {
+		recalc = node->spa_flags != info->flags;
 		node->spa_flags = info->flags;
+		node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
 	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
 		update_properties(node, info->props);
@@ -1250,6 +1253,9 @@ static void node_info(void *data, const struct spa_node_info *info)
 
 	if (n_changed_ids > 0)
 		emit_params(node, changed_ids, n_changed_ids);
+
+	if (recalc)
+		pw_context_recalc_graph(node->context, "node info changed");
 }
 
 static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,

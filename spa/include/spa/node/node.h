@@ -65,6 +65,8 @@ struct spa_node_info {
 							  *  PortConfig parameter */
 #define SPA_NODE_FLAG_OUT_PORT_CONFIG		(1u<<4)	/**< output ports can be reconfigured with
 							  *  PortConfig parameter */
+#define SPA_NODE_FLAG_NEED_CONFIGURE		(1u<<5)	/**< node needs configuration before it can
+							  *  be started. */
 	uint64_t flags;
 	struct spa_dict *props;			/**< extra node properties */
 	struct spa_param_info *params;		/**< parameter information */

@@ -790,7 +790,7 @@ error:
 static int ensure_state(struct pw_impl_node *node, bool running)
 {
 	enum pw_node_state state = node->info.state;
-	if (node->active && running)
+	if (node->active && !SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_NEED_CONFIGURE) && running)
 		state = PW_NODE_STATE_RUNNING;
 	else if (state > PW_NODE_STATE_IDLE)
 		state = PW_NODE_STATE_IDLE;

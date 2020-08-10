@@ -688,6 +688,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		res = spa_node_set_param(this->fmt[direction], SPA_PARAM_PortConfig, 0, param);
 		if (res < 0)
 			return res;
+
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+		this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
 	}
 
 	/* notify ports of new node */
@@ -702,6 +705,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 				this);
 		this->have_fmt_listener[direction] = true;
 	}
+	emit_node_info(this, false);
+
 	return 0;
 }
 
@@ -1213,7 +1218,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_output_ports = 128;
 	this->info.flags = SPA_NODE_FLAG_RT |
 		SPA_NODE_FLAG_IN_PORT_CONFIG |
-		SPA_NODE_FLAG_OUT_PORT_CONFIG;
+		SPA_NODE_FLAG_OUT_PORT_CONFIG |
+		SPA_NODE_FLAG_NEED_CONFIGURE;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
 	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);

@@ -548,20 +548,26 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 	struct impl *this = data;
 	uint32_t i;
 
-	for (i = 0; i < info->n_params; i++) {
-		uint32_t idx = SPA_ID_INVALID;
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_FLAGS) {
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+		this->info.flags = info->flags;
+	}
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t idx = SPA_ID_INVALID;
 
-		switch (info->params[i].id) {
-		case SPA_PARAM_PropInfo:
-			idx = 1;
-			break;
-		case SPA_PARAM_Props:
-			idx = 2;
-			break;
-		}
-		if (idx != SPA_ID_INVALID) {
-			this->params[idx] = info->params[i];
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			switch (info->params[i].id) {
+			case SPA_PARAM_PropInfo:
+				idx = 1;
+				break;
+			case SPA_PARAM_Props:
+				idx = 2;
+				break;
+			}
+			if (idx != SPA_ID_INVALID) {
+				this->params[idx] = info->params[i];
+				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			}
 		}
 	}
 	emit_node_info(this, false);

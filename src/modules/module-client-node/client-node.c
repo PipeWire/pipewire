@@ -645,7 +645,8 @@ impl_node_port_set_param(void *object,
 	struct mix *mix;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	if(!CHECK_PORT(this, direction, port_id))
+		return param == NULL ? 0 : -EINVAL;
 
 	pw_log_debug(NAME" %p: port %d.%d set param %s %d", this,
 			direction, port_id,
@@ -748,7 +749,8 @@ do_port_use_buffers(struct impl *impl,
 	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
 
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	if (!CHECK_PORT(this, direction, port_id))
+		return n_buffers == 0 ? 0 : -EINVAL;
 
 	p = GET_PORT(this, direction, port_id);
 

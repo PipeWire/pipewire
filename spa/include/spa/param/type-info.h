@@ -335,6 +335,7 @@ static const struct spa_type_info spa_type_param_route[] = {
 	{ SPA_PARAM_ROUTE_info, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_ROUTE_BASE "info", NULL, },
 	{ SPA_PARAM_ROUTE_profiles, SPA_TYPE_Array, SPA_TYPE_INFO_PARAM_ROUTE_BASE "profiles", NULL, },
 	{ SPA_PARAM_ROUTE_props, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_ROUTE_BASE "props", NULL, },
+	{ SPA_PARAM_ROUTE_devices, SPA_TYPE_Array, SPA_TYPE_INFO_PARAM_ROUTE_BASE "devices", NULL, },
 	{ 0, 0, NULL, NULL },
 };
 

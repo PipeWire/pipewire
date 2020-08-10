@@ -154,6 +154,7 @@ enum spa_param_route {
 						  *		   String : value)*)) */
 	SPA_PARAM_ROUTE_profiles,		/**< associated profile indexes (Array of Int) */
 	SPA_PARAM_ROUTE_props,			/**< properties SPA_TYPE_OBJECT_Props */
+	SPA_PARAM_ROUTE_devices,		/**< associated device indexes (Array of Int) */
 };
 
 

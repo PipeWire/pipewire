@@ -380,6 +380,11 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 
 		spa_pod_builder_pop(b, &f[1]);
 	}
+	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
+	spa_pod_builder_push_array(b, &f[1]);
+	for (i = 0; i < p->n_devices; i++)
+		spa_pod_builder_int(b, p->devices[i]->index);
+	spa_pod_builder_pop(b, &f[1]);
 	return spa_pod_builder_pop(b, &f[0]);
 }
 

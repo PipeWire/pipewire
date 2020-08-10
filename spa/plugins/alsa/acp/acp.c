@@ -167,12 +167,6 @@ static void add_profiles(pa_card *impl)
 		pa_hashmap_put(impl->profiles, cp->name, cp);
 	}
 
-	PA_DYNARRAY_FOREACH(dev, &impl->out.devices, idx) {
-		PA_HASHMAP_FOREACH(dp, dev->ports, state)
-			pa_dynarray_append(&dev->port_array, dp);
-		dev->device.ports = dev->port_array.array.data;
-		dev->device.n_ports = pa_dynarray_size(&dev->port_array);
-	}
 	pa_dynarray_init(&impl->out.ports, NULL);
 	n_ports = 0;
 	PA_HASHMAP_FOREACH(dp, impl->ports, state) {
@@ -180,6 +174,7 @@ static void add_profiles(pa_card *impl)
 		dp->card = impl;
 		dp->port.index = n_ports++;
 		pa_dynarray_init(&dp->prof, NULL);
+		pa_dynarray_init(&dp->devices, NULL);
 		n_profiles = 0;
 		PA_HASHMAP_FOREACH(cp, dp->profiles, state2) {
 			pa_dynarray_append(&dp->prof, cp);
@@ -191,6 +186,18 @@ static void add_profiles(pa_card *impl)
 		pa_proplist_setf(dp->proplist, "card.profile.port", "%u", dp->port.index);
 		pa_proplist_as_dict(dp->proplist, &dp->port.props);
 		pa_dynarray_append(&impl->out.ports, dp);
+	}
+	PA_DYNARRAY_FOREACH(dev, &impl->out.devices, idx) {
+		PA_HASHMAP_FOREACH(dp, dev->ports, state) {
+			pa_dynarray_append(&dev->port_array, dp);
+			pa_dynarray_append(&dp->devices, dev);
+		}
+		dev->device.ports = dev->port_array.array.data;
+		dev->device.n_ports = pa_dynarray_size(&dev->port_array);
+	}
+	PA_HASHMAP_FOREACH(dp, impl->ports, state) {
+		dp->port.devices = dp->devices.array.data;
+		dp->port.n_devices = pa_dynarray_size(&dp->devices);
 	}
 
 	pa_hashmap_sort(impl->profiles, compare_profile);

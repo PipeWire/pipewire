@@ -153,6 +153,9 @@ struct acp_port {
 
 	uint32_t n_profiles;
 	struct acp_card_profile **profiles;
+
+	uint32_t n_devices;
+	struct acp_device **devices;
 };
 
 struct acp_device {

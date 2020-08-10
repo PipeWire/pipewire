@@ -69,6 +69,8 @@ struct pa_device_port {
 	pa_hashmap *profiles;
 	pa_dynarray prof;
 
+	pa_dynarray devices;
+
 	void (*impl_free)(struct pa_device_port *port);
 	void *user_data;
 };

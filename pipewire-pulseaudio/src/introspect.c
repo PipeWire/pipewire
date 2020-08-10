@@ -81,6 +81,19 @@ static int has_profile(pa_card_profile_info2 **list, pa_card_profile_info2 *acti
 	}
 	return 0;
 }
+static int has_device(struct port_device *devices, uint32_t id)
+{
+	uint32_t i;
+
+	if (devices->devices == NULL || devices->n_devices == 0)
+		return 1;
+
+	for (i = 0; i < devices->n_devices; i++) {
+		if (devices->devices[i] == id)
+			return 1;
+	}
+	return 0;
+}
 
 static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 {
@@ -150,12 +163,15 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 				continue;
 			if (!has_profile(ci->ports[n]->profiles2, ci->active_profile2))
 				continue;
+			if (!has_device(&cg->card_info.port_devices[n], g->node_info.profile_device_id))
+				continue;
+
 			i.ports[j] = &spi[j];
 			spi[j].name = ci->ports[n]->name;
 			spi[j].description = ci->ports[n]->description;
 			spi[j].priority = ci->ports[n]->priority;
 			spi[j].available = ci->ports[n]->available;
-			if (n == cg->card_info.active_port_output)
+			if (n == g->node_info.active_port)
 				i.active_port = i.ports[j];
 			j++;
 		}
@@ -432,10 +448,7 @@ static int set_volume(pa_context *c, struct global *g, const pa_cvolume *volume,
 
 	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME | NODE_FLAG_DEVICE_MUTE) &&
 	    (cg = pa_context_find_global(c, card_id)) != NULL) {
-		if (mask & PA_SUBSCRIPTION_MASK_SINK)
-			id = cg->card_info.active_port_output;
-		else if (mask & PA_SUBSCRIPTION_MASK_SOURCE)
-			id = cg->card_info.active_port_input;
+		id = cg->node_info.active_port;
 	}
 	if (id != SPA_ID_INVALID && device_id != SPA_ID_INVALID) {
 		res = set_device_volume(c, g, cg, id, device_id, volume, mute);
@@ -877,12 +890,14 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 				continue;
 			if (!has_profile(ci->ports[n]->profiles2, ci->active_profile2))
 				continue;
+			if (!has_device(&cg->card_info.port_devices[n], g->node_info.profile_device_id))
+				continue;
 			i.ports[j] = &spi[j];
 			spi[j].name = ci->ports[n]->name;
 			spi[j].description = ci->ports[n]->description;
 			spi[j].priority = ci->ports[n]->priority;
 			spi[j].available = ci->ports[n]->available;
-			if (n == cg->card_info.active_port_input)
+			if (n == g->node_info.active_port)
 				i.active_port = i.ports[j];
 			j++;
 		}

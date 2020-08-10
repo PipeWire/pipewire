@@ -230,6 +230,11 @@ struct param {
 #define PA_IDX_FLAG_DSP		0x800000U
 #define PA_IDX_MASK_DSP		0x7fffffU
 
+struct port_device {
+	uint32_t n_devices;
+	uint32_t *devices;
+};
+
 struct global;
 
 struct global_info {
@@ -286,6 +291,7 @@ struct global {
 			uint32_t profile_device_id;	/* id in profile */
 			float base_volume;
 			float volume_step;
+			uint32_t active_port;
 		} node_info;
 		struct {
 			uint32_t node_id;
@@ -302,8 +308,7 @@ struct global {
 			unsigned int pending_profiles:1;
 			pa_card_port_info *card_ports;
 			unsigned int pending_ports:1;
-			uint32_t active_port_output;
-			uint32_t active_port_input;
+			struct port_device *port_devices;
 		} card_info;
 		struct {
 			pa_module_info info;

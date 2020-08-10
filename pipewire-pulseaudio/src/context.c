@@ -540,17 +540,13 @@ static void device_event_param(void *object, int seq,
 			return;
 		}
 
-		if (direction == SPA_DIRECTION_OUTPUT)
-			g->card_info.active_port_output = index;
-		else
-			g->card_info.active_port_input = index;
-
 		pw_log_debug("device %d: active %s route %d", g->id,
 				direction == SPA_DIRECTION_OUTPUT ? "output" : "input",
 				index);
 
 		ng = find_node_for_route(c, g, device);
 		if (props && ng) {
+			ng->node_info.active_port = index;
 			parse_props(ng, props, true);
 			emit_event(c, ng, PA_SUBSCRIPTION_EVENT_CHANGE);
 		}
@@ -684,6 +680,7 @@ static void device_sync_ports(struct global *g)
 	n_ports = g->card_info.n_ports;
 	i->ports = calloc(n_ports+1, sizeof(pa_card_port_info *));
 	g->card_info.card_ports = calloc(n_ports, sizeof(pa_card_port_info));
+	g->card_info.port_devices = calloc(n_ports, sizeof(struct port_device));
 	i->n_ports = 0;
 
 	pw_log_debug("context %p: info for %d", g->context, g->id);
@@ -695,8 +692,9 @@ static void device_sync_ports(struct global *g)
 		enum spa_direction direction;
 		const char *name = NULL, *description = NULL;
 		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
-		struct spa_pod *profiles = NULL, *info = NULL;
+		struct spa_pod *profiles = NULL, *info = NULL, *devices = NULL;
 		pa_card_port_info *pi;
+		struct port_device *pd;
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
@@ -707,6 +705,7 @@ static void device_sync_ports(struct global *g)
 				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&priority),
 				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&available),
 				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
+				SPA_PARAM_ROUTE_devices,  SPA_POD_OPT_Pod(&devices),
 				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0) {
 			pw_log_warn("device %d: can't parse route", g->id);
 			continue;
@@ -760,6 +759,11 @@ static void device_sync_ports(struct global *g)
 			pi->profiles = (pa_card_profile_info **)pi->profiles2;
 			break;
 		}
+		pd = &g->card_info.port_devices[j];
+		pd->n_devices = 0;
+		pd->devices = NULL;
+		if (devices)
+			pd->devices = spa_pod_get_array(devices, &pd->n_devices);
 		j++;
 	}
 	i->ports[j] = NULL;
@@ -1083,8 +1087,6 @@ static int set_mask(pa_context *c, struct global *g)
 		ginfo = &device_info;
 		spa_list_init(&g->card_info.profiles);
 		spa_list_init(&g->card_info.ports);
-		g->card_info.active_port_output = SPA_ID_INVALID;
-		g->card_info.active_port_input = SPA_ID_INVALID;
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Node) == 0) {
 		if (g->props == NULL)
 			return 0;
@@ -1136,6 +1138,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->node_info.mute = false;
 		g->node_info.base_volume = 1.0f;
 		g->node_info.volume_step = 1.0f / (PA_VOLUME_NORM+1);
+		g->node_info.active_port = SPA_ID_INVALID;
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Port) == 0) {
 		if (g->props == NULL)
 			return 0;

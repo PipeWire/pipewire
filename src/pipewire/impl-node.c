@@ -1294,7 +1294,8 @@ static void node_result(void *data, int seq, int res, uint32_t type, const void 
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 
 	pw_log_trace(NAME" %p: result seq:%d res:%d type:%u", node, seq, res, type);
-	impl->last_error = res;
+	if (res < 0)
+		impl->last_error = res;
 
 	if (SPA_RESULT_IS_ASYNC(seq))
 	        pw_work_queue_complete(impl->work, &impl->this, SPA_RESULT_ASYNC_SEQ(seq), res);
@@ -1840,13 +1841,22 @@ error:
 static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 {
 	struct pw_impl_node *node = obj;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state state = SPA_PTR_TO_INT(data);
 	char *error = NULL;
 
-	pw_log_debug(NAME" %p: state complete %d", node, res);
+	pw_log_debug(NAME" %p: state complete res:%d seq:%d", node, res, seq);
+	if (impl->last_error < 0) {
+		res = impl->last_error;
+		impl->last_error = 0;
+	}
 	if (SPA_RESULT_IS_ERROR(res)) {
-		error = spa_aprintf("error changing node state: %s", spa_strerror(res));
-		state = PW_NODE_STATE_ERROR;
+		if (node->info.state == PW_NODE_STATE_SUSPENDED) {
+			state = PW_NODE_STATE_SUSPENDED;
+		} else {
+			error = spa_aprintf("error changing node state: %s", spa_strerror(res));
+			state = PW_NODE_STATE_ERROR;
+		}
 	}
 	node_update_state(node, state, error);
 }

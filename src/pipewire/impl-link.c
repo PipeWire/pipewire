@@ -856,14 +856,19 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 	node_result(impl, port, seq, res, type, result);
 }
 
-static void node_active_changed(void *data, bool active)
+static void check_prepare(struct pw_impl_link *this)
 {
-	struct impl *impl = data;
-	struct pw_impl_link *this = &impl->this;
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	pw_log_debug(NAME" %p: input active:%d output active:%d", impl,
 			impl->inode->active, impl->onode->active);
 	if (impl->inode->active && impl->onode->active)
 		pw_impl_link_prepare(this);
+}
+
+static void node_active_changed(void *data, bool active)
+{
+	struct impl *impl = data;
+	check_prepare(&impl->this);
 }
 
 static const struct pw_impl_node_events input_node_events = {
@@ -1218,10 +1223,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 	pw_global_register(link->global);
 
-	pw_log_debug(NAME" %p: output_active:%d input_active:%d", link,
-			input_node->active, output_node->active);
-	if (input_node->active && output_node->active)
-		pw_impl_link_prepare(link);
+	check_prepare(link);
 
 	return 0;
 

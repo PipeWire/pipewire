@@ -315,7 +315,7 @@ static int add_node_update(struct node_data *data, uint32_t change_mask)
 		ni.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |
 			SPA_NODE_CHANGE_MASK_PARAMS;
-		ni.flags = 0;
+		ni.flags = node->spa_flags;
 		ni.props = node->info.props;
 		ni.params = node->info.params;
 		ni.n_params = node->info.n_params;
@@ -940,7 +940,7 @@ static void do_node_init(struct node_data *data)
 {
 	struct pw_impl_port *port;
 
-	pw_log_debug("%p: init", data);
+	pw_log_debug("%p: node %p init", data, data->node);
 	add_node_update(data, PW_CLIENT_NODE_UPDATE_PARAMS |
 				PW_CLIENT_NODE_UPDATE_INFO);
 

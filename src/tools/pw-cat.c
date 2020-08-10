@@ -46,6 +46,7 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/global.h>
+#include <extensions/metadata.h>
 
 #include "midifile.h"
 
@@ -101,6 +102,11 @@ struct data {
 	struct spa_hook core_listener;
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
+	struct pw_metadata *metadata;
+	struct spa_hook metadata_listener;
+	uint32_t default_sink;
+	uint32_t default_source;
+
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
@@ -140,6 +146,7 @@ struct data {
 	bool list_targets;
 	bool targets_listed;
 	struct spa_list targets;
+	int sync;
 
 	struct spa_io_position *position;
 	bool drained;
@@ -615,7 +622,7 @@ static void on_core_done(void *userdata, uint32_t id, int seq)
 		printf("core done\n");
 
 	/* if we're listing targets just exist */
-	if (data->list_targets) {
+	if (data->sync == seq && data->list_targets) {
 		data->targets_listed = true;
 		pw_main_loop_quit(data->loop);
 	}
@@ -638,6 +645,27 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
+static int metadata_property(void *object,
+		uint32_t subject, const char *key, const char *type, const char *value)
+{
+	struct data *data = object;
+	uint32_t val;
+
+	if (key && strcmp(key, "default.audio.sink") == 0) {
+		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		data->default_sink = val;
+	} else if (key && strcmp(key, "default.audio.source") == 0) {
+		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		data->default_source = val;
+	}
+	return 0;
+}
+
+static const struct pw_metadata_events metadata_events = {
+	PW_VERSION_METADATA_EVENTS,
+	.property = metadata_property,
+};
+
 static void registry_event_global(void *userdata, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
@@ -654,43 +682,57 @@ static void registry_event_global(void *userdata, uint32_t id,
 		return;
 
 	/* must be listing targets and interface must be a node */
-	if (!data->list_targets || strcmp(type, PW_TYPE_INTERFACE_Node))
+	if (!data->list_targets)
 		return;
 
-	name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
-	desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
-	media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
-	prio_session = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION);
+	if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
+		if (data->metadata != NULL)
+			return;
 
-	/* name and media class must exist */
-	if (!name || !media_class)
-		return;
+		data->metadata = pw_registry_bind(data->registry,
+				id, type, PW_VERSION_METADATA, 0);
+		pw_metadata_add_listener(data->metadata,
+				&data->metadata_listener,
+				&metadata_events, data);
 
-	/* get allowed mode from the media class */
-	/* TODO extend to something else besides Audio/Source|Sink */
-	if (!strcmp(media_class, "Audio/Source"))
-		mode = mode_record;
-	else if (!strcmp(media_class, "Audio/Sink"))
-		mode = mode_playback;
+		data->sync = pw_core_sync(data->core, 0, data->sync);
 
-	/* modes must match */
-	if (mode != data->mode)
-		return;
+	} else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+		name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
+		desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
+		media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
+		prio_session = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION);
 
-	prio = prio_session ? atoi(prio_session) : -1;
+		/* name and media class must exist */
+		if (!name || !media_class)
+			return;
 
-	if (data->verbose) {
-		printf("registry: id=%"PRIu32" type=%s name=\"%s\" media_class=\"%s\" desc=\"%s\" prio=%d\n",
-				id, type, name, media_class, desc ? : "", prio);
+		/* get allowed mode from the media class */
+		/* TODO extend to something else besides Audio/Source|Sink */
+		if (!strcmp(media_class, "Audio/Source"))
+			mode = mode_record;
+		else if (!strcmp(media_class, "Audio/Sink"))
+			mode = mode_playback;
 
-		spa_dict_for_each(item, props) {
-			fprintf(stdout, "\t\t%s = \"%s\"\n", item->key, item->value);
+		/* modes must match */
+		if (mode != data->mode)
+			return;
+
+		prio = prio_session ? atoi(prio_session) : -1;
+
+		if (data->verbose) {
+			printf("registry: id=%"PRIu32" type=%s name=\"%s\" media_class=\"%s\" desc=\"%s\" prio=%d\n",
+					id, type, name, media_class, desc ? : "", prio);
+
+			spa_dict_for_each(item, props) {
+				fprintf(stdout, "\t\t%s = \"%s\"\n", item->key, item->value);
+			}
 		}
-	}
 
-	target = target_create(id, name, desc, prio);
-	if (target)
-		spa_list_append(&data->targets, &target->link);
+		target = target_create(id, name, desc, prio);
+		if (target)
+			spa_list_append(&data->targets, &target->link);
+	}
 }
 
 static void registry_event_global_remove(void *userdata, uint32_t id)
@@ -1231,6 +1273,9 @@ int main(int argc, char *argv[])
 	else
 		prog = argv[0];
 
+	data.default_source = SPA_ID_INVALID;
+	data.default_sink = SPA_ID_INVALID;
+
 	/* prime the mode from the program name */
 	if (!strcmp(prog, "pw-play"))
 		data.mode = mode_playback;
@@ -1465,7 +1510,7 @@ int main(int argc, char *argv[])
 	}
 	pw_registry_add_listener(data.registry, &data.registry_listener, &registry_events, &data);
 
-	pw_core_sync(data.core, 0, 0);
+	data.sync = pw_core_sync(data.core, 0, data.sync);
 
 	if (!data.list_targets) {
 		struct spa_audio_info_raw info;
@@ -1556,24 +1601,27 @@ int main(int argc, char *argv[])
 			exit_code = EXIT_SUCCESS;
 	} else {
 		if (data.targets_listed) {
+			uint32_t default_id;
+
+			default_id = (data.mode == mode_record) ?
+				data.default_source : data.default_sink;
+
 			exit_code = EXIT_SUCCESS;
 
 			/* first find the highest priority */
 			target_default = NULL;
 			spa_list_for_each(target, &data.targets, link) {
-				if (!target_default) {
-					target_default = target;
-					continue;
-				}
-				if (target->prio > target_default->prio)
+				if (target_default == NULL ||
+				    default_id == target->id ||
+				    (default_id == SPA_ID_INVALID &&
+				     target->prio > target_default->prio))
 					target_default = target;
 			}
-
-			printf("Available targets (\"*\" denotes default):\n");
+			printf("Available targets (\"*\" denotes default): %d\n", default_id);
 			spa_list_for_each(target, &data.targets, link) {
-				printf("%s\t%"PRIu32": name=\"%s\" description=\"%s\" prio=%d\n",
+				printf("%s\t%"PRIu32": description=\"%s\" prio=%d\n",
 				       target == target_default ? "*" : "",
-				       target->id, target->name, target->desc, target->prio);
+				       target->id, target->desc, target->prio);
 			}
 		}
 	}
@@ -1589,6 +1637,8 @@ error_connect_fail:
 	if (data.stream)
 		pw_stream_destroy(data.stream);
 error_no_stream:
+	if (data.metadata)
+		pw_proxy_destroy((struct pw_proxy*)data.metadata);
 	if (data.registry)
 		pw_proxy_destroy((struct pw_proxy*)data.registry);
 error_no_registry:

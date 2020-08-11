@@ -210,6 +210,7 @@ struct link {
 };
 
 struct context {
+	struct pw_loop *l;
 	struct pw_thread_loop *loop;	/* thread_lock protects all below */
 	struct pw_context *context;
 
@@ -329,6 +330,8 @@ struct client {
 		struct pw_node_activation *driver_activation;
 		struct spa_list target_links;
 	} rt;
+
+	int pending;
 
 	unsigned int started:1;
 	unsigned int active:1;
@@ -989,25 +992,59 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 	return state;
 }
 
-static inline void check_buffer_frames(struct client *c, struct spa_io_position *pos)
+static int
+do_buffer_frames(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	uint32_t buffer_frames = *((uint32_t*)data);
+	struct client *c = user_data;
+	if (c->bufsize_callback)
+		c->bufsize_callback(buffer_frames, c->bufsize_arg);
+	ATOMIC_DEC(c->pending);
+	return 0;
+}
+
+static inline void check_buffer_frames(struct client *c, struct spa_io_position *pos, bool rt)
 {
 	uint32_t buffer_frames = pos->clock.duration;
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
 		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
+		ATOMIC_INC(c->pending);
 		c->buffer_frames = buffer_frames;
-		if (c->bufsize_callback)
-			c->bufsize_callback(c->buffer_frames, c->bufsize_arg);
+		if (rt)
+			pw_loop_invoke(c->context.l, do_buffer_frames, 0,
+					&buffer_frames, sizeof(buffer_frames), false, c);
+		else
+			do_buffer_frames(c->context.l->loop, false, 0,
+					&buffer_frames, sizeof(buffer_frames), c);
 	}
 }
 
-static inline void check_sample_rate(struct client *c, struct spa_io_position *pos)
+static int
+do_sample_rate(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	uint32_t sample_rate = *((uint32_t*)data);
+	if (c->srate_callback)
+		c->srate_callback(sample_rate, c->srate_arg);
+	ATOMIC_DEC(c->pending);
+	return 0;
+}
+
+static inline void check_sample_rate(struct client *c, struct spa_io_position *pos, bool rt)
 {
 	uint32_t sample_rate = pos->clock.rate.denom;
 	if (SPA_UNLIKELY(sample_rate != c->sample_rate)) {
 		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
+		ATOMIC_INC(c->pending);
 		c->sample_rate = sample_rate;
-		if (c->srate_callback)
-			c->srate_callback(c->sample_rate, c->srate_arg);
+		if (rt)
+			pw_loop_invoke(c->context.l, do_sample_rate, 0,
+					&sample_rate, sizeof(sample_rate), false, c);
+		else
+			do_sample_rate(c->context.l->loop, false, 0,
+					&sample_rate, sizeof(sample_rate), c);
 	}
 }
 
@@ -1043,8 +1080,8 @@ static inline uint32_t cycle_run(struct client *c)
 		return 0;
 	}
 
-	check_buffer_frames(c, pos);
-	check_sample_rate(c, pos);
+	check_buffer_frames(c, pos, true);
+	check_sample_rate(c, pos, true);
 
 	if (SPA_LIKELY(driver)) {
 		c->jack_state = position_to_jack(driver, &c->jack_position);
@@ -1159,11 +1196,12 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		}
 	} else if (SPA_LIKELY(mask & SPA_IO_IN)) {
 		uint32_t buffer_frames;
-		int status;
+		int status = 0;
 
 		buffer_frames = cycle_run(c);
 
-		status = c->process_callback ? c->process_callback(buffer_frames, c->process_arg) : 0;
+		if (!ATOMIC_LOAD(c->pending) && c->process_callback)
+			status = c->process_callback(buffer_frames, c->process_arg);
 
 		cycle_signal(c, status);
 	}
@@ -1335,7 +1373,7 @@ static int client_node_set_io(void *object,
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
 		if (ptr)
-			check_sample_rate(c, c->position);
+			check_sample_rate(c, c->position, false);
 		break;
 	default:
 		break;
@@ -2323,8 +2361,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
 	client->context.loop = pw_thread_loop_new(client_name, NULL);
+	client->context.l = pw_thread_loop_get_loop(client->context.loop),
 	client->context.context = pw_context_new(
-			pw_thread_loop_get_loop(client->context.loop),
+			client->context.l,
 			pw_properties_new(
 				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
 				NULL),
@@ -2642,7 +2681,7 @@ int jack_activate (jack_client_t *client)
 	c->active = true;
 
 	if (c->position)
-		check_buffer_frames(c, c->position);
+		check_buffer_frames(c, c->position, false);
 
 	return 0;
 }

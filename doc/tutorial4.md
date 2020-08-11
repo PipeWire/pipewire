@@ -234,9 +234,9 @@ means that we are ok with conneting to any consumer. Next we set some flags:
                                 memory. If you don't set these flags you have
 				either work with the fd or mmap yourself.
 * `PW_STREAM_FLAG_RT_PROCESS` 	Run the process function in the realtime thread.
-		                Only use this is the process function only 
+		                Only use this if the process function only
 				uses functions that are realtime safe, this means
-				no allocation or file access or locking.
+				no allocation or file access or any locking.
 
 And last we pass the extra parameters for our stream. Here we only have the
 allowed formats (`SPA_PARAM_EnumFormat`).

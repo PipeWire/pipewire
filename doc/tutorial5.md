@@ -263,7 +263,7 @@ Now we're ready to connect the stream and run the main loop:
 ```
 
 To connect we specify that we have an `PW_DIRECTION_INPUT` stream. `PW_ID_ANY`
-means that we are ok with conneting to any producer. We also allow the user
+means that we are ok with connecting to any producer. We also allow the user
 to pass an optional target id.
 
 We're setting the `PW_STREAM_FLAG_AUTOCONNECT` flag to make an automatic

@@ -2338,7 +2338,7 @@ jack_client_t * jack_client_open (const char *client_name,
 {
 	struct client *client;
 	struct spa_dict props;
-	struct spa_dict_item items[6];
+	struct spa_dict_item items[1];
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *str;
@@ -2441,16 +2441,21 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->props == NULL)
 		goto init_failed;
 
-	props = SPA_DICT_INIT(items, 0);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_NAME, client_name);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY, "Duplex");
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, "DSP");
-	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
-		items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_ALWAYS_PROCESS, "true");
-
-	pw_properties_add(client->props, &props);
+	if (pw_properties_get(client->props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_NAME, client_name);
+	if (pw_properties_get(client->props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_DESCRIPTION, client_name);
+	if (pw_properties_get(client->props, PW_KEY_MEDIA_TYPE) == NULL)
+		pw_properties_set(client->props, PW_KEY_MEDIA_TYPE, "Audio");
+	if (pw_properties_get(client->props, PW_KEY_MEDIA_CATEGORY) == NULL)
+		pw_properties_set(client->props, PW_KEY_MEDIA_CATEGORY, "Duplex");
+	if (pw_properties_get(client->props, PW_KEY_MEDIA_ROLE) == NULL)
+		pw_properties_set(client->props, PW_KEY_MEDIA_ROLE, "DSP");
+	if (pw_properties_get(client->props, PW_KEY_NODE_LATENCY) == NULL &&
+	    (str = getenv("PIPEWIRE_LATENCY")) != NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
+	if (pw_properties_get(client->props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
 	client->node = pw_core_create_object(client->core,
 				"client-node",

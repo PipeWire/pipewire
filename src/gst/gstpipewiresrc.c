@@ -683,6 +683,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   }
 
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pwsrc->path);
+  pwsrc->negotiated = FALSE;
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
                      pwsrc->path ? (uint32_t)atoi(pwsrc->path) : PW_ID_ANY,
@@ -695,17 +696,20 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
 
     GST_DEBUG_OBJECT (basesrc, "waiting for NEGOTIATED, now %s", pw_stream_state_as_string (state));
-    if (pwsrc->negotiated)
-      break;
-
     if (state == PW_STREAM_STATE_ERROR)
       goto connect_error;
+
+    if (pwsrc->negotiated)
+      break;
 
     pw_thread_loop_wait (pwsrc->core->loop);
   }
   caps = pwsrc->caps;
   pwsrc->caps = NULL;
   pw_thread_loop_unlock (pwsrc->core->loop);
+
+  if (caps == NULL)
+    goto no_caps;
 
   gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->clock), 0);
 

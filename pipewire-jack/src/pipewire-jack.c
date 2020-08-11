@@ -806,6 +806,9 @@ static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames
 	p->io.status = -EPIPE;
 	p->io.buffer_id = SPA_ID_INVALID;
 
+	if (frames == 0)
+		return NULL;
+
 	if (SPA_LIKELY((mix = find_mix(c, p, -1)) != NULL)) {
 		struct buffer *b;
 

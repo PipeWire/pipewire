@@ -103,7 +103,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
       data->offset = d->mapoffset;
     }
     else if (d->type == SPA_DATA_MemPtr) {
-      gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
+      gmem = gst_memory_new_wrapped (GST_MEMORY_FLAG_NO_SHARE, d->data, d->maxsize, 0,
                                      d->maxsize, NULL, NULL);
       data->offset = 0;
     }

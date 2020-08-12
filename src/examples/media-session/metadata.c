@@ -52,13 +52,37 @@ static void clear_item(struct item *item)
 	spa_zero(*item);
 }
 
-
 static void set_item(struct item *item, uint32_t subject, const char *key, const char *type, const char *value)
 {
 	item->subject = subject;
 	item->key = strdup(key);
-	item->type = strdup(type);
+	item->type = type ? strdup(type) : NULL;
 	item->value = strdup(value);
+}
+
+static inline int strzcmp(const char *s1, const char *s2)
+{
+	if (s1 == s2)
+		return 0;
+	if (s1 == NULL || s2 == NULL)
+		return 1;
+	return strcmp(s1, s2);
+}
+
+static int change_item(struct item *item, const char *type, const char *value)
+{
+	int changed = 0;
+	if (strzcmp(item->type, type) != 0) {
+		free((char*)item->type);
+		item->type = type ? strdup(type) : NULL;
+		changed++;
+	}
+	if (strzcmp(item->value, value) != 0) {
+		free((char*)item->value);
+		item->value = value ? strdup(value) : NULL;
+		changed++;
+	}
+	return changed;
 }
 
 struct metadata {
@@ -158,6 +182,7 @@ static int impl_set_property(void *object,
 {
 	struct metadata *this = object;
 	struct item *item = NULL;
+	int changed = 0;
 
 	pw_log_debug(NAME" %p: id:%d key:%s type:%s value:%s", this, subject, key, type, value);
 
@@ -165,30 +190,34 @@ static int impl_set_property(void *object,
 		return clear_subjects(this, subject);
 
 	item = find_item(this, subject, key);
-	if (item == NULL) {
-		if (value == NULL)
-			return 0;
+	if (value == NULL) {
+		if (item != NULL) {
+			pw_array_remove(&this->metadata, item);
+			clear_item(item);
+			type = NULL;
+			changed++;
+			pw_log_info(NAME" %p: remove id:%d key:%s", this,
+					subject, key);
+		}
+	} else if (item == NULL) {
 		item = pw_array_add(&this->metadata, sizeof(*item));
 		if (item == NULL)
 			return -errno;
-	} else {
-		clear_item(item);
-
-	}
-	if (value != NULL) {
-		if (type == NULL)
-			type = "string";
 		set_item(item, subject, key, type, value);
-		pw_log_debug(NAME" %p: add id:%d key:%s type:%s value:%s", this,
+		changed++;
+		pw_log_info(NAME" %p: add id:%d key:%s type:%s value:%s", this,
 				subject, key, type, value);
 	} else {
-		type = NULL;
-		pw_array_remove(&this->metadata, item);
-		pw_log_debug(NAME" %p: remove id:%d key:%s", this, subject, key);
+		if (type == NULL)
+			type = item->type;
+		changed = change_item(item, type, value);
+		pw_log_info(NAME" %p: change id:%d key:%s type:%s value:%s", this,
+				subject, key, type, value);
 	}
 
-	pw_metadata_emit_property(&this->hooks,
-				subject, key, type, value);
+	if (changed)
+		pw_metadata_emit_property(&this->hooks,
+					subject, key, type, value);
 	return 0;
 }
 

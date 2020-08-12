@@ -15,7 +15,7 @@ passing.
 
 ## Building and installation
 
-The prefered way to install PipeWire is to install it with your
+The preferred way to install PipeWire is to install it with your
 distribution package system. This ensures PipeWire is integrated
 into the rest of your system for the best experience.
 
@@ -71,7 +71,7 @@ $ pw-jack <appname>
 ```
 
 If you replaced JACK with PipeWire completely, `pw-jack` does not have any
-effect and can be ommited.
+effect and can be omitted.
 
 ### Running PulseAudio applications
 

@@ -42,7 +42,7 @@ cli: all
 	@BUILD_ROOT@/src/tools/pw-cli
 
 shell: all
-	ninja -C @BUILD_ROOT@ uninstalled
+	ninja -C @BUILD_ROOT@ pw-uninstalled
 
 dist: all
 	git archive --prefix=pipewire-@VERSION@/ -o pipewire-@VERSION@.tar.gz @TAG@

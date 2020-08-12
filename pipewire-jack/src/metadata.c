@@ -143,7 +143,7 @@ static inline int strzcmp(const char *s1, const char *s2)
 		return 0;
 	if (s1 == NULL || s2 == NULL)
 		return 1;
-	return strcmp(s1, s1);
+	return strcmp(s1, s2);
 }
 
 static int change_property(jack_property_t *prop, const char *value, const char *type)

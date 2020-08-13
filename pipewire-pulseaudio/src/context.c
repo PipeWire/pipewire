@@ -779,6 +779,7 @@ static void device_sync(struct global *g)
 	if (g->card_info.pending_profiles) {
 		device_sync_profiles(g);
 		g->card_info.pending_profiles = false;
+		g->card_info.pending_ports = true;
 	}
 	if (g->card_info.pending_ports) {
 		device_sync_ports(g);

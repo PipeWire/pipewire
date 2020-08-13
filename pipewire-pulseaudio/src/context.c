@@ -369,8 +369,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				remove_params(&g->card_info.ports, id);
 				g->card_info.n_ports = 0;
 				break;
-			case SPA_PARAM_Route:
 			case SPA_PARAM_Profile:
+			case SPA_PARAM_Route:
 				break;
 			default:
 				do_enum = false;
@@ -381,9 +381,11 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			if (do_enum) {
 				switch (id) {
 				case SPA_PARAM_EnumProfile:
+				case SPA_PARAM_Profile:
 					g->card_info.pending_profiles = true;
 					break;
 				case SPA_PARAM_EnumRoute:
+				case SPA_PARAM_Route:
 					g->card_info.pending_ports = true;
 					break;
 				}
@@ -501,8 +503,8 @@ static void device_event_param(void *object, int seq,
 			pw_log_warn("device %d: can't parse profile", g->id);
 			return;
 		}
-		g->card_info.active_profile = index;
 		pw_log_debug("device %d: current profile %d", g->id, index);
+		g->card_info.active_profile = index;
 		break;
 	}
 	case SPA_PARAM_EnumRoute:
@@ -545,7 +547,7 @@ static void device_event_param(void *object, int seq,
 				index);
 
 		ng = find_node_for_route(c, g, device);
-		if (props && ng) {
+		if (props && ng && ng->node_info.active_port != index) {
 			ng->node_info.active_port = index;
 			parse_props(ng, props, true);
 			emit_event(c, ng, PA_SUBSCRIPTION_EVENT_CHANGE);

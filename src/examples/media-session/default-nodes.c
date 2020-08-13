@@ -44,7 +44,7 @@
 #define NAME		"default-nodes"
 #define SESSION_KEY	"default-nodes"
 
-#define SAVE_INTERVAL	5
+#define SAVE_INTERVAL	1
 
 struct impl {
 	struct timespec now;
@@ -113,32 +113,14 @@ static const char *find_name_for_id(struct impl *impl, uint32_t id)
 	return NULL;
 }
 
-static int load_state(struct impl *impl)
-{
-	int res;
-
-	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->properties)) < 0) {
-		pw_log_error("can't load "SESSION_KEY" state: %s", spa_strerror(res));
-		return res;
-	}
-	return res;
-}
-
-static int save_state(struct impl *impl)
-{
-	int res;
-
-	if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->properties)) < 0) {
-		pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
-		return res;
-	}
-	return res;
-}
-
 static void remove_idle_timeout(struct impl *impl)
 {
 	struct pw_loop *main_loop = pw_context_get_main_loop(impl->context);
+	int res;
+
 	if (impl->idle_timeout) {
+		if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->properties)) < 0)
+			pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 		pw_loop_destroy_source(main_loop, impl->idle_timeout);
 		impl->idle_timeout = NULL;
 	}
@@ -147,10 +129,8 @@ static void remove_idle_timeout(struct impl *impl)
 static void idle_timeout(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-
 	pw_log_debug(NAME " %p: idle timeout", impl);
 	remove_idle_timeout(impl);
-	save_state(impl);
 }
 
 static void add_idle_timeout(struct impl *impl)
@@ -206,7 +186,10 @@ static const struct pw_metadata_events metadata_events = {
 static void session_destroy(void *data)
 {
 	struct impl *impl = data;
+	remove_idle_timeout(impl);
 	spa_hook_remove(&impl->listener);
+	if (impl->session->metadata)
+		spa_hook_remove(&impl->meta_listener);
 	pw_properties_free(impl->properties);
 	free(impl);
 }
@@ -224,6 +207,8 @@ static void session_create(void *data, struct sm_object *object)
 		if (find_name(&d, object)) {
 			char val[16];
 			snprintf(val, sizeof(val)-1, "%u", d.id);
+			pw_log_info("found %s with id:%s restore as %s",
+					it->value, val, it->key);
 			pw_metadata_set_property(impl->session->metadata,
 				PW_ID_CORE, it->key, SPA_TYPE_INFO_BASE"Id", val);
 		}
@@ -255,6 +240,7 @@ static const struct sm_media_session_events session_events = {
 int sm_default_nodes_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -273,7 +259,8 @@ int sm_default_nodes_start(struct sm_media_session *session)
 		return -ENOMEM;
 	}
 
-	load_state(impl);
+	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->properties)) < 0)
+		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
 

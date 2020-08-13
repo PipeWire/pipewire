@@ -77,6 +77,7 @@
 int sm_access_flatpak_start(struct sm_media_session *sess);
 int sm_access_portal_start(struct sm_media_session *sess);
 int sm_metadata_start(struct sm_media_session *sess);
+int sm_default_nodes_start(struct sm_media_session *sess);
 int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
 int sm_libcamera_monitor_start(struct sm_media_session *sess);
@@ -1988,7 +1989,7 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(impl->loop);
 }
 
-#define DEFAULT_ENABLED		"flatpak,portal,metadata,alsa-acp,alsa-seq,v4l2,bluez5,suspend-node,policy-node"
+#define DEFAULT_ENABLED		"flatpak,portal,metadata,default-nodes,alsa-acp,alsa-seq,v4l2,bluez5,suspend-node,policy-node"
 #define DEFAULT_DISABLED	""
 
 static const struct {
@@ -2001,6 +2002,7 @@ static const struct {
 	{ "flatpak", "manage flatpak access", sm_access_flatpak_start, NULL },
 	{ "portal", "manage portal permissions", sm_access_portal_start, NULL },
 	{ "metadata", "export metadata API", sm_metadata_start, NULL },
+	{ "default-nodes", "restore default nodes", sm_default_nodes_start, NULL },
 	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start, NULL },
 	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start, NULL },
 	{ "alsa-acp", "alsa card profile udev detection", sm_alsa_monitor_start, "alsa.use-acp=true" },

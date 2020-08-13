@@ -22,15 +22,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>
 #include <getopt.h>
 #include <time.h>
+#include <unistd.h>
+#include <limits.h>
+#include <fcntl.h>
 #include <signal.h>
-
-#include "config.h"
+#include <sys/stat.h>
+#include <sys/types.h>
+#if HAVE_PWD_H
+#include <pwd.h>
+#endif
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
@@ -128,6 +136,9 @@ struct impl {
 	struct spa_list sync_list;		/** list of struct sync */
 	int rescan_seq;
 	int last_seq;
+
+	int state_dir_fd;
+	char state_dir[PATH_MAX];
 };
 
 struct endpoint_link {
@@ -1724,6 +1735,106 @@ int sm_media_session_remove_links(struct sm_media_session *sess,
 	return 0;
 }
 
+static int state_dir(struct sm_media_session *sess)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	const char *home_dir;
+	int res;
+
+	if (impl->state_dir_fd != -1)
+		return impl->state_dir_fd;
+
+	home_dir = getenv("HOME");
+	if (home_dir == NULL)
+		home_dir = getenv("USERPROFILE");
+	if (home_dir == NULL) {
+		struct passwd pwd, *result = NULL;
+		char buffer[4096];
+		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+			home_dir = result ? result->pw_dir : NULL;
+	}
+	if (home_dir == NULL) {
+		pw_log_error("Can't determine home directory");
+		return -ENOTSUP;
+	}
+	snprintf(impl->state_dir, sizeof(impl->state_dir)-1,
+			"%s/.pipewire-media-session/", home_dir);
+
+	if ((res = open(impl->state_dir, O_CLOEXEC | O_DIRECTORY | O_PATH)) < 0) {
+		if (errno == ENOENT) {
+			pw_log_info("creating state directory %s", impl->state_dir);
+			if (mkdir(impl->state_dir, 0700) < 0) {
+				pw_log_info("Cant create state directory %s: %m", impl->state_dir);
+				return -errno;
+			}
+		} else {
+			pw_log_error("Can't open state directory %s: %m", impl->state_dir);
+			return -errno;
+		}
+		if ((res = open(impl->state_dir, O_CLOEXEC | O_DIRECTORY | O_PATH)) < 0) {
+			pw_log_error("Can't open state directory %s: %m", impl->state_dir);
+			return -EINVAL;
+		}
+	}
+	impl->state_dir_fd = res;
+	return res;
+}
+int sm_media_session_load_state(struct sm_media_session *sess,
+		const char *name, struct pw_properties *props)
+{
+	int sfd, fd, count = 0;
+	FILE *f;
+	char line[1024];
+
+	pw_log_info(NAME" %p: loading state '%s'", sess, name);
+	if ((sfd = state_dir(sess)) < 0)
+		return sfd;
+
+	if ((fd = openat(sfd, name,  O_CLOEXEC | O_RDONLY)) < 0) {
+		pw_log_error("can't open file %s: %m", name);
+		return -errno;
+	}
+	f = fdopen(fd, "r");
+	while (fgets(line, sizeof(line)-1, f)) {
+		char k[1024], v[1024];
+		if (sscanf(line, "%s %s", k, v) == 2)
+			count += pw_properties_set(props, k, v);
+	}
+	fclose(f);
+	return count;
+}
+
+int sm_media_session_save_state(struct sm_media_session *sess,
+		const char *name, const struct pw_properties *props)
+{
+	const struct spa_dict_item *it;
+	char *tmp_name;
+	int sfd, fd;
+	FILE *f;
+
+	pw_log_info(NAME" %p: saving state '%s'", sess, name);
+	if ((sfd = state_dir(sess)) < 0)
+		return sfd;
+
+	tmp_name = alloca(strlen(name)+5);
+	sprintf(tmp_name, "%s.tmp", name);
+	if ((fd = openat(sfd, tmp_name,  O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0700)) < 0) {
+		pw_log_error("can't open file %s: %m", tmp_name);
+		return -errno;
+	}
+
+	f = fdopen(fd, "w");
+	spa_dict_for_each(it, &props->dict)
+		fprintf(f, "%s %s\n", it->key, it->value);
+	fclose(f);
+
+	if (renameat(sfd, tmp_name, sfd, name) < 0) {
+		pw_log_error("can't rename temp file: %m");
+		return -errno;
+	}
+	return 0;
+}
+
 static void monitor_core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
@@ -1982,6 +2093,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	impl.state_dir_fd = -1;
+
 	impl.this.props = pw_properties_new_string(opt_properties ? opt_properties : "");
 	if (impl.this.props == NULL)
 		return -1;
@@ -2061,6 +2174,9 @@ exit:
 	pw_map_clear(&impl.endpoint_links);
 	pw_map_clear(&impl.globals);
 	pw_properties_free(impl.this.props);
+
+	if (impl.state_dir_fd != -1)
+		close(impl.state_dir_fd);
 
 	pw_deinit();
 

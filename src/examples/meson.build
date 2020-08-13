@@ -75,6 +75,7 @@ if alsa_dep.found()
     'media-session/bluez-monitor.c',
     'media-session/bluez-endpoint.c',
     'media-session/default-nodes.c',
+    'media-session/default-profile.c',
     'media-session/media-session.c',
     'media-session/session-manager.c',
     'media-session/metadata.c',

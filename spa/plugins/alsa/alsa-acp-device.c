@@ -304,7 +304,7 @@ static struct spa_pod *build_profile(struct spa_pod_builder *b, uint32_t id,
 }
 
 static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
-	struct acp_port *p, struct acp_device *dev)
+	struct acp_port *p, struct acp_device *dev, uint32_t profile)
 {
 	struct spa_pod_frame f[2];
 	const struct acp_dict_item *item;
@@ -385,6 +385,11 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 	for (i = 0; i < p->n_devices; i++)
 		spa_pod_builder_int(b, p->devices[i]->index);
 	spa_pod_builder_pop(b, &f[1]);
+
+	if (profile != SPA_ID_INVALID) {
+		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profile, 0);
+		spa_pod_builder_int(b, profile);
+	}
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
@@ -448,7 +453,7 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		p = card->ports[result.index];
-		param = build_route(&b, id, p, NULL);
+		param = build_route(&b, id, p, NULL, SPA_ID_INVALID);
 		break;
 
 	case SPA_PARAM_Route:
@@ -466,7 +471,7 @@ static int impl_enum_params(void *object, int seq,
 		if (p == NULL)
 			return 0;
 		result.next = result.index + 1;
-		param = build_route(&b, id, p, dev);
+		param = build_route(&b, id, p, dev, card->active_profile_index);
 		if (param == NULL)
 			return -errno;
 		break;

@@ -227,6 +227,35 @@ static int impl_sync(void *object, int seq)
 	return 0;
 }
 
+static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *b,
+		uint32_t id, uint32_t index)
+{
+	struct spa_pod_frame f[2];
+	const char *name, *desc;
+
+	switch (index) {
+	case 0:
+		name = "off";
+		desc = "Off";
+		break;
+	case 1:
+		name = "on";
+		desc = "On";
+		break;
+	default:
+		errno = -EINVAL;
+		return NULL;
+	}
+
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
+	spa_pod_builder_add(b,
+		SPA_PARAM_PROFILE_index,   SPA_POD_Int(index),
+		SPA_PARAM_PROFILE_name, SPA_POD_String(name),
+		SPA_PARAM_PROFILE_description, SPA_POD_String(desc),
+		0);
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
 static int impl_enum_params(void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
@@ -253,16 +282,8 @@ static int impl_enum_params(void *object, int seq,
 	{
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_index,   SPA_POD_Int(0),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
-			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("On"));
+			param = build_profile(this, &b, id, result.index);
 			break;
 		default:
 			return 0;
@@ -273,9 +294,7 @@ static int impl_enum_params(void *object, int seq,
 	{
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(this->profile));
+			param = build_profile(this, &b, id, this->profile);
 			break;
 		default:
 			return 0;

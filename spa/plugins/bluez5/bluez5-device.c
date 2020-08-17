@@ -224,6 +224,84 @@ static int impl_sync(void *object, int seq)
 	return 0;
 }
 
+static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *b,
+		uint32_t id, uint32_t index)
+{
+	struct spa_bt_device *device = this->bt_dev;
+	struct spa_pod_frame f[2];
+	const char *name, *desc;
+	uint32_t n_source = 0, n_sink = 0;
+
+	switch (index) {
+	case 0:
+		name = "off";
+		desc = "Off";
+		break;
+	case 1:
+	{
+		uint32_t profile = device->connected_profiles &
+		      (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE);
+		name = "A2DP";
+		if (profile == 0)
+			return NULL;
+		else if (profile == SPA_BT_PROFILE_A2DP_SINK)
+			desc = "High Fidelity Playback (A2DP Sink)";
+		else if (profile == SPA_BT_PROFILE_A2DP_SOURCE)
+			desc = "High Fidelity Capture (A2DP Source)";
+		else
+			desc = "High Fidelity Duplex (A2DP Source/Sink)";
+		if (profile & SPA_BT_PROFILE_A2DP_SOURCE)
+			n_source++;
+		if (profile & SPA_BT_PROFILE_A2DP_SINK)
+			n_sink++;
+		break;
+	}
+	case 2:
+	{
+		uint32_t profile = device->connected_profiles &
+		      (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+		name = "HSP/HFP";
+		if (profile == 0)
+			return NULL;
+		else if (profile == SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+			desc = "Headset Head Unit (HSP/HFP)";
+		else if (profile == SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
+			desc = "Headset Audio Gateway (HSP/HFP)";
+		else
+			desc = "Headset Audio (HSP/HFP)";
+		n_source++;
+		n_sink++;
+		break;
+	}
+	default:
+		errno = -EINVAL;
+		return NULL;
+	}
+
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
+	spa_pod_builder_add(b,
+		SPA_PARAM_PROFILE_index,   SPA_POD_Int(index),
+		SPA_PARAM_PROFILE_name, SPA_POD_String(name),
+		SPA_PARAM_PROFILE_description, SPA_POD_String(desc),
+		0);
+	if (n_source > 0 || n_sink > 0) {
+		spa_pod_builder_prop(b, SPA_PARAM_PROFILE_classes, 0);
+		spa_pod_builder_push_struct(b, &f[1]);
+		if (n_source > 0) {
+			spa_pod_builder_add_struct(b,
+				SPA_POD_String("Audio/Source"),
+				SPA_POD_Int(n_source));
+		}
+		if (n_sink > 0) {
+			spa_pod_builder_add_struct(b,
+				SPA_POD_String("Audio/Sink"),
+				SPA_POD_Int(n_sink));
+		}
+		spa_pod_builder_pop(b, &f[1]);
+	}
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
 static int impl_enum_params(void *object, int seq,
 			    uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
@@ -234,7 +312,6 @@ static int impl_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_device_params result;
 	uint32_t count = 0;
-	struct spa_bt_device *device = this->bt_dev;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -249,84 +326,12 @@ static int impl_enum_params(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
 	{
-		struct spa_pod_frame f[2];
 		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_index,   SPA_POD_Int(0),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("Off"));
-			break;
-		case 1:
-		{
-			uint32_t profile = device->connected_profiles &
-			      (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE);
-			const char *description;
-
-			if (profile == 0)
+		case 0: case 1: case 2:
+			param = build_profile(this, &b, id, result.index);
+			if (param == NULL)
 				goto next;
-			else if (profile == SPA_BT_PROFILE_A2DP_SINK)
-				description = "High Fidelity Playback (A2DP Sink)";
-			else if (profile == SPA_BT_PROFILE_A2DP_SOURCE)
-				description = "High Fidelity Capture (A2DP Source)";
-			else
-				description = "High Fidelity Duplex (A2DP Source/Sink)";
-
-			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
-			spa_pod_builder_add(&b,
-				SPA_PARAM_PROFILE_index,   SPA_POD_Int(1),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("A2DP"),
-				SPA_PARAM_PROFILE_description, SPA_POD_String(description),
-				0);
-			spa_pod_builder_prop(&b, SPA_PARAM_PROFILE_classes, 0);
-			spa_pod_builder_push_struct(&b, &f[1]);
-			if (profile & SPA_BT_PROFILE_A2DP_SOURCE) {
-				spa_pod_builder_add_struct(&b,
-					SPA_POD_String("Audio/Source"),
-					SPA_POD_Int(1));
-			}
-			if (profile & SPA_BT_PROFILE_A2DP_SINK) {
-				spa_pod_builder_add_struct(&b,
-					SPA_POD_String("Audio/Sink"),
-					SPA_POD_Int(1));
-			}
-			spa_pod_builder_pop(&b, &f[1]);
-			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
-		}
-		case 2:
-		{
-			uint32_t profile = device->connected_profiles &
-			      (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
-			const char *description;
-
-			if (profile == 0)
-				goto next;
-			else if (profile == SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
-				description = "Headset Head Unit (HSP/HFP)";
-			else if (profile == SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
-				description = "Headset Audio Gateway (HSP/HFP)";
-			else
-				description = "Headset Audio (HSP/HFP)";
-
-			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
-			spa_pod_builder_add(&b,
-				SPA_PARAM_PROFILE_index,   SPA_POD_Int(2),
-				SPA_PARAM_PROFILE_name, SPA_POD_String("HSP/HFP"),
-				SPA_PARAM_PROFILE_description, SPA_POD_String(description),
-				0);
-			spa_pod_builder_prop(&b, SPA_PARAM_PROFILE_classes, 0);
-			spa_pod_builder_push_struct(&b, &f[1]);
-			spa_pod_builder_add_struct(&b,
-				SPA_POD_String("Audio/Source"),
-				SPA_POD_Int(1));
-			spa_pod_builder_add_struct(&b,
-				SPA_POD_String("Audio/Sink"),
-				SPA_POD_Int(1));
-			spa_pod_builder_pop(&b, &f[1]);
-			param = spa_pod_builder_pop(&b, &f[0]);
-			break;
-		}
 		default:
 			return 0;
 		}
@@ -336,9 +341,7 @@ static int impl_enum_params(void *object, int seq,
 	{
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, id,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(this->profile));
+			param = build_profile(this, &b, id, this->profile);
 			break;
 		default:
 			return 0;

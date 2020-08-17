@@ -112,16 +112,6 @@ static void add_idle_timeout(struct impl *impl)
 	pw_loop_update_timer(main_loop, impl->idle_timeout, &value, NULL, false);
 }
 
-static void session_destroy(void *data)
-{
-	struct impl *impl = data;
-	remove_idle_timeout(impl);
-	spa_hook_remove(&impl->listener);
-	pw_properties_free(impl->to_restore);
-	pw_properties_free(impl->to_save);
-	free(impl);
-}
-
 static char *serialize_props(struct device *dev, const struct spa_pod *param)
 {
 	struct spa_pod_prop *prop;
@@ -319,6 +309,7 @@ static void session_create(void *data, struct sm_object *object)
 
 static void destroy_device(struct impl *impl, struct device *dev)
 {
+	spa_hook_remove(&dev->listener);
 	free(dev->name);
 	sm_object_remove_data((struct sm_object*)dev->obj, SESSION_KEY);
 }
@@ -335,6 +326,16 @@ static void session_remove(void *data, struct sm_object *object)
 
 	if ((dev = sm_object_get_data(object, SESSION_KEY)) != NULL)
 		destroy_device(impl, dev);
+}
+
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	remove_idle_timeout(impl);
+	spa_hook_remove(&impl->listener);
+	pw_properties_free(impl->to_restore);
+	pw_properties_free(impl->to_save);
+	free(impl);
 }
 
 static const struct sm_media_session_events session_events = {

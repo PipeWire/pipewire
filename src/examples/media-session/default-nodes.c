@@ -183,17 +183,6 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
-static void session_destroy(void *data)
-{
-	struct impl *impl = data;
-	remove_idle_timeout(impl);
-	spa_hook_remove(&impl->listener);
-	if (impl->session->metadata)
-		spa_hook_remove(&impl->meta_listener);
-	pw_properties_free(impl->properties);
-	free(impl);
-}
-
 static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
@@ -228,6 +217,17 @@ static void session_remove(void *data, struct sm_object *object)
 		impl->default_audio_source = SPA_ID_INVALID;
 	if (impl->default_video_source == object->id)
 		impl->default_video_source = SPA_ID_INVALID;
+}
+
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+	remove_idle_timeout(impl);
+	spa_hook_remove(&impl->listener);
+	if (impl->session->metadata)
+		spa_hook_remove(&impl->meta_listener);
+	pw_properties_free(impl->properties);
+	free(impl);
 }
 
 static const struct sm_media_session_events session_events = {

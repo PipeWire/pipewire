@@ -1,0 +1,13 @@
+[Unit]
+Description=Multimedia System
+
+[Socket]
+Priority=6
+Backlog=5
+ListenStream=%t/pipewire/pipewire-0
+SocketUser=pipewire
+SocketGroup=pipewire
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

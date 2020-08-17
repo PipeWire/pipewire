@@ -1768,7 +1768,7 @@ static int state_dir(struct sm_media_session *sess)
 		if (errno == ENOENT) {
 			pw_log_info("creating state directory %s", impl->state_dir);
 			if (mkdir(impl->state_dir, 0700) < 0) {
-				pw_log_info("Cant create state directory %s: %m", impl->state_dir);
+				pw_log_info("Can't create state directory %s: %m", impl->state_dir);
 				return -errno;
 			}
 		} else {

@@ -80,6 +80,7 @@ int sm_metadata_start(struct sm_media_session *sess);
 int sm_default_nodes_start(struct sm_media_session *sess);
 int sm_default_profile_start(struct sm_media_session *sess);
 int sm_default_routes_start(struct sm_media_session *sess);
+int sm_restore_stream_start(struct sm_media_session *sess);
 int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
 int sm_libcamera_monitor_start(struct sm_media_session *sess);
@@ -2017,6 +2018,7 @@ static void do_quit(void *data, int signal_number)
 				"default-nodes,"	\
 				"default-profile,"	\
 				"default-routes,"	\
+				"restore-stream,"	\
 				"alsa-acp,"		\
 				"alsa-seq,"		\
 				"v4l2,"			\
@@ -2038,6 +2040,7 @@ static const struct {
 	{ "default-nodes", "restore default nodes", sm_default_nodes_start, NULL },
 	{ "default-profile", "restore default profiles", sm_default_profile_start, NULL },
 	{ "default-routes", "restore default route", sm_default_routes_start, NULL },
+	{ "restore-stream", "restore stream settings", sm_restore_stream_start, NULL },
 	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start, NULL },
 	{ "alsa-pcm", "alsa pcm udev detection", sm_alsa_monitor_start, NULL },
 	{ "alsa-acp", "alsa card profile udev detection", sm_alsa_monitor_start, "alsa.use-acp=true" },

@@ -81,6 +81,7 @@ if alsa_dep.found()
     'media-session/session-manager.c',
     'media-session/metadata.c',
     'media-session/stream-endpoint.c',
+    'media-session/restore-stream.c',
     'media-session/policy-ep.c',
     'media-session/policy-node.c',
     'media-session/v4l2-monitor.c',

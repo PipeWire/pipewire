@@ -135,9 +135,10 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 	i.monitor_source_name = pa_context_find_global_name(c, i.monitor_source);
 	i.latency = 0;
 	i.driver = "PipeWire";
-	i.flags = PA_SINK_HARDWARE |
-		  PA_SINK_LATENCY | PA_SINK_DYNAMIC_LATENCY |
+	i.flags = PA_SINK_LATENCY | PA_SINK_DYNAMIC_LATENCY |
 		  PA_SINK_DECIBEL_VOLUME;
+	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)))
+		i.flags |= PA_SINK_HARDWARE;
 	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME))
 		  i.flags |= PA_SINK_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_MUTE))
@@ -859,7 +860,8 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 	} else {
 		i.monitor_of_sink = PA_INVALID_INDEX;
 		i.monitor_of_sink_name = NULL;
-		flags |= PA_SOURCE_HARDWARE;
+		if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)))
+			flags |= PA_SOURCE_HARDWARE;
 		if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_VOLUME))
 			flags |= PA_SINK_HW_VOLUME_CTRL;
 		if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_HW_MUTE))

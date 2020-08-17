@@ -124,26 +124,6 @@ static void session_destroy(void *data)
 	free(impl);
 }
 
-static const char *find_profile_name(struct device *dev, uint32_t index)
-{
-	struct sm_param *p;
-	spa_list_for_each(p, &dev->obj->param_list, link) {
-		const char *n;
-		uint32_t id;
-
-		if (p->id != SPA_PARAM_EnumProfile ||
-		    spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name,  SPA_POD_String(&n)) < 0) {
-			continue;
-		}
-		if (id == index)
-			return n;
-	}
-	return NULL;
-}
-
 static uint32_t find_profile_id(struct device *dev, const char *name)
 {
 	struct sm_param *p;
@@ -205,7 +185,8 @@ static int handle_profile(struct device *dev, struct sm_param *p)
 		const char *name;
 		if ((res = spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&index))) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&index),
+				SPA_PARAM_PROFILE_name, SPA_POD_String(&name))) < 0) {
 			pw_log_warn("device %d: can't parse profile: %s", dev->id, spa_strerror(res));
 			return res;
 		}
@@ -213,12 +194,9 @@ static int handle_profile(struct device *dev, struct sm_param *p)
 			return 0;
 
 		dev->active_profile = index;
-		name = find_profile_name(dev, index);
-		if (name) {
-			pw_log_debug("device %d: current profile %d %s", dev->id, index, name);
-			pw_properties_set(impl->properties, dev->name, name);
-			add_idle_timeout(impl);
-		}
+		pw_log_debug("device %d: current profile %d %s", dev->id, index, name);
+		pw_properties_set(impl->properties, dev->name, name);
+		add_idle_timeout(impl);
 	}
 	return 0;
 }

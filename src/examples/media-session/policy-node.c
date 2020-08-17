@@ -784,17 +784,16 @@ static int metadata_property(void *object, uint32_t subject,
 			impl->default_video_source = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 		}
 	} else {
-		struct node *src_node, *dst_node = NULL;
-
-		src_node = find_node_by_id(impl, subject);
-
 		if (strcmp(key, "target.node") == 0 && value != NULL) {
-			dst_node = find_node_by_id(impl, atoi(value));
-		}
-		if (src_node && dst_node)
-			handle_move(impl, src_node, dst_node);
-	}
+			struct node *src_node, *dst_node;
 
+			dst_node = find_node_by_id(impl, atoi(value));
+			src_node = dst_node ? find_node_by_id(impl, subject) : NULL;
+
+			if (dst_node && src_node)
+				handle_move(impl, src_node, dst_node);
+		}
+	}
 	return 0;
 }
 

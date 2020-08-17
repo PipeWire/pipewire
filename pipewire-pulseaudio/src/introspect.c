@@ -1392,11 +1392,41 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 	return o;
 }
 
+struct load_module_ack {
+	pa_context_index_cb_t cb;
+	int error;
+	void *userdata;
+	uint32_t idx;
+};
+
+static void on_load_module(pa_operation *o, void *userdata)
+{
+	struct load_module_ack *d = userdata;
+	pa_context *c = o->context;
+	pw_log_debug("error:%d", d->error);
+	if (d->error != 0)
+		pa_context_set_error(c, d->error);
+	if (d->cb)
+		d->cb(c, d->idx, d->userdata);
+	pa_operation_done(o);
+}
+
 SPA_EXPORT
 pa_operation* pa_context_load_module(pa_context *c, const char*name, const char *argument, pa_context_index_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct load_module_ack *d;
+
+	o = pa_operation_new(c, NULL, on_load_module, sizeof(struct success_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->userdata = userdata;
+	d->idx = PA_INVALID_INDEX;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
@@ -2489,32 +2519,122 @@ pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_cont
 	return o;
 }
 
+struct stat_ack {
+	pa_stat_info_cb_t cb;
+	int error;
+	void *userdata;
+};
+
+static void on_stat_info(pa_operation *o, void *userdata)
+{
+	struct stat_ack *d = userdata;
+	pa_context *c = o->context;
+	pa_stat_info i;
+	spa_zero(i);
+	pw_log_debug("error:%d", d->error);
+	if (d->error != 0)
+		pa_context_set_error(c, d->error);
+	if (d->cb)
+		d->cb(c, &i, d->userdata);
+	pa_operation_done(o);
+}
+
 SPA_EXPORT
 pa_operation* pa_context_stat(pa_context *c, pa_stat_info_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct stat_ack *d;
+
+	o = pa_operation_new(c, NULL, on_stat_info, sizeof(struct stat_ack));
+	d = o->userdata;
+	d->cb = cb;
+	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
+}
+
+struct sample_info {
+	pa_sample_info_cb_t cb;
+	int error;
+	void *userdata;
+};
+
+static void on_sample_info(pa_operation *o, void *userdata)
+{
+	struct sample_info *d = userdata;
+	pa_context *c = o->context;
+	pw_log_debug("error:%d", d->error);
+	if (d->error != 0)
+		pa_context_set_error(c, d->error);
+	if (d->cb)
+		d->cb(c, NULL, d->error ? -1 : 1, d->userdata);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT
 pa_operation* pa_context_get_sample_info_by_name(pa_context *c, const char *name, pa_sample_info_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct sample_info *d;
+
+	o = pa_operation_new(c, NULL, on_sample_info, sizeof(struct sample_info));
+	d = o->userdata;
+	d->cb = cb;
+	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT
 pa_operation* pa_context_get_sample_info_by_index(pa_context *c, uint32_t idx, pa_sample_info_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct sample_info *d;
+
+	o = pa_operation_new(c, NULL, on_sample_info, sizeof(struct sample_info));
+	d = o->userdata;
+	d->cb = cb;
+	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
+}
+
+
+static void on_sample_info_list(pa_operation *o, void *userdata)
+{
+	struct sample_info *d = userdata;
+	pa_context *c = o->context;
+	if (d->error != 0)
+		pa_context_set_error(c, d->error);
+	if (d->cb)
+		d->cb(c, NULL, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT
 pa_operation* pa_context_get_sample_info_list(pa_context *c, pa_sample_info_cb_t cb, void *userdata)
 {
+	pa_operation *o;
+	struct sample_info *d;
+
+	o = pa_operation_new(c, NULL, on_sample_info_list, sizeof(struct sample_info));
+	d = o->userdata;
+	d->cb = cb;
+	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->userdata = userdata;
+	pa_operation_sync(o);
+
 	pw_log_warn("Not Implemented");
-	return NULL;
+	return o;
 }
 
 SPA_EXPORT

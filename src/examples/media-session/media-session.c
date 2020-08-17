@@ -1798,9 +1798,16 @@ int sm_media_session_load_state(struct sm_media_session *sess,
 	}
 	f = fdopen(fd, "r");
 	while (fgets(line, sizeof(line)-1, f)) {
-		char k[1024], v[1024];
-		if (sscanf(line, "%s %s", k, v) == 2)
-			count += pw_properties_set(props, k, v);
+		char *val, *k;
+		val = strrchr(line, '\n');
+		if (val)
+			*val = '\0';
+		val = strchr(line, ' ');
+		if (val == NULL)
+			continue;
+		k = val + 1;
+		*val = '\0';
+		count += pw_properties_set(props, line, k);
 	}
 	fclose(f);
 	return count;

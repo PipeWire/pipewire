@@ -27,3 +27,9 @@ const char* pa_get_library_version(void)
 	return pa_get_headers_version();
 }
 
+SPA_EXPORT
+bool pa_is_pipewire(void)
+{
+	return true;
+}
+

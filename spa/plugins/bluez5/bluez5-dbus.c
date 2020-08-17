@@ -817,6 +817,19 @@ struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, c
 	return NULL;
 }
 
+struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monitor,
+                                                    bool (*callback) (struct spa_bt_transport *t, const void *data),
+                                                    const void *data)
+{
+	struct spa_bt_transport *t;
+
+	spa_list_for_each(t, &monitor->transport_list, link)
+		if (callback(t, data) == true)
+			return t;
+	return NULL;
+}
+
+
 struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor, char *path, size_t extra)
 {
 	struct spa_bt_transport *t;

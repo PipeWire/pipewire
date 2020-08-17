@@ -59,7 +59,8 @@ struct impl {
 
 	struct spa_hook meta_listener;
 
-	struct pw_properties *properties;
+	struct pw_properties *to_restore;
+	struct pw_properties *to_save;
 };
 
 struct device {
@@ -70,10 +71,6 @@ struct device {
 	char *name;
 
 	struct spa_hook listener;
-
-	unsigned int restored:1;
-
-	uint32_t active_profile;
 };
 
 struct find_data {
@@ -88,7 +85,7 @@ static void remove_idle_timeout(struct impl *impl)
 	int res;
 
 	if (impl->idle_timeout) {
-		if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->properties)) < 0)
+		if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->to_save)) < 0)
 			pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 		pw_loop_destroy_source(main_loop, impl->idle_timeout);
 		impl->idle_timeout = NULL;
@@ -120,7 +117,8 @@ static void session_destroy(void *data)
 	struct impl *impl = data;
 	remove_idle_timeout(impl);
 	spa_hook_remove(&impl->listener);
-	pw_properties_free(impl->properties);
+	pw_properties_free(impl->to_restore);
+	pw_properties_free(impl->to_save);
 	free(impl);
 }
 
@@ -144,15 +142,9 @@ static uint32_t find_profile_id(struct device *dev, const char *name)
 	return SPA_ID_INVALID;
 }
 
-static int restore_profile(struct device *dev)
+static int restore_profile(struct device *dev, const char *name)
 {
-	struct impl *impl = dev->impl;
-	const char *name;
 	uint32_t index = SPA_ID_INVALID;
-
-	name = pw_properties_get(impl->properties, dev->name);
-	if (name == NULL)
-		return -ENOENT;
 
 	pw_log_debug("device %d: find profile '%s'", dev->id, name);
 	index = find_profile_id(dev, name);
@@ -167,7 +159,6 @@ static int restore_profile(struct device *dev)
 				spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
 					SPA_PARAM_PROFILE_index, SPA_POD_Int(index)));
-		dev->active_profile = index;
 	}
 	return -ENOENT;
 }
@@ -175,12 +166,14 @@ static int restore_profile(struct device *dev)
 static int handle_profile(struct device *dev, struct sm_param *p)
 {
 	struct impl *impl = dev->impl;
+	const char *name;
 	uint32_t index;
 	int res;
 
-	if (!dev->restored) {
-		restore_profile(dev);
-		dev->restored = true;
+	name = pw_properties_get(impl->to_restore, dev->name);
+	if (name) {
+		restore_profile(dev, name);
+		pw_properties_set(impl->to_restore, dev->name, NULL);
 	} else {
 		const char *name;
 		if ((res = spa_pod_parse_object(p->param,
@@ -190,12 +183,8 @@ static int handle_profile(struct device *dev, struct sm_param *p)
 			pw_log_warn("device %d: can't parse profile: %s", dev->id, spa_strerror(res));
 			return res;
 		}
-		if (dev->active_profile == index)
-			return 0;
-
-		dev->active_profile = index;
 		pw_log_debug("device %d: current profile %d %s", dev->id, index, name);
-		pw_properties_set(impl->properties, dev->name, name);
+		pw_properties_set(impl->to_save, dev->name, name);
 		add_idle_timeout(impl);
 	}
 	return 0;
@@ -295,16 +284,28 @@ int sm_default_profile_start(struct sm_media_session *session)
 	impl->session = session;
 	impl->context = session->context;
 
-	impl->properties = pw_properties_new(NULL, NULL);
-	if (impl->properties == NULL) {
-		free(impl);
-		return -ENOMEM;
+	impl->to_restore = pw_properties_new(NULL, NULL);
+	if (impl->to_restore == NULL) {
+		res = -errno;
+		goto exit_free;
 	}
 
-	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->properties)) < 0)
+	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->to_restore)) < 0)
 		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
+
+	impl->to_save = pw_properties_copy(impl->to_restore);
+	if (impl->to_save == NULL) {
+		res = -errno;
+		goto exit_free_props;
+	}
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
 
 	return 0;
+
+exit_free_props:
+	pw_properties_free(impl->to_restore);
+exit_free:
+	free(impl);
+	return res;
 }

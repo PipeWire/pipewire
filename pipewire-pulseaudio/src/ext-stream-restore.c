@@ -23,8 +23,6 @@
 
 #include "internal.h"
 
-#define EXT_VERSION	1
-
 struct stream_data {
 	pa_context *context;
 	pa_ext_stream_restore_test_cb_t test_cb;
@@ -38,7 +36,7 @@ static void restore_test(pa_operation *o, void *userdata)
 	struct stream_data *d = userdata;
 
 	if (d->test_cb)
-		d->test_cb(o->context, EXT_VERSION, d->userdata);
+		d->test_cb(o->context, PA_INVALID_INDEX, d->userdata);
 
 	pa_operation_done(o);
 }
@@ -197,5 +195,4 @@ void pa_ext_stream_restore_set_subscribe_cb(
         pa_ext_stream_restore_subscribe_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
 }

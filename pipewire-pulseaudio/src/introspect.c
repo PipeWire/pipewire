@@ -619,7 +619,6 @@ pa_operation* pa_context_suspend_sink_by_name(pa_context *c, const char *sink_na
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -636,7 +635,6 @@ pa_operation* pa_context_suspend_sink_by_index(pa_context *c, uint32_t idx, int 
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -1151,7 +1149,6 @@ pa_operation* pa_context_suspend_source_by_name(pa_context *c, const char *sourc
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -1168,7 +1165,6 @@ pa_operation* pa_context_suspend_source_by_index(pa_context *c, uint32_t idx, in
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -1425,7 +1421,6 @@ pa_operation* pa_context_load_module(pa_context *c, const char*name, const char 
 	d->idx = PA_INVALID_INDEX;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -1442,7 +1437,6 @@ pa_operation* pa_context_unload_module(pa_context *c, uint32_t idx, pa_context_s
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -1834,7 +1828,6 @@ pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -2552,7 +2545,6 @@ pa_operation* pa_context_stat(pa_context *c, pa_stat_info_cb_t cb, void *userdat
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -2587,7 +2579,6 @@ pa_operation* pa_context_get_sample_info_by_name(pa_context *c, const char *name
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -2604,7 +2595,6 @@ pa_operation* pa_context_get_sample_info_by_index(pa_context *c, uint32_t idx, p
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 
@@ -2633,7 +2623,6 @@ pa_operation* pa_context_get_sample_info_list(pa_context *c, pa_sample_info_cb_t
 	d->userdata = userdata;
 	pa_operation_sync(o);
 
-	pw_log_warn("Not Implemented");
 	return o;
 }
 

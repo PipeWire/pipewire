@@ -37,7 +37,7 @@ static void restore_test(pa_operation *o, void *userdata)
 {
 	struct ext_data *d = userdata;
 	if (d->test_cb)
-		d->test_cb(o->context, EXT_VERSION, d->userdata);
+		d->test_cb(o->context, PA_INVALID_INDEX, d->userdata);
 	pa_operation_done(o);
 }
 
@@ -104,7 +104,6 @@ void pa_ext_device_restore_set_subscribe_cb(
         pa_ext_device_restore_subscribe_cb_t cb,
         void *userdata)
 {
-	pw_log_warn("Not Implemented");
 }
 
 static void read_formats(pa_operation *o, void *userdata)

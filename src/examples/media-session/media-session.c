@@ -1799,16 +1799,22 @@ int sm_media_session_load_state(struct sm_media_session *sess,
 	}
 	f = fdopen(fd, "r");
 	while (fgets(line, sizeof(line)-1, f)) {
-		char *val, *k;
+		char *val, *key, *k, *p;
 		val = strrchr(line, '\n');
 		if (val)
 			*val = '\0';
-		val = strchr(line, ' ');
-		if (val == NULL)
-			continue;
-		k = val + 1;
-		*val = '\0';
-		count += pw_properties_set(props, line, k);
+
+		key = k = p = line;
+		while (*p) {
+			if (*p == ' ')
+				break;
+			if (*p == '\\')
+				p++;
+			*k++ = *p++;
+		}
+		*k = '\0';
+		val = ++p;
+		count += pw_properties_set(props, key, val);
 	}
 	fclose(f);
 	return count;
@@ -1834,8 +1840,15 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 	}
 
 	f = fdopen(fd, "w");
-	spa_dict_for_each(it, &props->dict)
-		fprintf(f, "%s %s\n", it->key, it->value);
+	spa_dict_for_each(it, &props->dict) {
+		const char *p = it->key;
+		while (*p) {
+			if (*p == ' ' || *p == '\\')
+				fputc('\\', f);
+			fprintf(f, "%c", *p++);
+		}
+		fprintf(f, " %s\n", it->value);
+	}
 	fclose(f);
 
 	if (renameat(sfd, tmp_name, sfd, name) < 0) {

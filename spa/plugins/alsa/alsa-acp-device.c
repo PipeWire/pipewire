@@ -231,15 +231,20 @@ static int impl_add_listener(void *object,
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
 	card = this->card;
-	profile = card->profiles[card->active_profile_index];
+	if (card->active_profile_index < card->n_profiles)
+		profile = card->profiles[card->active_profile_index];
+	else
+		profile = NULL;
 
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	if (events->info || events->object_info)
 		emit_info(this, true);
 
-	for (i = 0; i < profile->n_devices; i++)
-		emit_node(this, profile->devices[i]);
+	if (profile) {
+		for (i = 0; i < profile->n_devices; i++)
+			emit_node(this, profile->devices[i]);
+	}
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -441,7 +446,7 @@ static int impl_enum_params(void *object, int seq,
 		break;
 
 	case SPA_PARAM_Profile:
-		if (result.index > 0)
+		if (result.index > 0 || card->active_profile_index >= card->n_profiles)
 			return 0;
 
 		pr = card->profiles[card->active_profile_index];

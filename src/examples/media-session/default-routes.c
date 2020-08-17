@@ -206,7 +206,9 @@ static int restore_route(struct device *dev, const char *val, uint32_t index, ui
 	}
 	spa_pod_builder_pop(&b, &f[1]);
 	param = spa_pod_builder_pop(&b, &f[0]);
-	spa_debug_pod(2, NULL, param);
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
 
 	pw_device_set_param((struct pw_node*)dev->obj->obj.proxy,
 			SPA_PARAM_Route, 0, param);

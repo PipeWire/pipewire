@@ -117,6 +117,7 @@ static void add_profiles(pa_card *impl)
 	ap->profile.name = ap->name = pa_xstrdup("off");
 	ap->profile.description = ap->description = pa_xstrdup(_("Off"));
 	ap->profile.available = ACP_AVAILABLE_YES;
+	ap->is_off = true;
 	pa_hashmap_put(impl->profiles, ap->name, ap);
 
 	PA_HASHMAP_FOREACH(ap, impl->profile_set->profiles, state) {
@@ -1029,6 +1030,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 	struct acp_card_profile **profiles = card->profiles;
 	pa_alsa_profile *op, *np;
 	uint32_t idx;
+	int res;
 
 	if (new_index >= card->n_profiles)
 		return -EINVAL;
@@ -1057,9 +1059,9 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 
 	/* if UCM is available for this card then update the verb */
 	if (impl->use_ucm) {
-		if (pa_alsa_ucm_set_profile(&impl->ucm, impl, np ? np->profile.name : NULL,
-                    op ? op->profile.name : NULL) < 0) {
-			return -1;
+		if ((res = pa_alsa_ucm_set_profile(&impl->ucm, impl, np->is_off ? NULL : np->profile.name,
+                    op ? op->profile.name : NULL)) < 0) {
+			return res;
 		}
 	}
 

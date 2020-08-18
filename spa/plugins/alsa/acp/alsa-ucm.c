@@ -1337,9 +1337,8 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, const char *
 
     /* change verb */
     pa_log_info("Set UCM verb to %s", profile);
-    if ((snd_use_case_set(ucm->ucm_mgr, "_verb", profile)) < 0) {
-        pa_log("Failed to set verb %s", profile);
-        ret = -1;
+    if ((ret = snd_use_case_set(ucm->ucm_mgr, "_verb", profile)) < 0) {
+        pa_log("Failed to set verb %s: %s", profile, snd_strerror(ret));
     }
 
     /* find active verb */

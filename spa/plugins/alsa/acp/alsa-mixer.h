@@ -369,6 +369,7 @@ struct pa_alsa_profile {
     bool supported:1;
     bool fallback_input:1;
     bool fallback_output:1;
+    bool is_off:1;
 
     char **input_mapping_names;
     char **output_mapping_names;

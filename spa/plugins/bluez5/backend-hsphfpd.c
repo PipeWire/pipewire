@@ -53,6 +53,7 @@ struct spa_bt_backend {
 	bool acquire_in_progress;
 
 	unsigned int filters_added:1;
+	unsigned int msbc_supported:1;
 };
 
 enum hsphfpd_volume_control {
@@ -92,6 +93,7 @@ struct hsphfpd_endpoint {
 	char *local_address;
 	enum hsphfpd_profile profile;
 	enum hsphfpd_role role;
+	int air_codecs;
 };
 
 #define DBUS_INTERFACE_OBJECTMANAGER "org.freedesktop.DBus.ObjectManager"
@@ -104,8 +106,12 @@ struct hsphfpd_endpoint {
 
 #define APPLICATION_OBJECT_MANAGER_PATH    "/Profile/hsphfpd/manager"
 #define HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ "/Profile/hsphfpd/pcm_s16le_8khz_agent"
+#define HSPHFP_AUDIO_CLIENT_MSBC           "/Profile/hsphfpd/msbc_agent"
 
+#define HSPHFP_AIR_CODEC_CVSD           "CVSD"
+#define HSPHFP_AIR_CODEC_MSBC           "mSBC"
 #define HSPHFP_AGENT_CODEC_PCM          "PCM_s16le_8kHz"
+#define HSPHFP_AGENT_CODEC_MSBC         "mSBC"
 
 #define APPLICATION_OBJECT_MANAGER_INTROSPECT_XML                              \
     DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                                  \
@@ -441,11 +447,11 @@ static void hsphfpd_parse_transport_properties(struct spa_bt_backend *backend, s
 		set_tx_volume_gain_property(transport, transport_data->tx_volume_gain);
 }
 
-static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMessage *m, void *userdata)
+static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMessage *m, const char *path, void *userdata)
 {
 	const char *interface;
 	const char *property;
-	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
+	const char *agent_codec;
 	DBusMessage *r = NULL;
 
 	if (strcmp(dbus_message_get_signature(m), "ss") != 0) {
@@ -469,6 +475,15 @@ static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMess
 		goto fail;
 	}
 
+	if (strcmp(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ) == 0)
+		agent_codec = HSPHFP_AGENT_CODEC_PCM;
+	else if (strcmp(path, HSPHFP_AUDIO_CLIENT_MSBC) == 0)
+		agent_codec = HSPHFP_AGENT_CODEC_MSBC;
+	else {
+		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid path in method call");
+		goto fail;
+	}
+
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	if (!dbus_message_append_args(r, DBUS_TYPE_STRING, &agent_codec, DBUS_TYPE_INVALID))
@@ -482,12 +497,12 @@ fail:
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBusMessage *m, void *userdata)
+static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBusMessage *m, const char *path, void *userdata)
 {
 	const char *interface;
 	DBusMessageIter iter, array, dict, data;
 	const char *agent_codec_key = "AgentCodec";
-	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
+	const char *agent_codec;
 	DBusMessage *r = NULL;
 
 	if (strcmp(dbus_message_get_signature(m), "s") != 0) {
@@ -499,6 +514,15 @@ static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBu
 	                          DBUS_TYPE_STRING, &interface,
 	                          DBUS_TYPE_INVALID) == FALSE) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid arguments in method call");
+		goto fail;
+	}
+
+	if (strcmp(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ) == 0)
+		agent_codec = HSPHFP_AGENT_CODEC_PCM;
+	else if (strcmp(path, HSPHFP_AUDIO_CLIENT_MSBC) == 0)
+		agent_codec = HSPHFP_AGENT_CODEC_MSBC;
+	else {
+		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid path in method call");
 		goto fail;
 	}
 
@@ -524,7 +548,7 @@ fail:
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
+static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBusMessage *m, const char *path, void *userdata)
 {
 	struct spa_bt_backend *backend = userdata;
 	DBusMessageIter arg_i;
@@ -538,6 +562,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	uint16_t rx_volume_gain = -1;
 	uint16_t tx_volume_gain = -1;
 	uint16_t mtu = 0;
+	int codec;
 	struct hsphfpd_endpoint *endpoint;
 	struct spa_bt_transport *transport;
 	struct hsphfpd_transport_data *transport_data;
@@ -562,6 +587,15 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 		close(fd);
 		spa_log_error(backend->log, "Sender '%s' is not authorized", sender);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Sender '%s' is not authorized", sender);
+		goto fail;
+	}
+
+	if (strcmp(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ) == 0)
+		codec = HFP_AUDIO_CODEC_CVSD;
+	else if (strcmp(path, HSPHFP_AUDIO_CLIENT_MSBC) == 0)
+		codec = HFP_AUDIO_CODEC_MSBC;
+	else {
+		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "Invalid path");
 		goto fail;
 	}
 
@@ -652,6 +686,9 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 		goto fail;
 	}
 
+	if (transport->codec != codec)
+		spa_log_warn(backend->log, "Expecting codec to be %d, got %d", transport->codec, codec);
+
 	if (transport->fd >= 0) {
 		close(fd);
 		spa_log_error(backend->log, "Endpoint %s has already active transport", endpoint_path);
@@ -673,14 +710,13 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	pa_hook_fire(pa_bluetooth_discovery_hook(hsphfpd->discovery, PA_BLUETOOTH_HOOK_TRANSPORT_TX_VOLUME_GAIN_CHANGED), transport);
 #endif
 
-	transport->codec = HFP_AUDIO_CODEC_CVSD;
-# if 0
-	transport->read_mtu = mtu;
-	transport->write_mtu = mtu;
-#else
-	transport->read_mtu = 48;
-	transport->write_mtu = 48;
-#endif
+	if (transport->codec == HFP_AUDIO_CODEC_CVSD) {
+		transport->read_mtu = 48;
+		transport->write_mtu = 48;
+	} else {
+		transport->read_mtu = mtu;
+		transport->write_mtu = mtu;
+	}
 	transport->fd = fd;
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
@@ -721,11 +757,11 @@ static DBusHandlerResult audio_agent_endpoint_handler(DBusConnection *c, DBusMes
 		dbus_message_unref(r);
 		res = DBUS_HANDLER_RESULT_HANDLED;
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "Get"))
-		res = audio_agent_get_property(c, m, userdata);
+		res = audio_agent_get_property(c, m, path, userdata);
 	else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "GetAll"))
-		res = audio_agent_getall_properties(c, m, userdata);
+		res = audio_agent_getall_properties(c, m, path, userdata);
 	else if (dbus_message_is_method_call(m, HSPHFPD_AUDIO_AGENT_INTERFACE, "NewConnection"))
-		res = hsphfpd_new_audio_connection(c, m, userdata);
+		res = hsphfpd_new_audio_connection(c, m, path, userdata);
 	else
 		res = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
@@ -790,6 +826,8 @@ static DBusHandlerResult application_object_manager_handler(DBusConnection *c, D
 		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array);
 
 		append_audio_agent_object(&array, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ, HSPHFP_AGENT_CODEC_PCM);
+		if (backend->msbc_supported)
+			append_audio_agent_object(&array, HSPHFP_AUDIO_CLIENT_MSBC, HSPHFP_AGENT_CODEC_MSBC);
 
 		dbus_message_iter_close_container(&iter, &array);
 	} else
@@ -861,13 +899,18 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	struct spa_bt_transport *transport = data;
 	struct spa_bt_backend *backend = transport->backend;
 	DBusMessage *m;
-	const char *air_codec = "CVSD";
+	const char *air_codec = HSPHFP_AIR_CODEC_CVSD;
 	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
 	DBusPendingCall *call;
 	DBusError err;
 
 	if (backend->acquire_in_progress)
 		return -EINPROGRESS;
+
+	if (transport->codec == HFP_AUDIO_CODEC_MSBC) {
+		air_codec = HSPHFP_AIR_CODEC_MSBC;
+		agent_codec = HSPHFP_AGENT_CODEC_MSBC;
+	}
 
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE,
 					 transport->path,
@@ -995,6 +1038,26 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 					spa_log_trace(backend->log, "  %s: %d", key, value);
 				}
 				break;
+
+			case DBUS_TYPE_ARRAY:
+				{
+					if (strcmp(key, "AudioCodecs") == 0) {
+						DBusMessageIter array_i;
+						const char *value;
+
+						endpoint->air_codecs = 0;
+						dbus_message_iter_recurse(&value_i, &array_i);
+						while (dbus_message_iter_get_arg_type(&array_i) != DBUS_TYPE_INVALID) {
+							dbus_message_iter_get_basic(&array_i, &value);
+							if (strcmp(value, HSPHFP_AIR_CODEC_CVSD) == 0)
+								endpoint->air_codecs |= HFP_AUDIO_CODEC_CVSD;
+							if (strcmp(value, HSPHFP_AIR_CODEC_MSBC) == 0)
+								endpoint->air_codecs |= HFP_AUDIO_CODEC_MSBC;
+							dbus_message_iter_next(&array_i);
+						}
+					}
+				}
+				break;
 		}
 
 		dbus_message_iter_next(&element_i);
@@ -1010,14 +1073,16 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 	}
 
 	if ((t = spa_bt_transport_find(backend->monitor, endpoint->path)) != NULL) {
-		if (!endpoint->connected) {
+		/* Release transport on disconnection, or when mSBC is supported if there
+		   is an update of the remote codecs */
+		if (!endpoint->connected || (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC) && t->codec == HFP_AUDIO_CODEC_CVSD)) {
 			spa_bt_transport_free(t);
 			spa_bt_device_check_profiles(d, false);
 			spa_log_debug(backend->log, "Transport released for %s", endpoint->path);
-		} else
+		} else {
 			spa_log_debug(backend->log, "Transport already configured for %s", endpoint->path);
-
-		return DBUS_HANDLER_RESULT_HANDLED;
+			return DBUS_HANDLER_RESULT_HANDLED;
+		}
 	}
 
 	if (!endpoint->valid || !endpoint->connected)
@@ -1047,6 +1112,10 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 		else if (endpoint->role == HSPHFPD_ROLE_GATEWAY)
 			t->profile = SPA_BT_PROFILE_HFP_AG;
 	}
+	if (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC))
+		t->codec = HFP_AUDIO_CODEC_MSBC;
+	else
+		t->codec = HFP_AUDIO_CODEC_CVSD;
 
 	spa_bt_device_connect_profile(t->device, t->profile);
 
@@ -1379,6 +1448,8 @@ void backend_hsphfpd_free(struct spa_bt_backend *backend)
 {
 	struct hsphfpd_endpoint *endpoint;
 
+	if (backend->msbc_supported)
+		dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_MSBC);
 	dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ);
 	dbus_connection_unregister_object_path(backend->conn, APPLICATION_OBJECT_MANAGER_PATH);
 
@@ -1390,10 +1461,12 @@ void backend_hsphfpd_free(struct spa_bt_backend *backend)
 
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
+		const struct spa_dict *info,
 		const struct spa_support *support,
 	  uint32_t n_support)
 {
 	struct spa_bt_backend *backend;
+	const char *str;
 	static const DBusObjectPathVTable vtable_application_object_manager = {
 		.message_function = application_object_manager_handler,
 	};
@@ -1410,6 +1483,10 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 	backend->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->conn = dbus_connection;
+	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-support")))
+		backend->msbc_supported = strcmp(str, "true") == 0 || atoi(str) == 1;
+	else
+		backend->msbc_supported = false;
 
 	spa_list_init(&backend->endpoint_list);
 
@@ -1423,6 +1500,15 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 	if (!dbus_connection_register_object_path(backend->conn,
 	            HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ,
 	            &vtable_audio_agent_endpoint, backend)) {
+		dbus_connection_unregister_object_path(backend->conn, APPLICATION_OBJECT_MANAGER_PATH);
+		free(backend);
+		return NULL;
+	}
+
+	if (backend->msbc_supported && !dbus_connection_register_object_path(backend->conn,
+	            HSPHFP_AUDIO_CLIENT_MSBC,
+	            &vtable_audio_agent_endpoint, backend)) {
+		dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ);
 		dbus_connection_unregister_object_path(backend->conn, APPLICATION_OBJECT_MANAGER_PATH);
 		free(backend);
 		return NULL;

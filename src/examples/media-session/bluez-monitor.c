@@ -447,7 +447,7 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 	void *iface;
 	struct impl *impl;
 
-	handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, NULL);
+	handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, &session->props->dict);
 	if (handle == NULL) {
 		res = -errno;
 		pw_log_error("can't load %s: %m", SPA_NAME_API_BLUEZ5_ENUM_DBUS);

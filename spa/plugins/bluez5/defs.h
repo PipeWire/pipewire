@@ -378,6 +378,7 @@ static inline void backend_ofono_add_filters(struct spa_bt_backend *backend) {}
 #ifdef HAVE_BLUEZ_5_BACKEND_HSPHFPD
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
+		const struct spa_dict *info,
 		const struct spa_support *support,
 		uint32_t n_support);
 void backend_hsphfpd_free(struct spa_bt_backend *backend);

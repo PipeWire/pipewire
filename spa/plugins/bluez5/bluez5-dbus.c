@@ -1809,7 +1809,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->backend_hsp_native = backend_hsp_native_new(this, this->conn, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, support, n_support);
-	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, support, n_support);
+	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, support, n_support);
 
 	return 0;
 }

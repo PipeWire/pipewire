@@ -532,7 +532,7 @@ snd_pcm_t *pa_alsa_open_by_device_id_auto(
         if (!pa_channel_map_superset(&m->channel_map, map))
             continue;
 
-        pa_log_debug("Checking for superset %s (%s)", m->device.name, m->device.device_strings[0]);
+        pa_log_debug("Checking for superset %s (%s)", m->name, m->device_strings[0]);
 
         pcm_handle = pa_alsa_open_by_device_id_mapping(
                 dev_id,

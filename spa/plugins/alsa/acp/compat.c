@@ -51,11 +51,11 @@ void pa_device_port_new_data_set_available(pa_device_port_new_data *data, pa_ava
 	data->available = available;
 }
 
-void pa_device_port_new_data_set_available_group(pa_device_port_new_data *data, const char *group)
+void pa_device_port_new_data_set_availability_group(pa_device_port_new_data *data, const char *group)
 {
 	pa_assert(data);
-	pa_xfree(data->available_group);
-	data->available_group = pa_xstrdup(group);
+	pa_xfree(data->availability_group);
+	data->availability_group = pa_xstrdup(group);
 }
 
 void pa_device_port_new_data_set_direction(pa_device_port_new_data *data, pa_direction_t direction)
@@ -75,7 +75,7 @@ void pa_device_port_new_data_done(pa_device_port_new_data *data)
 	pa_assert(data);
 	pa_xfree(data->name);
 	pa_xfree(data->description);
-	pa_xfree(data->available_group);
+	pa_xfree(data->availability_group);
 }
 
 pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, size_t extra)
@@ -89,17 +89,20 @@ pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, si
 
 	p = calloc(1, sizeof(pa_device_port) + extra);
 
-	p->port.name = data->name;
+	p->port.name = p->name = data->name;
 	data->name = NULL;
-	p->port.description = data->description;
+	p->port.description = p->description = data->description;
 	data->description = NULL;
-	p->port.priority = 0;
+	p->priority = p->port.priority = 0;
+	p->available = data->available;
 	p->port.available = (enum acp_available) data->available;
-	p->port.available_group = data->available_group;
-	data->available_group = NULL;
+	p->port.availability_group = p->availability_group = data->availability_group;
+	data->availability_group = NULL;
 	p->profiles = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
+	p->direction = data->direction;
 	p->port.direction = data->direction == PA_DIRECTION_OUTPUT ?
 		ACP_DIRECTION_PLAYBACK : ACP_DIRECTION_CAPTURE;
+	p->type = data->type;
 	p->port.type = (enum acp_port_type) data->type;
 
 	p->proplist = pa_proplist_new();
@@ -110,15 +113,16 @@ pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, si
 
 void pa_device_port_set_available(pa_device_port *p, pa_available_t status)
 {
-	enum acp_available old = p->port.available;
+	pa_available_t old = p->available;
 
-	if (old == (enum acp_available) status)
+	if (old == status)
 		return;
+	p->available = status;
 	p->port.available = (enum acp_available) status;
 
 	if (p->card && p->card->events && p->card->events->port_available)
 		p->card->events->port_available(p->card->user_data, p->port.index,
-				old, (enum acp_available) status);
+				(enum acp_available)old, p->port.available);
 }
 
 bool pa_alsa_device_init_description(pa_proplist *p, pa_card *card) {

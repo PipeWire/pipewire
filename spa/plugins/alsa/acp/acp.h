@@ -81,6 +81,9 @@ enum acp_available {
 	ACP_AVAILABLE_YES = 2
 };
 
+/** Port type. New types can be added in the future, so applications should
+ * gracefully handle situations where a type identifier doesn't match any item
+ * in this enumeration. */
 enum acp_port_type {
 	ACP_PORT_TYPE_UNKNOWN = 0,
 	ACP_PORT_TYPE_AUX = 1,
@@ -136,26 +139,47 @@ struct acp_card_events {
 };
 
 struct acp_port {
-	uint32_t index;
+	uint32_t index;			/**< unique index for this port */
 #define ACP_PORT_ACTIVE		(1<<0)
-	uint32_t flags;
+	uint32_t flags;			/**< extra port flags */
 
-	char *name;
-	char *description;
-	uint32_t priority;
+	const char *name;		/**< Name of this port */
+	const char *description;	/**< Description of this port */
+	uint32_t priority;		/**< The higher this value is, the more useful this port is as a default. */
 	enum acp_direction direction;
-	enum acp_available available;
-	char *available_group;		/* a string identifier which determine the group of devices
-					 * handling the available state simultaneously */
-	enum acp_port_type type;
+	enum acp_available available;	/**< A flags (see #acp_port_available), indicating availability status of this port. */
+	const char *availability_group;	/**< An indentifier for the group of ports that share their availability status with
+					 * each other. This is meant especially for handling cases where one 3.5 mm connector
+					 * is used for headphones, headsets and microphones, and the hardware can only tell
+					 * that something was plugged in but not what exactly. In this situation the ports for
+					 * all those devices share their availability status, and PulseAudio can't tell which
+					 * one is actually plugged in, and some application may ask the user what was plugged
+					 * in. Such applications should get a list of all card ports and compare their
+					 * `available_group` fields. Ports that have the same group are those that need
+					 * input from the user to determine which device was plugged in. The application should
+					 * then activate the user-chosen port.
+					 *
+					 * May be NULL, in which case the port is not part of any availability group (which is
+					 * the same as having a group with only one member).
+					 *
+					 * The group identifier must be treated as an opaque identifier. The string may look
+					 * like an ALSA control name, but applications must not assume any such relationship.
+					 * The group naming scheme can change without a warning.
+					 *
+					 * Since one group can include both input and output ports, the grouping should be done
+					 * using pa_card_port_info instead of pa_sink_port_info, but this field is duplicated
+					 * also in pa_sink_port_info (and pa_source_port_info) in case someone finds that
+					 * convenient.
+					 */
+	enum acp_port_type type;	/**< Port type, see #pa_device_port_type. */
 
-	struct acp_dict props;
+	struct acp_dict props;		/**< extra port properties */
 
-	uint32_t n_profiles;
-	struct acp_card_profile **profiles;
+	uint32_t n_profiles;		/**< number of elements in profiles array */
+	struct acp_card_profile **profiles;	/**< array of profiles for this port */
 
-	uint32_t n_devices;
-	struct acp_device **devices;
+	uint32_t n_devices;		/**< number of elements in devices array */
+	struct acp_device **devices;	/**< array of devices */
 };
 
 struct acp_device {
@@ -165,13 +189,13 @@ struct acp_device {
 #define ACP_DEVICE_HW_MUTE	(1<<2)
 	uint32_t flags;
 
-	char *name;
-	char *description;
+	const char *name;
+	const char *description;
 	uint32_t priority;
 	enum acp_direction direction;
 	struct acp_dict props;
 
-	char **device_strings;
+	const char **device_strings;
 	struct acp_format format;
 
 	float base_volume;
@@ -186,9 +210,8 @@ struct acp_card_profile {
 #define ACP_PROFILE_ACTIVE	(1<<0)
 	uint32_t flags;
 
-	char *name;
-	char *description;
-	char *description_key;
+	const char *name;
+	const char *description;
 	uint32_t priority;
 	enum acp_available available;
 	struct acp_dict props;

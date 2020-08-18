@@ -37,6 +37,7 @@ typedef struct pa_alsa_decibel_fix pa_alsa_decibel_fix;
 typedef struct pa_alsa_profile_set pa_alsa_profile_set;
 typedef struct pa_alsa_port_data pa_alsa_port_data;
 typedef struct pa_alsa_profile pa_alsa_profile;
+typedef struct pa_alsa_profile pa_card_profile;
 typedef struct pa_alsa_device pa_alsa_device;
 
 typedef enum pa_alsa_switch_use {
@@ -99,8 +100,8 @@ struct pa_alsa_setting {
 struct pa_alsa_mixer {
     snd_mixer_t *mixer_handle;
     int card_index;
-    bool used_for_probe_only:1;
     bool used_for_poll:1;
+    bool used_for_probe_only:1;
 };
 
 /* ALSA mixer element identifier */
@@ -207,7 +208,7 @@ struct pa_alsa_path {
     char *name;
     char *description_key;
     char *description;
-    char *available_group;
+    char *availability_group;
     pa_device_port_type_t device_port_type;
     unsigned priority;
     bool autodetect_eld_device;
@@ -357,6 +358,11 @@ struct pa_alsa_profile {
 
     pa_alsa_profile_set *profile_set;
 
+    char *name;
+    char *description;
+    char *description_key;
+    unsigned priority;
+
     char *input_name;
     char *output_name;
 
@@ -418,6 +424,18 @@ void pa_alsa_profile_set_dump(pa_alsa_profile_set *s);
 void pa_alsa_profile_set_drop_unsupported(pa_alsa_profile_set *s);
 
 void pa_alsa_mixer_use_for_poll(pa_hashmap *mixers, snd_mixer_t *mixer_handle);
+
+#if 0
+pa_alsa_fdlist *pa_alsa_fdlist_new(void);
+void pa_alsa_fdlist_free(pa_alsa_fdlist *fdl);
+int pa_alsa_fdlist_set_handle(pa_alsa_fdlist *fdl, snd_mixer_t *mixer_handle, snd_hctl_t *hctl_handle, pa_mainloop_api* m);
+
+/* Alternative for handling alsa mixer events in io-thread. */
+
+pa_alsa_mixer_pdata *pa_alsa_mixer_pdata_new(void);
+void pa_alsa_mixer_pdata_free(pa_alsa_mixer_pdata *pd);
+int pa_alsa_set_mixer_rtpoll(struct pa_alsa_mixer_pdata *pd, snd_mixer_t *mixer, pa_rtpoll *rtp);
+#endif
 
 /* Data structure for inclusion in pa_device_port for alsa
  * sinks/sources. This contains nothing that needs to be freed

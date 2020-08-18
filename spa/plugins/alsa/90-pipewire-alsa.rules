@@ -131,6 +131,16 @@ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1252", ENV{PULSE_PROFILE_SET}="steel
 
 ATTRS{idVendor}=="147a", ATTRS{idProduct}=="e055", ENV{PULSE_PROFILE_SET}="cmedia-high-speed-true-hdaudio.conf"
 
+# HyperX Cloud Orbit S has three modes. Each mode has a separate product ID.
+# ID_SERIAL for this device is the device name + mode repeated three times.
+# ID_SERIAL is used for the ID_ID property, and the ID_ID property is used in
+# the card name in PulseAudio. The resulting card name is too long for the name
+# length limit, so we set a more sensible ID_ID here (the same as the default
+# ID_ID, but without repetition in the serial part).
+ATTRS{idVendor}=="0951", ATTRS{idProduct}=="16ff", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_2Ch-$env{ID_USB_INTERFACE_NUM}"
+ATTRS{idVendor}=="0951", ATTRS{idProduct}=="1702", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_Hi-Res_2Ch-$env{ID_USB_INTERFACE_NUM}"
+ATTRS{idVendor}=="0951", ATTRS{idProduct}=="1703", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_3D_8Ch-$env{ID_USB_INTERFACE_NUM}"
+
 GOTO="pulseaudio_end"
 
 LABEL="pulseaudio_firewire_quirk"

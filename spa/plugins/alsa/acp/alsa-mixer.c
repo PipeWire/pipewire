@@ -306,6 +306,327 @@ void pa_alsa_mixer_use_for_poll(pa_hashmap *mixers, snd_mixer_t *mixer_handle)
     }
 }
 
+#if 0
+struct pa_alsa_fdlist {
+    unsigned num_fds;
+    struct pollfd *fds;
+    /* This is a temporary buffer used to avoid lots of mallocs */
+    struct pollfd *work_fds;
+
+    snd_mixer_t *mixer;
+    snd_hctl_t *hctl;
+
+    pa_mainloop_api *m;
+    pa_defer_event *defer;
+    pa_io_event **ios;
+
+    bool polled;
+
+    void (*cb)(void *userdata);
+    void *userdata;
+};
+
+static void io_cb(pa_mainloop_api *a, pa_io_event *e, int fd, pa_io_event_flags_t events, void *userdata) {
+
+    struct pa_alsa_fdlist *fdl = userdata;
+    int err;
+    unsigned i;
+    unsigned short revents;
+
+    pa_assert(a);
+    pa_assert(fdl);
+    pa_assert(fdl->mixer || fdl->hctl);
+    pa_assert(fdl->fds);
+    pa_assert(fdl->work_fds);
+
+    if (fdl->polled)
+        return;
+
+    fdl->polled = true;
+
+    memcpy(fdl->work_fds, fdl->fds, sizeof(struct pollfd) * fdl->num_fds);
+
+    for (i = 0; i < fdl->num_fds; i++) {
+        if (e == fdl->ios[i]) {
+            if (events & PA_IO_EVENT_INPUT)
+                fdl->work_fds[i].revents |= POLLIN;
+            if (events & PA_IO_EVENT_OUTPUT)
+                fdl->work_fds[i].revents |= POLLOUT;
+            if (events & PA_IO_EVENT_ERROR)
+                fdl->work_fds[i].revents |= POLLERR;
+            if (events & PA_IO_EVENT_HANGUP)
+                fdl->work_fds[i].revents |= POLLHUP;
+            break;
+        }
+    }
+
+    pa_assert(i != fdl->num_fds);
+
+    if (fdl->hctl)
+        err = snd_hctl_poll_descriptors_revents(fdl->hctl, fdl->work_fds, fdl->num_fds, &revents);
+    else
+        err = snd_mixer_poll_descriptors_revents(fdl->mixer, fdl->work_fds, fdl->num_fds, &revents);
+
+    if (err < 0) {
+        pa_log_error("Unable to get poll revent: %s", pa_alsa_strerror(err));
+        return;
+    }
+
+    a->defer_enable(fdl->defer, 1);
+
+    if (revents) {
+        if (fdl->hctl)
+            snd_hctl_handle_events(fdl->hctl);
+        else
+            snd_mixer_handle_events(fdl->mixer);
+    }
+}
+
+static void defer_cb(pa_mainloop_api *a, pa_defer_event *e, void *userdata) {
+    struct pa_alsa_fdlist *fdl = userdata;
+    unsigned num_fds, i;
+    int err, n;
+    struct pollfd *temp;
+
+    pa_assert(a);
+    pa_assert(fdl);
+    pa_assert(fdl->mixer || fdl->hctl);
+
+    a->defer_enable(fdl->defer, 0);
+
+    if (fdl->hctl)
+        n = snd_hctl_poll_descriptors_count(fdl->hctl);
+    else
+        n = snd_mixer_poll_descriptors_count(fdl->mixer);
+
+    if (n < 0) {
+        pa_log("snd_mixer_poll_descriptors_count() failed: %s", pa_alsa_strerror(n));
+        return;
+    }
+    else if (n == 0) {
+        pa_log_warn("Mixer has no poll descriptors. Please control mixer from PulseAudio only.");
+        return;
+    }
+    num_fds = (unsigned) n;
+
+    if (num_fds != fdl->num_fds) {
+        if (fdl->fds)
+            pa_xfree(fdl->fds);
+        if (fdl->work_fds)
+            pa_xfree(fdl->work_fds);
+        fdl->fds = pa_xnew0(struct pollfd, num_fds);
+        fdl->work_fds = pa_xnew(struct pollfd, num_fds);
+    }
+
+    memset(fdl->work_fds, 0, sizeof(struct pollfd) * num_fds);
+
+    if (fdl->hctl)
+        err = snd_hctl_poll_descriptors(fdl->hctl, fdl->work_fds, num_fds);
+    else
+        err = snd_mixer_poll_descriptors(fdl->mixer, fdl->work_fds, num_fds);
+
+    if (err < 0) {
+        pa_log_error("Unable to get poll descriptors: %s", pa_alsa_strerror(err));
+        return;
+    }
+
+    fdl->polled = false;
+
+    if (memcmp(fdl->fds, fdl->work_fds, sizeof(struct pollfd) * num_fds) == 0)
+        return;
+
+    if (fdl->ios) {
+        for (i = 0; i < fdl->num_fds; i++)
+            a->io_free(fdl->ios[i]);
+
+        if (num_fds != fdl->num_fds) {
+            pa_xfree(fdl->ios);
+            fdl->ios = NULL;
+        }
+    }
+
+    if (!fdl->ios)
+        fdl->ios = pa_xnew(pa_io_event*, num_fds);
+
+    /* Swap pointers */
+    temp = fdl->work_fds;
+    fdl->work_fds = fdl->fds;
+    fdl->fds = temp;
+
+    fdl->num_fds = num_fds;
+
+    for (i = 0;i < num_fds;i++)
+        fdl->ios[i] = a->io_new(a, fdl->fds[i].fd,
+            ((fdl->fds[i].events & POLLIN) ? PA_IO_EVENT_INPUT : 0) |
+            ((fdl->fds[i].events & POLLOUT) ? PA_IO_EVENT_OUTPUT : 0),
+            io_cb, fdl);
+}
+
+struct pa_alsa_fdlist *pa_alsa_fdlist_new(void) {
+    struct pa_alsa_fdlist *fdl;
+
+    fdl = pa_xnew0(struct pa_alsa_fdlist, 1);
+
+    return fdl;
+}
+
+void pa_alsa_fdlist_free(struct pa_alsa_fdlist *fdl) {
+    pa_assert(fdl);
+
+    if (fdl->defer) {
+        pa_assert(fdl->m);
+        fdl->m->defer_free(fdl->defer);
+    }
+
+    if (fdl->ios) {
+        unsigned i;
+        pa_assert(fdl->m);
+        for (i = 0; i < fdl->num_fds; i++)
+            fdl->m->io_free(fdl->ios[i]);
+        pa_xfree(fdl->ios);
+    }
+
+    if (fdl->fds)
+        pa_xfree(fdl->fds);
+    if (fdl->work_fds)
+        pa_xfree(fdl->work_fds);
+
+    pa_xfree(fdl);
+}
+
+/* We can listen to either a snd_hctl_t or a snd_mixer_t, but not both */
+int pa_alsa_fdlist_set_handle(struct pa_alsa_fdlist *fdl, snd_mixer_t *mixer_handle, snd_hctl_t *hctl_handle, pa_mainloop_api *m) {
+    pa_assert(fdl);
+    pa_assert(hctl_handle || mixer_handle);
+    pa_assert(!(hctl_handle && mixer_handle));
+    pa_assert(m);
+    pa_assert(!fdl->m);
+
+    fdl->hctl = hctl_handle;
+    fdl->mixer = mixer_handle;
+    fdl->m = m;
+    fdl->defer = m->defer_new(m, defer_cb, fdl);
+
+    return 0;
+}
+
+struct pa_alsa_mixer_pdata {
+    pa_rtpoll *rtpoll;
+    pa_rtpoll_item *poll_item;
+    snd_mixer_t *mixer;
+};
+
+struct pa_alsa_mixer_pdata *pa_alsa_mixer_pdata_new(void) {
+    struct pa_alsa_mixer_pdata *pd;
+
+    pd = pa_xnew0(struct pa_alsa_mixer_pdata, 1);
+
+    return pd;
+}
+
+void pa_alsa_mixer_pdata_free(struct pa_alsa_mixer_pdata *pd) {
+    pa_assert(pd);
+
+    if (pd->poll_item) {
+        pa_rtpoll_item_free(pd->poll_item);
+    }
+
+    pa_xfree(pd);
+}
+
+static int rtpoll_work_cb(pa_rtpoll_item *i) {
+    struct pa_alsa_mixer_pdata *pd;
+    struct pollfd *p;
+    unsigned n_fds;
+    unsigned short revents = 0;
+    int err, ret = 0;
+
+    pd = pa_rtpoll_item_get_work_userdata(i);
+    pa_assert_fp(pd);
+    pa_assert_fp(i == pd->poll_item);
+
+    p = pa_rtpoll_item_get_pollfd(i, &n_fds);
+
+    if ((err = snd_mixer_poll_descriptors_revents(pd->mixer, p, n_fds, &revents)) < 0) {
+        pa_log_error("Unable to get poll revent: %s", pa_alsa_strerror(err));
+        ret = -1;
+        goto fail;
+    }
+
+    if (revents) {
+        if (revents & (POLLNVAL | POLLERR)) {
+            pa_log_debug("Device disconnected, stopping poll on mixer");
+            goto fail;
+        } else if (revents & POLLERR) {
+            /* This shouldn't happen. */
+            pa_log_error("Got a POLLERR (revents = %04x), stopping poll on mixer", revents);
+            goto fail;
+        }
+
+        err = snd_mixer_handle_events(pd->mixer);
+
+        if (PA_LIKELY(err >= 0)) {
+            pa_rtpoll_item_free(i);
+            pa_alsa_set_mixer_rtpoll(pd, pd->mixer, pd->rtpoll);
+        } else {
+            pa_log_error("Error handling mixer event: %s", pa_alsa_strerror(err));
+            ret = -1;
+            goto fail;
+        }
+    }
+
+    return ret;
+
+fail:
+    pa_rtpoll_item_free(i);
+
+    pd->poll_item = NULL;
+    pd->rtpoll = NULL;
+    pd->mixer = NULL;
+
+    return ret;
+}
+
+int pa_alsa_set_mixer_rtpoll(struct pa_alsa_mixer_pdata *pd, snd_mixer_t *mixer, pa_rtpoll *rtp) {
+    pa_rtpoll_item *i;
+    struct pollfd *p;
+    int err, n;
+
+    pa_assert(pd);
+    pa_assert(mixer);
+    pa_assert(rtp);
+
+    if ((n = snd_mixer_poll_descriptors_count(mixer)) < 0) {
+        pa_log("snd_mixer_poll_descriptors_count() failed: %s", pa_alsa_strerror(n));
+        return -1;
+    }
+    else if (n == 0) {
+        pa_log_warn("Mixer has no poll descriptors. Please control mixer from PulseAudio only.");
+        return 0;
+    }
+
+    i = pa_rtpoll_item_new(rtp, PA_RTPOLL_LATE, (unsigned) n);
+
+    p = pa_rtpoll_item_get_pollfd(i, NULL);
+
+    memset(p, 0, sizeof(struct pollfd) * n);
+
+    if ((err = snd_mixer_poll_descriptors(mixer, p, (unsigned) n)) < 0) {
+        pa_log_error("Unable to get poll descriptors: %s", pa_alsa_strerror(err));
+        pa_rtpoll_item_free(i);
+        return -1;
+    }
+
+    pd->rtpoll = rtp;
+    pd->poll_item = i;
+    pd->mixer = mixer;
+
+    pa_rtpoll_item_set_work_callback(i, rtpoll_work_cb, pd);
+
+    return 0;
+}
+#endif
+
 static const snd_mixer_selem_channel_id_t alsa_channel_ids[PA_CHANNEL_POSITION_MAX] = {
     [PA_CHANNEL_POSITION_MONO] = SND_MIXER_SCHN_MONO, /* The ALSA name is just an alias! */
 
@@ -438,7 +759,7 @@ void pa_alsa_path_free(pa_alsa_path *p) {
     }
 
     pa_proplist_free(p->proplist);
-    pa_xfree(p->available_group);
+    pa_xfree(p->availability_group);
     pa_xfree(p->name);
     pa_xfree(p->description);
     pa_xfree(p->description_key);
@@ -3424,9 +3745,9 @@ static void mapping_free(pa_alsa_mapping *m) {
 static void profile_free(pa_alsa_profile *p) {
     pa_assert(p);
 
-    pa_xfree(p->profile.name);
-    pa_xfree(p->profile.description);
-    pa_xfree(p->profile.description_key);
+    pa_xfree(p->name);
+    pa_xfree(p->description);
+    pa_xfree(p->description_key);
     pa_xfree(p->input_name);
     pa_xfree(p->output_name);
 
@@ -3503,9 +3824,9 @@ static pa_alsa_profile *profile_get(pa_alsa_profile_set *ps, const char *name) {
 
     p = pa_xnew0(pa_alsa_profile, 1);
     p->profile_set = ps;
-    p->profile.name = pa_xstrdup(name);
+    p->name = pa_xstrdup(name);
 
-    pa_hashmap_put(ps->profiles, p->profile.name, p);
+    pa_hashmap_put(ps->profiles, p->name, p);
 
     return p;
 }
@@ -3693,8 +4014,8 @@ static int mapping_parse_description(pa_config_parser_state *state) {
         pa_xfree(m->description);
         m->description = pa_xstrdup(state->rvalue);
     } else if ((p = profile_get(ps, state->section))) {
-        pa_xfree(p->profile.description);
-        p->profile.description = pa_xstrdup(state->rvalue);
+        pa_xfree(p->description);
+        p->description = pa_xstrdup(state->rvalue);
     } else {
         pa_log("[%s:%u] Section name %s invalid.", state->filename, state->lineno, state->section);
         return -1;
@@ -3716,8 +4037,8 @@ static int mapping_parse_description_key(pa_config_parser_state *state) {
         pa_xfree(m->description_key);
         m->description_key = pa_xstrdup(state->rvalue);
     } else if ((p = profile_get(ps, state->section))) {
-        pa_xfree(p->profile.description_key);
-        p->profile.description_key = pa_xstrdup(state->rvalue);
+        pa_xfree(p->description_key);
+        p->description_key = pa_xstrdup(state->rvalue);
     } else {
         pa_log("[%s:%u] Section name %s invalid.", state->filename, state->lineno, state->section);
         return -1;
@@ -3745,7 +4066,7 @@ static int mapping_parse_priority(pa_config_parser_state *state) {
     if ((m = pa_alsa_mapping_get(ps, state->section)))
         m->priority = prio;
     else if ((p = profile_get(ps, state->section)))
-        p->profile.priority = prio;
+        p->priority = prio;
     else {
         pa_log("[%s:%u] Section name %s invalid.", state->filename, state->lineno, state->section);
         return -1;
@@ -3963,7 +4284,7 @@ fail:
 }
 
 /* the logic is simple: if we see the jack in multiple paths */
-/* assign all those jacks to one available_group */
+/* assign all those jacks to one availability_group */
 static void mapping_group_available(pa_hashmap *paths)
 {
     void *state, *state2;
@@ -3975,34 +4296,34 @@ static void mapping_group_available(pa_hashmap *paths)
         const char *found = NULL;
         bool has_control = false;
         PA_LLIST_FOREACH(j, p->jacks) {
-           if (!j->has_control || j->state_plugged == PA_AVAILABLE_NO)
-               continue;
-           has_control = true;
-           j->state_plugged = PA_AVAILABLE_UNKNOWN;
-           PA_HASHMAP_FOREACH(p2, paths, state2) {
-               if (p2 == p)
+            if (!j->has_control || j->state_plugged == PA_AVAILABLE_NO)
+                continue;
+            has_control = true;
+            PA_HASHMAP_FOREACH(p2, paths, state2) {
+                if (p2 == p)
                    break;
-               PA_LLIST_FOREACH(j2, p->jacks) {
-                   if (!j2->has_control || j->state_plugged == PA_AVAILABLE_NO)
-                       continue;
-                   if (pa_streq(j->name, j2->name)) {
-                       j2->state_plugged = PA_AVAILABLE_UNKNOWN;
-                       found = p2->available_group;
-                       break;
-                   }
-               }
-           }
-           if (found)
-               break;
-       }
-       if (!has_control)
-           continue;
-       if (!found) {
-           p->available_group = pa_sprintf_malloc("Legacy %d", num);
-       } else {
-           p->available_group = pa_xstrdup(found);
-       }
-       if (!found)
+                PA_LLIST_FOREACH(j2, p2->jacks) {
+                    if (!j2->has_control || j2->state_plugged == PA_AVAILABLE_NO)
+                        continue;
+                    if (pa_streq(j->name, j2->name)) {
+                        j->state_plugged = PA_AVAILABLE_UNKNOWN;
+                        j2->state_plugged = PA_AVAILABLE_UNKNOWN;
+                        found = p2->availability_group;
+                        break;
+                    }
+                }
+            }
+            if (found)
+                break;
+        }
+        if (!has_control)
+            continue;
+        if (!found) {
+            p->availability_group = pa_sprintf_malloc("Legacy %d", num);
+        } else {
+            p->availability_group = pa_xstrdup(found);
+        }
+        if (!found)
             num++;
     }
 }
@@ -4180,13 +4501,13 @@ static void profile_set_add_auto_pair(
 
     p = pa_xnew0(pa_alsa_profile, 1);
     p->profile_set = ps;
-    p->profile.name = name;
+    p->name = name;
 
     if (m) {
         p->output_name = pa_xstrdup(m->name);
         p->output_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
         pa_idxset_put(p->output_mappings, m, NULL);
-        p->profile.priority += m->priority * 100;
+        p->priority += m->priority * 100;
         p->fallback_output = m->fallback;
     }
 
@@ -4194,11 +4515,11 @@ static void profile_set_add_auto_pair(
         p->input_name = pa_xstrdup(n->name);
         p->input_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
         pa_idxset_put(p->input_mappings, n, NULL);
-        p->profile.priority += n->priority;
+        p->priority += n->priority;
         p->fallback_input = n->fallback;
     }
 
-    pa_hashmap_put(ps->profiles, p->profile.name, p);
+    pa_hashmap_put(ps->profiles, p->name, p);
 }
 
 static void profile_set_add_auto(pa_alsa_profile_set *ps) {
@@ -4236,7 +4557,7 @@ static int profile_verify(pa_alsa_profile *p) {
         { "output:unknown-stereo+input:unknown-stereo", N_("Stereo Duplex") },
         { "off",                                      N_("Off") }
     };
-    const char *description_key = p->profile.description_key ? p->profile.description_key : p->profile.name;
+    const char *description_key = p->description_key ? p->description_key : p->name;
 
     pa_assert(p);
 
@@ -4262,7 +4583,7 @@ static int profile_verify(pa_alsa_profile *p) {
                 continue;
 
             if (!(m = pa_hashmap_get(p->profile_set->mappings, *name)) || m->direction == PA_ALSA_DIRECTION_INPUT) {
-                pa_log("Profile '%s' refers to nonexistent mapping '%s'.", p->profile.name, *name);
+                pa_log("Profile '%s' refers to nonexistent mapping '%s'.", p->name, *name);
                 return -1;
             }
 
@@ -4298,7 +4619,7 @@ static int profile_verify(pa_alsa_profile *p) {
                 continue;
 
             if (!(m = pa_hashmap_get(p->profile_set->mappings, *name)) || m->direction == PA_ALSA_DIRECTION_OUTPUT) {
-                pa_log("Profile '%s' refers to nonexistent mapping '%s'.", p->profile.name, *name);
+                pa_log("Profile '%s' refers to nonexistent mapping '%s'.", p->name, *name);
                 return -1;
             }
 
@@ -4313,16 +4634,16 @@ static int profile_verify(pa_alsa_profile *p) {
     }
 
     if (!p->input_mappings && !p->output_mappings) {
-        pa_log("Profile '%s' lacks mappings.", p->profile.name);
+        pa_log("Profile '%s' lacks mappings.", p->name);
         return -1;
     }
 
-    if (!p->profile.description)
-        p->profile.description = pa_xstrdup(lookup_description(description_key,
+    if (!p->description)
+        p->description = pa_xstrdup(lookup_description(description_key,
                                                        well_known_descriptions,
                                                        PA_ELEMENTSOF(well_known_descriptions)));
 
-    if (!p->profile.description) {
+    if (!p->description) {
         uint32_t idx;
         pa_alsa_mapping *m;
 	char *ptr;
@@ -4347,7 +4668,7 @@ static int profile_verify(pa_alsa_profile *p) {
             }
 
 	fclose(f);
-        p->profile.description = ptr;
+        p->description = ptr;
     }
 
     return 0;
@@ -4359,11 +4680,11 @@ void pa_alsa_profile_dump(pa_alsa_profile *p) {
     pa_assert(p);
 
     pa_log_debug("Profile %s (%s), input=%s, output=%s priority=%u, supported=%s n_input_mappings=%u, n_output_mappings=%u",
-                 p->profile.name,
-                 pa_strnull(p->profile.description),
+                 p->name,
+                 pa_strnull(p->description),
                  pa_strnull(p->input_name),
                  pa_strnull(p->output_name),
-                 p->profile.priority,
+                 p->priority,
                  pa_yes_no(p->supported),
                  p->input_mappings ? pa_idxset_size(p->input_mappings) : 0,
                  p->output_mappings ? pa_idxset_size(p->output_mappings) : 0);
@@ -4703,8 +5024,7 @@ void pa_alsa_profile_set_probe(
             if (p->output_mappings) {
                 PA_IDXSET_FOREACH(m, p->output_mappings, idx) {
                     if (pa_hashmap_get(broken_outputs, m) == m) {
-                        pa_log_debug("Skipping profile %s - will not be able to open output:%s",
-					p->profile.name, m->name);
+                        pa_log_debug("Skipping profile %s - will not be able to open output:%s", p->name, m->name);
                         p->supported = false;
                         break;
                     }
@@ -4714,8 +5034,7 @@ void pa_alsa_profile_set_probe(
             if (p->input_mappings && p->supported) {
                 PA_IDXSET_FOREACH(m, p->input_mappings, idx) {
                     if (pa_hashmap_get(broken_inputs, m) == m) {
-                        pa_log_debug("Skipping profile %s - will not be able to open input:%s",
-					p->profile.name, m->name);
+                        pa_log_debug("Skipping profile %s - will not be able to open input:%s", p->name, m->name);
                         p->supported = false;
                         break;
                     }
@@ -4723,7 +5042,7 @@ void pa_alsa_profile_set_probe(
             }
 
             if (p->supported)
-                pa_log_debug("Looking at profile %s", p->profile.name);
+                pa_log_debug("Looking at profile %s", p->name);
 
             /* Check if we can open all new ones */
             if (p->output_mappings && p->supported)
@@ -4780,7 +5099,7 @@ void pa_alsa_profile_set_probe(
                 continue;
         }
 
-        pa_log_debug("Profile %s supported.", p->profile.name);
+        pa_log_debug("Profile %s supported.", p->name);
 
         if (p->output_mappings)
             PA_IDXSET_FOREACH(m, p->output_mappings, idx)
@@ -4848,7 +5167,7 @@ void pa_alsa_profile_set_drop_unsupported(pa_alsa_profile_set *ps) {
 
     PA_HASHMAP_FOREACH(p, ps->profiles, state) {
         if (!p->supported)
-            pa_hashmap_remove_and_free(ps->profiles, p->profile.name);
+            pa_hashmap_remove_and_free(ps->profiles, p->name);
     }
 
     PA_HASHMAP_FOREACH(m, ps->mappings, state) {
@@ -4862,7 +5181,7 @@ static pa_device_port* device_port_alsa_init(pa_hashmap *ports, /* card ports */
     const char* description,
     pa_alsa_path *path,
     pa_alsa_setting *setting,
-    pa_alsa_profile *cp,
+    pa_card_profile *cp,
     pa_hashmap *extra, /* sink/source ports */
     pa_core *core) {
 
@@ -4881,12 +5200,12 @@ static pa_device_port* device_port_alsa_init(pa_hashmap *ports, /* card ports */
         pa_device_port_new_data_set_description(&port_data, description);
         pa_device_port_new_data_set_direction(&port_data, path->direction == PA_ALSA_DIRECTION_OUTPUT ? PA_DIRECTION_OUTPUT : PA_DIRECTION_INPUT);
         pa_device_port_new_data_set_type(&port_data, path->device_port_type);
-        pa_device_port_new_data_set_available_group(&port_data, path->available_group);
+        pa_device_port_new_data_set_availability_group(&port_data, path->availability_group);
 
         p = pa_device_port_new(core, &port_data, sizeof(pa_alsa_port_data));
         pa_device_port_new_data_done(&port_data);
         pa_assert(p);
-        pa_hashmap_put(ports, p->port.name, p);
+        pa_hashmap_put(ports, p->name, p);
         pa_proplist_update(p->proplist, PA_UPDATE_REPLACE, path->proplist);
 
         data = PA_DEVICE_PORT_DATA(p);
@@ -4897,10 +5216,10 @@ static pa_device_port* device_port_alsa_init(pa_hashmap *ports, /* card ports */
     }
 
     if (cp)
-        pa_hashmap_put(p->profiles, cp->profile.name, cp);
+        pa_hashmap_put(p->profiles, cp->name, cp);
 
     if (extra) {
-        pa_hashmap_put(extra, p->port.name, p);
+        pa_hashmap_put(extra, p->name, p);
     }
 
     return p;
@@ -4908,7 +5227,7 @@ static pa_device_port* device_port_alsa_init(pa_hashmap *ports, /* card ports */
 
 void pa_alsa_path_set_add_ports(
         pa_alsa_path_set *ps,
-        pa_alsa_profile *cp,
+        pa_card_profile *cp,
         pa_hashmap *ports, /* card ports */
         pa_hashmap *extra, /* sink/source ports */
         pa_core *core) {
@@ -4927,7 +5246,7 @@ void pa_alsa_path_set_add_ports(
              * single entry */
             pa_device_port *port = device_port_alsa_init(ports, path->name,
                 path->description, path, path->settings, cp, extra, core);
-            port->port.priority = path->priority * 100;
+            port->priority = path->priority * 100;
 
         } else {
             pa_alsa_setting *s;
@@ -4943,7 +5262,7 @@ void pa_alsa_path_set_add_ports(
                     d = pa_xstrdup(path->description);
 
                 port = device_port_alsa_init(ports, n, d, path, s, cp, extra, core);
-                port->port.priority = path->priority * 100 + s->priority;
+                port->priority = path->priority * 100 + s->priority;
 
                 pa_xfree(n);
                 pa_xfree(d);

@@ -53,6 +53,8 @@
 
 
 ; [General]
+; type = ...                             # The device type. It's highly recommended to set a type for every path.
+;                                        # See parse_type() in alsa-mixer.c for supported values.
 ; priority = ...                         # Priority for this path
 ; description-key = ...                  # The path description is looked up from a table in path_verify() in
 ;                                        # src/modules/alsa/alsa-mixer.c. By default the path name (i.e. the file name

@@ -51,7 +51,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.name = m->name;
 	dev->device.description = m->description;
 	dev->device.priority = m->priority;
-	dev->device.device_strings = m->device_strings;
+	dev->device.device_strings = (const char **)m->device_strings;
 	dev->device.format.format_mask = m->sample_spec.format;
 	dev->device.format.rate_mask = m->sample_spec.rate;
 	dev->device.format.channels = m->channel_map.channels;
@@ -114,15 +114,18 @@ static void add_profiles(pa_card *impl)
 	pa_dynarray_init(&impl->out.devices, NULL);
 
 	ap = pa_xnew0(pa_alsa_profile, 1);
-	ap->profile.name = pa_xstrdup("off");
-	ap->profile.description = pa_xstrdup(_("Off"));
+	ap->profile.name = ap->name = pa_xstrdup("off");
+	ap->profile.description = ap->description = pa_xstrdup(_("Off"));
 	ap->profile.available = ACP_AVAILABLE_YES;
-	pa_hashmap_put(impl->profiles, ap->profile.name, ap);
+	pa_hashmap_put(impl->profiles, ap->name, ap);
 
 	PA_HASHMAP_FOREACH(ap, impl->profile_set->profiles, state) {
 		pa_alsa_mapping *m;
 
 		cp = &ap->profile;
+		cp->name = ap->name;
+		cp->description = ap->description;
+		cp->priority = ap->priority ? ap->priority : 1;
 
 		pa_dynarray_init(&ap->out.devices, NULL);
 
@@ -164,7 +167,7 @@ static void add_profiles(pa_card *impl)
 		}
 		cp->n_devices = pa_dynarray_size(&ap->out.devices);
 		cp->devices = ap->out.devices.array.data;
-		pa_hashmap_put(impl->profiles, cp->name, cp);
+		pa_hashmap_put(impl->profiles, ap->name, cp);
 	}
 
 	pa_dynarray_init(&impl->out.ports, NULL);
@@ -173,6 +176,7 @@ static void add_profiles(pa_card *impl)
 		void *state2;
 		dp->card = impl;
 		dp->port.index = n_ports++;
+		dp->port.priority = dp->priority;
 		pa_dynarray_init(&dp->prof, NULL);
 		pa_dynarray_init(&dp->devices, NULL);
 		n_profiles = 0;
@@ -1320,7 +1324,7 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 	if (p == old)
 		return 0;
 
-	if (!pa_hashmap_get(d->ports, p->port.name))
+	if (!pa_hashmap_get(d->ports, p->name))
 		return -EINVAL;
 
 	if (old)

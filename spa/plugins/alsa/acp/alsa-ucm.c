@@ -941,7 +941,7 @@ static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle,
                 pa_log_warn("Path %s is not a volume control", data->path->name);
                 pa_hashmap_remove(data->paths, profile);
             } else
-                pa_log_debug("Set up h/w volume using '%s' for %s:%s", path->name, profile, port->port.name);
+                pa_log_debug("Set up h/w volume using '%s' for %s:%s", path->name, profile, port->name);
         }
     }
 
@@ -962,7 +962,7 @@ static void ucm_add_port_combination(
         pa_alsa_ucm_device **pdevices,
         int num,
         pa_hashmap *ports,
-        pa_alsa_profile *cp,
+        pa_card_profile *cp,
         pa_core *core) {
 
     pa_device_port *port;
@@ -1050,7 +1050,7 @@ static void ucm_add_port_combination(
         pa_device_port_new_data_set_type(&port_data, type);
         pa_device_port_new_data_set_direction(&port_data, is_sink ? PA_DIRECTION_OUTPUT : PA_DIRECTION_INPUT);
         if (jack)
-            pa_device_port_new_data_set_available_group(&port_data, jack->name);
+            pa_device_port_new_data_set_availability_group(&port_data, jack->name);
 
         port = pa_device_port_new(core, &port_data, sizeof(pa_alsa_ucm_port_data));
         pa_device_port_new_data_done(&port_data);
@@ -1059,8 +1059,8 @@ static void ucm_add_port_combination(
         ucm_port_data_init(data, context->ucm, port, pdevices, num);
         port->impl_free = ucm_port_data_free;
 
-        pa_hashmap_put(ports, port->port.name, port);
-        pa_log_debug("Add port %s: %s", port->port.name, port->port.description);
+        pa_hashmap_put(ports, port->name, port);
+        pa_log_debug("Add port %s: %s", port->name, port->description);
 
         if (num == 1) {
             /* To keep things simple and not worry about stacking controls, we only support hardware volumes on non-combination
@@ -1093,21 +1093,21 @@ static void ucm_add_port_combination(
         }
     }
 
-    port->port.priority = priority;
+    port->priority = priority;
 
     pa_xfree(name);
     pa_xfree(desc);
 
     direction = is_sink ? "output" : "input";
-    pa_log_debug("Port %s direction %s, priority %d", port->port.name, direction, priority);
+    pa_log_debug("Port %s direction %s, priority %d", port->name, direction, priority);
 
     if (cp) {
-        pa_log_debug("Adding profile %s to port %s.", cp->profile.name, port->port.name);
-        pa_hashmap_put(port->profiles, cp->profile.name, cp);
+        pa_log_debug("Adding profile %s to port %s.", cp->name, port->name);
+        pa_hashmap_put(port->profiles, cp->name, cp);
     }
 
     if (hash) {
-        pa_hashmap_put(hash, port->port.name, port);
+        pa_hashmap_put(hash, port->name, port);
     }
 }
 
@@ -1195,7 +1195,7 @@ static void ucm_add_ports_combination(
         int dev_num,
         uint32_t map_index,
         pa_hashmap *ports,
-        pa_alsa_profile *cp,
+        pa_card_profile *cp,
         pa_core *core) {
 
     pa_alsa_ucm_device *dev;
@@ -1252,7 +1252,7 @@ void pa_alsa_ucm_add_ports_combination(
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,
         pa_hashmap *ports,
-        pa_alsa_profile *cp,
+        pa_card_profile *cp,
         pa_core *core) {
 
     pa_alsa_ucm_device **pdevices;
@@ -1382,7 +1382,7 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
         const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
 
-        if (ucm_port_contains(port->port.name, dev_name, is_sink))
+        if (ucm_port_contains(port->name, dev_name, is_sink))
             enable_devs[enable_num++] = dev_name;
         else {
             pa_log_debug("Disable ucm device %s", dev_name);
@@ -1723,14 +1723,14 @@ static int ucm_create_profile(
 
     p = pa_xnew0(pa_alsa_profile, 1);
     p->profile_set = ps;
-    p->profile.name = pa_xstrdup(verb_name);
-    p->profile.description = pa_xstrdup(verb_desc);
+    p->name = pa_xstrdup(verb_name);
+    p->description = pa_xstrdup(verb_desc);
 
     p->output_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
     p->input_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 
     p->supported = true;
-    pa_hashmap_put(ps->profiles, p->profile.name, p);
+    pa_hashmap_put(ps->profiles, p->name, p);
 
     /* TODO: get profile priority from policy management */
     priority = verb->priority;
@@ -1751,7 +1751,7 @@ static int ucm_create_profile(
         pa_xfree(verb_cmp);
     }
 
-    p->profile.priority = priority;
+    p->priority = priority;
 
     PA_LLIST_FOREACH(dev, verb->devices) {
         pa_alsa_jack *jack;
@@ -1939,10 +1939,10 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
 
     PA_HASHMAP_FOREACH(p, ps->profiles, state) {
         /* change verb */
-        pa_log_info("Set ucm verb to %s", p->profile.name);
+        pa_log_info("Set ucm verb to %s", p->name);
 
-        if ((snd_use_case_set(ucm->ucm_mgr, "_verb", p->profile.name)) < 0) {
-            pa_log("Failed to set verb %s", p->profile.name);
+        if ((snd_use_case_set(ucm->ucm_mgr, "_verb", p->name)) < 0) {
+            pa_log("Failed to set verb %s", p->name);
             p->supported = false;
             continue;
         }
@@ -1982,7 +1982,7 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
             continue;
         }
 
-        pa_log_debug("Profile %s supported.", p->profile.name);
+        pa_log_debug("Profile %s supported.", p->name);
 
         PA_IDXSET_FOREACH(m, p->output_mappings, idx)
             if (!PA_UCM_IS_MODIFIER_MAPPING(m))
@@ -2345,7 +2345,7 @@ void pa_alsa_ucm_add_ports_combination(
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,
         pa_hashmap *ports,
-        pa_alsa_card_profile *cp,
+        pa_card_profile *cp,
         pa_core *core) {
 }
 

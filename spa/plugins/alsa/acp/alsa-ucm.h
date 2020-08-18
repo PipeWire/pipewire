@@ -164,7 +164,7 @@ void pa_alsa_ucm_add_ports_combination(
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,
         pa_hashmap *ports,
-        pa_alsa_profile *cp,
+        pa_card_profile *cp,
         pa_core *core);
 int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port, bool is_sink);
 

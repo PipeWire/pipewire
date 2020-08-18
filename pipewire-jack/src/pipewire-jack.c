@@ -2003,27 +2003,36 @@ static int metadata_property(void *object, uint32_t id,
 
 	pw_log_info("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
 
-	o = pw_map_lookup(&c->context.globals, id);
-	if (o == NULL)
-		return -EINVAL;
+	if (id == PW_ID_CORE) {
+		if (key) {
+			uint32_t val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+			if (strcmp(key, "default.audio.sink") == 0) {
+				c->metadata->default_audio_sink = val;
+			} else if (strcmp(key, "default.audio.source") == 0) {
+				c->metadata->default_audio_source = val;
+			}
+		} else {
+			c->metadata->default_audio_source = SPA_ID_INVALID;
+			c->metadata->default_audio_sink = SPA_ID_INVALID;
+		}
+	} else {
+		o = pw_map_lookup(&c->context.globals, id);
+		if (o == NULL)
+			return -EINVAL;
 
-	switch (o->type) {
-	case INTERFACE_Node:
-		uuid = client_make_uuid(id);
-		break;
-	case INTERFACE_Port:
-		uuid = jack_port_uuid_generate(id);
-		break;
-	default:
-		return -EINVAL;
+		switch (o->type) {
+		case INTERFACE_Node:
+			uuid = client_make_uuid(id);
+			break;
+		case INTERFACE_Port:
+			uuid = jack_port_uuid_generate(id);
+			break;
+		default:
+			return -EINVAL;
+		}
+		update_property(c, uuid, key, type, value);
 	}
-	update_property(c, uuid, key, type, value);
 
-	if (key && strcmp(key, "default.audio.sink") == 0) {
-		c->metadata->default_audio_sink = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-	} else if (key && strcmp(key, "default.audio.source") == 0) {
-		c->metadata->default_audio_source = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-	}
 	return 0;
 }
 
@@ -4071,6 +4080,7 @@ static int port_compare_func(const void *v1, const void *v2)
 
 	is_cap1 = ((*o1)->port.flags & JackPortIsOutput) == JackPortIsOutput;
 	is_cap2 = ((*o2)->port.flags & JackPortIsOutput) == JackPortIsOutput;
+
 
 	if (c->metadata) {
 		if (is_cap1)

@@ -840,7 +840,7 @@ static int create_stream(pa_stream_direction_t direction,
 	PA_CHECK_VALIDITY(s->context, (flags & (PA_STREAM_ADJUST_LATENCY|PA_STREAM_EARLY_REQUESTS)) != (PA_STREAM_ADJUST_LATENCY|PA_STREAM_EARLY_REQUESTS), PA_ERR_INVALID);
 
 
-	pw_log_debug("stream %p: connect %s %08x", s, dev, flags);
+	pw_log_info("stream %p: connect %s %08x", s, dev, flags);
 
 	name = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_NAME);
 

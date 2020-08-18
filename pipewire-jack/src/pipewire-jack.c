@@ -2001,7 +2001,7 @@ static int metadata_property(void *object, uint32_t id,
 	struct object *o;
 	jack_uuid_t uuid;
 
-	pw_log_info("set id:%u '%s' to '%s@%s'", id, key, value, type);
+	pw_log_info("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
 
 	o = pw_map_lookup(&c->context.globals, id);
 	if (o == NULL)

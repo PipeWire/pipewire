@@ -969,11 +969,12 @@ static int metadata_property(void *object,
 	struct global *g = object;
 	snd_ctl_pipewire_t *ctl = g->ctl;
 
-        if (key) {
-                if (strcmp(key, "default.audio.sink") == 0)
-			ctl->sink = value ? (uint32_t)atoi(value) : 0;
-                if (strcmp(key, "default.audio.source") == 0)
-			ctl->source = value ? (uint32_t)atoi(value) : 0;
+	if (subject == PW_ID_CORE) {
+		uint32_t val = (key && value) ? (uint32_t)atoi(value) : 0;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0)
+			ctl->sink = val;
+		if (key == NULL || strcmp(key, "default.audio.source") == 0)
+			ctl->source = val;
         }
         return 0;
 }

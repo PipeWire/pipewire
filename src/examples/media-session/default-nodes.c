@@ -153,26 +153,27 @@ static int metadata_property(void *object, uint32_t subject,
 	uint32_t val;
 	bool changed = false;
 
-	if (key == NULL)
-		return 0;
-
 	if (subject == PW_ID_CORE) {
-		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-
-		if (strcmp(key, "default.audio.sink") == 0) {
+		val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
 			changed = val != impl->default_audio_sink;
 			impl->default_audio_sink = val;
-		} else if (strcmp(key, "default.audio.source") == 0) {
+		}
+		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
 			changed = val != impl->default_audio_source;
 			impl->default_audio_source = val;
-		} else if (strcmp(key, "default.video.source") == 0) {
+		}
+		if (key == NULL || strcmp(key, "default.video.source") == 0) {
 			changed = val != impl->default_video_source;
 			impl->default_video_source = val;
 		}
 	}
 	if (changed) {
 		const char *name = find_name_for_id(impl, val);
-		pw_properties_set(impl->properties, key, name);
+		if (key == NULL)
+			pw_properties_clear(impl->properties);
+		else
+			pw_properties_set(impl->properties, key, name);
 		add_idle_timeout(impl);
 	}
 	return 0;

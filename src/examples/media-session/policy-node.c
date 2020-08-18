@@ -699,6 +699,9 @@ static int move_node(struct impl *impl, uint32_t source, uint32_t target)
 	struct node *n, *src_node, *dst_node;
 	const char *str;
 
+	if (source == SPA_ID_INVALID || target == SPA_ID_INVALID)
+		return 0;
+
 	/* find source and dest node */
 	if ((src_node = find_node_by_id(impl, source)) == NULL)
 		return -ENOENT;
@@ -764,30 +767,26 @@ static int metadata_property(void *object, uint32_t subject,
 		const char *key, const char *type, const char *value)
 {
 	struct impl *impl = object;
-
-	if (key == NULL)
-		return 0;
+	uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 
 	if (subject == PW_ID_CORE) {
-		if (strcmp(key, "default.audio.sink") == 0) {
-			if (impl->default_audio_sink != SPA_ID_INVALID && value)
-				move_node(impl, impl->default_audio_sink, atoi(value));
-			impl->default_audio_sink = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+			move_node(impl, impl->default_audio_sink, val);
+			impl->default_audio_sink = val;
 		}
-		else if (strcmp(key, "default.audio.source") == 0) {
-			if (impl->default_audio_source != SPA_ID_INVALID && value)
-				move_node(impl, impl->default_audio_source, atoi(value));
-			impl->default_audio_source = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		} else if (strcmp(key, "default.video.source") == 0) {
-			if (impl->default_video_source != SPA_ID_INVALID && value)
-				move_node(impl, impl->default_video_source, atoi(value));
-			impl->default_video_source = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+			move_node(impl, impl->default_audio_source, val);
+			impl->default_audio_source = val;
+		}
+		if (key == NULL || strcmp(key, "default.video.source") == 0) {
+			move_node(impl, impl->default_video_source, val);
+			impl->default_video_source = val;
 		}
 	} else {
-		if (strcmp(key, "target.node") == 0 && value != NULL) {
+		if (val != SPA_ID_INVALID && strcmp(key, "target.node") == 0) {
 			struct node *src_node, *dst_node;
 
-			dst_node = find_node_by_id(impl, atoi(value));
+			dst_node = find_node_by_id(impl, val);
 			src_node = dst_node ? find_node_by_id(impl, subject) : NULL;
 
 			if (dst_node && src_node)

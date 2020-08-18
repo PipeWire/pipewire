@@ -1013,14 +1013,16 @@ static int metadata_property(void *object,
 	uint32_t val;
 	bool changed = false;
 
-	if (key && strcmp(key, METADATA_DEFAULT_SINK) == 0) {
-		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		changed = c->default_sink != val;
-		c->default_sink = val;
-	} else if (key && strcmp(key, METADATA_DEFAULT_SOURCE) == 0) {
-		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		changed = c->default_source != val;
-		c->default_source = val;
+	if (subject == PW_ID_CORE) {
+		val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		if (key == NULL || strcmp(key, METADATA_DEFAULT_SINK) == 0) {
+			changed = c->default_sink != val;
+			c->default_sink = val;
+		}
+		if (key == NULL || strcmp(key, METADATA_DEFAULT_SOURCE) == 0) {
+			changed = c->default_source != val;
+			c->default_source = val;
+		}
 	}
 	if (changed)
 		emit_event(global->context, global, PA_SUBSCRIPTION_EVENT_CHANGE);

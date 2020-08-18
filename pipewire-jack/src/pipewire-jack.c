@@ -2004,17 +2004,11 @@ static int metadata_property(void *object, uint32_t id,
 	pw_log_info("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
 
 	if (id == PW_ID_CORE) {
-		if (key) {
-			uint32_t val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-			if (strcmp(key, "default.audio.sink") == 0) {
-				c->metadata->default_audio_sink = val;
-			} else if (strcmp(key, "default.audio.source") == 0) {
-				c->metadata->default_audio_source = val;
-			}
-		} else {
-			c->metadata->default_audio_source = SPA_ID_INVALID;
-			c->metadata->default_audio_sink = SPA_ID_INVALID;
-		}
+		uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0)
+			c->metadata->default_audio_sink = val;
+		if (key == NULL || strcmp(key, "default.audio.source") == 0)
+			c->metadata->default_audio_source = val;
 	} else {
 		o = pw_map_lookup(&c->context.globals, id);
 		if (o == NULL)

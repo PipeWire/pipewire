@@ -649,14 +649,13 @@ static int metadata_property(void *object,
 		uint32_t subject, const char *key, const char *type, const char *value)
 {
 	struct data *data = object;
-	uint32_t val;
 
-	if (key && strcmp(key, "default.audio.sink") == 0) {
-		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		data->default_sink = val;
-	} else if (key && strcmp(key, "default.audio.source") == 0) {
-		val = value ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		data->default_source = val;
+	if (subject == PW_ID_CORE) {
+		uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0)
+			data->default_sink = val;
+		if (key == NULL || strcmp(key, "default.audio.source") == 0)
+			data->default_source = val;
 	}
 	return 0;
 }

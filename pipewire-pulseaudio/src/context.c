@@ -406,6 +406,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			}
 		}
 	}
+	if (i->driver == NULL)
+		i->driver = "PipeWire";
 	global_sync(g);
 }
 
@@ -973,6 +975,10 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_KEY_PROTOCOL) : NULL;
 	}
+	if (i->name == NULL)
+		i->name = "Unknown";
+	if (i->driver == NULL)
+		i->name = "PipeWire";
 	global_sync(g);
 }
 

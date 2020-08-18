@@ -155,6 +155,14 @@ const char *pa_context_find_global_name(pa_context *c, uint32_t id)
 	return name;
 }
 
+static inline bool pa_endswith(const char *s, const char *sfx)
+{
+	size_t l1, l2;
+	l1 = strlen(s);
+	l2 = strlen(sfx);
+	return l1 >= l2 && pa_streq(s + l1 - l2, sfx);
+}
+
 struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name)
 {
 	struct global *g;
@@ -165,9 +173,13 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 		if ((g->mask & mask) == 0)
 			continue;
 		if (g->props != NULL &&
-		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
-		    strcmp(str, name) == 0)
-			return g;
+		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL) {
+			if (strcmp(str, name) == 0)
+				return g;
+			if (pa_endswith(name, ".monitor") &&
+			    strncmp(str, name, strlen(name) - 8) == 0)
+				return g;
+		}
 		if (g->id == id || (g->id == (id & PA_IDX_MASK_DSP)))
 			return g;
 	}

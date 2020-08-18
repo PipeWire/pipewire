@@ -1,3 +1,76 @@
+PipeWire 0.3.10
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Many improvements to the pulse layer.
+  * GStreamer pulsesink element now works.
+  * Fixes some segfaults.
+  * Enable rtkit for client threads.
+  * fixes capture of monitor stream by name
+  * implement some more extensions, this makes paman
+    work and removes some warnings.
+
+- Many improvements to the GStreamer elements
+  * negotiation rework, avoid calling GStreamer methods from
+    the PipeWire callbacks because they might block and cause
+    deadlocks.
+  * Add support for non-string property values.
+  * improve stability after buffer and format
+    renegotiation.
+  * Rework the device provider.
+  * pipewiresink can now provide a stream that can
+    be consumed by apps like cheese.
+
+- Many improvements to the JACK layer:
+  * Rework the buffer_size callbacks. Make sure we call
+    the callback from a 'safe' thread and that we don't
+    call the process callback while the application is
+    handling the callback. This improves stability in
+    apps like Carla when PipeWire dynamically changes
+    the buffer size.
+  * Improve compatibility with apps that call
+    get_buffer_frames() with a 0 size (calfjackrack)
+  * JACK can now create nodes that can be set as a
+    sink/source in PulseAudio/ALSA apps (you can make an
+    effects rack and set that as default sink for
+    apps).
+
+- Added a group id property for nodes. This makes it
+  possible to schedule nodes with the same driver even
+  when they are otherwise not linked together. To make
+  this work well a new flag needed to be added to nodes
+  to signal when they are ready for processing.
+
+  Together with the GStreamer fixes, this makes things
+  like:
+
+   gst-launch-1.0 -v pipewiresrc path=51 stream-properties="props,node.group=1" !
+         audio/x-raw ! pipewiresink stream-properties="props,node.group=1"
+
+  work as expected with PipeWire managing the resampling
+  to keep the clocks of the devices in sync.
+
+  This can later also be used to force devices to be grouped
+  together to create a JACK-like scheduling group.
+
+- Streams and filter now use PIPEWIRE_NODE and
+  PIPEWIRE_LATENCY env variables as fallback.
+
+- ACP add per device port list. This makes UCM devices
+  expose the right ports.
+
+- Fix some segfaults in ACP and UCM.
+
+- make pw-cat use the metadata to find default devices.
+
+- The media session can now save and load audio device
+  Profiles and Routes (volumes), stream volumes and
+  the default sink and sources.
+
+
+Older versions:
+
 PipeWire 0.3.9
 
 This is a bugfix release that is API and ABI compatible
@@ -34,9 +107,6 @@ with previous 0.3.x releases.
 
 - Various compile fixes.
 
-
-
-Older versions:
 
 PipeWire 0.3.8
 

@@ -128,8 +128,8 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		s->suspended = true;
 		break;
 	case PW_STREAM_STATE_STREAMING:
-		if (s->suspended && !c->disconnect && s->suspended_callback) {
-			s->suspended_callback(s, s->suspended_userdata);
+		if (s->suspended && !c->disconnect && s->started_callback) {
+			s->started_callback(s, s->started_userdata);
 		}
 		s->suspended = false;
 		configure_device(s);

@@ -130,6 +130,8 @@ struct stream {
 	struct data data;
 	uintptr_t seq;
 	struct pw_time time;
+	uint64_t base_pos;
+	uint32_t clock_id;
 
 	unsigned int disconnecting:1;
 	unsigned int disconnect_core:1;
@@ -720,11 +722,15 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 static inline void copy_position(struct stream *impl, int64_t queued)
 {
 	struct spa_io_position *p = impl->rt.position;
-	if (p != NULL) {
+	if (SPA_UNLIKELY(p != NULL)) {
 		SEQ_WRITE(impl->seq);
 		impl->time.now = p->clock.nsec;
 		impl->time.rate = p->clock.rate;
-		impl->time.ticks = p->clock.position;
+		if (SPA_UNLIKELY(impl->clock_id != p->clock.id)) {
+			impl->base_pos = p->clock.position - impl->time.ticks;
+			impl->clock_id = p->clock.id;
+		}
+		impl->time.ticks = p->clock.position - impl->base_pos;
 		impl->time.delay = p->clock.delay;
 		impl->time.queued = queued;
 		SEQ_WRITE(impl->seq);

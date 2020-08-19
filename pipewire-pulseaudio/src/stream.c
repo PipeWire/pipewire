@@ -1337,10 +1337,14 @@ static void on_timing_success(pa_operation *o, void *userdata)
 	pa_stream *s = o->stream;
 
 	update_timing_info(s);
-	pa_operation_done(o);
+
+	if (s->latency_update_callback)
+		s->latency_update_callback(s, s->latency_update_userdata);
 
 	if (d->cb)
 		d->cb(s, s->timing_info_valid, d->userdata);
+
+	pa_operation_done(o);
 }
 
 SPA_EXPORT

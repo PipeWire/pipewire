@@ -1243,7 +1243,7 @@ SPA_EXPORT
 size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 {
 	const pa_timing_info *i;
-	uint64_t now, queued, writable, elapsed;
+	uint64_t now, then, queued, writable, elapsed;
 	struct timespec ts;
 
 	spa_assert(s);
@@ -1259,7 +1259,8 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 	if (s->have_time) {
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		now = SPA_TIMESPEC_TO_USEC(&ts);
-		elapsed = pa_usec_to_bytes(now - SPA_TIMEVAL_TO_USEC(&i->timestamp), &s->sample_spec);
+		then = SPA_TIMEVAL_TO_USEC(&i->timestamp);
+		elapsed = now > then ? pa_usec_to_bytes(now - then, &s->sample_spec) : 0;
 	} else {
 		elapsed = 0;
 	}
@@ -1648,7 +1649,7 @@ SPA_EXPORT
 int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 {
 	struct timespec ts;
-	uint64_t now, res;
+	uint64_t now, then, res;
 	pa_timing_info *i;
 
 	spa_assert(s);
@@ -1672,8 +1673,9 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	now = SPA_TIMESPEC_TO_USEC(&ts);
-	if (s->have_time)
-		res += now - SPA_TIMEVAL_TO_USEC(&i->timestamp);
+	then = SPA_TIMEVAL_TO_USEC(&i->timestamp);
+	if (s->have_time && now > then)
+		res += now - then;
 
 	if (r_usec)
 		*r_usec = res;

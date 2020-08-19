@@ -1041,6 +1041,7 @@ static void node_port_info_changed(void *data, struct pw_impl_port *port,
 static void node_port_removed(void *data, struct pw_impl_port *port)
 {
 	struct node_data *d = data;
+	struct mix *mix, *tmp;
 
 	pw_log_debug("removed %p", d);
 
@@ -1051,6 +1052,11 @@ static void node_port_removed(void *data, struct pw_impl_port *port)
 			port->direction,
 			port->port_id,
 			0, 0, NULL, NULL);
+
+	spa_list_for_each_safe(mix, tmp, &d->mix[port->direction], link) {
+		if (mix->port == port)
+			clear_mix(d, mix);
+	}
 }
 
 static void node_active_changed(void *data, bool active)

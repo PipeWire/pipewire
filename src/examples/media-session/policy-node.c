@@ -145,19 +145,26 @@ static int configure_node(struct node *node, struct spa_audio_info *info)
 	char buf[1024];
 	struct spa_pod_builder b = { 0, };
 	struct spa_pod *param;
+	struct spa_audio_info format;
 
 	if (node->configured)
 		return 0;
 
+	format = node->format;
+
 	if (info != NULL) {
-		if (info->info.raw.channels < node->format.info.raw.channels || node->monitor)
-			node->format = *info;
+		if (info->info.raw.channels < format.info.raw.channels || node->monitor) {
+			pw_log_info("node %d monitor:%d downmix %d to %d",
+					node->id, node->monitor, format.info.raw.channels,
+					info->info.raw.channels);
+			format = *info;
+		}
 	}
 
-	node->format.info.raw.rate = impl->sample_rate;
+	format.info.raw.rate = impl->sample_rate;
 
 	spa_pod_builder_init(&b, buf, sizeof(buf));
-	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &node->format.info.raw);
+	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &format.info.raw);
 	param = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),

@@ -61,13 +61,13 @@ static void configure_device(pa_stream *s)
 {
 	struct global *g;
 	const char *str;
+	uint32_t old = s->device_index;
 
 	g = pa_context_find_linked(s->context, pa_stream_get_index(s));
 	if (g == NULL) {
 		s->device_index = PA_INVALID_INDEX;
 		s->device_name = NULL;
-	}
-	else {
+	} else {
 		if (s->direction == PA_STREAM_RECORD) {
 			if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))
 				s->device_index = g->node_info.monitor;
@@ -85,6 +85,9 @@ static void configure_device(pa_stream *s)
 			s->device_name = strdup(str);
 	}
 	pw_log_debug("stream %p: linked to %d '%s'", s, s->device_index, s->device_name);
+
+	if (old != s->device_index && s->moved_callback)
+		s->moved_callback(s, s->moved_userdata);
 }
 
 static void stream_destroy(void *data)

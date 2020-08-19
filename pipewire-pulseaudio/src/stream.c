@@ -78,6 +78,7 @@ static void configure_device(pa_stream *s)
 			s->device_index = g->id;
 		}
 
+		free(s->device_name);
 		if ((str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
 			s->device_name = strdup("unknown");
 		else

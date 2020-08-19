@@ -1183,6 +1183,8 @@ static int set_mask(pa_context *c, struct global *g)
 		g->event = PA_SUBSCRIPTION_EVENT_CLIENT;
 		ginfo = &client_info;
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Link) == 0) {
+		uint32_t src_node_id, dst_node_id;
+
                 if ((str = pw_properties_get(g->props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			return 0;
 		g->link_info.src = pa_context_find_global(c, pw_properties_parse_int(str));
@@ -1193,17 +1195,18 @@ static int set_mask(pa_context *c, struct global *g)
 		if (g->link_info.src == NULL || g->link_info.dst == NULL)
 			return 0;
 
-		pw_log_debug("link %d:%d->%d:%d",
-				g->link_info.src->port_info.node_id,
-				g->link_info.src->id,
-				g->link_info.dst->port_info.node_id,
-				g->link_info.dst->id);
+		src_node_id = g->link_info.src->port_info.node_id;
+		dst_node_id = g->link_info.dst->port_info.node_id;
 
-		if ((f = pa_context_find_global(c, g->link_info.src->port_info.node_id)) != NULL &&
-		    !f->init)
+		pw_log_debug("link %d:%d->%d:%d",
+				src_node_id, g->link_info.src->id,
+				dst_node_id, g->link_info.dst->id);
+
+		f = pa_context_find_global(c, src_node_id);
+		if (f != NULL && !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
-		if ((f = pa_context_find_global(c, g->link_info.dst->port_info.node_id)) != NULL &&
-		    !f->init)
+		f = pa_context_find_global(c, dst_node_id);
+		if (f != NULL && !f->init)
 			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
 
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Metadata) == 0) {

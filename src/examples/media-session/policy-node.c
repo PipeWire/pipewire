@@ -139,7 +139,7 @@ static bool find_format(struct node *node)
 	return have_format;
 }
 
-static int configure_node(struct node *node, struct spa_audio_info *info)
+static int configure_node(struct node *node, struct spa_audio_info *info, bool force)
 {
 	struct impl *impl = node->impl;
 	char buf[1024];
@@ -147,20 +147,19 @@ static int configure_node(struct node *node, struct spa_audio_info *info)
 	struct spa_pod *param;
 	struct spa_audio_info format;
 
-	if (node->configured)
+	if (node->configured && !force)
 		return 0;
 
 	format = node->format;
 
-	if (info != NULL) {
-		if (info->info.raw.channels < format.info.raw.channels || node->monitor) {
-			pw_log_info("node %d monitor:%d downmix %d to %d",
+	if (info != NULL && info->info.raw.channels > 0) {
+		if (node->monitor || info->info.raw.channels < format.info.raw.channels) {
+			pw_log_info("node %d monitor:%d channelmix %d:%d",
 					node->id, node->monitor, format.info.raw.channels,
 					info->info.raw.channels);
 			format = *info;
 		}
 	}
-
 	format.info.raw.rate = impl->sample_rate;
 
 	spa_pod_builder_init(&b, buf, sizeof(buf));
@@ -451,26 +450,13 @@ static int link_nodes(struct node *node, struct node *peer)
 	struct pw_properties *props;
 	struct node *output, *input;
 
-	pw_log_debug(NAME " %p: link nodes %d %d", impl, node->id, peer->id);
+	pw_log_debug(NAME " %p: link nodes %d %d remix:%d", impl,
+			node->id, peer->id, !node->dont_remix);
 
 	if (node->dont_remix)
-		configure_node(node, NULL);
+		configure_node(node, NULL, false);
 	else {
-#if 0
-		bool configured = node->configured;
-		if (configured) {
-			node->configured = false;
-			pw_node_send_command((struct pw_node*)node->obj->obj.proxy,
-					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));
-		}
-#endif
-		configure_node(node, &peer->format);
-#if 0
-		if (configured) {
-			pw_node_send_command((struct pw_node*)node->obj->obj.proxy,
-					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
-		}
-#endif
+		configure_node(node, &peer->format, true);
 	}
 
 	if (node->direction == PW_DIRECTION_INPUT) {
@@ -537,7 +523,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	}
 
 	if (n->type == NODE_TYPE_DEVICE) {
-		configure_node(n, NULL);
+		configure_node(n, NULL, false);
 		return 0;
 	}
 
@@ -563,7 +549,7 @@ static int rescan_node(struct impl *impl, struct node *n)
         str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT);
         if (str == NULL || !pw_properties_parse_bool(str)) {
 		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, n->id);
-		configure_node(n, NULL);
+		configure_node(n, NULL, false);
 		return 0;
 	}
 

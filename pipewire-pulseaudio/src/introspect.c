@@ -214,7 +214,7 @@ static void sink_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = sink_callback(c, g, d);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error)
 		pa_context_set_error(c, error);
@@ -491,7 +491,7 @@ static void do_node_volume_mute(pa_operation *o, void *userdata)
 				d->have_volume ? g->node_info.mute : d->mute,
 				d->mask);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error != 0)
 		pa_context_set_error(c, error);
@@ -724,7 +724,7 @@ static void do_device_route(pa_operation *o, void *userdata)
 	if (g) {
 		error = set_device_route(c, g, d->port, d->direction);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error != 0)
 		pa_context_set_error(c, error);
@@ -939,7 +939,7 @@ static void source_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = source_callback(c, g, d);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error)
 		pa_context_set_error(c, error);
@@ -1324,7 +1324,7 @@ static void module_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = module_callback(c, d, g);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error)
 		pa_context_set_error(c, error);
@@ -1468,7 +1468,7 @@ static void client_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = client_callback(c, d, g);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error)
 		pa_context_set_error(c, error);
@@ -1554,7 +1554,7 @@ static void do_kill_client(pa_operation *o, void *userdata)
 	if (g) {
 		pw_registry_destroy(c->registry, g->id);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error != 0)
 		pa_context_set_error(c, error);
@@ -1614,7 +1614,7 @@ static void card_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = card_callback(c, d, g);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error != 0)
 		pa_context_set_error(c, error);
@@ -1725,7 +1725,7 @@ static void card_profile(pa_operation *o, void *userdata)
 		g = NULL;
 
 	if (g == NULL) {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 		goto done;
 	}
 
@@ -1746,7 +1746,7 @@ static void card_profile(pa_operation *o, void *userdata)
 		}
 	}
 	if (id == SPA_ID_INVALID) {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 		goto done;
 	}
 
@@ -1950,10 +1950,10 @@ static void sink_input_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = sink_input_callback(c, d, g);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error)
-		pa_context_set_error(c, PA_ERR_INVALID);
+		pa_context_set_error(c, error);
 	d->cb(c, NULL, error ? -1 : 1, d->userdata);
 	pa_operation_done(o);
 }
@@ -2145,7 +2145,7 @@ static void do_stream_volume_mute(pa_operation *o, void *userdata)
 				d->have_volume ? &d->volume : NULL,
 				d->have_volume ? g->node_info.mute : d->mute);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 
 	if (error != 0)
@@ -2219,7 +2219,7 @@ static void do_kill_stream(pa_operation *o, void *userdata)
 	} else if (g) {
 		pw_registry_destroy(c->registry, g->id);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error != 0)
 		pa_context_set_error(c, error);
@@ -2351,7 +2351,7 @@ static void source_output_info(pa_operation *o, void *userdata)
 	if (g) {
 		error = source_output_callback(d, c, g);
 	} else {
-		error = PA_ERR_INVALID;
+		error = PA_ERR_NOENTITY;
 	}
 	if (error)
 		pa_context_set_error(c, error);

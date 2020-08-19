@@ -41,6 +41,8 @@
 
 #include <pipewire/pipewire.h>
 
+#define DEFAULT_SYSTEM_RUNTIME_DIR "/run/pipewire"
+
 static const char *
 get_remote(const struct spa_dict *props)
 {
@@ -55,10 +57,39 @@ get_remote(const struct spa_dict *props)
 	return name;
 }
 
+static bool
+exists_in_dir(const char *name, const char *dir)
+{
+	bool exists = false;
+
+	if (dir != NULL) {
+		int dirfd;
+		struct stat s;
+
+		dirfd = open(dir, O_RDONLY);
+		if (dirfd < 0)
+			pw_log_debug("open dir '%s' failed: %m", dir);
+		else {
+			if (fstatat(dirfd, name, &s, 0) < 0)
+				pw_log_debug("fstatat '%s', dir '%s' failed: %m", name, dir);
+			else
+				exists = true;
+			if (close(dirfd) < 0)
+				pw_log_warn("close dir failed: %m");
+		}
+		pw_log_debug("'%s' %s in dir '%s'", name, exists ? "exists" : "does not exist", dir);
+	}
+
+	return exists;
+}
+
 static const char *
-get_runtime_dir(void)
+get_runtime_dir(const char *name)
 {
 	const char *runtime_dir;
+
+	if (name == NULL || strlen(name) == 0 || name[0] == '/')
+		return NULL;
 
 	runtime_dir = getenv("PIPEWIRE_RUNTIME_DIR");
 	if (runtime_dir == NULL)
@@ -73,6 +104,13 @@ get_runtime_dir(void)
 		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
 			runtime_dir = result ? result->pw_dir : NULL;
 	}
+	if (runtime_dir == NULL || !exists_in_dir(name, runtime_dir)) {
+		if (exists_in_dir(name, DEFAULT_SYSTEM_RUNTIME_DIR))
+			runtime_dir = DEFAULT_SYSTEM_RUNTIME_DIR;
+		else
+			runtime_dir = NULL;
+	}
+
 	return runtime_dir;
 }
 
@@ -91,7 +129,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 
 	path_is_absolute = name[0] == '/';
 
-	runtime_dir = get_runtime_dir();
+	runtime_dir = get_runtime_dir(name);
 
 	pw_log_info("connecting to '%s' runtime_dir:%s", name, runtime_dir);
 

@@ -227,8 +227,8 @@ struct param {
 	void *param;
 };
 
-#define PA_IDX_FLAG_DSP		0x800000U
-#define PA_IDX_MASK_DSP		0x7fffffU
+#define PA_IDX_FLAG_MONITOR		0x800000U
+#define PA_IDX_MASK_MONITOR		0x7fffffU
 
 struct port_device {
 	uint32_t n_devices;

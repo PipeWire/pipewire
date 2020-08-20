@@ -143,7 +143,7 @@ const char *pa_context_find_global_name(pa_context *c, uint32_t id)
 	struct global *g;
 	const char *name = NULL;
 
-	g = pa_context_find_global(c, id & PA_IDX_MASK_DSP);
+	g = pa_context_find_global(c, id & PA_IDX_MASK_MONITOR);
 	if (g == NULL)
 		return "unknown object";
 
@@ -180,7 +180,7 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 			    strncmp(str, name, strlen(name) - 8) == 0)
 				return g;
 		}
-		if (g->id == id || (g->id == (id & PA_IDX_MASK_DSP)))
+		if (g->id == id || (g->id == (id & PA_IDX_MASK_MONITOR)))
 			return g;
 	}
 	return NULL;
@@ -1126,7 +1126,7 @@ static int set_mask(pa_context *c, struct global *g)
 			pw_log_debug("found sink %d", g->id);
 			g->mask = PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE;
 			g->event = PA_SUBSCRIPTION_EVENT_SINK;
-			g->node_info.monitor = g->id | PA_IDX_FLAG_DSP;
+			g->node_info.monitor = g->id | PA_IDX_FLAG_MONITOR;
 		}
 		else if (strcmp(str, "Audio/Source") == 0) {
 			pw_log_debug("found source %d", g->id);

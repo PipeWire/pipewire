@@ -931,7 +931,7 @@ static void source_info(pa_operation *o, void *userdata)
 	} else {
 		if (((g = pa_context_find_global(c, d->idx)) == NULL ||
 		    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE)) &&
-		    (((g = pa_context_find_global(c, d->idx & PA_IDX_MASK_DSP)) == NULL ||
+		    (((g = pa_context_find_global(c, d->idx & PA_IDX_MASK_MONITOR)) == NULL ||
 		    !(g->mask & PA_SUBSCRIPTION_MASK_SOURCE))))
 			g = NULL;
 	}

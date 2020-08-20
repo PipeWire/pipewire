@@ -128,6 +128,16 @@ pa_context *pa_context_new(pa_mainloop_api *mainloop, const char *name)
 	return pa_context_new_with_proplist(mainloop, name, NULL);
 }
 
+pa_stream *pa_context_find_stream(pa_context *c, uint32_t idx)
+{
+	pa_stream *s;
+	spa_list_for_each(s, &c->streams, link) {
+		if (s->stream_index == idx)
+			return s;
+	}
+	return NULL;
+}
+
 struct global *pa_context_find_global(pa_context *c, uint32_t id)
 {
 	struct global *g;
@@ -440,7 +450,8 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 			if (n_vals != g->node_info.n_channel_volumes) {
 				pw_log_debug("channel change %d->%d, trigger remove",
 						g->node_info.n_channel_volumes, n_vals);
-				emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_REMOVE);
+				if (!g->init)
+					emit_event(g->context, g, PA_SUBSCRIPTION_EVENT_REMOVE);
 				g->node_info.n_channel_volumes = n_vals;
 				/* mark as init, this will emit the NEW event when the
 				 * params are updated */
@@ -1073,6 +1084,11 @@ static void proxy_done(void *data, int seq)
 		if (g->ginfo && g->ginfo->sync)
 			g->ginfo->sync(g);
 		if (g->init) {
+			if ((g->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))) {
+			    if (g->node_info.device_index == SPA_ID_INVALID ||
+			        (g->stream && g->stream->state != PA_STREAM_READY))
+					return;
+			}
 			g->init = false;
 			event = PA_SUBSCRIPTION_EVENT_NEW;
 		} else {
@@ -1090,10 +1106,34 @@ static const struct pw_proxy_events proxy_events = {
 	.done = proxy_done,
 };
 
+static void update_link(pa_context *c, uint32_t src_node_id, uint32_t dst_node_id)
+{
+	struct global *s, *d;
+
+	s = pa_context_find_global(c, src_node_id);
+	d = pa_context_find_global(c, dst_node_id);
+
+	if (s == NULL || d == NULL)
+		return;
+
+	if ((s->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) &&
+	    (d->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))) {
+		pw_log_debug("node %d linked to device %d", dst_node_id, src_node_id);
+		d->node_info.device_index = src_node_id;
+		if (!d->init)
+			emit_event(c, d, PA_SUBSCRIPTION_EVENT_CHANGE);
+	} else if ((s->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT)) &&
+	    (d->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))) {
+		pw_log_debug("node %d linked to device %d", src_node_id, dst_node_id);
+		s->node_info.device_index = dst_node_id;
+		if (!s->init)
+			emit_event(c, s, PA_SUBSCRIPTION_EVENT_CHANGE);
+	}
+}
+
 static int set_mask(pa_context *c, struct global *g)
 {
 	const char *str;
-	struct global *f;
 	struct global_info *ginfo = NULL;
 
 	if (strcmp(g->type, PW_TYPE_INTERFACE_Device) == 0) {
@@ -1143,6 +1183,9 @@ static int set_mask(pa_context *c, struct global *g)
 			g->mask = PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
+		g->stream = pa_context_find_stream(c, g->id);
+		if (g->stream)
+			g->stream->global = g;
 
 		if ((str = pw_properties_get(g->props, PW_KEY_CLIENT_ID)) != NULL)
 			g->node_info.client_id = atoi(str);
@@ -1155,6 +1198,7 @@ static int set_mask(pa_context *c, struct global *g)
 			g->node_info.device_id = SPA_ID_INVALID;
 
 		ginfo = &node_info;
+		g->node_info.device_index = SPA_ID_INVALID;
 		g->node_info.sample_spec.format = PA_SAMPLE_S16NE;
 		g->node_info.sample_spec.rate = 44100;
 		g->node_info.volume = 1.0f;
@@ -1202,13 +1246,7 @@ static int set_mask(pa_context *c, struct global *g)
 				src_node_id, g->link_info.src->id,
 				dst_node_id, g->link_info.dst->id);
 
-		f = pa_context_find_global(c, src_node_id);
-		if (f != NULL && !f->init)
-			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
-		f = pa_context_find_global(c, dst_node_id);
-		if (f != NULL && !f->init)
-			emit_event(c, f, PA_SUBSCRIPTION_EVENT_CHANGE);
-
+		update_link(c, src_node_id, dst_node_id);
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		if (c->metadata == NULL) {
 			ginfo = &metadata_info;

@@ -40,7 +40,6 @@ static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_ack *d = userdata;
 	pa_context *c = o->context;
-	pw_log_debug("error:%d", d->error);
 	if (d->error != 0)
 		pa_context_set_error(c, d->error);
 	if (d->cb)
@@ -1253,12 +1252,15 @@ static void server_callback(struct server_data *d, pa_context *c)
 	const struct pw_core_info *info = c->core_info;
 	const char *str;
 	pa_server_info i;
+	char name[1024];
+
+	snprintf(name, sizeof(name)-1, "pulseaudio (on PipeWire %s)", info->version);
 
 	spa_zero(i);
 	i.user_name = info->user_name;
 	i.host_name = info->host_name;
-	i.server_version = info->version;
-	i.server_name = info->name;
+	i.server_version = pa_get_headers_version();
+	i.server_name = name;
 	i.sample_spec.format = PA_SAMPLE_FLOAT32NE;
 	if (info->props && (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
 		i.sample_spec.rate = atoi(str);
@@ -1390,37 +1392,148 @@ pa_operation* pa_context_get_module_info_list(pa_context *c, pa_module_info_cb_t
 	return o;
 }
 
-struct load_module_ack {
+struct load_module {
 	pa_context_index_cb_t cb;
 	int error;
 	void *userdata;
 	uint32_t idx;
+	struct pw_properties *props;
+	struct pw_proxy *proxy;
+	struct spa_hook listener;
 };
 
 static void on_load_module(pa_operation *o, void *userdata)
 {
-	struct load_module_ack *d = userdata;
+	struct load_module *d = userdata;
 	pa_context *c = o->context;
-	pw_log_debug("error:%d", d->error);
 	if (d->error != 0)
 		pa_context_set_error(c, d->error);
 	if (d->cb)
 		d->cb(c, d->idx, d->userdata);
 	pa_operation_done(o);
+	if (d->props)
+		pw_properties_free(d->props);
+	if (d->proxy)
+		spa_hook_remove(&d->listener);
+}
+
+static void module_proxy_bound(void *data, uint32_t global_id)
+{
+	pa_operation *o = data;
+	struct load_module *d = o->userdata;
+	d->idx = global_id;
+	on_load_module(o, d);
+}
+
+static void module_proxy_error(void *data, int seq, int res, const char *message)
+{
+	pa_operation *o = data;
+	struct load_module *d = o->userdata;
+	d->error = res;
+	d->idx = PA_INVALID_INDEX;
+	on_load_module(o, d);
+}
+
+static void on_null_sink_module(pa_operation *o, void *userdata)
+{
+	struct load_module *d = userdata;
+	pa_context *c = o->context;
+	static const struct pw_proxy_events proxy_events = {
+		.bound = module_proxy_bound,
+		.error = module_proxy_error,
+	};
+
+	if (d->proxy != NULL)
+		return;
+
+	d->proxy = pw_core_create_object(c->core,
+                                "adapter",
+                                PW_TYPE_INTERFACE_Node,
+                                PW_VERSION_NODE,
+                                d->props ? &d->props->dict : NULL, 0);
+
+	pw_proxy_add_listener(d->proxy, &d->listener, &proxy_events, o);
+}
+
+static void add_props(struct pw_properties *props, const char *str)
+{
+	char *s = strdup(str), *p = s, *e, f;
+	const char *k, *v;
+
+	while (*p) {
+		e = strchr(p, '=');
+		if (e == NULL)
+			break;
+		*e = '\0';
+		k = p;
+		p = e+1;
+
+		if (*p == '\"') {
+			p++;
+			f = '\"';
+		} else {
+			f = ' ';
+		}
+		e = strchr(p, f);
+		if (e == NULL)
+			break;
+		*e = '\0';
+		v = p;
+		p = e + 1;
+		pw_properties_set(props, k, v);
+	}
+	free(s);
 }
 
 SPA_EXPORT
 pa_operation* pa_context_load_module(pa_context *c, const char*name, const char *argument, pa_context_index_cb_t cb, void *userdata)
 {
 	pa_operation *o;
-	struct load_module_ack *d;
+	struct load_module *d;
+	int error = PA_ERR_NOTIMPLEMENTED;;
+	struct pw_properties *props = NULL;
+	pa_operation_cb_t op_cb = on_load_module;
+	const char *str;
 
-	o = pa_operation_new(c, NULL, on_load_module, sizeof(struct success_ack));
+	pa_assert(c);
+	pa_assert(c->refcount >= 1);
+	pa_assert(name != NULL);
+
+	pw_log_debug("context %p: name:%s arg:%s", c, name, argument);
+
+	if (strcmp(name, "module-null-sink") == 0) {
+		props = pw_properties_new_string(argument);
+		if (props == NULL) {
+			error = PA_ERR_INVALID;
+			goto done;
+		}
+		if ((str = pw_properties_get(props, "sink_name")) != NULL) {
+			pw_properties_set(props, "node.name", str);
+			pw_properties_set(props, "sink_name", NULL);
+		} else {
+			pw_properties_set(props, "node.name", "null");
+		}
+		if ((str = pw_properties_get(props, "sink_properties")) != NULL) {
+			add_props(props, str);
+			pw_properties_set(props, "sink_properties", NULL);
+		}
+		if ((str = pw_properties_get(props, "device.description")) != NULL) {
+			pw_properties_set(props, "node.description", str);
+			pw_properties_set(props, "device.description", NULL);
+		}
+		pw_properties_set(props, "factory.name", "support.null-audio-sink");
+
+		error = 0;
+		op_cb = on_null_sink_module;
+	}
+done:
+	o = pa_operation_new(c, NULL, op_cb, sizeof(struct load_module));
 	d = o->userdata;
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
+	d->error = error;
 	d->userdata = userdata;
 	d->idx = PA_INVALID_INDEX;
+	d->props = props;
 	pa_operation_sync(o);
 
 	return o;
@@ -1432,11 +1545,13 @@ pa_operation* pa_context_unload_module(pa_context *c, uint32_t idx, pa_context_s
 	pa_operation *o;
 	struct success_ack *d;
 
+	pw_log_debug("context %p: %u", c, idx);
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
 	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->userdata = userdata;
+	d->idx = idx;
 	pa_operation_sync(o);
 
 	return o;
@@ -1488,6 +1603,7 @@ pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
+	pw_log_debug("context %p: %u", c, idx);
 	o = pa_operation_new(c, NULL, client_info, sizeof(struct client_data));
 	d = o->userdata;
 	d->idx = idx;
@@ -1525,6 +1641,7 @@ pa_operation* pa_context_get_client_info_list(pa_context *c, pa_client_info_cb_t
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
+	pw_log_debug("context %p", c);
 	o = pa_operation_new(c, NULL, client_info_list, sizeof(struct client_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -1571,6 +1688,7 @@ pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_suc
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
+	pw_log_debug("context %p: %u", c, idx);
 	o = pa_operation_new(c, NULL, do_kill_client, sizeof(struct kill_client));
 	d = o->userdata;
 	d->idx = idx;
@@ -1833,16 +1951,6 @@ pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card
 	return o;
 }
 
-static pa_stream *find_stream(pa_context *c, uint32_t idx)
-{
-	pa_stream *s;
-	spa_list_for_each(s, &c->streams, link) {
-		if (pw_stream_get_node_id(s->stream) == idx)
-			return s;
-	}
-	return NULL;
-}
-
 struct sink_input_data {
 	pa_sink_input_info_cb_t cb;
 	uint32_t idx;
@@ -1862,7 +1970,7 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 	if (info == NULL)
 		return PA_ERR_INVALID;
 
-	s = find_stream(c, g->id);
+	s = pa_context_find_stream(c, g->id);
 
 	if (info->props) {
 		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
@@ -1880,14 +1988,11 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 	i.name = name;
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->node_info.client_id;
-	if (s) {
+	if (s)
 		i.sink = s->device_index;
-	}
-	else {
-		struct global *l;
-		l = pa_context_find_linked(c, g->id);
-		i.sink = l ? l->id : PA_INVALID_INDEX;
-	}
+	else
+		i.sink = g->node_info.device_index;
+
 	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
 		if (s->channel_map.channels == s->sample_spec.channels)
@@ -2131,7 +2236,7 @@ static void do_stream_volume_mute(pa_operation *o, void *userdata)
 	int error = 0;
 	pa_stream *s;
 
-	if ((s = find_stream(c, d->idx)) == NULL) {
+	if ((s = pa_context_find_stream(c, d->idx)) == NULL) {
 		if ((g = pa_context_find_global(c, d->idx)) == NULL ||
 		    !(g->mask & d->mask))
 			g = NULL;
@@ -2209,7 +2314,7 @@ static void do_kill_stream(pa_operation *o, void *userdata)
 	int error = 0;
 	pa_stream *s;
 
-	if ((s = find_stream(c, d->idx)) == NULL) {
+	if ((s = pa_context_find_stream(c, d->idx)) == NULL) {
 		if ((g = pa_context_find_global(c, d->idx)) == NULL ||
 		    !(g->mask & d->mask))
 			g = NULL;
@@ -2254,7 +2359,7 @@ struct source_output_data {
 
 static int source_output_callback(struct source_output_data *d, pa_context *c, struct global *g)
 {
-	struct global *l, *cl;
+	struct global *cl;
 	struct pw_node_info *info = g->info;
 	const char *name = NULL;
 	uint32_t n;
@@ -2266,7 +2371,7 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 	if (info == NULL)
 		return PA_ERR_INVALID;
 
-	s = find_stream(c, g->id);
+	s = pa_context_find_stream(c, g->id);
 
 	if (info->props) {
 		if ((name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME)) == NULL &&
@@ -2284,13 +2389,10 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 	i.name = name;
 	i.owner_module = PA_INVALID_INDEX;
 	i.client = g->node_info.client_id;
-	if (s) {
+	if (s)
 		i.source = s->device_index;
-	}
-	else {
-		l = pa_context_find_linked(c, g->id);
-		i.source = l ? l->id : PA_INVALID_INDEX;
-	}
+	else
+		i.source = g->node_info.device_index;
 	if (s && s->sample_spec.channels > 0) {
 		i.sample_spec = s->sample_spec;
 		if (s->channel_map.channels == s->sample_spec.channels)
@@ -2526,7 +2628,6 @@ static void on_stat_info(pa_operation *o, void *userdata)
 	pa_context *c = o->context;
 	pa_stat_info i;
 	spa_zero(i);
-	pw_log_debug("error:%d", d->error);
 	if (d->error != 0)
 		pa_context_set_error(c, d->error);
 	if (d->cb)
@@ -2560,7 +2661,6 @@ static void on_sample_info(pa_operation *o, void *userdata)
 {
 	struct sample_info *d = userdata;
 	pa_context *c = o->context;
-	pw_log_debug("error:%d", d->error);
 	if (d->error != 0)
 		pa_context_set_error(c, d->error);
 	if (d->cb)

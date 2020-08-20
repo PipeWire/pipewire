@@ -122,19 +122,22 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		pa_stream_set_state(s, PA_STREAM_CREATING);
 		break;
 	case PW_STREAM_STATE_PAUSED:
-		if (!s->suspended && !c->disconnect && s->suspended_callback) {
-			s->suspended_callback(s, s->suspended_userdata);
+		s->stream_index = pw_stream_get_node_id(s->stream);
+		if (!s->suspended) {
+			s->suspended = true;
+			if (!c->disconnect && s->state == PA_STREAM_READY && s->suspended_callback)
+				s->suspended_callback(s, s->suspended_userdata);
 		}
-		s->suspended = true;
 		break;
 	case PW_STREAM_STATE_STREAMING:
-		if (s->suspended && !c->disconnect && s->started_callback) {
-			s->started_callback(s, s->started_userdata);
-		}
-		s->suspended = false;
 		configure_device(s);
 		configure_buffers(s);
 		pa_stream_set_state(s, PA_STREAM_READY);
+		if (s->suspended) {
+			s->suspended = false;
+			if (!c->disconnect && s->started_callback)
+				s->started_callback(s, s->started_userdata);
+		}
 		break;
 	}
 }
@@ -624,6 +627,7 @@ static void stream_unlink(pa_stream *s)
 	if (s->stream)
 		pw_stream_set_active(s->stream, false);
 
+	s->stream_index = PA_INVALID_INDEX;
 	s->context = NULL;
 	pa_stream_unref(s);
 }
@@ -704,7 +708,7 @@ uint32_t pa_stream_get_index(PA_CONST pa_stream *s)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
-	idx = s->stream ? pw_stream_get_node_id(s->stream) : PA_INVALID_INDEX;
+	idx = s->stream_index;
 	pw_log_debug("stream %p: index %u", s, idx);
 	return idx;
 }
@@ -1194,6 +1198,7 @@ int pa_stream_peek(pa_stream *s,
 	PA_CHECK_VALIDITY(s->context, s->direction == PA_STREAM_RECORD, PA_ERR_BADSTATE);
 
 	if (spa_list_is_empty(&s->ready)) {
+		errno = EPIPE;
 		pw_log_error("stream %p: no buffer: %m", s);
 		*data = NULL;
 		*nbytes = 0;

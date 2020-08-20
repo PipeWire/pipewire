@@ -266,6 +266,8 @@ struct global {
 	struct spa_hook proxy_listener;
         struct spa_hook object_listener;
 
+	pa_stream *stream;
+
 	union {
 		/* for links */
 		struct {
@@ -292,6 +294,7 @@ struct global {
 			float base_volume;
 			float volume_step;
 			uint32_t active_port;
+			uint32_t device_index;
 		} node_info;
 		struct {
 			uint32_t node_id;
@@ -365,6 +368,7 @@ struct pa_context {
 	uint32_t default_source;
 };
 
+pa_stream *pa_context_find_stream(pa_context *c, uint32_t idx);
 struct global *pa_context_find_global(pa_context *c, uint32_t id);
 const char *pa_context_find_global_name(pa_context *c, uint32_t id);
 struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name);
@@ -404,6 +408,7 @@ struct pa_stream {
 	pa_format_info *format;
 
 	uint32_t stream_index;
+	struct global *global;
 
 	pa_buffer_attr buffer_attr;
 

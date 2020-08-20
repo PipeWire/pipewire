@@ -32,6 +32,7 @@ extern const struct spa_handle_factory spa_support_system_factory;
 extern const struct spa_handle_factory spa_support_cpu_factory;
 extern const struct spa_handle_factory spa_support_loop_factory;
 extern const struct spa_handle_factory spa_support_node_driver_factory;
+extern const struct spa_handle_factory spa_support_null_audio_sink_factory;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -54,6 +55,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		break;
 	case 4:
 		*factory = &spa_support_node_driver_factory;
+		break;
+	case 5:
+		*factory = &spa_support_null_audio_sink_factory;
 		break;
 	default:
 		return 0;

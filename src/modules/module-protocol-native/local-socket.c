@@ -57,39 +57,10 @@ get_remote(const struct spa_dict *props)
 	return name;
 }
 
-static bool
-exists_in_dir(const char *name, const char *dir)
-{
-	bool exists = false;
-
-	if (dir != NULL) {
-		int dirfd;
-		struct stat s;
-
-		dirfd = open(dir, O_RDONLY);
-		if (dirfd < 0)
-			pw_log_debug("open dir '%s' failed: %m", dir);
-		else {
-			if (fstatat(dirfd, name, &s, 0) < 0)
-				pw_log_debug("fstatat '%s', dir '%s' failed: %m", name, dir);
-			else
-				exists = true;
-			if (close(dirfd) < 0)
-				pw_log_warn("close dir failed: %m");
-		}
-		pw_log_debug("'%s' %s in dir '%s'", name, exists ? "exists" : "does not exist", dir);
-	}
-
-	return exists;
-}
-
 static const char *
-get_runtime_dir(const char *name)
+get_runtime_dir(void)
 {
 	const char *runtime_dir;
-
-	if (name == NULL || strlen(name) == 0 || name[0] == '/')
-		return NULL;
 
 	runtime_dir = getenv("PIPEWIRE_RUNTIME_DIR");
 	if (runtime_dir == NULL)
@@ -104,42 +75,25 @@ get_runtime_dir(const char *name)
 		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
 			runtime_dir = result ? result->pw_dir : NULL;
 	}
-	if (runtime_dir == NULL || !exists_in_dir(name, runtime_dir)) {
-		if (exists_in_dir(name, DEFAULT_SYSTEM_RUNTIME_DIR))
-			runtime_dir = DEFAULT_SYSTEM_RUNTIME_DIR;
-		else
-			runtime_dir = NULL;
-	}
-
 	return runtime_dir;
 }
 
-int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
-					    const struct spa_dict *props,
-					    void (*done_callback) (void *data, int res),
-					    void *data)
+static const char *
+get_system_dir(void)
+{
+	return DEFAULT_SYSTEM_RUNTIME_DIR;
+}
+
+static int try_connect(struct pw_protocol_client *client,
+		const char *runtime_dir, const char *name,
+		void (*done_callback) (void *data, int res),
+		void *data)
 {
 	struct sockaddr_un addr;
 	socklen_t size;
-	const char *runtime_dir, *name;
 	int res, name_size, fd;
-	bool path_is_absolute;
-
-	name = get_remote(props);
-
-	path_is_absolute = name[0] == '/';
-
-	runtime_dir = get_runtime_dir(name);
 
 	pw_log_info("connecting to '%s' runtime_dir:%s", name, runtime_dir);
-
-	if (runtime_dir == NULL && !path_is_absolute) {
-		pw_log_error("client %p: name %s is not an absolute path and no runtime dir found."
-				"set one of PIPEWIRE_RUNTIME_DIR, XDG_RUNTIME_DIR, HOME or "
-				"USERPROFILE in the environment", client, name);
-		res = -ENOENT;
-		goto error;
-	}
 
 	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
@@ -148,13 +102,13 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	if (!path_is_absolute)
-		name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, name) + 1;
-	else
+	if (runtime_dir == NULL)
 		name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", name) + 1;
+	else
+		name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, name) + 1;
 
 	if (name_size > (int) sizeof addr.sun_path) {
-		if (path_is_absolute)
+		if (runtime_dir == NULL)
 			pw_log_error("client %p: socket path \"%s\" plus null terminator exceeds %i bytes",
 				client, name, (int) sizeof(addr.sun_path));
 		else
@@ -184,5 +138,34 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 error_close:
 	close(fd);
 error:
+	return res;
+}
+
+int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
+					    const struct spa_dict *props,
+					    void (*done_callback) (void *data, int res),
+					    void *data)
+{
+	const char *runtime_dir, *name;
+	int res;
+
+	name = get_remote(props);
+	if (name == NULL)
+		return -EINVAL;
+
+	if (name[0] == '/') {
+		res = try_connect(client, NULL, name, done_callback, data);
+	} else {
+		runtime_dir = get_runtime_dir();
+		if (runtime_dir != NULL) {
+			res = try_connect(client, runtime_dir, name, done_callback, data);
+			if (res >= 0)
+				goto exit;
+		}
+		runtime_dir = get_system_dir();
+		if (runtime_dir != NULL)
+			res = try_connect(client, runtime_dir, name, done_callback, data);
+	}
+exit:
 	return res;
 }

@@ -18,6 +18,8 @@
  */
 
 #include <time.h>
+#include <unistd.h>
+#include <pwd.h>
 
 #include <pipewire/log.h>
 #include <pipewire/pipewire.h>
@@ -48,8 +50,36 @@ char *pa_get_fqdn(char *s, size_t l)
 SPA_EXPORT
 char *pa_get_home_dir(char *s, size_t l)
 {
-	pw_log_warn("Not Implemented");
-	return NULL;
+	const char *home;
+	home = getenv("HOME");
+	if (home == NULL)
+		home = getenv("USERPROFILE");
+	if (home == NULL) {
+		struct passwd pwd, *result = NULL;
+		char buffer[4096];
+		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+			home = result ? result->pw_dir : NULL;
+	}
+	if (home) {
+		strncpy(s, home, l);
+		s[l] = 0;
+	}
+	return home ? s : NULL;
+}
+
+SPA_EXPORT
+char *pa_get_runtime_dir(void)
+{
+	const char *runtime;
+	runtime = getenv("PULSE_RUNTIME_PATH");
+	if (runtime == NULL)
+		runtime = getenv("XDG_RUNTIME_DIR");
+	if (runtime == NULL) {
+		char buffer[4096];
+		runtime = pa_get_home_dir(buffer, sizeof(buffer));
+	}
+	return runtime ? strdup(runtime) : NULL;
+
 }
 
 SPA_EXPORT

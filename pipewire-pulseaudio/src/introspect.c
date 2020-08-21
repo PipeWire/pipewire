@@ -100,6 +100,7 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 	struct pw_node_info *info = g->info;
 	const char *str;
 	uint32_t n, j;
+	char monitor_name[1024];
 	pa_sink_info i;
 	pa_format_info ii[1];
 	pa_format_info *ip[1];
@@ -131,7 +132,8 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->node_info.mute;
 	i.monitor_source = g->node_info.monitor;
-	i.monitor_source_name = pa_context_find_global_name(c, i.monitor_source);
+	snprintf(monitor_name, sizeof(monitor_name)-1, "%s.monitor", i.name);
+	i.monitor_source_name = monitor_name;
 	i.latency = 0;
 	i.driver = "PipeWire";
 	i.flags = PA_SINK_LATENCY | PA_SINK_DYNAMIC_LATENCY |

@@ -32,4 +32,3 @@ bool pa_is_pipewire(void)
 {
 	return true;
 }
-

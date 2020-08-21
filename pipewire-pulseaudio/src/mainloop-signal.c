@@ -31,6 +31,7 @@
 
 
 static pa_mainloop_api *api = NULL;
+static bool have_signals = false;
 static struct spa_list signals;
 static struct pw_loop *loop = NULL;
 
@@ -58,14 +59,12 @@ int pa_signal_init(pa_mainloop_api *a)
 SPA_EXPORT
 void pa_signal_done(void)
 {
-	pa_signal_event *ev, *t;
+	pa_signal_event *ev;
 
-	pa_assert(api);
-
-	spa_list_for_each_safe(ev, t, &signals, link)
-		pa_signal_free(ev);
-	spa_list_init(&signals);
-
+	if (have_signals) {
+		spa_list_consume(ev, &signals, link)
+			pa_signal_free(ev);
+	}
 	api = NULL;
 }
 
@@ -89,6 +88,9 @@ pa_signal_event* pa_signal_new(int sig, pa_signal_cb_t callback, void *userdata)
 	ev->callback = callback;
 	ev->userdata = userdata;
 
+	if (!have_signals)
+		spa_list_init(&signals);
+	have_signals = true;
 	spa_list_append(&signals, &ev->link);
 
 	return ev;

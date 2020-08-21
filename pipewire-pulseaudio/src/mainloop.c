@@ -254,6 +254,9 @@ pa_mainloop *pa_mainloop_new(void)
 {
 	pa_mainloop *loop;
 
+	if (getenv("PULSE_INTERNAL"))
+		return NULL;
+
 	loop = calloc(1, sizeof(pa_mainloop));
 	if (loop == NULL)
 		return NULL;

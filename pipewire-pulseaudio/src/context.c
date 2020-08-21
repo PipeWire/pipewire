@@ -64,6 +64,7 @@ static void context_unlink(pa_context *c)
 	pa_stream *s, *t;
 	struct global *g;
 	pa_operation *o;
+	struct module_info *m;
 
 	pw_log_debug("context %p: unlink %d", c, c->state);
 
@@ -88,6 +89,8 @@ static void context_unlink(pa_context *c)
 
 	spa_list_consume(o, &c->operations, link)
 		pa_operation_cancel(o);
+	spa_list_consume(m, &c->modules, link)
+		pw_proxy_destroy(m->proxy);
 }
 
 void pa_context_set_state(pa_context *c, pa_context_state_t st) {
@@ -1489,6 +1492,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 
 	spa_list_init(&c->streams);
 	spa_list_init(&c->operations);
+	spa_list_init(&c->modules);
 
 	return c;
 }

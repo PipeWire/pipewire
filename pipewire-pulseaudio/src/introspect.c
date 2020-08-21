@@ -125,7 +125,7 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		i.channel_map = g->node_info.channel_map;
 	else
 		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
-	i.owner_module = 0;
+	i.owner_module = g->id;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
@@ -847,7 +847,7 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		i.channel_map = g->node_info.channel_map;
 	else
 		pa_channel_map_init_auto(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
-	i.owner_module = 0;
+	i.owner_module = g->id;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
@@ -1402,6 +1402,16 @@ struct load_module {
 	struct spa_hook listener;
 };
 
+static struct module_info *find_module(pa_context *c, uint32_t idx)
+{
+	struct module_info *m;
+	spa_list_for_each(m, &c->modules, link) {
+		if (m->id == idx)
+			return m;
+	}
+	return NULL;
+}
+
 static void on_load_module(pa_operation *o, void *userdata)
 {
 	struct load_module *d = userdata;
@@ -1417,11 +1427,37 @@ static void on_load_module(pa_operation *o, void *userdata)
 		spa_hook_remove(&d->listener);
 }
 
+static void module_proxy_removed(void *data)
+{
+	struct module_info *m = data;
+	pw_proxy_destroy(m->proxy);
+}
+
+static void module_proxy_destroy(void *data)
+{
+	struct module_info *m = data;
+	spa_hook_remove(&m->listener);
+	spa_list_remove(&m->link);
+	free(m);
+}
+
 static void module_proxy_bound(void *data, uint32_t global_id)
 {
+	struct module_info *m;
 	pa_operation *o = data;
+	pa_context *c = o->context;
 	struct load_module *d = o->userdata;
+	static const struct pw_proxy_events proxy_events = {
+		.removed = module_proxy_removed,
+		.destroy = module_proxy_destroy,
+	};
 	d->idx = global_id;
+
+	m = calloc(1, sizeof(struct module_info));
+	m->id = global_id;
+	m->proxy = d->proxy;
+	pw_proxy_add_listener(m->proxy, &m->listener, &proxy_events, m);
+	spa_list_append(&c->modules, &m->link);
 	on_load_module(o, d);
 }
 
@@ -1431,6 +1467,7 @@ static void module_proxy_error(void *data, int seq, int res, const char *message
 	struct load_module *d = o->userdata;
 	d->error = res;
 	d->idx = PA_INVALID_INDEX;
+	pw_proxy_destroy(d->proxy);
 	on_load_module(o, d);
 }
 
@@ -1544,13 +1581,21 @@ pa_operation* pa_context_unload_module(pa_context *c, uint32_t idx, pa_context_s
 {
 	pa_operation *o;
 	struct success_ack *d;
+	struct module_info *m;
+	int error;
 
 	pw_log_debug("context %p: %u", c, idx);
+	if ((m = find_module(c, idx)) != NULL) {
+		pw_proxy_destroy(m->proxy);
+		error = 0;
+	} else {
+		error = PA_ERR_NOENTITY;
+	}
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;
-	d->error = PA_ERR_NOTIMPLEMENTED;
 	d->userdata = userdata;
+	d->error = error;
 	d->idx = idx;
 	pa_operation_sync(o);
 
@@ -1986,7 +2031,7 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 	spa_zero(i);
 	i.index = g->id;
 	i.name = name;
-	i.owner_module = PA_INVALID_INDEX;
+	i.owner_module = g->id;
 	i.client = g->node_info.client_id;
 	if (s)
 		i.sink = s->device_index;
@@ -2387,7 +2432,7 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 	spa_zero(i);
 	i.index = g->id;
 	i.name = name;
-	i.owner_module = PA_INVALID_INDEX;
+	i.owner_module = g->id;
 	i.client = g->node_info.client_id;
 	if (s)
 		i.source = s->device_index;

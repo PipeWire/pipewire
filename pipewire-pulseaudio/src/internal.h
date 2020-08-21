@@ -325,6 +325,13 @@ struct global {
 	};
 };
 
+struct module_info {
+	struct spa_list link;	/* link in context modules */
+	uint32_t id;
+	struct pw_proxy *proxy;
+	struct spa_hook listener;
+};
+
 struct pa_context {
 	int refcount;
 	uint32_t client_index;
@@ -359,6 +366,7 @@ struct pa_context {
 
 	struct spa_list streams;
 	struct spa_list operations;
+	struct spa_list modules;
 
 	int no_fail:1;
 	int disconnect:1;

@@ -811,6 +811,8 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 	const char *agent_path;
 	DBusError error;
 
+	dbus_error_init(&error);
+
 	backend->acquire_in_progress = false;
 
 	r = dbus_pending_call_steal_reply(pending);

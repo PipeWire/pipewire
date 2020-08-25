@@ -46,6 +46,8 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
 
+#include <sbc/sbc.h>
+
 #include "defs.h"
 
 struct props {
@@ -125,6 +127,12 @@ struct impl {
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
 
+	/* mSBC */
+	sbc_t msbc;
+	uint8_t *buffer;
+	uint8_t *buffer_head;
+	uint8_t *buffer_next;
+
 	/* Times */
 	uint64_t start_time;
 	uint64_t total_samples;
@@ -136,6 +144,7 @@ struct impl {
 
 static const uint32_t default_min_latency = MIN_LATENCY;
 static const uint32_t default_max_latency = MAX_LATENCY;
+static const char sntable[4] = { 0x08, 0x38, 0xC8, 0xF8 };
 
 static void reset_props(struct props *props)
 {
@@ -304,6 +313,8 @@ static void flush_data(struct impl *this)
 	struct port *port = &this->port;
 	struct spa_data *datas;
 	uint64_t next_timeout = 1;
+	uint32_t min_in_size;
+	uint8_t *packet;
 
 	/* get buffer */
 	if (!port->current_buffer) {
@@ -313,11 +324,18 @@ static void flush_data(struct impl *this)
 	}
 	datas = port->current_buffer->buf->datas;
 
+	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+		min_in_size = MSBC_DECODED_SIZE;
+		packet = this->buffer_head;
+	} else {
+		min_in_size = this->transport->write_mtu;
+		packet = port->write_buffer;
+	}
+
 	/* if buffer has data, copy it into the write buffer */
 	if (datas[0].chunk->size - port->ready_offset > 0) {
-		uint32_t avail = SPA_MIN(this->transport->write_mtu, datas[0].chunk->size - port->ready_offset);
-		uint32_t size = (avail + port->write_buffer_size) > this->transport->write_mtu ?
-			this->transport->write_mtu - port->write_buffer_size : avail;
+		uint32_t avail = SPA_MIN(min_in_size, datas[0].chunk->size - port->ready_offset);
+		uint32_t size = (avail + port->write_buffer_size) > min_in_size ? min_in_size - port->write_buffer_size : avail;
 		memcpy(port->write_buffer + port->write_buffer_size,
 			(uint8_t *)datas[0].data + port->ready_offset,
 			size);
@@ -336,8 +354,11 @@ static void flush_data(struct impl *this)
 	}
 
 	/* send the data if the write buffer is full */
-	if (port->write_buffer_size >= this->transport->write_mtu) {
+	if (port->write_buffer_size >= min_in_size) {
 		uint64_t now_time;
+		static int sn = 0;
+		int processed = 0;
+		ssize_t out_encoded;
 		int written;
 
 		spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
@@ -345,7 +366,22 @@ static void flush_data(struct impl *this)
 		if (this->start_time == 0)
 			this->start_time = now_time;
 
-		written = write(this->sock_fd, port->write_buffer, this->transport->write_mtu);
+		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+			this->buffer_next[0] = 0x01;
+			this->buffer_next[1] = sntable[sn];
+			this->buffer_next[59] = 0x00;
+			sn = (sn + 1) % 4;
+			processed = sbc_encode(&this->msbc, port->write_buffer, port->write_buffer_size,
+			                       this->buffer_next + 2, MSBC_ENCODED_SIZE - 3, &out_encoded);
+			if (processed < 0) {
+				spa_log_warn(this->log, "sbc_encode failed: %d", processed);
+				return;
+			}
+			this->buffer_next += out_encoded + 3;
+		}
+
+next_write:
+		written = write(this->sock_fd, packet, this->transport->write_mtu);
 		if (written <= 0) {
 			spa_log_debug(this->log, "failed to write data");
 			goto stop;
@@ -353,12 +389,25 @@ static void flush_data(struct impl *this)
 		port->write_buffer_size = 0;
 		spa_log_debug(this->log, "wrote socket data %d", written);
 
-		next_timeout = get_next_timeout(this, now_time, written / port->frame_size);
+		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+			this->buffer_head += written;
+			if (this->buffer_next - this->buffer_head >= this->transport->write_mtu) {
+				packet = this->buffer_head;
+				goto next_write;
+			}
+			if (this->buffer_head == this->buffer_next)
+				this->buffer_head = this->buffer_next = this->buffer;
+		} else
+			processed = written;
+
+		next_timeout = get_next_timeout(this, now_time, processed / port->frame_size);
+		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC && next_timeout < 7500000)
+			next_timeout = 7500000;
 
 		if (this->clock) {
 			this->clock->nsec = now_time;
 			this->clock->position = this->total_samples;
-			this->clock->delay = written / port->frame_size;
+			this->clock->delay = processed / port->frame_size;
 			this->clock->rate_diff = 1.0f;
 			this->clock->next_nsec = next_timeout;
 		}
@@ -402,6 +451,20 @@ static void sco_on_timeout(struct spa_source *source)
 	flush_data(this);
 }
 
+/* greater common divider */
+static int gcd(int a, int b) {
+    while(b) {
+        int c = b;
+        b = a % b;
+        a = c;
+    }
+    return a;
+}
+/* least common multiple */
+static int lcm(int a, int b) {
+    return (a*b)/gcd(a,b);
+}
+
 static int do_start(struct impl *this)
 {
 	bool do_accept;
@@ -420,6 +483,19 @@ static int do_start(struct impl *this)
 	this->sock_fd = spa_bt_transport_acquire(this->transport, do_accept);
 	if (this->sock_fd < 0)
 		return -1;
+
+	/* Init mSBC if needed */
+	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+		sbc_init_msbc(&this->msbc, 0);
+		/* Libsbc expects audio samples by default in host endianity, mSBC requires little endian */
+		this->msbc.endian = SBC_LE;
+
+		if (this->transport->write_mtu > MSBC_ENCODED_SIZE)
+			this->transport->write_mtu = MSBC_ENCODED_SIZE;
+
+		this->buffer = calloc(lcm(this->transport->write_mtu, MSBC_ENCODED_SIZE), sizeof(uint8_t));
+		this->buffer_head = this->buffer_next = this->buffer;
+	}
 
 	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
 
@@ -469,6 +545,12 @@ static int do_stop(struct impl *this)
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
 	this->started = false;
+
+	if (this->buffer) {
+		free(this->buffer);
+		this->buffer = NULL;
+		this->buffer_head = this->buffer_next = this->buffer;
+	}
 
 	if (this->transport) {
 		/* Release the transport */
@@ -631,19 +713,21 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
+		if (this->transport == NULL)
+			return -EIO;
 
 		/* set the info structure */
 		struct spa_audio_info_raw info = { 0, };
-		info.format = SPA_AUDIO_FORMAT_S16;
+		info.format = SPA_AUDIO_FORMAT_S16_LE;
 		info.channels = 1;
 		info.position[0] = SPA_AUDIO_CHANNEL_MONO;
 
-		/* TODO: For now we only handle HSP profiles which has always CVSD format,
-		 * but we eventually need to support HFP that can have both CVSD and MSBC formats */
-
-		 /* CVSD format has a rate of 8kHz
-		  * MSBC format has a rate of 16kHz */
-		info.rate = 8000;
+		/* CVSD format has a rate of 8kHz
+		 * MSBC format has a rate of 16kHz */
+		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
+			info.rate = 16000;
+		else
+			info.rate = 8000;
 
 		/* build the param */
 		param = spa_format_audio_raw_build(&b, id, &info);

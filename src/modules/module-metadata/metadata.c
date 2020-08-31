@@ -274,6 +274,7 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 			&impl->global_listener,
 			&global_events, impl);
 
+	pw_resource_set_bound_id(resource, pw_global_get_id (impl->global));
 	pw_global_register(impl->global);
 
 	pw_resource_add_listener(resource,

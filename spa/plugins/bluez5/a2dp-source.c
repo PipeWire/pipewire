@@ -442,6 +442,14 @@ static void a2dp_on_ready_read(struct spa_source *source)
 		this->sample_count += datas[0].chunk->size / port->frame_size;
 		spa_list_append(&port->ready, &port->current_buffer->link);
 		port->current_buffer = NULL;
+
+		if (!this->following && this->clock) {
+			this->clock->nsec = SPA_TIMESPEC_TO_NSEC(&this->now);
+			this->clock->position = this->sample_count;
+			this->clock->delay = 0;
+			this->clock->rate_diff = 1.0f;
+			this->clock->next_nsec = this->clock->nsec;
+		}
 	}
 
 	/* done if there are no buffers ready */

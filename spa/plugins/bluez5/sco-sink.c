@@ -354,8 +354,15 @@ static void flush_data(struct impl *this)
 		spa_log_debug(this->log, "wrote socket data %d", written);
 
 		next_timeout = get_next_timeout(this, now_time, written / port->frame_size);
-	}
 
+		if (this->clock) {
+			this->clock->nsec = now_time;
+			this->clock->position = this->total_samples;
+			this->clock->delay = written / port->frame_size;
+			this->clock->rate_diff = 1.0f;
+			this->clock->next_nsec = next_timeout;
+		}
+	}
 
 	/* schedule next timeout */
 	set_timeout(this, next_timeout);

@@ -678,6 +678,15 @@ static int flush_data(struct impl *this, uint64_t now_time)
 		spa_system_timerfd_settime(this->data_system, this->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 		this->source.mask = SPA_IO_IN;
 		spa_loop_update_source(this->data_loop, &this->source);
+
+		if (this->clock) {
+			this->clock->nsec = now_time;
+			this->clock->position = this->sample_count;
+			this->clock->duration = this->write_samples;
+			this->clock->delay = queued;
+			this->clock->rate_diff = 1.0f;
+			this->clock->next_nsec = SPA_TIMESPEC_TO_NSEC(&ts.it_value);
+		}
 	} else {
 		this->start_time = now_time;
 		this->sample_time = 0;

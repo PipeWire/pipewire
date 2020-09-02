@@ -1362,7 +1362,7 @@ static int impl_node_process(void *object)
 	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
 
-		if (!SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT)) {
+		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, io->buffer_id);
 			io->status = -EINVAL;
 			return -EINVAL;

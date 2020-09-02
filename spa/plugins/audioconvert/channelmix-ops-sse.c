@@ -145,10 +145,10 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	const float **s = (const float **) src;
 	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
 	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
-	const __m128 clev = _mm_set1_ps(mix->matrix[2][0]);
-	const __m128 llev = _mm_set1_ps(mix->matrix[3][0]);
-	const __m128 slev0 = _mm_set1_ps(mix->matrix[4][0]);
-	const __m128 slev1 = _mm_set1_ps(mix->matrix[4][1]);
+	const __m128 clev = _mm_set1_ps((mix->matrix[0][2] + mix->matrix[1][2]) * 0.5f);
+	const __m128 llev = _mm_set1_ps((mix->matrix[0][3] + mix->matrix[1][3]) * 0.5f);
+	const __m128 slev0 = _mm_set1_ps(mix->matrix[0][4]);
+	const __m128 slev1 = _mm_set1_ps(mix->matrix[1][5]);
 	__m128 in, ctr;
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1];
@@ -313,10 +313,12 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	uint32_t i, n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const __m128 clev = _mm_set1_ps(mix->matrix[2][2]);
-	const __m128 llev = _mm_set1_ps(mix->matrix[3][3]);
+	const __m128 clev = _mm_set1_ps(mix->matrix[0][2]);
+	const __m128 llev = _mm_set1_ps(mix->matrix[0][3]);
 	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
 	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
+	const __m128 v4 = _mm_set1_ps(mix->matrix[2][4]);
+	const __m128 v5 = _mm_set1_ps(mix->matrix[3][5]);
 	__m128 ctr;
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
@@ -363,16 +365,16 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
 			_mm_store_ps(&dFL[n], _mm_mul_ps(_mm_add_ps(_mm_load_ps(&sFL[n]), ctr), v0));
 			_mm_store_ps(&dFR[n], _mm_mul_ps(_mm_add_ps(_mm_load_ps(&sFR[n]), ctr), v1));
-			_mm_store_ps(&dRL[n], _mm_mul_ps(_mm_load_ps(&sSL[n]), v0));
-			_mm_store_ps(&dRR[n], _mm_mul_ps(_mm_load_ps(&sSR[n]), v1));
+			_mm_store_ps(&dRL[n], _mm_mul_ps(_mm_load_ps(&sSL[n]), v4));
+			_mm_store_ps(&dRR[n], _mm_mul_ps(_mm_load_ps(&sSR[n]), v5));
 		}
 		for(; n < n_samples; n++) {
 			ctr = _mm_mul_ss(_mm_load_ss(&sFC[n]), clev);
 			ctr = _mm_add_ss(ctr, _mm_mul_ss(_mm_load_ss(&sLFE[n]), llev));
 			_mm_store_ss(&dFL[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFL[n]), ctr), v0));
 			_mm_store_ss(&dFR[n], _mm_mul_ss(_mm_add_ss(_mm_load_ss(&sFR[n]), ctr), v1));
-			_mm_store_ss(&dRL[n], _mm_mul_ss(_mm_load_ss(&sSL[n]), v0));
-			_mm_store_ss(&dRR[n], _mm_mul_ss(_mm_load_ss(&sSR[n]), v1));
+			_mm_store_ss(&dRL[n], _mm_mul_ss(_mm_load_ss(&sSL[n]), v4));
+			_mm_store_ss(&dRR[n], _mm_mul_ss(_mm_load_ss(&sSR[n]), v5));
 		}
 	}
 }

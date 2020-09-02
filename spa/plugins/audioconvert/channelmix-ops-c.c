@@ -295,10 +295,10 @@ channelmix_f32_5p1_2_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	const float **s = (const float **) src;
 	const float v0 = mix->matrix[0][0];
 	const float v1 = mix->matrix[1][1];
-	const float clev = mix->matrix[2][0];
-	const float llev = mix->matrix[3][0];
-	const float slev0 = mix->matrix[4][0];
-	const float slev1 = mix->matrix[4][1];
+	const float clev = (mix->matrix[0][2] + mix->matrix[1][2]) * 0.5f;
+	const float llev = (mix->matrix[0][3] + mix->matrix[1][3]) * 0.5f;
+	const float slev0 = mix->matrix[0][4];
+	const float slev1 = mix->matrix[1][5];
 
 	if (mix->zero) {
 		memset(d[0], 0, n_samples * sizeof(float));
@@ -350,8 +350,8 @@ channelmix_f32_5p1_4_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	uint32_t i, n;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const float clev = mix->matrix[2][0];
-	const float llev = mix->matrix[3][0];
+	const float clev = mix->matrix[0][2];
+	const float llev = mix->matrix[0][3];
 	const float v0 = mix->matrix[0][0];
 	const float v1 = mix->matrix[1][1];
 	const float v4 = mix->matrix[2][4];

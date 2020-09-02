@@ -166,7 +166,6 @@ static int make_matrix(struct channelmix *mix)
 	float clev = SQRT1_2;
 	float slev = SQRT1_2;
 	float llev = 0.5f;
-	float max;
 
 	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
 			src_mask, dst_mask);
@@ -329,8 +328,6 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_warn(mix->log, "can't assign LFE");
 		}
 	}
-
-	max = 0.0f;
 	for (ic = 0, i = 0; i < NUM_CHAN; i++) {
 		float sum = 0.0f;
 		if ((dst_mask & (1UL << (i + 2))) == 0)
@@ -341,8 +338,10 @@ static int make_matrix(struct channelmix *mix)
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
+		if (sum > 1.0f)
+			for (j = 0; j < jc; j++)
+		                mix->matrix_orig[ic][j] /= sum;
 		ic++;
-		max = SPA_MAX(max, sum);
 	}
 	return 0;
 }
@@ -351,19 +350,17 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 		uint32_t n_channel_volumes, float *channel_volumes)
 {
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	float vol = mute ? 0.0f : volume, sum, t;
+	float vol = mute ? 0.0f : volume, t;
 	uint32_t i, j;
 	uint32_t src_chan = mix->src_chan;
 	uint32_t dst_chan = mix->dst_chan;
 
 	/** apply global volume to channels */
-	sum = 0.0;
 	mix->norm = true;
 	for (i = 0; i < n_channel_volumes; i++) {
 		volumes[i] = channel_volumes[i] * vol;
 		if (volumes[i] != 1.0f)
 			mix->norm = false;
-		sum += volumes[i];
 	}
 
 	if (n_channel_volumes == src_chan) {

@@ -150,6 +150,9 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	if (node->configured && !force)
 		return 0;
 
+	if (strcmp(node->media, "Audio") != 0)
+		return 0;
+
 	format = node->format;
 
 	if (info != NULL && info->info.raw.channels > 0) {

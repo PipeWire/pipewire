@@ -338,9 +338,11 @@ static int make_matrix(struct channelmix *mix)
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
+#if 0
 		if (sum > 1.0f)
 			for (j = 0; j < jc; j++)
 		                mix->matrix_orig[ic][j] /= sum;
+#endif
 		ic++;
 	}
 	return 0;

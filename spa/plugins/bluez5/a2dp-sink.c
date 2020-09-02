@@ -560,6 +560,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	struct port *port = &this->port;
 
 	total_frames = 0;
+again:
 	while (!spa_list_is_empty(&port->ready)) {
 		uint8_t *src;
 		uint32_t n_bytes, n_frames;
@@ -642,6 +643,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 			increase_bitpool(this);
 			this->last_error = now_time;
 		}
+		if (!spa_list_is_empty(&port->ready))
+			goto again;
 	}
 
 	this->flush_source.mask = 0;

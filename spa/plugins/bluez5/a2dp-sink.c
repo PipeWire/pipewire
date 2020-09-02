@@ -64,7 +64,8 @@ struct props {
 
 struct buffer {
 	uint32_t id;
-	unsigned int outstanding:1;
+#define BUFFER_FLAG_OUT	(1<<0)
+	uint32_t flags;
 	struct spa_buffer *buf;
 	struct spa_meta_header *h;
 	struct spa_list link;
@@ -592,7 +593,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 
 			if (written < 0 && written != -ENOSPC) {
 				spa_list_remove(&b->link);
-				b->outstanding = true;
+				SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+				this->port.io->buffer_id = b->id;
 				spa_log_trace(this->log, NAME " %p: error %s, reuse buffer %u",
 						this, spa_strerror(written), b->id);
 				spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
@@ -607,8 +609,9 @@ static int flush_data(struct impl *this, uint64_t now_time)
 
 		if (port->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
-			b->outstanding = true;
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 			spa_log_trace(this->log, NAME " %p: reuse buffer %u", this, b->id);
+			this->port.io->buffer_id = b->id;
 
 			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
 			port->ready_offset = 0;
@@ -1292,7 +1295,7 @@ impl_node_port_use_buffers(void *object,
 
 		b->buf = buffers[i];
 		b->id = i;
-		b->outstanding = true;
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
@@ -1359,7 +1362,7 @@ static int impl_node_process(void *object)
 	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
 
-		if (!b->outstanding) {
+		if (!SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT)) {
 			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, io->buffer_id);
 			io->status = -EINVAL;
 			return -EINVAL;
@@ -1368,7 +1371,7 @@ static int impl_node_process(void *object)
 		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, io->buffer_id);
 
 		spa_list_append(&port->ready, &b->link);
-		b->outstanding = false;
+		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		port->need_data = false;
 
 		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / port->frame_size,

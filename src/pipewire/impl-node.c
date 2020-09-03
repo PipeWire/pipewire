@@ -837,8 +837,9 @@ static void check_properties(struct pw_impl_node *node)
 			if (quantum_size != node->quantum_size) {
 				pw_log_debug(NAME" %p: latency '%s' quantum %u/%u",
 						node, str, quantum_size, context->defaults.clock_rate);
-				pw_log_info("(%s-%u) quantum %u/%u", node->name, node->info.id,
-						quantum_size, context->defaults.clock_rate);
+				pw_log_info("(%s-%u) latency:%s ->quantum %u/%u", node->name,
+						node->info.id, str, quantum_size,
+						context->defaults.clock_rate);
 				node->quantum_size = quantum_size;
 				do_recalc = true;
 			}

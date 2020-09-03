@@ -1836,7 +1836,7 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 	tmp_name = alloca(strlen(name)+5);
 	sprintf(tmp_name, "%s.tmp", name);
 	if ((fd = openat(sfd, tmp_name,  O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0700)) < 0) {
-		pw_log_error("can't open file %s: %m", tmp_name);
+		pw_log_error("can't open file '%s': %m", tmp_name);
 		return -errno;
 	}
 
@@ -1853,7 +1853,7 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 	fclose(f);
 
 	if (renameat(sfd, tmp_name, sfd, name) < 0) {
-		pw_log_error("can't rename temp file: %m");
+		pw_log_error("can't rename temp file '%s': %m", tmp_name);
 		return -errno;
 	}
 	return 0;

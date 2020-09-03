@@ -23,7 +23,10 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 #
-while getopts 'hr:v' param ; do
+
+SAMPLERATE=48000
+
+while getopts 'hr:vs:p:' param ; do
 	case $param in
 		r)
 			PIPEWIRE_REMOTE="$OPTARG"
@@ -37,6 +40,12 @@ while getopts 'hr:v' param ; do
 			fi
 			export PIPEWIRE_DEBUG
 			;;
+		s)
+			SAMPLERATE="$OPTARG"
+			;;
+		p)
+			PERIOD="$OPTARG"
+			;;
 		*)
 			echo "$0 - run JACK applications on PipeWire"
 			echo " "
@@ -46,6 +55,8 @@ while getopts 'hr:v' param ; do
 			echo "	-h                  show brief help"
 			echo "	-r <remote>         remote daemon name"
 			echo "	-v                  verbose debug info"
+			echo "	-s                  samplerate (default "$SAMPLERATE")"
+			echo "	-p                  period in samples"
 			exit 0
 			;;
 	esac
@@ -53,6 +64,10 @@ done
 
 shift $(( $OPTIND - 1 ))
 
+if [ x"$PERIOD" != x ]; then
+	PIPEWIRE_LATENCY="$PERIOD/$SAMPLERATE"
+	export PIPEWIRE_LATENCY
+fi
 LD_LIBRARY_PATH='@LIBJACK_PATH@'"${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
 export LD_LIBRARY_PATH
 

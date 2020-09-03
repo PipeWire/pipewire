@@ -94,7 +94,7 @@ static const char *port_state_as_string(enum pw_impl_port_state state)
 	return "invalid-state";
 }
 
-void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, char *error)
+void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, int res, char *error)
 {
 	enum pw_impl_port_state old = port->state;
 
@@ -111,6 +111,12 @@ void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_stat
 		port_state_as_string(old), port_state_as_string(state), error);
 
 	pw_impl_port_emit_state_changed(port, old, state, error);
+
+	if (state == PW_IMPL_PORT_STATE_ERROR && port->global) {
+		struct pw_resource *resource;
+		spa_list_for_each(resource, &port->global->resource_list, link)
+			pw_resource_error(resource, res, error);
+	}
 }
 
 static int tee_process(void *object)
@@ -908,7 +914,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
 
 	if (port->state <= PW_IMPL_PORT_STATE_INIT)
-		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, NULL);
+		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);
 
 	pw_impl_node_emit_port_added(node, port);
 	emit_info_changed(port);
@@ -1183,10 +1189,10 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 		pw_buffers_clear(&port->mix_buffers);
 
 		if (param == NULL || res < 0) {
-			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, NULL);
+			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);
 		}
 		else if (!SPA_RESULT_IS_ASYNC(res)) {
-			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, NULL);
+			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, 0, NULL);
 		}
 	}
 	return res;
@@ -1261,7 +1267,7 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 	if (n_buffers == 0) {
 		if (port->n_mix == 1)
-			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, NULL);
+			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, 0, NULL);
 	}
 
 	/* first negotiate with the node, this makes it possible to let the
@@ -1272,10 +1278,10 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 		if (res < 0) {
 			pw_log_error(NAME" %p: negotiate buffers on node: %d (%s)",
 				port, res, spa_strerror(res));
-			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR,
+			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR, res,
 					strdup("can't negotiate buffers on port"));
 		} else if (n_buffers > 0 && !SPA_RESULT_IS_ASYNC(res)) {
-			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_PAUSED, NULL);
+			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_PAUSED, 0, NULL);
 		}
 	}
 

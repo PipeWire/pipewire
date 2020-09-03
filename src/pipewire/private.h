@@ -1013,7 +1013,7 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
 int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix);
 
-void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, char *error);
+void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, int res, char *error);
 
 /** Unlink a port \memberof pw_impl_port */
 void pw_impl_port_unlink(struct pw_impl_port *port);

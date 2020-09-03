@@ -201,16 +201,17 @@ static int start_node(struct pw_impl_node *this)
 
 static void emit_info_changed(struct pw_impl_node *node)
 {
-	struct pw_resource *resource;
 
 	if (node->info.change_mask == 0)
 		return;
 
 	pw_impl_node_emit_info_changed(node, &node->info);
 
-	if (node->global)
+	if (node->global) {
+		struct pw_resource *resource;
 		spa_list_for_each(resource, &node->global->resource_list, link)
 			pw_node_resource_info(resource, &node->info);
+	}
 
 	node->info.change_mask = 0;
 }
@@ -286,7 +287,7 @@ do_node_add(struct spa_loop *loop,
 	return 0;
 }
 
-static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, char *error)
+static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, int res, char *error)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old = node->info.state;
@@ -322,6 +323,12 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
 	emit_info_changed(node);
+
+	if (state == PW_NODE_STATE_ERROR && node->global) {
+		struct pw_resource *resource;
+		spa_list_for_each(resource, &node->global->resource_list, link)
+			pw_resource_error(resource, res, error);
+	}
 }
 
 static int suspend_node(struct pw_impl_node *this)
@@ -361,7 +368,7 @@ static int suspend_node(struct pw_impl_node *this)
 	if (res < 0 && res != -EIO)
 		pw_log_warn(NAME" %p: suspend node error %s", this, spa_strerror(res));
 
-	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
+	node_update_state(this, PW_NODE_STATE_SUSPENDED, 0, NULL);
 
 	return res;
 }
@@ -685,7 +692,7 @@ int pw_impl_node_initialized(struct pw_impl_node *this)
 {
 	pw_log_debug(NAME" %p initialized", this);
 	pw_impl_node_emit_initialized(this);
-	node_update_state(this, PW_NODE_STATE_SUSPENDED, NULL);
+	node_update_state(this, PW_NODE_STATE_SUSPENDED, 0, NULL);
 	return 0;
 }
 
@@ -1321,7 +1328,8 @@ static void node_event(void *data, const struct spa_event *event)
 	switch (SPA_NODE_EVENT_ID(event)) {
 	case SPA_NODE_EVENT_Error:
 		impl->last_error = -EFAULT;
-		node_update_state(node, PW_NODE_STATE_ERROR, strdup("error"));
+		node_update_state(node, PW_NODE_STATE_ERROR,
+				-EFAULT, strdup("Received error event"));
 		break;
 	default:
 		pw_log_debug("unhandled event");
@@ -1861,12 +1869,13 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	if (SPA_RESULT_IS_ERROR(res)) {
 		if (node->info.state == PW_NODE_STATE_SUSPENDED) {
 			state = PW_NODE_STATE_SUSPENDED;
+			res = 0;
 		} else {
 			error = spa_aprintf("error changing node state: %s", spa_strerror(res));
 			state = PW_NODE_STATE_ERROR;
 		}
 	}
-	node_update_state(node, state, error);
+	node_update_state(node, state, res, error);
 }
 
 static void node_activate(struct pw_impl_node *this)

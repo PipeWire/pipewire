@@ -82,7 +82,7 @@ static void info_changed(struct pw_impl_link *link)
 	link->info.change_mask = 0;
 }
 
-static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_state state, char *error)
+static void link_update_state(struct pw_impl_link *link, enum pw_link_state state, int res, char *error)
 {
 	enum pw_link_state old = link->info.state;
 
@@ -111,6 +111,12 @@ static void pw_impl_link_update_state(struct pw_impl_link *link, enum pw_link_st
 	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
 	info_changed(link);
 
+	if (state == PW_LINK_STATE_ERROR && link->global) {
+		struct pw_resource *resource;
+		spa_list_for_each(resource, &link->global->resource_list, link)
+			pw_resource_error(resource, res, error);
+	}
+
 	if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
 		link->prepared = true;
 		link->preparing = false;
@@ -130,13 +136,15 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 	pw_log_debug(NAME" %p: obj:%p port %p complete READY: %s", this, obj, port, spa_strerror(res));
 
 	if (SPA_RESULT_IS_OK(res)) {
-		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, NULL);
+		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY,
+				0, NULL);
 	} else {
-		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR, NULL);
+		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR,
+				res, spa_aprintf("port error going to READY: %s", spa_strerror(res)));
 	}
 	if (this->input->state >= PW_IMPL_PORT_STATE_READY &&
 	    this->output->state >= PW_IMPL_PORT_STATE_READY)
-		pw_impl_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
+		link_update_state(this, PW_LINK_STATE_ALLOCATING, 0, NULL);
 }
 
 static void complete_paused(void *obj, void *data, int res, uint32_t id)
@@ -148,14 +156,16 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 	pw_log_debug(NAME" %p: obj:%p port %p complete PAUSED: %s", this, obj, port, spa_strerror(res));
 
 	if (SPA_RESULT_IS_OK(res)) {
-		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_PAUSED, NULL);
+		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_PAUSED,
+				0, NULL);
 		mix->have_buffers = true;
 	} else {
-		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR, NULL);
+		pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_ERROR,
+				res, spa_aprintf("port error going to PAUSED: %s", spa_strerror(res)));
 		mix->have_buffers = false;
 	}
 	if (this->rt.in_mix.have_buffers && this->rt.out_mix.have_buffers)
-		pw_impl_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
+		link_update_state(this, PW_LINK_STATE_PAUSED, 0, NULL);
 }
 
 static int do_negotiate(struct pw_impl_link *this)
@@ -186,7 +196,7 @@ static int do_negotiate(struct pw_impl_link *this)
 	if (in_state != PW_IMPL_PORT_STATE_CONFIGURE && out_state != PW_IMPL_PORT_STATE_CONFIGURE)
 		return 0;
 
-	pw_impl_link_update_state(this, PW_LINK_STATE_NEGOTIATING, NULL);
+	link_update_state(this, PW_LINK_STATE_NEGOTIATING, 0, NULL);
 
 	input = this->input;
 	output = this->output;
@@ -332,7 +342,7 @@ error:
 	pw_context_debug_port_params(context, output->node->node, output->direction,
 			output->port_id, SPA_PARAM_EnumFormat, res,
 			"output format (%s)", error);
-	pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error);
+	link_update_state(this, PW_LINK_STATE_ERROR, res, error);
 	free(format);
 	return res;
 }
@@ -397,7 +407,7 @@ static int do_allocation(struct pw_impl_link *this)
 
 	pw_log_debug(NAME" %p: out-state:%d in-state:%d", this, output->state, input->state);
 
-	pw_impl_link_update_state(this, PW_LINK_STATE_ALLOCATING, NULL);
+	link_update_state(this, PW_LINK_STATE_ALLOCATING, 0, NULL);
 
 	out_flags = output->spa_flags;
 	in_flags = input->spa_flags;
@@ -481,7 +491,7 @@ static int do_allocation(struct pw_impl_link *this)
 
 error:
 	pw_buffers_clear(&output->buffers);
-	pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error);
+	link_update_state(this, PW_LINK_STATE_ERROR, res, error);
 	return res;
 }
 
@@ -558,7 +568,7 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	input = this->input;
 
 	if (output == NULL || input == NULL) {
-		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR,
+		link_update_state(this, PW_LINK_STATE_ERROR, -EIO,
 				strdup(NAME" without input or output port"));
 		return;
 	}
@@ -577,14 +587,14 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	pw_log_debug(NAME" %p: output state %d, input state %d", this, out_state, in_state);
 
 	if (out_state == PW_IMPL_PORT_STATE_ERROR || in_state == PW_IMPL_PORT_STATE_ERROR) {
-		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, strdup("ports are in error"));
+		link_update_state(this, PW_LINK_STATE_ERROR, -EIO, strdup("ports are in error"));
 		return;
 	}
 
 	if (PW_IMPL_PORT_IS_CONTROL(output) && PW_IMPL_PORT_IS_CONTROL(input)) {
-		pw_impl_port_update_state(output, PW_IMPL_PORT_STATE_PAUSED, NULL);
-		pw_impl_port_update_state(input, PW_IMPL_PORT_STATE_PAUSED, NULL);
-		pw_impl_link_update_state(this, PW_LINK_STATE_PAUSED, NULL);
+		pw_impl_port_update_state(output, PW_IMPL_PORT_STATE_PAUSED, 0, NULL);
+		pw_impl_port_update_state(input, PW_IMPL_PORT_STATE_PAUSED, 0, NULL);
+		link_update_state(this, PW_LINK_STATE_PAUSED, 0, NULL);
 	}
 
 	if ((res = do_negotiate(this)) != 0)
@@ -743,19 +753,19 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 
 	switch (state) {
 	case PW_IMPL_PORT_STATE_ERROR:
-		pw_impl_link_update_state(this, PW_LINK_STATE_ERROR, error ? strdup(error) : NULL);
+		link_update_state(this, PW_LINK_STATE_ERROR, -EIO, error ? strdup(error) : NULL);
 		break;
 	case PW_IMPL_PORT_STATE_INIT:
 	case PW_IMPL_PORT_STATE_CONFIGURE:
 		if (this->prepared) {
 			this->prepared = false;
-			pw_impl_link_update_state(this, PW_LINK_STATE_INIT, NULL);
+			link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
 		}
 		break;
 	case PW_IMPL_PORT_STATE_READY:
 		if (this->prepared) {
 			this->prepared = false;
-			pw_impl_link_update_state(this, PW_LINK_STATE_NEGOTIATING, NULL);
+			link_update_state(this, PW_LINK_STATE_NEGOTIATING, 0, NULL);
 		}
 		break;
 	case PW_IMPL_PORT_STATE_PAUSED:
@@ -782,9 +792,9 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 		return;
 	}
 	if (outport)
-		pw_impl_port_update_state(outport, target, NULL);
+		pw_impl_port_update_state(outport, target, 0, NULL);
 	if (inport)
-		pw_impl_port_update_state(inport, target, NULL);
+		pw_impl_port_update_state(inport, target, 0, NULL);
 
 	pw_impl_link_prepare(this);
 }

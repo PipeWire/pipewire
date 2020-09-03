@@ -46,13 +46,15 @@ struct channelmix {
 	uint64_t src_mask;
 	uint64_t dst_mask;
 	uint32_t cpu_flags;
+#define CHANNELMIX_OPTION_MIX_LFE	(1<<0)		/**< mix LFE */
+	uint32_t options;
 
 	struct spa_log *log;
 
-	unsigned int zero:1;		/* all zero components */
-	unsigned int identity:1;	/* identity matrix */
-	unsigned int norm:1;		/* all normal values */
-	unsigned int equal:1;	/* all values are equal */
+#define CHANNELMIX_FLAG_ZERO		(1<<0)		/**< all zero components */
+#define CHANNELMIX_FLAG_IDENTITY	(1<<1)		/**< identity matrix */
+#define CHANNELMIX_FLAG_EQUAL		(1<<2)		/**< all values are equal */
+	uint32_t flags;
 	float matrix_orig[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
 	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
 

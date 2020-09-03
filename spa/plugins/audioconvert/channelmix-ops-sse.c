@@ -33,11 +33,11 @@ void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
 
-	if (mix->zero) {
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (mix->norm) {
+	else if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_IDENTITY)) {
 		for (i = 0; i < n_dst; i++)
 			spa_memcpy(d[i], s[i], n_samples * sizeof(float));
 	}
@@ -77,8 +77,8 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	uint32_t i, n, unrolled;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
-	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
-	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
+	const float m00 = mix->matrix[0][0];
+	const float m11 = mix->matrix[1][1];
 	__m128 in;
 	const float *sFL = s[0], *sFR = s[1];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
@@ -93,11 +93,11 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	else
 		unrolled = 0;
 
-	if (mix->zero) {
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (mix->norm) {
+	else if (m00 == 1.0f && m11 == 1.0f) {
 		for(n = 0; n < unrolled; n += 4) {
 			in = _mm_load_ps(&sFL[n]);
 			_mm_store_ps(&dFL[n], in);
@@ -116,6 +116,8 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 		}
 	}
 	else {
+		const __m128 v0 = _mm_set1_ps(m00);
+		const __m128 v1 = _mm_set1_ps(m11);
 		for(n = 0; n < unrolled; n += 4) {
 			in = _mm_mul_ps(_mm_load_ps(&sFL[n]), v0);
 			_mm_store_ps(&dFL[n], in);
@@ -143,8 +145,8 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	uint32_t n, unrolled;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
-	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
-	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
+	const float m00 = mix->matrix[0][0];
+	const float m11 = mix->matrix[1][1];
 	const __m128 clev = _mm_set1_ps((mix->matrix[0][2] + mix->matrix[1][2]) * 0.5f);
 	const __m128 llev = _mm_set1_ps((mix->matrix[0][3] + mix->matrix[1][3]) * 0.5f);
 	const __m128 slev0 = _mm_set1_ps(mix->matrix[0][4]);
@@ -165,11 +167,11 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	else
 		unrolled = 0;
 
-	if (mix->zero) {
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		memset(dFL, 0, n_samples * sizeof(float));
 		memset(dFR, 0, n_samples * sizeof(float));
 	}
-	else if (mix->norm) {
+	else if (m00 == 1.0f && m11 == 1.0f) {
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
@@ -196,6 +198,8 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 		}
 	}
 	else {
+		const __m128 v0 = _mm_set1_ps(m00);
+		const __m128 v1 = _mm_set1_ps(m11);
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
@@ -259,7 +263,7 @@ channelmix_f32_5p1_3p1_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RE
 	else
 		unrolled = 0;
 
-	if (mix->zero) {
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
@@ -315,10 +319,10 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	const float **s = (const float **) src;
 	const __m128 clev = _mm_set1_ps(mix->matrix[0][2]);
 	const __m128 llev = _mm_set1_ps(mix->matrix[0][3]);
-	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
-	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
-	const __m128 v4 = _mm_set1_ps(mix->matrix[2][4]);
-	const __m128 v5 = _mm_set1_ps(mix->matrix[3][5]);
+	const float m00 = mix->matrix[0][0];
+	const float m11 = mix->matrix[1][1];
+	const float m24 = mix->matrix[2][4];
+	const float m35 = mix->matrix[3][5];
 	__m128 ctr;
 	const float *sFL = s[0], *sFR = s[1], *sFC = s[2], *sLFE = s[3], *sSL = s[4], *sSR = s[5];
 	float *dFL = d[0], *dFR = d[1], *dRL = d[2], *dRR = d[3];
@@ -337,11 +341,11 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	else
 		unrolled = 0;
 
-	if (mix->zero) {
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
-	else if (mix->norm) {
+	else if (m00 == 1.0f && m11 == 1.0f && m24 == 1.0f && m35 == 1.0f) {
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
@@ -360,6 +364,11 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 		}
 	}
 	else {
+		const __m128 v0 = _mm_set1_ps(m00);
+		const __m128 v1 = _mm_set1_ps(m11);
+		const __m128 v4 = _mm_set1_ps(m24);
+		const __m128 v5 = _mm_set1_ps(m35);
+
 		for(n = 0; n < unrolled; n += 4) {
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));

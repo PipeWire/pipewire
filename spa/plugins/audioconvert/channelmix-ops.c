@@ -318,7 +318,8 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_warn(mix->log, "can't assign FLC");
 		}
 	}
-	if (unassigned & _MASK(LFE)) {
+	if (unassigned & _MASK(LFE) &&
+	    SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_MIX_LFE)) {
 		if (dst_mask & _MASK(FC)) {
 			matrix[FC][LFE] += llev;
 		} else if (dst_mask & _MASK(FL)) {
@@ -338,11 +339,9 @@ static int make_matrix(struct channelmix *mix)
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
-#if 0
 		if (sum > 1.0f)
 			for (j = 0; j < jc; j++)
 		                mix->matrix_orig[ic][j] /= sum;
-#endif
 		ic++;
 	}
 	return 0;
@@ -358,13 +357,10 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 	uint32_t dst_chan = mix->dst_chan;
 
 	/** apply global volume to channels */
-	mix->norm = true;
-	for (i = 0; i < n_channel_volumes; i++) {
+	for (i = 0; i < n_channel_volumes; i++)
 		volumes[i] = channel_volumes[i] * vol;
-		if (volumes[i] != 1.0f)
-			mix->norm = false;
-	}
 
+	/** apply volumes per channel */
 	if (n_channel_volumes == src_chan) {
 		for (i = 0; i < dst_chan; i++) {
 			for (j = 0; j < src_chan; j++) {
@@ -379,11 +375,11 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 		}
 	}
 
-	mix->zero = true;
-	mix->equal = true;
-	mix->identity = dst_chan == src_chan;
-	t = 0.0;
+	SPA_FLAG_SET(mix->flags, CHANNELMIX_FLAG_ZERO);
+	SPA_FLAG_SET(mix->flags, CHANNELMIX_FLAG_EQUAL);
+	SPA_FLAG_UPDATE(mix->flags, CHANNELMIX_FLAG_IDENTITY, dst_chan == src_chan);
 
+	t = 0.0;
 	for (i = 0; i < dst_chan; i++) {
 		for (j = 0; j < src_chan; j++) {
 			float v = mix->matrix[i][j];
@@ -391,15 +387,15 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 			if (i == 0 && j == 0)
 				t = v;
 			else if (t != v)
-				mix->equal = false;
+				SPA_FLAG_CLEAR(mix->flags, CHANNELMIX_FLAG_EQUAL);
 			if (v != 0.0)
-				mix->zero = false;
+				SPA_FLAG_CLEAR(mix->flags, CHANNELMIX_FLAG_ZERO);
 			if ((i == j && v != 1.0f) ||
 			    (i != j && v != 0.0f))
-				mix->identity = false;
+				SPA_FLAG_CLEAR(mix->flags, CHANNELMIX_FLAG_IDENTITY);
 		}
 	}
-	spa_log_debug(mix->log, "zero:%d norm:%d identity:%d", mix->zero, mix->norm, mix->identity);
+	spa_log_debug(mix->log, "flags:%08x", mix->flags);
 }
 
 static void impl_channelmix_free(struct channelmix *mix)

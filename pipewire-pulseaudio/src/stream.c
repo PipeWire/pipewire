@@ -359,7 +359,7 @@ static void update_timing_info(pa_stream *s)
 	s->timing_info_valid = true;
 	s->queued_bytes = pwt.queued;
 
-	pw_log_debug("stream %p: %"PRIu64" rate:%d/%d ticks:%"PRIu64" pos:%"PRIu64" delay:%"PRIi64 " read:%"PRIu64
+	pw_log_trace("stream %p: %"PRIu64" rate:%d/%d ticks:%"PRIu64" pos:%"PRIu64" delay:%"PRIi64 " read:%"PRIu64
 			" write:%"PRIu64" queued:%"PRIi64,
 			s, pwt.queued, s->sample_spec.rate, pwt.rate.denom, pwt.ticks, pos, delay,
 			ti->read_index, ti->write_index, ti->read_index - ti->write_index);
@@ -1179,7 +1179,7 @@ int pa_stream_write_ext_free(pa_stream *s,
 		free_cb(free_cb_data);
 
 	s->timing_info.write_index += nbytes;
-	pw_log_debug("stream %p: written %zd bytes", s, nbytes);
+	pw_log_trace("stream %p: written %zd bytes", s, nbytes);
 
 	return 0;
 }
@@ -1278,7 +1278,7 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 	queued -= SPA_MIN(queued, elapsed);
 
 	writable = s->maxblock - SPA_MIN(queued, s->maxblock);
-	pw_log_debug("stream %p: %"PRIu64, s, writable);
+	pw_log_trace("stream %p: %"PRIu64, s, writable);
 	return writable;
 }
 
@@ -1693,7 +1693,7 @@ int pa_stream_get_time(pa_stream *s, pa_usec_t *r_usec)
 	if (r_usec)
 		*r_usec = res;
 
-	pw_log_debug("stream %p: now:%"PRIu64" diff:%"PRIi64
+	pw_log_trace("stream %p: now:%"PRIu64" diff:%"PRIi64
 			" write-index:%"PRIi64" read_index:%"PRIi64" res:%"PRIu64,
 			s, now, now - res, i->write_index, i->read_index, res);
 
@@ -1748,7 +1748,7 @@ int pa_stream_get_latency(pa_stream *s, pa_usec_t *r_usec, int *negative)
 	else
 		*r_usec = time_counter_diff(s, t, c, negative);
 
-	pw_log_debug("stream %p: now:%"PRIu64" stream:%"PRIu64
+	pw_log_trace("stream %p: now:%"PRIu64" stream:%"PRIu64
 			" res:%"PRIu64, s, t, c, *r_usec);
 
 	return 0;

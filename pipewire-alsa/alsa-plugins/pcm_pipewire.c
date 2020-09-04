@@ -367,6 +367,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_sw_params_t *swparams;
 	const struct spa_pod *params[1];
+	const char *str;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
@@ -397,14 +398,27 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw->stream = NULL;
 	}
 
-	props = pw_properties_new(PW_KEY_CLIENT_API, "alsa", NULL);
+	props = NULL;
+        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+		props = pw_properties_new_string(str);
+	if (props == NULL)
+		props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		goto error;
 
-	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
-	pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Audio");
-	pw_properties_set(props, PW_KEY_MEDIA_CATEGORY,
-			io->stream == SND_PCM_STREAM_PLAYBACK ?
-			"Playback" : "Capture");
-	pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Music");
+	pw_properties_set(props, PW_KEY_CLIENT_API, "alsa");
+
+	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
+
+	if (pw_properties_get(props, PW_KEY_MEDIA_TYPE) == NULL)
+		pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Audio");
+	if (pw_properties_get(props, PW_KEY_MEDIA_CATEGORY) == NULL)
+		pw_properties_set(props, PW_KEY_MEDIA_CATEGORY,
+				io->stream == SND_PCM_STREAM_PLAYBACK ?
+				"Playback" : "Capture");
+	if (pw_properties_get(props, PW_KEY_MEDIA_ROLE) == NULL)
+		pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Music");
 
 	pw->stream = pw_stream_new(pw->core, pw->node_name, props);
 	if (pw->stream == NULL)

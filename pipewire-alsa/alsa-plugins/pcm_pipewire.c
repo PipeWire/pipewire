@@ -176,157 +176,95 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 }
 
 static int
-snd_pcm_pipewire_process_playback(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uframes_t *hw_avail)
+snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uframes_t *hw_avail)
 {
 	snd_pcm_ioplug_t *io = &pw->io;
-	const snd_pcm_channel_area_t *areas;
 	snd_pcm_channel_area_t *pwareas;
-	snd_pcm_uframes_t xfer = 0;
-	unsigned int channel, bps, bpf;
+        snd_pcm_uframes_t xfer = 0;
 	snd_pcm_uframes_t nframes;
-	uint32_t offset, index = 0, nbytes, avail, maxsize;
-	int32_t filled;
-	void *ptr;
-	struct spa_data *d;
-
-	bps = io->channels * pw->sample_bits;
-	bpf = bps / 8;
-
-	pwareas = alloca(io->channels * sizeof(snd_pcm_channel_area_t));
-
-	d = b->buffer->datas;
-
-	maxsize = d[0].maxsize;
-
-	filled = 0;
-	index = 0;
-	avail = maxsize - filled;
-	avail = SPA_MIN(avail, pw->min_avail * bpf);
-	avail = SPA_MIN(avail, *hw_avail * bpf);
-
-	do {
-	offset = index % maxsize;
-	nbytes = SPA_MIN(avail, maxsize - offset);
-
-	ptr = SPA_MEMBER(d[0].data, offset, void);
-
-	nframes = nbytes / bpf;
-	pw_log_trace(NAME" %p: %d %d %lu %d %d %p %d", pw, nbytes, avail, nframes, filled, offset, ptr, io->state);
-
-	for (channel = 0; channel < io->channels; channel++) {
-		pwareas[channel].addr = ptr;
-		pwareas[channel].first = channel * pw->sample_bits;
-		pwareas[channel].step = bps;
-	}
-
-	if (io->state != SND_PCM_STATE_RUNNING && io->state != SND_PCM_STATE_DRAINING) {
-		pw_log_trace(NAME" %p: silence %lu frames %d", pw, nframes, io->state);
-		for (channel = 0; channel < io->channels; channel++)
-			snd_pcm_area_silence(&pwareas[channel], 0, nframes, io->format);
-		goto done;
-	}
-
-	areas = snd_pcm_ioplug_mmap_areas(io);
-
-	xfer = 0;
-	while (xfer < nframes) {
-		snd_pcm_uframes_t frames = nframes - xfer;
-		snd_pcm_uframes_t offset = pw->hw_ptr % io->buffer_size;
-		snd_pcm_uframes_t cont = io->buffer_size - offset;
-
-		if (cont < frames)
-			frames = cont;
-
-		snd_pcm_areas_copy(pwareas, xfer,
-				   areas, offset,
-				   io->channels, frames, io->format);
-
-		pw->hw_ptr += frames;
-		if (pw->hw_ptr > pw->boundary)
-			pw->hw_ptr -= pw->boundary;
-		xfer += frames;
-	}
-	*hw_avail -= xfer;
-
-      done:
-	index += nbytes;
-	avail -= nbytes;
-	} while (avail > 0);
-
-	d[0].chunk->offset = 0;
-	d[0].chunk->size = index;
-	d[0].chunk->stride = 0;
-
-	return 0;
-}
-
-static int
-snd_pcm_pipewire_process_record(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uframes_t *hw_avail)
-{
-	snd_pcm_ioplug_t *io = &pw->io;
-	const snd_pcm_channel_area_t *areas;
-	snd_pcm_channel_area_t *pwareas;
-	snd_pcm_uframes_t xfer = 0;
-	unsigned int channel, bps, bpf;
-	snd_pcm_uframes_t nframes;
-	uint32_t offset, index = 0, nbytes, avail, maxsize;
+        unsigned int channel;
 	struct spa_data *d;
 	void *ptr;
 
-	bps = io->channels * pw->sample_bits;
-	bpf = bps / 8;
-
+	d = b->buffer->datas;
 	pwareas = alloca(io->channels * sizeof(snd_pcm_channel_area_t));
 
-	d = b->buffer->datas;
+	if (io->stream == SND_PCM_STREAM_PLAYBACK) {
+		nframes = d[0].maxsize - SPA_MIN(d[0].maxsize, d[0].chunk->offset);
+		nframes /= pw->stride;
+		nframes = SPA_MIN(nframes, pw->min_avail);
+	} else {
+		nframes = d[0].chunk->size / pw->stride;
+	}
+	nframes = SPA_MIN(nframes, *hw_avail);
 
-	maxsize = d[0].chunk->size;
-	avail = SPA_MIN(maxsize, *hw_avail * bpf);
-	index = d[0].chunk->offset;
-
-	if (avail < maxsize)
-		pw->xrun_detected = true;
-
-	do {
-	avail = SPA_MIN(avail, pw->min_avail * bpf);
-	offset = index % maxsize;
-	nbytes = SPA_MIN(avail, maxsize - offset);
-	ptr = SPA_MEMBER(d[0].data, offset, void);
-
-	pw_log_trace(NAME" %p: %d %ld %d %d %d %p", pw, maxsize, *hw_avail, nbytes, avail, offset, ptr);
-	nframes = nbytes / bpf;
-
-	for (channel = 0; channel < io->channels; channel++) {
-		pwareas[channel].addr = ptr;
-		pwareas[channel].first = channel * pw->sample_bits;
-		pwareas[channel].step = bps;
+	if (pw->blocks == 1) {
+		ptr = SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
+		for (channel = 0; channel < io->channels; channel++) {
+			pwareas[channel].addr = ptr;
+			pwareas[channel].first = channel * pw->sample_bits;
+			pwareas[channel].step = io->channels * pw->sample_bits;
+		}
+		if (io->stream == SND_PCM_STREAM_PLAYBACK)
+			d[0].chunk->size = nframes * pw->stride;
+        } else {
+		for (channel = 0; channel < io->channels; channel++) {
+			ptr = SPA_MEMBER(d[channel].data, d[channel].chunk->offset, void);
+			pwareas[channel].addr = ptr;
+			pwareas[channel].first = 0;
+			pwareas[channel].step = pw->sample_bits;
+			if (io->stream == SND_PCM_STREAM_PLAYBACK)
+				d[channel].chunk->size = nframes * pw->stride;
+		}
 	}
 
-	areas = snd_pcm_ioplug_mmap_areas(io);
+	if (io->state == SND_PCM_STATE_RUNNING ||
+	    io->state == SND_PCM_STATE_DRAINING) {
+		snd_pcm_uframes_t hw_ptr = pw->hw_ptr;
+                if (*hw_avail > 0) {
+                        const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
+                        const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
 
-	xfer = 0;
-	while (xfer < nframes) {
-		snd_pcm_uframes_t frames = nframes - xfer;
-		snd_pcm_uframes_t offset = pw->hw_ptr % io->buffer_size;
-		snd_pcm_uframes_t cont = io->buffer_size - offset;
+                        xfer = nframes;
+                        if (xfer > *hw_avail)
+                                xfer = *hw_avail;
 
-		if (cont < frames)
-			frames = cont;
+                        if (io->stream == SND_PCM_STREAM_PLAYBACK)
+                                snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
+                                                        areas, offset,
+                                                        io->buffer_size,
+                                                        io->channels, xfer,
+                                                        io->format);
+                        else
+                                snd_pcm_areas_copy_wrap(areas, offset,
+                                                        io->buffer_size,
+                                                        pwareas, 0, nframes,
+                                                        io->channels, xfer,
+                                                        io->format);
 
-		snd_pcm_areas_copy(areas, offset,
-				   pwareas, xfer,
-				   io->channels, frames, io->format);
+                        hw_ptr += xfer;
+                        if (hw_ptr > pw->boundary)
+                                hw_ptr -= pw->boundary;
+                        pw->hw_ptr = hw_ptr;
+                }
+        }
+        /* check if requested frames were copied */
+	if (xfer < nframes) {
+		/* always fill the not yet written JACK buffer with silence */
+		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
+			const snd_pcm_uframes_t frames = nframes - xfer;
 
-		pw->hw_ptr += frames;
-		if (pw->hw_ptr > pw->boundary)
-			pw->hw_ptr -= pw->boundary;
-		xfer += frames;
+			snd_pcm_areas_silence(pwareas, xfer, io->channels,
+                                              frames, io->format);
+			xfer += frames;
+                }
+		if (io->state == SND_PCM_STATE_RUNNING ||
+		    io->state == SND_PCM_STATE_DRAINING) {
+			/* report Xrun to user application */
+			pw->xrun_detected = true;
+		}
 	}
 	*hw_avail -= xfer;
-	avail -= nbytes;
-	index += nbytes;
-	} while (avail > 0);
-
 	return 0;
 }
 
@@ -380,10 +318,7 @@ static void on_stream_process(void *data)
 	if (b == NULL)
 		return;
 
-	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		snd_pcm_pipewire_process_playback(pw, b, &hw_avail);
-	else
-		snd_pcm_pipewire_process_record(pw, b, &hw_avail);
+	snd_pcm_pipewire_process(pw, b, &hw_avail);
 
 	pw_stream_queue_buffer(pw->stream, b);
 

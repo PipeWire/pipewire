@@ -58,12 +58,25 @@ channelmix_f32_n_m_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
 
-	for (n = 0; n < n_samples; n++) {
-		for (i = 0; i < n_dst; i++) {
-			float sum = 0.0f;
-			for (j = 0; j < n_src; j++)
-				sum += s[j][n] * mix->matrix[i][j];
-			d[i][n] = sum;
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
+		for (i = 0; i < n_dst; i++)
+			memset(d[i], 0, n_samples * sizeof(float));
+	}
+	else if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_COPY)) {
+		uint32_t copy = SPA_MIN(n_dst, n_src);
+		for (i = 0; i < copy; i++)
+			spa_memcpy(d[i], s[i], n_samples * sizeof(float));
+		for (; i < n_dst; i++)
+			memset(d[i], 0, n_samples * sizeof(float));
+	}
+	else {
+		for (n = 0; n < n_samples; n++) {
+			for (i = 0; i < n_dst; i++) {
+				float sum = 0.0f;
+				for (j = 0; j < n_src; j++)
+					sum += s[j][n] * mix->matrix[i][j];
+				d[i][n] = sum;
+			}
 		}
 	}
 }

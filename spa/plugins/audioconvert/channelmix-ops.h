@@ -54,6 +54,7 @@ struct channelmix {
 #define CHANNELMIX_FLAG_ZERO		(1<<0)		/**< all zero components */
 #define CHANNELMIX_FLAG_IDENTITY	(1<<1)		/**< identity matrix */
 #define CHANNELMIX_FLAG_EQUAL		(1<<2)		/**< all values are equal */
+#define CHANNELMIX_FLAG_COPY		(1<<3)		/**< 1 on diagonal, can be nxm */
 	uint32_t flags;
 	float matrix_orig[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
 	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];

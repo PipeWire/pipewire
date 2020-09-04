@@ -71,7 +71,8 @@ typedef struct {
 	snd_pcm_uframes_t boundary;
 	snd_pcm_uframes_t min_avail;
 	unsigned int sample_bits;
-	unsigned int planar:1;
+	uint32_t blocks;
+	uint32_t stride;
 
 	struct spa_system *system;
 	struct pw_thread_loop *main_loop;
@@ -337,7 +338,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	uint32_t n_params = 0;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t stride, buffers, blocks, size;
+	uint32_t buffers, size;
 
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
@@ -345,24 +346,17 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	io->period_size = pw->min_avail;
 
 	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
-	if (pw->planar) {
-		stride = pw->sample_bits / 8;
-		blocks = io->channels;
-	} else {
-		stride = (io->channels * pw->sample_bits) / 8;
-		blocks = 1;
-	}
-	size = io->period_size * stride;
+	size = io->period_size * pw->stride;
 
-	pw_log_info(NAME" %p: buffer_size:%lu period_size:%lu buffers:%u stride:%u size:%u min_avail:%lu",
-			pw, io->buffer_size, io->period_size, buffers, stride, size, pw->min_avail);
+	pw_log_info(NAME" %p: buffer_size:%lu period_size:%lu buffers:%u size:%u min_avail:%lu",
+			pw, io->buffer_size, io->period_size, buffers, size, pw->min_avail);
 
 	params[n_params++] = spa_pod_builder_add_object(&b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(pw->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(pw->stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 
 	pw_stream_update_params(pw->stream, params, n_params);
@@ -654,11 +648,16 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	set_default_channels(&pw->format);
 
 	pw->sample_bits = snd_pcm_format_physical_width(io->format);
-	pw->planar = planar;
-
-	pw_log_info(NAME" %p: format:%s planar:%d channels:%d rate:%d", pw,
+	if (planar) {
+		pw->blocks = io->channels;
+		pw->stride = pw->sample_bits / 8;
+	} else {
+		pw->blocks = 1;
+		pw->stride = (io->channels * pw->sample_bits) / 8;
+	}
+	pw_log_info(NAME" %p: format:%s channels:%d rate:%d stride:%d blocks:%d", pw,
 			spa_debug_type_find_name(spa_type_audio_format, pw->format.format),
-			planar, io->channels, io->rate);
+			io->channels, io->rate, pw->stride, pw->blocks);
 
 	return 0;
 }

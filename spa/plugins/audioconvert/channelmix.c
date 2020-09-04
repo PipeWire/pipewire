@@ -168,14 +168,17 @@ static uint64_t default_mask(uint32_t channels)
 {
 	uint64_t mask = 0;
 	switch (channels) {
+	case 7:
 	case 8:
 		mask |= _MASK(RL);
 		mask |= _MASK(RR);
 		/* fallthrough */
+	case 5:
 	case 6:
 		mask |= _MASK(SL);
 		mask |= _MASK(SR);
-		mask |= _MASK(LFE);
+		if ((channels & 1) == 0)
+			mask |= _MASK(LFE);
 		/* fallthrough */
 	case 3:
 		mask |= _MASK(FC);

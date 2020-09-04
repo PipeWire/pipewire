@@ -38,6 +38,7 @@
 #include <alsa/pcm_external.h>
 
 #include <spa/param/audio/format-utils.h>
+#include <spa/debug/types.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>
 
@@ -45,7 +46,7 @@
 
 #define NAME "alsa-plugin"
 
-#define MIN_BUFFERS	3u
+#define MIN_BUFFERS	2u
 #define MAX_BUFFERS	64u
 
 #define MAX_CHANNELS	64
@@ -70,6 +71,7 @@ typedef struct {
 	snd_pcm_uframes_t boundary;
 	snd_pcm_uframes_t min_avail;
 	unsigned int sample_bits;
+	unsigned int planar:1;
 
 	struct spa_system *system;
 	struct pw_thread_loop *main_loop;
@@ -333,17 +335,23 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	snd_pcm_ioplug_t *io = &pw->io;
 	const struct spa_pod *params[4];
 	uint32_t n_params = 0;
-        uint8_t buffer[4096];
-        struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t stride = (io->channels * pw->sample_bits) / 8;
-	uint32_t buffers;
-	uint32_t size;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	uint32_t stride, buffers, blocks, size;
 
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
 	io->period_size = pw->min_avail;
+
 	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
+	if (pw->planar) {
+		stride = pw->sample_bits / 8;
+		blocks = io->channels;
+	} else {
+		stride = (io->channels * pw->sample_bits) / 8;
+		blocks = 1;
+	}
 	size = io->period_size * stride;
 
 	pw_log_info(NAME" %p: buffer_size:%lu period_size:%lu buffers:%u stride:%u size:%u min_avail:%lu",
@@ -352,7 +360,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	params[n_params++] = spa_pod_builder_add_object(&b,
 	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
@@ -646,6 +654,11 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	set_default_channels(&pw->format);
 
 	pw->sample_bits = snd_pcm_format_physical_width(io->format);
+	pw->planar = planar;
+
+	pw_log_info(NAME" %p: format:%s planar:%d channels:%d rate:%d", pw,
+			spa_debug_type_find_name(spa_type_audio_format, pw->format.format),
+			planar, io->channels, io->rate);
 
 	return 0;
 }
@@ -834,24 +847,29 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 						   min_period_bytes,
 						   max_period_bytes)) < 0 ||
 	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
-						   3, 64)) < 0)
+						   MIN_BUFFERS, MAX_BUFFERS)) < 0) {
+		pw_log_warn("Can't set param list: %s", snd_strerror(err));
 		return err;
+	}
 
 	if (format != SND_PCM_FORMAT_UNKNOWN) {
 		err = snd_pcm_ioplug_set_param_list(&pw->io,
 				SND_PCM_IOPLUG_HW_FORMAT,
 				1, (unsigned int *)&format);
-		if (err < 0)
+		if (err < 0) {
+			pw_log_warn("Can't set param list: %s", snd_strerror(err));
 			return err;
+		}
 	} else {
 		err = snd_pcm_ioplug_set_param_list(&pw->io,
 				SND_PCM_IOPLUG_HW_FORMAT,
 				SPA_N_ELEMENTS(format_list),
 				format_list);
-		if (err < 0)
+		if (err < 0) {
+			pw_log_warn("Can't set param list: %s", snd_strerror(err));
 			return err;
+		}
 	}
-
 	return 0;
 }
 

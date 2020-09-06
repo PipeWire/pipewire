@@ -31,6 +31,8 @@ extern "C" {
 
 #include <spa/utils/type-info.h>
 
+#include <string.h>
+
 static inline const struct spa_type_info *spa_debug_type_find(const struct spa_type_info *info, uint32_t type)
 {
 	const struct spa_type_info *res;
@@ -53,7 +55,7 @@ static inline const struct spa_type_info *spa_debug_type_find(const struct spa_t
 static inline const char *spa_debug_type_short_name(const char *name)
 {
 	const char *h;
-	if ((h = rindex(name, ':')) != NULL)
+	if ((h = strrchr(name, ':')) != NULL)
 		name = h + 1;
 	return name;
 }

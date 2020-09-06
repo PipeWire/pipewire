@@ -155,6 +155,34 @@ elif cc.has_argument('-mfpu=neon')
   endif
 endif
 
+libatomic = cc.find_library('atomic', required : false)
+
+test_8_byte_atomic = '''
+#include <stdint.h>
+
+int main(void)
+{
+  int64_t eight;
+  __atomic_store_n(&eight, 123, __ATOMIC_SEQ_CST);
+  return 0;
+}
+'''
+
+# We currently assume that libatomic is unnecessary for 4-byte atomic
+# operations on any reasonable architecture.
+if cc.links(
+  test_8_byte_atomic,
+  name : '8-byte __atomic_store_n without libatomic')
+  atomic_dep = dependency('', required: false)
+elif cc.links(
+  test_8_byte_atomic,
+  dependencies : libatomic,
+  name : '8-byte __atomic_store_n with libatomic')
+  atomic_dep = libatomic
+elif get_option('pipewire-jack')
+  # Currently only required for the JACK backend
+  error('8-byte atomic operations are required for pipewire-jack')
+endif
 
 cdata = configuration_data()
 cdata.set('PIPEWIRE_VERSION_MAJOR', pipewire_version_major)

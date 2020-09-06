@@ -39,7 +39,7 @@ pipewire_jack = shared_library('jack',
     version : libversion,
     c_args : pipewire_jack_c_args,
     include_directories : [configinc],
-    dependencies : [pipewire_dep, jack_dep, mathlib],
+    dependencies : [pipewire_dep, atomic_dep, jack_dep, mathlib],
     install : true,
     install_dir : libjack_path,
 )

@@ -256,8 +256,8 @@ struct global {
 	pa_subscription_event_type_t event;
 
 	int priority_driver;
-	int pending_seq;
 	int init:1;
+	int sync:1;
 
 	void *info;
 	struct global_info *ginfo;
@@ -306,6 +306,8 @@ struct global {
 			uint32_t active_profile;
 			struct spa_list ports;
 			uint32_t n_ports;
+			struct spa_list routes;
+			uint32_t n_routes;
 			pa_card_info info;
 			pa_card_profile_info2 *card_profiles;
 			unsigned int pending_profiles:1;
@@ -370,6 +372,8 @@ struct pa_context {
 
 	int no_fail:1;
 	int disconnect:1;
+
+	int pending_seq;
 
 	struct global *metadata;
 	uint32_t default_sink;
@@ -485,7 +489,6 @@ struct pa_operation
 	pa_context *context;
 	pa_stream *stream;
 
-	int seq;
 	pa_operation_state_t state;
 
 	pa_operation_cb_t callback;

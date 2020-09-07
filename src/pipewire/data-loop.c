@@ -38,8 +38,10 @@ int pw_data_loop_wait(struct pw_data_loop *this, int timeout)
 	int res;
 
 	while (true) {
-		if (!this->running)
-			return -ECANCELED;
+		if (!this->running) {
+			res = -ECANCELED;
+			break;
+		}
 		if ((res = pw_loop_iterate(this->loop, timeout)) < 0) {
 			if (errno == EINTR)
 				continue;

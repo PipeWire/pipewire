@@ -42,7 +42,7 @@ static void test_io_abi(void)
 	spa_assert(SPA_IO_RateMatch == 8);
 	spa_assert(SPA_IO_Memory == 9);
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct spa_io_buffers) == 8);
 	spa_assert(sizeof(struct spa_io_memory) == 16);
 	spa_assert(sizeof(struct spa_io_range) == 16);
@@ -69,7 +69,7 @@ static void test_io_abi(void)
 	spa_assert(SPA_IO_POSITION_STATE_STARTING == 1);
 	spa_assert(SPA_IO_POSITION_STATE_RUNNING == 2);
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct spa_io_position) == 1688);
 	spa_assert(sizeof(struct spa_io_rate_match) == 48);
 #else
@@ -210,7 +210,7 @@ static void test_node_abi(void)
 	spa_assert(SPA_NODE_METHOD_NUM == 15);
 	spa_assert(sizeof(m) == sizeof(methods));
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct spa_node_info) == 48);
 	spa_assert(sizeof(struct spa_port_info) == 48);
 

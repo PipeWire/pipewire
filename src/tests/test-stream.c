@@ -59,7 +59,7 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, process);
 	TEST_FUNC(ev, test, drained);
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct pw_buffer) == 24);
 	spa_assert(sizeof(struct pw_time) == 40);
 #else

@@ -27,7 +27,7 @@
 static void test_abi(void)
 {
 	/* array */
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct pw_array) == 32);
 #else
 	fprintf(stderr, "%zd\n", sizeof(struct pw_array));

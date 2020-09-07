@@ -72,6 +72,10 @@ struct impl {
 
 	uint32_t info_all;
 	struct spa_device_info info;
+#define IDX_EnumProfile		0
+#define IDX_Profile		1
+#define IDX_EnumRoute		2
+#define IDX_Route		3
 	struct spa_param_info params[4];
 
 	struct spa_hook_list hooks;
@@ -641,7 +645,8 @@ static void card_profile_changed(void *data, uint32_t old_index, uint32_t new_in
 	setup_sources(this);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -654,7 +659,7 @@ static void card_profile_available(void *data, uint32_t index,
 	spa_log_info(this->log, "card profile %s available %d", p->name, available);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[0].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -669,7 +674,7 @@ static void card_port_changed(void *data, uint32_t old_index, uint32_t new_index
 			op->name, np->name);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -682,7 +687,7 @@ static void card_port_available(void *data, uint32_t index,
 	spa_log_info(this->log, "card port %s available %d", p->name, available);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[2].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -691,7 +696,7 @@ static void on_volume_changed(void *data, struct acp_device *dev)
 	struct impl *this = data;
 	spa_log_info(this->log, "device %s volume changed", dev->name);
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -700,7 +705,7 @@ static void on_mute_changed(void *data, struct acp_device *dev)
 	struct impl *this = data;
 	spa_log_info(this->log, "device %s mute changed", dev->name);
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -872,10 +877,10 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info_all = SPA_DEVICE_CHANGE_MASK_PROPS |
 		SPA_DEVICE_CHANGE_MASK_PARAMS;
 
-	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
-	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_READWRITE);
-	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_EnumRoute, SPA_PARAM_INFO_READ);
-	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Route, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_EnumProfile] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
+	this->params[IDX_Profile] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_EnumRoute] = SPA_PARAM_INFO(SPA_PARAM_EnumRoute, SPA_PARAM_INFO_READ);
+	this->params[IDX_Route] = SPA_PARAM_INFO(SPA_PARAM_Route, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = 4;
 

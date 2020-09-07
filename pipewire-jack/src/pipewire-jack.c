@@ -2759,10 +2759,10 @@ SPA_EXPORT
 jack_nframes_t jack_cycle_wait (jack_client_t* client)
 {
 	struct client *c = (struct client *) client;
+	jack_nframes_t res;
 
 	spa_return_val_if_fail(c != NULL, 0);
 
-	jack_nframes_t res;
 	res = cycle_wait(c);
 	pw_log_trace(NAME" %p: result:%d", c, res);
 	return res;

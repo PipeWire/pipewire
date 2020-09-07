@@ -295,8 +295,10 @@ static void do_global_sync(struct global *g)
 {
 	pa_subscription_event_type_t event;
 
+	pw_log_debug("global %p sync", g);
 	if (g->ginfo && g->ginfo->sync)
 		g->ginfo->sync(g);
+
 	if (g->init) {
 		if ((g->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))) {
 		    if (g->node_info.device_index == SPA_ID_INVALID ||
@@ -308,7 +310,6 @@ static void do_global_sync(struct global *g)
 	} else {
 		event = PA_SUBSCRIPTION_EVENT_CHANGE;
 	}
-	pw_log_debug("emit because of pending");
 	emit_event(g->context, g, event);
 }
 
@@ -436,6 +437,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 					g->card_info.pending_ports = true;
 					break;
 				}
+				pw_log_debug("global %p: do enum:%d", g, id);
 				pw_device_enum_params((struct pw_device*)g->proxy,
 						0, id, 0, -1, NULL);
 			}
@@ -446,31 +448,47 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	global_sync(g);
 }
 
-static void parse_props(struct global *g, const struct spa_pod *param, bool device)
+static int parse_props(struct global *g, const struct spa_pod *param, bool device)
 {
+	int changed = 0;
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &g->node_info.volume);
+		{
+			float vol;
+			if (spa_pod_get_float(&prop->value, &vol) >= 0 &&
+			    g->node_info.volume != vol) {
+				g->node_info.volume = vol;
+				changed++;
+			}
 			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME, device);
 			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME,
 					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
+		}
 		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &g->node_info.mute);
+		{
+			bool mute;
+			if (spa_pod_get_bool(&prop->value, &mute) >= 0 &&
+			    g->node_info.mute != mute) {
+				g->node_info.mute = mute;
+				changed++;
+			}
 			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_DEVICE_MUTE, device);
 			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_MUTE,
 					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
+		}
 		case SPA_PROP_channelVolumes:
 		{
 			uint32_t n_vals;
+			float vol[SPA_AUDIO_MAX_CHANNELS];
 
 			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					g->node_info.channel_volumes, SPA_AUDIO_MAX_CHANNELS);
+					vol, SPA_AUDIO_MAX_CHANNELS);
 
 			if (n_vals != g->node_info.n_channel_volumes) {
 				pw_log_debug("channel change %d->%d, trigger remove",
@@ -480,7 +498,12 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 				g->node_info.n_channel_volumes = n_vals;
 				/* mark as init, this will emit the NEW event when the
 				 * params are updated */
-				g->init = true;
+				g->init = g->sync = true;
+				changed++;
+			}
+			if (memcmp(g->node_info.channel_volumes, vol, n_vals * sizeof(float)) != 0) {
+				memcpy(g->node_info.channel_volumes, vol, n_vals * sizeof(float));
+				changed++;
 			}
 			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME, device);
 			SPA_FLAG_UPDATE(g->node_info.flags, NODE_FLAG_HW_VOLUME,
@@ -497,6 +520,7 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 			break;
 		}
 	}
+	return changed;
 }
 
 static struct global *find_node_for_route(pa_context *c, struct global *card, uint32_t device)
@@ -834,10 +858,16 @@ static void device_sync_ports(struct global *g)
 		}
 
 		ng = find_node_for_route(c, g, device);
-		if (props && ng && ng->node_info.active_port != index) {
-			ng->node_info.active_port = index;
-			parse_props(ng, props, true);
-			emit_event(c, ng, PA_SUBSCRIPTION_EVENT_CHANGE);
+		if (ng) {
+			int changed = 0;
+			if (ng->node_info.active_port != index) {
+				ng->node_info.active_port = index;
+				changed++;
+			}
+			if (props)
+				changed += parse_props(ng, props, true);
+			if (changed)
+				emit_event(c, ng, PA_SUBSCRIPTION_EVENT_CHANGE);
 		}
 	}
 }

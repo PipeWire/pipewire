@@ -983,7 +983,9 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	uint32_t flags = 0;
 	int err;
 
-        pw_init(NULL, NULL);
+	pw_init(NULL, NULL);
+	if (strstr(pw_get_library_version(), "0.2") != NULL)
+		return -ENOTSUP;
 
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);

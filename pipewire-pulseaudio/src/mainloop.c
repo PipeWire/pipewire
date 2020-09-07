@@ -18,12 +18,14 @@
  */
 
 #include <errno.h>
+#include <poll.h>
 
 #include <pipewire/log.h>
 #include <pipewire/loop.h>
 
 #include <pulse/mainloop.h>
 #include <pulse/xmalloc.h>
+#include <pulse/timeval.h>
 
 #include "internal.h"
 
@@ -265,6 +267,7 @@ pa_mainloop *pa_mainloop_new(void)
 	if (loop->loop == NULL)
 		goto no_loop;
 
+	loop->fd = pw_loop_get_fd(loop->loop);
 	loop->event = pw_loop_add_event(loop->loop, do_stop, loop);
 	loop->api = api;
 	loop->api.userdata = loop->loop;
@@ -293,16 +296,44 @@ int pa_mainloop_prepare(pa_mainloop *m, int timeout)
 	return 0;
 }
 
+static int usec_to_timeout(pa_usec_t u)
+{
+	if (u == PA_USEC_INVALID)
+		return -1;
+	return (u + PA_USEC_PER_MSEC - 1) / PA_USEC_PER_MSEC;
+}
+
 /** Execute the previously prepared poll. Returns a negative value on error.*/
 SPA_EXPORT
 int pa_mainloop_poll(pa_mainloop *m)
 {
 	int res;
+	bool do_iterate;
 
 	if (m->quit)
 		return -2;
 
-	res = pw_loop_iterate(m->loop, m->timeout);
+	if (m->poll_func) {
+		struct pollfd fds[1];
+
+		fds[0].fd = m->fd;
+		fds[0].events = POLLIN;
+		fds[0].revents = 0;
+
+		res = m->poll_func(fds, 1,
+				usec_to_timeout(m->timeout),
+				m->poll_func_userdata);
+		do_iterate = res == 1 && SPA_FLAG_IS_SET(fds[0].revents, POLLIN);
+	} else {
+		do_iterate = true;
+	}
+
+	if (do_iterate) {
+		pw_loop_enter(m->loop);
+		res = pw_loop_iterate(m->loop, m->timeout);
+		pw_loop_leave(m->loop);
+	}
+
 	if (res < 0) {
 		if (res == -EINTR)
 			res = 0;
@@ -394,9 +425,10 @@ void pa_mainloop_wakeup(pa_mainloop *m)
 SPA_EXPORT
 void pa_mainloop_set_poll_func(pa_mainloop *m, pa_poll_func poll_func, void *userdata)
 {
-	pw_log_warn("Not Implemented");
+	pa_assert(m);
+	m->poll_func = poll_func;
+	m->poll_func_userdata = userdata;
 }
-
 
 struct once_info {
 	void (*callback)(pa_mainloop_api*m, void *userdata);

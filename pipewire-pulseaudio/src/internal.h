@@ -27,6 +27,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/param/audio/format-utils.h>
 
+#include <pulse/mainloop.h>
 #include <pulse/stream.h>
 #include <pulse/format.h>
 #include <pulse/subscribe.h>
@@ -219,6 +220,10 @@ struct pa_mainloop {
 
 	int timeout;
 	int n_events;
+
+	int fd;
+	pa_poll_func poll_func;
+	void *poll_func_userdata;
 };
 
 struct param {

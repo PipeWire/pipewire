@@ -168,6 +168,8 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 		return -EPIPE;
 	if (pw->error < 0)
 		return pw->error;
+	if (io->buffer_size == 0)
+		return 0;
 #ifdef SND_PCM_IOPLUG_FLAG_BOUNDARY_WA
 	return pw->hw_ptr;
 #else

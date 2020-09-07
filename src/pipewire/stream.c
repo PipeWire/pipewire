@@ -1258,7 +1258,8 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	pw_stream_emit_destroy(stream);
 
-	pw_stream_disconnect(stream);
+	if (!impl->disconnecting)
+		pw_stream_disconnect(stream);
 
 	if (stream->core) {
 		spa_hook_remove(&stream->core_listener);

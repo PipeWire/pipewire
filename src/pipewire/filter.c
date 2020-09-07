@@ -1104,7 +1104,8 @@ void pw_filter_destroy(struct pw_filter *filter)
 
 	pw_filter_emit_destroy(filter);
 
-	pw_filter_disconnect(filter);
+	if (!impl->disconnecting)
+		pw_filter_disconnect(filter);
 
 	spa_list_consume(p, &impl->port_list, link)
 		pw_filter_remove_port(p->user_data);

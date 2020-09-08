@@ -42,6 +42,8 @@ extern "C" {
 #define ACP_PRINTF_FUNC(fmt, arg1)
 #endif
 
+#define ACP_INVALID_INDEX	((uint32_t)-1)
+
 struct acp_dict_item {
 	const char *key;
 	const char *value;
@@ -201,8 +203,9 @@ struct acp_device {
 	float base_volume;
 	float volume_step;
 
-	struct acp_port **ports;
 	uint32_t n_ports;
+	uint32_t active_port_index;
+	struct acp_port **ports;
 };
 
 struct acp_card_profile {
@@ -227,8 +230,8 @@ struct acp_card {
 	struct acp_dict props;
 
 	uint32_t n_profiles;
-	struct acp_card_profile **profiles;
 	uint32_t active_profile_index;
+	struct acp_card_profile **profiles;
 
 	uint32_t n_devices;
 	struct acp_device **devices;
@@ -252,8 +255,10 @@ int acp_card_poll_descriptors_revents(struct acp_card *card, struct pollfd *pfds
 		unsigned int nfds, unsigned short *revents);
 int acp_card_handle_events(struct acp_card *card);
 
+uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *name);
 int acp_card_set_profile(struct acp_card *card, uint32_t profile_index);
 
+uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *name);
 int acp_device_set_port(struct acp_device *dev, uint32_t port_index);
 
 int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t n_volume);

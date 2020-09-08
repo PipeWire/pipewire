@@ -215,51 +215,52 @@ static void add_profiles(pa_card *impl)
 	}
 }
 
-static pa_available_t calc_port_state(pa_device_port *p, pa_card *impl) {
-    void *state;
-    pa_alsa_jack *jack;
-    pa_available_t pa = PA_AVAILABLE_UNKNOWN;
-    pa_device_port *port;
+static pa_available_t calc_port_state(pa_device_port *p, pa_card *impl)
+{
+	void *state;
+	pa_alsa_jack *jack;
+	pa_available_t pa = PA_AVAILABLE_UNKNOWN;
+	pa_device_port *port;
 
-    PA_HASHMAP_FOREACH(jack, impl->jacks, state) {
-        pa_available_t cpa;
+	PA_HASHMAP_FOREACH(jack, impl->jacks, state) {
+		pa_available_t cpa;
 
-        if (impl->use_ucm)
-            port = pa_hashmap_get(impl->ports, jack->name);
-        else {
-            if (jack->path)
-                port = jack->path->port;
-            else
-                continue;
-        }
+		if (impl->use_ucm)
+			port = pa_hashmap_get(impl->ports, jack->name);
+		else {
+			if (jack->path)
+				port = jack->path->port;
+			else
+				continue;
+		}
 
-        if (p != port)
-            continue;
+		if (p != port)
+			continue;
 
-        cpa = jack->plugged_in ? jack->state_plugged : jack->state_unplugged;
+		cpa = jack->plugged_in ? jack->state_plugged : jack->state_unplugged;
 
-        if (cpa == PA_AVAILABLE_NO) {
-          /* If a plugged-in jack causes the availability to go to NO, it
-           * should override all other availability information (like a
-           * blacklist) so set and bail */
-          if (jack->plugged_in) {
-            pa = cpa;
-            break;
-          }
+		if (cpa == PA_AVAILABLE_NO) {
+			/* If a plugged-in jack causes the availability to go to NO, it
+			* should override all other availability information (like a
+			* blacklist) so set and bail */
+			if (jack->plugged_in) {
+				pa = cpa;
+				break;
+			}
 
-          /* If the current availablility is unknown go the more precise no,
-           * but otherwise don't change state */
-          if (pa == PA_AVAILABLE_UNKNOWN)
-            pa = cpa;
-        } else if (cpa == PA_AVAILABLE_YES) {
-          /* Output is available through at least one jack, so go to that
-           * level of availability. We still need to continue iterating through
-           * the jacks in case a jack is plugged in that forces the state to no
-           */
-          pa = cpa;
-        }
-    }
-    return pa;
+			/* If the current availablility is unknown go the more precise no,
+			* but otherwise don't change state */
+			if (pa == PA_AVAILABLE_UNKNOWN)
+				pa = cpa;
+		} else if (cpa == PA_AVAILABLE_YES) {
+			/* Output is available through at least one jack, so go to that
+			* level of availability. We still need to continue iterating through
+			* the jacks in case a jack is plugged in that forces the state to no
+			*/
+			pa = cpa;
+		}
+	}
+	return pa;
 }
 
 static void profile_set_available(pa_card *impl, uint32_t index,
@@ -281,434 +282,430 @@ static void profile_set_available(pa_card *impl, uint32_t index,
 }
 
 struct temp_port_avail {
-    pa_device_port *port;
-    pa_available_t avail;
+	pa_device_port *port;
+	pa_available_t avail;
 };
 
 static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 {
-    pa_card *impl = snd_mixer_elem_get_callback_private(melem);
-    snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
-    snd_ctl_elem_value_t *elem_value;
-    bool plugged_in;
-    void *state;
-    pa_alsa_jack *jack;
-    struct temp_port_avail *tp, *tports;
-    pa_alsa_profile *profile;
-    enum acp_available active_available = ACP_AVAILABLE_UNKNOWN;
-    size_t size;
+	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
+	snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
+	snd_ctl_elem_value_t *elem_value;
+	bool plugged_in;
+	void *state;
+	pa_alsa_jack *jack;
+	struct temp_port_avail *tp, *tports;
+	pa_alsa_profile *profile;
+	enum acp_available active_available = ACP_AVAILABLE_UNKNOWN;
+	size_t size;
 
 #if 0
-    /* Changing the jack state may cause a port change, and a port change will
-     * make the sink or source change the mixer settings. If there are multiple
-     * users having pulseaudio running, the mixer changes done by inactive
-     * users may mess up the volume settings for the active users, because when
-     * the inactive users change the mixer settings, those changes are picked
-     * up by the active user's pulseaudio instance and the changes are
-     * interpreted as if the active user changed the settings manually e.g.
-     * with alsamixer. Even single-user systems suffer from this, because gdm
-     * runs its own pulseaudio instance.
-     *
-     * We rerun this function when being unsuspended to catch up on jack state
-     * changes */
-    if (u->card->suspend_cause & PA_SUSPEND_SESSION)
-        return 0;
+	/* Changing the jack state may cause a port change, and a port change will
+	 * make the sink or source change the mixer settings. If there are multiple
+	 * users having pulseaudio running, the mixer changes done by inactive
+	 * users may mess up the volume settings for the active users, because when
+	 * the inactive users change the mixer settings, those changes are picked
+	 * up by the active user's pulseaudio instance and the changes are
+	 * interpreted as if the active user changed the settings manually e.g.
+	 * with alsamixer. Even single-user systems suffer from this, because gdm
+	 * runs its own pulseaudio instance.
+	 *
+	 * We rerun this function when being unsuspended to catch up on jack state
+	 * changes */
+	if (u->card->suspend_cause & PA_SUSPEND_SESSION)
+		return 0;
 #endif
 
-    if (mask == SND_CTL_EVENT_MASK_REMOVE)
-        return 0;
+	if (mask == SND_CTL_EVENT_MASK_REMOVE)
+		return 0;
 
-    snd_ctl_elem_value_alloca(&elem_value);
-    if (snd_hctl_elem_read(elem, elem_value) < 0) {
-        pa_log_warn("Failed to read jack detection from '%s'", pa_strnull(snd_hctl_elem_get_name(elem)));
-        return 0;
-    }
+	snd_ctl_elem_value_alloca(&elem_value);
+	if (snd_hctl_elem_read(elem, elem_value) < 0) {
+		pa_log_warn("Failed to read jack detection from '%s'", pa_strnull(snd_hctl_elem_get_name(elem)));
+		return 0;
+	}
 
-    plugged_in = !!snd_ctl_elem_value_get_boolean(elem_value, 0);
+	plugged_in = !!snd_ctl_elem_value_get_boolean(elem_value, 0);
 
-    pa_log_debug("Jack '%s' is now %s", pa_strnull(snd_hctl_elem_get_name(elem)),
-		    plugged_in ? "plugged in" : "unplugged");
+	pa_log_debug("Jack '%s' is now %s", pa_strnull(snd_hctl_elem_get_name(elem)),
+			plugged_in ? "plugged in" : "unplugged");
 
-    size = sizeof(struct temp_port_avail) * (pa_hashmap_size(impl->jacks)+1);
-    tports = tp = alloca(size);
-    memset(tports, 0, size);
+	size = sizeof(struct temp_port_avail) * (pa_hashmap_size(impl->jacks)+1);
+	tports = tp = alloca(size);
+	memset(tports, 0, size);
 
-    PA_HASHMAP_FOREACH(jack, impl->jacks, state)
-        if (jack->melem == melem) {
-            pa_alsa_jack_set_plugged_in(jack, plugged_in);
+	PA_HASHMAP_FOREACH(jack, impl->jacks, state)
+		if (jack->melem == melem) {
+			pa_alsa_jack_set_plugged_in(jack, plugged_in);
 
-            if (impl->use_ucm) {
-                /* When using UCM, pa_alsa_jack_set_plugged_in() maps the jack
-                 * state to port availability. */
-                continue;
-            }
+			if (impl->use_ucm) {
+				/* When using UCM, pa_alsa_jack_set_plugged_in() maps the jack
+				 * state to port availability. */
+				continue;
+			}
 
-            /* When not using UCM, we have to do the jack state -> port
-             * availability mapping ourselves. */
-            pa_assert_se(tp->port = jack->path->port);
-            tp->avail = calc_port_state(tp->port, impl);
-            tp++;
-        }
+			/* When not using UCM, we have to do the jack state -> port
+			 * availability mapping ourselves. */
+			pa_assert_se(tp->port = jack->path->port);
+			tp->avail = calc_port_state(tp->port, impl);
+			tp++;
+		}
 
-    /* Report available ports before unavailable ones: in case port 1
-     * becomes available when port 2 becomes unavailable,
-     * this prevents an unnecessary switch port 1 -> port 3 -> port 2 */
+	/* Report available ports before unavailable ones: in case port 1
+	 * becomes available when port 2 becomes unavailable,
+	 * this prevents an unnecessary switch port 1 -> port 3 -> port 2 */
 
-    for (tp = tports; tp->port; tp++)
-        if (tp->avail != PA_AVAILABLE_NO)
-           pa_device_port_set_available(tp->port, tp->avail);
-    for (tp = tports; tp->port; tp++)
-        if (tp->avail == PA_AVAILABLE_NO)
-           pa_device_port_set_available(tp->port, tp->avail);
+	for (tp = tports; tp->port; tp++)
+		if (tp->avail != PA_AVAILABLE_NO)
+			pa_device_port_set_available(tp->port, tp->avail);
+	for (tp = tports; tp->port; tp++)
+		if (tp->avail == PA_AVAILABLE_NO)
+			pa_device_port_set_available(tp->port, tp->avail);
 
-    for (tp = tports; tp->port; tp++) {
-        pa_alsa_port_data *data;
+	for (tp = tports; tp->port; tp++) {
+		pa_alsa_port_data *data;
 
-        data = PA_DEVICE_PORT_DATA(tp->port);
+		data = PA_DEVICE_PORT_DATA(tp->port);
 
-        if (!data->suspend_when_unavailable)
-            continue;
+		if (!data->suspend_when_unavailable)
+			continue;
 
 #if 0
-        pa_sink *sink;
-        uint32_t idx;
-        PA_IDXSET_FOREACH(sink, u->core->sinks, idx) {
-            if (sink->active_port == tp->port)
-                pa_sink_suspend(sink, tp->avail == PA_AVAILABLE_NO, PA_SUSPEND_UNAVAILABLE);
-        }
+		pa_sink *sink;
+		uint32_t idx;
+		PA_IDXSET_FOREACH(sink, u->core->sinks, idx) {
+			if (sink->active_port == tp->port)
+				pa_sink_suspend(sink, tp->avail == PA_AVAILABLE_NO, PA_SUSPEND_UNAVAILABLE);
+		}
 #endif
-    }
+	}
 
-    /* Update profile availabilities. Ideally we would mark all profiles
-     * unavailable that contain unavailable devices. We can't currently do that
-     * in all cases, because if there are multiple sinks in a profile, and the
-     * profile contains a mix of available and unavailable ports, we don't know
-     * how the ports are distributed between the different sinks. It's possible
-     * that some sinks contain only unavailable ports, in which case we should
-     * mark the profile as unavailable, but it's also possible that all sinks
-     * contain at least one available port, in which case we should mark the
-     * profile as available. Until the data structures are improved so that we
-     * can distinguish between these two cases, we mark the problematic cases
-     * as available (well, "unknown" to be precise, but there's little
-     * practical difference).
-     *
-     * When all output ports are unavailable, we know that all sinks are
-     * unavailable, and therefore the profile is marked unavailable as well.
-     * The same applies to input ports as well, of course.
-     *
-     * If there are no output ports at all, but the profile contains at least
-     * one sink, then the output is considered to be available. */
-    if (impl->card.active_profile_index != (uint32_t)-1)
-        active_available = impl->card.profiles[impl->card.active_profile_index]->available;
+	/* Update profile availabilities. Ideally we would mark all profiles
+	 * unavailable that contain unavailable devices. We can't currently do that
+	 * in all cases, because if there are multiple sinks in a profile, and the
+	 * profile contains a mix of available and unavailable ports, we don't know
+	 * how the ports are distributed between the different sinks. It's possible
+	 * that some sinks contain only unavailable ports, in which case we should
+	 * mark the profile as unavailable, but it's also possible that all sinks
+	 * contain at least one available port, in which case we should mark the
+	 * profile as available. Until the data structures are improved so that we
+	 * can distinguish between these two cases, we mark the problematic cases
+	 * as available (well, "unknown" to be precise, but there's little
+	 * practical difference).
+	 *
+	 * When all output ports are unavailable, we know that all sinks are
+	 * unavailable, and therefore the profile is marked unavailable as well.
+	 * The same applies to input ports as well, of course.
+	 *
+	 * If there are no output ports at all, but the profile contains at least
+	 * one sink, then the output is considered to be available. */
+	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
+		active_available = impl->card.profiles[impl->card.active_profile_index]->available;
 
-    PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
-        pa_device_port *port;
-        void *state2;
-        bool has_input_port = false;
-        bool has_output_port = false;
-        bool found_available_input_port = false;
-        bool found_available_output_port = false;
-        enum acp_available available = ACP_AVAILABLE_UNKNOWN;
+	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
+		pa_device_port *port;
+		void *state2;
+		bool has_input_port = false;
+		bool has_output_port = false;
+		bool found_available_input_port = false;
+		bool found_available_output_port = false;
+		enum acp_available available = ACP_AVAILABLE_UNKNOWN;
 
-        PA_HASHMAP_FOREACH(port, impl->ports, state2) {
-            if (!pa_hashmap_get(port->profiles, profile->profile.name))
-                continue;
+		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
+			if (!pa_hashmap_get(port->profiles, profile->profile.name))
+				continue;
 
-            if (port->port.direction == ACP_DIRECTION_CAPTURE) {
-                has_input_port = true;
+			if (port->port.direction == ACP_DIRECTION_CAPTURE) {
+				has_input_port = true;
+				if (port->port.available != ACP_AVAILABLE_NO)
+					found_available_input_port = true;
+			} else {
+				has_output_port = true;
 
-                if (port->port.available != ACP_AVAILABLE_NO)
-                    found_available_input_port = true;
-            } else {
-                has_output_port = true;
+				if (port->port.available != ACP_AVAILABLE_NO)
+					found_available_output_port = true;
+			}
+		}
 
-                if (port->port.available != ACP_AVAILABLE_NO)
-                    found_available_output_port = true;
-            }
-        }
+		if ((has_input_port && !found_available_input_port) ||
+		    (has_output_port && !found_available_output_port))
+			available = ACP_AVAILABLE_NO;
 
-        if ((has_input_port && !found_available_input_port) || (has_output_port && !found_available_output_port))
-            available = ACP_AVAILABLE_NO;
+		if (has_input_port && !has_output_port && found_available_input_port)
+			available = ACP_AVAILABLE_YES;
+		if (has_output_port && !has_input_port && found_available_output_port)
+			available = ACP_AVAILABLE_YES;
+		if (has_output_port && has_input_port && found_available_output_port && found_available_input_port)
+			available = ACP_AVAILABLE_YES;
 
-        if (has_input_port && !has_output_port && found_available_input_port)
-            available = ACP_AVAILABLE_YES;
-        if (has_output_port && !has_input_port && found_available_output_port)
-            available = ACP_AVAILABLE_YES;
-        if (has_output_port && has_input_port && found_available_output_port && found_available_input_port)
-            available = ACP_AVAILABLE_YES;
+		/* We want to update the active profile's status last, so logic that
+		 * may change the active profile based on profile availability status
+		 * has an updated view of all profiles' availabilities. */
+		if (profile->profile.index == impl->card.active_profile_index)
+			active_available = available;
+		else
+			profile_set_available(impl, profile->profile.index, available);
+	}
 
-        /* We want to update the active profile's status last, so logic that
-         * may change the active profile based on profile availability status
-         * has an updated view of all profiles' availabilities. */
-        if (profile->profile.index == impl->card.active_profile_index)
-            active_available = available;
-        else
-            profile_set_available(impl, profile->profile.index, available);
-    }
+	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
+		profile_set_available(impl, impl->card.active_profile_index, active_available);
 
-    if (impl->card.active_profile_index != (uint32_t)-1)
-        profile_set_available(impl, impl->card.active_profile_index, active_available);
-
-    return 0;
+	return 0;
 }
 
 static void init_jacks(pa_card *impl)
 {
-    void *state;
-    pa_alsa_path* path;
-    pa_alsa_jack* jack;
+	void *state;
+	pa_alsa_path* path;
+	pa_alsa_jack* jack;
 
-    impl->jacks = pa_hashmap_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+	impl->jacks = pa_hashmap_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 
-    if (impl->use_ucm) {
-        PA_LLIST_FOREACH(jack, impl->ucm.jacks)
-            if (jack->has_control)
-                pa_hashmap_put(impl->jacks, jack, jack);
-    } else {
-        /* See if we have any jacks */
-        if (impl->profile_set->output_paths)
-            PA_HASHMAP_FOREACH(path, impl->profile_set->output_paths, state)
-                PA_LLIST_FOREACH(jack, path->jacks)
-                    if (jack->has_control)
-                        pa_hashmap_put(impl->jacks, jack, jack);
+	if (impl->use_ucm) {
+		PA_LLIST_FOREACH(jack, impl->ucm.jacks)
+			if (jack->has_control)
+				pa_hashmap_put(impl->jacks, jack, jack);
+	} else {
+		/* See if we have any jacks */
+		if (impl->profile_set->output_paths)
+			PA_HASHMAP_FOREACH(path, impl->profile_set->output_paths, state)
+				PA_LLIST_FOREACH(jack, path->jacks)
+					if (jack->has_control)
+						pa_hashmap_put(impl->jacks, jack, jack);
 
-        if (impl->profile_set->input_paths)
-            PA_HASHMAP_FOREACH(path, impl->profile_set->input_paths, state)
-                PA_LLIST_FOREACH(jack, path->jacks)
-                    if (jack->has_control)
-                        pa_hashmap_put(impl->jacks, jack, jack);
-    }
+		if (impl->profile_set->input_paths)
+			PA_HASHMAP_FOREACH(path, impl->profile_set->input_paths, state)
+				PA_LLIST_FOREACH(jack, path->jacks)
+					if (jack->has_control)
+						pa_hashmap_put(impl->jacks, jack, jack);
+	}
 
-    pa_log_debug("Found %d jacks.", pa_hashmap_size(impl->jacks));
+	pa_log_debug("Found %d jacks.", pa_hashmap_size(impl->jacks));
 
-    if (pa_hashmap_size(impl->jacks) == 0)
-        return;
+	if (pa_hashmap_size(impl->jacks) == 0)
+		return;
 
-    PA_HASHMAP_FOREACH(jack, impl->jacks, state) {
-        if (!jack->mixer_device_name) {
-            jack->mixer_handle = pa_alsa_open_mixer(impl->ucm.mixers, impl->card.index, false);
-            if (!jack->mixer_handle) {
-               pa_log("Failed to open mixer for card %d for jack detection", impl->card.index);
-               continue;
-            }
-        } else {
-            jack->mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, jack->mixer_device_name, false);
-            if (!jack->mixer_handle) {
-               pa_log("Failed to open mixer '%s' for jack detection", jack->mixer_device_name);
-              continue;
-            }
-        }
+	PA_HASHMAP_FOREACH(jack, impl->jacks, state) {
+		if (!jack->mixer_device_name) {
+			jack->mixer_handle = pa_alsa_open_mixer(impl->ucm.mixers, impl->card.index, false);
+			if (!jack->mixer_handle) {
+				pa_log("Failed to open mixer for card %d for jack detection", impl->card.index);
+				continue;
+			}
+		} else {
+			jack->mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, jack->mixer_device_name, false);
+			if (!jack->mixer_handle) {
+				pa_log("Failed to open mixer '%s' for jack detection", jack->mixer_device_name);
+				continue;
+			}
+		}
 
-        pa_alsa_mixer_use_for_poll(impl->ucm.mixers, jack->mixer_handle);
-        jack->melem = pa_alsa_mixer_find_card(jack->mixer_handle, jack->alsa_name, 0);
-        if (!jack->melem) {
-            pa_log_warn("Jack '%s' seems to have disappeared.", jack->alsa_name);
-            pa_alsa_jack_set_has_control(jack, false);
-            continue;
-        }
-        snd_mixer_elem_set_callback(jack->melem, report_jack_state);
-        snd_mixer_elem_set_callback_private(jack->melem, impl);
-        report_jack_state(jack->melem, 0);
-    }
+		pa_alsa_mixer_use_for_poll(impl->ucm.mixers, jack->mixer_handle);
+		jack->melem = pa_alsa_mixer_find_card(jack->mixer_handle, jack->alsa_name, 0);
+		if (!jack->melem) {
+			pa_log_warn("Jack '%s' seems to have disappeared.", jack->alsa_name);
+			pa_alsa_jack_set_has_control(jack, false);
+			continue;
+		}
+		snd_mixer_elem_set_callback(jack->melem, report_jack_state);
+		snd_mixer_elem_set_callback_private(jack->melem, impl);
+		report_jack_state(jack->melem, 0);
+	}
 }
 static pa_device_port* find_port_with_eld_device(pa_card *impl, int device)
 {
-    void *state;
-    pa_device_port *p;
+	void *state;
+	pa_device_port *p;
 
-    if (impl->use_ucm) {
-        PA_HASHMAP_FOREACH(p, impl->ports, state) {
-            pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(p);
-            pa_assert(data->eld_mixer_device_name);
-            if (device == data->eld_device)
-                return p;
-        }
-    } else {
-        PA_HASHMAP_FOREACH(p, impl->ports, state) {
-            pa_alsa_port_data *data = PA_DEVICE_PORT_DATA(p);
-            pa_assert(data->path);
-            if (device == data->path->eld_device)
-                return p;
-        }
-    }
-    return NULL;
+	if (impl->use_ucm) {
+		PA_HASHMAP_FOREACH(p, impl->ports, state) {
+			pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(p);
+			pa_assert(data->eld_mixer_device_name);
+			if (device == data->eld_device)
+				return p;
+		}
+	} else {
+		PA_HASHMAP_FOREACH(p, impl->ports, state) {
+			pa_alsa_port_data *data = PA_DEVICE_PORT_DATA(p);
+			pa_assert(data->path);
+			if (device == data->path->eld_device)
+				return p;
+		}
+	}
+	return NULL;
 }
 
 static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 {
-    pa_card *impl = snd_mixer_elem_get_callback_private(melem);
-    snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
-    int device = snd_hctl_elem_get_device(elem);
-    const char *old_monitor_name;
-    pa_device_port *p;
-    pa_hdmi_eld eld;
-    bool changed = false;
+	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
+	snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
+	int device = snd_hctl_elem_get_device(elem);
+	const char *old_monitor_name;
+	pa_device_port *p;
+	pa_hdmi_eld eld;
+	bool changed = false;
 
-    if (mask == SND_CTL_EVENT_MASK_REMOVE)
-        return 0;
+	if (mask == SND_CTL_EVENT_MASK_REMOVE)
+		return 0;
 
-    p = find_port_with_eld_device(impl, device);
-    if (p == NULL) {
-        pa_log_error("Invalid device changed in ALSA: %d", device);
-        return 0;
-    }
+	p = find_port_with_eld_device(impl, device);
+	if (p == NULL) {
+		pa_log_error("Invalid device changed in ALSA: %d", device);
+		return 0;
+	}
 
-    if (pa_alsa_get_hdmi_eld(elem, &eld) < 0)
-        memset(&eld, 0, sizeof(eld));
+	if (pa_alsa_get_hdmi_eld(elem, &eld) < 0)
+		memset(&eld, 0, sizeof(eld));
 
-    old_monitor_name = pa_proplist_gets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME);
-    if (eld.monitor_name[0] == '\0') {
-        changed |= old_monitor_name != NULL;
-        pa_proplist_unset(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME);
-    } else {
-        changed |= (old_monitor_name == NULL) || (strcmp(old_monitor_name, eld.monitor_name) != 0);
-        pa_proplist_sets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME, eld.monitor_name);
-    }
+	old_monitor_name = pa_proplist_gets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME);
+	if (eld.monitor_name[0] == '\0') {
+		changed |= old_monitor_name != NULL;
+		pa_proplist_unset(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME);
+	} else {
+		changed |= (old_monitor_name == NULL) || (strcmp(old_monitor_name, eld.monitor_name) != 0);
+		pa_proplist_sets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME, eld.monitor_name);
+	}
 
-    if (changed && mask != 0 && impl->events && impl->events->props_changed)
+	if (changed && mask != 0 && impl->events && impl->events->props_changed)
 		impl->events->props_changed(impl);
-    return 0;
+	return 0;
 }
-
 
 static void init_eld_ctls(pa_card *impl)
 {
-    void *state;
-    pa_device_port *port;
+	void *state;
+	pa_device_port *port;
 
-    /* The code in this function expects ports to have a pa_alsa_port_data
-     * struct as their data, but in UCM mode ports don't have any data. Hence,
-     * the ELD controls can't currently be used in UCM mode. */
-    PA_HASHMAP_FOREACH(port, impl->ports, state) {
-        snd_mixer_t *mixer_handle;
-        snd_mixer_elem_t* melem;
-        int device;
+	/* The code in this function expects ports to have a pa_alsa_port_data
+	* struct as their data, but in UCM mode ports don't have any data. Hence,
+	* the ELD controls can't currently be used in UCM mode. */
+	PA_HASHMAP_FOREACH(port, impl->ports, state) {
+		snd_mixer_t *mixer_handle;
+		snd_mixer_elem_t* melem;
+		int device;
 
-        if (impl->use_ucm) {
-            pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(port);
-            device = data->eld_device;
-            if (device < 0 || !data->eld_mixer_device_name)
-                continue;
+		if (impl->use_ucm) {
+			pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(port);
+			device = data->eld_device;
+			if (device < 0 || !data->eld_mixer_device_name)
+				continue;
 
-            mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, data->eld_mixer_device_name, true);
-        } else {
-            pa_alsa_port_data *data = PA_DEVICE_PORT_DATA(port);
+			mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, data->eld_mixer_device_name, true);
+		} else {
+			pa_alsa_port_data *data = PA_DEVICE_PORT_DATA(port);
 
-            pa_assert(data->path);
+			pa_assert(data->path);
 
-            device = data->path->eld_device;
-            if (device < 0)
-                continue;
+			device = data->path->eld_device;
+			if (device < 0)
+				continue;
 
-            mixer_handle = pa_alsa_open_mixer(impl->ucm.mixers, impl->card.index, true);
-        }
+			mixer_handle = pa_alsa_open_mixer(impl->ucm.mixers, impl->card.index, true);
+		}
 
-        if (!mixer_handle)
-            continue;
+		if (!mixer_handle)
+			continue;
 
-        melem = pa_alsa_mixer_find_pcm(mixer_handle, "ELD", device);
-        if (melem) {
-            pa_alsa_mixer_use_for_poll(impl->ucm.mixers, mixer_handle);
-            snd_mixer_elem_set_callback(melem, hdmi_eld_changed);
-            snd_mixer_elem_set_callback_private(melem, impl);
-            hdmi_eld_changed(melem, 0);
-            pa_log_info("ELD device found for port %s (%d).", port->port.name, device);
-        }
-        else
-            pa_log_debug("No ELD device found for port %s (%d).", port->port.name, device);
-    }
+		melem = pa_alsa_mixer_find_pcm(mixer_handle, "ELD", device);
+		if (melem) {
+			pa_alsa_mixer_use_for_poll(impl->ucm.mixers, mixer_handle);
+			snd_mixer_elem_set_callback(melem, hdmi_eld_changed);
+			snd_mixer_elem_set_callback_private(melem, impl);
+			hdmi_eld_changed(melem, 0);
+			pa_log_info("ELD device found for port %s (%d).", port->port.name, device);
+		}
+		else
+			pa_log_debug("No ELD device found for port %s (%d).", port->port.name, device);
+	}
 }
 
-static int choose_profile(pa_card *impl, const char *profile)
+uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *name)
 {
 	uint32_t i;
-	int32_t best_alt = -1, best = -1;
-	struct acp_card_profile **profiles = impl->card.profiles;
+	uint32_t best_alt = ACP_INVALID_INDEX, best = ACP_INVALID_INDEX;
+	struct acp_card_profile **profiles = card->profiles;
 
-	for (i = 0; i < impl->card.n_profiles; i++) {
+	for (i = 0; i < card->n_profiles; i++) {
 		struct acp_card_profile *p = profiles[i];
 
-		if (profile) {
-			if (strcmp(profile, p->name))
+		if (name) {
+			if (strcmp(name, p->name))
 				best = i;
 			continue;
 		}
-		if (p->available == ACP_AVAILABLE_NO) {
-			if (best_alt == -1 || p->priority > profiles[best_alt]->priority)
-				best_alt = i;
-		} else {
-			if (best == -1 || p->priority > profiles[best]->priority)
+		if (p->available != ACP_AVAILABLE_NO) {
+			if (best == ACP_INVALID_INDEX || p->priority > profiles[best]->priority)
 				best = i;
+		} else {
+			if (best_alt == ACP_INVALID_INDEX || p->priority > profiles[best_alt]->priority)
+				best_alt = i;
 		}
 	}
-	if (best == -1)
+	if (best == ACP_INVALID_INDEX)
 		best = best_alt;
-	if (best == -1)
-		return -ENOENT;
-
-	return acp_card_set_profile(&impl->card, best);
+	if (best == ACP_INVALID_INDEX)
+		best = 0;
+	return best;
 }
 
-static void find_mixer(pa_card *impl, pa_alsa_device *dev, const char *element, bool ignore_dB) {
-    const char *mdev;
-    pa_alsa_mapping *mapping = dev->mapping;
+static void find_mixer(pa_card *impl, pa_alsa_device *dev, const char *element, bool ignore_dB)
+{
+	const char *mdev;
+	pa_alsa_mapping *mapping = dev->mapping;
 
-    if (!mapping && !element)
-        return;
+	if (!mapping && !element)
+		return;
 
-    if (!element && mapping && pa_alsa_path_set_is_empty(dev->mixer_path_set))
-        return;
+	if (!element && mapping && pa_alsa_path_set_is_empty(dev->mixer_path_set))
+		return;
 
-    mdev = pa_proplist_gets(mapping->proplist, "alsa.mixer_device");
-    if (mdev) {
-        dev->mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, mdev, true);
-    } else {
-        dev->mixer_handle = pa_alsa_open_mixer(impl->ucm.mixers, impl->card.index, true);
-    }
-    if (!dev->mixer_handle) {
-        pa_log_info("Failed to find a working mixer device.");
-        return;
-    }
+	mdev = pa_proplist_gets(mapping->proplist, "alsa.mixer_device");
+	if (mdev) {
+		dev->mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, mdev, true);
+	} else {
+		dev->mixer_handle = pa_alsa_open_mixer(impl->ucm.mixers, impl->card.index, true);
+	}
+	if (!dev->mixer_handle) {
+		pa_log_info("Failed to find a working mixer device.");
+		return;
+	}
 
-    if (element) {
+	if (element) {
+		if (!(dev->mixer_path = pa_alsa_path_synthesize(element, dev->direction)))
+			goto fail;
 
-        if (!(dev->mixer_path = pa_alsa_path_synthesize(element, dev->direction)))
-            goto fail;
+		if (pa_alsa_path_probe(dev->mixer_path, NULL, dev->mixer_handle, ignore_dB) < 0)
+			goto fail;
 
-        if (pa_alsa_path_probe(dev->mixer_path, NULL, dev->mixer_handle, ignore_dB) < 0)
-            goto fail;
-
-        pa_log_debug("Probed mixer path %s:", dev->mixer_path->name);
-        pa_alsa_path_dump(dev->mixer_path);
-    }
-
-    return;
+		pa_log_debug("Probed mixer path %s:", dev->mixer_path->name);
+		pa_alsa_path_dump(dev->mixer_path);
+	}
+	return;
 
 fail:
-
-    if (dev->mixer_path) {
-        pa_alsa_path_free(dev->mixer_path);
-        dev->mixer_path = NULL;
-    }
-    dev->mixer_handle = NULL;
+	if (dev->mixer_path) {
+		pa_alsa_path_free(dev->mixer_path);
+		dev->mixer_path = NULL;
+	}
+	dev->mixer_handle = NULL;
 }
 
 static int mixer_callback(snd_mixer_elem_t *elem, unsigned int mask)
 {
-    pa_alsa_device *dev = snd_mixer_elem_get_callback_private(elem);
+	pa_alsa_device *dev = snd_mixer_elem_get_callback_private(elem);
 
-    if (mask == SND_CTL_EVENT_MASK_REMOVE)
-        return 0;
+	if (mask == SND_CTL_EVENT_MASK_REMOVE)
+		return 0;
 
-    pa_log_info("%p mixer changed %d", dev, mask);
+	pa_log_info("%p mixer changed %d", dev, mask);
 
-    if (mask & SND_CTL_EVENT_MASK_VALUE) {
-	    if (dev->read_volume)
-		    dev->read_volume(dev);
-	    if (dev->read_mute)
-		    dev->read_mute(dev);
-    }
-    return 0;
+	if (mask & SND_CTL_EVENT_MASK_VALUE) {
+		if (dev->read_volume)
+			dev->read_volume(dev);
+		if (dev->read_mute)
+			dev->read_mute(dev);
+	}
+	return 0;
 }
 
 static int read_volume(pa_alsa_device *dev)
@@ -716,9 +713,10 @@ static int read_volume(pa_alsa_device *dev)
 	pa_card *impl = dev->card;
 	pa_cvolume r;
 	uint32_t i;
+	int res;
 
-	if (pa_alsa_path_get_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map, &r) < 0)
-		return -1;
+	if ((res = pa_alsa_path_get_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map, &r)) < 0)
+		return res;
 
 	/* Shift down by the base volume, so that 0dB becomes maximum volume */
 	pa_sw_cvolume_multiply_scalar(&r, &r, dev->base_volume);
@@ -796,9 +794,10 @@ static int read_mute(pa_alsa_device *dev)
 {
 	pa_card *impl = dev->card;
 	bool mute;
+	int res;
 
-	if (pa_alsa_path_get_mute(dev->mixer_path, dev->mixer_handle, &mute) < 0)
-		return -1;
+	if ((res = pa_alsa_path_get_mute(dev->mixer_path, dev->mixer_handle, &mute)) < 0)
+		return res;
 
 	if (mute == dev->muted)
 		return 0;
@@ -818,139 +817,141 @@ static void set_mute(pa_alsa_device *dev, bool mute)
 	pa_alsa_path_set_mute(dev->mixer_path, dev->mixer_handle, mute);
 }
 
-static void mixer_volume_init(pa_alsa_device *dev) {
-    pa_assert(dev);
+static void mixer_volume_init(pa_alsa_device *dev)
+{
+	pa_assert(dev);
 
-    if (!dev->mixer_path || !dev->mixer_path->has_volume) {
-        dev->read_volume = NULL;
-        dev->set_volume = NULL;
-        pa_log_info("Driver does not support hardware volume control, falling back to software volume control.");
-	dev->base_volume = PA_VOLUME_NORM;
-	dev->n_volume_steps = PA_VOLUME_NORM+1;
-	dev->device.flags &= ~ACP_DEVICE_HW_VOLUME;
-    } else {
-        dev->read_volume = read_volume;
-        dev->set_volume = set_volume;
-	dev->device.flags |= ACP_DEVICE_HW_VOLUME;
+	if (!dev->mixer_path || !dev->mixer_path->has_volume) {
+		dev->read_volume = NULL;
+		dev->set_volume = NULL;
+		pa_log_info("Driver does not support hardware volume control, "
+				"falling back to software volume control.");
+		dev->base_volume = PA_VOLUME_NORM;
+		dev->n_volume_steps = PA_VOLUME_NORM+1;
+		dev->device.flags &= ~ACP_DEVICE_HW_VOLUME;
+	} else {
+		dev->read_volume = read_volume;
+		dev->set_volume = set_volume;
+		dev->device.flags |= ACP_DEVICE_HW_VOLUME;
 
 #if 0
-        if (u->mixer_path->has_dB && u->deferred_volume) {
-            pa_sink_set_write_volume_callback(u->sink, sink_write_volume_cb);
-            pa_log_info("Successfully enabled deferred volume.");
-        } else
-            pa_sink_set_write_volume_callback(u->sink, NULL);
+		if (u->mixer_path->has_dB && u->deferred_volume) {
+			pa_sink_set_write_volume_callback(u->sink, sink_write_volume_cb);
+			pa_log_info("Successfully enabled deferred volume.");
+		} else
+			pa_sink_set_write_volume_callback(u->sink, NULL);
 #endif
 
-        if (dev->mixer_path->has_dB) {
-            dev->decibel_volume = true;
-            pa_log_info("Hardware volume ranges from %0.2f dB to %0.2f dB.",
-			    dev->mixer_path->min_dB, dev->mixer_path->max_dB);
+		if (dev->mixer_path->has_dB) {
+			dev->decibel_volume = true;
+			pa_log_info("Hardware volume ranges from %0.2f dB to %0.2f dB.",
+					dev->mixer_path->min_dB, dev->mixer_path->max_dB);
 
-            dev->base_volume = pa_sw_volume_from_dB(-dev->mixer_path->max_dB);
-            dev->n_volume_steps = PA_VOLUME_NORM+1;
+			dev->base_volume = pa_sw_volume_from_dB(-dev->mixer_path->max_dB);
+			dev->n_volume_steps = PA_VOLUME_NORM+1;
 
-            pa_log_info("Fixing base volume to %0.2f dB", pa_sw_volume_to_dB(dev->base_volume));
-        } else {
-            dev->decibel_volume = false;
-            pa_log_info("Hardware volume ranges from %li to %li.",
-			    dev->mixer_path->min_volume, dev->mixer_path->max_volume);
-            dev->base_volume = PA_VOLUME_NORM;
-            dev->n_volume_steps = dev->mixer_path->max_volume - dev->mixer_path->min_volume + 1;
-        }
-        pa_log_info("Using hardware volume control. Hardware dB scale %s.",
-			dev->mixer_path->has_dB ? "supported" : "not supported");
-    }
-    dev->device.base_volume = (float)dev->base_volume / PA_VOLUME_NORM;
-    dev->device.volume_step = 1.0f / dev->n_volume_steps;
+			pa_log_info("Fixing base volume to %0.2f dB", pa_sw_volume_to_dB(dev->base_volume));
+		} else {
+			dev->decibel_volume = false;
+			pa_log_info("Hardware volume ranges from %li to %li.",
+					dev->mixer_path->min_volume, dev->mixer_path->max_volume);
+			dev->base_volume = PA_VOLUME_NORM;
+			dev->n_volume_steps = dev->mixer_path->max_volume - dev->mixer_path->min_volume + 1;
+		}
+		pa_log_info("Using hardware volume control. Hardware dB scale %s.",
+				dev->mixer_path->has_dB ? "supported" : "not supported");
+	}
+	dev->device.base_volume = (float)dev->base_volume / PA_VOLUME_NORM;
+	dev->device.volume_step = 1.0f / dev->n_volume_steps;
 
-    if (!dev->mixer_path || !dev->mixer_path->has_mute) {
-        dev->read_mute = NULL;
-        dev->set_mute = NULL;
-        pa_log_info("Driver does not support hardware mute control, falling back to software mute control.");
-	dev->device.flags &= ~ACP_DEVICE_HW_MUTE;
-    } else {
-        dev->read_mute = read_mute;
-        dev->set_mute = set_mute;
-        pa_log_info("Using hardware mute control.");
-	dev->device.flags |= ACP_DEVICE_HW_MUTE;
-    }
+	if (!dev->mixer_path || !dev->mixer_path->has_mute) {
+		dev->read_mute = NULL;
+		dev->set_mute = NULL;
+		pa_log_info("Driver does not support hardware mute control, falling back to software mute control.");
+		dev->device.flags &= ~ACP_DEVICE_HW_MUTE;
+	} else {
+		dev->read_mute = read_mute;
+		dev->set_mute = set_mute;
+		pa_log_info("Using hardware mute control.");
+		dev->device.flags |= ACP_DEVICE_HW_MUTE;
+	}
 }
 
 
-static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB) {
-    bool need_mixer_callback = false;
+static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
+{
+	int res;
+	bool need_mixer_callback = false;
 
-    /* This code is before the u->mixer_handle check, because if the UCM
-     * configuration doesn't specify volume or mute controls, u->mixer_handle
-     * will be NULL, but the UCM device enable sequence will still need to be
-     * executed. */
-    if (dev->active_port && dev->ucm_context) {
-        if (pa_alsa_ucm_set_port(dev->ucm_context, dev->active_port, dev->direction == PA_ALSA_DIRECTION_OUTPUT) < 0)
-            return -1;
-    }
+	/* This code is before the u->mixer_handle check, because if the UCM
+	* configuration doesn't specify volume or mute controls, u->mixer_handle
+	* will be NULL, but the UCM device enable sequence will still need to be
+	* executed. */
+	if (dev->active_port && dev->ucm_context) {
+		if ((res = pa_alsa_ucm_set_port(dev->ucm_context, dev->active_port,
+					dev->direction == PA_ALSA_DIRECTION_OUTPUT)) < 0)
+			return res;
+	}
 
-    if (!dev->mixer_handle)
-        return 0;
+	if (!dev->mixer_handle)
+		return 0;
 
-    if (dev->active_port) {
-        if (!impl->use_ucm) {
-            pa_alsa_port_data *data;
+	if (dev->active_port) {
+		if (!impl->use_ucm) {
+			pa_alsa_port_data *data;
 
-            /* We have a list of supported paths, so let's activate the
-             * one that has been chosen as active */
+			/* We have a list of supported paths, so let's activate the
+			 * one that has been chosen as active */
+			data = PA_DEVICE_PORT_DATA(dev->active_port);
+			dev->mixer_path = data->path;
 
-            data = PA_DEVICE_PORT_DATA(dev->active_port);
-            dev->mixer_path = data->path;
+			pa_alsa_path_select(data->path, data->setting, dev->mixer_handle, dev->muted);
+		} else {
+			pa_alsa_ucm_port_data *data;
 
-            pa_alsa_path_select(data->path, data->setting, dev->mixer_handle, dev->muted);
-        } else {
-            pa_alsa_ucm_port_data *data;
+			data = PA_DEVICE_PORT_DATA(dev->active_port);
 
-            data = PA_DEVICE_PORT_DATA(dev->active_port);
+			/* Now activate volume controls, if any */
+			if (data->path) {
+				dev->mixer_path = data->path;
+				pa_alsa_path_select(dev->mixer_path, NULL, dev->mixer_handle, dev->muted);
+			}
+		}
+	} else {
+		if (!dev->mixer_path && dev->mixer_path_set)
+			dev->mixer_path = pa_hashmap_first(dev->mixer_path_set->paths);
 
-            /* Now activate volume controls, if any */
-            if (data->path) {
-                dev->mixer_path = data->path;
-                pa_alsa_path_select(dev->mixer_path, NULL, dev->mixer_handle, dev->muted);
-            }
-        }
-    } else {
+		if (dev->mixer_path) {
+			/* Hmm, we have only a single path, then let's activate it */
+			pa_alsa_path_select(dev->mixer_path, dev->mixer_path->settings,
+					dev->mixer_handle, dev->muted);
+		} else
+			return 0;
+	}
 
-        if (!dev->mixer_path && dev->mixer_path_set)
-            dev->mixer_path = pa_hashmap_first(dev->mixer_path_set->paths);
+	mixer_volume_init(dev);
 
-        if (dev->mixer_path) {
-            /* Hmm, we have only a single path, then let's activate it */
+	/* Will we need to register callbacks? */
+	if (dev->mixer_path_set && dev->mixer_path_set->paths) {
+		pa_alsa_path *p;
+		void *state;
 
-            pa_alsa_path_select(dev->mixer_path, dev->mixer_path->settings, dev->mixer_handle, dev->muted);
-        } else
-            return 0;
-    }
+		PA_HASHMAP_FOREACH(p, dev->mixer_path_set->paths, state) {
+			if (p->has_volume || p->has_mute)
+				need_mixer_callback = true;
+		}
+	}
+	else if (dev->mixer_path)
+		need_mixer_callback = dev->mixer_path->has_volume || dev->mixer_path->has_mute;
 
-    mixer_volume_init(dev);
-
-    /* Will we need to register callbacks? */
-    if (dev->mixer_path_set && dev->mixer_path_set->paths) {
-        pa_alsa_path *p;
-        void *state;
-
-        PA_HASHMAP_FOREACH(p, dev->mixer_path_set->paths, state) {
-            if (p->has_volume || p->has_mute)
-                need_mixer_callback = true;
-        }
-    }
-    else if (dev->mixer_path)
-        need_mixer_callback = dev->mixer_path->has_volume || dev->mixer_path->has_mute;
-
-    if (need_mixer_callback) {
-        pa_alsa_mixer_use_for_poll(impl->ucm.mixers, dev->mixer_handle);
-        if (dev->mixer_path_set)
-            pa_alsa_path_set_set_callback(dev->mixer_path_set, dev->mixer_handle, mixer_callback, dev);
-        else
-            pa_alsa_path_set_callback(dev->mixer_path, dev->mixer_handle, mixer_callback, dev);
-    }
-
-    return 0;
+	if (need_mixer_callback) {
+		pa_alsa_mixer_use_for_poll(impl->ucm.mixers, dev->mixer_handle);
+		if (dev->mixer_path_set)
+			pa_alsa_path_set_set_callback(dev->mixer_path_set, dev->mixer_handle, mixer_callback, dev);
+		else
+			pa_alsa_path_set_callback(dev->mixer_path, dev->mixer_handle, mixer_callback, dev);
+	}
+	return 0;
 }
 
 static int device_disable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device *dev)
@@ -959,39 +960,17 @@ static int device_disable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_devic
 	if (dev->active_port) {
 		dev->active_port->port.flags &= ~ACP_PORT_ACTIVE;
 		dev->active_port = NULL;
+		dev->device.active_port_index = ACP_INVALID_INDEX;
 	}
 	return 0;
 }
-
-static pa_device_port *find_best_port(pa_hashmap *ports)
-{
-	void *state;
-	pa_device_port *p, *best = NULL, *alt = NULL;
-
-	if (!ports)
-		return NULL;
-
-	/* First run: skip unavailable ports */
-	PA_HASHMAP_FOREACH(p, ports, state) {
-		if (!alt || p->port.priority > alt->port.priority)
-			alt = p;
-
-		if (p->port.available == ACP_AVAILABLE_NO)
-			continue;
-
-		if (!best || p->port.priority > best->port.priority)
-			best = p;
-	}
-	if (!best)
-		best = alt;
-	return best;
-}
-
 
 static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device *dev)
 {
 	const char *mod_name;
 	bool ignore_dB = false;
+	uint32_t port_index;
+	int res;
 
 	if (impl->use_ucm &&
 	    (mod_name = pa_proplist_gets(mapping->proplist, PA_ALSA_PROP_UCM_MODIFIER))) {
@@ -999,7 +978,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 			pa_log("Failed to enable ucm modifier %s", mod_name);
 		else
 			pa_log_debug("Enabled ucm modifier %s", mod_name);
-        }
+	}
 
 	pa_log_info("Device: %s mapping '%s' (%s).", dev->device.description,
 			mapping->description, mapping->name);
@@ -1008,12 +987,14 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 
 	find_mixer(impl, dev, NULL, ignore_dB);
 
-	dev->active_port = find_best_port(dev->ports);
+	port_index = acp_device_find_best_port_index(&dev->device, NULL);
+
+	dev->active_port = (pa_device_port*)dev->device.ports[port_index];
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 
-	if (setup_mixer(impl, dev, ignore_dB) < 0)
-		return -1;
+	if ((res = setup_mixer(impl, dev, ignore_dB)) < 0)
+		return res;
 
 	if (dev->read_volume)
 		dev->read_volume(dev);
@@ -1035,7 +1016,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 	if (new_index >= card->n_profiles)
 		return -EINVAL;
 
-	op = old_index != (uint32_t)-1 ? (pa_alsa_profile*)profiles[old_index] : NULL;
+	op = old_index != ACP_INVALID_INDEX ? (pa_alsa_profile*)profiles[old_index] : NULL;
 	np = (pa_alsa_profile*)profiles[new_index];
 
 	if (op && op->output_mappings) {
@@ -1060,7 +1041,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 	/* if UCM is available for this card then update the verb */
 	if (impl->use_ucm) {
 		if ((res = pa_alsa_ucm_set_profile(&impl->ucm, impl, np->is_off ? NULL : np->profile.name,
-                    op ? op->profile.name : NULL)) < 0) {
+		    op ? op->profile.name : NULL)) < 0) {
 			return res;
 		}
 	}
@@ -1069,13 +1050,13 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 		PA_IDXSET_FOREACH(am, np->output_mappings, idx) {
 			device_enable(impl, am, &am->output);
 		}
-        }
+	}
 
 	if (np->input_mappings) {
 		PA_IDXSET_FOREACH(am, np->input_mappings, idx) {
 			device_enable(impl, am, &am->input);
 		}
-        }
+	}
 	if (op)
 		op->profile.flags &= ~ACP_PROFILE_ACTIVE;
 	np->profile.flags |= ACP_PROFILE_ACTIVE;
@@ -1106,6 +1087,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	const char *s, *profile_set = NULL, *profile = NULL;
 	char device_id[16];
 	bool ignore_dB = false;
+	uint32_t profile_index;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -1119,7 +1101,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 
 	card = &impl->card;
 	card->index = index;
-	card->active_profile_index = (uint32_t)-1;
+	card->active_profile_index = ACP_INVALID_INDEX;
 
 	impl->use_ucm = true;
 
@@ -1191,7 +1173,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 
 	init_jacks(impl);
 
-	choose_profile(impl, profile);
+	profile_index = acp_card_find_best_profile_index(&impl->card, profile);
+	acp_card_set_profile(&impl->card, profile_index);
 
 	init_eld_ctls(impl);
 
@@ -1309,8 +1292,35 @@ static void sync_mixer(pa_alsa_device *d, pa_device_port *port)
 		d->set_volume(d, &d->real_volume);
 }
 
-/* Called from IO context */
 
+uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *name)
+{
+	uint32_t i;
+	uint32_t best_alt = ACP_INVALID_INDEX, best = ACP_INVALID_INDEX;
+	struct acp_port **ports = dev->ports;
+
+	for (i = 0; i < dev->n_ports; i++) {
+		struct acp_port *p = ports[i];
+
+		if (name) {
+			if (strcmp(name, p->name))
+				best = i;
+			continue;
+		}
+		if (p->available != ACP_AVAILABLE_NO) {
+			if (best == ACP_INVALID_INDEX || p->priority > ports[best]->priority)
+				best = i;
+		} else {
+			if (best_alt == ACP_INVALID_INDEX || p->priority > ports[best_alt]->priority)
+				best_alt = i;
+		}
+	}
+	if (best == ACP_INVALID_INDEX)
+		best = best_alt;
+	if (best == ACP_INVALID_INDEX)
+		best = 0;
+	return best;
+}
 
 int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 {

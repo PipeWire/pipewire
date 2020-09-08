@@ -52,15 +52,21 @@
 
 #define MAX_POLL	16
 
-static const char default_device[] = "hw:0";
+#define DEFAULT_DEVICE		"hw:0"
+#define DEFAULT_AUTO_PROFILE	true
+#define DEFAULT_AUTO_PORT	true
 
 struct props {
 	char device[64];
+	bool auto_profile;
+	bool auto_port;
 };
 
 static void reset_props(struct props *props)
 {
-	strncpy(props->device, default_device, 64);
+	strncpy(props->device, DEFAULT_DEVICE, 64);
+	props->auto_profile = DEFAULT_AUTO_PROFILE;
+	props->auto_port = DEFAULT_AUTO_PORT;
 }
 
 struct impl {
@@ -651,7 +657,7 @@ static void card_profile_changed(void *data, uint32_t old_index, uint32_t new_in
 }
 
 static void card_profile_available(void *data, uint32_t index,
-                enum acp_available old, enum acp_available available)
+		enum acp_available old, enum acp_available available)
 {
 	struct impl *this = data;
 	struct acp_card *card = this->card;
@@ -661,6 +667,11 @@ static void card_profile_available(void *data, uint32_t index,
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
+
+	if (this->props.auto_profile && available == ACP_AVAILABLE_NO) {
+		index = acp_card_find_best_profile_index(card, NULL);
+		acp_card_set_profile(card, index);
+	}
 }
 
 static void card_port_changed(void *data, uint32_t old_index, uint32_t new_index)
@@ -679,7 +690,7 @@ static void card_port_changed(void *data, uint32_t old_index, uint32_t new_index
 }
 
 static void card_port_available(void *data, uint32_t index,
-                enum acp_available old, enum acp_available available)
+		enum acp_available old, enum acp_available available)
 {
 	struct impl *this = data;
 	struct acp_card *card = this->card;
@@ -689,6 +700,19 @@ static void card_port_available(void *data, uint32_t index,
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
+
+	if (this->props.auto_port && available == ACP_AVAILABLE_NO) {
+		uint32_t i, index;
+
+		for (i = 0; i < p->n_devices; i++) {
+			struct acp_device *d = p->devices[i];
+			if (!(d->flags & ACP_DEVICE_ACTIVE))
+				continue;
+
+			index = acp_device_find_best_port_index(d, NULL);
+			acp_device_set_port(d, index);
+		}
+	}
 }
 
 static void on_volume_changed(void *data, struct acp_device *dev)

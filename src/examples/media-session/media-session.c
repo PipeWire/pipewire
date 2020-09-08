@@ -1748,21 +1748,27 @@ static int state_dir(struct sm_media_session *sess)
 	if (impl->state_dir_fd != -1)
 		return impl->state_dir_fd;
 
-	home_dir = getenv("HOME");
-	if (home_dir == NULL)
-		home_dir = getenv("USERPROFILE");
-	if (home_dir == NULL) {
-		struct passwd pwd, *result = NULL;
-		char buffer[4096];
-		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
-			home_dir = result ? result->pw_dir : NULL;
+	home_dir = getenv("XDG_CONFIG_HOME");
+	if (home_dir != NULL)
+		snprintf(impl->state_dir, sizeof(impl->state_dir)-1,
+				"%s/pipewire-media-session/", home_dir);
+	else {
+		home_dir = getenv("HOME");
+		if (home_dir == NULL)
+			home_dir = getenv("USERPROFILE");
+		if (home_dir == NULL) {
+			struct passwd pwd, *result = NULL;
+			char buffer[4096];
+			if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+				home_dir = result ? result->pw_dir : NULL;
+		}
+		if (home_dir == NULL) {
+			pw_log_error("Can't determine home directory");
+			return -ENOTSUP;
+		}
+		snprintf(impl->state_dir, sizeof(impl->state_dir)-1,
+				"%s/.config/pipewire-media-session/", home_dir);
 	}
-	if (home_dir == NULL) {
-		pw_log_error("Can't determine home directory");
-		return -ENOTSUP;
-	}
-	snprintf(impl->state_dir, sizeof(impl->state_dir)-1,
-			"%s/.pipewire-media-session/", home_dir);
 
 	if ((res = open(impl->state_dir, O_CLOEXEC | O_DIRECTORY | O_PATH)) < 0) {
 		if (errno == ENOENT) {

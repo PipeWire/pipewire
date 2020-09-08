@@ -668,9 +668,13 @@ static void card_profile_available(void *data, uint32_t index,
 	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 
-	if (this->props.auto_profile && available == ACP_AVAILABLE_NO) {
-		index = acp_card_find_best_profile_index(card, NULL);
-		acp_card_set_profile(card, index);
+	if (this->props.auto_profile) {
+		if (available == ACP_AVAILABLE_NO) {
+			uint32_t best = acp_card_find_best_profile_index(card, NULL);
+			acp_card_set_profile(card, best);
+		} else if (available == ACP_AVAILABLE_YES) {
+			acp_card_set_profile(card, index);
+		}
 	}
 }
 
@@ -701,16 +705,20 @@ static void card_port_available(void *data, uint32_t index,
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 
-	if (this->props.auto_port && available == ACP_AVAILABLE_NO) {
-		uint32_t i, index;
+	if (this->props.auto_port) {
+		uint32_t i;
 
 		for (i = 0; i < p->n_devices; i++) {
 			struct acp_device *d = p->devices[i];
 			if (!(d->flags & ACP_DEVICE_ACTIVE))
 				continue;
 
-			index = acp_device_find_best_port_index(d, NULL);
-			acp_device_set_port(d, index);
+			if (available == ACP_AVAILABLE_NO) {
+				uint32_t best = acp_device_find_best_port_index(d, NULL);
+				acp_device_set_port(d, best);
+			} else if (available == ACP_AVAILABLE_YES) {
+				acp_device_set_port(d, index);
+			}
 		}
 	}
 }

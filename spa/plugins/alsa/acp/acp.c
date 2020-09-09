@@ -622,8 +622,10 @@ static void init_eld_ctls(pa_card *impl)
 uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *name)
 {
 	uint32_t i;
-	uint32_t best_alt = ACP_INVALID_INDEX, best = ACP_INVALID_INDEX;
+	uint32_t best, best2, best3;
 	struct acp_card_profile **profiles = card->profiles;
+
+	best = best2 = best3 = ACP_INVALID_INDEX;
 
 	for (i = 0; i < card->n_profiles; i++) {
 		struct acp_card_profile *p = profiles[i];
@@ -633,16 +635,21 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 				best = i;
 			continue;
 		}
-		if (p->available != ACP_AVAILABLE_NO) {
+		if (p->available == ACP_AVAILABLE_YES) {
 			if (best == ACP_INVALID_INDEX || p->priority > profiles[best]->priority)
 				best = i;
+		} else if (p->available != ACP_AVAILABLE_NO) {
+			if (best2 == ACP_INVALID_INDEX || p->priority > profiles[best2]->priority)
+				best2 = i;
 		} else {
-			if (best_alt == ACP_INVALID_INDEX || p->priority > profiles[best_alt]->priority)
-				best_alt = i;
+			if (best3 == ACP_INVALID_INDEX || p->priority > profiles[best3]->priority)
+				best3 = i;
 		}
 	}
 	if (best == ACP_INVALID_INDEX)
-		best = best_alt;
+		best = best2;
+	if (best == ACP_INVALID_INDEX)
+		best = best3;
 	if (best == ACP_INVALID_INDEX)
 		best = 0;
 	return best;
@@ -988,7 +995,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 
 	port_index = acp_device_find_best_port_index(&dev->device, NULL);
 
-	dev->active_port = (pa_device_port*)dev->device.ports[port_index];
+	dev->active_port = (pa_device_port*)impl->card.ports[port_index];
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 
@@ -1295,8 +1302,10 @@ static void sync_mixer(pa_alsa_device *d, pa_device_port *port)
 uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *name)
 {
 	uint32_t i;
-	uint32_t best_alt = ACP_INVALID_INDEX, best = ACP_INVALID_INDEX;
+	uint32_t best, best2, best3;
 	struct acp_port **ports = dev->ports;
+
+	best = best2 = best3 = ACP_INVALID_INDEX;
 
 	for (i = 0; i < dev->n_ports; i++) {
 		struct acp_port *p = ports[i];
@@ -1306,19 +1315,24 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 				best = i;
 			continue;
 		}
-		if (p->available != ACP_AVAILABLE_NO) {
+		if (p->available == ACP_AVAILABLE_YES) {
 			if (best == ACP_INVALID_INDEX || p->priority > ports[best]->priority)
 				best = i;
+		} else if (p->available != ACP_AVAILABLE_NO) {
+			if (best2 == ACP_INVALID_INDEX || p->priority > ports[best2]->priority)
+				best2 = i;
 		} else {
-			if (best_alt == ACP_INVALID_INDEX || p->priority > ports[best_alt]->priority)
-				best_alt = i;
+			if (best3 == ACP_INVALID_INDEX || p->priority > ports[best3]->priority)
+				best3 = i;
 		}
 	}
 	if (best == ACP_INVALID_INDEX)
-		best = best_alt;
+		best = best2;
+	if (best == ACP_INVALID_INDEX)
+		best = best3;
 	if (best == ACP_INVALID_INDEX)
 		best = 0;
-	return best;
+	return ports[best]->index;
 }
 
 int acp_device_set_port(struct acp_device *dev, uint32_t port_index)

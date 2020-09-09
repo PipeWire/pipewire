@@ -736,8 +736,8 @@ static void do_device_route(pa_operation *o, void *userdata)
 		pa_context_set_error(c, error);
 	if (d->cb)
 		d->cb(c, error != 0 ? 0 : 1, d->userdata);
-	pa_operation_done(o);
 	pa_xfree(d->port);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT
@@ -1437,11 +1437,11 @@ static void on_load_module(pa_operation *o, void *userdata)
 		pa_context_set_error(c, d->error);
 	if (d->cb)
 		d->cb(c, d->idx, d->userdata);
-	pa_operation_done(o);
 	if (d->props)
 		pw_properties_free(d->props);
 	if (d->proxy)
 		spa_hook_remove(&d->listener);
+	pa_operation_done(o);
 }
 
 static void module_proxy_removed(void *data)
@@ -1945,8 +1945,8 @@ done:
 		pa_context_set_error(c, error);
 	if (d->success_cb)
 		d->success_cb(c, error ? 0 : 1, d->userdata);
-	pa_operation_done(o);
 	free(d->profile);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT
@@ -2237,8 +2237,8 @@ done:
 		pa_context_set_error(c, error);
 	if (d->cb)
 		d->cb(c, error != 0 ? 0 : 1, d->userdata);
-	pa_operation_done(o);
 	pa_xfree(d->target_name);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT

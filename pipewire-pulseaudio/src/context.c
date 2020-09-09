@@ -1715,9 +1715,9 @@ static void on_notify(pa_operation *o, void *userdata)
 {
 	struct notify_data *d = userdata;
 	pa_context *c = o->context;
-	pa_operation_done(o);
 	if (d->cb)
 		d->cb(c, d->userdata);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT
@@ -1787,8 +1787,8 @@ static void do_default_node(pa_operation *o, void *userdata)
 		pa_context_set_error(c, error);
 	if (d->cb)
 		d->cb(c, error != 0 ? 0 : 1, d->userdata);
-	pa_operation_done(o);
 	pa_xfree(d->name);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT

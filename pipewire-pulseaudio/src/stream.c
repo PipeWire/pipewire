@@ -1027,6 +1027,7 @@ static void on_disconnected(pa_operation *o, void *userdata)
 	pa_stream *s = o->stream;
 	pw_log_debug("stream %p", s);
 	pa_stream_set_state(s, PA_STREAM_TERMINATED);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT

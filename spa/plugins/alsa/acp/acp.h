@@ -204,7 +204,6 @@ struct acp_device {
 	float volume_step;
 
 	uint32_t n_ports;
-	uint32_t active_port_index;
 	struct acp_port **ports;
 };
 

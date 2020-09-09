@@ -960,7 +960,6 @@ static int device_disable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_devic
 	if (dev->active_port) {
 		dev->active_port->port.flags &= ~ACP_PORT_ACTIVE;
 		dev->active_port = NULL;
-		dev->device.active_port_index = ACP_INVALID_INDEX;
 	}
 	return 0;
 }

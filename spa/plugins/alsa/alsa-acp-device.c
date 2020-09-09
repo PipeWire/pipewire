@@ -666,6 +666,7 @@ static void card_profile_available(void *data, uint32_t index,
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 
 	if (this->props.auto_profile) {
@@ -703,6 +704,7 @@ static void card_port_available(void *data, uint32_t index,
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 
 	if (this->props.auto_port) {

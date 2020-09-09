@@ -734,6 +734,8 @@ static void device_clear_ports(struct global *g)
 	i->ports = NULL;
 	free(g->card_info.card_ports);
 	g->card_info.card_ports = NULL;
+	free(g->card_info.port_devices);
+	g->card_info.port_devices = NULL;
 }
 
 static void device_sync_ports(struct global *g)

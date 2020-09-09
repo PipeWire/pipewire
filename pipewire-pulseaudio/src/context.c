@@ -1432,22 +1432,33 @@ static void core_done(void *data, uint32_t id, int seq)
 	pa_context *c = data;
 	pa_operation *o, *t;
 	struct global *g;
+	struct spa_list ops;
 
 	pw_log_debug("done id:%u seq:%d/%d", id, seq, c->pending_seq);
 	if (c->pending_seq != seq)
 		return;
 
+	spa_list_init(&ops);
+	spa_list_consume(o, &c->operations, link) {
+		spa_list_remove(&o->link);
+		spa_list_append(&ops, &o->link);
+	}
 	spa_list_for_each(g, &c->globals, link) {
 		if (g->sync) {
 			do_global_sync(g);
 			g->sync = false;
 		}
 	}
-	spa_list_for_each_safe(o, t, &c->operations, link) {
+	spa_list_for_each_safe(o, t, &ops, link) {
 		pa_operation_ref(o);
+		pw_log_debug("operation %p complete", o);
 		if (o->callback)
 			o->callback(o, o->userdata);
 		pa_operation_unref(o);
+	}
+	spa_list_consume(o, &ops, link) {
+		pw_log_warn("operation %p canceled", o);
+		pa_operation_cancel(o);
 	}
 }
 

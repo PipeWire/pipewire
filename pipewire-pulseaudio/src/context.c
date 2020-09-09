@@ -781,7 +781,7 @@ static void device_sync_ports(struct global *g)
 			continue;
 		}
 
-		pw_log_debug("port %d: name:%s", j, name);
+		pw_log_debug("port %d: name:%s available:%d", j, name, available);
 
 		pi = i->ports[j] = &g->card_info.card_ports[j];
 		spa_zero(*pi);

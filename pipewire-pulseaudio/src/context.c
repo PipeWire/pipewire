@@ -846,30 +846,37 @@ static void device_sync_ports(struct global *g)
 	spa_list_for_each(p, &g->card_info.routes, link) {
 		struct global *ng;
 		uint32_t index, device;
-		enum spa_direction direction;
+		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
 		struct spa_pod *props = NULL;
+		const char *name;
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
-				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
+				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
+				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&available),
 				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props)) < 0) {
 			pw_log_warn("device %d: can't parse route", g->id);
 			continue;
 		}
-
 		ng = find_node_for_route(c, g, device);
 		if (ng) {
 			int changed = 0;
+			pw_log_debug("device: %d port:%d: name:%s available:%d", ng->id,
+					index, name, available);
 			if (ng->node_info.active_port != index) {
 				ng->node_info.active_port = index;
+				changed++;
+			}
+			if (ng->node_info.available_port != available) {
+				ng->node_info.available_port = available;
 				changed++;
 			}
 			if (props)
 				changed += parse_props(ng, props, true);
 			if (changed)
-				emit_event(c, ng, PA_SUBSCRIPTION_EVENT_CHANGE);
+				global_sync(ng);
 		}
 	}
 }
@@ -1258,6 +1265,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->node_info.base_volume = 1.0f;
 		g->node_info.volume_step = 1.0f / (PA_VOLUME_NORM+1);
 		g->node_info.active_port = SPA_ID_INVALID;
+		g->node_info.available_port = SPA_PARAM_AVAILABILITY_unknown;
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Port) == 0) {
 		if (g->props == NULL)
 			return 0;

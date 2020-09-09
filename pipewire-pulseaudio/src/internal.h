@@ -299,6 +299,7 @@ struct global {
 			float base_volume;
 			float volume_step;
 			uint32_t active_port;
+			enum spa_param_availability available_port;
 			uint32_t device_index;
 		} node_info;
 		struct {

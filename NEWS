@@ -1,3 +1,93 @@
+PipeWire 0.3.11
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- PipeWire improvements
+  * Properly cleanup the mixer structures when a port is removed,
+    this should fix client crashes related to port config changes
+    and other random crashes.
+  * Optimize the preferred formats in the audio converter. Higher
+    quality formats with higher performance are chosen first.
+  * Make sure the time reported by pw_stream is always increasing,
+    even when the driver and clock changes.
+  * There is now also a system service and socket that can be used
+    to enable PipeWire systemwide. This is however not recommended
+    and disabled by default.
+  * Fix channelmixer 5.1 to stereo mix matrix. It was not reading
+    the conversion matrix correctly and cause channels to be
+    dropped. The channelmixer will now also normalize the volume,
+    like what pulseaudio does.
+  * The channelmixer will now just copy channels when no layout
+    has been given. It has also optimized paths for this. This
+    makes it possible for apps to request > 8 channels from the
+    alsa plugin (ardour).
+  * Port, Node and Link will now also emit an error on the
+    resources in addition to updating the error in the info. This
+    would make it easier to track negotiation errors in the session
+    manager later.
+  * many small fixes and cleanups.
+  * Fix compatibility:
+	+ DOSBox: fix crash because of double free in pw_stream
+
+- Session manager improvements
+  * The session manager will now try to configure the client to
+    the channel configuration of the sink/source. It will only
+    do this for downmixing, never for upmixing and also never
+    when the client has the dont-remix property set. It will
+    also renegotiate the channel layout when moving a stream to
+    a new sink/source.
+  * Configuration state is now saved in XDG_CONFIG_HOME.
+    Previously it was saved in $HOME/.pipewire-media-session/
+    You can migrate the state by moving the files to
+    $XDG_CONFIG_HOME/pipewire-media-session (or
+    $HOME/.config/pipewire-media-session as a fallback when
+    XDG_CONFIG_HOME is not set).
+
+- Device support
+  * Bluetooth sources and sinks should work better now.
+  * There is now also a new bluetooth backend using hsphfpd.
+  * fix the ALSA UCM Off profile for alsa pcm devices
+  * improve ALSA port and profile switching. The ACP device will
+    now switch to the best port and profile when availability
+    changes.
+
+- PulseAudio layer improvements
+  * Implement some more callbacks. The pulse layer will now also
+    notify applications of stream moved, started and latency
+    changes.
+  * Fix error code when an object was not found. We now return
+    PA_ERR_NOENTITY instead of PA_ERR_INVALID.
+  * Add some support for loading new null sinks. Applications such
+    as pulseeffects use this. Note that pulseeffects does not yet
+    work reliably but can start now.
+  * Improve handling of profile and port updates, it should work
+    much more reliable now. Apps should now also again receive
+    volume updates from sinks/sources.
+  * Fix compatibility:
+	+ openal-soft 1.20
+	+ pavucontrol (checks PA_ERR_NOENTITY)
+
+- JACK layer improvements
+  * improve default source and sink handling. It was not updated
+    correctly in all cases.
+  * add samplerate and period to the pw-jack wrapper to easily
+    configure the desired samplerate and perdiod for the app.
+
+- ALSA plugin improvements
+  * Add a mixer entry in the alsa config file.
+  * Implement support for planar types, rework the processing
+    function to make it more robust.
+  * refuse to load the alsa plugin when linked against 0.2. This
+    catches some old apps linked against 0.2 that want to use the
+    alsa plugin.
+  * Fix compatibility:
+	+ linphone (ALSA SIGFPE when _status() is called
+	  before _prepare()).
+
+
+Older versions:
+
 PipeWire 0.3.10
 
 This is a bugfix release that is API and ABI compatible
@@ -67,9 +157,6 @@ with previous 0.3.x releases.
 - The media session can now save and load audio device
   Profiles and Routes (volumes), stream volumes and
   the default sink and sources.
-
-
-Older versions:
 
 PipeWire 0.3.9
 

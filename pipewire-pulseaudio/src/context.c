@@ -1734,6 +1734,9 @@ static void on_notify(pa_operation *o, void *userdata)
 {
 	struct notify_data *d = userdata;
 	pa_context *c = o->context;
+
+	pw_log_debug("%p", c);
+
 	if (d->cb)
 		d->cb(c, d->userdata);
 	pa_operation_done(o);
@@ -1786,7 +1789,7 @@ static void do_default_node(pa_operation *o, void *userdata)
 	struct global *g;
 	int error = 0;
 
-	pw_log_debug("%p", c);
+	pw_log_debug("%p mask:%d name:%s", c, d->mask, d->name);
 
 	g = pa_context_find_global_by_name(c, d->mask, d->name);
 	if (g == NULL) {

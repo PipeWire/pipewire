@@ -2171,13 +2171,6 @@ static void registry_event_global(void *data, uint32_t id,
 		o->port.type_id = type_id;
 		o->port.node_id = node_id;
 
-		if (o->port.flags & JackPortIsOutput) {
-			o->port.capture_latency.min = 1024;
-			o->port.capture_latency.max = 1024;
-		} else {
-			o->port.playback_latency.min = 1024;
-			o->port.playback_latency.max = 1024;
-		}
 		op = find_port(c, o->port.name);
 		if (op != NULL && op != o)
 			snprintf(o->port.name, sizeof(o->port.name), "%.*s-%d",
@@ -4002,8 +3995,21 @@ SPA_EXPORT
 void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	struct object *o = (struct object *) port;
+	struct client *c;
 
 	spa_return_if_fail(o != NULL);
+	c = o->client;
+
+	if (o->port.flags & JackPortIsTerminal) {
+		jack_nframes_t nframes = jack_get_buffer_size((jack_client_t*)c);
+		if (o->port.flags & JackPortIsOutput) {
+			o->port.capture_latency.min = nframes;
+			o->port.capture_latency.max = nframes;
+		} else {
+			o->port.playback_latency.min = nframes;
+			o->port.playback_latency.max = nframes;
+		}
+	}
 
 	if (mode == JackCaptureLatency) {
 		*range = o->port.capture_latency;

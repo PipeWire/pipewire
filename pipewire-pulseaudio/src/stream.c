@@ -450,13 +450,9 @@ static void stream_process(void *data)
 			s->write_callback(s, writable, s->write_userdata);
 	}
 	else {
-		uint64_t required;
-
 		pull_input(s);
 
-		required = SPA_MIN(s->maxblock, s->buffer_attr.fragsize);
-
-		if (s->read_callback && s->ready_bytes > required && s->state == PA_STREAM_READY)
+		if (s->read_callback && s->ready_bytes > 0 && s->state == PA_STREAM_READY)
 			s->read_callback(s, s->ready_bytes, s->read_userdata);
 	}
 }
@@ -1272,7 +1268,7 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 SPA_EXPORT
 size_t pa_stream_readable_size(PA_CONST pa_stream *s)
 {
-	uint64_t readable, required;
+	uint64_t readable;
 
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
@@ -1283,10 +1279,7 @@ size_t pa_stream_readable_size(PA_CONST pa_stream *s)
 			PA_ERR_BADSTATE, (size_t) -1);
 
 	readable = s->ready_bytes;
-	required = SPA_MIN(s->maxblock, s->buffer_attr.fragsize);
-	pw_log_trace("stream %p: %zd %zd", s, readable, required);
-	if (readable < required)
-		readable = 0;
+	pw_log_trace("stream %p: readable:%"PRIu64" fragsize:%u", s, readable, s->buffer_attr.fragsize);
 
 	return readable;
 }

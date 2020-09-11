@@ -604,7 +604,7 @@ SPA_EXPORT
 void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto_ptr)
 {
 	if (major_ptr)
-		*major_ptr = 0;
+		*major_ptr = 3;
 	if (minor_ptr)
 		*minor_ptr = 0;
 	if (micro_ptr)
@@ -617,7 +617,9 @@ SPA_EXPORT
 const char *
 jack_get_version_string(void)
 {
-	return "0.0.0.0";
+	static char name[1024];
+	snprintf(name, sizeof(name)-1, "3.0.0.0 (using PipeWire %s)", pw_get_library_version());
+	return name;
 }
 
 static void on_sync_reply(void *data, uint32_t id, int seq)

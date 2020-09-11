@@ -1307,9 +1307,9 @@ static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_ack *d = userdata;
 	pa_stream *s = o->stream;
-	pa_operation_done(o);
 	if (d->cb)
 		d->cb(s, 1, d->userdata);
+	pa_operation_done(o);
 }
 
 SPA_EXPORT

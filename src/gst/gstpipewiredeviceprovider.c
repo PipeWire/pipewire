@@ -571,6 +571,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   GST_DEBUG_OBJECT (self, "disconnect");
   pw_proxy_destroy ((struct pw_proxy*)data->registry);
   pw_core_disconnect (self->core);
+  self->core = NULL;
   pw_context_destroy (c);
   pw_loop_destroy (l);
 
@@ -660,6 +661,9 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
 
   GST_DEBUG_OBJECT (self, "stopping provider");
+  if (self->loop)
+    pw_thread_loop_stop (self->loop);
+
   if (self->registry) {
     pw_proxy_destroy ((struct pw_proxy*)self->registry);
     self->registry = NULL;

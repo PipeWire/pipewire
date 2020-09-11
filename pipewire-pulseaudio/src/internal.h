@@ -401,9 +401,6 @@ struct pa_mem {
 	void *user_data;
 };
 
-#define MAX_BUFFERS     64u
-#define MASK_BUFFERS    (MAX_BUFFERS-1)
-
 struct pa_stream {
 	struct spa_list link;
 	int refcount;

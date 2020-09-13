@@ -38,7 +38,7 @@ static inline struct spa_handle *load_handle(const struct spa_support *support,
 	char *path;
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
-		str = ".";
+		str = PLUGINDIR;
 
 	len = strlen(str) + strlen(lib) + 2;
 	path = alloca(len);

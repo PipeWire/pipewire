@@ -20,7 +20,7 @@ The framework is used to build a modular daemon that can be configured to:
 ## Motivation
 
 Linux has no unified framework for exchanging multimedia content between
-applications or even devices. Im most cases, developers realized that
+applications or even devices. In most cases, developers realized that
 a user-space daemon is needed to make this possible:
 
 * For video content, we typically rely on the compositor to render our
@@ -33,7 +33,7 @@ a user-space daemon is needed to make this possible:
 
 None of these solutions (with perhaps to some extend Wayland), however,
 were designed to support the security features that are required when
-daeling with flatpaks or other containerized applications. PipeWire
+dealing with flatpaks or other containerized applications. PipeWire
 aims to solve this problem and provides a unified framework to run both
 consumer and Pro audio as well as video capture and processing in a
 secure way.

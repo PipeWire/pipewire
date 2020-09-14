@@ -44,7 +44,7 @@ Upon connecting to a server, it will broadcast its state. Clients
 should listen for these state changes and cache them. There is no
 need (or mechanism) to query the state of the server.
 
-The server also have a registry object that, when listening to,
+The server also has a registry object that, when listening to,
 will broadcast the presence of global objects and any changes in
 their state.
 
@@ -129,7 +129,7 @@ life cycle management.
 
 A proxy to a PipeWire registry object. It emits events about the
 available objects on the server and can be used to bind to those
-objects in order call methods or receive events from them.
+objects in order to call methods or receive events from them.
 
 ### `struct pw_module`
 
@@ -193,7 +193,7 @@ do the connection for the client and then hands the connection socket
 to the client.
 
 All objects in PipeWire have per client permission bits, currently
-READ, WRITE, EXECUTE and METADATA. A client can not see an objects
+READ, WRITE, EXECUTE and METADATA. A client can not see an object
 unless it has READ permissions. Similarly, a client can only execute
 methods on an object when the EXECUTE bit is set and to modify the
 state of an object, the client needs WRITE permissions.

@@ -155,7 +155,7 @@ and a callback + data.
 			&data);
 ```
 
-We using `pw_stream_new_simple()` but there is also a `pw_stream_new()` that
+We are using `pw_stream_new_simple()` but there is also a `pw_stream_new()` that
 takes an existing `struct pw_core` as the first argument and that requires you
 to add the event handle manually, for more control. The `pw_stream_new_simple()`
 is, as the name implies, easier to use because it creates  a `struct pw_context`
@@ -225,7 +225,7 @@ Now we're ready to connect the stream and run the main loop:
 	pw_main_loop_run(data.loop);
 ```
 
-To connect we specify that we have an `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
+To connect we specify that we have a `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
 means that we are ok with conneting to any consumer. Next we set some flags:
 
 * `PW_STREAM_FLAG_AUTOCONNECT`  automatically connect this stream. This instructs
@@ -242,7 +242,7 @@ And last we pass the extra parameters for our stream. Here we only have the
 allowed formats (`SPA_PARAM_EnumFormat`).
 
 Running the mainloop will then start processing and will result in our
-`process` callback to be called. Let have a look at that function now.
+`process` callback to be called. Let's have a look at that function now.
 
 The main program flow of the process function is:
 

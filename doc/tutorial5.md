@@ -178,7 +178,7 @@ static const struct pw_stream_events stream_events = {
 };
 ```
 
-Because we are a capture stream and we can accept a wide range of different
+Because we capture a stream of a wide range of different
 video formats and resolutions, we have to describe our accepted formats in
 a different way:
 
@@ -262,7 +262,7 @@ Now we're ready to connect the stream and run the main loop:
 	pw_main_loop_run(data.loop);
 ```
 
-To connect we specify that we have an `PW_DIRECTION_INPUT` stream. `PW_ID_ANY`
+To connect we specify that we have a `PW_DIRECTION_INPUT` stream. `PW_ID_ANY`
 means that we are ok with connecting to any producer. We also allow the user
 to pass an optional target id.
 
@@ -280,7 +280,7 @@ negotiated between our stream and the camera. This is always something that
 is compatible with what we enumerated in the EnumFormat param when we
 connected.
 
-Let's take a look a how we can parse the format in the `param_changed`
+Let's take a look at how we can parse the format in the `param_changed`
 event:
 
 ```c
@@ -296,7 +296,7 @@ First check if there is a param. A NULL param means that it is cleared. The id
 of the param tells you what param it is. We are only interested in Format
 param (`SPA_PARAM_Format`).
 
-We can parse the media type and subtype as follows and ensure that it is
+We can parse the media type and subtype as below and ensure that it is
 of the right type. In our example this will always be true but when your
 EnumFormat contains different media types or subtypes, this is how you can
 parse them:

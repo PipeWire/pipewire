@@ -173,7 +173,7 @@ We're also quitting the mainloop after we get the info to nicely stop
 our tutorial application.
 
 When we stop the application, don't forget to destroy all proxies that
-you created or they will be leaked:
+you created. Otherwise, they will be leaked:
 
 ```c
 	/* ... */

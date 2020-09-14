@@ -202,6 +202,8 @@ static void sink_info(pa_operation *o, void *userdata)
 	pa_context *c = o->context;
 	int error = 0;
 
+	pw_log_debug("%p name:%s idx:%u", c, d->name, d->idx);
+
 	if (d->name) {
 		g = pa_context_find_global_by_name(c, PA_SUBSCRIPTION_MASK_SINK, d->name);
 		pa_xfree(d->name);
@@ -210,8 +212,6 @@ static void sink_info(pa_operation *o, void *userdata)
 		    !(g->mask & PA_SUBSCRIPTION_MASK_SINK))
 			g = NULL;
 	}
-
-	pw_log_debug("%p", c);
 
 	if (g) {
 		error = sink_callback(c, g, d);

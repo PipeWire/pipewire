@@ -180,7 +180,14 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 {
 	struct global *g;
 	const char *str;
-	uint32_t id = atoi(name);
+	uint32_t id;
+
+	if (strcmp(name, "@DEFAULT_SINK@") == 0 || strcmp("@DEFAULT_MONITOR@", name) == 0)
+		id = c->default_sink;
+	else if (strcmp(name, "@DEFAULT_SOURCE@") == 0)
+		id = c->default_sink;
+	else
+		id = atoi(name);
 
 	spa_list_for_each(g, &c->globals, link) {
 		if ((g->mask & mask) == 0)

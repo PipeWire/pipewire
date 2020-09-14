@@ -50,6 +50,7 @@ extern "C" {
 
 #define DEFAULT_RATE		48000u
 #define DEFAULT_CHANNELS	2u
+#define DEFAULT_USE_CHMAP	false
 
 struct props {
 	char device[64];
@@ -57,6 +58,7 @@ struct props {
 	char card_name[128];
 	uint32_t min_latency;
 	uint32_t max_latency;
+	bool use_chmap;
 };
 
 #define MAX_BUFFERS 32

@@ -369,7 +369,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channels, 0);
 
-	if ((maps = snd_pcm_query_chmaps(hndl)) != NULL) {
+	if (state->props.use_chmap && (maps = snd_pcm_query_chmaps(hndl)) != NULL) {
 		uint32_t channel;
 		snd_pcm_chmap_t* map;
 

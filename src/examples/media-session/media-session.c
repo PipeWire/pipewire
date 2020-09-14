@@ -1486,6 +1486,15 @@ static void check_endpoint_link(struct endpoint_link *link)
 	}
 }
 
+static void proxy_link_error(void *data, int seq, int res, const char *message)
+{
+	struct link *l = data;
+	pw_log_warn("can't link %d:%d -> %d:%d: %s",
+			l->output_node, l->output_port,
+			l->input_node, l->input_port, message);
+	pw_proxy_destroy(l->proxy);
+}
+
 static void proxy_link_removed(void *data)
 {
 	struct link *l = data;
@@ -1506,6 +1515,7 @@ static void proxy_link_destroy(void *data)
 
 static const struct pw_proxy_events proxy_link_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.error = proxy_link_error,
 	.removed = proxy_link_removed,
 	.destroy = proxy_link_destroy
 };

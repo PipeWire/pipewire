@@ -128,14 +128,14 @@ static inline uint32_t channel_pa2id(pa_channel_position_t channel)
 	return audio_channels[channel];
 }
 
-static inline pa_channel_position_t channel_id2pa(uint32_t id)
+static inline pa_channel_position_t channel_id2pa(uint32_t id, uint32_t *aux)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
 		if (id == audio_channels[i])
 			return i;
 	}
-	return PA_CHANNEL_POSITION_INVALID;
+	return PA_CHANNEL_POSITION_AUX0 + (*aux)++;
 }
 
 SPA_EXPORT
@@ -362,7 +362,7 @@ int pa_format_info_to_sample_spec_fake(const pa_format_info *f, pa_sample_spec *
 int pa_format_parse_param(const struct spa_pod *param, pa_sample_spec *spec, pa_channel_map *map)
 {
 	struct spa_audio_info info = { 0 };
-	uint32_t i;
+	uint32_t i, aux;
 
 	if (param == NULL)
 		return -EINVAL;
@@ -383,13 +383,14 @@ int pa_format_parse_param(const struct spa_pod *param, pa_sample_spec *spec, pa_
 	spec->rate = info.info.raw.rate;
 	spec->channels = info.info.raw.channels;
 
+	aux = 0;
 	pa_channel_map_init(map);
 	map->channels = info.info.raw.channels;
 	for (i = 0; i < info.info.raw.channels; i++)
-		map->map[i] = channel_id2pa(info.info.raw.position[i]);
+		map->map[i] = channel_id2pa(info.info.raw.position[i], &aux);
 
 	if (!pa_channel_map_valid(map))
-		pa_channel_map_init_auto(map, info.info.raw.channels, PA_CHANNEL_MAP_DEFAULT);
+		pa_channel_map_init_extend(map, info.info.raw.channels, PA_CHANNEL_MAP_OSS);
 
 	return 0;
 }

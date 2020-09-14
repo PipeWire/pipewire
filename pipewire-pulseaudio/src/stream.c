@@ -569,7 +569,8 @@ pa_stream* pa_stream_new_with_proplist(pa_context *c, const char *name,
 	pa_channel_map tmap;
 
 	if (!map)
-		PA_CHECK_VALIDITY_RETURN_NULL(c, map = pa_channel_map_init_auto(&tmap, ss->channels, PA_CHANNEL_MAP_DEFAULT), PA_ERR_INVALID);
+		PA_CHECK_VALIDITY_RETURN_NULL(c, map = pa_channel_map_init_extend(&tmap,
+					ss->channels, PA_CHANNEL_MAP_DEFAULT), PA_ERR_INVALID);
 
 	return stream_new(c, name, ss, map, NULL, 0, p);
 }
@@ -879,7 +880,7 @@ static int create_stream(pa_stream_direction_t direction,
 				continue;
 			}
 			if (pa_format_info_get_channel_map(s->req_formats[i], &chmap) < 0)
-				pa_channel_map_init_auto(&chmap, ss.channels, PA_CHANNEL_MAP_DEFAULT);
+				pa_channel_map_init_extend(&chmap, ss.channels, PA_CHANNEL_MAP_DEFAULT);
 
 			params[n_params++] = pa_format_build_param(&b, SPA_PARAM_EnumFormat,
 					&ss, &chmap);

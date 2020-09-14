@@ -791,7 +791,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
-	int res;
+	int res, i;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
@@ -802,7 +802,6 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return res;
 		if ((res = setup_buffers(this, SPA_DIRECTION_INPUT)) < 0)
 			return res;
-		this->started = true;
 		break;
 
 	case SPA_NODE_COMMAND_Suspend:
@@ -811,10 +810,23 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;
-
 	default:
 		return -ENOTSUP;
 	}
+
+	for (i = 0; i < this->n_nodes; i++) {
+		if ((res = spa_node_send_command(this->nodes[i], command)) < 0) {
+			spa_log_error(this->log, NAME " %p: can't send command to node %d: %s",
+					this, i, spa_strerror(res));
+		}
+	}
+
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_Start:
+		this->started = true;
+		break;
+	}
+
 	return 0;
 }
 

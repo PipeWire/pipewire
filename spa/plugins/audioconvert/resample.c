@@ -252,6 +252,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	case SPA_NODE_COMMAND_Suspend:
 		/* fallthrough */
 	case SPA_NODE_COMMAND_Pause:
+		resample_reset(&this->resample);
 		this->started = false;
 		break;
 	default:

@@ -178,9 +178,10 @@ static int setup_convert(struct impl *this)
 			    outformat.info.raw.position[j])
 				continue;
 			this->remap[i] = j;
+			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%d -> %d)", this,
+					i, j, informat.info.raw.position[i],
+					outformat.info.raw.position[j]);
 			outformat.info.raw.position[j] = -1;
-			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%d)", this,
-					i, j, informat.info.raw.position[i]);
 			break;
 		}
 	}
@@ -317,7 +318,13 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 
 static int int32_cmp(const void *v1, const void *v2)
 {
-	return *(int32_t*)v1 - *(int32_t*)v2;
+	int32_t a1 = *(int32_t*)v1;
+	int32_t a2 = *(int32_t*)v2;
+	if (a1 == 0 && a2 != 0)
+		return 1;
+	if (a2 == 0 && a1 != 0)
+		return -1;
+	return a1 - a2;
 }
 
 static int port_enum_formats(void *object,

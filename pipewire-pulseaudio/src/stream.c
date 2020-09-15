@@ -175,7 +175,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 		if (str) {
 			int num, denom;
 			if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-				snprintf(buf, sizeof(buf)-1, PRIu64, num * PA_MSEC_PER_SEC / denom);
+				snprintf(buf, sizeof(buf)-1, "%"PRIu64, num * PA_MSEC_PER_SEC / denom);
 				e = buf;
 			}
 		}

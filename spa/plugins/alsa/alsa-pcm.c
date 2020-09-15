@@ -664,7 +664,6 @@ static int alsa_recover(struct state *state, int err)
 		state->alsa_started = false;
 		spa_alsa_write(state, state->threshold * 2);
 	}
-
 	return 0;
 }
 
@@ -688,6 +687,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 
 	*target = state->last_threshold;
 
+#define MARGIN 48
 	if (state->resample && state->rate_match) {
 		state->delay = state->rate_match->delay * 2;
 		state->read_size = state->rate_match->size;
@@ -695,9 +695,10 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 		 * by moving a little closer to the device read/write pointers.
 		 * Don't try to get closer than 48 samples but instead increase the
 		 * reported latency on the port (TODO). */
-		if (*target <= state->delay + 48)
-			state->delay = SPA_MAX(0, (int)(*target - 48 - state->delay));
-		*target -= state->delay;
+		if (*target <= state->delay + MARGIN)
+			*target -= SPA_MAX(0, (int)(*target - MARGIN - state->delay));
+		else
+			*target -= state->delay;
 	} else {
 		state->delay = state->read_size = 0;
 	}
@@ -1290,6 +1291,7 @@ int spa_alsa_start(struct state *state)
 
 	reset_buffers(state);
 	state->alsa_sync = true;
+	state->alsa_recovering = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->alsa_started = false;

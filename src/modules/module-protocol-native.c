@@ -100,10 +100,18 @@ struct client {
 	struct pw_protocol_native_connection *connection;
 	struct spa_hook conn_listener;
 
+	int ref;
+
 	unsigned int disconnecting:1;
 	unsigned int flushing:1;
 	unsigned int paused:1;
 };
+
+static void client_unref(struct client *impl)
+{
+	if (--impl->ref == 0)
+		free(impl);
+}
 
 struct server {
 	struct pw_protocol_server this;
@@ -651,6 +659,7 @@ process_remote(struct client *impl)
 	struct pw_core *this = impl->this.core;
 	int res = 0;
 
+	impl->ref++;
 	while (!impl->disconnecting && !impl->paused) {
 		struct pw_proxy *proxy;
 		const struct pw_protocol_native_demarshal *demarshal;
@@ -659,8 +668,8 @@ process_remote(struct client *impl)
 		res = pw_protocol_native_connection_get_next(conn, &msg);
 		if (res < 0) {
 			if (res == -EAGAIN)
-				break;
-			return res;
+				res = 0;
+			break;
 		}
 		if (res == 0)
 			break;
@@ -692,7 +701,7 @@ process_remote(struct client *impl)
 			continue;
 		}
 
-                       demarshal = marshal->client_demarshal;
+		demarshal = marshal->client_demarshal;
 		if (!demarshal[msg->opcode].func) {
                                pw_log_error(NAME" %p: function %d not implemented on %u",
 					this, msg->opcode, msg->id);
@@ -703,13 +712,14 @@ process_remote(struct client *impl)
 		pw_proxy_unref(proxy);
 
 		if (res < 0) {
-			pw_log_error(NAME" %p: invalid message received %u for %u",
-					this, msg->opcode, msg->id);
+			pw_log_error(NAME" %p: invalid message received %u for %u: %s",
+					this, msg->opcode, msg->id, spa_strerror(res));
 			debug_msg("*invalid*", msg, true);
-			continue;
 		}
+		res = 0;
 	}
-	return 0;
+	client_unref(impl);
+	return res;
 }
 
 static void
@@ -826,7 +836,7 @@ static void impl_destroy(struct pw_protocol_client *client)
 	impl_disconnect(client);
 
 	spa_list_remove(&client->link);
-	free(impl);
+	client_unref(impl);
 }
 
 static int impl_set_paused(struct pw_protocol_client *client, bool paused)
@@ -910,6 +920,7 @@ impl_new_client(struct pw_protocol *protocol,
 	this->protocol = protocol;
 	this->core = core;
 
+	impl->ref = 1;
 	impl->context = protocol->context;
 	impl->connection = pw_protocol_native_connection_new(protocol->context, -1);
 	if (impl->connection == NULL) {

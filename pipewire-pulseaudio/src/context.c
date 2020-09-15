@@ -733,8 +733,11 @@ static void device_clear_ports(struct global *g)
 	pa_card_info *i = &g->card_info.info;
 	uint32_t n;
 
-	for (n = 0; n < i->n_ports; i++)
-		free(i->ports[n]->profiles2);
+	for (n = 0; n < i->n_ports; i++) {
+		pa_card_port_info *pi = i->ports[n];
+		pa_proplist_free(pi->proplist);
+		free(pi->profiles2);
+	}
 
 	i->n_ports = 0;
 	free(i->ports);

@@ -178,9 +178,12 @@ static int setup_convert(struct impl *this)
 			    outformat.info.raw.position[j])
 				continue;
 			this->remap[i] = j;
-			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%d -> %d)", this,
-					i, j, informat.info.raw.position[i],
-					outformat.info.raw.position[j]);
+			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%s -> %s)", this,
+					i, j,
+					spa_debug_type_find_short_name(spa_type_audio_channel,
+						informat.info.raw.position[i]),
+					spa_debug_type_find_short_name(spa_type_audio_channel,
+						outformat.info.raw.position[i]));
 			outformat.info.raw.position[j] = -1;
 			break;
 		}

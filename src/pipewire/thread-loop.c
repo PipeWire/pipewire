@@ -85,6 +85,7 @@ static const struct spa_loop_control_hooks impl_hooks = {
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_thread_loop *this = data;
+	pw_log_debug("stopping");
 	this->running = false;
 }
 
@@ -281,7 +282,7 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_stop(struct pw_thread_loop *loop)
 {
-	pw_log_debug(NAME": %p stopping", loop);
+	pw_log_debug(NAME": %p stopping %d", loop, loop->running);
 	if (loop->running) {
 		pw_log_debug(NAME": %p signal", loop);
 		pw_loop_signal_event(loop->loop, loop->event);

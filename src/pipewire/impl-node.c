@@ -1866,6 +1866,9 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	enum pw_node_state state = SPA_PTR_TO_INT(data);
 	char *error = NULL;
 
+	if (impl->pending != state)
+		return;
+
 	pw_log_debug(NAME" %p: state complete res:%d seq:%d", node, res, seq);
 	if (impl->last_error < 0) {
 		res = impl->last_error;

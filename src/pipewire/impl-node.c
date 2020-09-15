@@ -883,7 +883,12 @@ static void dump_states(struct pw_impl_node *driver)
 		struct pw_node_activation_state *state = &a->state[0];
 		if (t->node == NULL)
 			continue;
-		pw_log_warn("(%s-%u) state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
+		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
+		    a->status == PW_NODE_ACTIVATION_AWAKE) {
+			pw_log_warn("(%s-%u) client too slow! status:%s",
+				t->node->name, t->node->info.id, str_status(a->status));
+		}
+		pw_log_debug("(%s-%u) state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%s sync:%d",
 				t->node->name, t->node->info.id, state,
 				state->pending, state->required,
@@ -1454,7 +1459,7 @@ static int node_ready(void *data, int status)
 		if (SPA_UNLIKELY(state->pending > 0)) {
 			pw_context_driver_emit_incomplete(node->context, node);
 			if (ratelimit_test(&node->rt.rate_limit, a->signal_time)) {
-				pw_log_warn("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
+				pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
 						" pending %d/%d", node->name, node->info.id,
 						state, a->position.clock.duration,
 						state->pending, state->required);

@@ -1584,12 +1584,6 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	return c;
 }
 
-static void do_context_destroy(pa_mainloop_api*m, void *userdata)
-{
-	pa_context *c = userdata;
-	pw_context_destroy(c->context);
-}
-
 static void context_free(pa_context *c)
 {
 	pw_log_debug("context %p: free", c);
@@ -1602,7 +1596,7 @@ static void context_free(pa_context *c)
 	if (c->core_info)
 		pw_core_info_free(c->core_info);
 
-	pa_mainloop_api_once(c->mainloop, do_context_destroy, c);
+	pw_context_destroy(c->context);
 }
 
 SPA_EXPORT

@@ -238,6 +238,16 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static void update_rate_match(struct impl *this)
+{
+	if (this->io_rate_match) {
+		this->io_rate_match->delay = resample_delay(&this->resample);
+		if (SPA_LIKELY(this->io_position))
+			this->io_rate_match->size = resample_in_len(&this->resample,
+					this->io_position->clock.duration);
+	}
+}
+
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
@@ -248,6 +258,8 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
 		this->started = true;
+		resample_update_rate(&this->resample, 1.0);
+		update_rate_match(this);
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		/* fallthrough */

@@ -733,7 +733,9 @@ static void device_clear_ports(struct global *g)
 	pa_card_info *i = &g->card_info.info;
 	uint32_t n;
 
-	for (n = 0; n < i->n_ports; i++) {
+	pw_log_debug("device %d clear ports %d", g->id, i->n_ports);
+
+	for (n = 0; n < i->n_ports; n++) {
 		pa_card_port_info *pi = i->ports[n];
 		pa_proplist_free(pi->proplist);
 		free(pi->profiles2);
@@ -763,7 +765,7 @@ static void device_sync_ports(struct global *g)
 	g->card_info.port_devices = calloc(n_ports, sizeof(struct port_device));
 	i->n_ports = 0;
 
-	pw_log_debug("context %p: info for %d", g->context, g->id);
+	pw_log_debug("context %p: info for %d n_ports:%d", g->context, g->id, n_ports);
 
 	j = 0;
 
@@ -850,8 +852,9 @@ static void device_sync_ports(struct global *g)
 	}
 	i->ports[j] = NULL;
 	i->n_ports = j;
-	if (i->n_ports == 0)
-		i->ports = NULL;
+	if (i->n_ports == 0) {
+		device_clear_ports(g);
+	}
 
 	spa_list_for_each(p, &g->card_info.routes, link) {
 		struct global *ng;
@@ -913,6 +916,8 @@ static const struct pw_device_events device_events = {
 static void device_destroy(void *data)
 {
 	struct global *global = data;
+
+	pw_log_debug("device %d destroy", global->id);
 
 	if (global->card_info.info.proplist)
 		pa_proplist_free(global->card_info.info.proplist);

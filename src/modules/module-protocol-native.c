@@ -976,10 +976,9 @@ static void destroy_server(struct pw_protocol_server *server)
 	spa_list_for_each_safe(data, tmp, &server->client_list, protocol_link)
 		pw_impl_client_destroy(data->client);
 
-	if (s->source) {
-		spa_hook_remove(&s->hook);
+	if (s->source)
 		pw_loop_destroy_source(s->loop, s->source);
-	}
+
 	if (s->addr.sun_path[0] && !s->activated)
 		unlink(s->addr.sun_path);
 	if (s->lock_addr[0])

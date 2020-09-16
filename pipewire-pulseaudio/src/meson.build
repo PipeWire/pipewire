@@ -35,7 +35,7 @@ pipewire_mainloop_glib_sources = [
   'mainloop-glib.c',
 ]
 
-pipewire_mainloop_simple_sources = [
+pipewire_simple_sources = [
   'simple.c',
 ]
 
@@ -64,7 +64,7 @@ configure_file(input : 'pw-pulse.in',
                configuration : tools_config,
                install_dir : pipewire_bindir)
 
-pipewire_pulseaudio = shared_library('pulse',
+pipewire_pulse = shared_library('pulse',
     pipewire_pulseaudio_sources,
     soversion : soversion,
     version : libversion,
@@ -76,7 +76,7 @@ pipewire_pulseaudio = shared_library('pulse',
     install_dir : libpulse_path,
 )
 
-pipewire_pulseaudio = shared_library('pulse-mainloop-glib',
+pipewire_pulse_mainloop_glib = shared_library('pulse-mainloop-glib',
     pipewire_mainloop_glib_sources,
     soversion : soversion,
     version : libversion,
@@ -88,8 +88,8 @@ pipewire_pulseaudio = shared_library('pulse-mainloop-glib',
     install_dir : libpulse_path,
 )
 
-pipewire_pulseaudio = shared_library('pulse-simple',
-    pipewire_mainloop_simple_sources,
+pipewire_pulse_simple = shared_library('pulse-simple',
+    pipewire_simple_sources,
     soversion : soversion,
     version : libversion,
     c_args : pipewire_pulseaudio_c_args,

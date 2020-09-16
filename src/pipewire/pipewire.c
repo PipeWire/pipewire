@@ -473,15 +473,31 @@ const char *pw_get_application_name(void)
 SPA_EXPORT
 const char *pw_get_prgname(void)
 {
-	static char tcomm[16 + 1];
-	spa_zero(tcomm);
-
-#ifndef __FreeBSD__
-	if (prctl(PR_GET_NAME, (unsigned long) tcomm, 0, 0, 0) == 0)
-		return tcomm;
+	static char prgname[PATH_MAX];
+	spa_memzero(prgname, sizeof(prgname));
+#if defined(__linux__) || defined(__FreeBSD_kernel__)
+	{
+		ssize_t len;
+		if ((len = readlink("/proc/self/exe", prgname, sizeof(prgname)-1)) > 0)
+			return strrchr(prgname, '/') + 1;
+	}
 #endif
-
-	return NULL;
+#if defined __FreeBSD__
+	{
+		ssize_t len;
+		spa_memzero(prgname, sizeof(prgname));
+		if ((len = readlink("/proc/curproc/file", prgname, sizeof(prgname)-1)) > 0)
+			return strrchr(prgname, '/') + 1;
+	}
+#endif
+#ifndef __FreeBSD__
+	{
+		if (prctl(PR_GET_NAME, (unsigned long) prgname, 0, 0, 0) == 0)
+			return prgname;
+	}
+#endif
+	snprintf(prgname, sizeof(prgname)-1, "pid-%d", getpid());
+	return prgname;
 }
 
 /** Get the user name \memberof pw_pipewire */

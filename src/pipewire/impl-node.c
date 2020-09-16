@@ -46,6 +46,7 @@ struct impl {
 	struct pw_impl_node this;
 
 	enum pw_node_state pending;
+	uint32_t pending_id;
 
 	struct pw_work_queue *work;
 
@@ -1113,6 +1114,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 		res = -errno;
 		goto error_clean;
 	}
+	impl->pending_id = SPA_ID_INVALID;
 
 	this->data_loop = context->data_loop;
 
@@ -1866,8 +1868,7 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	enum pw_node_state state = SPA_PTR_TO_INT(data);
 	char *error = NULL;
 
-	if (impl->pending != state)
-		return;
+	impl->pending_id = SPA_ID_INVALID;
 
 	pw_log_debug(NAME" %p: state complete res:%d seq:%d", node, res, seq);
 	if (impl->last_error < 0) {
@@ -1956,12 +1957,14 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 	if (SPA_RESULT_IS_ASYNC(res)) {
 		res = spa_node_sync(node->node, res);
 	}
-	impl->pending = state;
 
-	if (old != state)
-		pw_work_queue_add(impl->work,
+	if (old != state) {
+		impl->pending = state;
+		if (impl->pending_id != SPA_ID_INVALID)
+			pw_work_queue_cancel(impl->work, node, impl->pending_id);
+		impl->pending_id = pw_work_queue_add(impl->work,
 				node, res, on_state_complete, SPA_INT_TO_PTR(state));
-
+	}
 	return res;
 }
 

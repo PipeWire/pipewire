@@ -64,15 +64,15 @@ static void process_work_queue(void *data, uint64_t count)
 
 	spa_list_for_each_safe(item, tmp, &this->work_list, link) {
 		if (item->seq != SPA_ID_INVALID) {
-			pw_log_debug(NAME" %p: %d waiting for item %p %d", this,
-				     this->n_queued, item->obj, item->seq);
+			pw_log_debug(NAME" %p: %d waiting for item %p seq:%d id:%u", this,
+				     this->n_queued, item->obj, item->seq, item->id);
 			continue;
 		}
 
 		if (item->res == -EBUSY &&
 		    item != spa_list_first(&this->work_list, struct work_item, link)) {
-			pw_log_debug(NAME" %p: %d sync item %p not head", this,
-				     this->n_queued, item->obj);
+			pw_log_debug(NAME" %p: n_queued:%d sync item %p not head id:%u", this,
+				     this->n_queued, item->obj, item->id);
 			continue;
 		}
 
@@ -80,8 +80,9 @@ static void process_work_queue(void *data, uint64_t count)
 		this->n_queued--;
 
 		if (item->func) {
-			pw_log_debug(NAME" %p: %d process work item %p %d %d", this,
-				     this->n_queued, item->obj, item->seq, item->res);
+			pw_log_debug(NAME" %p: n_queued:%d process work item %p seq:%d res:%d id:%u",
+					this, this->n_queued, item->obj, item->seq, item->res,
+					item->id);
 			item->func(item->obj, item->data, item->res, item->id);
 		}
 		spa_list_append(&this->free_list, &item->link);
@@ -139,8 +140,8 @@ void pw_work_queue_destroy(struct pw_work_queue *queue)
 	pw_loop_destroy_source(queue->loop, queue->wakeup);
 
 	spa_list_for_each_safe(item, tmp, &queue->work_list, link) {
-		pw_log_debug(NAME" %p: cancel work item %p %d %d", queue,
-			    item->obj, item->seq, item->res);
+		pw_log_debug(NAME" %p: cancel work item %p seq:%d res:%d id:%u",
+				queue, item->obj, item->seq, item->res, item->id);
 		free(item);
 	}
 	spa_list_for_each_safe(item, tmp, &queue->free_list, link)
@@ -181,9 +182,11 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 	if (SPA_RESULT_IS_ASYNC(res)) {
 		item->seq = SPA_RESULT_ASYNC_SEQ(res);
 		item->res = res;
-		pw_log_debug(NAME" %p: defer async %d for object %p", queue, item->seq, obj);
+		pw_log_debug(NAME" %p: defer async %d for object %p id:%d",
+				queue, item->seq, obj, item->id);
 	} else if (res == -EBUSY) {
-		pw_log_debug(NAME" %p: wait sync object %p", queue, obj);
+		pw_log_debug(NAME" %p: wait sync object %p id:%u",
+				queue, obj, item->id);
 		item->seq = SPA_ID_INVALID;
 		item->res = res;
 		have_work = true;
@@ -191,7 +194,7 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 		item->seq = SPA_ID_INVALID;
 		item->res = res;
 		have_work = true;
-		pw_log_debug(NAME" %p: defer object %p", queue, obj);
+		pw_log_debug(NAME" %p: defer object %p id:%u", queue, obj, item->id);
 	}
 	spa_list_append(&queue->work_list, &item->link);
 	queue->n_queued++;
@@ -216,15 +219,15 @@ int pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 
 	spa_list_for_each(item, &queue->work_list, link) {
 		if ((id == SPA_ID_INVALID || item->id == id) && (obj == NULL || item->obj == obj)) {
-			pw_log_debug(NAME" %p: cancel defer %d for object %p", queue,
-				     item->seq, item->obj);
+			pw_log_debug(NAME" %p: cancel defer %d for object %p id:%u", queue,
+				     item->seq, item->obj, id);
 			item->seq = SPA_ID_INVALID;
 			item->func = NULL;
 			have_work = true;
 		}
 	}
 	if (!have_work) {
-		pw_log_debug(NAME" %p: no deferred found for object %p", queue, obj);
+		pw_log_debug(NAME" %p: no deferred found for object %p id:%u", queue, obj, id);
 		return -EINVAL;
 	}
 
@@ -247,8 +250,8 @@ int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq,
 
 	spa_list_for_each(item, &queue->work_list, link) {
 		if (item->obj == obj && item->seq == seq) {
-			pw_log_debug(NAME" %p: found deferred %d for object %p res:%d",
-					queue, seq, obj, res);
+			pw_log_debug(NAME" %p: found deferred %d for object %p res:%d id:%u",
+					queue, seq, obj, res, item->id);
 			item->seq = SPA_ID_INVALID;
 			item->res = res;
 			have_work = true;

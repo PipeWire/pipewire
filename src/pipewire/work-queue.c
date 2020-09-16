@@ -175,6 +175,9 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 			return SPA_ID_INVALID;
 	}
 	item->id = ++queue->counter;
+	if (item->id == SPA_ID_INVALID)
+		item->id = ++queue->counter;
+
 	item->obj = obj;
 	item->func = func;
 	item->data = data;

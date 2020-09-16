@@ -113,7 +113,9 @@ struct spa_loop_methods {
 #define spa_loop_invoke(l,...)		spa_loop_method(l,invoke,0,##__VA_ARGS__)
 
 
-/** Control hooks */
+/** Control hooks. These hooks can't be removed from their
+ *  callbacks and must be removed from a safe place (when the loop
+ *  is not running or when it is locked). */
 struct spa_loop_control_hooks {
 #define SPA_VERSION_LOOP_CONTROL_HOOKS	0
 	uint32_t version;
@@ -125,8 +127,21 @@ struct spa_loop_control_hooks {
 	void (*after) (void *data);
 };
 
-#define spa_loop_control_hook_before(l) spa_hook_list_call_simple(l, struct spa_loop_control_hooks, before, 0)
-#define spa_loop_control_hook_after(l) spa_hook_list_call_simple(l, struct spa_loop_control_hooks, after, 0)
+#define spa_loop_control_hook_before(l)							\
+({											\
+	struct spa_hook_list *_l = l;							\
+	struct spa_hook *_h;								\
+	spa_list_for_each_reverse(_h, &_l->list, link)					\
+		spa_callbacks_call(&_h->cb, struct spa_loop_control_hooks, before, 0);	\
+})
+
+#define spa_loop_control_hook_after(l)							\
+({											\
+	struct spa_hook_list *_l = l;							\
+	struct spa_hook *_h;								\
+	spa_list_for_each(_h, &_l->list, link)						\
+		spa_callbacks_call(&_h->cb, struct spa_loop_control_hooks, after, 0);	\
+})
 
 /**
  * Control an event loop

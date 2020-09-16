@@ -278,24 +278,13 @@ static int loop_iterate(void *object, int timeout)
 	struct impl *impl = object;
 	struct spa_loop *loop = &impl->loop;
 	struct spa_poll_event ep[32];
-	struct spa_list save;
-	struct spa_hook *hook;
 	int i, nfds;
 
-	spa_list_init(&save);
-	spa_list_consume(hook, &impl->hooks_list.list, link) {
-		spa_list_remove(&hook->link);
-		spa_list_prepend(&save, &hook->link);
-		spa_callbacks_call(&hook->cb, struct spa_loop_control_hooks, before, 0);
-	}
+	spa_loop_control_hook_before(&impl->hooks_list);
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 
-	spa_list_consume(hook, &save, link) {
-		spa_list_remove(&hook->link);
-		spa_list_append(&impl->hooks_list.list, &hook->link);
-		spa_callbacks_call(&hook->cb, struct spa_loop_control_hooks, after, 0);
-	}
+	spa_loop_control_hook_after(&impl->hooks_list);
 
 	if (SPA_UNLIKELY(nfds < 0))
 		return nfds;

@@ -1009,6 +1009,17 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
 
+	if ((t = spa_bt_transport_find(backend->monitor, endpoint->path)) != NULL) {
+		if (!endpoint->connected) {
+			spa_bt_transport_free(t);
+			spa_bt_device_check_profiles(d, false);
+			spa_log_debug(backend->log, "Transport released for %s", endpoint->path);
+		} else
+			spa_log_debug(backend->log, "Transport already configured for %s", endpoint->path);
+
+		return DBUS_HANDLER_RESULT_HANDLED;
+	}
+
 	if (!endpoint->valid || !endpoint->connected)
 		return DBUS_HANDLER_RESULT_HANDLED;
 

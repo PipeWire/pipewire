@@ -897,12 +897,15 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 		/* from now on we are only interested in active driving nodes.
 		 * We're going to see if there are active followers. */
-		if (!n->driving || !n->active || n->passive)
+		if (!n->driving || !n->active)
 			continue;
 
 		/* first active driving node is fallback */
 		if (fallback == NULL)
 			fallback = n;
+
+		if (n->passive)
+			continue;
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 			pw_log_debug(NAME" %p: driver %p: follower %p %s: active:%d",
@@ -930,14 +933,16 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		if (!n->visited) {
 			struct pw_impl_node *t;
 
-			pw_log_debug(NAME" %p: unassigned node %p: '%s' active:%d want_driver:%d",
-					context, n, n->name, n->active, n->want_driver);
+			pw_log_debug(NAME" %p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
+					context, n, n->name, n->active, n->want_driver, target);
 
-			t = n->active && n->want_driver ? target : NULL;
+			t = (n->active && n->want_driver) ? target : NULL;
 
 			pw_impl_node_set_driver(n, t);
 			if (t == NULL)
 				ensure_state(n, false);
+			else
+				t->passive = false;
 		}
 		n->visited = false;
 	}

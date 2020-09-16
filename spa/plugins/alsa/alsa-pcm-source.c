@@ -782,6 +782,8 @@ impl_init(const struct spa_handle_factory *factory,
 			snprintf(this->props.device, 63, "%s", info->items[i].value);
 		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_CHANNELS)) {
 			this->default_channels = atoi(info->items[i].value);
+		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_RATE)) {
+			this->default_rate = atoi(info->items[i].value);
 		}
 	}
 	return 0;

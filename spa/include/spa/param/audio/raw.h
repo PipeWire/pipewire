@@ -222,6 +222,7 @@ struct spa_audio_info_raw {
 #define SPA_KEY_AUDIO_CHANNEL		"audio.channel"		/**< an audio channel as string,
 								  *  Ex. "FL" */
 #define SPA_KEY_AUDIO_CHANNELS		"audio.channels"	/**< an audio channel count as int */
+#define SPA_KEY_AUDIO_RATE		"audio.rate"		/**< an audio sample rate as int */
 
 struct spa_audio_info_dsp {
 	enum spa_audio_format format;		/*< format, one of the DSP formats in enum spa_audio_format_dsp */

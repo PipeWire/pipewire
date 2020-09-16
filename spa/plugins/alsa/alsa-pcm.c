@@ -341,6 +341,13 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
+	if (state->default_rate != 0) {
+		if (min < state->default_rate)
+			min = state->default_rate;
+		if (max > state->default_rate)
+			max = state->default_rate;
+	}
+
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_rate, 0);
 
 	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);

@@ -104,6 +104,7 @@ struct state {
 	struct spa_audio_info current_format;
 
 	unsigned int default_channels;
+	unsigned int default_rate;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;

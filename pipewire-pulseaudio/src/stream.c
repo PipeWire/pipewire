@@ -461,6 +461,8 @@ static void stream_drained(void *data)
 {
 	pa_stream *s = data;
 
+	pw_log_debug("drained");
+
 	if (s->drain) {
 		pa_operation *o = s->drain;
 		pa_operation_ref(o);

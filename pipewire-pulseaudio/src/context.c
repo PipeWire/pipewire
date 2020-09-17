@@ -1473,13 +1473,20 @@ static void core_done(void *data, uint32_t id, int seq)
 		}
 	}
 	spa_list_for_each_safe(o, t, &ops, link) {
+		if (!o->sync)
+			continue;
 		pa_operation_ref(o);
-		pw_log_debug("operation %p complete", o);
+		pw_log_debug("sync operation %p complete", o);
 		if (o->callback)
 			o->callback(o, o->userdata);
 		pa_operation_unref(o);
 	}
 	spa_list_consume(o, &ops, link) {
+		if (!o->sync) {
+			spa_list_remove(&o->link);
+			spa_list_append(&c->operations, &o->link);
+			continue;
+		}
 		pw_log_warn("operation %p canceled", o);
 		pa_operation_cancel(o);
 	}

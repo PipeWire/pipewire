@@ -491,6 +491,7 @@ struct pa_operation
 	int refcount;
 	pa_context *context;
 	pa_stream *stream;
+	unsigned int sync:1;
 
 	pa_operation_state_t state;
 

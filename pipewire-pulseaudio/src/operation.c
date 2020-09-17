@@ -52,6 +52,7 @@ int pa_operation_sync(pa_operation *o)
 {
 	pa_context *c = o->context;
 	c->pending_seq = pw_core_sync(c->core, PW_ID_CORE, 0);
+	o->sync = true;
 	pw_log_debug("operation %p: sync seq:%d", o, c->pending_seq);
 	return 0;
 }

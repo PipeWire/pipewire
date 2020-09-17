@@ -200,7 +200,7 @@ struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, cons
 			    strncmp(str, name, strlen(name) - 8) == 0)
 				return g;
 		}
-		if (g->id == id || (g->id == (id & PA_IDX_MASK_MONITOR)))
+		if (id == SPA_ID_INVALID || g->id == id || (g->id == (id & PA_IDX_MASK_MONITOR)))
 			return g;
 	}
 	return NULL;

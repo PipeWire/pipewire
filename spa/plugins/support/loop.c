@@ -80,6 +80,8 @@ struct impl {
 
 	struct spa_ringbuffer buffer;
 	uint8_t buffer_data[DATAS_SIZE];
+
+	unsigned int flushing:1;
 };
 
 struct source_impl {
@@ -126,6 +128,7 @@ static void flush_items(struct impl *impl, bool async)
 	uint32_t index;
 	int res;
 
+	impl->flushing = true;
 	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
 		struct invoke_item *item;
 		bool block;
@@ -145,6 +148,7 @@ static void flush_items(struct impl *impl, bool async)
 						impl, spa_strerror(res));
 		}
 	}
+	impl->flushing = false;
 }
 
 static int
@@ -161,7 +165,7 @@ loop_invoke(void *object,
 	struct invoke_item *item;
 	int res;
 
-	if (in_thread) {
+	if (in_thread && !impl->flushing) {
 		flush_items(impl, false);
 		res = func ? func(&impl->loop, false, seq, data, size, user_data) : 0;
 	} else {

@@ -424,7 +424,7 @@ static int find_node(void *data, struct node *node)
 				is_default = impl->default_video_source == node->id;
 		}
 		if (is_default)
-			priority += 1000;
+			priority += 10000;
 	}
 
 	if ((find->exclusive && node->obj->info->state == PW_NODE_STATE_RUNNING) ||

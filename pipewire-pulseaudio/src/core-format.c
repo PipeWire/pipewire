@@ -390,7 +390,7 @@ int pa_format_parse_param(const struct spa_pod *param, pa_sample_spec *spec, pa_
 		map->map[i] = channel_id2pa(info.info.raw.position[i], &aux);
 
 	if (!pa_channel_map_valid(map))
-		pa_channel_map_init_extend(map, info.info.raw.channels, PA_CHANNEL_MAP_OSS);
+		pa_channel_map_init_extend(map, info.info.raw.channels, PA_CHANNEL_MAP_DEFAULT);
 
 	return 0;
 }

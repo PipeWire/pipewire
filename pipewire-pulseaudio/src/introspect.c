@@ -126,7 +126,7 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		i.channel_map = g->node_info.channel_map;
 	else
 		pa_channel_map_init_extend(&i.channel_map,
-				i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+				i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 	i.owner_module = g->id;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
@@ -857,7 +857,7 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		i.channel_map = g->node_info.channel_map;
 	else
 		pa_channel_map_init_extend(&i.channel_map,
-				i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+				i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 	i.owner_module = g->id;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
@@ -1286,7 +1286,7 @@ static void server_callback(struct server_data *d, pa_context *c)
 	i.default_sink_name = get_default_name(c, PA_SUBSCRIPTION_MASK_SINK);
 	i.default_source_name = get_default_name(c, PA_SUBSCRIPTION_MASK_SOURCE);
 	i.cookie = info->cookie;
-        pa_channel_map_init_extend(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+	pa_channel_map_init_extend(&i.channel_map, i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 	d->cb(c, &i, d->userdata);
 }
 
@@ -2064,7 +2064,7 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 			i.channel_map = s->channel_map;
 		else
 			pa_channel_map_init_extend(&i.channel_map,
-					i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 		i.format = s->format;
 	}
 	else {
@@ -2077,7 +2077,7 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 			i.channel_map = g->node_info.channel_map;
 		else
 			pa_channel_map_init_extend(&i.channel_map,
-					i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;
@@ -2467,7 +2467,7 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 			i.channel_map = s->channel_map;
 		else
 			pa_channel_map_init_extend(&i.channel_map,
-					i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 		i.format = s->format;
 	}
 	else {
@@ -2480,7 +2480,7 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 			i.channel_map = g->node_info.channel_map;
 		else
 			pa_channel_map_init_extend(&i.channel_map,
-					i.sample_spec.channels, PA_CHANNEL_MAP_OSS);
+					i.sample_spec.channels, PA_CHANNEL_MAP_DEFAULT);
 		ii[0].encoding = PA_ENCODING_PCM;
 		ii[0].plist = pa_proplist_new();
 		i.format = ii;

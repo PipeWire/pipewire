@@ -687,7 +687,6 @@ again:
 		if (this->clock) {
 			this->clock->nsec = now_time;
 			this->clock->position = this->sample_count;
-			this->clock->duration = this->write_samples;
 			this->clock->delay = queued;
 			this->clock->rate_diff = 1.0f;
 			this->clock->next_nsec = SPA_TIMESPEC_TO_NSEC(&ts.it_value);

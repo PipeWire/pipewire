@@ -1122,12 +1122,14 @@ static void node_on_data_fd_events(struct spa_source *source)
 
 	if (source->rmask & SPA_IO_IN) {
 		uint64_t cmd;
+		struct pw_impl_node *node = this->impl->this.node;
 
 		if (SPA_UNLIKELY(spa_system_eventfd_read(this->data_system,
 					this->data_source.fd, &cmd) < 0))
 			pw_log_warn(NAME" %p: read failed %m", this);
 		else if (SPA_UNLIKELY(cmd > 1))
-			pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", this, cmd - 1);
+			pw_log_warn("(%s-%u) client missed %"PRIu64" wakeups",
+				node->name, node->info.id, cmd - 1);
 
 		spa_log_trace_fp(this->log, NAME" %p: got ready", this);
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);

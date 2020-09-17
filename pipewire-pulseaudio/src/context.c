@@ -940,6 +940,13 @@ struct global_info device_info = {
 	.sync = device_sync,
 };
 
+static void clear_node_formats(struct global *g)
+{
+	pa_format_info *f;
+	pw_array_for_each(f, &g->node_info.formats)
+		pa_format_info_free(f);
+}
+
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct global *g = object;
@@ -964,6 +971,9 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 				continue;
 
 			switch (info->params[i].id) {
+			case SPA_PARAM_EnumFormat:
+				clear_node_formats(g);
+				/* fallthrough */
 			case SPA_PARAM_Props:
 			case SPA_PARAM_Format:
 				pw_device_enum_params((struct pw_device*)g->proxy,
@@ -989,6 +999,13 @@ static void node_event_param(void *object, int seq,
 		if (!SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME | NODE_FLAG_DEVICE_MUTE))
 			parse_props(g, param, false);
 		break;
+	case SPA_PARAM_EnumFormat:
+	{
+		pa_format_info *f = pa_format_info_from_param(param);
+		if (f)
+			pw_array_add_ptr(&g->node_info.formats, f);
+		break;
+	}
 	case SPA_PARAM_Format:
 		pa_format_parse_param(param, &g->node_info.sample_spec, &g->node_info.channel_map);
 		break;
@@ -1006,6 +1023,7 @@ static const struct pw_node_events node_events = {
 static void node_destroy(void *data)
 {
 	struct global *global = data;
+	clear_node_formats(global);
 	if (global->info)
 		pw_node_info_free(global->info);
 }
@@ -1281,6 +1299,7 @@ static int set_mask(pa_context *c, struct global *g)
 		g->node_info.volume_step = 1.0f / (PA_VOLUME_NORM+1);
 		g->node_info.active_port = SPA_ID_INVALID;
 		g->node_info.available_port = SPA_PARAM_AVAILABILITY_unknown;
+		pw_array_init(&g->node_info.formats, sizeof(void*) * 4);
 	} else if (strcmp(g->type, PW_TYPE_INTERFACE_Port) == 0) {
 		if (g->props == NULL)
 			return 0;

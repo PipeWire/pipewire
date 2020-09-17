@@ -102,8 +102,6 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 	uint32_t n, j;
 	char monitor_name[1024];
 	pa_sink_info i;
-	pa_format_info ii[1];
-	pa_format_info *ip[1];
 
 	spa_zero(i);
 	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)))
@@ -184,14 +182,10 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		else
 			i.ports[j] = NULL;
 	}
-	i.n_formats = 1;
-	ii[0].encoding = PA_ENCODING_PCM;
-	ii[0].plist = pa_proplist_new();
-	ip[0] = ii;
-	i.formats = ip;
+	i.n_formats = pw_array_get_len(&g->node_info.formats, pa_format_info *);
+	i.formats = g->node_info.formats.data;
 	d->cb(c, &i, 0, d->userdata);
 	pa_proplist_free(i.proplist);
-	pa_proplist_free(ii[0].plist);
 	return 0;
 }
 
@@ -817,8 +811,6 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 	const char *str;
 	uint32_t n, j;
 	pa_source_info i;
-	pa_format_info ii[1];
-	pa_format_info *ip[1];
 	enum pa_source_flags flags;
 	bool monitor;
 
@@ -917,14 +909,10 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		else
 			i.ports[j] = NULL;
 	}
-	i.n_formats = 1;
-	ii[0].encoding = PA_ENCODING_PCM;
-	ii[0].plist = pa_proplist_new();
-	ip[0] = ii;
-	i.formats = ip;
+	i.n_formats = pw_array_get_len(&g->node_info.formats, pa_format_info *);
+	i.formats = g->node_info.formats.data;
 	d->cb(c, &i, 0, d->userdata);
 	pa_proplist_free(i.proplist);
-	pa_proplist_free(ii[0].plist);
 	return 0;
 }
 

@@ -117,7 +117,6 @@ struct impl {
 
 	struct spa_source source;
 	int timerfd;
-	int threshold;
 	struct spa_source flush_source;
 
 	struct spa_io_clock *clock;
@@ -1227,7 +1226,6 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->frame_size = info.info.raw.channels * 2;
 		port->current_format = info;
 		port->have_format = true;
-		this->threshold = this->props.min_latency;
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -1306,7 +1304,6 @@ impl_node_port_use_buffers(void *object,
 			spa_log_error(this->log, NAME " %p: need mapped memory", this);
 			return -EINVAL;
 		}
-		this->threshold = buffers[i]->datas[0].maxsize / port->frame_size;
 	}
 	port->n_buffers = n_buffers;
 
@@ -1376,9 +1373,6 @@ static int impl_node_process(void *object)
 		spa_list_append(&port->ready, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		port->need_data = false;
-
-		this->threshold = SPA_MIN(b->buf->datas[0].chunk->size / port->frame_size,
-				this->props.max_latency);
 
 		flush_data(this, now_time);
 

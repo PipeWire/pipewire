@@ -807,6 +807,8 @@ again:
 		}
 	}
 
+	copy_position(impl, impl->queued.outcount);
+
 	if (!impl->draining &&
 	    !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER) &&
 	    spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) > 0) {
@@ -815,7 +817,6 @@ again:
 		    io->status == SPA_STATUS_NEED_DATA)
 			goto again;
 	}
-	copy_position(impl, impl->queued.outcount);
 
 	pw_log_trace(NAME" %p: res %d", stream, res);
 

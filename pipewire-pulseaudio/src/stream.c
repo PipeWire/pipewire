@@ -346,7 +346,7 @@ static void update_timing_info(pa_stream *s)
 		ti->write_index = pos;
 	}
 	s->timing_info_valid = true;
-	s->queued_bytes = pwt.queued;
+	s->queued_bytes = pwt.queued + s->ready_bytes;
 
 	pw_log_trace("stream %p: %"PRIu64" rate:%d/%d ticks:%"PRIu64" pos:%"PRIu64" delay:%"PRIi64 " read:%"PRIu64
 			" write:%"PRIu64" queued:%"PRIi64,
@@ -373,12 +373,14 @@ static void queue_output(pa_stream *s)
 		pw_log_trace("queue %p", m);
 		spa_list_remove(&m->link);
 		s->ready_bytes -= m->size;
+		s->queued_bytes += m->size;
 
 		buf->buffer->datas[0].maxsize = m->maxsize;
 		buf->buffer->datas[0].data = m->data;
 		buf->buffer->datas[0].chunk->offset = m->offset;
 		buf->buffer->datas[0].chunk->size = m->size;
 		buf->user_data = m;
+		buf->size = m->size;
 		m->user_data = buf;
 
 		pw_stream_queue_buffer(s->stream, buf);
@@ -437,13 +439,12 @@ static void stream_process(void *data)
 	update_timing_info(s);
 
 	if (s->direction == PA_STREAM_PLAYBACK) {
-		pa_timing_info *i = &s->timing_info;
 		uint64_t queued, writable, required;
 
 		queue_output(s);
 
-		queued = i->write_index - SPA_MIN(i->read_index, i->write_index);
-		writable = s->maxblock - SPA_MIN(queued, s->maxblock);
+		queued = s->queued_bytes;
+		writable = s->maxsize - SPA_MIN(queued, s->maxsize);
 		required = SPA_MIN(s->maxblock, s->buffer_attr.minreq);
 
 		if (s->write_callback && s->state == PA_STREAM_READY && writable >= required)
@@ -1254,10 +1255,10 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 		elapsed = 0;
 	}
 
-	queued = i->write_index - SPA_MIN(i->read_index, i->write_index);
+	queued = s->queued_bytes;
 	queued -= SPA_MIN(queued, elapsed);
 
-	writable = s->maxblock - SPA_MIN(queued, s->maxblock);
+	writable = s->maxsize - SPA_MIN(queued, s->maxsize);
 	required = SPA_MIN(s->maxblock, s->buffer_attr.minreq);
 
 	pw_log_debug("stream %p: %"PRIu64" minreq:%u maxblock:%zu", s,

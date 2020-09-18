@@ -1002,8 +1002,20 @@ static void node_event_param(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 	{
 		pa_format_info *f = pa_format_info_from_param(param);
-		if (f)
+		if (f) {
 			pw_array_add_ptr(&g->node_info.formats, f);
+
+			if (g->node_info.channel_map.channels == 0)
+				pa_format_info_get_channel_map(f, &g->node_info.channel_map);
+
+			if (g->node_info.sample_spec.format == 0 ||
+			    g->node_info.sample_spec.rate == 0 ||
+			    g->node_info.sample_spec.channels == 0) {
+				pa_format_info_get_sample_format(f, &g->node_info.sample_spec.format);
+				pa_format_info_get_rate(f, &g->node_info.sample_spec.rate);
+				pa_format_info_get_channels(f, &g->node_info.sample_spec.channels);
+			}
+		}
 		break;
 	}
 	case SPA_PARAM_Format:

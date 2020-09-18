@@ -394,9 +394,12 @@ int rd_device_acquire(struct rd_device *d)
 					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
 					&error)) < 0) {
 			dbus_error_free(&error);
-			res = -EBUSY;
 	}
-	return res;
+
+	if (res != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+		return -EBUSY;
+
+	return 0;
 }
 
 int rd_device_request_release(struct rd_device *d)

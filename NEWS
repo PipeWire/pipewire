@@ -1,3 +1,62 @@
+PipeWire 0.3.12
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- PipeWire improvements
+  * the channelmap converter now handles unknown and strange
+    channellayouts much better.
+  * the resampler is now cleared correctly, avoiding clicks and
+    pops at the start of sound.
+  * Fixes for various crasher bugs. (paplay drain, vlc shutdown,
+    pactl info, ...)
+  * Fix a race condition in the node state changes that caused
+    all kinds of sync and other issues (vlc, mpv, ...)
+  * Improve the binary name property of applications
+  * Fix the scheduling again of nodes that always need a driver
+    such as the jack clients.
+
+- Session manager improvements
+  * fix routing to default nodes. Sometimes nodes were not routed to
+    the default node (bluetooth)
+
+- Device support
+  * disable channelmap from ALSA by default. This is what PulseAudio
+    does and thus provides better compatibility.
+  * fix a bug in how the resampler was used in the ALSA source,
+    causing distortion and errors when using low latency capture
+    clients. (Discord, webrtc, ...)
+  * Small bluetooth improvements. More work is needed for reliable
+    bluetooth playback.
+
+- GStreamer plugins
+  * the device provider now stops the processing loop before shutting
+    down, which avoids crashes (gnome-initial-setup).
+
+- PulseAudio layer improvements
+  * the buffer attributes were reworked to ensure compatibility with
+    many more applications such as mpv and audacious.
+  * the pulseaudio layer will now try hard to not hand out invalid
+    channel maps to the application. (avoids crashes in
+    gnome-volume-control). The channel map will now also look more
+    like what PulseAudio does.
+  * the @DEFAULT_SINK/SOURCE/MONITOR@ wildcards now work. This
+    fixes the problem with volume keys when they are bound to
+    scripts using pactl and the default sink/source wildcards.
+  * the PIPEWIRE_LATENCY environment variable now works again
+  * Fix some leaks of ports and port info. Also fix the leak of the
+    context when the mainloop is stopped.
+  * The sink/source format_info array is now filled up completely,
+    this is actually not implemented yet in the real PulseAudio.
+
+- JACK layer improvements
+  * jack now returns version 3.0.0 and has PipeWire in the version
+    string so that apps can report this.
+
+
+Older versions:
+
+
 PipeWire 0.3.11
 
 This is a bugfix release that is API and ABI compatible
@@ -84,9 +143,6 @@ with previous 0.3.x releases.
   * Fix compatibility:
 	+ linphone (ALSA SIGFPE when _status() is called
 	  before _prepare()).
-
-
-Older versions:
 
 PipeWire 0.3.10
 

@@ -159,8 +159,9 @@ static int node_acquire(void *data)
 	node->acquired = true;
 
 	if (device && device->n_acquired++ == 0 && device->reserve)
-		rd_device_acquire(device->reserve);
-	return 0;
+		return rd_device_acquire(device->reserve);
+	else
+		return 0;
 }
 
 static int node_release(void *data)
@@ -775,10 +776,6 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		goto clean_device;
 	}
 
-	sm_object_add_listener(&device->sdevice->obj,
-			&device->listener,
-			&device_events, device);
-
 	if (impl->conn &&
 	    (card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		const char *reserve;
@@ -796,10 +793,18 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 			rd_device_set_application_device_name(device->reserve,
 				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
 
-			rd_device_acquire(device->reserve);
+			if (rd_device_acquire(device->reserve) < 0) {
+				pw_log_warn("could not reserve device for %s: %m", reserve);
+				goto clean_device;
+			}
 		}
 		device->priority -= atol(card) * 64;
 	}
+
+	sm_object_add_listener(&device->sdevice->obj,
+			&device->listener,
+			&device_events, device);
+
 	device->pending_profile = 1;
 	device->first = true;
 	spa_list_init(&device->node_list);

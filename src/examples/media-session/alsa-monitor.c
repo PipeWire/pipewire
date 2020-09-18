@@ -787,7 +787,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		reserve = pw_properties_get(device->props, "api.dbus.ReserveDevice1");
 
 		device->reserve = rd_device_new(impl->conn, reserve,
-				"PipeWire", 10,
+				"PipeWire", -10,
 				&reserve_callbacks, device);
 
 		if (device->reserve == NULL) {

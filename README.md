@@ -42,10 +42,10 @@ applications:
 * `PIPEWIRE_LOG=<filename>`        to redirect log to filename
 * `PIPEWIRE_LATENCY=<num/denom>`   to configure latency as a fraction. 10/1000
                                    configures a 10ms latency. Usually this is
-				   expressed with a denom of the samplerate,
+				   expressed as a fraction of the samplerate,
 				   like 256/48000, which uses 256 samples at a
 				   samplerate of 48KHz for a latency of 5.33ms.
-* `PIPEWIRE_NODE=<id>`             to request link to specified node
+* `PIPEWIRE_NODE=<id>`             to request a link to the specified node
 
 ### Using tools
 
@@ -94,13 +94,13 @@ If the PipeWire alsa module is installed, it can be seen with
 $ aplay -L
 ```
 
-Alsa application can then use the `pipewire:` device to use PipeWire
+ALSA application can then use the `pipewire:` device to use PipeWire
 as the audio system.
 
 ### Running GStreamer applications
 
 PipeWire includes 2 GStreamer elements called `pipewiresrc` and
-`pipewiresink`. They can be used in pipelines like this:
+`pipewiresink`. They can be used in pipelines such as this:
 
 ```
 $ gst-launch-1.0 pipewiresrc ! videoconvert ! autovideosink
@@ -130,10 +130,10 @@ ports but it is a good start.
 
 `pw-mon` dumps and monitors the state of the PipeWire daemon.
 
-`pw-dot` can dump a graph of the pipeline, checkout out the help for
+`pw-dot` can dump a graph of the pipeline, check out the help for
 how to do this.
 
-There is a more complicated tools to inspect the state of the server
+There is a more complicated tool to inspect the state of the server
 with `pw-cli`. This tools can be used interactively or it can execute
 single commands like this to get the server information:
 

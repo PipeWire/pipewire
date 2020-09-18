@@ -1568,6 +1568,7 @@ pa_operation* pa_stream_flush(pa_stream *s, pa_stream_success_cb_t cb, void *use
 			b->user_data = NULL;
 	}
 	s->ready_bytes = 0;
+	s->queued_bytes = 0;
 	s->timing_info.write_index = s->timing_info.read_index = 0;
 	s->have_time = false;
 	pa_operation_sync(o);

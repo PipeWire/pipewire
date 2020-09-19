@@ -31,7 +31,7 @@ a user-space daemon is needed to make this possible:
   from clients
 * For Pro audio, we use JACK to manage the graph of nodes.
 
-None of these solutions (with perhaps to some extend Wayland), however,
+None of these solutions (except perhaps to some extend Wayland), however,
 were designed to support the security features that are required when
 dealing with flatpaks or other containerized applications. PipeWire
 aims to solve this problem and provides a unified framework to run both

@@ -326,7 +326,7 @@ prop = spa_pod_find_prop(obj, prop, SPA_FORMAT_AUDIO_rate);
 Similar to the builder, there is a parser object as well.
 
 It the fields in a struct are known, it is much easier to use the
-parser. Similarly, if the object type (and thus it's) keys are known,
+parser. Similarly, if the object type (and thus its) keys are known,
 the parser is easier.
 
 First initialize a `struct spa_pod_parser`:

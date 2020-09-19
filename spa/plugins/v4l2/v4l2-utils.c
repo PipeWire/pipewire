@@ -566,6 +566,8 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 
 	while (port->next_fmtdesc) {
 		if (filter) {
+			struct v4l2_format fmt;
+
 			video_format = enum_filter_format(filter_media_type,
 					    filter_media_subtype,
 					    filter, port->fmtdesc.index);
@@ -580,6 +582,21 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 				goto next_fmtdesc;
 
 			port->fmtdesc.pixelformat = info->fourcc;
+
+			fmt.type = port->fmtdesc.type;
+			fmt.fmt.pix.pixelformat = info->fourcc;
+			fmt.fmt.pix.field = V4L2_FIELD_ANY;
+			fmt.fmt.pix.width = 0;
+			fmt.fmt.pix.height = 0;
+
+			if ((res = xioctl(dev->fd, VIDIOC_TRY_FMT, &fmt)) < 0) {
+				spa_log_error(this->log, "v4l2: '%s' VIDIOC_TRY_FMT: %m",
+						this->props.device);
+				goto next_fmtdesc;
+			}
+			if (fmt.fmt.pix.pixelformat != info->fourcc)
+				goto next_fmtdesc;
+
 		} else {
 			if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
 				if (errno == EINVAL)

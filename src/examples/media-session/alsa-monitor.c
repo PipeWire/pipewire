@@ -78,6 +78,8 @@ struct device {
 	uint32_t id;
 	uint32_t device_id;
 
+	char *factory_name;
+
 	struct rd_device *reserve;
 	struct spa_hook sync_listener;
 	int seq;
@@ -99,6 +101,7 @@ struct device {
 
 	unsigned int first:1;
 	unsigned int appeared:1;
+	unsigned int probed:1;
 	struct spa_list node_list;
 };
 
@@ -123,6 +126,8 @@ struct impl {
 
 #undef NAME
 #define NAME "alsa-monitor"
+
+static int probe_device(struct device *device);
 
 static struct node *alsa_find_node(struct device *device, uint32_t id)
 {
@@ -577,9 +582,10 @@ static void reserve_acquired(void *data, struct rd_device *d)
 {
 	struct device *device = data;
 
-	pw_log_debug("%p: reserve acquired %d", device, device->n_acquired);
+	pw_log_info("%p: reserve acquired %d", device, device->n_acquired);
 
-	device->sdevice->locked = false;
+	if (!device->probed)
+		probe_device(device);
 
 	if (device->n_acquired == 0)
 		rd_device_release(device->reserve);
@@ -617,7 +623,7 @@ static void reserve_release(void *data, struct rd_device *d, int forced)
 {
 	struct device *device = data;
 
-	pw_log_debug("%p: reserve release", device);
+	pw_log_info("%p: reserve release", device);
 
 	set_profile(device, 0);
 
@@ -633,7 +639,10 @@ static void reserve_busy(void *data, struct rd_device *d, const char *name, int3
 	struct device *device = data;
 	struct impl *impl = device->impl;
 
-	pw_log_debug("%p: reserve busy %s", device, name);
+	pw_log_info("%p: reserve busy %s", device, name);
+	if (device->sdevice == NULL)
+		return ;
+
 	device->sdevice->locked = true;
 
 	if (strcmp(name, "jack") == 0) {
@@ -648,7 +657,10 @@ static void reserve_available(void *data, struct rd_device *d, const char *name)
 	struct device *device = data;
 	struct impl *impl = device->impl;
 
-	pw_log_debug("%p: reserve available %s", device, name);
+	pw_log_info("%p: reserve available %s", device, name);
+	if (device->sdevice == NULL)
+		return ;
+
 	device->sdevice->locked = false;
 
 	remove_jack_timeout(impl);
@@ -689,6 +701,7 @@ static void device_free(void *data)
 	struct device *device = data;
 	pw_log_debug("device %p free", device);
 	spa_hook_remove(&device->listener);
+	free(device->factory_name);
 	pw_unload_spa_handle(device->handle);
 	pw_properties_free(device->props);
 	free(device);
@@ -720,14 +733,56 @@ static const struct sm_object_events device_events = {
 	.update = device_update,
 };
 
+static int probe_device(struct device *device)
+{
+	struct impl *impl = device->impl;
+	struct pw_context *context = impl->session->context;
+	struct spa_handle *handle;
+	void *iface;
+	int res;
+
+	handle = pw_context_load_spa_handle(context,
+			device->factory_name, &device->props->dict);
+	if (handle == NULL) {
+		res = -errno;
+		pw_log_error("can't make factory instance: %m");
+		goto exit;
+	}
+
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
+		pw_log_error("can't get %s interface: %s", SPA_TYPE_INTERFACE_Device,
+				spa_strerror(res));
+		goto unload_handle;
+	}
+
+	device->handle = handle;
+	device->device = iface;
+
+	device->sdevice = sm_media_session_export_device(impl->session,
+			&device->props->dict, device->device);
+	if (device->sdevice == NULL) {
+		res = -errno;
+		goto unload_handle;
+	}
+	sm_object_add_listener(&device->sdevice->obj,
+			&device->listener,
+			&device_events, device);
+
+	device->probed = true;
+
+	return 0;
+
+unload_handle:
+	pw_unload_spa_handle(handle);
+exit:
+	return res;
+}
+
 static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
 {
-	struct pw_context *context = impl->session->context;
 	struct device *device;
-	struct spa_handle *handle;
 	int res;
-	void *iface;
 	const char *card, *factory_name;
 
 	pw_log_debug("new device %u", id);
@@ -737,48 +792,33 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		return NULL;
 	}
 
+	device = calloc(1, sizeof(*device));
+	if (device == NULL) {
+		res = -errno;
+		goto exit;
+	}
+
 	if (impl->use_acp)
 		factory_name = SPA_NAME_API_ALSA_ACP_DEVICE;
 	else
 		factory_name = info->factory_name;
 
-	handle = pw_context_load_spa_handle(context,
-			factory_name, info->props);
-	if (handle == NULL) {
-		res = -errno;
-		pw_log_error("can't make factory instance: %m");
-		goto exit;
-	}
-
-	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error("can't get %s interface: %s", info->type, spa_strerror(res));
-		goto unload_handle;
-	}
-
-	device = calloc(1, sizeof(*device));
-	if (device == NULL) {
-		res = -errno;
-		goto unload_handle;
-	}
-
+	device->factory_name = strdup(factory_name);
 	device->impl = impl;
 	device->id = id;
-	device->handle = handle;
-	device->device = iface;
 	device->props = pw_properties_new_dict(info->props);
 	device->priority = 1000;
+	device->first = true;
+	spa_list_init(&device->node_list);
 	update_device_props(device);
-
-	device->sdevice = sm_media_session_export_device(impl->session,
-			&device->props->dict, device->device);
-	if (device->sdevice == NULL) {
-		res = -errno;
-		goto clean_device;
-	}
+	device->pending_profile = 1;
+	spa_list_append(&impl->device_list, &device->link);
 
 	if (impl->conn &&
 	    (card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		const char *reserve;
+
+		device->priority -= atol(card) * 64;
 
 		pw_properties_setf(device->props, "api.dbus.ReserveDevice1", "Audio%s", card);
 		reserve = pw_properties_get(device->props, "api.dbus.ReserveDevice1");
@@ -792,30 +832,14 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 		} else {
 			rd_device_set_application_device_name(device->reserve,
 				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
-
-			if (rd_device_acquire(device->reserve) < 0) {
-				pw_log_warn("could not reserve device for %s: %m", reserve);
-				goto clean_device;
-			}
 		}
-		device->priority -= atol(card) * 64;
 	}
-
-	sm_object_add_listener(&device->sdevice->obj,
-			&device->listener,
-			&device_events, device);
-
-	device->pending_profile = 1;
-	device->first = true;
-	spa_list_init(&device->node_list);
-	spa_list_append(&impl->device_list, &device->link);
+	if (device->reserve != NULL)
+		rd_device_acquire(device->reserve);
+	else
+		probe_device(device);
 
 	return device;
-
-clean_device:
-	free(device);
-unload_handle:
-	pw_unload_spa_handle(handle);
 exit:
 	errno = -res;
 	return NULL;

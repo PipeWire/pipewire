@@ -270,10 +270,13 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 							d)))
 				goto invalid;
 
-			if (d->callbacks->acquired)
-				d->callbacks->acquired(d->data, d);
+			if (strcmp(name, d->service_name) != 0)
+				goto invalid;
 
 			d->registered = true;
+
+			if (d->callbacks->acquired)
+				d->callbacks->acquired(d->data, d);
 		}
 	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameLost")) {
 		if (!dbus_message_get_args( m, &error,
@@ -303,17 +306,17 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 			    DBUS_TYPE_INVALID))
 			goto invalid;
 
-		if (strcmp(name, d->service_name) != 0)
+		if (strcmp(name, d->service_name) != 0 || d->owning)
 			goto invalid;
 
 		pw_log_debug(NAME" %p: changed %s: %s -> %s", d, name, old, new);
 
 		if (old == NULL || *old == 0) {
 			if (d->callbacks->busy)
-				d->callbacks->busy(d->data, d, new, 0);
+				d->callbacks->busy(d->data, d, name, 0);
 		} else {
 			if (d->callbacks->available)
-				d->callbacks->available(d->data, d, old);
+				d->callbacks->available(d->data, d, name);
 		}
 	}
 

@@ -33,6 +33,7 @@
 #include "core-format.h"
 #include "internal.h"
 
+#define MIN_SAMPLES     8u
 #define MIN_BUFFERS     8u
 #define MAX_BUFFERS     64u
 
@@ -218,6 +219,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 	if (attr->tlength == (uint32_t) -1 || attr->tlength == 0)
 		attr->tlength = (uint32_t) pa_usec_to_bytes(2*PA_USEC_PER_SEC, &s->sample_spec);
 	attr->tlength = SPA_MIN(attr->tlength, attr->maxlength);
+	attr->tlength = SPA_MAX(attr->tlength, MIN_SAMPLES * stride * MIN_BUFFERS);
 
 	if (attr->minreq == (uint32_t) -1 || attr->minreq == 0)
 		attr->minreq = pa_usec_to_bytes(25*PA_USEC_PER_MSEC, &s->sample_spec);

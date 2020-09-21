@@ -259,7 +259,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 		if (strcmp(name, d->service_name) != 0)
 			goto invalid;
 
-		pw_log_debug(NAME" %p: acquired %s", d, name);
+		pw_log_debug(NAME" %p: acquired %s, %s", d, name, d->service_name);
 
 		d->owning = true;
 
@@ -389,6 +389,8 @@ int rd_device_acquire(struct rd_device *d)
 
 	dbus_error_init(&error);
 
+	pw_log_debug(NAME"%p: reserve %s", d, d->service_name);
+
 	if ((res = dbus_bus_request_name(d->connection,
 					d->service_name,
 					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
@@ -456,6 +458,8 @@ exit:
 
 void rd_device_release(struct rd_device *d)
 {
+	pw_log_debug(NAME" %p: release %d", d, d->owning);
+
 	if (d->owning) {
 		DBusError error;
 		dbus_error_init(&error);

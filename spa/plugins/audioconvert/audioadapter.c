@@ -245,7 +245,7 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_pod *param;
 	int res;
 	bool follower_alloc, conv_alloc;
-	uint32_t i, size, buffers, blocks, align, flags;
+	uint32_t i, size, buffers, blocks, align, flags, stride = 0;
 	uint32_t *aligns;
 	struct spa_data *datas;
 	uint32_t follower_flags, conv_flags;
@@ -303,11 +303,12 @@ static int negotiate_buffers(struct impl *this)
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align))) < 0)
 		return res;
 
-	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",
-			this, buffers, blocks, size, align, follower_alloc, conv_alloc);
+	spa_log_debug(this->log, "%p: buffers:%d, blocks:%d, size:%d, stride:%d align:%d %d:%d",
+			this, buffers, blocks, size, stride, align, follower_alloc, conv_alloc);
 
 	align = SPA_MAX(align, this->max_align);
 

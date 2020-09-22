@@ -2012,7 +2012,9 @@ static int metadata_property(void *object, uint32_t id,
 		if (key == NULL || strcmp(key, "default.audio.source") == 0)
 			c->metadata->default_audio_source = val;
 	} else {
+		pthread_mutex_lock(&c->context.lock);
 		o = pw_map_lookup(&c->context.globals, id);
+		pthread_mutex_unlock(&c->context.lock);
 		if (o == NULL)
 			return -EINVAL;
 
@@ -2148,9 +2150,9 @@ static void registry_event_global(void *data, uint32_t id,
 
 			pthread_mutex_lock(&c->context.lock);
 			spa_list_append(&c->context.ports, &o->link);
+			ot = pw_map_lookup(&c->context.globals, node_id);
 			pthread_mutex_unlock(&c->context.lock);
 
-			ot = pw_map_lookup(&c->context.globals, node_id);
 			if (ot == NULL || ot->type != INTERFACE_Node)
 				goto exit_free;
 
@@ -2274,7 +2276,9 @@ static void registry_event_global_remove(void *object, uint32_t id)
 			c->metadata->default_audio_source = SPA_ID_INVALID;
 	}
 
+	pthread_mutex_lock(&c->context.lock);
 	o = pw_map_lookup(&c->context.globals, id);
+	pthread_mutex_unlock(&c->context.lock);
 	if (o == NULL)
 		return;
 

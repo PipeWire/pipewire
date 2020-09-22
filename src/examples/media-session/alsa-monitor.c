@@ -243,7 +243,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	}
 
 	priority = device->priority;
-	if (!strcmp(stream, "capture"))
+	if (node->direction == PW_DIRECTION_OUTPUT)
 		priority += 1000;
 	priority -= atol(dev) * 16;
 	priority -= atol(subdev);
@@ -277,9 +277,12 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
 		const char *devname;
 		if ((devname = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME)) == NULL)
-			devname = "unknown";
-		pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s.%s",
-				devname, stream, dev, subdev);
+			devname = "unnamed-device";
+		if (strstr(devname, "alsa_card.") == devname)
+			devname += 10;
+		pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s",
+				node->direction == PW_DIRECTION_OUTPUT ?
+				"alsa_input" : "alsa_output", devname, profile);
 	}
 	if (pw_properties_get(node->props, PW_KEY_NODE_DESCRIPTION) == NULL) {
 		const char *desc, *name = NULL;

@@ -179,6 +179,8 @@ static int restore_route(struct device *dev, const char *val, uint32_t index, ui
 	for (p = val; *p; p++) {
 		if (strstr(p, "volume:") == p) {
 			vol = strtof(p+7, &end);
+			if (end == p + 7)
+				continue;
 			spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 			spa_pod_builder_float(&b, vol);
 			p = end;
@@ -191,14 +193,19 @@ static int restore_route(struct device *dev, const char *val, uint32_t index, ui
 		}
 		else if (strstr(p, "volumes:") == p) {
 			n_vols = strtol(p+8, &end, 10);
-			if (n_vols >= SPA_AUDIO_MAX_CHANNELS)
+			if (end == p+8 || n_vols >= SPA_AUDIO_MAX_CHANNELS)
 				continue;
 			p = end;
 			vols = alloca(n_vols * sizeof(float));
-			for (i = 0; i < n_vols; i++) {
+			for (i = 0; i < n_vols && *p == ','; i++) {
 				vols[i] = strtof(p+1, &end);
+				if (end == p+1)
+					break;
 				p = end;
 			}
+			if (i != n_vols)
+				continue;
+
 			spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);

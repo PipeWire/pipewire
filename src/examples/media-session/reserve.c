@@ -75,6 +75,7 @@ struct rd_device {
 
 	unsigned int filtering:1;
 	unsigned int registered:1;
+	unsigned int acquiring:1;
 	unsigned int owning:1;
 };
 
@@ -312,7 +313,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 		pw_log_debug(NAME" %p: changed %s: %s -> %s", d, name, old, new);
 
 		if (old == NULL || *old == 0) {
-			if (d->callbacks->busy)
+			if (d->callbacks->busy && !d->acquiring)
 				d->callbacks->busy(d->data, d, name, 0);
 		} else {
 			if (d->callbacks->available)
@@ -394,6 +395,8 @@ int rd_device_acquire(struct rd_device *d)
 
 	pw_log_debug(NAME"%p: reserve %s", d, d->service_name);
 
+	d->acquiring = true;
+
 	if ((res = dbus_bus_request_name(d->connection,
 					d->service_name,
 					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
@@ -471,6 +474,7 @@ void rd_device_release(struct rd_device *d)
 				d->service_name, &error);
 		dbus_error_free(&error);
 	}
+	d->acquiring = false;
 }
 
 void rd_device_destroy(struct rd_device *d)

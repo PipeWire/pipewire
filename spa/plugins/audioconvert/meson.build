@@ -192,7 +192,6 @@ if sndfile_dep.found()
     include_directories : [spa_inc ],
     link_with : [ audioconvert, test_lib ],
     dependencies : [sndfile_dep, mathlib],
-    install : installed_tests_enabled,
-    install_dir : join_paths(installed_tests_execdir, 'examples', 'audioconvert'),
+    install : true,
   )
 endif

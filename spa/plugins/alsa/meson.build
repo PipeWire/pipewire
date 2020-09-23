@@ -26,6 +26,15 @@ alsa_udevrules = [
   '90-pipewire-alsa.rules',
 ]
 
+executable('spa-acp-tool',
+  [ 'acp-tool.c' ],
+  c_args : acp_c_args,
+  include_directories : [spa_inc ],
+  dependencies : [ alsa_dep, mathlib ],
+  link_with : [ acp_lib ],
+  install : true,
+)
+
 if libudev_dep.found()
   install_data(alsa_udevrules,
     install_dir : udevrulesdir,

@@ -94,6 +94,13 @@ if alsa_dep.found()
 )
 endif
 
+executable('pw-reserve',
+	'media-session/pw-reserve.c',
+	c_args : [ '-D_GNU_SOURCE' ],
+	install: true,
+	dependencies : [dbus_dep, pipewire_dep],
+)
+
 executable('bluez-session',
   'bluez-session.c',
   c_args : [ '-D_GNU_SOURCE' ],

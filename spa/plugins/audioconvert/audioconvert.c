@@ -295,7 +295,7 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t state;
-	struct spa_pod *param = NULL;
+	struct spa_pod *param = NULL, *filter;
 	int res;
 	bool in_alloc, out_alloc;
 	uint32_t i, size, buffers, blocks, align, flags;
@@ -306,21 +306,23 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 		return 0;
 
 	state = 0;
+	filter = NULL;
 	if ((res = spa_node_port_enum_params_sync(link->in_node,
 			       SPA_DIRECTION_INPUT, link->in_port,
 			       SPA_PARAM_Buffers, &state,
-			       param, &param, &b)) != 1) {
-		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
-				SPA_PARAM_Buffers, param);
+			       filter, &param, &b)) != 1) {
+		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
+				SPA_PARAM_Buffers, filter);
 		return -ENOTSUP;
 	}
 	state = 0;
+	filter = param;
 	if ((res = spa_node_port_enum_params_sync(link->out_node,
 			       SPA_DIRECTION_OUTPUT, link->out_port,
 			       SPA_PARAM_Buffers, &state,
-			       param, &param, &b)) != 1) {
-		debug_params(this, link->in_node, SPA_DIRECTION_INPUT, link->in_port,
-				SPA_PARAM_Buffers, param);
+			       filter, &param, &b)) != 1) {
+		debug_params(this, link->out_node, SPA_DIRECTION_OUTPUT, link->out_port,
+				SPA_PARAM_Buffers, filter);
 		return -ENOTSUP;
 	}
 

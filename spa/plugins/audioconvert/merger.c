@@ -1006,8 +1006,6 @@ static int impl_node_process(void *object)
 
 		spa_log_trace_fp(this->log, NAME " %p: %d %d %d %p", this,
 				sd->chunk->size, maxsize, n_samples, src_datas[i]);
-
-		SPA_FLAG_SET(res, SPA_STATUS_NEED_DATA);
 	}
 
 	for (i = 0; i < this->monitor_count; i++)
@@ -1026,7 +1024,7 @@ static int impl_node_process(void *object)
 	if (!this->is_passthrough)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
-	return res | SPA_STATUS_HAVE_DATA;
+	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

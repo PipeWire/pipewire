@@ -454,8 +454,9 @@ static inline uint32_t queued_size(const pa_stream *s, uint64_t elapsed)
 
 static inline uint32_t writable_size(const pa_stream *s, uint64_t queued)
 {
-	return s->maxsize - SPA_MIN(queued, s->maxsize);
+	return s->maxblock - SPA_MIN(queued, s->maxblock);
 }
+
 static inline uint32_t required_size(const pa_stream *s)
 {
 	return s->buffer_attr.tlength;

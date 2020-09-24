@@ -889,31 +889,66 @@ impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	int status = 0;
+	int status = 0, fstatus;
 
 	spa_log_trace_fp(this->log, "%p: process convert:%p driver:%d",
 			this, this->convert, this->driver);
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
-		if (this->convert)
-			status = spa_node_process(this->convert);
+		/* an input node (sink).
+		 * First we run the converter to process the input for the follower
+		 * then if it produced data, we run the follower. */
+		status = SPA_STATUS_HAVE_DATA;
+		do {
+			if (this->convert) {
+				status = spa_node_process(this->convert);
+				if (status <= 0)
+					status = SPA_STATUS_HAVE_DATA;
+			}
+			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED)) {
+				/* as long as the converter produced something or
+				 * is drained, process the follower. Also schedule
+				 * the follower when the converter was in error
+				 * because the follower might first need to recycle a
+				 * buffer to the converter */
+				fstatus = spa_node_process(this->follower);
+				/* if the follower doesn't need more data or is
+				 * drained we can stop */
+				if ((fstatus & SPA_STATUS_NEED_DATA) == 0 ||
+				    (fstatus & SPA_STATUS_DRAINED))
+					break;
+			}
+			/* the converter needs more data */
+			if ((status & SPA_STATUS_NEED_DATA))
+				break;
+		} while (status > 0);
 	}
-
-	if (status >= 0)
-		status = spa_node_process(this->follower);
 
 	if (this->direction == SPA_DIRECTION_OUTPUT &&
 	    !this->driver && this->convert) {
-		while (status > 0) {
-			status = spa_node_process(this->convert);
-			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED))
-				break;
-			if (status & SPA_STATUS_NEED_DATA) {
-				status = spa_node_process(this->follower);
-				if (status & SPA_STATUS_NEED_DATA)
+		status = SPA_STATUS_NEED_DATA;
+		do {
+			/* output node (source). First run the converter to make
+			 * sure we push out any queued data. Then when it needs
+			 * more data, schedule the follower. */
+			if (this->convert) {
+				status = spa_node_process(this->convert);
+				if (status <= 0)
+					status = SPA_STATUS_NEED_DATA;
+			}
+			if ((status & SPA_STATUS_NEED_DATA)) {
+				/* the converter needs more data, schedule the
+				 * follower */
+				fstatus = spa_node_process(this->follower);
+				/* if the follower didn't produce more data
+				 * we can stop now */
+				if ((fstatus & SPA_STATUS_HAVE_DATA) == 0)
 					break;
 			}
-		}
+			/* converter produced something or is drained */
+			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED))
+				break;
+		} while (status > 0);
 	}
 	spa_log_trace_fp(this->log, "%p: process status:%d", this, status);
 

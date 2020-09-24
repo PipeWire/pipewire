@@ -215,26 +215,28 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 	stride  = pa_frame_size(&s->sample_spec);
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength == 0)
 		attr->maxlength = MAX_SIZE; /* 4MB is the maximum queue length PulseAudio <= 0.9.9 supported. */
+	attr->maxlength -= attr->maxlength % stride;
+	attr->maxlength = SPA_MAX(attr->maxlength, stride);
 
-	if (attr->tlength == (uint32_t) -1 || attr->tlength == 0)
+	if (attr->tlength == (uint32_t) -1)
 		attr->tlength = (uint32_t) pa_usec_to_bytes(2*PA_USEC_PER_SEC, &s->sample_spec);
 	attr->tlength = SPA_MIN(attr->tlength, attr->maxlength);
 	attr->tlength -= attr->tlength % stride;
 	attr->tlength = SPA_MAX(attr->tlength, MIN_SAMPLES * stride * MIN_BUFFERS);
 
-	if (attr->minreq == (uint32_t) -1 || attr->minreq == 0)
+	if (attr->minreq == (uint32_t) -1)
 		attr->minreq = pa_usec_to_bytes(25*PA_USEC_PER_MSEC, &s->sample_spec);
 	attr->minreq = SPA_MIN(attr->minreq, attr->tlength / MIN_BUFFERS);
 	attr->minreq -= attr->minreq % stride;
 	attr->minreq = SPA_MAX(attr->minreq, stride);
 
-	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
+	if (attr->fragsize == (uint32_t) -1)
 		attr->fragsize = pa_usec_to_bytes(25*PA_USEC_PER_MSEC, &s->sample_spec);
 	attr->fragsize = SPA_MIN(attr->fragsize, attr->tlength / MIN_BUFFERS);
 	attr->fragsize -= attr->fragsize % stride;
 	attr->fragsize = SPA_MAX(attr->fragsize, stride);
 
-	if (attr->prebuf == (uint32_t) -1 || attr->prebuf == 0)
+	if (attr->prebuf == (uint32_t) -1)
 		attr->prebuf = attr->tlength - attr->minreq;
 	attr->prebuf = SPA_MIN(attr->prebuf, attr->tlength - attr->minreq);
 	attr->prebuf -= attr->prebuf % stride;
@@ -983,7 +985,7 @@ static int create_stream(pa_stream_direction_t direction,
 	if (monitor)
 		sprintf(latency, "%u/%u", s->buffer_attr.fragsize / stride, s->sample_spec.rate);
 	else
-		sprintf(latency, "%u/%u", s->buffer_attr.tlength / stride, s->sample_spec.rate);
+		sprintf(latency, "%u/%u", s->buffer_attr.tlength / 2 / stride, s->sample_spec.rate);
 	n_items = 0;
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");

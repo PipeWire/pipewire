@@ -747,28 +747,23 @@ static int impl_node_process_input(void *object)
 	pw_log_trace(NAME" %p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64,
 			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
-	if (io->status != SPA_STATUS_HAVE_DATA)
-		goto done;
-
-	if ((b = get_buffer(stream, io->buffer_id)) == NULL)
-		goto done;
-
-	/* push new buffer */
-	if (push_queue(impl, &impl->dequeued, b) == 0)
-		call_process(impl);
-
-done:
-	copy_position(impl, impl->dequeued.incount);
-
-	/* pop buffer to recycle */
-	if ((b = pop_queue(impl, &impl->queued))) {
-		pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
+	if (io->status == SPA_STATUS_HAVE_DATA &&
+	    (b = get_buffer(stream, io->buffer_id)) != NULL) {
+		/* push new buffer */
+		if (push_queue(impl, &impl->dequeued, b) == 0) {
+			copy_position(impl, impl->dequeued.incount);
+			call_process(impl);
+		}
 	}
-
-	io->buffer_id = b ? b->id : SPA_ID_INVALID;
-	io->status = SPA_STATUS_NEED_DATA;
-
-	return SPA_STATUS_HAVE_DATA;
+	if (io->status != SPA_STATUS_NEED_DATA) {
+		/* pop buffer to recycle */
+		if ((b = pop_queue(impl, &impl->queued))) {
+			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
+		}
+		io->buffer_id = b ? b->id : SPA_ID_INVALID;
+		io->status = SPA_STATUS_NEED_DATA;
+	}
+	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
 
 static int impl_node_process_output(void *object)

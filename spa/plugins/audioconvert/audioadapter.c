@@ -914,6 +914,10 @@ static int impl_node_process(void *object)
 				/* as long as the converter produced something or
 				 * is drained, process the follower. */
 				fstatus = spa_node_process(this->follower);
+				if (fstatus < 0) {
+					status = fstatus;
+					break;
+				}
 				/* if the follower doesn't need more data or is
 				 * drained we can stop */
 				if ((fstatus & SPA_STATUS_NEED_DATA) == 0 ||
@@ -948,6 +952,10 @@ static int impl_node_process(void *object)
 				/* the converter needs more data, schedule the
 				 * follower */
 				fstatus = spa_node_process(this->follower);
+				if (fstatus < 0) {
+					status = fstatus;
+					break;
+				}
 				/* if the follower didn't produce more data
 				 * we can stop now */
 				if ((fstatus & SPA_STATUS_HAVE_DATA) == 0)

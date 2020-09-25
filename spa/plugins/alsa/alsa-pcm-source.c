@@ -638,6 +638,8 @@ static int impl_node_process(void *object)
 	io = this->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
+	spa_log_trace_fp(this->log, NAME " %p; status %d", this, io->status);
+
 	if (io->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;
 

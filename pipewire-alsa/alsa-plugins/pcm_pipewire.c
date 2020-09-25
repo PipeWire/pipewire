@@ -539,7 +539,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	snd_pcm_pipewire_t *pw = io->private_data;
 	bool planar;
 
-	pw_log_debug(NAME" %p: hw_params %lu %lu", pw, io->buffer_size, io->period_size);
+	pw_log_debug(NAME" %p: hw_params buffer_size:%lu period_size:%lu", pw, io->buffer_size, io->period_size);
 
 	switch(io->access) {
 	case SND_PCM_ACCESS_MMAP_INTERLEAVED:

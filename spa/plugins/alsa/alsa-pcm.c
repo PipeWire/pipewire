@@ -1160,6 +1160,7 @@ static int handle_capture(struct state *state, uint64_t nsec,
 
 		io->buffer_id = b->id;
 		io->status = SPA_STATUS_HAVE_DATA;
+		spa_log_trace_fp(state->log, NAME" %p: output buffer:%d", state, b->id);
 	}
 	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);
 	return 0;

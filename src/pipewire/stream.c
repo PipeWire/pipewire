@@ -138,7 +138,7 @@ struct stream {
 	unsigned int draining:1;
 	unsigned int drained:1;
 	unsigned int allow_mlock:1;
-	unsigned int warn_mlock:1;
+	unsigned int process_rt:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -321,14 +321,12 @@ do_call_process(struct spa_loop *loop,
 static void call_process(struct stream *impl)
 {
 	struct pw_stream *stream = &impl->this;
-	pw_log_trace(NAME" %p: call process", impl);
-	if (SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_RT_PROCESS)) {
+	pw_log_trace(NAME" %p: call process rt:%u", impl, impl->process_rt);
+	if (impl->process_rt)
 		pw_stream_emit_process(stream);
-	}
-	else {
+	else
 		pw_loop_invoke(impl->context->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
-	}
 }
 
 static int
@@ -429,7 +427,13 @@ static void emit_node_info(struct stream *d)
 		info.max_output_ports = 1;
 	}
 	info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+	/* we're always RT safe, if the stream was marked RT_PROCESS,
+	 * the callback must be RT safe */
 	info.flags = SPA_NODE_FLAG_RT;
+	/* if the callback was not marked RT_PROCESS, we will offload
+	 * the process callback in the main thread and we are ASYNC */
+	if (!d->process_rt)
+		info.flags |= SPA_NODE_FLAG_ASYNC;
 	spa_node_emit_info(&d->hooks, &info);
 }
 
@@ -556,7 +560,7 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 			range.offset, range.size, data->data);
 
 	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
-		pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+		pw_log(impl->process_rt ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
 				NAME" %p: Failed to mlock memory %p %u: %s", impl,
 				data->data, data->maxsize,
 				errno == ENOMEM ?
@@ -805,12 +809,21 @@ again:
 	copy_position(impl, impl->queued.outcount);
 
 	if (!impl->draining &&
-	    !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER) &&
-	    spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) > 0) {
-		call_process(impl);
-		if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0 &&
-		    io->status == SPA_STATUS_NEED_DATA)
-			goto again;
+	    !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER)) {
+		/* we're not draining, not a driver check if we need to get
+		 * more buffers */
+		if (!impl->process_rt) {
+			/* not realtime and we have a free buffer, trigger process so that we have
+			 * data in the next round. */
+			if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) > 0)
+				call_process(impl);
+		} else if (io->status == SPA_STATUS_NEED_DATA) {
+			/* realtime and we don't have a buffer, trigger process and try
+			 * again when there is something in the queue now */
+			call_process(impl);
+			if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0)
+				goto again;
+		}
 	}
 
 	pw_log_trace(NAME" %p: res %d", stream, res);
@@ -1480,8 +1493,8 @@ pw_stream_connect(struct pw_stream *stream,
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 
-	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
-	pw_properties_set(stream->properties, "mem.warn-mlock", impl->warn_mlock ? "true" : "false");
+	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
+	pw_properties_set(stream->properties, "mem.warn-mlock", impl->process_rt ? "true" : "false");
 
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);

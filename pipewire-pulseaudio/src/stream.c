@@ -242,7 +242,6 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 		attr->fragsize = pa_usec_to_bytes(20*PA_USEC_PER_MSEC, &s->sample_spec);
 	attr->fragsize = SPA_MIN(attr->fragsize, attr->tlength / 4);
 	attr->fragsize -= attr->fragsize % stride;
-	attr->fragsize = SPA_MAX(attr->fragsize, MIN_SAMPLES * stride);
 	attr->fragsize = SPA_MAX(attr->fragsize, stride);
 
 	dump_buffer_attr(s, attr);
@@ -1001,7 +1000,7 @@ static int create_stream(pa_stream_direction_t direction,
 		str = "Music";
 
 	stride = pa_frame_size(&s->sample_spec);
-	if (monitor)
+	if (direction == PA_STREAM_RECORD)
 		sprintf(latency, "%u/%u", s->buffer_attr.fragsize / stride, s->sample_spec.rate);
 	else
 		sprintf(latency, "%u/%u", s->buffer_attr.minreq * 2 / stride, s->sample_spec.rate);

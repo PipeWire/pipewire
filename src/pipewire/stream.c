@@ -763,7 +763,8 @@ static int impl_node_process_input(void *object)
 		/* pop buffer to recycle */
 		if ((b = pop_queue(impl, &impl->queued))) {
 			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
-		}
+		} else if (io->status == -EPIPE)
+			return io->status;
 		io->buffer_id = b ? b->id : SPA_ID_INVALID;
 		io->status = SPA_STATUS_NEED_DATA;
 	}

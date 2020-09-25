@@ -408,16 +408,3 @@ int jack_set_property_change_callback (jack_client_t*             client,
 	c->property_arg = arg;
 	return 0;
 }
-
-#define JACK_METADATA_PREFIX "http://jackaudio.org/metadata/"
-SPA_EXPORT const char* JACK_METADATA_CONNECTED   = JACK_METADATA_PREFIX "connected";
-SPA_EXPORT const char* JACK_METADATA_EVENT_TYPES = JACK_METADATA_PREFIX "event-types";
-SPA_EXPORT const char* JACK_METADATA_HARDWARE    = JACK_METADATA_PREFIX "hardware";
-SPA_EXPORT const char* JACK_METADATA_ICON_LARGE  = JACK_METADATA_PREFIX "icon-large";
-SPA_EXPORT const char* JACK_METADATA_ICON_NAME   = JACK_METADATA_PREFIX "icon-name";
-SPA_EXPORT const char* JACK_METADATA_ICON_SMALL  = JACK_METADATA_PREFIX "icon-small";
-SPA_EXPORT const char* JACK_METADATA_ORDER       = JACK_METADATA_PREFIX "order";
-SPA_EXPORT const char* JACK_METADATA_PORT_GROUP  = JACK_METADATA_PREFIX "port-group";
-SPA_EXPORT const char* JACK_METADATA_PRETTY_NAME = JACK_METADATA_PREFIX "pretty-name";
-SPA_EXPORT const char* JACK_METADATA_SIGNAL_TYPE = JACK_METADATA_PREFIX "signal-type";
-#undef JACK_METADATA_PREFIX

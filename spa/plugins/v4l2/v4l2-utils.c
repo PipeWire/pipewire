@@ -590,12 +590,16 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 			fmt.fmt.pix.height = 0;
 
 			if ((res = xioctl(dev->fd, VIDIOC_TRY_FMT, &fmt)) < 0) {
-				spa_log_error(this->log, "v4l2: '%s' VIDIOC_TRY_FMT: %m",
-						this->props.device);
+				spa_log_debug(this->log, "v4l2: '%s' VIDIOC_TRY_FMT %08x: %m",
+						this->props.device, info->fourcc);
 				goto next_fmtdesc;
 			}
-			if (fmt.fmt.pix.pixelformat != info->fourcc)
+			if (fmt.fmt.pix.pixelformat != info->fourcc) {
+				spa_log_debug(this->log, "v4l2: '%s' VIDIOC_TRY_FMT wanted %.4s gave %.4s",
+						this->props.device, (char*)&info->fourcc,
+						(char*)&fmt.fmt.pix.pixelformat);
 				goto next_fmtdesc;
+			}
 
 		} else {
 			if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {

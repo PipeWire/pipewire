@@ -1456,8 +1456,14 @@ mmap_init(struct impl *this,
 			expbuf.index = i;
 			expbuf.flags = O_CLOEXEC | O_RDONLY;
 			if (xioctl(dev->fd, VIDIOC_EXPBUF, &expbuf) < 0) {
+				if (errno == ENOTTY || errno == EINVAL) {
+					spa_log_debug(this->log, "v4l2: '%s' VIDIOC_EXPBUF not supported: %m",
+							this->props.device);
+					port->export_buf = false;
+					goto fallback;
+				}
 				spa_log_error(this->log, "v4l2: '%s' VIDIOC_EXPBUF: %m", this->props.device);
-				continue;
+				return -errno;
 			}
 			d[0].type = SPA_DATA_DmaBuf;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
@@ -1466,6 +1472,7 @@ mmap_init(struct impl *this,
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			spa_log_debug(this->log, "v4l2: EXPBUF fd:%d", expbuf.fd);
 		} else {
+fallback:
 			d[0].type = SPA_DATA_MemPtr;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = -1;
@@ -1476,7 +1483,7 @@ mmap_init(struct impl *this,
 					 b->v4l2_buffer.m.offset);
 			if (d[0].data == MAP_FAILED) {
 				spa_log_error(this->log, "v4l2: '%s' mmap: %m", this->props.device);
-				continue;
+				return -errno;
 			}
 			b->ptr = d[0].data;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);

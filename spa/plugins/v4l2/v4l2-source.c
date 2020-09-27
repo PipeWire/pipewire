@@ -89,7 +89,8 @@ struct control {
 struct port {
 	struct impl *impl;
 
-	bool export_buf;
+	bool alloc_buffers;
+	bool have_expbuf;
 
 	bool next_fmtdesc;
 	struct v4l2_fmtdesc fmtdesc;
@@ -963,7 +964,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.params = port->params;
 	port->info.n_params = 6;
 
-	port->export_buf = true;
+	port->alloc_buffers = true;
+	port->have_expbuf = true;
 	port->have_query_ext_ctrl = true;
 	port->dev.log = this->log;
 	port->dev.fd = -1;

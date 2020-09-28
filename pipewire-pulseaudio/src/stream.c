@@ -357,7 +357,7 @@ static void update_timing_info(pa_stream *s)
 		ti->configured_source_usec = delay;
 		ti->write_index = pos;
 	}
-	s->queued_bytes = pwt.queued + s->ready_bytes;
+	s->queued_bytes = pwt.queued;
 	s->timing_info_valid = true;
 
 	pw_log_trace("stream %p: %"PRIu64" rate:%d/%d ticks:%"PRIu64" pos:%"PRIu64" delay:%"PRIi64 " read:%"PRIu64
@@ -449,7 +449,6 @@ static inline uint32_t queued_size(const pa_stream *s, uint64_t elapsed)
 	uint64_t queued;
 	const pa_timing_info *i = &s->timing_info;
 	queued = i->write_index - SPA_MIN(i->read_index, i->write_index);
-	queued -= SPA_MIN(queued, s->queued_bytes);
 	queued -= SPA_MIN(queued, elapsed);
 	return queued;
 }

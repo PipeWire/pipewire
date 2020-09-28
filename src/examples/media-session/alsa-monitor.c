@@ -594,6 +594,12 @@ static void reserve_acquired(void *data, struct rd_device *d)
 		rd_device_release(device->reserve);
 }
 
+static void complete_release(struct device *device)
+{
+	if (device->reserve)
+		rd_device_complete_release(device->reserve, true);
+}
+
 static void sync_complete_done(void *data, int seq)
 {
 	struct device *device = data;
@@ -605,8 +611,7 @@ static void sync_complete_done(void *data, int seq)
 	spa_hook_remove(&device->sync_listener);
 	device->seq = 0;
 
-	if (device->reserve)
-		rd_device_complete_release(device->reserve, true);
+	complete_release(device);
 }
 
 static void sync_destroy(void *data)
@@ -627,6 +632,10 @@ static void reserve_release(void *data, struct rd_device *d, int forced)
 	struct device *device = data;
 
 	pw_log_info("%p: reserve release", device);
+	if (device->sdevice == NULL || device->sdevice->obj.proxy == NULL) {
+		complete_release(device);
+		return;
+	}
 
 	set_profile(device, 0);
 

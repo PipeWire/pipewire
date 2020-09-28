@@ -183,7 +183,7 @@ static int setup_convert(struct impl *this)
 					spa_debug_type_find_short_name(spa_type_audio_channel,
 						informat.info.raw.position[i]),
 					spa_debug_type_find_short_name(spa_type_audio_channel,
-						outformat.info.raw.position[i]));
+						outformat.info.raw.position[j]));
 			outformat.info.raw.position[j] = -1;
 			break;
 		}

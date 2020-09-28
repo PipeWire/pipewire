@@ -785,12 +785,19 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 				pa_cvolume_max(&new_soft_volume),
 				pa_yes_no(accurate_enough));
 
-		if (!accurate_enough && impl->events && impl->events->set_soft_volume) {
-			uint32_t i, n_volumes = new_soft_volume.channels;
-			float volumes[n_volumes];
-			for (i = 0; i < n_volumes; i++)
-				volumes[i] = ((float)new_soft_volume.values[i]) / PA_VOLUME_NORM;
-			impl->events->set_soft_volume(impl->user_data, &dev->device, volumes, n_volumes);
+		if (accurate_enough)
+			pa_cvolume_reset(&new_soft_volume, new_soft_volume.channels);
+
+		if (!pa_cvolume_equal(&dev->soft_volume, &new_soft_volume)) {
+			dev->soft_volume = new_soft_volume;
+
+			if (impl->events && impl->events->set_soft_volume) {
+				uint32_t i, n_volumes = new_soft_volume.channels;
+				float volumes[n_volumes];
+				for (i = 0; i < n_volumes; i++)
+					volumes[i] = ((float)new_soft_volume.values[i]) / PA_VOLUME_NORM;
+				impl->events->set_soft_volume(impl->user_data, &dev->device, volumes, n_volumes);
+			}
 		}
 
 	} else {
@@ -1417,6 +1424,7 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 		d->set_volume(d, &v);
 	} else {
 		d->real_volume = v;
+		d->soft_volume = v;
 		if (impl->events && impl->events->set_soft_volume)
 			impl->events->set_soft_volume(impl->user_data, dev, volume, n_volume);
 	}

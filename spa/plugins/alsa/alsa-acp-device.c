@@ -746,7 +746,7 @@ static void on_set_soft_volume(void *data, struct acp_device *dev,
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
 
-	spa_log_debug(this->log, "device %s soft volume %f", dev->name, volume[0]);
+	spa_log_info(this->log, "device %s soft volume %f", dev->name, volume[0]);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0],
@@ -772,7 +772,7 @@ static void on_set_soft_mute(void *data, struct acp_device *dev,
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
 
-	spa_log_debug(this->log, "device %s soft mute %d", dev->name, mute);
+	spa_log_info(this->log, "device %s soft mute %d", dev->name, mute);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0],

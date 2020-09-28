@@ -297,6 +297,7 @@ struct pa_alsa_device {
     unsigned decibel_volume:1;
     pa_cvolume real_volume;
     pa_cvolume hardware_volume;
+    pa_cvolume soft_volume;
 
     pa_volume_t base_volume;
     unsigned n_volume_steps;

@@ -623,10 +623,11 @@ static void init_eld_ctls(pa_card *impl)
 uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *name)
 {
 	uint32_t i;
-	uint32_t best, best2, best3;
+	uint32_t best, best2, best3, off;
 	struct acp_card_profile **profiles = card->profiles;
 
 	best = best2 = best3 = ACP_INVALID_INDEX;
+	off = 0;
 
 	for (i = 0; i < card->n_profiles; i++) {
 		struct acp_card_profile *p = profiles[i];
@@ -636,7 +637,9 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 				best = i;
 			continue;
 		}
-		if (p->available == ACP_AVAILABLE_YES) {
+		if (p->flags & ACP_PROFILE_OFF) {
+			off = i;
+		} else if (p->available == ACP_AVAILABLE_YES) {
 			if (best == ACP_INVALID_INDEX || p->priority > profiles[best]->priority)
 				best = i;
 		} else if (p->available != ACP_AVAILABLE_NO) {
@@ -652,7 +655,7 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 	if (best == ACP_INVALID_INDEX)
 		best = best3;
 	if (best == ACP_INVALID_INDEX)
-		best = 0;
+		best = off;
 	return best;
 }
 

@@ -1,3 +1,56 @@
+PipeWire 0.3.13
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- PipeWire improvements
+  - Add pw-reserve tool to reserve or monitor a device on DBus.
+  - Install spa-resample, a tool to resample a file.
+  - Install spa-acp-tool, a tool to inspect the card profile.
+  - Various fixes and improvements
+  - Fix a bug in pw-stream where a capture stream could run out
+    of buffers and become silent.
+  - Rework the processing loops in the adapter and stream. There
+    is now less latency in PulseAudio and ALSA layers.
+
+- Session manager improvements
+  - Improve the device reservation code. We now try to acquire
+    the device using the dbus device reservation API before we
+    probe the device. This avoids conflicts with a running
+    PulseAudio where devices would disappear (because they were
+    locked by the other process).
+  - Don't fail on invalid input from the config files.
+  - Audio devices now have the same name as what PulseAudio
+    would assign.
+
+- Device support
+  - v4l2: try to use the format before enumerating the size and
+    framerate. Some drivers don't check the format and might now
+    work better.
+  - v4l2: Fall back to MMAP when EXPBUF fails. Fix MMAP access,
+    just export the fd and the mapoffset. This should make more
+    devices work.
+  - Fix crash in ALSA Card Profile (ACP) code.
+  - ACP: fix selection of default profile. Prefer any possibly
+    available profile over 'Off'. This makes some card at least
+    start with something.
+  - Fix soft volume. After setting the volume to 0, it would stay
+    at 0 until pushed over the max volume. This should fix
+    various volume related issues.
+
+- PulseAudio layer improvements
+  - Rework the buffering and latency measurements and tweak the
+    buffer attributes. This should make browsers and media
+    players work better. This should also improve speechd
+    performance.
+
+- JACK layer improvements
+  - Fix compilation against newer JACK.
+
+
+Older versions:
+
+
 PipeWire 0.3.12
 
 This is a bugfix release that is API and ABI compatible
@@ -52,9 +105,6 @@ with previous 0.3.x releases.
 - JACK layer improvements
   * jack now returns version 3.0.0 and has PipeWire in the version
     string so that apps can report this.
-
-
-Older versions:
 
 
 PipeWire 0.3.11

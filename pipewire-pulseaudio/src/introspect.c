@@ -1478,9 +1478,9 @@ static void module_proxy_error(void *data, int seq, int res, const char *message
 	on_load_module(o, d);
 }
 
-static void on_null_sink_module(pa_operation *o, void *userdata)
+static int load_null_sink_module(pa_operation *o)
 {
-	struct load_module *d = userdata;
+	struct load_module *d = o->userdata;
 	pa_context *c = o->context;
 	static const struct pw_proxy_events proxy_events = {
 		.bound = module_proxy_bound,
@@ -1488,15 +1488,18 @@ static void on_null_sink_module(pa_operation *o, void *userdata)
 	};
 
 	if (d->proxy != NULL)
-		return;
+		return -EBUSY;
 
 	d->proxy = pw_core_create_object(c->core,
                                 "adapter",
                                 PW_TYPE_INTERFACE_Node,
                                 PW_VERSION_NODE,
                                 d->props ? &d->props->dict : NULL, 0);
+	if (d->proxy == NULL)
+		return -errno;
 
 	pw_proxy_add_listener(d->proxy, &d->listener, &proxy_events, o);
+	return 0;
 }
 
 static void add_props(struct pw_properties *props, const char *str)
@@ -1536,14 +1539,20 @@ pa_operation* pa_context_load_module(pa_context *c, const char*name, const char 
 	struct load_module *d;
 	int error = PA_ERR_NOTIMPLEMENTED;;
 	struct pw_properties *props = NULL;
-	pa_operation_cb_t op_cb = on_load_module;
 	const char *str;
+	bool sync = true;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
 	pa_assert(name != NULL);
 
 	pw_log_debug("context %p: name:%s arg:%s", c, name, argument);
+
+	o = pa_operation_new(c, NULL, on_load_module, sizeof(struct load_module));
+	d = o->userdata;
+	d->cb = cb;
+	d->userdata = userdata;
+	d->idx = PA_INVALID_INDEX;
 
 	if (strcmp(name, "module-null-sink") == 0) {
 		props = pw_properties_new_string(argument);
@@ -1567,18 +1576,14 @@ pa_operation* pa_context_load_module(pa_context *c, const char*name, const char 
 		}
 		pw_properties_set(props, "factory.name", "support.null-audio-sink");
 
-		error = 0;
-		op_cb = on_null_sink_module;
+		d->props = props;
+		error = load_null_sink_module(o);
+		sync = error < 0;
 	}
 done:
-	o = pa_operation_new(c, NULL, op_cb, sizeof(struct load_module));
-	d = o->userdata;
-	d->cb = cb;
 	d->error = error;
-	d->userdata = userdata;
-	d->idx = PA_INVALID_INDEX;
-	d->props = props;
-	pa_operation_sync(o);
+	if (sync)
+		pa_operation_sync(o);
 
 	return o;
 }

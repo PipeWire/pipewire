@@ -210,6 +210,7 @@ struct acp_device {
 struct acp_card_profile {
 	uint32_t index;
 #define ACP_PROFILE_ACTIVE	(1<<0)
+#define ACP_PROFILE_OFF		(1<<1)		/* the Off profile */
 	uint32_t flags;
 
 	const char *name;

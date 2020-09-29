@@ -1407,13 +1407,13 @@ mmap_init(struct impl *this,
 	spa_log_debug(this->log, "v4l2: got %d buffers", reqbuf.count);
 	n_buffers = reqbuf.count;
 
-	if (reqbuf.count < 2) {
+	if (n_buffers < 2) {
 		spa_log_error(this->log, "v4l2: '%s' can't allocate enough buffers (%d)",
-				this->props.device, reqbuf.count);
+				this->props.device, n_buffers);
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < reqbuf.count; i++) {
+	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		struct spa_data *d;
 
@@ -1436,6 +1436,13 @@ mmap_init(struct impl *this,
 		if (xioctl(dev->fd, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
 			spa_log_error(this->log, "v4l2: '%s' VIDIOC_QUERYBUF: %m", this->props.device);
 			return -errno;
+		}
+
+		if (b->v4l2_buffer.flags & V4L2_BUF_FLAG_QUEUED) {
+			/* some drivers can give us an already queued buffer. */
+			spa_log_warn(this->log, "v4l2: buffer %d was already queued", i);
+			n_buffers = i;
+			break;
 		}
 
 		d = buffers[i]->datas;
@@ -1479,10 +1486,10 @@ fallback:
 		}
 		spa_v4l2_buffer_recycle(this, i);
 	}
-	spa_log_info(this->log, "v4l2: have %u buffers using %s", reqbuf.count,
+	spa_log_info(this->log, "v4l2: have %u buffers using %s", n_buffers,
 			port->have_expbuf ? "EXPBUF" : "MMAP");
 
-	port->n_buffers = reqbuf.count;
+	port->n_buffers = n_buffers;
 
 	return 0;
 }

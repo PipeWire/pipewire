@@ -585,8 +585,11 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 	s->n_formats = 0;
 	if (formats) {
 		s->n_formats = n_formats;
-		for (i = 0; i < n_formats; i++)
+		for (i = 0; i < n_formats; i++) {
 			s->req_formats[i] = pa_format_info_copy(formats[i]);
+			pw_log_debug("format %d: %s", i,
+					pa_format_info_snprint(str, sizeof(str), formats[i]));
+		}
 	}
 	s->format = NULL;
 

@@ -76,8 +76,10 @@ static const char* const _encoding_str_table[]= {
     [PA_ENCODING_MPEG_IEC61937] = "mpeg-iec61937",
     [PA_ENCODING_DTS_IEC61937] = "dts-iec61937",
     [PA_ENCODING_MPEG2_AAC_IEC61937] = "mpeg2-aac-iec61937",
+#if PA_CHECK_VERSION(13, 0, 0)
     [PA_ENCODING_TRUEHD_IEC61937] = "truehd-iec61937",
     [PA_ENCODING_DTSHD_IEC61937] = "dtshd-iec61937",
+#endif
     [PA_ENCODING_ANY] = "any",
 };
 

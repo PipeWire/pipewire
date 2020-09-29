@@ -582,6 +582,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 
 			port->fmtdesc.pixelformat = info->fourcc;
 
+			spa_zero(fmt);
 			fmt.type = port->fmtdesc.type;
 			fmt.fmt.pix.pixelformat = info->fourcc;
 			fmt.fmt.pix.field = V4L2_FIELD_ANY;
@@ -977,6 +978,7 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 			return res;
 		port->have_query_ext_ctrl = false;
 	}
+	spa_zero(qc);
 	qc.id = qctrl->id;
 	res = xioctl(dev->fd, VIDIOC_QUERYCTRL, &qc);
 	if (res == 0) {

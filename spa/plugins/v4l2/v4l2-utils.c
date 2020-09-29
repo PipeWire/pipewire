@@ -162,8 +162,7 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 			spa_v4l2_buffer_recycle(this, i);
 		}
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
-			munmap(SPA_MEMBER(b->ptr, -d[0].mapoffset, void),
-					d[0].maxsize - d[0].mapoffset);
+			munmap(b->ptr, d[0].maxsize);
 		}
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_ALLOCATED)) {
 			spa_log_debug(this->log, "v4l2: close %d", (int) d[0].fd);
@@ -1354,14 +1353,14 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 				void *data;
 
 				data = mmap(NULL,
-					    d[0].maxsize + d[0].mapoffset,
+					    d[0].maxsize,
 					    PROT_READ | PROT_WRITE, MAP_SHARED,
 					    d[0].fd,
-					    0);
+					    d[0].mapoffset);
 				if (data == MAP_FAILED)
 					return -errno;
 
-				b->ptr = SPA_MEMBER(data, d[0].mapoffset, void);
+				b->ptr = data;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 			}
 			else
@@ -1482,7 +1481,18 @@ fallback:
 			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = dev->fd;
 			d[0].mapoffset = b->v4l2_buffer.m.offset;
-			spa_log_debug(this->log, "v4l2: mmap offset:%u", d[0].mapoffset);
+			d[0].data = mmap(NULL,
+					b->v4l2_buffer.length,
+					PROT_READ, MAP_SHARED,
+					dev->fd,
+					b->v4l2_buffer.m.offset);
+			if (d[0].data == MAP_FAILED) {
+				spa_log_error(this->log, "v4l2: '%s' mmap: %m", this->props.device);
+				return -errno;
+			}
+			b->ptr = d[0].data;
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
+			spa_log_debug(this->log, "v4l2: mmap offset:%u data:%p", d[0].mapoffset, b->ptr);
 		}
 		spa_v4l2_buffer_recycle(this, i);
 	}

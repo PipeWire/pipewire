@@ -735,7 +735,7 @@ static void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
 	b = &mix->buffers[id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		pw_log_trace(NAME" %p: port %p: recycle buffer %d", c, mix->port, id);
+		pw_log_trace_fp(NAME" %p: port %p: recycle buffer %d", c, mix->port, id);
 		spa_list_append(&mix->queue, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 	}
@@ -817,7 +817,7 @@ static void *get_buffer_output(struct client *c, struct port *p, uint32_t frames
 		if (SPA_UNLIKELY(mix->n_buffers == 0))
 			goto done;
 
-		pw_log_trace(NAME" %p: port %p %d get buffer %d n_buffers:%d",
+		pw_log_trace_fp(NAME" %p: port %p %d get buffer %d n_buffers:%d",
 				c, p, p->id, frames, mix->n_buffers);
 
 		if (SPA_UNLIKELY((b = dequeue_buffer(mix)) == NULL)) {
@@ -839,7 +839,7 @@ done:
 		struct spa_io_buffers *mio = mix->io;
 		if (SPA_UNLIKELY(mio == NULL))
 			continue;
-		pw_log_trace(NAME" %p: port %p tee %d.%d get buffer %d io:%p",
+		pw_log_trace_fp(NAME" %p: port %p tee %d.%d get buffer %d io:%p",
 				c, p, p->id, mix->id, frames, mio);
 		*mio = p->io;
 	}
@@ -1101,7 +1101,7 @@ static inline uint32_t cycle_run(struct client *c)
 			c->xrun_callback(c->xrun_arg);
 		c->xrun_count = driver->xrun_count;
 	}
-	pw_log_trace(NAME" %p: wait %"PRIu64" frames:%d rate:%d pos:%d delay:%"PRIi64" corr:%f", c,
+	pw_log_trace_fp(NAME" %p: wait %"PRIu64" frames:%d rate:%d pos:%d delay:%"PRIi64" corr:%f", c,
 			activation->awake_time, c->buffer_frames, c->sample_rate,
 			c->jack_position.frame, pos->clock.delay, pos->clock.rate_diff);
 
@@ -1143,14 +1143,14 @@ static inline void signal_sync(struct client *c)
 
 		state = &l->activation->state[0];
 
-		pw_log_trace(NAME" %p: link %p %p %d/%d", c, l, state,
+		pw_log_trace_fp(NAME" %p: link %p %p %d/%d", c, l, state,
 				state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state, 1)) {
 			l->activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 			l->activation->signal_time = nsec;
 
-			pw_log_trace(NAME" %p: signal %p %p", c, l, state);
+			pw_log_trace_fp(NAME" %p: signal %p %p", c, l, state);
 
 			if (SPA_UNLIKELY(write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd)))
 				pw_log_warn(NAME" %p: write failed %m", c);
@@ -3278,7 +3278,7 @@ static inline void *get_buffer_input_float(struct client *c, struct port *p, jac
 	void *ptr = NULL;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
-		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
+		pw_log_trace_fp(NAME" %p: port %p mix %d.%d get buffer %d",
 				c, p, p->id, mix->id, frames);
 		io = mix->io;
 		if (io == NULL ||
@@ -3313,7 +3313,7 @@ static inline void *get_buffer_input_midi(struct client *c, struct port *p, jack
 		struct spa_data *d;
 		void *pod;
 
-		pw_log_trace(NAME" %p: port %p mix %d.%d get buffer %d",
+		pw_log_trace_fp(NAME" %p: port %p mix %d.%d get buffer %d",
 				c, p, p->id, mix->id, frames);
 
 		io = mix->io;
@@ -3398,7 +3398,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			break;
 		}
 	}
-	pw_log_trace(NAME" %p: port %p buffer %p empty:%u", c, p, ptr, p->empty_out);
+	pw_log_trace_fp(NAME" %p: port %p buffer %p empty:%u", c, p, ptr, p->empty_out);
 	return ptr;
 }
 

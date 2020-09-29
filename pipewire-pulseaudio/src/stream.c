@@ -165,7 +165,7 @@ static const struct spa_pod *get_buffers_param(pa_stream *s, pa_buffer_attr *att
 static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flags_t *flags) {
 	const char *e, *str;
 	char buf[100];
-	uint32_t stride;
+	uint32_t stride, period;
 
 	pa_assert(s);
 	pa_assert(attr);
@@ -222,6 +222,9 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 			attr->prebuf = -1;
 		if (attr->fragsize == 0)
 			attr->prebuf = -1;
+		period = 100;
+	} else {
+		period = 20;
 	}
 
 	dump_buffer_attr(s, attr);
@@ -238,7 +241,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 	attr->tlength -= attr->tlength % stride;
 
 	if (attr->minreq == (uint32_t) -1)
-		attr->minreq = pa_usec_to_bytes(20*PA_USEC_PER_MSEC, &s->sample_spec);
+		attr->minreq = pa_usec_to_bytes(period*PA_USEC_PER_MSEC, &s->sample_spec);
 	attr->minreq = SPA_MIN(attr->minreq, attr->tlength / 4);
 	attr->minreq = SPA_MAX(attr->minreq, MIN_SAMPLES * stride);
 	attr->minreq -= attr->minreq % stride;
@@ -253,7 +256,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 	attr->prebuf = SPA_MAX(attr->prebuf, stride);
 
 	if (attr->fragsize == (uint32_t) -1)
-		attr->fragsize = pa_usec_to_bytes(20*PA_USEC_PER_MSEC, &s->sample_spec);
+		attr->fragsize = pa_usec_to_bytes(period*PA_USEC_PER_MSEC, &s->sample_spec);
 	attr->fragsize = SPA_MIN(attr->fragsize, attr->tlength / 4);
 	attr->fragsize -= attr->fragsize % stride;
 	attr->fragsize = SPA_MAX(attr->fragsize, stride);

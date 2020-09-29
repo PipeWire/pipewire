@@ -330,8 +330,9 @@ static int make_matrix(struct channelmix *mix)
 
 	if (unassigned & _MASK(FLC)) {
 		if (dst_mask & _MASK(FL)) {
-			matrix[FC][FLC]+= 1.0f;
-			matrix[FC][FRC]+= 1.0f;
+			spa_log_debug(mix->log, "assign FLC+FRC to FL+FR");
+			matrix[FL][FLC]+= 1.0f;
+			matrix[FR][FRC]+= 1.0f;
 		} else if(dst_mask & _MASK(FC)) {
 			spa_log_debug(mix->log, "assign FLC+FRC to FC");
 			matrix[FC][FLC]+= SQRT1_2;

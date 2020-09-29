@@ -493,8 +493,7 @@ static void stream_process(void *data)
 				s, queued, target, wanted, required);
 
 		if (s->write_callback && s->state == PA_STREAM_READY &&
-				queued < wanted &&
-				wanted >= required)
+				queued < wanted && wanted >= required)
 			s->write_callback(s, wanted, s->write_userdata);
 	}
 	else {
@@ -1283,7 +1282,7 @@ SPA_EXPORT
 size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 {
 	const pa_timing_info *i;
-	uint64_t now, then, queued, writable, elapsed, required;
+	uint64_t now, then, queued, target, wanted, elapsed, required;
 	struct timespec ts;
 
 	spa_assert(s);
@@ -1306,16 +1305,18 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 	}
 
 	queued = queued_size(s, elapsed);
-	writable = writable_size(s, queued);
+	target = target_queue(s);
+	wanted = wanted_size(s, queued, target);
 	required = required_size(s);
 
-	pw_log_debug("stream %p: writable:%"PRIu64" queued:%"PRIu64" required:%"PRIu64, s,
-			writable, queued, required);
+	pw_log_debug("stream %p: queued:%"PRIu64" target:%"PRIu64
+			" wanted:%"PRIu64" required:%"PRIu64, s,
+			queued, target, wanted, required);
 
-	if (writable < required)
-		writable = 0;
+	if (queued >= wanted || wanted < required)
+		wanted = 0;
 
-	return writable;
+	return wanted;
 }
 
 SPA_EXPORT

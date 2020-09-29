@@ -47,6 +47,7 @@ struct channelmix {
 	uint64_t dst_mask;
 	uint32_t cpu_flags;
 #define CHANNELMIX_OPTION_MIX_LFE	(1<<0)		/**< mix LFE */
+#define CHANNELMIX_OPTION_NORMALIZE	(1<<1)		/**< normalize volumes */
 	uint32_t options;
 
 	struct spa_log *log;

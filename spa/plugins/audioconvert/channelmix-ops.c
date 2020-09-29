@@ -166,6 +166,7 @@ static int make_matrix(struct channelmix *mix)
 	float clev = SQRT1_2;
 	float slev = SQRT1_2;
 	float llev = 0.5f;
+	float maxsum = 0.0f;
 
 	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
 			src_mask, dst_mask);
@@ -355,7 +356,7 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 done:
-	for (ic = 0, i = 0; i < NUM_CHAN; i++) {
+	for (jc = 0, ic = 0, i = 0; i < NUM_CHAN; i++) {
 		float sum = 0.0f;
 		if ((dst_mask & (1UL << (i + 2))) == 0)
 			continue;
@@ -365,10 +366,14 @@ done:
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
-		if (sum > 1.0f)
-			for (j = 0; j < jc; j++)
-		                mix->matrix_orig[ic][j] /= sum;
+		maxsum = SPA_MAX(maxsum, sum);
 		ic++;
+	}
+	if (SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_NORMALIZE) &&
+	    maxsum > 1.0f) {
+		for (i = 0; i < ic; i++)
+			for (j = 0; j < jc; j++)
+		                mix->matrix_orig[i][j] /= maxsum;
 	}
 	return 0;
 }

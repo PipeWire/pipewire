@@ -252,7 +252,11 @@ static int setup_convert(struct impl *this,
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
 
-	this->props.n_channel_volumes = SPA_MAX(src_chan, dst_chan);
+	if (this->props.n_channel_volumes != this->mix.src_chan) {
+		this->props.n_channel_volumes = this->mix.src_chan;
+		for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+			this->props.channel_volumes[i] = 1.0;
+	}
 
 	channelmix_set_volume(&this->mix, this->props.volume, this->props.mute,
 			this->props.n_channel_volumes, this->props.channel_volumes);

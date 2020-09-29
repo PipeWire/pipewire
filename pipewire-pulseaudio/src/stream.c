@@ -210,6 +210,20 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 				*flags |= PA_STREAM_ADJUST_LATENCY;
 		}
 	}
+
+	if (flags && !SPA_FLAG_IS_SET(*flags, PA_STREAM_ADJUST_LATENCY)) {
+		if (attr->maxlength == 0)
+			attr->maxlength = -1;
+		if (attr->tlength == 0)
+			attr->tlength = -1;
+		if (attr->minreq == 0)
+			attr->minreq = -1;
+		if (attr->prebuf == 0)
+			attr->prebuf = -1;
+		if (attr->fragsize == 0)
+			attr->prebuf = -1;
+	}
+
 	dump_buffer_attr(s, attr);
 
 	stride  = pa_frame_size(&s->sample_spec);
@@ -454,7 +468,10 @@ static inline uint32_t queued_size(const pa_stream *s, uint64_t elapsed)
 }
 static inline uint32_t target_queue(const pa_stream *s)
 {
-	return s->buffer_attr.tlength;
+	if (SPA_FLAG_IS_SET(s->flags, PA_STREAM_ADJUST_LATENCY))
+		return s->buffer_attr.tlength;
+	else
+		return s->buffer_attr.maxlength;
 }
 
 static inline uint32_t wanted_size(const pa_stream *s, uint32_t queued, uint32_t target)
@@ -462,14 +479,29 @@ static inline uint32_t wanted_size(const pa_stream *s, uint32_t queued, uint32_t
 	return target - SPA_MIN(queued, target);
 }
 
-static inline uint32_t writable_size(const pa_stream *s, uint64_t queued)
-{
-	return s->maxblock - SPA_MIN(queued, s->maxblock);
-}
-
 static inline uint32_t required_size(const pa_stream *s)
 {
 	return s->buffer_attr.minreq;
+}
+
+static inline uint32_t writable_size(const pa_stream *s, uint64_t elapsed)
+{
+	uint32_t queued, target, wanted, required;
+
+	queued = queued_size(s, elapsed);
+	target = target_queue(s);
+	wanted = wanted_size(s, queued, target);
+	required = required_size(s);
+
+	pw_log_trace("stream %p, queued:%u target:%u wanted:%u required:%u",
+			s, queued, target, wanted, required);
+	if (SPA_FLAG_IS_SET(s->flags, PA_STREAM_ADJUST_LATENCY))
+		if (queued >= wanted)
+			wanted = 0;
+	if (wanted < required)
+		wanted = 0;
+
+	return wanted;
 }
 
 static void stream_process(void *data)
@@ -480,21 +512,14 @@ static void stream_process(void *data)
 	update_timing_info(s);
 
 	if (s->direction == PA_STREAM_PLAYBACK) {
-		uint32_t queued, target, wanted, required;
+		uint32_t writable;
 
 		queue_output(s);
 
-		queued = queued_size(s, 0);
-		target = target_queue(s);
-		wanted = wanted_size(s, queued, target);
-		required = required_size(s);
+		writable = writable_size(s, 0);
 
-		pw_log_trace("stream %p, queued:%u target:%u wanted:%u required:%u",
-				s, queued, target, wanted, required);
-
-		if (s->write_callback && s->state == PA_STREAM_READY &&
-				queued < wanted && wanted >= required)
-			s->write_callback(s, wanted, s->write_userdata);
+		if (s->write_callback && s->state == PA_STREAM_READY && writable > 0)
+			s->write_callback(s, writable, s->write_userdata);
 	}
 	else {
 		pull_input(s);
@@ -894,6 +919,7 @@ static int create_stream(pa_stream_direction_t direction,
 		s->n_channel_volumes = 0;
 	}
 	s->mute = false;
+	s->flags = flags;
 
 	pa_stream_set_state(s, PA_STREAM_CREATING);
 
@@ -950,7 +976,7 @@ static int create_stream(pa_stream_direction_t direction,
 	if (!pa_sample_spec_valid(&s->sample_spec))
 		return -EINVAL;
 
-	patch_buffer_attr(s, &s->buffer_attr, &flags);
+	patch_buffer_attr(s, &s->buffer_attr, &s->flags);
 
 	if (direction == PA_STREAM_RECORD)
 		devid = s->direct_on_input;
@@ -1285,7 +1311,7 @@ SPA_EXPORT
 size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 {
 	const pa_timing_info *i;
-	uint64_t now, then, queued, target, wanted, elapsed, required;
+	uint64_t now, then, elapsed;
 	struct timespec ts;
 
 	spa_assert(s);
@@ -1307,19 +1333,7 @@ size_t pa_stream_writable_size(PA_CONST pa_stream *s)
 		elapsed = 0;
 	}
 
-	queued = queued_size(s, elapsed);
-	target = target_queue(s);
-	wanted = wanted_size(s, queued, target);
-	required = required_size(s);
-
-	pw_log_debug("stream %p: queued:%"PRIu64" target:%"PRIu64
-			" wanted:%"PRIu64" required:%"PRIu64, s,
-			queued, target, wanted, required);
-
-	if (queued >= wanted || wanted < required)
-		wanted = 0;
-
-	return wanted;
+	return writable_size(s, elapsed);
 }
 
 SPA_EXPORT

@@ -314,7 +314,7 @@ static int loop_iterate(void *object, int timeout)
 static void source_io_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	spa_log_trace(impl->impl->log, NAME" %p: io %08x", impl, source->rmask);
+	spa_log_trace_fp(impl->impl->log, NAME" %p: io %08x", impl, source->rmask);
 	impl->func.io(source->data, source->fd, source->rmask);
 }
 

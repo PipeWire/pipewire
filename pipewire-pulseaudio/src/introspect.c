@@ -827,7 +827,8 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)))
 			pa_proplist_setf(i.proplist, PW_KEY_NODE_NAME, "%s.monitor", str);
 		if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)))
-			pa_proplist_setf(i.proplist, PW_KEY_NODE_DESCRIPTION, "Monitor or %s", str);
+			pa_proplist_setf(i.proplist, PW_KEY_NODE_DESCRIPTION, "Monitor of %s", str);
+		pa_proplist_setf(i.proplist, PW_KEY_DEVICE_CLASS, "monitor");
 	}
 
 	if ((str = pa_proplist_gets(i.proplist, PW_KEY_NODE_NAME)))

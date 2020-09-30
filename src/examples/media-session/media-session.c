@@ -87,6 +87,7 @@ int sm_libcamera_monitor_start(struct sm_media_session *sess);
 int sm_bluez5_monitor_start(struct sm_media_session *sess);
 int sm_alsa_monitor_start(struct sm_media_session *sess);
 int sm_suspend_node_start(struct sm_media_session *sess);
+int sm_pulse_bridge_start(struct sm_media_session *sess);
 
 int sm_policy_node_start(struct sm_media_session *sess);
 
@@ -2040,7 +2041,8 @@ static void do_quit(void *data, int signal_number)
 				"v4l2,"			\
 				"bluez5,"		\
 				"suspend-node,"		\
-				"policy-node"
+				"policy-node,"		\
+				"pulse-bridge"
 #define DEFAULT_DISABLED	""
 
 static const struct {
@@ -2065,6 +2067,7 @@ static const struct {
 	{ "bluez5", "bluetooth support", sm_bluez5_monitor_start, NULL },
 	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start, NULL },
 	{ "policy-node", "configure and link nodes", sm_policy_node_start, NULL },
+	{ "pulse-bridge", "accept pulseaudio clients", sm_pulse_bridge_start, NULL },
 };
 
 static int opt_contains(const char *opt, const char *val)

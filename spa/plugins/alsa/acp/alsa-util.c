@@ -1055,6 +1055,293 @@ void pa_alsa_init_proplist_ctl(pa_proplist *p, const char *name) {
 
     snd_ctl_close(ctl);
 }
+
+int pa_alsa_recover_from_poll(snd_pcm_t *pcm, int revents) {
+    snd_pcm_state_t state;
+    snd_pcm_hw_params_t *hwparams;
+    int err;
+
+    pa_assert(pcm);
+
+    if (revents & POLLERR)
+        pa_log_debug("Got POLLERR from ALSA");
+    if (revents & POLLNVAL)
+        pa_log_warn("Got POLLNVAL from ALSA");
+    if (revents & POLLHUP)
+        pa_log_warn("Got POLLHUP from ALSA");
+    if (revents & POLLPRI)
+        pa_log_warn("Got POLLPRI from ALSA");
+    if (revents & POLLIN)
+        pa_log_debug("Got POLLIN from ALSA");
+    if (revents & POLLOUT)
+        pa_log_debug("Got POLLOUT from ALSA");
+
+    state = snd_pcm_state(pcm);
+    pa_log_debug("PCM state is %s", snd_pcm_state_name(state));
+
+    /* Try to recover from this error */
+
+    switch (state) {
+
+        case SND_PCM_STATE_DISCONNECTED:
+            /* Do not try to recover */
+            pa_log_info("Device disconnected.");
+            return -1;
+
+        case SND_PCM_STATE_XRUN:
+            if ((err = snd_pcm_recover(pcm, -EPIPE, 1)) != 0) {
+                pa_log_warn("Could not recover from POLLERR|POLLNVAL|POLLHUP and XRUN: %s", pa_alsa_strerror(err));
+                return -1;
+            }
+            break;
+
+        case SND_PCM_STATE_SUSPENDED:
+            snd_pcm_hw_params_alloca(&hwparams);
+
+            if ((err = snd_pcm_hw_params_any(pcm, hwparams)) < 0) {
+		pa_log_debug("snd_pcm_hw_params_any() failed: %s", pa_alsa_strerror(err));
+		return -1;
+            }
+
+            if (snd_pcm_hw_params_can_resume(hwparams)) {
+                /* Retry resume 3 times before giving up, then fallback to restarting the stream. */
+                for (int i = 0; i < 3; i++) {
+                    if ((err = snd_pcm_resume(pcm)) == 0)
+                        return 0;
+                    if (err != -EAGAIN)
+                        break;
+                    pa_msleep(25);
+                }
+                pa_log_warn("Could not recover alsa device from SUSPENDED state, trying to restart PCM");
+	    }
+	    /* Fall through */
+
+        default:
+
+            snd_pcm_drop(pcm);
+            return 1;
+    }
+
+    return 0;
+}
+
+pa_rtpoll_item* pa_alsa_build_pollfd(snd_pcm_t *pcm, pa_rtpoll *rtpoll) {
+    int n, err;
+    struct pollfd *pollfd;
+    pa_rtpoll_item *item;
+
+    pa_assert(pcm);
+
+    if ((n = snd_pcm_poll_descriptors_count(pcm)) < 0) {
+        pa_log("snd_pcm_poll_descriptors_count() failed: %s", pa_alsa_strerror(n));
+        return NULL;
+    }
+
+    item = pa_rtpoll_item_new(rtpoll, PA_RTPOLL_NEVER, (unsigned) n);
+    pollfd = pa_rtpoll_item_get_pollfd(item, NULL);
+
+    if ((err = snd_pcm_poll_descriptors(pcm, pollfd, (unsigned) n)) < 0) {
+        pa_log("snd_pcm_poll_descriptors() failed: %s", pa_alsa_strerror(err));
+        pa_rtpoll_item_free(item);
+        return NULL;
+    }
+
+    return item;
+}
+
+snd_pcm_sframes_t pa_alsa_safe_avail(snd_pcm_t *pcm, size_t hwbuf_size, const pa_sample_spec *ss) {
+    snd_pcm_sframes_t n;
+    size_t k;
+
+    pa_assert(pcm);
+    pa_assert(hwbuf_size > 0);
+    pa_assert(ss);
+
+    /* Some ALSA driver expose weird bugs, let's inform the user about
+     * what is going on */
+
+    n = snd_pcm_avail(pcm);
+
+    if (n <= 0)
+        return n;
+
+    k = (size_t) n * pa_frame_size(ss);
+
+    if (PA_UNLIKELY(k >= hwbuf_size * 5 ||
+                    k >= pa_bytes_per_second(ss)*10)) {
+
+        PA_ONCE_BEGIN {
+            char *dn = pa_alsa_get_driver_name_by_pcm(pcm);
+            pa_log(ngettext("snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu ms).\n"
+                            "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                            "snd_pcm_avail() returned a value that is exceptionally large: %lu bytes (%lu ms).\n"
+                            "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                            (unsigned long) k),
+                   (unsigned long) k,
+                   (unsigned long) (pa_bytes_to_usec(k, ss) / PA_USEC_PER_MSEC),
+                   pa_strnull(dn));
+            pa_xfree(dn);
+            pa_alsa_dump(PA_LOG_ERROR, pcm);
+        } PA_ONCE_END;
+
+        /* Mhmm, let's try not to fail completely */
+        n = (snd_pcm_sframes_t) (hwbuf_size / pa_frame_size(ss));
+    }
+
+    return n;
+}
+
+int pa_alsa_safe_delay(snd_pcm_t *pcm, snd_pcm_status_t *status, snd_pcm_sframes_t *delay, size_t hwbuf_size, const pa_sample_spec *ss,
+                       bool capture) {
+    ssize_t k;
+    size_t abs_k;
+    int err;
+    snd_pcm_sframes_t avail = 0;
+#if (SND_LIB_VERSION >= ((1<<16)|(1<<8)|0)) /* API additions in 1.1.0 */
+    snd_pcm_audio_tstamp_config_t tstamp_config;
+#endif
+
+    pa_assert(pcm);
+    pa_assert(delay);
+    pa_assert(hwbuf_size > 0);
+    pa_assert(ss);
+
+    /* Some ALSA driver expose weird bugs, let's inform the user about
+     * what is going on. We're going to get both the avail and delay values so
+     * that we can compare and check them for capture.
+     * This is done with snd_pcm_status() which provides
+     * avail, delay and timestamp values in a single kernel call to improve
+     * timer-based scheduling */
+
+#if (SND_LIB_VERSION >= ((1<<16)|(1<<8)|0)) /* API additions in 1.1.0 */
+
+    /* The time stamp configuration needs to be set so that the
+     * ALSA code will use the internal delay reported by the driver.
+     * The time stamp configuration was introduced in alsa version 1.1.0. */
+    tstamp_config.type_requested = 1; /* ALSA default time stamp type */
+    tstamp_config.report_delay = 1;
+    snd_pcm_status_set_audio_htstamp_config(status, &tstamp_config);
+#endif
+
+    if ((err = snd_pcm_status(pcm, status)) < 0)
+        return err;
+
+    avail = snd_pcm_status_get_avail(status);
+    *delay = snd_pcm_status_get_delay(status);
+
+    k = (ssize_t) *delay * (ssize_t) pa_frame_size(ss);
+
+    abs_k = k >= 0 ? (size_t) k : (size_t) -k;
+
+    if (PA_UNLIKELY(abs_k >= hwbuf_size * 5 ||
+                    abs_k >= pa_bytes_per_second(ss)*10)) {
+
+        PA_ONCE_BEGIN {
+            char *dn = pa_alsa_get_driver_name_by_pcm(pcm);
+            pa_log(ngettext("snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s%lu ms).\n"
+                            "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                            "snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s%lu ms).\n"
+                            "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                            (signed long) k),
+                   (signed long) k,
+                   k < 0 ? "-" : "",
+                   (unsigned long) (pa_bytes_to_usec(abs_k, ss) / PA_USEC_PER_MSEC),
+                   pa_strnull(dn));
+            pa_xfree(dn);
+            pa_alsa_dump(PA_LOG_ERROR, pcm);
+        } PA_ONCE_END;
+
+        /* Mhmm, let's try not to fail completely */
+        if (k < 0)
+            *delay = -(snd_pcm_sframes_t) (hwbuf_size / pa_frame_size(ss));
+        else
+            *delay = (snd_pcm_sframes_t) (hwbuf_size / pa_frame_size(ss));
+    }
+
+    if (capture) {
+        abs_k = (size_t) avail * pa_frame_size(ss);
+
+        if (PA_UNLIKELY(abs_k >= hwbuf_size * 5 ||
+                        abs_k >= pa_bytes_per_second(ss)*10)) {
+
+            PA_ONCE_BEGIN {
+                char *dn = pa_alsa_get_driver_name_by_pcm(pcm);
+                pa_log(ngettext("snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu ms).\n"
+                                "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                                "snd_pcm_avail() returned a value that is exceptionally large: %lu bytes (%lu ms).\n"
+                                "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                                (unsigned long) k),
+                       (unsigned long) k,
+                       (unsigned long) (pa_bytes_to_usec(k, ss) / PA_USEC_PER_MSEC),
+                       pa_strnull(dn));
+                pa_xfree(dn);
+                pa_alsa_dump(PA_LOG_ERROR, pcm);
+            } PA_ONCE_END;
+
+            /* Mhmm, let's try not to fail completely */
+            avail = (snd_pcm_sframes_t) (hwbuf_size / pa_frame_size(ss));
+        }
+
+        if (PA_UNLIKELY(*delay < avail)) {
+            PA_ONCE_BEGIN {
+                char *dn = pa_alsa_get_driver_name_by_pcm(pcm);
+                pa_log(_("snd_pcm_avail_delay() returned strange values: delay %lu is less than avail %lu.\n"
+                         "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."),
+                       (unsigned long) *delay,
+                       (unsigned long) avail,
+                       pa_strnull(dn));
+                pa_xfree(dn);
+                pa_alsa_dump(PA_LOG_ERROR, pcm);
+            } PA_ONCE_END;
+
+            /* try to fixup */
+            *delay = avail;
+        }
+    }
+
+    return 0;
+}
+
+int pa_alsa_safe_mmap_begin(snd_pcm_t *pcm, const snd_pcm_channel_area_t **areas, snd_pcm_uframes_t *offset, snd_pcm_uframes_t *frames, size_t hwbuf_size, const pa_sample_spec *ss) {
+    int r;
+    snd_pcm_uframes_t before;
+    size_t k;
+
+    pa_assert(pcm);
+    pa_assert(areas);
+    pa_assert(offset);
+    pa_assert(frames);
+    pa_assert(hwbuf_size > 0);
+    pa_assert(ss);
+
+    before = *frames;
+
+    r = snd_pcm_mmap_begin(pcm, areas, offset, frames);
+
+    if (r < 0)
+        return r;
+
+    k = (size_t) *frames * pa_frame_size(ss);
+
+    if (PA_UNLIKELY(*frames > before ||
+                    k >= hwbuf_size * 3 ||
+                    k >= pa_bytes_per_second(ss)*10))
+        PA_ONCE_BEGIN {
+            char *dn = pa_alsa_get_driver_name_by_pcm(pcm);
+            pa_log(ngettext("snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte (%lu ms).\n"
+                            "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                            "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu bytes (%lu ms).\n"
+                            "Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers.",
+                            (unsigned long) k),
+                   (unsigned long) k,
+                   (unsigned long) (pa_bytes_to_usec(k, ss) / PA_USEC_PER_MSEC),
+                   pa_strnull(dn));
+            pa_xfree(dn);
+            pa_alsa_dump(PA_LOG_ERROR, pcm);
+        } PA_ONCE_END;
+
+    return r;
+}
 #endif
 
 char *pa_alsa_get_driver_name(int card) {
@@ -1112,9 +1399,7 @@ char *pa_alsa_get_reserve_name(const char *device) {
 
     return pa_sprintf_malloc("Audio%i", i);
 }
-#endif
 
-#if 0
 unsigned int *pa_alsa_get_supported_rates(snd_pcm_t *pcm, unsigned int fallback_rate) {
     static unsigned int all_rates[] = { 8000, 11025, 12000,
                                         16000, 22050, 24000,
@@ -1165,9 +1450,7 @@ unsigned int *pa_alsa_get_supported_rates(snd_pcm_t *pcm, unsigned int fallback_
 
     return rates;
 }
-#endif
 
-#if 0
 pa_sample_format_t *pa_alsa_get_supported_formats(snd_pcm_t *pcm, pa_sample_format_t fallback_format) {
     static const snd_pcm_format_t format_trans_to_pa[] = {
         [SND_PCM_FORMAT_U8] = PA_SAMPLE_U8,
@@ -1506,6 +1789,24 @@ snd_mixer_t *pa_alsa_open_mixer_for_pcm(pa_hashmap *mixers, snd_pcm_t *pcm, bool
 
     return NULL;
 }
+
+#if 0
+void pa_alsa_mixer_set_fdlist(pa_hashmap *mixers, snd_mixer_t *mixer_handle, pa_mainloop_api *ml)
+{
+    pa_alsa_mixer *pm;
+    void *state;
+
+    PA_HASHMAP_FOREACH(pm, mixers, state)
+        if (pm->mixer_handle == mixer_handle) {
+            pm->used_for_probe_only = false;
+            if (!pm->fdl) {
+                pm->fdl = pa_alsa_fdlist_new();
+                if (pm->fdl)
+                    pa_alsa_fdlist_set_handle(pm->fdl, pm->mixer_handle, NULL, ml);
+            }
+        }
+}
+#endif
 
 void pa_alsa_mixer_free(pa_alsa_mixer *mixer)
 {

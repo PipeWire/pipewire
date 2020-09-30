@@ -1106,6 +1106,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	char device_id[16];
 	bool ignore_dB = false;
 	uint32_t profile_index;
+	int res;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -1154,15 +1155,22 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 
 	snd_config_update_free_global();
 
-	if (impl->use_ucm && !pa_alsa_ucm_query_profiles(&impl->ucm, card->index)) {
+	res = impl->use_ucm ? pa_alsa_ucm_query_profiles(&impl->ucm, card->index) : -1;
+	if (res == -PA_ALSA_ERR_UCM_LINKED) {
+		res = -ENOENT;
+		goto error;
+	}
+	if (res == 0) {
 		pa_log_info("Found UCM profiles");
 		impl->profile_set = pa_alsa_ucm_add_profile_set(&impl->ucm, &impl->ucm.default_channel_map);
 	} else {
 		impl->use_ucm = false;
 		impl->profile_set = pa_alsa_profile_set_new(profile_set, &impl->ucm.default_channel_map);
 	}
-	if (impl->profile_set == NULL)
-		return NULL;
+	if (impl->profile_set == NULL) {
+		res = -ENOTSUP;
+		goto error;
+	}
 
 	impl->profile_set->ignore_dB = ignore_dB;
 
@@ -1197,6 +1205,11 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	init_eld_ctls(impl);
 
 	return &impl->card;
+error:
+	pa_alsa_refcnt_dec();
+	free(impl);
+	errno = -res;
+	return NULL;
 }
 
 void acp_card_add_listener(struct acp_card *card,
@@ -1209,7 +1222,9 @@ void acp_card_add_listener(struct acp_card *card,
 
 void acp_card_destroy(struct acp_card *card)
 {
+	pa_card *impl = (pa_card *)card;
 	pa_alsa_refcnt_dec();
+	free(impl);
 }
 
 int acp_card_poll_descriptors_count(struct acp_card *card)

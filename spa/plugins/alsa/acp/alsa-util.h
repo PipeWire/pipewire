@@ -29,6 +29,13 @@
 
 #include "alsa-mixer.h"
 
+enum {
+    PA_ALSA_ERR_UNSPECIFIED = 1,
+    PA_ALSA_ERR_UCM_OPEN = 1000,
+    PA_ALSA_ERR_UCM_NO_VERB = 1001,
+    PA_ALSA_ERR_UCM_LINKED = 1002
+};
+
 int pa_alsa_set_hw_params(
         snd_pcm_t *pcm_handle,
         pa_sample_spec *ss,                /* modified at return */
@@ -120,6 +127,16 @@ void pa_alsa_init_proplist_ctl(pa_proplist *p, const char *name);
 #endif
 bool pa_alsa_init_description(pa_proplist *p, pa_card *card);
 
+#if 0
+int pa_alsa_recover_from_poll(snd_pcm_t *pcm, int revents);
+
+pa_rtpoll_item* pa_alsa_build_pollfd(snd_pcm_t *pcm, pa_rtpoll *rtpoll);
+
+snd_pcm_sframes_t pa_alsa_safe_avail(snd_pcm_t *pcm, size_t hwbuf_size, const pa_sample_spec *ss);
+int pa_alsa_safe_delay(snd_pcm_t *pcm, snd_pcm_status_t *status, snd_pcm_sframes_t *delay, size_t hwbuf_size, const pa_sample_spec *ss, bool capture);
+int pa_alsa_safe_mmap_begin(snd_pcm_t *pcm, const snd_pcm_channel_area_t **areas, snd_pcm_uframes_t *offset, snd_pcm_uframes_t *frames, size_t hwbuf_size, const pa_sample_spec *ss);
+#endif
+
 char *pa_alsa_get_driver_name(int card);
 char *pa_alsa_get_driver_name_by_pcm(snd_pcm_t *pcm);
 
@@ -143,7 +160,9 @@ snd_mixer_elem_t *pa_alsa_mixer_find_pcm(snd_mixer_t *mixer, const char *name, u
 snd_mixer_t *pa_alsa_open_mixer(pa_hashmap *mixers, int alsa_card_index, bool probe);
 snd_mixer_t *pa_alsa_open_mixer_by_name(pa_hashmap *mixers, const char *dev, bool probe);
 snd_mixer_t *pa_alsa_open_mixer_for_pcm(pa_hashmap *mixers, snd_pcm_t *pcm, bool probe);
-
+#if 0
+void pa_alsa_mixer_set_fdlist(pa_hashmap *mixers, snd_mixer_t *mixer, pa_mainloop_api *ml);
+#endif
 void pa_alsa_mixer_free(pa_alsa_mixer *mixer);
 
 typedef struct pa_hdmi_eld pa_hdmi_eld;

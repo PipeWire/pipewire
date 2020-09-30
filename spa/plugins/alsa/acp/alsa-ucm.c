@@ -742,13 +742,13 @@ static void append_lost_relationship(pa_alsa_ucm_device *dev) {
 
 int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
     char *card_name;
-    const char **verb_list;
+    const char **verb_list, *value;
     int num_verbs, i, err = 0;
 
     /* support multiple card instances, address card directly by index */
     card_name = pa_sprintf_malloc("hw:%i", card_index);
     if (card_name == NULL)
-        return -ENOMEM;
+        return -PA_ALSA_ERR_UNSPECIFIED;
     err = snd_use_case_mgr_open(&ucm->ucm_mgr, card_name);
     if (err < 0) {
         /* fallback longname: is UCM available for this card ? */
@@ -756,14 +756,27 @@ int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
         err = snd_card_get_name(card_index, &card_name);
         if (err < 0) {
             pa_log("Card can't get card_name from card_index %d", card_index);
+            err = -PA_ALSA_ERR_UNSPECIFIED;
             goto name_fail;
         }
 
         err = snd_use_case_mgr_open(&ucm->ucm_mgr, card_name);
         if (err < 0) {
             pa_log_info("UCM not available for card %s", card_name);
+            err = -PA_ALSA_ERR_UCM_OPEN;
             goto ucm_mgr_fail;
         }
+    }
+
+    err = snd_use_case_get(ucm->ucm_mgr, "=Linked", &value);
+    if (err >= 0) {
+        if (strcasecmp(value, "true") == 0 || strcasecmp(value, "1") == 0) {
+            free((void *)value);
+            pa_log_info("Empty (linked) UCM for card %s", card_name);
+            err = -PA_ALSA_ERR_UCM_LINKED;
+            goto ucm_verb_fail;
+        }
+        free((void *)value);
     }
 
     pa_log_info("UCM available for card %s", card_name);
@@ -772,6 +785,7 @@ int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
     num_verbs = snd_use_case_verb_list(ucm->ucm_mgr, &verb_list);
     if (num_verbs < 0) {
         pa_log("UCM verb list not found for %s", card_name);
+        err = -PA_ALSA_ERR_UNSPECIFIED;
         goto ucm_verb_fail;
     }
 
@@ -791,7 +805,7 @@ int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
 
     if (!ucm->verbs) {
         pa_log("No UCM verb is valid for %s", card_name);
-        err = -1;
+        err = -PA_ALSA_ERR_UCM_NO_VERB;
     }
 
     snd_use_case_free_list(verb_list, num_verbs);

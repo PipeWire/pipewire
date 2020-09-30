@@ -19,6 +19,7 @@ SUBSYSTEM!="sound", GOTO="pulseaudio_end"
 ACTION!="change", GOTO="pulseaudio_end"
 KERNEL!="card*", GOTO="pulseaudio_end"
 SUBSYSTEMS=="usb", GOTO="pulseaudio_check_usb"
+SUBSYSTEMS=="pci", GOTO="pulseaudio_check_pci"
 SUBSYSTEMS=="firewire", GOTO="pulseaudio_firewire_quirk"
 
 SUBSYSTEMS=="platform", DRIVERS=="thinkpad_acpi", ENV{PULSE_IGNORE}="1"
@@ -121,6 +122,9 @@ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1730", ENV{PULSE_PROFILE_SET}="usb-g
 ATTRS{idVendor}=="2f12", ATTRS{idProduct}=="0109", ENV{PULSE_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 9886:002c is for the Astro A50 Gen4
 ATTRS{idVendor}=="9886", ATTRS{idProduct}=="002c", ENV{PULSE_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 1532:0520 is for the Razer Kraken Tournament Edition
+ATTRS{idVendor}=="1532", ATTRS{idProduct}=="0520", ENV{PULSE_PROFILE_SET}="usb-gaming-headset.conf"
+
 
 # ID 1038:1250 is for the Arctis 5
 # ID 1037:12aa is for the Arctis 5 2019
@@ -140,6 +144,16 @@ ATTRS{idVendor}=="147a", ATTRS{idProduct}=="e055", ENV{PULSE_PROFILE_SET}="cmedi
 ATTRS{idVendor}=="0951", ATTRS{idProduct}=="16ff", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_2Ch-$env{ID_USB_INTERFACE_NUM}"
 ATTRS{idVendor}=="0951", ATTRS{idProduct}=="1702", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_Hi-Res_2Ch-$env{ID_USB_INTERFACE_NUM}"
 ATTRS{idVendor}=="0951", ATTRS{idProduct}=="1703", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_3D_8Ch-$env{ID_USB_INTERFACE_NUM}"
+
+GOTO="pulseaudio_end"
+
+LABEL="pulseaudio_check_pci"
+
+# Creative SoundBlaster Audigy-based cards
+# EMU10k2/CA0100/CA0102/CA10200
+ATTRS{vendor}=="0x1102", ATTRS{device}=="0x0004", ENV{PULSE_PROFILE_SET}="audigy.conf"
+# CA0108/CA10300
+ATTRS{vendor}=="0x1102", ATTRS{device}=="0x0008", ENV{PULSE_PROFILE_SET}="audigy.conf"
 
 GOTO="pulseaudio_end"
 

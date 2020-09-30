@@ -1492,16 +1492,19 @@ static void core_done(void *data, uint32_t id, int seq)
 	if (c->pending_seq != seq)
 		return;
 
-	spa_list_init(&ops);
-	spa_list_consume(o, &c->operations, link) {
-		spa_list_remove(&o->link);
-		spa_list_append(&ops, &o->link);
-	}
 	spa_list_for_each(g, &c->globals, link) {
 		if (g->sync) {
 			do_global_sync(g);
 			g->sync = false;
 		}
+	}
+	if (c->pending_seq != seq)
+		return;
+
+	spa_list_init(&ops);
+	spa_list_consume(o, &c->operations, link) {
+		spa_list_remove(&o->link);
+		spa_list_append(&ops, &o->link);
 	}
 	spa_list_for_each_safe(o, t, &ops, link) {
 		if (!o->sync)

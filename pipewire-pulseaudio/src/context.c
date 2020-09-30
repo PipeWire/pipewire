@@ -1543,7 +1543,7 @@ static void on_success(pa_operation *o, void *userdata)
 {
 	struct success_data *d = userdata;
 	pa_context *c = o->context;
-	pw_log_debug("context %p: error %d", c, d->error);
+	pw_log_debug("context %p: operation:%p error %d", c, o, d->error);
 	if (d->error != 0)
 		pa_context_set_error(c, d->error);
 	if (d->cb)
@@ -1551,23 +1551,37 @@ static void on_success(pa_operation *o, void *userdata)
 	pa_operation_done(o);
 }
 
+struct subscribe_data {
+	struct success_data success;
+	pa_subscription_mask_t mask;
+};
+
+static void on_subscribe(pa_operation *o, void *userdata)
+{
+	struct subscribe_data *d = userdata;
+	pa_context *c = o->context;
+	c->subscribe_mask = d->mask;
+	on_success(o, &d->success);
+}
+
 SPA_EXPORT
 pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_context_success_cb_t cb, void *userdata)
 {
 	pa_operation *o;
-	struct success_data *d;
+	struct subscribe_data *d;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
 
 	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
-	c->subscribe_mask = m;
+	pw_log_debug("context %p: subscribe %08x", c, m);
 
-	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
+	o = pa_operation_new(c, NULL, on_subscribe, sizeof(struct subscribe_data));
 	d = o->userdata;
-	d->cb = cb;
-	d->userdata = userdata;
+	d->success.cb = cb;
+	d->success.userdata = userdata;
+	d->mask = m;
 	pa_operation_sync(o);
 
 	return o;

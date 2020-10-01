@@ -568,7 +568,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 	pa_proplist_as_dict(p->proplist, &p->port.props);
 
 	if (changed && mask != 0 && impl->events && impl->events->props_changed)
-		impl->events->props_changed(impl);
+		impl->events->props_changed(impl->user_data);
 	return 0;
 }
 

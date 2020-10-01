@@ -32,6 +32,30 @@ void *_acp_log_data;
 
 #define VOLUME_ACCURACY (PA_VOLUME_NORM/100)  /* don't require volume adjustments to be perfectly correct. don't necessarily extend granularity in software unless the differences get greater than this level */
 
+const char *acp_available_str(enum acp_available status)
+{
+	switch (status) {
+	case ACP_AVAILABLE_UNKNOWN:
+		return "unknown";
+	case ACP_AVAILABLE_NO:
+		return "no";
+	case ACP_AVAILABLE_YES:
+		return "yes";
+	}
+	return "error";
+}
+
+const char *acp_direction_str(enum acp_direction direction)
+{
+	switch (direction) {
+	case ACP_DIRECTION_CAPTURE:
+		return "capture";
+	case ACP_DIRECTION_PLAYBACK:
+		return "playback";
+	}
+	return "error";
+}
+
 static void profile_free(void *data)
 {
 }
@@ -421,7 +445,6 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 					found_available_input_port = true;
 			} else {
 				has_output_port = true;
-
 				if (port->port.available != ACP_AVAILABLE_NO)
 					found_available_output_port = true;
 			}

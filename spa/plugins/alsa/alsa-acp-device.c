@@ -662,7 +662,9 @@ static void card_profile_available(void *data, uint32_t index,
 	struct impl *this = data;
 	struct acp_card *card = this->card;
 	struct acp_card_profile *p = card->profiles[index];
-	spa_log_info(this->log, "card profile %s available %d", p->name, available);
+
+	spa_log_info(this->log, "card profile %s available %s -> %s", p->name,
+			acp_available_str(old), acp_available_str(available));
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
@@ -696,8 +698,9 @@ static void card_port_available(void *data, uint32_t index,
 	struct impl *this = data;
 	struct acp_card *card = this->card;
 	struct acp_port *p = card->ports[index];
-	spa_log_info(this->log, "card port %s available %d->%d",
-			p->name, old, available);
+
+	spa_log_info(this->log, "card port %s available %s -> %s", p->name,
+			acp_available_str(old), acp_available_str(available));
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;

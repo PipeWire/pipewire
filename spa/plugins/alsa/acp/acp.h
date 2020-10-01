@@ -77,11 +77,15 @@ enum acp_direction {
 	ACP_DIRECTION_CAPTURE = 2
 };
 
+const char *acp_direction_str(enum acp_direction direction);
+
 enum acp_available {
 	ACP_AVAILABLE_UNKNOWN = 0,
 	ACP_AVAILABLE_NO = 1,
 	ACP_AVAILABLE_YES = 2
 };
+
+const char *acp_available_str(enum acp_available status);
 
 /** Port type. New types can be added in the future, so applications should
  * gracefully handle situations where a type identifier doesn't match any item

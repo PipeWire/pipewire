@@ -288,19 +288,18 @@ static pa_available_t calc_port_state(pa_device_port *p, pa_card *impl)
 }
 
 static void profile_set_available(pa_card *impl, uint32_t index,
-		enum acp_available status)
+		enum acp_available status, bool emit)
 {
 	struct acp_card_profile *p = impl->card.profiles[index];
 	enum acp_available old = p->available;
 
-	pa_log_debug("Setting profile %s to availability status %d",
-			p->name, status);
-	if (old == status)
-		return;
+	if (old != status)
+		pa_log_info("Profile %s available %s->%s", p->name,
+				acp_available_str(old), acp_available_str(status));
 
 	p->available = status;
 
-	if (impl && impl->events && impl->events->profile_available)
+	if (emit && impl && impl->events && impl->events->profile_available)
 		impl->events->profile_available(impl->user_data, index,
 				old, status);
 }
@@ -435,6 +434,9 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 		bool found_available_output_port = false;
 		enum acp_available available = ACP_AVAILABLE_UNKNOWN;
 
+		if (profile->profile.flags & ACP_PROFILE_OFF)
+			continue;
+
 		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
 			if (!pa_hashmap_get(port->profiles, profile->profile.name))
 				continue;
@@ -467,11 +469,11 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 		if (profile->profile.index == impl->card.active_profile_index)
 			active_available = available;
 		else
-			profile_set_available(impl, profile->profile.index, available);
+			profile_set_available(impl, profile->profile.index, available, false);
 	}
 
 	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
-		profile_set_available(impl, impl->card.active_profile_index, active_available);
+		profile_set_available(impl, impl->card.active_profile_index, active_available, true);
 
 	return 0;
 }

@@ -294,7 +294,7 @@ static void profile_set_available(pa_card *impl, uint32_t index,
 	enum acp_available old = p->available;
 
 	if (old != status)
-		pa_log_info("Profile %s available %s->%s", p->name,
+		pa_log_info("Profile %s available %s -> %s", p->name,
 				acp_available_str(old), acp_available_str(status));
 
 	p->available = status;

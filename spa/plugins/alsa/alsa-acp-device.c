@@ -696,7 +696,8 @@ static void card_port_available(void *data, uint32_t index,
 	struct impl *this = data;
 	struct acp_card *card = this->card;
 	struct acp_port *p = card->ports[index];
-	spa_log_info(this->log, "card port %s available %d", p->name, available);
+	spa_log_info(this->log, "card port %s available %d->%d",
+			p->name, old, available);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;

@@ -202,9 +202,13 @@ static int restore_stream(struct stream *str, const char *val)
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-	for (p = val; *p; p++) {
+	p = val;
+	while (*p) {
 		if (strstr(p, "volume:") == p) {
-			vol = strtof(p+7, &end);
+			p += 7;
+			vol = strtof(p, &end);
+			if (end == p)
+				continue;
 			spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 			spa_pod_builder_float(&b, vol);
 			p = end;
@@ -216,15 +220,23 @@ static int restore_stream(struct stream *str, const char *val)
 			p+=6;
 		}
 		else if (strstr(p, "volumes:") == p) {
-			n_vols = strtol(p+8, &end, 10);
-			if (n_vols >= SPA_AUDIO_MAX_CHANNELS)
+			p += 8;
+			n_vols = strtol(p, &end, 10);
+			if (end == p)
 				continue;
 			p = end;
+			if (n_vols >= SPA_AUDIO_MAX_CHANNELS)
+				continue;
 			vols = alloca(n_vols * sizeof(float));
-			for (i = 0; i < n_vols; i++) {
-				vols[i] = strtof(p+1, &end);
+			for (i = 0; i < n_vols && *p == ','; i++) {
+				p++;
+				vols[i] = strtof(p, &end);
+				if (end == p)
+					break;
 				p = end;
 			}
+			if (i != n_vols)
+				continue;
 			spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);
@@ -238,6 +250,8 @@ static int restore_stream(struct stream *str, const char *val)
 			i = end - p;
 			strncpy(target, p, i);
 			target[i-1] = 0;
+		} else {
+			p++;
 		}
 	}
 	param = spa_pod_builder_pop(&b, &f[0]);

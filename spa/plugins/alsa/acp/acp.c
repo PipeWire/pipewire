@@ -1056,6 +1056,11 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 	op = old_index != ACP_INVALID_INDEX ? (pa_alsa_profile*)profiles[old_index] : NULL;
 	np = (pa_alsa_profile*)profiles[new_index];
 
+	if (op == np)
+		return 0;
+
+	pa_log_info("activate profile: %s (%d)", np->profile.name, new_index);
+
 	if (op && op->output_mappings) {
 		PA_IDXSET_FOREACH(am, op->output_mappings, idx) {
 			if (np->output_mappings &&
@@ -1099,8 +1104,6 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 		op->profile.flags &= ~ACP_PROFILE_ACTIVE;
 	np->profile.flags |= ACP_PROFILE_ACTIVE;
 	impl->card.active_profile_index = new_index;
-
-	pa_log_info("active_profile: %s (%d)", np->profile.name, new_index);
 
 	if (impl->events && impl->events->profile_changed)
 		impl->events->profile_changed(impl->user_data, old_index,

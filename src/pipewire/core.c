@@ -377,7 +377,7 @@ error_properties:
 	pw_log_error(NAME" %p: can't create properties: %m", p);
 	goto exit_free;
 error_protocol:
-	pw_log_error(NAME" %p: can't find native protocol: %s", p, spa_strerror(res));
+	pw_log_error(NAME" %p: can't find protocol '%s': %s", p, protocol_name, spa_strerror(res));
 	goto exit_free;
 error_connection:
 	res = -errno;

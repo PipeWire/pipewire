@@ -947,8 +947,8 @@ static int send_data(struct client *client, struct data *d)
 	desc.offset_hi = 0;
 	desc.offset_lo = 0;
 	desc.flags = 0;
-	write(client->source->fd, &desc, sizeof(desc));
-	write(client->source->fd, d->data, d->offset);
+	send(client->source->fd, &desc, sizeof(desc), MSG_NOSIGNAL);
+	send(client->source->fd, d->data, d->offset, MSG_NOSIGNAL);
 	return 0;
 }
 

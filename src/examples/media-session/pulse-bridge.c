@@ -271,6 +271,7 @@ struct stream {
 
 	struct impl *impl;
 	struct client *client;
+	enum pw_direction direction;
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
@@ -448,6 +449,7 @@ struct command {
 	const char *name;
 	int (*run) (struct client *client, uint32_t command, uint32_t tag, struct data *d);
 };
+static const struct command commands[COMMAND_MAX];
 
 static int data_get(struct data *d, ...);
 
@@ -857,8 +859,8 @@ static void write_props(struct data *d, struct pw_properties *props)
 		spa_dict_for_each(it, &props->dict) {
 			int l = strlen(it->value);
 			write_string(d, it->key);
-			write_u32(d, l);
-			write_arbitrary(d, it->value, l);
+			write_u32(d, l+1);
+			write_arbitrary(d, it->value, l+1);
 		}
 	}
 	write_string(d, NULL);
@@ -1063,10 +1065,25 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 	return send_data(client, &reply);
 }
 
+static void block_free(struct block *block)
+{
+	spa_list_remove(&block->link);
+	free(block->data);
+	free(block);
+}
+
+static void stream_flush(struct stream *stream)
+{
+	struct block *block;
+	spa_list_consume(block, &stream->blocks, link)
+		block_free(block);
+}
+
 static void stream_free(struct stream *stream)
 {
 	struct client *client = stream->client;
 	pw_map_remove(&client->streams, stream->channel);
+	stream_flush(stream);
 	if (stream->stream) {
 		spa_hook_remove(&stream->stream_listener);
 		pw_stream_destroy(stream->stream);
@@ -1181,7 +1198,57 @@ static int reply_create_playback_stream(struct stream *stream)
 	stream->create_tag = SPA_ID_INVALID;
 
 	return send_data(client, &reply);
+}
 
+static int reply_create_record_stream(struct stream *stream)
+{
+	struct client *client = stream->client;
+	uint8_t buffer[1024];
+	struct data reply;
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, stream->create_tag,
+		TAG_U32, stream->channel,	/* stream index/channel */
+		TAG_U32, 0,			/* source_output/stream index */
+		TAG_INVALID);
+
+	if (client->version >= 9) {
+		data_put(&reply,
+			TAG_U32, stream->attr.maxlength,
+			TAG_U32, stream->attr.fragsize,
+			TAG_INVALID);
+	}
+	if (client->version >= 12) {
+		data_put(&reply,
+			TAG_SAMPLE_SPEC, &stream->ss,
+			TAG_CHANNEL_MAP, &stream->map,
+			TAG_U32, 0,			/* source index */
+			TAG_STRING, "sink",		/* source name */
+			TAG_BOOLEAN, false,		/* source suspended state */
+			TAG_INVALID);
+	}
+	if (client->version >= 13) {
+		data_put(&reply,
+			TAG_USEC, 0ULL,			/* source configured latency */
+			TAG_INVALID);
+	}
+	if (client->version >= 22) {
+		struct format_info info;
+		spa_zero(info);
+		info.encoding = ENCODING_PCM;
+		data_put(&reply,
+			TAG_FORMAT_INFO, &info,		/* source_output format */
+			TAG_INVALID);
+	}
+
+	stream->create_tag = SPA_ID_INVALID;
+
+	return send_data(client, &reply);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -1213,8 +1280,12 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	if (id != SPA_PARAM_Format || param == NULL)
 		return;
 
-	if (stream->create_tag != SPA_ID_INVALID)
-		reply_create_playback_stream(stream);
+	if (stream->create_tag != SPA_ID_INVALID) {
+		if (stream->direction == PW_DIRECTION_OUTPUT)
+			reply_create_playback_stream(stream);
+		else
+			reply_create_record_stream(stream);
+	}
 }
 
 static void stream_process(void *data)
@@ -1246,9 +1317,7 @@ static void stream_process(void *data)
 	pw_log_trace("process block %p %p", block, block->data);
 	memcpy(p, block->data, size);
 
-	spa_list_remove(&block->link);
-	free(block->data);
-	free(block);
+	block_free(block);
 
         buf->datas[0].chunk->offset = 0;
         buf->datas[0].chunk->stride = 4;
@@ -1431,6 +1500,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			&stream->stream_listener,
 			&stream_events, stream);
 
+	stream->direction = PW_DIRECTION_OUTPUT;
 	stream->create_tag = tag;
 	stream->ss = ss;
 	stream->map = map;
@@ -1446,6 +1516,188 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	pw_stream_connect(stream->stream,
 			PW_DIRECTION_OUTPUT,
+			SPA_ID_INVALID,
+			PW_STREAM_FLAG_INACTIVE |
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS,
+			params, n_params);
+
+	return 0;
+
+error:
+	if (props)
+		pw_properties_free(props);
+	if (stream)
+		stream_free(stream);
+	return res;
+}
+
+static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	const char *name = NULL;
+	int res;
+	struct sample_spec ss;
+	struct channel_map map;
+	uint32_t source_index;
+	const char *source_name;
+	struct buffer_attr attr;
+	bool corked = false,
+		no_remap = false,
+		no_remix = false,
+		fix_format = false,
+		fix_rate = false,
+		fix_channels = false,
+		no_move = false,
+		variable_rate = false,
+		peak_detect = false,
+		adjust_latency = false,
+		early_requests = false,
+		dont_inhibit_auto_suspend = false,
+		volume_set = true,
+		muted = false,
+		muted_set = false,
+		fail_on_suspend = false,
+		relative_volume = false,
+		passthrough = false;
+	uint32_t direct_on_input_idx;
+	struct cvolume volume;
+	struct pw_properties *props = NULL;
+	uint8_t n_formats = 0;
+	struct format_info *formats = NULL;
+	struct stream *stream;
+        struct spa_audio_info_raw info;
+	uint32_t n_params;
+	const struct spa_pod *params[1];
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM", impl);
+
+	props = pw_properties_new(NULL, NULL);
+
+	if (client->version < 13) {
+		if ((res = data_get(d,
+				TAG_STRING, &name,
+				TAG_INVALID)) < 0)
+			goto error;
+		if (name == NULL) {
+			res = -EPROTO;
+			goto error;
+		}
+	}
+	if ((res = data_get(d,
+			TAG_SAMPLE_SPEC, &ss,
+			TAG_CHANNEL_MAP, &map,
+			TAG_U32, &source_index,
+			TAG_STRING, &source_name,
+			TAG_U32, &attr.maxlength,
+			TAG_BOOLEAN, &corked,
+			TAG_U32, &attr.fragsize,
+			TAG_INVALID)) < 0)
+		goto error;
+
+	if (client->version >= 12) {
+		if ((res = data_get(d,
+				TAG_BOOLEAN, &no_remap,
+				TAG_BOOLEAN, &no_remix,
+				TAG_BOOLEAN, &fix_format,
+				TAG_BOOLEAN, &fix_rate,
+				TAG_BOOLEAN, &fix_channels,
+				TAG_BOOLEAN, &no_move,
+				TAG_BOOLEAN, &variable_rate,
+				TAG_INVALID)) < 0)
+			goto error;
+	}
+	if (client->version >= 13) {
+		if ((res = data_get(d,
+				TAG_BOOLEAN, &peak_detect,
+				TAG_BOOLEAN, &adjust_latency,
+				TAG_PROPLIST, props,
+				TAG_U32, &direct_on_input_idx,
+				TAG_INVALID)) < 0)
+			goto error;
+	}
+	if (client->version >= 14) {
+		if ((res = data_get(d,
+				TAG_BOOLEAN, &early_requests,
+				TAG_INVALID)) < 0)
+			goto error;
+	}
+	if (client->version >= 15) {
+		if ((res = data_get(d,
+				TAG_BOOLEAN, &dont_inhibit_auto_suspend,
+				TAG_BOOLEAN, &fail_on_suspend,
+				TAG_INVALID)) < 0)
+			goto error;
+	}
+	if (client->version >= 22) {
+		if ((res = data_get(d,
+				TAG_U8, &n_formats,
+				TAG_INVALID)) < 0)
+			goto error;
+
+		if (n_formats) {
+			uint8_t i;
+			formats = calloc(n_formats, sizeof(struct format_info));
+			for (i = 0; i < n_formats; i++) {
+				if ((res = data_get(d,
+						TAG_FORMAT_INFO, &formats[i],
+						TAG_INVALID)) < 0)
+					goto error;
+			}
+		}
+		if ((res = data_get(d,
+				TAG_CVOLUME, &volume,
+				TAG_BOOLEAN, &muted,
+				TAG_BOOLEAN, &volume_set,
+				TAG_BOOLEAN, &muted_set,
+				TAG_BOOLEAN, &relative_volume,
+				TAG_BOOLEAN, &passthrough,
+				TAG_INVALID)) < 0)
+			goto error;
+	}
+	if (d->offset != d->length) {
+		res = -EPROTO;
+		goto error;
+	}
+
+	stream = calloc(1, sizeof(struct stream));
+	if (stream == NULL) {
+		res = -errno;
+		goto error;
+	}
+	stream->direction = PW_DIRECTION_INPUT;
+	stream->impl = impl;
+	stream->client = client;
+	stream->channel = pw_map_insert_new(&client->streams, stream);
+	spa_list_init(&stream->blocks);
+
+	stream->stream = pw_stream_new(client->core, name, props);
+	props = NULL;
+	if (stream->stream == NULL) {
+		res = -errno;
+		goto error;
+	}
+	pw_stream_add_listener(stream->stream,
+			&stream->stream_listener,
+			&stream_events, stream);
+
+	stream->create_tag = tag;
+	stream->ss = ss;
+	stream->map = map;
+	stream->attr = attr;
+
+        info = SPA_AUDIO_INFO_RAW_INIT(
+			.format = format_pa2id(ss.format),
+			.channels = ss.channels,
+			.rate = ss.rate);
+
+	n_params = 0;
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+
+	pw_stream_connect(stream->stream,
+			PW_DIRECTION_INPUT,
 			SPA_ID_INVALID,
 			PW_STREAM_FLAG_INACTIVE |
 			PW_STREAM_FLAG_AUTOCONNECT |
@@ -1484,7 +1736,7 @@ static int do_delete_stream(struct client *client, uint32_t command, uint32_t ta
 	return reply_simple_ack(client, tag);
 }
 
-static int do_get_playback_latency(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+static int do_get_latency(struct client *client, uint32_t command, uint32_t tag, struct data *d)
 {
 	struct impl *impl = client->impl;
 	uint8_t buffer[1024];
@@ -1500,7 +1752,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 			TAG_INVALID)) < 0)
 		return res;
 
-	pw_log_debug(NAME" %p: GET_PLAYBACK_LATENCY channel:%u", impl, channel);
+	pw_log_debug(NAME" %p: %s channel:%u", impl, commands[command].name, channel);
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
 		return -EINVAL;
@@ -1530,27 +1782,61 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	return send_data(client, &reply);
 }
 
-static int do_cork_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag, struct data *d)
 {
 	struct impl *impl = client->impl;
-	uint32_t idx;
+	uint32_t channel;
 	bool cork;
 	struct stream *stream;
 	int res;
 
 	if ((res = data_get(d,
-			TAG_U32, &idx,
+			TAG_U32, &channel,
 			TAG_BOOLEAN, &cork,
 			TAG_INVALID)) < 0)
 		return res;
 
-	pw_log_info(NAME" %p: CORK_PLAYBACK_STREAM idx:%u cork:%s",
-			impl, idx, cork ? "yes" : "no");
-	stream = pw_map_lookup(&client->streams, idx);
+	pw_log_info(NAME" %p: %s channel:%u cork:%s",
+			impl, commands[command].name, channel, cork ? "yes" : "no");
+	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
 		return -EINVAL;
 
 //	pw_stream_set_active(stream->stream, !cork);
+
+	return reply_simple_ack(client, tag);
+}
+
+static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t channel;
+	struct stream *stream;
+	int res;
+
+	if ((res = data_get(d,
+			TAG_U32, &channel,
+			TAG_INVALID)) < 0)
+		return res;
+
+	pw_log_info(NAME" %p: %s channel:%u",
+			impl, commands[command].name, channel);
+	stream = pw_map_lookup(&client->streams, channel);
+	if (stream == NULL)
+		return -EINVAL;
+
+	switch (command) {
+	case COMMAND_FLUSH_PLAYBACK_STREAM:
+	case COMMAND_FLUSH_RECORD_STREAM:
+		stream_flush(stream);
+		pw_stream_flush(stream->stream, false);
+		break;
+	case COMMAND_TRIGGER_PLAYBACK_STREAM:
+	case COMMAND_PREBUF_PLAYBACK_STREAM:
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return reply_simple_ack(client, tag);
 }
@@ -1560,7 +1846,7 @@ static int do_error_access(struct client *client, uint32_t command, uint32_t tag
 	return reply_error(client, tag, ERR_ACCESS);
 }
 
-static int do_stream_volume(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+static int do_set_stream_volume(struct client *client, uint32_t command, uint32_t tag, struct data *d)
 {
 	struct impl *impl = client->impl;
 	uint32_t channel;
@@ -1587,6 +1873,528 @@ static int do_stream_volume(struct client *client, uint32_t command, uint32_t ta
 	return reply_simple_ack(client, tag);
 }
 
+static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t channel;
+	struct stream *stream;
+	int res;
+	bool mute;
+	float val;
+
+	if ((res = data_get(d,
+			TAG_U32, &channel,
+			TAG_BOOLEAN, &mute,
+			TAG_INVALID)) < 0)
+		return res;
+
+	pw_log_info(NAME" %p: DO_SET_STREAM_MUTE channel:%u mute:%u",
+			impl, channel, mute);
+
+	stream = pw_map_lookup(&client->streams, channel);
+	if (stream == NULL)
+		return -EINVAL;
+
+	val = mute ? 1.0f : 0.0f;
+
+	pw_stream_set_control(stream->stream,
+			SPA_PROP_mute, 1, &val,
+			0);
+
+	return reply_simple_ack(client, tag);
+}
+
+static int do_set_stream_name(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t channel;
+	struct stream *stream;
+	const char *name = NULL;
+	struct spa_dict_item items[1];
+	int res;
+
+	if ((res = data_get(d,
+			TAG_U32, &channel,
+			TAG_STRING, &name,
+			TAG_INVALID)) < 0)
+		return res;
+
+	if (name == NULL)
+		return -EINVAL;
+
+	pw_log_info(NAME" %p: SET_STREAM_NAME channel:%d name:%s", impl, channel, name);
+	stream = pw_map_lookup(&client->streams, channel);
+	if (stream == NULL)
+		return -EINVAL;
+
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_NAME, name);
+	pw_stream_update_properties(stream->stream,
+			&SPA_DICT_INIT(items, 1));
+
+	return reply_simple_ack(client, tag);
+}
+
+static int do_update_proplist(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t channel, mode;
+	struct stream *stream;
+	struct pw_properties *props;
+	int res;
+
+	props = pw_properties_new(NULL, NULL);
+
+	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
+		if ((res = data_get(d,
+				TAG_U32, &channel,
+				TAG_INVALID)) < 0)
+			goto exit;
+	} else {
+		channel = SPA_ID_INVALID;
+	}
+
+	pw_log_info(NAME" %p: %s channel:%d", impl, commands[command].name, channel);
+
+	if ((res = data_get(d,
+			TAG_U32, &mode,
+			TAG_PROPLIST, &props,
+			TAG_INVALID)) < 0)
+		goto exit;
+
+	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
+		stream = pw_map_lookup(&client->streams, channel);
+		if (stream == NULL) {
+			res = -EINVAL;
+			goto exit;
+		}
+		pw_stream_update_properties(stream->stream, &props->dict);
+	} else {
+		pw_core_update_properties(client->core, &props->dict);
+	}
+	res = reply_simple_ack(client, tag);
+exit:
+	pw_properties_free(props);
+	return res;
+}
+
+static int do_remove_proplist(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t i, channel;
+	struct stream *stream;
+	struct pw_properties *props;
+	struct spa_dict dict;
+	struct spa_dict_item *items;
+	int res;
+
+	props = pw_properties_new(NULL, NULL);
+
+	if (command != COMMAND_REMOVE_CLIENT_PROPLIST) {
+		if ((res = data_get(d,
+				TAG_U32, &channel,
+				TAG_INVALID)) < 0)
+			goto exit;
+	} else {
+		channel = SPA_ID_INVALID;
+	}
+
+	pw_log_info(NAME" %p: %s channel:%d", impl, commands[command].name, channel);
+
+	while (true) {
+		const char *key;
+
+		if ((res = data_get(d,
+				TAG_STRING, &key,
+				TAG_INVALID)) < 0)
+			goto exit;
+		if (key == NULL)
+			break;
+		pw_properties_set(props, key, key);
+	}
+
+	items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
+	dict.n_items = props->dict.n_items;
+	dict.items = items;
+	for (i = 0; i < dict.n_items; i++) {
+		items[i].key = props->dict.items[i].key;
+		items[i].value = NULL;
+	}
+
+	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
+		stream = pw_map_lookup(&client->streams, channel);
+		if (stream == NULL) {
+			res = -EINVAL;
+			goto exit;
+		}
+		pw_stream_update_properties(stream->stream, &dict);
+	} else {
+		pw_core_update_properties(client->core, &dict);
+	}
+	res = reply_simple_ack(client, tag);
+exit:
+	pw_properties_free(props);
+	return res;
+}
+
+static int do_get_server_info(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint8_t buffer[1024];
+	char name[256];
+	struct data reply;
+	struct sample_spec ss;
+	struct channel_map map;
+
+	pw_log_info(NAME" %p: GET_SERVER_INFO", impl);
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	snprintf(name, sizeof(name)-1, "PulseAudio (on PipeWire %s)", pw_get_library_version());
+
+	spa_zero(ss);
+	ss.format = SAMPLE_FLOAT32LE;
+	ss.rate = 44100;
+	ss.channels = 2;
+
+	spa_zero(map);
+	map.channels = 2;
+	map.map[0] = 1;
+	map.map[1] = 2;
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_STRING, name,
+		TAG_STRING, "14.0.0",
+		TAG_STRING, pw_get_user_name(),
+		TAG_STRING, pw_get_host_name(),
+		TAG_SAMPLE_SPEC, &ss,
+		TAG_STRING, "output.pipewire",
+		TAG_STRING, "input.pipewire",
+		TAG_U32, 0,
+		TAG_INVALID);
+
+	if (client->version >= 15) {
+		data_put(&reply,
+			TAG_CHANNEL_MAP, &map,
+			TAG_INVALID);
+	}
+	return send_data(client, &reply);
+}
+
+static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint8_t buffer[1024];
+	struct data reply;
+
+	pw_log_info(NAME" %p: STAT", impl);
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_U32, 0,
+		TAG_U32, 0,
+		TAG_U32, 0,
+		TAG_U32, 0,
+		TAG_U32, 0,
+		TAG_INVALID);
+
+	return send_data(client, &reply);
+}
+
+static int do_lookup(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint8_t buffer[1024];
+	const char *name = NULL;
+	struct data reply;
+	uint32_t idx = 0;
+	int res;
+
+	if ((res = data_get(d,
+			TAG_STRING, &name,
+			TAG_INVALID)) < 0)
+		return res;
+	if (name == NULL)
+		return -EINVAL;
+
+	pw_log_info(NAME" %p: LOOKUP %s", impl, name);
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_U32, idx,
+		TAG_INVALID);
+
+	return send_data(client, &reply);
+}
+
+static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t channel;
+	struct stream *stream;
+	int res;
+
+	if ((res = data_get(d,
+			TAG_U32, &channel,
+			TAG_INVALID)) < 0)
+		return res;
+
+	pw_log_info(NAME" %p: DRAIN channel:%d", impl, channel);
+	stream = pw_map_lookup(&client->streams, channel);
+	if (stream == NULL) {
+		res = -EINVAL;
+		return res;
+	}
+
+	pw_stream_flush(stream->stream, true);
+
+	return reply_simple_ack(client, tag);
+}
+
+static void fill_client_info(struct client *client, struct data *d)
+{
+	data_put(d,
+		TAG_U32, 0,				/* client index */
+		TAG_STRING, pw_properties_get(client->props, "application.name"),
+		TAG_U32, SPA_ID_INVALID,		/* module */ 
+		TAG_STRING, "PipeWire",			/* driver */
+		TAG_INVALID);
+	if (client->version >= 13) {
+		data_put(d,
+			TAG_PROPLIST, client->props,
+			TAG_INVALID);
+	}
+}
+
+static int do_get_info(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint8_t buffer[1024];
+	struct data reply;
+	uint32_t idx;
+	const char *name = NULL;
+	int res;
+
+	if ((res = data_get(d,
+			TAG_U32, &idx,
+			TAG_INVALID)) < 0)
+		return res;
+
+	switch (command) {
+	case COMMAND_GET_SINK_INFO:
+	case COMMAND_GET_SOURCE_INFO:
+	case COMMAND_GET_CARD_INFO:
+	case COMMAND_GET_SAMPLE_INFO:
+		if ((res = data_get(d,
+				TAG_STRING, &name,
+				TAG_INVALID)) < 0)
+			return res;
+		break;
+	}
+
+	pw_log_info(NAME" %p: %s idx:%u name:%s", impl,
+			commands[command].name, idx, name);
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_INVALID);
+
+	switch (command) {
+	case COMMAND_GET_CLIENT_INFO:
+		fill_client_info(client, &reply);
+		break;
+	case COMMAND_GET_MODULE_INFO:
+	case COMMAND_GET_CARD_INFO:
+	case COMMAND_GET_SAMPLE_INFO:
+		return reply_error(client, -1, ERR_NOENTITY);
+	case COMMAND_GET_SINK_INFO:
+	case COMMAND_GET_SOURCE_INFO:
+		/* fixme, dummy sink/source */
+		break;
+	case COMMAND_GET_SINK_INPUT_INFO:
+	case COMMAND_GET_SOURCE_OUTPUT_INFO:
+		/* fixme add ourselves */
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	return send_data(client, &reply);
+}
+
+static int do_get_info_list(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint8_t buffer[1024];
+	struct data reply;
+
+	pw_log_info(NAME" %p: %s", impl, commands[command].name);
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_INVALID);
+
+	switch (command) {
+	case COMMAND_GET_CLIENT_INFO_LIST:
+		fill_client_info(client, &reply);
+		break;
+	case COMMAND_GET_MODULE_INFO_LIST:
+	case COMMAND_GET_CARD_INFO_LIST:
+	case COMMAND_GET_SAMPLE_INFO_LIST:
+		break;
+	case COMMAND_GET_SINK_INFO_LIST:
+	case COMMAND_GET_SOURCE_INFO_LIST:
+		/* fixme, dummy sink/source */
+		break;
+	case COMMAND_GET_SINK_INPUT_INFO_LIST:
+	case COMMAND_GET_SOURCE_OUTPUT_INFO_LIST:
+		/* fixme add ourselves */
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	return send_data(client, &reply);
+}
+
+static int do_set_stream_buffer_attr(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint8_t buffer[1024];
+	uint32_t channel;
+	struct stream *stream;
+	struct data reply;
+	struct buffer_attr attr;
+	int res;
+	bool adjust_latency = false, early_requests = false;
+
+	if ((res = data_get(d,
+			TAG_U32, &channel,
+			TAG_INVALID)) < 0)
+		return res;
+
+	pw_log_info(NAME" %p: %s channel:%u", impl, commands[command].name, channel);
+	stream = pw_map_lookup(&client->streams, channel);
+	if (stream == NULL) {
+		res = -EINVAL;
+		return res;
+	}
+
+	spa_zero(reply);
+	reply.data = buffer;
+	reply.length = sizeof(buffer);
+
+	data_put(&reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_INVALID);
+
+	if (command == COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR) {
+		if ((res = data_get(d,
+				TAG_U32, &attr.maxlength,
+				TAG_U32, &attr.tlength,
+				TAG_U32, &attr.prebuf,
+				TAG_U32, &attr.minreq,
+				TAG_INVALID)) < 0)
+			return res;
+		if (client->version >= 13) {
+			if ((res = data_get(d,
+					TAG_BOOLEAN, &adjust_latency,
+					TAG_INVALID)) < 0)
+				return res;
+		}
+		if (client->version >= 14) {
+			if ((res = data_get(d,
+					TAG_BOOLEAN, &early_requests,
+					TAG_INVALID)) < 0)
+				return res;
+		}
+
+		data_put(&reply,
+			TAG_U32, stream->attr.maxlength,
+			TAG_U32, stream->attr.tlength,
+			TAG_U32, stream->attr.prebuf,
+			TAG_U32, stream->attr.minreq,
+			TAG_INVALID);
+		if (client->version >= 13) {
+			data_put(&reply,
+				TAG_USEC, 0,		/* configured_sink_latency */
+				TAG_INVALID);
+		}
+	} else {
+		if ((res = data_get(d,
+				TAG_U32, &attr.maxlength,
+				TAG_U32, &attr.fragsize,
+				TAG_INVALID)) < 0)
+			return res;
+		if (client->version >= 13) {
+			if ((res = data_get(d,
+					TAG_BOOLEAN, &adjust_latency,
+					TAG_INVALID)) < 0)
+				return res;
+		}
+		if (client->version >= 14) {
+			if ((res = data_get(d,
+					TAG_BOOLEAN, &early_requests,
+					TAG_INVALID)) < 0)
+				return res;
+		}
+		data_put(&reply,
+			TAG_U32, stream->attr.maxlength,
+			TAG_U32, stream->attr.fragsize,
+			TAG_INVALID);
+		if (client->version >= 13) {
+			data_put(&reply,
+				TAG_USEC, 0,		/* configured_source_latency */
+				TAG_INVALID);
+		}
+	}
+	return send_data(client, &reply);
+}
+
+static int do_update_stream_sample_rate(struct client *client, uint32_t command, uint32_t tag, struct data *d)
+{
+	struct impl *impl = client->impl;
+	uint32_t channel, rate;
+	struct stream *stream;
+	int res;
+
+	if ((res = data_get(d,
+			TAG_U32, &channel,
+			TAG_U32, &rate,
+			TAG_INVALID)) < 0)
+		return res;
+
+	pw_log_info(NAME" %p: %s channel:%u rate:%u", impl, commands[command].name, channel, rate);
+	stream = pw_map_lookup(&client->streams, channel);
+	if (stream == NULL) {
+		res = -EINVAL;
+		return res;
+	}
+	return reply_simple_ack(client, tag);
+}
+
 static const struct command commands[COMMAND_MAX] =
 {
 	[COMMAND_ERROR] = { "ERROR", },
@@ -1596,55 +2404,59 @@ static const struct command commands[COMMAND_MAX] =
 	/* CLIENT->SERVER */
 	[COMMAND_CREATE_PLAYBACK_STREAM] = { "CREATE_PLAYBACK_STREAM", do_create_playback_stream, },
 	[COMMAND_DELETE_PLAYBACK_STREAM] = { "DELETE_PLAYBACK_STREAM", do_delete_stream, },
-	[COMMAND_CREATE_RECORD_STREAM] = { "CREATE_RECORD_STREAM", },
+	[COMMAND_CREATE_RECORD_STREAM] = { "CREATE_RECORD_STREAM", do_create_record_stream, },
 	[COMMAND_DELETE_RECORD_STREAM] = { "DELETE_RECORD_STREAM", do_delete_stream, },
 	[COMMAND_EXIT] = { "EXIT", do_error_access },
 	[COMMAND_AUTH] = { "AUTH", do_command_auth, },
 	[COMMAND_SET_CLIENT_NAME] = { "SET_CLIENT_NAME", do_set_client_name, },
-	[COMMAND_LOOKUP_SINK] = { "LOOKUP_SINK", },
-	[COMMAND_LOOKUP_SOURCE] = { "LOOKUP_SOURCE", },
-	[COMMAND_DRAIN_PLAYBACK_STREAM] = { "DRAIN_PLAYBACK_STREAM", },
-	[COMMAND_STAT] = { "STAT", },
-	[COMMAND_GET_PLAYBACK_LATENCY] = { "GET_PLAYBACK_LATENCY", do_get_playback_latency, },
+	[COMMAND_LOOKUP_SINK] = { "LOOKUP_SINK", do_lookup, },
+	[COMMAND_LOOKUP_SOURCE] = { "LOOKUP_SOURCE", do_lookup, },
+	[COMMAND_DRAIN_PLAYBACK_STREAM] = { "DRAIN_PLAYBACK_STREAM", do_drain_stream, },
+	[COMMAND_STAT] = { "STAT", do_stat, },
+	[COMMAND_GET_PLAYBACK_LATENCY] = { "GET_PLAYBACK_LATENCY", do_get_latency, },
 	[COMMAND_CREATE_UPLOAD_STREAM] = { "CREATE_UPLOAD_STREAM", do_error_access, },
 	[COMMAND_DELETE_UPLOAD_STREAM] = { "DELETE_UPLOAD_STREAM", do_error_access, },
 	[COMMAND_FINISH_UPLOAD_STREAM] = { "FINISH_UPLOAD_STREAM", do_error_access, },
 	[COMMAND_PLAY_SAMPLE] = { "PLAY_SAMPLE", do_error_access, },
 	[COMMAND_REMOVE_SAMPLE] = { "REMOVE_SAMPLE", do_error_access, },
 
-	[COMMAND_GET_SERVER_INFO] = { "GET_SERVER_INFO", },
-	[COMMAND_GET_SINK_INFO] = { "GET_SINK_INFO", },
-	[COMMAND_GET_SINK_INFO_LIST] = { "GET_SINK_INFO_LIST", },
-	[COMMAND_GET_SOURCE_INFO] = { "GET_SOURCE_INFO", },
-	[COMMAND_GET_SOURCE_INFO_LIST] = { "GET_SOURCE_INFO_LIST", },
-	[COMMAND_GET_MODULE_INFO] = { "GET_MODULE_INFO", },
-	[COMMAND_GET_MODULE_INFO_LIST] = { "GET_MODULE_INFO_LIST", },
-	[COMMAND_GET_CLIENT_INFO] = { "GET_CLIENT_INFO", },
-	[COMMAND_GET_CLIENT_INFO_LIST] = { "GET_CLIENT_INFO_LIST", },
-	[COMMAND_GET_SINK_INPUT_INFO] = { "GET_SINK_INPUT_INFO", },
-	[COMMAND_GET_SINK_INPUT_INFO_LIST] = { "GET_SINK_INPUT_INFO_LIST", },
-	[COMMAND_GET_SOURCE_OUTPUT_INFO] = { "GET_SOURCE_OUTPUT_INFO", },
-	[COMMAND_GET_SOURCE_OUTPUT_INFO_LIST] = { "GET_SOURCE_OUTPUT_INFO_LIST", },
-	[COMMAND_GET_SAMPLE_INFO] = { "GET_SAMPLE_INFO", },
-	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", },
+	[COMMAND_GET_SERVER_INFO] = { "GET_SERVER_INFO", do_get_server_info },
+	[COMMAND_GET_SINK_INFO] = { "GET_SINK_INFO", do_get_info, },
+	[COMMAND_GET_SOURCE_INFO] = { "GET_SOURCE_INFO", do_get_info, },
+	[COMMAND_GET_MODULE_INFO] = { "GET_MODULE_INFO", do_get_info, },
+	[COMMAND_GET_CLIENT_INFO] = { "GET_CLIENT_INFO", do_get_info, },
+	[COMMAND_GET_SINK_INPUT_INFO] = { "GET_SINK_INPUT_INFO", do_get_info, },
+	[COMMAND_GET_SOURCE_OUTPUT_INFO] = { "GET_SOURCE_OUTPUT_INFO", do_get_info, },
+	[COMMAND_GET_SAMPLE_INFO] = { "GET_SAMPLE_INFO", do_get_info, },
+	[COMMAND_GET_CARD_INFO] = { "GET_CARD_INFO", do_get_info, },
 	[COMMAND_SUBSCRIBE] = { "SUBSCRIBE", do_subscribe, },
 
+	[COMMAND_GET_SINK_INFO_LIST] = { "GET_SINK_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_SOURCE_INFO_LIST] = { "GET_SOURCE_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_MODULE_INFO_LIST] = { "GET_MODULE_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_CLIENT_INFO_LIST] = { "GET_CLIENT_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_SINK_INPUT_INFO_LIST] = { "GET_SINK_INPUT_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_SOURCE_OUTPUT_INFO_LIST] = { "GET_SOURCE_OUTPUT_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_CARD_INFO_LIST] = { "GET_CARD_INFO_LIST", do_get_info_list, },
+
 	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_error_access, },
-	[COMMAND_SET_SINK_INPUT_VOLUME] = { "SET_SINK_INPUT_VOLUME", do_stream_volume, },
+	[COMMAND_SET_SINK_INPUT_VOLUME] = { "SET_SINK_INPUT_VOLUME", do_set_stream_volume, },
 	[COMMAND_SET_SOURCE_VOLUME] = { "SET_SOURCE_VOLUME", do_error_access, },
 
 	[COMMAND_SET_SINK_MUTE] = { "SET_SINK_MUTE", do_error_access, },
 	[COMMAND_SET_SOURCE_MUTE] = { "SET_SOURCE_MUTE", do_error_access, },
 
-	[COMMAND_CORK_PLAYBACK_STREAM] = { "CORK_PLAYBACK_STREAM", do_cork_playback_stream, },
-	[COMMAND_FLUSH_PLAYBACK_STREAM] = { "FLUSH_PLAYBACK_STREAM", },
-	[COMMAND_TRIGGER_PLAYBACK_STREAM] = { "TRIGGER_PLAYBACK_STREAM", },
+	[COMMAND_CORK_PLAYBACK_STREAM] = { "CORK_PLAYBACK_STREAM", do_cork_stream, },
+	[COMMAND_FLUSH_PLAYBACK_STREAM] = { "FLUSH_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
+	[COMMAND_TRIGGER_PLAYBACK_STREAM] = { "TRIGGER_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
+	[COMMAND_PREBUF_PLAYBACK_STREAM] = { "PREBUF_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
 
 	[COMMAND_SET_DEFAULT_SINK] = { "SET_DEFAULT_SINK", do_error_access, },
 	[COMMAND_SET_DEFAULT_SOURCE] = { "SET_DEFAULT_SOURCE", do_error_access, },
 
-	[COMMAND_SET_PLAYBACK_STREAM_NAME] = { "SET_PLAYBACK_STREAM_NAME", },
-	[COMMAND_SET_RECORD_STREAM_NAME] = { "SET_RECORD_STREAM_NAME", },
+	[COMMAND_SET_PLAYBACK_STREAM_NAME] = { "SET_PLAYBACK_STREAM_NAME", do_set_stream_name, },
+	[COMMAND_SET_RECORD_STREAM_NAME] = { "SET_RECORD_STREAM_NAME", do_set_stream_name, },
 
 	[COMMAND_KILL_CLIENT] = { "KILL_CLIENT", do_error_access, },
 	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_error_access, },
@@ -1659,10 +2471,9 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_GET_AUTOLOAD_INFO___OBSOLETE] = { "GET_AUTOLOAD_INFO___OBSOLETE", do_error_access, },
 	[COMMAND_GET_AUTOLOAD_INFO_LIST___OBSOLETE] = { "GET_AUTOLOAD_INFO_LIST___OBSOLETE", do_error_access, },
 
-	[COMMAND_GET_RECORD_LATENCY] = { "GET_RECORD_LATENCY", },
-	[COMMAND_CORK_RECORD_STREAM] = { "CORK_RECORD_STREAM", },
-	[COMMAND_FLUSH_RECORD_STREAM] = { "FLUSH_RECORD_STREAM", },
-	[COMMAND_PREBUF_PLAYBACK_STREAM] = { "PREBUF_PLAYBACK_STREAM", },
+	[COMMAND_GET_RECORD_LATENCY] = { "GET_RECORD_LATENCY", do_get_latency, },
+	[COMMAND_CORK_RECORD_STREAM] = { "CORK_RECORD_STREAM", do_cork_stream, },
+	[COMMAND_FLUSH_RECORD_STREAM] = { "FLUSH_RECORD_STREAM", do_flush_trigger_prebuf_stream, },
 
 	/* SERVER->CLIENT */
 	[COMMAND_REQUEST] = { "REQUEST", },
@@ -1679,17 +2490,17 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_MOVE_SOURCE_OUTPUT] = { "MOVE_SOURCE_OUTPUT", do_error_access, },
 
 	/* Supported since protocol v11 (0.9.7) */
-	[COMMAND_SET_SINK_INPUT_MUTE] = { "SET_SINK_INPUT_MUTE", },
+	[COMMAND_SET_SINK_INPUT_MUTE] = { "SET_SINK_INPUT_MUTE", do_set_stream_mute, },
 
 	[COMMAND_SUSPEND_SINK] = { "SUSPEND_SINK", do_error_access, },
 	[COMMAND_SUSPEND_SOURCE] = { "SUSPEND_SOURCE", do_error_access, },
 
 	/* Supported since protocol v12 (0.9.8) */
-	[COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR] = { "SET_PLAYBACK_STREAM_BUFFER_ATTR", },
-	[COMMAND_SET_RECORD_STREAM_BUFFER_ATTR] = { "SET_RECORD_STREAM_BUFFER_ATTR", },
+	[COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR] = { "SET_PLAYBACK_STREAM_BUFFER_ATTR", do_set_stream_buffer_attr, },
+	[COMMAND_SET_RECORD_STREAM_BUFFER_ATTR] = { "SET_RECORD_STREAM_BUFFER_ATTR", do_set_stream_buffer_attr, },
 
-	[COMMAND_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE] = { "UPDATE_PLAYBACK_STREAM_SAMPLE_RATE", },
-	[COMMAND_UPDATE_RECORD_STREAM_SAMPLE_RATE] = { "UPDATE_RECORD_STREAM_SAMPLE_RATE", },
+	[COMMAND_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE] = { "UPDATE_PLAYBACK_STREAM_SAMPLE_RATE", do_update_stream_sample_rate, },
+	[COMMAND_UPDATE_RECORD_STREAM_SAMPLE_RATE] = { "UPDATE_RECORD_STREAM_SAMPLE_RATE", do_update_stream_sample_rate, },
 
 	/* SERVER->CLIENT */
 	[COMMAND_PLAYBACK_STREAM_SUSPENDED] = { "PLAYBACK_STREAM_SUSPENDED", },
@@ -1698,12 +2509,13 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_RECORD_STREAM_MOVED] = { "RECORD_STREAM_MOVED", },
 
 	/* Supported since protocol v13 (0.9.11) */
-	[COMMAND_UPDATE_RECORD_STREAM_PROPLIST] = { "UPDATE_RECORD_STREAM_PROPLIST", },
-	[COMMAND_UPDATE_PLAYBACK_STREAM_PROPLIST] = { "UPDATE_PLAYBACK_STREAM_PROPLIST", },
-	[COMMAND_UPDATE_CLIENT_PROPLIST] = { "UPDATE_CLIENT_PROPLIST", },
-	[COMMAND_REMOVE_RECORD_STREAM_PROPLIST] = { "REMOVE_RECORD_STREAM_PROPLIST", },
-	[COMMAND_REMOVE_PLAYBACK_STREAM_PROPLIST] = { "REMOVE_PLAYBACK_STREAM_PROPLIST", },
-	[COMMAND_REMOVE_CLIENT_PROPLIST] = { "REMOVE_CLIENT_PROPLIST", },
+	[COMMAND_UPDATE_RECORD_STREAM_PROPLIST] = { "UPDATE_RECORD_STREAM_PROPLIST", do_update_proplist, },
+	[COMMAND_UPDATE_PLAYBACK_STREAM_PROPLIST] = { "UPDATE_PLAYBACK_STREAM_PROPLIST", do_update_proplist, },
+	[COMMAND_UPDATE_CLIENT_PROPLIST] = { "UPDATE_CLIENT_PROPLIST", do_update_proplist, },
+
+	[COMMAND_REMOVE_RECORD_STREAM_PROPLIST] = { "REMOVE_RECORD_STREAM_PROPLIST", do_remove_proplist, },
+	[COMMAND_REMOVE_PLAYBACK_STREAM_PROPLIST] = { "REMOVE_PLAYBACK_STREAM_PROPLIST", do_remove_proplist, },
+	[COMMAND_REMOVE_CLIENT_PROPLIST] = { "REMOVE_CLIENT_PROPLIST", do_remove_proplist, },
 
 	/* SERVER->CLIENT */
 	[COMMAND_STARTED] = { "STARTED", },
@@ -1711,10 +2523,9 @@ static const struct command commands[COMMAND_MAX] =
 	/* Supported since protocol v14 (0.9.12) */
 	[COMMAND_EXTENSION] = { "EXTENSION", do_error_access, },
 	/* Supported since protocol v15 (0.9.15) */
-	[COMMAND_GET_CARD_INFO] = { "GET_CARD_INFO", },
-	[COMMAND_GET_CARD_INFO_LIST] = { "GET_CARD_INFO_LIST", },
-	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", },
+	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_error_access, },
 
+	/* SERVER->CLIENT */
 	[COMMAND_CLIENT_EVENT] = { "CLIENT_EVENT", },
 	[COMMAND_PLAYBACK_STREAM_EVENT] = { "PLAYBACK_STREAM_EVENT", },
 	[COMMAND_RECORD_STREAM_EVENT] = { "RECORD_STREAM_EVENT", },
@@ -1728,8 +2539,8 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_SET_SOURCE_PORT] = { "SET_SOURCE_PORT", do_error_access, },
 
 	/* Supported since protocol v22 (1.0) */
-	[COMMAND_SET_SOURCE_OUTPUT_VOLUME] = { "SET_SOURCE_OUTPUT_VOLUME", },
-	[COMMAND_SET_SOURCE_OUTPUT_MUTE] = { "SET_SOURCE_OUTPUT_MUTE", },
+	[COMMAND_SET_SOURCE_OUTPUT_VOLUME] = { "SET_SOURCE_OUTPUT_VOLUME",  do_set_stream_volume, },
+	[COMMAND_SET_SOURCE_OUTPUT_MUTE] = { "SET_SOURCE_OUTPUT_MUTE",  do_set_stream_mute, },
 
 	/* Supported since protocol v27 (3.0) */
 	[COMMAND_SET_PORT_LATENCY_OFFSET] = { "SET_PORT_LATENCY_OFFSET", do_error_access, },

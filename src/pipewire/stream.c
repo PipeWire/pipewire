@@ -1569,8 +1569,8 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_free(props);
 		props = NULL;
 	}
-	if (!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE))
-		pw_impl_node_set_active(impl->node, true);
+	pw_impl_node_set_active(impl->node,
+			!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE));
 
 	pw_log_debug(NAME" %p: export node %p", stream, impl->node);
 	stream->proxy = pw_core_export(stream->core,

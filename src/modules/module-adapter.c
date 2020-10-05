@@ -216,8 +216,6 @@ static void *create_object(void *_data,
 
 	pw_impl_node_register(adapter, NULL);
 
-	pw_impl_node_set_active(adapter, true);
-
 	return adapter;
 
 error_properties:

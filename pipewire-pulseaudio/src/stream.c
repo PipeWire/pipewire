@@ -52,43 +52,12 @@ static void dump_buffer_attr(pa_stream *s, pa_buffer_attr *attr)
 	pw_log_debug("stream %p: fragsize: %u", s, attr->fragsize);
 }
 
-static void configure_device(pa_stream *s)
-{
-	struct global *g;
-	const char *str;
-	uint32_t old = s->device_index;
-
-	g = pa_context_find_linked(s->context, pa_stream_get_index(s));
-	if (g == NULL) {
-		s->device_index = PA_INVALID_INDEX;
-		s->device_name = NULL;
-	} else {
-		if (s->direction == PA_STREAM_RECORD) {
-			if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))
-				s->device_index = g->node_info.monitor;
-			else
-				s->device_index = g->id;
-		}
-		else {
-			s->device_index = g->id;
-		}
-
-		free(s->device_name);
-		if ((str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
-			s->device_name = strdup("unknown");
-		else
-			s->device_name = strdup(str);
-	}
-	pw_log_debug("stream %p: linked to %d '%s'", s, s->device_index, s->device_name);
-
-	if (old != s->device_index && s->moved_callback)
-		s->moved_callback(s, s->moved_userdata);
-}
-
 static void stream_destroy(void *data)
 {
 	pa_stream *s = data;
 	s->stream = NULL;
+	if (s->global)
+		s->global->stream = NULL;
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -125,8 +94,6 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		}
 		break;
 	case PW_STREAM_STATE_STREAMING:
-		configure_device(s);
-		pa_stream_set_state(s, PA_STREAM_READY);
 		if (s->suspended) {
 			s->suspended = false;
 			if (!c->disconnect && s->started_callback)
@@ -608,7 +575,8 @@ static pa_stream* stream_new(pa_context *c, const char *name,
 	else
 		pa_channel_map_init(&s->channel_map);
 
-	pw_log_debug("channel map: %p %s", map, pa_channel_map_snprint(str, sizeof(str), &s->channel_map));
+	pw_log_debug("stream %p: channel map: %p %s", s,
+			map, pa_channel_map_snprint(str, sizeof(str), &s->channel_map));
 
 	s->n_formats = 0;
 	if (formats) {
@@ -681,7 +649,6 @@ static void stream_unlink(pa_stream *s)
 	if (s->stream)
 		pw_stream_set_active(s->stream, false);
 
-	s->stream_index = PA_INVALID_INDEX;
 	s->context = NULL;
 	pa_stream_unref(s);
 }
@@ -1106,6 +1073,7 @@ int pa_stream_disconnect(pa_stream *s)
 	pa_stream_ref(s);
 
 	s->disconnecting = true;
+	s->stream_index = PA_INVALID_INDEX;
 	pw_stream_disconnect(s->stream);
 
 	o = pa_operation_new(c, s, on_disconnected, 0);
@@ -1968,6 +1936,7 @@ int pa_stream_set_monitor_stream(pa_stream *s, uint32_t sink_input_idx)
 	PA_CHECK_VALIDITY(s->context, sink_input_idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_UNCONNECTED, PA_ERR_BADSTATE);
 
+	pw_log_debug("stream %p: Set monitor stream %u", s, sink_input_idx);
 	s->direct_on_input = sink_input_idx;
 	return 0;
 }
@@ -1978,6 +1947,7 @@ uint32_t pa_stream_get_monitor_stream(PA_CONST pa_stream *s)
 	spa_assert(s);
 	spa_assert(s->refcount >= 1);
 
+	pw_log_debug("stream %p: get monitor stream %u", s, s->direct_on_input);
 	PA_CHECK_VALIDITY_RETURN_ANY(s->context, s->direct_on_input != PA_INVALID_INDEX,
 			PA_ERR_BADSTATE, PA_INVALID_INDEX);
 

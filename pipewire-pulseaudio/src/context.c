@@ -1209,6 +1209,36 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = proxy_destroy,
 };
 
+static void configure_device(pa_stream *s, struct global *g)
+{
+	const char *str;
+	uint32_t old = s->device_index;
+
+	if (s->direction == PA_STREAM_RECORD) {
+		if (g->mask == (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) {
+			s->device_index = g->node_info.monitor;
+		}
+		else
+			s->device_index = g->id;
+	} else {
+		s->device_index = g->id;
+	}
+
+	free(s->device_name);
+	if ((str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
+		s->device_name = strdup("unknown");
+	else
+		s->device_name = strdup(str);
+
+	pw_log_debug("stream %p: linked to %d '%s'", s, s->device_index, s->device_name);
+
+	if (s->state == PA_STREAM_CREATING)
+		pa_stream_set_state(s, PA_STREAM_READY);
+
+	if (old != SPA_ID_INVALID && old != s->device_index && s->moved_callback)
+		s->moved_callback(s, s->moved_userdata);
+}
+
 static void update_link(pa_context *c, uint32_t src_node_id, uint32_t dst_node_id)
 {
 	struct global *s, *d;
@@ -1219,16 +1249,32 @@ static void update_link(pa_context *c, uint32_t src_node_id, uint32_t dst_node_i
 	if (s == NULL || d == NULL)
 		return;
 
-	if ((s->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) &&
+	if (s->stream && s->stream->direct_on_input == dst_node_id) {
+		pw_log_debug("node %d linked to stream %d %p (%d)",
+				src_node_id, dst_node_id, s->stream, s->stream->state);
+		if (s->stream->state == PA_STREAM_CREATING)
+			pa_stream_set_state(s->stream, PA_STREAM_READY);
+	}
+	else if (d->stream && d->stream->direct_on_input == src_node_id) {
+		pw_log_debug("node %d linked to stream %d %p (%d)",
+				dst_node_id, src_node_id, d->stream, d->stream->state);
+		if (d->stream->state == PA_STREAM_CREATING)
+			pa_stream_set_state(d->stream, PA_STREAM_READY);
+	}
+	else if ((s->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) &&
 	    (d->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))) {
 		pw_log_debug("node %d linked to device %d", dst_node_id, src_node_id);
 		d->node_info.device_index = src_node_id;
+		if (d->stream)
+			configure_device(d->stream, s);
 		if (!d->init)
 			emit_event(c, d, PA_SUBSCRIPTION_EVENT_CHANGE);
 	} else if ((s->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT)) &&
 	    (d->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE))) {
 		pw_log_debug("node %d linked to device %d", src_node_id, dst_node_id);
 		s->node_info.device_index = dst_node_id;
+		if (s->stream)
+			configure_device(s->stream, d);
 		if (!s->init)
 			emit_event(c, s, PA_SUBSCRIPTION_EVENT_CHANGE);
 	}
@@ -1288,8 +1334,10 @@ static int set_mask(pa_context *c, struct global *g)
 			g->event = PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 		}
 		g->stream = pa_context_find_stream(c, g->id);
-		if (g->stream)
+		if (g->stream) {
+			pw_log_debug("global stream %p", g->stream);
 			g->stream->global = g;
+		}
 
 		if ((str = pw_properties_get(g->props, PW_KEY_CLIENT_ID)) != NULL)
 			g->node_info.client_id = atoi(str);

@@ -438,10 +438,7 @@ static inline uint32_t queued_size(const pa_stream *s, uint64_t elapsed)
 }
 static inline uint32_t target_queue(const pa_stream *s)
 {
-	if (SPA_FLAG_IS_SET(s->flags, PA_STREAM_ADJUST_LATENCY))
-		return s->buffer_attr.tlength;
-	else
-		return s->buffer_attr.maxlength;
+	return s->buffer_attr.tlength;
 }
 
 static inline uint32_t wanted_size(const pa_stream *s, uint32_t queued, uint32_t target)
@@ -1393,6 +1390,7 @@ pa_operation* pa_stream_update_timing_info(pa_stream *s, pa_stream_success_cb_t 
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
+	pw_log_debug("stream %p", s);
 	o = pa_operation_new(s->context, s, on_timing_success, sizeof(struct success_ack));
 	d = o->userdata;
 	d->cb = cb;

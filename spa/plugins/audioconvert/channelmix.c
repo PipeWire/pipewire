@@ -396,8 +396,8 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				changed++;
 			break;
 		case SPA_PROP_channelVolumes:
-			if (spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->channel_volumes, SPA_AUDIO_MAX_CHANNELS) > 0)
+			if ((p->n_channel_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					p->channel_volumes, SPA_AUDIO_MAX_CHANNELS)) > 0)
 				changed++;
 			remap_volumes(p, this->mix.src_chan);
 			break;

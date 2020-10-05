@@ -1015,29 +1015,27 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 	uint8_t buffer[1024];
 	struct data reply;
 	const char *name = NULL;
-	struct pw_properties *props;
-	int res;
-
-	props = pw_properties_new(NULL, NULL);
+	int res, changed = 0;
 
 	if (client->version < 13) {
 		if ((res = data_get(d,
 				TAG_STRING, &name,
 				TAG_INVALID)) < 0)
 			return res;
+		if (name)
+			changed += pw_properties_set(client->props, "application.name", name);
 	} else {
 		if ((res = data_get(d,
-				TAG_PROPLIST, props,
+				TAG_PROPLIST, client->props,
 				TAG_INVALID)) < 0)
 			return res;
+		changed++;
 	}
-	if (name)
-		pw_properties_set(props, "application.name", name);
+	if (changed)
+		pw_core_update_properties(client->core, &client->props->dict);
 
 	pw_log_info(NAME" %p: SET_CLIENT_NAME %s", impl,
-			pw_properties_get(props, "application.name"));
-
-	pw_properties_free(props);
+			pw_properties_get(client->props, "application.name"));
 
 	spa_zero(reply);
 	reply.data = buffer;

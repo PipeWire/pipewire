@@ -106,16 +106,7 @@ enum error_code {
 	ERR_MAX				/**< Not really an error but the first invalid error code */
 };
 
-struct impl {
-	struct sm_media_session *session;
-	struct spa_hook listener;
-
-	struct pw_loop *loop;
-	struct pw_context *context;
-        struct spa_source *source;
-
-	struct spa_list clients;
-};
+struct impl;
 
 struct descriptor {
 	uint32_t length;
@@ -261,14 +252,6 @@ struct cvolume {
 	float values[CHANNELS_MAX];
 };
 
-struct buffer_attr {
-	uint32_t maxlength;
-	uint32_t tlength;
-	uint32_t prebuf;
-	uint32_t minreq;
-	uint32_t fragsize;
-};
-
 enum encoding {
 	ENCODING_ANY,
 	ENCODING_PCM,
@@ -286,6 +269,25 @@ enum encoding {
 struct format_info {
 	enum encoding encoding;
 	struct pw_properties *props;
+};
+
+struct device {
+	uint32_t index;
+	char *name;
+	enum pw_direction direction;
+	struct pw_properties *props;
+	struct sample_spec ss;
+	struct cvolume volume;
+	struct channel_map map;
+	bool muted;
+};
+
+struct buffer_attr {
+	uint32_t maxlength;
+	uint32_t tlength;
+	uint32_t prebuf;
+	uint32_t minreq;
+	uint32_t fragsize;
 };
 
 struct stream {
@@ -323,6 +325,21 @@ struct stream {
 	unsigned int adjust_latency:1;
 	unsigned int have_time:1;
 };
+
+struct impl {
+	struct sm_media_session *session;
+	struct spa_hook listener;
+
+	struct pw_loop *loop;
+	struct pw_context *context;
+        struct spa_source *source;
+
+	struct spa_list clients;
+
+	struct device default_sink;
+	struct device default_source;
+};
+
 
 enum {
 	/* Generic commands */
@@ -1283,6 +1300,7 @@ static int send_command_request(struct stream *stream)
 static int reply_create_playback_stream(struct stream *stream)
 {
 	struct client *client = stream->client;
+	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t size;
 
@@ -1291,7 +1309,7 @@ static int reply_create_playback_stream(struct stream *stream)
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
 		TAG_U32, stream->channel,	/* stream index/channel */
-		TAG_U32, 0,			/* sink_input/stream index */
+		TAG_U32, stream->channel,	/* sink_input/stream index */
 		TAG_U32, size,			/* missing/requested bytes */
 		TAG_INVALID);
 
@@ -1307,9 +1325,9 @@ static int reply_create_playback_stream(struct stream *stream)
 		message_put(reply,
 			TAG_SAMPLE_SPEC, &stream->ss,
 			TAG_CHANNEL_MAP, &stream->map,
-			TAG_U32, 0,			/* sink index */
-			TAG_STRING, "sink",		/* sink name */
-			TAG_BOOLEAN, false,		/* sink suspended state */
+			TAG_U32, impl->default_sink.index,		/* sink index */
+			TAG_STRING, impl->default_sink.name,		/* sink name */
+			TAG_BOOLEAN, false,			/* sink suspended state */
 			TAG_INVALID);
 	}
 	if (client->version >= 13) {
@@ -1334,12 +1352,13 @@ static int reply_create_playback_stream(struct stream *stream)
 static int reply_create_record_stream(struct stream *stream)
 {
 	struct client *client = stream->client;
+	struct impl *impl = client->impl;
 	struct message *reply;
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
 		TAG_U32, stream->channel,	/* stream index/channel */
-		TAG_U32, 0,			/* source_output/stream index */
+		TAG_U32, stream->channel,	/* source_output/stream index */
 		TAG_INVALID);
 
 	if (client->version >= 9) {
@@ -1352,8 +1371,8 @@ static int reply_create_record_stream(struct stream *stream)
 		message_put(reply,
 			TAG_SAMPLE_SPEC, &stream->ss,
 			TAG_CHANNEL_MAP, &stream->map,
-			TAG_U32, 0,			/* source index */
-			TAG_STRING, "sink",		/* source name */
+			TAG_U32, impl->default_source.index,		/* source index */
+			TAG_STRING, impl->default_source.name,		/* source name */
 			TAG_BOOLEAN, false,		/* source suspended state */
 			TAG_INVALID);
 	}
@@ -1492,10 +1511,11 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		if (stream->corked)
 			pw_stream_set_active(stream->stream, false);
 
-		if (stream->direction == PW_DIRECTION_OUTPUT)
+		if (stream->direction == PW_DIRECTION_OUTPUT) {
 			reply_create_playback_stream(stream);
-		else
+		} else {
 			reply_create_record_stream(stream);
+		}
 	}
 
 	params[n_params++] = get_buffers_param(stream, &stream->attr, &b);
@@ -1956,8 +1976,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM", impl);
-
 	props = pw_properties_new(NULL, NULL);
 
 	if (client->version < 13) {
@@ -1980,6 +1998,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			TAG_U32, &attr.fragsize,
 			TAG_INVALID)) < 0)
 		goto error;
+
+	pw_log_info(NAME" %p: CREATE_RECORD_STREAM corked:%u", impl, corked);
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -2054,6 +2074,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->direction = PW_DIRECTION_INPUT;
 	stream->impl = impl;
 	stream->client = client;
+	stream->corked = corked;
+	stream->adjust_latency = adjust_latency;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
 	spa_list_init(&stream->messages);
 	stream->create_tag = tag;
@@ -2501,8 +2523,8 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		TAG_STRING, pw_get_user_name(),
 		TAG_STRING, pw_get_host_name(),
 		TAG_SAMPLE_SPEC, &ss,
-		TAG_STRING, "output.pipewire",
-		TAG_STRING, "input.pipewire",
+		TAG_STRING, impl->default_sink.name,
+		TAG_STRING, impl->default_source.name,
 		TAG_U32, 0,
 		TAG_INVALID);
 
@@ -2597,6 +2619,108 @@ static void fill_client_info(struct client *client, struct message *m)
 	}
 }
 
+static void fill_sink_info(struct client *client, struct message *m, struct device *sink)
+{
+	message_put(m,
+		TAG_U32, sink->index,		/* sink index */
+		TAG_STRING, sink->name,
+		TAG_STRING, pw_properties_get(sink->props, "device.description"),
+		TAG_SAMPLE_SPEC, &sink->ss,
+		TAG_CHANNEL_MAP, &sink->map,
+		TAG_U32, SPA_ID_INVALID,	/* module index */
+		TAG_CVOLUME, &sink->volume,
+		TAG_BOOLEAN, sink->muted,
+		TAG_U32, SPA_ID_INVALID,	/* monitor source */
+		TAG_STRING, NULL,		/* monitor source name */
+		TAG_USEC, 0LL,			/* latency */
+		TAG_STRING, "PipeWire",		/* driver */
+		TAG_U32, 0,			/* flags */
+		TAG_INVALID);
+
+	if (client->version >= 13) {
+		message_put(m,
+			TAG_PROPLIST, sink->props,
+			TAG_USEC, 0LL,			/* requested latency */
+			TAG_INVALID);
+	}
+	if (client->version >= 15) {
+		message_put(m,
+			TAG_VOLUME, 1.0f,		/* base volume */
+			TAG_U32, 0,			/* state */
+			TAG_U32, 256,			/* n_volume_steps */
+			TAG_U32, SPA_ID_INVALID,	/* card index */
+			TAG_INVALID);
+	}
+	if (client->version >= 16) {
+		message_put(m,
+			TAG_U32, 0,			/* n_ports */
+			TAG_INVALID);
+		message_put(m,
+			TAG_STRING, NULL,		/* active port name */
+			TAG_INVALID);
+	}
+	if (client->version >= 21) {
+		struct format_info info;
+		spa_zero(info);
+		info.encoding = ENCODING_PCM;
+		message_put(m,
+			TAG_U8, 1,			/* n_formats */
+			TAG_FORMAT_INFO, &info,
+			TAG_INVALID);
+	}
+}
+
+static void fill_source_info(struct client *client, struct message *m, struct device *source)
+{
+	message_put(m,
+		TAG_U32, source->index,		/* source index */
+		TAG_STRING, source->name,
+		TAG_STRING, pw_properties_get(source->props, "device.description"),
+		TAG_SAMPLE_SPEC, &source->ss,
+		TAG_CHANNEL_MAP, &source->map,
+		TAG_U32, SPA_ID_INVALID,	/* module index */
+		TAG_CVOLUME, &source->volume,
+		TAG_BOOLEAN, source->muted,
+		TAG_U32, SPA_ID_INVALID,	/* monitor source */
+		TAG_STRING, NULL,		/* monitor source name */
+		TAG_USEC, 0LL,			/* latency */
+		TAG_STRING, "PipeWire",		/* driver */
+		TAG_U32, 0,			/* flags */
+		TAG_INVALID);
+
+	if (client->version >= 13) {
+		message_put(m,
+			TAG_PROPLIST, source->props,
+			TAG_USEC, 0LL,			/* requested latency */
+			TAG_INVALID);
+	}
+	if (client->version >= 15) {
+		message_put(m,
+			TAG_VOLUME, 1.0f,		/* base volume */
+			TAG_U32, 0,			/* state */
+			TAG_U32, 256,			/* n_volume_steps */
+			TAG_U32, SPA_ID_INVALID,	/* card index */
+			TAG_INVALID);
+	}
+	if (client->version >= 16) {
+		message_put(m,
+			TAG_U32, 0,			/* n_ports */
+			TAG_INVALID);
+		message_put(m,
+			TAG_STRING, NULL,		/* active port name */
+			TAG_INVALID);
+	}
+	if (client->version >= 21) {
+		struct format_info info;
+		spa_zero(info);
+		info.encoding = ENCODING_PCM;
+		message_put(m,
+			TAG_U8, 1,			/* n_formats */
+			TAG_FORMAT_INFO, &info,
+			TAG_INVALID);
+	}
+}
+
 static int do_get_info(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -2635,8 +2759,10 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	case COMMAND_GET_SAMPLE_INFO:
 		return reply_error(client, -1, ERR_NOENTITY);
 	case COMMAND_GET_SINK_INFO:
+		fill_sink_info(client, reply, &impl->default_sink);
+		break;
 	case COMMAND_GET_SOURCE_INFO:
-		/* fixme, dummy sink/source */
+		fill_source_info(client, reply, &impl->default_source);
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO:
 	case COMMAND_GET_SOURCE_OUTPUT_INFO:
@@ -2665,8 +2791,10 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 	case COMMAND_GET_SAMPLE_INFO_LIST:
 		break;
 	case COMMAND_GET_SINK_INFO_LIST:
+		fill_sink_info(client, reply, &impl->default_sink);
+		break;
 	case COMMAND_GET_SOURCE_INFO_LIST:
-		/* fixme, dummy sink/source */
+		fill_source_info(client, reply, &impl->default_source);
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO_LIST:
 	case COMMAND_GET_SOURCE_OUTPUT_INFO_LIST:
@@ -3318,6 +3446,49 @@ int sm_pulse_bridge_start(struct sm_media_session *session)
 	impl->loop = session->loop;
 	impl->context = session->context;
 	spa_list_init(&impl->clients);
+
+	impl->default_sink = (struct device) {
+		.index = 1,
+		.name = "input.pipewire",
+		.direction = PW_DIRECTION_INPUT,
+		.props = pw_properties_new(
+				"device.description", "PipeWire Sink",
+				NULL),
+		.ss = (struct sample_spec) {
+			.format = SAMPLE_FLOAT32LE,
+			.rate = 44100,
+			.channels = 2, },
+		.volume = (struct cvolume) {
+			.channels = 2,
+			.values[0] = 1.0f,
+			.values[1] = 1.0f, },
+		.map = (struct channel_map) {
+			.channels = 2,
+			.map[0] = 1,
+			.map[1] = 2, },
+		.muted = false,
+	};
+	impl->default_source = (struct device) {
+		.index = 2,
+		.name = "output.pipewire",
+		.direction = PW_DIRECTION_OUTPUT,
+		.props = pw_properties_new(
+				"device.description", "PipeWire Source",
+				NULL),
+		.ss = (struct sample_spec) {
+			.format = SAMPLE_FLOAT32LE,
+			.rate = 44100,
+			.channels = 2, },
+		.volume = (struct cvolume) {
+			.channels = 2,
+			.values[0] = 1.0f,
+			.values[1] = 1.0f, },
+		.map = (struct channel_map) {
+			.channels = 2,
+			.map[0] = 1,
+			.map[1] = 2, },
+		.muted = false,
+	};
 
 	sm_media_session_add_listener(impl->session,
 			&impl->listener,

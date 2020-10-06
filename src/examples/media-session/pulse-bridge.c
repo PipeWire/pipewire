@@ -305,6 +305,8 @@ struct stream {
 
 	uint32_t drain_tag;
 	unsigned int corked:1;
+	unsigned int volume_set:1;
+	unsigned int muted_set:1;
 	unsigned int adjust_latency:1;
 };
 
@@ -1364,11 +1366,15 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
 
 	if (stream->create_tag != SPA_ID_INVALID) {
-		float val = stream->muted ? 1.0f : 0.0f;
-		pw_stream_set_control(stream->stream,
-			SPA_PROP_channelVolumes, stream->volume.channels, stream->volume.values,
-			SPA_PROP_mute, 1, &val,
-			0);
+		if (stream->volume_set) {
+			pw_stream_set_control(stream->stream,
+				SPA_PROP_channelVolumes, stream->volume.channels, stream->volume.values, 0);
+		}
+		if (stream->muted_set) {
+			float val = stream->muted ? 1.0f : 0.0f;
+			pw_stream_set_control(stream->stream,
+				SPA_PROP_mute, 1, &val, 0);
+		}
 		if (stream->corked)
 			pw_stream_set_active(stream->stream, false);
 		if (stream->direction == PW_DIRECTION_OUTPUT)
@@ -1664,7 +1670,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->ss = ss;
 	stream->map = map;
 	stream->volume = volume;
+	stream->volume_set = volume_set;
 	stream->muted = muted;
+	stream->muted_set = muted_set;
 
 	fix_playback_buffer_attr(stream, &attr);
 	stream->attr = attr;
@@ -2078,6 +2086,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 		return -EINVAL;
 
 	stream->volume = volume;
+	stream->volume_set = true;
 
 	pw_stream_set_control(stream->stream,
 			SPA_PROP_channelVolumes, volume.channels, volume.values,
@@ -2109,6 +2118,7 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 		return -EINVAL;
 
 	stream->muted = mute;
+	stream->muted_set = true;
 
 	val = mute ? 1.0f : 0.0f;
 	pw_stream_set_control(stream->stream,

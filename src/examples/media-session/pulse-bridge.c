@@ -72,6 +72,9 @@
 #define NATIVE_COOKIE_LENGTH 256
 #define MAX_TAG_SIZE (64*1024)
 
+#define MIN_BUFFERS     8u
+#define MAX_BUFFERS     64u
+
 enum error_code {
 	ERR_OK = 0,			/**< No error */
 	ERR_ACCESS,			/**< Access failure */
@@ -220,6 +223,17 @@ static inline uint32_t format_pa2id(enum sample_format format)
 	return audio_formats[format].format;
 }
 
+static inline enum sample_format format_id2pa(uint32_t id)
+{
+	size_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
+		if (id == audio_formats[i].format)
+			return i;
+	}
+	return SAMPLE_INVALID;
+}
+
+
 struct sample_spec {
 	enum sample_format format;
 	uint32_t rate;
@@ -293,7 +307,11 @@ struct stream {
 	struct spa_list blocks;
 	int64_t read_index;
 	int64_t write_index;
+	uint64_t underrun_for;
 	uint64_t playing_for;
+	uint64_t ticks_base;
+	struct timeval timestamp;
+	int64_t delay;
 
 	struct sample_spec ss;
 	struct channel_map map;
@@ -308,6 +326,7 @@ struct stream {
 	unsigned int volume_set:1;
 	unsigned int muted_set:1;
 	unsigned int adjust_latency:1;
+	unsigned int have_time:1;
 };
 
 enum {
@@ -1098,11 +1117,10 @@ static void stream_flush(struct stream *stream)
 	struct block *block;
 	spa_list_consume(block, &stream->blocks, link)
 		block_free(block);
-	if (stream->direction == PW_DIRECTION_INPUT)
-		stream->read_index = stream->write_index;
-	else
-		stream->write_index = stream->read_index;
+	stream->write_index = stream->read_index = 0;
 	stream->playing_for = 0;
+	stream->underrun_for = 0;
+	stream->have_time = false;
 }
 
 static void stream_free(struct stream *stream)
@@ -1116,6 +1134,7 @@ static void stream_free(struct stream *stream)
 	}
 	free(stream);
 }
+
 static inline uint32_t queued_size(const struct stream *s, uint64_t elapsed)
 {
 	uint64_t queued;
@@ -1356,12 +1375,79 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	}
 }
 
+static const struct spa_pod *get_buffers_param(struct stream *s,
+		struct buffer_attr *attr, struct spa_pod_builder *b)
+{
+	const struct spa_pod *param;
+	uint32_t blocks, buffers, size, maxsize, stride;
+
+	blocks = 1;
+	stride = s->frame_size;
+
+	maxsize = attr->tlength;
+	size = attr->minreq;
+	buffers = SPA_CLAMP(maxsize / size, MIN_BUFFERS, MAX_BUFFERS);
+
+	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
+			size, buffers);
+
+	param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+								size, size, maxsize),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+	return param;
+}
+
+static int parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
+{
+	struct spa_audio_info info = { 0 };
+//	uint32_t i;
+
+        spa_format_parse(param, &info.media_type, &info.media_subtype);
+
+	if (info.media_type != SPA_MEDIA_TYPE_audio ||
+	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    spa_format_audio_raw_parse(param, &info.info.raw) < 0 ||
+	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
+                return -ENOTSUP;
+        }
+
+        ss->format = format_id2pa(info.info.raw.format);
+        if (ss->format == SAMPLE_INVALID)
+                return -ENOTSUP;
+
+        ss->rate = info.info.raw.rate;
+        ss->channels = info.info.raw.channels;
+
+	map->channels = info.info.raw.channels;
+//	for (i = 0; i < map->channels; i++)
+//		map->map[i] = info.info.raw.position[i];
+
+	return 0;
+}
+
 static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct stream *stream = data;
+	const struct spa_pod *params[4];
+	uint32_t n_params = 0;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	int res;
 
 	if (id != SPA_PARAM_Format || param == NULL)
 		return;
+
+	if ((res = parse_param(param, &stream->ss, &stream->map)) < 0) {
+		pw_stream_set_error(stream->stream, res, "format not supported");
+		return;
+	}
+
+	pw_log_info(NAME" %p: got rate:%u channels:%u", stream, stream->ss.rate, stream->ss.channels);
 
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
 
@@ -1377,11 +1463,46 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		}
 		if (stream->corked)
 			pw_stream_set_active(stream->stream, false);
+
 		if (stream->direction == PW_DIRECTION_OUTPUT)
 			reply_create_playback_stream(stream);
 		else
 			reply_create_record_stream(stream);
 	}
+
+	params[n_params++] = get_buffers_param(stream, &stream->attr, &b);
+	pw_stream_update_params(stream->stream, params, n_params);
+}
+
+static void update_timing_info(struct stream *stream)
+{
+	struct pw_time pwt;
+	int64_t delay, pos;
+
+	pw_stream_get_time(stream->stream, &pwt);
+
+	stream->timestamp.tv_sec = pwt.now / SPA_NSEC_PER_SEC;
+	stream->timestamp.tv_usec = (pwt.now % SPA_NSEC_PER_SEC) / SPA_NSEC_PER_USEC;
+
+	if (pwt.rate.denom > 0) {
+		uint64_t ticks = pwt.ticks;
+		if (!stream->have_time)
+                        stream->ticks_base = ticks;
+                if (ticks > stream->ticks_base)
+                        pos = ((ticks - stream->ticks_base) * stream->ss.rate / pwt.rate.denom) * stream->frame_size;
+                else
+                        pos = 0;
+                delay = pwt.delay * SPA_USEC_PER_SEC / pwt.rate.denom;
+                stream->have_time = true;
+        } else {
+                pos = delay = 0;
+                stream->have_time = false;
+        }
+	if (stream->direction == PW_DIRECTION_OUTPUT)
+		stream->read_index = pos;
+	else
+		stream->write_index = pos;
+	stream->delay = delay;
 }
 
 static void stream_process(void *data)
@@ -1394,6 +1515,8 @@ static void stream_process(void *data)
 	void *p;
 
 	pw_log_trace(NAME" %p: process", stream);
+
+	update_timing_info(stream);
 
 	while (!spa_list_is_empty(&stream->blocks)) {
 		buffer = pw_stream_dequeue_buffer(stream->stream);
@@ -1448,63 +1571,58 @@ static const struct pw_stream_events stream_events =
 #define DEFAULT_PROCESS_MSEC	20   /* 20ms */
 #define DEFAULT_FRAGSIZE_MSEC	DEFAULT_TLENGTH_MSEC
 
-static size_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *ss)
+static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *ss)
 {
 	uint64_t u;
 	u = (uint64_t) usec * (uint64_t) ss->rate;
 	u = (u + 1000000UL - 1) / 1000000UL;
 	u *= sample_spec_frame_size(ss);
-	return (size_t) u;
+	return (uint32_t) u;
 }
 
 static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	size_t frame_size, max_prebuf;
+	uint32_t frame_size, max_prebuf;
 
-	frame_size = sample_spec_frame_size(&s->ss);
+	frame_size = s->frame_size;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
-	if (attr->maxlength <= 0)
-		attr->maxlength = (uint32_t) frame_size;
+	attr->maxlength -= attr->maxlength % frame_size;
+	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
 	if (attr->tlength == (uint32_t) -1)
-		attr->tlength = (uint32_t) usec_to_bytes_round_up(DEFAULT_TLENGTH_MSEC*1000, &s->ss);
-
-	if (attr->tlength <= 0)
-		attr->tlength = (uint32_t) frame_size;
+		attr->tlength = usec_to_bytes_round_up(DEFAULT_TLENGTH_MSEC*1000, &s->ss);
 	if (attr->tlength > attr->maxlength)
 		attr->tlength = attr->maxlength;
+	attr->tlength -= attr->tlength % frame_size;
+	attr->tlength = SPA_MAX(attr->tlength, frame_size);
 
 	if (attr->minreq == (uint32_t) -1) {
-		uint32_t process = (uint32_t) usec_to_bytes_round_up(DEFAULT_PROCESS_MSEC*1000, &s->ss);
+		uint32_t process = usec_to_bytes_round_up(DEFAULT_PROCESS_MSEC*1000, &s->ss);
 		/* With low-latency, tlength/4 gives a decent default in all of traditional,
 		 * adjust latency and early request modes. */
 		uint32_t m = attr->tlength / 4;
-		if (frame_size)
-			m -= m % frame_size;
+		m -= m % frame_size;
 		attr->minreq = SPA_MIN(process, m);
 	}
-	if (attr->minreq <= 0)
-		attr->minreq = (uint32_t) frame_size;
 
 	if (attr->tlength < attr->minreq+frame_size)
-		attr->tlength = attr->minreq+(uint32_t) frame_size;
+		attr->tlength = attr->minreq + frame_size;
 
-
+	attr->minreq -= attr->minreq % frame_size;
 	if (attr->minreq <= 0) {
-		attr->minreq = (uint32_t) frame_size;
-		attr->tlength += (uint32_t) frame_size*2;
+		attr->minreq = frame_size;
+		attr->tlength += frame_size*2;
 	}
-
 	if (attr->tlength <= attr->minreq)
-		attr->tlength = attr->minreq*2 + (uint32_t) frame_size;
+		attr->tlength = attr->minreq*2 + frame_size;
 
-	max_prebuf = attr->tlength + (uint32_t)frame_size - attr->minreq;
-
-	if (attr->prebuf == (uint32_t) -1 ||
-		attr->prebuf > max_prebuf)
-	attr->prebuf = max_prebuf;
+	max_prebuf = attr->tlength + frame_size - attr->minreq;
+	if (attr->prebuf == (uint32_t) -1 || attr->prebuf > max_prebuf)
+		attr->prebuf = max_prebuf;
+	attr->prebuf -= attr->prebuf % frame_size;
+	attr->prebuf = SPA_MAX(attr->prebuf, frame_size);
 }
 
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct data *d)
@@ -1655,16 +1773,6 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->channel = pw_map_insert_new(&client->streams, stream);
 	spa_list_init(&stream->blocks);
 
-	stream->stream = pw_stream_new(client->core, name, props);
-	props = NULL;
-	if (stream->stream == NULL) {
-		res = -errno;
-		goto error;
-	}
-	pw_stream_add_listener(stream->stream,
-			&stream->stream_listener,
-			&stream_events, stream);
-
 	stream->direction = PW_DIRECTION_OUTPUT;
 	stream->create_tag = tag;
 	stream->ss = ss;
@@ -1674,8 +1782,23 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->muted = muted;
 	stream->muted_set = muted_set;
 
+	stream->frame_size = sample_spec_frame_size(&stream->ss);
+
 	fix_playback_buffer_attr(stream, &attr);
 	stream->attr = attr;
+
+	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
+			stream->attr.minreq * 2 / stream->frame_size, ss.rate);
+
+	stream->stream = pw_stream_new(client->core, name, props);
+	props = NULL;
+	if (stream->stream == NULL) {
+		res = -errno;
+		goto error;
+	}
+	pw_stream_add_listener(stream->stream,
+			&stream->stream_listener,
+			&stream_events, stream);
 
         info = SPA_AUDIO_INFO_RAW_INIT(
 			.format = format_pa2id(ss.format),
@@ -1910,7 +2033,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	uint8_t buffer[1024];
 	struct data reply;
 	uint32_t channel;
-	struct timeval tv, now;
+	struct timeval tv;
 	struct stream *stream;
 	int res;
 
@@ -1925,32 +2048,31 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	if (stream == NULL)
 		return -EINVAL;
 
-	pw_log_debug("read:%"PRIi64" write:%"PRIi64" queued:%"PRIi64,
-			stream->read_index, stream->write_index,
-			stream->write_index - stream->read_index);
-
 	spa_zero(reply);
 	reply.data = buffer;
 	reply.length = sizeof(buffer);
 
-	gettimeofday(&now, NULL);
+	pw_log_info("read:%"PRIi64" write:%"PRIi64" queued:%"PRIi64" delay:%"PRIi64,
+			stream->read_index, stream->write_index,
+			stream->write_index - stream->read_index, stream->delay);
 
 	data_put(&reply,
 		TAG_U32, COMMAND_REPLY,
 		TAG_U32, tag,
-		TAG_USEC, 0,		/* sink latency + queued samples */
-		TAG_USEC, 0,		/* always 0 */
-		TAG_BOOLEAN, true,	/* playing state */
+		TAG_USEC, stream->delay,	/* sink latency + queued samples */
+		TAG_USEC, 0,			/* always 0 */
+		TAG_BOOLEAN, stream->playing_for > 0 &&
+				!stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
-		TAG_TIMEVAL, &now,
+		TAG_TIMEVAL, &stream->timestamp,
 		TAG_S64, stream->write_index,
 		TAG_S64, stream->read_index,
 		TAG_INVALID);
 
 	if (client->version >= 13) {
 		data_put(&reply,
-			TAG_U64, 0,	/* underrun_for */
-			TAG_U64, 0,	/* playing_for */
+			TAG_U64, stream->underrun_for,
+			TAG_U64, stream->playing_for,
 			TAG_INVALID);
 	}
 	return send_data(client, &reply);
@@ -2021,6 +2143,7 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 
 	pw_stream_set_active(stream->stream, !cork);
 	stream->corked = cork;
+	stream->playing_for = 0;
 
 	return reply_simple_ack(client, tag);
 }
@@ -2323,11 +2446,11 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 	data_put(&reply,
 		TAG_U32, COMMAND_REPLY,
 		TAG_U32, tag,
-		TAG_U32, 0,
-		TAG_U32, 0,
-		TAG_U32, 0,
-		TAG_U32, 0,
-		TAG_U32, 0,
+		TAG_U32, 0,	/* n_allocated */
+		TAG_U32, 0,	/* allocated size */
+		TAG_U32, 0,	/* n_accumulated */
+		TAG_U32, 0,	/* accumulated_size */
+		TAG_U32, 0,	/* sample cache size */
 		TAG_INVALID);
 
 	return send_data(client, &reply);

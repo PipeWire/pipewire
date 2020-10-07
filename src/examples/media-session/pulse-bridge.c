@@ -1781,7 +1781,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			TAG_INVALID)) < 0)
 		goto error;
 
-	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM corked:%u", impl, corked);
+	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM corked:%u sink-name:%s sink-idx:%u",
+			impl, corked, sink_name, sink_index);
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -2000,7 +2001,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			TAG_INVALID)) < 0)
 		goto error;
 
-	pw_log_info(NAME" %p: CREATE_RECORD_STREAM corked:%u", impl, corked);
+	pw_log_info(NAME" %p: CREATE_RECORD_STREAM corked:%u source-name:%s source-index:%u",
+			impl, corked, source_name, source_index);
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -2218,8 +2220,6 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_U32, COMMAND_REPLY,
-		TAG_U32, tag,
 		TAG_USEC, 0,			/* monitor latency */
 		TAG_USEC, stream->delay,	/* source latency + queued */
 		TAG_BOOLEAN, !stream->corked,	/* playing state */

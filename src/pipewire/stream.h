@@ -181,7 +181,7 @@ struct pw_stream_control {
 
 /** A time structure \memberof pw_stream */
 struct pw_time {
-	int64_t now;			/**< the monotonic time */
+	int64_t now;			/**< the monotonic time in nanoseconds */
 	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
 	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
 					  *  the remote end is reading/writing. */

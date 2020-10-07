@@ -1057,6 +1057,7 @@ static int flush_messages(struct client *client)
 		while (true) {
 			res = send(client->source->fd, data, size, MSG_NOSIGNAL | MSG_DONTWAIT);
 			if (res < 0) {
+				pw_log_info("send channel:%d %zu, res %d: %m", m->channel, size, res);
 				if (errno == EINTR)
 					continue;
 				else
@@ -2221,7 +2222,7 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 		TAG_U32, tag,
 		TAG_USEC, 0,			/* monitor latency */
 		TAG_USEC, stream->delay,	/* source latency + queued */
-		TAG_BOOLEAN, true,	/* playing state */
+		TAG_BOOLEAN, !stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
 		TAG_TIMEVAL, &stream->timestamp,
 		TAG_S64, stream->write_index,

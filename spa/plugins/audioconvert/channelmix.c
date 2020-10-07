@@ -200,6 +200,28 @@ static uint64_t default_mask(uint32_t channels)
 	return mask;
 }
 
+static int remap_volumes(struct props *p, uint32_t target)
+{
+	float s;
+	uint32_t i;
+
+	if (target == 0 || p->n_channel_volumes == target)
+		return 0;
+
+	if (p->n_channel_volumes > 0) {
+		s = 0.0f;
+		for (i = 0; i < p->n_channel_volumes; i++)
+			s += p->channel_volumes[i];
+		s /= p->n_channel_volumes;
+	} else {
+		s = 1.0f;
+	}
+	p->n_channel_volumes = target;
+	for (i = 0; i < p->n_channel_volumes; i++)
+		p->channel_volumes[i] = s;
+	return 1;
+}
+
 static int setup_convert(struct impl *this,
 		enum spa_direction direction,
 		const struct spa_audio_info *info)
@@ -252,11 +274,7 @@ static int setup_convert(struct impl *this,
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
 
-	if (this->props.n_channel_volumes != this->mix.src_chan) {
-		this->props.n_channel_volumes = this->mix.src_chan;
-		for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
-			this->props.channel_volumes[i] = 1.0;
-	}
+	remap_volumes(&this->props, this->mix.src_chan);
 
 	channelmix_set_volume(&this->mix, this->props.volume, this->props.mute,
 			this->props.n_channel_volumes, this->props.channel_volumes);
@@ -381,6 +399,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			if (spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->channel_volumes, SPA_AUDIO_MAX_CHANNELS) > 0)
 				changed++;
+			remap_volumes(p, this->mix.src_chan);
 			break;
 		default:
 			break;

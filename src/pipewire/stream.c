@@ -1534,6 +1534,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if ((str = pw_properties_get(props, PW_KEY_STREAM_MONITOR)) &&
 	    pw_properties_parse_bool(str)) {
 		pw_properties_set(props, "resample.peaks", "true");
+		pw_properties_set(props, "channelmix.normalize", "true");
 	}
 
 	follower = pw_context_create_node(impl->context, pw_properties_copy(props), 0);

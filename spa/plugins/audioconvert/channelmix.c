@@ -1181,6 +1181,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
+	const char *str;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1197,6 +1198,15 @@ impl_init(const struct spa_handle_factory *factory,
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
 	spa_hook_list_init(&this->hooks);
+
+	if (info != NULL) {
+		if ((str = spa_dict_lookup(info, "channelmix.normalize")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+			this->mix.options |= CHANNELMIX_OPTION_NORMALIZE;
+		if ((str = spa_dict_lookup(info, "channelmix.mix-lfe")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
+	}
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

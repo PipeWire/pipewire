@@ -188,7 +188,7 @@ static void patch_buffer_attr(pa_stream *s, pa_buffer_attr *attr, pa_stream_flag
 		if (attr->prebuf == 0)
 			attr->prebuf = -1;
 		if (attr->fragsize == 0)
-			attr->prebuf = -1;
+			attr->fragsize = -1;
 		period = 100;
 	} else {
 		period = 20;

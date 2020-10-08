@@ -80,7 +80,6 @@ if alsa_dep.found()
     'media-session/media-session.c',
     'media-session/session-manager.c',
     'media-session/metadata.c',
-    'media-session/pulse-bridge.c',
     'media-session/stream-endpoint.c',
     'media-session/restore-stream.c',
     'media-session/policy-ep.c',

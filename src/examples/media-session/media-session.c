@@ -87,7 +87,6 @@ int sm_libcamera_monitor_start(struct sm_media_session *sess);
 int sm_bluez5_monitor_start(struct sm_media_session *sess);
 int sm_alsa_monitor_start(struct sm_media_session *sess);
 int sm_suspend_node_start(struct sm_media_session *sess);
-int sm_pulse_bridge_start(struct sm_media_session *sess);
 
 int sm_policy_node_start(struct sm_media_session *sess);
 
@@ -2021,6 +2020,15 @@ static void session_shutdown(struct impl *impl)
 		pw_core_disconnect(impl->monitor_core);
 	if (impl->this.info)
 		pw_core_info_free(impl->this.info);
+}
+
+static int sm_pulse_bridge_start(struct sm_media_session *sess)
+{
+	if (pw_context_load_module(sess->context,
+			"libpipewire-module-protocol-pulse",
+			NULL, NULL) == NULL)
+		return -errno;
+	return 0;
 }
 
 static void do_quit(void *data, int signal_number)

@@ -88,6 +88,17 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
   dependencies : pipewire_module_protocol_native_deps,
 )
 
+pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',
+  [ 'module-protocol-pulse.c',
+    'module-protocol-pulse/pulse-server.c' ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
+
 pipewire_module_client_node = shared_library('pipewire-module-client-node',
   [ 'module-client-node.c',
     'module-client-node/remote-node.c',

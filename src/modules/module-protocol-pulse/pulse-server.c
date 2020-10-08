@@ -50,106 +50,21 @@
 
 #include "pipewire/pipewire.h"
 
-#include "media-session.h"
+#include "pulse-server.h"
+#include "defs.h"
 
-#define NAME		"pulse-bridge"
-#define SESSION_KEY	"pulse-bridge"
+#include "format.c"
+#include "message.c"
 
-#define FLAG_SHMDATA			0x80000000LU
-#define FLAG_SHMDATA_MEMFD_BLOCK	0x20000000LU
-#define FLAG_SHMRELEASE			0x40000000LU
-#define FLAG_SHMREVOKE			0xC0000000LU
-#define FLAG_SHMMASK			0xFF000000LU
-#define FLAG_SEEKMASK			0x000000FFLU
-#define FLAG_SHMWRITABLE		0x00800000LU
-
-#define FRAME_SIZE_MAX_ALLOW (1024*1024*16)
-
-#define PROTOCOL_FLAG_MASK	0xffff0000u
-#define PROTOCOL_VERSION_MASK	0x0000ffffu
-#define PROTOCOL_VERSION	34
-
-#define NATIVE_COOKIE_LENGTH 256
-#define MAX_TAG_SIZE (64*1024)
-
-#define MIN_BUFFERS     8u
-#define MAX_BUFFERS     64u
-
-enum error_code {
-	ERR_OK = 0,			/**< No error */
-	ERR_ACCESS,			/**< Access failure */
-	ERR_COMMAND,			/**< Unknown command */
-	ERR_INVALID,			/**< Invalid argument */
-	ERR_EXIST,			/**< Entity exists */
-	ERR_NOENTITY,			/**< No such entity */
-	ERR_CONNECTIONREFUSED,		/**< Connection refused */
-	ERR_PROTOCOL,			/**< Protocol error */
-	ERR_TIMEOUT,			/**< Timeout */
-	ERR_AUTHKEY,			/**< No authentication key */
-	ERR_INTERNAL,			/**< Internal error */
-	ERR_CONNECTIONTERMINATED,	/**< Connection terminated */
-	ERR_KILLED,			/**< Entity killed */
-	ERR_INVALIDSERVER,		/**< Invalid server */
-	ERR_MODINITFAILED,		/**< Module initialization failed */
-	ERR_BADSTATE,			/**< Bad state */
-	ERR_NODATA,			/**< No data */
-	ERR_VERSION,			/**< Incompatible protocol version */
-	ERR_TOOLARGE,			/**< Data too large */
-	ERR_NOTSUPPORTED,		/**< Operation not supported \since 0.9.5 */
-	ERR_UNKNOWN,			/**< The error code was unknown to the client */
-	ERR_NOEXTENSION,		/**< Extension does not exist. \since 0.9.12 */
-	ERR_OBSOLETE,			/**< Obsolete functionality. \since 0.9.15 */
-	ERR_NOTIMPLEMENTED,		/**< Missing implementation. \since 0.9.15 */
-	ERR_FORKED,			/**< The caller forked without calling execve() and tried to reuse the context. \since 0.9.15 */
-	ERR_IO,				/**< An IO error happened. \since 0.9.16 */
-	ERR_BUSY,			/**< Device or resource busy. \since 0.9.17 */
-	ERR_MAX				/**< Not really an error but the first invalid error code */
-};
+#define NAME	"pulse-server"
 
 struct impl;
-
-struct descriptor {
-	uint32_t length;
-	uint32_t channel;
-	uint32_t offset_hi;
-	uint32_t offset_lo;
-	uint32_t flags;
-};
-
-enum {
-	TAG_INVALID = 0,
-	TAG_STRING = 't',
-	TAG_STRING_NULL = 'N',
-	TAG_U32 = 'L',
-	TAG_U8 = 'B',
-	TAG_U64 = 'R',
-	TAG_S64 = 'r',
-	TAG_SAMPLE_SPEC = 'a',
-	TAG_ARBITRARY = 'x',
-	TAG_BOOLEAN_TRUE = '1',
-	TAG_BOOLEAN_FALSE = '0',
-	TAG_BOOLEAN = TAG_BOOLEAN_TRUE,
-	TAG_TIMEVAL = 'T',
-	TAG_USEC = 'U'  /* 64bit unsigned */,
-	TAG_CHANNEL_MAP = 'm',
-	TAG_CVOLUME = 'v',
-	TAG_PROPLIST = 'P',
-	TAG_VOLUME = 'V',
-	TAG_FORMAT_INFO = 'f',
-};
-
-struct message {
-	struct spa_list link;
-	uint32_t channel;
-	uint32_t allocated;
-	uint32_t length;
-	uint32_t offset;
-	uint8_t *data;
-};
+struct server;
 
 struct client {
 	struct spa_list link;
 	struct impl *impl;
+	struct server *server;
 
         struct spa_source *source;
 
@@ -167,108 +82,6 @@ struct client {
 	struct pw_map streams;
 	struct spa_list free_messages;
 	struct spa_list out_messages;
-};
-
-enum sample_format {
-	SAMPLE_U8,
-	SAMPLE_ALAW,
-	SAMPLE_ULAW,
-	SAMPLE_S16LE,
-	SAMPLE_S16BE,
-	SAMPLE_FLOAT32LE,
-	SAMPLE_FLOAT32BE,
-	SAMPLE_S32LE,
-	SAMPLE_S32BE,
-	SAMPLE_S24LE,
-	SAMPLE_S24BE,
-	SAMPLE_S24_32LE,
-	SAMPLE_S24_32BE,
-	SAMPLE_MAX,
-	SAMPLE_INVALID = -1
-};
-
-struct format {
-	uint32_t format;
-	const char *name;
-	uint32_t size;
-};
-
-static const struct format audio_formats[] = {
-	[SAMPLE_U8] = { SPA_AUDIO_FORMAT_U8, "u8", 1 },
-	[SAMPLE_ALAW] = { SPA_AUDIO_FORMAT_UNKNOWN, "alaw", 1 },
-	[SAMPLE_ULAW] = { SPA_AUDIO_FORMAT_UNKNOWN, "ulaw", 1 },
-	[SAMPLE_S16LE] = { SPA_AUDIO_FORMAT_S16_LE, "s16le", 2 },
-	[SAMPLE_S16BE] = { SPA_AUDIO_FORMAT_S16_BE, "s16be", 2 },
-	[SAMPLE_FLOAT32LE] = { SPA_AUDIO_FORMAT_F32_LE, "f32le", 4 },
-	[SAMPLE_FLOAT32BE] = { SPA_AUDIO_FORMAT_F32_BE, "f32be", 5 },
-	[SAMPLE_S32LE] = { SPA_AUDIO_FORMAT_S32_LE, "s32le", 4 },
-	[SAMPLE_S32BE] = { SPA_AUDIO_FORMAT_S32_BE, "s32be", 4 },
-	[SAMPLE_S24LE] = { SPA_AUDIO_FORMAT_S24_LE, "s24le", 3 },
-	[SAMPLE_S24BE] = { SPA_AUDIO_FORMAT_S24_BE, "s24be", 3 },
-	[SAMPLE_S24_32LE] = { SPA_AUDIO_FORMAT_S24_32_LE, "s24_32le", 4 },
-	[SAMPLE_S24_32BE] = { SPA_AUDIO_FORMAT_S24_32_BE, "s24_32be", 4 },
-};
-
-static inline uint32_t format_pa2id(enum sample_format format)
-{
-	if (format < 0 || (size_t)format >= SPA_N_ELEMENTS(audio_formats))
-		return SPA_AUDIO_FORMAT_UNKNOWN;
-	return audio_formats[format].format;
-}
-
-static inline enum sample_format format_id2pa(uint32_t id)
-{
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == audio_formats[i].format)
-			return i;
-	}
-	return SAMPLE_INVALID;
-}
-
-
-struct sample_spec {
-	enum sample_format format;
-	uint32_t rate;
-	uint8_t channels;
-};
-
-static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
-{
-	if (ss->format < 0 || (size_t)ss->format >= SPA_N_ELEMENTS(audio_formats))
-		return SPA_AUDIO_FORMAT_UNKNOWN;
-	return audio_formats[ss->format].size * ss->channels;
-}
-
-#define CHANNELS_MAX	64
-
-struct channel_map {
-	uint8_t channels;
-	uint32_t map[CHANNELS_MAX];
-};
-
-struct cvolume {
-	uint8_t channels;
-	float values[CHANNELS_MAX];
-};
-
-enum encoding {
-	ENCODING_ANY,
-	ENCODING_PCM,
-	ENCODING_AC3_IEC61937,
-	ENCODING_EAC3_IEC61937,
-	ENCODING_MPEG_IEC61937,
-	ENCODING_DTS_IEC61937,
-	ENCODING_MPEG2_AAC_IEC61937,
-	ENCODING_TRUEHD_IEC61937,
-	ENCODING_DTSHD_IEC61937,
-	ENCODING_MAX,
-	NCODING_INVALID = -1,
-};
-
-struct format_info {
-	enum encoding encoding;
-	struct pw_properties *props;
 };
 
 struct device {
@@ -326,670 +139,32 @@ struct stream {
 	unsigned int have_time:1;
 };
 
-struct impl {
-	struct sm_media_session *session;
-	struct spa_hook listener;
+struct server {
+	struct spa_list link;
+	struct impl *impl;
 
+        struct spa_source *source;
+	struct spa_list clients;
+};
+
+struct impl {
 	struct pw_loop *loop;
 	struct pw_context *context;
-        struct spa_source *source;
 
-	struct spa_list clients;
+	struct pw_properties *props;
+
+        struct spa_source *source;
+	struct spa_list servers;
 
 	struct device default_sink;
 	struct device default_source;
 };
 
-
-enum {
-	/* Generic commands */
-	COMMAND_ERROR,
-	COMMAND_TIMEOUT, /* pseudo command */
-	COMMAND_REPLY,
-
-	/* CLIENT->SERVER */
-	COMMAND_CREATE_PLAYBACK_STREAM,        /* Payload changed in v9, v12 (0.9.0, 0.9.8) */
-	COMMAND_DELETE_PLAYBACK_STREAM,
-	COMMAND_CREATE_RECORD_STREAM,          /* Payload changed in v9, v12 (0.9.0, 0.9.8) */
-	COMMAND_DELETE_RECORD_STREAM,
-	COMMAND_EXIT,
-	COMMAND_AUTH,
-	COMMAND_SET_CLIENT_NAME,
-	COMMAND_LOOKUP_SINK,
-	COMMAND_LOOKUP_SOURCE,
-	COMMAND_DRAIN_PLAYBACK_STREAM,
-	COMMAND_STAT,
-	COMMAND_GET_PLAYBACK_LATENCY,
-	COMMAND_CREATE_UPLOAD_STREAM,
-	COMMAND_DELETE_UPLOAD_STREAM,
-	COMMAND_FINISH_UPLOAD_STREAM,
-	COMMAND_PLAY_SAMPLE,
-	COMMAND_REMOVE_SAMPLE,
-
-	COMMAND_GET_SERVER_INFO,
-	COMMAND_GET_SINK_INFO,
-	COMMAND_GET_SINK_INFO_LIST,
-	COMMAND_GET_SOURCE_INFO,
-	COMMAND_GET_SOURCE_INFO_LIST,
-	COMMAND_GET_MODULE_INFO,
-	COMMAND_GET_MODULE_INFO_LIST,
-	COMMAND_GET_CLIENT_INFO,
-	COMMAND_GET_CLIENT_INFO_LIST,
-	COMMAND_GET_SINK_INPUT_INFO,          /* Payload changed in v11 (0.9.7) */
-	COMMAND_GET_SINK_INPUT_INFO_LIST,     /* Payload changed in v11 (0.9.7) */
-	COMMAND_GET_SOURCE_OUTPUT_INFO,
-	COMMAND_GET_SOURCE_OUTPUT_INFO_LIST,
-	COMMAND_GET_SAMPLE_INFO,
-	COMMAND_GET_SAMPLE_INFO_LIST,
-	COMMAND_SUBSCRIBE,
-
-	COMMAND_SET_SINK_VOLUME,
-	COMMAND_SET_SINK_INPUT_VOLUME,
-	COMMAND_SET_SOURCE_VOLUME,
-
-	COMMAND_SET_SINK_MUTE,
-	COMMAND_SET_SOURCE_MUTE,
-
-	COMMAND_CORK_PLAYBACK_STREAM,
-	COMMAND_FLUSH_PLAYBACK_STREAM,
-	COMMAND_TRIGGER_PLAYBACK_STREAM,
-
-	COMMAND_SET_DEFAULT_SINK,
-	COMMAND_SET_DEFAULT_SOURCE,
-
-	COMMAND_SET_PLAYBACK_STREAM_NAME,
-	COMMAND_SET_RECORD_STREAM_NAME,
-
-	COMMAND_KILL_CLIENT,
-	COMMAND_KILL_SINK_INPUT,
-	COMMAND_KILL_SOURCE_OUTPUT,
-
-	COMMAND_LOAD_MODULE,
-	COMMAND_UNLOAD_MODULE,
-
-	/* Obsolete */
-	COMMAND_ADD_AUTOLOAD___OBSOLETE,
-	COMMAND_REMOVE_AUTOLOAD___OBSOLETE,
-	COMMAND_GET_AUTOLOAD_INFO___OBSOLETE,
-	COMMAND_GET_AUTOLOAD_INFO_LIST___OBSOLETE,
-
-	COMMAND_GET_RECORD_LATENCY,
-	COMMAND_CORK_RECORD_STREAM,
-	COMMAND_FLUSH_RECORD_STREAM,
-	COMMAND_PREBUF_PLAYBACK_STREAM,
-
-	/* SERVER->CLIENT */
-	COMMAND_REQUEST,
-	COMMAND_OVERFLOW,
-	COMMAND_UNDERFLOW,
-	COMMAND_PLAYBACK_STREAM_KILLED,
-	COMMAND_RECORD_STREAM_KILLED,
-	COMMAND_SUBSCRIBE_EVENT,
-
-	/* A few more client->server commands */
-
-	/* Supported since protocol v10 (0.9.5) */
-	COMMAND_MOVE_SINK_INPUT,
-	COMMAND_MOVE_SOURCE_OUTPUT,
-
-	/* Supported since protocol v11 (0.9.7) */
-	COMMAND_SET_SINK_INPUT_MUTE,
-
-	COMMAND_SUSPEND_SINK,
-	COMMAND_SUSPEND_SOURCE,
-
-	/* Supported since protocol v12 (0.9.8) */
-	COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR,
-	COMMAND_SET_RECORD_STREAM_BUFFER_ATTR,
-
-	COMMAND_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE,
-	COMMAND_UPDATE_RECORD_STREAM_SAMPLE_RATE,
-
-	/* SERVER->CLIENT */
-	COMMAND_PLAYBACK_STREAM_SUSPENDED,
-	COMMAND_RECORD_STREAM_SUSPENDED,
-	COMMAND_PLAYBACK_STREAM_MOVED,
-	COMMAND_RECORD_STREAM_MOVED,
-
-	/* Supported since protocol v13 (0.9.11) */
-	COMMAND_UPDATE_RECORD_STREAM_PROPLIST,
-	COMMAND_UPDATE_PLAYBACK_STREAM_PROPLIST,
-	COMMAND_UPDATE_CLIENT_PROPLIST,
-	COMMAND_REMOVE_RECORD_STREAM_PROPLIST,
-	COMMAND_REMOVE_PLAYBACK_STREAM_PROPLIST,
-	COMMAND_REMOVE_CLIENT_PROPLIST,
-
-	/* SERVER->CLIENT */
-	COMMAND_STARTED,
-
-	/* Supported since protocol v14 (0.9.12) */
-	COMMAND_EXTENSION,
-	/* Supported since protocol v15 (0.9.15) */
-	COMMAND_GET_CARD_INFO,
-	COMMAND_GET_CARD_INFO_LIST,
-	COMMAND_SET_CARD_PROFILE,
-
-	COMMAND_CLIENT_EVENT,
-	COMMAND_PLAYBACK_STREAM_EVENT,
-	COMMAND_RECORD_STREAM_EVENT,
-
-	/* SERVER->CLIENT */
-	COMMAND_PLAYBACK_BUFFER_ATTR_CHANGED,
-	COMMAND_RECORD_BUFFER_ATTR_CHANGED,
-
-	/* Supported since protocol v16 (0.9.16) */
-	COMMAND_SET_SINK_PORT,
-	COMMAND_SET_SOURCE_PORT,
-
-	/* Supported since protocol v22 (1.0) */
-	COMMAND_SET_SOURCE_OUTPUT_VOLUME,
-	COMMAND_SET_SOURCE_OUTPUT_MUTE,
-
-	/* Supported since protocol v27 (3.0) */
-	COMMAND_SET_PORT_LATENCY_OFFSET,
-
-	/* Supported since protocol v30 (6.0) */
-	/* BOTH DIRECTIONS */
-	COMMAND_ENABLE_SRBCHANNEL,
-	COMMAND_DISABLE_SRBCHANNEL,
-
-	/* Supported since protocol v31 (9.0)
-	 * BOTH DIRECTIONS */
-	COMMAND_REGISTER_MEMFD_SHMID,
-
-	COMMAND_MAX
-};
 struct command {
 	const char *name;
 	int (*run) (struct client *client, uint32_t command, uint32_t tag, struct message *msg);
 };
 static const struct command commands[COMMAND_MAX];
-
-static int message_get(struct message *m, ...);
-
-static int read_u8(struct message *m, uint8_t *val)
-{
-	if (m->offset + 1 > m->length)
-		return -ENOSPC;
-	*val = m->data[m->offset];
-	m->offset++;
-	return 0;
-}
-
-static int read_u32(struct message *m, uint32_t *val)
-{
-	if (m->offset + 4 > m->length)
-		return -ENOSPC;
-	memcpy(val, &m->data[m->offset], 4);
-	*val = ntohl(*val);
-	m->offset += 4;
-	return 0;
-}
-static int read_u64(struct message *m, uint64_t *val)
-{
-	uint32_t tmp;
-	int res;
-	if ((res = read_u32(m, &tmp)) < 0)
-		return res;
-	*val = ((uint64_t)tmp) << 32;
-	if ((res = read_u32(m, &tmp)) < 0)
-		return res;
-	*val |= tmp;
-	return 0;
-}
-
-static int read_sample_spec(struct message *m, struct sample_spec *ss)
-{
-	int res;
-	uint8_t tmp;
-	if ((res = read_u8(m, &tmp)) < 0)
-		return res;
-	ss->format = tmp;
-	if ((res = read_u8(m, &ss->channels)) < 0)
-		return res;
-	return read_u32(m, &ss->rate);
-}
-
-static int read_props(struct message *m, struct pw_properties *props)
-{
-	int res;
-
-	while (true) {
-		char *key;
-		void *data;
-		uint32_t length;
-
-		if ((res = message_get(m,
-				TAG_STRING, &key,
-				TAG_INVALID)) < 0)
-			return res;
-
-		if (key == NULL)
-			break;
-
-		if ((res = message_get(m,
-				TAG_U32, &length,
-				TAG_INVALID)) < 0)
-			return res;
-		if (length > MAX_TAG_SIZE)
-			return -EINVAL;
-
-		if ((res = message_get(m,
-				TAG_ARBITRARY, &data, length,
-				TAG_INVALID)) < 0)
-			return res;
-
-		pw_log_debug("%s %s", key, (char*)data);
-		pw_properties_set(props, key, data);
-	}
-	return 0;
-}
-
-static int read_arbitrary(struct message *m, const void **val, size_t length)
-{
-	uint32_t len;
-	int res;
-	if ((res = read_u32(m, &len)) < 0)
-		return res;
-	if (len != length)
-		return -EINVAL;
-	if (m->offset + length > m->length)
-		return -ENOSPC;
-	*val = m->data + m->offset;
-	m->offset += length;
-	return 0;
-}
-
-static int read_string(struct message *m, char **str)
-{
-	uint32_t n, maxlen = m->length - m->offset;
-	n = strnlen(m->data + m->offset, maxlen);
-	if (n == maxlen)
-		return -EINVAL;
-	*str = m->data + m->offset;
-	m->offset += n + 1;
-	return 0;
-}
-
-static int read_timeval(struct message *m, struct timeval *tv)
-{
-	int res;
-	uint32_t tmp;
-
-	if ((res = read_u32(m, &tmp)) < 0)
-		return res;
-	tv->tv_sec = tmp;
-	if ((res = read_u32(m, &tmp)) < 0)
-		return res;
-	tv->tv_usec = tmp;
-	return 0;
-}
-
-static int read_channel_map(struct message *m, struct channel_map *map)
-{
-	int res;
-	uint8_t i, tmp;
-
-	if ((res = read_u8(m, &map->channels)) < 0)
-		return res;
-	if (map->channels > CHANNELS_MAX)
-		return -EINVAL;
-	for (i = 0; i < map->channels; i ++) {
-		if ((res = read_u8(m, &tmp)) < 0)
-			return res;
-		map->map[i] = tmp;
-	}
-	return 0;
-}
-static int read_volume(struct message *m, float *vol)
-{
-	int res;
-	uint32_t v;
-	if ((res = read_u32(m, &v)) < 0)
-		return res;
-	*vol = ((float)v) / 0x10000U;
-	return 0;
-}
-
-static int read_cvolume(struct message *m, struct cvolume *vol)
-{
-	int res;
-	uint8_t i;
-
-	if ((res = read_u8(m, &vol->channels)) < 0)
-		return res;
-	if (vol->channels > CHANNELS_MAX)
-		return -EINVAL;
-	for (i = 0; i < vol->channels; i ++) {
-		if ((res = read_volume(m, &vol->values[i])) < 0)
-			return res;
-	}
-	return 0;
-}
-
-static int read_format_info(struct message *m, struct format_info *info)
-{
-	int res;
-	uint8_t tag, encoding;
-
-	if ((res = read_u8(m, &tag)) < 0)
-		return res;
-	if (tag != TAG_U8)
-		return -EPROTO;
-	if ((res = read_u8(m, &encoding)) < 0)
-		return res;
-	info->encoding = encoding;
-
-	if ((res = read_u8(m, &tag)) < 0)
-		return res;
-	if (tag != TAG_PROPLIST)
-		return -EPROTO;
-
-	info->props = pw_properties_new(NULL, NULL);
-	if (info->props == NULL)
-		return -errno;
-	return read_props(m, info->props);
-}
-
-static int message_get(struct message *m, ...)
-{
-	va_list va;
-	int res;
-
-	va_start(va, m);
-
-	while (true) {
-		int tag = va_arg(va, int);
-		uint8_t dtag;
-		if (tag == TAG_INVALID)
-			break;
-
-		if ((res = read_u8(m, &dtag)) < 0)
-			return res;
-
-		switch (dtag) {
-		case TAG_STRING:
-			if (tag != TAG_STRING)
-				return -EINVAL;
-			if ((res = read_string(m, va_arg(va, char**))) < 0)
-				return res;
-			break;
-		case TAG_STRING_NULL:
-			if (tag != TAG_STRING)
-				return -EINVAL;
-			*va_arg(va, char**) = NULL;
-			break;
-		case TAG_U8:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_u8(m, va_arg(va, uint8_t*))) < 0)
-				return res;
-			break;
-		case TAG_U32:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_u32(m, va_arg(va, uint32_t*))) < 0)
-				return res;
-			break;
-		case TAG_S64:
-		case TAG_U64:
-		case TAG_USEC:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_u64(m, va_arg(va, uint64_t*))) < 0)
-				return res;
-			break;
-		case TAG_SAMPLE_SPEC:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_sample_spec(m, va_arg(va, struct sample_spec*))) < 0)
-				return res;
-			break;
-		case TAG_ARBITRARY:
-		{
-			const void **val = va_arg(va, const void**);
-			size_t len = va_arg(va, size_t);
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_arbitrary(m, val, len)) < 0)
-				return res;
-			break;
-		}
-		case TAG_BOOLEAN_TRUE:
-			if (tag != TAG_BOOLEAN)
-				return -EINVAL;
-			*va_arg(va, bool*) = true;
-			break;
-		case TAG_BOOLEAN_FALSE:
-			if (tag != TAG_BOOLEAN)
-				return -EINVAL;
-			*va_arg(va, bool*) = false;
-			break;
-		case TAG_TIMEVAL:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_timeval(m, va_arg(va, struct timeval*))) < 0)
-				return res;
-			break;
-		case TAG_CHANNEL_MAP:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_channel_map(m, va_arg(va, struct channel_map*))) < 0)
-				return res;
-			break;
-		case TAG_CVOLUME:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_cvolume(m, va_arg(va, struct cvolume*))) < 0)
-				return res;
-			break;
-		case TAG_PROPLIST:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_props(m, va_arg(va, struct pw_properties*))) < 0)
-				return res;
-			break;
-		case TAG_VOLUME:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_volume(m, va_arg(va, float*))) < 0)
-				return res;
-			break;
-		case TAG_FORMAT_INFO:
-			if (dtag != tag)
-				return -EINVAL;
-			if ((res = read_format_info(m, va_arg(va, struct format_info*))) < 0)
-				return res;
-			break;
-		}
-	}
-	va_end(va);
-
-	return 0;
-}
-
-static void write_8(struct message *m, uint8_t val)
-{
-	if (m->length < m->allocated)
-		m->data[m->length] = val;
-	m->length++;
-}
-
-static void write_32(struct message *m, uint32_t val)
-{
-	val = htonl(val);
-	if (m->length + 4 <= m->allocated)
-		memcpy(m->data + m->length, &val, 4);
-	m->length += 4;
-}
-
-static void write_string(struct message *m, const char *s)
-{
-	write_8(m, s ? TAG_STRING : TAG_STRING_NULL);
-	if (s != NULL) {
-		int len = strlen(s) + 1;
-		if (m->length + len <= m->allocated)
-			strcpy(&m->data[m->length], s);
-		m->length += len;
-	}
-}
-static void write_u8(struct message *m, uint8_t val)
-{
-	write_8(m, TAG_U8);
-	write_8(m, val);
-}
-
-static void write_u32(struct message *m, uint32_t val)
-{
-	write_8(m, TAG_U32);
-	write_32(m, val);
-}
-
-static void write_64(struct message *m, uint8_t tag, uint64_t val)
-{
-	write_8(m, tag);
-	write_32(m, val >> 32);
-	write_32(m, val);
-}
-
-static void write_sample_spec(struct message *m, struct sample_spec *ss)
-{
-	write_8(m, TAG_SAMPLE_SPEC);
-	write_8(m, ss->format);
-	write_8(m, ss->channels);
-	write_32(m, ss->rate);
-}
-
-static void write_arbitrary(struct message *m, const void *p, size_t length)
-{
-	write_8(m, TAG_ARBITRARY);
-	write_32(m, length);
-	if (length > 0 && m->length + length <= m->allocated)
-		memcpy(m->data + m->length, p, length);
-	m->length += length;
-}
-
-static void write_boolean(struct message *m, bool val)
-{
-	write_8(m, val ? TAG_BOOLEAN_TRUE : TAG_BOOLEAN_FALSE);
-}
-
-static void write_timeval(struct message *m, struct timeval *tv)
-{
-	write_8(m, TAG_TIMEVAL);
-	write_32(m, tv->tv_sec);
-	write_32(m, tv->tv_usec);
-}
-
-static void write_channel_map(struct message *m, struct channel_map *map)
-{
-	uint8_t i;
-	write_8(m, TAG_CHANNEL_MAP);
-	write_8(m, map->channels);
-	for (i = 0; i < map->channels; i ++)
-		write_8(m, map->map[i]);
-}
-
-static void write_volume(struct message *m, float vol)
-{
-	write_8(m, TAG_VOLUME);
-	write_32(m, vol * 0x10000U);
-}
-
-static void write_cvolume(struct message *m, struct cvolume *cvol)
-{
-	uint8_t i;
-	write_8(m, TAG_CVOLUME);
-	write_8(m, cvol->channels);
-	for (i = 0; i < cvol->channels; i ++)
-		write_32(m, cvol->values[i] * 0x10000U);
-}
-
-static void write_props(struct message *m, struct pw_properties *props)
-{
-	const struct spa_dict_item *it;
-	write_8(m, TAG_PROPLIST);
-	if (props != NULL) {
-		spa_dict_for_each(it, &props->dict) {
-			int l = strlen(it->value);
-			write_string(m, it->key);
-			write_u32(m, l+1);
-			write_arbitrary(m, it->value, l+1);
-		}
-	}
-	write_string(m, NULL);
-}
-
-static void write_format_info(struct message *m, struct format_info *info)
-{
-	write_8(m, TAG_FORMAT_INFO);
-	write_u8(m, (uint8_t) info->encoding);
-	write_props(m, info->props);
-}
-
-static int message_put(struct message *m, ...)
-{
-	va_list va;
-
-	va_start(va, m);
-
-	while (true) {
-		int tag = va_arg(va, int);
-		if (tag == TAG_INVALID)
-			break;
-
-		switch (tag) {
-		case TAG_STRING:
-			write_string(m, va_arg(va, const char *));
-			break;
-		case TAG_U8:
-			write_u8(m, (uint8_t)va_arg(va, int));
-			break;
-		case TAG_U32:
-			write_u32(m, (uint32_t)va_arg(va, uint32_t));
-			break;
-		case TAG_S64:
-		case TAG_U64:
-		case TAG_USEC:
-			write_64(m, tag, va_arg(va, uint64_t));
-			break;
-		case TAG_SAMPLE_SPEC:
-			write_sample_spec(m, va_arg(va, struct sample_spec*));
-			break;
-		case TAG_ARBITRARY:
-		{
-			const void *p = va_arg(va, const void*);
-			size_t length = va_arg(va, size_t);
-			write_arbitrary(m, p, length);
-			break;
-		}
-		case TAG_BOOLEAN:
-			write_boolean(m, va_arg(va, int));
-			break;
-		case TAG_TIMEVAL:
-			write_timeval(m, va_arg(va, struct timeval*));
-			break;
-		case TAG_CHANNEL_MAP:
-			write_channel_map(m, va_arg(va, struct channel_map*));
-			break;
-		case TAG_CVOLUME:
-			write_cvolume(m, va_arg(va, struct cvolume*));
-			break;
-		case TAG_PROPLIST:
-			write_props(m, va_arg(va, struct pw_properties*));
-			break;
-		case TAG_VOLUME:
-			write_volume(m, va_arg(va, double));
-			break;
-		case TAG_FORMAT_INFO:
-			write_format_info(m, va_arg(va, struct format_info*));
-			break;
-		}
-	}
-	va_end(va);
-
-	return 0;
-}
 
 static void message_free(struct client *client, struct message *msg, bool destroy)
 {
@@ -1450,34 +625,6 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	return param;
 }
 
-static int parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
-{
-	struct spa_audio_info info = { 0 };
-//	uint32_t i;
-
-        spa_format_parse(param, &info.media_type, &info.media_subtype);
-
-	if (info.media_type != SPA_MEDIA_TYPE_audio ||
-	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    spa_format_audio_raw_parse(param, &info.info.raw) < 0 ||
-	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
-                return -ENOTSUP;
-        }
-
-        ss->format = format_id2pa(info.info.raw.format);
-        if (ss->format == SAMPLE_INVALID)
-                return -ENOTSUP;
-
-        ss->rate = info.info.raw.rate;
-        ss->channels = info.info.raw.channels;
-
-	map->channels = info.info.raw.channels;
-//	for (i = 0; i < map->channels; i++)
-//		map->map[i] = info.info.raw.position[i];
-
-	return 0;
-}
-
 static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct stream *stream = data;
@@ -1490,7 +637,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	if (id != SPA_PARAM_Format || param == NULL)
 		return;
 
-	if ((res = parse_param(param, &stream->ss, &stream->map)) < 0) {
+	if ((res = format_parse_param(param, &stream->ss, &stream->map)) < 0) {
 		pw_stream_set_error(stream->stream, res, "format not supported");
 		return;
 	}
@@ -1656,11 +803,6 @@ static const struct pw_stream_events stream_events =
 	.process = stream_process,
 	.drained = stream_drained,
 };
-
-#define MAXLENGTH		(4*1024*1024) /* 4MB */
-#define DEFAULT_TLENGTH_MSEC	2000 /* 2s */
-#define DEFAULT_PROCESS_MSEC	20   /* 20ms */
-#define DEFAULT_FRAGSIZE_MSEC	DEFAULT_TLENGTH_MSEC
 
 static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *ss)
 {
@@ -2610,7 +1752,7 @@ static void fill_client_info(struct client *client, struct message *m)
 	message_put(m,
 		TAG_U32, 0,				/* client index */
 		TAG_STRING, pw_properties_get(client->props, "application.name"),
-		TAG_U32, SPA_ID_INVALID,		/* module */ 
+		TAG_U32, SPA_ID_INVALID,		/* module */
 		TAG_STRING, "PipeWire",			/* driver */
 		TAG_INVALID);
 	if (client->version >= 13) {
@@ -3286,7 +2428,8 @@ error:
 static void
 on_connect(void *data, int fd, uint32_t mask)
 {
-        struct impl *impl = data;
+        struct server *server = data;
+        struct impl *impl = server->impl;
         struct sockaddr_un name;
         socklen_t length;
         int client_fd;
@@ -3297,7 +2440,8 @@ on_connect(void *data, int fd, uint32_t mask)
 		goto error;
 
 	client->impl = impl;
-	spa_list_append(&impl->clients, &client->link);
+	client->server = server;
+	spa_list_append(&server->clients, &client->link);
 	pw_map_init(&client->streams, 16, 16);
 	spa_list_init(&client->free_messages);
 	spa_list_init(&client->out_messages);
@@ -3354,12 +2498,33 @@ get_runtime_dir(void)
 	return runtime_dir;
 }
 
-static int create_server(struct impl *impl, const char *name)
+static void server_free(struct server *server)
+{
+	struct impl *impl = server->impl;
+	struct client *c;
+
+	if (server->source)
+		pw_loop_destroy_source(impl->loop, server->source);
+	spa_list_consume(c, &server->clients, link)
+		client_free(c);
+	free(server);
+}
+
+static struct server *create_local_server(struct impl *impl, const char *name)
 {
 	const char *runtime_dir;
+	struct server *server;
 	socklen_t size;
 	struct sockaddr_un addr;
 	int name_size, fd, res;
+	struct stat socket_stat;
+
+	server = calloc(1, sizeof(struct server));
+	if (server == NULL)
+		return NULL;
+
+	server->impl = impl;
+	spa_list_init(&server->clients);
 
 	runtime_dir = get_runtime_dir();
 
@@ -3372,8 +2537,6 @@ static int create_server(struct impl *impl, const char *name)
 		res = -ENAMETOOLONG;
 		goto error;
 	}
-
-	struct stat socket_stat;
 
 	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
@@ -3401,52 +2564,51 @@ static int create_server(struct impl *impl, const char *name)
 		pw_log_error(NAME" %p: listen() failed with error: %m", impl);
 		goto error_close;
 	}
-	impl->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_connect, impl);
-	if (impl->source == NULL) {
+	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_connect, server);
+	if (server->source == NULL) {
 		res = -errno;
-		pw_log_error(NAME" %p: can't create source: %m", impl);
+		pw_log_error(NAME" %p: can't create server source: %m", impl);
 		goto error_close;
 	}
 	pw_log_info(NAME" listening on %s", addr.sun_path);
-	return 0;
+
+	return server;
 
 error_close:
 	close(fd);
 error:
-	return res;
+	server_free(server);
+	errno = -res;
+	return NULL;
 
 }
 
-
-static void session_destroy(void *data)
+static void impl_free(struct impl *impl)
 {
-	struct impl *impl = data;
-	struct client *c;
-
-	spa_list_consume(c, &impl->clients, link)
-		client_free(c);
-	spa_hook_remove(&impl->listener);
+	struct server *s;
+	if (impl->props)
+		pw_properties_free(impl->props);
+	spa_list_consume(s, &impl->servers, link)
+		server_free(s);
 	free(impl);
 }
 
-static const struct sm_media_session_events session_events = {
-	SM_VERSION_MEDIA_SESSION_EVENTS,
-	.destroy = session_destroy,
-};
-
-int sm_pulse_bridge_start(struct sm_media_session *session)
+struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
+		struct pw_properties *props, size_t user_data_size)
 {
 	struct impl *impl;
+	const char *str;
+	struct server *server;
 	int res;
 
-	impl = calloc(1, sizeof(struct impl));
+	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
-		return -errno;
+		return NULL;
 
-	impl->session = session;
-	impl->loop = session->loop;
-	impl->context = session->context;
-	spa_list_init(&impl->clients);
+	impl->context = context;
+	impl->loop = pw_context_get_main_loop(context);
+	impl->props = props;
+	spa_list_init(&impl->servers);
 
 	impl->default_sink = (struct device) {
 		.index = 1,
@@ -3491,12 +2653,32 @@ int sm_pulse_bridge_start(struct sm_media_session *session)
 		.muted = false,
 	};
 
-	sm_media_session_add_listener(impl->session,
-			&impl->listener,
-			&session_events, impl);
+	str = NULL;
+	if (props != NULL)
+		str = pw_properties_get(props, "unix.socket");
+	if (str == NULL)
+		str = PW_PROTOCOL_PULSE_DEFAULT_SOCKET;
 
-	if ((res = create_server(impl, "native")) < 0)
-		return res;
+	server = create_local_server(impl, str);
+	if (server == NULL) {
+		res = -errno;
+		goto error;
+	}
+	return (struct pw_protocol_pulse*)impl;
 
-	return 0;
+error:
+	impl_free(impl);
+	errno = -res;
+	return NULL;
+}
+
+void *pw_protocol_pulse_get_user_data(struct pw_protocol_pulse *pulse)
+{
+	return SPA_MEMBER(pulse, sizeof(struct impl), void);
+}
+
+void pw_protocol_pulse_destroy(struct pw_protocol_pulse *pulse)
+{
+	struct impl *impl = (struct impl*)pulse;
+	impl_free(impl);
 }

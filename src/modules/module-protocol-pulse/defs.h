@@ -1,0 +1,238 @@
+/* PipeWire
+ *
+ * Copyright © 2020 Wim Taymans
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#define FLAG_SHMDATA			0x80000000LU
+#define FLAG_SHMDATA_MEMFD_BLOCK	0x20000000LU
+#define FLAG_SHMRELEASE			0x40000000LU
+#define FLAG_SHMREVOKE			0xC0000000LU
+#define FLAG_SHMMASK			0xFF000000LU
+#define FLAG_SEEKMASK			0x000000FFLU
+#define FLAG_SHMWRITABLE		0x00800000LU
+
+#define FRAME_SIZE_MAX_ALLOW (1024*1024*16)
+
+#define PROTOCOL_FLAG_MASK	0xffff0000u
+#define PROTOCOL_VERSION_MASK	0x0000ffffu
+#define PROTOCOL_VERSION	34
+
+#define NATIVE_COOKIE_LENGTH 256
+#define MAX_TAG_SIZE (64*1024)
+
+#define MIN_BUFFERS     8u
+#define MAX_BUFFERS     64u
+
+#define MAXLENGTH		(4*1024*1024) /* 4MB */
+#define DEFAULT_TLENGTH_MSEC	2000 /* 2s */
+#define DEFAULT_PROCESS_MSEC	20   /* 20ms */
+#define DEFAULT_FRAGSIZE_MSEC	DEFAULT_TLENGTH_MSEC
+
+enum error_code {
+	ERR_OK = 0,			/**< No error */
+	ERR_ACCESS,			/**< Access failure */
+	ERR_COMMAND,			/**< Unknown command */
+	ERR_INVALID,			/**< Invalid argument */
+	ERR_EXIST,			/**< Entity exists */
+	ERR_NOENTITY,			/**< No such entity */
+	ERR_CONNECTIONREFUSED,		/**< Connection refused */
+	ERR_PROTOCOL,			/**< Protocol error */
+	ERR_TIMEOUT,			/**< Timeout */
+	ERR_AUTHKEY,			/**< No authentication key */
+	ERR_INTERNAL,			/**< Internal error */
+	ERR_CONNECTIONTERMINATED,	/**< Connection terminated */
+	ERR_KILLED,			/**< Entity killed */
+	ERR_INVALIDSERVER,		/**< Invalid server */
+	ERR_MODINITFAILED,		/**< Module initialization failed */
+	ERR_BADSTATE,			/**< Bad state */
+	ERR_NODATA,			/**< No data */
+	ERR_VERSION,			/**< Incompatible protocol version */
+	ERR_TOOLARGE,			/**< Data too large */
+	ERR_NOTSUPPORTED,		/**< Operation not supported \since 0.9.5 */
+	ERR_UNKNOWN,			/**< The error code was unknown to the client */
+	ERR_NOEXTENSION,		/**< Extension does not exist. \since 0.9.12 */
+	ERR_OBSOLETE,			/**< Obsolete functionality. \since 0.9.15 */
+	ERR_NOTIMPLEMENTED,		/**< Missing implementation. \since 0.9.15 */
+	ERR_FORKED,			/**< The caller forked without calling execve() and tried to reuse the context. \since 0.9.15 */
+	ERR_IO,				/**< An IO error happened. \since 0.9.16 */
+	ERR_BUSY,			/**< Device or resource busy. \since 0.9.17 */
+	ERR_MAX				/**< Not really an error but the first invalid error code */
+};
+
+enum {
+	/* Generic commands */
+	COMMAND_ERROR,
+	COMMAND_TIMEOUT, /* pseudo command */
+	COMMAND_REPLY,
+
+	/* CLIENT->SERVER */
+	COMMAND_CREATE_PLAYBACK_STREAM,        /* Payload changed in v9, v12 (0.9.0, 0.9.8) */
+	COMMAND_DELETE_PLAYBACK_STREAM,
+	COMMAND_CREATE_RECORD_STREAM,          /* Payload changed in v9, v12 (0.9.0, 0.9.8) */
+	COMMAND_DELETE_RECORD_STREAM,
+	COMMAND_EXIT,
+	COMMAND_AUTH,
+	COMMAND_SET_CLIENT_NAME,
+	COMMAND_LOOKUP_SINK,
+	COMMAND_LOOKUP_SOURCE,
+	COMMAND_DRAIN_PLAYBACK_STREAM,
+	COMMAND_STAT,
+	COMMAND_GET_PLAYBACK_LATENCY,
+	COMMAND_CREATE_UPLOAD_STREAM,
+	COMMAND_DELETE_UPLOAD_STREAM,
+	COMMAND_FINISH_UPLOAD_STREAM,
+	COMMAND_PLAY_SAMPLE,
+	COMMAND_REMOVE_SAMPLE,
+
+	COMMAND_GET_SERVER_INFO,
+	COMMAND_GET_SINK_INFO,
+	COMMAND_GET_SINK_INFO_LIST,
+	COMMAND_GET_SOURCE_INFO,
+	COMMAND_GET_SOURCE_INFO_LIST,
+	COMMAND_GET_MODULE_INFO,
+	COMMAND_GET_MODULE_INFO_LIST,
+	COMMAND_GET_CLIENT_INFO,
+	COMMAND_GET_CLIENT_INFO_LIST,
+	COMMAND_GET_SINK_INPUT_INFO,          /* Payload changed in v11 (0.9.7) */
+	COMMAND_GET_SINK_INPUT_INFO_LIST,     /* Payload changed in v11 (0.9.7) */
+	COMMAND_GET_SOURCE_OUTPUT_INFO,
+	COMMAND_GET_SOURCE_OUTPUT_INFO_LIST,
+	COMMAND_GET_SAMPLE_INFO,
+	COMMAND_GET_SAMPLE_INFO_LIST,
+	COMMAND_SUBSCRIBE,
+
+	COMMAND_SET_SINK_VOLUME,
+	COMMAND_SET_SINK_INPUT_VOLUME,
+	COMMAND_SET_SOURCE_VOLUME,
+
+	COMMAND_SET_SINK_MUTE,
+	COMMAND_SET_SOURCE_MUTE,
+
+	COMMAND_CORK_PLAYBACK_STREAM,
+	COMMAND_FLUSH_PLAYBACK_STREAM,
+	COMMAND_TRIGGER_PLAYBACK_STREAM,
+
+	COMMAND_SET_DEFAULT_SINK,
+	COMMAND_SET_DEFAULT_SOURCE,
+
+	COMMAND_SET_PLAYBACK_STREAM_NAME,
+	COMMAND_SET_RECORD_STREAM_NAME,
+
+	COMMAND_KILL_CLIENT,
+	COMMAND_KILL_SINK_INPUT,
+	COMMAND_KILL_SOURCE_OUTPUT,
+
+	COMMAND_LOAD_MODULE,
+	COMMAND_UNLOAD_MODULE,
+
+	/* Obsolete */
+	COMMAND_ADD_AUTOLOAD___OBSOLETE,
+	COMMAND_REMOVE_AUTOLOAD___OBSOLETE,
+	COMMAND_GET_AUTOLOAD_INFO___OBSOLETE,
+	COMMAND_GET_AUTOLOAD_INFO_LIST___OBSOLETE,
+
+	COMMAND_GET_RECORD_LATENCY,
+	COMMAND_CORK_RECORD_STREAM,
+	COMMAND_FLUSH_RECORD_STREAM,
+	COMMAND_PREBUF_PLAYBACK_STREAM,
+
+	/* SERVER->CLIENT */
+	COMMAND_REQUEST,
+	COMMAND_OVERFLOW,
+	COMMAND_UNDERFLOW,
+	COMMAND_PLAYBACK_STREAM_KILLED,
+	COMMAND_RECORD_STREAM_KILLED,
+	COMMAND_SUBSCRIBE_EVENT,
+
+	/* A few more client->server commands */
+
+	/* Supported since protocol v10 (0.9.5) */
+	COMMAND_MOVE_SINK_INPUT,
+	COMMAND_MOVE_SOURCE_OUTPUT,
+
+	/* Supported since protocol v11 (0.9.7) */
+	COMMAND_SET_SINK_INPUT_MUTE,
+
+	COMMAND_SUSPEND_SINK,
+	COMMAND_SUSPEND_SOURCE,
+
+	/* Supported since protocol v12 (0.9.8) */
+	COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR,
+	COMMAND_SET_RECORD_STREAM_BUFFER_ATTR,
+
+	COMMAND_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE,
+	COMMAND_UPDATE_RECORD_STREAM_SAMPLE_RATE,
+
+	/* SERVER->CLIENT */
+	COMMAND_PLAYBACK_STREAM_SUSPENDED,
+	COMMAND_RECORD_STREAM_SUSPENDED,
+	COMMAND_PLAYBACK_STREAM_MOVED,
+	COMMAND_RECORD_STREAM_MOVED,
+
+	/* Supported since protocol v13 (0.9.11) */
+	COMMAND_UPDATE_RECORD_STREAM_PROPLIST,
+	COMMAND_UPDATE_PLAYBACK_STREAM_PROPLIST,
+	COMMAND_UPDATE_CLIENT_PROPLIST,
+	COMMAND_REMOVE_RECORD_STREAM_PROPLIST,
+	COMMAND_REMOVE_PLAYBACK_STREAM_PROPLIST,
+	COMMAND_REMOVE_CLIENT_PROPLIST,
+
+	/* SERVER->CLIENT */
+	COMMAND_STARTED,
+
+	/* Supported since protocol v14 (0.9.12) */
+	COMMAND_EXTENSION,
+	/* Supported since protocol v15 (0.9.15) */
+	COMMAND_GET_CARD_INFO,
+	COMMAND_GET_CARD_INFO_LIST,
+	COMMAND_SET_CARD_PROFILE,
+
+	COMMAND_CLIENT_EVENT,
+	COMMAND_PLAYBACK_STREAM_EVENT,
+	COMMAND_RECORD_STREAM_EVENT,
+
+	/* SERVER->CLIENT */
+	COMMAND_PLAYBACK_BUFFER_ATTR_CHANGED,
+	COMMAND_RECORD_BUFFER_ATTR_CHANGED,
+
+	/* Supported since protocol v16 (0.9.16) */
+	COMMAND_SET_SINK_PORT,
+	COMMAND_SET_SOURCE_PORT,
+
+	/* Supported since protocol v22 (1.0) */
+	COMMAND_SET_SOURCE_OUTPUT_VOLUME,
+	COMMAND_SET_SOURCE_OUTPUT_MUTE,
+
+	/* Supported since protocol v27 (3.0) */
+	COMMAND_SET_PORT_LATENCY_OFFSET,
+
+	/* Supported since protocol v30 (6.0) */
+	/* BOTH DIRECTIONS */
+	COMMAND_ENABLE_SRBCHANNEL,
+	COMMAND_DISABLE_SRBCHANNEL,
+
+	/* Supported since protocol v31 (9.0)
+	 * BOTH DIRECTIONS */
+	COMMAND_REGISTER_MEMFD_SHMID,
+
+	COMMAND_MAX
+};

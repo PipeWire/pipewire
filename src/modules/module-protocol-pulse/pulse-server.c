@@ -83,6 +83,8 @@ struct client {
 	struct pw_map streams;
 	struct spa_list free_messages;
 	struct spa_list out_messages;
+
+	unsigned int disconnecting:1;
 };
 
 struct device {
@@ -329,6 +331,47 @@ static int send_overflow(struct stream *stream)
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
 		TAG_U32, COMMAND_OVERFLOW,
+		TAG_U32, -1,
+		TAG_U32, stream->channel,
+		TAG_INVALID);
+	return send_message(client, reply);
+}
+
+static int send_stream_killed(struct stream *stream)
+{
+	struct client *client = stream->client;
+	struct message *reply;
+	uint32_t command;
+
+	command = stream->direction == PW_DIRECTION_OUTPUT ?
+		COMMAND_PLAYBACK_STREAM_KILLED :
+		COMMAND_RECORD_STREAM_KILLED;
+
+	pw_log_warn(NAME" %p: %s channel:%u", client,
+			commands[command].name, stream->channel);
+
+	if (client->version < 23)
+		return 0;
+
+	reply = message_alloc(client, -1, 0);
+	message_put(reply,
+		TAG_U32, command,
+		TAG_U32, -1,
+		TAG_U32, stream->channel,
+		TAG_INVALID);
+	return send_message(client, reply);
+}
+
+static int send_stream_started(struct stream *stream)
+{
+	struct client *client = stream->client;
+	struct message *reply;
+
+	pw_log_info(NAME" %p: STARTED channel:%u", client, stream->channel);
+
+	reply = message_alloc(client, -1, 0);
+	message_put(reply,
+		TAG_U32, COMMAND_STARTED,
 		TAG_U32, -1,
 		TAG_U32, stream->channel,
 		TAG_INVALID);
@@ -656,13 +699,16 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		reply_error(client, -1, ERR_INTERNAL);
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
-		reply_error(client, -1, ERR_CONNECTIONTERMINATED);
+		if (!client->disconnecting)
+			send_stream_killed(stream);
 		break;
 	case PW_STREAM_STATE_CONNECTING:
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		break;
 	case PW_STREAM_STATE_STREAMING:
+		stream->playing_for = 0;
+		send_stream_started(stream);
 		break;
 	}
 }
@@ -2316,8 +2362,10 @@ static void client_free(struct client *client)
 		message_free(client, msg, true);
 	spa_list_consume(msg, &client->out_messages, link)
 		message_free(client, msg, true);
-	if (client->core)
+	if (client->core) {
+		client->disconnecting = true;
 		pw_core_disconnect(client->core);
+	}
 	if (client->props)
 		pw_properties_free(client->props);
 	if (client->source)

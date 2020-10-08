@@ -1360,6 +1360,10 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->create_tag = tag;
 	stream->ss = ss;
 	stream->map = map;
+	stream->volume = volume;
+	stream->volume_set = volume_set;
+	stream->muted = muted;
+	stream->muted_set = muted_set;
 
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
 

@@ -1003,8 +1003,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	uint8_t n_formats = 0;
 	struct format_info *formats = NULL;
 	struct stream *stream = NULL;
-        struct spa_audio_info_raw info;
-	uint32_t n_params;
+	struct spa_audio_info_raw info;
+	uint32_t n_params, flags;
 	const struct spa_pod *params[1];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1143,6 +1143,10 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
 			stream->attr.minreq * 2 / stream->frame_size, ss.rate);
 
+	flags = 0;
+	if (no_move)
+		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
+
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
 	if (stream->stream == NULL) {
@@ -1163,6 +1167,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	pw_stream_connect(stream->stream,
 			PW_DIRECTION_OUTPUT,
 			SPA_ID_INVALID,
+			flags |
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_RT_PROCESS |
 			PW_STREAM_FLAG_MAP_BUFFERS,
@@ -1236,8 +1241,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	uint8_t n_formats = 0;
 	struct format_info *formats = NULL;
 	struct stream *stream = NULL;
-        struct spa_audio_info_raw info;
-	uint32_t n_params;
+	struct spa_audio_info_raw info;
+	uint32_t n_params, flags;
 	const struct spa_pod *params[1];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1364,6 +1369,12 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
 			stream->attr.fragsize / stream->frame_size, ss.rate);
 
+	if (peak_detect)
+		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
+	flags = 0;
+	if (no_move)
+		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
+
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
 	if (stream->stream == NULL) {
@@ -1385,6 +1396,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	pw_stream_connect(stream->stream,
 			PW_DIRECTION_INPUT,
 			SPA_ID_INVALID,
+			flags |
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_RT_PROCESS |
 			PW_STREAM_FLAG_MAP_BUFFERS,

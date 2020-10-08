@@ -42,6 +42,8 @@
 #define MIN_BUFFERS     8u
 #define MAX_BUFFERS     64u
 
+#define MIN_SAMPLES	24u
+
 #define MAXLENGTH		(4*1024*1024) /* 4MB */
 #define DEFAULT_TLENGTH_MSEC	2000 /* 2s */
 #define DEFAULT_PROCESS_MSEC	20   /* 20ms */

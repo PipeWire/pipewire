@@ -905,6 +905,7 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		m -= m % frame_size;
 		attr->minreq = SPA_MIN(process, m);
 	}
+	attr->minreq = SPA_MAX(attr->minreq, MIN_SAMPLES * frame_size);
 
 	if (attr->tlength < attr->minreq+frame_size)
 		attr->tlength = attr->minreq + frame_size;
@@ -1146,6 +1147,8 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		attr->fragsize = usec_to_bytes_round_up(DEFAULT_FRAGSIZE_MSEC*1000, &s->ss);
 	attr->fragsize -= attr->fragsize % frame_size;
 	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
+	attr->fragsize = SPA_MAX(attr->fragsize, MIN_SAMPLES * frame_size);
+
 	if (attr->fragsize > attr->maxlength)
 		attr->fragsize = attr->maxlength;
 

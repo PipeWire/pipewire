@@ -2723,12 +2723,16 @@ error:
 static int make_inet_socket(struct impl *impl, uint32_t address, uint16_t port)
 {
 	struct sockaddr_in addr;
-	int res, fd;
+	int res, fd, on;
 
 	if ((fd = socket(PF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
 		goto error;
 	}
+
+	on = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on)) < 0)
+		pw_log_warn(NAME" %p: setsockopt(): %m", impl);
 
 	spa_zero(addr);
 	addr.sin_family = AF_INET;

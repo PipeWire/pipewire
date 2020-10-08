@@ -1025,8 +1025,10 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	find_mixer(impl, dev, NULL, ignore_dB);
 
 	port_index = acp_device_find_best_port_index(&dev->device, NULL);
-
-	dev->active_port = (pa_device_port*)impl->card.ports[port_index];
+	if (port_index == ACP_INVALID_INDEX)
+		dev->active_port = NULL;
+	else
+		dev->active_port = (pa_device_port*)impl->card.ports[port_index];
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 
@@ -1382,7 +1384,10 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 		best = best3;
 	if (best == ACP_INVALID_INDEX)
 		best = 0;
-	return ports[best]->index;
+	if (best < dev->n_ports)
+		return ports[best]->index;
+	else
+		return ACP_INVALID_INDEX;
 }
 
 int acp_device_set_port(struct acp_device *dev, uint32_t port_index)

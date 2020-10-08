@@ -364,9 +364,22 @@ static int message_get(struct message *m, ...)
 	return 0;
 }
 
+static int ensure_size(struct message *m, uint32_t size)
+{
+	uint32_t alloc;
+	if (m->length + size <= m->allocated)
+		return size;
+
+	alloc = SPA_ROUND_UP_N(SPA_MAX(m->allocated + size, 4096u), 4096u);
+	if ((m->data = realloc(m->data, alloc)) == NULL)
+		return -errno;
+	m->allocated = alloc;
+	return size;
+}
+
 static void write_8(struct message *m, uint8_t val)
 {
-	if (m->length < m->allocated)
+	if (ensure_size(m, 1) > 0)
 		m->data[m->length] = val;
 	m->length++;
 }
@@ -374,7 +387,7 @@ static void write_8(struct message *m, uint8_t val)
 static void write_32(struct message *m, uint32_t val)
 {
 	val = htonl(val);
-	if (m->length + 4 <= m->allocated)
+	if (ensure_size(m, 4) > 0)
 		memcpy(m->data + m->length, &val, 4);
 	m->length += 4;
 }
@@ -384,7 +397,7 @@ static void write_string(struct message *m, const char *s)
 	write_8(m, s ? TAG_STRING : TAG_STRING_NULL);
 	if (s != NULL) {
 		int len = strlen(s) + 1;
-		if (m->length + len <= m->allocated)
+		if (ensure_size(m, len) > 0)
 			strcpy(&m->data[m->length], s);
 		m->length += len;
 	}
@@ -420,7 +433,7 @@ static void write_arbitrary(struct message *m, const void *p, size_t length)
 {
 	write_8(m, TAG_ARBITRARY);
 	write_32(m, length);
-	if (length > 0 && m->length + length <= m->allocated)
+	if (ensure_size(m, length) > 0)
 		memcpy(m->data + m->length, p, length);
 	m->length += length;
 }

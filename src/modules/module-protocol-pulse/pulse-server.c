@@ -169,13 +169,14 @@ static const struct command commands[COMMAND_MAX];
 static void message_free(struct client *client, struct message *msg, bool destroy)
 {
 	spa_list_remove(&msg->link);
-	if (destroy)
+	if (destroy) {
+		free(msg->data);
 		free(msg);
-	else
+	} else
 		spa_list_append(&client->free_messages, &msg->link);
 }
 
-static struct message *message_alloc(struct client *client, uint32_t size, uint32_t channel)
+static struct message *message_alloc(struct client *client, uint32_t channel, uint32_t size)
 {
 	struct message *msg = NULL;
 
@@ -183,12 +184,11 @@ static struct message *message_alloc(struct client *client, uint32_t size, uint3
 		msg = spa_list_first(&client->free_messages, struct message, link);
 		spa_list_remove(&msg->link);
 	}
-	if (msg == NULL || msg->allocated < size) {
-		uint32_t alloc = SPA_ROUND_UP_N(SPA_MAX(size, 4096u), 4096u);
-		msg = realloc(msg, sizeof(struct message) + alloc);
-		msg->allocated = alloc;
-		msg->data = SPA_MEMBER(msg, sizeof(struct message), void);
-	}
+	if (msg == NULL)
+		msg = calloc(1, sizeof(struct message));
+	if (msg == NULL)
+		return NULL;
+	ensure_size(msg, size);
 	msg->channel = channel;
 	msg->offset = 0;
 	msg->length = size;
@@ -265,7 +265,7 @@ static int send_message(struct client *client, struct message *m)
 static struct message *reply_new(struct client *client, uint32_t tag)
 {
 	struct message *reply;
-	reply = message_alloc(client, 0, -1);
+	reply = message_alloc(client, -1, 0);
 	pw_log_debug(NAME" %p: REPLY tag:%u", client, tag);
 	message_put(reply,
 		TAG_U32, COMMAND_REPLY,
@@ -286,7 +286,7 @@ static int reply_error(struct client *client, uint32_t tag, uint32_t error)
 
 	pw_log_debug(NAME" %p: ERROR tag:%u error:%u", client, tag, error);
 
-	reply = message_alloc(client, 0, -1);
+	reply = message_alloc(client, -1, 0);
 	message_put(reply,
 		TAG_U32, COMMAND_ERROR,
 		TAG_U32, tag,
@@ -462,7 +462,7 @@ static int send_command_request(struct stream *stream)
 
 	pw_log_trace(NAME" %p: REQUEST channel:%d %u", stream, stream->channel, size);
 
-	msg = message_alloc(client, 0, -1);
+	msg = message_alloc(client, -1, 0);
 	message_put(msg,
 		TAG_U32, COMMAND_REQUEST,
 		TAG_U32, -1,
@@ -722,7 +722,7 @@ static void stream_process_record(struct stream *stream)
 
 	size = buf->datas[0].chunk->size;
 
-	msg = message_alloc(client, size, stream->channel);
+	msg = message_alloc(client, stream->channel, size);
 	if (msg != NULL) {
 		memcpy(msg->data,
 			SPA_MEMBER(p, buf->datas[0].chunk->offset, void),
@@ -2367,7 +2367,7 @@ static int do_read(struct client *client)
 		}
 		if (client->message)
 			message_free(client, client->message, false);
-		client->message = message_alloc(client, length, channel);
+		client->message = message_alloc(client, channel, length);
 	} else if (client->message &&
 	    client->in_index >= client->message->length + sizeof(client->desc)) {
 		struct message *msg = client->message;

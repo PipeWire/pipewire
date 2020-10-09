@@ -47,6 +47,7 @@ enum pw_link_state {
 	PW_LINK_STATE_NEGOTIATING = 1,	/**< the link is negotiating formats */
 	PW_LINK_STATE_ALLOCATING = 2,	/**< the link is allocating buffers */
 	PW_LINK_STATE_PAUSED = 3,	/**< the link is paused */
+	PW_LINK_STATE_ACTIVE = 4,	/**< the link is active */
 };
 
 /** Convert a \ref pw_link_state to a readable string \memberof pw_link */

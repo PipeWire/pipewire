@@ -112,7 +112,10 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 	pw_impl_link_emit_state_changed(link, old, state, error);
 
 	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
-	info_changed(link);
+	if (state == PW_LINK_STATE_ERROR ||
+	    state == PW_LINK_STATE_PAUSED ||
+	    state == PW_LINK_STATE_ACTIVE)
+		info_changed(link);
 
 	if (state == PW_LINK_STATE_ERROR && link->global) {
 		struct pw_resource *resource;
@@ -331,10 +334,9 @@ static int do_negotiate(struct pw_impl_link *this)
 	free(this->info.format);
 	this->info.format = format;
 
-	if (changed) {
+	if (changed)
 		this->info.change_mask |= PW_LINK_CHANGE_MASK_FORMAT;
-		info_changed(this);
-	}
+
 	pw_log_debug(NAME" %p: result %d", this, res);
 	return res;
 
@@ -551,6 +553,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 
 	impl->activated = true;
 	pw_log_info("(%s) activated", this->name);
+	link_update_state(this, PW_LINK_STATE_ACTIVE, 0, NULL);
 
 	return 0;
 }
@@ -719,6 +722,7 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 	impl->io_set = false;
 	impl->activated = false;
 	pw_log_info("(%s) deactivated", this->name);
+	link_update_state(this, PW_LINK_STATE_PAUSED, 0, NULL);
 
 	return 0;
 }

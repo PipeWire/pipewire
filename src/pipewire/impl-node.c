@@ -200,15 +200,14 @@ static int start_node(struct pw_impl_node *this)
 	return res;
 }
 
-static void emit_info_changed(struct pw_impl_node *node)
+static void emit_info_changed(struct pw_impl_node *node, bool flags_changed)
 {
-
-	if (node->info.change_mask == 0)
+	if (node->info.change_mask == 0 && !flags_changed)
 		return;
 
 	pw_impl_node_emit_info_changed(node, &node->info);
 
-	if (node->global) {
+	if (node->global && node->info.change_mask != 0) {
 		struct pw_resource *resource;
 		spa_list_for_each(resource, &node->global->resource_list, link)
 			pw_node_resource_info(resource, &node->info);
@@ -323,7 +322,7 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	pw_impl_node_emit_state_changed(node, old, state, error);
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
-	emit_info_changed(node);
+	emit_info_changed(node, false);
 
 	if (state == PW_NODE_STATE_ERROR && node->global) {
 		struct pw_resource *resource;
@@ -1221,7 +1220,7 @@ SPA_EXPORT
 int pw_impl_node_update_properties(struct pw_impl_node *node, const struct spa_dict *dict)
 {
 	int changed = update_properties(node, dict);
-	emit_info_changed(node);
+	emit_info_changed(node, false);
 	return changed;
 }
 
@@ -1229,7 +1228,7 @@ static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_impl_node *node = data;
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
-	bool recalc = false;
+	bool flags_changed = false;
 
 	node->info.max_input_ports = info->max_input_ports;
 	node->info.max_output_ports = info->max_output_ports;
@@ -1239,9 +1238,10 @@ static void node_info(void *data, const struct spa_node_info *info)
 			info->max_output_ports);
 
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_FLAGS) {
-		if ((recalc = node->spa_flags != info->flags)) {
+		if (node->spa_flags != info->flags) {
+			flags_changed = node->spa_flags != 0;
+			pw_log_debug(NAME" %p: flags %"PRIu64"->%"PRIu64, node, node->spa_flags, info->flags);
 			node->spa_flags = info->flags;
-			node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
 		}
 	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
@@ -1266,13 +1266,13 @@ static void node_info(void *data, const struct spa_node_info *info)
 			node->info.params[i] = info->params[i];
 		}
 	}
-	emit_info_changed(node);
+	emit_info_changed(node, flags_changed);
 
 	if (n_changed_ids > 0)
 		emit_params(node, changed_ids, n_changed_ids);
 
-	if (recalc)
-		pw_context_recalc_graph(node->context, "node info changed");
+	if (flags_changed)
+		pw_context_recalc_graph(node->context, "node flags changed");
 }
 
 static void node_port_info(void *data, enum spa_direction direction, uint32_t port_id,

@@ -113,8 +113,8 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 
 	link->info.change_mask |= PW_LINK_CHANGE_MASK_STATE;
 	if (state == PW_LINK_STATE_ERROR ||
-	    (old == PW_LINK_STATE_ACTIVE && state == PW_LINK_STATE_PAUSED) ||
-	    (old == PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_ACTIVE))
+	    state == PW_LINK_STATE_PAUSED ||
+	    state == PW_LINK_STATE_ACTIVE)
 		info_changed(link);
 
 	if (state == PW_LINK_STATE_ERROR && link->global) {

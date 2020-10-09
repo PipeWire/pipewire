@@ -157,7 +157,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 	struct client *client;
 	const char *str;
 
-	pw_log_debug(NAME" %p: client", impl);
+	pw_log_debug(NAME" %p: client %u", impl, object->id);
 
 	client = sm_object_add_data(object, SESSION_KEY, sizeof(struct client));
 	client->obj = (struct sm_client*)object;
@@ -168,7 +168,8 @@ handle_client(struct impl *impl, struct sm_object *object)
 	client->obj->obj.mask |= SM_CLIENT_CHANGE_MASK_INFO;
 	sm_object_add_listener(&client->obj->obj, &client->listener, &object_events, client);
 
-	if ((str = pw_properties_get(client->obj->obj.props, PW_KEY_ACCESS)) != NULL &&
+	if (((str = pw_properties_get(client->obj->obj.props, PW_KEY_ACCESS)) != NULL ||
+	    (str = pw_properties_get(client->obj->obj.props, PW_KEY_CLIENT_ACCESS)) != NULL) &&
 	    strcmp(str, "portal") == 0) {
 		client->portal_managed = true;
 		pw_log_info(NAME " %p: portal managed client %d added",

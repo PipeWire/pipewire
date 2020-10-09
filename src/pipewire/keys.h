@@ -41,6 +41,8 @@ extern "C" {
  */
 #define PW_KEY_PROTOCOL			"pipewire.protocol"	/**< protocol used for connection */
 #define PW_KEY_ACCESS			"pipewire.access"	/**< how the client access is controlled */
+#define PW_KEY_CLIENT_ACCESS		"pipewire.client.access"/**< how the client wants to be access
+								  *  controlled */
 
 /** Various keys related to the identity of a client process and its security.
  * Must be obtained from trusted sources by the protocol and placed as

@@ -418,15 +418,6 @@ void pw_deinit(void)
 	struct registry *registry = &global_registry;
 	struct plugin *p;
 
-	support->plugin_dir = NULL;
-	if (support->categories)
-		pw_free_strv(support->categories);
-	support->categories = NULL;
-	support->support_lib = NULL;
-	support->registry = NULL;
-
-	pw_log_set(NULL);
-
 	spa_list_consume(p, &registry->plugins, link) {
 		struct handle *h;
 		p->ref++;
@@ -434,6 +425,12 @@ void pw_deinit(void)
 			unref_handle(h);
 		unref_plugin(p);
 	}
+	if (support->categories)
+		pw_free_strv(support->categories);
+	pw_log_set(NULL);
+	spa_zero(global_support);
+	spa_zero(global_registry);
+
 }
 
 /** Check if a debug category is enabled

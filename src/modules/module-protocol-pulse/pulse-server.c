@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <math.h>
 #include <time.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -2692,7 +2693,7 @@ static void server_free(struct server *server)
 	free(server);
 }
 
-static int make_local_socket(struct server *server, const char *name)
+static int make_local_socket(struct server *server, char *name)
 {
 	const char *runtime_dir;
 	socklen_t size;
@@ -2748,10 +2749,29 @@ error:
 	return res;
 }
 
-static int make_inet_socket(struct server *server, uint32_t address, uint16_t port)
+static int make_inet_socket(struct server *server, char *name)
 {
 	struct sockaddr_in addr;
 	int res, fd, on;
+	uint32_t address = INADDR_ANY;
+	uint16_t port;
+	char *col;
+
+	col = strchr(name, ':');
+	if (col) {
+		struct in_addr ipv4;
+		port = atoi(col+1);
+		*col = '\0';
+		if (inet_pton(AF_INET, name, &ipv4) > 0)
+			address = ntohl(ipv4.s_addr);
+		else
+			address = INADDR_ANY;
+	} else {
+		address = INADDR_ANY;
+		port = atoi(name);
+	}
+	if (port == 0)
+		port = PW_PROTOCOL_PULSE_DEFAULT_PORT;
 
 	if ((fd = socket(PF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
@@ -2788,42 +2808,7 @@ error:
 	return res;
 }
 
-static struct server *create_local_server(struct impl *impl, const char *name)
-{
-	struct server *server;
-	int fd, res;
-
-	server = calloc(1, sizeof(struct server));
-	if (server == NULL)
-		return NULL;
-
-	server->impl = impl;
-	spa_list_init(&server->clients);
-	spa_list_append(&impl->servers, &server->link);
-
-	fd = make_local_socket(server, name);
-	if (fd < 0) {
-		res = fd;
-		goto error;
-	}
-
-	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_connect, server);
-	if (server->source == NULL) {
-		res = -errno;
-		pw_log_error(NAME" %p: can't create server source: %m", impl);
-		goto error_close;
-	}
-	return server;
-
-error_close:
-	close(fd);
-error:
-	server_free(server);
-	errno = -res;
-	return NULL;
-}
-
-static struct server *create_inet_server(struct impl *impl, uint32_t address, uint16_t port)
+static struct server *create_server(struct impl *impl, char *address)
 {
 	int fd, res;
 	struct server *server;
@@ -2836,7 +2821,13 @@ static struct server *create_inet_server(struct impl *impl, uint32_t address, ui
 	spa_list_init(&server->clients);
 	spa_list_append(&impl->servers, &server->link);
 
-	fd = make_inet_socket(server, address, port);
+	if (strstr(address, "unix:") == address) {
+		fd = make_local_socket(server, address+5);
+	} else if (strstr(address, "tcp:") == address) {
+		fd = make_inet_socket(server, address+4);
+	} else {
+		fd = -EINVAL;
+	}
 	if (fd < 0) {
 		res = fd;
 		goto error;
@@ -2857,7 +2848,6 @@ error:
 	return NULL;
 
 }
-
 
 static void impl_free(struct impl *impl)
 {
@@ -2874,7 +2864,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 {
 	struct impl *impl;
 	const char *str;
-	int res;
+	int i, n_addr;
+	char **addr;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -2930,48 +2921,20 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	str = NULL;
 	if (props != NULL)
-		str = pw_properties_get(props, "unix.socket");
+		str = pw_properties_get(props, "server.address");
 	if (str == NULL)
-		str = PW_PROTOCOL_PULSE_DEFAULT_SOCKET;
+		str = PW_PROTOCOL_PULSE_DEFAULT_SERVER;
 
-	if (create_local_server(impl, str) == NULL) {
-		res = -errno;
-		goto error;
-	}
-
-	str = NULL;
-	if (props != NULL)
-		str = pw_properties_get(props, "tcp.listen");
-	if (str != NULL) {
-		uint32_t address = INADDR_ANY;
-		uint16_t port;
-
-		const char *col = strchr(str, ':');
-		if (col) {
-			struct in_addr ipv4;
-			port = atoi(col+1);
-			if (inet_pton(AF_INET, str, &ipv4) > 0)
-				address = ntohl(ipv4.s_addr);
-			else
-				address = INADDR_ANY;
-		} else {
-			address = INADDR_ANY;
-			port = atoi(str);
-		}
-		if (port == 0)
-			port = PW_PROTOCOL_PULSE_DEFAULT_PORT;
-
-		if (create_inet_server(impl, address, port) == NULL) {
-			res = -errno;
-			goto error;
+	addr = pw_split_strv(str, ",", INT_MAX, &n_addr);
+	for (i = 0; i < n_addr; i++) {
+		if (create_server(impl, addr[i]) == NULL) {
+			pw_log_warn(NAME" %p: can't create server for %s: %m",
+					impl, addr[i]);
 		}
 	}
+	pw_free_strv(addr);
+
 	return (struct pw_protocol_pulse*)impl;
-
-error:
-	impl_free(impl);
-	errno = -res;
-	return NULL;
 }
 
 void *pw_protocol_pulse_get_user_data(struct pw_protocol_pulse *pulse)

@@ -35,8 +35,9 @@ extern "C" {
 #define PW_PROTOCOL_PULSE_DEFAULT_PORT 4713
 #define PW_PROTOCOL_PULSE_DEFAULT_SOCKET "native"
 
-#define PW_PROTOCOL_PULSE_USAGE	"[ tcp.listen=[ip:]<port>[,...] ] "		\
-				"[ unix.socket=<path>[,...] ] "			\
+#define PW_PROTOCOL_PULSE_DEFAULT_SERVER "unix:native"
+
+#define PW_PROTOCOL_PULSE_USAGE	"[ server.address=(tcp:[<ip>:]<port>|unix:<path>)[,...] ] "		\
 
 struct pw_protocol_pulse;
 struct pw_protocol_pulse_server;

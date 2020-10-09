@@ -71,6 +71,7 @@ static void impl_free(struct impl *impl)
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
+	pw_log_debug("module %p: destroy", impl);
 	impl_free(impl);
 }
 

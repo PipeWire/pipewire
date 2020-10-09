@@ -148,6 +148,12 @@ struct server {
 	struct spa_list link;
 	struct impl *impl;
 
+#define SERVER_TYPE_INVALID	0
+#define SERVER_TYPE_UNIX	1
+#define SERVER_TYPE_INET	2
+	uint32_t type;
+	struct sockaddr_un addr;
+
         struct spa_source *source;
 	struct spa_list clients;
 };
@@ -2674,29 +2680,33 @@ static void server_free(struct server *server)
 	struct impl *impl = server->impl;
 	struct client *c;
 
-	if (server->source)
-		pw_loop_destroy_source(impl->loop, server->source);
+	pw_log_debug(NAME" %p: free server %p", impl, server);
+
+	spa_list_remove(&server->link);
 	spa_list_consume(c, &server->clients, link)
 		client_free(c);
+	if (server->source)
+		pw_loop_destroy_source(impl->loop, server->source);
+	if (server->type == SERVER_TYPE_UNIX)
+		unlink(server->addr.sun_path);
 	free(server);
 }
 
-static int make_local_socket(struct impl *impl, const char *name)
+static int make_local_socket(struct server *server, const char *name)
 {
 	const char *runtime_dir;
-	struct sockaddr_un addr;
 	socklen_t size;
 	int name_size, fd, res;
 	struct stat socket_stat;
 
 	runtime_dir = get_runtime_dir();
 
-	addr.sun_family = AF_LOCAL;
-	name_size = snprintf(addr.sun_path, sizeof(addr.sun_path),
+	server->addr.sun_family = AF_LOCAL;
+	name_size = snprintf(server->addr.sun_path, sizeof(server->addr.sun_path),
                              "%s/pulse/%s", runtime_dir, name) + 1;
-	if (name_size > (int) sizeof(addr.sun_path)) {
+	if (name_size > (int) sizeof(server->addr.sun_path)) {
 		pw_log_error(NAME" %p: %s/%s too long",
-					impl, runtime_dir, name);
+					server, runtime_dir, name);
 		res = -ENAMETOOLONG;
 		goto error;
 	}
@@ -2705,29 +2715,31 @@ static int make_local_socket(struct impl *impl, const char *name)
 		res = -errno;
 		goto error;
 	}
-	if (stat(addr.sun_path, &socket_stat) < 0) {
+	if (stat(server->addr.sun_path, &socket_stat) < 0) {
 		if (errno != ENOENT) {
 			res = -errno;
 			pw_log_error("server %p: stat %s failed with error: %m",
-					impl, addr.sun_path);
+					server, server->addr.sun_path);
 			goto error_close;
 		}
 	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
-		unlink(addr.sun_path);
+		unlink(server->addr.sun_path);
 	}
 
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.sun_path);
-	if (bind(fd, (struct sockaddr *) &addr, size) < 0) {
+	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
+	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() failed with error: %m", impl);
+		pw_log_error(NAME" %p: bind() failed with error: %m", server);
 		goto error_close;
 	}
 	if (listen(fd, 128) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() failed with error: %m", impl);
+		pw_log_error(NAME" %p: listen() failed with error: %m", server);
 		goto error_close;
 	}
-	pw_log_info(NAME" listening on unix:%s", addr.sun_path);
+	pw_log_info(NAME" listening on unix:%s", server->addr.sun_path);
+	server->type = SERVER_TYPE_UNIX;
+
 	return fd;
 
 error_close:
@@ -2736,7 +2748,7 @@ error:
 	return res;
 }
 
-static int make_inet_socket(struct impl *impl, uint32_t address, uint16_t port)
+static int make_inet_socket(struct server *server, uint32_t address, uint16_t port)
 {
 	struct sockaddr_in addr;
 	int res, fd, on;
@@ -2748,7 +2760,7 @@ static int make_inet_socket(struct impl *impl, uint32_t address, uint16_t port)
 
 	on = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on)) < 0)
-		pw_log_warn(NAME" %p: setsockopt(): %m", impl);
+		pw_log_warn(NAME" %p: setsockopt(): %m", server);
 
 	spa_zero(addr);
 	addr.sin_family = AF_INET;
@@ -2757,14 +2769,15 @@ static int make_inet_socket(struct impl *impl, uint32_t address, uint16_t port)
 
 	if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() failed with error: %m", impl);
+		pw_log_error(NAME" %p: bind() failed with error: %m", server);
 		goto error_close;
 	}
 	if (listen(fd, 5) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() failed with error: %m", impl);
+		pw_log_error(NAME" %p: listen() failed with error: %m", server);
 		goto error_close;
 	}
+	server->type = SERVER_TYPE_INET;
 	pw_log_info(NAME" listening on tcp:%08x:%u", address, port);
 
 	return fd;
@@ -2786,8 +2799,9 @@ static struct server *create_local_server(struct impl *impl, const char *name)
 
 	server->impl = impl;
 	spa_list_init(&server->clients);
+	spa_list_append(&impl->servers, &server->link);
 
-	fd = make_local_socket(impl, name);
+	fd = make_local_socket(server, name);
 	if (fd < 0) {
 		res = fd;
 		goto error;
@@ -2799,7 +2813,6 @@ static struct server *create_local_server(struct impl *impl, const char *name)
 		pw_log_error(NAME" %p: can't create server source: %m", impl);
 		goto error_close;
 	}
-
 	return server;
 
 error_close:
@@ -2821,8 +2834,9 @@ static struct server *create_inet_server(struct impl *impl, uint32_t address, ui
 
 	server->impl = impl;
 	spa_list_init(&server->clients);
+	spa_list_append(&impl->servers, &server->link);
 
-	fd = make_inet_socket(impl, address, port);
+	fd = make_inet_socket(server, address, port);
 	if (fd < 0) {
 		res = fd;
 		goto error;
@@ -2848,10 +2862,10 @@ error:
 static void impl_free(struct impl *impl)
 {
 	struct server *s;
-	if (impl->props)
-		pw_properties_free(impl->props);
 	spa_list_consume(s, &impl->servers, link)
 		server_free(s);
+	if (impl->props)
+		pw_properties_free(impl->props);
 	free(impl);
 }
 

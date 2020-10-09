@@ -126,7 +126,7 @@ client_node_marshal_update(void *object,
 	struct pw_proxy *proxy = object;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f[2];
-	uint32_t i, n_items;
+	uint32_t i, n_items, n_info_params;
 
 	b = pw_protocol_native_begin_proxy(proxy, PW_CLIENT_NODE_METHOD_UPDATE, NULL);
 
@@ -141,11 +141,14 @@ client_node_marshal_update(void *object,
 	if (info) {
 		uint64_t change_mask = info->change_mask;
 
-		n_items = info->props ? info->props->n_items : 0;
-
 		change_mask &= SPA_NODE_CHANGE_MASK_FLAGS |
 				SPA_NODE_CHANGE_MASK_PROPS |
 				SPA_NODE_CHANGE_MASK_PARAMS;
+
+		n_items = info->props && (change_mask & SPA_NODE_CHANGE_MASK_PROPS) ?
+			info->props->n_items : 0;
+		n_info_params = (change_mask & SPA_NODE_CHANGE_MASK_PARAMS) ?
+			info->n_params : 0;
 
 		spa_pod_builder_push_struct(b, &f[1]);
 		spa_pod_builder_add(b,
@@ -157,8 +160,8 @@ client_node_marshal_update(void *object,
 		for (i = 0; i < n_items; i++)
 			push_item(b, &info->props->items[i]);
 		spa_pod_builder_add(b,
-				    SPA_POD_Int(info->n_params), NULL);
-		for (i = 0; i < info->n_params; i++) {
+				    SPA_POD_Int(n_info_params), NULL);
+		for (i = 0; i < n_info_params; i++) {
 			spa_pod_builder_add(b,
 					    SPA_POD_Id(info->params[i].id),
 					    SPA_POD_Int(info->params[i].flags), NULL);

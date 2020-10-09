@@ -537,7 +537,7 @@ struct pw_impl_node {
 
 	uint32_t priority_driver;	/** priority for being driver */
 	uint32_t group_id;		/** group to schedule this node in */
-	uint32_t spa_flags;
+	uint64_t spa_flags;
 
 	unsigned int registered:1;
 	unsigned int active:1;		/**< if the node is active */
@@ -657,7 +657,7 @@ struct pw_impl_port {
 #define PW_IMPL_PORT_FLAG_CONTROL		(1<<2)		/**< port has control */
 #define PW_IMPL_PORT_FLAG_NO_MIXER		(1<<3)		/**< don't try to add mixer to port */
 	uint32_t flags;
-	uint32_t spa_flags;
+	uint64_t spa_flags;
 
 	enum pw_direction direction;	/**< port direction */
 	uint32_t port_id;		/**< port id */

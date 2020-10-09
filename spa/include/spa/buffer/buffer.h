@@ -65,7 +65,12 @@ struct spa_chunk {
 struct spa_data {
 	uint32_t type;			/**< memory type, one of enum spa_data_type, when
 					  *  allocating memory, the type contains a bitmask
-					  *  of allowed types */
+					  *  of allowed types. SPA_ID_INVALID is a special
+					  *  value for the allocator to indicate that the
+					  *  other side did not explicitly specify any
+					  *  supported data types. It should probably use
+					  *  a memory type that does not require special
+					  *  handling in addition to simple mmap/munmap. */
 #define SPA_DATA_FLAG_NONE	 0
 #define SPA_DATA_FLAG_READABLE	(1u<<0)	/**< data is readable */
 #define SPA_DATA_FLAG_WRITABLE	(1u<<1)	/**< data is writable */

@@ -438,8 +438,16 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 			return res;
 		changed++;
 	}
-	if (changed)
+	if (client->core == NULL) {
+		client->core = pw_context_connect(impl->context,
+				pw_properties_copy(client->props), 0);
+		if (client->core == NULL) {
+			res = -errno;
+			goto error;
+		}
+	} else {
 		pw_core_update_properties(client->core, &client->props->dict);
+	}
 
 	pw_log_info(NAME" %p: SET_CLIENT_NAME %s", impl,
 			pw_properties_get(client->props, "application.name"));
@@ -452,6 +460,10 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 			TAG_INVALID);
 	}
 	return send_message(client, reply);
+error:
+	pw_log_error(NAME" %p: failed to connect client: %m", impl);
+	return res;
+
 }
 
 static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2538,10 +2550,6 @@ static int do_read(struct client *client)
 				res = -EPROTO;
 				goto exit;
 			}
-		} else {
-
-
-
 		}
 		if (client->message)
 			message_free(client, client->message, false);
@@ -2600,6 +2608,7 @@ error:
         else
                 pw_log_error(NAME" %p: client %p error %d (%s)", impl,
                                 client, res, spa_strerror(res));
+	reply_error(client, -1, ERR_PROTOCOL);
 	client_free(client);
 }
 
@@ -2642,11 +2651,6 @@ on_connect(void *data, int fd, uint32_t mask)
 					SPA_IO_ERR | SPA_IO_HUP | SPA_IO_IN,
 					true, on_client_data, client);
 	if (client->source == NULL)
-		goto error;
-
-	client->core = pw_context_connect(impl->context,
-			pw_properties_copy(client->props), 0);
-	if (client->core == NULL)
 		goto error;
 
 	return;

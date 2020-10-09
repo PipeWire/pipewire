@@ -73,6 +73,9 @@ static void info_changed(struct pw_impl_link *link)
 {
 	struct pw_resource *resource;
 
+	if (link->info.change_mask == 0)
+		return;
+
 	pw_impl_link_emit_info_changed(link, &link->info);
 
 	if (link->global)

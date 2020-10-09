@@ -277,7 +277,7 @@ static int client_node_transport(void *object,
 	return 0;
 }
 
-static int add_node_update(struct node_data *data, uint32_t change_mask)
+static int add_node_update(struct node_data *data, uint32_t change_mask, uint32_t info_mask)
 {
 	struct pw_impl_node *node = data->node;
 	struct spa_node_info ni = SPA_NODE_INFO_INIT();
@@ -312,14 +312,11 @@ static int add_node_update(struct node_data *data, uint32_t change_mask)
 	if (change_mask & PW_CLIENT_NODE_UPDATE_INFO) {
 		ni.max_input_ports = node->info.max_input_ports;
 		ni.max_output_ports = node->info.max_output_ports;
-		ni.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
-			SPA_NODE_CHANGE_MASK_PROPS |
-			SPA_NODE_CHANGE_MASK_PARAMS;
+		ni.change_mask = info_mask;
 		ni.flags = node->spa_flags;
 		ni.props = node->info.props;
 		ni.params = node->info.params;
 		ni.n_params = node->info.n_params;
-
 	}
 
         res = pw_client_node_update(data->client_node,
@@ -942,7 +939,10 @@ static void do_node_init(struct node_data *data)
 
 	pw_log_debug("%p: node %p init", data, data->node);
 	add_node_update(data, PW_CLIENT_NODE_UPDATE_PARAMS |
-				PW_CLIENT_NODE_UPDATE_INFO);
+				PW_CLIENT_NODE_UPDATE_INFO,
+				SPA_NODE_CHANGE_MASK_FLAGS |
+				SPA_NODE_CHANGE_MASK_PROPS |
+				SPA_NODE_CHANGE_MASK_PARAMS);
 
 	spa_list_for_each(port, &data->node->input_ports, link) {
 		add_port_update(data, port,
@@ -1001,21 +1001,23 @@ static void node_free(void *data)
 static void node_info_changed(void *data, const struct pw_node_info *info)
 {
 	struct node_data *d = data;
-	uint32_t change_mask;
+	uint32_t change_mask, info_mask;
 
 	pw_log_debug("info changed %p", d);
 
 	if (d->client_node == NULL)
 		return;
 
-	change_mask = 0;
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
-		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
+	change_mask = PW_CLIENT_NODE_UPDATE_INFO;
+	info_mask = SPA_NODE_CHANGE_MASK_FLAGS;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		info_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+	}
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		change_mask |= PW_CLIENT_NODE_UPDATE_PARAMS;
-		change_mask |= PW_CLIENT_NODE_UPDATE_INFO;
+		info_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	}
-	add_node_update(d, change_mask);
+	add_node_update(d, change_mask, info_mask);
 }
 
 static void node_port_info_changed(void *data, struct pw_impl_port *port,

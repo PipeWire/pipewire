@@ -567,7 +567,7 @@ static void check_states(void *obj, void *user_data, int res, uint32_t id)
 	if (this->info.state == PW_LINK_STATE_ERROR)
 		return;
 
-	if (this->info.state == PW_LINK_STATE_PAUSED)
+	if (this->info.state >= PW_LINK_STATE_PAUSED)
 		return;
 
 	output = this->output;

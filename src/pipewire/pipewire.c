@@ -418,6 +418,7 @@ void pw_deinit(void)
 	struct registry *registry = &global_registry;
 	struct plugin *p;
 
+	pw_log_set(NULL);
 	spa_list_consume(p, &registry->plugins, link) {
 		struct handle *h;
 		p->ref++;
@@ -427,7 +428,6 @@ void pw_deinit(void)
 	}
 	if (support->categories)
 		pw_free_strv(support->categories);
-	pw_log_set(NULL);
 	spa_zero(global_support);
 	spa_zero(global_registry);
 

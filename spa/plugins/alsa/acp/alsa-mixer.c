@@ -3134,6 +3134,10 @@ int pa_alsa_path_probe(pa_alsa_path *p, pa_alsa_mapping *mapping, snd_mixer_t *m
                 p->max_dB = max_dB[t];
         }
     }
+    if (p->min_dB == INFINITY)
+        p->min_dB = -INFINITY;
+    if (p->max_dB == -INFINITY)
+        p->max_dB = 0;
 
     return 0;
 }

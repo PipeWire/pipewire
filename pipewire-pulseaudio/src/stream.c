@@ -89,7 +89,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		s->stream_index = pw_stream_get_node_id(s->stream);
 		if (!s->suspended) {
 			s->suspended = true;
-			if (!c->disconnect && s->state == PA_STREAM_READY && s->suspended_callback)
+			if (!c->disconnect && !s->corked && s->state == PA_STREAM_READY && s->suspended_callback)
 				s->suspended_callback(s, s->suspended_userdata);
 		}
 		break;
@@ -793,7 +793,7 @@ int pa_stream_is_suspended(PA_CONST pa_stream *s)
 	PA_CHECK_VALIDITY(s->context, s->state == PA_STREAM_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY(s->context, s->direction != PA_STREAM_UPLOAD, PA_ERR_BADSTATE);
 
-	return s->suspended;
+	return s->suspended && !s->corked;
 }
 
 SPA_EXPORT

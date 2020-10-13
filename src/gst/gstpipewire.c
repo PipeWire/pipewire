@@ -53,9 +53,11 @@ plugin_init (GstPlugin *plugin)
   gst_element_register (plugin, "pipewiresink", GST_RANK_NONE,
       GST_TYPE_PIPEWIRE_SINK);
 
+#if HAVE_GSTREAMER_DEVICE_PROVIDER
   if (!gst_device_provider_register (plugin, "pipewiredeviceprovider",
        GST_RANK_PRIMARY + 1, GST_TYPE_PIPEWIRE_DEVICE_PROVIDER))
     return FALSE;
+#endif
 
   GST_DEBUG_CATEGORY_INIT (pipewire_debug, "pipewire", 0, "PipeWire elements");
 

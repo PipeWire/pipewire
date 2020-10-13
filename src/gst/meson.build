@@ -2,12 +2,15 @@ pipewire_gst_sources = [
   'gstpipewire.c',
   'gstpipewirecore.c',
   'gstpipewireclock.c',
-  'gstpipewiredeviceprovider.c',
   'gstpipewireformat.c',
   'gstpipewirepool.c',
   'gstpipewiresink.c',
   'gstpipewiresrc.c',
 ]
+
+if get_option('gstreamer-device-provider')
+  pipewire_gst_sources += [ 'gstpipewiredeviceprovider.c' ]
+endif
 
 pipewire_gst_headers = [
   'gstpipewireclock.h',

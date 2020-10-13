@@ -296,6 +296,12 @@ if get_option('bluez5')
   endif
 endif
 
+if get_option('gstreamer')
+  if get_option('gstreamer-device-provider')
+    cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', 1)
+  endif
+endif
+
 configure_file(input : 'config.h.meson',
   output : 'config.h',
   configuration : cdata)

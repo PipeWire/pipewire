@@ -468,3 +468,5 @@
 
 #mesondefine PA_ALSA_PATHS_DIR
 #mesondefine PA_ALSA_PROFILE_SETS_DIR
+
+#mesondefine HAVE_GSTREAMER_DEVICE_PROVIDER

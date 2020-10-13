@@ -157,7 +157,7 @@ struct pa_alsa_element {
     long volume_limit; /* -1 for no configured limit */
     double min_dB, max_dB;
 
-    pa_channel_position_mask_t masks[SND_MIXER_SCHN_LAST + 1][2];
+    pa_channel_position_mask_t masks[SND_MIXER_SCHN_LAST + 1][8];
     unsigned n_channels;
 
     pa_channel_position_mask_t merged_mask;

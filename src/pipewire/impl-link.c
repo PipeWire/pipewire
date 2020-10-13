@@ -229,12 +229,12 @@ static int do_negotiate(struct pw_impl_link *this)
 		case -EIO:
 			current = NULL;
 			res = 0;
-			/* fallthrough */
+			SPA_FALLTHROUGH
 		case 1:
 			break;
 		case 0:
 			res = -EBADF;
-			/* fallthrough */
+			SPA_FALLTHROUGH
 		default:
 			error = spa_aprintf("error get output format: %s", spa_strerror(res));
 			goto error;
@@ -263,12 +263,12 @@ static int do_negotiate(struct pw_impl_link *this)
 		case -EIO:
 			current = NULL;
 			res = 0;
-			/* fallthrough */
+			SPA_FALLTHROUGH
 		case 1:
 			break;
 		case 0:
 			res = -EBADF;
-			/* fallthrough */
+			SPA_FALLTHROUGH
 		default:
 			error = spa_aprintf("error get input format: %s", spa_strerror(res));
 			goto error;

@@ -420,11 +420,11 @@ do {											\
 	case 'a':									\
 		va_arg(args, void*);							\
 		va_arg(args, void*);							\
-		/* fallthrough */							\
+		SPA_FALLTHROUGH 							\
 	case 'p':									\
 	case 'y':									\
 		va_arg(args, void*);							\
-		/* fallthrough */							\
+		SPA_FALLTHROUGH 							\
 	case 'b':									\
 	case 'I':									\
 	case 'i':									\

@@ -587,6 +587,7 @@ spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 			if (type == 0)
 				goto exit;
 			spa_pod_builder_control(builder, offset, type);
+			SPA_FALLTHROUGH
 		}
 		default:
 			break;

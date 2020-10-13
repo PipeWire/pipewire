@@ -172,17 +172,17 @@ static uint64_t default_mask(uint32_t channels)
 	case 8:
 		mask |= _MASK(RL);
 		mask |= _MASK(RR);
-		/* fallthrough */
+		SPA_FALLTHROUGH
 	case 5:
 	case 6:
 		mask |= _MASK(SL);
 		mask |= _MASK(SR);
 		if ((channels & 1) == 0)
 			mask |= _MASK(LFE);
-		/* fallthrough */
+		SPA_FALLTHROUGH
 	case 3:
 		mask |= _MASK(FC);
-		/* fallthrough */
+		SPA_FALLTHROUGH
 	case 2:
 		mask |= _MASK(FL);
 		mask |= _MASK(FR);
@@ -466,7 +466,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
-		/* fallthrough */
+		SPA_FALLTHROUGH
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;

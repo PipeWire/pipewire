@@ -497,7 +497,7 @@ static int set_default_channels(struct spa_audio_info_raw *info)
 	case 7:
 		info->position[5] = SPA_AUDIO_CHANNEL_SL;
 		info->position[6] = SPA_AUDIO_CHANNEL_SR;
-		/* Fall through */
+		SPA_FALLTHROUGH
 	case 5:
 		info->position[3] = SPA_AUDIO_CHANNEL_RL;
 		info->position[4] = SPA_AUDIO_CHANNEL_RR;
@@ -508,17 +508,17 @@ static int set_default_channels(struct spa_audio_info_raw *info)
 	case 8:
 		info->position[6] = SPA_AUDIO_CHANNEL_SL;
 		info->position[7] = SPA_AUDIO_CHANNEL_SR;
-		/* Fall through */
+		SPA_FALLTHROUGH
 	case 6:
 		info->position[4] = SPA_AUDIO_CHANNEL_RL;
 		info->position[5] = SPA_AUDIO_CHANNEL_RR;
-		/* Fall through */
+		SPA_FALLTHROUGH
 	case 4:
 		info->position[3] = SPA_AUDIO_CHANNEL_LFE;
-		/* Fall through */
+		SPA_FALLTHROUGH
 	case 3:
 		info->position[2] = SPA_AUDIO_CHANNEL_FC;
-		/* Fall through */
+		SPA_FALLTHROUGH
 	case 2:
 		info->position[0] = SPA_AUDIO_CHANNEL_FL;
 		info->position[1] = SPA_AUDIO_CHANNEL_FR;

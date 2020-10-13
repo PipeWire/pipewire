@@ -808,7 +808,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	case SPA_NODE_COMMAND_Suspend:
 		clean_convert(this);
-		/* fallthrough */
+		SPA_FALLTHROUGH
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;

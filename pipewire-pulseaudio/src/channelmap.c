@@ -228,7 +228,7 @@ pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, p
                     m->map[2] = PA_CHANNEL_POSITION_FRONT_CENTER;
                     m->map[3] = PA_CHANNEL_POSITION_REAR_LEFT;
                     m->map[4] = PA_CHANNEL_POSITION_REAR_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 2:
                     m->map[0] = PA_CHANNEL_POSITION_FRONT_LEFT;
@@ -262,20 +262,20 @@ pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, p
                 case 8:
                     m->map[6] = PA_CHANNEL_POSITION_SIDE_LEFT;
                     m->map[7] = PA_CHANNEL_POSITION_SIDE_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 6:
                     m->map[5] = PA_CHANNEL_POSITION_LFE;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 5:
                     m->map[4] = PA_CHANNEL_POSITION_FRONT_CENTER;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 4:
                     m->map[2] = PA_CHANNEL_POSITION_REAR_LEFT;
                     m->map[3] = PA_CHANNEL_POSITION_REAR_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 2:
                     m->map[0] = PA_CHANNEL_POSITION_FRONT_LEFT;
@@ -308,44 +308,44 @@ pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, p
                     m->map[15] = PA_CHANNEL_POSITION_TOP_REAR_LEFT;
                     m->map[16] = PA_CHANNEL_POSITION_TOP_REAR_CENTER;
                     m->map[17] = PA_CHANNEL_POSITION_TOP_REAR_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 15:
                     m->map[12] = PA_CHANNEL_POSITION_TOP_FRONT_LEFT;
                     m->map[13] = PA_CHANNEL_POSITION_TOP_FRONT_CENTER;
                     m->map[14] = PA_CHANNEL_POSITION_TOP_FRONT_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 12:
                     m->map[11] = PA_CHANNEL_POSITION_TOP_CENTER;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 11:
                     m->map[9] = PA_CHANNEL_POSITION_SIDE_LEFT;
                     m->map[10] = PA_CHANNEL_POSITION_SIDE_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 9:
                     m->map[8] = PA_CHANNEL_POSITION_REAR_CENTER;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 8:
                     m->map[6] = PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER;
                     m->map[7] = PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 6:
                     m->map[4] = PA_CHANNEL_POSITION_REAR_LEFT;
                     m->map[5] = PA_CHANNEL_POSITION_REAR_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 4:
                     m->map[3] = PA_CHANNEL_POSITION_LFE;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 3:
                     m->map[2] = PA_CHANNEL_POSITION_FRONT_CENTER;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 2:
                     m->map[0] = PA_CHANNEL_POSITION_FRONT_LEFT;
@@ -366,20 +366,20 @@ pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, p
                 case 8:
                     m->map[6] = PA_CHANNEL_POSITION_REAR_LEFT;
                     m->map[7] = PA_CHANNEL_POSITION_REAR_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 6:
                     m->map[4] = PA_CHANNEL_POSITION_SIDE_LEFT;
                     m->map[5] = PA_CHANNEL_POSITION_SIDE_RIGHT;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 4:
                     m->map[3] = PA_CHANNEL_POSITION_LFE;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 3:
                     m->map[2] = PA_CHANNEL_POSITION_FRONT_CENTER;
-                    /* Fall through */
+                    SPA_FALLTHROUGH
 
                 case 2:
                     m->map[0] = PA_CHANNEL_POSITION_FRONT_LEFT;

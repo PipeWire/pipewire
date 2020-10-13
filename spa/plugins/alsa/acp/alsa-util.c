@@ -1114,7 +1114,7 @@ int pa_alsa_recover_from_poll(snd_pcm_t *pcm, int revents) {
                 }
                 pa_log_warn("Could not recover alsa device from SUSPENDED state, trying to restart PCM");
 	    }
-	    /* Fall through */
+	    SPA_FALLTHROUGH
 
         default:
 

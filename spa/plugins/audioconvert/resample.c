@@ -262,7 +262,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		update_rate_match(this);
 		break;
 	case SPA_NODE_COMMAND_Suspend:
-		/* fallthrough */
+		SPA_FALLTHROUGH
 	case SPA_NODE_COMMAND_Pause:
 		resample_reset(&this->resample);
 		this->started = false;

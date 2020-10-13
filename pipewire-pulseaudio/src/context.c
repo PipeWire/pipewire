@@ -994,7 +994,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			switch (id) {
 			case SPA_PARAM_EnumFormat:
 				clear_node_formats(g);
-				/* fallthrough */
+				SPA_FALLTHROUGH
 			case SPA_PARAM_Props:
 			case SPA_PARAM_Format:
 				do_enum = true;

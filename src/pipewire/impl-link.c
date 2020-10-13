@@ -123,7 +123,7 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 			pw_resource_error(resource, res, error);
 	}
 
-	if (old != PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
+	if (old < PW_LINK_STATE_PAUSED && state == PW_LINK_STATE_PAUSED) {
 		link->prepared = true;
 		link->preparing = false;
 		pw_context_recalc_graph(link->context, "link prepared");

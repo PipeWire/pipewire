@@ -50,9 +50,10 @@ static void global_free(pa_context *c, struct global *g)
 
 	if (g->ginfo && g->ginfo->destroy)
 		g->ginfo->destroy(g);
-	if (g->proxy) {
+	if (g->stream)
+		g->stream->global = NULL;
+	if (g->proxy)
 		pw_proxy_destroy(g->proxy);
-	}
 	if (g->props)
 		pw_properties_free(g->props);
 	free(g->type);

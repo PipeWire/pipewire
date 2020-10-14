@@ -747,7 +747,7 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 		size = attr->minreq;
 	} else {
 		size = attr->fragsize;
-		maxsize = attr->fragsize;
+		maxsize = attr->fragsize * MAX_BUFFERS;
 	}
 	buffers = SPA_CLAMP(maxsize / size, MIN_BUFFERS, MAX_BUFFERS);
 
@@ -947,7 +947,7 @@ static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *
 
 static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	uint32_t frame_size, max_prebuf;
+	uint32_t frame_size, max_prebuf, minreq;
 
 	frame_size = s->frame_size;
 
@@ -971,7 +971,8 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		m -= m % frame_size;
 		attr->minreq = SPA_MIN(process, m);
 	}
-	attr->minreq = SPA_MAX(attr->minreq, MIN_SAMPLES * frame_size);
+	minreq = usec_to_bytes_round_up(MIN_USEC, &s->ss);
+	attr->minreq = SPA_MAX(attr->minreq, minreq);
 
 	if (attr->tlength < attr->minreq+frame_size)
 		attr->tlength = attr->minreq + frame_size;
@@ -1231,7 +1232,7 @@ error:
 
 static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	uint32_t frame_size;
+	uint32_t frame_size, minfrag;
 
 	frame_size = s->frame_size;
 
@@ -1240,17 +1241,19 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	attr->maxlength -= attr->maxlength % frame_size;
 	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
+	minfrag = usec_to_bytes_round_up(MIN_USEC, &s->ss);
+
 	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
 		attr->fragsize = usec_to_bytes_round_up(DEFAULT_FRAGSIZE_MSEC*1000, &s->ss);
 	attr->fragsize -= attr->fragsize % frame_size;
+	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
 	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
-	attr->fragsize = SPA_MAX(attr->fragsize, MIN_SAMPLES * frame_size);
 
 	if (attr->fragsize > attr->maxlength)
 		attr->fragsize = attr->maxlength;
 
-	pw_log_info(NAME" %p: maxlength:%u fragsize:%u", s,
-			attr->maxlength, attr->fragsize);
+	pw_log_info(NAME" %p: maxlength:%u fragsize:%u minfrag:%u", s,
+			attr->maxlength, attr->fragsize, minfrag);
 }
 
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)

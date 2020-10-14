@@ -43,6 +43,7 @@
 #define MAX_BUFFERS     64u
 
 #define MIN_SAMPLES	24u
+#define MIN_USEC	(MIN_SAMPLES * SPA_USEC_PER_SEC / 48000u)
 
 #define MAXLENGTH		(4*1024*1024) /* 4MB */
 #define DEFAULT_TLENGTH_MSEC	2000 /* 2s */

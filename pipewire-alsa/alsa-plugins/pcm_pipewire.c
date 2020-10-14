@@ -419,8 +419,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw_properties_set(props, PW_KEY_MEDIA_CATEGORY,
 				io->stream == SND_PCM_STREAM_PLAYBACK ?
 				"Playback" : "Capture");
-	if (pw_properties_get(props, PW_KEY_MEDIA_ROLE) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Music");
 
 	pw->stream = pw_stream_new(pw->core, pw->node_name, props);
 	if (pw->stream == NULL)

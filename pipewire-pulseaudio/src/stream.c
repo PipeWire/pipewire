@@ -970,28 +970,28 @@ static int create_stream(pa_stream_direction_t direction,
 			devid = PW_ID_ANY;
 	}
 
-	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) == NULL)
-		str = "Music";
-	else if (strcmp(str, "video") == 0)
-		str = "Movie";
-	else if (strcmp(str, "music") == 0)
-		str = "Music";
-	else if (strcmp(str, "game") == 0)
-		str = "Game";
-	else if (strcmp(str, "event") == 0)
-		str = "Notification";
-	else if (strcmp(str, "phone") == 0)
-		str = "Communication";
-	else if (strcmp(str, "animation") == 0)
-		str = "Movie";
-	else if (strcmp(str, "production") == 0)
-		str = "Production";
-	else if (strcmp(str, "a11y") == 0)
-		str = "Accessibility";
-	else if (strcmp(str, "test") == 0)
-		str = "Test";
-	else
-		str = "Music";
+	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) != NULL) {
+		if (strcmp(str, "video") == 0)
+			str = "Movie";
+		else if (strcmp(str, "music") == 0)
+			str = "Music";
+		else if (strcmp(str, "game") == 0)
+			str = "Game";
+		else if (strcmp(str, "event") == 0)
+			str = "Notification";
+		else if (strcmp(str, "phone") == 0)
+			str = "Communication";
+		else if (strcmp(str, "animation") == 0)
+			str = "Movie";
+		else if (strcmp(str, "production") == 0)
+			str = "Production";
+		else if (strcmp(str, "a11y") == 0)
+			str = "Accessibility";
+		else if (strcmp(str, "test") == 0)
+			str = "Test";
+		else
+			str = "Music";
+	}
 
 	stride = pa_frame_size(&s->sample_spec);
 	if (direction == PA_STREAM_RECORD)
@@ -1004,7 +1004,8 @@ static int create_stream(pa_stream_direction_t direction,
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,
 				direction == PA_STREAM_PLAYBACK ?
 					"Playback" : monitor ? "Monitor" : "Capture");
-	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
+	if (str != NULL)
+		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, str);
 	if (monitor)
 		items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_STREAM_MONITOR, "true");
 	if (no_remix)

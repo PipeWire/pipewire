@@ -329,6 +329,38 @@ static void destroy_node(struct impl *impl, struct node *node)
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
 }
 
+static struct node *find_node_by_id(struct impl *impl, uint32_t id)
+{
+	struct node *node;
+	spa_list_for_each(node, &impl->node_list, link) {
+		if (node->id == id)
+			return node;
+	}
+	return NULL;
+}
+
+static const char *get_device_name(struct node *node)
+{
+	if (node->type != NODE_TYPE_DEVICE ||
+	    node->obj->obj.props == NULL)
+		return NULL;
+	return pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME);
+}
+
+static uint32_t find_device_for_name(struct impl *impl, const char *name)
+{
+	struct node *node;
+	const char *str;
+
+	spa_list_for_each(node, &impl->node_list, link) {
+		if ((str = get_device_name(node)) == NULL)
+			continue;
+		if (strcmp(str, name) == 0)
+			return node->obj->obj.id;
+	}
+	return SPA_ID_INVALID;
+}
+
 static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
@@ -519,6 +551,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	struct pw_node_info *info;
 	struct node *peer;
 	struct sm_object *obj;
+	uint32_t path_id = SPA_ID_INVALID;
 
 	if (!n->active) {
 		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
@@ -561,28 +594,29 @@ static int rescan_node(struct impl *impl, struct node *n)
 		return 0;
 	}
 
+	str = spa_dict_lookup(props, PW_KEY_NODE_EXCLUSIVE);
+	exclusive = str ? pw_properties_parse_bool(str) : false;
+
+	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
+
 	spa_zero(find);
-
-	if ((str = spa_dict_lookup(props, PW_KEY_NODE_EXCLUSIVE)) != NULL)
-		exclusive = pw_properties_parse_bool(str);
-	else
-		exclusive = false;
-
 	find.impl = impl;
 	find.target = n;
 	find.exclusive = exclusive;
 
-	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
-
 	str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
 	reconnect = str ? !pw_properties_parse_bool(str) : true;
 
-	str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
-	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%s", n->id,
-			exclusive, reconnect, str);
+	/* we always honour the target node asked for by the client */
+	if ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) != NULL)
+		path_id = atoi(str);
+	if (path_id == SPA_ID_INVALID && n->obj->target_node != NULL)
+		path_id = find_device_for_name(impl, n->obj->target_node);
 
-	if (str != NULL) {
-		uint32_t path_id = atoi(str);
+	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d", n->id,
+			exclusive, reconnect, path_id);
+
+	if (path_id != SPA_ID_INVALID) {
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
 
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
@@ -598,8 +632,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
 				path_id, reconnect);
 	}
-
-	if (str == NULL || reconnect) {
+	if (path_id == SPA_ID_INVALID || reconnect) {
 		spa_list_for_each(peer, &impl->node_list, link)
 			find_node(&find, peer);
 	}
@@ -680,16 +713,6 @@ static const struct sm_media_session_events session_events = {
 	.destroy = session_destroy,
 };
 
-static struct node *find_node_by_id(struct impl *impl, uint32_t id)
-{
-	struct node *node;
-	spa_list_for_each(node, &impl->node_list, link) {
-		if (node->id == id)
-			return node;
-	}
-	return NULL;
-}
-
 static int move_node(struct impl *impl, uint32_t source, uint32_t target)
 {
 	struct node *n, *src_node, *dst_node;
@@ -734,8 +757,6 @@ static int handle_move(struct impl *impl, struct node *src_node, struct node *ds
 	const char *str;
 	struct pw_node_info *info;
 
-
-
 	if (src_node->peer == dst_node)
 		return 0;
 
@@ -752,6 +773,10 @@ static int handle_move(struct impl *impl, struct node *src_node, struct node *ds
 	pw_log_info("move node %d: from peer %d to %d", src_node->id,
 			src_node->peer ? src_node->peer->id : SPA_ID_INVALID,
 			dst_node->id);
+
+	free(src_node->obj->target_node);
+	str = get_device_name(dst_node);
+	src_node->obj->target_node = str ? strdup(str) : NULL;
 
 	if (src_node->peer)
 		unlink_nodes(src_node, src_node->peer);

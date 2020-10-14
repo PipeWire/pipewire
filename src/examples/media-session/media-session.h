@@ -144,6 +144,9 @@ struct sm_node {
 	struct spa_list param_list;	/**< list of sm_param */
 	struct pw_node_info *info;
 	struct spa_list port_list;
+
+	char *target_node;		/** desired target node from stored
+					  * preferences */
 };
 
 struct sm_port {

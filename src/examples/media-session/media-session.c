@@ -624,6 +624,8 @@ static void node_destroy(void *object)
 		pw_node_info_free(node->info);
 		node->info = NULL;
 	}
+	free(node->target_node);
+	node->target_node = NULL;
 }
 
 static const struct object_info node_info = {

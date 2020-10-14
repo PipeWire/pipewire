@@ -2635,10 +2635,11 @@ on_client_data(void *data, int fd, uint32_t mask)
 error:
         if (res == -EPIPE)
                 pw_log_info(NAME" %p: client %p disconnected", impl, client);
-        else
+        else {
                 pw_log_error(NAME" %p: client %p error %d (%s)", impl,
                                 client, res, spa_strerror(res));
-	reply_error(client, -1, ERR_PROTOCOL);
+		reply_error(client, -1, ERR_PROTOCOL);
+	}
 	client_free(client);
 }
 

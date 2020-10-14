@@ -824,7 +824,7 @@ do_process_done(struct spa_loop *loop,
 	} else {
 		uint32_t index;
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
-		if (avail < 0) {
+		if (avail <= 0) {
 			/* underrun */
 			send_underflow(stream, index);
 		} else if (avail > MAXLENGTH) {
@@ -869,9 +869,12 @@ static void stream_process(void *data)
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
-		if (avail < 0) {
+		if (avail <= 0) {
 			/* underrun */
-			pw_log_warn(NAME" %p: underrun", stream);
+			if (stream->drain_tag) {
+				pw_stream_flush(stream->stream, true);
+			} else
+				pw_log_warn(NAME" %p: underrun", stream);
 			size = buf->datas[0].maxsize;
 			memset(p, 0, size);
 		} else if (avail > MAXLENGTH) {
@@ -927,6 +930,7 @@ static void stream_drained(void *data)
 	struct stream *stream = data;
 	pw_log_info(NAME" %p: drained channel:%u", stream, stream->channel);
 	reply_simple_ack(stream->client, stream->drain_tag);
+	stream->drain_tag = 0;
 }
 
 static const struct pw_stream_events stream_events =
@@ -1966,14 +1970,14 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 
 	pw_log_info(NAME" %p: DRAIN channel:%d", impl, channel);
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL) {
-		res = -EINVAL;
-		return res;
-	}
+	if (stream == NULL)
+		return -EINVAL;
 
-	pw_stream_flush(stream->stream, true);
+	if (stream->direction != PW_DIRECTION_OUTPUT)
+		return -EINVAL;
 
-	return reply_simple_ack(client, tag);
+	stream->drain_tag = tag;
+	return 0;
 }
 
 static void fill_client_info(struct client *client, struct message *m)

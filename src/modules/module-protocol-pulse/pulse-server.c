@@ -438,6 +438,7 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 			return res;
 		changed++;
 	}
+
 	if (client->core == NULL) {
 		client->core = pw_context_connect(impl->context,
 				pw_properties_copy(client->props), 0);
@@ -445,7 +446,7 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 			res = -errno;
 			goto error;
 		}
-	} else {
+	} else if (changed){
 		pw_core_update_properties(client->core, &client->props->dict);
 	}
 
@@ -1027,6 +1028,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	const struct spa_pod *params[1];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const char *str;
 
 	props = pw_properties_new(NULL, NULL);
 
@@ -1161,6 +1163,31 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
 			stream->attr.minreq * 2 / stream->frame_size, ss.rate);
+
+	if ((str = pw_properties_get(props, PW_KEY_MEDIA_ROLE)) != NULL) {
+		if (strcmp(str, "video") == 0)
+			str = "Movie";
+		else if (strcmp(str, "music") == 0)
+			str = "Music";
+		else if (strcmp(str, "game") == 0)
+			str = "Game";
+		else if (strcmp(str, "event") == 0)
+			str = "Notification";
+		else if (strcmp(str, "phone") == 0)
+			str = "Communication";
+		else if (strcmp(str, "animation") == 0)
+			str = "Movie";
+		else if (strcmp(str, "production") == 0)
+			str = "Production";
+		else if (strcmp(str, "a11y") == 0)
+			str = "Accessibility";
+		else if (strcmp(str, "test") == 0)
+			str = "Test";
+		else
+			str = "Music";
+
+		pw_properties_set(props, PW_KEY_MEDIA_ROLE, str);
+        }
 
 	flags = 0;
 	if (no_move)

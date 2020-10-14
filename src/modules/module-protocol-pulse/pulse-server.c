@@ -97,6 +97,7 @@ struct device {
 	struct cvolume volume;
 	struct channel_map map;
 	bool muted;
+	struct device *monitor;
 };
 
 struct buffer_attr {
@@ -169,6 +170,7 @@ struct impl {
 	struct spa_list servers;
 
 	struct device default_sink;
+	struct device default_monitor;
 	struct device default_source;
 };
 
@@ -1894,12 +1896,40 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 	return send_message(client, reply);
 }
 
+static struct device *find_device_by_name(struct impl *impl, const char *name)
+{
+	struct device *dev;
+	if (strcmp(name, impl->default_source.name) == 0)
+		dev = &impl->default_source;
+	else if (strcmp(name, impl->default_sink.name) == 0)
+		dev = &impl->default_sink;
+	else if (strcmp(name, impl->default_monitor.name) == 0)
+		dev = &impl->default_monitor;
+	else
+		dev = NULL;
+	return dev;
+}
+
+static struct device *find_device_by_index(struct impl *impl, uint32_t index)
+{
+	struct device *dev;
+	if (impl->default_source.index == index)
+		dev = &impl->default_source;
+	else if (impl->default_sink.index == index)
+		dev = &impl->default_sink;
+	else if (impl->default_monitor.index == index)
+		dev = &impl->default_monitor;
+	else
+		dev = NULL;
+	return dev;
+}
+
 static int do_lookup(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
 	const char *name = NULL;
 	struct message *reply;
-	uint32_t idx = 0;
+	struct device *dev;
 	int res;
 
 	if ((res = message_get(m,
@@ -1911,9 +1941,12 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 
 	pw_log_info(NAME" %p: LOOKUP %s", impl, name);
 
+	if ((dev = find_device_by_name(impl, name)) == NULL)
+		return reply_error(client, -1, ERR_NOENTITY);
+
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_U32, idx,
+		TAG_U32, dev->index,
 		TAG_INVALID);
 
 	return send_message(client, reply);
@@ -1960,6 +1993,8 @@ static void fill_client_info(struct client *client, struct message *m)
 
 static void fill_sink_info(struct client *client, struct message *m, struct device *sink)
 {
+	struct device *monitor = sink->monitor;
+
 	message_put(m,
 		TAG_U32, sink->index,		/* sink index */
 		TAG_STRING, sink->name,
@@ -1969,8 +2004,8 @@ static void fill_sink_info(struct client *client, struct message *m, struct devi
 		TAG_U32, SPA_ID_INVALID,	/* module index */
 		TAG_CVOLUME, &sink->volume,
 		TAG_BOOLEAN, sink->muted,
-		TAG_U32, SPA_ID_INVALID,	/* monitor source */
-		TAG_STRING, NULL,		/* monitor source name */
+		TAG_U32, monitor ? monitor->index : SPA_ID_INVALID,	/* monitor source */
+		TAG_STRING, monitor ? monitor->name : NULL,		/* monitor source name */
 		TAG_USEC, 0LL,			/* latency */
 		TAG_STRING, "PipeWire",		/* driver */
 		TAG_U32, 0,			/* flags */
@@ -2011,6 +2046,8 @@ static void fill_sink_info(struct client *client, struct message *m, struct devi
 
 static void fill_source_info(struct client *client, struct message *m, struct device *source)
 {
+	struct device *monitor = source->monitor;
+
 	message_put(m,
 		TAG_U32, source->index,		/* source index */
 		TAG_STRING, source->name,
@@ -2020,8 +2057,8 @@ static void fill_source_info(struct client *client, struct message *m, struct de
 		TAG_U32, SPA_ID_INVALID,	/* module index */
 		TAG_CVOLUME, &source->volume,
 		TAG_BOOLEAN, source->muted,
-		TAG_U32, SPA_ID_INVALID,	/* monitor source */
-		TAG_STRING, NULL,		/* monitor source name */
+		TAG_U32, monitor ? monitor->index : SPA_ID_INVALID,	/* monitor source */
+		TAG_STRING, monitor ? monitor->name : NULL,		/* monitor source name */
 		TAG_USEC, 0LL,			/* latency */
 		TAG_STRING, "PipeWire",		/* driver */
 		TAG_U32, 0,			/* flags */
@@ -2066,6 +2103,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	struct message *reply;
 	uint32_t idx;
 	const char *name = NULL;
+	struct device *dev;
 	int res;
 
 	if ((res = message_get(m,
@@ -2085,6 +2123,9 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		break;
 	}
 
+	if (idx == SPA_ID_INVALID && name == NULL)
+		return reply_error(client, -1, ERR_INVALID);
+
 	pw_log_info(NAME" %p: %s idx:%u name:%s", impl,
 			commands[command].name, idx, name);
 
@@ -2098,10 +2139,27 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	case COMMAND_GET_SAMPLE_INFO:
 		return reply_error(client, -1, ERR_NOENTITY);
 	case COMMAND_GET_SINK_INFO:
-		fill_sink_info(client, reply, &impl->default_sink);
+		if (idx != SPA_ID_INVALID)
+			dev = find_device_by_index(impl, idx);
+		else
+			dev = find_device_by_name(impl, name);
+		if (dev == NULL)
+			return reply_error(client, -1, ERR_NOENTITY);
+		if (dev->direction != PW_DIRECTION_INPUT)
+			return reply_error(client, -1, ERR_INVALID);
+
+		fill_sink_info(client, reply, dev);
 		break;
 	case COMMAND_GET_SOURCE_INFO:
-		fill_source_info(client, reply, &impl->default_source);
+		if (idx != SPA_ID_INVALID)
+			dev = find_device_by_index(impl, idx);
+		else
+			dev = find_device_by_name(impl, name);
+		if (dev == NULL)
+			return reply_error(client, -1, ERR_NOENTITY);
+		if (dev->direction != PW_DIRECTION_OUTPUT)
+			return reply_error(client, -1, ERR_INVALID);
+		fill_source_info(client, reply, dev);
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO:
 	case COMMAND_GET_SOURCE_OUTPUT_INFO:
@@ -2134,6 +2192,7 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 		break;
 	case COMMAND_GET_SOURCE_INFO_LIST:
 		fill_source_info(client, reply, &impl->default_source);
+		fill_source_info(client, reply, &impl->default_monitor);
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO_LIST:
 	case COMMAND_GET_SOURCE_OUTPUT_INFO_LIST:
@@ -2931,9 +2990,32 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			.map[0] = 1,
 			.map[1] = 2, },
 		.muted = false,
+		.monitor = &impl->default_monitor,
+	};
+	impl->default_monitor = (struct device) {
+		.index = 2,
+		.name = "output.pipewire.monitor",
+		.direction = PW_DIRECTION_OUTPUT,
+		.props = pw_properties_new(
+				"device.description", "Monitor of PipeWire Sink",
+				NULL),
+		.ss = (struct sample_spec) {
+			.format = SAMPLE_FLOAT32LE,
+			.rate = 44100,
+			.channels = 2, },
+		.volume = (struct cvolume) {
+			.channels = 2,
+			.values[0] = 1.0f,
+			.values[1] = 1.0f, },
+		.map = (struct channel_map) {
+			.channels = 2,
+			.map[0] = 1,
+			.map[1] = 2, },
+		.muted = false,
+		.monitor = &impl->default_sink,
 	};
 	impl->default_source = (struct device) {
-		.index = 2,
+		.index = 3,
 		.name = "output.pipewire",
 		.direction = PW_DIRECTION_OUTPUT,
 		.props = pw_properties_new(

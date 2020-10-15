@@ -77,15 +77,15 @@ struct spa_fraction {
 
 #define SPA_MIN(a,b)		\
 ({				\
-	__typeof__(a) _a = (a);	\
-	__typeof__(b) _b = (b);	\
-	SPA_LIKELY(_a < _b) ? _a : _b;	\
+	__typeof__(a) _min_a = (a);	\
+	__typeof__(b) _min_b = (b);	\
+	SPA_LIKELY(_min_a < _min_b) ? _min_a : _min_b;	\
 })
 #define SPA_MAX(a,b)		\
 ({				\
-	__typeof__(a) _a = (a);	\
-	__typeof__(b) _b = (b);	\
-	SPA_LIKELY(_a > _b) ? _a : _b;	\
+	__typeof__(a) _max_a = (a);	\
+	__typeof__(b) _max_b = (b);	\
+	SPA_LIKELY(_max_a > _max_b) ? _max_a : _max_b;	\
 })
 #define SPA_CLAMP(v,low,high)				\
 ({							\

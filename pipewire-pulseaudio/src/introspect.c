@@ -836,6 +836,8 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 	else
 		i.name = "unknown";
 
+	pw_log_debug("source %d %s monitor:%d", g->id, i.name, monitor);
+
 	i.index = g->id;
 	if ((str = pa_proplist_gets(i.proplist, PW_KEY_NODE_DESCRIPTION)))
 		i.description = str;

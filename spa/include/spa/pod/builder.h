@@ -562,8 +562,8 @@ static inline int
 spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 {
 	int res = 0;
-	struct spa_pod_frame *f = builder->state.frame;
-	uint32_t ftype = f ? f->pod.type : (uint32_t)SPA_TYPE_None;
+	struct spa_pod_frame *frame = builder->state.frame;
+	uint32_t ftype = frame ? frame->pod.type : (uint32_t)SPA_TYPE_None;
 
 	do {
 		const char *format;

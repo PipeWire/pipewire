@@ -149,7 +149,7 @@ struct pa_alsa_element {
 
     long constant_volume;
 
-    bool override_map:1;
+    unsigned int override_map;
     bool direction_try_other:1;
 
     bool has_dB:1;

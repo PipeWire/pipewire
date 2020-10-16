@@ -112,7 +112,7 @@ static void set_timer(struct impl *this, uint64_t next_time)
 static void on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
-	uint64_t expirations, nsec, duration = 10;
+	uint64_t expirations, nsec, duration;
 	uint32_t rate;
 
 	spa_log_trace(this->log, "timeout");

@@ -102,8 +102,8 @@ struct hsphfpd_endpoint {
 #define HSPHFPD_AUDIO_AGENT_INTERFACE         HSPHFPD_SERVICE ".AudioAgent"
 #define HSPHFPD_AUDIO_TRANSPORT_INTERFACE     HSPHFPD_SERVICE ".AudioTransport"
 
-#define APPLICATION_OBJECT_MANAGER_PATH "/Profile/hsphfpd/manager"
-#define HSPHFP_AUDIO_CLIENT_CVSD        "/Profile/hsphfpd/cvsd_agent"
+#define APPLICATION_OBJECT_MANAGER_PATH    "/Profile/hsphfpd/manager"
+#define HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ "/Profile/hsphfpd/pcm_s16le_8khz_agent"
 
 #define HSPHFP_AGENT_CODEC_PCM          "PCM_s16le_8kHz"
 
@@ -789,7 +789,7 @@ static DBusHandlerResult application_object_manager_handler(DBusConnection *c, D
 		dbus_message_iter_init_append(r, &iter);
 		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array);
 
-		append_audio_agent_object(&array, HSPHFP_AUDIO_CLIENT_CVSD, HSPHFP_AGENT_CODEC_PCM);
+		append_audio_agent_object(&array, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ, HSPHFP_AGENT_CODEC_PCM);
 
 		dbus_message_iter_close_container(&iter, &array);
 	} else
@@ -1379,7 +1379,7 @@ void backend_hsphfpd_free(struct spa_bt_backend *backend)
 {
 	struct hsphfpd_endpoint *endpoint;
 
-	dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_CVSD);
+	dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ);
 	dbus_connection_unregister_object_path(backend->conn, APPLICATION_OBJECT_MANAGER_PATH);
 
 	spa_list_consume(endpoint, &backend->endpoint_list, link)
@@ -1421,7 +1421,7 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 	}
 
 	if (!dbus_connection_register_object_path(backend->conn,
-	            HSPHFP_AUDIO_CLIENT_CVSD,
+	            HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ,
 	            &vtable_audio_agent_endpoint, backend)) {
 		dbus_connection_unregister_object_path(backend->conn, APPLICATION_OBJECT_MANAGER_PATH);
 		free(backend);

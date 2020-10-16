@@ -568,7 +568,7 @@ again:
 		spa_log_trace(this->log, NAME " %p: written %u frames", this, total_frames);
 	}
 
-	written = flush_buffer(this, true);
+	written = flush_buffer(this, false);
 	if (written == -EAGAIN) {
 		spa_log_trace(this->log, NAME" %p: delay flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {

@@ -182,6 +182,8 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		else
 			i.ports[j] = NULL;
 	}
+	if (i.active_port == NULL && i.n_ports > 0)
+		i.active_port = i.ports[0];
 	i.n_formats = pw_array_get_len(&g->node_info.formats, pa_format_info *);
 	i.formats = g->node_info.formats.data;
 	d->cb(c, &i, 0, d->userdata);
@@ -912,6 +914,8 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		else
 			i.ports[j] = NULL;
 	}
+	if (i.active_port == NULL && i.n_ports > 0)
+		i.active_port = i.ports[0];
 	i.n_formats = pw_array_get_len(&g->node_info.formats, pa_format_info *);
 	i.formats = g->node_info.formats.data;
 	d->cb(c, &i, 0, d->userdata);

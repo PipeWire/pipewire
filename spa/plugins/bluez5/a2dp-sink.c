@@ -53,6 +53,8 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
+struct codec;
+
 struct props {
 	uint32_t min_latency;
 	uint32_t max_latency;
@@ -125,12 +127,11 @@ struct impl {
 	uint64_t next_time;
 	uint64_t last_error;
 
-	sbc_t sbc;
-	int read_size;
-	int write_size;
-	int write_samples;
-	int frame_length;
-	int codesize;
+	struct codec *codec;
+	void *codec_data;
+
+	int block_size;
+	int num_blocks;
 	uint8_t buffer[4096];
 	int buffer_used;
 	int frame_count;
@@ -139,9 +140,222 @@ struct impl {
 	uint64_t sample_count;
 	uint8_t tmp_buffer[512];
 	int tmp_buffer_used;
+};
+
+
+struct codec {
+	void *(*init) (void *config, size_t config_len);
+	void (*deinit) (void *data);
+	int (*reduce_bitpool) (void *data);
+	int (*increase_bitpool) (void *data);
+	int (*get_block_size) (void *data);
+	int (*get_num_blocks) (void *data, size_t mtu);
+	int (*start_encode) (void *data,
+		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp);
+	int (*encode) (void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out);
+};
+
+struct impl_sbc {
+	sbc_t sbc;
+
+	struct rtp_header *header;
+	struct rtp_payload *payload;
+
+	int codesize;
+	int frame_length;
 
 	int min_bitpool;
 	int max_bitpool;
+};
+
+static int codec_sbc_set_bitpool(struct impl_sbc *this, int bitpool)
+{
+	if (bitpool < this->min_bitpool)
+		bitpool = this->min_bitpool;
+	if (bitpool > this->max_bitpool)
+		bitpool = this->max_bitpool;
+
+	if (this->sbc.bitpool == bitpool)
+		return 0;
+
+	this->sbc.bitpool = bitpool;
+
+	this->codesize = sbc_get_codesize(&this->sbc);
+	this->frame_length = sbc_get_frame_length(&this->sbc);
+
+	return 0;
+}
+
+static int codec_sbc_reduce_bitpool(void *data)
+{
+	struct impl_sbc *this = data;
+	return codec_sbc_set_bitpool(this, this->sbc.bitpool - 2);
+}
+
+static int codec_sbc_increase_bitpool(void *data)
+{
+	struct impl_sbc *this = data;
+	return codec_sbc_set_bitpool(this, this->sbc.bitpool + 1);
+}
+
+static int codec_sbc_get_num_blocks(void *data, size_t mtu)
+{
+	struct impl_sbc *this = data;
+	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+	size_t frame_count = (mtu - rtp_size) / this->frame_length;
+
+	/* frame_count is only 4 bit number */
+	if (frame_count > 15)
+		frame_count = 15;
+	return frame_count;
+}
+
+static int codec_sbc_get_block_size(void *data)
+{
+	struct impl_sbc *this = data;
+	return this->codesize;
+}
+
+static void *codec_sbc_init(void *config, size_t config_len)
+{
+	struct impl_sbc *this;
+	a2dp_sbc_t *conf = config;
+	int res;
+
+	this = calloc(1, sizeof(struct impl_sbc));
+	if (this == NULL) {
+		res = -errno;
+		goto error;
+	}
+
+	sbc_init(&this->sbc, 0);
+	this->sbc.endian = SBC_LE;
+
+	if (conf->frequency & SBC_SAMPLING_FREQ_48000)
+		this->sbc.frequency = SBC_FREQ_48000;
+	else if (conf->frequency & SBC_SAMPLING_FREQ_44100)
+		this->sbc.frequency = SBC_FREQ_44100;
+	else if (conf->frequency & SBC_SAMPLING_FREQ_32000)
+		this->sbc.frequency = SBC_FREQ_32000;
+	else if (conf->frequency & SBC_SAMPLING_FREQ_16000)
+		this->sbc.frequency = SBC_FREQ_16000;
+	else {
+		res = -EINVAL;
+		goto error;
+	}
+
+	if (conf->channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
+		this->sbc.mode = SBC_MODE_JOINT_STEREO;
+	else if (conf->channel_mode & SBC_CHANNEL_MODE_STEREO)
+		this->sbc.mode = SBC_MODE_STEREO;
+	else if (conf->channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
+		this->sbc.mode = SBC_MODE_DUAL_CHANNEL;
+	else if (conf->channel_mode & SBC_CHANNEL_MODE_MONO)
+		this->sbc.mode = SBC_MODE_MONO;
+	else {
+		res = -EINVAL;
+		goto error;
+	}
+
+	switch (conf->subbands) {
+	case SBC_SUBBANDS_4:
+		this->sbc.subbands = SBC_SB_4;
+		break;
+	case SBC_SUBBANDS_8:
+		this->sbc.subbands = SBC_SB_8;
+		break;
+	default:
+		res = -EINVAL;
+		goto error;
+	}
+
+	if (conf->allocation_method & SBC_ALLOCATION_LOUDNESS)
+		this->sbc.allocation = SBC_AM_LOUDNESS;
+	else
+		this->sbc.allocation = SBC_AM_SNR;
+
+	switch (conf->block_length) {
+	case SBC_BLOCK_LENGTH_4:
+		this->sbc.blocks = SBC_BLK_4;
+		break;
+	case SBC_BLOCK_LENGTH_8:
+		this->sbc.blocks = SBC_BLK_8;
+		break;
+	case SBC_BLOCK_LENGTH_12:
+		this->sbc.blocks = SBC_BLK_12;
+		break;
+	case SBC_BLOCK_LENGTH_16:
+		this->sbc.blocks = SBC_BLK_16;
+		break;
+	default:
+		res = -EINVAL;
+		goto error;
+	}
+
+	this->min_bitpool = SPA_MAX(conf->min_bitpool, 12);
+	this->max_bitpool = conf->max_bitpool;
+
+	codec_sbc_set_bitpool(this, conf->max_bitpool);
+
+	return this;
+error:
+	errno = -res;
+	return NULL;
+}
+
+static void codec_sbc_deinit(void *data)
+{
+	struct impl_sbc *this = data;
+	sbc_finish(&this->sbc);
+	free(this);
+}
+
+static int codec_sbc_start_encode (void *data,
+		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
+{
+	struct impl_sbc *this = data;
+
+	this->header = (struct rtp_header *)dst;
+	this->payload = SPA_MEMBER(dst, sizeof(struct rtp_header), struct rtp_payload);
+	memset(this->header, 0, sizeof(struct rtp_header)+sizeof(struct rtp_payload));
+
+	this->payload->frame_count = 0;
+	this->header->v = 2;
+	this->header->pt = 1;
+	this->header->sequence_number = htons(seqnum);
+	this->header->timestamp = htonl(timestamp);
+	this->header->ssrc = htonl(1);
+	return sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+}
+
+static int codec_sbc_encode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *encoded)
+{
+	struct impl_sbc *this = data;
+	int res;
+
+	res = sbc_encode(&this->sbc, src, src_size,
+			dst, dst_size, encoded);
+	if (res >= this->codesize)
+		this->payload->frame_count += res / this->codesize;
+
+	return res;
+}
+
+struct codec codec_sbc = {
+	.init = codec_sbc_init,
+	.deinit = codec_sbc_deinit,
+	.reduce_bitpool = codec_sbc_reduce_bitpool,
+	.increase_bitpool = codec_sbc_increase_bitpool,
+	.get_block_size = codec_sbc_get_block_size,
+	.get_num_blocks = codec_sbc_get_num_blocks,
+	.start_encode = codec_sbc_start_encode,
+	.encode = codec_sbc_encode,
 };
 
 #define NAME "a2dp-sink"
@@ -330,41 +544,27 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static int reset_buffer(struct impl *this)
 {
-	this->buffer_used = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 	this->frame_count = 0;
+	this->buffer_used = this->codec->start_encode(this->codec_data,
+			this->buffer, sizeof(this->buffer),
+			this->seqnum++, this->timestamp);
+	this->timestamp = this->sample_count;
 	return 0;
 }
 
 static int send_buffer(struct impl *this)
 {
 	int written;
-	struct rtp_header *header;
-	struct rtp_payload *payload;
-
-	spa_return_val_if_fail(this->transport, -EIO);
-
-	header = (struct rtp_header *)this->buffer;
-	payload = (struct rtp_payload *)(this->buffer + sizeof(struct rtp_header));
-	memset(this->buffer, 0, sizeof(struct rtp_header)+sizeof(struct rtp_payload));
-
-	payload->frame_count = this->frame_count;
-	header->v = 2;
-	header->pt = 1;
-	header->sequence_number = htons(this->seqnum);
-	header->timestamp = htonl(this->timestamp);
-	header->ssrc = htonl(1);
 
 	spa_log_trace(this->log, NAME " %p: send %d %u %u %u",
 			this, this->frame_count, this->seqnum, this->timestamp, this->buffer_used);
 
 	written = send(this->transport->fd, this->buffer, this->buffer_used, MSG_DONTWAIT | MSG_NOSIGNAL);
-	spa_log_debug(this->log, NAME " %p: send %d", this, written);
+	reset_buffer(this);
+
+	spa_log_debug(this->log, NAME " %p: send %d: %m", this, written);
 	if (written < 0)
 		return -errno;
-
-	this->timestamp = this->sample_count;
-	this->seqnum++;
-	reset_buffer(this);
 
 	return written;
 }
@@ -378,32 +578,33 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	int from_size = size;
 
 	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d/%d",
-			this, size, this->buffer_used, port->frame_size, this->write_size,
+			this, size, this->buffer_used, port->frame_size, this->block_size,
 			this->frame_count, MAX_FRAME_COUNT);
 
 	if (this->frame_count > MAX_FRAME_COUNT)
 		return -ENOSPC;
 
-	if (size < this->codesize - this->tmp_buffer_used) {
+	if (size < this->block_size - this->tmp_buffer_used) {
 		memcpy(this->tmp_buffer + this->tmp_buffer_used, data, size);
 		this->tmp_buffer_used += size;
 		return size;
 	} else if (this->tmp_buffer_used > 0) {
-		memcpy(this->tmp_buffer + this->tmp_buffer_used, data, this->codesize - this->tmp_buffer_used);
+		memcpy(this->tmp_buffer + this->tmp_buffer_used, data, this->block_size - this->tmp_buffer_used);
 		from_data = this->tmp_buffer;
-		from_size = this->codesize;
-		this->tmp_buffer_used = this->codesize - this->tmp_buffer_used;
+		from_size = this->block_size;
+		this->tmp_buffer_used = this->block_size - this->tmp_buffer_used;
 	}
 
-	processed = sbc_encode(&this->sbc, from_data, from_size,
-			       this->buffer + this->buffer_used,
-			       this->write_size - this->buffer_used,
-			       &out_encoded);
+	processed = this->codec->encode(this->codec_data,
+				from_data, from_size,
+				this->buffer + this->buffer_used,
+				sizeof(this->buffer) - this->buffer_used,
+				&out_encoded);
 	if (processed < 0)
 		return processed;
 
 	this->sample_count += processed / port->frame_size;
-	this->frame_count += processed / this->codesize;
+	this->frame_count += processed / this->block_size;
 	this->buffer_used += out_encoded;
 
 	spa_log_trace(this->log, NAME " %p: processed %d %zd used %d",
@@ -418,14 +619,13 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 
 static bool need_flush(struct impl *this)
 {
-	return (this->buffer_used + this->frame_length > this->write_size) ||
-		this->frame_count > MAX_FRAME_COUNT;
+	return (this->frame_count + 1 >= this->num_blocks);
 }
 
 static int flush_buffer(struct impl *this, bool force)
 {
-	spa_log_trace(this->log, NAME" %p: %d %d %d", this,
-			this->buffer_used, this->frame_length, this->write_size);
+	spa_log_trace(this->log, NAME" %p: used:%d num_blocks:%d block_size%d", this,
+			this->buffer_used, this->num_blocks, this->block_size);
 
 	if (force || need_flush(this))
 		return send_buffer(this);
@@ -448,51 +648,6 @@ static int add_data(struct impl *this, const void *data, int size)
 		total += processed;
 	}
 	return total;
-}
-
-static int set_bitpool(struct impl *this, int bitpool)
-{
-	struct port *port = &this->port;
-
-	spa_return_val_if_fail(this->transport, -EIO);
-
-	if (bitpool < this->min_bitpool)
-		bitpool = this->min_bitpool;
-	if (bitpool > this->max_bitpool)
-		bitpool = this->max_bitpool;
-
-	if (this->sbc.bitpool == bitpool)
-		return 0;
-
-	this->sbc.bitpool = bitpool;
-
-	this->codesize = sbc_get_codesize(&this->sbc);
-	/* make sure there's enough space in this->tmp_buffer */
-	spa_assert(this->codesize <= 512);
-
-	this->frame_length = sbc_get_frame_length(&this->sbc);
-
-	this->read_size = this->transport->read_mtu
-		- sizeof(struct rtp_header) - sizeof(struct rtp_payload) - 24;
-	this->write_size = this->transport->write_mtu
-		- sizeof(struct rtp_header) - sizeof(struct rtp_payload) - 24;
-	this->write_samples = (this->write_size / this->frame_length) *
-		(this->codesize / port->frame_size);
-
-	spa_log_info(this->log, NAME" %p: set bitpool %d codesize:%u frame_length:%u",
-			this, this->sbc.bitpool, this->codesize, this->frame_length);
-
-	return 0;
-}
-
-static int reduce_bitpool(struct impl *this)
-{
-	return set_bitpool(this, this->sbc.bitpool - 2);
-}
-
-static int increase_bitpool(struct impl *this)
-{
-	return set_bitpool(this, this->sbc.bitpool + 1);
 }
 
 static void enable_flush(struct impl *this, bool enabled)
@@ -568,11 +723,11 @@ again:
 		spa_log_trace(this->log, NAME " %p: written %u frames", this, total_frames);
 	}
 
-	written = flush_buffer(this, false);
+	written = flush_buffer(this, true);
 	if (written == -EAGAIN) {
 		spa_log_trace(this->log, NAME" %p: delay flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
-			reduce_bitpool(this);
+			this->codec->reduce_bitpool(this->codec_data);
 			this->last_error = now_time;
 		}
 		enable_flush(this, true);
@@ -584,7 +739,7 @@ again:
 	}
 	else if (written > 0) {
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
-			increase_bitpool(this);
+			this->codec->increase_bitpool(this->codec_data);
 			this->last_error = now_time;
 		}
 		if (!spa_list_is_empty(&port->ready))
@@ -654,87 +809,6 @@ static void a2dp_on_timeout(struct spa_source *source)
 	set_timeout(this, this->next_time);
 }
 
-static int init_sbc(struct impl *this)
-{
-        struct spa_bt_transport *transport = this->transport;
-	a2dp_sbc_t *conf;
-
-	spa_return_val_if_fail(transport, -EIO);
-
-	conf = transport->configuration;
-
-	sbc_init(&this->sbc, 0);
-	this->sbc.endian = SBC_LE;
-
-	if (conf->frequency & SBC_SAMPLING_FREQ_48000)
-		this->sbc.frequency = SBC_FREQ_48000;
-	else if (conf->frequency & SBC_SAMPLING_FREQ_44100)
-		this->sbc.frequency = SBC_FREQ_44100;
-	else if (conf->frequency & SBC_SAMPLING_FREQ_32000)
-		this->sbc.frequency = SBC_FREQ_32000;
-	else if (conf->frequency & SBC_SAMPLING_FREQ_16000)
-		this->sbc.frequency = SBC_FREQ_16000;
-	else
-		return -EINVAL;
-
-	if (conf->channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
-		this->sbc.mode = SBC_MODE_JOINT_STEREO;
-	else if (conf->channel_mode & SBC_CHANNEL_MODE_STEREO)
-		this->sbc.mode = SBC_MODE_STEREO;
-	else if (conf->channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
-		this->sbc.mode = SBC_MODE_DUAL_CHANNEL;
-	else if (conf->channel_mode & SBC_CHANNEL_MODE_MONO)
-		this->sbc.mode = SBC_MODE_MONO;
-	else
-		return -EINVAL;
-
-	switch (conf->subbands) {
-	case SBC_SUBBANDS_4:
-		this->sbc.subbands = SBC_SB_4;
-		break;
-	case SBC_SUBBANDS_8:
-		this->sbc.subbands = SBC_SB_8;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (conf->allocation_method & SBC_ALLOCATION_LOUDNESS)
-		this->sbc.allocation = SBC_AM_LOUDNESS;
-	else
-		this->sbc.allocation = SBC_AM_SNR;
-
-	switch (conf->block_length) {
-	case SBC_BLOCK_LENGTH_4:
-		this->sbc.blocks = SBC_BLK_4;
-		break;
-	case SBC_BLOCK_LENGTH_8:
-		this->sbc.blocks = SBC_BLK_8;
-		break;
-	case SBC_BLOCK_LENGTH_12:
-		this->sbc.blocks = SBC_BLK_12;
-		break;
-	case SBC_BLOCK_LENGTH_16:
-		this->sbc.blocks = SBC_BLK_16;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	this->min_bitpool = SPA_MAX(conf->min_bitpool, 12);
-	this->max_bitpool = conf->max_bitpool;
-
-	set_bitpool(this, conf->max_bitpool);
-
-	this->seqnum = 0;
-
-        spa_log_debug(this->log, NAME " %p: codesize %d frame_length %d size %d:%d %d",
-			this, this->codesize, this->frame_length, this->read_size, this->write_size,
-			this->sbc.bitpool);
-
-	return 0;
-}
-
 static int do_start(struct impl *this)
 {
 	int res, val;
@@ -752,7 +826,14 @@ static int do_start(struct impl *this)
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
 
-	init_sbc(this);
+	this->seqnum = 0;
+
+	this->block_size = this->codec->get_block_size(this->codec_data);
+	this->num_blocks = this->codec->get_num_blocks(this->codec_data,
+			this->transport->write_mtu);
+
+        spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
+			this->block_size, this->num_blocks);
 
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
@@ -988,7 +1069,7 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
-		if (this->transport == NULL)
+		if (this->codec_data == NULL)
 			return -EIO;
 
 		switch (this->transport->codec) {
@@ -1325,6 +1406,8 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
+
+	this->codec->deinit(this->codec_data);
 	if (this->transport)
 		spa_hook_remove(&this->transport_listener);
 	spa_system_close(this->data_system, this->timerfd);
@@ -1416,6 +1499,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+
+	this->codec = &codec_sbc;
+
+	this->codec_data = this->codec->init(this->transport->configuration,
+			this->transport->configuration_len);
 
 	return 0;
 }

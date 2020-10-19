@@ -1656,7 +1656,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	loop = mainloop->userdata;
 	context = pw_context_new(loop,
 			pw_properties_new(
-				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				PW_KEY_CONTEXT_PROFILE_MODULES, "default",
 				NULL),
 			sizeof(struct pa_context));
 	if (context == NULL)

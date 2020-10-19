@@ -84,6 +84,26 @@ static inline void add_dict(struct spa_pod_builder *builder, const char *key, co
 	spa_pod_builder_string(builder, val);
 }
 
+static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
+{
+	const char *codec_name;
+	int i;
+
+	if (strstr(endpoint, A2DP_SINK_ENDPOINT "/") == endpoint)
+		codec_name = endpoint + strlen(A2DP_SINK_ENDPOINT "/");
+	else if (strstr(endpoint, A2DP_SOURCE_ENDPOINT "/") == endpoint)
+		codec_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
+	else
+		return NULL;
+
+	for (i = 0; a2dp_codecs[i]; i++) {
+		const struct a2dp_codec *codec = a2dp_codecs[i];
+		if (strcmp(codec->name, codec_name) == 0)
+			return codec;
+	}
+	return NULL;
+}
+
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
@@ -93,7 +113,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	DBusMessage *r;
 	DBusError err;
 	int size, res;
-	struct a2dp_codec *codec;
+	const struct a2dp_codec *codec;
 
 	dbus_error_init(&err);
 
@@ -107,16 +127,12 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	}
 	spa_log_info(monitor->log, "%p: select conf %d", monitor, size);
 
-	if (strstr(path, "/A2DP/SBC/") == path) {
-		codec = &a2dp_codec_sbc;
-	} else if (strstr(path, "/A2DP/MPEG24/") == path) {
-		codec = &a2dp_codec_aac;
-	} else
-		codec = NULL;
-	if (codec == NULL)
+	codec = a2dp_endpoint_to_codec(path);
+	if (codec != NULL)
+		res = codec->select_config(0, cap, size, NULL, config);
+	else
 		res = -ENOTSUP;
 
-	res = codec->select_config(0, cap, size, NULL, config);
 	if (res < 0) {
 		if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
 				"Unable to select configuration")) == NULL)
@@ -901,14 +917,22 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		const char *path, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
-	const char *transport_path;
+	const char *transport_path, *endpoint;
 	DBusMessageIter it[2];
 	DBusMessage *r;
 	struct spa_bt_transport *transport;
 	bool is_new = false;
+	const struct a2dp_codec *codec;
 
 	if (!dbus_message_has_signature(m, "oa{sv}")) {
 		spa_log_warn(monitor->log, "invalid SetConfiguration() signature");
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+	endpoint = dbus_message_get_path(m);
+
+	codec = a2dp_endpoint_to_codec(endpoint);
+	if (codec == NULL) {
+		spa_log_warn(monitor->log, "unknown SetConfiguration() codec");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -928,6 +952,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		spa_bt_transport_set_implementation(transport, &transport_impl, transport);
 	}
 	transport_update_props(transport, &it[1], NULL);
+	transport->a2dp_codec = codec;
 
 	if (transport->device == NULL) {
 		spa_log_warn(monitor->log, "no device found for transport");
@@ -1071,14 +1096,9 @@ static void register_endpoint_reply(DBusPendingCall *pending, void *user_data)
 }
 
 static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
-				  const char *path,
-				  const char *uuid,
-				  enum spa_bt_profile profile,
-				  uint16_t codec,
-				  const void *configuration,
-				  size_t configuration_size)
+		const char *path, const char *uuid,
+		const struct a2dp_codec *codec, const char *endpoint)
 {
-	const char *profile_path;
 	char *object_path, *str;
 	const DBusObjectPathVTable vtable_endpoint = {
 		.message_function = endpoint_handler,
@@ -1086,42 +1106,16 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 	DBusMessage *m;
 	DBusMessageIter it[5];
 	DBusPendingCall *call;
+	uint8_t caps[A2DP_MAX_CAPS_SIZE];
+	uint8_t *pcaps = (uint8_t *) caps;
+	int caps_size;
+	uint16_t codec_id = codec->codec_id;
 
-	switch (profile) {
-	case SPA_BT_PROFILE_A2DP_SOURCE:
-		switch (codec) {
-		case A2DP_CODEC_SBC:
-			profile_path = "/A2DP/SBC/Source";
-			break;
-		case A2DP_CODEC_MPEG24:
-			/* We don't support MPEG24 for now */
-			return -ENOTSUP;
-			/* profile_path = "/A2DP/MPEG24/Source";
-			break; */
-		default:
-			return -ENOTSUP;
-		}
-		break;
-	case SPA_BT_PROFILE_A2DP_SINK:
-		switch (codec) {
-		case A2DP_CODEC_SBC:
-			profile_path = "/A2DP/SBC/Sink";
-			break;
+	caps_size = codec->fill_caps(0, caps);
+	if (caps_size < 0)
+		return caps_size;
 
-		case A2DP_CODEC_MPEG24:
-			/* We don't support MPEG24 for now */
-			return -ENOTSUP;
-			/* profile_path = "/A2DP/MPEG24/Sink";
-			break; */
-		default:
-			return -ENOTSUP;
-		}
-		break;
-	default:
-		return -ENOTSUP;
-	}
-
-	object_path = spa_aprintf("%s/%d", profile_path, monitor->count++);
+	object_path = spa_aprintf("%s/%s", endpoint, codec->name);
 	if (object_path == NULL)
 		return -errno;
 
@@ -1156,7 +1150,7 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 	str = "Codec";
 	dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
 	dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "y", &it[3]);
-	dbus_message_iter_append_basic(&it[3], DBUS_TYPE_BYTE, &codec);
+	dbus_message_iter_append_basic(&it[3], DBUS_TYPE_BYTE, &codec_id);
 	dbus_message_iter_close_container(&it[2], &it[3]);
 	dbus_message_iter_close_container(&it[1], &it[2]);
 
@@ -1166,7 +1160,7 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 	dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "ay", &it[3]);
 	dbus_message_iter_open_container(&it[3], DBUS_TYPE_ARRAY, "y", &it[4]);
 	dbus_message_iter_append_fixed_array (&it[4], DBUS_TYPE_BYTE,
-			&configuration, configuration_size);
+			&pcaps, caps_size);
 	dbus_message_iter_close_container(&it[3], &it[4]);
 	dbus_message_iter_close_container(&it[2], &it[3]);
 	dbus_message_iter_close_container(&it[1], &it[2]);
@@ -1183,39 +1177,19 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 static int adapter_register_endpoints(struct spa_bt_adapter *a)
 {
 	struct spa_bt_monitor *monitor = a->monitor;
-	struct a2dp_codec *codec;
-	uint8_t caps[A2DP_MAX_CAPS_SIZE];
-	int caps_size;
+	int i;
 
-	/* We don't support MPEG24 for now */
-	/*
-	register_a2dp_endpoint(monitor, a->path,
-			       SPA_BT_UUID_A2DP_SOURCE,
-			       SPA_BT_PROFILE_A2DP_SOURCE,
-			       A2DP_CODEC_MPEG24,
-			       &bluez_a2dp_aac, sizeof(bluez_a2dp_aac));
-	register_a2dp_endpoint(monitor, a->path,
-			       SPA_BT_UUID_A2DP_SINK,
-			       SPA_BT_PROFILE_A2DP_SINK,
-			       A2DP_CODEC_MPEG24,
-			       &bluez_a2dp_aac, sizeof(bluez_a2dp_aac));
-	*/
-
-	codec = &a2dp_codec_sbc;
-	caps_size = codec->fill_caps(0, caps);
-	spa_log_info(monitor->log, "register %s config_size:%d",
-			codec->name, caps_size);
-
-	register_a2dp_endpoint(monitor, a->path,
-			       SPA_BT_UUID_A2DP_SOURCE,
-			       SPA_BT_PROFILE_A2DP_SOURCE,
-			       codec->codec_id,
-			       caps, caps_size);
-	register_a2dp_endpoint(monitor, a->path,
-			       SPA_BT_UUID_A2DP_SINK,
-			       SPA_BT_PROFILE_A2DP_SINK,
-			       codec->codec_id,
-			       caps, caps_size);
+	for (i = 0; a2dp_codecs[i]; i++) {
+		const struct a2dp_codec *codec = a2dp_codecs[i];
+		register_a2dp_endpoint(monitor, a->path,
+				SPA_BT_UUID_A2DP_SOURCE,
+				codec,
+				A2DP_SOURCE_ENDPOINT);
+		register_a2dp_endpoint(monitor, a->path,
+				SPA_BT_UUID_A2DP_SINK,
+				codec,
+				A2DP_SINK_ENDPOINT);
+	}
 	return 0;
 }
 

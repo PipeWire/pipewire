@@ -112,6 +112,9 @@ extern "C" {
 #define HFP_AUDIO_CODEC_CVSD    0x01
 #define HFP_AUDIO_CODEC_MSBC    0x02
 
+#define A2DP_SINK_ENDPOINT	"/MediaEndpoint/A2DPSink"
+#define A2DP_SOURCE_ENDPOINT	"/MediaEndpoint/A2DPSource"
+
 enum spa_bt_profile {
         SPA_BT_PROFILE_NULL =		0,
         SPA_BT_PROFILE_A2DP_SINK =	(1 << 0),
@@ -243,6 +246,7 @@ struct spa_bt_transport {
 	struct spa_list device_link;
 	enum spa_bt_profile profile;
 	enum spa_bt_transport_state state;
+	const struct a2dp_codec *a2dp_codec;
 	int codec;
 	void *configuration;
 	int configuration_len;

@@ -50,34 +50,6 @@ const a2dp_mpeg_t bluez_a2dp_mpeg = {
 };
 #endif
 
-#if ENABLE_AAC
-const a2dp_aac_t bluez_a2dp_aac = {
-	.object_type =
-		/* NOTE: AAC Long Term Prediction and AAC Scalable are
-		 *       not supported by the FDK-AAC library. */
-		AAC_OBJECT_TYPE_MPEG2_AAC_LC |
-		AAC_OBJECT_TYPE_MPEG4_AAC_LC,
-	AAC_INIT_FREQUENCY(
-		AAC_SAMPLING_FREQ_8000 |
-		AAC_SAMPLING_FREQ_11025 |
-		AAC_SAMPLING_FREQ_12000 |
-		AAC_SAMPLING_FREQ_16000 |
-		AAC_SAMPLING_FREQ_22050 |
-		AAC_SAMPLING_FREQ_24000 |
-		AAC_SAMPLING_FREQ_32000 |
-		AAC_SAMPLING_FREQ_44100 |
-		AAC_SAMPLING_FREQ_48000 |
-		AAC_SAMPLING_FREQ_64000 |
-		AAC_SAMPLING_FREQ_88200 |
-		AAC_SAMPLING_FREQ_96000)
-	.channels =
-		AAC_CHANNELS_1 |
-		AAC_CHANNELS_2,
-	.vbr = 1,
-	AAC_INIT_BITRATE(0xFFFF)
-};
-#endif
-
 #if ENABLE_APTX
 const a2dp_aptx_t bluez_a2dp_aptx = {
 	.info.vendor_id = APTX_VENDOR_ID,
@@ -95,3 +67,29 @@ const a2dp_aptx_t bluez_a2dp_aptx = {
 		APTX_SAMPLING_FREQ_48000,
 };
 #endif
+
+extern struct a2dp_codec a2dp_codec_sbc;
+#if ENABLE_AAC
+extern struct a2dp_codec a2dp_codec_aac;
+#endif
+#if ENABLE_MP3
+extern struct a2dp_codec a2dp_codec_mpeg;
+#endif
+#if ENABLE_APTX
+extern struct a2dp_codec a2dp_codec_aptx;
+#endif
+
+const struct a2dp_codec *a2dp_codec_list[] = {
+	&a2dp_codec_sbc,
+#if ENABLE_AAC
+	&a2dp_codec_aac,
+#endif
+#if ENABLE_MP3
+	&a2dp_codec_mpeg,
+#endif
+#if ENABLE_APTX
+	&a2dp_codec_aptx,
+#endif
+	NULL,
+};
+const struct a2dp_codec **a2dp_codecs = a2dp_codec_list;

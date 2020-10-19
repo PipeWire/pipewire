@@ -325,14 +325,6 @@ struct a2dp_codec {
 	int (*increase_bitpool) (void *data);
 };
 
-extern struct a2dp_codec a2dp_codec_sbc;
-extern struct a2dp_codec a2dp_codec_aac;
-
-#if ENABLE_MP3
-extern const a2dp_mpeg_t bluez_a2dp_mpeg;
-#endif
-#if ENABLE_APTX
-extern const a2dp_aptx_t bluez_a2dp_aptx;
-#endif
+extern const struct a2dp_codec **a2dp_codecs;
 
 #endif

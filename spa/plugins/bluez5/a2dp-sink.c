@@ -127,7 +127,7 @@ struct impl {
 	uint64_t next_time;
 	uint64_t last_error;
 
-	struct a2dp_codec *codec;
+	const struct a2dp_codec *codec;
 	void *codec_data;
 	struct spa_audio_info codec_format;
 
@@ -1251,13 +1251,18 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a transport is needed");
 		return -EINVAL;
 	}
+	if (this->transport->a2dp_codec == NULL) {
+		spa_log_error(this->log, "a transport codec is needed");
+		return -EINVAL;
+	}
+	this->codec = this->transport->a2dp_codec;
+
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
-	this->codec = &a2dp_codec_sbc;
 	this->codec_data = this->codec->init(0, this->transport->configuration,
 			this->transport->configuration_len,
 			&this->codec_format);

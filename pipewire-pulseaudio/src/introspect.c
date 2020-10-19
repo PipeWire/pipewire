@@ -838,7 +838,6 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 
 	pw_log_debug("source %d %s monitor:%d", g->id, i.name, monitor);
 
-	i.index = g->id;
 	if ((str = pa_proplist_gets(i.proplist, PW_KEY_NODE_DESCRIPTION)))
 		i.description = str;
 	else
@@ -859,10 +858,11 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
 	i.mute = g->node_info.mute;
 	if (monitor) {
+		i.index = g->node_info.monitor;
 		i.monitor_of_sink = g->id;
 		i.monitor_of_sink_name = pa_context_find_global_name(c, g->id);
-		i.index = g->node_info.monitor;
 	} else {
+		i.index = g->id;
 		i.monitor_of_sink = PA_INVALID_INDEX;
 		i.monitor_of_sink_name = NULL;
 		if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)))

@@ -546,7 +546,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 {
 	struct spa_dict *props;
 	const char *str;
-	bool exclusive, reconnect;
+	bool exclusive, reconnect, autoconnect;
 	struct find_data find;
 	struct pw_node_info *info;
 	struct node *peer;
@@ -582,8 +582,15 @@ static int rescan_node(struct impl *impl, struct node *n)
         if ((str = spa_dict_lookup(props, PW_KEY_STREAM_MONITOR)) != NULL)
 		n->monitor = pw_properties_parse_bool(str);
 
-        str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT);
-        if (str == NULL || !pw_properties_parse_bool(str)) {
+	autoconnect = false;
+	if ((str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT)) != NULL)
+		autoconnect = pw_properties_parse_bool(str);
+
+	if ((str = spa_dict_lookup(props, PW_KEY_DEVICE_API)) != NULL &&
+	    strcmp(str, "bluez5") == 0)
+		autoconnect = true;
+
+	if (!autoconnect) {
 		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, n->id);
 		configure_node(n, NULL, false);
 		return 0;

@@ -129,6 +129,7 @@ struct impl {
 
 	struct codec *codec;
 	void *codec_data;
+	struct spa_audio_info codec_format;
 
 	int block_size;
 	int num_blocks;
@@ -144,7 +145,12 @@ struct impl {
 
 
 struct codec {
-	void *(*init) (void *config, size_t config_len);
+	void *(*fill_caps) (uint32_t flags, uint8_t caps[A2DP_MAX_CONFIG_SIZE]);
+	void *(*select_config) (uint32_t flags, const void *caps, size_t caps_size,
+			const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CONFIG_SIZE]);
+
+	void *(*init) (uint32_t flags, void *config, size_t config_size, struct spa_audio_info *info);
+
 	void (*deinit) (void *data);
 	int (*reduce_bitpool) (void *data);
 	int (*increase_bitpool) (void *data);
@@ -173,19 +179,9 @@ struct impl_sbc {
 
 static int codec_sbc_set_bitpool(struct impl_sbc *this, int bitpool)
 {
-	if (bitpool < this->min_bitpool)
-		bitpool = this->min_bitpool;
-	if (bitpool > this->max_bitpool)
-		bitpool = this->max_bitpool;
-
-	if (this->sbc.bitpool == bitpool)
-		return 0;
-
-	this->sbc.bitpool = bitpool;
-
+	this->sbc.bitpool = SPA_CLAMP(bitpool, this->min_bitpool, this->max_bitpool);
 	this->codesize = sbc_get_codesize(&this->sbc);
 	this->frame_length = sbc_get_frame_length(&this->sbc);
-
 	return 0;
 }
 
@@ -219,7 +215,7 @@ static int codec_sbc_get_block_size(void *data)
 	return this->codesize;
 }
 
-static void *codec_sbc_init(void *config, size_t config_len)
+static void *codec_sbc_init(uint32_t flags, void *config, size_t config_len, struct spa_audio_info *info)
 {
 	struct impl_sbc *this;
 	a2dp_sbc_t *conf = config;
@@ -234,30 +230,63 @@ static void *codec_sbc_init(void *config, size_t config_len)
 	sbc_init(&this->sbc, 0);
 	this->sbc.endian = SBC_LE;
 
-	if (conf->frequency & SBC_SAMPLING_FREQ_48000)
-		this->sbc.frequency = SBC_FREQ_48000;
-	else if (conf->frequency & SBC_SAMPLING_FREQ_44100)
-		this->sbc.frequency = SBC_FREQ_44100;
-	else if (conf->frequency & SBC_SAMPLING_FREQ_32000)
-		this->sbc.frequency = SBC_FREQ_32000;
-	else if (conf->frequency & SBC_SAMPLING_FREQ_16000)
-		this->sbc.frequency = SBC_FREQ_16000;
-	else {
-		res = -EINVAL;
-		goto error;
-	}
+	spa_zero(*info);
+	info->media_type = SPA_MEDIA_TYPE_audio;
+	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
 
-	if (conf->channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
-		this->sbc.mode = SBC_MODE_JOINT_STEREO;
-	else if (conf->channel_mode & SBC_CHANNEL_MODE_STEREO)
-		this->sbc.mode = SBC_MODE_STEREO;
-	else if (conf->channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
-		this->sbc.mode = SBC_MODE_DUAL_CHANNEL;
-	else if (conf->channel_mode & SBC_CHANNEL_MODE_MONO)
-		this->sbc.mode = SBC_MODE_MONO;
-	else {
+	switch (conf->frequency) {
+	case SBC_SAMPLING_FREQ_16000:
+		this->sbc.frequency = SBC_FREQ_16000;
+                info->info.raw.rate = 16000;
+		break;
+	case SBC_SAMPLING_FREQ_32000:
+		this->sbc.frequency = SBC_FREQ_32000;
+                info->info.raw.rate = 32000;
+		break;
+	case SBC_SAMPLING_FREQ_44100:
+		this->sbc.frequency = SBC_FREQ_44100;
+                info->info.raw.rate = 44100;
+		break;
+	case SBC_SAMPLING_FREQ_48000:
+		this->sbc.frequency = SBC_FREQ_48000;
+                info->info.raw.rate = 48000;
+		break;
+	default:
 		res = -EINVAL;
-		goto error;
+                goto error;
+        }
+
+	switch (conf->channel_mode) {
+	case SBC_CHANNEL_MODE_MONO:
+		this->sbc.mode = SBC_MODE_MONO;
+                info->info.raw.channels = 1;
+                break;
+	case SBC_CHANNEL_MODE_DUAL_CHANNEL:
+		this->sbc.mode = SBC_MODE_DUAL_CHANNEL;
+                info->info.raw.channels = 2;
+		break;
+	case SBC_CHANNEL_MODE_STEREO:
+		this->sbc.mode = SBC_MODE_STEREO;
+                info->info.raw.channels = 2;
+		break;
+	case SBC_CHANNEL_MODE_JOINT_STEREO:
+		this->sbc.mode = SBC_MODE_JOINT_STEREO;
+                info->info.raw.channels = 2;
+                break;
+	default:
+		res = -EINVAL;
+                goto error;
+        }
+
+	switch (info->info.raw.channels) {
+	case 1:
+		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_MONO;
+		break;
+	case 2:
+		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+		info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+		break;
 	}
 
 	switch (conf->subbands) {
@@ -1074,42 +1103,14 @@ impl_node_port_enum_params(void *object, int seq,
 
 		switch (this->transport->codec) {
 		case A2DP_CODEC_SBC:
-		{
-			a2dp_sbc_t *config = this->transport->configuration;
-			struct spa_audio_info_raw info = { 0, };
-			int res;
-
-			info.format = SPA_AUDIO_FORMAT_S16;
-			if ((res = a2dp_sbc_get_frequency(config)) < 0)
-				return -EIO;
-			info.rate = res;
-			if ((res = a2dp_sbc_get_channels(config)) < 0)
-				return -EIO;
-			info.channels = res;
-
-			switch (info.channels) {
-			case 1:
-				info.position[0] = SPA_AUDIO_CHANNEL_MONO;
-				break;
-			case 2:
-				info.position[0] = SPA_AUDIO_CHANNEL_FL;
-				info.position[1] = SPA_AUDIO_CHANNEL_FR;
-				break;
-			default:
-				return -EIO;
-			}
-
-			param = spa_format_audio_raw_build(&b, id, &info);
+			param = spa_format_audio_raw_build(&b, id, &this->codec_format.info.raw);
 			break;
-		}
 		case A2DP_CODEC_MPEG24:
-		{
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, id,
 				SPA_FORMAT_mediaType,     SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,  SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac));
 			break;
-		}
 		default:
 			return -EIO;
 		}
@@ -1502,8 +1503,9 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->codec = &codec_sbc;
 
-	this->codec_data = this->codec->init(this->transport->configuration,
-			this->transport->configuration_len);
+	this->codec_data = this->codec->init(0, this->transport->configuration,
+			this->transport->configuration_len,
+			&this->codec_format);
 
 	return 0;
 }

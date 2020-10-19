@@ -155,6 +155,8 @@
 #define LDAC_VENDOR_ID			0x0000012d
 #define LDAC_CODEC_ID			0x00aa
 
+#define A2DP_MAX_CONFIG_SIZE		254
+
 typedef struct {
 	uint32_t vendor_id;
 	uint16_t codec_id;

@@ -578,7 +578,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = now_time;
 		this->clock->position += duration;
-		this->clock->position = duration;
+		this->clock->duration = duration;
 		this->clock->delay = 0;
 		this->clock->rate_diff = 1.0f;
 		this->clock->next_nsec = this->next_time;

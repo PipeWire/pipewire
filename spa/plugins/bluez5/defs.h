@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+#include <spa/support/plugin.h>
+#include <spa/support/loop.h>
 #include <spa/utils/hook.h>
 
 #include "config.h"

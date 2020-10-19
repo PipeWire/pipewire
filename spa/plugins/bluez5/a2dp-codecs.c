@@ -10,32 +10,6 @@
 
 #include "a2dp-codecs.h"
 
-const a2dp_sbc_t bluez_a2dp_sbc = {
-	.frequency =
-		SBC_SAMPLING_FREQ_16000 |
-		SBC_SAMPLING_FREQ_32000 |
-		SBC_SAMPLING_FREQ_44100 |
-		SBC_SAMPLING_FREQ_48000,
-	.channel_mode =
-		SBC_CHANNEL_MODE_MONO |
-		SBC_CHANNEL_MODE_DUAL_CHANNEL |
-		SBC_CHANNEL_MODE_STEREO |
-		SBC_CHANNEL_MODE_JOINT_STEREO,
-	.block_length =
-		SBC_BLOCK_LENGTH_4 |
-		SBC_BLOCK_LENGTH_8 |
-		SBC_BLOCK_LENGTH_12 |
-		SBC_BLOCK_LENGTH_16,
-	.subbands =
-		SBC_SUBBANDS_4 |
-		SBC_SUBBANDS_8,
-	.allocation_method =
-		SBC_ALLOCATION_SNR |
-		SBC_ALLOCATION_LOUDNESS,
-	.min_bitpool = MIN_BITPOOL,
-	.max_bitpool = MAX_BITPOOL,
-};
-
 #if ENABLE_MP3
 const a2dp_mpeg_t bluez_a2dp_mpeg = {
 	.layer =

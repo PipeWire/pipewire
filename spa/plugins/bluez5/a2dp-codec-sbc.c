@@ -368,15 +368,30 @@ static int codec_start_encode (void *data,
 static int codec_encode(void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
-		size_t *encoded)
+		size_t *dst_out)
 {
 	struct impl *this = data;
 	int res;
 
 	res = sbc_encode(&this->sbc, src, src_size,
-			dst, dst_size, encoded);
+			dst, dst_size, dst_out);
+
 	if (res >= this->codesize)
 		this->payload->frame_count += res / this->codesize;
+
+	return res;
+}
+
+static int codec_decode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out)
+{
+	struct impl *this = data;
+	int res;
+
+	res = sbc_decode(&this->sbc, src, src_size,
+			dst, dst_size, dst_out);
 
 	return res;
 }
@@ -393,6 +408,7 @@ struct a2dp_codec a2dp_codec_sbc = {
 	.get_num_blocks = codec_get_num_blocks,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
+	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
 };

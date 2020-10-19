@@ -4797,6 +4797,8 @@ int jack_midi_event_get(jack_midi_event_t *event,
 	struct midi_event *ev = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
 	spa_return_val_if_fail(mb != NULL, -EINVAL);
 	spa_return_val_if_fail(ev != NULL, -EINVAL);
+	if (event_index >= mb->event_count)
+		return -ENOBUFS;
 	ev += event_index;
 	event->time = ev->time;
 	event->size = ev->size;

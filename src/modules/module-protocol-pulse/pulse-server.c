@@ -163,6 +163,7 @@ struct server {
 struct impl {
 	struct pw_loop *loop;
 	struct pw_context *context;
+	struct spa_hook context_listener;
 
 	struct pw_properties *props;
 
@@ -2963,12 +2964,29 @@ error:
 static void impl_free(struct impl *impl)
 {
 	struct server *s;
+	if (impl->context)
+		spa_hook_remove(&impl->context_listener);
 	spa_list_consume(s, &impl->servers, link)
 		server_free(s);
 	if (impl->props)
 		pw_properties_free(impl->props);
 	free(impl);
 }
+
+static void context_destroy(void *data)
+{
+	struct impl *impl = data;
+	struct server *s;
+	spa_list_consume(s, &impl->servers, link)
+		server_free(s);
+	spa_hook_remove(&impl->context_listener);
+	impl->context = NULL;
+}
+
+static const struct pw_context_events context_events = {
+	PW_VERSION_CONTEXT_EVENTS,
+	.destroy = context_destroy,
+};
 
 struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		struct pw_properties *props, size_t user_data_size)
@@ -2986,6 +3004,9 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	impl->loop = pw_context_get_main_loop(context);
 	impl->props = props;
 	spa_list_init(&impl->servers);
+
+	pw_context_add_listener(context, &impl->context_listener,
+			&context_events, impl);
 
 	impl->default_sink = (struct device) {
 		.index = 1,

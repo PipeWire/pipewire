@@ -623,6 +623,64 @@ static int send_command_request(struct stream *stream)
 	return send_message(client, msg);
 }
 
+static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *ss)
+{
+	uint64_t u;
+	u = (uint64_t) usec * (uint64_t) ss->rate;
+	u = (u + 1000000UL - 1) / 1000000UL;
+	u *= sample_spec_frame_size(ss);
+	return (uint32_t) u;
+}
+
+static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
+{
+	uint32_t frame_size, max_prebuf, minreq;
+
+	frame_size = s->frame_size;
+
+	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
+		attr->maxlength = MAXLENGTH;
+	attr->maxlength -= attr->maxlength % frame_size;
+	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
+
+	if (attr->tlength == (uint32_t) -1)
+		attr->tlength = usec_to_bytes_round_up(DEFAULT_TLENGTH_MSEC*1000, &s->ss);
+	if (attr->tlength > attr->maxlength)
+		attr->tlength = attr->maxlength;
+	attr->tlength -= attr->tlength % frame_size;
+	attr->tlength = SPA_MAX(attr->tlength, frame_size);
+
+	if (attr->minreq == (uint32_t) -1) {
+		uint32_t process = usec_to_bytes_round_up(DEFAULT_PROCESS_MSEC*1000, &s->ss);
+		/* With low-latency, tlength/4 gives a decent default in all of traditional,
+		 * adjust latency and early request modes. */
+		uint32_t m = attr->tlength / 4;
+		m -= m % frame_size;
+		attr->minreq = SPA_MIN(process, m);
+	}
+	minreq = usec_to_bytes_round_up(MIN_USEC, &s->ss);
+	attr->minreq = SPA_MAX(attr->minreq, minreq);
+
+	if (attr->tlength < attr->minreq+frame_size)
+		attr->tlength = attr->minreq + frame_size;
+
+	attr->minreq -= attr->minreq % frame_size;
+	if (attr->minreq <= 0) {
+		attr->minreq = frame_size;
+		attr->tlength += frame_size*2;
+	}
+	if (attr->tlength <= attr->minreq)
+		attr->tlength = attr->minreq*2 + frame_size;
+
+	max_prebuf = attr->tlength + frame_size - attr->minreq;
+	if (attr->prebuf == (uint32_t) -1 || attr->prebuf > max_prebuf)
+		attr->prebuf = max_prebuf;
+	attr->prebuf -= attr->prebuf % frame_size;
+	attr->prebuf = SPA_MAX(attr->prebuf, frame_size);
+
+	pw_log_info(NAME" %p: maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
+			attr->maxlength, attr->tlength, attr->minreq, attr->prebuf);
+}
 
 static int reply_create_playback_stream(struct stream *stream)
 {
@@ -630,6 +688,18 @@ static int reply_create_playback_stream(struct stream *stream)
 	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t size;
+	struct spa_dict_item items[1];
+	char latency[32];
+
+	fix_playback_buffer_attr(stream, &stream->attr);
+
+	snprintf(latency, sizeof(latency)-1, "%u/%u",
+			stream->attr.minreq * 2 / stream->frame_size,
+			stream->ss.rate);
+
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	pw_stream_update_properties(stream->stream,
+			&SPA_DICT_INIT(items, 1));
 
 	size = writable_size(stream, 0);
 
@@ -678,11 +748,49 @@ static int reply_create_playback_stream(struct stream *stream)
 	return send_message(client, reply);
 }
 
+static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
+{
+	uint32_t frame_size, minfrag;
+
+	frame_size = s->frame_size;
+
+	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
+		attr->maxlength = MAXLENGTH;
+	attr->maxlength -= attr->maxlength % frame_size;
+	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
+
+	minfrag = usec_to_bytes_round_up(MIN_USEC, &s->ss);
+
+	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
+		attr->fragsize = usec_to_bytes_round_up(DEFAULT_FRAGSIZE_MSEC*1000, &s->ss);
+	attr->fragsize -= attr->fragsize % frame_size;
+	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
+	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
+
+	if (attr->fragsize > attr->maxlength)
+		attr->fragsize = attr->maxlength;
+
+	pw_log_info(NAME" %p: maxlength:%u fragsize:%u minfrag:%u", s,
+			attr->maxlength, attr->fragsize, minfrag);
+}
+
 static int reply_create_record_stream(struct stream *stream)
 {
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 	struct message *reply;
+	struct spa_dict_item items[1];
+	char latency[32];
+
+	fix_record_buffer_attr(stream, &stream->attr);
+
+	snprintf(latency, sizeof(latency)-1, "%u/%u",
+			stream->attr.fragsize / stream->frame_size,
+			stream->ss.rate);
+
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	pw_stream_update_properties(stream->stream,
+			&SPA_DICT_INIT(items, 1));
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
@@ -801,6 +909,10 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	pw_log_info(NAME" %p: got rate:%u channels:%u", stream, stream->ss.rate, stream->ss.channels);
 
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
+	if (stream->frame_size == 0) {
+		pw_stream_set_error(stream->stream, res, "format not supported");
+		return;
+	}
 
 	if (stream->create_tag != SPA_ID_INVALID) {
 		if (stream->volume_set) {
@@ -956,68 +1068,6 @@ static const struct pw_stream_events stream_events =
 	.drained = stream_drained,
 };
 
-static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *ss)
-{
-	uint64_t u;
-	u = (uint64_t) usec * (uint64_t) ss->rate;
-	u = (u + 1000000UL - 1) / 1000000UL;
-	u *= sample_spec_frame_size(ss);
-	return (uint32_t) u;
-}
-
-static int fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
-{
-	uint32_t frame_size, max_prebuf, minreq;
-
-	frame_size = s->frame_size;
-	if (frame_size == 0)
-		return -EIO;
-
-	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
-		attr->maxlength = MAXLENGTH;
-	attr->maxlength -= attr->maxlength % frame_size;
-	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
-
-	if (attr->tlength == (uint32_t) -1)
-		attr->tlength = usec_to_bytes_round_up(DEFAULT_TLENGTH_MSEC*1000, &s->ss);
-	if (attr->tlength > attr->maxlength)
-		attr->tlength = attr->maxlength;
-	attr->tlength -= attr->tlength % frame_size;
-	attr->tlength = SPA_MAX(attr->tlength, frame_size);
-
-	if (attr->minreq == (uint32_t) -1) {
-		uint32_t process = usec_to_bytes_round_up(DEFAULT_PROCESS_MSEC*1000, &s->ss);
-		/* With low-latency, tlength/4 gives a decent default in all of traditional,
-		 * adjust latency and early request modes. */
-		uint32_t m = attr->tlength / 4;
-		m -= m % frame_size;
-		attr->minreq = SPA_MIN(process, m);
-	}
-	minreq = usec_to_bytes_round_up(MIN_USEC, &s->ss);
-	attr->minreq = SPA_MAX(attr->minreq, minreq);
-
-	if (attr->tlength < attr->minreq+frame_size)
-		attr->tlength = attr->minreq + frame_size;
-
-	attr->minreq -= attr->minreq % frame_size;
-	if (attr->minreq <= 0) {
-		attr->minreq = frame_size;
-		attr->tlength += frame_size*2;
-	}
-	if (attr->tlength <= attr->minreq)
-		attr->tlength = attr->minreq*2 + frame_size;
-
-	max_prebuf = attr->tlength + frame_size - attr->minreq;
-	if (attr->prebuf == (uint32_t) -1 || attr->prebuf > max_prebuf)
-		attr->prebuf = max_prebuf;
-	attr->prebuf -= attr->prebuf % frame_size;
-	attr->prebuf = SPA_MAX(attr->prebuf, frame_size);
-
-	pw_log_info(NAME" %p: maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
-			attr->maxlength, attr->tlength, attr->minreq, attr->prebuf);
-	return 0;
-}
-
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -1048,11 +1098,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	struct cvolume volume;
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
-	struct format_info *formats = NULL;
 	struct stream *stream = NULL;
-	struct spa_audio_info_raw info;
-	uint32_t n_params, flags;
-	const struct spa_pod *params[1];
+	uint32_t n_params = 0, flags;
+	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *str;
@@ -1134,6 +1182,12 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_INVALID)) < 0)
 			goto error;
 	}
+
+	if (sample_spec_valid(&ss)) {
+		if ((params[n_params] = format_build_param(&b,
+				SPA_PARAM_EnumFormat, &ss, &map)) != NULL)
+			n_params++;
+	}
 	if (client->version >= 21) {
 		if ((res = message_get(m,
 				TAG_U8, &n_formats,
@@ -1142,12 +1196,16 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 		if (n_formats) {
 			uint8_t i;
-			formats = calloc(n_formats, sizeof(struct format_info));
 			for (i = 0; i < n_formats; i++) {
+				struct format_info format;
 				if ((res = message_get(m,
-						TAG_FORMAT_INFO, &formats[i],
+						TAG_FORMAT_INFO, &format,
 						TAG_INVALID)) < 0)
 					goto error;
+
+				if ((params[n_params] = format_info_build_param(&b,
+						SPA_PARAM_EnumFormat, &format)) != NULL)
+					n_params++;
 			}
 		}
 	}
@@ -1182,16 +1240,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->volume_set = volume_set;
 	stream->muted = muted;
 	stream->muted_set = muted_set;
-
-	stream->frame_size = sample_spec_frame_size(&stream->ss);
-
-	if ((res = fix_playback_buffer_attr(stream, &attr)) < 0)
-		goto error;
-
 	stream->attr = attr;
-
-	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
-			stream->attr.minreq * 2 / stream->frame_size, ss.rate);
 
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_ROLE)) != NULL) {
 		if (strcmp(str, "video") == 0)
@@ -1232,13 +1281,6 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			&stream->stream_listener,
 			&stream_events, stream);
 
-        info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = format_pa2id(ss.format),
-			.channels = ss.channels,
-			.rate = ss.rate);
-	n_params = 0;
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
-
 	pw_stream_connect(stream->stream,
 			PW_DIRECTION_OUTPUT,
 			SPA_ID_INVALID,
@@ -1256,35 +1298,6 @@ error:
 	if (stream)
 		stream_free(stream);
 	return res;
-}
-
-static int fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
-{
-	uint32_t frame_size, minfrag;
-
-	frame_size = s->frame_size;
-	if (frame_size == 0)
-		return -EIO;
-
-	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
-		attr->maxlength = MAXLENGTH;
-	attr->maxlength -= attr->maxlength % frame_size;
-	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
-
-	minfrag = usec_to_bytes_round_up(MIN_USEC, &s->ss);
-
-	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
-		attr->fragsize = usec_to_bytes_round_up(DEFAULT_FRAGSIZE_MSEC*1000, &s->ss);
-	attr->fragsize -= attr->fragsize % frame_size;
-	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
-	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
-
-	if (attr->fragsize > attr->maxlength)
-		attr->fragsize = attr->maxlength;
-
-	pw_log_info(NAME" %p: maxlength:%u fragsize:%u minfrag:%u", s,
-			attr->maxlength, attr->fragsize, minfrag);
-	return 0;
 }
 
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -1319,11 +1332,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct cvolume volume;
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
-	struct format_info *formats = NULL;
 	struct stream *stream = NULL;
-	struct spa_audio_info_raw info;
-	uint32_t n_params, flags;
-	const struct spa_pod *params[1];
+	uint32_t n_params = 0, flags;
+	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -1387,6 +1398,11 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_INVALID)) < 0)
 			goto error;
 	}
+	if (sample_spec_valid(&ss)) {
+		if ((params[n_params] = format_build_param(&b,
+				SPA_PARAM_EnumFormat, &ss, &map)) != NULL)
+			n_params++;
+	}
 	if (client->version >= 22) {
 		if ((res = message_get(m,
 				TAG_U8, &n_formats,
@@ -1395,12 +1411,16 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 		if (n_formats) {
 			uint8_t i;
-			formats = calloc(n_formats, sizeof(struct format_info));
 			for (i = 0; i < n_formats; i++) {
+				struct format_info format;
 				if ((res = message_get(m,
-						TAG_FORMAT_INFO, &formats[i],
+						TAG_FORMAT_INFO, &format,
 						TAG_INVALID)) < 0)
 					goto error;
+
+				if ((params[n_params] = format_info_build_param(&b,
+						SPA_PARAM_EnumFormat, &format)) != NULL)
+					n_params++;
 			}
 		}
 		if ((res = message_get(m,
@@ -1444,16 +1464,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->volume_set = volume_set;
 	stream->muted = muted;
 	stream->muted_set = muted_set;
-
-	stream->frame_size = sample_spec_frame_size(&stream->ss);
-
-	if ((res = fix_record_buffer_attr(stream, &attr)) < 0)
-		goto error;
-
 	stream->attr = attr;
-
-	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
-			stream->attr.fragsize / stream->frame_size, ss.rate);
 
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
@@ -1470,14 +1481,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	pw_stream_add_listener(stream->stream,
 			&stream->stream_listener,
 			&stream_events, stream);
-
-        info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = format_pa2id(ss.format),
-			.channels = ss.channels,
-			.rate = ss.rate);
-
-	n_params = 0;
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 
 	pw_stream_connect(stream->stream,
 			PW_DIRECTION_INPUT,

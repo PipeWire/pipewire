@@ -129,6 +129,7 @@ struct stream {
 	uint64_t ticks_base;
 	struct timeval timestamp;
 	int64_t delay;
+	uint32_t pending;
 
 	struct sample_spec ss;
 	struct channel_map map;
@@ -548,6 +549,7 @@ static inline uint32_t writable_size(const struct stream *s, uint64_t elapsed)
 
 	queued = queued_size(s, elapsed);
 	target = target_queue(s);
+	target -= SPA_MIN(target, s->pending);
 	wanted = wanted_size(s, queued, target);
 	required = required_size(s);
 
@@ -616,6 +618,8 @@ static int send_command_request(struct stream *stream)
 		TAG_U32, size,
 		TAG_INVALID);
 
+	stream->pending += size;
+
 	return send_message(client, msg);
 }
 
@@ -635,6 +639,8 @@ static int reply_create_playback_stream(struct stream *stream)
 		TAG_U32, stream->channel,	/* sink_input/stream index */
 		TAG_U32, size,			/* missing/requested bytes */
 		TAG_INVALID);
+
+	stream->pending = size;
 
 	if (client->version >= 9) {
 		message_put(reply,
@@ -2614,6 +2620,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 		spa_ringbuffer_write_update(&stream->ring,
 				index + msg->length);
 		stream->write_index += msg->length;
+		stream->pending -= SPA_MIN(stream->pending, msg->length);
 	}
 	res = 0;
 finish:

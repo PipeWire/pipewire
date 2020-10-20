@@ -2498,6 +2498,13 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_REGISTER_MEMFD_SHMID] = { "REGISTER_MEMFD_SHMID", do_error_access, },
 };
 
+static int client_free_stream(void *item, void *data)
+{
+	struct stream *s = item;
+	stream_free(s);
+	return 0;
+}
+
 static void client_free(struct client *client)
 {
 	struct impl *impl = client->impl;
@@ -2505,6 +2512,8 @@ static void client_free(struct client *client)
 
 	pw_log_info(NAME" %p: client %p free", impl, client);
 	spa_list_remove(&client->link);
+
+	pw_map_for_each(&client->streams, client_free_stream, client);
 	pw_map_clear(&client->streams);
 
 	spa_list_consume(msg, &client->free_messages, link)

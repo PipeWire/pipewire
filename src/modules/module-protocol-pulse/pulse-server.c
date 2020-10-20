@@ -181,14 +181,18 @@ struct command {
 };
 static const struct command commands[COMMAND_MAX];
 
-static void message_free(struct client *client, struct message *msg, bool destroy)
+static void message_free(struct client *client, struct message *msg, bool dequeue, bool destroy)
 {
-	spa_list_remove(&msg->link);
+	if (dequeue)
+		spa_list_remove(&msg->link);
 	if (destroy) {
+		pw_log_trace("destroy message %p", msg);
 		free(msg->data);
 		free(msg);
-	} else
+	} else {
+		pw_log_trace("recycle message %p", msg);
 		spa_list_append(&client->free_messages, &msg->link);
+	}
 }
 
 static struct message *message_alloc(struct client *client, uint32_t channel, uint32_t size)
@@ -198,9 +202,12 @@ static struct message *message_alloc(struct client *client, uint32_t channel, ui
 	if (!spa_list_is_empty(&client->free_messages)) {
 		msg = spa_list_first(&client->free_messages, struct message, link);
 		spa_list_remove(&msg->link);
+		pw_log_trace("using recycled message %p", msg);
 	}
-	if (msg == NULL)
+	if (msg == NULL) {
 		msg = calloc(1, sizeof(struct message));
+		pw_log_trace("new message %p", msg);
+	}
 	if (msg == NULL)
 		return NULL;
 	ensure_size(msg, size);
@@ -238,7 +245,7 @@ static int flush_messages(struct client *client)
 			data = m->data + idx;
 			size = m->length - idx;
 		} else {
-			message_free(client, m, false);
+			message_free(client, m, true, false);
 			client->out_index = 0;
 			continue;
 		}
@@ -2501,9 +2508,9 @@ static void client_free(struct client *client)
 	pw_map_clear(&client->streams);
 
 	spa_list_consume(msg, &client->free_messages, link)
-		message_free(client, msg, true);
+		message_free(client, msg, true, true);
 	spa_list_consume(msg, &client->out_messages, link)
-		message_free(client, msg, true);
+		message_free(client, msg, true, true);
 	if (client->core) {
 		client->disconnecting = true;
 		pw_core_disconnect(client->core);
@@ -2551,8 +2558,8 @@ static int handle_packet(struct client *client, struct message *msg)
 		pw_log_error(NAME" %p: command %d (%s) error: %s",
 				impl, command, commands[command].name, spa_strerror(res));
 	}
-
 finish:
+	message_free(client, msg, false, false);
 	return res;
 }
 
@@ -2563,6 +2570,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 	uint32_t channel, flags, index;
 	int64_t offset;
 	int32_t filled;
+	int res;
 
 	channel = ntohl(client->desc.channel);
 	offset = (int64_t) (
@@ -2575,8 +2583,10 @@ static int handle_memblock(struct client *client, struct message *msg)
 			flags, msg->length);
 
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL)
-		return -EINVAL;
+	if (stream == NULL) {
+		res = -EINVAL;
+		goto finish;
+	}
 
 	pw_log_debug("new block %p %p/%u", msg, msg->data, msg->length);
 
@@ -2596,9 +2606,10 @@ static int handle_memblock(struct client *client, struct message *msg)
 				index + msg->length);
 		stream->write_index += msg->length;
 	}
-	message_free(client, msg, false);
-
-	return 0;
+	res = 0;
+finish:
+	message_free(client, msg, false, false);
+	return res;
 }
 
 static int do_read(struct client *client)
@@ -2659,7 +2670,7 @@ static int do_read(struct client *client)
 			}
 		}
 		if (client->message)
-			message_free(client, client->message, false);
+			message_free(client, client->message, false, false);
 		client->message = message_alloc(client, channel, length);
 	} else if (client->message &&
 	    client->in_index >= client->message->length + sizeof(client->desc)) {

@@ -1781,7 +1781,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 
 	if ((res = message_get(m,
 			TAG_U32, &mode,
-			TAG_PROPLIST, &props,
+			TAG_PROPLIST, props,
 			TAG_INVALID)) < 0)
 		goto exit;
 

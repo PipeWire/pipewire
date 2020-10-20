@@ -1103,6 +1103,52 @@ static int setup_midifile(struct data *data)
 	return 0;
 }
 
+static int fill_properties(struct data *data)
+{
+	static const char* table[] = {
+		[SF_STR_TITLE] = PW_KEY_MEDIA_TITLE,
+		[SF_STR_COPYRIGHT] = PW_KEY_MEDIA_COPYRIGHT,
+		[SF_STR_SOFTWARE] = PW_KEY_MEDIA_SOFTWARE,
+		[SF_STR_ARTIST] = PW_KEY_MEDIA_ARTIST,
+		[SF_STR_COMMENT] = PW_KEY_MEDIA_COMMENT,
+		[SF_STR_DATE] = PW_KEY_MEDIA_DATE
+	};
+	SF_INFO sfi;
+	SF_FORMAT_INFO fi;
+	int res;
+	unsigned c;
+	const char *s, *t;
+
+	for (c = 0; c < SPA_N_ELEMENTS(table); c++) {
+		if (table[c] == NULL)
+			continue;
+
+		if ((s = sf_get_string(data->file, c)) == NULL)
+			continue;
+
+		pw_properties_set(data->props, table[c], s);
+	}
+
+	spa_zero(sfi);
+	if ((res = sf_command(data->file, SFC_GET_CURRENT_SF_INFO, &sfi, sizeof(sfi)))) {
+		pw_log_error("sndfile: %s", sf_error_number(res));
+		return -EIO;
+	}
+
+	spa_zero(fi);
+	fi.format = sfi.format;
+	if (sf_command(data->file, SFC_GET_FORMAT_INFO, &fi, sizeof(fi)) == 0 && fi.name)
+		pw_properties_set(data->props, PW_KEY_MEDIA_FORMAT, fi.name);
+
+	s = pw_properties_get(data->props, PW_KEY_MEDIA_TITLE);
+	t = pw_properties_get(data->props, PW_KEY_MEDIA_ARTIST);
+	if (s && t)
+		pw_properties_setf(data->props, PW_KEY_MEDIA_NAME,
+				"'%s' / '%s'", s, t);
+
+	return 0;
+}
+
 static int setup_sndfile(struct data *data)
 {
 	SF_INFO info;
@@ -1179,6 +1225,7 @@ static int setup_sndfile(struct data *data)
 				printf("\n");
 			}
 		}
+		fill_properties(data);
 	}
 	data->samplesize = sf_format_samplesize(info.format);
 	data->stride = data->samplesize * data->channels;

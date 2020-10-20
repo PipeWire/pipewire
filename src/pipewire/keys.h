@@ -254,6 +254,9 @@ extern "C" {
 								  *  PNG image data */
 #define PW_KEY_MEDIA_ICON_NAME		"media.icon-name"	/**< an XDG icon name for the media.
 								  *  Ex: "audio-x-mp3" */
+#define PW_KEY_MEDIA_COMMENT		"media.comment"		/**< extra comment */
+#define PW_KEY_MEDIA_DATE		"media.date"		/**< date of the media */
+#define PW_KEY_MEDIA_FORMAT		"media.format"		/**< format of the media */
 
 /** format related properties */
 #define PW_KEY_FORMAT_DSP		"format.dsp"		/**< a dsp format.

@@ -74,6 +74,7 @@ static GstPipeWireCore *make_core (int fd)
   core->fd = fd;
   core->loop = pw_thread_loop_new ("pipewire-main-loop", NULL);
   core->context = pw_context_new (pw_thread_loop_get_loop(core->loop), NULL, 0);
+  core->last_seq = -1;
   GST_DEBUG ("loop %p context %p", core->loop, core->context);
 
   if (pw_thread_loop_start (core->loop) < 0)

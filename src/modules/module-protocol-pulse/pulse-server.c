@@ -676,7 +676,6 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	if (attr->prebuf == (uint32_t) -1 || attr->prebuf > max_prebuf)
 		attr->prebuf = max_prebuf;
 	attr->prebuf -= attr->prebuf % frame_size;
-	attr->prebuf = SPA_MAX(attr->prebuf, frame_size);
 
 	pw_log_info(NAME" %p: maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
 			attr->maxlength, attr->tlength, attr->minreq, attr->prebuf);

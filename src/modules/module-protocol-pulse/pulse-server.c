@@ -951,11 +951,13 @@ static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *
 	return (uint32_t) u;
 }
 
-static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
+static int fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
 	uint32_t frame_size, max_prebuf, minreq;
 
 	frame_size = s->frame_size;
+	if (frame_size == 0)
+		return -EIO;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -996,6 +998,10 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		attr->prebuf = max_prebuf;
 	attr->prebuf -= attr->prebuf % frame_size;
 	attr->prebuf = SPA_MAX(attr->prebuf, frame_size);
+
+	pw_log_info(NAME" %p: maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
+			attr->maxlength, attr->tlength, attr->minreq, attr->prebuf);
+	return 0;
 }
 
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -1165,7 +1171,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
 
-	fix_playback_buffer_attr(stream, &attr);
+	if ((res = fix_playback_buffer_attr(stream, &attr)) < 0)
+		goto error;
+
 	stream->attr = attr;
 
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
@@ -1236,11 +1244,13 @@ error:
 	return res;
 }
 
-static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
+static int fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
 	uint32_t frame_size, minfrag;
 
 	frame_size = s->frame_size;
+	if (frame_size == 0)
+		return -EIO;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -1260,6 +1270,7 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 
 	pw_log_info(NAME" %p: maxlength:%u fragsize:%u minfrag:%u", s,
 			attr->maxlength, attr->fragsize, minfrag);
+	return 0;
 }
 
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -1422,7 +1433,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
 
-	fix_record_buffer_attr(stream, &attr);
+	if ((res = fix_record_buffer_attr(stream, &attr)) < 0)
+		goto error;
+
 	stream->attr = attr;
 
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",

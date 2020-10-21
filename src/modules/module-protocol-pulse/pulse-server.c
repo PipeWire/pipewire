@@ -1330,6 +1330,40 @@ error:
 	return res;
 }
 
+static struct device *find_device_by_name(struct impl *impl, const char *name)
+{
+	struct device *dev;
+	if (strcmp(name, impl->default_source.name) == 0 ||
+	    strcmp(name, "@DEFAULT_SOURCE@") == 0 ||
+	    (uint32_t)atoi(name) == impl->default_source.index)
+		dev = &impl->default_source;
+	else if (strcmp(name, impl->default_sink.name) == 0 ||
+	    strcmp(name, "@DEFAULT_SINK@") == 0 ||
+	    (uint32_t)atoi(name) == impl->default_sink.index)
+		dev = &impl->default_sink;
+	else if (strcmp(name, impl->default_monitor.name) == 0 ||
+	    strcmp(name, "@DEFAULT_MONITOR@") == 0 ||
+	    (uint32_t)atoi(name) == impl->default_monitor.index)
+		dev = &impl->default_monitor;
+	else
+		dev = NULL;
+	return dev;
+}
+
+static struct device *find_device_by_index(struct impl *impl, uint32_t index)
+{
+	struct device *dev;
+	if (impl->default_source.index == index)
+		dev = &impl->default_source;
+	else if (impl->default_sink.index == index)
+		dev = &impl->default_sink;
+	else if (impl->default_monitor.index == index)
+		dev = &impl->default_monitor;
+	else
+		dev = NULL;
+	return dev;
+}
+
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -1977,37 +2011,6 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 		TAG_INVALID);
 
 	return send_message(client, reply);
-}
-
-static struct device *find_device_by_name(struct impl *impl, const char *name)
-{
-	struct device *dev;
-	if (strcmp(name, impl->default_source.name) == 0 ||
-	    strcmp(name, "@DEFAULT_SOURCE@") == 0)
-		dev = &impl->default_source;
-	else if (strcmp(name, impl->default_sink.name) == 0 ||
-	    strcmp(name, "@DEFAULT_SINK@") == 0)
-		dev = &impl->default_sink;
-	else if (strcmp(name, impl->default_monitor.name) == 0 ||
-	    strcmp(name, "@DEFAULT_MONITOR@") == 0)
-		dev = &impl->default_monitor;
-	else
-		dev = NULL;
-	return dev;
-}
-
-static struct device *find_device_by_index(struct impl *impl, uint32_t index)
-{
-	struct device *dev;
-	if (impl->default_source.index == index)
-		dev = &impl->default_source;
-	else if (impl->default_sink.index == index)
-		dev = &impl->default_sink;
-	else if (impl->default_monitor.index == index)
-		dev = &impl->default_monitor;
-	else
-		dev = NULL;
-	return dev;
 }
 
 static int do_lookup(struct client *client, uint32_t command, uint32_t tag, struct message *m)

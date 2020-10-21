@@ -56,8 +56,6 @@ static void stream_destroy(void *data)
 {
 	pa_stream *s = data;
 	s->stream = NULL;
-	if (s->global)
-		s->global->stream = NULL;
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -678,10 +676,13 @@ static void stream_free(pa_stream *s)
 
 	pw_log_debug("stream %p", s);
 
+
 	if (s->stream) {
 		spa_hook_remove(&s->stream_listener);
 		pw_stream_destroy(s->stream);
 	}
+	if (s->global)
+		s->global->stream = NULL;
 
 	spa_list_consume(m, &s->free, link) {
 		pw_log_trace("free %p", m);

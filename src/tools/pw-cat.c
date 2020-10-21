@@ -1123,7 +1123,8 @@ static int fill_properties(struct data *data)
 		if (table[c] == NULL)
 			continue;
 
-		if ((s = sf_get_string(data->file, c)) == NULL)
+		if ((s = sf_get_string(data->file, c)) == NULL ||
+		    *s == '\0')
 			continue;
 
 		pw_properties_set(data->props, table[c], s);

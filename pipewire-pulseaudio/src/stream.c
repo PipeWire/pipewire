@@ -235,9 +235,11 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 {
 	pa_stream *s = data;
 	const struct spa_pod *params[4];
-	uint32_t n_params = 0;
-        uint8_t buffer[4096];
-        struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	uint32_t n_params = 0, stride, latency;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_dict_item items[1];
+	char str[64];
 	int res;
 
 	if (param == NULL || id != SPA_PARAM_Format)
@@ -251,12 +253,31 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	if (s->format)
 		pa_format_info_free(s->format);
 	s->format = pa_format_info_from_sample_spec(&s->sample_spec, &s->channel_map);
+	if (s->format == NULL) {
+		pw_stream_set_error(s->stream, res, "unhandled format");
+		return;
+	}
 
-	patch_buffer_attr(s, &s->buffer_attr, NULL);
+	if (s->corked)
+		pw_stream_set_active(s->stream, false);
+
+	patch_buffer_attr(s, &s->buffer_attr, &s->flags);
+
+	stride = pa_frame_size(&s->sample_spec);
+
+	if (s->direction == PA_STREAM_RECORD) {
+		latency = s->buffer_attr.fragsize / stride;
+	} else {
+		latency = s->buffer_attr.minreq * 2 / stride;
+	}
+	snprintf(str, sizeof(str), "%u/%u", latency, s->sample_spec.rate);
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, str);
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 1));
 
 	params[n_params++] = get_buffers_param(s, &s->buffer_attr, &b);
-
 	pw_stream_update_params(s->stream, params, n_params);
+
+	pa_stream_set_state(s, PA_STREAM_READY);
 }
 
 static void stream_control_info(void *data, uint32_t id, const struct pw_stream_control *control)
@@ -819,15 +840,14 @@ static int create_stream(pa_stream_direction_t direction,
 {
 	int res;
 	enum pw_stream_flags fl;
-	const struct spa_pod *params[16];
-	uint32_t i, n_params = 0, stride;
+	const struct spa_pod *params[PA_MAX_FORMATS+1];
+	uint32_t i, n_params = 0;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *str;
 	uint32_t devid, n_items;
 	struct global *g;
 	struct spa_dict_item items[7];
-	char latency[64];
 	bool monitor, no_remix;
 	const char *name;
 	pa_context *c = s->context;
@@ -895,8 +915,6 @@ static int create_stream(pa_stream_direction_t direction,
 
 	s->corked = SPA_FLAG_IS_SET(flags, PA_STREAM_START_CORKED);
 
-	if (s->corked)
-		fl |= PW_STREAM_FLAG_INACTIVE;
 	if (flags & PA_STREAM_PASSTHROUGH)
 		fl |= PW_STREAM_FLAG_EXCLUSIVE;
 	if (flags & PA_STREAM_DONT_MOVE)
@@ -915,13 +933,12 @@ static int create_stream(pa_stream_direction_t direction,
 		pa_sample_spec ss;
 		pa_channel_map chmap;
 		int i;
-		uint32_t sample_rate = 0;
 
 		for (i = 0; i < s->n_formats; i++) {
 			if ((res = pa_format_info_to_sample_spec(s->req_formats[i], &ss, NULL)) < 0) {
 				char buf[4096];
 				pw_log_warn("can't convert format %d %s", res,
-						pa_format_info_snprint(buf,4096,s->req_formats[i]));
+						pa_format_info_snprint(buf, sizeof(buf), s->req_formats[i]));
 				continue;
 			}
 			if (pa_format_info_get_channel_map(s->req_formats[i], &chmap) < 0)
@@ -929,21 +946,8 @@ static int create_stream(pa_stream_direction_t direction,
 
 			params[n_params++] = pa_format_build_param(&b, SPA_PARAM_EnumFormat,
 					&ss, &chmap);
-			if (ss.rate > sample_rate) {
-				sample_rate = ss.rate;
-				s->sample_spec = ss;
-			}
-		}
-		if (sample_rate == 0) {
-			s->sample_spec.format = PA_SAMPLE_S16NE;
-			s->sample_spec.rate = 48000;
-			s->sample_spec.channels = 2;
 		}
 	}
-	if (!pa_sample_spec_valid(&s->sample_spec))
-		return -EINVAL;
-
-	patch_buffer_attr(s, &s->buffer_attr, &s->flags);
 
 	if (direction == PA_STREAM_RECORD)
 		devid = s->direct_on_input;
@@ -993,13 +997,7 @@ static int create_stream(pa_stream_direction_t direction,
 			str = "Music";
 	}
 
-	stride = pa_frame_size(&s->sample_spec);
-	if (direction == PA_STREAM_RECORD)
-		sprintf(latency, "%u/%u", s->buffer_attr.fragsize / stride, s->sample_spec.rate);
-	else
-		sprintf(latency, "%u/%u", s->buffer_attr.minreq * 2 / stride, s->sample_spec.rate);
 	n_items = 0;
-	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_TYPE, "Audio");
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_CATEGORY,
 				direction == PA_STREAM_PLAYBACK ?

@@ -1233,10 +1233,8 @@ static void configure_device(pa_stream *s, struct global *g)
 
 	pw_log_debug("stream %p: linked to %d '%s'", s, s->device_index, s->device_name);
 
-	if (s->state == PA_STREAM_CREATING)
-		pa_stream_set_state(s, PA_STREAM_READY);
-
-	if (old != SPA_ID_INVALID && old != s->device_index && s->moved_callback)
+	if (old != SPA_ID_INVALID && old != s->device_index &&
+	    s->state == PA_STREAM_READY && s->moved_callback)
 		s->moved_callback(s, s->moved_userdata);
 }
 
@@ -1253,14 +1251,10 @@ static void update_link(pa_context *c, uint32_t src_node_id, uint32_t dst_node_i
 	if (s->stream && s->stream->direct_on_input == dst_node_id) {
 		pw_log_debug("node %d linked to stream %d %p (%d)",
 				src_node_id, dst_node_id, s->stream, s->stream->state);
-		if (s->stream->state == PA_STREAM_CREATING)
-			pa_stream_set_state(s->stream, PA_STREAM_READY);
 	}
 	else if (d->stream && d->stream->direct_on_input == src_node_id) {
 		pw_log_debug("node %d linked to stream %d %p (%d)",
 				dst_node_id, src_node_id, d->stream, d->stream->state);
-		if (d->stream->state == PA_STREAM_CREATING)
-			pa_stream_set_state(d->stream, PA_STREAM_READY);
 	}
 	else if ((s->mask & (PA_SUBSCRIPTION_MASK_SINK | PA_SUBSCRIPTION_MASK_SOURCE)) &&
 	    (d->mask & (PA_SUBSCRIPTION_MASK_SINK_INPUT | PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT))) {

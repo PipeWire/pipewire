@@ -97,6 +97,7 @@ struct node {
 	unsigned int configured:1;
 	unsigned int dont_remix:1;
 	unsigned int monitor:1;
+	unsigned int moving:1;
 };
 
 static bool find_format(struct node *node)
@@ -557,6 +558,10 @@ static int rescan_node(struct impl *impl, struct node *n)
 		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
 		return 0;
 	}
+	if (n->moving) {
+		pw_log_debug(NAME " %p: node %d is moving", impl, n->id);
+		return 0;
+	}
 
 	if (n->type == NODE_TYPE_DEVICE) {
 		configure_node(n, NULL, false);
@@ -753,8 +758,10 @@ static int move_node(struct impl *impl, uint32_t source, uint32_t target)
 		    pw_properties_parse_bool(str))
 			continue;
 
+		n->moving = true;
 		unlink_nodes(n, src_node);
 		link_nodes(n, dst_node);
+		n->moving = false;
 	}
 	return 0;
 }

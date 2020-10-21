@@ -500,6 +500,9 @@ static int message_put(struct message *m, ...)
 {
 	va_list va;
 
+	if (m == NULL)
+		return -EINVAL;
+
 	va_start(va, m);
 
 	while (true) {
@@ -556,6 +559,9 @@ static int message_put(struct message *m, ...)
 		}
 	}
 	va_end(va);
+
+	if (m->length > m->allocated)
+		return -ENOMEM;
 
 	return 0;
 }

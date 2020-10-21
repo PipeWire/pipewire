@@ -272,6 +272,17 @@ static int send_message(struct client *client, struct message *m)
 	struct impl *impl = client->impl;
 	int res;
 
+	if (m == NULL)
+		return -EINVAL;
+
+	if (m->length == 0) {
+		res = 0;
+		goto error;
+	} else if (m->length > m->allocated) {
+		res = -ENOMEM;
+		goto error;
+	}
+
 	m->offset = 0;
 	spa_list_append(&client->out_messages, &m->link);
 	res = flush_messages(client);
@@ -281,6 +292,10 @@ static int send_message(struct client *client, struct message *m)
 		pw_loop_update_io(impl->loop, client->source, mask);
 		res = 0;
 	}
+	return res;
+error:
+	if (m)
+		message_free(client, m, false, false);
 	return res;
 }
 

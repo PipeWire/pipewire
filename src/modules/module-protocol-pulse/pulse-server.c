@@ -525,7 +525,8 @@ static void stream_flush(struct stream *stream)
 static void stream_free(struct stream *stream)
 {
 	struct client *client = stream->client;
-	pw_map_remove(&client->streams, stream->channel);
+	if (stream->channel != SPA_ID_INVALID)
+		pw_map_remove(&client->streams, stream->channel);
 	stream_flush(stream);
 	if (stream->stream) {
 		spa_hook_remove(&stream->stream_listener);
@@ -1121,6 +1122,10 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	const char *str;
 
 	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	if (client->version < 13) {
 		if ((res = message_get(m,
@@ -1239,6 +1244,10 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
+	if (stream->channel == SPA_ID_INVALID) {
+		res = -errno;
+		goto error;
+	}
 
 	stream->buffer = calloc(1, MAXLENGTH);
 	if (stream->buffer == NULL) {
@@ -1354,6 +1363,10 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	if (client->version < 13) {
 		if ((res = message_get(m,
@@ -1464,6 +1477,10 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
+	if (stream->channel == SPA_ID_INVALID) {
+		res = -errno;
+		goto error;
+	}
 
 	stream->buffer = calloc(1, MAXLENGTH);
 	if (stream->buffer == NULL) {
@@ -1791,6 +1808,10 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 	int res;
 
 	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		goto exit;
+	}
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
 		if ((res = message_get(m,
@@ -1821,7 +1842,8 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 	res = reply_simple_ack(client, tag);
 exit:
-	pw_properties_free(props);
+	if (props)
+		pw_properties_free(props);
 	return res;
 }
 
@@ -1836,6 +1858,10 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	int res;
 
 	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		goto exit;
+	}
 
 	if (command != COMMAND_REMOVE_CLIENT_PROPLIST) {
 		if ((res = message_get(m,
@@ -1880,7 +1906,8 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 	res = reply_simple_ack(client, tag);
 exit:
-	pw_properties_free(props);
+	if (props)
+		pw_properties_free(props);
 	return res;
 }
 

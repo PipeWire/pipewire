@@ -26,6 +26,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <regex.h>
+#include <limits.h>
 
 #include <pipewire/log.h>
 
@@ -75,15 +76,13 @@ struct factory_entry {
 	char *lib;
 };
 
-static int load_module_profile(struct pw_context *this, const char *profile)
+static int load_module_profiles(struct pw_context *this, char **profiles)
 {
-	const char *str, *state = NULL;
-	size_t len;
+	int i;
 
-	pw_log_debug(NAME" %p: module profile %s", this, profile);
-
-	while ((str = pw_split_walk(profile, ", ", &len, &state)) != NULL) {
-		if (strncmp(str, "default", len) == 0) {
+	for (i = 0; profiles[i]; i++) {
+		const char *str = profiles[i];
+		if (strcmp(str, "default") == 0) {
 			pw_log_debug(NAME" %p: loading default profile", this);
 			pw_context_load_module(this, "libpipewire-module-protocol-native", NULL, NULL);
 			pw_context_load_module(this, "libpipewire-module-client-node", NULL, NULL);
@@ -91,11 +90,11 @@ static int load_module_profile(struct pw_context *this, const char *profile)
 			pw_context_load_module(this, "libpipewire-module-adapter", NULL, NULL);
 			pw_context_load_module(this, "libpipewire-module-metadata", NULL, NULL);
 			pw_context_load_module(this, "libpipewire-module-session-manager", NULL, NULL);
-		} else if (strncmp(str, "rtkit", len) == 0) {
+		} else if (strcmp(str, "rtkit") == 0) {
 			pw_log_debug(NAME" %p: loading rtkit profile", this);
 			pw_context_load_module(this, "libpipewire-module-rtkit", NULL, NULL);
-		} else if (strncmp(str, "none", len) != 0) {
-			pw_log_warn(NAME" %p: unknown profile %.*s", this, (int) len, str);
+		} else if (strcmp(str, "none") != 0) {
+			pw_log_warn(NAME" %p: unknown profile %s", this, str);
 		}
 	}
 	return 0;
@@ -199,6 +198,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	struct impl *impl;
 	struct pw_context *this;
 	const char *lib, *str;
+	char **profiles;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
 	struct pw_properties *pr;
@@ -319,7 +319,12 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if (str == NULL)
 		str = "default";
 
-	load_module_profile(this, str);
+	pw_log_debug(NAME" %p: module profile %s", this, str);
+
+	/* make a copy, in case the properties get changed when loading a module */
+	profiles = pw_split_strv(str, ", ", INT_MAX, &res);
+	load_module_profiles(this, profiles);
+	pw_free_strv(profiles);
 
 	pw_log_debug(NAME" %p: created", this);
 

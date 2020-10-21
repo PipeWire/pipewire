@@ -456,7 +456,8 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 				TAG_INVALID)) < 0)
 			return res;
 		if (name)
-			changed += pw_properties_set(client->props, "application.name", name);
+			changed += pw_properties_set(client->props,
+					PW_KEY_APP_NAME, name);
 	} else {
 		if ((res = message_get(m,
 				TAG_PROPLIST, client->props,
@@ -477,7 +478,7 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 	}
 
 	pw_log_info(NAME" %p: SET_CLIENT_NAME %s", impl,
-			pw_properties_get(client->props, "application.name"));
+			pw_properties_get(client->props, PW_KEY_APP_NAME));
 
 	reply = reply_new(client, tag);
 
@@ -2031,7 +2032,7 @@ static void fill_client_info(struct client *client, struct message *m)
 {
 	message_put(m,
 		TAG_U32, 0,				/* client index */
-		TAG_STRING, pw_properties_get(client->props, "application.name"),
+		TAG_STRING, pw_properties_get(client->props, PW_KEY_APP_NAME),
 		TAG_U32, SPA_ID_INVALID,		/* module */
 		TAG_STRING, "PipeWire",			/* driver */
 		TAG_INVALID);
@@ -2049,7 +2050,7 @@ static void fill_sink_info(struct client *client, struct message *m, struct devi
 	message_put(m,
 		TAG_U32, sink->index,		/* sink index */
 		TAG_STRING, sink->name,
-		TAG_STRING, pw_properties_get(sink->props, "device.description"),
+		TAG_STRING, pw_properties_get(sink->props, PW_KEY_DEVICE_DESCRIPTION),
 		TAG_SAMPLE_SPEC, &sink->ss,
 		TAG_CHANNEL_MAP, &sink->map,
 		TAG_U32, SPA_ID_INVALID,	/* module index */
@@ -2102,7 +2103,7 @@ static void fill_source_info(struct client *client, struct message *m, struct de
 	message_put(m,
 		TAG_U32, source->index,		/* source index */
 		TAG_STRING, source->name,
-		TAG_STRING, pw_properties_get(source->props, "device.description"),
+		TAG_STRING, pw_properties_get(source->props, PW_KEY_DEVICE_DESCRIPTION),
 		TAG_SAMPLE_SPEC, &source->ss,
 		TAG_CHANNEL_MAP, &source->map,
 		TAG_U32, SPA_ID_INVALID,	/* module index */
@@ -3060,7 +3061,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		.name = "input.pipewire",
 		.direction = PW_DIRECTION_INPUT,
 		.props = pw_properties_new(
-				"device.description", "PipeWire Sink",
+				PW_KEY_DEVICE_DESCRIPTION, "PipeWire Sink",
 				NULL),
 		.ss = (struct sample_spec) {
 			.format = SAMPLE_FLOAT32LE,
@@ -3082,7 +3083,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		.name = "output.pipewire.monitor",
 		.direction = PW_DIRECTION_OUTPUT,
 		.props = pw_properties_new(
-				"device.description", "Monitor of PipeWire Sink",
+				PW_KEY_DEVICE_DESCRIPTION, "Monitor of PipeWire Sink",
 				NULL),
 		.ss = (struct sample_spec) {
 			.format = SAMPLE_FLOAT32LE,
@@ -3104,7 +3105,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		.name = "output.pipewire",
 		.direction = PW_DIRECTION_OUTPUT,
 		.props = pw_properties_new(
-				"device.description", "PipeWire Source",
+				PW_KEY_DEVICE_DESCRIPTION, "PipeWire Source",
 				NULL),
 		.ss = (struct sample_spec) {
 			.format = SAMPLE_FLOAT32LE,

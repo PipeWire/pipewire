@@ -1893,9 +1893,8 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		pw_properties_set(props, key, key);
 	}
 
-	items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
 	dict.n_items = props->dict.n_items;
-	dict.items = items;
+	dict.items = items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
 	for (i = 0; i < dict.n_items; i++) {
 		items[i].key = props->dict.items[i].key;
 		items[i].value = NULL;

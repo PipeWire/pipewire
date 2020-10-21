@@ -725,6 +725,17 @@ static const struct sm_media_session_events session_events = {
 	.destroy = session_destroy,
 };
 
+static int do_move_node(struct node *n, struct node *src, struct node *dst)
+{
+	n->moving = true;
+	if (src)
+		unlink_nodes(n, src);
+	if (dst)
+		link_nodes(n, dst);
+	n->moving = false;
+	return 0;
+}
+
 static int move_node(struct impl *impl, uint32_t source, uint32_t target)
 {
 	struct node *n, *src_node, *dst_node;
@@ -758,10 +769,7 @@ static int move_node(struct impl *impl, uint32_t source, uint32_t target)
 		    pw_properties_parse_bool(str))
 			continue;
 
-		n->moving = true;
-		unlink_nodes(n, src_node);
-		link_nodes(n, dst_node);
-		n->moving = false;
+		do_move_node(n, src_node, dst_node);
 	}
 	return 0;
 }
@@ -792,10 +800,7 @@ static int handle_move(struct impl *impl, struct node *src_node, struct node *ds
 	str = get_device_name(dst_node);
 	src_node->obj->target_node = str ? strdup(str) : NULL;
 
-	if (src_node->peer)
-		unlink_nodes(src_node, src_node->peer);
-	link_nodes(src_node, dst_node);
-	return 0;
+	return do_move_node(src_node, src_node->peer, dst_node);
 }
 
 static int metadata_property(void *object, uint32_t subject,

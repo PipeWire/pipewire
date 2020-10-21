@@ -727,12 +727,16 @@ on_remote_data(void *data, int fd, uint32_t mask)
 {
 	struct client *impl = data;
 	struct pw_core *this = impl->this.core;
+	struct pw_proxy *core_proxy = (struct pw_proxy*)this;
 	struct pw_protocol_native_connection *conn = impl->connection;
 	struct pw_context *context = pw_core_get_context(this);
 	struct pw_loop *loop = pw_context_get_main_loop(context);
 	int res;
 
-        if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+	core_proxy->refcount++;
+	impl->ref++;
+
+	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		res = -EPIPE;
 		goto error;
 	}
@@ -748,20 +752,24 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			goto error;
 	}
 
-        if (mask & SPA_IO_IN) {
+	if (mask & SPA_IO_IN) {
 		if ((res = process_remote(impl)) < 0)
 			goto error;
 	}
+done:
+	client_unref(impl);
+	pw_proxy_unref(core_proxy);
 	return;
 error:
 	pw_log_debug(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
-	pw_proxy_notify((struct pw_proxy*)this,
-			struct pw_core_events, error, 0, 0,
-			this->recv_seq, res, "connection error");
 	if (impl->source) {
 		pw_loop_destroy_source(loop, impl->source);
 		impl->source = NULL;
 	}
+	pw_proxy_notify(core_proxy,
+			struct pw_core_events, error, 0, 0,
+			this->recv_seq, res, "connection error");
+	goto done;
 }
 
 static void on_need_flush(void *data)

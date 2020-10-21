@@ -90,6 +90,8 @@ struct client {
 };
 
 struct device {
+#define DEVICE_FLAG_MONITOR	(1<<0)
+	uint32_t flags;
 	uint32_t index;
 	char *name;
 	enum pw_direction direction;
@@ -1466,10 +1468,10 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	} else {
 		dev = &impl->default_source;
 	}
-	if (dev->direction == PW_DIRECTION_INPUT) {
-		pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+	if (dev->direction == PW_DIRECTION_INPUT)
 		dev = dev->monitor;
-	}
+	if (SPA_FLAG_IS_SET(dev->flags, DEVICE_FLAG_MONITOR))
+		pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -3156,6 +3158,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		.monitor = &impl->default_monitor,
 	};
 	impl->default_monitor = (struct device) {
+		.flags = DEVICE_FLAG_MONITOR,
 		.index = 2,
 		.name = "output.pipewire.monitor",
 		.direction = PW_DIRECTION_OUTPUT,

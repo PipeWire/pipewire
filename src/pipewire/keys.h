@@ -228,6 +228,8 @@ extern "C" {
 								  *  and might select a less accurate but faster
 								  *  conversion algorithm. */
 #define PW_KEY_STREAM_DONT_REMIX	"stream.dont-remix"	/**< don't remix channels */
+#define PW_KEY_STREAM_CAPTURE_SINK	"stream.capture.sink"	/**< Try to capture the sink output instead of
+								  *  source output */
 
 /** object properties */
 #define PW_KEY_OBJECT_LINGER		"object.linger"		/**< the object lives on even after the client

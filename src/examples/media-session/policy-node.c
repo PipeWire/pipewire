@@ -98,6 +98,7 @@ struct node {
 	unsigned int dont_remix:1;
 	unsigned int monitor:1;
 	unsigned int moving:1;
+	unsigned int capture_sink:1;
 };
 
 static bool find_format(struct node *node)
@@ -434,7 +435,8 @@ static int find_node(void *data, struct node *node)
 		return 0;
 	}
 
-	if (node->direction == find->target->direction) {
+	if ((find->target->capture_sink && node->direction != PW_DIRECTION_INPUT) ||
+	    (!find->target->capture_sink && node->direction == find->target->direction)) {
 		pw_log_debug(".. same direction");
 		return 0;
 	}
@@ -581,11 +583,15 @@ static int rescan_node(struct impl *impl, struct node *n)
 	info = n->obj->info;
 	props = info->props;
 
-        if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
+	if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
 		n->dont_remix = pw_properties_parse_bool(str);
 
-        if ((str = spa_dict_lookup(props, PW_KEY_STREAM_MONITOR)) != NULL)
+	if ((str = spa_dict_lookup(props, PW_KEY_STREAM_MONITOR)) != NULL)
 		n->monitor = pw_properties_parse_bool(str);
+
+	if (n->direction == PW_DIRECTION_INPUT &&
+	    (str = spa_dict_lookup(props, PW_KEY_STREAM_CAPTURE_SINK)) != NULL)
+		n->capture_sink = pw_properties_parse_bool(str);
 
 	autoconnect = false;
 	if ((str = spa_dict_lookup(props, PW_KEY_NODE_AUTOCONNECT)) != NULL)

@@ -140,6 +140,8 @@ struct stream {
 	struct cvolume volume;
 	bool muted;
 
+	struct device *dev;
+
 	uint32_t drain_tag;
 	unsigned int corked:1;
 	unsigned int volume_set:1;
@@ -702,7 +704,6 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 static int reply_create_playback_stream(struct stream *stream)
 {
 	struct client *client = stream->client;
-	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t size;
 	struct spa_dict_item items[1];
@@ -741,8 +742,8 @@ static int reply_create_playback_stream(struct stream *stream)
 		message_put(reply,
 			TAG_SAMPLE_SPEC, &stream->ss,
 			TAG_CHANNEL_MAP, &stream->map,
-			TAG_U32, impl->default_sink.index,		/* sink index */
-			TAG_STRING, impl->default_sink.name,		/* sink name */
+			TAG_U32, stream->dev->index,		/* sink index */
+			TAG_STRING, stream->dev->name,		/* sink name */
 			TAG_BOOLEAN, false,			/* sink suspended state */
 			TAG_INVALID);
 	}
@@ -794,7 +795,6 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 static int reply_create_record_stream(struct stream *stream)
 {
 	struct client *client = stream->client;
-	struct impl *impl = client->impl;
 	struct message *reply;
 	struct spa_dict_item items[1];
 	char latency[32];
@@ -825,8 +825,8 @@ static int reply_create_record_stream(struct stream *stream)
 		message_put(reply,
 			TAG_SAMPLE_SPEC, &stream->ss,
 			TAG_CHANNEL_MAP, &stream->map,
-			TAG_U32, impl->default_source.index,		/* source index */
-			TAG_STRING, impl->default_source.name,		/* source name */
+			TAG_U32, stream->dev->index,		/* source index */
+			TAG_STRING, stream->dev->name,		/* source name */
 			TAG_BOOLEAN, false,		/* source suspended state */
 			TAG_INVALID);
 	}
@@ -1085,6 +1085,40 @@ static const struct pw_stream_events stream_events =
 	.drained = stream_drained,
 };
 
+static struct device *find_device_by_name(struct impl *impl, const char *name)
+{
+	struct device *dev;
+	if (strcmp(name, impl->default_source.name) == 0 ||
+	    strcmp(name, "@DEFAULT_SOURCE@") == 0 ||
+	    (uint32_t)atoi(name) == impl->default_source.index)
+		dev = &impl->default_source;
+	else if (strcmp(name, impl->default_sink.name) == 0 ||
+	    strcmp(name, "@DEFAULT_SINK@") == 0 ||
+	    (uint32_t)atoi(name) == impl->default_sink.index)
+		dev = &impl->default_sink;
+	else if (strcmp(name, impl->default_monitor.name) == 0 ||
+	    strcmp(name, "@DEFAULT_MONITOR@") == 0 ||
+	    (uint32_t)atoi(name) == impl->default_monitor.index)
+		dev = &impl->default_monitor;
+	else
+		dev = NULL;
+	return dev;
+}
+
+static struct device *find_device_by_index(struct impl *impl, uint32_t index)
+{
+	struct device *dev;
+	if (impl->default_source.index == index)
+		dev = &impl->default_source;
+	else if (impl->default_sink.index == index)
+		dev = &impl->default_sink;
+	else if (impl->default_monitor.index == index)
+		dev = &impl->default_monitor;
+	else
+		dev = NULL;
+	return dev;
+}
+
 static void fix_stream_properties(struct stream *stream, struct pw_properties *props)
 {
 	const char *str;
@@ -1150,6 +1184,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct device *dev = NULL;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
@@ -1184,6 +1219,22 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM corked:%u sink-name:%s sink-idx:%u",
 			impl, corked, sink_name, sink_index);
+
+	if (sink_index != SPA_ID_INVALID && sink_name != NULL) {
+		res = -EINVAL;
+		goto error;
+	} else if ((sink_index != SPA_ID_INVALID || sink_name != NULL)) {
+		if (sink_index != SPA_ID_INVALID)
+			dev = find_device_by_index(impl, sink_index);
+		else if (sink_name != NULL)
+			dev = find_device_by_name(impl, sink_name);
+		if (dev == NULL) {
+			res = -ENOENT;
+			goto error;
+		}
+	} else {
+		dev = &impl->default_sink;
+	}
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -1295,6 +1346,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->muted = muted;
 	stream->muted_set = muted_set;
 	stream->attr = attr;
+	stream->dev = dev;
 
 	flags = 0;
 	if (no_move)
@@ -1328,40 +1380,6 @@ error:
 	if (stream)
 		stream_free(stream);
 	return res;
-}
-
-static struct device *find_device_by_name(struct impl *impl, const char *name)
-{
-	struct device *dev;
-	if (strcmp(name, impl->default_source.name) == 0 ||
-	    strcmp(name, "@DEFAULT_SOURCE@") == 0 ||
-	    (uint32_t)atoi(name) == impl->default_source.index)
-		dev = &impl->default_source;
-	else if (strcmp(name, impl->default_sink.name) == 0 ||
-	    strcmp(name, "@DEFAULT_SINK@") == 0 ||
-	    (uint32_t)atoi(name) == impl->default_sink.index)
-		dev = &impl->default_sink;
-	else if (strcmp(name, impl->default_monitor.name) == 0 ||
-	    strcmp(name, "@DEFAULT_MONITOR@") == 0 ||
-	    (uint32_t)atoi(name) == impl->default_monitor.index)
-		dev = &impl->default_monitor;
-	else
-		dev = NULL;
-	return dev;
-}
-
-static struct device *find_device_by_index(struct impl *impl, uint32_t index)
-{
-	struct device *dev;
-	if (impl->default_source.index == index)
-		dev = &impl->default_source;
-	else if (impl->default_sink.index == index)
-		dev = &impl->default_sink;
-	else if (impl->default_monitor.index == index)
-		dev = &impl->default_monitor;
-	else
-		dev = NULL;
-	return dev;
 }
 
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -1401,6 +1419,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct device *dev = NULL;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
@@ -1431,6 +1450,26 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 	pw_log_info(NAME" %p: CREATE_RECORD_STREAM corked:%u source-name:%s source-index:%u",
 			impl, corked, source_name, source_index);
+
+	if (source_index != SPA_ID_INVALID && source_name != NULL) {
+		res = -EINVAL;
+		goto error;
+	} else if ((source_index != SPA_ID_INVALID || source_name != NULL)) {
+		if (source_index != SPA_ID_INVALID)
+			dev = find_device_by_index(impl, source_index);
+		else if (source_name != NULL)
+			dev = find_device_by_name(impl, source_name);
+		if (dev == NULL) {
+			res = -ENOENT;
+			goto error;
+		}
+	} else {
+		dev = &impl->default_source;
+	}
+	if (dev->direction == PW_DIRECTION_INPUT) {
+		pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+		dev = dev->monitor;
+	}
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -1537,6 +1576,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->muted = muted;
 	stream->muted_set = muted_set;
 	stream->attr = attr;
+	stream->dev = dev;
 
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");

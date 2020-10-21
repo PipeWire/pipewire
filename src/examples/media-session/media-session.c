@@ -2179,7 +2179,12 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(impl.this.loop, SIGINT, do_quit, &impl);
 	pw_loop_add_signal(impl.this.loop, SIGTERM, do_quit, &impl);
 
-	impl.this.context = pw_context_new(impl.this.loop, NULL, 0);
+	impl.this.context = pw_context_new(impl.this.loop,
+				pw_properties_new(
+					PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+					NULL),
+				0);
+
 	if (impl.this.context == NULL)
 		return -1;
 

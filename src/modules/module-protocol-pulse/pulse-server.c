@@ -1932,11 +1932,14 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 static struct device *find_device_by_name(struct impl *impl, const char *name)
 {
 	struct device *dev;
-	if (strcmp(name, impl->default_source.name) == 0)
+	if (strcmp(name, impl->default_source.name) == 0 ||
+	    strcmp(name, "@DEFAULT_SOURCE@") == 0)
 		dev = &impl->default_source;
-	else if (strcmp(name, impl->default_sink.name) == 0)
+	else if (strcmp(name, impl->default_sink.name) == 0 ||
+	    strcmp(name, "@DEFAULT_SINK@") == 0)
 		dev = &impl->default_sink;
-	else if (strcmp(name, impl->default_monitor.name) == 0)
+	else if (strcmp(name, impl->default_monitor.name) == 0 ||
+	    strcmp(name, "@DEFAULT_MONITOR@") == 0)
 		dev = &impl->default_monitor;
 	else
 		dev = NULL;

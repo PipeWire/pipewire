@@ -1084,6 +1084,36 @@ static const struct pw_stream_events stream_events =
 	.drained = stream_drained,
 };
 
+static void fix_stream_properties(struct stream *stream, struct pw_properties *props)
+{
+	const char *str;
+
+	if ((str = pw_properties_get(props, PW_KEY_MEDIA_ROLE)) != NULL) {
+		if (strcmp(str, "video") == 0)
+			str = "Movie";
+		else if (strcmp(str, "music") == 0)
+			str = "Music";
+		else if (strcmp(str, "game") == 0)
+			str = "Game";
+		else if (strcmp(str, "event") == 0)
+			str = "Notification";
+		else if (strcmp(str, "phone") == 0)
+			str = "Communication";
+		else if (strcmp(str, "animation") == 0)
+			str = "Movie";
+		else if (strcmp(str, "production") == 0)
+			str = "Production";
+		else if (strcmp(str, "a11y") == 0)
+			str = "Accessibility";
+		else if (strcmp(str, "test") == 0)
+			str = "Test";
+		else
+			str = "Music";
+
+		pw_properties_set(props, PW_KEY_MEDIA_ROLE, str);
+        }
+}
+
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -1119,7 +1149,6 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	const char *str;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
@@ -1266,35 +1295,11 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->muted_set = muted_set;
 	stream->attr = attr;
 
-	if ((str = pw_properties_get(props, PW_KEY_MEDIA_ROLE)) != NULL) {
-		if (strcmp(str, "video") == 0)
-			str = "Movie";
-		else if (strcmp(str, "music") == 0)
-			str = "Music";
-		else if (strcmp(str, "game") == 0)
-			str = "Game";
-		else if (strcmp(str, "event") == 0)
-			str = "Notification";
-		else if (strcmp(str, "phone") == 0)
-			str = "Communication";
-		else if (strcmp(str, "animation") == 0)
-			str = "Movie";
-		else if (strcmp(str, "production") == 0)
-			str = "Production";
-		else if (strcmp(str, "a11y") == 0)
-			str = "Accessibility";
-		else if (strcmp(str, "test") == 0)
-			str = "Test";
-		else
-			str = "Music";
-
-		pw_properties_set(props, PW_KEY_MEDIA_ROLE, str);
-        }
-
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 
+	fix_stream_properties(stream, props),
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
 	if (stream->stream == NULL) {
@@ -1504,6 +1509,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 
+	fix_stream_properties(stream, props),
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
 	if (stream->stream == NULL) {
@@ -1836,6 +1842,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 			res = -EINVAL;
 			goto exit;
 		}
+		fix_stream_properties(stream, props);
 		pw_stream_update_properties(stream->stream, &props->dict);
 	} else {
 		pw_core_update_properties(client->core, &props->dict);

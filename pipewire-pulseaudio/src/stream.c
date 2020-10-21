@@ -254,14 +254,16 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		pa_format_info_free(s->format);
 	s->format = pa_format_info_from_sample_spec(&s->sample_spec, &s->channel_map);
 	if (s->format == NULL) {
-		pw_stream_set_error(s->stream, res, "unhandled format");
+		pw_stream_set_error(s->stream, -errno, "unhandled format");
 		return;
 	}
 
+	patch_buffer_attr(s, &s->buffer_attr, &s->flags);
+
+	pa_stream_set_state(s, PA_STREAM_READY);
+
 	if (s->corked)
 		pw_stream_set_active(s->stream, false);
-
-	patch_buffer_attr(s, &s->buffer_attr, &s->flags);
 
 	stride = pa_frame_size(&s->sample_spec);
 
@@ -276,8 +278,6 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 
 	params[n_params++] = get_buffers_param(s, &s->buffer_attr, &b);
 	pw_stream_update_params(s->stream, params, n_params);
-
-	pa_stream_set_state(s, PA_STREAM_READY);
 }
 
 static void stream_control_info(void *data, uint32_t id, const struct pw_stream_control *control)

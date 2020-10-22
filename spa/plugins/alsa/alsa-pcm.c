@@ -620,7 +620,7 @@ static int alsa_recover(struct state *state, int err)
 	if (SPA_UNLIKELY((res = snd_pcm_status(state->hndl, status)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_status error: %s",
 				state, snd_strerror(res));
-		return res;
+		goto recover;
 	}
 
 	st = snd_pcm_status_get_state(status);
@@ -652,6 +652,7 @@ static int alsa_recover(struct state *state, int err)
 		break;
 	}
 
+recover:
 	if (SPA_UNLIKELY((res = snd_pcm_recover(state->hndl, err, true)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_recover error: %s",
 				state, snd_strerror(res));

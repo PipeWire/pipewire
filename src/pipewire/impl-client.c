@@ -275,7 +275,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	if (resource->id == 1)
 		client->client_resource = resource;
 
-	this->info.change_mask = ~0;
+	this->info.change_mask = PW_CLIENT_CHANGE_MASK_ALL;
 	pw_client_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 

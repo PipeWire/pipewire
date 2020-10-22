@@ -118,7 +118,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);
 
-	this->info.change_mask = ~0;
+	this->info.change_mask = PW_MODULE_CHANGE_MASK_ALL;
 	pw_module_resource_info(resource, &this->info);
 	this->info.change_mask = 0;
 

@@ -363,10 +363,12 @@ static int set_node_volume(pa_context *c, struct global *g, const pa_cvolume *vo
 			return 0;
 	}
 	g->node_info.mute = mute;
+	g->changed++;
 
 	if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_W | PW_PERM_X))
 		return PA_ERR_ACCESS;
 
+	pw_log_debug("node %p: id:%u", g, g->id);
 	pw_node_set_param((struct pw_node*)g->proxy,
 		SPA_PARAM_Props, 0,
 		spa_pod_builder_add_object(&b,
@@ -410,6 +412,7 @@ static int set_device_volume(pa_context *c, struct global *g, struct global *cg,
 			return 0;
 	}
 	g->node_info.mute = mute;
+	g->changed++;
 
 	if (!SPA_FLAG_IS_SET(cg->permissions, PW_PERM_W | PW_PERM_X))
 		return PA_ERR_ACCESS;
@@ -430,6 +433,7 @@ static int set_device_volume(pa_context *c, struct global *g, struct global *cg,
 								vols));
 	param = spa_pod_builder_pop(&b, &f[0]);
 
+	pw_log_debug("device %p: id:%u", cg, cg->id);
 	pw_device_set_param((struct pw_node*)cg->proxy,
 		SPA_PARAM_Route, 0, param);
 
@@ -446,7 +450,7 @@ static int set_volume(pa_context *c, struct global *g, const pa_cvolume *volume,
 	card_id = g->node_info.device_id;
 	device_id = g->node_info.profile_device_id;
 
-	pw_log_info("card:%u global:%u flags:%08x", card_id, g->id, g->node_info.flags);
+	pw_log_debug("card:%u global:%u flags:%08x", card_id, g->id, g->node_info.flags);
 
 	if (SPA_FLAG_IS_SET(g->node_info.flags, NODE_FLAG_DEVICE_VOLUME | NODE_FLAG_DEVICE_MUTE) &&
 	    (cg = pa_context_find_global(c, card_id)) != NULL) {

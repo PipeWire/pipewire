@@ -21,6 +21,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/param/props.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
 #include <extensions/metadata.h>
@@ -445,7 +446,8 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 					g->card_info.pending_ports = true;
 					break;
 				}
-				pw_log_debug("global %p: do enum:%d", g, id);
+				pw_log_debug("global %p: id:%d do enum %s", g, g->id,
+					spa_debug_type_find_name(spa_type_param, id));
 				pw_device_enum_params((struct pw_device*)g->proxy,
 						0, id, 0, -1, NULL);
 			}
@@ -554,6 +556,9 @@ static void device_event_param(void *object, int seq,
 		const struct spa_pod *param)
 {
 	struct global *g = object;
+
+	pw_log_debug("update param %d %s", g->id,
+			spa_debug_type_find_name(spa_type_param, id));
 
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
@@ -954,7 +959,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	const char *str;
 	uint32_t i;
 
-	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
+	pw_log_debug("global %p: id:%d change-mask:%"PRIu64, g, g->id, info->change_mask);
 	info = g->info = pw_node_info_update(g->info, info);
 
 	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
@@ -964,24 +969,35 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
+			uint32_t id = info->params[i].id;
+			bool do_enum;
+
 			if (info->params[i].user == 0)
 				continue;
 			info->params[i].user = 0;
 
-			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
-				continue;
-
-			switch (info->params[i].id) {
+			switch (id) {
 			case SPA_PARAM_EnumFormat:
 				clear_node_formats(g);
 				/* fallthrough */
 			case SPA_PARAM_Props:
 			case SPA_PARAM_Format:
-				pw_device_enum_params((struct pw_device*)g->proxy,
-					0, info->params[i].id, 0, -1, NULL);
+				do_enum = true;
 				break;
 			default:
+				do_enum = false;
 				break;
+			}
+
+			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
+				continue;
+
+			if (do_enum) {
+				pw_log_debug("global %p: id:%d do enum %s", g, g->id,
+					spa_debug_type_find_name(spa_type_param, id));
+
+				pw_node_enum_params((struct pw_node*)g->proxy,
+					0, id, 0, -1, NULL);
 			}
 		}
 	}
@@ -993,7 +1009,9 @@ static void node_event_param(void *object, int seq,
 		const struct spa_pod *param)
 {
 	struct global *g = object;
-	pw_log_debug("update param %d %d", g->id, id);
+
+	pw_log_debug("update param %d %s", g->id,
+			spa_debug_type_find_name(spa_type_param, id));
 
 	switch (id) {
 	case SPA_PARAM_Props:
@@ -1053,7 +1071,7 @@ static void module_event_info(void *object, const struct pw_module_info *info)
         struct global *g = object;
 	pa_module_info *i = &g->module_info.info;
 
-	pw_log_debug("update %d", g->id);
+	pw_log_debug("global %p: id:%d change-mask:%"PRIu64, g, g->id, info->change_mask);
 
         info = g->info = pw_module_info_update(g->info, info);
 
@@ -1098,7 +1116,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	const char *str;
 	pa_client_info *i = &g->client_info.info;
 
-	pw_log_debug("update %d", g->id);
+	pw_log_debug("global %p: id:%d change-mask:%"PRIu64, g, g->id, info->change_mask);
 	info = g->info = pw_client_info_update(g->info, info);
 
 	i->index = g->id;

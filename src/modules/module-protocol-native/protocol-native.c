@@ -405,7 +405,7 @@ static void core_event_marshal_info(void *object, const struct pw_core_info *inf
 			    SPA_POD_String(info->name),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_CORE_CHANGE_MASK_PROPS ? info->props : NULL);
 	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
@@ -755,7 +755,7 @@ static void module_marshal_info(void *object, const struct pw_module_info *info)
 			    SPA_POD_String(info->args),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_MODULE_CHANGE_MASK_PROPS ? info->props : NULL);
 	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
@@ -815,7 +815,7 @@ static void device_marshal_info(void *object, const struct pw_device_info *info)
 			    SPA_POD_Int(info->id),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS ? info->props : NULL);
 	push_params(b, info->n_params, info->params);
 	spa_pod_builder_pop(b, &f);
 
@@ -1035,7 +1035,7 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 			    SPA_POD_Int(info->version),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_FACTORY_CHANGE_MASK_PROPS ? info->props : NULL);
 	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
@@ -1101,7 +1101,7 @@ static void node_marshal_info(void *object, const struct pw_node_info *info)
 			    SPA_POD_Id(info->state),
 			    SPA_POD_String(info->error),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_NODE_CHANGE_MASK_PROPS ? info->props : NULL);
 	push_params(b, info->n_params, info->params);
 	spa_pod_builder_pop(b, &f);
 
@@ -1350,7 +1350,7 @@ static void port_marshal_info(void *object, const struct pw_port_info *info)
 			    SPA_POD_Int(info->direction),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_PORT_CHANGE_MASK_PROPS ? info->props : NULL);
 	push_params(b, info->n_params, info->params);
 	spa_pod_builder_pop(b, &f);
 
@@ -1535,7 +1535,7 @@ static void client_marshal_info(void *object, const struct pw_client_info *info)
 			    SPA_POD_Int(info->id),
 			    SPA_POD_Long(info->change_mask),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS ? info->props : NULL);
 	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
@@ -1802,7 +1802,7 @@ static void link_marshal_info(void *object, const struct pw_link_info *info)
 			    SPA_POD_String(info->error),
 			    SPA_POD_Pod(info->format),
 			    NULL);
-	push_dict(b, info->props);
+	push_dict(b, info->change_mask & PW_LINK_CHANGE_MASK_PROPS ? info->props : NULL);
 	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);

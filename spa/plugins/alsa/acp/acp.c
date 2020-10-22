@@ -815,7 +815,7 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 				uint32_t i, n_volumes = new_soft_volume.channels;
 				float volumes[n_volumes];
 				for (i = 0; i < n_volumes; i++)
-					volumes[i] = ((float)new_soft_volume.values[i]) / PA_VOLUME_NORM;
+					volumes[i] = pa_sw_volume_to_linear(new_soft_volume.values[i]);
 				impl->events->set_soft_volume(impl->user_data, &dev->device, volumes, n_volumes);
 			}
 		}
@@ -899,7 +899,7 @@ static void mixer_volume_init(pa_alsa_device *dev)
 		pa_log_info("Using hardware volume control. Hardware dB scale %s.",
 				dev->mixer_path->has_dB ? "supported" : "not supported");
 	}
-	dev->device.base_volume = (float)dev->base_volume / PA_VOLUME_NORM;
+	dev->device.base_volume = pa_sw_volume_to_linear(dev->base_volume);;
 	dev->device.volume_step = 1.0f / dev->n_volume_steps;
 
 	if (!dev->mixer_path || !dev->mixer_path->has_mute) {
@@ -1457,7 +1457,7 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 
 	v.channels = d->mapping->channel_map.channels;
 	for (i = 0; i < v.channels; i++)
-		v.values[i] = volume[i % n_volume] * PA_VOLUME_NORM;
+		v.values[i] = pa_sw_volume_from_linear(volume[i % n_volume]);;
 
 	pa_log_info("Set %s volume: %d", d->set_volume ? "hardware" : "software", pa_cvolume_max(&v));
 	for (i = 0; i < v.channels; i++)
@@ -1486,7 +1486,7 @@ int acp_device_get_volume(struct acp_device *dev, float *volume, uint32_t n_volu
 	if (v.channels == 0)
 		return -EIO;
 	for (i = 0; i < n_volume; i++)
-		volume[i] = ((float)v.values[i % v.channels]) / PA_VOLUME_NORM;
+		volume[i] = pa_sw_volume_to_linear(v.values[i % v.channels]);
 	return 0;
 }
 

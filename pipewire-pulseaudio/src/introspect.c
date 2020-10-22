@@ -128,7 +128,7 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 	i.owner_module = g->id;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
-		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
+		i.volume.values[n] = pa_sw_volume_from_linear(g->node_info.volume * g->node_info.channel_volumes[n]);;
 	i.mute = g->node_info.mute;
 	i.monitor_source = g->node_info.monitor;
 	snprintf(monitor_name, sizeof(monitor_name)-1, "%s.monitor", i.name);
@@ -145,7 +145,7 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 		  i.flags |= PA_SINK_HW_MUTE_CTRL;
 	i.proplist = pa_proplist_new_dict(info->props);
 	i.configured_latency = 0;
-	i.base_volume = g->node_info.base_volume * PA_VOLUME_NORM;
+	i.base_volume = pa_sw_volume_from_linear(g->node_info.base_volume);
 	i.n_volume_steps = g->node_info.volume_step * (PA_VOLUME_NORM+1);
 	i.state = node_state_to_sink(info->state);
 	i.card = g->node_info.device_id;
@@ -315,7 +315,7 @@ static int set_stream_volume(pa_context *c, pa_stream *s, const pa_cvolume *volu
 
 	if (volume) {
 		for (i = 0; i < volume->channels; i++)
-			channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+			channel_volumes[i] = pa_sw_volume_to_linear(volume->values[i]);;
 		vols = channel_volumes;
 		n_channel_volumes = volume->channels;
 	} else {
@@ -345,7 +345,7 @@ static int set_node_volume(pa_context *c, struct global *g, const pa_cvolume *vo
 
 	if (volume) {
 		for (i = 0; i < volume->channels; i++)
-			channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+			channel_volumes[i] = pa_sw_volume_to_linear(volume->values[i]);
 		vols = channel_volumes;
 		n_channel_volumes = volume->channels;
 
@@ -394,7 +394,7 @@ static int set_device_volume(pa_context *c, struct global *g, struct global *cg,
 
 	if (volume) {
 		for (i = 0; i < volume->channels; i++)
-			channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+			channel_volumes[i] = pa_sw_volume_to_linear(volume->values[i]);
 		vols = channel_volumes;
 		n_channel_volumes = volume->channels;
 
@@ -861,7 +861,7 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 	i.owner_module = g->id;
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
-		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
+		i.volume.values[n] = pa_sw_volume_from_linear(g->node_info.volume * g->node_info.channel_volumes[n]);;
 	i.mute = g->node_info.mute;
 	if (monitor) {
 		i.index = g->node_info.monitor;
@@ -882,7 +882,7 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 	i.driver = "PipeWire";
 	i.flags = flags;
 	i.configured_latency = 0;
-	i.base_volume = g->node_info.base_volume * PA_VOLUME_NORM;
+	i.base_volume = pa_sw_volume_from_linear(g->node_info.base_volume);
 	i.n_volume_steps = g->node_info.volume_step * (PA_VOLUME_NORM+1);
 	i.state = node_state_to_source(info->state);
 	i.card = g->node_info.device_id;
@@ -2089,7 +2089,7 @@ static int sink_input_callback(pa_context *c, struct sink_input_data *d, struct 
 	pa_cvolume_init(&i.volume);
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
-		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
+		i.volume.values[n] = pa_sw_volume_from_linear(g->node_info.volume * g->node_info.channel_volumes[n]);
 
 	i.mute = g->node_info.mute;
 	i.buffer_usec = 0;
@@ -2492,7 +2492,7 @@ static int source_output_callback(struct source_output_data *d, pa_context *c, s
 	pa_cvolume_init(&i.volume);
 	i.volume.channels = i.sample_spec.channels;
 	for (n = 0; n < i.volume.channels; n++)
-		i.volume.values[n] = g->node_info.volume * g->node_info.channel_volumes[n] * PA_VOLUME_NORM;
+		i.volume.values[n] = pa_sw_volume_from_linear(g->node_info.volume * g->node_info.channel_volumes[n]);
 
 	i.mute = g->node_info.mute;
 	i.buffer_usec = 0;

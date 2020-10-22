@@ -899,7 +899,7 @@ static int create_stream(pa_stream_direction_t direction,
 	s->disconnecting = false;
 	if (volume) {
 		for (i = 0; i < volume->channels; i++)
-			s->channel_volumes[i] = volume->values[i] / (float) PA_VOLUME_NORM;
+			s->channel_volumes[i] = pa_sw_volume_to_linear(volume->values[i]);
 		s->n_channel_volumes = volume->channels;
 	} else {
 		for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)

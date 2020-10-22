@@ -315,11 +315,15 @@ static void do_global_sync(struct global *g)
 				return;
 		}
 		g->init = false;
+		g->changed++;
 		event = PA_SUBSCRIPTION_EVENT_NEW;
 	} else {
 		event = PA_SUBSCRIPTION_EVENT_CHANGE;
 	}
-	emit_event(g->context, g, event);
+	if (g->changed > 0) {
+		emit_event(g->context, g, event);
+		g->changed = 0;
+	}
 }
 
 
@@ -399,6 +403,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			i->proplist = pa_proplist_new_dict(info->props);
 		}
 		update_device_props(g);
+		g->changed++;
 	}
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (n = 0; n < info->n_params; n++) {
@@ -415,12 +420,14 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				if (g->card_info.pending_profiles)
 					continue;
 				remove_params(&g->card_info.profiles, id);
+				g->changed++;
 				g->card_info.n_profiles = 0;
 				break;
 			case SPA_PARAM_EnumRoute:
 				if (g->card_info.pending_ports)
 					continue;
 				remove_params(&g->card_info.ports, id);
+				g->changed++;
 				g->card_info.n_ports = 0;
 				break;
 			case SPA_PARAM_Route:
@@ -590,7 +597,10 @@ static void device_event_param(void *object, int seq,
 			return;
 		}
 		pw_log_debug("device %d: current profile %d", g->id, index);
-		g->card_info.active_profile = index;
+		if (g->card_info.active_profile != index) {
+			g->changed++;
+			g->card_info.active_profile = index;
+		}
 		break;
 	}
 	case SPA_PARAM_EnumRoute:
@@ -894,8 +904,10 @@ static void device_sync_ports(struct global *g)
 			}
 			if (props)
 				changed += parse_props(ng, props, true);
-			if (changed)
+			if (changed) {
+				ng->changed += changed;
 				global_sync(ng);
+			}
 		}
 	}
 }
@@ -951,6 +963,7 @@ static void clear_node_formats(struct global *g)
 	pa_format_info *f;
 	pw_array_for_each(f, &g->node_info.formats)
 		pa_format_info_free(f);
+	g->changed++;
 }
 
 static void node_event_info(void *object, const struct pw_node_info *info)
@@ -962,11 +975,13 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	pw_log_debug("global %p: id:%d change-mask:%"PRIu64, g, g->id, info->change_mask);
 	info = g->info = pw_node_info_update(g->info, info);
 
-	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
-		g->node_info.profile_device_id = atoi(str);
-	else
-		g->node_info.profile_device_id = SPA_ID_INVALID;
-
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
+			g->node_info.profile_device_id = atoi(str);
+		else
+			g->node_info.profile_device_id = SPA_ID_INVALID;
+		g->changed++;
+	}
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
 			uint32_t id = info->params[i].id;
@@ -1081,8 +1096,8 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 			pa_proplist_update_dict(i->proplist, info->props);
 		else
 			i->proplist = pa_proplist_new_dict(info->props);
+		g->changed++;
 	}
-
 	i->name = info->name;
 	i->argument = info->args;
 	i->n_used = -1;
@@ -1132,6 +1147,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 			spa_dict_lookup(info->props, PW_KEY_APP_NAME) : NULL;
 		i->driver = info->props ?
 			spa_dict_lookup(info->props, PW_KEY_PROTOCOL) : NULL;
+		g->changed++;
 	}
 	if (i->name == NULL)
 		i->name = "Unknown";

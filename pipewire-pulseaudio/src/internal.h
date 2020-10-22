@@ -264,6 +264,7 @@ struct global {
 	int init:1;
 	int sync:1;
 
+	int changed;
 	void *info;
 	struct global_info *ginfo;
 

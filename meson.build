@@ -371,6 +371,7 @@ endif
 if get_option('pipewire-pulseaudio')
   pulseaudio_dep = dependency('libpulse', version : '>= 11.1')
   subdir('pipewire-pulseaudio/src')
+  subdir('pipewire-pulseaudio/test')
 endif
 
 if get_option('pipewire-alsa')

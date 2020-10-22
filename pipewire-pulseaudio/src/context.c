@@ -1664,12 +1664,24 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 	return o;
 }
 
+static void io_event_cb(pa_mainloop_api*ea, pa_io_event* e, int fd, pa_io_event_flags_t events, void *userdata)
+{
+	pa_context *c = userdata;
+	if (events & PA_IO_EVENT_INPUT) {
+		pw_log_debug("%p: iterate loop %p", c, c->loop);
+		pw_loop_enter(c->loop);
+		pw_loop_iterate(c->loop, -1);
+		pw_loop_leave(c->loop);
+	}
+}
+
 SPA_EXPORT
 pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *name, PA_CONST pa_proplist *p)
 {
 	struct pw_context *context;
 	struct pw_loop *loop;
 	struct pw_properties *props;
+	bool fallback_loop = false;
 	pa_context *c;
 
 	pa_assert(mainloop);
@@ -1681,7 +1693,15 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	if (p)
 		pw_properties_update_proplist(props, p);
 
-	loop = mainloop->userdata;
+	if (pa_mainloop_api_is_pipewire(mainloop))
+		loop = mainloop->userdata;
+	else  {
+		loop = pw_loop_new(NULL);
+		fallback_loop = true;
+	}
+
+	pw_log_debug("mainloop:%p loop:%p", mainloop, loop);
+
 	context = pw_context_new(loop,
 			pw_properties_new(
 				PW_KEY_CONTEXT_PROFILE_MODULES, "default",
@@ -1692,6 +1712,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 
 	c = pw_context_get_user_data(context);
 	c->props = props;
+	c->fallback_loop = fallback_loop;
 	c->loop = loop;
 	c->context = context;
 	c->proplist = p ? pa_proplist_copy(p) : pa_proplist_new();
@@ -1699,13 +1720,19 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	c->client_index = PA_INVALID_INDEX;
 	c->default_sink = SPA_ID_INVALID;
 	c->default_source = SPA_ID_INVALID;
-
-	if (name)
-		pa_proplist_sets(c->proplist, PA_PROP_APPLICATION_NAME, name);
-
 	c->mainloop = mainloop;
 	c->error = 0;
 	c->state = PA_CONTEXT_UNCONNECTED;
+
+	if (c->fallback_loop) {
+		c->io = c->mainloop->io_new(c->mainloop,
+				pw_loop_get_fd(c->loop),
+				PA_IO_EVENT_INPUT,
+				io_event_cb, c);
+	}
+
+	if (name)
+		pa_proplist_sets(c->proplist, PA_PROP_APPLICATION_NAME, name);
 
 	spa_list_init(&c->globals);
 
@@ -1718,6 +1745,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 
 static void context_free(pa_context *c)
 {
+	struct pw_loop *loop;
 	pw_log_debug("context %p: free", c);
 
 	context_unlink(c);
@@ -1728,7 +1756,14 @@ static void context_free(pa_context *c)
 	if (c->core_info)
 		pw_core_info_free(c->core_info);
 
+	if (c->io)
+		c->mainloop->io_free(c->io);
+	loop = c->fallback_loop ? c->loop : NULL;
+
 	pw_context_destroy(c->context);
+
+	if (loop)
+		pw_loop_destroy(loop);
 }
 
 SPA_EXPORT

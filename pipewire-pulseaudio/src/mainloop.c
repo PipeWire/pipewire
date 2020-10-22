@@ -272,6 +272,8 @@ pa_mainloop *pa_mainloop_new(void)
 	loop->api = api;
 	loop->api.userdata = loop->loop;
 
+	pw_log_debug("%p: %p fd:%d", loop, loop->loop, loop->fd);
+
 	return loop;
 
       no_loop:
@@ -279,9 +281,15 @@ pa_mainloop *pa_mainloop_new(void)
 	return NULL;
 }
 
+bool pa_mainloop_api_is_pipewire(pa_mainloop_api *api)
+{
+	return api && api->io_new == api_io_new;
+}
+
 SPA_EXPORT
 void pa_mainloop_free(pa_mainloop* m)
 {
+	pw_log_debug("%p", m);
 	pw_loop_destroy(m->loop);
 	free(m);
 }

@@ -346,6 +346,8 @@ struct pa_context {
 	int refcount;
 	uint32_t client_index;
 
+	pa_io_event *io;
+	bool fallback_loop;
 	struct pw_loop *loop;
 	struct pw_context *context;
 
@@ -504,6 +506,7 @@ struct pa_operation
 	void *state_userdata;
 };
 
+bool pa_mainloop_api_is_pipewire(pa_mainloop_api *api);
 
 pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb, size_t userdata_size);
 void pa_operation_done(pa_operation *o);

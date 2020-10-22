@@ -508,6 +508,9 @@ struct pa_operation
 
 bool pa_mainloop_api_is_pipewire(pa_mainloop_api *api);
 
+#define PA_TIMEVAL_RTCLOCK ((time_t) (1LU << 30))
+struct timeval* pa_rtclock_from_wallclock(struct timeval *tv);
+
 pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb, size_t userdata_size);
 void pa_operation_done(pa_operation *o);
 int pa_operation_sync(pa_operation *o);

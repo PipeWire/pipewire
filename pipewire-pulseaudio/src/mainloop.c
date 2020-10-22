@@ -116,48 +116,46 @@ static void source_timer_func(void *data, uint64_t expirations)
 		ev->cb(&ev->mainloop->api, ev, &tv, ev->userdata);
 }
 
+static void set_timer(pa_time_event *ev, const struct timeval *tv)
+{
+	pa_mainloop *mainloop = ev->mainloop;
+	struct timespec ts;
+	struct timeval ttv = *tv;
+
+	if (tv == NULL) {
+		ts.tv_sec = 0;
+		ts.tv_nsec = 1;
+	} else {
+		if ((tv->tv_usec & PA_TIMEVAL_RTCLOCK) == 0)
+			pa_rtclock_from_wallclock(&ttv);
+		ts.tv_sec = ttv.tv_sec;
+		ts.tv_nsec = ttv.tv_usec * 1000LL;
+	}
+	pw_log_debug("set timer %p %ld %ld", ev, ts.tv_sec, ts.tv_nsec);
+	pw_loop_update_timer(mainloop->loop, ev->source, &ts, NULL, true);
+}
+
 static pa_time_event* api_time_new(pa_mainloop_api*a, const struct timeval *tv, pa_time_event_cb_t cb, void *userdata)
 {
 	pa_mainloop *mainloop = SPA_CONTAINER_OF(a, pa_mainloop, api);
 	pa_time_event *ev;
-	struct timespec ts;
 
 	ev = calloc(1, sizeof(pa_time_event));
 	ev->source = pw_loop_add_timer(mainloop->loop, source_timer_func, ev);
 	ev->mainloop = mainloop;
 	ev->cb = cb;
 	ev->userdata = userdata;
+	pw_log_debug("new timer %p", ev);
 
-	if (tv == NULL) {
-		ts.tv_sec = 0;
-		ts.tv_nsec = 1;
-	}
-	else {
-		ts.tv_sec = tv->tv_sec;
-		ts.tv_nsec = tv->tv_usec * 1000LL;
-	}
-	pw_log_debug("new timer %p %ld %ld", ev, ts.tv_sec, ts.tv_nsec);
-	pw_loop_update_timer(mainloop->loop, ev->source, &ts, NULL, true);
+	set_timer(ev, tv);
 
 	return ev;
 }
 
 static void api_time_restart(pa_time_event* e, const struct timeval *tv)
 {
-	struct timespec ts;
-
 	pa_assert(e);
-
-	if (tv == NULL) {
-		ts.tv_sec = 0;
-		ts.tv_nsec = 1;
-	}
-	else {
-		ts.tv_sec = tv->tv_sec;
-		ts.tv_nsec = tv->tv_usec * 1000LL;
-	}
-	pw_log_debug("io %p", e);
-	pw_loop_update_timer(e->mainloop->loop, e->source, &ts, NULL, true);
+	set_timer(e, tv);
 }
 
 static void api_time_free(pa_time_event* e)

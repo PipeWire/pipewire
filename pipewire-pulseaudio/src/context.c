@@ -904,10 +904,9 @@ static void device_sync_ports(struct global *g)
 			}
 			if (props)
 				changed += parse_props(ng, props, true);
-			if (changed) {
-				ng->changed += changed;
+			ng->changed += changed;
+			if (ng->changed)
 				global_sync(ng);
-			}
 		}
 	}
 }

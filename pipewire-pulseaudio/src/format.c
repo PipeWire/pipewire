@@ -865,11 +865,10 @@ pa_format_info* pa_format_info_from_param(const struct spa_pod *param)
 			break;
 		}
 	}
-out:
 	return f;
 error:
 	pa_format_info_free(f);
-	goto out;
+	return NULL;
 }
 
 

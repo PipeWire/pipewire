@@ -85,6 +85,7 @@ pipewire_pulse_mainloop_glib = shared_library('pulse-mainloop-glib',
     include_directories : [configinc],
     dependencies : [pipewire_dep, pulseaudio_dep, mathlib, glib_dep],
     install : true,
+    install_rpath : libpulse_path_dlopen,
     install_dir : libpulse_path,
 )
 
@@ -97,5 +98,6 @@ pipewire_pulse_simple = shared_library('pulse-simple',
     include_directories : [configinc],
     dependencies : [pipewire_dep, pulseaudio_dep, mathlib, glib_dep],
     install : true,
+    install_rpath : libpulse_path_dlopen,
     install_dir : libpulse_path,
 )

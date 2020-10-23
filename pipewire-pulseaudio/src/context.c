@@ -1691,7 +1691,7 @@ pa_context *pa_context_new_with_proplist(pa_mainloop_api *mainloop, const char *
 	if (p)
 		pw_properties_update_proplist(props, p);
 
-	if (pa_mainloop_api_is_pipewire(mainloop))
+	if (pa_mainloop_api_is_our_api(mainloop))
 		loop = mainloop->userdata;
 	else  {
 		loop = pw_loop_new(NULL);
@@ -2196,7 +2196,7 @@ pa_time_event* pa_context_rttime_new(PA_CONST pa_context *c, pa_usec_t usec, pa_
 	if (usec == PA_USEC_INVALID)
 		return c->mainloop->time_new(c->mainloop, NULL, cb, userdata);
 
-	pa_timeval_store(&tv, usec);
+	pa_timeval_rtstore(&tv, usec, !c->fallback_loop);
 
 	return c->mainloop->time_new(c->mainloop, &tv, cb, userdata);
 }
@@ -2213,7 +2213,7 @@ void pa_context_rttime_restart(PA_CONST pa_context *c, pa_time_event *e, pa_usec
 	if (usec == PA_USEC_INVALID)
 		c->mainloop->time_restart(e, NULL);
 	else {
-		pa_timeval_store(&tv, usec);
+		pa_timeval_rtstore(&tv, usec, !c->fallback_loop);
 		c->mainloop->time_restart(e, &tv);
 	}
 }

@@ -127,7 +127,7 @@ static void set_timer(pa_time_event *ev, const struct timeval *tv)
 	} else {
 		struct timeval ttv = *tv;
 
-		if (!!(ttv.tv_usec & PA_TIMEVAL_RTCLOCK))
+		if ((ttv.tv_usec & PA_TIMEVAL_RTCLOCK) != 0)
 			ttv.tv_usec &= ~PA_TIMEVAL_RTCLOCK;
 		else
 			pa_rtclock_from_wallclock(&ttv);
@@ -292,9 +292,10 @@ pa_mainloop *pa_mainloop_new(void)
 	return NULL;
 }
 
-bool pa_mainloop_api_is_pipewire(pa_mainloop_api *api)
+bool pa_mainloop_api_is_our_api(pa_mainloop_api *api)
 {
-	return api && api->io_new == api_io_new;
+	pa_assert(api);
+	return api->io_new == api_io_new;
 }
 
 SPA_EXPORT
@@ -494,3 +495,4 @@ void pa_mainloop_api_once(pa_mainloop_api* m, void (*callback)(pa_mainloop_api *
 	pa_assert_se(e = m->defer_new(m, once_callback, i));
 	m->defer_set_destroy(e, free_callback);
 }
+

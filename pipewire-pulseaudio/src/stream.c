@@ -94,7 +94,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_STREAMING:
 		if (s->suspended) {
 			s->suspended = false;
-			if (!c->disconnect && s->started_callback)
+			if (!c->disconnect && !s->corked && s->state == PA_STREAM_READY && s->started_callback)
 				s->started_callback(s, s->started_userdata);
 		}
 		break;

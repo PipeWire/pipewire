@@ -1541,9 +1541,6 @@ static void core_info(void *data, const struct pw_core_info *info)
 	}
 
 	c->core_info = pw_core_info_update(c->core_info, info);
-
-	if (first)
-		pa_context_set_state(c, PA_CONTEXT_READY);
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -1842,10 +1839,19 @@ pa_context_state_t pa_context_get_state(PA_CONST pa_context *c)
 	return c->state;
 }
 
+static void on_connected(pa_operation *o, void *userdata)
+{
+	pa_context *c = o->context;
+	pw_log_debug("context %p: connected", c);
+	pa_context_set_state(c, PA_CONTEXT_READY);
+	pa_operation_done(o);
+}
+
 SPA_EXPORT
 int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t flags, const pa_spawn_api *api)
 {
 	int res = 0;
+	pa_operation *o;
 
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
@@ -1877,6 +1883,10 @@ int pa_context_connect(pa_context *c, const char *server, pa_context_flags_t fla
 			&c->registry_listener,
 			&registry_events, c);
 
+	o = pa_operation_new(c, NULL, on_connected, sizeof(struct success_data));
+	pa_operation_sync(o);
+	pa_operation_unref(o);
+
 exit:
 	pa_context_unref(c);
 
@@ -1888,6 +1898,8 @@ void pa_context_disconnect(pa_context *c)
 {
 	pa_assert(c);
 	pa_assert(c->refcount >= 1);
+
+	pw_log_debug("%p", c);
 
 	c->disconnect = true;
 	if (c->registry) {

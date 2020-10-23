@@ -126,10 +126,23 @@ static void set_timer(pa_time_event *ev, const struct timeval *tv)
 		ts.tv_nsec = 1;
 	} else {
 		struct timeval ttv = *tv;
-		if ((tv->tv_usec & PA_TIMEVAL_RTCLOCK) == 0)
+
+		if (!!(ttv.tv_usec & PA_TIMEVAL_RTCLOCK))
+			ttv.tv_usec &= ~PA_TIMEVAL_RTCLOCK;
+		else
 			pa_rtclock_from_wallclock(&ttv);
+
+		/* something strange, probably not wallclock time, try to
+		 * use the timeval directly */
+		if (ttv.tv_sec == 0 && ttv.tv_usec == 0)
+			ttv = *tv;
+
 		ts.tv_sec = ttv.tv_sec;
 		ts.tv_nsec = ttv.tv_usec * SPA_NSEC_PER_USEC;
+
+		/* make sure we never disable the timer */
+		if (ts.tv_sec == 0 && ts.tv_nsec == 0)
+			ts.tv_nsec++;
 	}
 	pw_log_debug("set timer %p %ld %ld", ev, ts.tv_sec, ts.tv_nsec);
 	pw_loop_update_timer(mainloop->loop, ev->source, &ts, NULL, true);

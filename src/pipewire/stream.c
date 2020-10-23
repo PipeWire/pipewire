@@ -81,6 +81,7 @@ struct param {
 struct control {
 	uint32_t id;
 	uint32_t type;
+	uint32_t container;
 	struct spa_list link;
 	struct pw_stream_control control;
 	struct spa_pod *info;
@@ -905,6 +906,7 @@ static int node_event_param(void *object, int seq,
 		const struct spa_pod *type, *pod;
 		uint32_t iid, choice, n_vals;
 		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 };
+		const struct spa_type_info *tinfo;
 
 		if (spa_pod_parse_object(param,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
@@ -946,6 +948,9 @@ static int node_event_param(void *object, int seq,
 		else
 			return -ENOTSUP;
 
+		tinfo = spa_debug_type_find(spa_type_props, iid);
+		c->container = tinfo ? tinfo->parent : c->type;
+
 		switch (choice) {
 		case SPA_CHOICE_None:
 			if (n_vals < 1)
@@ -969,8 +974,8 @@ static int node_event_param(void *object, int seq,
 		}
 
 		c->id = iid;
-		pw_log_debug(NAME" %p: add control %d (%s) (def:%f min:%f max:%f)",
-				stream, c->id, c->control.name,
+		pw_log_debug(NAME" %p: add control %d (%s) container:%d (def:%f min:%f max:%f)",
+				stream, c->id, c->control.name, c->container,
 				c->control.def, c->control.min, c->control.max);
 		break;
 	}
@@ -992,19 +997,28 @@ static int node_event_param(void *object, int seq,
 			if (c == NULL)
 				continue;
 
-			if (spa_pod_get_float(&prop->value, &value.f) == 0) {
+			switch (c->container) {
+			case SPA_TYPE_Float:
+				if (spa_pod_get_float(&prop->value, &value.f) < 0)
+					continue;
 				n_values = 1;
 				values = &value.f;
-			} else if (spa_pod_get_bool(&prop->value, &value.b) == 0) {
+				break;
+			case SPA_TYPE_Bool:
+				if (spa_pod_get_bool(&prop->value, &value.b) < 0)
+					continue;
 				value.f = value.b ? 1.0 : 0.0;
 				n_values = 1;
 				values = &value.f;
-			} else if ((values = spa_pod_get_array(&prop->value, &n_values))) {
-				if (!spa_pod_is_float(SPA_POD_ARRAY_CHILD(&prop->value)))
+				break;
+			case SPA_TYPE_Array:
+				if ((values = spa_pod_get_array(&prop->value, &n_values)) == NULL ||
+				    !spa_pod_is_float(SPA_POD_ARRAY_CHILD(&prop->value)))
 					continue;
-			} else
+				break;
+			default:
 				continue;
-
+			}
 
 			if (c->emitted && c->control.n_values == n_values &&
 			    memcmp(c->control.values, values, sizeof(float) * n_values) == 0)
@@ -1699,17 +1713,17 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 
 		if ((c = find_control(stream, id))) {
 			spa_pod_builder_prop(&b, id, 0);
-			switch (c->type) {
+			switch (c->container) {
 			case SPA_TYPE_Float:
-				if (n_values == 1)
-					spa_pod_builder_float(&b, values[0]);
-				else
-					spa_pod_builder_array(&b,
-							sizeof(float), SPA_TYPE_Float,
-							n_values, values);
+				spa_pod_builder_float(&b, values[0]);
 				break;
 			case SPA_TYPE_Bool:
 				spa_pod_builder_bool(&b, values[0] < 0.5 ? false : true);
+				break;
+			case SPA_TYPE_Array:
+				spa_pod_builder_array(&b,
+						sizeof(float), SPA_TYPE_Float,
+						n_values, values);
 				break;
 			default:
 				spa_pod_builder_none(&b);

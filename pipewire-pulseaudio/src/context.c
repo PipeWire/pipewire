@@ -1923,6 +1923,8 @@ pa_operation* pa_context_drain(pa_context *c, pa_context_notify_cb_t cb, void *u
 	pa_operation *o;
 	struct notify_data *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	o = pa_operation_new(c, NULL, on_notify, sizeof(struct notify_data));
 	d = o->userdata;
 	d->cb = cb;
@@ -1937,6 +1939,8 @@ pa_operation* pa_context_exit_daemon(pa_context *c, pa_context_success_cb_t cb, 
 {
 	pa_operation *o;
 	struct success_data *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_data));
 	d = o->userdata;
@@ -1994,6 +1998,8 @@ pa_operation* pa_context_set_default_sink(pa_context *c, const char *name, pa_co
 	pa_operation *o;
 	struct default_node *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	o = pa_operation_new(c, NULL, do_default_node, sizeof(*d));
 	d = o->userdata;
 	d->mask = PA_SUBSCRIPTION_MASK_SINK;
@@ -2011,6 +2017,8 @@ pa_operation* pa_context_set_default_source(pa_context *c, const char *name, pa_
 {
 	pa_operation *o;
 	struct default_node *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	o = pa_operation_new(c, NULL, do_default_node, sizeof(*d));
 	d = o->userdata;

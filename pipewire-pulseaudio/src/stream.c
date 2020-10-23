@@ -660,6 +660,7 @@ static void stream_unlink(pa_stream *s)
 		if (o->stream == s)
 			pa_operation_cancel(o);
 	}
+	s->drain = NULL;
 
 	spa_list_remove(&s->link);
 	if (s->stream)

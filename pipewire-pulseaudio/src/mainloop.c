@@ -120,16 +120,16 @@ static void set_timer(pa_time_event *ev, const struct timeval *tv)
 {
 	pa_mainloop *mainloop = ev->mainloop;
 	struct timespec ts;
-	struct timeval ttv = *tv;
 
 	if (tv == NULL) {
 		ts.tv_sec = 0;
 		ts.tv_nsec = 1;
 	} else {
+		struct timeval ttv = *tv;
 		if ((tv->tv_usec & PA_TIMEVAL_RTCLOCK) == 0)
 			pa_rtclock_from_wallclock(&ttv);
 		ts.tv_sec = ttv.tv_sec;
-		ts.tv_nsec = ttv.tv_usec * 1000LL;
+		ts.tv_nsec = ttv.tv_usec * SPA_NSEC_PER_USEC;
 	}
 	pw_log_debug("set timer %p %ld %ld", ev, ts.tv_sec, ts.tv_nsec);
 	pw_loop_update_timer(mainloop->loop, ev->source, &ts, NULL, true);

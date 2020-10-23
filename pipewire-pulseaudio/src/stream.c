@@ -1350,6 +1350,10 @@ pa_operation* pa_stream_drain(pa_stream *s, pa_stream_success_cb_t cb, void *use
 	PA_CHECK_VALIDITY_RETURN_NULL(s->context, s->direction == PA_STREAM_PLAYBACK, PA_ERR_BADSTATE);
 
 	pw_log_debug("stream %p", s);
+	if (s->corked) {
+		s->corked = false;
+		pw_stream_set_active(s->stream, true);
+	}
 	pw_stream_flush(s->stream, true);
 	o = pa_operation_new(s->context, s, on_success, sizeof(struct success_ack));
 	d = o->userdata;

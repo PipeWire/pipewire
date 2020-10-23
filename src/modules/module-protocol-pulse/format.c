@@ -283,7 +283,7 @@ static void channel_map_to_positions(const struct channel_map *map, uint32_t *po
 		pos[i] = channel_pa2id(map->map[i]);
 }
 
-struct cvolume {
+struct volume {
 	uint8_t channels;
 	float values[CHANNELS_MAX];
 };

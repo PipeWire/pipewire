@@ -22,6 +22,27 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#define VOLUME_MUTED ((uint32_t) 0U)
+#define VOLUME_NORM ((uint32_t) 0x10000U)
+#define VOLUME_MAX ((uint32_t) UINT32_MAX/2)
+
+static inline uint32_t volume_from_linear(float vol)
+{
+	uint32_t v;
+	if (vol <= 0.0f)
+		v = VOLUME_MUTED;
+	else
+		v = SPA_CLAMP((uint64_t) lround(cbrt(vol) * VOLUME_NORM),
+				VOLUME_MUTED, VOLUME_MAX);
+	return v;
+}
+
+static inline float volume_to_linear(uint32_t vol)
+{
+	float v = ((float)vol) / VOLUME_NORM;
+	return v * v * v;
+}
+
 struct descriptor {
 	uint32_t length;
 	uint32_t channel;
@@ -203,11 +224,11 @@ static int read_volume(struct message *m, float *vol)
 	uint32_t v;
 	if ((res = read_u32(m, &v)) < 0)
 		return res;
-	*vol = ((float)v) / 0x10000U;
+	*vol = volume_to_linear(v);
 	return 0;
 }
 
-static int read_cvolume(struct message *m, struct cvolume *vol)
+static int read_cvolume(struct message *m, struct volume *vol)
 {
 	int res;
 	uint8_t i;
@@ -336,7 +357,7 @@ static int message_get(struct message *m, ...)
 		case TAG_CVOLUME:
 			if (dtag != tag)
 				return -EINVAL;
-			if ((res = read_cvolume(m, va_arg(va, struct cvolume*))) < 0)
+			if ((res = read_cvolume(m, va_arg(va, struct volume*))) < 0)
 				return res;
 			break;
 		case TAG_PROPLIST:
@@ -462,16 +483,16 @@ static void write_channel_map(struct message *m, struct channel_map *map)
 static void write_volume(struct message *m, float vol)
 {
 	write_8(m, TAG_VOLUME);
-	write_32(m, vol * 0x10000U);
+	write_32(m, volume_from_linear(vol));
 }
 
-static void write_cvolume(struct message *m, struct cvolume *cvol)
+static void write_cvolume(struct message *m, struct volume *vol)
 {
 	uint8_t i;
 	write_8(m, TAG_CVOLUME);
-	write_8(m, cvol->channels);
-	for (i = 0; i < cvol->channels; i ++)
-		write_32(m, cvol->values[i] * 0x10000U);
+	write_8(m, vol->channels);
+	for (i = 0; i < vol->channels; i ++)
+		write_32(m, volume_from_linear(vol->values[i]));
 }
 
 static void write_props(struct message *m, struct pw_properties *props)
@@ -545,7 +566,7 @@ static int message_put(struct message *m, ...)
 			write_channel_map(m, va_arg(va, struct channel_map*));
 			break;
 		case TAG_CVOLUME:
-			write_cvolume(m, va_arg(va, struct cvolume*));
+			write_cvolume(m, va_arg(va, struct volume*));
 			break;
 		case TAG_PROPLIST:
 			write_props(m, va_arg(va, struct pw_properties*));

@@ -97,7 +97,7 @@ struct device {
 	enum pw_direction direction;
 	struct pw_properties *props;
 	struct sample_spec ss;
-	struct cvolume volume;
+	struct volume volume;
 	struct channel_map map;
 	bool muted;
 	struct device *monitor;
@@ -139,7 +139,7 @@ struct stream {
 	struct buffer_attr attr;
 	uint32_t frame_size;
 
-	struct cvolume volume;
+	struct volume volume;
 	bool muted;
 
 	struct device *dev;
@@ -1178,7 +1178,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		fail_on_suspend = false,
 		relative_volume = false,
 		passthrough = false;
-	struct cvolume volume;
+	struct volume volume;
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
@@ -1413,7 +1413,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		relative_volume = false,
 		passthrough = false;
 	uint32_t direct_on_input_idx;
-	struct cvolume volume;
+	struct volume volume;
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
@@ -1795,7 +1795,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 	uint32_t channel;
 	struct stream *stream;
 	int res;
-	struct cvolume volume;
+	struct volume volume;
 
 	if ((res = message_get(m,
 			TAG_U32, &channel,
@@ -3146,7 +3146,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			.format = SAMPLE_FLOAT32LE,
 			.rate = 44100,
 			.channels = 2, },
-		.volume = (struct cvolume) {
+		.volume = (struct volume) {
 			.channels = 2,
 			.values[0] = 1.0f,
 			.values[1] = 1.0f, },
@@ -3169,7 +3169,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			.format = SAMPLE_FLOAT32LE,
 			.rate = 44100,
 			.channels = 2, },
-		.volume = (struct cvolume) {
+		.volume = (struct volume) {
 			.channels = 2,
 			.values[0] = 1.0f,
 			.values[1] = 1.0f, },
@@ -3191,7 +3191,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			.format = SAMPLE_FLOAT32LE,
 			.rate = 44100,
 			.channels = 2, },
-		.volume = (struct cvolume) {
+		.volume = (struct volume) {
 			.channels = 2,
 			.values[0] = 1.0f,
 			.values[1] = 1.0f, },

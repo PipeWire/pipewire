@@ -959,9 +959,10 @@ struct global_info device_info = {
 
 static void clear_node_formats(struct global *g)
 {
-	pa_format_info *f;
+	pa_format_info **f;
 	pw_array_for_each(f, &g->node_info.formats)
-		pa_format_info_free(f);
+		pa_format_info_free(*f);
+	pw_array_reset(&g->node_info.formats);
 	g->changed++;
 }
 
@@ -1069,6 +1070,7 @@ static void node_destroy(void *data)
 {
 	struct global *global = data;
 	clear_node_formats(global);
+	pw_array_clear(&global->node_info.formats);
 	if (global->info)
 		pw_node_info_free(global->info);
 }

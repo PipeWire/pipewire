@@ -58,7 +58,7 @@ typedef struct {
 	snd_pcm_ioplug_t io;
 
 	char *node_name;
-	uint32_t target;
+	char *target;
 
 	int fd;
 	int error;
@@ -132,6 +132,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		spa_system_close(pw->system, pw->fd);
 	if (pw->main_loop)
 		pw_thread_loop_destroy(pw->main_loop);
+	free(pw->target);
 	free(pw);
 }
 
@@ -412,6 +413,9 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
+	if (pw->target != NULL &&
+	    pw_properties_get(props, PW_KEY_NODE_TARGET) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_TARGET, "%s", pw->target);
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_TYPE) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Audio");
@@ -433,7 +437,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 			  io->stream == SND_PCM_STREAM_PLAYBACK ?
 				  PW_DIRECTION_OUTPUT :
 				  PW_DIRECTION_INPUT,
-			  pw->target,
+			  PW_ID_ANY,
 			  pw->flags |
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
@@ -891,14 +895,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		goto error;
 	}
 
-	pw->target = PW_ID_ANY;
+	pw->target = NULL;
 	if (str != NULL)
-		pw->target = atoi(str);
+		pw->target = strdup(str);
 	else {
 		if (stream == SND_PCM_STREAM_PLAYBACK)
-			pw->target = playback_node ? (uint32_t)atoi(playback_node) : PW_ID_ANY;
+			pw->target = playback_node ? strdup(playback_node) : NULL;
 		else
-			pw->target = capture_node ? (uint32_t)atoi(capture_node) : PW_ID_ANY;
+			pw->target = capture_node ? strdup(capture_node) : NULL;
 	}
 
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);

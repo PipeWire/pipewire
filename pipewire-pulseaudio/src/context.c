@@ -170,14 +170,6 @@ const char *pa_context_find_global_name(pa_context *c, uint32_t id)
 	return name;
 }
 
-static inline bool pa_endswith(const char *s, const char *sfx)
-{
-	size_t l1, l2;
-	l1 = strlen(s);
-	l2 = strlen(sfx);
-	return l1 >= l2 && pa_streq(s + l1 - l2, sfx);
-}
-
 struct global *pa_context_find_global_by_name(pa_context *c, uint32_t mask, const char *name)
 {
 	struct global *g;

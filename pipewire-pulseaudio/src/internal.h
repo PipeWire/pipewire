@@ -513,6 +513,8 @@ struct timeval* pa_rtclock_from_wallclock(struct timeval *tv);
 struct timeval* pa_rtclock_to_wallclock(struct timeval *tv);
 struct timeval* pa_timeval_rtstore(struct timeval *tv, pa_usec_t v, bool rtclock);
 
+bool pa_endswith(const char *s, const char *sfx);
+
 pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb, size_t userdata_size);
 void pa_operation_done(pa_operation *o);
 int pa_operation_sync(pa_operation *o);

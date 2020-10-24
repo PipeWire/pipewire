@@ -848,7 +848,6 @@ static int create_stream(pa_stream_direction_t direction,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *str;
 	uint32_t devid, n_items;
-	struct global *g;
 	struct spa_dict_item items[7];
 	bool monitor, no_remix;
 	const char *name;
@@ -956,24 +955,19 @@ static int create_stream(pa_stream_direction_t direction,
 	else
 		devid = PW_ID_ANY;
 
-	if (dev == NULL) {
-		if ((str = getenv("PIPEWIRE_NODE")) != NULL)
-			devid = atoi(str);
+	if (dev == NULL && devid == PW_ID_ANY) {
+		dev = getenv("PIPEWIRE_NODE");
 	}
-	else if (devid == PW_ID_ANY) {
-		uint32_t mask;
-
-		if (direction == PA_STREAM_PLAYBACK)
-			mask = PA_SUBSCRIPTION_MASK_SINK;
-		else if (direction == PA_STREAM_RECORD)
-			mask = PA_SUBSCRIPTION_MASK_SOURCE;
-		else
-			mask = 0;
-
-		if ((g = pa_context_find_global_by_name(s->context, mask, dev)) != NULL)
-			devid = g->id;
-		else if ((devid = atoi(dev)) == 0)
+	else if (dev != NULL && devid == PW_ID_ANY) {
+		if ((devid = atoi(dev)) == 0)
 			devid = PW_ID_ANY;
+		else if (devid & PA_IDX_FLAG_MONITOR)
+			devid &= PA_IDX_MASK_MONITOR;
+
+		if (devid == PW_ID_ANY) {
+			if (pa_endswith(dev, ".monitor"))
+				dev = strndupa(dev, strlen(dev) - 8);
+		}
 	}
 
 	if ((str = pa_proplist_gets(s->proplist, PA_PROP_MEDIA_ROLE)) != NULL) {

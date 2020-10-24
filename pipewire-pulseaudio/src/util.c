@@ -26,6 +26,8 @@
 
 #include <pulse/util.h>
 
+#include "internal.h"
+
 #define PA_PATH_SEP_CHAR	'/'
 
 SPA_EXPORT
@@ -111,4 +113,12 @@ int pa_msleep(unsigned long t)
     ts.tv_nsec = (long) ((t % SPA_MSEC_PER_SEC) * SPA_NSEC_PER_MSEC);
 
     return nanosleep(&ts, NULL);
+}
+
+bool pa_endswith(const char *s, const char *sfx)
+{
+	size_t l1, l2;
+	l1 = strlen(s);
+	l2 = strlen(sfx);
+	return l1 >= l2 && pa_streq(s + l1 - l2, sfx);
 }

@@ -353,8 +353,11 @@ static uint32_t find_device_for_name(struct impl *impl, const char *name)
 {
 	struct node *node;
 	const char *str;
+	uint32_t id = atoi(name);
 
 	spa_list_for_each(node, &impl->node_list, link) {
+		if (id == node->obj->obj.id)
+			return id;
 		if ((str = get_device_name(node)) == NULL)
 			continue;
 		if (strcmp(str, name) == 0)
@@ -554,7 +557,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	struct pw_node_info *info;
 	struct node *peer;
 	struct sm_object *obj;
-	uint32_t path_id = SPA_ID_INVALID;
+	uint32_t path_id;
 
 	if (!n->active) {
 		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
@@ -626,8 +629,9 @@ static int rescan_node(struct impl *impl, struct node *n)
 	reconnect = str ? !pw_properties_parse_bool(str) : true;
 
 	/* we always honour the target node asked for by the client */
+	path_id = SPA_ID_INVALID;
 	if ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) != NULL)
-		path_id = atoi(str);
+		path_id = find_device_for_name(impl, str);
 	if (path_id == SPA_ID_INVALID && n->obj->target_node != NULL)
 		path_id = find_device_for_name(impl, n->obj->target_node);
 

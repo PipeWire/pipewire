@@ -146,12 +146,38 @@ struct object_info module_info = {
 	.destroy = module_destroy,
 };
 
+/* device */
+static void device_event_info(void *object, const struct pw_device_info *info)
+{
+        struct object *o = object;
+        pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+        info = o->this.info = pw_device_info_update(o->this.info, info);
+}
+
+static const struct pw_device_events device_events = {
+	PW_VERSION_DEVICE_EVENTS,
+	.info = device_event_info,
+};
+
+static void device_destroy(void *data)
+{
+	struct object *o = data;
+	if (o->this.info)
+		pw_device_info_free(o->this.info);
+}
+
+struct object_info device_info = {
+	.type = PW_TYPE_INTERFACE_Device,
+	.version = PW_VERSION_DEVICE,
+	.events = &device_events,
+	.destroy = device_destroy,
+};
 
 static const struct object_info *objects[] =
 {
-//	&core_info,
 	&module_info,
 	&client_info,
+	&device_info,
 };
 
 static const struct object_info *find_info(const char *type, uint32_t version)

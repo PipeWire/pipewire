@@ -2245,6 +2245,86 @@ static void fill_module_info(struct client *client, struct message *m,
 	}
 }
 
+static void fill_card_info(struct client *client, struct message *m,
+		struct pw_manager_object *o)
+{
+	struct pw_device_info *info = o->info;
+	const char *str;
+	uint32_t module_id = SPA_ID_INVALID;
+
+	if (o->props == NULL || info == NULL || info->props == NULL ||
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) == NULL ||
+	    strcmp(str, "Audio/Device") != 0)
+		return;
+
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+
+	message_put(m,
+		TAG_U32, o->id,				/* card index */
+		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
+		TAG_U32, module_id,
+		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_API),
+		TAG_INVALID);
+
+	message_put(m,
+		TAG_U32, 0,				/* n_profiles */
+		TAG_INVALID);
+	while (false) {
+		message_put(m,
+			TAG_STRING, NULL,			/* profile name */
+			TAG_STRING, NULL,			/* profile description */
+			TAG_U32, 0,				/* n_sinks */
+			TAG_U32, 0,				/* n_sources */
+			TAG_U32, 0,				/* priority */
+			TAG_INVALID);
+		if (client->version >= 29) {
+			message_put(m,
+				TAG_U32, 0,			/* available */
+				TAG_INVALID);
+		}
+	}
+	message_put(m,
+		TAG_STRING, NULL,				/* active profile name */
+		TAG_PROPLIST, info->props,
+		TAG_INVALID);
+	if (client->version < 26)
+		return;
+
+	message_put(m,
+		TAG_U32, 0,				/* n_ports */
+		TAG_INVALID);
+	while (false) {
+		message_put(m,
+			TAG_STRING, NULL,			/* port name */
+			TAG_STRING, NULL,			/* port description */
+			TAG_U32, 0,				/* port priority */
+			TAG_U32, 0,				/* port available */
+			TAG_U8, 0,				/* port direction */
+			TAG_PROPLIST, NULL,			/* port proplist */
+			TAG_INVALID);
+		message_put(m,
+			TAG_U32, 0,				/* n_profiles */
+			TAG_INVALID);
+		while (false) {
+			message_put(m,
+				TAG_STRING, NULL,		/* profile name */
+				TAG_INVALID);
+		}
+		if (client->version >= 27) {
+			message_put(m,
+				TAG_S64, 0LL,			/* port latency */
+				TAG_INVALID);
+		}
+		if (client->version >= 34) {
+			message_put(m,
+				TAG_STRING, NULL,		/* available group */
+				TAG_U32, 0,			/* port type */
+				TAG_INVALID);
+		}
+	}
+}
+
 static void fill_sink_info(struct client *client, struct message *m, struct device *sink)
 {
 	struct device *monitor = sink->monitor;
@@ -2378,7 +2458,8 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		break;
 	}
 
-	if (idx == SPA_ID_INVALID && name == NULL)
+	if ((idx == SPA_ID_INVALID && name == NULL) ||
+	    (idx != SPA_ID_INVALID && name != NULL))
 		goto error_invalid;
 
 	pw_log_info(NAME" %p: %s idx:%u name:%s", impl,
@@ -2474,6 +2555,17 @@ static int do_list_modules(void *data, struct pw_manager_object *object)
 	return 0;
 }
 
+static int do_list_cards(void *data, struct pw_manager_object *object)
+{
+	struct info_list_data *info = data;
+
+	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) != 0)
+		return 0;
+
+	fill_card_info(info->client, info->reply, object);
+	return 0;
+}
+
 static int do_get_info_list(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -2493,6 +2585,8 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 		list_func = do_list_modules;
 		break;
 	case COMMAND_GET_CARD_INFO_LIST:
+		list_func = do_list_cards;
+		break;
 	case COMMAND_GET_SAMPLE_INFO_LIST:
 		break;
 	case COMMAND_GET_SINK_INFO_LIST:

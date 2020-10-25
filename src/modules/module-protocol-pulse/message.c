@@ -495,12 +495,12 @@ static void write_cvolume(struct message *m, struct volume *vol)
 		write_32(m, volume_from_linear(vol->values[i]));
 }
 
-static void write_props(struct message *m, struct pw_properties *props)
+static void write_dict(struct message *m, struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
 	write_8(m, TAG_PROPLIST);
-	if (props != NULL) {
-		spa_dict_for_each(it, &props->dict) {
+	if (dict != NULL) {
+		spa_dict_for_each(it, dict) {
 			int l = strlen(it->value);
 			write_string(m, it->key);
 			write_u32(m, l+1);
@@ -514,7 +514,7 @@ static void write_format_info(struct message *m, struct format_info *info)
 {
 	write_8(m, TAG_FORMAT_INFO);
 	write_u8(m, (uint8_t) info->encoding);
-	write_props(m, info->props);
+	write_dict(m, info->props ? &info->props->dict : NULL);
 }
 
 static int message_put(struct message *m, ...)
@@ -569,7 +569,7 @@ static int message_put(struct message *m, ...)
 			write_cvolume(m, va_arg(va, struct volume*));
 			break;
 		case TAG_PROPLIST:
-			write_props(m, va_arg(va, struct pw_properties*));
+			write_dict(m, va_arg(va, struct spa_dict*));
 			break;
 		case TAG_VOLUME:
 			write_volume(m, va_arg(va, double));

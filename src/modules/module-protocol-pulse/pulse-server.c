@@ -58,11 +58,19 @@
 
 #include "format.c"
 #include "message.c"
+#include "manager.h"
 
 #define NAME	"pulse-server"
 
 struct impl;
 struct server;
+
+struct operation {
+	struct spa_list link;
+	struct client *client;
+	uint32_t tag;
+	void (*callback) (struct operation *op);
+};
 
 struct client {
 	struct spa_list link;
@@ -71,11 +79,15 @@ struct client {
 
         struct spa_source *source;
 
+	uint32_t id;
 	uint32_t version;
 
 	struct pw_properties *props;
 
 	struct pw_core *core;
+	struct pw_manager *manager;
+	struct spa_hook manager_listener;
+	uint32_t connect_tag;
 
 	uint32_t in_index;
 	uint32_t out_index;
@@ -85,6 +97,8 @@ struct client {
 	struct pw_map streams;
 	struct spa_list free_messages;
 	struct spa_list out_messages;
+
+	struct spa_list operations;
 
 	unsigned int disconnecting:1;
 };
@@ -449,10 +463,37 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 	return send_message(client, reply);
 }
 
+static int reply_set_client_name(struct client *client, uint32_t tag)
+{
+	struct message *reply;
+	reply = reply_new(client, tag);
+
+	if (client->version >= 13) {
+		message_put(reply,
+			TAG_U32, client->id,	/* client index */
+			TAG_INVALID);
+	}
+	return send_message(client, reply);
+}
+
+static void manager_sync(void *data)
+{
+	struct client *client = data;
+
+	if (client->connect_tag) {
+		reply_set_client_name(client, client->connect_tag);
+		client->connect_tag = 0;
+	}
+}
+
+static const struct pw_manager_events manager_events = {
+	PW_VERSION_MANAGER_EVENTS,
+	.sync = manager_sync,
+};
+
 static int do_set_client_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	struct message *reply;
 	const char *name = NULL;
 	int res, changed = 0;
 
@@ -466,11 +507,14 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 					PW_KEY_APP_NAME, name);
 	} else {
 		if ((res = message_get(m,
-				TAG_PROPLIST, client->props,
+				TAG_PROPLIST, client->props ? &client->props->dict : NULL,
 				TAG_INVALID)) < 0)
 			return res;
 		changed++;
 	}
+
+	pw_log_info(NAME" %p: SET_CLIENT_NAME %s", impl,
+			pw_properties_get(client->props, PW_KEY_APP_NAME));
 
 	if (client->core == NULL) {
 		client->core = pw_context_connect(impl->context,
@@ -479,21 +523,22 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 			res = -errno;
 			goto error;
 		}
-	} else if (changed){
-		pw_core_update_properties(client->core, &client->props->dict);
+		client->manager = pw_manager_new(client->core);
+		if (client->manager == NULL) {
+			res = -errno;
+			goto error;
+		}
+		client->connect_tag = tag;
+		pw_manager_add_listener(client->manager, &client->manager_listener,
+				&manager_events, client);
+		res = 0;
+	} else {
+		if (changed)
+			pw_core_update_properties(client->core, &client->props->dict);
+
+		res = reply_set_client_name(client, tag);
 	}
-
-	pw_log_info(NAME" %p: SET_CLIENT_NAME %s", impl,
-			pw_properties_get(client->props, PW_KEY_APP_NAME));
-
-	reply = reply_new(client, tag);
-
-	if (client->version >= 13) {
-		message_put(reply,
-			TAG_U32, 0,	/* client index */
-			TAG_INVALID);
-	}
-	return send_message(client, reply);
+	return res;
 error:
 	pw_log_error(NAME" %p: failed to connect client: %m", impl);
 	return res;
@@ -2145,17 +2190,44 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 	return 0;
 }
 
-static void fill_client_info(struct client *client, struct message *m)
+static void fill_client_info(struct client *client, struct message *m,
+		struct pw_manager_object *o)
 {
+	struct pw_client_info *info = o->info;
+
 	message_put(m,
-		TAG_U32, 0,				/* client index */
-		TAG_STRING, pw_properties_get(client->props, PW_KEY_APP_NAME),
+		TAG_U32, o->id,				/* client index */
+		TAG_STRING, pw_properties_get(o->props, PW_KEY_APP_NAME),
 		TAG_U32, SPA_ID_INVALID,		/* module */
 		TAG_STRING, "PipeWire",			/* driver */
 		TAG_INVALID);
 	if (client->version >= 13) {
 		message_put(m,
-			TAG_PROPLIST, client->props,
+			TAG_PROPLIST, info ? info->props : NULL,
+			TAG_INVALID);
+	}
+}
+
+static void fill_module_info(struct client *client, struct message *m,
+		struct pw_manager_object *o)
+{
+	struct pw_module_info *info = o->info;
+
+	message_put(m,
+		TAG_U32, o->id,				/* module index */
+		TAG_STRING, info ? info->name : NULL,
+		TAG_STRING, info ? info->args : NULL,
+		TAG_U32, -1,				/* n_used */
+		TAG_INVALID);
+
+	if (client->version < 15) {
+		message_put(m,
+			TAG_BOOLEAN, false,		/* auto unload deprecated */
+			TAG_INVALID);
+	}
+	if (client->version >= 15) {
+		message_put(m,
+			TAG_PROPLIST, info ? info->props : NULL,
 			TAG_INVALID);
 	}
 }
@@ -2182,7 +2254,7 @@ static void fill_sink_info(struct client *client, struct message *m, struct devi
 
 	if (client->version >= 13) {
 		message_put(m,
-			TAG_PROPLIST, sink->props,
+			TAG_PROPLIST, sink->props ? &sink->props->dict : NULL,
 			TAG_USEC, 0LL,			/* requested latency */
 			TAG_INVALID);
 	}
@@ -2235,7 +2307,7 @@ static void fill_source_info(struct client *client, struct message *m, struct de
 
 	if (client->version >= 13) {
 		message_put(m,
-			TAG_PROPLIST, source->props,
+			TAG_PROPLIST, source->props ? &source->props->dict : NULL,
 			TAG_USEC, 0LL,			/* requested latency */
 			TAG_INVALID);
 	}
@@ -2274,6 +2346,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	const char *name = NULL;
 	struct device *dev;
 	int res;
+	struct pw_manager_object *o;
 
 	if ((res = message_get(m,
 			TAG_U32, &idx,
@@ -2301,9 +2374,17 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	reply = reply_new(client, tag);
 	switch (command) {
 	case COMMAND_GET_CLIENT_INFO:
-		fill_client_info(client, reply);
+		o = pw_manager_find_object(client->manager, PW_TYPE_INTERFACE_Client, idx);
+		if (o == NULL)
+			return reply_error(client, -1, ERR_NOENTITY);
+		fill_client_info(client, reply, o);
 		break;
 	case COMMAND_GET_MODULE_INFO:
+		o = pw_manager_find_object(client->manager, PW_TYPE_INTERFACE_Module, idx);
+		if (o == NULL)
+			return reply_error(client, -1, ERR_NOENTITY);
+		fill_module_info(client, reply, o);
+		break;
 	case COMMAND_GET_CARD_INFO:
 	case COMMAND_GET_SAMPLE_INFO:
 		return reply_error(client, -1, ERR_NOENTITY);
@@ -2340,28 +2421,60 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	return send_message(client, reply);
 }
 
+struct info_list_data {
+	struct client *client;
+	struct message *reply;
+};
+
+static int do_list_clients(void *data, struct pw_manager_object *object)
+{
+	struct info_list_data *info = data;
+
+	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) != 0)
+		return 0;
+
+	fill_client_info(info->client, info->reply, object);
+	return 0;
+}
+
+static int do_list_modules(void *data, struct pw_manager_object *object)
+{
+	struct info_list_data *info = data;
+
+	if (strcmp(object->type, PW_TYPE_INTERFACE_Module) != 0)
+		return 0;
+
+	fill_module_info(info->client, info->reply, object);
+	return 0;
+}
+
 static int do_get_info_list(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	struct message *reply;
+	struct info_list_data info;
+	int (*list_func) (void *data, struct pw_manager_object *object) = NULL;
 
 	pw_log_info(NAME" %p: %s", impl, commands[command].name);
 
-	reply = reply_new(client, tag);
+	info.client = client;
+	info.reply = reply_new(client, tag);
+
 	switch (command) {
 	case COMMAND_GET_CLIENT_INFO_LIST:
-		fill_client_info(client, reply);
+		list_func = do_list_clients;
 		break;
 	case COMMAND_GET_MODULE_INFO_LIST:
+		list_func = do_list_modules;
+		break;
 	case COMMAND_GET_CARD_INFO_LIST:
 	case COMMAND_GET_SAMPLE_INFO_LIST:
 		break;
 	case COMMAND_GET_SINK_INFO_LIST:
-		fill_sink_info(client, reply, &impl->default_sink);
+		fill_sink_info(client, info.reply, &impl->default_sink);
 		break;
 	case COMMAND_GET_SOURCE_INFO_LIST:
-		fill_source_info(client, reply, &impl->default_source);
-		fill_source_info(client, reply, &impl->default_monitor);
+		fill_source_info(client, info.reply, &impl->default_source);
+		fill_source_info(client, info.reply, &impl->default_monitor);
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO_LIST:
 	case COMMAND_GET_SOURCE_OUTPUT_INFO_LIST:
@@ -2370,7 +2483,10 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 	default:
 		return -ENOTSUP;
 	}
-	return send_message(client, reply);
+	if (list_func)
+		pw_manager_for_each_object(client->manager, list_func, &info);
+
+	return send_message(client, info.reply);
 }
 
 static int do_set_stream_buffer_attr(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2664,6 +2780,8 @@ static void client_free(struct client *client)
 		message_free(client, msg, true, true);
 	spa_list_consume(msg, &client->out_messages, link)
 		message_free(client, msg, true, true);
+	if (client->manager)
+		pw_manager_destroy(client->manager);
 	if (client->core) {
 		client->disconnecting = true;
 		pw_core_disconnect(client->core);
@@ -2906,6 +3024,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	pw_map_init(&client->streams, 16, 16);
 	spa_list_init(&client->free_messages);
 	spa_list_init(&client->out_messages);
+	spa_list_init(&client->operations);
 
 	client->props = pw_properties_new(
 			PW_KEY_CLIENT_API, "pipewire-pulse",

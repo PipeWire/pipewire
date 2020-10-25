@@ -90,7 +90,8 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
 
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',
   [ 'module-protocol-pulse.c',
-    'module-protocol-pulse/pulse-server.c' ],
+    'module-protocol-pulse/pulse-server.c',
+    'module-protocol-pulse/manager.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,

@@ -1200,6 +1200,16 @@ static struct device *find_device_by_index(struct impl *impl, uint32_t index)
 	return dev;
 }
 
+static struct device *find_device(struct impl *impl, uint32_t idx, const char *name)
+{
+	struct device *dev;
+	if (idx != SPA_ID_INVALID)
+		dev = find_device_by_index(impl, idx);
+	else
+		dev = find_device_by_name(impl, name);
+	return dev;
+}
+
 static void fix_stream_properties(struct stream *stream, struct pw_properties *props)
 {
 	const char *str;
@@ -1305,10 +1315,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		res = -EINVAL;
 		goto error;
 	} else if ((sink_index != SPA_ID_INVALID || sink_name != NULL)) {
-		if (sink_index != SPA_ID_INVALID)
-			dev = find_device_by_index(impl, sink_index);
-		else if (sink_name != NULL)
-			dev = find_device_by_name(impl, sink_name);
+		dev = find_device(impl, sink_index, sink_name);
 		if (dev == NULL) {
 			res = -ENOENT;
 			goto error;
@@ -1537,10 +1544,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		res = -EINVAL;
 		goto error;
 	} else if ((source_index != SPA_ID_INVALID || source_name != NULL)) {
-		if (source_index != SPA_ID_INVALID)
-			dev = find_device_by_index(impl, source_index);
-		else if (source_name != NULL)
-			dev = find_device_by_name(impl, source_name);
+		dev = find_device(impl, source_index, source_name);
 		if (dev == NULL) {
 			res = -ENOENT;
 			goto error;
@@ -2151,12 +2155,12 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 			TAG_INVALID)) < 0)
 		return res;
 	if (name == NULL)
-		return -EINVAL;
+		goto error_invalid;
 
 	pw_log_info(NAME" %p: LOOKUP %s", impl, name);
 
 	if ((dev = find_device_by_name(impl, name)) == NULL)
-		return reply_error(client, -1, ERR_NOENTITY);
+		goto error_noentity;
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -2164,6 +2168,15 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 		TAG_INVALID);
 
 	return send_message(client, reply);
+
+error_invalid:
+	res = ERR_INVALID;
+	goto error;
+error_noentity:
+	res = ERR_INVALID;
+	goto error;
+error:
+	return reply_error(client, -1, res);
 }
 
 static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2341,17 +2354,17 @@ static void fill_source_info(struct client *client, struct message *m, struct de
 static int do_get_info(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	struct message *reply;
+	struct message *reply = NULL;
 	uint32_t idx;
 	const char *name = NULL;
 	struct device *dev;
-	int res;
+	int res, err;
 	struct pw_manager_object *o;
 
 	if ((res = message_get(m,
 			TAG_U32, &idx,
 			TAG_INVALID)) < 0)
-		return res;
+		goto error_protocol;
 
 	switch (command) {
 	case COMMAND_GET_SINK_INFO:
@@ -2361,12 +2374,12 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		if ((res = message_get(m,
 				TAG_STRING, &name,
 				TAG_INVALID)) < 0)
-			return res;
+			goto error_protocol;
 		break;
 	}
 
 	if (idx == SPA_ID_INVALID && name == NULL)
-		return reply_error(client, -1, ERR_INVALID);
+		goto error_invalid;
 
 	pw_log_info(NAME" %p: %s idx:%u name:%s", impl,
 			commands[command].name, idx, name);
@@ -2376,39 +2389,38 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	case COMMAND_GET_CLIENT_INFO:
 		o = pw_manager_find_object(client->manager, PW_TYPE_INTERFACE_Client, idx);
 		if (o == NULL)
-			return reply_error(client, -1, ERR_NOENTITY);
+			goto error_noentity;
 		fill_client_info(client, reply, o);
 		break;
+
 	case COMMAND_GET_MODULE_INFO:
 		o = pw_manager_find_object(client->manager, PW_TYPE_INTERFACE_Module, idx);
 		if (o == NULL)
-			return reply_error(client, -1, ERR_NOENTITY);
+			goto error_noentity;
 		fill_module_info(client, reply, o);
 		break;
+
 	case COMMAND_GET_CARD_INFO:
 	case COMMAND_GET_SAMPLE_INFO:
-		return reply_error(client, -1, ERR_NOENTITY);
-	case COMMAND_GET_SINK_INFO:
-		if (idx != SPA_ID_INVALID)
-			dev = find_device_by_index(impl, idx);
-		else
-			dev = find_device_by_name(impl, name);
-		if (dev == NULL)
-			return reply_error(client, -1, ERR_NOENTITY);
-		if (dev->direction != PW_DIRECTION_INPUT)
-			return reply_error(client, -1, ERR_INVALID);
+		goto error_noentity;
 
+	case COMMAND_GET_SINK_INFO:
+		dev = find_device(impl, idx, name);
+		if (dev == NULL)
+			goto error_noentity;
+		if (dev->direction != PW_DIRECTION_INPUT)
+			goto error_invalid;
 		fill_sink_info(client, reply, dev);
 		break;
+
 	case COMMAND_GET_SOURCE_INFO:
-		if (idx != SPA_ID_INVALID)
-			dev = find_device_by_index(impl, idx);
-		else
-			dev = find_device_by_name(impl, name);
+
+		dev = find_device(impl, idx, name);
 		if (dev == NULL)
-			return reply_error(client, -1, ERR_NOENTITY);
+			goto error_noentity;
 		if (dev->direction != PW_DIRECTION_OUTPUT)
-			return reply_error(client, -1, ERR_INVALID);
+			goto error_invalid;
+
 		fill_source_info(client, reply, dev);
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO:
@@ -2419,6 +2431,20 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		return -ENOTSUP;
 	}
 	return send_message(client, reply);
+
+error_protocol:
+	err = ERR_PROTOCOL;
+	goto error;
+error_noentity:
+	err = ERR_NOENTITY;
+	goto error;
+error_invalid:
+	err = ERR_INVALID;
+	goto error;
+error:
+	if (reply)
+		message_free(client, reply, false, false);
+	return reply_error(client, -1, err);
 }
 
 struct info_list_data {

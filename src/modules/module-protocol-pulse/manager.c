@@ -173,11 +173,39 @@ struct object_info device_info = {
 	.destroy = device_destroy,
 };
 
+/* node */
+static void node_event_info(void *object, const struct pw_node_info *info)
+{
+        struct object *o = object;
+        pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+        info = o->this.info = pw_node_info_update(o->this.info, info);
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.info = node_event_info,
+};
+
+static void node_destroy(void *data)
+{
+	struct object *o = data;
+	if (o->this.info)
+		pw_node_info_free(o->this.info);
+}
+
+struct object_info node_info = {
+	.type = PW_TYPE_INTERFACE_Node,
+	.version = PW_VERSION_NODE,
+	.events = &node_events,
+	.destroy = node_destroy,
+};
+
 static const struct object_info *objects[] =
 {
 	&module_info,
 	&client_info,
 	&device_info,
+	&node_info,
 };
 
 static const struct object_info *find_info(const char *type, uint32_t version)
@@ -348,15 +376,13 @@ void pw_manager_add_listener(struct pw_manager *manager,
 }
 
 struct pw_manager_object *pw_manager_find_object(struct pw_manager *manager,
-		const char *type, uint32_t id)
+		uint32_t id)
 {
 	struct manager *this = (struct manager*)manager;
 	struct object *o;
 
 	o = find_object(this, id);
 	if (o == NULL)
-		return NULL;
-	if (type != NULL && strcmp(type, o->this.type) != 0)
 		return NULL;
 	return (struct pw_manager_object*)o;
 }

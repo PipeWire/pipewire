@@ -79,7 +79,7 @@ void pw_manager_add_listener(struct pw_manager *manager,
 void pw_manager_destroy(struct pw_manager *manager);
 
 struct pw_manager_object *pw_manager_find_object(struct pw_manager *manager,
-		const char *type, uint32_t id);
+		uint32_t id);
 int pw_manager_for_each_object(struct pw_manager *manager,
 		int (*callback) (void *data, struct pw_manager_object *object),
 		void *data);

@@ -1208,7 +1208,6 @@ static void metadata_destroy(void *data)
 	pa_context *c = global->context;
 	if (c->metadata == global)
 		c->metadata = NULL;
-	pw_array_clear(&global->metadata_info.metadata);
 }
 
 struct global_info metadata_info = {
@@ -1430,7 +1429,6 @@ static int set_mask(pa_context *c, struct global *g)
 			g->mask = PA_SUBSCRIPTION_MASK_SERVER;
 			g->event = PA_SUBSCRIPTION_EVENT_SERVER;
 		}
-		pw_array_init(&g->metadata_info.metadata, 64);
 	} else {
 		return 0;
 	}

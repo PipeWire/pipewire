@@ -329,9 +329,6 @@ struct global {
 		struct {
 			pa_client_info info;
 		} client_info;
-		struct {
-			struct pw_array metadata;
-		} metadata_info;
 	};
 };
 

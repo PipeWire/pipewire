@@ -582,6 +582,11 @@ static bool is_source(struct pw_manager_object *o)
 	    strcmp(str, "Audio/Source") == 0;
 }
 
+static bool is_source_or_monitor(struct pw_manager_object *o)
+{
+	return is_source(o) || is_sink(o);
+}
+
 static bool is_sink_input(struct pw_manager_object *o)
 {
 	const char *str;
@@ -662,7 +667,7 @@ static struct pw_manager_object *find_linked(struct client *client, uint32_t obj
 				return p;
 		}
 		if (direction == PW_DIRECTION_INPUT && obj_id == in_node) {
-			struct selector sel = { .id = out_node, .type = is_source, };
+			struct selector sel = { .id = out_node, .type = is_source_or_monitor, };
 			if ((p = select_object(m, &sel)) != NULL)
 				return p;
 		}
@@ -975,8 +980,13 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	peer = find_linked(client, stream->id, stream->direction);
 	if (peer) {
-		peer_id = peer->id;
-		peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		if (is_sink(peer)) {
+			peer_id = peer->id | 0x10000u;
+			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		} else {
+			peer_id = peer->id;
+			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		}
 	} else {
 		peer_id = SPA_ID_INVALID;
 		peer_name = NULL;
@@ -1072,8 +1082,13 @@ static int reply_create_record_stream(struct stream *stream)
 
 	peer = find_linked(client, stream->id, stream->direction);
 	if (peer) {
-		peer_id = peer->id;
-		peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		if (is_sink(peer)) {
+			peer_id = peer->id | 0x10000u;
+			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		} else {
+			peer_id = peer->id;
+			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		}
 	} else {
 		peer_id = SPA_ID_INVALID;
 		peer_name = NULL;
@@ -1674,7 +1689,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
-	uint32_t n_params = 0, flags;
+	uint32_t n_params = 0, flags, id;
 	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1826,12 +1841,25 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 
-	if (source_name != NULL)
-		pw_properties_set(props,
-				PW_KEY_NODE_TARGET, source_name);
-	else if (source_index != SPA_ID_INVALID)
+	if (source_name != NULL) {
+		if ((id = atoi(source_name)) != 0)
+			source_index = id;
+	}
+	if (source_index != SPA_ID_INVALID) {
+		if (source_index & 0x10000u)
+			source_index &= 0xffffu;
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u", source_index);
+	} else if (source_name != NULL) {
+		if (pw_endswith(source_name, ".monitor")) {
+			pw_properties_setf(props,
+					PW_KEY_NODE_TARGET,
+					"%.*s", (int)strlen(source_name)-8, source_name);
+		} else {
+			pw_properties_set(props,
+					PW_KEY_NODE_TARGET, source_name);
+		}
+	}
 
 	fix_stream_properties(stream, props),
 	stream->stream = pw_stream_new(client->core, name, props);
@@ -2513,14 +2541,19 @@ static int fill_client_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_client_info *info = o->info;
+	const char *str;
+	uint32_t module_id = SPA_ID_INVALID;
 
 	if (o == NULL || !is_client(o))
 		return ERR_NOENTITY;
 
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+
 	message_put(m,
 		TAG_U32, o->id,				/* client index */
 		TAG_STRING, pw_properties_get(o->props, PW_KEY_APP_NAME),
-		TAG_U32, SPA_ID_INVALID,		/* module */
+		TAG_U32, module_id,			/* module */
 		TAG_STRING, "PipeWire",			/* driver */
 		TAG_INVALID);
 	if (client->version >= 13) {
@@ -2645,8 +2678,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 	struct sample_spec ss;
 	struct volume volume;
 	struct channel_map map;
-	const char *name;
+	const char *name, *str;
 	char *monitor_name = NULL;
+	uint32_t module_id = SPA_ID_INVALID;
+	uint32_t card_id = SPA_ID_INVALID;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
@@ -2664,12 +2699,15 @@ static int fill_sink_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
-	if (name) {
+	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
 		monitor_name = alloca(size);
 		snprintf(monitor_name, size, "%s.monitor", name);
 	}
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
 
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
@@ -2677,7 +2715,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION),
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
-		TAG_U32, SPA_ID_INVALID,		/* module index */
+		TAG_U32, module_id,			/* module index */
 		TAG_CVOLUME, &volume,
 		TAG_BOOLEAN, false,
 		TAG_U32, o->id | 0x10000U,		/* monitor source */
@@ -2698,7 +2736,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 			TAG_VOLUME, 1.0f,		/* base volume */
 			TAG_U32, 0,			/* state */
 			TAG_U32, 256,			/* n_volume_steps */
-			TAG_U32, SPA_ID_INVALID,	/* card index */
+			TAG_U32, card_id,		/* card index */
 			TAG_INVALID);
 	}
 	if (client->version >= 16) {
@@ -2729,9 +2767,11 @@ static int fill_source_info(struct client *client, struct message *m,
 	struct volume volume;
 	struct channel_map map;
 	bool is_monitor;
-	const char *name, *desc;
+	const char *name, *desc, *str;
 	char *monitor_name = NULL;
 	char *monitor_desc = NULL;
+	uint32_t module_id = SPA_ID_INVALID;
+	uint32_t card_id = SPA_ID_INVALID;
 
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
@@ -2751,33 +2791,35 @@ static int fill_source_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
-	if (name) {
+	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
 		monitor_name = alloca(size);
 		snprintf(monitor_name, size, "%s.monitor", name);
 	}
-	desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
-	if (desc) {
+	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
 		size_t size = strlen(name) + 20;
 		monitor_desc = alloca(size);
 		snprintf(monitor_desc, size, "Monitor of %s", desc);
 	}
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
 
 	message_put(m,
-		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,			/* source index */
+		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,	/* source index */
 		TAG_STRING, is_monitor ? monitor_name :  name,
 		TAG_STRING, is_monitor ? monitor_desc :  desc,
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
-		TAG_U32, SPA_ID_INVALID,	/* module index */
+		TAG_U32, module_id,				/* module index */
 		TAG_CVOLUME, &volume,
 		TAG_BOOLEAN, false,
 		TAG_U32, is_monitor ? o->id : SPA_ID_INVALID,	/* monitor of sink */
 		TAG_STRING, is_monitor ? name : NULL,		/* monitor of sink name */
-		TAG_USEC, 0LL,			/* latency */
-		TAG_STRING, "PipeWire",		/* driver */
-		TAG_U32, 0,			/* flags */
+		TAG_USEC, 0LL,					/* latency */
+		TAG_STRING, "PipeWire",				/* driver */
+		TAG_U32, 0,					/* flags */
 		TAG_INVALID);
 
 	if (client->version >= 13) {
@@ -2791,7 +2833,7 @@ static int fill_source_info(struct client *client, struct message *m,
 			TAG_VOLUME, 1.0f,		/* base volume */
 			TAG_U32, 0,			/* state */
 			TAG_U32, 256,			/* n_volume_steps */
-			TAG_U32, SPA_ID_INVALID,	/* card index */
+			TAG_U32, card_id,		/* card index */
 			TAG_INVALID);
 	}
 	if (client->version >= 16) {
@@ -2822,6 +2864,8 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	struct volume volume;
 	struct channel_map map;
 	struct pw_manager_object *peer;
+	const char *str;
+	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink_input(o))
 		return ERR_NOENTITY;
@@ -2839,14 +2883,19 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
+		client_id = (uint32_t)atoi(str);
+
 	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
 
 	message_put(m,
-		TAG_U32, o->id,				/* sink_input index */
+		TAG_U32, o->id,					/* sink_input index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
-		TAG_U32, SPA_ID_INVALID,		/* module index */
-		TAG_U32, SPA_ID_INVALID,		/* client index */
-		TAG_U32, peer ? peer->id : SPA_ID_INVALID,		/* sink index */
+		TAG_U32, module_id,				/* module index */
+		TAG_U32, client_id,				/* client index */
+		TAG_U32, peer ? peer->id : SPA_ID_INVALID,	/* sink index */
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_CVOLUME, &volume,
@@ -2891,6 +2940,8 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	struct volume volume;
 	struct channel_map map;
 	struct pw_manager_object *peer;
+	const char *str;
+	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_source_output(o))
 		return ERR_NOENTITY;
@@ -2908,14 +2959,19 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
+		client_id = (uint32_t)atoi(str);
+
 	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
 
 	message_put(m,
-		TAG_U32, o->id,				/* source_output index */
+		TAG_U32, o->id,					/* source_output index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
-		TAG_U32, SPA_ID_INVALID,		/* module index */
-		TAG_U32, SPA_ID_INVALID,		/* client index */
-		TAG_U32, peer ? peer->id : SPA_ID_INVALID,		/* source index */
+		TAG_U32, module_id,				/* module index */
+		TAG_U32, client_id,				/* client index */
+		TAG_U32, peer ? peer->id : SPA_ID_INVALID,	/* source index */
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_USEC, 0LL,				/* latency */
@@ -2985,7 +3041,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		fill_func = fill_sink_info;
 		break;
 	case COMMAND_GET_SOURCE_INFO:
-		sel.type = is_source;
+		sel.type = is_source_or_monitor;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_source_info;
 		break;
@@ -3011,6 +3067,11 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	pw_log_info(NAME" %p: %s idx:%u name:%s", impl,
 			commands[command].name, sel.id, sel.value);
+
+	if (command == COMMAND_GET_SOURCE_INFO &&
+	    sel.value != NULL && pw_endswith(sel.value, ".monitor")) {
+		sel.value = strndupa(sel.value, strlen(sel.value)-8);
+	}
 
 	o = select_object(client->manager, &sel);
 	if (o == NULL)

@@ -273,3 +273,11 @@ enum {
 	SUBSCRIPTION_EVENT_REMOVE = 0x0020U,
 	SUBSCRIPTION_EVENT_TYPE_MASK = 0x0030U
 };
+
+static inline bool pw_endswith(const char *s, const char *sfx)
+{
+        size_t l1, l2;
+        l1 = strlen(s);
+        l2 = strlen(sfx);
+        return l1 >= l2 && strcmp(s + l1 - l2, sfx) == 0;
+}

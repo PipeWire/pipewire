@@ -980,13 +980,8 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	peer = find_linked(client, stream->id, stream->direction);
 	if (peer) {
-		if (is_sink(peer)) {
-			peer_id = peer->id | 0x10000u;
-			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
-		} else {
-			peer_id = peer->id;
-			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
-		}
+		peer_id = peer->id;
+		peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
 	} else {
 		peer_id = SPA_ID_INVALID;
 		peer_name = NULL;
@@ -1059,9 +1054,9 @@ static int reply_create_record_stream(struct stream *stream)
 	struct client *client = stream->client;
 	struct message *reply;
 	struct spa_dict_item items[1];
-	char latency[32];
+	char latency[32], *tmp;
 	struct pw_manager_object *peer;
-	const char *peer_name;
+	const char *peer_name, *name;
 	uint32_t peer_id;
 
 	fix_record_buffer_attr(stream, &stream->attr);
@@ -1082,12 +1077,15 @@ static int reply_create_record_stream(struct stream *stream)
 
 	peer = find_linked(client, stream->id, stream->direction);
 	if (peer) {
+		name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
 		if (is_sink(peer)) {
+			size_t len = (name ? strlen(name) : 5) + 10;
 			peer_id = peer->id | 0x10000u;
-			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+			peer_name = tmp = alloca(len);
+			snprintf(tmp, len, "%s.monitor", name ? name : "sink");
 		} else {
 			peer_id = peer->id;
-			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+			peer_name = name;
 		}
 	} else {
 		peer_id = SPA_ID_INVALID;
@@ -2942,6 +2940,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	struct pw_manager_object *peer;
 	const char *str;
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
+	uint32_t peer_id;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_source_output(o))
 		return ERR_NOENTITY;
@@ -2964,14 +2963,21 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
+	peer = find_linked(client, o->id, PW_DIRECTION_INPUT);
+	if (peer) {
+		peer_id = peer->id;
+		if (is_sink(peer))
+			peer_id |= 0x10000u;
+	} else {
+		peer_id = SPA_ID_INVALID;
+	}
 
 	message_put(m,
 		TAG_U32, o->id,					/* source_output index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
 		TAG_U32, module_id,				/* module index */
 		TAG_U32, client_id,				/* client index */
-		TAG_U32, peer ? peer->id : SPA_ID_INVALID,	/* source index */
+		TAG_U32, peer_id,				/* source index */
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_USEC, 0LL,				/* latency */

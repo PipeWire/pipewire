@@ -23,6 +23,8 @@
  */
 
 #include "manager.h"
+
+#include <spa/pod/iter.h>
 #include <extensions/metadata.h>
 
 #define manager_emit_sync(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, sync, 0)
@@ -66,6 +68,45 @@ static void core_sync(struct manager *m)
 	m->sync_seq = pw_core_sync(m->this.core, PW_ID_CORE, m->sync_seq);
 }
 
+static struct pw_manager_param *add_param(struct spa_list *params, uint32_t id, const struct spa_pod *param)
+{
+	struct pw_manager_param *p;
+
+	if (param == NULL || !spa_pod_is_object(param)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (id == SPA_ID_INVALID)
+		id = SPA_POD_OBJECT_ID(param);
+
+	p = malloc(sizeof(*p) + SPA_POD_SIZE(param));
+	if (p == NULL)
+		return NULL;
+
+	p->id = id;
+	p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+	spa_list_append(params, &p->link);
+
+	return p;
+}
+
+static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
+{
+	struct pw_manager_param *p, *t;
+	uint32_t count = 0;
+
+	spa_list_for_each_safe(p, t, param_list, link) {
+		if (id == SPA_ID_INVALID || p->id == id) {
+			spa_list_remove(&p->link);
+			free(p);
+			count++;
+		}
+	}
+	return count;
+}
+
+
 static struct object *find_object(struct manager *m, uint32_t id)
 {
 	struct object *o;
@@ -79,14 +120,15 @@ static struct object *find_object(struct manager *m, uint32_t id)
 static void object_destroy(struct object *o)
 {
 	struct manager *m = o->manager;
+	spa_list_remove(&o->this.link);
+	m->this.n_objects--;
 	if (o->this.proxy)
 		pw_proxy_destroy(o->this.proxy);
 	free(o->this.type);
 	if (o->this.props)
 		pw_properties_free(o->this.props);
-	spa_list_remove(&o->this.link);
-	m->this.n_objects--;
-        free(o);
+	clear_params(&o->this.param_list, SPA_ID_INVALID);
+	free(o);
 }
 
 /* client */
@@ -146,14 +188,46 @@ static const struct object_info module_info = {
 /* device */
 static void device_event_info(void *object, const struct pw_device_info *info)
 {
-        struct object *o = object;
-        pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
-        info = o->this.info = pw_device_info_update(o->this.info, info);
+	struct object *o = object;
+	int changed = 0;
+	uint32_t i;
+
+	pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+	info = o->this.info = pw_device_info_update(o->this.info, info);
+
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t id = info->params[i].id;
+
+			if (info->params[i].user == 0)
+				continue;
+			info->params[i].user = 0;
+
+			clear_params(&o->this.param_list, id);
+			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
+				continue;
+
+			pw_device_enum_params((struct pw_device*)o->this.proxy,
+					0, id, 0, -1, NULL);
+			changed++;
+		}
+	}
+	if (changed)
+		core_sync(o->manager);
+}
+
+static void device_event_param(void *object, int seq,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct object *o = object;
+	add_param(&o->this.param_list, id, param);
 }
 
 static const struct pw_device_events device_events = {
 	PW_VERSION_DEVICE_EVENTS,
 	.info = device_event_info,
+	.param = device_event_param,
 };
 
 static void device_destroy(void *data)
@@ -248,21 +322,6 @@ static const struct object_info *find_info(const char *type, uint32_t version)
 	return NULL;
 }
 
-static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
-{
-	struct pw_manager_param *p, *t;
-	uint32_t count = 0;
-
-	spa_list_for_each_safe(p, t, param_list, link) {
-		if (id == SPA_ID_INVALID || p->id == id) {
-			spa_list_remove(&p->link);
-			free(p);
-			count++;
-		}
-	}
-	return count;
-}
-
 static void
 destroy_removed(void *data)
 {
@@ -274,8 +333,6 @@ static void
 destroy_proxy(void *data)
 {
 	struct object *o = data;
-
-	clear_params(&o->this.param_list, SPA_ID_INVALID);
 
 	if (o->info && o->info->destroy)
                 o->info->destroy(o);

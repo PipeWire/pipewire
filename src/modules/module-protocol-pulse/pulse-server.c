@@ -2595,7 +2595,11 @@ static int fill_card_info(struct client *client, struct message *m,
 {
 	struct pw_device_info *info = o->info;
 	const char *str;
-	uint32_t module_id = SPA_ID_INVALID;
+	const char **names;
+	uint32_t module_id = SPA_ID_INVALID, i;
+	struct pw_manager_param *p;
+	uint32_t n_profiles, n_ports, active_profile = SPA_ID_INVALID;
+	const char *active_name = NULL;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_card(o))
 		return ERR_NOENTITY;
@@ -2610,48 +2614,168 @@ static int fill_card_info(struct client *client, struct message *m,
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_API),
 		TAG_INVALID);
 
+	n_profiles = n_ports = 0;
+	spa_list_for_each(p, &o->param_list, link) {
+		if (p->id == SPA_PARAM_Profile) {
+			if (spa_pod_parse_object(p->param,
+					SPA_TYPE_OBJECT_ParamProfile, NULL,
+					SPA_PARAM_PROFILE_index, SPA_POD_Int(&active_profile)) < 0)
+				continue;
+		}
+		else if (p->id == SPA_PARAM_EnumProfile)
+			n_profiles++;
+		else if (p->id == SPA_PARAM_EnumRoute)
+			n_ports++;
+	}
+
 	message_put(m,
-		TAG_U32, 0,				/* n_profiles */
+		TAG_U32, n_profiles,				/* n_profiles */
 		TAG_INVALID);
-	while (false) {
+
+	names = alloca(n_profiles * sizeof(char*));
+	i = 0;
+
+	spa_list_for_each(p, &o->param_list, link) {
+		uint32_t id, priority = 0, available = 0, n_sources = 0, n_sinks = 0;
+		const char *name = NULL;
+		const char *description = NULL;
+		struct spa_pod *classes = NULL;
+
+		if (p->id != SPA_PARAM_EnumProfile)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name),
+				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&description),
+				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority),
+				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available),
+				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
+			pw_log_warn("device %d: can't parse profile", o->id);
+			continue;
+		}
+		if (id == active_profile)
+			active_name = name;
+		names[i++] = name;
+
+		if (classes != NULL) {
+			struct spa_pod *iter;
+
+			SPA_POD_STRUCT_FOREACH(classes, iter) {
+				struct spa_pod_parser prs;
+				struct spa_pod_frame f[1];
+				char *class;
+				uint32_t count;
+
+				spa_pod_parser_pod(&prs, iter);
+				if (spa_pod_parser_get_struct(&prs,
+						SPA_POD_String(&class),
+						SPA_POD_Int(&count)) < 0)
+					continue;
+
+				if (strcmp(class, "Audio/Sink") == 0)
+					n_sinks += count;
+				else if (strcmp(class, "Audio/Source") == 0)
+					n_sources += count;
+
+				spa_pod_parser_pop(&prs, &f[0]);
+			}
+		}
 		message_put(m,
-			TAG_STRING, NULL,			/* profile name */
-			TAG_STRING, NULL,			/* profile description */
-			TAG_U32, 0,				/* n_sinks */
-			TAG_U32, 0,				/* n_sources */
-			TAG_U32, 0,				/* priority */
+			TAG_STRING, name,			/* profile name */
+			TAG_STRING, description,		/* profile description */
+			TAG_U32, n_sinks,			/* n_sinks */
+			TAG_U32, n_sources,			/* n_sources */
+			TAG_U32, priority,			/* priority */
 			TAG_INVALID);
+
+
 		if (client->version >= 29) {
 			message_put(m,
-				TAG_U32, 0,			/* available */
+				TAG_U32, available != SPA_PARAM_AVAILABILITY_no,		/* available */
 				TAG_INVALID);
 		}
 	}
 	message_put(m,
-		TAG_STRING, NULL,				/* active profile name */
+		TAG_STRING, active_name,				/* active profile name */
 		TAG_PROPLIST, info->props,
 		TAG_INVALID);
 	if (client->version < 26)
 		return 0;
 
 	message_put(m,
-		TAG_U32, 0,				/* n_ports */
+		TAG_U32, n_ports,				/* n_ports */
 		TAG_INVALID);
-	while (false) {
+
+	spa_list_for_each(p, &o->param_list, link) {
+		uint32_t id, priority, *pr = NULL, n_pr = 0;
+		enum spa_direction direction;
+		const char *name = NULL, *description = NULL;
+		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
+		struct spa_pod *profiles = NULL, *info = NULL, *devices = NULL;
+		struct spa_dict dict, *pdict = NULL;
+		struct spa_dict_item *items;
+
+		if (p->id != SPA_PARAM_EnumRoute)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
+				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name),
+				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&description),
+				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&priority),
+				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&available),
+				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
+				SPA_PARAM_ROUTE_devices,  SPA_POD_OPT_Pod(&devices),
+				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0)
+			continue;
+
+		while (info) {
+			struct spa_pod_parser prs;
+			struct spa_pod_frame f[1];
+			int32_t n, n_items;
+
+			spa_pod_parser_pod(&prs, info);
+			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
+			    spa_pod_parser_get_int(&prs, &n_items) < 0)
+				break;
+
+			items = alloca(n_items * sizeof(*items));
+			for (n = 0; n < n_items; n++) {
+				if (spa_pod_parser_get(&prs,
+						SPA_POD_String(&items[n].key),
+						SPA_POD_String(&items[n].value),
+						NULL) < 0)
+					break;
+			}
+			spa_pod_parser_pop(&prs, &f[0]);
+			dict = SPA_DICT_INIT(items, n);
+			pdict = &dict;
+			break;
+		}
+
 		message_put(m,
-			TAG_STRING, NULL,			/* port name */
-			TAG_STRING, NULL,			/* port description */
-			TAG_U32, 0,				/* port priority */
-			TAG_U32, 0,				/* port available */
-			TAG_U8, 0,				/* port direction */
-			TAG_PROPLIST, NULL,			/* port proplist */
+			TAG_STRING, name,			/* port name */
+			TAG_STRING, description,		/* port description */
+			TAG_U32, priority,			/* port priority */
+			TAG_U32, available,			/* port available */
+			TAG_U8, direction == SPA_DIRECTION_INPUT ? 2 : 1,	/* port direction */
+			TAG_PROPLIST, pdict,			/* port proplist */
 			TAG_INVALID);
+
+		if (profiles)
+                        pr = spa_pod_get_array(profiles, &n_pr);
+
 		message_put(m,
-			TAG_U32, 0,				/* n_profiles */
+			TAG_U32, n_pr,				/* n_profiles */
 			TAG_INVALID);
-		while (false) {
+
+		for (i = 0; i < n_pr; i++) {
 			message_put(m,
-				TAG_STRING, NULL,		/* profile name */
+				TAG_STRING, names[pr[i]],	/* profile name */
 				TAG_INVALID);
 		}
 		if (client->version >= 27) {

@@ -542,6 +542,134 @@ static const struct pw_manager_events manager_events = {
 	.metadata = manager_metadata,
 };
 
+static bool is_client(struct pw_manager_object *o)
+{
+	return strcmp(o->type, PW_TYPE_INTERFACE_Client) == 0;
+}
+
+static bool is_module(struct pw_manager_object *o)
+{
+	return strcmp(o->type, PW_TYPE_INTERFACE_Module) == 0;
+}
+
+static bool is_card(struct pw_manager_object *o)
+{
+	const char *str;
+	return
+	    strcmp(o->type, PW_TYPE_INTERFACE_Device) == 0 &&
+	    o->props != NULL &&
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+	    strcmp(str, "Audio/Device") == 0;
+}
+
+static bool is_sink(struct pw_manager_object *o)
+{
+	const char *str;
+	return
+	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+	    o->props != NULL &&
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+	    strcmp(str, "Audio/Sink") == 0;
+}
+
+static bool is_source(struct pw_manager_object *o)
+{
+	const char *str;
+	return
+	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+	    o->props != NULL &&
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+	    strcmp(str, "Audio/Source") == 0;
+}
+
+static bool is_sink_input(struct pw_manager_object *o)
+{
+	const char *str;
+	return
+	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+	    o->props != NULL &&
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+	    strcmp(str, "Stream/Output/Audio") == 0;
+}
+
+static bool is_source_output(struct pw_manager_object *o)
+{
+	const char *str;
+	return
+	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+	    o->props != NULL &&
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+	    strcmp(str, "Stream/Input/Audio") == 0;
+}
+
+static bool is_link(struct pw_manager_object *o)
+{
+	return strcmp(o->type, PW_TYPE_INTERFACE_Link) == 0;
+}
+
+struct selector {
+	bool (*type) (struct pw_manager_object *o);
+	uint32_t id;
+	const char *key;
+	const char *value;
+	void (*accumulate) (struct selector *sel, struct pw_manager_object *o);
+	int32_t score;
+	struct pw_manager_object *best;
+};
+
+static struct pw_manager_object *select_object(struct pw_manager *m,
+		struct selector *s)
+{
+	struct pw_manager_object *o;
+	const char *str;
+
+	spa_list_for_each(o, &m->object_list, link) {
+		if (s->type != NULL && !s->type(o))
+			continue;
+		if (o->id == s->id)
+			return o;
+		if (s->accumulate)
+			s->accumulate(s, o);
+		if (o->props && s->key != NULL && s->value != NULL &&
+		    (str = pw_properties_get(o->props, s->key)) != NULL &&
+		    strcmp(str, s->value) == 0)
+			return o;
+	}
+	return s->best;
+}
+
+static struct pw_manager_object *find_linked(struct client *client, uint32_t obj_id, enum pw_direction direction)
+{
+	struct pw_manager *m = client->manager;
+	struct pw_manager_object *o, *p;
+	const char *str;
+	uint32_t in_node, out_node;
+
+	spa_list_for_each(o, &m->object_list, link) {
+		if (o->props == NULL || !is_link(o))
+			continue;
+
+		if ((str = pw_properties_get(o->props, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
+                        continue;
+		out_node = pw_properties_parse_int(str);
+                if ((str = pw_properties_get(o->props, PW_KEY_LINK_INPUT_NODE)) == NULL)
+                        continue;
+		in_node = pw_properties_parse_int(str);
+
+		if (direction == PW_DIRECTION_OUTPUT && obj_id == out_node) {
+			struct selector sel = { .id = in_node, .type = is_sink, };
+			if ((p = select_object(m, &sel)) != NULL)
+				return p;
+		}
+		if (direction == PW_DIRECTION_INPUT && obj_id == in_node) {
+			struct selector sel = { .id = out_node, .type = is_source, };
+			if ((p = select_object(m, &sel)) != NULL)
+				return p;
+		}
+	}
+	return NULL;
+}
+
 static struct stream *find_stream(struct client *client, uint32_t id)
 {
 	union pw_map_item *item;
@@ -818,9 +946,11 @@ static int reply_create_playback_stream(struct stream *stream)
 {
 	struct client *client = stream->client;
 	struct message *reply;
-	uint32_t size;
+	uint32_t size, peer_id;
 	struct spa_dict_item items[1];
 	char latency[32];
+	struct pw_manager_object *peer;
+	const char *peer_name;
 
 	fix_playback_buffer_attr(stream, &stream->attr);
 
@@ -843,6 +973,15 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	stream->pending = size;
 
+	peer = find_linked(client, stream->id, stream->direction);
+	if (peer) {
+		peer_id = peer->id;
+		peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+	} else {
+		peer_id = SPA_ID_INVALID;
+		peer_name = NULL;
+	}
+
 	if (client->version >= 9) {
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
@@ -855,9 +994,9 @@ static int reply_create_playback_stream(struct stream *stream)
 		message_put(reply,
 			TAG_SAMPLE_SPEC, &stream->ss,
 			TAG_CHANNEL_MAP, &stream->map,
-			TAG_U32, 0,				/* sink index */
-			TAG_STRING, "sink",			/* sink name */
-			TAG_BOOLEAN, false,			/* sink suspended state */
+			TAG_U32, peer_id,		/* sink index */
+			TAG_STRING, peer_name,		/* sink name */
+			TAG_BOOLEAN, false,		/* sink suspended state */
 			TAG_INVALID);
 	}
 	if (client->version >= 13) {
@@ -911,6 +1050,9 @@ static int reply_create_record_stream(struct stream *stream)
 	struct message *reply;
 	struct spa_dict_item items[1];
 	char latency[32];
+	struct pw_manager_object *peer;
+	const char *peer_name;
+	uint32_t peer_id;
 
 	fix_record_buffer_attr(stream, &stream->attr);
 
@@ -928,6 +1070,15 @@ static int reply_create_record_stream(struct stream *stream)
 		TAG_U32, stream->id,		/* source_output/stream index */
 		TAG_INVALID);
 
+	peer = find_linked(client, stream->id, stream->direction);
+	if (peer) {
+		peer_id = peer->id;
+		peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+	} else {
+		peer_id = SPA_ID_INVALID;
+		peer_name = NULL;
+	}
+
 	if (client->version >= 9) {
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
@@ -938,8 +1089,8 @@ static int reply_create_record_stream(struct stream *stream)
 		message_put(reply,
 			TAG_SAMPLE_SPEC, &stream->ss,
 			TAG_CHANNEL_MAP, &stream->map,
-			TAG_U32, SPA_ID_INVALID,		/* source index */
-			TAG_STRING, NULL,			/* source name */
+			TAG_U32, peer_id,		/* source index */
+			TAG_STRING, peer_name,		/* source name */
 			TAG_BOOLEAN, false,		/* source suspended state */
 			TAG_INVALID);
 	}
@@ -1231,97 +1382,6 @@ static const struct pw_stream_events stream_events =
 	.process = stream_process,
 	.drained = stream_drained,
 };
-
-static bool is_client(struct pw_manager_object *o)
-{
-	return strcmp(o->type, PW_TYPE_INTERFACE_Client) == 0;
-}
-
-static bool is_module(struct pw_manager_object *o)
-{
-	return strcmp(o->type, PW_TYPE_INTERFACE_Module) == 0;
-}
-
-static bool is_card(struct pw_manager_object *o)
-{
-	const char *str;
-	return
-	    strcmp(o->type, PW_TYPE_INTERFACE_Device) == 0 &&
-	    o->props != NULL &&
-	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    strcmp(str, "Audio/Device") == 0;
-}
-
-static bool is_sink(struct pw_manager_object *o)
-{
-	const char *str;
-	return
-	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
-	    o->props != NULL &&
-	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    strcmp(str, "Audio/Sink") == 0;
-}
-
-static bool is_source(struct pw_manager_object *o)
-{
-	const char *str;
-	return
-	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
-	    o->props != NULL &&
-	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    strcmp(str, "Audio/Source") == 0;
-}
-
-static bool is_sink_input(struct pw_manager_object *o)
-{
-	const char *str;
-	return
-	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
-	    o->props != NULL &&
-	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    strcmp(str, "Stream/Output/Audio") == 0;
-}
-
-static bool is_source_output(struct pw_manager_object *o)
-{
-	const char *str;
-	return
-	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
-	    o->props != NULL &&
-	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    strcmp(str, "Stream/Input/Audio") == 0;
-}
-
-struct selector {
-	bool (*type) (struct pw_manager_object *o);
-	uint32_t id;
-	const char *key;
-	const char *value;
-	void (*accumulate) (struct selector *sel, struct pw_manager_object *o);
-	int32_t score;
-	struct pw_manager_object *best;
-};
-
-static struct pw_manager_object *select_object(struct pw_manager *m,
-		struct selector *s)
-{
-	struct pw_manager_object *o;
-	const char *str;
-
-	spa_list_for_each(o, &m->object_list, link) {
-		if (s->type != NULL && !s->type(o))
-			continue;
-		if (o->id == s->id)
-			return o;
-		if (s->accumulate)
-			s->accumulate(s, o);
-		if (o->props && s->key != NULL && s->value != NULL &&
-		    (str = pw_properties_get(o->props, s->key)) != NULL &&
-		    strcmp(str, s->value) == 0)
-			return o;
-	}
-	return s->best;
-}
 
 static void fix_stream_properties(struct stream *stream, struct pw_properties *props)
 {

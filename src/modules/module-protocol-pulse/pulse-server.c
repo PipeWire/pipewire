@@ -2645,6 +2645,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 	struct sample_spec ss;
 	struct volume volume;
 	struct channel_map map;
+	const char *name;
+	char *monitor_name = NULL;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
@@ -2662,6 +2664,13 @@ static int fill_sink_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
+	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	if (name) {
+		size_t size = strlen(name) + 10;
+		monitor_name = alloca(size);
+		snprintf(monitor_name, size, "%s.monitor", name);
+	}
+
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
@@ -2671,8 +2680,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_U32, SPA_ID_INVALID,		/* module index */
 		TAG_CVOLUME, &volume,
 		TAG_BOOLEAN, false,
-		TAG_U32, SPA_ID_INVALID,		/* monitor source */
-		TAG_STRING, NULL,			/* monitor source name */
+		TAG_U32, o->id | 0x10000U,		/* monitor source */
+		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
 		TAG_STRING, "PipeWire",			/* driver */
 		TAG_U32, 0,				/* flags */
@@ -2720,6 +2729,9 @@ static int fill_source_info(struct client *client, struct message *m,
 	struct volume volume;
 	struct channel_map map;
 	bool is_monitor;
+	const char *name, *desc;
+	char *monitor_name = NULL;
+	char *monitor_desc = NULL;
 
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
@@ -2739,17 +2751,30 @@ static int fill_source_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
+	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	if (name) {
+		size_t size = strlen(name) + 10;
+		monitor_name = alloca(size);
+		snprintf(monitor_name, size, "%s.monitor", name);
+	}
+	desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
+	if (desc) {
+		size_t size = strlen(name) + 20;
+		monitor_desc = alloca(size);
+		snprintf(monitor_desc, size, "Monitor of %s", desc);
+	}
+
 	message_put(m,
 		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,			/* source index */
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION),
+		TAG_STRING, is_monitor ? monitor_name :  name,
+		TAG_STRING, is_monitor ? monitor_desc :  desc,
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_U32, SPA_ID_INVALID,	/* module index */
 		TAG_CVOLUME, &volume,
 		TAG_BOOLEAN, false,
-		TAG_U32, SPA_ID_INVALID,	/* monitor source */
-		TAG_STRING, NULL,		/* monitor source name */
+		TAG_U32, is_monitor ? o->id : SPA_ID_INVALID,	/* monitor of sink */
+		TAG_STRING, is_monitor ? name : NULL,		/* monitor of sink name */
 		TAG_USEC, 0LL,			/* latency */
 		TAG_STRING, "PipeWire",		/* driver */
 		TAG_U32, 0,			/* flags */

@@ -2821,6 +2821,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	struct sample_spec ss;
 	struct volume volume;
 	struct channel_map map;
+	struct pw_manager_object *peer;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink_input(o))
 		return ERR_NOENTITY;
@@ -2838,12 +2839,14 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
+	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
+
 	message_put(m,
 		TAG_U32, o->id,				/* sink_input index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
 		TAG_U32, SPA_ID_INVALID,		/* module index */
 		TAG_U32, SPA_ID_INVALID,		/* client index */
-		TAG_U32, SPA_ID_INVALID,		/* sink index */
+		TAG_U32, peer ? peer->id : SPA_ID_INVALID,		/* sink index */
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_CVOLUME, &volume,
@@ -2887,6 +2890,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	struct sample_spec ss;
 	struct volume volume;
 	struct channel_map map;
+	struct pw_manager_object *peer;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_source_output(o))
 		return ERR_NOENTITY;
@@ -2904,12 +2908,14 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			.map[0] = 1,
 			.map[1] = 2, };
 
+	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
+
 	message_put(m,
 		TAG_U32, o->id,				/* source_output index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
 		TAG_U32, SPA_ID_INVALID,		/* module index */
 		TAG_U32, SPA_ID_INVALID,		/* client index */
-		TAG_U32, SPA_ID_INVALID,		/* source index */
+		TAG_U32, peer ? peer->id : SPA_ID_INVALID,		/* source index */
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_USEC, 0LL,				/* latency */

@@ -1201,6 +1201,8 @@ int pw_impl_link_register(struct pw_impl_link *link,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_LINK_OUTPUT_PORT,
 		PW_KEY_LINK_INPUT_PORT,
+		PW_KEY_LINK_OUTPUT_NODE,
+		PW_KEY_LINK_INPUT_NODE,
 		NULL
 	};
 

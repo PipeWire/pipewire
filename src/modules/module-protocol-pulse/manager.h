@@ -34,7 +34,6 @@ extern "C" {
 
 #include <pipewire/pipewire.h>
 
-struct pw_manager;
 struct pw_manager_object;
 
 struct pw_manager_events {
@@ -50,15 +49,27 @@ struct pw_manager_events {
 	void (*updated) (void *data, struct pw_manager_object *object);
 
 	void (*removed) (void *data, struct pw_manager_object *object);
+
+	void (*metadata) (void *data, uint32_t subject, const char *key,
+			const char *type, const char *value);
+};
+
+struct pw_manager {
+	struct pw_core *core;
+	struct pw_registry *registry;
+
+	uint32_t n_objects;
+	struct spa_list object_list;
 };
 
 struct pw_manager_param {
 	uint32_t id;
-	struct spa_list link;           /**< link in param_list */
+	struct spa_list link;           /**< link in manager_object param_list */
 	struct spa_pod *param;
 };
 
 struct pw_manager_object {
+	struct spa_list link;           /**< link in manager object_list */
 	uint32_t id;
 	uint32_t permissions;
 	char *type;
@@ -78,8 +89,6 @@ void pw_manager_add_listener(struct pw_manager *manager,
 
 void pw_manager_destroy(struct pw_manager *manager);
 
-struct pw_manager_object *pw_manager_find_object(struct pw_manager *manager,
-		uint32_t id);
 int pw_manager_for_each_object(struct pw_manager *manager,
 		int (*callback) (void *data, struct pw_manager_object *object),
 		void *data);

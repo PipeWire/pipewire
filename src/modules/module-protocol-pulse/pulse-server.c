@@ -1067,7 +1067,6 @@ static int reply_create_playback_stream(struct stream *stream)
 		peer_name = NULL;
 		peer_suspended = false;
 	}
-	pw_log_info("peer:%p id:%d name:%s", peer, peer_id, peer_name);
 
 	if (client->version >= 9) {
 		message_put(reply,
@@ -1179,7 +1178,6 @@ static int reply_create_record_stream(struct stream *stream)
 		peer_name = NULL;
 		peer_suspended = false;
 	}
-	pw_log_info("peer:%p id:%d name:%s", peer, peer_id, peer_name);
 
 	if (client->version >= 9) {
 		message_put(reply,
@@ -1927,8 +1925,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
-
-	pw_log_info("direct %u", direct_on_input_idx);
 
 	if (direct_on_input_idx != SPA_ID_INVALID) {
 		source_index = direct_on_input_idx;
@@ -2917,11 +2913,23 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
+		case SPA_PARAM_EnumFormat:
+		{
+			struct spa_pod *copy = spa_pod_copy(p->param);
+			spa_pod_fixate(copy);
+			format_parse_param(copy, &ss, &map);
+			free(copy);
+			break;
+		}
 		case SPA_PARAM_Format:
 			format_parse_param(p->param, &ss, &map);
 			break;
 		}
 	}
+	if (ss.channels != map.channels)
+		ss.channels = map.channels;
+	if (volume_info.volume.channels != map.channels)
+		volume_info.volume.channels = map.channels;
 
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
@@ -3010,11 +3018,23 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
+		case SPA_PARAM_EnumFormat:
+		{
+			struct spa_pod *copy = spa_pod_copy(p->param);
+			spa_pod_fixate(copy);
+			format_parse_param(copy, &ss, &map);
+			free(copy);
+			break;
+		}
 		case SPA_PARAM_Format:
 			format_parse_param(p->param, &ss, &map);
 			break;
 		}
 	}
+	if (ss.channels != map.channels)
+		ss.channels = map.channels;
+	if (volume_info.volume.channels != map.channels)
+		volume_info.volume.channels = map.channels;
 
 	message_put(m,
 		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,	/* source index */
@@ -3088,6 +3108,14 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
+		case SPA_PARAM_EnumFormat:
+		{
+			struct spa_pod *copy = spa_pod_copy(p->param);
+			spa_pod_fixate(copy);
+			format_parse_param(copy, &ss, &map);
+			free(copy);
+			break;
+		}
 		case SPA_PARAM_Format:
 			format_parse_param(p->param, &ss, &map);
 			break;
@@ -3096,6 +3124,10 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			break;
 		}
 	}
+	if (ss.channels != map.channels)
+		ss.channels = map.channels;
+	if (volume_info.volume.channels != map.channels)
+		volume_info.volume.channels = map.channels;
 
 	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
 
@@ -3164,6 +3196,14 @@ static int fill_source_output_info(struct client *client, struct message *m,
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
+		case SPA_PARAM_EnumFormat:
+		{
+			struct spa_pod *copy = spa_pod_copy(p->param);
+			spa_pod_fixate(copy);
+			format_parse_param(copy, &ss, &map);
+			free(copy);
+			break;
+		}
 		case SPA_PARAM_Format:
 			format_parse_param(p->param, &ss, &map);
 			break;
@@ -3172,6 +3212,10 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			break;
 		}
 	}
+	if (ss.channels != map.channels)
+		ss.channels = map.channels;
+	if (volume_info.volume.channels != map.channels)
+		volume_info.volume.channels = map.channels;
 
 	peer = find_linked(client, o->id, PW_DIRECTION_INPUT);
 	if (peer && is_source_or_monitor(peer)) {

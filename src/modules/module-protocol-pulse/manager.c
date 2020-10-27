@@ -529,8 +529,6 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 			&m->registry_listener,
 			&registry_events, m);
 
-	core_sync(m);
-
 	return &m->this;
 }
 
@@ -540,6 +538,7 @@ void pw_manager_add_listener(struct pw_manager *manager,
 {
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
 	spa_hook_list_append(&m->hooks, listener, events, data);
+	core_sync(m);
 }
 
 struct pw_manager_object *pw_manager_find_object(struct pw_manager *manager,

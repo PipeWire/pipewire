@@ -326,18 +326,19 @@ static int format_parse_param(const struct spa_pod *param, struct sample_spec *s
 	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
                 return -ENOTSUP;
         }
+	if (ss) {
+	        ss->format = format_id2pa(info.info.raw.format);
+	        if (ss->format == SAMPLE_INVALID)
+	                return -ENOTSUP;
 
-        ss->format = format_id2pa(info.info.raw.format);
-        if (ss->format == SAMPLE_INVALID)
-                return -ENOTSUP;
-
-        ss->rate = info.info.raw.rate;
-        ss->channels = info.info.raw.channels;
-
-	map->channels = info.info.raw.channels;
-	for (i = 0; i < map->channels; i++)
-		map->map[i] = channel_id2pa(info.info.raw.position[i], &aux);
-
+	        ss->rate = info.info.raw.rate;
+	        ss->channels = info.info.raw.channels;
+	}
+	if (map) {
+		map->channels = info.info.raw.channels;
+		for (i = 0; i < map->channels; i++)
+			map->map[i] = channel_id2pa(info.info.raw.position[i], &aux);
+	}
 	return 0;
 }
 

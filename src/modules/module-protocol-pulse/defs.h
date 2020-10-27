@@ -274,6 +274,32 @@ enum {
 	SUBSCRIPTION_EVENT_TYPE_MASK = 0x0030U
 };
 
+enum {
+	STATE_INVALID = -1,
+	STATE_RUNNING = 0,
+	STATE_IDLE = 1,
+	STATE_SUSPENDED = 2,
+	STATE_INIT = -2,
+	STATE_UNLINKED = -3
+};
+
+static inline int node_state(enum pw_node_state state)
+{
+	switch (state) {
+	case PW_NODE_STATE_ERROR:
+		return STATE_UNLINKED;
+	case PW_NODE_STATE_CREATING:
+		return STATE_INIT;
+	case PW_NODE_STATE_SUSPENDED:
+		return STATE_SUSPENDED;
+	case PW_NODE_STATE_IDLE:
+		return STATE_IDLE;
+	case PW_NODE_STATE_RUNNING:
+		return STATE_RUNNING;
+	}
+	return STATE_INVALID;
+}
+
 static inline bool pw_endswith(const char *s, const char *sfx)
 {
         size_t l1, l2;

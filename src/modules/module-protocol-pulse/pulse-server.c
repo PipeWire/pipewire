@@ -57,6 +57,7 @@
 #include "defs.h"
 
 #include "format.c"
+#include "volume.c"
 #include "message.c"
 #include "manager.h"
 
@@ -2800,9 +2801,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_node_info *info = o->info;
-	struct sample_spec ss;
-	struct volume volume;
-	struct channel_map map;
+	struct volume_info volume_info = VOLUME_INFO_INIT;
+	struct sample_spec ss = SAMPLE_SPEC_INIT;
+	struct channel_map map = CHANNEL_MAP_INIT;
 	const char *name, *str;
 	char *monitor_name = NULL;
 	uint32_t module_id = SPA_ID_INVALID;
@@ -2811,27 +2812,6 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
-
-	ss = (struct sample_spec) {
-			.format = SAMPLE_FLOAT32LE,
-			.rate = 44100,
-			.channels = 2, };
-	map = (struct channel_map) {
-			.channels = 2,
-			.map[0] = 1,
-			.map[1] = 2, };
-	volume = (struct volume) {
-			.channels = 2,
-			.values[0] = 1.0f,
-			.values[1] = 1.0f, };
-
-	spa_list_for_each(p, &o->param_list, link) {
-		switch (p->id) {
-		case SPA_PARAM_Format:
-			format_parse_param(p->param, &ss, &map);
-			break;
-		}
-	}
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
@@ -2843,6 +2823,16 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
 
+	spa_list_for_each(p, &o->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_Format:
+			format_parse_param(p->param, &ss, &map);
+			break;
+		}
+	}
+	if (volume_info.volume.channels != map.channels)
+		volume_info.volume.channels = map.channels;
+
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
@@ -2850,8 +2840,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_U32, module_id,			/* module index */
-		TAG_CVOLUME, &volume,
-		TAG_BOOLEAN, false,
+		TAG_CVOLUME, &volume_info.volume,
+		TAG_BOOLEAN, volume_info.mute,
 		TAG_U32, o->id | 0x10000U,		/* monitor source */
 		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
@@ -2867,9 +2857,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 15) {
 		message_put(m,
-			TAG_VOLUME, 1.0f,		/* base volume */
-			TAG_U32, 0,			/* state */
-			TAG_U32, 256,			/* n_volume_steps */
+			TAG_VOLUME, volume_info.base,	/* base volume */
+			TAG_U32, node_state(info->state),	/* state */
+			TAG_U32, volume_info.steps,	/* n_volume_steps */
 			TAG_U32, card_id,		/* card index */
 			TAG_INVALID);
 	}
@@ -2897,33 +2887,21 @@ static int fill_source_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_node_info *info = o->info;
-	struct sample_spec ss;
-	struct volume volume;
-	struct channel_map map;
+	struct volume_info volume_info = VOLUME_INFO_INIT;
+	struct sample_spec ss = SAMPLE_SPEC_INIT;
+	struct channel_map map = CHANNEL_MAP_INIT;
 	bool is_monitor;
 	const char *name, *desc, *str;
 	char *monitor_name = NULL;
 	char *monitor_desc = NULL;
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
+	struct pw_manager_param *p;
 
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
 	    (!is_source(o) && !is_monitor))
 		return ERR_NOENTITY;
-
-	ss = (struct sample_spec) {
-			.format = SAMPLE_FLOAT32LE,
-			.rate = 44100,
-			.channels = 2, };
-	volume = (struct volume) {
-			.channels = 2,
-			.values[0] = 1.0f,
-			.values[1] = 1.0f, };
-	map = (struct channel_map) {
-			.channels = 2,
-			.map[0] = 1,
-			.map[1] = 2, };
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
@@ -2940,15 +2918,25 @@ static int fill_source_info(struct client *client, struct message *m,
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
 
+	spa_list_for_each(p, &o->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_Format:
+			format_parse_param(p->param, &ss, &map);
+			break;
+		}
+	}
+	if (volume_info.volume.channels != map.channels)
+		volume_info.volume.channels = map.channels;
+
 	message_put(m,
 		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,	/* source index */
-		TAG_STRING, is_monitor ? monitor_name :  name,
-		TAG_STRING, is_monitor ? monitor_desc :  desc,
+		TAG_STRING, is_monitor ? monitor_name : name,
+		TAG_STRING, is_monitor ? monitor_desc : desc,
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_U32, module_id,				/* module index */
-		TAG_CVOLUME, &volume,
-		TAG_BOOLEAN, false,
+		TAG_CVOLUME, &volume_info.volume,
+		TAG_BOOLEAN, volume_info.mute,
 		TAG_U32, is_monitor ? o->id : SPA_ID_INVALID,	/* monitor of sink */
 		TAG_STRING, is_monitor ? name : NULL,		/* monitor of sink name */
 		TAG_USEC, 0LL,					/* latency */
@@ -2964,9 +2952,9 @@ static int fill_source_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 15) {
 		message_put(m,
-			TAG_VOLUME, 1.0f,		/* base volume */
-			TAG_U32, 0,			/* state */
-			TAG_U32, 256,			/* n_volume_steps */
+			TAG_VOLUME, volume_info.base,	/* base volume */
+			TAG_U32, node_state(info->state),	/* state */
+			TAG_U32, volume_info.steps,	/* n_volume_steps */
 			TAG_U32, card_id,		/* card index */
 			TAG_INVALID);
 	}
@@ -2994,33 +2982,32 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_node_info *info = o->info;
-	struct sample_spec ss;
-	struct volume volume;
-	struct channel_map map;
+	struct volume_info volume_info = VOLUME_INFO_INIT;
+	struct sample_spec ss = SAMPLE_SPEC_INIT;
+	struct channel_map map = CHANNEL_MAP_INIT;
 	struct pw_manager_object *peer;
 	const char *str;
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
+	struct pw_manager_param *p;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink_input(o))
 		return ERR_NOENTITY;
-
-	ss = (struct sample_spec) {
-			.format = SAMPLE_FLOAT32LE,
-			.rate = 44100,
-			.channels = 2, };
-	volume = (struct volume) {
-			.channels = 2,
-			.values[0] = 1.0f,
-			.values[1] = 1.0f, };
-	map = (struct channel_map) {
-			.channels = 2,
-			.map[0] = 1,
-			.map[1] = 2, };
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
+
+	spa_list_for_each(p, &o->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_Format:
+			format_parse_param(p->param, &ss, &map);
+			break;
+		case SPA_PARAM_Props:
+			volume_parse_param(p->param, &volume_info);
+			break;
+		}
+	}
 
 	peer = find_linked(client, o->id, PW_DIRECTION_OUTPUT);
 
@@ -3032,7 +3019,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		TAG_U32, peer ? peer->id : SPA_ID_INVALID,	/* sink index */
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
-		TAG_CVOLUME, &volume,
+		TAG_CVOLUME, &volume_info.volume,
 		TAG_USEC, 0LL,				/* latency */
 		TAG_USEC, 0LL,				/* sink latency */
 		TAG_STRING, "PipeWire",			/* resample method */
@@ -3040,7 +3027,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		TAG_INVALID);
 	if (client->version >= 11)
 		message_put(m,
-			TAG_BOOLEAN, false,		/* muted */
+			TAG_BOOLEAN, volume_info.mute,	/* muted */
 			TAG_INVALID);
 	if (client->version >= 13)
 		message_put(m,
@@ -3048,7 +3035,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 19)
 		message_put(m,
-			TAG_BOOLEAN, false,		/* corked */
+			TAG_BOOLEAN, info->state != PW_NODE_STATE_RUNNING,		/* corked */
 			TAG_INVALID);
 	if (client->version >= 20)
 		message_put(m,
@@ -3070,34 +3057,33 @@ static int fill_source_output_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_node_info *info = o->info;
-	struct sample_spec ss;
-	struct volume volume;
-	struct channel_map map;
+	struct volume_info volume_info = VOLUME_INFO_INIT;
+	struct sample_spec ss = SAMPLE_SPEC_INIT;
+	struct channel_map map = CHANNEL_MAP_INIT;
 	struct pw_manager_object *peer;
 	const char *str;
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
 	uint32_t peer_id;
+	struct pw_manager_param *p;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_source_output(o))
 		return ERR_NOENTITY;
-
-	ss = (struct sample_spec) {
-			.format = SAMPLE_FLOAT32LE,
-			.rate = 44100,
-			.channels = 2, };
-	volume = (struct volume) {
-			.channels = 2,
-			.values[0] = 1.0f,
-			.values[1] = 1.0f, };
-	map = (struct channel_map) {
-			.channels = 2,
-			.map[0] = 1,
-			.map[1] = 2, };
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
+
+	spa_list_for_each(p, &o->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_Format:
+			format_parse_param(p->param, &ss, &map);
+			break;
+		case SPA_PARAM_Props:
+			volume_parse_param(p->param, &volume_info);
+			break;
+		}
+	}
 
 	peer = find_linked(client, o->id, PW_DIRECTION_INPUT);
 	if (peer) {
@@ -3127,15 +3113,15 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 19)
 		message_put(m,
-			TAG_BOOLEAN, false,		/* corked */
+			TAG_BOOLEAN, info->state != PW_NODE_STATE_RUNNING,		/* corked */
 			TAG_INVALID);
 	if (client->version >= 22) {
 		struct format_info fi;
 		spa_zero(fi);
 		fi.encoding = ENCODING_PCM;
 		message_put(m,
-			TAG_CVOLUME, &volume,
-			TAG_BOOLEAN, false,		/* muted */
+			TAG_CVOLUME, &volume_info.volume,
+			TAG_BOOLEAN, volume_info.mute,	/* muted */
 			TAG_BOOLEAN, true,		/* has_volume */
 			TAG_BOOLEAN, true,		/* volume writable */
 			TAG_FORMAT_INFO, &fi,

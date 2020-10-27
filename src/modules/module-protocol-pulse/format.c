@@ -97,6 +97,11 @@ struct sample_spec {
 	uint32_t rate;
 	uint8_t channels;
 };
+#define SAMPLE_SPEC_INIT	(struct sample_spec) {			\
+					.format = SAMPLE_FLOAT32LE,	\
+					.rate = 44100,			\
+					.channels = 2,			\
+				};
 
 static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 {
@@ -247,6 +252,12 @@ struct channel_map {
 	enum channel_position map[CHANNELS_MAX];
 };
 
+#define CHANNEL_MAP_INIT	(struct channel_map) {				\
+					.channels = 2,				\
+					.map[0] = CHANNEL_POSITION_FRONT_LEFT,	\
+					.map[1] = CHANNEL_POSITION_FRONT_RIGHT,	\
+				}
+
 static inline uint32_t channel_pa2id(enum channel_position channel)
 {
         if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
@@ -282,11 +293,6 @@ static void channel_map_to_positions(const struct channel_map *map, uint32_t *po
 	for (i = 0; i < map->channels; i++)
 		pos[i] = channel_pa2id(map->map[i]);
 }
-
-struct volume {
-	uint8_t channels;
-	float values[CHANNELS_MAX];
-};
 
 enum encoding {
 	ENCODING_ANY,

@@ -75,9 +75,10 @@ struct pw_manager_object {
 	char *type;
 	uint32_t version;
 	struct pw_properties *props;
-
-	void *info;
 	struct pw_proxy *proxy;
+
+	int changed;
+	void *info;
 	struct spa_list param_list;
 };
 

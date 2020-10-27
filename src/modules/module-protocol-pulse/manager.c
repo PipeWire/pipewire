@@ -134,9 +134,20 @@ static void object_destroy(struct object *o)
 /* client */
 static void client_event_info(void *object, const struct pw_client_info *info)
 {
-        struct object *o = object;
-        pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+	struct object *o = object;
+	int changed = 0;
+
+        pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+
         info = o->this.info = pw_client_info_update(o->this.info, info);
+
+	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
+		changed++;
+
+	if (changed) {
+		o->this.changed += changed;
+		core_sync(o->manager);
+	}
 }
 
 static const struct pw_client_events client_events = {
@@ -162,8 +173,19 @@ static const struct object_info client_info = {
 static void module_event_info(void *object, const struct pw_module_info *info)
 {
         struct object *o = object;
-        pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+	int changed = 0;
+
+        pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+
         info = o->this.info = pw_module_info_update(o->this.info, info);
+
+	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS)
+		changed++;
+
+	if (changed) {
+		o->this.changed += changed;
+		core_sync(o->manager);
+	}
 }
 
 static const struct pw_module_events module_events = {
@@ -191,8 +213,12 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	struct object *o = object;
 	uint32_t i, changed = 0;
 
-	pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+
 	info = o->this.info = pw_device_info_update(o->this.info, info);
+
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
+		changed++;
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -202,17 +228,19 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				continue;
 			info->params[i].user = 0;
 
+			changed++;
 			clear_params(&o->this.param_list, id);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
 			pw_device_enum_params((struct pw_device*)o->this.proxy,
 					0, id, 0, -1, NULL);
-			changed++;
 		}
 	}
-	if (changed)
+	if (changed) {
+		o->this.changed += changed;
 		core_sync(o->manager);
+	}
 }
 
 static void device_event_param(void *object, int seq,
@@ -248,8 +276,16 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct object *o = object;
 	uint32_t i, changed = 0;
-	pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
+
+	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+
 	info = o->this.info = pw_node_info_update(o->this.info, info);
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
+		changed++;
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+		changed++;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -259,17 +295,19 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 				continue;
 			info->params[i].user = 0;
 
+			changed++;
 			clear_params(&o->this.param_list, id);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
 			pw_node_enum_params((struct pw_node*)o->this.proxy,
 					0, id, 0, -1, NULL);
-			changed++;
 		}
 	}
-	if (changed)
+	if (changed) {
+		o->this.changed += changed;
 		core_sync(o->manager);
+	}
 }
 
 static void node_event_param(void *object, int seq,
@@ -405,11 +443,11 @@ static void registry_event_global(void *data, uint32_t id,
 	o->this.version = version;
 	o->this.props = props ? pw_properties_new_dict(props) : NULL;
 	o->this.proxy = proxy;
+	o->new = true;
 	spa_list_init(&o->this.param_list);
 
 	o->manager = m;
 	o->info = info;
-	o->new = true;
 	spa_list_append(&m->this.object_list, &o->this.link);
 	m->this.n_objects++;
 
@@ -446,9 +484,21 @@ static const struct pw_registry_events registry_events = {
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct manager *m = data;
+	struct object *o;
+
 	if (id == PW_ID_CORE) {
 		if (m->sync_seq == seq)
 			manager_emit_sync(m);
+
+		spa_list_for_each(o, &m->this.object_list, this.link) {
+			if (o->new) {
+				o->new = false;
+				manager_emit_added(m, &o->this);
+			} else if (o->this.changed > 0) {
+				manager_emit_updated(m, &o->this);
+				o->this.changed = 0;
+			}
+		}
 	}
 }
 

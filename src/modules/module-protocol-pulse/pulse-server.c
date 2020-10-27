@@ -1549,7 +1549,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-	props = pw_properties_new(NULL, NULL);
+	props = pw_properties_copy(client->props);
 	if (props == NULL) {
 		res = -errno;
 		goto error;
@@ -1779,7 +1779,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-	props = pw_properties_new(NULL, NULL);
+	props = pw_properties_copy(client->props);
 	if (props == NULL) {
 		res = -errno;
 		goto error;
@@ -2151,6 +2151,8 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 
 static int do_error_access(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
+	struct impl *impl = client->impl;
+	pw_log_info(NAME" %p: %s access denied", impl, commands[command].name);
 	return reply_error(client, tag, ERR_ACCESS);
 }
 

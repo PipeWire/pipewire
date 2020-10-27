@@ -2973,6 +2973,24 @@ static int fill_sink_info(struct client *client, struct message *m,
 		message_put(m,
 			TAG_U32, 0,			/* n_ports */
 			TAG_INVALID);
+		while (false) {
+			message_put(m,
+				TAG_STRING, NULL,	/* name */
+				TAG_STRING, NULL,	/* description */
+				TAG_U32, 0,		/* priority */
+				TAG_INVALID);
+			if (client->version >= 24) {
+				message_put(m,
+					TAG_U32, 0,		/* available */
+					TAG_INVALID);
+			}
+			if (client->version >= 34) {
+				message_put(m,
+					TAG_STRING, NULL,	/* availability_group */
+					TAG_U32, 0,		/* type */
+					TAG_INVALID);
+			}
+		}
 		message_put(m,
 			TAG_STRING, NULL,		/* active port name */
 			TAG_INVALID);
@@ -3081,8 +3099,26 @@ static int fill_source_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 16) {
 		message_put(m,
-			TAG_U32, 0,			/* n_ports */
+			TAG_U32, 0,				/* n_ports */
 			TAG_INVALID);
+		while (false) {
+			message_put(m,
+				TAG_STRING, NULL,		/* name */
+				TAG_STRING, NULL,		/* description */
+				TAG_U32, 0,			/* priority */
+				TAG_INVALID);
+			if (client->version >= 24) {
+				message_put(m,
+					TAG_U32, 0,		/* available */
+					TAG_INVALID);
+			}
+			if (client->version >= 34) {
+				message_put(m,
+					TAG_STRING, NULL,	/* availability_group */
+					TAG_U32, 0,		/* type */
+					TAG_INVALID);
+			}
+		}
 		message_put(m,
 			TAG_STRING, NULL,		/* active port name */
 			TAG_INVALID);

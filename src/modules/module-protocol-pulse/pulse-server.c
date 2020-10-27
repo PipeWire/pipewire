@@ -2897,9 +2897,11 @@ static int fill_sink_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
 	struct pw_manager_param *p;
+	uint32_t flags;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
+
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
@@ -2910,6 +2912,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
+
+	flags = SINK_LATENCY | SINK_DYNAMIC_LATENCY | SINK_DECIBEL_VOLUME;
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
+                flags |= SINK_HARDWARE;
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
@@ -2944,7 +2950,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
 		TAG_STRING, "PipeWire",			/* driver */
-		TAG_U32, 0,				/* flags */
+		TAG_U32, flags,				/* flags */
 		TAG_INVALID);
 
 	if (client->version >= 13) {
@@ -2995,6 +3001,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
 	struct pw_manager_param *p;
+	uint32_t flags;
 
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
@@ -3015,6 +3022,10 @@ static int fill_source_info(struct client *client, struct message *m,
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
+
+	flags = SOURCE_LATENCY | SOURCE_DYNAMIC_LATENCY | SOURCE_DECIBEL_VOLUME;
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
+                flags |= SOURCE_HARDWARE;
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
@@ -3049,7 +3060,7 @@ static int fill_source_info(struct client *client, struct message *m,
 		TAG_STRING, is_monitor ? name : NULL,		/* monitor of sink name */
 		TAG_USEC, 0LL,					/* latency */
 		TAG_STRING, "PipeWire",				/* driver */
-		TAG_U32, 0,					/* flags */
+		TAG_U32, flags,					/* flags */
 		TAG_INVALID);
 
 	if (client->version >= 13) {

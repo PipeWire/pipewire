@@ -189,8 +189,7 @@ static const struct object_info module_info = {
 static void device_event_info(void *object, const struct pw_device_info *info)
 {
 	struct object *o = object;
-	int changed = 0;
-	uint32_t i;
+	uint32_t i, changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
 	info = o->this.info = pw_device_info_update(o->this.info, info);
@@ -248,13 +247,43 @@ static const struct object_info device_info = {
 static void node_event_info(void *object, const struct pw_node_info *info)
 {
 	struct object *o = object;
+	uint32_t i, changed = 0;
 	pw_log_debug("object %p: id:%d change-mask:%"PRIu64, o, o->this.id, info->change_mask);
 	info = o->this.info = pw_node_info_update(o->this.info, info);
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t id = info->params[i].id;
+
+			if (info->params[i].user == 0)
+				continue;
+			info->params[i].user = 0;
+
+			clear_params(&o->this.param_list, id);
+			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
+				continue;
+
+			pw_node_enum_params((struct pw_node*)o->this.proxy,
+					0, id, 0, -1, NULL);
+			changed++;
+		}
+	}
+	if (changed)
+		core_sync(o->manager);
+}
+
+static void node_event_param(void *object, int seq,
+		uint32_t id, uint32_t index, uint32_t next,
+		const struct spa_pod *param)
+{
+	struct object *o = object;
+	add_param(&o->this.param_list, id, param);
 }
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
 	.info = node_event_info,
+	.param = node_event_param,
 };
 
 static void node_destroy(void *data)

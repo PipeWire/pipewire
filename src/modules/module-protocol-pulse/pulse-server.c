@@ -2807,6 +2807,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	char *monitor_name = NULL;
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
+	struct pw_manager_param *p;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
@@ -2815,14 +2816,22 @@ static int fill_sink_info(struct client *client, struct message *m,
 			.format = SAMPLE_FLOAT32LE,
 			.rate = 44100,
 			.channels = 2, };
-	volume = (struct volume) {
-			.channels = 2,
-			.values[0] = 1.0f,
-			.values[1] = 1.0f, };
 	map = (struct channel_map) {
 			.channels = 2,
 			.map[0] = 1,
 			.map[1] = 2, };
+	volume = (struct volume) {
+			.channels = 2,
+			.values[0] = 1.0f,
+			.values[1] = 1.0f, };
+
+	spa_list_for_each(p, &o->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_Format:
+			format_parse_param(p->param, &ss, &map);
+			break;
+		}
+	}
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;

@@ -40,7 +40,7 @@ int pa_stream_finish_upload(pa_stream *s)
 SPA_EXPORT
 pa_operation* pa_context_remove_sample(pa_context *c, const char *name, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
+	pw_log_warn("Not Implemented: name:%s", name);
 	return NULL;
 }
 
@@ -48,7 +48,7 @@ SPA_EXPORT
 pa_operation* pa_context_play_sample(pa_context *c, const char *name, const char *dev,
         pa_volume_t volume, pa_context_success_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
+	pw_log_warn("Not Implemented: name:%s dev:%s", name, dev);
 	return NULL;
 }
 
@@ -57,6 +57,6 @@ pa_operation* pa_context_play_sample_with_proplist(pa_context *c, const char *na
         const char *dev, pa_volume_t volume, PA_CONST pa_proplist *proplist,
         pa_context_play_sample_cb_t cb, void *userdata)
 {
-	pw_log_warn("Not Implemented");
+	pw_log_warn("Not Implemented: name:%s dev:%s", name, dev);
 	return NULL;
 }

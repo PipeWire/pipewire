@@ -639,7 +639,7 @@ jack_get_version_string(void)
 static void on_sync_reply(void *data, uint32_t id, int seq)
 {
 	struct client *client = data;
-	if (id != 0)
+	if (id != PW_ID_CORE)
 		return;
 	client->last_sync = seq;
 	pw_thread_loop_signal(client->context.loop, false);

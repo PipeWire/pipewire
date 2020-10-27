@@ -2616,16 +2616,19 @@ static int fill_card_info(struct client *client, struct message *m,
 
 	n_profiles = n_ports = 0;
 	spa_list_for_each(p, &o->param_list, link) {
-		if (p->id == SPA_PARAM_Profile) {
-			if (spa_pod_parse_object(p->param,
-					SPA_TYPE_OBJECT_ParamProfile, NULL,
-					SPA_PARAM_PROFILE_index, SPA_POD_Int(&active_profile)) < 0)
-				continue;
-		}
-		else if (p->id == SPA_PARAM_EnumProfile)
+		switch (p->id) {
+		case SPA_PARAM_Profile:
+			spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&active_profile));
+			break;
+		case SPA_PARAM_EnumProfile:
 			n_profiles++;
-		else if (p->id == SPA_PARAM_EnumRoute)
+			break;
+		case SPA_PARAM_EnumRoute:
 			n_ports++;
+			break;
+		}
 	}
 
 	message_put(m,

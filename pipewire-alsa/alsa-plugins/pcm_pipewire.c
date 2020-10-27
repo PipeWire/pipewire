@@ -911,11 +911,9 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw->context = pw_context_new(loop, NULL, 0);
 
 	props = pw_properties_new(NULL, NULL);
-	str = pw_get_prgname();
-	if (str)
-		pw_properties_setf(props, PW_KEY_APP_NAME, "ALSA plug-in [%s]", str);
-	else
-		pw_properties_set(props, PW_KEY_APP_NAME, "ALSA plug-in");
+
+	pw_properties_setf(props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
+			pw_get_prgname());
 
 	if (server_name)
 		pw_properties_set(props, PW_KEY_REMOTE_NAME, server_name);

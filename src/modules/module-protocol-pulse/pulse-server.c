@@ -2681,244 +2681,23 @@ static int fill_module_info(struct client *client, struct message *m,
 	return 0;
 }
 
-static int fill_card_info(struct client *client, struct message *m,
-		struct pw_manager_object *o)
-{
-	struct pw_device_info *info = o->info;
-	const char *str;
-	const char **names;
-	uint32_t module_id = SPA_ID_INVALID, i;
-	struct pw_manager_param *p;
-	uint32_t n_profiles, n_ports, active_profile = SPA_ID_INVALID;
-	const char *active_name = NULL;
-
-	if (o == NULL || info == NULL || info->props == NULL || !is_card(o))
-		return ERR_NOENTITY;
-
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
-		module_id = (uint32_t)atoi(str);
-
-	message_put(m,
-		TAG_U32, o->id,				/* card index */
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
-		TAG_U32, module_id,
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_API),
-		TAG_INVALID);
-
-	n_profiles = n_ports = 0;
-	spa_list_for_each(p, &o->param_list, link) {
-		switch (p->id) {
-		case SPA_PARAM_Profile:
-			spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&active_profile));
-			break;
-		case SPA_PARAM_EnumProfile:
-			n_profiles++;
-			break;
-		case SPA_PARAM_EnumRoute:
-			n_ports++;
-			break;
-		}
-	}
-
-	message_put(m,
-		TAG_U32, n_profiles,				/* n_profiles */
-		TAG_INVALID);
-
-	names = alloca(n_profiles * sizeof(char*));
-	i = 0;
-
-	spa_list_for_each(p, &o->param_list, link) {
-		uint32_t id, priority = 0, available = 0, n_sources = 0, n_sinks = 0;
-		const char *name = NULL;
-		const char *description = NULL;
-		struct spa_pod *classes = NULL;
-
-		if (p->id != SPA_PARAM_EnumProfile)
-			continue;
-
-		if (spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name,  SPA_POD_String(&name),
-				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&description),
-				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&priority),
-				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available),
-				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
-			pw_log_warn("device %d: can't parse profile", o->id);
-			continue;
-		}
-		if (id == active_profile)
-			active_name = name;
-		names[i++] = name;
-
-		if (classes != NULL) {
-			struct spa_pod *iter;
-
-			SPA_POD_STRUCT_FOREACH(classes, iter) {
-				struct spa_pod_parser prs;
-				struct spa_pod_frame f[1];
-				char *class;
-				uint32_t count;
-
-				spa_pod_parser_pod(&prs, iter);
-				if (spa_pod_parser_get_struct(&prs,
-						SPA_POD_String(&class),
-						SPA_POD_Int(&count)) < 0)
-					continue;
-
-				if (strcmp(class, "Audio/Sink") == 0)
-					n_sinks += count;
-				else if (strcmp(class, "Audio/Source") == 0)
-					n_sources += count;
-
-				spa_pod_parser_pop(&prs, &f[0]);
-			}
-		}
-		message_put(m,
-			TAG_STRING, name,			/* profile name */
-			TAG_STRING, description,		/* profile description */
-			TAG_U32, n_sinks,			/* n_sinks */
-			TAG_U32, n_sources,			/* n_sources */
-			TAG_U32, priority,			/* priority */
-			TAG_INVALID);
-
-
-		if (client->version >= 29) {
-			message_put(m,
-				TAG_U32, available != SPA_PARAM_AVAILABILITY_no,		/* available */
-				TAG_INVALID);
-		}
-	}
-	message_put(m,
-		TAG_STRING, active_name,				/* active profile name */
-		TAG_PROPLIST, info->props,
-		TAG_INVALID);
-	if (client->version < 26)
-		return 0;
-
-	message_put(m,
-		TAG_U32, n_ports,				/* n_ports */
-		TAG_INVALID);
-
-	spa_list_for_each(p, &o->param_list, link) {
-		uint32_t id, priority, *pr = NULL, n_pr = 0, port_type = 0;
-		enum spa_direction direction;
-		const char *name = NULL, *description = NULL, *availability_group = NULL;
-		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
-		struct spa_pod *profiles = NULL, *info = NULL, *devices = NULL;
-		struct spa_dict dict, *pdict = NULL;
-		struct spa_dict_item *items;
-
-		if (p->id != SPA_PARAM_EnumRoute)
-			continue;
-
-		if (spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
-				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
-				SPA_PARAM_ROUTE_name,  SPA_POD_String(&name),
-				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&description),
-				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&priority),
-				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&available),
-				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
-				SPA_PARAM_ROUTE_devices,  SPA_POD_OPT_Pod(&devices),
-				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0)
-			continue;
-
-		while (info) {
-			struct spa_pod_parser prs;
-			struct spa_pod_frame f[1];
-			int32_t n, n_items;
-
-			spa_pod_parser_pod(&prs, info);
-			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
-			    spa_pod_parser_get_int(&prs, &n_items) < 0)
-				break;
-
-			items = alloca(n_items * sizeof(*items));
-			for (n = 0; n < n_items; n++) {
-				if (spa_pod_parser_get(&prs,
-						SPA_POD_String(&items[n].key),
-						SPA_POD_String(&items[n].value),
-						NULL) < 0)
-					break;
-				if (strcmp(items[n].key, "port.availability-group") == 0)
-					availability_group = items[n].value;
-				else if (strcmp(items[n].key, "port.type") == 0)
-					port_type = port_type_value(items[n].value);
-			}
-			spa_pod_parser_pop(&prs, &f[0]);
-			dict = SPA_DICT_INIT(items, n);
-			pdict = &dict;
-			break;
-		}
-
-		message_put(m,
-			TAG_STRING, name,			/* port name */
-			TAG_STRING, description,		/* port description */
-			TAG_U32, priority,			/* port priority */
-			TAG_U32, available,			/* port available */
-			TAG_U8, direction == SPA_DIRECTION_INPUT ? 2 : 1,	/* port direction */
-			TAG_PROPLIST, pdict,			/* port proplist */
-			TAG_INVALID);
-
-		if (profiles)
-                        pr = spa_pod_get_array(profiles, &n_pr);
-
-		message_put(m,
-			TAG_U32, n_pr,				/* n_profiles */
-			TAG_INVALID);
-
-		for (i = 0; i < n_pr; i++) {
-			message_put(m,
-				TAG_STRING, names[pr[i]],	/* profile name */
-				TAG_INVALID);
-		}
-		if (client->version >= 27) {
-			message_put(m,
-				TAG_S64, 0LL,			/* port latency */
-				TAG_INVALID);
-		}
-		if (client->version >= 34) {
-			message_put(m,
-				TAG_STRING, availability_group,	/* available group */
-				TAG_U32, port_type,		/* port type */
-				TAG_INVALID);
-		}
-	}
-	return 0;
-}
-
-static bool array_contains(struct spa_pod *pod, uint32_t val)
-{
-	uint32_t *vals, n, n_vals;
-	if (pod == NULL)
-		return true;
-	vals = spa_pod_get_array(pod, &n_vals);
-	if (vals == NULL || n_vals == 0)
-		return false;
-	for (n = 0; n < n_vals; n++)
-		if (vals[n] == val)
-			return true;
-	return false;
-}
-
 struct device_info {
-	enum pw_direction direction;
+	uint32_t direction;
 	uint32_t device;
 
 	uint32_t n_profiles;
 	uint32_t active_profile;
+	const char *active_profile_name;
+
 	uint32_t n_ports;
 	uint32_t active_port;
 	const char *active_port_name;
+
 	struct volume_info volume_info;
 	unsigned int have_volume:1;
 };
 
-#define CARD_INFO_INIT(_d) (struct device_info) {		\
+#define DEVICE_INFO_INIT(_d) (struct device_info) {		\
 			.direction = _d,			\
 			.device = SPA_ID_INVALID,		\
 			.active_profile = SPA_ID_INVALID,	\
@@ -2969,13 +2748,104 @@ static void collect_device_info(struct pw_manager_object *card, struct device_in
 	}
 }
 
-struct port_info {
+struct profile_info {
+	uint32_t id;
 	const char *name;
 	const char *description;
 	uint32_t priority;
 	uint32_t available;
+	uint32_t n_sources;
+	uint32_t n_sinks;
+};
+
+static uint32_t collect_profile_info(struct pw_manager_object *card, struct device_info *dev_info,
+		struct profile_info *profile_info)
+{
+	struct pw_manager_param *p;
+	uint32_t n;
+
+	n = 0;
+	spa_list_for_each(p, &card->param_list, link) {
+		struct profile_info *pi;
+		struct spa_pod *classes = NULL;
+
+		if (p->id != SPA_PARAM_EnumProfile)
+			continue;
+
+		pi = &profile_info[n];
+		spa_zero(*pi);
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&pi->id),
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&pi->name),
+				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&pi->description),
+				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&pi->priority),
+				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&pi->available),
+				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
+			continue;
+		}
+		if (pi->id == dev_info->active_profile)
+			dev_info->active_profile_name = pi->name;
+
+		if (classes != NULL) {
+			struct spa_pod *iter;
+
+			SPA_POD_STRUCT_FOREACH(classes, iter) {
+				struct spa_pod_parser prs;
+				struct spa_pod_frame f[1];
+				char *class;
+				uint32_t count;
+
+				spa_pod_parser_pod(&prs, iter);
+				if (spa_pod_parser_get_struct(&prs,
+						SPA_POD_String(&class),
+						SPA_POD_Int(&count)) < 0)
+					continue;
+
+				if (strcmp(class, "Audio/Sink") == 0)
+					pi->n_sinks += count;
+				else if (strcmp(class, "Audio/Source") == 0)
+					pi->n_sources += count;
+
+				spa_pod_parser_pop(&prs, &f[0]);
+			}
+		}
+		n++;
+	}
+	return n;
+}
+
+
+static bool array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
+{
+	uint32_t n;
+	if (vals == NULL || n_vals == 0)
+		return false;
+	for (n = 0; n < n_vals; n++)
+		if (vals[n] == val)
+			return true;
+	return false;
+}
+
+struct port_info {
+	uint32_t id;
+	uint32_t direction;
+	const char *name;
+	const char *description;
+	uint32_t priority;
+	uint32_t available;
+
 	const char *availability_group;
 	uint32_t type;
+
+	uint32_t n_devices;
+	uint32_t *devices;
+	uint32_t n_profiles;
+	uint32_t *profiles;
+
+	uint32_t n_props;
+	struct spa_pod *info;
 };
 
 static uint32_t collect_port_info(struct pw_manager_object *card, struct device_info *dev_info,
@@ -2989,8 +2859,7 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct device_
 
 	n = 0;
 	spa_list_for_each(p, &card->param_list, link) {
-		uint32_t id, direction;
-		struct spa_pod *devices = NULL, *profiles = NULL, *info = NULL;
+		struct spa_pod *devices = NULL, *profiles = NULL;
 		struct port_info *pi;
 
 		if (p->id != SPA_PARAM_EnumRoute)
@@ -3001,38 +2870,46 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct device_
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
-				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&pi->id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&pi->direction),
 				SPA_PARAM_ROUTE_name,  SPA_POD_String(&pi->name),
 				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&pi->description),
 				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&pi->priority),
 				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&pi->available),
-				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
+				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&pi->info),
 				SPA_PARAM_ROUTE_devices,  SPA_POD_OPT_Pod(&devices),
 				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0)
 			continue;
 
-		if (direction != dev_info->direction)
+		if (devices)
+			pi->devices = spa_pod_get_array(devices, &pi->n_devices);
+		if (profiles)
+			pi->profiles = spa_pod_get_array(profiles, &pi->n_profiles);
+
+		if (dev_info->direction != SPA_ID_INVALID &&
+		    pi->direction != dev_info->direction)
 			continue;
-		if (!array_contains(profiles, dev_info->active_profile))
+		if (dev_info->active_profile != SPA_ID_INVALID &&
+		    !array_contains(pi->profiles, pi->n_profiles, dev_info->active_profile))
 			continue;
-		if (!array_contains(devices, dev_info->device))
+		if (dev_info->device != SPA_ID_INVALID &&
+		    !array_contains(pi->devices, pi->n_devices, dev_info->device))
 			continue;
-		if (id == dev_info->active_port)
+		if (pi->id == dev_info->active_port)
 			dev_info->active_port_name = pi->name;
 
-		while (info != NULL) {
+		while (pi->info != NULL) {
 			struct spa_pod_parser prs;
 			struct spa_pod_frame f[1];
-			int32_t n, n_items;
+			uint32_t n;
 			const char *key, *value;
 
-			spa_pod_parser_pod(&prs, info);
+			spa_pod_parser_pod(&prs, pi->info);
 			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
-			    spa_pod_parser_get_int(&prs, &n_items) < 0)
+			    spa_pod_parser_get_int(&prs, &pi->n_props) < 0)
 				break;
 
-			for (n = 0; n < n_items; n++) {
+			for (n = 0; n < pi->n_props; n++) {
 				if (spa_pod_parser_get(&prs,
 						SPA_POD_String(&key),
 						SPA_POD_String(&value),
@@ -3051,6 +2928,143 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct device_
 	return n;
 }
 
+static struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict)
+{
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f[1];
+	int32_t n, n_items;
+
+	spa_pod_parser_pod(&prs, info);
+	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
+	    spa_pod_parser_get_int(&prs, &n_items) < 0)
+		return NULL;
+
+	for (n = 0; n < n_items; n++) {
+		if (spa_pod_parser_get(&prs,
+				SPA_POD_String(&dict->items[n].key),
+				SPA_POD_String(&dict->items[n].value),
+				NULL) < 0)
+			break;
+	}
+	spa_pod_parser_pop(&prs, &f[0]);
+	dict->n_items = n;
+	return dict;
+}
+
+static int fill_card_info(struct client *client, struct message *m,
+		struct pw_manager_object *o)
+{
+	struct pw_device_info *info = o->info;
+	const char *str;
+	uint32_t module_id = SPA_ID_INVALID, n_profiles, n;
+	struct device_info dev_info = DEVICE_INFO_INIT(-1);
+	struct profile_info *profile_info;
+
+	if (o == NULL || info == NULL || info->props == NULL || !is_card(o))
+		return ERR_NOENTITY;
+
+	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = (uint32_t)atoi(str);
+
+	message_put(m,
+		TAG_U32, o->id,				/* card index */
+		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
+		TAG_U32, module_id,
+		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_API),
+		TAG_INVALID);
+
+	collect_device_info(o, &dev_info);
+
+	message_put(m,
+		TAG_U32, dev_info.n_profiles,			/* n_profiles */
+		TAG_INVALID);
+
+	profile_info = alloca(dev_info.n_profiles * sizeof(*profile_info));
+	n_profiles = collect_profile_info(o, &dev_info, profile_info);
+
+	for (n = 0; n < n_profiles; n++) {
+		struct profile_info *pi = &profile_info[n];
+
+		message_put(m,
+			TAG_STRING, pi->name,			/* profile name */
+			TAG_STRING, pi->description,		/* profile description */
+			TAG_U32, pi->n_sinks,			/* n_sinks */
+			TAG_U32, pi->n_sources,			/* n_sources */
+			TAG_U32, pi->priority,			/* priority */
+			TAG_INVALID);
+
+		if (client->version >= 29) {
+			message_put(m,
+				TAG_U32, pi->available != SPA_PARAM_AVAILABILITY_no,		/* available */
+				TAG_INVALID);
+		}
+	}
+	message_put(m,
+		TAG_STRING, dev_info.active_profile_name,	/* active profile name */
+		TAG_PROPLIST, info->props,
+		TAG_INVALID);
+
+	if (client->version >= 26) {
+		uint32_t n_ports;
+		struct port_info *port_info, *pi;
+
+		port_info = alloca(dev_info.n_ports * sizeof(*port_info));
+		dev_info.active_profile = SPA_ID_INVALID;
+		n_ports = collect_port_info(o, &dev_info, port_info);
+
+		message_put(m,
+			TAG_U32, n_ports,				/* n_ports */
+			TAG_INVALID);
+
+		for (n = 0; n < n_ports; n++) {
+			struct spa_dict_item *items;
+			struct spa_dict *pdict = NULL, dict;
+			uint32_t i;
+
+			pi = &port_info[n];
+
+			if (pi->info && pi->n_props > 0) {
+				items = alloca(pi->n_props * sizeof(*items));
+				dict.items = items;
+				pdict = collect_props(pi->info, &dict);
+			}
+
+			message_put(m,
+				TAG_STRING, pi->name,			/* port name */
+				TAG_STRING, pi->description,		/* port description */
+				TAG_U32, pi->priority,			/* port priority */
+				TAG_U32, pi->available,			/* port available */
+				TAG_U8, pi->direction == SPA_DIRECTION_INPUT ? 2 : 1,	/* port direction */
+				TAG_PROPLIST, pdict,			/* port proplist */
+				TAG_INVALID);
+
+			message_put(m,
+				TAG_U32, pi->n_profiles,		/* n_profiles */
+				TAG_INVALID);
+
+			for (i = 0; i < pi->n_profiles; i++) {
+				uint32_t idx = pi->profiles[i];
+				message_put(m,
+					TAG_STRING, idx < n_profiles ?
+							profile_info[idx].name : NULL,	/* profile name */
+					TAG_INVALID);
+			}
+			if (client->version >= 27) {
+				message_put(m,
+					TAG_S64, 0LL,			/* port latency */
+					TAG_INVALID);
+			}
+			if (client->version >= 34) {
+				message_put(m,
+					TAG_STRING, pi->availability_group,	/* available group */
+					TAG_U32, pi->type,		/* port type */
+					TAG_INVALID);
+			}
+		}
+	}
+	return 0;
+}
+
 static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
@@ -3064,7 +3078,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	struct pw_manager_param *p;
 	struct pw_manager_object *card = NULL;
 	uint32_t flags;
-	struct device_info dev_info = CARD_INFO_INIT(PW_DIRECTION_OUTPUT);
+	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
@@ -3154,7 +3168,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
 
-		port_info = alloca(dev_info.n_ports * sizeof(*p));
+		port_info = alloca(dev_info.n_ports * sizeof(*port_info));
 		n_ports = collect_port_info(card, &dev_info, port_info);
 
 		message_put(m,
@@ -3210,7 +3224,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	struct pw_manager_param *p;
 	struct pw_manager_object *card = NULL;
 	uint32_t flags;
-	struct device_info dev_info = CARD_INFO_INIT(PW_DIRECTION_INPUT);
+	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
 
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
@@ -3307,7 +3321,7 @@ static int fill_source_info(struct client *client, struct message *m,
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
 
-		port_info = alloca(dev_info.n_ports * sizeof(*p));
+		port_info = alloca(dev_info.n_ports * sizeof(*port_info));
 		n_ports = collect_port_info(card, &dev_info, port_info);
 
 		message_put(m,

@@ -2034,6 +2034,9 @@ static int set_node_volume(struct pw_manager_object *o, struct volume *vol)
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return ERR_ACCESS;
+
 	pw_node_set_param((struct pw_node*)o->proxy,
 		SPA_PARAM_Props, 0,
 		spa_pod_builder_add_object(&b,
@@ -2045,6 +2048,22 @@ static int set_node_volume(struct pw_manager_object *o, struct volume *vol)
 	return 0;
 }
 
+static int set_node_mute(struct pw_manager_object *o, bool mute)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return ERR_ACCESS;
+
+	pw_node_set_param((struct pw_node*)o->proxy,
+		SPA_PARAM_Props, 0,
+		spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
+			SPA_PROP_mute,	SPA_POD_Bool(mute)));
+	return 0;
+}
+
 static int set_card_volume(struct pw_manager_object *o, uint32_t id,
 		uint32_t device_id, struct volume *vol)
 {
@@ -2052,6 +2071,9 @@ static int set_card_volume(struct pw_manager_object *o, uint32_t id,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[1];
 	struct spa_pod *param;
+
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return ERR_ACCESS;
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
@@ -2069,20 +2091,35 @@ static int set_card_volume(struct pw_manager_object *o, uint32_t id,
 	param = spa_pod_builder_pop(&b, &f[0]);
 
 	pw_device_set_param((struct pw_device*)o->proxy,
-		SPA_PARAM_Route, 0, param);
+			SPA_PARAM_Route, 0, param);
 	return 0;
 }
 
-static int set_node_mute(struct pw_manager_object *o, bool mute)
+static int set_card_mute(struct pw_manager_object *o, uint32_t id,
+		uint32_t device_id, bool mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod *param;
 
-	pw_node_set_param((struct pw_node*)o->proxy,
-		SPA_PARAM_Props, 0,
-		spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
-			SPA_PROP_mute,	SPA_POD_Bool(mute)));
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return ERR_ACCESS;
+
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
+	spa_pod_builder_add(&b,
+			SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
+			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
+			0);
+	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
+			SPA_PROP_mute,        SPA_POD_Bool(mute));
+	param = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_device_set_param((struct pw_device*)o->proxy,
+			SPA_PARAM_Route, 0, param);
 	return 0;
 }
 
@@ -2126,16 +2163,11 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 		if (o == NULL)
 			goto error_noentity;
 
-		if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-			goto error_access;
-
-		set_node_volume(o, &volume);
+		if ((res = set_node_volume(o, &volume)) != 0)
+			goto error;
 	}
 	return reply_simple_ack(client, tag);
 
-error_access:
-	res = ERR_ACCESS;
-	goto error;
 error_noentity:
 	res = ERR_NOENTITY;
 	goto error;
@@ -2191,16 +2223,11 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 		if (o == NULL)
 			goto error_noentity;
 
-		if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-			goto error_access;
-
-		set_node_mute(o, mute);
+		if ((res = set_node_mute(o, mute)) != 0)
+			goto error;
 	}
 	return reply_simple_ack(client, tag);
 
-error_access:
-	res = ERR_ACCESS;
-	goto error;
 error_noentity:
 	res = ERR_NOENTITY;
 	goto error;
@@ -2310,24 +2337,18 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	}
 	collect_device_info(o, card, &dev_info);
 
-	if (card != NULL && dev_info.active_port) {
-		if (!SPA_FLAG_IS_SET(card->permissions, PW_PERM_W | PW_PERM_X))
-			goto error_access;
+	if (card != NULL && dev_info.active_port)
+		res = set_card_volume(card, dev_info.active_port, dev_info.device, &volume);
+	else
+		res = set_node_volume(o, &volume);
 
-		set_card_volume(card, dev_info.active_port, dev_info.device, &volume);
-	} else {
-		if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-			goto error_access;
+	if (res != 0)
+		goto error;
 
-		set_node_volume(o, &volume);
-	}
 	return reply_simple_ack(client, tag);
 
 error_invalid:
 	res = ERR_INVALID;
-	goto error;
-error_access:
-	res = ERR_ACCESS;
 	goto error;
 error_noentity:
 	res = ERR_NOENTITY;
@@ -2341,7 +2362,75 @@ error:
 
 static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	return 0;
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_node_info *info;
+	uint32_t id, card_id = SPA_ID_INVALID;
+	const char *name, *str;
+	bool mute;
+	struct pw_manager_object *o, *card = NULL;
+	int res;
+	struct device_info dev_info;
+	enum pw_direction direction;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_STRING, &name,
+			TAG_BOOLEAN, &mute,
+			TAG_INVALID)) < 0)
+		goto error_protocol;
+
+	pw_log_info(NAME" %p: %s index:%u name:%s mute:%d", impl,
+			commands[command].name, id, name, mute);
+
+	if (id == SPA_ID_INVALID && name == NULL)
+		goto error_invalid;
+
+	if (command == COMMAND_SET_SINK_MUTE)
+		direction = PW_DIRECTION_OUTPUT;
+	else
+		direction = PW_DIRECTION_INPUT;
+
+	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
+	if (o == NULL || o->info == NULL)
+		goto error_noentity;
+	info = o->info;
+	if (info == NULL)
+		goto error_noentity;
+
+	dev_info = DEVICE_INFO_INIT(direction);
+
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		dev_info.device = (uint32_t)atoi(str);
+	if (card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = card_id, .type = is_card, };
+		card = select_object(manager, &sel);
+	}
+	collect_device_info(o, card, &dev_info);
+
+	if (card != NULL && dev_info.active_port)
+		res = set_card_mute(card, dev_info.active_port, dev_info.device, mute);
+	else
+		res = set_node_mute(o, mute);
+
+	if (res != 0)
+		goto error;
+
+	return reply_simple_ack(client, tag);
+
+error_invalid:
+	res = ERR_INVALID;
+	goto error;
+error_noentity:
+	res = ERR_NOENTITY;
+	goto error;
+error_protocol:
+	res = ERR_PROTOCOL;
+	goto error;
+error:
+	return reply_error(client, tag, res);
 }
 
 static int do_set_stream_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)

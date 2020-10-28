@@ -2022,6 +2022,13 @@ static int do_error_access(struct client *client, uint32_t command, uint32_t tag
 	return reply_error(client, tag, ERR_ACCESS);
 }
 
+static int do_error_not_implemented(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	pw_log_warn(NAME" %p: %s not implemented", impl, commands[command].name);
+	return reply_error(client, tag, ERR_NOTIMPLEMENTED);
+}
+
 static int set_node_volume(struct pw_manager_object *o, struct volume *vol)
 {
 	char buf[1024];
@@ -3361,27 +3368,27 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", do_get_info_list, },
 	[COMMAND_GET_CARD_INFO_LIST] = { "GET_CARD_INFO_LIST", do_get_info_list, },
 
-	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_error_access, },
+	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_error_not_implemented, },
 	[COMMAND_SET_SINK_INPUT_VOLUME] = { "SET_SINK_INPUT_VOLUME", do_set_stream_volume, },
-	[COMMAND_SET_SOURCE_VOLUME] = { "SET_SOURCE_VOLUME", do_error_access, },
+	[COMMAND_SET_SOURCE_VOLUME] = { "SET_SOURCE_VOLUME", do_error_not_implemented, },
 
-	[COMMAND_SET_SINK_MUTE] = { "SET_SINK_MUTE", do_error_access, },
-	[COMMAND_SET_SOURCE_MUTE] = { "SET_SOURCE_MUTE", do_error_access, },
+	[COMMAND_SET_SINK_MUTE] = { "SET_SINK_MUTE", do_error_not_implemented, },
+	[COMMAND_SET_SOURCE_MUTE] = { "SET_SOURCE_MUTE", do_error_not_implemented, },
 
 	[COMMAND_CORK_PLAYBACK_STREAM] = { "CORK_PLAYBACK_STREAM", do_cork_stream, },
 	[COMMAND_FLUSH_PLAYBACK_STREAM] = { "FLUSH_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
 	[COMMAND_TRIGGER_PLAYBACK_STREAM] = { "TRIGGER_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
 	[COMMAND_PREBUF_PLAYBACK_STREAM] = { "PREBUF_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
 
-	[COMMAND_SET_DEFAULT_SINK] = { "SET_DEFAULT_SINK", do_error_access, },
-	[COMMAND_SET_DEFAULT_SOURCE] = { "SET_DEFAULT_SOURCE", do_error_access, },
+	[COMMAND_SET_DEFAULT_SINK] = { "SET_DEFAULT_SINK", do_error_not_implemented, },
+	[COMMAND_SET_DEFAULT_SOURCE] = { "SET_DEFAULT_SOURCE", do_error_not_implemented, },
 
 	[COMMAND_SET_PLAYBACK_STREAM_NAME] = { "SET_PLAYBACK_STREAM_NAME", do_set_stream_name, },
 	[COMMAND_SET_RECORD_STREAM_NAME] = { "SET_RECORD_STREAM_NAME", do_set_stream_name, },
 
-	[COMMAND_KILL_CLIENT] = { "KILL_CLIENT", do_error_access, },
-	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_error_access, },
-	[COMMAND_KILL_SOURCE_OUTPUT] = { "KILL_SOURCE_OUTPUT", do_error_access, },
+	[COMMAND_KILL_CLIENT] = { "KILL_CLIENT", do_error_not_implemented, },
+	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_error_not_implemented, },
+	[COMMAND_KILL_SOURCE_OUTPUT] = { "KILL_SOURCE_OUTPUT", do_error_not_implemented, },
 
 	[COMMAND_LOAD_MODULE] = { "LOAD_MODULE", do_error_access, },
 	[COMMAND_UNLOAD_MODULE] = { "UNLOAD_MODULE", do_error_access, },
@@ -3407,8 +3414,8 @@ static const struct command commands[COMMAND_MAX] =
 	/* A few more client->server commands */
 
 	/* Supported since protocol v10 (0.9.5) */
-	[COMMAND_MOVE_SINK_INPUT] = { "MOVE_SINK_INPUT", do_error_access, },
-	[COMMAND_MOVE_SOURCE_OUTPUT] = { "MOVE_SOURCE_OUTPUT", do_error_access, },
+	[COMMAND_MOVE_SINK_INPUT] = { "MOVE_SINK_INPUT", do_error_not_implemented, },
+	[COMMAND_MOVE_SOURCE_OUTPUT] = { "MOVE_SOURCE_OUTPUT", do_error_not_implemented, },
 
 	/* Supported since protocol v11 (0.9.7) */
 	[COMMAND_SET_SINK_INPUT_MUTE] = { "SET_SINK_INPUT_MUTE", do_set_stream_mute, },
@@ -3442,9 +3449,9 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_STARTED] = { "STARTED", },
 
 	/* Supported since protocol v14 (0.9.12) */
-	[COMMAND_EXTENSION] = { "EXTENSION", do_error_access, },
+	[COMMAND_EXTENSION] = { "EXTENSION", do_error_not_implemented, },
 	/* Supported since protocol v15 (0.9.15) */
-	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_error_access, },
+	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_error_not_implemented, },
 
 	/* SERVER->CLIENT */
 	[COMMAND_CLIENT_EVENT] = { "CLIENT_EVENT", },
@@ -3456,15 +3463,15 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_RECORD_BUFFER_ATTR_CHANGED] = { "RECORD_BUFFER_ATTR_CHANGED", },
 
 	/* Supported since protocol v16 (0.9.16) */
-	[COMMAND_SET_SINK_PORT] = { "SET_SINK_PORT", do_error_access, },
-	[COMMAND_SET_SOURCE_PORT] = { "SET_SOURCE_PORT", do_error_access, },
+	[COMMAND_SET_SINK_PORT] = { "SET_SINK_PORT", do_error_not_implemented, },
+	[COMMAND_SET_SOURCE_PORT] = { "SET_SOURCE_PORT", do_error_not_implemented, },
 
 	/* Supported since protocol v22 (1.0) */
 	[COMMAND_SET_SOURCE_OUTPUT_VOLUME] = { "SET_SOURCE_OUTPUT_VOLUME",  do_set_stream_volume, },
 	[COMMAND_SET_SOURCE_OUTPUT_MUTE] = { "SET_SOURCE_OUTPUT_MUTE",  do_set_stream_mute, },
 
 	/* Supported since protocol v27 (3.0) */
-	[COMMAND_SET_PORT_LATENCY_OFFSET] = { "SET_PORT_LATENCY_OFFSET", do_error_access, },
+	[COMMAND_SET_PORT_LATENCY_OFFSET] = { "SET_PORT_LATENCY_OFFSET", do_error_not_implemented, },
 
 	/* Supported since protocol v30 (6.0) */
 	/* BOTH DIRECTIONS */

@@ -39,6 +39,9 @@ struct volume_info {
 	float level;
 	float base;
 	uint32_t steps;
+#define VOLUME_HW_VOLUME	(1<<0)
+#define VOLUME_HW_MUTE		(1<<1)
+	uint32_t flags;
 };
 
 #define VOLUME_INFO_INIT	(struct volume_info) {		\
@@ -59,13 +62,20 @@ static int volume_parse_param(const struct spa_pod *param, struct volume_info *i
 		switch (prop->key) {
 		case SPA_PROP_volume:
 			spa_pod_get_float(&prop->value, &info->level);
+			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_VOLUME,
+                                        prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
+
 			break;
 		case SPA_PROP_mute:
 			spa_pod_get_bool(&prop->value, &info->mute);
+			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_MUTE,
+                                        prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		case SPA_PROP_channelVolumes:
 			info->volume.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					info->volume.values, SPA_AUDIO_MAX_CHANNELS);
+			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_VOLUME,
+                                        prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		case SPA_PROP_volumeBase:
 			spa_pod_get_float(&prop->value, &info->base);

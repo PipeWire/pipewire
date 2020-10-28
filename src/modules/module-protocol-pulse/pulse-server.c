@@ -2803,9 +2803,9 @@ static int fill_card_info(struct client *client, struct message *m,
 		TAG_INVALID);
 
 	spa_list_for_each(p, &o->param_list, link) {
-		uint32_t id, priority, *pr = NULL, n_pr = 0;
+		uint32_t id, priority, *pr = NULL, n_pr = 0, port_type = 0;
 		enum spa_direction direction;
-		const char *name = NULL, *description = NULL;
+		const char *name = NULL, *description = NULL, *availability_group = NULL;
 		enum spa_param_availability available = SPA_PARAM_AVAILABILITY_unknown;
 		struct spa_pod *profiles = NULL, *info = NULL, *devices = NULL;
 		struct spa_dict dict, *pdict = NULL;
@@ -2844,6 +2844,10 @@ static int fill_card_info(struct client *client, struct message *m,
 						SPA_POD_String(&items[n].value),
 						NULL) < 0)
 					break;
+				if (strcmp(items[n].key, "port.availability-group") == 0)
+					availability_group = items[n].value;
+				else if (strcmp(items[n].key, "port.type") == 0)
+					port_type = port_type_value(items[n].value);
 			}
 			spa_pod_parser_pop(&prs, &f[0]);
 			dict = SPA_DICT_INIT(items, n);
@@ -2879,8 +2883,8 @@ static int fill_card_info(struct client *client, struct message *m,
 		}
 		if (client->version >= 34) {
 			message_put(m,
-				TAG_STRING, NULL,		/* available group */
-				TAG_U32, 0,			/* port type */
+				TAG_STRING, availability_group,	/* available group */
+				TAG_U32, port_type,		/* port type */
 				TAG_INVALID);
 		}
 	}
@@ -2970,7 +2974,7 @@ struct port_info {
 	const char *description;
 	uint32_t priority;
 	uint32_t available;
-	const char *available_group;
+	const char *availability_group;
 	uint32_t type;
 };
 
@@ -2986,7 +2990,7 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct device_
 	n = 0;
 	spa_list_for_each(p, &card->param_list, link) {
 		uint32_t id, direction;
-		struct spa_pod *devices = NULL, *profiles = NULL;
+		struct spa_pod *devices = NULL, *profiles = NULL, *info = NULL;
 		struct port_info *pi;
 
 		if (p->id != SPA_PARAM_EnumRoute)
@@ -3003,6 +3007,7 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct device_
 				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&pi->description),
 				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&pi->priority),
 				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&pi->available),
+				SPA_PARAM_ROUTE_info,  SPA_POD_OPT_Pod(&info),
 				SPA_PARAM_ROUTE_devices,  SPA_POD_OPT_Pod(&devices),
 				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0)
 			continue;
@@ -3015,6 +3020,32 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct device_
 			continue;
 		if (id == dev_info->active_port)
 			dev_info->active_port_name = pi->name;
+
+		while (info != NULL) {
+			struct spa_pod_parser prs;
+			struct spa_pod_frame f[1];
+			int32_t n, n_items;
+			const char *key, *value;
+
+			spa_pod_parser_pod(&prs, info);
+			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
+			    spa_pod_parser_get_int(&prs, &n_items) < 0)
+				break;
+
+			for (n = 0; n < n_items; n++) {
+				if (spa_pod_parser_get(&prs,
+						SPA_POD_String(&key),
+						SPA_POD_String(&value),
+						NULL) < 0)
+					break;
+				if (strcmp(key, "port.availability-group") == 0)
+					pi->availability_group = value;
+				else if (strcmp(key, "port.type") == 0)
+					pi->type = port_type_value(value);
+			}
+			spa_pod_parser_pop(&prs, &f[0]);
+			break;
+		}
 		n++;
 	}
 	return n;
@@ -3143,7 +3174,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 			}
 			if (client->version >= 34) {
 				message_put(m,
-					TAG_STRING, pi->available_group,	/* availability_group */
+					TAG_STRING, pi->availability_group,	/* availability_group */
 					TAG_U32, pi->type,			/* type */
 					TAG_INVALID);
 			}
@@ -3296,7 +3327,7 @@ static int fill_source_info(struct client *client, struct message *m,
 			}
 			if (client->version >= 34) {
 				message_put(m,
-					TAG_STRING, pi->available_group,	/* availability_group */
+					TAG_STRING, pi->availability_group,	/* availability_group */
 					TAG_U32, pi->type,			/* type */
 					TAG_INVALID);
 			}

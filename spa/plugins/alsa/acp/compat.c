@@ -139,7 +139,7 @@ pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, si
 	p->proplist = pa_proplist_new();
 	pa_proplist_sets(p->proplist, ACP_KEY_PORT_TYPE, str_port_type(data->type));
 	if (p->availability_group)
-		pa_proplist_sets(p->proplist, ACP_KEY_PORT_AVAILABLE_GROUP, p->availability_group);
+		pa_proplist_sets(p->proplist, ACP_KEY_PORT_AVAILABILITY_GROUP, p->availability_group);
 
 	p->user_data = (void*)((uint8_t*)p + sizeof(pa_device_port));
 

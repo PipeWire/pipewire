@@ -88,7 +88,7 @@ enum acp_available {
 const char *acp_available_str(enum acp_available status);
 
 #define ACP_KEY_PORT_TYPE		"port.type"		/**< a Port type, like "aux", "speaker", ... */
-#define ACP_KEY_PORT_AVAILABLE_GROUP	"port.available-group"
+#define ACP_KEY_PORT_AVAILABILITY_GROUP	"port.availability-group"
 		/**< An indentifier for the group of ports that share their availability status with
 		 * each other. This is meant especially for handling cases where one 3.5 mm connector
 		 * is used for headphones, headsets and microphones, and the hardware can only tell

@@ -330,3 +330,39 @@ enum {
 	SOURCE_DYNAMIC_LATENCY = 0x0040U,
 	SOURCE_FLAT_VOLUME = 0x0080U,
 };
+
+static const char *port_types[] = {
+	"unknown",
+	"aux",
+	"speaker",
+	"headphones",
+	"line",
+	"mic",
+	"headset",
+	"handset",
+	"earpiece",
+	"spdif",
+	"hdmi",
+	"tv",
+	"radio",
+	"video",
+	"usb",
+	"bluetooth",
+	"portable",
+	"handsfree",
+	"car",
+	"hifi",
+	"phone",
+	"network",
+	"analog",
+};
+
+static uint32_t port_type_value(const char *port_type)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(port_types); i++) {
+		if (strcmp(port_types[i], port_type) == 0)
+			return i;
+	}
+	return 0;
+}

@@ -489,6 +489,32 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct card_in
 	return n;
 }
 
+static uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name)
+{
+	struct pw_manager_param *p;
+
+	spa_list_for_each(p, &card->param_list, link) {
+		uint32_t id, dir;
+		const char *name;
+
+		if (p->id != SPA_PARAM_EnumRoute)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&dir),
+				SPA_PARAM_ROUTE_name, SPA_POD_Id(&name)) < 0)
+			continue;
+		if (dir != direction)
+			continue;
+		if (strcmp(name, port_name) == 0)
+			return id;
+
+	}
+	return SPA_ID_INVALID;
+}
+
 static struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict)
 {
 	struct spa_pod_parser prs;

@@ -333,7 +333,7 @@ static int reply_error(struct client *client, uint32_t tag, uint32_t error)
 {
 	struct message *reply;
 
-	pw_log_debug(NAME" %p: ERROR tag:%u error:%u", client, tag, error);
+	pw_log_warn(NAME" %p: ERROR tag:%u error:%u", client, tag, error);
 
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
@@ -2123,6 +2123,25 @@ static int set_card_mute(struct pw_manager_object *o, uint32_t id,
 	return 0;
 }
 
+static int set_card_port(struct pw_manager_object *o, uint32_t id,
+		uint32_t device_id)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return ERR_ACCESS;
+
+	pw_device_set_param((struct pw_device*)o->proxy,
+			SPA_PARAM_Route, 0,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
+				SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id)));
+
+	return 0;
+}
+
 static int do_set_stream_volume(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -2416,6 +2435,75 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 		res = set_node_mute(o, mute);
 
 	if (res != 0)
+		goto error;
+
+	return reply_simple_ack(client, tag);
+
+error_invalid:
+	res = ERR_INVALID;
+	goto error;
+error_noentity:
+	res = ERR_NOENTITY;
+	goto error;
+error_protocol:
+	res = ERR_PROTOCOL;
+	goto error;
+error:
+	return reply_error(client, tag, res);
+}
+
+static int do_set_port(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_node_info *info;
+	uint32_t id, card_id = SPA_ID_INVALID, device_id = SPA_ID_INVALID;
+	uint32_t port_id = SPA_ID_INVALID;
+	const char *name, *str, *port_name;
+	struct pw_manager_object *o, *card = NULL;
+	int res;
+	enum pw_direction direction;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_STRING, &name,
+			TAG_STRING, &port_name,
+			TAG_INVALID)) < 0)
+		goto error_protocol;
+
+	pw_log_info(NAME" %p: %s index:%u name:%s port:%s", impl,
+			commands[command].name, id, name, port_name);
+
+	if ((id == SPA_ID_INVALID && name == NULL) ||
+	    (id != SPA_ID_INVALID && name != NULL))
+		goto error_invalid;
+
+	if (command == COMMAND_SET_SINK_PORT)
+		direction = PW_DIRECTION_OUTPUT;
+	else
+		direction = PW_DIRECTION_INPUT;
+
+	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
+	if (o == NULL || o->info == NULL)
+		goto error_noentity;
+	info = o->info;
+	if (info == NULL)
+		goto error_noentity;
+
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		device_id = (uint32_t)atoi(str);
+	if (card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = card_id, .type = is_card, };
+		card = select_object(manager, &sel);
+	}
+	if (card == NULL || device_id == SPA_ID_INVALID)
+		goto error_noentity;
+
+	port_id = find_port_id(card, direction, port_name);
+
+	if ((res = set_card_port(card, device_id, port_id)) != 0)
 		goto error;
 
 	return reply_simple_ack(client, tag);
@@ -3722,8 +3810,8 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_RECORD_BUFFER_ATTR_CHANGED] = { "RECORD_BUFFER_ATTR_CHANGED", },
 
 	/* Supported since protocol v16 (0.9.16) */
-	[COMMAND_SET_SINK_PORT] = { "SET_SINK_PORT", do_error_not_implemented, },
-	[COMMAND_SET_SOURCE_PORT] = { "SET_SOURCE_PORT", do_error_not_implemented, },
+	[COMMAND_SET_SINK_PORT] = { "SET_SINK_PORT", do_set_port, },
+	[COMMAND_SET_SOURCE_PORT] = { "SET_SOURCE_PORT", do_set_port, },
 
 	/* Supported since protocol v22 (1.0) */
 	[COMMAND_SET_SOURCE_OUTPUT_VOLUME] = { "SET_SOURCE_OUTPUT_VOLUME",  do_set_stream_volume, },

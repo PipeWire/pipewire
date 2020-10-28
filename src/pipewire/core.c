@@ -68,8 +68,9 @@ static void core_event_error(void *data, uint32_t id, int seq, int res, const ch
 
 	proxy = pw_map_lookup(&this->objects, id);
 
-	pw_log_error(NAME" %p: proxy %p id:%u: seq:%d res:%d (%s) msg:\"%s\"",
-			this, proxy, id, seq, res, spa_strerror(res), message);
+	pw_log_error(NAME" %p: proxy %p id:%u: bound:%d seq:%d res:%d (%s) msg:\"%s\"",
+			this, proxy, id, proxy ? proxy->bound_id : SPA_ID_INVALID,
+			seq, res, spa_strerror(res), message);
 	if (proxy)
 		pw_proxy_emit_error(proxy, seq, res, message);
 }

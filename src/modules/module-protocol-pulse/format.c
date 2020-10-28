@@ -101,7 +101,7 @@ struct sample_spec {
 					.format = SAMPLE_FLOAT32LE,	\
 					.rate = 44100,			\
 					.channels = 2,			\
-				};
+				}
 
 static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 {

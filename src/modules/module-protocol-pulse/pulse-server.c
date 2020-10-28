@@ -3517,6 +3517,71 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	return reply_simple_ack(client, tag);
 }
 
+static int do_set_profile(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_manager_object *o;
+	const char *profile_name;
+	uint32_t profile_id = SPA_ID_INVALID;
+	int res;
+	struct selector sel;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+	spa_zero(sel);
+	sel.key = PW_KEY_DEVICE_NAME;
+	sel.type = is_card;
+
+	if ((res = message_get(m,
+			TAG_U32, &sel.id,
+			TAG_STRING, &sel.value,
+			TAG_STRING, &profile_name,
+			TAG_INVALID)) < 0)
+		goto error_protocol;
+
+	pw_log_info(NAME" %p: %s id:%u name:%s profile:%s", impl,
+			commands[command].name, sel.id, sel.value, profile_name);
+
+	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
+	    (sel.id != SPA_ID_INVALID && sel.value != NULL))
+		goto error_invalid;
+	if (profile_name == NULL)
+		goto error_invalid;
+
+	if ((o = select_object(manager, &sel)) == NULL)
+		goto error_noentity;
+
+	if ((profile_id = find_profile_id(o, profile_name)) == SPA_ID_INVALID)
+		goto error_noentity;
+
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		goto error_access;
+
+        pw_device_set_param((struct pw_device*)o->proxy,
+                        SPA_PARAM_Profile, 0,
+                        spa_pod_builder_add_object(&b,
+                                SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+                                SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id)));
+
+	return reply_simple_ack(client, tag);
+
+error_protocol:
+	res = ERR_PROTOCOL;
+	goto error;
+error_noentity:
+	res = ERR_NOENTITY;
+	goto error;
+error_access:
+	res = ERR_ACCESS;
+	goto error;
+error_invalid:
+	res = ERR_INVALID;
+	goto error;
+error:
+	return reply_error(client, tag, res);
+}
+
 static const struct command commands[COMMAND_MAX] =
 {
 	[COMMAND_ERROR] = { "ERROR", },
@@ -3645,7 +3710,7 @@ static const struct command commands[COMMAND_MAX] =
 	/* Supported since protocol v14 (0.9.12) */
 	[COMMAND_EXTENSION] = { "EXTENSION", do_error_not_implemented, },
 	/* Supported since protocol v15 (0.9.15) */
-	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_error_not_implemented, },
+	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_set_profile, },
 
 	/* SERVER->CLIENT */
 	[COMMAND_CLIENT_EVENT] = { "CLIENT_EVENT", },

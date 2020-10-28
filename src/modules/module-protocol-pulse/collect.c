@@ -275,6 +275,30 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 	return n;
 }
 
+static uint32_t find_profile_id(struct pw_manager_object *card, const char *name)
+{
+	struct pw_manager_param *p;
+
+	spa_list_for_each(p, &card->param_list, link) {
+		uint32_t id;
+		const char *test_name;
+
+		if (p->id != SPA_PARAM_EnumProfile)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&test_name)) < 0)
+			continue;
+
+		if (strcmp(test_name, name) == 0)
+			return id;
+
+	}
+	return SPA_ID_INVALID;
+}
+
 struct device_info {
 	uint32_t direction;
 

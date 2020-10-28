@@ -340,7 +340,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.flags = SPA_NODE_FLAG_RT;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
-	this->info.n_params = 1;
+	this->info.n_params = 0;
 
 	this->timer_source.func = on_timeout;
 	this->timer_source.data = this;

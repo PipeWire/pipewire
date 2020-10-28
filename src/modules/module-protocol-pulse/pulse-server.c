@@ -2045,6 +2045,34 @@ static int set_node_volume(struct pw_manager_object *o, struct volume *vol)
 	return 0;
 }
 
+static int set_card_volume(struct pw_manager_object *o, uint32_t id,
+		uint32_t device_id, struct volume *vol)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod *param;
+
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
+	spa_pod_builder_add(&b,
+			SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
+			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
+			0);
+	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
+			SPA_PROP_channelVolumes,        SPA_POD_Array(sizeof(float),
+								SPA_TYPE_Float,
+								vol->channels,
+								vol->values));
+	param = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_device_set_param((struct pw_device*)o->proxy,
+		SPA_PARAM_Route, 0, param);
+	return 0;
+}
+
 static int set_node_mute(struct pw_manager_object *o, bool mute)
 {
 	char buf[1024];
@@ -2181,6 +2209,139 @@ error_protocol:
 	goto error;
 error:
 	return reply_error(client, tag, res);
+}
+
+static const char *get_default(struct client *client, bool sink)
+{
+	struct selector sel;
+	struct pw_manager *manager = client->manager;
+	struct pw_manager_object *o;
+	const char *def, *str;
+
+	spa_zero(sel);
+	if (sink) {
+		sel.type = is_sink;
+		sel.id = client->default_sink;
+		def = "@DEFAULT_SINK@";
+	} else {
+		sel.type = is_source;
+		sel.id = client->default_source;
+		def = "@DEFAULT_SOURCE@";
+	}
+	sel.accumulate = select_best;
+
+	o = select_object(manager, &sel);
+	if (o == NULL || o->props == NULL ||
+	    ((str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) == NULL))
+		return def;
+	return str;
+}
+
+static struct pw_manager_object *find_device(struct client *client,
+		uint32_t id, const char *name, bool sink)
+{
+	struct selector sel;
+	const char *def;
+
+	spa_zero(sel);
+	sel.id = id;
+	sel.key = PW_KEY_NODE_NAME;
+	sel.value = name;
+
+	if (sink) {
+		sel.type = is_sink;
+		def = "@DEFAULT_SINK@";
+	} else {
+		sel.type = is_source;
+		def = "@DEFAULT_SOURCE@";
+	}
+	if (sel.value != NULL && strcmp(sel.value, def) == 0)
+		sel.value = get_default(client, sink);
+
+	return select_object(client->manager, &sel);
+}
+
+static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_node_info *info;
+	uint32_t id, card_id = SPA_ID_INVALID;
+	const char *name, *str;
+	struct volume volume;
+	struct pw_manager_object *o, *card = NULL;
+	int res;
+	struct device_info dev_info;
+	enum pw_direction direction;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_STRING, &name,
+			TAG_CVOLUME, &volume,
+			TAG_INVALID)) < 0)
+		goto error_protocol;
+
+	pw_log_info(NAME" %p: %s index:%u name:%s", impl, commands[command].name, id, name);
+
+	if (id == SPA_ID_INVALID && name == NULL)
+		goto error_invalid;
+
+	if (command == COMMAND_SET_SINK_VOLUME)
+		direction = PW_DIRECTION_OUTPUT;
+	else
+		direction = PW_DIRECTION_INPUT;
+
+	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
+	if (o == NULL || o->info == NULL)
+		goto error_noentity;
+	info = o->info;
+	if (info == NULL)
+		goto error_noentity;
+
+	dev_info = DEVICE_INFO_INIT(direction);
+
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		dev_info.device = (uint32_t)atoi(str);
+	if (card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = card_id, .type = is_card, };
+		card = select_object(manager, &sel);
+	}
+	collect_device_info(o, card, &dev_info);
+
+	if (card != NULL && dev_info.active_port) {
+		if (!SPA_FLAG_IS_SET(card->permissions, PW_PERM_W | PW_PERM_X))
+			goto error_access;
+
+		set_card_volume(card, dev_info.active_port, dev_info.device, &volume);
+	} else {
+		if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+			goto error_access;
+
+		set_node_volume(o, &volume);
+	}
+	return reply_simple_ack(client, tag);
+
+error_invalid:
+	res = ERR_INVALID;
+	goto error;
+error_access:
+	res = ERR_ACCESS;
+	goto error;
+error_noentity:
+	res = ERR_NOENTITY;
+	goto error;
+error_protocol:
+	res = ERR_PROTOCOL;
+	goto error;
+error:
+	return reply_error(client, tag, res);
+}
+
+static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	return 0;
 }
 
 static int do_set_stream_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2325,46 +2486,6 @@ exit:
 	return res;
 }
 
-static void select_best(struct selector *s, struct pw_manager_object *o)
-{
-	const char *str;
-	int32_t prio = 0;
-
-	if (o->props &&
-	    (str = pw_properties_get(o->props, PW_KEY_PRIORITY_DRIVER)) != NULL) {
-		prio = pw_properties_parse_int(str);
-		if (prio > s->score) {
-			s->best = o;
-			s->score = prio;
-		}
-	}
-}
-
-static const char *get_default(struct client *client, bool sink)
-{
-	struct selector sel;
-	struct pw_manager *manager = client->manager;
-	struct pw_manager_object *o;
-	const char *def, *str;
-
-	spa_zero(sel);
-	if (sink) {
-		sel.type = is_sink;
-		sel.id = client->default_sink;
-		def = "@DEFAULT_SINK@";
-	} else {
-		sel.type = is_source;
-		sel.id = client->default_source;
-		def = "@DEFAULT_SOURCE@";
-	}
-	sel.accumulate = select_best;
-
-	o = select_object(manager, &sel);
-	if (o == NULL || o->props == NULL ||
-	    ((str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) == NULL))
-		return def;
-	return str;
-}
 
 static int do_get_server_info(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
@@ -2430,36 +2551,21 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 static int do_lookup(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	struct pw_manager *manager = client->manager;
 	struct message *reply;
 	struct pw_manager_object *o;
-	struct selector sel;
+	const char *name;
 	int res;
 
-	spa_zero(sel);
-	sel.key = PW_KEY_NODE_NAME;
-
 	if ((res = message_get(m,
-			TAG_STRING, &sel.value,
+			TAG_STRING, &name,
 			TAG_INVALID)) < 0)
 		return res;
-	if (sel.value == NULL)
+	if (name == NULL)
 		goto error_invalid;
 
-	pw_log_info(NAME" %p: LOOKUP %s", impl, sel.value);
+	pw_log_info(NAME" %p: LOOKUP %s", impl, name);
 
-	if (command == COMMAND_LOOKUP_SINK) {
-		if (strcmp(sel.value, "@DEFAULT_SINK@"))
-			sel.value = get_default(client, true);
-		sel.type = is_sink;
-	}
-	else {
-		if (strcmp(sel.value, "@DEFAULT_SOURCE@"))
-			sel.value = get_default(client, false);
-		sel.type = is_source;
-	}
-
-	if ((o = select_object(manager, &sel)) == NULL)
+	if ((o = find_device(client, SPA_ID_INVALID, name, command == COMMAND_LOOKUP_SINK)) == NULL)
 		goto error_noentity;
 
 	reply = reply_new(client, tag);
@@ -2700,7 +2806,6 @@ static int fill_sink_info(struct client *client, struct message *m,
 		card_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
 		dev_info.device = (uint32_t)atoi(str);
-
 	if (card_id != SPA_ID_INVALID) {
 		struct selector sel = { .id = card_id, .type = is_card, };
 		card = select_object(manager, &sel);
@@ -3368,12 +3473,12 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", do_get_info_list, },
 	[COMMAND_GET_CARD_INFO_LIST] = { "GET_CARD_INFO_LIST", do_get_info_list, },
 
-	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_error_not_implemented, },
+	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_set_volume, },
 	[COMMAND_SET_SINK_INPUT_VOLUME] = { "SET_SINK_INPUT_VOLUME", do_set_stream_volume, },
-	[COMMAND_SET_SOURCE_VOLUME] = { "SET_SOURCE_VOLUME", do_error_not_implemented, },
+	[COMMAND_SET_SOURCE_VOLUME] = { "SET_SOURCE_VOLUME", do_set_volume, },
 
-	[COMMAND_SET_SINK_MUTE] = { "SET_SINK_MUTE", do_error_not_implemented, },
-	[COMMAND_SET_SOURCE_MUTE] = { "SET_SOURCE_MUTE", do_error_not_implemented, },
+	[COMMAND_SET_SINK_MUTE] = { "SET_SINK_MUTE", do_set_mute, },
+	[COMMAND_SET_SOURCE_MUTE] = { "SET_SOURCE_MUTE", do_set_mute, },
 
 	[COMMAND_CORK_PLAYBACK_STREAM] = { "CORK_PLAYBACK_STREAM", do_cork_stream, },
 	[COMMAND_FLUSH_PLAYBACK_STREAM] = { "FLUSH_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },

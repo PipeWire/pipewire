@@ -107,6 +107,21 @@ struct selector {
 	struct pw_manager_object *best;
 };
 
+static void select_best(struct selector *s, struct pw_manager_object *o)
+{
+	const char *str;
+	int32_t prio = 0;
+
+	if (o->props &&
+	    (str = pw_properties_get(o->props, PW_KEY_PRIORITY_DRIVER)) != NULL) {
+		prio = pw_properties_parse_int(str);
+		if (prio > s->score) {
+			s->best = o;
+			s->score = prio;
+		}
+	}
+}
+
 static struct pw_manager_object *select_object(struct pw_manager *m,
 		struct selector *s)
 {

@@ -2887,11 +2887,143 @@ static int fill_card_info(struct client *client, struct message *m,
 	return 0;
 }
 
+static bool array_contains(struct spa_pod *pod, uint32_t val)
+{
+	uint32_t *vals, n, n_vals;
+	if (pod == NULL)
+		return true;
+	vals = spa_pod_get_array(pod, &n_vals);
+	if (vals == NULL || n_vals == 0)
+		return false;
+	for (n = 0; n < n_vals; n++)
+		if (vals[n] == val)
+			return true;
+	return false;
+}
+
+struct device_info {
+	enum pw_direction direction;
+	uint32_t device;
+
+	uint32_t n_profiles;
+	uint32_t active_profile;
+	uint32_t n_ports;
+	uint32_t active_port;
+	const char *active_port_name;
+	struct volume_info volume_info;
+	unsigned int have_volume:1;
+};
+
+#define CARD_INFO_INIT(_d) (struct device_info) {		\
+			.direction = _d,			\
+			.device = SPA_ID_INVALID,		\
+			.active_profile = SPA_ID_INVALID,	\
+			.active_port = SPA_ID_INVALID,		\
+			.volume_info = VOLUME_INFO_INIT,	\
+}
+
+static void collect_device_info(struct pw_manager_object *card, struct device_info *info)
+{
+	struct pw_manager_param *p;
+
+	if (card == NULL)
+		return;
+
+	spa_list_for_each(p, &card->param_list, link) {
+		switch (p->id) {
+		case SPA_PARAM_EnumProfile:
+			info->n_profiles++;
+			break;
+		case SPA_PARAM_Profile:
+			spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamProfile, NULL,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&info->active_profile));
+			break;
+		case SPA_PARAM_EnumRoute:
+			info->n_ports++;
+			break;
+		case SPA_PARAM_Route:
+		{
+			uint32_t id, device;
+			struct spa_pod *props;
+			if (spa_pod_parse_object(p->param,
+					SPA_TYPE_OBJECT_ParamRoute, NULL,
+					SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+					SPA_PARAM_ROUTE_device,  SPA_POD_Int(&device),
+					SPA_PARAM_ROUTE_props,  SPA_POD_OPT_Pod(&props)) < 0)
+				break;
+			if (device != info->device)
+				break;
+			info->active_port = id;
+			if (props) {
+				volume_parse_param(props, &info->volume_info);
+				info->have_volume = true;
+			}
+			break;
+		}
+		}
+	}
+}
+
+struct port_info {
+	const char *name;
+	const char *description;
+	uint32_t priority;
+	uint32_t available;
+	const char *available_group;
+	uint32_t type;
+};
+
+static uint32_t collect_port_info(struct pw_manager_object *card, struct device_info *dev_info,
+		struct port_info *port_info)
+{
+	struct pw_manager_param *p;
+	uint32_t n;
+
+	if (card == NULL)
+		return 0;
+
+	n = 0;
+	spa_list_for_each(p, &card->param_list, link) {
+		uint32_t id, direction;
+		struct spa_pod *devices = NULL, *profiles = NULL;
+		struct port_info *pi;
+
+		if (p->id != SPA_PARAM_EnumRoute)
+			continue;
+
+		pi = &port_info[n];
+		spa_zero(*pi);
+
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
+				SPA_PARAM_ROUTE_name,  SPA_POD_String(&pi->name),
+				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&pi->description),
+				SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&pi->priority),
+				SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&pi->available),
+				SPA_PARAM_ROUTE_devices,  SPA_POD_OPT_Pod(&devices),
+				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0)
+			continue;
+
+		if (direction != dev_info->direction)
+			continue;
+		if (!array_contains(profiles, dev_info->active_profile))
+			continue;
+		if (!array_contains(devices, dev_info->device))
+			continue;
+		if (id == dev_info->active_port)
+			dev_info->active_port_name = pi->name;
+		n++;
+	}
+	return n;
+}
+
 static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_node_info *info = o->info;
-	struct volume_info volume_info = VOLUME_INFO_INIT;
 	struct sample_spec ss = SAMPLE_SPEC_INIT;
 	struct channel_map map = CHANNEL_MAP_INIT;
 	const char *name, *str;
@@ -2899,11 +3031,12 @@ static int fill_sink_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
 	struct pw_manager_param *p;
+	struct pw_manager_object *card = NULL;
 	uint32_t flags;
+	struct device_info dev_info = CARD_INFO_INIT(PW_DIRECTION_OUTPUT);
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
 		return ERR_NOENTITY;
-
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
@@ -2914,10 +3047,22 @@ static int fill_sink_info(struct client *client, struct message *m,
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		dev_info.device = (uint32_t)atoi(str);
+
+	if (card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = card_id, .type = is_card, };
+		card = select_object(client->manager, &sel);
+	}
+	collect_device_info(card, &dev_info);
 
 	flags = SINK_LATENCY | SINK_DYNAMIC_LATENCY | SINK_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
                 flags |= SINK_HARDWARE;
+	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_VOLUME))
+                flags |= SINK_HW_VOLUME_CTRL;
+	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
+                flags |= SINK_HW_MUTE_CTRL;
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
@@ -2932,12 +3077,17 @@ static int fill_sink_info(struct client *client, struct message *m,
 		case SPA_PARAM_Format:
 			format_parse_param(p->param, &ss, &map);
 			break;
+
+		case SPA_PARAM_Props:
+			if (!dev_info.have_volume)
+				volume_parse_param(p->param, &dev_info.volume_info);
+			break;
 		}
 	}
 	if (ss.channels != map.channels)
 		ss.channels = map.channels;
-	if (volume_info.volume.channels != map.channels)
-		volume_info.volume.channels = map.channels;
+	if (dev_info.volume_info.volume.channels != map.channels)
+		dev_info.volume_info.volume.channels = map.channels;
 
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
@@ -2946,8 +3096,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_U32, module_id,			/* module index */
-		TAG_CVOLUME, &volume_info.volume,
-		TAG_BOOLEAN, volume_info.mute,
+		TAG_CVOLUME, &dev_info.volume_info.volume,
+		TAG_BOOLEAN, dev_info.volume_info.mute,
 		TAG_U32, o->id | 0x10000U,		/* monitor source */
 		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
@@ -2963,36 +3113,43 @@ static int fill_sink_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 15) {
 		message_put(m,
-			TAG_VOLUME, volume_info.base,	/* base volume */
+			TAG_VOLUME, dev_info.volume_info.base,	/* base volume */
 			TAG_U32, node_state(info->state),	/* state */
-			TAG_U32, volume_info.steps,	/* n_volume_steps */
+			TAG_U32, dev_info.volume_info.steps,	/* n_volume_steps */
 			TAG_U32, card_id,		/* card index */
 			TAG_INVALID);
 	}
 	if (client->version >= 16) {
+		uint32_t n_ports, n;
+		struct port_info *port_info, *pi;
+
+		port_info = alloca(dev_info.n_ports * sizeof(*p));
+		n_ports = collect_port_info(card, &dev_info, port_info);
+
 		message_put(m,
-			TAG_U32, 0,			/* n_ports */
+			TAG_U32, n_ports,			/* n_ports */
 			TAG_INVALID);
-		while (false) {
+		for (n = 0; n < n_ports; n++) {
+			pi = &port_info[n];
 			message_put(m,
-				TAG_STRING, NULL,	/* name */
-				TAG_STRING, NULL,	/* description */
-				TAG_U32, 0,		/* priority */
+				TAG_STRING, pi->name,		/* name */
+				TAG_STRING, pi->description,	/* description */
+				TAG_U32, pi->priority,		/* priority */
 				TAG_INVALID);
 			if (client->version >= 24) {
 				message_put(m,
-					TAG_U32, 0,		/* available */
+					TAG_U32, pi->available,		/* available */
 					TAG_INVALID);
 			}
 			if (client->version >= 34) {
 				message_put(m,
-					TAG_STRING, NULL,	/* availability_group */
-					TAG_U32, 0,		/* type */
+					TAG_STRING, pi->available_group,	/* availability_group */
+					TAG_U32, pi->type,			/* type */
 					TAG_INVALID);
 			}
 		}
 		message_put(m,
-			TAG_STRING, NULL,		/* active port name */
+			TAG_STRING, dev_info.active_port_name,		/* active port name */
 			TAG_INVALID);
 	}
 	if (client->version >= 21) {
@@ -3011,7 +3168,6 @@ static int fill_source_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_node_info *info = o->info;
-	struct volume_info volume_info = VOLUME_INFO_INIT;
 	struct sample_spec ss = SAMPLE_SPEC_INIT;
 	struct channel_map map = CHANNEL_MAP_INIT;
 	bool is_monitor;
@@ -3021,7 +3177,9 @@ static int fill_source_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
 	struct pw_manager_param *p;
+	struct pw_manager_object *card = NULL;
 	uint32_t flags;
+	struct device_info dev_info = CARD_INFO_INIT(PW_DIRECTION_INPUT);
 
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
@@ -3042,10 +3200,22 @@ static int fill_source_info(struct client *client, struct message *m,
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		dev_info.device = (uint32_t)atoi(str);
+
+	if (card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = card_id, .type = is_card, };
+		card = select_object(client->manager, &sel);
+	}
+	collect_device_info(card, &dev_info);
 
 	flags = SOURCE_LATENCY | SOURCE_DYNAMIC_LATENCY | SOURCE_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
                 flags |= SOURCE_HARDWARE;
+	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_VOLUME))
+                flags |= SOURCE_HW_VOLUME_CTRL;
+	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
+                flags |= SOURCE_HW_MUTE_CTRL;
 
 	spa_list_for_each(p, &o->param_list, link) {
 		switch (p->id) {
@@ -3060,12 +3230,17 @@ static int fill_source_info(struct client *client, struct message *m,
 		case SPA_PARAM_Format:
 			format_parse_param(p->param, &ss, &map);
 			break;
+
+		case SPA_PARAM_Props:
+			if (!dev_info.have_volume)
+				volume_parse_param(p->param, &dev_info.volume_info);
+			break;
 		}
 	}
 	if (ss.channels != map.channels)
 		ss.channels = map.channels;
-	if (volume_info.volume.channels != map.channels)
-		volume_info.volume.channels = map.channels;
+	if (dev_info.volume_info.volume.channels != map.channels)
+		dev_info.volume_info.volume.channels = map.channels;
 
 	message_put(m,
 		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,	/* source index */
@@ -3074,8 +3249,8 @@ static int fill_source_info(struct client *client, struct message *m,
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_CHANNEL_MAP, &map,
 		TAG_U32, module_id,				/* module index */
-		TAG_CVOLUME, &volume_info.volume,
-		TAG_BOOLEAN, volume_info.mute,
+		TAG_CVOLUME, &dev_info.volume_info.volume,
+		TAG_BOOLEAN, dev_info.volume_info.mute,
 		TAG_U32, is_monitor ? o->id : SPA_ID_INVALID,	/* monitor of sink */
 		TAG_STRING, is_monitor ? name : NULL,		/* monitor of sink name */
 		TAG_USEC, 0LL,					/* latency */
@@ -3091,36 +3266,43 @@ static int fill_source_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 15) {
 		message_put(m,
-			TAG_VOLUME, volume_info.base,	/* base volume */
+			TAG_VOLUME, dev_info.volume_info.base,	/* base volume */
 			TAG_U32, node_state(info->state),	/* state */
-			TAG_U32, volume_info.steps,	/* n_volume_steps */
-			TAG_U32, card_id,		/* card index */
+			TAG_U32, dev_info.volume_info.steps,	/* n_volume_steps */
+			TAG_U32, card_id,			/* card index */
 			TAG_INVALID);
 	}
 	if (client->version >= 16) {
+		uint32_t n_ports, n;
+		struct port_info *port_info, *pi;
+
+		port_info = alloca(dev_info.n_ports * sizeof(*p));
+		n_ports = collect_port_info(card, &dev_info, port_info);
+
 		message_put(m,
-			TAG_U32, 0,				/* n_ports */
+			TAG_U32, n_ports,			/* n_ports */
 			TAG_INVALID);
-		while (false) {
+		for (n = 0; n < n_ports; n++) {
+			pi = &port_info[n];
 			message_put(m,
-				TAG_STRING, NULL,		/* name */
-				TAG_STRING, NULL,		/* description */
-				TAG_U32, 0,			/* priority */
+				TAG_STRING, pi->name,		/* name */
+				TAG_STRING, pi->description,	/* description */
+				TAG_U32, pi->priority,		/* priority */
 				TAG_INVALID);
 			if (client->version >= 24) {
 				message_put(m,
-					TAG_U32, 0,		/* available */
+					TAG_U32, pi->available,		/* available */
 					TAG_INVALID);
 			}
 			if (client->version >= 34) {
 				message_put(m,
-					TAG_STRING, NULL,	/* availability_group */
-					TAG_U32, 0,		/* type */
+					TAG_STRING, pi->available_group,	/* availability_group */
+					TAG_U32, pi->type,			/* type */
 					TAG_INVALID);
 			}
 		}
 		message_put(m,
-			TAG_STRING, NULL,		/* active port name */
+			TAG_STRING, dev_info.active_port_name,		/* active port name */
 			TAG_INVALID);
 	}
 	if (client->version >= 21) {

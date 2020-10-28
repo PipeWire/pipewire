@@ -167,6 +167,7 @@ static int sink_callback(pa_context *c, struct global *g, struct sink_data *d)
 			if (!has_device(&cg->card_info.port_devices[n], g->node_info.profile_device_id))
 				continue;
 
+			spa_zero(spi[j]);
 			i.ports[j] = &spi[j];
 			spi[j].name = ci->ports[n]->name;
 			spi[j].description = ci->ports[n]->description;
@@ -903,6 +904,8 @@ static int source_callback(pa_context *c, struct global *g, struct source_data *
 				continue;
 			if (!has_device(&cg->card_info.port_devices[n], g->node_info.profile_device_id))
 				continue;
+
+			spa_zero(spi[j]);
 			i.ports[j] = &spi[j];
 			spi[j].name = ci->ports[n]->name;
 			spi[j].description = ci->ports[n]->description;

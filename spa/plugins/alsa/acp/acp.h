@@ -87,34 +87,26 @@ enum acp_available {
 
 const char *acp_available_str(enum acp_available status);
 
-/** Port type. New types can be added in the future, so applications should
- * gracefully handle situations where a type identifier doesn't match any item
- * in this enumeration. */
-enum acp_port_type {
-	ACP_PORT_TYPE_UNKNOWN = 0,
-	ACP_PORT_TYPE_AUX = 1,
-	ACP_PORT_TYPE_SPEAKER = 2,
-	ACP_PORT_TYPE_HEADPHONES = 3,
-	ACP_PORT_TYPE_LINE = 4,
-	ACP_PORT_TYPE_MIC = 5,
-	ACP_PORT_TYPE_HEADSET = 6,
-	ACP_PORT_TYPE_HANDSET = 7,
-	ACP_PORT_TYPE_EARPIECE = 8,
-	ACP_PORT_TYPE_SPDIF = 9,
-	ACP_PORT_TYPE_HDMI = 10,
-	ACP_PORT_TYPE_TV = 11,
-	ACP_PORT_TYPE_RADIO = 12,
-	ACP_PORT_TYPE_VIDEO = 13,
-	ACP_PORT_TYPE_USB = 14,
-	ACP_PORT_TYPE_BLUETOOTH = 15,
-	ACP_PORT_TYPE_PORTABLE = 16,
-	ACP_PORT_TYPE_HANDSFREE = 17,
-	ACP_PORT_TYPE_CAR = 18,
-	ACP_PORT_TYPE_HIFI = 19,
-	ACP_PORT_TYPE_PHONE = 20,
-	ACP_PORT_TYPE_NETWORK = 21,
-	ACP_PORT_TYPE_ANALOG = 22,
-};
+#define ACP_KEY_PORT_TYPE		"port.type"		/**< a Port type, like "aux", "speaker", ... */
+#define ACP_KEY_PORT_AVAILABLE_GROUP	"port.available-group"
+		/**< An indentifier for the group of ports that share their availability status with
+		 * each other. This is meant especially for handling cases where one 3.5 mm connector
+		 * is used for headphones, headsets and microphones, and the hardware can only tell
+		 * that something was plugged in but not what exactly. In this situation the ports for
+		 * all those devices share their availability status, and ACP can't tell which
+		 * one is actually plugged in, and some application may ask the user what was plugged
+		 * in. Such applications should get a list of all card ports and compare their
+		 * `available_group` fields. Ports that have the same group are those that need
+		 * input from the user to determine which device was plugged in. The application should
+		 * then activate the user-chosen port.
+		 *
+		 * May be NULL, in which case the port is not part of any availability group (which is
+		 * the same as having a group with only one member).
+		 *
+		 * The group identifier must be treated as an opaque identifier. The string may look
+		 * like an ALSA control name, but applications must not assume any such relationship.
+		 * The group naming scheme can change without a warning.
+		 */
 
 struct acp_device;
 
@@ -154,31 +146,6 @@ struct acp_port {
 	uint32_t priority;		/**< The higher this value is, the more useful this port is as a default. */
 	enum acp_direction direction;
 	enum acp_available available;	/**< A flags (see #acp_port_available), indicating availability status of this port. */
-	const char *availability_group;	/**< An indentifier for the group of ports that share their availability status with
-					 * each other. This is meant especially for handling cases where one 3.5 mm connector
-					 * is used for headphones, headsets and microphones, and the hardware can only tell
-					 * that something was plugged in but not what exactly. In this situation the ports for
-					 * all those devices share their availability status, and PulseAudio can't tell which
-					 * one is actually plugged in, and some application may ask the user what was plugged
-					 * in. Such applications should get a list of all card ports and compare their
-					 * `available_group` fields. Ports that have the same group are those that need
-					 * input from the user to determine which device was plugged in. The application should
-					 * then activate the user-chosen port.
-					 *
-					 * May be NULL, in which case the port is not part of any availability group (which is
-					 * the same as having a group with only one member).
-					 *
-					 * The group identifier must be treated as an opaque identifier. The string may look
-					 * like an ALSA control name, but applications must not assume any such relationship.
-					 * The group naming scheme can change without a warning.
-					 *
-					 * Since one group can include both input and output ports, the grouping should be done
-					 * using pa_card_port_info instead of pa_sink_port_info, but this field is duplicated
-					 * also in pa_sink_port_info (and pa_source_port_info) in case someone finds that
-					 * convenient.
-					 */
-	enum acp_port_type type;	/**< Port type, see #pa_device_port_type. */
-
 	struct acp_dict props;		/**< extra port properties */
 
 	uint32_t n_profiles;		/**< number of elements in profiles array */

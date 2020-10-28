@@ -42,59 +42,6 @@ struct data {
 	bool quit;
 };
 
-static const char *str_port_type(enum acp_port_type type)
-{
-	switch (type) {
-	case ACP_PORT_TYPE_UNKNOWN:
-		return "unknown";
-	case ACP_PORT_TYPE_AUX:
-		return "aux";
-	case ACP_PORT_TYPE_SPEAKER:
-		return "speaker";
-	case ACP_PORT_TYPE_HEADPHONES:
-		return "headphones";
-	case ACP_PORT_TYPE_LINE:
-		return "line";
-	case ACP_PORT_TYPE_MIC:
-		return "mic";
-	case ACP_PORT_TYPE_HEADSET:
-		return "headset";
-	case ACP_PORT_TYPE_HANDSET:
-		return "handset";
-	case ACP_PORT_TYPE_EARPIECE:
-		return "earpiece";
-	case ACP_PORT_TYPE_SPDIF:
-		return "spdif";
-	case ACP_PORT_TYPE_HDMI:
-		return "hdmi";
-	case ACP_PORT_TYPE_TV:
-		return "tv";
-	case ACP_PORT_TYPE_RADIO:
-		return "radio";
-	case ACP_PORT_TYPE_VIDEO:
-		return "video";
-	case ACP_PORT_TYPE_USB:
-		return "usb";
-	case ACP_PORT_TYPE_BLUETOOTH:
-		return "bluetooth";
-	case ACP_PORT_TYPE_PORTABLE:
-		return "portable";
-	case ACP_PORT_TYPE_HANDSFREE:
-		return "handsfree";
-	case ACP_PORT_TYPE_CAR:
-		return "car";
-	case ACP_PORT_TYPE_HIFI:
-		return "hifi";
-	case ACP_PORT_TYPE_PHONE:
-		return "phone";
-	case ACP_PORT_TYPE_NETWORK:
-		return "network";
-	case ACP_PORT_TYPE_ANALOG:
-		return "analog";
-	}
-	return "error";
-}
-
 static void acp_debug_dict(struct acp_dict *dict, int indent)
 {
 	const struct acp_dict_item *it;
@@ -232,10 +179,9 @@ static void print_port(struct data *data, struct acp_port *p, int indent, int le
 {
 	uint32_t i;
 
-	fprintf(stderr, "%*s  %c port %u: name:\"%s\" direction:%s prio:%d group:%s type:%s (available: %s)\n",
+	fprintf(stderr, "%*s  %c port %u: name:\"%s\" direction:%s prio:%d (available: %s)\n",
 			indent, "", p->flags & ACP_PORT_ACTIVE ? '*' : ' ', p->index,
 			p->name, acp_direction_str(p->direction), p->priority,
-			p->availability_group, str_port_type(p->type),
 			acp_available_str(p->available));
 	if (level > 0) {
 		acp_debug_dict(&p->props, indent + 8);

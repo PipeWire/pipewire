@@ -22,6 +22,38 @@
 #include "device-port.h"
 #include "alsa-mixer.h"
 
+static const char *port_types[] = {
+	[PA_DEVICE_PORT_TYPE_UNKNOWN] = "unknown",
+	[PA_DEVICE_PORT_TYPE_AUX] = "aux",
+	[PA_DEVICE_PORT_TYPE_SPEAKER] = "speaker",
+	[PA_DEVICE_PORT_TYPE_HEADPHONES] = "headphones",
+	[PA_DEVICE_PORT_TYPE_LINE] = "line",
+	[PA_DEVICE_PORT_TYPE_MIC] = "mic",
+	[PA_DEVICE_PORT_TYPE_HEADSET] = "headset",
+	[PA_DEVICE_PORT_TYPE_HANDSET] = "handset",
+	[PA_DEVICE_PORT_TYPE_EARPIECE] = "earpiece",
+	[PA_DEVICE_PORT_TYPE_SPDIF] = "spdif",
+	[PA_DEVICE_PORT_TYPE_HDMI] = "hdmi",
+	[PA_DEVICE_PORT_TYPE_TV] = "tv",
+	[PA_DEVICE_PORT_TYPE_RADIO] = "radio",
+	[PA_DEVICE_PORT_TYPE_VIDEO] = "video",
+	[PA_DEVICE_PORT_TYPE_USB] = "usb",
+	[PA_DEVICE_PORT_TYPE_BLUETOOTH] = "bluetooth",
+	[PA_DEVICE_PORT_TYPE_PORTABLE] = "portable",
+	[PA_DEVICE_PORT_TYPE_HANDSFREE] = "handsfree",
+	[PA_DEVICE_PORT_TYPE_CAR] = "car",
+	[PA_DEVICE_PORT_TYPE_HIFI] = "hifi",
+	[PA_DEVICE_PORT_TYPE_PHONE] = "phone",
+	[PA_DEVICE_PORT_TYPE_NETWORK] = "network",
+	[PA_DEVICE_PORT_TYPE_ANALOG] = "analog",
+};
+
+static const char *str_port_type(pa_device_port_type_t type)
+{
+	int idx = (type >= 0 && type < PA_ELEMENTSOF(port_types)) ? type : 0;
+	return port_types[idx];
+}
+
 pa_device_port_new_data *pa_device_port_new_data_init(pa_device_port_new_data *data)
 {
 	pa_assert(data);
@@ -96,16 +128,19 @@ pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, si
 	p->priority = p->port.priority = 0;
 	p->available = data->available;
 	p->port.available = (enum acp_available) data->available;
-	p->port.availability_group = p->availability_group = data->availability_group;
+	p->availability_group = data->availability_group;
 	data->availability_group = NULL;
 	p->profiles = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
 	p->direction = data->direction;
 	p->port.direction = data->direction == PA_DIRECTION_OUTPUT ?
 		ACP_DIRECTION_PLAYBACK : ACP_DIRECTION_CAPTURE;
 	p->type = data->type;
-	p->port.type = (enum acp_port_type) data->type;
 
 	p->proplist = pa_proplist_new();
+	pa_proplist_sets(p->proplist, ACP_KEY_PORT_TYPE, str_port_type(data->type));
+	if (p->availability_group)
+		pa_proplist_sets(p->proplist, ACP_KEY_PORT_AVAILABLE_GROUP, p->availability_group);
+
 	p->user_data = (void*)((uint8_t*)p + sizeof(pa_device_port));
 
 	return p;

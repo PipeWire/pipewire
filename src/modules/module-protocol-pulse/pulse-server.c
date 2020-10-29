@@ -410,7 +410,7 @@ static int send_stream_killed(struct stream *stream)
 		COMMAND_PLAYBACK_STREAM_KILLED :
 		COMMAND_RECORD_STREAM_KILLED;
 
-	pw_log_warn(NAME" %p: %s channel:%u", client,
+	pw_log_info(NAME" %p: %s channel:%u", client,
 			commands[command].name, stream->channel);
 
 	if (client->version < 23)
@@ -3626,6 +3626,46 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	return reply_simple_ack(client, tag);
 }
 
+static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_manager_object *o;
+	uint32_t id;
+	struct selector sel;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	pw_log_info(NAME" %p: %s id:%u", impl, commands[command].name, id);
+
+	spa_zero(sel);
+	sel.id = id;
+	switch (command) {
+	case COMMAND_KILL_CLIENT:
+		sel.type = is_client;
+		break;
+	case COMMAND_KILL_SINK_INPUT:
+		sel.type = is_sink_input;
+		break;
+	case COMMAND_KILL_SOURCE_OUTPUT:
+		sel.type = is_source_output;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if ((o = select_object(manager, &sel)) == NULL)
+		return -ENOENT;
+
+	pw_registry_destroy(manager->registry, o->id);
+
+	return reply_simple_ack(client, tag);
+}
+
 static const struct command commands[COMMAND_MAX] =
 {
 	[COMMAND_ERROR] = { "ERROR", },
@@ -3689,9 +3729,9 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_SET_PLAYBACK_STREAM_NAME] = { "SET_PLAYBACK_STREAM_NAME", do_set_stream_name, },
 	[COMMAND_SET_RECORD_STREAM_NAME] = { "SET_RECORD_STREAM_NAME", do_set_stream_name, },
 
-	[COMMAND_KILL_CLIENT] = { "KILL_CLIENT", do_error_not_implemented, },
-	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_error_not_implemented, },
-	[COMMAND_KILL_SOURCE_OUTPUT] = { "KILL_SOURCE_OUTPUT", do_error_not_implemented, },
+	[COMMAND_KILL_CLIENT] = { "KILL_CLIENT", do_kill, },
+	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_kill, },
+	[COMMAND_KILL_SOURCE_OUTPUT] = { "KILL_SOURCE_OUTPUT", do_kill, },
 
 	[COMMAND_LOAD_MODULE] = { "LOAD_MODULE", do_error_access, },
 	[COMMAND_UNLOAD_MODULE] = { "UNLOAD_MODULE", do_error_access, },

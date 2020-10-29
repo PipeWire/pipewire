@@ -111,6 +111,7 @@ struct client {
 	struct spa_list out_messages;
 
 	struct spa_list operations;
+	struct spa_list modules;
 
 	unsigned int disconnecting:1;
 };
@@ -190,6 +191,7 @@ struct impl {
 };
 
 #include "collect.c"
+#include "module.c"
 
 struct command {
 	const char *name;
@@ -3694,6 +3696,117 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 	return reply_simple_ack(client, tag);
 }
 
+struct load_module_data {
+	struct client *client;
+	uint32_t tag;
+};
+
+static struct load_module_data *load_module_data_new(struct client *client, uint32_t tag)
+{
+	struct load_module_data *data = calloc(1, sizeof(struct load_module_data));
+	data->client = client;
+	data->tag = tag;
+	return data;
+}
+
+static void on_module_removed(void *data, struct module *module)
+{
+	struct client *client = data;
+
+	pw_log_info(NAME" %p: client %p: module %d unloaded", client->impl, client, module->idx);
+
+	spa_list_remove(&module->link);
+}
+
+static void on_module_error(void *data)
+{
+	struct client *client = data;
+
+	pw_log_info(NAME" %p: client %p: error loading module", client->impl, client);
+}
+
+static void on_module_loaded(struct module *module, int error, void *data)
+{
+	struct load_module_data *d = data;
+	struct message *reply;
+	struct client *client;
+	uint32_t tag;
+	int res;
+
+	struct module_events listener = {
+		on_module_removed,
+		on_module_error,
+	};
+
+	client = d->client;
+	tag = d->tag;
+	free(d);
+
+	if (error < 0) {
+		pw_log_warn(NAME" %p: client %p: error loading module", client->impl, client);
+		reply_error (client, COMMAND_LOAD_MODULE, tag, error);
+		return;
+	}
+
+	spa_list_append(&client->modules, &module->link);
+	module_add_listener(module, &listener, client);
+
+	pw_log_info(NAME" %p: client %p: module %d loaded", client->impl, client, module->idx);
+
+	reply = reply_new(client, tag);
+	message_put(reply,
+		TAG_U32, module->idx,
+		TAG_INVALID);
+	if ((res = send_message(client, reply)) < 0)
+		reply_error(client, COMMAND_LOAD_MODULE, tag, res);
+}
+
+static int do_load_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct load_module_data *data;
+	struct impl *impl = client->impl;
+	const char *name, *argument;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_STRING, &name,
+			TAG_STRING, &argument,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	pw_log_info(NAME" %p: %s name:%s argument:%s", impl, commands[command].name, name, argument);
+
+	data = load_module_data_new(client, tag);
+	res = load_module(client, name, argument, on_module_loaded, data);
+	return res;
+}
+
+static int do_unload_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct module *module;
+	uint32_t module_idx;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_U32, &module_idx,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	pw_log_info(NAME" %p: %s id:%u", impl, commands[command].name, module_idx);
+
+	spa_list_for_each(module, &client->modules, link) {
+		if (module->idx == module_idx)
+			break;
+	}
+
+	if (module == NULL)
+		return -ENOENT;
+
+	unload_module(module);
+	return reply_simple_ack(client, tag);
+}
+
 static const struct command commands[COMMAND_MAX] =
 {
 	[COMMAND_ERROR] = { "ERROR", },
@@ -3761,8 +3874,8 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_kill, },
 	[COMMAND_KILL_SOURCE_OUTPUT] = { "KILL_SOURCE_OUTPUT", do_kill, },
 
-	[COMMAND_LOAD_MODULE] = { "LOAD_MODULE", do_error_access, },
-	[COMMAND_UNLOAD_MODULE] = { "UNLOAD_MODULE", do_error_access, },
+	[COMMAND_LOAD_MODULE] = { "LOAD_MODULE", do_load_module, },
+	[COMMAND_UNLOAD_MODULE] = { "UNLOAD_MODULE", do_unload_module, },
 
 	/* Obsolete */
 	[COMMAND_ADD_AUTOLOAD___OBSOLETE] = { "ADD_AUTOLOAD___OBSOLETE", do_error_access, },
@@ -3865,6 +3978,7 @@ static void client_free(struct client *client)
 {
 	struct impl *impl = client->impl;
 	struct message *msg;
+	struct module *module, *tmp;
 
 	pw_log_info(NAME" %p: client %p free", impl, client);
 	spa_list_remove(&client->link);
@@ -3872,6 +3986,8 @@ static void client_free(struct client *client)
 	pw_map_for_each(&client->streams, client_free_stream, client);
 	pw_map_clear(&client->streams);
 
+	spa_list_for_each_safe(module, tmp, &client->modules, link)
+		unload_module(module);
 	spa_list_consume(msg, &client->free_messages, link)
 		message_free(client, msg, true, true);
 	spa_list_consume(msg, &client->out_messages, link)
@@ -4124,6 +4240,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	spa_list_init(&client->free_messages);
 	spa_list_init(&client->out_messages);
 	spa_list_init(&client->operations);
+	spa_list_init(&client->modules);
 
 	client->props = pw_properties_new(
 			PW_KEY_CLIENT_API, "pipewire-pulse",

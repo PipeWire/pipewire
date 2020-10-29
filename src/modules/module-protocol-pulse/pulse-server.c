@@ -2302,7 +2302,7 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	}
 	collect_device_info(o, card, &dev_info);
 
-	if (card != NULL && dev_info.active_port)
+	if (card != NULL && dev_info.active_port != SPA_ID_INVALID)
 		res = set_card_volume_mute(card, dev_info.active_port,
 				dev_info.device, &volume, NULL);
 	else
@@ -2364,7 +2364,7 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	}
 	collect_device_info(o, card, &dev_info);
 
-	if (card != NULL && dev_info.active_port)
+	if (card != NULL && dev_info.active_port != SPA_ID_INVALID)
 		res = set_card_volume_mute(card, dev_info.active_port,
 				dev_info.device, NULL, &mute);
 	else

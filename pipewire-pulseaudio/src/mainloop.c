@@ -327,7 +327,7 @@ static int usec_to_timeout(pa_usec_t u)
 SPA_EXPORT
 int pa_mainloop_poll(pa_mainloop *m)
 {
-	int res;
+	int res, timeout;
 	bool do_iterate;
 
 	if (m->quit)
@@ -344,13 +344,15 @@ int pa_mainloop_poll(pa_mainloop *m)
 				usec_to_timeout(m->timeout),
 				m->poll_func_userdata);
 		do_iterate = res == 1 && SPA_FLAG_IS_SET(fds[0].revents, POLLIN);
+		timeout = 0;
 	} else {
 		do_iterate = true;
+		timeout = m->timeout;
 	}
 
 	if (do_iterate) {
 		pw_loop_enter(m->loop);
-		res = pw_loop_iterate(m->loop, m->timeout);
+		res = pw_loop_iterate(m->loop, timeout);
 		pw_loop_leave(m->loop);
 	}
 

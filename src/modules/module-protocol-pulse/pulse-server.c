@@ -329,11 +329,13 @@ static int reply_simple_ack(struct client *client, uint32_t tag)
 	return send_message(client, reply);
 }
 
-static int reply_error(struct client *client, uint32_t tag, uint32_t error)
+static int reply_error(struct client *client, uint32_t tag, int res)
 {
 	struct message *reply;
+	uint32_t error = res_to_err(res);
 
-	pw_log_warn(NAME" %p: ERROR tag:%u error:%u", client, tag, error);
+	pw_log_warn(NAME" %p: ERROR tag:%u error:%u (%s)",
+			client, tag, error, spa_strerror(res));
 
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
@@ -445,13 +447,12 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 	struct message *reply;
 	uint32_t version;
 	const void *cookie;
-	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &version,
 			TAG_ARBITRARY, &cookie, NATIVE_COOKIE_LENGTH,
-			TAG_INVALID)) < 0) {
-		return res;
+			TAG_INVALID) < 0) {
+		return -EPROTO;
 	}
 	if (version < 8)
 		return -EPROTO;
@@ -635,18 +636,18 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 	int res, changed = 0;
 
 	if (client->version < 13) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_STRING, &name,
-				TAG_INVALID)) < 0)
-			return res;
+				TAG_INVALID) < 0)
+			return -EPROTO;
 		if (name)
 			changed += pw_properties_set(client->props,
 					PW_KEY_APP_NAME, name);
 	} else {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_PROPLIST, client->props ? &client->props->dict : NULL,
-				TAG_INVALID)) < 0)
-			return res;
+				TAG_INVALID) < 0)
+			return -EPROTO;
 		changed++;
 	}
 
@@ -677,7 +678,7 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 	}
 	return res;
 error:
-	pw_log_error(NAME" %p: failed to connect client: %m", impl);
+	pw_log_error(NAME" %p: failed to connect client: %s", impl, spa_strerror(res));
 	return res;
 
 }
@@ -687,12 +688,11 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t mask;
-	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &mask,
-			TAG_INVALID)) < 0)
-		return res;
+			TAG_INVALID) < 0)
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: SUBSCRIBE mask:%08x", impl, mask);
 	client->subscribed = mask;
@@ -1087,7 +1087,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
-		reply_error(client, -1, ERR_INTERNAL);
+		reply_error(client, -1, -EIO);
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (!client->disconnecting)
@@ -1416,22 +1416,18 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	props = pw_properties_copy(client->props);
-	if (props == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (props == NULL)
+		goto error_errno;
 
 	if (client->version < 13) {
 		if ((res = message_get(m,
 				TAG_STRING, &name,
 				TAG_INVALID)) < 0)
-			goto error;
-		if (name == NULL) {
-			res = -EPROTO;
-			goto error;
-		}
+			goto error_protocol;
+		if (name == NULL)
+			goto error_protocol;
 	}
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_SAMPLE_SPEC, &ss,
 			TAG_CHANNEL_MAP, &map,
 			TAG_U32, &sink_index,
@@ -1443,16 +1439,14 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			TAG_U32, &attr.minreq,
 			TAG_U32, &syncid,
 			TAG_CVOLUME, &volume,
-			TAG_INVALID)) < 0)
-		goto error;
+			TAG_INVALID) < 0)
+		goto error_protocol;
 
 	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM corked:%u sink-name:%s sink-idx:%u",
 			impl, corked, sink_name, sink_index);
 
-	if (sink_index != SPA_ID_INVALID && sink_name != NULL) {
-		res = -EINVAL;
-		goto error;
-	}
+	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
+		goto error_invalid;
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -1464,7 +1458,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_BOOLEAN, &no_move,
 				TAG_BOOLEAN, &variable_rate,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 13) {
 		if ((res = message_get(m,
@@ -1472,14 +1466,14 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_BOOLEAN, &adjust_latency,
 				TAG_PROPLIST, props,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 14) {
 		if ((res = message_get(m,
 				TAG_BOOLEAN, &volume_set,
 				TAG_BOOLEAN, &early_requests,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 15) {
 		if ((res = message_get(m,
@@ -1487,19 +1481,19 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_BOOLEAN, &dont_inhibit_auto_suspend,
 				TAG_BOOLEAN, &fail_on_suspend,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 17) {
 		if ((res = message_get(m,
 				TAG_BOOLEAN, &relative_volume,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 18) {
 		if ((res = message_get(m,
 				TAG_BOOLEAN, &passthrough,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 
 	if (sample_spec_valid(&ss)) {
@@ -1511,7 +1505,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		if ((res = message_get(m,
 				TAG_U8, &n_formats,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 
 		if (n_formats) {
 			uint8_t i;
@@ -1520,7 +1514,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				if ((res = message_get(m,
 						TAG_FORMAT_INFO, &format,
 						TAG_INVALID)) < 0)
-					goto error;
+					goto error_protocol;
 
 				if ((params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format)) != NULL)
@@ -1528,31 +1522,25 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			}
 		}
 	}
-	if (m->offset != m->length) {
-		res = -EPROTO;
-		goto error;
-	}
+	if (m->offset != m->length)
+		goto error_protocol;
 
 	stream = calloc(1, sizeof(struct stream));
-	if (stream == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (stream == NULL)
+		goto error_errno;
+
 	stream->impl = impl;
 	stream->client = client;
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
-	if (stream->channel == SPA_ID_INVALID) {
-		res = -errno;
-		goto error;
-	}
+	if (stream->channel == SPA_ID_INVALID)
+		goto error_errno;
 
 	stream->buffer = calloc(1, MAXLENGTH);
-	if (stream->buffer == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (stream->buffer == NULL)
+		goto error_errno;
+
 	spa_ringbuffer_init(&stream->ring);
 
 	stream->direction = PW_DIRECTION_OUTPUT;
@@ -1580,10 +1568,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	fix_stream_properties(stream, props),
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
-	if (stream->stream == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (stream->stream == NULL)
+		goto error_errno;
+
 	pw_stream_add_listener(stream->stream,
 			&stream->stream_listener,
 			&stream_events, stream);
@@ -1599,6 +1586,15 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	return 0;
 
+error_errno:
+	res = -errno;
+	goto error;
+error_protocol:
+	res = -EPROTO;
+	goto error;
+error_invalid:
+	res = -EINVAL;
+	goto error;
 error:
 	if (props)
 		pw_properties_free(props);
@@ -1646,20 +1642,16 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	props = pw_properties_copy(client->props);
-	if (props == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (props == NULL)
+		goto error_errno;
 
 	if (client->version < 13) {
 		if ((res = message_get(m,
 				TAG_STRING, &name,
 				TAG_INVALID)) < 0)
-			goto error;
-		if (name == NULL) {
-			res = -EPROTO;
-			goto error;
-		}
+			goto error_protocol;
+		if (name == NULL)
+			goto error_protocol;
 	}
 	if ((res = message_get(m,
 			TAG_SAMPLE_SPEC, &ss,
@@ -1670,15 +1662,13 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			TAG_BOOLEAN, &corked,
 			TAG_U32, &attr.fragsize,
 			TAG_INVALID)) < 0)
-		goto error;
+		goto error_protocol;
 
 	pw_log_info(NAME" %p: CREATE_RECORD_STREAM corked:%u source-name:%s source-index:%u",
 			impl, corked, source_name, source_index);
 
-	if (source_index != SPA_ID_INVALID && source_name != NULL) {
-		res = -EINVAL;
-		goto error;
-	}
+	if (source_index != SPA_ID_INVALID && source_name != NULL)
+		goto error_invalid;
 
 	if (client->version >= 12) {
 		if ((res = message_get(m,
@@ -1690,7 +1680,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_BOOLEAN, &no_move,
 				TAG_BOOLEAN, &variable_rate,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 13) {
 		if ((res = message_get(m,
@@ -1699,20 +1689,20 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_PROPLIST, props,
 				TAG_U32, &direct_on_input_idx,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 14) {
 		if ((res = message_get(m,
 				TAG_BOOLEAN, &early_requests,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (client->version >= 15) {
 		if ((res = message_get(m,
 				TAG_BOOLEAN, &dont_inhibit_auto_suspend,
 				TAG_BOOLEAN, &fail_on_suspend,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
 	if (sample_spec_valid(&ss)) {
 		if ((params[n_params] = format_build_param(&b,
@@ -1723,7 +1713,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		if ((res = message_get(m,
 				TAG_U8, &n_formats,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 
 		if (n_formats) {
 			uint8_t i;
@@ -1732,7 +1722,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				if ((res = message_get(m,
 						TAG_FORMAT_INFO, &format,
 						TAG_INVALID)) < 0)
-					goto error;
+					goto error_protocol;
 
 				if ((params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format)) != NULL)
@@ -1747,34 +1737,28 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_BOOLEAN, &relative_volume,
 				TAG_BOOLEAN, &passthrough,
 				TAG_INVALID)) < 0)
-			goto error;
+			goto error_protocol;
 	}
-	if (m->offset != m->length) {
-		res = -EPROTO;
-		goto error;
-	}
+	if (m->offset != m->length)
+		goto error_protocol;
 
 	stream = calloc(1, sizeof(struct stream));
-	if (stream == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (stream == NULL)
+		goto error_errno;
+
 	stream->direction = PW_DIRECTION_INPUT;
 	stream->impl = impl;
 	stream->client = client;
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
-	if (stream->channel == SPA_ID_INVALID) {
-		res = -errno;
-		goto error;
-	}
+	if (stream->channel == SPA_ID_INVALID)
+		goto error_errno;
 
 	stream->buffer = calloc(1, MAXLENGTH);
-	if (stream->buffer == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (stream->buffer == NULL)
+		goto error_errno;
+
 	spa_ringbuffer_init(&stream->ring);
 
 	stream->create_tag = tag;
@@ -1817,10 +1801,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	fix_stream_properties(stream, props),
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
-	if (stream->stream == NULL) {
-		res = -errno;
-		goto error;
-	}
+	if (stream->stream == NULL)
+		goto error_errno;
+
 	pw_stream_add_listener(stream->stream,
 			&stream->stream_listener,
 			&stream_events, stream);
@@ -1836,6 +1819,15 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 	return 0;
 
+error_errno:
+	res = -errno;
+	goto error;
+error_protocol:
+	res = -EPROTO;
+	goto error;
+error_invalid:
+	res = -EINVAL;
+	goto error;
 error:
 	if (props)
 		pw_properties_free(props);
@@ -1854,7 +1846,7 @@ static int do_delete_stream(struct client *client, uint32_t command, uint32_t ta
 	if ((res = message_get(m,
 			TAG_U32, &channel,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: DELETE_STREAM channel:%u", impl, channel);
 	stream = pw_map_lookup(&client->streams, channel);
@@ -1879,7 +1871,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 			TAG_U32, &channel,
 			TAG_TIMEVAL, &tv,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_debug(NAME" %p: %s channel:%u", impl, commands[command].name, channel);
 	stream = pw_map_lookup(&client->streams, channel);
@@ -1926,7 +1918,7 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 			TAG_U32, &channel,
 			TAG_TIMEVAL, &tv,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_debug(NAME" %p: %s channel:%u", impl, commands[command].name, channel);
 	stream = pw_map_lookup(&client->streams, channel);
@@ -1961,7 +1953,7 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 			TAG_U32, &channel,
 			TAG_BOOLEAN, &cork,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s channel:%u cork:%s",
 			impl, commands[command].name, channel, cork ? "yes" : "no");
@@ -1990,7 +1982,7 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 	if ((res = message_get(m,
 			TAG_U32, &channel,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s channel:%u",
 			impl, commands[command].name, channel);
@@ -2018,93 +2010,56 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 static int do_error_access(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	pw_log_info(NAME" %p: %s access denied", impl, commands[command].name);
-	return reply_error(client, tag, ERR_ACCESS);
+	pw_log_debug(NAME" %p: %s access denied", impl, commands[command].name);
+	return reply_error(client, tag, -EACCES);
 }
 
 static int do_error_not_implemented(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	pw_log_warn(NAME" %p: %s not implemented", impl, commands[command].name);
-	return reply_error(client, tag, ERR_NOTIMPLEMENTED);
+	pw_log_debug(NAME" %p: %s not implemented", impl, commands[command].name);
+	return reply_error(client, tag, -ENOSYS);
 }
 
-static int set_node_volume(struct pw_manager_object *o, struct volume *vol)
+static int set_node_volume_mute(struct pw_manager_object *o,
+		struct volume *vol, bool *mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod *param;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-		return ERR_ACCESS;
+		return -EACCES;
 
-	pw_node_set_param((struct pw_node*)o->proxy,
-		SPA_PARAM_Props, 0,
-		spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
-			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);
+	if (vol)
+		spa_pod_builder_add(&b,
+				SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
 							SPA_TYPE_Float,
 							vol->channels,
-							vol->values)));
-	return 0;
-}
-
-static int set_node_mute(struct pw_manager_object *o, bool mute)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-		return ERR_ACCESS;
-
-	pw_node_set_param((struct pw_node*)o->proxy,
-		SPA_PARAM_Props, 0,
-		spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
-			SPA_PROP_mute,	SPA_POD_Bool(mute)));
-	return 0;
-}
-
-static int set_card_volume(struct pw_manager_object *o, uint32_t id,
-		uint32_t device_id, struct volume *vol)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	struct spa_pod_frame f[1];
-	struct spa_pod *param;
-
-	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-		return ERR_ACCESS;
-
-	spa_pod_builder_push_object(&b, &f[0],
-			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
-	spa_pod_builder_add(&b,
-			SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
-			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
-			0);
-	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);
-	spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
-			SPA_PROP_channelVolumes,        SPA_POD_Array(sizeof(float),
-								SPA_TYPE_Float,
-								vol->channels,
-								vol->values));
+							vol->values), 0);
+	if (mute)
+		spa_pod_builder_add(&b,
+				SPA_PROP_mute, SPA_POD_Bool(*mute), 0);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
-	pw_device_set_param((struct pw_device*)o->proxy,
-			SPA_PARAM_Route, 0, param);
+	pw_node_set_param((struct pw_node*)o->proxy,
+		SPA_PARAM_Props, 0, param);
 	return 0;
 }
 
-static int set_card_mute(struct pw_manager_object *o, uint32_t id,
-		uint32_t device_id, bool mute)
+static int set_card_volume_mute(struct pw_manager_object *o, uint32_t id,
+		uint32_t device_id, struct volume *vol, bool *mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	struct spa_pod_frame f[1];
+	struct spa_pod_frame f[2];
 	struct spa_pod *param;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-		return ERR_ACCESS;
+		return -EACCES;
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
@@ -2113,9 +2068,18 @@ static int set_card_mute(struct pw_manager_object *o, uint32_t id,
 			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
 			0);
 	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);
-	spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props,
-			SPA_PROP_mute,        SPA_POD_Bool(mute));
+	spa_pod_builder_push_object(&b, &f[1],
+			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);
+	if (vol)
+		spa_pod_builder_add(&b,
+				SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+								SPA_TYPE_Float,
+								vol->channels,
+								vol->values), 0);
+	if (mute)
+		spa_pod_builder_add(&b,
+				SPA_PROP_mute, SPA_POD_Bool(*mute), 0);
+	spa_pod_builder_pop(&b, &f[1]);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
 	pw_device_set_param((struct pw_device*)o->proxy,
@@ -2130,7 +2094,7 @@ static int set_card_port(struct pw_manager_object *o, uint32_t id,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-		return ERR_ACCESS;
+		return -EACCES;
 
 	pw_device_set_param((struct pw_device*)o->proxy,
 			SPA_PARAM_Route, 0,
@@ -2155,7 +2119,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 			TAG_U32, &id,
 			TAG_CVOLUME, &volume,
 			TAG_INVALID)) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: DO_STREAM_VOLUME index:%u", impl, id);
 
@@ -2180,21 +2144,12 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 
 		o = select_object(manager, &sel);
 		if (o == NULL)
-			goto error_noentity;
+			return -ENOENT;
 
-		if ((res = set_node_volume(o, &volume)) != 0)
-			goto error;
+		if ((res = set_node_volume_mute(o, &volume, NULL)) < 0)
+			return res;
 	}
 	return reply_simple_ack(client, tag);
-
-error_noentity:
-	res = ERR_NOENTITY;
-	goto error;
-error_protocol:
-	res = ERR_PROTOCOL;
-	goto error;
-error:
-	return reply_error(client, tag, res);
 }
 
 static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2210,7 +2165,7 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 			TAG_U32, &id,
 			TAG_BOOLEAN, &mute,
 			TAG_INVALID)) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: DO_SET_STREAM_MUTE id:%u mute:%u",
 			impl, id, mute);
@@ -2240,21 +2195,12 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 
 		o = select_object(manager, &sel);
 		if (o == NULL)
-			goto error_noentity;
+			return -ENOENT;
 
-		if ((res = set_node_mute(o, mute)) != 0)
-			goto error;
+		if ((res = set_node_volume_mute(o, NULL, &mute)) < 0)
+			return res;
 	}
 	return reply_simple_ack(client, tag);
-
-error_noentity:
-	res = ERR_NOENTITY;
-	goto error;
-error_protocol:
-	res = ERR_PROTOCOL;
-	goto error;
-error:
-	return reply_error(client, tag, res);
 }
 
 static const char *get_default(struct client *client, bool sink)
@@ -2325,12 +2271,12 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 			TAG_STRING, &name,
 			TAG_CVOLUME, &volume,
 			TAG_INVALID)) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s index:%u name:%s", impl, commands[command].name, id, name);
 
 	if (id == SPA_ID_INVALID && name == NULL)
-		goto error_invalid;
+		return -EINVAL;
 
 	if (command == COMMAND_SET_SINK_VOLUME)
 		direction = PW_DIRECTION_OUTPUT;
@@ -2339,10 +2285,10 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 
 	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
 	if (o == NULL || o->info == NULL)
-		goto error_noentity;
+		return -ENOENT;
 	info = o->info;
 	if (info == NULL)
-		goto error_noentity;
+		return -ENOENT;
 
 	dev_info = DEVICE_INFO_INIT(direction);
 
@@ -2357,26 +2303,15 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	collect_device_info(o, card, &dev_info);
 
 	if (card != NULL && dev_info.active_port)
-		res = set_card_volume(card, dev_info.active_port, dev_info.device, &volume);
+		res = set_card_volume_mute(card, dev_info.active_port,
+				dev_info.device, &volume, NULL);
 	else
-		res = set_node_volume(o, &volume);
+		res = set_node_volume_mute(o, &volume, NULL);
 
-	if (res != 0)
-		goto error;
+	if (res < 0)
+		return res;
 
 	return reply_simple_ack(client, tag);
-
-error_invalid:
-	res = ERR_INVALID;
-	goto error;
-error_noentity:
-	res = ERR_NOENTITY;
-	goto error;
-error_protocol:
-	res = ERR_PROTOCOL;
-	goto error;
-error:
-	return reply_error(client, tag, res);
 }
 
 static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2397,13 +2332,13 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_STRING, &name,
 			TAG_BOOLEAN, &mute,
 			TAG_INVALID)) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s index:%u name:%s mute:%d", impl,
 			commands[command].name, id, name, mute);
 
 	if (id == SPA_ID_INVALID && name == NULL)
-		goto error_invalid;
+		return -EINVAL;
 
 	if (command == COMMAND_SET_SINK_MUTE)
 		direction = PW_DIRECTION_OUTPUT;
@@ -2412,10 +2347,10 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 
 	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
 	if (o == NULL || o->info == NULL)
-		goto error_noentity;
+		return -ENOENT;
 	info = o->info;
 	if (info == NULL)
-		goto error_noentity;
+		return -ENOENT;
 
 	dev_info = DEVICE_INFO_INIT(direction);
 
@@ -2430,26 +2365,15 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	collect_device_info(o, card, &dev_info);
 
 	if (card != NULL && dev_info.active_port)
-		res = set_card_mute(card, dev_info.active_port, dev_info.device, mute);
+		res = set_card_volume_mute(card, dev_info.active_port,
+				dev_info.device, NULL, &mute);
 	else
-		res = set_node_mute(o, mute);
+		res = set_node_volume_mute(o, NULL, &mute);
 
-	if (res != 0)
-		goto error;
+	if (res < 0)
+		return res;
 
 	return reply_simple_ack(client, tag);
-
-error_invalid:
-	res = ERR_INVALID;
-	goto error;
-error_noentity:
-	res = ERR_NOENTITY;
-	goto error;
-error_protocol:
-	res = ERR_PROTOCOL;
-	goto error;
-error:
-	return reply_error(client, tag, res);
 }
 
 static int do_set_port(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2469,14 +2393,14 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_STRING, &name,
 			TAG_STRING, &port_name,
 			TAG_INVALID)) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s index:%u name:%s port:%s", impl,
 			commands[command].name, id, name, port_name);
 
 	if ((id == SPA_ID_INVALID && name == NULL) ||
 	    (id != SPA_ID_INVALID && name != NULL))
-		goto error_invalid;
+		return -EINVAL;
 
 	if (command == COMMAND_SET_SINK_PORT)
 		direction = PW_DIRECTION_OUTPUT;
@@ -2485,10 +2409,10 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 
 	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
 	if (o == NULL || o->info == NULL)
-		goto error_noentity;
+		return -ENOENT;
 	info = o->info;
 	if (info == NULL)
-		goto error_noentity;
+		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
@@ -2499,26 +2423,14 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 		card = select_object(manager, &sel);
 	}
 	if (card == NULL || device_id == SPA_ID_INVALID)
-		goto error_noentity;
+		return -ENOENT;
 
 	port_id = find_port_id(card, direction, port_name);
 
-	if ((res = set_card_port(card, device_id, port_id)) != 0)
-		goto error;
+	if ((res = set_card_port(card, device_id, port_id)) < 0)
+		return res;
 
 	return reply_simple_ack(client, tag);
-
-error_invalid:
-	res = ERR_INVALID;
-	goto error;
-error_noentity:
-	res = ERR_NOENTITY;
-	goto error;
-error_protocol:
-	res = ERR_PROTOCOL;
-	goto error;
-error:
-	return reply_error(client, tag, res);
 }
 
 static int do_set_stream_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2534,7 +2446,7 @@ static int do_set_stream_name(struct client *client, uint32_t command, uint32_t 
 			TAG_U32, &channel,
 			TAG_STRING, &name,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	if (name == NULL)
 		return -EINVAL;
@@ -2560,16 +2472,14 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 	int res;
 
 	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -errno;
-		goto exit;
-	}
+	if (props == NULL)
+		return -errno;
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
 		if ((res = message_get(m,
 				TAG_U32, &channel,
 				TAG_INVALID)) < 0)
-			goto exit;
+			goto error_protocol;
 	} else {
 		channel = SPA_ID_INVALID;
 	}
@@ -2580,14 +2490,13 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 			TAG_U32, &mode,
 			TAG_PROPLIST, props,
 			TAG_INVALID)) < 0)
-		goto exit;
+		goto error_protocol;
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
 		stream = pw_map_lookup(&client->streams, channel);
-		if (stream == NULL) {
-			res = -EINVAL;
-			goto exit;
-		}
+		if (stream == NULL)
+			goto error_noentity;
+
 		fix_stream_properties(stream, props);
 		pw_stream_update_properties(stream->stream, &props->dict);
 	} else {
@@ -2598,6 +2507,13 @@ exit:
 	if (props)
 		pw_properties_free(props);
 	return res;
+
+error_protocol:
+	res = -EPROTO;
+	goto exit;
+error_noentity:
+	res = -ENOENT;
+	goto exit;
 }
 
 static int do_remove_proplist(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2611,16 +2527,14 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	int res;
 
 	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -errno;
-		goto exit;
-	}
+	if (props == NULL)
+		return -errno;
 
 	if (command != COMMAND_REMOVE_CLIENT_PROPLIST) {
 		if ((res = message_get(m,
 				TAG_U32, &channel,
 				TAG_INVALID)) < 0)
-			goto exit;
+			goto error_protocol;
 	} else {
 		channel = SPA_ID_INVALID;
 	}
@@ -2633,7 +2547,7 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		if ((res = message_get(m,
 				TAG_STRING, &key,
 				TAG_INVALID)) < 0)
-			goto exit;
+			goto error_protocol;
 		if (key == NULL)
 			break;
 		pw_properties_set(props, key, key);
@@ -2648,10 +2562,9 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
 		stream = pw_map_lookup(&client->streams, channel);
-		if (stream == NULL) {
-			res = -EINVAL;
-			goto exit;
-		}
+		if (stream == NULL)
+			goto error_noentity;
+
 		pw_stream_update_properties(stream->stream, &dict);
 	} else {
 		pw_core_update_properties(client->core, &dict);
@@ -2661,6 +2574,13 @@ exit:
 	if (props)
 		pw_properties_free(props);
 	return res;
+
+error_protocol:
+	res = -EPROTO;
+	goto exit;
+error_noentity:
+	res = -ENOENT;
+	goto exit;
 }
 
 
@@ -2736,14 +2656,14 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 	if ((res = message_get(m,
 			TAG_STRING, &name,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 	if (name == NULL)
-		goto error_invalid;
+		return -EINVAL;
 
 	pw_log_info(NAME" %p: LOOKUP %s", impl, name);
 
 	if ((o = find_device(client, SPA_ID_INVALID, name, command == COMMAND_LOOKUP_SINK)) == NULL)
-		goto error_noentity;
+		return -ENOENT;
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -2751,15 +2671,6 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 		TAG_INVALID);
 
 	return send_message(client, reply);
-
-error_invalid:
-	res = ERR_INVALID;
-	goto error;
-error_noentity:
-	res = ERR_INVALID;
-	goto error;
-error:
-	return reply_error(client, tag, res);
 }
 
 static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -2772,13 +2683,12 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 	if ((res = message_get(m,
 			TAG_U32, &channel,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: DRAIN channel:%d", impl, channel);
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
-		return -EINVAL;
-
+		return -ENOENT;
 	if (stream->direction != PW_DIRECTION_OUTPUT)
 		return -EINVAL;
 
@@ -2794,7 +2704,7 @@ static int fill_client_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID;
 
 	if (o == NULL || !is_client(o))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
@@ -2819,7 +2729,7 @@ static int fill_module_info(struct client *client, struct message *m,
 	struct pw_module_info *info = o->info;
 
 	if (o == NULL || info == NULL || !is_module(o))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	message_put(m,
 		TAG_U32, o->id,				/* module index */
@@ -2851,7 +2761,7 @@ static int fill_card_info(struct client *client, struct message *m,
 	struct profile_info *profile_info;
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_card(o))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
@@ -2970,7 +2880,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink(o))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
@@ -3094,7 +3004,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	is_monitor = is_sink(o);
 	if (o == NULL || info == NULL || info->props == NULL ||
 	    (!is_source(o) && !is_monitor))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
@@ -3216,7 +3126,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_sink_input(o))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
@@ -3281,7 +3191,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
 
 	if (o == NULL || info == NULL || info->props == NULL || !is_source_output(o))
-		return ERR_NOENTITY;
+		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
@@ -3340,7 +3250,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct message *reply = NULL;
-	int res, err;
+	int res;
 	struct pw_manager_object *o;
 	struct selector sel;
 	int (*fill_func) (struct client *client, struct message *m, struct pw_manager_object *o) = NULL;
@@ -3394,6 +3304,8 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 				TAG_INVALID)) < 0)
 			goto error_protocol;
 	}
+	if (fill_func == NULL)
+		goto error_invalid;
 
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
 	    (sel.id != SPA_ID_INVALID && sel.value != NULL))
@@ -3412,30 +3324,24 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		goto error_noentity;
 
 	reply = reply_new(client, tag);
-
-	if (fill_func)
-		err = fill_func(client, reply, o);
-	else
-		err = ERR_PROTOCOL;
-
-	if (err != 0)
+	if ((res = fill_func(client, reply, o)) < 0)
 		goto error;
 
 	return send_message(client, reply);
 
 error_protocol:
-	err = ERR_PROTOCOL;
+	res = -EPROTO;
 	goto error;
 error_noentity:
-	err = ERR_NOENTITY;
+	res = -ENOENT;
 	goto error;
 error_invalid:
-	err = ERR_INVALID;
+	res = -EINVAL;
 	goto error;
 error:
 	if (reply)
 		message_free(client, reply, false, false);
-	return reply_error(client, tag, err);
+	return res;
 }
 
 struct info_list_data {
@@ -3461,7 +3367,6 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 
 	spa_zero(info);
 	info.client = client;
-	info.reply = reply_new(client, tag);
 
 	switch (command) {
 	case COMMAND_GET_CLIENT_INFO_LIST:
@@ -3490,6 +3395,8 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 	default:
 		return -ENOTSUP;
 	}
+
+	info.reply = reply_new(client, tag);
 	if (info.fill_func)
 		pw_manager_for_each_object(manager, do_list_info, &info);
 
@@ -3509,16 +3416,12 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 	if ((res = message_get(m,
 			TAG_U32, &channel,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s channel:%u", impl, commands[command].name, channel);
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL) {
-		res = -EINVAL;
-		return res;
-	}
-
-	reply = reply_new(client, tag);
+	if (stream == NULL)
+		return -ENOENT;
 
 	if (command == COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR) {
 		if ((res = message_get(m,
@@ -3527,20 +3430,30 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 				TAG_U32, &attr.prebuf,
 				TAG_U32, &attr.minreq,
 				TAG_INVALID)) < 0)
-			return res;
-		if (client->version >= 13) {
-			if ((res = message_get(m,
-					TAG_BOOLEAN, &adjust_latency,
-					TAG_INVALID)) < 0)
-				return res;
-		}
-		if (client->version >= 14) {
-			if ((res = message_get(m,
-					TAG_BOOLEAN, &early_requests,
-					TAG_INVALID)) < 0)
-				return res;
-		}
+			return -EPROTO;
+	} else {
+		if ((res = message_get(m,
+				TAG_U32, &attr.maxlength,
+				TAG_U32, &attr.fragsize,
+				TAG_INVALID)) < 0)
+			return -EPROTO;
+	}
+	if (client->version >= 13) {
+		if ((res = message_get(m,
+				TAG_BOOLEAN, &adjust_latency,
+				TAG_INVALID)) < 0)
+			return -EPROTO;
+	}
+	if (client->version >= 14) {
+		if ((res = message_get(m,
+				TAG_BOOLEAN, &early_requests,
+				TAG_INVALID)) < 0)
+			return -EPROTO;
+	}
 
+	reply = reply_new(client, tag);
+
+	if (command == COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR) {
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
 			TAG_U32, stream->attr.tlength,
@@ -3553,23 +3466,6 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 				TAG_INVALID);
 		}
 	} else {
-		if ((res = message_get(m,
-				TAG_U32, &attr.maxlength,
-				TAG_U32, &attr.fragsize,
-				TAG_INVALID)) < 0)
-			return res;
-		if (client->version >= 13) {
-			if ((res = message_get(m,
-					TAG_BOOLEAN, &adjust_latency,
-					TAG_INVALID)) < 0)
-				return res;
-		}
-		if (client->version >= 14) {
-			if ((res = message_get(m,
-					TAG_BOOLEAN, &early_requests,
-					TAG_INVALID)) < 0)
-				return res;
-		}
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
 			TAG_U32, stream->attr.fragsize,
@@ -3594,14 +3490,13 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 			TAG_U32, &channel,
 			TAG_U32, &rate,
 			TAG_INVALID)) < 0)
-		return res;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s channel:%u rate:%u", impl, commands[command].name, channel, rate);
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL) {
-		res = -EINVAL;
-		return res;
-	}
+	if (stream == NULL)
+		return -ENOENT;
+
 	return reply_simple_ack(client, tag);
 }
 
@@ -3626,25 +3521,25 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 			TAG_STRING, &sel.value,
 			TAG_STRING, &profile_name,
 			TAG_INVALID)) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	pw_log_info(NAME" %p: %s id:%u name:%s profile:%s", impl,
 			commands[command].name, sel.id, sel.value, profile_name);
 
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
 	    (sel.id != SPA_ID_INVALID && sel.value != NULL))
-		goto error_invalid;
+		return -EINVAL;
 	if (profile_name == NULL)
-		goto error_invalid;
+		return -EINVAL;
 
 	if ((o = select_object(manager, &sel)) == NULL)
-		goto error_noentity;
+		return -ENOENT;
 
 	if ((profile_id = find_profile_id(o, profile_name)) == SPA_ID_INVALID)
-		goto error_noentity;
+		return -ENOENT;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
-		goto error_access;
+		return -EACCES;
 
         pw_device_set_param((struct pw_device*)o->proxy,
                         SPA_PARAM_Profile, 0,
@@ -3653,21 +3548,82 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
                                 SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id)));
 
 	return reply_simple_ack(client, tag);
+}
 
-error_protocol:
-	res = ERR_PROTOCOL;
-	goto error;
-error_noentity:
-	res = ERR_NOENTITY;
-	goto error;
-error_access:
-	res = ERR_ACCESS;
-	goto error;
-error_invalid:
-	res = ERR_INVALID;
-	goto error;
-error:
-	return reply_error(client, tag, res);
+static int do_set_default(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_manager_object *o;
+	const char *name;
+	int res;
+	bool sink = command == COMMAND_SET_DEFAULT_SINK;
+
+	if ((res = message_get(m,
+			TAG_STRING, &name,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	if (name == NULL)
+		return -EINVAL;
+
+	pw_log_info(NAME" %p: %s name:%s", impl, commands[command].name, name);
+
+	if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
+		return -ENOENT;
+
+	if ((res = pw_manager_set_metadata(manager,
+			PW_ID_CORE,
+			sink ? METADATA_DEFAULT_SINK : METADATA_DEFAULT_SOURCE,
+			SPA_TYPE_INFO_BASE"Id", "%d", o->id)) < 0)
+		return res;
+
+	return reply_simple_ack(client, tag);
+}
+
+static int do_move_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_manager_object *o, *dev;
+	uint32_t id, id_device;
+	const char *name_device;
+	struct selector sel;
+	int res;
+	bool sink = command == COMMAND_MOVE_SINK_INPUT;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_U32, &id_device,
+			TAG_STRING, &name_device,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	if ((id_device == SPA_ID_INVALID && name_device == NULL) ||
+	    (id_device != SPA_ID_INVALID && name_device != NULL))
+		return -EINVAL;
+
+	pw_log_info(NAME" %p: %s idx:%u device:%d name:%s", impl,
+			commands[command].name, id, id_device, name_device);
+
+	spa_zero(sel);
+	sel.id = id;
+	sel.type = sink ? is_sink_input: is_source_output;
+
+	o = select_object(manager, &sel);
+	if (o == NULL)
+		return -ENOENT;
+
+	if ((dev = find_device(client, id_device, name_device, sink)) == NULL)
+		return -ENOENT;
+
+	if ((res = pw_manager_set_metadata(manager,
+			o->id,
+			METADATA_TARGET_NODE,
+			SPA_TYPE_INFO_BASE"Id", "%d", dev->id)) < 0)
+		return res;
+
+	return reply_simple_ack(client, tag);
 }
 
 static const struct command commands[COMMAND_MAX] =
@@ -3727,8 +3683,8 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_TRIGGER_PLAYBACK_STREAM] = { "TRIGGER_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
 	[COMMAND_PREBUF_PLAYBACK_STREAM] = { "PREBUF_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
 
-	[COMMAND_SET_DEFAULT_SINK] = { "SET_DEFAULT_SINK", do_error_not_implemented, },
-	[COMMAND_SET_DEFAULT_SOURCE] = { "SET_DEFAULT_SOURCE", do_error_not_implemented, },
+	[COMMAND_SET_DEFAULT_SINK] = { "SET_DEFAULT_SINK", do_set_default, },
+	[COMMAND_SET_DEFAULT_SOURCE] = { "SET_DEFAULT_SOURCE", do_set_default, },
 
 	[COMMAND_SET_PLAYBACK_STREAM_NAME] = { "SET_PLAYBACK_STREAM_NAME", do_set_stream_name, },
 	[COMMAND_SET_RECORD_STREAM_NAME] = { "SET_RECORD_STREAM_NAME", do_set_stream_name, },
@@ -3761,8 +3717,8 @@ static const struct command commands[COMMAND_MAX] =
 	/* A few more client->server commands */
 
 	/* Supported since protocol v10 (0.9.5) */
-	[COMMAND_MOVE_SINK_INPUT] = { "MOVE_SINK_INPUT", do_error_not_implemented, },
-	[COMMAND_MOVE_SOURCE_OUTPUT] = { "MOVE_SOURCE_OUTPUT", do_error_not_implemented, },
+	[COMMAND_MOVE_SINK_INPUT] = { "MOVE_SINK_INPUT", do_move_stream, },
+	[COMMAND_MOVE_SOURCE_OUTPUT] = { "MOVE_SOURCE_OUTPUT", do_move_stream, },
 
 	/* Supported since protocol v11 (0.9.7) */
 	[COMMAND_SET_SINK_INPUT_MUTE] = { "SET_SINK_INPUT_MUTE", do_set_stream_mute, },
@@ -3883,26 +3839,23 @@ static int handle_packet(struct client *client, struct message *msg)
 			impl, command, tag);
 
 	if (command >= COMMAND_MAX) {
-		pw_log_error(NAME" %p: invalid command %d",
-				impl, command);
 		res = -EINVAL;
 		goto finish;
 
 	}
 	if (commands[command].run == NULL) {
-		pw_log_error(NAME" %p: command %d (%s) not implemented",
-				impl, command, commands[command].name);
 		res = -ENOTSUP;
 		goto finish;
 	}
 
 	res = commands[command].run(client, command, tag, msg);
+finish:
+	message_free(client, msg, false, false);
 	if (res < 0) {
 		pw_log_error(NAME" %p: command %d (%s) error: %s",
 				impl, command, commands[command].name, spa_strerror(res));
+		reply_error(client, tag, res);
 	}
-finish:
-	message_free(client, msg, false, false);
 	return res;
 }
 
@@ -4068,10 +4021,10 @@ on_client_data(void *data, int fd, uint32_t mask)
 error:
         if (res == -EPIPE)
                 pw_log_info(NAME" %p: client %p disconnected", impl, client);
-        else {
+        else if (res != -EPROTO) {
                 pw_log_error(NAME" %p: client %p error %d (%s)", impl,
                                 client, res, spa_strerror(res));
-		reply_error(client, -1, ERR_PROTOCOL);
+		return;
 	}
 	client_free(client);
 }

@@ -81,6 +81,31 @@ enum error_code {
 	ERR_MAX				/**< Not really an error but the first invalid error code */
 };
 
+static inline int res_to_err(int res)
+{
+	switch (res) {
+	case 0: return ERR_OK;
+	case -EACCES: return ERR_ACCESS;
+	case -ENOTTY: return ERR_COMMAND;
+	case -EINVAL: return ERR_INVALID;
+	case -EEXIST: return ERR_EXIST;
+	case -ENOENT: return ERR_NOENTITY;
+	case -ECONNREFUSED: return ERR_CONNECTIONREFUSED;
+	case -EPROTO: return ERR_PROTOCOL;
+	case -ETIMEDOUT: return ERR_TIMEOUT;
+	case -ENOKEY: return ERR_AUTHKEY;
+	case -ECONNRESET: return ERR_CONNECTIONTERMINATED;
+	case -EBADFD: return ERR_BADSTATE;
+	case -ENODATA: return ERR_NODATA;
+	case -EOVERFLOW: return ERR_TOOLARGE;
+	case -ENOTSUP: return ERR_NOTSUPPORTED;
+	case -ENOSYS: return ERR_NOTIMPLEMENTED;
+	case -EIO: return ERR_IO;
+	case -EBUSY: return ERR_BUSY;
+	}
+	return ERR_UNKNOWN;
+}
+
 enum {
 	/* Generic commands */
 	COMMAND_ERROR,
@@ -366,3 +391,7 @@ static uint32_t port_type_value(const char *port_type)
 	}
 	return 0;
 }
+
+#define METADATA_DEFAULT_SINK           "default.audio.sink"
+#define METADATA_DEFAULT_SOURCE         "default.audio.source"
+#define METADATA_TARGET_NODE            "target.node"

@@ -33,12 +33,16 @@
 #define manager_emit_removed(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, removed, 0, o)
 #define manager_emit_metadata(m,s,k,t,v) spa_hook_list_call(&m->hooks, struct pw_manager_events, metadata,0,s,k,t,v)
 
+struct object;
+
 struct manager {
 	struct pw_manager this;
 
 	struct spa_hook core_listener;
 	struct spa_hook registry_listener;
 	int sync_seq;
+
+	struct object *metadata;
 
 	struct spa_hook_list hooks;
 };
@@ -47,7 +51,8 @@ struct object_info {
 	const char *type;
 	uint32_t version;
 	const void *events;
-	void (*destroy) (void *object);
+	void (*init) (struct object *object);
+	void (*destroy) (struct object *object);
 };
 
 struct object {
@@ -131,6 +136,12 @@ static void object_destroy(struct object *o)
 	free(o);
 }
 
+/* core */
+static const struct object_info core_info = {
+	.type = PW_TYPE_INTERFACE_Core,
+	.version = PW_VERSION_CORE,
+};
+
 /* client */
 static void client_event_info(void *object, const struct pw_client_info *info)
 {
@@ -155,9 +166,8 @@ static const struct pw_client_events client_events = {
 	.info = client_event_info,
 };
 
-static void client_destroy(void *data)
+static void client_destroy(struct object *o)
 {
-	struct object *o = data;
 	if (o->this.info)
 		pw_client_info_free(o->this.info);
 }
@@ -193,9 +203,8 @@ static const struct pw_module_events module_events = {
 	.info = module_event_info,
 };
 
-static void module_destroy(void *data)
+static void module_destroy(struct object *o)
 {
-	struct object *o = data;
 	if (o->this.info)
 		pw_module_info_free(o->this.info);
 }
@@ -257,9 +266,8 @@ static const struct pw_device_events device_events = {
 	.param = device_event_param,
 };
 
-static void device_destroy(void *data)
+static void device_destroy(struct object *o)
 {
-	struct object *o = data;
 	if (o->this.info)
 		pw_device_info_free(o->this.info);
 }
@@ -324,9 +332,8 @@ static const struct pw_node_events node_events = {
 	.param = node_event_param,
 };
 
-static void node_destroy(void *data)
+static void node_destroy(struct object *o)
 {
-	struct object *o = data;
 	if (o->this.info)
 		pw_node_info_free(o->this.info);
 }
@@ -362,14 +369,31 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
+static void metadata_init(struct object *o)
+{
+	struct manager *m = o->manager;
+	if (m->metadata == NULL)
+		m->metadata = o;
+}
+
+static void metadata_destroy(struct object *o)
+{
+	struct manager *m = o->manager;
+	if (m->metadata == o)
+		m->metadata = NULL;
+}
+
 static const struct object_info metadata_info = {
 	.type = PW_TYPE_INTERFACE_Metadata,
 	.version = PW_VERSION_METADATA,
 	.events = &metadata_events,
+	.init = metadata_init,
+	.destroy = metadata_destroy,
 };
 
 static const struct object_info *objects[] =
 {
+	&core_info,
 	&module_info,
 	&client_info,
 	&device_info,
@@ -459,6 +483,9 @@ static void registry_event_global(void *data, uint32_t id,
 			&o->proxy_listener,
 			&proxy_events, o);
 
+	if (info->init)
+		info->init(o);
+
 	core_sync(m);
 }
 
@@ -541,16 +568,32 @@ void pw_manager_add_listener(struct pw_manager *manager,
 	core_sync(m);
 }
 
-struct pw_manager_object *pw_manager_find_object(struct pw_manager *manager,
-		uint32_t id)
+int pw_manager_set_metadata(struct pw_manager *manager,
+		uint32_t subject, const char *key, const char *type,
+		const char *format, ...)
 {
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
-	struct object *o;
+	struct object *s;
+	va_list args;
+	char buf[1024];
 
-	o = find_object(m, id);
-	if (o == NULL)
-		return NULL;
-	return (struct pw_manager_object*)o;
+	if ((s = find_object(m, subject)) == NULL)
+		return -ENOENT;
+	if (!SPA_FLAG_IS_SET(s->this.permissions, PW_PERM_M))
+		return -EACCES;
+
+	if (m->metadata == NULL)
+		return -ENOTSUP;
+	if (!SPA_FLAG_IS_SET(m->metadata->this.permissions, PW_PERM_W|PW_PERM_X))
+		return -EACCES;
+
+        va_start(args, format);
+	vsnprintf(buf, sizeof(buf)-1, format, args);
+        va_end(args);
+
+	pw_metadata_set_property(m->metadata->this.proxy,
+			subject, key, type, buf);
+	return 0;
 }
 
 int pw_manager_for_each_object(struct pw_manager *manager,

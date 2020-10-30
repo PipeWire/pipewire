@@ -1629,6 +1629,10 @@ int pw_stream_disconnect(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
 	pw_log_debug(NAME" %p: disconnect", stream);
+
+	if (impl->disconnecting)
+		return 0;
+
 	impl->disconnecting = true;
 
 	if (impl->node)

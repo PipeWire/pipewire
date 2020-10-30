@@ -171,16 +171,27 @@ static int update_properties(struct pw_impl_client *client, const struct spa_dic
 	return changed;
 }
 
+static void update_busy(struct pw_impl_client *client)
+{
+	struct pw_permission *def;
+	def = find_permission(client, PW_ID_CORE);
+	pw_impl_client_set_busy(client, (def->permissions & PW_PERM_R) ? false : true);
+}
+
 static int finish_register(struct pw_impl_client *client)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	const char *keys[] = {
+		PW_KEY_ACCESS,
 		PW_KEY_CLIENT_ACCESS,
 		PW_KEY_APP_NAME,
 		NULL
 	};
 	if (impl->registered)
 		return 0;
+
+	pw_context_emit_check_access(client->context, client);
+	update_busy(client);
 
 	pw_global_update_keys(client->global, client->info.props, keys);
 	pw_global_register(client->global);
@@ -332,13 +343,6 @@ static const struct pw_context_events context_events = {
 	.global_removed = context_global_removed,
 };
 
-static void update_busy(struct pw_impl_client *client)
-{
-	struct pw_permission *def;
-	def = find_permission(client, PW_ID_CORE);
-	pw_impl_client_set_busy(client, (def->permissions & PW_PERM_R) ? false : true);
-}
-
 /** Make a new client object
  *
  * \param context a \ref pw_context object to register the client with
@@ -410,10 +414,6 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 
 	this->info.props = &this->properties->dict;
 
-	pw_context_emit_check_access(this->context, this);
-
-	update_busy(this);
-
 	return this;
 
 error_clear_array:
@@ -452,8 +452,6 @@ int pw_impl_client_register(struct pw_impl_client *client,
 		PW_KEY_SEC_UID,
 		PW_KEY_SEC_GID,
 		PW_KEY_SEC_LABEL,
-		PW_KEY_ACCESS,
-		PW_KEY_CLIENT_ACCESS,
 		NULL
 	};
 

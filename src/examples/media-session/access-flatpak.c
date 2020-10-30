@@ -74,6 +74,8 @@ static void object_update(void *data)
 			return;
 
 		/* limited access for now */
+		pw_log_info(NAME" %p: flatpak client %d granted RX permissions"
+				, impl, client->id);
 		permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_R | PW_PERM_X);
 		pw_client_update_permissions(client->obj->obj.proxy,
 				1, permissions);

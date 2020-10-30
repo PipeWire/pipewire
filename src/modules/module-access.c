@@ -201,7 +201,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 			}
 		}
 		else if (res > 0) {
-			pw_log_debug(NAME" %p: sandboxed client %p added", impl, client);
+			pw_log_debug(NAME" %p: flatpak client %p added", impl, client);
 		}
 		access = "flatpak";
 		goto wait_permissions;
@@ -221,7 +221,7 @@ granted:
 	return;
 
 wait_permissions:
-	pw_log_debug(NAME " %p: client %p wait for '%s' permissions",
+	pw_log_info(NAME " %p: client %p wait for '%s' permissions",
 			impl, client, access);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));

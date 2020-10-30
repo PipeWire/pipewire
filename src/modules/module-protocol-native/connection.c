@@ -45,6 +45,7 @@
 #define MAX_FDS 1024
 #define MAX_FDS_MSG 28
 
+#define HDR_SIZE_V0	8
 #define HDR_SIZE	16
 
 static bool debug_messages = 0;
@@ -71,6 +72,7 @@ struct impl {
 
 	uint32_t version;
 	size_t hdr_size;
+	unsigned int checked:1;
 };
 
 /** \endcond */
@@ -317,20 +319,20 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	buf->msg.opcode = p[1] >> 24;
 	len = p[1] & 0xffffff;
 
-	if (buf->msg.id == 0 && buf->msg.opcode == 1) {
+	if (!impl->checked) {
 		if (p[3] >= 4) {
 			pw_log_warn("old version detected");
 			impl->version = 0;
-			impl->hdr_size = 8;
+			impl->hdr_size = HDR_SIZE_V0;
 		} else {
 			impl->version = 3;
-			impl->hdr_size = 16;
+			impl->hdr_size = HDR_SIZE;
 		}
 		spa_hook_list_call(&conn->listener_list,
 				struct pw_protocol_native_connection_events,
 				start, 0, impl->version);
+		impl->checked = 1;
 	}
-
 	if (impl->version >= 3) {
 		buf->msg.seq = p[2];
 		buf->msg.n_fds = p[3];
@@ -338,6 +340,7 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 		buf->msg.seq = 0;
 		buf->msg.n_fds = 0;
 	}
+
 	data += impl->hdr_size;
 	size -= impl->hdr_size;
 	buf->msg.fds = &buf->fds[buf->fds_offset];

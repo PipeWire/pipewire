@@ -35,6 +35,7 @@
 #include <spa/utils/result.h>
 
 #include <pipewire/impl.h>
+#include <pipewire/private.h>
 
 #define NAME "access"
 
@@ -128,6 +129,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	struct pw_permission permissions[1];
 	struct spa_dict_item items[2];
 	const struct pw_properties *props;
+	struct pw_impl_client *current;
 	const char *str, *access;
 	int pid, res;
 
@@ -210,8 +212,12 @@ granted:
 	pw_log_info(NAME" %p: client %p '%s' access granted", impl, client, access);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
+
+	current = client->context->current_client;
+	client->context->current_client = NULL;
 	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
 	pw_impl_client_update_permissions(client, 1, permissions);
+	client->context->current_client = current;
 	return;
 
 wait_permissions:

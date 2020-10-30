@@ -1,3 +1,105 @@
+PipeWire 0.3.14
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - This release focuses on bugfixes and stability
+    improvements.
+  - A new experimental pulse-server module was added. This
+    module implements the pulseaudio protocol on top of
+    PipeWire and can be used to make flatpaks work with
+    PipeWire. It looks like this might be a better way
+    forward compared to the libpulse.so replacement library.
+  - A2DP bluetooth was reworked. Playback should work a lot
+    better now. Support was also added to automatically link
+    an A2DP source to a playback device, which makes it possible
+    to use PipeWire as a bluetooth receiver as well.
+  - Improvements to the routing and volume restore features
+    of the session manager.
+
+
+- PipeWire improvements
+  - The channelmixer does not normalize volumes anymore. Volumes
+    are only normalized for monitoring streams now.
+  - Streams can actually start in the inactive state now.
+  - The channelmixer can now also convert volume updates from one
+    channel layout to another. This makes saved volumes work
+    even when streams have different channel layouts.
+  - Clients are only registered after the properties have been
+    updated.
+  - Links now have a new active state.
+  - Drivers can now also specify a minimum quantum. This makes it
+    possible for bluetooth devices to specify an optimum quantum
+    for the given codec settings and MTU.
+  - The amount of data sent over the socket was reduced by only
+    sending the data that changed.
+  - Client objects are now exposed after they uploaded their
+    properties, which makes the new object more useful.
+
+- Tools improvements
+  - pw-cat will now add metadata to the PipeWire streams.
+
+- Session manager improvements
+  - Fix crashes when reading bad data in stored settings.
+  - volume and routing is improved. Settings are now remembered
+    per application or media-role.
+  - The session manager remembers the last device used per stream
+  - Fix a bug when moving streams where it could sometimes end
+    up with linking a stream to multiple devices.
+  - Use RTKit to set realtime priority on the data thread in the
+    session manager. This improves performance of the pulse-server
+    and bluetooth devices.
+  - Add a new property to mark streams that want to capture from
+    the monitor of the default sink.
+  - NODE_TARGET can now also contain the node name. This avoids
+    some lookups in the pulseaudio layer when selecting target
+    nodes by name.
+  - the -e and -d options are more usable now and can be used to
+    add and remove modules from the default list of modules.
+
+- Device support
+  - v4l2: add some workarounds for buggy drivers. Add Limited
+    support for droidcam.
+  - ACP: improve selection of default port and profiles.
+  - ACP: add support for using the hardware mixer for more than
+    8 channel streams.
+  - ACP: support the new port type and availability group found
+    in PulseAudio.
+  - A2DP bluetooth timings were reworked. Automatic linking of
+    A2DP sources was added to make it possible for PipeWire to
+    act as a bluetooth receiver. The code was reworked to allow
+    other codecs such as APTX and LDAC in the future.
+  - Try harder to recover from ALSA errors.
+
+- GStreamer improvements
+  - Fix some crashes in the monitor that cause
+    gnome-initial-setup to crash.
+
+- PulseAudio layer improvements
+  - Many compatibility improvements. Improved playback in
+    chrome. Fix a crash in firefox when the daemon is stopped.
+  - Fix a leak in the formats.
+  - Fix !ADJUST_LATENCY streams like paplay.
+  - Make the device option in paplay work.
+  - Fix volume/mute notifications, this makes plasma volume updates
+    work again.
+  - Do the conversion between PulseAudio cubic volumes and PipeWire
+    linear volumes. Volume levels should behave now like they did
+    with PulseAudio.
+
+- JACK layer improvements
+  - Return an error when we run out of midi events. Some application
+    rely on this behaviour.
+
+- ALSA plugin improvements
+  - The ALSA plugin now also supports the node name in the
+    playback_node and capture_node properties.
+
+
+Older versions:
+
+
 PipeWire 0.3.13
 
 This is a bugfix release that is API and ABI compatible
@@ -46,9 +148,6 @@ with previous 0.3.x releases.
 
 - JACK layer improvements
   - Fix compilation against newer JACK.
-
-
-Older versions:
 
 
 PipeWire 0.3.12

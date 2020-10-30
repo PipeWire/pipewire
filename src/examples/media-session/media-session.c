@@ -2053,7 +2053,8 @@ static void do_quit(void *data, int signal_number)
 				"suspend-node,"		\
 				"policy-node,"		\
 				"pulse-bridge"
-#define DEFAULT_DISABLED	""
+#define EXTRA_ENABLED		""
+#define EXTRA_DISABLED		""
 
 static const struct {
 	const char *name;
@@ -2091,24 +2092,29 @@ static int opt_contains(const char *opt, const char *val)
 	return 0;
 }
 
-static void show_help(const char *name)
+static bool is_opt_enabled(const char *enabled, const char *disabled, const char *val)
+{
+	return (opt_contains(DEFAULT_ENABLED, val) || opt_contains(enabled, val)) &&
+			!opt_contains(disabled, val);
+}
+
+static void show_help(const char *name, const char *enabled, const char *disabled)
 {
 	size_t i;
 
         fprintf(stdout, "%s [options]\n"
              "  -h, --help                            Show this help\n"
              "      --version                         Show version\n"
-             "  -e, --enabled                         Enabled options (default '%s')\n"
-             "  -d, --disabled                        Disabled options (default '%s')\n"
+             "  -e, --enabled                         Extra enabled options ('%s')\n"
+             "  -d, --disabled                        Extra disabled options ('%s')\n"
              "  -p, --properties                      Extra properties as 'key=value { key=value }'\n",
-	     name, DEFAULT_ENABLED, DEFAULT_DISABLED);
+	     name, enabled, disabled);
 
         fprintf(stdout,
              "\noptions: (*=enabled)\n");
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
 		fprintf(stdout, "\t  %c %-15.15s: %s\n",
-				opt_contains(DEFAULT_ENABLED, modules[i].name) &&
-				!opt_contains(DEFAULT_DISABLED, modules[i].name) ? '*' : ' ',
+				is_opt_enabled(enabled, disabled, modules[i].name) ? '*' : ' ',
 				modules[i].name, modules[i].desc);
 	}
 }
@@ -2119,8 +2125,8 @@ int main(int argc, char *argv[])
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res = 0, c;
-	const char *opt_enabled = DEFAULT_ENABLED;
-	const char *opt_disabled = DEFAULT_DISABLED;
+	const char *opt_enabled = EXTRA_ENABLED;
+	const char *opt_disabled = EXTRA_DISABLED;
 	const char *opt_properties = NULL;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
@@ -2138,7 +2144,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVe:d:p:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(argv[0], opt_enabled, opt_disabled);
 			return 0;
 		case 'V':
 			fprintf(stdout, "%s\n"
@@ -2220,8 +2226,7 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
 		const char *name = modules[i].name;
-		if (opt_contains(opt_enabled, name) &&
-		    !opt_contains(opt_disabled, name)) {
+		if (is_opt_enabled(opt_enabled, opt_disabled, name)) {
 			if (modules[i].props) {
 				struct pw_properties *props;
 				props = pw_properties_new_string(modules[i].props);

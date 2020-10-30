@@ -190,12 +190,13 @@ static int finish_register(struct pw_impl_client *client)
 	if (impl->registered)
 		return 0;
 
+	impl->registered = true;
+
 	pw_context_emit_check_access(client->context, client);
 	update_busy(client);
 
 	pw_global_update_keys(client->global, client->info.props, keys);
 	pw_global_register(client->global);
-	impl->registered = true;
 
 	return 0;
 }
@@ -606,7 +607,9 @@ const struct pw_client_info *pw_impl_client_get_info(struct pw_impl_client *clie
 SPA_EXPORT
 int pw_impl_client_update_properties(struct pw_impl_client *client, const struct spa_dict *dict)
 {
-	return update_properties(client, dict, false);
+	int res = update_properties(client, dict, false);
+	finish_register(client);
+	return res;
 }
 
 SPA_EXPORT

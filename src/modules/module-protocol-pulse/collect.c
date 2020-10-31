@@ -244,6 +244,8 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
 			continue;
 		}
+		if (pi->description == NULL)
+			pi->description = pi->name;
 		if (pi->id == card_info->active_profile)
 			card_info->active_profile_name = pi->name;
 
@@ -443,6 +445,8 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct card_in
 				SPA_PARAM_ROUTE_profiles,  SPA_POD_OPT_Pod(&profiles)) < 0)
 			continue;
 
+		if (pi->description == NULL)
+			pi->description = pi->name;
 		if (devices)
 			pi->devices = spa_pod_get_array(devices, &pi->n_devices);
 		if (profiles)

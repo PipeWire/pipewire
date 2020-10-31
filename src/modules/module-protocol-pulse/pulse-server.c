@@ -267,6 +267,8 @@ static int flush_messages(struct client *client)
 			res = send(client->source->fd, data, size, MSG_NOSIGNAL | MSG_DONTWAIT);
 			if (res < 0) {
 				pw_log_info("send channel:%d %zu, res %d: %m", m->channel, size, res);
+				if (errno == EAGAIN || errno == EWOULDBLOCK)
+					break;
 				if (errno == EINTR)
 					continue;
 				else
@@ -3974,7 +3976,10 @@ static int do_read(struct client *client)
 		size = client->message->length - idx;
 	}
 	while (true) {
-		if ((r = recv(client->source->fd, data, size, 0)) < 0) {
+		if ((r = recv(client->source->fd, data, size, MSG_DONTWAIT)) < 0) {
+			pw_log_info("recv client:%p res %d: %m", client, res);
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				goto exit;
 			if (errno == EINTR)
 		                continue;
 			res = -errno;

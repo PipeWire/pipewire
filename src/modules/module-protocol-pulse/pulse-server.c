@@ -1276,13 +1276,15 @@ static void stream_process(void *data)
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
 		if (avail <= 0) {
 			/* underrun */
-			if (stream->drain_tag)
-				pw_stream_flush(stream->stream, true);
-
 			size = buf->datas[0].maxsize;
 			memset(p, 0, size);
-			pd.underrun_for = size;
-			pd.underrun = true;
+
+			if (stream->drain_tag)
+				pw_stream_flush(stream->stream, true);
+			else {
+				pd.underrun_for = size;
+				pd.underrun = true;
+			}
 		} else if (avail > MAXLENGTH) {
 			/* overrun, handled by other side */
 			pw_log_warn(NAME" %p: overrun", stream);

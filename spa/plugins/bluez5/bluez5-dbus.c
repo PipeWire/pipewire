@@ -1071,7 +1071,7 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 	return res;
 }
 
-static void register_endpoint_reply(DBusPendingCall *pending, void *user_data)
+static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_monitor *monitor = user_data;
 	DBusMessage *r;
@@ -1090,86 +1090,95 @@ static void register_endpoint_reply(DBusPendingCall *pending, void *user_data)
 		goto finish;
 	}
 
-      finish:
+	finish:
 	dbus_message_unref(r);
-        dbus_pending_call_unref(pending);
+	dbus_pending_call_unref(pending);
 }
 
-static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
-		const char *path, const char *uuid,
-		const struct a2dp_codec *codec, const char *endpoint)
-{
-	char *object_path, *str;
-	const DBusObjectPathVTable vtable_endpoint = {
-		.message_function = endpoint_handler,
-	};
+static void append_basic_variant_dict_entry(DBusMessageIter *dict, int key_type_int, void* key, int variant_type_int, const char* variant_type_str, void* variant) {
+	DBusMessageIter dict_entry_it, variant_it;
+	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
+	dbus_message_iter_append_basic(&dict_entry_it, key_type_int, key);
+
+	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
+	dbus_message_iter_append_basic(&variant_it, variant_type_int, variant);
+	dbus_message_iter_close_container(&dict_entry_it, &variant_it);
+	dbus_message_iter_close_container(dict, &dict_entry_it);
+}
+
+static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, int key_type_int, void* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size) {
+	DBusMessageIter dict_entry_it, variant_it, array_it;
+	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
+	dbus_message_iter_append_basic(&dict_entry_it, key_type_int, key);
+
+	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
+	dbus_message_iter_open_container(&variant_it, DBUS_TYPE_ARRAY, array_type_str, &array_it);
+	dbus_message_iter_append_fixed_array (&array_it, array_type_int, &data, data_size);
+	dbus_message_iter_close_container(&variant_it, &array_it);
+	dbus_message_iter_close_container(&dict_entry_it, &variant_it);
+	dbus_message_iter_close_container(dict, &dict_entry_it);
+}
+
+static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
+                             const char *path, const char *uuid,
+                             const struct a2dp_codec *codec, const char *object_path) {
+	char* str;
 	DBusMessage *m;
-	DBusMessageIter it[5];
+	DBusMessageIter object_it, dict_it;
 	DBusPendingCall *call;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
-	uint8_t *pcaps = (uint8_t *) caps;
 	int caps_size;
-	uint16_t codec_id = codec->codec_id;
+	uint16_t codec_id = codec->id.codec_id;
 
 	caps_size = codec->fill_caps(0, caps);
 	if (caps_size < 0)
 		return caps_size;
 
-	object_path = spa_aprintf("%s/%s", endpoint, codec->name);
-	if (object_path == NULL)
-		return -errno;
-
-	spa_log_info(monitor->log, "Registering endpoint: %s", object_path);
-
-	if (!dbus_connection_register_object_path(monitor->conn,
-						  object_path,
-						  &vtable_endpoint, monitor))
-		return -EIO;
-
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-					 path,
-					 BLUEZ_MEDIA_INTERFACE,
-					 "RegisterEndpoint");
+	                                 path,
+	                                 BLUEZ_MEDIA_INTERFACE,
+	                                 "RegisterEndpoint");
 	if (m == NULL)
 		return -EIO;
 
-	dbus_message_iter_init_append(m, &it[0]);
-	dbus_message_iter_append_basic(&it[0], DBUS_TYPE_OBJECT_PATH, &object_path);
+	dbus_message_iter_init_append(m, &object_it);
+	dbus_message_iter_append_basic(&object_it, DBUS_TYPE_OBJECT_PATH, &object_path);
 
-	dbus_message_iter_open_container(&it[0], DBUS_TYPE_ARRAY, "{sv}", &it[1]);
+	dbus_message_iter_open_container(&object_it, DBUS_TYPE_ARRAY, "{sv}", &dict_it);
 
-	dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
 	str = "UUID";
-	dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
-	dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "s", &it[3]);
-	dbus_message_iter_append_basic(&it[3], DBUS_TYPE_STRING, &uuid);
-	dbus_message_iter_close_container(&it[2], &it[3]);
-	dbus_message_iter_close_container(&it[1], &it[2]);
-
-	dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
+	append_basic_variant_dict_entry(&dict_it, DBUS_TYPE_STRING, &str, DBUS_TYPE_STRING, "s", &uuid);
 	str = "Codec";
-	dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
-	dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "y", &it[3]);
-	dbus_message_iter_append_basic(&it[3], DBUS_TYPE_BYTE, &codec_id);
-	dbus_message_iter_close_container(&it[2], &it[3]);
-	dbus_message_iter_close_container(&it[1], &it[2]);
-
-	dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
+	append_basic_variant_dict_entry(&dict_it, DBUS_TYPE_STRING, &str, DBUS_TYPE_BYTE, "y", &codec_id);
 	str = "Capabilities";
-	dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
-	dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "ay", &it[3]);
-	dbus_message_iter_open_container(&it[3], DBUS_TYPE_ARRAY, "y", &it[4]);
-	dbus_message_iter_append_fixed_array (&it[4], DBUS_TYPE_BYTE,
-			&pcaps, caps_size);
-	dbus_message_iter_close_container(&it[3], &it[4]);
-	dbus_message_iter_close_container(&it[2], &it[3]);
-	dbus_message_iter_close_container(&it[1], &it[2]);
-	dbus_message_iter_close_container(&it[0], &it[1]);
+	append_basic_array_variant_dict_entry(&dict_it, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
+
+	dbus_message_iter_close_container(&object_it, &dict_it);
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, register_endpoint_reply, monitor, NULL);
+	dbus_pending_call_set_notify(call, bluez_register_endpoint_reply, monitor, NULL);
 	dbus_message_unref(m);
-	free(object_path);
+
+	return 0;
+}
+
+static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
+		const struct a2dp_codec *codec, const char *endpoint, char** object_path)
+{
+	const DBusObjectPathVTable vtable_endpoint = {
+		.message_function = endpoint_handler,
+	};
+
+	*object_path = spa_aprintf("%s/%s", endpoint, codec->name);
+	if (*object_path == NULL)
+		return -errno;
+
+	spa_log_info(monitor->log, "Registering endpoint: %s", *object_path);
+
+	if (!dbus_connection_register_object_path(monitor->conn,
+	                                          *object_path,
+	                                          &vtable_endpoint, monitor))
+		return -EIO;
 
 	return 0;
 }
@@ -1177,22 +1186,246 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 static int adapter_register_endpoints(struct spa_bt_adapter *a)
 {
 	struct spa_bt_monitor *monitor = a->monitor;
+	char *endpoint_path = NULL;
 	int i;
+	int err = 0;
+
+	if (a->endpoints_registered)
+	    return err;
+
+	/* The legacy bluez5 api doesn't support codec switching
+	 * It doesn't make sense to register codecs other than SBC
+	 * as bluez5 will probably use SBC anyway and we have no control over it
+	 * let's incentivize users to upgrade their bluez5 daemon
+	 * if they want proper a2dp codec support
+	 * */
+	spa_log_warn(monitor->log, "Using legacy bluez5 API for A2DP - only SBC will be supported. "
+                               "Please upgrade bluez5.");
 
 	for (i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
-		register_a2dp_endpoint(monitor, a->path,
-				SPA_BT_UUID_A2DP_SOURCE,
-				codec,
-				A2DP_SOURCE_ENDPOINT);
-		register_a2dp_endpoint(monitor, a->path,
-				SPA_BT_UUID_A2DP_SINK,
-				codec,
-				A2DP_SINK_ENDPOINT);
+
+		if (codec->id.codec_id != A2DP_CODEC_SBC)
+			continue;
+
+		if ((err = register_a2dp_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT, &endpoint_path)))
+			goto out;
+		if ((err = bluez_register_endpoint(monitor, a->path,
+		                                   SPA_BT_UUID_A2DP_SOURCE,
+		                                   codec,
+		                                   endpoint_path)))
+			goto out;
+		free(endpoint_path);
+		endpoint_path = NULL;
+
+		if ((err = register_a2dp_endpoint(monitor, codec, A2DP_SINK_ENDPOINT, &endpoint_path)))
+			goto out;
+		if ((err = bluez_register_endpoint(monitor, a->path,
+		                                   SPA_BT_UUID_A2DP_SINK,
+		                                   codec,
+		                                   endpoint_path)))
+			goto out;
+
+		a->endpoints_registered = true;
+		break;
 	}
-	return 0;
+
+	if (!a->endpoints_registered) {
+		/* Should never happen as SBC support is always enabled */
+		spa_log_error(monitor->log, "Broken Pipewire build - unable to locate SBC codec");
+		err = -ENOSYS;
+	}
+
+	out:
+	if (err) {
+		spa_log_error(monitor->log, "Failed to register bluez5 endpoints");
+	}
+	if (endpoint_path)
+		free(endpoint_path);
+	return err;
 }
 
+static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint, const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size) {
+	char* str;
+	const char *interface_name = BLUEZ_MEDIA_ENDPOINT_INTERFACE;
+	DBusMessageIter object, array, entry, dict;
+
+	dbus_message_iter_open_container(iter, DBUS_TYPE_DICT_ENTRY, NULL, &object);
+	dbus_message_iter_append_basic(&object, DBUS_TYPE_OBJECT_PATH, &endpoint);
+
+	dbus_message_iter_open_container(&object, DBUS_TYPE_ARRAY, "{sa{sv}}", &array);
+
+	dbus_message_iter_open_container(&array, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface_name);
+
+	dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+	str = "UUID";
+	append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_STRING, "s", &uuid);
+	str = "Codec";
+	append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_BYTE, "y", &codec_id);
+	str = "Capabilities";
+	append_basic_array_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
+
+	dbus_message_iter_close_container(&entry, &dict);
+	dbus_message_iter_close_container(&array, &entry);
+	dbus_message_iter_close_container(&object, &array);
+	dbus_message_iter_close_container(iter, &object);
+}
+
+static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *m, void *user_data)
+{
+	struct spa_bt_monitor *monitor = user_data;
+	const char *path, *interface, *member;
+	char *endpoint;
+	DBusMessage *r;
+	DBusMessageIter iter, array;
+	DBusHandlerResult res;
+	int i;
+
+	path = dbus_message_get_path(m);
+	interface = dbus_message_get_interface(m);
+	member = dbus_message_get_member(m);
+
+	spa_log_debug(monitor->log, "dbus: path=%s, interface=%s, member=%s", path, interface, member);
+
+	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
+		const char *xml = OBJECT_MANAGER_INTROSPECT_XML;
+
+		if ((r = dbus_message_new_method_return(m)) == NULL)
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		if (!dbus_message_append_args(r, DBUS_TYPE_STRING, &xml, DBUS_TYPE_INVALID))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		if (!dbus_connection_send(monitor->conn, r, NULL))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		dbus_message_unref(r);
+		res = DBUS_HANDLER_RESULT_HANDLED;
+	}
+	else if (dbus_message_is_method_call(m, "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")) {
+		if ((r = dbus_message_new_method_return(m)) == NULL)
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		dbus_message_iter_init_append(r, &iter);
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array);
+
+		for (i = 0; a2dp_codecs[i]; i++) {
+			const struct a2dp_codec *codec = a2dp_codecs[i];
+			uint8_t caps[A2DP_MAX_CAPS_SIZE];
+			int caps_size;
+			uint16_t codec_id = codec->id.codec_id;
+
+			caps_size = codec->fill_caps(0, caps);
+			if (caps_size < 0)
+				continue;
+
+  			endpoint = spa_aprintf("%s/%s", A2DP_SINK_ENDPOINT, codec->name);
+			append_a2dp_object(&array, endpoint, SPA_BT_UUID_A2DP_SINK, codec_id, caps, caps_size);
+			free(endpoint);
+
+			endpoint = spa_aprintf("%s/%s", A2DP_SOURCE_ENDPOINT, codec->name);
+			append_a2dp_object(&array, endpoint, SPA_BT_UUID_A2DP_SOURCE, codec_id, caps, caps_size);
+			free(endpoint);
+		}
+
+		dbus_message_iter_close_container(&iter, &array);
+		if (!dbus_connection_send(monitor->conn, r, NULL))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		res = DBUS_HANDLER_RESULT_HANDLED;
+	}
+	else
+		res = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	return res;
+}
+
+static void bluez_register_application_reply(DBusPendingCall *pending, void *user_data)
+{
+	char *endpoint_path;
+	struct spa_bt_adapter *adapter = user_data;
+	struct spa_bt_monitor *monitor = adapter->monitor;
+	DBusMessage *r;
+	bool fallback = true;
+	int i;
+
+	r = dbus_pending_call_steal_reply(pending);
+	if (r == NULL)
+		return;
+
+	if (dbus_message_is_error(r, BLUEZ_ERROR_NOT_SUPPORTED)) {
+		spa_log_warn(monitor->log, "Registering media applications for adapter %s is disabled in bluez5", adapter->path);
+		goto finish;
+	}
+
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(monitor->log, "RegisterApplication() failed: %s",
+		        dbus_message_get_error_name(r));
+		goto finish;
+	}
+
+	fallback = false;
+	adapter->application_registered = true;
+	/* The application was registered in bluez5 - time to register the endpoints */
+	for (i = 0; a2dp_codecs[i]; i++) {
+		const struct a2dp_codec *codec = a2dp_codecs[i];
+
+		register_a2dp_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT, &endpoint_path);
+		if (endpoint_path)
+			free(endpoint_path);
+
+		register_a2dp_endpoint(monitor, codec, A2DP_SINK_ENDPOINT, &endpoint_path);
+		if (endpoint_path)
+			free(endpoint_path);
+	}
+
+	finish:
+	dbus_message_unref(r);
+	dbus_pending_call_unref(pending);
+
+	if (fallback)
+		adapter_register_endpoints(adapter);
+}
+
+static int adapter_register_application(struct spa_bt_adapter *a) {
+	const char *object_manager_path = A2DP_OBJECT_MANAGER_PATH;
+	struct spa_bt_monitor *monitor = a->monitor;
+	const DBusObjectPathVTable vtable_object_manager = {
+		.message_function = object_manager_handler,
+	};
+	DBusMessage *m;
+	DBusMessageIter i, d;
+	DBusPendingCall *call;
+
+	if (a->application_registered)
+		return 0;
+
+	spa_log_debug(monitor->log, "Registering bluez5 media application on adapter %s", a->path);
+
+	if (!dbus_connection_register_object_path(monitor->conn,
+	                                          object_manager_path,
+	                                          &vtable_object_manager, monitor))
+	return -EIO;
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE,
+	                                 a->path,
+	                                 BLUEZ_MEDIA_INTERFACE,
+	                                 "RegisterApplication");
+	if (m == NULL) {
+		dbus_connection_unregister_object_path(monitor->conn, object_manager_path);
+		return -EIO;
+	}
+
+	dbus_message_iter_init_append(m, &i);
+	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH, &object_manager_path);
+	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
+	dbus_message_iter_close_container(&i, &d);
+
+	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
+	dbus_pending_call_set_notify(call, bluez_register_application_reply, a, NULL);
+	dbus_message_unref(m);
+
+	return 0;
+}
 
 static void interface_added(struct spa_bt_monitor *monitor,
 			    DBusConnection *conn,
@@ -1214,7 +1447,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			}
 		}
 		adapter_update_props(a, props_iter, NULL);
-		adapter_register_endpoints(a);
+		adapter_register_application(a);
 	}
 	else if (strcmp(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE) == 0) {
 		backend_hsp_native_register_profiles(monitor->backend_hsp_native);

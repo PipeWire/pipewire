@@ -397,7 +397,7 @@ static int codec_decode(void *data,
 }
 
 struct a2dp_codec a2dp_codec_sbc = {
-	.codec_id = A2DP_CODEC_SBC,
+	.id = {.codec_id = A2DP_CODEC_SBC},
 	.name = "sbc",
 	.description = "SBC",
 	.fill_caps = codec_fill_caps,

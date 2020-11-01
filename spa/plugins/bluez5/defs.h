@@ -47,6 +47,31 @@ extern "C" {
 #define MIN_LATENCY	128
 #define MAX_LATENCY	1024
 
+#define OBJECT_MANAGER_INTROSPECT_XML                                          \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                                  \
+	"<node>\n"                                                                 \
+	" <interface name=\"org.freedesktop.DBus.ObjectManager\">\n"               \
+	"  <method name=\"GetManagedObjects\">\n"                                  \
+	"   <arg name=\"objects\" direction=\"out\" type=\"a{oa{sa{sv}}}\"/>\n"    \
+	"  </method>\n"                                                            \
+	"  <signal name=\"InterfacesAdded\">\n"                                    \
+	"   <arg name=\"object\" type=\"o\"/>\n"                                   \
+	"   <arg name=\"interfaces\" type=\"a{sa{sv}}\"/>\n"                       \
+	"  </signal>\n"                                                            \
+	"  <signal name=\"InterfacesRemoved\">\n"                                  \
+	"   <arg name=\"object\" type=\"o\"/>\n"                                   \
+	"   <arg name=\"interfaces\" type=\"as\"/>\n"                              \
+	"  </signal>\n"                                                            \
+	" </interface>\n"                                                          \
+	" <interface name=\"org.freedesktop.DBus.Introspectable\">\n"              \
+	"  <method name=\"Introspect\">\n"                                         \
+	"   <arg name=\"data\" direction=\"out\" type=\"s\"/>\n"                   \
+	"  </method>\n"                                                            \
+	" </interface>\n"                                                          \
+	" <node name=\"A2DPSink\"/>\n"                                             \
+	" <node name=\"A2DPSource\"/>\n"                                           \
+	"</node>\n"
+
 #define ENDPOINT_INTROSPECT_XML                                             \
 	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                           \
 	"<node>"                                                            \
@@ -112,8 +137,9 @@ extern "C" {
 #define HFP_AUDIO_CODEC_CVSD    0x01
 #define HFP_AUDIO_CODEC_MSBC    0x02
 
-#define A2DP_SINK_ENDPOINT	"/MediaEndpoint/A2DPSink"
-#define A2DP_SOURCE_ENDPOINT	"/MediaEndpoint/A2DPSource"
+#define A2DP_OBJECT_MANAGER_PATH "/MediaEndpoint"
+#define A2DP_SINK_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSink"
+#define A2DP_SOURCE_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSource"
 
 enum spa_bt_profile {
         SPA_BT_PROFILE_NULL =		0,
@@ -181,6 +207,8 @@ struct spa_bt_adapter {
 	uint32_t bluetooth_class;
 	uint32_t profiles;
 	int powered;
+	unsigned int endpoints_registered:1;
+	unsigned int application_registered:1;
 };
 
 struct spa_bt_device {

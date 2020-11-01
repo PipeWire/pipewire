@@ -311,12 +311,16 @@ static inline int a2dp_sbc_get_frequency(a2dp_sbc_t *config)
         }
 }
 
-struct a2dp_codec {
-	uint32_t flags;
-
+struct a2dp_codec_id {
 	uint8_t codec_id;
 	uint32_t vendor_id;
 	uint16_t vendor_codec_id;
+};
+
+struct a2dp_codec {
+	uint32_t flags;
+
+	struct a2dp_codec_id id;
 
 	const char *name;
 	const char *description;

@@ -167,7 +167,7 @@ static void codec_deinit(void *data)
 }
 
 struct a2dp_codec a2dp_codec_aac = {
-	.codec_id = A2DP_CODEC_MPEG24,
+	.id = {.codec_id = A2DP_CODEC_MPEG24},
 	.name = "aac",
 	.description = "AAC",
 	.fill_caps = codec_fill_caps,

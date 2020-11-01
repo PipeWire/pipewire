@@ -199,7 +199,6 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	} else {
 		nframes = d[0].chunk->size / pw->stride;
 	}
-	nframes = SPA_MIN(nframes, *hw_avail);
 
 	if (pw->blocks == 1) {
 		ptr = SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
@@ -224,13 +223,10 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	if (io->state == SND_PCM_STATE_RUNNING ||
 		io->state == SND_PCM_STATE_DRAINING) {
 		snd_pcm_uframes_t hw_ptr = pw->hw_ptr;
-		if (*hw_avail > 0) {
+		xfer = SPA_MIN(nframes, *hw_avail);
+		if (xfer > 0) {
 			const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
 			const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
-
-			xfer = nframes;
-			if (xfer > *hw_avail)
-				xfer = *hw_avail;
 
 			if (io->stream == SND_PCM_STREAM_PLAYBACK)
 				snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
@@ -249,6 +245,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 			if (hw_ptr > pw->boundary)
 				hw_ptr -= pw->boundary;
 			pw->hw_ptr = hw_ptr;
+			*hw_avail -= xfer;
 		}
 	}
 	/* check if requested frames were copied */
@@ -259,7 +256,6 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 
 			snd_pcm_areas_silence(pwareas, xfer, io->channels,
 								  frames, io->format);
-			xfer += frames;
 		}
 		if (io->state == SND_PCM_STATE_RUNNING ||
 			io->state == SND_PCM_STATE_DRAINING) {
@@ -267,7 +263,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 			pw->xrun_detected = true;
 		}
 	}
-	*hw_avail -= xfer;
+
 	return 0;
 }
 

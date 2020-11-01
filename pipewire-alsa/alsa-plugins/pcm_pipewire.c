@@ -487,6 +487,18 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 	return 0;
 }
 
+static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
+{
+	pw_log_debug(NAME" %p:", io);
+
+	if (enable)
+		snd_pcm_pipewire_stop(io);
+	else
+		snd_pcm_pipewire_start(io);
+
+	return 0;
+}
+
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define _FORMAT_LE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_ ## fmt ## P : SPA_AUDIO_FORMAT_ ## fmt
@@ -727,6 +739,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.close = snd_pcm_pipewire_close,
 	.start = snd_pcm_pipewire_start,
 	.stop = snd_pcm_pipewire_stop,
+	.pause = snd_pcm_pipewire_pause,
 	.pointer = snd_pcm_pipewire_pointer,
 	.drain = snd_pcm_pipewire_drain,
 	.prepare = snd_pcm_pipewire_prepare,

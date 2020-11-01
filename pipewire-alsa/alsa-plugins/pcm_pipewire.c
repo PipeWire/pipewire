@@ -86,7 +86,7 @@ typedef struct {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
-        struct spa_audio_info_raw format;
+	struct spa_audio_info_raw format;
 } snd_pcm_pipewire_t;
 
 static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io);
@@ -101,7 +101,7 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 		return 0;
 	} else if (io->state == SND_PCM_STATE_RUNNING ||
-	    (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
+			   (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
 		avail = snd_pcm_avail_update(io->pcm);
 		if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
 			spa_system_eventfd_read(pw->system, io->poll_fd, &val);
@@ -183,9 +183,9 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 {
 	snd_pcm_ioplug_t *io = &pw->io;
 	snd_pcm_channel_area_t *pwareas;
-        snd_pcm_uframes_t xfer = 0;
+	snd_pcm_uframes_t xfer = 0;
 	snd_pcm_uframes_t nframes;
-        unsigned int channel;
+	unsigned int channel;
 	struct spa_data *d;
 	void *ptr;
 
@@ -210,7 +210,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 		}
 		if (io->stream == SND_PCM_STREAM_PLAYBACK)
 			d[0].chunk->size = nframes * pw->stride;
-        } else {
+	} else {
 		for (channel = 0; channel < io->channels; channel++) {
 			ptr = SPA_MEMBER(d[channel].data, d[channel].chunk->offset, void);
 			pwareas[channel].addr = ptr;
@@ -222,47 +222,47 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	}
 
 	if (io->state == SND_PCM_STATE_RUNNING ||
-	    io->state == SND_PCM_STATE_DRAINING) {
+		io->state == SND_PCM_STATE_DRAINING) {
 		snd_pcm_uframes_t hw_ptr = pw->hw_ptr;
-                if (*hw_avail > 0) {
-                        const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
-                        const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
+		if (*hw_avail > 0) {
+			const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
+			const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
 
-                        xfer = nframes;
-                        if (xfer > *hw_avail)
-                                xfer = *hw_avail;
+			xfer = nframes;
+			if (xfer > *hw_avail)
+				xfer = *hw_avail;
 
-                        if (io->stream == SND_PCM_STREAM_PLAYBACK)
-                                snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
-                                                        areas, offset,
-                                                        io->buffer_size,
-                                                        io->channels, xfer,
-                                                        io->format);
-                        else
-                                snd_pcm_areas_copy_wrap(areas, offset,
-                                                        io->buffer_size,
-                                                        pwareas, 0, nframes,
-                                                        io->channels, xfer,
-                                                        io->format);
+			if (io->stream == SND_PCM_STREAM_PLAYBACK)
+				snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
+										areas, offset,
+										io->buffer_size,
+										io->channels, xfer,
+										io->format);
+			else
+				snd_pcm_areas_copy_wrap(areas, offset,
+										io->buffer_size,
+										pwareas, 0, nframes,
+										io->channels, xfer,
+										io->format);
 
-                        hw_ptr += xfer;
-                        if (hw_ptr > pw->boundary)
-                                hw_ptr -= pw->boundary;
-                        pw->hw_ptr = hw_ptr;
-                }
-        }
-        /* check if requested frames were copied */
+			hw_ptr += xfer;
+			if (hw_ptr > pw->boundary)
+				hw_ptr -= pw->boundary;
+			pw->hw_ptr = hw_ptr;
+		}
+	}
+	/* check if requested frames were copied */
 	if (xfer < nframes) {
 		/* always fill the not yet written JACK buffer with silence */
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
 			const snd_pcm_uframes_t frames = nframes - xfer;
 
 			snd_pcm_areas_silence(pwareas, xfer, io->channels,
-                                              frames, io->format);
+								  frames, io->format);
 			xfer += frames;
-                }
+		}
 		if (io->state == SND_PCM_STATE_RUNNING ||
-		    io->state == SND_PCM_STATE_DRAINING) {
+			io->state == SND_PCM_STATE_DRAINING) {
 			/* report Xrun to user application */
 			pw->xrun_detected = true;
 		}
@@ -293,7 +293,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 			pw, io->buffer_size, io->period_size, buffers, size, pw->min_avail);
 
 	params[n_params++] = spa_pod_builder_add_object(&b,
-	                SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(pw->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
@@ -344,9 +344,9 @@ static void on_stream_drained(void *data)
 
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-        .param_changed = on_stream_param_changed,
-        .process = on_stream_process,
-        .drained = on_stream_drained,
+	.param_changed = on_stream_param_changed,
+	.process = on_stream_process,
+	.drained = on_stream_drained,
 };
 
 static int snd_pcm_pipewire_drain(snd_pcm_ioplug_t *io)
@@ -382,7 +382,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	snd_pcm_sw_params_alloca(&swparams);
 	if ((res = snd_pcm_sw_params_current(io->pcm, swparams)) == 0) {
 		snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
-                snd_pcm_sw_params_get_boundary(swparams, &pw->boundary);
+		snd_pcm_sw_params_get_boundary(swparams, &pw->boundary);
 	} else {
 		pw->min_avail = io->period_size;
 		pw->boundary = io->buffer_size;
@@ -402,7 +402,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	}
 
 	props = NULL;
-        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		props = pw_properties_new_string(str);
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);
@@ -414,7 +414,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
 	if (pw->target != NULL &&
-	    pw_properties_get(props, PW_KEY_NODE_TARGET) == NULL)
+		pw_properties_get(props, PW_KEY_NODE_TARGET) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_TARGET, "%s", pw->target);
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_TYPE) == NULL)
@@ -434,15 +434,15 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	pw->error = 0;
 
 	pw_stream_connect(pw->stream,
-			  io->stream == SND_PCM_STREAM_PLAYBACK ?
-				  PW_DIRECTION_OUTPUT :
-				  PW_DIRECTION_INPUT,
-			  PW_ID_ANY,
-			  pw->flags |
-			  PW_STREAM_FLAG_AUTOCONNECT |
-			  PW_STREAM_FLAG_MAP_BUFFERS |
-			  PW_STREAM_FLAG_RT_PROCESS,
-			  params, 1);
+				io->stream == SND_PCM_STREAM_PLAYBACK ?
+				PW_DIRECTION_OUTPUT :
+				PW_DIRECTION_INPUT,
+				PW_ID_ANY,
+				pw->flags |
+				PW_STREAM_FLAG_AUTOCONNECT |
+				PW_STREAM_FLAG_MAP_BUFFERS |
+				PW_STREAM_FLAG_RT_PROCESS,
+				params, 1);
 
 done:
 	pw->hw_ptr = 0;
@@ -452,7 +452,7 @@ done:
 
 	return 0;
 
-      error:
+error:
 	pw_thread_loop_unlock(pw->main_loop);
 	return -ENOMEM;
 }
@@ -561,7 +561,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	case SND_PCM_FORMAT_U8:
 		pw->format.format = planar ? SPA_AUDIO_FORMAT_U8P : SPA_AUDIO_FORMAT_U8;
 		break;
-        case SND_PCM_FORMAT_S16_LE:
+	case SND_PCM_FORMAT_S16_LE:
 		pw->format.format = _FORMAT_LE(planar, S16);
 		break;
 	case SND_PCM_FORMAT_S16_BE:
@@ -616,48 +616,48 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 }
 
 struct chmap_info {
-        enum snd_pcm_chmap_position pos;
-        enum spa_audio_channel channel;
+	enum snd_pcm_chmap_position pos;
+	enum spa_audio_channel channel;
 };
 
 static const struct chmap_info chmap_info[] = {
-        [SND_CHMAP_UNKNOWN] = { SND_CHMAP_UNKNOWN, SPA_AUDIO_CHANNEL_UNKNOWN },
-        [SND_CHMAP_NA] = { SND_CHMAP_NA, SPA_AUDIO_CHANNEL_NA },
-        [SND_CHMAP_MONO] = { SND_CHMAP_MONO, SPA_AUDIO_CHANNEL_MONO },
-        [SND_CHMAP_FL] = { SND_CHMAP_FL, SPA_AUDIO_CHANNEL_FL },
-        [SND_CHMAP_FR] = { SND_CHMAP_FR, SPA_AUDIO_CHANNEL_FR },
-        [SND_CHMAP_RL] = { SND_CHMAP_RL, SPA_AUDIO_CHANNEL_RL },
-        [SND_CHMAP_RR] = { SND_CHMAP_RR, SPA_AUDIO_CHANNEL_RR },
-        [SND_CHMAP_FC] = { SND_CHMAP_FC, SPA_AUDIO_CHANNEL_FC },
-        [SND_CHMAP_LFE] = { SND_CHMAP_LFE, SPA_AUDIO_CHANNEL_LFE },
-        [SND_CHMAP_SL] = { SND_CHMAP_SL, SPA_AUDIO_CHANNEL_SL },
-        [SND_CHMAP_SR] = { SND_CHMAP_SR, SPA_AUDIO_CHANNEL_SR },
-        [SND_CHMAP_RC] = { SND_CHMAP_RC, SPA_AUDIO_CHANNEL_RC },
-        [SND_CHMAP_FLC] = { SND_CHMAP_FLC, SPA_AUDIO_CHANNEL_FLC },
-        [SND_CHMAP_FRC] = { SND_CHMAP_FRC, SPA_AUDIO_CHANNEL_FRC },
-        [SND_CHMAP_RLC] = { SND_CHMAP_RLC, SPA_AUDIO_CHANNEL_RLC },
-        [SND_CHMAP_RRC] = { SND_CHMAP_RRC, SPA_AUDIO_CHANNEL_RRC },
-        [SND_CHMAP_FLW] = { SND_CHMAP_FLW, SPA_AUDIO_CHANNEL_FLW },
-        [SND_CHMAP_FRW] = { SND_CHMAP_FRW, SPA_AUDIO_CHANNEL_FRW },
-        [SND_CHMAP_FLH] = { SND_CHMAP_FLH, SPA_AUDIO_CHANNEL_FLH },
-        [SND_CHMAP_FCH] = { SND_CHMAP_FCH, SPA_AUDIO_CHANNEL_FCH },
-        [SND_CHMAP_FRH] = { SND_CHMAP_FRH, SPA_AUDIO_CHANNEL_FRH },
-        [SND_CHMAP_TC] = { SND_CHMAP_TC, SPA_AUDIO_CHANNEL_TC },
-        [SND_CHMAP_TFL] = { SND_CHMAP_TFL, SPA_AUDIO_CHANNEL_TFL },
-        [SND_CHMAP_TFR] = { SND_CHMAP_TFR, SPA_AUDIO_CHANNEL_TFR },
-        [SND_CHMAP_TFC] = { SND_CHMAP_TFC, SPA_AUDIO_CHANNEL_TFC },
-        [SND_CHMAP_TRL] = { SND_CHMAP_TRL, SPA_AUDIO_CHANNEL_TRL },
-        [SND_CHMAP_TRR] = { SND_CHMAP_TRR, SPA_AUDIO_CHANNEL_TRR },
-        [SND_CHMAP_TRC] = { SND_CHMAP_TRC, SPA_AUDIO_CHANNEL_TRC },
-        [SND_CHMAP_TFLC] = { SND_CHMAP_TFLC, SPA_AUDIO_CHANNEL_TFLC },
-        [SND_CHMAP_TFRC] = { SND_CHMAP_TFRC, SPA_AUDIO_CHANNEL_TFRC },
-        [SND_CHMAP_TSL] = { SND_CHMAP_TSL, SPA_AUDIO_CHANNEL_TSL },
-        [SND_CHMAP_TSR] = { SND_CHMAP_TSR, SPA_AUDIO_CHANNEL_TSR },
-        [SND_CHMAP_LLFE] = { SND_CHMAP_LLFE, SPA_AUDIO_CHANNEL_LLFE },
-        [SND_CHMAP_RLFE] = { SND_CHMAP_RLFE, SPA_AUDIO_CHANNEL_RLFE },
-        [SND_CHMAP_BC] = { SND_CHMAP_BC, SPA_AUDIO_CHANNEL_BC },
-        [SND_CHMAP_BLC] = { SND_CHMAP_BLC, SPA_AUDIO_CHANNEL_BLC },
-        [SND_CHMAP_BRC] = { SND_CHMAP_BRC, SPA_AUDIO_CHANNEL_BRC },
+	[SND_CHMAP_UNKNOWN] = { SND_CHMAP_UNKNOWN, SPA_AUDIO_CHANNEL_UNKNOWN },
+	[SND_CHMAP_NA] = { SND_CHMAP_NA, SPA_AUDIO_CHANNEL_NA },
+	[SND_CHMAP_MONO] = { SND_CHMAP_MONO, SPA_AUDIO_CHANNEL_MONO },
+	[SND_CHMAP_FL] = { SND_CHMAP_FL, SPA_AUDIO_CHANNEL_FL },
+	[SND_CHMAP_FR] = { SND_CHMAP_FR, SPA_AUDIO_CHANNEL_FR },
+	[SND_CHMAP_RL] = { SND_CHMAP_RL, SPA_AUDIO_CHANNEL_RL },
+	[SND_CHMAP_RR] = { SND_CHMAP_RR, SPA_AUDIO_CHANNEL_RR },
+	[SND_CHMAP_FC] = { SND_CHMAP_FC, SPA_AUDIO_CHANNEL_FC },
+	[SND_CHMAP_LFE] = { SND_CHMAP_LFE, SPA_AUDIO_CHANNEL_LFE },
+	[SND_CHMAP_SL] = { SND_CHMAP_SL, SPA_AUDIO_CHANNEL_SL },
+	[SND_CHMAP_SR] = { SND_CHMAP_SR, SPA_AUDIO_CHANNEL_SR },
+	[SND_CHMAP_RC] = { SND_CHMAP_RC, SPA_AUDIO_CHANNEL_RC },
+	[SND_CHMAP_FLC] = { SND_CHMAP_FLC, SPA_AUDIO_CHANNEL_FLC },
+	[SND_CHMAP_FRC] = { SND_CHMAP_FRC, SPA_AUDIO_CHANNEL_FRC },
+	[SND_CHMAP_RLC] = { SND_CHMAP_RLC, SPA_AUDIO_CHANNEL_RLC },
+	[SND_CHMAP_RRC] = { SND_CHMAP_RRC, SPA_AUDIO_CHANNEL_RRC },
+	[SND_CHMAP_FLW] = { SND_CHMAP_FLW, SPA_AUDIO_CHANNEL_FLW },
+	[SND_CHMAP_FRW] = { SND_CHMAP_FRW, SPA_AUDIO_CHANNEL_FRW },
+	[SND_CHMAP_FLH] = { SND_CHMAP_FLH, SPA_AUDIO_CHANNEL_FLH },
+	[SND_CHMAP_FCH] = { SND_CHMAP_FCH, SPA_AUDIO_CHANNEL_FCH },
+	[SND_CHMAP_FRH] = { SND_CHMAP_FRH, SPA_AUDIO_CHANNEL_FRH },
+	[SND_CHMAP_TC] = { SND_CHMAP_TC, SPA_AUDIO_CHANNEL_TC },
+	[SND_CHMAP_TFL] = { SND_CHMAP_TFL, SPA_AUDIO_CHANNEL_TFL },
+	[SND_CHMAP_TFR] = { SND_CHMAP_TFR, SPA_AUDIO_CHANNEL_TFR },
+	[SND_CHMAP_TFC] = { SND_CHMAP_TFC, SPA_AUDIO_CHANNEL_TFC },
+	[SND_CHMAP_TRL] = { SND_CHMAP_TRL, SPA_AUDIO_CHANNEL_TRL },
+	[SND_CHMAP_TRR] = { SND_CHMAP_TRR, SPA_AUDIO_CHANNEL_TRR },
+	[SND_CHMAP_TRC] = { SND_CHMAP_TRC, SPA_AUDIO_CHANNEL_TRC },
+	[SND_CHMAP_TFLC] = { SND_CHMAP_TFLC, SPA_AUDIO_CHANNEL_TFLC },
+	[SND_CHMAP_TFRC] = { SND_CHMAP_TFRC, SPA_AUDIO_CHANNEL_TFRC },
+	[SND_CHMAP_TSL] = { SND_CHMAP_TSL, SPA_AUDIO_CHANNEL_TSL },
+	[SND_CHMAP_TSR] = { SND_CHMAP_TSR, SPA_AUDIO_CHANNEL_TSR },
+	[SND_CHMAP_LLFE] = { SND_CHMAP_LLFE, SPA_AUDIO_CHANNEL_LLFE },
+	[SND_CHMAP_RLFE] = { SND_CHMAP_RLFE, SPA_AUDIO_CHANNEL_RLFE },
+	[SND_CHMAP_BC] = { SND_CHMAP_BC, SPA_AUDIO_CHANNEL_BC },
+	[SND_CHMAP_BLC] = { SND_CHMAP_BLC, SPA_AUDIO_CHANNEL_BLC },
+	[SND_CHMAP_BRC] = { SND_CHMAP_BRC, SPA_AUDIO_CHANNEL_BRC },
 };
 
 static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel channel)
@@ -666,7 +666,7 @@ static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel chann
 	for (i = 0; i < SPA_N_ELEMENTS(chmap_info); i++)
 		if (chmap_info[i].channel == channel)
 			return chmap_info[i].pos;
-        return SND_CHMAP_UNKNOWN;
+	return SND_CHMAP_UNKNOWN;
 }
 
 static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
@@ -682,7 +682,7 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 	uint32_t i;
 
 	map = calloc(1, sizeof(snd_pcm_chmap_t) +
-                       pw->format.channels * sizeof(unsigned int));
+				 pw->format.channels * sizeof(unsigned int));
 	map->channels = pw->format.channels;
 	for (i = 0; i < pw->format.channels; i++)
 		map->pos[i] = channel_to_chmap(pw->format.position[i]);
@@ -787,18 +787,18 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 	}
 
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
-						 SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_CHANNELS,
+						   SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
+		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_CHANNELS,
 						   min_channels, max_channels)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
+		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   min_rate, max_rate)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
-                                                   16*1024, 4*1024*1024)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io,
+		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
+						   16*1024, 4*1024*1024)) < 0 ||
+		(err = snd_pcm_ioplug_set_param_minmax(&pw->io,
 						   SND_PCM_IOPLUG_HW_PERIOD_BYTES,
 						   min_period_bytes,
 						   max_period_bytes)) < 0 ||
-	    (err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
+		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
 						   MIN_BUFFERS, MAX_BUFFERS)) < 0) {
 		pw_log_warn("Can't set param list: %s", snd_strerror(err));
 		return err;
@@ -842,21 +842,21 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
-        .error = on_core_error,
+	.error = on_core_error,
 };
 
 static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
-			     const char *node_name,
-			     const char *server_name,
-			     const char *playback_node,
-			     const char *capture_node,
-			     snd_pcm_stream_t stream,
-			     int mode,
-			     uint32_t flags,
-			     int rate,
-			     snd_pcm_format_t format,
-			     int channels,
-			     int period_bytes)
+				const char *node_name,
+				const char *server_name,
+				const char *playback_node,
+				const char *capture_node,
+				snd_pcm_stream_t stream,
+				int mode,
+				uint32_t flags,
+				int rate,
+				snd_pcm_format_t format,
+				int channels,
+				int period_bytes)
 {
 	snd_pcm_pipewire_t *pw;
 	int err;

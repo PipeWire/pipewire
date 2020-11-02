@@ -1661,7 +1661,7 @@ static void io_event_cb(pa_mainloop_api*ea, pa_io_event* e, int fd, pa_io_event_
 		pw_loop_enter(c->loop);
 		do {
 			res = pw_loop_iterate(c->loop, 0);
-		 } while (res == -EINTR || res == -EAGAIN);
+		} while (res == -EINTR);
 		pw_loop_leave(c->loop);
 	}
 }

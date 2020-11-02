@@ -239,7 +239,7 @@ static void *do_loop(void *user_data)
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
-			if (res == -EINTR || res == -EAGAIN)
+			if (res == -EINTR)
 				continue;
 			pw_log_warn(NAME" %p: iterate error %d (%s)",
 					this, res, spa_strerror(res));

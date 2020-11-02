@@ -55,7 +55,7 @@ static gboolean source_dispatch (GSource *source, GSourceFunc callback, gpointer
 	pw_loop_enter (s->loop);
 	do {
 		result = pw_loop_iterate (s->loop, 0);
-	} while (result == -EINTR || result == -EAGAIN);
+	} while (result == -EINTR);
 	pw_loop_leave (s->loop);
 
 	if (result < 0)

@@ -1080,9 +1080,9 @@ static inline uint32_t cycle_run(struct client *c)
 	/* this is blocking if nothing ready */
 	while (true) {
 		if (SPA_UNLIKELY(read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))) {
-			if (errno == EAGAIN || errno == EINTR)
+			if (errno == EINTR)
 				continue;
-			if (errno == EWOULDBLOCK)
+			if (errno == EWOULDBLOCK || errno == EAGAIN)
 				return 0;
 			pw_log_warn(NAME" %p: read failed %m", c);
 		}

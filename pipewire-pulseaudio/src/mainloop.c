@@ -354,7 +354,7 @@ int pa_mainloop_poll(pa_mainloop *m)
 		pw_loop_enter(m->loop);
 		do {
 			res = pw_loop_iterate(m->loop, timeout);
-		} while (res == -EINTR || res == -EAGAIN);
+		} while (res == -EINTR);
 		pw_loop_leave(m->loop);
 	}
 

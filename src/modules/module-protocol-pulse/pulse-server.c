@@ -4126,10 +4126,12 @@ error:
 	return;
 }
 
-static const char *
-get_runtime_dir(void)
+static int
+get_runtime_dir(char *buf, size_t buflen, const char *dir)
 {
 	const char *runtime_dir;
+	struct stat stat_buf;
+	int res, size;
 
 	runtime_dir = getenv("PULSE_RUNTIME_PATH");
 	if (runtime_dir == NULL)
@@ -4142,7 +4144,28 @@ get_runtime_dir(void)
 		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
 			runtime_dir = result ? result->pw_dir : NULL;
 	}
-	return runtime_dir;
+	size = snprintf(buf, buflen-1, "%s/%s", runtime_dir, dir) + 1;
+	if (size > (int) buflen) {
+		pw_log_error(NAME": path %s/%s too long", runtime_dir, dir);
+		return -ENAMETOOLONG;
+	}
+	if (stat(buf, &stat_buf) < 0) {
+		res = -errno;
+		if (res != -ENOENT) {
+			pw_log_error(NAME": stat %s failed with error: %m", buf);
+			return res;
+		}
+		if (mkdir(buf, 0700) < 0) {
+			res = -errno;
+			pw_log_error(NAME": mkdir %s failed with error: %m", buf);
+			return res;
+		}
+		pw_log_info(NAME": created %s", buf);
+	} else if ((stat_buf.st_mode & S_IFMT) != S_IFDIR) {
+		pw_log_error(NAME": %s is not a directory", buf);
+		return -ENOTDIR;
+	}
+	return 0;
 }
 
 static void server_free(struct server *server)
@@ -4164,23 +4187,24 @@ static void server_free(struct server *server)
 
 static int make_local_socket(struct server *server, char *name)
 {
-	const char *runtime_dir;
+	char runtime_dir[PATH_MAX];
 	socklen_t size;
 	int name_size, fd, res;
 	struct stat socket_stat;
 
-	runtime_dir = get_runtime_dir();
+	if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
+		goto error;
 
 	server->addr.sun_family = AF_LOCAL;
 	name_size = snprintf(server->addr.sun_path, sizeof(server->addr.sun_path),
-                             "%s/pulse/%s", runtime_dir, name) + 1;
+                             "%s/%s", runtime_dir, name) + 1;
+
 	if (name_size > (int) sizeof(server->addr.sun_path)) {
 		pw_log_error(NAME" %p: %s/%s too long",
 					server, runtime_dir, name);
 		res = -ENAMETOOLONG;
 		goto error;
 	}
-
 	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
 		goto error;

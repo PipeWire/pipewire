@@ -827,8 +827,8 @@ static SPA_PRINTF_FUNC(6,0) void impl_acp_log_func(void *data,
 		int level, const char *file, int line, const char *func,
 		const char *fmt, va_list arg)
 {
-	struct impl *this = data;
-	spa_log_logv(this->log, (enum spa_log_level)level, file, line, func, fmt, arg);
+	struct spa_log *log = data;
+	spa_log_logv(log, (enum spa_log_level)level, file, line, func, fmt, arg);
 }
 
 static int impl_clear(struct spa_handle *handle)
@@ -873,7 +873,7 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
-	acp_set_log_func(impl_acp_log_func, this);
+	acp_set_log_func(impl_acp_log_func, this->log);
 	acp_set_log_level(6);
 
 	this->device.iface = SPA_INTERFACE_INIT(

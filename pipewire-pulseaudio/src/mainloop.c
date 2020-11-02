@@ -340,9 +340,11 @@ int pa_mainloop_poll(pa_mainloop *m)
 		fds[0].events = POLLIN;
 		fds[0].revents = 0;
 
-		res = m->poll_func(fds, 1,
-				usec_to_timeout(m->timeout),
-				m->poll_func_userdata);
+		do {
+			res = m->poll_func(fds, 1,
+					usec_to_timeout(m->timeout),
+					m->poll_func_userdata);
+		} while (res == -EINTR);
 		do_iterate = res == 1 && SPA_FLAG_IS_SET(fds[0].revents, POLLIN);
 		timeout = 0;
 	} else {
@@ -356,11 +358,6 @@ int pa_mainloop_poll(pa_mainloop *m)
 			res = pw_loop_iterate(m->loop, timeout);
 		} while (res == -EINTR);
 		pw_loop_leave(m->loop);
-	}
-
-	if (res < 0) {
-		if (res == -EINTR)
-			res = 0;
 	}
 	m->n_events = res;
 	return res;

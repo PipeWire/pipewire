@@ -4199,12 +4199,14 @@ static int make_local_socket(struct server *server, char *name)
 	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
 	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() failed with error: %m", server);
+		pw_log_error(NAME" %p: bind() to %s failed with error: %m", server,
+				server->addr.sun_path);
 		goto error_close;
 	}
 	if (listen(fd, 128) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() failed with error: %m", server);
+		pw_log_error(NAME" %p: listen() on %s failed with error: %m", server,
+				server->addr.sun_path);
 		goto error_close;
 	}
 	pw_log_info(NAME" listening on unix:%s", server->addr.sun_path);

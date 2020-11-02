@@ -374,7 +374,7 @@ static int codec_encode(void *data,
 	int res;
 
 	res = sbc_encode(&this->sbc, src, src_size,
-			dst, dst_size, dst_out);
+			dst, dst_size, (ssize_t*)dst_out);
 
 	if (res >= this->codesize)
 		this->payload->frame_count += res / this->codesize;

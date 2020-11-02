@@ -357,7 +357,7 @@ static int send_buffer(struct impl *this)
 static int encode_buffer(struct impl *this, const void *data, int size)
 {
 	int processed;
-	ssize_t out_encoded;
+	size_t out_encoded;
 	struct port *port = &this->port;
 	const void *from_data = data;
 	int from_size = size;

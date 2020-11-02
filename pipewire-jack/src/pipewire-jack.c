@@ -1078,11 +1078,17 @@ static inline uint32_t cycle_run(struct client *c)
 	struct pw_node_activation *driver = c->rt.driver_activation;
 
 	/* this is blocking if nothing ready */
-	if (SPA_UNLIKELY(read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))) {
-		pw_log_warn(NAME" %p: read failed %m", c);
-		if (errno == EWOULDBLOCK)
-			return 0;
-	} else if (SPA_UNLIKELY(cmd > 1))
+	while (true) {
+		if (SPA_UNLIKELY(read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))) {
+			if (errno == EAGAIN || errno == EINTR)
+				continue;
+			if (errno == EWOULDBLOCK)
+				return 0;
+			pw_log_warn(NAME" %p: read failed %m", c);
+		}
+		break;
+	}
+	if (SPA_UNLIKELY(cmd > 1))
 		pw_log_warn(NAME" %p: missed %"PRIu64" wakeups", c, cmd - 1);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);

@@ -1345,6 +1345,8 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 	pw_loop_enter(loop);
 	while (!done) {
 		if ((res = pw_loop_iterate(loop, -1)) < 0) {
+			if (res == -EINTR || res == -EAGAIN)
+				continue;
 			pw_log_warn(NAME" %p: iterate error %d (%s)",
 				loop, res, spa_strerror(res));
 			break;

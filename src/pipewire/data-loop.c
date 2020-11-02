@@ -43,7 +43,7 @@ int pw_data_loop_wait(struct pw_data_loop *this, int timeout)
 			break;
 		}
 		if ((res = pw_loop_iterate(this->loop, timeout)) < 0) {
-			if (errno == EINTR)
+			if (res == -EINTR || res == -EAGAIN)
 				continue;
 		}
 		break;
@@ -77,7 +77,7 @@ static void *do_loop(void *user_data)
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
-			if (errno == EINTR)
+			if (res == -EINTR || res == -EAGAIN)
 				continue;
 			pw_log_error(NAME" %p: iterate error %d (%s)",
 					this, res, spa_strerror(res));

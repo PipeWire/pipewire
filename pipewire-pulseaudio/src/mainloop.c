@@ -352,7 +352,9 @@ int pa_mainloop_poll(pa_mainloop *m)
 
 	if (do_iterate) {
 		pw_loop_enter(m->loop);
-		res = pw_loop_iterate(m->loop, timeout);
+		do {
+			res = pw_loop_iterate(m->loop, timeout);
+		} while (res == -EINTR || res == -EAGAIN);
 		pw_loop_leave(m->loop);
 	}
 

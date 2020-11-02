@@ -238,9 +238,12 @@ static void *do_loop(void *user_data)
 	pw_loop_enter(this->loop);
 
 	while (this->running) {
-		if ((res = pw_loop_iterate(this->loop, -1)) < 0)
+		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
+			if (res == -EINTR || res == -EAGAIN)
+				continue;
 			pw_log_warn(NAME" %p: iterate error %d (%s)",
 					this, res, spa_strerror(res));
+		}
 	}
 	pw_log_debug(NAME" %p: leave thread", this);
 	pw_loop_leave(this->loop);

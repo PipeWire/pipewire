@@ -1654,11 +1654,14 @@ pa_operation* pa_context_subscribe(pa_context *c, pa_subscription_mask_t m, pa_c
 
 static void io_event_cb(pa_mainloop_api*ea, pa_io_event* e, int fd, pa_io_event_flags_t events, void *userdata)
 {
+	int res;
 	pa_context *c = userdata;
 	if (events & PA_IO_EVENT_INPUT) {
 		pw_log_debug("%p: iterate loop %p", c, c->loop);
 		pw_loop_enter(c->loop);
-		pw_loop_iterate(c->loop, -1);
+		do {
+			res = pw_loop_iterate(c->loop, 0);
+		 } while (res == -EINTR || res == -EAGAIN);
 		pw_loop_leave(c->loop);
 	}
 }

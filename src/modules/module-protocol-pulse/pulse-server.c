@@ -4055,7 +4055,7 @@ on_client_data(void *data, int fd, uint32_t mask)
 			int mask = client->source->mask;
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
 			pw_loop_update_io(impl->loop, client->source, mask);
-		} else if (res != EAGAIN)
+		} else if (res != -EAGAIN)
 			goto error;
 	}
 	if (mask & SPA_IO_IN) {

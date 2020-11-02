@@ -290,7 +290,7 @@ connection_data(void *data, int fd, uint32_t mask)
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
 			pw_loop_update_io(client->context->main_loop,
 					this->source, mask);
-		} else if (res != EAGAIN)
+		} else if (res != -EAGAIN)
 			goto error;
 	}
 	if (mask & SPA_IO_IN) {
@@ -748,7 +748,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			pw_loop_update_io(loop,
 					impl->source, mask);
 			impl->flushing = false;
-		} else if (res != EAGAIN)
+		} else if (res != -EAGAIN)
 			goto error;
 	}
 

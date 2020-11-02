@@ -471,7 +471,7 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct card_in
 
 			spa_pod_parser_pod(&prs, pi->info);
 			if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
-			    spa_pod_parser_get_int(&prs, &pi->n_props) < 0)
+			    spa_pod_parser_get_int(&prs, (int32_t*)&pi->n_props) < 0)
 				break;
 
 			for (n = 0; n < pi->n_props; n++) {

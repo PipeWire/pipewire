@@ -180,10 +180,10 @@ static int read_arbitrary(struct message *m, const void **val, size_t length)
 static int read_string(struct message *m, char **str)
 {
 	uint32_t n, maxlen = m->length - m->offset;
-	n = strnlen(m->data + m->offset, maxlen);
+	n = strnlen(SPA_MEMBER(m->data, m->offset, char), maxlen);
 	if (n == maxlen)
 		return -EINVAL;
-	*str = m->data + m->offset;
+	*str = SPA_MEMBER(m->data, m->offset, char);
 	m->offset += n + 1;
 	return 0;
 }
@@ -419,7 +419,7 @@ static void write_string(struct message *m, const char *s)
 	if (s != NULL) {
 		int len = strlen(s) + 1;
 		if (ensure_size(m, len) > 0)
-			strcpy(&m->data[m->length], s);
+			strcpy(SPA_MEMBER(m->data, m->length, char), s);
 		m->length += len;
 	}
 }

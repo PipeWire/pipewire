@@ -68,6 +68,7 @@ if cc.get_id() == 'gcc'
   add_global_arguments('-fvisibility=hidden',
 			'-Wsign-compare',
 			'-Wpointer-arith',
+			'-Wpointer-sign',
 			'-Wformat',
 			'-Wformat-security',
 			'-Werror=suggest-attribute=format',

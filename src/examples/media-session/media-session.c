@@ -143,6 +143,9 @@ struct impl {
 
 	int state_dir_fd;
 	char state_dir[PATH_MAX];
+
+	unsigned int scanning:1;
+	unsigned int rescan_pending:1;
 };
 
 struct endpoint_link {
@@ -1299,6 +1302,11 @@ int sm_media_session_for_each_object(struct sm_media_session *sess,
 int sm_media_session_schedule_rescan(struct sm_media_session *sess)
 {
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+
+	if (impl->scanning) {
+		impl->rescan_pending = true;
+		return impl->rescan_seq;
+	}
 	if (impl->policy_core)
 		impl->rescan_seq = pw_core_sync(impl->policy_core, 0, impl->last_seq);
 	return impl->rescan_seq;
@@ -1936,8 +1944,16 @@ static void core_done(void *data, uint32_t id, int seq)
 	if (impl->rescan_seq == seq) {
 		struct sm_object *obj, *to;
 
-		pw_log_trace(NAME" %p: rescan %u %d", impl, id, seq);
-		sm_media_session_emit_rescan(impl, seq);
+		if (!impl->scanning) {
+			pw_log_trace(NAME" %p: rescan %u %d", impl, id, seq);
+			impl->scanning = true;
+			sm_media_session_emit_rescan(impl, seq);
+			impl->scanning = false;
+			if (impl->rescan_pending) {
+				impl->rescan_pending = false;
+				sm_media_session_schedule_rescan(&impl->this);
+			}
+		}
 
 		spa_list_for_each_safe(obj, to, &impl->global_list, link) {
 			pw_log_trace(NAME" %p: obj %p %08x", impl, obj, obj->changed);

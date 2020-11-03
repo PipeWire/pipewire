@@ -181,6 +181,7 @@ static void update_busy(struct pw_impl_client *client)
 static int finish_register(struct pw_impl_client *client)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	struct pw_impl_client *current;
 	const char *keys[] = {
 		PW_KEY_ACCESS,
 		PW_KEY_CLIENT_ACCESS,
@@ -192,7 +193,11 @@ static int finish_register(struct pw_impl_client *client)
 
 	impl->registered = true;
 
+	current = client->context->current_client;
+	client->context->current_client = NULL;
 	pw_context_emit_check_access(client->context, client);
+	client->context->current_client = current;
+
 	update_busy(client);
 
 	pw_global_update_keys(client->global, client->info.props, keys);

@@ -1571,6 +1571,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->attr = attr;
 	stream->is_underrun = true;
 
+	if (no_remix)
+		pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "true");
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
@@ -1789,6 +1791,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
+	if (no_remix)
+		pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "true");
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;

@@ -123,6 +123,7 @@ do_deactivate_link(struct spa_loop *loop,
 static void clear_link(struct node_data *data, struct link *link)
 {
 	struct pw_context *context = data->context;
+	pw_log_debug("link %p", link);
 	pw_loop_invoke(context->data_loop,
 		do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, link);
 	pw_memmap_free(link->map);

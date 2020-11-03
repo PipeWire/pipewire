@@ -135,6 +135,7 @@ static int read_props(struct message *m, struct pw_properties *props)
 		char *key;
 		void *data;
 		uint32_t length;
+		size_t size;
 
 		if ((res = message_get(m,
 				TAG_STRING, &key,
@@ -152,28 +153,27 @@ static int read_props(struct message *m, struct pw_properties *props)
 			return -EINVAL;
 
 		if ((res = message_get(m,
-				TAG_ARBITRARY, &data, length,
+				TAG_ARBITRARY, &data, &size,
 				TAG_INVALID)) < 0)
 			return res;
 
-		pw_log_debug("%s %s", key, (char*)data);
 		pw_properties_set(props, key, data);
 	}
 	return 0;
 }
 
-static int read_arbitrary(struct message *m, const void **val, size_t length)
+static int read_arbitrary(struct message *m, const void **val, size_t *length)
 {
 	uint32_t len;
 	int res;
 	if ((res = read_u32(m, &len)) < 0)
 		return res;
-	if (len != length)
-		return -EINVAL;
-	if (m->offset + length > m->length)
+	if (m->offset + len > m->length)
 		return -ENOSPC;
 	*val = m->data + m->offset;
-	m->offset += length;
+	m->offset += len;
+	if (length)
+		*length = len;
 	return 0;
 }
 
@@ -325,7 +325,7 @@ static int message_get(struct message *m, ...)
 		case TAG_ARBITRARY:
 		{
 			const void **val = va_arg(va, const void**);
-			size_t len = va_arg(va, size_t);
+			size_t *len = va_arg(va, size_t*);
 			if (dtag != tag)
 				return -EINVAL;
 			if ((res = read_arbitrary(m, val, len)) < 0)

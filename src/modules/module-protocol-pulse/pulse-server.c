@@ -449,15 +449,18 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 	struct message *reply;
 	uint32_t version;
 	const void *cookie;
+	size_t len;
 
 	if (message_get(m,
 			TAG_U32, &version,
-			TAG_ARBITRARY, &cookie, NATIVE_COOKIE_LENGTH,
+			TAG_ARBITRARY, &cookie, &len,
 			TAG_INVALID) < 0) {
 		return -EPROTO;
 	}
 	if (version < 8)
 		return -EPROTO;
+	if (len != NATIVE_COOKIE_LENGTH)
+		return -EINVAL;
 
 	if ((version & PROTOCOL_VERSION_MASK) >= 13)
 		version &= PROTOCOL_VERSION_MASK;

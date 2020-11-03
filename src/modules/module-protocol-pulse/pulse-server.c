@@ -42,6 +42,10 @@
 #include <pwd.h>
 #endif
 
+#include <pipewire/log.h>
+
+#define spa_debug pw_log_debug
+
 #include <spa/utils/result.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/mem.h>
@@ -62,6 +66,8 @@
 #include "manager.h"
 
 #define NAME	"pulse-server"
+
+static bool debug_messages = false;
 
 struct impl;
 struct server;
@@ -299,6 +305,10 @@ static int send_message(struct client *client, struct message *m)
 
 	m->offset = 0;
 	spa_list_append(&client->out_messages, &m->link);
+
+	if (debug_messages)
+		message_dump(m);
+
 	res = flush_messages(client);
 	if (res == -EAGAIN) {
 		int mask = client->source->mask;
@@ -3888,8 +3898,13 @@ static int handle_packet(struct client *client, struct message *msg)
 	if (command >= COMMAND_MAX) {
 		res = -EINVAL;
 		goto finish;
-
 	}
+
+	if (debug_messages) {
+		pw_log_debug(NAME" %p: command %s", impl, commands[command].name);
+		message_dump(msg);
+	}
+
 	if (commands[command].run == NULL) {
 		res = -ENOTSUP;
 		goto finish;
@@ -4385,6 +4400,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
+
+	debug_messages = pw_debug_is_category_enabled("connection");
 
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);

@@ -72,6 +72,13 @@ static inline uint32_t format_pa2id(enum sample_format format)
 	return audio_formats[format].format;
 }
 
+static inline const char *format_pa2name(enum sample_format format)
+{
+	if (format < 0 || (size_t)format >= SPA_N_ELEMENTS(audio_formats))
+		return "invalid";
+	return audio_formats[format].name;
+}
+
 static inline enum sample_format format_name2pa(const char *name, size_t size)
 {
 	size_t i;
@@ -263,6 +270,13 @@ static inline uint32_t channel_pa2id(enum channel_position channel)
         if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
                 return SPA_AUDIO_CHANNEL_UNKNOWN;
         return audio_channels[channel].channel;
+}
+
+static inline const char *channel_pa2name(enum channel_position channel)
+{
+        if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
+                return "invalid";
+        return audio_channels[channel].name;
 }
 
 static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)

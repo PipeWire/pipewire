@@ -51,7 +51,8 @@ pa_operation *pa_operation_new(pa_context *c, pa_stream *s, pa_operation_cb_t cb
 int pa_operation_sync(pa_operation *o)
 {
 	pa_context *c = o->context;
-	c->pending_seq = pw_core_sync(c->core, PW_ID_CORE, 0);
+	if (c->core != NULL)
+		c->pending_seq = pw_core_sync(c->core, PW_ID_CORE, 0);
 	o->sync = true;
 	pw_log_debug("operation %p: sync seq:%d", o, c->pending_seq);
 	return 0;

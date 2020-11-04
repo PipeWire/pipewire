@@ -619,6 +619,8 @@ pa_operation* pa_context_suspend_sink_by_name(pa_context *c, const char *sink_na
 	pa_operation *o;
 	struct success_ack *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p: name:%s suspend:%d", c, sink_name, suspend);
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -635,6 +637,8 @@ pa_operation* pa_context_suspend_sink_by_index(pa_context *c, uint32_t idx, int 
 {
 	pa_operation *o;
 	struct success_ack *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p: index:%u suspend:%d", c, idx, suspend);
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -993,6 +997,7 @@ pa_operation* pa_context_get_source_info_by_index(pa_context *c, uint32_t idx, p
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: index %d", c, idx);
@@ -1158,6 +1163,8 @@ pa_operation* pa_context_suspend_source_by_name(pa_context *c, const char *sourc
 	pa_operation *o;
 	struct success_ack *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p: name:%s", c, source_name);
 
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -1175,6 +1182,8 @@ pa_operation* pa_context_suspend_source_by_index(pa_context *c, uint32_t idx, in
 {
 	pa_operation *o;
 	struct success_ack *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p: index:%u", c, idx);
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
@@ -1309,6 +1318,8 @@ pa_operation* pa_context_get_server_info(pa_context *c, pa_server_info_cb_t cb, 
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p", c);
 	o = pa_operation_new(c, NULL, server_info, sizeof(struct server_data));
 	d = o->userdata;
@@ -1363,6 +1374,7 @@ pa_operation* pa_context_get_module_info(pa_context *c, uint32_t idx, pa_module_
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p index:%u", c, idx);
@@ -1560,6 +1572,8 @@ pa_operation* pa_context_load_module(pa_context *c, const char*name, const char 
 	pa_assert(c->refcount >= 1);
 	pa_assert(name != NULL);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p: name:%s arg:%s", c, name, argument);
 
 	o = pa_operation_new(c, NULL, on_load_module, sizeof(struct load_module));
@@ -1609,6 +1623,8 @@ pa_operation* pa_context_unload_module(pa_context *c, uint32_t idx, pa_context_s
 	struct success_ack *d;
 	struct module_info *m;
 	int error;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p: %u", c, idx);
 	if ((m = find_module(c, idx)) != NULL) {
@@ -1672,6 +1688,7 @@ pa_operation* pa_context_get_client_info(pa_context *c, uint32_t idx, pa_client_
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: index:%u", c, idx);
@@ -1757,6 +1774,7 @@ pa_operation* pa_context_kill_client(pa_context *c, uint32_t idx, pa_context_suc
 	pa_operation *o;
 	struct kill_client *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: index:%u", c, idx);
@@ -2012,6 +2030,8 @@ pa_operation* pa_context_set_port_latency_offset(pa_context *c, const char *card
 	pa_operation *o;
 	struct success_ack *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("%p: card_name:%s port_name:%s offset:%"PRIi64, c, card_name, port_name, offset);
 	o = pa_operation_new(c, NULL, on_success, sizeof(struct success_ack));
 	d = o->userdata;
@@ -2146,6 +2166,7 @@ pa_operation* pa_context_get_sink_input_info(pa_context *c, uint32_t idx, pa_sin
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("context %p: info for %d", c, idx);
@@ -2257,6 +2278,8 @@ pa_operation* pa_context_move_sink_input_by_name(pa_context *c, uint32_t idx, co
 	pa_operation *o;
 	struct target_node *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("%p: index:%u name:%s", c, idx, sink_name);
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
@@ -2277,6 +2300,8 @@ pa_operation* pa_context_move_sink_input_by_index(pa_context *c, uint32_t idx, u
 {
 	pa_operation *o;
 	struct target_node *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("%p: index:%u sink_index:%u", c, idx, sink_idx);
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
@@ -2341,6 +2366,8 @@ pa_operation* pa_context_set_sink_input_volume(pa_context *c, uint32_t idx, cons
 	pa_operation *o;
 	struct stream_volume *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
@@ -2360,6 +2387,8 @@ pa_operation* pa_context_set_sink_input_mute(pa_context *c, uint32_t idx, int mu
 {
 	pa_operation *o;
 	struct stream_volume *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
@@ -2413,6 +2442,8 @@ pa_operation* pa_context_kill_sink_input(pa_context *c, uint32_t idx, pa_context
 {
 	pa_operation *o;
 	struct kill_stream *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_kill_stream, sizeof(struct kill_stream));
@@ -2547,6 +2578,7 @@ pa_operation* pa_context_get_source_output_info(pa_context *c, uint32_t idx, pa_
 	pa_assert(c->refcount >= 1);
 	pa_assert(cb);
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 	PA_CHECK_VALIDITY_RETURN_NULL(c, idx != PA_INVALID_INDEX, PA_ERR_INVALID);
 
 	pw_log_debug("%p: index:%u", c, idx);
@@ -2603,6 +2635,8 @@ pa_operation* pa_context_move_source_output_by_name(pa_context *c, uint32_t idx,
 	pa_operation *o;
 	struct target_node *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("%p index:%u name:%s", c, idx, source_name);
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
 	d = o->userdata;
@@ -2623,6 +2657,8 @@ pa_operation* pa_context_move_source_output_by_index(pa_context *c, uint32_t idx
 {
 	pa_operation *o;
 	struct target_node *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("%p index:%u source_index:%u", c, idx, source_idx);
 	o = pa_operation_new(c, NULL, do_target_node, sizeof(struct target_node));
@@ -2645,6 +2681,8 @@ pa_operation* pa_context_set_source_output_volume(pa_context *c, uint32_t idx, c
 	pa_operation *o;
 	struct stream_volume *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
@@ -2665,6 +2703,8 @@ pa_operation* pa_context_set_source_output_mute(pa_context *c, uint32_t idx, int
 	pa_operation *o;
 	struct stream_volume *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_stream_volume_mute, sizeof(struct stream_volume));
 	d = o->userdata;
@@ -2683,6 +2723,8 @@ pa_operation* pa_context_kill_source_output(pa_context *c, uint32_t idx, pa_cont
 {
 	pa_operation *o;
 	struct kill_stream *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("context %p: index %d", c, idx);
 	o = pa_operation_new(c, NULL, do_kill_stream, sizeof(struct kill_stream));
@@ -2721,6 +2763,8 @@ pa_operation* pa_context_stat(pa_context *c, pa_stat_info_cb_t cb, void *userdat
 	pa_operation *o;
 	struct stat_ack *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("%p", c);
 	o = pa_operation_new(c, NULL, on_stat_info, sizeof(struct stat_ack));
 	d = o->userdata;
@@ -2755,6 +2799,8 @@ pa_operation* pa_context_get_sample_info_by_name(pa_context *c, const char *name
 	pa_operation *o;
 	struct sample_info *d;
 
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
+
 	pw_log_debug("%p nane:%s", c, name);
 	o = pa_operation_new(c, NULL, on_sample_info, sizeof(struct sample_info));
 	d = o->userdata;
@@ -2771,6 +2817,8 @@ pa_operation* pa_context_get_sample_info_by_index(pa_context *c, uint32_t idx, p
 {
 	pa_operation *o;
 	struct sample_info *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("%p index:%u", c, idx);
 	o = pa_operation_new(c, NULL, on_sample_info, sizeof(struct sample_info));
@@ -2800,6 +2848,8 @@ pa_operation* pa_context_get_sample_info_list(pa_context *c, pa_sample_info_cb_t
 {
 	pa_operation *o;
 	struct sample_info *d;
+
+	PA_CHECK_VALIDITY_RETURN_NULL(c, c->state == PA_CONTEXT_READY, PA_ERR_BADSTATE);
 
 	pw_log_debug("%p", c);
 	o = pa_operation_new(c, NULL, on_sample_info_list, sizeof(struct sample_info));

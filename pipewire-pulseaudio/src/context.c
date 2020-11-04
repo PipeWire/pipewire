@@ -322,7 +322,8 @@ static void do_global_sync(struct global *g)
 static void global_sync(struct global *g)
 {
 	pa_context *c = g->context;
-	c->pending_seq = pw_core_sync(c->core, PW_ID_CORE, c->pending_seq);
+	if (c->core != NULL)
+		c->pending_seq = pw_core_sync(c->core, PW_ID_CORE, c->pending_seq);
 	g->sync = true;
 }
 

@@ -1,3 +1,56 @@
+PipeWire 0.3.15
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - This is a quick update to fix critical issues with the
+    0.3.14 update, which broke screen sharing and accidentally
+    enabled the experimental pulse-server.
+  - Fix some compatibility issues in pulse-server with
+    pavucontrol and fix an issue that would block the complete
+    server.
+
+- PipeWire improvements
+  - Permission checks for new clients are now done from a
+    global context, which makes it possible to assign initial
+    permissions to objects.
+  - Handle EINTR everywhere
+  - Fix an issue with the node state changes where a quick
+    pause/play would hang a client.
+
+- Session manager improvements
+  - Disable the bluez5 and pulse-bridge modules by default because
+    they interfere with pulseaudio. These options should only be
+    enabled if pulseaudio is removed or disabled in the system.
+  - Fix an issue where the session manager could end up in
+    infinite recursion while scanning for things to do.
+  - The session manager will now always configure nodes to remix
+    to the channel configuration of the device. This fixes the case
+    where mono streams would only end up on one channel of a stereo
+    device.
+
+- Device support
+  - Initial merge of A2DP extra codec support using the new bluez5
+    API.
+
+- pulse-server
+  - Create the runtime directory when it doesn't exist.
+  - Don't ever block the server, use non-blocking IO everywhere.
+  - Fill description of profiles with the name if not otherwise set,
+    this fixes a crash in pavucontrol.
+  - the connection debug catergory will now also debug pulse
+    messages.
+  - Respect the no_remix flag to make the control panel channel
+    check work.
+
+- ALSA plugin
+  - implement pause
+
+
+Older versions:
+
+
 PipeWire 0.3.14
 
 This is a bugfix release that is API and ABI compatible
@@ -95,9 +148,6 @@ with previous 0.3.x releases.
 - ALSA plugin improvements
   - The ALSA plugin now also supports the node name in the
     playback_node and capture_node properties.
-
-
-Older versions:
 
 
 PipeWire 0.3.13

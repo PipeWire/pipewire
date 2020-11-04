@@ -341,13 +341,19 @@ static int reply_simple_ack(struct client *client, uint32_t tag)
 	return send_message(client, reply);
 }
 
-static int reply_error(struct client *client, uint32_t tag, int res)
+static int reply_error(struct client *client, uint32_t command, uint32_t tag, int res)
 {
 	struct message *reply;
 	uint32_t error = res_to_err(res);
+	const char *name;
 
-	pw_log_warn(NAME" %p: ERROR tag:%u error:%u (%s)",
-			client, tag, error, spa_strerror(res));
+	if (command < COMMAND_MAX)
+		name = commands[command].name;
+	else
+		name = "invalid";
+
+	pw_log_warn(NAME" %p: ERROR command:%d (%s) tag:%u error:%u (%s)",
+			client, command, name, tag, error, spa_strerror(res));
 
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
@@ -1102,7 +1108,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
-		reply_error(client, -1, -EIO);
+		reply_error(client, -1, -1, -EIO);
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (!client->disconnecting)
@@ -2032,14 +2038,14 @@ static int do_error_access(struct client *client, uint32_t command, uint32_t tag
 {
 	struct impl *impl = client->impl;
 	pw_log_debug(NAME" %p: %s access denied", impl, commands[command].name);
-	return reply_error(client, tag, -EACCES);
+	return reply_error(client, command, tag, -EACCES);
 }
 
 static int do_error_not_implemented(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
 	pw_log_debug(NAME" %p: %s not implemented", impl, commands[command].name);
-	return reply_error(client, tag, -ENOSYS);
+	return reply_error(client, command, tag, -ENOSYS);
 }
 
 static int set_node_volume_mute(struct pw_manager_object *o,
@@ -3918,9 +3924,7 @@ static int handle_packet(struct client *client, struct message *msg)
 finish:
 	message_free(client, msg, false, false);
 	if (res < 0) {
-		pw_log_error(NAME" %p: command %d (%s) error: %s",
-				impl, command, commands[command].name, spa_strerror(res));
-		reply_error(client, tag, res);
+		reply_error(client, command, tag, res);
 	}
 	return res;
 }

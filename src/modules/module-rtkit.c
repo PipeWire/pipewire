@@ -128,8 +128,10 @@ struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 	struct pw_rtkit_bus *bus;
 	DBusError error;
 
-	if (getenv("DISABLE_RTKIT"))
+	if (getenv("DISABLE_RTKIT")) {
+		errno = ENOTSUP;
 		return NULL;
+	}
 
 	dbus_error_init(&error);
 
@@ -149,6 +151,7 @@ error:
 	free(bus);
 	pw_log_error("Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
+	errno = ECONNREFUSED;
 	return NULL;
 }
 

@@ -158,12 +158,10 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	format = node->format;
 
 	if (info != NULL && info->info.raw.channels > 0) {
-		if (node->monitor || info->info.raw.channels < format.info.raw.channels) {
-			pw_log_info("node %d monitor:%d channelmix %d:%d",
-					node->id, node->monitor, format.info.raw.channels,
-					info->info.raw.channels);
-			format = *info;
-		}
+		pw_log_info("node %d monitor:%d channelmix %d->%d",
+			node->id, node->monitor, format.info.raw.channels,
+			info->info.raw.channels);
+		format = *info;
 	}
 	format.info.raw.rate = impl->sample_rate;
 

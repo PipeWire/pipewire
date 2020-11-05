@@ -340,6 +340,40 @@ static void *add_interface(struct support *support,
 	return iface;
 }
 
+#ifdef HAVE_SYSTEMD
+static struct spa_log *load_journal_logger(struct support *support)
+{
+	struct spa_handle *handle;
+	void *iface = NULL;
+	int res = -ENOENT;
+	uint32_t i;
+
+	/* is the journal even available? */
+	if (access("/run/systemd/journal/socket", F_OK) != 0)
+		return NULL;
+
+	handle = pw_load_spa_handle("support/libspa-journal",
+				    SPA_NAME_SUPPORT_LOG, NULL,
+				    support->n_support, support->support);
+
+	if (handle == NULL ||
+	    (res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Log, &iface)) < 0) {
+			pw_log_error("can't get log interface %d", res);
+	} else {
+		/* look for an existing logger, and
+		 * replace it with the journal logger */
+		for (i = 0; i < support->n_support; i++) {
+			if (strcmp(support->support[i].type, SPA_TYPE_INTERFACE_Log) == 0) {
+				support->support[i].data = iface;
+				break;
+			}
+		}
+	}
+
+	return (struct spa_log *) iface;
+}
+#endif
+
 /** Initialize PipeWire
  *
  * \param argc pointer to argc
@@ -397,6 +431,12 @@ void pw_init(int *argc, char **argv[])
 		log = add_interface(support, SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log, &info);
 		if (log)
 			pw_log_set(log);
+
+#ifdef HAVE_SYSTEMD
+		log = load_journal_logger(support);
+		if (log)
+			pw_log_set(log);
+#endif
 	} else {
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());

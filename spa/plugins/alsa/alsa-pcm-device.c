@@ -540,6 +540,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
+	snd_config_update_free_global();
+
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)))
 		snprintf(this->props.device, 64, "%s", str);
 

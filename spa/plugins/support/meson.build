@@ -40,3 +40,15 @@ spa_dbus_lib = shared_library('spa-dbus',
 			dependencies : [dbus_dep, ],
 			install : true,
 		        install_dir : join_paths(spa_plugindir, 'support'))
+
+
+if get_option('systemd') and systemd_dep.found()
+  spa_journal_sources = ['journal.c']
+
+  spa_journal_lib = shared_library('spa-journal',
+			  spa_journal_sources,
+			  include_directories : spa_inc,
+			  dependencies : systemd_dep,
+			  install : true,
+		          install_dir : join_paths(spa_plugindir, 'support'))
+endif

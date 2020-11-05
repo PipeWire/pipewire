@@ -86,7 +86,6 @@ struct client {
 
         struct spa_source *source;
 
-	uint32_t id;
 	uint32_t version;
 
 	struct pw_properties *props;
@@ -494,11 +493,20 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 static int reply_set_client_name(struct client *client, uint32_t tag)
 {
 	struct message *reply;
+	struct pw_client *c;
+	uint32_t id;
+
+	c = pw_core_get_client(client->core);
+	if (c == NULL)
+		return reply_error(client, COMMAND_SET_CLIENT_NAME, tag, -ENOENT);
+
+	id = pw_proxy_get_bound_id((struct pw_proxy*)c);
+
 	reply = reply_new(client, tag);
 
 	if (client->version >= 13) {
 		message_put(reply,
-			TAG_U32, client->id,	/* client index */
+			TAG_U32, id,		/* client index */
 			TAG_INVALID);
 	}
 	return send_message(client, reply);

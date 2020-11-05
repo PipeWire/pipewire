@@ -95,8 +95,6 @@ struct client {
 	struct pw_manager *manager;
 	struct spa_hook manager_listener;
 
-	uint32_t cookie;
-	uint32_t default_rate;
 	uint32_t subscribed;
 
 	uint32_t default_sink;
@@ -559,18 +557,7 @@ static uint32_t get_event_and_id(struct client *client, struct pw_manager_object
 static void manager_added(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
-	const char *str;
 	uint32_t event, id;
-
-	if (strcmp(o->type, PW_TYPE_INTERFACE_Core) == 0 && o->info != NULL) {
-		struct pw_core_info *info = o->info;
-
-		if (info->props &&
-		    (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
-			client->default_rate = atoi(str);
-		client->cookie = info->cookie;
-		return;
-	}
 
 	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
 		send_subscribe_event(client,
@@ -2614,24 +2601,30 @@ error_noentity:
 static int do_get_server_info(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct pw_core_info *info = manager->info;
 	char name[256];
+	const char *str;
 	struct message *reply;
 	struct sample_spec ss;
 	struct channel_map map;
+	uint32_t cookie;
 
 	pw_log_info(NAME" %p: GET_SERVER_INFO", impl);
 
+	ss = SAMPLE_SPEC_INIT;
+	map = CHANNEL_MAP_INIT;
+
+	if (manager->info != NULL) {
+		if (info->props &&
+		    (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
+			ss.rate = atoi(str);
+		cookie = info->cookie;
+	} else {
+		cookie = 0;
+	}
+
 	snprintf(name, sizeof(name)-1, "PulseAudio (on PipeWire %s)", pw_get_library_version());
-
-	spa_zero(ss);
-	ss.format = SAMPLE_FLOAT32LE;
-	ss.rate = client->default_rate ? client->default_rate : 44100;
-	ss.channels = 2;
-
-	spa_zero(map);
-	map.channels = 2;
-	map.map[0] = 1;
-	map.map[1] = 2;
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -2642,7 +2635,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		TAG_SAMPLE_SPEC, &ss,
 		TAG_STRING, get_default(client, true),		/* default sink name */
 		TAG_STRING, get_default(client, false),		/* default source name */
-		TAG_U32, client->cookie,			/* cookie */
+		TAG_U32, cookie,				/* cookie */
 		TAG_INVALID);
 
 	if (client->version >= 15) {

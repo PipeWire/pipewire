@@ -58,6 +58,8 @@ struct pw_manager {
 	struct pw_core *core;
 	struct pw_registry *registry;
 
+	struct pw_core_info *info;
+
 	uint32_t n_objects;
 	struct spa_list object_list;
 };

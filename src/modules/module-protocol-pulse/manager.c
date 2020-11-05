@@ -136,12 +136,6 @@ static void object_destroy(struct object *o)
 	free(o);
 }
 
-/* core */
-static const struct object_info core_info = {
-	.type = PW_TYPE_INTERFACE_Core,
-	.version = PW_VERSION_CORE,
-};
-
 /* client */
 static void client_event_info(void *object, const struct pw_client_info *info)
 {
@@ -393,7 +387,6 @@ static const struct object_info metadata_info = {
 
 static const struct object_info *objects[] =
 {
-	&core_info,
 	&module_info,
 	&client_info,
 	&device_info,
@@ -508,6 +501,12 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+static void on_core_info(void *data, const struct pw_core_info *info)
+{
+	struct manager *m = data;
+	m->this.info = pw_core_info_update(m->this.info, info);
+}
+
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct manager *m = data;
@@ -532,6 +531,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.done = on_core_done,
+	.info = on_core_info,
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core)
@@ -621,6 +621,8 @@ void  pw_manager_destroy(struct pw_manager *manager)
 	spa_list_consume(o, &m->this.object_list, this.link)
 		object_destroy(o);
 
+	if (m->this.info)
+		pw_core_info_free(m->this.info);
 	if (m->this.registry) {
 		spa_hook_remove(&m->registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)m->this.registry);

@@ -40,7 +40,7 @@
 #include <spa/pod/iter.h>
 #include <spa/utils/result.h>
 
-#ifdef HAVE_SYSTEMD_DAEMON
+#ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
 
@@ -576,7 +576,7 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 	int fd = -1, res;
 	bool activated = false;
 
-#ifdef HAVE_SYSTEMD_DAEMON
+#ifdef HAVE_SYSTEMD
 	{
 		int i, n = sd_listen_fds(0);
 		for (i = 0; i < n; ++i) {

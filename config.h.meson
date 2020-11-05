@@ -320,8 +320,8 @@
 /* Define to 1 if you have the <winsock2.h> header file. */
 #mesondefine HAVE_WINSOCK2_H
 
-/* for the systemd header files */
-#mesondefine HAVE_SYSTEMD_DAEMON
+/* For libsystemd */
+#mesondefine HAVE_SYSTEMD
 
 /* Define to 1 if native HSP backend is enabled in bluez5 plugin. */
 #mesondefine HAVE_BLUEZ_5_BACKEND_NATIVE

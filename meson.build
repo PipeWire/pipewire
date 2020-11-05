@@ -279,9 +279,9 @@ if get_option('systemd')
   systemd = dependency('systemd', required: false)
   systemd_dep = dependency('libsystemd', required: false)
   if systemd.found() and systemd_dep.found()
-    cdata.set('HAVE_SYSTEMD_DAEMON', 1)
+    cdata.set('HAVE_SYSTEMD', 1)
   else
-    warning('Systemd integration was enabled, but systemd is not available')
+    warning('systemd integration was enabled, but systemd is not available')
   endif
 endif
 

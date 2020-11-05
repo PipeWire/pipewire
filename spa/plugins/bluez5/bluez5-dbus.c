@@ -1245,7 +1245,9 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	return err;
 }
 
-static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint, const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size) {
+static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint,
+		const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size)
+{
 	char* str;
 	const char *interface_name = BLUEZ_MEDIA_ENDPOINT_INTERFACE;
 	DBusMessageIter object, array, entry, dict;
@@ -1319,7 +1321,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			if (caps_size < 0)
 				continue;
 
-  			endpoint = spa_aprintf("%s/%s", A2DP_SINK_ENDPOINT, codec->name);
+			endpoint = spa_aprintf("%s/%s", A2DP_SINK_ENDPOINT, codec->name);
 			append_a2dp_object(&array, endpoint, SPA_BT_UUID_A2DP_SINK, codec_id, caps, caps_size);
 			free(endpoint);
 

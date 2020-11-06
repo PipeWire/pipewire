@@ -382,6 +382,7 @@ static void test_endpoint(void)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, 1024);
 
+	spa_zero(d);
 	d.loop = pw_main_loop_new(NULL);
 	d.context = pw_context_new(pw_main_loop_get_loop(d.loop), NULL, 0);
 	spa_assert(d.context != NULL);

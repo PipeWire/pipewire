@@ -1122,6 +1122,9 @@ void pw_filter_destroy(struct pw_filter *filter)
 
 	pw_properties_free(filter->properties);
 
+	spa_hook_list_clean(&impl->hooks);
+	spa_hook_list_clean(&filter->listener_list);
+
 	free(filter->name);
 
 	if (impl->data.context)

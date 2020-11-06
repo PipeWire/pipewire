@@ -109,6 +109,8 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	pw_log_debug(NAME" %p: destroy", protocol);
 	pw_protocol_emit_destroy(protocol);
 
+	spa_hook_list_clean(&protocol->listener_list);
+
 	spa_list_remove(&protocol->link);
 
 	spa_list_consume(server, &protocol->server_list, link)

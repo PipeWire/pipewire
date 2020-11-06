@@ -576,6 +576,8 @@ void pw_impl_client_destroy(struct pw_impl_client *client)
 	pw_log_debug(NAME" %p: free", impl);
 	pw_impl_client_emit_free(client);
 
+	spa_hook_list_clean(&client->listener_list);
+
 	pw_map_clear(&client->objects);
 	pw_array_clear(&impl->permissions);
 

@@ -200,6 +200,8 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	pw_log_debug(NAME" %p: free", device);
 	pw_impl_device_emit_free(device);
 
+	spa_hook_list_clean(&device->listener_list);
+
 	pw_properties_free(device->properties);
 	free(device->name);
 

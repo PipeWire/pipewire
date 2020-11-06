@@ -1305,6 +1305,9 @@ void pw_stream_destroy(struct pw_stream *stream)
 		free(c);
 	}
 
+	spa_hook_list_clean(&impl->hooks);
+	spa_hook_list_clean(&stream->listener_list);
+
 	spa_hook_remove(&impl->context_listener);
 
 	if (impl->data.context)

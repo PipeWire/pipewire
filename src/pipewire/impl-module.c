@@ -322,6 +322,8 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 
 	pw_properties_free(module->properties);
 
+	spa_hook_list_clean(&module->listener_list);
+
 	if (!pw_in_valgrind() && dlclose(impl->hnd) != 0)
 		pw_log_warn(NAME" %p: dlclose failed: %s", module, dlerror());
 	free(impl);

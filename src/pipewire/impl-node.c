@@ -1680,6 +1680,8 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	pw_log_debug(NAME" %p: free", node);
 	pw_impl_node_emit_free(node);
 
+	spa_hook_list_clean(&node->listener_list);
+
 	pw_memblock_unref(node->activation);
 
 	pw_work_queue_destroy(impl->work);

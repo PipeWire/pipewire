@@ -239,6 +239,7 @@ endpoint_init(struct endpoint * self)
 static void
 endpoint_clear(struct endpoint * self)
 {
+	spa_hook_list_clean(&self->hooks);
 	pw_properties_free(self->properties);
 }
 

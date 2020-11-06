@@ -444,6 +444,8 @@ void pw_impl_core_destroy(struct pw_impl_core *core)
 	pw_impl_core_emit_free(core);
 	pw_log_debug(NAME" %p: free", core);
 
+	spa_hook_list_clean(&core->listener_list);
+
 	pw_properties_free(core->properties);
 
 	free(core);

@@ -405,6 +405,9 @@ void pw_context_destroy(struct pw_context *context)
 
 	pw_map_clear(&context->globals);
 
+	spa_hook_list_clean(&context->listener_list);
+	spa_hook_list_clean(&context->driver_listener_list);
+
 	free(context);
 }
 

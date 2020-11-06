@@ -181,6 +181,8 @@ void pw_mempool_destroy(struct pw_mempool *pool)
 
 	spa_list_remove(&impl->link);
 
+	spa_hook_list_clean(&impl->listener_list);
+
 	pw_map_clear(&impl->map);
 	if (pool->props)
 		pw_properties_free(pool->props);

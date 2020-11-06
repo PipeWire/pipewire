@@ -173,6 +173,9 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 		pw_loop_destroy_source(loop->loop, loop->event);
 	if (loop->created)
 		pw_loop_destroy(loop->loop);
+
+	spa_hook_list_clean(&loop->listener_list);
+
 	free(loop);
 }
 

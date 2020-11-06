@@ -281,6 +281,9 @@ void pw_resource_destroy(struct pw_resource *resource)
 
 	pw_log_debug(NAME" %p: free %u", resource, resource->id);
 
+	spa_hook_list_clean(&resource->listener_list);
+	spa_hook_list_clean(&resource->object_listener_list);
+
 	free(resource);
 }
 

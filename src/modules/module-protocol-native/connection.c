@@ -292,6 +292,8 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 
 	spa_hook_list_call(&conn->listener_list, struct pw_protocol_native_connection_events, destroy, 0);
 
+	spa_hook_list_clean(&conn->listener_list);
+
 	clear_buffer(&impl->out, true);
 	clear_buffer(&impl->in, true);
 	free(impl->out.buffer_data);

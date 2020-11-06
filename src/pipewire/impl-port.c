@@ -1018,6 +1018,8 @@ void pw_impl_port_destroy(struct pw_impl_port *port)
 	pw_log_debug(NAME" %p: free", port);
 	pw_impl_port_emit_free(port);
 
+	spa_hook_list_clean(&port->listener_list);
+
 	pw_buffers_clear(&port->buffers);
 	pw_buffers_clear(&port->mix_buffers);
 	free((void*)port->error);

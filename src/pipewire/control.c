@@ -119,6 +119,8 @@ void pw_control_destroy(struct pw_control *control)
 	pw_log_debug(NAME" %p: free", control);
 	pw_control_emit_free(control);
 
+	spa_hook_list_clean(&control->listener_list);
+
 	if (control->direction == SPA_DIRECTION_OUTPUT) {
 		if (impl->mem)
 			pw_memblock_unref(impl->mem);

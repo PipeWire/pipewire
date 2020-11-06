@@ -389,6 +389,8 @@ void pw_global_destroy(struct pw_global *global)
 	pw_log_debug(NAME" %p: free", global);
 	pw_global_emit_free(global);
 
+	spa_hook_list_clean(&global->listener_list);
+
 	pw_properties_free(global->properties);
 
 	free(global);

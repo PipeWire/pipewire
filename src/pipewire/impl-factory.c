@@ -94,6 +94,9 @@ void pw_impl_factory_destroy(struct pw_impl_factory *factory)
 
 	pw_impl_factory_emit_free(factory);
 	pw_log_debug(NAME" %p: free", factory);
+
+	spa_hook_list_clean(&factory->listener_list);
+
 	free((char *)factory->info.name);
 
 	pw_properties_free(factory->properties);

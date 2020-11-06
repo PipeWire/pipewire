@@ -198,6 +198,8 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	spa_hook_remove(&loop->hook);
 
+	spa_hook_list_clean(&loop->listener_list);
+
 	pw_loop_destroy_source(loop->loop, loop->event);
 
 	if (loop->created)

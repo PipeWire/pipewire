@@ -1284,6 +1284,8 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 	pw_log_debug(NAME" %p: free", impl);
 	pw_impl_link_emit_free(link);
 
+	spa_hook_list_clean(&link->listener_list);
+
 	pw_work_queue_destroy(impl->work);
 
 	pw_properties_free(link->properties);

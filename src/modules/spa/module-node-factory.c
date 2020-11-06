@@ -192,10 +192,10 @@ static void factory_destroy(void *_data)
 	struct factory_data *data = _data;
 	struct node_data *nd;
 
-	spa_hook_remove(&data->module_listener);
-
+	spa_hook_remove(&data->factory_listener);
 	spa_list_consume(nd, &data->node_list, link)
 		pw_impl_node_destroy(nd->node);
+	data->this = NULL;
 }
 
 static const struct pw_impl_factory_events factory_events = {
@@ -206,7 +206,9 @@ static const struct pw_impl_factory_events factory_events = {
 static void module_destroy(void *_data)
 {
 	struct factory_data *data = _data;
-	pw_impl_factory_destroy(data->this);
+	spa_hook_remove(&data->module_listener);
+	if (data->this)
+		pw_impl_factory_destroy(data->this);
 }
 
 static void module_registered(void *data)

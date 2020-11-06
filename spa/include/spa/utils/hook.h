@@ -112,6 +112,13 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 		hook->removed(hook);
 }
 
+static inline void spa_hook_list_clean(struct spa_hook_list *list)
+{
+	struct spa_hook *h;
+	spa_list_consume(h, &list->list, link)
+		spa_hook_remove(h);
+}
+
 static inline void
 spa_hook_list_isolate(struct spa_hook_list *list,
 		struct spa_hook_list *save,

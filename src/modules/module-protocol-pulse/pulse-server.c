@@ -28,6 +28,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netinet/ip.h>
 #include <sys/un.h>
 #include <stdio.h>
 #include <errno.h>
@@ -4228,7 +4230,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	struct impl *impl = server->impl;
 	struct sockaddr_un name;
 	socklen_t length;
-	int client_fd;
+	int client_fd, val;
 	struct client *client;
 
 	client = calloc(1, sizeof(struct client));
@@ -4251,12 +4253,29 @@ on_connect(void *data, int fd, uint32_t mask)
 	if (client->props == NULL)
 		goto error;
 
-        length = sizeof(name);
-        client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);
-        if (client_fd < 0)
-                goto error;
+	length = sizeof(name);
+	client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);
+	if (client_fd < 0)
+		goto error;
 
 	pw_log_info(NAME": client %p fd:%d", client, client_fd);
+
+	if (server->type == SERVER_TYPE_UNIX) {
+		val = 6;
+		if (setsockopt(client_fd, SOL_SOCKET, SO_PRIORITY,
+					(const void *) &val, sizeof(val)) < 0)
+			pw_log_warn("SO_PRIORITY failed: %m");
+	} else if (server->type == SERVER_TYPE_INET) {
+		val = 1;
+		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY,
+					(const void *) &val, sizeof(val)) < 0)
+	            pw_log_warn("TCP_NODELAY failed: %m");
+
+		val = IPTOS_LOWDELAY;
+		if (setsockopt(client_fd, IPPROTO_IP, IP_TOS,
+					(const void *) &val, sizeof(val)) < 0)
+	            pw_log_warn("IP_TOS failed: %m");
+	}
 
 	client->source = pw_loop_add_io(impl->loop,
 					client_fd,

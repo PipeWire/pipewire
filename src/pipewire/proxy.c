@@ -231,8 +231,6 @@ static inline void remove_from_map(struct pw_proxy *proxy)
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
-	struct spa_hook *h;
-
 	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u ref:%d", proxy,
 			proxy->id, proxy->removed, proxy->zombie, proxy->refcount);
 
@@ -259,8 +257,8 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 		pw_proxy_emit_destroy(proxy);
 	}
 
-	spa_list_consume(h, &proxy->listener_list.list, link)
-		spa_hook_remove(h);
+	spa_hook_list_clean(&proxy->listener_list);
+	spa_hook_list_clean(&proxy->object_listener_list);
 
 	pw_proxy_unref(proxy);
 }

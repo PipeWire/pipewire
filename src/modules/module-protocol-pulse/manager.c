@@ -543,6 +543,13 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 		return NULL;
 
 	m->this.core = core;
+	m->this.registry = pw_core_get_registry(m->this.core,
+			PW_VERSION_REGISTRY, 0);
+	if (m->this.registry == NULL) {
+		free(m);
+		return NULL;
+	}
+
 	spa_hook_list_init(&m->hooks);
 
 	spa_list_init(&m->this.object_list);
@@ -550,8 +557,6 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 	pw_core_add_listener(m->this.core,
 			&m->core_listener,
 			&core_events, m);
-	m->this.registry = pw_core_get_registry(m->this.core,
-			PW_VERSION_REGISTRY, 0);
 	pw_registry_add_listener(m->this.registry,
 			&m->registry_listener,
 			&registry_events, m);
@@ -611,7 +616,7 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	return 0;
 }
 
-void  pw_manager_destroy(struct pw_manager *manager)
+void pw_manager_destroy(struct pw_manager *manager)
 {
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
 	struct object *o;
@@ -621,11 +626,11 @@ void  pw_manager_destroy(struct pw_manager *manager)
 	spa_list_consume(o, &m->this.object_list, this.link)
 		object_destroy(o);
 
+	spa_hook_remove(&m->registry_listener);
+	pw_proxy_destroy((struct pw_proxy*)m->this.registry);
+
 	if (m->this.info)
 		pw_core_info_free(m->this.info);
-	if (m->this.registry) {
-		spa_hook_remove(&m->registry_listener);
-		pw_proxy_destroy((struct pw_proxy*)m->this.registry);
-	}
+
 	free(m);
 }

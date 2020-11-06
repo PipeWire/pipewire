@@ -84,7 +84,7 @@ struct client {
 	struct impl *impl;
 	struct server *server;
 
-        struct spa_source *source;
+	struct spa_source *source;
 
 	uint32_t version;
 
@@ -518,10 +518,24 @@ static void manager_sync(void *data)
 {
 	struct client *client = data;
 
-	if (client->connect_tag) {
+	pw_log_info(NAME" %p: manager sync", client);
+
+	if (client->connect_tag != SPA_ID_INVALID) {
 		reply_set_client_name(client, client->connect_tag);
-		client->connect_tag = 0;
+		client->connect_tag = SPA_ID_INVALID;
 	}
+}
+
+static struct stream *find_stream(struct client *client, uint32_t id)
+{
+	union pw_map_item *item;
+	pw_array_for_each(item, &client->streams.items) {
+		struct stream *s = item->data;
+                if (!pw_map_item_is_free(item) &&
+		    s->id == id)
+			return s;
+	}
+	return NULL;
 }
 
 static uint32_t get_event_and_id(struct client *client, struct pw_manager_object *o, uint32_t *id)
@@ -635,23 +649,11 @@ static const struct pw_manager_events manager_events = {
 	.metadata = manager_metadata,
 };
 
-static struct stream *find_stream(struct client *client, uint32_t id)
-{
-	union pw_map_item *item;
-	pw_array_for_each(item, &client->streams.items) {
-		struct stream *s = item->data;
-                if (!pw_map_item_is_free(item) &&
-		    s->id == id)
-			return s;
-	}
-	return NULL;
-}
-
 static int do_set_client_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
 	const char *name = NULL;
-	int res, changed = 0;
+	int res = 0, changed = 0;
 
 	if (client->version < 13) {
 		if (message_get(m,
@@ -687,12 +689,12 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 		client->connect_tag = tag;
 		pw_manager_add_listener(client->manager, &client->manager_listener,
 				&manager_events, client);
-		res = 0;
 	} else {
 		if (changed)
 			pw_core_update_properties(client->core, &client->props->dict);
 
-		res = reply_set_client_name(client, tag);
+		if (client->connect_tag == SPA_ID_INVALID)
+			res = reply_set_client_name(client, tag);
 	}
 	return res;
 error:
@@ -4222,11 +4224,11 @@ error:
 static void
 on_connect(void *data, int fd, uint32_t mask)
 {
-        struct server *server = data;
-        struct impl *impl = server->impl;
-        struct sockaddr_un name;
-        socklen_t length;
-        int client_fd;
+	struct server *server = data;
+	struct impl *impl = server->impl;
+	struct sockaddr_un name;
+	socklen_t length;
+	int client_fd;
 	struct client *client;
 
 	client = calloc(1, sizeof(struct client));
@@ -4235,6 +4237,7 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	client->impl = impl;
 	client->server = server;
+	client->connect_tag = SPA_ID_INVALID;
 	spa_list_append(&server->clients, &client->link);
 	pw_map_init(&client->streams, 16, 16);
 	spa_list_init(&client->free_messages);

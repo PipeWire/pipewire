@@ -248,7 +248,7 @@ static int flush_messages(struct client *client)
 		size_t size;
 
 		if (spa_list_is_empty(&client->out_messages))
-			return 0;
+			break;
 		m = spa_list_first(&client->out_messages, struct message, link);
 
 		if (client->out_index < sizeof(desc)) {
@@ -273,13 +273,11 @@ static int flush_messages(struct client *client)
 		while (true) {
 			res = send(client->source->fd, data, size, MSG_NOSIGNAL | MSG_DONTWAIT);
 			if (res < 0) {
-				pw_log_info("send channel:%d %zu, res %d: %m", m->channel, size, res);
-				if (errno == EAGAIN || errno == EWOULDBLOCK)
-					break;
 				if (errno == EINTR)
 					continue;
-				else
-					return -errno;
+				if (errno != EAGAIN && errno != EWOULDBLOCK)
+					pw_log_warn("send channel:%d %zu, res %d: %m", m->channel, size, res);
+				return -errno;
 			}
 			client->out_index += res;
 			break;
@@ -4140,12 +4138,11 @@ static int do_read(struct client *client)
 	}
 	while (true) {
 		if ((r = recv(client->source->fd, data, size, MSG_DONTWAIT)) < 0) {
-			pw_log_info("recv client:%p res %d: %m", client, res);
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				goto exit;
 			if (errno == EINTR)
 		                continue;
 			res = -errno;
+			if (errno != EAGAIN && errno != EWOULDBLOCK)
+				pw_log_warn("recv client:%p res %zd: %m", client, r);
 			goto exit;
 		}
 		client->in_index += r;
@@ -4223,8 +4220,14 @@ on_client_data(void *data, int fd, uint32_t mask)
 	}
 	if (mask & SPA_IO_IN) {
 		pw_log_trace(NAME" %p: can read", impl);
-		if ((res = do_read(client)) < 0)
-			goto error;
+		while (true) {
+			res = do_read(client);
+			if (res < 0) {
+				if (res != -EAGAIN)
+					goto error;
+				break;
+			}
+		}
 	}
 	return;
 

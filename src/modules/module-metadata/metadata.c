@@ -123,6 +123,8 @@ static void global_unbind(void *data)
 {
 	struct resource_data *d = data;
 	if (d->resource) {
+	        spa_hook_remove(&d->resource_listener);
+	        spa_hook_remove(&d->object_listener);
 	        spa_hook_remove(&d->metadata_listener);
 	        spa_hook_remove(&d->impl_resource_listener);
 	}

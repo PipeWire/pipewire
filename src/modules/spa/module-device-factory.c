@@ -188,6 +188,7 @@ static void factory_destroy(void *_data)
 	struct factory_data *data = _data;
 	struct device_data *nd;
 
+	spa_hook_remove(&data->factory_listener);
 	spa_hook_remove(&data->module_listener);
 
 	spa_list_consume(nd, &data->device_list, link)

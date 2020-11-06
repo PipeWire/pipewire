@@ -66,11 +66,6 @@ struct impl {
 };
 
 
-struct resource_data {
-	struct spa_hook resource_listener;
-	struct spa_hook object_listener;
-};
-
 struct factory_entry {
 	regex_t regex;
 	char *lib;

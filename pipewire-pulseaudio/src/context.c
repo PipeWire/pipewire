@@ -79,10 +79,12 @@ static void context_unlink(pa_context *c)
 				PA_STREAM_FAILED : PA_STREAM_TERMINATED);
 	}
 	if (c->registry) {
+		spa_hook_remove(&c->core_listener),
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
 		c->registry = NULL;
 	}
 	if (c->core) {
+		spa_hook_remove(&c->core_listener);
 		pw_core_disconnect(c->core);
 		c->core = NULL;
 	}
@@ -1897,10 +1899,12 @@ void pa_context_disconnect(pa_context *c)
 
 	c->disconnect = true;
 	if (c->registry) {
+		spa_hook_remove(&c->registry_listener),
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
 		c->registry = NULL;
 	}
 	if (c->core) {
+		spa_hook_remove(&c->core_listener),
 		pw_core_disconnect(c->core);
 		c->core = NULL;
 	}

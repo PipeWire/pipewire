@@ -190,6 +190,9 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	if (device->registered)
 		spa_list_remove(&device->link);
 
+	if (device->device) {
+		spa_hook_remove(&device->listener);
+	}
 	if (device->global) {
 		spa_hook_remove(&device->global_listener);
 		pw_global_destroy(device->global);
@@ -216,6 +219,8 @@ static void resource_destroy(void *data)
 {
 	struct resource_data *d = data;
 	remove_busy_resource(d);
+	spa_hook_remove(&d->resource_listener);
+	spa_hook_remove(&d->object_listener);
 }
 
 static void resource_pong(void *data, int seq)

@@ -77,6 +77,7 @@ struct node {
 static void node_free(void *data)
 {
 	struct node *n = data;
+	spa_hook_remove(&n->node_listener);
 	pw_properties_free(n->props);
 }
 

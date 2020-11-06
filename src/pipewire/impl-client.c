@@ -44,6 +44,7 @@ struct impl {
 #define pw_client_resource_permissions(r,...)	pw_client_resource(r,permissions,0,__VA_ARGS__)
 
 struct resource_data {
+	struct pw_resource *resource;
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 	struct pw_impl_client *client;
@@ -123,8 +124,7 @@ static int error_resource(void *object, void *data)
 
 static int client_error(void *object, uint32_t id, int res, const char *error)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
 	struct pw_impl_client *client = data->client;
 	struct error_data d = { id, res, error };
 
@@ -208,8 +208,7 @@ static int finish_register(struct pw_impl_client *client)
 
 static int client_update_properties(void *object, const struct spa_dict *props)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
 	struct pw_impl_client *client = data->client;
 	int res = update_properties(client, props, true);
 	finish_register(client);
@@ -218,8 +217,8 @@ static int client_update_properties(void *object, const struct spa_dict *props)
 
 static int client_get_permissions(void *object, uint32_t index, uint32_t num)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_impl_client *client = data->client;
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	size_t len;
@@ -238,8 +237,7 @@ static int client_get_permissions(void *object, uint32_t index, uint32_t num)
 static int client_update_permissions(void *object,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
-	struct pw_resource *resource = object;
-	struct resource_data *data = pw_resource_get_user_data(resource);
+	struct resource_data *data = object;
 	struct pw_impl_client *client = data->client;
 	return pw_impl_client_update_permissions(client, n_permissions, permissions);
 }
@@ -254,7 +252,10 @@ static const struct pw_client_methods client_methods = {
 
 static void client_unbind_func(void *data)
 {
-	struct pw_resource *resource = data;
+	struct resource_data *d = data;
+	struct pw_resource *resource = d->resource;
+	spa_hook_remove(&d->resource_listener);
+	spa_hook_remove(&d->object_listener);
 	if (resource->id == 1)
 		resource->client->client_resource = NULL;
 }
@@ -278,13 +279,14 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 		goto error_resource;
 
 	data = pw_resource_get_user_data(resource);
+	data->resource = resource;
 	data->client = this;
 	pw_resource_add_listener(resource,
 			&data->resource_listener,
-			&resource_events, resource);
+			&resource_events, data);
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
-			&client_methods, resource);
+			&client_methods, data);
 
 	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);
@@ -576,6 +578,8 @@ void pw_impl_client_destroy(struct pw_impl_client *client)
 
 	pw_map_clear(&client->objects);
 	pw_array_clear(&impl->permissions);
+
+	spa_hook_remove(&impl->pool_listener);
 	pw_mempool_destroy(client->pool);
 
 	pw_properties_free(client->properties);

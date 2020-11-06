@@ -1518,6 +1518,7 @@ static void proxy_link_destroy(void *data)
 	struct link *l = data;
 
 	spa_list_remove(&l->link);
+	spa_hook_remove(&l->listener);
 
 	if (l->endpoint_link) {
 		check_endpoint_link(l->endpoint_link);
@@ -2032,12 +2033,19 @@ static void session_shutdown(struct impl *impl)
 
 	sm_media_session_emit_destroy(impl);
 
-	if (impl->registry)
+	if (impl->registry) {
+		spa_hook_remove(&impl->registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)impl->registry);
-	if (impl->policy_core)
+	}
+	if (impl->policy_core) {
+		spa_hook_remove(&impl->policy_listener);
+		spa_hook_remove(&impl->proxy_policy_listener);
 		pw_core_disconnect(impl->policy_core);
-	if (impl->monitor_core)
+	}
+	if (impl->monitor_core) {
+		spa_hook_remove(&impl->monitor_listener);
 		pw_core_disconnect(impl->monitor_core);
+	}
 	if (impl->this.info)
 		pw_core_info_free(impl->this.info);
 }

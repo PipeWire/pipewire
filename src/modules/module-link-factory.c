@@ -104,6 +104,7 @@ static void link_destroy(void *data)
 {
 	struct link_data *ld = data;
 	spa_list_remove(&ld->l);
+	spa_hook_remove(&ld->link_listener);
 	if (ld->global)
 		spa_hook_remove(&ld->global_listener);
 	if (ld->resource)

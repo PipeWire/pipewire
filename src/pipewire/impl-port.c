@@ -51,6 +51,7 @@ struct resource_data {
 	struct pw_impl_port *port;
 	struct pw_resource *resource;
 
+	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 
 	uint32_t subscribe_ids[MAX_PARAMS];
@@ -731,6 +732,18 @@ static const struct pw_port_methods port_methods = {
 	.enum_params = port_enum_params
 };
 
+static void resource_destroy(void *data)
+{
+	struct resource_data *d = data;
+	spa_hook_remove(&d->resource_listener);
+	spa_hook_remove(&d->object_listener);
+}
+
+static const struct pw_resource_events resource_events = {
+	PW_VERSION_RESOURCE_EVENTS,
+	.destroy = resource_destroy,
+};
+
 static int
 global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
@@ -751,6 +764,9 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	data->port = this;
 	data->resource = resource;
 
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, data);
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
 			&port_methods, data);

@@ -35,6 +35,7 @@
 #define NAME "impl-core"
 
 struct resource_data {
+	struct pw_resource *resource;
 	struct spa_hook resource_listener;
 	struct spa_hook object_listener;
 };
@@ -129,8 +130,11 @@ static const struct pw_registry_methods registry_methods = {
 
 static void destroy_registry_resource(void *object)
 {
-	struct pw_resource *resource = object;
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	spa_list_remove(&resource->link);
+	spa_hook_remove(&data->resource_listener);
+	spa_hook_remove(&data->object_listener);
 }
 
 static const struct pw_resource_events resource_events = {
@@ -213,7 +217,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	return 0;
 }
 
-static struct pw_registry * core_get_registry(void *object, uint32_t version, size_t user_data_size)
+static struct pw_registry *core_get_registry(void *object, uint32_t version, size_t user_data_size)
 {
 	struct pw_resource *resource = object;
 	struct pw_impl_client *client = resource->client;
@@ -236,14 +240,15 @@ static struct pw_registry * core_get_registry(void *object, uint32_t version, si
 	}
 
 	data = pw_resource_get_user_data(registry_resource);
+	data->resource = registry_resource;
 	pw_resource_add_listener(registry_resource,
 				&data->resource_listener,
 				&resource_events,
-				registry_resource);
+				data);
 	pw_resource_add_object_listener(registry_resource,
 				&data->object_listener,
 				&registry_methods,
-				registry_resource);
+				resource);
 
 	spa_list_append(&context->registry_resource_list, &registry_resource->link);
 
@@ -446,7 +451,10 @@ void pw_impl_core_destroy(struct pw_impl_core *core)
 
 static void core_unbind_func(void *data)
 {
-	struct pw_resource *resource = data;
+	struct resource_data *d = data;
+	struct pw_resource *resource = d->resource;
+	spa_hook_remove(&d->resource_listener);
+	spa_hook_remove(&d->object_listener);
 	if (resource->id == 0)
 		resource->client->core_resource = NULL;
 }
@@ -476,11 +484,11 @@ global_bind(void *_data,
 	}
 
 	data = pw_resource_get_user_data(resource);
+	data->resource = resource;
 
 	pw_resource_add_listener(resource,
 			&data->resource_listener,
-			&core_resource_events,
-			resource);
+			&core_resource_events, data);
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
 			&core_methods, resource);

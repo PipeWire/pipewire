@@ -250,6 +250,9 @@ static void proxy_core_destroy(void *data)
 
 	pw_log_debug(NAME" %p: free", core);
 	pw_properties_free(core->properties);
+
+	spa_hook_remove(&core->core_listener);
+	spa_hook_remove(&core->proxy_core_listener);
 }
 
 static const struct pw_proxy_events proxy_core_events = {

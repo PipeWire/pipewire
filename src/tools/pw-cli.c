@@ -432,6 +432,10 @@ static void on_core_destroy(void *_data)
 
 	spa_list_remove(&rd->link);
 
+	spa_hook_remove(&rd->core_listener);
+	spa_hook_remove(&rd->registry_listener);
+	spa_hook_remove(&rd->proxy_core_listener);
+
 	pw_map_remove(&data->vars, rd->id);
 	pw_map_for_each(&rd->globals, destroy_global, rd);
 	pw_map_clear(&rd->globals);
@@ -1110,6 +1114,9 @@ static void
 destroy_proxy (void *data)
 {
 	struct proxy_data *pd = data;
+
+	spa_hook_remove(&pd->proxy_listener);
+	spa_hook_remove(&pd->object_listener);
 
 	if (pd->info == NULL)
 		return;

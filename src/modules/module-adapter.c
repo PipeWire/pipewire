@@ -91,6 +91,7 @@ static void node_destroy(void *data)
 	struct node_data *nd = data;
 	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
 	spa_list_remove(&nd->link);
+	spa_hook_remove(&nd->adapter_listener);
 	nd->adapter = NULL;
 }
 

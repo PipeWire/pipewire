@@ -509,6 +509,8 @@ static void resource_destroy(void *data)
 {
 	struct resource_data *d = data;
 	remove_busy_resource(d);
+	spa_hook_remove(&d->resource_listener);
+	spa_hook_remove(&d->object_listener);
 }
 
 static void resource_pong(void *data, int seq)

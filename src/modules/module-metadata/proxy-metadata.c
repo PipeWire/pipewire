@@ -43,7 +43,9 @@ struct object_data {
 static void proxy_object_destroy(void *_data)
 {
 	struct object_data *data = _data;
+	spa_hook_remove(&data->proxy_listener);
 	spa_hook_remove(&data->object_listener);
+	spa_hook_remove(&data->object_methods);
 }
 
 static const struct pw_proxy_events proxy_events = {

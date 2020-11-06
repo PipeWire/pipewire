@@ -315,6 +315,8 @@ static void client_free(void *data)
 	pw_log_debug(NAME" %p: free", this);
 	spa_list_remove(&this->protocol_link);
 
+	spa_hook_remove(&this->client_listener);
+
 	if (this->source)
 		pw_loop_destroy_source(client->context->main_loop, this->source);
 	if (this->connection)
@@ -328,6 +330,12 @@ static const struct pw_impl_client_events client_events = {
 	.free = client_free,
 	.busy_changed = client_busy_changed,
 };
+
+static void on_server_connection_destroy(void *data)
+{
+	struct client_data *this = data;
+	spa_hook_remove(&this->conn_listener);
+}
 
 static void on_start(void *data, uint32_t version)
 {
@@ -351,6 +359,7 @@ static void on_start(void *data, uint32_t version)
 
 static const struct pw_protocol_native_connection_events server_conn_events = {
 	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
+	.destroy = on_server_connection_destroy,
 	.start = on_start,
 };
 
@@ -772,6 +781,12 @@ error:
 	goto done;
 }
 
+static void on_client_connection_destroy(void *data)
+{
+	struct client *impl = data;
+	spa_hook_remove(&impl->conn_listener);
+}
+
 static void on_need_flush(void *data)
 {
         struct client *impl = data;
@@ -787,6 +802,7 @@ static void on_need_flush(void *data)
 
 static const struct pw_protocol_native_connection_events client_conn_events = {
 	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
+	.destroy = on_client_connection_destroy,
 	.need_flush = on_need_flush,
 };
 

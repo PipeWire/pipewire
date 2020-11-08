@@ -93,10 +93,16 @@ static inline int res_to_err(int res)
 	case -ECONNREFUSED: return ERR_CONNECTIONREFUSED;
 	case -EPROTO: return ERR_PROTOCOL;
 	case -ETIMEDOUT: return ERR_TIMEOUT;
+#ifdef ENOKEY
 	case -ENOKEY: return ERR_AUTHKEY;
+#endif
 	case -ECONNRESET: return ERR_CONNECTIONTERMINATED;
+#ifdef EBADFD
 	case -EBADFD: return ERR_BADSTATE;
+#endif
+#ifdef ENODATA
 	case -ENODATA: return ERR_NODATA;
+#endif
 	case -EOVERFLOW: return ERR_TOOLARGE;
 	case -ENOTSUP: return ERR_NOTSUPPORTED;
 	case -ENOSYS: return ERR_NOTIMPLEMENTED;

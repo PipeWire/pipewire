@@ -4264,9 +4264,11 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	if (server->type == SERVER_TYPE_UNIX) {
 		val = 6;
+#ifdef SO_PRIORITY
 		if (setsockopt(client_fd, SOL_SOCKET, SO_PRIORITY,
 					(const void *) &val, sizeof(val)) < 0)
 			pw_log_warn("SO_PRIORITY failed: %m");
+#endif
 	} else if (server->type == SERVER_TYPE_INET) {
 		val = 1;
 		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY,

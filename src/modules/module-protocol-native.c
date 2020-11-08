@@ -36,6 +36,9 @@
 #if HAVE_PWD_H
 #include <pwd.h>
 #endif
+#if defined(__FreeBSD__)
+#include <sys/ucred.h>
+#endif
 
 #include <spa/pod/iter.h>
 #include <spa/utils/result.h>
@@ -370,6 +373,9 @@ static struct client_data *client_new(struct server *s, int fd)
 	struct pw_protocol *protocol = s->this.protocol;
 	socklen_t len;
 	struct ucred ucred;
+#if defined(__FreeBSD__)
+	struct xucred xucred;
+#endif
 	struct pw_context *context = protocol->context;
 	struct pw_properties *props;
 	char buffer[1024];
@@ -380,7 +386,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	if (props == NULL)
 		goto exit;
 
-#ifndef __FreeBSD__
+#if defined(__linux__)
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
 		pw_log_warn("server %p: no peercred: %m", s);
@@ -397,6 +403,17 @@ static struct client_data *client_new(struct server *s, int fd)
 		/* buffer is not null terminated, must use length explicitly */
 		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%.*s",
 				(int)len, buffer);
+	}
+#elif defined(__FreeBSD__)
+	len = sizeof(xucred);
+	if (getsockopt(fd, 0, LOCAL_PEERCRED, &xucred, &len) < 0) {
+		pw_log_warn("server %p: no peercred: %m", s);
+	} else {
+#if __FreeBSD__ >= 13
+		pw_properties_setf(props, PW_KEY_SEC_PID, "%d", xucred.cr_pid);
+#endif
+		pw_properties_setf(props, PW_KEY_SEC_UID, "%d", xucred.cr_uid);
+		pw_properties_setf(props, PW_KEY_SEC_GID, "%d", xucred.cr_gid);
 	}
 #endif
 

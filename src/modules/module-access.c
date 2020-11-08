@@ -189,6 +189,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	    (access = pw_properties_get(impl->properties, "access.force")) != NULL)
 		goto wait_permissions;
 
+#if defined(__linux__)
 	res = check_flatpak(client, pid);
 	if (res != 0) {
 		if (res < 0) {
@@ -205,6 +206,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 		access = "flatpak";
 		goto wait_permissions;
 	}
+#endif
 	access = "unrestricted";
 
 granted:

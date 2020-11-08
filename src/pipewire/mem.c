@@ -43,11 +43,7 @@
 
 #define NAME "mempool"
 
-#ifndef __FreeBSD__
-#define USE_MEMFD
-#endif
-
-#if defined(USE_MEMFD) && !defined(HAVE_MEMFD_CREATE)
+#if !defined(__FreeBSD__) && !defined(HAVE_MEMFD_CREATE)
 /*
  * No glibc wrappers exist for memfd_create(2), so provide our own.
  *
@@ -60,6 +56,8 @@ static inline int memfd_create(const char *name, unsigned int flags)
 {
 	return syscall(SYS_memfd_create, name, flags);
 }
+
+#define HAVE_MEMFD_CREATE 1
 #endif
 
 /* memfd_create(2) flags */
@@ -478,11 +476,18 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	spa_list_init(&b->mappings);
 	spa_list_init(&b->memmaps);
 
-#ifdef USE_MEMFD
+#ifdef HAVE_MEMFD_CREATE
 	b->this.fd = memfd_create("pipewire-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 	if (b->this.fd == -1) {
 		res = -errno;
 		pw_log_error(NAME" %p: Failed to create memfd: %m", pool);
+		goto error_free;
+	}
+#elif defined(__FreeBSD__)
+	b->this.fd = shm_open(SHM_ANON, O_CREAT | O_RDWR | O_CLOEXEC, 0);
+	if (b->this.fd == -1) {
+		res = -errno;
+		pw_log_error(NAME" %p: Failed to create SHM_ANON fd: %m", pool);
 		goto error_free;
 	}
 #else
@@ -501,7 +506,7 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 		pw_log_warn(NAME" %p: Failed to truncate temporary file: %m", pool);
 		goto error_close;
 	}
-#ifdef USE_MEMFD
+#ifdef HAVE_MEMFD_CREATE
 	if (flags & PW_MEMBLOCK_FLAG_SEAL) {
 		unsigned int seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
 		if (fcntl(b->this.fd, F_ADD_SEALS, seals) == -1) {

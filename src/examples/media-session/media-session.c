@@ -1793,6 +1793,10 @@ static int state_dir(struct sm_media_session *sess)
 				"%s/.config/pipewire-media-session/", home_dir);
 	}
 
+#ifndef O_PATH
+#define O_PATH 0
+#endif
+
 	if ((res = open(impl->state_dir, O_CLOEXEC | O_DIRECTORY | O_PATH)) < 0) {
 		if (errno == ENOENT) {
 			pw_log_info("creating state directory %s", impl->state_dir);

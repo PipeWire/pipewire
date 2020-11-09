@@ -140,8 +140,9 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 
 	if (dbus_error_is_set(&error)) {
 		impl->portal_pid = 0;
-	}
-	else {
+		pw_log_warn("Could not get portal pid: %s", error.message);
+		dbus_error_free(&error);
+	} else {
 		pw_log_info("Got portal pid %d", portal_pid);
 		impl->portal_pid = portal_pid;
 		impl->first = true;

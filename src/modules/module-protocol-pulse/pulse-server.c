@@ -747,6 +747,8 @@ static void stream_free(struct stream *stream)
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 
+	pw_log_debug(NAME" %p: stream %p channel:%d", impl, stream, stream->channel);
+
 	/* force processing of all pending messages before we destroy
 	 * the stream */
 	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);
@@ -1600,6 +1602,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	props = NULL;
 	if (stream->stream == NULL)
 		goto error_errno;
+
+	pw_log_debug(NAME" %p: new stream %p channel:%d", impl, stream, stream->channel);
 
 	pw_stream_add_listener(stream->stream,
 			&stream->stream_listener,

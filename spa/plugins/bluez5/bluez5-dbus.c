@@ -165,6 +165,16 @@ static struct spa_bt_adapter *adapter_find(struct spa_bt_monitor *monitor, const
 	return NULL;
 }
 
+static bool check_iter_signature(DBusMessageIter *it, const char *sig)
+{
+	char *v;
+	int res;
+	v = dbus_message_iter_get_signature(it);
+	res = strcmp(v, sig);
+	dbus_free(v);
+	return res == 0;
+}
+
 static int adapter_update_props(struct spa_bt_adapter *adapter,
 				DBusMessageIter *props_iter,
 				DBusMessageIter *invalidated_iter)
@@ -228,7 +238,7 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 		else if (strcmp(key, "UUIDs") == 0) {
 			DBusMessageIter iter;
 
-			if (strcmp(dbus_message_iter_get_signature(&it[1]), "as") != 0)
+			if (!check_iter_signature(&it[1], "as"))
 				goto next;
 
 			dbus_message_iter_recurse(&it[1], &iter);
@@ -612,7 +622,7 @@ static int device_update_props(struct spa_bt_device *device,
 		else if (strcmp(key, "UUIDs") == 0) {
 			DBusMessageIter iter;
 
-			if (strcmp(dbus_message_iter_get_signature(&it[1]), "as") != 0)
+			if (!check_iter_signature(&it[1], "as"))
 				goto next;
 
 			dbus_message_iter_recurse(&it[1], &iter);
@@ -777,7 +787,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			char *value;
 			int len;
 
-			if (strcmp(dbus_message_iter_get_signature(&it[1]), "ay") != 0)
+			if (!check_iter_signature(&it[1], "ay"))
 				goto next;
 
 			dbus_message_iter_recurse(&it[1], &iter);

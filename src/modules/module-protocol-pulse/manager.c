@@ -133,7 +133,6 @@ static void object_destroy(struct object *o)
 		spa_hook_remove(&o->proxy_listener);
 		pw_proxy_destroy(o->this.proxy);
 	}
-	free(o->this.type);
 	if (o->this.props)
 		pw_properties_free(o->this.props);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);
@@ -460,7 +459,7 @@ static void registry_event_global(void *data, uint32_t id,
 	}
 	o->this.id = id;
 	o->this.permissions = permissions;
-	o->this.type = strdup(type);
+	o->this.type = info->type;
 	o->this.version = version;
 	o->this.props = props ? pw_properties_new_dict(props) : NULL;
 	o->this.proxy = proxy;

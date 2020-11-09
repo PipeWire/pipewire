@@ -74,7 +74,7 @@ struct pw_manager_object {
 	struct spa_list link;           /**< link in manager object_list */
 	uint32_t id;
 	uint32_t permissions;
-	char *type;
+	const char *type;
 	uint32_t version;
 	struct pw_properties *props;
 	struct pw_proxy *proxy;

@@ -56,7 +56,7 @@ pw_strip(char *str, const char *whitespace);
 
 #if defined(HAVE_STRNDUPA)
 #include <string.h>
-#else
+#elif !defined(strndupa)
 # define strndupa(s, n)								      \
 	({									      \
 		const char *__old = (s);					      \

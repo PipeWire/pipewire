@@ -50,7 +50,7 @@ struct impl {
 	void *user_data;
 };
 
-static void device_destroy(void *data)
+static void device_free(void *data)
 {
 	struct impl *impl = data;
 	struct pw_impl_device *device = impl->this;
@@ -64,7 +64,7 @@ static void device_destroy(void *data)
 
 static const struct pw_impl_device_events device_events = {
 	PW_VERSION_IMPL_DEVICE_EVENTS,
-	.destroy = device_destroy,
+	.free = device_free,
 };
 
 struct pw_impl_device *

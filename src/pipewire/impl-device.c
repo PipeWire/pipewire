@@ -190,9 +190,9 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	if (device->registered)
 		spa_list_remove(&device->link);
 
-	if (device->device) {
+	if (device->device)
 		spa_hook_remove(&device->listener);
-	}
+
 	if (device->global) {
 		spa_hook_remove(&device->global_listener);
 		pw_global_destroy(device->global);

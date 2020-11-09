@@ -44,9 +44,8 @@ struct impl {
 
 	enum pw_spa_node_flags flags;
 
-        struct spa_handle *handle;
-        struct spa_node *node;          /**< handle to SPA node */
-	char *factory_name;
+	struct spa_handle *handle;
+	struct spa_node *node;          /**< handle to SPA node */
 
 	struct spa_hook node_listener;
 	int init_pending;
@@ -66,7 +65,6 @@ static void spa_node_free(void *data)
 	spa_hook_remove(&impl->node_listener);
 	if (impl->handle)
 		pw_unload_spa_handle(impl->handle);
-	free(impl->factory_name);
 }
 
 static void complete_init(struct impl *impl)
@@ -242,7 +240,6 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 				 size_t user_data_size)
 {
 	struct pw_impl_node *this;
-	struct impl *impl;
 	struct spa_node *spa_node;
 	int res;
 	struct spa_handle *handle;
@@ -278,9 +275,6 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 		properties = NULL;
 		goto error_exit_unload;
 	}
-
-	impl = pw_impl_node_get_user_data(this);
-	impl->factory_name = strdup(factory_name);
 
 	return this;
 

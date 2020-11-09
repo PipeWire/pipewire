@@ -127,12 +127,8 @@ static void object_destroy(struct object *o)
 	struct manager *m = o->manager;
 	spa_list_remove(&o->this.link);
 	m->this.n_objects--;
-	if (o->this.proxy) {
-		if (o->info->events)
-			spa_hook_remove(&o->object_listener);
-		spa_hook_remove(&o->proxy_listener);
+	if (o->this.proxy)
 		pw_proxy_destroy(o->this.proxy);
-	}
 	if (o->this.props)
 		pw_properties_free(o->this.props);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);
@@ -420,6 +416,10 @@ static void
 destroy_proxy(void *data)
 {
 	struct object *o = data;
+
+	if (o->info->events)
+		spa_hook_remove(&o->object_listener);
+	spa_hook_remove(&o->proxy_listener);
 
 	if (o->info && o->info->destroy)
                 o->info->destroy(o);

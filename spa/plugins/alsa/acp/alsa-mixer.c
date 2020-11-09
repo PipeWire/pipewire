@@ -3760,6 +3760,9 @@ static void mapping_free(pa_alsa_mapping *m) {
     if (m->output_path_set)
         pa_alsa_path_set_free(m->output_path_set);
 
+    pa_proplist_free(m->input_proplist);
+    pa_proplist_free(m->output_proplist);
+
     pa_assert(!m->input_pcm);
     pa_assert(!m->output_pcm);
 

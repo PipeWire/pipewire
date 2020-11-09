@@ -108,6 +108,7 @@ void pa_device_port_new_data_set_type(pa_device_port_new_data *data, pa_device_p
 void pa_device_port_new_data_done(pa_device_port_new_data *data);
 
 pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, size_t extra);
+void pa_device_port_free(pa_device_port *port);
 
 void pa_device_port_set_available(pa_device_port *p, pa_available_t status);
 

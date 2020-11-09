@@ -67,9 +67,9 @@ static inline pa_hashmap *pa_hashmap_new_full(pa_hash_func_t hash_func, pa_compa
 
 static inline void pa_hashmap_item_free(pa_hashmap *h, pa_hashmap_item *item)
 {
-	if (h->key_free_func)
+	if (h->key_free_func && item->key)
 		h->key_free_func(item->key);
-	if (h->value_free_func)
+	if (h->value_free_func && item->value)
 		h->value_free_func(item->value);
 }
 

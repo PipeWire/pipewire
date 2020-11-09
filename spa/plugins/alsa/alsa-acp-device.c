@@ -835,6 +835,10 @@ static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
 	remove_sources(this);
+	if (this->card) {
+		acp_card_destroy(this->card);
+		this->card = NULL;
+	}
 	return 0;
 }
 

@@ -56,12 +56,20 @@ const char *acp_direction_str(enum acp_direction direction)
 	return "error";
 }
 
-static void profile_free(void *data)
-{
-}
-
 static void port_free(void *data)
 {
+	pa_device_port *dp = data;
+	pa_dynarray_clear(&dp->devices);
+	pa_dynarray_clear(&dp->prof);
+	pa_device_port_free(dp);
+}
+
+static void device_free(void *data)
+{
+	pa_alsa_device *dev = data;
+	pa_dynarray_clear(&dev->port_array);
+	pa_proplist_free(dev->proplist);
+	pa_hashmap_free(dev->ports);
 }
 
 static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t direction,
@@ -101,13 +109,11 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	pa_proplist_setf(dev->proplist, "card.profile.device", "%u", index);
 	pa_proplist_as_dict(dev->proplist, &dev->device.props);
 
-	dev->ports = pa_hashmap_new_full(pa_idxset_string_hash_func,
-			pa_idxset_string_compare_func, NULL,
-			(pa_free_cb_t) port_free);
+	dev->ports = pa_hashmap_new(pa_idxset_string_hash_func,
+			pa_idxset_string_compare_func);
 	if (m->ucm_context.ucm)
 		dev->ucm_context = &m->ucm_context;
 	pa_dynarray_init(&dev->port_array, NULL);
-
 }
 
 static int compare_profile(const void *a, const void *b)
@@ -124,6 +130,17 @@ static int compare_profile(const void *a, const void *b)
 	return p2->profile.priority - p1->profile.priority;
 }
 
+static void profile_free(void *data)
+{
+	pa_alsa_profile *ap = data;
+	pa_dynarray_clear(&ap->out.devices);
+	if (ap->profile.flags & ACP_PROFILE_OFF) {
+		free(ap->name);
+		free(ap->description);
+		free(ap);
+	}
+}
+
 static void add_profiles(pa_card *impl)
 {
 	pa_alsa_profile *ap;
@@ -135,7 +152,7 @@ static void add_profiles(pa_card *impl)
 	uint32_t idx;
 
 	n_devices = 0;
-	pa_dynarray_init(&impl->out.devices, NULL);
+	pa_dynarray_init(&impl->out.devices, device_free);
 
 	ap = pa_xnew0(pa_alsa_profile, 1);
 	ap->profile.name = ap->name = pa_xstrdup("off");
@@ -1248,6 +1265,21 @@ void acp_card_add_listener(struct acp_card *card,
 void acp_card_destroy(struct acp_card *card)
 {
 	pa_card *impl = (pa_card *)card;
+	if (impl->profiles)
+		pa_hashmap_free(impl->profiles);
+	if (impl->ports)
+		pa_hashmap_free(impl->ports);
+	pa_dynarray_clear(&impl->out.devices);
+	pa_dynarray_clear(&impl->out.profiles);
+	pa_dynarray_clear(&impl->out.ports);
+	if (impl->ucm.mixers)
+		pa_hashmap_free(impl->ucm.mixers);
+	if (impl->jacks)
+		pa_hashmap_free(impl->jacks);
+	if (impl->profile_set)
+		pa_alsa_profile_set_free(impl->profile_set);
+	pa_alsa_ucm_free(&impl->ucm);
+	pa_proplist_free(impl->proplist);
 	pa_alsa_refcnt_dec();
 	free(impl);
 }

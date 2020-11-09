@@ -704,6 +704,10 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct state *this;
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	this = (struct state *) handle;
+	spa_alsa_close(this);
 	return 0;
 }
 

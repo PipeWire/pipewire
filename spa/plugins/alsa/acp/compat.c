@@ -146,6 +146,16 @@ pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, si
 	return p;
 }
 
+void pa_device_port_free(pa_device_port *port)
+{
+	pa_xfree(port->name);
+	pa_xfree(port->description);
+	pa_xfree(port->availability_group);
+	pa_hashmap_free(port->profiles);
+	pa_proplist_free(port->proplist);
+	free(port);
+}
+
 void pa_device_port_set_available(pa_device_port *p, pa_available_t status)
 {
 	pa_available_t old = p->available;

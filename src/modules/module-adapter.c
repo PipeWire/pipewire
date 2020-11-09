@@ -91,7 +91,6 @@ static void node_destroy(void *data)
 	struct node_data *nd = data;
 	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
 	spa_list_remove(&nd->link);
-	spa_hook_remove(&nd->adapter_listener);
 	nd->adapter = NULL;
 }
 
@@ -99,6 +98,7 @@ static void node_free(void *data)
 {
 	struct node_data *nd = data;
 	pw_log_debug(NAME" %p: free %p", nd, nd->follower);
+	spa_hook_remove(&nd->adapter_listener);
 	pw_impl_node_destroy(nd->follower);
 }
 

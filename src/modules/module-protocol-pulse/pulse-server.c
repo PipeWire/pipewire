@@ -1229,19 +1229,20 @@ do_process_done(struct spa_loop *loop,
 
 		send_command_request(stream);
 	} else {
+		struct message *msg;
 		stream->write_index = pd->write_index;
 		avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 		if (avail <= 0) {
-			/* underrun */
-			if (!stream->is_underrun) {
-				stream->is_underrun = true;
-				send_underflow(stream, index);
-			}
-		} else if (avail > (int32_t)stream->attr.maxlength) {
-			/* overrun */
-			send_overflow(stream);
+			/* underrun, can't really happen but if it does we
+			 * do nothing and wait for more data */
+			pw_log_warn(NAME" %p: underrun", stream);
 		} else {
-			struct message *msg;
+			if (avail > (int32_t)stream->attr.maxlength) {
+				/* overrun, catch up to latest fragment and send it */
+				pw_log_warn(NAME" %p: overrun", stream);
+				avail = stream->attr.fragsize;
+				index = stream->write_index - avail;
+			}
 
 			msg = message_alloc(client, stream->channel, avail);
 			if (msg == NULL)
@@ -1254,8 +1255,6 @@ do_process_done(struct spa_loop *loop,
 
 			stream->read_index = index + avail;
 			spa_ringbuffer_read_update(&stream->ring, stream->read_index);
-
-			stream->is_underrun = false;
 
 			send_message(client, msg);
 		}
@@ -1289,7 +1288,7 @@ static void stream_process(void *data)
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
 		if (avail <= 0) {
-			/* underrun */
+			/* underrun, produce a silence buffer */
 			size = buf->datas[0].maxsize;
 			memset(p, 0, size);
 
@@ -1299,12 +1298,14 @@ static void stream_process(void *data)
 				pd.underrun_for = size;
 				pd.underrun = true;
 			}
-		} else if (avail > (int32_t)stream->attr.maxlength) {
-			/* overrun, handled by other side */
-			pw_log_warn(NAME" %p: overrun", stream);
-			size = buf->datas[0].maxsize;
-			memset(p, 0, size);
 		} else {
+			if (avail > (int32_t)stream->attr.maxlength) {
+				/* overrun, reported by other side, here we skip
+				 * ahead to the oldest data. */
+				pw_log_warn(NAME" %p: overrun", stream);
+				pd.read_index += avail - stream->attr.maxlength;
+				avail = stream->attr.maxlength;
+			}
 			size = SPA_MIN(buf->datas[0].maxsize, (uint32_t)avail);
 
 			spa_ringbuffer_read_data(&stream->ring,
@@ -1324,26 +1325,25 @@ static void stream_process(void *data)
 	        buffer->size = size / stream->frame_size;
 	} else  {
 		int32_t filled = spa_ringbuffer_get_write_index(&stream->ring, &pd.write_index);
+		size = buf->datas[0].chunk->size;
 		if (filled < 0) {
-			/* underrun */
+			/* underrun, can't really happen because we never read more
+			 * than what's available on the other side  */
 			pw_log_warn(NAME" %p: underrun", stream);
-		} else if (filled > (int32_t)stream->attr.maxlength) {
-			/* overrun */
+		} else if ((uint32_t)filled + size > stream->attr.maxlength) {
+			/* overrun, can happen when the other side is not
+			 * reading fast enough. We still write our data into the
+			 * ringbuffer and expect the other side to catch up. */
 			pw_log_warn(NAME" %p: overrun", stream);
-		} else {
-			uint32_t avail = stream->attr.maxlength - filled;
-			size = SPA_MIN(buf->datas[0].chunk->size, avail);
-
-			spa_ringbuffer_write_data(&stream->ring,
-					stream->buffer, stream->attr.maxlength,
-					pd.write_index % stream->attr.maxlength,
-					SPA_MEMBER(p, buf->datas[0].chunk->offset, void),
-					size);
-
-			pd.write_index += size;
-			spa_ringbuffer_write_update(&stream->ring,
-					pd.write_index);
 		}
+		spa_ringbuffer_write_data(&stream->ring,
+				stream->buffer, stream->attr.maxlength,
+				pd.write_index % stream->attr.maxlength,
+				SPA_MEMBER(p, buf->datas[0].chunk->offset, void),
+				size);
+
+		pd.write_index += size;
+		spa_ringbuffer_write_update(&stream->ring, pd.write_index);
 	}
 	pw_stream_queue_buffer(stream->stream, buffer);
 
@@ -4083,13 +4083,13 @@ static int handle_memblock(struct client *client, struct message *msg)
 	} else if (filled + msg->length > stream->attr.maxlength) {
 		/* overrun */
 		send_overflow(stream);
-	} else {
-		spa_ringbuffer_write_data(&stream->ring,
-				stream->buffer, stream->attr.maxlength,
-				index % stream->attr.maxlength,
-				msg->data, msg->length);
-
 	}
+	/* always write data to ringbuffer, we expect the other side
+	 * to recover */
+	spa_ringbuffer_write_data(&stream->ring,
+			stream->buffer, stream->attr.maxlength,
+			index % stream->attr.maxlength,
+			msg->data, msg->length);
 	stream->write_index = index + msg->length;
 	spa_ringbuffer_write_update(&stream->ring, stream->write_index);
 	stream->requested -= msg->length;

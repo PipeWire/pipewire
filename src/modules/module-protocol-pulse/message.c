@@ -249,6 +249,7 @@ static int read_format_info(struct message *m, struct format_info *info)
 	int res;
 	uint8_t tag, encoding;
 
+	spa_zero(*info);
 	if ((res = read_u8(m, &tag)) < 0)
 		return res;
 	if (tag != TAG_U8)
@@ -265,7 +266,9 @@ static int read_format_info(struct message *m, struct format_info *info)
 	info->props = pw_properties_new(NULL, NULL);
 	if (info->props == NULL)
 		return -errno;
-	return read_props(m, info->props);
+	if ((res = read_props(m, info->props)) < 0)
+		format_info_clear(info);
+	return res;
 }
 
 static int message_get(struct message *m, ...)

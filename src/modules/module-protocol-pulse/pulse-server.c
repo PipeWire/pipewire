@@ -1542,6 +1542,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			uint8_t i;
 			for (i = 0; i < n_formats; i++) {
 				struct format_info format;
+
 				if ((res = message_get(m,
 						TAG_FORMAT_INFO, &format,
 						TAG_INVALID)) < 0)
@@ -1550,6 +1551,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				if ((params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format)) != NULL)
 					n_params++;
+
+				format_info_clear(&format);
 			}
 		}
 	}
@@ -1746,6 +1749,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			uint8_t i;
 			for (i = 0; i < n_formats; i++) {
 				struct format_info format;
+
 				if ((res = message_get(m,
 						TAG_FORMAT_INFO, &format,
 						TAG_INVALID)) < 0)
@@ -1754,6 +1758,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				if ((params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format)) != NULL)
 					n_params++;
+
+				format_info_clear(&format);
 			}
 		}
 		if ((res = message_get(m,

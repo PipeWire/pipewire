@@ -327,6 +327,13 @@ struct format_info {
 	struct pw_properties *props;
 };
 
+static void format_info_clear(struct format_info *info)
+{
+	if (info->props)
+		pw_properties_free(info->props);
+	spa_zero(*info);
+}
+
 static int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
 {
 	struct spa_audio_info info = { 0 };

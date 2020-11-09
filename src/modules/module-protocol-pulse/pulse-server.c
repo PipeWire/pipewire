@@ -745,6 +745,12 @@ static void stream_flush(struct stream *stream)
 static void stream_free(struct stream *stream)
 {
 	struct client *client = stream->client;
+	struct impl *impl = client->impl;
+
+	/* force processing of all pending messages before we destroy
+	 * the stream */
+	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);
+
 	if (stream->channel != SPA_ID_INVALID)
 		pw_map_remove(&client->streams, stream->channel);
 	stream_flush(stream);
@@ -865,6 +871,8 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		attr->prebuf = max_prebuf;
 	attr->prebuf -= attr->prebuf % frame_size;
 
+	attr->fragsize = 0;
+
 	pw_log_info(NAME" %p: maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
 			attr->maxlength, attr->tlength, attr->minreq, attr->prebuf);
 }
@@ -978,6 +986,8 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 
 	if (attr->fragsize > attr->maxlength)
 		attr->fragsize = attr->maxlength;
+
+	attr->tlength = attr->minreq = attr->prebuf = 0;
 
 	pw_log_info(NAME" %p: maxlength:%u fragsize:%u minfrag:%u", s,
 			attr->maxlength, attr->fragsize, minfrag);

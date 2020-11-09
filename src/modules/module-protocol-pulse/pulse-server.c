@@ -1782,12 +1782,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (stream->channel == SPA_ID_INVALID)
 		goto error_errno;
 
-	stream->buffer = calloc(1, stream->attr.maxlength);
-	if (stream->buffer == NULL)
-		goto error_errno;
-
-	spa_ringbuffer_init(&stream->ring);
-
 	stream->create_tag = tag;
 	stream->ss = ss;
 	stream->map = map;

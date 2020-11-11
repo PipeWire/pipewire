@@ -135,6 +135,12 @@ static void object_destroy(struct object *o)
 	free(o);
 }
 
+/* core */
+static const struct object_info core_info = {
+	.type = PW_TYPE_INTERFACE_Core,
+	.version = PW_VERSION_CORE,
+};
+
 /* client */
 static void client_event_info(void *object, const struct pw_client_info *info)
 {
@@ -386,6 +392,7 @@ static const struct object_info metadata_info = {
 
 static const struct object_info *objects[] =
 {
+	&core_info,
 	&module_info,
 	&client_info,
 	&device_info,

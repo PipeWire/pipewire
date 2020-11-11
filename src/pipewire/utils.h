@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#include "config.h"
+#include <string.h>
 
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
@@ -54,9 +54,7 @@ pw_free_strv(char **str);
 char *
 pw_strip(char *str, const char *whitespace);
 
-#if defined(HAVE_STRNDUPA)
-#include <string.h>
-#elif !defined(strndupa)
+#if !defined(strndupa)
 # define strndupa(s, n)								      \
 	({									      \
 		const char *__old = (s);					      \

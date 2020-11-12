@@ -4497,8 +4497,8 @@ static int make_local_socket(struct server *server, char *name)
 				server->addr.sun_path);
 			goto error_close;
 		}
-		pw_log_warn(NAME" %p: unlink stale socket %s: %s", server,
-				server->addr.sun_path, spa_strerror(res));
+		pw_log_warn(NAME" %p: unlink stale socket %s", server,
+				server->addr.sun_path);
 			unlink(server->addr.sun_path);
 	}
 	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {

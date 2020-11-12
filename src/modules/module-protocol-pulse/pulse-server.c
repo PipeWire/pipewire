@@ -188,8 +188,9 @@ struct server {
 	uint32_t type;
 	struct sockaddr_un addr;
 
-        struct spa_source *source;
+	struct spa_source *source;
 	struct spa_list clients;
+	unsigned int activated:1;
 };
 
 struct impl {
@@ -4390,7 +4391,7 @@ static void server_free(struct server *server)
 		client_free(c);
 	if (server->source)
 		pw_loop_destroy_source(impl->loop, server->source);
-	if (server->type == SERVER_TYPE_UNIX)
+	if (server->type == SERVER_TYPE_UNIX && !server->activated)
 		unlink(server->addr.sun_path);
 	free(server);
 }
@@ -4443,6 +4444,7 @@ static int make_local_socket(struct server *server, char *name)
 	socklen_t size;
 	int name_size, fd, res;
 	struct stat socket_stat;
+	bool activated = false;
 
 	if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
 		goto error;
@@ -4458,6 +4460,22 @@ static int make_local_socket(struct server *server, char *name)
 		goto error;
 	}
 	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
+
+#ifdef HAVE_SYSTEMD
+	{
+		int i, n = sd_listen_fds(0);
+		for (i = 0; i < n; ++i) {
+			if (sd_is_socket_unix(SD_LISTEN_FDS_START + i, SOCK_STREAM,
+						1, server->addr.sun_path, 0) > 0) {
+				fd = SD_LISTEN_FDS_START + i;
+				activated = true;
+				pw_log_info("server %p: Found socket activation socket for '%s'",
+						server, server->addr.sun_path);
+				goto done;
+			}
+		}
+	}
+#endif
 
 	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
@@ -4496,6 +4514,8 @@ static int make_local_socket(struct server *server, char *name)
 		goto error_close;
 	}
 	pw_log_info(NAME" listening on unix:%s", server->addr.sun_path);
+done:
+	server->activated = activated;
 	server->type = SERVER_TYPE_UNIX;
 
 	return fd;

@@ -4362,12 +4362,12 @@ get_runtime_dir(char *buf, size_t buflen, const char *dir)
 	if (stat(buf, &stat_buf) < 0) {
 		res = -errno;
 		if (res != -ENOENT) {
-			pw_log_error(NAME": stat %s failed with error: %m", buf);
+			pw_log_error(NAME": stat() %s failed: %m", buf);
 			return res;
 		}
 		if (mkdir(buf, 0700) < 0) {
 			res = -errno;
-			pw_log_error(NAME": mkdir %s failed with error: %m", buf);
+			pw_log_error(NAME": mkdir() %s failed: %m", buf);
 			return res;
 		}
 		pw_log_info(NAME": created %s", buf);
@@ -4461,12 +4461,13 @@ static int make_local_socket(struct server *server, char *name)
 
 	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
+		pw_log_info(NAME" %p: socket() failed: %m", server);
 		goto error;
 	}
 	if (stat(server->addr.sun_path, &socket_stat) < 0) {
 		if (errno != ENOENT) {
 			res = -errno;
-			pw_log_error(NAME" %p: stat %s failed with error: %m",
+			pw_log_error(NAME" %p: stat() %s failed: %m",
 					server, server->addr.sun_path);
 			goto error_close;
 		}
@@ -4484,13 +4485,13 @@ static int make_local_socket(struct server *server, char *name)
 	}
 	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() to %s failed with error: %m", server,
+		pw_log_error(NAME" %p: bind() to %s failed: %m", server,
 				server->addr.sun_path);
 		goto error_close;
 	}
 	if (listen(fd, 128) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() on %s failed with error: %m", server,
+		pw_log_error(NAME" %p: listen() on %s failed: %m", server,
 				server->addr.sun_path);
 		goto error_close;
 	}
@@ -4531,6 +4532,7 @@ static int make_inet_socket(struct server *server, char *name)
 
 	if ((fd = socket(PF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
+		pw_log_error(NAME" %p: socket() failed: %m", server);
 		goto error;
 	}
 
@@ -4545,12 +4547,12 @@ static int make_inet_socket(struct server *server, char *name)
 
 	if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() failed with error: %m", server);
+		pw_log_error(NAME" %p: bind() failed: %m", server);
 		goto error_close;
 	}
 	if (listen(fd, 5) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() failed with error: %m", server);
+		pw_log_error(NAME" %p: listen() failed: %m", server);
 		goto error_close;
 	}
 	server->type = SERVER_TYPE_INET;

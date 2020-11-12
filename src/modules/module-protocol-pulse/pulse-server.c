@@ -4471,18 +4471,16 @@ static int make_local_socket(struct server *server, char *name)
 			goto error_close;
 		}
 	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
-		/* socket is there, check if we can connect */
-		if (is_stale_socket(server, fd)) {
-			/* we can't connect, probably stale, remove it */
-			pw_log_warn(NAME" %p: unlink stale socket %s: %s", server,
-					server->addr.sun_path, spa_strerror(res));
-			unlink(server->addr.sun_path);
-		} else {
-			/* we could connect so it's probably in use */
+		/* socket is there, check if it's stale */
+		if (!is_stale_socket(server, fd)) {
+			res = -EBUSY;
 			pw_log_info(NAME" %p: socket %s is in use", server,
 				server->addr.sun_path);
 			goto error_close;
 		}
+		pw_log_warn(NAME" %p: unlink stale socket %s: %s", server,
+				server->addr.sun_path, spa_strerror(res));
+			unlink(server->addr.sun_path);
 	}
 	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {
 		res = -errno;

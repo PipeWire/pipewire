@@ -85,26 +85,27 @@ static inline int res_to_err(int res)
 {
 	switch (res) {
 	case 0: return ERR_OK;
-	case -EACCES: return ERR_ACCESS;
+	case -EACCES: case -EPERM: return ERR_ACCESS;
 	case -ENOTTY: return ERR_COMMAND;
 	case -EINVAL: return ERR_INVALID;
 	case -EEXIST: return ERR_EXIST;
-	case -ENOENT: return ERR_NOENTITY;
-	case -ECONNREFUSED: return ERR_CONNECTIONREFUSED;
-	case -EPROTO: return ERR_PROTOCOL;
-	case -ETIMEDOUT: return ERR_TIMEOUT;
+	case -ENOENT: case -ESRCH: case -ENXIO: case -ENODEV: return ERR_NOENTITY;
+	case -ECONNREFUSED: case -ENONET: case -EHOSTDOWN: case -ENETDOWN: return ERR_CONNECTIONREFUSED;
+	case -EPROTO: case -EBADMSG: return ERR_PROTOCOL;
+	case -ETIMEDOUT: case -ETIME: return ERR_TIMEOUT;
 #ifdef ENOKEY
 	case -ENOKEY: return ERR_AUTHKEY;
 #endif
-	case -ECONNRESET: return ERR_CONNECTIONTERMINATED;
+	case -ECONNRESET: case -EPIPE: return ERR_CONNECTIONTERMINATED;
 #ifdef EBADFD
 	case -EBADFD: return ERR_BADSTATE;
 #endif
 #ifdef ENODATA
 	case -ENODATA: return ERR_NODATA;
 #endif
-	case -EOVERFLOW: return ERR_TOOLARGE;
-	case -ENOTSUP: return ERR_NOTSUPPORTED;
+	case -EOVERFLOW: case -E2BIG: case -EFBIG:
+	case -ERANGE: case -ENAMETOOLONG: return ERR_TOOLARGE;
+	case -ENOTSUP: case -EPROTONOSUPPORT: case -ESOCKTNOSUPPORT: return ERR_NOTSUPPORTED;
 	case -ENOSYS: return ERR_NOTIMPLEMENTED;
 	case -EIO: return ERR_IO;
 	case -EBUSY: return ERR_BUSY;

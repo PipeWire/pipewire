@@ -41,7 +41,8 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name)
 {
-	fprintf(stdout, "%s [options]\n"
+	fprintf(stdout, "%s [options]\n\n"
+		"Start a pulseaudio compatible daemon.\n\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -a  --address                         comma separated list of addresses (Default %s)\n",

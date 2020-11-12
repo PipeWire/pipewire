@@ -58,6 +58,7 @@
 #include <spa/utils/ringbuffer.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 
 #include "pulse-server.h"
 #include "defs.h"
@@ -191,7 +192,9 @@ struct impl {
 
 	struct pw_properties *props;
 
-        struct spa_source *source;
+	struct ratelimit rate_limit;
+
+	struct spa_source *source;
 	struct spa_list servers;
 };
 
@@ -369,10 +372,13 @@ static int reply_error(struct client *client, uint32_t command, uint32_t tag, in
 static int send_underflow(struct stream *stream, int64_t offset)
 {
 	struct client *client = stream->client;
+	struct impl *impl = client->impl;
 	struct message *reply;
 
-	pw_log_warn(NAME" %p: UNDERFLOW channel:%u offset:%"PRIi64,
-			client, stream->channel, offset);
+	if (ratelimit_test(&impl->rate_limit, SPA_TIMEVAL_TO_NSEC(&stream->timestamp))) {
+		pw_log_warn(NAME" %p: UNDERFLOW channel:%u offset:%"PRIi64,
+				client, stream->channel, offset);
+	}
 
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
@@ -1906,7 +1912,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%u", impl, commands[command].name, tag, channel);
+	pw_log_debug(NAME" %p: %s tag:%u channel:%u", impl, commands[command].name, tag, channel);
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
 		return -EINVAL;
@@ -4573,6 +4579,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	impl->loop = pw_context_get_main_loop(context);
 	impl->props = props;
 	spa_list_init(&impl->servers);
+	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	impl->rate_limit.burst = 1;
 
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);

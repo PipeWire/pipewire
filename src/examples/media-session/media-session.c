@@ -2080,8 +2080,7 @@ static void do_quit(void *data, int signal_number)
 				"alsa-seq,"		\
 				"v4l2,"			\
 				"suspend-node,"		\
-				"policy-node,"		\
-				"pulse-bridge"
+				"policy-node"
 #define EXTRA_ENABLED		""
 #define EXTRA_DISABLED		""
 

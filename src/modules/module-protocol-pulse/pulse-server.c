@@ -4655,8 +4655,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	if (props != NULL)
 		str = pw_properties_get(props, "server.address");
 	if (str == NULL) {
-		str = free_str = spa_aprintf("%s,%s-%s",
-				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
+		str = free_str = spa_aprintf("%s-%s",
 				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
 				get_server_name(context));
 	}

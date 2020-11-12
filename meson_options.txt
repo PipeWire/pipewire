@@ -52,7 +52,7 @@ option('libjack-path',
 option('pipewire-pulseaudio',
        description: 'Enable pipewire-pulseaudio integration',
        type: 'boolean',
-       value: true)
+       value: false)
 option('libpulse-path',
        description: 'Where to install the libpulse.so library',
        type: 'string')

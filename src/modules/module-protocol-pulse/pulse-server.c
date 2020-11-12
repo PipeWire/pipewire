@@ -78,6 +78,7 @@ static bool debug_messages = false;
 
 struct impl;
 struct server;
+struct client;
 
 struct operation {
 	struct spa_list link;
@@ -90,6 +91,8 @@ struct client {
 	struct spa_list link;
 	struct impl *impl;
 	struct server *server;
+
+	const char *name;
 
 	struct spa_source *source;
 
@@ -361,8 +364,8 @@ static int reply_error(struct client *client, uint32_t command, uint32_t tag, in
 	else
 		name = "invalid";
 
-	pw_log_warn(NAME" %p: ERROR command:%d (%s) tag:%u error:%u (%s)",
-			client, command, name, tag, error, spa_strerror(res));
+	pw_log_warn(NAME" %p: [%s] ERROR command:%d (%s) tag:%u error:%u (%s)",
+			client, client->name, command, name, tag, error, spa_strerror(res));
 
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
@@ -380,8 +383,8 @@ static int send_underflow(struct stream *stream, int64_t offset)
 	struct message *reply;
 
 	if (ratelimit_test(&impl->rate_limit, SPA_TIMEVAL_TO_NSEC(&stream->timestamp))) {
-		pw_log_warn(NAME" %p: UNDERFLOW channel:%u offset:%"PRIi64,
-				client, stream->channel, offset);
+		pw_log_warn(NAME" %p: [%s] UNDERFLOW channel:%u offset:%"PRIi64,
+				client, client->name, stream->channel, offset);
 	}
 
 	reply = message_alloc(client, -1, 0);
@@ -419,7 +422,8 @@ static int send_overflow(struct stream *stream)
 	struct client *client = stream->client;
 	struct message *reply;
 
-	pw_log_warn(NAME" %p: OVERFLOW channel:%u", client, stream->channel);
+	pw_log_warn(NAME" %p: [%s] OVERFLOW channel:%u", client,
+			client->name, stream->channel);
 
 	reply = message_alloc(client, -1, 0);
 	message_put(reply,
@@ -440,7 +444,7 @@ static int send_stream_killed(struct stream *stream)
 		COMMAND_PLAYBACK_STREAM_KILLED :
 		COMMAND_RECORD_STREAM_KILLED;
 
-	pw_log_info(NAME" %p: %s channel:%u", client,
+	pw_log_info(NAME" %p: [%s] %s channel:%u", client, client->name,
 			commands[command].name, stream->channel);
 
 	if (client->version < 23)
@@ -495,7 +499,7 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 
 	client->version = version;
 
-	pw_log_info(NAME" %p: AUTH tag:%u version:%d", impl, tag, version);
+	pw_log_info(NAME" %p: client:%p AUTH tag:%u version:%d", impl, client, tag, version);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -517,7 +521,7 @@ static int reply_set_client_name(struct client *client, uint32_t tag)
 
 	id = pw_proxy_get_bound_id((struct pw_proxy*)c);
 
-	pw_log_info(NAME" %p: client reply tag:%u id:%u", client, tag, id);
+	pw_log_info(NAME" %p: [%s] reply tag:%u id:%u", client, client->name, tag, id);
 
 	reply = reply_new(client, tag);
 
@@ -686,8 +690,9 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 		changed++;
 	}
 
-	pw_log_info(NAME" %p: %s tag:%d %s", impl, commands[command].name, tag,
-			pw_properties_get(client->props, PW_KEY_APP_NAME));
+	client->name = pw_properties_get(client->props, PW_KEY_APP_NAME);
+	pw_log_info(NAME" %p: [%s] %s tag:%d", impl, client->name,
+			commands[command].name, tag);
 
 	if (client->core == NULL) {
 		client->core = pw_context_connect(impl->context,
@@ -728,7 +733,8 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: SUBSCRIBE tag:%u mask:%08x", impl, tag, mask);
+	pw_log_info(NAME" %p: [%s] SUBSCRIBE tag:%u mask:%08x", impl,
+			client->name, tag, mask);
 	client->subscribed = mask;
 
 	return reply_simple_ack(client, tag);
@@ -885,8 +891,9 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 
 	attr->fragsize = 0;
 
-	pw_log_info(NAME" %p: maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
-			attr->maxlength, attr->tlength, attr->minreq, attr->prebuf);
+	pw_log_info(NAME" %p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
+			s->client->name, attr->maxlength, attr->tlength,
+			attr->minreq, attr->prebuf);
 }
 
 static int reply_create_playback_stream(struct stream *stream)
@@ -910,8 +917,8 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	spa_ringbuffer_init(&stream->ring);
 
-	pw_log_info(NAME" %p: reply CREATE_PLAYBACK_STREAM tag:%u", stream,
-			stream->create_tag);
+	pw_log_info(NAME" %p: [%s] reply CREATE_PLAYBACK_STREAM tag:%u", stream,
+			client->name, stream->create_tag);
 
 	lat.num = stream->attr.minreq * 2 / stream->frame_size;
 	lat.denom = stream->ss.rate;
@@ -1001,8 +1008,8 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 
 	attr->tlength = attr->minreq = attr->prebuf = 0;
 
-	pw_log_info(NAME" %p: maxlength:%u fragsize:%u minfrag:%u", s,
-			attr->maxlength, attr->fragsize, minfrag);
+	pw_log_info(NAME" %p: [%s] maxlength:%u fragsize:%u minfrag:%u", s,
+			s->client->name, attr->maxlength, attr->fragsize, minfrag);
 }
 
 static int reply_create_record_stream(struct stream *stream)
@@ -1257,11 +1264,11 @@ do_process_done(struct spa_loop *loop,
 		if (avail <= 0) {
 			/* underrun, can't really happen but if it does we
 			 * do nothing and wait for more data */
-			pw_log_warn(NAME" %p: underrun", stream);
+			pw_log_warn(NAME" %p: [%s] underrun", stream, client->name);
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {
 				/* overrun, catch up to latest fragment and send it */
-				pw_log_warn(NAME" %p: overrun", stream);
+				pw_log_warn(NAME" %p: [%s] overrun", stream, client->name);
 				avail = stream->attr.fragsize;
 				index = stream->write_index - avail;
 			}
@@ -1288,6 +1295,7 @@ do_process_done(struct spa_loop *loop,
 static void stream_process(void *data)
 {
 	struct stream *stream = data;
+	struct client *client = stream->client;
 	struct impl *impl = stream->impl;
 	void *p;
 	struct pw_buffer *buffer;
@@ -1324,7 +1332,7 @@ static void stream_process(void *data)
 			if (avail > (int32_t)stream->attr.maxlength) {
 				/* overrun, reported by other side, here we skip
 				 * ahead to the oldest data. */
-				pw_log_warn(NAME" %p: overrun", stream);
+				pw_log_warn(NAME" %p: [%s] overrun", stream, client->name);
 				pd.read_index += avail - stream->attr.maxlength;
 				avail = stream->attr.maxlength;
 			}
@@ -1351,12 +1359,12 @@ static void stream_process(void *data)
 		if (filled < 0) {
 			/* underrun, can't really happen because we never read more
 			 * than what's available on the other side  */
-			pw_log_warn(NAME" %p: underrun", stream);
+			pw_log_warn(NAME" %p: [%s] underrun", stream, client->name);
 		} else if ((uint32_t)filled + size > stream->attr.maxlength) {
 			/* overrun, can happen when the other side is not
 			 * reading fast enough. We still write our data into the
 			 * ringbuffer and expect the other side to catch up. */
-			pw_log_warn(NAME" %p: overrun", stream);
+			pw_log_warn(NAME" %p: [%s] overrun", stream, client->name);
 		}
 		spa_ringbuffer_write_data(&stream->ring,
 				stream->buffer, stream->attr.maxlength,
@@ -1378,7 +1386,8 @@ static void stream_process(void *data)
 static void stream_drained(void *data)
 {
 	struct stream *stream = data;
-	pw_log_info(NAME" %p: drained channel:%u", stream, stream->channel);
+	pw_log_info(NAME" %p: [%s] drained channel:%u", stream,
+			stream->client->name, stream->channel);
 	reply_simple_ack(stream->client, stream->drain_tag);
 	stream->drain_tag = 0;
 }
@@ -1485,8 +1494,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			TAG_INVALID) < 0)
 		goto error_protocol;
 
-	pw_log_info(NAME" %p: CREATE_PLAYBACK_STREAM tag:%u corked:%u sink-name:%s sink-idx:%u",
-			impl, tag, corked, sink_name, sink_index);
+	pw_log_info(NAME" %p: [%s] CREATE_PLAYBACK_STREAM tag:%u corked:%u sink-name:%s sink-idx:%u",
+			impl, client->name, tag, corked, sink_name, sink_index);
 
 	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
 		goto error_invalid;
@@ -1708,8 +1717,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			TAG_INVALID)) < 0)
 		goto error_protocol;
 
-	pw_log_info(NAME" %p: CREATE_RECORD_STREAM tag:%u corked:%u source-name:%s source-index:%u",
-			impl, tag, corked, source_name, source_index);
+	pw_log_info(NAME" %p: [%s] CREATE_RECORD_STREAM tag:%u corked:%u source-name:%s source-index:%u",
+			impl, client->name, tag, corked, source_name, source_index);
 
 	if (source_index != SPA_ID_INVALID && source_name != NULL)
 		goto error_invalid;
@@ -1891,7 +1900,9 @@ static int do_delete_stream(struct client *client, uint32_t command, uint32_t ta
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: DELETE_STREAM tag:%u channel:%u", impl, tag, channel);
+	pw_log_info(NAME" %p: [%s] DELETE_STREAM tag:%u channel:%u", impl,
+			client->name, tag, channel);
+
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
 		return -EINVAL;
@@ -1994,8 +2005,9 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%u cork:%s",
-			impl, commands[command].name, tag, channel, cork ? "yes" : "no");
+	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%u cork:%s",
+			impl, client->name, commands[command].name, tag,
+			channel, cork ? "yes" : "no");
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
@@ -2023,8 +2035,8 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%u",
-			impl, commands[command].name, tag, channel);
+	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%u",
+			impl, client->name, commands[command].name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
@@ -2161,7 +2173,8 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: DO_STREAM_VOLUME tag:%u index:%u", impl, tag, id);
+	pw_log_info(NAME" %p: [%s] DO_STREAM_VOLUME tag:%u index:%u", impl,
+			client->name, tag, id);
 
 	stream = find_stream(client, id);
 	if (stream != NULL) {
@@ -2207,8 +2220,8 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: DO_SET_STREAM_MUTE tag:%u id:%u mute:%u",
-			impl, tag, id, mute);
+	pw_log_info(NAME" %p: [%s] DO_SET_STREAM_MUTE tag:%u id:%u mute:%u",
+			impl, client->name, tag, id, mute);
 
 	stream = find_stream(client, id);
 	if (stream != NULL) {
@@ -2313,8 +2326,8 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u index:%u name:%s", impl,
-			commands[command].name, tag, id, name);
+	pw_log_info(NAME" %p: [%s] %s tag:%u index:%u name:%s", impl,
+			client->name, commands[command].name, tag, id, name);
 
 	if (id == SPA_ID_INVALID && name == NULL)
 		return -EINVAL;
@@ -2375,8 +2388,8 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u index:%u name:%s mute:%d", impl,
-			commands[command].name, tag, id, name, mute);
+	pw_log_info(NAME" %p: [%s] %s tag:%u index:%u name:%s mute:%d", impl,
+			client->name, commands[command].name, tag, id, name, mute);
 
 	if (id == SPA_ID_INVALID && name == NULL)
 		return -EINVAL;
@@ -2436,8 +2449,8 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u index:%u name:%s port:%s", impl,
-			commands[command].name, tag, id, name, port_name);
+	pw_log_info(NAME" %p: [%s] %s tag:%u index:%u name:%s port:%s", impl,
+			client->name, commands[command].name, tag, id, name, port_name);
 
 	if ((id == SPA_ID_INVALID && name == NULL) ||
 	    (id != SPA_ID_INVALID && name != NULL))
@@ -2492,8 +2505,9 @@ static int do_set_stream_name(struct client *client, uint32_t command, uint32_t 
 	if (name == NULL)
 		return -EINVAL;
 
-	pw_log_info(NAME" %p: SET_STREAM_NAME tag:%u channel:%d name:%s",
-			impl, tag, channel, name);
+	pw_log_info(NAME" %p: [%s] SET_STREAM_NAME tag:%u channel:%d name:%s",
+			impl, client->name, tag, channel, name);
+
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
 		return -EINVAL;
@@ -2526,8 +2540,8 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 		channel = SPA_ID_INVALID;
 	}
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%d", impl,
-			commands[command].name, tag, channel);
+	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%d", impl,
+			client->name, commands[command].name, tag, channel);
 
 	if ((res = message_get(m,
 			TAG_U32, &mode,
@@ -2582,8 +2596,8 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		channel = SPA_ID_INVALID;
 	}
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%d", impl,
-			commands[command].name, tag, channel);
+	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%d", impl,
+			client->name, commands[command].name, tag, channel);
 
 	while (true) {
 		const char *key;
@@ -2640,7 +2654,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 	struct channel_map map;
 	uint32_t cookie;
 
-	pw_log_info(NAME" %p: GET_SERVER_INFO tag:%u", impl, tag);
+	pw_log_info(NAME" %p: [%s] GET_SERVER_INFO tag:%u", impl, client->name, tag);
 
 	ss = SAMPLE_SPEC_INIT;
 	map = CHANNEL_MAP_INIT;
@@ -2681,7 +2695,7 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 	struct impl *impl = client->impl;
 	struct message *reply;
 
-	pw_log_info(NAME" %p: STAT tag:%u", impl, tag);
+	pw_log_info(NAME" %p: [%s] STAT tag:%u", impl, client->name, tag);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -2710,7 +2724,7 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 	if (name == NULL)
 		return -EINVAL;
 
-	pw_log_info(NAME" %p: LOOKUP tag:%u name:'%s'", impl, tag, name);
+	pw_log_info(NAME" %p: [%s] LOOKUP tag:%u name:'%s'", impl, client->name, tag, name);
 
 	if ((o = find_device(client, SPA_ID_INVALID, name, command == COMMAND_LOOKUP_SINK)) == NULL)
 		return -ENOENT;
@@ -2735,7 +2749,7 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: DRAIN tag:%u channel:%d", impl, tag, channel);
+	pw_log_info(NAME" %p: [%s] DRAIN tag:%u channel:%d", impl, client->name, tag, channel);
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL)
 		return -ENOENT;
@@ -3361,7 +3375,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	    (sel.id != SPA_ID_INVALID && sel.value != NULL))
 		goto error_invalid;
 
-	pw_log_info(NAME" %p: %s tag:%u idx:%u name:%s", impl,
+	pw_log_info(NAME" %p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
 			commands[command].name, tag, sel.id, sel.value);
 
 	if (command == COMMAND_GET_SOURCE_INFO &&
@@ -3413,7 +3427,8 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 	struct pw_manager *manager = client->manager;
 	struct info_list_data info;
 
-	pw_log_info(NAME" %p: %s tag:%u", impl, commands[command].name, tag);
+	pw_log_info(NAME" %p: [%s] %s tag:%u", impl, client->name,
+			commands[command].name, tag);
 
 	spa_zero(info);
 	info.client = client;
@@ -3468,7 +3483,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%u", impl,
+	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%u", impl, client->name,
 			commands[command].name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -3544,7 +3559,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u channel:%u rate:%u", impl,
+	pw_log_info(NAME" %p: [%s %s tag:%u channel:%u rate:%u", impl, client->name,
 			commands[command].name, tag, channel, rate);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -3577,7 +3592,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u id:%u name:%s profile:%s", impl,
+	pw_log_info(NAME" %p: [%s %s tag:%u id:%u name:%s profile:%s", impl, client->name,
 			commands[command].name, tag, sel.id, sel.value, profile_name);
 
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
@@ -3621,7 +3636,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (name == NULL)
 		return -EINVAL;
 
-	pw_log_info(NAME" %p: %s tag:%u name:%s", impl,
+	pw_log_info(NAME" %p: [%s ] %s tag:%u name:%s", impl, client->name,
 			commands[command].name, tag, name);
 
 	if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
@@ -3658,7 +3673,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	    (id_device != SPA_ID_INVALID && name_device != NULL))
 		return -EINVAL;
 
-	pw_log_info(NAME" %p: %s tag:%u idx:%u device:%d name:%s", impl,
+	pw_log_info(NAME" %p: [%s] %s tag:%u idx:%u device:%d name:%s", impl, client->name,
 			commands[command].name, tag, id, id_device, name_device);
 
 	spa_zero(sel);
@@ -3695,7 +3710,7 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u id:%u", impl,
+	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u", impl, client->name,
 			commands[command].name, tag, id);
 
 	spa_zero(sel);
@@ -3739,7 +3754,7 @@ static void on_module_removed(void *data, struct module *module)
 {
 	struct client *client = data;
 
-	pw_log_info(NAME" %p: client %p: module %d unloaded", client->impl, client, module->idx);
+	pw_log_info(NAME" %p: [%s] module %d unloaded", client->impl, client->name, module->idx);
 
 	spa_list_remove(&module->link);
 }
@@ -3748,7 +3763,7 @@ static void on_module_error(void *data)
 {
 	struct client *client = data;
 
-	pw_log_info(NAME" %p: client %p: error loading module", client->impl, client);
+	pw_log_info(NAME" %p: [%s] error loading module", client->impl, client->name);
 }
 
 static void on_module_loaded(struct module *module, int error, void *data)
@@ -3769,15 +3784,15 @@ static void on_module_loaded(struct module *module, int error, void *data)
 	free(d);
 
 	if (error < 0) {
-		pw_log_warn(NAME" %p: client %p: error loading module", client->impl, client);
-		reply_error (client, COMMAND_LOAD_MODULE, tag, error);
+		pw_log_warn(NAME" %p: [%s] error loading module", client->impl, client->name);
+		reply_error(client, COMMAND_LOAD_MODULE, tag, error);
 		return;
 	}
 
 	spa_list_append(&client->modules, &module->link);
 	module_add_listener(module, &listener, client);
 
-	pw_log_info(NAME" %p: client %p: module %d loaded", client->impl, client, module->idx);
+	pw_log_info(NAME" %p: [%s] module %d loaded", client->impl, client->name, module->idx);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -3800,7 +3815,8 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s name:%s argument:%s", impl, commands[command].name, name, argument);
+	pw_log_info(NAME" %p: [%s] %s name:%s argument:%s", impl,
+			client->name, commands[command].name, name, argument);
 
 	data = load_module_data_new(client, tag);
 	res = load_module(client, name, argument, on_module_loaded, data);
@@ -3819,7 +3835,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: %s tag:%u id:%u", impl,
+	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u", impl, client->name,
 			commands[command].name, tag, module_idx);
 
 	spa_list_for_each(module, &client->modules, link) {
@@ -4240,10 +4256,10 @@ on_client_data(void *data, int fd, uint32_t mask)
 
 error:
         if (res == -EPIPE)
-                pw_log_info(NAME" %p: client %p disconnected", impl, client);
+                pw_log_info(NAME" %p: client:%p [%s] disconnected", impl, client, client->name);
         else if (res != -EPROTO) {
-                pw_log_error(NAME" %p: client %p error %d (%s)", impl,
-                                client, res, spa_strerror(res));
+                pw_log_error(NAME" %p: client:%p [%s] error %d (%s)", impl,
+                                client, client->name, res, spa_strerror(res));
 		return;
 	}
 	client_free(client);

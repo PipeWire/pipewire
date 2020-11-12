@@ -44,6 +44,10 @@
 #include <pwd.h>
 #endif
 
+#ifdef HAVE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
 #include <pipewire/log.h>
 
 #define spa_debug pw_log_debug
@@ -4390,16 +4394,31 @@ get_server_name(struct pw_context *context)
 	return name;
 }
 
-static int check_connect(struct server *server, int fd)
+static bool is_stale_socket(struct server *server, int fd)
 {
-	int res;
 	socklen_t size;
 
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
-	if ((res = connect(fd, (struct sockaddr *)&server->addr, size)) < 0)
-		return -errno;
+#ifdef HAVE_SYSTEMD
+	{
+		int i, n = sd_listen_fds(0);
+		for (i = 0; i < n; ++i) {
+			if (sd_is_socket_unix(SD_LISTEN_FDS_START + i, SOCK_STREAM,
+						1, server->addr.sun_path, 0) > 0) {
+				/* socket activated sockets are not stale */
+				pw_log_info(NAME" %p: Found socket activation socket for '%s'",
+						server, server->addr.sun_path);
+				return false;
+			}
+		}
+	}
+#endif
 
-	return 0;
+	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
+	if (connect(fd, (struct sockaddr *)&server->addr, size) < 0) {
+		if (errno == ECONNREFUSED)
+			return true;
+	}
+	return false;
 }
 
 static int make_local_socket(struct server *server, char *name)
@@ -4437,7 +4456,7 @@ static int make_local_socket(struct server *server, char *name)
 		}
 	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
 		/* socket is there, check if we can connect */
-		if ((res = check_connect(server, fd)) < 0) {
+		if (is_stale_socket(server, fd)) {
 			/* we can't connect, probably stale, remove it */
 			pw_log_warn(NAME" %p: unlink stale socket %s: %s", server,
 					server->addr.sun_path, spa_strerror(res));

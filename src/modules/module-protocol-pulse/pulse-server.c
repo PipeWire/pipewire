@@ -4375,8 +4375,24 @@ static void server_free(struct server *server)
 	free(server);
 }
 
+static const char *
+get_server_name(struct pw_context *context)
+{
+	const char *name = NULL;
+	const struct pw_properties *props = pw_context_get_properties(context);
+
+	if (props)
+		name = pw_properties_get(props, PW_KEY_REMOTE_NAME);
+	if (name == NULL)
+		name = getenv("PIPEWIRE_REMOTE");
+	if (name == NULL)
+		name = PW_DEFAULT_REMOTE;
+	return name;
+}
+
 static int make_local_socket(struct server *server, char *name)
 {
+	struct impl *impl = server->impl;
 	char runtime_dir[PATH_MAX];
 	socklen_t size;
 	int name_size, fd, res;
@@ -4387,7 +4403,8 @@ static int make_local_socket(struct server *server, char *name)
 
 	server->addr.sun_family = AF_LOCAL;
 	name_size = snprintf(server->addr.sun_path, sizeof(server->addr.sun_path),
-                             "%s/%s", runtime_dir, name) + 1;
+                             "%s/%s-%s", runtime_dir, name,
+			     get_server_name(impl->context)) + 1;
 
 	if (name_size > (int) sizeof(server->addr.sun_path)) {
 		pw_log_error(NAME" %p: %s/%s too long",

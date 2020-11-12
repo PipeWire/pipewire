@@ -4415,21 +4415,6 @@ static bool is_stale_socket(struct server *server, int fd)
 {
 	socklen_t size;
 
-#ifdef HAVE_SYSTEMD
-	{
-		int i, n = sd_listen_fds(0);
-		for (i = 0; i < n; ++i) {
-			if (sd_is_socket_unix(SD_LISTEN_FDS_START + i, SOCK_STREAM,
-						1, server->addr.sun_path, 0) > 0) {
-				/* socket activated sockets are not stale */
-				pw_log_info(NAME" %p: Found socket activation socket for '%s'",
-						server, server->addr.sun_path);
-				return false;
-			}
-		}
-	}
-#endif
-
 	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
 	if (connect(fd, (struct sockaddr *)&server->addr, size) < 0) {
 		if (errno == ECONNREFUSED)

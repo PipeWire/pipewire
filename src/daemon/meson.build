@@ -41,6 +41,14 @@ executable('pipewire',
   dependencies : [pipewire_dep, ],
 )
 
+executable('pipewire-pulse',
+  'pipewire-pulse.c',
+  install: true,
+  c_args : pipewire_c_args,
+  include_directories : [configinc, spa_inc],
+  dependencies : [pipewire_dep, ],
+)
+
 if get_option('systemd') and systemd.found()
   subdir('systemd')
 endif

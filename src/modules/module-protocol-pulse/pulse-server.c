@@ -4390,9 +4390,20 @@ get_server_name(struct pw_context *context)
 	return name;
 }
 
+static int check_connect(struct server *server, int fd)
+{
+	int res;
+	socklen_t size;
+
+	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
+	if ((res = connect(fd, (struct sockaddr *)&server->addr, size)) < 0)
+		return -errno;
+
+	return 0;
+}
+
 static int make_local_socket(struct server *server, char *name)
 {
-	struct impl *impl = server->impl;
 	char runtime_dir[PATH_MAX];
 	socklen_t size;
 	int name_size, fd, res;
@@ -4403,8 +4414,7 @@ static int make_local_socket(struct server *server, char *name)
 
 	server->addr.sun_family = AF_LOCAL;
 	name_size = snprintf(server->addr.sun_path, sizeof(server->addr.sun_path),
-                             "%s/%s-%s", runtime_dir, name,
-			     get_server_name(impl->context)) + 1;
+                             "%s/%s", runtime_dir, name) + 1;
 
 	if (name_size > (int) sizeof(server->addr.sun_path)) {
 		pw_log_error(NAME" %p: %s/%s too long",
@@ -4412,6 +4422,8 @@ static int make_local_socket(struct server *server, char *name)
 		res = -ENAMETOOLONG;
 		goto error;
 	}
+	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
+
 	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
 		goto error;
@@ -4419,15 +4431,24 @@ static int make_local_socket(struct server *server, char *name)
 	if (stat(server->addr.sun_path, &socket_stat) < 0) {
 		if (errno != ENOENT) {
 			res = -errno;
-			pw_log_error("server %p: stat %s failed with error: %m",
+			pw_log_error(NAME" %p: stat %s failed with error: %m",
 					server, server->addr.sun_path);
 			goto error_close;
 		}
 	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
-		unlink(server->addr.sun_path);
+		/* socket is there, check if we can connect */
+		if ((res = check_connect(server, fd)) < 0) {
+			/* we can't connect, probably stale, remove it */
+			pw_log_warn(NAME" %p: unlink stale socket %s: %s", server,
+					server->addr.sun_path, spa_strerror(res));
+			unlink(server->addr.sun_path);
+		} else {
+			/* we could connect so it's probably in use */
+			pw_log_info(NAME" %p: socket %s is in use", server,
+				server->addr.sun_path);
+			goto error_close;
+		}
 	}
-
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
 	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {
 		res = -errno;
 		pw_log_error(NAME" %p: bind() to %s failed with error: %m", server,
@@ -4584,11 +4605,23 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	struct impl *impl;
 	const char *str;
 	int i, n_addr;
-	char **addr;
+	char **addr, *free_str = NULL;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
+
+	str = NULL;
+	if (props != NULL)
+		str = pw_properties_get(props, "server.address");
+	if (str == NULL) {
+		str = free_str = spa_aprintf("%s,%s-%s",
+				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
+				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
+				get_server_name(context));
+	}
+	if (str == NULL)
+		goto error_free;
 
 	debug_messages = pw_debug_is_category_enabled("connection");
 
@@ -4602,22 +4635,23 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);
 
-	str = NULL;
-	if (props != NULL)
-		str = pw_properties_get(props, "server.address");
-	if (str == NULL)
-		str = PW_PROTOCOL_PULSE_DEFAULT_SERVER;
-
 	addr = pw_split_strv(str, ",", INT_MAX, &n_addr);
 	for (i = 0; i < n_addr; i++) {
+		if (addr[i] == NULL)
+			continue;
 		if (create_server(impl, addr[i]) == NULL) {
 			pw_log_warn(NAME" %p: can't create server for %s: %m",
 					impl, addr[i]);
 		}
 	}
 	pw_free_strv(addr);
+	free(free_str);
 
 	return (struct pw_protocol_pulse*)impl;
+
+error_free:
+	free(impl);
+	return NULL;
 }
 
 void *pw_protocol_pulse_get_user_data(struct pw_protocol_pulse *pulse)

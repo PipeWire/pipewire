@@ -50,6 +50,8 @@
 #define DEFAULT_PROCESS_MSEC	20   /* 20ms */
 #define DEFAULT_FRAGSIZE_MSEC	DEFAULT_TLENGTH_MSEC
 
+#define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
+
 enum error_code {
 	ERR_OK = 0,			/**< No error */
 	ERR_ACCESS,			/**< Access failure */

@@ -301,12 +301,24 @@ static inline enum channel_position channel_name2pa(const char *name, size_t siz
 }
 
 
-static void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
+static inline void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
 {
 	int i;
 	for (i = 0; i < map->channels; i++)
 		pos[i] = channel_pa2id(map->map[i]);
 }
+
+static inline bool channel_map_valid(const struct channel_map *map)
+{
+	uint8_t i;
+	if (map->channels == 0 || map->channels > CHANNELS_MAX)
+		return false;
+	for (i = 0; i < map->channels; i++)
+		if (map->map[i] < 0 || map->map[i] >= CHANNEL_POSITION_MAX)
+			return false;
+	return true;
+}
+
 
 enum encoding {
 	ENCODING_ANY,

@@ -80,22 +80,13 @@ struct impl;
 struct server;
 struct client;
 
+#include "sample.c"
+
 struct operation {
 	struct spa_list link;
 	struct client *client;
 	uint32_t tag;
 	void (*callback) (struct operation *op);
-};
-
-struct sample {
-	uint32_t index;
-	struct impl *impl;
-	const char *name;
-	struct sample_spec ss;
-	struct channel_map map;
-	struct pw_properties *props;
-	uint32_t length;
-	uint8_t *buffer;
 };
 
 struct client {
@@ -133,6 +124,8 @@ struct client {
 
 	struct spa_list operations;
 	struct spa_list modules;
+
+	struct spa_list samples;
 
 	unsigned int disconnecting:1;
 };
@@ -2238,12 +2231,41 @@ error:
 	return res;
 }
 
+struct pending_sample {
+	struct spa_list link;
+	struct sample_play *play;
+	struct spa_hook listener;
+	unsigned int done:1;
+};
+
+static void pending_sample_free(struct pending_sample *ps)
+{
+	spa_list_remove(&ps->link);
+	spa_hook_remove(&ps->listener);
+	sample_play_destroy(ps->play);
+}
+
+static void sample_play_done(void *data)
+{
+	struct pending_sample *ps = data;
+	ps->done = true;
+}
+
+static const struct sample_play_events sample_play_events = {
+	VERSION_SAMPLE_PLAY_EVENTS,
+	.done = sample_play_done,
+};
+
 static int do_play_sample(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	uint32_t sink_index, volume;
+	uint32_t sink_index, volume, idx;
+	struct sample *sample;
+	struct sample_play *play;
 	const char *sink_name, *name;
 	struct pw_properties *props = NULL;
+	struct message *reply;
+	struct pending_sample *ps;
 	int res;
 
 	if ((props = pw_properties_new(NULL, NULL)) == NULL)
@@ -2270,7 +2292,29 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 
 	pw_properties_update(props, &client->props->dict);
 
-	goto error_noent;
+	sample = find_sample(impl, name);
+	if (sample == NULL)
+		goto error_noent;
+
+	play = sample_play_new(client->core, sample, props, sizeof(struct pending_sample));
+	props = NULL;
+	if (play == NULL)
+		goto error_errno;
+
+	ps = play->user_data;
+	ps->play = play;
+	sample_play_add_listener(play, &ps->listener, &sample_play_events, ps);
+	spa_list_append(&client->samples, &ps->link);
+
+	idx = 0;
+
+	reply = reply_new(client, tag);
+	if (client->version >= 13)
+		message_put(reply,
+			TAG_U32, idx,
+			TAG_INVALID);
+
+	return send_message(client, reply);
 
 error_errno:
 	res = -errno;
@@ -4339,12 +4383,16 @@ static void client_free(struct client *client)
 	struct impl *impl = client->impl;
 	struct message *msg;
 	struct module *module, *tmp;
+	struct pending_sample *p, *t;
 
 	pw_log_debug(NAME" %p: client %p free", impl, client);
 	spa_list_remove(&client->link);
 
 	pw_map_for_each(&client->streams, client_free_stream, client);
 	pw_map_clear(&client->streams);
+
+	spa_list_for_each_safe(p, t, &client->samples, link)
+		pending_sample_free(p);
 
 	spa_list_for_each_safe(module, tmp, &client->modules, link)
 		unload_module(module);
@@ -4532,6 +4580,15 @@ exit:
 	return res;
 }
 
+static void client_clear_pending_samples(struct client *client)
+{
+	struct pending_sample *p, *t;
+	spa_list_for_each_safe(p, t, &client->samples, link) {
+		if (p->done)
+			pending_sample_free(p);
+	}
+}
+
 static void
 on_client_data(void *data, int fd, uint32_t mask)
 {
@@ -4568,6 +4625,7 @@ on_client_data(void *data, int fd, uint32_t mask)
 			}
 		}
 	}
+	client_clear_pending_samples(client);
 	return;
 
 error:
@@ -4604,6 +4662,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	spa_list_init(&client->out_messages);
 	spa_list_init(&client->operations);
 	spa_list_init(&client->modules);
+	spa_list_init(&client->samples);
 
 	client->props = pw_properties_new(
 			PW_KEY_CLIENT_API, "pipewire-pulse",

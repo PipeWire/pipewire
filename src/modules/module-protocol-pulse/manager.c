@@ -64,8 +64,6 @@ struct object {
 
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
-
-	unsigned int new:1;
 };
 
 static void core_sync(struct manager *m)
@@ -116,6 +114,8 @@ static struct object *find_object(struct manager *m, uint32_t id)
 {
 	struct object *o;
 	spa_list_for_each(o, &m->this.object_list, this.link) {
+		if (o->this.creating)
+			continue;
 		if (o->this.id == id)
 			return o;
 	}
@@ -470,7 +470,7 @@ static void registry_event_global(void *data, uint32_t id,
 	o->this.version = version;
 	o->this.props = props ? pw_properties_new_dict(props) : NULL;
 	o->this.proxy = proxy;
-	o->new = true;
+	o->this.creating = true;
 	spa_list_init(&o->this.param_list);
 
 	o->manager = m;
@@ -527,8 +527,8 @@ static void on_core_done(void *data, uint32_t id, int seq)
 			manager_emit_sync(m);
 
 		spa_list_for_each(o, &m->this.object_list, this.link) {
-			if (o->new) {
-				o->new = false;
+			if (o->this.creating) {
+				o->this.creating = false;
 				manager_emit_added(m, &o->this);
 			} else if (o->this.changed > 0) {
 				manager_emit_updated(m, &o->this);
@@ -620,6 +620,8 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	int res;
 
 	spa_list_for_each(o, &m->this.object_list, this.link) {
+		if (o->this.creating)
+			continue;
 		if ((res = callback(data, &o->this)) != 0)
 			return res;
 	}

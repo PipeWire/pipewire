@@ -129,6 +129,8 @@ static struct pw_manager_object *select_object(struct pw_manager *m,
 	const char *str;
 
 	spa_list_for_each(o, &m->object_list, link) {
+		if (o->creating)
+			continue;
 		if (s->type != NULL && !s->type(o))
 			continue;
 		if (o->id == s->id)
@@ -150,6 +152,8 @@ static struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_
 	uint32_t in_node, out_node;
 
 	spa_list_for_each(o, &m->object_list, link) {
+		if (o->creating)
+			continue;
 		if (o->props == NULL || !is_link(o))
 			continue;
 

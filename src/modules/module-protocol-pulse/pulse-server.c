@@ -97,6 +97,7 @@ struct client {
 	const char *name;
 
 	struct spa_source *source;
+	struct spa_source *cleanup;
 
 	uint32_t version;
 
@@ -2233,6 +2234,7 @@ error:
 
 struct pending_sample {
 	struct spa_list link;
+	struct client *client;
 	struct sample_play *play;
 	struct spa_hook listener;
 	unsigned int done:1;
@@ -2248,7 +2250,10 @@ static void pending_sample_free(struct pending_sample *ps)
 static void sample_play_done(void *data)
 {
 	struct pending_sample *ps = data;
+	struct client *client = ps->client;
+	struct impl *impl = client->impl;
 	ps->done = true;
+	pw_loop_signal_event(impl->loop, client->cleanup);
 }
 
 static const struct sample_play_events sample_play_events = {
@@ -2302,6 +2307,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 		goto error_errno;
 
 	ps = play->user_data;
+	ps->client = client;
 	ps->play = play;
 	sample_play_add_listener(play, &ps->listener, &sample_play_events, ps);
 	spa_list_append(&client->samples, &ps->link);
@@ -4410,6 +4416,8 @@ static void client_free(struct client *client)
 		pw_properties_free(client->props);
 	if (client->source)
 		pw_loop_destroy_source(impl->loop, client->source);
+	if (client->cleanup)
+		pw_loop_destroy_source(impl->loop, client->cleanup);
 	free(client);
 }
 
@@ -4580,8 +4588,9 @@ exit:
 	return res;
 }
 
-static void client_clear_pending_samples(struct client *client)
+static void on_client_cleanup(void *data, uint64_t count)
 {
+	struct client *client = data;
 	struct pending_sample *p, *t;
 	spa_list_for_each_safe(p, t, &client->samples, link) {
 		if (p->done)
@@ -4625,7 +4634,6 @@ on_client_data(void *data, int fd, uint32_t mask)
 			}
 		}
 	}
-	client_clear_pending_samples(client);
 	return;
 
 error:
@@ -4701,6 +4709,11 @@ on_connect(void *data, int fd, uint32_t mask)
 					SPA_IO_ERR | SPA_IO_HUP | SPA_IO_IN,
 					true, on_client_data, client);
 	if (client->source == NULL)
+		goto error;
+
+	client->cleanup = pw_loop_add_event(impl->loop,
+					on_client_cleanup, client);
+	if (client->cleanup == NULL)
 		goto error;
 
 	return;

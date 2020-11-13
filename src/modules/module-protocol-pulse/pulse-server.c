@@ -3069,7 +3069,7 @@ static int fill_client_info(struct client *client, struct message *m,
 	const char *str;
 	uint32_t module_id = SPA_ID_INVALID;
 
-	if (info == NULL || info->props == NULL || !is_client(o))
+	if (!is_client(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
@@ -3094,7 +3094,7 @@ static int fill_module_info(struct client *client, struct message *m,
 {
 	struct pw_module_info *info = o->info;
 
-	if (info == NULL || info->props == NULL || !is_module(o))
+	if (!is_module(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	message_put(m,
@@ -3126,7 +3126,7 @@ static int fill_card_info(struct client *client, struct message *m,
 	struct card_info card_info = CARD_INFO_INIT;
 	struct profile_info *profile_info;
 
-	if (info == NULL || info->props == NULL || !is_card(o))
+	if (!is_card(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
@@ -3245,7 +3245,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	struct card_info card_info = CARD_INFO_INIT;
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
 
-	if (info == NULL || info->props == NULL || !is_sink(o))
+	if (!is_sink(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
@@ -3368,8 +3368,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
 
 	is_monitor = is_sink(o);
-	if (info == NULL || info->props == NULL ||
-	    (!is_source(o) && !is_monitor))
+	if ((!is_source(o) && !is_monitor) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
@@ -3491,7 +3490,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
 
-	if (info == NULL || info->props == NULL || !is_sink_input(o))
+	if (!is_sink_input(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
@@ -3556,7 +3555,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	uint32_t peer_id;
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
 
-	if (info == NULL || info->props == NULL || !is_source_output(o))
+	if (!is_source_output(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)

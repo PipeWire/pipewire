@@ -123,7 +123,7 @@ static int loop_remove_source(void *object, struct spa_source *source)
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
 }
 
-static void flush_items(struct impl *impl, bool async)
+static void flush_items(struct impl *impl)
 {
 	uint32_t index;
 	int res;
@@ -142,7 +142,7 @@ static void flush_items(struct impl *impl, bool async)
 
 		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
 
-		if (block && async) {
+		if (block) {
 			if ((res = spa_system_eventfd_write(impl->system, impl->ack_fd, 1)) < 0)
 				spa_log_warn(impl->log, NAME " %p: failed to write event fd: %s",
 						impl, spa_strerror(res));
@@ -166,7 +166,7 @@ loop_invoke(void *object,
 	int res;
 
 	if (in_thread && !impl->flushing) {
-		flush_items(impl, false);
+		flush_items(impl);
 		res = func ? func(&impl->loop, false, seq, data, size, user_data) : 0;
 	} else {
 		int32_t filled;
@@ -236,7 +236,7 @@ loop_invoke(void *object,
 static void wakeup_func(void *data, uint64_t count)
 {
 	struct impl *impl = data;
-	flush_items(impl, true);
+	flush_items(impl);
 }
 
 static int loop_get_fd(void *object)

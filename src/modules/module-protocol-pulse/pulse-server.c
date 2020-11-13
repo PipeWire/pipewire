@@ -3668,6 +3668,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	int res;
 	struct pw_manager_object *o;
 	struct selector sel;
+	const char *def = NULL;
 	int (*fill_func) (struct client *client, struct message *m, struct pw_manager_object *o) = NULL;
 
 	spa_zero(sel);
@@ -3698,11 +3699,13 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		sel.type = is_sink;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_sink_info;
+		def = "@DEFAULT_SINK@";
 		break;
 	case COMMAND_GET_SOURCE_INFO:
 		sel.type = is_source_or_monitor;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_source_info;
+		def = "@DEFAULT_SOURCE@";
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO:
 		sel.type = is_sink_input;
@@ -3725,6 +3728,9 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
 	    (sel.id != SPA_ID_INVALID && sel.value != NULL))
 		goto error_invalid;
+
+	if (sel.value != NULL && def != NULL && strcmp(sel.value, def) == 0)
+		sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
 			commands[command].name, tag, sel.id, sel.value);

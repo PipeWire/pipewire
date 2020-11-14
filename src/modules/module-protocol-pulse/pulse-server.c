@@ -3769,6 +3769,15 @@ error:
 	return res;
 }
 
+static uint64_t bytes_to_usec(uint64_t length, const struct sample_spec *ss)
+{
+	uint64_t u;
+	u = length / sample_spec_frame_size(ss);
+	u *= SPA_USEC_PER_SEC;
+	u /= ss->rate;
+	return u;
+}
+
 static int fill_sample_info(struct client *client, struct message *m,
 		struct sample *sample)
 {
@@ -3778,7 +3787,7 @@ static int fill_sample_info(struct client *client, struct message *m,
 		TAG_U32, sample->index,
 		TAG_STRING, sample->name,
 		TAG_CVOLUME, &vol,
-		TAG_USEC, 0,				/* length */
+		TAG_USEC, bytes_to_usec(sample->length, &sample->ss),
 		TAG_SAMPLE_SPEC, &sample->ss,
 		TAG_CHANNEL_MAP, &sample->map,
 		TAG_U32, sample->length,

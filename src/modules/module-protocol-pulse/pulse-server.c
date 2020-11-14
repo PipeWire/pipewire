@@ -236,9 +236,13 @@ static void sample_free(struct sample *sample)
 	free(sample);
 }
 
-static struct sample *find_sample(struct impl *impl, const char *name)
+static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *name)
 {
 	union pw_map_item *item;
+
+	if (idx != SPA_ID_INVALID)
+		return pw_map_lookup(&impl->samples, idx);
+
 	pw_array_for_each(item, &impl->samples.items) {
 		struct sample *s = item->data;
                 if (!pw_map_item_is_free(item) &&
@@ -2187,7 +2191,7 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 			impl, client->name, commands[command].name, tag,
 			channel, name);
 
-	sample = find_sample(impl, name);
+	sample = find_sample(impl, SPA_ID_INVALID, name);
 	if (sample == NULL) {
 		sample = calloc(1, sizeof(struct sample));
 		if (sample == NULL)
@@ -2300,7 +2304,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 
 	pw_properties_update(props, &client->props->dict);
 
-	sample = find_sample(impl, name);
+	sample = find_sample(impl, SPA_ID_INVALID, name);
 	if (sample == NULL)
 		goto error_noent;
 
@@ -2357,7 +2361,7 @@ static int do_remove_sample(struct client *client, uint32_t command, uint32_t ta
 			name);
 	if (name == NULL)
 		return -EINVAL;
-	if ((sample = find_sample(impl, name)) == NULL)
+	if ((sample = find_sample(impl, SPA_ID_INVALID, name)) == NULL)
 		return -ENOENT;
 
 	broadcast_subscribe_event(impl,
@@ -3695,9 +3699,6 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		sel.key = PW_KEY_DEVICE_NAME;
 		fill_func = fill_card_info;
 		break;
-	case COMMAND_GET_SAMPLE_INFO:
-		sel.key = "";
-		break;
 	case COMMAND_GET_SINK_INFO:
 		sel.type = is_sink;
 		sel.key = PW_KEY_NODE_NAME;
@@ -3768,6 +3769,87 @@ error:
 	return res;
 }
 
+static int fill_sample_info(struct client *client, struct message *m,
+		struct sample *sample)
+{
+	struct volume vol = VOLUME_INIT;
+
+	message_put(m,
+		TAG_U32, sample->index,
+		TAG_STRING, sample->name,
+		TAG_CVOLUME, &vol,
+		TAG_USEC, 0,				/* length */
+		TAG_SAMPLE_SPEC, &sample->ss,
+		TAG_CHANNEL_MAP, &sample->map,
+		TAG_U32, sample->length,
+		TAG_BOOLEAN, false,			/* lazy */
+		TAG_STRING, NULL,			/* filename */
+		TAG_INVALID);
+
+	if (client->version >= 13) {
+		message_put(m,
+			TAG_PROPLIST, sample->props,
+			TAG_INVALID);
+	}
+	return 0;
+}
+
+static int do_get_sample_info(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct message *reply = NULL;
+	uint32_t id;
+	const char *name;
+	struct sample *sample;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_STRING, &name,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	if ((id == SPA_ID_INVALID && name == NULL) ||
+	    (id != SPA_ID_INVALID && name != NULL))
+		return -EINVAL;
+
+	pw_log_info(NAME" %p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
+			commands[command].name, tag, id, name);
+
+	if ((sample = find_sample(impl, id, name)) == NULL)
+		return -ENOENT;
+
+	reply = reply_new(client, tag);
+	if ((res = fill_sample_info(client, reply, sample)) < 0)
+		goto error;
+
+	return send_message(client, reply);
+
+error:
+	if (reply)
+		message_free(client, reply, false, false);
+	return res;
+}
+
+static int do_get_sample_info_list(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct message *reply;
+	union pw_map_item *item;
+
+	pw_log_info(NAME" %p: [%s] %s tag:%u", impl, client->name,
+			commands[command].name, tag);
+
+	reply = reply_new(client, tag);
+	pw_array_for_each(item, &impl->samples.items) {
+		struct sample *s = item->data;
+                if (pw_map_item_is_free(item))
+			continue;
+		fill_sample_info(client, reply, s);
+	}
+	return send_message(client, reply);
+}
+
 struct info_list_data {
 	struct client *client;
 	struct message *reply;
@@ -3802,8 +3884,6 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 		break;
 	case COMMAND_GET_CARD_INFO_LIST:
 		info.fill_func = fill_card_info;
-		break;
-	case COMMAND_GET_SAMPLE_INFO_LIST:
 		break;
 	case COMMAND_GET_SINK_INFO_LIST:
 		info.fill_func = fill_sink_info;
@@ -4258,7 +4338,7 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_GET_CLIENT_INFO] = { "GET_CLIENT_INFO", do_get_info, },
 	[COMMAND_GET_SINK_INPUT_INFO] = { "GET_SINK_INPUT_INFO", do_get_info, },
 	[COMMAND_GET_SOURCE_OUTPUT_INFO] = { "GET_SOURCE_OUTPUT_INFO", do_get_info, },
-	[COMMAND_GET_SAMPLE_INFO] = { "GET_SAMPLE_INFO", do_get_info, },
+	[COMMAND_GET_SAMPLE_INFO] = { "GET_SAMPLE_INFO", do_get_sample_info, },
 	[COMMAND_GET_CARD_INFO] = { "GET_CARD_INFO", do_get_info, },
 	[COMMAND_SUBSCRIBE] = { "SUBSCRIBE", do_subscribe, },
 
@@ -4268,7 +4348,7 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_GET_CLIENT_INFO_LIST] = { "GET_CLIENT_INFO_LIST", do_get_info_list, },
 	[COMMAND_GET_SINK_INPUT_INFO_LIST] = { "GET_SINK_INPUT_INFO_LIST", do_get_info_list, },
 	[COMMAND_GET_SOURCE_OUTPUT_INFO_LIST] = { "GET_SOURCE_OUTPUT_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", do_get_info_list, },
+	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", do_get_sample_info_list, },
 	[COMMAND_GET_CARD_INFO_LIST] = { "GET_CARD_INFO_LIST", do_get_info_list, },
 
 	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_set_volume, },

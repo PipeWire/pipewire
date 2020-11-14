@@ -226,6 +226,8 @@ static void sample_free(struct sample *sample)
 {
 	struct impl *impl = sample->impl;
 
+	pw_log_info("free sample id:%u name:%s", sample->index, sample->name);
+
 	if (sample->index != SPA_ID_INVALID)
 		pw_map_remove(&impl->samples, sample->index);
 	if (sample->props)
@@ -2202,6 +2204,7 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 		free(sample->buffer);
 		event = SUBSCRIPTION_EVENT_CHANGE;
 	}
+	sample->ref = 1;
 	sample->impl = impl;
 	sample->name = name;
 	sample->props = stream->props;

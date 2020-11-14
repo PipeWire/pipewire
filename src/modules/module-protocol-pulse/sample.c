@@ -66,7 +66,7 @@ static void sample_play_stream_destroy(void *data)
 	pw_log_info("destroy %s", p->sample->name);
 	spa_hook_remove(&p->listener);
 	p->stream = NULL;
-	if (--p->sample == 0)
+	if (--p->sample->ref == 0)
 		sample_free(p->sample);
 	p->sample = NULL;
 }

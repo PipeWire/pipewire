@@ -51,6 +51,7 @@
 #define MAX_PORTS	1024
 
 static float empty[MAX_SAMPLES];
+static bool mlock_warned = false;
 
 struct buffer {
 	struct pw_buffer this;
@@ -555,12 +556,15 @@ static int map_data(struct filter *impl, struct spa_data *data, int prot)
 			range.offset, range.size, data->data);
 
 	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
-		pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
-				NAME" %p: Failed to mlock memory %p %u: %s", impl,
-						data->data, data->maxsize,
-						errno == ENOMEM ?
-						"This is not a problem but for best performance, "
-						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+		if (errno != ENOMEM || !mlock_warned) {
+			pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+					NAME" %p: Failed to mlock memory %p %u: %s", impl,
+					data->data, data->maxsize,
+					errno == ENOMEM ?
+					"This is not a problem but for best performance, "
+					"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+			mlock_warned |= errno == ENOMEM;
+		}
 	}
 	return 0;
 }

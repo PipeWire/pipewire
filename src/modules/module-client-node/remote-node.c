@@ -45,6 +45,7 @@
 #define MAX_IO	32
 
 /** \cond */
+static bool mlock_warned = false;
 
 struct buffer {
 	uint32_t id;
@@ -645,12 +646,15 @@ client_node_port_use_buffers(void *object,
 		bid->mem = mm;
 
 		if (data->allow_mlock && mlock(mm->ptr, mm->size) < 0)
-			pw_log(data->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
-					"Failed to mlock memory %p %u: %s",
-					mm->ptr, mm->size,
-					errno == ENOMEM ?
-					"This is not a problem but for best performance, "
-					"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+			if (errno != ENOMEM || !mlock_warned) {
+				pw_log(data->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+						"Failed to mlock memory %p %u: %s",
+						mm->ptr, mm->size,
+						errno == ENOMEM ?
+						"This is not a problem but for best performance, "
+						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+				mlock_warned |= errno == ENOMEM;
+			}
 
 		size = sizeof(struct spa_buffer);
 		for (j = 0; j < buffers[i].buffer->n_metas; j++)

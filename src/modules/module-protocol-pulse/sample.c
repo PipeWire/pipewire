@@ -38,26 +38,51 @@ struct sample_play_events {
 #define VERSION_SAMPLE_PLAY_EVENTS	0
 	uint32_t version;
 
+	void (*ready) (void *data, uint32_t id);
+
+	void (*error) (void *data, int err);
+
 	void (*done) (void *data);
 };
 
+#define sample_play_emit_ready(p,i) spa_hook_list_call(&p->hooks, struct sample_play_events, ready, 0, i)
+#define sample_play_emit_error(p,e) spa_hook_list_call(&p->hooks, struct sample_play_events, error, 0, e)
 #define sample_play_emit_done(p) spa_hook_list_call(&p->hooks, struct sample_play_events, done, 0)
 
 struct sample_play {
 	struct spa_list link;
 	struct sample *sample;
 	struct pw_stream *stream;
+	uint32_t index;
 	struct spa_hook listener;
 	struct pw_context *context;
 	struct pw_loop *main_loop;
-	uint32_t index;
+	uint32_t offset;
 	uint32_t stride;
 	struct spa_hook_list hooks;
 	void *user_data;
 };
 
-
 static void sample_free(struct sample *sample);
+
+static void sample_play_stream_state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct sample_play *p = data;
+
+	switch (state) {
+	case PW_STREAM_STATE_UNCONNECTED:
+	case PW_STREAM_STATE_ERROR:
+		sample_play_emit_error(p, -EIO);
+		break;
+	case PW_STREAM_STATE_PAUSED:
+		p->index = pw_stream_get_node_id(p->stream);
+		sample_play_emit_ready(p, p->index);
+		break;
+	default:
+		break;
+	}
+}
 
 static void sample_play_stream_destroy(void *data)
 {
@@ -80,11 +105,11 @@ static void sample_play_stream_process(void *data)
 	uint32_t size;
 	uint8_t *d;
 
-	if (p->index >= s->length) {
+	if (p->offset >= s->length) {
 		pw_stream_flush(p->stream, true);
 		return;
 	}
-	size = s->length - p->index;
+	size = s->length - p->offset;
 
 	if ((b = pw_stream_dequeue_buffer(p->stream)) == NULL) {
 		pw_log_warn("out of buffers: %m");
@@ -97,9 +122,9 @@ static void sample_play_stream_process(void *data)
 
 	size = SPA_MIN(size, buf->datas[0].maxsize);
 
-	memcpy(d, p->sample->buffer + p->index, size);
+	memcpy(d, p->sample->buffer + p->offset, size);
 
-	p->index += size;
+	p->offset += size;
 
         buf->datas[0].chunk->offset = 0;
         buf->datas[0].chunk->stride = p->stride;
@@ -116,6 +141,7 @@ static void sample_play_stream_drained(void *data)
 
 struct pw_stream_events sample_play_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
+	.state_changed = sample_play_stream_state_changed,
 	.destroy = sample_play_stream_destroy,
 	.process = sample_play_stream_process,
 	.drained = sample_play_stream_drained,

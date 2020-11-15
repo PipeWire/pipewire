@@ -2244,6 +2244,7 @@ struct pending_sample {
 	struct client *client;
 	struct sample_play *play;
 	struct spa_hook listener;
+	uint32_t tag;
 	unsigned int done:1;
 };
 
@@ -2254,29 +2255,57 @@ static void pending_sample_free(struct pending_sample *ps)
 	sample_play_destroy(ps->play);
 }
 
+static void sample_play_ready(void *data, uint32_t index)
+{
+	struct pending_sample *ps = data;
+	struct client *client = ps->client;
+	struct impl *impl = client->impl;
+	struct message *reply;
+
+	pw_log_info(NAME" %p: [%s] PLAY_SAMPLE tag:%u sink_index:%u",
+			impl, client->name, ps->tag, index);
+
+	reply = reply_new(client, ps->tag);
+	if (client->version >= 13)
+		message_put(reply,
+			TAG_U32, index,
+			TAG_INVALID);
+
+	send_message(client, reply);
+}
+
 static void sample_play_done(void *data)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
 	struct impl *impl = client->impl;
+	pw_log_info(NAME" %p: sample done tag:%u", client, ps->tag);
 	ps->done = true;
 	pw_loop_signal_event(impl->loop, client->cleanup);
 }
 
+static void sample_play_error(void *data, int err)
+{
+	struct pending_sample *ps = data;
+	struct client *client = ps->client;
+	reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, err);
+}
+
 static const struct sample_play_events sample_play_events = {
 	VERSION_SAMPLE_PLAY_EVENTS,
+	.ready = sample_play_ready,
+	.error = sample_play_error,
 	.done = sample_play_done,
 };
 
 static int do_play_sample(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	uint32_t sink_index, volume, idx;
+	uint32_t sink_index, volume;
 	struct sample *sample;
 	struct sample_play *play;
 	const char *sink_name, *name;
 	struct pw_properties *props = NULL;
-	struct message *reply;
 	struct pending_sample *ps;
 	int res;
 
@@ -2316,18 +2345,11 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 	ps = play->user_data;
 	ps->client = client;
 	ps->play = play;
+	ps->tag = tag;
 	sample_play_add_listener(play, &ps->listener, &sample_play_events, ps);
 	spa_list_append(&client->samples, &ps->link);
 
-	idx = 0;
-
-	reply = reply_new(client, tag);
-	if (client->version >= 13)
-		message_put(reply,
-			TAG_U32, idx,
-			TAG_INVALID);
-
-	return send_message(client, reply);
+	return 0;
 
 error_errno:
 	res = -errno;

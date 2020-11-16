@@ -740,7 +740,7 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 					PW_KEY_APP_NAME, name);
 	} else {
 		if (message_get(m,
-				TAG_PROPLIST, client->props ? &client->props->dict : NULL,
+				TAG_PROPLIST, client->props,
 				TAG_INVALID) < 0)
 			return -EPROTO;
 		changed++;
@@ -3819,7 +3819,7 @@ static int fill_sample_info(struct client *client, struct message *m,
 
 	if (client->version >= 13) {
 		message_put(m,
-			TAG_PROPLIST, sample->props,
+			TAG_PROPLIST, &sample->props->dict,
 			TAG_INVALID);
 	}
 	return 0;

@@ -43,6 +43,41 @@ static inline float volume_to_linear(uint32_t vol)
 	return v * v * v;
 }
 
+struct key_map {
+	const char *pw_key;
+	const char *pa_key;
+};
+
+const struct key_map key_table[] = {
+	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
+	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
+	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
+	{ PW_KEY_DEVICE_INTENDED_ROLES, "device.intended_roles" },
+	{ PW_KEY_MEDIA_ICON_NAME, "media.icon_name" },
+	{ PW_KEY_APP_ICON_NAME, "application.icon_name" },
+	{ PW_KEY_APP_PROCESS_MACHINE_ID, "application.process.machine_id" },
+	{ PW_KEY_APP_PROCESS_SESSION_ID, "application.process.session_id" },
+};
+
+
+static inline const char *pa_key_to_pw(const char *key)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(key_table); i++)
+		if (strcmp(key_table[i].pa_key, key) == 0)
+			return key_table[i].pw_key;
+	return key;
+}
+
+static inline const char *pw_key_to_pa(const char *key)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(key_table); i++)
+		if (strcmp(key_table[i].pw_key, key) == 0)
+			return key_table[i].pa_key;
+	return key;
+}
+
 struct descriptor {
 	uint32_t length;
 	uint32_t channel;
@@ -157,7 +192,7 @@ static int read_props(struct message *m, struct pw_properties *props)
 				TAG_INVALID)) < 0)
 			return res;
 
-		pw_properties_set(props, key, data);
+		pw_properties_set(props, pa_key_to_pw(key), data);
 	}
 	return 0;
 }
@@ -505,7 +540,7 @@ static void write_dict(struct message *m, struct spa_dict *dict)
 	if (dict != NULL) {
 		spa_dict_for_each(it, dict) {
 			int l = strlen(it->value);
-			write_string(m, it->key);
+			write_string(m, pw_key_to_pa(it->key));
 			write_u32(m, l+1);
 			write_arbitrary(m, it->value, l+1);
 		}

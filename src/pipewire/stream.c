@@ -1875,8 +1875,8 @@ do_flush(struct spa_loop *loop,
 	}
 	while (b);
 
-	impl->time.queued = impl->queued.outcount = impl->dequeued.incount =
-		impl->dequeued.outcount = impl->queued.incount;
+	impl->queued.outcount = impl->dequeued.incount =
+		impl->dequeued.outcount = impl->queued.incount = 0;
 
 	return 0;
 }

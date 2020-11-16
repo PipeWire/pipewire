@@ -181,6 +181,7 @@ struct stream {
 
 	uint32_t drain_tag;
 	unsigned int corked:1;
+	unsigned int draining:1;
 	unsigned int volume_set:1;
 	unsigned int muted_set:1;
 	unsigned int adjust_latency:1;
@@ -1385,9 +1386,10 @@ static void stream_process(void *data)
 			size = buf->datas[0].maxsize;
 			memset(p, 0, size);
 
-			if (stream->drain_tag)
+			if (stream->draining) {
+				stream->draining = false;
 				pw_stream_flush(stream->stream, true);
-			else {
+			} else {
 				pd.underrun_for = size;
 				pd.underrun = true;
 			}
@@ -3142,6 +3144,7 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 		return -ENOENT;
 
 	stream->drain_tag = tag;
+	stream->draining = true;
 	return 0;
 }
 

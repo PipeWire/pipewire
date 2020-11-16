@@ -386,6 +386,7 @@ void backend_hsphfpd_add_filters(struct spa_bt_backend *backend);
 #else
 static inline struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
+		const struct spa_dict *info,
 		const struct spa_support *support,
 		uint32_t n_support) {
 	return NULL;

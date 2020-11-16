@@ -324,6 +324,8 @@ static int flush_messages(struct client *client)
 			data = m->data + idx;
 			size = m->length - idx;
 		} else {
+			if (debug_messages)
+				message_dump(m);
 			message_free(client, m, true, false);
 			client->out_index = 0;
 			continue;
@@ -348,7 +350,7 @@ static int flush_messages(struct client *client)
 static int send_message(struct client *client, struct message *m)
 {
 	struct impl *impl = client->impl;
-	int res;
+	int res, mask;
 
 	if (m == NULL)
 		return -EINVAL;
@@ -364,20 +366,14 @@ static int send_message(struct client *client, struct message *m)
 	m->offset = 0;
 	spa_list_append(&client->out_messages, &m->link);
 
-	if (debug_messages)
-		message_dump(m);
-
-	res = flush_messages(client);
-	if (res == -EAGAIN) {
-		int mask = client->source->mask;
+	mask = client->source->mask;
+	if (!SPA_FLAG_IS_SET(mask, SPA_IO_OUT)) {
 		SPA_FLAG_SET(mask, SPA_IO_OUT);
 		pw_loop_update_io(impl->loop, client->source, mask);
-		res = 0;
 	}
-	return res;
+	return 0;
 error:
-	if (m)
-		message_free(client, m, false, false);
+	message_free(client, m, false, false);
 	return res;
 }
 
@@ -4750,16 +4746,6 @@ on_client_data(void *data, int fd, uint32_t mask)
 		res = -EIO;
 		goto error;
 	}
-	if (mask & SPA_IO_OUT) {
-		pw_log_trace(NAME" %p: can write", impl);
-		res = flush_messages(client);
-		if (res >= 0) {
-			int mask = client->source->mask;
-			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
-			pw_loop_update_io(impl->loop, client->source, mask);
-		} else if (res != -EAGAIN)
-			goto error;
-	}
 	if (mask & SPA_IO_IN) {
 		pw_log_trace(NAME" %p: can read", impl);
 		while (true) {
@@ -4770,6 +4756,16 @@ on_client_data(void *data, int fd, uint32_t mask)
 				break;
 			}
 		}
+	}
+	if (mask & SPA_IO_OUT) {
+		pw_log_trace(NAME" %p: can write", impl);
+		res = flush_messages(client);
+		if (res >= 0) {
+			int mask = client->source->mask;
+			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
+			pw_loop_update_io(impl->loop, client->source, mask);
+		} else if (res != -EAGAIN)
+			goto error;
 	}
 	return;
 

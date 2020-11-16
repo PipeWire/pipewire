@@ -652,7 +652,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
 				path_id, reconnect);
 	}
-	if (path_id == SPA_ID_INVALID || reconnect) {
+	if (path_id == SPA_ID_INVALID && reconnect) {
 		spa_list_for_each(peer, &impl->node_list, link)
 			find_node(&find, peer);
 	}

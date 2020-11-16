@@ -4656,7 +4656,11 @@ static int do_read(struct client *client)
 		size = client->message->length - idx;
 	}
 	while (true) {
-		if ((r = recv(client->source->fd, data, size, MSG_DONTWAIT)) < 0) {
+		r = recv(client->source->fd, data, size, MSG_DONTWAIT);
+		if (r == 0 && size != 0) {
+			res = -EPIPE;
+			goto exit;
+		} else if (r < 0) {
 			if (errno == EINTR)
 		                continue;
 			res = -errno;

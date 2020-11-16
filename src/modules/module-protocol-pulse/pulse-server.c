@@ -801,12 +801,9 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 
 static void stream_flush(struct stream *stream)
 {
-	uint32_t old;
-
-	old = stream->ring.writeindex;
-	stream->ring.writeindex = stream->ring.readindex;
-	stream->missing += (old - stream->ring.writeindex);
-	stream->write_index = stream->read_index = stream->ring.writeindex;
+	stream->write_index = stream->read_index =
+		stream->ring.writeindex = stream->ring.readindex;
+	stream->missing = stream->attr.tlength;
 
 	if (stream->attr.prebuf > 0)
 		stream->in_prebuf = true;

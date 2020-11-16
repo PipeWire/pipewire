@@ -129,6 +129,7 @@ struct client {
 	struct spa_list samples;
 
 	unsigned int disconnecting:1;
+	unsigned int need_flush:1;
 };
 
 struct buffer_attr {
@@ -368,6 +369,7 @@ static int send_message(struct client *client, struct message *m)
 
 	mask = client->source->mask;
 	if (!SPA_FLAG_IS_SET(mask, SPA_IO_OUT)) {
+		client->need_flush = true;
 		SPA_FLAG_SET(mask, SPA_IO_OUT);
 		pw_loop_update_io(impl->loop, client->source, mask);
 	}
@@ -4757,8 +4759,9 @@ on_client_data(void *data, int fd, uint32_t mask)
 			}
 		}
 	}
-	if (mask & SPA_IO_OUT) {
+	if (mask & SPA_IO_OUT || client->need_flush) {
 		pw_log_trace(NAME" %p: can write", impl);
+		client->need_flush = false;
 		res = flush_messages(client);
 		if (res >= 0) {
 			int mask = client->source->mask;

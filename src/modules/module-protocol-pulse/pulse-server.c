@@ -187,6 +187,7 @@ struct stream {
 	unsigned int have_time:1;
 	unsigned int is_underrun:1;
 	unsigned int in_prebuf:1;
+	unsigned int done:1;
 };
 
 struct server {
@@ -1166,22 +1167,25 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 {
 	struct stream *stream = data;
 	struct client *client = stream->client;
+	struct impl *impl = client->impl;
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
 		reply_error(client, -1, -1, -EIO);
+		stream->done = true;
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (!client->disconnecting)
 			send_stream_killed(stream);
+		stream->done = true;
 		break;
 	case PW_STREAM_STATE_CONNECTING:
-		break;
 	case PW_STREAM_STATE_PAUSED:
-		break;
 	case PW_STREAM_STATE_STREAMING:
 		break;
 	}
+	if (stream->done)
+		pw_loop_signal_event(impl->loop, client->cleanup);
 }
 
 static const struct spa_pod *get_buffers_param(struct stream *s,
@@ -4708,6 +4712,14 @@ exit:
 	return res;
 }
 
+static int client_cleanup_stream(void *item, void *data)
+{
+	struct stream *s = item;
+	if (s->done)
+		stream_free(s);
+	return 0;
+}
+
 static void on_client_cleanup(void *data, uint64_t count)
 {
 	struct client *client = data;
@@ -4716,6 +4728,7 @@ static void on_client_cleanup(void *data, uint64_t count)
 		if (p->done)
 			pending_sample_free(p);
 	}
+	pw_map_for_each(&client->streams, client_cleanup_stream, client);
 }
 
 static void

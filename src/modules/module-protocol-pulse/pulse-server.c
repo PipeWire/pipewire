@@ -2302,8 +2302,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 			impl, client->name, commands[command].name, tag,
 			sink_index, sink_name, name);
 
-	if ((sink_index == SPA_ID_INVALID && sink_name == NULL) ||
-	    (sink_index != SPA_ID_INVALID && sink_name != NULL))
+	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
 		goto error_inval;
 
 	if (sink_name != NULL)

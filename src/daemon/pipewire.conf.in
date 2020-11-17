@@ -71,8 +71,20 @@ create-object spa-node-factory factory.name=support.node.driver node.name=Dummy 
 
 ## exec <program-name>
 #
-# Execute the given program. This is usually used to start the
-# session manager. run the session manager with -h for options
+# Execute the given program.
 #
-exec @media_session_path@ # -d alsa-seq,alsa-pcm,bluez5,metadata
+# Start the session manager. Run the session manager with -h for
+# options.
+#
+# The bluetooth module is disabled by default because it causes
+# conflicts with PulseAudio. If you disable PulseAudio or don't
+# load its bluetooth module, you can enable it here with -e bluez5
+#
+exec @media_session_path@
+#
+# You can optionally start the pulseaudio-server here as well
+# but it better to start it as a systemd service.
+# It can be interesting to start another daemon here that listens
+# on another address with the -a option (eg. -a tcp:4713)
+#
 #exec @pipewire_pulse_path@

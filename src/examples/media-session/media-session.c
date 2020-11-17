@@ -2133,8 +2133,8 @@ static void show_help(const char *name, const char *enabled, const char *disable
         fprintf(stdout, "%s [options]\n"
              "  -h, --help                            Show this help\n"
              "      --version                         Show version\n"
-             "  -e, --enabled                         Extra enabled options ('%s')\n"
-             "  -d, --disabled                        Extra disabled options ('%s')\n"
+             "  -e, --enabled                         Extra comma separated enabled options ('%s')\n"
+             "  -d, --disabled                        Extra comma separated disabled options ('%s')\n"
              "  -p, --properties                      Extra properties as 'key=value { key=value }'\n",
 	     name, enabled, disabled);
 

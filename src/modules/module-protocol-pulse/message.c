@@ -43,12 +43,26 @@ static inline float volume_to_linear(uint32_t vol)
 	return v * v * v;
 }
 
-struct key_map {
-	const char *pw_key;
-	const char *pa_key;
+struct str_map {
+	const char *pw_str;
+	const char *pa_str;
+	const struct str_map *child;
 };
 
-const struct key_map key_table[] = {
+const struct str_map media_role_map[] = {
+	{ "Movie", "video", },
+	{ "Music", "music", },
+	{ "Game", "game", },
+	{ "Notification", "event", },
+	{ "Communication", "phone", },
+	{ "Movie", "animation", },
+	{ "Production", "production", },
+	{ "Accessibility", "a11y", },
+	{ "Test", "test", },
+	{ NULL, NULL },
+};
+
+const struct str_map key_table[] = {
 	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
 	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
 	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
@@ -57,25 +71,18 @@ const struct key_map key_table[] = {
 	{ PW_KEY_APP_ICON_NAME, "application.icon_name" },
 	{ PW_KEY_APP_PROCESS_MACHINE_ID, "application.process.machine_id" },
 	{ PW_KEY_APP_PROCESS_SESSION_ID, "application.process.session_id" },
+	{ PW_KEY_MEDIA_ROLE, "media.role", media_role_map },
+	{ NULL, NULL },
 };
 
-
-static inline const char *pa_key_to_pw(const char *key)
+static inline const struct str_map *str_map_find(const struct str_map *map, const char *pw, const char *pa)
 {
 	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(key_table); i++)
-		if (strcmp(key_table[i].pa_key, key) == 0)
-			return key_table[i].pw_key;
-	return key;
-}
-
-static inline const char *pw_key_to_pa(const char *key)
-{
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(key_table); i++)
-		if (strcmp(key_table[i].pw_key, key) == 0)
-			return key_table[i].pa_key;
-	return key;
+	for (i = 0; map[i].pw_str; i++)
+		if ((pw && strcmp(map[i].pw_str, pw) == 0) ||
+		    (pa && strcmp(map[i].pa_str, pa) == 0))
+			return &map[i];
+	return NULL;
 }
 
 struct descriptor {
@@ -167,10 +174,11 @@ static int read_props(struct message *m, struct pw_properties *props)
 	int res;
 
 	while (true) {
-		char *key;
-		void *data;
+		const char *key;
+		const void *data;
 		uint32_t length;
 		size_t size;
+		const struct str_map *map;
 
 		if ((res = message_get(m,
 				TAG_STRING, &key,
@@ -192,7 +200,13 @@ static int read_props(struct message *m, struct pw_properties *props)
 				TAG_INVALID)) < 0)
 			return res;
 
-		pw_properties_set(props, pa_key_to_pw(key), data);
+		if ((map = str_map_find(key_table, NULL, key)) != NULL) {
+			key = map->pw_str;
+			if (map->child != NULL &&
+			    (map = str_map_find(map->child, NULL, data)) != NULL)
+				data = map->pw_str;
+		}
+		pw_properties_set(props, key, data);
 	}
 	return 0;
 }
@@ -539,10 +553,21 @@ static void write_dict(struct message *m, struct spa_dict *dict)
 	write_8(m, TAG_PROPLIST);
 	if (dict != NULL) {
 		spa_dict_for_each(it, dict) {
-			int l = strlen(it->value);
-			write_string(m, pw_key_to_pa(it->key));
-			write_u32(m, l+1);
-			write_arbitrary(m, it->value, l+1);
+			const char *key = it->key;
+			const char *val = it->value;
+			int l;
+			const struct str_map *map;
+
+			if ((map = str_map_find(key_table, key, NULL)) != NULL) {
+				key = map->pa_str;
+				if (map->child != NULL &&
+				    (map = str_map_find(map->child, val, NULL)) != NULL)
+					val = map->pa_str;
+			}
+			write_string(m, key);
+			l = strlen(val) + 1;
+			write_u32(m, l);
+			write_arbitrary(m, val, l);
 		}
 	}
 	write_string(m, NULL);

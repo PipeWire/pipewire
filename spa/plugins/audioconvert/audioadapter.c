@@ -517,6 +517,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	case SPA_NODE_COMMAND_Suspend:
 		configure_format(this, 0, NULL);
 		SPA_FALLTHROUGH
+	case SPA_NODE_COMMAND_Flush:
+		this->io_buffers.status = SPA_STATUS_OK;
+		SPA_FALLTHROUGH
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;

@@ -466,7 +466,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
-		SPA_FALLTHROUGH
+	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;

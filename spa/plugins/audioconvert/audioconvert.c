@@ -388,6 +388,14 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 	return 0;
 }
 
+static void flush_convert(struct impl *this)
+{
+	int i;
+	spa_log_debug(this->log, NAME " %p: %d", this, this->n_links);
+	for (i = 0; i < this->n_links; i++)
+		this->links[i].io.status = SPA_STATUS_OK;
+}
+
 static void clean_convert(struct impl *this)
 {
 	int i;
@@ -808,6 +816,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	case SPA_NODE_COMMAND_Suspend:
 		clean_convert(this);
+		SPA_FALLTHROUGH
+	case SPA_NODE_COMMAND_Flush:
+		flush_convert(this);
 		SPA_FALLTHROUGH
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;

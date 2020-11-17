@@ -186,7 +186,6 @@ struct stream {
 	unsigned int volume_set:1;
 	unsigned int muted_set:1;
 	unsigned int adjust_latency:1;
-	unsigned int have_time:1;
 	unsigned int is_underrun:1;
 	unsigned int in_prebuf:1;
 	unsigned int done:1;
@@ -799,21 +798,6 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 	return reply_simple_ack(client, tag);
 }
 
-static void stream_flush(struct stream *stream)
-{
-	stream->write_index = stream->read_index =
-		stream->ring.writeindex = stream->ring.readindex;
-	stream->missing = stream->attr.tlength;
-
-	if (stream->attr.prebuf > 0)
-		stream->in_prebuf = true;
-
-	stream->playing_for = 0;
-	stream->underrun_for = 0;
-	stream->have_time = false;
-	stream->is_underrun = true;
-}
-
 static void stream_free(struct stream *stream)
 {
 	struct client *client = stream->client;
@@ -827,7 +811,6 @@ static void stream_free(struct stream *stream)
 
 	if (stream->channel != SPA_ID_INVALID)
 		pw_map_remove(&client->streams, stream->channel);
-	stream_flush(stream);
 	if (stream->stream) {
 		spa_hook_remove(&stream->stream_listener);
 		pw_stream_destroy(stream->stream);
@@ -2413,6 +2396,29 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 	return reply_simple_ack(client, tag);
 }
 
+static void stream_flush(struct stream *stream)
+{
+	pw_stream_flush(stream->stream, false);
+
+	if (stream->type == STREAM_TYPE_PLAYBACK) {
+		stream->write_index = stream->read_index =
+			stream->ring.writeindex = stream->ring.readindex;
+		stream->missing = stream->attr.tlength;
+
+		if (stream->attr.prebuf > 0)
+			stream->in_prebuf = true;
+
+		stream->playing_for = 0;
+		stream->underrun_for = 0;
+		stream->is_underrun = true;
+
+		send_command_request(stream);
+	} else {
+		stream->read_index = stream->write_index =
+			stream->ring.readindex = stream->ring.writeindex;
+	}
+}
+
 static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -2429,15 +2435,13 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 			impl, client->name, commands[command].name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL || stream->type != STREAM_TYPE_PLAYBACK)
+	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
 
 	switch (command) {
 	case COMMAND_FLUSH_PLAYBACK_STREAM:
 	case COMMAND_FLUSH_RECORD_STREAM:
-		pw_stream_flush(stream->stream, false);
 		stream_flush(stream);
-		send_command_request(stream);
 		break;
 	case COMMAND_TRIGGER_PLAYBACK_STREAM:
 	case COMMAND_PREBUF_PLAYBACK_STREAM:

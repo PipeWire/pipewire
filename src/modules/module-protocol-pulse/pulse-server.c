@@ -420,6 +420,8 @@ static int reply_error(struct client *client, uint32_t command, uint32_t tag, in
 	return send_message(client, reply);
 }
 
+#include "extension.c"
+
 static int send_underflow(struct stream *stream, int64_t offset)
 {
 	struct client *client = stream->client;
@@ -4015,6 +4017,34 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	return reply_simple_ack(client, tag);
 }
 
+static int do_extension(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	uint32_t idx;
+	const char *name;
+	struct extension *ext;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_U32, &idx,
+			TAG_STRING, &name,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
+			commands[command].name, tag, idx, name);
+
+	if ((idx == SPA_ID_INVALID && name == NULL) ||
+	    (idx != SPA_ID_INVALID && name != NULL))
+		return -EINVAL;
+
+	ext = find_extension(idx, name);
+	if (ext == NULL)
+		return -ENOENT;
+
+	return ext->process(client, tag, m);
+}
+
 static int do_set_profile(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -4432,7 +4462,7 @@ static const struct command commands[COMMAND_MAX] =
 	[COMMAND_STARTED] = { "STARTED", },
 
 	/* Supported since protocol v14 (0.9.12) */
-	[COMMAND_EXTENSION] = { "EXTENSION", do_error_not_implemented, },
+	[COMMAND_EXTENSION] = { "EXTENSION", do_extension, },
 	/* Supported since protocol v15 (0.9.15) */
 	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_set_profile, },
 

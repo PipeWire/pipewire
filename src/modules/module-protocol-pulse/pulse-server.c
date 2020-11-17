@@ -326,7 +326,7 @@ static int flush_messages(struct client *client)
 			size = m->length - idx;
 		} else {
 			if (debug_messages)
-				message_dump(m);
+				message_dump(SPA_LOG_LEVEL_INFO, m);
 			message_free(client, m, true, false);
 			client->out_index = 0;
 			continue;
@@ -4005,7 +4005,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: [%s %s tag:%u channel:%u rate:%u", impl, client->name,
+	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%u rate:%u", impl, client->name,
 			commands[command].name, tag, channel, rate);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -4038,7 +4038,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: [%s %s tag:%u id:%u name:%s profile:%s", impl, client->name,
+	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s profile:%s", impl, client->name,
 			commands[command].name, tag, sel.id, sel.value, profile_name);
 
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
@@ -4082,7 +4082,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (name == NULL)
 		return -EINVAL;
 
-	pw_log_info(NAME" %p: [%s ] %s tag:%u name:%s", impl, client->name,
+	pw_log_info(NAME" %p: [%s] %s tag:%u name:%s", impl, client->name,
 			commands[command].name, tag, name);
 
 	if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
@@ -4534,7 +4534,7 @@ static int handle_packet(struct client *client, struct message *msg)
 
 	if (debug_messages) {
 		pw_log_debug(NAME" %p: command %s", impl, commands[command].name);
-		message_dump(msg);
+		message_dump(SPA_LOG_LEVEL_INFO, msg);
 	}
 
 	if (commands[command].run == NULL) {

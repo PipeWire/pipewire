@@ -52,6 +52,10 @@
 
 #define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
 
+#define INDEX_MASK		0xffffu
+#define MONITOR_FLAG		(1u << 16)
+#define EXTENSION_FLAG		(1u << 17)
+
 enum error_code {
 	ERR_OK = 0,			/**< No error */
 	ERR_ACCESS,			/**< Access failure */

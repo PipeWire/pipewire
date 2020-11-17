@@ -624,7 +624,7 @@ static uint32_t get_event_and_id(struct client *client, struct pw_manager_object
 	else if (client->subscribed & SUBSCRIPTION_MASK_SOURCE &&
 	    is_source_or_monitor(o)) {
 		if (!is_source(o))
-			res_id |= 0x10000U;
+			res_id |= MONITOR_FLAG;
 		event = SUBSCRIPTION_EVENT_SOURCE;
 	}
 	else if (client->subscribed & SUBSCRIPTION_MASK_SINK_INPUT &&
@@ -1112,7 +1112,7 @@ static int reply_create_record_stream(struct stream *stream)
 		name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
 		if (!is_source(peer)) {
 			size_t len = (name ? strlen(name) : 5) + 10;
-			peer_id = peer->id | 0x10000u;
+			peer_id = peer->id | MONITOR_FLAG;
 			peer_name = tmp = alloca(len);
 			snprintf(tmp, len, "%s.monitor", name ? name : "sink");
 		} else {
@@ -1866,8 +1866,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			source_index = id;
 	}
 	if (source_index != SPA_ID_INVALID) {
-		if (source_index & 0x10000u)
-			source_index &= 0xffffu;
+		if (source_index & MONITOR_FLAG)
+			source_index &= INDEX_MASK;
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u", source_index);
 	} else if (source_name != NULL) {
@@ -3333,7 +3333,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_U32, module_id,			/* module index */
 		TAG_CVOLUME, &dev_info.volume_info.volume,
 		TAG_BOOLEAN, dev_info.volume_info.mute,
-		TAG_U32, o->id | 0x10000U,		/* monitor source */
+		TAG_U32, o->id | MONITOR_FLAG,		/* monitor source */
 		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
 		TAG_STRING, "PipeWire",			/* driver */
@@ -3454,7 +3454,7 @@ static int fill_source_info(struct client *client, struct message *m,
                 flags |= SOURCE_HW_MUTE_CTRL;
 
 	message_put(m,
-		TAG_U32, is_monitor ? o->id | 0x10000 : o->id,	/* source index */
+		TAG_U32, is_monitor ? o->id | MONITOR_FLAG: o->id,	/* source index */
 		TAG_STRING, is_monitor ? monitor_name : name,
 		TAG_STRING, is_monitor ? monitor_desc : desc,
 		TAG_SAMPLE_SPEC, &dev_info.ss,
@@ -3617,7 +3617,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	if (peer && is_source_or_monitor(peer)) {
 		peer_id = peer->id;
 		if (!is_source(peer))
-			peer_id |= 0x10000u;
+			peer_id |= MONITOR_FLAG;
 	} else {
 		peer_id = SPA_ID_INVALID;
 	}

@@ -2233,7 +2233,7 @@ static void sample_play_ready(void *data, uint32_t index)
 	struct impl *impl = client->impl;
 	struct message *reply;
 
-	pw_log_info(NAME" %p: [%s] PLAY_SAMPLE tag:%u sink_index:%u",
+	pw_log_info(NAME" %p: [%s] PLAY_SAMPLE tag:%u index:%u",
 			impl, client->name, ps->tag, index);
 
 	reply = reply_new(client, ps->tag);
@@ -2302,6 +2302,17 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 			impl, client->name, commands[command].name, tag,
 			sink_index, sink_name, name);
 
+	if ((sink_index == SPA_ID_INVALID && sink_name == NULL) ||
+	    (sink_index != SPA_ID_INVALID && sink_name != NULL))
+		goto error_inval;
+
+	if (sink_name != NULL)
+		pw_properties_set(props,
+				PW_KEY_NODE_TARGET, sink_name);
+	else if (sink_index != SPA_ID_INVALID)
+		pw_properties_setf(props,
+				PW_KEY_NODE_TARGET, "%u", sink_index);
+
 	pw_properties_update(props, &client->props->dict);
 
 	sample = find_sample(impl, SPA_ID_INVALID, name);
@@ -2327,6 +2338,9 @@ error_errno:
 	goto error;
 error_proto:
 	res = -EPROTO;
+	goto error;
+error_inval:
+	res = -EINVAL;
 	goto error;
 error_noent:
 	res = -ENOENT;

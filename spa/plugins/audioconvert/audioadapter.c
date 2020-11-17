@@ -969,6 +969,9 @@ static int impl_node_process(void *object)
 			if (done)
 				break;
 		}
+		if (!(status & SPA_STATUS_HAVE_DATA))
+			spa_node_call_xrun(&this->callbacks, 0, 0, NULL);
+
 	} else {
 		status = spa_node_process(this->follower);
 	}

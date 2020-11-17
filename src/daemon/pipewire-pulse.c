@@ -46,7 +46,7 @@ static void show_help(const char *name)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -a  --address                         comma separated list of addresses (Default %s)\n"
-		"                                           unix:<socket-name>\n",
+		"                                           unix:<socket-name>\n"
 		"                                           tcp:[<ip>][:<port>]\n",
 		name,
 		address);

@@ -271,6 +271,16 @@ client_busy_changed(void *data, bool busy)
 		process_messages(c);
 }
 
+static void handle_client_error(struct pw_impl_client *client, int res)
+{
+	if (res == -EPIPE)
+		pw_log_info(NAME" %p: client %p disconnected", client->protocol, client);
+	else
+		pw_log_error(NAME" %p: client %p error %d (%s)", client->protocol,
+				client, res, spa_strerror(res));
+	pw_impl_client_destroy(client);
+}
+
 static void
 connection_data(void *data, int fd, uint32_t mask)
 {
@@ -302,12 +312,7 @@ connection_data(void *data, int fd, uint32_t mask)
 	}
 	return;
 error:
-	if (res == -EPIPE)
-		pw_log_info(NAME" %p: client %p disconnected", client->protocol, client);
-	else
-		pw_log_error(NAME" %p: client %p error %d (%s)", client->protocol,
-				client, res, spa_strerror(res));
-	pw_impl_client_destroy(client);
+	handle_client_error(client, res);
 }
 
 static void client_free(void *data)
@@ -1043,12 +1048,8 @@ static void on_before_hook(void *_data)
 			SPA_FLAG_SET(mask, SPA_IO_OUT);
 			pw_loop_update_io(data->client->context->main_loop,
 					data->source, mask);
-		} else if (res < 0) {
-			pw_log_warn("client %p: could not flush: %s",
-					data->client, spa_strerror(res));
-			pw_impl_client_destroy(data->client);
-		}
-
+		} else if (res < 0)
+			handle_client_error(data->client, res);
 	}
 }
 

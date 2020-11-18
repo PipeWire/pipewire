@@ -290,6 +290,7 @@ static struct message *message_alloc(struct client *client, uint32_t channel, ui
 	if (msg == NULL)
 		return NULL;
 	ensure_size(msg, size);
+	spa_zero(msg->extra);
 	msg->channel = channel;
 	msg->offset = 0;
 	msg->length = size;
@@ -448,11 +449,40 @@ static int send_underflow(struct stream *stream, int64_t offset)
 
 static int send_subscribe_event(struct client *client, uint32_t event, uint32_t id)
 {
-	struct message *reply;
+	struct message *reply, *m, *t;
 
 	pw_log_debug(NAME" %p: SUBSCRIBE event:%08x id:%u", client, event, id);
 
+	if ((event & SUBSCRIPTION_EVENT_TYPE_MASK) != SUBSCRIPTION_EVENT_NEW) {
+		spa_list_for_each_safe_reverse(m, t, &client->out_messages, link) {
+			if (m->extra[0] != COMMAND_SUBSCRIBE_EVENT)
+				continue;
+			if ((m->extra[1] ^ event) & SUBSCRIPTION_EVENT_FACILITY_MASK)
+				continue;
+			if (m->extra[2] != id)
+				continue;
+
+			if ((event & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_REMOVE) {
+		                /* This object is being removed, hence there is no
+		                 * point in keeping the old events regarding this
+		                 * entry in the queue. */
+				message_free(client, m, true, false);
+				pw_log_debug("Dropped redundant event due to remove event.");
+				continue;
+			}
+			if ((event & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_CHANGE) {
+				/* This object has changed. If a "new" or "change" event for
+				 * this object is still in the queue we can exit. */
+				pw_log_debug("Dropped redundant event due to change event.");
+				return 0;
+			}
+		}
+	}
+
 	reply = message_alloc(client, -1, 0);
+	reply->extra[0] = COMMAND_SUBSCRIBE_EVENT,
+	reply->extra[1] = event,
+	reply->extra[2] = id,
 	message_put(reply,
 		TAG_U32, COMMAND_SUBSCRIBE_EVENT,
 		TAG_U32, -1,

@@ -117,6 +117,7 @@ enum {
 
 struct message {
 	struct spa_list link;
+	uint32_t extra[4];
 	uint32_t channel;
 	uint32_t allocated;
 	uint32_t length;

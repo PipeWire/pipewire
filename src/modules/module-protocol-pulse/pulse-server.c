@@ -166,7 +166,7 @@ struct stream {
 	uint64_t underrun_for;
 	uint64_t playing_for;
 	uint64_t ticks_base;
-	struct timeval timestamp;
+	uint64_t timestamp;
 	int64_t delay;
 
 	uint32_t missing;
@@ -428,7 +428,7 @@ static int send_underflow(struct stream *stream, int64_t offset)
 	struct impl *impl = client->impl;
 	struct message *reply;
 
-	if (ratelimit_test(&impl->rate_limit, SPA_TIMEVAL_TO_NSEC(&stream->timestamp))) {
+	if (ratelimit_test(&impl->rate_limit, stream->timestamp)) {
 		pw_log_warn(NAME" %p: [%s] UNDERFLOW channel:%u offset:%"PRIi64,
 				client, client->name, stream->channel, offset);
 	}
@@ -1301,8 +1301,7 @@ do_process_done(struct spa_loop *loop,
 	uint32_t index;
 	int32_t avail;
 
-	stream->timestamp.tv_sec = pd->pwt.now / SPA_NSEC_PER_SEC;
-	stream->timestamp.tv_usec = (pd->pwt.now % SPA_NSEC_PER_SEC) / SPA_NSEC_PER_USEC;
+	stream->timestamp = pd->pwt.now;
 	if (pd->pwt.rate.denom > 0) {
 		stream->delay = pd->pwt.delay * SPA_USEC_PER_SEC / pd->pwt.rate.denom;
 		stream->delay += pd->pwt.queued * SPA_USEC_PER_SEC / stream->ss.rate;
@@ -1971,7 +1970,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t channel;
-	struct timeval tv;
+	struct timeval tv, now;
 	struct stream *stream;
 	int res;
 
@@ -1990,6 +1989,8 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 			stream->read_index, stream->write_index,
 			stream->write_index - stream->read_index, stream->delay);
 
+	gettimeofday(&now, NULL);
+
 	reply = reply_new(client, tag);
 	message_put(reply,
 		TAG_USEC, stream->delay,	/* sink latency + queued samples */
@@ -1997,7 +1998,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 		TAG_BOOLEAN, stream->playing_for > 0 &&
 				!stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
-		TAG_TIMEVAL, &stream->timestamp,
+		TAG_TIMEVAL, &now,
 		TAG_S64, stream->write_index,
 		TAG_S64, stream->read_index,
 		TAG_INVALID);
@@ -2016,7 +2017,7 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t channel;
-	struct timeval tv;
+	struct timeval tv, now;
 	struct stream *stream;
 	int res;
 
@@ -2031,13 +2032,14 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	if (stream == NULL || stream->type != STREAM_TYPE_RECORD)
 		return -ENOENT;
 
+	gettimeofday(&now, NULL);
 	reply = reply_new(client, tag);
 	message_put(reply,
 		TAG_USEC, 0,			/* monitor latency */
 		TAG_USEC, stream->delay,	/* source latency + queued */
 		TAG_BOOLEAN, !stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
-		TAG_TIMEVAL, &stream->timestamp,
+		TAG_TIMEVAL, &now,
 		TAG_S64, stream->write_index,
 		TAG_S64, stream->read_index,
 		TAG_INVALID);

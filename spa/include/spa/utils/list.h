@@ -106,7 +106,7 @@ static inline void spa_list_remove(struct spa_list *elem)
 #define spa_list_for_each(pos, head, member)				\
 	spa_list_for_each_next(pos, head, head, member)
 
-#define spa_list_for_each_reverse(pos, head, member)				\
+#define spa_list_for_each_reverse(pos, head, member)			\
 	spa_list_for_each_prev(pos, head, head, member)
 
 #define spa_list_for_each_safe_next(pos, tmp, head, curr, member)	\
@@ -115,8 +115,17 @@ static inline void spa_list_remove(struct spa_list *elem)
 	     !spa_list_is_end(pos, head, member);			\
 	     pos = tmp)
 
+#define spa_list_for_each_safe_prev(pos, tmp, head, curr, member)	\
+	for (pos = spa_list_last(curr, __typeof__(*pos), member);	\
+	     tmp = spa_list_prev(pos, member),				\
+	     !spa_list_is_end(pos, head, member);			\
+	     pos = tmp)
+
 #define spa_list_for_each_safe(pos, tmp, head, member)			\
 	spa_list_for_each_safe_next(pos, tmp, head, head, member)
+
+#define spa_list_for_each_safe_reverse(pos, tmp, head, member)		\
+	spa_list_for_each_safe_prev(pos, tmp, head, head, member)
 
 #define spa_list_cursor_start(cursor, head, member)                     \
         spa_list_prepend(head, &(cursor).member)

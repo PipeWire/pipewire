@@ -25,6 +25,7 @@
 #include "manager.h"
 
 #include <spa/pod/iter.h>
+#include <spa/pod/parser.h>
 #include <extensions/metadata.h>
 
 #define manager_emit_sync(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, sync, 0)
@@ -236,7 +237,15 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				continue;
 			info->params[i].user = 0;
 
-			changed++;
+			switch (id) {
+			case SPA_PARAM_EnumProfile:
+			case SPA_PARAM_Profile:
+			case SPA_PARAM_EnumRoute:
+				changed++;
+				break;
+			case SPA_PARAM_Route:
+				break;
+			}
 			clear_params(&o->this.param_list, id);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
@@ -250,13 +259,49 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 		core_sync(o->manager);
 	}
 }
+static struct object *find_device(struct manager *m, uint32_t card_id, uint32_t device)
+{
+	struct object *o;
+
+	spa_list_for_each(o, &m->this.object_list, this.link) {
+		struct pw_node_info *info;
+		const char *str;
+
+		if (strcmp(o->this.type, PW_TYPE_INTERFACE_Node) != 0)
+			continue;
+
+		if ((info = o->this.info) != NULL &&
+		    (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL &&
+		    (uint32_t)atoi(str) == card_id &&
+		    (str = spa_dict_lookup(info->props, "card.profile.device")) != NULL &&
+		    (uint32_t)atoi(str) == device)
+			return o;
+	}
+	return NULL;
+}
 
 static void device_event_param(void *object, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct object *o = object;
+	struct object *o = object, *dev;
+	struct manager *m = o->manager;
+
 	add_param(&o->this.param_list, id, param);
+
+	if (id == SPA_PARAM_Route) {
+		uint32_t id, device;
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamRoute, NULL,
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_device,  SPA_POD_Int(&device)) < 0)
+			return;
+
+		if ((dev = find_device(m, o->this.id, device)) != NULL) {
+			dev->this.changed++;
+			core_sync(o->manager);
+		}
+	}
 }
 
 static const struct pw_device_events device_events = {

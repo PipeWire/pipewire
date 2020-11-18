@@ -278,6 +278,10 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 		}
 		n++;
 	}
+	if (card_info->active_profile_name == NULL && n > 0)
+		card_info->active_profile_name = profile_info[0].name;
+	if (card_info->active_profile_name == NULL)
+		card_info->active_profile_name = "invalid";
 	return n;
 }
 

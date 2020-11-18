@@ -1302,12 +1302,10 @@ do_process_done(struct spa_loop *loop,
 	int32_t avail;
 
 	stream->timestamp = pd->pwt.now;
-	if (pd->pwt.rate.denom > 0) {
+	if (pd->pwt.rate.denom > 0)
 		stream->delay = pd->pwt.delay * SPA_USEC_PER_SEC / pd->pwt.rate.denom;
-		stream->delay += pd->pwt.queued * SPA_USEC_PER_SEC / stream->ss.rate;
-	} else {
+	else
 		stream->delay = 0;
-	}
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		stream->read_index = pd->read_index;

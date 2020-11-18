@@ -195,6 +195,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *impl;
+	const char *str;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -209,6 +210,11 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_LOG,
 			&impl_log, impl);
 	impl->log.level = DEFAULT_LOG_LEVEL;
+
+	if (info) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
+			impl->log.level = atoi(str);
+	}
 
 	/* if our stderr goes to the journal, there's no point in logging both
 	 * via the native journal API and by printing to stderr, that would just

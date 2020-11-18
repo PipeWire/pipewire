@@ -170,7 +170,7 @@ static int read_sample_spec(struct message *m, struct sample_spec *ss)
 	return read_u32(m, &ss->rate);
 }
 
-static int read_props(struct message *m, struct pw_properties *props)
+static int read_props(struct message *m, struct pw_properties *props, bool remap)
 {
 	int res;
 
@@ -201,7 +201,7 @@ static int read_props(struct message *m, struct pw_properties *props)
 				TAG_INVALID)) < 0)
 			return res;
 
-		if ((map = str_map_find(key_table, NULL, key)) != NULL) {
+		if (remap && (map = str_map_find(key_table, NULL, key)) != NULL) {
 			key = map->pw_str;
 			if (map->child != NULL &&
 			    (map = str_map_find(map->child, NULL, data)) != NULL)
@@ -316,7 +316,7 @@ static int read_format_info(struct message *m, struct format_info *info)
 	info->props = pw_properties_new(NULL, NULL);
 	if (info->props == NULL)
 		return -errno;
-	if ((res = read_props(m, info->props)) < 0)
+	if ((res = read_props(m, info->props, false)) < 0)
 		format_info_clear(info);
 	return res;
 }
@@ -416,7 +416,7 @@ static int message_get(struct message *m, ...)
 		case TAG_PROPLIST:
 			if (dtag != tag)
 				return -EINVAL;
-			if ((res = read_props(m, va_arg(va, struct pw_properties*))) < 0)
+			if ((res = read_props(m, va_arg(va, struct pw_properties*), true)) < 0)
 				return res;
 			break;
 		case TAG_VOLUME:
@@ -548,28 +548,74 @@ static void write_cvolume(struct message *m, struct volume *vol)
 		write_32(m, volume_from_linear(vol->values[i]));
 }
 
-static void write_dict(struct message *m, struct spa_dict *dict)
+static void add_stream_group(struct message *m, struct spa_dict *dict, const char *key,
+		const char *media_class, const char *media_role)
+{
+	const char *str, *fmt, *prefix;
+	char *b;
+	int l;
+
+	if (media_class == NULL)
+		return;
+	if (strcmp(media_class, "Stream/Output/Audio") == 0)
+		prefix = "sink-input";
+	else if (strcmp(media_class, "Stream/Input/Audio") == 0)
+		prefix = "source-output";
+	else
+		return;
+
+	if ((str = media_role) != NULL)
+		fmt = "%s-by-media-role:%s";
+	else if ((str = spa_dict_lookup(dict, PW_KEY_APP_ID)) != NULL)
+		fmt = "%s-by-application-id:%s";
+	else if ((str = spa_dict_lookup(dict, PW_KEY_APP_NAME)) != NULL)
+		fmt = "%s-by-application-name:%s";
+	else if ((str = spa_dict_lookup(dict, PW_KEY_MEDIA_NAME)) != NULL)
+		fmt = "%s-by-media-name:%s";
+	else
+		return;
+
+	write_string(m, key);
+	l = strlen(fmt) + strlen(prefix) + strlen(str) - 3;
+	b = alloca(l);
+	snprintf(b, l, fmt, prefix, str);
+	write_u32(m, l);
+	write_arbitrary(m, b, l);
+}
+
+static void write_dict(struct message *m, struct spa_dict *dict, bool remap)
 {
 	const struct spa_dict_item *it;
+
 	write_8(m, TAG_PROPLIST);
 	if (dict != NULL) {
+		const char *media_class = NULL, *media_role = NULL;
 		spa_dict_for_each(it, dict) {
 			const char *key = it->key;
 			const char *val = it->value;
 			int l;
 			const struct str_map *map;
 
-			if ((map = str_map_find(key_table, key, NULL)) != NULL) {
+			if (remap && (map = str_map_find(key_table, key, NULL)) != NULL) {
 				key = map->pa_str;
 				if (map->child != NULL &&
 				    (map = str_map_find(map->child, val, NULL)) != NULL)
 					val = map->pa_str;
 			}
+			if (strcmp(key, "media.class") == 0)
+				media_class = val;
+			if (strcmp(key, "media.role") == 0)
+				media_role = val;
+
 			write_string(m, key);
 			l = strlen(val) + 1;
 			write_u32(m, l);
 			write_arbitrary(m, val, l);
+
 		}
+		if (remap)
+			add_stream_group(m, dict, "module-stream-restore.id",
+					media_class, media_role);
 	}
 	write_string(m, NULL);
 }
@@ -578,7 +624,7 @@ static void write_format_info(struct message *m, struct format_info *info)
 {
 	write_8(m, TAG_FORMAT_INFO);
 	write_u8(m, (uint8_t) info->encoding);
-	write_dict(m, info->props ? &info->props->dict : NULL);
+	write_dict(m, info->props ? &info->props->dict : NULL, false);
 }
 
 static int message_put(struct message *m, ...)
@@ -633,7 +679,7 @@ static int message_put(struct message *m, ...)
 			write_cvolume(m, va_arg(va, struct volume*));
 			break;
 		case TAG_PROPLIST:
-			write_dict(m, va_arg(va, struct spa_dict*));
+			write_dict(m, va_arg(va, struct spa_dict*), true);
 			break;
 		case TAG_VOLUME:
 			write_volume(m, va_arg(va, double));
@@ -773,7 +819,7 @@ static int message_dump(enum spa_log_level level, struct message *m)
 		{
 			struct pw_properties *props = pw_properties_new(NULL, NULL);
 			const struct spa_dict_item *it;
-			if ((res = read_props(m, props)) < 0)
+			if ((res = read_props(m, props, false)) < 0)
 				return res;
 			pw_log(level, "%u: props: n_items:%u", o, props->dict.n_items);
 			spa_dict_for_each(it, &props->dict)

@@ -1335,11 +1335,13 @@ do_process_done(struct spa_loop *loop,
 		if (avail <= 0) {
 			/* underrun, can't really happen but if it does we
 			 * do nothing and wait for more data */
-			pw_log_warn(NAME" %p: [%s] underrun", stream, client->name);
+			pw_log_warn(NAME" %p: [%s] underrun read:%u avail:%d",
+					stream, client->name, index, avail);
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {
 				/* overrun, catch up to latest fragment and send it */
-				pw_log_warn(NAME" %p: [%s] overrun", stream, client->name);
+				pw_log_warn(NAME" %p: [%s] overrun read:%u avail:%d max:%u",
+					stream, client->name, index, avail, stream->attr.maxlength);
 				avail = stream->attr.fragsize;
 				index = stream->write_index - avail;
 			}
@@ -1404,7 +1406,9 @@ static void stream_process(void *data)
 			if (avail > (int32_t)stream->attr.maxlength) {
 				/* overrun, reported by other side, here we skip
 				 * ahead to the oldest data. */
-				pw_log_warn(NAME" %p: [%s] overrun", stream, client->name);
+				pw_log_warn(NAME" %p: [%s] overrun read:%u avail:%d max:%u",
+						stream, client->name, pd.read_index, avail,
+						stream->attr.maxlength);
 				pd.read_index += avail - stream->attr.maxlength;
 				avail = stream->attr.maxlength;
 			}
@@ -1431,12 +1435,15 @@ static void stream_process(void *data)
 		if (filled < 0) {
 			/* underrun, can't really happen because we never read more
 			 * than what's available on the other side  */
-			pw_log_warn(NAME" %p: [%s] underrun", stream, client->name);
+			pw_log_warn(NAME" %p: [%s] underrun write:%u filled:%d",
+					stream, client->name, pd.write_index, filled);
 		} else if ((uint32_t)filled + size > stream->attr.maxlength) {
 			/* overrun, can happen when the other side is not
 			 * reading fast enough. We still write our data into the
 			 * ringbuffer and expect the other side to catch up. */
-			pw_log_warn(NAME" %p: [%s] overrun", stream, client->name);
+			pw_log_warn(NAME" %p: [%s] overrun write:%u filled:%d size:%u max:%u",
+					stream, client->name, pd.write_index, filled,
+					size, stream->attr.maxlength);
 		}
 		spa_ringbuffer_write_data(&stream->ring,
 				stream->buffer, stream->attr.maxlength,

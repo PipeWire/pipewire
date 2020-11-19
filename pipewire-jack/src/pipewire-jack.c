@@ -2373,7 +2373,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	struct spa_node_info ni;
 	va_list ap;
 
-        if (getenv("PIPEWIRE_NOJACK") != NULL)
+        if (getenv("PIPEWIRE_NOJACK") != NULL ||
+            getenv("PIPEWIRE_INTERNAL") != NULL ||
+	    strstr(pw_get_library_version(), "0.2") != NULL)
 		goto disabled;
 
 	spa_return_val_if_fail(client_name != NULL, NULL);
@@ -2545,7 +2547,7 @@ exit:
 	return NULL;
 disabled:
 	if (status)
-		*status = JackFailure | JackServerFailed;
+		*status = JackFailure | JackInitFailure;
 	return NULL;
 }
 

@@ -68,6 +68,9 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	if (setenv("PIPEWIRE_INTERNAL", "1", 1) < 0)
+		fprintf(stderr, "can't PIPEWIRE_INTERNAL env: %m");
+
 	daemon_name = getenv("PIPEWIRE_CORE");
 	if (daemon_name == NULL)
 		daemon_name = PW_DEFAULT_REMOTE;

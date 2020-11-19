@@ -37,7 +37,6 @@
 /** \cond */
 struct impl {
 	struct pw_global this;
-	bool registered;
 };
 
 /** \endcond */
@@ -127,15 +126,14 @@ error_cleanup:
 SPA_EXPORT
 int pw_global_register(struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_resource *registry;
 	struct pw_context *context = global->context;
 
-	if (impl->registered)
+	if (global->registered)
 		return -EEXIST;
 
 	spa_list_append(&context->global_list, &global->link);
-	impl->registered = true;
+	global->registered = true;
 
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
@@ -157,11 +155,10 @@ int pw_global_register(struct pw_global *global)
 
 static int global_unregister(struct pw_global *global)
 {
-	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
 	struct pw_context *context = global->context;
 	struct pw_resource *resource;
 
-	if (!impl->registered)
+	if (!global->registered)
 		return 0;
 
 	spa_list_for_each(resource, &context->registry_resource_list, link) {
@@ -173,7 +170,7 @@ static int global_unregister(struct pw_global *global)
 
 	spa_list_remove(&global->link);
 	pw_map_remove(&context->globals, global->id);
-	impl->registered = false;
+	global->registered = false;
 
 	pw_log_debug(NAME" %p: unregistered %u", global, global->id);
 	pw_context_emit_global_removed(context, global);
@@ -215,8 +212,7 @@ SPA_EXPORT
 int pw_global_update_keys(struct pw_global *global,
 		     const struct spa_dict *dict, const char *keys[])
 {
-	struct impl *impl = SPA_CONTAINER_OF(global, struct impl, this);
-	if (impl->registered)
+	if (global->registered)
 		return -EINVAL;
 	return pw_properties_update_keys(global->properties, dict, keys);
 }
@@ -377,6 +373,8 @@ SPA_EXPORT
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_resource *resource;
+
+	global->destroyed = true;
 
 	pw_log_debug(NAME" %p: destroy %u", global, global->id);
 	pw_global_emit_destroy(global);

@@ -219,6 +219,9 @@ struct pw_global {
 	void *object;			/**< object associated with the interface */
 
 	struct spa_list resource_list;	/**< The list of resources of this global */
+
+	unsigned int registered:1;
+	unsigned int destroyed:1;
 };
 
 #define pw_core_resource(r,m,v,...)	pw_resource_call(r, struct pw_core_events, m, v, ##__VA_ARGS__)

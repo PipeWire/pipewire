@@ -209,6 +209,8 @@ static void collect_card_info(struct pw_manager_object *card, struct card_info *
 			break;
 		}
 	}
+	if (info->n_profiles == 0)
+		info->n_profiles++;
 }
 
 struct profile_info {
@@ -225,11 +227,11 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 		struct profile_info *profile_info)
 {
 	struct pw_manager_param *p;
+	struct profile_info *pi;
 	uint32_t n;
 
 	n = 0;
 	spa_list_for_each(p, &card->param_list, link) {
-		struct profile_info *pi;
 		struct spa_pod *classes = NULL;
 
 		if (p->id != SPA_PARAM_EnumProfile)
@@ -278,10 +280,18 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 		}
 		n++;
 	}
-	if (card_info->active_profile_name == NULL && n > 0)
-		card_info->active_profile_name = profile_info[0].name;
+	if (n == 0) {
+		pi = &profile_info[0];
+		spa_zero(*pi);
+		pi->id = 0;
+		pi->name = "off";
+		pi->description = "Off";
+		pi->available = SPA_PARAM_AVAILABILITY_yes;
+		n++;
+	}
 	if (card_info->active_profile_name == NULL)
-		card_info->active_profile_name = "invalid";
+		card_info->active_profile_name = profile_info[0].name;
+
 	return n;
 }
 

@@ -1,3 +1,48 @@
+PipeWire 0.3.16
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Fix screensharing for old 0.2 clients
+  - Many pulse-server improvements. There is now a
+    pipewire-pulse binary that is the prefered solution for
+    PulseAudio compatibility. The replacement libpulse
+    libraries are now deprecated. This also makes audio in
+    Flatpak work.
+
+- PipeWire improvements
+  - Fix cleanup of listeners everywhere. Force remove of
+    listeners in _destroy to avoid crashes.
+  - Add support for a journald logger module.
+  - Various memory leak fixes
+  - Silence some warnings that spammed the logs.
+  - Fix flush in pw_stream. This fixes small glitches when
+    switching streams in music players.
+  - Various FreeBSD fixes and improvements.
+  - Fix some crashes when destroying objects.
+
+- Device support
+  - Reload the ALSA configuration when creating a node so that
+    hotplugged devices work in all cases.
+  - Fix memory leaks in ACP library. This also fixes issues
+    where the mixer device was not closed.
+  - Bluetooth now has support for the mSBC codec for SCO
+    source and sink.
+
+- pulse-server
+  - Many introspection and compatibility improvements. It should
+    now be as good or better than the replacement library.
+  - Implement sample cache to make notification events work.
+
+- JACK layer
+  - handle errors when linking, fixes jack_connect hang when
+    the ports were already linked.
+
+
+Older versions:
+
+
 PipeWire 0.3.15
 
 This is a bugfix release that is API and ABI compatible
@@ -46,9 +91,6 @@ with previous 0.3.x releases.
 
 - ALSA plugin
   - implement pause
-
-
-Older versions:
 
 
 PipeWire 0.3.14

@@ -2651,7 +2651,7 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 
 		spa_zero(sel);
 		sel.id = id;
-		if (command == COMMAND_SET_SINK_INPUT_VOLUME)
+		if (command == COMMAND_SET_SINK_INPUT_MUTE)
 			sel.type = is_sink_input;
 		else
 			sel.type = is_source_output;

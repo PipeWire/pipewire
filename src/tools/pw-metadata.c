@@ -38,6 +38,7 @@ struct data {
 	struct pw_main_loop *loop;
 
 	const char *opt_remote;
+	const char *opt_name;
 	bool opt_monitor;
 	bool opt_delete;
 	uint32_t opt_id;
@@ -89,8 +90,13 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 				  const struct spa_dict *props)
 {
 	struct data *d = data;
+	const char *str;
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Metadata) != 0)
+		return;
+
+	if ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
+	    strcmp(str, d->opt_name) != 0)
 		return;
 
 	if (d->metadata != NULL) {
@@ -98,7 +104,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		return;
 	}
 
-
+	fprintf(stdout, "Found \"%s\" metadata %d\n", d->opt_name, id);
 	d->metadata = pw_registry_bind(d->registry,
 			id, type, PW_VERSION_METADATA, 0);
 
@@ -162,15 +168,16 @@ static void do_quit(void *userdata, int signal_number)
 	pw_main_loop_quit(data->loop);
 }
 
-static void show_help(const char *name)
+static void show_help(struct data *data, const char *name)
 {
         fprintf(stdout, "%s [options] [ id [ key [ value [ type ] ] ] ]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"  -m, --monitor                         Monitor metadata\n"
-		"  -d, --delete                          Delete metadata\n",
-		name);
+		"  -d, --delete                          Delete metadata\n"
+		"  -n, --name                            Metadata name (default: \"%s\")\n",
+		name, data->opt_name);
 }
 
 int main(int argc, char *argv[])
@@ -183,15 +190,18 @@ int main(int argc, char *argv[])
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ "monitor",	no_argument,		NULL, 'm' },
 		{ "delete",	no_argument,		NULL, 'd' },
+		{ "name",	required_argument,	NULL, 'n' },
 		{ NULL,	0, NULL, 0}
 	};
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVr:md", long_options, NULL)) != -1) {
+	data.opt_name = "default";
+
+	while ((c = getopt_long(argc, argv, "hVr:mdn:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(&data, argv[0]);
 			return 0;
 		case 'V':
 			fprintf(stdout, "%s\n"
@@ -210,8 +220,11 @@ int main(int argc, char *argv[])
 		case 'd':
 			data.opt_delete = true;
 			break;
+		case 'n':
+			data.opt_name = optarg;
+			break;
 		default:
-			show_help(argv[0]);
+			show_help(&data, argv[0]);
 			return -1;
 		}
 	}

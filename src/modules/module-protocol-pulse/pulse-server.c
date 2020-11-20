@@ -989,9 +989,6 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	spa_ringbuffer_init(&stream->ring);
 
-	pw_log_info(NAME" %p: [%s] reply CREATE_PLAYBACK_STREAM tag:%u", stream,
-			client->name, stream->create_tag);
-
 	lat.num = stream->attr.minreq * 2 / stream->frame_size;
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
@@ -1003,6 +1000,9 @@ static int reply_create_playback_stream(struct stream *stream)
 			&SPA_DICT_INIT(items, 1));
 
 	size = stream_pop_missing(stream);
+
+	pw_log_info(NAME" %p: [%s] reply CREATE_PLAYBACK_STREAM tag:%u size:%u latency:%s",
+			stream, client->name, stream->create_tag, size, latency);
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
@@ -1324,7 +1324,7 @@ do_process_done(struct spa_loop *loop,
 			else
 				send_stream_started(stream);
 		}
-		stream->missing += pd->playing_for;
+		stream->missing += pd->playing_for + pd->underrun_for;
 		stream->playing_for += pd->playing_for;
 		stream->underrun_for += pd->underrun_for;
 
@@ -1393,7 +1393,7 @@ static void stream_process(void *data)
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
 		if (avail <= 0) {
 			/* underrun, produce a silence buffer */
-			size = buf->datas[0].maxsize;
+			size = SPA_MIN(buf->datas[0].maxsize, stream->attr.minreq);
 			memset(p, 0, size);
 
 			if (stream->draining) {

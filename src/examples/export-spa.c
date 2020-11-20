@@ -111,7 +111,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
 
-	if (id == PA_ID_CORE)
+	if (id == PW_ID_CORE)
 		pw_main_loop_quit(d->loop);
 }
 

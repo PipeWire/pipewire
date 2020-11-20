@@ -76,7 +76,6 @@
 
 int sm_access_flatpak_start(struct sm_media_session *sess);
 int sm_access_portal_start(struct sm_media_session *sess);
-int sm_metadata_start(struct sm_media_session *sess);
 int sm_default_nodes_start(struct sm_media_session *sess);
 int sm_default_profile_start(struct sm_media_session *sess);
 int sm_default_routes_start(struct sm_media_session *sess);
@@ -2052,6 +2051,14 @@ static void session_shutdown(struct impl *impl)
 	}
 	if (impl->this.info)
 		pw_core_info_free(impl->this.info);
+}
+
+static int sm_metadata_start(struct sm_media_session *sess)
+{
+	sess->metadata = sm_media_session_export_metadata(sess, "default");
+	if (sess->metadata == NULL)
+		return -errno;
+	return 0;
 }
 
 static int sm_pulse_bridge_start(struct sm_media_session *sess)

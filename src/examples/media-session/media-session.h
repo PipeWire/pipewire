@@ -265,6 +265,8 @@ int sm_media_session_for_each_object(struct sm_media_session *sess,
 
 int sm_media_session_schedule_rescan(struct sm_media_session *sess);
 
+struct pw_metadata *sm_media_session_export_metadata(struct sm_media_session *sess,
+		const char *name);
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		const char *type, const struct spa_dict *props,
 		void *object, size_t user_data_size);

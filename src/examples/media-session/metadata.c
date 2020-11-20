@@ -88,17 +88,15 @@ static int change_item(struct item *item, const char *type, const char *value)
 struct metadata {
 	struct spa_interface iface;
 
+	struct spa_hook_list hooks;
+	struct pw_array metadata;
+
 	struct sm_media_session *session;
 	struct spa_hook session_listener;
-
-	struct spa_hook_list hooks;
-
-	struct pw_properties *properties;
-	struct pw_array metadata;
 	struct pw_proxy *proxy;
 };
 
-static void emit_properties(struct metadata *this, const struct spa_dict *dict)
+static void emit_properties(struct metadata *this)
 {
 	struct item *item;
 	pw_array_for_each(item, &this->metadata) {
@@ -127,7 +125,7 @@ static int impl_add_listener(void *object,
 
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	emit_properties(this, &this->properties->dict);
+	emit_properties(this);
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -228,7 +226,7 @@ static int impl_clear(void *object)
 	return 0;
 }
 
-struct pw_metadata_methods impl_metadata = {
+static const struct pw_metadata_methods impl_metadata = {
 	PW_VERSION_METADATA_METHODS,
 	.add_listener = impl_add_listener,
 	.set_property = impl_set_property,
@@ -245,13 +243,11 @@ static void session_destroy(void *data)
 {
 	struct metadata *this = data;
 
-	this->session->metadata = NULL;
 	spa_hook_remove(&this->session_listener);
 	pw_proxy_destroy(this->proxy);
 
 	clear_items(this);
 	pw_array_clear(&this->metadata);
-	pw_properties_free(this->properties);
 	free(this);
 }
 
@@ -261,45 +257,46 @@ static const struct sm_media_session_events session_events = {
 	.remove = session_remove,
 };
 
-int sm_metadata_start(struct sm_media_session *sess)
+struct pw_metadata *sm_media_session_export_metadata(struct sm_media_session *sess,
+		const char *name)
 {
-	struct metadata *md;
+	struct metadata *this;
 	int res;
+	struct spa_dict_item items[1];
 
-	md = calloc(1, sizeof(*md));
-	if (md == NULL)
-		return -errno;
+	this = calloc(1, sizeof(*this));
+	if (this == NULL)
+		goto error_errno;
 
-	md->session = sess;
-	md->properties = pw_properties_new(NULL, NULL);
-	pw_array_init(&md->metadata, 4096);
+	pw_array_init(&this->metadata, 4096);
 
-	md->iface = SPA_INTERFACE_INIT(
+	this->iface = SPA_INTERFACE_INIT(
 			PW_TYPE_INTERFACE_Metadata,
 			PW_VERSION_METADATA,
-			&impl_metadata, md);
-        spa_hook_list_init(&md->hooks);
+			&impl_metadata, this);
+        spa_hook_list_init(&this->hooks);
 
-	md->proxy = sm_media_session_export(sess,
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_METADATA_NAME, name);
+
+	this->session = sess;
+	this->proxy = sm_media_session_export(sess,
 			PW_TYPE_INTERFACE_Metadata,
-			NULL,
-			md,
+			&SPA_DICT_INIT_ARRAY(items),
+			&this->iface,
 			0);
-	if (md->proxy == NULL) {
-		res = -errno;
-		goto error_free;
-	}
+	if (this->proxy == NULL)
+		goto error_errno;
 
-	sm_media_session_add_listener(sess, &md->session_listener,
-			&session_events, md);
+	sm_media_session_add_listener(sess, &this->session_listener,
+			&session_events, this);
 
-	sess->metadata = (struct pw_metadata *) &md->iface;
+	return (struct pw_metadata*)&this->iface;
 
-	return 0;
-
+error_errno:
+	res = -errno;
+	goto error_free;
 error_free:
-	pw_array_clear(&md->metadata);
-	pw_properties_free(md->properties);
-	free(md);
-	return res;
+	free(this);
+	errno = -res;
+	return NULL;
 }

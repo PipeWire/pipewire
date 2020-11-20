@@ -71,6 +71,7 @@
 #include "volume.c"
 #include "message.c"
 #include "manager.h"
+#include "dbus-name.c"
 
 #define NAME	"pulse-server"
 
@@ -5269,6 +5270,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	}
 	pw_free_strv(addr);
 	free(free_str);
+
+	dbus_request_name(context, "org.pulseaudio.Server");
 
 	return (struct pw_protocol_pulse*)impl;
 

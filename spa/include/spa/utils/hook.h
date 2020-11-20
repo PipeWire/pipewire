@@ -70,7 +70,8 @@ struct spa_interface {
 struct spa_hook {
 	struct spa_list link;
 	struct spa_callbacks cb;
-	/** callback and data for the hook list */
+	/** callback and data for the hook list, private to the
+	  * hook_list implementor */
 	void (*removed) (struct spa_hook *hook);
 	void *priv;
 };
@@ -86,11 +87,12 @@ static inline bool spa_hook_list_is_empty(struct spa_hook_list *list)
 	return spa_list_is_empty(&list->list);
 }
 
-/** Append a hook \memberof spa_hook */
+/** Append a hook \memberof spa_hook. */
 static inline void spa_hook_list_append(struct spa_hook_list *list,
 					struct spa_hook *hook,
 					const void *funcs, void *data)
 {
+	spa_zero(*hook);
 	hook->cb = SPA_CALLBACKS_INIT(funcs, data);
 	spa_list_append(&list->list, &hook->link);
 }
@@ -100,6 +102,7 @@ static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 					 struct spa_hook *hook,
 					 const void *funcs, void *data)
 {
+	spa_zero(*hook);
 	hook->cb = SPA_CALLBACKS_INIT(funcs, data);
 	spa_list_prepend(&list->list, &hook->link);
 }

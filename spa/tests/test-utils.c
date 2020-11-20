@@ -291,12 +291,12 @@ static void test_hook(void)
     spa_hook_list_init(&hl);
 
     h = malloc(sizeof(struct spa_hook));
-    h->removed = hook_removed_cb;
     spa_hook_list_append(&hl, h, &callbacks[1], &data);
+    h->removed = hook_removed_cb;
 
     h = malloc(sizeof(struct spa_hook));
-    h->removed = hook_removed_cb;
     spa_hook_list_append(&hl, h, &callbacks[2], &data);
+    h->removed = hook_removed_cb;
 
     /* iterate with the simple API */
     spa_hook_list_call_simple(&hl, struct my_hook, invoke, VERSION);
@@ -308,8 +308,8 @@ static void test_hook(void)
     memset(&data, 0, sizeof(struct my_hook_data));
 
     h = malloc(sizeof(struct spa_hook));
-    h->removed = hook_removed_cb;
     spa_hook_list_prepend(&hl, h, &callbacks[0], &data);
+    h->removed = hook_removed_cb;
 
     /* call only the first hook - this should be callback_1 */
     count = spa_hook_list_call_once(&hl, struct my_hook, invoke, VERSION);
@@ -323,8 +323,8 @@ static void test_hook(void)
 
     /* add callback_4 - this is version 1, so it shouldn't be executed */
     h = malloc(sizeof(struct spa_hook));
-    h->removed = hook_removed_cb;
     spa_hook_list_append(&hl, h, &callbacks[3], &data);
+    h->removed = hook_removed_cb;
 
     count = spa_hook_list_call(&hl, struct my_hook, invoke, VERSION);
     spa_assert(count == 3);

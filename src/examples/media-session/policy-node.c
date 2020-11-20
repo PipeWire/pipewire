@@ -90,6 +90,7 @@ struct node {
 
 	struct spa_audio_info format;
 
+	int connect_count;
 	uint64_t plugged;
 	unsigned int active:1;
 	unsigned int exclusive:1;
@@ -510,9 +511,10 @@ static int link_nodes(struct node *node, struct node *peer)
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", input->id);
 	pw_log_info("linking node %d to node %d", output->id, input->id);
 
-	if (sm_media_session_create_links(impl->session, &props->dict) > 0)
+	if (sm_media_session_create_links(impl->session, &props->dict) > 0) {
 		node->peer = peer;
-
+		node->connect_count++;
+	}
 	pw_properties_free(props);
 
 	return 0;
@@ -652,7 +654,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
 				path_id, reconnect);
 	}
-	if (path_id == SPA_ID_INVALID && reconnect) {
+	if (path_id == SPA_ID_INVALID && (reconnect || n->connect_count == 0)) {
 		spa_list_for_each(peer, &impl->node_list, link)
 			find_node(&find, peer);
 	}

@@ -57,6 +57,7 @@ struct impl {
 	struct pw_context *context;
 	struct spa_source *idle_timeout;
 
+	struct pw_metadata *metadata;
 	struct spa_hook meta_listener;
 
 	struct pw_properties *props;
@@ -163,10 +164,19 @@ static char *serialize_props(struct stream *str, const struct spa_pod *param)
 	return ptr;
 }
 
+static void sync_metadata(struct impl *impl)
+{
+	const struct spa_dict_item *it;
+
+	spa_dict_for_each(it, &impl->props->dict)
+		pw_metadata_set_property(impl->metadata, 0, it->key, "Spa:String", it->value);
+}
+
 static int handle_props(struct stream *str, struct sm_param *p)
 {
 	struct impl *impl = str->impl;
 	const char *key;
+	int changed = 0;
 
 	key = str->key;
 	if (key == NULL)
@@ -175,10 +185,12 @@ static int handle_props(struct stream *str, struct sm_param *p)
 	if (p->param) {
 		char *val = serialize_props(str, p->param);
 		pw_log_debug("stream %d: current props %s %s", str->id, key, val);
-		pw_properties_set(impl->props, key, val);
+		changed += pw_properties_set(impl->props, key, val);
 		free(val);
 		add_idle_timeout(impl);
 	}
+	if (changed)
+		sync_metadata(impl);
 	return 0;
 }
 
@@ -402,19 +414,26 @@ int sm_restore_stream_start(struct sm_media_session *session)
 	impl->context = session->context;
 
 	impl->props = pw_properties_new(NULL, NULL);
-	if (impl->props == NULL) {
-		res = -errno;
-		goto exit_free;
-	}
+	if (impl->props == NULL)
+		goto exit_errno;
+
+	impl->metadata = sm_media_session_export_metadata(session, "route-settings");
+	if (impl->metadata == NULL)
+		goto exit_errno;
 
 	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->props)) < 0)
 		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
+
+	sync_metadata(impl);
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
 
 	return 0;
 
-exit_free:
+exit_errno:
+	res = -errno;
+	if (impl->props)
+		pw_properties_free(impl->props);
 	free(impl);
 	return res;
 }

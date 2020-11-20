@@ -116,7 +116,7 @@ enum pw_filter_flags {
 
 enum pw_filter_port_flags {
 	PW_FILTER_PORT_FLAG_NONE		= 0,		/**< no flags */
-	PW_FILTER_PORT_FLAG_MAP_BUFFERS		= (1 << 0),	/**< mmap the buffers */
+	PW_FILTER_PORT_FLAG_MAP_BUFFERS		= (1 << 0),	/**< mmap the buffers except DmaBuf */
 	PW_FILTER_PORT_FLAG_ALLOC_BUFFERS	= (1 << 1),	/**< the application will allocate buffer
 								  *  memory. In the add_buffer event, the
 								  *  data of the buffer should be set */

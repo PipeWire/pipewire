@@ -241,7 +241,7 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_INACTIVE		= (1 << 1),	/**< start the stream inactive,
 							  *  pw_stream_set_active() needs to be
 							  *  called explicitly */
-	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 2),	/**< mmap the buffers */
+	PW_STREAM_FLAG_MAP_BUFFERS	= (1 << 2),	/**< mmap the buffers except DmaBuf */
 	PW_STREAM_FLAG_DRIVER		= (1 << 3),	/**< be a driver */
 	PW_STREAM_FLAG_RT_PROCESS	= (1 << 4),	/**< call process from the realtime
 							  *  thread. You MUST use RT safe functions

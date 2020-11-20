@@ -649,7 +649,7 @@ static int core_method_demarshal_destroy(void *object, const struct pw_protocol_
 
       no_resource:
 	pw_log_debug("client %p: unknown resource %u op:%u", client, id, msg->opcode);
-	pw_resource_errorf(resource, -EINVAL, "unknown resource %d op:%u", id, msg->opcode);
+	pw_resource_errorf(resource, -ENOENT, "unknown resource %d op:%u", id, msg->opcode);
 	return 0;
 }
 

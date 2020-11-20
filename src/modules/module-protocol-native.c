@@ -204,19 +204,19 @@ process_messages(struct client_data *data)
 		resource = pw_impl_client_find_resource(client, msg->id);
 		if (resource == NULL) {
 			pw_resource_errorf(client->core_resource,
-					-EINVAL, "unknown resource %u op:%u", msg->id, msg->opcode);
+					-ENOENT, "unknown resource %u op:%u", msg->id, msg->opcode);
 			continue;
 		}
 
 		marshal = pw_resource_get_marshal(resource);
 		if (marshal == NULL || msg->opcode >= marshal->n_client_methods) {
-			res = -EINVAL;
+			res = -ENOSYS;
 			goto invalid_method;
 		}
 
 		demarshal = marshal->server_demarshal;
 		if (!demarshal[msg->opcode].func) {
-			res = -ENOENT;
+			res = -ENOTSUP;
 			goto invalid_message;
 		}
 

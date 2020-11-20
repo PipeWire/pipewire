@@ -74,7 +74,7 @@ error_no_id:
 	goto error_exit_clean;
 error_wrong_interface:
 	pw_log_debug("registry %p: global with id %u has no interface %s", resource, id, type);
-	pw_resource_errorf_id(resource, new_id, -ENOENT, "no interface %s", type);
+	pw_resource_errorf_id(resource, new_id, -ENOSYS, "no interface %s", type);
 	goto error_exit_clean;
 error_exit_clean:
 	/* unmark the new_id the map, the client does not yet know about the failed

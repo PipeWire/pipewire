@@ -635,7 +635,8 @@ static void on_core_error(void *userdata, uint32_t id, int seq, int res, const c
 	fprintf(stderr, "remote error: id=%"PRIu32" seq:%d res:%d (%s): %s\n",
 			id, seq, res, spa_strerror(res), message);
 
-	pw_main_loop_quit(data->loop);
+	if (id == PW_ID_CORE && res == -EPIPE)
+		pw_main_loop_quit(data->loop);
 }
 
 static const struct pw_core_events core_events = {

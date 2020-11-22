@@ -42,9 +42,11 @@
 #include "extensions/metadata.h"
 
 #include "media-session.h"
+#include "json.h"
 
 #define NAME		"default-profile"
 #define SESSION_KEY	"default-profile"
+#define PREFIX		"default.profile."
 
 #define SAVE_INTERVAL	1
 
@@ -67,7 +69,7 @@ struct device {
 
 	uint32_t id;
 	struct impl *impl;
-	char *name;
+	char *key;
 
 	struct spa_hook listener;
 
@@ -88,7 +90,8 @@ static void remove_idle_timeout(struct impl *impl)
 	int res;
 
 	if (impl->idle_timeout) {
-		if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->properties)) < 0)
+		if ((res = sm_media_session_save_state(impl->session,
+						SESSION_KEY, PREFIX, impl->properties)) < 0)
 			pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 		pw_loop_destroy_source(main_loop, impl->idle_timeout);
 		impl->idle_timeout = NULL;
@@ -137,30 +140,44 @@ static uint32_t find_profile_id(struct device *dev, const char *name)
 
 static int restore_profile(struct device *dev)
 {
+	struct spa_json it[2];
 	struct impl *impl = dev->impl;
-	const char *name;
+	const char *json, *value;
+	int len;
 	uint32_t index = SPA_ID_INVALID;
+	char buf[1024], name[1024] = "\0";
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-	name = pw_properties_get(impl->properties, dev->name);
-	if (name == NULL)
+	json = pw_properties_get(impl->properties, dev->key);
+	if (json == NULL)
 		return -ENOENT;
 
+	spa_json_init(&it[0], json, strlen(json));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+                return -EINVAL;
+
+	while ((len = spa_json_next(&it[1], &value)) > 0) {
+		if (strncmp(value, "\"name\"", len) == 0) {
+			if (spa_json_get_string(&it[1], name, sizeof(name)) <= 0)
+                                continue;
+		} else {
+			if (spa_json_next(&it[1], &value) <= 0)
+                                break;
+		}
+	}
 	pw_log_debug("device %d: find profile '%s'", dev->id, name);
 	index = find_profile_id(dev, name);
+	if (index == SPA_ID_INVALID)
+		return -ENOENT;
 
-	if (index != SPA_ID_INVALID) {
-		char buf[1024];
-		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-		pw_log_info("device %d: restore profile '%s' index %d", dev->id, name, index);
-		pw_device_set_param((struct pw_device*)dev->obj->obj.proxy,
-				SPA_PARAM_Profile, 0,
-				spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-					SPA_PARAM_PROFILE_index, SPA_POD_Int(index)));
-		dev->active_profile = index;
-	}
-	return -ENOENT;
+	pw_log_info("device %d: restore profile '%s' index %d", dev->id, name, index);
+	pw_device_set_param((struct pw_device*)dev->obj->obj.proxy,
+			SPA_PARAM_Profile, 0,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(index)));
+	dev->active_profile = index;
+	return 0;
 }
 
 static int handle_profile(struct device *dev, struct sm_param *p)
@@ -186,7 +203,7 @@ static int handle_profile(struct device *dev, struct sm_param *p)
 
 		dev->active_profile = index;
 		pw_log_debug("device %d: current profile %d %s", dev->id, index, name);
-		pw_properties_set(impl->properties, dev->name, name);
+		pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", name);
 		add_idle_timeout(impl);
 	}
 	return 0;
@@ -241,7 +258,7 @@ static void session_create(void *data, struct sm_object *object)
 	dev->obj = (struct sm_device*)object;
 	dev->id = object->id;
 	dev->impl = impl;
-	dev->name = strdup(name);
+	dev->key = spa_aprintf(PREFIX"%s", name);
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&dev->obj->obj, &dev->listener, &object_events, dev);
@@ -250,7 +267,7 @@ static void session_create(void *data, struct sm_object *object)
 static void destroy_device(struct impl *impl, struct device *dev)
 {
 	spa_hook_remove(&dev->listener);
-	free(dev->name);
+	free(dev->key);
 	sm_object_remove_data((struct sm_object*)dev->obj, SESSION_KEY);
 }
 
@@ -302,7 +319,8 @@ int sm_default_profile_start(struct sm_media_session *session)
 		return -ENOMEM;
 	}
 
-	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->properties)) < 0)
+	if ((res = sm_media_session_load_state(impl->session,
+					SESSION_KEY, PREFIX, impl->properties)) < 0)
 		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);

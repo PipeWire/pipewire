@@ -1816,7 +1816,7 @@ static int state_dir(struct sm_media_session *sess)
 	return res;
 }
 int sm_media_session_load_state(struct sm_media_session *sess,
-		const char *name, struct pw_properties *props)
+		const char *name, const char *prefix, struct pw_properties *props)
 {
 	int sfd, fd, count = 0;
 	FILE *f;
@@ -1847,14 +1847,15 @@ int sm_media_session_load_state(struct sm_media_session *sess,
 		}
 		*k = '\0';
 		val = ++p;
-		count += pw_properties_set(props, key, val);
+		if (prefix == NULL || strstr(key, prefix) == key)
+			count += pw_properties_set(props, key, val);
 	}
 	fclose(f);
 	return count;
 }
 
 int sm_media_session_save_state(struct sm_media_session *sess,
-		const char *name, const struct pw_properties *props)
+		const char *name, const char *prefix, const struct pw_properties *props)
 {
 	const struct spa_dict_item *it;
 	char *tmp_name;
@@ -1875,6 +1876,8 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 	f = fdopen(fd, "w");
 	spa_dict_for_each(it, &props->dict) {
 		const char *p = it->key;
+		if (prefix != NULL && strstr(p, prefix) != p)
+			continue;
 		while (*p) {
 			if (*p == ' ' || *p == '\\')
 				fputc('\\', f);

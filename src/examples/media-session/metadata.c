@@ -209,7 +209,8 @@ static int impl_set_property(void *object,
 		if (type == NULL)
 			type = item->type;
 		changed = change_item(item, type, value);
-		pw_log_info(NAME" %p: change id:%d key:%s type:%s value:%s", this,
+		if (changed)
+			pw_log_info(NAME" %p: change id:%d key:%s type:%s value:%s", this,
 				subject, key, type, value);
 	}
 

@@ -42,9 +42,11 @@
 #include "extensions/metadata.h"
 
 #include "media-session.h"
+#include "json.h"
 
 #define NAME		"default-routes"
 #define SESSION_KEY	"default-routes"
+#define PREFIX		"default.route."
 
 #define SAVE_INTERVAL	1
 
@@ -85,7 +87,8 @@ static void remove_idle_timeout(struct impl *impl)
 	int res;
 
 	if (impl->idle_timeout) {
-		if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->to_save)) < 0)
+		if ((res = sm_media_session_save_state(impl->session,
+						SESSION_KEY, PREFIX, impl->to_save)) < 0)
 			pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 		pw_loop_destroy_source(main_loop, impl->idle_timeout);
 		impl->idle_timeout = NULL;
@@ -117,22 +120,23 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	float val = 0.0f;
-	bool b = false;
+	bool b = false, comma = false;
 	char *ptr;
 	size_t size;
 	FILE *f;
 
         f = open_memstream(&ptr, &size);
+	fprintf(f, "{ ");
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
 			spa_pod_get_float(&prop->value, &val);
-			fprintf(f, "volume:%f ", val);
+			fprintf(f, "%s\"volume\": %f ", (comma ? ", " : ""), val);
 			break;
 		case SPA_PROP_mute:
 			spa_pod_get_bool(&prop->value, &b);
-			fprintf(f, "mute:%d ", b ? 1 : 0);
+			fprintf(f, "%s\"mute\": %s ", (comma ? ", " : ""), b ? "true" : "false");
 			break;
 		case SPA_PROP_channelVolumes:
 		{
@@ -142,30 +146,36 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vals, SPA_AUDIO_MAX_CHANNELS);
 
-			fprintf(f, "volumes:%d", n_vals);
+			fprintf(f, "%s\"volumes\": [", (comma ? ", " : ""));
 			for (i = 0; i < n_vals; i++)
-				fprintf(f, ",%f", vals[i]);
+				fprintf(f, "%s%f", (i == 0 ? " " : ", "), vals[i]);
+			fprintf(f, " ]");
 			break;
 		}
 		default:
-			break;
+			continue;
 		}
+		comma = true;
 	}
+	fprintf(f, " }");
         fclose(f);
 	return ptr;
 }
 
 static int restore_route(struct device *dev, const char *val, uint32_t index, uint32_t device_id)
 {
-	const char *p;
-	char *end;
+	struct spa_json it[3];
 	char buf[1024];
+	const char *value;
+	int len;
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
-	bool mute = false;
-	uint32_t i, n_vols = 0;
-	float *vols, vol;
+
+	spa_json_init(&it[0], val, strlen(val));
+
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+                return -EINVAL;
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
@@ -177,47 +187,38 @@ static int restore_route(struct device *dev, const char *val, uint32_t index, ui
 	spa_pod_builder_push_object(&b, &f[1],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Route);
 
-	p = val;
-	while (*p) {
-		if (strstr(p, "volume:") == p) {
-			p += 7;
-			vol = strtof(p, &end);
-			if (end == p)
-				continue;
+	while ((len = spa_json_next(&it[1], &value)) > 0) {
+		if (strncmp(value, "\"volume\"", len) == 0) {
+			float vol;
+			if (spa_json_get_float(&it[1], &vol) <= 0)
+                                continue;
 			spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 			spa_pod_builder_float(&b, vol);
-			p = end;
 		}
-		else if (strstr(p, "mute:") == p) {
-			mute = p[5] == '0' ? false : true;
+		else if (strncmp(value, "\"mute\"", len) == 0) {
+			bool mute;
+			if (spa_json_get_bool(&it[1], &mute) <= 0)
+                                continue;
 			spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
 			spa_pod_builder_bool(&b, mute);
-			p+=6;
 		}
-		else if (strstr(p, "volumes:") == p) {
-			p += 8;
-			n_vols = strtol(p, &end, 10);
-			if (end == p)
-				continue;
-			p = end;
-			if (n_vols >= SPA_AUDIO_MAX_CHANNELS)
-				continue;
-			vols = alloca(n_vols * sizeof(float));
-			for (i = 0; i < n_vols && *p == ','; i++) {
-				p++;
-				vols[i] = strtof(p, &end);
-				if (end == p)
-					break;
-				p = end;
-			}
-			if (i != n_vols)
+		else if (strncmp(value, "\"volumes\"", len) == 0) {
+			uint32_t n_vols;
+			float vols[SPA_AUDIO_MAX_CHANNELS];
+
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 				continue;
 
+			for (n_vols = 0; n_vols < SPA_AUDIO_MAX_CHANNELS; n_vols++) {
+                                if (spa_json_get_float(&it[2], &vols[n_vols]) <= 0)
+                                        break;
+                        }
 			spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);
 		} else {
-			p++;
+			if (spa_json_next(&it[1], &value) <= 0)
+                                break;
 		}
 	}
 	spa_pod_builder_pop(&b, &f[1]);
@@ -252,7 +253,7 @@ static int handle_route(struct device *dev, struct sm_param *p)
 		return res;
 	}
 
-	snprintf(key, sizeof(key)-1, "%s:%s:%s", dev->name,
+	snprintf(key, sizeof(key)-1, PREFIX"%s:%s:%s", dev->name,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output", name);
 
 	val = pw_properties_get(impl->to_restore, key);
@@ -381,7 +382,8 @@ int sm_default_routes_start(struct sm_media_session *session)
 		goto exit_free;
 	}
 
-	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->to_restore)) < 0)
+	if ((res = sm_media_session_load_state(impl->session,
+					SESSION_KEY, PREFIX, impl->to_restore)) < 0)
 		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
 
 	impl->to_save = pw_properties_copy(impl->to_restore);

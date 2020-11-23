@@ -3354,7 +3354,7 @@ static int fill_card_info(struct client *client, struct message *m,
 				uint32_t idx = pi->profiles[i];
 				message_put(m,
 					TAG_STRING, idx < n_profiles ?
-							profile_info[idx].name : NULL,	/* profile name */
+						profile_info[idx].name : "off",	/* profile name */
 					TAG_INVALID);
 			}
 			if (client->version >= 27) {

@@ -2256,6 +2256,9 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 
 error_errno:
 	res = -errno;
+	if (sample != NULL) {
+		free(sample);
+	}
 	goto error;
 error_invalid:
 	res = -EINVAL;

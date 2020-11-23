@@ -1702,7 +1702,8 @@ static pa_alsa_jack* ucm_get_jack(pa_alsa_ucm_config *ucm, pa_alsa_ucm_device *d
         mixer_device_name = get_jack_mixer_device(device, false);
     if (!mixer_device_name) {
         pa_log("[%s] No mixer device name for JackControl \"%s\"", device_name, jack_control);
-        return NULL;
+        j = NULL;
+        goto finish;
     }
     j = pa_alsa_jack_new(NULL, mixer_device_name, name);
     PA_LLIST_PREPEND(pa_alsa_jack, ucm->jacks, j);

@@ -102,12 +102,18 @@ static GstPipeWireCore *make_core (int fd)
 mainloop_failed:
   {
     GST_ERROR ("error starting mainloop");
+    pw_context_destroy (core->context);
+    pw_thread_loop_destroy (core->loop);
+    g_free (core);
     return NULL;
   }
 connection_failed:
   {
     GST_ERROR ("error connect: %m");
     pw_thread_loop_unlock (core->loop);
+    pw_context_destroy (core->context);
+    pw_thread_loop_destroy (core->loop);
+    g_free (core);
     return NULL;
   }
 }

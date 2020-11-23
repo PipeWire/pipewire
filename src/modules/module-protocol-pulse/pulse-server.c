@@ -67,6 +67,7 @@
 
 #include "pulse-server.h"
 #include "defs.h"
+#include "json.h"
 
 #include "format.c"
 #include "volume.c"

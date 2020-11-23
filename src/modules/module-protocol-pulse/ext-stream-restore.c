@@ -37,15 +37,202 @@ static int do_extension_stream_restore_test(struct client *client, uint32_t comm
 	return send_message(client, reply);
 }
 
+static int key_from_name(const char *name, char *key, size_t maxlen)
+{
+	const char *media_class, *select, *str;
+
+	if (strstr(name, "sink-input-") == name)
+		media_class = "Output/Audio";
+	else if (strstr(name, "source-output-") == name)
+		media_class = "Input/Audio";
+	else
+		return -1;
+
+	if ((str = strstr(name, "-by-media-role:")) != NULL) {
+		const struct str_map *map;
+		str += strlen("-by-media-role:");
+		map = str_map_find(media_role_map, NULL, str);
+		str = map ? map->pw_str : str;
+		select = "media.role";
+	}
+	else if ((str = strstr(name, "-by-application-id:")) != NULL) {
+		str += strlen("-by-application-id:");
+		select = "application.id";
+	}
+	else if ((str = strstr(name, "-by-application-name:")) != NULL) {
+		str += strlen("-by-application-name:");
+		select = "application.name";
+	}
+	else if ((str = strstr(name, "-by-media-name:")) != NULL) {
+		str += strlen("-by-media-name:");
+		select = "media.name";
+	} else
+		return -1;
+
+	snprintf(key, maxlen, "restore.stream.%s.%s:%s",
+				media_class, select, str);
+	return 0;
+}
+
+static int key_to_name(const char *key, char *name, size_t maxlen)
+{
+	const char *type, *select, *str;
+
+	if (strstr(key, "restore.stream.Output/Audio.") == key)
+		type = "sink-input";
+	else if (strstr(key, "restore.stream.Input/Audio.") == key)
+		type = "source-output";
+	else
+		type = "stream";
+
+	if ((str = strstr(key, ".media.role:")) != NULL) {
+		const struct str_map *map;
+		str += strlen(".media.role:");
+		map = str_map_find(media_role_map, str, NULL);
+		select = "media-role";
+		str = map ? map->pa_str : str;
+	}
+	else if ((str = strstr(key, ".application.id:")) != NULL) {
+		str += strlen(".application.id:");
+		select = "application-id";
+	}
+	else if ((str = strstr(key, ".application.name:")) != NULL) {
+		str += strlen(".application.name:");
+		select = "application-name";
+	}
+	else if ((str = strstr(key, ".media.name:")) != NULL) {
+		str += strlen(".media.name:");
+		select = "media-name";
+	}
+	else
+		return -1;
+
+	snprintf(name, maxlen, "%s-by-%s:%s", type, select, str);
+	return 0;
+
+}
+
 static int do_extension_stream_restore_read(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct message *reply;
+	struct volume vol = VOLUME_INIT;
+	struct channel_map map;
+	float volume;
+	char device_name[1024] = "\0";
+	const struct spa_dict_item *item;
+
+	spa_zero(map);
+
 	reply = reply_new(client, tag);
+
+	spa_dict_for_each(item, &client->routes->dict) {
+		struct spa_json it[3];
+		const char *value;
+		char name[1024];
+		bool mute = false;
+		int len;
+
+		if (key_to_name(item->key, name, sizeof(name)) < 0)
+			continue;
+
+		pw_log_info("%s -> %s", item->key, name);
+
+		spa_json_init(&it[0], item->value, strlen(item->value));
+		if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+			continue;
+
+		while ((len = spa_json_next(&it[1], &value)) > 0) {
+			if (strncmp(value, "\"volume\"", len) == 0) {
+				if (spa_json_get_float(&it[1], &volume) <= 0)
+					continue;
+			}
+			else if (strncmp(value, "\"mute\"", len) == 0) {
+				if (spa_json_get_bool(&it[1], &mute) <= 0)
+					continue;
+			}
+			else if (strncmp(value, "\"volumes\"", len) == 0) {
+				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+					continue;
+
+				for (vol.channels = 0; vol.channels < CHANNELS_MAX; vol.channels++) {
+					if (spa_json_get_float(&it[2], &vol.values[vol.channels]) <= 0)
+						break;
+				}
+			}
+			else if (strncmp(value, "\"target-node\"", len) == 0) {
+				if (spa_json_get_string(&it[1], device_name, sizeof(device_name)) <= 0)
+					continue;
+			}
+			else if (spa_json_next(&it[1], &value) <= 0)
+				break;
+		}
+		map.channels = vol.channels;
+		message_put(reply,
+			TAG_STRING, name,
+			TAG_CHANNEL_MAP, &map,
+			TAG_CVOLUME, &vol,
+			TAG_STRING, device_name[0] ? device_name : NULL,
+			TAG_BOOLEAN, mute,
+			TAG_INVALID);
+	}
 	return send_message(client, reply);
 }
 
 static int do_extension_stream_restore_write(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
+	int res;
+	uint32_t mode;
+	bool apply;
+
+	if ((res = message_get(m,
+			TAG_U32, &mode,
+			TAG_BOOLEAN, &apply,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	while (m->offset < m->length) {
+		const char *name, *device_name;
+		struct channel_map map;
+		struct volume vol;
+		bool mute = false;
+		uint32_t i;
+		FILE *f;
+		char *ptr;
+		size_t size;
+		char key[1024];
+
+		message_get(m,
+			TAG_STRING, &name,
+			TAG_CHANNEL_MAP, &map,
+			TAG_CVOLUME, &vol,
+			TAG_STRING, &device_name,
+			TAG_BOOLEAN, &mute,
+			TAG_INVALID);
+
+		if (name == NULL || name[0] == '\0')
+			return -EPROTO;
+
+		f = open_memstream(&ptr, &size);
+		fprintf(f, "{");
+		fprintf(f, " \"mute\": %s ", mute ? "true" : "false");
+		fprintf(f, ", \"volumes\": [");
+		for (i = 0; i < vol.channels; i++)
+			fprintf(f, "%s%f", (i == 0 ? " ":", "), vol.values[i]);
+		fprintf(f, " ] ");
+		if (device_name != NULL && device_name[0])
+			fprintf(f, ", \"target-node\": \"%s\"", device_name);
+		fprintf(f, "}");
+		fclose(f);
+
+		if (key_from_name(name, key, sizeof(key)) >= 0) {
+			pw_log_info("%s -> %s", name, key);
+			pw_manager_set_metadata(client->manager,
+					client->metadata_routes,
+					PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr);
+		}
+		free(ptr);
+	}
+
 	return reply_simple_ack(client, tag);
 }
 

@@ -78,6 +78,8 @@ enum spa_prop {
 						  *  channel (Array of Float) */
 	SPA_PROP_volumeBase,			/**< a volume base (Float) */
 	SPA_PROP_volumeStep,			/**< a volume step (Float) */
+	SPA_PROP_channelMap,			/**< a channelmap array
+						  * (Array (Id enum spa_audio_channel)) */
 
 	SPA_PROP_START_Video	= 0x20000,	/**< video related properties */
 	SPA_PROP_brightness,

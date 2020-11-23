@@ -64,6 +64,9 @@ static const struct spa_type_info spa_type_param[] = {
 #define SPA_TYPE_INFO_Props			SPA_TYPE_INFO_PARAM_BASE "Props"
 #define SPA_TYPE_INFO_PROPS_BASE		SPA_TYPE_INFO_Props ":"
 
+#include <spa/param/audio/type-info.h>
+#include <spa/param/video/type-info.h>
+
 static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE, spa_type_param, },
 	{ SPA_PROP_unknown, SPA_TYPE_None, SPA_TYPE_INFO_PROPS_BASE "unknown", NULL },
@@ -91,6 +94,7 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_channelVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelVolumes", NULL },
 	{ SPA_PROP_volumeBase, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "volumeBase", NULL },
 	{ SPA_PROP_volumeStep, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "volumeStep", NULL },
+	{ SPA_PROP_channelMap, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelMap", spa_type_audio_channel },
 
 	{ SPA_PROP_brightness, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "brightness", NULL },
 	{ SPA_PROP_contrast, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "contrast", NULL },
@@ -144,9 +148,6 @@ static const struct spa_type_info spa_type_param_io[] = {
 
 #define SPA_TYPE_INFO_MediaType		SPA_TYPE_INFO_ENUM_BASE "MediaType"
 #define SPA_TYPE_INFO_MEDIA_TYPE_BASE	SPA_TYPE_INFO_MediaType ":"
-
-#include <spa/param/audio/type-info.h>
-#include <spa/param/video/type-info.h>
 
 static const struct spa_type_info spa_type_media_type[] = {
 	{ SPA_MEDIA_TYPE_unknown, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_TYPE_BASE "unknown", NULL },

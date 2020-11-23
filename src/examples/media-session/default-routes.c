@@ -115,6 +115,26 @@ static void add_idle_timeout(struct impl *impl)
 	pw_loop_update_timer(main_loop, impl->idle_timeout, &value, NULL, false);
 }
 
+static uint32_t channel_from_name(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+			return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+static const char *channel_to_name(uint32_t channel)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (spa_type_audio_channel[i].type == channel)
+			return spa_debug_type_short_name(spa_type_audio_channel[i].name);
+	}
+	return "UNK";
+}
+
 static char *serialize_props(struct device *dev, const struct spa_pod *param)
 {
 	struct spa_pod_prop *prop;
@@ -149,6 +169,20 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 			fprintf(f, "%s\"volumes\": [", (comma ? ", " : ""));
 			for (i = 0; i < n_vals; i++)
 				fprintf(f, "%s%f", (i == 0 ? " " : ", "), vals[i]);
+			fprintf(f, " ]");
+			break;
+		}
+		case SPA_PROP_channelMap:
+		{
+			uint32_t i, n_vals;
+			uint32_t map[SPA_AUDIO_MAX_CHANNELS];
+
+			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					map, SPA_AUDIO_MAX_CHANNELS);
+
+			fprintf(f, "%s\"channels\": [", (comma ? ", " : ""));
+			for (i = 0; i < n_vals; i++)
+				fprintf(f, "%s\"%s\"", (i == 0 ? " " : ", "), channel_to_name(map[i]));
 			fprintf(f, " ]");
 			break;
 		}
@@ -216,6 +250,23 @@ static int restore_route(struct device *dev, const char *val, uint32_t index, ui
 			spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);
+		}
+		else if (strncmp(value, "\"channels\"", len) == 0) {
+			uint32_t n_ch;
+			uint32_t map[SPA_AUDIO_MAX_CHANNELS];
+
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+				continue;
+
+			for (n_ch = 0; n_ch < SPA_AUDIO_MAX_CHANNELS; n_ch++) {
+				char chname[16];
+                                if (spa_json_get_string(&it[2], chname, sizeof(chname)) <= 0)
+                                        break;
+				map[n_ch] = channel_from_name(chname);
+                        }
+			spa_pod_builder_prop(&b, SPA_PROP_channelMap, 0);
+			spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
+					n_ch, map);
 		} else {
 			if (spa_json_next(&it[1], &value) <= 0)
                                 break;

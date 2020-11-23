@@ -422,36 +422,68 @@ static const struct spa_pod *format_build_param(struct spa_pod_builder *b,
 static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 		uint32_t id, struct format_info *info)
 {
-	const char *str;
+	const char *str, *val;
 	struct sample_spec ss;
 	struct channel_map map, *pmap = NULL;
-	size_t size;
+	struct spa_json it[2];
+	float f;
+	int len;
 
 	spa_zero(ss);
 	spa_zero(map);
 
 	if ((str = pw_properties_get(info->props, "format.sample_format")) == NULL)
 		return NULL;
-	if (str[0] != '\"')
+
+	spa_json_init(&it[0], str, strlen(str));
+	if ((len = spa_json_next(&it[0], &val)) <= 0)
 		return NULL;
-	size = strcspn(++str, "\"");
-	ss.format = format_paname2id(str, size);
-	if (ss.format == SPA_AUDIO_FORMAT_UNKNOWN)
+	if (spa_json_is_string(val, len)) {
+		ss.format = format_paname2id(val, len);
+		if (ss.format == SPA_AUDIO_FORMAT_UNKNOWN)
+			return NULL;
+	} else if (spa_json_is_array(val, len)) {
+		return NULL;
+	} else
 		return NULL;
 
 	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
 		return NULL;
-	ss.rate = atoi(str);
+	spa_json_init(&it[0], str, strlen(str));
+	if ((len = spa_json_next(&it[0], &val)) <= 0)
+		return NULL;
+	if (spa_json_is_float(val, len)) {
+		if (spa_json_parse_float(val, len, &f) <= 0)
+			return NULL;
+		ss.rate = f;
+	} else if (spa_json_is_array(val, len)) {
+		return NULL;
+	} else if (spa_json_is_object(val, len)) {
+		return NULL;
+	} else
+		return NULL;
 
 	if ((str = pw_properties_get(info->props, "format.channels")) == NULL)
 		return NULL;
-	ss.channels = atoi(str);
+	spa_json_init(&it[0], str, strlen(str));
+	if ((len = spa_json_next(&it[0], &val)) <= 0)
+		return NULL;
+	if (spa_json_is_float(val, len)) {
+		if (spa_json_parse_float(val, len, &f) <= 0)
+			return NULL;
+		ss.channels = f;
+	} else if (spa_json_is_array(val, len)) {
+		return NULL;
+	} else if (spa_json_is_object(val, len)) {
+		return NULL;
+	} else
+		return NULL;
 
 	if ((str = pw_properties_get(info->props, "format.channel_map")) != NULL) {
 		while ((*str == '\"' || *str == ',') &&
-		    (size = strcspn(++str, "\",")) > 0) {
-			map.map[map.channels++] = channel_paname2id(str, size);
-			str += size;
+		    (len = strcspn(++str, "\",")) > 0) {
+			map.map[map.channels++] = channel_paname2id(str, len);
+			str += len;
 		}
 		if (map.channels == ss.channels)
 			pmap = &map;

@@ -2045,6 +2045,8 @@ static void session_shutdown(struct impl *impl)
 	spa_list_consume(obj, &impl->global_list, link)
 		sm_object_destroy(obj);
 
+	impl->this.metadata = NULL;
+
 	sm_media_session_emit_destroy(impl);
 
 	if (impl->registry) {

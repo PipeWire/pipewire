@@ -199,7 +199,7 @@ static bool volume_equal(struct volume *a, struct volume *b)
 
 static int pipewire_update_volume(snd_ctl_pipewire_t * ctl)
 {
-	int changed;
+	bool changed = false;
 	struct global *g;
 
 	if (ctl->sink == 0)
@@ -212,12 +212,12 @@ static int pipewire_update_volume(snd_ctl_pipewire_t * ctl)
 		if (!!ctl->sink_muted != !!g->node.mute) {
 			ctl->sink_muted = g->node.mute;
 			ctl->updated |= UPDATE_SINK_MUTE;
-			changed = 1;
+			changed = true;
 		}
 		if (!volume_equal(&ctl->sink_volume, &g->node.channel_volume)) {
 			ctl->sink_volume = g->node.channel_volume;
 			ctl->updated |= UPDATE_SINK_VOL;
-			changed = 1;
+			changed = true;
 		}
 	}
 
@@ -231,12 +231,12 @@ static int pipewire_update_volume(snd_ctl_pipewire_t * ctl)
 		if (!!ctl->source_muted != !!g->node.mute) {
 			ctl->source_muted = g->node.mute;
 			ctl->updated |= UPDATE_SOURCE_MUTE;
-			changed = 1;
+			changed = true;
 		}
 		if (!volume_equal(&ctl->source_volume, &g->node.channel_volume)) {
 			ctl->source_volume = g->node.channel_volume;
 			ctl->updated |= UPDATE_SOURCE_VOL;
-			changed = 1;
+			changed = true;
 		}
 	}
 

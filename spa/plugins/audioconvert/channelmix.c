@@ -210,6 +210,10 @@ static int remap_volumes(struct props *p, const struct spa_audio_info *info)
 	float s;
 	uint32_t i, target = info->info.raw.channels;
 
+	p->n_channels = target;
+	for (i = 0; i < p->n_channels; i++)
+		p->channel_map[i] = info->info.raw.position[i];
+
 	if (target == 0 || p->n_channel_volumes == target)
 		return 0;
 
@@ -224,9 +228,6 @@ static int remap_volumes(struct props *p, const struct spa_audio_info *info)
 	p->n_channel_volumes = target;
 	for (i = 0; i < p->n_channel_volumes; i++)
 		p->channel_volumes[i] = s;
-	p->n_channels = target;
-	for (i = 0; i < p->n_channels; i++)
-		p->channel_map[i] = info->info.raw.position[i];
 	return 1;
 }
 

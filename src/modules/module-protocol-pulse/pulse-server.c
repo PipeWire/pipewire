@@ -63,6 +63,7 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
+#include "extensions/metadata.h"
 
 #include "pulse-server.h"
 #include "defs.h"
@@ -110,8 +111,11 @@ struct client {
 
 	uint32_t subscribed;
 
+	struct pw_manager_object *metadata_default;
 	uint32_t default_sink;
 	uint32_t default_source;
+	struct pw_manager_object *metadata_routes;
+	struct pw_properties *routes;
 
 	uint32_t connect_tag;
 
@@ -685,11 +689,31 @@ static uint32_t get_event_and_id(struct client *client, struct pw_manager_object
 	return event;
 }
 
+static void handle_metadata_added(struct client *client, struct pw_manager_object *o,
+		const char *name)
+{
+	if (strcmp(name, "default") == 0) {
+		if (client->metadata_default == NULL)
+			client->metadata_default = o;
+	}
+	else if (strcmp(name, "route-settings") == 0) {
+		if (client->metadata_routes == NULL) {
+			client->metadata_routes = o;
+		}
+	}
+}
+
 static void manager_added(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
 	uint32_t event, id;
+	const char *str;
 
+	if (strcmp(o->type, PW_TYPE_INTERFACE_Metadata) == 0) {
+		if (o->props != NULL &&
+		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
+			handle_metadata_added(client, o, str);
+	}
 	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
 		send_subscribe_event(client,
 				event | SUBSCRIPTION_EVENT_NEW,
@@ -718,15 +742,17 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 				id);
 }
 
-static void manager_metadata(void *data, uint32_t subject, const char *key,
-			const char *type, const char *value)
+static void manager_metadata(void *data, struct pw_manager_object *o,
+		uint32_t subject, const char *key, const char *type, const char *value)
 {
 	struct client *client = data;
 	uint32_t val;
 	bool changed = false;
 
-	pw_log_debug("meta %d %s %s %s", subject, key, type, value);
-	if (subject == PW_ID_CORE) {
+	pw_log_debug("meta id:%d subject:%d key:%s type:%s value:%s",
+			o->id, subject, key, type, value);
+
+	if (subject == PW_ID_CORE && o == client->metadata_default) {
 		val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
 			changed = client->default_sink != val;
@@ -736,14 +762,20 @@ static void manager_metadata(void *data, uint32_t subject, const char *key,
 			changed = client->default_source != val;
 			client->default_source = val;
 		}
-	}
-	if (changed) {
-		if (client->subscribed & SUBSCRIPTION_MASK_SERVER) {
-			send_subscribe_event(client,
-				SUBSCRIPTION_EVENT_CHANGE |
-				SUBSCRIPTION_EVENT_SERVER,
-				-1);
+		if (changed) {
+			if (client->subscribed & SUBSCRIPTION_MASK_SERVER) {
+				send_subscribe_event(client,
+					SUBSCRIPTION_EVENT_CHANGE |
+					SUBSCRIPTION_EVENT_SERVER,
+					-1);
+			}
 		}
+	}
+	if (subject == PW_ID_CORE && o == client->metadata_routes) {
+		if (key == NULL)
+			pw_properties_clear(client->routes);
+		else
+			pw_properties_set(client->routes, key, value);
 	}
 }
 
@@ -4173,7 +4205,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
 		return -ENOENT;
 
-	if ((res = pw_manager_set_metadata(manager,
+	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
 			PW_ID_CORE,
 			sink ? METADATA_DEFAULT_SINK : METADATA_DEFAULT_SOURCE,
 			SPA_TYPE_INFO_BASE"Id", "%d", o->id)) < 0)
@@ -4218,7 +4250,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	if ((dev = find_device(client, id_device, name_device, sink)) == NULL)
 		return -ENOENT;
 
-	if ((res = pw_manager_set_metadata(manager,
+	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
 			o->id,
 			METADATA_TARGET_NODE,
 			SPA_TYPE_INFO_BASE"Id", "%d", dev->id)) < 0)
@@ -4588,6 +4620,8 @@ static void client_free(struct client *client)
 	}
 	if (client->props)
 		pw_properties_free(client->props);
+	if (client->routes)
+		pw_properties_free(client->routes);
 	if (client->source)
 		pw_loop_destroy_source(impl->loop, client->source);
 	if (client->cleanup)
@@ -4864,6 +4898,10 @@ on_connect(void *data, int fd, uint32_t mask)
 			PW_KEY_CLIENT_API, "pipewire-pulse",
 			NULL);
 	if (client->props == NULL)
+		goto error;
+
+	client->routes = pw_properties_new(NULL, NULL);
+	if (client->routes == NULL)
 		goto error;
 
 	length = sizeof(name);

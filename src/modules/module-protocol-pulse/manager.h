@@ -50,7 +50,8 @@ struct pw_manager_events {
 
 	void (*removed) (void *data, struct pw_manager_object *object);
 
-	void (*metadata) (void *data, uint32_t subject, const char *key,
+	void (*metadata) (void *data, struct pw_manager_object *object,
+			uint32_t subject, const char *key,
 			const char *type, const char *value);
 };
 
@@ -94,8 +95,9 @@ void pw_manager_add_listener(struct pw_manager *manager,
 void pw_manager_destroy(struct pw_manager *manager);
 
 int pw_manager_set_metadata(struct pw_manager *manager,
+		struct pw_manager_object *metdata,
 		uint32_t subject, const char *key, const char *type,
-		const char *format, ...) SPA_PRINTF_FUNC(5,6);
+		const char *format, ...) SPA_PRINTF_FUNC(6,7);
 
 int pw_manager_for_each_object(struct pw_manager *manager,
 		int (*callback) (void *data, struct pw_manager_object *object),

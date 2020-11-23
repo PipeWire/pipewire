@@ -32,7 +32,7 @@
 #define manager_emit_added(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, added, 0, o)
 #define manager_emit_updated(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, updated, 0, o)
 #define manager_emit_removed(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, removed, 0, o)
-#define manager_emit_metadata(m,s,k,t,v) spa_hook_list_call(&m->hooks, struct pw_manager_events, metadata,0,s,k,t,v)
+#define manager_emit_metadata(m,o,s,k,t,v) spa_hook_list_call(&m->hooks, struct pw_manager_events, metadata,0,o,s,k,t,v)
 
 struct object;
 
@@ -42,8 +42,6 @@ struct manager {
 	struct spa_hook core_listener;
 	struct spa_hook registry_listener;
 	int sync_seq;
-
-	struct object *metadata;
 
 	struct spa_hook_list hooks;
 };
@@ -412,8 +410,8 @@ static int metadata_property(void *object,
 {
 	struct object *o = object;
 	struct manager *m = o->manager;
-	manager_emit_metadata(m, subject, key, type, value);
-        return 0;
+	manager_emit_metadata(m, &o->this, subject, key, type, value);
+	return 0;
 }
 
 static const struct pw_metadata_events metadata_events = {
@@ -421,26 +419,10 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
-static void metadata_init(struct object *o)
-{
-	struct manager *m = o->manager;
-	if (m->metadata == NULL)
-		m->metadata = o;
-}
-
-static void metadata_destroy(struct object *o)
-{
-	struct manager *m = o->manager;
-	if (m->metadata == o)
-		m->metadata = NULL;
-}
-
 static const struct object_info metadata_info = {
 	.type = PW_TYPE_INTERFACE_Metadata,
 	.version = PW_VERSION_METADATA,
 	.events = &metadata_events,
-	.init = metadata_init,
-	.destroy = metadata_destroy,
 };
 
 static const struct object_info *objects[] =
@@ -637,6 +619,7 @@ void pw_manager_add_listener(struct pw_manager *manager,
 }
 
 int pw_manager_set_metadata(struct pw_manager *manager,
+		struct pw_manager_object *metadata,
 		uint32_t subject, const char *key, const char *type,
 		const char *format, ...)
 {
@@ -650,16 +633,16 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 	if (!SPA_FLAG_IS_SET(s->this.permissions, PW_PERM_M))
 		return -EACCES;
 
-	if (m->metadata == NULL)
+	if (metadata == NULL)
 		return -ENOTSUP;
-	if (!SPA_FLAG_IS_SET(m->metadata->this.permissions, PW_PERM_W|PW_PERM_X))
+	if (!SPA_FLAG_IS_SET(metadata->permissions, PW_PERM_W|PW_PERM_X))
 		return -EACCES;
 
         va_start(args, format);
 	vsnprintf(buf, sizeof(buf)-1, format, args);
         va_end(args);
 
-	pw_metadata_set_property(m->metadata->this.proxy,
+	pw_metadata_set_property(metadata->proxy,
 			subject, key, type, buf);
 	return 0;
 }

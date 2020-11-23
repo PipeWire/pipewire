@@ -4687,7 +4687,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 	offset = (int64_t) (
              (((uint64_t) ntohl(client->desc.offset_hi)) << 32) |
              (((uint64_t) ntohl(client->desc.offset_lo))));
-	flags = ntohl(client->desc.flags) & FLAG_SEEKMASK,
+	flags = ntohl(client->desc.flags) & FLAG_SEEKMASK;
 
 	pw_log_debug(NAME" %p: Received memblock channel:%d offset:%"PRIi64
 			" flags:%08x size:%u", impl, channel, offset,

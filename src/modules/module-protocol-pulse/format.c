@@ -72,21 +72,24 @@ static inline uint32_t format_pa2id(enum sample_format format)
 	return audio_formats[format].format;
 }
 
-static inline const char *format_pa2name(enum sample_format format)
+static inline const char *format_id2name(uint32_t format)
 {
-	if (format < 0 || (size_t)format >= SPA_N_ELEMENTS(audio_formats))
-		return "invalid";
-	return audio_formats[format].name;
+	int i;
+	for (i = 0; spa_type_audio_format[i].name; i++) {
+		if (spa_type_audio_format[i].type == format)
+			return spa_debug_type_short_name(spa_type_audio_format[i].name);
+	}
+	return "UNKNOWN";
 }
 
-static inline enum sample_format format_name2pa(const char *name, size_t size)
+static inline uint32_t format_paname2id(const char *name, size_t size)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
 		if (strncmp(name, audio_formats[i].name, size) == 0)
-			return i;
+			return audio_formats[i].format;
 	}
-	return SAMPLE_INVALID;
+	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
 static inline enum sample_format format_id2pa(uint32_t id)
@@ -100,26 +103,42 @@ static inline enum sample_format format_id2pa(uint32_t id)
 }
 
 struct sample_spec {
-	enum sample_format format;
+	uint32_t format;
 	uint32_t rate;
 	uint8_t channels;
 };
 #define SAMPLE_SPEC_INIT	(struct sample_spec) {			\
-					.format = SAMPLE_FLOAT32LE,	\
+					.format = SPA_AUDIO_FORMAT_F32,	\
 					.rate = 44100,			\
 					.channels = 2,			\
 				}
 
 static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 {
-	if (ss->format < 0 || (size_t)ss->format >= SPA_N_ELEMENTS(audio_formats))
+	switch (ss->format) {
+	case SPA_AUDIO_FORMAT_U8:
+		return ss->channels;
+	case SPA_AUDIO_FORMAT_S16_LE:
+	case SPA_AUDIO_FORMAT_S16_BE:
+		return 2 * ss->channels;
+	case SPA_AUDIO_FORMAT_S24_LE:
+	case SPA_AUDIO_FORMAT_S24_BE:
+		return 3 * ss->channels;
+	case SPA_AUDIO_FORMAT_F32_LE:
+	case SPA_AUDIO_FORMAT_F32_BE:
+	case SPA_AUDIO_FORMAT_S32_LE:
+	case SPA_AUDIO_FORMAT_S32_BE:
+	case SPA_AUDIO_FORMAT_S24_32_LE:
+	case SPA_AUDIO_FORMAT_S24_32_BE:
+		return 4 * ss->channels;
+	default:
 		return 0;
-	return audio_formats[ss->format].size * ss->channels;
+	}
 }
 
 static inline bool sample_spec_valid(const struct sample_spec *ss)
 {
-	return (ss->format < SAMPLE_MAX &&
+	return (sample_spec_frame_size(ss) > 0 &&
 	    ss->rate > 0 && ss->rate <= RATE_MAX &&
 	    ss->channels > 0 && ss->channels <= CHANNELS_MAX);
 }
@@ -256,13 +275,13 @@ static const struct channel audio_channels[] = {
 
 struct channel_map {
 	uint8_t channels;
-	enum channel_position map[CHANNELS_MAX];
+	uint32_t map[CHANNELS_MAX];
 };
 
 #define CHANNEL_MAP_INIT	(struct channel_map) {				\
 					.channels = 2,				\
-					.map[0] = CHANNEL_POSITION_FRONT_LEFT,	\
-					.map[1] = CHANNEL_POSITION_FRONT_RIGHT,	\
+					.map[0] = SPA_AUDIO_CHANNEL_FL,		\
+					.map[1] = SPA_AUDIO_CHANNEL_FR,		\
 				}
 
 static inline uint32_t channel_pa2id(enum channel_position channel)
@@ -272,11 +291,24 @@ static inline uint32_t channel_pa2id(enum channel_position channel)
         return audio_channels[channel].channel;
 }
 
-static inline const char *channel_pa2name(enum channel_position channel)
+static inline const char *channel_id2name(uint32_t channel)
 {
-        if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
-                return "invalid";
-        return audio_channels[channel].name;
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (spa_type_audio_channel[i].type == channel)
+			return spa_debug_type_short_name(spa_type_audio_channel[i].name);
+	}
+	return "UNK";
+}
+
+static inline uint32_t channel_name2id(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (strcmp(name, spa_type_audio_channel[i].name) == 0)
+			return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
 static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
@@ -290,14 +322,14 @@ static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
 }
 
 
-static inline enum channel_position channel_name2pa(const char *name, size_t size)
+static inline uint32_t channel_paname2id(const char *name, size_t size)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
 		if (strncmp(name, audio_channels[i].name, size) == 0)
-			return i;
+			return audio_channels[i].channel;
 	}
-	return CHANNEL_POSITION_INVALID;
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
 
@@ -305,7 +337,7 @@ static inline void channel_map_to_positions(const struct channel_map *map, uint3
 {
 	int i;
 	for (i = 0; i < map->channels; i++)
-		pos[i] = channel_pa2id(map->map[i]);
+		pos[i] = map->map[i];
 }
 
 static inline bool channel_map_valid(const struct channel_map *map)
@@ -314,7 +346,7 @@ static inline bool channel_map_valid(const struct channel_map *map)
 	if (map->channels == 0 || map->channels > CHANNELS_MAX)
 		return false;
 	for (i = 0; i < map->channels; i++)
-		if (map->map[i] < 0 || map->map[i] >= CHANNEL_POSITION_MAX)
+		if (map->map[i] >= CHANNEL_POSITION_MAX)
 			return false;
 	return true;
 }
@@ -349,7 +381,7 @@ static void format_info_clear(struct format_info *info)
 static int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
 {
 	struct spa_audio_info info = { 0 };
-	uint32_t i, aux = 0;
+	uint32_t i;
 
         spa_format_parse(param, &info.media_type, &info.media_subtype);
 
@@ -360,17 +392,14 @@ static int format_parse_param(const struct spa_pod *param, struct sample_spec *s
                 return -ENOTSUP;
         }
 	if (ss) {
-	        ss->format = format_id2pa(info.info.raw.format);
-	        if (ss->format == SAMPLE_INVALID)
-	                return -ENOTSUP;
-
+	        ss->format = info.info.raw.format;
 	        ss->rate = info.info.raw.rate;
 	        ss->channels = info.info.raw.channels;
 	}
 	if (map) {
 		map->channels = info.info.raw.channels;
 		for (i = 0; i < map->channels; i++)
-			map->map[i] = channel_id2pa(info.info.raw.position[i], &aux);
+			map->map[i] = info.info.raw.position[i];
 	}
 	return 0;
 }
@@ -381,7 +410,7 @@ static const struct spa_pod *format_build_param(struct spa_pod_builder *b,
 	struct spa_audio_info_raw info;
 
 	info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = format_pa2id(spec->format),
+			.format = spec->format,
 			.channels = spec->channels,
 			.rate = spec->rate);
 	if (map)
@@ -406,8 +435,8 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 	if (str[0] != '\"')
 		return NULL;
 	size = strcspn(++str, "\"");
-	ss.format = format_name2pa(str, size);
-	if (ss.format == SAMPLE_INVALID)
+	ss.format = format_paname2id(str, size);
+	if (ss.format == SPA_AUDIO_FORMAT_UNKNOWN)
 		return NULL;
 
 	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
@@ -421,7 +450,7 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 	if ((str = pw_properties_get(info->props, "format.channel_map")) != NULL) {
 		while ((*str == '\"' || *str == ',') &&
 		    (size = strcspn(++str, "\",")) > 0) {
-			map.map[map.channels++] = channel_name2pa(str, size);
+			map.map[map.channels++] = channel_paname2id(str, size);
 			str += size;
 		}
 		if (map.channels == ss.channels)

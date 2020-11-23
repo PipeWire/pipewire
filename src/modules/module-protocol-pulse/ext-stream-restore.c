@@ -135,7 +135,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 		if (key_to_name(item->key, name, sizeof(name)) < 0)
 			continue;
 
-		pw_log_info("%s -> %s", item->key, name);
+		pw_log_debug("%s -> %s: %s", item->key, name, item->value);
 
 		spa_json_init(&it[0], item->value, strlen(item->value));
 		if (spa_json_enter_object(&it[0], &it[1]) <= 0)
@@ -151,12 +151,24 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 					continue;
 			}
 			else if (strncmp(value, "\"volumes\"", len) == 0) {
+				vol = VOLUME_INIT;
 				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 					continue;
 
 				for (vol.channels = 0; vol.channels < CHANNELS_MAX; vol.channels++) {
 					if (spa_json_get_float(&it[2], &vol.values[vol.channels]) <= 0)
 						break;
+				}
+			}
+			else if (strncmp(value, "\"channels\"", len) == 0) {
+				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+					continue;
+
+				for (map.channels = 0; map.channels < CHANNELS_MAX; map.channels++) {
+					char chname[16];
+	                                if (spa_json_get_string(&it[2], chname, sizeof(chname)) <= 0)
+						break;
+					map.map[map.channels] = channel_name2id(chname);
 				}
 			}
 			else if (strncmp(value, "\"target-node\"", len) == 0) {
@@ -191,7 +203,7 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		return -EPROTO;
 
 	while (m->offset < m->length) {
-		const char *name, *device_name;
+		const char *name, *device_name = NULL;
 		struct channel_map map;
 		struct volume vol;
 		bool mute = false;
@@ -200,6 +212,9 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		char *ptr;
 		size_t size;
 		char key[1024];
+
+		spa_zero(map);
+		spa_zero(vol);
 
 		message_get(m,
 			TAG_STRING, &name,
@@ -214,18 +229,26 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 
 		f = open_memstream(&ptr, &size);
 		fprintf(f, "{");
-		fprintf(f, " \"mute\": %s ", mute ? "true" : "false");
-		fprintf(f, ", \"volumes\": [");
-		for (i = 0; i < vol.channels; i++)
-			fprintf(f, "%s%f", (i == 0 ? " ":", "), vol.values[i]);
-		fprintf(f, " ] ");
+		fprintf(f, " \"mute\": %s", mute ? "true" : "false");
+		if (vol.channels > 0) {
+			fprintf(f, ", \"volumes\": [");
+			for (i = 0; i < vol.channels; i++)
+				fprintf(f, "%s%f", (i == 0 ? " ":", "), vol.values[i]);
+			fprintf(f, " ]");
+		}
+		if (map.channels > 0) {
+			fprintf(f, ", \"channels\": [");
+			for (i = 0; i < map.channels; i++)
+				fprintf(f, "%s\"%s\"", (i == 0 ? " ":", "), channel_id2name(map.map[i]));
+			fprintf(f, " ]");
+		}
 		if (device_name != NULL && device_name[0])
 			fprintf(f, ", \"target-node\": \"%s\"", device_name);
-		fprintf(f, "}");
+		fprintf(f, " }");
 		fclose(f);
 
 		if (key_from_name(name, key, sizeof(key)) >= 0) {
-			pw_log_info("%s -> %s", name, key);
+			pw_log_debug("%s -> %s: %s", name, key, ptr);
 			pw_manager_set_metadata(client->manager,
 					client->metadata_routes,
 					PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr);

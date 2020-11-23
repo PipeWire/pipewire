@@ -55,6 +55,7 @@
 #include <spa/utils/result.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/mem.h>
+#include <spa/debug/types.h>
 #include <spa/param/audio/raw.h>
 #include <spa/pod/pod.h>
 #include <spa/param/audio/format-utils.h>

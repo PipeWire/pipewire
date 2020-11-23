@@ -164,7 +164,7 @@ static int read_sample_spec(struct message *m, struct sample_spec *ss)
 	uint8_t tmp;
 	if ((res = read_u8(m, &tmp)) < 0)
 		return res;
-	ss->format = tmp;
+	ss->format = format_pa2id(tmp);
 	if ((res = read_u8(m, &ss->channels)) < 0)
 		return res;
 	return read_u32(m, &ss->rate);
@@ -264,7 +264,7 @@ static int read_channel_map(struct message *m, struct channel_map *map)
 	for (i = 0; i < map->channels; i ++) {
 		if ((res = read_u8(m, &tmp)) < 0)
 			return res;
-		map->map[i] = tmp;
+		map->map[i] = channel_pa2id(tmp);
 	}
 	return 0;
 }
@@ -498,7 +498,7 @@ static void write_64(struct message *m, uint8_t tag, uint64_t val)
 static void write_sample_spec(struct message *m, struct sample_spec *ss)
 {
 	write_8(m, TAG_SAMPLE_SPEC);
-	write_8(m, ss->format);
+	write_8(m, format_id2pa(ss->format));
 	write_8(m, ss->channels);
 	write_32(m, ss->rate);
 }
@@ -527,10 +527,11 @@ static void write_timeval(struct message *m, struct timeval *tv)
 static void write_channel_map(struct message *m, struct channel_map *map)
 {
 	uint8_t i;
+	uint32_t aux = 0;
 	write_8(m, TAG_CHANNEL_MAP);
 	write_8(m, map->channels);
 	for (i = 0; i < map->channels; i ++)
-		write_8(m, map->map[i]);
+		write_8(m, channel_id2pa(map->map[i], &aux));
 }
 
 static void write_volume(struct message *m, float vol)
@@ -768,7 +769,7 @@ static int message_dump(enum spa_log_level level, struct message *m)
 			if ((res = read_sample_spec(m, &ss)) < 0)
 				return res;
 			pw_log(level, "%u: ss: format:%s rate:%d channels:%u", o,
-					format_pa2name(ss.format), ss.rate,
+					format_id2name(ss.format), ss.rate,
 					ss.channels);
 			break;
 		}
@@ -802,7 +803,7 @@ static int message_dump(enum spa_log_level level, struct message *m)
 				return res;
 			pw_log(level, "%u: channelmap: channels:%u", o, map.channels);
 			for (i = 0; i < map.channels; i++)
-				pw_log(level, "    %d: %s", i, channel_pa2name(map.map[i]));
+				pw_log(level, "    %d: %s", i, channel_id2name(map.map[i]));
 			break;
 		}
 		case TAG_CVOLUME:

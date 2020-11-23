@@ -35,6 +35,7 @@ struct volume {
 
 struct volume_info {
 	struct volume volume;
+	struct channel_map map;
 	bool mute;
 	float level;
 	float base;
@@ -87,6 +88,10 @@ static int volume_parse_param(const struct spa_pod *param, struct volume_info *i
 				info->steps = 0x10000u * step;
 			break;
 		}
+		case SPA_PROP_channelMap:
+			info->map.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					info->map.map, SPA_AUDIO_MAX_CHANNELS);
+			break;
 		default:
 			break;
 		}

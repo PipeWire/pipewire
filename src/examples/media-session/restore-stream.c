@@ -172,6 +172,8 @@ static char *serialize_props(struct stream *str, const struct spa_pod *param)
 
 			n_vals = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vals, SPA_AUDIO_MAX_CHANNELS);
+			if (n_vals == 0)
+				continue;
 
 			fprintf(f, "%s\"volumes\": [", (comma ? ", " : ""));
 			for (i = 0; i < n_vals; i++)
@@ -186,6 +188,8 @@ static char *serialize_props(struct stream *str, const struct spa_pod *param)
 
 			n_ch = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
 					map, SPA_AUDIO_MAX_CHANNELS);
+			if (n_ch == 0)
+				continue;
 
 			fprintf(f, "%s\"channels\": [", (comma ? ", " : ""));
 			for (i = 0; i < n_ch; i++)
@@ -310,6 +314,9 @@ static int restore_stream(struct stream *str, const char *val)
                                 if (spa_json_get_float(&it[2], &vols[n_vols]) <= 0)
                                         break;
                         }
+			if (n_vols == 0)
+				continue;
+
 			spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);
@@ -327,6 +334,9 @@ static int restore_stream(struct stream *str, const char *val)
                                         break;
 				map[n_ch] = channel_from_name(chname);
                         }
+			if (n_ch == 0)
+				continue;
+
 			spa_pod_builder_prop(&b, SPA_PROP_channelMap, 0);
 			spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
 					n_ch, map);

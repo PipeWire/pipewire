@@ -35,6 +35,7 @@ extern "C" {
 #include <stdint.h>
 
 
+/* a simple JSON compatible tokenizer */
 struct spa_json {
 	const char *cur;
 	const char *end;
@@ -56,6 +57,8 @@ static inline void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 	*sub = SPA_JSON_ENTER(iter);
 }
 
+/** Get the next token. \a value points to the token and the return value
+ * is the length. */
 static inline int spa_json_next(struct spa_json * iter, const char **value)
 {
 	int utf8_remain = 0;
@@ -166,51 +169,62 @@ static inline int spa_json_enter_container(struct spa_json *iter, struct spa_jso
 	return 1;
 }
 
+/* object */
+static inline int spa_json_is_object(const char *val, int len)
+{
+	return len > 0 && *val == '{';
+}
 static inline int spa_json_enter_object(struct spa_json *iter, struct spa_json *sub)
 {
 	return spa_json_enter_container(iter, sub, '{');
 }
 
+/* array */
+static inline bool spa_json_is_array(const char *val, int len)
+{
+	return len > 0 && *val == '[';
+}
 static inline int spa_json_enter_array(struct spa_json *iter, struct spa_json *sub)
 {
 	return spa_json_enter_container(iter, sub, '[');
 }
 
-static inline int spa_json_is_object(const char *val, int len)
-{
-	return len > 0 && *val == '{';
-}
-
-static inline bool spa_json_is_array(const char *val, int len)
-{
-	return len > 0 && *val == '[';
-}
-
-static inline bool spa_json_is_float(const char *val, int len)
-{
-	char *end;
-	strtof(val, &end);
-	return end == val + len;
-}
-
-static inline bool spa_json_is_string(const char *val, int len)
-{
-	return len > 1 && *val == '"';
-}
-
+/* null */
 static inline bool spa_json_is_null(const char *val, int len)
 {
-	return len == 4 && strcmp(val, "null") == 0;
+	return len == 4 && strncmp(val, "null", 4) == 0;
 }
 
+/* float */
+static inline int spa_json_parse_float(const char *val, int len, float *result)
+{
+	char *end;
+	*result = strtof(val, &end);
+	return end == val + len;
+}
+static inline bool spa_json_is_float(const char *val, int len)
+{
+	float dummy;
+	return spa_json_parse_float(val, len, &dummy);
+}
+static inline int spa_json_get_float(struct spa_json *iter, float *res)
+{
+	const char *value;
+	int len;
+	if ((len = spa_json_next(iter, &value)) <= 0)
+		return -1;
+	return spa_json_parse_float(value, len, res);
+}
+
+/* bool */
 static inline bool spa_json_is_true(const char *val, int len)
 {
-	return len == 4 && strcmp(val, "true") == 0;
+	return len == 4 && strncmp(val, "true", 4) == 0;
 }
 
 static inline bool spa_json_is_false(const char *val, int len)
 {
-	return len == 5 && strcmp(val, "false") == 0;
+	return len == 5 && strncmp(val, "false", 5) == 0;
 }
 
 static inline bool spa_json_is_bool(const char *val, int len)
@@ -218,12 +232,6 @@ static inline bool spa_json_is_bool(const char *val, int len)
 	return spa_json_is_true(val, len) || spa_json_is_false(val, len);
 }
 
-static inline int spa_json_parse_float(const char *val, int len, float *result)
-{
-	char *end;
-	*result = strtof(val, &end);
-	return end == val + len;
-}
 static inline int spa_json_parse_bool(const char *val, int len, bool *result)
 {
 	if ((*result = spa_json_is_true(val, len)))
@@ -231,6 +239,20 @@ static inline int spa_json_parse_bool(const char *val, int len, bool *result)
 	if (!(*result = !spa_json_is_false(val, len)))
 		return 1;
 	return -1;
+}
+static inline int spa_json_get_bool(struct spa_json *iter, bool *res)
+{
+	const char *value;
+	int len;
+	if ((len = spa_json_next(iter, &value)) <= 0)
+		return -1;
+	return spa_json_parse_bool(value, len, res);
+}
+
+/* string */
+static inline bool spa_json_is_string(const char *val, int len)
+{
+	return len > 1 && *val == '"';
 }
 
 static inline int spa_json_parse_string(const char *val, int len, char *result)
@@ -256,24 +278,6 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 	}
 	*result++ = '\0';
 	return 1;
-}
-
-static inline int spa_json_get_float(struct spa_json *iter, float *res)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return -1;
-	return spa_json_parse_float(value, len, res);
-}
-
-static inline int spa_json_get_bool(struct spa_json *iter, bool *res)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return -1;
-	return spa_json_parse_bool(value, len, res);
 }
 
 static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxlen)

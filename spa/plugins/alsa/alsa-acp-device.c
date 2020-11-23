@@ -393,6 +393,10 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_prop(b, SPA_PROP_volumeStep, SPA_POD_PROP_FLAG_READONLY);
 		spa_pod_builder_float(b, dev->volume_step);
 
+		spa_pod_builder_prop(b, SPA_PROP_channelMap, 0);
+		spa_pod_builder_array(b, sizeof(uint32_t), SPA_TYPE_Id,
+				channels, dev->format.map);
+
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);

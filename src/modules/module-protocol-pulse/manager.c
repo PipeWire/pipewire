@@ -168,8 +168,10 @@ static const struct pw_client_events client_events = {
 
 static void client_destroy(struct object *o)
 {
-	if (o->this.info)
+	if (o->this.info) {
 		pw_client_info_free(o->this.info);
+		o->this.info = NULL;
+	}
 }
 
 static const struct object_info client_info = {
@@ -205,8 +207,10 @@ static const struct pw_module_events module_events = {
 
 static void module_destroy(struct object *o)
 {
-	if (o->this.info)
+	if (o->this.info) {
 		pw_module_info_free(o->this.info);
+		o->this.info = NULL;
+	}
 }
 
 static const struct object_info module_info = {
@@ -312,8 +316,10 @@ static const struct pw_device_events device_events = {
 
 static void device_destroy(struct object *o)
 {
-	if (o->this.info)
+	if (o->this.info) {
 		pw_device_info_free(o->this.info);
+		o->this.info = NULL;
+	}
 }
 
 static const struct object_info device_info = {
@@ -378,8 +384,10 @@ static const struct pw_node_events node_events = {
 
 static void node_destroy(struct object *o)
 {
-	if (o->this.info)
+	if (o->this.info) {
 		pw_node_info_free(o->this.info);
+		o->this.info = NULL;
+	}
 }
 
 static const struct object_info node_info = {

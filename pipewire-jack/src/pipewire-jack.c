@@ -2382,7 +2382,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client = calloc(1, sizeof(struct client));
 	if (client == NULL)
-		goto init_failed;
+		goto disabled;
 
 	pw_log_debug(NAME" %p: open '%s' options:%d", client, client_name, options);
 

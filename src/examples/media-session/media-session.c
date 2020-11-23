@@ -738,11 +738,13 @@ static void session_event_info(void *object, const struct pw_session_info *info)
 		i->version = PW_VERSION_SESSION_INFO;
 		i->id = info->id;
         }
-	i->change_mask = info->change_mask;
-	if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) {
-		if (i->props)
-			pw_properties_free ((struct pw_properties *)i->props);
-		i->props = (struct spa_dict *) pw_properties_new_dict (info->props);
+	if (info) {
+		i->change_mask = info->change_mask;
+		if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) {
+			if (i->props)
+				pw_properties_free ((struct pw_properties *)i->props);
+			i->props = (struct spa_dict *) pw_properties_new_dict (info->props);
+		}
 	}
 
 	sess->obj.avail |= SM_SESSION_CHANGE_MASK_INFO;
@@ -813,16 +815,18 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *inf
 		i->direction = info->direction;
 		i->flags = info->flags;
         }
-	i->change_mask = info->change_mask;
-	if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION) {
-		i->session_id = info->session_id;
-	}
-	if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
-		if (i->props)
-			pw_properties_free ((struct pw_properties *)i->props);
-		i->props = (struct spa_dict *) pw_properties_new_dict (info->props);
-		if ((str = spa_dict_lookup(i->props, PW_KEY_PRIORITY_SESSION)) != NULL)
-			endpoint->priority = pw_properties_parse_int(str);
+	if (info) {
+		i->change_mask = info->change_mask;
+		if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION) {
+			i->session_id = info->session_id;
+		}
+		if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
+			if (i->props)
+				pw_properties_free ((struct pw_properties *)i->props);
+			i->props = (struct spa_dict *) pw_properties_new_dict (info->props);
+			if ((str = spa_dict_lookup(i->props, PW_KEY_PRIORITY_SESSION)) != NULL)
+				endpoint->priority = pw_properties_parse_int(str);
+		}
 	}
 
 	endpoint->obj.avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
@@ -907,7 +911,9 @@ static void endpoint_stream_event_info(void *object, const struct pw_endpoint_st
 		stream->info->endpoint_id = info->endpoint_id;
 		stream->info->name = info->name ? strdup(info->name) : NULL;
         }
-	stream->info->change_mask = info->change_mask;
+	if (info) {
+		stream->info->change_mask = info->change_mask;
+	}
 
 	stream->obj.avail |= SM_ENDPOINT_CHANGE_MASK_INFO;
 	stream->obj.changed |= SM_ENDPOINT_CHANGE_MASK_INFO;
@@ -984,7 +990,9 @@ static void endpoint_link_event_info(void *object, const struct pw_endpoint_link
 		link->info->input_endpoint_id = info->input_endpoint_id;
 		link->info->input_stream_id = info->input_stream_id;
 	}
-	link->info->change_mask = info->change_mask;
+	if (info) {
+		link->info->change_mask = info->change_mask;
+	}
 
 	link->obj.avail |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;
 	link->obj.changed |= SM_ENDPOINT_LINK_CHANGE_MASK_INFO;

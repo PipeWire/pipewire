@@ -387,7 +387,7 @@ handle_video_fields (ConvertData *d)
   }
   value = gst_structure_get_value (d->cs, "width");
   value2 = gst_structure_get_value (d->cs, "height");
-  if (value || value2) {
+  if (value && value2) {
     struct spa_rectangle v;
     for (i = 0; get_nth_rectangle (value, value2, i, &v); i++) {
       if (i == 0) {

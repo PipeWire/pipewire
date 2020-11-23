@@ -43,6 +43,7 @@ extern "C" {
 #endif
 
 #define ACP_INVALID_INDEX	((uint32_t)-1)
+#define ACP_MAX_CHANNELS	64
 
 struct acp_dict_item {
 	const char *key;
@@ -56,12 +57,56 @@ struct acp_dict {
 	const struct acp_dict_item *items;
 };
 
+enum acp_channel {
+	ACP_CHANNEL_UNKNOWN,		/**< unspecified */
+	ACP_CHANNEL_NA,			/**< N/A, silent */
+
+	ACP_CHANNEL_MONO,		/**< mono stream */
+
+	ACP_CHANNEL_FL,			/**< front left */
+	ACP_CHANNEL_FR,			/**< front right */
+	ACP_CHANNEL_FC,			/**< front center */
+	ACP_CHANNEL_LFE,		/**< LFE */
+	ACP_CHANNEL_SL,			/**< side left */
+	ACP_CHANNEL_SR,			/**< side right */
+	ACP_CHANNEL_FLC,		/**< front left center */
+	ACP_CHANNEL_FRC,		/**< front right center */
+	ACP_CHANNEL_RC,			/**< rear center */
+	ACP_CHANNEL_RL,			/**< rear left */
+	ACP_CHANNEL_RR,			/**< rear right */
+	ACP_CHANNEL_TC,			/**< top center */
+	ACP_CHANNEL_TFL,		/**< top front left */
+	ACP_CHANNEL_TFC,		/**< top front center */
+	ACP_CHANNEL_TFR,		/**< top front right */
+	ACP_CHANNEL_TRL,		/**< top rear left */
+	ACP_CHANNEL_TRC,		/**< top rear center */
+	ACP_CHANNEL_TRR,		/**< top rear right */
+	ACP_CHANNEL_RLC,		/**< rear left center */
+	ACP_CHANNEL_RRC,		/**< rear right center */
+	ACP_CHANNEL_FLW,		/**< front left wide */
+	ACP_CHANNEL_FRW,		/**< front right wide */
+	ACP_CHANNEL_LFE2,		/**< LFE 2 */
+	ACP_CHANNEL_FLH,		/**< front left high */
+	ACP_CHANNEL_FCH,		/**< front center high */
+	ACP_CHANNEL_FRH,		/**< front right high */
+	ACP_CHANNEL_TFLC,		/**< top front left center */
+	ACP_CHANNEL_TFRC,		/**< top front right center */
+	ACP_CHANNEL_TSL,		/**< top side left */
+	ACP_CHANNEL_TSR,		/**< top side right */
+	ACP_CHANNEL_LLFE,		/**< left LFE */
+	ACP_CHANNEL_RLFE,		/**< right LFE */
+	ACP_CHANNEL_BC,			/**< bottom center */
+	ACP_CHANNEL_BLC,		/**< bottom left center */
+	ACP_CHANNEL_BRC,		/**< bottom right center */
+	ACP_CHANNEL_CUSTOM_START  = 0x10000,
+};
+
 struct acp_format {
 	uint32_t flags;
 	uint32_t format_mask;
 	uint32_t rate_mask;
 	uint32_t channels;
-	uint32_t map[64];
+	uint32_t map[ACP_MAX_CHANNELS];
 };
 
 #define ACP_DICT_INIT(items,n_items) (struct acp_dict) { 0, n_items, items }

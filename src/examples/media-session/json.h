@@ -157,7 +157,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			return -1;
 		}
 	}
-	return iter->depth == 0 ? 0 : -1;
+	return (iter->depth == 0 ? (iter->state == __BARE ? iter->cur - *value : 0) : -1);
 }
 
 static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)

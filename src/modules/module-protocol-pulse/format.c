@@ -447,7 +447,7 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 	if ((len = spa_json_next(&it[0], &val)) <= 0)
 		return NULL;
 	if (spa_json_is_string(val, len)) {
-		ss.format = format_paname2id(val, len);
+		ss.format = format_paname2id(val+1, len-2);
 		if (ss.format == SPA_AUDIO_FORMAT_UNKNOWN)
 			return NULL;
 	} else if (spa_json_is_array(val, len)) {
@@ -457,6 +457,7 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 
 	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
 		return NULL;
+
 	spa_json_init(&it[0], str, strlen(str));
 	if ((len = spa_json_next(&it[0], &val)) <= 0)
 		return NULL;
@@ -473,6 +474,7 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 
 	if ((str = pw_properties_get(info->props, "format.channels")) == NULL)
 		return NULL;
+
 	spa_json_init(&it[0], str, strlen(str));
 	if ((len = spa_json_next(&it[0], &val)) <= 0)
 		return NULL;
@@ -488,6 +490,11 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 		return NULL;
 
 	if ((str = pw_properties_get(info->props, "format.channel_map")) != NULL) {
+		spa_json_init(&it[0], str, strlen(str));
+		if ((len = spa_json_next(&it[0], &val)) <= 0)
+			return NULL;
+		if (!spa_json_is_string(val, len))
+			return NULL;
 		while ((*str == '\"' || *str == ',') &&
 		    (len = strcspn(++str, "\",")) > 0) {
 			map.map[map.channels++] = channel_paname2id(str, len);

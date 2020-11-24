@@ -1149,6 +1149,9 @@ static int reply_create_record_stream(struct stream *stream)
 	pw_stream_update_properties(stream->stream,
 			&SPA_DICT_INIT(items, 1));
 
+	pw_log_info(NAME" %p: [%s] reply CREATE_RECORD_STREAM tag:%u latency:%s",
+			stream, client->name, stream->create_tag, latency);
+
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
 		TAG_U32, stream->channel,	/* stream index/channel */
@@ -3412,8 +3415,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
-	    !volume_valid(&dev_info.volume_info.volume))
+	    !volume_valid(&dev_info.volume_info.volume)) {
+		pw_log_warn("%d: not ready", o->id);
 		return -ENOENT;
+	}
 
 	flags = SINK_LATENCY | SINK_DYNAMIC_LATENCY | SINK_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
@@ -3546,8 +3551,10 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
-	    !volume_valid(&dev_info.volume_info.volume))
+	    !volume_valid(&dev_info.volume_info.volume)) {
+		pw_log_warn("%d: not ready", o->id);
 		return -ENOENT;
+	}
 
 	flags = SOURCE_LATENCY | SOURCE_DYNAMIC_LATENCY | SOURCE_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)

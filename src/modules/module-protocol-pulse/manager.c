@@ -68,6 +68,7 @@ struct object {
 static void core_sync(struct manager *m)
 {
 	m->sync_seq = pw_core_sync(m->this.core, PW_ID_CORE, m->sync_seq);
+	pw_log_debug("sync start %u", m->sync_seq);
 }
 
 static struct pw_manager_param *add_param(struct spa_list *params, uint32_t id, const struct spa_pod *param)
@@ -558,8 +559,12 @@ static void on_core_done(void *data, uint32_t id, int seq)
 	struct object *o;
 
 	if (id == PW_ID_CORE) {
-		if (m->sync_seq == seq)
-			manager_emit_sync(m);
+		if (m->sync_seq != seq)
+			return;
+
+		pw_log_debug("sync end %u/%u", m->sync_seq, seq);
+
+		manager_emit_sync(m);
 
 		spa_list_for_each(o, &m->this.object_list, this.link) {
 			if (o->this.creating) {

@@ -37,6 +37,13 @@ struct volume {
 				.values[1] = 1.0f,	\
 			}
 
+static inline bool volume_valid(const struct volume *vol)
+{
+	if (vol->channels == 0 || vol->channels > CHANNELS_MAX)
+		return false;
+	return true;
+}
+
 struct volume_info {
 	struct volume volume;
 	struct channel_map map;

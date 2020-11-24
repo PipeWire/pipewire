@@ -3410,6 +3410,11 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	collect_device_info(o, card, &dev_info);
 
+	if (!sample_spec_valid(&dev_info.ss) ||
+	    !channel_map_valid(&dev_info.map) ||
+	    !volume_valid(&dev_info.volume_info.volume))
+		return -ENOENT;
+
 	flags = SINK_LATENCY | SINK_DYNAMIC_LATENCY | SINK_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
                 flags |= SINK_HARDWARE;
@@ -3539,6 +3544,11 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	collect_device_info(o, card, &dev_info);
 
+	if (!sample_spec_valid(&dev_info.ss) ||
+	    !channel_map_valid(&dev_info.map) ||
+	    !volume_valid(&dev_info.volume_info.volume))
+		return -ENOENT;
+
 	flags = SOURCE_LATENCY | SOURCE_DYNAMIC_LATENCY | SOURCE_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
                 flags |= SOURCE_HARDWARE;
@@ -3642,6 +3652,11 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 
 	collect_device_info(o, NULL, &dev_info);
 
+	if (!sample_spec_valid(&dev_info.ss) ||
+	    !channel_map_valid(&dev_info.map) ||
+	    !volume_valid(&dev_info.volume_info.volume))
+		return -ENOENT;
+
 	peer = find_linked(manager, o->id, PW_DIRECTION_OUTPUT);
 
 	message_put(m,
@@ -3706,6 +3721,11 @@ static int fill_source_output_info(struct client *client, struct message *m,
 		client_id = (uint32_t)atoi(str);
 
 	collect_device_info(o, NULL, &dev_info);
+
+	if (!sample_spec_valid(&dev_info.ss) ||
+	    !channel_map_valid(&dev_info.map) ||
+	    !volume_valid(&dev_info.volume_info.volume))
+		return -ENOENT;
 
 	peer = find_linked(manager, o->id, PW_DIRECTION_INPUT);
 	if (peer && is_source_or_monitor(peer)) {

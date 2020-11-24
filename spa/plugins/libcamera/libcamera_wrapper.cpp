@@ -781,6 +781,7 @@ extern "C" {
 
 		ret = cm->start();
 		if (ret) {
+			deleteLibCamera(camera);
 			return nullptr;
 		}
 

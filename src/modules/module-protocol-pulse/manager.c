@@ -61,6 +61,8 @@ struct object {
 
 	const struct object_info *info;
 
+	struct spa_list pending_list;
+
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 };
@@ -122,6 +124,18 @@ static struct object *find_object(struct manager *m, uint32_t id)
 	return NULL;
 }
 
+static void object_update_params(struct object *o)
+{
+	struct pw_manager_param *p;
+
+	spa_list_for_each(p, &o->pending_list, link)
+		clear_params(&o->this.param_list, p->id);
+	spa_list_consume(p, &o->pending_list, link) {
+		spa_list_remove(&p->link);
+		spa_list_append(&o->this.param_list, &p->link);
+	}
+}
+
 static void object_destroy(struct object *o)
 {
 	struct manager *m = o->manager;
@@ -132,6 +146,7 @@ static void object_destroy(struct object *o)
 	if (o->this.props)
 		pw_properties_free(o->this.props);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);
+	clear_params(&o->pending_list, SPA_ID_INVALID);
 	free(o);
 }
 
@@ -249,7 +264,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			case SPA_PARAM_Route:
 				break;
 			}
-			clear_params(&o->this.param_list, id);
+			clear_params(&o->pending_list, id);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
@@ -290,7 +305,7 @@ static void device_event_param(void *object, int seq,
 	struct object *o = object, *dev;
 	struct manager *m = o->manager;
 
-	add_param(&o->this.param_list, id, param);
+	add_param(&o->pending_list, id, param);
 
 	if (id == SPA_PARAM_Route) {
 		uint32_t id, device;
@@ -353,7 +368,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			info->params[i].user = 0;
 
 			changed++;
-			clear_params(&o->this.param_list, id);
+			clear_params(&o->pending_list, id);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
@@ -372,7 +387,7 @@ static void node_event_param(void *object, int seq,
 		const struct spa_pod *param)
 {
 	struct object *o = object;
-	add_param(&o->this.param_list, id, param);
+	add_param(&o->pending_list, id, param);
 }
 
 static const struct pw_node_events node_events = {
@@ -517,6 +532,7 @@ static void registry_event_global(void *data, uint32_t id,
 	o->this.proxy = proxy;
 	o->this.creating = true;
 	spa_list_init(&o->this.param_list);
+	spa_list_init(&o->pending_list);
 
 	o->manager = m;
 	o->info = info;
@@ -574,6 +590,9 @@ static void on_core_done(void *data, uint32_t id, int seq)
 		pw_log_debug("sync end %u/%u", m->sync_seq, seq);
 
 		manager_emit_sync(m);
+
+		spa_list_for_each(o, &m->this.object_list, this.link)
+			object_update_params(o);
 
 		spa_list_for_each(o, &m->this.object_list, this.link) {
 			if (o->this.creating) {

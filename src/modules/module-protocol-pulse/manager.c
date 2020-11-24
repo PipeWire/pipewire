@@ -598,6 +598,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 			if (o->this.creating) {
 				o->this.creating = false;
 				manager_emit_added(m, &o->this);
+				o->this.changed = 0;
 			} else if (o->this.changed > 0) {
 				manager_emit_updated(m, &o->this);
 				o->this.changed = 0;

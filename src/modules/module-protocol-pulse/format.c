@@ -305,7 +305,7 @@ static inline uint32_t channel_name2id(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_type_audio_channel[i].name) == 0)
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;

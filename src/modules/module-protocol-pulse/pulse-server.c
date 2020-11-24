@@ -332,7 +332,7 @@ static int flush_messages(struct client *client)
 			data = m->data + idx;
 			size = m->length - idx;
 		} else {
-			if (debug_messages)
+			if (debug_messages && m->channel == SPA_ID_INVALID)
 				message_dump(SPA_LOG_LEVEL_INFO, m);
 			message_free(client, m, true, false);
 			client->out_index = 0;

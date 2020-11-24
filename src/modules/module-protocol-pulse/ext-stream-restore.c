@@ -115,13 +115,7 @@ static int key_to_name(const char *key, char *name, size_t maxlen)
 static int do_extension_stream_restore_read(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct message *reply;
-	struct volume vol = VOLUME_INIT;
-	struct channel_map map;
-	float volume;
-	char device_name[1024] = "\0";
 	const struct spa_dict_item *item;
-
-	spa_zero(map);
 
 	reply = reply_new(client, tag);
 
@@ -129,7 +123,11 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 		struct spa_json it[3];
 		const char *value;
 		char name[1024];
+		char device_name[1024] = "\0";
 		bool mute = false;
+		struct volume vol = VOLUME_INIT;
+		struct channel_map map = CHANNEL_MAP_INIT;
+		float volume = 0.0f;
 		int len;
 
 		if (key_to_name(item->key, name, sizeof(name)) < 0)
@@ -178,7 +176,6 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 			else if (spa_json_next(&it[1], &value) <= 0)
 				break;
 		}
-		map.channels = vol.channels;
 		message_put(reply,
 			TAG_STRING, name,
 			TAG_CHANNEL_MAP, &map,

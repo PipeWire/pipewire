@@ -107,7 +107,12 @@ struct sample_spec {
 	uint32_t rate;
 	uint8_t channels;
 };
-#define SAMPLE_SPEC_INIT	(struct sample_spec) {			\
+#define SAMPLE_SPEC_INIT	(struct sample_spec) {				\
+					.format = SPA_AUDIO_FORMAT_UNKNOWN,	\
+					.rate = 0,				\
+					.channels = 0,				\
+				}
+#define SAMPLE_SPEC_DEFAULT	(struct sample_spec) {			\
 					.format = SPA_AUDIO_FORMAT_F32,	\
 					.rate = 44100,			\
 					.channels = 2,			\
@@ -279,7 +284,10 @@ struct channel_map {
 };
 
 #define CHANNEL_MAP_INIT	(struct channel_map) {				\
-					.channels = 2,				\
+					.channels = 0,				\
+				}
+#define CHANNEL_MAP_DEFAULT	(struct channel_map) {				\
+					.channels = 2,                          \
 					.map[0] = SPA_AUDIO_CHANNEL_FL,		\
 					.map[1] = SPA_AUDIO_CHANNEL_FR,		\
 				}

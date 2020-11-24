@@ -3101,8 +3101,8 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 
 	pw_log_info(NAME" %p: [%s] GET_SERVER_INFO tag:%u", impl, client->name, tag);
 
-	ss = SAMPLE_SPEC_INIT;
-	map = CHANNEL_MAP_INIT;
+	ss = SAMPLE_SPEC_DEFAULT;
+	map = CHANNEL_MAP_DEFAULT;
 
 	if (info != NULL) {
 		if (info->props &&

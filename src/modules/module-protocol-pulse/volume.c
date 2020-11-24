@@ -28,6 +28,10 @@ struct volume {
 };
 
 #define VOLUME_INIT	(struct volume) {		\
+				.channels = 0,		\
+			}
+
+#define VOLUME_DEFAULT	(struct volume) {		\
 				.channels = 2,		\
 				.values[0] = 1.0f,	\
 				.values[1] = 1.0f,	\

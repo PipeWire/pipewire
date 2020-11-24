@@ -420,10 +420,19 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
+static void metadata_init(struct object *object)
+{
+	struct object *o = object;
+	struct manager *m = o->manager;
+	o->this.creating = false;
+	manager_emit_added(m, &o->this);
+}
+
 static const struct object_info metadata_info = {
 	.type = PW_TYPE_INTERFACE_Metadata,
 	.version = PW_VERSION_METADATA,
 	.events = &metadata_events,
+	.init = metadata_init,
 };
 
 static const struct object_info *objects[] =

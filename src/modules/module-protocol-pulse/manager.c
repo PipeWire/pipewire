@@ -96,6 +96,18 @@ static struct pw_manager_param *add_param(struct spa_list *params, uint32_t id, 
 	return p;
 }
 
+static bool has_param(struct spa_list *param_list, struct pw_manager_param *p)
+{
+	struct pw_manager_param *t;
+	spa_list_for_each(t, param_list, link) {
+		if (p->id == t->id &&
+		   SPA_POD_SIZE(p->param) == SPA_POD_SIZE(t->param) &&
+		   memcmp(p->param, t->param, SPA_POD_SIZE(p->param)) == 0)
+			return true;
+	}
+	return false;
+}
+
 static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 {
 	struct pw_manager_param *p, *t;
@@ -130,6 +142,7 @@ static void object_update_params(struct object *o)
 
 	spa_list_for_each(p, &o->pending_list, link)
 		clear_params(&o->this.param_list, p->id);
+
 	spa_list_consume(p, &o->pending_list, link) {
 		spa_list_remove(&p->link);
 		spa_list_append(&o->this.param_list, &p->link);
@@ -304,10 +317,11 @@ static void device_event_param(void *object, int seq,
 {
 	struct object *o = object, *dev;
 	struct manager *m = o->manager;
+	struct pw_manager_param *p;
 
-	add_param(&o->pending_list, id, param);
+	p = add_param(&o->pending_list, id, param);
 
-	if (id == SPA_PARAM_Route) {
+	if (id == SPA_PARAM_Route && !has_param(&o->this.param_list, p)) {
 		uint32_t id, device;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,

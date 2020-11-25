@@ -112,6 +112,10 @@ struct sync {
 struct impl {
 	struct sm_media_session this;
 
+	const char *opt_default;
+	const char *opt_enabled;
+	const char *opt_disabled;
+
 	struct pw_main_loop *loop;
 	struct spa_dbus *dbus;
 
@@ -1823,6 +1827,7 @@ static int state_dir(struct sm_media_session *sess)
 	impl->state_dir_fd = res;
 	return res;
 }
+
 int sm_media_session_load_state(struct sm_media_session *sess,
 		const char *name, const char *prefix, struct pw_properties *props)
 {
@@ -2091,18 +2096,55 @@ static void do_quit(void *data, int signal_number)
 
 #define DEFAULT_ENABLED		"flatpak,"		\
 				"portal,"		\
+				"v4l2,"			\
+				"suspend-node,"		\
+				"policy-node"
+#define AUDIO_ENABLED		DEFAULT_ENABLED","	\
 				"metadata,"		\
 				"default-nodes,"	\
 				"default-profile,"	\
 				"default-routes,"	\
-				"restore-stream,"	\
 				"alsa-acp,"		\
-				"alsa-seq,"		\
-				"v4l2,"			\
-				"suspend-node,"		\
-				"policy-node"
+				"alsa-seq"
+#define PULSE_ENABLED		AUDIO_ENABLED","	\
+				"bluez5,"		\
+				"restore-stream"
 #define EXTRA_ENABLED		""
 #define EXTRA_DISABLED		""
+
+static int check_default_enabled(struct impl *impl)
+{
+	const char *dir;
+	char check_path[PATH_MAX];
+	uint32_t i;
+	struct stat statbuf;
+	struct modules {
+		const char *file;
+		const char *name;
+		const char *options;
+	} module_check[] = {
+		{ "with-jack", "Audio", AUDIO_ENABLED },
+		{ "with-alsa", "Audio", AUDIO_ENABLED },
+		{ "with-pulseaudio", "PulseAudio", PULSE_ENABLED },
+	};
+
+	impl->opt_default = DEFAULT_ENABLED;
+	if ((dir = getenv("PIPEWIRE_CONFIG_DIR")) == NULL)
+		dir = PIPEWIRE_CONFIG_DIR;
+	if (dir == NULL)
+		return -ENOENT;
+
+	for (i = 0; i < SPA_N_ELEMENTS(module_check); i++) {
+		snprintf(check_path, sizeof(check_path),
+				"%s/media-session.d/%s", dir, module_check[i].file);
+		if (stat(check_path, &statbuf) == 0) {
+			pw_log_info("found %s, enable %s", check_path,
+					module_check[i].name);
+			impl->opt_default = module_check[i].options;
+		}
+	}
+	return 0;
+}
 
 static const struct {
 	const char *name;
@@ -2140,13 +2182,13 @@ static int opt_contains(const char *opt, const char *val)
 	return 0;
 }
 
-static bool is_opt_enabled(const char *enabled, const char *disabled, const char *val)
+static bool is_opt_enabled(struct impl *impl, const char *val)
 {
-	return (opt_contains(DEFAULT_ENABLED, val) || opt_contains(enabled, val)) &&
-			!opt_contains(disabled, val);
+	return (opt_contains(impl->opt_default, val) || opt_contains(impl->opt_enabled, val)) &&
+			!opt_contains(impl->opt_disabled, val);
 }
 
-static void show_help(const char *name, const char *enabled, const char *disabled)
+static void show_help(const char *name, struct impl *impl)
 {
 	size_t i;
 
@@ -2156,13 +2198,13 @@ static void show_help(const char *name, const char *enabled, const char *disable
              "  -e, --enabled                         Extra comma separated enabled options ('%s')\n"
              "  -d, --disabled                        Extra comma separated disabled options ('%s')\n"
              "  -p, --properties                      Extra properties as 'key=value { key=value }'\n",
-	     name, enabled, disabled);
+	     name, impl->opt_enabled, impl->opt_disabled);
 
         fprintf(stdout,
              "\noptions: (*=enabled)\n");
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
 		fprintf(stdout, "\t  %c %-15.15s: %s\n",
-				is_opt_enabled(enabled, disabled, modules[i].name) ? '*' : ' ',
+				is_opt_enabled(impl, modules[i].name) ? '*' : ' ',
 				modules[i].name, modules[i].desc);
 	}
 }
@@ -2173,8 +2215,6 @@ int main(int argc, char *argv[])
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res = 0, c;
-	const char *opt_enabled = EXTRA_ENABLED;
-	const char *opt_disabled = EXTRA_DISABLED;
 	const char *opt_properties = NULL;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
@@ -2189,10 +2229,14 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	check_default_enabled(&impl);
+	impl.opt_enabled = EXTRA_ENABLED;
+	impl.opt_disabled = EXTRA_DISABLED;
+
 	while ((c = getopt_long(argc, argv, "hVe:d:p:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0], opt_enabled, opt_disabled);
+			show_help(argv[0], &impl);
 			return 0;
 		case 'V':
 			fprintf(stdout, "%s\n"
@@ -2203,10 +2247,10 @@ int main(int argc, char *argv[])
 				pw_get_library_version());
 			return 0;
 		case 'e':
-			opt_enabled = optarg;
+			impl.opt_enabled = optarg;
 			break;
 		case 'd':
-			opt_disabled = optarg;
+			impl.opt_disabled = optarg;
 			break;
 		case 'p':
 			opt_properties = optarg;
@@ -2274,7 +2318,7 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
 		const char *name = modules[i].name;
-		if (is_opt_enabled(opt_enabled, opt_disabled, name)) {
+		if (is_opt_enabled(&impl, name)) {
 			if (modules[i].props) {
 				struct pw_properties *props;
 				props = pw_properties_new_string(modules[i].props);

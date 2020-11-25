@@ -21,6 +21,10 @@ conf_config.set('media_session_path', join_paths(pipewire_bindir, 'pipewire-medi
 conf_config.set('pipewire_pulse_path', join_paths(pipewire_bindir, 'pipewire-pulse'))
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
+install_data(
+  sources : ['media-session.d/with-jack', 'media-session.d/with-pulseaudio'],
+  install_dir : join_paths(conf_install_dir, 'media-session.d'))
+
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('media_session_path',
   join_paths(meson.build_root(), 'src', 'examples', 'pipewire-media-session'))

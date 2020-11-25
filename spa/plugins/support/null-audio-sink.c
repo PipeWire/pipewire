@@ -53,6 +53,9 @@ static void reset_props(struct props *props)
 {
 }
 
+#define DEFAULT_CHANNELS	2
+#define DEFAULT_RATE		44100
+
 #define MAX_SAMPLES	8192
 #define MAX_BUFFERS	16
 #define MAX_PORTS	1
@@ -89,6 +92,8 @@ struct impl {
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
 
+	uint32_t default_rate;
+	uint32_t default_channels;
 	struct props props;
 
 	uint64_t info_all;
@@ -356,8 +361,8 @@ port_enum_formats(struct impl *this,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32),
-			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, INT32_MAX));
+			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(this->default_rate, 1, INT32_MAX),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(this->default_channels, 1, INT32_MAX));
 		break;
 	default:
 		return 0;
@@ -687,6 +692,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -751,6 +757,17 @@ impl_init(const struct spa_handle_factory *factory,
 	this->timerspec.it_interval.tv_nsec = 0;
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);
+
+	this->default_channels = DEFAULT_CHANNELS;
+	this->default_rate = DEFAULT_RATE;
+
+	for (i = 0; info && i < info->n_items; i++) {
+		if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_CHANNELS)) {
+			this->default_channels = atoi(info->items[i].value);
+		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_RATE)) {
+			this->default_rate = atoi(info->items[i].value);
+		}
+	}
 
 	spa_log_info(this->log, NAME " %p: initialized", this);
 

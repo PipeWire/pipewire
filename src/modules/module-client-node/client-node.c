@@ -46,13 +46,13 @@
 
 /** \cond */
 
-#define MAX_INPUTS	64
-#define MAX_OUTPUTS	64
+#define MAX_INPUTS	1024
+#define MAX_OUTPUTS	1024
 
 #define MAX_BUFFERS	64
 #define MAX_METAS	16u
 #define MAX_DATAS	64u
-#define MAX_AREAS	1024
+#define MAX_AREAS	2048
 #define MAX_MIX		128
 
 #define CHECK_IN_PORT_ID(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) < MAX_INPUTS)

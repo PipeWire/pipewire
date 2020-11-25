@@ -42,7 +42,6 @@
 #include "extensions/client-node.h"
 
 #define MAX_MIX	4096
-#define MAX_IO	32
 
 /** \cond */
 static bool mlock_warned = false;

@@ -291,8 +291,8 @@ static int do_extension_stream_restore(struct client *client, uint32_t tag, stru
 	if (ext_stream_restore[command].process == NULL)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: [EXT_STREAM_RESTORE_%s] %s tag:%u", impl, client->name,
-			ext_stream_restore[command].name, tag);
+	pw_log_info(NAME" %p: [%s] EXT_STREAM_RESTORE_%s tag:%u", impl,
+			client->name, ext_stream_restore[command].name, tag);
 
 	return ext_stream_restore[command].process(client, command, tag, m);
 }

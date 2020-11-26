@@ -25,8 +25,6 @@
 extern "C" {
 #endif
 
-#include <spa/utils/defs.h>
-
 #define PA_CHANNELS_MAX	64
 
 #define PA_CHANNEL_MAP_SNPRINT_MAX 336
@@ -163,17 +161,17 @@ static inline pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsign
                 case 8:
                     m->map[6] = PA_CHANNEL_POSITION_SIDE_LEFT;
                     m->map[7] = PA_CHANNEL_POSITION_SIDE_RIGHT;
-                    SPA_FALLTHROUGH
+                    /* Fall through */
                 case 6:
                     m->map[5] = PA_CHANNEL_POSITION_LFE;
-                    SPA_FALLTHROUGH
+                    /* Fall through */
                 case 5:
                     m->map[4] = PA_CHANNEL_POSITION_FRONT_CENTER;
-                    SPA_FALLTHROUGH
+                    /* Fall through */
                 case 4:
                     m->map[2] = PA_CHANNEL_POSITION_REAR_LEFT;
                     m->map[3] = PA_CHANNEL_POSITION_REAR_RIGHT;
-                    SPA_FALLTHROUGH
+                    /* Fall through */
                 case 2:
                     m->map[0] = PA_CHANNEL_POSITION_FRONT_LEFT;
                     m->map[1] = PA_CHANNEL_POSITION_FRONT_RIGHT;

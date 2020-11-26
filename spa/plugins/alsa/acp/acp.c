@@ -94,9 +94,11 @@ static const uint32_t channel_table[PA_CHANNEL_POSITION_MAX] = {
 	[PA_CHANNEL_POSITION_TOP_REAR_CENTER] = ACP_CHANNEL_TRC,
 };
 
+#define ACP_N_ELEMENTS(arr)	(sizeof(arr) / sizeof((arr)[0]))
+
 static inline uint32_t channel_pa2acp(pa_channel_position_t channel)
 {
-	if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(channel_table))
+	if (channel < 0 || (size_t)channel >= ACP_N_ELEMENTS(channel_table))
 		return ACP_CHANNEL_UNKNOWN;
 	return channel_table[channel];
 }

@@ -69,6 +69,7 @@ struct node_data {
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
 	uint32_t new_id;
+	unsigned int linger;
 };
 
 static void resource_destroy(void *data)
@@ -77,7 +78,7 @@ static void resource_destroy(void *data)
 
 	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
 	spa_hook_remove(&nd->resource_listener);
-	if (nd->adapter)
+	if (nd->adapter && !nd->linger)
 		pw_impl_node_destroy(nd->adapter);
 }
 
@@ -156,6 +157,7 @@ static void *create_object(void *_data,
 	const char *str, *factory_name;
 	int res;
 	struct node_data *nd;
+	bool linger;
 
 	if (properties == NULL)
 		goto error_properties;
@@ -178,6 +180,9 @@ static void *create_object(void *_data,
 
 		pw_properties_setf(properties, "audio.adapt.follower", "pointer:%p", follower);
 	}
+	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
+	linger = str ? pw_properties_parse_bool(str) : false;
+
 	if (follower == NULL) {
 		factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 		if (factory_name == NULL)
@@ -211,6 +216,7 @@ static void *create_object(void *_data,
 	nd->follower = follower;
 	nd->resource = resource;
 	nd->new_id = new_id;
+	nd->linger = linger;
 	spa_list_append(&d->node_list, &nd->link);
 
 	pw_impl_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);

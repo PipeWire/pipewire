@@ -3381,7 +3381,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 {
 	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
-	const char *name, *str;
+	const char *name, *desc, *str;
 	char *monitor_name = NULL;
 	uint32_t module_id = SPA_ID_INVALID;
 	uint32_t card_id = SPA_ID_INVALID;
@@ -3398,6 +3398,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 		monitor_name = alloca(size);
 		snprintf(monitor_name, size, "%s.monitor", name);
 	}
+	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
+		desc = name;
+
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
@@ -3430,8 +3433,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION),
+		TAG_STRING, name,
+		TAG_STRING, desc,
 		TAG_SAMPLE_SPEC, &dev_info.ss,
 		TAG_CHANNEL_MAP, &dev_info.map,
 		TAG_U32, module_id,			/* module index */
@@ -3532,7 +3535,11 @@ static int fill_source_info(struct client *client, struct message *m,
 		size_t size = strlen(name) + 20;
 		monitor_desc = alloca(size);
 		snprintf(monitor_desc, size, "Monitor of %s", desc);
+	} else {
+		desc = name;
+		monitor_desc = monitor_name;
 	}
+
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)

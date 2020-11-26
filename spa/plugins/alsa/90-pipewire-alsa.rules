@@ -110,9 +110,7 @@ ATTRS{idVendor}=="0763", ATTRS{idProduct}=="2012", ENV{PULSE_PROFILE_SET}="maudi
 ATTRS{idVendor}=="045e", ATTRS{idProduct}=="02bb", ENV{PULSE_PROFILE_SET}="kinect-audio.conf"
 ATTRS{idVendor}=="041e", ATTRS{idProduct}=="322c", ENV{PULSE_PROFILE_SET}="sb-omni-surround-5.1.conf"
 ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="4014", ENV{PULSE_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
-ATTRS{idVendor}=="08bb", ATTRS{idProduct}=="2902", ENV{PULSE_PROFILE_SET}="behringer-umc22.conf"
-ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0269", ENV{PULSE_PROFILE_SET}="hp-tbt-dock-120w-g2.conf"
-ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0567", ENV{PULSE_PROFILE_SET}="hp-tbt-dock-audio-module.conf"
+
 
 # ID 1038:12ad is for the 2018 refresh of the Arctis 7.
 # ID 1038:1294 is for Arctis Pro Wireless (which works with the Arctis 7 configuration).

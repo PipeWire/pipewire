@@ -3191,7 +3191,7 @@ void pa_alsa_element_dump(pa_alsa_element *e) {
     pa_assert(e);
 
     alsa_id_str(buf, sizeof(buf), &e->alsa_id);
-    pa_log_debug("Element %s, direction=%i, switch=%i, volume=%i, volume_limit=%li, enumeration=%i, required=%i, required_any=%i, required_absent=%i, mask=0x%llx, n_channels=%u, override_map=%02x",
+    pa_log_debug("Element %s, direction=%i, switch=%i, volume=%i, volume_limit=%li, enumeration=%i, required=%i, required_any=%i, required_absent=%i, mask=0x%llx, n_channels=%u, override_map=%s",
                  buf,
                  e->direction,
                  e->switch_use,
@@ -3203,7 +3203,7 @@ void pa_alsa_element_dump(pa_alsa_element *e) {
                  e->required_absent,
                  (long long unsigned) e->merged_mask,
                  e->n_channels,
-                 e->override_map);
+                 pa_yes_no(e->override_map));
 
     PA_LLIST_FOREACH(o, e->options)
         pa_alsa_option_dump(o);
@@ -4313,28 +4313,42 @@ fail:
 }
 
 /* the logic is simple: if we see the jack in multiple paths */
-/* assign all those jacks to one availability_group */
-static void mapping_group_available(pa_hashmap *paths)
-{
-    void *state, *state2;
-    pa_alsa_path *p, *p2;
-    pa_alsa_jack *j, *j2;
+/* assign all those paths to one availability_group */
+static void profile_set_set_availability_groups(pa_alsa_profile_set *ps) {
+    pa_dynarray *paths;
+    pa_alsa_path *p;
+    void *state;
+    unsigned idx1;
     uint32_t num = 1;
 
-    PA_HASHMAP_FOREACH(p, paths, state) {
+    /* Merge ps->input_paths and ps->output_paths into one dynarray. */
+    paths = pa_dynarray_new(NULL);
+    PA_HASHMAP_FOREACH(p, ps->input_paths, state)
+        pa_dynarray_append(paths, p);
+    PA_HASHMAP_FOREACH(p, ps->output_paths, state)
+        pa_dynarray_append(paths, p);
+
+    PA_DYNARRAY_FOREACH(p, paths, idx1) {
+        pa_alsa_jack *j;
         const char *found = NULL;
         bool has_control = false;
+
         PA_LLIST_FOREACH(j, p->jacks) {
+            pa_alsa_path *p2;
+            unsigned idx2;
+
             if (!j->has_control || j->state_plugged == PA_AVAILABLE_NO)
                 continue;
             has_control = true;
-            PA_HASHMAP_FOREACH(p2, paths, state2) {
+            PA_DYNARRAY_FOREACH(p2, paths, idx2) {
+                pa_alsa_jack *j2;
+
                 if (p2 == p)
-                   break;
+                    break;
                 PA_LLIST_FOREACH(j2, p2->jacks) {
                     if (!j2->has_control || j2->state_plugged == PA_AVAILABLE_NO)
                         continue;
-                    if (pa_streq(j->name, j2->name)) {
+                    if (pa_streq(j->alsa_name, j2->alsa_name)) {
                         j->state_plugged = PA_AVAILABLE_UNKNOWN;
                         j2->state_plugged = PA_AVAILABLE_UNKNOWN;
                         found = p2->availability_group;
@@ -4355,6 +4369,8 @@ static void mapping_group_available(pa_hashmap *paths)
         if (!found)
             num++;
     }
+
+    pa_dynarray_free(paths);
 }
 
 static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
@@ -4405,8 +4421,6 @@ static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
     PA_HASHMAP_FOREACH(p, ps->paths, state)
         pa_hashmap_put(used_paths, p, p);
 
-    mapping_group_available(ps->paths);
-
     pa_log_debug("Available mixer paths (after tidying):");
     pa_alsa_path_set_dump(ps);
 }
@@ -4415,6 +4429,8 @@ static int mapping_verify(pa_alsa_mapping *m, const pa_channel_map *bonus) {
 
     static const struct description_map well_known_descriptions[] = {
         { "analog-mono",            N_("Analog Mono") },
+        { "analog-mono-left",       N_("Analog Mono (Left)") },
+        { "analog-mono-right",      N_("Analog Mono (Right)") },
         { "analog-stereo",          N_("Analog Stereo") },
         { "mono-fallback",          N_("Mono") },
         { "stereo-fallback",        N_("Stereo") },
@@ -4425,6 +4441,8 @@ static int mapping_verify(pa_alsa_mapping *m, const pa_channel_map *bonus) {
          * multichannel-input and multichannel-output. */
         { "analog-stereo-input",    N_("Analog Stereo") },
         { "analog-stereo-output",   N_("Analog Stereo") },
+        { "analog-stereo-headset",  N_("Headset") },
+        { "analog-stereo-speakerphone",  N_("Speakerphone") },
         { "multichannel-input",     N_("Multichannel") },
         { "multichannel-output",    N_("Multichannel") },
         { "analog-surround-21",     N_("Analog Surround 2.1") },
@@ -4581,6 +4599,8 @@ static int profile_verify(pa_alsa_profile *p) {
     static const struct description_map well_known_descriptions[] = {
         { "output:analog-mono+input:analog-mono",     N_("Analog Mono Duplex") },
         { "output:analog-stereo+input:analog-stereo", N_("Analog Stereo Duplex") },
+        { "output:analog-stereo-headset+input:analog-stereo-headset", N_("Headset") },
+        { "output:analog-stereo-speakerphone+input:analog-stereo-speakerphone", N_("Speakerphone") },
         { "output:iec958-stereo+input:iec958-stereo", N_("Digital Stereo Duplex (IEC958)") },
         { "output:multichannel-output+input:multichannel-input", N_("Multichannel Duplex") },
         { "output:unknown-stereo+input:unknown-stereo", N_("Stereo Duplex") },
@@ -5158,6 +5178,8 @@ void pa_alsa_profile_set_probe(
     pa_hashmap_free(broken_outputs);
     pa_hashmap_free(used_paths);
     pa_xfree(probe_order);
+
+    profile_set_set_availability_groups(ps);
 
     ps->probed = true;
 }

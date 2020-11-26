@@ -1,3 +1,63 @@
+PipeWire 0.3.17
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Fix crasher bug for kwin when screensharing stopped.
+  - Massive improvements and compatibility fixes in the
+    PulseAudio server.
+  - The session manager now has a config directory in
+    /etc/pipewire/media-session.d/ It will look for files there
+    to activate session manager modules. Packagers can use
+    this to only activate the audio modules when the PulseAudio
+    server, libjack.so or the alsa modules are installed.
+
+- PipeWire improvements
+  - We now clear hooks before adding them. Some application
+    did not clear them and had random data for the destroy
+    callback.
+  - Return -ENOENT from unknown resources so apps can handle
+    this better. It's a common problem when an app tries to
+    introspect and object but it disappeared before the message
+    reached the server. Apps should ignore this.
+  - channelmap information is now passed with the volume
+    settings.
+  - DMABuf is not mmapp()ed anymore with the FLAG_MAP_BUFFERS in
+    the stream or filter. This is because DMABuf usually
+    requires more that just a simple mmap and is better left
+    for the application.
+  - increase the maximum number of ports for a client-node.
+  - adapter and node-factory now support the linger option to
+    keep the objects alive after the creating client disconnected.
+
+- Device support
+  - ALSA now handles error in close(), like when unplugging a
+    USB device.
+
+- Session-manager
+  - The session manager is now handling DONT_RECONNECT streams
+    without a target node. They get connected to a default node
+    once and then fail to reconnect.
+  - The session manager now exposes the stream setting as
+    metadata. This makes it possible for other components, such
+    as pulse-server to use this information. Information is stored
+    as a json object for easier consumption.
+  - The session manager now has a config directory in
+    /etc/pipewire/media-session.d/ packagers can use this
+
+- PulseAudio server
+  - Pulse server now acquire the dbus name.
+  - Improvements in timing and compatibility with many apps.
+  - The stream-restore extension is now implemented so that
+    the event volume can be configured.
+  - Many stability fixes and improvements.
+  - Fix some issues with module-load/unload
+
+
+Older versions:
+
+
 PipeWire 0.3.16
 
 This is a bugfix release that is API and ABI compatible
@@ -38,9 +98,6 @@ with previous 0.3.x releases.
 - JACK layer
   - handle errors when linking, fixes jack_connect hang when
     the ports were already linked.
-
-
-Older versions:
 
 
 PipeWire 0.3.15

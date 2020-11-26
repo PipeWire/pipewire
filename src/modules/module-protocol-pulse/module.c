@@ -152,6 +152,10 @@ static int load_module(struct client *client, const char *name, const char *argu
 		struct pw_properties *props = NULL;
 		const char *str;
 
+		if (argument == NULL) {
+			res = -EINVAL;
+			goto out;
+		}
 		props = pw_properties_new_string(argument);
 		if (props == NULL) {
 			res = -EINVAL;

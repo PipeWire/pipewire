@@ -207,8 +207,6 @@ static void collect_card_info(struct pw_manager_object *card, struct card_info *
 			break;
 		}
 	}
-	if (info->n_profiles == 0)
-		info->n_profiles++;
 }
 
 struct profile_info {
@@ -278,16 +276,7 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 		}
 		n++;
 	}
-	if (n == 0) {
-		pi = &profile_info[0];
-		spa_zero(*pi);
-		pi->id = 0;
-		pi->name = "off";
-		pi->description = "Off";
-		pi->available = SPA_PARAM_AVAILABILITY_yes;
-		n++;
-	}
-	if (card_info->active_profile_name == NULL)
+	if (card_info->active_profile_name == NULL && n > 0)
 		card_info->active_profile_name = profile_info[0].name;
 
 	return n;
@@ -506,6 +495,8 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct card_in
 		}
 		n++;
 	}
+	if (dev_info != NULL && dev_info->active_port_name == NULL && n > 0)
+		dev_info->active_port_name = port_info[0].name;
 	return n;
 }
 

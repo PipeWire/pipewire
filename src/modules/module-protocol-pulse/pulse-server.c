@@ -4444,8 +4444,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 		if (module->idx == module_idx)
 			break;
 	}
-
-	if (module == NULL)
+	if (spa_list_is_end(module, &client->modules, link))
 		return -ENOENT;
 
 	unload_module(module);

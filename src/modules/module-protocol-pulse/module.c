@@ -176,7 +176,6 @@ static int load_module(struct client *client, const char *name, const char *argu
 			pw_properties_set(props, "device.description", NULL);
 		}
 		pw_properties_set(props, "factory.name", "support.null-audio-sink");
-		pw_properties_set(props, PW_KEY_OBJECT_LINGER, "1");
 
 		module = calloc(1, sizeof(struct module));
 		module->client = client;

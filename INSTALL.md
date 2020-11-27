@@ -135,19 +135,12 @@ The provides pw-jack script uses LD_LIBRARY_PATH to set the library
 search path to these replacement libraries. This allows you to run
 jack apps on both the real JACK server or on PipeWire with the script.
 
-It is also possible to completely replace the JACK libraries by making
-a symlink in /usr/lib64/ as follows:
+It is also possible to completely replace the JACK libraries by adding
+a file `pipewire-jack-x86_64.conf` to `/etc/ld.so.conf.d/` with
+contents like:
 
 ```
-/usr/lib64/libjacknet.so -> libjacknet.so.0.1.0
-/usr/lib64/libjacknet.so.0 -> libjacknet.so.0.1.0
-/usr/lib64/libjacknet.so.0.1.0 -> pipewire-0.3/jack/libjacknet.so.0
-/usr/lib64/libjackserver.so -> libjackserver.so.0.1.0
-/usr/lib64/libjackserver.so.0 -> libjackserver.so.0.1.0
-/usr/lib64/libjackserver.so.0.1.0 -> pipewire-0.3/jack/libjackserver.so.0
-/usr/lib64/libjack.so -> libjack.so.0.1.0
-/usr/lib64/libjack.so.0 -> libjack.so.0.1.0
-/usr/lib64/libjack.so.0.1.0 -> pipewire-0.3/jack/libjack.so.0
+/usr/lib64/pipewire-0.3/jack/
 ```
 
 Note that when JACK is replaced by PipeWire, the SPA JACK plugin (installed
@@ -155,38 +148,24 @@ in /usr/lib64/spa-0.2/jack/libspa-jack.so) is not useful anymore and
 distributions should make them conflict.
 
 
-### PulseAudio emulation
+### PulseAudio replacement
 
-PipeWire reimplements the 3 libraries that PulseAudio applications use to make
-them run on top of PipeWire.
+PipeWire reimplements the PulseAudio server protocol as a small service
+that runs on top of PipeWire.
 
-These libraries are found here:
-
-```
-/usr/lib64/pipewire-0.3/pulse/libpulse-mainloop-glib.so -> libpulse-mainloop-glib.so.0
-/usr/lib64/pipewire-0.3/pulse/libpulse-mainloop-glib.so.0 -> libpulse-mainloop-glib.so.0.304.0
-/usr/lib64/pipewire-0.3/pulse/libpulse-mainloop-glib.so.0.304.0
-/usr/lib64/pipewire-0.3/pulse/libpulse-simple.so -> libpulse-simple.so.0
-/usr/lib64/pipewire-0.3/pulse/libpulse-simple.so.0 -> libpulse-simple.so.0.304.0
-/usr/lib64/pipewire-0.3/pulse/libpulse-simple.so.0.304.0
-/usr/lib64/pipewire-0.3/pulse/libpulse.so -> libpulse.so.0
-/usr/lib64/pipewire-0.3/pulse/libpulse.so.0 -> libpulse.so.0.304.0
-/usr/lib64/pipewire-0.3/pulse/libpulse.so.0.304.0
-```
-
-The provides pw-pulse script uses LD_LIBRARY_PATH to set the library
-search path to these replacement libraries. This allows you to run
-PulseAudio apps on both the real PulseAudio server or on PipeWire
-with the script.
-
-To replace the pulseaudio libraries completely symlinks need to be
-made  in /usr/lib64 like this:
+The binary is normally placed here:
 
 ```
-/usr/lib64/libpulse-mainloop-glib.so -> libpulse-mainloop-glib.so.0
-/usr/lib64/libpulse-mainloop-glib.so.0 -> pipewire-0.3/pulse/libpulse-mainloop-glib.so.0.304.0
-/usr/lib64/libpulse-simple.so -> libpulse-simple.so.0
-/usr/lib64/libpulse-simple.so.0 -> pipewire-0.3/pulse/libpulse-simple.so.0.304.0
-/usr/lib64/libpulse.so -> libpulse.so.0
-/usr/lib64/libpulse.so.0 -> pipewire-0.3/pulse/libpulse.so.0.304.0
+/usr/bin/pipewire-pulse
 ```
+
+The server can be started with provided systemd activation files or
+from PipeWire itself. (See `/etc/pipewire/pipewire.conf`)
+
+```
+systemctl --user stop pipewire-pulse.service
+systemctl --user stop pipewire-pulse.socket
+```
+
+You can also start additional PulseAudio servers listening on other
+sockets with the -a option. See `pipewire-pulse -h` for more info.

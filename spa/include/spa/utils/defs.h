@@ -54,8 +54,8 @@ extern "C" {
 #if defined(__clang__) && __cplusplus >= 201103L
    /* clang's fallthrough annotations are only available starting in C++11. */
 #  define SPA_FALLTHROUGH [[clang::fallthrough]];
-#elif defined(__GNUC__) && __GNUC__ >= 7
- #define SPA_FALLTHROUGH __attribute__ ((fallthrough));
+#elif __GNUC__ >= 7 || __clang_major__ >= 10
+#  define SPA_FALLTHROUGH __attribute__ ((fallthrough));
 #else
 #  define SPA_FALLTHROUGH /* FALLTHROUGH */
 #endif

@@ -56,7 +56,7 @@ also possible to dynamically grow the memory as needed.
 
 The most common way to construct a POD is on the stack. This does
 not require any memory allocations. The size of the POD can be
-estimated pretty easily and it the buffer is not large enough, an
+estimated pretty easily and if the buffer is not large enough, an
 appropriate error will be generated.
 
 The code fragment below initializes a pod builder to write into
@@ -325,8 +325,8 @@ prop = spa_pod_find_prop(obj, prop, SPA_FORMAT_AUDIO_rate);
 
 Similar to the builder, there is a parser object as well.
 
-It the fields in a struct are known, it is much easier to use the
-parser. Similarly, if the object type (and thus its) keys are known,
+If the fields in a struct are known, it is much easier to use the
+parser. Similarly, if the object type (and thus its keys) are known,
 the parser is easier.
 
 First initialize a `struct spa_pod_parser`:

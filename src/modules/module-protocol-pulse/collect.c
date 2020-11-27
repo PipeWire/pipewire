@@ -141,6 +141,8 @@ static struct pw_manager_object *select_object(struct pw_manager *m,
 		    (str = pw_properties_get(o->props, s->key)) != NULL &&
 		    strcmp(str, s->value) == 0)
 			return o;
+		if (s->value != NULL && (uint32_t)atoi(s->value) == o->id)
+			return o;
 	}
 	return s->best;
 }

@@ -43,33 +43,56 @@ enum sample_format {
 	SAMPLE_INVALID = -1
 };
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define SAMPLE_S16NE		SAMPLE_S16BE
+#define SAMPLE_FLOAT32NE	SAMPLE_FLOAT32BE
+#define SAMPLE_S32NE		SAMPLE_S32BE
+#define	SAMPLE_S24NE		SAMPLE_S24BE
+#define SAMPLE_S24_32NE		SAMPLE_S24_32BE
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#define SAMPLE_S16NE		SAMPLE_S16LE
+#define SAMPLE_FLOAT32NE	SAMPLE_FLOAT32LE
+#define SAMPLE_S32NE		SAMPLE_S32LE
+#define	SAMPLE_S24NE		SAMPLE_S24LE
+#define SAMPLE_S24_32NE		SAMPLE_S24_32LE
+#endif
+
 struct format {
-	uint32_t format;
+	uint32_t pa;
+	uint32_t id;
 	const char *name;
 	uint32_t size;
 };
 
 static const struct format audio_formats[] = {
-	[SAMPLE_U8] = { SPA_AUDIO_FORMAT_U8, "u8", 1 },
-	[SAMPLE_ALAW] = { SPA_AUDIO_FORMAT_UNKNOWN, "aLaw", 1 },
-	[SAMPLE_ULAW] = { SPA_AUDIO_FORMAT_UNKNOWN, "uLaw", 1 },
-	[SAMPLE_S16LE] = { SPA_AUDIO_FORMAT_S16_LE, "s16le", 2 },
-	[SAMPLE_S16BE] = { SPA_AUDIO_FORMAT_S16_BE, "s16be", 2 },
-	[SAMPLE_FLOAT32LE] = { SPA_AUDIO_FORMAT_F32_LE, "float32le", 4 },
-	[SAMPLE_FLOAT32BE] = { SPA_AUDIO_FORMAT_F32_BE, "float32be", 4 },
-	[SAMPLE_S32LE] = { SPA_AUDIO_FORMAT_S32_LE, "s32le", 4 },
-	[SAMPLE_S32BE] = { SPA_AUDIO_FORMAT_S32_BE, "s32be", 4 },
-	[SAMPLE_S24LE] = { SPA_AUDIO_FORMAT_S24_LE, "s24le", 3 },
-	[SAMPLE_S24BE] = { SPA_AUDIO_FORMAT_S24_BE, "s24be", 3 },
-	[SAMPLE_S24_32LE] = { SPA_AUDIO_FORMAT_S24_32_LE, "s24-32le", 4 },
-	[SAMPLE_S24_32BE] = { SPA_AUDIO_FORMAT_S24_32_BE, "s24-32be", 4 },
+	[SAMPLE_U8] = { SAMPLE_U8, SPA_AUDIO_FORMAT_U8, "u8", 1 },
+	[SAMPLE_ALAW] = { SAMPLE_ALAW, SPA_AUDIO_FORMAT_UNKNOWN, "aLaw", 1 },
+	[SAMPLE_ULAW] = { SAMPLE_ULAW, SPA_AUDIO_FORMAT_UNKNOWN, "uLaw", 1 },
+	[SAMPLE_S16LE] = { SAMPLE_S16LE, SPA_AUDIO_FORMAT_S16_LE, "s16le", 2 },
+	[SAMPLE_S16BE] = { SAMPLE_S16BE, SPA_AUDIO_FORMAT_S16_BE, "s16be", 2 },
+	[SAMPLE_FLOAT32LE] = { SAMPLE_FLOAT32LE, SPA_AUDIO_FORMAT_F32_LE, "float32le", 4 },
+	[SAMPLE_FLOAT32BE] = { SAMPLE_FLOAT32BE, SPA_AUDIO_FORMAT_F32_BE, "float32be", 4 },
+	[SAMPLE_S32LE] = { SAMPLE_S32LE, SPA_AUDIO_FORMAT_S32_LE, "s32le", 4 },
+	[SAMPLE_S32BE] = { SAMPLE_S32BE, SPA_AUDIO_FORMAT_S32_BE, "s32be", 4 },
+	[SAMPLE_S24LE] = { SAMPLE_S24LE, SPA_AUDIO_FORMAT_S24_LE, "s24le", 3 },
+	[SAMPLE_S24BE] = { SAMPLE_S24BE, SPA_AUDIO_FORMAT_S24_BE, "s24be", 3 },
+	[SAMPLE_S24_32LE] = { SAMPLE_S24_32LE, SPA_AUDIO_FORMAT_S24_32_LE, "s24-32le", 4 },
+	[SAMPLE_S24_32BE] = { SAMPLE_S24_32BE, SPA_AUDIO_FORMAT_S24_32_BE, "s24-32be", 4 },
+
+	/* planar formats, we just report them as inteleaved */
+	{ SAMPLE_U8, SPA_AUDIO_FORMAT_U8P, "u8", 1 },
+	{ SAMPLE_S16NE, SPA_AUDIO_FORMAT_S16P, "s16", 2 },
+	{ SAMPLE_S24_32NE, SPA_AUDIO_FORMAT_S24_32P, "s24-32", 4 },
+	{ SAMPLE_S32NE, SPA_AUDIO_FORMAT_S32P, "s32", 4 },
+	{ SAMPLE_S24NE, SPA_AUDIO_FORMAT_S24P, "s24", 3 },
+	{ SAMPLE_FLOAT32NE, SPA_AUDIO_FORMAT_F32P, "float32", 4 },
 };
 
 static inline uint32_t format_pa2id(enum sample_format format)
 {
-	if (format < 0 || (size_t)format >= SPA_N_ELEMENTS(audio_formats))
+	if (format < 0 || format >= SAMPLE_MAX)
 		return SPA_AUDIO_FORMAT_UNKNOWN;
-	return audio_formats[format].format;
+	return audio_formats[format].id;
 }
 
 static inline const char *format_id2name(uint32_t format)
@@ -85,9 +108,9 @@ static inline const char *format_id2name(uint32_t format)
 static inline uint32_t format_paname2id(const char *name, size_t size)
 {
 	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
+	for (i = 0; i < SAMPLE_MAX; i++) {
 		if (strncmp(name, audio_formats[i].name, size) == 0)
-			return audio_formats[i].format;
+			return audio_formats[i].id;
 	}
 	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
@@ -96,8 +119,8 @@ static inline enum sample_format format_id2pa(uint32_t id)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == audio_formats[i].format)
-			return i;
+		if (id == audio_formats[i].id)
+			return audio_formats[i].pa;
 	}
 	return SAMPLE_INVALID;
 }
@@ -125,16 +148,21 @@ static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 		return ss->channels;
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:
+	case SPA_AUDIO_FORMAT_S16P:
 		return 2 * ss->channels;
 	case SPA_AUDIO_FORMAT_S24_LE:
 	case SPA_AUDIO_FORMAT_S24_BE:
+	case SPA_AUDIO_FORMAT_S24P:
 		return 3 * ss->channels;
 	case SPA_AUDIO_FORMAT_F32_LE:
 	case SPA_AUDIO_FORMAT_F32_BE:
+	case SPA_AUDIO_FORMAT_F32P:
 	case SPA_AUDIO_FORMAT_S32_LE:
 	case SPA_AUDIO_FORMAT_S32_BE:
+	case SPA_AUDIO_FORMAT_S32P:
 	case SPA_AUDIO_FORMAT_S24_32_LE:
 	case SPA_AUDIO_FORMAT_S24_32_BE:
+	case SPA_AUDIO_FORMAT_S24_32P:
 		return 4 * ss->channels;
 	default:
 		return 0;
@@ -395,8 +423,7 @@ static int format_parse_param(const struct spa_pod *param, struct sample_spec *s
 
 	if (info.media_type != SPA_MEDIA_TYPE_audio ||
 	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    spa_format_audio_raw_parse(param, &info.info.raw) < 0 ||
-	    !SPA_AUDIO_FORMAT_IS_INTERLEAVED(info.info.raw.format)) {
+	    spa_format_audio_raw_parse(param, &info.info.raw) < 0) {
                 return -ENOTSUP;
         }
 	if (ss) {

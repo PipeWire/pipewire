@@ -35,6 +35,13 @@ executable('spa-acp-tool',
   install : true,
 )
 
+
+executable('test-timer',
+  [ 'test-timer.c' ],
+  dependencies : [ alsa_dep, mathlib ],
+  install : false,
+)
+
 if libudev_dep.found()
   install_data(alsa_udevrules,
     install_dir : udevrulesdir,

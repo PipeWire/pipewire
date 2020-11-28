@@ -100,6 +100,7 @@ spa_utils_headers = [
   'utils/defs.h',
   'utils/dict.h',
   'utils/hook.h',
+  'utils/json.h',
   'utils/keys.h',
   'utils/list.h',
   'utils/names.h',

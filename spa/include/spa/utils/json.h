@@ -94,7 +94,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				}
 				--iter->depth;
 				continue;
-			case '-': case 'a' ... 'z': case 'A' ... 'Z': case '0' ... '9':
+			case '-': case '+': case 'a' ... 'z': case 'A' ... 'Z': case '0' ... '9':
 				*value = iter->cur;
 				iter->state = __BARE;
 				continue;
@@ -271,6 +271,8 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 				*result++ = '\b';
 			else if (*p == 't')
 				*result++ = '\t';
+			else if (*p == 'f')
+				*result++ = '\f';
 			else
 				*result++ = *p;
 		} else
@@ -287,6 +289,39 @@ static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxl
 	if ((len = spa_json_next(iter, &value)) <= 0 || maxlen < len)
 		return -1;
 	return spa_json_parse_string(value, len, res);
+}
+
+static inline int spa_json_encode_string(char *str, int size, const char *val)
+{
+	int len = 0;
+#define __PUT(c) { if (len < size) *str++ = c; len++; }
+	__PUT('"');
+	while (*val) {
+		switch (*val) {
+		case '\n':
+			__PUT('\\'); __PUT('n');
+			break;
+		case '\r':
+			__PUT('\\'); __PUT('r');
+			break;
+		case '\b':
+			__PUT('\\'); __PUT('b');
+			break;
+		case '\t':
+			__PUT('\\'); __PUT('t');
+			break;
+		case '\f':
+			__PUT('\\'); __PUT('f');
+			break;
+		default:
+			__PUT(*val);
+			break;
+		}
+		val++;
+	}
+	__PUT('"');
+	__PUT('\0');
+	return len-1;
 }
 
 #ifdef __cplusplus

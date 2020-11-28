@@ -3,6 +3,7 @@ test_apps = [
 	'test-node',
 	'test-pod',
 	'test-utils',
+	'test-json',
 ]
 
 foreach a : test_apps

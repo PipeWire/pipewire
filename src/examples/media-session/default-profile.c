@@ -34,6 +34,7 @@
 
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/debug/pod.h>
@@ -42,7 +43,6 @@
 #include "extensions/metadata.h"
 
 #include "media-session.h"
-#include "json.h"
 
 #define NAME		"default-profile"
 #define SESSION_KEY	"default-profile"

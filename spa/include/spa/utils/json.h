@@ -33,7 +33,9 @@ extern "C" {
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
+#include <spa/utils/defs.h>
 
 /* a simple JSON compatible tokenizer */
 struct spa_json {
@@ -167,6 +169,20 @@ static inline int spa_json_enter_container(struct spa_json *iter, struct spa_jso
 		return -1;
 	spa_json_enter(iter, sub);
 	return 1;
+}
+
+static inline int spa_json_is_container(const char *val, int len)
+{
+	return len > 0 && (*val == '{'  || *val == '[');
+}
+
+static inline int spa_json_container_len(struct spa_json *iter, const char *value, int len)
+{
+	const char *val;
+	struct spa_json sub;
+	spa_json_enter(iter, &sub);
+	while (spa_json_next(&sub, &val) > 0);
+	return sub.cur + 1 - value;
 }
 
 /* object */
@@ -321,6 +337,7 @@ static inline int spa_json_encode_string(char *str, int size, const char *val)
 	}
 	__PUT('"');
 	__PUT('\0');
+#undef __PUT
 	return len-1;
 }
 

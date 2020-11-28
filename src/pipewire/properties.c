@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <spa/utils/json.h>
 
 #include "pipewire/array.h"
 #include "pipewire/utils.h"
@@ -144,23 +145,11 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	return &impl->this;
 }
 
-/** Make a new properties object from the given str
- *
- * \a str should be a whitespace separated list of key=value
- * strings.
- *
- * \param args a property description
- * \return a new properties object
- *
- * \memberof pw_properties
- */
-SPA_EXPORT
-struct pw_properties *
-pw_properties_new_string(const char *str)
+static struct pw_properties *
+properties_new_string(const char *str)
 {
-
 	struct properties *impl;
-        const char *state = NULL, *s = NULL;
+	const char *state = NULL, *s = NULL;
 	size_t len;
 	int res;
 
@@ -172,10 +161,8 @@ pw_properties_new_string(const char *str)
 	while (s) {
 		char *val, *eq;
 
-		if ((val = strndup(s, len)) == NULL) {
-			res = -errno;
-			goto no_mem;
-		}
+		if ((val = strndup(s, len)) == NULL)
+			goto error_errno;
 
 		eq = strchr(val, '=');
 		if (eq && eq != val) {
@@ -188,7 +175,61 @@ pw_properties_new_string(const char *str)
 	}
 	return &impl->this;
 
-no_mem:
+error_errno:
+	res = -errno;
+	pw_properties_free(&impl->this);
+	errno = -res;
+	return NULL;
+}
+
+/** Make a new properties object from the given str
+ *
+ * \a str should be a whitespace separated list of key=value
+ * strings or a json object.
+ *
+ * \param args a property description
+ * \return a new properties object
+ *
+ * \memberof pw_properties
+ */
+SPA_EXPORT
+struct pw_properties *
+pw_properties_new_string(const char *object)
+{
+	struct properties *impl;
+	struct spa_json it[2];
+	char key[256], *val;
+	int res;
+
+	spa_json_init(&it[0], object, strlen(object));
+	if (spa_json_enter_object(&it[0], &it[1]) < 0)
+		return properties_new_string(object);
+
+	impl = properties_new(16);
+	if (impl == NULL)
+		return NULL;
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)-1)) {
+		int len;
+		const char *value;
+
+		if ((len = spa_json_next(&it[1], &value)) <= 0)
+			break;
+
+		if (spa_json_is_container(value, len))
+			len = spa_json_container_len(&it[1], value, len);
+
+		if ((val = strndup(value, len)) == NULL)
+			goto error_errno;
+
+		if (spa_json_is_string(value, len))
+			spa_json_parse_string(value, len, val);
+
+		add_func(&impl->this, strdup(key), val);
+	}
+	return &impl->this;
+error_errno:
+	res = errno;
 	pw_properties_free(&impl->this);
 	errno = -res;
 	return NULL;

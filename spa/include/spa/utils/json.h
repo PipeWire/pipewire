@@ -165,7 +165,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
 {
 	const char *value;
-	if (spa_json_next(iter, &value) < 0 || *value != type)
+	if (spa_json_next(iter, &value) <= 0 || *value != type)
 		return -1;
 	spa_json_enter(iter, sub);
 	return 1;

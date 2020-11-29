@@ -53,7 +53,6 @@ struct impl {
 
 	DBusPendingCall *portal_pid_pending;
 	pid_t portal_pid;
-	unsigned int first:1;
 };
 
 static void
@@ -132,6 +131,13 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 		pw_log_error("Failed to receive portal pid");
 		return;
 	}
+	if (dbus_message_get_type(m) == DBUS_MESSAGE_TYPE_ERROR) {
+		const char *message = "unknown";
+		dbus_message_get_args(m, NULL, DBUS_TYPE_STRING, &message, DBUS_TYPE_INVALID);
+		pw_log_error("Failed to receive portal pid: %s: %s",
+				dbus_message_get_error_name(m), message);
+		return;
+	}
 
 	dbus_error_init(&error);
 	dbus_message_get_args(m, &error, DBUS_TYPE_UINT32, &portal_pid,
@@ -145,7 +151,6 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 	} else {
 		pw_log_info("Got portal pid %d", portal_pid);
 		impl->portal_pid = portal_pid;
-		impl->first = true;
 	}
 }
 

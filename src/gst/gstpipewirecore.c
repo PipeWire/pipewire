@@ -41,7 +41,7 @@ on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
   GstPipeWireCore *core = data;
 
-  pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+  pw_log_warn("error id:%u seq:%d res:%d (%s): %s",
           id, seq, res, spa_strerror(res), message);
 
   if (id == PW_ID_CORE) {

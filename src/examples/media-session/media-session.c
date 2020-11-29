@@ -1988,7 +1988,8 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 {
 	struct impl *impl = data;
 
-	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+	pw_log(res == -ENOENT ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_WARN,
+			"error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {

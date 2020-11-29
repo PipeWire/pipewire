@@ -415,7 +415,8 @@ static int reply_error(struct client *client, uint32_t command, uint32_t tag, in
 	else
 		name = "invalid";
 
-	pw_log_warn(NAME" %p: [%s] ERROR command:%d (%s) tag:%u error:%u (%s)",
+	pw_log(res == -ENOENT ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_WARN,
+			NAME" %p: [%s] ERROR command:%d (%s) tag:%u error:%u (%s)",
 			client, client->name, command, name, tag, error, spa_strerror(res));
 
 	reply = message_alloc(client, -1, 0);

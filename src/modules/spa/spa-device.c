@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 
+#include <spa/utils/result.h>
 #include <spa/param/props.h>
 #include <spa/pod/iter.h>
 #include <spa/debug/types.h>
@@ -141,15 +142,16 @@ struct pw_impl_device *pw_spa_device_load(struct pw_context *context,
 
 error_load:
 	res = -errno;
-	pw_log_debug("can't load device handle: %m");
+	pw_log_debug("can't load device handle %s: %m", factory_name);
 	goto error_exit;
 error_interface:
-	pw_log_debug("can't get device interface %d", res);
+	pw_log_debug("can't get device interface %s: %s", factory_name,
+			spa_strerror(res));
 	goto error_exit_unload;
 error_device:
 	properties = NULL;
 	res = -errno;
-	pw_log_debug("can't create device: %m");
+	pw_log_debug("can't create device %s: %m", factory_name);
 	goto error_exit_unload;
 
 error_exit_unload:

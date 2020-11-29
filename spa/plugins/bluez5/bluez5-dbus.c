@@ -1471,7 +1471,8 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		if (d == NULL) {
 			d = device_create(monitor, object_path);
 			if (d == NULL) {
-				spa_log_warn(monitor->log, "can't create device: %m");
+				spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
+						object_path);
 				return;
 			}
 		}

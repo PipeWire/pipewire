@@ -225,19 +225,21 @@ static int metadata_property(void *object, uint32_t subject,
 		const char *key, const char *type, const char *value)
 {
 	struct impl *impl = object;
-	bool changed = false;
+	int changed = 0;
 
 	if (impl->sync)
 		return 0;
 
 	if (subject == PW_ID_CORE) {
-		if (key == NULL)
+		if (key == NULL) {
 			pw_properties_clear(impl->props);
+			changed = 1;
+		}
 		else if (strstr(key, PREFIX) == key) {
-			changed = pw_properties_set(impl->props, key, value);
+			changed += pw_properties_set(impl->props, key, value);
 		}
 	}
-	if (changed)
+	if (changed > 0)
 		add_idle_timeout(impl);
 
 	return 0;

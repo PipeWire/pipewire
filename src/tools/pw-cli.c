@@ -37,6 +37,8 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/json.h>
+#include <spa/pod/builder.h>
 
 #include <pipewire/impl.h>
 
@@ -213,6 +215,7 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error);
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error);
 static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error);
+static bool do_set_param(struct data *data, const char *cmd, char *args, char **error);
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error);
@@ -234,7 +237,8 @@ static struct command command_list[] = {
 	{ "destroy", "d", "Destroy a global object. <object-id>", do_destroy },
 	{ "create-link", "cl", "Create a link between nodes. <node-id> <port-id> <node-id> <port-id> [<properties>]", do_create_link },
 	{ "export-node", "en", "Export a local node to the current remote. <node-id> [remote-var]", do_export_node },
-	{ "enum-params", "e", "Enumerate params of an object <object-id> [<param-id-name>]", do_enum_params },
+	{ "enum-params", "e", "Enumerate params of an object <object-id> <param-id>", do_enum_params },
+	{ "set-param", "s", "Set param of an object <object-id> <param-id> <param-json>", do_set_param },
 	{ "permissions", "sp", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
 	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
 	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand "
@@ -1519,6 +1523,183 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 			param_id, 0, 0, NULL);
 	else {
 		*error = spa_aprintf("enum-params not implemented on object %d type:%s",
+				atoi(a[0]), global->type);
+		return false;
+	}
+	return true;
+}
+
+static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
+{
+	while (info && info->name) {
+                if (strcmp(info->name, name) == 0)
+                        return info;
+                if (strcmp(spa_debug_type_short_name(info->name), name) == 0)
+                        return info;
+                if (info->type != 0 && info->type == (uint32_t)atoi(name))
+                        return info;
+                info++;
+        }
+        return NULL;
+}
+
+static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
+		const struct spa_type_info *info, struct spa_json *iter, const char *value, int len)
+{
+	const struct spa_type_info *ti;
+	char key[256];
+	struct spa_pod_frame f[1];
+	struct spa_json it[1];
+	int l;
+	const char *v;
+
+	if (spa_json_is_object(value, len)) {
+		if ((ti = spa_debug_type_find(NULL, info->parent)) == NULL)
+			return -EINVAL;
+
+		spa_pod_builder_push_object(b, &f[0], info->parent, id);
+
+		spa_json_enter(iter, &it[0]);
+		while (spa_json_get_string(&it[0], key, sizeof(key)-1) > 0) {
+			const struct spa_type_info *pi;
+			if ((l = spa_json_next(&it[0], &v)) <= 0)
+				break;
+			if ((pi = find_type_info(ti->values, key)) == NULL)
+				continue;
+			spa_pod_builder_prop(b, pi->type, 0);
+			json_to_pod(b, id, pi, &it[0], v, l);
+		}
+		spa_pod_builder_pop(b, &f[0]);
+	}
+	else if (spa_json_is_array(value, len)) {
+		spa_pod_builder_push_array(b, &f[0]);
+		spa_json_enter(iter, &it[0]);
+		while ((l = spa_json_next(&it[0], &v)) > 0)
+			json_to_pod(b, id, info, &it[0], v, l);
+		spa_pod_builder_pop(b, &f[0]);
+	}
+	else if (spa_json_is_float(value, len)) {
+		float val = 0.0f;
+		spa_json_parse_float(value, len, &val);
+		switch (info->parent) {
+		case SPA_TYPE_Bool:
+			spa_pod_builder_bool(b, val >= 0.5f);
+			break;
+		case SPA_TYPE_Id:
+			spa_pod_builder_id(b, val);
+			break;
+		case SPA_TYPE_Int:
+			spa_pod_builder_int(b, val);
+			break;
+		case SPA_TYPE_Long:
+			spa_pod_builder_long(b, val);
+			break;
+		case SPA_TYPE_Float:
+			spa_pod_builder_float(b, val);
+			break;
+		case SPA_TYPE_Double:
+			spa_pod_builder_double(b, val);
+			break;
+		default:
+			spa_pod_builder_none(b);
+			break;
+		}
+	}
+	else if (spa_json_is_string(value, len)) {
+		char *val = alloca(len);
+		spa_json_parse_string(value, len, val);
+		switch (info->parent) {
+		case SPA_TYPE_Id:
+			if ((ti = find_type_info(info ? info->values : info, val)) != NULL)
+				spa_pod_builder_id(b, ti->type);
+			break;
+		case SPA_TYPE_String:
+			spa_pod_builder_string(b, val);
+			break;
+		default:
+			spa_pod_builder_none(b);
+			break;
+		}
+	}
+	else if (spa_json_is_bool(value, len)) {
+		bool val = false;
+		spa_json_parse_bool(value, len, &val);
+		spa_pod_builder_bool(b, val);
+	}
+	else if (spa_json_is_null(value, len)) {
+		spa_pod_builder_none(b);
+	}
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static bool do_set_param(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	char *a[3];
+	const char *val;
+        int res, n, len;
+	uint32_t id, param_id;
+	struct global *global;
+	struct spa_json it[3];
+	uint8_t buffer[1024];
+        struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_type_info *ti;
+	struct spa_pod *pod;
+
+	n = pw_split_ip(args, WHITESPACE, 3, a);
+	if (n < 3) {
+		*error = spa_aprintf("%s <object-id> <param-id> <param-json>", cmd);
+		return false;
+	}
+
+	id = atoi(a[0]);
+	param_id = atoi(a[1]);
+
+	global = pw_map_lookup(&rd->globals, id);
+	if (global == NULL) {
+		*error = spa_aprintf("%s: unknown global %d", cmd, id);
+		return false;
+	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
+
+	ti = spa_debug_type_find(spa_type_param, param_id);
+	if (ti == NULL) {
+		*error = spa_aprintf("%s: unknown param type: %d", cmd, param_id);
+		return false;
+	}
+
+	spa_json_init(&it[0], a[2], strlen(a[2]));
+	if ((len = spa_json_next(&it[0], &val)) <= 0) {
+		*error = spa_aprintf("%s: not a JSON object: %s", cmd, a[2]);
+		return false;
+	}
+	if ((res = json_to_pod(&b, param_id, ti, &it[0], val, len)) < 0) {
+		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
+		return false;
+	}
+	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL) {
+		*error = spa_aprintf("%s: can't make pod", cmd);
+		return false;
+	}
+	spa_debug_pod(0, NULL, pod);
+
+	if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0)
+		pw_node_set_param((struct pw_node*)global->proxy,
+				param_id, 0, pod);
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0)
+		pw_device_set_param((struct pw_device*)global->proxy,
+				param_id, 0, pod);
+	else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0)
+		pw_endpoint_set_param((struct pw_endpoint*)global->proxy,
+				param_id, 0, pod);
+	else {
+		*error = spa_aprintf("set-param not implemented on object %d type:%s",
 				atoi(a[0]), global->type);
 		return false;
 	}

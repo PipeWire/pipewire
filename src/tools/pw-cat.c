@@ -779,6 +779,12 @@ on_state_changed(void *userdata, enum pw_stream_state old,
 			printf("stream node %"PRIu32"\n",
 				pw_stream_get_node_id(data->stream));
 	}
+	if (state == PW_STREAM_STATE_ERROR) {
+		printf("stream node %"PRIu32" error: %s\n",
+				pw_stream_get_node_id(data->stream),
+				error);
+		pw_main_loop_quit(data->loop);
+	}
 }
 
 static void

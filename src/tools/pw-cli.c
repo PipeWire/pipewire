@@ -1575,7 +1575,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_push_array(b, &f[0]);
 		spa_json_enter(iter, &it[0]);
 		while ((l = spa_json_next(&it[0], &v)) > 0)
-			json_to_pod(b, id, info, &it[0], v, l);
+			json_to_pod(b, id, info->values, &it[0], v, l);
 		spa_pod_builder_pop(b, &f[0]);
 	}
 	else if (spa_json_is_float(value, len)) {

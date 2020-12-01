@@ -909,9 +909,8 @@ static int node_event_param(void *object, int seq,
 	{
 		struct control *c;
 		const struct spa_pod *type, *pod;
-		uint32_t iid, choice, n_vals;
+		uint32_t iid, choice, n_vals, container = SPA_ID_INVALID;
 		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 };
-		const struct spa_type_info *tinfo;
 
 		if (spa_pod_parse_object(param,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
@@ -932,7 +931,8 @@ static int node_event_param(void *object, int seq,
 		if (spa_pod_parse_object(c->info,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
 					SPA_PROP_INFO_name, SPA_POD_String(&c->control.name),
-					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type)) < 0) {
+					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type),
+					SPA_PROP_INFO_container, SPA_POD_OPT_Id(&container)) < 0) {
 			free(c);
 			return -EINVAL;
 		}
@@ -953,8 +953,7 @@ static int node_event_param(void *object, int seq,
 		else
 			return -ENOTSUP;
 
-		tinfo = spa_debug_type_find(spa_type_props, iid);
-		c->container = tinfo ? tinfo->parent : c->type;
+		c->container = container != SPA_ID_INVALID ? container : c->type;
 
 		switch (choice) {
 		case SPA_CHOICE_None:

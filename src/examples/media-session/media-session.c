@@ -72,6 +72,7 @@
 #define sm_media_session_emit_create(s,obj)		sm_media_session_emit(s, create, 0, obj)
 #define sm_media_session_emit_remove(s,obj)		sm_media_session_emit(s, remove, 0, obj)
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
+#define sm_media_session_emit_shutdown(s)		sm_media_session_emit(s, shutdown, 0)
 #define sm_media_session_emit_destroy(s)		sm_media_session_emit(s, destroy, 0)
 
 int sm_access_flatpak_start(struct sm_media_session *sess);
@@ -2047,6 +2048,7 @@ static void session_shutdown(struct impl *impl)
 	struct sm_object *obj;
 
 	pw_log_info(NAME" %p", impl);
+	sm_media_session_emit_shutdown(impl);
 
 	spa_list_consume(obj, &impl->global_list, link)
 		sm_object_destroy(obj);

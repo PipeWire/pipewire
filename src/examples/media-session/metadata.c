@@ -94,6 +94,8 @@ struct metadata {
 	struct sm_media_session *session;
 	struct spa_hook session_listener;
 	struct pw_proxy *proxy;
+
+	unsigned int shutdown:1;
 };
 
 static void emit_properties(struct metadata *this)
@@ -159,7 +161,7 @@ static int clear_subjects(struct metadata *this, uint32_t subject)
 		pw_array_remove(&this->metadata, item);
 		removed++;
 	}
-	if (removed > 0)
+	if (removed > 0 && !this->shutdown)
 		pw_metadata_emit_property(&this->hooks, subject, NULL, NULL, NULL);
 	return 0;
 }
@@ -240,6 +242,12 @@ static void session_remove(void *data, struct sm_object *object)
 	clear_subjects(this, object->id);
 }
 
+static void session_shutdown(void *data)
+{
+	struct metadata *this = data;
+	this->shutdown = true;
+}
+
 static void session_destroy(void *data)
 {
 	struct metadata *this = data;
@@ -254,6 +262,7 @@ static void session_destroy(void *data)
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.shutdown = session_shutdown,
 	.destroy = session_destroy,
 	.remove = session_remove,
 };

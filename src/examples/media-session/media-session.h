@@ -228,6 +228,7 @@ struct sm_media_session_events {
 	void (*remove) (void *data, struct sm_object *object);
 
 	void (*rescan) (void *data, int seq);
+	void (*shutdown) (void *data);
 	void (*destroy) (void *data);
 };
 

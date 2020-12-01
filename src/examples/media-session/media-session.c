@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #if HAVE_PWD_H
 #include <pwd.h>
@@ -43,6 +44,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
@@ -1833,8 +1835,9 @@ int sm_media_session_load_state(struct sm_media_session *sess,
 		const char *name, const char *prefix, struct pw_properties *props)
 {
 	int sfd, fd, count = 0;
-	FILE *f;
-	char line[1024];
+	struct stat sbuf;
+	char *data, key[1024], *val;
+	struct spa_json it[2];
 
 	pw_log_info(NAME" %p: loading state '%s'", sess, name);
 	if ((sfd = state_dir(sess)) < 0)
@@ -1844,27 +1847,38 @@ int sm_media_session_load_state(struct sm_media_session *sess,
 		pw_log_debug("can't open file %s: %m", name);
 		return -errno;
 	}
-	f = fdopen(fd, "r");
-	while (fgets(line, sizeof(line)-1, f)) {
-		char *val, *key, *k, *p;
-		val = strrchr(line, '\n');
-		if (val)
-			*val = '\0';
-
-		key = k = p = line;
-		while (*p) {
-			if (*p == ' ')
-				break;
-			if (*p == '\\')
-				p++;
-			*k++ = *p++;
-		}
-		*k = '\0';
-		val = ++p;
-		if (prefix == NULL || strstr(key, prefix) == key)
-			count += pw_properties_set(props, key, val);
+	if (fstat(fd, &sbuf) < 0) {
+		pw_log_debug("can't stat file %s: %m", name);
+		return -errno;
 	}
-	fclose(f);
+	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
+		pw_log_debug("can't mmap file %s: %m", name);
+		return -errno;
+	}
+	spa_json_init(&it[0], data, strlen(data));
+	if (spa_json_enter_object(&it[0], &it[1]) < 0)
+		return 0;
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)-1)) {
+		int len;
+		const char *value;
+
+		if ((len = spa_json_next(&it[1], &value)) <= 0)
+			break;
+
+		if (spa_json_is_container(value, len))
+			len = spa_json_container_len(&it[1], value, len);
+
+		if ((val = strndup(value, len)) == NULL)
+			break;
+
+		if (spa_json_is_string(value, len))
+			spa_json_parse_string(value, len, val);
+
+		count += pw_properties_set(props, key, val);
+		free(val);
+	}
+	munmap(data, sbuf.st_size);
 	return count;
 }
 
@@ -1888,17 +1902,18 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 	}
 
 	f = fdopen(fd, "w");
+	fprintf(f, "{ \n");
 	spa_dict_for_each(it, &props->dict) {
-		const char *p = it->key;
-		if (prefix != NULL && strstr(p, prefix) != p)
+		char key[1024];
+		if (prefix != NULL && strstr(it->key, prefix) != it->key)
 			continue;
-		while (*p) {
-			if (*p == ' ' || *p == '\\')
-				fputc('\\', f);
-			fprintf(f, "%c", *p++);
-		}
-		fprintf(f, " %s\n", it->value);
+
+		if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
+			continue;
+
+		fprintf(f, " %s: %s\n", key, it->value);
 	}
+	fprintf(f, "}\n");
 	fclose(f);
 
 	if (renameat(sfd, tmp_name, sfd, name) < 0) {

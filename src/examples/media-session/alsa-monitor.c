@@ -795,7 +795,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 {
 	struct device *device;
 	int res;
-	const char *card, *factory_name;
+	const char *str, *card, *factory_name, *name;
 
 	pw_log_debug("new device %u", id);
 
@@ -825,6 +825,12 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	update_device_props(device);
 	device->pending_profile = 1;
 	spa_list_append(&impl->device_list, &device->link);
+
+	if ((str = pw_properties_get(impl->session->props, "alsa.soft-mixer")) != NULL &&
+	    (name = pw_properties_get(device->props, "device.name")) != NULL &&
+	    strstr(str, name) != NULL) {
+		pw_properties_set(device->props, "api.alsa.soft-mixer", "true");
+	}
 
 	if (impl->conn &&
 	    (card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {

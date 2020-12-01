@@ -43,6 +43,7 @@ struct pa_card {
 	pa_proplist *proplist;
 
 	bool use_ucm;
+	bool soft_mixer;
 
 	pa_alsa_ucm_config ucm;
 	pa_alsa_profile_set *profile_set;

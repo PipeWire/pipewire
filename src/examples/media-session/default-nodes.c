@@ -48,6 +48,10 @@
 
 #define SAVE_INTERVAL	1
 
+#define DEFAULT_AUDIO_SINK	"default.audio.sink"
+#define DEFAULT_AUDIO_SOURCE	"default.audio.source"
+#define DEFAULT_VIDEO_SOURCE	"default.video.source"
+
 struct impl {
 	struct timespec now;
 
@@ -158,15 +162,15 @@ static int metadata_property(void *object, uint32_t subject,
 
 	if (subject == PW_ID_CORE) {
 		val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+		if (key == NULL || strcmp(key, DEFAULT_AUDIO_SINK) == 0) {
 			changed = val != impl->default_audio_sink;
 			impl->default_audio_sink = val;
 		}
-		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+		if (key == NULL || strcmp(key, DEFAULT_AUDIO_SOURCE) == 0) {
 			changed = val != impl->default_audio_source;
 			impl->default_audio_source = val;
 		}
-		if (key == NULL || strcmp(key, "default.video.source") == 0) {
+		if (key == NULL || strcmp(key, DEFAULT_VIDEO_SOURCE) == 0) {
 			changed = val != impl->default_video_source;
 			impl->default_video_source = val;
 		}
@@ -234,12 +238,21 @@ static void session_remove(void *data, struct sm_object *object)
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0)
 		return;
 
-	if (impl->default_audio_sink == object->id)
+	if (impl->default_audio_sink == object->id) {
 		impl->default_audio_sink = SPA_ID_INVALID;
-	if (impl->default_audio_source == object->id)
+		pw_metadata_set_property(impl->session->metadata,
+			PW_ID_CORE, DEFAULT_AUDIO_SINK, SPA_TYPE_INFO_BASE"Id", NULL);
+	}
+	if (impl->default_audio_source == object->id) {
 		impl->default_audio_source = SPA_ID_INVALID;
-	if (impl->default_video_source == object->id)
+		pw_metadata_set_property(impl->session->metadata,
+			PW_ID_CORE, DEFAULT_AUDIO_SOURCE, SPA_TYPE_INFO_BASE"Id", NULL);
+	}
+	if (impl->default_video_source == object->id) {
 		impl->default_video_source = SPA_ID_INVALID;
+		pw_metadata_set_property(impl->session->metadata,
+			PW_ID_CORE, DEFAULT_VIDEO_SOURCE, SPA_TYPE_INFO_BASE"Id", NULL);
+	}
 }
 
 static void session_destroy(void *data)

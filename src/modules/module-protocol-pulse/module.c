@@ -179,6 +179,10 @@ static int load_module(struct client *client, const char *name, const char *argu
 			pw_properties_set(props, "audio.rate", str);
 			pw_properties_set(props, "rate", NULL);
 		}
+		if ((str = pw_properties_get(props, "channel_map")) != NULL) {
+			pw_properties_set(props, "audio.position", str);
+			pw_properties_set(props, "channel_map", NULL);
+		}
 		if ((str = pw_properties_get(props, "device.description")) != NULL) {
 			pw_properties_set(props, "node.description", str);
 			pw_properties_set(props, "device.description", NULL);

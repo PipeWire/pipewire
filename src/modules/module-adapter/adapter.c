@@ -89,7 +89,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	struct pw_properties *new;
 	const char *str, *path, *node_name, *media_class;
 	char position[8], *prefix;
-	bool is_monitor, is_device;
+	bool is_monitor, is_device, is_duplex;
 
 	direction = pw_impl_port_get_direction(port);
 
@@ -111,9 +111,11 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	else
 		is_device = false;
 
+	is_duplex = media_class != NULL &&strstr(media_class, "Duplex") != NULL;
+
 	new = pw_properties_new(NULL, NULL);
 
-	if (is_monitor)
+	if (is_monitor && !is_duplex)
 		prefix = "monitor";
 	else if (is_device)
 		prefix = direction == PW_DIRECTION_INPUT ?

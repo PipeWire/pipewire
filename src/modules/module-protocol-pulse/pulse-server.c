@@ -3523,7 +3523,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	struct card_info card_info = CARD_INFO_INIT;
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
 
-	is_monitor = object_is_sink(o);
+	is_monitor = object_is_monitor(o);
 	if ((!object_is_source(o) && !is_monitor) || info == NULL || info->props == NULL)
 		return -ENOENT;
 

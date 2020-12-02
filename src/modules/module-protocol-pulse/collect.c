@@ -49,7 +49,7 @@ static bool object_is_sink(struct pw_manager_object *o)
 	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
 	    o->props != NULL &&
 	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    (strcmp(str, "Audio/Sink") == 0 || strcmp(str, "Audio/Sink/Virtual") == 0);
+	    (strcmp(str, "Audio/Sink") == 0 || strcmp(str, "Audio/Duplex") == 0);
 }
 
 static bool object_is_source(struct pw_manager_object *o)
@@ -59,12 +59,21 @@ static bool object_is_source(struct pw_manager_object *o)
 	    strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
 	    o->props != NULL &&
 	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    strcmp(str, "Audio/Source") == 0;
+	    (strcmp(str, "Audio/Source") == 0 || strcmp(str, "Audio/Duplex") == 0);
+}
+
+static bool object_is_monitor(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		(strcmp(str, "Audio/Sink") == 0);
 }
 
 static bool object_is_source_or_monitor(struct pw_manager_object *o)
 {
-	return object_is_source(o) || object_is_sink(o);
+	return object_is_source(o) || object_is_monitor(o);
 }
 
 static bool object_is_sink_input(struct pw_manager_object *o)

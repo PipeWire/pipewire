@@ -3397,7 +3397,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
 		size_t size = strlen(name) + 10;
 		monitor_name = alloca(size);
-		snprintf(monitor_name, size, "%s.monitor", name);
+		if (object_is_source(o))
+			snprintf(monitor_name, size, "%s", name);
+		else
+			snprintf(monitor_name, size, "%s.monitor", name);
 	}
 	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
 		desc = name;

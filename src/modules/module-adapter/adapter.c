@@ -124,7 +124,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 
 	if ((str = pw_properties_get(old, PW_KEY_AUDIO_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {
-		snprintf(position, 7, "%d", pw_impl_port_get_id(port));
+		snprintf(position, sizeof(position)-1, "%d", pw_impl_port_get_id(port));
 		str = position;
 	}
 	if (direction == n->direction) {

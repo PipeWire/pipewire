@@ -345,21 +345,21 @@ again:
 static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 			   uint8_t *dst, uint32_t dst_size)
 {
-	const uint32_t header_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 	ssize_t processed;
 	size_t written, avail;
 
-	/* skip the header */
-	spa_return_val_if_fail (src_size > header_size, -EINVAL);
-	src += header_size;
-	src_size -= header_size;
+	if ((processed = this->codec->start_decode(this->codec_data,
+				src, src_size, NULL, NULL)) < 0)
+		return processed;
+
+	src += processed;
+	src_size -= processed;
 
 	/* decode */
 	avail = dst_size;
 	while (src_size > 0) {
-		processed = this->codec->decode(this->codec_data,
-				src, src_size, dst, avail, &written);
-		if (processed <= 0)
+		if ((processed = this->codec->decode(this->codec_data,
+				src, src_size, dst, avail, &written)) <= 0)
 			return processed;
 
 		/* update source and dest pointers */

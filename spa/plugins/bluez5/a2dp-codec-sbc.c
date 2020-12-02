@@ -382,6 +382,21 @@ static int codec_encode(void *data,
 	return res;
 }
 
+static int codec_start_decode (void *data,
+		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
+{
+	const struct rtp_header *header = src;
+	size_t header_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+
+	spa_return_val_if_fail (src_size > header_size, -EINVAL);
+
+	if (seqnum)
+		*seqnum = ntohs(header->sequence_number);
+	if (timestamp)
+		*timestamp = ntohl(header->timestamp);
+	return header_size;
+}
+
 static int codec_decode(void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
@@ -408,6 +423,7 @@ struct a2dp_codec a2dp_codec_sbc = {
 	.get_num_blocks = codec_get_num_blocks,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
+	.start_decode = codec_start_decode,
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,

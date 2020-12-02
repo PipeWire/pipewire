@@ -342,6 +342,8 @@ struct a2dp_codec {
 		void *dst, size_t dst_size,
 		size_t *dst_out);
 
+	int (*start_decode) (void *data,
+		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp);
 	int (*decode) (void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,

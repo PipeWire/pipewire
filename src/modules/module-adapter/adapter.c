@@ -111,13 +111,13 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	else
 		is_device = false;
 
-	is_duplex = media_class != NULL &&strstr(media_class, "Duplex") != NULL;
+	is_duplex = media_class != NULL && strstr(media_class, "Duplex") != NULL;
 
 	new = pw_properties_new(NULL, NULL);
 
 	if (is_monitor && !is_duplex)
 		prefix = "monitor";
-	else if (is_device)
+	else if (is_device || is_duplex)
 		prefix = direction == PW_DIRECTION_INPUT ?
 			"playback" : "capture";
 	else

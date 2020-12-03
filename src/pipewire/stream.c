@@ -51,6 +51,8 @@
 
 static bool mlock_warned = false;
 
+static uint32_t mappable_dataTypes = (1<<SPA_DATA_MemFd);
+
 struct buffer {
 	struct pw_buffer this;
 	uint32_t id;
@@ -682,7 +684,7 @@ static int impl_port_use_buffers(void *object,
 		if (SPA_FLAG_IS_SET(impl_flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
-				if (d->type == SPA_DATA_MemFd) {
+				if ((mappable_dataTypes & (1<<d->type)) > 0) {
 					if ((res = map_data(impl, d, prot)) < 0)
 						return res;
 					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);

@@ -131,6 +131,8 @@ static int codec_get_num_blocks(void *data, size_t mtu)
 	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 	size_t frame_count = (mtu - rtp_size) / this->frame_length;
 
+	this->mtu = mtu;
+
 	/* frame_count is only 4 bit number */
 	if (frame_count > 15)
 		frame_count = 15;
@@ -243,6 +245,8 @@ static void *codec_init(uint32_t flags, void *config, size_t config_len, struct 
 error_errno:
 	res = -errno;
 error:
+	if (this->ldac)
+		ldacBT_free_handle(this->ldac);
 	free(this);
 	errno = -res;
 	return NULL;

@@ -69,6 +69,9 @@ const a2dp_aptx_t bluez_a2dp_aptx = {
 #endif
 
 extern struct a2dp_codec a2dp_codec_sbc;
+#if ENABLE_LDAC
+extern struct a2dp_codec a2dp_codec_ldac;
+#endif
 #if ENABLE_AAC
 extern struct a2dp_codec a2dp_codec_aac;
 #endif
@@ -81,6 +84,9 @@ extern struct a2dp_codec a2dp_codec_aptx;
 
 const struct a2dp_codec *a2dp_codec_list[] = {
 	&a2dp_codec_sbc,
+#if ENABLE_LDAC
+	&a2dp_codec_ldac,
+#endif
 #if ENABLE_AAC
 	&a2dp_codec_aac,
 #endif

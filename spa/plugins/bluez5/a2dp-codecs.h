@@ -176,6 +176,12 @@ typedef struct {
 	uint16_t codec_id;
 } __attribute__ ((packed)) a2dp_vendor_codec_t;
 
+typedef struct {
+	a2dp_vendor_codec_t info;
+	uint8_t frequency;
+	uint8_t channel_mode;
+} __attribute__ ((packed)) a2dp_ldac_t;
+
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 
 typedef struct {
@@ -215,11 +221,6 @@ typedef struct {
 	uint8_t channel_mode:4;
 	uint8_t frequency:4;
 } __attribute__ ((packed)) a2dp_aptx_t;
-
-typedef struct {
-	a2dp_vendor_codec_t info;
-	uint8_t unknown[2];
-} __attribute__ ((packed)) a2dp_ldac_t;
 
 #elif __BYTE_ORDER == __BIG_ENDIAN
 
@@ -267,14 +268,6 @@ typedef struct {
 	uint8_t channel_mode:4;
 	uint32_t rfa;
 } __attribute__ ((packed)) a2dp_aptx_hd_t;
-
-typedef struct {
-	a2dp_vendor_codec_t info;
-	uint8_t rfa1:2;
-	uint8_t frequency:6;
-	uint8_t rfa2:5;
-	uint8_t channel_mode:3;
-} __attribute__ ((packed)) a2dp_ldac_t;
 
 
 #else

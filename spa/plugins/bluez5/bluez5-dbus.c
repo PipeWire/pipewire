@@ -1331,6 +1331,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			if (caps_size < 0)
 				continue;
 
+			spa_log_info(monitor->log, "register A2DP codec %s", a2dp_codecs[i]->name);
 			endpoint = spa_aprintf("%s/%s", A2DP_SINK_ENDPOINT, codec->name);
 			append_a2dp_object(&array, endpoint, SPA_BT_UUID_A2DP_SINK, codec_id, caps, caps_size);
 			free(endpoint);

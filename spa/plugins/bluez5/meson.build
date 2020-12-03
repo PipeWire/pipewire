@@ -10,6 +10,15 @@ bluez5_sources = ['plugin.c',
 		  'bluez5-device.c',
 		  'bluez5-dbus.c']
 
+bluez5_args = [ '-D_GNU_SOURCE' ]
+bluez5_deps = [ dbus_dep, sbc_dep, bluez_dep ]
+
+if ldac_dep.found()
+  bluez5_sources += [ 'a2dp-codec-ldac.c' ]
+  bluez5_args += [ '-DENABLE_LDAC' ]
+  bluez5_deps += ldac_dep
+endif
+
 if get_option('bluez5-backend-native')
   bluez5_sources += ['backend-hsp-native.c']
 endif
@@ -25,7 +34,7 @@ endif
 bluez5lib = shared_library('spa-bluez5',
 	bluez5_sources,
 	include_directories : [ spa_inc, configinc ],
-	c_args : [ '-D_GNU_SOURCE' ],
-	dependencies : [ dbus_dep, sbc_dep, bluez_dep ],
+	c_args : bluez5_args,
+	dependencies : bluez5_deps,
 	install : true,
         install_dir : join_paths(spa_plugindir, 'bluez5'))

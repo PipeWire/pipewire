@@ -101,7 +101,8 @@ static void *create_object(void *_data,
 	struct factory_data *data = _data;
 	struct pw_context *context = data->context;
 	struct pw_impl_device *device;
-	const char *factory_name;
+	const char *str;
+	char *factory_name = NULL;
 	struct device_data *nd;
 	struct pw_impl_client *client;
 	int res;
@@ -109,8 +110,10 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto error_properties;
 
-	factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
-	if (factory_name == NULL)
+	if ((str = pw_properties_get(properties, SPA_KEY_FACTORY_NAME)) == NULL)
+		goto error_properties;
+
+	if ((factory_name = strdup(str)) == NULL)
 		goto error_properties;
 
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
@@ -154,6 +157,7 @@ static void *create_object(void *_data,
 
 		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
 	}
+	free(factory_name);
 	return device;
 
 error_properties:
@@ -175,6 +179,7 @@ error_bind:
 	pw_impl_device_destroy(device);
 	goto error_exit;
 error_exit:
+	free(factory_name);
 	errno = -res;
 	return NULL;
 }

@@ -592,6 +592,10 @@ static int do_stop(struct impl *this)
 	else
 		res = 0;
 
+	if (this->codec_data)
+		this->codec->deinit(this->codec_data);
+	this->codec_data = NULL;
+
 	return res;
 }
 

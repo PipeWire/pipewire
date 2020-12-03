@@ -711,6 +711,10 @@ static int do_stop(struct impl *this)
 	if (this->transport)
 		res = spa_bt_transport_release(this->transport);
 
+	if (this->codec_data)
+		this->codec->deinit(this->codec_data);
+	this->codec_data = NULL;
+
 	return res;
 }
 

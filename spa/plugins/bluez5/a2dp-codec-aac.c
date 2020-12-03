@@ -37,11 +37,9 @@ struct impl {
 	struct rtp_header *header;
 	struct rtp_payload *payload;
 
+	size_t mtu;
 	int codesize;
 	int frame_length;
-
-	int min_bitpool;
-	int max_bitpool;
 };
 
 static int codec_fill_caps(uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
@@ -139,7 +137,7 @@ static int codec_select_config(uint32_t flags, const void *caps, size_t caps_siz
 	return sizeof(conf);
 }
 
-static void *codec_init(uint32_t flags, void *config, size_t config_len, struct spa_audio_info *info)
+static void *codec_init(uint32_t flags, void *config, size_t config_len, struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
 	int res;
@@ -153,6 +151,7 @@ static void *codec_init(uint32_t flags, void *config, size_t config_len, struct 
 	spa_zero(*info);
 	info->media_type = SPA_MEDIA_TYPE_audio;
 	info->media_subtype = SPA_MEDIA_SUBTYPE_aac;
+	this->mtu = mtu;
 
 	return this;
 error:

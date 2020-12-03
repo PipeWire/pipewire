@@ -597,6 +597,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 static int do_start(struct impl *this)
 {
 	int res, val;
+	struct port *port;
 	socklen_t len;
 
 	if (this->started)
@@ -611,11 +612,20 @@ static int do_start(struct impl *this)
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
 
+	port = &this->port;
+
+	this->codec_data = this->codec->init(0,
+			this->transport->configuration,
+			this->transport->configuration_len,
+			&port->current_format,
+			this->transport->write_mtu);
+	if (this->codec_data == NULL)
+		return -EIO;
+
 	this->seqnum = 0;
 
 	this->block_size = this->codec->get_block_size(this->codec_data);
-	this->num_blocks = this->codec->get_num_blocks(this->codec_data,
-			this->transport->write_mtu);
+	this->num_blocks = this->codec->get_num_blocks(this->codec_data);
 
         spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
 			this->block_size, this->num_blocks);
@@ -836,6 +846,7 @@ impl_node_port_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -854,22 +865,14 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
-		if (this->codec_data == NULL)
+		if (this->codec == NULL)
 			return -EIO;
 
-		switch (this->transport->codec) {
-		case A2DP_CODEC_SBC:
-			param = spa_format_audio_raw_build(&b, id, &this->codec_format.info.raw);
-			break;
-		case A2DP_CODEC_MPEG24:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Format, id,
-				SPA_FORMAT_mediaType,     SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,  SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac));
-			break;
-		default:
-			return -EIO;
-		}
+		if ((res = this->codec->enum_config(
+					this->transport->configuration,
+					this->transport->configuration_len,
+					id, result.index, &b, &param)) != 1)
+			return res;
 		break;
 
 	case SPA_PARAM_Format:
@@ -1263,10 +1266,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-
-	this->codec_data = this->codec->init(0, this->transport->configuration,
-			this->transport->configuration_len,
-			&this->codec_format);
 
 	return 0;
 }

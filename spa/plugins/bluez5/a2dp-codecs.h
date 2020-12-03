@@ -29,6 +29,8 @@
 #include <stddef.h>
 
 #include <spa/param/audio/format.h>
+#include <spa/pod/pod.h>
+#include <spa/pod/builder.h>
 
 #define A2DP_CODEC_SBC			0x00
 #define A2DP_CODEC_MPEG12		0x01
@@ -321,12 +323,15 @@ struct a2dp_codec {
 	int (*fill_caps) (uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE]);
 	int (*select_config) (uint32_t flags, const void *caps, size_t caps_size,
 			const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE]);
+	int (*enum_config) (const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
+			struct spa_pod_builder *builder, struct spa_pod **param);
 
-	void *(*init) (uint32_t flags, void *config, size_t config_size, struct spa_audio_info *info);
+	void *(*init) (uint32_t flags, void *config, size_t config_size,
+			struct spa_audio_info *info, size_t mtu);
 	void (*deinit) (void *data);
 
 	int (*get_block_size) (void *data);
-	int (*get_num_blocks) (void *data, size_t mtu);
+	int (*get_num_blocks) (void *data);
 
 	int (*start_encode) (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp);

@@ -492,11 +492,20 @@ stop:
 static int transport_start(struct impl *this)
 {
 	int res, val;
+	struct port *port = &this->port;
 
 	spa_log_debug(this->log, NAME" %p: transport %p acquire", this,
 			this->transport);
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
+
+	this->codec_data = this->codec->init(0,
+			this->transport->configuration,
+			this->transport->configuration_len,
+			&port->current_format,
+			this->transport->read_mtu);
+	if (this->codec_data == NULL)
+		return -EIO;
 
 	val = fcntl(this->transport->fd, F_GETFL);
 	if (fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK) < 0)
@@ -718,6 +727,7 @@ impl_node_port_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -736,22 +746,14 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
-		if (this->codec_data == NULL)
+		if (this->codec == NULL)
 			return -EIO;
 
-		switch (this->transport->codec) {
-		case A2DP_CODEC_SBC:
-			param = spa_format_audio_raw_build(&b, id, &this->codec_format.info.raw);
-			break;
-		case A2DP_CODEC_MPEG24:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Format, id,
-				SPA_FORMAT_mediaType,     SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,  SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac));
-			break;
-		default:
-			return -EIO;
-		}
+		if ((res = this->codec->enum_config(
+					this->transport->configuration,
+					this->transport->configuration_len,
+					id, result.index, &b, &param)) != 1)
+			return res;
 		break;
 
 	case SPA_PARAM_Format:
@@ -1209,11 +1211,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
-
-	this->codec_data = this->codec->init(0,
-			this->transport->configuration,
-			this->transport->configuration_len,
-			&this->codec_format);
 
 	return 0;
 }

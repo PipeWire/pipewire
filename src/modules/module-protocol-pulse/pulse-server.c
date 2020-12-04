@@ -954,6 +954,7 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	uint32_t frame_size, max_prebuf, minreq;
 
 	frame_size = s->frame_size;
+	minreq = usec_to_bytes_round_up(MIN_USEC, &s->ss);
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -966,8 +967,7 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		attr->tlength = attr->maxlength;
 	attr->tlength -= attr->tlength % frame_size;
 	attr->tlength = SPA_MAX(attr->tlength, frame_size);
-
-	s->missing = attr->tlength;
+	attr->tlength = SPA_MAX(attr->tlength, minreq);
 
 	if (attr->minreq == (uint32_t) -1) {
 		uint32_t process = usec_to_bytes_round_up(DEFAULT_PROCESS_MSEC*1000, &s->ss);
@@ -977,7 +977,6 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		m -= m % frame_size;
 		attr->minreq = SPA_MIN(process, m);
 	}
-	minreq = usec_to_bytes_round_up(MIN_USEC, &s->ss);
 	attr->minreq = SPA_MAX(attr->minreq, minreq);
 
 	if (attr->tlength < attr->minreq+frame_size)
@@ -996,6 +995,7 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 		attr->prebuf = max_prebuf;
 	attr->prebuf -= attr->prebuf % frame_size;
 
+	s->missing = attr->tlength;
 	attr->fragsize = 0;
 
 	pw_log_info(NAME" %p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
@@ -1248,7 +1248,7 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	stride = s->frame_size;
 
 	if (s->direction == PW_DIRECTION_OUTPUT) {
-		maxsize = attr->tlength * 2;
+		maxsize = attr->tlength * 4;
 		size = attr->minreq * 2;
 	} else {
 		size = attr->fragsize;

@@ -27,7 +27,11 @@
 
 static void test_abi(void)
 {
+#if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct spa_json) == 32);
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct spa_json));
+#endif
 }
 
 #define TYPE_OBJECT	0

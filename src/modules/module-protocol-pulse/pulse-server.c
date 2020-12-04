@@ -1248,8 +1248,8 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	stride = s->frame_size;
 
 	if (s->direction == PW_DIRECTION_OUTPUT) {
-		maxsize = attr->tlength;
-		size = attr->minreq;
+		maxsize = attr->tlength * 2;
+		size = attr->minreq * 2;
 	} else {
 		size = attr->fragsize;
 		maxsize = attr->fragsize * MAX_BUFFERS;

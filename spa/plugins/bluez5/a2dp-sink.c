@@ -61,7 +61,6 @@ struct props {
 };
 
 #define FILL_FRAMES 2
-#define MAX_FRAME_COUNT 16
 #define MAX_BUFFERS 32
 
 struct buffer {
@@ -362,11 +361,11 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 	const void *from_data = data;
 	int from_size = size;
 
-	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d/%d",
+	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d",
 			this, size, this->buffer_used, port->frame_size, this->block_size,
-			this->frame_count, MAX_FRAME_COUNT);
+			this->frame_count);
 
-	if (this->frame_count > MAX_FRAME_COUNT)
+	if (this->buffer_used >= (int)sizeof(this->buffer))
 		return -ENOSPC;
 
 	if (size < this->block_size - this->tmp_buffer_used) {

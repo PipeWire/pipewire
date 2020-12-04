@@ -827,8 +827,9 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	spa_list_append(&impl->device_list, &device->link);
 
 	if ((str = pw_properties_get(impl->session->props, "alsa.soft-mixer")) != NULL &&
-	    (name = pw_properties_get(device->props, "device.name")) != NULL &&
-	    strstr(str, name) != NULL) {
+	    (strcmp(str, "*") == 0 ||
+	    ((name = pw_properties_get(device->props, "device.name")) != NULL &&
+	     strstr(str, name) != NULL))) {
 		pw_properties_set(device->props, "api.alsa.soft-mixer", "true");
 	}
 

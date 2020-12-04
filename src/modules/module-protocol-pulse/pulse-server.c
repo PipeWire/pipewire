@@ -2598,8 +2598,8 @@ static int set_card_volume_mute(struct pw_manager_object *o, uint32_t id,
 	return 0;
 }
 
-static int set_card_port(struct pw_manager_object *o, uint32_t id,
-		uint32_t device_id)
+static int set_card_port(struct pw_manager_object *o, uint32_t device_id,
+		uint32_t port_id)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -2611,7 +2611,7 @@ static int set_card_port(struct pw_manager_object *o, uint32_t id,
 			SPA_PARAM_Route, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(port_id),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id)));
 
 	return 0;
@@ -2930,6 +2930,8 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 		return -ENOENT;
 
 	port_id = find_port_id(card, direction, port_name);
+	if (port_id == SPA_ID_INVALID)
+		return -ENOENT;
 
 	if ((res = set_card_port(card, device_id, port_id)) < 0)
 		return res;

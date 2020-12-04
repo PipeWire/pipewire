@@ -523,7 +523,7 @@ static uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
 				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&dir),
-				SPA_PARAM_ROUTE_name, SPA_POD_Id(&name)) < 0)
+				SPA_PARAM_ROUTE_name, SPA_POD_String(&name)) < 0)
 			continue;
 		if (dir != direction)
 			continue;

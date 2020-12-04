@@ -400,7 +400,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	if (size_read == 0)
 		return;
 	if (size_read < 0) {
-		spa_log_error(this->log, "failed to read data");
+		spa_log_error(this->log, "failed to read data: %s", spa_strerror(size_read));
 		goto stop;
 	}
 	spa_log_debug(this->log, "read socket data %d", size_read);
@@ -408,10 +408,13 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	/* decode */
 	decoded = decode_data(this, this->buffer_read, size_read,
 			read_decoded, sizeof (read_decoded));
-	if (decoded <= 0) {
-		spa_log_error(this->log, "failed to decode data");
+	if (decoded < 0) {
+		spa_log_error(this->log, "failed to decode data: %d", decoded);
 		goto stop;
 	}
+	if (decoded == 0)
+		return;
+
 	spa_log_debug(this->log, "decoded socket data %d", decoded);
 
 	/* discard when not started */

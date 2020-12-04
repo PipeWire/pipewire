@@ -149,15 +149,24 @@
 #define APTX_VENDOR_ID			0x0000004f
 #define APTX_CODEC_ID			0x0001
 
-#define APTX_CHANNEL_MODE_MONO		0x08
-#define APTX_CHANNEL_MODE_DUAL_CHANNEL	0x04
+#define APTX_CHANNEL_MODE_MONO		0x01
 #define APTX_CHANNEL_MODE_STEREO	0x02
-#define APTX_CHANNEL_MODE_JOINT_STEREO	0x01
 
 #define APTX_SAMPLING_FREQ_16000	0x08
 #define APTX_SAMPLING_FREQ_32000	0x04
 #define APTX_SAMPLING_FREQ_44100	0x02
 #define APTX_SAMPLING_FREQ_48000	0x01
+
+#define APTX_HD_VENDOR_ID               0x000000D7
+#define APTX_HD_CODEC_ID                0x0024
+
+#define APTX_HD_CHANNEL_MODE_MONO       0x1
+#define APTX_HD_CHANNEL_MODE_STEREO     0x2
+
+#define APTX_HD_SAMPLING_FREQ_16000     0x8
+#define APTX_HD_SAMPLING_FREQ_32000     0x4
+#define APTX_HD_SAMPLING_FREQ_44100     0x2
+#define APTX_HD_SAMPLING_FREQ_48000     0x1
 
 #define LDAC_VENDOR_ID			0x0000012d
 #define LDAC_CODEC_ID			0x00aa
@@ -306,27 +315,27 @@ static inline int a2dp_sbc_get_frequency(a2dp_sbc_t *config)
         }
 }
 
-struct a2dp_codec_id {
-	uint8_t codec_id;
-	uint32_t vendor_id;
-	uint16_t vendor_codec_id;
-};
+struct a2dp_codec_handle;
 
 struct a2dp_codec {
 	uint32_t flags;
 
-	struct a2dp_codec_id id;
+	uint8_t codec_id;
+	a2dp_vendor_codec_t vendor;
 
 	const char *name;
 	const char *description;
 
-	int (*fill_caps) (uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE]);
-	int (*select_config) (uint32_t flags, const void *caps, size_t caps_size,
+	int (*fill_caps) (const struct a2dp_codec *codec, uint32_t flags,
+			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
+	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
+			const void *caps, size_t caps_size,
 			const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE]);
-	int (*enum_config) (const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
+	int (*enum_config) (const struct a2dp_codec *codec,
+			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
 
-	void *(*init) (uint32_t flags, void *config, size_t config_size,
+	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
 			struct spa_audio_info *info, size_t mtu);
 	void (*deinit) (void *data);
 

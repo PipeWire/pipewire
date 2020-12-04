@@ -129,7 +129,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 
 	codec = a2dp_endpoint_to_codec(path);
 	if (codec != NULL)
-		res = codec->select_config(0, cap, size, NULL, config);
+		res = codec->select_config(codec, 0, cap, size, NULL, config);
 	else
 		res = -ENOTSUP;
 
@@ -1138,9 +1138,9 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 	DBusPendingCall *call;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	int caps_size;
-	uint16_t codec_id = codec->id.codec_id;
+	uint16_t codec_id = codec->codec_id;
 
-	caps_size = codec->fill_caps(0, caps);
+	caps_size = codec->fill_caps(codec, 0, caps);
 	if (caps_size < 0)
 		return caps_size;
 
@@ -1215,7 +1215,7 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	for (i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
 
-		if (codec->id.codec_id != A2DP_CODEC_SBC)
+		if (codec->codec_id != A2DP_CODEC_SBC)
 			continue;
 
 		if ((err = register_a2dp_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT, &endpoint_path)))
@@ -1325,9 +1325,9 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			const struct a2dp_codec *codec = a2dp_codecs[i];
 			uint8_t caps[A2DP_MAX_CAPS_SIZE];
 			int caps_size;
-			uint16_t codec_id = codec->id.codec_id;
+			uint16_t codec_id = codec->codec_id;
 
-			caps_size = codec->fill_caps(0, caps);
+			caps_size = codec->fill_caps(codec, 0, caps);
 			if (caps_size < 0)
 				continue;
 

@@ -53,7 +53,7 @@ struct impl {
 	int frame_length;
 };
 
-static int codec_fill_caps(uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
+static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	const a2dp_ldac_t a2dp_ldac = {
 		.info.vendor_id = LDAC_VENDOR_ID,
@@ -72,8 +72,9 @@ static int codec_fill_caps(uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 	return sizeof(a2dp_ldac);
 }
 
-static int codec_select_config(uint32_t flags, const void *caps, size_t caps_size,
-			const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
+static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+		const void *caps, size_t caps_size,
+		const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_ldac_t conf;
 
@@ -113,8 +114,9 @@ static int codec_select_config(uint32_t flags, const void *caps, size_t caps_siz
         return sizeof(conf);
 }
 
-static int codec_enum_config(const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
-			struct spa_pod_builder *b, struct spa_pod **param)
+static int codec_enum_config(const struct a2dp_codec *codec,
+		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
+		struct spa_pod_builder *b, struct spa_pod **param)
 {
 	a2dp_sbc_t conf;
         struct spa_pod_frame f[2];
@@ -223,8 +225,8 @@ static int codec_get_block_size(void *data)
 	return this->codesize;
 }
 
-static void *codec_init(uint32_t flags, void *config, size_t config_len, struct spa_audio_info *info,
-		size_t mtu)
+static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+		void *config, size_t config_len, struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
 	a2dp_ldac_t *conf = config;
@@ -380,10 +382,10 @@ static int codec_encode(void *data,
 	return src_used;
 }
 
-struct a2dp_codec a2dp_codec_ldac = {
-	.id = {.codec_id = A2DP_CODEC_VENDOR,
-		.vendor_id = LDAC_VENDOR_ID,
-		.vendor_codec_id = LDAC_CODEC_ID },
+const struct a2dp_codec a2dp_codec_ldac = {
+	.codec_id = A2DP_CODEC_VENDOR,
+	.vendor = { .vendor_id = LDAC_VENDOR_ID,
+		.codec_id = LDAC_CODEC_ID },
 	.name = "ldac",
 	.description = "LDAC",
 	.fill_caps = codec_fill_caps,

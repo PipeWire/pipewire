@@ -614,13 +614,15 @@ static int do_start(struct impl *this)
 
 	port = &this->port;
 
-	this->codec_data = this->codec->init(0,
+	this->codec_data = this->codec->init(this->codec, 0,
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,
 			this->transport->write_mtu);
 	if (this->codec_data == NULL)
 		return -EIO;
+
+        spa_log_info(this->log, NAME " %p: using A2DP codec %s", this, this->codec->description);
 
 	this->seqnum = 0;
 
@@ -872,7 +874,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (this->codec == NULL)
 			return -EIO;
 
-		if ((res = this->codec->enum_config(
+		if ((res = this->codec->enum_config(this->codec,
 					this->transport->configuration,
 					this->transport->configuration_len,
 					id, result.index, &b, &param)) != 1)
@@ -967,7 +969,23 @@ static int port_set_format(struct impl *this, struct port *port,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
-		port->frame_size = info.info.raw.channels * 2;
+		port->frame_size = info.info.raw.channels;
+		switch (info.info.raw.format) {
+		case SPA_AUDIO_FORMAT_S16:
+			port->frame_size *= 2;
+			break;
+		case SPA_AUDIO_FORMAT_S24:
+			port->frame_size *= 3;
+			break;
+		case SPA_AUDIO_FORMAT_S24_32:
+		case SPA_AUDIO_FORMAT_S32:
+		case SPA_AUDIO_FORMAT_F32:
+			port->frame_size *= 4;
+			break;
+		default:
+			return -EINVAL;
+		}
+
 		port->current_format = info;
 		port->have_format = true;
 	}

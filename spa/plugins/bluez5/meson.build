@@ -18,6 +18,11 @@ if ldac_dep.found()
   bluez5_args += [ '-DENABLE_LDAC' ]
   bluez5_deps += ldac_dep
 endif
+if aptx_dep.found()
+  bluez5_sources += [ 'a2dp-codec-aptx.c' ]
+  bluez5_args += [ '-DENABLE_APTX' ]
+  bluez5_deps += aptx_dep
+endif
 
 if get_option('bluez5-backend-native')
   bluez5_sources += ['backend-hsp-native.c']

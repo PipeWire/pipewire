@@ -2788,7 +2788,8 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	pw_log_info(NAME" %p: [%s] %s tag:%u index:%u name:%s", impl,
 			client->name, commands[command].name, tag, id, name);
 
-	if (id == SPA_ID_INVALID && name == NULL)
+	if ((id == SPA_ID_INVALID && name == NULL) ||
+	    (id != SPA_ID_INVALID && name != NULL))
 		return -EINVAL;
 
 	if (command == COMMAND_SET_SINK_VOLUME)
@@ -2847,7 +2848,8 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	pw_log_info(NAME" %p: [%s] %s tag:%u index:%u name:%s mute:%d", impl,
 			client->name, commands[command].name, tag, id, name, mute);
 
-	if (id == SPA_ID_INVALID && name == NULL)
+	if ((id == SPA_ID_INVALID && name == NULL) ||
+	    (id != SPA_ID_INVALID && name != NULL))
 		return -EINVAL;
 
 	if (command == COMMAND_SET_SINK_MUTE)

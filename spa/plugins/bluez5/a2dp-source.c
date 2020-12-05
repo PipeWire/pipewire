@@ -72,7 +72,7 @@ struct buffer {
 
 struct port {
 	struct spa_audio_info current_format;
-	int frame_size;
+	uint32_t frame_size;
 	unsigned int have_format:1;
 
 	uint64_t info_all;

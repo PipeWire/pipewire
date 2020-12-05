@@ -74,7 +74,7 @@ struct buffer {
 
 struct port {
 	struct spa_audio_info current_format;
-	int frame_size;
+	uint32_t frame_size;
 	unsigned int have_format:1;
 
 	uint64_t info_all;
@@ -130,16 +130,16 @@ struct impl {
 	void *codec_data;
 	struct spa_audio_info codec_format;
 
-	int block_size;
-	int num_blocks;
+	uint32_t block_size;
+	uint32_t num_blocks;
 	uint8_t buffer[4096];
-	int buffer_used;
-	int frame_count;
+	uint32_t buffer_used;
+	uint32_t frame_count;
 	uint16_t seqnum;
 	uint32_t timestamp;
 	uint64_t sample_count;
 	uint8_t tmp_buffer[512];
-	int tmp_buffer_used;
+	uint32_t tmp_buffer_used;
 };
 
 #define NAME "a2dp-sink"
@@ -353,7 +353,7 @@ static int send_buffer(struct impl *this)
 	return written;
 }
 
-static int encode_buffer(struct impl *this, const void *data, int size)
+static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 {
 	int processed;
 	size_t out_encoded;
@@ -365,7 +365,7 @@ static int encode_buffer(struct impl *this, const void *data, int size)
 			this, size, this->buffer_used, port->frame_size, this->block_size,
 			this->frame_count);
 
-	if (this->buffer_used >= (int)sizeof(this->buffer))
+	if (this->buffer_used >= sizeof(this->buffer))
 		return -ENOSPC;
 
 	if (size < this->block_size - this->tmp_buffer_used) {
@@ -417,7 +417,7 @@ static int flush_buffer(struct impl *this, bool force)
 	return 0;
 }
 
-static int add_data(struct impl *this, const void *data, int size)
+static int add_data(struct impl *this, const void *data, uint32_t size)
 {
 	int processed, total = 0;
 

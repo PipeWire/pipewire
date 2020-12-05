@@ -2759,7 +2759,8 @@ static struct pw_manager_object *find_device(struct client *client,
 		sel.type = object_is_source;
 		def = DEFAULT_SOURCE;
 	}
-	if (sel.value != NULL && strcmp(sel.value, def) == 0)
+	if (id == SPA_ID_INVALID &&
+	    (sel.value == NULL || strcmp(sel.value, def) == 0))
 		sel.value = get_default(client, sink);
 
 	return select_object(client->manager, &sel);
@@ -3174,8 +3175,6 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 			TAG_STRING, &name,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
-	if (name == NULL)
-		return -EINVAL;
 
 	pw_log_info(NAME" %p: [%s] LOOKUP tag:%u name:'%s'", impl, client->name, tag, name);
 
@@ -3856,11 +3855,10 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	if (fill_func == NULL)
 		goto error_invalid;
 
-	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
-	    (sel.id != SPA_ID_INVALID && sel.value != NULL))
+	if (sel.id != SPA_ID_INVALID && sel.value != NULL)
 		goto error_invalid;
 
-	if (sel.value != NULL && def != NULL && strcmp(sel.value, def) == 0)
+	if (sel.value == NULL || (def != NULL && strcmp(sel.value, def)) == 0)
 		sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
@@ -4242,9 +4240,6 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 			TAG_STRING, &name,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
-
-	if (name == NULL)
-		return -EINVAL;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u name:%s", impl, client->name,
 			commands[command].name, tag, name);

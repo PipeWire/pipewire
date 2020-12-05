@@ -1,4 +1,4 @@
-/* Spa A2DP SBC codec
+/* Spa A2DP aptX codec
  *
  * Copyright © 2020 Wim Taymans
  *

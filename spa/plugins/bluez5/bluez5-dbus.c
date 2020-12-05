@@ -125,7 +125,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		dbus_error_free(&err);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
-	spa_log_info(monitor->log, "%p: select conf %d", monitor, size);
+	spa_log_info(monitor->log, "%p: %s select conf %d", monitor, path, size);
 
 	codec = a2dp_endpoint_to_codec(path);
 	if (codec != NULL)
@@ -1608,7 +1608,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 			d = spa_bt_device_find(monitor, path);
 			if (d == NULL) {
-				spa_log_warn(monitor->log,
+				spa_log_debug(monitor->log,
 						"Properties changed in unknown device %s", path);
 				goto fail;
 			}

@@ -2720,7 +2720,7 @@ static const char *get_default(struct client *client, bool sink)
 	struct selector sel;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
-	const char *def, *str;
+	const char *def, *str, *mon;
 
 	spa_zero(sel);
 	if (sink) {
@@ -2728,16 +2728,29 @@ static const char *get_default(struct client *client, bool sink)
 		sel.id = client->default_sink;
 		def = DEFAULT_SINK;
 	} else {
-		sel.type = object_is_source;
+		sel.type = object_is_source_or_monitor;
 		sel.id = client->default_source;
 		def = DEFAULT_SOURCE;
 	}
 	sel.accumulate = select_best;
 
 	o = select_object(manager, &sel);
-	if (o == NULL || o->props == NULL ||
-	    ((str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) == NULL))
+	if (o == NULL || o->props == NULL)
 		return def;
+	str = pw_properties_get(o->props, PW_KEY_NODE_NAME);
+
+	if (!sink && object_is_monitor(o)) {
+		def = DEFAULT_MONITOR;
+		if (str != NULL &&
+		    (mon = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor")) == NULL) {
+			pw_properties_setf(o->props,
+					PW_KEY_NODE_NAME".monitor",
+					"%s.monitor", str);
+		}
+		str = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor");
+	}
+	if (str == NULL)
+		str = def;
 	return str;
 }
 
@@ -2746,6 +2759,16 @@ static struct pw_manager_object *find_device(struct client *client,
 {
 	struct selector sel;
 	const char *def;
+
+	if (name != NULL && !sink) {
+		if (pw_endswith(name, ".monitor")) {
+			name = strndupa(name, strlen(name)-8);
+			sink = true;
+		} else if (strcmp(name, DEFAULT_MONITOR) == 0) {
+			name = NULL;
+			sink = true;
+		}
+	}
 
 	spa_zero(sel);
 	sel.id = id;
@@ -3170,6 +3193,8 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 	struct pw_manager_object *o;
 	const char *name;
 	int res;
+	bool is_sink = command == COMMAND_LOOKUP_SINK;
+	bool is_monitor;
 
 	if ((res = message_get(m,
 			TAG_STRING, &name,
@@ -3178,12 +3203,14 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 
 	pw_log_info(NAME" %p: [%s] LOOKUP tag:%u name:'%s'", impl, client->name, tag, name);
 
-	if ((o = find_device(client, SPA_ID_INVALID, name, command == COMMAND_LOOKUP_SINK)) == NULL)
+	if ((o = find_device(client, SPA_ID_INVALID, name, is_sink)) == NULL)
 		return -ENOENT;
+
+	is_monitor = !is_sink && object_is_monitor(o);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_U32, o->id,
+		TAG_U32, is_monitor ? o->id | MONITOR_FLAG : o->id,
 		TAG_INVALID);
 
 	return send_message(client, reply);

@@ -2726,11 +2726,11 @@ static const char *get_default(struct client *client, bool sink)
 	if (sink) {
 		sel.type = object_is_sink;
 		sel.id = client->default_sink;
-		def = "@DEFAULT_SINK@";
+		def = DEFAULT_SINK;
 	} else {
 		sel.type = object_is_source;
 		sel.id = client->default_source;
-		def = "@DEFAULT_SOURCE@";
+		def = DEFAULT_SOURCE;
 	}
 	sel.accumulate = select_best;
 
@@ -2754,10 +2754,10 @@ static struct pw_manager_object *find_device(struct client *client,
 
 	if (sink) {
 		sel.type = object_is_sink;
-		def = "@DEFAULT_SINK@";
+		def = DEFAULT_SINK;
 	} else {
 		sel.type = object_is_source;
-		def = "@DEFAULT_SOURCE@";
+		def = DEFAULT_SOURCE;
 	}
 	if (sel.value != NULL && strcmp(sel.value, def) == 0)
 		sel.value = get_default(client, sink);
@@ -3828,13 +3828,13 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		sel.type = object_is_sink;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_sink_info;
-		def = "@DEFAULT_SINK@";
+		def = DEFAULT_SINK;
 		break;
 	case COMMAND_GET_SOURCE_INFO:
 		sel.type = object_is_source_or_monitor;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_source_info;
-		def = "@DEFAULT_SOURCE@";
+		def = DEFAULT_SOURCE;
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO:
 		sel.type = object_is_sink_input;

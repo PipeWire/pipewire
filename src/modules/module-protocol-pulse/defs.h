@@ -56,6 +56,10 @@
 #define MONITOR_FLAG		(1u << 16)
 #define EXTENSION_FLAG		(1u << 17)
 
+#define DEFAULT_SINK		"@DEFAULT_SINK@"
+#define DEFAULT_SOURCE		"@DEFAULT_SOURCE@"
+#define DEFAULT_MONITOR		"@DEFAULT_MONITOR@"
+
 enum error_code {
 	ERR_OK = 0,			/**< No error */
 	ERR_ACCESS,			/**< Access failure */

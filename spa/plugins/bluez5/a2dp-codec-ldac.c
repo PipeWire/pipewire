@@ -156,6 +156,8 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 			spa_pod_builder_int(b, 96000);
 		spa_pod_builder_int(b, 96000);
 	}
+	if (i == 0)
+		return -EINVAL;
 	if (i > 1)
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);

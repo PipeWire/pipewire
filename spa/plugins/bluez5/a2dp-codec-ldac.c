@@ -61,9 +61,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8
 		.frequency = LDACBT_SAMPLING_FREQ_044100 |
 			LDACBT_SAMPLING_FREQ_048000 |
 			LDACBT_SAMPLING_FREQ_088200 |
-			LDACBT_SAMPLING_FREQ_096000 |
-			LDACBT_SAMPLING_FREQ_176400 |
-			LDACBT_SAMPLING_FREQ_192000,
+			LDACBT_SAMPLING_FREQ_096000,
 		.channel_mode = LDACBT_CHANNEL_MODE_MONO |
 			LDACBT_CHANNEL_MODE_DUAL_CHANNEL |
 			LDACBT_CHANNEL_MODE_STEREO,
@@ -87,16 +85,12 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 
 	if (conf.frequency & LDACBT_SAMPLING_FREQ_044100)
 		conf.frequency = LDACBT_SAMPLING_FREQ_044100;
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_048000)
+	else if (conf.frequency & LDACBT_SAMPLING_FREQ_048000)
 		conf.frequency = LDACBT_SAMPLING_FREQ_048000;
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_088200)
+	else if (conf.frequency & LDACBT_SAMPLING_FREQ_088200)
 		conf.frequency = LDACBT_SAMPLING_FREQ_088200;
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_096000)
+	else if (conf.frequency & LDACBT_SAMPLING_FREQ_096000)
 		conf.frequency = LDACBT_SAMPLING_FREQ_096000;
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_176400)
-		conf.frequency = LDACBT_SAMPLING_FREQ_176400;
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_192000)
-		conf.frequency = LDACBT_SAMPLING_FREQ_192000;
 	else
 		return -ENOTSUP;
 
@@ -161,16 +155,6 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 		if (i++ == 0)
 			spa_pod_builder_int(b, 96000);
 		spa_pod_builder_int(b, 96000);
-	}
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_176400) {
-		if (i++ == 0)
-			spa_pod_builder_int(b, 176400);
-		spa_pod_builder_int(b, 176400);
-	}
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_192000) {
-		if (i++ == 0)
-			spa_pod_builder_int(b, 192000);
-		spa_pod_builder_int(b, 192000);
 	}
 	if (i > 1)
 		choice->body.type = SPA_CHOICE_Enum;
@@ -265,14 +249,6 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	case LDACBT_SAMPLING_FREQ_096000:
 		info->info.raw.rate = 96000;
 		this->lsu = 256;
-		break;
-	case LDACBT_SAMPLING_FREQ_176400:
-		info->info.raw.rate = 176400;
-		this->lsu = 512;
-		break;
-	case LDACBT_SAMPLING_FREQ_192000:
-		info->info.raw.rate = 192000;
-		this->lsu = 512;
 		break;
 	default:
 		res = -EINVAL;

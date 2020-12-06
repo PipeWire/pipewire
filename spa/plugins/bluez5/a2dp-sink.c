@@ -353,6 +353,11 @@ static int send_buffer(struct impl *this)
 	return written;
 }
 
+static bool need_flush(struct impl *this)
+{
+	return (this->frame_count + 1 >= this->num_blocks);
+}
+
 static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 {
 	int processed;
@@ -364,6 +369,9 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d",
 			this, size, this->buffer_used, port->frame_size, this->block_size,
 			this->frame_count);
+
+	if (need_flush(this))
+		return 0;
 
 	if (this->buffer_used >= sizeof(this->buffer))
 		return -ENOSPC;
@@ -399,11 +407,6 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 		this->tmp_buffer_used = 0;
 	}
 	return processed;
-}
-
-static bool need_flush(struct impl *this)
-{
-	return (this->frame_count + 1 >= this->num_blocks);
 }
 
 static int flush_buffer(struct impl *this, bool force)

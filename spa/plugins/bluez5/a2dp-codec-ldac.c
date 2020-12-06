@@ -112,7 +112,7 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
-	a2dp_sbc_t conf;
+	a2dp_ldac_t conf;
         struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
 	uint32_t i = 0;

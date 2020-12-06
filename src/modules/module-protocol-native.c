@@ -371,7 +371,7 @@ static void on_server_need_flush(void *data)
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
 
-	pw_log_debug("need flush");
+	pw_log_trace("need flush");
 	this->need_flush = true;
 
 	if (this->source && !(this->source->mask & SPA_IO_OUT)) {
@@ -831,7 +831,7 @@ static void on_client_need_flush(void *data)
 {
         struct client *impl = data;
 
-	pw_log_debug("need flush");
+	pw_log_trace("need flush");
 	impl->need_flush = true;
 
 	if (impl->source && !(impl->source->mask & SPA_IO_OUT)) {

@@ -595,9 +595,10 @@ static void a2dp_on_timeout(struct spa_source *source)
 
 static int do_start(struct impl *this)
 {
-	int res, val;
+	int i, res, val, size;
 	struct port *port;
 	socklen_t len;
+	uint8_t *conf;
 
 	if (this->started)
 		return 0;
@@ -612,6 +613,12 @@ static int do_start(struct impl *this)
 		return res;
 
 	port = &this->port;
+
+	conf = this->transport->configuration;
+	size = this->transport->configuration_len;
+
+	for (i = 0; i < size; i++)
+		spa_log_debug(this->log, "  %d: %02x", i, conf[i]);
 
 	this->codec_data = this->codec->init(this->codec, 0,
 			this->transport->configuration,

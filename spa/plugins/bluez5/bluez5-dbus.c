@@ -45,6 +45,7 @@
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"
@@ -112,7 +113,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	uint8_t *pconf = (uint8_t *) config;
 	DBusMessage *r;
 	DBusError err;
-	int size, res;
+	int i, size, res;
 	const struct a2dp_codec *codec;
 
 	dbus_error_init(&err);
@@ -126,6 +127,8 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 	spa_log_info(monitor->log, "%p: %s select conf %d", monitor, path, size);
+	for (i = 0; i < size; i++)
+		spa_log_debug(monitor->log, "  %d: %02x", i, cap[i]);
 
 	codec = a2dp_endpoint_to_codec(path);
 	if (codec != NULL)
@@ -133,13 +136,16 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	else
 		res = -ENOTSUP;
 
-	if (res < 0) {
+	if (res < 0 || res != size) {
+		spa_log_error(monitor->log, "can't select config: %d (%s)",
+				res, spa_strerror(res));
 		if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
 				"Unable to select configuration")) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		goto exit_send;
 	}
-	size = res;
+	for (i = 0; i < size; i++)
+		spa_log_debug(monitor->log, "  %d: %02x", i, pconf[i]);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -784,8 +790,8 @@ static int transport_update_props(struct spa_bt_transport *transport,
 		}
 		else if (strcmp(key, "Configuration") == 0) {
 			DBusMessageIter iter;
-			char *value;
-			int len;
+			uint8_t *value;
+			int i, len;
 
 			if (!check_iter_signature(&it[1], "ay"))
 				goto next;
@@ -794,6 +800,8 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
 			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, len);
+			for (i = 0; i < len; i++)
+				spa_log_debug(monitor->log, "  %d: %02x", i, value[i]);
 
 			free(transport->configuration);
 			transport->configuration_len = 0;
@@ -961,8 +969,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 
 		spa_bt_transport_set_implementation(transport, &transport_impl, transport);
 	}
-	transport_update_props(transport, &it[1], NULL);
 	transport->a2dp_codec = codec;
+	transport_update_props(transport, &it[1], NULL);
 
 	if (transport->device == NULL) {
 		spa_log_warn(monitor->log, "no device found for transport");

@@ -181,6 +181,28 @@ static struct param *add_param(struct stream *impl,
 	if (p == NULL)
 		return NULL;
 
+	if (id == SPA_PARAM_Buffers && SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_MAP_BUFFERS) &&
+		impl->direction == SPA_DIRECTION_INPUT)
+	{
+		const struct spa_pod_prop *pod_param;
+		uint32_t dataType = 0;
+
+		pod_param = spa_pod_find_prop(param, NULL, SPA_PARAM_BUFFERS_dataType);
+		if (pod_param != NULL)
+		{
+			spa_pod_get_int(&pod_param->value, (int32_t*)&dataType);
+			pw_log_debug(NAME" dataType: %d", dataType);
+			if ((dataType & (1<<SPA_DATA_MemPtr)) > 0)
+			{
+				pw_log_debug(NAME" Change dataType");
+				struct spa_pod_int *int_pod = (struct spa_pod_int*)&pod_param->value;
+				dataType = dataType | mappable_dataTypes;
+				pw_log_debug(NAME" dataType: %d", dataType);
+				int_pod->value = dataType;
+			}
+		}
+	}
+
 	p->id = id;
 	p->flags = flags;
 	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);

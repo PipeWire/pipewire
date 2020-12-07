@@ -109,12 +109,16 @@ struct impl {
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[MAX_PORTS + 1];
 
+	struct spa_audio_info format;
+	unsigned int have_profile:1;
+
 	struct convert conv;
 	uint32_t cpu_flags;
 	unsigned int is_passthrough:1;
 	unsigned int started:1;
 	unsigned int monitor:1;
-	unsigned int have_profile:1;
+
+	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
 
 	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
@@ -255,6 +259,17 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static int int32_cmp(const void *v1, const void *v2)
+{
+	int32_t a1 = *(int32_t*)v1;
+	int32_t a2 = *(int32_t*)v2;
+	if (a1 == 0 && a2 != 0)
+		return 1;
+	if (a2 == 0 && a1 != 0)
+		return -1;
+	return a1 - a2;
+}
+
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -300,8 +315,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
-		port = GET_OUT_PORT(this, 0);
-		if (port->have_format && memcmp(&port->format, &info, sizeof(info)) == 0)
+		if (this->have_profile && memcmp(&this->format, &info, sizeof(info)) == 0)
 			return 0;
 
 		spa_log_debug(this->log, NAME " %p: port config %d/%d %d", this,
@@ -315,10 +329,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 						SPA_DIRECTION_OUTPUT, i+1, NULL);
 		}
 
-		port->have_format = true;
-		port->format = info;
 		this->monitor = monitor;
-
+		this->format = info;
 		this->have_profile = true;
 		this->port_count = info.info.raw.channels;
 		this->monitor_count = this->monitor ? this->port_count : 0;
@@ -328,6 +340,11 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				init_port(this, SPA_DIRECTION_OUTPUT, i+1,
 					info.info.raw.position[i]);
 		}
+		port = GET_OUT_PORT(this, 0);
+		qsort(info.info.raw.position, info.info.raw.channels,
+					sizeof(uint32_t), int32_cmp);
+		port->format = info;
+		port->have_format = true;
 		return 0;
 	}
 	default:
@@ -577,35 +594,56 @@ static int clear_buffers(struct impl *this, struct port *port)
 static int setup_convert(struct impl *this)
 {
 	struct port *outport;
-	uint32_t src_fmt, dst_fmt;
+	struct spa_audio_info informat, outformat;
+	uint32_t i, j, src_fmt, dst_fmt;
 	int res;
 
 	outport = GET_OUT_PORT(this, 0);
 
+	informat = this->format;
+	outformat = outport->format;
+
 	src_fmt = SPA_AUDIO_FORMAT_DSP_F32;
-	dst_fmt = outport->format.info.raw.format;
+	dst_fmt = outformat.info.raw.format;
 
 	spa_log_info(this->log, NAME " %p: %s/%d@%dx%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			1,
-			outport->format.info.raw.rate,
-			this->port_count,
+			informat.info.raw.rate,
+			informat.info.raw.channels,
 			spa_debug_type_find_name(spa_type_audio_format, dst_fmt),
-			outport->format.info.raw.channels,
-			outport->format.info.raw.rate);
+			outformat.info.raw.channels,
+			outformat.info.raw.rate);
+
+	for (i = 0; i < informat.info.raw.channels; i++) {
+		for (j = 0; j < outformat.info.raw.channels; j++) {
+			if (informat.info.raw.position[i] !=
+			    outformat.info.raw.position[j])
+				continue;
+			this->remap[i] = j;
+			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%s -> %s)", this,
+					i, j,
+					spa_debug_type_find_short_name(spa_type_audio_channel,
+						informat.info.raw.position[i]),
+					spa_debug_type_find_short_name(spa_type_audio_channel,
+						outformat.info.raw.position[j]));
+			outformat.info.raw.position[j] = -1;
+			break;
+		}
+	}
 
 	this->conv.src_fmt = src_fmt;
 	this->conv.dst_fmt = dst_fmt;
-	this->conv.n_channels = outport->format.info.raw.channels;
+	this->conv.n_channels = outformat.info.raw.channels;
 	this->conv.cpu_flags = this->cpu_flags;
 
 	if ((res = convert_init(&this->conv)) < 0)
 		return res;
 
-	spa_log_debug(this->log, NAME " %p: got converter features %08x:%08x", this,
-			this->cpu_flags, this->conv.cpu_flags);
+	this->is_passthrough = this->conv.is_passthrough;
 
-	this->is_passthrough = src_fmt == dst_fmt;
+	spa_log_debug(this->log, NAME " %p: got converter features %08x:%08x passthrough:%d", this,
+			this->cpu_flags, this->conv.cpu_flags, this->is_passthrough);
 
 	return 0;
 }
@@ -958,7 +996,7 @@ static int impl_node_process(void *object)
 	struct buffer *sbuf, *dbuf;
 	uint32_t n_src_datas, n_dst_datas;
 	const void **src_datas;
-	void **dst_datas;
+	void **dst_datas, **tmp;
 	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -987,6 +1025,7 @@ static int impl_node_process(void *object)
 
 	n_dst_datas = dbuf->buf->n_datas;
 	dst_datas = alloca(sizeof(void*) * n_dst_datas);
+	tmp = alloca(sizeof(void*) * n_dst_datas);
 
 	/* produce more output if possible */
 	n_src_datas = 0;
@@ -1012,11 +1051,13 @@ static int impl_node_process(void *object)
 		handle_monitor(this, src_datas[i], n_samples, GET_OUT_PORT(this, i + 1));
 
 	for (i = 0; i < n_dst_datas; i++) {
-		dst_datas[i] = this->is_passthrough ? (void*)src_datas[i] : dbuf->datas[i];
-		dbuf->buf->datas[i].data = dst_datas[i];
+		tmp[i] = this->is_passthrough ? (void*)src_datas[i] : dbuf->datas[i];
+		dbuf->buf->datas[i].data = tmp[i];
 		dbuf->buf->datas[i].chunk->offset = 0;
 		dbuf->buf->datas[i].chunk->size = n_samples * outport->stride;
 	}
+	for (i = 0; i < n_dst_datas; i++)
+		dst_datas[i] = tmp[this->remap[i]];
 
 	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d p:%d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, this->is_passthrough);

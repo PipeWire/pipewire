@@ -1109,7 +1109,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info = SPA_NODE_INFO_INIT();
 	this->info.max_input_ports = MAX_PORTS;
 	this->info.max_output_ports = MAX_PORTS+1;
-	this->info.flags = SPA_NODE_FLAG_RT;
+	this->info.flags = SPA_NODE_FLAG_RT |
+		SPA_NODE_FLAG_IN_PORT_CONFIG;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_WRITE);
 	this->info.params = this->params;
 	this->info.n_params = 1;

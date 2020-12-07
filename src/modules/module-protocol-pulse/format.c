@@ -376,6 +376,19 @@ static inline void channel_map_to_positions(const struct channel_map *map, uint3
 		pos[i] = map->map[i];
 }
 
+static inline void channel_map_parse(const char *str, struct channel_map *map)
+{
+	const char *p = str;
+	size_t len;
+
+	while (*p && map->channels < SPA_AUDIO_MAX_CHANNELS) {
+		if ((len = strcspn(p, ",")) == 0)
+			break;
+		map->map[map->channels++] = channel_paname2id(p, len);
+		p += len + strspn(p+len, ",");
+	}
+}
+
 static inline bool channel_map_valid(const struct channel_map *map)
 {
 	uint8_t i;

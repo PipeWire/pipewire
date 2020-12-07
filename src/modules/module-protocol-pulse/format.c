@@ -381,11 +381,75 @@ static inline void channel_map_parse(const char *str, struct channel_map *map)
 	const char *p = str;
 	size_t len;
 
-	while (*p && map->channels < SPA_AUDIO_MAX_CHANNELS) {
-		if ((len = strcspn(p, ",")) == 0)
-			break;
-		map->map[map->channels++] = channel_paname2id(p, len);
-		p += len + strspn(p+len, ",");
+	if (strcmp(p, "stereo") == 0) {
+		*map = (struct channel_map) {
+			.channels = 2,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+		};
+	} else if (strcmp(p, "surround-21") == 0) {
+		*map = (struct channel_map) {
+			.channels = 3,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+			.map[2] = SPA_AUDIO_CHANNEL_LFE,
+		};
+	} else if (strcmp(p, "surround-40") == 0) {
+		*map = (struct channel_map) {
+			.channels = 4,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+			.map[2] = SPA_AUDIO_CHANNEL_RL,
+			.map[3] = SPA_AUDIO_CHANNEL_RR,
+		};
+	} else if (strcmp(p, "surround-41") == 0) {
+		*map = (struct channel_map) {
+			.channels = 5,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+			.map[2] = SPA_AUDIO_CHANNEL_RL,
+			.map[3] = SPA_AUDIO_CHANNEL_RR,
+			.map[4] = SPA_AUDIO_CHANNEL_LFE,
+		};
+	} else if (strcmp(p, "surround-50") == 0) {
+		*map = (struct channel_map) {
+			.channels = 5,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+			.map[2] = SPA_AUDIO_CHANNEL_RL,
+			.map[3] = SPA_AUDIO_CHANNEL_RR,
+			.map[4] = SPA_AUDIO_CHANNEL_FC,
+		};
+	} else if (strcmp(p, "surround-51") == 0) {
+		*map = (struct channel_map) {
+			.channels = 6,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+			.map[2] = SPA_AUDIO_CHANNEL_RL,
+			.map[3] = SPA_AUDIO_CHANNEL_RR,
+			.map[4] = SPA_AUDIO_CHANNEL_FC,
+			.map[5] = SPA_AUDIO_CHANNEL_LFE,
+		};
+	} else if (strcmp(p, "surround-71") == 0) {
+		*map = (struct channel_map) {
+			.channels = 8,
+			.map[0] = SPA_AUDIO_CHANNEL_FL,
+			.map[1] = SPA_AUDIO_CHANNEL_FR,
+			.map[2] = SPA_AUDIO_CHANNEL_RL,
+			.map[3] = SPA_AUDIO_CHANNEL_RR,
+			.map[4] = SPA_AUDIO_CHANNEL_FC,
+			.map[5] = SPA_AUDIO_CHANNEL_LFE,
+			.map[6] = SPA_AUDIO_CHANNEL_SL,
+			.map[7] = SPA_AUDIO_CHANNEL_SR,
+		};
+	} else {
+		map->channels = 0;
+		while (*p && map->channels < SPA_AUDIO_MAX_CHANNELS) {
+			if ((len = strcspn(p, ",")) == 0)
+				break;
+			map->map[map->channels++] = channel_paname2id(p, len);
+			p += len + strspn(p+len, ",");
+		}
 	}
 }
 

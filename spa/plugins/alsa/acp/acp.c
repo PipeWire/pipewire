@@ -249,9 +249,12 @@ static void add_profiles(pa_card *impl)
 					init_device(impl, dev, PA_ALSA_DIRECTION_OUTPUT, m, n_devices++);
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
-				if (impl->use_ucm)
-					pa_alsa_ucm_add_ports_combination(dev->ports, &m->ucm_context,
+				if (impl->use_ucm) {
+					pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
 						true, impl->ports, ap, NULL);
+					pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
+						true, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
+				}
 				else
 					pa_alsa_path_set_add_ports(m->output_path_set, ap, impl->ports,
 							dev->ports, NULL);
@@ -268,10 +271,12 @@ static void add_profiles(pa_card *impl)
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
 
-				if (impl->use_ucm)
-					pa_alsa_ucm_add_ports_combination(dev->ports, &m->ucm_context,
-							false, impl->ports, ap, NULL);
-				else
+				if (impl->use_ucm) {
+					pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
+						false, impl->ports, ap, NULL);
+					pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
+						false, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
+				} else
 					pa_alsa_path_set_add_ports(m->input_path_set, ap, impl->ports,
 							dev->ports, NULL);
 

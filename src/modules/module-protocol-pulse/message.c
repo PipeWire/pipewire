@@ -67,6 +67,7 @@ const struct str_map key_table[] = {
 	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
 	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
 	{ PW_KEY_DEVICE_INTENDED_ROLES, "device.intended_roles" },
+	{ PW_KEY_NODE_DESCRIPTION, "device.description" },
 	{ PW_KEY_MEDIA_ICON_NAME, "media.icon_name" },
 	{ PW_KEY_APP_ICON_NAME, "application.icon_name" },
 	{ PW_KEY_APP_PROCESS_MACHINE_ID, "application.process.machine_id" },

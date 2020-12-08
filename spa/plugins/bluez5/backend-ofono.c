@@ -50,6 +50,7 @@ struct spa_bt_backend {
 	DBusConnection *conn;
 
 	unsigned int filters_added:1;
+	unsigned int msbc_supported:1;
 };
 
 #define OFONO_SERVICE "org.ofono"
@@ -83,10 +84,10 @@ struct spa_bt_backend {
 
 static void ofono_transport_get_mtu(struct spa_bt_backend *backend, struct spa_bt_transport *t)
 {
-	t->read_mtu = 48;
-	t->write_mtu = 48;
-
-	if (false) {
+	if (t->codec == HFP_AUDIO_CODEC_CVSD) {
+		t->read_mtu = 48;
+		t->write_mtu = 48;
+	} else {
 		struct sco_options sco_opt;
 		socklen_t len;
 
@@ -103,18 +104,43 @@ static void ofono_transport_get_mtu(struct spa_bt_backend *backend, struct spa_b
 	}
 }
 
-static int ofono_audio_acquire(void *data, bool optional)
+static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend,
+                                                  const char *path,
+                                                  struct spa_bt_device *device,
+                                                  enum spa_bt_profile profile,
+                                                  int codec,
+                                                  struct spa_callbacks *impl)
 {
-	struct spa_bt_transport *transport = data;
-	struct spa_bt_backend *backend = transport->backend;
+	struct spa_bt_transport *t = NULL;
+	char *t_path = strdup(path);
+
+	t = spa_bt_transport_create(backend->monitor, t_path, 0);
+	if (t == NULL) {
+		spa_log_warn(backend->log, NAME": can't create transport: %m");
+		free(t_path);
+		goto finish;
+	}
+	spa_bt_transport_set_implementation(t, impl, t);
+
+	t->device = device;
+	spa_list_append(&t->device->transport_list, &t->device_link);
+	t->backend = backend;
+	t->profile = profile;
+	t->codec = codec;
+
+finish:
+	return t;
+}
+
+static int _audio_acquire(struct spa_bt_backend *backend, const char *path, uint8_t *codec)
+{
 	DBusMessage *m, *r;
 	DBusError err;
 	int ret = 0;
 
-	m = dbus_message_new_method_call(OFONO_SERVICE,
-					 transport->path,
-					 OFONO_HF_AUDIO_CARD_INTERFACE,
-					 "Acquire");
+	m = dbus_message_new_method_call(OFONO_SERVICE, path,
+	                                 OFONO_HF_AUDIO_CARD_INTERFACE,
+	                                 "Acquire");
 	if (m == NULL)
 		return -ENOMEM;
 
@@ -126,7 +152,7 @@ static int ofono_audio_acquire(void *data, bool optional)
 
 	if (r == NULL) {
 		spa_log_error(backend->log, NAME": Transport Acquire() failed for transport %s (%s)",
-				transport->path, err.message);
+		              path, err.message);
 		dbus_error_free(&err);
 		return -EIO;
 	}
@@ -138,14 +164,55 @@ static int ofono_audio_acquire(void *data, bool optional)
 	}
 
 	if (!dbus_message_get_args(r, &err,
-				   DBUS_TYPE_UNIX_FD, &transport->fd,
-				   DBUS_TYPE_BYTE, &transport->codec,
-				   DBUS_TYPE_INVALID)) {
+	                           DBUS_TYPE_UNIX_FD, &ret,
+	                           DBUS_TYPE_BYTE, codec,
+	                           DBUS_TYPE_INVALID)) {
 		spa_log_error(backend->log, NAME": Failed to parse Acquire() reply: %s", err.message);
 		dbus_error_free(&err);
 		ret = -EIO;
 		goto finish;
 	}
+
+finish:
+	dbus_message_unref(r);
+	return ret;
+}
+
+static int ofono_audio_acquire(void *data, bool optional)
+{
+	struct spa_bt_transport *transport = data;
+	struct spa_bt_backend *backend = transport->backend;
+	uint8_t codec;
+	int ret = 0;
+
+	ret = _audio_acquire(backend, transport->path, &codec);
+	if (ret < 0)
+		goto finish;
+
+	transport->fd = ret;
+
+	if (transport->codec != codec) {
+		struct spa_bt_transport *t = NULL;
+
+		spa_log_warn(backend->log, NAME": Acquired codec (%d) differs from transport one (%d)",
+		             codec, transport->codec);
+
+		/* shutdown to make sure connection is dropped immediately */
+		shutdown(transport->fd, SHUT_RDWR);
+		close(transport->fd);
+		transport->fd = -1;
+
+		/* Create a new transport which differs only for codec */
+		t = _transport_create(backend, transport->path, transport->device,
+		                      transport->profile, codec, &transport->impl);
+
+		spa_bt_transport_free(transport);
+		spa_bt_device_connect_profile(t->device, t->profile);
+
+		ret = -EIO;
+		goto finish;
+	}
+
 	spa_log_debug(backend->log, NAME": transport %p: Acquire %s, fd %d codec %d", transport,
 			transport->path, transport->fd, transport->codec);
 
@@ -153,7 +220,6 @@ static int ofono_audio_acquire(void *data, bool optional)
 	ret = transport->fd;
 
 finish:
-	dbus_message_unref(r);
 	return ret;
 }
 
@@ -216,6 +282,8 @@ static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, 
 	struct spa_bt_device *d;
 	struct spa_bt_transport *t;
 	enum spa_bt_profile profile = SPA_BT_PROFILE_HFP_AG;
+	int fd;
+	uint8_t codec;
 
 	spa_assert(backend);
 	spa_assert(path);
@@ -255,29 +323,26 @@ static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, 
 		dbus_message_iter_next(props_i);
 	}
 
+	fd = _audio_acquire(backend, path, &codec);
+	if (fd < 0) {
+		spa_log_error(backend->log, NAME": Failed to retrieve codec for %s", path);
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+	/* shutdown to make sure connection is dropped immediately */
+	shutdown(fd, SHUT_RDWR);
+	close(fd);
+
 	d = spa_bt_device_find_by_address(backend->monitor, remote_address, local_address);
 	if (!d) {
 		spa_log_error(backend->log, NAME": Device doesn’t exist for %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	char *t_path = strdup(path);
-	t = spa_bt_transport_create(backend->monitor, t_path, 0);
-	if (t == NULL) {
-		spa_log_warn(backend->log, NAME": can't create transport: %m");
-		free(t_path);
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	}
-	spa_bt_transport_set_implementation(t, &ofono_transport_impl, t);
-
-	t->device = d;
-	spa_list_append(&t->device->transport_list, &t->device_link);
-	t->profile = profile;
-	t->backend = backend;
+	t = _transport_create(backend, path, d, profile, codec, (struct spa_callbacks *)&ofono_transport_impl);
 
 	spa_bt_device_connect_profile(t->device, profile);
 
-	spa_log_debug(backend->log, NAME": Transport %s available", t->path);
+	spa_log_debug(backend->log, NAME": Transport %s available, codec %d", t->path, t->codec);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
@@ -320,17 +385,28 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 
 	t = spa_bt_transport_find(backend->monitor, path);
 
-	if (!t || codec != HFP_AUDIO_CODEC_CVSD || t->fd >= 0) {
+	if (!t || t->codec != codec || t->fd >= 0) {
 			spa_log_warn(backend->log, NAME": New audio connection invalid "
 					"arguments (path=%s fd=%d, codec=%d)", path, fd, codec);
 			r = dbus_message_new_error(m, "org.ofono.Error.InvalidArguments", "Invalid arguments in method call");
 			shutdown(fd, SHUT_RDWR);
 			close(fd);
+
+			if (t->codec != codec) {
+				struct spa_bt_transport *transport = NULL;
+
+				spa_log_warn(backend->log, NAME": Acquired codec (%d) differs from transport one (%d)",
+				             codec, t->codec);
+
+				/* Create a new transport which differs only for codec */
+				transport = _transport_create(backend, t->path, t->device, t->profile, codec, &t->impl);
+				spa_bt_transport_free(t);
+				spa_bt_device_connect_profile(transport->device, transport->profile);
+			}
 			goto fail;
 	}
 
 	t->fd = fd;
-	t->codec = codec;
 	ofono_transport_get_mtu(backend, t);
 
 	spa_log_debug(backend->log, NAME": transport %p: NewConnection %s, fd %d codec %d", t, t->path, t->fd, t->codec);
@@ -485,6 +561,8 @@ static int ofono_register(struct spa_bt_backend *backend)
 		return -ENOMEM;
 
 	codecs[ncodecs++] = HFP_AUDIO_CODEC_CVSD;
+	if (backend->msbc_supported)
+		codecs[ncodecs++] = HFP_AUDIO_CODEC_MSBC;
 
 	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &path,
                                           DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &pcodecs, ncodecs,
@@ -603,10 +681,12 @@ void backend_ofono_free(struct spa_bt_backend *backend)
 
 struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
+		const struct spa_dict *info,
 		const struct spa_support *support,
 		uint32_t n_support)
 {
 	struct spa_bt_backend *backend;
+	const char *str;
 	static const DBusObjectPathVTable vtable_profile = {
 		.message_function = ofono_handler,
 	};
@@ -620,6 +700,10 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 	backend->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->conn = dbus_connection;
+	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-support")))
+		backend->msbc_supported = strcmp(str, "true") == 0 || atoi(str) == 1;
+	else
+		backend->msbc_supported = false;
 
 	if (!dbus_connection_register_object_path(backend->conn,
 						  OFONO_AUDIO_CLIENT,

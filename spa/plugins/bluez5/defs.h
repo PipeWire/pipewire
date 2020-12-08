@@ -360,6 +360,7 @@ static inline void backend_hsp_native_register_profiles(struct spa_bt_backend *b
 #ifdef HAVE_BLUEZ_5_BACKEND_OFONO
 struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
+		const struct spa_dict *info,
 		const struct spa_support *support,
 		uint32_t n_support);
 void backend_ofono_free(struct spa_bt_backend *backend);
@@ -367,6 +368,7 @@ void backend_ofono_add_filters(struct spa_bt_backend *backend);
 #else
 static inline struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
+		const struct spa_dict *info,
 		const struct spa_support *support,
 		uint32_t n_support) {
 	return NULL;

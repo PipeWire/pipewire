@@ -38,6 +38,8 @@
 
 #include "defs.h"
 
+#define NAME "hsp-native"
+
 struct spa_bt_backend {
 	struct spa_bt_monitor *monitor;
 
@@ -73,7 +75,7 @@ static void rfcomm_event(struct spa_source *source)
 	struct spa_bt_backend *backend = t->backend;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
-		spa_log_info(backend->log, "lost RFCOMM connection.");
+		spa_log_info(backend->log, NAME": lost RFCOMM connection.");
 		if (source->loop)
 			spa_loop_remove_source(source->loop, source);
 		goto fail;
@@ -87,11 +89,11 @@ static void rfcomm_event(struct spa_source *source)
 
 		len = read(source->fd, buf, 511);
 		if (len < 0) {
-			spa_log_error(backend->log, "RFCOMM read error: %s", strerror(errno));
+			spa_log_error(backend->log, NAME": RFCOMM read error: %s", strerror(errno));
 			goto fail;
 		}
 		buf[len] = 0;
-		spa_log_debug(backend->log, "RFCOMM << %s", buf);
+		spa_log_debug(backend->log, NAME": RFCOMM << %s", buf);
 
 		/* There are only four HSP AT commands:
 		 * AT+VGS=value: value between 0 and 15, sent by the HS to AG to set the speaker gain.
@@ -118,14 +120,14 @@ static void rfcomm_event(struct spa_source *source)
 		}
 
 		if (do_reply) {
-			spa_log_debug(backend->log, "RFCOMM >> OK");
+			spa_log_debug(backend->log, NAME": RFCOMM >> OK");
 
 			len = write(source->fd, "\r\nOK\r\n", 6);
 
 			/* we ignore any errors, it's not critical and real errors should
 			 * be caught with the HANGUP and ERROR events handled above */
 			if (len < 0)
-				spa_log_error(backend->log, "RFCOMM write error: %s", strerror(errno));
+				spa_log_error(backend->log, NAME": RFCOMM write error: %s", strerror(errno));
 		}
 	}
 	return;
@@ -146,11 +148,11 @@ static int sco_do_accept(struct spa_bt_transport *t)
 	memset(&addr, 0, sizeof(addr));
 	optlen = sizeof(addr);
 
-	spa_log_debug(backend->log, "transport %p: doing accept", t);
+	spa_log_debug(backend->log, NAME": transport %p: doing accept", t);
 	sock = accept(td->sco.fd, (struct sockaddr *) &addr, &optlen);
 	if (sock < 0) {
 		if (errno != EAGAIN)
-			spa_log_error(backend->log, "accept(): %s", strerror(errno));
+			spa_log_error(backend->log, NAME": accept(): %s", strerror(errno));
 		goto fail;
 	}
 	return sock;
@@ -184,7 +186,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 
 	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
 	if (sock < 0) {
-		spa_log_error(backend->log, "socket(SEQPACKET, SCO) %s", strerror(errno));
+		spa_log_error(backend->log, NAME": socket(SEQPACKET, SCO) %s", strerror(errno));
 		return -errno;
 	}
 
@@ -194,7 +196,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	bacpy(&addr.sco_bdaddr, &src);
 
 	if (bind(sock, (struct sockaddr *) &addr, len) < 0) {
-		spa_log_error(backend->log, "bind(): %s", strerror(errno));
+		spa_log_error(backend->log, NAME": bind(): %s", strerror(errno));
 		goto fail_close;
 	}
 
@@ -202,10 +204,10 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	addr.sco_family = AF_BLUETOOTH;
 	bacpy(&addr.sco_bdaddr, &dst);
 
-	spa_log_debug(backend->log, "transport %p: doing connect", t);
+	spa_log_debug(backend->log, NAME": transport %p: doing connect", t);
 	err = connect(sock, (struct sockaddr *) &addr, len);
 	if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
-		spa_log_error(backend->log, "connect(): %s", strerror(errno));
+		spa_log_error(backend->log, NAME": connect(): %s", strerror(errno));
 		goto fail_close;
 	}
 
@@ -241,9 +243,9 @@ static int sco_acquire_cb(void *data, bool optional)
 		memset(&sco_opt, 0, len);
 
 		if (getsockopt(sock, SOL_SCO, SCO_OPTIONS, &sco_opt, &len) < 0)
-			spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed, loading defaults");
+			spa_log_warn(backend->log, NAME": getsockopt(SCO_OPTIONS) failed, loading defaults");
 		else {
-			spa_log_debug(backend->log, "autodetected mtu = %u", sco_opt.mtu);
+			spa_log_debug(backend->log, NAME": autodetected mtu = %u", sco_opt.mtu);
 			t->read_mtu = sco_opt.mtu;
 			t->write_mtu = sco_opt.mtu;
 		}
@@ -257,7 +259,7 @@ static int sco_release_cb(void *data)
 {
 	struct spa_bt_transport *t = data;
 	struct spa_bt_backend *backend = t->backend;
-	spa_log_info(backend->log, "Transport %s released", t->path);
+	spa_log_info(backend->log, NAME": Transport %s released", t->path);
 	/* device will close the SCO socket for us */
 	return 0;
 }
@@ -268,13 +270,13 @@ static void sco_event(struct spa_source *source)
 	struct spa_bt_backend *backend = t->backend;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
-		spa_log_error(backend->log, "error listening SCO connection: %s", strerror(errno));
+		spa_log_error(backend->log, NAME": error listening SCO connection: %s", strerror(errno));
 		goto fail;
 	}
 
 #if 0
 	if (t->state != PA_BLUETOOTH_TRANSPORT_STATE_PLAYING) {
-		spa_log_info(monitor->log, "SCO incoming connection: changing state to PLAYING");
+		spa_log_info(monitor->log, NAME": SCO incoming connection: changing state to PLAYING");
 		pa_bluetooth_transport_set_state (t, PA_BLUETOOTH_TRANSPORT_STATE_PLAYING);
 	}
 #endif
@@ -297,7 +299,7 @@ static int sco_listen(struct spa_bt_transport *t)
 
 	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, BTPROTO_SCO);
 	if (sock < 0) {
-		spa_log_error(backend->log, "socket(SEQPACKET, SCO) %m");
+		spa_log_error(backend->log, NAME": socket(SEQPACKET, SCO) %m");
 		return -errno;
 	}
 
@@ -313,13 +315,13 @@ static int sco_listen(struct spa_bt_transport *t)
 	bacpy(&addr.sco_bdaddr, &src);
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		spa_log_error(backend->log, "bind(): %m");
+		spa_log_error(backend->log, NAME": bind(): %m");
 		goto fail_close;
 	}
 
-	spa_log_debug(backend->log, "transport %p: doing listen", t);
+	spa_log_debug(backend->log, NAME": transport %p: doing listen", t);
 	if (listen(sock, 1) < 0) {
-		spa_log_error(backend->log, "listen(): %m");
+		spa_log_error(backend->log, NAME": listen(): %m");
 		goto fail_close;
 	}
 
@@ -380,7 +382,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	int fd;
 
 	if (!dbus_message_has_signature(m, "oha{sv}")) {
-		spa_log_warn(backend->log, "invalid NewConnection() signature");
+		spa_log_warn(backend->log, NAME": invalid NewConnection() signature");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -390,7 +392,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	else if (strcmp(handler, PROFILE_HSP_HS) == 0)
 		profile = SPA_BT_PROFILE_HSP_AG;
 	else {
-		spa_log_warn(backend->log, "invalid handler %s", handler);
+		spa_log_warn(backend->log, NAME": invalid handler %s", handler);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -399,21 +401,21 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	d = spa_bt_device_find(backend->monitor, path);
 	if (d == NULL) {
-		spa_log_warn(backend->log, "unknown device for path %s", path);
+		spa_log_warn(backend->log, NAME": unknown device for path %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
 	dbus_message_iter_next(&it[0]);
 	dbus_message_iter_get_basic(&it[0], &fd);
 
-	spa_log_debug(backend->log, "NewConnection path=%s, fd=%d, profile %s", path, fd, handler);
+	spa_log_debug(backend->log, NAME": NewConnection path=%s, fd=%d, profile %s", path, fd, handler);
 
 	if ((pathfd = spa_aprintf("%s/fd%d", path, fd)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
 	t = spa_bt_transport_create(backend->monitor, pathfd, sizeof(struct transport_data));
 	if (t == NULL) {
-		spa_log_warn(backend->log, "can't create transport: %m");
+		spa_log_warn(backend->log, NAME": can't create transport: %m");
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	}
 	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
@@ -435,7 +437,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	sco_listen(t);
 
-	spa_log_debug(backend->log, "Transport %s available for profile %s", t->path, handler);
+	spa_log_debug(backend->log, NAME": Transport %s available for profile %s", t->path, handler);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -457,7 +459,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	DBusMessageIter it[5];
 
 	if (!dbus_message_has_signature(m, "o")) {
-		spa_log_warn(backend->log, "invalid RequestDisconnection() signature");
+		spa_log_warn(backend->log, NAME": invalid RequestDisconnection() signature");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -467,7 +469,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	else if (strcmp(handler, PROFILE_HSP_HS) == 0)
 		profile = SPA_BT_PROFILE_HSP_AG;
 	else {
-		spa_log_warn(backend->log, "invalid handler %s", handler);
+		spa_log_warn(backend->log, NAME": invalid handler %s", handler);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -476,7 +478,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 
 	d = spa_bt_device_find(backend->monitor, path);
 	if (d == NULL) {
-		spa_log_warn(backend->log, "unknown device for path %s", path);
+		spa_log_warn(backend->log, NAME": unknown device for path %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -506,7 +508,7 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 	interface = dbus_message_get_interface(m);
 	member = dbus_message_get_member(m);
 
-	spa_log_debug(backend->log, "dbus: path=%s, interface=%s, member=%s", path, interface, member);
+	spa_log_debug(backend->log, NAME": dbus: path=%s, interface=%s, member=%s", path, interface, member);
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = PROFILE_INTROSPECT_XML;
@@ -543,15 +545,15 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 		return;
 
 	if (dbus_message_is_error(r, BLUEZ_ERROR_NOT_SUPPORTED)) {
-		spa_log_warn(backend->log, "Register profile not supported");
+		spa_log_warn(backend->log, NAME": Register profile not supported");
 		goto finish;
 	}
 	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
-		spa_log_warn(backend->log, "Error registering profile");
+		spa_log_warn(backend->log, NAME": Error registering profile");
 		goto finish;
 	}
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(backend->log, "RegisterProfile() failed: %s",
+		spa_log_error(backend->log, NAME": RegisterProfile() failed: %s",
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
@@ -573,7 +575,7 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	char *str;
 	DBusPendingCall *call;
 
-	spa_log_debug(backend->log, "Registering Profile %s %s", profile, uuid);
+	spa_log_debug(backend->log, NAME": Registering Profile %s %s", profile, uuid);
 
 	if (!dbus_connection_register_object_path(backend->conn,
 						  profile,

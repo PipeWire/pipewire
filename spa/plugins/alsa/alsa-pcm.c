@@ -418,7 +418,7 @@ skip_channels:
 
 		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
 		choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
-		spa_pod_builder_int(&b, SPA_CLAMP(DEFAULT_CHANNELS, min, max));
+		spa_pod_builder_int(&b, max);
 		if (min != max) {
 			spa_pod_builder_int(&b, min);
 			spa_pod_builder_int(&b, max);

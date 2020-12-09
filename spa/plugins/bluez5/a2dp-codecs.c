@@ -66,9 +66,12 @@ extern struct a2dp_codec a2dp_codec_aptx_hd;
 #endif
 
 const struct a2dp_codec *a2dp_codec_list[] = {
-	&a2dp_codec_sbc,
 #if ENABLE_LDAC
 	&a2dp_codec_ldac,
+#endif
+#if ENABLE_APTX
+	&a2dp_codec_aptx,
+	&a2dp_codec_aptx_hd,
 #endif
 #if ENABLE_AAC
 	&a2dp_codec_aac,
@@ -76,10 +79,7 @@ const struct a2dp_codec *a2dp_codec_list[] = {
 #if ENABLE_MP3
 	&a2dp_codec_mpeg,
 #endif
-#if ENABLE_APTX
-	&a2dp_codec_aptx,
-	&a2dp_codec_aptx_hd,
-#endif
+	&a2dp_codec_sbc,
 	NULL,
 };
 const struct a2dp_codec **a2dp_codecs = a2dp_codec_list;

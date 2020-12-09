@@ -92,6 +92,8 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
+	memcpy(config, &conf, sizeof(conf));
+
 	return sizeof(conf);
 }
 

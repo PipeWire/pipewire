@@ -994,6 +994,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->info = SPA_NODE_INFO_INIT();
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS;
+	this->info.max_input_ports = 1;
+	this->info.max_output_ports = 1;
 	this->info.flags = SPA_NODE_FLAG_RT;
 
 	port = GET_OUT_PORT(this, 0);

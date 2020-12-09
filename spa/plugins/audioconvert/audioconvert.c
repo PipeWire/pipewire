@@ -44,6 +44,8 @@
 
 #define NAME "audioconvert"
 
+#define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
+
 struct buffer {
 	struct spa_list link;
 #define BUFFER_FLAG_OUT		(1 << 0)
@@ -1239,8 +1241,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
-	this->info.max_input_ports = 128;
-	this->info.max_output_ports = 128;
+	this->info.max_input_ports = MAX_PORTS;
+	this->info.max_output_ports = MAX_PORTS;
 	this->info.flags = SPA_NODE_FLAG_RT |
 		SPA_NODE_FLAG_IN_PORT_CONFIG |
 		SPA_NODE_FLAG_OUT_PORT_CONFIG |

@@ -42,6 +42,8 @@
 
 #define NAME "audioadapter"
 
+#define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
+
 /** \cond */
 
 struct impl {
@@ -632,8 +634,8 @@ static void follower_info(void *data, const struct spa_node_info *info)
         else
 		this->direction = SPA_DIRECTION_OUTPUT;
 
-	this->info.max_input_ports = this->direction == SPA_DIRECTION_INPUT ? 128 : 0;
-	this->info.max_output_ports = this->direction == SPA_DIRECTION_OUTPUT ? 128 : 0;
+	this->info.max_input_ports = this->direction == SPA_DIRECTION_INPUT ? MAX_PORTS : 0;
+	this->info.max_output_ports = this->direction == SPA_DIRECTION_OUTPUT ? MAX_PORTS : 0;
 
 	spa_log_debug(this->log, NAME" %p: follower info %s", this,
 			this->direction == SPA_DIRECTION_INPUT ?

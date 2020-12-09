@@ -53,8 +53,8 @@
 #define MAX_SAMPLES	8192
 #define MAX_ALIGN	16
 #define MAX_BUFFERS	32
-#define MAX_DATAS	64
-#define MAX_PORTS	64
+#define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
+#define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
 
 struct buffer {
 	uint32_t id;

@@ -84,6 +84,73 @@ static inline bool ratelimit_test(struct ratelimit *r, uint64_t now)
 
 #define MAX_PARAMS	32
 
+struct pw_param {
+	uint32_t id;
+	struct spa_list link;
+	struct spa_pod *param;
+};
+
+static inline struct pw_param *pw_param_add(struct spa_list *params,
+		uint32_t id, const struct spa_pod *param)
+{
+	struct pw_param *p;
+
+	if (param == NULL || !spa_pod_is_object(param)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (id == SPA_ID_INVALID)
+		id = SPA_POD_OBJECT_ID(param);
+
+	if ((p = malloc(sizeof(*p) + SPA_POD_SIZE(param))) == NULL)
+		return NULL;
+
+	p->id = id;
+	p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+	spa_list_append(params, &p->link);
+	return p;
+}
+
+static inline uint32_t pw_param_clear(struct spa_list *param_list, uint32_t id)
+{
+	struct pw_param *p, *t;
+	uint32_t count = 0;
+
+	spa_list_for_each_safe(p, t, param_list, link) {
+		if (id == SPA_ID_INVALID || p->id == id) {
+			spa_list_remove(&p->link);
+			free(p);
+			count++;
+		}
+	}
+	return count;
+}
+
+static inline void pw_param_update(struct spa_list *param_list, struct spa_list *pending_list)
+{
+	struct pw_param *p;
+
+	spa_list_for_each(p, pending_list, link)
+		pw_param_clear(param_list, p->id);
+
+	spa_list_consume(p, pending_list, link) {
+		spa_list_remove(&p->link);
+		spa_list_append(param_list, &p->link);
+	}
+}
+
+static inline struct spa_param_info *pw_param_info_find(struct spa_param_info info[],
+		uint32_t n_info, uint32_t id)
+{
+	uint32_t i;
+	for (i = 0; i < n_info; i++) {
+		if (info[i].id == id)
+			return &info[i];
+	}
+	return NULL;
+}
+
 #define pw_protocol_emit_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
 
 struct pw_protocol {

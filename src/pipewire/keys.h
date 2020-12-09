@@ -142,6 +142,7 @@ extern "C" {
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node */
 #define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */
 #define PW_KEY_NODE_PAUSE_ON_IDLE	"node.pause-on-idle"	/**< pause the node when idle */
+#define PW_KEY_NODE_CACHE_PARAMS	"node.cache-params"	/**< cache the node params */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should
 								  *  add a converter */
@@ -155,6 +156,7 @@ extern "C" {
 #define PW_KEY_PORT_TERMINAL		"port.terminal"		/**< if this port consumes the data */
 #define PW_KEY_PORT_CONTROL		"port.control"		/**< if this port is a control port */
 #define PW_KEY_PORT_MONITOR		"port.monitor"		/**< if this port is a monitor port */
+#define PW_KEY_PORT_CACHE_PARAMS	"port.cache-params"	/**< cache the node port params */
 
 /** link properties */
 #define PW_KEY_LINK_ID			"link.id"		/**< a link id */
@@ -202,6 +204,7 @@ extern "C" {
 								  *  roles (see PW_KEY_MEDIA_ROLE) this device
 								  *  is particularly well suited for, due to
 								  *  latency, quality or form factor. */
+#define PW_KEY_DEVICE_CACHE_PARAMS	"device.cache-params"	/**< cache the device spa params */
 
 /** module properties */
 #define PW_KEY_MODULE_ID		"module.id"		/**< the module id */

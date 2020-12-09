@@ -26,6 +26,7 @@
 
 #include <spa/debug/types.h>
 #include <spa/monitor/utils.h>
+#include <spa/pod/filter.h>
 
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
@@ -34,6 +35,11 @@
 
 struct impl {
 	struct pw_impl_device this;
+
+	struct spa_list param_list;
+	struct spa_list pending_list;
+
+	unsigned int cache_params:1;
 };
 
 #define pw_device_resource(r,m,v,...)	pw_resource_call(r,struct pw_device_events,m,v,__VA_ARGS__)
@@ -41,10 +47,13 @@ struct impl {
 #define pw_device_resource_param(r,...) pw_device_resource(r,param,0,__VA_ARGS__)
 
 struct result_device_params_data {
+	struct impl *impl;
 	void *data;
 	int (*callback) (void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			struct spa_pod *param);
+	int seq;
+	unsigned int cache:1;
 };
 
 struct resource_data {
@@ -61,6 +70,7 @@ struct resource_data {
 	int seq;
 	int orig_seq;
 	int end;
+	struct spa_param_info *pi;
 	struct result_device_params_data data;
 	struct spa_hook listener;
 };
@@ -139,6 +149,9 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 		res = -errno;
 		goto error_cleanup;
 	}
+	spa_list_init(&impl->param_list);
+	spa_list_init(&impl->pending_list);
+	impl->cache_params = true;
 
 	this = &impl->this;
 	this->name = strdup("device");
@@ -179,6 +192,7 @@ error_cleanup:
 SPA_EXPORT
 void pw_impl_device_destroy(struct pw_impl_device *device)
 {
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	struct object_data *od;
 
 	pw_log_debug(NAME" %p: destroy", device);
@@ -200,6 +214,9 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	pw_log_debug(NAME" %p: free", device);
 	pw_impl_device_emit_free(device);
 
+	pw_param_clear(&impl->param_list, SPA_ID_INVALID);
+	pw_param_clear(&impl->pending_list, SPA_ID_INVALID);
+
 	spa_hook_list_clean(&device->listener_list);
 
 	pw_properties_free(device->properties);
@@ -210,7 +227,15 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 
 static void remove_busy_resource(struct resource_data *d)
 {
+	struct pw_impl_device *device = d->device;
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
+
 	if (d->end != -1) {
+		if (d->pi && d->data.cache) {
+			pw_param_update(&impl->param_list, &impl->pending_list);
+			d->pi->user = 1;
+			d->pi = NULL;
+		}
 		spa_hook_remove(&d->listener);
 		d->end = -1;
 		pw_impl_client_set_busy(d->resource->client, false);
@@ -242,11 +267,18 @@ static const struct pw_resource_events resource_events = {
 static void result_device_params(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct result_device_params_data *d = data;
+	struct impl *impl = d->impl;
+	pw_log_debug(NAME" %p: type %d", impl, type);
+
 	switch (type) {
 	case SPA_RESULT_TYPE_DEVICE_PARAMS:
 	{
 		const struct spa_result_device_params *r = result;
 		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+		if (d->cache) {
+			pw_log_debug(NAME" %p: add param %d", impl, r->id);
+			pw_param_add(&impl->pending_list, r->id, r->param);
+		}
 		break;
 	}
 	default:
@@ -265,26 +297,73 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 			     void *data)
 {
 	int res;
-	struct result_device_params_data user_data = { data, callback };
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
+	struct result_device_params_data user_data = { impl, data, callback, seq, false };
 	struct spa_hook listener;
+	struct spa_param_info *pi;
 	static const struct spa_device_events device_events = {
 		SPA_VERSION_DEVICE_EVENTS,
 		.result = result_device_params,
 	};
 
+	pi = pw_param_info_find(device->info.params, device->info.n_params, param_id);
+	if (pi == NULL)
+		return -ENOENT;
+
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u", device, param_id,
+	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u cached:%d", device, param_id,
 			spa_debug_type_find_name(spa_type_param, param_id),
-			index, max);
+			index, max, pi->user);
 
-	spa_zero(listener);
-	spa_device_add_listener(device->device, &listener,
-			&device_events, &user_data);
-	res = spa_device_enum_params(device->device, seq,
-			param_id, index, max, filter);
-	spa_hook_remove(&listener);
+	if (pi->user == 1) {
+		struct pw_param *p;
+		uint8_t buffer[1024];
+		struct spa_pod_builder b = { 0 };
+	        struct spa_result_device_params result;
+		uint32_t count = 0;
+		bool found = false;
+
+		result.id = param_id;
+		result.next = 0;
+
+		spa_list_for_each(p, &impl->param_list, link) {
+			result.index = result.next++;
+			if (p->id != param_id)
+				continue;
+
+			found = true;
+
+			if (result.index < index)
+				continue;
+
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
+				continue;
+
+			pw_log_debug(NAME " %p: %d param %u", device, seq, result.index);
+			result_device_params(&user_data, seq, 0, SPA_RESULT_TYPE_DEVICE_PARAMS, &result);
+
+			if (++count == max)
+				break;
+		}
+		res = found ? 0 : -ENOENT;
+	} else {
+		user_data.cache = impl->cache_params && filter == NULL;
+
+		spa_zero(listener);
+		spa_device_add_listener(device->device, &listener,
+				&device_events, &user_data);
+		res = spa_device_enum_params(device->device, seq,
+				param_id, index, max, filter);
+		spa_hook_remove(&listener);
+
+		if (!SPA_RESULT_IS_ASYNC(res) && user_data.cache) {
+			pw_param_update(&impl->param_list, &impl->pending_list);
+			pi->user = 1;
+		}
+	}
 
 	return res;
 }
@@ -304,11 +383,10 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
 			res, seq, d->seq, d->end);
 
-	if (seq == d->end)
-		remove_busy_resource(d);
 	if (seq == d->seq)
 		result_device_params(&d->data, d->orig_seq, res, type, result);
-
+	if (seq == d->end)
+		remove_busy_resource(d);
 }
 
 static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start, uint32_t num,
@@ -317,6 +395,7 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 	struct resource_data *data = object;
 	struct pw_resource *resource = data->resource;
 	struct pw_impl_device *device = data->device;
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	struct pw_impl_client *client = resource->client;
 	int res;
 	static const struct spa_device_events device_events = {
@@ -333,11 +412,15 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 				spa_debug_type_find_name(spa_type_param, id));
 	} else if (SPA_RESULT_IS_ASYNC(res)) {
 		pw_impl_client_set_busy(client, true);
+		data->data.impl = impl;
 		data->data.data = data;
 		data->data.callback = reply_param;
+		data->data.cache = impl->cache_params && filter == NULL;
 		if (data->end == -1)
 			spa_device_add_listener(device->device, &data->listener,
 				&device_events, data);
+		data->pi = pw_param_info_find(device->info.params,
+				device->info.n_params, id);
 		data->orig_seq = seq;
 		data->seq = res;
 		data->end = spa_device_sync(device->device, res);
@@ -634,7 +717,11 @@ static void emit_params(struct pw_impl_device *device, uint32_t *changed_ids, ui
 static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_impl_device *device = data;
+	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
+
+	pw_log_debug(NAME" %p: flags:%08"PRIx64" change_mask:%08"PRIx64,
+			device, info->flags, info->change_mask);
 
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
 		update_properties(device, info->props);
@@ -646,16 +733,22 @@ static void device_info(void *data, const struct spa_device_info *info)
 		device->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(device->params));
 
 		for (i = 0; i < device->info.n_params; i++) {
+			uint32_t id = info->params[i].id;
+
 			pw_log_debug(NAME" %p: param %d id:%d (%s) %08x:%08x", device, i,
-                                        info->params[i].id,
-                                        spa_debug_type_find_name(spa_type_param, info->params[i].id),
+                                        id, spa_debug_type_find_name(spa_type_param, id),
                                         device->info.params[i].flags, info->params[i].flags);
 
-                        if (device->info.params[i].flags != info->params[i].flags &&
-                            info->params[i].flags & SPA_PARAM_INFO_READ)
-                                changed_ids[n_changed_ids++] = info->params[i].id;
+                        if (device->info.params[i].flags == info->params[i].flags)
+				continue;
 
+			pw_log_debug(NAME" %p: update param %d", device, id);
+			pw_param_clear(&impl->pending_list, id);
                         device->info.params[i] = info->params[i];
+                        device->info.params[i].user = 0;
+
+			if (info->params[i].flags & SPA_PARAM_INFO_READ)
+                                changed_ids[n_changed_ids++] = id;
                 }
 	}
 	emit_info_changed(device);

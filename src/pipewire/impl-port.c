@@ -31,6 +31,7 @@
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
 #include <spa/debug/types.h>
+#include <spa/pod/filter.h>
 
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
@@ -41,6 +42,11 @@
 struct impl {
 	struct pw_impl_port this;
 	struct spa_node mix_node;	/**< mix node implementation */
+
+	struct spa_list param_list;
+	struct spa_list pending_list;
+
+	unsigned int cache_params:1;
 };
 
 #define pw_port_resource(r,m,v,...)	pw_resource_call(r,struct pw_port_events,m,v,__VA_ARGS__)
@@ -338,7 +344,11 @@ static void emit_params(struct pw_impl_port *port, uint32_t *changed_ids, uint32
 
 static void update_info(struct pw_impl_port *port, const struct spa_port_info *info)
 {
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
+
+	pw_log_debug(NAME" %p: flags:%08"PRIx64" change_mask:%08"PRIx64,
+			port, info->flags, info->change_mask);
 
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_FLAGS) {
 		port->spa_flags = info->flags;
@@ -357,11 +367,22 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 		port->info.n_params = SPA_MIN(info->n_params, SPA_N_ELEMENTS(port->params));
 
 		for (i = 0; i < port->info.n_params; i++) {
-			if (port->info.params[i].flags != info->params[i].flags &&
-			    info->params[i].flags & SPA_PARAM_INFO_READ)
-				changed_ids[n_changed_ids++] = info->params[i].id;
+			uint32_t id = info->params[i].id;
 
+			pw_log_debug(NAME" %p: param %d id:%d (%s) %08x:%08x", port, i,
+					id, spa_debug_type_find_name(spa_type_param, id),
+					port->info.params[i].flags, info->params[i].flags);
+
+			if (port->info.params[i].flags == info->params[i].flags)
+				continue;
+
+			pw_log_debug(NAME" %p: update param %d", port, id);
+			pw_param_clear(&impl->pending_list, id);
 			port->info.params[i] = info->params[i];
+			port->info.params[i].user = 0;
+
+			if (info->params[i].flags & SPA_PARAM_INFO_READ)
+				changed_ids[n_changed_ids++] = id;
 		}
 	}
 
@@ -386,6 +407,10 @@ struct pw_impl_port *pw_context_create_port(
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		return NULL;
+
+	spa_list_init(&impl->param_list);
+	spa_list_init(&impl->pending_list);
+	impl->cache_params = true;
 
 	this = &impl->this;
 	pw_log_debug(NAME" %p: new %s %d", this,
@@ -994,6 +1019,7 @@ static void pw_impl_port_remove(struct pw_impl_port *port)
 
 void pw_impl_port_destroy(struct pw_impl_port *port)
 {
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	struct pw_control *control;
 
 	pw_log_debug(NAME" %p: destroy", port);
@@ -1024,6 +1050,9 @@ void pw_impl_port_destroy(struct pw_impl_port *port)
 	pw_buffers_clear(&port->mix_buffers);
 	free((void*)port->error);
 
+	pw_param_clear(&impl->param_list, SPA_ID_INVALID);
+	pw_param_clear(&impl->pending_list, SPA_ID_INVALID);
+
 	pw_map_clear(&port->mix_port_map);
 
 	pw_properties_free(port->properties);
@@ -1032,22 +1061,28 @@ void pw_impl_port_destroy(struct pw_impl_port *port)
 }
 
 struct result_port_params_data {
+	struct impl *impl;
 	void *data;
 	int (*callback) (void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			struct spa_pod *param);
 	int seq;
+	unsigned int cache:1;
 };
 
 static void result_port_params(void *data, int seq, int res, uint32_t type, const void *result)
 {
 	struct result_port_params_data *d = data;
+	struct impl *impl = d->impl;
 	switch (type) {
 	case SPA_RESULT_TYPE_NODE_PARAMS:
 	{
 		const struct spa_result_node_params *r = result;
-		if (d->seq == seq)
+		if (d->seq == seq) {
 			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+			if (d->cache)
+				pw_param_add(&impl->pending_list, r->id, r->param);
+		}
 		break;
 	}
 	default:
@@ -1066,28 +1101,75 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			   void *data)
 {
 	int res;
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	struct pw_impl_node *node = port->node;
-	struct result_port_params_data user_data = { data, callback, seq };
+	struct result_port_params_data user_data = { impl, data, callback, seq, false };
 	struct spa_hook listener;
+	struct spa_param_info *pi;
 	static const struct spa_node_events node_events = {
 		SPA_VERSION_NODE_EVENTS,
 		.result = result_port_params,
 	};
 
+	pi = pw_param_info_find(port->info.params, port->info.n_params, param_id);
+	if (pi == NULL)
+		return -ENOENT;
+
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u", port, param_id,
+	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u cached:%d", port, param_id,
 			spa_debug_type_find_name(spa_type_param, param_id),
-			index, max);
+			index, max, pi->user);
 
-	spa_zero(listener);
-	spa_node_add_listener(node->node, &listener, &node_events, &user_data);
-	res = spa_node_port_enum_params(node->node, seq,
-					port->direction, port->port_id,
-					param_id, index, max,
-					filter);
-	spa_hook_remove(&listener);
+	if (pi->user == 1) {
+		struct pw_param *p;
+		uint8_t buffer[1024];
+		struct spa_pod_builder b = { 0 };
+	        struct spa_result_node_params result;
+		uint32_t count = 0;
+		bool found = false;
+
+		result.id = param_id;
+		result.next = 0;
+
+		spa_list_for_each(p, &impl->param_list, link) {
+			result.index = result.next++;
+			if (p->id != param_id)
+				continue;
+
+			found = true;
+
+			if (result.index < index)
+				continue;
+
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
+				continue;
+
+			pw_log_debug(NAME " %p: %d param %u", port, seq, result.index);
+			result_port_params(&user_data, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+			if (++count == max)
+				break;
+		}
+		res = found ? 0 : -ENOENT;
+	} else {
+		user_data.cache = filter == NULL;
+
+		spa_zero(listener);
+		spa_node_add_listener(node->node, &listener, &node_events, &user_data);
+		res = spa_node_port_enum_params(node->node, seq,
+						port->direction, port->port_id,
+						param_id, index, max,
+						filter);
+		spa_hook_remove(&listener);
+
+		if (user_data.cache) {
+			pw_param_update(&impl->param_list, &impl->pending_list);
+			pi->user = 1;
+		}
+	}
 
 	pw_log_debug(NAME" %p: res %d: (%s)", port, res, spa_strerror(res));
 	return res;

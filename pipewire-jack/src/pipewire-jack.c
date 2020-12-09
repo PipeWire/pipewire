@@ -1294,6 +1294,7 @@ static int client_node_transport(void *object,
 					  true, on_rtsocket_condition, c);
 
 	c->has_transport = true;
+	c->position = &c->activation->position;
 	pw_thread_loop_signal(c->context.loop, false);
 
 	return 0;
@@ -3127,8 +3128,12 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
-	if (c->sample_rate == (uint32_t)-1)
-		return c->rt.position ? c->rt.position->clock.rate.denom : 0;
+	if (c->sample_rate == (uint32_t)-1) {
+		if (c->rt.position)
+			return c->rt.position->clock.rate.denom;
+		if (c->position)
+			return c->position->clock.rate.denom;
+	}
 	return c->sample_rate;
 }
 
@@ -3137,8 +3142,12 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	spa_return_val_if_fail(c != NULL, 0);
-	if (c->buffer_frames == (uint32_t)-1)
-		return c->rt.position ? c->rt.position->clock.duration : 0;
+	if (c->buffer_frames == (uint32_t)-1) {
+		if (c->rt.position)
+			return c->rt.position->clock.duration;
+		if (c->position)
+			return c->position->clock.duration;
+	}
 	return c->buffer_frames;
 }
 

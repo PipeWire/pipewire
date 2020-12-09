@@ -79,6 +79,8 @@ static const struct spa_type_info spa_type_node_command_id[] = {
 	{ SPA_NODE_COMMAND_Flush,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "Flush",   NULL },
 	{ SPA_NODE_COMMAND_Drain,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "Drain",   NULL },
 	{ SPA_NODE_COMMAND_Marker,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "Marker",  NULL },
+	{ SPA_NODE_COMMAND_ParamBegin,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "ParamBegin",  NULL },
+	{ SPA_NODE_COMMAND_ParamEnd,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "ParamEnd",  NULL },
 	{ 0, 0, NULL, NULL },
 };
 

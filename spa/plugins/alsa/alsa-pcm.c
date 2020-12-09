@@ -17,7 +17,7 @@
 
 #define CHECK(s,msg,...) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(err)); return err; }
 
-static int spa_alsa_open(struct state *state)
+int spa_alsa_open(struct state *state)
 {
 	int err;
 	struct props *props = &state->props;
@@ -28,7 +28,7 @@ static int spa_alsa_open(struct state *state)
 
 	CHECK(snd_output_stdio_attach(&state->output, stderr, 0), "attach failed");
 
-	spa_log_debug(state->log, NAME" %p: ALSA device open '%s' %s", state, props->device,
+	spa_log_info(state->log, NAME" %p: ALSA device open '%s' %s", state, props->device,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback");
 	CHECK(snd_pcm_open(&state->hndl,
 			   props->device,
@@ -73,7 +73,7 @@ int spa_alsa_close(struct state *state)
 	if (!state->opened)
 		return 0;
 
-	spa_log_debug(state->log, NAME" %p: Device '%s' closing", state, state->props.device);
+	spa_log_info(state->log, NAME" %p: Device '%s' closing", state, state->props.device);
 	if ((err = snd_pcm_close(state->hndl)) < 0)
 		spa_log_warn(state->log, "%s: close failed: %s", state->props.device,
 				snd_strerror(err));
@@ -539,6 +539,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");
 	CHECK(snd_pcm_hw_params_get_buffer_size_max(params, &state->buffer_frames), "get_buffer_size_max");
 	CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
+
 	state->period_frames = period_size;
 	periods = state->buffer_frames / state->period_frames;
 

@@ -57,7 +57,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 		return -EIO;
 	}
 
-	spa_log_debug(dev->log, "v4l2: Playback device is '%s'", path);
+	spa_log_info(dev->log, "v4l2: Playback device is '%s'", path);
 
 	dev->fd = open(path, O_RDWR | O_NONBLOCK, 0);
 	if (dev->fd == -1) {
@@ -110,7 +110,7 @@ int spa_v4l2_close(struct spa_v4l2_device *dev)
 	if (dev->active || dev->have_format)
 		return 0;
 
-	spa_log_debug(dev->log, "v4l2: close");
+	spa_log_info(dev->log, "v4l2: close");
 
 	if (close(dev->fd))
 		spa_log_warn(dev->log, "close: %m");

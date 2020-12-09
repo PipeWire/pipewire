@@ -46,9 +46,6 @@
 
 #define NAME "adapter"
 
-#define PORT_BUFFERS	1
-#define MAX_BUFFER_SIZE	2048
-
 struct buffer {
 	struct spa_buffer buf;
 	struct spa_data datas[1];

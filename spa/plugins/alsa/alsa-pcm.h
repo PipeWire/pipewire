@@ -45,6 +45,8 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 
+#include "dll.h"
+
 #define MIN_LATENCY	16
 #define MAX_LATENCY	8192
 
@@ -159,9 +161,7 @@ struct state {
 	uint64_t underrun;
 	double safety;
 
-	double bw;
-	double z1, z2, z3;
-	double w0, w1, w2;
+	struct spa_dll dll;
 };
 
 int

@@ -600,21 +600,6 @@ static int set_timeout(struct state *state, uint64_t time)
 	return 0;
 }
 
-static void init_loop(struct state *state)
-{
-	state->bw = 0.0;
-	state->z1 = state->z2 = state->z3 = 0.0;
-}
-
-static void set_loop(struct state *state, double bw)
-{
-	double w = 2 * M_PI * bw * state->threshold / state->rate;
-	state->w0 = 1.0 - exp (-20.0 * w);
-	state->w1 = w * 1.5 / state->threshold;
-	state->w2 = w / 1.5;
-	state->bw = bw;
-}
-
 static int alsa_recover(struct state *state, int err)
 {
 	int res, st;
@@ -666,7 +651,7 @@ recover:
 				state, snd_strerror(res));
 		return res;
 	}
-	init_loop(state);
+	spa_dll_init(&state->dll);
 	state->alsa_recovering = true;
 
 	if (state->stream == SND_PCM_STREAM_CAPTURE) {
@@ -740,16 +725,12 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	else
 		err = (target + 128) - delay;
 
-	if (SPA_UNLIKELY(state->bw == 0.0)) {
-		set_loop(state, BW_MAX);
+	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
+		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
 		state->next_time = nsec;
 		state->base_time = nsec;
 	}
-	state->z1 += state->w0 * (state->w1 * err - state->z1);
-	state->z2 += state->w0 * (state->z1 - state->z2);
-	state->z3 += state->w2 * state->z2;
-
-	corr = 1.0 - (state->z2 + state->z3);
+	corr = spa_dll_update(&state->dll, err);
 
 	if (SPA_UNLIKELY(state->last_threshold != state->threshold)) {
 		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
@@ -761,14 +742,12 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
 		state->base_time = state->next_time;
-		if (state->bw == BW_MAX)
-			set_loop(state, BW_MED);
-		else if (state->bw == BW_MED)
-			set_loop(state, BW_MIN);
+		if (state->dll.bw > SPA_DLL_BW_MIN)
+			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0, state->threshold, state->rate);
 
 		spa_log_debug(state->log, NAME" %p: follower:%d match:%d rate:%f bw:%f del:%d target:%ld err:%f (%f %f %f)",
-				state, follower, state->matching, corr, state->bw, state->delay, target,
-				err, state->z1, state->z2, state->z3);
+				state, follower, state->matching, corr, state->dll.bw, state->delay, target,
+				err, state->dll.z1, state->dll.z2, state->dll.z3);
 	}
 
 	if (state->rate_match) {
@@ -819,8 +798,8 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 
 		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
 			spa_log_warn(state->log, NAME" %p: follower delay:%ld resync %f %f %f",
-					state, delay, state->z1, state->z2, state->z3);
-			init_loop(state);
+					state, delay, state->dll.z1, state->dll.z2, state->dll.z3);
+			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
 		if (SPA_UNLIKELY(state->alsa_sync)) {
@@ -1051,8 +1030,8 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 
 		if (!state->alsa_recovering && (delay < target || delay > target * 2)) {
 			spa_log_warn(state->log, NAME" %p: follower delay:%lu target:%lu resync %f %f %f",
-					state, delay, target, state->z1, state->z2, state->z3);
-			init_loop(state);
+					state, delay, target, state->dll.z1, state->dll.z2, state->dll.z3);
+			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
 		if (state->alsa_sync) {
@@ -1282,7 +1261,7 @@ int spa_alsa_start(struct state *state)
 	state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	state->last_threshold = state->threshold;
 
-	init_loop(state);
+	spa_dll_init(&state->dll);
 	state->safety = 0.0;
 
 	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d follower:%d match:%d resample:%d",
@@ -1338,7 +1317,7 @@ static int do_reassign_follower(struct spa_loop *loop,
 {
 	struct state *state = user_data;
 	set_timers(state);
-	init_loop(state);
+	spa_dll_init(&state->dll);
 	return 0;
 }
 

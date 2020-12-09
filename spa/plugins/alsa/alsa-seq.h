@@ -45,6 +45,8 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 
+#include "dll.h"
+
 struct props {
 	char device[64];
 };
@@ -105,9 +107,6 @@ struct seq_conn {
 	struct spa_source source;
 };
 
-#define BW_MAX		0.128
-#define BW_MED		0.064
-#define BW_MIN		0.016
 #define BW_PERIOD	(3 * SPA_NSEC_PER_SEC)
 
 struct seq_state {
@@ -155,9 +154,7 @@ struct seq_state {
 
 	struct seq_stream streams[2];
 
-	double bw;
-	double z1, z2, z3;
-	double w0, w1, w2;
+	struct spa_dll dll;
 };
 
 #define VALID_DIRECTION(this,d)		((d) == SPA_DIRECTION_INPUT || (d) == SPA_DIRECTION_OUTPUT)

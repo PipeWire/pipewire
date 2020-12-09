@@ -39,6 +39,7 @@
 
 #define NAME "alsa-seq"
 
+#include "dll.h"
 #include "alsa-seq.h"
 
 #define CHECK(s,msg,...) if ((res = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(res)); return res; }
@@ -668,21 +669,6 @@ static int process_write(struct seq_state *state)
 	return res;
 }
 
-static void init_loop(struct seq_state *state)
-{
-	state->bw = 0.0;
-	state->z1 = state->z2 = state->z3 = 0.0;
-}
-
-static void set_loop(struct seq_state *state, double bw)
-{
-	double w = 2 * M_PI * bw * state->threshold * state->rate.num / state->rate.denom;
-	state->w0 = 1.0 - exp (-20.0 * w);
-	state->w1 = w * 1.5 / state->threshold;
-	state->w2 = w / 1.5;
-	state->bw = bw;
-}
-
 #define NSEC_TO_CLOCK(c,n) ((n) * (c)->rate.denom / ((c)->rate.num * SPA_NSEC_PER_SEC))
 
 static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
@@ -714,7 +700,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 		state->clock_base = position;
 	}
 
-	corr = 1.0 - (state->z2 + state->z3);
+	corr = 1.0 - (state->dll.z2 + state->dll.z3);
 
 	clock_elapsed = position - state->clock_base;
 	state->queue_time = nsec - state->queue_base;
@@ -722,26 +708,23 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 
 	err = ((int64_t)clock_elapsed - (int64_t) queue_elapsed);
 
-	if (state->bw == 0.0) {
-		set_loop(state, BW_MAX);
+	if (state->dll.bw == 0.0) {
+		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold,
+				state->rate.num / state->rate.denom);
 		state->next_time = nsec;
 		state->base_time = nsec;
 	}
-	state->z1 += state->w0 * (state->w1 * err - state->z1);
-	state->z2 += state->w0 * (state->z1 - state->z2);
-	state->z3 += state->w2 * state->z2;
-
-	corr = 1.0 - (state->z2 + state->z3);
+	corr = spa_dll_update(&state->dll, err);
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
-		if (state->bw == BW_MAX)
-			set_loop(state, BW_MED);
-		else if (state->bw == BW_MED)
-			set_loop(state, BW_MIN);
+		if (state->dll.bw > SPA_DLL_BW_MIN)
+			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0,
+					state->threshold, state->rate.num / state->rate.denom);
 
 		spa_log_debug(state->log, NAME" %p: follower:%d rate:%f bw:%f err:%f (%f %f %f)",
-				state, follower, corr, state->bw, err, state->z1, state->z2, state->z3);
+				state, follower, corr, state->dll.bw, err,
+				state->dll.z1, state->dll.z2, state->dll.z3);
 	}
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate.denom;
@@ -885,7 +868,7 @@ int spa_alsa_seq_start(struct seq_state *state)
 	spa_loop_add_source(state->data_loop, &state->source);
 
 	state->queue_base = 0;
-	init_loop(state);
+	spa_dll_init(&state->dll);
 	set_timers(state);
 
 	return 0;

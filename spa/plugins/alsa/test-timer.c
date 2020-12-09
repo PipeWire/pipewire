@@ -30,6 +30,8 @@
 
 #include <alsa/asoundlib.h>
 
+#include <dll.h>
+
 #define DEFAULT_DEVICE	"hw:0"
 
 #define M_PI_M2 (M_PI + M_PI)
@@ -37,8 +39,6 @@
 #define NSEC_PER_SEC	1000000000ll
 #define TIMESPEC_TO_NSEC(ts) ((ts)->tv_sec * NSEC_PER_SEC + (ts)->tv_nsec)
 
-#define BW_MAX		0.128
-#define BW_MIN		0.016
 #define BW_PERIOD	(NSEC_PER_SEC * 3)
 
 struct state {
@@ -54,33 +54,8 @@ struct state {
 	uint64_t next_time;
 	uint64_t prev_time;
 
-	double bw;
-	double z1, z2, z3;
-	double w0, w1, w2;
+	struct spa_dll dll;
 };
-
-static void dll_init(struct state *state)
-{
-        state->bw = 0.0;
-        state->z1 = state->z2 = state->z3 = 0.0;
-}
-
-static void dll_set_bw(struct state *state, double bw)
-{
-        double w = M_PI_M2 * bw * state->period / state->rate;
-        state->w0 = 1.0 - exp (-20.0 * w);
-        state->w1 = w * 1.5 / state->period;
-        state->w2 = w / 1.5;
-        state->bw = bw;
-}
-
-static double dll_update(struct state *state, double err)
-{
-	state->z1 += state->w0 * (state->w1 * err - state->z1);
-	state->z2 += state->w0 * (state->z1 - state->z2);
-	state->z3 += state->w2 * state->z2;
-	return 1.0 - (state->z2 + state->z3);
-}
 
 static int set_timeout(struct state *state, uint64_t time)
 {
@@ -138,8 +113,8 @@ static int on_timer_wakeup(struct state *state)
 	 * samples remaining in the device when we wakeup. */
 	error = (double)delay - (double)state->period;
 
-	/* update the dll with the error, this gives a rate corection */
-	corr = dll_update(state, error);
+	/* update the dll with the error, this gives a rate correction */
+	corr = spa_dll_update(&state->dll, error);
 
 	/* set our new adjusted timeout. alternatively, this value can
 	 * instead be used to drive a resampler if this device is
@@ -151,11 +126,12 @@ static int on_timer_wakeup(struct state *state)
 		state->prev_time = state->next_time;
 
 		/* reduce bandwidth and show some stats */
-		if (state->bw > BW_MIN)
-			dll_set_bw(state, state->bw / 2.0);
+		if (state->dll.bw > SPA_DLL_BW_MIN)
+			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0,
+					state->period, state->rate);
 
 		fprintf(stdout, "corr:%f error:%f bw:%f\n",
-				corr, error, state->bw);
+				corr, error, state->dll.bw);
 	}
 	/* pull in new samples write a new period */
 	write_period(state);
@@ -193,8 +169,8 @@ int main(int argc, char *argv[])
 			snd_pcm_format_name(SND_PCM_FORMAT_S32_LE),
 			state.rate, state.channels);
 
-	dll_init(&state);
-	dll_set_bw(&state, BW_MAX);
+	spa_dll_init(&state.dll);
+	spa_dll_set_bw(&state.dll, SPA_DLL_BW_MAX, state.period, state.rate);
 
 	if ((state.timerfd = timerfd_create(CLOCK_MONOTONIC, 0)) < 0)
 		perror("timerfd");

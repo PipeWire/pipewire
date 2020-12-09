@@ -201,6 +201,7 @@ static int codec_enum_config(const struct a2dp_codec *codec,
         struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
 	uint32_t i = 0;
+	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
@@ -252,12 +253,20 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, 2),
 				0);
 	} else if (conf.channel_mode & SBC_CHANNEL_MODE_MONO) {
+		position[0] = SPA_AUDIO_CHANNEL_MONO;
 		spa_pod_builder_add(b,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
+				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
+					SPA_TYPE_Id, 1, position),
 				0);
 	} else {
+		position[0] = SPA_AUDIO_CHANNEL_FL;
+		position[1] = SPA_AUDIO_CHANNEL_FR;
 		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(2), 0);
+				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(2),
+				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
+					SPA_TYPE_Id, 2, position),
+				0);
 	}
 	*param = spa_pod_builder_pop(b, &f[0]);
 	return 1;

@@ -219,6 +219,8 @@ struct spa_audio_info_raw {
 
 #define SPA_AUDIO_INFO_RAW_INIT(...)		(struct spa_audio_info_raw) { __VA_ARGS__ }
 
+#define SPA_KEY_AUDIO_FORMAT		"audio.format"		/**< an audio format as string,
+								  *  Ex. "S16LE" */
 #define SPA_KEY_AUDIO_CHANNEL		"audio.channel"		/**< an audio channel as string,
 								  *  Ex. "FL" */
 #define SPA_KEY_AUDIO_CHANNELS		"audio.channels"	/**< an audio channel count as int */

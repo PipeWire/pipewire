@@ -42,6 +42,7 @@ extern "C" {
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
+#include <spa/debug/types.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 
@@ -105,6 +106,7 @@ struct state {
 	bool have_format;
 	struct spa_audio_info current_format;
 
+	uint32_t default_format;
 	unsigned int default_channels;
 	unsigned int default_rate;
 
@@ -181,6 +183,16 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence);
 int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence);
 
 void spa_alsa_recycle_buffer(struct state *state, uint32_t buffer_id);
+
+static inline uint32_t spa_alsa_format_from_name(const char *name, size_t len)
+{
+	int i;
+	for (i = 0; spa_type_audio_format[i].name; i++) {
+		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_format[i].name), len) == 0)
+			return spa_type_audio_format[i].type;
+	}
+	return SPA_AUDIO_FORMAT_UNKNOWN;
+}
 
 #ifdef __cplusplus
 } /* extern "C" */

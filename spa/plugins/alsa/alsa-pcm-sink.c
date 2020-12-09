@@ -781,6 +781,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->default_channels = atoi(info->items[i].value);
 		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_RATE)) {
 			this->default_rate = atoi(info->items[i].value);
+		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_FORMAT)) {
+			this->default_format = spa_alsa_format_from_name(info->items[i].value, 128);
 		}
 	}
 

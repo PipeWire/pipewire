@@ -515,6 +515,7 @@ again:
 		spa_log_trace(this->log, NAME" %p: delay flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
 			this->codec->reduce_bitpool(this->codec_data);
+			this->num_blocks = this->codec->get_num_blocks(this->codec_data);
 			this->last_error = now_time;
 		}
 		enable_flush(this, true);
@@ -527,6 +528,7 @@ again:
 	else if (written > 0) {
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
 			this->codec->increase_bitpool(this->codec_data);
+			this->num_blocks = this->codec->get_num_blocks(this->codec_data);
 			this->last_error = now_time;
 		}
 		if (!spa_list_is_empty(&port->ready))

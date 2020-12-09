@@ -116,6 +116,7 @@ static int codec_enum_config(const struct a2dp_codec *codec,
         struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
 	uint32_t i = 0;
+	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
@@ -169,28 +170,55 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, 2),
 				0);
 	} else if (conf.channel_mode & LDACBT_CHANNEL_MODE_MONO) {
+		position[0] = SPA_AUDIO_CHANNEL_MONO;
 		spa_pod_builder_add(b,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
+				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
+					SPA_TYPE_Id, 1, position),
 				0);
 	} else {
+		position[0] = SPA_AUDIO_CHANNEL_FL;
+		position[1] = SPA_AUDIO_CHANNEL_FR;
 		spa_pod_builder_add(b,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(2),
+				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
+					SPA_TYPE_Id, 2, position),
 				0);
 	}
 	*param = spa_pod_builder_pop(b, &f[0]);
 	return 1;
 }
 
+static int get_frame_length(struct impl *this)
+{
+	this->eqmid = ldacBT_get_eqmid(this->ldac);
+	switch (this->eqmid) {
+	case LDACBT_EQMID_HQ:
+		return 330;
+	case LDACBT_EQMID_SQ:
+		return 220;
+	case LDACBT_EQMID_MQ:
+		return 110;
+	}
+	return -EINVAL;
+}
+
 static int codec_reduce_bitpool(void *data)
 {
 	struct impl *this = data;
-	return ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_CONNECTION);
+	int res;
+	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_CONNECTION);
+	this->frame_length = get_frame_length(this);
+	return res;
 }
 
 static int codec_increase_bitpool(void *data)
 {
 	struct impl *this = data;
-	return ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_QUALITY);
+	int res;
+	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_QUALITY);
+	this->frame_length = get_frame_length(this);
+	return res;
 }
 
 static int codec_get_num_blocks(void *data)
@@ -274,21 +302,6 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	}
 	this->channel_mode = conf->channel_mode;
 
-	switch (this->eqmid) {
-	case LDACBT_EQMID_HQ:
-		this->frame_length = 330;
-		break;
-	case LDACBT_EQMID_SQ:
-		this->frame_length = 220;
-		break;
-	case LDACBT_EQMID_MQ:
-		this->frame_length = 110;
-		break;
-	default:
-		res = -EINVAL;
-		goto error;
-	}
-
 	res = ldacBT_init_handle_encode(this->ldac,
 			this->mtu,
 			this->eqmid,
@@ -298,6 +311,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	if (res < 0)
 		goto error;
 
+	this->frame_length = get_frame_length(this);
 	this->codesize = this->lsu * info->info.raw.channels * 2;
 
 	return this;

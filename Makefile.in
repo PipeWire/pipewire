@@ -15,7 +15,7 @@ run: all
 	PIPEWIRE_MODULE_DIR=@BUILD_ROOT@/src/modules/ \
 	PATH=@BUILD_ROOT@/src/examples:$(PATH) \
 	PIPEWIRE_CONFIG_FILE=@BUILD_ROOT@/src/daemon/pipewire-uninstalled.conf \
-	PIPEWIRE_CONFIG_DIR=@BUILD_ROOT@/src/daemon/ \
+	PIPEWIRE_CONFIG_DIR=@SOURCE_ROOT@/src/daemon/ \
 	ACP_PATHS_DIR=@SOURCE_ROOT@/spa/plugins/alsa/mixer/paths \
 	ACP_PROFILES_DIR=@SOURCE_ROOT@/spa/plugins/alsa/mixer/profile-sets \
 	$(DBG) @BUILD_ROOT@/src/daemon/pipewire

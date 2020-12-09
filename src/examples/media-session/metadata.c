@@ -192,8 +192,8 @@ static int impl_set_property(void *object,
 	item = find_item(this, subject, key);
 	if (value == NULL) {
 		if (item != NULL) {
-			pw_array_remove(&this->metadata, item);
 			clear_item(item);
+			pw_array_remove(&this->metadata, item);
 			type = NULL;
 			changed++;
 			pw_log_info(NAME" %p: remove id:%d key:%s", this,

@@ -42,7 +42,7 @@ SPA_LOG_IMPL(logger);
 
 extern const struct spa_handle_factory test_source_factory;
 
-#define MAX_PORTS 128
+#define MAX_PORTS SPA_AUDIO_MAX_CHANNELS
 
 struct context {
 	struct spa_handle *convert_handle;
@@ -114,8 +114,8 @@ static void node_info_check(void *data, const struct spa_node_info *info)
 			info->max_input_ports,
 			info->max_output_ports);
 
-	spa_assert(info->max_input_ports == 128);
-	spa_assert(info->max_output_ports == 128);
+	spa_assert(info->max_input_ports == MAX_PORTS);
+	spa_assert(info->max_output_ports == MAX_PORTS);
 
 	ctx->got_node_info = true;
 }

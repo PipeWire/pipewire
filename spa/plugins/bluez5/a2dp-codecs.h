@@ -336,7 +336,7 @@ struct a2dp_codec {
 			struct spa_pod_builder *builder, struct spa_pod **param);
 
 	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
-			struct spa_audio_info *info, size_t mtu);
+			const struct spa_audio_info *info, size_t mtu);
 	void (*deinit) (void *data);
 
 	int (*get_block_size) (void *data);

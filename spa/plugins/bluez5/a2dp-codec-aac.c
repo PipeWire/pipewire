@@ -140,7 +140,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 }
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
-		void *config, size_t config_len, struct spa_audio_info *info, size_t mtu)
+		void *config, size_t config_len, const struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
 	int res;
@@ -150,10 +150,6 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		res = -errno;
 		goto error;
 	}
-
-	spa_zero(*info);
-	info->media_type = SPA_MEDIA_TYPE_audio;
-	info->media_subtype = SPA_MEDIA_SUBTYPE_aac;
 	this->mtu = mtu;
 
 	return this;

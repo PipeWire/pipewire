@@ -45,10 +45,8 @@ struct impl {
 
 	int mtu;
 	int eqmid;
-	int channel_mode;
 	int frequency;
 	int fmt;
-	int lsu;
 	int codesize;
 	int frame_length;
 };
@@ -130,7 +128,12 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 	spa_pod_builder_add(b,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_S16),
+			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(5,
+								SPA_AUDIO_FORMAT_F32,
+								SPA_AUDIO_FORMAT_F32,
+								SPA_AUDIO_FORMAT_S32,
+								SPA_AUDIO_FORMAT_S24,
+								SPA_AUDIO_FORMAT_S16),
 			0);
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
 
@@ -240,7 +243,7 @@ static int codec_get_block_size(void *data)
 }
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
-		void *config, size_t config_len, struct spa_audio_info *info, size_t mtu)
+		void *config, size_t config_len, const struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
 	a2dp_ldac_t *conf = config;
@@ -255,64 +258,56 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		goto error_errno;
 
 	this->eqmid = LDACBT_EQMID_SQ;
+	this->mtu = mtu;
+	this->frequency = info->info.raw.rate;
+	this->codesize = info->info.raw.channels;
 
-	spa_zero(*info);
-	info->media_type = SPA_MEDIA_TYPE_audio;
-	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
-	this->fmt = LDACBT_SMPL_FMT_S16;
-	this->mtu =mtu;
+	switch (info->info.raw.format) {
+	case SPA_AUDIO_FORMAT_F32:
+		this->fmt = LDACBT_SMPL_FMT_F32;
+		this->codesize *= 4;
+		break;
+	case SPA_AUDIO_FORMAT_S32:
+		this->fmt = LDACBT_SMPL_FMT_S32;
+		this->codesize *= 4;
+		break;
+	case SPA_AUDIO_FORMAT_S24:
+		this->fmt = LDACBT_SMPL_FMT_S24;
+		this->codesize *= 3;
+		break;
+	case SPA_AUDIO_FORMAT_S16:
+		this->fmt = LDACBT_SMPL_FMT_S16;
+		this->codesize *= 2;
+		break;
+	default:
+		res = -EINVAL;
+		goto error;
+	}
 
 	switch(conf->frequency) {
 	case LDACBT_SAMPLING_FREQ_044100:
-		info->info.raw.rate = 44100;
-		this->lsu = 128;
-		break;
 	case LDACBT_SAMPLING_FREQ_048000:
-		info->info.raw.rate = 48000;
-		this->lsu = 128;
+		this->codesize *= 128;
 		break;
 	case LDACBT_SAMPLING_FREQ_088200:
-		info->info.raw.rate = 88200;
-		this->lsu = 256;
-		break;
 	case LDACBT_SAMPLING_FREQ_096000:
-		info->info.raw.rate = 96000;
-		this->lsu = 256;
+		this->codesize *= 256;
 		break;
 	default:
 		res = -EINVAL;
 		goto error;
 	}
-	this->frequency = info->info.raw.rate;
-
-	switch(conf->channel_mode) {
-	case LDACBT_CHANNEL_MODE_STEREO:
-		info->info.raw.channels = 2;
-		break;
-	case LDACBT_CHANNEL_MODE_DUAL_CHANNEL:
-		info->info.raw.channels = 2;
-		break;
-	case LDACBT_CHANNEL_MODE_MONO:
-		info->info.raw.channels = 1;
-		break;
-	default:
-		res = -EINVAL;
-		goto error;
-	}
-	this->channel_mode = conf->channel_mode;
 
 	res = ldacBT_init_handle_encode(this->ldac,
 			this->mtu,
 			this->eqmid,
-			this->channel_mode,
+			conf->channel_mode,
 			this->fmt,
 			this->frequency);
 	if (res < 0)
 		goto error;
 
 	this->frame_length = get_frame_length(this);
-	this->codesize = this->lsu * info->info.raw.channels * 2;
 
 	return this;
 

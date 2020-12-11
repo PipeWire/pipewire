@@ -303,7 +303,7 @@ static int codec_get_block_size(void *data)
 }
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
-		void *config, size_t config_len, struct spa_audio_info *info, size_t mtu)
+		void *config, size_t config_len, const struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
 	a2dp_sbc_t *conf = config;
@@ -319,27 +319,25 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	this->sbc.endian = SBC_LE;
 	this->mtu = mtu;
 
-	spa_zero(*info);
-	info->media_type = SPA_MEDIA_TYPE_audio;
-	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
+	if (info->media_type != SPA_MEDIA_TYPE_audio ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    info->info.raw.format != SPA_AUDIO_FORMAT_S16) {
+		res = -EINVAL;
+		goto error;
+	}
 
 	switch (conf->frequency) {
 	case SBC_SAMPLING_FREQ_16000:
 		this->sbc.frequency = SBC_FREQ_16000;
-                info->info.raw.rate = 16000;
 		break;
 	case SBC_SAMPLING_FREQ_32000:
 		this->sbc.frequency = SBC_FREQ_32000;
-                info->info.raw.rate = 32000;
 		break;
 	case SBC_SAMPLING_FREQ_44100:
 		this->sbc.frequency = SBC_FREQ_44100;
-                info->info.raw.rate = 44100;
 		break;
 	case SBC_SAMPLING_FREQ_48000:
 		this->sbc.frequency = SBC_FREQ_48000;
-                info->info.raw.rate = 48000;
 		break;
 	default:
 		res = -EINVAL;
@@ -349,34 +347,20 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	switch (conf->channel_mode) {
 	case SBC_CHANNEL_MODE_MONO:
 		this->sbc.mode = SBC_MODE_MONO;
-                info->info.raw.channels = 1;
                 break;
 	case SBC_CHANNEL_MODE_DUAL_CHANNEL:
 		this->sbc.mode = SBC_MODE_DUAL_CHANNEL;
-                info->info.raw.channels = 2;
 		break;
 	case SBC_CHANNEL_MODE_STEREO:
 		this->sbc.mode = SBC_MODE_STEREO;
-                info->info.raw.channels = 2;
 		break;
 	case SBC_CHANNEL_MODE_JOINT_STEREO:
 		this->sbc.mode = SBC_MODE_JOINT_STEREO;
-                info->info.raw.channels = 2;
                 break;
 	default:
 		res = -EINVAL;
                 goto error;
         }
-
-	switch (info->info.raw.channels) {
-	case 1:
-		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_MONO;
-		break;
-	case 2:
-		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
-		info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
-		break;
-	}
 
 	switch (conf->subbands) {
 	case SBC_SUBBANDS_4:

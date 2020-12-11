@@ -202,10 +202,9 @@ static int codec_get_block_size(void *data)
 }
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
-		void *config, size_t config_len, struct spa_audio_info *info, size_t mtu)
+		void *config, size_t config_len, const struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
-	a2dp_aptx_t *conf = config;
 	int res, hd;
 
 	if ((this = calloc(1, sizeof(struct impl))) == NULL)
@@ -218,54 +217,12 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 
 	this->mtu = mtu;
 
-	spa_zero(*info);
-	info->media_type = SPA_MEDIA_TYPE_audio;
-	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
-
-	switch (conf->frequency) {
-	case APTX_SAMPLING_FREQ_16000:
-                info->info.raw.rate = 16000;
-		break;
-	case APTX_SAMPLING_FREQ_32000:
-                info->info.raw.rate = 32000;
-		break;
-	case APTX_SAMPLING_FREQ_44100:
-                info->info.raw.rate = 44100;
-		break;
-	case APTX_SAMPLING_FREQ_48000:
-                info->info.raw.rate = 48000;
-		break;
-	default:
+	if (info->media_type != SPA_MEDIA_TYPE_audio ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    info->info.raw.format != SPA_AUDIO_FORMAT_S16) {
 		res = -EINVAL;
-                goto error;
-        }
-
-	switch (conf->channel_mode) {
-	case APTX_CHANNEL_MODE_MONO:
-                info->info.raw.channels = 1;
-                break;
-	case APTX_CHANNEL_MODE_STEREO:
-                info->info.raw.channels = 2;
-		break;
-	default:
-		res = -EINVAL;
-                goto error;
-        }
-
-	switch (info->info.raw.channels) {
-	case 1:
-		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_MONO;
-		break;
-	case 2:
-		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
-		info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
-		break;
-	default:
-		res = -EINVAL;
-                goto error;
+		goto error;
 	}
-
 	this->frame_length = hd ? 6 : 4;
 	this->codesize = 4 * 3 * 2;
 
@@ -275,6 +232,8 @@ error_errno:
 	res = -errno;
 	goto error;
 error:
+	if (this->aptx)
+		aptx_finish(this->aptx);
 	free(this);
 	errno = -res;
 	return NULL;

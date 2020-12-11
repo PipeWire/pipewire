@@ -467,7 +467,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	struct spa_audio_info_raw *info = &fmt->info.raw;
 	snd_pcm_t *hndl;
 	unsigned int periods;
-	bool match = true, planar;
+	bool match = true, planar, is_batch;
 
 	if ((err = spa_alsa_open(state)) < 0)
 		return err;
@@ -538,11 +538,32 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	dir = 0;
 	period_size = 1024;
+	is_batch = snd_pcm_hw_params_is_batch(params);
+	if (is_batch) {
+		const char *id;
+		snd_pcm_info_t* pcm_info;
+		snd_pcm_info_alloca(&pcm_info);
+		if (snd_pcm_info(hndl, pcm_info) == 0 &&
+		    (id = snd_pcm_info_get_id(pcm_info)) != NULL) {
+			/* usb devices have low enough transfer size */
+			if (strcmp(id, "USB Audio") == 0)
+				is_batch = false;
+		}
+	}
+	if (is_batch) {
+		/* batch devices get their hw pointers updated every period. Make
+		 * the period smaller and add one period of headroom */
+		period_size /= 2;
+		spa_log_info(state->log, NAME" %s: batch mode, period_size:%ld headroom:%u",
+				state->props.device, period_size, state->headroom);
+	}
+
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");
 	CHECK(snd_pcm_hw_params_get_buffer_size_max(params, &state->buffer_frames), "get_buffer_size_max");
 	CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
 
 	state->period_frames = period_size;
+	state->headroom = is_batch ? period_size : 0;
 	periods = state->buffer_frames / state->period_frames;
 
 	spa_log_info(state->log, NAME" %s (%s): format:%s %s rate:%d channels:%d "
@@ -689,7 +710,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	}
 
 
-	*target = state->last_threshold;
+	*target = state->last_threshold + state->headroom;
 
 #define MARGIN 48
 	if (state->resample && state->rate_match) {
@@ -748,8 +769,10 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		if (state->dll.bw > SPA_DLL_BW_MIN)
 			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0, state->threshold, state->rate);
 
-		spa_log_debug(state->log, NAME" %p: follower:%d match:%d rate:%f bw:%f del:%d target:%ld err:%f (%f %f %f)",
-				state, follower, state->matching, corr, state->dll.bw, state->delay, target,
+		spa_log_debug(state->log, NAME" %p: follower:%d match:%d rate:%f "
+				"bw:%f thr:%d del:%ld target:%ld err:%f (%f %f %f)",
+				state, follower, state->matching, corr, state->dll.bw,
+				state->threshold, delay, target,
 				err, state->dll.z1, state->dll.z2, state->dll.z3);
 	}
 

@@ -142,6 +142,7 @@ struct state {
 	int timerfd;
 	uint32_t threshold;
 	uint32_t last_threshold;
+	uint32_t headroom;
 
 	uint32_t duration;
 	uint32_t last_duration;

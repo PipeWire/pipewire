@@ -138,7 +138,7 @@ struct impl {
 	uint16_t seqnum;
 	uint32_t timestamp;
 	uint64_t sample_count;
-	uint8_t tmp_buffer[512];
+	uint8_t tmp_buffer[4096];
 	uint32_t tmp_buffer_used;
 };
 
@@ -639,6 +639,11 @@ static int do_start(struct impl *this)
 
 	this->block_size = this->codec->get_block_size(this->codec_data);
 	this->num_blocks = this->codec->get_num_blocks(this->codec_data);
+	if (this->block_size > sizeof(this->tmp_buffer)) {
+		spa_log_error(this->log, "block-size %d > %zu",
+				this->block_size, sizeof(this->tmp_buffer));
+		return -EIO;
+	}
 
         spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
 			this->block_size, this->num_blocks);

@@ -4756,6 +4756,9 @@ static int handle_memblock(struct client *client, struct message *msg)
 			" flags:%08x size:%u", impl, channel, offset,
 			flags, msg->length);
 
+	if (flags != 0)
+		pw_log_warn(NAME" %p: unhandled seek flags:%02x", impl, flags);
+
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_RECORD) {
 		res = -EINVAL;

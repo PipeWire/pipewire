@@ -70,8 +70,8 @@ const struct a2dp_codec *a2dp_codec_list[] = {
 	&a2dp_codec_ldac,
 #endif
 #if ENABLE_APTX
-	&a2dp_codec_aptx,
 	&a2dp_codec_aptx_hd,
+	&a2dp_codec_aptx,
 #endif
 #if ENABLE_AAC
 	&a2dp_codec_aac,

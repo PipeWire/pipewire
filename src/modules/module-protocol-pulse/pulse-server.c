@@ -1256,7 +1256,7 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	}
 	buffers = SPA_CLAMP(maxsize / size, MIN_BUFFERS, MAX_BUFFERS);
 
-	pw_log_debug("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
+	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
 			size, buffers);
 
 	param = spa_pod_builder_add_object(b,
@@ -4166,7 +4166,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%u rate:%u", impl, client->name,
+	pw_log_warn(NAME" %p: [%s] %s tag:%u channel:%u rate:%u", impl, client->name,
 			commands[command].name, tag, channel, rate);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -4758,6 +4758,8 @@ static int handle_memblock(struct client *client, struct message *msg)
 
 	if (flags != 0)
 		pw_log_warn(NAME" %p: unhandled seek flags:%02x", impl, flags);
+	if (offset != 0)
+		pw_log_warn(NAME" %p: unhandled offset:%08"PRIx64, impl, offset);
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_RECORD) {

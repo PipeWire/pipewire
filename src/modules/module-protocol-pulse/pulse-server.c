@@ -1452,6 +1452,7 @@ static void stream_process(void *data)
 				avail = stream->attr.maxlength;
 			}
 			size = SPA_MIN(buf->datas[0].maxsize, (uint32_t)avail);
+			size = SPA_MIN(size, stream->attr.minreq);
 
 			spa_ringbuffer_read_data(&stream->ring,
 					stream->buffer, stream->attr.maxlength,

@@ -219,7 +219,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 
 	if (info->media_type != SPA_MEDIA_TYPE_audio ||
 	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    info->info.raw.format != SPA_AUDIO_FORMAT_S16) {
+	    info->info.raw.format != SPA_AUDIO_FORMAT_S24) {
 		res = -EINVAL;
 		goto error;
 	}

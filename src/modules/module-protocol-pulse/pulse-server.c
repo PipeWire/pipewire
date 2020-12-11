@@ -183,6 +183,7 @@ struct stream {
 	struct channel_map map;
 	struct buffer_attr attr;
 	uint32_t frame_size;
+	uint32_t minblock;
 
 	struct volume volume;
 	bool muted;
@@ -998,9 +999,9 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	s->missing = attr->tlength;
 	attr->fragsize = 0;
 
-	pw_log_info(NAME" %p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
+	pw_log_info(NAME" %p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u minblock:%u", s,
 			s->client->name, attr->maxlength, attr->tlength,
-			attr->minreq, attr->prebuf);
+			attr->minreq, attr->prebuf, s->minblock);
 }
 
 static int reply_create_playback_stream(struct stream *stream)
@@ -1294,6 +1295,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		pw_stream_set_error(stream->stream, res, "format not supported");
 		return;
 	}
+	stream->minblock = MIN_BLOCK * stream->frame_size;
 
 	if (stream->create_tag != SPA_ID_INVALID) {
 		stream->id = pw_stream_get_node_id(stream->stream);
@@ -1412,7 +1414,7 @@ static void stream_process(void *data)
 	void *p;
 	struct pw_buffer *buffer;
 	struct spa_buffer *buf;
-	uint32_t size;
+	uint32_t size, minreq;
 	struct process_data pd;
 
 	pw_log_trace(NAME" %p: process", stream);
@@ -1429,9 +1431,10 @@ static void stream_process(void *data)
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
+		minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
 		if (avail <= 0) {
 			/* underrun, produce a silence buffer */
-			size = SPA_MIN(buf->datas[0].maxsize, stream->attr.minreq);
+			size = SPA_MIN(buf->datas[0].maxsize, minreq);
 			memset(p, 0, size);
 
 			if (stream->draining) {
@@ -1452,7 +1455,7 @@ static void stream_process(void *data)
 				avail = stream->attr.maxlength;
 			}
 			size = SPA_MIN(buf->datas[0].maxsize, (uint32_t)avail);
-			size = SPA_MIN(size, stream->attr.minreq);
+			size = SPA_MIN(size, minreq);
 
 			spa_ringbuffer_read_data(&stream->ring,
 					stream->buffer, stream->attr.maxlength,

@@ -239,10 +239,10 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, str);
 
-	if ((str = udev_device_get_property_value(dev, "PULSE_NAME")) && *str)
+	if ((str = udev_device_get_property_value(dev, "ACP_NAME")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, str);
 
-	if ((str = udev_device_get_property_value(dev, "PULSE_PROFILE_SET")) && *str)
+	if ((str = udev_device_get_property_value(dev, "ACP_PROFILE_SET")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PROFILE_SET, str);
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str)
@@ -322,7 +322,7 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t acti
 	const char *str;
 	uint32_t idx, i, found = SPA_ID_INVALID;
 
-	if (udev_device_get_property_value(dev, "PULSE_IGNORE"))
+	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
 		return 0;
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && strcmp(str, "modem") == 0)

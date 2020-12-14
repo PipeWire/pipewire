@@ -99,6 +99,7 @@ spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		spa_debug("%*s" "Array: child.size %d, child.type %s", indent, "",
 		       b->child.size, ti ? ti->name : "unknown");
 
+		info = info && info->values ? info->values : info;
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
 			spa_debug_pod_value(indent + 2, info, b->child.type, p, b->child.size);
 		break;

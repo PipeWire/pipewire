@@ -338,6 +338,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 	{
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		void *p;
+		info = info && info->values ? info->values: info;
 		put_begin(d, "[", FLAG_SIMPLE);
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
 			put_pod_value(d, info, b->child.type, p, b->child.size);

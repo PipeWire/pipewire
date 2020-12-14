@@ -947,7 +947,7 @@ static int impl_node_process(void *object)
 			outio->status = -EPIPE;
           empty:
 			spa_log_trace_fp(this->log, NAME" %p: %d skip output", this, i);
-			dst_datas[n_dst_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+			tmp[n_dst_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 			continue;
 		}
 

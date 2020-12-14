@@ -465,11 +465,34 @@ static void put_params(struct data *d, const char *key,
 	put_end(d, "}", 0);
 }
 
+struct change_mask_info {
+	const char *name;
+	uint64_t mask;
+};
+
+static void put_change_mask(struct data *d, const char *key,
+		uint64_t change_mask, struct change_mask_info *info)
+{
+	uint32_t i;
+	if (key)
+		put_key(d, key);
+	put_begin(d, "[", FLAG_SIMPLE);
+	for (i = 0; info[i].name != NULL; i++) {
+		if (info[i].mask & change_mask)
+			put_string(d, NULL, info[i].name);
+	}
+	put_end(d, "]", FLAG_SIMPLE);
+}
+
 /* core */
 static void core_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_core_info *i = d->info;
+	struct change_mask_info cm[] = {
+		{ "props", PW_CORE_CHANGE_MASK_PROPS },
+		{ NULL, 0 },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
 	put_int(d, "cookie", i->cookie);
@@ -478,11 +501,7 @@ static void core_dump(struct object *o)
 	put_value(d, "version", i->version);
 	put_value(d, "name", i->name);
 	put_value(d, "name", i->name);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_CORE_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -498,13 +517,13 @@ static void client_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_client_info *i = o->info;
+	struct change_mask_info cm[] = {
+		{ "props", PW_CLIENT_CHANGE_MASK_PROPS },
+		{ NULL, 0 },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -553,16 +572,16 @@ static void module_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_module_info *i = o->info;
+	struct change_mask_info cm[] = {
+		{ "props", PW_MODULE_CHANGE_MASK_PROPS },
+		{ NULL, 0 },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
 	put_value(d, "name", i->name);
 	put_value(d, "filename", i->filename);
 	put_value(d, "args", i->args);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_MODULE_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -611,16 +630,16 @@ static void factory_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_factory_info *i = o->info;
+	struct change_mask_info cm[] = {
+		{ "props", PW_FACTORY_CHANGE_MASK_PROPS },
+		{ NULL, 0 },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
 	put_value(d, "name", i->name);
 	put_value(d, "type", i->type);
 	put_int(d, "version", i->version);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_FACTORY_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -669,15 +688,14 @@ static void device_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_device_info *i = o->info;
+	struct change_mask_info cm[] = {
+		{ "props", PW_DEVICE_CHANGE_MASK_PROPS },
+		{ "params", PW_DEVICE_CHANGE_MASK_PARAMS },
+		{ NULL, 0 },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	if (i->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS)
-		put_string(d, NULL, "params");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
 	put_end(d, "}", 0);
@@ -753,23 +771,19 @@ static void node_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_node_info *i = o->info;
+	struct change_mask_info cm[] = {
+		{ "input-ports", PW_NODE_CHANGE_MASK_INPUT_PORTS },
+		{ "output-ports", PW_NODE_CHANGE_MASK_OUTPUT_PORTS },
+		{ "state", PW_NODE_CHANGE_MASK_STATE },
+		{ "props", PW_NODE_CHANGE_MASK_PROPS },
+		{ "params", PW_NODE_CHANGE_MASK_PARAMS },
+		{ NULL, 0 },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
 	put_int(d, "max-input-ports", i->max_input_ports);
 	put_int(d, "max-output-ports", i->max_output_ports);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS)
-		put_string(d, NULL, "input-ports");
-	if (i->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS)
-		put_string(d, NULL, "output-ports");
-	if (i->change_mask & PW_NODE_CHANGE_MASK_STATE)
-		put_string(d, NULL, "state");
-	if (i->change_mask & PW_NODE_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	if (i->change_mask & PW_NODE_CHANGE_MASK_PARAMS)
-		put_string(d, NULL, "params");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_int(d, "n-input-ports", i->n_input_ports);
 	put_int(d, "n-output-ports", i->n_output_ports);
 	put_value(d, "state", pw_node_state_as_string(i->state));
@@ -852,16 +866,15 @@ static void port_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_port_info *i = o->info;
+	struct change_mask_info cm[] = {
+		{ "props", PW_PORT_CHANGE_MASK_PROPS },
+		{ "params", PW_PORT_CHANGE_MASK_PARAMS },
+		{ NULL, },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
 	put_value(d, "direction", pw_direction_as_string(i->direction));
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_PORT_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	if (i->change_mask & PW_PORT_CHANGE_MASK_PARAMS)
-		put_string(d, NULL, "params");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
 	put_end(d, "}", 0);
@@ -937,23 +950,19 @@ static void link_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_link_info *i = o->info;
-	if (i == NULL)
-		return;
+	struct change_mask_info cm[] = {
+		{ "state", PW_LINK_CHANGE_MASK_STATE },
+		{ "format", PW_LINK_CHANGE_MASK_FORMAT },
+		{ "props", PW_LINK_CHANGE_MASK_PROPS },
+		{ NULL, },
+	};
 	put_key(d, "info");
 	put_begin(d, "{", 0);
 	put_int(d, "output-node-id", i->output_node_id);
 	put_int(d, "output-port-id", i->output_port_id);
 	put_int(d, "input-node-id", i->input_node_id);
 	put_int(d, "input-port-id", i->input_port_id);
-	put_key(d, "change-mask");
-	put_begin(d, "[", FLAG_SIMPLE);
-	if (i->change_mask & PW_LINK_CHANGE_MASK_STATE)
-		put_string(d, NULL, "state");
-	if (i->change_mask & PW_LINK_CHANGE_MASK_FORMAT)
-		put_string(d, NULL, "format");
-	if (i->change_mask & PW_LINK_CHANGE_MASK_PROPS)
-		put_string(d, NULL, "props");
-	put_end(d, "]", FLAG_SIMPLE);
+	put_change_mask(d, "change-mask", i->change_mask, cm);
 	put_value(d, "state", pw_link_state_as_string(i->state));
 	put_value(d, "error", i->error);
 	put_key(d, "format");

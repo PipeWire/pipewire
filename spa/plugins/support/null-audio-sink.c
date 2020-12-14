@@ -242,8 +242,7 @@ static void on_timeout(struct spa_source *source)
 		this->clock->next_nsec = this->next_time;
 	}
 
-	spa_node_call_ready(&this->callbacks,
-			SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA);
+	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 
 	set_timer(this, this->next_time);
 }
@@ -659,7 +658,7 @@ static int impl_node_process(void *object)
 		io->status = -EINVAL;
 		return io->status;
 	}
-	io->status = SPA_STATUS_NEED_DATA;
+	io->status = SPA_STATUS_OK;
 	return SPA_STATUS_HAVE_DATA;
 }
 

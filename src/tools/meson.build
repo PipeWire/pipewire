@@ -17,6 +17,13 @@ executable('pw-dot',
 	dependencies : [pipewire_dep],
 )
 
+executable('pw-dump',
+	'pw-dump.c',
+	c_args : [ '-D_GNU_SOURCE' ],
+	install: true,
+	dependencies : [pipewire_dep],
+)
+
 executable('pw-profiler',
 	'pw-profiler.c',
 	c_args : [ '-D_GNU_SOURCE' ],

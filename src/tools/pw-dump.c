@@ -31,9 +31,9 @@
 #include <math.h>
 
 #include <spa/utils/result.h>
-#include <spa/debug/pod.h>
-#include <spa/debug/format.h>
+#include <spa/pod/iter.h>
 #include <spa/debug/types.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
 #include <extensions/metadata.h>
@@ -188,9 +188,25 @@ static void object_destroy(struct object *o)
 	free(o);
 }
 
-static void put_begin(struct data *d, const char *type, uint32_t flags)
+static void put_key(struct data *d, const char *key)
+{
+	int size = strlen(key) * 4;
+	char *str = alloca(size);
+	spa_json_encode_string(str, size, key);
+	fprintf(d->out, "%s%s%*s%s%s%s:",
+			d->comma ? "," : "",
+			d->simple ? " " : "\n",
+			d->simple ? 0 : d->level, "",
+			KEY, str, NORMAL);
+	d->in_key = true;
+	d->comma = false;
+}
+
+static void put_begin(struct data *d, const char *key, const char *type, uint32_t flags)
 {
 	int simple = flags & FLAG_SIMPLE;
+	if (key)
+		put_key(d, key);
 	fprintf(d->out, "%s%s%*s%s",
 			d->comma ? "," : "",
 			d->in_key ? " " : "\n",
@@ -217,18 +233,6 @@ static void put_end(struct data *d, const char *type, uint32_t flags)
 	d->comma = true;
 }
 
-static void put_key(struct data *d, const char *key)
-{
-	int simple = d->simple || d->in_key;
-	fprintf(d->out, "%s%s%*s%s\"%s\"%s:",
-			d->comma ? "," : "",
-			simple ? " " : "\n",
-			simple ? 0 : d->level, "",
-			KEY, key, NORMAL);
-	d->in_key = true;
-	d->comma = false;
-}
-
 static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const char *fmt, ...)
 {
 	int simple;
@@ -249,7 +253,10 @@ static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const 
 
 static void put_string(struct data *d, const char *key, const char *val)
 {
-	put_fmt(d, key, "%s\"%s\"%s", STRING, val, NORMAL);
+	int size = strlen(val) * 4;
+	char *str = alloca(size);
+	spa_json_encode_string(str, size, val);
+	put_fmt(d, key, "%s%s%s", STRING, str, NORMAL);
 }
 
 static void put_literal(struct data *d, const char *key, const char *val)
@@ -291,16 +298,17 @@ static void put_value(struct data *d, const char *key, const char *val)
 static void put_dict(struct data *d, const char *key, struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
-	put_key(d, key);
-	put_begin(d, "{", 0);
+	put_begin(d, key, "{", 0);
 	spa_dict_for_each(it, dict)
 		put_value(d, it->key, it->value);
 	put_end(d, "}", 0);
 }
 
-static void put_pod_value(struct data *d, const struct spa_type_info *info,
+static void put_pod_value(struct data *d, const char *key, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
+	if (key)
+		put_key(d, key);
 	switch (type) {
 	case SPA_TYPE_Bool:
 		put_value(d, NULL, *(int32_t*)body ? "true" : "false");
@@ -328,7 +336,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 	case SPA_TYPE_Rectangle:
 	{
                 struct spa_rectangle *r = (struct spa_rectangle *)body;
-		put_begin(d, "{", FLAG_SIMPLE);
+		put_begin(d, NULL, "{", FLAG_SIMPLE);
 		put_int(d, "width", r->width);
 		put_int(d, "height", r->height);
 		put_end(d, "}", FLAG_SIMPLE);
@@ -337,7 +345,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 	case SPA_TYPE_Fraction:
 	{
                 struct spa_fraction *f = (struct spa_fraction *)body;
-		put_begin(d, "{", FLAG_SIMPLE);
+		put_begin(d, NULL, "{", FLAG_SIMPLE);
 		put_int(d, "num", f->num);
 		put_int(d, "denom", f->denom);
 		put_end(d, "}", FLAG_SIMPLE);
@@ -348,9 +356,9 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		void *p;
 		info = info && info->values ? info->values: info;
-		put_begin(d, "[", FLAG_SIMPLE);
+		put_begin(d, NULL, "[", FLAG_SIMPLE);
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
-			put_pod_value(d, info, b->child.type, p, b->child.size);
+			put_pod_value(d, NULL, info, b->child.type, p, b->child.size);
 		put_end(d, "]", FLAG_SIMPLE);
 		break;
 	}
@@ -360,7 +368,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 		int index = 0;
 
 		if (b->type == SPA_CHOICE_None) {
-			put_pod_value(d, info, b->child.type,
+			put_pod_value(d, NULL, info, b->child.type,
 					SPA_POD_CONTENTS(struct spa_pod, &b->child),
 					b->child.size);
 		} else {
@@ -371,7 +379,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 			static const char *flags_labels[] = { "default", "flag%u" };
 			char buffer[64];
 
-			put_begin(d, "{", 0);
+			put_begin(d, NULL, "{", 0);
 			SPA_POD_CHOICE_BODY_FOREACH(b, size, p) {
 				const char *label;
 				switch (b->type) {
@@ -394,8 +402,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 				if (label == NULL)
 					break;
 				snprintf(buffer, sizeof(buffer), label, index);
-				put_key(d, buffer);
-				put_pod_value(d, info, b->child.type, p, b->child.size);
+				put_pod_value(d, buffer, info, b->child.type, p, b->child.size);
 				index++;
 			}
 			put_end(d, "}", 0);
@@ -404,7 +411,7 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 	}
 	case SPA_TYPE_Object:
         {
-		put_begin(d, "{", 0);
+		put_begin(d, NULL, "{", 0);
 		struct spa_pod_object_body *b = (struct spa_pod_object_body *)body;
 		struct spa_pod_prop *p;
 		const struct spa_type_info *ti, *ii;
@@ -417,8 +424,9 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
 			ii = spa_debug_type_find(info, p->key);
-			put_key(d, ii ? spa_debug_type_short_name(ii->name) : "unknown");
-			put_pod_value(d, ii ? ii->values : NULL,
+			put_pod_value(d,
+					ii ? spa_debug_type_short_name(ii->name) : "unknown",
+					ii ? ii->values : NULL,
 					p->value.type,
 					SPA_POD_CONTENTS(struct spa_pod_prop, p),
 					p->value.size);
@@ -429,9 +437,9 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 	case SPA_TYPE_Struct:
 	{
 		struct spa_pod *b = (struct spa_pod *)body, *p;
-		put_begin(d, "[", 0);
+		put_begin(d, NULL, "[", 0);
 		SPA_POD_FOREACH(b, size, p)
-			put_pod_value(d, info, p->type, SPA_POD_BODY(p), p->size);
+			put_pod_value(d, NULL, info, p->type, SPA_POD_BODY(p), p->size);
 		put_end(d, "]", 0);
 		break;
 	}
@@ -440,9 +448,9 @@ static void put_pod_value(struct data *d, const struct spa_type_info *info,
 		break;
 	}
 }
-static void put_pod(struct data *d, const struct spa_pod *pod)
+static void put_pod(struct data *d, const char *key, const struct spa_pod *pod)
 {
-	put_pod_value(d, SPA_TYPE_ROOT,
+	put_pod_value(d, key, SPA_TYPE_ROOT,
 			SPA_POD_TYPE(pod),
 			SPA_POD_BODY(pod),
 			SPA_POD_BODY_SIZE(pod));
@@ -454,41 +462,37 @@ static void put_params(struct data *d, const char *key,
 {
 	uint32_t i;
 
-	put_key(d, key);
-	put_begin(d, "{", 0);
+	put_begin(d, key, "{", 0);
 	for (i = 0; i < n_params; i++) {
 		struct spa_param_info *pi = &params[i];
 		struct param *p;
 		uint32_t flags;
 
-		put_key(d, spa_debug_type_find_short_name(spa_type_param, pi->id));
-
 		flags = pi->flags & SPA_PARAM_INFO_READ ? 0 : FLAG_SIMPLE;
 
-		put_begin(d, "[", flags);
+		put_begin(d, spa_debug_type_find_short_name(spa_type_param, pi->id),
+				"[", flags);
 		spa_list_for_each(p, list, link) {
 			if (p->id == pi->id)
-				put_pod(d, p->param);
+				put_pod(d, NULL, p->param);
 		}
 		put_end(d, "]", flags);
 	}
 	put_end(d, "}", 0);
 }
 
-struct change_mask_info {
+struct flags_info {
 	const char *name;
 	uint64_t mask;
 };
 
-static void put_change_mask(struct data *d, const char *key,
-		uint64_t change_mask, struct change_mask_info *info)
+static void put_flags(struct data *d, const char *key,
+		uint64_t flags, struct flags_info *info)
 {
 	uint32_t i;
-	if (key)
-		put_key(d, key);
-	put_begin(d, "[", FLAG_SIMPLE);
+	put_begin(d, key, "[", FLAG_SIMPLE);
 	for (i = 0; info[i].name != NULL; i++) {
-		if (info[i].mask & change_mask)
+		if (info[i].mask & flags)
 			put_string(d, NULL, info[i].name);
 	}
 	put_end(d, "]", FLAG_SIMPLE);
@@ -499,19 +503,18 @@ static void core_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_core_info *i = d->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "props", PW_CORE_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
+	put_begin(d, "info", "{", 0);
 	put_int(d, "cookie", i->cookie);
 	put_value(d, "user-name", i->user_name);
 	put_value(d, "host-name", i->host_name);
 	put_value(d, "version", i->version);
 	put_value(d, "name", i->name);
 	put_value(d, "name", i->name);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -527,13 +530,12 @@ static void client_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_client_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "props", PW_CLIENT_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_begin(d, "info", "{", 0);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -582,16 +584,15 @@ static void module_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_module_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "props", PW_MODULE_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
+	put_begin(d, "info", "{", 0);
 	put_value(d, "name", i->name);
 	put_value(d, "filename", i->filename);
 	put_value(d, "args", i->args);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -640,16 +641,15 @@ static void factory_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_factory_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "props", PW_FACTORY_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
+	put_begin(d, "info", "{", 0);
 	put_value(d, "name", i->name);
 	put_value(d, "type", i->type);
 	put_int(d, "version", i->version);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -698,14 +698,13 @@ static void device_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_device_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "props", PW_DEVICE_CHANGE_MASK_PROPS },
 		{ "params", PW_DEVICE_CHANGE_MASK_PARAMS },
 		{ NULL, 0 },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_begin(d, "info", "{", 0);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
 	put_end(d, "}", 0);
@@ -781,7 +780,7 @@ static void node_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_node_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "input-ports", PW_NODE_CHANGE_MASK_INPUT_PORTS },
 		{ "output-ports", PW_NODE_CHANGE_MASK_OUTPUT_PORTS },
 		{ "state", PW_NODE_CHANGE_MASK_STATE },
@@ -789,11 +788,10 @@ static void node_dump(struct object *o)
 		{ "params", PW_NODE_CHANGE_MASK_PARAMS },
 		{ NULL, 0 },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
+	put_begin(d, "info", "{", 0);
 	put_int(d, "max-input-ports", i->max_input_ports);
 	put_int(d, "max-output-ports", i->max_output_ports);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_int(d, "n-input-ports", i->n_input_ports);
 	put_int(d, "n-output-ports", i->n_output_ports);
 	put_value(d, "state", pw_node_state_as_string(i->state));
@@ -876,15 +874,14 @@ static void port_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_port_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "props", PW_PORT_CHANGE_MASK_PROPS },
 		{ "params", PW_PORT_CHANGE_MASK_PARAMS },
 		{ NULL, },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
+	put_begin(d, "info", "{", 0);
 	put_value(d, "direction", pw_direction_as_string(i->direction));
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
 	put_end(d, "}", 0);
@@ -960,23 +957,21 @@ static void link_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct pw_link_info *i = o->info;
-	struct change_mask_info cm[] = {
+	struct flags_info fl[] = {
 		{ "state", PW_LINK_CHANGE_MASK_STATE },
 		{ "format", PW_LINK_CHANGE_MASK_FORMAT },
 		{ "props", PW_LINK_CHANGE_MASK_PROPS },
 		{ NULL, },
 	};
-	put_key(d, "info");
-	put_begin(d, "{", 0);
+	put_begin(d, "info", "{", 0);
 	put_int(d, "output-node-id", i->output_node_id);
 	put_int(d, "output-port-id", i->output_port_id);
 	put_int(d, "input-node-id", i->input_node_id);
 	put_int(d, "input-port-id", i->input_port_id);
-	put_change_mask(d, "change-mask", i->change_mask, cm);
+	put_flags(d, "change-mask", i->change_mask, fl);
 	put_value(d, "state", pw_link_state_as_string(i->state));
 	put_value(d, "error", i->error);
-	put_key(d, "format");
-	put_pod(d, i->format);
+	put_pod(d, "format", i->format);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);
 }
@@ -1211,24 +1206,20 @@ static const struct pw_core_events core_events = {
 static void dump_objects(struct data *d)
 {
 	struct object *o;
-
-	put_begin(d, "[", 0);
+	struct flags_info fl[] = {
+		{ "r", PW_PERM_R },
+		{ "w", PW_PERM_W },
+		{ "x", PW_PERM_X },
+		{ "m", PW_PERM_M },
+		{ NULL, },
+	};
+	put_begin(d, NULL, "[", 0);
 	spa_list_for_each(o, &d->object_list, link) {
-		put_begin(d, "{", 0);
+		put_begin(d, NULL, "{", 0);
 		put_int(d, "id", o->id);
 		put_value(d, "type", o->class->type);
 		put_int(d, "version", o->version);
-		put_key(d, "permissions");
-		put_begin(d, "[", FLAG_SIMPLE);
-		if (o->permissions & PW_PERM_R)
-			put_string(d, NULL, "r");
-		if (o->permissions & PW_PERM_W)
-			put_string(d, NULL, "w");
-		if (o->permissions & PW_PERM_X)
-			put_string(d, NULL, "x");
-		if (o->permissions & PW_PERM_M)
-			put_string(d, NULL, "m");
-		put_end(d, "]", FLAG_SIMPLE);
+		put_flags(d, "permissions", o->permissions, fl);
 		if (o->class->dump)
 			o->class->dump(o);
 		put_end(d, "}", 0);

@@ -63,6 +63,8 @@ struct data {
 
 	struct spa_list object_list;
 
+	uint32_t id;
+
 	FILE *out;
 	int level;
 	int in_key;
@@ -271,7 +273,7 @@ static void put_int(struct data *d, const char *key, int64_t val)
 
 static void put_double(struct data *d, const char *key, double val)
 {
-	put_fmt(d, key, "%s%g%s", NUMBER, val, NORMAL);
+	put_fmt(d, key, "%s%f%s", NUMBER, val, NORMAL);
 }
 
 static void put_value(struct data *d, const char *key, const char *val)
@@ -1215,6 +1217,8 @@ static void dump_objects(struct data *d)
 	};
 	put_begin(d, NULL, "[", 0);
 	spa_list_for_each(o, &d->object_list, link) {
+		if (d->id != SPA_ID_INVALID && d->id != o->id)
+			continue;
 		put_begin(d, NULL, "{", 0);
 		put_int(d, "id", o->id);
 		put_value(d, "type", o->class->type);
@@ -1235,7 +1239,7 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(struct data *data, const char *name)
 {
-        fprintf(stdout, "%s [options]\n"
+        fprintf(stdout, "%s [options] [<id>]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n",
@@ -1278,6 +1282,10 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
+	if (optind < argc)
+		data.id = atoi(argv[optind++]);
+	else
+		data.id = SPA_ID_INVALID;
 
 	data.loop = pw_main_loop_new(NULL);
 	if (data.loop == NULL) {

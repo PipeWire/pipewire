@@ -45,6 +45,7 @@
 #include <spa/debug/pod.h>
 
 #include "defs.h"
+#include "a2dp-codecs.h"
 
 #define NAME  "bluez5-device"
 
@@ -80,12 +81,14 @@ struct impl {
 static void emit_node (struct impl *this, struct spa_bt_transport *t, uint32_t id, const char *factory_name)
 {
         struct spa_device_object_info info;
-        struct spa_dict_item items[2];
+        struct spa_dict_item items[3];
         char transport[32];
 
         snprintf(transport, sizeof(transport), "pointer:%p", t);
         items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
         items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PROFILE, spa_bt_profile_name(t->profile));
+        items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CODEC,
+			t->a2dp_codec ? t->a2dp_codec->name : "unknown");
 
         info = SPA_DEVICE_OBJECT_INFO_INIT();
         info.type = SPA_TYPE_INTERFACE_Node;

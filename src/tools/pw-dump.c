@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -39,6 +40,14 @@
 
 #define INDENT 2
 #define FLAG_SIMPLE	(1<<0)
+
+static bool colors = false;
+
+#define NORMAL	(colors ? "\x1B[0m":"")
+#define LITERAL	(colors ? "\x1B[95m":"")
+#define NUMBER	(colors ? "\x1B[96m":"")
+#define STRING	(colors ? "\x1B[92m":"")
+#define KEY	(colors ? "\x1B[94m":"")
 
 struct data {
 	struct pw_main_loop *loop;
@@ -211,11 +220,11 @@ static void put_end(struct data *d, const char *type, uint32_t flags)
 static void put_key(struct data *d, const char *key)
 {
 	int simple = d->simple || d->in_key;
-	fprintf(d->out, "%s%s%*s\"%s\":",
+	fprintf(d->out, "%s%s%*s%s\"%s\"%s:",
 			d->comma ? "," : "",
 			simple ? " " : "\n",
 			simple ? 0 : d->level, "",
-			key);
+			KEY, key, NORMAL);
 	d->in_key = true;
 	d->comma = false;
 }
@@ -240,22 +249,22 @@ static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const 
 
 static void put_string(struct data *d, const char *key, const char *val)
 {
-	put_fmt(d, key, "\"%s\"", val);
+	put_fmt(d, key, "%s\"%s\"%s", STRING, val, NORMAL);
 }
 
 static void put_literal(struct data *d, const char *key, const char *val)
 {
-	put_fmt(d, key, "%s", val);
+	put_fmt(d, key, "%s%s%s", LITERAL, val, NORMAL);
 }
 
 static void put_int(struct data *d, const char *key, int64_t val)
 {
-	put_fmt(d, key, "%"PRIi64, val);
+	put_fmt(d, key, "%s%"PRIi64"%s", NUMBER, val, NORMAL);
 }
 
 static void put_double(struct data *d, const char *key, double val)
 {
-	put_fmt(d, key, "%g", val);
+	put_fmt(d, key, "%s%g%s", NUMBER, val, NORMAL);
 }
 
 static void put_value(struct data *d, const char *key, const char *val)
@@ -1290,6 +1299,8 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
 
 	data.out = stdout;
+	if (isatty(fileno(data.out)))
+		colors = true;
 
 	data.context = pw_context_new(l, NULL, 0);
 	if (data.context == NULL) {

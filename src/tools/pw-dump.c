@@ -192,7 +192,7 @@ static void object_destroy(struct object *o)
 
 static void put_key(struct data *d, const char *key)
 {
-	int size = strlen(key) * 4;
+	int size = (strlen(key) + 1) * 4;
 	char *str = alloca(size);
 	spa_json_encode_string(str, size, key);
 	fprintf(d->out, "%s%s%*s%s%s%s:",
@@ -255,7 +255,7 @@ static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const 
 
 static void put_string(struct data *d, const char *key, const char *val)
 {
-	int size = strlen(val) * 4;
+	int size = (strlen(val) + 1) * 4;
 	char *str = alloca(size);
 	spa_json_encode_string(str, size, val);
 	put_fmt(d, key, "%s%s%s", STRING, str, NORMAL);

@@ -321,7 +321,7 @@ static int32_t read_data(struct impl *this) {
 
 again:
 	/* read data from socket */
-	size_read = read(this->transport->fd, this->buffer_read, b_size);
+	size_read = read(this->source.fd, this->buffer_read, b_size);
 
 	if (size_read == 0)
 		return 0;

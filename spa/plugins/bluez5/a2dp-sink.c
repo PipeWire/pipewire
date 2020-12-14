@@ -343,7 +343,7 @@ static int send_buffer(struct impl *this)
 	spa_log_trace(this->log, NAME " %p: send %d %u %u %u",
 			this, this->frame_count, this->seqnum, this->timestamp, this->buffer_used);
 
-	written = send(this->transport->fd, this->buffer, this->buffer_used, MSG_DONTWAIT | MSG_NOSIGNAL);
+	written = send(this->flush_source.fd, this->buffer, this->buffer_used, MSG_DONTWAIT | MSG_NOSIGNAL);
 	reset_buffer(this);
 
 	spa_log_debug(this->log, NAME " %p: send %d: %m", this, written);

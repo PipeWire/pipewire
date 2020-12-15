@@ -452,10 +452,14 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 }
 static void put_pod(struct data *d, const char *key, const struct spa_pod *pod)
 {
-	put_pod_value(d, key, SPA_TYPE_ROOT,
-			SPA_POD_TYPE(pod),
-			SPA_POD_BODY(pod),
-			SPA_POD_BODY_SIZE(pod));
+	if (pod == NULL) {
+		put_value(d, key, NULL);
+	} else {
+		put_pod_value(d, key, SPA_TYPE_ROOT,
+				SPA_POD_TYPE(pod),
+				SPA_POD_BODY(pod),
+				SPA_POD_BODY_SIZE(pod));
+	}
 }
 
 static void put_params(struct data *d, const char *key,

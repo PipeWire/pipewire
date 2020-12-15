@@ -91,6 +91,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 		void *p;
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		int i = 0;
+		info = info && info->values ? info->values : info;
 		fprintf(stderr, "< ");
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
 			if (i++ > 0)

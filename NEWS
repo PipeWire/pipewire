@@ -1,3 +1,77 @@
+PipeWire 0.3.18
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - More work in the PulseAudio server. It should be compatible
+    with more applications.
+  - Bluetooth now support extra codecs such as AptX/HD and LDAC.
+  - Support for virtual sources and sink was improved a lot.
+  - Added a new pw-dump tool to dump the objects in JSON formats
+    and for filtering them with tools like jq.
+  - Many more stability fixes and improvements.
+
+- PipeWire improvements
+  - Silence some harmless warnings
+  - pw-cli can now be used to set parameters.
+  - Streams now perform the correct channel mapping when linked
+    to non-standard multichannel devices. Previously channels
+    would get swapped.
+  - port, node and device params are now cached in the server.
+    This avoids opening and closing devices whenever some client
+    enumerates formats, which improves performance a lot,
+    especially in cases where opening a device is slow.
+  - Add a command to keep a device open during negotiation. This
+    is used to enumerate and set a format while opening the
+    device just once, improving performance.
+  - The null-sink scheduling was fixed.
+  - A memory corruption bug was fixed in format conversion, this
+    could cause crashes, silent channels or other undefined
+    behaviour.
+  - There is now a simple JSON parser.
+
+- Session-manager
+  - Settings files are now stored in JSON. With the json parser
+    this is easier to parse and extend
+
+- Device support
+  - Bluetooth now supports additional codecs: LDAC, AptX and
+    AptX HD. LDAC is known to not work very well yet.
+  - ALSA devices will now default to the max supported channels
+    if nothing else is specified. This makes it possible to use
+    8+ channel cards with the alsa-pcm module, which is not
+    supported with the default alsa-acp module.
+  - Enable mSBC support in oFono.
+  - Add an option to disable hardware mixers
+  - ALSA now improves support for batch devices.
+  - The udev rules had references to Pulseaudio removed in order
+    to not create conflicts.
+  - Fix a potential crash in bluetooth devices when
+    disconnecting.
+  - UCM cards now use HW volume when possible.
+
+- PulseAudio server
+  - The id can now be used as the name to locate cards and
+    devices
+  - Report streams with planar formats as well
+  - Better error reporting when stream create fails
+  - module-null-sink can now handle channels, rate and
+    channel_map properties
+  - Add support for 3 types of virtual devices: source,
+    sink and duplex.
+  - set-port was fixed
+  - Some buffer parameters were tweaked to improve
+    performance, compatibility and stuttering with lower
+    latency.
+  - NULL can be used as a name for the device sink/source
+  - Support lookup of monitor names
+  - Set properties more like pulseaudio so that some
+    clients (Teamspeak) don't crash anymore
+
+Older versions:
+
+
 PipeWire 0.3.17
 
 This is a bugfix release that is API and ABI compatible
@@ -53,9 +127,6 @@ with previous 0.3.x releases.
     the event volume can be configured.
   - Many stability fixes and improvements.
   - Fix some issues with module-load/unload
-
-
-Older versions:
 
 
 PipeWire 0.3.16

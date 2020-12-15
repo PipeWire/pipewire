@@ -188,7 +188,6 @@ static int setup_convert(struct impl *this)
 			break;
 		}
 	}
-
 	this->conv.src_fmt = src_fmt;
 	this->conv.dst_fmt = dst_fmt;
 	this->conv.n_channels = outformat.info.raw.channels;
@@ -825,7 +824,7 @@ static int impl_node_process(void *object)
 	struct buffer *inbuf, *outbuf;
 	struct spa_buffer *inb, *outb;
 	const void **src_datas;
-	void **dst_datas;
+	void **dst_datas, *ptr;
 	uint32_t i, n_src_datas, n_dst_datas;
 	uint32_t n_samples, size, maxsize, offs;
 
@@ -872,7 +871,8 @@ static int impl_node_process(void *object)
 	for (i = 0; i < n_src_datas; i++) {
 		offs = SPA_MIN(inb->datas[i].chunk->offset, inb->datas[i].maxsize);
 		size = SPA_MIN(size, SPA_MIN(inb->datas[i].maxsize - offs, inb->datas[i].chunk->size));
-		src_datas[i] = SPA_MEMBER(inb->datas[i].data, offs, void);
+		ptr = SPA_MEMBER(inb->datas[i].data, offs, void);
+		src_datas[SPA_CLAMP(this->remap[i], 0u, n_src_datas-1)] = ptr;
 	}
 	n_samples = size / inport->stride;
 
@@ -889,12 +889,11 @@ static int impl_node_process(void *object)
 			this->is_passthrough);
 
 	for (i = 0; i < n_dst_datas; i++) {
-		dst_datas[i] = this->is_passthrough ?
-			(void*)src_datas[i] :
-			outbuf->datas[this->remap[i]];
-		outb->datas[this->remap[i]].data = dst_datas[i];
+		ptr = this->is_passthrough ?  (void*)src_datas[i] : outbuf->datas[i];
+		outb->datas[i].data = ptr;
 		outb->datas[i].chunk->offset = 0;
 		outb->datas[i].chunk->size = n_samples * outport->stride;
+		dst_datas[SPA_CLAMP(this->remap[i], 0u, n_dst_datas-1)] = ptr;
 	}
 
 	if (!this->is_passthrough)

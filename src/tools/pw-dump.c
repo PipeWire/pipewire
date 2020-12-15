@@ -39,7 +39,6 @@
 #include <extensions/metadata.h>
 
 #define INDENT 2
-#define FLAG_SIMPLE	(1<<0)
 
 static bool colors = false;
 
@@ -67,9 +66,12 @@ struct data {
 
 	FILE *out;
 	int level;
-	int in_key;
-	int comma;
-	int simple;
+#define STATE_KEY	(1<<0)
+#define STATE_COMMA	(1<<1)
+#define STATE_FIRST	(1<<2)
+#define STATE_MASK	0xffff0000
+#define STATE_SIMPLE	(1<<16)
+	uint32_t state;
 };
 
 struct param {
@@ -190,67 +192,45 @@ static void object_destroy(struct object *o)
 	free(o);
 }
 
+static void put_key(struct data *d, const char *key);
+
+static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const char *fmt, ...)
+{
+	va_list va;
+	if (key)
+		put_key(d, key);
+	fprintf(d->out, "%s%s%*s",
+			d->state & STATE_COMMA ? "," : "",
+			d->state & (STATE_MASK | STATE_KEY) ? " " : d->state & STATE_FIRST ? "" : "\n",
+			d->state & (STATE_MASK | STATE_KEY) ? 0 : d->level, "");
+	va_start(va, fmt);
+	vfprintf(d->out, fmt, va);
+	va_end(va);
+	d->state = (d->state & STATE_MASK) + STATE_COMMA;
+}
+
 static void put_key(struct data *d, const char *key)
 {
 	int size = (strlen(key) + 1) * 4;
 	char *str = alloca(size);
 	spa_json_encode_string(str, size, key);
-	fprintf(d->out, "%s%s%*s%s%s%s:",
-			d->comma ? "," : "",
-			d->simple ? " " : "\n",
-			d->simple ? 0 : d->level, "",
-			KEY, str, NORMAL);
-	d->in_key = true;
-	d->comma = false;
+	put_fmt(d, NULL, "%s%s%s:", KEY, str, NORMAL);
+	d->state = (d->state & STATE_MASK) + STATE_KEY;
 }
 
 static void put_begin(struct data *d, const char *key, const char *type, uint32_t flags)
 {
-	int simple = flags & FLAG_SIMPLE;
-	if (key)
-		put_key(d, key);
-	fprintf(d->out, "%s%s%*s%s",
-			d->comma ? "," : "",
-			d->in_key ? " " : "\n",
-			d->in_key ? 0 : d->level, "",
-			type);
+	put_fmt(d, key, "%s", type);
 	d->level += INDENT;
-	if (simple)
-		d->simple++;
-	d->in_key = false;
-	d->comma = false;
+	d->state = (d->state & STATE_MASK) + (flags & STATE_SIMPLE);
 }
 
 static void put_end(struct data *d, const char *type, uint32_t flags)
 {
-	int simple = flags & FLAG_SIMPLE;
 	d->level -= INDENT;
-	fprintf(d->out, "%s%*s%s",
-			simple ? " " : "\n",
-			simple ? 0 : d->level, "",
-			type);
-	if (simple)
-		d->simple--;
-	d->in_key = false;
-	d->comma = true;
-}
-
-static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const char *fmt, ...)
-{
-	int simple;
-	va_list va;
-	if (key)
-		put_key(d, key);
-	simple = d->simple || d->in_key;
-	fprintf(d->out, "%s%s%*s",
-			d->comma ? "," : "",
-			simple ? " " : "\n",
-			simple ? 0 : d->level, "");
-	va_start(va, fmt);
-	vfprintf(d->out, fmt, va);
-	va_end(va);
-	d->in_key = false;
-	d->comma = true;
+	d->state = d->state & STATE_MASK;
+	put_fmt(d, NULL, "%s", type);
+	d->state = (d->state & STATE_MASK) + STATE_COMMA - (flags & STATE_SIMPLE);
 }
 
 static void put_string(struct data *d, const char *key, const char *val)
@@ -338,19 +318,19 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 	case SPA_TYPE_Rectangle:
 	{
                 struct spa_rectangle *r = (struct spa_rectangle *)body;
-		put_begin(d, NULL, "{", FLAG_SIMPLE);
+		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "width", r->width);
 		put_int(d, "height", r->height);
-		put_end(d, "}", FLAG_SIMPLE);
+		put_end(d, "}", STATE_SIMPLE);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
                 struct spa_fraction *f = (struct spa_fraction *)body;
-		put_begin(d, NULL, "{", FLAG_SIMPLE);
+		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "num", f->num);
 		put_int(d, "denom", f->denom);
-		put_end(d, "}", FLAG_SIMPLE);
+		put_end(d, "}", STATE_SIMPLE);
 		break;
 	}
 	case SPA_TYPE_Array:
@@ -358,10 +338,10 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		void *p;
 		info = info && info->values ? info->values: info;
-		put_begin(d, NULL, "[", FLAG_SIMPLE);
+		put_begin(d, NULL, "[", STATE_SIMPLE);
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
 			put_pod_value(d, NULL, info, b->child.type, p, b->child.size);
-		put_end(d, "]", FLAG_SIMPLE);
+		put_end(d, "]", STATE_SIMPLE);
 		break;
 	}
 	case SPA_TYPE_Choice:
@@ -474,7 +454,7 @@ static void put_params(struct data *d, const char *key,
 		struct param *p;
 		uint32_t flags;
 
-		flags = pi->flags & SPA_PARAM_INFO_READ ? 0 : FLAG_SIMPLE;
+		flags = pi->flags & SPA_PARAM_INFO_READ ? 0 : STATE_SIMPLE;
 
 		put_begin(d, spa_debug_type_find_short_name(spa_type_param, pi->id),
 				"[", flags);
@@ -496,12 +476,12 @@ static void put_flags(struct data *d, const char *key,
 		uint64_t flags, struct flags_info *info)
 {
 	uint32_t i;
-	put_begin(d, key, "[", FLAG_SIMPLE);
+	put_begin(d, key, "[", STATE_SIMPLE);
 	for (i = 0; info[i].name != NULL; i++) {
 		if (info[i].mask & flags)
 			put_string(d, NULL, info[i].name);
 	}
-	put_end(d, "]", FLAG_SIMPLE);
+	put_end(d, "]", STATE_SIMPLE);
 }
 
 /* core */
@@ -1219,6 +1199,7 @@ static void dump_objects(struct data *d)
 		{ "m", PW_PERM_M },
 		{ NULL, },
 	};
+	d->state = STATE_FIRST;
 	put_begin(d, NULL, "[", 0);
 	spa_list_for_each(o, &d->object_list, link) {
 		if (d->id != SPA_ID_INVALID && d->id != o->id)

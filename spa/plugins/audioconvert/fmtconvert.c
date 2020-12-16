@@ -120,6 +120,7 @@ struct impl {
 	struct port ports[2][1];
 
 	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t noremap[SPA_AUDIO_MAX_CHANNELS];
 
 	uint32_t cpu_flags;
 	struct convert conv;
@@ -173,6 +174,7 @@ static int setup_convert(struct impl *this)
 		return -EINVAL;
 
 	for (i = 0; i < informat.info.raw.channels; i++) {
+		this->noremap[i] = i;
 		for (j = 0; j < outformat.info.raw.channels; j++) {
 			if (informat.info.raw.position[i] !=
 			    outformat.info.raw.position[j])
@@ -826,7 +828,7 @@ static int impl_node_process(void *object)
 	const void **src_datas;
 	void **dst_datas, *ptr;
 	uint32_t i, n_src_datas, n_dst_datas;
-	uint32_t n_samples, size, maxsize, offs;
+	uint32_t n_samples, size, maxsize, offs, *src_remap, *dst_remap;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -867,19 +869,29 @@ static int impl_node_process(void *object)
 	n_src_datas = inb->n_datas;
 	src_datas = alloca(sizeof(void*) * n_src_datas);
 
+	outb = outbuf->outbuf;
+
+	n_dst_datas = outb->n_datas;
+	dst_datas = alloca(sizeof(void*) * n_dst_datas);
+
+	if (n_src_datas > 1) {
+		src_remap = this->remap;
+		dst_remap = this->noremap;
+	} else if (n_dst_datas > 1) {
+		src_remap = this->noremap;
+		dst_remap = this->remap;
+	} else {
+		src_remap = dst_remap = this->noremap;
+	}
+
 	size = UINT32_MAX;
 	for (i = 0; i < n_src_datas; i++) {
 		offs = SPA_MIN(inb->datas[i].chunk->offset, inb->datas[i].maxsize);
 		size = SPA_MIN(size, SPA_MIN(inb->datas[i].maxsize - offs, inb->datas[i].chunk->size));
 		ptr = SPA_MEMBER(inb->datas[i].data, offs, void);
-		src_datas[SPA_CLAMP(this->remap[i], 0u, n_src_datas-1)] = ptr;
+		src_datas[src_remap[i]] = ptr;
 	}
 	n_samples = size / inport->stride;
-
-	outb = outbuf->outbuf;
-
-	n_dst_datas = outb->n_datas;
-	dst_datas = alloca(sizeof(void*) * n_dst_datas);
 
 	maxsize = outb->datas[0].maxsize;
 	n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
@@ -893,7 +905,7 @@ static int impl_node_process(void *object)
 		outb->datas[i].data = ptr;
 		outb->datas[i].chunk->offset = 0;
 		outb->datas[i].chunk->size = n_samples * outport->stride;
-		dst_datas[SPA_CLAMP(this->remap[i], 0u, n_dst_datas-1)] = ptr;
+		dst_datas[dst_remap[i]] = ptr;
 	}
 
 	if (!this->is_passthrough)

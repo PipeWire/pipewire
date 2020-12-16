@@ -238,7 +238,7 @@ static int codec_get_num_blocks(void *data)
 {
 	struct impl *this = data;
 	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
-	size_t frame_count = SPA_MIN(this->mtu - rtp_size, 660) / this->frame_length;
+	size_t frame_count = SPA_MIN(this->mtu - rtp_size, 660u) / this->frame_length;
 
 	/* frame_count is only 4 bit number */
 	if (frame_count > 15)

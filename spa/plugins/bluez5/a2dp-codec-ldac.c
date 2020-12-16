@@ -37,6 +37,12 @@
 
 #define MAX_FRAME_COUNT 16
 
+#define LDACBT_EQMID_BITRATE_990000 LDACBT_EQMID_HQ
+#define LDACBT_EQMID_BITRATE_660000 LDACBT_EQMID_SQ
+#define LDACBT_EQMID_BITRATE_330000 LDACBT_EQMID_MQ
+#define LDACBT_EQMID_BITRATE_492000 3
+#define LDACBT_EQMID_BITRATE_396000 4
+
 struct impl {
 	HANDLE_LDAC_BT ldac;
 
@@ -196,11 +202,15 @@ static int get_frame_length(struct impl *this)
 {
 	this->eqmid = ldacBT_get_eqmid(this->ldac);
 	switch (this->eqmid) {
-	case LDACBT_EQMID_HQ:
+	case LDACBT_EQMID_BITRATE_990000:
 		return 330;
-	case LDACBT_EQMID_SQ:
+	case LDACBT_EQMID_BITRATE_660000:
 		return 220;
-	case LDACBT_EQMID_MQ:
+	case LDACBT_EQMID_BITRATE_492000:
+		return 164;
+	case LDACBT_EQMID_BITRATE_396000:
+		return 132;
+	case LDACBT_EQMID_BITRATE_330000:
 		return 110;
 	}
 	return -EINVAL;
@@ -228,7 +238,7 @@ static int codec_get_num_blocks(void *data)
 {
 	struct impl *this = data;
 	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
-	size_t frame_count = (this->mtu - rtp_size) / this->frame_length;
+	size_t frame_count = SPA_MIN(this->mtu - rtp_size, 660) / this->frame_length;
 
 	/* frame_count is only 4 bit number */
 	if (frame_count > 15)

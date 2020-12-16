@@ -346,16 +346,18 @@ static int send_buffer(struct impl *this)
 	written = send(this->flush_source.fd, this->buffer, this->buffer_used, MSG_DONTWAIT | MSG_NOSIGNAL);
 	reset_buffer(this);
 
-	spa_log_debug(this->log, NAME " %p: send %d: %m", this, written);
-	if (written < 0)
+	spa_log_debug(this->log, NAME " %p: send %d", this, written);
+	if (written < 0) {
+		spa_log_debug(this->log, NAME " %p: %m", this);
 		return -errno;
+	}
 
 	return written;
 }
 
 static bool need_flush(struct impl *this)
 {
-	return (this->frame_count + 1 >= this->num_blocks);
+	return (this->frame_count >= this->num_blocks);
 }
 
 static int encode_buffer(struct impl *this, const void *data, uint32_t size)
@@ -411,7 +413,7 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 
 static int flush_buffer(struct impl *this, bool force)
 {
-	spa_log_trace(this->log, NAME" %p: used:%d num_blocks:%d block_size%d", this,
+	spa_log_trace(this->log, NAME" %p: used:%d num_blocks:%d block_size:%d", this,
 			this->buffer_used, this->num_blocks, this->block_size);
 
 	if (force || need_flush(this))
@@ -448,11 +450,12 @@ static void enable_flush(struct impl *this, bool enabled)
 static int flush_data(struct impl *this, uint64_t now_time)
 {
 	int written;
-	uint32_t total_frames;
+	uint32_t total_frames, iter_buffer_used;
 	struct port *port = &this->port;
 
 	total_frames = 0;
 again:
+	iter_buffer_used = this->buffer_used;
 	while (!spa_list_is_empty(&port->ready)) {
 		uint8_t *src;
 		uint32_t n_bytes, n_frames;
@@ -508,6 +511,12 @@ again:
 		total_frames += n_frames;
 
 		spa_log_trace(this->log, NAME " %p: written %u frames", this, total_frames);
+	}
+
+	iter_buffer_used = this->buffer_used - iter_buffer_used;
+	if (written > 0 && iter_buffer_used == 0) {
+		enable_flush(this, false);
+		return 0;
 	}
 
 	written = flush_buffer(this, true);

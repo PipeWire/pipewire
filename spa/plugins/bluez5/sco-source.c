@@ -85,8 +85,8 @@ struct port {
 	struct spa_list free;
 	struct spa_list ready;
 
-	struct buffer *current_buffer;
-	uint32_t ready_offset;
+	uint32_t n_ready;
+	unsigned int buffering:1;
 };
 
 struct impl {
@@ -275,6 +275,8 @@ static void reset_buffers(struct port *port)
 
 	spa_list_init(&port->free);
 	spa_list_init(&port->ready);
+	port->n_ready = 0;
+	port->buffering = true;
 
 	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
@@ -338,8 +340,11 @@ static void sco_on_ready_read(struct spa_source *source)
 	struct spa_io_buffers *io = port->io;
 	int size_read;
 	struct spa_data *datas;
-	uint32_t max_out_size;
+	struct buffer *buffer;
 	uint8_t *packet;
+	/* must be at least this->transport->read_mtu and at least MSBC_DECODED_SIZE (240) */
+	uint8_t read_decoded[4096];
+	size_t decoded;
 
 	/* make sure the source has input data */
 	if ((source->rmask & SPA_IO_IN) == 0) {
@@ -351,28 +356,14 @@ static void sco_on_ready_read(struct spa_source *source)
 		goto stop;
 	}
 
-	/* get buffer */
-	if (!port->current_buffer) {
-		if (spa_list_is_empty(&port->free)) {
-			spa_log_warn(this->log, "buffer not available");
-			return;
-		}
-		port->current_buffer = spa_list_first(&port->free, struct buffer, link);
-		spa_list_remove(&port->current_buffer->link);
-		port->ready_offset = 0;
-	}
-	datas = port->current_buffer->buf->datas;
-
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		max_out_size = MSBC_DECODED_SIZE;
-		packet = this->msbc_buffer_head;
-	} else {
-		max_out_size = this->transport->read_mtu;
-		packet = (uint8_t *)datas[0].data + port->ready_offset;
-	}
-
 	/* update the current pts */
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
+
+	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+		packet = this->msbc_buffer_head;
+	} else {
+		packet = read_decoded;
+	}
 
 	/* read */
 	size_read = read_data(this, packet, this->transport->read_mtu);
@@ -385,7 +376,6 @@ static void sco_on_ready_read(struct spa_source *source)
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 		uint8_t seq;
 		uint8_t *next_header;
-		size_t written;
 
 		this->msbc_buffer_head += size_read;
 		if (this->msbc_buffer_head - this->msbc_buffer >= MSBC_BUFFER_SIZE) {
@@ -430,7 +420,7 @@ static void sco_on_ready_read(struct spa_source *source)
 
 		/* decode frame */
 		int processed = sbc_decode(&this->msbc, this->msbc_buffer_tail + 2, MSBC_ENCODED_SIZE - 3,
-		                           (uint8_t *)datas[0].data + port->ready_offset, MSBC_DECODED_SIZE, &written);
+					   read_decoded, MSBC_DECODED_SIZE, &decoded);
 		if (processed < 0) {
 			spa_log_warn(this->log, "sbc_decode failed: %d", processed);
 
@@ -447,7 +437,6 @@ static void sco_on_ready_read(struct spa_source *source)
 			return;
 		}
 
-		port->ready_offset += written;
 		this->msbc_seq = (this->msbc_seq + 1) % 4;
 		this->msbc_buffer_tail += MSBC_ENCODED_SIZE;
 		if (this->msbc_buffer_head != this->msbc_buffer_tail) {
@@ -457,26 +446,48 @@ static void sco_on_ready_read(struct spa_source *source)
 			this->msbc_buffer_tail = this->msbc_buffer;
 		} else
 			this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
-	} else
-		port->ready_offset += size_read;
+	} else {
+		decoded = size_read;
+	}
 
-	/* send buffer if full */
-	if ((max_out_size + port->ready_offset) > (this->props.max_latency * port->frame_size)) {
-		datas[0].chunk->offset = 0;
-		datas[0].chunk->size = port->ready_offset;
-		datas[0].chunk->stride = port->frame_size;
+	/* discard when not started */
+	if (!this->started)
+		return;
 
-		this->sample_count += datas[0].chunk->size / port->frame_size;
-		spa_list_append(&port->ready, &port->current_buffer->link);
-		port->current_buffer = NULL;
+	/* get buffer */
+	if (spa_list_is_empty(&port->free)) {
+		spa_log_warn(this->log, "buffer not available");
+		return;
+	}
+	buffer = spa_list_first(&port->free, struct buffer, link);
+	spa_list_remove(&buffer->link);
+	spa_log_debug(this->log, "dequeue %d", buffer->id);
 
-		if (this->clock) {
-			this->clock->nsec = SPA_TIMESPEC_TO_NSEC(&this->now);
-			this->clock->position = this->sample_count;
-			this->clock->delay = 0;
-			this->clock->rate_diff = 1.0f;
-			this->clock->next_nsec = this->clock->nsec;
-		}
+	if (buffer->h) {
+		buffer->h->seq = this->sample_count;
+		buffer->h->pts = SPA_TIMESPEC_TO_NSEC(&this->now);
+		buffer->h->dts_offset = 0;
+	}
+	datas = buffer->buf->datas;
+
+	memcpy ((uint8_t *)datas[0].data, read_decoded, decoded);
+
+	datas[0].chunk->offset = 0;
+	datas[0].chunk->size = decoded;
+	datas[0].chunk->stride = port->frame_size;
+
+	this->sample_count += datas[0].chunk->size / port->frame_size;
+
+	spa_log_debug(this->log, "queue %d", buffer->id);
+	spa_list_append(&port->ready, &buffer->link);
+	port->n_ready++;
+
+	if (this->clock) {
+		this->clock->nsec = SPA_TIMESPEC_TO_NSEC(&this->now);
+		this->clock->position = this->sample_count;
+		this->clock->delay = 0;
+		this->clock->rate_diff = 1.0f;
+		this->clock->next_nsec = this->clock->nsec;
 	}
 
 	/* done if there are no buffers ready */
@@ -492,6 +503,8 @@ static void sco_on_ready_read(struct spa_source *source)
 
 		b = spa_list_first(&port->ready, struct buffer, link);
 		spa_list_remove(&b->link);
+		if (--port->n_ready == 0)
+			port->buffering = true;
 		b->outstanding = true;
 
 		io->buffer_id = b->id;
@@ -780,9 +793,9 @@ impl_node_port_enum_params(void *object, int seq,
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 8, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+			SPA_PARAM_BUFFERS_size,	   SPA_POD_CHOICE_RANGE_Int(
 							this->props.max_latency * port->frame_size,
 							this->props.min_latency * port->frame_size,
 							INT32_MAX),
@@ -843,6 +856,8 @@ static int clear_buffers(struct impl *this, struct port *port)
 	if (port->n_buffers > 0) {
 		spa_list_init(&port->free);
 		spa_list_init(&port->ready);
+		port->n_ready = 0;
+		port->buffering = true;
 		port->n_buffers = 0;
 	}
 	return 0;
@@ -1024,6 +1039,8 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
+	spa_log_debug(this->log, "%p status:%d %d", this, io->status, port->n_ready);
+
 	/* Return if we already have a buffer */
 	if (io->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;
@@ -1037,11 +1054,17 @@ static int impl_node_process(void *object)
 	/* Return if there are no buffers ready to be processed */
 	if (spa_list_is_empty(&port->ready))
 		return SPA_STATUS_OK;
+	if (port->buffering && port->n_ready < 4)
+		return SPA_STATUS_OK;
+
+	port->buffering = false;
 
 	/* Get the new buffer from the ready list */
 	buffer = spa_list_first(&port->ready, struct buffer, link);
 	spa_list_remove(&buffer->link);
-	buffer->outstanding = false;
+	if (--port->n_ready == 0)
+		port->buffering = true;
+	buffer->outstanding = true;
 
 	/* Set the new buffer in IO */
 	io->buffer_id = buffer->id;

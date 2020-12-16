@@ -333,6 +333,16 @@ static uint8_t* find_h2_header(uint8_t *data, size_t len)
 	return NULL;
 }
 
+/* Compact msbc_buffer to keep it under 2 * MSBC_ENCODED_SIZE */
+void compact_msbc_buffer(struct impl *this, uint8_t *tail, uint8_t *head) {
+	if (head != tail) {
+		spa_memmove(this->msbc_buffer, tail, head - tail);
+		this->msbc_buffer_head = this->msbc_buffer + (head - tail);
+		this->msbc_buffer_tail = this->msbc_buffer;
+	} else
+		this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
+}
+
 static void sco_on_ready_read(struct spa_source *source)
 {
 	struct impl *this = source->data;
@@ -390,6 +400,12 @@ static void sco_on_ready_read(struct spa_source *source)
 			return;
 		}
 
+		/* We might discard up to MTU - 2 bytes. If MTU = 48, we might need two
+		   more packets to get MSBC_ENCODED_SIZE valid bytes. Therefore, without
+		   compacting here we would need MSBC_BUFFER_SIZE >= 3*MTU - 2. In practice,
+		   for MTU = 48, we frequently need MSBC_BUFFER_SIZE >= 132. */
+		compact_msbc_buffer(this, this->msbc_buffer_tail, this->msbc_buffer_head);
+
 		if (this->msbc_buffer_head - this->msbc_buffer_tail < MSBC_ENCODED_SIZE) {
 			spa_log_trace(this->log, "partial packet");
 			return;
@@ -399,11 +415,8 @@ static void sco_on_ready_read(struct spa_source *source)
 		if (next_header && (next_header - this->msbc_buffer_tail) != MSBC_ENCODED_SIZE) {
 			spa_log_trace(this->log, "incomplete packet");
 			this->msbc_seq = (this->msbc_seq + 1) % 4;
-
-			/* Drop the incomplete packet and compact msbc_buffer to keep it under 2 * MSBC_ENCODED_SIZE */
-			spa_memmove(this->msbc_buffer, next_header, this->msbc_buffer_head - next_header);
-			this->msbc_buffer_head = this->msbc_buffer + (this->msbc_buffer_head - next_header);
-			this->msbc_buffer_tail = this->msbc_buffer;
+			/* Drop the incomplete packet and compact */
+			compact_msbc_buffer(this, next_header, this->msbc_buffer_head);
 			/* TODO: Implement PLC? */
 			return;
 		}
@@ -427,25 +440,13 @@ static void sco_on_ready_read(struct spa_source *source)
 			/* TODO: manage errors */
 
 			this->msbc_buffer_tail += MSBC_ENCODED_SIZE;
-			if (this->msbc_buffer_head != this->msbc_buffer_tail) {
-				/* Compact msbc_buffer to keep it under 2 * MSBC_ENCODED_SIZE */
-				spa_memmove(this->msbc_buffer, this->msbc_buffer_tail, this->msbc_buffer_head - this->msbc_buffer_tail);
-				this->msbc_buffer_head = this->msbc_buffer + (this->msbc_buffer_head - this->msbc_buffer_tail);
-				this->msbc_buffer_tail = this->msbc_buffer;
-			} else
-				this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
+			compact_msbc_buffer(this, this->msbc_buffer_tail, this->msbc_buffer_head);
 			return;
 		}
 
 		this->msbc_seq = (this->msbc_seq + 1) % 4;
 		this->msbc_buffer_tail += MSBC_ENCODED_SIZE;
-		if (this->msbc_buffer_head != this->msbc_buffer_tail) {
-			/* Compact msbc_buffer to keep it under 2 * MSBC_ENCODED_SIZE */
-			spa_memmove(this->msbc_buffer, this->msbc_buffer_tail, this->msbc_buffer_head - this->msbc_buffer_tail);
-			this->msbc_buffer_head = this->msbc_buffer + (this->msbc_buffer_head - this->msbc_buffer_tail);
-			this->msbc_buffer_tail = this->msbc_buffer;
-		} else
-			this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
+		compact_msbc_buffer(this, this->msbc_buffer_tail, this->msbc_buffer_head);
 	} else {
 		decoded = size_read;
 	}

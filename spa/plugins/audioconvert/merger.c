@@ -41,7 +41,6 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
-#include <spa/debug/mem.h>
 #include <spa/debug/pod.h>
 
 #include "fmt-ops.h"
@@ -118,7 +117,8 @@ struct impl {
 	unsigned int started:1;
 	unsigned int monitor:1;
 
-	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t src_remap[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t dst_remap[SPA_AUDIO_MAX_CHANNELS];
 
 	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
@@ -620,7 +620,8 @@ static int setup_convert(struct impl *this)
 			if (informat.info.raw.position[i] !=
 			    outformat.info.raw.position[j])
 				continue;
-			this->remap[i] = j;
+			this->src_remap[j] = i;
+			this->dst_remap[i] = j;
 			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%s -> %s)", this,
 					i, j,
 					spa_debug_type_find_short_name(spa_type_audio_channel,
@@ -996,7 +997,7 @@ static int impl_node_process(void *object)
 	struct buffer *sbuf, *dbuf;
 	uint32_t n_src_datas, n_dst_datas;
 	const void **src_datas;
-	void **dst_datas, **tmp;
+	void **dst_datas;
 	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -1021,25 +1022,25 @@ static int impl_node_process(void *object)
 	else
 		n_samples = maxsize / outport->stride;
 
-	src_datas = alloca(sizeof(void*) * this->port_count);
 
 	n_dst_datas = dbuf->buf->n_datas;
 	dst_datas = alloca(sizeof(void*) * n_dst_datas);
-	tmp = alloca(sizeof(void*) * n_dst_datas);
+
+	n_src_datas = this->port_count;
+	src_datas = alloca(sizeof(void*) * this->port_count);
 
 	/* produce more output if possible */
-	n_src_datas = 0;
-	for (i = 0; i < this->port_count; i++) {
+	for (i = 0; i < n_src_datas; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
 
 		if (SPA_UNLIKELY(get_in_buffer(this, inport, &sbuf) < 0)) {
-			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+			src_datas[i] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 			continue;
 		}
 
 		sd = &sbuf->buf->datas[0];
 
-		src_datas[n_src_datas++] = SPA_MEMBER(sd->data, sd->chunk->offset, void);
+		src_datas[i] = SPA_MEMBER(sd->data, sd->chunk->offset, void);
 
 		n_samples = SPA_MIN(n_samples, sd->chunk->size / inport->stride);
 
@@ -1051,13 +1052,18 @@ static int impl_node_process(void *object)
 		handle_monitor(this, src_datas[i], n_samples, GET_OUT_PORT(this, i + 1));
 
 	for (i = 0; i < n_dst_datas; i++) {
-		tmp[i] = this->is_passthrough ? (void*)src_datas[i] : dbuf->datas[i];
-		dbuf->buf->datas[i].data = tmp[i];
-		dbuf->buf->datas[i].chunk->offset = 0;
-		dbuf->buf->datas[i].chunk->size = n_samples * outport->stride;
+		uint32_t dst_remap = this->dst_remap[i];
+		uint32_t src_remap = this->src_remap[i];
+		struct spa_data *dd = dbuf->buf->datas;
+
+		if (this->is_passthrough)
+			dd[i].data = (void *)src_datas[src_remap];
+		else
+			dst_datas[dst_remap] = dd[i].data = dbuf->datas[i];
+
+		dd[i].chunk->offset = 0;
+		dd[i].chunk->size = n_samples * outport->stride;
 	}
-	for (i = 0; i < n_dst_datas; i++)
-		dst_datas[i] = tmp[this->remap[i]];
 
 	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d p:%d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, this->is_passthrough);

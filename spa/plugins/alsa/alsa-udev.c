@@ -24,8 +24,10 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/inotify.h>
 #include <fcntl.h>
 #include <poll.h>
 
@@ -36,6 +38,7 @@
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
@@ -48,6 +51,14 @@
 #define ACTION_ADD	0
 #define ACTION_CHANGE	1
 #define ACTION_REMOVE	2
+
+struct card {
+	uint32_t id;
+	struct udev_device *dev;
+	unsigned int accessible:1;
+	unsigned int ignored:1;
+	unsigned int emited:1;
+};
 
 struct impl {
 	struct spa_handle handle;
@@ -64,10 +75,11 @@ struct impl {
 	struct udev *udev;
 	struct udev_monitor *umonitor;
 
-	uint32_t cards[MAX_CARDS];
+	struct card cards[MAX_CARDS];
 	uint32_t n_cards;
 
 	struct spa_source source;
+	struct spa_source notify;
 	unsigned int use_acp:1;
 };
 
@@ -87,6 +99,16 @@ static int impl_udev_close(struct impl *this)
 		udev_unref(this->udev);
 	this->udev = NULL;
 	return 0;
+}
+
+static struct card *find_card(struct impl *this, uint32_t id)
+{
+	uint32_t i;
+	for (i = 0; i < this->n_cards; i++) {
+		if (this->cards[i].id == id)
+			return &this->cards[i];
+	}
+	return NULL;
 }
 
 static const char *path_get_card_id(const char *path)
@@ -194,12 +216,12 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	struct spa_dict_item items[23];
 	uint32_t n_items = 0;
 	int res, pcm;
+	struct card *card;
 
-	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
-		return 0;
+	if ((card = find_card(this, id)) == NULL)
+		return -EINVAL;
 
-	snprintf(path, sizeof(path), "hw:%d", atoi(str));
-
+	snprintf(path, sizeof(path), "hw:%u", id);
 	spa_log_debug(this->log, "open card %s", path);
 
 	if ((res = snd_ctl_open(&ctl_hndl, path, 0)) < 0) {
@@ -216,10 +238,12 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 
 	if (res < 0) {
 		spa_log_error(this->log, "error iterating devices: %s", snd_strerror(res));
+		card->ignored = true;
 		return res;
 	}
 	if (pcm < 0) {
 		spa_log_debug(this->log, "no pcm devices for %s", path);
+		card->ignored = true;
 		return 0;
 	}
 
@@ -237,7 +261,7 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, str);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, path+3);
 
 	if ((str = udev_device_get_property_value(dev, "ACP_NAME")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, str);
@@ -312,15 +336,29 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	info.props = &SPA_DICT_INIT(items, n_items);
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
+	card->emited = true;
 
 	return 1;
 }
 
+static bool check_access(struct impl *this, struct card *card)
+{
+	char path[128];
+
+	snprintf(path, sizeof(path)-1, "/dev/snd/controlC%u", card->id);
+	card->accessible = access(path, R_OK|W_OK) >= 0;
+	spa_log_debug(this->log, "%s accessible:%u", path, card->accessible);
+
+	return card->accessible;
+}
+
 static int need_notify(struct impl *this, struct udev_device *dev, uint32_t action, bool enumerated,
-		uint32_t *id)
+		uint32_t *obj_id)
 {
 	const char *str;
-	uint32_t idx, i, found = SPA_ID_INVALID;
+	uint32_t id;
+	struct card *card;
+	bool emited;
 
 	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
 		return 0;
@@ -331,43 +369,51 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t acti
 	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
 		return 0;
 
-	idx = atoi(str);
-
-	for (i = 0; i < this->n_cards; i++) {
-		if (this->cards[i] == idx) {
-			found = i;
-			break;
-		}
-	}
+	id = atoi(str);
+	card = find_card(this, id);
+	if (card && card->ignored)
+		return 0;
 
 	switch (action) {
 	case ACTION_ADD:
-		if (found != SPA_ID_INVALID)
+		if (card != NULL)
 			return 0;
 		if (this->n_cards >= MAX_CARDS)
 			return 0;
-		this->cards[this->n_cards++] = idx;
+		card = &this->cards[this->n_cards++];
+		spa_zero(*card);
+		card->id = id;
+		udev_device_ref(dev);
+		card->dev = dev;
 		/** don't notify on add, wait for the next change event */
 		if (!enumerated)
+			return 0;
+		if (!check_access(this, card))
 			return 0;
 		break;
 
 	case ACTION_CHANGE:
-		if (found == SPA_ID_INVALID)
+		if (card == NULL)
 			return 0;
 		if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
+			return 0;
+		if (!check_access(this, card))
 			return 0;
 		break;
 
 	case ACTION_REMOVE:
-		if (found == SPA_ID_INVALID)
+		if (card == NULL)
 			return 0;
-		this->cards[found] = this->cards[--this->n_cards];
+		emited =  card->emited;
+		udev_device_unref(card->dev);
+		*card = this->cards[--this->n_cards];
+		if (!emited)
+			return 0;
 		break;
 	default:
 		return 0;
 	}
-	*id = idx;
+	*obj_id = id;
 	return 1;
 }
 
@@ -390,6 +436,97 @@ static int emit_device(struct impl *this, uint32_t action, bool enumerated, stru
 	return 0;
 }
 
+static int stop_inotify(struct impl *this)
+{
+	if (this->notify.fd == -1)
+		return 0;
+	spa_log_info(this->log, "stop inotify");
+	spa_loop_remove_source(this->main_loop, &this->notify);
+	close(this->notify.fd);
+	this->notify.fd = -1;
+	return 0;
+}
+
+static void impl_on_notify_events(struct spa_source *source)
+{
+	bool deleted = false;
+	struct impl *this = source->data;
+	struct {
+		struct inotify_event e;
+		char name[NAME_MAX+1];
+	} buf;
+
+	while (true) {
+		ssize_t len;
+		const struct inotify_event *event;
+		void *p, *e;
+
+		len = read(source->fd, &buf, sizeof(buf));
+		if (len < 0 && errno != EAGAIN)
+			break;
+		if (len <= 0)
+			break;
+
+		e = SPA_MEMBER(&buf, len, void);
+
+		for (p = &buf; p < e;
+		    p = SPA_MEMBER(p, sizeof(struct inotify_event) + event->len, void)) {
+			unsigned int id;
+			struct card *card;
+
+			event = (const struct inotify_event *) p;
+
+			if ((event->mask & IN_ATTRIB)) {
+				if (sscanf(event->name, "controlC%u", &id) != 1)
+					continue;
+				if ((card = find_card(this, id)) == NULL)
+					continue;
+				if (!card->emited)
+					emit_device(this, ACTION_CHANGE, false, card->dev);
+			}
+			/* /dev/snd/ might have been removed */
+			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
+				deleted = true;
+		}
+	}
+	if (deleted)
+		stop_inotify(this);
+}
+
+static int start_inotify(struct impl *this)
+{
+	int res, notify_fd;
+
+	if (this->notify.fd != -1)
+		return 0;
+
+	if ((notify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK)) < 0)
+		return -errno;
+
+	res = inotify_add_watch(notify_fd, "/dev/snd",
+			IN_ATTRIB | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF);
+	if (res < 0) {
+		res = -errno;
+		close(notify_fd);
+
+		if (res == -ENOENT) {
+			spa_log_debug(this->log, "/dev/snd/ does not exist yet");
+			return 0;
+		}
+		spa_log_error(this->log, "inotify_add_watch() failed: %s", spa_strerror(res));
+		return res;
+	}
+	spa_log_info(this->log, "start inotify");
+	this->notify.func = impl_on_notify_events;
+	this->notify.data = this;
+	this->notify.fd = notify_fd;
+	this->notify.mask = SPA_IO_IN | SPA_IO_ERR;
+
+	spa_loop_add_source(this->main_loop, &this->notify);
+
+	return 0;
+}
+
 static void impl_on_fd_events(struct spa_source *source)
 {
 	struct impl *this = source->data;
@@ -405,6 +542,8 @@ static void impl_on_fd_events(struct spa_source *source)
 		action = "change";
 
 	spa_log_debug(this->log, "action %s", action);
+
+	start_inotify(this);
 
 	if (strcmp(action, "add") == 0) {
 		a = ACTION_ADD;
@@ -422,6 +561,8 @@ static void impl_on_fd_events(struct spa_source *source)
 
 static int start_monitor(struct impl *this)
 {
+	int res;
+
 	if (this->umonitor != NULL)
 		return 0;
 
@@ -440,6 +581,9 @@ static int start_monitor(struct impl *this)
 
 	spa_loop_add_source(this->main_loop, &this->source);
 
+	if ((res = start_inotify(this)) < 0)
+		return res;
+
 	return 0;
 }
 
@@ -451,6 +595,9 @@ static int stop_monitor(struct impl *this)
 	spa_loop_remove_source(this->main_loop, &this->source);
 	udev_monitor_unref(this->umonitor);
 	this->umonitor = NULL;
+
+	stop_inotify(this);
+
 	return 0;
 }
 
@@ -595,6 +742,7 @@ impl_init(const struct spa_handle_factory *factory,
 	handle->clear = impl_clear;
 
 	this = (struct impl *) handle;
+	this->notify.fd = -1;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);

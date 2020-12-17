@@ -1213,7 +1213,7 @@ static void dump_objects(struct data *d)
 			o->class->dump(o);
 		put_end(d, "}", 0);
 	}
-	put_end(d, "]", 0);
+	put_end(d, "]\n", 0);
 }
 
 static void do_quit(void *data, int signal_number)

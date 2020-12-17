@@ -1768,7 +1768,7 @@ static bool element_probe_volume(pa_alsa_element *e, snd_mixer_elem_t *me) {
     if (is_mono) {
         e->n_channels = 1;
 
-        if (e->override_map & (1 << (e->n_channels-1))) {
+        if (!e->override_map) {
             for (p = PA_CHANNEL_POSITION_FRONT_LEFT; p < PA_CHANNEL_POSITION_MAX; p++) {
                 if (alsa_channel_ids[p] == SND_MIXER_SCHN_UNKNOWN)
                     continue;
@@ -1795,24 +1795,24 @@ static bool element_probe_volume(pa_alsa_element *e, snd_mixer_elem_t *me) {
         alsa_id_str(buf, sizeof(buf), &e->alsa_id);
         pa_log_warn("Volume element %s with no channels?", buf);
         return false;
-    } else if (e->n_channels > 8) {
+    } else if (e->n_channels > 2) {
         /* FIXME: In some places code like this is used:
          *
          *     e->masks[alsa_channel_ids[p]][e->n_channels-1]
          *
          * The definition of e->masks is
          *
-         *     pa_channel_position_mask_t masks[SND_MIXER_SCHN_LAST + 1][8];
+         *     pa_channel_position_mask_t masks[SND_MIXER_SCHN_LAST + 1][2];
          *
-         * Since the array size is fixed at 8, we obviously
-         * don't support elements with more than eight
+         * Since the array size is fixed at 2, we obviously
+         * don't support elements with more than two
          * channels... */
         alsa_id_str(buf, sizeof(buf), &e->alsa_id);
         pa_log_warn("Volume element %s has %u channels. That's too much! I can't handle that!", buf, e->n_channels);
         return false;
     }
 
-    if (!(e->override_map & (1 << (e->n_channels-1)))) {
+    if (!e->override_map) {
         for (p = PA_CHANNEL_POSITION_FRONT_LEFT; p < PA_CHANNEL_POSITION_MAX; p++) {
             bool has_channel;
 
@@ -2464,7 +2464,7 @@ static pa_channel_position_mask_t parse_mask(const char *m) {
 static int element_parse_override_map(pa_config_parser_state *state) {
     pa_alsa_path *p;
     pa_alsa_element *e;
-    const char *split_state = NULL, *s;
+    const char *split_state = NULL;
     unsigned i = 0;
     char *n;
 
@@ -2490,22 +2490,17 @@ static int element_parse_override_map(pa_config_parser_state *state) {
             }
         }
 
-        s = strstr(state->lvalue, ".");
-        if (s) {
-            int idx;
-            pa_atoi(s + 1, &idx);
-            if (idx >= 1 && idx <= 8) {
-                e->override_map |= (1 << i);
-                e->masks[i++][idx-1] = m;
-            } else {
-                pa_log("[%s:%u] Override map index '%s' invalid in '%s'", state->filename, state->lineno, state->lvalue, state->section);
-            }
-        }
+        if (pa_streq(state->lvalue, "override-map.1"))
+            e->masks[i++][0] = m;
+        else
+            e->masks[i++][1] = m;
 
-        /* Later on we might add override-map.9 and so on here ... */
+        /* Later on we might add override-map.3 and so on here ... */
 
         pa_xfree(n);
     }
+
+    e->override_map = true;
 
     return 0;
 }
@@ -2811,12 +2806,6 @@ pa_alsa_path* pa_alsa_path_new(const char *paths_dir, const char *fname, pa_alsa
         { "enumeration",         element_parse_enumeration,         NULL, NULL },
         { "override-map.1",      element_parse_override_map,        NULL, NULL },
         { "override-map.2",      element_parse_override_map,        NULL, NULL },
-        { "override-map.3",      element_parse_override_map,        NULL, NULL },
-        { "override-map.4",      element_parse_override_map,        NULL, NULL },
-        { "override-map.5",      element_parse_override_map,        NULL, NULL },
-        { "override-map.6",      element_parse_override_map,        NULL, NULL },
-        { "override-map.7",      element_parse_override_map,        NULL, NULL },
-        { "override-map.8",      element_parse_override_map,        NULL, NULL },
         /* ... later on we might add override-map.3 and so on here ... */
         { "required",            element_parse_required,            NULL, NULL },
         { "required-any",        element_parse_required,            NULL, NULL },
@@ -3034,7 +3023,6 @@ int pa_alsa_path_probe(pa_alsa_path *p, pa_alsa_mapping *mapping, snd_mixer_t *m
     double min_dB[PA_CHANNEL_POSITION_MAX], max_dB[PA_CHANNEL_POSITION_MAX];
     pa_channel_position_t t;
     pa_channel_position_mask_t path_volume_channels = 0;
-    bool min_dB_set, max_dB_set;
     char buf[64];
 
     pa_assert(p);
@@ -3065,7 +3053,7 @@ int pa_alsa_path_probe(pa_alsa_path *p, pa_alsa_mapping *mapping, snd_mixer_t *m
             pa_log_debug("Probe of element %s failed.", buf);
             return -1;
         }
-        pa_log_debug("Probe of element %s succeeded (volume=%d, switch=%d, enumeration=%d, has_dB=%d).", buf, e->volume_use, e->switch_use, e->enumeration_use, e->has_dB);
+        pa_log_debug("Probe of element %s succeeded (volume=%d, switch=%d, enumeration=%d).", buf, e->volume_use, e->switch_use, e->enumeration_use);
 
         if (ignore_dB)
             e->has_dB = false;
@@ -3076,8 +3064,6 @@ int pa_alsa_path_probe(pa_alsa_path *p, pa_alsa_mapping *mapping, snd_mixer_t *m
                 p->min_volume = e->min_volume;
                 p->max_volume = e->max_volume;
             }
-
-            pa_log_debug("merge ok, has_volume = %d", p->has_volume);
 
             if (e->has_dB) {
                 if (!p->has_volume) {
@@ -3131,29 +3117,17 @@ int pa_alsa_path_probe(pa_alsa_path *p, pa_alsa_mapping *mapping, snd_mixer_t *m
     p->supported = true;
 
     p->min_dB = INFINITY;
-    min_dB_set = false;
     p->max_dB = -INFINITY;
-    max_dB_set = false;
 
     for (t = 0; t < PA_CHANNEL_POSITION_MAX; t++) {
         if (path_volume_channels & PA_CHANNEL_POSITION_MASK(t)) {
-            if (p->min_dB > min_dB[t]) {
+            if (p->min_dB > min_dB[t])
                 p->min_dB = min_dB[t];
-                min_dB_set = true;
-            }
 
-            if (p->max_dB < max_dB[t]) {
+            if (p->max_dB < max_dB[t])
                 p->max_dB = max_dB[t];
-                max_dB_set = true;
-            }
         }
     }
-
-    /* this is probably a wrong prediction, but it should be safe */
-    if (!min_dB_set)
-        p->min_dB = -INFINITY;
-    if (!max_dB_set)
-        p->max_dB = 0;
 
     return 0;
 }
@@ -3191,7 +3165,7 @@ void pa_alsa_element_dump(pa_alsa_element *e) {
     pa_assert(e);
 
     alsa_id_str(buf, sizeof(buf), &e->alsa_id);
-    pa_log_debug("Element %s, direction=%i, switch=%i, volume=%i, volume_limit=%li, enumeration=%i, required=%i, required_any=%i, required_absent=%i, mask=0x%llx, n_channels=%u, override_map=%02x",
+    pa_log_debug("Element %s, direction=%i, switch=%i, volume=%i, volume_limit=%li, enumeration=%i, required=%i, required_any=%i, required_absent=%i, mask=0x%llx, n_channels=%u, override_map=%s",
                  buf,
                  e->direction,
                  e->switch_use,
@@ -3203,7 +3177,7 @@ void pa_alsa_element_dump(pa_alsa_element *e) {
                  e->required_absent,
                  (long long unsigned) e->merged_mask,
                  e->n_channels,
-                 e->override_map);
+                 pa_yes_no(e->override_map));
 
     PA_LLIST_FOREACH(o, e->options)
         pa_alsa_option_dump(o);
@@ -4313,28 +4287,42 @@ fail:
 }
 
 /* the logic is simple: if we see the jack in multiple paths */
-/* assign all those jacks to one availability_group */
-static void mapping_group_available(pa_hashmap *paths)
-{
-    void *state, *state2;
-    pa_alsa_path *p, *p2;
-    pa_alsa_jack *j, *j2;
+/* assign all those paths to one availability_group */
+static void profile_set_set_availability_groups(pa_alsa_profile_set *ps) {
+    pa_dynarray *paths;
+    pa_alsa_path *p;
+    void *state;
+    unsigned idx1;
     uint32_t num = 1;
 
-    PA_HASHMAP_FOREACH(p, paths, state) {
+    /* Merge ps->input_paths and ps->output_paths into one dynarray. */
+    paths = pa_dynarray_new(NULL);
+    PA_HASHMAP_FOREACH(p, ps->input_paths, state)
+        pa_dynarray_append(paths, p);
+    PA_HASHMAP_FOREACH(p, ps->output_paths, state)
+        pa_dynarray_append(paths, p);
+
+    PA_DYNARRAY_FOREACH(p, paths, idx1) {
+        pa_alsa_jack *j;
         const char *found = NULL;
         bool has_control = false;
+
         PA_LLIST_FOREACH(j, p->jacks) {
+            pa_alsa_path *p2;
+            unsigned idx2;
+
             if (!j->has_control || j->state_plugged == PA_AVAILABLE_NO)
                 continue;
             has_control = true;
-            PA_HASHMAP_FOREACH(p2, paths, state2) {
+            PA_DYNARRAY_FOREACH(p2, paths, idx2) {
+                pa_alsa_jack *j2;
+
                 if (p2 == p)
-                   break;
+                    break;
                 PA_LLIST_FOREACH(j2, p2->jacks) {
                     if (!j2->has_control || j2->state_plugged == PA_AVAILABLE_NO)
                         continue;
-                    if (pa_streq(j->name, j2->name)) {
+                    if (pa_streq(j->alsa_name, j2->alsa_name)) {
                         j->state_plugged = PA_AVAILABLE_UNKNOWN;
                         j2->state_plugged = PA_AVAILABLE_UNKNOWN;
                         found = p2->availability_group;
@@ -4355,6 +4343,8 @@ static void mapping_group_available(pa_hashmap *paths)
         if (!found)
             num++;
     }
+
+    pa_dynarray_free(paths);
 }
 
 static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
@@ -4405,8 +4395,6 @@ static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
     PA_HASHMAP_FOREACH(p, ps->paths, state)
         pa_hashmap_put(used_paths, p, p);
 
-    mapping_group_available(ps->paths);
-
     pa_log_debug("Available mixer paths (after tidying):");
     pa_alsa_path_set_dump(ps);
 }
@@ -4415,6 +4403,8 @@ static int mapping_verify(pa_alsa_mapping *m, const pa_channel_map *bonus) {
 
     static const struct description_map well_known_descriptions[] = {
         { "analog-mono",            N_("Analog Mono") },
+        { "analog-mono-left",       N_("Analog Mono (Left)") },
+        { "analog-mono-right",      N_("Analog Mono (Right)") },
         { "analog-stereo",          N_("Analog Stereo") },
         { "mono-fallback",          N_("Mono") },
         { "stereo-fallback",        N_("Stereo") },
@@ -4425,6 +4415,8 @@ static int mapping_verify(pa_alsa_mapping *m, const pa_channel_map *bonus) {
          * multichannel-input and multichannel-output. */
         { "analog-stereo-input",    N_("Analog Stereo") },
         { "analog-stereo-output",   N_("Analog Stereo") },
+        { "analog-stereo-headset",  N_("Headset") },
+        { "analog-stereo-speakerphone",  N_("Speakerphone") },
         { "multichannel-input",     N_("Multichannel") },
         { "multichannel-output",    N_("Multichannel") },
         { "analog-surround-21",     N_("Analog Surround 2.1") },
@@ -4581,6 +4573,8 @@ static int profile_verify(pa_alsa_profile *p) {
     static const struct description_map well_known_descriptions[] = {
         { "output:analog-mono+input:analog-mono",     N_("Analog Mono Duplex") },
         { "output:analog-stereo+input:analog-stereo", N_("Analog Stereo Duplex") },
+        { "output:analog-stereo-headset+input:analog-stereo-headset", N_("Headset") },
+        { "output:analog-stereo-speakerphone+input:analog-stereo-speakerphone", N_("Speakerphone") },
         { "output:iec958-stereo+input:iec958-stereo", N_("Digital Stereo Duplex (IEC958)") },
         { "output:multichannel-output+input:multichannel-input", N_("Multichannel Duplex") },
         { "output:unknown-stereo+input:unknown-stereo", N_("Stereo Duplex") },
@@ -5158,6 +5152,8 @@ void pa_alsa_profile_set_probe(
     pa_hashmap_free(broken_outputs);
     pa_hashmap_free(used_paths);
     pa_xfree(probe_order);
+
+    profile_set_set_availability_groups(ps);
 
     ps->probed = true;
 }

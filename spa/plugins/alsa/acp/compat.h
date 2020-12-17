@@ -72,6 +72,7 @@ typedef void (*pa_free_cb_t)(void *p);
 })
 
 #define PA_PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
+#define PA_UINT_TO_PTR(u) ((void*) ((uintptr_t) (u)))
 
 #include "array.h"
 #include "llist.h"

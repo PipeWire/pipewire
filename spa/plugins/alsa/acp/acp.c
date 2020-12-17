@@ -1206,6 +1206,41 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 	return 0;
 }
 
+static void prune_singleton_availability_groups(pa_hashmap *ports) {
+    pa_device_port *p;
+    pa_hashmap *group_counts;
+    void *state, *count;
+    const char *group;
+
+    /* Collect groups and erase those that don't have more than 1 path */
+    group_counts = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
+
+    PA_HASHMAP_FOREACH(p, ports, state) {
+        if (p->availability_group) {
+            count = pa_hashmap_get(group_counts, p->availability_group);
+            pa_hashmap_remove(group_counts, p->availability_group);
+            pa_hashmap_put(group_counts, p->availability_group, PA_UINT_TO_PTR(PA_PTR_TO_UINT(count) + 1));
+        }
+    }
+
+    /* Now we have an availability_group -> count map, let's drop all groups
+     * that have only one member */
+    PA_HASHMAP_FOREACH_KV(group, count, group_counts, state) {
+        if (count == PA_UINT_TO_PTR(1))
+            pa_hashmap_remove(group_counts, group);
+    }
+
+    PA_HASHMAP_FOREACH(p, ports, state) {
+        if (p->availability_group && !pa_hashmap_get(group_counts, p->availability_group)) {
+            pa_log_debug("Pruned singleton availability group %s from port %s", p->availability_group, p->name);
+            pa_xfree(p->availability_group);
+            p->availability_group = NULL;
+        }
+    }
+
+    pa_hashmap_free(group_counts);
+}
+
 static const char *acp_dict_lookup(const struct acp_dict *dict, const char *key)
 {
 	const struct acp_dict_item *it;
@@ -1305,6 +1340,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	pa_alsa_init_description(impl->proplist, NULL);
 
 	add_profiles(impl);
+	prune_singleton_availability_groups(impl->ports);
 
 	card->n_profiles = pa_dynarray_size(&impl->out.profiles);
 	card->profiles = impl->out.profiles.array.data;

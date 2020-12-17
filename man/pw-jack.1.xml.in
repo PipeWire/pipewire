@@ -63,7 +63,6 @@ This file is part of PipeWire.
     <p>
       <manref name="pipewire" section="1"/>,
       <manref name="jackd" section="1"/>,
-      <manref name="pw-pulse" section="1"/>
     </p>
   </section>
 

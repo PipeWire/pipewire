@@ -41,9 +41,9 @@ if host_machine.system() == 'linux'
   # glibc ld.so interprets ${LIB} in a library loading path with an
   # appropriate value for the current architecture, typically something
   # like lib, lib64 or lib/x86_64-linux-gnu.
-  # This allows the same pw-pulse script to work for both 32- and 64-bit
+  # This allows the same pw-jack script to work for both 32- and 64-bit
   # applications on biarch/multiarch distributions, by setting something
-  # like LD_LIBRARY_PATH='/usr/${LIB}/pipewire-0.3/pulse'.
+  # like LD_LIBRARY_PATH='/usr/${LIB}/pipewire-0.3/jack'.
   # Note that ${LIB} is a special token expanded by the runtime linker,
   # not an environment variable, and must be passed through literally.
   modules_install_dir_dlopen = join_paths(prefix, '${LIB}', pipewire_name)
@@ -327,7 +327,7 @@ dbus_dep = dependency('dbus-1')
 sdl_dep = dependency('sdl2', required : false)
 sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : false)
 
-if get_option('gstreamer') or get_option('pipewire-pulseaudio')
+if get_option('gstreamer')
   glib_dep = dependency('glib-2.0', version : '>=2.32.0')
 endif
 
@@ -362,12 +362,6 @@ subdir('src')
 if get_option('pipewire-jack')
   jack_dep = dependency('jack', version : '>= 1.9.10')
   subdir('pipewire-jack/src')
-endif
-
-if get_option('pipewire-pulseaudio')
-  pulseaudio_dep = dependency('libpulse', version : '>= 11.1')
-  subdir('pipewire-pulseaudio/src')
-  subdir('pipewire-pulseaudio/test')
 endif
 
 if get_option('pipewire-alsa')

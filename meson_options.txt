@@ -49,13 +49,6 @@ option('pipewire-jack',
 option('libjack-path',
        description: 'Where to install the libjack.so library',
        type: 'string')
-option('pipewire-pulseaudio',
-       description: 'Enable pipewire-pulseaudio integration',
-       type: 'boolean',
-       value: false)
-option('libpulse-path',
-       description: 'Where to install the libpulse.so library',
-       type: 'string')
 option('spa-plugins',
        description: 'Enable spa plugins integration',
        type: 'boolean',

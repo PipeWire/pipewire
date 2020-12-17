@@ -29,7 +29,6 @@
 #include <sys/stat.h>
 #include <sys/inotify.h>
 #include <fcntl.h>
-#include <poll.h>
 
 #include <libudev.h>
 #include <alsa/asoundlib.h>
@@ -46,13 +45,12 @@
 
 #define NAME  "alsa-udev"
 
-#define MAX_CARDS	64
+#define MAX_DEVICES	64
 
 #define ACTION_ADD	0
-#define ACTION_CHANGE	1
-#define ACTION_REMOVE	2
+#define ACTION_REMOVE	1
 
-struct card {
+struct device {
 	uint32_t id;
 	struct udev_device *dev;
 	unsigned int accessible:1;
@@ -75,8 +73,8 @@ struct impl {
 	struct udev *udev;
 	struct udev_monitor *umonitor;
 
-	struct card cards[MAX_CARDS];
-	uint32_t n_cards;
+	struct device devices[MAX_DEVICES];
+        uint32_t n_devices;
 
 	struct spa_source source;
 	struct spa_source notify;
@@ -101,50 +99,59 @@ static int impl_udev_close(struct impl *this)
 	return 0;
 }
 
-static struct card *add_card(struct impl *this, uint32_t id, struct udev_device *dev)
+static struct device *add_device(struct impl *this, uint32_t id, struct udev_device *dev)
 {
-	struct card *card;
+	struct device *device;
 
-	if (this->n_cards >= MAX_CARDS)
+	if (this->n_devices >= MAX_DEVICES)
 		return NULL;
-	card = &this->cards[this->n_cards++];
-	spa_zero(*card);
-	card->id = id;
+	device = &this->devices[this->n_devices++];
+	spa_zero(*device);
+	device->id = id;
 	udev_device_ref(dev);
-	card->dev = dev;
-	return card;
+	device->dev = dev;
+	return device;
 }
 
-static struct card *find_card(struct impl *this, uint32_t id)
+static struct device *find_device(struct impl *this, uint32_t id)
 {
 	uint32_t i;
-	for (i = 0; i < this->n_cards; i++) {
-		if (this->cards[i].id == id)
-			return &this->cards[i];
+	for (i = 0; i < this->n_devices; i++) {
+		if (this->devices[i].id == id)
+			return &this->devices[i];
 	}
 	return NULL;
 }
 
-static void remove_card(struct impl *this, struct card *card)
+static void remove_device(struct impl *this, struct device *device)
 {
-	udev_device_unref(card->dev);
-	*card = this->cards[--this->n_cards];
+	udev_device_unref(device->dev);
+	*device = this->devices[--this->n_devices];
 }
 
-static const char *path_get_card_id(const char *path)
+static uint32_t get_card_id(struct impl *this, struct udev_device *dev)
 {
-	const char *e;
+	const char *e, *str;
 
-	if (!path)
-		return NULL;
+	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
+		return SPA_ID_INVALID;
 
-	if (!(e = strrchr(path, '/')))
-		return NULL;
+	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && strcmp(str, "modem") == 0)
+		return SPA_ID_INVALID;
+
+	if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
+		return SPA_ID_INVALID;
+
+	if ((str = udev_device_get_property_value(dev, "DEVPATH")) == NULL)
+		return SPA_ID_INVALID;
+
+	if ((e = strrchr(str, '/')) == NULL)
+		return SPA_ID_INVALID;
 
 	if (strlen(e) <= 5 || strncmp(e, "/card", 5) != 0)
-		return NULL;
+		return SPA_ID_INVALID;
 
-	return e + 5;
+	return atoi(e + 5);
 }
 
 static int dehex(char x)
@@ -227,19 +234,17 @@ static void unescape(const char *src, char *dst)
 	*d = 0;
 }
 
-static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *dev)
+static int emit_object_info(struct impl *this, struct device *device)
 {
 	struct spa_device_object_info info;
+	uint32_t id = device->id;
+	struct udev_device *dev = device->dev;
 	snd_ctl_t *ctl_hndl;
 	const char *str;
 	char path[32];
 	struct spa_dict_item items[23];
 	uint32_t n_items = 0;
 	int res, pcm;
-	struct card *card;
-
-	if ((card = find_card(this, id)) == NULL)
-		return -EINVAL;
 
 	snprintf(path, sizeof(path), "hw:%u", id);
 	spa_log_debug(this->log, "open card %s", path);
@@ -258,12 +263,12 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 
 	if (res < 0) {
 		spa_log_error(this->log, "error iterating devices: %s", snd_strerror(res));
-		card->ignored = true;
+		device->ignored = true;
 		return res;
 	}
 	if (pcm < 0) {
 		spa_log_debug(this->log, "no pcm devices for %s", path);
-		card->ignored = true;
+		device->ignored = true;
 		return 0;
 	}
 
@@ -356,98 +361,55 @@ static int emit_object_info(struct impl *this, uint32_t id, struct udev_device *
 	info.props = &SPA_DICT_INIT(items, n_items);
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
-	card->emited = true;
+	device->emited = true;
 
 	return 1;
 }
 
-static bool check_access(struct impl *this, struct card *card)
+static bool check_access(struct impl *this, struct device *device)
 {
 	char path[128];
 
-	snprintf(path, sizeof(path)-1, "/dev/snd/controlC%u", card->id);
-	card->accessible = access(path, R_OK|W_OK) >= 0;
-	spa_log_debug(this->log, "%s accessible:%u", path, card->accessible);
+	snprintf(path, sizeof(path)-1, "/dev/snd/controlC%u", device->id);
+	device->accessible = access(path, R_OK|W_OK) >= 0;
+	spa_log_debug(this->log, "%s accessible:%u", path, device->accessible);
 
-	return card->accessible;
+	return device->accessible;
 }
 
-static int need_notify(struct impl *this, struct udev_device *dev, uint32_t action, bool enumerated,
-		uint32_t *obj_id)
+static void process_device(struct impl *this, uint32_t action, struct udev_device *dev)
 {
-	const char *str;
 	uint32_t id;
-	struct card *card;
+	struct device *device;
 	bool emited;
 
-	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
-		return 0;
+	if ((id = get_card_id(this, dev)) == SPA_ID_INVALID)
+		return;
 
-	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && strcmp(str, "modem") == 0)
-		return 0;
-
-	if ((str = path_get_card_id(udev_device_get_property_value(dev, "DEVPATH"))) == NULL)
-		return 0;
-
-	id = atoi(str);
-	card = find_card(this, id);
-	if (card && card->ignored)
-		return 0;
+	device = find_device(this, id);
+	if (device && device->ignored)
+		return;
 
 	switch (action) {
 	case ACTION_ADD:
-		if (card != NULL)
-			return 0;
-		if ((card = add_card(this, id, dev)) == NULL)
-			return 0;
-		/** don't notify on add, wait for the next change event */
-		if (!enumerated)
-			return 0;
-		if (!check_access(this, card))
-			return 0;
-		break;
-
-	case ACTION_CHANGE:
-		if (card == NULL)
-			return 0;
-		if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
-			return 0;
-		if (!check_access(this, card))
-			return 0;
+		if (device == NULL)
+			device = add_device(this, id, dev);
+		if (device == NULL)
+			return;
+		if (!check_access(this, device))
+			return;
+		emit_object_info(this, device);
 		break;
 
 	case ACTION_REMOVE:
-		if (card == NULL)
-			return 0;
-		emited = card->emited;
-		remove_card(this, card);
-		if (!emited)
-			return 0;
-		break;
-	default:
-		return 0;
-	}
-	*obj_id = id;
-	return 1;
-}
-
-static int emit_device(struct impl *this, uint32_t action, bool enumerated, struct udev_device *dev)
-{
-	uint32_t id;
-
-	if (!need_notify(this, dev, action, enumerated, &id))
-		return 0;
-
-	switch (action) {
-	case ACTION_ADD:
-	case ACTION_CHANGE:
-		emit_object_info(this, id, dev);
-		break;
-	default:
-		spa_device_emit_object_info(&this->hooks, id, NULL);
+		if (device == NULL)
+			return;
+		emited = device->emited;
+		remove_device(this, device);
+		if (emited)
+			spa_device_emit_object_info(&this->hooks, id, NULL);
 		break;
 	}
-	return 0;
 }
 
 static int stop_inotify(struct impl *this)
@@ -486,17 +448,17 @@ static void impl_on_notify_events(struct spa_source *source)
 		for (p = &buf; p < e;
 		    p = SPA_MEMBER(p, sizeof(struct inotify_event) + event->len, void)) {
 			unsigned int id;
-			struct card *card;
+			struct device *device;
 
 			event = (const struct inotify_event *) p;
 
 			if ((event->mask & IN_ATTRIB)) {
 				if (sscanf(event->name, "controlC%u", &id) != 1)
 					continue;
-				if ((card = find_card(this, id)) == NULL)
+				if ((device = find_device(this, id)) == NULL)
 					continue;
-				if (!card->emited)
-					emit_device(this, ACTION_CHANGE, false, card->dev);
+				if (!device->emited)
+					process_device(this, ACTION_ADD, device->dev);
 			}
 			/* /dev/snd/ might have been removed */
 			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
@@ -546,11 +508,10 @@ static void impl_on_fd_events(struct spa_source *source)
 	struct impl *this = source->data;
 	struct udev_device *dev;
 	const char *action;
-	uint32_t a;
 
 	dev = udev_monitor_receive_device(this->umonitor);
 	if (dev == NULL)
-                return;
+		return;
 
 	if ((action = udev_device_get_action(dev)) == NULL)
 		action = "change";
@@ -559,17 +520,11 @@ static void impl_on_fd_events(struct spa_source *source)
 
 	start_inotify(this);
 
-	if (strcmp(action, "add") == 0) {
-		a = ACTION_ADD;
-	} else if (strcmp(action, "change") == 0) {
-		a = ACTION_CHANGE;
+	if (strcmp(action, "change") == 0) {
+		process_device(this, ACTION_ADD, dev);
 	} else if (strcmp(action, "remove") == 0) {
-		a = ACTION_REMOVE;
-	} else
-		return;
-
-	emit_device(this, a, false, dev);
-
+		process_device(this, ACTION_REMOVE, dev);
+	}
 	udev_device_unref(dev);
 }
 
@@ -593,6 +548,7 @@ static int start_monitor(struct impl *this)
 	this->source.fd = udev_monitor_get_fd(this->umonitor);;
 	this->source.mask = SPA_IO_IN | SPA_IO_ERR;
 
+	spa_log_debug(this->log, "monitor %p", this->umonitor);
 	spa_loop_add_source(this->main_loop, &this->source);
 
 	if ((res = start_inotify(this)) < 0)
@@ -635,7 +591,7 @@ static int enum_devices(struct impl *this)
 		if (dev == NULL)
 			continue;
 
-		emit_device(this, ACTION_ADD, true, dev);
+		process_device(this, ACTION_ADD, dev);
 
 		udev_device_unref(dev);
 	}
@@ -726,7 +682,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-        struct impl *this = (struct impl *) handle;
+	struct impl *this = (struct impl *) handle;
 	stop_monitor(this);
 	impl_udev_close(this);
 	return 0;

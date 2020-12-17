@@ -345,6 +345,8 @@ static int impl_enum_params(void *object, int seq,
 		switch (result.index) {
 		case 0:
 			param = build_profile(this, &b, id, this->profile);
+			if (param == NULL)
+				return 0;
 			break;
 		default:
 			return 0;

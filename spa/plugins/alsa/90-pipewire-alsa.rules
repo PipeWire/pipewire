@@ -110,7 +110,9 @@ ATTRS{idVendor}=="0763", ATTRS{idProduct}=="2012", ENV{ACP_PROFILE_SET}="maudio-
 ATTRS{idVendor}=="045e", ATTRS{idProduct}=="02bb", ENV{ACP_PROFILE_SET}="kinect-audio.conf"
 ATTRS{idVendor}=="041e", ATTRS{idProduct}=="322c", ENV{ACP_PROFILE_SET}="sb-omni-surround-5.1.conf"
 ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="4014", ENV{ACP_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
-
+ATTRS{idVendor}=="08bb", ATTRS{idProduct}=="2902", ENV{ACP_PROFILE_SET}="behringer-umc22.conf"
+ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0269", ENV{ACP_PROFILE_SET}="hp-tbt-dock-120w-g2.conf"
+ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0567", ENV{ACP_PROFILE_SET}="hp-tbt-dock-audio-module.conf"
 
 # ID 1038:12ad is for the 2018 refresh of the Arctis 7.
 # ID 1038:1294 is for Arctis Pro Wireless (which works with the Arctis 7 configuration).
@@ -144,6 +146,16 @@ ATTRS{idVendor}=="147a", ATTRS{idProduct}=="e055", ENV{ACP_PROFILE_SET}="cmedia-
 ATTRS{idVendor}=="0951", ATTRS{idProduct}=="16ff", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_2Ch-$env{ID_USB_INTERFACE_NUM}"
 ATTRS{idVendor}=="0951", ATTRS{idProduct}=="1702", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_Hi-Res_2Ch-$env{ID_USB_INTERFACE_NUM}"
 ATTRS{idVendor}=="0951", ATTRS{idProduct}=="1703", ENV{ID_ID}="usb-HyperX_Cloud_Orbit_S_3D_8Ch-$env{ID_USB_INTERFACE_NUM}"
+
+# OnePlus Type-C Bullets (ED117)
+ATTRS{idVendor}=="2a70", ATTRS{idProduct}=="1881", ENV{ACP_PROFILE_SET}="simple-headphones-mic.conf"
+
+# ID 1395:005e is for Sennheiser GSX 1000
+# ID 1395:00a0 is for Sennheiser GSX 1000
+# ID 1395:005f is for Sennheiser GSX 1200
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="005e", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="00a0", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="005f", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 
 GOTO="pipewire_end"
 

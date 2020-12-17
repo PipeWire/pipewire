@@ -2730,6 +2730,9 @@ static int path_verify(pa_alsa_path *p) {
         { "multichannel-output",              N_("Multichannel Output"),          PA_DEVICE_PORT_TYPE_LINE },
         { "steelseries-arctis-output-game-common", N_("Game Output"),             PA_DEVICE_PORT_TYPE_HEADSET },
         { "steelseries-arctis-output-chat-common", N_("Chat Output"),             PA_DEVICE_PORT_TYPE_HEADSET },
+        { "analog-chat-output",               N_("Chat Output"),                  PA_DEVICE_PORT_TYPE_HEADSET },
+        { "analog-chat-input",                N_("Chat Input"),                   PA_DEVICE_PORT_TYPE_HEADSET },
+        { "virtual-surround-7.1",             N_("Virtual Surround 7.1"),         PA_DEVICE_PORT_TYPE_HEADPHONES },
     };
 
     pa_alsa_element *e;
@@ -4578,6 +4581,7 @@ static int profile_verify(pa_alsa_profile *p) {
         { "output:iec958-stereo+input:iec958-stereo", N_("Digital Stereo Duplex (IEC958)") },
         { "output:multichannel-output+input:multichannel-input", N_("Multichannel Duplex") },
         { "output:unknown-stereo+input:unknown-stereo", N_("Stereo Duplex") },
+        { "output:analog-output-surround71+output:analog-output-chat+input:analog-input", N_("Mono Chat + 7.1 Surround") },
         { "off",                                      N_("Off") }
     };
     const char *description_key = p->description_key ? p->description_key : p->name;
@@ -5127,7 +5131,7 @@ void pa_alsa_profile_set_probe(
         if (p->output_mappings)
             PA_IDXSET_FOREACH(m, p->output_mappings, idx)
                 if (m->output_pcm) {
-                    found_output |= !p->fallback_output;
+                    found_output = true;
                     mapping_paths_probe(m, p, PA_ALSA_DIRECTION_OUTPUT, used_paths, mixers);
                     pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
                 }
@@ -5135,7 +5139,7 @@ void pa_alsa_profile_set_probe(
         if (p->input_mappings)
             PA_IDXSET_FOREACH(m, p->input_mappings, idx)
                 if (m->input_pcm) {
-                    found_input |= !p->fallback_input;
+                    found_input = true;
                     mapping_paths_probe(m, p, PA_ALSA_DIRECTION_INPUT, used_paths, mixers);
                     pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
                 }

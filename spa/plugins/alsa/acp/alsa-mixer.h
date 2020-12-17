@@ -149,7 +149,7 @@ struct pa_alsa_element {
 
     long constant_volume;
 
-    unsigned int override_map;
+    bool override_map:1;
     bool direction_try_other:1;
 
     bool has_dB:1;
@@ -157,7 +157,7 @@ struct pa_alsa_element {
     long volume_limit; /* -1 for no configured limit */
     double min_dB, max_dB;
 
-    pa_channel_position_mask_t masks[SND_MIXER_SCHN_LAST + 1][8];
+    pa_channel_position_mask_t masks[SND_MIXER_SCHN_LAST + 1][2];
     unsigned n_channels;
 
     pa_channel_position_mask_t merged_mask;

@@ -1128,7 +1128,6 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 		struct spa_pod_builder b = { 0 };
 	        struct spa_result_node_params result;
 		uint32_t count = 0;
-		bool found = false;
 
 		result.id = param_id;
 		result.next = 0;
@@ -1137,8 +1136,6 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			result.index = result.next++;
 			if (p->id != param_id)
 				continue;
-
-			found = true;
 
 			if (result.index < index)
 				continue;
@@ -1153,7 +1150,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			if (++count == max)
 				break;
 		}
-		res = found ? 0 : -ENOENT;
+		res = 0;
 	} else {
 		user_data.cache = filter == NULL;
 

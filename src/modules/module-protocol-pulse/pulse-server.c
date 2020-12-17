@@ -4754,16 +4754,11 @@ static int handle_memblock(struct client *client, struct message *msg)
 	offset = (int64_t) (
              (((uint64_t) ntohl(client->desc.offset_hi)) << 32) |
              (((uint64_t) ntohl(client->desc.offset_lo))));
-	flags = ntohl(client->desc.flags) & FLAG_SEEKMASK;
+	flags = ntohl(client->desc.flags);
 
 	pw_log_debug(NAME" %p: Received memblock channel:%d offset:%"PRIi64
 			" flags:%08x size:%u", impl, channel, offset,
 			flags, msg->length);
-
-	if (flags != 0)
-		pw_log_warn(NAME" %p: unhandled seek flags:%02x", impl, flags);
-	if (offset != 0)
-		pw_log_warn(NAME" %p: unhandled offset:%08"PRIx64, impl, offset);
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_RECORD) {
@@ -4772,8 +4767,24 @@ static int handle_memblock(struct client *client, struct message *msg)
 	}
 
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
-	pw_log_debug("new block %p %p/%u filled:%d index:%d", msg,
-			msg->data, msg->length, filled, index);
+	pw_log_debug("new block %p %p/%u filled:%d index:%d flags:%02x offset:%08"PRIx64,
+			msg, msg->data, msg->length, filled, index, flags, offset);
+
+	switch (flags & FLAG_SEEKMASK) {
+	case SEEK_RELATIVE:
+		index += offset;
+		filled -= offset;
+		break;
+	case SEEK_ABSOLUTE:
+		filled -= (int32_t)(offset - (uint64_t)index);
+		index = offset;
+		break;
+	case SEEK_RELATIVE_ON_READ:
+	case SEEK_RELATIVE_END:
+		index = index - filled + offset;
+		filled = 0;
+		break;
+	}
 
 	if (filled < 0) {
 		/* underrun, reported on reader side */

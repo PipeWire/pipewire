@@ -1488,11 +1488,12 @@ static void stream_process(void *data)
 					stream, client->name, pd.write_index, filled,
 					size, stream->attr.maxlength);
 		}
+
 		spa_ringbuffer_write_data(&stream->ring,
 				stream->buffer, stream->attr.maxlength,
 				pd.write_index % stream->attr.maxlength,
 				SPA_MEMBER(p, buf->datas[0].chunk->offset, void),
-				size);
+				SPA_MIN(size, stream->attr.maxlength));
 
 		pd.write_index += size;
 		spa_ringbuffer_write_update(&stream->ring, pd.write_index);
@@ -4792,12 +4793,14 @@ static int handle_memblock(struct client *client, struct message *msg)
 		/* overrun */
 		send_overflow(stream);
 	}
+
 	/* always write data to ringbuffer, we expect the other side
 	 * to recover */
 	spa_ringbuffer_write_data(&stream->ring,
 			stream->buffer, stream->attr.maxlength,
 			index % stream->attr.maxlength,
-			msg->data, msg->length);
+			msg->data,
+			SPA_MIN(msg->length, stream->attr.maxlength));
 	stream->write_index = index + msg->length;
 	spa_ringbuffer_write_update(&stream->ring, stream->write_index);
 	stream->requested -= msg->length;

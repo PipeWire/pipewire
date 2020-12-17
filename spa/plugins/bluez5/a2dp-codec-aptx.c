@@ -175,7 +175,7 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 		return -EINVAL;
 
 	*param = spa_pod_builder_pop(b, &f[0]);
-	return 1;
+	return *param == NULL ? -EIO : 1;
 }
 
 static int codec_reduce_bitpool(void *data)

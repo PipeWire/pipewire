@@ -894,8 +894,6 @@ impl_node_port_enum_params(void *object, int seq,
 
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		if (result.index > 0)
-			return 0;
 		if (this->codec == NULL)
 			return -EIO;
 

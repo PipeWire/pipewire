@@ -1155,7 +1155,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 {
 	const char *mod_name;
 	bool ignore_dB = false;
-	uint32_t port_index;
+	uint32_t i, port_index;
 	int res;
 
 	if (impl->use_ucm &&
@@ -1172,6 +1172,12 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	dev->device.flags |= ACP_DEVICE_ACTIVE;
 
 	find_mixer(impl, dev, NULL, ignore_dB);
+
+	/* Synchronize priority values, as it may have changed when setting the profile */
+	for (i = 0; i < impl->card.n_ports; i++) {
+		pa_device_port *p = (pa_device_port *)impl->card.ports[i];
+		p->port.priority = p->priority;
+	}
 
 	port_index = acp_device_find_best_port_index(&dev->device, NULL);
 	if (port_index == ACP_INVALID_INDEX)
@@ -1242,12 +1248,20 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 
 	if (np->output_mappings) {
 		PA_IDXSET_FOREACH(am, np->output_mappings, idx) {
+			if (impl->use_ucm)
+				/* Update ports priorities */
+				pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
+					true, impl->ports, np, NULL);
 			device_enable(impl, am, &am->output);
 		}
 	}
 
 	if (np->input_mappings) {
 		PA_IDXSET_FOREACH(am, np->input_mappings, idx) {
+			if (impl->use_ucm)
+				/* Update ports priorities */
+				pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
+					false, impl->ports, np, NULL);
 			device_enable(impl, am, &am->input);
 		}
 	}

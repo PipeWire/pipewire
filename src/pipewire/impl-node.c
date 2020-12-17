@@ -1276,6 +1276,7 @@ static void node_info(void *data, const struct spa_node_info *info)
 					id, spa_debug_type_find_name(spa_type_param, id),
 					node->info.params[i].flags, info->params[i].flags);
 
+			node->info.params[i].id = info->params[i].id;
 			if (node->info.params[i].flags == info->params[i].flags)
 				continue;
 

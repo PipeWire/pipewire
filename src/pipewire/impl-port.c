@@ -373,6 +373,7 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 					id, spa_debug_type_find_name(spa_type_param, id),
 					port->info.params[i].flags, info->params[i].flags);
 
+			port->info.params[i].id = info->params[i].id;
 			if (port->info.params[i].flags == info->params[i].flags)
 				continue;
 

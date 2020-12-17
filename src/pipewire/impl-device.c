@@ -733,19 +733,20 @@ static void device_info(void *data, const struct spa_device_info *info)
 			uint32_t id = info->params[i].id;
 
 			pw_log_debug(NAME" %p: param %d id:%d (%s) %08x:%08x", device, i,
-                                        id, spa_debug_type_find_name(spa_type_param, id),
-                                        device->info.params[i].flags, info->params[i].flags);
+					id, spa_debug_type_find_name(spa_type_param, id),
+					device->info.params[i].flags, info->params[i].flags);
 
-                        if (device->info.params[i].flags == info->params[i].flags)
+			device->info.params[i].id = device->params[i].id;
+			if (device->info.params[i].flags == info->params[i].flags)
 				continue;
 
 			pw_log_debug(NAME" %p: update param %d", device, id);
 			pw_param_clear(&impl->pending_list, id);
-                        device->info.params[i] = info->params[i];
-                        device->info.params[i].user = 0;
+			device->info.params[i] = info->params[i];
+			device->info.params[i].user = 0;
 
 			if (info->params[i].flags & SPA_PARAM_INFO_READ)
-                                changed_ids[n_changed_ids++] = id;
+				changed_ids[n_changed_ids++] = id;
                 }
 	}
 	emit_info_changed(device);

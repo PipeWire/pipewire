@@ -101,6 +101,20 @@ static int impl_udev_close(struct impl *this)
 	return 0;
 }
 
+static struct card *add_card(struct impl *this, uint32_t id, struct udev_device *dev)
+{
+	struct card *card;
+
+	if (this->n_cards >= MAX_CARDS)
+		return NULL;
+	card = &this->cards[this->n_cards++];
+	spa_zero(*card);
+	card->id = id;
+	udev_device_ref(dev);
+	card->dev = dev;
+	return card;
+}
+
 static struct card *find_card(struct impl *this, uint32_t id)
 {
 	uint32_t i;
@@ -109,6 +123,12 @@ static struct card *find_card(struct impl *this, uint32_t id)
 			return &this->cards[i];
 	}
 	return NULL;
+}
+
+static void remove_card(struct impl *this, struct card *card)
+{
+	udev_device_unref(card->dev);
+	*card = this->cards[--this->n_cards];
 }
 
 static const char *path_get_card_id(const char *path)
@@ -378,13 +398,8 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t acti
 	case ACTION_ADD:
 		if (card != NULL)
 			return 0;
-		if (this->n_cards >= MAX_CARDS)
+		if ((card = add_card(this, id, dev)) == NULL)
 			return 0;
-		card = &this->cards[this->n_cards++];
-		spa_zero(*card);
-		card->id = id;
-		udev_device_ref(dev);
-		card->dev = dev;
 		/** don't notify on add, wait for the next change event */
 		if (!enumerated)
 			return 0;
@@ -404,9 +419,8 @@ static int need_notify(struct impl *this, struct udev_device *dev, uint32_t acti
 	case ACTION_REMOVE:
 		if (card == NULL)
 			return 0;
-		emited =  card->emited;
-		udev_device_unref(card->dev);
-		*card = this->cards[--this->n_cards];
+		emited = card->emited;
+		remove_card(this, card);
 		if (!emited)
 			return 0;
 		break;

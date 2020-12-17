@@ -35,22 +35,31 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
-#define MAX_FRAME_COUNT 16
-
 struct impl {
 	struct aptx_context *aptx;
 
 	struct rtp_header *header;
-	struct rtp_payload *payload;
 
 	size_t mtu;
 	int codesize;
 	int frame_length;
+
+	bool hd;
 };
+
+static inline bool codec_is_hd(const struct a2dp_codec *codec) {
+	return codec->vendor.codec_id == APTX_HD_CODEC_ID
+		&& codec->vendor.vendor_id == APTX_HD_VENDOR_ID;
+}
+
+static inline size_t codec_get_caps_size(const struct a2dp_codec *codec) {
+	return codec_is_hd(codec) ? sizeof(a2dp_aptx_hd_t) : sizeof(a2dp_aptx_t);
+}
 
 static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
+	size_t actual_conf_size = codec_get_caps_size(codec);
 	const a2dp_aptx_t a2dp_aptx = {
 		.info = codec->vendor,
 		.frequency =
@@ -62,7 +71,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 			APTX_CHANNEL_MODE_STEREO,
 	};
 	memcpy(caps, &a2dp_aptx, sizeof(a2dp_aptx));
-	return sizeof(a2dp_aptx);
+	return actual_conf_size;
 }
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
@@ -70,8 +79,9 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_aptx_t conf;
+	size_t actual_conf_size = codec_get_caps_size(codec);
 
-	if (caps_size < sizeof(conf))
+	if (caps_size < sizeof(conf) || actual_conf_size < sizeof(conf))
 		return -EINVAL;
 
 	memcpy(&conf, caps, sizeof(conf));
@@ -94,7 +104,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 
 	memcpy(config, &conf, sizeof(conf));
 
-	return sizeof(conf);
+	return actual_conf_size;
 }
 
 static int codec_enum_config(const struct a2dp_codec *codec,
@@ -191,7 +201,13 @@ static int codec_increase_bitpool(void *data)
 static int codec_get_num_blocks(void *data)
 {
 	struct impl *this = data;
-	size_t frame_count = this->mtu / this->frame_length;
+	size_t frame_count;
+
+	if (this->hd)
+		frame_count = (this->mtu - sizeof(struct rtp_header)) / this->frame_length;
+	else
+		frame_count = this->mtu / this->frame_length;
+
 	return frame_count;
 }
 
@@ -205,14 +221,14 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info, size_t mtu)
 {
 	struct impl *this;
-	int res, hd;
+	int res;
 
 	if ((this = calloc(1, sizeof(struct impl))) == NULL)
 		goto error_errno;
 
-	hd = codec->vendor.vendor_id == APTX_HD_CODEC_ID;
+	this->hd = codec_is_hd(codec);
 
-	if ((this->aptx = aptx_init(hd)) == NULL)
+	if ((this->aptx = aptx_init(this->hd)) == NULL)
 		goto error_errno;
 
 	this->mtu = mtu;
@@ -223,7 +239,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		res = -EINVAL;
 		goto error;
 	}
-	this->frame_length = hd ? 6 : 4;
+	this->frame_length = this->hd ? 6 : 4;
 	this->codesize = 4 * 3 * 2;
 
 	return this;
@@ -249,7 +265,20 @@ static void codec_deinit(void *data)
 static int codec_start_encode (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
 {
-	return 0;
+	struct impl *this = data;
+
+	if (!this->hd)
+		return 0;
+
+	this->header = (struct rtp_header *)dst;
+	memset(this->header, 0, sizeof(struct rtp_header));
+
+	this->header->v = 2;
+	this->header->pt = 1;
+	this->header->sequence_number = htons(seqnum);
+	this->header->timestamp = htonl(timestamp);
+	this->header->ssrc = htonl(1);
+	return sizeof(struct rtp_header);
 }
 
 static int codec_encode(void *data,
@@ -269,7 +298,21 @@ static int codec_encode(void *data,
 static int codec_start_decode (void *data,
 		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
 {
-	return 0;
+	struct impl *this = data;
+
+	if (!this->hd)
+		return 0;
+
+	const struct rtp_header *header = src;
+	size_t header_size = sizeof(struct rtp_header);
+
+	spa_return_val_if_fail(src_size > header_size, -EINVAL);
+
+	if (seqnum)
+		*seqnum = ntohs(header->sequence_number);
+	if (timestamp)
+		*timestamp = ntohl(header->timestamp);
+	return header_size;
 }
 
 static int codec_decode(void *data,

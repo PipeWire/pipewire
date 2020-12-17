@@ -233,6 +233,13 @@ typedef struct {
 	uint8_t frequency:4;
 } __attribute__ ((packed)) a2dp_aptx_t;
 
+typedef struct {
+	a2dp_vendor_codec_t info;
+	uint8_t channel_mode:4;
+	uint8_t frequency:4;
+	uint32_t rfa;
+} __attribute__ ((packed)) a2dp_aptx_hd_t;
+
 #elif __BYTE_ORDER == __BIG_ENDIAN
 
 typedef struct {

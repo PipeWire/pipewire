@@ -201,22 +201,26 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	}
 
 	if (pw->blocks == 1) {
+		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
+			d[0].chunk->size = nframes * pw->stride;
+			d[0].chunk->offset = 0;
+		}
 		ptr = SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
 		for (channel = 0; channel < io->channels; channel++) {
 			pwareas[channel].addr = ptr;
 			pwareas[channel].first = channel * pw->sample_bits;
 			pwareas[channel].step = io->channels * pw->sample_bits;
 		}
-		if (io->stream == SND_PCM_STREAM_PLAYBACK)
-			d[0].chunk->size = nframes * pw->stride;
 	} else {
 		for (channel = 0; channel < io->channels; channel++) {
+			if (io->stream == SND_PCM_STREAM_PLAYBACK) {
+				d[channel].chunk->size = nframes * pw->stride;
+				d[channel].chunk->offset = 0;
+			}
 			ptr = SPA_MEMBER(d[channel].data, d[channel].chunk->offset, void);
 			pwareas[channel].addr = ptr;
 			pwareas[channel].first = 0;
 			pwareas[channel].step = pw->sample_bits;
-			if (io->stream == SND_PCM_STREAM_PLAYBACK)
-				d[channel].chunk->size = nframes * pw->stride;
 		}
 	}
 
@@ -230,16 +234,16 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 
 			if (io->stream == SND_PCM_STREAM_PLAYBACK)
 				snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
-										areas, offset,
-										io->buffer_size,
-										io->channels, xfer,
-										io->format);
+						areas, offset,
+						io->buffer_size,
+						io->channels, xfer,
+						io->format);
 			else
 				snd_pcm_areas_copy_wrap(areas, offset,
-										io->buffer_size,
-										pwareas, 0, nframes,
-										io->channels, xfer,
-										io->format);
+						io->buffer_size,
+						pwareas, 0, nframes,
+						io->channels, xfer,
+						io->format);
 
 			hw_ptr += xfer;
 			if (hw_ptr > pw->boundary)

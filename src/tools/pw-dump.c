@@ -296,9 +296,18 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		put_value(d, NULL, *(int32_t*)body ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
-		put_value(d, NULL, spa_debug_type_find_short_name(info,
-					*(int32_t*)body));
+	{
+		const char *str;
+		char fallback[32];
+		uint32_t id = *(uint32_t*)body;
+		str = spa_debug_type_find_short_name(info, *(uint32_t*)body);
+		if (str == NULL) {
+			snprintf(fallback, sizeof(fallback)-1, "id-%08x", id);
+			str = fallback;
+		}
+		put_value(d, NULL, str);
 		break;
+	}
 	case SPA_TYPE_Int:
 		put_int(d, NULL, *(int32_t*)body);
 		break;

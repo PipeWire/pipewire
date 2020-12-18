@@ -1139,7 +1139,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	try_link_controls(impl, output, input);
 
-	pw_impl_node_emit_peer_added(output_node, input_node);
+	pw_impl_node_emit_peer_added(impl->onode, impl->inode);
 
 	return this;
 
@@ -1266,7 +1266,7 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 	if (link->registered)
 		spa_list_remove(&link->link);
 
-	pw_impl_node_emit_peer_removed(link->output->node, link->input->node);
+	pw_impl_node_emit_peer_removed(impl->onode, impl->inode);
 
 	try_unlink_controls(impl, link->output, link->input);
 

@@ -1199,6 +1199,16 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
+static uint32_t channel_from_name(const char *name, size_t len)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name), len) == 0)
+			return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -1226,6 +1236,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_hook_list_init(&this->hooks);
 
+	props_reset(&this->props);
+
 	if (info != NULL) {
 		if ((str = spa_dict_lookup(info, "channelmix.normalize")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str) != 0))
@@ -1233,7 +1245,19 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "channelmix.mix-lfe")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
+		if ((str = spa_dict_lookup(info, SPA_KEY_AUDIO_POSITION)) != NULL) {
+			size_t len;
+			const char *p = str;
+			while (*p && this->props.n_channels < SPA_AUDIO_MAX_CHANNELS) {
+				if ((len = strcspn(p, ",")) == 0)
+					break;
+				this->props.channel_map[this->props.n_channels++] =
+					channel_from_name(p, len);
+				p += len + strspn(p+len, ",");
+			}
+		}
 	}
+	this->props.n_channel_volumes = this->props.n_channels;
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -1249,7 +1273,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = 2;
-	props_reset(&this->props);
 
 	port = GET_OUT_PORT(this, 0);
 	port->direction = SPA_DIRECTION_OUTPUT;

@@ -141,9 +141,10 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 {
 	struct spa_dict_item *items;
 	const struct acp_dict_item *it;
-	uint32_t n_items;
+	uint32_t n_items, i;
 	char device_name[128], path[180], channels[16];
 	char card_id[16], *p;
+	char positions[SPA_AUDIO_MAX_CHANNELS * 6];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
 	const char *stream, *devstr;;
@@ -161,7 +162,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	n_items = dev->props.n_items + 5;
+	n_items = dev->props.n_items + 6;
 	items = alloca(n_items * sizeof(*items));
 
 	snprintf(card_id, sizeof(card), "%d", card->index);
@@ -181,9 +182,16 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card_id);
 	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM,     stream);
 
-	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
+	snprintf(channels, sizeof(channels)-1, "%d", dev->format.channels);
 	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);
-	n_items = 5;
+
+	p = positions;
+	for (i = 0; i < dev->format.channels; i++)
+		p += snprintf(p, 6, "%s%s", i == 0 ? "" : ",",
+			spa_debug_type_short_name(spa_type_audio_channel[dev->format.map[i]].name));
+
+	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
+	n_items = 6;
 	acp_dict_for_each(it, &dev->props)
 		items[n_items++] = SPA_DICT_ITEM_INIT(it->key, it->value);
 

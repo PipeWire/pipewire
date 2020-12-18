@@ -864,7 +864,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |
 			SPA_NODE_CHANGE_MASK_PARAMS;
-	this->info.max_output_ports = 1;
+	this->info.max_input_ports = MAX_PORTS;
+	this->info.max_output_ports = MAX_PORTS;
 	this->info.flags = SPA_NODE_FLAG_RT;
 	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);

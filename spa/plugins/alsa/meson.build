@@ -8,7 +8,7 @@ spa_alsa_sources = ['alsa.c',
                 'alsa-pcm-sink.c',
                 'alsa-pcm-source.c',
                 'alsa-pcm.c',
-                'alsa-seq-source.c',
+                'alsa-seq-bridge.c',
                 'alsa-seq.c']
 
 spa_alsa = shared_library(

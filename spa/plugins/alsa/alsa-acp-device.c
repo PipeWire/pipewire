@@ -765,7 +765,10 @@ static void on_set_soft_volume(void *data, struct acp_device *dev,
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
-						SPA_TYPE_Float, n_volume, volume));
+						SPA_TYPE_Float, n_volume, volume),
+			SPA_PROP_channelMap, SPA_POD_Array(sizeof(uint32_t),
+						SPA_TYPE_Id, dev->format.channels,
+						dev->format.map));
 	event = spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);

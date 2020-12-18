@@ -24,18 +24,24 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <errno.h>
-#include <math.h>
-#include <time.h>
+#include <limits.h>
+#include <sys/inotify.h>
 
 #include "config.h"
 
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/node/keys.h>
 
 #include "pipewire/pipewire.h"
 
 #include "media-session.h"
+
+#define SND_PATH "/dev/snd"
+#define SEQ_NAME "seq"
+#define SND_SEQ_PATH SND_PATH"/"SEQ_NAME
 
 struct impl {
 	struct sm_media_session *session;
@@ -43,13 +49,112 @@ struct impl {
 
 	struct pw_properties *props;
 	struct pw_proxy *proxy;
+
+	struct spa_source *notify;
 };
+
+static int do_create(struct impl *impl)
+{
+	impl->proxy = sm_media_session_create_object(impl->session,
+				"spa-node-factory",
+				PW_TYPE_INTERFACE_Node,
+				PW_VERSION_NODE,
+				&impl->props->dict,
+                                0);
+	if (impl->proxy == NULL)
+		return -errno;
+
+	return 0;
+}
+
+static int check_access(struct impl *impl)
+{
+	return access(SND_SEQ_PATH, R_OK|W_OK) >= 0;
+}
+
+static void stop_inotify(struct impl *impl)
+{
+	struct pw_loop *main_loop = impl->session->loop;
+	if (impl->notify != NULL) {
+		pw_log_info("stop inotify");
+		pw_loop_destroy_source(main_loop, impl->notify);
+		impl->notify = NULL;
+	}
+}
+
+static void on_notify_events(void *data, int fd, uint32_t mask)
+{
+	struct impl *impl = data;
+	bool remove = false;
+	struct {
+		struct inotify_event e;
+		char name[NAME_MAX+1];
+	} buf;
+
+	while (true) {
+		ssize_t len;
+		const struct inotify_event *event;
+		void *p, *e;
+
+		len = read(fd, &buf, sizeof(buf));
+		if (len < 0 && errno != EAGAIN)
+			break;
+		if (len <= 0)
+			break;
+
+		e = SPA_MEMBER(&buf, len, void);
+
+		for (p = &buf; p < e;
+		p = SPA_MEMBER(p, sizeof(struct inotify_event) + event->len, void)) {
+			event = (const struct inotify_event *) p;
+
+			if ((event->mask & IN_ATTRIB)) {
+				if (strcmp(event->name, SEQ_NAME) != 0)
+					continue;
+				if (impl->proxy == NULL &&
+				    check_access(impl) &&
+				    do_create(impl) >= 0)
+					remove = true;
+			}
+			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
+				remove = true;
+		}
+	}
+	if (remove)
+		stop_inotify(impl);
+}
+
+static int start_inotify(struct impl *impl)
+{
+	int notify_fd, res;
+	struct pw_loop *main_loop = impl->session->loop;
+
+	if ((notify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK)) < 0)
+		return -errno;
+
+	res = inotify_add_watch(notify_fd, SND_PATH,
+				IN_ATTRIB | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF);
+	if (res < 0) {
+		res = -errno;
+		close(notify_fd);
+		pw_log_error("inotify_add_watch() '%s' failed: %s",
+				SND_PATH, spa_strerror(res));
+		return res;
+	}
+	pw_log_info("start inotify");
+
+	impl->notify = pw_loop_add_io(main_loop, notify_fd, SPA_IO_IN | SPA_IO_ERR,
+			true, on_notify_events, impl);
+	return 0;
+}
 
 static void session_destroy(void *data)
 {
 	struct impl *impl = data;
 	spa_hook_remove(&impl->listener);
-	pw_proxy_destroy(impl->proxy);
+	if (impl->proxy)
+		pw_proxy_destroy(impl->proxy);
+	stop_inotify(impl);
 	pw_properties_free(impl->props);
 	free(impl);
 }
@@ -78,18 +183,15 @@ int sm_alsa_midi_start(struct sm_media_session *session)
 		goto cleanup;
 	}
 
-	impl->proxy = sm_media_session_create_object(session,
-				"spa-node-factory",
-				PW_TYPE_INTERFACE_Node,
-				PW_VERSION_NODE,
-				&impl->props->dict,
-                                0);
-
-	if (impl->proxy == NULL) {
-		res = -errno;
-		goto cleanup_props;
-	}
 	sm_media_session_add_listener(session, &impl->listener, &session_events, impl);
+
+	if (check_access(impl)) {
+		res = do_create(impl);
+	} else {
+		res = start_inotify(impl);
+	}
+	if (res < 0)
+		goto cleanup_props;
 
 	return 0;
 

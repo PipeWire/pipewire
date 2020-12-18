@@ -347,7 +347,7 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 		SPA_PARAM_ROUTE_priority,  SPA_POD_Int(p->priority),
 		SPA_PARAM_ROUTE_available,  SPA_POD_Id(p->available),
 		0);
-	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_info, 0);
+	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_info, SPA_POD_PROP_FLAG_HINT_DICT);
 	spa_pod_builder_push_struct(b, &f[1]);
 	spa_pod_builder_int(b, p->props.n_items);
 	acp_dict_for_each(item, &p->props) {

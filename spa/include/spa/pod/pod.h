@@ -196,6 +196,11 @@ struct spa_pod_prop {
 					  *  object type */
 #define SPA_POD_PROP_FLAG_READONLY	(1u<<0)		/**< is read-only */
 #define SPA_POD_PROP_FLAG_HARDWARE	(1u<<1)		/**< some sort of hardware parameter */
+#define SPA_POD_PROP_FLAG_HINT_DICT	(1u<<2)		/**< contains a dictionary struct as
+							 *   (Struct(
+							 *	  Int : n_items,
+							 *	  (String : key,
+							 *	   String : value)*)) */
 	uint32_t flags;			/**< flags for property */
 	struct spa_pod value;
 	/* value follows */

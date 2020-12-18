@@ -2312,27 +2312,24 @@ static void sample_play_ready(void *data, uint32_t index)
 	send_message(client, reply);
 }
 
-static void sample_play_done(void *data)
+static void sample_play_done(void *data, int res)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
 	struct impl *impl = client->impl;
-	pw_log_info(NAME" %p: sample done tag:%u", client, ps->tag);
+
+	if (res < 0)
+		reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, res);
+	else
+		pw_log_info(NAME" %p: PLAY_SAMPLE done tag:%u", client, ps->tag);
+
 	ps->done = true;
 	pw_loop_signal_event(impl->loop, client->cleanup);
-}
-
-static void sample_play_error(void *data, int err)
-{
-	struct pending_sample *ps = data;
-	struct client *client = ps->client;
-	reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, err);
 }
 
 static const struct sample_play_events sample_play_events = {
 	VERSION_SAMPLE_PLAY_EVENTS,
 	.ready = sample_play_ready,
-	.error = sample_play_error,
 	.done = sample_play_done,
 };
 

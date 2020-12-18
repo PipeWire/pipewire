@@ -40,14 +40,11 @@ struct sample_play_events {
 
 	void (*ready) (void *data, uint32_t id);
 
-	void (*error) (void *data, int err);
-
-	void (*done) (void *data);
+	void (*done) (void *data, int err);
 };
 
 #define sample_play_emit_ready(p,i) spa_hook_list_call(&p->hooks, struct sample_play_events, ready, 0, i)
-#define sample_play_emit_error(p,e) spa_hook_list_call(&p->hooks, struct sample_play_events, error, 0, e)
-#define sample_play_emit_done(p) spa_hook_list_call(&p->hooks, struct sample_play_events, done, 0)
+#define sample_play_emit_done(p,r) spa_hook_list_call(&p->hooks, struct sample_play_events, done, 0, r)
 
 struct sample_play {
 	struct spa_list link;
@@ -73,7 +70,7 @@ static void sample_play_stream_state_changed(void *data, enum pw_stream_state ol
 	switch (state) {
 	case PW_STREAM_STATE_UNCONNECTED:
 	case PW_STREAM_STATE_ERROR:
-		sample_play_emit_error(p, -EIO);
+		sample_play_emit_done(p, -EIO);
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		p->index = pw_stream_get_node_id(p->stream);
@@ -136,7 +133,7 @@ static void sample_play_stream_process(void *data)
 static void sample_play_stream_drained(void *data)
 {
 	struct sample_play *p = data;
-	sample_play_emit_done(p);
+	sample_play_emit_done(p, 0);
 }
 
 struct pw_stream_events sample_play_stream_events = {

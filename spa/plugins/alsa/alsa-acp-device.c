@@ -481,14 +481,12 @@ static int impl_enum_params(void *object, int seq,
 				return 0;
 
 			dev = card->devices[result.index];
-			if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_ACTIVE))
+			if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_ACTIVE) &&
+			    (p = find_port_for_device(card, dev)) != NULL)
 				break;
 
 			result.index++;
 		}
-		p = find_port_for_device(card, dev);
-		if (p == NULL)
-			return 0;
 		result.next = result.index + 1;
 		param = build_route(&b, id, p, dev, card->active_profile_index);
 		if (param == NULL)

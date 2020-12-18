@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -95,11 +96,21 @@ static int check_flatpak(struct pw_impl_client *client, int pid)
 	sprintf(root_path, "/proc/%u/root", pid);
 	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd == -1) {
+		res = -errno;
+		if (res == -EACCES) {
+			struct statfs buf;
+			/* Access to the root dir isn't allowed. This can happen if the root is on a fuse
+			 * filesystem, such as in a toolbox container. We will never have a fuse rootfs
+			 * in the flatpak case, so in that case its safe to ignore this and
+			 * continue to detect other types of apps. */
+			if (statfs(root_path, &buf) == 0 &&
+			    buf.f_type == 0x65735546) /* FUSE_SUPER_MAGIC */
+				return 0;
+		}
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
 		 * we're failing due to /proc/$pid not existing. In that case fail instead
 		 * of treating this as privileged. */
-		res = -errno;
-		pw_log_error("failed to open \"%s\": %m", root_path);
+		pw_log_error("failed to open \"%s\": %s", root_path, spa_strerror(res));
 		return res;
 	}
 	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);

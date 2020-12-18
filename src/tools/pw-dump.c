@@ -359,35 +359,45 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 			static const char *step_labels[] = { "default", "min", "max", "step", NULL };
 			static const char *enum_labels[] = { "default", "alt%u" };
 			static const char *flags_labels[] = { "default", "flag%u" };
+			const char **labels, *label;
 			char buffer[64];
+			int max_labels, flags = 0;
 
-			put_begin(d, NULL, "{", 0);
+			switch (b->type) {
+			case SPA_CHOICE_Range:
+				labels = range_labels;
+				max_labels = 3;
+				flags |= STATE_SIMPLE;
+				break;
+			case SPA_CHOICE_Step:
+				labels = step_labels;
+				max_labels = 4;
+				flags |= STATE_SIMPLE;
+				break;
+			case SPA_CHOICE_Enum:
+				labels = enum_labels;
+				max_labels = 1;
+				break;
+			case SPA_CHOICE_Flags:
+				labels = flags_labels;
+				max_labels = 1;
+				break;
+			default:
+				labels = NULL;
+				break;
+			}
+			if (labels == NULL)
+				break;
+
+			put_begin(d, NULL, "{", flags);
 			SPA_POD_CHOICE_BODY_FOREACH(b, size, p) {
-				const char *label;
-				switch (b->type) {
-				case SPA_CHOICE_Range:
-					label = range_labels[SPA_CLAMP(index, 0, 3)];
-					break;
-				case SPA_CHOICE_Step:
-					label = step_labels[SPA_CLAMP(index, 0, 4)];
-					break;
-				case SPA_CHOICE_Enum:
-					label = enum_labels[SPA_CLAMP(index, 0, 1)];
-					break;
-				case SPA_CHOICE_Flags:
-					label = flags_labels[SPA_CLAMP(index, 0, 1)];
-					break;
-				default:
-					label = NULL;
-					break;
-				}
-				if (label == NULL)
+				if ((label = labels[SPA_CLAMP(index, 0, max_labels)]) == NULL)
 					break;
 				snprintf(buffer, sizeof(buffer), label, index);
 				put_pod_value(d, buffer, info, b->child.type, p, b->child.size);
 				index++;
 			}
-			put_end(d, "}", 0);
+			put_end(d, "}", flags);
 		}
 		break;
 	}

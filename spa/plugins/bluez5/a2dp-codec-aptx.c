@@ -349,6 +349,7 @@ const struct a2dp_codec a2dp_codec_aptx = {
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
 	.get_num_blocks = codec_get_num_blocks,
+	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
 	.start_decode = codec_start_decode,

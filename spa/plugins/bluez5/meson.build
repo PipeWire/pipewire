@@ -17,6 +17,10 @@ if ldac_dep.found()
   bluez5_sources += [ 'a2dp-codec-ldac.c' ]
   bluez5_args += [ '-DENABLE_LDAC' ]
   bluez5_deps += ldac_dep
+  if ldac_abr_dep.found()
+    bluez5_args += [ '-DENABLE_LDAC_ABR' ]
+    bluez5_deps += ldac_abr_dep
+  endif
 endif
 if aptx_dep.found()
   bluez5_sources += [ 'a2dp-codec-aptx.c' ]

@@ -29,6 +29,7 @@ if get_option('spa-plugins')
     bluez_dep = dependency('bluez', version : '>= 4.101')
     sbc_dep = dependency('sbc')
     ldac_dep = dependency('ldacBT-enc', required : false)
+    ldac_abr_dep = dependency('ldacBT-abr', required : false)
     aptx_dep = dependency('libopenaptx', required : false)
   endif
   if get_option('ffmpeg')

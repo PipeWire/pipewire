@@ -333,6 +333,9 @@ struct a2dp_codec {
 	const char *name;
 	const char *description;
 
+	const int send_fill_frames;
+	const int recv_fill_frames;
+
 	int (*fill_caps) (const struct a2dp_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
 	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
@@ -348,6 +351,8 @@ struct a2dp_codec {
 
 	int (*get_block_size) (void *data);
 	int (*get_num_blocks) (void *data);
+
+	int (*abr_process) (void *data, size_t unsent);
 
 	int (*start_encode) (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp);

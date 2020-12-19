@@ -31,21 +31,30 @@
 
 #include <ldacBT.h>
 
+#ifdef ENABLE_LDAC_ABR
+#include <ldacBT_abr.h>
+#endif
+
 #include "defs.h"
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
-#define MAX_FRAME_COUNT 16
+#define LDAC_ABR_MAX_PACKET_NBYTES 1280
 
-#define LDACBT_EQMID_BITRATE_990000 LDACBT_EQMID_HQ
-#define LDACBT_EQMID_BITRATE_660000 LDACBT_EQMID_SQ
-#define LDACBT_EQMID_BITRATE_330000 LDACBT_EQMID_MQ
-#define LDACBT_EQMID_BITRATE_492000 3
-#define LDACBT_EQMID_BITRATE_396000 4
+#define LDAC_ABR_INTERVAL_MS 5 /* 2 frames * 128 lsu / 48000 */
+
+/* decrease ABR thresholds to increase stability */
+#define LDAC_ABR_THRESHOLD_CRITICAL 6
+#define LDAC_ABR_THRESHOLD_DANGEROUSTREND 4
+#define LDAC_ABR_THRESHOLD_SAFETY_FOR_HQSQ 3
+
 
 struct impl {
 	HANDLE_LDAC_BT ldac;
-
+#ifdef ENABLE_LDAC_ABR
+	HANDLE_LDAC_ABR ldac_abr;
+	bool enable_abr;
+#endif
 	struct rtp_header *header;
 	struct rtp_payload *payload;
 
@@ -55,6 +64,48 @@ struct impl {
 	int fmt;
 	int codesize;
 	int frame_length;
+	int frame_count;
+};
+
+enum {
+	LDACBT_EQMID_BITRATE_990000 = 0, /* LDACBT_EQMID_HQ */
+	LDACBT_EQMID_BITRATE_660000,     /* LDACBT_EQMID_SQ */
+	LDACBT_EQMID_BITRATE_330000,	 /* LDACBT_EQMID_MQ */
+
+	LDACBT_EQMID_BITRATE_492000,
+	LDACBT_EQMID_BITRATE_396000,
+	LDACBT_EQMID_BITRATE_282000,
+	LDACBT_EQMID_BITRATE_246000,
+	LDACBT_EQMID_BITRATE_216000,
+	LDACBT_EQMID_BITRATE_198000,
+	LDACBT_EQMID_BITRATE_180000,
+	LDACBT_EQMID_BITRATE_162000,
+	LDACBT_EQMID_BITRATE_150000,
+	LDACBT_EQMID_BITRATE_138000
+};
+
+struct ldac_config
+{
+    int eqmid;
+    int frame_count; 	   /* number of ldac frames in packet */
+    int frame_length;      /* ldac frame length */
+    int frame_length_1ch;  /* ldac frame length per channel */
+};
+
+static const struct ldac_config ldac_config_table[] = {
+	{ LDACBT_EQMID_BITRATE_990000,     2,    330,   165},
+	{ LDACBT_EQMID_BITRATE_660000,     3,    220,   110},
+	{ LDACBT_EQMID_BITRATE_330000,     4,    164,    82},
+	{ LDACBT_EQMID_BITRATE_492000,     5,    132,    66},
+	{ LDACBT_EQMID_BITRATE_396000,     6,    110,    55},
+	{ LDACBT_EQMID_BITRATE_282000,     7,     94,    47},
+	{ LDACBT_EQMID_BITRATE_246000,     8,     82,    41},
+	{ LDACBT_EQMID_BITRATE_216000,     9,     72,    36},
+	{ LDACBT_EQMID_BITRATE_198000,    10,     66,    33},
+	{ LDACBT_EQMID_BITRATE_180000,    11,     60,    30},
+	{ LDACBT_EQMID_BITRATE_162000,    12,     54,    27},
+	{ LDACBT_EQMID_BITRATE_150000,    13,     50,    25},
+	{ LDACBT_EQMID_BITRATE_138000,    14,     46,    23},
 };
 
 static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
@@ -198,52 +249,55 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 	return *param == NULL ? -EIO : 1;
 }
 
-static int get_frame_length(struct impl *this)
+static int update_frame_info(struct impl *this)
 {
+	const struct ldac_config *config;
 	this->eqmid = ldacBT_get_eqmid(this->ldac);
-	switch (this->eqmid) {
-	case LDACBT_EQMID_BITRATE_990000:
-		return 330;
-	case LDACBT_EQMID_BITRATE_660000:
-		return 220;
-	case LDACBT_EQMID_BITRATE_492000:
-		return 164;
-	case LDACBT_EQMID_BITRATE_396000:
-		return 132;
-	case LDACBT_EQMID_BITRATE_330000:
-		return 110;
+	for (size_t i = 0; i < SPA_N_ELEMENTS(ldac_config_table); ++i) {
+		config = &ldac_config_table[i];
+
+		if (config->eqmid != this->eqmid)
+			continue;
+
+		this->frame_count = config->frame_count;
+		this->frame_length = config->frame_length;
+		return 0;
 	}
 	return -EINVAL;
 }
 
 static int codec_reduce_bitpool(void *data)
 {
+#ifdef ENABLE_LDAC_ABR
+	return -EINVAL;
+#else
 	struct impl *this = data;
 	int res;
+	if (this->eqmid == LDACBT_EQMID_BITRATE_330000)
+		return this->eqmid;
 	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_CONNECTION);
-	this->frame_length = get_frame_length(this);
+	update_frame_info(this);
 	return res;
+#endif
 }
 
 static int codec_increase_bitpool(void *data)
 {
+#ifdef ENABLE_LDAC_ABR
+	return -EINVAL;
+#else
 	struct impl *this = data;
 	int res;
 	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_QUALITY);
-	this->frame_length = get_frame_length(this);
+	update_frame_info(this);
 	return res;
+#endif
 }
 
 static int codec_get_num_blocks(void *data)
 {
 	struct impl *this = data;
-	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
-	size_t frame_count = SPA_MIN(this->mtu - rtp_size, 660u) / this->frame_length;
-
-	/* frame_count is only 4 bit number */
-	if (frame_count > 15)
-		frame_count = 15;
-	return frame_count;
+	return this->frame_count;
 }
 
 static int codec_get_block_size(void *data)
@@ -266,6 +320,12 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	this->ldac = ldacBT_get_handle();
 	if (this->ldac == NULL)
 		goto error_errno;
+
+#ifdef ENABLE_LDAC_ABR
+	this->ldac_abr = ldac_ABR_get_handle();
+	if (this->ldac_abr == NULL)
+		goto error_errno;
+#endif
 
 	this->eqmid = LDACBT_EQMID_SQ;
 	this->mtu = mtu;
@@ -317,7 +377,22 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	if (res < 0)
 		goto error;
 
-	this->frame_length = get_frame_length(this);
+#ifdef ENABLE_LDAC_ABR
+	res = ldac_ABR_Init(this->ldac_abr, LDAC_ABR_INTERVAL_MS);
+	if (res < 0)
+		goto error;
+
+	res = ldac_ABR_set_thresholds(this->ldac_abr,
+		LDAC_ABR_THRESHOLD_CRITICAL,
+		LDAC_ABR_THRESHOLD_DANGEROUSTREND,
+		LDAC_ABR_THRESHOLD_SAFETY_FOR_HQSQ);
+	if (res < 0)
+		goto error;
+
+	this->enable_abr = true;
+#endif
+
+	update_frame_info(this);
 
 	return this;
 
@@ -326,6 +401,10 @@ error_errno:
 error:
 	if (this->ldac)
 		ldacBT_free_handle(this->ldac);
+#ifdef ENABLE_LDAC_ABR
+	if (this->ldac_abr)
+		ldac_ABR_free_handle(this->ldac_abr);
+#endif
 	free(this);
 	errno = -res;
 	return NULL;
@@ -336,7 +415,25 @@ static void codec_deinit(void *data)
 	struct impl *this = data;
 	if (this->ldac)
 		ldacBT_free_handle(this->ldac);
+#ifdef ENABLE_LDAC_ABR
+	if (this->ldac_abr)
+		ldac_ABR_free_handle(this->ldac_abr);
+#endif
 	free(this);
+}
+
+static int codec_abr_process(void *data, size_t unsent)
+{
+#ifdef ENABLE_LDAC_ABR
+	struct impl *this = data;
+	int res;
+	res = ldac_ABR_Proc(this->ldac, this->ldac_abr,
+			unsent / LDAC_ABR_MAX_PACKET_NBYTES, this->enable_abr);
+	update_frame_info(this);
+	return res;
+#else
+	return -EINVAL;
+#endif
 }
 
 static int codec_start_encode (void *data,
@@ -385,6 +482,7 @@ const struct a2dp_codec a2dp_codec_ldac = {
 		.codec_id = LDAC_CODEC_ID },
 	.name = "ldac",
 	.description = "LDAC",
+	.send_fill_frames = 4,
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
@@ -392,6 +490,7 @@ const struct a2dp_codec a2dp_codec_ldac = {
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
 	.get_num_blocks = codec_get_num_blocks,
+	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
 	.reduce_bitpool = codec_reduce_bitpool,

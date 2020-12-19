@@ -415,6 +415,11 @@ static void codec_deinit(void *data)
 	free(this);
 }
 
+static int codec_abr_process (void *data, size_t unsent)
+{
+	return -ENOTSUP;
+}
+
 static int codec_start_encode (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
 {
@@ -483,6 +488,8 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc",
 	.description = "SBC",
+	.send_fill_frames = 2,
+	.recv_fill_frames = 2,
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
@@ -490,6 +497,7 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
 	.get_num_blocks = codec_get_num_blocks,
+	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
 	.start_decode = codec_start_decode,

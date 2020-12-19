@@ -262,6 +262,11 @@ static void codec_deinit(void *data)
 	free(this);
 }
 
+static int codec_abr_process (void *data, size_t unsent)
+{
+	return -ENOTSUP;
+}
+
 static int codec_start_encode (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
 {
@@ -335,6 +340,8 @@ const struct a2dp_codec a2dp_codec_aptx = {
 		.codec_id = APTX_CODEC_ID },
 	.name = "aptx",
 	.description = "aptX",
+	.send_fill_frames = 2,
+	.recv_fill_frames = 2,
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
@@ -357,6 +364,8 @@ const struct a2dp_codec a2dp_codec_aptx_hd = {
 		.codec_id = APTX_HD_CODEC_ID },
 	.name = "aptx_hd",
 	.description = "aptX HD",
+	.send_fill_frames = 2,
+	.recv_fill_frames = 2,
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
@@ -364,6 +373,7 @@ const struct a2dp_codec a2dp_codec_aptx_hd = {
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
 	.get_num_blocks = codec_get_num_blocks,
+	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
 	.start_decode = codec_start_decode,

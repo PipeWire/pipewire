@@ -140,6 +140,7 @@ struct impl {
 	uint64_t sample_count;
 	uint8_t tmp_buffer[4096];
 	uint32_t tmp_buffer_used;
+	uint32_t fd_buffer_size;
 };
 
 #define NAME "a2dp-sink"
@@ -326,6 +327,11 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
+static void update_num_blocks(struct impl *this)
+{
+	this->num_blocks = this->codec->get_num_blocks(this->codec_data);
+}
+
 static int reset_buffer(struct impl *this)
 {
 	this->frame_count = 0;
@@ -336,9 +342,27 @@ static int reset_buffer(struct impl *this)
 	return 0;
 }
 
+static int get_transport_unused_size(struct impl *this)
+{
+	int res, value;
+	res = ioctl(this->flush_source.fd, TIOCOUTQ, &value);
+	if (res < 0) {
+		spa_log_debug(this->log, NAME " %p: ioctl fail: %m", this);
+		return -errno;
+	}
+	spa_log_debug(this->log, NAME " %p: fd unused buffer size:%d/%d", this, value, this->fd_buffer_size);
+	return value;
+}
+
 static int send_buffer(struct impl *this)
 {
-	int written;
+	int written, unsent;
+	unsent = get_transport_unused_size(this);
+	if (unsent >= 0) {
+		unsent = this->fd_buffer_size - unsent;
+		this->codec->abr_process(this->codec_data, unsent);
+		update_num_blocks(this);
+	}
 
 	spa_log_trace(this->log, NAME " %p: send %d %u %u %u",
 			this, this->frame_count, this->seqnum, this->timestamp, this->buffer_used);
@@ -524,7 +548,7 @@ again:
 		spa_log_trace(this->log, NAME" %p: delay flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
 			this->codec->reduce_bitpool(this->codec_data);
-			this->num_blocks = this->codec->get_num_blocks(this->codec_data);
+			update_num_blocks(this);
 			this->last_error = now_time;
 		}
 		enable_flush(this, true);
@@ -537,7 +561,7 @@ again:
 	else if (written > 0) {
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
 			this->codec->increase_bitpool(this->codec_data);
-			this->num_blocks = this->codec->get_num_blocks(this->codec_data);
+			update_num_blocks(this);
 			this->last_error = now_time;
 		}
 		if (!spa_list_is_empty(&port->ready))
@@ -657,7 +681,7 @@ static int do_start(struct impl *this)
         spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
 			this->block_size, this->num_blocks);
 
-	val = FILL_FRAMES * this->transport->write_mtu;
+	val = SPA_MAX(this->codec->send_fill_frames, FILL_FRAMES) * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, NAME " %p: SO_SNDBUF %m", this);
 
@@ -668,8 +692,9 @@ static int do_start(struct impl *this)
 	else {
 		spa_log_debug(this->log, NAME " %p: SO_SNDBUF: %d", this, val);
 	}
+	this->fd_buffer_size = val;
 
-	val = FILL_FRAMES * this->transport->read_mtu;
+	val = SPA_MAX(this->codec->recv_fill_frames, FILL_FRAMES) * this->transport->read_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, NAME " %p: SO_RCVBUF %m", this);
 

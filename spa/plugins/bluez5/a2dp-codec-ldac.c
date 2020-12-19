@@ -65,6 +65,7 @@ struct impl {
 	int codesize;
 	int frame_length;
 	int frame_count;
+	int frame_count_factor;
 };
 
 enum {
@@ -297,7 +298,7 @@ static int codec_increase_bitpool(void *data)
 static int codec_get_num_blocks(void *data)
 {
 	struct impl *this = data;
-	return this->frame_count;
+	return this->frame_count * this->frame_count_factor;
 }
 
 static int codec_get_block_size(void *data)
@@ -358,10 +359,13 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	case LDACBT_SAMPLING_FREQ_044100:
 	case LDACBT_SAMPLING_FREQ_048000:
 		this->codesize *= 128;
+		this->frame_count_factor = 1;
 		break;
 	case LDACBT_SAMPLING_FREQ_088200:
 	case LDACBT_SAMPLING_FREQ_096000:
-		this->codesize *= 256;
+		/* ldac ecoder has a constant encoding lsu: LDACBT_ENC_LSU=128 */
+		this->codesize *= 128;
+		this->frame_count_factor = 2;
 		break;
 	default:
 		res = -EINVAL;

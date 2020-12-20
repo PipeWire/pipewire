@@ -890,6 +890,8 @@ static const char *str_status(uint32_t status)
 static void dump_states(struct pw_impl_node *driver)
 {
 	struct pw_node_target *t;
+	struct pw_node_activation *na = driver->rt.activation;
+	struct spa_io_clock *cl = &na->position.clock;
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
@@ -898,8 +900,10 @@ static void dump_states(struct pw_impl_node *driver)
 			continue;
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
-			pw_log_warn("(%s-%u) client too slow! status:%s",
-				t->node->name, t->node->info.id, str_status(a->status));
+			pw_log_warn("(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
+				t->node->name, t->node->info.id,
+				(uint32_t)(cl->rate.num * cl->duration), cl->rate.denom,
+				cl->position, str_status(a->status));
 		}
 		pw_log_debug("(%s-%u) state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%s sync:%d",

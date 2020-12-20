@@ -1064,6 +1064,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	this = &impl->this;
 	this->feedback = pw_impl_node_can_reach(input_node, output_node);
+	pw_properties_set(properties, PW_KEY_LINK_FEEDBACK, this->feedback ? "true" : NULL);
+
 	pw_log_debug(NAME" %p: new out-port:%p -> in-port:%p", this, output, input);
 
 	if (user_data_size > 0)

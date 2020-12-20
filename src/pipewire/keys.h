@@ -167,6 +167,10 @@ extern "C" {
 #define PW_KEY_LINK_PASSIVE		"link.passive"		/**< indicate that a link is passive and
 								  *  does not cause the graph to be
 								  *  runnable. */
+#define PW_KEY_LINK_FEEDBACK		"link.feedback"		/**< indicate that a link is a feedback
+								  *  link and the target will receive data
+								  *  in the next cycle */
+
 /** device properties */
 #define PW_KEY_DEVICE_ID		"device.id"		/**< device id */
 #define PW_KEY_DEVICE_NAME		"device.name"		/**< device name */

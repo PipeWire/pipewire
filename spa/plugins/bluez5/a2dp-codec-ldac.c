@@ -96,9 +96,9 @@ struct ldac_config
 static const struct ldac_config ldac_config_table[] = {
 	{ LDACBT_EQMID_BITRATE_990000,     2,    330,   165},
 	{ LDACBT_EQMID_BITRATE_660000,     3,    220,   110},
-	{ LDACBT_EQMID_BITRATE_330000,     4,    164,    82},
-	{ LDACBT_EQMID_BITRATE_492000,     5,    132,    66},
-	{ LDACBT_EQMID_BITRATE_396000,     6,    110,    55},
+	{ LDACBT_EQMID_BITRATE_492000,     4,    164,    82},
+	{ LDACBT_EQMID_BITRATE_396000,     5,    132,    66},
+	{ LDACBT_EQMID_BITRATE_330000,     6,    110,    55},
 	{ LDACBT_EQMID_BITRATE_282000,     7,     94,    47},
 	{ LDACBT_EQMID_BITRATE_246000,     8,     82,    41},
 	{ LDACBT_EQMID_BITRATE_216000,     9,     72,    36},

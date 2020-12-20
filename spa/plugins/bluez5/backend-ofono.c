@@ -51,6 +51,7 @@ struct spa_bt_backend {
 
 	unsigned int filters_added:1;
 	unsigned int msbc_supported:1;
+	int msbc_force_mtu;
 };
 
 #define OFONO_SERVICE "org.ofono"
@@ -100,6 +101,20 @@ static void ofono_transport_get_mtu(struct spa_bt_backend *backend, struct spa_b
 			spa_log_debug(backend->log, NAME" : autodetected mtu = %u", sco_opt.mtu);
 			t->read_mtu = sco_opt.mtu;
 			t->write_mtu = sco_opt.mtu;
+		}
+
+		if (backend->msbc_force_mtu != 0 && t->codec == HFP_AUDIO_CODEC_MSBC) {
+			/* Force low write packet size, as kernel (at least <= 5.9) does not
+			 * provide correct values for userspace. The value 24 should be
+			 * right for bluetooth ALT1 mode. See
+			 * https://lore.kernel.org/linux-bluetooth/20201210003528.3pmaxvubiwegxmhl@pali/T/
+			 *
+			 * XXX: revise when kernel reports correct numbers
+			 */
+			t->write_mtu = (backend->msbc_force_mtu > 0) ? backend->msbc_force_mtu : 24;
+			spa_log_warn(backend->log, NAME": forcing write_mtu = %d for mSBC; "
+				     "set bluez5.msbc-force-mtu=0 to autodetect",
+				     (int) t->write_mtu);
 		}
 	}
 }
@@ -704,6 +719,10 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		backend->msbc_supported = strcmp(str, "true") == 0 || atoi(str) == 1;
 	else
 		backend->msbc_supported = false;
+	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-mtu-workaround")))
+		backend->msbc_force_mtu = atoi(str);
+	else
+		backend->msbc_force_mtu = -1;
 
 	if (!dbus_connection_register_object_path(backend->conn,
 						  OFONO_AUDIO_CLIENT,

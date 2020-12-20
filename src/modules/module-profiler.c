@@ -171,7 +171,8 @@ static void context_start(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(impl->count),
 			SPA_POD_Float(a->cpu_load[0]),
 			SPA_POD_Float(a->cpu_load[1]),
-			SPA_POD_Float(a->cpu_load[2]));
+			SPA_POD_Float(a->cpu_load[2]),
+			SPA_POD_Int(a->xrun_count));
 
 	spa_pod_builder_prop(&b, SPA_PROFILER_clock, 0);
 	spa_pod_builder_add_struct(&b,
@@ -194,7 +195,8 @@ static void context_start(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(a->signal_time),
 			SPA_POD_Long(a->awake_time),
 			SPA_POD_Long(a->finish_time),
-			SPA_POD_Int(a->status));
+			SPA_POD_Int(a->status),
+			SPA_POD_Fraction(&node->latency));
 
 	spa_list_for_each(t, &node->rt.target_list, link) {
 		struct pw_impl_node *n = t->node;
@@ -212,7 +214,8 @@ static void context_start(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(na->signal_time),
 			SPA_POD_Long(na->awake_time),
 			SPA_POD_Long(na->finish_time),
-			SPA_POD_Int(na->status));
+			SPA_POD_Int(na->status),
+			SPA_POD_Fraction(&n->latency));
 	}
 	spa_pod_builder_pop(&b, &f[0]);
 

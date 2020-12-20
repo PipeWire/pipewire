@@ -808,6 +808,7 @@ int spa_alsa_write(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written;
+	snd_pcm_sframes_t commitres;
 	int res;
 
 	if (SPA_LIKELY(state->position && state->duration != state->position->clock.duration)) {
@@ -922,11 +923,16 @@ again:
 			state, offset, written, state->sample_count);
 	total_written += written;
 
-	if (SPA_UNLIKELY((res = snd_pcm_mmap_commit(hndl, offset, written)) < 0)) {
+	if (SPA_UNLIKELY((commitres = snd_pcm_mmap_commit(hndl, offset, written)) < 0)) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_mmap_commit error: %s",
-				state, snd_strerror(res));
-		if (res != -EPIPE && res != -ESTRPIPE)
+				state, snd_strerror(commitres));
+		if (commitres != -EPIPE && commitres != -ESTRPIPE)
 			return res;
+	}
+
+	if (commitres > 0 && written != (snd_pcm_uframes_t) commitres) {
+		spa_log_warn(state->log, NAME" %p: mmap_commit wrote %ld instead of %ld",
+			     state, commitres, written);
 	}
 
 	if (!spa_list_is_empty(&state->ready) && written > 0)
@@ -1025,6 +1031,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	snd_pcm_uframes_t total_read = 0, to_read;
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t read, frames, offset;
+	snd_pcm_sframes_t commitres;
 	int res;
 
 	if (state->position) {
@@ -1098,11 +1105,16 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			offset, read, state->sample_count);
 	total_read += read;
 
-	if ((res = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
+	if ((commitres = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
 		spa_log_error(state->log, NAME" %p: snd_pcm_mmap_commit error: %s",
-				state, snd_strerror(res));
-		if (res != -EPIPE && res != -ESTRPIPE)
+				state, snd_strerror(commitres));
+		if (commitres != -EPIPE && commitres != -ESTRPIPE)
 			return res;
+	}
+
+	if (commitres > 0 && read != (snd_pcm_uframes_t) commitres) {
+		spa_log_warn(state->log, NAME" %p: mmap_commit read %ld instead of %ld",
+			     state, commitres, read);
 	}
 
 	state->sample_count += total_read;

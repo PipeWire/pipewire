@@ -643,6 +643,9 @@ static int rescan_node(struct impl *impl, struct node *n)
 	if (path_id != SPA_ID_INVALID) {
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
 
+		if (!reconnect)
+			n->obj->target_node = NULL;
+
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
 			pw_log_debug(NAME " %p: found target:%d type:%s", impl,
 					path_id, obj->type);

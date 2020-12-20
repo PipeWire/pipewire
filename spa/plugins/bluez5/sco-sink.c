@@ -401,8 +401,12 @@ next_write:
 			processed = written;
 
 		next_timeout = get_next_timeout(this, now_time, processed / port->frame_size);
-		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC && next_timeout < 7500000)
-			next_timeout = 7500000;
+
+		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+			uint64_t min_delay = (this->transport->write_mtu / port->frame_size
+					      * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
+			next_timeout = SPA_MAX(next_timeout, min_delay);
+		}
 
 		if (this->clock) {
 			this->clock->nsec = now_time;

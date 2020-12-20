@@ -1008,7 +1008,7 @@ static inline int process_node(void *data)
 				a->signal_time - a->prev_signal_time,
 				a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
 
-		pw_context_driver_emit_start(this->context, this);
+		pw_context_driver_emit_complete(this->context, this);
 
 	} else if (status == SPA_STATUS_OK) {
 		pw_log_trace_fp(NAME" %p: async continue", this);
@@ -1542,6 +1542,8 @@ static int node_ready(void *data, int status)
 			do_reposition(node, reposition_node);
 
 		update_position(node, all_ready);
+
+		pw_context_driver_emit_start(node->context, node);
 	}
 	if (SPA_UNLIKELY(node->driver && !node->driving))
 		return 0;

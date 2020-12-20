@@ -150,7 +150,7 @@ static void flush_timeout(void *data, uint64_t expirations)
 		pw_profiler_resource_profile(resource, &p->pod);
 }
 
-static void context_start(void *data, struct pw_impl_node *node)
+static void context_do_profile(void *data, struct pw_impl_node *node)
 {
 	struct impl *impl = data;
 	char buffer[4096];
@@ -243,7 +243,8 @@ done:
 
 static const struct pw_context_driver_events context_events = {
 	PW_VERSION_CONTEXT_DRIVER_EVENTS,
-	.start = context_start,
+	.incomplete = context_do_profile,
+	.complete = context_do_profile,
 };
 
 static int do_stop(struct spa_loop *loop,

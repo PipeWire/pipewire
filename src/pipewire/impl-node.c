@@ -851,6 +851,7 @@ static void check_properties(struct pw_impl_node *node)
                 if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
 			uint32_t quantum_size;
 
+			node->latency = SPA_FRACTION(num, denom);
 			quantum_size = flp2((num * context->defaults.clock_rate / denom));
 
 			if (quantum_size != node->quantum_size) {

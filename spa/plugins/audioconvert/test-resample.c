@@ -90,8 +90,8 @@ static void test_native(void)
 static void pull_blocks(struct resample *r, uint32_t size)
 {
 	uint32_t i;
-	float in[size];
-	float out[size];
+	float in[size * 2];
+	float out[size * 2];
 	const void *src[1];
 	void *dst[1];
 	uint32_t in_len, out_len;

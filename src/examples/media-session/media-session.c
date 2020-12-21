@@ -2206,6 +2206,26 @@ static bool is_opt_enabled(struct impl *impl, const char *val)
 			!opt_contains(impl->opt_disabled, val);
 }
 
+static int append_opt_str(char **p, char *sep, char *str)
+{
+	char *buf;
+	size_t size = strlen(*p) + strlen(sep) + strlen(str) + 1;
+
+	if (**p == '\0') {
+		free(*p);
+		*p = strdup(str);
+		return 0;
+	}
+
+	if ((buf = malloc(size)) == NULL)
+		return -1;
+
+	snprintf(buf, size, "%s%s%s", *p, sep, str);
+	free(*p);
+	*p = buf;
+	return 0;
+}
+
 static void show_help(const char *name, struct impl *impl)
 {
 	size_t i;
@@ -2233,7 +2253,9 @@ int main(int argc, char *argv[])
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res = 0, c;
-	const char *opt_properties = NULL;
+	char *opt_enabled;
+	char *opt_disabled;
+	char *opt_properties;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -2248,8 +2270,10 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	check_default_enabled(&impl);
-	impl.opt_enabled = EXTRA_ENABLED;
-	impl.opt_disabled = EXTRA_DISABLED;
+
+	opt_enabled = strdup(EXTRA_ENABLED);
+	opt_disabled = strdup(EXTRA_DISABLED);
+	opt_properties = strdup("");
 
 	while ((c = getopt_long(argc, argv, "hVe:d:p:", long_options, NULL)) != -1) {
 		switch (c) {
@@ -2265,13 +2289,16 @@ int main(int argc, char *argv[])
 				pw_get_library_version());
 			return 0;
 		case 'e':
-			impl.opt_enabled = optarg;
+			if (append_opt_str(&opt_enabled, ",", optarg))
+				return -1;
 			break;
 		case 'd':
-			impl.opt_disabled = optarg;
+			if (append_opt_str(&opt_disabled, ",", optarg))
+				return -1;
 			break;
 		case 'p':
-			opt_properties = optarg;
+			if (append_opt_str(&opt_properties, " ", optarg))
+				return -1;
 			break;
 		default:
 			return -1;
@@ -2280,7 +2307,11 @@ int main(int argc, char *argv[])
 
 	impl.state_dir_fd = -1;
 
-	impl.this.props = pw_properties_new_string(opt_properties ? opt_properties : "");
+	impl.opt_enabled = opt_enabled;
+	impl.opt_disabled = opt_disabled;
+
+	impl.this.props = pw_properties_new_string(opt_properties);
+	free(opt_properties);
 	if (impl.this.props == NULL)
 		return -1;
 
@@ -2368,6 +2399,9 @@ exit:
 		close(impl.state_dir_fd);
 
 	pw_deinit();
+
+	free(opt_enabled);
+	free(opt_disabled);
 
 	return res;
 }

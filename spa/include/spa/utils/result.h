@@ -33,8 +33,8 @@ extern "C" {
 #include <spa/utils/list.h>
 
 #define SPA_ASYNC_BIT			(1 << 30)
-#define SPA_ASYNC_MASK			(3 << 30)
 #define SPA_ASYNC_SEQ_MASK		(SPA_ASYNC_BIT - 1)
+#define SPA_ASYNC_MASK			(~SPA_ASYNC_SEQ_MASK)
 
 #define SPA_RESULT_IS_OK(res)		((res) >= 0)
 #define SPA_RESULT_IS_ERROR(res)	((res) < 0)

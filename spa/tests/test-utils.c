@@ -23,6 +23,7 @@
  */
 
 #include <spa/utils/defs.h>
+#include <spa/utils/result.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
@@ -139,6 +140,23 @@ static void test_macros(void)
 	spa_assert(SPA_CLAMP(23, 1, 16) == 16);
 	spa_assert(SPA_CLAMP(-1, 1, 16) == 1);
 	spa_assert(SPA_CLAMP(8, 1, 16) == 8);
+}
+
+static void test_result(void)
+{
+	int res;
+	spa_assert(SPA_RESULT_IS_OK(0) == true);
+	spa_assert(SPA_RESULT_IS_OK(1) == true);
+	spa_assert(SPA_RESULT_IS_ERROR(0) == false);
+	spa_assert(SPA_RESULT_IS_ERROR(1) == false);
+	spa_assert(SPA_RESULT_IS_ERROR(-1) == true);
+	spa_assert(SPA_RESULT_IS_ASYNC(-1) == false);
+	spa_assert(SPA_RESULT_IS_ASYNC(0) == false);
+	res = SPA_RESULT_RETURN_ASYNC(11);
+	spa_assert(SPA_RESULT_IS_ASYNC(res) == true);
+	spa_assert(SPA_RESULT_IS_ERROR(res) == false);
+	spa_assert(SPA_RESULT_IS_OK(res) == true);
+	spa_assert(SPA_RESULT_ASYNC_SEQ(res) == 11);
 }
 
 static void test_dict(void)
@@ -405,6 +423,7 @@ int main(int argc, char *argv[])
 {
     test_abi();
     test_macros();
+    test_result();
     test_dict();
     test_list();
     test_hook();

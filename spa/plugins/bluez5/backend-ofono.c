@@ -719,7 +719,7 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		backend->msbc_supported = strcmp(str, "true") == 0 || atoi(str) == 1;
 	else
 		backend->msbc_supported = false;
-	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-mtu-workaround")))
+	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-force-mtu")))
 		backend->msbc_force_mtu = atoi(str);
 	else
 		backend->msbc_force_mtu = -1;

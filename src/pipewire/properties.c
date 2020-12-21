@@ -387,7 +387,7 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 	int index;
 
 	if (key == NULL || key[0] == 0)
-		return 0;
+		goto exit_noupdate;
 
 	index = find_index(properties, key);
 
@@ -399,11 +399,8 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 		struct spa_dict_item *item =
 		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
 
-		if (value && strcmp(item->value, value) == 0) {
-			if (!copy)
-				free(value);
-			return 0;
-		}
+		if (value && strcmp(item->value, value) == 0)
+			goto exit_noupdate;
 
 		if (value == NULL) {
 			struct spa_dict_item *last = pw_array_get_unchecked(&impl->items,
@@ -420,6 +417,10 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 		}
 	}
 	return 1;
+exit_noupdate:
+	if (!copy)
+		free(value);
+	return 0;
 }
 
 /** Set a property value

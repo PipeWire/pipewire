@@ -145,5 +145,10 @@ int main(int argc, char *argv[])
 	test_create(out);
 	test_read_write(in, out);
 
+	pw_protocol_native_connection_destroy(in);
+	pw_protocol_native_connection_destroy(out);
+	pw_context_destroy(context);
+	pw_main_loop_destroy(loop);
+
 	return 0;
 }

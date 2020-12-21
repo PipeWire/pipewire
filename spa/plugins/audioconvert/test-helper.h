@@ -78,6 +78,7 @@ error:
 static inline uint32_t get_cpu_flags(void)
 {
 	struct spa_handle *handle;
+	uint32_t flags;
 	void *iface;
 	int res;
 
@@ -88,5 +89,9 @@ static inline uint32_t get_cpu_flags(void)
 		fprintf(stderr, "can't get CPU interface %s\n", spa_strerror(res));
 		return 0;
 	}
-	return spa_cpu_get_flags((struct spa_cpu*)iface);
+	flags = spa_cpu_get_flags((struct spa_cpu*)iface);
+
+	free(handle);
+
+	return flags;
 }

@@ -444,6 +444,7 @@ static void test_endpoint(void)
 	spa_assert(!d.bound_proxy);
 
 	endpoint_clear(&d.endpoint);
+	pw_proxy_destroy((struct pw_proxy*)d.registry);
 	pw_context_destroy(d.context);
 	pw_main_loop_destroy(d.loop);
 }

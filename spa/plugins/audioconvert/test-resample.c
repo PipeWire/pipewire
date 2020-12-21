@@ -75,6 +75,7 @@ static void test_native(void)
 	resample_native_init(&r);
 
 	feed_1(&r);
+	resample_free(&r);
 
 	spa_zero(r);
 	r.log = &logger.log;
@@ -85,6 +86,7 @@ static void test_native(void)
 	resample_native_init(&r);
 
 	feed_1(&r);
+	resample_free(&r);
 }
 
 static void pull_blocks(struct resample *r, uint32_t size)
@@ -128,6 +130,7 @@ static void test_in_len(void)
 	resample_native_init(&r);
 
 	pull_blocks(&r, 1024);
+	resample_free(&r);
 
 	spa_zero(r);
 	r.log = &logger.log;
@@ -138,6 +141,7 @@ static void test_in_len(void)
 	resample_native_init(&r);
 
 	pull_blocks(&r, 1024);
+	resample_free(&r);
 
 	spa_zero(r);
 	r.log = &logger.log;
@@ -148,6 +152,7 @@ static void test_in_len(void)
 	resample_native_init(&r);
 
 	pull_blocks(&r, 1024);
+	resample_free(&r);
 }
 
 int main(int argc, char *argv[])

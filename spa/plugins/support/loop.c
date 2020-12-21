@@ -79,7 +79,8 @@ struct impl {
 	int ack_fd;
 
 	struct spa_ringbuffer buffer;
-	uint8_t buffer_data[DATAS_SIZE];
+	uint8_t *buffer_data;
+	uint8_t buffer_mem[DATAS_SIZE + 8];
 
 	unsigned int flushing:1;
 };
@@ -193,14 +194,15 @@ loop_invoke(void *object,
 
 	if (l0 > sizeof(struct invoke_item) + size) {
 		item->data = SPA_MEMBER(item, sizeof(struct invoke_item), void);
-		item->item_size = sizeof(struct invoke_item) + size;
+		item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
 		if (l0 < sizeof(struct invoke_item) + item->item_size)
 			item->item_size = l0;
 	} else {
 		item->data = impl->buffer_data;
-		item->item_size = l0 + size;
+		item->item_size = SPA_ROUND_UP_N(l0 + size, 8);
 	}
-	memcpy(item->data, data, size);
+	if (data && size > 0)
+		memcpy(item->data, data, size);
 
 	spa_ringbuffer_write_update(&impl->buffer, idx + item->item_size);
 
@@ -793,6 +795,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&impl->destroy_list);
 	spa_hook_list_init(&impl->hooks_list);
 
+	impl->buffer_data = SPA_PTR_ALIGN(impl->buffer_mem, 8, uint8_t);
 	spa_ringbuffer_init(&impl->buffer);
 
 	impl->wakeup = loop_add_event(impl, wakeup_func, impl);

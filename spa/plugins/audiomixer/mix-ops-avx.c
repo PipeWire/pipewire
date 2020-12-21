@@ -109,7 +109,7 @@ static inline void mix_2(float * dst, const float * SPA_RESTRICT src, uint32_t n
 		_mm256_store_ps(&dst[n + 8], in1[1]);
 	}
 	for (; n < n_samples; n++) {
-		__m128 in1[0], in2[0];
+		__m128 in1[1], in2[1];
 		in1[0] = _mm_load_ss(&dst[n]),
 		in2[0] = _mm_load_ss(&src[n]),
 		in1[0] = _mm_add_ss(in1[0], in2[0]);

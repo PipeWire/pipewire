@@ -110,7 +110,6 @@ struct impl {
 	/* Transport */
 	struct spa_bt_transport *transport;
 	struct spa_hook transport_listener;
-	int sock_fd;
 
 	/* Port */
 	struct port port;
@@ -381,7 +380,7 @@ static void flush_data(struct impl *this)
 		}
 
 next_write:
-		written = write(this->sock_fd, packet, this->transport->write_mtu);
+		written = write(this->transport->fd, packet, this->transport->write_mtu);
 		if (written <= 0) {
 			spa_log_debug(this->log, "failed to write data");
 			goto stop;
@@ -472,6 +471,7 @@ static int lcm(int a, int b) {
 static int do_start(struct impl *this)
 {
 	bool do_accept;
+	int res;
 
 	/* Dont do anything if the node has already started */
 	if (this->started)
@@ -484,9 +484,8 @@ static int do_start(struct impl *this)
 	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
 
 	/* acquire the socked fd (false -> connect | true -> accept) */
-	this->sock_fd = spa_bt_transport_acquire(this->transport, do_accept);
-	if (this->sock_fd < 0)
-		return -1;
+	if ((res = spa_bt_transport_acquire(this->transport, do_accept)) < 0)
+		return res;
 
 	/* Init mSBC if needed */
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
@@ -557,13 +556,8 @@ static int do_stop(struct impl *this)
 	}
 
 	if (this->transport) {
-		/* Release the transport */
+		/* Release the transport; it is responsible for closing the fd */
 		res = spa_bt_transport_release(this->transport);
-
-		/* Shutdown and close the socket */
-		shutdown(this->sock_fd, SHUT_RDWR);
-		close(this->sock_fd);
-		this->sock_fd = -1;
 	}
 
 	return res;
@@ -1141,7 +1135,6 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
-	this->sock_fd = -1;
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);

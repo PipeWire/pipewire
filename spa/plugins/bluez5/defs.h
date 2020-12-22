@@ -284,7 +284,7 @@ struct spa_bt_transport {
 	void *configuration;
 	int configuration_len;
 
-	bool acquired;
+	int acquire_refcount;
 	int fd;
 	uint16_t read_mtu;
 	uint16_t write_mtu;
@@ -301,6 +301,9 @@ struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, c
 struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monitor,
                                                     bool (*callback) (struct spa_bt_transport *t, const void *data),
                                                     const void *data);
+
+int spa_bt_transport_acquire(struct spa_bt_transport *t, bool optional);
+int spa_bt_transport_release(struct spa_bt_transport *t);
 
 #define spa_bt_transport_emit(t,m,v,...)		spa_hook_list_call(&(t)->listener_list, \
 								struct spa_bt_transport_events,	\
@@ -323,8 +326,6 @@ struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monit
 	res;						\
 })
 
-#define spa_bt_transport_acquire(t,o)	spa_bt_transport_impl(t, acquire, 0, o)
-#define spa_bt_transport_release(t)	spa_bt_transport_impl(t, release, 0)
 #define spa_bt_transport_destroy(t)	spa_bt_transport_impl(t, destroy, 0)
 
 static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(const char *value)

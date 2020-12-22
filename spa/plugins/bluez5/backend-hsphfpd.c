@@ -921,6 +921,9 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	DBusPendingCall *call;
 	DBusError err;
 
+	spa_log_debug(backend->log, NAME": transport %p: Acquire %s",
+			transport, transport->path);
+
 	if (backend->acquire_in_progress)
 		return -EINPROGRESS;
 
@@ -950,7 +953,7 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	while (backend->acquire_in_progress && dbus_connection_read_write_dispatch(backend->conn, -1))
 		; // empty loop body
 
-	return transport->fd;
+	return 0;
 }
 
 static int hsphfpd_audio_release(void *data)
@@ -958,11 +961,6 @@ static int hsphfpd_audio_release(void *data)
 	struct spa_bt_transport *transport = data;
 	struct spa_bt_backend *backend = transport->backend;
 	struct hsphfpd_transport_data *transport_data = transport->user_data;
-
-	if (transport->fd < 0) {
-		spa_log_info(backend->log, NAME": transport %s already released", transport->path);
-		return 0;
-	}
 
 	spa_log_debug(backend->log, NAME": transport %p: Release %s",
 			transport, transport->path);

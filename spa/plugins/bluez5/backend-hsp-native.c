@@ -233,6 +233,7 @@ static int sco_acquire_cb(void *data, bool optional)
 	if (sock < 0)
 		goto fail;
 
+	t->fd = sock;
 	t->read_mtu = 48;
 	t->write_mtu = 48;
 
@@ -250,7 +251,9 @@ static int sco_acquire_cb(void *data, bool optional)
 			t->write_mtu = sco_opt.mtu;
 		}
 	}
-	return sock;
+
+	return 0;
+
 fail:
 	return -1;
 }
@@ -259,8 +262,14 @@ static int sco_release_cb(void *data)
 {
 	struct spa_bt_transport *t = data;
 	struct spa_bt_backend *backend = t->backend;
-	spa_log_info(backend->log, NAME": Transport %s released", t->path);
-	/* device will close the SCO socket for us */
+
+	spa_log_info(backend->log, "Transport %s released", t->path);
+
+	/* Shutdown and close the socket */
+	shutdown(t->fd, SHUT_RDWR);
+	close(t->fd);
+	t->fd = -1;
+
 	return 0;
 }
 

@@ -232,7 +232,7 @@ static int ofono_audio_acquire(void *data, bool optional)
 			transport->path, transport->fd, transport->codec);
 
 	ofono_transport_get_mtu(backend, transport);
-	ret = transport->fd;
+	ret = 0;
 
 finish:
 	return ret;
@@ -242,11 +242,6 @@ static int ofono_audio_release(void *data)
 {
 	struct spa_bt_transport *transport = data;
 	struct spa_bt_backend *backend = transport->backend;
-
-	if (transport->fd < 0) {
-		spa_log_info(backend->log, NAME": transport %s already released", transport->path);
-		return 0;
-	}
 
 	spa_log_debug(backend->log, NAME": transport %p: Release %s",
 			transport, transport->path);

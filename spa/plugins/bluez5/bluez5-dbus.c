@@ -686,6 +686,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	if (t == NULL)
 		return NULL;
 
+	t->acquire_refcount = 0;
 	t->monitor = monitor;
 	t->path = path;
 	t->fd = -1;
@@ -721,6 +722,12 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_bt_transport_destroy(transport);
 
+	if (transport->fd >= 0) {
+		shutdown(transport->fd, SHUT_RDWR);
+		close(transport->fd);
+		transport->fd = -1;
+	}
+
 	spa_list_remove(&transport->link);
 	if (transport->device) {
 		transport->device->connected_profiles &= ~transport->profile;
@@ -728,6 +735,50 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	}
 	free(transport->path);
 	free(transport);
+}
+
+int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	int res;
+
+	if (transport->acquire_refcount > 0) {
+		spa_log_debug(monitor->log, "transport %p: incref %s", transport, transport->path);
+		transport->acquire_refcount += 1;
+		return 0;
+	}
+	spa_assert(transport->acquire_refcount == 0);
+
+	res = spa_bt_transport_impl(transport, acquire, 0, optional);
+
+	if (res >= 0)
+		transport->acquire_refcount = 1;
+
+	return res;
+}
+
+int spa_bt_transport_release(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	int res;
+
+	if (transport->acquire_refcount > 1) {
+		spa_log_debug(monitor->log, "transport %p: decref %s", transport, transport->path);
+		transport->acquire_refcount -= 1;
+		return 0;
+	}
+	else if (transport->acquire_refcount == 0) {
+		spa_log_info(monitor->log, "transport %s already released", transport->path);
+		return 0;
+	}
+	spa_assert(transport->acquire_refcount == 1);
+
+	res = spa_bt_transport_impl(transport, release, 0);
+
+	if (res >= 0)
+		transport->acquire_refcount = 0;
+
+	return res;
 }
 
 static int transport_update_props(struct spa_bt_transport *transport,
@@ -840,9 +891,6 @@ static int transport_acquire(void *data, bool optional)
 	int ret = 0;
 	const char *method = optional ? "TryAcquire" : "Acquire";
 
-	if (transport->fd >= 0)
-		return 0;
-
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 					 transport->path,
 					 BLUEZ_MEDIA_TRANSPORT_INTERFACE,
@@ -900,10 +948,7 @@ static int transport_release(void *data)
 	DBusMessage *m, *r;
 	DBusError err;
 
-	if (transport->fd < 0)
-		return 0;
-
-	spa_log_debug(monitor->log, "transport %p: Release %s",
+	spa_log_debug(monitor->log, NAME": transport %p: Release %s",
 			transport, transport->path);
 
 	close(transport->fd);

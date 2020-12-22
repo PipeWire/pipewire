@@ -107,7 +107,6 @@ struct impl {
 
 	struct spa_bt_transport *transport;
 	struct spa_hook transport_listener;
-	int sock_fd;
 
 	struct port port;
 
@@ -287,7 +286,7 @@ static int read_data(struct impl *this, uint8_t *data, uint32_t data_size)
 	int res = 0;
 
 again:
-	res = read(this->sock_fd, data, data_size);
+	res = read(this->transport->fd, data, data_size);
 	if (res <= 0) {
 		/* retry if interrupted */
 		if (errno == EINTR)
@@ -513,6 +512,7 @@ stop:
 static int do_start(struct impl *this)
 {
 	bool do_accept;
+	int res;
 
 	/* Dont do anything if the node has already started */
 	if (this->started)
@@ -525,9 +525,8 @@ static int do_start(struct impl *this)
 	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
 
 	/* acquire the socked fd (false -> connect | true -> accept) */
-	this->sock_fd = spa_bt_transport_acquire(this->transport, do_accept);
-	if (this->sock_fd < 0)
-		return -1;
+	if ((res = spa_bt_transport_acquire(this->transport, do_accept)) < 0)
+		return res;
 
 	/* Reset the buffers and sample count */
 	reset_buffers(&this->port);
@@ -543,7 +542,7 @@ static int do_start(struct impl *this)
 
 	/* Add the ready read callback */
 	this->source.data = this;
-	this->source.fd = this->sock_fd;
+	this->source.fd = this->transport->fd;
 	this->source.func = sco_on_ready_read;
 	this->source.mask = SPA_IO_IN;
 	this->source.rmask = 0;
@@ -584,13 +583,8 @@ static int do_stop(struct impl *this)
 	this->started = false;
 
 	if (this->transport) {
-		/* Release the transport */
+		/* Release the transport; it is responsible for closing the fd */
 		res = spa_bt_transport_release(this->transport);
-
-		/* Shutdown and close the socket */
-		shutdown(this->sock_fd, SHUT_RDWR);
-		close(this->sock_fd);
-		this->sock_fd = -1;
 	}
 
 	return res;
@@ -1197,7 +1191,6 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
-	this->sock_fd = -1;
 
 	return 0;
 }

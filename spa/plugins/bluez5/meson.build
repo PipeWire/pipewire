@@ -1,7 +1,6 @@
 
 bluez5_sources = ['plugin.c',
 		  'a2dp-codecs.c',
-		  'a2dp-codec-aac.c',
 		  'a2dp-codec-sbc.c',
 		  'a2dp-sink.c',
 		  'a2dp-source.c',
@@ -26,6 +25,11 @@ if aptx_dep.found()
   bluez5_sources += [ 'a2dp-codec-aptx.c' ]
   bluez5_args += [ '-DENABLE_APTX' ]
   bluez5_deps += aptx_dep
+endif
+if fdk_aac_dep.found()
+  bluez5_sources += [ 'a2dp-codec-aac.c' ]
+  bluez5_args += [ '-DENABLE_AAC' ]
+  bluez5_deps += fdk_aac_dep
 endif
 
 if get_option('bluez5-backend-native')

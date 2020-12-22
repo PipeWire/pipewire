@@ -31,6 +31,7 @@ if get_option('spa-plugins')
     ldac_dep = dependency('ldacBT-enc', required : false)
     ldac_abr_dep = dependency('ldacBT-abr', required : false)
     aptx_dep = dependency('libopenaptx', required : false)
+    fdk_aac_dep = dependency('fdk-aac', required : false)
   endif
   if get_option('ffmpeg')
     avcodec_dep = dependency('libavcodec')

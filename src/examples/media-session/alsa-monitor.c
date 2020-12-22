@@ -833,15 +833,15 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	    (name != NULL && strstr(str, name) != NULL))) {
 		pw_properties_set(device->props, "api.alsa.soft-mixer", "true");
 	}
-	if ((str = pw_properties_get(impl->session->props, "alsa.auto-port")) != NULL &&
+	if ((str = pw_properties_get(impl->session->props, "alsa.no-auto-port")) != NULL &&
 	    (strcmp(str, "*") == 0 ||
 	    (name != NULL && strstr(str, name) != NULL))) {
-		pw_properties_set(device->props, "api.acp.auto-port", "true");
+		pw_properties_set(device->props, "api.acp.auto-port", "false");
 	}
-	if ((str = pw_properties_get(impl->session->props, "alsa.auto-profile")) != NULL &&
+	if ((str = pw_properties_get(impl->session->props, "alsa.no-auto-profile")) != NULL &&
 	    (strcmp(str, "*") == 0 ||
 	    (name != NULL && strstr(str, name) != NULL))) {
-		pw_properties_set(device->props, "api.acp.auto-profile", "true");
+		pw_properties_set(device->props, "api.acp.auto-profile", "false");
 	}
 
 	if (impl->conn &&

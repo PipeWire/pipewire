@@ -20,7 +20,7 @@ features dynamically.
 
 ## Principles
 
-The PipeWire API is, a object oriented asynchronous protocol.
+The PipeWire API is an object oriented asynchronous protocol.
 All requests and replies are method invocations on some object.
 
 Objects are identified with a unique ID. Each object implements an
@@ -66,7 +66,7 @@ simplicity.
 
 ## Proxies and resources
 
-When a client connect to a PipeWire daemon, a new `struct pw_proxy`
+When a client connects to a PipeWire daemon, a new `struct pw_proxy`
 object is created with ID 0. The `struct pw_core` interface is
 assigned to the proxy.
 

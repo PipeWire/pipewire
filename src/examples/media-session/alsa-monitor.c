@@ -826,11 +826,22 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	device->pending_profile = 1;
 	spa_list_append(&impl->device_list, &device->link);
 
+	name = pw_properties_get(device->props, "device.name");
+
 	if ((str = pw_properties_get(impl->session->props, "alsa.soft-mixer")) != NULL &&
 	    (strcmp(str, "*") == 0 ||
-	    ((name = pw_properties_get(device->props, "device.name")) != NULL &&
-	     strstr(str, name) != NULL))) {
+	    (name != NULL && strstr(str, name) != NULL))) {
 		pw_properties_set(device->props, "api.alsa.soft-mixer", "true");
+	}
+	if ((str = pw_properties_get(impl->session->props, "alsa.auto-port")) != NULL &&
+	    (strcmp(str, "*") == 0 ||
+	    (name != NULL && strstr(str, name) != NULL))) {
+		pw_properties_set(device->props, "api.acp.auto-port", "true");
+	}
+	if ((str = pw_properties_get(impl->session->props, "alsa.auto-profile")) != NULL &&
+	    (strcmp(str, "*") == 0 ||
+	    (name != NULL && strstr(str, name) != NULL))) {
+		pw_properties_set(device->props, "api.acp.auto-profile", "true");
 	}
 
 	if (impl->conn &&

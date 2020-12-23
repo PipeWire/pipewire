@@ -379,6 +379,8 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 		if (max > state->default_channels)
 			max = state->default_channels;
 	}
+	min = SPA_MIN(min, SPA_AUDIO_MAX_CHANNELS);
+	max = SPA_MIN(max, SPA_AUDIO_MAX_CHANNELS);
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_channels, 0);
 

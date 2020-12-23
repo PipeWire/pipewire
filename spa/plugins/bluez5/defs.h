@@ -288,6 +288,7 @@ struct spa_bt_transport {
 	int fd;
 	uint16_t read_mtu;
 	uint16_t write_mtu;
+	uint16_t delay;
 	void *user_data;
 
 	struct spa_hook_list listener_list;

@@ -616,9 +616,11 @@ static void a2dp_on_timeout(struct spa_source *source)
 		this->clock->nsec = now_time;
 		this->clock->position += duration;
 		this->clock->duration = duration;
-		this->clock->delay = 0;
 		this->clock->rate_diff = 1.0f;
 		this->clock->next_nsec = this->next_time;
+
+		// The bluetooth AVDTP delay value is measured in units of 100us
+		this->clock->delay = (100 * this->transport->delay * (int64_t) this->clock->rate.denom) / SPA_USEC_PER_SEC;
 	}
 
 	spa_log_debug(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,

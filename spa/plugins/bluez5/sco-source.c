@@ -127,7 +127,6 @@ struct impl {
 	uint8_t *msbc_buffer_tail;
 
 	struct timespec now;
-	uint32_t sample_count;
 };
 
 #define NAME "sco-source"
@@ -463,17 +462,20 @@ static void sco_on_ready_read(struct spa_source *source)
 
 	/* send buffer if full */
 	if ((max_out_size + port->ready_offset) > (this->props.max_latency * port->frame_size)) {
+		uint64_t sample_count;
+
 		datas[0].chunk->offset = 0;
 		datas[0].chunk->size = port->ready_offset;
 		datas[0].chunk->stride = port->frame_size;
 
-		this->sample_count += datas[0].chunk->size / port->frame_size;
+		sample_count = datas[0].chunk->size / port->frame_size;
 		spa_list_append(&port->ready, &port->current_buffer->link);
 		port->current_buffer = NULL;
 
 		if (this->clock) {
 			this->clock->nsec = SPA_TIMESPEC_TO_NSEC(&this->now);
-			this->clock->position = this->sample_count;
+			this->clock->duration = sample_count * this->clock->rate.denom / port->current_format.info.raw.rate;
+			this->clock->position += this->clock->duration;
 			this->clock->delay = 0;
 			this->clock->rate_diff = 1.0f;
 			this->clock->next_nsec = this->clock->nsec;
@@ -529,7 +531,6 @@ static int do_start(struct impl *this)
 
 	/* Reset the buffers and sample count */
 	reset_buffers(&this->port);
-	this->sample_count = 0;
 
 	/* Init mSBC if needed */
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {

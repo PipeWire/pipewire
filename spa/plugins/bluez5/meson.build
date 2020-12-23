@@ -33,7 +33,7 @@ if fdk_aac_dep.found()
   bluez5_deps += fdk_aac_dep
 endif
 
-if get_option('bluez5-backend-native')
+if get_option('bluez5-backend-hsp-native') or get_option('bluez5-backend-hfp-native')
   bluez5_sources += ['backend-native.c']
 endif
 

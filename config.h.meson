@@ -323,8 +323,14 @@
 /* For libsystemd */
 #mesondefine HAVE_SYSTEMD
 
-/* Define to 1 if native HSP backend is enabled in bluez5 plugin. */
+/* Define to 1 if native backend is enabled in bluez5 plugin. */
 #mesondefine HAVE_BLUEZ_5_BACKEND_NATIVE
+
+/* Define to 1 if HSP in native backend is enabled in bluez5 plugin. */
+#mesondefine HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
+
+/* Define to 1 if HFP in native backend is enabled in bluez5 plugin. */
+#mesondefine HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 
 /* Define to 1 if oFono backend is enabled in bluez5 plugin. */
 #mesondefine HAVE_BLUEZ_5_BACKEND_OFONO

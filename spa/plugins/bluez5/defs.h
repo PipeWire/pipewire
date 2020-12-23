@@ -131,6 +131,8 @@ extern "C" {
 
 #define PROFILE_HSP_AG	"/Profile/HSPAG"
 #define PROFILE_HSP_HS	"/Profile/HSPHS"
+#define PROFILE_HFP_AG	"/Profile/HFPAG"
+#define PROFILE_HFP_HF	"/Profile/HFPHF"
 
 #define HSP_HS_DEFAULT_CHANNEL  3
 
@@ -178,6 +180,34 @@ static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 	else
 		return 0;
 }
+
+enum spa_bt_hfp_ag_feature {
+	SPA_BT_HFP_AG_FEATURE_NONE =			(0),
+	SPA_BT_HFP_AG_FEATURE_3WAY =			(1 << 0),
+	SPA_BT_HFP_AG_FEATURE_ECNR =			(1 << 1),
+	SPA_BT_HFP_AG_FEATURE_VOICE_RECOG =		(1 << 2),
+	SPA_BT_HFP_AG_FEATURE_IN_BAND_RING_TONE =	(1 << 3),
+	SPA_BT_HFP_AG_FEATURE_ATTACH_VOICE_TAG =	(1 << 4),
+	SPA_BT_HFP_AG_FEATURE_REJECT_CALL =		(1 << 5),
+	SPA_BT_HFP_AG_FEATURE_ENHANCED_CALL_STATUS =	(1 << 6),
+	SPA_BT_HFP_AG_FEATURE_ENHANCED_CALL_CONTROL =	(1 << 7),
+	SPA_BT_HFP_AG_FEATURE_EXTENDED_RES_CODE =	(1 << 8),
+	SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION =	(1 << 9),
+	SPA_BT_HFP_AG_FEATURE_HF_INDICATORS =		(1 << 10),
+};
+
+enum spa_bt_hfp_hf_feature {
+	SPA_BT_HFP_HF_FEATURE_NONE =			(0),
+	SPA_BT_HFP_HF_FEATURE_ECNR =			(1 << 0),
+	SPA_BT_HFP_HF_FEATURE_3WAY =			(1 << 1),
+	SPA_BT_HFP_HF_FEATURE_CLIP =			(1 << 2),
+	SPA_BT_HFP_HF_FEATURE_VOICE_RECOGNITION =	(1 << 3),
+	SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL =	(1 << 4),
+	SPA_BT_HFP_HF_FEATURE_ENHANCED_CALL_STATUS =	(1 << 5),
+	SPA_BT_HFP_HF_FEATURE_ENHANCED_CALL_CONTROL =	(1 << 6),
+	SPA_BT_HFP_HF_FEATURE_CODEC_NEGOTIATION =	(1 << 7),
+	SPA_BT_HFP_HF_FEATURE_HF_INDICATORS =		(1 << 8),
+};
 
 static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
       switch (profile) {
@@ -362,7 +392,7 @@ struct spa_bt_transport {
 	enum spa_bt_profile profile;
 	enum spa_bt_transport_state state;
 	const struct a2dp_codec *a2dp_codec;
-	int codec;
+	unsigned int codec;
 	void *configuration;
 	int configuration_len;
 

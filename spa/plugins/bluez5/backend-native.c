@@ -1,6 +1,7 @@
-/* Spa HSP native backend
+/* Spa HSP/HFP native backend
  *
  * Copyright © 2018 Wim Taymans
+ * Copyright © 2021 Collabora
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -62,6 +63,10 @@ struct rfcomm {
 	struct spa_bt_device *device;
 	struct spa_bt_transport *transport;
 	enum spa_bt_profile profile;
+	char* path;
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	unsigned int slc_configured:1;
+#endif
 };
 
 static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -79,12 +84,143 @@ static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, v
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static const struct spa_bt_transport_implementation sco_transport_impl;
+
+static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
+{
+	struct spa_bt_backend *backend = rfcomm->backend;
+	struct spa_bt_transport *t = NULL;
+	char* pathfd;
+
+	if ((pathfd = spa_aprintf("%s/fd%d", rfcomm->path, rfcomm->source.fd)) == NULL)
+		return NULL;
+
+	t = spa_bt_transport_create(backend->monitor, pathfd, sizeof(struct transport_data));
+	if (t == NULL)
+		goto finish;
+	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
+
+	t->device = rfcomm->device;
+	spa_list_append(&t->device->transport_list, &t->device_link);
+	t->profile = rfcomm->profile;
+	t->backend = backend;
+
+finish:
+	return t;
+}
+
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
+	if (rfcomm->path)
+		free(rfcomm->path);
 	if (rfcomm->transport)
 		spa_bt_transport_free(rfcomm->transport);
 	free(rfcomm);
 }
+
+static void rfcomm_send_reply(struct spa_source *source, char *data)
+{
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
+	char message[256];
+	ssize_t len;
+
+	spa_log_debug(backend->log, NAME": RFCOMM >> %s", data);
+	sprintf(message, "\r\n%s\r\n", data);
+	len = write(source->fd, message, strlen(message));
+	/* we ignore any errors, it's not critical and real errors should
+	 * be caught with the HANGUP and ERROR events handled above */
+	if (len < 0)
+		spa_log_error(backend->log, NAME": RFCOMM write error: %s", strerror(errno));
+}
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
+static bool rfcomm_hsp(struct spa_source *source, char* buf)
+{
+	unsigned int gain, dummy;
+
+	/* There are only four HSP AT commands:
+		* AT+VGS=value: value between 0 and 15, sent by the HS to AG to set the speaker gain.
+		* +VGS=value is sent by AG to HS as a response to an AT+VGS command or when the gain
+		* is changed on the AG side.
+		* AT+VGM=value: value between 0 and 15, sent by the HS to AG to set the microphone gain.
+		* +VGM=value is sent by AG to HS as a response to an AT+VGM command or when the gain
+		* is changed on the AG side.
+		* AT+CKPD=200: Sent by HS when headset button is pressed.
+		* RING: Sent by AG to HS to notify of an incoming call. It can safely be ignored because
+		* it does not expect a reply. */
+	if (sscanf(buf, "AT+VGS=%d", &gain) == 1 ||
+			sscanf(buf, "\r\n+VGM=%d\r\n", &gain) == 1) {
+//	t->speaker_gain = gain;
+		rfcomm_send_reply(source, "OK");
+	} else if (sscanf(buf, "AT+VGM=%d", &gain) == 1 ||
+			sscanf(buf, "\r\n+VGS=%d\r\n", &gain) == 1) {
+//	t->microphone_gain = gain;
+		rfcomm_send_reply(source, "OK");
+	} else if (sscanf(buf, "AT+CKPD=%d", &dummy) == 1) {
+		rfcomm_send_reply(source, "OK");
+	} else {
+		return false;
+	}
+
+	return true;
+}
+#endif
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
+{
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
+	unsigned int features;
+	unsigned int gain;
+
+	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
+		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
+		char *cmd;
+
+		/* TODO: retrieve HF supported features */
+		cmd = spa_aprintf("+BRSF: %d", ag_features);
+		rfcomm_send_reply(source, cmd);
+		free(cmd);
+		rfcomm_send_reply(source, "OK");
+	} else if (strncmp(buf, "AT+BAC=", 7) == 0) {
+		/* TODO: retrieve supported codecs */
+		rfcomm_send_reply(source, "OK");
+	} else if (strncmp(buf, "AT+CIND=?", 9) == 0) {
+		rfcomm_send_reply(source, "+CIND:(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2))");
+		rfcomm_send_reply(source, "OK");
+	} else if (strncmp(buf, "AT+CIND?", 8) == 0) {
+		rfcomm_send_reply(source, "+CIND: 0,0,0,0");
+		rfcomm_send_reply(source, "OK");
+	} else if (strncmp(buf, "AT+CMER", 7) == 0) {
+		rfcomm->slc_configured = true;
+
+		rfcomm->transport = _transport_create(rfcomm);
+		if (rfcomm->transport == NULL) {
+			spa_log_warn(backend->log, NAME": can't create transport: %m");
+			// TODO: We should manage the missing transport
+		}
+		spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+
+		rfcomm_send_reply(source, "OK");
+	} else if (!rfcomm->slc_configured) {
+		spa_log_warn(backend->log, NAME": RFCOMM receive command before SLC completed: %s", buf);
+		rfcomm_send_reply(source, "ERROR");
+		return false;
+	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
+		//t->microphone_gain = gain;
+		rfcomm_send_reply(source, "OK");
+	} else if (sscanf(buf, "AT+VGS=%u", &gain) == 1) {
+		//t->speaker_gain = gain;
+		rfcomm_send_reply(source, "OK");
+	} else {
+		return false;
+	}
+
+	return true;
+}
+#endif
 
 static void rfcomm_event(struct spa_source *source)
 {
@@ -103,8 +239,7 @@ static void rfcomm_event(struct spa_source *source)
 	if (source->rmask & SPA_IO_IN) {
 		char buf[512];
 		ssize_t len;
-		int gain, dummy;
-		bool  do_reply = false;
+		bool res = false;
 
 		len = read(source->fd, buf, 511);
 		if (len < 0) {
@@ -114,39 +249,18 @@ static void rfcomm_event(struct spa_source *source)
 		buf[len] = 0;
 		spa_log_debug(backend->log, NAME": RFCOMM << %s", buf);
 
-		/* There are only four HSP AT commands:
-		 * AT+VGS=value: value between 0 and 15, sent by the HS to AG to set the speaker gain.
-		 * +VGS=value is sent by AG to HS as a response to an AT+VGS command or when the gain
-		 * is changed on the AG side.
-		 * AT+VGM=value: value between 0 and 15, sent by the HS to AG to set the microphone gain.
-		 * +VGM=value is sent by AG to HS as a response to an AT+VGM command or when the gain
-		 * is changed on the AG side.
-		 * AT+CKPD=200: Sent by HS when headset button is pressed.
-		 * RING: Sent by AG to HS to notify of an incoming call. It can safely be ignored because
-		 * it does not expect a reply. */
-		if (sscanf(buf, "AT+VGS=%d", &gain) == 1 ||
-		    sscanf(buf, "\r\n+VGM=%d\r\n", &gain) == 1) {
-//			t->speaker_gain = gain;
-			do_reply = true;
-		} else if (sscanf(buf, "AT+VGM=%d", &gain) == 1 ||
-		    sscanf(buf, "\r\n+VGS=%d\r\n", &gain) == 1) {
-//			t->microphone_gain = gain;
-			do_reply = true;
-		} else if (sscanf(buf, "AT+CKPD=%d", &dummy) == 1) {
-			do_reply = true;
-		} else {
-			do_reply = false;
-		}
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
+		if ((rfcomm->profile == SPA_BT_PROFILE_HSP_AG) || (rfcomm->profile == SPA_BT_PROFILE_HSP_HS))
+			res = rfcomm_hsp(source, buf);
+#endif
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+		if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF)
+			res = rfcomm_hfp_ag(source, buf);
+#endif
 
-		if (do_reply) {
-			spa_log_debug(backend->log, NAME": RFCOMM >> OK");
-
-			len = write(source->fd, "\r\nOK\r\n", 6);
-
-			/* we ignore any errors, it's not critical and real errors should
-			 * be caught with the HANGUP and ERROR events handled above */
-			if (len < 0)
-				spa_log_error(backend->log, NAME": RFCOMM write error: %s", strerror(errno));
+		if (!res) {
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported command: %s", buf);
+			rfcomm_send_reply(source, "ERROR");
 		}
 	}
 	return;
@@ -398,8 +512,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	DBusMessage *r;
 	DBusMessageIter it[5];
 	const char *handler, *path;
-	char *pathfd;
-	enum spa_bt_profile profile;
+	enum spa_bt_profile profile = SPA_BT_PROFILE_NULL;
 	struct rfcomm *rfcomm;
 	struct spa_bt_device *d;
 	struct spa_bt_transport *t = NULL;
@@ -411,11 +524,18 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	}
 
 	handler = dbus_message_get_path(m);
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (strcmp(handler, PROFILE_HSP_AG) == 0)
 		profile = SPA_BT_PROFILE_HSP_HS;
 	else if (strcmp(handler, PROFILE_HSP_HS) == 0)
 		profile = SPA_BT_PROFILE_HSP_AG;
-	else {
+#endif
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	if (strcmp(handler, PROFILE_HFP_AG) == 0)
+		profile = SPA_BT_PROFILE_HFP_HF;
+#endif
+
+	if (profile == SPA_BT_PROFILE_NULL) {
 		spa_log_warn(backend->log, NAME": invalid handler %s", handler);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -441,33 +561,27 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->backend = backend;
 	rfcomm->profile = profile;
 	rfcomm->device = d;
+	rfcomm->path = strdup(path);
 	rfcomm->source.func = rfcomm_event;
 	rfcomm->source.data = rfcomm;
 	rfcomm->source.fd = fd;
 	rfcomm->source.mask = SPA_IO_IN;
 	rfcomm->source.rmask = 0;
 
-	if ((pathfd = spa_aprintf("%s/fd%d", path, fd)) == NULL)
-		goto fail_need_memory;
+	if (profile == SPA_BT_PROFILE_HSP_HS || profile == SPA_BT_PROFILE_HSP_AG) {
+		t = _transport_create(rfcomm);
+		if (t == NULL) {
+			spa_log_warn(backend->log, NAME": can't create transport: %m");
+			goto fail_need_memory;
+		}
+		rfcomm->transport = t;
 
-	t = spa_bt_transport_create(backend->monitor, pathfd, sizeof(struct transport_data));
-	if (t == NULL) {
-		spa_log_warn(backend->log, NAME": can't create transport: %m");
-		goto fail_need_memory;
+		spa_bt_device_connect_profile(t->device, profile);
+
+		sco_listen(t);
+
+		spa_log_debug(backend->log, NAME": Transport %s available for profile %s", t->path, handler);
 	}
-	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
-
-	t->device = d;
-	spa_list_append(&t->device->transport_list, &t->device_link);
-	t->profile = profile;
-	t->backend = backend;
-	rfcomm->transport = t;
-
-	spa_bt_device_connect_profile(t->device, profile);
-
-	sco_listen(t);
-
-	spa_log_debug(backend->log, NAME": Transport %s available for profile %s", t->path, handler);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		goto fail_need_memory;
@@ -492,7 +606,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	DBusMessage *r;
 	const char *handler, *path;
 	struct spa_bt_device *d;
-	enum spa_bt_profile profile;
+	enum spa_bt_profile profile = SPA_BT_PROFILE_NULL;
 	DBusMessageIter it[5];
 	struct rfcomm *rfcomm, *rfcomm_tmp;
 
@@ -502,11 +616,18 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	}
 
 	handler = dbus_message_get_path(m);
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (strcmp(handler, PROFILE_HSP_AG) == 0)
 		profile = SPA_BT_PROFILE_HSP_HS;
 	else if (strcmp(handler, PROFILE_HSP_HS) == 0)
 		profile = SPA_BT_PROFILE_HSP_AG;
-	else {
+#endif
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	if (strcmp(handler, PROFILE_HFP_AG) == 0)
+		profile = SPA_BT_PROFILE_HFP_HF;
+#endif
+
+	if (profile == SPA_BT_PROFILE_NULL) {
 		spa_log_warn(backend->log, NAME": invalid handler %s", handler);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -660,6 +781,16 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &version);
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
+	} else if (strcmp(uuid, SPA_BT_UUID_HFP_AG) == 0) {
+		/* HFP version 1.7 */
+		str = "Version";
+		version = 0x0107;
+		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
+		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
+		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
+		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &version);
+		dbus_message_iter_close_container(&it[2], &it[3]);
+		dbus_message_iter_close_container(&it[1], &it[2]);
 	}
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
@@ -671,16 +802,28 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 
 void backend_native_register_profiles(struct spa_bt_backend *backend)
 {
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	register_profile(backend, PROFILE_HSP_AG, SPA_BT_UUID_HSP_AG);
 	register_profile(backend, PROFILE_HSP_HS, SPA_BT_UUID_HSP_HS);
+#endif
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	register_profile(backend, PROFILE_HFP_AG, SPA_BT_UUID_HFP_AG);
+#endif
 }
 
 void backend_native_free(struct spa_bt_backend *backend)
 {
 	struct rfcomm *rfcomm;
 
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);
+#endif
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	dbus_connection_unregister_object_path(backend->conn, PROFILE_HFP_AG);
+#endif
 
 	spa_list_consume(rfcomm, &backend->rfcomm_list, link)
 		rfcomm_free(rfcomm);
@@ -710,6 +853,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 
 	spa_list_init(&backend->rfcomm_list);
 
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (!dbus_connection_register_object_path(backend->conn,
 						  PROFILE_HSP_AG,
 						  &vtable_profile, backend)) {
@@ -721,6 +865,15 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 						  &vtable_profile, backend)) {
 		goto fail;
 	}
+#endif
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	if (!dbus_connection_register_object_path(backend->conn,
+						  PROFILE_HFP_AG,
+						  &vtable_profile, backend)) {
+		goto fail;
+	}
+#endif
 
 	return backend;
 fail:

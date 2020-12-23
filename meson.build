@@ -280,7 +280,12 @@ if get_option('systemd')
 endif
 
 if get_option('bluez5')
-  if get_option('bluez5-backend-native')
+  if get_option('bluez5-backend-hsp-native')
+    cdata.set('HAVE_BLUEZ_5_BACKEND_HSP_NATIVE', 1)
+    cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
+  endif
+  if get_option('bluez5-backend-hfp-native')
+    cdata.set('HAVE_BLUEZ_5_BACKEND_HFP_NATIVE', 1)
     cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
   endif
   if get_option('bluez5-backend-ofono')

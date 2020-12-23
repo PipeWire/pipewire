@@ -131,6 +131,7 @@ struct impl {
 	uint8_t *buffer;
 	uint8_t *buffer_head;
 	uint8_t *buffer_next;
+	int buffer_size;
 
 	/* Times */
 	uint64_t start_time;
@@ -383,6 +384,12 @@ static void flush_data(struct impl *this)
 			this->start_time = now_time;
 
 		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+			/* Encode */
+			if (this->buffer_next + MSBC_ENCODED_SIZE > this->buffer + this->buffer_size) {
+				/* Buffer overrun; shouldn't usually happen. Drop data and reset. */
+				this->buffer_head = this->buffer_next = this->buffer;
+				spa_log_warn(this->log, "sco-sink: mSBC buffer overrun, dropping data");
+			}
 			this->buffer_next[0] = 0x01;
 			this->buffer_next[1] = sntable[sn];
 			this->buffer_next[59] = 0x00;
@@ -394,27 +401,43 @@ static void flush_data(struct impl *this)
 				return;
 			}
 			this->buffer_next += out_encoded + 3;
-		}
+			port->write_buffer_size = 0;
 
-next_write:
-		written = write(this->transport->fd, packet, this->transport->write_mtu);
-		if (written <= 0) {
-			spa_log_debug(this->log, "failed to write data");
-			goto stop;
-		}
-		port->write_buffer_size = 0;
-		spa_log_debug(this->log, "wrote socket data %d", written);
-
-		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-			this->buffer_head += written;
-			if (this->buffer_next - this->buffer_head >= this->transport->write_mtu) {
-				packet = this->buffer_head;
-				goto next_write;
+			/* Write */
+			written = spa_bt_sco_io_write(this->transport->sco_io, packet, this->buffer_next - this->buffer_head);
+			if (written < 0) {
+				spa_log_warn(this->log, "failed to write data");
+				goto stop;
 			}
+			spa_log_trace(this->log, "wrote socket data %d", written);
+
+			this->buffer_head += written;
+
 			if (this->buffer_head == this->buffer_next)
 				this->buffer_head = this->buffer_next = this->buffer;
-		} else
+			else if (this->buffer_next + MSBC_ENCODED_SIZE > this->buffer + this->buffer_size) {
+				/* Written bytes is not necessarily commensurate
+				 * with MSBC_ENCODED_SIZE. If this occurs, copy data.
+				 */
+				int size = this->buffer_next - this->buffer_head;
+				spa_memmove(this->buffer, this->buffer_head, size);
+				this->buffer_next = this->buffer + size;
+				this->buffer_head = this->buffer;
+			}
+		} else {
+			written = spa_bt_sco_io_write(this->transport->sco_io, packet, port->write_buffer_size);
+			if (written < 0) {
+				spa_log_warn(this->log, "sco-sink: write failure: %d", written);
+				goto stop;
+			}
+
 			processed = written;
+			port->write_buffer_size -= written;
+
+			if (port->write_buffer_size > 0 && written > 0) {
+				spa_memmove(port->write_buffer, port->write_buffer + written, port->write_buffer_size);
+			}
+		}
 
 		next_timeout = get_next_timeout(this, now_time, processed / port->frame_size);
 
@@ -513,14 +536,21 @@ static int do_start(struct impl *this)
 		/* Libsbc expects audio samples by default in host endianity, mSBC requires little endian */
 		this->msbc.endian = SBC_LE;
 
-		if (this->transport->write_mtu > MSBC_ENCODED_SIZE)
-			this->transport->write_mtu = MSBC_ENCODED_SIZE;
-
-		this->buffer = calloc(lcm(this->transport->write_mtu, MSBC_ENCODED_SIZE), sizeof(uint8_t));
+		/* write_mtu might not be correct at this point, so we'll throw
+		 * in some common ones, at the cost of a potentially larger
+		 * allocation (size <= 120 * write_mtu). If it still fails to be
+		 * commensurate, we may end up doing memmoves, but nothing worse
+		 * is going to happen.
+		 */
+		this->buffer_size = lcm(24, lcm(60, lcm(this->transport->write_mtu, 2 * MSBC_ENCODED_SIZE)));
+		this->buffer = calloc(this->buffer_size, sizeof(uint8_t));
 		this->buffer_head = this->buffer_next = this->buffer;
 	}
 
 	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
+
+	/* start socket i/o */
+	spa_bt_transport_ensure_sco_io(this->transport, this->data_loop);
 
 	/* Add the timeout callback */
 	this->source.data = this;

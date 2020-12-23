@@ -965,6 +965,11 @@ static int hsphfpd_audio_release(void *data)
 	spa_log_debug(backend->log, NAME": transport %p: Release %s",
 			transport, transport->path);
 
+	if (transport->sco_io) {
+		spa_bt_sco_io_destroy(transport->sco_io);
+		transport->sco_io = NULL;
+	}
+
 	/* shutdown to make sure connection is dropped immediately */
 	shutdown(transport->fd, SHUT_RDWR);
 	close(transport->fd);

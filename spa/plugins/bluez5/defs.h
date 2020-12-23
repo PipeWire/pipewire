@@ -246,6 +246,14 @@ struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monit
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
 
+struct spa_bt_sco_io;
+
+struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_loop *data_loop, int fd, uint16_t write_mtu, uint16_t read_mtu);
+void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io);
+void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void *userdata, uint8_t *data, int size), void *userdata);
+void spa_bt_sco_io_set_sink_cb(struct spa_bt_sco_io *io, int (*sink_cb)(void *userdata), void *userdata);
+int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *data, int size);
+
 enum spa_bt_transport_state {
         SPA_BT_TRANSPORT_STATE_IDLE,
         SPA_BT_TRANSPORT_STATE_PENDING,
@@ -290,6 +298,7 @@ struct spa_bt_transport {
 	uint16_t write_mtu;
 	uint16_t delay;
 	void *user_data;
+	struct spa_bt_sco_io *sco_io;
 
 	struct spa_hook_list listener_list;
 	struct spa_callbacks impl;
@@ -304,6 +313,7 @@ struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monit
 
 int spa_bt_transport_acquire(struct spa_bt_transport *t, bool optional);
 int spa_bt_transport_release(struct spa_bt_transport *t);
+void spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop);
 
 #define spa_bt_transport_emit(t,m,v,...)		spa_hook_list_call(&(t)->listener_list, \
 								struct spa_bt_transport_events,	\

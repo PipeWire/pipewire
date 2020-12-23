@@ -265,6 +265,11 @@ static int sco_release_cb(void *data)
 
 	spa_log_info(backend->log, "Transport %s released", t->path);
 
+	if (t->sco_io) {
+		spa_bt_sco_io_destroy(t->sco_io);
+		t->sco_io = NULL;
+	}
+
 	/* Shutdown and close the socket */
 	shutdown(t->fd, SHUT_RDWR);
 	close(t->fd);

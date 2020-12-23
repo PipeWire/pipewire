@@ -6,6 +6,7 @@ bluez5_sources = ['plugin.c',
 		  'a2dp-source.c',
 		  'sco-sink.c',
 		  'sco-source.c',
+		  'sco-io.c',
 		  'bluez5-device.c',
 		  'bluez5-dbus.c']
 

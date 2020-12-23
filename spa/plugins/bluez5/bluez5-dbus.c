@@ -701,6 +701,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->monitor = monitor;
 	t->path = path;
 	t->fd = -1;
+	t->sco_io = NULL;
 	t->user_data = SPA_MEMBER(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 
@@ -730,6 +731,11 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
 
 	spa_bt_transport_emit_destroy(transport);
+
+	if (transport->sco_io) {
+		spa_bt_sco_io_destroy(transport->sco_io);
+		transport->sco_io = NULL;
+	}
 
 	spa_bt_transport_destroy(transport);
 
@@ -790,6 +796,16 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 		transport->acquire_refcount = 0;
 
 	return res;
+}
+
+void spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop)
+{
+	if (t->sco_io == NULL) {
+		t->sco_io = spa_bt_sco_io_create(data_loop,
+						 t->fd,
+						 t->read_mtu,
+						 t->write_mtu);
+	}
 }
 
 static int transport_update_props(struct spa_bt_transport *transport,

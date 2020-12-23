@@ -894,6 +894,17 @@ static void do_quit(void *userdata, int signal_number)
 	pw_main_loop_quit(data->loop);
 }
 
+static void do_print_delay(void *userdata, uint64_t expirations)
+{
+	struct data *data = userdata;
+	struct pw_time time;
+	pw_stream_get_time(data->stream, &time);
+	printf("now=%li rate=%u/%u ticks=%lu delay=%li queued=%lu\n",
+		time.now,
+		time.rate.num, time.rate.denom,
+		time.ticks, time.delay, time.queued);
+}
+
 enum {
 	OPT_VERSION = 1000,
 	OPT_MEDIA_TYPE,
@@ -1619,6 +1630,12 @@ int main(int argc, char *argv[])
 			printf("connecting %s stream; target_id=%"PRIu32"\n",
 					data.mode == mode_playback ? "playback" : "record",
 					data.target_id);
+
+		if (data.verbose) {
+			struct timespec timeout = {0, 1}, interval = {1, 0};
+			struct spa_source *timer = pw_loop_add_timer(l, do_print_delay, &data);
+			pw_loop_update_timer(l, timer, &timeout, &interval, false);
+		}
 
 		ret = pw_stream_connect(data.stream,
 				  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,

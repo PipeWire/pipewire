@@ -1077,11 +1077,13 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
 
   pw_thread_loop_lock (pwsrc->core->loop);
 
+  props = pw_properties_new (NULL, NULL);
+  if (pwsrc->client_name) {
+    pw_properties_set (props, PW_KEY_NODE_NAME, pwsrc->client_name);
+    pw_properties_set (props, PW_KEY_NODE_DESCRIPTION, pwsrc->client_name);
+  }
   if (pwsrc->properties) {
-    props = pw_properties_new (NULL, NULL);
     gst_structure_foreach (pwsrc->properties, copy_properties, props);
-  } else {
-    props = NULL;
   }
 
   if ((pwsrc->stream = pw_stream_new (pwsrc->core->core,

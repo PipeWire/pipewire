@@ -659,11 +659,13 @@ gst_pipewire_sink_start (GstBaseSink * basesink)
 
   pwsink->negotiated = FALSE;
 
+  props = pw_properties_new (NULL, NULL);
+  if (pwsink->client_name) {
+    pw_properties_set (props, PW_KEY_NODE_NAME, pwsink->client_name);
+    pw_properties_set (props, PW_KEY_NODE_DESCRIPTION, pwsink->client_name);
+  }
   if (pwsink->properties) {
-    props = pw_properties_new (NULL, NULL);
     gst_structure_foreach (pwsink->properties, copy_properties, props);
-  } else {
-    props = NULL;
   }
 
   pw_thread_loop_lock (pwsink->core->loop);

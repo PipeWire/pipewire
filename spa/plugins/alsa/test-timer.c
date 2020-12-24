@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 	 * this can be done in a poll loop as well */
 	while (true) {
 		uint64_t expirations;
-		read(state.timerfd, &expirations, sizeof(expirations));
+		CHECK(read(state.timerfd, &expirations, sizeof(expirations)), "read");
 		on_timer_wakeup(&state);
 	}
 

@@ -65,7 +65,8 @@ systemctl --user stop pipewire.socket
 
 ## Installing
 
-PipeWire comes with quite a bit of libraries and tools, use: 
+PipeWire comes with quite a bit of libraries and tools, run
+inside `build`:
 
 ```
 sudo meson install

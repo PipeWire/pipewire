@@ -35,8 +35,6 @@
 #include <extensions/profiler.h>
 
 #define MAX_NAME		128
-#define MAX_NODES		1024
-#define MAX_FOLLOWERS		1024
 
 struct driver {
 	int64_t count;
@@ -247,10 +245,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 	char buf3[64];
 	char buf4[64];
 	float waiting, busy, period;
-	int row, col;
 	struct spa_fraction frac;
-
-	getmaxyx(d->win,row,col);
 
 	if (n->driver == n)
 		frac = SPA_FRACTION((uint32_t)(i->clock.duration * i->clock.rate.num), i->clock.rate.denom);
@@ -277,17 +272,16 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 			n->driver == n ? "" : " + ",
 			n->name);
 
-	wprintw(d->win, "%.*s\n", col-1, line);
+	wprintw(d->win, "%.*s\n", COLS, line);
 }
 
-static void do_timeout(void *data, uint64_t expirations)
+static void do_refresh(struct data *d)
 {
-	struct data *d = data;
 	struct node *n, *t, *f;
 
 	wclear(d->win);
 	wattron(d->win, A_REVERSE);
-	wprintw(d->win, "%-*.*s", COLS-1, COLS-1, "S   ID     LATENCY     WAIT    BUSY    W/P   B/P  ERR  NAME ");
+	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID PERIOD/RATE      WAIT    BUSY   W/P   B/P  ERR  NAME ");
 	wattroff(d->win, A_REVERSE);
 	wprintw(d->win, "\n");
 
@@ -305,6 +299,12 @@ static void do_timeout(void *data, uint64_t expirations)
 		}
 	}
 	wrefresh(d->win);
+}
+
+static void do_timeout(void *data, uint64_t expirations)
+{
+	struct data *d = data;
+	do_refresh(d);
 }
 
 static void profiler_profile(void *data, const struct spa_pod *pod)
@@ -447,7 +447,7 @@ static void show_help(const char *name)
 		name);
 }
 
-void terminal_start()
+static void terminal_start()
 {
 	initscr();
 	cbreak();
@@ -455,15 +455,27 @@ void terminal_start()
 	refresh();
 }
 
-void terminal_stop()
+static void terminal_stop()
 {
 	endwin();
 }
 
-void resizehandler(int sig)
+static void do_handle_io(void *data, int fd, uint32_t mask)
 {
-	terminal_stop();
-	terminal_start();
+	struct data *d = data;
+
+	if (mask & SPA_IO_IN) {
+		int ch = getch();
+
+		switch(ch) {
+		case 'q':
+			pw_main_loop_quit(d->loop);
+			break;
+		default:
+			do_refresh(d);
+			break;
+		}
+	}
 }
 
 int main(int argc, char *argv[])
@@ -556,6 +568,8 @@ int main(int argc, char *argv[])
 	interval.tv_sec = 1;
 	interval.tv_nsec = 0;
 	pw_loop_update_timer(l, data.timer, &value, &interval, false);
+
+	pw_loop_add_io(l, fileno(stdin), SPA_IO_IN, false, do_handle_io, &data);
 
 	pw_main_loop_run(data.loop);
 

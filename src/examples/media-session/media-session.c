@@ -116,8 +116,8 @@ struct impl {
 	struct sm_media_session this;
 
 	const char *opt_default;
-	const char *opt_enabled;
-	const char *opt_disabled;
+	char *opt_enabled;
+	char *opt_disabled;
 
 	struct pw_main_loop *loop;
 	struct spa_dbus *dbus;
@@ -2253,8 +2253,6 @@ int main(int argc, char *argv[])
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res = 0, c;
-	char *opt_enabled;
-	char *opt_disabled;
 	char *opt_properties;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
@@ -2271,8 +2269,8 @@ int main(int argc, char *argv[])
 
 	check_default_enabled(&impl);
 
-	opt_enabled = strdup(EXTRA_ENABLED);
-	opt_disabled = strdup(EXTRA_DISABLED);
+	impl.opt_enabled = strdup(EXTRA_ENABLED);
+	impl.opt_disabled = strdup(EXTRA_DISABLED);
 	opt_properties = strdup("");
 
 	while ((c = getopt_long(argc, argv, "hVe:d:p:", long_options, NULL)) != -1) {
@@ -2289,11 +2287,11 @@ int main(int argc, char *argv[])
 				pw_get_library_version());
 			return 0;
 		case 'e':
-			if (append_opt_str(&opt_enabled, ",", optarg))
+			if (append_opt_str(&impl.opt_enabled, ",", optarg))
 				return -1;
 			break;
 		case 'd':
-			if (append_opt_str(&opt_disabled, ",", optarg))
+			if (append_opt_str(&impl.opt_disabled, ",", optarg))
 				return -1;
 			break;
 		case 'p':
@@ -2306,9 +2304,6 @@ int main(int argc, char *argv[])
 	}
 
 	impl.state_dir_fd = -1;
-
-	impl.opt_enabled = opt_enabled;
-	impl.opt_disabled = opt_disabled;
 
 	impl.this.props = pw_properties_new_string(opt_properties);
 	free(opt_properties);
@@ -2400,8 +2395,8 @@ exit:
 
 	pw_deinit();
 
-	free(opt_enabled);
-	free(opt_disabled);
+	free(impl.opt_enabled);
+	free(impl.opt_disabled);
 
 	return res;
 }

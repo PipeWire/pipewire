@@ -14,6 +14,7 @@ Description=PipeWire PulseAudio
 # After=pipewire-pulse.socket is not needed, as it is already implicit in the
 # socket-service relationship, see systemd.socket(5).
 Requires=pipewire-pulse.socket
+ConditionUser=!root
 
 [Service]
 Type=simple

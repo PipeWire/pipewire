@@ -4,9 +4,6 @@
 
 set -e
 
-git submodule init
-git submodule update
-
 if [ -z $MESON ]; then
 	MESON=`which meson`
 fi

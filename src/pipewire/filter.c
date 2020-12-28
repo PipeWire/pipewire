@@ -684,7 +684,7 @@ static int impl_port_use_buffers(void *object,
 						return res;
 					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 				}
-				else if (d->data == NULL) {
+				else if (d->type == SPA_DATA_MemPtr && d->data == NULL) {
 					pw_log_error(NAME" %p: invalid buffer mem", filter);
 					return -EINVAL;
 				}

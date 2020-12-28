@@ -80,6 +80,10 @@ struct buffer {
 #define BW_MIN		0.016
 #define BW_PERIOD	(3 * SPA_NSEC_PER_SEC)
 
+struct channel_map {
+	uint32_t channels;
+	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
+};
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -109,6 +113,7 @@ struct state {
 	uint32_t default_format;
 	unsigned int default_channels;
 	unsigned int default_rate;
+	struct channel_map default_pos;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;
@@ -193,6 +198,16 @@ static inline uint32_t spa_alsa_format_from_name(const char *name, size_t len)
 			return spa_type_audio_format[i].type;
 	}
 	return SPA_AUDIO_FORMAT_UNKNOWN;
+}
+
+static inline uint32_t spa_alsa_channel_from_name(const char *name, size_t len)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name), len) == 0)
+			return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
 #ifdef __cplusplus

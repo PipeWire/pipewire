@@ -198,12 +198,7 @@ static const struct def_mask default_layouts[] = {
 
 #define _C(ch)	(SPA_AUDIO_CHANNEL_ ##ch)
 
-struct def_map {
-	uint32_t channels;
-	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
-};
-
-static const struct def_map default_map[] = {
+static const struct channel_map default_map[] = {
 	{ 0, { 0, } } ,
 	{ 1, { _C(MONO), } },
 	{ 2, { _C(FL), _C(FR), } },
@@ -417,6 +412,8 @@ skip_channels:
 		snd_pcm_free_chmaps(maps);
 	}
 	else {
+		const struct channel_map *map = NULL;
+
 		if (result.index > 0)
 			goto enum_end;
 
@@ -430,8 +427,13 @@ skip_channels:
 		}
 		spa_pod_builder_pop(&b, &f[1]);
 
-		if (min == max && min <= 8) {
-			const struct def_map *map = &default_map[min];
+		if (min == max) {
+			if (state->default_pos.channels == min)
+				map = &state->default_pos;
+			else if (min == max && min <= 8)
+				map = &default_map[min];
+		}
+		if (map) {
 			spa_pod_builder_prop(&b, SPA_FORMAT_AUDIO_position, 0);
 			spa_pod_builder_push_array(&b, &f[1]);
 			for (j = 0; j < map->channels; j++) {

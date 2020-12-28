@@ -783,9 +783,18 @@ impl_init(const struct spa_handle_factory *factory,
 			this->default_rate = atoi(info->items[i].value);
 		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_FORMAT)) {
 			this->default_format = spa_alsa_format_from_name(info->items[i].value, 128);
+		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_POSITION)) {
+			size_t len;
+			const char *p = info->items[i].value;
+			while (*p && this->default_pos.channels < SPA_AUDIO_MAX_CHANNELS) {
+				if ((len = strcspn(p, ",")) == 0)
+					break;
+				this->default_pos.pos[this->default_pos.channels++] =
+					spa_alsa_channel_from_name(p, len);
+				p += len + strspn(p+len, ",");
+			}
 		}
 	}
-
 	return 0;
 }
 

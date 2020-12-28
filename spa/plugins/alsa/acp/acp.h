@@ -101,6 +101,8 @@ enum acp_channel {
 	ACP_CHANNEL_CUSTOM_START  = 0x10000,
 };
 
+char *acp_channel_str(char *buf, size_t len, enum acp_channel ch);
+
 struct acp_format {
 	uint32_t flags;
 	uint32_t format_mask;

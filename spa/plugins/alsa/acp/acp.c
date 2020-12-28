@@ -94,6 +94,47 @@ static const uint32_t channel_table[PA_CHANNEL_POSITION_MAX] = {
 	[PA_CHANNEL_POSITION_TOP_REAR_CENTER] = ACP_CHANNEL_TRC,
 };
 
+static const char *channel_names[] = {
+	[ACP_CHANNEL_UNKNOWN] = "UNK",
+	[ACP_CHANNEL_NA] = "NA",
+	[ACP_CHANNEL_MONO] = "MONO",
+	[ACP_CHANNEL_FL] = "FL",
+	[ACP_CHANNEL_FR] = "FR",
+	[ACP_CHANNEL_FC] = "FC",
+	[ACP_CHANNEL_LFE] = "LFE",
+	[ACP_CHANNEL_SL] = "SL",
+	[ACP_CHANNEL_SR] = "SR",
+	[ACP_CHANNEL_FLC] = "FLC",
+	[ACP_CHANNEL_FRC] = "FRC",
+	[ACP_CHANNEL_RC] = "RC",
+	[ACP_CHANNEL_RL] = "RL",
+	[ACP_CHANNEL_RR] = "RR",
+	[ACP_CHANNEL_TC] = "TC",
+	[ACP_CHANNEL_TFL] = "TFL",
+	[ACP_CHANNEL_TFC] = "TFC",
+	[ACP_CHANNEL_TFR] = "TFR",
+	[ACP_CHANNEL_TRL] = "TRL",
+	[ACP_CHANNEL_TRC] = "TRC",
+	[ACP_CHANNEL_TRR] = "TRR",
+	[ACP_CHANNEL_RLC] = "RLC",
+	[ACP_CHANNEL_RRC] = "RRC",
+	[ACP_CHANNEL_FLW] = "FLW",
+	[ACP_CHANNEL_FRW] = "FRW",
+	[ACP_CHANNEL_LFE2] = "LFE2",
+	[ACP_CHANNEL_FLH] = "FLH",
+	[ACP_CHANNEL_FCH] = "FCH",
+	[ACP_CHANNEL_FRH] = "FRH",
+	[ACP_CHANNEL_TFLC] = "TFLC",
+	[ACP_CHANNEL_TFRC] = "TFRC",
+	[ACP_CHANNEL_TSL] = "TSL",
+	[ACP_CHANNEL_TSR] = "TSR",
+	[ACP_CHANNEL_LLFE] = "LLFE",
+	[ACP_CHANNEL_RLFE] = "RLFE",
+	[ACP_CHANNEL_BC] = "BC",
+	[ACP_CHANNEL_BLC] = "BLC",
+	[ACP_CHANNEL_BRC] = "BRC",
+};
+
 #define ACP_N_ELEMENTS(arr)	(sizeof(arr) / sizeof((arr)[0]))
 
 static inline uint32_t channel_pa2acp(pa_channel_position_t channel)
@@ -102,6 +143,19 @@ static inline uint32_t channel_pa2acp(pa_channel_position_t channel)
 		return ACP_CHANNEL_UNKNOWN;
 	return channel_table[channel];
 }
+
+char *acp_channel_str(char *buf, size_t len, enum acp_channel ch)
+{
+	if (ch >= ACP_CHANNEL_CUSTOM_START) {
+		snprintf(buf, len, "AUX%d", ch - ACP_CHANNEL_CUSTOM_START);
+	} else if (ch >= ACP_CHANNEL_UNKNOWN && ch <= ACP_CHANNEL_BRC) {
+		snprintf(buf, len, "%s", channel_names[ch]);
+	} else {
+		snprintf(buf, len, "UNK");
+	}
+	return buf;
+}
+
 
 const char *acp_available_str(enum acp_available status)
 {

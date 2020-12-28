@@ -142,9 +142,9 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	struct spa_dict_item *items;
 	const struct acp_dict_item *it;
 	uint32_t n_items, i;
-	char device_name[128], path[180], channels[16];
+	char device_name[128], path[180], channels[16], ch[12];
 	char card_id[16], *p;
-	char positions[SPA_AUDIO_MAX_CHANNELS * 6];
+	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
 	const char *stream, *devstr;;
@@ -186,9 +186,10 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);
 
 	p = positions;
-	for (i = 0; i < dev->format.channels; i++)
-		p += snprintf(p, 6, "%s%s", i == 0 ? "" : ",",
-			spa_debug_type_short_name(spa_type_audio_channel[dev->format.map[i]].name));
+	for (i = 0; i < dev->format.channels; i++) {
+		p += snprintf(p, 12, "%s%s", i == 0 ? "" : ",",
+				acp_channel_str(ch, sizeof(ch), dev->format.map[i]));
+	}
 
 	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
 	n_items = 6;

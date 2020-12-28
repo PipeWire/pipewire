@@ -1,27 +1,40 @@
 ## Building
 
-Pipewire uses the Meson and Ninja build system to compile. You can run it
-with:
+Pipewire uses a build tool called *Meson* as a basis for its build
+process.  It's a tool with some resemblance to Autotools and CMake. Meson
+again generates build files for a lower level build tool called *Ninja*,
+working in about the same level of abstraction as more familiar GNU Make
+does.
+
+Generate the build files for Ninja:
 
 ```
-$ meson build
-$ cd build
-$ ninja
+$ meson setup build
 ```
 
-You can see the available meson options in `meson_options.txt` file.
-
-If you're not familiar with these tools, the included `autogen.sh` script will
-automatically run the correct `meson`/`ninja` commands, and output a Makefile.
-It follows that there are two methods to build Pipewire, however both rely
-on Meson and Ninja to actually perform the compilation:
+Once this is done, the next step is to review the build options:
 
 ```
-$ ./autogen.sh
-$ make
+$ meson configure build
 ```
 
-Provide the installation directory with the --prefix option.
+Define the installation prefix:
+
+```
+$ meson configure -Dprefix=/usr # Default: /usr/local
+```
+
+Pipewire specific build options are listed in the "Project options"
+section. They are defined in `meson_options.txt`.
+
+Finally, invoke the build:
+
+```
+$ ninja -C build
+```
+
+Just to avoid any confusion: `autogen.sh` is a script invoked by *Jhbuild*,
+which orchestrates multi-component builds.
 
 ## Running
 

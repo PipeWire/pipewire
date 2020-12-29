@@ -574,9 +574,6 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 
 static int register_profile(struct spa_bt_backend *backend, const char *profile, const char *uuid)
 {
-	static const DBusObjectPathVTable vtable_profile = {
-		.message_function = profile_handler,
-	};
 	DBusMessage *m;
 	DBusMessageIter it[4];
 	dbus_bool_t autoconnect;
@@ -585,11 +582,6 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	DBusPendingCall *call;
 
 	spa_log_debug(backend->log, NAME": Registering Profile %s %s", profile, uuid);
-
-	if (!dbus_connection_register_object_path(backend->conn,
-						  profile,
-						  &vtable_profile, backend))
-		return -EIO;
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE, "/org/bluez",
 			BLUEZ_PROFILE_MANAGER_INTERFACE, "RegisterProfile");
@@ -649,6 +641,8 @@ void backend_hsp_native_register_profiles(struct spa_bt_backend *backend)
 
 void backend_hsp_native_free(struct spa_bt_backend *backend)
 {
+	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
+	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);
 	free(backend);
 }
 
@@ -658,6 +652,9 @@ struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
 	  uint32_t n_support)
 {
 	struct spa_bt_backend *backend;
+	static const DBusObjectPathVTable vtable_profile = {
+		.message_function = profile_handler,
+	};
 
 	backend = calloc(1, sizeof(struct spa_bt_backend));
 	if (backend == NULL)
@@ -669,5 +666,20 @@ struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->conn = dbus_connection;
 
+	if (!dbus_connection_register_object_path(backend->conn,
+						  PROFILE_HSP_AG,
+						  &vtable_profile, backend)) {
+		goto fail;
+	}
+
+	if (!dbus_connection_register_object_path(backend->conn,
+						  PROFILE_HSP_HS,
+						  &vtable_profile, backend)) {
+		goto fail;
+	}
+
 	return backend;
+fail:
+	free(backend);
+	return NULL;
 }

@@ -1834,10 +1834,9 @@ static int state_dir(struct sm_media_session *sess)
 int sm_media_session_load_state(struct sm_media_session *sess,
 		const char *name, const char *prefix, struct pw_properties *props)
 {
-	int sfd, fd, count = 0;
+	int count, sfd, fd;
 	struct stat sbuf;
-	char *data, key[1024], *val;
-	struct spa_json it[2];
+	void *data;
 
 	pw_log_info(NAME" %p: loading state '%s'", sess, name);
 	if ((sfd = state_dir(sess)) < 0)
@@ -1847,39 +1846,21 @@ int sm_media_session_load_state(struct sm_media_session *sess,
 		pw_log_debug("can't open file %s: %m", name);
 		return -errno;
 	}
-	if (fstat(fd, &sbuf) < 0) {
-		pw_log_debug("can't stat file %s: %m", name);
-		return -errno;
-	}
-	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
-		pw_log_debug("can't mmap file %s: %m", name);
-		return -errno;
-	}
-	spa_json_init(&it[0], data, strlen(data));
-	if (spa_json_enter_object(&it[0], &it[1]) < 0)
-		return 0;
+	if (fstat(fd, &sbuf) < 0)
+		goto error_close;
+	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
+		goto error_close;
+	close(fd);
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)-1)) {
-		int len;
-		const char *value;
-
-		if ((len = spa_json_next(&it[1], &value)) <= 0)
-			break;
-
-		if (spa_json_is_container(value, len))
-			len = spa_json_container_len(&it[1], value, len);
-
-		if ((val = strndup(value, len)) == NULL)
-			break;
-
-		if (spa_json_is_string(value, len))
-			spa_json_parse_string(value, len, val);
-
-		count += pw_properties_set(props, key, val);
-		free(val);
-	}
+	count = pw_properties_update_string(props, data, sbuf.st_size);
 	munmap(data, sbuf.st_size);
+
 	return count;
+
+error_close:
+	pw_log_debug("can't read file %s: %m", name);
+	close(fd);
+	return -errno;
 }
 
 int sm_media_session_save_state(struct sm_media_session *sess,

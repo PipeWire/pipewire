@@ -1630,15 +1630,18 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 
 		dbus_message_iter_get_basic(&it, &interface_name);
 
+		spa_log_debug(monitor->log, "Found object %s, interface %s", object_path, interface_name);
+
 		if (strcmp(interface_name, BLUEZ_DEVICE_INTERFACE) == 0) {
 			struct spa_bt_device *d;
-			spa_list_consume(d, &monitor->device_list, link)
+			d = spa_bt_device_find(monitor, object_path);
+			if (d != NULL)
 				device_free(d);
 		} else if (strcmp(interface_name, BLUEZ_ADAPTER_INTERFACE) == 0) {
 			struct spa_bt_adapter *a;
-			spa_list_consume(a, &monitor->adapter_list, link) {
+			a = adapter_find(monitor, object_path);
+			if (a != NULL)
 				adapter_free(a);
-			}
 		}
 
 		dbus_message_iter_next(&it);
@@ -1681,6 +1684,8 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 
 		dbus_message_iter_next(&it[1]);
 	}
+
+	monitor->objects_listed = true;
 
       finish:
 	dbus_message_unref(r);
@@ -1777,6 +1782,9 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
 		DBusMessageIter it[2];
 		const char *iface, *path;
+
+		if (!monitor->objects_listed)
+			goto finish;
 
 		if (!dbus_message_iter_init(m, &it[0]) ||
 		    strcmp(dbus_message_get_signature(m), "sa{sv}as") != 0) {
@@ -1896,8 +1904,6 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 
 	add_filters(this);
 	get_managed_objects(this);
-
-	this->objects_listed = true;
 
 	if (this->backend_ofono)
 		backend_ofono_add_filters(this->backend_ofono);

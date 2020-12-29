@@ -317,7 +317,7 @@ static void test_new_json(void)
 	props = pw_properties_new_string("{ \"foo\": \"bar\\n\\t\", \"bar\": 1.8, \"empty\": [ \"foo\", \"bar\" ], \"\": \"gg\"");
 	spa_assert(props != NULL);
 	spa_assert(props->flags == 0);
-	spa_assert(props->dict.n_items == 4);
+	spa_assert(props->dict.n_items == 3);
 
 	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar\n\t"));
 	spa_assert(!strcmp(pw_properties_get(props, "bar"), "1.8"));

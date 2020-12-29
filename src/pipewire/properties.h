@@ -64,6 +64,8 @@ int pw_properties_update_keys(struct pw_properties *props,
 
 int pw_properties_update(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);
+int pw_properties_update_string(struct pw_properties *props,
+		const char *str, size_t size);
 
 int pw_properties_add(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);

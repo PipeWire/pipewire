@@ -349,6 +349,10 @@ static void flush_data(struct impl *this)
 		port->current_buffer = NULL;
 		port->io->status = SPA_STATUS_NEED_DATA;
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
+
+		next_timeout = (this->transport->write_mtu / port->frame_size
+				* SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
+		set_timeout(this, next_timeout);
 		return;
 	}
 

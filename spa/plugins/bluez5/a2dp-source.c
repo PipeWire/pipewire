@@ -757,6 +757,8 @@ impl_node_port_enum_params(void *object, int seq,
 			return 0;
 		if (this->codec == NULL)
 			return -EIO;
+		if (this->transport == NULL)
+			return -EIO;
 
 		if ((res = this->codec->enum_config(this->codec,
 					this->transport->configuration,

@@ -923,6 +923,8 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (this->codec == NULL)
 			return -EIO;
+		if (this->transport == NULL)
+			return -EIO;
 
 		if ((res = this->codec->enum_config(this->codec,
 					this->transport->configuration,

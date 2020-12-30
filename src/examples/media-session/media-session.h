@@ -289,6 +289,9 @@ int sm_media_session_create_links(struct sm_media_session *sess,
 int sm_media_session_remove_links(struct sm_media_session *sess,
 		const struct spa_dict *dict);
 
+int sm_media_session_load_conf(struct sm_media_session *sess,
+		const char *name, struct pw_properties *conf);
+
 int sm_media_session_load_state(struct sm_media_session *sess,
 		const char *name, const char *prefix, struct pw_properties *props);
 int sm_media_session_save_state(struct sm_media_session *sess,

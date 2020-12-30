@@ -22,7 +22,11 @@ conf_config.set('pipewire_pulse_path', join_paths(pipewire_bindir, 'pipewire-pul
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 install_data(
-  sources : ['media-session.d/with-jack', 'media-session.d/with-pulseaudio'],
+  sources : [
+    'media-session.d/with-jack',
+    'media-session.d/with-pulseaudio',
+    'media-session.d/media-session.conf',
+    'media-session.d/alsa-monitor.conf' ],
   install_dir : join_paths(conf_install_dir, 'media-session.d'))
 
 conf_config_uninstalled = conf_config

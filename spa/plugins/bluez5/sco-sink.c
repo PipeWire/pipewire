@@ -344,9 +344,19 @@ static void flush_data(struct impl *this)
 
 	/* otherwise request a new buffer */
 	else {
-		spa_list_remove(&port->current_buffer->link);
-		port->current_buffer->outstanding = true;
+		struct buffer *b;
+
+		b = port->current_buffer;
 		port->current_buffer = NULL;
+
+		/* reuse buffer */
+		spa_list_remove(&b->link);
+		b->outstanding = true;
+		spa_log_trace(this->log, "sco-sink %p: reuse buffer %u", this, b->id);
+		port->io->buffer_id = b->id;
+		spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+
+		/* notify we need more data */
 		port->io->status = SPA_STATUS_NEED_DATA;
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 
@@ -975,9 +985,6 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	if (!spa_list_is_empty(&port->ready))
-		flush_data(this);
-
 	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
 
@@ -991,11 +998,12 @@ static int impl_node_process(void *object)
 
 		spa_list_append(&port->ready, &b->link);
 		b->outstanding = false;
-
-		flush_data(this);
-
+		io->buffer_id = SPA_ID_INVALID;
 		io->status = SPA_STATUS_OK;
 	}
+
+	if (!spa_list_is_empty(&port->ready))
+		flush_data(this);
 
 	return SPA_STATUS_HAVE_DATA;
 }

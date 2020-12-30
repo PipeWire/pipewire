@@ -56,7 +56,6 @@ struct spa_bt_backend {
 
 	unsigned int filters_added:1;
 	unsigned int msbc_supported:1;
-	int msbc_force_mtu;
 };
 
 enum hsphfpd_volume_control {
@@ -713,27 +712,9 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	pa_hook_fire(pa_bluetooth_discovery_hook(hsphfpd->discovery, PA_BLUETOOTH_HOOK_TRANSPORT_TX_VOLUME_GAIN_CHANGED), transport);
 #endif
 
-	if (transport->codec == HFP_AUDIO_CODEC_CVSD) {
-		transport->read_mtu = 48;
-		transport->write_mtu = 48;
-	} else if (transport->codec == HFP_AUDIO_CODEC_MSBC && backend->msbc_force_mtu != 0) {
-		transport->read_mtu = mtu;
+	transport->read_mtu = mtu;
+	transport->write_mtu = mtu;
 
-		/* Force low write packet size, as kernel (at least <= 5.9) does not
-		 * provide correct values for userspace. The value 24 should be
-		 * right for bluetooth ALT1 mode. See
-		 * https://lore.kernel.org/linux-bluetooth/20201210003528.3pmaxvubiwegxmhl@pali/T/
-		 *
-		 * XXX: revise when hsphfpd/kernel reports correct numbers
-		 */
-		transport->write_mtu = (backend->msbc_force_mtu > 0) ? backend->msbc_force_mtu : 24;
-		spa_log_warn(backend->log, "hsphfpd: forcing write_mtu = %d for mSBC; "
-			     "set bluez5.msbc-force-mtu=0 to use autodetected (%d)",
-			     (int) transport->write_mtu, (int) mtu);
-	} else {
-		transport->read_mtu = mtu;
-		transport->write_mtu = mtu;
-	}
 	transport->fd = fd;
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
@@ -1507,10 +1488,6 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		backend->msbc_supported = strcmp(str, "true") == 0 || atoi(str) == 1;
 	else
 		backend->msbc_supported = false;
-	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-force-mtu")))
-		backend->msbc_force_mtu = atoi(str);
-	else
-		backend->msbc_force_mtu = -1;
 
 	spa_list_init(&backend->endpoint_list);
 

@@ -234,10 +234,12 @@ static int sco_acquire_cb(void *data, bool optional)
 		goto fail;
 
 	t->fd = sock;
+
+	/* Fallback value */
 	t->read_mtu = 48;
 	t->write_mtu = 48;
 
-	if (false) {
+	if (true) {
 		struct sco_options sco_opt;
 
 		len = sizeof(sco_opt);

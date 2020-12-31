@@ -2176,7 +2176,6 @@ again:
 	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
 		bool add = false;
 
-		pw_log_info("%s", key);
 		if (key[0] == '#') {
 			add = false;
 		} else if (pw_properties_get(impl->modules, key) != NULL) {

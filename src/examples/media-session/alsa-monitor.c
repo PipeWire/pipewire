@@ -217,10 +217,10 @@ static bool find_match(struct spa_json *arr, struct pw_properties *props)
 				continue;
 
 			str = pw_properties_get(props, key);
+
 			if (spa_json_is_null(value, len)) {
 				success = str == NULL;
-			}
-			else if (spa_json_is_string(value, len)) {
+			} else {
 				spa_json_parse_string(value, SPA_MIN(len, 1024), val);
 				value = val;
 				len = strlen(val);

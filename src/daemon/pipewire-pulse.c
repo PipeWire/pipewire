@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	args = spa_aprintf("server.address=%s", address);
+	args = spa_aprintf("server.address=\"%s\"", address);
 	if (pw_context_load_module(context,
 				"libpipewire-module-protocol-pulse",
 				args, NULL) == NULL) {

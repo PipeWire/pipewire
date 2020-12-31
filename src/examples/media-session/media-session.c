@@ -1785,6 +1785,9 @@ int sm_media_session_load_conf(struct sm_media_session *sess, const char *name,
 	struct stat sbuf;
 	char *data;
 
+	if ((count = sm_media_session_load_state(sess, name, NULL, conf)) >= 0)
+		return count;
+
 	if ((dir = getenv("PIPEWIRE_CONFIG_DIR")) == NULL)
 		dir = PIPEWIRE_CONFIG_DIR;
 	if (dir == NULL)
@@ -1872,18 +1875,19 @@ static int state_dir(struct sm_media_session *sess)
 int sm_media_session_load_state(struct sm_media_session *sess,
 		const char *name, const char *prefix, struct pw_properties *props)
 {
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	int count, sfd, fd;
 	struct stat sbuf;
 	void *data;
 
-	pw_log_info(NAME" %p: loading state '%s'", sess, name);
 	if ((sfd = state_dir(sess)) < 0)
 		return sfd;
 
-	if ((fd = openat(sfd, name,  O_CLOEXEC | O_RDONLY)) < 0) {
-		pw_log_debug("can't open file %s: %m", name);
+	if ((fd = openat(sfd, name, O_CLOEXEC | O_RDONLY)) < 0) {
+		pw_log_debug("can't open file %s%s: %m", impl->state_dir, name);
 		return -errno;
 	}
+	pw_log_info(NAME" %p: loading state '%s%s'", sess, impl->state_dir, name);
 	if (fstat(fd, &sbuf) < 0)
 		goto error_close;
 	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
@@ -2272,6 +2276,8 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	impl.state_dir_fd = -1;
+
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
 		return -1;
 	sm_media_session_load_conf(&impl.this, SESSION_CONF, impl.conf);
@@ -2305,8 +2311,6 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-
-	impl.state_dir_fd = -1;
 
 	spa_dict_for_each(item, &impl.this.props->dict)
 		pw_log_info("  '%s' = '%s'", item->key, item->value);

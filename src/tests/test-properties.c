@@ -211,7 +211,7 @@ static void test_new_string(void)
 {
 	struct pw_properties *props;
 
-	props = pw_properties_new_string("foo=bar bar=baz ignore him=too empty= =gg");
+	props = pw_properties_new_string("foo=bar bar=baz \"#ignore\"=ignore him=too empty=\"\" =gg");
 	spa_assert(props != NULL);
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 4);

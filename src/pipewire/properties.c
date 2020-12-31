@@ -150,57 +150,36 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
 {
 	struct properties *impl = SPA_CONTAINER_OF(props, struct properties, this);
 	struct spa_json it[2];
+	char key[1024], *val;
 	int count = 0;
 
 	spa_json_init(&it[0], str, size);
-	if (spa_json_enter_object(&it[0], &it[1]) > 0) {
-		char key[1024], *val;
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], str, size);
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)-1)) {
-			int len;
-			const char *value;
+	while (spa_json_get_string(&it[1], key, sizeof(key)-1)) {
+		int len;
+		const char *value;
 
-			if ((len = spa_json_next(&it[1], &value)) <= 0)
-				break;
+		if ((len = spa_json_next(&it[1], &value)) <= 0)
+			break;
 
-			if (key[0] == '#')
-				continue;
-			if (spa_json_is_null(value, len))
-				val = NULL;
-			else {
-				if (spa_json_is_container(value, len))
-					len = spa_json_container_len(&it[1], value, len);
+		if (key[0] == '#')
+			continue;
+		if (spa_json_is_null(value, len))
+			val = NULL;
+		else {
+			if (spa_json_is_container(value, len))
+				len = spa_json_container_len(&it[1], value, len);
 
-				if ((val = strndup(value, len)) == NULL)
-					return -errno;
-
-				if (spa_json_is_string(value, len))
-					spa_json_parse_string(value, len, val);
-			}
-			count += pw_properties_set(&impl->this, key, val);
-			free(val);
-		}
-	} else {
-		const char *state = NULL, *s = NULL;
-		size_t len;
-
-		s = pw_split_walk(str, " \t\n\r", &len, &state);
-		while (s) {
-			char *val, *eq;
-
-			if (s[0] == '#')
-				continue;
-			if ((val = strndup(s, len)) == NULL)
+			if ((val = strndup(value, len)) == NULL)
 				return -errno;
 
-			eq = strchr(val, '=');
-			if (eq && eq != val) {
-				*eq = '\0';
-				count += pw_properties_set(&impl->this, val, eq+1);
-			}
-			free(val);
-			s = pw_split_walk(str, " \t\n\r", &len, &state);
+			if (spa_json_is_string(value, len))
+				spa_json_parse_string(value, len, val);
 		}
+		count += pw_properties_set(&impl->this, key, val);
+		free(val);
 	}
 	return count;
 }

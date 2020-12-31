@@ -2245,8 +2245,7 @@ static void show_help(const char *name, struct impl *impl)
 
         fprintf(stdout, "%s [options]\n"
              "  -h, --help                            Show this help\n"
-             "      --version                         Show version\n"
-             "  -p, --properties                      Extra properties as 'key=value { key=value }'\n",
+             "      --version                         Show version\n",
 	     name);
 
         fprintf(stdout,
@@ -2268,7 +2267,6 @@ int main(int argc, char *argv[])
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
-		{ "properties",	required_argument,	NULL, 'p' },
 		{ NULL, 0, NULL, 0}
 	};
         size_t i;
@@ -2292,7 +2290,7 @@ int main(int argc, char *argv[])
 	if ((str = pw_properties_get(impl.conf, "modules")) != NULL)
 		collect_modules(&impl, str);
 
-	while ((c = getopt_long(argc, argv, "hVp:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hV", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], &impl);
@@ -2305,9 +2303,6 @@ int main(int argc, char *argv[])
 				pw_get_headers_version(),
 				pw_get_library_version());
 			return 0;
-		case 'p':
-			pw_properties_update_string(impl.this.props, optarg, strlen(optarg));
-			break;
 		default:
 			return -1;
 		}

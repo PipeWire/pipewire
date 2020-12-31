@@ -232,6 +232,16 @@ static void test_new_string(void)
 	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
 
 	pw_properties_free(props);
+
+	props = pw_properties_new_string("foo=bar bar=\"baz");
+	spa_assert(props != NULL);
+	spa_assert(props->flags == 0);
+	spa_assert(props->dict.n_items == 2);
+
+	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
+
+	pw_properties_free(props);
 }
 
 static void test_update(void)

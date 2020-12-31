@@ -166,7 +166,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 	}
 	if (iter->depth != 0)
 		return -1;
-	if (iter->state == __BARE) {
+	if (iter->state != __STRUCT) {
 		iter->state = __STRUCT;
 		return iter->cur - *value;
 	}
@@ -290,7 +290,7 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 		result[len] = '\0';
 		return 1;
 	}
-	for (p = val+1; p < val + len-1; p++) {
+	for (p = val+1; p < val + len; p++) {
 		if (*p == '\\') {
 			p++;
 			if (*p == 'n')
@@ -305,6 +305,8 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 				*result++ = '\f';
 			else
 				*result++ = *p;
+		} else if (*p == '\"') {
+			break;
 		} else
 			*result++ = *p;
 	}

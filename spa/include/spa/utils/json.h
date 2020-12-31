@@ -164,11 +164,13 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 		}
 
 	}
-	return (iter->depth == 0 ?
-			(iter->state == __BARE && iter->cur < iter->end ?
-				iter->cur - *value :
-				0) :
-			-1);
+	if (iter->depth != 0)
+		return -1;
+	if (iter->state == __BARE) {
+		iter->state = __STRUCT;
+		return iter->cur - *value;
+	}
+	return 0;
 }
 
 static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)

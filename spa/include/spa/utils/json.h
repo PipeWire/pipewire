@@ -283,8 +283,11 @@ static inline bool spa_json_is_string(const char *val, int len)
 static inline int spa_json_parse_string(const char *val, int len, char *result)
 {
 	const char *p;
-	if (!spa_json_is_string(val, len))
-		return -1;
+	if (!spa_json_is_string(val, len)) {
+		strncpy(result, val, len);
+		result[len] = '\0';
+		return 1;
+	}
 	for (p = val+1; p < val + len-1; p++) {
 		if (*p == '\\') {
 			p++;

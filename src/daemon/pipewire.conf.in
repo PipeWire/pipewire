@@ -1,6 +1,5 @@
 #daemon config file for PipeWire version @VERSION@
-{
-  properties = {
+properties = {
     ## configure properties in the system
     #library.name.system =			support/libspa-support
     #context.data-loop.library.name.system =	support/libspa-support
@@ -18,9 +17,9 @@
     #default.video.height =		480
     #default.video.rate.num =		25
     #default.video.rate.denom =		1
-  }
+}
 
-  spa-libs = {
+spa-libs = {
     ## <factory-name regex> = <library-name>
     #
     # used to find spa factory names. It maps an spa factory name
@@ -37,9 +36,9 @@
     support.* =		support/libspa-support
     #videotestsrc = videotestsrc/libspa-videotestsrc
     #audiotestsrc = audiotestsrc/libspa-audiotestsrc
-  }
+}
 
-  modules = {
+modules = {
     ##  <module-name> = { [args = "<key>=<value> ..."] 
     #                     [flags = ifexists] }
     #
@@ -59,9 +58,9 @@
     libpipewire-module-adapter = null
     libpipewire-module-link-factory = null
     libpipewire-module-session-manager = null
-  }
+}
 
-  objects = {
+objects = {
     ## <factory-name> = { [args = "<key>=<value> ..."]
     #                     [flags = nofail] }
     #
@@ -75,9 +74,9 @@
     #adapter = { args = "factory.name=audiotestsrc node.name=my-test" }
     #spa-node-factory  = { args = "factory.name=api.vulkan.compute.source node.name=my-compute-source" }
     spa-node-factory = { args = "factory.name=support.node.driver node.name=Dummy priority.driver=8000" }
-  }
+}
 
-  exec = {
+exec = {
     ## <program-name> = { [args = "<arguments>"] }
     #
     # Execute the given program with arguments.
@@ -97,5 +96,4 @@
     # on another address with the -a option (eg. -a tcp:4713)
     #
     #"@pipewire_pulse_path@" = { "#args" = "-a tcp:4713" }
-  }
 }

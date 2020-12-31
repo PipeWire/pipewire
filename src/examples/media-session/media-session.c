@@ -2277,19 +2277,20 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	impl.state_dir_fd = -1;
+	impl.this.props = pw_properties_new(NULL, NULL);
+	if (impl.this.props == NULL)
+		return -1;
 
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
 		return -1;
 	sm_media_session_load_conf(&impl.this, SESSION_CONF, impl.conf);
+	if ((str = pw_properties_get(impl.conf, "properties")) != NULL)
+		pw_properties_update_string(impl.this.props, str, strlen(str));
 
 	if ((impl.modules = pw_properties_new("default", "true", NULL)) == NULL)
 		return -1;
 	if ((str = pw_properties_get(impl.conf, "modules")) != NULL)
 		collect_modules(&impl, str);
-
-	impl.this.props = pw_properties_new(NULL, NULL);
-	if (impl.this.props == NULL)
-		return -1;
 
 	while ((c = getopt_long(argc, argv, "hVp:", long_options, NULL)) != -1) {
 		switch (c) {

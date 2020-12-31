@@ -533,6 +533,25 @@ static int do_start(struct impl *this)
 	return 0;
 }
 
+/* Drop any buffered data remaining in the port */
+static void drop_port_output(struct impl *this)
+{
+	struct port *port = &this->port;
+
+	port->write_buffer_size = 0;
+	port->current_buffer = NULL;
+
+	while (!spa_list_is_empty(&port->ready)) {
+		struct buffer *b;
+		b = spa_list_first(&port->ready, struct buffer, link);
+
+		spa_list_remove(&b->link);
+		b->outstanding = true;
+		port->io->buffer_id = b->id;
+		spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+	}
+}
+
 static int do_remove_source(struct spa_loop *loop,
 			    bool async,
 			    uint32_t seq,
@@ -546,6 +565,9 @@ static int do_remove_source(struct spa_loop *loop,
 	set_timeout(this, 0);
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
+
+	/* Drop buffered data in the ready queue. Ideally there shouldn't be any. */
+	drop_port_output(this);
 
 	return 0;
 }

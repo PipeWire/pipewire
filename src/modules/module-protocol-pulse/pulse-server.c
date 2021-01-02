@@ -3455,7 +3455,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
 	    !volume_valid(&dev_info.volume_info.volume)) {
-		pw_log_warn("%d: not ready", o->id);
+		pw_log_warn("%d: sink not ready: sample:%d map:%d volume:%d",
+				o->id, sample_spec_valid(&dev_info.ss),
+				channel_map_valid(&dev_info.map),
+				volume_valid(&dev_info.volume_info.volume));
 		return -ENOENT;
 	}
 
@@ -3595,7 +3598,10 @@ static int fill_source_info(struct client *client, struct message *m,
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
 	    !volume_valid(&dev_info.volume_info.volume)) {
-		pw_log_warn("%d: not ready", o->id);
+		pw_log_warn("%d: source not ready: sample:%d map:%d volume:%d",
+				o->id, sample_spec_valid(&dev_info.ss),
+				channel_map_valid(&dev_info.map),
+				volume_valid(&dev_info.volume_info.volume));
 		return -ENOENT;
 	}
 

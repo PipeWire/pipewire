@@ -134,12 +134,17 @@ struct impl {
 
 static int probe_device(struct device *device);
 
-static struct node *alsa_find_node(struct device *device, uint32_t id)
+static struct node *alsa_find_node(struct device *device, uint32_t id, const char *name)
 {
 	struct node *node;
+	const char *str;
 
 	spa_list_for_each(node, &device->node_list, link) {
 		if (node->id == id)
+			return node;
+		if (name != NULL &&
+		    (str = pw_properties_get(node->props, PW_KEY_NODE_NAME)) != NULL &&
+		    strcmp(name, str) == 0)
 			return node;
 	}
 	return NULL;
@@ -474,7 +479,7 @@ static void alsa_device_object_info(void *data, uint32_t id,
 	struct device *device = data;
 	struct node *node;
 
-	node = alsa_find_node(device, id);
+	node = alsa_find_node(device, id, NULL);
 
 	if (info == NULL) {
 		if (node == NULL) {
@@ -502,7 +507,7 @@ static void alsa_device_event(void *data, const struct spa_event *event)
 			SPA_EVENT_DEVICE_Props, SPA_POD_OPT_Pod(&props)) < 0)
 		return;
 
-	if ((node = alsa_find_node(device, id)) == NULL)
+	if ((node = alsa_find_node(device, id, NULL)) == NULL)
 		return;
 
 	switch (type) {
@@ -523,12 +528,17 @@ static const struct spa_device_events alsa_device_events = {
 	.event = alsa_device_event,
 };
 
-static struct device *alsa_find_device(struct impl *impl, uint32_t id)
+static struct device *alsa_find_device(struct impl *impl, uint32_t id, const char *name)
 {
 	struct device *device;
+	const char *str;
 
 	spa_list_for_each(device, &impl->device_list, link) {
 		if (device->id == id)
+			return device;
+		if (name != NULL &&
+		    (str = pw_properties_get(device->props, PW_KEY_DEVICE_NAME)) != NULL &&
+		    strcmp(str, name) == 0)
 			return device;
 	}
 	return NULL;
@@ -550,6 +560,7 @@ static int update_device_props(struct device *device)
 	struct pw_properties *p = device->props;
 	const char *s, *d;
 	char temp[32];
+	int i;
 
 	s = pw_properties_get(p, SPA_KEY_DEVICE_NAME);
 	if (s == NULL)
@@ -561,6 +572,18 @@ static int update_device_props(struct device *device)
 		s = temp;
 	}
 	pw_properties_setf(p, PW_KEY_DEVICE_NAME, "alsa_card.%s", s);
+
+	for (i = 2; i <= 99; i++) {
+		if ((d = pw_properties_get(p, PW_KEY_DEVICE_NAME)) == NULL)
+			break;
+
+		if (alsa_find_device(device->impl, SPA_ID_INVALID, d) == NULL)
+			break;
+
+		pw_properties_setf(p, PW_KEY_DEVICE_NAME, "alsa_card.%s.%d", s, i);
+	}
+	if (i == 99)
+		return -EEXIST;
 
 	if (pw_properties_get(p, PW_KEY_DEVICE_DESCRIPTION) == NULL) {
 		d = NULL;
@@ -985,7 +1008,7 @@ static void alsa_udev_object_info(void *data, uint32_t id,
 	struct impl *impl = data;
 	struct device *device;
 
-	device = alsa_find_device(impl, id);
+	device = alsa_find_device(impl, id, NULL);
 
 	if (info == NULL) {
 		if (device == NULL)

@@ -274,6 +274,8 @@ static void reset_buffers(struct port *port)
 	spa_list_init(&port->free);
 	spa_list_init(&port->ready);
 
+	port->current_buffer = NULL;
+
 	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
 		spa_list_append(&port->free, &b->link);
@@ -841,6 +843,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 		spa_list_init(&port->ready);
 		port->n_buffers = 0;
 	}
+	port->current_buffer = NULL;
 	return 0;
 }
 
@@ -1037,7 +1040,7 @@ static int impl_node_process(void *object)
 	/* Get the new buffer from the ready list */
 	buffer = spa_list_first(&port->ready, struct buffer, link);
 	spa_list_remove(&buffer->link);
-	buffer->outstanding = false;
+	buffer->outstanding = true;
 
 	/* Set the new buffer in IO */
 	io->buffer_id = buffer->id;

@@ -58,7 +58,6 @@ struct props {
 };
 
 #define MAX_BUFFERS 32
-#define MSBC_BUFFER_SIZE 2 * MSBC_ENCODED_SIZE
 
 struct buffer {
 	uint32_t id;
@@ -121,9 +120,11 @@ struct impl {
 	sbc_t msbc;
 	bool msbc_seq_initialized;
 	uint8_t msbc_seq;
-	uint8_t msbc_buffer[MSBC_BUFFER_SIZE];
-	uint8_t *msbc_buffer_head;
-	uint8_t *msbc_buffer_tail;
+	uint8_t read_buffer[4096];
+
+	/* mSBC frame parsing */
+	uint8_t msbc_buffer[MSBC_ENCODED_SIZE];
+	uint8_t msbc_buffer_pos;
 
 	struct timespec now;
 };
@@ -316,29 +317,51 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	}
 }
 
-static uint8_t* find_h2_header(uint8_t *data, size_t len)
+/* Append data to msbc buffer, syncing buffer start to frame headers */
+static void msbc_buffer_append_byte(struct impl *this, uint8_t byte)
 {
-	while (len >= 2) {
-		if (data[0] == 0x01 && (data[1] & 0x0F) == 0x08 &&
-		    ((data[1] >> 4) & 1) == ((data[1] >> 5) & 1) &&
-		    ((data[1] >> 6) & 1) == ((data[1] >> 7) & 1) ) {
-			return data;
-		}
-		data++;
-		len--;
-	}
-
-	return NULL;
-}
-
-/* Compact msbc_buffer to keep it under 2 * MSBC_ENCODED_SIZE */
-void compact_msbc_buffer(struct impl *this, uint8_t *tail, uint8_t *head) {
-	if (head != tail) {
-		spa_memmove(this->msbc_buffer, tail, head - tail);
-		this->msbc_buffer_head = this->msbc_buffer + (head - tail);
-		this->msbc_buffer_tail = this->msbc_buffer;
-	} else
-		this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
+        /* Parse mSBC frame header */
+        if (this->msbc_buffer_pos == 0) {
+                if (byte != 0x01) {
+                        this->msbc_buffer_pos = 0;
+                        return;
+                }
+        }
+        else if (this->msbc_buffer_pos == 1) {
+                if (!((byte & 0x0F) == 0x08 &&
+                      ((byte >> 4) & 1) == ((byte >> 5) & 1) &&
+                      ((byte >> 6) & 1) == ((byte >> 7) & 1))) {
+                        this->msbc_buffer_pos = 0;
+                        return;
+                }
+        }
+        else if (this->msbc_buffer_pos == 2) {
+                /* .. and beginning of MSBC frame: SYNCWORD + 2 nul bytes */
+                if (byte != 0xAD) {
+                        this->msbc_buffer_pos = 0;
+                        return;
+                }
+        }
+        else if (this->msbc_buffer_pos == 3) {
+                if (byte != 0x00) {
+                        this->msbc_buffer_pos = 0;
+                        return;
+                }
+        }
+        else if (this->msbc_buffer_pos == 4) {
+                if (byte != 0x00) {
+                        this->msbc_buffer_pos = 0;
+                        return;
+                }
+        }
+        else if (this->msbc_buffer_pos >= MSBC_ENCODED_SIZE) {
+                /* Packet completed. Reset. */
+                this->msbc_buffer_pos = 0;
+                msbc_buffer_append_byte(this, byte);
+                return;
+        }
+        this->msbc_buffer[this->msbc_buffer_pos] = byte;
+        ++this->msbc_buffer_pos;
 }
 
 static void sco_on_ready_read(struct spa_source *source)
@@ -375,7 +398,7 @@ static void sco_on_ready_read(struct spa_source *source)
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 		max_out_size = MSBC_DECODED_SIZE;
-		packet = this->msbc_buffer_head;
+		packet = this->read_buffer;
 	} else {
 		max_out_size = this->transport->read_mtu;
 		packet = (uint8_t *)datas[0].data + port->ready_offset;
@@ -393,71 +416,45 @@ static void sco_on_ready_read(struct spa_source *source)
 	spa_log_debug(this->log, "read socket data %d", size_read);
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		uint8_t seq;
-		uint8_t *next_header;
-		size_t written;
+		int i;
 
-		this->msbc_buffer_head += size_read;
-		if (this->msbc_buffer_head - this->msbc_buffer >= MSBC_BUFFER_SIZE) {
-			spa_log_error(this->log, "buffer overrun");
-			goto stop;
+		for (i = 0; i < size_read; ++i) {
+			msbc_buffer_append_byte(this, packet[i]);
+
+			/* Handle found mSBC packets.
+			 *
+			 * XXX: if there's no space for the decoded audio in
+			 * XXX: the current buffer, we'll drop data.
+			 */
+			if (this->msbc_buffer_pos == MSBC_ENCODED_SIZE &&
+			    port->ready_offset + MSBC_DECODED_SIZE <= datas[0].maxsize) {
+				int seq, processed;
+				size_t written;
+
+				/* Check sequence number */
+				seq = ((this->msbc_buffer[1] >> 4) & 1) | ((this->msbc_buffer[1] >> 6) & 2);
+				if (!this->msbc_seq_initialized) {
+					this->msbc_seq_initialized = true;
+					this->msbc_seq = seq;
+				} else if (seq != this->msbc_seq) {
+					spa_log_info(this->log, "missing mSBC packet: %u != %u", seq, this->msbc_seq);
+					this->msbc_seq = seq;
+					/* TODO: Implement PLC. */
+				}
+				this->msbc_seq = (this->msbc_seq + 1) % 4;
+
+				/* decode frame */
+				processed = sbc_decode(&this->msbc, this->msbc_buffer + 2, MSBC_ENCODED_SIZE - 3,
+						       (uint8_t *)datas[0].data + port->ready_offset, MSBC_DECODED_SIZE, &written);
+				if (processed < 0) {
+					spa_log_warn(this->log, "sbc_decode failed: %d", processed);
+					/* TODO: manage errors */
+					continue;
+				}
+
+				port->ready_offset += written;
+			}
 		}
-
-		this->msbc_buffer_tail = find_h2_header(this->msbc_buffer_tail, this->msbc_buffer_head - this->msbc_buffer_tail);
-		if (!this->msbc_buffer_tail) {
-			this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
-			spa_log_trace(this->log, "void packet");
-			return;
-		}
-
-		/* We might discard up to MTU - 2 bytes. If MTU = 48, we might need two
-		   more packets to get MSBC_ENCODED_SIZE valid bytes. Therefore, without
-		   compacting here we would need MSBC_BUFFER_SIZE >= 3*MTU - 2. In practice,
-		   for MTU = 48, we frequently need MSBC_BUFFER_SIZE >= 132. */
-		compact_msbc_buffer(this, this->msbc_buffer_tail, this->msbc_buffer_head);
-
-		if (this->msbc_buffer_head - this->msbc_buffer_tail < MSBC_ENCODED_SIZE) {
-			spa_log_trace(this->log, "partial packet");
-			return;
-		}
-
-		next_header = find_h2_header(this->msbc_buffer_tail + 2, this->msbc_buffer_head - this->msbc_buffer_tail - 2);
-		if (next_header && (next_header - this->msbc_buffer_tail) != MSBC_ENCODED_SIZE) {
-			spa_log_trace(this->log, "incomplete packet");
-			this->msbc_seq = (this->msbc_seq + 1) % 4;
-			/* Drop the incomplete packet and compact */
-			compact_msbc_buffer(this, next_header, this->msbc_buffer_head);
-			/* TODO: Implement PLC? */
-			return;
-		}
-
-		seq = ((this->msbc_buffer_tail[1] >> 4) & 1) | ((this->msbc_buffer_tail[1] >> 6) & 2);
-		if (!this->msbc_seq_initialized) {
-			this->msbc_seq_initialized = true;
-			this->msbc_seq = seq;
-		} else if (seq != this->msbc_seq) {
-			spa_log_warn(this->log, "missing mSBC packet: %u != %u", seq, this->msbc_seq);
-			this->msbc_seq = seq;
-			/* TODO: Implement PLC. */
-		}
-
-		/* decode frame */
-		int processed = sbc_decode(&this->msbc, this->msbc_buffer_tail + 2, MSBC_ENCODED_SIZE - 3,
-		                           (uint8_t *)datas[0].data + port->ready_offset, MSBC_DECODED_SIZE, &written);
-		if (processed < 0) {
-			spa_log_warn(this->log, "sbc_decode failed: %d", processed);
-
-			/* TODO: manage errors */
-
-			this->msbc_buffer_tail += MSBC_ENCODED_SIZE;
-			compact_msbc_buffer(this, this->msbc_buffer_tail, this->msbc_buffer_head);
-			return;
-		}
-
-		port->ready_offset += written;
-		this->msbc_seq = (this->msbc_seq + 1) % 4;
-		this->msbc_buffer_tail += MSBC_ENCODED_SIZE;
-		compact_msbc_buffer(this, this->msbc_buffer_tail, this->msbc_buffer_head);
 	} else
 		port->ready_offset += size_read;
 
@@ -539,7 +536,9 @@ static int do_start(struct impl *this)
 		/* Libsbc expects audio samples by default in host endianity, mSBC requires little endian */
 		this->msbc.endian = SBC_LE;
 		this->msbc_seq_initialized = false;
-		this->msbc_buffer_head = this->msbc_buffer_tail = this->msbc_buffer;
+
+		this->msbc_buffer_pos = 0;
+		spa_assert(this->transport->read_mtu <= sizeof(this->read_buffer));
 	}
 
 	/* Add the ready read callback */

@@ -1092,11 +1092,23 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static int do_transport_destroy(struct spa_loop *loop,
+				bool async,
+				uint32_t seq,
+				const void *data,
+				size_t size,
+				void *user_data)
+{
+	struct impl *this = user_data;
+	this->transport = NULL;
+	return 0;
+}
+
 static void transport_destroy(void *data)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "transport %p destroy", this->transport);
-	this->transport = NULL;
+	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
 }
 
 static void transport_state_changed(void *data, enum spa_bt_transport_state old,

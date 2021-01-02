@@ -596,6 +596,9 @@ static void a2dp_on_timeout(struct spa_source *source)
 	struct spa_io_buffers *io = port->io;
 	uint64_t prev_time, now_time;
 
+	if (this->transport == NULL)
+		return;
+
 	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
 		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
 
@@ -1221,11 +1224,23 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static int do_transport_destroy(struct spa_loop *loop,
+				bool async,
+				uint32_t seq,
+				const void *data,
+				size_t size,
+				void *user_data)
+{
+	struct impl *this = user_data;
+	this->transport = NULL;
+	return 0;
+}
+
 static void transport_destroy(void *data)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "transport %p destroy", this->transport);
-	this->transport = NULL;
+	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
 }
 
 static const struct spa_bt_transport_events transport_events = {

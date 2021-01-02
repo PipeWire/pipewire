@@ -315,6 +315,9 @@ static void flush_data(struct impl *this)
 	uint32_t min_in_size;
 	uint8_t *packet;
 
+	if (this->transport == NULL)
+		return;
+
 	/* get buffer */
 	if (!port->current_buffer) {
 		spa_return_if_fail(!spa_list_is_empty(&port->ready));
@@ -444,6 +447,9 @@ static void sco_on_timeout(struct spa_source *source)
 	struct impl *this = source->data;
 	struct port *port = &this->port;
 	uint64_t exp;
+
+	if (this->transport == NULL)
+		return;
 
 	/* Read the timerfd */
 	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
@@ -1049,11 +1055,23 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static int do_transport_destroy(struct spa_loop *loop,
+				bool async,
+				uint32_t seq,
+				const void *data,
+				size_t size,
+				void *user_data)
+{
+	struct impl *this = user_data;
+	this->transport = NULL;
+	return 0;
+}
+
 static void transport_destroy(void *data)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "transport %p destroy", this->transport);
-	this->transport = NULL;
+	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
 }
 
 static const struct spa_bt_transport_events transport_events = {

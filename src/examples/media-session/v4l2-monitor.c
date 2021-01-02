@@ -122,8 +122,8 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 {
 	struct node *node;
 	struct impl *impl = dev->impl;
-	int res;
-	const char *str;
+	int i, res;
+	const char *str, *d;
 
 	pw_log_debug("new node %u", id);
 
@@ -149,6 +149,17 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 	if (str == NULL)
 		str = "v4l2-device";
 	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
+
+	for (i = 2; i <= 99; i++) {
+		if ((d = pw_properties_get(node->props, PW_KEY_NODE_NAME)) == NULL)
+			break;
+
+		if (v4l2_find_node(dev, SPA_ID_INVALID, d) == NULL)
+			break;
+
+		pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s.%d",
+				info->factory_name, str, i);
+	}
 
 	str = pw_properties_get(dev->props, SPA_KEY_DEVICE_DESCRIPTION);
 	if (str == NULL)

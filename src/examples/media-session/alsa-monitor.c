@@ -314,7 +314,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	struct impl *impl = device->impl;
 	int res;
 	const char *dev, *subdev, *stream, *profile, *profile_desc;
-	int priority;
+	int i, priority;
 
 	pw_log_debug("new node %u", id);
 
@@ -390,7 +390,8 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 
 	}
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
-		const char *devname;
+		const char *devname, *d;
+
 		if ((devname = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME)) == NULL)
 			devname = "unnamed-device";
 		if (strstr(devname, "alsa_card.") == devname)
@@ -398,6 +399,18 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s",
 				node->direction == PW_DIRECTION_OUTPUT ?
 				"alsa_input" : "alsa_output", devname, profile);
+
+		for (i = 2; i <= 99; i++) {
+			if ((d = pw_properties_get(node->props, PW_KEY_NODE_NAME)) == NULL)
+				break;
+
+			if (alsa_find_node(device, SPA_ID_INVALID, d) == NULL)
+				break;
+
+			pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s.%d",
+					node->direction == PW_DIRECTION_OUTPUT ?
+					"alsa_input" : "alsa_output", devname, profile, i);
+		}
 	}
 	if (pw_properties_get(node->props, PW_KEY_NODE_DESCRIPTION) == NULL) {
 		const char *desc, *name = NULL;

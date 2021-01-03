@@ -546,7 +546,9 @@ static struct object *find_port(struct client *c, const char *name)
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.ports, link) {
-		if (!strcmp(o->port.name, name))
+		if (strcmp(o->port.name, name) == 0 ||
+		    strcmp(o->port.alias1, name) == 0 ||
+		    strcmp(o->port.alias2, name) == 0)
 			return o;
 	}
 	return NULL;
@@ -3528,6 +3530,8 @@ int jack_port_connected (const jack_port_t *port)
 	}
 	pthread_mutex_unlock(&c->context.lock);
 
+	pw_log_debug(NAME" %p: id:%d res:%d", port, o->id, res);
+
 	return res;
 }
 
@@ -3564,6 +3568,7 @@ int jack_port_connected_to (const jack_port_t *port,
 
      exit:
 	pthread_mutex_unlock(&c->context.lock);
+	pw_log_debug(NAME" %p: id:%d name:%s res:%d", port, o->id, port_name, res);
 
 	return res;
 }

@@ -537,7 +537,8 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 
-	spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
+	if (this->transport)
+		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 
 	return 0;
 }

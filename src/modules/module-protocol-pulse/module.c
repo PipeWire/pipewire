@@ -134,6 +134,8 @@ static void add_props(struct pw_properties *props, const char *str)
 		}
 		e = strchr(p, f);
 		if (e == NULL)
+			e = strchr(p, '\0');
+		if (e == NULL)
 			break;
 		*e = '\0';
 		v = p;
@@ -156,11 +158,13 @@ static int load_module(struct client *client, const char *name, const char *argu
 			res = -EINVAL;
 			goto out;
 		}
-		props = pw_properties_new_string(argument);
+		props = pw_properties_new(NULL, NULL);
 		if (props == NULL) {
 			res = -EINVAL;
 			goto out;
 		}
+		add_props(props, argument);
+
 		if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 			pw_properties_set(props, PW_KEY_NODE_NAME, str);
 			pw_properties_set(props, "sink_name", NULL);

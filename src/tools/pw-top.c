@@ -361,9 +361,10 @@ static void registry_event_global(void *data, uint32_t id,
 		struct node *n;
 		const char *str;
 
-		str = spa_dict_lookup(props, PW_KEY_NODE_NAME);
-		if (str == NULL)
-			str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL &&
+			(str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL) {
+				str = spa_dict_lookup(props, PW_KEY_APP_NAME);
+		}
 
 		if ((n = add_node(d, id, str)) == NULL) {
 			pw_log_warn("can add node %u: %m", id);

@@ -300,6 +300,8 @@ struct spa_bt_transport {
 	void *user_data;
 	struct spa_bt_sco_io *sco_io;
 
+	struct spa_source release_timer;
+
 	struct spa_hook_list listener_list;
 	struct spa_callbacks impl;
 };

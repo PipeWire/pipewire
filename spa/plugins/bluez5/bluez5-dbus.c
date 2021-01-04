@@ -80,6 +80,20 @@ struct spa_bt_monitor {
 	struct spa_bt_backend *backend_hsphfpd;
 };
 
+/*
+ * SCO socket connect may fail with ECONNABORTED if it is done too soon after
+ * previous close. To avoid this in cases where nodes are toggled between
+ * stopped/started rapidly, postpone release until the transport has remained
+ * unused for a time. Since this appears common to multiple SCO backends, we do
+ * it for all SCO backends here.
+ */
+#define SCO_TRANSPORT_RELEASE_TIMEOUT_MSEC 1000
+#define SPA_BT_TRANSPORT_IS_SCO(transport) (transport->backend != NULL)
+
+static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport);
+static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transport);
+
+
 static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
 {
 	spa_pod_builder_string(builder, key);
@@ -732,6 +746,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_bt_transport_emit_destroy(transport);
 
+	spa_bt_transport_stop_release_timer(transport);
+
 	if (transport->sco_io) {
 		spa_bt_sco_io_destroy(transport->sco_io);
 		transport->sco_io = NULL;
@@ -790,12 +806,74 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 	}
 	spa_assert(transport->acquire_refcount == 1);
 
-	res = spa_bt_transport_impl(transport, release, 0);
-
-	if (res >= 0)
-		transport->acquire_refcount = 0;
+	if (SPA_BT_TRANSPORT_IS_SCO(transport)) {
+		/* Postpone SCO transport releases, since we might need it again soon */
+		res = spa_bt_transport_start_release_timer(transport);
+	} else {
+		res = spa_bt_transport_impl(transport, release, 0);
+		if (res >= 0)
+			transport->acquire_refcount = 0;
+	}
 
 	return res;
+}
+
+static void spa_bt_transport_release_timer_event(struct spa_source *source)
+{
+	struct spa_bt_transport *transport = source->data;
+	struct spa_bt_monitor *monitor = transport->monitor;
+
+	spa_assert(transport->acquire_refcount >= 1);
+
+	spa_bt_transport_stop_release_timer(transport);
+
+	if (transport->acquire_refcount == 1) {
+		spa_bt_transport_impl(transport, release, 0);
+	} else {
+		spa_log_debug(monitor->log, "transport %p: delayed decref %s", transport, transport->path);
+	}
+	transport->acquire_refcount -= 1;
+}
+
+static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	struct itimerspec ts;
+
+	if (transport->release_timer.data == NULL) {
+		transport->release_timer.data = transport;
+		transport->release_timer.func = spa_bt_transport_release_timer_event;
+		transport->release_timer.fd = spa_system_timerfd_create(
+			monitor->main_system, CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		transport->release_timer.mask = SPA_IO_IN;
+		transport->release_timer.rmask = 0;
+		spa_loop_add_source(monitor->main_loop, &transport->release_timer);
+	}
+	ts.it_value.tv_sec = SCO_TRANSPORT_RELEASE_TIMEOUT_MSEC / SPA_MSEC_PER_SEC;
+	ts.it_value.tv_nsec = (SCO_TRANSPORT_RELEASE_TIMEOUT_MSEC % SPA_MSEC_PER_SEC) * SPA_NSEC_PER_MSEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(monitor->main_system, transport->release_timer.fd, 0, &ts, NULL);
+	return 0;
+}
+
+static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	struct itimerspec ts;
+
+	if (transport->release_timer.data == NULL)
+		return 0;
+
+	spa_loop_remove_source(monitor->main_loop, &transport->release_timer);
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 0;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(monitor->main_system, transport->release_timer.fd, 0, &ts, NULL);
+	spa_system_close(monitor->main_system, transport->release_timer.fd);
+	transport->release_timer.data = NULL;
+	return 0;
 }
 
 void spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop)

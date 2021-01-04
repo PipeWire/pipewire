@@ -34,7 +34,7 @@ if fdk_aac_dep.found()
 endif
 
 if get_option('bluez5-backend-native')
-  bluez5_sources += ['backend-hsp-native.c']
+  bluez5_sources += ['backend-native.c']
 endif
 
 if get_option('bluez5-backend-ofono')

@@ -38,7 +38,7 @@
 
 #include "defs.h"
 
-#define NAME "hsp-native"
+#define NAME "native"
 
 struct spa_bt_backend {
 	struct spa_bt_monitor *monitor;
@@ -265,7 +265,7 @@ static int sco_release_cb(void *data)
 	struct spa_bt_transport *t = data;
 	struct spa_bt_backend *backend = t->backend;
 
-	spa_log_info(backend->log, "Transport %s released", t->path);
+	spa_log_info(backend->log, NAME": Transport %s released", t->path);
 
 	if (t->sco_io) {
 		spa_bt_sco_io_destroy(t->sco_io);
@@ -640,20 +640,20 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	return 0;
 }
 
-void backend_hsp_native_register_profiles(struct spa_bt_backend *backend)
+void backend_native_register_profiles(struct spa_bt_backend *backend)
 {
 	register_profile(backend, PROFILE_HSP_AG, SPA_BT_UUID_HSP_AG);
 	register_profile(backend, PROFILE_HSP_HS, SPA_BT_UUID_HSP_HS);
 }
 
-void backend_hsp_native_free(struct spa_bt_backend *backend)
+void backend_native_free(struct spa_bt_backend *backend)
 {
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);
 	free(backend);
 }
 
-struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
+struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_support *support,
 	  uint32_t n_support)

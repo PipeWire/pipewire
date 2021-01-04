@@ -75,7 +75,7 @@ struct spa_bt_monitor {
 	unsigned int filters_added:1;
 	unsigned int objects_listed:1;
 
-	struct spa_bt_backend *backend_hsp_native;
+	struct spa_bt_backend *backend_native;
 	struct spa_bt_backend *backend_ofono;
 	struct spa_bt_backend *backend_hsphfpd;
 
@@ -1750,7 +1750,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		adapter_register_application(a);
 	}
 	else if (strcmp(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE) == 0) {
-		backend_hsp_native_register_profiles(monitor->backend_hsp_native);
+		backend_native_register_profiles(monitor->backend_native);
 	}
 	else if (strcmp(interface_name, BLUEZ_DEVICE_INTERFACE) == 0) {
 		struct spa_bt_device *d;
@@ -2133,9 +2133,9 @@ static int impl_clear(struct spa_handle *handle)
 	spa_list_consume(a, &monitor->adapter_list, link)
 		adapter_free(a);
 
-	if (monitor->backend_hsp_native) {
-		backend_hsp_native_free(monitor->backend_hsp_native);
-		monitor->backend_hsp_native = NULL;
+	if (monitor->backend_native) {
+		backend_native_free(monitor->backend_native);
+		monitor->backend_native = NULL;
 	}
 
 	if (monitor->backend_ofono) {
@@ -2213,7 +2213,7 @@ impl_init(const struct spa_handle_factory *factory,
 			this->enable_sbc_xq = true;
 	}
 
-	this->backend_hsp_native = backend_hsp_native_new(this, this->conn, support, n_support);
+	this->backend_native = backend_native_new(this, this->conn, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);
 	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, support, n_support);
 

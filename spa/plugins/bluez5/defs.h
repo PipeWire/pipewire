@@ -431,21 +431,21 @@ static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(con
 
 
 #ifdef HAVE_BLUEZ_5_BACKEND_NATIVE
-struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
+struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_support *support,
 		uint32_t n_support);
-void backend_hsp_native_free(struct spa_bt_backend *backend);
-void backend_hsp_native_register_profiles(struct spa_bt_backend *backend);
+void backend_native_free(struct spa_bt_backend *backend);
+void backend_native_register_profiles(struct spa_bt_backend *backend);
 #else
-static inline struct spa_bt_backend *backend_hsp_native_new(struct spa_bt_monitor *monitor,
+static inline struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_support *support,
 		uint32_t n_support) {
 	return NULL;
 }
-static inline void backend_hsp_native_free(struct spa_bt_backend *backend) {}
-static inline void backend_hsp_native_register_profiles(struct spa_bt_backend *backend) {}
+static inline void backend_native_free(struct spa_bt_backend *backend) {}
+static inline void backend_native_register_profiles(struct spa_bt_backend *backend) {}
 #endif
 
 #ifdef HAVE_BLUEZ_5_BACKEND_OFONO

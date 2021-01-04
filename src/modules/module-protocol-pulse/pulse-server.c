@@ -3893,8 +3893,14 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	if (sel.id != SPA_ID_INVALID && sel.value != NULL)
 		goto error_invalid;
 
-	if (sel.value == NULL || (def != NULL && strcmp(sel.value, def)) == 0)
-		sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
+	if (command == COMMAND_GET_SINK_INFO || command == COMMAND_GET_SOURCE_INFO) {
+		if ((sel.value == NULL && sel.id == SPA_ID_INVALID) ||
+		    (sel.value != NULL && strcmp(sel.value, def) == 0))
+			sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
+	} else {
+		if (sel.value == NULL && sel.id == SPA_ID_INVALID)
+			goto error_invalid;
+	}
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
 			commands[command].name, tag, sel.id, sel.value);

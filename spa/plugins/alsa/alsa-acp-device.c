@@ -670,6 +670,7 @@ static void card_profile_changed(void *data, uint32_t old_index, uint32_t new_in
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 

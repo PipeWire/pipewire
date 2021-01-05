@@ -646,7 +646,7 @@ static int impl_node_process(void *object)
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		input->buffer_id = SPA_ID_INVALID;
 
-		spa_alsa_write(this, 0);
+		spa_alsa_write(this);
 
 		input->status = SPA_STATUS_OK;
 	}

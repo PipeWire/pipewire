@@ -321,6 +321,10 @@ int sm_object_destroy(struct sm_object *obj)
 		pw_proxy_unref(p);
 	if (h)
 		pw_proxy_unref(h);
+
+	obj->proxy = NULL;
+	obj->handle = NULL;
+
 	return 0;
 }
 

@@ -1609,8 +1609,8 @@ static snd_mixer_elem_t *pa_alsa_mixer_find(snd_mixer_t *mixer,
     return NULL;
 }
 
-snd_mixer_elem_t *pa_alsa_mixer_find_card(snd_mixer_t *mixer, const char *name, unsigned int device) {
-    return pa_alsa_mixer_find(mixer, SND_CTL_ELEM_IFACE_CARD, name, 0, device);
+snd_mixer_elem_t *pa_alsa_mixer_find_card(snd_mixer_t *mixer, struct pa_alsa_mixer_id *alsa_id, unsigned int device) {
+    return pa_alsa_mixer_find(mixer, SND_CTL_ELEM_IFACE_CARD, alsa_id->name, alsa_id->index, device);
 }
 
 snd_mixer_elem_t *pa_alsa_mixer_find_pcm(snd_mixer_t *mixer, const char *name, unsigned int device) {

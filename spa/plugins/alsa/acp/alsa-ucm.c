@@ -1705,7 +1705,7 @@ static pa_alsa_jack* ucm_get_jack(pa_alsa_ucm_config *ucm, pa_alsa_ucm_device *d
         j = NULL;
         goto finish;
     }
-    j = pa_alsa_jack_new(NULL, mixer_device_name, name);
+    j = pa_alsa_jack_new(NULL, mixer_device_name, name, 0);
     PA_LLIST_PREPEND(pa_alsa_jack, ucm->jacks, j);
 
 finish:
@@ -1939,7 +1939,7 @@ static void ucm_mapping_jack_probe(pa_alsa_mapping *m, pa_hashmap *mixers) {
             continue;
         }
 
-        has_control = pa_alsa_mixer_find_card(mixer_handle, dev->jack->alsa_name, 0) != NULL;
+        has_control = pa_alsa_mixer_find_card(mixer_handle, &dev->jack->alsa_id, 0) != NULL;
         pa_alsa_jack_set_has_control(dev->jack, has_control);
         pa_log_info("UCM jack %s has_control=%d", dev->jack->name, dev->jack->has_control);
     }

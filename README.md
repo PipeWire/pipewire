@@ -26,9 +26,9 @@ If you want to build and install PipeWire yourself, refer to
 
 The most important purpose of PipeWire is to run your favorite apps.
 
-Some application use the native PipeWire API, such as most compositors
-(gnome-shell, wayland, ..) to implement screen sharing. These apps will
-just work automatically. 
+Some applications use the native PipeWire API, such as most compositors
+(gnome-shell, wayland, ...) to implement screen sharing. These apps will
+just work automatically.
 
 Most audio applications can use either ALSA, JACK or PulseAudio as a
 backend. PipeWire provides support for all 3 backends. Depending on how
@@ -59,7 +59,7 @@ $ pw-play /home/wim/data/01.\ Firepower.wav
 
 ### Running JACK applications
 
-Depending on how the system was configured, your can either run PipeWire and
+Depending on how the system was configured, you can either run PipeWire and
 JACK side-by-side or have PipeWire take over the functionality of JACK
 completely.
 
@@ -76,12 +76,12 @@ effect and can be omitted.
 ### Running PulseAudio applications
 
 PipeWire can run a PulseAudio compatible replacement server. You can't
-use both servers at the same time. Usually you package manager will
+use both servers at the same time. Usually your package manager will
 make the server conflict so that you can only install one or the
 other.
 
-PulseAudio application still use the regular PulseAudio client
-libraries and you don't need to to anything else than change the
+PulseAudio applications still use the regular PulseAudio client
+libraries and you don't need to do anything else than change the
 server implementation.
 
 A successful swap of the server can be verified by checking the
@@ -105,7 +105,7 @@ If the PipeWire alsa module is installed, it can be seen with
 $ aplay -L
 ```
 
-ALSA application can then use the `pipewire:` device to use PipeWire
+ALSA applications can then use the `pipewire:` device to use PipeWire
 as the audio system.
 
 ### Running GStreamer applications
@@ -123,20 +123,21 @@ Or to play a beeping sound:
 $ gst-launch-1.0 audiotestsrc ! pipewiresink
 ```
 
-PipeWire provides a device monitor as well so that:
+PipeWire provides a device monitor as well so that
 
 ```
 $ gst-device-monitor-1.0
 ```
 
-Shows the PipeWire devices and applications like cheese will
+shows the PipeWire devices and applications like cheese will
 automatically use the PipeWire video source when possible.
 
 ### Inspecting the PipeWire state
 
 There is currently no native graphical tool to inspect the PipeWire graph
 but we recommend to use one of the excellent JACK tools, such as `Carla`,
-`catia`, `qjackctl`,... You will not be able to see all features like the video
+`catia`, `qjackctl`, ...
+You will not be able to see all features like the video
 ports but it is a good start.
 
 `pw-mon` dumps and monitors the state of the PipeWire daemon.

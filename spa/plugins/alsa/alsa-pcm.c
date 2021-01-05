@@ -560,7 +560,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		state->frame_size *= info->channels;
 
 	dir = 0;
-	period_size = 1024;
+	period_size = state->default_period_size ? state->default_period_size : 1024;
 	is_batch = snd_pcm_hw_params_is_batch(params);
 	if (is_batch) {
 		const char *id;
@@ -577,8 +577,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		/* batch devices get their hw pointers updated every period. Make
 		 * the period smaller and add one period of headroom */
 		period_size /= 2;
-		spa_log_info(state->log, NAME" %s: batch mode, period_size:%ld headroom:%u",
-				state->props.device, period_size, state->headroom);
+		spa_log_info(state->log, NAME" %s: batch mode, period_size:%ld",
+				state->props.device, period_size);
 	}
 
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");

@@ -814,6 +814,8 @@ impl_init(const struct spa_handle_factory *factory,
 					spa_alsa_channel_from_name(p, len);
 				p += len + strspn(p+len, ",");
 			}
+		} else if (!strcmp(info->items[i].key, "api.alsa.period-size")) {
+			this->default_period_size = atoi(info->items[i].value);
 		}
 	}
 	return 0;

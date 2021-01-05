@@ -1,3 +1,69 @@
+PipeWire 0.3.19
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Startup after login should be fixed now with inotify
+    used to wait for permissions.
+  - Channels should be mapped correctly now.
+  - Many bluetooth improvements in LDAC, AptX-HD. AAC was
+    also added. Headsets should work better now.
+  - pipewire-libpulse was removed. It is now completely
+    replaced by pipewire-pulse.
+  - Fix a crasher bug in pipewire-pulse and some memory leaks.
+  - Fix a bug with feedback loop that would cause 100% CPU.
+  - A new pw-top tool to display real-time graph performance.
+  - The example session manager now has config files.
+  - The config file format was changed to use the SPA JSON
+    tokenizer. This makes it more flexible and extensible.
+
+- PipeWire improvements
+  - Fix debug of id in format channels
+  - Audioconvert should now remap channels correctly in all
+    cases.
+  - Feedback loops were not scheduled correctly and would
+    cause 100% CPU usage.
+  - Small improvements to the profiler to also log incomplete
+    graph status.
+  - a new tool pw-top was added that prints real-time performance
+    stats of the graph.
+  - the rtkit module now sets the nice level to -11
+
+- Session-manager
+  - The session manager would sometimes link dont-reconnect
+    nodes to another node, which would leak monitor streams in
+    pipewire-pulse.
+  - The session manager now has configuration files. Config files
+    can also be placed in the user home directory to make custom
+    configurations.
+  - The session managers now creates unique device and node
+    names for alsa and v4l2 devices.
+
+- Device support
+  - Many improvements in Bluetooth codecs, LDAC stuttering,
+    AptX-HD negotiation, LDAC ABR support
+  - Bluetooth supports AAC audio now.
+  - Many fixes to Bluetooth SCO transport used in headsets.
+  - inotify support in device monitors
+  - ACP was synced with the latest pulseaudio code
+  - Fix a bug in enumeration of device ports.
+
+- PulseAudio server
+  - seek flags and offset are now supported, making gstreamer
+    pulse elements work better.
+  - Fix a crasher bug in pipewire-pulse, we sometimes would
+    write too much to the ringbuffer
+  - Fix some memory leaks in error cases.
+  - Fix handling of NULL string to locate default sink/source
+
+- JACK layer
+  - Ports can also be found with the aliases now, making
+    qjackctl work in more cases.
+
+
+Older versions:
+
 PipeWire 0.3.18
 
 This is a bugfix release that is API and ABI compatible
@@ -68,9 +134,6 @@ with previous 0.3.x releases.
   - Support lookup of monitor names
   - Set properties more like pulseaudio so that some
     clients (Teamspeak) don't crash anymore
-
-Older versions:
-
 
 PipeWire 0.3.17
 

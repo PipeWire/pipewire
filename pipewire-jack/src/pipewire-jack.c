@@ -129,6 +129,7 @@ struct object {
 			jack_latency_range_t playback_latency;
 			int32_t priority;
 			struct port *port;
+			bool is_monitor;
 		} port;
 	};
 };
@@ -2128,6 +2129,7 @@ static void registry_event_global(void *data, uint32_t id,
 		jack_port_type_id_t type_id;
 		uint32_t node_id;
 		char full_name[1024];
+		bool is_monitor = false;
 
 		object_type = INTERFACE_Port;
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
@@ -2161,6 +2163,9 @@ static void registry_event_global(void *data, uint32_t id,
 			else if (!strcmp(item->key, PW_KEY_PORT_CONTROL)) {
 				if (pw_properties_parse_bool(item->value))
 					type_id = TYPE_ID_MIDI;
+			}
+			else if (!strcmp(item->key, PW_KEY_PORT_MONITOR)) {
+				is_monitor = pw_properties_parse_bool(item->value);
 			}
 		}
 
@@ -2202,6 +2207,7 @@ static void registry_event_global(void *data, uint32_t id,
 		o->port.flags = flags;
 		o->port.type_id = type_id;
 		o->port.node_id = node_id;
+		o->port.is_monitor = is_monitor;
 
 		op = find_port(c, o->port.name);
 		if (op != NULL && op != o)
@@ -4165,9 +4171,10 @@ static int port_compare_func(const void *v1, const void *v2)
 	int res;
 	bool is_cap1, is_cap2, is_def1 = false, is_def2 = false;
 
-	is_cap1 = ((*o1)->port.flags & JackPortIsOutput) == JackPortIsOutput;
-	is_cap2 = ((*o2)->port.flags & JackPortIsOutput) == JackPortIsOutput;
-
+	is_cap1 = ((*o1)->port.flags & JackPortIsOutput) == JackPortIsOutput &&
+		!(*o1)->port.is_monitor;
+	is_cap2 = ((*o2)->port.flags & JackPortIsOutput) == JackPortIsOutput &&
+		!(*o2)->port.is_monitor;
 
 	if (c->metadata) {
 		if (is_cap1)

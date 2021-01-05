@@ -44,11 +44,13 @@
 
 #include <pipewire/impl.h>
 
+#define DEFAULT_NICE_LEVEL	-11
 #define DEFAULT_RT_PRIO		20
 #define DEFAULT_RT_TIME_SOFT	200000
 #define DEFAULT_RT_TIME_HARD	200000
 
-#define MODULE_USAGE	"[rt.prio=<priority: default "SPA_STRINGIFY(DEFAULT_RT_PRIO) ">] "		\
+#define MODULE_USAGE	"[nice.level=<priority: default "SPA_STRINGIFY(DEFAULT_NICE_LEVEL) ">] "	\
+			"[rt.prio=<priority: default "SPA_STRINGIFY(DEFAULT_RT_PRIO) ">] "		\
 			"[rt.time.soft=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_SOFT)"] "	\
 			"[rt.time.hard=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_HARD)"] "
 
@@ -59,6 +61,8 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+struct pw_rtkit_bus;
+
 struct impl {
 	struct pw_context *context;
 
@@ -67,6 +71,9 @@ struct impl {
 	struct spa_source source;
 	struct pw_properties *props;
 
+	struct pw_rtkit_bus *system_bus;
+
+	int nice_level;
 	int rt_prio;
 	rlim_t rt_time_soft;
 	rlim_t rt_time_hard;
@@ -441,6 +448,8 @@ static void module_destroy(void *data)
 		impl->source.fd = -1;
 	}
 	pw_properties_free(impl->props);
+	if (impl->system_bus)
+		pw_rtkit_bus_free(impl->system_bus);
 	free(impl);
 }
 
@@ -453,7 +462,6 @@ static void idle_func(struct spa_source *source)
 {
 	struct impl *impl = source->data;
 	struct sched_param sp;
-	struct pw_rtkit_bus *system_bus;
 	struct rlimit rl;
 	int r, rtprio;
 	long long rttime;
@@ -461,13 +469,7 @@ static void idle_func(struct spa_source *source)
 
 	spa_system_eventfd_read(impl->system, impl->source.fd, &count);
 
-	system_bus = pw_rtkit_bus_get_system();
-	if (system_bus == NULL) {
-		pw_log_warn("could not get system bus: %s", strerror(errno));
-		return;
-	}
-
-	rtprio = pw_rtkit_get_max_realtime_priority(system_bus);
+	rtprio = pw_rtkit_get_max_realtime_priority(impl->system_bus);
 	if (rtprio >= 0)
 		rtprio = SPA_MIN(rtprio, impl->rt_prio);
 	else
@@ -486,7 +488,7 @@ static void idle_func(struct spa_source *source)
 	rl.rlim_cur = impl->rt_time_soft;
 	rl.rlim_max = impl->rt_time_hard;
 
-	rttime = pw_rtkit_get_rttime_usec_max(system_bus);
+	rttime = pw_rtkit_get_rttime_usec_max(impl->system_bus);
 	if (rttime >= 0) {
 		rl.rlim_cur = SPA_MIN(rl.rlim_cur, (rlim_t)rttime);
 		rl.rlim_max = SPA_MIN(rl.rlim_max, (rlim_t)rttime);
@@ -498,13 +500,26 @@ static void idle_func(struct spa_source *source)
 	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
 		pw_log_debug("setrlimit() failed: %s", strerror(errno));
 
-	if ((r = pw_rtkit_make_realtime(system_bus, 0, rtprio)) < 0) {
+	if ((r = pw_rtkit_make_realtime(impl->system_bus, 0, rtprio)) < 0) {
 		pw_log_warn("could not make thread realtime: %s", spa_strerror(r));
 	} else {
 		pw_log_info("processing thread made realtime");
 	}
 exit:
-	pw_rtkit_bus_free(system_bus);
+	pw_rtkit_bus_free(impl->system_bus);
+	impl->system_bus = NULL;
+}
+
+static int set_nice(struct impl *impl, int nice_level)
+{
+	int res;
+	if ((res = pw_rtkit_make_high_priority(impl->system_bus, 0, nice_level)) < 0) {
+		pw_log_warn("could not set nice-level to %d: %s",
+				nice_level, spa_strerror(res));
+	} else {
+		pw_log_info("main thread nice level set to %d", nice_level);
+	}
+	return 0;
 }
 
 static int get_default_int(struct pw_properties *properties, const char *name, int def)
@@ -556,6 +571,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
+	impl->system_bus = pw_rtkit_bus_get_system();
+	if (impl->system_bus == NULL) {
+		res = -errno;
+		pw_log_warn("could not get system bus: %m");
+		goto error;
+	}
+	impl->nice_level = get_default_int(impl->props, "nice.level", DEFAULT_NICE_LEVEL);
+
+	set_nice(impl, impl->nice_level);
+
 	impl->rt_prio = get_default_int(impl->props, "rt.prio", DEFAULT_RT_PRIO);
 	impl->rt_time_soft = get_default_int(impl->props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
 	impl->rt_time_hard = get_default_int(impl->props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
@@ -583,6 +608,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 error:
 	if (impl->props)
 		pw_properties_free(impl->props);
+	if (impl->system_bus)
+		pw_rtkit_bus_free(impl->system_bus);
 	free(impl);
 	return res;
 }

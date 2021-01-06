@@ -681,6 +681,53 @@ static int device_update_props(struct spa_bt_device *device,
 	return 0;
 }
 
+static int device_try_connect_profile(struct spa_bt_device *device,
+                                      enum spa_bt_profile profile,
+                                      const char *profile_uuid)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	DBusMessage *m;
+
+	if (!(device->profiles & profile) || (device->connected_profiles & profile))
+		return 0;
+
+	spa_log_info(monitor->log, "device %p %s: A2DP profile %s not connected; try ConnectProfile()",
+	             device, device->path, profile_uuid);
+
+	/* Call org.bluez.Device1.ConnectProfile() on device, ignoring result */
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE,
+	                                 device->path,
+	                                 BLUEZ_DEVICE_INTERFACE,
+	                                 "ConnectProfile");
+	if (m == NULL)
+		return -ENOMEM;
+	dbus_message_append_args(m, DBUS_TYPE_STRING, &profile_uuid, DBUS_TYPE_INVALID);
+	if (!dbus_connection_send(monitor->conn, m, NULL)) {
+		dbus_message_unref(m);
+		return -EIO;
+	}
+	dbus_message_unref(m);
+
+	return 0;
+}
+
+static void reconnect_device_profiles(struct spa_bt_monitor *monitor)
+{
+	struct spa_bt_device *device;
+
+	/* Call org.bluez.Device1.ConnectProfile() on connected devices, it they have A2DP but the
+	 * profile is not yet connected.
+	 */
+
+	spa_list_for_each(device, &monitor->device_list, link) {
+		if (device->connected) {
+			device_try_connect_profile(device, SPA_BT_PROFILE_A2DP_SINK, SPA_BT_UUID_A2DP_SINK);
+			device_try_connect_profile(device, SPA_BT_PROFILE_A2DP_SOURCE, SPA_BT_UUID_A2DP_SOURCE);
+		}
+	}
+}
+
 struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_transport *t;
@@ -1528,6 +1575,9 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 		if (!dbus_connection_send(monitor->conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		res = DBUS_HANDLER_RESULT_HANDLED;
+
+		/* Reconnect A2DP profiles for existing connected devices */
+		reconnect_device_profiles(monitor);
 	}
 	else
 		res = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;

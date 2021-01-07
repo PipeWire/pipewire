@@ -85,8 +85,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 
 static uint8_t default_bitpool(uint8_t freq, uint8_t mode)
 {
-	/* A2DP spec v1.2 states that all SNK implementation shall handle bitrates
-	   of up to 512 kbps (~ bitpool = 76 stereo, or 2x38 dual channel). */
+	/* These bitpool values were chosen based on the A2DP spec recommendation */
 	switch (freq) {
 	case SBC_SAMPLING_FREQ_16000:
         case SBC_SAMPLING_FREQ_32000:
@@ -96,22 +95,22 @@ static uint8_t default_bitpool(uint8_t freq, uint8_t mode)
 		switch (mode) {
 		case SBC_CHANNEL_MODE_MONO:
 		case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-			return 38;
+			return 31;
 
 		case SBC_CHANNEL_MODE_STEREO:
 		case SBC_CHANNEL_MODE_JOINT_STEREO:
-			return 64;
+			return 53;
 		}
 		return 53;
 	case SBC_SAMPLING_FREQ_48000:
 		switch (mode) {
 		case SBC_CHANNEL_MODE_MONO:
 		case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-			return 35;
+			return 29;
 
 		case SBC_CHANNEL_MODE_STEREO:
 		case SBC_CHANNEL_MODE_JOINT_STEREO:
-			return 62;
+			return 51;
 		}
 		return 51;
 	}
@@ -141,12 +140,12 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
-	if (conf.channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
-		conf.channel_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
-	else if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
+	if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
 		conf.channel_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
 	else if (conf.channel_mode & SBC_CHANNEL_MODE_STEREO)
 		conf.channel_mode = SBC_CHANNEL_MODE_STEREO;
+	else if (conf.channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
+		conf.channel_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
 	else if (conf.channel_mode & SBC_CHANNEL_MODE_MONO)
 		conf.channel_mode = SBC_CHANNEL_MODE_MONO;
 	else

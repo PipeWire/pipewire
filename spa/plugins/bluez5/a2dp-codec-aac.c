@@ -103,7 +103,7 @@ static struct {
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct spa_dict *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_aac_t conf;
 	int freq;
@@ -219,7 +219,8 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 }
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
-		void *config, size_t config_len, const struct spa_audio_info *info, size_t mtu)
+		void *config, size_t config_len, const struct spa_audio_info *info,
+		const struct spa_dict *settings, size_t mtu)
 {
 	struct impl *this;
 	a2dp_aac_t *conf = config;

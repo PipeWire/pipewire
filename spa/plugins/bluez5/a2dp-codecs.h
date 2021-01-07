@@ -339,7 +339,7 @@ struct a2dp_codec {
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
 	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
-			const struct spa_dict *info, uint8_t config[A2DP_MAX_CAPS_SIZE]);
+			const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE]);
 	int (*enum_config) (const struct a2dp_codec *codec,
 			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
@@ -348,8 +348,10 @@ struct a2dp_codec {
 			struct spa_audio_info *info);
 
 	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
-			const struct spa_audio_info *info, size_t mtu);
+			const struct spa_audio_info *info, const struct spa_dict *settings, size_t mtu);
 	void (*deinit) (void *data);
+
+	int (*update_settings) (void *data, const struct spa_dict *settings);
 
 	int (*get_block_size) (void *data);
 	int (*get_num_blocks) (void *data);

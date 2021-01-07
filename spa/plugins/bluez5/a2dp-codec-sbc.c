@@ -185,6 +185,75 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
+static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+			const void *caps, size_t caps_size,
+			struct spa_audio_info *info)
+{
+	const a2dp_sbc_t *conf;
+
+	if (caps == NULL || caps_size < sizeof(conf))
+		return -EINVAL;
+
+	conf = caps;
+
+	spa_zero(*info);
+	info->media_type = SPA_MEDIA_TYPE_audio;
+	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
+
+	switch (conf->frequency) {
+	case SBC_SAMPLING_FREQ_16000:
+		info->info.raw.rate = 16000;
+		break;
+	case SBC_SAMPLING_FREQ_32000:
+		info->info.raw.rate = 32000;
+		break;
+	case SBC_SAMPLING_FREQ_44100:
+		info->info.raw.rate = 44100;
+		break;
+	case SBC_SAMPLING_FREQ_48000:
+		info->info.raw.rate = 48000;
+		break;
+	default:
+		return -EINVAL;
+        }
+
+	switch (conf->channel_mode) {
+	case SBC_CHANNEL_MODE_MONO:
+		info->info.raw.channels = 1;
+		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_MONO;
+                break;
+	case SBC_CHANNEL_MODE_DUAL_CHANNEL:
+	case SBC_CHANNEL_MODE_STEREO:
+	case SBC_CHANNEL_MODE_JOINT_STEREO:
+		info->info.raw.channels = 2;
+		info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+		info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+                break;
+	default:
+		return -EINVAL;
+        }
+
+	switch (conf->subbands) {
+	case SBC_SUBBANDS_4:
+	case SBC_SUBBANDS_8:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	switch (conf->block_length) {
+	case SBC_BLOCK_LENGTH_4:
+	case SBC_BLOCK_LENGTH_8:
+	case SBC_BLOCK_LENGTH_12:
+	case SBC_BLOCK_LENGTH_16:
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int codec_set_bitpool(struct impl *this, int bitpool)
 {
 	this->sbc.bitpool = SPA_CLAMP(bitpool, this->min_bitpool, this->max_bitpool);
@@ -494,6 +563,7 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
+	.validate_config = codec_validate_config,
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,

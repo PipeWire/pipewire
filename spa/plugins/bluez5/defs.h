@@ -292,6 +292,9 @@ struct spa_bt_transport {
 	void *configuration;
 	int configuration_len;
 
+	uint32_t n_channels;
+	uint32_t channels[64];
+
 	int acquire_refcount;
 	int fd;
 	uint16_t read_mtu;

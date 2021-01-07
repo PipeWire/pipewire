@@ -1180,6 +1180,25 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	transport->a2dp_codec = codec;
 	transport_update_props(transport, &it[1], NULL);
 
+	if (codec->validate_config) {
+		struct spa_audio_info info;
+		if (codec->validate_config(codec, 0,
+					transport->configuration, transport->configuration_len,
+					&info) < 0) {
+			spa_log_error(monitor->log, "invalid transport configuration");
+			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+		}
+		transport->n_channels = info.info.raw.channels;
+		memcpy(transport->channels, info.info.raw.position,
+				transport->n_channels * sizeof(uint32_t));
+	} else {
+		transport->n_channels = 2;
+		transport->channels[0] = SPA_AUDIO_CHANNEL_FL;
+		transport->channels[1] = SPA_AUDIO_CHANNEL_FR;
+	}
+	spa_log_info(monitor->log, "%p: %s validate conf channels:%d",
+			monitor, path, transport->n_channels);
+
 	if (transport->device == NULL) {
 		spa_log_warn(monitor->log, "no device found for transport");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;

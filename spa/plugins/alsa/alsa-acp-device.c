@@ -87,7 +87,6 @@ struct impl {
 	struct spa_hook_list hooks;
 
 	struct props props;
-	uint32_t n_nodes;
 
 	uint32_t profile;
 

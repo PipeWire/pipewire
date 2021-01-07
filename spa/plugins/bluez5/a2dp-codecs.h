@@ -325,13 +325,12 @@ static inline int a2dp_sbc_get_frequency(a2dp_sbc_t *config)
 struct a2dp_codec_handle;
 
 struct a2dp_codec {
-	uint32_t flags;
-
 	uint8_t codec_id;
 	a2dp_vendor_codec_t vendor;
 
 	const char *name;
 	const char *description;
+	const struct spa_dict *info;
 
 	const int send_fill_frames;
 	const int recv_fill_frames;
@@ -340,10 +339,13 @@ struct a2dp_codec {
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
 	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
-			const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE]);
+			const struct spa_dict *info, uint8_t config[A2DP_MAX_CAPS_SIZE]);
 	int (*enum_config) (const struct a2dp_codec *codec,
 			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
+	int (*validate_config) (const struct a2dp_codec *codec, uint32_t flags,
+			const void *caps, size_t caps_size,
+			struct spa_audio_info *info);
 
 	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
 			const struct spa_audio_info *info, size_t mtu);

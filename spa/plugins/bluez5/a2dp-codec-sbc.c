@@ -119,7 +119,7 @@ static uint8_t default_bitpool(uint8_t freq, uint8_t mode)
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_sbc_t conf;
 	int bitpool;

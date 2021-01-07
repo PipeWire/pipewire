@@ -128,7 +128,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct spa_audio_info *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *info, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_ldac_t conf;
 

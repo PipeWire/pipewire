@@ -56,7 +56,8 @@
 #define DEFAULT_MEDIA_CATEGORY_RECORD	"Capture"
 #define DEFAULT_MEDIA_ROLE	"Music"
 #define DEFAULT_TARGET		"auto"
-#define DEFAULT_LATENCY		"100ms"
+#define DEFAULT_LATENCY_PLAY	"100ms"
+#define DEFAULT_LATENCY_REC	"none"
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_FORMAT		"s16"
@@ -979,7 +980,7 @@ static void show_usage(const char *name, bool is_error)
 	     DEFAULT_MEDIA_TYPE,
 	     DEFAULT_MEDIA_CATEGORY_PLAYBACK,
 	     DEFAULT_MEDIA_ROLE,
-	     DEFAULT_TARGET, DEFAULT_LATENCY);
+	     DEFAULT_TARGET, DEFAULT_LATENCY_PLAY);
 
 	fprintf(fp,
              "      --rate                            Sample rate (req. for rec) (default %u)\n"
@@ -1498,7 +1499,9 @@ int main(int argc, char *argv[])
 		data.target_id = PW_ID_ANY;
 	}
 	if (!data.latency)
-		data.latency = DEFAULT_LATENCY;
+		data.latency = data.mode == mode_playback ?
+			DEFAULT_LATENCY_PLAY :
+			DEFAULT_LATENCY_REC;
 	if (data.channel_map != NULL) {
 		if (parse_channelmap(data.channel_map, &data.channelmap) < 0) {
 			fprintf(stderr, "error: can parse channel-map \"%s\"\n", data.channel_map);

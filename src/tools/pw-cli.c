@@ -1550,7 +1550,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 	char key[256];
 	struct spa_pod_frame f[1];
 	struct spa_json it[1];
-	int l;
+	int l, res;
 	const char *v;
 
 	if (spa_json_is_object(value, len)) {
@@ -1567,7 +1567,8 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 			if ((pi = find_type_info(ti->values, key)) == NULL)
 				continue;
 			spa_pod_builder_prop(b, pi->type, 0);
-			json_to_pod(b, id, pi, &it[0], v, l);
+			if ((res = json_to_pod(b, id, pi, &it[0], v, l)) < 0)
+				return res;
 		}
 		spa_pod_builder_pop(b, &f[0]);
 	}
@@ -1575,7 +1576,8 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_push_array(b, &f[0]);
 		spa_json_enter(iter, &it[0]);
 		while ((l = spa_json_next(&it[0], &v)) > 0)
-			json_to_pod(b, id, info->values, &it[0], v, l);
+			if ((res = json_to_pod(b, id, info->values, &it[0], v, l)) < 0)
+				return res;
 		spa_pod_builder_pop(b, &f[0]);
 	}
 	else if (spa_json_is_float(value, len)) {
@@ -1605,13 +1607,22 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 			break;
 		}
 	}
-	else if (spa_json_is_string(value, len)) {
+	else if (spa_json_is_bool(value, len)) {
+		bool val = false;
+		spa_json_parse_bool(value, len, &val);
+		spa_pod_builder_bool(b, val);
+	}
+	else if (spa_json_is_null(value, len)) {
+		spa_pod_builder_none(b);
+	}
+	else {
 		char *val = alloca(len);
 		spa_json_parse_string(value, len, val);
 		switch (info->parent) {
 		case SPA_TYPE_Id:
-			if ((ti = find_type_info(info ? info->values : info, val)) != NULL)
-				spa_pod_builder_id(b, ti->type);
+			if ((ti = find_type_info(info ? info->values : info, val)) == NULL)
+				return -EINVAL;
+			spa_pod_builder_id(b, ti->type);
 			break;
 		case SPA_TYPE_String:
 			spa_pod_builder_string(b, val);
@@ -1621,17 +1632,6 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 			break;
 		}
 	}
-	else if (spa_json_is_bool(value, len)) {
-		bool val = false;
-		spa_json_parse_bool(value, len, &val);
-		spa_pod_builder_bool(b, val);
-	}
-	else if (spa_json_is_null(value, len)) {
-		spa_pod_builder_none(b);
-	}
-	else
-		return -EINVAL;
-
 	return 0;
 }
 
@@ -1656,7 +1656,6 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	}
 
 	id = atoi(a[0]);
-	param_id = atoi(a[1]);
 
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
@@ -1668,11 +1667,12 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 			return false;
 	}
 
-	ti = spa_debug_type_find(spa_type_param, param_id);
+	ti = find_type_info(spa_type_param, a[1]);
 	if (ti == NULL) {
-		*error = spa_aprintf("%s: unknown param type: %d", cmd, param_id);
+		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
 		return false;
 	}
+	param_id = ti->type;
 
 	spa_json_init(&it[0], a[2], strlen(a[2]));
 	if ((len = spa_json_next(&it[0], &val)) <= 0) {

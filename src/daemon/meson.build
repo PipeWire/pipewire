@@ -53,21 +53,21 @@ executable('pipewire-pulse',
   dependencies : [pipewire_dep, ],
 )
 
-desktop_file = i18n.merge_file(
-  input : 'pipewire.desktop.in',
-  output : 'pipewire.desktop',
-  po_dir : po_dir,
-  type : 'desktop',
+#desktop_file = i18n.merge_file(
+#  input : 'pipewire.desktop.in',
+#  output : 'pipewire.desktop',
+#  po_dir : po_dir,
+#  type : 'desktop',
 #  install : true,
 #  install_dir : join_paths(pipewire_sysconfdir, 'xdg', 'autostart')
-)
-
-desktop_utils = find_program('desktop-file-validate', required: false)
-if desktop_utils.found()
-  test('Validate desktop file', desktop_utils,
-    args: [ desktop_file ],
-  )
-endif
+#)
+#
+#desktop_utils = find_program('desktop-file-validate', required: false)
+#if desktop_utils.found()
+#  test('Validate desktop file', desktop_utils,
+#    args: [ desktop_file ],
+#  )
+#endif
 
 if get_option('systemd') and systemd.found()
   subdir('systemd')

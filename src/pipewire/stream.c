@@ -509,6 +509,7 @@ static int impl_port_set_io(void *object, enum spa_direction direction, uint32_t
 			    uint32_t id, void *data, size_t size)
 {
 	struct stream *impl = object;
+	struct pw_stream *stream = &impl->this;
 
 	pw_log_debug(NAME" %p: set io id %d (%s) %p %zd", impl, id,
 			spa_debug_type_find_name(spa_type_io, id), data, size);
@@ -520,9 +521,9 @@ static int impl_port_set_io(void *object, enum spa_direction direction, uint32_t
 		else
 			impl->io = NULL;
 		break;
-	default:
-		return -ENOENT;
 	}
+	pw_stream_emit_io_changed(stream, id, data, size);
+
 	return 0;
 }
 
@@ -814,7 +815,8 @@ static int impl_node_process_output(void *object)
 	uint32_t index;
 
 again:
-	pw_log_trace(NAME" %p: process out status:%d id:%d", stream, io->status, io->buffer_id);
+	pw_log_trace(NAME" %p: process out status:%d id:%d", stream,
+			io->status, io->buffer_id);
 
 	if ((res = io->status) != SPA_STATUS_HAVE_DATA) {
 		/* recycle old buffer */

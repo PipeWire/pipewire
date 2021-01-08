@@ -114,6 +114,16 @@ static void impl_peaks_update_rate(struct resample *r, double rate)
 {
 }
 
+static uint32_t impl_peaks_delay (struct resample *r)
+{
+	return 0;
+}
+
+static uint32_t impl_peaks_in_len(struct resample *r, uint32_t out_len)
+{
+	return out_len;
+}
+
 static void impl_peaks_reset (struct resample *r)
 {
 	struct peaks_data *d = r->data;
@@ -133,6 +143,8 @@ int resample_peaks_init(struct resample *r)
 
 	r->process = info->process;
 	r->reset = impl_peaks_reset;
+	r->delay = impl_peaks_delay;
+	r->in_len = impl_peaks_in_len;
 
 	d = r->data = calloc(1, sizeof(struct peaks_data) * sizeof(float) * r->channels);
 	if (r->data == NULL)

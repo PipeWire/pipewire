@@ -191,7 +191,7 @@ static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
 {
 	const a2dp_sbc_t *conf;
 
-	if (caps == NULL || caps_size < sizeof(conf))
+	if (caps == NULL || caps_size < sizeof(*conf))
 		return -EINVAL;
 
 	conf = caps;

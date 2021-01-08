@@ -1187,6 +1187,13 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	transport->a2dp_codec = codec;
 	transport_update_props(transport, &it[1], NULL);
 
+	if (transport->device == NULL) {
+		spa_log_warn(monitor->log, "no device found for transport");
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+	if (is_new)
+		spa_list_append(&transport->device->transport_list, &transport->device_link);
+
 	if (codec->validate_config) {
 		struct spa_audio_info info;
 		if (codec->validate_config(codec, 0,
@@ -1205,13 +1212,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	}
 	spa_log_info(monitor->log, "%p: %s validate conf channels:%d",
 			monitor, path, transport->n_channels);
-
-	if (transport->device == NULL) {
-		spa_log_warn(monitor->log, "no device found for transport");
-		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-	}
-	if (is_new)
-		spa_list_append(&transport->device->transport_list, &transport->device_link);
 
 	spa_bt_device_connect_profile(transport->device, transport->profile);
 

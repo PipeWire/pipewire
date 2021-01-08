@@ -83,9 +83,10 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(a2dp_sbc);
 }
 
-static uint8_t default_bitpool(uint8_t freq, uint8_t mode)
+static uint8_t default_bitpool(uint8_t freq, uint8_t mode, bool xq)
 {
-	/* These bitpool values were chosen based on the A2DP spec recommendation */
+	/* A2DP spec v1.2 states that all SNK implementation shall handle bitrates
+	   of up to 512 kbps (~ bitpool = 76 stereo, or 2x38 dual channel). */
 	switch (freq) {
 	case SBC_SAMPLING_FREQ_16000:
         case SBC_SAMPLING_FREQ_32000:
@@ -95,22 +96,22 @@ static uint8_t default_bitpool(uint8_t freq, uint8_t mode)
 		switch (mode) {
 		case SBC_CHANNEL_MODE_MONO:
 		case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-			return 31;
+			return xq ? 38 : 31;
 
 		case SBC_CHANNEL_MODE_STEREO:
 		case SBC_CHANNEL_MODE_JOINT_STEREO:
-			return 53;
+			return xq ? 64 : 53;
 		}
 		return 53;
 	case SBC_SAMPLING_FREQ_48000:
 		switch (mode) {
 		case SBC_CHANNEL_MODE_MONO:
 		case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-			return 29;
+			return xq ? 35 : 29;
 
 		case SBC_CHANNEL_MODE_STEREO:
 		case SBC_CHANNEL_MODE_JOINT_STEREO:
-			return 51;
+			return xq ? 62 : 51;
 		}
 		return 51;
 	}
@@ -123,9 +124,17 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 {
 	a2dp_sbc_t conf;
 	int bitpool;
+	bool xq = false;
+	const char *str;
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
+
+	if (settings) {
+		if ((str = spa_dict_lookup(settings, "codec.sbc.enable-xq")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str)))
+			xq = true;
+	}
 
 	memcpy(&conf, caps, sizeof(conf));
 
@@ -140,6 +149,10 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
+	if (xq) {
+		if (conf.channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
+			conf.channel_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
+	}
 	if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
 		conf.channel_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
 	else if (conf.channel_mode & SBC_CHANNEL_MODE_STEREO)
@@ -176,7 +189,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
-	bitpool = default_bitpool(conf.frequency, conf.channel_mode);
+	bitpool = default_bitpool(conf.frequency, conf.channel_mode, xq);
 
 	conf.min_bitpool = SPA_MAX(SBC_MIN_BITPOOL, conf.min_bitpool);
 	conf.max_bitpool = SPA_MIN(bitpool, conf.max_bitpool);

@@ -78,6 +78,8 @@ struct spa_bt_monitor {
 	struct spa_bt_backend *backend_hsp_native;
 	struct spa_bt_backend *backend_ofono;
 	struct spa_bt_backend *backend_hsphfpd;
+
+	unsigned int enable_sbc_xq:1;
 };
 
 /*
@@ -156,8 +158,13 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		spa_log_debug(monitor->log, "  %d: %02x", i, cap[i]);
 
 	codec = a2dp_endpoint_to_codec(path);
-	if (codec != NULL)
-		res = codec->select_config(codec, 0, cap, size, NULL, config);
+	if (codec != NULL) {
+		struct spa_dict_item items[1];
+
+		items[0] = SPA_DICT_ITEM_INIT("codec.sbc.enable-xq", monitor->enable_sbc_xq ? "true" : "false");
+
+		res = codec->select_config(codec, 0, cap, size, &SPA_DICT_INIT_ARRAY(items), config);
+	}
 	else
 		res = -ENOTSUP;
 
@@ -2190,6 +2197,14 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->transport_list);
 
 	register_media_application(this);
+
+	if (info) {
+		const char *str;
+
+		if ((str = spa_dict_lookup(info, "bluez5.sbc-xq-support")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str)))
+			this->enable_sbc_xq = true;
+	}
 
 	this->backend_hsp_native = backend_hsp_native_new(this, this->conn, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);

@@ -47,11 +47,21 @@ struct spa_bt_backend {
 	struct spa_loop *main_loop;
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
+
+	struct spa_list rfcomm_list;
 };
 
 struct transport_data {
-	struct spa_source rfcomm;
 	struct spa_source sco;
+};
+
+struct rfcomm {
+	struct spa_list link;
+	struct spa_source source;
+	struct spa_bt_backend *backend;
+	struct spa_bt_device *device;
+	struct spa_bt_transport *transport;
+	enum spa_bt_profile profile;
 };
 
 static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -69,16 +79,25 @@ static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, v
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static void rfcomm_free(struct rfcomm *rfcomm)
+{
+	if (rfcomm->transport)
+		spa_bt_transport_free(rfcomm->transport);
+	free(rfcomm);
+}
+
 static void rfcomm_event(struct spa_source *source)
 {
-	struct spa_bt_transport *t = source->data;
-	struct spa_bt_backend *backend = t->backend;
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_info(backend->log, NAME": lost RFCOMM connection.");
 		if (source->loop)
 			spa_loop_remove_source(source->loop, source);
-		goto fail;
+		spa_list_remove(&rfcomm->link);
+		rfcomm_free(rfcomm);
+		return;
 	}
 
 	if (source->rmask & SPA_IO_IN) {
@@ -90,7 +109,7 @@ static void rfcomm_event(struct spa_source *source)
 		len = read(source->fd, buf, 511);
 		if (len < 0) {
 			spa_log_error(backend->log, NAME": RFCOMM read error: %s", strerror(errno));
-			goto fail;
+			return;
 		}
 		buf[len] = 0;
 		spa_log_debug(backend->log, NAME": RFCOMM << %s", buf);
@@ -130,10 +149,6 @@ static void rfcomm_event(struct spa_source *source)
 				spa_log_error(backend->log, NAME": RFCOMM write error: %s", strerror(errno));
 		}
 	}
-	return;
-
-fail:
-	spa_bt_transport_free(t);
 	return;
 }
 
@@ -367,13 +382,6 @@ static int sco_destroy_cb(void *data)
 		close (td->sco.fd);
 		td->sco.fd = -1;
 	}
-	if (td->rfcomm.data) {
-		if (td->rfcomm.loop)
-			spa_loop_remove_source(td->rfcomm.loop, &td->rfcomm);
-		shutdown(td->rfcomm.fd, SHUT_RDWR);
-		close (td->rfcomm.fd);
-		td->rfcomm.fd = -1;
-	}
 	return 0;
 }
 
@@ -392,9 +400,9 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	const char *handler, *path;
 	char *pathfd;
 	enum spa_bt_profile profile;
+	struct rfcomm *rfcomm;
 	struct spa_bt_device *d;
-	struct spa_bt_transport *t;
-	struct transport_data *td;
+	struct spa_bt_transport *t = NULL;
 	int fd;
 
 	if (!dbus_message_has_signature(m, "oha{sv}")) {
@@ -426,13 +434,26 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	spa_log_debug(backend->log, NAME": NewConnection path=%s, fd=%d, profile %s", path, fd, handler);
 
-	if ((pathfd = spa_aprintf("%s/fd%d", path, fd)) == NULL)
+	rfcomm = calloc(1, sizeof(struct rfcomm));
+	if (rfcomm == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+	rfcomm->backend = backend;
+	rfcomm->profile = profile;
+	rfcomm->device = d;
+	rfcomm->source.func = rfcomm_event;
+	rfcomm->source.data = rfcomm;
+	rfcomm->source.fd = fd;
+	rfcomm->source.mask = SPA_IO_IN;
+	rfcomm->source.rmask = 0;
+
+	if ((pathfd = spa_aprintf("%s/fd%d", path, fd)) == NULL)
+		goto fail_need_memory;
 
 	t = spa_bt_transport_create(backend->monitor, pathfd, sizeof(struct transport_data));
 	if (t == NULL) {
 		spa_log_warn(backend->log, NAME": can't create transport: %m");
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		goto fail_need_memory;
 	}
 	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
 
@@ -440,14 +461,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	spa_list_append(&t->device->transport_list, &t->device_link);
 	t->profile = profile;
 	t->backend = backend;
-
-	td = t->user_data;
-	td->rfcomm.func = rfcomm_event;
-	td->rfcomm.data = t;
-	td->rfcomm.fd = fd;
-	td->rfcomm.mask = SPA_IO_IN;
-	td->rfcomm.rmask = 0;
-	spa_loop_add_source(backend->main_loop, &td->rfcomm);
+	rfcomm->transport = t;
 
 	spa_bt_device_connect_profile(t->device, profile);
 
@@ -456,12 +470,20 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	spa_log_debug(backend->log, NAME": Transport %s available for profile %s", t->path, handler);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		goto fail_need_memory;
 	if (!dbus_connection_send(conn, r, NULL))
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-
+		goto fail_need_memory;
 	dbus_message_unref(r);
+
+	spa_loop_add_source(backend->main_loop, &rfcomm->source);
+	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
+
 	return DBUS_HANDLER_RESULT_HANDLED;
+
+fail_need_memory:
+	if (rfcomm)
+		rfcomm_free(rfcomm);
+	return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -470,9 +492,9 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	DBusMessage *r;
 	const char *handler, *path;
 	struct spa_bt_device *d;
-	struct spa_bt_transport *t, *tmp;
 	enum spa_bt_profile profile;
 	DBusMessageIter it[5];
+	struct rfcomm *rfcomm, *rfcomm_tmp;
 
 	if (!dbus_message_has_signature(m, "o")) {
 		spa_log_warn(backend->log, NAME": invalid RequestDisconnection() signature");
@@ -498,9 +520,16 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	spa_list_for_each_safe(t, tmp, &d->transport_list, device_link) {
-		if (t->profile == profile)
-			spa_bt_transport_free(t);
+	spa_list_for_each_safe(rfcomm, rfcomm_tmp, &backend->rfcomm_list, link) {
+		if (rfcomm->device == d && rfcomm->profile == profile) {
+			if (rfcomm->source.loop)
+				spa_loop_remove_source(rfcomm->source.loop, &rfcomm->source);
+			shutdown(rfcomm->source.fd, SHUT_RDWR);
+			close (rfcomm->source.fd);
+			rfcomm->source.fd = -1;
+			spa_list_remove(&rfcomm->link);
+			rfcomm_free(rfcomm);
+		}
 	}
 	spa_bt_device_check_profiles(d, false);
 
@@ -636,7 +665,7 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 
 	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, register_profile_reply, backend, NULL);
-        dbus_message_unref(m);
+	dbus_message_unref(m);
 	return 0;
 }
 
@@ -648,8 +677,14 @@ void backend_native_register_profiles(struct spa_bt_backend *backend)
 
 void backend_native_free(struct spa_bt_backend *backend)
 {
+	struct rfcomm *rfcomm;
+
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);
+
+	spa_list_consume(rfcomm, &backend->rfcomm_list, link)
+		rfcomm_free(rfcomm);
+
 	free(backend);
 }
 
@@ -672,6 +707,8 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 	backend->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->conn = dbus_connection;
+
+	spa_list_init(&backend->rfcomm_list);
 
 	if (!dbus_connection_register_object_path(backend->conn,
 						  PROFILE_HSP_AG,

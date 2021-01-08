@@ -97,11 +97,12 @@ struct object {
 	struct data *data;
 
 	uint32_t id;
-	uint32_t version;
-	const struct class *class;
 	uint32_t permissions;
-
+	char *type;
+	uint32_t version;
 	struct pw_properties *props;
+
+	const struct class *class;
 	void *info;
 
 	int changed;
@@ -189,6 +190,7 @@ static void object_destroy(struct object *o)
 		pw_properties_free(o->props);
 	clear_params(&o->param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
+	free(o->type);
 	free(o);
 }
 
@@ -1083,13 +1085,13 @@ destroy_proxy(void *data)
 {
 	struct object *o = data;
 
-	if (o->class->events)
-		spa_hook_remove(&o->object_listener);
 	spa_hook_remove(&o->proxy_listener);
-
-	if (o->class && o->class->destroy)
-                o->class->destroy(o);
-
+	if (o->class != NULL) {
+		if (o->class->events)
+			spa_hook_remove(&o->object_listener);
+		if (o->class->destroy)
+	                o->class->destroy(o);
+	}
         o->proxy = NULL;
 }
 
@@ -1105,48 +1107,50 @@ static void registry_event_global(void *data, uint32_t id,
 {
 	struct data *d = data;
 	struct object *o;
-	const struct class *class;
-	struct pw_proxy *proxy;
-
-	class = find_class(type, version);
-	if (class == NULL)
-		return;
-
-	proxy = pw_registry_bind(d->registry,
-			id, type, class->version, 0);
-        if (proxy == NULL)
-		return;
 
 	o = calloc(1, sizeof(*o));
 	if (o == NULL) {
 		pw_log_error("can't alloc object for %u %s/%d: %m", id, type, version);
-		pw_proxy_destroy(proxy);
 		return;
 	}
+	o->data = d;
 	o->id = id;
 	o->permissions = permissions;
+	o->type = strdup(type);
 	o->version = version;
 	o->props = props ? pw_properties_new_dict(props) : NULL;
-	o->proxy = proxy;
 	spa_list_init(&o->param_list);
 	spa_list_init(&o->pending_list);
 
-	o->data = d;
-	o->class = class;
+	o->class = find_class(type, version);
+	if (o->class != NULL) {
+		o->proxy = pw_registry_bind(d->registry,
+				id, type, o->class->version, 0);
+		if (o->proxy == NULL)
+			goto bind_failed;
+
+		pw_proxy_add_listener(o->proxy,
+				&o->proxy_listener,
+				&proxy_events, o);
+
+		if (o->class->events)
+			pw_proxy_add_object_listener(o->proxy,
+					&o->object_listener,
+					o->class->events, o);
+		if (o->class->init)
+			o->class->init(o);
+	}
 	spa_list_append(&d->object_list, &o->link);
 
-	if (class->events)
-		pw_proxy_add_object_listener(proxy,
-				&o->object_listener,
-				o->class->events, o);
-	pw_proxy_add_listener(proxy,
-			&o->proxy_listener,
-			&proxy_events, o);
-
-	if (class->init)
-		class->init(o);
-
 	core_sync(d);
+	return;
+
+bind_failed:
+	pw_log_error("can't bind object for %u %s/%d: %m", id, type, version);
+	if (o->props)
+		pw_properties_free(o->props);
+	free(o);
+	return;
 }
 
 static void registry_event_global_remove(void *object, uint32_t id)
@@ -1225,11 +1229,13 @@ static void dump_objects(struct data *d)
 			continue;
 		put_begin(d, NULL, "{", 0);
 		put_int(d, "id", o->id);
-		put_value(d, "type", o->class->type);
+		put_value(d, "type", o->type);
 		put_int(d, "version", o->version);
 		put_flags(d, "permissions", o->permissions, fl);
-		if (o->class->dump)
+		if (o->class && o->class->dump)
 			o->class->dump(o);
+		else if (o->props)
+			put_dict(d, "props", &o->props->dict);
 		put_end(d, "}", 0);
 	}
 	put_end(d, "]\n", 0);

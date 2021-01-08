@@ -1074,8 +1074,7 @@ static snd_pcm_uframes_t
 push_frames(struct state *state,
 	    const snd_pcm_channel_area_t *my_areas,
 	    snd_pcm_uframes_t offset,
-	    snd_pcm_uframes_t frames,
-	    snd_pcm_uframes_t keep)
+	    snd_pcm_uframes_t frames)
 {
 	snd_pcm_uframes_t total_frames = 0;
 
@@ -1134,9 +1133,7 @@ push_frames(struct state *state,
 		}
 		spa_list_append(&state->ready, &b->link);
 	}
-	if (my_areas == NULL)
-		snd_pcm_rewind(state->hndl, keep);
-	return total_frames - keep;
+	return total_frames;
 }
 
 
@@ -1217,7 +1214,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		offset = 0;
 	}
 
-	read = push_frames(state, my_areas, offset, frames, state->delay);
+	read = push_frames(state, my_areas, offset, frames);
 
 	total_read += read;
 

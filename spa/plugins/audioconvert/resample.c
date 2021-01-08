@@ -802,11 +802,15 @@ static int impl_node_process(void *object)
 
 	switch (this->mode) {
 	case MODE_SPLIT:
+		/* in split mode we need to output exactly the size of the
+		 * duration so we don't try to flush early */
 		maxsize = SPA_MIN(maxsize, max * sizeof(float));
-		flush_out = flush_in = this->io_rate_match != NULL;
+		flush_out = false;
 		break;
 	case MODE_MERGE:
 	default:
+		/* in merge mode we consume one duration of samples and
+		 * always output the resulting data */
 		flush_out = true;
 		break;
 	}
@@ -873,11 +877,10 @@ static int impl_node_process(void *object)
 	}
 
 	if (this->io_rate_match) {
-		if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE)) {
+		if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
 			resample_update_rate(&this->resample, this->io_rate_match->rate);
-		} else {
+		else
 			resample_update_rate(&this->resample, 1.0);
-		}
 		this->io_rate_match->delay = resample_delay(&this->resample);
 		this->io_rate_match->size = resample_in_len(&this->resample, max);
 	}

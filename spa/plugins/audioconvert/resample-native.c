@@ -226,7 +226,7 @@ static void impl_native_process(struct resample *r,
 
 	if (SPA_LIKELY(hist)) {
 		/* first work on the history if any. */
-		if (SPA_UNLIKELY(hist < n_taps)) {
+		if (SPA_UNLIKELY(hist <= n_taps)) {
 			/* we need at least n_taps to completely process the
 			 * history before we can work on the new input. When
 			 * we have less, refill the history. */
@@ -265,7 +265,7 @@ static void impl_native_process(struct resample *r,
 				r, *in_len, in, *out_len, out);
 
 		remain = *in_len - skip - in;
-		if (remain > 0 && remain < n_taps) {
+		if (remain > 0 && remain <= n_taps) {
 			/* not enough input data remaining for more output,
 			 * copy to history */
 			for (c = 0; c < r->channels; c++)

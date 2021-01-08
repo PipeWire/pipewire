@@ -86,6 +86,8 @@ typedef struct {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
+	struct spa_io_rate_match *rate_match;
+
 	struct spa_audio_info_raw format;
 } snd_pcm_pipewire_t;
 
@@ -199,6 +201,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	} else {
 		nframes = d[0].chunk->size / pw->stride;
 	}
+	nframes = SPA_MIN(nframes, *hw_avail);
 
 	if (pw->blocks == 1) {
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -227,7 +230,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	if (io->state == SND_PCM_STATE_RUNNING ||
 		io->state == SND_PCM_STATE_DRAINING) {
 		snd_pcm_uframes_t hw_ptr = pw->hw_ptr;
-		xfer = SPA_MIN(nframes, *hw_avail);
+		xfer = nframes;
 		if (xfer > 0) {
 			const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
 			const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
@@ -303,6 +306,18 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	pw_stream_update_params(pw->stream, params, n_params);
 }
 
+static void on_stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	snd_pcm_pipewire_t *pw = data;
+	switch (id) {
+	case SPA_IO_RateMatch:
+		pw->rate_match = area;
+		break;
+	default:
+		break;
+	}
+}
+
 static void on_stream_process(void *data)
 {
 	snd_pcm_pipewire_t *pw = data;
@@ -320,6 +335,11 @@ static void on_stream_process(void *data)
 	b = pw_stream_dequeue_buffer(pw->stream);
 	if (b == NULL)
 		return;
+
+	if (pw->rate_match)
+		hw_avail = SPA_MIN(hw_avail, pw->rate_match->size);
+
+	pw_log_trace(NAME" %p: avail:%lu", pw, hw_avail);
 
 	snd_pcm_pipewire_process(pw, b, &hw_avail);
 
@@ -345,6 +365,7 @@ static void on_stream_drained(void *data)
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.param_changed = on_stream_param_changed,
+	.io_changed = on_stream_io_changed,
 	.process = on_stream_process,
 	.drained = on_stream_drained,
 };

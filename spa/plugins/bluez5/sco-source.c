@@ -339,6 +339,116 @@ static void msbc_buffer_append_byte(struct impl *this, uint8_t byte)
         ++this->msbc_buffer_pos;
 }
 
+/*
+   Helper function for easier debugging
+   Caveat: If size_read is not a multiple of 16, then the last bytes
+   will not be printed / logged
+*/
+static void hexdump_to_log(void *log, uint8_t *read_data, int size_read)
+{
+
+	int rowsize = 16*3;
+	int line_idx = 0;
+	char hexline[16*3] = "";
+	int i;
+	for (i = 0; i < size_read; ++i) {
+		snprintf(&hexline[line_idx], 4, "%02X ", read_data[i]);
+		line_idx += 3;
+		if (line_idx == rowsize) {
+			spa_log_trace(log, "Processing read data: read_data %02i: %s", i-15, hexline);
+			line_idx = 0;
+		}
+	}
+}
+
+/* helper function to detect if a packet consists only of zeros */
+static bool is_zero_packet(uint8_t *data, int size)
+{
+	for (int i = 0; i < size; ++i) {
+		if (data[i] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static void preprocess_and_decode_msbc_data(void *userdata, uint8_t *read_data, int size_read)
+{
+	struct impl *this = userdata;
+	struct port *port = &this->port;
+	struct spa_data *datas = port->current_buffer->buf->datas;
+
+	spa_log_trace(this->log, "handling mSBC data");
+
+	/* print hexdump of package  */
+	bool flag_hexdump_to_log = false;
+	if (flag_hexdump_to_log) {
+		hexdump_to_log(this->log, read_data, size_read);
+	}
+
+	/* check if the packet contains only zeros - if so ignore the packet.
+	   This is necessary, because some kernels insert bogus "all-zero" packets
+	   into the datastream.
+	   See https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/549 */
+	if (is_zero_packet(read_data, size_read)) {
+		return;
+	}
+
+	int i;
+	for (i = 0; i < size_read; ++i) {
+		msbc_buffer_append_byte(this, read_data[i]);
+
+		/* Handle found mSBC packets.
+		 *
+		 * XXX: if there's no space for the decoded audio in
+		 * XXX: the current buffer, we'll drop data.
+		 */
+		if (this->msbc_buffer_pos == MSBC_ENCODED_SIZE) {
+			spa_log_trace(this->log, "Received full mSBC packet, start processing it");
+
+			if (port->ready_offset + MSBC_DECODED_SIZE <= datas[0].maxsize) {
+				int seq, processed;
+				size_t written;
+				spa_log_trace(this->log,
+					"Output buffer has space, processing mSBC packet");
+
+				/* Check sequence number */
+				seq = ((this->msbc_buffer[1] >> 4) & 1) |
+				      ((this->msbc_buffer[1] >> 6) & 2);
+
+				spa_log_trace(this->log, "mSBC packet seq=%u", seq);
+				if (!this->msbc_seq_initialized) {
+					this->msbc_seq_initialized = true;
+					this->msbc_seq = seq;
+				} else if (seq != this->msbc_seq) {
+					spa_log_info(this->log,
+						"missing mSBC packet: %u != %u", seq, this->msbc_seq);
+					this->msbc_seq = seq;
+					/* TODO: Implement PLC. */
+				}
+				this->msbc_seq = (this->msbc_seq + 1) % 4;
+
+				/* decode frame */
+				processed = sbc_decode(
+					&this->msbc, this->msbc_buffer + 2, MSBC_ENCODED_SIZE - 3,
+					(uint8_t *)datas[0].data + port->ready_offset, MSBC_DECODED_SIZE,
+					&written);
+					
+				if (processed < 0) {
+					spa_log_warn(this->log, "sbc_decode failed: %d", processed);
+					/* TODO: manage errors */
+					continue;
+				}
+
+				port->ready_offset += written;
+
+			} else {
+				spa_log_warn(this->log, "Output buffer full, dropping mSBC packet");
+			}
+		}
+	}
+}
+
 static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 {
 	struct impl *this = userdata;
@@ -377,45 +487,8 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	spa_log_debug(this->log, "read socket data %d", size_read);
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		int i;
+		preprocess_and_decode_msbc_data(userdata, read_data, size_read);
 
-		for (i = 0; i < size_read; ++i) {
-			msbc_buffer_append_byte(this, read_data[i]);
-
-			/* Handle found mSBC packets.
-			 *
-			 * XXX: if there's no space for the decoded audio in
-			 * XXX: the current buffer, we'll drop data.
-			 */
-			if (this->msbc_buffer_pos == MSBC_ENCODED_SIZE &&
-			    port->ready_offset + MSBC_DECODED_SIZE <= datas[0].maxsize) {
-				int seq, processed;
-				size_t written;
-
-				/* Check sequence number */
-				seq = ((this->msbc_buffer[1] >> 4) & 1) | ((this->msbc_buffer[1] >> 6) & 2);
-				if (!this->msbc_seq_initialized) {
-					this->msbc_seq_initialized = true;
-					this->msbc_seq = seq;
-				} else if (seq != this->msbc_seq) {
-					spa_log_info(this->log, "missing mSBC packet: %u != %u", seq, this->msbc_seq);
-					this->msbc_seq = seq;
-					/* TODO: Implement PLC. */
-				}
-				this->msbc_seq = (this->msbc_seq + 1) % 4;
-
-				/* decode frame */
-				processed = sbc_decode(&this->msbc, this->msbc_buffer + 2, MSBC_ENCODED_SIZE - 3,
-						       (uint8_t *)datas[0].data + port->ready_offset, MSBC_DECODED_SIZE, &written);
-				if (processed < 0) {
-					spa_log_warn(this->log, "sbc_decode failed: %d", processed);
-					/* TODO: manage errors */
-					continue;
-				}
-
-				port->ready_offset += written;
-			}
-		}
 	} else {
 		uint8_t *packet;
 		packet = (uint8_t *)datas[0].data + port->ready_offset;

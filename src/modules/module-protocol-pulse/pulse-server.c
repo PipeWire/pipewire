@@ -165,6 +165,7 @@ struct stream {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
+	struct spa_io_rate_match *rate_match;
 	struct spa_ringbuffer ring;
 	void *buffer;
 
@@ -1025,7 +1026,7 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	spa_ringbuffer_init(&stream->ring);
 
-	lat.num = stream->attr.minreq * 2 / stream->frame_size;
+	lat.num = stream->attr.minreq / stream->frame_size;
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
@@ -1323,6 +1324,16 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	pw_stream_update_params(stream->stream, params, n_params);
 }
 
+static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct stream *stream = data;
+	switch (id) {
+	case SPA_IO_RateMatch:
+		stream->rate_match = area;
+		break;
+	}
+}
+
 struct process_data {
 	struct pw_time pwt;
 	uint32_t read_index;
@@ -1432,6 +1443,7 @@ static void stream_process(void *data)
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
 		minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
+		minreq = SPA_MIN(minreq, stream->rate_match->size * stream->frame_size);
 		if (avail <= 0) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
@@ -1520,6 +1532,7 @@ static const struct pw_stream_events stream_events =
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = stream_state_changed,
 	.param_changed = stream_param_changed,
+	.io_changed = stream_io_changed,
 	.process = stream_process,
 	.drained = stream_drained,
 };

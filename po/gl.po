@@ -5,8 +5,9 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-07 14:22+0100\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
+"issues/new\n"
+"POT-Creation-Date: 2021-01-08 10:06+0100\n"
 "PO-Revision-Date: 2021-01-07 14:23+0100\n"
 "Last-Translator: Fran Dieguez <frandieguez@gnome.org>\n"
 "Language-Team: Galician <proxecto@trasno.gal>\n"
@@ -17,10 +18,10 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
 "X-Generator: Gtranslator 3.38.0\n"
 
-#: ../src/daemon/pipewire.desktop.in.h:1
+#: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
 msgstr "Sistema multimedia PipeWire"
 
-#: ../src/daemon/pipewire.desktop.in.h:2
+#: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
 msgstr "Iniciar o Sistema multimedia PipeWire"

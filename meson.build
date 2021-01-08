@@ -357,6 +357,7 @@ installed_tests_execdir = join_paths(pipewire_libexecdir, 'installed-tests', pip
 installed_tests_enabled = get_option('installed_tests')
 installed_tests_template = files('template.test.in')
 
+subdir('po')
 subdir('spa')
 subdir('src')
 

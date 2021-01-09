@@ -249,7 +249,12 @@ static void bluez_device_event(void *data, const struct spa_event *event)
 
 	switch (type) {
 	case SPA_DEVICE_EVENT_ObjectConfig:
-		if (props)
+		/* FIXME, proxy might be NULL at this point until the
+		 * node proxy is created. We should probably do
+		 * pw_client_node_get_node() and perform the set_param on
+		 * that node proxy instead of waiting for the session manager
+		 * proxy. */
+		if (props != NULL && node->snode->obj.proxy != NULL)
 			pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
 				SPA_PARAM_Props, 0, props);
 		break;

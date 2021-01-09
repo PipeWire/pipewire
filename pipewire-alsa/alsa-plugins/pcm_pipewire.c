@@ -86,6 +86,7 @@ typedef struct {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
+	struct pw_time time;
 	struct spa_io_rate_match *rate_match;
 
 	struct spa_audio_info_raw format;
@@ -180,6 +181,28 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 #endif
 }
 
+static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delayp)
+{
+	snd_pcm_pipewire_t *pw = io->private_data;
+	int64_t elapsed = 0, filled;
+
+	if (pw->time.rate.num != 0) {
+		struct timespec ts;
+		int64_t diff;
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw->time.now;
+	        elapsed = (pw->time.rate.denom * diff) / (pw->time.rate.num * SPA_NSEC_PER_SEC);
+	}
+	filled = pw->time.delay + snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
+
+	if (io->stream == SND_PCM_STREAM_PLAYBACK)
+		*delayp = filled - SPA_MIN(elapsed, filled);
+	else
+		*delayp = filled + elapsed;
+
+	return 0;
+}
+
 static int
 snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uframes_t *hw_avail)
 {
@@ -257,7 +280,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	}
 	/* check if requested frames were copied */
 	if (xfer < nframes) {
-		/* always fill the not yet written JACK buffer with silence */
+		/* always fill the not yet written PipeWire buffer with silence */
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
 			const snd_pcm_uframes_t frames = nframes - xfer;
 
@@ -270,7 +293,6 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 			pw->xrun_detected = true;
 		}
 	}
-
 	return 0;
 }
 
@@ -324,6 +346,8 @@ static void on_stream_process(void *data)
 	snd_pcm_ioplug_t *io = &pw->io;
 	struct pw_buffer *b;
 	snd_pcm_uframes_t hw_avail;
+
+	pw_stream_get_time(pw->stream, &pw->time);
 
 	hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 
@@ -762,6 +786,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.stop = snd_pcm_pipewire_stop,
 	.pause = snd_pcm_pipewire_pause,
 	.pointer = snd_pcm_pipewire_pointer,
+	.delay = snd_pcm_pipewire_delay,
 	.drain = snd_pcm_pipewire_drain,
 	.prepare = snd_pcm_pipewire_prepare,
 	.poll_revents = snd_pcm_pipewire_poll_revents,

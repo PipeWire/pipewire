@@ -196,6 +196,8 @@ static int load_module(struct client *client, const char *name, const char *argu
 						channel_id2name(map.map[i]));
 			pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 			pw_properties_set(props, "channel_map", NULL);
+		} else if (pw_properties_get(props, SPA_KEY_AUDIO_POSITION) == NULL) {
+			pw_properties_set(props, SPA_KEY_AUDIO_POSITION, "FL,FR");
 		}
 		if ((str = pw_properties_get(props, "device.description")) != NULL) {
 			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);

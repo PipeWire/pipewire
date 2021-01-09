@@ -140,3 +140,6 @@ option('pw-cat',
 option('udevrulesdir',
        type : 'string',
        description : 'Directory for udev rules (defaults to /lib/udev/rules.d)')
+option('systemd-user-unit-dir',
+       type : 'string',
+       description : 'Directory for user systemd units (defaults to /usr/lib/systemd/user)')

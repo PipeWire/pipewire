@@ -240,7 +240,6 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	unsigned int gain;
 	unsigned int selected_codec;
 
-
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
 
 		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
@@ -263,6 +262,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 					features);
 				/* Prepare reply: Audio Gateway (=computer) supports codec negotiation */
 				rfcomm->codec_negotiation_supported = true;
+				rfcomm->msbc_supported_by_hfp = false;
 			} else {
 				/* Codec negotiation not supported */
 				spa_log_debug(backend->log,
@@ -316,17 +316,17 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		rfcomm_send_reply(source, "OK");
 
 		/* switch codec to mSBC by sending unsolicited +BCS message */
-		if (rfcomm->msbc_supported_by_hfp) {
+		if (rfcomm->codec_negotiation_supported && rfcomm->msbc_supported_by_hfp) {
 			spa_log_debug(backend->log, NAME": RFCOMM switching codec to mSBC");
 			rfcomm_send_reply(source, "+BCS: 2");
+		} else {
+			rfcomm->transport = _transport_create(rfcomm);
+			if (rfcomm->transport == NULL) {
+				spa_log_warn(backend->log, NAME": can't create transport: %m");
+				// TODO: We should manage the missing transport
+			}
+			spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 		}
-
-		rfcomm->transport = _transport_create(rfcomm);
-		if (rfcomm->transport == NULL) {
-			spa_log_warn(backend->log, NAME": can't create transport: %m");
-			// TODO: We should manage the missing transport
-		}
-		spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 
 	} else if (!rfcomm->slc_configured) {
 		spa_log_warn(backend->log, NAME": RFCOMM receive command before SLC completed: %s", buf);
@@ -334,10 +334,24 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		return false;
 	} else if (sscanf(buf, "AT+BCS=%u", &selected_codec) == 1) {
 		/* parse BCS(=Bluetooth Codec Selection) reply */
-		if (selected_codec == HFP_AUDIO_CODEC_MSBC) {
-			spa_log_debug(backend->log,
-				NAME": RFCOMM selected_codec = %i, mSBC codec successfully negotiated", selected_codec);
-			rfcomm->transport->codec = HFP_AUDIO_CODEC_MSBC;
+		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
+			spa_log_warn(backend->log, NAME": unsupported codec negociation: %d", selected_codec);
+			rfcomm_send_reply(source, "ERROR");
+			return true;
+		}
+
+		spa_log_debug(backend->log, NAME": RFCOMM selected_codec = %i", selected_codec);
+		if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
+			if (rfcomm->transport)
+				spa_bt_transport_free(rfcomm->transport);
+
+			rfcomm->transport = _transport_create(rfcomm);
+			if (rfcomm->transport == NULL) {
+				spa_log_warn(backend->log, NAME": can't create transport: %m");
+				// TODO: We should manage the missing transport
+			}
+			rfcomm->transport->codec = selected_codec;
+			spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 		}
 		rfcomm_send_reply(source, "OK");
 	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
@@ -433,7 +447,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	bdaddr_t dst;
 	const char *src_addr, *dst_addr;
 
- 	spa_log_debug(backend->log, NAME": transport %p: enter sco_do_connect", t);
+	spa_log_debug(backend->log, NAME": transport %p: enter sco_do_connect", t);
 
 	if (d->adapter == NULL)
 		return -EIO;

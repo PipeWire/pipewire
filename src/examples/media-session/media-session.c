@@ -317,13 +317,13 @@ int sm_object_destroy(struct sm_object *obj)
 		spa_list_remove(&d->link);
 		free(d);
 	}
-	if (p)
-		pw_proxy_unref(p);
-	if (h)
-		pw_proxy_unref(h);
 
 	obj->proxy = NULL;
 	obj->handle = NULL;
+	if (p)
+		pw_proxy_unref(p);
+	if (h)
+		pw_proxy_unref(h);  /* may free obj, if from init_object */
 
 	return 0;
 }

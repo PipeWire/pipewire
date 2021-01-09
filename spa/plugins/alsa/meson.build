@@ -42,7 +42,7 @@ executable('test-timer',
   install : false,
 )
 
-if libudev_dep.found()
+if get_option('udev') and libudev_dep.found()
   install_data(alsa_udevrules,
     install_dir : udevrulesdir,
   )

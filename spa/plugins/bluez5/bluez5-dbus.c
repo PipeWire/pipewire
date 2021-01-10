@@ -399,9 +399,9 @@ static void device_free(struct spa_bt_device *device)
 static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
 {
 	struct spa_device_object_info info;
-	char dev[32];
+	char dev[32], name[128], class[16];
 	struct spa_dict_item items[20];
-        uint32_t n_items = 0;
+	uint32_t n_items = 0;
 
 	if (device->added)
 		return 0;
@@ -415,18 +415,25 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "bluez5");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, device->name);
+	snprintf(name, sizeof(name), "bluez_card.%s", device->address);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_DESCRIPTION, device->name);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ALIAS, device->alias);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, device->icon);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR,
+			spa_bt_form_factor_name(
+				spa_bt_form_factor_from_class(device->bluetooth_class)));
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 	snprintf(dev, sizeof(dev), "pointer:%p", device);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_DEVICE, dev);
+	snprintf(class, sizeof(class), "0x%06x", device->bluetooth_class);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CLASS, class);
 
 	info.props = &SPA_DICT_INIT(items, n_items);
 
 	device->added = true;
-        spa_device_emit_object_info(&monitor->hooks, device->id, &info);
+	spa_device_emit_object_info(&monitor->hooks, device->id, &info);
 
 	return 0;
 }

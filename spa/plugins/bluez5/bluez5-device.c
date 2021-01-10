@@ -110,8 +110,9 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		uint32_t id, const char *factory_name)
 {
+	struct spa_bt_device *device = this->bt_dev;
 	struct spa_device_object_info info;
-	struct spa_dict_item items[4];
+	struct spa_dict_item items[5];
 	char transport[32], str_id[32];
 
 	snprintf(transport, sizeof(transport), "pointer:%p", t);
@@ -121,6 +122,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 			t->a2dp_codec ? t->a2dp_codec->name : "unknown");
 	snprintf(str_id, sizeof(str_id), "%d", id);
 	items[3] = SPA_DICT_ITEM_INIT("card.profile.device", str_id);
+	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -322,15 +324,18 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	{
 		uint32_t profile = device->connected_profiles &
 		      (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE);
-		name = "A2DP";
-		if (profile == 0)
+		if (profile == 0) {
 			return NULL;
-		else if (profile == SPA_BT_PROFILE_A2DP_SINK)
+		} else if (profile == SPA_BT_PROFILE_A2DP_SINK) {
 			desc = "High Fidelity Playback (A2DP Sink)";
-		else if (profile == SPA_BT_PROFILE_A2DP_SOURCE)
+			name = "a2dp-sink";
+		} else if (profile == SPA_BT_PROFILE_A2DP_SOURCE) {
 			desc = "High Fidelity Capture (A2DP Source)";
-		else
+			name = "a2dp-source";
+		} else {
 			desc = "High Fidelity Duplex (A2DP Source/Sink)";
+			name = "a2dp-duplex";
+		}
 		if (profile & SPA_BT_PROFILE_A2DP_SOURCE)
 			n_source++;
 		if (profile & SPA_BT_PROFILE_A2DP_SINK)
@@ -341,15 +346,18 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	{
 		uint32_t profile = device->connected_profiles &
 		      (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
-		name = "HSP/HFP";
-		if (profile == 0)
+		if (profile == 0) {
 			return NULL;
-		else if (profile == SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+		} else if (profile == SPA_BT_PROFILE_HEADSET_HEAD_UNIT) {
 			desc = "Headset Head Unit (HSP/HFP)";
-		else if (profile == SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
+			name = "headset-head-unit";
+		} else if (profile == SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) {
 			desc = "Headset Audio Gateway (HSP/HFP)";
-		else
+			name = "headset-audio-gateway";
+		} else {
 			desc = "Headset Audio (HSP/HFP)";
+			name = "headset-audio";
+		}
 		n_source++;
 		n_sink++;
 		break;
@@ -386,22 +394,79 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		uint32_t id, uint32_t port, uint32_t dev, uint32_t profile)
 {
+	struct spa_bt_device *device = this->bt_dev;
 	struct spa_pod_frame f[2];
 	enum spa_direction direction;
-	const char *name, *description;
+	const char *name_prefix, *description, *port_type;
 	enum spa_param_availability available;
+	enum spa_bt_form_factor ff;
+	char name[128];
 	uint32_t i;
+
+	ff = spa_bt_form_factor_from_class(device->bluetooth_class);
+
+	switch (ff) {
+	case SPA_BT_FORM_FACTOR_HEADSET:
+		name_prefix = "headset";
+		description = "Headset";
+		port_type = "headset";
+		break;
+	case SPA_BT_FORM_FACTOR_HANDSFREE:
+		name_prefix = "handsfree";
+		description = "Handsfree";
+		port_type = "handsfree";
+		break;
+	case SPA_BT_FORM_FACTOR_MICROPHONE:
+		name_prefix = "microphone";
+		description = "Microphone";
+		port_type = "mic";
+		break;
+	case SPA_BT_FORM_FACTOR_SPEAKER:
+		name_prefix = "speaker";
+		description = "Speaker";
+		port_type = "speaker";
+		break;
+	case SPA_BT_FORM_FACTOR_HEADPHONE:
+		name_prefix = "headphone";
+		description = "Headphone";
+		port_type = "headphones";
+		break;
+	case SPA_BT_FORM_FACTOR_PORTABLE:
+		name_prefix = "portable";
+		description = "Portable";
+		port_type = "portable";
+		break;
+	case SPA_BT_FORM_FACTOR_CAR:
+		name_prefix = "car";
+		description = "Car";
+		port_type = "car";
+		break;
+	case SPA_BT_FORM_FACTOR_HIFI:
+		name_prefix = "hifi";
+		description = "HiFi";
+		port_type = "hifi";
+		break;
+	case SPA_BT_FORM_FACTOR_PHONE:
+		name_prefix = "phone";
+		description = "Phone";
+		port_type = "phone";
+		break;
+	case SPA_BT_FORM_FACTOR_UNKNOWN:
+	default:
+		name_prefix = "bluetooth";
+		description = "Bluetooth";
+		port_type = "bluetooth";
+		break;
+	}
 
 	switch (port) {
 	case 0:
 		direction = SPA_DIRECTION_INPUT;
-		name = "bluetooth-input";
-		description = "Bluetooth input";
+		snprintf(name, sizeof(name), "%s-input", name_prefix);
 		break;
 	case 1:
 		direction = SPA_DIRECTION_OUTPUT;
-		name = "bluetooth-output";
-		description = "Bluetooth Output";
+		snprintf(name, sizeof(name), "%s-output", name_prefix);
 		break;
 	default:
 		errno = -EINVAL;
@@ -422,6 +487,14 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		SPA_PARAM_ROUTE_priority,  SPA_POD_Int(0),
 		SPA_PARAM_ROUTE_available,  SPA_POD_Id(available),
 		0);
+	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_info, 0);
+	spa_pod_builder_push_struct(b, &f[1]);
+	spa_pod_builder_int(b, 1);
+	spa_pod_builder_add(b,
+			SPA_POD_String("port.type"),
+			SPA_POD_String(port_type),
+			NULL);
+	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
 	for (i = 0; i < 3; i++) {

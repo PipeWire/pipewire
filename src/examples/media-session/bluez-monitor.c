@@ -37,6 +37,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/keys.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/param/props.h>
@@ -126,7 +127,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	struct pw_context *context = impl->session->context;
 	struct pw_impl_factory *factory;
 	int res;
-	const char *str;
+	const char *prefix, *str, *profile;
 
 	pw_log_debug("new node %u", id);
 
@@ -153,8 +154,23 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		str = "bluetooth-device";
 
 	pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", device->device_id);
-	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
 	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
+
+	profile = pw_properties_get(node->props, SPA_KEY_API_BLUEZ5_PROFILE);
+	if (profile == NULL)
+		profile = "unknown";
+	str = pw_properties_get(node->props, SPA_KEY_API_BLUEZ5_ADDRESS);
+	if (str == NULL)
+		str = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME);
+
+	if (strstr(info->factory_name, "sink") != NULL)
+		prefix = "bluez_sink";
+	else if (strstr(info->factory_name, "source") != NULL)
+		prefix = "bluez_source";
+	else
+		prefix = info->factory_name;
+
+	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s.%s", prefix, str, profile);
 	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
 	node->impl = impl;

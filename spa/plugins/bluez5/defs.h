@@ -216,6 +216,80 @@ struct spa_bt_adapter {
 	unsigned int application_registered:1;
 };
 
+enum spa_bt_form_factor {
+	SPA_BT_FORM_FACTOR_UNKNOWN,
+	SPA_BT_FORM_FACTOR_HEADSET,
+	SPA_BT_FORM_FACTOR_HANDSFREE,
+	SPA_BT_FORM_FACTOR_MICROPHONE,
+	SPA_BT_FORM_FACTOR_SPEAKER,
+	SPA_BT_FORM_FACTOR_HEADPHONE,
+	SPA_BT_FORM_FACTOR_PORTABLE,
+	SPA_BT_FORM_FACTOR_CAR,
+	SPA_BT_FORM_FACTOR_HIFI,
+	SPA_BT_FORM_FACTOR_PHONE,
+};
+
+static inline const char *spa_bt_form_factor_name(enum spa_bt_form_factor ff)
+{
+	switch (ff) {
+	case SPA_BT_FORM_FACTOR_HEADSET:
+		return "headset";
+	case SPA_BT_FORM_FACTOR_HANDSFREE:
+		return "hands-free";
+	case SPA_BT_FORM_FACTOR_MICROPHONE:
+		return "microphone";
+	case SPA_BT_FORM_FACTOR_SPEAKER:
+		return "speaker";
+	case SPA_BT_FORM_FACTOR_HEADPHONE:
+		return "headphone";
+	case SPA_BT_FORM_FACTOR_PORTABLE:
+		return "portable";
+	case SPA_BT_FORM_FACTOR_CAR:
+		return "car";
+	case SPA_BT_FORM_FACTOR_HIFI:
+		return "hifi";
+	case SPA_BT_FORM_FACTOR_PHONE:
+		return "phone";
+	case SPA_BT_FORM_FACTOR_UNKNOWN:
+	default:
+		return "unknown";
+	}
+}
+
+static inline enum spa_bt_form_factor spa_bt_form_factor_from_class(uint32_t bluetooth_class)
+{
+	uint32_t major, minor;
+	/* See Bluetooth Assigned Numbers:
+	 * https://www.bluetooth.org/Technical/AssignedNumbers/baseband.htm */
+	major = (bluetooth_class >> 8) & 0x1F;
+	minor = (bluetooth_class >> 2) & 0x3F;
+
+	switch (major) {
+	case 2:
+		return SPA_BT_FORM_FACTOR_PHONE;
+	case 4:
+		switch (minor) {
+		case 1:
+			return SPA_BT_FORM_FACTOR_HEADSET;
+		case 2:
+			return SPA_BT_FORM_FACTOR_HANDSFREE;
+		case 4:
+			return SPA_BT_FORM_FACTOR_MICROPHONE;
+		case 5:
+			return SPA_BT_FORM_FACTOR_SPEAKER;
+		case 6:
+			return SPA_BT_FORM_FACTOR_HEADPHONE;
+		case 7:
+			return SPA_BT_FORM_FACTOR_PORTABLE;
+		case 8:
+			return SPA_BT_FORM_FACTOR_CAR;
+		case 10:
+			return SPA_BT_FORM_FACTOR_HIFI;
+		}
+	}
+	return SPA_BT_FORM_FACTOR_UNKNOWN;
+}
+
 struct spa_bt_device {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;

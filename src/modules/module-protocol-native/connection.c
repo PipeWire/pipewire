@@ -63,12 +63,21 @@ struct buffer {
 	struct pw_protocol_native_message msg;
 };
 
+struct reenter_item {
+	void *old_buffer_data;
+	struct pw_protocol_native_message return_msg;
+	struct spa_list link;
+};
+
 struct impl {
 	struct pw_protocol_native_connection this;
 	struct pw_context *context;
 
 	struct buffer in, out;
 	struct spa_pod_builder builder;
+
+	struct spa_list reenter_stack;
+	uint32_t pending_reentering;
 
 	uint32_t version;
 	size_t hdr_size;
@@ -225,6 +234,116 @@ static void clear_buffer(struct buffer *buf, bool fds)
 	buf->fds_offset = 0;
 }
 
+/** Prepare connection for calling from reentered context.
+ *
+ * This ensures that message buffers returned by get_next are not invalidated by additional
+ * calls made after enter. Leave invalidates the buffers at the higher stack level.
+ *
+ * \memberof pw_protocol_native_connection
+ */
+void pw_protocol_native_connection_enter(struct pw_protocol_native_connection *conn)
+{
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+
+	/* Postpone processing until get_next is actually called */
+	++impl->pending_reentering;
+}
+
+static void pop_reenter_stack(struct impl *impl, uint32_t count)
+{
+	while (count > 0) {
+		struct reenter_item *item;
+
+		item = spa_list_last(&impl->reenter_stack, struct reenter_item, link);
+		spa_list_remove(&item->link);
+
+		free(item->return_msg.fds);
+		free(item->old_buffer_data);
+		free(item);
+
+		--count;
+	}
+}
+
+void pw_protocol_native_connection_leave(struct pw_protocol_native_connection *conn)
+{
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+
+	if (impl->pending_reentering > 0) {
+		--impl->pending_reentering;
+	} else {
+		pw_log_trace("connection %p: reenter: pop", impl);
+		pop_reenter_stack(impl, 1);
+	}
+}
+
+static int ensure_stack_level(struct impl *impl, struct pw_protocol_native_message **msg)
+{
+	void *data;
+	struct buffer *buf = &impl->in;
+	struct reenter_item *item, *new_item;
+
+	item = spa_list_last(&impl->reenter_stack, struct reenter_item, link);
+
+	if (SPA_LIKELY(impl->pending_reentering == 0)) {
+		new_item = item;
+	} else {
+		uint32_t new_count;
+
+		pw_log_trace("connection %p: reenter: push %d levels",
+		             impl, impl->pending_reentering);
+
+		/* Append empty item(s) to the reenter stack */
+		for (new_count = 0; new_count < impl->pending_reentering; ++new_count) {
+			new_item = calloc(1, sizeof(struct reenter_item));
+			if (new_item == NULL) {
+				pop_reenter_stack(impl, new_count);
+				return -ENOMEM;
+			}
+			spa_list_append(&impl->reenter_stack, &new_item->link);
+		}
+
+		/*
+		 * Stack level increased: we have to switch to a new message data buffer, because
+		 * data of returned messages is contained in the buffer and might still be in
+		 * use on the lower stack levels.
+		 *
+		 * We stash the buffer for the previous stack level, and allocate a new one for
+		 * the new stack level.  If there was a previous buffer for the previous level, we
+		 * know its contents are no longer in use (the only active buffer at that stack
+		 * level is buf->buffer_data), and we can recycle it as the new buffer (realloc
+		 * instead of calloc).
+		 *
+		 * The current data contained in the buffer needs to be copied to the new buffer.
+		 */
+
+		data = realloc(item->old_buffer_data, buf->buffer_maxsize);
+		if (data == NULL) {
+			pop_reenter_stack(impl, new_count);
+			return -ENOMEM;
+		}
+
+		item->old_buffer_data = buf->buffer_data;
+
+		memcpy(data, buf->buffer_data, buf->buffer_size);
+		buf->buffer_data = data;
+
+		impl->pending_reentering = 0;
+	}
+
+	/* Ensure fds buffer is allocated */
+	if (SPA_UNLIKELY(new_item->return_msg.fds == NULL)) {
+		data = calloc(MAX_FDS, sizeof(int));
+		if (data == NULL)
+			return -ENOMEM;
+		new_item->return_msg.fds = data;
+	}
+
+	*msg = &new_item->return_msg;
+
+	return 0;
+}
+
 /** Make a new connection object for the given socket
  *
  * \param fd the socket
@@ -236,6 +355,7 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 {
 	struct impl *impl;
 	struct pw_protocol_native_connection *this;
+	struct reenter_item *reenter_item;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -259,14 +379,20 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 	impl->in.buffer_data = calloc(1, MAX_BUFFER_SIZE);
 	impl->in.buffer_maxsize = MAX_BUFFER_SIZE;
 
-	if (impl->out.buffer_data == NULL || impl->in.buffer_data == NULL)
+	reenter_item = calloc(1, sizeof(struct reenter_item));
+
+	if (impl->out.buffer_data == NULL || impl->in.buffer_data == NULL || reenter_item == NULL)
 		goto no_mem;
+
+	spa_list_init(&impl->reenter_stack);
+	spa_list_append(&impl->reenter_stack, &reenter_item->link);
 
 	return this;
 
 no_mem:
 	free(impl->out.buffer_data);
 	free(impl->in.buffer_data);
+	free(reenter_item);
 	free(impl);
 	return NULL;
 }
@@ -298,6 +424,10 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 	clear_buffer(&impl->in, true);
 	free(impl->out.buffer_data);
 	free(impl->in.buffer_data);
+
+	while (!spa_list_is_empty(&impl->reenter_stack))
+		pop_reenter_stack(impl, 1);
+
 	free(impl);
 }
 
@@ -381,6 +511,11 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	int len, res;
 	struct buffer *buf;
+	struct pw_protocol_native_message *return_msg;
+	int *fds;
+
+	if ((res = ensure_stack_level(impl, &return_msg)) < 0)
+		return res;
 
 	buf = &impl->in;
 
@@ -396,7 +531,17 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 		if ((res = refill_buffer(conn, buf)) < 0)
 			return res;
 	}
-	*msg = &buf->msg;
+
+	/* Returned msg struct should be safe vs. reentering */
+	fds = return_msg->fds;
+	*return_msg = buf->msg;
+	if (buf->msg.n_fds > 0) {
+		memcpy(fds, buf->msg.fds, buf->msg.n_fds * sizeof(int));
+	}
+	return_msg->fds = fds;
+
+	*msg = return_msg;
+
 	return 1;
 }
 

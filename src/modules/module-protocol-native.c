@@ -230,7 +230,10 @@ process_messages(struct client_data *data)
 			continue;
 		}
 
-		if ((res = demarshal[msg->opcode].func(resource, msg)) < 0)
+		pw_protocol_native_connection_enter(conn);
+		res = demarshal[msg->opcode].func(resource, msg);
+		pw_protocol_native_connection_leave(conn);
+		if (res < 0)
 			goto invalid_message;
 	}
 	res = 0;
@@ -759,7 +762,9 @@ process_remote(struct client *impl)
 			continue;
 		}
 		proxy->refcount++;
+		pw_protocol_native_connection_enter(conn);
 		res = demarshal[msg->opcode].func(proxy, msg);
+		pw_protocol_native_connection_leave(conn);
 		pw_proxy_unref(proxy);
 
 		if (res < 0) {

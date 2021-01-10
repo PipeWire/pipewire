@@ -99,6 +99,9 @@ pw_protocol_native_connection_flush(struct pw_protocol_native_connection *conn);
 int
 pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn);
 
+void pw_protocol_native_connection_enter(struct pw_protocol_native_connection *conn);
+void pw_protocol_native_connection_leave(struct pw_protocol_native_connection *conn);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

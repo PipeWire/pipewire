@@ -102,7 +102,7 @@ static int registry_destroy(void *object, uint32_t id)
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
 
-	if (!PW_PERM_IS_X(permissions))
+	if (id == PW_ID_CORE || !PW_PERM_IS_X(permissions))
 		goto error_not_allowed;
 
 	pw_log_debug("global %p: destroy global id %d", global, id);
@@ -112,10 +112,12 @@ static int registry_destroy(void *object, uint32_t id)
 
 error_no_id:
 	pw_log_debug("registry %p: no global with id %u to destroy", resource, id);
+	pw_resource_errorf(resource, -ENOENT, "no global %u", id);
 	res = -ENOENT;
 	goto error_exit;
 error_not_allowed:
 	pw_log_debug("registry %p: destroy of id %u not allowed", resource, id);
+	pw_resource_errorf(resource, -EPERM, "no permission to destroy %u", id);
 	res = -EPERM;
 	goto error_exit;
 error_exit:

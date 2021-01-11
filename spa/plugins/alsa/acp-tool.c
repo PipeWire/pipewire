@@ -406,7 +406,7 @@ static int cmd_set_volume(struct data *data, const struct command *cmd, int argc
 		return -EINVAL;
 	}
 	dev_id = atoi(argv[1]);
-	vol = atof(argv[1]);
+	vol = atof(argv[2]);
 
 	if (dev_id >= card->n_devices)
 		return -EINVAL;

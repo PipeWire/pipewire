@@ -1905,6 +1905,7 @@ static void profile_finalize_probing(pa_alsa_profile *p) {
         if (!m->output_pcm)
             continue;
 
+        pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
         snd_pcm_close(m->output_pcm);
         m->output_pcm = NULL;
     }
@@ -1916,6 +1917,7 @@ static void profile_finalize_probing(pa_alsa_profile *p) {
         if (!m->input_pcm)
             continue;
 
+        pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
         snd_pcm_close(m->input_pcm);
         m->input_pcm = NULL;
     }

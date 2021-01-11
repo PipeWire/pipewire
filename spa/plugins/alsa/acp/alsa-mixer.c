@@ -4938,12 +4938,13 @@ pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel
 
     items[0].data = &ps->auto_profiles;
 
-    if (!fname)
-        fname = "default.conf";
-
-    fn = pa_maybe_prefix_path(fname,
+    fn = pa_maybe_prefix_path(fname ? fname : "default.conf",
 		    get_default_profile_dir());
-
+    if (access(fn, R_OK) != 0 && fname != NULL) {
+	pa_log_error("profile-set '%s' can't be accessed, trying default.conf", fn);
+        fn = pa_maybe_prefix_path("default.conf",
+			    get_default_profile_dir());
+    }
     r = pa_config_parse(fn, NULL, items, NULL, false, ps);
     pa_xfree(fn);
 

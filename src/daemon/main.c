@@ -269,7 +269,7 @@ static int do_exec(struct data *d, const char *key, const char *args)
 	if (pid == 0) {
 		char *cmd, **argv;
 
-		cmd = spa_aprintf("%s %s", key, args);
+		cmd = spa_aprintf("%s %s", key, args ? args : "");
 		argv = pw_split_strv(cmd, " \t", INT_MAX, &n_args);
 		free(cmd);
 

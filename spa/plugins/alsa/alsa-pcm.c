@@ -780,12 +780,10 @@ recover:
 	state->alsa_recovering = true;
 	state->alsa_started = false;
 
-	if (state->stream == SND_PCM_STREAM_CAPTURE) {
-		do_start(state);
-	} else {
+	if (state->stream == SND_PCM_STREAM_PLAYBACK)
 		spa_alsa_silence(state, state->threshold * 2);
-	}
-	return 0;
+
+	return do_start(state);
 }
 
 static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_uframes_t *target)
@@ -1445,11 +1443,11 @@ int spa_alsa_start(struct state *state)
 	state->alsa_recovering = false;
 	state->alsa_started = false;
 
-	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+	if (state->stream == SND_PCM_STREAM_PLAYBACK)
 		spa_alsa_silence(state, state->threshold * 2);
-	} else {
-		do_start(state);
-	}
+
+	if ((err = do_start(state)) < 0)
+		return err;
 
 	set_timers(state);
 

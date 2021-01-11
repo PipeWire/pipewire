@@ -72,6 +72,8 @@ struct data {
 #define STATE_MASK	0xffff0000
 #define STATE_SIMPLE	(1<<16)
 	uint32_t state;
+
+	unsigned int monitor:1;
 };
 
 struct param {
@@ -1170,6 +1172,38 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+static void dump_objects(struct data *d)
+{
+	struct object *o;
+	struct flags_info fl[] = {
+		{ "r", PW_PERM_R },
+		{ "w", PW_PERM_W },
+		{ "x", PW_PERM_X },
+		{ "m", PW_PERM_M },
+		{ NULL, },
+	};
+	d->state = STATE_FIRST;
+	put_begin(d, NULL, "[", 0);
+	spa_list_for_each(o, &d->object_list, link) {
+		if (d->id != SPA_ID_INVALID && d->id != o->id)
+			continue;
+		if (o->changed == 0)
+			continue;
+		put_begin(d, NULL, "{", 0);
+		put_int(d, "id", o->id);
+		put_value(d, "type", o->type);
+		put_int(d, "version", o->version);
+		put_flags(d, "permissions", o->permissions, fl);
+		if (o->class && o->class->dump)
+			o->class->dump(o);
+		else if (o->props)
+			put_dict(d, "props", &o->props->dict);
+		put_end(d, "}", 0);
+		o->changed = 0;
+	}
+	put_end(d, "]\n", 0);
+}
+
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
 	struct data *d = data;
@@ -1201,7 +1235,9 @@ static void on_core_done(void *data, uint32_t id, int seq)
 		spa_list_for_each(o, &d->object_list, link)
 			object_update_params(o);
 
-		pw_main_loop_quit(d->loop);
+		dump_objects(d);
+		if (!d->monitor)
+			pw_main_loop_quit(d->loop);
 	}
 }
 
@@ -1211,35 +1247,6 @@ static const struct pw_core_events core_events = {
 	.info = on_core_info,
 	.error = on_core_error,
 };
-
-static void dump_objects(struct data *d)
-{
-	struct object *o;
-	struct flags_info fl[] = {
-		{ "r", PW_PERM_R },
-		{ "w", PW_PERM_W },
-		{ "x", PW_PERM_X },
-		{ "m", PW_PERM_M },
-		{ NULL, },
-	};
-	d->state = STATE_FIRST;
-	put_begin(d, NULL, "[", 0);
-	spa_list_for_each(o, &d->object_list, link) {
-		if (d->id != SPA_ID_INVALID && d->id != o->id)
-			continue;
-		put_begin(d, NULL, "{", 0);
-		put_int(d, "id", o->id);
-		put_value(d, "type", o->type);
-		put_int(d, "version", o->version);
-		put_flags(d, "permissions", o->permissions, fl);
-		if (o->class && o->class->dump)
-			o->class->dump(o);
-		else if (o->props)
-			put_dict(d, "props", &o->props->dict);
-		put_end(d, "}", 0);
-	}
-	put_end(d, "]\n", 0);
-}
 
 static void do_quit(void *data, int signal_number)
 {
@@ -1252,7 +1259,8 @@ static void show_help(struct data *data, const char *name)
         fprintf(stdout, "%s [options] [<id>]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
-		"  -r, --remote                          Remote daemon name\n",
+		"  -r, --remote                          Remote daemon name\n"
+		"  -m, --monitor                         monitor changes\n",
 		name);
 }
 
@@ -1265,13 +1273,14 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "remote",	required_argument,	NULL, 'r' },
+		{ "monitor",	no_argument,		NULL, 'm' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:m", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0]);
@@ -1286,6 +1295,9 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'r' :
 			opt_remote = optarg;
+			break;
+		case 'm' :
+			data.monitor = true;
 			break;
 		default:
 			show_help(&data, argv[0]);
@@ -1340,7 +1352,6 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	dump_objects(&data);
 
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
 	pw_context_destroy(data.context);

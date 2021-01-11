@@ -38,6 +38,7 @@
 struct data {
 	int verbose;
 	int card_index;
+	char *properties;
 	struct acp_card *card;
 	bool quit;
 };
@@ -599,7 +600,7 @@ static int handle_input(struct data *data)
 static int do_probe(struct data *data)
 {
 	uint32_t n_items = 0;
-	struct acp_dict_item items[2];
+	struct acp_dict_item items[64];
 	struct acp_dict props;
 
 	acp_set_log_func(log_func, data);
@@ -607,6 +608,35 @@ static int do_probe(struct data *data)
 
 	items[n_items++] = ACP_DICT_ITEM_INIT("use-ucm", "true");
 	items[n_items++] = ACP_DICT_ITEM_INIT("verbose", data->verbose ? "true" : "false");
+	if (data->properties != NULL) {
+		char *p = data->properties, *e, f;
+
+		while (*p) {
+			const char *k, *v;
+
+			if ((e = strchr(p, '=')) == NULL)
+				break;
+			*e = '\0';
+			k = p;
+			p = e+1;
+
+			if (*p == '\"') {
+				p++;
+				f = '\"';
+			} else {
+				f = ' ';
+			}
+			if ((e = strchr(p, f)) == NULL &&
+			    (e = strchr(p, '\0')) == NULL)
+				break;
+			*e = '\0';
+			v = p;
+			p = e+1;
+			items[n_items++] = ACP_DICT_ITEM_INIT(k, v);
+			if (n_items == 64)
+				break;
+		}
+	}
 	props = ACP_DICT_INIT(items, n_items);
 
 	data->card = acp_card_new(data->card_index, &props);
@@ -663,12 +693,13 @@ static int do_prompt(struct data *data)
 	return 0;
 }
 
-#define OPTIONS		"hvc:"
+#define OPTIONS		"hvc:p:"
 static const struct option long_options[] = {
 	{ "help",	no_argument,		NULL, 'h'},
 	{ "verbose",	no_argument,		NULL, 'v'},
 
 	{ "card",	required_argument,	NULL, 'c' },
+	{ "properties",	required_argument,	NULL, 'p' },
 
         { NULL, 0, NULL, 0 }
 };
@@ -684,6 +715,8 @@ static void show_usage(struct data *data, const char *name, bool is_error)
 		"  -h, --help                            Show this help\n"
 		"  -v  --verbose                         Be verbose\n"
 		"  -c  --card                            Card number\n"
+		"  -p  --properties                      Extra properties:\n"
+		"                                         'key=value ... '\n"
 		"\n");
 	cmd_help(data, NULL, 0, NULL);
 }
@@ -712,6 +745,9 @@ int main(int argc, char *argv[])
 			}
 			data.card_index = ret;
 			break;
+		case 'p':
+			data.properties = strdup(optarg);
+			break;
                 default:
 			fprintf(stderr, "error: unknown option '%c'\n", c);
 			goto error_usage;
@@ -730,6 +766,8 @@ int main(int argc, char *argv[])
 
 	if (data.card)
 		acp_card_destroy(data.card);
+
+	free(data.properties);
 
 	return 0;
 

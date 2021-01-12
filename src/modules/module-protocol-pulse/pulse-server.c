@@ -185,6 +185,7 @@ struct stream {
 	struct buffer_attr attr;
 	uint32_t frame_size;
 	uint32_t minblock;
+	uint32_t rate;
 
 	struct volume volume;
 	bool muted;
@@ -1297,6 +1298,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		return;
 	}
 	stream->minblock = MIN_BLOCK * stream->frame_size;
+	stream->rate = stream->ss.rate;
 
 	if (stream->create_tag != SPA_ID_INVALID) {
 		stream->id = pw_stream_get_node_id(stream->stream);
@@ -1443,7 +1445,8 @@ static void stream_process(void *data)
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
 		minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
-		minreq = SPA_MIN(minreq, stream->rate_match->size * stream->frame_size);
+		if (stream->rate_match)
+			minreq = SPA_MIN(minreq, stream->rate_match->size * stream->frame_size);
 		if (avail <= 0) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
@@ -4186,6 +4189,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	uint32_t channel, rate;
 	struct stream *stream;
 	int res;
+	bool match;
 
 	if ((res = message_get(m,
 			TAG_U32, &channel,
@@ -4199,6 +4203,16 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
+
+	if (stream->rate_match == NULL)
+		return -ENOTSUP;
+
+	match = rate != stream->ss.rate;
+	stream->rate = rate;
+	stream->rate_match->rate = match ?
+			(double)rate/(double)stream->ss.rate : 1.0;
+	SPA_FLAG_UPDATE(stream->rate_match->flags,
+			SPA_IO_RATE_MATCH_FLAG_ACTIVE, match);
 
 	return reply_simple_ack(client, tag);
 }

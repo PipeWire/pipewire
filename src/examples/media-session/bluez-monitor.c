@@ -47,7 +47,8 @@
 #include "pipewire/impl.h"
 #include "media-session.h"
 
-#define NAME "bluez5-monitor"
+#define NAME		"bluez5-monitor"
+#define SESSION_CONF	"bluez-monitor.conf"
 
 struct device;
 
@@ -91,6 +92,8 @@ struct impl {
 	struct sm_media_session *session;
 	struct spa_hook session_listener;
 
+	struct pw_properties *conf;
+
 	struct spa_handle *handle;
 
 	struct spa_device *monitor;
@@ -127,7 +130,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	struct pw_context *context = impl->session->context;
 	struct pw_impl_factory *factory;
 	int res;
-	const char *prefix, *str, *profile;
+	const char *prefix, *str, *profile, *rules;
 
 	pw_log_debug("new node %u", id);
 
@@ -164,9 +167,9 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		str = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME);
 
 	if (strstr(info->factory_name, "sink") != NULL)
-		prefix = "bluez_sink";
+		prefix = "bluez_input";
 	else if (strstr(info->factory_name, "source") != NULL)
-		prefix = "bluez_source";
+		prefix = "bluez_output";
 	else
 		prefix = info->factory_name;
 
@@ -176,6 +179,9 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	node->impl = impl;
 	node->device = device;
 	node->id = id;
+
+	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
+		sm_media_session_match_rules(rules, strlen(rules), node->props);
 
 	factory = pw_context_find_factory(context, "adapter");
 	if (factory == NULL) {
@@ -370,6 +376,7 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 	struct spa_handle *handle;
 	int res;
 	void *iface;
+	const char *rules;
 
 	pw_log_debug("new device %u", id);
 
@@ -412,6 +419,8 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 
 	spa_list_init(&device->node_list);
 
+	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
+		sm_media_session_match_rules(rules, strlen(rules), device->props);
 
 	sm_object_add_listener(&device->sdevice->obj,
 			&device->listener,
@@ -482,6 +491,7 @@ static void session_destroy(void *data)
 	spa_hook_remove(&impl->session_listener);
 	spa_hook_remove(&impl->listener);
 	pw_unload_spa_handle(impl->handle);
+	pw_properties_free(impl->conf);
 	free(impl);
 }
 
@@ -515,11 +525,20 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 		res = -errno;
 		goto out_unload;
 	}
+	impl->conf = pw_properties_new(NULL, NULL);
+	if (impl->conf == NULL) {
+		res = -errno;
+		goto out_free;
+	}
 
 	impl->session = session;
 	impl->handle = handle;
 	impl->monitor = iface;
 	spa_list_init(&impl->device_list);
+
+	if ((res = sm_media_session_load_conf(impl->session,
+					SESSION_CONF, impl->conf)) < 0)
+		pw_log_info("can't load "SESSION_CONF" config: %s", spa_strerror(res));
 
 	spa_device_add_listener(impl->monitor, &impl->listener,
 			&bluez5_enum_callbacks, impl);
@@ -529,6 +548,8 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 
 	return 0;
 
+out_free:
+	free(impl);
 out_unload:
 	pw_unload_spa_handle(handle);
 out:

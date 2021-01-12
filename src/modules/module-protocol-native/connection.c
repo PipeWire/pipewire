@@ -281,7 +281,7 @@ static int ensure_stack_level(struct impl *impl, struct pw_protocol_native_messa
 {
 	void *data;
 	struct buffer *buf = &impl->in;
-	struct reenter_item *item, *new_item;
+	struct reenter_item *item, *new_item = NULL;
 
 	item = spa_list_last(&impl->reenter_stack, struct reenter_item, link);
 
@@ -330,6 +330,8 @@ static int ensure_stack_level(struct impl *impl, struct pw_protocol_native_messa
 
 		impl->pending_reentering = 0;
 	}
+	if (new_item == NULL)
+		return -EIO;
 
 	/* Ensure fds buffer is allocated */
 	if (SPA_UNLIKELY(new_item->return_msg.fds == NULL)) {

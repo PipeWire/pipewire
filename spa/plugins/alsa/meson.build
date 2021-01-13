@@ -33,6 +33,7 @@ executable('spa-acp-tool',
   dependencies : [ alsa_dep, mathlib ],
   link_with : [ acp_lib ],
   install : true,
+  pie : true,
 )
 
 

@@ -2,18 +2,21 @@ executable('pw-mon',
 	'pw-mon.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep],
 )
 executable('pw-cli',
 	'pw-cli.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep],
 )
 executable('pw-dot',
 	'pw-dot.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep],
 )
 
@@ -21,6 +24,7 @@ executable('pw-dump',
 	'pw-dump.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep],
 )
 
@@ -28,6 +32,7 @@ executable('pw-profiler',
 	'pw-profiler.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep],
 )
 
@@ -35,6 +40,7 @@ executable('pw-mididump',
 	[ 'pw-mididump.c', 'midifile.c'],
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep, mathlib],
 )
 
@@ -42,6 +48,7 @@ executable('pw-metadata',
 	[ 'pw-metadata.c'],
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep],
 )
 
@@ -50,6 +57,7 @@ if ncurses_dep.found()
 	'pw-top.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
+	pie: true,
 	dependencies : [pipewire_dep, ncurses_dep],
   )
 endif
@@ -72,6 +80,7 @@ if get_option('pw-cat') and sndfile_dep.found()
     pwcat_sources,
     c_args : [ '-D_GNU_SOURCE' ],
     install: true,
+    pie: true,
     dependencies : [sndfile_dep, pipewire_dep, mathlib],
   )
 

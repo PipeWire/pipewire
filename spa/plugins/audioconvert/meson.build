@@ -193,5 +193,6 @@ if sndfile_dep.found()
     link_with : [ audioconvert, test_lib ],
     dependencies : [sndfile_dep, mathlib],
     install : true,
+    pie : true,
   )
 endif

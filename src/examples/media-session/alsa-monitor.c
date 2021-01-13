@@ -509,7 +509,8 @@ static int update_device_props(struct device *device)
 
 		if (!d)
 			d = pw_properties_get(p, SPA_KEY_API_ALSA_CARD_NAME);
-
+		if (!d)
+			d = pw_properties_get(p, "alsa.card_name");
 		if (!d)
 			d = "Unknown device";
 

@@ -2213,7 +2213,7 @@ impl_init(const struct spa_handle_factory *factory,
 			this->enable_sbc_xq = true;
 	}
 
-	this->backend_native = backend_native_new(this, this->conn, support, n_support);
+	this->backend_native = backend_native_new(this, this->conn, info, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);
 	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, support, n_support);
 

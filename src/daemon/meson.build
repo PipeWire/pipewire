@@ -18,6 +18,8 @@ install_data(
   sources : [
     'media-session.d/with-jack',
     'media-session.d/with-pulseaudio',
+    'media-session.d/bluez-monitor.conf',
+    'media-session.d/v4l2-monitor.conf',
     'media-session.d/media-session.conf',
     'media-session.d/alsa-monitor.conf' ],
   install_dir : join_paths(conf_install_dir, 'media-session.d'))

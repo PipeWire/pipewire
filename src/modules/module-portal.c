@@ -131,6 +131,10 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 		pw_log_error("Failed to receive portal pid");
 		return;
 	}
+	if (dbus_message_is_error(m, DBUS_ERROR_NAME_HAS_NO_OWNER)) {
+		pw_log_info("Portal is not running");
+		return;
+	}
 	if (dbus_message_get_type(m) == DBUS_MESSAGE_TYPE_ERROR) {
 		const char *message = "unknown";
 		dbus_message_get_args(m, NULL, DBUS_TYPE_STRING, &message, DBUS_TYPE_INVALID);

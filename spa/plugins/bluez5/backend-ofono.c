@@ -521,6 +521,10 @@ static void ofono_register_reply(DBusPendingCall *pending, void *user_data)
 		spa_log_warn(backend->log, NAME": Error registering profile");
 		goto finish;
 	}
+	if (dbus_message_is_error(r, DBUS_ERROR_SERVICE_UNKNOWN)) {
+		spa_log_info(backend->log, NAME": oFono not available, disabling");
+		goto finish;
+	}
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(backend->log, NAME": Register() failed: %s",
 				dbus_message_get_error_name(r));

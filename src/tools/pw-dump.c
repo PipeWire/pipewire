@@ -110,6 +110,7 @@ struct object {
 	int changed;
 	struct spa_list param_list;
 	struct spa_list pending_list;
+	struct spa_list data_list;
 
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
@@ -1031,6 +1032,43 @@ static const struct class link_class = {
 };
 
 /* metadata */
+
+struct metadata_entry {
+	struct spa_list link;
+	uint32_t changed;
+	uint32_t subject;
+	char *key;
+	char *value;
+	char *type;
+};
+
+static void metadata_dump(struct object *o)
+{
+	struct data *d = o->data;
+	struct metadata_entry *e;
+	put_begin(d, "metadata", "[", 0);
+	spa_list_for_each(e, &o->data_list, link) {
+		put_begin(d, NULL, "{", STATE_SIMPLE);
+		put_int(d, "subject", e->subject);
+		put_value(d, "key", e->key);
+		put_value(d, "type", e->type);
+		put_value(d, "value", e->value);
+		put_end(d, "}", STATE_SIMPLE);
+	}
+	put_end(d, "]", 0);
+}
+
+static struct metadata_entry *metadata_find(struct object *o, uint32_t subject, const char *key)
+{
+	struct metadata_entry *e;
+	spa_list_for_each(e, &o->data_list, link) {
+		if ((e->subject == subject) &&
+		    (key == NULL || strcmp(e->key, key) == 0))
+			return e;
+	}
+	return NULL;
+}
+
 static int metadata_property(void *object,
 			uint32_t subject,
 			const char *key,
@@ -1038,6 +1076,34 @@ static int metadata_property(void *object,
 			const char *value)
 {
 	struct object *o = object;
+	struct metadata_entry *e;
+
+	while ((e = metadata_find(o, subject, key)) != NULL) {
+		spa_list_remove(&e->link);
+		free(e);
+	}
+	if (key != NULL && value != NULL) {
+		size_t size = strlen(key) + 1;
+		size += strlen(value) + 1;
+		size += type ? strlen(type) + 1 : 0;
+
+		e = calloc(1, sizeof(*e) + size);
+		if (e == NULL)
+			return -errno;
+
+		e->key = SPA_MEMBER(e, sizeof(*e), void);
+		strcpy(e->key, key);
+		e->value = SPA_MEMBER(e->key, strlen(e->key) + 1, void);
+		strcpy(e->value, value);
+		if (type) {
+			e->type = SPA_MEMBER(e->value, strlen(e->value) + 1, void);
+			strcpy(e->type, type);
+		} else {
+			e->type = NULL;
+		}
+		spa_list_append(&o->data_list, &e->link);
+		e->changed++;
+	}
 	o->changed++;
 	return 0;
 }
@@ -1047,10 +1113,21 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
+static void metadata_destroy(struct object *o)
+{
+	struct metadata_entry *e;
+	spa_list_consume(e, &o->data_list, link) {
+		spa_list_remove(&e->link);
+		free(e);
+	}
+}
+
 static const struct class metadata_class = {
 	.type = PW_TYPE_INTERFACE_Metadata,
 	.version = PW_VERSION_METADATA,
 	.events = &metadata_events,
+	.destroy = metadata_destroy,
+	.dump = metadata_dump,
 };
 
 static const struct class *classes[] =
@@ -1125,6 +1202,7 @@ static void registry_event_global(void *data, uint32_t id,
 	o->props = props ? pw_properties_new_dict(props) : NULL;
 	spa_list_init(&o->param_list);
 	spa_list_init(&o->pending_list);
+	spa_list_init(&o->data_list);
 
 	o->class = find_class(type, version);
 	if (o->class != NULL) {
@@ -1271,6 +1349,7 @@ static void show_help(struct data *data, const char *name)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
+	struct object *o;
 	struct pw_loop *l;
 	const char *opt_remote = NULL;
 	static const struct option long_options[] = {
@@ -1356,6 +1435,10 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
+	spa_list_consume(o, &data.object_list, link)
+		object_destroy(o);
+	if (data.info)
+		pw_core_info_free(data.info);
 
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
 	pw_context_destroy(data.context);

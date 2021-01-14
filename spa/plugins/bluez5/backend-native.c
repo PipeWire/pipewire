@@ -65,6 +65,7 @@ struct rfcomm {
 	struct spa_bt_backend *backend;
 	struct spa_bt_device *device;
 	struct spa_bt_transport *transport;
+	struct spa_hook transport_listener;
 	enum spa_bt_profile profile;
 	char* path;
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
@@ -89,6 +90,20 @@ static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, v
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static void transport_destroy(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	struct spa_bt_backend *backend = rfcomm->backend;
+
+	spa_log_debug(backend->log, "transport %p destroy", rfcomm->transport);
+	rfcomm->transport = NULL;
+}
+
+static const struct spa_bt_transport_events transport_events = {
+	SPA_VERSION_BT_TRANSPORT_EVENTS,
+	.destroy = transport_destroy,
+};
+
 static const struct spa_bt_transport_implementation sco_transport_impl;
 
 static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
@@ -110,16 +125,21 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	t->profile = rfcomm->profile;
 	t->backend = backend;
 
+	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
+
 finish:
 	return t;
 }
 
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
+	spa_list_remove(&rfcomm->link);
 	if (rfcomm->path)
 		free(rfcomm->path);
-	if (rfcomm->transport)
+	if (rfcomm->transport) {
+		spa_hook_remove(&rfcomm->transport_listener);
 		spa_bt_transport_free(rfcomm->transport);
+	}
 	free(rfcomm);
 }
 
@@ -377,7 +397,6 @@ static void rfcomm_event(struct spa_source *source)
 		spa_log_info(backend->log, NAME": lost RFCOMM connection.");
 		if (source->loop)
 			spa_loop_remove_source(source->loop, source);
-		spa_list_remove(&rfcomm->link);
 		rfcomm_free(rfcomm);
 		return;
 	}
@@ -811,7 +830,6 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 			shutdown(rfcomm->source.fd, SHUT_RDWR);
 			close (rfcomm->source.fd);
 			rfcomm->source.fd = -1;
-			spa_list_remove(&rfcomm->link);
 			rfcomm_free(rfcomm);
 		}
 	}

@@ -641,6 +641,22 @@ conv_f32d_to_s24_c(struct convert *conv, void * SPA_RESTRICT dst[], const void *
 	}
 }
 
+void
+conv_f32d_to_s24s_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float **s = (const float **) src;
+	uint8_t *d = dst[0];
+	uint32_t i, j, n_channels = conv->n_channels;
+
+	for (j = 0; j < n_samples; j++) {
+		for (i = 0; i < n_channels; i++) {
+			write_s24s(d, F32_TO_S24(s[i][j]));
+			d += 3;
+		}
+	}
+}
+
 
 void
 conv_f32d_to_s24_32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],

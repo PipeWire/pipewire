@@ -68,7 +68,7 @@ static int metadata_property(void *data, uint32_t id,
 
 	if ((d->opt_id == SPA_ID_INVALID || d->opt_id == id) &&
 	    (d->opt_key == NULL || strcmp(d->opt_key, key) == 0)) {
-		if (value == NULL && key == NULL) {
+		if (key == NULL) {
 			fprintf(stdout, "remove: id:%u all keys\n", id);
 		} else if (value == NULL) {
 			fprintf(stdout, "remove: id:%u key:'%s'\n", id, key);

@@ -605,8 +605,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	CHECK(snd_pcm_hw_params_get_buffer_size_max(params, &state->buffer_frames), "get_buffer_size_max");
 	CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
 
+	if (state->default_headroom == 0)
+		state->headroom = is_batch ? period_size : 0;
+	else
+		state->headroom = state->default_headroom;
+
 	state->period_frames = period_size;
-	state->headroom = is_batch ? period_size : 0;
 	periods = state->buffer_frames / state->period_frames;
 
 	spa_log_info(state->log, NAME" %s (%s): format:%s access:%s-%s rate:%d channels:%d "

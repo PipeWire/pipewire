@@ -111,6 +111,7 @@ struct state {
 	struct spa_audio_info current_format;
 
 	uint32_t default_period_size;
+	uint32_t default_headroom;
 	uint32_t default_format;
 	unsigned int default_channels;
 	unsigned int default_rate;

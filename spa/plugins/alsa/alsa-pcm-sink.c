@@ -795,6 +795,8 @@ impl_init(const struct spa_handle_factory *factory,
 			}
 		} else if (!strcmp(info->items[i].key, "api.alsa.period-size")) {
 			this->default_period_size = atoi(info->items[i].value);
+		} else if (!strcmp(info->items[i].key, "api.alsa.headroom")) {
+			this->default_headroom = atoi(info->items[i].value);
 		}
 	}
 	return 0;

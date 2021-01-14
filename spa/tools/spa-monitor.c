@@ -157,9 +157,9 @@ int main(int argc, char *argv[])
 			SPA_VERSION_LOOP,
 			&impl_loop, &data);
 
-	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
-	data.support[2] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, &data.main_loop);
-	data.n_support = 3;
+	data.support[0] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
+	data.support[1] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, &data.main_loop);
+	data.n_support = 2;
 
 	if (argc < 2) {
 		printf("usage: %s <plugin.so>\n", argv[0]);

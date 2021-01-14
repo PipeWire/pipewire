@@ -134,7 +134,7 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 	if (dbus_message_get_type(m) == DBUS_MESSAGE_TYPE_ERROR) {
 		const char *message = "unknown";
 		dbus_message_get_args(m, NULL, DBUS_TYPE_STRING, &message, DBUS_TYPE_INVALID);
-		pw_log_error("Failed to receive portal pid: %s: %s",
+		pw_log_warn("Failed to receive portal pid: %s: %s",
 				dbus_message_get_error_name(m), message);
 		return;
 	}

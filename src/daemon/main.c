@@ -122,10 +122,13 @@ static int load_module(struct data *d, const char *key, const char *args, const 
 		if (errno == ENOENT && flags && strstr(flags, "ifexists") != NULL) {
 			pw_log_debug(NAME" %p: skipping unavailable module %s",
 					d, key);
-		} else {
+		} else if (flags == NULL || strstr(flags, "nofail") == NULL) {
 			pw_log_error(NAME" %p: could not load module \"%s\": %m",
 					d, key);
 			return -errno;
+		} else {
+			pw_log_info(NAME" %p: could not load module \"%s\": %m",
+					d, key);
 		}
 	}
 	return 0;

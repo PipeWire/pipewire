@@ -40,12 +40,16 @@ spa-libs = {
 
 modules = {
     ##  <module-name> = { [args = "<key>=<value> ..."] 
-    #                     [flags = ifexists] }
+    #                     [flags = [ifexists]|[nofail]}
     #
-    # Loads a module with the given parameters. Normally failure is
-    # fatal if the module is not found, unless -ifexists is given.
+    # Loads a module with the given parameters.
+    # If ifexists is given, the module is ignoed when it is not found.
+    # If nofail is given, module initialization failures are ignored.
     #
-    libpipewire-module-rtkit  = { "#args" = "rt.prio=20 rt.time.soft=200000 rt.time.hard=200000" flags=ifexists }
+    libpipewire-module-rtkit  = {
+                                  "#args" = "rt.prio=20 rt.time.soft=200000 rt.time.hard=200000"
+				  flags = ifexists|nofail
+				}
     libpipewire-module-protocol-native = null
     libpipewire-module-profiler = null
     libpipewire-module-metadata = null

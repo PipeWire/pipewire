@@ -67,6 +67,7 @@ static void *create_object(void *_data,
 			   struct pw_properties *properties,
 			   uint32_t new_id)
 {
+	struct factory_data *data = _data;
 	void *result;
 	struct pw_resource *metadata_resource;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
@@ -77,6 +78,10 @@ static void *create_object(void *_data,
 		res = -errno;
 		goto error_resource;
 	}
+
+	if (properties)
+		pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+				pw_impl_factory_get_info(data->this)->id);
 
 	result = pw_metadata_new(pw_impl_client_get_context(client), metadata_resource, properties);
 	if (result == NULL) {

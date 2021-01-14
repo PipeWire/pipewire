@@ -278,7 +278,7 @@ error_no_global:
 	pw_log_error("\"%s\": failed to create global: %m", this->info.filename);
 	goto error_free_module;
 error_init_failed:
-	pw_log_error("\"%s\": failed to initialize: %s", this->info.filename, spa_strerror(res));
+	pw_log_debug("\"%s\": failed to initialize: %s", this->info.filename, spa_strerror(res));
 	goto error_free_module;
 
 error_free_module:

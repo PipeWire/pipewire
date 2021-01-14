@@ -91,7 +91,6 @@ if alsa_dep.found()
     'media-session/suspend-node.c',
     c_args : [ '-D_GNU_SOURCE' ],
     install: true,
-    pie: true,
     dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib],
 )
 endif
@@ -100,7 +99,6 @@ executable('pw-reserve',
 	'media-session/pw-reserve.c',
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
-	pie: true,
 	dependencies : [dbus_dep, pipewire_dep],
 )
 

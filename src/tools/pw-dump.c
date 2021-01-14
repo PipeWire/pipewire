@@ -1265,12 +1265,13 @@ static void dump_objects(struct data *d)
 		{ NULL, },
 	};
 	d->state = STATE_FIRST;
-	put_begin(d, NULL, "[", 0);
 	spa_list_for_each(o, &d->object_list, link) {
 		if (d->id != SPA_ID_INVALID && d->id != o->id)
 			continue;
 		if (o->changed == 0)
 			continue;
+		if (d->state == STATE_FIRST)
+			put_begin(d, NULL, "[", 0);
 		put_begin(d, NULL, "{", 0);
 		put_int(d, "id", o->id);
 		put_value(d, "type", o->type);
@@ -1283,7 +1284,8 @@ static void dump_objects(struct data *d)
 		put_end(d, "}", 0);
 		o->changed = 0;
 	}
-	put_end(d, "]\n", 0);
+	if (d->state != STATE_FIRST)
+		put_end(d, "]\n", 0);
 }
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)

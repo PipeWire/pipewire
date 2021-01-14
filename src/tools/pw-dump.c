@@ -1048,12 +1048,15 @@ static void metadata_dump(struct object *o)
 	struct metadata_entry *e;
 	put_begin(d, "metadata", "[", 0);
 	spa_list_for_each(e, &o->data_list, link) {
+		if (e->changed == 0)
+			continue;
 		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "subject", e->subject);
 		put_value(d, "key", e->key);
 		put_value(d, "type", e->type);
 		put_value(d, "value", e->value);
 		put_end(d, "}", STATE_SIMPLE);
+		e->changed = 0;
 	}
 	put_end(d, "]", 0);
 }

@@ -1141,6 +1141,8 @@ static void registry_event_global(void *data, uint32_t id,
 					o->class->events, o);
 		if (o->class->init)
 			o->class->init(o);
+	} else {
+		o->changed++;
 	}
 	spa_list_append(&d->object_list, &o->link);
 

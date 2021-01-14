@@ -1037,6 +1037,8 @@ static int metadata_property(void *object,
 			const char *type,
 			const char *value)
 {
+	struct object *o = object;
+	o->changed++;
 	return 0;
 }
 

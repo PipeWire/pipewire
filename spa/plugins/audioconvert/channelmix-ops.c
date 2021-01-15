@@ -177,9 +177,20 @@ static int make_matrix(struct channelmix *mix)
 		dst_mask = _MASK(FC);
 
 	if (src_mask == 0 || dst_mask == 0) {
+		if (src_mask == _MASK(FC) && mix->src_chan == 1) {
+			/* one mono src goes everywhere */
+			for (i = 0; i < NUM_CHAN; i++)
+				matrix[i][0]= 1.0f;
+		} else if (dst_mask == _MASK(FC) && mix->dst_chan == 1) {
+			/* one mono dst get average of everything */
+			for (i = 0; i < NUM_CHAN; i++)
+				matrix[0][i]= 1.0f / mix->src_chan;
+		} else {
+			/* just pair channels */
+			for (i = 0; i < NUM_CHAN; i++)
+				matrix[i][i]= 1.0f;
+		}
 		src_mask = dst_mask = ~0LU;
-		for (i = 0; i < NUM_CHAN; i++)
-			matrix[i][i]= 1.0f;
 		goto done;
 	} else {
 		for (i = 0; i < NUM_CHAN; i++) {

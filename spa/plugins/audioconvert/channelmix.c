@@ -236,7 +236,7 @@ static int setup_convert(struct impl *this,
 		const struct spa_audio_info *info)
 {
 	const struct spa_audio_info *src_info, *dst_info;
-	uint32_t i, src_chan, dst_chan;
+	uint32_t i, src_chan, dst_chan, p;
 	uint64_t src_mask, dst_mask;
 	int res;
 
@@ -251,10 +251,14 @@ static int setup_convert(struct impl *this,
 	src_chan = src_info->info.raw.channels;
 	dst_chan = dst_info->info.raw.channels;
 
-	for (i = 0, src_mask = 0; i < src_chan; i++)
-		src_mask |= 1UL << src_info->info.raw.position[i];
-	for (i = 0, dst_mask = 0; i < dst_chan; i++)
-		dst_mask |= 1UL << dst_info->info.raw.position[i];
+	for (i = 0, src_mask = 0; i < src_chan; i++) {
+		p = src_info->info.raw.position[i];
+		src_mask |= 1ULL << (p < 64 ? p : 0);
+	}
+	for (i = 0, dst_mask = 0; i < dst_chan; i++) {
+		p = dst_info->info.raw.position[i];
+		dst_mask |= 1ULL << (p < 64 ? p : 0);
+	}
 
 	if (src_mask & 1 || src_chan == 1)
 		src_mask = default_mask(src_chan);

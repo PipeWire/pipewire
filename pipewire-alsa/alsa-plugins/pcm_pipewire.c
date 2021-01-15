@@ -204,7 +204,8 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 }
 
 static int
-snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uframes_t *hw_avail)
+snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
+		snd_pcm_uframes_t *hw_avail,snd_pcm_uframes_t want)
 {
 	snd_pcm_ioplug_t *io = &pw->io;
 	snd_pcm_channel_area_t *pwareas;
@@ -224,6 +225,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 	} else {
 		nframes = d[0].chunk->size / pw->stride;
 	}
+	want = SPA_MIN(nframes, want);
 	nframes = SPA_MIN(nframes, *hw_avail);
 
 	if (pw->blocks == 1) {
@@ -279,13 +281,13 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b, snd_pcm_uf
 		}
 	}
 	/* check if requested frames were copied */
-	if (xfer < nframes) {
+	if (xfer < want) {
 		/* always fill the not yet written PipeWire buffer with silence */
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-			const snd_pcm_uframes_t frames = nframes - xfer;
+			const snd_pcm_uframes_t frames = want - xfer;
 
 			snd_pcm_areas_silence(pwareas, xfer, io->channels,
-								  frames, io->format);
+							  frames, io->format);
 		}
 		if (io->state == SND_PCM_STATE_RUNNING ||
 			io->state == SND_PCM_STATE_DRAINING) {
@@ -345,7 +347,7 @@ static void on_stream_process(void *data)
 	snd_pcm_pipewire_t *pw = data;
 	snd_pcm_ioplug_t *io = &pw->io;
 	struct pw_buffer *b;
-	snd_pcm_uframes_t hw_avail;
+	snd_pcm_uframes_t hw_avail, want;
 
 	pw_stream_get_time(pw->stream, &pw->time);
 
@@ -360,12 +362,10 @@ static void on_stream_process(void *data)
 	if (b == NULL)
 		return;
 
-	if (pw->rate_match)
-		hw_avail = SPA_MIN(hw_avail, pw->rate_match->size);
+	want = pw->rate_match ? pw->rate_match->size : hw_avail;
+	pw_log_trace(NAME" %p: avail:%lu want:%lu", pw, hw_avail, want);
 
-	pw_log_trace(NAME" %p: avail:%lu", pw, hw_avail);
-
-	snd_pcm_pipewire_process(pw, b, &hw_avail);
+	snd_pcm_pipewire_process(pw, b, &hw_avail, want);
 
 	pw_stream_queue_buffer(pw->stream, b);
 

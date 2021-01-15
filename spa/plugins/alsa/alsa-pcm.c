@@ -1432,6 +1432,12 @@ int spa_alsa_start(struct state *state)
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
 		snd_pcm_dump(state->hndl, state->output);
 
+	if ((err = snd_pcm_prepare(state->hndl)) < 0 && err != -EBUSY) {
+		spa_log_error(state->log, NAME" %p: snd_pcm_prepare error: %s", state,
+				snd_strerror(err));
+		return err;
+	}
+
 	state->source.func = alsa_on_timeout_event;
 	state->source.data = state;
 	state->source.fd = state->timerfd;

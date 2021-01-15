@@ -500,6 +500,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, uint32_t node, struct volume
 			id = dg->device.active_route_input;
 		device_id = g->node.profile_device_id;
 	}
+	pw_log_debug("id %d device_id %d flags:%08x", id, device_id, g->node.flags);
 	if (id != SPA_ID_INVALID && device_id != SPA_ID_INVALID) {
 		if (!SPA_FLAG_IS_SET(dg->permissions, PW_PERM_W | PW_PERM_X))
 			return -EPERM;
@@ -515,6 +516,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, uint32_t node, struct volume
 		build_volume_mute(&b, volume, mute);
 		param = spa_pod_builder_pop(&b, &f[0]);
 
+		pw_log_debug("set device %d mute/volume for node %d", dg->id, g->id);
 		pw_device_set_param((struct pw_node*)dg->proxy,
 			SPA_PARAM_Route, 0, param);
 	} else {
@@ -523,6 +525,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, uint32_t node, struct volume
 
 		param = build_volume_mute(&b, volume, mute);
 
+		pw_log_debug("set node %d mute/volume", g->id);
 		pw_node_set_param((struct pw_node*)g->proxy,
 			SPA_PARAM_Props, 0, param);
 	}
@@ -787,11 +790,13 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 		switch (prop->key) {
 		case SPA_PROP_volume:
 			spa_pod_get_float(&prop->value, &g->node.volume);
+			pw_log_debug("update node %d volume", g->id);
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_VOLUME, device);
 			break;
 		case SPA_PROP_mute:
 			spa_pod_get_bool(&prop->value, &g->node.mute);
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_MUTE, device);
+			pw_log_debug("update node %d mute", g->id);
 			break;
 		case SPA_PROP_channelVolumes:
 		{
@@ -806,6 +811,7 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 				g->node.channel_volume.values[i] = volumes[i] * VOLUME_MAX;
 
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_VOLUME, device);
+			pw_log_debug("update node %d channelVolumes", g->id);
 			break;
 		}
 		default:
@@ -893,23 +899,25 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
 
-	if (info->props && (str = spa_dict_lookup(info->props, "card.profile.device")))
-		g->node.profile_device_id = atoi(str);
-	else
-		g->node.profile_device_id = SPA_ID_INVALID;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS && info->props) {
+		if ((str = spa_dict_lookup(info->props, "card.profile.device")))
+			g->node.profile_device_id = atoi(str);
+		else
+			g->node.profile_device_id = SPA_ID_INVALID;
 
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
-		g->node.device_id = atoi(str);
-	else
-		g->node.device_id = SPA_ID_INVALID;
+		if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
+			g->node.device_id = atoi(str);
+		else
+			g->node.device_id = SPA_ID_INVALID;
 
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_DRIVER)))
-		g->node.priority = atoi(str);
-	if (info->props && (str = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS))) {
-		if (strcmp(str, "Audio/Sink") == 0)
-			g->node.flags |= NODE_FLAG_SINK;
-		else if (strcmp(str, "Audio/Source") == 0)
-			g->node.flags |= NODE_FLAG_SOURCE;
+		if ((str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_DRIVER)))
+			g->node.priority = atoi(str);
+		if ((str = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS))) {
+			if (strcmp(str, "Audio/Sink") == 0)
+				g->node.flags |= NODE_FLAG_SINK;
+			else if (strcmp(str, "Audio/Source") == 0)
+				g->node.flags |= NODE_FLAG_SOURCE;
+		}
 	}
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {

@@ -1046,6 +1046,7 @@ static void metadata_dump(struct object *o)
 {
 	struct data *d = o->data;
 	struct metadata_entry *e;
+	put_dict(d, "props", &o->props->dict);
 	put_begin(d, "metadata", "[", 0);
 	spa_list_for_each(e, &o->data_list, link) {
 		if (e->changed == 0)

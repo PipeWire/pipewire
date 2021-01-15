@@ -516,11 +516,17 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	snd_pcm_access_mask_alloca(&amask);
 	snd_pcm_hw_params_get_access_mask(params, amask);
 
-	if ((err = snd_pcm_hw_params_set_access(hndl, params,
-				planar ? SND_PCM_ACCESS_MMAP_NONINTERLEAVED
-				: SND_PCM_ACCESS_MMAP_INTERLEAVED)) < 0) {
-		spa_log_debug(state->log, NAME" %p: MMAP not possible: %s", state,
-				snd_strerror(err));
+	state->use_mmap = !state->disable_mmap;
+	if (state->use_mmap) {
+		if ((err = snd_pcm_hw_params_set_access(hndl, params,
+					planar ? SND_PCM_ACCESS_MMAP_NONINTERLEAVED
+					: SND_PCM_ACCESS_MMAP_INTERLEAVED)) < 0) {
+			spa_log_debug(state->log, NAME" %p: MMAP not possible: %s", state,
+					snd_strerror(err));
+			state->use_mmap = false;
+		}
+	}
+	if (!state->use_mmap) {
 		if ((err = snd_pcm_hw_params_set_access(hndl, params,
 				planar ? SND_PCM_ACCESS_RW_NONINTERLEAVED
 				: SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
@@ -528,9 +534,6 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 					snd_strerror(err));
 			return err;
 		}
-		state->use_mmap = false;
-	} else {
-		state->use_mmap = true;
 	}
 
 	/* disable ALSA wakeups, we use a timer */

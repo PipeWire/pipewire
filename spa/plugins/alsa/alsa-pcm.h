@@ -116,6 +116,7 @@ struct state {
 	unsigned int default_channels;
 	unsigned int default_rate;
 	struct channel_map default_pos;
+	unsigned int disable_mmap;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;

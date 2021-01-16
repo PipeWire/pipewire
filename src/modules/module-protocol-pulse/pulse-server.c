@@ -1444,9 +1444,10 @@ static void stream_process(void *data)
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
-		minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
 		if (stream->rate_match)
-			minreq = SPA_MIN(minreq, stream->rate_match->size * stream->frame_size);
+			minreq = stream->rate_match->size * stream->frame_size;
+		else
+			minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
 		if (avail <= 0) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);

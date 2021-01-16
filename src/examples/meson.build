@@ -85,6 +85,7 @@ if alsa_dep.found()
     'media-session/restore-stream.c',
     'media-session/policy-ep.c',
     'media-session/policy-node.c',
+    'media-session/streams-follow-default.c',
     'media-session/v4l2-monitor.c',
     'media-session/v4l2-endpoint.c',
     'media-session/libcamera-monitor.c',

@@ -64,6 +64,8 @@ struct impl {
 	uint32_t default_audio_sink;
 	uint32_t default_audio_source;
 	uint32_t default_video_source;
+
+	bool streams_follow_default;
 };
 
 struct node {
@@ -560,6 +562,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	struct node *peer;
 	struct sm_object *obj;
 	uint32_t path_id;
+	bool follows_default;
 
 	if (!n->active) {
 		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
@@ -580,13 +583,22 @@ static int rescan_node(struct impl *impl, struct node *n)
 		return 0;
 	}
 
-	if (n->peer != NULL) {
+	info = n->obj->info;
+	props = info->props;
+
+	str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
+	reconnect = str ? !pw_properties_parse_bool(str) : true;
+
+	follows_default = (impl->streams_follow_default &&
+	                   n->type == NODE_TYPE_STREAM &&
+	                   reconnect &&
+	                   n->obj->target_node == NULL &&
+	                   spa_dict_lookup(props, PW_KEY_NODE_TARGET) == NULL);
+
+	if (n->peer != NULL && !follows_default) {
 		pw_log_debug(NAME " %p: node %d is already linked", impl, n->id);
 		return 0;
 	}
-
-	info = n->obj->info;
-	props = info->props;
 
 	if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
 		n->dont_remix = pw_properties_parse_bool(str);
@@ -627,9 +639,6 @@ static int rescan_node(struct impl *impl, struct node *n)
 	find.target = n;
 	find.exclusive = exclusive;
 
-	str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
-	reconnect = str ? !pw_properties_parse_bool(str) : true;
-
 	/* we always honour the target node asked for by the client */
 	path_id = SPA_ID_INVALID;
 	if ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) != NULL)
@@ -637,8 +646,22 @@ static int rescan_node(struct impl *impl, struct node *n)
 	if (path_id == SPA_ID_INVALID && n->obj->target_node != NULL)
 		path_id = find_device_for_name(impl, n->obj->target_node);
 
-	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d", n->id,
-			exclusive, reconnect, path_id);
+	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d follows-default:%d", n->id,
+	            exclusive, reconnect, path_id, follows_default);
+
+	if (n->peer != NULL) {
+		spa_list_for_each(peer, &impl->node_list, link)
+			find_node(&find, peer);
+
+		if (follows_default && find.node != NULL && find.node != n->peer) {
+			pw_log_debug(NAME " %p: node %d follows default, changed (%d -> %d)", impl, n->id,
+			             n->peer->id, find.node->id);
+			unlink_nodes(n, n->peer);
+		} else {
+			pw_log_debug(NAME " %p: node %d already linked (not changing)", impl, n->id);
+			return 0;
+		}
+	}
 
 	if (path_id != SPA_ID_INVALID) {
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
@@ -660,8 +683,11 @@ static int rescan_node(struct impl *impl, struct node *n)
 				path_id, reconnect);
 	}
 	if (path_id == SPA_ID_INVALID && (reconnect || n->connect_count == 0)) {
-		spa_list_for_each(peer, &impl->node_list, link)
-			find_node(&find, peer);
+		if (find.node == NULL)
+			spa_list_for_each(peer, &impl->node_list, link)
+				find_node(&find, peer);
+	} else {
+		find.node = NULL;
 	}
 
 	if (find.node == NULL) {
@@ -751,44 +777,6 @@ static int do_move_node(struct node *n, struct node *src, struct node *dst)
 	return 0;
 }
 
-static int move_node(struct impl *impl, uint32_t source, uint32_t target)
-{
-	struct node *n, *src_node, *dst_node;
-	const char *str;
-
-	if (source == SPA_ID_INVALID || target == SPA_ID_INVALID)
-		return 0;
-
-	/* find source and dest node */
-	if ((src_node = find_node_by_id(impl, source)) == NULL)
-		return -ENOENT;
-	if ((dst_node = find_node_by_id(impl, target)) == NULL)
-		return -ENOENT;
-
-	if (src_node == dst_node)
-		return 0;
-
-	pw_log_info("move %d -> %d", src_node->id, dst_node->id);
-
-	/* unlink all nodes from source and link to target */
-	spa_list_for_each(n, &impl->node_list, link) {
-		struct pw_node_info *info;
-
-		if (n->peer != src_node)
-			continue;
-
-		if ((info = n->obj->info) == NULL)
-			continue;
-
-		if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_DONT_RECONNECT)) != NULL &&
-		    pw_properties_parse_bool(str))
-			continue;
-
-		do_move_node(n, src_node, dst_node);
-	}
-	return 0;
-}
-
 static int handle_move(struct impl *impl, struct node *src_node, struct node *dst_node)
 {
 	const char *str;
@@ -825,18 +813,26 @@ static int metadata_property(void *object, uint32_t subject,
 	uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 
 	if (subject == PW_ID_CORE) {
+		bool changed = false;
+
 		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
-			move_node(impl, impl->default_audio_sink, val);
+			if (impl->default_audio_sink != val)
+				changed = true;
 			impl->default_audio_sink = val;
 		}
 		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
-			move_node(impl, impl->default_audio_source, val);
+			if (impl->default_audio_source != val)
+				changed = true;
 			impl->default_audio_source = val;
 		}
 		if (key == NULL || strcmp(key, "default.video.source") == 0) {
-			move_node(impl, impl->default_video_source, val);
+			if (impl->default_video_source != val)
+				changed = true;
 			impl->default_video_source = val;
 		}
+
+		if (changed && impl->streams_follow_default)
+			sm_media_session_schedule_rescan(impl->session);
 	} else {
 		if (val != SPA_ID_INVALID && strcmp(key, "target.node") == 0) {
 			struct node *src_node, *dst_node;
@@ -859,6 +855,7 @@ static const struct pw_metadata_events metadata_events = {
 int sm_policy_node_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+	const char *flag;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -871,6 +868,9 @@ int sm_policy_node_start(struct sm_media_session *session)
 	impl->default_audio_sink = SPA_ID_INVALID;
 	impl->default_audio_source = SPA_ID_INVALID;
 	impl->default_video_source = SPA_ID_INVALID;
+
+	flag = pw_properties_get(session->props, NAME ".streams-follow-default");
+	impl->streams_follow_default = (flag != NULL && pw_properties_parse_bool(flag));
 
 	spa_list_init(&impl->node_list);
 

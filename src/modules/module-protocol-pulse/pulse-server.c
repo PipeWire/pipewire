@@ -1458,6 +1458,7 @@ static void stream_process(void *data)
 				pw_stream_flush(stream->stream, true);
 			} else {
 				pd.underrun_for = size;
+				pd.playing_for = size;
 				pd.underrun = true;
 			}
 		} else {

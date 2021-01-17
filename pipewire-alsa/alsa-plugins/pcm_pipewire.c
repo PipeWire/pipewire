@@ -226,7 +226,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 		nframes = d[0].chunk->size / pw->stride;
 	}
 	want = SPA_MIN(nframes, want);
-	nframes = SPA_MIN(nframes, *hw_avail);
+	nframes = SPA_MIN(want, *hw_avail);
 
 	if (pw->blocks == 1) {
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {

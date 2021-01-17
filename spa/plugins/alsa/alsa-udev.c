@@ -241,8 +241,8 @@ static int emit_object_info(struct impl *this, struct device *device)
 	struct udev_device *dev = device->dev;
 	snd_ctl_t *ctl_hndl;
 	const char *str;
-	char path[32];
-	struct spa_dict_item items[23];
+	char path[32], *cn = NULL, *cln = NULL;
+	struct spa_dict_item items[25];
 	uint32_t n_items = 0;
 	int res, pcm;
 
@@ -287,6 +287,10 @@ static int emit_object_info(struct impl *this, struct device *device)
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, path+3);
+	if (snd_card_get_name(id, &cn) >= 0)
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_NAME, cn);
+	if (snd_card_get_longname(id, &cln) >= 0)
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_LONGNAME, cln);
 
 	if ((str = udev_device_get_property_value(dev, "ACP_NAME")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, str);
@@ -362,6 +366,8 @@ static int emit_object_info(struct impl *this, struct device *device)
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
 	device->emited = true;
+	free(cn);
+	free(cln);
 
 	return 1;
 }

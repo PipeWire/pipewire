@@ -212,6 +212,8 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	int i, priority;
 
 	pw_log_debug("new node %u", id);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
 
 	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0) {
 		errno = EINVAL;
@@ -846,6 +848,8 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	const char *str, *card, *rules;
 
 	pw_log_debug("new device %u", id);
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_dict(0, info->props);
 
 	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
 		errno = EINVAL;

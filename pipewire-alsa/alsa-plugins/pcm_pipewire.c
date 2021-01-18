@@ -230,7 +230,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 
 	if (pw->blocks == 1) {
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-			d[0].chunk->size = nframes * pw->stride;
+			d[0].chunk->size = want * pw->stride;
 			d[0].chunk->offset = 0;
 		}
 		ptr = SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
@@ -242,7 +242,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 	} else {
 		for (channel = 0; channel < io->channels; channel++) {
 			if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-				d[channel].chunk->size = nframes * pw->stride;
+				d[channel].chunk->size = want * pw->stride;
 				d[channel].chunk->offset = 0;
 			}
 			ptr = SPA_MEMBER(d[channel].data, d[channel].chunk->offset, void);

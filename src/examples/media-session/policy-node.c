@@ -693,10 +693,12 @@ static int rescan_node(struct impl *impl, struct node *n)
 	if (find.node == NULL) {
 		struct sm_object *obj;
 
-		pw_log_warn("no node found for %d", n->id);
-
-		if (!reconnect)
+		if (!reconnect) {
+			pw_log_info("don-reconnect target node destroyed: destroy %d", n->id);
 			sm_media_session_destroy_object(impl->session, n->id);
+		} else {
+			pw_log_warn("no node found for %d", n->id);
+		}
 
 		obj = sm_media_session_find_object(impl->session, n->client_id);
 		pw_log_debug(NAME " %p: client_id:%d object:%p type:%s", impl,

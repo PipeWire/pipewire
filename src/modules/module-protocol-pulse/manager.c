@@ -675,6 +675,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 	struct object *s;
 	va_list args;
 	char buf[1024];
+	char *value;
 
 	if ((s = find_object(m, subject)) == NULL)
 		return -ENOENT;
@@ -686,12 +687,18 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 	if (!SPA_FLAG_IS_SET(metadata->permissions, PW_PERM_W|PW_PERM_X))
 		return -EACCES;
 
-        va_start(args, format);
-	vsnprintf(buf, sizeof(buf)-1, format, args);
-        va_end(args);
+	if (type != NULL) {
+		va_start(args, format);
+		vsnprintf(buf, sizeof(buf)-1, format, args);
+		va_end(args);
+		value = buf;
+	} else {
+		spa_assert(format == NULL);
+		value = NULL;
+	}
 
 	pw_metadata_set_property(metadata->proxy,
-			subject, key, type, buf);
+			subject, key, type, value);
 	return 0;
 }
 

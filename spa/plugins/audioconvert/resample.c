@@ -882,7 +882,7 @@ static int impl_node_process(void *object)
 		else
 			resample_update_rate(&this->resample, 1.0);
 		this->io_rate_match->delay = resample_delay(&this->resample);
-		this->io_rate_match->size = resample_in_len(&this->resample, max);
+		this->io_rate_match->size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
 	}
 	return res;
 }

@@ -1011,7 +1011,7 @@ static int reply_create_playback_stream(struct stream *stream)
 	struct client *client = stream->client;
 	struct pw_manager *manager = client->manager;
 	struct message *reply;
-	uint32_t size, peer_id;
+	uint32_t missing, peer_id;
 	struct spa_dict_item items[1];
 	char latency[32];
 	struct pw_manager_object *peer;
@@ -1037,16 +1037,16 @@ static int reply_create_playback_stream(struct stream *stream)
 	pw_stream_update_properties(stream->stream,
 			&SPA_DICT_INIT(items, 1));
 
-	size = stream_pop_missing(stream);
+	missing = stream_pop_missing(stream);
 
-	pw_log_info(NAME" %p: [%s] reply CREATE_PLAYBACK_STREAM tag:%u size:%u latency:%s",
-			stream, client->name, stream->create_tag, size, latency);
+	pw_log_info(NAME" %p: [%s] reply CREATE_PLAYBACK_STREAM tag:%u missing:%u latency:%s",
+			stream, client->name, stream->create_tag, missing, latency);
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
 		TAG_U32, stream->channel,		/* stream index/channel */
 		TAG_U32, stream->id,			/* sink_input/stream index */
-		TAG_U32, size,				/* missing/requested bytes */
+		TAG_U32, missing,			/* missing/requested bytes */
 		TAG_INVALID);
 
 	peer = find_linked(manager, stream->id, stream->direction);

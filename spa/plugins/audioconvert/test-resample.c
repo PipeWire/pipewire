@@ -89,11 +89,11 @@ static void test_native(void)
 	resample_free(&r);
 }
 
-static void pull_blocks(struct resample *r, uint32_t size)
+static void pull_blocks(struct resample *r, uint32_t first, uint32_t size)
 {
 	uint32_t i;
-	float in[size * 2];
-	float out[size * 2];
+	float in[SPA_MAX(size, first) * 2];
+	float out[SPA_MAX(size, first) * 2];
 	const void *src[1];
 	void *dst[1];
 	uint32_t in_len, out_len;
@@ -103,7 +103,7 @@ static void pull_blocks(struct resample *r, uint32_t size)
 	dst[0] = out;
 
 	for (i = 0; i < 500; i++) {
-		pout_len = out_len = size;
+		pout_len = out_len = i == 0 ? first : size;
 		pin_len = in_len = resample_in_len(r, out_len);
 
 		resample_process(r, src, &pin_len, dst, &pout_len);
@@ -129,7 +129,7 @@ static void test_in_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	pull_blocks(&r, 1024);
+	pull_blocks(&r, 1024, 1024);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -140,7 +140,7 @@ static void test_in_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	pull_blocks(&r, 1024);
+	pull_blocks(&r, 1024, 1024);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -151,7 +151,18 @@ static void test_in_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	pull_blocks(&r, 1024);
+	pull_blocks(&r, 1024, 1024);
+	resample_free(&r);
+
+	spa_zero(r);
+	r.log = &logger.log;
+	r.channels = 1;
+	r.i_rate = 44100;
+	r.o_rate = 48000;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
+	resample_native_init(&r);
+
+	pull_blocks(&r, 513, 64);
 	resample_free(&r);
 }
 

@@ -1445,10 +1445,12 @@ static void stream_process(void *data)
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &pd.read_index);
+
 		if (stream->rate_match)
 			minreq = stream->rate_match->size * stream->frame_size;
 		else
 			minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
+
 		if (avail <= 0) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
@@ -1462,6 +1464,8 @@ static void stream_process(void *data)
 				pd.playing_for = size;
 				pd.underrun = true;
 			}
+			pd.read_index += size;
+			spa_ringbuffer_read_update(&stream->ring, pd.read_index);
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {
 				/* overrun, reported by other side, here we skip

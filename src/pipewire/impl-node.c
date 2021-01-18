@@ -1588,8 +1588,18 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 		update_xrun_stats(da, trigger, delay);
 
 	if (ratelimit_test(&this->rt.rate_limit, a->signal_time)) {
-		pw_log_error("(%s-%d) XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
-				this->name, this->info.id, a->xrun_count,
+		struct spa_fraction rate;
+		if (da) {
+			struct spa_io_clock *cl = &da->position.clock;
+			rate.num = cl->rate.num * cl->duration;
+			rate.denom = cl->rate.denom;
+		} else {
+			rate = SPA_FRACTION(0,0);
+		}
+		pw_log_error("(%s-%d) XRun! rate:%u/%u count:%u time:%"PRIu64
+				" delay:%"PRIu64" max:%"PRIu64,
+				this->name, this->info.id,
+				rate.num, rate.denom, a->xrun_count,
 				trigger, delay, a->max_delay);
 	}
 

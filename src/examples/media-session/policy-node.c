@@ -844,6 +844,15 @@ static int metadata_property(void *object, uint32_t subject,
 
 			if (dst_node && src_node)
 				handle_move(impl, src_node, dst_node);
+		} else if (val == SPA_ID_INVALID && strcmp(key, "target.node") == 0) {
+			/* Unset target node. Schedule rescan to re-link, if needed. */
+			struct node *src_node;
+			src_node = find_node_by_id(impl, subject);
+			if (src_node) {
+				free(src_node->obj->target_node);
+				src_node->obj->target_node = NULL;
+				sm_media_session_schedule_rescan(impl->session);
+			}
 		}
 	}
 	return 0;

@@ -971,9 +971,9 @@ static int impl_node_process(void *object)
 					status = fstatus;
 					break;
 				}
-				/* if the follower didn't produce more data
-				 * we can stop now */
-				if ((fstatus & SPA_STATUS_HAVE_DATA) == 0)
+				/* if the follower didn't produce more data or is
+				 * not drained we can stop now */
+				if ((fstatus & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED)) == 0)
 					break;
 			}
 			/* converter produced something or is drained and we

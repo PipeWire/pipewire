@@ -1378,6 +1378,7 @@ do_process_done(struct spa_loop *loop,
 				send_stream_started(stream);
 		}
 		stream->missing += pd->playing_for + pd->underrun_for;
+		stream->missing = SPA_MIN(stream->missing, stream->attr.tlength);
 		stream->playing_for += pd->playing_for;
 		stream->underrun_for += pd->underrun_for;
 

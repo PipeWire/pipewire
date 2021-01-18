@@ -1364,7 +1364,8 @@ do_process_done(struct spa_loop *loop,
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		stream->read_index = pd->read_index;
 		if (stream->corked) {
-			stream->underrun_for += pd->underrun_for;
+			if (stream->underrun_for != (uint64_t)-1)
+				stream->underrun_for += pd->underrun_for;
 			stream->playing_for = 0;
 			return 0;
 		}
@@ -1380,7 +1381,8 @@ do_process_done(struct spa_loop *loop,
 		stream->missing += pd->playing_for + pd->underrun_for;
 		stream->missing = SPA_MIN(stream->missing, stream->attr.tlength);
 		stream->playing_for += pd->playing_for;
-		stream->underrun_for += pd->underrun_for;
+		if (stream->underrun_for != (uint64_t)-1)
+			stream->underrun_for += pd->underrun_for;
 
 		send_command_request(stream);
 	} else {
@@ -1719,6 +1721,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->muted_set = muted_set;
 	stream->attr = attr;
 	stream->is_underrun = true;
+	stream->underrun_for = -1;
 
 	if (no_remix)
 		pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "true");
@@ -2492,10 +2495,12 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 
 	pw_stream_set_active(stream->stream, !cork);
 	stream->corked = cork;
-	stream->playing_for = 0;
-	stream->underrun_for = 0;
-	if (cork)
+	if (cork) {
 		stream->is_underrun = true;
+	} else {
+		stream->playing_for = 0;
+		stream->underrun_for = -1;
+	}
 
 	return reply_simple_ack(client, tag);
 }
@@ -2513,7 +2518,7 @@ static void stream_flush(struct stream *stream)
 			stream->in_prebuf = true;
 
 		stream->playing_for = 0;
-		stream->underrun_for = 0;
+		stream->underrun_for = -1;
 		stream->is_underrun = true;
 
 		send_command_request(stream);

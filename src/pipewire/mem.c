@@ -296,6 +296,9 @@ static struct mapping * memblock_map(struct memblock *b,
 	else
 		fl |= MAP_SHARED;
 
+	if (flags & PW_MEMMAP_FLAG_LOCKED)
+		fl |= MAP_LOCKED;
+
 	if (flags & PW_MEMMAP_FLAG_TWICE) {
 		pw_log_error(NAME" %p: implement me PW_MEMMAP_FLAG_TWICE", p);
 		errno = ENOTSUP;

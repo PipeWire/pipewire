@@ -70,6 +70,14 @@
 #include "defs.h"
 #include "json.h"
 
+struct stats {
+	uint32_t n_allocated;
+	uint32_t allocated;
+	uint32_t n_accumulated;
+	uint32_t accumulated;
+	uint32_t sample_cache;
+};
+
 #include "format.c"
 #include "volume.c"
 #include "message.c"
@@ -85,13 +93,6 @@ struct server;
 struct client;
 
 #include "sample.c"
-
-struct operation {
-	struct spa_list link;
-	struct client *client;
-	uint32_t tag;
-	void (*callback) (struct operation *op);
-};
 
 struct client {
 	struct spa_list link;
@@ -229,6 +230,8 @@ struct impl {
 	struct spa_list servers;
 
 	struct pw_map samples;
+
+	struct stats stat;
 };
 
 #include "collect.c"
@@ -239,6 +242,8 @@ static void sample_free(struct sample *sample)
 	struct impl *impl = sample->impl;
 
 	pw_log_info("free sample id:%u name:%s", sample->index, sample->name);
+
+	impl->stat.sample_cache -= sample->length;
 
 	if (sample->index != SPA_ID_INVALID)
 		pw_map_remove(&impl->samples, sample->index);
@@ -276,6 +281,8 @@ static void message_free(struct client *client, struct message *msg, bool dequeu
 		spa_list_remove(&msg->link);
 	if (destroy) {
 		pw_log_trace("destroy message %p", msg);
+		msg->stat->n_allocated--;
+		msg->stat->allocated -= msg->allocated;
 		free(msg->data);
 		free(msg);
 	} else {
@@ -296,6 +303,9 @@ static struct message *message_alloc(struct client *client, uint32_t channel, ui
 	if (msg == NULL) {
 		msg = calloc(1, sizeof(struct message));
 		pw_log_trace("new message %p", msg);
+		msg->stat = &client->impl->stat;
+		msg->stat->n_allocated++;
+		msg->stat->n_accumulated++;
 	}
 	if (msg == NULL)
 		return NULL;
@@ -2278,6 +2288,8 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 	sample->buffer = stream->buffer;
 	sample->length = stream->attr.maxlength;
 
+	impl->stat.sample_cache += sample->length;
+
 	stream->props = NULL;
 	stream->buffer = NULL;
 	stream_free(stream);
@@ -3206,11 +3218,11 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_U32, 0,	/* n_allocated */
-		TAG_U32, 0,	/* allocated size */
-		TAG_U32, 0,	/* n_accumulated */
-		TAG_U32, 0,	/* accumulated_size */
-		TAG_U32, 0,	/* sample cache size */
+		TAG_U32, impl->stat.n_allocated,	/* n_allocated */
+		TAG_U32, impl->stat.allocated,		/* allocated size */
+		TAG_U32, impl->stat.n_accumulated,	/* n_accumulated */
+		TAG_U32, impl->stat.accumulated,	/* accumulated_size */
+		TAG_U32, impl->stat.sample_cache,	/* sample cache size */
 		TAG_INVALID);
 
 	return send_message(client, reply);

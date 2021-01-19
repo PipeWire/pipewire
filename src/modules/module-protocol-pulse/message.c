@@ -118,6 +118,7 @@ enum {
 
 struct message {
 	struct spa_list link;
+	struct stats *stat;
 	uint32_t extra[4];
 	uint32_t channel;
 	uint32_t allocated;
@@ -441,13 +442,19 @@ static int message_get(struct message *m, ...)
 
 static int ensure_size(struct message *m, uint32_t size)
 {
-	uint32_t alloc;
+	uint32_t alloc, diff;
+	void *data;
+
 	if (m->length + size <= m->allocated)
 		return size;
 
 	alloc = SPA_ROUND_UP_N(SPA_MAX(m->allocated + size, 4096u), 4096u);
-	if ((m->data = realloc(m->data, alloc)) == NULL)
+	diff = alloc - m->allocated;
+	if ((data = realloc(m->data, alloc)) == NULL)
 		return -errno;
+	m->stat->allocated += diff;
+	m->stat->accumulated += diff;
+	m->data = data;
 	m->allocated = alloc;
 	return size;
 }

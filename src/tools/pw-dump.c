@@ -88,7 +88,6 @@ struct class {
 	const char *type;
 	uint32_t version;
 	const void *events;
-	void (*init) (struct object *object);
 	void (*destroy) (struct object *object);
 	void (*dump) (struct object *object);
 };
@@ -1223,8 +1222,8 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_proxy_add_object_listener(o->proxy,
 					&o->object_listener,
 					o->class->events, o);
-		if (o->class->init)
-			o->class->init(o);
+		else
+			o->changed++;
 	} else {
 		o->changed++;
 	}

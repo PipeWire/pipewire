@@ -1712,6 +1712,14 @@ static bool element_probe_volume(pa_alsa_element *e, snd_mixer_elem_t *me) {
     else
         e->has_dB = snd_mixer_selem_get_capture_dB_range(me, &min_dB, &max_dB) >= 0;
 
+    /* Assume decibel data to be incorrect if max_dB is negative. */
+    if (e->has_dB && max_dB < 0 && !e->db_fix) {
+        pa_alsa_mixer_id_to_string(buf, sizeof(buf), &e->alsa_id);
+        pa_log_warn("The decibel volume range for element %s (%li dB - %li dB) has negative maximum. "
+                    "Disabling the decibel range.", buf, min_dB, max_dB);
+        e->has_dB = false;
+    }
+
     /* Check that the kernel driver returns consistent limits with
      * both _get_*_dB_range() and _ask_*_vol_dB(). */
     if (e->has_dB && !e->db_fix) {

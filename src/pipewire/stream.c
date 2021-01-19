@@ -49,8 +49,6 @@
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 #define MAX_PORTS	1
 
-static bool mlock_warned = false;
-
 static uint32_t mappable_dataTypes = (1<<SPA_DATA_MemFd);
 
 struct buffer {
@@ -578,10 +576,15 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 {
 	void *ptr;
 	struct pw_map_range range;
+	int flags;
 
 	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
-	ptr = mmap(NULL, range.size, prot, MAP_SHARED, data->fd, range.offset);
+	flags = MAP_SHARED;
+	if (impl->allow_mlock)
+		flags |= MAP_LOCKED;
+
+	ptr = mmap(NULL, range.size, prot, flags, data->fd, range.offset);
 	if (ptr == MAP_FAILED) {
 		pw_log_error(NAME" %p: failed to mmap buffer mem: %m", impl);
 		return -errno;
@@ -591,17 +594,6 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 	pw_log_debug(NAME" %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
-	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
-		if (errno != ENOMEM || !mlock_warned) {
-			pw_log(impl->process_rt ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
-					NAME" %p: Failed to mlock memory %p %u: %s", impl,
-					data->data, data->maxsize,
-					errno == ENOMEM ?
-					"This is not a problem but for best performance, "
-					"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
-			mlock_warned |= errno == ENOMEM;
-		}
-	}
 	return 0;
 }
 
@@ -1545,7 +1537,6 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 
 	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
-	pw_properties_set(stream->properties, "mem.warn-mlock", impl->process_rt ? "true" : "false");
 
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);

@@ -51,7 +51,6 @@
 #define MAX_PORTS	1024
 
 static float empty[MAX_SAMPLES];
-static bool mlock_warned = false;
 
 static uint32_t mappable_dataTypes = (1<<SPA_DATA_MemFd);
 
@@ -150,7 +149,7 @@ struct filter {
 	unsigned int subscribe:1;
 	unsigned int draining:1;
 	unsigned int allow_mlock:1;
-	unsigned int warn_mlock:1;
+	unsigned int process_rt:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -567,10 +566,15 @@ static int map_data(struct filter *impl, struct spa_data *data, int prot)
 {
 	void *ptr;
 	struct pw_map_range range;
+	int flags;
 
 	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
-	ptr = mmap(NULL, range.size, prot, MAP_SHARED, data->fd, range.offset);
+	flags = MAP_SHARED;
+	if (impl->allow_mlock)
+		flags |= MAP_LOCKED;
+
+	ptr = mmap(NULL, range.size, prot, flags, data->fd, range.offset);
 	if (ptr == MAP_FAILED) {
 		pw_log_error(NAME" %p: failed to mmap buffer mem: %m", impl);
 		return -errno;
@@ -579,17 +583,6 @@ static int map_data(struct filter *impl, struct spa_data *data, int prot)
 	pw_log_debug(NAME" %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
-	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
-		if (errno != ENOMEM || !mlock_warned) {
-			pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
-					NAME" %p: Failed to mlock memory %p %u: %s", impl,
-					data->data, data->maxsize,
-					errno == ENOMEM ?
-					"This is not a problem but for best performance, "
-					"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
-			mlock_warned |= errno == ENOMEM;
-		}
-	}
 	return 0;
 }
 
@@ -791,7 +784,7 @@ static void call_process(struct filter *impl)
 {
 	struct pw_filter *filter = &impl->this;
 	pw_log_trace(NAME" %p: call process", impl);
-	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_RT_PROCESS)) {
+	if (impl->process_rt) {
 		pw_filter_emit_process(filter, impl->rt.position);
 	}
 	else {
@@ -1241,10 +1234,6 @@ pw_filter_connect(struct pw_filter *filter,
 	pw_log_debug(NAME" %p: connect", filter);
 	impl->flags = flags;
 
-	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS);
-	pw_properties_set(filter->properties, "mem.warn-mlock",
-			impl->warn_mlock ? "true" : "false");
-
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
@@ -1255,10 +1244,12 @@ pw_filter_connect(struct pw_filter *filter,
 		SPA_NODE_CHANGE_MASK_PROPS |
 		SPA_NODE_CHANGE_MASK_PARAMS;
 
+	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
+
 	impl->info = SPA_NODE_INFO_INIT();
 	impl->info.max_input_ports = MAX_PORTS;
 	impl->info.max_output_ports = MAX_PORTS;
-	impl->info.flags = impl->warn_mlock ? SPA_NODE_FLAG_RT : 0;
+	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
 	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);

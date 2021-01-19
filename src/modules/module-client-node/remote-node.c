@@ -44,8 +44,6 @@
 #define MAX_MIX	4096
 
 /** \cond */
-static bool mlock_warned = false;
-
 struct buffer {
 	uint32_t id;
 	struct spa_buffer *buf;
@@ -79,7 +77,6 @@ struct node_data {
 	unsigned int do_free:1;
 	unsigned int have_transport:1;
 	unsigned int allow_mlock:1;
-	unsigned int warn_mlock:1;
 
 	struct pw_client_node *client_node;
 	struct spa_hook client_node_listener;
@@ -618,6 +615,8 @@ client_node_port_use_buffers(void *object,
 	}
 
 	prot = PW_MEMMAP_FLAG_READWRITE;
+	if (data->allow_mlock)
+		prot |= PW_MEMMAP_FLAG_LOCKED;
 
 	/* clear previous buffers */
 	clear_buffers(data, mix);
@@ -643,17 +642,6 @@ client_node_port_use_buffers(void *object,
 		}
 		bid->id = i;
 		bid->mem = mm;
-
-		if (data->allow_mlock && mlock(mm->ptr, mm->size) < 0)
-			if (errno != ENOMEM || !mlock_warned) {
-				pw_log(data->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
-						"Failed to mlock memory %p %u: %s",
-						mm->ptr, mm->size,
-						errno == ENOMEM ?
-						"This is not a problem but for best performance, "
-						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
-				mlock_warned |= errno == ENOMEM;
-			}
 
 		size = sizeof(struct spa_buffer);
 		for (j = 0; j < buffers[i].buffer->n_metas; j++)
@@ -1217,10 +1205,6 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	data->allow_mlock = data->context->defaults.mem_allow_mlock;
 	if ((str = pw_properties_get(node->properties, "mem.allow-mlock")) != NULL)
 		data->allow_mlock = pw_properties_parse_bool(str);
-
-	data->warn_mlock = true;
-	if ((str = pw_properties_get(node->properties, "mem.warn-mlock")) != NULL)
-		data->warn_mlock = pw_properties_parse_bool(str);
 
 	node->exported = true;
 

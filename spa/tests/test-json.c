@@ -71,7 +71,7 @@ static void expect_string(struct spa_json *it, const char *str)
 	char *s;
 	spa_assert((len = spa_json_next(it, &value)) > 0);
 	check_type(TYPE_STRING, value, len);
-	s = alloca(len);
+	s = alloca(len+1);
 	spa_json_parse_string(value, len, s);
 	spa_assert(strcmp(s, str) == 0);
 }

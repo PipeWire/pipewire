@@ -60,7 +60,7 @@ static bool find_match(struct spa_json *arr, struct pw_properties *props)
 			if (spa_json_is_null(value, len)) {
 				success = str == NULL;
 			} else {
-				spa_json_parse_string(value, SPA_MIN(len, 1024), val);
+				spa_json_parse_string(value, SPA_MIN(len, 1023), val);
 				value = val;
 				len = strlen(val);
 			}

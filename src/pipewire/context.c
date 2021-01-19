@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <regex.h>
 #include <limits.h>
+#include <sys/mman.h>
 
 #include <pipewire/log.h>
 
@@ -220,6 +221,13 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	}
 
+	if ((str = pw_properties_get(properties, "mem.mlock-all")) != NULL &&
+	    pw_properties_parse_bool(str)) {
+		if (mlockall(MCL_CURRENT | MCL_FUTURE) < 0)
+			pw_log_warn(NAME" %p: could not mlockall; %m", impl);
+		else
+			pw_log_info(NAME" %p: mlockall succeeded", impl);
+	}
 	this->properties = properties;
 
 	fill_defaults(this);

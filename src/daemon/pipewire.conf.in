@@ -6,6 +6,7 @@ properties = {
     #link.max-buffers =		64
     link.max-buffers =		16		# version < 3 clients can't handle more
     #mem.allow-mlock =		true
+    #mem.mlock-all =		false
     #log.level =		2
 
     ## Properties for the DSP configuration

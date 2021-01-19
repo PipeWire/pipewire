@@ -2281,7 +2281,9 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	impl.state_dir_fd = -1;
-	impl.this.props = pw_properties_new(NULL, NULL);
+	impl.this.props = pw_properties_new(
+			PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+			NULL);
 	if (impl.this.props == NULL)
 		return -1;
 
@@ -2326,9 +2328,7 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(impl.this.loop, SIGTERM, do_quit, &impl);
 
 	impl.this.context = pw_context_new(impl.this.loop,
-				pw_properties_new(
-					PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
-					NULL),
+				pw_properties_copy(impl.this.props),
 				0);
 
 	if (impl.this.context == NULL)

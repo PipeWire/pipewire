@@ -61,6 +61,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/json.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
@@ -68,7 +69,6 @@
 
 #include "pulse-server.h"
 #include "defs.h"
-#include "json.h"
 
 struct stats {
 	uint32_t n_allocated;

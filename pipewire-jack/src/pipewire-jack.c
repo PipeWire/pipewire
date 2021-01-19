@@ -87,6 +87,7 @@ struct globals {
 };
 
 static struct globals globals;
+static bool mlock_warned = false;
 
 #define OBJECT_CHUNK	8
 
@@ -1722,8 +1723,6 @@ static int client_node_port_use_buffers(void *object,
 		/* some apps write to the input buffer so we want everything readwrite */
 		fl = PW_MEMMAP_FLAG_READWRITE;
 	}
-	if (c->allow_mlock)
-		fl |= PW_MEMMAP_FLAG_LOCKED;
 
 	/* clear previous buffers */
 	clear_buffers(c, mix);
@@ -1805,6 +1804,16 @@ static int client_node_port_use_buffers(void *object,
 						c, j, b->id, d->data, d->maxsize);
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
+			}
+			if (c->allow_mlock && mlock(d->data, d->maxsize) < 0) {
+				if (errno != ENOMEM  || !mlock_warned) {
+					pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", c,
+						d->data, d->maxsize,
+						errno == ENOMEM ?
+						"This is not a problem but for best performance, "
+						"consider increasing RLIMIT_MEMLOCK" : strerror(errno));
+					mlock_warned |= errno == ENOMEM;
+				}
 			}
 		}
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);

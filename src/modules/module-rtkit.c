@@ -182,6 +182,8 @@ static pid_t _gettid(void)
 
 static int translate_error(const char *name)
 {
+	pw_log_warn("RTKit error: %s", name);
+
 	if (0 == strcmp(name, DBUS_ERROR_NO_MEMORY))
 		return -ENOMEM;
 	if (0 == strcmp(name, DBUS_ERROR_SERVICE_UNKNOWN) ||

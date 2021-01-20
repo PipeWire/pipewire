@@ -115,6 +115,7 @@ struct impl {
 	struct spa_hook session_listener;
 
 	struct pw_properties *conf;
+	struct pw_properties *props;
 
 	DBusConnection *conn;
 
@@ -963,8 +964,10 @@ static int alsa_start_jack_device(struct impl *impl)
 				&props->dict,
                                 0);
 
-	if (impl->jack_device == NULL)
+	if (impl->jack_device == NULL) {
+		pw_log_error("can't create JACK Device: %m");
 		res = -errno;
+	}
 
 	pw_properties_free(props);
 
@@ -977,8 +980,10 @@ static void session_destroy(void *data)
 	remove_jack_timeout(impl);
 	spa_hook_remove(&impl->session_listener);
 	spa_hook_remove(&impl->listener);
-	pw_proxy_destroy(impl->jack_device);
+	if (impl->jack_device)
+		pw_proxy_destroy(impl->jack_device);
 	pw_unload_spa_handle(impl->handle);
+	pw_properties_free(impl->props);
 	pw_properties_free(impl->conf);
 	free(impl);
 }
@@ -994,6 +999,7 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	struct impl *impl;
 	void *iface;
 	int res;
+	const char *str;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -1002,13 +1008,20 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	impl->session = session;
 	impl->conf = pw_properties_new(NULL, NULL);
 	if (impl->conf == NULL) {
-		free(impl);
-		return -errno;
+		res = -errno;
+		goto out_free;
 	}
 
 	if ((res = sm_media_session_load_conf(impl->session,
 					SESSION_CONF, impl->conf)) < 0)
 		pw_log_info("can't load "SESSION_CONF" config: %s", spa_strerror(res));
+
+	if ((impl->props = pw_properties_new(NULL, NULL)) == NULL) {
+		res = -errno;
+		goto out_free;
+	}
+	if ((str = pw_properties_get(impl->conf, "properties")) != NULL)
+		pw_properties_update_string(impl->props, str, strlen(str));
 
 	if (session->dbus_connection)
 		impl->conn = spa_dbus_connection_get(session->dbus_connection);
@@ -1016,7 +1029,6 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 		pw_log_warn("no dbus connection, device reservation disabled");
 	else
 		pw_log_debug("got dbus connection %p", impl->conn);
-
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {
@@ -1026,22 +1038,29 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 
 	if ((res = spa_handle_get_interface(impl->handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
 		pw_log_error("can't get udev Device interface: %d", res);
-		goto out_unload;
+		goto out_free;
 	}
 	impl->monitor = iface;
 	spa_list_init(&impl->device_list);
 	spa_device_add_listener(impl->monitor, &impl->listener, &alsa_udev_events, impl);
 
-	if ((res = alsa_start_jack_device(impl)) < 0)
-		goto out_unload;
+	if ((str = pw_properties_get(impl->props, "alsa.jack-device")) == NULL ||
+	    pw_properties_parse_bool(str)) {
+		if ((res = alsa_start_jack_device(impl)) < 0)
+			goto out_free;
+	}
 
 	sm_media_session_add_listener(session, &impl->session_listener, &session_events, impl);
 
 	return 0;
 
-out_unload:
-	pw_unload_spa_handle(impl->handle);
 out_free:
+	if (impl->handle)
+		pw_unload_spa_handle(impl->handle);
+	if (impl->conf)
+		pw_properties_free(impl->conf);
+	if (impl->props)
+		pw_properties_free(impl->props);
 	free(impl);
 	return res;
 }

@@ -110,7 +110,7 @@ static int check_flatpak(struct pw_impl_client *client, int pid)
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
 		 * we're failing due to /proc/$pid not existing. In that case fail instead
 		 * of treating this as privileged. */
-		pw_log_error("failed to open \"%s\": %s", root_path, spa_strerror(res));
+		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
 		return res;
 	}
 	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
@@ -204,12 +204,12 @@ context_check_access(void *data, struct pw_impl_client *client)
 	res = check_flatpak(client, pid);
 	if (res != 0) {
 		if (res < 0) {
-			pw_log_warn(NAME" %p: client %p sandbox check failed: %s",
-				impl, client, spa_strerror(res));
 			if (res == -EACCES) {
 				access = "unrestricted";
 				goto granted;
 			}
+			pw_log_warn(NAME" %p: client %p sandbox check failed: %s",
+				impl, client, spa_strerror(res));
 		}
 		else if (res > 0) {
 			pw_log_debug(NAME" %p: flatpak client %p added", impl, client);

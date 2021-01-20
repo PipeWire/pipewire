@@ -1,3 +1,76 @@
+PipeWire 0.3.20
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Latency was reduced in ALSA and PulseAudio and time
+    reporting has improved a lot.
+  - Bluetooth now has a native HFP backed, SBC XQ and
+    mSBC support.
+  - Many bugfixes and improvements, improved device
+    support.
+
+- PipeWire improvements
+  - pw-dump can now dump all objects such as Endpoints
+  - pw-dump has a -m option to monitor changes
+  - pw-dump can now dump metadata
+  - pw-stream can now use the rate-match io to exactly
+    produce the required number of samples for the
+    current cycle. When using this feature, a stream can
+    achieve the same low-latency as pw-filter.
+  - spa-acp-tool can now load a custom profile-set and
+    correctly parses the volume updates
+  - There is now a nofail option when loading modules
+  - The connection has been made reentrant to fix some
+    strange random problems with metadata.
+  - Turn some errors into warnings or simply info.
+  - Executables are now built with PIE
+  - S24OE formats should work now (MAudio FastTrack Pro)
+  - Remove mlock warnings. Add support for mlockall with
+    a config option.
+
+- Session-manager
+  - There are now config files for bluez and v4l2 modules
+  - Improve ALSA device and node properties
+  - Bluetooth devices have better properties now.
+  - The default device routing has been improved.
+
+- Device support
+  - Port priorities are updated for UCM devices
+  - ACP devices notify change in routes in all cases
+  - There is now RW support in ALSA devices to increase
+    compatibility.
+  - Many improvements to Bluetooth. SBC XQ support can now
+    be enabled with a config option. mSBC can be enabled
+    with an option.
+  - Bluetooth devices not expose Routes so that they look
+    more like how PulseAudio handles them
+  - Gracefully handle missing profile-sets
+  - There is now a native HFP backend
+  - Improve card names in some cases.
+  - pause-on-idle is now disabled for ALSA devices. This can
+    reduce pops and clicks when the device is stopped.
+
+
+- ALSA plugin
+  - Use rate-match to reduce the latency
+  - Implement a _delay() function to get smoother timestamps.
+  - Fix property parsing. Fixes volume changes in alsamixer.
+
+- PulseAudio server
+  - Use rate-match to reduce the latency. This also reduces
+    the buffering in audioconvert and improves timestamp
+    reporting.
+  - Implement rate changes now that we have rate-match
+    support.
+  - pactl stats will now work
+  - Fix excessive memory usage when a capture client doesn't
+    read fast enough.
+
+
+Older versions:
+
 PipeWire 0.3.19
 
 This is a bugfix release that is API and ABI compatible
@@ -61,8 +134,6 @@ with previous 0.3.x releases.
   - Ports can also be found with the aliases now, making
     qjackctl work in more cases.
 
-
-Older versions:
 
 PipeWire 0.3.18
 

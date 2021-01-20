@@ -192,6 +192,8 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw->time.now;
 	        elapsed = (pw->time.rate.denom * diff) / (pw->time.rate.num * SPA_NSEC_PER_SEC);
+		if (elapsed > pw->time.delay)
+			elapsed = pw->time.delay;
 	}
 	filled = pw->time.delay + snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 

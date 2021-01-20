@@ -38,6 +38,7 @@ install_headers(spa_graph_headers,
 spa_monitor_headers = [
   'monitor/device.h',
   'monitor/event.h',
+  'monitor/type-info.h',
   'monitor/utils.h',
 ]
 

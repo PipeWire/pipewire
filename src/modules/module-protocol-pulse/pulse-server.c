@@ -4365,6 +4365,35 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	return reply_simple_ack(client, tag);
 }
 
+static int do_suspend(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager_object *o;
+	const char *name;
+	int res;
+	uint32_t id, cmd;;
+	bool sink = command == COMMAND_SUSPEND_SINK, suspend;
+
+	if ((res = message_get(m,
+			TAG_U32, &id,
+			TAG_STRING, &name,
+			TAG_BOOLEAN, &suspend,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
+			commands[command].name, tag, id, name);
+
+	if ((o = find_device(client, id, name, sink)) == NULL)
+		return -ENOENT;
+
+	if (suspend) {
+		cmd = SPA_NODE_COMMAND_Suspend;
+		pw_node_send_command((struct pw_node*)o->proxy, &SPA_NODE_COMMAND_INIT(cmd));
+	}
+	return reply_simple_ack(client, tag);
+}
+
 static int do_move_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -4688,8 +4717,8 @@ static const struct command commands[COMMAND_MAX] =
 	/* Supported since protocol v11 (0.9.7) */
 	[COMMAND_SET_SINK_INPUT_MUTE] = { "SET_SINK_INPUT_MUTE", do_set_stream_mute, },
 
-	[COMMAND_SUSPEND_SINK] = { "SUSPEND_SINK", do_error_access, },
-	[COMMAND_SUSPEND_SOURCE] = { "SUSPEND_SOURCE", do_error_access, },
+	[COMMAND_SUSPEND_SINK] = { "SUSPEND_SINK", do_suspend, },
+	[COMMAND_SUSPEND_SOURCE] = { "SUSPEND_SOURCE", do_suspend, },
 
 	/* Supported since protocol v12 (0.9.8) */
 	[COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR] = { "SET_PLAYBACK_STREAM_BUFFER_ATTR", do_set_stream_buffer_attr, },

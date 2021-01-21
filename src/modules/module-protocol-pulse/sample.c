@@ -50,6 +50,7 @@ struct sample_play {
 	struct spa_list link;
 	struct sample *sample;
 	struct pw_stream *stream;
+	struct spa_io_rate_match *rate_match;
 	uint32_t index;
 	struct spa_hook listener;
 	struct pw_context *context;
@@ -77,6 +78,16 @@ static void sample_play_stream_state_changed(void *data, enum pw_stream_state ol
 		sample_play_emit_ready(p, p->index);
 		break;
 	default:
+		break;
+	}
+}
+
+static void sample_play_stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct sample_play *p = data;
+	switch (id) {
+	case SPA_IO_RateMatch:
+		p->rate_match = area;
 		break;
 	}
 }
@@ -118,6 +129,8 @@ static void sample_play_stream_process(void *data)
 		return;
 
 	size = SPA_MIN(size, buf->datas[0].maxsize);
+	if (p->rate_match)
+		size = SPA_MIN(size, p->rate_match->size * p->stride);
 
 	memcpy(d, p->sample->buffer + p->offset, size);
 
@@ -139,6 +152,7 @@ static void sample_play_stream_drained(void *data)
 struct pw_stream_events sample_play_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = sample_play_stream_state_changed,
+	.io_changed = sample_play_stream_io_changed,
 	.destroy = sample_play_stream_destroy,
 	.process = sample_play_stream_process,
 	.drained = sample_play_stream_drained,
@@ -176,6 +190,7 @@ static struct sample_play *sample_play_new(struct pw_core *core,
 	}
 
 	p->sample = sample;
+	p->stride = sample_spec_frame_size(&sample->ss);
 	sample->ref++;
 
 	pw_stream_add_listener(p->stream,

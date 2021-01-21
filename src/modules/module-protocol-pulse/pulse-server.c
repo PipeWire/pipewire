@@ -4004,7 +4004,9 @@ static uint64_t bytes_to_usec(uint64_t length, const struct sample_spec *ss)
 static int fill_sample_info(struct client *client, struct message *m,
 		struct sample *sample)
 {
-	struct volume vol = VOLUME_INIT;
+	struct volume vol;
+
+	volume_make(&vol, sample->ss.channels);
 
 	message_put(m,
 		TAG_U32, sample->index,

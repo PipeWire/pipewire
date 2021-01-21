@@ -44,6 +44,14 @@ static inline bool volume_valid(const struct volume *vol)
 	return true;
 }
 
+static inline void volume_make(struct volume *vol, uint8_t channels)
+{
+	uint8_t i;
+	for (i = 0; i < channels; i++)
+		vol->values[i] = 1.0f;
+	vol->channels = channels;
+}
+
 struct volume_info {
 	struct volume volume;
 	struct channel_map map;

@@ -1392,6 +1392,7 @@ mmap_init(struct impl *this,
 	struct spa_v4l2_device *dev = &port->dev;
 	struct v4l2_requestbuffers reqbuf;
 	unsigned int i;
+	bool use_expbuf = false;
 
 	port->memtype = V4L2_MEMORY_MMAP;
 
@@ -1454,7 +1455,9 @@ mmap_init(struct impl *this,
 		d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 		d[0].chunk->flags = 0;
 
-		if (port->have_expbuf) {
+		spa_log_debug(this->log, "v4l2: data types %08x", d[0].type);
+
+		if (port->have_expbuf && (d[0].type & (1u << SPA_DATA_DmaBuf))) {
 			struct v4l2_exportbuffer expbuf;
 
 			spa_zero(expbuf);
@@ -1477,6 +1480,7 @@ mmap_init(struct impl *this,
 			d[0].data = NULL;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			spa_log_debug(this->log, "v4l2: EXPBUF fd:%d", expbuf.fd);
+			use_expbuf = true;
 		} else {
 fallback:
 			d[0].type = SPA_DATA_MemFd;
@@ -1495,11 +1499,12 @@ fallback:
 			b->ptr = d[0].data;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 			spa_log_debug(this->log, "v4l2: mmap offset:%u data:%p", d[0].mapoffset, b->ptr);
+			use_expbuf = false;
 		}
 		spa_v4l2_buffer_recycle(this, i);
 	}
 	spa_log_info(this->log, "v4l2: have %u buffers using %s", n_buffers,
-			port->have_expbuf ? "EXPBUF" : "MMAP");
+			use_expbuf ? "EXPBUF" : "MMAP");
 
 	port->n_buffers = n_buffers;
 

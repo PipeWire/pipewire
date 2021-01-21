@@ -272,7 +272,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 			n->driver == n ? "" : " + ",
 			n->name);
 
-	wprintw(d->win, "%.*s\n", COLS, line);
+	wprintw(d->win, "%.*s\n", COLS-1, line);
 }
 
 static void do_refresh(struct data *d)

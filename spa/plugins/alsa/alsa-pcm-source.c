@@ -797,6 +797,7 @@ impl_init(const struct spa_handle_factory *factory,
 	snd_config_update_free_global();
 
 	for (i = 0; info && i < info->n_items; i++) {
+		const char *s = info->items[i].value;
 		if (!strcmp(info->items[i].key, SPA_KEY_API_ALSA_PATH)) {
 			snprintf(this->props.device, 63, "%s", info->items[i].value);
 		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_CHANNELS)) {
@@ -807,20 +808,21 @@ impl_init(const struct spa_handle_factory *factory,
 			this->default_format = spa_alsa_format_from_name(info->items[i].value, 128);
 		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_POSITION)) {
 			size_t len;
-			const char *p = info->items[i].value;
-			while (*p && this->default_pos.channels < SPA_AUDIO_MAX_CHANNELS) {
-				if ((len = strcspn(p, ",")) == 0)
+			while (*s && this->default_pos.channels < SPA_AUDIO_MAX_CHANNELS) {
+				if ((len = strcspn(s, ",")) == 0)
 					break;
 				this->default_pos.pos[this->default_pos.channels++] =
-					spa_alsa_channel_from_name(p, len);
-				p += len + strspn(p+len, ",");
+					spa_alsa_channel_from_name(s, len);
+				s += len + strspn(s+len, ",");
 			}
 		} else if (!strcmp(info->items[i].key, "api.alsa.period-size")) {
 			this->default_period_size = atoi(info->items[i].value);
 		} else if (!strcmp(info->items[i].key, "api.alsa.headroom")) {
 			this->default_headroom = atoi(info->items[i].value);
 		} else if (!strcmp(info->items[i].key, "api.alsa.disable-mmap")) {
-			this->disable_mmap = atoi(info->items[i].value);
+			this->disable_mmap = (strcmp(s, "true") == 0 || atoi(s) == 1);
+		} else if (!strcmp(info->items[i].key, "api.alsa.disable-batch")) {
+			this->disable_batch = (strcmp(s, "true") == 0 || atoi(s) == 1);
 		}
 	}
 	return 0;

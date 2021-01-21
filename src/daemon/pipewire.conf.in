@@ -99,10 +99,6 @@ exec = {
     # Start the session manager. Run the session manager with -h for
     # options.
     #
-    # The bluetooth module is disabled by default because it causes
-    # conflicts with PulseAudio. If you disable PulseAudio or don't
-    # load its bluetooth module, you can enable it here with -e bluez5
-    #
     "@media_session_path@" = { args = ""}
     #
     # You can optionally start the pulseaudio-server here as well

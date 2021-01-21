@@ -857,7 +857,8 @@ again:
 			/* realtime and we don't have a buffer, trigger process and try
 			 * again when there is something in the queue now */
 			call_process(impl);
-			if (spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0)
+			if (impl->draining ||
+			    spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0)
 				goto again;
 		}
 	}

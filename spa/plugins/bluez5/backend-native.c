@@ -924,7 +924,7 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	DBusMessage *m;
 	DBusMessageIter it[4];
 	dbus_bool_t autoconnect;
-	dbus_uint16_t version, chan;
+	dbus_uint16_t version, chan, features;
 	char *str;
 	DBusPendingCall *call;
 
@@ -975,6 +975,17 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
 	} else if (strcmp(uuid, SPA_BT_UUID_HFP_AG) == 0) {
+		str = "Features";
+		features = SPA_BT_HFP_SDP_AG_FEATURE_NONE;
+		if (backend->msbc_support_enabled_in_config == true)
+			features |= SPA_BT_HFP_SDP_AG_FEATURE_WIDEBAND_SPEECH;
+		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
+		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
+		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
+		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &features);
+		dbus_message_iter_close_container(&it[2], &it[3]);
+		dbus_message_iter_close_container(&it[1], &it[2]);
+
 		/* HFP version 1.7 */
 		str = "Version";
 		version = 0x0107;

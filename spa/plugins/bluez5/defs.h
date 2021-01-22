@@ -196,6 +196,17 @@ enum spa_bt_hfp_ag_feature {
 	SPA_BT_HFP_AG_FEATURE_EXTENDED_RES_CODE =	(1 << 8),
 	SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION =	(1 << 9),
 	SPA_BT_HFP_AG_FEATURE_HF_INDICATORS =		(1 << 10),
+	SPA_BT_HFP_AG_FEATURE_ESCO_S4 =			(1 << 11),
+};
+
+enum spa_bt_hfp_sdp_ag_features {
+	SPA_BT_HFP_SDP_AG_FEATURE_NONE =		(0),
+	SPA_BT_HFP_SDP_AG_FEATURE_3WAY =		(1 << 0),
+	SPA_BT_HFP_SDP_AG_FEATURE_ECNR =		(1 << 1),
+	SPA_BT_HFP_SDP_AG_FEATURE_VOICE_RECOG =		(1 << 2),
+	SPA_BT_HFP_SDP_AG_FEATURE_IN_BAND_RING_TONE =	(1 << 3),
+	SPA_BT_HFP_SDP_AG_FEATURE_ATTACH_VOICE_TAG =	(1 << 4),
+	SPA_BT_HFP_SDP_AG_FEATURE_WIDEBAND_SPEECH =	(1 << 5),
 };
 
 enum spa_bt_hfp_hf_feature {
@@ -209,6 +220,17 @@ enum spa_bt_hfp_hf_feature {
 	SPA_BT_HFP_HF_FEATURE_ENHANCED_CALL_CONTROL =	(1 << 6),
 	SPA_BT_HFP_HF_FEATURE_CODEC_NEGOTIATION =	(1 << 7),
 	SPA_BT_HFP_HF_FEATURE_HF_INDICATORS =		(1 << 8),
+	SPA_BT_HFP_HF_FEATURE_ESCO_S4 =			(1 << 9),
+};
+
+enum spa_bt_hfp_sdp_hf_features {
+	SPA_BT_HFP_SDP_HF_FEATURE_NONE =		(0),
+	SPA_BT_HFP_SDP_HF_FEATURE_ECNR =		(1 << 0),
+	SPA_BT_HFP_SDP_HF_FEATURE_3WAY =		(1 << 1),
+	SPA_BT_HFP_SDP_HF_FEATURE_CLIP =		(1 << 2),
+	SPA_BT_HFP_SDP_HF_FEATURE_VOICE_RECOGNITION =	(1 << 3),
+	SPA_BT_HFP_SDP_HF_FEATURE_REMOTE_VOLUME_CONTROL =	(1 << 4),
+	SPA_BT_HFP_SDP_HF_FEATURE_WIDEBAND_SPEECH =	(1 << 5),
 };
 
 static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {

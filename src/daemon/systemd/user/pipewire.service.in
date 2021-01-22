@@ -19,6 +19,7 @@ Requires=pipewire.socket
 Type=simple
 ExecStart=@PW_BINARY@
 Restart=on-failure
+LimitMEMLOCK=131072
 
 [Install]
 Also=pipewire.socket

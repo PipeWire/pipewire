@@ -21,6 +21,7 @@ Restart=on-failure
 RuntimeDirectory=pipewire
 User=pipewire
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
+LimitMEMLOCK=131072
 
 [Install]
 Also=pipewire.socket

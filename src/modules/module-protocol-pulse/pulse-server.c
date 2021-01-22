@@ -197,6 +197,7 @@ struct stream {
 	unsigned int draining:1;
 	unsigned int volume_set:1;
 	unsigned int muted_set:1;
+	unsigned int early_requests:1;
 	unsigned int adjust_latency:1;
 	unsigned int is_underrun:1;
 	unsigned int in_prebuf:1;
@@ -1050,7 +1051,19 @@ static int reply_create_playback_stream(struct stream *stream)
 
 	spa_ringbuffer_init(&stream->ring);
 
-	lat.num = stream->attr.minreq / stream->frame_size;
+	if (stream->early_requests) {
+		lat.num = stream->attr.minreq / stream->frame_size;
+	} else if (stream->adjust_latency) {
+		if (stream->attr.tlength > stream->attr.minreq * 2)
+			lat.num = (stream->attr.tlength - stream->attr.minreq * 2) / 2 / stream->frame_size;
+		else
+			lat.num = stream->attr.minreq;
+	} else {
+		if (stream->attr.tlength > stream->attr.minreq * 2)
+			lat.num = (stream->attr.tlength - stream->attr.minreq * 2) / stream->frame_size;
+		else
+			lat.num = stream->attr.minreq;
+	}
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
@@ -1166,7 +1179,14 @@ static int reply_create_record_stream(struct stream *stream)
 
 	spa_ringbuffer_init(&stream->ring);
 
-	lat.num = stream->attr.fragsize / stream->frame_size,
+	if (stream->early_requests) {
+		lat.num = stream->attr.fragsize / stream->frame_size;
+	} else if (stream->adjust_latency) {
+		lat.num = stream->attr.fragsize / stream->frame_size;
+	} else {
+		lat.num = stream->attr.fragsize / stream->frame_size;
+	}
+
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
@@ -1738,6 +1758,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->client = client;
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
+	stream->early_requests = early_requests;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
 	if (stream->channel == SPA_ID_INVALID)
 		goto error_errno;
@@ -1959,6 +1980,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->client = client;
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
+	stream->early_requests = early_requests;
 	stream->channel = pw_map_insert_new(&client->streams, stream);
 	if (stream->channel == SPA_ID_INVALID)
 		goto error_errno;

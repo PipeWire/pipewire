@@ -401,7 +401,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	enum spa_param_availability available;
 	enum spa_bt_form_factor ff;
 	char name[128];
-	uint32_t i;
+	uint32_t i, mask;
 
 	ff = spa_bt_form_factor_from_class(device->bluetooth_class);
 
@@ -478,6 +478,12 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	if (dev != SPA_ID_INVALID && available == SPA_PARAM_AVAILABILITY_no)
 		return NULL;
 
+	mask = 0;
+	for (i = 1; i < 3; i++)
+		mask |= profile_direction_mask(this, i);
+	if ((mask & (1 << direction)) == 0)
+		return NULL;
+
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamRoute, id);
 	spa_pod_builder_add(b,
 		SPA_PARAM_ROUTE_index, SPA_POD_Int(port),
@@ -497,7 +503,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
-	for (i = 0; i < 3; i++) {
+	for (i = 1; i < 3; i++) {
 		if (profile_direction_mask(this, i) & (1 << direction))
 			spa_pod_builder_int(b, i);
 	}
@@ -593,6 +599,8 @@ static int impl_enum_params(void *object, int seq,
 		case 0: case 1:
 			param = build_route(this, &b, id, result.index,
 					SPA_ID_INVALID, SPA_ID_INVALID);
+			if (param == NULL)
+				goto next;
 			break;
 		default:
 			return 0;

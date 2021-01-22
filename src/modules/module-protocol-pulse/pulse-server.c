@@ -139,6 +139,9 @@ struct client {
 	unsigned int disconnect:1;
 	unsigned int disconnecting:1;
 	unsigned int need_flush:1;
+
+	struct pw_manager_object *prev_default_sink;
+	struct pw_manager_object *prev_default_source;
 };
 
 struct buffer_attr {
@@ -718,6 +721,41 @@ static uint32_t get_event_and_id(struct client *client, struct pw_manager_object
 	return event;
 }
 
+static struct pw_manager_object *find_device(struct client *client,
+		uint32_t id, const char *name, bool sink);
+
+static void send_default_change_subscribe_event(struct client *client, bool sink, bool source)
+{
+	struct pw_manager_object *def;
+	bool changed = false;
+
+	/* Send the subscribe event only if actually needed */
+	if (!(client->subscribed & SUBSCRIPTION_MASK_SERVER))
+		return;
+
+	if (sink) {
+		def = find_device(client, SPA_ID_INVALID, NULL, true);
+		if (client->prev_default_sink != def) {
+			client->prev_default_sink = def;
+			changed = true;
+		}
+	}
+
+	if (source) {
+		def = find_device(client, SPA_ID_INVALID, NULL, false);
+		if (client->prev_default_source != def) {
+			client->prev_default_source = def;
+			changed = true;
+		}
+	}
+
+	if (changed)
+		send_subscribe_event(client,
+		                     SUBSCRIPTION_EVENT_CHANGE |
+		                     SUBSCRIPTION_EVENT_SERVER,
+		                     -1);
+}
+
 static void handle_metadata_added(struct client *client, struct pw_manager_object *o,
 		const char *name)
 {
@@ -747,6 +785,9 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		send_subscribe_event(client,
 				event | SUBSCRIPTION_EVENT_NEW,
 				id);
+
+	/* Adding sinks etc. may also change defaults */
+	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
 }
 
 static void manager_updated(void *data, struct pw_manager_object *o)
@@ -758,6 +799,8 @@ static void manager_updated(void *data, struct pw_manager_object *o)
 		send_subscribe_event(client,
 				event | SUBSCRIPTION_EVENT_CHANGE,
 				id);
+
+	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
 }
 
 static void manager_removed(void *data, struct pw_manager_object *o)
@@ -769,6 +812,8 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 		send_subscribe_event(client,
 				event | SUBSCRIPTION_EVENT_REMOVE,
 				id);
+
+	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
 }
 
 static void manager_metadata(void *data, struct pw_manager_object *o,
@@ -791,14 +836,8 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 			changed = client->default_source != val;
 			client->default_source = val;
 		}
-		if (changed) {
-			if (client->subscribed & SUBSCRIPTION_MASK_SERVER) {
-				send_subscribe_event(client,
-					SUBSCRIPTION_EVENT_CHANGE |
-					SUBSCRIPTION_EVENT_SERVER,
-					-1);
-			}
-		}
+		if (changed)
+			send_default_change_subscribe_event(client, true, true);
 	}
 	if (subject == PW_ID_CORE && o == client->metadata_routes) {
 		if (key == NULL)

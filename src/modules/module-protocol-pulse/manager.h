@@ -84,6 +84,7 @@ struct pw_manager_object {
 	void *info;
 	struct spa_list param_list;
 	unsigned int creating:1;
+	unsigned int removing:1;
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core);

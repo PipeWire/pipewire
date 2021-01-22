@@ -575,6 +575,8 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	if ((o = find_object(m, id)) == NULL)
 		return;
 
+	o->this.removing = true;
+
 	manager_emit_removed(m, &o->this);
 
 	object_destroy(o);

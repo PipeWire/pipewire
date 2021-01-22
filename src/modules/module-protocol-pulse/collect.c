@@ -135,7 +135,7 @@ static struct pw_manager_object *select_object(struct pw_manager *m,
 	const char *str;
 
 	spa_list_for_each(o, &m->object_list, link) {
-		if (o->creating)
+		if (o->creating || o->removing)
 			continue;
 		if (s->type != NULL && !s->type(o))
 			continue;

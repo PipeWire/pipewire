@@ -2359,6 +2359,80 @@ error:
 	return res;
 }
 
+static const char *get_default(struct client *client, bool sink)
+{
+	struct selector sel;
+	struct pw_manager *manager = client->manager;
+	struct pw_manager_object *o;
+	const char *def, *str, *mon;
+
+	spa_zero(sel);
+	if (sink) {
+		sel.type = object_is_sink;
+		sel.id = client->default_sink;
+		def = DEFAULT_SINK;
+	} else {
+		sel.type = object_is_source_or_monitor;
+		sel.id = client->default_source;
+		def = DEFAULT_SOURCE;
+	}
+	sel.accumulate = select_best;
+
+	o = select_object(manager, &sel);
+	if (o == NULL || o->props == NULL)
+		return def;
+	str = pw_properties_get(o->props, PW_KEY_NODE_NAME);
+
+	if (!sink && object_is_monitor(o)) {
+		def = DEFAULT_MONITOR;
+		if (str != NULL &&
+		    (mon = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor")) == NULL) {
+			pw_properties_setf(o->props,
+					PW_KEY_NODE_NAME".monitor",
+					"%s.monitor", str);
+		}
+		str = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor");
+	}
+	if (str == NULL)
+		str = def;
+	return str;
+}
+
+static struct pw_manager_object *find_device(struct client *client,
+		uint32_t id, const char *name, bool sink)
+{
+	struct selector sel;
+	const char *def;
+
+	if (name != NULL && !sink) {
+		if (pw_endswith(name, ".monitor")) {
+			name = strndupa(name, strlen(name)-8);
+			sink = true;
+		} else if (strcmp(name, DEFAULT_MONITOR) == 0) {
+			name = NULL;
+			sink = true;
+		}
+	}
+
+	spa_zero(sel);
+	sel.id = id;
+	sel.key = PW_KEY_NODE_NAME;
+	sel.value = name;
+
+	if (sink) {
+		sel.type = object_is_sink;
+		def = DEFAULT_SINK;
+	} else {
+		sel.type = object_is_source;
+		def = DEFAULT_SOURCE;
+	}
+	if (id == SPA_ID_INVALID &&
+	    (sel.value == NULL || strcmp(sel.value, def) == 0))
+		sel.value = get_default(client, sink);
+
+	return select_object(client->manager, &sel);
+}
+
 struct pending_sample {
 	struct spa_list link;
 	struct client *client;
@@ -2425,6 +2499,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 	const char *sink_name, *name;
 	struct pw_properties *props = NULL;
 	struct pending_sample *ps;
+	struct pw_manager_object *o;
 	int res;
 
 	if ((props = pw_properties_new(NULL, NULL)) == NULL)
@@ -2449,21 +2524,20 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 			impl, client->name, commands[command].name, tag,
 			sink_index, sink_name, name);
 
+	pw_properties_update(props, &client->props->dict);
+
 	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
 		goto error_inval;
 
-	if (sink_name != NULL)
-		pw_properties_set(props,
-				PW_KEY_NODE_TARGET, sink_name);
-	else if (sink_index != SPA_ID_INVALID)
-		pw_properties_setf(props,
-				PW_KEY_NODE_TARGET, "%u", sink_index);
-
-	pw_properties_update(props, &client->props->dict);
+	o = find_device(client, sink_index, sink_name, PW_DIRECTION_OUTPUT);
+	if (o == NULL)
+		goto error_noent;
 
 	sample = find_sample(impl, SPA_ID_INVALID, name);
 	if (sample == NULL)
 		goto error_noent;
+
+	pw_properties_setf(props, PW_KEY_NODE_TARGET, "%u", o->id);
 
 	play = sample_play_new(client->core, sample, props, sizeof(struct pending_sample));
 	props = NULL;
@@ -2801,80 +2875,6 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 			return res;
 	}
 	return reply_simple_ack(client, tag);
-}
-
-static const char *get_default(struct client *client, bool sink)
-{
-	struct selector sel;
-	struct pw_manager *manager = client->manager;
-	struct pw_manager_object *o;
-	const char *def, *str, *mon;
-
-	spa_zero(sel);
-	if (sink) {
-		sel.type = object_is_sink;
-		sel.id = client->default_sink;
-		def = DEFAULT_SINK;
-	} else {
-		sel.type = object_is_source_or_monitor;
-		sel.id = client->default_source;
-		def = DEFAULT_SOURCE;
-	}
-	sel.accumulate = select_best;
-
-	o = select_object(manager, &sel);
-	if (o == NULL || o->props == NULL)
-		return def;
-	str = pw_properties_get(o->props, PW_KEY_NODE_NAME);
-
-	if (!sink && object_is_monitor(o)) {
-		def = DEFAULT_MONITOR;
-		if (str != NULL &&
-		    (mon = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor")) == NULL) {
-			pw_properties_setf(o->props,
-					PW_KEY_NODE_NAME".monitor",
-					"%s.monitor", str);
-		}
-		str = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor");
-	}
-	if (str == NULL)
-		str = def;
-	return str;
-}
-
-static struct pw_manager_object *find_device(struct client *client,
-		uint32_t id, const char *name, bool sink)
-{
-	struct selector sel;
-	const char *def;
-
-	if (name != NULL && !sink) {
-		if (pw_endswith(name, ".monitor")) {
-			name = strndupa(name, strlen(name)-8);
-			sink = true;
-		} else if (strcmp(name, DEFAULT_MONITOR) == 0) {
-			name = NULL;
-			sink = true;
-		}
-	}
-
-	spa_zero(sel);
-	sel.id = id;
-	sel.key = PW_KEY_NODE_NAME;
-	sel.value = name;
-
-	if (sink) {
-		sel.type = object_is_sink;
-		def = DEFAULT_SINK;
-	} else {
-		sel.type = object_is_source;
-		def = DEFAULT_SOURCE;
-	}
-	if (id == SPA_ID_INVALID &&
-	    (sel.value == NULL || strcmp(sel.value, def) == 0))
-		sel.value = get_default(client, sink);
-
-	return select_object(client->manager, &sel);
 }
 
 static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, struct message *m)

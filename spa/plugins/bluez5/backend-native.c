@@ -369,6 +369,8 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 			if (rfcomm->transport == NULL) {
 				spa_log_warn(backend->log, NAME": can't create transport: %m");
 				// TODO: We should manage the missing transport
+				rfcomm_send_reply(source, "ERROR");
+				return true;
 			}
 			rfcomm->transport->codec = selected_codec;
 			spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);

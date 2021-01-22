@@ -449,7 +449,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		break;
 	}
 	case SPA_TYPE_None:
-		put_value(d, NULL, "null");
+		put_value(d, NULL, NULL);
 		break;
 	}
 }

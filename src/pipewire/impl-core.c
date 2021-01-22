@@ -405,15 +405,17 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
 	this->info.version = pw_get_library_version();
-	while (getrandom(&this->info.cookie, sizeof(this->info.cookie), 0) !=
-			sizeof(this->info.cookie)) {
-		if (errno == EINTR)
-			continue;
-		pw_log_warn(NAME" %p: cookie getrandom failed: %m", this);
-		this->info.cookie = rand();
-		break;
+	do {
+		res = getrandom(&this->info.cookie,
+				sizeof(this->info.cookie), 0);
+	} while ((res == -1) && (errno == EINTR));
+	if (res == -1) {
+		res = -errno;
+		goto error_exit;
+	} else if (res != sizeof(this->info.cookie)) {
+		res = -ENODATA;
+		goto error_exit;
 	}
-
 	this->info.name = name;
 	spa_hook_list_init(&this->listener_list);
 

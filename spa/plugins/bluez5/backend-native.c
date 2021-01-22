@@ -54,7 +54,7 @@ struct spa_bt_backend {
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
 
-#define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HFP_AG)
+#define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_AG)
 	enum spa_bt_profile enabled_profiles;
 
 	struct spa_source sco;
@@ -65,6 +65,16 @@ struct spa_bt_backend {
 
 struct transport_data {
 	struct spa_source sco;
+};
+
+enum hfp_hf_state {
+	hfp_hf_brsf,
+	hfp_hf_bac,
+	hfp_hf_cind1,
+	hfp_hf_cind2,
+	hfp_hf_cmer,
+	hfp_hf_slc,
+	hfp_hf_bcs
 };
 
 struct rfcomm {
@@ -80,6 +90,8 @@ struct rfcomm {
 	unsigned int slc_configured:1;
 	unsigned int codec_negotiation_supported:1;
 	unsigned int msbc_supported_by_hfp:1;
+	enum hfp_hf_state hf_state;
+	unsigned int codec;
 #endif
 };
 
@@ -150,6 +162,22 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 		spa_bt_transport_free(rfcomm->transport);
 	}
 	free(rfcomm);
+}
+
+static void rfcomm_send_cmd(struct spa_source *source, char *data)
+{
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
+	char message[256];
+	ssize_t len;
+
+	spa_log_debug(backend->log, NAME": RFCOMM >> %s", data);
+	sprintf(message, "%s\n", data);
+	len = write(source->fd, message, strlen(message));
+	/* we ignore any errors, it's not critical and real errors should
+	 * be caught with the HANGUP and ERROR events handled above */
+	if (len < 0)
+		spa_log_error(backend->log, NAME": RFCOMM write error: %s", strerror(errno));
 }
 
 static void rfcomm_send_reply(struct spa_source *source, char *data)
@@ -402,6 +430,95 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 
 	return true;
 }
+
+static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
+{
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
+	unsigned int features;
+	unsigned int gain;
+	unsigned int selected_codec;
+	char* token;
+	char separators[] = "\r\n:";
+
+	token = strtok(buf, separators);
+	while (token != NULL)
+	{
+		if (strncmp(token, "+BRSF", 5) == 0) {
+			/* get next token */
+			token = strtok(NULL, separators);
+			features = atoi(token);
+			if (((features & (SPA_BT_HFP_HF_FEATURE_CODEC_NEGOTIATION)) != 0) &&
+					rfcomm->msbc_supported_by_hfp)
+				rfcomm->codec_negotiation_supported = true;
+		} else if (strncmp(token, "+BCS", 4) == 0) {
+			char *cmd;
+
+			/* get next token */
+			token = strtok(NULL, separators);
+			selected_codec = atoi(token);
+
+			/* send codec selection to AG */
+			cmd = spa_aprintf("AT+BCS=%u", selected_codec);
+			rfcomm_send_cmd(source, cmd);
+			free(cmd);
+			rfcomm->hf_state = hfp_hf_bcs;
+		} else if (strncmp(token, "+CIND", 5) == 0) {
+			/* get next token and discard it */
+			token = strtok(NULL, separators);
+		} else if (strncmp(token, "+VGM", 4) == 0) {
+			/* get next token */
+			token = strtok(NULL, separators);
+			gain = atoi(token);
+			/* t->speaker_gain = gain; */
+		} else if (strncmp(token, "+VGS", 4) == 0) {
+			/* get next token */
+			token = strtok(NULL, separators);
+			gain = atoi(token);
+			/* t->microphone_gain = gain; */
+		} else if (strncmp(token, "OK", 5) == 0) {
+			switch(rfcomm->hf_state) {
+				case hfp_hf_brsf:
+					if (rfcomm->codec_negotiation_supported) {
+						rfcomm_send_cmd(source, "AT+BAC=1,2");
+						rfcomm->hf_state = hfp_hf_bac;
+					} else {
+						rfcomm_send_cmd(source, "AT+CIND=?");
+						rfcomm->hf_state = hfp_hf_cind1;
+					}
+					break;
+				case hfp_hf_bac:
+					rfcomm_send_cmd(source, "AT+CIND=?");
+					rfcomm->hf_state = hfp_hf_cind1;
+					break;
+				case hfp_hf_cind1:
+					rfcomm_send_cmd(source, "AT+CIND?");
+					rfcomm->hf_state = hfp_hf_cind2;
+					break;
+				case hfp_hf_cind2:
+					rfcomm_send_cmd(source, "AT+CMER");
+					rfcomm->hf_state = hfp_hf_cmer;
+					break;
+				case hfp_hf_cmer:
+					rfcomm->hf_state = hfp_hf_slc;
+					rfcomm->slc_configured = true;
+					rfcomm->transport = _transport_create(rfcomm);
+					if (rfcomm->transport == NULL) {
+						spa_log_warn(backend->log, NAME": can't create transport: %m");
+						// TODO: We should manage the missing transport
+					}
+					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+					break;
+				default:
+					break;
+			}
+		}
+		/* get next token */
+		token = strtok(NULL, separators);
+	}
+
+	return true;
+}
 #endif
 
 static void rfcomm_event(struct spa_source *source)
@@ -439,6 +556,8 @@ static void rfcomm_event(struct spa_source *source)
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 		if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF)
 			res = rfcomm_hfp_ag(source, buf);
+		else if (rfcomm->profile == SPA_BT_PROFILE_HFP_AG)
+			res = rfcomm_hfp_hf(source, buf);
 #endif
 
 		if (!res) {
@@ -781,6 +900,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	if (strcmp(handler, PROFILE_HFP_AG) == 0)
 		profile = SPA_BT_PROFILE_HFP_HF;
+	else if (strcmp(handler, PROFILE_HFP_HF) == 0)
+		profile = SPA_BT_PROFILE_HFP_AG;
 #endif
 
 	if (profile == SPA_BT_PROFILE_NULL) {
@@ -827,6 +948,31 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		spa_bt_device_connect_profile(t->device, profile);
 
 		spa_log_debug(backend->log, NAME": Transport %s available for profile %s", t->path, handler);
+	} else if (profile == SPA_BT_PROFILE_HFP_AG) {
+		/* Start SLC connection */
+		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_NONE;
+		char *cmd;
+
+		/* Decide if we want to signal that the HF supports mSBC negotiation
+		   This should be done when
+			 a) mSBC support is enabled in config file and
+			 b) the bluetooth adapter supports the necessary transport mode */
+		if ((backend->msbc_support_enabled_in_config == true) &&
+			  (device_supports_required_mSBC_transport_modes(backend, rfcomm->device))) {
+			/* set the feature bit that indicates HF supports codec negotiation */
+			hf_features |= SPA_BT_HFP_HF_FEATURE_CODEC_NEGOTIATION;
+			rfcomm->msbc_supported_by_hfp = true;
+			rfcomm->codec_negotiation_supported = false;
+		} else {
+			rfcomm->msbc_supported_by_hfp = false;
+			rfcomm->codec_negotiation_supported = false;
+		}
+
+		/* send command to AG with the features supported by Hands-Free */
+		cmd = spa_aprintf("AT+BRSF=%u", hf_features);
+		rfcomm_send_cmd(&rfcomm->source, cmd);
+		free(cmd);
+		rfcomm->hf_state = hfp_hf_brsf;
 	}
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
@@ -871,6 +1017,8 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	if (strcmp(handler, PROFILE_HFP_AG) == 0)
 		profile = SPA_BT_PROFILE_HFP_HF;
+	else if (strcmp(handler, PROFILE_HFP_HF) == 0)
+		profile = SPA_BT_PROFILE_HFP_AG;
 #endif
 
 	if (profile == SPA_BT_PROFILE_NULL) {
@@ -1050,6 +1198,27 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &version);
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
+	} else if (strcmp(uuid, SPA_BT_UUID_HFP_HF) == 0) {
+		str = "Features";
+		features = SPA_BT_HFP_SDP_HF_FEATURE_NONE;
+		if (backend->msbc_support_enabled_in_config == true)
+			features |= SPA_BT_HFP_SDP_HF_FEATURE_WIDEBAND_SPEECH;
+		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
+		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
+		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
+		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &features);
+		dbus_message_iter_close_container(&it[2], &it[3]);
+		dbus_message_iter_close_container(&it[1], &it[2]);
+
+		/* HFP version 1.7 */
+		str = "Version";
+		version = 0x0107;
+		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
+		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
+		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
+		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &version);
+		dbus_message_iter_close_container(&it[2], &it[3]);
+		dbus_message_iter_close_container(&it[1], &it[2]);
 	}
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
@@ -1068,6 +1237,7 @@ void backend_native_register_profiles(struct spa_bt_backend *backend)
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	register_profile(backend, PROFILE_HFP_AG, SPA_BT_UUID_HFP_AG);
+	register_profile(backend, PROFILE_HFP_HF, SPA_BT_UUID_HFP_HF);
 #endif
 }
 
@@ -1090,6 +1260,7 @@ void backend_native_free(struct spa_bt_backend *backend)
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HFP_AG);
+	dbus_connection_unregister_object_path(backend->conn, PROFILE_HFP_HF);
 #endif
 
 	spa_list_consume(rfcomm, &backend->rfcomm_list, link)
@@ -1191,6 +1362,12 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 						  PROFILE_HFP_AG,
 						  &vtable_profile, backend)) {
 		goto fail2;
+	}
+
+	if (!dbus_connection_register_object_path(backend->conn,
+						  PROFILE_HFP_HF,
+						  &vtable_profile, backend)) {
+		goto fail;
 	}
 #endif
 

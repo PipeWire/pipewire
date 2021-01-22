@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 #include <errno.h>
+#include <sys/random.h>
 
 #include <spa/debug/types.h>
 
@@ -404,8 +405,7 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 	this->info.user_name = pw_get_user_name();
 	this->info.host_name = pw_get_host_name();
 	this->info.version = pw_get_library_version();
-	srandom(time(NULL));
-	this->info.cookie = random();
+	getrandom(&this->info.cookie, sizeof(this->info.cookie), 0);
 	this->info.name = name;
 	spa_hook_list_init(&this->listener_list);
 

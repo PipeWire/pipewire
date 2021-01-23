@@ -1,4 +1,5 @@
 conf_files = [
+  [ 'bluez-hardware.conf', 'bluez-hardware.conf' ],
   [ 'bluez-monitor.conf', 'bluez-monitor.conf' ],
   [ 'v4l2-monitor.conf', 'v4l2-monitor.conf' ],
   [ 'media-session.conf', 'media-session.conf' ],

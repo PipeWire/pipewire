@@ -1091,18 +1091,19 @@ static int reply_create_playback_stream(struct stream *stream)
 	spa_ringbuffer_init(&stream->ring);
 
 	if (stream->early_requests) {
-		lat.num = stream->attr.minreq / stream->frame_size;
+		lat.num = stream->attr.minreq;
 	} else if (stream->adjust_latency) {
 		if (stream->attr.tlength > stream->attr.minreq * 2)
-			lat.num = (stream->attr.tlength - stream->attr.minreq * 2) / 2 / stream->frame_size;
+			lat.num = (stream->attr.tlength - stream->attr.minreq * 2) / 2;
 		else
 			lat.num = stream->attr.minreq;
 	} else {
 		if (stream->attr.tlength > stream->attr.minreq * 2)
-			lat.num = (stream->attr.tlength - stream->attr.minreq * 2) / stream->frame_size;
+			lat.num = stream->attr.tlength - stream->attr.minreq * 2;
 		else
 			lat.num = stream->attr.minreq;
 	}
+	lat.num /= stream->frame_size;
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 

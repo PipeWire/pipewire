@@ -71,6 +71,7 @@ struct spa_bt_monitor {
 
 	struct spa_list adapter_list;
 	struct spa_list device_list;
+	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;
 
 	unsigned int filters_added:1;
@@ -83,6 +84,21 @@ struct spa_bt_monitor {
 	struct spa_dict enabled_codecs;
 
 	unsigned int enable_sbc_xq:1;
+};
+
+/* Stream endpoints owned by BlueZ for each device */
+struct spa_bt_remote_endpoint {
+	struct spa_list link;
+	struct spa_list device_link;
+	struct spa_bt_monitor *monitor;
+	char *path;
+
+	char *uuid;
+	unsigned int codec;
+	struct spa_bt_device *device;
+	uint8_t *capabilities;
+	int capabilities_len;
+	bool delay_reporting;
 };
 
 /*
@@ -371,6 +387,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	d->id = monitor->id++;
 	d->monitor = monitor;
 	d->path = strdup(path);
+	spa_list_init(&d->remote_endpoint_list);
 	spa_list_init(&d->transport_list);
 
 	spa_list_prepend(&monitor->device_list, &d->link);
@@ -382,11 +399,19 @@ static int device_stop_timer(struct spa_bt_device *device);
 
 static void device_free(struct spa_bt_device *device)
 {
+	struct spa_bt_remote_endpoint *ep;
 	struct spa_bt_transport *t;
 	struct spa_bt_monitor *monitor = device->monitor;
 
 	spa_log_debug(monitor->log, "%p", device);
 	device_stop_timer(device);
+
+	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
+		if (ep->device == device) {
+			spa_list_remove(&ep->device_link);
+			ep->device = NULL;
+		}
+	}
 
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		if (t->device == device) {
@@ -748,6 +773,155 @@ static void reconnect_device_profiles(struct spa_bt_monitor *monitor)
 			device_try_connect_profile(device, SPA_BT_PROFILE_A2DP_SOURCE, SPA_BT_UUID_A2DP_SOURCE);
 		}
 	}
+}
+
+static struct spa_bt_remote_endpoint *device_remote_endpoint_find(struct spa_bt_device *device, const char *path)
+{
+	struct spa_bt_remote_endpoint *ep;
+	spa_list_for_each(ep, &device->remote_endpoint_list, device_link)
+		if (strcmp(ep->path, path) == 0)
+			return ep;
+	return NULL;
+}
+
+static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor *monitor, const char *path)
+{
+	struct spa_bt_remote_endpoint *ep;
+	spa_list_for_each(ep, &monitor->remote_endpoint_list, link)
+		if (strcmp(ep->path, path) == 0)
+			return ep;
+	return NULL;
+}
+
+static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_endpoint,
+				DBusMessageIter *props_iter,
+				DBusMessageIter *invalidated_iter)
+{
+	struct spa_bt_monitor *monitor = remote_endpoint->monitor;
+
+	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[2];
+		const char *key;
+		int type;
+
+		dbus_message_iter_recurse(props_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		type = dbus_message_iter_get_arg_type(&it[1]);
+
+		if (type == DBUS_TYPE_STRING || type == DBUS_TYPE_OBJECT_PATH) {
+			const char *value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%s", remote_endpoint, key, value);
+
+			if (strcmp(key, "UUID") == 0) {
+				free(remote_endpoint->uuid);
+				remote_endpoint->uuid = strdup(value);
+			}
+			else if (strcmp(key, "Device") == 0) {
+				struct spa_bt_device *device;
+				device = spa_bt_device_find(monitor, value);
+				spa_log_debug(monitor->log, "remote_endpoint %p: device -> %p", remote_endpoint, device);
+
+				if (remote_endpoint->device != device) {
+					if (remote_endpoint->device != NULL)
+						spa_list_remove(&remote_endpoint->device_link);
+					remote_endpoint->device = device;
+					if (device != NULL)
+						spa_list_append(&device->remote_endpoint_list, &remote_endpoint->device_link);
+				}
+			}
+		}
+		else if (type == DBUS_TYPE_BOOLEAN) {
+			int value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, value);
+
+			if (strcmp(key, "DelayReporting") == 0) {
+				remote_endpoint->delay_reporting = value;
+			}
+		}
+		else if (type == DBUS_TYPE_BYTE) {
+			int8_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%02x", remote_endpoint, key, value);
+
+			if (strcmp(key, "Codec") == 0) {
+				remote_endpoint->codec = value;
+			}
+		}
+		else if (strcmp(key, "Capabilities") == 0) {
+			DBusMessageIter iter;
+			uint8_t *value;
+			int i, len;
+
+			if (!check_iter_signature(&it[1], "ay"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+			dbus_message_iter_get_fixed_array(&iter, &value, &len);
+
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, len);
+			for (i = 0; i < len; i++)
+				spa_log_debug(monitor->log, "  %d: %02x", i, value[i]);
+
+			free(remote_endpoint->capabilities);
+			remote_endpoint->capabilities_len = 0;
+
+			remote_endpoint->capabilities = malloc(len);
+			if (remote_endpoint->capabilities) {
+				memcpy(remote_endpoint->capabilities, value, len);
+				remote_endpoint->capabilities_len = len;
+			}
+		}
+		else
+			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);
+
+	      next:
+		dbus_message_iter_next(props_iter);
+	}
+	return 0;
+}
+
+static struct spa_bt_remote_endpoint *remote_endpoint_create(struct spa_bt_monitor *monitor, const char *path)
+{
+	struct spa_bt_remote_endpoint *ep;
+
+	ep = calloc(1, sizeof(struct spa_bt_remote_endpoint));
+	if (ep == NULL)
+		return NULL;
+
+	ep->monitor = monitor;
+	ep->path = strdup(path);
+
+	spa_list_prepend(&monitor->remote_endpoint_list, &ep->link);
+
+	return ep;
+}
+
+static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
+{
+	struct spa_bt_monitor *monitor = remote_endpoint->monitor;
+
+	spa_log_debug(monitor->log, "remote endpoint %p: free %s",
+	              remote_endpoint, remote_endpoint->path);
+
+	if (remote_endpoint->device)
+		spa_list_remove(&remote_endpoint->device_link);
+
+	spa_list_remove(&remote_endpoint->link);
+	free(remote_endpoint->path);
+	free(remote_endpoint->uuid);
+	free(remote_endpoint->capabilities);
+	free(remote_endpoint);
 }
 
 struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, const char *path)
@@ -1787,6 +1961,20 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		}
 		device_update_props(d, props_iter, NULL);
 	}
+	else if (strcmp(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
+		struct spa_bt_remote_endpoint *ep;
+
+		ep = remote_endpoint_find(monitor, object_path);
+		if (ep == NULL) {
+			ep = remote_endpoint_create(monitor, object_path);
+			if (ep == NULL) {
+				spa_log_warn(monitor->log, "can't create Bluetooth remote endpoint %s: %m",
+				             object_path);
+				return;
+			}
+		}
+		remote_endpoint_update_props(ep, props_iter, NULL);
+	}
 }
 
 static void interfaces_added(struct spa_bt_monitor *monitor, DBusMessageIter *arg_iter)
@@ -1840,6 +2028,11 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 			a = adapter_find(monitor, object_path);
 			if (a != NULL)
 				adapter_free(a);
+		} else if (strcmp(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
+			struct spa_bt_remote_endpoint *ep;
+			ep = remote_endpoint_find(monitor, object_path);
+			if (ep != NULL)
+				remote_endpoint_free(ep);
 		}
 
 		dbus_message_iter_next(&it);
@@ -1931,6 +2124,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			if (old_owner && *old_owner) {
 				struct spa_bt_adapter *a;
 				struct spa_bt_device *d;
+				struct spa_bt_remote_endpoint *ep;
 				struct spa_bt_transport *t;
 
 				spa_log_debug(monitor->log, "Bluetooth daemon disappeared");
@@ -1938,6 +2132,8 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 				spa_list_consume(t, &monitor->transport_list, link)
 					spa_bt_transport_free(t);
+				spa_list_consume(ep, &monitor->remote_endpoint_list, link)
+					remote_endpoint_free(ep);
 				spa_list_consume(d, &monitor->device_list, link)
 					device_free(d);
 				spa_list_consume(a, &monitor->adapter_list, link)
@@ -2021,6 +2217,19 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 			device_update_props(d, &it[1], NULL);
 		}
+		else if (strcmp(iface, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
+			struct spa_bt_remote_endpoint *ep;
+
+			ep = remote_endpoint_find(monitor, path);
+			if (ep == NULL) {
+				spa_log_debug(monitor->log,
+						"Properties changed in unknown remote endpoint %s", path);
+				goto finish;
+			}
+			spa_log_debug(monitor->log, "Properties changed in remote endpoint %s", path);
+
+			remote_endpoint_update_props(ep, &it[1], NULL);
+		}
 		else if (strcmp(iface, BLUEZ_MEDIA_TRANSPORT_INTERFACE) == 0) {
 			struct spa_bt_transport *transport;
 
@@ -2075,6 +2284,10 @@ static void add_filters(struct spa_bt_monitor *this)
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
 			"arg0='" BLUEZ_DEVICE_INTERFACE "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
+			"arg0='" BLUEZ_MEDIA_ENDPOINT_INTERFACE "'", &err);
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
@@ -2141,6 +2354,7 @@ static int impl_clear(struct spa_handle *handle)
 	struct spa_bt_monitor *monitor;
 	struct spa_bt_adapter *a;
 	struct spa_bt_device *d;
+	struct spa_bt_remote_endpoint *ep;
 	struct spa_bt_transport *t;
 
 	monitor = (struct spa_bt_monitor *) handle;
@@ -2149,6 +2363,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_list_consume(t, &monitor->transport_list, link)
 		spa_bt_transport_free(t);
+	spa_list_consume(ep, &monitor->remote_endpoint_list, link)
+		remote_endpoint_free(ep);
 	spa_list_consume(d, &monitor->device_list, link)
 		device_free(d);
 	spa_list_consume(a, &monitor->adapter_list, link)
@@ -2302,6 +2518,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_list_init(&this->adapter_list);
 	spa_list_init(&this->device_list);
+	spa_list_init(&this->remote_endpoint_list);
 	spa_list_init(&this->transport_list);
 
 	if ((res = parse_codec_array(this, info)) < 0)

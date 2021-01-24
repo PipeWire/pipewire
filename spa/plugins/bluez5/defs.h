@@ -347,6 +347,7 @@ struct spa_bt_device {
 	uint32_t profiles;
 	uint32_t connected_profiles;
 	struct spa_source timer;
+	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;
 	bool added;
 };

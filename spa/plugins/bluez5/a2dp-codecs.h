@@ -377,4 +377,6 @@ struct a2dp_codec {
 
 extern const struct a2dp_codec **a2dp_codecs;
 
+bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id, const void *caps, size_t caps_size);
+
 #endif

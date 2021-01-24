@@ -138,8 +138,10 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
                 return -EINVAL;
 
 	memcpy(&conf, caps, sizeof(conf));
-	conf.info.vendor_id = LDAC_VENDOR_ID;
-	conf.info.codec_id = LDAC_CODEC_ID;
+
+	if (codec->vendor.vendor_id != conf.info.vendor_id ||
+	    codec->vendor.codec_id != conf.info.codec_id)
+		return -ENOTSUP;
 
 	if (conf.frequency & LDACBT_SAMPLING_FREQ_044100)
 		conf.frequency = LDACBT_SAMPLING_FREQ_044100;

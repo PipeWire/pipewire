@@ -10,6 +10,24 @@
 
 #include "a2dp-codecs.h"
 
+bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id, const void *caps, size_t caps_size)
+{
+	uint8_t config[A2DP_MAX_CAPS_SIZE];
+	int res;
+
+	if (codec_id != codec->codec_id)
+		return false;
+
+	if (caps == NULL)
+		return false;
+
+	res = codec->select_config(codec, 0, caps, caps_size, NULL, config);
+	if (res < 0)
+		return false;
+
+	return ((size_t)res == caps_size);
+}
+
 #if ENABLE_MP3
 const a2dp_mpeg_t bluez_a2dp_mpeg = {
 	.layer =

@@ -86,6 +86,10 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 
 	memcpy(&conf, caps, sizeof(conf));
 
+	if (codec->vendor.vendor_id != conf.info.vendor_id ||
+	    codec->vendor.codec_id != conf.info.codec_id)
+		return -ENOTSUP;
+
 	if (conf.frequency & APTX_SAMPLING_FREQ_48000)
 		conf.frequency = APTX_SAMPLING_FREQ_48000;
 	else if (conf.frequency & APTX_SAMPLING_FREQ_44100)

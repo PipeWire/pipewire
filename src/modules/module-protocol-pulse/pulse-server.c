@@ -1545,7 +1545,7 @@ static void stream_process(void *data)
 		else
 			minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
 
-		if (avail <= 0) {
+		if (avail < (int32_t)minreq) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
 			memset(p, 0, size);

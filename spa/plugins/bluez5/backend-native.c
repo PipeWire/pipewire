@@ -73,6 +73,8 @@ struct impl {
 
 	struct spa_source sco;
 
+	const struct spa_bt_quirks *quirks;
+
 	struct spa_list rfcomm_list;
 	unsigned int defer_setup_enabled:1;
 };
@@ -1925,6 +1927,7 @@ static const struct spa_bt_backend_implementation backend_impl = {
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
+		const struct spa_bt_quirks *quirks,
 		const struct spa_support *support,
 	  uint32_t n_support)
 {
@@ -1941,6 +1944,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 	spa_bt_backend_set_implementation(&backend->this, &backend_impl, backend);
 
 	backend->monitor = monitor;
+	backend->quirks = quirks;
 	backend->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	backend->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);

@@ -88,6 +88,9 @@ struct spa_bt_monitor {
 	struct spa_dict enabled_codecs;
 
 	unsigned int connection_info_supported:1;
+
+	struct spa_bt_quirks *quirks;
+
 	unsigned int enable_sbc_xq:1;
 	unsigned int backend_native_registered:1;
 	unsigned int backend_ofono_registered:1;
@@ -3842,6 +3845,8 @@ static int impl_clear(struct spa_handle *handle)
 	monitor->backend_ofono_registered = false;
 	monitor->backend_hsphfpd_registered = false;
 
+	spa_bt_quirks_destroy(monitor->quirks);
+
 	return 0;
 }
 
@@ -3986,6 +3991,12 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
+	this->quirks = spa_bt_quirks_create(info, this->log);
+	if (this->quirks == NULL) {
+		spa_log_error(this->log, NAME ": failed to parse quirk table");
+		return -EINVAL;
+	}
+
 	this->dbus_connection = spa_dbus_get_connection(this->dbus, SPA_DBUS_TYPE_SYSTEM);
 	if (this->dbus_connection == NULL) {
 		spa_log_error(this->log, "no dbus connection");
@@ -4027,16 +4038,16 @@ impl_init(const struct spa_handle_factory *factory,
 		    ((tmp =  atoi(str)) > 0))
 			this->default_audio_info.channels = tmp;
 
-		if ((str = spa_dict_lookup(info, "bluez5.sbc-xq-support")) != NULL &&
+		if ((str = spa_dict_lookup(info, "bluez5.enable-sbc-xq")) != NULL &&
 		    spa_atob(str))
 			this->enable_sbc_xq = true;
 	}
 
 	register_media_application(this);
 
-	this->backend_native = backend_native_new(this, this->conn, info, support, n_support);
-	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);
-	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, support, n_support);
+	this->backend_native = backend_native_new(this, this->conn, info, this->quirks, support, n_support);
+	this->backend_ofono = backend_ofono_new(this, this->conn, info, this->quirks, support, n_support);
+	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, this->quirks, support, n_support);
 
 	if (this->backend_ofono && spa_bt_backend_register_profiles(this->backend_ofono) == 0)
 		this->backend_ofono_registered = true;

@@ -28,6 +28,7 @@ bluez5_sources = ['plugin.c',
 		  'sco-sink.c',
 		  'sco-source.c',
 		  'sco-io.c',
+		  'quirks.c',
 		  'bluez5-device.c',
 		  'bluez5-dbus.c']
 

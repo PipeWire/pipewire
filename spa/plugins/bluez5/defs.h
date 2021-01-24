@@ -666,6 +666,23 @@ static inline double spa_bt_volume_hw_to_linear(uint32_t v, uint32_t hw_volume_m
 		0.0, 1.0);
 }
 
+enum spa_bt_feature {
+	SPA_BT_FEATURE_MSBC		= (1 << 0),
+	SPA_BT_FEATURE_MSBC_ALT1	= (1 << 1),
+	SPA_BT_FEATURE_MSBC_ALT1_RTL	= (1 << 2),
+	SPA_BT_FEATURE_HW_VOLUME	= (1 << 3),
+	SPA_BT_FEATURE_SBC_XQ		= (1 << 4),
+};
+
+struct spa_bt_quirks;
+
+struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct spa_log *log);
+int spa_bt_quirks_get_features(const struct spa_bt_quirks *quirks,
+		const struct spa_bt_adapter *adapter,
+		const struct spa_bt_device *device,
+		uint32_t *features);
+void spa_bt_quirks_destroy(struct spa_bt_quirks *quirks);
+
 struct spa_bt_backend_implementation {
 #define SPA_VERSION_BT_BACKEND_IMPLEMENTATION	0
 	uint32_t version;
@@ -707,6 +724,7 @@ struct spa_bt_backend {
 static inline struct spa_bt_backend *dummy_backend_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
+		const struct spa_bt_quirks *quirks,
 		const struct spa_support *support,
 		uint32_t n_support)
 {
@@ -717,6 +735,7 @@ static inline struct spa_bt_backend *dummy_backend_new(struct spa_bt_monitor *mo
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
+		const struct spa_bt_quirks *quirks,
 		const struct spa_support *support,
 		uint32_t n_support);
 #else
@@ -728,6 +747,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
+		const struct spa_bt_quirks *quirks,
 		const struct spa_support *support,
 		uint32_t n_support);
 #else
@@ -739,6 +759,7 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
+		const struct spa_bt_quirks *quirks,
 		const struct spa_support *support,
 		uint32_t n_support);
 #else

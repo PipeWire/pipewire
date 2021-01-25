@@ -168,6 +168,10 @@ static inline void *spa_pod_builder_pop(struct spa_pod_builder *builder, struct 
 {
 	struct spa_pod *pod;
 
+	if (SPA_FLAG_IS_SET(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST)) {
+		const struct spa_pod p = { 0, SPA_TYPE_None };
+		spa_pod_builder_raw(builder, &p, sizeof(p));
+	}
 	if ((pod = (struct spa_pod*)spa_pod_builder_frame(builder, frame)) != NULL)
 		*pod = frame->pod;
 
@@ -207,6 +211,13 @@ static inline int spa_pod_builder_none(struct spa_pod_builder *builder)
 {
 	const struct spa_pod p = SPA_POD_INIT_None();
 	return spa_pod_builder_primitive(builder, &p);
+}
+
+static inline int spa_pod_builder_child(struct spa_pod_builder *builder, uint32_t size, uint32_t type)
+{
+	const struct spa_pod p = SPA_POD_INIT(size,type);
+	SPA_FLAG_CLEAR(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST);
+	return spa_pod_builder_raw(builder, &p, sizeof(p));
 }
 
 #define SPA_POD_INIT_Bool(val) (struct spa_pod_bool){ { sizeof(uint32_t), SPA_TYPE_Bool }, val ? 1 : 0, 0 }

@@ -674,6 +674,72 @@ static void test_build(void)
 	}
 }
 
+static void test_empty(void)
+{
+	uint8_t buffer[4096];
+	struct spa_pod_builder b;
+	struct spa_pod *array, *a2, *choice, *ch2;
+	struct spa_pod_frame f;
+	uint32_t n_vals, ch;
+
+	/* create empty arrays */
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
+	spa_assert((array = spa_pod_builder_pop(&b, &f)) != NULL);
+	spa_debug_mem(0, array, 16);
+	spa_assert(spa_pod_is_array(array));
+	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	spa_assert(n_vals == 0);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert((array = spa_pod_builder_pop(&b, &f)) != NULL);
+	spa_assert(spa_pod_is_array(array));
+	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	spa_assert(n_vals == 0);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert(spa_pod_builder_none(&b) == 0);
+	spa_assert((array = spa_pod_builder_pop(&b, &f)) != NULL);
+	spa_assert(spa_pod_is_array(array));
+	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	spa_assert(n_vals == 0);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_array(&b, 4, SPA_TYPE_Id, 0, NULL) == 0);
+	array = (struct spa_pod*)buffer;
+	spa_assert(spa_pod_is_array(array));
+	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	spa_assert(n_vals == 0);
+
+	/* create empty choice */
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
+	spa_assert(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
+	spa_assert((choice = spa_pod_builder_pop(&b, &f)) != NULL);
+	spa_debug_mem(0, choice, 32);
+	spa_assert(spa_pod_is_choice(choice));
+	spa_assert((ch2 = spa_pod_get_values(choice, &n_vals, &ch)) != NULL);
+	spa_assert(n_vals == 0);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
+	spa_assert((choice = spa_pod_builder_pop(&b, &f)) != NULL);
+	spa_assert(spa_pod_is_choice(choice));
+	spa_assert((ch2 = spa_pod_get_values(choice, &n_vals, &ch)) != NULL);
+	spa_assert(n_vals == 0);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
+	spa_assert(spa_pod_builder_none(&b) == 0);
+	spa_assert((choice = spa_pod_builder_pop(&b, &f)) != NULL);
+	spa_assert(spa_pod_is_choice(choice));
+	spa_assert((ch2 = spa_pod_get_values(choice, &n_vals, &ch)) != NULL);
+	spa_assert(n_vals == 0);
+}
+
 static void test_varargs(void)
 {
 	uint8_t buffer[4096];
@@ -1528,6 +1594,7 @@ int main(int argc, char *argv[])
 {
 	test_abi();
 	test_init();
+	test_empty();
 	test_build();
 	test_varargs();
 	test_varargs2();

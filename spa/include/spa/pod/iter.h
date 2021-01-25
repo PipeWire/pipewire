@@ -357,8 +357,9 @@ static inline int spa_pod_is_choice(const struct spa_pod *pod)
 static inline struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint32_t *n_vals, uint32_t *choice)
 {
 	if (pod->type == SPA_TYPE_Choice) {
-		*choice = SPA_POD_CHOICE_TYPE(pod);
-		*n_vals = *choice == SPA_CHOICE_None ? 1 : SPA_POD_CHOICE_N_VALUES(pod);
+		*n_vals = SPA_POD_CHOICE_N_VALUES(pod);
+		if ((*choice = SPA_POD_CHOICE_TYPE(pod)) == SPA_CHOICE_None)
+			*n_vals = SPA_MIN(1u, SPA_POD_CHOICE_N_VALUES(pod));
 		return (struct spa_pod*)SPA_POD_CHOICE_CHILD(pod);
 	} else {
 		*n_vals = 1;

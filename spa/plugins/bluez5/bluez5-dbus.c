@@ -781,6 +781,63 @@ static bool device_can_accept_a2dp_codec(struct spa_bt_device *device, const str
 	return true;
 }
 
+bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
+{
+	struct spa_bt_remote_endpoint *ep;
+
+	if (!device_can_accept_a2dp_codec(device, codec))
+		return false;
+
+	if (!device->adapter->application_registered) {
+		/* Codec switching not supported: only plain SBC allowed */
+		return (codec->codec_id == A2DP_CODEC_SBC && strcmp(codec->name, "sbc") == 0);
+	}
+
+	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
+		if (a2dp_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len))
+			return true;
+	}
+
+	return false;
+}
+
+const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count)
+{
+	const struct a2dp_codec **supported_codecs;
+	size_t i, j, size;
+
+	*count = 0;
+
+	size = 8;
+	supported_codecs = malloc(size * sizeof(const struct a2dp_codec *));
+	if (supported_codecs == NULL)
+		return NULL;
+
+	j = 0;
+	for (i = 0; a2dp_codecs[i] != NULL; ++i) {
+		if (spa_bt_device_supports_a2dp_codec(device, a2dp_codecs[i])) {
+			supported_codecs[j] = a2dp_codecs[i];
+			++j;
+		}
+
+		if (j >= size) {
+			const struct a2dp_codec **p;
+			size = size * 2;
+			p = realloc(supported_codecs, size * sizeof(const struct a2dp_codec *));
+			if (p == NULL) {
+				free(supported_codecs);
+				return NULL;
+			}
+			supported_codecs = p;
+		}
+	}
+
+	supported_codecs[j] = NULL;
+	*count = j;
+
+	return supported_codecs;
+}
+
 static int device_try_connect_profile(struct spa_bt_device *device,
                                       enum spa_bt_profile profile,
                                       const char *profile_uuid)

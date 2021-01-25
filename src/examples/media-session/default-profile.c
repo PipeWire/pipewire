@@ -123,15 +123,18 @@ static uint32_t find_profile_id(struct device *dev, const char *name)
 	struct sm_param *p;
 	spa_list_for_each(p, &dev->obj->param_list, link) {
 		const char *n;
-		uint32_t id;
+		uint32_t id, available = SPA_PARAM_AVAILABILITY_unknown;
 
 		if (p->id != SPA_PARAM_EnumProfile ||
 		    spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
-				SPA_PARAM_PROFILE_name,  SPA_POD_String(&n)) < 0) {
+				SPA_PARAM_PROFILE_name,  SPA_POD_String(&n),
+				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&available)) < 0) {
 			continue;
 		}
+		if (available == SPA_PARAM_AVAILABILITY_no)
+			continue;
 		if (strcmp(n, name) == 0)
 			return id;
 	}

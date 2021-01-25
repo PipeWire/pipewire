@@ -96,6 +96,8 @@ struct impl {
 	struct spa_source sources[MAX_POLL];
 };
 
+static int emit_info(struct impl *this, bool full);
+
 static void handle_acp_poll(struct spa_source *source)
 {
 	struct impl *this = source->data;
@@ -106,6 +108,7 @@ static void handle_acp_poll(struct spa_source *source)
 	acp_card_handle_events(this->card);
 	for (i = 0; i < this->n_pfds; i++)
 		this->sources[i].rmask = 0;
+	emit_info(this, false);
 }
 
 static void remove_sources(struct impl *this)
@@ -206,7 +209,7 @@ static int emit_info(struct impl *this, bool full)
 {
 	int err = 0;
 	struct spa_dict_item *items;
-	uint32_t n_items;
+	uint32_t i, n_items;
 	const struct acp_dict_item *it;
 	struct acp_card *card = this->card;
 	char path[128];
@@ -228,6 +231,15 @@ static int emit_info(struct impl *this, bool full)
 			ADD_ITEM(it->key, it->value);
 		this->info.props = &SPA_DICT_INIT(items, n_items);
 #undef ADD_ITEM
+
+		if (this->info.change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < SPA_N_ELEMENTS(this->params); i++) {
+				if (this->params[i].user > 0) {
+					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					this->params[i].user = 0;
+				}
+			}
+		}
 		spa_device_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -588,6 +600,7 @@ static int impl_set_param(void *object,
 		}
 
 		res = acp_card_set_profile(this->card, id);
+		emit_info(this, false);
 		break;
 	}
 	case SPA_PARAM_Route:
@@ -612,6 +625,7 @@ static int impl_set_param(void *object,
 		res = acp_device_set_port(dev, id);
 		if (props)
 			apply_device_props(this, dev, props);
+		emit_info(this, false);
 		break;
 	}
 	default:
@@ -667,10 +681,9 @@ static void card_profile_changed(void *data, uint32_t old_index, uint32_t new_in
 	setup_sources(this);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
-	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
-	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_info(this, false);
+	this->params[IDX_Profile].user++;
+	this->params[IDX_Route].user++;
+	this->params[IDX_EnumRoute].user++;
 }
 
 static void card_profile_available(void *data, uint32_t index,
@@ -684,9 +697,8 @@ static void card_profile_available(void *data, uint32_t index,
 			acp_available_str(old), acp_available_str(available));
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
-	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_info(this, false);
+	this->params[IDX_EnumProfile].user++;
+	this->params[IDX_Profile].user++;
 
 	if (this->props.auto_profile) {
 		uint32_t best = acp_card_find_best_profile_index(card, NULL);
@@ -705,8 +717,7 @@ static void card_port_changed(void *data, uint32_t old_index, uint32_t new_index
 			op->name, np->name);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_info(this, false);
+	this->params[IDX_Route].user++;
 }
 
 static void card_port_available(void *data, uint32_t index,
@@ -720,9 +731,8 @@ static void card_port_available(void *data, uint32_t index,
 			acp_available_str(old), acp_available_str(available));
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
-	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_info(this, false);
+	this->params[IDX_EnumRoute].user++;
+	this->params[IDX_Route].user++;
 
 	if (this->props.auto_port) {
 		uint32_t i;
@@ -745,8 +755,7 @@ static void on_volume_changed(void *data, struct acp_device *dev)
 	struct impl *this = data;
 	spa_log_info(this->log, "device %s volume changed", dev->name);
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_info(this, false);
+	this->params[IDX_Route].user++;
 }
 
 static void on_mute_changed(void *data, struct acp_device *dev)
@@ -754,8 +763,7 @@ static void on_mute_changed(void *data, struct acp_device *dev)
 	struct impl *this = data;
 	spa_log_info(this->log, "device %s mute changed", dev->name);
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_info(this, false);
+	this->params[IDX_Route].user++;
 }
 
 static void on_set_soft_volume(void *data, struct acp_device *dev,

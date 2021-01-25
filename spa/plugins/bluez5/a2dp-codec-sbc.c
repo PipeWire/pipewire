@@ -125,16 +125,11 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	a2dp_sbc_t conf;
 	int bitpool;
 	bool xq = false;
-	const char *str;
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
 
-	if (settings) {
-		if ((str = spa_dict_lookup(settings, "codec.sbc.enable-xq")) != NULL &&
-		    (strcmp(str, "true") == 0 || atoi(str)))
-			xq = true;
-	}
+	xq = (strcmp(codec->name, "sbc_xq") == 0);
 
 	memcpy(&conf, caps, sizeof(conf));
 
@@ -586,4 +581,26 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
+};
+
+const struct a2dp_codec a2dp_codec_sbc_xq = {
+	.codec_id = A2DP_CODEC_SBC,
+	.name = "sbc_xq",
+	.description = "SBC-XQ",
+	.fill_caps = codec_fill_caps,
+	.select_config = codec_select_config,
+	.enum_config = codec_enum_config,
+	.validate_config = codec_validate_config,
+	.init = codec_init,
+	.deinit = codec_deinit,
+	.get_block_size = codec_get_block_size,
+	.get_num_blocks = codec_get_num_blocks,
+	.abr_process = codec_abr_process,
+	.start_encode = codec_start_encode,
+	.encode = codec_encode,
+	.start_decode = codec_start_decode,
+	.decode = codec_decode,
+	.reduce_bitpool = codec_reduce_bitpool,
+	.increase_bitpool = codec_increase_bitpool,
+	.feature_flag = "sbc-xq",
 };

@@ -69,6 +69,7 @@ const a2dp_mpeg_t bluez_a2dp_mpeg = {
 #endif
 
 extern struct a2dp_codec a2dp_codec_sbc;
+extern struct a2dp_codec a2dp_codec_sbc_xq;
 #if ENABLE_LDAC
 extern struct a2dp_codec a2dp_codec_ldac;
 #endif
@@ -97,6 +98,7 @@ const struct a2dp_codec *a2dp_codec_list[] = {
 #if ENABLE_MP3
 	&a2dp_codec_mpeg,
 #endif
+	&a2dp_codec_sbc_xq,
 	&a2dp_codec_sbc,
 	NULL,
 };

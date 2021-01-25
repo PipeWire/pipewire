@@ -214,13 +214,8 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		spa_log_debug(monitor->log, "  %d: %02x", i, cap[i]);
 
 	codec = a2dp_endpoint_to_codec(path);
-	if (codec != NULL) {
-		struct spa_dict_item items[1];
-
-		items[0] = SPA_DICT_ITEM_INIT("codec.sbc.enable-xq", monitor->enable_sbc_xq ? "true" : "false");
-
-		res = codec->select_config(codec, 0, cap, size, &SPA_DICT_INIT_ARRAY(items), config);
-	}
+	if (codec != NULL)
+		res = codec->select_config(codec, 0, cap, size, NULL, config);
 	else
 		res = -ENOTSUP;
 
@@ -768,6 +763,22 @@ static int device_update_props(struct spa_bt_device *device,
 		dbus_message_iter_next(props_iter);
 	}
 	return 0;
+}
+
+static bool device_can_accept_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+
+	/* Device capability checks in addition to A2DP Capabilities. */
+
+	if (!is_a2dp_codec_enabled(device->monitor, codec))
+		return false;
+
+	if (codec->feature_flag != NULL && strcmp(codec->feature_flag, "sbc-xq") == 0)
+		return monitor->enable_sbc_xq;
+
+	/* The rest is determined by A2DP caps */
+	return true;
 }
 
 static int device_try_connect_profile(struct spa_bt_device *device,
@@ -1641,23 +1652,28 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	struct spa_bt_a2dp_codec_switch *sw;
 	struct spa_bt_remote_endpoint *ep;
 	struct spa_bt_transport *t;
-	size_t i, num_codecs, num_eps;
+	const struct a2dp_codec *preferred_codec = NULL;
+	size_t i, j, num_codecs, num_eps;
 
 	if (!device->adapter->application_registered) {
 		/* Codec switching not supported */
 		return -ENOTSUP;
 	}
 
-	if (codecs[0] == NULL)
-		return -ENODEV;
+	for (i = 0; codecs[i] != NULL; ++i) {
+		if (spa_bt_device_supports_a2dp_codec(device, codecs[i])) {
+			preferred_codec = codecs[i];
+			break;
+		}
+	}
 
 	/* Check if we already have an enabled transport for the most preferred codec.
 	 * However, if there already was a codec switch running, these transports may
 	 * disapper soon. In that case, we have to do the full thing.
 	 */
-	if (device->active_codec_switch == NULL) {
+	if (device->active_codec_switch == NULL && preferred_codec != NULL) {
 		spa_list_for_each(t, &device->transport_list, device_link) {
-			if (t->a2dp_codec != codecs[0] || !t->enabled)
+			if (t->a2dp_codec != preferred_codec || !t->enabled)
 				continue;
 
 			if ((device->connected_profiles & t->profile) != t->profile)
@@ -1691,7 +1707,13 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 		return -ENOMEM;
 	}
 
-	memcpy(sw->codecs, codecs, num_codecs * sizeof(const struct a2dp_codec *));
+	for (i = 0, j = 0; i < num_codecs; ++i) {
+		if (device_can_accept_a2dp_codec(device, codecs[i])) {
+			sw->codecs[j] = codecs[i];
+			++j;
+		}
+	}
+	sw->codecs[j] = NULL;
 
 	i = 0;
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
@@ -1702,9 +1724,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 		}
 		++i;
 	}
-
-	sw->codecs[num_codecs] = NULL;
-	sw->paths[num_eps] = NULL;
+	sw->paths[i] = NULL;
 
 	sw->codec_iter = sw->codecs;
 	sw->path_iter = sw->paths;
@@ -1800,7 +1820,15 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	spa_log_info(monitor->log, "%p: %s validate conf channels:%d",
 			monitor, path, transport->n_channels);
 
-	transport->enabled = true;
+	/*
+	 * Per-device determination of which codecs are allowed needs to be done also
+	 * here. The A2DP codec switching process does this filtering, but before that
+	 * BlueZ may autoconnect to any endpoint with compatible caps.  In case it got it
+	 * wrong, mark the transport disabled, and we'll switch to a better one later when
+	 * needed. (We don't want to fail the connection, because we want to keep the
+	 * profile connected.)
+	 */
+	transport->enabled = device_can_accept_a2dp_codec(transport->device, codec);
 
 	spa_bt_device_connect_profile(transport->device, transport->profile);
 
@@ -2060,7 +2088,7 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 		if (!is_a2dp_codec_enabled(monitor, codec))
 			continue;
 
-		if (codec->codec_id != A2DP_CODEC_SBC)
+		if (!(codec->codec_id == A2DP_CODEC_SBC && strcmp(codec->name, "sbc") == 0))
 			continue;
 
 		if ((err = bluez_register_endpoint(monitor, a->path,

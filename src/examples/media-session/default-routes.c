@@ -62,7 +62,6 @@ struct impl {
 	struct spa_hook meta_listener;
 
 	struct pw_properties *to_restore;
-	struct pw_properties *to_save;
 };
 
 struct device {
@@ -73,6 +72,8 @@ struct device {
 	char *name;
 
 	struct spa_hook listener;
+
+	uint32_t active_route[2];
 };
 
 struct find_data {
@@ -88,7 +89,7 @@ static void remove_idle_timeout(struct impl *impl)
 
 	if (impl->idle_timeout) {
 		if ((res = sm_media_session_save_state(impl->session,
-						SESSION_KEY, PREFIX, impl->to_save)) < 0)
+						SESSION_KEY, PREFIX, impl->to_restore)) < 0)
 			pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 		pw_loop_destroy_source(main_loop, impl->idle_timeout);
 		impl->idle_timeout = NULL;
@@ -297,7 +298,7 @@ static int handle_route(struct device *dev, struct sm_param *p)
 {
 	struct impl *impl = dev->impl;
 	int res;
-	const char *name, *val;
+	const char *name;
 	uint32_t index, device_id;
 	enum spa_direction direction;
 	struct spa_pod *props = NULL;
@@ -317,15 +318,17 @@ static int handle_route(struct device *dev, struct sm_param *p)
 	snprintf(key, sizeof(key)-1, PREFIX"%s:%s:%s", dev->name,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output", name);
 
-	val = pw_properties_get(impl->to_restore, key);
-	if (val != NULL) {
-		pw_log_info("device %d: restore route '%s' to %s", dev->id, key, val);
-		restore_route(dev, val, index, device_id);
-		pw_properties_set(impl->to_restore, key, NULL);
+	if (dev->active_route[direction] != index) {
+		const char *val = pw_properties_get(impl->to_restore, key);
+		dev->active_route[direction] = index;
+		if (val) {
+			pw_log_info("device %d: restore route '%s' to %s", dev->id, key, val);
+			restore_route(dev, val, index, device_id);
+		}
 	} else if (props) {
 		char *val = serialize_props(dev, props);
-		pw_log_debug("device %d: current route %s %s", dev->id, key, val);
-		pw_properties_set(impl->to_save, key, val);
+		pw_log_info("device %d: current route %s %s", dev->id, key, val);
+		pw_properties_set(impl->to_restore, key, val);
 		free(val);
 		add_idle_timeout(impl);
 	}
@@ -382,6 +385,8 @@ static void session_create(void *data, struct sm_object *object)
 	dev->id = object->id;
 	dev->impl = impl;
 	dev->name = strdup(name);
+	dev->active_route[SPA_DIRECTION_INPUT] = SPA_ID_INVALID;
+	dev->active_route[SPA_DIRECTION_OUTPUT] = SPA_ID_INVALID;
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&dev->obj->obj, &dev->listener, &object_events, dev);
@@ -414,7 +419,6 @@ static void session_destroy(void *data)
 	remove_idle_timeout(impl);
 	spa_hook_remove(&impl->listener);
 	pw_properties_free(impl->to_restore);
-	pw_properties_free(impl->to_save);
 	free(impl);
 }
 
@@ -447,18 +451,10 @@ int sm_default_routes_start(struct sm_media_session *session)
 					SESSION_KEY, PREFIX, impl->to_restore)) < 0)
 		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
 
-	impl->to_save = pw_properties_copy(impl->to_restore);
-	if (impl->to_save == NULL) {
-		res = -errno;
-		goto exit_free_props;
-	}
-
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);
 
 	return 0;
 
-exit_free_props:
-	pw_properties_free(impl->to_restore);
 exit_free:
 	free(impl);
 	return res;

@@ -265,6 +265,7 @@ static void session_create(void *data, struct sm_object *object)
 	dev->id = object->id;
 	dev->impl = impl;
 	dev->key = spa_aprintf(PREFIX"%s", name);
+	dev->active_profile = SPA_ID_INVALID;
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&dev->obj->obj, &dev->listener, &object_events, dev);

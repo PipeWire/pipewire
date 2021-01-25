@@ -213,9 +213,15 @@ static void object_update(void *data)
 {
 	struct device *dev = data;
 	struct impl *impl = dev->impl;
+	const char *str;
 
 	pw_log_debug(NAME" %p: device %p %08x/%08x", impl, dev,
 			dev->obj->obj.changed, dev->obj->obj.avail);
+
+	if (dev->obj->info && dev->obj->info->props &&
+	    (str = spa_dict_lookup(dev->obj->info->props, PW_KEY_DEVICE_BUS)) != NULL &&
+	    strcmp(str, "bluetooth") == 0)
+		return;
 
 	if (dev->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS) {
 		struct sm_param *p;

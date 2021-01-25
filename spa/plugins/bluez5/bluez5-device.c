@@ -97,6 +97,9 @@ struct impl {
 	uint32_t profile;
 	const struct a2dp_codec *selected_a2dp_codec;  /**< Codec wanted. NULL means any. */
 
+	const struct a2dp_codec **supported_codecs;
+	size_t supported_codec_count;
+
 	struct node nodes[2];
 };
 
@@ -388,15 +391,55 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index)
 	return mask;
 }
 
+static uint32_t get_profile_from_index(struct impl *this, uint32_t index, const struct a2dp_codec **codec)
+{
+	/*
+	 * XXX: The A2DP codec should probably become a separate param, and not have
+	 * XXX: separate profiles for each one.
+	 */
+
+	*codec = NULL;
+
+	if (index < 3)
+		return index;
+
+	if (index - 3 < this->supported_codec_count) {
+		*codec = this->supported_codecs[index - 3];
+		return 1;
+	} else {
+		return SPA_ID_INVALID;
+	}
+}
+
+static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, const struct a2dp_codec *codec)
+{
+	size_t i;
+
+	if (profile != 1)
+		return profile;
+
+	if (codec == NULL)
+		return 1;
+
+	for (i = 0; i < this->supported_codec_count; ++i) {
+		if (this->supported_codecs[i] == codec)
+			return 3 + i;
+	}
+
+	return SPA_ID_INVALID;
+}
+
 static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *b,
-		uint32_t id, uint32_t index)
+		uint32_t id, uint32_t index, uint32_t profile_index, const struct a2dp_codec *codec)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_pod_frame f[2];
 	const char *name, *desc;
+	char *name_and_codec = NULL;
+	char *desc_and_codec = NULL;
 	uint32_t n_source = 0, n_sink = 0;
 
-	switch (index) {
+	switch (profile_index) {
 	case 0:
 		name = "off";
 		desc = "Off";
@@ -408,17 +451,26 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (profile == 0) {
 			return NULL;
 		} else if (profile == SPA_BT_PROFILE_A2DP_SINK) {
-			desc = "High Fidelity Playback (A2DP Sink)";
+			desc = "High Fidelity Playback (A2DP Sink%s%s)";
 		} else if (profile == SPA_BT_PROFILE_A2DP_SOURCE) {
-			desc = "High Fidelity Capture (A2DP Source)";
+			desc = "High Fidelity Capture (A2DP Source%s%s)";
 		} else {
-			desc = "High Fidelity Duplex (A2DP Source/Sink)";
+			desc = "High Fidelity Duplex (A2DP Source/Sink%s%s)";
 		}
 		name = spa_bt_profile_name(profile);
 		if (profile & SPA_BT_PROFILE_A2DP_SOURCE)
 			n_source++;
 		if (profile & SPA_BT_PROFILE_A2DP_SINK)
 			n_sink++;
+		if (codec != NULL) {
+			name_and_codec = spa_aprintf("%s-%s", name, codec->name);
+			desc_and_codec = spa_aprintf(desc, ", codec ", codec->description);
+			name = name_and_codec;
+			desc = desc_and_codec;
+		} else {
+			desc_and_codec = spa_aprintf(desc, "", "");
+			desc = desc_and_codec;
+		}
 		break;
 	}
 	case 2:
@@ -466,6 +518,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		}
 		spa_pod_builder_pop(b, &f[1]);
 	}
+
+	free(name_and_codec);
+	free(desc_and_codec);
+
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
@@ -647,9 +703,14 @@ static int impl_enum_params(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
 	{
-		switch (result.index) {
+		uint32_t profile;
+		const struct a2dp_codec *codec;
+
+		profile = get_profile_from_index(this, result.index, &codec);
+
+		switch (profile) {
 		case 0: case 1: case 2:
-			param = build_profile(this, &b, id, result.index);
+			param = build_profile(this, &b, id, result.index, profile, codec);
 			if (param == NULL)
 				goto next;
 			break;
@@ -660,9 +721,12 @@ static int impl_enum_params(void *object, int seq,
 	}
 	case SPA_PARAM_Profile:
 	{
+		uint32_t index;
+
 		switch (result.index) {
 		case 0:
-			param = build_profile(this, &b, id, this->profile);
+			index = get_index_from_profile(this, this->profile, this->selected_a2dp_codec);
+			param = build_profile(this, &b, id, index, this->profile, this->selected_a2dp_codec);
 			if (param == NULL)
 				return 0;
 			break;
@@ -834,6 +898,8 @@ static int impl_set_param(void *object,
 	case SPA_PARAM_Profile:
 	{
 		uint32_t id;
+		uint32_t profile;
+		const struct a2dp_codec *codec;
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
@@ -842,7 +908,14 @@ static int impl_set_param(void *object,
 			spa_debug_pod(0, NULL, param);
 			return res;
 		}
-		set_profile(this, id, NULL);
+
+		profile = get_profile_from_index(this, id, &codec);
+		if (profile == SPA_ID_INVALID)
+			return -EINVAL;
+
+		spa_log_debug(this->log, NAME": setting profile %d codec %s", profile,
+		              codec ? codec->name : "<null>");
+		set_profile(this, profile, codec);
 		break;
 	}
 	case SPA_PARAM_Route:
@@ -906,8 +979,11 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
+
+	free(this->supported_codecs);
 	if (this->bt_dev)
 		spa_hook_remove(&this->bt_dev_listener);
+
 	return 0;
 }
 
@@ -967,6 +1043,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_Route] = SPA_PARAM_INFO(SPA_PARAM_Route, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = 4;
+
+	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(this->bt_dev, &this->supported_codec_count);
 
 	spa_bt_device_add_listener(this->bt_dev, &this->bt_dev_listener, &bt_dev_events, this);
 

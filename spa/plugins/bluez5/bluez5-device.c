@@ -658,10 +658,10 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
-	SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
-			SPA_TYPE_Float, n_volumes, volumes),
-	SPA_PROP_channelMap, SPA_POD_Array(sizeof(uint32_t),
-			SPA_TYPE_Id, node->n_channels, node->channels));
+			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+				SPA_TYPE_Float, n_volumes, volumes),
+			SPA_PROP_channelMap, SPA_POD_Array(sizeof(uint32_t),
+				SPA_TYPE_Id, node->n_channels, node->channels));
 	event = spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
@@ -677,6 +677,7 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 	struct spa_pod_frame f[1];
 
 	spa_log_info(this->log, "node %p mute %d", node, mute);
+	node->mute = mute;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0],
@@ -686,7 +687,7 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
 
 	spa_pod_builder_add_object(&b,
-	SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
+			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_mute, SPA_POD_Bool(mute));
 	event = spa_pod_builder_pop(&b, &f[0]);
 

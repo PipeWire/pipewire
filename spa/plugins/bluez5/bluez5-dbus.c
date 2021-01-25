@@ -69,6 +69,10 @@ struct spa_bt_monitor {
 	uint32_t count;
 	uint32_t id;
 
+	/*
+	 * Lists of BlueZ objects, kept up-to-date by following DBus events
+	 * initiated by BlueZ. Object lifetime is also determined by that.
+	 */
 	struct spa_list adapter_list;
 	struct spa_list device_list;
 	struct spa_list remote_endpoint_list;
@@ -99,6 +103,34 @@ struct spa_bt_remote_endpoint {
 	uint8_t *capabilities;
 	int capabilities_len;
 	bool delay_reporting;
+};
+
+/*
+ * Codec switching tries various codec/remote endpoint combinations
+ * in order, until an acceptable one is found. This triggers BlueZ
+ * to initiate DBus calls that result to the creation of a transport
+ * with the desired capabilities.
+ * The codec switch struct tracks candidates still to be tried.
+ */
+struct spa_bt_a2dp_codec_switch {
+	struct spa_bt_device *device;
+	struct spa_list device_link;
+
+	DBusPendingCall *pending;
+
+	uint32_t profile;
+
+	/*
+	 * Called asynchronously, so endpoint paths instead of pointers (which may be
+	 * invalidated in the meantime).
+	 */
+	const struct a2dp_codec **codecs;
+	char **paths;
+
+	const struct a2dp_codec **codec_iter;	/**< outer iterator over codecs */
+	char **path_iter;			/**< inner iterator over endpoint paths */
+
+	size_t num_paths;
 };
 
 /*
@@ -389,6 +421,9 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	d->path = strdup(path);
 	spa_list_init(&d->remote_endpoint_list);
 	spa_list_init(&d->transport_list);
+	spa_list_init(&d->codec_switch_list);
+
+	spa_hook_list_init(&d->listener_list);
 
 	spa_list_prepend(&monitor->device_list, &d->link);
 
@@ -397,9 +432,12 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 
 static int device_stop_timer(struct spa_bt_device *device);
 
+static void a2dp_codec_switch_free(struct spa_bt_a2dp_codec_switch *sw);
+
 static void device_free(struct spa_bt_device *device)
 {
 	struct spa_bt_remote_endpoint *ep;
+	struct spa_bt_a2dp_codec_switch *sw;
 	struct spa_bt_transport *t;
 	struct spa_bt_monitor *monitor = device->monitor;
 
@@ -419,6 +457,10 @@ static void device_free(struct spa_bt_device *device)
 			t->device = NULL;
 		}
 	}
+
+	spa_list_consume(sw, &device->codec_switch_list, device_link)
+		a2dp_codec_switch_free(sw);
+
 	spa_list_remove(&device->link);
 	free(device->path);
 	free(device->alias);
@@ -1335,6 +1377,362 @@ static const struct spa_bt_transport_implementation transport_impl = {
 	.release = transport_release,
 };
 
+static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, int key_type_int, void* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
+
+static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *userdata);
+
+static int a2dp_codec_switch_cmp(const void *a, const void *b);
+
+static struct spa_bt_a2dp_codec_switch *a2dp_codec_switch_cmp_sw;  /* global for qsort */
+
+static void a2dp_codec_switch_free(struct spa_bt_a2dp_codec_switch *sw)
+{
+	char **p;
+
+	if (sw->pending != NULL) {
+		dbus_pending_call_cancel(sw->pending);
+		dbus_pending_call_unref(sw->pending);
+	}
+
+	if (sw->device != NULL)
+		spa_list_remove(&sw->device_link);
+
+	if (sw->paths != NULL)
+		for (p = sw->paths; *p != NULL; ++p)
+			free(*p);
+
+	free(sw->paths);
+	free(sw->codecs);
+	free(sw);
+}
+
+static void a2dp_codec_switch_next(struct spa_bt_a2dp_codec_switch *sw)
+{
+	spa_assert(*sw->codec_iter != NULL && *sw->path_iter != NULL);
+
+	++sw->path_iter;
+	if (*sw->path_iter == NULL) {
+		++sw->codec_iter;
+		sw->path_iter = sw->paths;
+	}
+}
+
+static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *sw)
+{
+	struct spa_bt_remote_endpoint *ep;
+	const struct a2dp_codec *codec;
+	uint8_t config[A2DP_MAX_CAPS_SIZE];
+	char *local_endpoint_base;
+	char *local_endpoint = NULL;
+	int res, config_size;
+	dbus_bool_t dbus_ret;
+	const char *str;
+	DBusMessage *m;
+	DBusMessageIter iter, d;
+	int i;
+
+	/* Try setting configuration for current codec on current endpoint in list */
+
+	codec = *sw->codec_iter;
+
+	spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: consider codec %s for remote endpoint %s",
+	              sw, (*sw->codec_iter)->name, *sw->path_iter);
+
+	ep = device_remote_endpoint_find(sw->device, *sw->path_iter);
+
+	if (ep == NULL || ep->capabilities == NULL || ep->uuid == NULL) {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: endpoint %s not valid, try next",
+		              *sw->path_iter);
+		goto next;
+	}
+
+	/* Setup and check compatible configuration */
+	if (ep->codec != codec->codec_id) {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: different codec, try next", sw);
+		goto next;
+	}
+
+	if (!(sw->profile & spa_bt_profile_from_uuid(ep->uuid))) {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: wrong uuid (%s) for profile, try next",
+		              sw, ep->uuid);
+		goto next;
+	}
+
+	if (sw->profile & SPA_BT_PROFILE_A2DP_SINK) {
+		local_endpoint_base = A2DP_SOURCE_ENDPOINT;
+	} else if (sw->profile & SPA_BT_PROFILE_A2DP_SOURCE) {
+		local_endpoint_base = A2DP_SINK_ENDPOINT;
+	} else {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: bad profile (%d), try next",
+		              sw, sw->profile);
+		goto next;
+	}
+
+	if (a2dp_codec_to_endpoint(codec, local_endpoint_base, &local_endpoint) < 0) {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: no endpoint for codec %s, try next",
+		              sw, codec->name);
+		goto next;
+	}
+
+	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len, NULL, config);
+	if (res < 0) {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: incompatible capabilities (%d), try next",
+		              sw, res);
+		goto next;
+	}
+	config_size = res;
+
+	spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: configuration %d", sw, config_size);
+	for (i = 0; i < config_size; i++)
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p:     %d: %02x", sw, i, config[i]);
+
+	/* org.bluez.MediaEndpoint1.SetConfiguration on remote endpoint */
+	m = dbus_message_new_method_call(BLUEZ_SERVICE, ep->path, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "SetConfiguration");
+	if (m == NULL) {
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: dbus allocation failure, try next", sw);
+		goto next;
+	}
+
+	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: trying codec %s for endpoint %s, local endpoint %s",
+	             sw, codec->name, ep->path, local_endpoint);
+
+	dbus_message_iter_init_append(m, &iter);
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &local_endpoint);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &d);
+	str = "Capabilities";
+	append_basic_array_variant_dict_entry(&d, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, config, config_size);
+	dbus_message_iter_close_container(&iter, &d);
+
+	spa_assert(sw->pending == NULL);
+	dbus_ret = dbus_connection_send_with_reply(sw->device->monitor->conn, m, &sw->pending, -1);
+
+	if (!dbus_ret || sw->pending == NULL) {
+		spa_log_error(sw->device->monitor->log, NAME": a2dp codec switch %p: dbus call failure, try next", sw);
+		dbus_message_unref(m);
+		goto next;
+	}
+
+	dbus_ret = dbus_pending_call_set_notify(sw->pending, a2dp_codec_switch_reply, sw, NULL);
+	dbus_message_unref(m);
+
+	if (!dbus_ret) {
+		spa_log_error(sw->device->monitor->log, NAME": a2dp codec switch %p: dbus set notify failure", sw);
+		goto next;
+	}
+
+	free(local_endpoint);
+	return true;
+
+next:
+	free(local_endpoint);
+	return false;
+}
+
+static void a2dp_codec_switch_process(struct spa_bt_a2dp_codec_switch *sw)
+{
+	while (*sw->codec_iter != NULL && *sw->path_iter != NULL) {
+		if (sw->path_iter == sw->paths && (*sw->codec_iter)->caps_preference_cmp) {
+			/* Sort endpoints according to codec preference, when at a new codec. */
+			a2dp_codec_switch_cmp_sw = sw;
+			qsort(sw->paths, sw->num_paths, sizeof(char *), a2dp_codec_switch_cmp);
+		}
+
+		if (a2dp_codec_switch_process_current(sw)) {
+			/* Wait for dbus reply */
+			return;
+		}
+
+		a2dp_codec_switch_next(sw);
+	};
+
+	/* Didn't find any suitable endpoint. Report failure. */
+	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: failed to get an endpoint", sw);
+	sw->device->active_codec_switch = NULL;
+	spa_bt_device_emit_codec_switched(sw->device, -ENODEV);
+	a2dp_codec_switch_free(sw);
+}
+
+static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
+{
+	struct spa_bt_a2dp_codec_switch *sw = user_data;
+	struct spa_bt_device *device = sw->device;
+	DBusMessage *r;
+
+	r = dbus_pending_call_steal_reply(pending);
+
+	spa_assert(sw->pending == pending);
+	dbus_pending_call_unref(pending);
+	sw->pending = NULL;
+
+	if (sw->device->active_codec_switch != sw) {
+		/* This codec switch has been canceled. Switch to the new one. */
+		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: canceled, go to new switch", sw);
+		a2dp_codec_switch_free(sw);
+
+		if (r != NULL)
+			dbus_message_unref(r);
+
+		spa_assert(device->active_codec_switch != NULL);
+		a2dp_codec_switch_process(device->active_codec_switch);
+		return;
+	}
+
+	if (r == NULL) {
+		spa_log_error(sw->device->monitor->log,
+		              NAME": a2dp codec switch %p: empty reply from dbus, stopping",
+		              sw);
+		a2dp_codec_switch_free(sw);
+		device->active_codec_switch = NULL;
+		return;
+	}
+
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_debug(sw->device->monitor->log,
+		              NAME": a2dp codec switch %p: failed (%s), trying next",
+		              sw, dbus_message_get_error_name(r));
+		dbus_message_unref(r);
+		goto next;
+	}
+
+	dbus_message_unref(r);
+
+	/* Success */
+	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: success", sw);
+	device->active_codec_switch = NULL;
+	spa_bt_device_emit_codec_switched(sw->device, 0);
+	a2dp_codec_switch_free(sw);
+	return;
+
+next:
+	a2dp_codec_switch_next(sw);
+	a2dp_codec_switch_process(sw);
+	return;
+}
+
+static int a2dp_codec_switch_cmp(const void *a, const void *b)
+{
+	struct spa_bt_a2dp_codec_switch *sw = a2dp_codec_switch_cmp_sw;
+	const struct a2dp_codec *codec = *sw->codec_iter;
+	const char *path1 = a, *path2 = b;
+	struct spa_bt_remote_endpoint *ep1, *ep2;
+
+	ep1 = device_remote_endpoint_find(sw->device, path1);
+	ep2 = device_remote_endpoint_find(sw->device, path2);
+
+	if (ep1 != NULL && (ep1->uuid == NULL || ep1->codec != codec->codec_id || ep1->capabilities == NULL))
+		ep1 = NULL;
+	if (ep2 != NULL && (ep2->uuid == NULL || ep2->codec != codec->codec_id || ep2->capabilities == NULL))
+		ep2 = NULL;
+
+	if (ep1 == NULL && ep2 == NULL)
+		return 0;
+	else if (ep1 == NULL)
+		return 1;
+	else if (ep2 == NULL)
+		return -1;
+
+	return codec->caps_preference_cmp(codec, ep1->capabilities, ep1->capabilities_len,
+			ep2->capabilities, ep2->capabilities_len);
+}
+
+/* Ensure there's a transport for at least one of the listed codecs */
+int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec **codecs)
+{
+	struct spa_bt_a2dp_codec_switch *sw;
+	struct spa_bt_remote_endpoint *ep;
+	struct spa_bt_transport *t;
+	size_t i, num_codecs, num_eps;
+
+	if (!device->adapter->application_registered) {
+		/* Codec switching not supported */
+		return -ENOTSUP;
+	}
+
+	if (codecs[0] == NULL)
+		return -ENODEV;
+
+	/* Check if we already have an enabled transport for the most preferred codec.
+	 * However, if there already was a codec switch running, these transports may
+	 * disapper soon. In that case, we have to do the full thing.
+	 */
+	if (device->active_codec_switch == NULL) {
+		spa_list_for_each(t, &device->transport_list, device_link) {
+			if (t->a2dp_codec != codecs[0] || !t->enabled)
+				continue;
+
+			if ((device->connected_profiles & t->profile) != t->profile)
+				continue;
+
+			spa_bt_device_emit_codec_switched(device, 0);
+			return 0;
+		}
+	}
+
+	/* Setup and start iteration */
+
+	sw = calloc(1, sizeof(struct spa_bt_a2dp_codec_switch));
+	if (sw == NULL)
+		return -ENOMEM;
+
+	num_eps = 0;
+	spa_list_for_each(ep, &device->remote_endpoint_list, device_link)
+		++num_eps;
+
+	num_codecs = 0;
+	while (codecs[num_codecs] != NULL)
+		++num_codecs;
+
+	sw->codecs = calloc(num_codecs + 1, sizeof(const struct a2dp_codec *));
+	sw->paths = calloc(num_eps + 1, sizeof(char *));
+	sw->num_paths = num_eps;
+
+	if (sw->codecs == NULL || sw->paths == NULL) {
+		a2dp_codec_switch_free(sw);
+		return -ENOMEM;
+	}
+
+	memcpy(sw->codecs, codecs, num_codecs * sizeof(const struct a2dp_codec *));
+
+	i = 0;
+	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
+		sw->paths[i] = strdup(ep->path);
+		if (sw->paths[i] == NULL) {
+			a2dp_codec_switch_free(sw);
+			return -ENOMEM;
+		}
+		++i;
+	}
+
+	sw->codecs[num_codecs] = NULL;
+	sw->paths[num_eps] = NULL;
+
+	sw->codec_iter = sw->codecs;
+	sw->path_iter = sw->paths;
+
+	sw->profile = device->connected_profiles;
+
+	sw->device = device;
+	spa_list_append(&device->codec_switch_list, &sw->device_link);
+
+	if (device->active_codec_switch != NULL) {
+		/*
+		 * There's a codec switch already running.  BlueZ does not appear to allow
+		 * calling dbus_pending_call_cancel on an active request, so we have to
+		 * wait for the reply to arrive first, and only then start processing this
+		 * request.
+		 */
+		spa_log_debug(sw->device->monitor->log,
+		             NAME": a2dp codec switch: already in progress, canceling previous");
+		spa_assert(device->active_codec_switch->pending != NULL);
+		device->active_codec_switch = sw;
+	} else {
+		device->active_codec_switch = sw;
+		a2dp_codec_switch_process(sw);
+	}
+
+	return 0;
+}
+
 static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		const char *path, DBusMessage *m, void *userdata)
 {
@@ -1401,6 +1799,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	}
 	spa_log_info(monitor->log, "%p: %s validate conf channels:%d",
 			monitor, path, transport->n_channels);
+
+	transport->enabled = true;
 
 	spa_bt_device_connect_profile(transport->device, transport->profile);
 

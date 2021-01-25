@@ -1118,6 +1118,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 	else
 		t->codec = HFP_AUDIO_CODEC_CVSD;
 
+	t->enabled = true;
 	spa_bt_device_connect_profile(t->device, t->profile);
 
 	spa_log_debug(backend->log, NAME": Transport %s available for hsphfpd", endpoint->path);

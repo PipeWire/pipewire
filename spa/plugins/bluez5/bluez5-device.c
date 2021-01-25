@@ -92,8 +92,11 @@ struct impl {
 	struct props props;
 
 	struct spa_bt_device *bt_dev;
+	struct spa_hook bt_dev_listener;
 
 	uint32_t profile;
+	const struct a2dp_codec *selected_a2dp_codec;  /**< Codec wanted. NULL means any. */
+
 	struct node nodes[2];
 };
 
@@ -138,16 +141,33 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 			t->n_channels * sizeof(uint32_t));
 }
 
-static struct spa_bt_transport *find_transport(struct impl *this, int profile)
+static struct spa_bt_transport *find_transport(struct impl *this, int profile, const struct a2dp_codec *a2dp_codec)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_bt_transport *t;
+	const struct a2dp_codec **codecs;
+	size_t i, num_codecs;
 
-	spa_list_for_each(t, &device->transport_list, device_link) {
-		if (t->profile & device->connected_profiles &&
-		    (t->profile & profile) == t->profile)
-			return t;
+	codecs = &a2dp_codec;
+	num_codecs = 1;
+
+	if (a2dp_codec == NULL && (profile == SPA_BT_PROFILE_A2DP_SOURCE || profile == SPA_BT_PROFILE_A2DP_SINK)) {
+		codecs = a2dp_codecs;
+		num_codecs = 0;
+		while (codecs[num_codecs] != NULL)
+			++num_codecs;
 	}
+
+	for (i = 0; i < num_codecs; ++i) {
+		spa_list_for_each(t, &device->transport_list, device_link) {
+			if (t->enabled &&
+			    (t->profile & device->connected_profiles) &&
+			    (t->profile & profile) == t->profile &&
+			    (codecs[i] == NULL || t->a2dp_codec == codecs[i]))
+				return t;
+		}
+	}
+
 	return NULL;
 }
 
@@ -160,13 +180,13 @@ static int emit_nodes(struct impl *this)
 		break;
 	case 1:
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
-			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE);
+			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, this->selected_a2dp_codec);
 			if (t)
 				emit_node(this, t, 0, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
 		}
 
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
-			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK);
+			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK, this->selected_a2dp_codec);
 			if (t)
 				emit_node(this, t, 1, SPA_NAME_API_BLUEZ5_A2DP_SINK);
 		}
@@ -177,7 +197,7 @@ static int emit_nodes(struct impl *this)
 			int i;
 
 			for (i = SPA_BT_PROFILE_HSP_HS ; i <= SPA_BT_PROFILE_HFP_AG ; i <<= 1) {
-				t = find_transport(this, i);
+				t = find_transport(this, i, NULL);
 				if (t)
 					break;
 			}
@@ -211,12 +231,9 @@ static void emit_info(struct impl *this, bool full)
 	}
 }
 
-static int set_profile(struct impl *this, uint32_t profile)
+static void emit_remove_nodes(struct impl *this)
 {
 	uint32_t i;
-
-	if (this->profile == profile)
-		return 0;
 
 	for (i = 0; i < 2; i++) {
 		if (this->nodes[i].active) {
@@ -224,8 +241,40 @@ static int set_profile(struct impl *this, uint32_t profile)
 			this->nodes[i].active = false;
 		}
 	}
-	this->profile = profile;
+}
 
+static int set_profile(struct impl *this, uint32_t profile, const struct a2dp_codec *a2dp_codec)
+{
+	if (this->profile == profile && a2dp_codec == this->selected_a2dp_codec)
+		return 0;
+
+	emit_remove_nodes(this);
+
+	this->profile = profile;
+	this->selected_a2dp_codec = a2dp_codec;
+
+	if (profile == 1) {
+		int ret;
+		const struct a2dp_codec *codec_list[2], **codecs;
+
+		/* A2DP: ensure there's a transport with the selected codec (NULL means any) */
+		if (a2dp_codec == NULL) {
+			codecs = a2dp_codecs;
+		} else {
+			codec_list[0] = a2dp_codec;
+			codec_list[1] = NULL;
+			codecs = codec_list;
+		}
+
+		ret = spa_bt_device_ensure_a2dp_codec(this->bt_dev, codecs);
+		if (ret < 0)
+			spa_log_error(this->log, NAME": failed to switch codec (%d), setting basic profile", ret);
+		else
+			return 0;
+	}
+
+	this->switching_codec = false;
+	this->selected_a2dp_codec = NULL;
 	emit_nodes(this);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
@@ -236,6 +285,37 @@ static int set_profile(struct impl *this, uint32_t profile)
 
 	return 0;
 }
+
+static void codec_switched(void *userdata, int status)
+{
+	struct impl *this = userdata;
+
+	spa_log_debug(this->log, NAME": codec switched (status %d)", status);
+
+	if (status < 0) {
+		/* Failed to switch: return to a fallback profile */
+		spa_log_error(this->log, NAME": failed to switch codec (%d), setting fallback profile", status);
+		if (this->selected_a2dp_codec != NULL) {
+			this->selected_a2dp_codec = NULL;
+		} else {
+			this->profile = 0;
+		}
+	}
+
+	emit_remove_nodes(this);
+	emit_nodes(this);
+
+	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_info(this, false);
+}
+
+static const struct spa_bt_device_events bt_dev_events = {
+	SPA_VERSION_BT_DEVICE_EVENTS,
+	.codec_switched = codec_switched,
+};
 
 static int impl_add_listener(void *object,
 			struct spa_hook *listener,
@@ -762,7 +842,7 @@ static int impl_set_param(void *object,
 			spa_debug_pod(0, NULL, param);
 			return res;
 		}
-		set_profile(this, id);
+		set_profile(this, id, NULL);
 		break;
 	}
 	case SPA_PARAM_Route:
@@ -825,6 +905,9 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this = (struct impl *) handle;
+	if (this->bt_dev)
+		spa_hook_remove(&this->bt_dev_listener);
 	return 0;
 }
 
@@ -884,6 +967,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_Route] = SPA_PARAM_INFO(SPA_PARAM_Route, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = 4;
+
+	spa_bt_device_add_listener(this->bt_dev, &this->bt_dev_listener, &bt_dev_events, this);
 
 	return 0;
 }

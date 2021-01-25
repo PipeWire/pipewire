@@ -346,6 +346,14 @@ struct a2dp_codec {
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info);
 
+	/** qsort comparison sorting caps in order of preference for the codec.
+	 * Used in codec switching to select best remote endpoints.
+	 * The caps handed in correspond to this codec_id, but are
+	 * otherwise not checked beforehand.
+	 */
+	int (*caps_preference_cmp) (const struct a2dp_codec *codec, const void *caps1, size_t caps1_size,
+			const void *caps2, size_t caps2_size);
+
 	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
 			const struct spa_audio_info *info, const struct spa_dict *settings, size_t mtu);
 	void (*deinit) (void *data);

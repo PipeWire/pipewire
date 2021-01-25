@@ -126,6 +126,7 @@ static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend
 	t->backend = backend;
 	t->profile = profile;
 	t->codec = codec;
+	t->enabled = true;
 
 finish:
 	return t;

@@ -130,6 +130,7 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	spa_list_append(&t->device->transport_list, &t->device_link);
 	t->profile = rfcomm->profile;
 	t->backend = backend;
+	t->enabled = true;
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
 

@@ -326,6 +326,17 @@ static inline enum spa_bt_form_factor spa_bt_form_factor_from_class(uint32_t blu
 	return SPA_BT_FORM_FACTOR_UNKNOWN;
 }
 
+struct spa_bt_a2dp_codec_switch;
+struct spa_bt_transport;
+
+struct spa_bt_device_events {
+#define SPA_VERSION_BT_DEVICE_EVENTS	0
+	uint32_t version;
+
+	/** Codec switching completed */
+	void (*codec_switched) (void *data, int status);
+};
+
 struct spa_bt_device {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
@@ -349,13 +360,27 @@ struct spa_bt_device {
 	struct spa_source timer;
 	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;
+	struct spa_list codec_switch_list;
+	struct spa_bt_a2dp_codec_switch *active_codec_switch;
+
+	struct spa_hook_list listener_list;
 	bool added;
 };
+
+struct a2dp_codec;
 
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);
 struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monitor, const char *remote_address, const char *local_address);
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
+int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec **codecs);
+
+#define spa_bt_device_emit(d,m,v,...)			spa_hook_list_call(&(d)->listener_list, \
+								struct spa_bt_device_events,	\
+								m, v, ##__VA_ARGS__)
+#define spa_bt_device_emit_codec_switched(d,...)	spa_bt_device_emit(d, codec_switched, 0, __VA_ARGS__)
+#define spa_bt_device_add_listener(d,listener,events,data)           \
+	spa_hook_list_append(&(d)->listener_list, listener, events, data)
 
 struct spa_bt_sco_io;
 
@@ -402,6 +427,8 @@ struct spa_bt_transport {
 	unsigned int codec;
 	void *configuration;
 	int configuration_len;
+
+	unsigned int enabled:1;  /**< Transport ready for use in sink/source */
 
 	uint32_t n_channels;
 	uint32_t channels[64];

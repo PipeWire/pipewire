@@ -104,8 +104,13 @@ config file for more information about the configuration options.
 
 The ALSA plugin is usually installed in:
 
+On Fedora:
 ```
 /usr/lib64/alsa-lib/libasound_module_pcm_pipewire.so
+```
+On Ubuntu:
+```
+/usr/lib/x86_64-linux-gnu/alsa-lib/libasound_module_pcm_pipewire.so
 ```
 
 There is also a config file installed in:

@@ -1153,7 +1153,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			position = state->position->clock.position;
 			if (state->last_position && state->last_position + state->last_duration != position) {
 				state->alsa_sync = true;
-				spa_log_warn(state->log, NAME" %p: discont, resync %"PRIu64" %"PRIu64" %d",
+				spa_log_info(state->log, NAME" %p: discont, resync %"PRIu64" %"PRIu64" %d",
 						state, state->last_position, position, state->last_duration);
 			}
 			state->last_position = position;

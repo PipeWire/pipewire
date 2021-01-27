@@ -173,9 +173,10 @@ static int emit_info(struct impl *this, bool full)
 	else
 		snprintf(name, sizeof(name), "JACK Client (%s)", this->props.server);
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
-	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_JACK_SERVER, this->props.server);
-	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
-	dinfo.props = &SPA_DICT_INIT(items, 5);
+	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_DESCRIPTION, name);
+	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_JACK_SERVER, this->props.server);
+	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+	dinfo.props = &SPA_DICT_INIT(items, 6);
 
 	dinfo.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);

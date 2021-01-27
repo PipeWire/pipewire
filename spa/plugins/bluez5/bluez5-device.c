@@ -329,14 +329,12 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			return NULL;
 		} else if (profile == SPA_BT_PROFILE_A2DP_SINK) {
 			desc = "High Fidelity Playback (A2DP Sink)";
-			name = "a2dp-sink";
 		} else if (profile == SPA_BT_PROFILE_A2DP_SOURCE) {
 			desc = "High Fidelity Capture (A2DP Source)";
-			name = "a2dp-source";
 		} else {
 			desc = "High Fidelity Duplex (A2DP Source/Sink)";
-			name = "a2dp-duplex";
 		}
+		name = spa_bt_profile_name(profile);
 		if (profile & SPA_BT_PROFILE_A2DP_SOURCE)
 			n_source++;
 		if (profile & SPA_BT_PROFILE_A2DP_SINK)
@@ -351,14 +349,12 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			return NULL;
 		} else if (profile == SPA_BT_PROFILE_HEADSET_HEAD_UNIT) {
 			desc = "Headset Head Unit (HSP/HFP)";
-			name = "headset-head-unit";
 		} else if (profile == SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) {
 			desc = "Headset Audio Gateway (HSP/HFP)";
-			name = "headset-audio-gateway";
 		} else {
 			desc = "Headset Audio (HSP/HFP)";
-			name = "headset-audio";
 		}
+		name = spa_bt_profile_name(profile);
 		n_source++;
 		n_sink++;
 		break;

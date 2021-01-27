@@ -149,16 +149,18 @@ extern "C" {
 #define MSBC_ENCODED_SIZE       60  /* 2 bytes header + 57 mSBC payload + 1 byte padding */
 
 enum spa_bt_profile {
-        SPA_BT_PROFILE_NULL =		0,
-        SPA_BT_PROFILE_A2DP_SINK =	(1 << 0),
-        SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 1),
-        SPA_BT_PROFILE_HSP_HS =		(1 << 2),
-        SPA_BT_PROFILE_HSP_AG =		(1 << 3),
-        SPA_BT_PROFILE_HFP_HF =		(1 << 4),
-        SPA_BT_PROFILE_HFP_AG =		(1 << 5),
+	SPA_BT_PROFILE_NULL =		0,
+	SPA_BT_PROFILE_A2DP_SINK =	(1 << 0),
+	SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 1),
+	SPA_BT_PROFILE_HSP_HS =		(1 << 2),
+	SPA_BT_PROFILE_HSP_AG =		(1 << 3),
+	SPA_BT_PROFILE_HFP_HF =		(1 << 4),
+	SPA_BT_PROFILE_HFP_AG =		(1 << 5),
 
-        SPA_BT_PROFILE_HEADSET_HEAD_UNIT = (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_HF),
-        SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY = (SPA_BT_PROFILE_HSP_AG | SPA_BT_PROFILE_HFP_AG),
+	SPA_BT_PROFILE_A2DP_DUPLEX =	(SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE),
+	SPA_BT_PROFILE_HEADSET_HEAD_UNIT = (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_HF),
+	SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY = (SPA_BT_PROFILE_HSP_AG | SPA_BT_PROFILE_HFP_AG),
+	SPA_BT_PROFILE_HEADSET_AUDIO =  (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY),
 };
 
 static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
@@ -215,6 +217,14 @@ static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
         return "a2dp-source";
       case SPA_BT_PROFILE_A2DP_SINK:
         return "a2dp-sink";
+      case SPA_BT_PROFILE_A2DP_DUPLEX:
+        return "a2dp-duplex";
+      case SPA_BT_PROFILE_HEADSET_HEAD_UNIT:
+	return "headset-head-unit";
+      case SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY:
+	return "headset-audio-gateway";
+      case SPA_BT_PROFILE_HEADSET_AUDIO:
+	return "headset-audio";
       case SPA_BT_PROFILE_HSP_HS:
         return "hsp-hs";
       case SPA_BT_PROFILE_HSP_AG:

@@ -102,6 +102,7 @@ struct node {
 	unsigned int monitor:1;
 	unsigned int moving:1;
 	unsigned int capture_sink:1;
+	unsigned int virtual:1;
 };
 
 static bool find_format(struct node *node)
@@ -151,6 +152,7 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	struct spa_pod_builder b = { 0, };
 	struct spa_pod *param;
 	struct spa_audio_info format;
+	enum pw_direction direction;
 
 	if (node->configured && !force)
 		return 0;
@@ -168,11 +170,16 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	}
 	format.info.raw.rate = impl->sample_rate;
 
+	if (node->virtual)
+		direction = pw_direction_reverse(node->direction);
+	else
+		direction = node->direction;
+
 	spa_pod_builder_init(&b, buf, sizeof(buf));
 	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &format.info.raw);
 	param = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
+		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(direction),
 		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
 		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
 		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
@@ -277,6 +284,8 @@ handle_node(struct impl *impl, struct sm_object *object)
 	}
 	else {
 		const char *media;
+		bool virtual = false;
+
 		if (strstr(media_class, "Audio/") == media_class) {
 			media_class += strlen("Audio/");
 			media = "Audio";
@@ -292,10 +301,12 @@ handle_node(struct impl *impl, struct sm_object *object)
 		if (strcmp(media_class, "Sink") == 0 ||
 		    strcmp(media_class, "Duplex") == 0)
 			direction = PW_DIRECTION_INPUT;
-		else if (strcmp(media_class, "Source") == 0 ||
-		    strcmp(media_class, "Source/Virtual") == 0)
+		else if (strcmp(media_class, "Source") == 0)
 			direction = PW_DIRECTION_OUTPUT;
-		else
+		else if (strcmp(media_class, "Source/Virtual") == 0) {
+			virtual = true;
+			direction = PW_DIRECTION_OUTPUT;
+		} else
 			return 0;
 
 		if ((str = pw_properties_get(object->props, PW_KEY_NODE_PLUGGED)) != NULL)
@@ -309,6 +320,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 			node->priority = 0;
 
 		node->direction = direction;
+		node->virtual = virtual;
 		node->type = NODE_TYPE_DEVICE;
 		node->media = strdup(media);
 

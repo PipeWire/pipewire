@@ -807,11 +807,9 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 		struct acp_card_profile *p = profiles[i];
 
 		if (name) {
-			if (strcmp(name, p->name))
+			if (strcmp(name, p->name) == 0)
 				best = i;
-			continue;
-		}
-		if (p->flags & ACP_PROFILE_OFF) {
+		} else if (p->flags & ACP_PROFILE_OFF) {
 			off = i;
 		} else if (p->available == ACP_AVAILABLE_YES) {
 			if (best == ACP_INVALID_INDEX || p->priority > profiles[best]->priority)
@@ -1579,11 +1577,9 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 		struct acp_port *p = ports[i];
 
 		if (name) {
-			if (strcmp(name, p->name))
+			if (strcmp(name, p->name) == 0)
 				best = i;
-			continue;
-		}
-		if (p->available == ACP_AVAILABLE_YES) {
+		} else if (p->available == ACP_AVAILABLE_YES) {
 			if (best == ACP_INVALID_INDEX || p->priority > ports[best]->priority)
 				best = i;
 		} else if (p->available != ACP_AVAILABLE_NO) {

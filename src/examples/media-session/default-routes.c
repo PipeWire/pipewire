@@ -320,10 +320,10 @@ static int handle_route(struct device *dev, struct sm_param *p)
 	if (dev->active_route[direction] != index) {
 		const char *val = pw_properties_get(impl->to_restore, key);
 		dev->active_route[direction] = index;
-		if (val) {
-			pw_log_info("device %d: restore route '%s' to %s", dev->id, key, val);
-			restore_route(dev, val, index, device_id);
-		}
+		if (val == NULL)
+			val = "{ \"volumes\": [ 0.4 ], \"mute\": false }";
+		pw_log_info("device %d: restore route '%s' to %s", dev->id, key, val);
+		restore_route(dev, val, index, device_id);
 	} else if (props) {
 		char *val = serialize_props(dev, props);
 		pw_log_info("device %d: current route %s %s", dev->id, key, val);

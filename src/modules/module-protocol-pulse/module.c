@@ -202,6 +202,8 @@ static int load_module(struct client *client, const char *name, const char *argu
 		if ((str = pw_properties_get(props, "device.description")) != NULL) {
 			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
 			pw_properties_set(props, "device.description", NULL);
+		} else {
+			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, "null sink");
 		}
 		pw_properties_set(props, PW_KEY_FACTORY_NAME, "support.null-audio-sink");
 

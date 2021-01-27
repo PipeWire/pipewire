@@ -226,7 +226,7 @@ static void object_update(void *data)
 	    strcmp(str, "bluetooth") == 0)
 		return;
 
-	if (dev->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS) {
+	if (dev->obj->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS) {
 		struct sm_param *p;
 		spa_list_for_each(p, &dev->obj->param_list, link) {
 			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))

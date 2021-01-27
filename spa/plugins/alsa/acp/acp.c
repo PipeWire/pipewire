@@ -1344,6 +1344,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	card->active_profile_index = ACP_INVALID_INDEX;
 
 	impl->use_ucm = true;
+	impl->auto_profile = true;
+	impl->auto_port = true;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
@@ -1356,6 +1358,10 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			profile_set = s;
 		if ((s = acp_dict_lookup(props, "device.profile")) != NULL)
 			profile = s;
+		if ((s = acp_dict_lookup(props, "api.acp.auto-profile")) != NULL)
+			impl->auto_profile = (strcmp(s, "true") == 0 || atoi(s) == 1);
+		if ((s = acp_dict_lookup(props, "api.acp.auto-port")) != NULL)
+			impl->auto_port = (strcmp(s, "true") == 0 || atoi(s) == 1);
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;
@@ -1422,6 +1428,9 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	pa_proplist_as_dict(impl->proplist, &card->props);
 
 	init_jacks(impl);
+
+	if (!impl->auto_profile && profile == NULL)
+		profile = "off";
 
 	profile_index = acp_card_find_best_profile_index(&impl->card, profile);
 	acp_card_set_profile(&impl->card, profile_index);

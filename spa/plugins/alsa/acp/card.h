@@ -44,6 +44,8 @@ struct pa_card {
 
 	bool use_ucm;
 	bool soft_mixer;
+	bool auto_profile;
+	bool auto_port;
 
 	pa_alsa_ucm_config ucm;
 	pa_alsa_profile_set *profile_set;

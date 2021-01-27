@@ -219,20 +219,16 @@ static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
         return "a2dp-sink";
       case SPA_BT_PROFILE_A2DP_DUPLEX:
         return "a2dp-duplex";
+      case SPA_BT_PROFILE_HSP_HS:
+      case SPA_BT_PROFILE_HFP_HF:
       case SPA_BT_PROFILE_HEADSET_HEAD_UNIT:
 	return "headset-head-unit";
+      case SPA_BT_PROFILE_HSP_AG:
+      case SPA_BT_PROFILE_HFP_AG:
       case SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY:
 	return "headset-audio-gateway";
       case SPA_BT_PROFILE_HEADSET_AUDIO:
 	return "headset-audio";
-      case SPA_BT_PROFILE_HSP_HS:
-        return "hsp-hs";
-      case SPA_BT_PROFILE_HSP_AG:
-        return "hsp-ag";
-      case SPA_BT_PROFILE_HFP_HF:
-        return "hfp-hf";
-      case SPA_BT_PROFILE_HFP_AG:
-        return "hfp-ag";
       default:
         break;
       }

@@ -203,7 +203,14 @@ static int load_module(struct client *client, const char *name, const char *argu
 			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
 			pw_properties_set(props, "device.description", NULL);
 		} else {
-			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, "null sink");
+			const char *name, *class;
+
+			name = pw_properties_get(props, PW_KEY_NODE_NAME);
+			class = pw_properties_get(props, PW_KEY_MEDIA_CLASS);
+			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+							"%s%s%s%ssink",
+							name, (name[0] == '\0') ? "" : " ",
+							class ? class : "", (class && class[0] != '\0') ? " " : "");
 		}
 		pw_properties_set(props, PW_KEY_FACTORY_NAME, "support.null-audio-sink");
 

@@ -2834,8 +2834,8 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: [%s] DO_STREAM_VOLUME tag:%u index:%u", impl,
-			client->name, tag, id);
+	pw_log_info(NAME" %p: [%s] %s tag:%u index:%u", impl,
+			client->name, commands[command].name, tag, id);
 
 	stream = find_stream(client, id);
 	if (stream != NULL) {

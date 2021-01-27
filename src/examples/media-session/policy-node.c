@@ -290,10 +290,10 @@ handle_node(struct impl *impl, struct sm_object *object)
 			return 0;
 
 		if (strcmp(media_class, "Sink") == 0 ||
-		    strcmp(media_class, "Duplex") == 0 ||
-		    strcmp(media_class, "Source/Virtual") == 0)
+		    strcmp(media_class, "Duplex") == 0)
 			direction = PW_DIRECTION_INPUT;
-		else if (strcmp(media_class, "Source") == 0)
+		else if (strcmp(media_class, "Source") == 0 ||
+		    strcmp(media_class, "Source/Virtual") == 0)
 			direction = PW_DIRECTION_OUTPUT;
 		else
 			return 0;

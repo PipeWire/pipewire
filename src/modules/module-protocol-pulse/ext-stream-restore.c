@@ -122,13 +122,12 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 	spa_dict_for_each(item, &client->routes->dict) {
 		struct spa_json it[3];
 		const char *value;
-		char name[1024];
+		char name[1024], key[128];
 		char device_name[1024] = "\0";
 		bool mute = false;
 		struct volume vol = VOLUME_INIT;
 		struct channel_map map = CHANNEL_MAP_INIT;
 		float volume = 0.0f;
-		int len;
 
 		if (key_to_name(item->key, name, sizeof(name)) < 0)
 			continue;
@@ -139,16 +138,16 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 		if (spa_json_enter_object(&it[0], &it[1]) <= 0)
 			continue;
 
-		while ((len = spa_json_next(&it[1], &value)) > 0) {
-			if (strncmp(value, "\"volume\"", len) == 0) {
+		while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
+			if (strcmp(key, "volume") == 0) {
 				if (spa_json_get_float(&it[1], &volume) <= 0)
 					continue;
 			}
-			else if (strncmp(value, "\"mute\"", len) == 0) {
+			else if (strcmp(key, "mute") == 0) {
 				if (spa_json_get_bool(&it[1], &mute) <= 0)
 					continue;
 			}
-			else if (strncmp(value, "\"volumes\"", len) == 0) {
+			else if (strcmp(key, "volumes") == 0) {
 				vol = VOLUME_INIT;
 				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 					continue;
@@ -158,7 +157,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 						break;
 				}
 			}
-			else if (strncmp(value, "\"channels\"", len) == 0) {
+			else if (strcmp(key, "channels") == 0) {
 				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 					continue;
 
@@ -169,7 +168,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 					map.map[map.channels] = channel_name2id(chname);
 				}
 			}
-			else if (strncmp(value, "\"target-node\"", len) == 0) {
+			else if (strcmp(key, "target-node") == 0) {
 				if (spa_json_get_string(&it[1], device_name, sizeof(device_name)) <= 0)
 					continue;
 			}

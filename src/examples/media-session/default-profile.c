@@ -208,8 +208,7 @@ static int find_saved_profile(struct device *dev, struct profile *pr)
 	struct spa_json it[2];
 	struct impl *impl = dev->impl;
 	const char *json, *value;
-	int len;
-	char name[1024] = "\0";
+	char name[1024] = "\0", key[128];
 	struct sm_param *p;
 
 	json = pw_properties_get(impl->properties, dev->key);
@@ -220,8 +219,8 @@ static int find_saved_profile(struct device *dev, struct profile *pr)
 	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
                 return -EINVAL;
 
-	while ((len = spa_json_next(&it[1], &value)) > 0) {
-		if (strncmp(value, "\"name\"", len) == 0) {
+	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
+		if (strcmp(key, "name") == 0) {
 			if (spa_json_get_string(&it[1], name, sizeof(name)) <= 0)
                                 continue;
 		} else {

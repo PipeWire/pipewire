@@ -194,28 +194,27 @@ static const struct pw_metadata_events metadata_events = {
 static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
-	const struct spa_dict_item *it;
+	const struct spa_dict_item *item;
 
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0)
 		return;
 
-	spa_dict_for_each(it, &impl->properties->dict) {
-		struct spa_json json[2];
-		int len;
+	spa_dict_for_each(item, &impl->properties->dict) {
+		struct spa_json it[2];
 		const char *value;
-		char name [1024] = "\0";
+		char name [1024] = "\0", key[128];
 		struct find_data d;
 
-		spa_json_init(&json[0], it->value, strlen(it->value));
-		if (spa_json_enter_object(&json[0], &json[1]) <= 0)
+		spa_json_init(&it[0], item->value, strlen(item->value));
+		if (spa_json_enter_object(&it[0], &it[1]) <= 0)
 			continue;
 
-		while ((len = spa_json_next(&json[1], &value)) > 0) {
-			if (strncmp(value, "\"name\"", len) == 0) {
-				if (spa_json_get_string(&json[1], name, sizeof(name)) <= 0)
+		while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
+			if (strcmp(key, "name") == 0) {
+				if (spa_json_get_string(&it[1], name, sizeof(name)) <= 0)
 					continue;
 			} else {
-				if (spa_json_next(&json[1], &value) <= 0)
+				if (spa_json_next(&it[1], &value) <= 0)
 					break;
 			}
 		}
@@ -224,9 +223,9 @@ static void session_create(void *data, struct sm_object *object)
 			char val[16];
 			snprintf(val, sizeof(val)-1, "%u", d.id);
 			pw_log_info("found %s with id:%s restore as %s",
-					name, val, it->key);
+					name, val, item->key);
 			pw_metadata_set_property(impl->session->metadata,
-				PW_ID_CORE, it->key, SPA_TYPE_INFO_BASE"Id", val);
+				PW_ID_CORE, item->key, SPA_TYPE_INFO_BASE"Id", val);
 		}
 	}
 }

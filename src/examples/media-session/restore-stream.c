@@ -276,8 +276,7 @@ static int restore_stream(struct stream *str, const char *val)
 {
 	struct spa_json it[3];
 	const char *value;
-	int len;
-	char buf[1024];
+	char buf[1024], key[128];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
@@ -290,22 +289,22 @@ static int restore_stream(struct stream *str, const char *val)
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 
-	while ((len = spa_json_next(&it[1], &value)) > 0) {
-		if (strncmp(value, "\"volume\"", len) == 0) {
+	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
+		if (strcmp(key, "volume") == 0) {
 			float vol;
 			if (spa_json_get_float(&it[1], &vol) <= 0)
                                 continue;
 			spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 			spa_pod_builder_float(&b, vol);
 		}
-		else if (strncmp(value, "\"mute\"", len) == 0) {
+		else if (strcmp(key, "mute") == 0) {
 			bool mute;
 			if (spa_json_get_bool(&it[1], &mute) <= 0)
                                 continue;
 			spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
 			spa_pod_builder_bool(&b, mute);
 		}
-		else if (strncmp(value, "\"volumes\"", len) == 0) {
+		else if (strcmp(key, "volumes") == 0) {
 			uint32_t n_vols;
 			float vols[SPA_AUDIO_MAX_CHANNELS];
 
@@ -323,7 +322,7 @@ static int restore_stream(struct stream *str, const char *val)
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);
 		}
-		else if (strncmp(value, "\"channels\"", len) == 0) {
+		else if (strcmp(key, "channels") == 0) {
 			uint32_t n_ch;
 			uint32_t map[SPA_AUDIO_MAX_CHANNELS];
 
@@ -343,7 +342,7 @@ static int restore_stream(struct stream *str, const char *val)
 			spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
 					n_ch, map);
 		}
-		else if (strncmp(value, "\"target-node\"", len) == 0) {
+		else if (strcmp(key, "target-node") == 0) {
 			char name[1024];
 
 			if (spa_json_get_string(&it[1], name, sizeof(name)) <= 0)

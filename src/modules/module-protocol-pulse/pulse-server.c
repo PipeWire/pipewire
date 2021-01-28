@@ -455,15 +455,15 @@ static int reply_error(struct client *client, uint32_t command, uint32_t tag, in
 
 #include "extension.c"
 
-static int send_underflow(struct stream *stream, int64_t offset)
+static int send_underflow(struct stream *stream, int64_t offset, uint32_t underrun_for)
 {
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 	struct message *reply;
 
 	if (ratelimit_test(&impl->rate_limit, stream->timestamp)) {
-		pw_log_warn(NAME" %p: [%s] UNDERFLOW channel:%u offset:%"PRIi64,
-				client, client->name, stream->channel, offset);
+		pw_log_warn(NAME" %p: [%s] UNDERFLOW channel:%u offset:%"PRIi64" underrun:%u",
+				client, client->name, stream->channel, offset, underrun_for);
 	}
 
 	reply = message_alloc(impl, -1, 0);
@@ -1458,7 +1458,7 @@ do_process_done(struct spa_loop *loop,
 			stream->underrun_for = 0;
 			stream->playing_for = 0;
 			if (pd->underrun)
-				send_underflow(stream, pd->read_index);
+				send_underflow(stream, pd->read_index, pd->underrun_for);
 			else
 				send_stream_started(stream);
 		}

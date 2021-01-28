@@ -1550,10 +1550,6 @@ static void stream_process(void *data)
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
 			memset(p, 0, size);
 
-			/* skip the remainder, avail can be negative and thus
-			 * we can skip a lot here. */
-			size = (int32_t)minreq - avail;
-
 			if (stream->draining) {
 				stream->draining = false;
 				pw_stream_flush(stream->stream, true);

@@ -1423,6 +1423,7 @@ struct process_data {
 	uint32_t write_index;
 	uint32_t underrun_for;
 	uint32_t playing_for;
+	uint32_t missing;
 	unsigned int underrun:1;
 };
 
@@ -1460,7 +1461,7 @@ do_process_done(struct spa_loop *loop,
 			else
 				send_stream_started(stream);
 		}
-		stream->missing += pd->playing_for;
+		stream->missing += pd->missing;
 		stream->missing = SPA_MIN(stream->missing, stream->attr.tlength);
 		stream->playing_for += pd->playing_for;
 		if (stream->underrun_for != (uint64_t)-1)
@@ -1580,6 +1581,7 @@ static void stream_process(void *data)
 			spa_ringbuffer_read_update(&stream->ring, pd.read_index);
 
 			pd.playing_for = size;
+			pd.missing = size;
 			pd.underrun = false;
 		}
 	        buf->datas[0].chunk->offset = 0;

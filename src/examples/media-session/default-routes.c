@@ -73,13 +73,10 @@ struct device {
 
 	struct spa_hook listener;
 
-	uint32_t active_route[2];
-};
+	uint32_t active_profile;
 
-struct find_data {
-	struct impl *impl;
-	const char *name;
-	uint32_t id;
+	uint32_t generation;
+	struct pw_array route_info;
 };
 
 static void remove_idle_timeout(struct impl *impl)
@@ -134,6 +131,35 @@ static const char *channel_to_name(uint32_t channel)
 			return spa_debug_type_short_name(spa_type_audio_channel[i].name);
 	}
 	return "UNK";
+}
+
+struct route_info {
+	uint32_t index;
+	uint32_t generation;
+};
+
+struct route {
+	struct sm_param *p;
+	uint32_t index;
+	uint32_t device_id;
+	enum spa_direction direction;
+	const char *name;
+	uint32_t prio;
+	uint32_t available;
+	struct spa_pod *props;
+};
+
+static int parse_route(struct sm_param *p, struct route *r)
+{
+	spa_zero(*r);
+	r->p = p;
+	return spa_pod_parse_object(p->param,
+			SPA_TYPE_OBJECT_ParamRoute, NULL,
+			SPA_PARAM_ROUTE_index, SPA_POD_Int(&r->index),
+			SPA_PARAM_ROUTE_device, SPA_POD_Int(&r->device_id),
+			SPA_PARAM_ROUTE_direction, SPA_POD_Id(&r->direction),
+			SPA_PARAM_ROUTE_name, SPA_POD_String(&r->name),
+			SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&r->props));
 }
 
 static char *serialize_props(struct device *dev, const struct spa_pod *param)
@@ -293,44 +319,132 @@ static int restore_route(struct device *dev, const char *val, uint32_t index, ui
 	return 0;
 }
 
-static int handle_route(struct device *dev, struct sm_param *p)
+struct profile {
+	uint32_t index;
+	const char *name;
+};
+static int parse_profile(struct sm_param *p, struct profile *pr)
+{
+	return spa_pod_parse_object(p->param,
+			SPA_TYPE_OBJECT_ParamProfile, NULL,
+			SPA_PARAM_PROFILE_index, SPA_POD_Int(&pr->index),
+			SPA_PARAM_PROFILE_name,  SPA_POD_String(&pr->name));
+}
+
+static int find_current_profile(struct device *dev, struct profile *pr)
+{
+	struct sm_param *p;
+	spa_list_for_each(p, &dev->obj->param_list, link) {
+		if (p->id == SPA_PARAM_Profile &&
+		    parse_profile(p, pr) >= 0)
+			return 0;
+	}
+	return -ENOENT;
+}
+
+static int handle_profile(struct device *dev)
+{
+	struct profile pr;
+	int res;
+
+	if ((res = find_current_profile(dev, &pr)) < 0)
+		return res;
+	if (dev->active_profile == pr.index)
+		return 0;
+
+	pw_log_info("device %s: restore routes for profile '%s'",
+			dev->name, pr.name);
+
+	dev->active_profile = pr.index;
+
+	return 0;
+}
+
+static struct route_info *find_route_info(struct device *dev, struct route *r)
+{
+	struct route_info *i;
+
+	pw_array_for_each(i, &dev->route_info) {
+		if (i->index == r->index)
+			return i;
+	}
+	i = pw_array_add(&dev->route_info, sizeof(*i));
+	if (i == NULL)
+		return NULL;
+
+	i->index = r->index;
+	i->generation = dev->generation;
+
+	return i;
+}
+
+static void prune_route_info(struct device *dev)
+{
+	struct route_info *i;
+
+	for (i = pw_array_first(&dev->route_info);
+	     pw_array_check(&dev->route_info, i);) {
+		if (i->generation != dev->generation) {
+			pw_log_info("device %d: route %d unused", dev->id, i->index);
+			pw_array_remove(&dev->route_info, i);
+		} else
+			i++;
+	}
+}
+
+static int handle_route(struct device *dev, struct route *r)
 {
 	struct impl *impl = dev->impl;
-	int res;
-	const char *name;
-	uint32_t index, device_id;
-	enum spa_direction direction;
-	struct spa_pod *props = NULL;
+	struct route_info *i;
 	char key[1024];
 
-	if ((res = spa_pod_parse_object(p->param,
-			SPA_TYPE_OBJECT_ParamRoute, NULL,
-			SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
-			SPA_PARAM_ROUTE_device, SPA_POD_Int(&device_id),
-			SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
-			SPA_PARAM_ROUTE_name, SPA_POD_String(&name),
-			SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props))) < 0) {
-		pw_log_warn("device %d: can't parse route: %s", dev->id, spa_strerror(res));
-		return res;
-	}
+	if ((i = find_route_info(dev, r)) == NULL)
+		return -errno;
 
 	snprintf(key, sizeof(key)-1, PREFIX"%s:%s:%s", dev->name,
-			direction == SPA_DIRECTION_INPUT ? "input" : "output", name);
+			r->direction == SPA_DIRECTION_INPUT ? "input" : "output", r->name);
 
-	if (dev->active_route[direction] != index) {
+	if (i->generation == dev->generation) {
 		const char *val = pw_properties_get(impl->to_restore, key);
-		dev->active_route[direction] = index;
 		if (val == NULL)
 			val = "{ \"volumes\": [ 0.4 ], \"mute\": false }";
 		pw_log_info("device %d: restore route '%s' to %s", dev->id, key, val);
-		restore_route(dev, val, index, device_id);
-	} else if (props) {
-		char *val = serialize_props(dev, props);
-		pw_log_info("device %d: current route %s %s", dev->id, key, val);
+		restore_route(dev, val, r->index, r->device_id);
+	} else if (r->props) {
+		char *val = serialize_props(dev, r->props);
+		pw_log_info("device %d: route properties changed %s %s", dev->id, key, val);
 		pw_properties_set(impl->to_restore, key, val);
 		free(val);
 		add_idle_timeout(impl);
+		i->generation = dev->generation;
 	}
+	return 0;
+}
+
+static int handle_routes(struct device *dev)
+{
+	struct sm_param *p;
+
+	dev->generation++;
+
+	spa_list_for_each(p, &dev->obj->param_list, link) {
+		struct route r;
+		if (p->id != SPA_PARAM_Route ||
+		    parse_route(p, &r) < 0)
+			continue;
+		handle_route(dev, &r);
+	}
+	prune_route_info(dev);
+	return 0;
+}
+
+static int handle_device(struct device *dev)
+{
+	int res;
+	if ((res = handle_profile(dev)) < 0)
+		return res;
+	if ((res = handle_routes(dev)) < 0)
+		return res;
 	return 0;
 }
 
@@ -342,23 +456,8 @@ static void object_update(void *data)
 	pw_log_debug(NAME" %p: device %p %08x/%08x", impl, dev,
 			dev->obj->obj.changed, dev->obj->obj.avail);
 
-	if (dev->obj->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS) {
-		struct sm_param *p;
-		spa_list_for_each(p, &dev->obj->param_list, link) {
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, NULL, p->param);
-
-			switch (p->id) {
-			case SPA_PARAM_EnumRoute:
-				break;
-			case SPA_PARAM_Route:
-				handle_route(dev, p);
-				break;
-			default:
-				break;
-			}
-		}
-	}
+	if (dev->obj->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS)
+		handle_device(dev);
 }
 
 static const struct sm_object_events object_events = {
@@ -384,8 +483,9 @@ static void session_create(void *data, struct sm_object *object)
 	dev->id = object->id;
 	dev->impl = impl;
 	dev->name = strdup(name);
-	dev->active_route[SPA_DIRECTION_INPUT] = SPA_ID_INVALID;
-	dev->active_route[SPA_DIRECTION_OUTPUT] = SPA_ID_INVALID;
+	dev->active_profile = SPA_ID_INVALID;
+	dev->generation = 0;
+	pw_array_init(&dev->route_info, sizeof(struct route_info) * 16);
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&dev->obj->obj, &dev->listener, &object_events, dev);
@@ -394,6 +494,7 @@ static void session_create(void *data, struct sm_object *object)
 static void destroy_device(struct impl *impl, struct device *dev)
 {
 	spa_hook_remove(&dev->listener);
+	pw_array_clear(&dev->route_info);
 	free(dev->name);
 	sm_object_remove_data((struct sm_object*)dev->obj, SESSION_KEY);
 }

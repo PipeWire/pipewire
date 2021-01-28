@@ -79,12 +79,6 @@ struct device {
 	uint32_t active_profile;
 };
 
-struct find_data {
-	struct impl *impl;
-	const char *name;
-	uint32_t id;
-};
-
 static void remove_idle_timeout(struct impl *impl)
 {
 	struct pw_loop *main_loop = pw_context_get_main_loop(impl->context);

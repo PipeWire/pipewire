@@ -271,6 +271,11 @@ static int handle_profile(struct device *dev)
 				pw_log_info("device '%s': active profile '%s' unavailable",
 					dev->name, pr.name);
 
+			/* ignore hdmi profile removal of unavailable, this can happen
+			 * when the screen is put to sleep */
+			if (strstr(pr.name, "hdmi") != NULL)
+				return 0;
+
 			dev->restored = false;
 		}
 	}

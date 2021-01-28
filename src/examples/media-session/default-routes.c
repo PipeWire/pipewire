@@ -372,6 +372,7 @@ static struct route_info *find_route_info(struct device *dev, struct route *r)
 	if (i == NULL)
 		return NULL;
 
+	pw_log_info("device %d: new route %d '%s' found", dev->id, r->index, r->name);
 	i->index = r->index;
 	i->generation = dev->generation;
 
@@ -417,8 +418,8 @@ static int handle_route(struct device *dev, struct route *r)
 			add_idle_timeout(impl);
 		}
 		free(val);
-		i->generation = dev->generation;
 	}
+	i->generation = dev->generation;
 	return 0;
 }
 

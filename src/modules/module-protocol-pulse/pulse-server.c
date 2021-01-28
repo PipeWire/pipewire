@@ -302,22 +302,20 @@ static void message_free(struct impl *impl, struct message *msg, bool dequeue, b
 
 static struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size)
 {
-	struct message *msg = NULL;
+	struct message *msg;
 
 	if (!spa_list_is_empty(&impl->free_messages)) {
 		msg = spa_list_first(&impl->free_messages, struct message, link);
 		spa_list_remove(&msg->link);
 		pw_log_trace("using recycled message %p", msg);
-	}
-	if (msg == NULL) {
-		msg = calloc(1, sizeof(struct message));
+	} else {
+		if ((msg = calloc(1, sizeof(struct message))) == NULL)
+			return NULL;
 		pw_log_trace("new message %p", msg);
 		msg->stat = &impl->stat;
 		msg->stat->n_allocated++;
 		msg->stat->n_accumulated++;
 	}
-	if (msg == NULL)
-		return NULL;
 	ensure_size(msg, size);
 	spa_zero(msg->extra);
 	msg->channel = channel;

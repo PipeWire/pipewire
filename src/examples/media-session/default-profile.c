@@ -69,6 +69,7 @@ struct device {
 
 	uint32_t id;
 	struct impl *impl;
+	char *name;
 	char *key;
 
 	struct spa_hook listener;
@@ -213,7 +214,7 @@ static int find_saved_profile(struct device *dev, struct profile *pr)
 
 	json = pw_properties_get(impl->properties, dev->key);
 	if (json == NULL)
-		return -ENOENT;
+		return -ENODEV;
 
 	spa_json_init(&it[0], json, strlen(json));
 	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
@@ -228,7 +229,7 @@ static int find_saved_profile(struct device *dev, struct profile *pr)
                                 break;
 		}
 	}
-	pw_log_debug("device %d: find profile '%s'", dev->id, name);
+	pw_log_debug("device '%s': find profile '%s'", dev->name, name);
 
 	spa_list_for_each(p, &dev->obj->param_list, link) {
 		if (p->id != SPA_PARAM_EnumProfile ||
@@ -245,9 +246,6 @@ static int set_profile(struct device *dev, struct profile *pr)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	pw_log_info("device %d: restore profile '%s' index %d",
-			dev->id, pr->name, pr->index);
 
 	pw_device_set_param((struct pw_device*)dev->obj->obj.proxy,
 			SPA_PARAM_Profile, 0,
@@ -267,22 +265,52 @@ static int handle_profile(struct device *dev)
 	int res;
 
 	if (dev->active_profile != SPA_ID_INVALID) {
-		/* we had a profile but it is now gone or not available,
-		 * try to restore a new profile */
+		/* we have a profile, find it */
 		res = find_profile(dev, dev->active_profile, &pr);
-		if (res < 0 || pr.available == SPA_PARAM_AVAILABILITY_no)
+		if (res < 0 || pr.available == SPA_PARAM_AVAILABILITY_no) {
+			/* we had a profile but it is now gone or not available,
+			 * try to restore a new profile */
+			if (res < 0)
+				pw_log_info("device '%s': active profile index %d removed",
+					dev->name, dev->active_profile);
+			else
+				pw_log_info("device '%s': active profile '%s' unavailable",
+					dev->name, pr.name);
+
 			dev->restored = false;
+		}
 	}
 	if (!dev->restored) {
 		/* first try to restore our saved profile */
 		res = find_saved_profile(dev, &pr);
-		if (res < 0 || pr.available == SPA_PARAM_AVAILABILITY_no)
-			/* it's not found or not available, try to find
-			 * the next best profile */
+		if (res < 0 || pr.available == SPA_PARAM_AVAILABILITY_no) {
+			/* no saved profile found or it is not available */
+			if (res < 0)
+				pw_log_info("device '%s': no saved profile: %s",
+					dev->name, spa_strerror(res));
+			else
+				pw_log_info("device '%s': saved profile '%s' unavailable",
+					dev->name, pr.name);
+
+			/* try to find the next best profile */
 			res = find_best_profile(dev, &pr);
+			if (res < 0)
+				pw_log_info("device '%s': can't find best profile: %s",
+						dev->name, spa_strerror(res));
+			else
+				pw_log_info("device '%s': found best profile '%s'",
+						dev->name, pr.name);
+		} else {
+			pw_log_info("device '%s': found saved profile '%s'",
+						dev->name, pr.name);
+		}
 		if (res >= 0) {
+			pw_log_info("device '%s': restore profile '%s' index %d",
+					dev->name, pr.name, pr.index);
 			if (set_profile(dev, &pr) >= 0)
 				dev->restored = true;
+		} else {
+			pw_log_warn("device '%s': can't restore profile", dev->name);
 		}
 	} else {
 		if ((res = find_current_profile(dev, &pr)) < 0)
@@ -292,7 +320,7 @@ static int handle_profile(struct device *dev)
 			return 0;
 
 		dev->active_profile = pr.index;
-		pw_log_info("device %d: current profile %d %s", dev->id, pr.index, pr.name);
+		pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);
 		pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name);
 		add_idle_timeout(impl);
 	}
@@ -339,6 +367,7 @@ static void session_create(void *data, struct sm_object *object)
 	dev->obj = (struct sm_device*)object;
 	dev->id = object->id;
 	dev->impl = impl;
+	dev->name = strdup(name);
 	dev->key = spa_aprintf(PREFIX"%s", name);
 	dev->active_profile = SPA_ID_INVALID;
 
@@ -349,6 +378,7 @@ static void session_create(void *data, struct sm_object *object)
 static void destroy_device(struct impl *impl, struct device *dev)
 {
 	spa_hook_remove(&dev->listener);
+	free(dev->name);
 	free(dev->key);
 	sm_object_remove_data((struct sm_object*)dev->obj, SESSION_KEY);
 }

@@ -76,6 +76,7 @@ struct device {
 
 	unsigned int restored:1;
 
+	uint32_t saved_profile;
 	uint32_t active_profile;
 };
 
@@ -241,6 +242,9 @@ static int set_profile(struct device *dev, struct profile *pr)
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
+	if (dev->active_profile == pr->index)
+		return 0;
+
 	pw_device_set_param((struct pw_device*)dev->obj->obj.proxy,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
@@ -271,12 +275,18 @@ static int handle_profile(struct device *dev)
 				pw_log_info("device '%s': active profile '%s' unavailable",
 					dev->name, pr.name);
 
-			/* ignore hdmi profile removal of unavailable, this can happen
-			 * when the screen is put to sleep */
-			if (strstr(pr.name, "hdmi") != NULL)
-				return 0;
-
 			dev->restored = false;
+		} else if (dev->saved_profile && pr.index != dev->saved_profile) {
+			struct profile saved;
+			/* we had a saved profile but we're on some other profile,
+			 * see if the saved profile is available now and switch to it */
+			res = find_saved_profile(dev, &saved);
+			if (res >= 0 && saved.available != SPA_PARAM_AVAILABILITY_no) {
+				pw_log_info("device '%s': restore saved profile '%s' index %d",
+						dev->name, saved.name, saved.index);
+				if (set_profile(dev, &saved) >= 0)
+					dev->restored = true;
+			}
 		}
 	}
 	if (!dev->restored) {
@@ -302,6 +312,7 @@ static int handle_profile(struct device *dev)
 		} else {
 			pw_log_info("device '%s': found saved profile '%s'",
 						dev->name, pr.name);
+			dev->saved_profile = pr.index;
 		}
 		if (res >= 0) {
 			pw_log_info("device '%s': restore profile '%s' index %d",
@@ -319,6 +330,7 @@ static int handle_profile(struct device *dev)
 			return 0;
 
 		dev->active_profile = pr.index;
+		dev->saved_profile = pr.index;
 		if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {
 			pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);
 			add_idle_timeout(impl);
@@ -370,6 +382,7 @@ static void session_create(void *data, struct sm_object *object)
 	dev->name = strdup(name);
 	dev->key = spa_aprintf(PREFIX"%s", name);
 	dev->active_profile = SPA_ID_INVALID;
+	dev->saved_profile = SPA_ID_INVALID;
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&dev->obj->obj, &dev->listener, &object_events, dev);

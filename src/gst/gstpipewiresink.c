@@ -580,6 +580,23 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   if (!pwsink->negotiated)
     goto not_negotiated;
 
+  if (buffer->pool != GST_BUFFER_POOL_CAST (pwsink->pool) &&
+      !gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->pool))) {
+    GstStructure *config;
+    GstCaps *caps;
+    guint size, min_buffers, max_buffers;
+
+    config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pwsink->pool));
+    gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
+
+    size = (size == 0) ? gst_buffer_get_size (buffer) : size;
+
+    gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
+    gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pwsink->pool), config);
+
+    gst_buffer_pool_set_active (GST_BUFFER_POOL_CAST (pwsink->pool), TRUE);
+  }
+
   pw_thread_loop_lock (pwsink->core->loop);
   if (pw_stream_get_state (pwsink->stream, &error) != PW_STREAM_STATE_STREAMING)
     goto done_unlock;
@@ -590,9 +607,6 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     GstBufferPoolAcquireParams params = { 0, };
 
     pw_thread_loop_unlock (pwsink->core->loop);
-
-    if (!gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->pool)))
-      gst_buffer_pool_set_active (GST_BUFFER_POOL_CAST (pwsink->pool), TRUE);
 
     if ((res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->pool), &b, &params)) != GST_FLOW_OK)
       goto done;

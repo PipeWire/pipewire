@@ -1462,7 +1462,7 @@ do_process_done(struct spa_loop *loop,
 			else
 				send_stream_started(stream);
 		}
-		stream->missing += pd->playing_for + pd->underrun_for;
+		stream->missing += pd->playing_for;
 		stream->missing = SPA_MIN(stream->missing, stream->attr.tlength);
 		stream->playing_for += pd->playing_for;
 		if (stream->underrun_for != (uint64_t)-1)
@@ -1559,6 +1559,7 @@ static void stream_process(void *data)
 				pw_stream_flush(stream->stream, true);
 			} else {
 				pd.underrun_for = size;
+				pd.playing_for = size;
 				pd.underrun = true;
 			}
 			pd.read_index += size;

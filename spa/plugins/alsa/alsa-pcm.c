@@ -802,7 +802,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	}
 
 
-	*target = state->last_threshold + state->headroom;
+	*target = state->threshold + state->headroom;
 
 #define MARGIN 48
 	if (state->resample && state->rate_match) {

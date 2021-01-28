@@ -314,9 +314,10 @@ static int handle_profile(struct device *dev)
 			return 0;
 
 		dev->active_profile = pr.index;
-		pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);
-		pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name);
-		add_idle_timeout(impl);
+		if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {
+			pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);
+			add_idle_timeout(impl);
+		}
 	}
 	return 0;
 }

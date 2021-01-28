@@ -412,10 +412,11 @@ static int handle_route(struct device *dev, struct route *r)
 		restore_route(dev, val, r->index, r->device_id);
 	} else if (r->props) {
 		char *val = serialize_props(dev, r->props);
-		pw_log_info("device %d: route properties changed %s %s", dev->id, key, val);
-		pw_properties_set(impl->to_restore, key, val);
+		if (pw_properties_set(impl->to_restore, key, val)) {
+			pw_log_info("device %d: route properties changed %s %s", dev->id, key, val);
+			add_idle_timeout(impl);
+		}
 		free(val);
-		add_idle_timeout(impl);
 		i->generation = dev->generation;
 	}
 	return 0;

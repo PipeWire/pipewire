@@ -66,6 +66,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 	int utf8_remain = 0;
 	enum { __NONE, __STRUCT, __BARE, __STRING, __UTF8, __ESC, __COMMENT };
 
+	*value = NULL;
 	for (; iter->cur < iter->end; iter->cur++) {
 		unsigned char cur = (unsigned char)*iter->cur;
  again:

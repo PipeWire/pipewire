@@ -264,7 +264,6 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 
 			SPA_POD_STRUCT_FOREACH(classes, iter) {
 				struct spa_pod_parser prs;
-				struct spa_pod_frame f[1];
 				char *class;
 				uint32_t count;
 
@@ -278,8 +277,6 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 					pi->n_sinks += count;
 				else if (strcmp(class, "Audio/Source") == 0)
 					pi->n_sources += count;
-
-				spa_pod_parser_pop(&prs, &f[0]);
 			}
 		}
 		n++;

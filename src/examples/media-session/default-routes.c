@@ -598,7 +598,7 @@ static int handle_route(struct device *dev, struct route *r)
 		i->restore = false;
 		restore = true;
 	} else {
-		if (r->available == SPA_PARAM_AVAILABILITY_no && i->available != r->available) {
+		if (r->available != SPA_PARAM_AVAILABILITY_yes && i->available != r->available) {
 			/* an existing port has changed to unavailable */
 			pw_log_info("device %d: route '%s' not available", dev->id, r->name);
 
@@ -615,6 +615,7 @@ static int handle_route(struct device *dev, struct route *r)
 				restore = true;
 			}
 		}
+		i->available = r->available;
 	}
 	i->generation = dev->generation;
 

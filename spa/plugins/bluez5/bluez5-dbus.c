@@ -593,7 +593,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 	spa_log_debug(monitor->log, "device %p: profiles %08x %08x %d",
 			device, device->profiles, connected_profiles, device->added);
 
-	if (connected_profiles == 0) {
+	if (connected_profiles == 0 && device->active_codec_switch == NULL) {
 		if (device->added) {
 			device_stop_timer(device);
 			device_remove(monitor, device);
@@ -1617,6 +1617,7 @@ static void a2dp_codec_switch_process(struct spa_bt_a2dp_codec_switch *sw)
 	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: failed to get an endpoint", sw);
 	sw->device->active_codec_switch = NULL;
 	spa_bt_device_emit_codec_switched(sw->device, -ENODEV);
+	spa_bt_device_check_profiles(sw->device, false);
 	a2dp_codec_switch_free(sw);
 }
 
@@ -1647,11 +1648,9 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 
 	if (r == NULL) {
 		spa_log_error(sw->device->monitor->log,
-		              NAME": a2dp codec switch %p: empty reply from dbus, stopping",
+		              NAME": a2dp codec switch %p: empty reply from dbus, trying next",
 		              sw);
-		a2dp_codec_switch_free(sw);
-		device->active_codec_switch = NULL;
-		return;
+		goto next;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
@@ -1668,6 +1667,7 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: success", sw);
 	device->active_codec_switch = NULL;
 	spa_bt_device_emit_codec_switched(sw->device, 0);
+	spa_bt_device_check_profiles(sw->device, false);
 	a2dp_codec_switch_free(sw);
 	return;
 

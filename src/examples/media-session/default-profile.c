@@ -329,6 +329,8 @@ static int handle_profile(struct device *dev)
 		if (dev->active_profile == pr.index)
 			return 0;
 
+		/* we get here when had configured a profile but something
+		 * else changed it, in that case, save it. */
 		dev->active_profile = pr.index;
 		dev->saved_profile = pr.index;
 		if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {

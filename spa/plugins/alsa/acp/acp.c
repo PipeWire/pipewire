@@ -1177,11 +1177,16 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 		p->port.priority = p->priority;
 	}
 
-	port_index = acp_device_find_best_port_index(&dev->device, NULL);
+	if (impl->auto_port)
+		port_index = acp_device_find_best_port_index(&dev->device, NULL);
+	else
+		port_index = ACP_INVALID_INDEX;
+
 	if (port_index == ACP_INVALID_INDEX)
 		dev->active_port = NULL;
 	else
 		dev->active_port = (pa_device_port*)impl->card.ports[port_index];
+
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 

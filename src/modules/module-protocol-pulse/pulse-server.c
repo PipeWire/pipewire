@@ -1557,8 +1557,6 @@ static void stream_process(void *data)
 				pd.playing_for = size;
 				pd.underrun = true;
 			}
-			pd.read_index += size;
-			spa_ringbuffer_read_update(&stream->ring, pd.read_index);
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {
 				/* overrun, reported by other side, here we skip

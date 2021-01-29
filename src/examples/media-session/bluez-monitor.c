@@ -132,6 +132,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	struct pw_impl_factory *factory;
 	int res;
 	const char *prefix, *str, *profile, *rules;
+	int priority;
 
 	pw_log_debug("new node %u", id);
 
@@ -176,6 +177,16 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 
 	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s.%s", prefix, str, profile);
 	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
+
+	if (pw_properties_get(node->props, PW_KEY_PRIORITY_DRIVER) == NULL) {
+		priority = device->priority + 10;
+
+		if (strcmp(prefix, "bluez_output") == 0)
+			priority += 1000;
+
+		pw_properties_setf(node->props, PW_KEY_PRIORITY_DRIVER, "%d", priority);
+		pw_properties_setf(node->props, PW_KEY_PRIORITY_SESSION, "%d", priority);
+	}
 
 	node->impl = impl;
 	node->device = device;
@@ -408,6 +419,7 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 
 	device->impl = impl;
 	device->id = id;
+	device->priority = 1000;
 	device->handle = handle;
 	device->device = iface;
 	device->props = pw_properties_new_dict(info->props);

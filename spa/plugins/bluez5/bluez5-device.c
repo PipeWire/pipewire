@@ -96,6 +96,8 @@ struct impl {
 
 	uint32_t profile;
 	const struct a2dp_codec *selected_a2dp_codec;  /**< Codec wanted. NULL means any. */
+	unsigned int switching_codec:1;
+	uint32_t prev_bt_connected_profiles;
 
 	const struct a2dp_codec **supported_codecs;
 	size_t supported_codec_count;
@@ -269,6 +271,9 @@ static int set_profile(struct impl *this, uint32_t profile, const struct a2dp_co
 			codecs = codec_list;
 		}
 
+		this->switching_codec = true;
+		this->prev_bt_connected_profiles = this->bt_dev->connected_profiles;
+
 		ret = spa_bt_device_ensure_a2dp_codec(this->bt_dev, codecs);
 		if (ret < 0)
 			spa_log_error(this->log, NAME": failed to switch codec (%d), setting basic profile", ret);
@@ -295,6 +300,8 @@ static void codec_switched(void *userdata, int status)
 
 	spa_log_debug(this->log, NAME": codec switched (status %d)", status);
 
+	this->switching_codec = false;
+
 	if (status < 0) {
 		/* Failed to switch: return to a fallback profile */
 		spa_log_error(this->log, NAME": failed to switch codec (%d), setting fallback profile", status);
@@ -309,15 +316,66 @@ static void codec_switched(void *userdata, int status)
 	emit_nodes(this);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	if (this->prev_bt_connected_profiles != this->bt_dev->connected_profiles)
+		this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
+static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t prev_connected_profiles)
+{
+	struct impl *this = userdata;
+	uint32_t connected_change;
+	bool nodes_changed = false;
+
+	connected_change = (this->bt_dev->connected_profiles ^ prev_connected_profiles);
+
+	/* Profiles changed. We have to re-emit device information. */
+	spa_log_info(this->log, NAME": profiles changed to  %08x %08x (prev %08x %08x, change %08x)"
+		     " switching_codec:%d",
+		     this->bt_dev->profiles, this->bt_dev->connected_profiles,
+		     prev_profiles, prev_connected_profiles, connected_change,
+		     this->switching_codec);
+
+	if (this->switching_codec)
+		return;
+
+	if (this->profile == 0) {
+		/* Noop */
+		nodes_changed = false;
+	} else if (this->profile == 2) {
+		/* HFP/HSP */
+		nodes_changed = (connected_change & (SPA_BT_PROFILE_HEADSET_HEAD_UNIT |
+						     SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY));
+		spa_log_debug(this->log, NAME": profiles changed: HSP/HFP nodes changed: %d",
+			      nodes_changed);
+	} else {
+		nodes_changed = (connected_change & (SPA_BT_PROFILE_A2DP_SINK |
+						     SPA_BT_PROFILE_A2DP_SOURCE));
+		spa_log_debug(this->log, NAME": profiles changed: A2DP nodes changed: %d",
+			      nodes_changed);
+	}
+
+	if (nodes_changed) {
+		emit_remove_nodes(this);
+		emit_nodes(this);
+
+		this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+		this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
+	}
+
+	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_info(this, false);
+}
+
 static const struct spa_bt_device_events bt_dev_events = {
 	SPA_VERSION_BT_DEVICE_EVENTS,
 	.codec_switched = codec_switched,
+	.profiles_changed = profiles_changed,
 };
 
 static int impl_add_listener(void *object,

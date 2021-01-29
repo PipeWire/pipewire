@@ -335,6 +335,9 @@ struct spa_bt_device_events {
 
 	/** Codec switching completed */
 	void (*codec_switched) (void *data, int status);
+
+	/** Profile configuration changed */
+	void (*profiles_changed) (void *data, uint32_t prev_profiles, uint32_t prev_connected);
 };
 
 struct spa_bt_device {
@@ -381,6 +384,7 @@ const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_
 								struct spa_bt_device_events,	\
 								m, v, ##__VA_ARGS__)
 #define spa_bt_device_emit_codec_switched(d,...)	spa_bt_device_emit(d, codec_switched, 0, __VA_ARGS__)
+#define spa_bt_device_emit_profiles_changed(d,...)	spa_bt_device_emit(d, profiles_changed, 0, __VA_ARGS__)
 #define spa_bt_device_add_listener(d,listener,events,data)           \
 	spa_hook_list_append(&(d)->listener_list, listener, events, data)
 

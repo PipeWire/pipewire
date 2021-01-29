@@ -623,8 +623,11 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile)
 {
+	uint32_t prev_connected = device->connected_profiles;
 	device->connected_profiles |= profile;
 	spa_bt_device_check_profiles(device, false);
+	if (device->connected_profiles != prev_connected)
+		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
 	return 0;
 }
 
@@ -736,6 +739,7 @@ static int device_update_props(struct spa_bt_device *device,
 		}
 		else if (strcmp(key, "UUIDs") == 0) {
 			DBusMessageIter iter;
+			uint32_t prev_profiles = device->profiles;
 
 			if (!check_iter_signature(&it[1], "as"))
 				goto next;
@@ -755,6 +759,10 @@ static int device_update_props(struct spa_bt_device *device,
 				}
 				dbus_message_iter_next(&iter);
 			}
+
+			if (device->profiles != prev_profiles)
+				spa_bt_device_emit_profiles_changed(
+					device, prev_profiles, device->connected_profiles);
 		}
 		else
 			spa_log_debug(monitor->log, "device %p: unhandled key %s type %d", device, key, type);
@@ -1092,6 +1100,8 @@ static void transport_set_state(struct spa_bt_transport *transport, enum spa_bt_
 void spa_bt_transport_free(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
+	struct spa_bt_device *device = transport->device;
+	uint32_t prev_connected = 0;
 
 	spa_log_debug(monitor->log, "transport %p: free %s", transport, transport->path);
 
@@ -1116,11 +1126,15 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_list_remove(&transport->link);
 	if (transport->device) {
+		prev_connected = transport->device->connected_profiles;
 		transport->device->connected_profiles &= ~transport->profile;
 		spa_list_remove(&transport->device_link);
 	}
 	free(transport->path);
 	free(transport);
+
+	if (device && device->connected_profiles != prev_connected)
+		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
 }
 
 int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)

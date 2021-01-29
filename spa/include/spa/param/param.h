@@ -115,7 +115,10 @@ enum spa_param_profile {
 					  *	   Int : number of items following
 					  *        Struct(
 					  *           String : class name (eg. "Audio/Source"),
-					  *           Int : number of nodes)*)) */
+					  *           Int : number of nodes
+					  *           String : property (eg. "card.profile.devices"),
+					  *           Array of Int: device indexes
+					  *         )*)) */
 };
 
 enum spa_param_port_config_mode {

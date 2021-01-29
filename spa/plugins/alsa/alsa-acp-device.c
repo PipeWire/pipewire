@@ -298,21 +298,25 @@ static struct spa_pod *build_profile(struct spa_pod_builder *b, uint32_t id,
 {
 	struct spa_pod_frame f[2];
 	uint32_t i, n_classes, n_capture = 0, n_playback = 0;
+	uint32_t *capture, *playback;
+
+	capture = alloca(sizeof(uint32_t) * pr->n_devices);
+	playback = alloca(sizeof(uint32_t) * pr->n_devices);
 
 	for (i = 0; i < pr->n_devices; i++) {
-		switch (pr->devices[i]->direction) {
+		struct acp_device *dev = pr->devices[i];
+		switch (dev->direction) {
 		case ACP_DIRECTION_PLAYBACK:
-			n_playback++;
+			playback[n_playback++] = dev->index;
 			break;
 		case ACP_DIRECTION_CAPTURE:
-			n_capture++;
+			capture[n_capture++] = dev->index;
 			break;
 		}
 	}
 	n_classes = n_capture > 0 ? 1 : 0;
 	n_classes += n_playback > 0 ? 1 : 0;
 
-	spa_pod_builder_int(b, n_classes);
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamProfile, id);
 	spa_pod_builder_add(b,
 		SPA_PARAM_PROFILE_index, SPA_POD_Int(pr->index),
@@ -327,12 +331,18 @@ static struct spa_pod *build_profile(struct spa_pod_builder *b, uint32_t id,
 	if (n_capture > 0) {
 		spa_pod_builder_add_struct(b,
 			SPA_POD_String("Audio/Source"),
-			SPA_POD_Int(n_capture));
+			SPA_POD_Int(n_capture),
+			SPA_POD_String("card.profile.devices"),
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Int,
+				n_capture, capture));
 	}
 	if (n_playback > 0) {
 		spa_pod_builder_add_struct(b,
 			SPA_POD_String("Audio/Sink"),
-			SPA_POD_Int(n_playback));
+			SPA_POD_Int(n_playback),
+			SPA_POD_String("card.profile.devices"),
+			SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Int,
+				n_playback, playback));
 	}
 	spa_pod_builder_pop(b, &f[1]);
 	return spa_pod_builder_pop(b, &f[0]);

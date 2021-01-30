@@ -2169,7 +2169,7 @@ static int impl_clear(struct spa_handle *handle)
 		monitor->backend_hsphfpd = NULL;
 	}
 
-	free(monitor->enabled_codecs.items);
+	free((void*)monitor->enabled_codecs.items);
 	spa_zero(monitor->enabled_codecs);
 
 	return 0;

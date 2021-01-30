@@ -46,6 +46,7 @@
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 
 #include "a2dp-codecs.h"
 #include "defs.h"
@@ -78,6 +79,8 @@ struct spa_bt_monitor {
 	struct spa_bt_backend *backend_native;
 	struct spa_bt_backend *backend_ofono;
 	struct spa_bt_backend *backend_hsphfpd;
+
+	struct spa_dict enabled_codecs;
 
 	unsigned int enable_sbc_xq:1;
 };
@@ -130,6 +133,11 @@ static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
 			return codec;
 	}
 	return NULL;
+}
+
+static bool is_a2dp_codec_enabled(struct spa_bt_monitor *monitor, const struct a2dp_codec *codec)
+{
+	return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
 }
 
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -1475,6 +1483,9 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	for (i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
 
+		if (!is_a2dp_codec_enabled(monitor, codec))
+			continue;
+
 		if (codec->codec_id != A2DP_CODEC_SBC)
 			continue;
 
@@ -1579,6 +1590,9 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			int caps_size, ret;
 			uint16_t codec_id = codec->codec_id;
 
+			if (!is_a2dp_codec_enabled(monitor, codec))
+				continue;
+
 			caps_size = codec->fill_caps(codec, 0, caps);
 			if (caps_size < 0)
 				continue;
@@ -1666,6 +1680,10 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 
 	for (int i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
+
+		if (!is_a2dp_codec_enabled(monitor, codec))
+			continue;
+
 		register_a2dp_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT);
 		register_a2dp_endpoint(monitor, codec, A2DP_SINK_ENDPOINT);
 	}
@@ -1681,6 +1699,9 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 
 	for (int i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
+
+		if (!is_a2dp_codec_enabled(monitor, codec))
+			continue;
 
 		ret = a2dp_codec_to_endpoint(codec, A2DP_SOURCE_ENDPOINT, &object_path);
 		if (ret == 0) {
@@ -2148,6 +2169,9 @@ static int impl_clear(struct spa_handle *handle)
 		monitor->backend_hsphfpd = NULL;
 	}
 
+	free(monitor->enabled_codecs.items);
+	spa_zero(monitor->enabled_codecs);
+
 	return 0;
 }
 
@@ -2158,6 +2182,82 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct spa_bt_monitor);
 }
 
+static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict *info)
+{
+	const char *str;
+	struct spa_dict_item *codecs;
+	struct spa_json it, it_array;
+	char codec_name[256];
+	size_t num_codecs;
+	int i;
+
+	/* Parse bluez5.codecs property to a dict of enabled codecs */
+
+	num_codecs = 0;
+	while (a2dp_codecs[num_codecs])
+		++num_codecs;
+
+	codecs = calloc(num_codecs, sizeof(struct spa_dict_item));
+	if (codecs == NULL)
+		return -ENOMEM;
+
+	if ((str = spa_dict_lookup(info, "bluez5.codecs")) == NULL)
+		goto fallback;
+
+	spa_json_init(&it, str, strlen(str));
+
+	if (spa_json_enter_array(&it, &it_array) <= 0) {
+		spa_log_error(this->log, NAME": property bluez5.codecs '%s' is not an array", str);
+		goto fallback;
+	}
+
+	this->enabled_codecs = SPA_DICT_INIT(codecs, 0);
+
+	while (spa_json_get_string(&it_array, codec_name, sizeof(codec_name)) > 0) {
+		int i;
+
+		for (i = 0; a2dp_codecs[i]; ++i) {
+			const struct a2dp_codec *codec = a2dp_codecs[i];
+
+			if (strcmp(codec->name, codec_name) != 0)
+				continue;
+
+			if (spa_dict_lookup_item(&this->enabled_codecs, codec->name) != NULL)
+				continue;
+
+			spa_log_debug(this->log, NAME": enabling codec %s", codec->name);
+
+			spa_assert(this->enabled_codecs.n_items < num_codecs);
+
+			codecs[this->enabled_codecs.n_items].key = codec->name;
+			codecs[this->enabled_codecs.n_items].value = "true";
+			++this->enabled_codecs.n_items;
+
+			break;
+		}
+	}
+
+	spa_dict_qsort(&this->enabled_codecs);
+
+	for (i = 0; a2dp_codecs[i]; ++i) {
+		const struct a2dp_codec *codec = a2dp_codecs[i];
+		if (!is_a2dp_codec_enabled(this, codec))
+			spa_log_debug(this->log, NAME": disabling codec %s", codec->name);
+	}
+	return 0;
+
+fallback:
+	for (i = 0; a2dp_codecs[i]; ++i) {
+		const struct a2dp_codec *codec = a2dp_codecs[i];
+		spa_log_debug(this->log, NAME": enabling codec %s", codec->name);
+		codecs[i].key = codec->name;
+		codecs[i].value = "true";
+	}
+	this->enabled_codecs = SPA_DICT_INIT(codecs, i);
+	spa_dict_qsort(&this->enabled_codecs);
+	return 0;
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -2166,6 +2266,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct spa_bt_monitor *this;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -2202,6 +2303,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->adapter_list);
 	spa_list_init(&this->device_list);
 	spa_list_init(&this->transport_list);
+
+	if ((res = parse_codec_array(this, info)) < 0)
+		return res;
 
 	register_media_application(this);
 

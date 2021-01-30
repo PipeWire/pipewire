@@ -1570,6 +1570,8 @@ static void stream_process(void *data)
 			} else {
 				pd.underrun_for = size;
 				pd.underrun = true;
+				if (stream->attr.prebuf == 0)
+					pd.missing = size;
 			}
 			if (stream->attr.prebuf == 0) {
 				pd.read_index += size;

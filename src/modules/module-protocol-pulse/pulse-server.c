@@ -1073,8 +1073,12 @@ static int reply_create_playback_stream(struct stream *stream)
 	struct pw_manager *manager = client->manager;
 	struct message *reply;
 	uint32_t missing, peer_id;
-	struct spa_dict_item items[1];
+	struct spa_dict_item items[5];
 	char latency[32];
+	char attr_maxlength[32];
+	char attr_tlength[32];
+	char attr_prebuf[32];
+	char attr_minreq[32];
 	struct pw_manager_object *peer;
 	const char *peer_name;
 	struct spa_fraction lat;
@@ -1106,10 +1110,17 @@ static int reply_create_playback_stream(struct stream *stream)
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency)-1, "%u/%u", lat.num, lat.denom);
+	snprintf(attr_maxlength, sizeof(attr_maxlength)-1, "%u", stream->attr.maxlength);
+	snprintf(attr_tlength, sizeof(attr_tlength)-1, "%u", stream->attr.tlength);
+	snprintf(attr_prebuf, sizeof(attr_prebuf)-1, "%u", stream->attr.prebuf);
+	snprintf(attr_minreq, sizeof(attr_minreq)-1, "%u", stream->attr.minreq);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
-	pw_stream_update_properties(stream->stream,
-			&SPA_DICT_INIT(items, 1));
+	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
+	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.tlength", attr_tlength);
+	items[3] = SPA_DICT_ITEM_INIT("pulse.attr.prebuf", attr_prebuf);
+	items[4] = SPA_DICT_ITEM_INIT("pulse.attr.minreq", attr_minreq);
+	pw_stream_update_properties(stream->stream, &SPA_DICT_INIT(items, 5));
 
 	missing = stream_pop_missing(stream);
 
@@ -1201,8 +1212,10 @@ static int reply_create_record_stream(struct stream *stream)
 	struct client *client = stream->client;
 	struct pw_manager *manager = client->manager;
 	struct message *reply;
-	struct spa_dict_item items[1];
+	struct spa_dict_item items[3];
 	char latency[32], *tmp;
+	char attr_maxlength[32];
+	char attr_fragsize[32];
 	struct pw_manager_object *peer;
 	const char *peer_name, *name;
 	uint32_t peer_id;
@@ -1231,8 +1244,10 @@ static int reply_create_record_stream(struct stream *stream)
 	snprintf(latency, sizeof(latency)-1, "%u/%u", lat.num, lat.denom);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
+	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.fragsize", attr_fragsize);
 	pw_stream_update_properties(stream->stream,
-			&SPA_DICT_INIT(items, 1));
+			&SPA_DICT_INIT(items, 3));
 
 	pw_log_info(NAME" %p: [%s] reply CREATE_RECORD_STREAM tag:%u latency:%s",
 			stream, client->name, stream->create_tag, latency);

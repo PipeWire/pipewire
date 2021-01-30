@@ -1570,10 +1570,10 @@ static void stream_process(void *data)
 			} else {
 				pd.underrun_for = size;
 				pd.underrun = true;
-				if (stream->attr.prebuf == 0)
-					pd.missing = size;
 			}
 			if (stream->attr.prebuf == 0) {
+				pd.missing = size;
+				pd.playing_for = size;
 				pd.read_index += size;
 				spa_ringbuffer_read_update(&stream->ring, pd.read_index);
 			}
@@ -2172,9 +2172,11 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	if (stream == NULL || stream->type != STREAM_TYPE_PLAYBACK)
 		return -ENOENT;
 
-	pw_log_debug("read:%"PRIi64" write:%"PRIi64" queued:%"PRIi64" delay:%"PRIi64,
+	pw_log_debug("read:%"PRIi64" write:%"PRIi64" queued:%"PRIi64" delay:%"PRIi64
+			" playing:%"PRIu64,
 			stream->read_index, stream->write_index,
-			stream->write_index - stream->read_index, stream->delay);
+			stream->write_index - stream->read_index, stream->delay,
+			stream->playing_for);
 
 	gettimeofday(&now, NULL);
 

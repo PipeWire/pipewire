@@ -1569,8 +1569,11 @@ static void stream_process(void *data)
 				pw_stream_flush(stream->stream, true);
 			} else {
 				pd.underrun_for = size;
-				pd.playing_for = size;
 				pd.underrun = true;
+			}
+			if (stream->attr.prebuf == 0) {
+				pd.read_index += size;
+				spa_ringbuffer_read_update(&stream->ring, pd.read_index);
 			}
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {

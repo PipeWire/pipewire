@@ -427,6 +427,8 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 
 static int device_stop_timer(struct spa_bt_device *device);
 
+static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *device);
+
 static void a2dp_codec_switch_free(struct spa_bt_a2dp_codec_switch *sw);
 
 static void device_free(struct spa_bt_device *device)
@@ -438,6 +440,7 @@ static void device_free(struct spa_bt_device *device)
 
 	spa_log_debug(monitor->log, "%p", device);
 	device_stop_timer(device);
+	device_remove(monitor, device);
 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
 		if (ep->device == device) {

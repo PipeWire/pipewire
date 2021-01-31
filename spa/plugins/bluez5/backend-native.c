@@ -38,10 +38,13 @@
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
+#include <spa/utils/json.h>
 
 #include "defs.h"
 
 #define NAME "native"
+
+#define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 
 struct spa_bt_backend {
 	struct spa_bt_monitor *monitor;
@@ -50,6 +53,8 @@ struct spa_bt_backend {
 	struct spa_loop *main_loop;
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
+
+	enum spa_bt_profile enabled_profiles;
 
 	struct spa_list rfcomm_list;
 	unsigned int msbc_support_enabled_in_config:1;
@@ -921,6 +926,9 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	char *str;
 	DBusPendingCall *call;
 
+	if (!(backend->enabled_profiles & spa_bt_profile_from_uuid(uuid)))
+		return -ECANCELED;
+
 	spa_log_debug(backend->log, NAME": Registering Profile %s %s", profile, uuid);
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE, "/org/bluez",
@@ -1014,6 +1022,46 @@ void backend_native_free(struct spa_bt_backend *backend)
 	free(backend);
 }
 
+static int parse_headset_roles(struct spa_bt_backend *backend, const struct spa_dict *info)
+{
+	const char *str;
+	struct spa_json it, it_array;
+	char role_name[256];
+	enum spa_bt_profile profiles = SPA_BT_PROFILE_NULL;
+
+	if ((str = spa_dict_lookup(info, PROP_KEY_HEADSET_ROLES)) == NULL)
+		goto fallback;
+
+	spa_json_init(&it, str, strlen(str));
+
+	if (spa_json_enter_array(&it, &it_array) <= 0) {
+		spa_log_error(backend->log, 
+					  NAME": property "PROP_KEY_HEADSET_ROLES" '%s' is not an array", str);
+		goto fallback;
+	}
+
+	while (spa_json_get_string(&it_array, role_name, sizeof(role_name)) > 0) {
+		if (strcmp(role_name, "hsp_hs") == 0) {
+			profiles |= SPA_BT_PROFILE_HSP_HS;
+		} else if (strcmp(role_name, "hsp_ag") == 0) {
+			profiles |= SPA_BT_PROFILE_HSP_AG;
+		} else if (strcmp(role_name, "hfp_hf") == 0) {
+			profiles |= SPA_BT_PROFILE_HFP_HF;
+		} else if (strcmp(role_name, "hfp_ag") == 0) {
+			profiles |= SPA_BT_PROFILE_HFP_AG;
+		} else {
+			spa_log_warn(backend->log,
+				         NAME": unknown role name '%s' in "PROP_KEY_HEADSET_ROLES, role_name);
+		}
+	}
+
+	backend->enabled_profiles = profiles;
+	return 0;
+fallback:
+	backend->enabled_profiles = SPA_BT_PROFILE_HEADSET_AUDIO;
+	return 0;
+}
+
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
@@ -1043,6 +1091,9 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		backend->msbc_support_enabled_in_config = strcmp(str, "true") == 0 || atoi(str) == 1;
 	else
 		backend->msbc_support_enabled_in_config = false;
+
+	if (parse_headset_roles(backend, info) < 0)
+		goto fail;
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (!dbus_connection_register_object_path(backend->conn,

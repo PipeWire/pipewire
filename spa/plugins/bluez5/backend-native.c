@@ -54,6 +54,7 @@ struct spa_bt_backend {
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
 
+#define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HFP_AG)
 	enum spa_bt_profile enabled_profiles;
 
 	struct spa_list rfcomm_list;
@@ -1058,7 +1059,7 @@ static int parse_headset_roles(struct spa_bt_backend *backend, const struct spa_
 	backend->enabled_profiles = profiles;
 	return 0;
 fallback:
-	backend->enabled_profiles = SPA_BT_PROFILE_HEADSET_AUDIO;
+	backend->enabled_profiles = DEFAULT_ENABLED_PROFILES;
 	return 0;
 }
 

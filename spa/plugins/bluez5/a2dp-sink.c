@@ -686,7 +686,10 @@ static int do_start(struct impl *this)
         spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
 			this->block_size, this->num_blocks);
 
-	val = SPA_MAX(this->codec->send_fill_frames, FILL_FRAMES) * this->transport->write_mtu;
+	val = this->codec->send_buf_size > 0 
+			/* The kernel doubles the SO_SNDBUF option value set by setsockopt(). */
+			? this->codec->send_buf_size / 2 + this->codec->send_buf_size % 2
+			: FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, NAME " %p: SO_SNDBUF %m", this);
 
@@ -699,7 +702,7 @@ static int do_start(struct impl *this)
 	}
 	this->fd_buffer_size = val;
 
-	val = SPA_MAX(this->codec->recv_fill_frames, FILL_FRAMES) * this->transport->read_mtu;
+	val = FILL_FRAMES * this->transport->read_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, NAME " %p: SO_RCVBUF %m", this);
 

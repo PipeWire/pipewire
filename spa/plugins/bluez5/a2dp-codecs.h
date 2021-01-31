@@ -332,8 +332,7 @@ struct a2dp_codec {
 	const char *description;
 	const struct spa_dict *info;
 
-	const int send_fill_frames;
-	const int recv_fill_frames;
+	const size_t send_buf_size;
 
 	int (*fill_caps) (const struct a2dp_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);

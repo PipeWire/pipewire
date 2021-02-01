@@ -31,12 +31,6 @@ struct volume {
 				.channels = 0,		\
 			}
 
-#define VOLUME_DEFAULT	(struct volume) {		\
-				.channels = 2,		\
-				.values[0] = 1.0f,	\
-				.values[1] = 1.0f,	\
-			}
-
 static inline bool volume_valid(const struct volume *vol)
 {
 	if (vol->channels == 0 || vol->channels > CHANNELS_MAX)

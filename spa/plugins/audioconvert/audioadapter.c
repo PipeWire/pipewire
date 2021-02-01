@@ -458,15 +458,11 @@ static int negotiate_format(struct impl *this)
 
 	spa_log_debug(this->log, NAME " %p: negiotiate", this);
 
-	state = 0;
-	format = NULL;
-
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
 
-	if (this->have_format)
-		format = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &this->follower_current_format.info.raw);
-
+	state = 0;
+	format = NULL;
 	if ((res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
 				SPA_PARAM_EnumFormat, &state,

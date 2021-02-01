@@ -232,6 +232,9 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 
 	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
+	if (!device->use_acp && pw_properties_get(node->props, PW_KEY_AUDIO_CHANNELS) == NULL)
+		pw_properties_setf(node->props, PW_KEY_AUDIO_CHANNELS, "%d", SPA_AUDIO_MAX_CHANNELS);
+
 	if ((dev = pw_properties_get(node->props, SPA_KEY_API_ALSA_PCM_DEVICE)) == NULL)
 		if ((dev = pw_properties_get(node->props, "alsa.device")) == NULL)
 			dev = "0";

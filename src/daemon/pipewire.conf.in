@@ -69,6 +69,10 @@ modules = {
                     access.allowed = [
 		          @media_session_path@
 	            ]
+		    # an array of rejected paths
+		    access.rejected = [ ]
+		    # an array of paths with restricted access
+		    access.restricted = [ ]
 		    # anything not in the above lists gets assigned the
 		    # access.force permission.
                     access.force = flatpak

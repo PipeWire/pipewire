@@ -184,7 +184,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card_id);
 	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM,     stream);
 
-	snprintf(channels, sizeof(channels)-1, "%d", dev->format.channels);
+	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
 	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);
 
 	p = positions;
@@ -928,7 +928,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)) != NULL)
-			snprintf(this->props.device, sizeof(this->props.device)-1, "%s", str);
+			snprintf(this->props.device, sizeof(this->props.device), "%s", str);
 		if ((str = spa_dict_lookup(info, "api.acp.auto-port")) != NULL)
 			this->props.auto_port = strcmp(str, "true") == 0 || atoi(str) != 0;
 		if ((str = spa_dict_lookup(info, "api.acp.auto-profile")) != NULL)

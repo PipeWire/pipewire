@@ -540,7 +540,7 @@ const char *pw_get_prgname(void)
 			return prgname;
 	}
 #endif
-	snprintf(prgname, sizeof(prgname)-1, "pid-%d", getpid());
+	snprintf(prgname, sizeof(prgname), "pid-%d", getpid());
 	return prgname;
 }
 

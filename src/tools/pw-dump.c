@@ -306,7 +306,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		uint32_t id = *(uint32_t*)body;
 		str = spa_debug_type_find_short_name(info, *(uint32_t*)body);
 		if (str == NULL) {
-			snprintf(fallback, sizeof(fallback)-1, "id-%08x", id);
+			snprintf(fallback, sizeof(fallback), "id-%08x", id);
 			str = fallback;
 		}
 		put_value(d, NULL, str);

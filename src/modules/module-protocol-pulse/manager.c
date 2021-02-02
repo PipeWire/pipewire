@@ -691,7 +691,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 
 	if (type != NULL) {
 		va_start(args, format);
-		vsnprintf(buf, sizeof(buf)-1, format, args);
+		vsnprintf(buf, sizeof(buf), format, args);
 		va_end(args);
 		value = buf;
 	} else {

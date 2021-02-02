@@ -376,7 +376,7 @@ static bool check_access(struct impl *this, struct device *device)
 {
 	char path[128];
 
-	snprintf(path, sizeof(path)-1, "/dev/snd/controlC%u", device->id);
+	snprintf(path, sizeof(path), "/dev/snd/controlC%u", device->id);
 	device->accessible = access(path, R_OK|W_OK) >= 0;
 	spa_log_debug(this->log, "%s accessible:%u", path, device->accessible);
 

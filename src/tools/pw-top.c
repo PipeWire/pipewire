@@ -139,7 +139,7 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 	if (name)
 		strncpy(n->name, name, MAX_NAME-1);
 	else
-		snprintf(n->name, sizeof(n->name)-1, "%u", id);
+		snprintf(n->name, sizeof(n->name), "%u", id);
 	n->id = id;
 	n->driver = n;
 	spa_list_append(&d->node_list, &n->link);

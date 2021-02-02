@@ -1109,11 +1109,11 @@ static int reply_create_playback_stream(struct stream *stream)
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
-	snprintf(latency, sizeof(latency)-1, "%u/%u", lat.num, lat.denom);
-	snprintf(attr_maxlength, sizeof(attr_maxlength)-1, "%u", stream->attr.maxlength);
-	snprintf(attr_tlength, sizeof(attr_tlength)-1, "%u", stream->attr.tlength);
-	snprintf(attr_prebuf, sizeof(attr_prebuf)-1, "%u", stream->attr.prebuf);
-	snprintf(attr_minreq, sizeof(attr_minreq)-1, "%u", stream->attr.minreq);
+	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
+	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", stream->attr.maxlength);
+	snprintf(attr_tlength, sizeof(attr_tlength), "%u", stream->attr.tlength);
+	snprintf(attr_prebuf, sizeof(attr_prebuf), "%u", stream->attr.prebuf);
+	snprintf(attr_minreq, sizeof(attr_minreq), "%u", stream->attr.minreq);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
@@ -1241,7 +1241,7 @@ static int reply_create_record_stream(struct stream *stream)
 	lat.denom = stream->ss.rate;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
-	snprintf(latency, sizeof(latency)-1, "%u/%u", lat.num, lat.denom);
+	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
@@ -3293,7 +3293,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		cookie = 0;
 	}
 
-	snprintf(name, sizeof(name)-1, "PulseAudio (on PipeWire %s)", pw_get_library_version());
+	snprintf(name, sizeof(name), "PulseAudio (on PipeWire %s)", pw_get_library_version());
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -5302,7 +5302,7 @@ get_runtime_dir(char *buf, size_t buflen, const char *dir)
 		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
 			runtime_dir = result ? result->pw_dir : NULL;
 	}
-	size = snprintf(buf, buflen-1, "%s/%s", runtime_dir, dir) + 1;
+	size = snprintf(buf, buflen, "%s/%s", runtime_dir, dir) + 1;
 	if (size > (int) buflen) {
 		pw_log_error(NAME": path %s/%s too long", runtime_dir, dir);
 		return -ENAMETOOLONG;

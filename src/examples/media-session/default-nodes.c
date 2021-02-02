@@ -221,7 +221,7 @@ static void session_create(void *data, struct sm_object *object)
 		d = (struct find_data){ impl, name, SPA_ID_INVALID };
 		if (find_name(&d, object)) {
 			char val[16];
-			snprintf(val, sizeof(val)-1, "%u", d.id);
+			snprintf(val, sizeof(val), "%u", d.id);
 			pw_log_info("found %s with id:%s restore as %s",
 					name, val, item->key);
 			pw_metadata_set_property(impl->session->metadata,

@@ -433,7 +433,7 @@ static int restore_route(struct device *dev, struct route *r, bool save)
 	if ((ri = find_route_info(dev, r)) == NULL)
 		return -errno;
 
-	snprintf(key, sizeof(key)-1, PREFIX"%s:%s:%s", dev->name,
+	snprintf(key, sizeof(key), PREFIX"%s:%s:%s", dev->name,
 		r->direction == SPA_DIRECTION_INPUT ? "input" : "output", r->name);
 
 	val = pw_properties_get(impl->to_restore, key);
@@ -458,7 +458,7 @@ static int save_route(struct device *dev, struct route *r)
 	if (r->props == NULL)
 		return -EINVAL;
 
-	snprintf(key, sizeof(key)-1, PREFIX"%s:%s:%s", dev->name,
+	snprintf(key, sizeof(key), PREFIX"%s:%s:%s", dev->name,
 		r->direction == SPA_DIRECTION_INPUT ? "input" : "output", r->name);
 
 	val = serialize_props(dev, r->props);
@@ -499,7 +499,7 @@ static int save_profile(struct device *dev)
 	if (pw_array_get_len(&dev->route_info, struct route_info) == 0)
 		return 0;
 
-	snprintf(key, sizeof(key)-1, PREFIX"%s:profile:%s", dev->name, dev->profile_name);
+	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, dev->profile_name);
 
 	val = serialize_routes(dev);
 	if (pw_properties_set(impl->to_restore, key, val)) {
@@ -626,7 +626,7 @@ static int handle_profile(struct device *dev)
 	dev->active_profile = pr.index;
 	snprintf(dev->profile_name, sizeof(dev->profile_name), "%s", pr.name);
 
-	snprintf(key, sizeof(key)-1, PREFIX"%s:profile:%s", dev->name, dev->profile_name);
+	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, dev->profile_name);
 	json = pw_properties_get(impl->to_restore, key);
 
 	if (pr.classes != NULL) {
@@ -724,7 +724,7 @@ static int handle_route(struct device *dev, struct route *r)
 	if (r == NULL)
 		return -EIO;
 
-	snprintf(key, sizeof(key)-1, PREFIX"%s:%s:%s", dev->name,
+	snprintf(key, sizeof(key), PREFIX"%s:%s:%s", dev->name,
 			r->direction == SPA_DIRECTION_INPUT ? "input" : "output", r->name);
 
 	if (restore) {

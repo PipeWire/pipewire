@@ -636,7 +636,7 @@ const char *
 jack_get_version_string(void)
 {
 	static char name[1024];
-	snprintf(name, sizeof(name)-1, "3.0.0.0 (using PipeWire %s)", pw_get_library_version());
+	snprintf(name, sizeof(name), "3.0.0.0 (using PipeWire %s)", pw_get_library_version());
 	return name;
 }
 

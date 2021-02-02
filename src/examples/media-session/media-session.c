@@ -1798,7 +1798,7 @@ int sm_media_session_load_conf(struct sm_media_session *sess, const char *name,
 	if (dir == NULL)
 		return -ENOENT;
 
-	snprintf(path, sizeof(path)-1, "%s/media-session.d/%s", dir, name);
+	snprintf(path, sizeof(path), "%s/media-session.d/%s", dir, name);
 	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
 		pw_log_warn(NAME" %p: error loading config '%s': %m", sess, path);
 		return -errno;
@@ -1833,7 +1833,7 @@ static int state_dir(struct sm_media_session *sess)
 
 	home_dir = getenv("XDG_CONFIG_HOME");
 	if (home_dir != NULL)
-		snprintf(impl->state_dir, sizeof(impl->state_dir)-1,
+		snprintf(impl->state_dir, sizeof(impl->state_dir),
 				"%s/pipewire-media-session/", home_dir);
 	else {
 		home_dir = getenv("HOME");
@@ -1849,7 +1849,7 @@ static int state_dir(struct sm_media_session *sess)
 			pw_log_error("Can't determine home directory");
 			return -ENOTSUP;
 		}
-		snprintf(impl->state_dir, sizeof(impl->state_dir)-1,
+		snprintf(impl->state_dir, sizeof(impl->state_dir),
 				"%s/.config/pipewire-media-session/", home_dir);
 	}
 

@@ -74,7 +74,7 @@ static void props_reset(struct props *props)
 	props->volume = DEFAULT_VOLUME;
 	props->n_channel_volumes = 0;
 	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
-		props->channel_volumes[i] = 1.0;
+		props->channel_volumes[i] = 1.0f;
 	props->n_channels = 0;
 	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 		props->channel_map[i] = SPA_AUDIO_CHANNEL_UNKNOWN;

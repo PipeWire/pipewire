@@ -1559,7 +1559,7 @@ static void stream_process(void *data)
 		else
 			minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
 
-		if (avail < (int32_t)minreq) {
+		if (avail < (int32_t)minreq || stream->corked) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
 			memset(p, 0, size);
@@ -1571,7 +1571,7 @@ static void stream_process(void *data)
 				pd.underrun_for = size;
 				pd.underrun = true;
 			}
-			if (stream->attr.prebuf == 0) {
+			if (stream->attr.prebuf == 0 && !stream->corked) {
 				pd.missing = size;
 				pd.playing_for = size;
 				pd.read_index += size;
@@ -2685,8 +2685,8 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
 
-	pw_stream_set_active(stream->stream, !cork);
 	stream->corked = cork;
+	pw_stream_set_active(stream->stream, !cork);
 	if (cork) {
 		stream->is_underrun = true;
 	} else {

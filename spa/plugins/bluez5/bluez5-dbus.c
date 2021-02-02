@@ -969,7 +969,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			}
 		}
 		else if (type == DBUS_TYPE_BYTE) {
-			int8_t value;
+			uint8_t value;
 
 			dbus_message_iter_get_basic(&it[1], &value);
 
@@ -1304,7 +1304,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			}
 		}
 		else if (strcmp(key, "Codec") == 0) {
-			int8_t value;
+			uint8_t value;
 
 			if (type != DBUS_TYPE_BYTE)
 				goto next;

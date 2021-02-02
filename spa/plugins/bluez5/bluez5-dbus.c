@@ -433,23 +433,23 @@ static void a2dp_codec_switch_free(struct spa_bt_a2dp_codec_switch *sw);
 
 static void device_free(struct spa_bt_device *device)
 {
-	struct spa_bt_remote_endpoint *ep;
+	struct spa_bt_remote_endpoint *ep, *tep;
 	struct spa_bt_a2dp_codec_switch *sw;
-	struct spa_bt_transport *t;
+	struct spa_bt_transport *t, *tt;
 	struct spa_bt_monitor *monitor = device->monitor;
 
 	spa_log_debug(monitor->log, "%p", device);
 	device_stop_timer(device);
 	device_remove(monitor, device);
 
-	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
+	spa_list_for_each_safe(ep, tep, &device->remote_endpoint_list, device_link) {
 		if (ep->device == device) {
 			spa_list_remove(&ep->device_link);
 			ep->device = NULL;
 		}
 	}
 
-	spa_list_for_each(t, &device->transport_list, device_link) {
+	spa_list_for_each_safe(t, tt, &device->transport_list, device_link) {
 		if (t->device == device) {
 			spa_list_remove(&t->device_link);
 			t->device = NULL;

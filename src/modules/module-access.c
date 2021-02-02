@@ -34,6 +34,7 @@
 #include "config.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
@@ -62,29 +63,39 @@ struct impl {
 
 static int check_cmdline(struct pw_impl_client *client, int pid, const char *str)
 {
-	char path[2048];
+	char path[2048], key[1024];
 	ssize_t len;
-	int fd;
+	int fd, res;
+	struct spa_json it[2];
 
 	sprintf(path, "/proc/%u/cmdline", pid);
 
 	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		return -errno;
-
+	if (fd < 0) {
+		res = -errno;
+		goto exit;
+	}
 	if ((len = read(fd, path, sizeof(path)-1)) < 0) {
-		close(fd);
-		return -errno;
+		res = -errno;
+		goto exit_close;
 	}
 	path[len] = '\0';
 
-	if (strcmp(path, str) == 0) {
-		close(fd);
-		return 1;
-	}
+	spa_json_init(&it[0], str, strlen(str));
+	if ((res = spa_json_enter_array(&it[0], &it[1])) <= 0)
+		goto exit_close;
 
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if (strcmp(path, key) == 0) {
+			res = 1;
+			goto exit_close;
+		}
+	}
+	res = 0;
+exit_close:
 	close(fd);
-	return 0;
+exit:
+	return res;
 }
 
 static int check_flatpak(struct pw_impl_client *client, int pid)

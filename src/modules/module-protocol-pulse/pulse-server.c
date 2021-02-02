@@ -4985,7 +4985,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 	struct stream *stream;
 	uint32_t channel, flags, index;
 	int64_t offset;
-	int32_t filled;
+	int32_t filled, diff;
 	int res = 0;
 
 	channel = ntohl(client->desc.channel);
@@ -5005,22 +5005,28 @@ static int handle_memblock(struct client *client, struct message *msg)
 	}
 
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
-	pw_log_debug("new block %p %p/%u filled:%d index:%d flags:%02x offset:%08"PRIx64,
+	pw_log_info("new block %p %p/%u filled:%d index:%d flags:%02x offset:%"PRIu64,
 			msg, msg->data, msg->length, filled, index, flags, offset);
+
 
 	switch (flags & FLAG_SEEKMASK) {
 	case SEEK_RELATIVE:
 		index += offset;
-		filled -= offset;
+		filled += offset;
+		stream->missing -= offset;
 		break;
 	case SEEK_ABSOLUTE:
-		filled -= (int32_t)(offset - (uint64_t)index);
-		index = offset;
+		diff = (int32_t)(offset - (uint64_t)index);
+		index += diff;
+		filled += diff;
+		stream->missing -= diff;
 		break;
 	case SEEK_RELATIVE_ON_READ:
 	case SEEK_RELATIVE_END:
-		index = index - filled + offset;
-		filled = 0;
+		diff = (int32_t)(offset - (uint64_t)filled);
+		index += diff;
+		filled += diff;
+		stream->missing -= diff;
 		break;
 	}
 

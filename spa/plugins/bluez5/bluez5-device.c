@@ -53,6 +53,9 @@
 
 #define MAX_DEVICES	64
 
+#define DEVICE_ID_SOURCE	0
+#define DEVICE_ID_SINK		1
+
 static const char default_device[] = "";
 
 struct props {
@@ -187,13 +190,13 @@ static int emit_nodes(struct impl *this)
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, this->selected_a2dp_codec);
 			if (t)
-				emit_node(this, t, 0, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
+				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
 		}
 
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK, this->selected_a2dp_codec);
 			if (t)
-				emit_node(this, t, 1, SPA_NAME_API_BLUEZ5_A2DP_SINK);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_A2DP_SINK);
 		}
 		break;
 	case 2:
@@ -208,8 +211,8 @@ static int emit_nodes(struct impl *this)
 			}
 			if (t == NULL)
 				break;
-			emit_node(this, t, 0, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
-			emit_node(this, t, 1, SPA_NAME_API_BLUEZ5_SCO_SINK);
+			emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
+			emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK);
 		}
 		break;
 	default:
@@ -496,6 +499,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	char *name_and_codec = NULL;
 	char *desc_and_codec = NULL;
 	uint32_t n_source = 0, n_sink = 0;
+	uint32_t capture[1] = { DEVICE_ID_SOURCE }, playback[1] = { DEVICE_ID_SINK };
 
 	switch (profile_index) {
 	case 0:
@@ -561,18 +565,29 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		SPA_PARAM_PROFILE_description, SPA_POD_String(desc),
 		SPA_PARAM_PROFILE_available, SPA_POD_Id(SPA_PARAM_AVAILABILITY_yes),
 		0);
+	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
+	spa_pod_builder_push_array(b, &f[1]);
+	if (n_source > 0)
+		spa_pod_builder_int(b, capture[0]);
+	if (n_sink > 0)
+		spa_pod_builder_int(b, playback[0]);
+	spa_pod_builder_pop(b, &f[1]);
 	if (n_source > 0 || n_sink > 0) {
 		spa_pod_builder_prop(b, SPA_PARAM_PROFILE_classes, 0);
 		spa_pod_builder_push_struct(b, &f[1]);
 		if (n_source > 0) {
 			spa_pod_builder_add_struct(b,
 				SPA_POD_String("Audio/Source"),
-				SPA_POD_Int(n_source));
+				SPA_POD_Int(n_source),
+				SPA_POD_String("card.profile.devices"),
+				SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Int, 1, capture));
 		}
 		if (n_sink > 0) {
 			spa_pod_builder_add_struct(b,
 				SPA_POD_String("Audio/Sink"),
-				SPA_POD_Int(n_sink));
+				SPA_POD_Int(n_sink),
+				SPA_POD_String("card.profile.devices"),
+				SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Int, 1, playback));
 		}
 		spa_pod_builder_pop(b, &f[1]);
 	}

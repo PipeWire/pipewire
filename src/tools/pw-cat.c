@@ -927,7 +927,7 @@ static const struct option long_options[] = {
 	{ "verbose",		no_argument,	   NULL, 'v' },
 
 	{ "record",		no_argument,	   NULL, 'r' },
-	{ "playback",		no_argument,	   NULL, 's' },
+	{ "playback",		no_argument,	   NULL, 'p' },
 	{ "midi",		no_argument,	   NULL, 'm' },
 
 	{ "remote",		required_argument, NULL, 'R' },

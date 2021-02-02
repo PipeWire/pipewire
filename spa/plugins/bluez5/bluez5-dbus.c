@@ -1527,7 +1527,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 
 	if (ep == NULL || ep->capabilities == NULL || ep->uuid == NULL) {
 		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: endpoint %s not valid, try next",
-		              *sw->path_iter);
+		              sw, *sw->path_iter);
 		goto next;
 	}
 

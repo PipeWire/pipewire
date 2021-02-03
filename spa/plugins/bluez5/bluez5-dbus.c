@@ -1698,7 +1698,7 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 {
 	struct spa_bt_a2dp_codec_switch *sw = a2dp_codec_switch_cmp_sw;
 	const struct a2dp_codec *codec = *sw->codec_iter;
-	const char *path1 = a, *path2 = b;
+	const char *path1 = *(char **)a, *path2 = *(char **)b;
 	struct spa_bt_remote_endpoint *ep1, *ep2;
 
 	ep1 = device_remote_endpoint_find(sw->device, path1);

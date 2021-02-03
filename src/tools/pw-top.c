@@ -260,7 +260,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 	waiting = (n->measurement.awake - n->measurement.signal) / 1000000000.f,
 	busy = (n->measurement.finish - n->measurement.awake) / 1000000000.f,
 
-	snprintf(line, sizeof(line), "%s %4.1u %6.1u/%-6.1u %s %s %s %s  %3.1u  %s%s",
+	snprintf(line, sizeof(line), "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u  %s%s",
 			n->measurement.status != 3 ? "!" : " ",
 			n->id,
 			frac.num, frac.denom,
@@ -281,7 +281,7 @@ static void do_refresh(struct data *d)
 
 	wclear(d->win);
 	wattron(d->win, A_REVERSE);
-	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID PERIOD/RATE      WAIT    BUSY   W/P   B/P  ERR  NAME ");
+	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID PERIOD   RATE    WAIT    BUSY   W/P   B/P  ERR  NAME ");
 	wattroff(d->win, A_REVERSE);
 	wprintw(d->win, "\n");
 

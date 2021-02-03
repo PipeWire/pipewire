@@ -107,6 +107,7 @@ extern "C" {
 		std::unique_ptr<CameraConfiguration> config_;
 		FrameBufferAllocator *allocator_;
 		std::map<Stream*, std::string> streamName_;
+		std::vector<std::unique_ptr<Request>> requests_;
 
 		uint32_t nbuffers_;
 		uint32_t nplanes_;
@@ -324,7 +325,7 @@ extern "C" {
 		}
 		/* If only one camera is available, use it automatically. */
 		else if (this->cm_->cameras().size() == 1) {
-			return this->cm_->cameras()[0]->name();
+			return this->cm_->cameras()[0]->id();
 		}
 		/* TODO::
 		 * 1. Allow the user to provide a camera name to select.			*
@@ -332,7 +333,7 @@ extern "C" {
 		 */
 		/* For time being, return the first camera if more than 1 camera devices are available */
 		else {
-			return this->cm_->cameras()[0]->name();
+			return this->cm_->cameras()[0]->id();
 		}
 	}
 
@@ -444,10 +445,8 @@ extern "C" {
     	StreamConfiguration &cfg = this->config_->at(0);
 		Stream *stream = cfg.stream();
 
-		std::vector<Request *> requests;
-
 		for (const std::unique_ptr<FrameBuffer> &buffer : this->allocator_->buffers(stream)) {
-			Request *request = this->cam_->createRequest();
+			std::unique_ptr<Request> request = this->cam_->createRequest();
 			if (!request) {
 				spa_log_error(this->log_, "Cannot create request");
 				return -ENOMEM;
@@ -458,15 +457,7 @@ extern "C" {
 				return -ENOMEM;
 			}
 
-			requests.push_back(request);
-		}
-
-		for (Request *request : requests) {
-			ret = this->cam_->queueRequest(request);
-			if (ret < 0) {
-				spa_log_error(this->log_, "Cannot create request");
-				return ret;
-			}
+			this->requests_.push_back(std::move(request));
 		}
 
 		return ret;
@@ -506,6 +497,11 @@ extern "C" {
 			this->streamName_[cfg.stream()] = "stream" + std::to_string(index);
 		}
 
+		if(this->request_capture()) {
+			spa_log_error(this->log_, "failed to create request");
+			return -1;
+		}
+
 		spa_log_info(this->log_, "Starting camera ...");
 
 		/* start the camera now */
@@ -516,9 +512,12 @@ extern "C" {
 
 		this->ring_buffer_init();
 
-		if(this->request_capture()) {
-			spa_log_error(this->log_, "failed to create request");
-			return -1;
+		for (std::unique_ptr<Request> &request : this->requests_) {
+			int ret = this->cam_->queueRequest(request.get());
+			if (ret < 0) {
+				spa_log_error(this->log_, "Cannot enqueue request");
+				return ret;
+			}
 		}
 		return 0;
 	}
@@ -832,7 +831,7 @@ extern "C" {
 			bufIdx_ = 0;
 		}
 
-		const std::map<Stream *, FrameBuffer *> &buffers = request->buffers();
+		const Request::BufferMap &buffers = request->buffers();
 
 		for (auto it = buffers.begin(); it != buffers.end(); ++it) {
 			FrameBuffer *buffer = it->second;
@@ -875,20 +874,14 @@ extern "C" {
 		 * Create a new request and populate it with one buffer for each
 		 * stream.
 		 */
-		request = cam_->createRequest();
-		if (!request) {
-			spa_log_error(log_, "Cannot create request");
-			return;
-		}
-
 		for (auto it = buffers.begin(); it != buffers.end(); ++it) {
-			Stream *stream = it->first;
+			const Stream *stream = it->first;
 			FrameBuffer *buffer = it->second;
 
+			request->reuse();
 			request->addBuffer(stream, buffer);
+			cam_->queueRequest(request);
 		}
-
-		cam_->queueRequest(request);
     }
 
     int32_t LibCamera::set_control(ControlList &controls, uint32_t control_id, float value) {
@@ -925,10 +918,10 @@ extern "C" {
     	if(!camera || !camera->cm_ || !camera->cam_)
     		return -1;
 
-    	Request *request = camera->cam_->createRequest();
+        std::unique_ptr<Request> request = camera->cam_->createRequest();
     	ControlList &controls = request->controls();
     	res = camera->set_control(controls, control_id, value);
-    	camera->cam_->queueRequest(request);
+        camera->cam_->queueRequest(request.get());
 
     	return res;
     }

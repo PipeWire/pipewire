@@ -193,6 +193,52 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
+static int codec_caps_preference_cmp(const struct a2dp_codec *codec, const void *caps1, size_t caps1_size,
+		const void *caps2, size_t caps2_size)
+{
+	a2dp_sbc_t conf1, conf2;
+	a2dp_sbc_t *conf;
+	int res1, res2;
+	int a, b;
+	bool xq = (strcmp(codec->name, "sbc_xq") == 0);
+
+	/* Order selected configurations by preference */
+	res1 = codec->select_config(codec, 0, caps1, caps1_size, NULL, (uint8_t *)&conf1);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, NULL, (uint8_t *)&conf2);
+
+#define PREFER_EXPR(expr)			\
+		do {				\
+			conf = &conf1; 		\
+			a = (expr);		\
+			conf = &conf2;		\
+			b = (expr);		\
+			if (a != b)		\
+				return b - a;	\
+		} while (0)
+
+#define PREFER_BOOL(expr)	PREFER_EXPR((expr) ? 1 : 0)
+
+	/* Prefer valid */
+	a = (res1 > 0 && (size_t)res1 == sizeof(a2dp_sbc_t)) ? 1 : 0;
+	b = (res2 > 0 && (size_t)res2 == sizeof(a2dp_sbc_t)) ? 1 : 0;
+	if (!a || !b)
+		return b - a;
+
+	PREFER_BOOL(conf->frequency & (SBC_SAMPLING_FREQ_48000 | SBC_SAMPLING_FREQ_44100));
+
+	if (xq)
+		PREFER_BOOL(conf->channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL);
+	else
+		PREFER_BOOL(conf->channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO);
+
+	PREFER_EXPR(conf->max_bitpool);
+
+	return 0;
+
+#undef PREFER_EXPR
+#undef PREFER_BOOL
+}
+
 static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
@@ -570,6 +616,7 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
+	.caps_preference_cmp = codec_caps_preference_cmp,
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
@@ -591,6 +638,7 @@ const struct a2dp_codec a2dp_codec_sbc_xq = {
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
+	.caps_preference_cmp = codec_caps_preference_cmp,
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,

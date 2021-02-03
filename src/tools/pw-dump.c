@@ -482,7 +482,7 @@ static void put_params(struct data *d, const char *key,
 		put_begin(d, spa_debug_type_find_short_name(spa_type_param, pi->id),
 				"[", flags);
 		spa_list_for_each(p, list, link) {
-			if (p->id == pi->id)
+			if (p->id == pi->id && flags == 0)
 				put_pod(d, NULL, p->param);
 		}
 		put_end(d, "]", flags);

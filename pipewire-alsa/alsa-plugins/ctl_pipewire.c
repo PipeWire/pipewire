@@ -1275,11 +1275,8 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		goto error;
 	}
 
-	str = pw_get_prgname();
-	if (str)
-		pw_properties_setf(props, PW_KEY_APP_NAME, "ALSA plug-in [%s]", str);
-	else
-		pw_properties_set(props, PW_KEY_APP_NAME, "ALSA plug-in");
+	pw_properties_setf(props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
+			pw_get_prgname());
 
 	if (server)
 		pw_properties_set(props, PW_KEY_REMOTE_NAME, server);

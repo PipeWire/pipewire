@@ -741,7 +741,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 				continue;
 
 			pw_log_debug(NAME" %p: update param %d", device, id);
-			pw_param_add(&impl->pending_list, id, NULL);
+			pw_param_clear(&impl->pending_list, id);
 			device->info.params[i] = info->params[i];
 			device->info.params[i].user = 0;
 

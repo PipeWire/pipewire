@@ -378,7 +378,7 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 				continue;
 
 			pw_log_debug(NAME" %p: update param %d", port, id);
-			pw_param_add(&impl->pending_list, id, NULL);
+			pw_param_clear(&impl->pending_list, id);
 			port->info.params[i] = info->params[i];
 			port->info.params[i].user = 0;
 

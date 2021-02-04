@@ -1286,7 +1286,7 @@ static void node_info(void *data, const struct spa_node_info *info)
 				continue;
 
 			pw_log_debug(NAME" %p: update param %d", node, id);
-			pw_param_add(&impl->pending_list, id, NULL);
+			pw_param_clear(&impl->pending_list, id);
 			node->info.params[i] = info->params[i];
 			node->info.params[i].user = 0;
 

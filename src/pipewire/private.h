@@ -90,6 +90,28 @@ struct pw_param {
 	struct spa_pod *param;
 };
 
+static inline struct pw_param *pw_param_add(struct spa_list *params,
+		uint32_t id, const struct spa_pod *param)
+{
+	struct pw_param *p;
+
+	if (param == NULL || !spa_pod_is_object(param)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (id == SPA_ID_INVALID)
+		id = SPA_POD_OBJECT_ID(param);
+
+	if ((p = malloc(sizeof(*p) + SPA_POD_SIZE(param))) == NULL)
+		return NULL;
+
+	p->id = id;
+	p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+	memcpy(p->param, param, SPA_POD_SIZE(param));
+	spa_list_append(params, &p->link);
+	return p;
+}
+
 static inline uint32_t pw_param_clear(struct spa_list *param_list, uint32_t id)
 {
 	struct pw_param *p, *t;
@@ -105,46 +127,16 @@ static inline uint32_t pw_param_clear(struct spa_list *param_list, uint32_t id)
 	return count;
 }
 
-static inline struct pw_param *pw_param_add(struct spa_list *params,
-		uint32_t id, const struct spa_pod *param)
-{
-	struct pw_param *p;
-
-	if (id == SPA_ID_INVALID) {
-		if (param == NULL || !spa_pod_is_object(param)) {
-			errno = EINVAL;
-			return NULL;
-		}
-		id = SPA_POD_OBJECT_ID(param);
-	}
-
-	if ((p = malloc(sizeof(*p) + (param != NULL ? SPA_POD_SIZE(param) : 0))) == NULL)
-		return NULL;
-
-	p->id = id;
-	if (param != NULL) {
-		p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
-		memcpy(p->param, param, SPA_POD_SIZE(param));
-	} else {
-		pw_param_clear(params, id);
-		p->param = NULL;
-	}
-	spa_list_append(params, &p->link);
-	return p;
-}
-
 static inline void pw_param_update(struct spa_list *param_list, struct spa_list *pending_list)
 {
 	struct pw_param *p;
 
+	spa_list_for_each(p, pending_list, link)
+		pw_param_clear(param_list, p->id);
+
 	spa_list_consume(p, pending_list, link) {
 		spa_list_remove(&p->link);
-		if (p->param == NULL) {
-			pw_param_clear(param_list, p->id);
-			free(p);
-		} else {
-			spa_list_append(param_list, &p->link);
-		}
+		spa_list_append(param_list, &p->link);
 	}
 }
 

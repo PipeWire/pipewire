@@ -246,7 +246,7 @@ extern "C" {
 #define PW_KEY_MEDIA_TYPE		"media.type"		/**< Media type, one of
 								  *  Audio, Video, Midi */
 #define PW_KEY_MEDIA_CATEGORY		"media.category"	/**< Media Category:
-								  *  Playback, Capture, Duplex, Monitor */
+								  *  Playback, Capture, Duplex, Monitor, Manager */
 #define PW_KEY_MEDIA_ROLE		"media.role"		/**< Role: Movie, Music, Camera,
 								  *  Screen, Communication, Game,
 								  *  Notification, DSP, Production,

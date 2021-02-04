@@ -73,24 +73,45 @@ static void core_sync(struct manager *m)
 	pw_log_debug("sync start %u", m->sync_seq);
 }
 
+static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
+{
+	struct pw_manager_param *p, *t;
+	uint32_t count = 0;
+
+	spa_list_for_each_safe(p, t, param_list, link) {
+		if (id == SPA_ID_INVALID || p->id == id) {
+			spa_list_remove(&p->link);
+			free(p);
+			count++;
+		}
+	}
+	return count;
+}
+
 static struct pw_manager_param *add_param(struct spa_list *params, uint32_t id, const struct spa_pod *param)
 {
 	struct pw_manager_param *p;
 
-	if (param == NULL || !spa_pod_is_object(param)) {
-		errno = EINVAL;
-		return NULL;
-	}
-	if (id == SPA_ID_INVALID)
+	if (id == SPA_ID_INVALID) {
+		if (param == NULL || !spa_pod_is_object(param)) {
+			errno = EINVAL;
+			return NULL;
+		}
 		id = SPA_POD_OBJECT_ID(param);
+	}
 
-	p = malloc(sizeof(*p) + SPA_POD_SIZE(param));
+	p = malloc(sizeof(*p) + (param != NULL ? SPA_POD_SIZE(param) : 0));
 	if (p == NULL)
 		return NULL;
 
 	p->id = id;
-	p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
-	memcpy(p->param, param, SPA_POD_SIZE(param));
+	if (param != NULL) {
+		p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+		memcpy(p->param, param, SPA_POD_SIZE(param));
+	} else {
+		clear_params(params, id);
+		p->param = NULL;
+	}
 	spa_list_append(params, &p->link);
 
 	return p;
@@ -106,21 +127,6 @@ static bool has_param(struct spa_list *param_list, struct pw_manager_param *p)
 			return true;
 	}
 	return false;
-}
-
-static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
-{
-	struct pw_manager_param *p, *t;
-	uint32_t count = 0;
-
-	spa_list_for_each_safe(p, t, param_list, link) {
-		if (id == SPA_ID_INVALID || p->id == id) {
-			spa_list_remove(&p->link);
-			free(p);
-			count++;
-		}
-	}
-	return count;
 }
 
 
@@ -140,12 +146,14 @@ static void object_update_params(struct object *o)
 {
 	struct pw_manager_param *p;
 
-	spa_list_for_each(p, &o->pending_list, link)
-		clear_params(&o->this.param_list, p->id);
-
 	spa_list_consume(p, &o->pending_list, link) {
 		spa_list_remove(&p->link);
-		spa_list_append(&o->this.param_list, &p->link);
+		if (p->param == NULL) {
+			clear_params(&o->this.param_list, p->id);
+			free(p);
+		} else {
+			spa_list_append(&o->this.param_list, &p->link);
+		}
 	}
 }
 
@@ -277,7 +285,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			case SPA_PARAM_Route:
 				break;
 			}
-			clear_params(&o->pending_list, id);
+			add_param(&o->pending_list, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
@@ -382,7 +390,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			info->params[i].user = 0;
 
 			changed++;
-			clear_params(&o->pending_list, id);
+			add_param(&o->pending_list, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 

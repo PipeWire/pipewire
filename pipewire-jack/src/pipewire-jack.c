@@ -4719,7 +4719,12 @@ int jack_session_reply (jack_client_t        *client,
 SPA_EXPORT
 void jack_session_event_free (jack_session_event_t *event)
 {
-	pw_log_warn("not implemented");
+	if (event) {
+		free((void *)event->session_dir);
+		free((void *)event->client_uuid);
+		free(event->command_line);
+		free(event);
+	}
 }
 
 SPA_EXPORT
@@ -4731,6 +4736,54 @@ char *jack_client_get_uuid (jack_client_t *client)
 
 	return spa_aprintf("%"PRIu64, client_make_uuid(c->node_id));
 }
+
+SPA_EXPORT
+jack_session_command_t *jack_session_notify (
+        jack_client_t*             client,
+        const char                *target,
+        jack_session_event_type_t  type,
+        const char                *path)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, NULL);
+	pw_log_warn("not implemented");
+	return NULL;
+}
+
+SPA_EXPORT
+void jack_session_commands_free (jack_session_command_t *cmds)
+{
+	int i;
+	if (cmds == NULL)
+		return;
+
+	for (i = 0; cmds[i].uuid != NULL; i++) {
+		free((char*)cmds[i].client_name);
+		free((char*)cmds[i].command);
+		free((char*)cmds[i].uuid);
+	}
+	free(cmds);
+}
+
+SPA_EXPORT
+int jack_reserve_client_name (jack_client_t *client,
+                          const char    *name,
+                          const char    *uuid)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, -1);
+	pw_log_warn("not implemented");
+	return 0;
+}
+
+SPA_EXPORT
+int jack_client_has_session_callback (jack_client_t *client, const char *client_name)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, -1);
+	return 0;
+}
+
 
 SPA_EXPORT
 int jack_client_real_time_priority (jack_client_t * client)

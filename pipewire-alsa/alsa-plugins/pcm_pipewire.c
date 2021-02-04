@@ -854,7 +854,8 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   min_rate, max_rate)) < 0 ||
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
-						   16*1024, 4*1024*1024)) < 0 ||
+						   MIN_BUFFERS*min_period_bytes,
+						   MAX_BUFFERS*max_period_bytes)) < 0 ||
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io,
 						   SND_PCM_IOPLUG_HW_PERIOD_BYTES,
 						   min_period_bytes,

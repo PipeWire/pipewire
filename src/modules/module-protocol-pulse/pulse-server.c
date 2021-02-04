@@ -40,6 +40,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/vfs.h>
 #if HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -5212,6 +5214,76 @@ error:
 	client_unref(client);
 }
 
+static int check_flatpak(struct client *client, int pid)
+{
+	char root_path[2048];
+	int root_fd, info_fd, res;
+	struct stat stat_buf;
+
+	sprintf(root_path, "/proc/%u/root", pid);
+	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
+	if (root_fd == -1) {
+		res = -errno;
+		if (res == -EACCES) {
+			struct statfs buf;
+			/* Access to the root dir isn't allowed. This can happen if the root is on a fuse
+			 * filesystem, such as in a toolbox container. We will never have a fuse rootfs
+			 * in the flatpak case, so in that case its safe to ignore this and
+			 * continue to detect other types of apps. */
+			if (statfs(root_path, &buf) == 0 &&
+			    buf.f_type == 0x65735546) /* FUSE_SUPER_MAGIC */
+				return 0;
+		}
+		/* Not able to open the root dir shouldn't happen. Probably the app died and
+		 * we're failing due to /proc/$pid not existing. In that case fail instead
+		 * of treating this as privileged. */
+		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
+		return res;
+	}
+	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
+	close (root_fd);
+	if (info_fd == -1) {
+		if (errno == ENOENT) {
+			pw_log_debug("no .flatpak-info, client on the host");
+			/* No file => on the host */
+			return 0;
+		}
+		res = -errno;
+		pw_log_error("error opening .flatpak-info: %m");
+		return res;
+        }
+	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
+		/* Some weird fd => failure, assume sandboxed */
+		close(info_fd);
+		pw_log_error("error fstat .flatpak-info: %m");
+	}
+	return 1;
+}
+
+static int get_client_pid(struct client *client, int client_fd)
+{
+	socklen_t len;
+#if defined(__linux__)
+	struct ucred ucred;
+	len = sizeof(ucred);
+	if (getsockopt(client_fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
+                pw_log_warn(NAME": client %p: no peercred: %m", client);
+	} else
+		return ucred.pid;
+#elif defined(__FreeBSD__)
+	struct xucred xucred;
+	len = sizeof(xucred);
+	if (getsockopt(client_fd, 0, LOCAL_PEERCRED, &xucred, &len) < 0) {
+                pw_log_warn(NAME": client %p: no peercred: %m", client);
+	} else {
+#if __FreeBSD__ >= 13
+		return xucred.cr_pid;
+#endif
+	}
+#endif
+	return 0;
+}
+
 static void
 on_connect(void *data, int fd, uint32_t mask)
 {
@@ -5219,7 +5291,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	struct impl *impl = server->impl;
 	struct sockaddr_un name;
 	socklen_t length;
-	int client_fd, val;
+	int client_fd, val, pid;
 	struct client *client;
 
 	client = calloc(1, sizeof(struct client));
@@ -5261,6 +5333,9 @@ on_connect(void *data, int fd, uint32_t mask)
 					(const void *) &val, sizeof(val)) < 0)
 			pw_log_warn("SO_PRIORITY failed: %m");
 #endif
+		pid = get_client_pid(client, client_fd);
+		if (pid != 0 && check_flatpak(client, pid) == 1)
+			pw_properties_set(client->props, PW_KEY_CLIENT_ACCESS, "flatpak");
 	} else if (server->type == SERVER_TYPE_INET) {
 		val = 1;
 		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY,
@@ -5271,6 +5346,8 @@ on_connect(void *data, int fd, uint32_t mask)
 		if (setsockopt(client_fd, IPPROTO_IP, IP_TOS,
 					(const void *) &val, sizeof(val)) < 0)
 	            pw_log_warn("IP_TOS failed: %m");
+
+		pw_properties_set(client->props, PW_KEY_CLIENT_ACCESS, "restricted");
 	}
 
 	client->source = pw_loop_add_io(impl->loop,

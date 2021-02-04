@@ -1243,6 +1243,9 @@ static int reply_create_record_stream(struct stream *stream)
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
 
+	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", stream->attr.maxlength);
+	snprintf(attr_fragsize, sizeof(attr_fragsize), "%u", stream->attr.fragsize);
+
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
 	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.fragsize", attr_fragsize);

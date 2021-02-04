@@ -229,7 +229,8 @@ context_check_access(void *data, struct pw_impl_client *client)
 		goto wait_permissions;
 	}
 #endif
-	access = "unrestricted";
+	if ((access = pw_properties_get(props, PW_KEY_CLIENT_ACCESS)) == NULL)
+		access = "unrestricted";
 
 granted:
 	pw_log_info(NAME" %p: client %p '%s' access granted", impl, client, access);

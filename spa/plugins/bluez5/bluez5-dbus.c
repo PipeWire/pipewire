@@ -2200,6 +2200,7 @@ static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint,
 	char* str;
 	const char *interface_name = BLUEZ_MEDIA_ENDPOINT_INTERFACE;
 	DBusMessageIter object, array, entry, dict;
+	dbus_bool_t delay_reporting;
 
 	dbus_message_iter_open_container(iter, DBUS_TYPE_DICT_ENTRY, NULL, &object);
 	dbus_message_iter_append_basic(&object, DBUS_TYPE_OBJECT_PATH, &endpoint);
@@ -2217,6 +2218,11 @@ static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint,
 	append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_BYTE, "y", &codec_id);
 	str = "Capabilities";
 	append_basic_array_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
+	if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_A2DP_SOURCE) {
+		str = "DelayReporting";
+		delay_reporting = TRUE;
+		append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_BOOLEAN, "b", &delay_reporting);
+	}
 
 	dbus_message_iter_close_container(&entry, &dict);
 	dbus_message_iter_close_container(&array, &entry);

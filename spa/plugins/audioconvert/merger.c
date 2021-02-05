@@ -1227,9 +1227,9 @@ static int impl_node_process(void *object)
 	for (i = 0; i < this->monitor_count; i++) {
 		float volume;
 
-		volume = this->props.monitor_volumes[i];
+		volume = this->props.monitor_mute ? 0.0f : this->props.monitor_volumes[i];
 		if (this->monitor_channel_volumes)
-			volume *= this->props.channel_volumes[i];
+			volume *= this->props.mute ? 0.0f : this->props.channel_volumes[i];
 
 		handle_monitor(this, src_datas[i], volume, n_samples,
 				GET_OUT_PORT(this, i + 1));

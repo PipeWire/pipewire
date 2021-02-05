@@ -508,7 +508,10 @@ static int impl_node_enum_params(void *object, int seq,
 		return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
 
 	case SPA_PARAM_Props:
-		return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
+		if (this->fmt[SPA_DIRECTION_INPUT] == this->merger)
+			return spa_node_enum_params(this->merger, seq, id, start, num, filter);
+		else
+			return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
 
 	default:
 		return -ENOENT;
@@ -790,6 +793,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	}
 	case SPA_PARAM_Props:
 	{
+		if (this->fmt[SPA_DIRECTION_INPUT] == this->merger)
+			res = spa_node_set_param(this->merger, id, flags, param);
 		res = spa_node_set_param(this->channelmix, id, flags, param);
 		break;
 	}

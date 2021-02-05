@@ -1513,6 +1513,11 @@ do_process_done(struct spa_loop *loop,
 				avail = stream->attr.fragsize;
 				index = stream->write_index - avail;
 			}
+			else if (avail > (int32_t)stream->attr.fragsize) {
+				pw_log_debug(NAME" %p: [%s] limit avail:%d > frag:%u",
+					stream, client->name, avail, stream->attr.fragsize);
+				avail = stream->attr.fragsize;
+			}
 
 			msg = message_alloc(impl, stream->channel, avail);
 			if (msg == NULL)

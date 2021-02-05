@@ -53,6 +53,7 @@ struct result_device_params_data {
 			uint32_t id, uint32_t index, uint32_t next,
 			struct spa_pod *param);
 	int seq;
+	uint32_t count;
 	unsigned int cache:1;
 };
 
@@ -277,6 +278,8 @@ static void result_device_params(void *data, int seq, int res, uint32_t type, co
 		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 		if (d->cache) {
 			pw_log_debug(NAME" %p: add param %d", impl, r->id);
+			if (d->count++ == 0)
+				pw_param_add(&impl->pending_list, r->id, NULL);
 			pw_param_add(&impl->pending_list, r->id, r->param);
 		}
 		break;
@@ -298,7 +301,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 {
 	int res;
 	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
-	struct result_device_params_data user_data = { impl, data, callback, seq, false };
+	struct result_device_params_data user_data = { impl, data, callback, seq, 0, false };
 	struct spa_hook listener;
 	struct spa_param_info *pi;
 	static const struct spa_device_events device_events = {
@@ -347,7 +350,8 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 		}
 		res = 0;
 	} else {
-		user_data.cache = impl->cache_params && filter == NULL;
+		user_data.cache = impl->cache_params &&
+			(filter == NULL && index == 0 && max == UINT32_MAX);
 
 		spa_zero(listener);
 		spa_device_add_listener(device->device, &listener,
@@ -412,7 +416,9 @@ static int device_enum_params(void *object, int seq, uint32_t id, uint32_t start
 		data->data.impl = impl;
 		data->data.data = data;
 		data->data.callback = reply_param;
-		data->data.cache = impl->cache_params && filter == NULL;
+		data->data.count = 0;
+		data->data.cache = impl->cache_params &&
+			(filter == NULL && start == 0);
 		if (data->end == -1)
 			spa_device_add_listener(device->device, &data->listener,
 				&device_events, data);
@@ -714,7 +720,6 @@ static void emit_params(struct pw_impl_device *device, uint32_t *changed_ids, ui
 static void device_info(void *data, const struct spa_device_info *info)
 {
 	struct pw_impl_device *device = data;
-	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 
 	pw_log_debug(NAME" %p: flags:%08"PRIx64" change_mask:%08"PRIx64,
@@ -741,7 +746,6 @@ static void device_info(void *data, const struct spa_device_info *info)
 				continue;
 
 			pw_log_debug(NAME" %p: update param %d", device, id);
-			pw_param_clear(&impl->pending_list, id);
 			device->info.params[i] = info->params[i];
 			device->info.params[i].user = 0;
 

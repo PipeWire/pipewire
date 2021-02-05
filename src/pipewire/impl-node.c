@@ -1247,7 +1247,6 @@ int pw_impl_node_update_properties(struct pw_impl_node *node, const struct spa_d
 static void node_info(void *data, const struct spa_node_info *info)
 {
 	struct pw_impl_node *node = data;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 	bool flags_changed = false;
 
@@ -1286,7 +1285,6 @@ static void node_info(void *data, const struct spa_node_info *info)
 				continue;
 
 			pw_log_debug(NAME" %p: update param %d", node, id);
-			pw_param_clear(&impl->pending_list, id);
 			node->info.params[i] = info->params[i];
 			node->info.params[i].user = 0;
 
@@ -1766,6 +1764,7 @@ struct result_node_params_data {
 			uint32_t id, uint32_t index, uint32_t next,
 			struct spa_pod *param);
 	int seq;
+	uint32_t count;
 	unsigned int cache:1;
 };
 
@@ -1779,8 +1778,11 @@ static void result_node_params(void *data, int seq, int res, uint32_t type, cons
 		const struct spa_result_node_params *r = result;
 		if (d->seq == seq) {
 			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
-			if (d->cache)
+			if (d->cache) {
+				if (d->count++ == 0)
+					pw_param_add(&impl->pending_list, r->id, NULL);
 				pw_param_add(&impl->pending_list, r->id, r->param);
+			}
 		}
 		break;
 	}
@@ -1801,7 +1803,7 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 {
 	int res;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	struct result_node_params_data user_data = { impl, data, callback, seq, false };
+	struct result_node_params_data user_data = { impl, data, callback, seq, 0, false };
 	struct spa_hook listener;
 	struct spa_param_info *pi;
 	static const struct spa_node_events node_events = {
@@ -1850,7 +1852,8 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 		}
 		res = 0;
 	} else {
-		user_data.cache = impl->cache_params && filter == NULL;
+		user_data.cache = impl->cache_params &&
+			(filter == NULL && index == 0 && max == UINT32_MAX);
 
 		spa_zero(listener);
 		spa_node_add_listener(node->node, &listener, &node_events, &user_data);

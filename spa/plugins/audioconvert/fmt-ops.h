@@ -218,3 +218,5 @@ DEFINE_FUNCTION(f32d_to_s16_4, avx2);
 DEFINE_FUNCTION(f32d_to_s16_2, avx2);
 DEFINE_FUNCTION(f32d_to_s16, avx2);
 #endif
+
+#undef DEFINE_FUNCTION

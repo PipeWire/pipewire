@@ -43,6 +43,7 @@
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
 
+#include "volume-ops.h"
 #include "fmt-ops.h"
 
 #define NAME "merger"
@@ -107,10 +108,12 @@ struct impl {
 	uint32_t monitor_count;
 	struct port in_ports[MAX_PORTS];
 	struct port out_ports[MAX_PORTS + 1];
+	float monitor_volume[MAX_PORTS];
 
 	struct spa_audio_info format;
 	unsigned int have_profile:1;
 
+	struct volume volume;
 	struct convert conv;
 	uint32_t cpu_flags;
 	unsigned int is_passthrough:1;
@@ -959,7 +962,7 @@ static inline int get_out_buffer(struct impl *this, struct port *port, struct bu
 	return 0;
 }
 
-static inline int handle_monitor(struct impl *this, const void *data, int n_samples, struct port *outport)
+static inline int handle_monitor(struct impl *this, const void *data, float volume, int n_samples, struct port *outport)
 {
 	struct buffer *dbuf;
         struct spa_data *dd;
@@ -975,10 +978,10 @@ static inline int handle_monitor(struct impl *this, const void *data, int n_samp
 
 	spa_log_trace(this->log, "%p: io %p %08x", this, outport->io, dd->flags);
 
-	if (SPA_FLAG_IS_SET(dd->flags, SPA_DATA_FLAG_DYNAMIC))
+	if (SPA_FLAG_IS_SET(dd->flags, SPA_DATA_FLAG_DYNAMIC) && volume == VOLUME_NORM)
 		dd->data = (void*)data;
 	else
-		spa_memcpy(dd->data, data, size);
+		volume_process(&this->volume, dd->data, data, volume, size / outport->stride);
 
 	return res;
 }
@@ -1045,7 +1048,9 @@ static int impl_node_process(void *object)
 	}
 
 	for (i = 0; i < this->monitor_count; i++)
-		handle_monitor(this, src_datas[i], n_samples, GET_OUT_PORT(this, i + 1));
+		handle_monitor(this, src_datas[i],
+				this->monitor_volume[i], n_samples,
+				GET_OUT_PORT(this, i + 1));
 
 	for (i = 0; i < n_dst_datas; i++) {
 		uint32_t dst_remap = this->dst_remap[i];
@@ -1126,6 +1131,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1173,6 +1179,11 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.params = port->params;
 	port->info.n_params = 5;
 	spa_list_init(&port->queue);
+
+	this->volume.cpu_flags = this->cpu_flags;
+	volume_init(&this->volume);
+	for (i = 0; i < MAX_PORTS; i++)
+		this->monitor_volume[i] = VOLUME_NORM;
 
 	return 0;
 }

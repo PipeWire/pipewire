@@ -46,6 +46,24 @@
 
 #define DEFAULT_IDLE_SECONDS	3
 
+#define DEFAULT_AUDIO_SINK_KEY		"default.audio.sink"
+#define DEFAULT_AUDIO_SOURCE_KEY	"default.audio.source"
+#define DEFAULT_VIDEO_SOURCE_KEY	"default.video.source"
+#define DEFAULT_CONFIG_AUDIO_SINK_KEY	"default.configured.audio.sink"
+#define DEFAULT_CONFIG_AUDIO_SOURCE_KEY	"default.configured.audio.source"
+#define DEFAULT_CONFIG_VIDEO_SOURCE_KEY	"default.configured.video.source"
+
+#define DEFAULT_AUDIO_SINK		0
+#define DEFAULT_AUDIO_SOURCE		1
+#define DEFAULT_VIDEO_SOURCE		2
+
+struct default_node {
+	char *key;
+	char *key_config;
+	uint32_t value;
+	uint32_t config;
+};
+
 struct impl {
 	struct timespec now;
 
@@ -61,9 +79,7 @@ struct impl {
 	struct spa_list node_list;
 	int seq;
 
-	uint32_t default_audio_sink;
-	uint32_t default_audio_source;
-	uint32_t default_video_source;
+	struct default_node defaults[4];
 
 	bool streams_follow_default;
 };
@@ -401,6 +417,7 @@ static void session_create(void *data, struct sm_object *object)
 
 static void session_remove(void *data, struct sm_object *object)
 {
+	struct default_node *def;
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
@@ -414,12 +431,10 @@ static void session_remove(void *data, struct sm_object *object)
 			if (n->peer == node)
 				n->peer = NULL;
 		}
-		if (impl->default_audio_sink == object->id)
-			impl->default_audio_sink = SPA_ID_INVALID;
-		if (impl->default_audio_source == object->id)
-			impl->default_audio_source = SPA_ID_INVALID;
-		if (impl->default_video_source == object->id)
-			impl->default_video_source = SPA_ID_INVALID;
+
+		for (def = impl->defaults; def->key != NULL; ++def)
+			if (def->config == object->id)
+				def->config = SPA_ID_INVALID;
 	}
 
 	sm_media_session_schedule_rescan(impl->session);
@@ -427,8 +442,12 @@ static void session_remove(void *data, struct sm_object *object)
 
 struct find_data {
 	struct impl *impl;
-	struct node *target;
 	struct node *node;
+
+	const char *media;
+	bool capture_sink;
+	enum pw_direction direction;
+
 	bool exclusive;
 	int priority;
 	uint64_t plugged;
@@ -442,6 +461,11 @@ static int find_node(void *data, struct node *node)
 	uint64_t plugged = 0;
 	struct sm_device *device = node->obj->device;
 
+	if (node->obj->info == NULL) {
+		pw_log_debug(NAME " %p: skipping node '%d' with no node info", impl, node->id);
+		return 0;
+	}
+
 	pw_log_debug(NAME " %p: looking at node '%d' enabled:%d state:%d peer:%p exclusive:%d",
 			impl, node->id, node->enabled, node->obj->info->state, node->peer, node->exclusive);
 
@@ -453,13 +477,13 @@ static int find_node(void *data, struct node *node)
 		return 0;
 	}
 
-	if ((find->target->capture_sink && node->direction != PW_DIRECTION_INPUT) ||
-	    (!find->target->capture_sink && node->direction == find->target->direction)) {
+	if ((find->capture_sink && node->direction != PW_DIRECTION_INPUT) ||
+	    (!find->capture_sink && node->direction == find->direction)) {
 		pw_log_debug(".. same direction");
 		return 0;
 	}
-	if (strcmp(node->media, find->target->media) != 0) {
-		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->target->media);
+	if (strcmp(node->media, find->media) != 0) {
+		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->media);
 		return 0;
 	}
 	plugged = node->plugged;
@@ -469,12 +493,12 @@ static int find_node(void *data, struct node *node)
 		bool is_default = false;
 		if (strcmp(node->media, "Audio") == 0) {
 			if (node->direction == PW_DIRECTION_INPUT)
-				is_default = impl->default_audio_sink == node->id;
+				is_default = impl->defaults[DEFAULT_AUDIO_SINK].config == node->id;
 			else if (node->direction == PW_DIRECTION_OUTPUT)
-				is_default = impl->default_audio_source == node->id;
+				is_default = impl->defaults[DEFAULT_AUDIO_SOURCE].config == node->id;
 		} else if (strcmp(node->media, "Video") == 0) {
 			if (node->direction == PW_DIRECTION_OUTPUT)
-				is_default = impl->default_video_source == node->id;
+				is_default = impl->defaults[DEFAULT_VIDEO_SOURCE].config == node->id;
 		}
 		if (is_default)
 			priority += 10000;
@@ -498,6 +522,35 @@ static int find_node(void *data, struct node *node)
 		find->plugged = plugged;
 	}
 	return 0;
+}
+
+static struct node *find_auto_default_node(struct impl *impl, const struct default_node *def)
+{
+	struct node *node;
+	struct find_data find;
+
+	spa_zero(find);
+	find.impl = impl;
+	find.capture_sink = false;
+	find.exclusive = false;
+
+	if (strcmp(def->key, DEFAULT_AUDIO_SINK_KEY) == 0) {
+		find.media = "Audio";
+		find.direction = PW_DIRECTION_OUTPUT;
+	} else if (strcmp(def->key, DEFAULT_AUDIO_SOURCE_KEY) == 0) {
+		find.media = "Audio";
+		find.direction = PW_DIRECTION_INPUT;
+	} else if (strcmp(def->key, DEFAULT_VIDEO_SOURCE_KEY) == 0) {
+		find.media = "Video";
+		find.direction = PW_DIRECTION_INPUT;
+	} else {
+		return NULL;
+	}
+
+	spa_list_for_each(node, &impl->node_list, link)
+		find_node(&find, node);
+
+	return find.node;
 }
 
 static int link_nodes(struct node *node, struct node *peer)
@@ -648,7 +701,9 @@ static int rescan_node(struct impl *impl, struct node *n)
 
 	spa_zero(find);
 	find.impl = impl;
-	find.target = n;
+	find.media = n->media;
+	find.capture_sink = n->capture_sink;
+	find.direction = n->direction;
 	find.exclusive = exclusive;
 
 	/* we always honour the target node asked for by the client */
@@ -751,6 +806,27 @@ static void session_info(void *data, const struct pw_core_info *info)
 	}
 }
 
+static void refresh_auto_default_nodes(struct impl *impl)
+{
+	struct default_node *def;
+
+	/* Auto set default nodes */
+	for (def = impl->defaults; def->key != NULL; ++def) {
+		struct node *node;
+		node = find_auto_default_node(impl, def);
+		if (node == NULL && def->value != SPA_ID_INVALID) {
+			def->value = SPA_ID_INVALID;
+			pw_metadata_set_property(impl->session->metadata, PW_ID_CORE, def->key, NULL, NULL);
+		} else if (node != NULL && def->value != node->id) {
+			char buf[64];
+			def->value = node->id;
+			snprintf(buf, sizeof(buf), "%d", node->id);
+			pw_metadata_set_property(impl->session->metadata, PW_ID_CORE, def->key,
+			                         SPA_TYPE_INFO_BASE"Id", buf);
+		}
+	}
+}
+
 static void session_rescan(void *data, int seq)
 {
 	struct impl *impl = data;
@@ -760,6 +836,8 @@ static void session_rescan(void *data, int seq)
 
 	spa_list_for_each(node, &impl->node_list, link)
 		rescan_node(impl, node);
+
+	refresh_auto_default_nodes(impl);
 }
 
 static void session_destroy(void *data)
@@ -827,25 +905,27 @@ static int metadata_property(void *object, uint32_t subject,
 	uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 
 	if (subject == PW_ID_CORE) {
+		struct default_node *def;
 		bool changed = false;
 
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
-			if (impl->default_audio_sink != val)
-				changed = true;
-			impl->default_audio_sink = val;
-		}
-		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
-			if (impl->default_audio_source != val)
-				changed = true;
-			impl->default_audio_source = val;
-		}
-		if (key == NULL || strcmp(key, "default.video.source") == 0) {
-			if (impl->default_video_source != val)
-				changed = true;
-			impl->default_video_source = val;
+		for (def = impl->defaults; def->key != NULL; ++def) {
+			if (key == NULL || strcmp(key, def->key_config) == 0) {
+				if (def->config != val)
+					changed = true;
+				def->config = val;
+			}
+			if (key == NULL || strcmp(key, def->key) == 0) {
+				bool eff_changed = (def->value != val);
+				def->value = val;
+
+				/* The effective value was changed. In case it was changed by
+				 * someone else than us, reset the value to avoid confusion. */
+				if (eff_changed)
+					refresh_auto_default_nodes(impl);
+			}
 		}
 
-		if (changed && impl->streams_follow_default)
+		if (changed)
 			sm_media_session_schedule_rescan(impl->session);
 	} else {
 		if (val != SPA_ID_INVALID && strcmp(key, "target.node") == 0) {
@@ -889,9 +969,17 @@ int sm_policy_node_start(struct sm_media_session *session)
 	impl->context = session->context;
 
 	impl->sample_rate = 48000;
-	impl->default_audio_sink = SPA_ID_INVALID;
-	impl->default_audio_source = SPA_ID_INVALID;
-	impl->default_video_source = SPA_ID_INVALID;
+
+	impl->defaults[DEFAULT_AUDIO_SINK] = (struct default_node){
+		DEFAULT_AUDIO_SINK_KEY, DEFAULT_CONFIG_AUDIO_SINK_KEY, SPA_ID_INVALID, SPA_ID_INVALID
+	};
+	impl->defaults[DEFAULT_AUDIO_SOURCE] = (struct default_node){
+		DEFAULT_AUDIO_SOURCE_KEY, DEFAULT_CONFIG_AUDIO_SOURCE_KEY, SPA_ID_INVALID, SPA_ID_INVALID
+	};
+	impl->defaults[DEFAULT_VIDEO_SOURCE] = (struct default_node){
+		DEFAULT_VIDEO_SOURCE_KEY, DEFAULT_CONFIG_VIDEO_SOURCE_KEY, SPA_ID_INVALID, SPA_ID_INVALID
+	};
+	impl->defaults[3] = (struct default_node){ NULL, NULL, SPA_ID_INVALID, SPA_ID_INVALID };
 
 	flag = pw_properties_get(session->props, NAME ".streams-follow-default");
 	impl->streams_follow_default = (flag != NULL && pw_properties_parse_bool(flag));

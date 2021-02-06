@@ -48,9 +48,14 @@
 
 #define SAVE_INTERVAL	1
 
-#define DEFAULT_AUDIO_SINK	"default.audio.sink"
-#define DEFAULT_AUDIO_SOURCE	"default.audio.source"
-#define DEFAULT_VIDEO_SOURCE	"default.video.source"
+#define DEFAULT_CONFIG_AUDIO_SINK_KEY	"default.configured.audio.sink"
+#define DEFAULT_CONFIG_AUDIO_SOURCE_KEY	"default.configured.audio.source"
+#define DEFAULT_CONFIG_VIDEO_SOURCE_KEY	"default.configured.video.source"
+
+struct default_node {
+	char *key;
+	uint32_t value;
+};
 
 struct impl {
 	struct timespec now;
@@ -63,9 +68,7 @@ struct impl {
 
 	struct spa_hook meta_listener;
 
-	uint32_t default_audio_source;
-	uint32_t default_audio_sink;
-	uint32_t default_video_source;
+	struct default_node defaults[4];
 
 	struct pw_properties *properties;
 };
@@ -161,18 +164,13 @@ static int metadata_property(void *object, uint32_t subject,
 	bool changed = false;
 
 	if (subject == PW_ID_CORE) {
+		struct default_node *def;
 		val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		if (key == NULL || strcmp(key, DEFAULT_AUDIO_SINK) == 0) {
-			changed = val != impl->default_audio_sink;
-			impl->default_audio_sink = val;
-		}
-		if (key == NULL || strcmp(key, DEFAULT_AUDIO_SOURCE) == 0) {
-			changed = val != impl->default_audio_source;
-			impl->default_audio_source = val;
-		}
-		if (key == NULL || strcmp(key, DEFAULT_VIDEO_SOURCE) == 0) {
-			changed = val != impl->default_video_source;
-			impl->default_video_source = val;
+		for (def = impl->defaults; def->key != NULL; ++def) {
+			if (key == NULL || strcmp(key, def->key) == 0) {
+				changed = (def->value != val);
+				def->value = val;
+			}
 		}
 	}
 	if (changed) {
@@ -220,6 +218,15 @@ static void session_create(void *data, struct sm_object *object)
 		}
 		d = (struct find_data){ impl, name, SPA_ID_INVALID };
 		if (find_name(&d, object)) {
+			const struct default_node *def;
+
+			/* Check that the item key is a valid default key */
+			for (def = impl->defaults; def->key != NULL; ++def)
+				if (item->key != NULL && strcmp(item->key, def->key) == 0)
+					break;
+			if (def->key == NULL)
+				continue;
+
 			char val[16];
 			snprintf(val, sizeof(val), "%u", d.id);
 			pw_log_info("found %s with id:%s restore as %s",
@@ -233,24 +240,16 @@ static void session_create(void *data, struct sm_object *object)
 static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
+	struct default_node *def;
 
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0)
 		return;
 
-	if (impl->default_audio_sink == object->id) {
-		impl->default_audio_sink = SPA_ID_INVALID;
-		pw_metadata_set_property(impl->session->metadata,
-			PW_ID_CORE, DEFAULT_AUDIO_SINK, SPA_TYPE_INFO_BASE"Id", NULL);
-	}
-	if (impl->default_audio_source == object->id) {
-		impl->default_audio_source = SPA_ID_INVALID;
-		pw_metadata_set_property(impl->session->metadata,
-			PW_ID_CORE, DEFAULT_AUDIO_SOURCE, SPA_TYPE_INFO_BASE"Id", NULL);
-	}
-	if (impl->default_video_source == object->id) {
-		impl->default_video_source = SPA_ID_INVALID;
-		pw_metadata_set_property(impl->session->metadata,
-			PW_ID_CORE, DEFAULT_VIDEO_SOURCE, SPA_TYPE_INFO_BASE"Id", NULL);
+	for (def = impl->defaults; def->key != NULL; ++def) {
+		if (def->value == object->id) {
+			def->value = SPA_ID_INVALID;
+			pw_metadata_set_property(impl->session->metadata, PW_ID_CORE, def->key, NULL, NULL);
+		}
 	}
 }
 
@@ -284,9 +283,10 @@ int sm_default_nodes_start(struct sm_media_session *session)
 	impl->session = session;
 	impl->context = session->context;
 
-	impl->default_audio_sink = SPA_ID_INVALID;
-	impl->default_audio_source = SPA_ID_INVALID;
-	impl->default_video_source = SPA_ID_INVALID;
+	impl->defaults[0] = (struct default_node){ DEFAULT_CONFIG_AUDIO_SINK_KEY, SPA_ID_INVALID };
+	impl->defaults[1] = (struct default_node){ DEFAULT_CONFIG_AUDIO_SOURCE_KEY, SPA_ID_INVALID };
+	impl->defaults[2] = (struct default_node){ DEFAULT_CONFIG_VIDEO_SOURCE_KEY, SPA_ID_INVALID };
+	impl->defaults[3] = (struct default_node){ NULL, SPA_ID_INVALID };
 
 	impl->properties = pw_properties_new(NULL, NULL);
 	if (impl->properties == NULL) {

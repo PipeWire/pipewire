@@ -287,19 +287,29 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 {
 	const char *p;
 	if (!spa_json_is_string(val, len)) {
-		bool skip = false;
+		bool skip = false, comment = false;
 		for (p = val; p < val + len; p++) {
 			switch (*p) {
-			case '\n': case '\r': case '\b': case '\t': case '\f':
+			case '#':
+				comment = true;
+				break;
+			case '\n': case '\r':
+				comment = false;
+				break;
+			case '\b': case '\t': case '\f':
 				break;
 			case ' ':
-				if (!skip)
-					*result++ = *p;
-				skip = true;
+				if (!comment) {
+					if (!skip)
+						*result++ = *p;
+					skip = true;
+				}
 				break;
 			default:
-				*result++ = *p;
-				skip = false;
+				if (!comment) {
+					*result++ = *p;
+					skip = false;
+				}
 				break;
 			}
 		}

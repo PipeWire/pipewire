@@ -287,31 +287,45 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 {
 	const char *p;
 	if (!spa_json_is_string(val, len)) {
-		strncpy(result, val, len);
-		result[len] = '\0';
-		return 1;
-	}
-	for (p = val+1; p < val + len; p++) {
-		if (*p == '\\') {
-			p++;
-			if (*p == 'n')
-				*result++ = '\n';
-			else if (*p == 'r')
-				*result++ = '\r';
-			else if (*p == 'b')
-				*result++ = '\b';
-			else if (*p == 't')
-				*result++ = '\t';
-			else if (*p == 'f')
-				*result++ = '\f';
-			else
+		bool skip = false;
+		for (p = val; p < val + len; p++) {
+			switch (*p) {
+			case '\n': case '\r': case '\b': case '\t': case '\f':
+				break;
+			case ' ':
+				if (!skip)
+					*result++ = *p;
+				skip = true;
+				break;
+			default:
 				*result++ = *p;
-		} else if (*p == '\"') {
-			break;
-		} else
-			*result++ = *p;
+				skip = false;
+				break;
+			}
+		}
+	} else {
+		for (p = val+1; p < val + len; p++) {
+			if (*p == '\\') {
+				p++;
+				if (*p == 'n')
+					*result++ = '\n';
+				else if (*p == 'r')
+					*result++ = '\r';
+				else if (*p == 'b')
+					*result++ = '\b';
+				else if (*p == 't')
+					*result++ = '\t';
+				else if (*p == 'f')
+					*result++ = '\f';
+				else
+					*result++ = *p;
+			} else if (*p == '\"') {
+				break;
+			} else
+				*result++ = *p;
+		}
 	}
-	*result++ = '\0';
+	*result = '\0';
 	return 1;
 }
 

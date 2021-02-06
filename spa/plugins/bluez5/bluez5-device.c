@@ -261,11 +261,15 @@ static int set_profile(struct impl *this, uint32_t profile, const struct a2dp_co
 	this->profile = profile;
 	this->selected_a2dp_codec = a2dp_codec;
 
-	if (profile == 1) {
+	/*
+	 * A2DP: ensure there's a transport with the selected codec (NULL means any).
+	 * Don't try to switch codecs when the device is in the A2DP source role, since
+	 * devices do not appear to like that.
+	 */
+	if (profile == 1 && !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
 		const struct a2dp_codec *codec_list[2], **codecs;
 
-		/* A2DP: ensure there's a transport with the selected codec (NULL means any) */
 		if (a2dp_codec == NULL) {
 			codecs = a2dp_codecs;
 		} else {
@@ -464,6 +468,10 @@ static uint32_t get_profile_from_index(struct impl *this, uint32_t index, const 
 	if (index < 3)
 		return index;
 
+	/* A2DP sources don't have codec profiles (device chooses it) */
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)
+		return SPA_ID_INVALID;
+
 	if (index - 3 < this->supported_codec_count) {
 		*codec = this->supported_codecs[index - 3];
 		return 1;
@@ -481,6 +489,10 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, cons
 
 	if (codec == NULL)
 		return 1;
+
+	/* A2DP sources don't have codec profiles (device chooses it) */
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)
+		return SPA_ID_INVALID;
 
 	for (i = 0; i < this->supported_codec_count; ++i) {
 		if (this->supported_codecs[i] == codec)

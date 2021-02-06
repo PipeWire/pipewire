@@ -3844,6 +3844,15 @@ static int fill_source_info(struct client *client, struct message *m,
 	return 0;
 }
 
+static const char *get_media_name(struct pw_node_info *info)
+{
+	const char *media_name;
+	media_name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME);
+	if (media_name == NULL)
+		media_name = "";
+	return media_name;
+}
+
 static int fill_sink_input_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
@@ -3873,7 +3882,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 
 	message_put(m,
 		TAG_U32, o->id,					/* sink_input index */
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
+		TAG_STRING, get_media_name(info),
 		TAG_U32, module_id,				/* module index */
 		TAG_U32, client_id,				/* client index */
 		TAG_U32, peer ? peer->id : SPA_ID_INVALID,	/* sink index */
@@ -3950,7 +3959,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 
 	message_put(m,
 		TAG_U32, o->id,					/* source_output index */
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME),
+		TAG_STRING, get_media_name(info),
 		TAG_U32, module_id,				/* module index */
 		TAG_U32, client_id,				/* client index */
 		TAG_U32, peer_id,				/* source index */

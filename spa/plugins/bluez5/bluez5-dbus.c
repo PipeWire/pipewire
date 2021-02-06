@@ -476,7 +476,7 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
 
-	if (device->added)
+	if (device->connected_profiles == 0 || device->added)
 		return 0;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
@@ -601,8 +601,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 			device_stop_timer(device);
 			device_remove(monitor, device);
 		}
-	}
-	else if (force || (device->profiles & connected_profiles) == device->profiles) {
+	} else if (force || (device->profiles & connected_profiles) == device->profiles) {
 		device_stop_timer(device);
 		device_add(monitor, device);
 	} else {

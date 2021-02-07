@@ -450,7 +450,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 		}
 		if (this->skip_count > 0) {
 			spa_log_info(this->log, NAME " %p: xrun, skipped %"PRIu64" usec",
-			             this, this->skip_count * SPA_USEC_PER_SEC / port->current_format.info.raw.rate);
+			             this, (uint64_t)(this->skip_count * SPA_USEC_PER_SEC / port->current_format.info.raw.rate));
 			this->skip_count = 0;
 		}
 
@@ -472,7 +472,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	datas = buffer->buf->datas;
 
 	/* copy data into buffer */
-	avail = SPA_MIN(decoded, datas[0].maxsize - port->ready_offset);
+	avail = SPA_MIN(decoded, (int32_t)(datas[0].maxsize - port->ready_offset));
 	if (avail < decoded)
 		spa_log_warn(this->log, NAME ": buffer too small (%d > %d)", decoded, avail);
 	memcpy ((uint8_t *)datas[0].data + port->ready_offset, read_decoded, avail);

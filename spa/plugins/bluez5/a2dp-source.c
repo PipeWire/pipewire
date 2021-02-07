@@ -112,6 +112,7 @@ struct impl {
 	struct port port;
 
 	unsigned int started:1;
+	unsigned int transport_acquired:1;
 	unsigned int following:1;
 
 	struct spa_source source;
@@ -539,10 +540,15 @@ static int transport_start(struct impl *this)
 	int res, val;
 	struct port *port = &this->port;
 
+	if (this->transport_acquired)
+		return 0;
+
 	spa_log_debug(this->log, NAME" %p: transport %p acquire", this,
 			this->transport);
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
+
+	this->transport_acquired = true;
 
 	this->codec_data = this->codec->init(this->codec, 0,
 			this->transport->configuration,
@@ -622,6 +628,28 @@ static int do_remove_source(struct spa_loop *loop,
 	return 0;
 }
 
+static int transport_stop(struct impl *this)
+{
+	int res;
+
+	spa_log_debug(this->log, NAME" %p: transport stop", this);
+
+	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
+
+	if (this->transport && this->transport_acquired)
+		res = spa_bt_transport_release(this->transport);
+	else
+		res = 0;
+
+	this->transport_acquired = false;
+
+	if (this->codec_data)
+		this->codec->deinit(this->codec_data);
+	this->codec_data = NULL;
+
+	return res;
+}
+
 static int do_stop(struct impl *this)
 {
 	int res;
@@ -631,18 +659,9 @@ static int do_stop(struct impl *this)
 
 	spa_log_debug(this->log, NAME" %p: stop", this);
 
-	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
+	res = transport_stop(this);
 
 	this->started = false;
-
-	if (this->transport)
-		res = spa_bt_transport_release(this->transport);
-	else
-		res = 0;
-
-	if (this->codec_data)
-		this->codec->deinit(this->codec_data);
-	this->codec_data = NULL;
 
 	return res;
 }
@@ -1139,6 +1158,7 @@ static int do_transport_destroy(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 	this->transport = NULL;
+	this->transport_acquired = false;
 	return 0;
 }
 
@@ -1158,6 +1178,8 @@ static void transport_state_changed(void *data, enum spa_bt_transport_state old,
 
 	if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING)
 		transport_start(this);
+	else if (state < SPA_BT_TRANSPORT_STATE_PENDING && old >= SPA_BT_TRANSPORT_STATE_PENDING)
+		transport_stop(this);
 }
 
 static const struct spa_bt_transport_events transport_events = {

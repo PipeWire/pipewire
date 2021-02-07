@@ -44,7 +44,7 @@ extern "C" {
 #define BLUEZ_MEDIA_ENDPOINT_INTERFACE BLUEZ_SERVICE ".MediaEndpoint1"
 #define BLUEZ_MEDIA_TRANSPORT_INTERFACE BLUEZ_SERVICE ".MediaTransport1"
 
-#define MIN_LATENCY	128
+#define MIN_LATENCY	512
 #define MAX_LATENCY	1024
 
 #define OBJECT_MANAGER_INTROSPECT_XML                                          \

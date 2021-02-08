@@ -2375,8 +2375,6 @@ jack_client_t * jack_client_open (const char *client_name,
                                   jack_status_t *status, ...)
 {
 	struct client *client;
-	struct spa_dict props;
-	struct spa_dict_item items[1];
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *str;
@@ -2409,6 +2407,7 @@ jack_client_t * jack_client_open (const char *client_name,
 			client->context.l,
 			pw_properties_new(
 				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				"loop.cancel", "true",
 				NULL),
 			0);
 	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
@@ -2431,12 +2430,7 @@ jack_client_t * jack_client_open (const char *client_name,
 			mix2 = mix2_sse;
 #endif
 	}
-
-	props = SPA_DICT_INIT(items, 0);
-	items[props.n_items++] = SPA_DICT_ITEM_INIT("loop.cancel", "true");
-	client->loop = pw_data_loop_new(&props);
-	if (client->loop == NULL)
-		goto init_failed;
+	client->loop = client->context.context->data_loop_impl;
 
 	spa_list_init(&client->links);
 	spa_list_init(&client->rt.target_links);
@@ -2604,7 +2598,6 @@ int jack_client_close (jack_client_t *client)
 
 	pw_log_debug(NAME" %p: free", client);
 	pthread_mutex_destroy(&c->context.lock);
-	pw_data_loop_destroy(c->loop);
 	pw_properties_free(c->props);
 	free(c);
 
@@ -2700,14 +2693,11 @@ static int do_activate(struct client *c)
 
 	pw_thread_loop_lock(c->context.loop);
 
-	if ((res = pw_data_loop_start(c->loop)) < 0)
-		goto done;
-
 	pw_log_debug(NAME" %p: activate", c);
 	pw_client_node_set_active(c->node, true);
 
 	res = do_sync(c);
-done:
+
 	pw_thread_loop_unlock(c->context.loop);
 	return res;
 }
@@ -2758,6 +2748,7 @@ int jack_deactivate (jack_client_t *client)
 
 	res = do_sync(c);
 
+	pw_data_loop_start(c->loop);
 	pw_thread_loop_unlock(c->context.loop);
 
 	if (res < 0)

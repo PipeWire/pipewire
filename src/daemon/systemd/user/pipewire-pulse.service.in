@@ -20,7 +20,6 @@ ConditionUser=!root
 Type=simple
 ExecStart=@PW_PULSE_BINARY@
 Restart=on-failure
-LimitMEMLOCK=131072
 
 [Install]
 Also=pipewire-pulse.socket

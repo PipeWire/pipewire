@@ -676,7 +676,7 @@ static int do_start(struct impl *this)
 	this->seqnum = 0;
 
 	this->block_size = this->codec->get_block_size(this->codec_data);
-	this->num_blocks = this->codec->get_num_blocks(this->codec_data);
+	update_num_blocks(this);
 	if (this->block_size > sizeof(this->tmp_buffer)) {
 		spa_log_error(this->log, "block-size %d > %zu",
 				this->block_size, sizeof(this->tmp_buffer));
@@ -686,7 +686,7 @@ static int do_start(struct impl *this)
         spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
 			this->block_size, this->num_blocks);
 
-	val = this->codec->send_buf_size > 0 
+	val = this->codec->send_buf_size > 0
 			/* The kernel doubles the SO_SNDBUF option value set by setsockopt(). */
 			? this->codec->send_buf_size / 2 + this->codec->send_buf_size % 2
 			: FILL_FRAMES * this->transport->write_mtu;
@@ -814,7 +814,7 @@ static const struct spa_dict_item node_info_items[] = {
 	{ SPA_KEY_DEVICE_API, "bluez5" },
 	{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
 	{ SPA_KEY_NODE_DRIVER, "true" },
-	{ SPA_KEY_NODE_LATENCY, "512/48000" },
+	{ SPA_KEY_NODE_LATENCY, SPA_STRINGIFY(MIN_LATENCY)"/48000" },
 	{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
 };
 

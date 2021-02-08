@@ -2399,6 +2399,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	varargs_parse(client, options, ap);
 	va_end(ap);
 
+        if ((str = getenv("PIPEWIRE_PROFILE_MODULES")) == NULL)
+		str = "default,rtkit";
+
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
 	client->context.loop = pw_thread_loop_new(client_name, NULL);
@@ -2406,7 +2409,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->context.context = pw_context_new(
 			client->context.l,
 			pw_properties_new(
-				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				PW_KEY_CONTEXT_PROFILE_MODULES, str,
 				"loop.cancel", "true",
 				NULL),
 			0);

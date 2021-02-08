@@ -1355,7 +1355,8 @@ static void show_help(struct data *data, const char *name)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
-		"  -m, --monitor                         monitor changes\n",
+		"  -m, --monitor                         monitor changes\n"
+		"  -N, --no-colors                       disable color output\n",
 		name);
 }
 
@@ -1370,13 +1371,17 @@ int main(int argc, char *argv[])
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ "monitor",	no_argument,		NULL, 'm' },
+		{ "no-colors",	no_argument,		NULL, 'N' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVr:m", long_options, NULL)) != -1) {
+	data.out = stdout;
+	colors = true;
+
+	while ((c = getopt_long(argc, argv, "hVr:mN", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0]);
@@ -1394,6 +1399,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'm' :
 			data.monitor = true;
+			break;
+		case 'N' :
+			colors = false;
 			break;
 		default:
 			show_help(&data, argv[0]);
@@ -1414,10 +1422,6 @@ int main(int argc, char *argv[])
 	l = pw_main_loop_get_loop(data.loop);
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
-
-	data.out = stdout;
-	if (isatty(fileno(data.out)))
-		colors = true;
 
 	data.context = pw_context_new(l, NULL, 0);
 	if (data.context == NULL) {

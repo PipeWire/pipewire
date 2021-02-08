@@ -1,6 +1,6 @@
-#daemon config file for PipeWire version @VERSION@
+# Daemon config file for PipeWire version @VERSION@
 properties = {
-    ## configure properties in the system
+    ## Configure properties in the system.
     #library.name.system =			support/libspa-support
     #context.data-loop.library.name.system =	support/libspa-support
     #link.max-buffers =		64
@@ -10,7 +10,7 @@ properties = {
     #mem.mlock-all =		false
     #log.level =		2
 
-    ## Properties for the DSP configuration
+    ## Properties for the DSP configuration.
     #default.clock.rate	=		48000
     #default.clock.quantum =		1024
     #default.clock.min-quantum =	32
@@ -24,7 +24,7 @@ properties = {
 spa-libs = {
     ## <factory-name regex> = <library-name>
     #
-    # used to find spa factory names. It maps an spa factory name
+    # Used to find spa factory names. It maps an spa factory name
     # regular expression to a library name that should contain
     # that factory.
     #
@@ -45,11 +45,11 @@ modules = {
     #                     [flags = [ [ifexists] [nofail] ]}
     #
     # Loads a module with the given parameters.
-    # If ifexists is given, the module is ignoed when it is not found.
+    # If ifexists is given, the module is ignored when it is not found.
     # If nofail is given, module initialization failures are ignored.
     #
 
-    # Uses RTKit to boost the data thread priority
+    # Uses RTKit to boost the data thread priority.
     libpipewire-module-rtkit  = {
         args = {
             #nice.level = -11
@@ -60,7 +60,7 @@ modules = {
         flags = [ ifexists nofail ]
     }
 
-    # The native communication protocol
+    # The native communication protocol.
     libpipewire-module-protocol-native = null
 
     # The profile module. Allows application to access profiler
@@ -94,7 +94,7 @@ modules = {
     # connections.
     libpipewire-module-portal = null
 
-    # The access module can perform acces checks and block
+    # The access module can perform access checks and block
     # new clients.
     libpipewire-module-access = {
         args = {
@@ -104,13 +104,13 @@ modules = {
             #    @media_session_path@
             #]
 
-            # an array of rejected paths
+            # An array of rejected paths.
             #access.rejected = [ ]
 
-            # an array of paths with restricted access
+            # An array of paths with restricted access.
             #access.restricted = [ ]
 
-            # anything not in the above lists gets assigned the
+            # Anything not in the above lists gets assigned the
             # access.force permission.
             #access.force = flatpak
         }
@@ -120,10 +120,10 @@ modules = {
     # converter and resampler.
     libpipewire-module-adapter = null
 
-    # Makes a factory for creating links between ports
+    # Makes a factory for creating links between ports.
     libpipewire-module-link-factory = null
 
-    # Provides factories to make session manager objects
+    # Provides factories to make session manager objects.
     libpipewire-module-session-manager = null
 }
 
@@ -132,7 +132,7 @@ objects = {
     #                     [flags = [ [nofail] ] }
     #
     # Creates an object from a PipeWire factory with the given parameters.
-    # If nofail is given, errors are ignored (and no object is created)
+    # If nofail is given, errors are ignored (and no object is created).
     #
     #spa-node-factory = { args = "factory.name=videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1" }
     #spa-device-factory  = { args = "factory.name=api.jack.device foo=bar" flags = [ nofail ] }

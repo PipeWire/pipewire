@@ -1,4 +1,5 @@
-# Daemon config file for PipeWire version @VERSION@
+# Daemon config file for PipeWire version @VERSION@ #
+
 properties = {
     ## Configure properties in the system.
     #library.name.system =			support/libspa-support
@@ -165,7 +166,7 @@ exec = {
     # You can optionally start the pulseaudio-server here as well
     # but it better to start it as a systemd service.
     # It can be interesting to start another daemon here that listens
-    # on another address with the -a option (eg. -a tcp:4713)
+    # on another address with the -a option (eg. -a tcp:4713).
     #
     #"@pipewire_pulse_path@" = { "#args" = "-a tcp:4713" }
 }

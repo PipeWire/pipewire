@@ -1218,7 +1218,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	if ((str = pw_properties_get(node->properties, "mem.allow-mlock")) != NULL)
 		data->allow_mlock = pw_properties_parse_bool(str);
 
-	data->warn_mlock = true;
+	data->warn_mlock = data->context->defaults.mem_warn_mlock;
 	if ((str = pw_properties_get(node->properties, "mem.warn-mlock")) != NULL)
 		data->warn_mlock = pw_properties_parse_bool(str);
 

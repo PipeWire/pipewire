@@ -151,6 +151,7 @@ struct filter {
 	unsigned int draining:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
+	unsigned int process_rt:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -1023,6 +1024,7 @@ filter_new(struct pw_context *context, const char *name,
 
 	impl->context = context;
 	impl->allow_mlock = context->defaults.mem_allow_mlock;
+	impl->warn_mlock = context->defaults.mem_warn_mlock;
 
 	return impl;
 
@@ -1235,15 +1237,17 @@ pw_filter_connect(struct pw_filter *filter,
 		  uint32_t n_params)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
+	const char *str;
 	int res;
 	uint32_t i;
 
 	pw_log_debug(NAME" %p: connect", filter);
 	impl->flags = flags;
 
-	impl->warn_mlock = SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS);
-	pw_properties_set(filter->properties, "mem.warn-mlock",
-			impl->warn_mlock ? "true" : "false");
+	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS);
+
+	if ((str = pw_properties_get(filter->properties, "mem.warn-mlock")) != NULL)
+		impl->warn_mlock = pw_properties_parse_bool(str);
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -1258,7 +1262,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info = SPA_NODE_INFO_INIT();
 	impl->info.max_input_ports = MAX_PORTS;
 	impl->info.max_output_ports = MAX_PORTS;
-	impl->info.flags = impl->warn_mlock ? SPA_NODE_FLAG_RT : 0;
+	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
 	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);

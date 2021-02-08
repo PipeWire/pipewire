@@ -346,6 +346,7 @@ struct client {
 	unsigned int thread_entered:1;
 	unsigned int has_transport:1;
 	unsigned int allow_mlock:1;
+	unsigned int warn_mlock:1;
 	unsigned int timeowner_pending:1;
 	unsigned int timeowner_conditional:1;
 
@@ -1807,7 +1808,8 @@ static int client_node_port_use_buffers(void *object,
 			}
 			if (c->allow_mlock && mlock(d->data, d->maxsize) < 0) {
 				if (errno != ENOMEM  || !mlock_warned) {
-					pw_log_warn(NAME" %p: Failed to mlock memory %p %u: %s", c,
+					pw_log(c->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+						NAME" %p: Failed to mlock memory %p %u: %s", c,
 						d->data, d->maxsize,
 						errno == ENOMEM ?
 						"This is not a problem but for best performance, "
@@ -2410,6 +2412,8 @@ jack_client_t * jack_client_open (const char *client_name,
 				NULL),
 			0);
 	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
+	client->warn_mlock = client->context.context->defaults.mem_warn_mlock;
+
 	spa_list_init(&client->context.free_objects);
 	pthread_mutex_init(&client->context.lock, NULL);
 	spa_list_init(&client->context.nodes);

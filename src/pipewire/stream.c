@@ -144,6 +144,7 @@ struct stream {
 	unsigned int draining:1;
 	unsigned int drained:1;
 	unsigned int allow_mlock:1;
+	unsigned int warn_mlock:1;
 	unsigned int process_rt:1;
 };
 
@@ -594,7 +595,7 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 
 	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
 		if (errno != ENOMEM || !mlock_warned) {
-			pw_log(impl->process_rt ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
+			pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
 					NAME" %p: Failed to mlock memory %p %u: %s", impl,
 					data->data, data->maxsize,
 					errno == ENOMEM ?
@@ -1209,6 +1210,7 @@ stream_new(struct pw_context *context, const char *name,
 
 	impl->context = context;
 	impl->allow_mlock = context->defaults.mem_allow_mlock;
+	impl->warn_mlock = context->defaults.mem_warn_mlock;
 
 	spa_hook_list_append(&impl->context->driver_listener_list,
 			&impl->context_listener,
@@ -1557,7 +1559,9 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 
 	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
-	pw_properties_set(stream->properties, "mem.warn-mlock", impl->process_rt ? "true" : "false");
+
+	if ((str = pw_properties_get(stream->properties, "mem.warn-mlock")) != NULL)
+		impl->warn_mlock = pw_properties_parse_bool(str);
 
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);

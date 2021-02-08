@@ -57,6 +57,7 @@
 #define DEFAULT_VIDEO_RATE_NUM		25u
 #define DEFAULT_VIDEO_RATE_DENOM	1u
 #define DEFAULT_LINK_MAX_BUFFERS	64u
+#define DEFAULT_MEM_WARN_MLOCK		false
 #define DEFAULT_MEM_ALLOW_MLOCK		true
 
 /** \cond */
@@ -168,6 +169,7 @@ static void fill_defaults(struct pw_context *this)
 	this->defaults.video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
 	this->defaults.video_rate.denom = get_default_int(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
 	this->defaults.link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
+	this->defaults.mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
 	this->defaults.mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
 
 	this->defaults.clock_max_quantum = SPA_CLAMP(this->defaults.clock_max_quantum,

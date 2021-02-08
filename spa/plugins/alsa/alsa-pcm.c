@@ -761,6 +761,7 @@ static int alsa_recover(struct state *state, int err)
 	case SND_PCM_STATE_SUSPENDED:
 		spa_log_info(state->log, NAME" %p: recover from state %s",
 				state, snd_pcm_state_name(st));
+		err = -ESTRPIPE;
 		break;
 	default:
 		spa_log_error(state->log, NAME" %p: recover from error state %s",

@@ -704,7 +704,6 @@ static void emit_node_info(struct impl *this, bool full)
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },
 		{ SPA_KEY_NODE_LATENCY, SPA_STRINGIFY(MIN_LATENCY)"/48000" },
-		{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 		                 this->transport->device->name : "A2DP") },
 	};

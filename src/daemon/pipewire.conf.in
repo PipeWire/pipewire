@@ -41,52 +41,95 @@ spa-libs = {
 }
 
 modules = {
-    ##  <module-name> = { [args = "<key>=<value> ..."] 
-    #                     [flags = [ifexists]|[nofail]}
+    ##  <module-name> = { [args = { <key>=<value> ... }]
+    #                     [flags = "[ifexists]|[nofail]"}
     #
     # Loads a module with the given parameters.
     # If ifexists is given, the module is ignoed when it is not found.
     # If nofail is given, module initialization failures are ignored.
     #
+
+    # Uses RTKit to boost the data thread priority
     libpipewire-module-rtkit  = {
-        "#args" = { nice.level = -11
-	            rt.prio = 20
-                    rt.time.soft = 200000
-                    rt.time.hard = 200000 }
-        "flags" = "ifexists|nofail"
+        args = {
+            #nice.level = -11
+            #rt.prio = 20
+            #rt.time.soft = 200000
+            #rt.time.hard = 200000
+	}
+        flags = "ifexists|nofail"
     }
+
+    # The native communication protocol
     libpipewire-module-protocol-native = null
+
+    # The profile module. Allows application to access profiler
+    # and performance data. It provides an interface that is used
+    # by pw-top and pw-profiler.
     libpipewire-module-profiler = null
+
+    # Allows applications to create metadata objects. It creates
+    # a factory for Metadata objects.
     libpipewire-module-metadata = null
+
+    # Creates a factory for making devices that run in the
+    # context of the PipeWire server.
     libpipewire-module-spa-device-factory = null
+
+    # Creates a factory for making nodes that run in the
+    # context of the PipeWire server.
     libpipewire-module-spa-node-factory = null
+
+    # Allows creating nodes that run in the context of the
+    # client. Is used by all clients that want to provide
+    # data to PipeWire.
     libpipewire-module-client-node = null
+
+    # Allows creating devices that run in the context of the
+    # client. Is used by the session manager.
     libpipewire-module-client-device = null
+
+    # The portal module monitors the PID of the portal process
+    # and tags connections with the same PID as portal
+    # connections.
     libpipewire-module-portal = null
+
+    # The access module can perform acces checks and block
+    # new clients.
     libpipewire-module-access = {
-        "#args" = {
-	            # access.allowed to list an array of paths of allowed
-		    # apps.
-                    access.allowed = [
-		          @media_session_path@
-	            ]
-		    # an array of rejected paths
-		    access.rejected = [ ]
-		    # an array of paths with restricted access
-		    access.restricted = [ ]
-		    # anything not in the above lists gets assigned the
-		    # access.force permission.
-                    access.force = flatpak
-                  }
+        args = {
+            # access.allowed to list an array of paths of allowed
+            # apps.
+            #access.allowed = [
+            #    @media_session_path@
+            #]
+
+            # an array of rejected paths
+            #access.rejected = [ ]
+
+            # an array of paths with restricted access
+            #access.restricted = [ ]
+
+            # anything not in the above lists gets assigned the
+            # access.force permission.
+            #access.force = flatpak
+        }
     }
+
+    # Makes a factory for wrapping nodes in an adapter with a
+    # converter and resampler.
     libpipewire-module-adapter = null
+
+    # Makes a factory for creating links between ports
     libpipewire-module-link-factory = null
+
+    # Provides factories to make session manager objects
     libpipewire-module-session-manager = null
 }
 
 objects = {
-    ## <factory-name> = { [args = "<key>=<value> ..."]
-    #                     [flags = nofail] }
+    ## <factory-name> = { [args = { <key>=<value> ... } ]
+    #                     [flags = "nofail"] }
     #
     # Creates an object from a PipeWire factory with the given parameters.
     # If nofail is given, errors are ignored (and no object is created)
@@ -101,9 +144,10 @@ objects = {
     # A default dummy driver. This handles nodes marked with the "node.always-driver"
     # property when no other driver is currently active. JACK clients need this.
     spa-node-factory = {
-        args = { factory.name = support.node.driver
-                 node.name = Dummy-Driver
-		 priority.driver = 8000
+        args = {
+            factory.name = support.node.driver
+            node.name = Dummy-Driver
+            priority.driver = 8000
         }
     }
 }

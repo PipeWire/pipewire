@@ -323,7 +323,6 @@ static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_DEVICE_API, "v4l2" },
 	{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
 	{ SPA_KEY_MEDIA_ROLE, "Camera" },
-	{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
 	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 

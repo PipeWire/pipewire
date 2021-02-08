@@ -273,7 +273,6 @@ static const struct spa_dict_item node_info_items[] = {
 	{ SPA_KEY_DEVICE_API, "alsa" },
 	{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
 	{ SPA_KEY_NODE_DRIVER, "true" },
-	{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
 };
 
 static void emit_node_info(struct state *this, bool full)

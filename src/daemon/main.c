@@ -171,7 +171,11 @@ static int parse_modules(struct data *d, const char *str)
 					args = malloc(alen + 1);
 					spa_json_parse_string(aval, alen, args);
 				} else if (strcmp(arg, "flags") == 0) {
-					flags = strndup(aval, alen);
+					if (spa_json_is_container(aval, alen))
+						alen = spa_json_container_len(&it[2], aval, alen);
+
+					flags = malloc(alen + 1);
+					spa_json_parse_string(aval, alen, flags);
 				}
 			}
 		}

@@ -278,8 +278,10 @@ static void bluez_device_event(void *data, const struct spa_event *event)
 			SPA_EVENT_DEVICE_Props, SPA_POD_OPT_Pod(&props)) < 0)
 		return;
 
-	if ((node = bluez5_find_node(device, id)) == NULL)
+	if ((node = bluez5_find_node(device, id)) == NULL) {
+		pw_log_warn("device %p: unknown node %d", device, id);
 		return;
+	}
 
 	switch (type) {
 	case SPA_DEVICE_EVENT_ObjectConfig:
@@ -288,9 +290,15 @@ static void bluez_device_event(void *data, const struct spa_event *event)
 		 * pw_client_node_get_node() and perform the set_param on
 		 * that node proxy instead of waiting for the session manager
 		 * proxy. */
-		if (props != NULL && node->snode->obj.proxy != NULL)
-			pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
-				SPA_PARAM_Props, 0, props);
+		if (props != NULL) {
+			if (node->snode->obj.proxy != NULL) {
+				pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
+					SPA_PARAM_Props, 0, props);
+			} else {
+				pw_log_warn("device %p: node %d not ready for volume yet",
+						device, id);
+			}
+		}
 		break;
 	default:
 		break;

@@ -157,7 +157,7 @@ objects = {
     #    args = {
     #        factory.name   = support.null-audio-sink
     #        node.name      = Microphone
-    #        media.class    = Audio/Source
+    #        media.class    = Audio/Source/Virtual
     #        audio.position = "FL,FR"
     #        node.name      = my-mic
     #    }

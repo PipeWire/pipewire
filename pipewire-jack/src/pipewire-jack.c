@@ -2144,6 +2144,10 @@ static void registry_event_global(void *data, uint32_t id,
 
 		node_id = atoi(str);
 
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_EXTRA)) != NULL &&
+		    strstr(str, "jack:flags:") == str)
+			flags = atoi(str+11);
+
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;
 
@@ -3204,6 +3208,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	struct object *o;
 	jack_port_type_id_t type_id;
 	uint8_t buffer[1024];
+	char port_flags[64];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct spa_pod *params[4];
 	uint32_t n_params = 0;
@@ -3276,6 +3281,14 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	dict = SPA_DICT_INIT(items, 0);
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_FORMAT_DSP, port_type);
 	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_NAME, port_name);
+	if (flags > 0x1f) {
+		snprintf(port_flags, sizeof(port_flags), "jack:flags:%lu", flags & ~0x1f);
+		items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_EXTRA, port_flags);
+	}
+	if (flags & JackPortIsPhysical)
+		items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_PHYSICAL, "true");
+	if (flags & JackPortIsTerminal)
+		items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_TERMINAL, "true");
 	port_info.props = &dict;
 	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);

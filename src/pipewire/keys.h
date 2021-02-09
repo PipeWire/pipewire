@@ -157,6 +157,8 @@ extern "C" {
 #define PW_KEY_PORT_CONTROL		"port.control"		/**< if this port is a control port */
 #define PW_KEY_PORT_MONITOR		"port.monitor"		/**< if this port is a monitor port */
 #define PW_KEY_PORT_CACHE_PARAMS	"port.cache-params"	/**< cache the node port params */
+#define PW_KEY_PORT_EXTRA		"port.extra"		/**< api specific extra port info, API name
+								  *  should be prefixed. "jack:flags:56" */
 
 /** link properties */
 #define PW_KEY_LINK_ID			"link.id"		/**< a link id */

@@ -837,6 +837,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 		PW_KEY_PORT_TERMINAL,
 		PW_KEY_PORT_CONTROL,
 		PW_KEY_PORT_ALIAS,
+		PW_KEY_PORT_EXTRA,
 		NULL
 	};
 

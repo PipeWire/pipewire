@@ -1455,7 +1455,7 @@ do_process_done(struct spa_loop *loop,
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 	const struct process_data *pd = data;
-	uint32_t index;
+	uint32_t index, towrite;
 	int32_t avail;
 
 	stream->timestamp = pd->pwt.now;
@@ -1513,25 +1513,28 @@ do_process_done(struct spa_loop *loop,
 				avail = stream->attr.fragsize;
 				index = stream->write_index - avail;
 			}
-			else if (avail > (int32_t)stream->attr.fragsize) {
-				pw_log_debug(NAME" %p: [%s] limit avail:%d > frag:%u",
-					stream, client->name, avail, stream->attr.fragsize);
-				avail = stream->attr.fragsize;
+
+			while (avail > 0) {
+				towrite = avail;
+				if (towrite > stream->attr.fragsize)
+					towrite = stream->attr.fragsize;
+
+				msg = message_alloc(impl, stream->channel, towrite);
+				if (msg == NULL)
+					return -errno;
+
+				spa_ringbuffer_read_data(&stream->ring,
+						stream->buffer, stream->attr.maxlength,
+						index % stream->attr.maxlength,
+						msg->data, towrite);
+
+				send_message(client, msg);
+
+				index += towrite;
+				avail -= towrite;
 			}
-
-			msg = message_alloc(impl, stream->channel, avail);
-			if (msg == NULL)
-				return -errno;
-
-			spa_ringbuffer_read_data(&stream->ring,
-					stream->buffer, stream->attr.maxlength,
-					index % stream->attr.maxlength,
-					msg->data, avail);
-
-			stream->read_index = index + avail;
+			stream->read_index = index;
 			spa_ringbuffer_read_update(&stream->ring, stream->read_index);
-
-			send_message(client, msg);
 		}
 	}
 	return 0;

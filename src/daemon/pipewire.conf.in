@@ -135,12 +135,12 @@ objects = {
     # Creates an object from a PipeWire factory with the given parameters.
     # If nofail is given, errors are ignored (and no object is created).
     #
-    #spa-node-factory = { args = "factory.name=videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1" }
-    #spa-device-factory  = { args = "factory.name=api.jack.device foo=bar" flags = [ nofail ] }
-    #spa-device-factory = { args = "factory.name=api.alsa.enum.udev" }
-    #spa-device-factory = { args = "factory.name=api.alsa.seq.bridge node.name=Internal-MIDI-Bridge" }
-    #adapter = { args = "factory.name=audiotestsrc node.name=my-test" }
-    #spa-node-factory  = { args = "factory.name=api.vulkan.compute.source node.name=my-compute-source" }
+    #spa-node-factory = { args = { factory.name=videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1 } }
+    #spa-device-factory  = { args = { factory.name=api.jack.device foo=bar } flags = [ nofail ] }
+    #spa-device-factory = { args = { factory.name=api.alsa.enum.udev } }
+    #spa-device-factory = { args = { factory.name=api.alsa.seq.bridge node.name=Internal-MIDI-Bridge } }
+    #adapter = { args = { factory.name=audiotestsrc node.name=my-test } }
+    #spa-node-factory  = { args = { factory.name=api.vulkan.compute.source node.name=my-compute-source } }
 
     # A default dummy driver. This handles nodes marked with the "node.always-driver"
     # property when no other driver is currently active. JACK clients need this.
@@ -151,6 +151,17 @@ objects = {
             priority.driver = 8000
         }
     }
+    # This creates a new Source node. It will have input ports
+    # that you can link, to provide audio for this source.
+    #adapter = {
+    #    args = {
+    #        factory.name   = support.null-audio-sink
+    #        node.name      = Microphone
+    #        media.class    = Audio/Source
+    #        audio.position = "FL,FR"
+    #        node.name      = my-mic
+    #    }
+    #}
 }
 
 exec = {

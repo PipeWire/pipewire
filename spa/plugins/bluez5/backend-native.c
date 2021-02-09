@@ -167,32 +167,44 @@ static void rfcomm_send_reply(struct spa_source *source, char *data)
 }
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-static bool rfcomm_hsp(struct spa_source *source, char* buf)
+static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 {
 	unsigned int gain, dummy;
 
-	/* There are only four HSP AT commands:
-		* AT+VGS=value: value between 0 and 15, sent by the HS to AG to set the speaker gain.
-		* +VGS=value is sent by AG to HS as a response to an AT+VGS command or when the gain
-		* is changed on the AG side.
-		* AT+VGM=value: value between 0 and 15, sent by the HS to AG to set the microphone gain.
-		* +VGM=value is sent by AG to HS as a response to an AT+VGM command or when the gain
-		* is changed on the AG side.
-		* AT+CKPD=200: Sent by HS when headset button is pressed.
-		* RING: Sent by AG to HS to notify of an incoming call. It can safely be ignored because
-		* it does not expect a reply. */
-	if (sscanf(buf, "AT+VGS=%d", &gain) == 1 ||
-			sscanf(buf, "\r\n+VGM=%d\r\n", &gain) == 1) {
+	/* There are only three HSP AT commands:
+	 * AT+VGS=value: value between 0 and 15, sent by the HS to AG to set the speaker gain.
+	 * AT+VGM=value: value between 0 and 15, sent by the HS to AG to set the microphone gain.
+	 * AT+CKPD=200: Sent by HS when headset button is pressed. */
+	if (sscanf(buf, "AT+VGS=%d", &gain) == 1) {
 		/* t->speaker_gain = gain; */
 		rfcomm_send_reply(source, "OK");
-	} else if (sscanf(buf, "AT+VGM=%d", &gain) == 1 ||
-			sscanf(buf, "\r\n+VGS=%d\r\n", &gain) == 1) {
+	} else if (sscanf(buf, "AT+VGM=%d", &gain) == 1) {
 		/* t->microphone_gain = gain; */
 		rfcomm_send_reply(source, "OK");
 	} else if (sscanf(buf, "AT+CKPD=%d", &dummy) == 1) {
 		rfcomm_send_reply(source, "OK");
 	} else {
 		return false;
+	}
+
+	return true;
+}
+
+static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
+{
+	unsigned int gain;
+
+	/* There are only three HSP AT result codes:
+	 * +VGS=value: value between 0 and 15, sent by AG to HS as a response to an AT+VGS command
+	 *   or when the gain is changed on the AG side.
+	 * +VGM=value: value between 0 and 15, sent by AG to HS as a response to an AT+VGM command
+	 *   or when the gain is changed on the AG side.
+	 * RING: Sent by AG to HS to notify of an incoming call. It can safely be ignored because
+	 *   it does not expect a reply. */
+	if (sscanf(buf, "\r\n+VGS=%d\r\n", &gain) == 1) {
+		/* t->microphone_gain = gain; */
+	} else if (sscanf(buf, "\r\n+VGM=%d\r\n", &gain) == 1) {
+		/* t->speaker_gain = gain; */
 	}
 
 	return true;
@@ -424,8 +436,10 @@ static void rfcomm_event(struct spa_source *source)
 		spa_log_debug(backend->log, NAME": RFCOMM << %s", buf);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-		if ((rfcomm->profile == SPA_BT_PROFILE_HSP_AG) || (rfcomm->profile == SPA_BT_PROFILE_HSP_HS))
-			res = rfcomm_hsp(source, buf);
+		if (rfcomm->profile == SPA_BT_PROFILE_HSP_HS)
+			res = rfcomm_hsp_ag(source, buf);
+		else if (rfcomm->profile == SPA_BT_PROFILE_HSP_AG)
+			res = rfcomm_hsp_hs(source, buf);
 #endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 		if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF)

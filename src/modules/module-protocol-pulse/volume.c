@@ -46,6 +46,22 @@ static inline void volume_make(struct volume *vol, uint8_t channels)
 	vol->channels = channels;
 }
 
+static inline int volume_compare(struct volume *vol, struct volume *other)
+{
+	uint8_t i;
+	if (vol->channels != other->channels) {
+		pw_log_info("channels %d<>%d", vol->channels, other->channels);
+		return -1;
+	}
+	for (i = 0; i < vol->channels; i++) {
+		if (vol->values[i] != other->values[i]) {
+			pw_log_info("val %f<>%f", vol->values[i], other->values[i]);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 struct volume_info {
 	struct volume volume;
 	struct channel_map map;

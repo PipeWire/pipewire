@@ -2349,13 +2349,16 @@ int main(int argc, char *argv[])
 
 	support = pw_context_get_support(impl.this.context, &n_support);
 
-	impl.dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
-	if (impl.dbus)
-		impl.this.dbus_connection = spa_dbus_get_connection(impl.dbus, SPA_DBUS_TYPE_SESSION);
-	if (impl.this.dbus_connection == NULL)
-		pw_log_warn("no dbus connection");
-	else
-		pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
+	if ((str = pw_properties_get(impl.this.props, "dbus")) == NULL ||
+	    pw_properties_parse_bool(str)) {
+		impl.dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
+		if (impl.dbus)
+			impl.this.dbus_connection = spa_dbus_get_connection(impl.dbus, SPA_DBUS_TYPE_SESSION);
+		if (impl.this.dbus_connection == NULL)
+			pw_log_warn("no dbus connection");
+		else
+			pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
+	}
 
 	if ((res = start_session(&impl)) < 0)
 		goto exit;

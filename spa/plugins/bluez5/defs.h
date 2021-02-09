@@ -473,6 +473,8 @@ struct spa_bt_device {
 	 * under same device. So it's safe to cache activation info here. */
 	bool a2dp_volume_active[2];
 
+	uint64_t last_bluez_action_time;
+
 	struct spa_hook_list listener_list;
 	bool added;
 

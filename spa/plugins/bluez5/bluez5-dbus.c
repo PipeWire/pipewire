@@ -67,6 +67,20 @@ enum backend_selection {
 	BACKEND_NUM,
 };
 
+/*
+ * Rate limit for BlueZ SetConfiguration calls.
+ *
+ * Too rapid calls to BlueZ API may cause A2DP profile to disappear, as the
+ * internal BlueZ/connection state gets confused. Use some reasonable minimum
+ * interval.
+ *
+ * AVDTP v1.3 Sec. 6.13 mentions 3 seconds as a reasonable timeout in one case
+ * (ACP connection reset timeout, if no INT response). The case here is
+ * different, but we assume a similar value is fine here.
+ */
+#define BLUEZ_ACTION_RATE_MSEC	3000
+
+
 struct spa_bt_monitor {
 	struct spa_handle handle;
 	struct spa_device device;
@@ -138,6 +152,11 @@ struct spa_bt_a2dp_codec_switch {
 	struct spa_bt_device *device;
 	struct spa_list device_link;
 
+	/*
+	 * Codec switch may be waiting for either DBus reply from BlueZ
+	 * or a timeout (but not both).
+	 */
+	struct spa_source timer;
 	DBusPendingCall *pending;
 
 	uint32_t profile;
@@ -796,6 +815,13 @@ struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monit
 	return NULL;
 }
 
+static void device_update_last_bluez_action_time(struct spa_bt_device *device)
+{
+	struct timespec ts;
+	spa_system_clock_gettime(device->monitor->main_system, CLOCK_MONOTONIC, &ts);
+	device->last_bluez_action_time = SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
 static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_device *d;
@@ -818,6 +844,8 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	spa_hook_list_init(&d->listener_list);
 
 	spa_list_prepend(&monitor->device_list, &d->link);
+
+	device_update_last_bluez_action_time(d);
 
 	return d;
 }
@@ -2347,9 +2375,15 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b);
 
 static struct spa_bt_a2dp_codec_switch *a2dp_codec_switch_cmp_sw;  /* global for qsort */
 
+static int a2dp_codec_switch_start_timer(struct spa_bt_a2dp_codec_switch *sw, uint64_t timeout);
+
+static int a2dp_codec_switch_stop_timer(struct spa_bt_a2dp_codec_switch *sw);
+
 static void a2dp_codec_switch_free(struct spa_bt_a2dp_codec_switch *sw)
 {
 	char **p;
+
+	a2dp_codec_switch_stop_timer(sw);
 
 	if (sw->pending != NULL) {
 		dbus_pending_call_cancel(sw->pending);
@@ -2457,6 +2491,8 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 		goto next;
 	}
 
+	device_update_last_bluez_action_time(sw->device);
+
 	spa_log_info(sw->device->monitor->log, "a2dp codec switch %p: trying codec %s for endpoint %s, local endpoint %s",
 	             sw, codec->name, ep->path, local_endpoint);
 
@@ -2495,6 +2531,19 @@ next:
 static void a2dp_codec_switch_process(struct spa_bt_a2dp_codec_switch *sw)
 {
 	while (*sw->codec_iter != NULL && *sw->path_iter != NULL) {
+		struct timespec ts;
+		uint64_t now, threshold;
+
+		/* Rate limit BlueZ calls */
+		spa_system_clock_gettime(sw->device->monitor->main_system, CLOCK_MONOTONIC, &ts);
+		now = SPA_TIMESPEC_TO_NSEC(&ts);
+		threshold = sw->device->last_bluez_action_time + BLUEZ_ACTION_RATE_MSEC * SPA_NSEC_PER_MSEC;
+		if (now < threshold) {
+			/* Wait for timeout */
+			a2dp_codec_switch_start_timer(sw, threshold - now);
+			return;
+		}
+
 		if (sw->path_iter == sw->paths && (*sw->codec_iter)->caps_preference_cmp) {
 			/* Sort endpoints according to codec preference, when at a new codec. */
 			a2dp_codec_switch_cmp_sw = sw;
@@ -2516,10 +2565,55 @@ static void a2dp_codec_switch_process(struct spa_bt_a2dp_codec_switch *sw)
 	a2dp_codec_switch_free(sw);
 }
 
+static bool a2dp_codec_switch_goto_active(struct spa_bt_a2dp_codec_switch *sw)
+{
+	struct spa_bt_device *device = sw->device;
+	struct spa_bt_a2dp_codec_switch *active_sw;
+
+	active_sw = spa_list_first(&device->codec_switch_list, struct spa_bt_a2dp_codec_switch, device_link);
+
+	if (active_sw != sw) {
+		struct spa_bt_a2dp_codec_switch *t;
+
+		/* This codec switch has been canceled. Switch to the newest one. */
+		spa_log_debug(sw->device->monitor->log,
+			      "a2dp codec switch %p: canceled, go to new switch", sw);
+
+		spa_list_for_each_safe(sw, t, &device->codec_switch_list, device_link) {
+			if (sw != active_sw)
+				a2dp_codec_switch_free(sw);
+		}
+
+		a2dp_codec_switch_process(active_sw);
+		return false;
+	}
+
+	return true;
+}
+
+static void a2dp_codec_switch_timer_event(struct spa_source *source)
+{
+	struct spa_bt_a2dp_codec_switch *sw = source->data;
+	struct spa_bt_device *device = sw->device;
+	struct spa_bt_monitor *monitor = device->monitor;
+	uint64_t exp;
+
+	if (spa_system_timerfd_read(monitor->main_system, source->fd, &exp) < 0)
+                spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
+
+	spa_log_debug(monitor->log, "a2dp codec switch %p: rate limit timer event", sw);
+
+	a2dp_codec_switch_stop_timer(sw);
+
+	if (!a2dp_codec_switch_goto_active(sw))
+		return;
+
+	a2dp_codec_switch_process(sw);
+}
+
 static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_a2dp_codec_switch *sw = user_data;
-	struct spa_bt_a2dp_codec_switch *active_sw;
 	struct spa_bt_device *device = sw->device;
 	DBusMessage *r;
 
@@ -2529,23 +2623,9 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	dbus_pending_call_unref(pending);
 	sw->pending = NULL;
 
-	active_sw = spa_list_first(&device->codec_switch_list, struct spa_bt_a2dp_codec_switch, device_link);
-
-	if (active_sw != sw) {
-		struct spa_bt_a2dp_codec_switch *t;
-
-		/* This codec switch has been canceled. Switch to the newest one. */
-		spa_log_debug(sw->device->monitor->log, "a2dp codec switch %p: canceled, go to new switch", sw);
-
+	if (!a2dp_codec_switch_goto_active(sw)) {
 		if (r != NULL)
 			dbus_message_unref(r);
-
-		spa_list_for_each_safe(sw, t, &device->codec_switch_list, device_link) {
-			if (sw != active_sw)
-				a2dp_codec_switch_free(sw);
-		}
-
-		a2dp_codec_switch_process(active_sw);
 		return;
 	}
 
@@ -2577,6 +2657,53 @@ next:
 	a2dp_codec_switch_next(sw);
 	a2dp_codec_switch_process(sw);
 	return;
+}
+
+static int a2dp_codec_switch_start_timer(struct spa_bt_a2dp_codec_switch *sw, uint64_t timeout)
+{
+	struct spa_bt_monitor *monitor = sw->device->monitor;
+	struct itimerspec ts;
+
+	spa_assert(sw->timer.data == NULL);
+
+	spa_log_debug(monitor->log, "a2dp codec switch %p: starting rate limit timer", sw);
+
+	if (sw->timer.data == NULL) {
+		sw->timer.data = sw;
+		sw->timer.func = a2dp_codec_switch_timer_event;
+		sw->timer.fd = spa_system_timerfd_create(monitor->main_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		sw->timer.mask = SPA_IO_IN;
+		sw->timer.rmask = 0;
+		spa_loop_add_source(monitor->main_loop, &sw->timer);
+	}
+	ts.it_value.tv_sec = timeout / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = timeout % SPA_NSEC_PER_SEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(monitor->main_system, sw->timer.fd, 0, &ts, NULL);
+	return 0;
+}
+
+static int a2dp_codec_switch_stop_timer(struct spa_bt_a2dp_codec_switch *sw)
+{
+	struct spa_bt_monitor *monitor = sw->device->monitor;
+	struct itimerspec ts;
+
+	if (sw->timer.data == NULL)
+		return 0;
+
+	spa_log_debug(monitor->log, "a2dp codec switch %p: stopping rate limit timer", sw);
+
+	spa_loop_remove_source(monitor->main_loop, &sw->timer);
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 0;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(monitor->main_system, sw->timer.fd, 0, &ts, NULL);
+	spa_system_close(monitor->main_system, sw->timer.fd);
+	sw->timer.data = NULL;
+	return 0;
 }
 
 static int a2dp_codec_switch_cmp(const void *a, const void *b)
@@ -2694,13 +2821,17 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 
 	if (!spa_list_is_empty(&device->codec_switch_list)) {
 		/*
-		 * There's a codec switch already running.  BlueZ does not appear to allow
-		 * calling dbus_pending_call_cancel on an active request, so we have to
-		 * wait for the reply to arrive first, and only then start processing this
-		 * request.
+		 * There's a codec switch already running, either waiting for timeout or
+		 * BlueZ reply.
+		 *
+		 * BlueZ does not appear to allow calling dbus_pending_call_cancel on an
+		 * active request, so we have to wait for the reply to arrive first, and
+		 * only then start processing this request. The timeout we would also have
+		 * to wait to pass in any case, so we don't cancel it either.
 		 */
 		spa_log_debug(sw->device->monitor->log,
-		             "a2dp codec switch: already in progress, canceling previous");
+				"a2dp codec switch %p: already in progress, canceling previous",
+				sw);
 
 		spa_list_prepend(&device->codec_switch_list, &sw->device_link);
 	} else {
@@ -2793,6 +2924,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 
 	if (is_new)
 		spa_list_append(&transport->device->transport_list, &transport->device_link);
+
+	device_update_last_bluez_action_time(transport->device);
 
 	if (profile & SPA_BT_PROFILE_A2DP_SOURCE) {
 		/* PW is the rendering device so it's responsible for reporting hardware volume. */

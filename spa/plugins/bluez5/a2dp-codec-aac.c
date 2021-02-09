@@ -119,9 +119,9 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC)
 		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
 	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LTP)
-		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LTP;
+		return -ENOTSUP;  /* Not supported by FDK-AAC */
 	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_SCA)
-		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_SCA;
+		return -ENOTSUP;  /* Not supported by FDK-AAC */
 	else
 		return -ENOTSUP;
 

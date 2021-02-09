@@ -1026,12 +1026,15 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	if ((str = pw_properties_get(impl->conf, "properties")) != NULL)
 		pw_properties_update_string(impl->props, str, strlen(str));
 
-	if (session->dbus_connection)
-		impl->conn = spa_dbus_connection_get(session->dbus_connection);
-	if (impl->conn == NULL)
-		pw_log_warn("no dbus connection, device reservation disabled");
-	else
-		pw_log_debug("got dbus connection %p", impl->conn);
+	if ((str = pw_properties_get(impl->props, "alsa.reserve")) == NULL ||
+	    pw_properties_parse_bool(str)) {
+		if (session->dbus_connection)
+			impl->conn = spa_dbus_connection_get(session->dbus_connection);
+		if (impl->conn == NULL)
+			pw_log_warn("no dbus connection, device reservation disabled");
+		else
+			pw_log_debug("got dbus connection %p", impl->conn);
+	}
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {

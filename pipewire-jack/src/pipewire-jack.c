@@ -4743,9 +4743,11 @@ jack_session_command_t *jack_session_notify (
         const char                *path)
 {
 	struct client *c = (struct client *) client;
+	jack_session_command_t *cmds;
 	spa_return_val_if_fail(c != NULL, NULL);
 	pw_log_warn("not implemented");
-	return NULL;
+	cmds = calloc(1, sizeof(jack_session_command_t));
+	return cmds;
 }
 
 SPA_EXPORT

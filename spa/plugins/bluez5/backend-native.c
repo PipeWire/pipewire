@@ -214,10 +214,7 @@ static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 static bool device_supports_required_mSBC_transport_modes(
 		struct spa_bt_backend *backend, struct spa_bt_device *device) {
-
-	const char *src_addr;
 	bdaddr_t src;
-	int i;
 	uint8_t features[8], max_page = 0;
 	int device_id;
 	int sock;
@@ -227,11 +224,7 @@ static bool device_supports_required_mSBC_transport_modes(
 
 	spa_log_debug(backend->log, NAME": Entering function");
 
-	src_addr = device->adapter->address;
-
-	/* don't use ba2str to avoid -lbluetooth */
-	for (i = 5; i >= 0; i--, src_addr += 3)
-		src.b[i] = strtol(src_addr, NULL, 16);
+	str2ba(device->adapter->address, &src);
 
 	device_id = hci_get_route(&src);
 	sock = hci_open_dev(device_id);
@@ -483,25 +476,18 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	struct spa_bt_device *d = t->device;
 	struct sockaddr_sco addr;
 	socklen_t len;
-	int err, i;
+	int err;
 	int sock;
 	bdaddr_t src;
 	bdaddr_t dst;
-	const char *src_addr, *dst_addr;
 
 	spa_log_debug(backend->log, NAME": transport %p: enter sco_do_connect", t);
 
 	if (d->adapter == NULL)
 		return -EIO;
 
-	src_addr = d->adapter->address;
-	dst_addr = d->address;
-
-	/* don't use ba2str to avoid -lbluetooth */
-	for (i = 5; i >= 0; i--, src_addr += 3)
-		src.b[i] = strtol(src_addr, NULL, 16);
-	for (i = 5; i >= 0; i--, dst_addr += 3)
-		dst.b[i] = strtol(dst_addr, NULL, 16);
+	str2ba(d->adapter->address, &src);
+	str2ba(d->address, &dst);
 
 	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
 	if (sock < 0) {

@@ -365,8 +365,6 @@ int main(int argc, char *argv[])
 	impl.loop = pw_main_loop_new(NULL);
 	impl.context = pw_context_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
 
-	pw_context_add_spa_lib(impl.context, "api.bluez5.*", "bluez5/libspa-bluez5");
-
 	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 
 	spa_list_init(&impl.device_list);

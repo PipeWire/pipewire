@@ -35,6 +35,16 @@ configure_file(input : 'pipewire.conf.in',
                configuration : conf_config,
                install_dir : conf_install_dir)
 
+configure_file(input : 'client.conf.in',
+               output : 'client.conf',
+               configuration : conf_config,
+               install_dir : conf_install_dir)
+
+configure_file(input : 'pipewire-pulse.conf.in',
+               output : 'pipewire-pulse.conf',
+               configuration : conf_config,
+               install_dir : conf_install_dir)
+
 configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
                configuration : conf_config_uninstalled)

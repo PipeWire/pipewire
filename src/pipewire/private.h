@@ -373,6 +373,7 @@ struct pw_context_driver_events {
 struct pw_context {
 	struct pw_impl_core *core;		/**< core object */
 
+	struct pw_properties *conf;		/**< configuration of the context */
 	struct pw_properties *properties;	/**< properties of the context */
 
 	struct defaults defaults;		/**< default parameters */

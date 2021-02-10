@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	}
 
 	properties = pw_properties_new(
-				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+                                PW_KEY_CONFIG_NAME, "pipewire-pulse.conf",
 				NULL);
 
 	loop = pw_main_loop_new(&properties->dict);

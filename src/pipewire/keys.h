@@ -59,8 +59,12 @@ extern "C" {
 #define PW_KEY_OBJECT_PATH		"object.path"		/**< unique path to construct the object */
 #define PW_KEY_OBJECT_ID		"object.id"		/**< a global object id */
 
+/* config */
+#define PW_KEY_CONFIG_PREFIX		"config.prefix"		/**< a config prefix directory */
+#define PW_KEY_CONFIG_NAME		"config.name"		/**< a config file name */
+
 /* context */
-#define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules */
+#define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules, deprecated */
 #define PW_KEY_CONTEXT_MODULES_ARGS	"context.modules.args"	/**< arguments for context modules */
 #define PW_KEY_USER_NAME		"context.user-name"	/**< The user name that runs pipewire */
 #define PW_KEY_HOST_NAME		"context.host-name"	/**< The host name of the machine */

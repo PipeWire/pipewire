@@ -53,6 +53,7 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
+#include "pipewire/conf.h"
 #include "extensions/session-manager.h"
 #include "extensions/client-node.h"
 
@@ -61,6 +62,7 @@
 #include "media-session.h"
 
 #define NAME		"media-session"
+#define SESSION_PREFIX	"media-session.d"
 #define SESSION_CONF	"media-session.conf"
 
 #define sm_object_emit(o,m,v,...) spa_hook_list_call(&(o)->hooks, struct sm_object_events, m, v, ##__VA_ARGS__)
@@ -2140,29 +2142,6 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(impl->loop);
 }
 
-static int load_spa_libs(struct impl *impl, const char *str)
-{
-	struct spa_json it[2];
-	char key[512], value[512];
-
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_object(&it[0], &it[1]) < 0)
-		return -EINVAL;
-
-	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
-		const char *val;
-		if (key[0] == '#') {
-			if (spa_json_next(&it[1], &val) <= 0)
-				break;
-		}
-		else if (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
-			pw_log_debug("spa-libs: '%s' -> '%s'", key, value);
-			pw_context_add_spa_lib(impl->this.context, key, value);
-		}
-	}
-	return 0;
-}
-
 static int collect_modules(struct impl *impl, const char *str)
 {
 	struct spa_json it[3];
@@ -2282,20 +2261,23 @@ int main(int argc, char *argv[])
 
 	impl.state_dir_fd = -1;
 	impl.this.props = pw_properties_new(
-			PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+			PW_KEY_CONFIG_PREFIX, SESSION_PREFIX,
+			PW_KEY_CONFIG_NAME, SESSION_CONF,
 			NULL);
 	if (impl.this.props == NULL)
 		return -1;
 
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
 		return -1;
-	sm_media_session_load_conf(&impl.this, SESSION_CONF, impl.conf);
+
+	pw_conf_load(SESSION_PREFIX, SESSION_CONF, impl.conf);
+
 	if ((str = pw_properties_get(impl.conf, "properties")) != NULL)
 		pw_properties_update_string(impl.this.props, str, strlen(str));
 
 	if ((impl.modules = pw_properties_new("default", "true", NULL)) == NULL)
 		return -1;
-	if ((str = pw_properties_get(impl.conf, "modules")) != NULL)
+	if ((str = pw_properties_get(impl.conf, "session-modules")) != NULL)
 		collect_modules(&impl, str);
 
 	while ((c = getopt_long(argc, argv, "hV", long_options, NULL)) != -1) {
@@ -2333,9 +2315,6 @@ int main(int argc, char *argv[])
 
 	if (impl.this.context == NULL)
 		return -1;
-
-	if ((str = pw_properties_get(impl.conf, "spa-libs")) != NULL)
-		load_spa_libs(&impl, str);
 
 	pw_context_set_object(impl.this.context, SM_TYPE_MEDIA_SESSION, &impl);
 

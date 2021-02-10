@@ -505,7 +505,7 @@ static void idle_func(struct spa_source *source)
 	if ((r = pw_rtkit_make_realtime(impl->system_bus, 0, rtprio)) < 0) {
 		pw_log_warn("could not make thread realtime: %s", spa_strerror(r));
 	} else {
-		pw_log_info("processing thread made realtime");
+		pw_log_info("processing thread made realtime prio:%d", rtprio);
 	}
 exit:
 	pw_rtkit_bus_free(impl->system_bus);

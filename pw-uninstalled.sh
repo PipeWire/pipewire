@@ -32,7 +32,6 @@ if [ ! -d ${BUILDDIR} ]; then
 fi
 
 # the config file read by the daemon
-export PIPEWIRE_CONFIG_FILE="${BUILDDIR}/src/daemon/pipewire-uninstalled.conf"
 export PIPEWIRE_CONFIG_DIR="src/daemon/"
 # the directory with SPA plugins
 export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"

@@ -40,6 +40,7 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
+#include <pipewire/conf.h>
 
 #include <extensions/protocol-native.h>
 
@@ -72,30 +73,6 @@ struct factory_entry {
 	regex_t regex;
 	char *lib;
 };
-
-static int load_module_profiles(struct pw_context *this, char **profiles, const char *args)
-{
-	int i;
-
-	for (i = 0; profiles[i]; i++) {
-		const char *str = profiles[i];
-		if (strcmp(str, "default") == 0) {
-			pw_log_debug(NAME" %p: loading default profile", this);
-			pw_context_load_module(this, "libpipewire-module-protocol-native", args, NULL);
-			pw_context_load_module(this, "libpipewire-module-client-node", args, NULL);
-			pw_context_load_module(this, "libpipewire-module-client-device", args, NULL);
-			pw_context_load_module(this, "libpipewire-module-adapter", args, NULL);
-			pw_context_load_module(this, "libpipewire-module-metadata", args, NULL);
-			pw_context_load_module(this, "libpipewire-module-session-manager", args, NULL);
-		} else if (strcmp(str, "rtkit") == 0) {
-			pw_log_debug(NAME" %p: loading rtkit profile", this);
-			pw_context_load_module(this, "libpipewire-module-rtkit", args, NULL);
-		} else if (strcmp(str, "none") != 0) {
-			pw_log_warn(NAME" %p: unknown profile %s", this, str);
-		}
-	}
-	return 0;
-}
 
 static void fill_properties(struct pw_context *context)
 {
@@ -195,11 +172,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 {
 	struct impl *impl;
 	struct pw_context *this;
-	const char *lib, *str, *args;
-	char **profiles;
+	const char *lib, *str, *conf_prefix, *conf_name;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
-	struct pw_properties *pr;
+	struct pw_properties *pr, *conf = NULL;
 	struct spa_cpu *cpu;
 	int res = 0;
 
@@ -222,6 +198,25 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		res = -errno;
 		goto error_free;
 	}
+
+	conf_prefix = pw_properties_get(properties, PW_KEY_CONFIG_PREFIX);
+
+	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
+	if (conf_name == NULL)
+		conf_name = pw_properties_get(properties, PW_KEY_CONFIG_NAME);
+	if (conf_name == NULL)
+		conf_name = "client.conf";
+
+	conf = pw_properties_new(NULL, NULL);
+	if (conf == NULL) {
+		res = -errno;
+		goto error_free;
+	}
+	pw_conf_load(conf_prefix, conf_name, conf);
+	this->conf = conf;
+
+	if ((str = pw_properties_get(conf, "properties")) != NULL)
+		pw_properties_update_string(properties, str, strlen(str));
 
 	if ((str = pw_properties_get(properties, "mem.mlock-all")) != NULL &&
 	    pw_properties_parse_bool(str)) {
@@ -318,19 +313,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
-	str = pw_properties_get(properties, PW_KEY_CONTEXT_PROFILE_MODULES);
-	if (str == NULL)
-		str = getenv("PIPEWIRE_PROFILE_MODULES");
-	if (str == NULL)
-		str = "default";
-
-	pw_log_debug(NAME" %p: module profile %s", this, str);
-	args = pw_properties_get(properties, PW_KEY_CONTEXT_MODULES_ARGS);
-
-	/* make a copy, in case the properties get changed when loading a module */
-	profiles = pw_split_strv(str, ", ", INT_MAX, &res);
-	load_module_profiles(this, profiles, args);
-	pw_free_strv(profiles);
+	pw_context_parse_conf_section(this, conf, "spa-libs");
+	pw_context_parse_conf_section(this, conf, "modules");
+	pw_context_parse_conf_section(this, conf, "objects");
+	pw_context_parse_conf_section(this, conf, "exec");
 
 	pw_log_debug(NAME" %p: created", this);
 
@@ -341,6 +327,8 @@ error_free_loop:
 error_free:
 	free(this);
 error_cleanup:
+	if (conf)
+		pw_properties_free(conf);
 	if (properties)
 		pw_properties_free(properties);
 	errno = -res;
@@ -402,6 +390,7 @@ void pw_context_destroy(struct pw_context *context)
 	pw_data_loop_destroy(context->data_loop_impl);
 
 	pw_properties_free(context->properties);
+	pw_properties_free(context->conf);
 
 	if (impl->dbus_handle)
 		pw_unload_spa_handle(impl->dbus_handle);
@@ -454,6 +443,12 @@ SPA_EXPORT
 const struct pw_properties *pw_context_get_properties(struct pw_context *context)
 {
 	return context->properties;
+}
+
+SPA_EXPORT
+const struct pw_properties *pw_context_get_config(struct pw_context *context)
+{
+	return context->conf;
 }
 
 /** Update context properties

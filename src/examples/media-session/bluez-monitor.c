@@ -377,7 +377,6 @@ static void device_update(void *data)
 		&device->device_listener,
 		&bluez5_device_events, device);
 
-	set_profile(device, 1);
 	sm_object_sync_update(&device->sdevice->obj);
 }
 

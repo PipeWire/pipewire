@@ -502,6 +502,41 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, cons
 	return SPA_ID_INVALID;
 }
 
+static void set_initial_profile(struct impl *this)
+{
+	struct spa_bt_transport *t;
+	int i;
+
+	/* Prefer A2DP, then HFP, then null */
+
+	for (i = SPA_BT_PROFILE_A2DP_SINK; i <= SPA_BT_PROFILE_A2DP_SOURCE; i <<= 1) {
+		if (!(this->bt_dev->connected_profiles & i))
+			continue;
+
+		t = find_transport(this, i, NULL);
+		if (t) {
+			this->profile = 1;
+			this->selected_a2dp_codec = t->a2dp_codec;
+			return;
+		}
+	}
+
+	for (i = SPA_BT_PROFILE_HSP_HS; i <= SPA_BT_PROFILE_HFP_AG; i <<= 1) {
+		if (!(this->bt_dev->connected_profiles & i))
+			continue;
+
+		t = find_transport(this, i, NULL);
+		if (t) {
+			this->profile = 2;
+			this->selected_a2dp_codec = NULL;
+			return;
+		}
+	}
+
+	this->profile = 0;
+	this->selected_a2dp_codec = NULL;
+}
+
 static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *b,
 		uint32_t id, uint32_t index, uint32_t profile_index, const struct a2dp_codec *codec)
 {
@@ -1132,6 +1167,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(this->bt_dev, &this->supported_codec_count);
 
 	spa_bt_device_add_listener(this->bt_dev, &this->bt_dev_listener, &bt_dev_events, this);
+
+	set_initial_profile(this);
 
 	return 0;
 }

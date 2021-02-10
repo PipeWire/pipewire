@@ -136,7 +136,7 @@ option('volume',
 option('vulkan',
        description: 'Enable vulkan spa plugin integration',
        type: 'boolean',
-       value: true)
+       value: false)
 option('pw-cat',
        description: 'Build pw-cat/pw-play/pw-record',
        type: 'boolean',

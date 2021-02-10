@@ -2872,6 +2872,10 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 
 	stream = find_stream(client, id);
 	if (stream != NULL) {
+
+		if (volume_compare(&stream->volume, &volume) == 0)
+			goto done;
+
 		stream->volume = volume;
 		stream->volume_set = true;
 
@@ -2896,6 +2900,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 		if ((res = set_node_volume_mute(o, &volume, NULL)) < 0)
 			return res;
 	}
+done:
 	return reply_simple_ack(client, tag);
 }
 
@@ -2920,6 +2925,8 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 	stream = find_stream(client, id);
 	if (stream != NULL) {
 		float val;
+
+		if (stream->muted == mute) goto done;
 
 		stream->muted = mute;
 		stream->muted_set = true;
@@ -2947,6 +2954,7 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 		if ((res = set_node_volume_mute(o, NULL, &mute)) < 0)
 			return res;
 	}
+done:
 	return reply_simple_ack(client, tag);
 }
 

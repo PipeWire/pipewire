@@ -35,6 +35,9 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
+#define DEFAULT_AAC_BITRATE	320000
+#define MIN_AAC_BITRATE		64000
+
 struct impl {
 	HANDLE_AACENCODER aacenc;
 
@@ -77,7 +80,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 			AAC_CHANNELS_1 |
 			AAC_CHANNELS_2,
 		.vbr = 1,
-		AAC_INIT_BITRATE(0xFFFFF)
+		AAC_INIT_BITRATE(DEFAULT_AAC_BITRATE)
 	};
 	memcpy(caps, &a2dp_aac, sizeof(a2dp_aac));
 	return sizeof(a2dp_aac);
@@ -100,6 +103,16 @@ static struct {
 	{ AAC_SAMPLING_FREQ_11025, 11025 },
 	{ AAC_SAMPLING_FREQ_8000,  8000 },
 };
+
+static int get_valid_aac_bitrate(a2dp_aac_t *conf)
+{
+	if (AAC_GET_BITRATE(*conf) < MIN_AAC_BITRATE) {
+		/* Unknown (0) or bogus bitrate */
+		return DEFAULT_AAC_BITRATE;
+	} else {
+		return SPA_MIN(AAC_GET_BITRATE(*conf), DEFAULT_AAC_BITRATE);
+	}
+}
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
@@ -143,6 +156,8 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		conf.channels = AAC_CHANNELS_1;
 	else
 		return -ENOTSUP;
+
+	AAC_SET_BITRATE(conf, get_valid_aac_bitrate(&conf));
 
 	memcpy(config, &conf, sizeof(conf));
 
@@ -267,7 +282,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	// Fragmentation is not implemented yet,
 	// so make sure every encoded AAC frame fits in (mtu - header)
 	this->max_bitrate = ((this->mtu - sizeof(struct rtp_header)) * 8 * this->rate) / 1024;
-	this->max_bitrate = SPA_MIN(this->max_bitrate, AAC_GET_BITRATE(*conf));
+	this->max_bitrate = SPA_MIN(this->max_bitrate, get_valid_aac_bitrate(conf));
 	this->cur_bitrate = this->max_bitrate;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATE, this->cur_bitrate);

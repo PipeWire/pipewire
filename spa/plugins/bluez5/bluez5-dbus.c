@@ -612,6 +612,8 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 
 static void device_set_connected(struct spa_bt_device *device, int connected)
 {
+	struct spa_bt_monitor *monitor = device->monitor;
+
 	if (device->connected && !connected)
 		device->connected_profiles = 0;
 
@@ -619,8 +621,11 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 
 	if (connected)
 		spa_bt_device_check_profiles(device, false);
-	else
+	else {
 		device_stop_timer(device);
+		if (device->added)
+			device_remove(monitor, device);
+	}
 }
 
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile)

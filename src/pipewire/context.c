@@ -73,7 +73,7 @@ struct factory_entry {
 	char *lib;
 };
 
-static int load_module_profiles(struct pw_context *this, char **profiles)
+static int load_module_profiles(struct pw_context *this, char **profiles, const char *args)
 {
 	int i;
 
@@ -81,15 +81,15 @@ static int load_module_profiles(struct pw_context *this, char **profiles)
 		const char *str = profiles[i];
 		if (strcmp(str, "default") == 0) {
 			pw_log_debug(NAME" %p: loading default profile", this);
-			pw_context_load_module(this, "libpipewire-module-protocol-native", NULL, NULL);
-			pw_context_load_module(this, "libpipewire-module-client-node", NULL, NULL);
-			pw_context_load_module(this, "libpipewire-module-client-device", NULL, NULL);
-			pw_context_load_module(this, "libpipewire-module-adapter", NULL, NULL);
-			pw_context_load_module(this, "libpipewire-module-metadata", NULL, NULL);
-			pw_context_load_module(this, "libpipewire-module-session-manager", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-protocol-native", args, NULL);
+			pw_context_load_module(this, "libpipewire-module-client-node", args, NULL);
+			pw_context_load_module(this, "libpipewire-module-client-device", args, NULL);
+			pw_context_load_module(this, "libpipewire-module-adapter", args, NULL);
+			pw_context_load_module(this, "libpipewire-module-metadata", args, NULL);
+			pw_context_load_module(this, "libpipewire-module-session-manager", args, NULL);
 		} else if (strcmp(str, "rtkit") == 0) {
 			pw_log_debug(NAME" %p: loading rtkit profile", this);
-			pw_context_load_module(this, "libpipewire-module-rtkit", NULL, NULL);
+			pw_context_load_module(this, "libpipewire-module-rtkit", args, NULL);
 		} else if (strcmp(str, "none") != 0) {
 			pw_log_warn(NAME" %p: unknown profile %s", this, str);
 		}
@@ -195,7 +195,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 {
 	struct impl *impl;
 	struct pw_context *this;
-	const char *lib, *str;
+	const char *lib, *str, *args;
 	char **profiles;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
@@ -325,10 +325,11 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		str = "default";
 
 	pw_log_debug(NAME" %p: module profile %s", this, str);
+	args = pw_properties_get(properties, PW_KEY_CONTEXT_MODULES_ARGS);
 
 	/* make a copy, in case the properties get changed when loading a module */
 	profiles = pw_split_strv(str, ", ", INT_MAX, &res);
-	load_module_profiles(this, profiles);
+	load_module_profiles(this, profiles, args);
 	pw_free_strv(profiles);
 
 	pw_log_debug(NAME" %p: created", this);

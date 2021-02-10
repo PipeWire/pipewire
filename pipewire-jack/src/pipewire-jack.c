@@ -2403,8 +2403,22 @@ jack_client_t * jack_client_open (const char *client_name,
 	varargs_parse(client, options, ap);
 	va_end(ap);
 
-        if ((str = getenv("PIPEWIRE_PROFILE_MODULES")) == NULL)
-		str = "default,rtkit";
+        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+		client->props = pw_properties_new_string(str);
+	if (client->props == NULL)
+		client->props = pw_properties_new(NULL, NULL);
+	if (client->props == NULL)
+		goto no_props;
+
+	if (pw_properties_get(client->props, PW_KEY_CONTEXT_PROFILE_MODULES) == NULL) {
+	        if ((str = getenv("PIPEWIRE_PROFILE_MODULES")) == NULL)
+			str = "default,rtkit";
+		pw_properties_set(client->props, PW_KEY_CONTEXT_PROFILE_MODULES, str);
+	}
+	pw_properties_set(client->props, "loop.cancel", "true");
+	pw_properties_set(client->props, PW_KEY_REMOTE_NAME, client->server_name);
+	pw_properties_set(client->props, PW_KEY_CLIENT_NAME, client_name);
+	pw_properties_set(client->props, PW_KEY_CLIENT_API, "jack");
 
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
@@ -2412,10 +2426,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->context.l = pw_thread_loop_get_loop(client->context.loop),
 	client->context.context = pw_context_new(
 			client->context.l,
-			pw_properties_new(
-				PW_KEY_CONTEXT_PROFILE_MODULES, str,
-				"loop.cancel", "true",
-				NULL),
+			pw_properties_copy(client->props),
 			0);
 	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
 	client->warn_mlock = client->context.context->defaults.mem_warn_mlock;
@@ -2457,12 +2468,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_thread_loop_lock(client->context.loop);
 
         client->core = pw_context_connect(client->context.context,
-				pw_properties_new(
-					PW_KEY_REMOTE_NAME, client->server_name,
-					PW_KEY_CLIENT_NAME, client_name,
-					PW_KEY_CLIENT_API, "jack",
-					NULL),
-				0);
+				pw_properties_copy(client->props), 0);
 	if (client->core == NULL)
 		goto server_failed;
 
@@ -2476,13 +2482,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_registry_add_listener(client->registry,
 			&client->registry_listener,
 			&registry_events, client);
-
-        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
-		client->props = pw_properties_new_string(str);
-	if (client->props == NULL)
-		client->props = pw_properties_new(NULL, NULL);
-	if (client->props == NULL)
-		goto init_failed;
 
 	if (pw_properties_get(client->props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_NAME, client_name);
@@ -2548,16 +2547,21 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_log_debug(NAME" %p: new", client);
 	return (jack_client_t *)client;
 
-init_failed:
+no_props:
 	if (status)
 		*status = JackFailure | JackInitFailure;
 	goto exit;
+init_failed:
+	if (status)
+		*status = JackFailure | JackInitFailure;
+	goto exit_unlock;
 server_failed:
 	if (status)
 		*status = JackFailure | JackServerFailed;
-	goto exit;
-exit:
+	goto exit_unlock;
+exit_unlock:
 	pw_thread_loop_unlock(client->context.loop);
+exit:
 	return NULL;
 disabled:
 	if (status)

@@ -212,7 +212,23 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		res = -errno;
 		goto error_free;
 	}
-	pw_conf_load(conf_prefix, conf_name, conf);
+	if (strcmp(conf_name, "null") != 0 &&
+	    (res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
+		if (conf_prefix == NULL && strcmp(conf_name, "client.conf") == 0) {
+			pw_log_error(NAME" %p: can't load config %s: %s",
+					this, conf_name, spa_strerror(res));
+			goto error_free;
+		} else {
+			pw_log_warn(NAME" %p: can't load config %s: %s. Using client.conf fallback",
+					this, conf_name, spa_strerror(res));
+		}
+		conf_prefix = NULL;
+		if ((res = pw_conf_load_conf(NULL, "client.conf", conf)) < 0) {
+			pw_log_error(NAME" %p: can't load client.conf config: %s",
+					this, spa_strerror(res));
+			goto error_free;
+		}
+	}
 	this->conf = conf;
 
 	if ((str = pw_properties_get(conf, "properties")) != NULL)

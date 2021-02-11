@@ -1553,7 +1553,7 @@ int main(int argc, char *argv[])
 
 	data.context = pw_context_new(l,
 			pw_properties_new(
-				PW_KEY_CONTEXT_PROFILE_MODULES, "default,rtkit",
+				PW_KEY_CONFIG_NAME, "client-rt.conf",
 				NULL),
 			0);
 	if (!data.context) {

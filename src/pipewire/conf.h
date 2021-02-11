@@ -24,7 +24,9 @@
 
 #include <pipewire/context.h>
 
-int pw_conf_load(const char *prefix, const char *name, struct pw_properties *conf);
+int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties *conf);
+int pw_conf_load_state(const char *prefix, const char *name, struct pw_properties *conf);
+int pw_conf_save_state(const char *prefix, const char *name, const struct pw_properties *conf);
 
 int pw_context_parse_conf_section(struct pw_context *context,
 		struct pw_properties *conf, const char *section);

@@ -14,36 +14,27 @@ conf_config.set('media_session_path', join_paths(pipewire_bindir, 'pipewire-medi
 conf_config.set('pipewire_pulse_path', join_paths(pipewire_bindir, 'pipewire-pulse'))
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
-install_data(
-  sources : [
-    'media-session.d/with-jack',
-    'media-session.d/with-pulseaudio',
-    'media-session.d/bluez-monitor.conf',
-    'media-session.d/v4l2-monitor.conf',
-    'media-session.d/media-session.conf',
-    'media-session.d/alsa-monitor.conf' ],
-  install_dir : join_paths(conf_install_dir, 'media-session.d'))
-
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('media_session_path',
   join_paths(meson.build_root(), 'src', 'examples', 'pipewire-media-session'))
 conf_config_uninstalled.set('pipewire_pulse_path',
   join_paths(meson.build_root(), 'src', 'daemon', 'pipewire-pulse'))
 
-configure_file(input : 'pipewire.conf.in',
-               output : 'pipewire.conf',
-               configuration : conf_config,
-               install_dir : conf_install_dir)
 
-configure_file(input : 'client.conf.in',
-               output : 'client.conf',
-               configuration : conf_config,
-               install_dir : conf_install_dir)
+conf_files = [
+  [ 'pipewire.conf.in', 'pipewire.conf' ],
+  [ 'client.conf.in', 'client.conf' ],
+  [ 'client-rt.conf.in', 'client-rt.conf' ],
+  [ 'jack.conf.in', 'jack.conf' ],
+  [ 'pipewire-pulse.conf.in', 'pipewire-pulse.conf' ]
+]
 
-configure_file(input : 'pipewire-pulse.conf.in',
-               output : 'pipewire-pulse.conf',
-               configuration : conf_config,
-               install_dir : conf_install_dir)
+foreach c : conf_files
+  configure_file(input : c.get(0),
+                 output : c.get(1),
+                 configuration : conf_config,
+                 install_dir : conf_install_dir)
+endforeach
 
 configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
@@ -81,6 +72,7 @@ executable('pipewire-pulse',
 #  )
 #endif
 
+subdir('media-session.d')
 if get_option('systemd') and systemd.found()
   subdir('systemd')
 endif

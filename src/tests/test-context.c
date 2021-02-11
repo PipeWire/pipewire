@@ -126,7 +126,7 @@ static void test_create(void)
 
 	context = pw_context_new(pw_main_loop_get_loop(loop),
 			pw_properties_new(
-				PW_KEY_CONTEXT_PROFILE_MODULES, "none",
+				PW_KEY_CONFIG_NAME, "null",
 				NULL), 12);
 	spa_assert(context != NULL);
 	pw_context_add_listener(context, &listener, &context_events, context);

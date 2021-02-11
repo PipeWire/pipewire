@@ -2410,15 +2410,11 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->props == NULL)
 		goto no_props;
 
-	if (pw_properties_get(client->props, PW_KEY_CONTEXT_PROFILE_MODULES) == NULL) {
-	        if ((str = getenv("PIPEWIRE_PROFILE_MODULES")) == NULL)
-			str = "default,rtkit";
-		pw_properties_set(client->props, PW_KEY_CONTEXT_PROFILE_MODULES, str);
-	}
 	pw_properties_set(client->props, "loop.cancel", "true");
 	pw_properties_set(client->props, PW_KEY_REMOTE_NAME, client->server_name);
 	pw_properties_set(client->props, PW_KEY_CLIENT_NAME, client_name);
 	pw_properties_set(client->props, PW_KEY_CLIENT_API, "jack");
+	pw_properties_set(client->props, PW_KEY_CONFIG_NAME, "jack.conf");
 
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);

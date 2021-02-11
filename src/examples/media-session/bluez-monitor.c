@@ -333,23 +333,6 @@ static void bluez5_update_device(struct impl *impl, struct device *dev,
 	pw_properties_update(dev->props, info->props);
 }
 
-static void set_profile(struct device *device, int index)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	pw_log_debug("%p: set profile %d id:%d", device, index, device->device_id);
-
-	device->profile = index;
-	if (device->device_id != 0) {
-		spa_device_set_param(device->device,
-				SPA_PARAM_Profile, 0,
-				spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-					SPA_PARAM_PROFILE_index,   SPA_POD_Int(index)));
-	}
-}
-
 static void device_destroy(void *data)
 {
 	struct device *device = data;

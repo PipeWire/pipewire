@@ -2,48 +2,50 @@
 
 properties = {
     ## Configure properties in the system.
-    #library.name.system =			support/libspa-support
-    #context.data-loop.library.name.system =	support/libspa-support
-    #link.max-buffers =		64
-    link.max-buffers =		16		# version < 3 clients can't handle more
-    #mem.warn-mlock =		false
-    #mem.allow-mlock =		true
-    #mem.mlock-all =		false
-    #log.level =		2
+    #library.name.system                   = support/libspa-support
+    #context.data-loop.library.name.system = support/libspa-support
+    #link.max-buffers                      = 64
+    link.max-buffers                       = 16                       # version < 3 clients can't handle more
+    #mem.warn-mlock                        = false
+    #mem.allow-mlock                       = true
+    #mem.mlock-all                         = false
+    #log.level                             = 2
 
     ## Properties for the DSP configuration.
-    #default.clock.rate	=		48000
-    #default.clock.quantum =		1024
-    #default.clock.min-quantum =	32
-    #default.clock.max-quantum =	8192
-    #default.video.width =		640
-    #default.video.height =		480
-    #default.video.rate.num =		25
-    #default.video.rate.denom =		1
+    #default.clock.rate        = 48000
+    #default.clock.quantum     = 1024
+    #default.clock.min-quantum = 32
+    #default.clock.max-quantum = 8192
+    #default.video.width       = 640
+    #default.video.height      = 480
+    #default.video.rate.num    = 25
+    #default.video.rate.denom  = 1
 }
 
 spa-libs = {
-    ## <factory-name regex> = <library-name>
+    #<factory-name regex> = <library-name>
     #
     # Used to find spa factory names. It maps an spa factory name
     # regular expression to a library name that should contain
     # that factory.
     #
-    audio.convert* = 	audioconvert/libspa-audioconvert
-    api.alsa.* =	alsa/libspa-alsa
-    api.v4l2.* =	v4l2/libspa-v4l2
-    api.libcamera.* =	libcamera/libspa-libcamera
-    api.bluez5.* =	bluez5/libspa-bluez5
-    api.vulkan.* =	vulkan/libspa-vulkan
-    api.jack.* =	jack/libspa-jack
-    support.* =		support/libspa-support
-    #videotestsrc = videotestsrc/libspa-videotestsrc
-    #audiotestsrc = audiotestsrc/libspa-audiotestsrc
+    audio.convert*  = audioconvert/libspa-audioconvert
+    api.alsa.*      = alsa/libspa-alsa
+    api.v4l2.*      = v4l2/libspa-v4l2
+    api.libcamera.* = libcamera/libspa-libcamera
+    api.bluez5.*    = bluez5/libspa-bluez5
+    api.vulkan.*    = vulkan/libspa-vulkan
+    api.jack.*      = jack/libspa-jack
+    support.*       = support/libspa-support
+    #videotestsrc   = videotestsrc/libspa-videotestsrc
+    #audiotestsrc   = audiotestsrc/libspa-audiotestsrc
 }
 
 modules = {
-    ##  <module-name> = { [args = { <key>=<value> ... }]
-    #                     [flags = [ [ifexists] [nofail] ]}
+    #<module-name> = {
+    #    [ args = { <key> = <value> ... } ]
+    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #}
     #
     # Loads a module with the given parameters.
     # If ifexists is given, the module is ignored when it is not found.
@@ -51,13 +53,13 @@ modules = {
     #
 
     # Uses RTKit to boost the data thread priority.
-    libpipewire-module-rtkit  = {
+    libpipewire-module-rtkit = {
         args = {
-            #nice.level = -11
-            #rt.prio = 20
+            #nice.level   = -11
+            #rt.prio      = 20
             #rt.time.soft = 200000
             #rt.time.hard = 200000
-	}
+        }
         flags = [ ifexists nofail ]
     }
 
@@ -129,25 +131,27 @@ modules = {
 }
 
 objects = {
-    ## <factory-name> = { [args = { <key>=<value> ... } ]
-    #                     [flags = [ [nofail] ] }
+    #<factory-name> = {
+    #    [ args  = { <key> = <value> ... } ]
+    #    [ flags = [ [ nofail ] ]
+    #}
     #
     # Creates an object from a PipeWire factory with the given parameters.
     # If nofail is given, errors are ignored (and no object is created).
     #
-    #spa-node-factory = { args = { factory.name=videotestsrc node.name=videotestsrc Spa:Pod:Object:Param:Props:patternType=1 } }
-    #spa-device-factory  = { args = { factory.name=api.jack.device foo=bar } flags = [ nofail ] }
-    #spa-device-factory = { args = { factory.name=api.alsa.enum.udev } }
-    #spa-device-factory = { args = { factory.name=api.alsa.seq.bridge node.name=Internal-MIDI-Bridge } }
-    #adapter = { args = { factory.name=audiotestsrc node.name=my-test } }
-    #spa-node-factory  = { args = { factory.name=api.vulkan.compute.source node.name=my-compute-source } }
+    #spa-node-factory   = { args = { factory.name = videotestsrc node.name = videotestsrc Spa:Pod:Object:Param:Props:patternType = 1 } }
+    #spa-device-factory = { args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
+    #spa-device-factory = { args = { factory.name = api.alsa.enum.udev } }
+    #spa-device-factory = { args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }
+    #adapter            = { args = { factory.name = audiotestsrc node.name = my-test } }
+    #spa-node-factory   = { args = { factory.name = api.vulkan.compute.source node.name = my-compute-source } }
 
     # A default dummy driver. This handles nodes marked with the "node.always-driver"
     # property when no other driver is currently active. JACK clients need this.
     spa-node-factory = {
         args = {
-            factory.name = support.node.driver
-            node.name = Dummy-Driver
+            factory.name    = support.node.driver
+            node.name       = Dummy-Driver
             priority.driver = 8000
         }
     }
@@ -165,14 +169,14 @@ objects = {
 }
 
 exec = {
-    ## <program-name> = { [args = "<arguments>"] }
+    #<program-name> = { [ args = "<arguments>" ] }
     #
     # Execute the given program with arguments.
     #
     # Start the session manager. Run the session manager with -h for
     # options.
     #
-    "@media_session_path@" = { args = ""}
+    "@media_session_path@" = { args = "" }
     #
     # You can optionally start the pulseaudio-server here as well
     # but it better to start it as a systemd service.

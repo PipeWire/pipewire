@@ -2424,6 +2424,9 @@ jack_client_t * jack_client_open (const char *client_name,
 			client->context.l,
 			pw_properties_copy(client->props),
 			0);
+	if (client->context.context == NULL)
+		goto no_props;
+
 	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
 	client->warn_mlock = client->context.context->defaults.mem_warn_mlock;
 

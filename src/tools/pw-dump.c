@@ -530,7 +530,6 @@ static void core_dump(struct object *o)
 	put_value(d, "host-name", i->host_name);
 	put_value(d, "version", i->version);
 	put_value(d, "name", i->name);
-	put_value(d, "name", i->name);
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_end(d, "}", 0);

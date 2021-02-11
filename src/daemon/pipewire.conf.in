@@ -1,6 +1,5 @@
 # Daemon config file for PipeWire version @VERSION@ #
-
-properties = {
+context.properties = {
     ## Configure properties in the system.
     #library.name.system                   = support/libspa-support
     #context.data-loop.library.name.system = support/libspa-support
@@ -10,6 +9,9 @@ properties = {
     #mem.allow-mlock                       = true
     #mem.mlock-all                         = false
     #log.level                             = 2
+
+    core.daemon                            = true                     # listening for socket connections
+    core.name                              = pipewire-0               # core name and socket name
 
     ## Properties for the DSP configuration.
     #default.clock.rate        = 48000
@@ -22,7 +24,7 @@ properties = {
     #default.video.rate.denom  = 1
 }
 
-spa-libs = {
+context.spa-libs = {
     #<factory-name regex> = <library-name>
     #
     # Used to find spa factory names. It maps an spa factory name
@@ -41,7 +43,7 @@ spa-libs = {
     #audiotestsrc   = audiotestsrc/libspa-audiotestsrc
 }
 
-modules = {
+context.modules = {
     #<module-name> = {
     #    [ args = { <key> = <value> ... } ]
     #    [ flags = [ [ ifexists ] [ nofail ] ]
@@ -130,7 +132,7 @@ modules = {
     libpipewire-module-session-manager = null
 }
 
-objects = {
+context.objects = {
     #<factory-name> = {
     #    [ args  = { <key> = <value> ... } ]
     #    [ flags = [ [ nofail ] ]
@@ -168,7 +170,7 @@ objects = {
     #}
 }
 
-exec = {
+context.exec = {
     #<program-name> = { [ args = "<arguments>" ] }
     #
     # Execute the given program with arguments.
@@ -183,5 +185,5 @@ exec = {
     # It can be interesting to start another daemon here that listens
     # on another address with the -a option (eg. -a tcp:4713).
     #
-    #"@pipewire_pulse_path@" = { "#args" = "-a tcp:4713" }
+    #"@pipewire_path@" = { args = "-c pipewire-pulse.conf" }
 }

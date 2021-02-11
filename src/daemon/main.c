@@ -24,56 +24,39 @@
 
 #include <signal.h>
 #include <getopt.h>
-#include <limits.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/wait.h>
 
 #include <spa/utils/result.h>
-#include <spa/utils/json.h>
-
-#include <pipewire/impl.h>
+#include <pipewire/pipewire.h>
 
 #include "config.h"
 
-#define NAME "daemon"
-
-#define DEFAULT_CONFIG_FILE "pipewire.conf"
-
-struct data {
-	struct pw_context *context;
-	struct pw_main_loop *loop;
-
-	const char *daemon_name;
-};
+static const char *config_name = "pipewire.conf";
 
 static void do_quit(void *data, int signal_number)
 {
-	struct data *d = data;
-	pw_main_loop_quit(d->loop);
+	struct pw_main_loop *loop = data;
+	pw_main_loop_quit(loop);
 }
 
-static void show_help(struct data *d, const char *name)
+static void show_help(const char *name)
 {
 	fprintf(stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
-		"  -n, --name                            Daemon name (Default %s)\n",
+		"  -c, --config                          Load config (Default %s)\n",
 		name,
-		d->daemon_name);
+		config_name);
 }
 
 int main(int argc, char *argv[])
 {
-	struct data d;
+	struct pw_context *context;
+	struct pw_main_loop *loop;
 	struct pw_properties *properties;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
-		{ "name",	required_argument,	NULL, 'n' },
+		{ "config",	required_argument,	NULL, 'c' },
 
 		{ NULL, 0, NULL, 0}
 	};
@@ -82,19 +65,14 @@ int main(int argc, char *argv[])
 	if (setenv("PIPEWIRE_INTERNAL", "1", 1) < 0)
 		fprintf(stderr, "can't set PIPEWIRE_INTERNAL env: %m");
 
-	spa_zero(d);
 	pw_init(&argc, &argv);
 
-	d.daemon_name = getenv("PIPEWIRE_CORE");
-	if (d.daemon_name == NULL)
-		d.daemon_name = PW_DEFAULT_REMOTE;
-
-	while ((c = getopt_long(argc, argv, "hVn:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVc:", long_options, NULL)) != -1) {
 		switch (c) {
-		case 'h' :
-			show_help(&d, argv[0]);
+		case 'h':
+			show_help(argv[0]);
 			return 0;
-		case 'V' :
+		case 'V':
 			fprintf(stdout, "%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
@@ -102,9 +80,8 @@ int main(int argc, char *argv[])
 				pw_get_headers_version(),
 				pw_get_library_version());
 			return 0;
-		case 'n' :
-			d.daemon_name = optarg;
-			fprintf(stdout, "set name %s\n", d.daemon_name);
+		case 'c':
+			config_name = optarg;
 			break;
 		default:
 			return -1;
@@ -112,31 +89,30 @@ int main(int argc, char *argv[])
 	}
 
 	properties = pw_properties_new(
-                                PW_KEY_CORE_NAME, d.daemon_name,
-                                PW_KEY_CONFIG_NAME, "pipewire-uninstalled.conf",
-                                PW_KEY_CORE_DAEMON, "true", NULL);
+				PW_KEY_CONFIG_NAME, config_name,
+				NULL);
 
-	d.loop = pw_main_loop_new(&properties->dict);
-	if (d.loop == NULL) {
+	loop = pw_main_loop_new(&properties->dict);
+	if (loop == NULL) {
 		pw_log_error("failed to create main-loop: %m");
 		return -1;
 	}
 
-	pw_loop_add_signal(pw_main_loop_get_loop(d.loop), SIGINT, do_quit, &d);
-	pw_loop_add_signal(pw_main_loop_get_loop(d.loop), SIGTERM, do_quit, &d);
+	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGINT, do_quit, loop);
+	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGTERM, do_quit, loop);
 
-	d.context = pw_context_new(pw_main_loop_get_loop(d.loop), properties, 0);
-	if (d.context == NULL) {
+	context = pw_context_new(pw_main_loop_get_loop(loop), properties, 0);
+	if (context == NULL) {
 		pw_log_error("failed to create context: %m");
 		return -1;
 	}
 
 	pw_log_info("start main loop");
-	pw_main_loop_run(d.loop);
+	pw_main_loop_run(loop);
 	pw_log_info("leave main loop");
 
-	pw_context_destroy(d.context);
-	pw_main_loop_destroy(d.loop);
+	pw_context_destroy(context);
+	pw_main_loop_destroy(loop);
 	pw_deinit();
 
 	return 0;

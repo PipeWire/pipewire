@@ -1,6 +1,5 @@
-# Daemon config file for PipeWire pulse version @VERSION@ #
-
-properties = {
+# PulseAudio config file for PipeWire version @VERSION@ #
+context.properties = {
     ## Configure properties in the system.
     #mem.warn-mlock =		false
     #mem.allow-mlock =		true
@@ -8,49 +7,30 @@ properties = {
     #log.level =		2
 }
 
-spa-libs = {
-    ## <factory-name regex> = <library-name>
-    #
-    # Used to find spa factory names. It maps an spa factory name
-    # regular expression to a library name that should contain
-    # that factory.
-    #
+context.spa-libs = {
     audio.convert* = 	audioconvert/libspa-audioconvert
     support.* =		support/libspa-support
 }
 
-modules = {
-    ##  <module-name> = { [args = { <key>=<value> ... }]
-    #                     [flags = [ [ifexists] [nofail] ]}
-    #
-    # Loads a module with the given parameters.
-    # If ifexists is given, the module is ignored when it is not found.
-    # If nofail is given, module initialization failures are ignored.
-    #
-    # Uses RTKit to boost the data thread priority.
+context.modules = {
     libpipewire-module-rtkit  = {
         args = {
-            nice.level = -14
+            #nice.level = -11
             #rt.prio = 20
             #rt.time.soft = 200000
             #rt.time.hard = 200000
 	}
         flags = [ ifexists nofail ]
     }
-
-    # The native communication protocol.
     libpipewire-module-protocol-native = null
-
-    # Allows creating nodes that run in the context of the
-    # client. Is used by all clients that want to provide
-    # data to PipeWire.
     libpipewire-module-client-node = null
-
-    # Makes a factory for wrapping nodes in an adapter with a
-    # converter and resampler.
     libpipewire-module-adapter = null
-
-    # Allows applications to create metadata objects. It creates
-    # a factory for Metadata objects.
     libpipewire-module-metadata = null
+    libpipewire-module-protocol-pulse = {
+        args = {
+	    server.address = [
+	        "unix:native"
+		# "tcp:4713"
+	}
+    }
 }

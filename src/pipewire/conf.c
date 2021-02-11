@@ -535,13 +535,13 @@ int pw_context_parse_conf_section(struct pw_context *context,
 	if ((str = pw_properties_get(conf, section)) == NULL)
 		return -ENOENT;
 
-	if (strcmp(section, "spa-libs") == 0)
+	if (strcmp(section, "context.spa-libs") == 0)
 		res = parse_spa_libs(context, str);
-	else if (strcmp(section, "modules") == 0)
+	else if (strcmp(section, "context.modules") == 0)
 		res = parse_modules(context, str);
-	else if (strcmp(section, "objects") == 0)
+	else if (strcmp(section, "context.objects") == 0)
 		res = parse_objects(context, str);
-	else if (strcmp(section, "exec") == 0)
+	else if (strcmp(section, "context.exec") == 0)
 		res = parse_exec(context, str);
 	else
 		res = -EINVAL;

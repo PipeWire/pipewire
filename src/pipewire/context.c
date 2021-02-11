@@ -219,8 +219,11 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 					this, conf_name, spa_strerror(res));
 			goto error_free;
 		} else {
-			pw_log_warn(NAME" %p: can't load config %s: %s. Using client.conf fallback",
-					this, conf_name, spa_strerror(res));
+			pw_log_warn(NAME" %p: can't load config %s%s%s: %s. Using client.conf fallback",
+					this,
+					conf_prefix ? conf_prefix : "",
+					conf_prefix ? "/" : "",
+					conf_name, spa_strerror(res));
 		}
 		conf_prefix = NULL;
 		if ((res = pw_conf_load_conf(NULL, "client.conf", conf)) < 0) {
@@ -231,7 +234,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 	this->conf = conf;
 
-	if ((str = pw_properties_get(conf, "properties")) != NULL)
+	if ((str = pw_properties_get(conf, "context.properties")) != NULL)
 		pw_properties_update_string(properties, str, strlen(str));
 
 	if ((str = pw_properties_get(properties, "mem.mlock-all")) != NULL &&
@@ -329,10 +332,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
-	pw_context_parse_conf_section(this, conf, "spa-libs");
-	pw_context_parse_conf_section(this, conf, "modules");
-	pw_context_parse_conf_section(this, conf, "objects");
-	pw_context_parse_conf_section(this, conf, "exec");
+	pw_context_parse_conf_section(this, conf, "context.spa-libs");
+	pw_context_parse_conf_section(this, conf, "context.modules");
+	pw_context_parse_conf_section(this, conf, "context.objects");
+	pw_context_parse_conf_section(this, conf, "context.exec");
 
 	pw_log_debug(NAME" %p: created", this);
 

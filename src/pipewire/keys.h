@@ -65,7 +65,6 @@ extern "C" {
 
 /* context */
 #define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules, deprecated */
-#define PW_KEY_CONTEXT_MODULES_ARGS	"context.modules.args"	/**< arguments for context modules */
 #define PW_KEY_USER_NAME		"context.user-name"	/**< The user name that runs pipewire */
 #define PW_KEY_HOST_NAME		"context.host-name"	/**< The host name of the machine */
 

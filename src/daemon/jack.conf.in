@@ -1,6 +1,6 @@
-# Daemon config file for PipeWire JACK clients version @VERSION@ #
+# JACK client config file for PipeWire version @VERSION@ #
 
-properties = {
+context.properties = {
     ## Configure properties in the system.
     #mem.warn-mlock =		false
     #mem.allow-mlock =		true
@@ -8,7 +8,7 @@ properties = {
     #log.level =		2
 }
 
-spa-libs = {
+context.spa-libs = {
     ## <factory-name regex> = <library-name>
     #
     # Used to find spa factory names. It maps an spa factory name
@@ -18,7 +18,7 @@ spa-libs = {
     support.* =		support/libspa-support
 }
 
-modules = {
+context.modules = {
     ##  <module-name> = { [args = { <key>=<value> ... }]
     #                     [flags = [ [ifexists] [nofail] ]}
     #

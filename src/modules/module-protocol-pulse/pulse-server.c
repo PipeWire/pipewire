@@ -5736,8 +5736,9 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 {
 	struct impl *impl;
 	const char *str;
-	int i, n_addr;
-	char **addr, *free_str = NULL;
+	char *free_str = NULL;
+	struct spa_json it[2];
+	char value[512];
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -5747,7 +5748,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	if (props != NULL)
 		str = pw_properties_get(props, "server.address");
 	if (str == NULL) {
-		str = free_str = spa_aprintf("%s-%s",
+		str = free_str = spa_aprintf("[ \"%s-%s\" ]",
 				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
 				get_server_name(context));
 	}
@@ -5775,16 +5776,15 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);
 
-	addr = pw_split_strv(str, ",", INT_MAX, &n_addr);
-	for (i = 0; i < n_addr; i++) {
-		if (addr[i] == NULL)
-			continue;
-		if (create_server(impl, addr[i]) == NULL) {
-			pw_log_warn(NAME" %p: can't create server for %s: %m",
-					impl, addr[i]);
+	spa_json_init(&it[0], str, strlen(str));
+	if (spa_json_enter_array(&it[0], &it[1]) > 0) {
+		while (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
+			if (create_server(impl, value) == NULL) {
+				pw_log_warn(NAME" %p: can't create server for %s: %m",
+						impl, value);
+			}
 		}
 	}
-	pw_free_strv(addr);
 	free(free_str);
 
 	dbus_request_name(context, "org.pulseaudio.Server");

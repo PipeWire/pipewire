@@ -3,6 +3,7 @@ context.properties = {
     ## Configure properties in the system.
     #library.name.system                   = support/libspa-support
     #context.data-loop.library.name.system = support/libspa-support
+    #support.dbus                          = true
     #link.max-buffers                      = 64
     link.max-buffers                       = 16                       # version < 3 clients can't handle more
     #mem.warn-mlock                        = false

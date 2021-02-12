@@ -281,20 +281,23 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if ((cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU)) != NULL)
 		pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN, "%u", spa_cpu_get_max_align(cpu));
 
-	lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_DBUS);
-	if (lib == NULL)
-		lib = "support/libspa-dbus";
+	if ((str = pw_properties_get(properties, "support.dbus")) == NULL ||
+	    pw_properties_parse_bool(str)) {
+		lib = pw_properties_get(properties, PW_KEY_LIBRARY_NAME_DBUS);
+		if (lib == NULL)
+			lib = "support/libspa-dbus";
 
-	impl->dbus_handle = pw_load_spa_handle(lib,
-			SPA_NAME_SUPPORT_DBUS, NULL,
-			n_support, this->support);
+		impl->dbus_handle = pw_load_spa_handle(lib,
+				SPA_NAME_SUPPORT_DBUS, NULL,
+				n_support, this->support);
 
-	if (impl->dbus_handle == NULL ||
-	    (res = spa_handle_get_interface(impl->dbus_handle,
-						SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
-			pw_log_warn(NAME" %p: can't load dbus interface: %s", this, spa_strerror(res));
-	} else {
-		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
+		if (impl->dbus_handle == NULL ||
+		    (res = spa_handle_get_interface(impl->dbus_handle,
+							SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
+				pw_log_warn(NAME" %p: can't load dbus interface: %s", this, spa_strerror(res));
+		} else {
+			this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
+		}
 	}
 	this->n_support = n_support;
 

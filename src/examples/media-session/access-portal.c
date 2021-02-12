@@ -346,6 +346,15 @@ static void do_permission_store_check(struct client *client)
 					client);
 		return;
 	}
+	if (impl->bus == NULL) {
+		pw_log_debug("Ignoring portal check for client %p: dbus disabled",
+			     client);
+		client->allowed_media_roles = MEDIA_ROLE_ALL;
+		sm_media_session_for_each_object(impl->session,
+					set_global_permissions,
+					client);
+		return;
+	}
 
 	client->allowed_media_roles = MEDIA_ROLE_NONE;
 
@@ -552,6 +561,9 @@ static DBusHandlerResult permission_store_changed_handler(DBusConnection *connec
 static int init_dbus_connection(struct impl *impl)
 {
 	DBusError error;
+
+	if (impl->bus == NULL)
+		return 0;
 
 	dbus_error_init(&error);
 

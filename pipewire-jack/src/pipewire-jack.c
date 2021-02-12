@@ -111,6 +111,7 @@ struct object {
 			char name[JACK_CLIENT_NAME_SIZE+1];
 			int32_t priority;
 			uint32_t client_id;
+			bool is_bridge;
 		} node;
 		struct {
 			uint32_t src;
@@ -2102,6 +2103,9 @@ static void registry_event_global(void *data, uint32_t id,
 
 		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
 
+		if ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) != NULL)
+			o->node.is_bridge = strstr(str, "Bridge") != NULL;
+
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
 		    (str = node_name) == NULL) {
@@ -2195,7 +2199,11 @@ static void registry_event_global(void *data, uint32_t id,
 			if (ot == NULL || ot->type != INTERFACE_Node)
 				goto exit_free;
 
-			snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
+			if (ot->node.is_bridge && strchr(str, ':') != NULL)
+				snprintf(o->port.name, sizeof(o->port.name), "%s", str);
+			else
+				snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
+
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
 		}

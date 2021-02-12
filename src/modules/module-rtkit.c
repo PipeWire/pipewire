@@ -546,6 +546,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct spa_system *system;
 	const struct spa_support *support;
 	uint32_t n_support;
+	const struct pw_properties *props;
+	const char *str;
 	int res;
 
 	support = pw_context_get_support(context, &n_support);
@@ -557,6 +559,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
         if (system == NULL)
                 return -ENOTSUP;
+
+	if ((props = pw_context_get_properties(context)) != NULL &&
+	    (str = pw_properties_get(props, "support.dbus")) != NULL &&
+	    !pw_properties_parse_bool(str))
+		return -ENOTSUP;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

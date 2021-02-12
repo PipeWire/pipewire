@@ -128,6 +128,7 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 	struct impl *impl = dev->impl;
 	int i, res;
 	const char *prefix, *str, *d, *rules;
+	char name[1024];
 
 	pw_log_debug("new node %u", id);
 
@@ -162,8 +163,9 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 	else
 		prefix = info->factory_name;
 
-	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s", prefix, str);
-
+	pw_properties_set(node->props, PW_KEY_NODE_NAME,
+			sm_media_session_sanitize_name(name, sizeof(name),
+					'_', "%s.%s", prefix, str));
 	for (i = 2; i <= 99; i++) {
 		if ((d = pw_properties_get(node->props, PW_KEY_NODE_NAME)) == NULL)
 			break;
@@ -171,8 +173,9 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 		if (v4l2_find_node(dev, SPA_ID_INVALID, d) == NULL)
 			break;
 
-		pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s.%d",
-				prefix, str, i);
+		pw_properties_set(node->props, PW_KEY_NODE_NAME,
+			sm_media_session_sanitize_name(name, sizeof(name),
+					'_', "%s.%s.%d", prefix, str, i));
 	}
 
 	str = pw_properties_get(dev->props, SPA_KEY_DEVICE_DESCRIPTION);

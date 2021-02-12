@@ -210,6 +210,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	struct impl *impl = device->impl;
 	int res;
 	const char *dev, *subdev, *stream, *profile, *profile_desc, *rules;
+	char name[1024];
 	int i, priority;
 
 	pw_log_debug("new node %u", id);
@@ -282,12 +283,16 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	}
 	if (pw_properties_get(node->props, PW_KEY_NODE_NICK) == NULL) {
 		const char *s;
+
 		s = pw_properties_get(device->props, PW_KEY_DEVICE_NICK);
 		if (s == NULL)
 			s = pw_properties_get(device->props, SPA_KEY_API_ALSA_CARD_NAME);
 		if (s == NULL)
 			s = pw_properties_get(device->props, "alsa.card_name");
-		pw_properties_set(node->props, PW_KEY_NODE_NICK, s);
+
+		pw_properties_set(node->props, PW_KEY_NODE_NICK,
+			sm_media_session_sanitize_name(name, sizeof(name),
+				' ', "%s", s));
 
 	}
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
@@ -297,9 +302,12 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			devname = "unnamed-device";
 		if (strstr(devname, "alsa_card.") == devname)
 			devname += 10;
-		pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s",
+
+		pw_properties_set(node->props, SPA_KEY_NODE_NAME,
+			sm_media_session_sanitize_name(name, sizeof(name),
+				'_', "%s.%s.%s",
 				node->direction == PW_DIRECTION_OUTPUT ?
-				"alsa_input" : "alsa_output", devname, profile);
+				"alsa_input" : "alsa_output", devname, profile));
 
 		for (i = 2; i <= 99; i++) {
 			if ((d = pw_properties_get(node->props, PW_KEY_NODE_NAME)) == NULL)
@@ -308,9 +316,11 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			if (alsa_find_node(device, SPA_ID_INVALID, d) == NULL)
 				break;
 
-			pw_properties_setf(node->props, SPA_KEY_NODE_NAME, "%s.%s.%s.%d",
+			pw_properties_set(node->props, SPA_KEY_NODE_NAME,
+				sm_media_session_sanitize_name(name, sizeof(name),
+					'_', "%s.%s.%s.%d",
 					node->direction == PW_DIRECTION_OUTPUT ?
-					"alsa_input" : "alsa_output", devname, profile, i);
+					"alsa_input" : "alsa_output", devname, profile, i));
 		}
 	}
 	if (pw_properties_get(node->props, PW_KEY_NODE_DESCRIPTION) == NULL) {

@@ -1798,6 +1798,31 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 	return pw_conf_save_state(SESSION_PREFIX, name, props);
 }
 
+char *sm_media_session_sanitize_name(char *name, int size, char sub, const char *fmt, ...)
+{
+	char *p;
+	va_list varargs;
+
+	va_start(varargs, fmt);
+	if (vsnprintf(name, size, fmt, varargs) < 0)
+		return NULL;
+	va_end(varargs);
+
+	for (p = name; *p; p++) {
+		switch(*p) {
+		case '0' ... '9':
+		case 'a' ... 'z':
+		case 'A' ... 'Z':
+		case '.': case '-': case '_':
+			break;
+		default:
+			*p = sub;
+			break;
+		}
+	}
+	return name;
+}
+
 static void monitor_core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;

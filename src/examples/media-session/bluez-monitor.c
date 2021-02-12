@@ -133,6 +133,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	int res;
 	const char *prefix, *str, *profile, *rules;
 	int priority;
+	char name[1024];
 
 	pw_log_debug("new node %u", id);
 
@@ -175,7 +176,10 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	else
 		prefix = info->factory_name;
 
-	pw_properties_setf(node->props, PW_KEY_NODE_NAME, "%s.%s.%s", prefix, str, profile);
+	pw_properties_set(node->props, PW_KEY_NODE_NAME,
+		sm_media_session_sanitize_name(name, sizeof(name),
+			'_', "%s.%s.%s", prefix, str, profile));
+
 	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);
 
 	if (pw_properties_get(node->props, PW_KEY_PRIORITY_DRIVER) == NULL) {

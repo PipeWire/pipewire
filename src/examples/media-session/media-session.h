@@ -300,6 +300,9 @@ int sm_media_session_save_state(struct sm_media_session *sess,
 int sm_media_session_match_rules(const char *rules, size_t size,
 		struct pw_properties *props);
 
+char *sm_media_session_sanitize_name(char *name, int size, char sub,
+		const char *fmt, ...) SPA_PRINTF_FUNC(4, 5);
+
 #ifdef __cplusplus
 }
 #endif

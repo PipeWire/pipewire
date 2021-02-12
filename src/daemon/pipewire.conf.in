@@ -161,11 +161,32 @@ context.objects = {
     # that you can link, to provide audio for this source.
     #adapter = {
     #    args = {
-    #        factory.name   = support.null-audio-sink
-    #        node.name      = Microphone
-    #        media.class    = Audio/Source/Virtual
-    #        audio.position = "FL,FR"
-    #        node.name      = my-mic
+    #        factory.name      = support.null-audio-sink
+    #        node.name         = my-mic
+    #        node.description  = Microphone
+    #        media.class       = Audio/Source/Virtual
+    #        audio.position    = "FL,FR"
+    #    }
+    #}
+
+    # This creates a single PCM source device for the given
+    # alsa device path hw:0. You can change source to sink
+    # to make a sink in the same way.
+    #adapter = {
+    #    args = {
+    #        factory.name            = api.alsa.pcm.source
+    #        node.name               = alsa-source
+    #        node.description        = "PCM Source"
+    #        media.class             = Audio/Source
+    #        api.alsa.path           = hw:0
+    #        #api.alsa.period-size   = 1024
+    #        #api.alsa.headroom      = 0
+    #        #api.alsa.disable-mmap  = false
+    #        #api.alsa.disable-batch = false
+    #        #audio.format           = "S16LE
+    #        #audio.rate             = 48000
+    #        #audio.channels         = 2
+    #        #audio.position         = "FL,FR"
     #    }
     #}
 }

@@ -2116,7 +2116,7 @@ int main(int argc, char *argv[])
 
 	pw_conf_load_conf(SESSION_PREFIX, SESSION_CONF, impl.conf);
 
-	if ((str = pw_properties_get(impl.conf, "properties")) != NULL)
+	if ((str = pw_properties_get(impl.conf, "context.properties")) != NULL)
 		pw_properties_update_string(impl.this.props, str, strlen(str));
 
 	if ((impl.modules = pw_properties_new("default", "true", NULL)) == NULL)

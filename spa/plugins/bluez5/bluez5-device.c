@@ -118,6 +118,19 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 		node->volumes[i] = 1.0;
 }
 
+static const char *get_codec_name(struct spa_bt_transport *t)
+{
+	if (t->a2dp_codec != NULL)
+		return t->a2dp_codec->name;
+	switch (t->codec) {
+	case HFP_AUDIO_CODEC_MSBC:
+		return "mSBC";
+	case HFP_AUDIO_CODEC_CVSD:
+		return "CVSD";
+	}
+	return "unknown";
+}
+
 static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		uint32_t id, const char *factory_name)
 {
@@ -129,8 +142,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	snprintf(transport, sizeof(transport), "pointer:%p", t);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PROFILE, spa_bt_profile_name(t->profile));
-	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CODEC,
-			t->a2dp_codec ? t->a2dp_codec->name : "unknown");
+	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CODEC, get_codec_name(t));
 	snprintf(str_id, sizeof(str_id), "%d", id);
 	items[3] = SPA_DICT_ITEM_INIT("card.profile.device", str_id);
 	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);

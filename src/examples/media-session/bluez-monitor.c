@@ -181,7 +181,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	if (pw_properties_get(node->props, PW_KEY_PRIORITY_DRIVER) == NULL) {
 		priority = device->priority + 10;
 
-		if (strcmp(prefix, "bluez_output") == 0)
+		if (strstr(info->factory_name, "source") != NULL)
 			priority += 1000;
 
 		pw_properties_setf(node->props, PW_KEY_PRIORITY_DRIVER, "%d", priority);

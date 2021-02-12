@@ -156,9 +156,9 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 			str += 12;
 
 	if (strstr(info->factory_name, "sink") != NULL)
-		prefix = "v4l2_input";
-	else if (strstr(info->factory_name, "source") != NULL)
 		prefix = "v4l2_output";
+	else if (strstr(info->factory_name, "source") != NULL)
+		prefix = "v4l2_input";
 	else
 		prefix = info->factory_name;
 

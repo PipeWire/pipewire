@@ -21,8 +21,9 @@ This file is part of PipeWire.
     file.</p>
 
     <p>The config file in the default location is used but the
-    environment variable PIPEWIRE_CONFIG_FILE can be used to specify
-    an alternative config file.</p>
+    environment variables PIPEWIRE_CONFIG_DIR, PIPEWIRE_CONFIG_PREFIX
+    and PIPEWIRE_CONFIG_NAME can be used to specify an alternative config
+    directory, subdirectory and file respectively.</p>
   </description>
 
   <section name="General Commands">

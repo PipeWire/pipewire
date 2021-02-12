@@ -199,7 +199,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	}
 
-	conf_prefix = pw_properties_get(properties, PW_KEY_CONFIG_PREFIX);
+	conf_prefix = getenv("PIPEWIRE_CONFIG_PREFIX");
+	if (conf_prefix == NULL)
+		conf_prefix = pw_properties_get(properties, PW_KEY_CONFIG_PREFIX);
 
 	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
 	if (conf_name == NULL)

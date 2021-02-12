@@ -2,6 +2,8 @@
 
 set -e
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 while getopts ":b:v:" opt; do
 	case ${opt} in
 		b)
@@ -22,7 +24,7 @@ while getopts ":b:v:" opt; do
 done
 
 if [ -z "${BUILDDIR}" ]; then
-	BUILDDIR=${PWD}/build
+	BUILDDIR=${SCRIPT_DIR}/build
 	echo "Using default build directory: ${BUILDDIR}"
 fi
 
@@ -41,8 +43,8 @@ export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${BUILDDIR}/src/exampl
 export LD_LIBRARY_PATH="${BUILDDIR}/pipewire-pulseaudio/src/:${BUILDDIR}/src/pipewire/:${BUILDDIR}/pipewire-jack/src/${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
 export GST_PLUGIN_PATH="${BUILDDIR}/src/gst/${GST_PLUGIN_PATH+":${GST_PLUGIN_PATH}"}"
 # the directory with card profiles and paths
-export ACP_PATHS_DIR=${PWD}"/spa/plugins/alsa/mixer/paths"
-export ACP_PROFILES_DIR=${PWD}"/spa/plugins/alsa/mixer/profile-sets"
+export ACP_PATHS_DIR="${SCRIPT_DIR}/spa/plugins/alsa/mixer/paths"
+export ACP_PROFILES_DIR="${SCRIPT_DIR}/spa/plugins/alsa/mixer/profile-sets"
 
 # FIXME: find a nice, shell-neutral way to specify a prompt
 ${SHELL}

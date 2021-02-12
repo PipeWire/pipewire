@@ -2070,31 +2070,6 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property
 };
 
-static void sanitize_name(char *name)
-{
-	char *p;
-	for (p = name; *p; p++) {
-		switch (*p) {
-		case ':':
-			*p = ' ';
-			break;
-		}
-	}
-}
-static void sanitize_port_name(char *name)
-{
-	char *p, *e;
-	if ((e = rindex(name, ':')) == NULL)
-		e = name + strlen(name);
-	for (p = name; p < e; p++) {
-		switch (*p) {
-		case ':':
-			*p = ' ';
-			break;
-		}
-	}
-}
-
 static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, const char *type, uint32_t version,
                                   const struct spa_dict *props)
@@ -2110,7 +2085,6 @@ static void registry_event_global(void *data, uint32_t id,
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
 		const char *app, *node_name;
-		char name[JACK_CLIENT_NAME_SIZE+1];
 
 		o = alloc_object(c);
 		object_type = INTERFACE_Node;
@@ -2133,19 +2107,14 @@ static void registry_event_global(void *data, uint32_t id,
 		    (str = node_name) == NULL) {
 			str = "node";
 		}
-
 		if (app && strcmp(app, str) != 0)
-			snprintf(name, sizeof(name), "%s/%s", app, str);
+			snprintf(o->node.name, sizeof(o->node.name), "%s/%s", app, str);
 		else
-			snprintf(name, sizeof(name), "%s", str);
+			snprintf(o->node.name, sizeof(o->node.name), "%s", str);
 
-		sanitize_name(name);
-
-		ot = find_node(c, name);
+		ot = find_node(c, o->node.name);
 		if (ot != NULL && o->node.client_id != ot->node.client_id)
-			snprintf(o->node.name, sizeof(o->node.name), "%.59s-%.4d", name, id);
-		else
-			snprintf(o->node.name, sizeof(o->node.name), "%s", name);
+			snprintf(o->node.name, sizeof(o->node.name), "%s-%d", str, id);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_DRIVER)) != NULL)
 			o->node.priority = pw_properties_parse_int(str);
@@ -2227,7 +2196,6 @@ static void registry_event_global(void *data, uint32_t id,
 				goto exit_free;
 
 			snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
-			sanitize_port_name(o->port.name);
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
 		}

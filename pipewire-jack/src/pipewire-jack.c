@@ -3495,7 +3495,7 @@ const char * jack_port_short_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, NULL);
-	return rindex(o->port.name, ':') + 1;
+	return strchr(o->port.name, ':') + 1;
 }
 
 SPA_EXPORT

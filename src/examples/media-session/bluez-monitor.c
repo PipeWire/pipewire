@@ -169,9 +169,9 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		str = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME);
 
 	if (strstr(info->factory_name, "sink") != NULL)
-		prefix = "bluez_input";
-	else if (strstr(info->factory_name, "source") != NULL)
 		prefix = "bluez_output";
+	else if (strstr(info->factory_name, "source") != NULL)
+		prefix = "bluez_input";
 	else
 		prefix = info->factory_name;
 

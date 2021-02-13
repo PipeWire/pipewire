@@ -1084,6 +1084,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->path = path;
 	t->fd = -1;
 	t->sco_io = NULL;
+	t->delay = SPA_BT_UNKNOWN_DELAY;
 	t->user_data = SPA_MEMBER(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 
@@ -1258,6 +1259,40 @@ void spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop 
 						 t->read_mtu,
 						 t->write_mtu);
 	}
+}
+
+int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
+{
+	if (t->delay != SPA_BT_UNKNOWN_DELAY)
+		return (int64_t)t->delay * 100 * SPA_NSEC_PER_USEC;
+
+	/* Fallback values when device does not provide information */
+
+	if (t->a2dp_codec == NULL)
+		return 30 * SPA_NSEC_PER_MSEC;
+
+	switch (t->a2dp_codec->codec_id) {
+	case A2DP_CODEC_SBC:
+		return 200 * SPA_NSEC_PER_MSEC;
+	case A2DP_CODEC_MPEG24:
+		return 200 * SPA_NSEC_PER_MSEC;
+	case A2DP_CODEC_VENDOR:
+	{
+		uint32_t vendor_id = t->a2dp_codec->vendor.vendor_id;
+		uint16_t codec_id = t->a2dp_codec->vendor.codec_id;
+
+		if (vendor_id == APTX_VENDOR_ID && codec_id == APTX_CODEC_ID)
+			return 150 * SPA_NSEC_PER_MSEC;
+		if (vendor_id == APTX_HD_VENDOR_ID && codec_id == APTX_HD_CODEC_ID)
+			return 150 * SPA_NSEC_PER_MSEC;
+		if (vendor_id == LDAC_VENDOR_ID && codec_id == LDAC_CODEC_ID)
+			return 175 * SPA_NSEC_PER_MSEC;
+		break;
+	}
+	default:
+		break;
+	};
+	return 150 * SPA_NSEC_PER_MSEC;
 }
 
 static int transport_update_props(struct spa_bt_transport *transport,

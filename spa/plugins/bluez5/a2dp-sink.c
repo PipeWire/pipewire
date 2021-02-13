@@ -58,6 +58,7 @@ struct codec;
 struct props {
 	uint32_t min_latency;
 	uint32_t max_latency;
+	int64_t latency_offset;
 };
 
 #define FILL_FRAMES 2
@@ -154,6 +155,7 @@ static void reset_props(struct props *props)
 {
 	props->min_latency = default_min_latency;
 	props->max_latency = default_max_latency;
+	props->latency_offset = 0;
 }
 
 static int impl_node_enum_params(void *object, int seq,
@@ -197,6 +199,13 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_name, SPA_POD_String("The maximum latency"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->max_latency, 1, INT32_MAX));
 			break;
+		case 2:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
+				SPA_PROP_INFO_name, SPA_POD_String("Latency offset (ns)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0, INT64_MIN, INT64_MAX));
+			break;
 		default:
 			return 0;
 		}
@@ -211,7 +220,8 @@ static int impl_node_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
 				SPA_PROP_minLatency, SPA_POD_Int(p->min_latency),
-				SPA_PROP_maxLatency, SPA_POD_Int(p->max_latency));
+				SPA_PROP_maxLatency, SPA_POD_Int(p->max_latency),
+				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(p->latency_offset));
 			break;
 		default:
 			return 0;
@@ -298,6 +308,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static void emit_node_props_changed(struct impl *this);
+
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -312,12 +324,15 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		if (param == NULL) {
 			reset_props(p);
+			emit_node_props_changed(this);
 			return 0;
 		}
-		spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_minLatency, SPA_POD_OPT_Int(&p->min_latency),
-			SPA_PROP_maxLatency, SPA_POD_OPT_Int(&p->max_latency));
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_minLatency, SPA_POD_OPT_Int(&p->min_latency),
+				SPA_PROP_maxLatency, SPA_POD_OPT_Int(&p->max_latency),
+				SPA_PROP_latencyOffsetNsec, SPA_POD_OPT_Long(&p->latency_offset)) > 0)
+			emit_node_props_changed(this);
 		break;
 	}
 	default:
@@ -624,14 +639,20 @@ static void a2dp_on_timeout(struct spa_source *source)
 	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / rate;
 
 	if (SPA_LIKELY(this->clock)) {
+		int64_t delay_nsec;
+
 		this->clock->nsec = now_time;
 		this->clock->position += duration;
 		this->clock->duration = duration;
 		this->clock->rate_diff = 1.0f;
 		this->clock->next_nsec = this->next_time;
 
-		// The bluetooth AVDTP delay value is measured in units of 100us
-		this->clock->delay = (100 * this->transport->delay * (int64_t) this->clock->rate.denom) / SPA_USEC_PER_SEC;
+		delay_nsec = spa_bt_transport_get_delay_nsec(this->transport);
+
+		/* Negative delay doesn't work properly, so disallow it */
+		delay_nsec += SPA_CLAMP(this->props.latency_offset, -delay_nsec, INT64_MAX / 2);
+
+		this->clock->delay = (delay_nsec * this->clock->rate.denom) / SPA_NSEC_PER_SEC;
 	}
 
 	spa_log_debug(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
@@ -679,7 +700,8 @@ static int do_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-        spa_log_info(this->log, NAME " %p: using A2DP codec %s", this, this->codec->description);
+        spa_log_info(this->log, NAME " %p: using A2DP codec %s, delay:%"PRIi64" ms", this, this->codec->description,
+                     (int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	this->seqnum = 0;
 
@@ -845,6 +867,13 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 				SPA_DIRECTION_INPUT, 0, &port->info);
 		port->info.change_mask = 0;
 	}
+}
+
+static void emit_node_props_changed(struct impl *this)
+{
+        this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+        this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+        emit_node_info(this, false);
 }
 
 static int

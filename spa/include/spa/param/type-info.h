@@ -112,6 +112,7 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_channelMap, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelMap", spa_type_prop_channel_map },
 	{ SPA_PROP_monitorMute, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "monitorMute", NULL },
 	{ SPA_PROP_monitorVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "monitorVolumes", spa_type_prop_monitor_volume },
+	{ SPA_PROP_latencyOffsetNsec, SPA_TYPE_Long, SPA_TYPE_INFO_PROPS_BASE "latencyOffsetNsec", NULL },
 
 	{ SPA_PROP_brightness, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "brightness", NULL },
 	{ SPA_PROP_contrast, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "contrast", NULL },

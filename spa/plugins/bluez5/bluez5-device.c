@@ -72,6 +72,7 @@ struct node {
 	unsigned int active:1;
 	unsigned int mute:1;
 	uint32_t n_channels;
+	int64_t latency_offset;
 	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 };
@@ -795,6 +796,11 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		spa_pod_builder_array(b, sizeof(uint32_t), SPA_TYPE_Id,
 				node->n_channels, node->channels);
 
+		if (this->profile == 1 && dev == DEVICE_ID_SINK) {
+			spa_pod_builder_prop(b, SPA_PROP_latencyOffsetNsec, 0);
+			spa_pod_builder_long(b, node->latency_offset);
+		}
+
 		spa_pod_builder_pop(b, &f[1]);
 	}
 
@@ -969,6 +975,33 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 	return 0;
 }
 
+static int node_set_latency_offset(struct impl *this, struct node *node, int64_t latency_offset)
+{
+	struct spa_event *event;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_frame f[1];
+
+	spa_log_info(this->log, "node %p latency offset %"PRIi64" nsec", node, latency_offset);
+	node->latency_offset = latency_offset;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_EVENT_Device, SPA_DEVICE_EVENT_ObjectConfig);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Object, 0);
+	spa_pod_builder_int(&b, node->id);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
+
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
+			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(latency_offset));
+	event = spa_pod_builder_pop(&b, &f[0]);
+
+	spa_device_emit_event(&this->hooks, event);
+
+	return 0;
+}
+
 static int apply_device_props(struct impl *this, struct node *node, struct spa_pod *props)
 {
 	float volume = 0;
@@ -979,6 +1012,7 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t n_volumes = 0, n_channels = 0;
+	int64_t latency_offset = 0;
 
 	if (!spa_pod_is_object_type(props, SPA_TYPE_OBJECT_Props))
 		return -EINVAL;
@@ -1009,6 +1043,11 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 				changed++;
 			}
 			break;
+		case SPA_PROP_latencyOffsetNsec:
+			if (spa_pod_get_long(&prop->value, &latency_offset) == 0) {
+				node_set_latency_offset(this, node, latency_offset);
+				changed++;
+			}
 		}
 	}
 	if (n_volumes > 0)

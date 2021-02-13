@@ -143,6 +143,8 @@ extern "C" {
 #define A2DP_SINK_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSink"
 #define A2DP_SOURCE_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSource"
 
+#define SPA_BT_UNKNOWN_DELAY			0
+
 /* HFP uses SBC encoding with precisely defined parameters. Hence, the size
  * of the input (number of PCM samples) and output is known up front. */
 #define MSBC_DECODED_SIZE       240
@@ -481,6 +483,7 @@ struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, c
 struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monitor,
                                                     bool (*callback) (struct spa_bt_transport *t, const void *data),
                                                     const void *data);
+int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t);
 
 int spa_bt_transport_acquire(struct spa_bt_transport *t, bool optional);
 int spa_bt_transport_release(struct spa_bt_transport *t);

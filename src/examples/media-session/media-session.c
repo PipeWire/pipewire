@@ -188,7 +188,7 @@ struct object_info {
 	void (*destroy) (void *object);
 };
 
-static void remove_object_and_destroy_if_owned(struct impl *impl, struct sm_object *obj);
+static void resolve_duplicate_object(struct impl *impl, struct sm_object *new, struct sm_object *old);
 
 static void add_object(struct impl *impl, struct sm_object *obj, uint32_t id)
 {
@@ -216,7 +216,7 @@ static void add_object(struct impl *impl, struct sm_object *obj, uint32_t id)
 		spa_assert(!obj->owned_by_registry);
 		spa_assert(old_obj->owned_by_registry);
 
-		remove_object_and_destroy_if_owned(impl, old_obj);
+		resolve_duplicate_object(impl, obj, old_obj);
 	}
 
 	while (obj->id > size)
@@ -1273,6 +1273,35 @@ update_object(struct impl *impl, const struct object_info *info,
 	sm_media_session_emit_create(impl, obj);
 
 	return 0;
+}
+
+static void
+resolve_duplicate_object(struct impl *impl, struct sm_object *obj, struct sm_object *old)
+{
+	const struct object_info *info;
+
+	remove_object_and_destroy_if_owned(impl, old);
+
+	if (obj->proxy != NULL)
+		return;
+
+	info = get_object_info(impl, obj->type);
+	if (info == NULL)
+		return;
+
+	/* Obtain proxy for the new object */
+	obj->proxy = pw_registry_bind(impl->registry,
+			obj->id, info->type, info->version, 0);
+	if (obj->proxy == NULL)
+		return;
+
+	obj->type = info->type;
+
+	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
+	if (info->events)
+		pw_proxy_add_object_listener(obj->proxy, &obj->object_listener, info->events, obj);
+
+	SPA_FLAG_UPDATE(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER, info->events != NULL);
 }
 
 static void

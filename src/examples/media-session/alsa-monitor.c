@@ -203,6 +203,27 @@ static const struct sm_object_methods node_methods = {
 	.release = node_release,
 };
 
+static SPA_PRINTF_FUNC(4,5) char *sanitize_nick(char *name, int size,
+		char sub, const char *fmt, ...)
+{
+	char *p;
+	va_list varargs;
+
+	va_start(varargs, fmt);
+	if (vsnprintf(name, size, fmt, varargs) < 0)
+		return NULL;
+	va_end(varargs);
+
+	for (p = name; *p; p++) {
+		switch(*p) {
+		case ':':
+			*p = sub;
+			break;
+		}
+	}
+	return name;
+}
+
 static struct node *alsa_create_node(struct device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
@@ -291,8 +312,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			s = pw_properties_get(device->props, "alsa.card_name");
 
 		pw_properties_set(node->props, PW_KEY_NODE_NICK,
-			sm_media_session_sanitize_name(name, sizeof(name),
-				' ', "%s", s));
+			sanitize_nick(name, sizeof(name), ' ', "%s", s));
 
 	}
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {

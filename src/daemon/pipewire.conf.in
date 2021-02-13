@@ -32,7 +32,7 @@ context.spa-libs = {
     # regular expression to a library name that should contain
     # that factory.
     #
-    audio.convert*  = audioconvert/libspa-audioconvert
+    audio.convert.* = audioconvert/libspa-audioconvert
     api.alsa.*      = alsa/libspa-alsa
     api.v4l2.*      = v4l2/libspa-v4l2
     api.libcamera.* = libcamera/libspa-libcamera

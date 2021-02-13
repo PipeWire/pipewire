@@ -15,8 +15,8 @@ context.spa-libs = {
     # regular expression to a library name that should contain
     # that factory.
     #
-    audio.convert* = audioconvert/libspa-audioconvert
-    support.*      = support/libspa-support
+    audio.convert.* = audioconvert/libspa-audioconvert
+    support.*       = support/libspa-support
 }
 
 context.modules = {

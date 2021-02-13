@@ -1,36 +1,38 @@
 # PulseAudio config file for PipeWire version @VERSION@ #
 context.properties = {
     ## Configure properties in the system.
-    #mem.warn-mlock =		false
-    #mem.allow-mlock =		true
-    #mem.mlock-all =		false
-    #log.level =		2
+    #mem.warn-mlock  = false
+    #mem.allow-mlock = true
+    #mem.mlock-all   = false
+    #log.level       = 2
 }
 
 context.spa-libs = {
-    audio.convert* = 	audioconvert/libspa-audioconvert
-    support.* =		support/libspa-support
+    audio.convert* = audioconvert/libspa-audioconvert
+    support.*      = support/libspa-support
 }
 
 context.modules = {
-    libpipewire-module-rtkit  = {
+    libpipewire-module-rtkit = {
         args = {
-            #nice.level = -11
-            #rt.prio = 20
+            #nice.level   = -11
+            #rt.prio      = 20
             #rt.time.soft = 200000
             #rt.time.hard = 200000
-	}
+        }
         flags = [ ifexists nofail ]
     }
     libpipewire-module-protocol-native = null
-    libpipewire-module-client-node = null
-    libpipewire-module-adapter = null
-    libpipewire-module-metadata = null
+    libpipewire-module-client-node     = null
+    libpipewire-module-adapter         = null
+    libpipewire-module-metadata        = null
+
     libpipewire-module-protocol-pulse = {
         args = {
-	    server.address = [
-	        "unix:native"
-		# "tcp:4713"
-	}
+            server.address = [
+                "unix:native"
+                # "tcp:4713"
+            ]
+        }
     }
 }

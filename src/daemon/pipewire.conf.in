@@ -162,11 +162,11 @@ context.objects = {
     # that you can link, to provide audio for this source.
     #adapter = {
     #    args = {
-    #        factory.name      = support.null-audio-sink
-    #        node.name         = my-mic
-    #        node.description  = Microphone
-    #        media.class       = Audio/Source/Virtual
-    #        audio.position    = "FL,FR"
+    #        factory.name     = support.null-audio-sink
+    #        node.name        = my-mic
+    #        node.description = Microphone
+    #        media.class      = Audio/Source/Virtual
+    #        audio.position   = "FL,FR"
     #    }
     #}
 

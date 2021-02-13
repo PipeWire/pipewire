@@ -1,26 +1,28 @@
 # Client config file for PipeWire version @VERSION@ #
 context.properties = {
     ## Configure properties in the system.
-    #mem.warn-mlock =		false
-    #mem.allow-mlock =		true
-    #mem.mlock-all =		false
-    #log.level =		2
+    #mem.warn-mlock  = false
+    #mem.allow-mlock = true
+    #mem.mlock-all   = false
+    #log.level       = 2
 }
 
 context.spa-libs = {
-    ## <factory-name regex> = <library-name>
+    #<factory-name regex> = <library-name>
     #
     # Used to find spa factory names. It maps an spa factory name
     # regular expression to a library name that should contain
     # that factory.
     #
-    audio.convert* = 	audioconvert/libspa-audioconvert
-    support.* =		support/libspa-support
+    audio.convert* = audioconvert/libspa-audioconvert
+    support.*      = support/libspa-support
 }
 
 context.modules = {
-    ##  <module-name> = { [args = { <key>=<value> ... }]
-    #                     [flags = [ [ifexists] [nofail] ]}
+    #<module-name> = {
+    #    [ args  = { <key> = <value> ... } ]
+    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #}
     #
     # Loads a module with the given parameters.
     # If ifexists is given, the module is ignored when it is not found.

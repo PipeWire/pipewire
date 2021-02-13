@@ -2,25 +2,27 @@
 
 context.properties = {
     ## Configure properties in the system.
-    #mem.warn-mlock =		false
-    #mem.allow-mlock =		true
-    #mem.mlock-all =		false
-    #log.level =		2
+    #mem.warn-mlock  = false
+    #mem.allow-mlock = true
+    #mem.mlock-all   = false
+    #log.level       = 2
 }
 
 context.spa-libs = {
-    ## <factory-name regex> = <library-name>
+    #<factory-name regex> = <library-name>
     #
     # Used to find spa factory names. It maps an spa factory name
     # regular expression to a library name that should contain
     # that factory.
     #
-    support.* =		support/libspa-support
+    support.* = support/libspa-support
 }
 
 context.modules = {
-    ##  <module-name> = { [args = { <key>=<value> ... }]
-    #                     [flags = [ [ifexists] [nofail] ]}
+    #<module-name> = {
+    #    [ args  = { <key> = <value> ... } ]
+    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #}
     #
     # Loads a module with the given parameters.
     # If ifexists is given, the module is ignored when it is not found.
@@ -28,13 +30,13 @@ context.modules = {
     #
     #
     # Uses RTKit to boost the data thread priority.
-    libpipewire-module-rtkit  = {
+    libpipewire-module-rtkit = {
         args = {
-            #nice.level = -11
-            #rt.prio = 20
+            #nice.level   = -11
+            #rt.prio      = 20
             #rt.time.soft = 200000
             #rt.time.hard = 200000
-	}
+        }
         flags = [ ifexists nofail ]
     }
 

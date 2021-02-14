@@ -666,8 +666,9 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	const char *name_prefix, *description, *port_type;
 	enum spa_param_availability available;
 	enum spa_bt_form_factor ff;
+	const struct a2dp_codec *codec;
 	char name[128];
-	uint32_t i, mask;
+	uint32_t i, j, mask;
 
 	ff = spa_bt_form_factor_from_class(device->bluetooth_class);
 
@@ -769,10 +770,9 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
-	for (i = 1; i < 3; i++) {
-		if (profile_direction_mask(this, i) & (1 << direction))
+	for (i = 1; (j = get_profile_from_index(this, i, &codec)) != SPA_ID_INVALID; i++)
+		if (profile_direction_mask(this, j) & (1 << direction))
 			spa_pod_builder_int(b, i);
-	}
 	spa_pod_builder_pop(b, &f[1]);
 
 	if (dev != SPA_ID_INVALID) {

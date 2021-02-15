@@ -151,3 +151,11 @@ option('udevrulesdir',
 option('systemd-user-unit-dir',
        type : 'string',
        description : 'Directory for user systemd units (defaults to /usr/lib/systemd/user)')
+option('sdl2',
+       description: 'Enable code that depends on SDL 2',
+       type: 'feature',
+       value: 'auto')
+option('sndfile',
+       description: 'Enable code that depends on libsndfile',
+       type: 'feature',
+       value: 'auto')

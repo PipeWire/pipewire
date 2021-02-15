@@ -83,8 +83,6 @@ struct sm_object {
 	struct spa_callbacks methods;
 
 	struct spa_list data;
-
-	unsigned int owned_by_registry:1;
 };
 
 int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,

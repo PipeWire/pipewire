@@ -188,37 +188,11 @@ struct object_info {
 	void (*destroy) (void *object);
 };
 
-static void remove_object_and_destroy_if_owned(struct impl *impl, struct sm_object *obj);
-
 static void add_object(struct impl *impl, struct sm_object *obj, uint32_t id)
 {
 	size_t size = pw_map_get_size(&impl->globals);
-	struct sm_object *old_obj;
-
 	obj->id = id;
 	pw_log_debug("add %u %p", obj->id, obj);
-
-	if ((old_obj = pw_map_lookup(&impl->globals, id)) != NULL) {
-		/* Duplicate objects for same id:
-		 *
-		 * Can occur if registry_global arrives while another object is pending
-		 * for bound_proxy for the same id.
-		 *
-		 * In this case, we should keep the object not owned by the registry,
-		 * because it is referenced from elsewhere.
-		 *
-		 * Other cases are a bug, and we fail with assert.
-		 */
-		pw_log_debug(NAME " %p: duplicate objects for global '%d': removing old:%p owned_by_registry:%d (new:%p owned_by_registry:%d)",
-				impl, id, old_obj, old_obj->owned_by_registry, obj, obj->owned_by_registry);
-
-		spa_assert(obj != old_obj);
-		spa_assert(!obj->owned_by_registry);
-		spa_assert(old_obj->owned_by_registry);
-
-		remove_object_and_destroy_if_owned(impl, old_obj);
-	}
-
 	while (obj->id > size)
 		pw_map_insert_at(&impl->globals, size++, NULL);
 	pw_map_insert_at(&impl->globals, obj->id, obj);
@@ -233,16 +207,6 @@ static void remove_object(struct impl *impl, struct sm_object *obj)
 	spa_list_remove(&obj->link);
 	sm_media_session_emit_remove(impl, obj);
 	obj->id = SPA_ID_INVALID;
-}
-
-static void remove_object_and_destroy_if_owned(struct impl *impl, struct sm_object *obj)
-{
-	/* If object is owned by us, destroy it, otherwise just remove it */
-	if (obj->owned_by_registry) {
-		sm_object_destroy(obj);
-	} else if (obj->id != SPA_ID_INVALID) {
-		remove_object(impl, obj);
-	}
 }
 
 static void *find_object(struct impl *impl, uint32_t id, const char *type)
@@ -355,10 +319,11 @@ int sm_object_destroy(struct sm_object *obj)
 	}
 
 	obj->proxy = NULL;
+	obj->handle = NULL;
 	if (p)
 		pw_proxy_unref(p);
-
-	pw_proxy_unref(h);  /* may free obj */
+	if (h)
+		pw_proxy_unref(h);  /* may free obj, if from init_object */
 
 	return 0;
 }
@@ -1184,6 +1149,9 @@ static struct sm_object *init_object(struct impl *impl, const struct object_info
 	if (info->init)
 		info->init(obj);
 
+	if (id != SPA_ID_INVALID)
+		add_object(impl, obj, id);
+
 	return obj;
 }
 
@@ -1214,7 +1182,7 @@ create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle
 	return obj;
 }
 
-static int
+static struct sm_object *
 bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
@@ -1223,8 +1191,6 @@ bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
 	struct pw_proxy *proxy;
 	struct sm_object *obj;
 
-	spa_assert(id != SPA_ID_INVALID);
-
 	proxy = pw_registry_bind(impl->registry,
 			id, type, info->version, info->size);
 	if (proxy == NULL) {
@@ -1232,16 +1198,15 @@ bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
 		goto error;
 	}
 	obj = init_object(impl, info, proxy, proxy, id, props);
-	obj->owned_by_registry = true;
-	add_object(impl, obj, id);
 
 	pw_log_debug(NAME" %p: bound new object %p proxy %p id:%d", impl, obj, obj->proxy, obj->id);
 
-	return 0;
+	return obj;
 
 error:
 	pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(res));
-	return res;
+	errno = -res;
+	return NULL;
 }
 
 static int
@@ -1255,7 +1220,7 @@ update_object(struct impl *impl, const struct object_info *info,
 	if (obj->proxy != NULL)
 		return 0;
 
-	pw_log_debug(NAME" %p: update object:%p id:%d type:%s", impl, obj, obj->id, obj->type);
+	pw_log_debug(NAME" %p: update type:%s", impl, obj->type);
 
 	obj->proxy = pw_registry_bind(impl->registry,
 			id, info->type, info->version, 0);
@@ -1431,7 +1396,7 @@ registry_global_remove(void *data, uint32_t id)
 	if ((obj = find_object(impl, id, NULL)) == NULL)
 		return;
 
-	remove_object_and_destroy_if_owned(impl, obj);
+	sm_object_destroy(obj);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -2001,7 +1966,7 @@ static void session_shutdown(struct impl *impl)
 	sm_media_session_emit_shutdown(impl);
 
 	spa_list_consume(obj, &impl->global_list, link)
-		remove_object_and_destroy_if_owned(impl, obj);
+		sm_object_destroy(obj);
 
 	impl->this.metadata = NULL;
 

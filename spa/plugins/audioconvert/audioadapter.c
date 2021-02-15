@@ -119,8 +119,9 @@ next:
 	case SPA_PARAM_PortConfig:
 	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
-		return spa_node_enum_params(this->convert, seq, id, start, num, filter);
-
+		res = spa_node_enum_params(this->convert, seq, id, start, num, filter);
+		res = spa_node_enum_params(this->follower, seq, id, start, num, filter);
+		return res;
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:
 		if ((res = spa_node_port_enum_params_sync(this->follower,
@@ -381,7 +382,7 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	int res = 0;
+	int res = 0, res2 = 0;
 	struct impl *this = object;
 	struct spa_audio_info info = { 0 };
 
@@ -415,10 +416,12 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		break;
 
 	case SPA_PARAM_Props:
-		if (this->target != this->follower) {
-			if ((res = spa_node_set_param(this->target, id, flags, param)) < 0)
-				return res;
-		}
+		if (this->target != this->follower)
+			res = spa_node_set_param(this->target, id, flags, param);
+		res = spa_node_set_param(this->follower, id, flags, param);
+		if (res < 0 && res2 < 0)
+			return res;
+		res = 0;
 		break;
 	default:
 		res = -ENOTSUP;
@@ -622,6 +625,7 @@ static const struct spa_node_events convert_node_events = {
 static void follower_info(void *data, const struct spa_node_info *info)
 {
 	struct impl *this = data;
+	uint32_t i;
 
 	this->async = (info->flags & SPA_NODE_FLAG_ASYNC) != 0;
 
@@ -640,8 +644,23 @@ static void follower_info(void *data, const struct spa_node_info *info)
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS) {
 		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 		this->info.props = info->props;
-		emit_node_info(this, false);
 	}
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t idx = SPA_ID_INVALID;
+
+			switch (info->params[i].id) {
+			case SPA_PARAM_Props:
+				idx = 2;
+				break;
+			}
+			if (idx != SPA_ID_INVALID) {
+				this->params[idx] = info->params[i];
+				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			}
+		}
+	}
+	emit_node_info(this, false);
 }
 
 static void follower_port_info(void *data,
@@ -670,10 +689,18 @@ static void follower_port_info(void *data,
 		emit_node_info(this, false);
 }
 
+static void follower_result(void *data, int seq, int res, uint32_t type, const void *result)
+{
+	struct impl *this = data;
+	spa_log_trace(this->log, NAME" %p: result %d %d", this, seq, res);
+	spa_node_emit_result(&this->hooks, seq, res, type, result);
+}
+
 static const struct spa_node_events follower_node_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.info = follower_info,
 	.port_info = follower_port_info,
+	.result = follower_result,
 };
 
 static int follower_ready(void *data, int status)

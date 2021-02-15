@@ -651,17 +651,19 @@ static void follower_port_info(void *data,
 	struct impl *this = data;
 	uint32_t i;
 
-	for (i = 0; i < info->n_params; i++) {
-		uint32_t idx = SPA_ID_INVALID;
+	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t idx = SPA_ID_INVALID;
 
-		switch (info->params[i].id) {
-		case SPA_PARAM_Format:
-			idx = 3;
-			break;
-		}
-		if (idx != SPA_ID_INVALID) {
-			this->params[idx] = info->params[i];
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			switch (info->params[i].id) {
+			case SPA_PARAM_Format:
+				idx = 3;
+				break;
+			}
+			if (idx != SPA_ID_INVALID) {
+				this->params[idx] = info->params[i];
+				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			}
 		}
 	}
 	if (!this->add_listener)

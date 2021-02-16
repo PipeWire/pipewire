@@ -421,13 +421,27 @@ static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 		return NULL;
 	}
 
+	dev = calloc(1, sizeof(*dev));
+	if (dev == NULL) {
+		res = -errno;
+		goto exit;
+	}
+
+	dev->impl = impl;
+	dev->id = id;
+	dev->props = pw_properties_new_dict(info->props);
+	v4l2_update_device_props(dev);
+
+	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
+		sm_media_session_match_rules(rules, strlen(rules), dev->props);
+
 	handle = pw_context_load_spa_handle(context,
-			info->factory_name,
-			info->props);
+		info->factory_name,
+		&dev->props->dict);
 	if (handle == NULL) {
 		res = -errno;
 		pw_log_error("can't make factory instance: %m");
-		goto exit;
+		goto clean_device;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
@@ -435,24 +449,11 @@ static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 		goto unload_handle;
 	}
 
-	dev = calloc(1, sizeof(*dev));
-	if (dev == NULL) {
-		res = -errno;
-		goto unload_handle;
-	}
-
-	dev->impl = impl;
-	dev->id = id;
 	dev->handle = handle;
 	dev->device = iface;
-	dev->props = pw_properties_new_dict(info->props);
-	v4l2_update_device_props(dev);
-
-	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
-		sm_media_session_match_rules(rules, strlen(rules), dev->props);
 
 	dev->sdevice = sm_media_session_export_device(impl->session,
-			&dev->props->dict, dev->device);
+		&dev->props->dict, dev->device);
 
 	if (dev->sdevice == NULL) {
 		res = -errno;
@@ -470,10 +471,11 @@ static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 
 	return dev;
 
-clean_device:
-	free(dev);
 unload_handle:
 	pw_unload_spa_handle(handle);
+clean_device:
+	pw_properties_free(dev->props);
+	free(dev);
 exit:
 	errno = -res;
 	return NULL;

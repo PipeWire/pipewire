@@ -427,13 +427,30 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 		return NULL;
 	}
 
+	device = calloc(1, sizeof(*device));
+	if (device == NULL) {
+		res = -errno;
+		goto exit;
+	}
+
+	device->impl = impl;
+	device->id = id;
+	device->priority = 1000;
+	device->props = pw_properties_new_dict(info->props);
+	update_device_props(device);
+
+	spa_list_init(&device->node_list);
+
+	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
+		sm_media_session_match_rules(rules, strlen(rules), device->props);
+
 	handle = pw_context_load_spa_handle(context,
-			info->factory_name,
-			info->props);
+		info->factory_name,
+		&device->props->dict);
 	if (handle == NULL) {
 		res = -errno;
 		pw_log_error("can't make factory instance: %m");
-		goto exit;
+		goto clean_device;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
@@ -441,30 +458,14 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 		goto unload_handle;
 	}
 
-	device = calloc(1, sizeof(*device));
-	if (device == NULL) {
+	device->handle = handle;
+	device->device = iface;
+	device->sdevice = sm_media_session_export_device(impl->session,
+		&device->props->dict, device->device);
+	if (device->sdevice == NULL) {
 		res = -errno;
 		goto unload_handle;
 	}
-
-	device->impl = impl;
-	device->id = id;
-	device->priority = 1000;
-	device->handle = handle;
-	device->device = iface;
-	device->props = pw_properties_new_dict(info->props);
-	update_device_props(device);
-	device->sdevice = sm_media_session_export_device(impl->session,
-			&device->props->dict, device->device);
-	if (device->sdevice == NULL) {
-		res = -errno;
-		goto clean_device;
-	}
-
-	spa_list_init(&device->node_list);
-
-	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
-		sm_media_session_match_rules(rules, strlen(rules), device->props);
 
 	sm_object_add_listener(&device->sdevice->obj,
 			&device->listener,
@@ -474,11 +475,11 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 
 	return device;
 
+unload_handle:
+	pw_unload_spa_handle(handle);
 clean_device:
 	pw_properties_free(device->props);
 	free(device);
-unload_handle:
-	pw_unload_spa_handle(handle);
 exit:
 	errno = -res;
 	return NULL;

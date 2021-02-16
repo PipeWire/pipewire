@@ -292,19 +292,10 @@ static void bluez_device_event(void *data, const struct spa_event *event)
 
 	switch (type) {
 	case SPA_DEVICE_EVENT_ObjectConfig:
-		/* FIXME, proxy might be NULL at this point until the
-		 * node proxy is created. We should probably do
-		 * pw_client_node_get_node() and perform the set_param on
-		 * that node proxy instead of waiting for the session manager
-		 * proxy. */
 		if (props != NULL) {
-			if (node->snode->obj.proxy != NULL) {
-				pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
-					SPA_PARAM_Props, 0, props);
-			} else {
-				pw_log_warn("device %p: node %d object:%p not ready for volume yet",
-						device, id, node->snode);
-			}
+			struct spa_node *adapter;
+			adapter = pw_impl_node_get_implementation(node->adapter);
+			spa_node_set_param(adapter, SPA_PARAM_Props, 0, props);
 		}
 		break;
 	default:

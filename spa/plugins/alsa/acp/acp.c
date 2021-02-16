@@ -360,7 +360,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 			char *devstr, *name, *desc;
 			asprintf(&devstr, "hw:%d,%d", index, dev);
 			asprintf(&name, "Mapping pro-input-%d", dev);
-			asprintf(&desc, "Mapping Pro Input %d", dev);
+			asprintf(&desc, "Pro Input %d", dev);
 			m = pa_alsa_mapping_get(ps, name);
 			m->description = desc;
 			m->device_strings = pa_split_spaces_strv(devstr);

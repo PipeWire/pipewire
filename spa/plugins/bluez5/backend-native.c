@@ -449,8 +449,8 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 			/* get next token */
 			token = strtok(NULL, separators);
 			features = atoi(token);
-			if (((features & (SPA_BT_HFP_HF_FEATURE_CODEC_NEGOTIATION)) != 0) &&
-					rfcomm->msbc_supported_by_hfp)
+			if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
+			    rfcomm->msbc_supported_by_hfp)
 				rfcomm->codec_negotiation_supported = true;
 		} else if (strncmp(token, "+BCS", 4) == 0) {
 			char *cmd;

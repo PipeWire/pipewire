@@ -76,7 +76,7 @@ struct port {
 
 	struct spa_dict info_props;
 	struct spa_dict_item info_props_items[2];
-	char position[8];
+	char position[16];
 
 	bool have_format;
 	struct spa_audio_info format;
@@ -158,12 +158,13 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	port->id = port_id;
 
 	if (position < SPA_N_ELEMENTS(spa_type_audio_channel)) {
-		snprintf(port->position, 7, "%s",
+		snprintf(port->position, sizeof(port->position), "%s",
 				spa_debug_type_short_name(spa_type_audio_channel[position].name));
 	} else if (position >= SPA_AUDIO_CHANNEL_CUSTOM_START) {
-		snprintf(port->position, 7, "AUX%d", position - SPA_AUDIO_CHANNEL_CUSTOM_START);
+		snprintf(port->position, sizeof(port->position), "AUX%d",
+				position - SPA_AUDIO_CHANNEL_CUSTOM_START);
 	} else {
-		snprintf(port->position, 7, "UNK");
+		snprintf(port->position, sizeof(port->position), "UNK");
 	}
 
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |

@@ -129,11 +129,11 @@ void pw_context_add_listener(struct pw_context *context,
 /** Get the context properties */
 const struct pw_properties *pw_context_get_properties(struct pw_context *context);
 
-/** Get the config for this context. Since 0.3.22 */
-const struct pw_properties *pw_context_get_config(struct pw_context *context);
-
 /** Update the context properties */
 int pw_context_update_properties(struct pw_context *context, const struct spa_dict *dict);
+
+/** Get a config section for this context. Since 0.3.22 */
+const char *pw_context_get_conf_section(struct pw_context *context, const char *section);
 
 /** Get the context support objects */
 const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support);

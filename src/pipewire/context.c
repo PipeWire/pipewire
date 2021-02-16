@@ -470,9 +470,9 @@ const struct pw_properties *pw_context_get_properties(struct pw_context *context
 }
 
 SPA_EXPORT
-const struct pw_properties *pw_context_get_config(struct pw_context *context)
+const char *pw_context_get_conf_section(struct pw_context *context, const char *section)
 {
-	return context->conf;
+	return pw_properties_get(context->conf, section);
 }
 
 /** Update context properties

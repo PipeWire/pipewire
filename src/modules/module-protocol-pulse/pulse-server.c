@@ -1316,6 +1316,24 @@ static int reply_create_record_stream(struct stream *stream)
 	return send_message(client, reply);
 }
 
+static void stream_control_info(void *data, uint32_t id,
+		const struct pw_stream_control *control)
+{
+	struct stream *stream = data;
+
+	switch (id) {
+	case SPA_PROP_channelVolumes:
+		stream->volume.channels = control->n_values;
+		memcpy(stream->volume.values, control->values, control->n_values * sizeof(float));
+		pw_log_info("stream %p: volume changed %f", stream, stream->volume.values[0]);
+		break;
+	case SPA_PROP_mute:
+		stream->muted = control->values[0] >= 0.5;
+		pw_log_info("stream %p: mute changed %d", stream, stream->muted);
+		break;
+	}
+}
+
 static void stream_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
@@ -1665,6 +1683,7 @@ static void stream_drained(void *data)
 static const struct pw_stream_events stream_events =
 {
 	PW_VERSION_STREAM_EVENTS,
+	.control_info = stream_control_info,
 	.state_changed = stream_state_changed,
 	.param_changed = stream_param_changed,
 	.io_changed = stream_io_changed,
@@ -2876,9 +2895,6 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 		if (volume_compare(&stream->volume, &volume) == 0)
 			goto done;
 
-		stream->volume = volume;
-		stream->volume_set = true;
-
 		pw_stream_set_control(stream->stream,
 				SPA_PROP_channelVolumes, volume.channels, volume.values,
 				0);
@@ -2926,13 +2942,10 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 	if (stream != NULL) {
 		float val;
 
-		if (stream->muted == mute) goto done;
-
-		stream->muted = mute;
-		stream->muted_set = true;
+		if (stream->muted == mute)
+			goto done;
 
 		val = mute ? 1.0f : 0.0f;
-
 		pw_stream_set_control(stream->stream,
 				SPA_PROP_mute, 1, &val,
 				0);

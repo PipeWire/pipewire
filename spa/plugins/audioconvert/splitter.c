@@ -157,9 +157,14 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	port->direction = direction;
 	port->id = port_id;
 
-	snprintf(port->position, 7, "%s",
-			spa_debug_type_short_name(spa_type_audio_channel[position].name));
-
+	if (position < SPA_N_ELEMENTS(spa_type_audio_channel)) {
+		snprintf(port->position, 16, "%s",
+				spa_debug_type_short_name(spa_type_audio_channel[position].name));
+	} else if (position >= SPA_AUDIO_CHANNEL_CUSTOM_START) {
+		snprintf(port->position, 16, "AUX%d", position - SPA_AUDIO_CHANNEL_CUSTOM_START);
+	} else {
+		snprintf(port->position, 16, "UNK");
+	}
 
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |

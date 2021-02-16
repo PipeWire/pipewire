@@ -104,6 +104,8 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 		int (*callback) (void *data, struct pw_manager_object *object),
 		void *data);
 
+void *pw_manager_object_add_data(struct pw_manager_object *o, const char *id, size_t size);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

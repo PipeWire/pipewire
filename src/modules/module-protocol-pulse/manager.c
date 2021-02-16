@@ -54,6 +54,12 @@ struct object_info {
 	void (*destroy) (struct object *object);
 };
 
+struct object_data {
+	struct spa_list link;
+	const char *id;
+	size_t size;
+};
+
 struct object {
 	struct pw_manager_object this;
 
@@ -65,6 +71,8 @@ struct object {
 
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
+
+	struct spa_list data_list;
 };
 
 static void core_sync(struct manager *m)
@@ -160,6 +168,7 @@ static void object_update_params(struct object *o)
 static void object_destroy(struct object *o)
 {
 	struct manager *m = o->manager;
+	struct object_data *d;
 	spa_list_remove(&o->this.link);
 	m->this.n_objects--;
 	if (o->this.proxy)
@@ -168,6 +177,10 @@ static void object_destroy(struct object *o)
 		pw_properties_free(o->this.props);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
+	spa_list_consume(d, &o->data_list, link) {
+		spa_list_remove(&d->link);
+		free(d);
+	}
 	free(o);
 }
 
@@ -555,6 +568,7 @@ static void registry_event_global(void *data, uint32_t id,
 	o->this.creating = true;
 	spa_list_init(&o->this.param_list);
 	spa_list_init(&o->pending_list);
+	spa_list_init(&o->data_list);
 
 	o->manager = m;
 	o->info = info;
@@ -746,4 +760,37 @@ void pw_manager_destroy(struct pw_manager *manager)
 		pw_core_info_free(m->this.info);
 
 	free(m);
+}
+
+static struct object_data *object_find_data(struct object *o, const char *id)
+{
+	struct object_data *d;
+	spa_list_for_each(d, &o->data_list, link) {
+		if (strcmp(d->id, id) == 0)
+			return d;
+	}
+	return NULL;
+}
+
+void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *id, size_t size)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	struct object_data *d;
+
+	d = object_find_data(o, id);
+	if (d != NULL) {
+		if (d->size == size)
+			goto done;
+		spa_list_remove(&d->link);
+		free(d);
+	}
+
+	d = calloc(1, sizeof(struct object_data) + size);
+	d->id = id;
+	d->size = size;
+
+	spa_list_append(&o->data_list, &d->link);
+
+done:
+	return SPA_MEMBER(d, sizeof(struct object_data), void);
 }

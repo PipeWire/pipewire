@@ -387,6 +387,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 				spa_log_warn(backend->log, NAME": can't create transport: %m");
 				// TODO: We should manage the missing transport
 			}
+			rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 			spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 		}
 
@@ -507,6 +508,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 						spa_log_warn(backend->log, NAME": can't create transport: %m");
 						// TODO: We should manage the missing transport
 					}
+					rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 					break;
 				default:

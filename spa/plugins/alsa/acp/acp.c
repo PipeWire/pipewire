@@ -411,7 +411,8 @@ static void add_profiles(pa_card *impl)
 	ap->profile.flags = ACP_PROFILE_OFF;
 	pa_hashmap_put(impl->profiles, ap->name, ap);
 
-	add_pro_profile(impl, impl->card.index);
+	if (!impl->use_ucm)
+		add_pro_profile(impl, impl->card.index);
 
 	PA_HASHMAP_FOREACH(ap, impl->profile_set->profiles, state) {
 		pa_alsa_mapping *m;

@@ -2940,7 +2940,7 @@ static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict 
 	if (codecs == NULL)
 		return -ENOMEM;
 
-	if ((str = spa_dict_lookup(info, "bluez5.codecs")) == NULL)
+	if (info == NULL || (str = spa_dict_lookup(info, "bluez5.codecs")) == NULL)
 		goto fallback;
 
 	spa_json_init(&it, str, strlen(str));

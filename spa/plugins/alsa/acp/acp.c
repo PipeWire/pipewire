@@ -269,7 +269,7 @@ static void profile_free(void *data)
 static int add_pro_profile(pa_card *impl, uint32_t index)
 {
 	snd_ctl_t *ctl_hndl;
-	int err, dev;
+	int err, dev, count = 0;
 	pa_alsa_profile *ap;
 	pa_alsa_profile_set *ps = impl->profile_set;
 	pa_alsa_mapping *m;
@@ -307,6 +307,8 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 
 	dev = -1;
 	while (1) {
+		char desc[128], devstr[128], *name;
+
 		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
 			pa_log_error("error iterating devices: %s", snd_strerror(err));
 			break;
@@ -317,18 +319,21 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 		snd_pcm_info_set_device(pcminfo, dev);
 		snd_pcm_info_set_subdevice(pcminfo, 0);
 
+		snprintf(devstr, sizeof(devstr), "hw:%d,%d", index, dev);
+		if (count++ == 0)
+			snprintf(desc, sizeof(desc), "Pro");
+		else
+			snprintf(desc, sizeof(desc), "Pro %d", dev);
+
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
 		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
 			if (err != -ENOENT)
 				pa_log_error("error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0) {
-			char *devstr, *name, *desc;
-			asprintf(&devstr, "hw:%d,%d", index, dev);
 			asprintf(&name, "Mapping pro-output-%d", dev);
-			asprintf(&desc, "Pro Output %d", dev);
 			m = pa_alsa_mapping_get(ps, name);
-			m->description = desc;
+			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
 
 			try_period_size = 1024;
@@ -348,7 +353,6 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 			}
 			pa_idxset_put(ap->output_mappings, m, NULL);
 			free(name);
-			free(devstr);
 		}
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
@@ -357,12 +361,9 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_log_error("error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0) {
-			char *devstr, *name, *desc;
-			asprintf(&devstr, "hw:%d,%d", index, dev);
 			asprintf(&name, "Mapping pro-input-%d", dev);
-			asprintf(&desc, "Pro Input %d", dev);
 			m = pa_alsa_mapping_get(ps, name);
-			m->description = desc;
+			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
 
 			try_period_size = 1024;
@@ -381,7 +382,6 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_channel_map_init_pro(&m->channel_map, m->sample_spec.channels);
 			}
 			pa_idxset_put(ap->input_mappings, m, NULL);
-			free(devstr);
 			free(name);
 		}
 	}

@@ -704,7 +704,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		if (res < 0)
 			return res;
 
-		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
+		this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
 		this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
 	}
 

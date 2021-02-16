@@ -201,6 +201,17 @@ static inline pa_channel_map* pa_channel_map_init_extend(pa_channel_map *m,
 	return NULL;
 }
 
+static inline pa_channel_map* pa_channel_map_init_pro(pa_channel_map *m,
+		unsigned channels)
+{
+	unsigned i;
+	pa_channel_map_init(m);
+	for (i = 0; i < channels; i++)
+		m->map[i] = PA_CHANNEL_POSITION_INVALID;
+	m->channels = (uint8_t) channels;
+	return m;
+}
+
 typedef uint64_t pa_channel_position_mask_t;
 
 #define PA_CHANNEL_POSITION_MASK(f) ((pa_channel_position_mask_t) (1ULL << (f)))

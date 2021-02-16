@@ -266,6 +266,131 @@ static void profile_free(void *data)
 	}
 }
 
+static int add_pro_profile(pa_card *impl, uint32_t index)
+{
+	snd_ctl_t *ctl_hndl;
+	int err, dev;
+	pa_alsa_profile *ap;
+	pa_alsa_profile_set *ps = impl->profile_set;
+	pa_alsa_mapping *m;
+	char *device;
+	snd_pcm_info_t *pcminfo;
+	pa_sample_spec ss;
+	snd_pcm_uframes_t try_period_size, try_buffer_size;
+
+	ss.format = PA_SAMPLE_S32LE;
+	ss.rate = 48000;
+	ss.channels = 64;
+
+	ap = pa_xnew0(pa_alsa_profile, 1);
+	ap->profile_set = ps;
+	ap->profile.name = ap->name = pa_xstrdup("pro-audio");
+	ap->profile.description = ap->description = pa_xstrdup(_("Pro Audio"));
+	ap->profile.available = ACP_AVAILABLE_YES;
+	ap->output_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+	ap->input_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+	pa_hashmap_put(ps->profiles, ap->name, ap);
+
+	ap->output_name = pa_xstrdup("pro-output");
+	ap->input_name = pa_xstrdup("pro-input");
+	ap->priority = 1;
+
+	asprintf(&device, "hw:%d", index);
+
+	if ((err = snd_ctl_open(&ctl_hndl, device, 0)) < 0) {
+		pa_log_error("can't open control for card %s: %s",
+				device, snd_strerror(err));
+		return err;
+	}
+
+	snd_pcm_info_alloca(&pcminfo);
+
+	dev = -1;
+	while (1) {
+		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
+			pa_log_error("error iterating devices: %s", snd_strerror(err));
+			break;
+		}
+		if (dev < 0)
+			break;
+
+		snd_pcm_info_set_device(pcminfo, dev);
+		snd_pcm_info_set_subdevice(pcminfo, 0);
+
+		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
+		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
+			if (err != -ENOENT)
+				pa_log_error("error pcm info: %s", snd_strerror(err));
+		}
+		if (err >= 0) {
+			char *devstr, *name, *desc;
+			asprintf(&devstr, "hw:%d,%d", index, dev);
+			asprintf(&name, "Mapping pro-output-%d", dev);
+			asprintf(&desc, "Pro Output %d", dev);
+			m = pa_alsa_mapping_get(ps, name);
+			m->description = desc;
+			m->device_strings = pa_split_spaces_strv(devstr);
+
+			try_period_size = 1024;
+			try_buffer_size = 1024 * 64;
+			m->sample_spec = ss;
+
+			if ((m->output_pcm = pa_alsa_open_by_template(m->device_strings,
+							devstr, NULL, &m->sample_spec,
+							&m->channel_map, SND_PCM_STREAM_PLAYBACK,
+							&try_period_size, &try_buffer_size,
+							0, NULL, NULL, false))) {
+				pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
+				snd_pcm_close(m->output_pcm);
+				m->output_pcm = NULL;
+				m->supported = true;
+				pa_channel_map_init_pro(&m->channel_map, m->sample_spec.channels);
+			}
+			pa_idxset_put(ap->output_mappings, m, NULL);
+			free(name);
+			free(devstr);
+		}
+
+		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
+		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
+			if (err != -ENOENT)
+				pa_log_error("error pcm info: %s", snd_strerror(err));
+		}
+		if (err >= 0) {
+			char *devstr, *name, *desc;
+			asprintf(&devstr, "hw:%d,%d", index, dev);
+			asprintf(&name, "Mapping pro-input-%d", dev);
+			asprintf(&desc, "Mapping Pro Input %d", dev);
+			m = pa_alsa_mapping_get(ps, name);
+			m->description = desc;
+			m->device_strings = pa_split_spaces_strv(devstr);
+
+			try_period_size = 1024;
+			try_buffer_size = 1024 * 64;
+			m->sample_spec = ss;
+
+			if ((m->input_pcm = pa_alsa_open_by_template(m->device_strings,
+							devstr, NULL, &m->sample_spec,
+							&m->channel_map, SND_PCM_STREAM_CAPTURE,
+							&try_period_size, &try_buffer_size,
+							0, NULL, NULL, false))) {
+				pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
+				snd_pcm_close(m->input_pcm);
+				m->input_pcm = NULL;
+				m->supported = true;
+				pa_channel_map_init_pro(&m->channel_map, m->sample_spec.channels);
+			}
+			pa_idxset_put(ap->input_mappings, m, NULL);
+			free(devstr);
+			free(name);
+		}
+	}
+	snd_ctl_close(ctl_hndl);
+
+	return 0;
+}
+
+
 static void add_profiles(pa_card *impl)
 {
 	pa_alsa_profile *ap;
@@ -285,6 +410,8 @@ static void add_profiles(pa_card *impl)
 	ap->profile.available = ACP_AVAILABLE_YES;
 	ap->profile.flags = ACP_PROFILE_OFF;
 	pa_hashmap_put(impl->profiles, ap->name, ap);
+
+	add_pro_profile(impl, impl->card.index);
 
 	PA_HASHMAP_FOREACH(ap, impl->profile_set->profiles, state) {
 		pa_alsa_mapping *m;

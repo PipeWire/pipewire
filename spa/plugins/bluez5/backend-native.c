@@ -783,13 +783,26 @@ static void sco_listen_event(struct spa_source *source)
 	}
 
 	spa_log_debug(backend->log, NAME": transport %p: codec=%u", t, t->codec);
-	if (t->codec == HFP_AUDIO_CODEC_MSBC) {
-		/* set correct socket options for mSBC */
-		struct bt_voice voice_config;
-		memset(&voice_config, 0, sizeof(voice_config));
-		voice_config.setting = BT_VOICE_TRANSPARENT;
-		if (setsockopt(sock, SOL_BLUETOOTH, BT_VOICE, &voice_config, sizeof(voice_config)) < 0) {
-			spa_log_error(backend->log, NAME": transport %p: setsockopt(): %s", t, strerror(errno));
+	if (backend->msbc_support_enabled_in_config) {
+		/* In BT_DEFER_SETUP mode, when a connection is accepted, the listening socket is unblocked but
+		 * the effective connection setup happens only on first receive, allowing to configure the
+		 * accepted socket. */
+		char buff;
+
+		if (t->codec == HFP_AUDIO_CODEC_MSBC) {
+			/* set correct socket options for mSBC */
+			struct bt_voice voice_config;
+			memset(&voice_config, 0, sizeof(voice_config));
+			voice_config.setting = BT_VOICE_TRANSPARENT;
+			if (setsockopt(sock, SOL_BLUETOOTH, BT_VOICE, &voice_config, sizeof(voice_config)) < 0) {
+				spa_log_error(backend->log, NAME": transport %p: setsockopt(): %s", t, strerror(errno));
+				goto fail;
+			}
+		}
+
+		/* First read from the accepted socket is non-blocking and returns a zero length buffer. */
+		if (read(sock, &buff, 1) == -1) {
+			spa_log_error(backend->log, NAME": transport %p: Couldn't authorize SCO connection: %s", t, strerror(errno));
 			goto fail;
 		}
 	}

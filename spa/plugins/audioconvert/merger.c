@@ -507,10 +507,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		this->port_count = info.info.raw.channels;
 		this->monitor_count = this->monitor ? this->port_count : 0;
 		for (i = 0; i < this->port_count; i++) {
-			init_port(this, SPA_DIRECTION_INPUT, i, info.info.raw.position[i]);
-			if (this->monitor)
-				init_port(this, SPA_DIRECTION_OUTPUT, i+1,
-					info.info.raw.position[i]);
 			this->props.channel_map[i] = info.info.raw.position[i];
 			this->props.channel_volumes[i] = this->props.volume;
 			this->props.monitor_volumes[i] = this->props.volume;
@@ -519,11 +515,22 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		this->props.n_monitor_volumes = this->port_count;
 		this->props.n_channels = this->port_count;
 
+		for (i = 0; i < this->port_count; i++) {
+			init_port(this, SPA_DIRECTION_INPUT, i, info.info.raw.position[i]);
+			if (this->monitor)
+				init_port(this, SPA_DIRECTION_OUTPUT, i+1,
+					info.info.raw.position[i]);
+		}
+
 		port = GET_OUT_PORT(this, 0);
 		qsort(info.info.raw.position, info.info.raw.channels,
 					sizeof(uint32_t), int32_cmp);
 		port->format = info;
 		port->have_format = true;
+
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		this->params[2].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_node_info(this, false);
 		return 0;
 	}
 	case SPA_PARAM_Props:

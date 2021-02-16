@@ -452,18 +452,38 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 			if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
 			    rfcomm->msbc_supported_by_hfp)
 				rfcomm->codec_negotiation_supported = true;
-		} else if (strncmp(token, "+BCS", 4) == 0) {
+		} else if (strncmp(token, "+BCS", 4) == 0 && rfcomm->codec_negotiation_supported) {
 			char *cmd;
 
 			/* get next token */
 			token = strtok(NULL, separators);
 			selected_codec = atoi(token);
 
-			/* send codec selection to AG */
-			cmd = spa_aprintf("AT+BCS=%u", selected_codec);
-			rfcomm_send_cmd(source, cmd);
-			free(cmd);
-			rfcomm->hf_state = hfp_hf_bcs;
+			if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
+				spa_log_warn(backend->log, NAME": unsupported codec negociation: %d", selected_codec);
+			} else {
+				spa_log_debug(backend->log, NAME": RFCOMM selected_codec = %i", selected_codec);
+
+				/* send codec selection to AG */
+				cmd = spa_aprintf("AT+BCS=%u", selected_codec);
+				rfcomm_send_cmd(source, cmd);
+				free(cmd);
+				rfcomm->hf_state = hfp_hf_bcs;
+
+				if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
+					if (rfcomm->transport)
+						spa_bt_transport_free(rfcomm->transport);
+
+					rfcomm->transport = _transport_create(rfcomm);
+					if (rfcomm->transport == NULL) {
+						spa_log_warn(backend->log, NAME": can't create transport: %m");
+						// TODO: We should manage the missing transport
+					} else {
+						rfcomm->transport->codec = selected_codec;
+						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+					}
+				}
+			}
 		} else if (strncmp(token, "+CIND", 5) == 0) {
 			/* get next token and discard it */
 			token = strtok(NULL, separators);
@@ -503,13 +523,15 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 				case hfp_hf_cmer:
 					rfcomm->hf_state = hfp_hf_slc;
 					rfcomm->slc_configured = true;
-					rfcomm->transport = _transport_create(rfcomm);
-					if (rfcomm->transport == NULL) {
-						spa_log_warn(backend->log, NAME": can't create transport: %m");
-						// TODO: We should manage the missing transport
+					if (!rfcomm->codec_negotiation_supported) {
+						rfcomm->transport = _transport_create(rfcomm);
+						if (rfcomm->transport == NULL) {
+							spa_log_warn(backend->log, NAME": can't create transport: %m");
+							// TODO: We should manage the missing transport
+						}
+						rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
+						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 					}
-					rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
-					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 					break;
 				default:
 					break;

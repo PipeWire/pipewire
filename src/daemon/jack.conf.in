@@ -52,3 +52,7 @@ context.modules = {
     # a factory for Metadata objects.
     libpipewire-module-metadata = null
 }
+
+jack.properties = {
+     #jack.merge-monitor  = false
+}

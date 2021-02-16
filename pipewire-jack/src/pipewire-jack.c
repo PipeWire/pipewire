@@ -350,6 +350,7 @@ struct client {
 	unsigned int warn_mlock:1;
 	unsigned int timeowner_pending:1;
 	unsigned int timeowner_conditional:1;
+	unsigned int merge_monitor:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -2201,6 +2202,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 			if (ot->node.is_bridge && strchr(str, ':') != NULL)
 				snprintf(o->port.name, sizeof(o->port.name), "%s", str);
+			else if (is_monitor && !c->merge_monitor)
+				snprintf(o->port.name, sizeof(o->port.name), "%s Monitor:%s", ot->node.name, str);
 			else
 				snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
 
@@ -2437,6 +2440,13 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
 	client->warn_mlock = client->context.context->defaults.mem_warn_mlock;
+
+	if ((str = pw_context_get_conf_section(client->context.context,
+					"jack.properties")) != NULL)
+		pw_properties_update_string(client->props, str, strlen(str));
+
+	if ((str = pw_properties_get(client->props, "jack.merge-monitor")) != NULL)
+		client->merge_monitor = pw_properties_parse_bool(str);
 
 	spa_list_init(&client->context.free_objects);
 	pthread_mutex_init(&client->context.lock, NULL);

@@ -1307,6 +1307,40 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	return 0;
 }
 
+void unregister_profile(struct spa_bt_backend *backend, const char *profile)
+{
+	DBusMessage *m, *r;
+	DBusError err;
+
+	spa_log_debug(backend->log, NAME": Unregistering Profile %s", profile);
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE, "/org/bluez",
+			BLUEZ_PROFILE_MANAGER_INTERFACE, "UnregisterProfile");
+	if (m == NULL)
+		return;
+
+	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &profile, DBUS_TYPE_INVALID);
+
+	dbus_error_init(&err);
+
+	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
+	dbus_message_unref(m);
+	m = NULL;
+
+	if (r == NULL) {
+		spa_log_error(backend->log, NAME": Unregistering Profile %s failed", profile);
+		dbus_error_free(&err);
+		return;
+	}
+
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(backend->log, NAME": UnregisterProfile() returned error: %s", dbus_message_get_error_name(r));
+		return;
+	}
+
+	dbus_message_unref(r);
+}
+
 void backend_native_register_profiles(struct spa_bt_backend *backend)
 {
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
@@ -1318,12 +1352,13 @@ void backend_native_register_profiles(struct spa_bt_backend *backend)
 	register_profile(backend, PROFILE_HFP_AG, SPA_BT_UUID_HFP_AG);
 	register_profile(backend, PROFILE_HFP_HF, SPA_BT_UUID_HFP_HF);
 #endif
+
+	if (backend->enabled_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+		sco_listen(backend);
 }
 
-void backend_native_free(struct spa_bt_backend *backend)
+void backend_native_unregister_profiles(struct spa_bt_backend *backend)
 {
-	struct rfcomm *rfcomm;
-
 	if (backend->sco.fd >= 0) {
 		if (backend->sco.loop)
 			spa_loop_remove_source(backend->sco.loop, &backend->sco);
@@ -1331,6 +1366,25 @@ void backend_native_free(struct spa_bt_backend *backend)
 		close (backend->sco.fd);
 		backend->sco.fd = -1;
 	}
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
+	if (backend->enabled_profiles & SPA_BT_PROFILE_HSP_AG)
+		unregister_profile(backend, PROFILE_HSP_AG);
+	if (backend->enabled_profiles & SPA_BT_PROFILE_HSP_HS)
+		unregister_profile(backend, PROFILE_HSP_HS);
+#endif
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	if (backend->enabled_profiles & SPA_BT_PROFILE_HFP_AG)
+		unregister_profile(backend, PROFILE_HFP_AG);
+	if (backend->enabled_profiles & SPA_BT_PROFILE_HFP_HF)
+		unregister_profile(backend, PROFILE_HFP_HF);
+#endif
+}
+
+void backend_native_free(struct spa_bt_backend *backend)
+{
+	struct rfcomm *rfcomm;
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
@@ -1449,9 +1503,6 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		goto fail3;
 	}
 #endif
-
-	if (backend->enabled_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
-		sco_listen(backend);
 
 	return backend;
 

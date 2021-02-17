@@ -88,6 +88,9 @@ struct spa_bt_monitor {
 	struct spa_dict enabled_codecs;
 
 	unsigned int enable_sbc_xq:1;
+	unsigned int backend_native_registered:1;
+	unsigned int backend_ofono_registered:1;
+	unsigned int backend_hsphfpd_registered:1;
 };
 
 /* Stream endpoints owned by BlueZ for each device */
@@ -2508,7 +2511,10 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		adapter_register_application(a);
 	}
 	else if (strcmp(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE) == 0) {
-		backend_native_register_profiles(monitor->backend_native);
+		if (!monitor->backend_ofono_registered && !monitor->backend_hsphfpd_registered) {
+			backend_native_register_profiles(monitor->backend_native);
+			monitor->backend_native_registered = true;
+		}
 	}
 	else if (strcmp(interface_name, BLUEZ_DEVICE_INTERFACE) == 0) {
 		struct spa_bt_device *d;
@@ -2707,6 +2713,49 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 				spa_log_debug(monitor->log, "Bluetooth daemon appeared");
 				get_managed_objects(monitor);
 			}
+		} else if (strcmp(name, OFONO_SERVICE) == 0 && monitor->backend_ofono) {
+			if (old_owner && *old_owner) {
+				spa_log_debug(monitor->log, "oFono daemon disappeared");
+				monitor->backend_ofono_registered = false;
+				backend_native_register_profiles(monitor->backend_native);
+				monitor->backend_native_registered = true;
+			}
+
+			if (new_owner && *new_owner) {
+				spa_log_debug(monitor->log, "oFono daemon appeared");
+				if (monitor->backend_native_registered) {
+					backend_native_unregister_profiles(monitor->backend_native);
+					monitor->backend_native_registered = false;
+				}
+				if (backend_ofono_register(monitor->backend_ofono) == 0)
+					monitor->backend_ofono_registered = true;
+				else {
+					backend_native_register_profiles(monitor->backend_native);
+					monitor->backend_native_registered = true;
+				}
+			}
+		} else if (strcmp(name, HSPHFPD_SERVICE) == 0 && monitor->backend_hsphfpd) {
+			if (old_owner && *old_owner) {
+				spa_log_debug(monitor->log, "hsphfpd daemon disappeared");
+				backend_hsphfpd_unregistered(monitor->backend_hsphfpd);
+				monitor->backend_hsphfpd_registered = false;
+				backend_native_register_profiles(monitor->backend_native);
+				monitor->backend_native_registered = true;
+			}
+
+			if (new_owner && *new_owner) {
+				spa_log_debug(monitor->log, "hsphfpd daemon appeared");
+				if (monitor->backend_native_registered) {
+					backend_native_unregister_profiles(monitor->backend_native);
+					monitor->backend_native_registered = false;
+				}
+				if (backend_hsphfpd_register(monitor->backend_hsphfpd) == 0)
+					monitor->backend_hsphfpd_registered = true;
+				else {
+					backend_native_register_profiles(monitor->backend_native);
+					monitor->backend_native_registered = true;
+				}
+			}
 		}
 	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded")) {
 		DBusMessageIter it;
@@ -2833,6 +2882,18 @@ static void add_filters(struct spa_bt_monitor *this)
 			"type='signal',sender='org.freedesktop.DBus',"
 			"interface='org.freedesktop.DBus',member='NameOwnerChanged',"
 			"arg0='" BLUEZ_SERVICE "'", &err);
+#ifdef HAVE_BLUEZ_5_BACKEND_OFONO
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='org.freedesktop.DBus',"
+			"interface='org.freedesktop.DBus',member='NameOwnerChanged',"
+			"arg0='" OFONO_SERVICE "'", &err);
+#endif
+#ifdef HAVE_BLUEZ_5_BACKEND_HSPHFPD
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='org.freedesktop.DBus',"
+			"interface='org.freedesktop.DBus',member='NameOwnerChanged',"
+			"arg0='" HSPHFPD_SERVICE "'", &err);
+#endif
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.ObjectManager',member='InterfacesAdded'", &err);
@@ -3100,6 +3161,11 @@ impl_init(const struct spa_handle_factory *factory,
 	this->backend_native = backend_native_new(this, this->conn, info, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);
 	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, support, n_support);
+
+	if (this->backend_ofono && backend_ofono_register(this->backend_ofono) == 0)
+		this->backend_ofono_registered = true;
+	else if (this->backend_hsphfpd && backend_hsphfpd_register(this->backend_hsphfpd) == 0)
+		this->backend_hsphfpd_registered = true;
 
 	return 0;
 }

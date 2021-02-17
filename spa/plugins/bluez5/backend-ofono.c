@@ -53,7 +53,6 @@ struct spa_bt_backend {
 	unsigned int msbc_supported:1;
 };
 
-#define OFONO_SERVICE "org.ofono"
 #define OFONO_HF_AUDIO_MANAGER_INTERFACE OFONO_SERVICE ".HandsfreeAudioManager"
 #define OFONO_HF_AUDIO_CARD_INTERFACE OFONO_SERVICE ".HandsfreeAudioCard"
 #define OFONO_HF_AUDIO_AGENT_INTERFACE OFONO_SERVICE ".HandsfreeAudioAgent"
@@ -499,16 +498,41 @@ finish:
 	dbus_pending_call_unref(pending);
 }
 
-static void ofono_register_reply(DBusPendingCall *pending, void *user_data)
+int backend_ofono_register(struct spa_bt_backend *backend)
 {
-	struct spa_bt_backend *backend = user_data;
-	DBusMessage *r;
-	DBusMessage *m;
+	DBusMessage *m, *r;
+	const char *path = OFONO_AUDIO_CLIENT;
+	uint8_t codecs[2];
+	const uint8_t *pcodecs = codecs;
+	int ncodecs = 0;
 	DBusPendingCall *call;
+	DBusError err;
 
-	r = dbus_pending_call_steal_reply(pending);
-	if (r == NULL)
-		return;
+	spa_log_debug(backend->log, NAME": Registering");
+
+	m = dbus_message_new_method_call(OFONO_SERVICE, "/",
+			OFONO_HF_AUDIO_MANAGER_INTERFACE, "Register");
+	if (m == NULL)
+		return -ENOMEM;
+
+	codecs[ncodecs++] = HFP_AUDIO_CODEC_CVSD;
+	if (backend->msbc_supported)
+		codecs[ncodecs++] = HFP_AUDIO_CODEC_MSBC;
+
+	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &path,
+                                          DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &pcodecs, ncodecs,
+                                          DBUS_TYPE_INVALID);
+
+	dbus_error_init(&err);
+
+	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
+	dbus_message_unref(m);
+
+	if (r == NULL) {
+		spa_log_error(backend->log, NAME": Registering Profile %s failed", path);
+		dbus_error_free(&err);
+		return -EIO;
+	}
 
 	if (dbus_message_is_error(r, OFONO_ERROR_INVALID_ARGUMENTS)) {
 		spa_log_warn(backend->log, NAME": invalid arguments");
@@ -531,6 +555,7 @@ static void ofono_register_reply(DBusPendingCall *pending, void *user_data)
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
+	dbus_message_unref(r);
 
 	spa_log_debug(backend->log, NAME": registered");
 
@@ -543,40 +568,11 @@ static void ofono_register_reply(DBusPendingCall *pending, void *user_data)
 	dbus_pending_call_set_notify(call, ofono_getcards_reply, backend, NULL);
 	dbus_message_unref(m);
 
+	return 0;
+
 finish:
 	dbus_message_unref(r);
-        dbus_pending_call_unref(pending);
-}
-
-static int ofono_register(struct spa_bt_backend *backend)
-{
-	DBusMessage *m;
-	const char *path = OFONO_AUDIO_CLIENT;
-	uint8_t codecs[2];
-	const uint8_t *pcodecs = codecs;
-	int ncodecs = 0;
-	DBusPendingCall *call;
-
-	spa_log_debug(backend->log, NAME": Registering");
-
-	m = dbus_message_new_method_call(OFONO_SERVICE, "/",
-			OFONO_HF_AUDIO_MANAGER_INTERFACE, "Register");
-	if (m == NULL)
-		return -ENOMEM;
-
-	codecs[ncodecs++] = HFP_AUDIO_CODEC_CVSD;
-	if (backend->msbc_supported)
-		codecs[ncodecs++] = HFP_AUDIO_CODEC_MSBC;
-
-	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &path,
-                                          DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &pcodecs, ncodecs,
-                                          DBUS_TYPE_INVALID);
-
-	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, ofono_register_reply, backend, NULL);
-	dbus_message_unref(m);
-
-	return 0;
+	return -EIO;
 }
 
 static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
@@ -586,32 +582,7 @@ static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, vo
 
 	dbus_error_init(&err);
 
-	if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged")) {
-		const char *name, *old_owner, *new_owner;
-
-		if (!dbus_message_get_args(m, &err,
-		                           DBUS_TYPE_STRING, &name,
-		                           DBUS_TYPE_STRING, &old_owner,
-		                           DBUS_TYPE_STRING, &new_owner,
-		                           DBUS_TYPE_INVALID)) {
-				spa_log_error(backend->log, NAME": Failed to parse org.freedesktop.DBus.NameOwnerChanged: %s", err.message);
-				goto fail;
-		}
-
-		if (strcmp(name, OFONO_SERVICE) == 0) {
-				if (old_owner && *old_owner) {
-						spa_log_debug(backend->log, NAME": disappeared");
-						//ofono_bus_id_destroy(backend);
-				}
-
-				if (new_owner && *new_owner) {
-						spa_log_debug(backend->log, NAME": appeared");
-						ofono_register(backend);
-				}
-		} else {
-			spa_log_debug(backend->log, "Name owner changed %s", dbus_message_get_path(m));
-		}
-	} else if (dbus_message_is_signal(m, OFONO_HF_AUDIO_MANAGER_INTERFACE, "CardAdded")) {
+	if (dbus_message_is_signal(m, OFONO_HF_AUDIO_MANAGER_INTERFACE, "CardAdded")) {
 			char *p;
 			DBusMessageIter arg_i, props_i;
 
@@ -657,10 +628,6 @@ void backend_ofono_add_filters(struct spa_bt_backend *backend)
 		goto fail;
 	}
 
-	dbus_bus_add_match(backend->conn,
-			"type='signal',sender='org.freedesktop.DBus',"
-			"interface='org.freedesktop.DBus',member='NameOwnerChanged',"
-			"arg0='" OFONO_SERVICE "'", &err);
 	dbus_bus_add_match(backend->conn,
 			"type='signal',sender='" OFONO_SERVICE "',"
 			"interface='" OFONO_HF_AUDIO_MANAGER_INTERFACE "',member='CardAdded'", &err);
@@ -715,8 +682,6 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		free(backend);
 		return NULL;
 	}
-
-	ofono_register(backend);
 
 	return backend;
 }

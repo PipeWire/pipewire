@@ -100,7 +100,6 @@ struct hsphfpd_endpoint {
 
 #define DBUS_INTERFACE_OBJECTMANAGER "org.freedesktop.DBus.ObjectManager"
 
-#define HSPHFPD_SERVICE "org.hsphfpd"
 #define HSPHFPD_APPLICATION_MANAGER_INTERFACE HSPHFPD_SERVICE ".ApplicationManager"
 #define HSPHFPD_ENDPOINT_INTERFACE            HSPHFPD_SERVICE ".Endpoint"
 #define HSPHFPD_AUDIO_AGENT_INTERFACE         HSPHFPD_SERVICE ".AudioAgent"
@@ -564,7 +563,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	uint16_t rx_volume_gain = -1;
 	uint16_t tx_volume_gain = -1;
 	uint16_t mtu = 0;
-	int codec;
+	unsigned int codec;
 	struct hsphfpd_endpoint *endpoint;
 	struct spa_bt_transport *transport;
 	struct hsphfpd_transport_data *transport_data;
@@ -1208,22 +1207,39 @@ finish:
 	dbus_pending_call_unref(pending);
 }
 
-static void hsphfpd_register_application_reply(DBusPendingCall *pending, void *user_data)
+int backend_hsphfpd_register(struct spa_bt_backend *backend)
 {
-	struct spa_bt_backend *backend = user_data;
-	DBusMessage *r;
-	DBusMessage *m;
+	DBusMessage *m, *r;
+	const char *path = APPLICATION_OBJECT_MANAGER_PATH;
 	DBusPendingCall *call;
+	DBusError err;
 
-	r = dbus_pending_call_steal_reply(pending);
-	if (r == NULL)
-		return;
+	spa_log_debug(backend->log, NAME": Registering to hsphfpd");
+
+	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
+			HSPHFPD_APPLICATION_MANAGER_INTERFACE, "RegisterApplication");
+	if (m == NULL)
+		return -ENOMEM;
+
+	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &path, DBUS_TYPE_INVALID);
+
+	dbus_error_init(&err);
+
+	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
+	dbus_message_unref(m);
+
+	if (r == NULL) {
+		spa_log_error(backend->log, NAME": Registering application %s failed", path);
+		dbus_error_free(&err);
+		return -EIO;
+	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(backend->log, NAME": RegisterApplication() failed: %s",
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
+	dbus_message_unref(r);
 
 	backend->hsphfpd_service_id = strdup(dbus_message_get_sender(r));
 
@@ -1238,31 +1254,24 @@ static void hsphfpd_register_application_reply(DBusPendingCall *pending, void *u
 	dbus_pending_call_set_notify(call, hsphfpd_get_endpoints_reply, backend, NULL);
 	dbus_message_unref(m);
 
+	return 0;
+
 finish:
 	dbus_message_unref(r);
-        dbus_pending_call_unref(pending);
+	return -EIO;
 }
 
-static int hsphfpd_register_application(struct spa_bt_backend *backend)
+void backend_hsphfpd_unregistered(struct spa_bt_backend *backend)
 {
-	DBusMessage *m;
-	const char *path = APPLICATION_OBJECT_MANAGER_PATH;
-	DBusPendingCall *call;
+	struct hsphfpd_endpoint *endpoint;
 
-	spa_log_debug(backend->log, NAME": Registering to hsphfpd");
-
-	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
-			HSPHFPD_APPLICATION_MANAGER_INTERFACE, "RegisterApplication");
-	if (m == NULL)
-		return -ENOMEM;
-
-	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &path, DBUS_TYPE_INVALID);
-
-	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, hsphfpd_register_application_reply, backend, NULL);
-	dbus_message_unref(m);
-
-	return 0;
+	if (backend->hsphfpd_service_id) {
+		free(backend->hsphfpd_service_id);
+		backend->hsphfpd_service_id = NULL;
+	}
+	backend->endpoints_listed = false;
+	spa_list_consume(endpoint, &backend->endpoint_list, link)
+		endpoint_free(endpoint);
 }
 
 static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
@@ -1275,42 +1284,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 
 	sender = dbus_message_get_sender(m);
 
-	if (strcmp(sender, DBUS_SERVICE_DBUS) == 0) {
-		if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged")) {
-			const char *name, *old_owner, *new_owner;
-
-			if (!dbus_message_get_args(m, &err,
-			                           DBUS_TYPE_STRING, &name,
-			                           DBUS_TYPE_STRING, &old_owner,
-			                           DBUS_TYPE_STRING, &new_owner,
-			                           DBUS_TYPE_INVALID)) {
-					spa_log_error(backend->log, NAME": Failed to parse org.freedesktop.DBus.NameOwnerChanged: %s", err.message);
-					goto finish;
-			}
-
-			if (strcmp(name, HSPHFPD_SERVICE) == 0) {
-					if (old_owner && *old_owner) {
-							struct hsphfpd_endpoint *endpoint;
-
-							spa_log_debug(backend->log, NAME": hsphfpd disappeared");
-							if (backend->hsphfpd_service_id) {
-								free(backend->hsphfpd_service_id);
-								backend->hsphfpd_service_id = NULL;
-							}
-							backend->endpoints_listed = false;
-							spa_list_consume(endpoint, &backend->endpoint_list, link)
-								endpoint_free(endpoint);
-					}
-
-					if (new_owner && *new_owner) {
-							spa_log_debug(backend->log, NAME": hsphfpd appeared");
-							hsphfpd_register_application(backend);
-					}
-			} else {
-				spa_log_debug(backend->log, NAME": Name owner changed %s", dbus_message_get_path(m));
-			}
-		}
-	} else if (backend->hsphfpd_service_id && strcmp(sender, backend->hsphfpd_service_id) == 0) {
+	if (backend->hsphfpd_service_id && strcmp(sender, backend->hsphfpd_service_id) == 0) {
 		if (dbus_message_is_signal(m, DBUS_INTERFACE_OBJECTMANAGER, "InterfacesAdded")) {
 			DBusMessageIter arg_i;
 
@@ -1420,10 +1394,6 @@ void backend_hsphfpd_add_filters(struct spa_bt_backend *backend)
 	}
 
 	dbus_bus_add_match(backend->conn,
-			"type='signal',sender='org.freedesktop.DBus',"
-			"interface='org.freedesktop.DBus',member='NameOwnerChanged',"
-			"arg0='" HSPHFPD_SERVICE "'", &err);
-	dbus_bus_add_match(backend->conn,
 			"type='signal',sender='" HSPHFPD_SERVICE "',"
 			"interface='" DBUS_INTERFACE_OBJECTMANAGER "',member='InterfacesAdded'", &err);
 	dbus_bus_add_match(backend->conn,
@@ -1515,8 +1485,6 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		free(backend);
 		return NULL;
 	}
-
-	hsphfpd_register_application(backend);
 
 	return backend;
 }

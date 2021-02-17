@@ -29,8 +29,10 @@
 extern "C" {
 #endif
 
-#include <spa/support/plugin.h>
+#include <spa/support/dbus.h>
+#include <spa/support/log.h>
 #include <spa/support/loop.h>
+#include <spa/support/plugin.h>
 #include <spa/utils/hook.h>
 
 #include "config.h"
@@ -532,6 +534,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		uint32_t n_support);
 void backend_native_free(struct spa_bt_backend *backend);
 void backend_native_register_profiles(struct spa_bt_backend *backend);
+void backend_native_unregister_profiles(struct spa_bt_backend *backend);
 #else
 static inline struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
@@ -544,6 +547,7 @@ static inline void backend_native_free(struct spa_bt_backend *backend) {}
 static inline void backend_native_register_profiles(struct spa_bt_backend *backend) {}
 #endif
 
+#define OFONO_SERVICE "org.ofono"
 #ifdef HAVE_BLUEZ_5_BACKEND_OFONO
 struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
@@ -551,6 +555,7 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		const struct spa_support *support,
 		uint32_t n_support);
 void backend_ofono_free(struct spa_bt_backend *backend);
+int backend_ofono_register(struct spa_bt_backend *backend);
 void backend_ofono_add_filters(struct spa_bt_backend *backend);
 #else
 static inline struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
@@ -561,9 +566,11 @@ static inline struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *mo
 	return NULL;
 }
 static inline void backend_ofono_free(struct spa_bt_backend *backend) {}
+static inline int backend_ofono_register(struct spa_bt_backend *backend) { return -ENOTSUP; }
 static inline void backend_ofono_add_filters(struct spa_bt_backend *backend) {}
 #endif
 
+#define HSPHFPD_SERVICE "org.hsphfpd"
 #ifdef HAVE_BLUEZ_5_BACKEND_HSPHFPD
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
@@ -571,6 +578,8 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		const struct spa_support *support,
 		uint32_t n_support);
 void backend_hsphfpd_free(struct spa_bt_backend *backend);
+int backend_hsphfpd_register(struct spa_bt_backend *backend);
+void backend_hsphfpd_unregistered(struct spa_bt_backend *backend);
 void backend_hsphfpd_add_filters(struct spa_bt_backend *backend);
 #else
 static inline struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
@@ -581,6 +590,8 @@ static inline struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *
 	return NULL;
 }
 static inline void backend_hsphfpd_free(struct spa_bt_backend *backend) {}
+static inline int backend_hsphfpd_register(struct spa_bt_backend *backend) { return -ENOTSUP; }
+static inline void backend_hsphfpd_unregistered(struct spa_bt_backend *backend) {}
 static inline void backend_hsphfpd_add_filters(struct spa_bt_backend *backend) {}
 #endif
 

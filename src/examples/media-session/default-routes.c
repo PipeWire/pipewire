@@ -291,6 +291,13 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 			fprintf(f, " ]");
 			break;
 		}
+		case SPA_PROP_latencyOffsetNsec:
+		{
+			int64_t delay;
+			spa_pod_get_long(&prop->value, &delay);
+			fprintf(f, "%s \"latencyOffsetNsec\": %"PRIi64, (comma ? "," : ""), delay);
+			break;
+		}
 		default:
 			continue;
 		}
@@ -377,6 +384,13 @@ static int restore_route_params(struct device *dev, const char *val, uint32_t in
 			spa_pod_builder_prop(&b, SPA_PROP_channelMap, 0);
 			spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
 					n_ch, map);
+		}
+		else if (strcmp(key, "latencyOffsetNsec") == 0) {
+			float delay;
+			if (spa_json_get_float(&it[1], &delay) <= 0)
+                                continue;
+			spa_pod_builder_prop(&b, SPA_PROP_latencyOffsetNsec, 0);
+			spa_pod_builder_long(&b, (int64_t)SPA_CLAMP(delay, INT64_MIN, INT64_MAX));
 		} else {
 			if (spa_json_next(&it[1], &value) <= 0)
                                 break;

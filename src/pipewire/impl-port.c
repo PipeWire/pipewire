@@ -424,6 +424,7 @@ struct pw_impl_port *pw_context_create_port(
 		res = -errno;
 		goto error_no_mem;
 	}
+	pw_properties_setf(properties, PW_KEY_PORT_ID, "%u", port_id);
 
 	if (info) {
 		if (SPA_FLAG_IS_SET(info->flags, SPA_PORT_FLAG_PHYSICAL))
@@ -830,6 +831,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 		PW_KEY_FORMAT_DSP,
 		PW_KEY_NODE_ID,
 		PW_KEY_AUDIO_CHANNEL,
+		PW_KEY_PORT_ID,
 		PW_KEY_PORT_NAME,
 		PW_KEY_PORT_DIRECTION,
 		PW_KEY_PORT_MONITOR,

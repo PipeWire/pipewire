@@ -95,7 +95,6 @@ static int impl_node_enum_params(void *object, int seq,
 				 const struct spa_pod *filter)
 {
 	struct impl *this = object;
-	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
@@ -117,25 +116,37 @@ next:
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
 	case SPA_PARAM_PortConfig:
+		res = spa_node_enum_params(this->convert, seq, id, start, num, filter);
+		return res;
 	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
-		res = spa_node_enum_params(this->convert, seq, id, start, num, filter);
-		res = spa_node_enum_params(this->follower, seq, id, start, num, filter);
+	{
+		if (result.next < 0x10000) {
+			if ((res = spa_node_enum_params_sync(this->convert,
+					id, &result.next, filter, &result.param, &b)) == 1)
+				break;
+			result.next = 0x10000;
+		}
+		if (result.next >= 0x10000) {
+			result.next &= 0xffff;
+			if ((res = spa_node_enum_params_sync(this->follower,
+					id, &result.next, filter, &result.param, &b)) == 1) {
+				result.next |= 0x10000;
+				break;
+			}
+		}
 		return res;
+	}
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:
 		if ((res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
-				id, &result.next, filter, &param, &b)) != 1)
-			return res;
-		break;
-
+				id, &result.next, filter, &result.param, &b)) == 1)
+			break;
+		return res;
 	default:
 		return -ENOENT;
 	}
-
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
-		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
@@ -689,18 +700,10 @@ static void follower_port_info(void *data,
 		emit_node_info(this, false);
 }
 
-static void follower_result(void *data, int seq, int res, uint32_t type, const void *result)
-{
-	struct impl *this = data;
-	spa_log_trace(this->log, NAME" %p: result %d %d", this, seq, res);
-	spa_node_emit_result(&this->hooks, seq, res, type, result);
-}
-
 static const struct spa_node_events follower_node_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.info = follower_info,
 	.port_info = follower_port_info,
-	.result = follower_result,
 };
 
 static int follower_ready(void *data, int status)

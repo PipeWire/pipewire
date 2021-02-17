@@ -106,7 +106,7 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 
 static int ensure_path(char *path, int size, const char *paths[])
 {
-	int i, len, res;
+	int i, len, res, mode;
 	char *p = path;
 
 	for (i = 0; paths[i] != NULL; i++) {
@@ -119,14 +119,18 @@ static int ensure_path(char *path, int size, const char *paths[])
 		p += len;
 		size -= len;
 
-		if ((res = access(path, R_OK | W_OK | X_OK)) < 0) {
+		mode = X_OK;
+		if (paths[i+1] == NULL)
+			mode |= R_OK | W_OK;
+
+		if ((res = access(path, mode)) < 0) {
 			if (errno != ENOENT)
 				return -errno;
 			if ((res = mkdir(path, 0700)) < 0) {
 				pw_log_info("Can't create directory %s: %m", path);
                                 return -errno;
 			}
-			if ((res = access(path, R_OK | W_OK | X_OK)) < 0)
+			if ((res = access(path, mode)) < 0)
 				return -errno;
 
 			pw_log_info("created directory %s", path);

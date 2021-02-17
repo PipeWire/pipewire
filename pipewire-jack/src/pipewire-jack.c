@@ -657,7 +657,7 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 {
 	struct client *client = data;
 
-	pw_log_error(NAME" %p: error id:%u seq:%d res:%d (%s): %s", client,
+	pw_log_debug(NAME" %p: error id:%u seq:%d res:%d (%s): %s", client,
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {

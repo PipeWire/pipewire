@@ -122,6 +122,7 @@ struct object {
 			char name[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias1[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias2[REAL_JACK_PORT_NAME_SIZE+1];
+			char system[REAL_JACK_PORT_NAME_SIZE+1];
 			uint32_t type_id;
 			uint32_t node_id;
 			uint32_t port_id;
@@ -553,6 +554,11 @@ static struct object *find_port(struct client *c, const char *name)
 		if (strcmp(o->port.name, name) == 0 ||
 		    strcmp(o->port.alias1, name) == 0 ||
 		    strcmp(o->port.alias2, name) == 0)
+			return o;
+		if (c->metadata &&
+		    (o->port.node_id == c->metadata->default_audio_source ||
+		     o->port.node_id == c->metadata->default_audio_sink) &&
+		    strcmp(o->port.system, name) == 0)
 			return o;
 	}
 	return NULL;
@@ -2213,13 +2219,14 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
 			snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", str);
-		else
-			o->port.alias1[0] = '\0';
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS)) != NULL)
 			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
-		else
-			o->port.alias2[0] = '\0';
+
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ID)) != NULL)
+			snprintf(o->port.system, sizeof(o->port.system), "system:%s_%d",
+					flags & JackPortIsInput ? "playback" : "capture",
+					atoi(str)+1);
 
 		o->port.flags = flags;
 		o->port.type_id = type_id;

@@ -1404,7 +1404,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 	if (!dbus_connection_register_object_path(backend->conn,
 						  PROFILE_HFP_HF,
 						  &vtable_profile, backend)) {
-		goto fail;
+		goto fail3;
 	}
 #endif
 
@@ -1412,7 +1412,12 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		sco_listen(backend);
 
 	return backend;
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+fail3:
+	dbus_connection_unregister_object_path(backend->conn, PROFILE_HFP_AG);
 fail2:
+#endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);
 fail1:

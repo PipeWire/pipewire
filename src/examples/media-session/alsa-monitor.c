@@ -203,27 +203,6 @@ static const struct sm_object_methods node_methods = {
 	.release = node_release,
 };
 
-static SPA_PRINTF_FUNC(4,5) char *sanitize_nick(char *name, int size,
-		char sub, const char *fmt, ...)
-{
-	char *p;
-	va_list varargs;
-
-	va_start(varargs, fmt);
-	if (vsnprintf(name, size, fmt, varargs) < 0)
-		return NULL;
-	va_end(varargs);
-
-	for (p = name; *p; p++) {
-		switch(*p) {
-		case ':':
-			*p = sub;
-			break;
-		}
-	}
-	return name;
-}
-
 static struct node *alsa_create_node(struct device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
@@ -231,7 +210,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	struct impl *impl = device->impl;
 	int res;
 	const char *dev, *subdev, *stream, *profile, *profile_desc, *rules;
-	char name[1024];
+	char tmp[1024];
 	int i, priority;
 
 	pw_log_debug("new node %u", id);
@@ -312,7 +291,8 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			s = pw_properties_get(device->props, "alsa.card_name");
 
 		pw_properties_set(node->props, PW_KEY_NODE_NICK,
-			sanitize_nick(name, sizeof(name), ' ', "%s", s));
+			sm_media_session_sanitize_description(tmp, sizeof(tmp),
+				' ', "%s", s));
 
 	}
 	if (pw_properties_get(node->props, SPA_KEY_NODE_NAME) == NULL) {
@@ -324,7 +304,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			devname += 10;
 
 		pw_properties_set(node->props, SPA_KEY_NODE_NAME,
-			sm_media_session_sanitize_name(name, sizeof(name),
+			sm_media_session_sanitize_name(tmp, sizeof(tmp),
 				'_', "%s.%s.%s",
 				node->direction == PW_DIRECTION_OUTPUT ?
 				"alsa_input" : "alsa_output", devname, profile));
@@ -337,7 +317,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 				break;
 
 			pw_properties_set(node->props, SPA_KEY_NODE_NAME,
-				sm_media_session_sanitize_name(name, sizeof(name),
+				sm_media_session_sanitize_name(tmp, sizeof(tmp),
 					'_', "%s.%s.%s.%d",
 					node->direction == PW_DIRECTION_OUTPUT ?
 					"alsa_input" : "alsa_output", devname, profile, i));
@@ -356,17 +336,21 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			name = dev;
 
 		if (profile_desc != NULL) {
-			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s %s",
-					desc, profile_desc);
+			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
+				sm_media_session_sanitize_description(tmp, sizeof(tmp),
+					' ', "%s %s", desc, profile_desc));
 		} else if (strcmp(subdev, "0")) {
-			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s (%s %s)",
-					desc, name, subdev);
+			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
+				sm_media_session_sanitize_description(tmp, sizeof(tmp),
+					' ', "%s (%s %s)", desc, name, subdev));
 		} else if (strcmp(dev, "0")) {
-			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s (%s)",
-					desc, name);
+			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
+				sm_media_session_sanitize_description(tmp, sizeof(tmp),
+					' ', "%s (%s)", desc, name));
 		} else {
-			pw_properties_setf(node->props, PW_KEY_NODE_DESCRIPTION, "%s",
-					desc);
+			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
+				sm_media_session_sanitize_description(tmp, sizeof(tmp),
+					' ', "%s", desc));
 		}
 	}
 

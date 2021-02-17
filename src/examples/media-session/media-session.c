@@ -1823,6 +1823,26 @@ char *sm_media_session_sanitize_name(char *name, int size, char sub, const char 
 	return name;
 }
 
+char *sm_media_session_sanitize_description(char *name, int size, char sub, const char *fmt, ...)
+{
+	char *p;
+	va_list varargs;
+
+	va_start(varargs, fmt);
+	if (vsnprintf(name, size, fmt, varargs) < 0)
+		return NULL;
+	va_end(varargs);
+
+	for (p = name; *p; p++) {
+		switch(*p) {
+		case ':':
+			*p = sub;
+			break;
+		}
+	}
+	return name;
+}
+
 static void monitor_core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;

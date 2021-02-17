@@ -133,7 +133,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	int res;
 	const char *prefix, *str, *profile, *rules;
 	int priority;
-	char name[1024];
+	char tmp[1024];
 
 	pw_log_debug("new node %u", id);
 
@@ -160,7 +160,10 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		str = "bluetooth-device";
 
 	pw_properties_setf(node->props, PW_KEY_DEVICE_ID, "%d", device->device_id);
-	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION, str);
+
+	pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
+		sm_media_session_sanitize_description(tmp, sizeof(tmp),
+			' ', "%s", str));
 
 	profile = pw_properties_get(node->props, SPA_KEY_API_BLUEZ5_PROFILE);
 	if (profile == NULL)
@@ -177,7 +180,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		prefix = info->factory_name;
 
 	pw_properties_set(node->props, PW_KEY_NODE_NAME,
-		sm_media_session_sanitize_name(name, sizeof(name),
+		sm_media_session_sanitize_name(tmp, sizeof(tmp),
 			'_', "%s.%s.%s", prefix, str, profile));
 
 	pw_properties_set(node->props, PW_KEY_FACTORY_NAME, info->factory_name);

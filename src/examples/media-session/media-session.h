@@ -302,6 +302,8 @@ int sm_media_session_match_rules(const char *rules, size_t size,
 
 char *sm_media_session_sanitize_name(char *name, int size, char sub,
 		const char *fmt, ...) SPA_PRINTF_FUNC(4, 5);
+char *sm_media_session_sanitize_description(char *name, int size, char sub,
+		const char *fmt, ...) SPA_PRINTF_FUNC(4, 5);
 
 #ifdef __cplusplus
 }

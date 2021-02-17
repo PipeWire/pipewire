@@ -199,6 +199,8 @@ static void rfcomm_send_reply(struct spa_source *source, char *data)
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 {
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
 	unsigned int gain, dummy;
 
 	/* There are only three HSP AT commands:
@@ -206,11 +208,21 @@ static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 	 * AT+VGM=value: value between 0 and 15, sent by the HS to AG to set the microphone gain.
 	 * AT+CKPD=200: Sent by HS when headset button is pressed. */
 	if (sscanf(buf, "AT+VGS=%d", &gain) == 1) {
-		/* t->speaker_gain = gain; */
-		rfcomm_send_reply(source, "OK");
+		if (gain <= 15) {
+			/* t->speaker_gain = gain; */
+			rfcomm_send_reply(source, "OK");
+		} else {
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", buf);
+			rfcomm_send_reply(source, "ERROR");
+		}
 	} else if (sscanf(buf, "AT+VGM=%d", &gain) == 1) {
-		/* t->microphone_gain = gain; */
-		rfcomm_send_reply(source, "OK");
+		if (gain <= 15) {
+			/* t->microphone_gain = gain; */
+			rfcomm_send_reply(source, "OK");
+		} else {
+			rfcomm_send_reply(source, "ERROR");
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGM gain: %s", buf);
+		}
 	} else if (sscanf(buf, "AT+CKPD=%d", &dummy) == 1) {
 		rfcomm_send_reply(source, "OK");
 	} else {
@@ -222,6 +234,8 @@ static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 
 static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 {
+	struct rfcomm *rfcomm = source->data;
+	struct spa_bt_backend *backend = rfcomm->backend;
 	unsigned int gain;
 
 	/* There are only three HSP AT result codes:
@@ -232,9 +246,17 @@ static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 	 * RING: Sent by AG to HS to notify of an incoming call. It can safely be ignored because
 	 *   it does not expect a reply. */
 	if (sscanf(buf, "\r\n+VGS=%d\r\n", &gain) == 1) {
-		/* t->microphone_gain = gain; */
+		if (gain <= 15) {
+			/* t->microphone_gain = gain; */
+		} else {
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", buf);
+		}
 	} else if (sscanf(buf, "\r\n+VGM=%d\r\n", &gain) == 1) {
-		/* t->speaker_gain = gain; */
+		if (gain <= 15) {
+			/* t->speaker_gain = gain; */
+		} else {
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGM gain: %s", buf);
+		}
 	}
 
 	return true;
@@ -420,11 +442,21 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		}
 		rfcomm_send_reply(source, "OK");
 	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
-		/* t->microphone_gain = gain; */
-		rfcomm_send_reply(source, "OK");
+		if (gain <= 15) {
+			/* t->microphone_gain = gain; */
+			rfcomm_send_reply(source, "OK");
+		} else {
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGM gain: %s", buf);
+			rfcomm_send_reply(source, "ERROR");
+		}
 	} else if (sscanf(buf, "AT+VGS=%u", &gain) == 1) {
-		/* t->speaker_gain = gain; */
-		rfcomm_send_reply(source, "OK");
+		if (gain <= 15) {
+			/* t->speaker_gain = gain; */
+			rfcomm_send_reply(source, "OK");
+		} else {
+			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", buf);
+			rfcomm_send_reply(source, "ERROR");
+		}
 	} else {
 		return false;
 	}
@@ -437,7 +469,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 	struct rfcomm *rfcomm = source->data;
 	struct spa_bt_backend *backend = rfcomm->backend;
 	unsigned int features;
-	unsigned int SPA_UNUSED gain;
+	unsigned int gain;
 	unsigned int selected_codec;
 	char* token;
 	char separators[] = "\r\n:";
@@ -491,12 +523,22 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 			/* get next token */
 			token = strtok(NULL, separators);
 			gain = atoi(token);
-			/* t->speaker_gain = gain; */
+
+			if (gain <= 15) {
+				/* t->speaker_gain = gain; */
+			} else {
+				spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGM gain: %s", token);
+			}
 		} else if (strncmp(token, "+VGS", 4) == 0) {
 			/* get next token */
 			token = strtok(NULL, separators);
 			gain = atoi(token);
-			/* t->microphone_gain = gain; */
+
+			if (gain <= 15) {
+				/* t->microphone_gain = gain; */
+			} else {
+				spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", token);
+			}
 		} else if (strncmp(token, "OK", 5) == 0) {
 			switch(rfcomm->hf_state) {
 				case hfp_hf_brsf:

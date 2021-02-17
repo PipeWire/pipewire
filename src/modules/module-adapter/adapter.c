@@ -84,7 +84,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	const struct pw_properties *old;
 	enum pw_direction direction;
 	struct pw_properties *new;
-	const char *str, *path, *node_name, *media_class;
+	const char *str, *path, *desc, *nick, *name, *node_name, *media_class;
 	char position[8], *prefix;
 	bool is_monitor, is_device, is_duplex, is_virtual;
 
@@ -138,15 +138,23 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 		}
 	}
 
-	if ((node_name = pw_properties_get(n->props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
-	    (node_name = pw_properties_get(n->props, PW_KEY_NODE_NICK)) == NULL &&
-	    (node_name = pw_properties_get(n->props, PW_KEY_NODE_NAME)) == NULL) {
+	desc = pw_properties_get(n->props, PW_KEY_NODE_DESCRIPTION);
+	nick = pw_properties_get(n->props, PW_KEY_NODE_NICK);
+	name = pw_properties_get(n->props, PW_KEY_NODE_NAME);
+
+	if ((node_name = desc) == NULL && (node_name = nick) == NULL &&
+	    (node_name = name) == NULL)
 		node_name = "node";
-	}
+
 	pw_properties_setf(new, PW_KEY_OBJECT_PATH, "%s:%s_%d",
 			path ? path : node_name, prefix, pw_impl_port_get_id(port));
 
 	pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
+
+	if ((node_name = nick) == NULL && (node_name = desc) == NULL &&
+	    (node_name = name) == NULL)
+		node_name = "node";
+
 	pw_properties_setf(new, PW_KEY_PORT_ALIAS, "%s:%s_%s",
 			node_name, prefix, str);
 

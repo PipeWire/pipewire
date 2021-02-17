@@ -2113,8 +2113,8 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) != NULL)
 			o->node.is_bridge = strstr(str, "Bridge") != NULL;
 
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
-		    (str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
 		    (str = node_name) == NULL) {
 			str = "node";
 		}

@@ -923,11 +923,15 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
+	uint32_t i;
+
+	if (n_volumes == 0)
+		return -EINVAL;
 
 	spa_log_info(this->log, "node %p volume %f", node, volumes[0]);
 
-	node->n_channels = n_volumes;
-	memcpy(node->volumes, volumes, sizeof(float) * SPA_AUDIO_MAX_CHANNELS);
+	for (i = 0; i < node->n_channels; i++)
+		node->volumes[i] = volumes[i % n_volumes];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0],

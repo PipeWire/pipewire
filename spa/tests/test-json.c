@@ -160,8 +160,8 @@ static void test_encode(void)
 	spa_assert(strncmp(dst4, "\"tes", 4) == 0);
 	spa_assert(spa_json_encode_string(dst6, sizeof(dst6), "test") == 6);
 	spa_assert(strncmp(dst6, "\"test\"", 6) == 0);
-	spa_assert(spa_json_encode_string(dst, sizeof(dst), "test\"\n\r \t\b\f\'") == 19);
-	spa_assert(strcmp(dst, "\"test\"\\n\\r \\t\\b\\f'\"") == 0);
+	spa_assert(spa_json_encode_string(dst, sizeof(dst), "test\"\n\r \t\b\f\'") == 20);
+	spa_assert(strcmp(dst, "\"test\\\"\\n\\r \\t\\b\\f'\"") == 0);
 }
 
 int main(int argc, char *argv[])

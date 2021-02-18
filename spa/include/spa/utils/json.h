@@ -346,6 +346,9 @@ static inline int spa_json_encode_string(char *str, int size, const char *val)
 		case '\f':
 			__PUT('\\'); __PUT('f');
 			break;
+		case '"':
+			__PUT('\\'); __PUT('"');
+			break;
 		default:
 			__PUT(*val);
 			break;

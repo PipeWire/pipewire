@@ -1217,7 +1217,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	}
 
 	str = getenv("PIPEWIRE_REMOTE");
-	if (str != NULL)
+	if (str != NULL && str[0] != '\0')
 		server = str;
 
 	if (fallback_name && name && !strcmp(name, fallback_name))

@@ -937,7 +937,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		return -ENOMEM;
 
 	str = getenv("PIPEWIRE_REMOTE");
-	if (str != NULL)
+	if (str != NULL && str[0] != '\0')
 		server_name = str;
 
 	str = getenv("PIPEWIRE_NODE");

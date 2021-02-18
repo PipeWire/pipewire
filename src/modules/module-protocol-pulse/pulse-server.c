@@ -5484,9 +5484,9 @@ get_server_name(struct pw_context *context)
 
 	if (props)
 		name = pw_properties_get(props, PW_KEY_REMOTE_NAME);
-	if (name == NULL)
+	if (name == NULL || name[0] == '\0')
 		name = getenv("PIPEWIRE_REMOTE");
-	if (name == NULL)
+	if (name == NULL || name[0] == '\0')
 		name = PW_DEFAULT_REMOTE;
 	return name;
 }

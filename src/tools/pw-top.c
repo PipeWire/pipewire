@@ -46,7 +46,7 @@ struct driver {
 struct measurement {
 	int32_t index;
 	int32_t status;
-	int64_t period;
+	int64_t quantum;
 	int64_t prev_signal;
 	int64_t signal;
 	int64_t awake;
@@ -231,9 +231,9 @@ static const char *print_time(char *buf, size_t len, uint64_t val)
 	return buf;
 }
 
-static const char *print_perc(char *buf, size_t len, float val, float period)
+static const char *print_perc(char *buf, size_t len, float val, float quantum)
 {
-	snprintf(buf, len, "%5.2f", period == 0.0f ? 0.0f : val/period);
+	snprintf(buf, len, "%5.2f", quantum == 0.0f ? 0.0f : val/quantum);
 	return buf;
 }
 
@@ -244,7 +244,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 	char buf2[64];
 	char buf3[64];
 	char buf4[64];
-	float waiting, busy, period;
+	float waiting, busy, quantum;
 	struct spa_fraction frac;
 
 	if (n->driver == n)
@@ -253,9 +253,9 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 		frac = SPA_FRACTION(n->measurement.latency.num, n->measurement.latency.denom);
 
 	if (i->clock.rate.denom)
-		period = (float)i->clock.duration * i->clock.rate.num / (float)i->clock.rate.denom;
+		quantum = (float)i->clock.duration * i->clock.rate.num / (float)i->clock.rate.denom;
 	else
-		period = 0.0;
+		quantum = 0.0;
 
 	waiting = (n->measurement.awake - n->measurement.signal) / 1000000000.f,
 	busy = (n->measurement.finish - n->measurement.awake) / 1000000000.f,
@@ -266,8 +266,8 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 			frac.num, frac.denom,
 			print_time(buf1, 64, n->measurement.awake - n->measurement.signal),
 			print_time(buf2, 64, n->measurement.finish - n->measurement.awake),
-			print_perc(buf3, 64, waiting, period),
-			print_perc(buf4, 64, busy, period),
+			print_perc(buf3, 64, waiting, quantum),
+			print_perc(buf4, 64, busy, quantum),
 			i->xrun_count + n->errors,
 			n->driver == n ? "" : " + ",
 			n->name);
@@ -281,7 +281,7 @@ static void do_refresh(struct data *d)
 
 	wclear(d->win);
 	wattron(d->win, A_REVERSE);
-	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID PERIOD   RATE    WAIT    BUSY   W/P   B/P  ERR  NAME ");
+	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR  NAME ");
 	wattroff(d->win, A_REVERSE);
 	wprintw(d->win, "\n");
 

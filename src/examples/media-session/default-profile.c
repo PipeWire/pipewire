@@ -176,6 +176,9 @@ static int find_best_profile(struct device *dev, struct profile *pr)
 		    parse_profile(p, &t) < 0)
 			continue;
 
+		if (t.name && strcmp(t.name, "pro-audio") == 0)
+			continue;
+
 		if (t.name && strcmp(t.name, "off") == 0) {
 			off = t;
 		}

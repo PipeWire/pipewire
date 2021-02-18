@@ -1,3 +1,95 @@
+PipeWire 0.3.22
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Per client config files replace the module-profiles. It's
+    now possible to tweak settings and load custom modules.
+  - Pro Audio card profile support. You can now select the
+    Pro Audio profile and have raw device access with the
+    maximum number of channels and no mixer controls. This is
+    the usual setup for managing high end Pro Audio cards.
+  - Many fixes and improvements in the JACK library to make
+    devices look and integrate better.
+  - Many bluetooth improvements. Playback should be more
+    reliable and better synchronized. Support for the HFP HF
+    profile.
+  - Small fixes and improvements all over the map.
+
+- PipeWire improvements
+  - Add support for restrictions requested by a client. This
+    makes it possible to implement Flatpak policy for emulated
+    PulseAudio clients as well.
+  - Fix removal of params in objects. Previously they would not
+    be removed from the cache.
+  - Remove mlock warnings by default. There is an option to enable
+    them again if you want to check if your system is optimized.
+  - Remove LimitMEMLOCK lines from the service files. They can
+    only lower the system settings and are thus not useful.
+  - Implement per-client config files. Each pipewire client will
+    now read a config file that you can use to configure the
+    context of the client.
+  - Implement state and config load/save in pipewire. This is used
+    by the session manager or other apps.
+  - Make an option to disable dbus support.
+  - Add tool to convert pipewire config to JSON.
+
+- Session-manager
+  - Give all permissions to Manager flatpak apps. In the future
+    we will use the Permission store to remember user settings.
+  - Improvements to default audio/sink handling.
+  - Add option to configure device suspend time.
+  - Small fixes in route handling.
+
+- Device support
+  - Complain when ACP profile files are not found and use
+    a fallback in order to get something working.
+  - Add volume support to monitor ports.
+  - Fix resume from suspend for ALSA in more cases.
+  - ALSA ACP cards now have a Pro Audio profile that exposes
+    the raw card devices.
+
+- Bluetooth
+  - Enable A2DP delay reporting. This improves audio/video sync
+    when playing audio over bluetooth.
+  - Fix stuttering in A2DP source
+  - Tweak buffer size and latency settings to avoid stuttering
+  - More work on HSP and HFP support
+  - Fix initial profile configuration
+  - Add HFP HF support
+
+- PulseAudio server
+  - Small tweaks in capture packet size to avoid crashes in some
+    apps.
+  - Detect Flatpak apps and requests the flatpak permissions from
+    the session manager. This means that Flatpak pulseaudio apps
+    will now run with reduced permissions.
+
+- ALSA plugin
+  - Reduce min buffer size in the plugin for lower possible
+    latency.
+
+- JACK
+  - implement some missing methods to make qjackctl work again.
+  - Use the context data thread instead of making our own. This
+    fixes the issue where the data thread was not given RT
+    priority correctly.
+  - Pass extra jack flags around in port properties. This makes
+    CV ports in carla work.
+  - Many tweaks to the port names and aliases. Unwanted characters
+    are filtered out, giving better names to jack apps. Default
+    device names are now equal to those seen in pulseaudio apps.
+  - Add an option to make a separate client for the monitor ports
+    of a device. This makes it more usable in apps.
+  - add support for system:playback_N and system:capture_N port
+    names for apps that hardcode these port names.
+
+
+
+Older versions:
+
+
 PipeWire 0.3.21
 
 This is a bugfix release that is API and ABI compatible
@@ -76,9 +168,6 @@ with previous 0.3.x releases.
     to pause in corked state.
   - Implement rewind due to seeks, fixes GStreamer seeking.
 
-
-
-Older versions:
 
 PipeWire 0.3.20
 

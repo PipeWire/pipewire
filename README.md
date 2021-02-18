@@ -73,6 +73,17 @@ $ pw-jack <appname>
 If you replaced JACK with PipeWire completely, `pw-jack` does not have any
 effect and can be omitted.
 
+JACK applications will automatically use the buffer-size choosen by the
+server. You can force a maximum buffer size (latency) by setting the
+`PIPEWIRE_LATENCY` environment variable like so:
+
+```
+PIPEWIRE_LATENCY=128/48000 jack_simple_client
+```
+Requests the `jack_simple_client` to run with a buffer of 128 or
+less samples.
+
+
 ### Running PulseAudio applications
 
 PipeWire can run a PulseAudio compatible replacement server. You can't
@@ -96,6 +107,10 @@ It should include the string:
 Server Name: PulseAudio (on PipeWire 0.3.x)
 ...
 ```
+
+You can use pavucontrol to change profiles and ports, change volumes
+or redirect streams, just like with PulseAudio.
+
 
 ### Running ALSA applications
 
@@ -144,6 +159,14 @@ ports but it is a good start.
 
 `pw-dot` can dump a graph of the pipeline, check out the help for
 how to do this.
+
+`pw-top` monitors the real-time status of the graph. This is handy to
+find out what clients are running and how much DSP resources they
+use.
+
+`pw-dump` dumps the state of the PipeWire daemon in JSON format. This
+can be used to find out the properties and parameters of the objects
+in the PipeWire daemon.
 
 There is a more complicated tool to inspect the state of the server
 with `pw-cli`. This tools can be used interactively or it can execute

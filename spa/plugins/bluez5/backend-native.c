@@ -437,7 +437,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 	struct rfcomm *rfcomm = source->data;
 	struct spa_bt_backend *backend = rfcomm->backend;
 	unsigned int features;
-	unsigned int gain;
+	unsigned int SPA_UNUSED gain;
 	unsigned int selected_codec;
 	char* token;
 	char separators[] = "\r\n:";

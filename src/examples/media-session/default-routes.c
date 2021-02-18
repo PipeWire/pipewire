@@ -240,8 +240,7 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 {
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
-	float val = 0.0f;
-	bool b = false, comma = false;
+	bool comma = false;
 	char *ptr;
 	size_t size;
 	FILE *f;
@@ -252,13 +251,21 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &val);
+		{
+			float val;
+			if (spa_pod_get_float(&prop->value, &val) < 0)
+				continue;
 			fprintf(f, "%s \"volume\": %f", (comma ? "," : ""), val);
 			break;
+		}
 		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &b);
+		{
+			bool b;
+			if (spa_pod_get_bool(&prop->value, &b) < 0)
+				continue;
 			fprintf(f, "%s \"mute\": %s", (comma ? "," : ""), b ? "true" : "false");
 			break;
+		}
 		case SPA_PROP_channelVolumes:
 		{
 			uint32_t i, n_vals;
@@ -294,7 +301,8 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 		case SPA_PROP_latencyOffsetNsec:
 		{
 			int64_t delay;
-			spa_pod_get_long(&prop->value, &delay);
+			if (spa_pod_get_long(&prop->value, &delay) < 0)
+				continue;
 			fprintf(f, "%s \"latencyOffsetNsec\": %"PRIi64, (comma ? "," : ""), delay);
 			break;
 		}

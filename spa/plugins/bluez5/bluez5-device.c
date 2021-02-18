@@ -942,7 +942,7 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
-				SPA_TYPE_Float, n_volumes, volumes),
+				SPA_TYPE_Float, node->n_channels, node->volumes),
 			SPA_PROP_channelMap, SPA_POD_Array(sizeof(uint32_t),
 				SPA_TYPE_Id, node->n_channels, node->channels));
 	event = spa_pod_builder_pop(&b, &f[0]);

@@ -448,6 +448,8 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index)
 			have_output = true;
 		else if (profile == SPA_BT_PROFILE_A2DP_SOURCE)
 			have_input = true;
+		else if (profile == 0)
+			have_output = have_input = false;
 		else
 			have_output = have_input = true;
 		break;

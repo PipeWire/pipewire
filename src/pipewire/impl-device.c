@@ -643,11 +643,18 @@ static void emit_info_changed(struct pw_impl_device *device)
 	device->info.change_mask = 0;
 }
 
-static int update_properties(struct pw_impl_device *device, const struct spa_dict *dict)
+static int update_properties(struct pw_impl_device *device, const struct spa_dict *dict, bool filter)
 {
 	int changed;
+	const char *ignored[] = {
+		PW_KEY_OBJECT_ID,
+		PW_KEY_MODULE_ID,
+		PW_KEY_FACTORY_ID,
+		PW_KEY_CLIENT_ID,
+		NULL
+	};
 
-	changed = pw_properties_update(device->properties, dict);
+	changed = pw_properties_update_ignore(device->properties, dict, filter ? ignored : NULL);
 	device->info.props = &device->properties->dict;
 
 	pw_log_debug(NAME" %p: updated %d properties", device, changed);
@@ -726,7 +733,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 			device, info->flags, info->change_mask);
 
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
-		update_properties(device, info->props);
+		update_properties(device, info->props, true);
 	}
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
 		uint32_t i;
@@ -894,7 +901,7 @@ const struct pw_properties *pw_impl_device_get_properties(struct pw_impl_device 
 SPA_EXPORT
 int pw_impl_device_update_properties(struct pw_impl_device *device, const struct spa_dict *dict)
 {
-	int changed = update_properties(device, dict);
+	int changed = update_properties(device, dict, false);
 	emit_info_changed(device);
 	return changed;
 }

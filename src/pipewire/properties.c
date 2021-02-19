@@ -248,6 +248,30 @@ int pw_properties_update_keys(struct pw_properties *props,
 	return changed;
 }
 
+static bool has_key(const char *keys[], const char *key)
+{
+	int i;
+	for (i = 0; keys[i]; i++) {
+		if (strcmp(keys[i], key) == 0)
+			return true;
+	}
+	return false;
+}
+
+SPA_EXPORT
+int pw_properties_update_ignore(struct pw_properties *props,
+		const struct spa_dict *dict, const char *ignore[])
+{
+	const struct spa_dict_item *it;
+	int changed = 0;
+
+	spa_dict_for_each(it, dict) {
+		if (ignore == NULL || !has_key(ignore, it->key))
+			changed += pw_properties_set(props, it->key, it->value);
+	}
+	return changed;
+}
+
 /** Clear a properties object
  *
  * \param properties properties to clear

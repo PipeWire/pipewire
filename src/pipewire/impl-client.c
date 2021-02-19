@@ -133,21 +133,39 @@ static int client_error(void *object, uint32_t id, int res, const char *error)
 	return 0;
 }
 
+static bool has_key(const char *keys[], const char *key)
+{
+	int i;
+	for (i = 0; keys[i]; i++) {
+		if (strcmp(keys[i], key) == 0)
+			return true;
+	}
+	return false;
+}
+
 static int update_properties(struct pw_impl_client *client, const struct spa_dict *dict, bool filter)
 {
 	struct pw_resource *resource;
 	int changed = 0;
 	uint32_t i;
-	const char *old;
+	const char *old, *ignored[] = {
+		PW_KEY_OBJECT_ID,
+		NULL
+	};
 
         for (i = 0; i < dict->n_items; i++) {
-		if (filter && strstr(dict->items[i].key, "pipewire.") == dict->items[i].key &&
-		    (old = pw_properties_get(client->properties, dict->items[i].key)) != NULL &&
-		    (dict->items[i].value == NULL || strcmp(old, dict->items[i].value) != 0)) {
-			pw_log_warn(NAME" %p: refuse property update '%s' from '%s' to '%s'",
-					client, dict->items[i].key, old,
-					dict->items[i].value);
-			continue;
+		if (filter) {
+			if (strstr(dict->items[i].key, "pipewire.") == dict->items[i].key &&
+			    (old = pw_properties_get(client->properties, dict->items[i].key)) != NULL &&
+			    (dict->items[i].value == NULL || strcmp(old, dict->items[i].value) != 0)) {
+				pw_log_warn(NAME" %p: refuse property update '%s' from '%s' to '%s'",
+						client, dict->items[i].key, old,
+						dict->items[i].value);
+				continue;
+
+			}
+			if (has_key(ignored, dict->items[i].key))
+				continue;
 		}
                 changed += pw_properties_set(client->properties, dict->items[i].key, dict->items[i].value);
 	}

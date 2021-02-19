@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
-	
+
 #include <spa/utils/dict.h>
 
 /** \class pw_properties
@@ -61,6 +61,8 @@ pw_properties_copy(const struct pw_properties *properties);
 
 int pw_properties_update_keys(struct pw_properties *props,
 		     const struct spa_dict *dict, const char *keys[]);
+int pw_properties_update_ignore(struct pw_properties *props,
+		const struct spa_dict *dict, const char *ignore[]);
 
 int pw_properties_update(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);

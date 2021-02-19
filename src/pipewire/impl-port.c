@@ -266,11 +266,19 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 	return res;
 }
 
-static int update_properties(struct pw_impl_port *port, const struct spa_dict *dict)
+static int update_properties(struct pw_impl_port *port, const struct spa_dict *dict, bool filter)
 {
 	int changed;
+	const char *ignored[] = {
+		PW_KEY_OBJECT_ID,
+		PW_KEY_PORT_DIRECTION,
+		PW_KEY_PORT_CONTROL,
+		PW_KEY_NODE_ID,
+		PW_KEY_PORT_ID,
+		NULL
+	};
 
-	changed = pw_properties_update(port->properties, dict);
+	changed = pw_properties_update_ignore(port->properties, dict, filter ? ignored : NULL);
 	port->info.props = &port->properties->dict;
 
 	if (changed) {
@@ -354,7 +362,7 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 	}
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PROPS) {
 		if (info->props) {
-			update_properties(port, info->props);
+			update_properties(port, info->props, true);
 		} else {
 			pw_log_warn(NAME" %p: port PROPS update but no properties", port);
 		}
@@ -617,10 +625,8 @@ const struct pw_properties *pw_impl_port_get_properties(struct pw_impl_port *por
 SPA_EXPORT
 int pw_impl_port_update_properties(struct pw_impl_port *port, const struct spa_dict *dict)
 {
-	int changed = update_properties(port, dict);
-
+	int changed = update_properties(port, dict, false);
 	emit_info_changed(port);
-
 	return changed;
 }
 

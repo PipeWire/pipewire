@@ -1752,6 +1752,16 @@ static const struct pw_stream_events stream_events =
 	.drained = stream_drained,
 };
 
+static void log_format_info(struct impl *impl, enum spa_log_level level, struct format_info *format)
+{
+	const struct spa_dict_item *it;
+	pw_log(level, NAME" %p: format %s",
+			impl, format_encoding2name(format->encoding));
+	spa_dict_for_each(it, &format->props->dict)
+		pw_log(level, NAME" %p:  '%s': '%s'",
+				impl, it->key, it->value);
+}
+
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -1783,7 +1793,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
-	uint32_t n_params = 0, flags;
+	uint32_t n_params = 0, n_valid_formats = 0, flags;
 	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1871,8 +1881,14 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	if (sample_spec_valid(&ss)) {
 		if ((params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss, &map)) != NULL)
+				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
 			n_params++;
+			n_valid_formats++;
+		} else {
+			pw_log_warn(NAME" %p: unsupported format:%s rate:%d channels:%u",
+					impl, format_id2name(ss.format), ss.rate,
+					ss.channels);
+		}
 	}
 	if (client->version >= 21) {
 		if ((res = message_get(m,
@@ -1891,15 +1907,21 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 					goto error_protocol;
 
 				if ((params[n_params] = format_info_build_param(&b,
-						SPA_PARAM_EnumFormat, &format)) != NULL)
+						SPA_PARAM_EnumFormat, &format)) != NULL) {
 					n_params++;
-
+					n_valid_formats++;
+				} else {
+					log_format_info(impl, SPA_LOG_LEVEL_WARN, &format);
+				}
 				format_info_clear(&format);
 			}
 		}
 	}
 	if (m->offset != m->length)
 		goto error_protocol;
+
+	if (n_valid_formats == 0)
+		goto error_no_formats;
 
 	stream = calloc(1, sizeof(struct stream));
 	if (stream == NULL)
@@ -1968,6 +1990,9 @@ error_errno:
 error_protocol:
 	res = -EPROTO;
 	goto error;
+error_no_formats:
+	res = -ENOTSUP;
+	goto error;
 error_invalid:
 	res = -EINVAL;
 	goto error;
@@ -2012,7 +2037,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
-	uint32_t n_params = 0, flags, id;
+	uint32_t n_params = 0, n_valid_formats = 0, flags, id;
 	const struct spa_pod *params[32];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -2082,8 +2107,14 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	}
 	if (sample_spec_valid(&ss)) {
 		if ((params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss, &map)) != NULL)
+				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
 			n_params++;
+			n_valid_formats++;
+		} else {
+			pw_log_warn(NAME" %p: unsupported format:%s rate:%d channels:%u",
+					impl, format_id2name(ss.format), ss.rate,
+					ss.channels);
+		}
 	}
 	if (client->version >= 22) {
 		if ((res = message_get(m,
@@ -2102,9 +2133,12 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 					goto error_protocol;
 
 				if ((params[n_params] = format_info_build_param(&b,
-						SPA_PARAM_EnumFormat, &format)) != NULL)
+						SPA_PARAM_EnumFormat, &format)) != NULL) {
 					n_params++;
-
+					n_valid_formats++;
+				} else {
+					log_format_info(impl, SPA_LOG_LEVEL_WARN, &format);
+				}
 				format_info_clear(&format);
 			}
 		}
@@ -2120,6 +2154,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	}
 	if (m->offset != m->length)
 		goto error_protocol;
+
+	if (n_valid_formats == 0)
+		goto error_no_formats;
 
 	stream = calloc(1, sizeof(struct stream));
 	if (stream == NULL)
@@ -2200,6 +2237,9 @@ error_errno:
 	goto error;
 error_protocol:
 	res = -EPROTO;
+	goto error;
+error_no_formats:
+	res = -ENOTSUP;
 	goto error;
 error_invalid:
 	res = -EINVAL;

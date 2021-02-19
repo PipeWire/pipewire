@@ -563,6 +563,9 @@ static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
 	spa_zero(ss);
 	spa_zero(map);
 
+	if (info->encoding != ENCODING_PCM)
+		return NULL;
+
 	if ((str = pw_properties_get(info->props, "format.sample_format")) == NULL)
 		return NULL;
 

@@ -810,6 +810,9 @@ static void refresh_auto_default_nodes(struct impl *impl)
 {
 	struct default_node *def;
 
+	if (impl->session->metadata == NULL)
+		return;
+
 	/* Auto set default nodes */
 	for (def = impl->defaults; def->key != NULL; ++def) {
 		struct node *node;

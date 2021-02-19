@@ -850,7 +850,9 @@ static int message_dump(enum spa_log_level level, struct message *m)
 			const struct spa_dict_item *it;
 			if ((res = read_format_info(m, &info)) < 0)
 				return res;
-			pw_log(level, "%u: format-info: n_items:%u", o, info.props->dict.n_items);
+			pw_log(level, "%u: format-info: enc:%s n_items:%u",
+					o, format_encoding2name(info.encoding),
+					info.props->dict.n_items);
 			spa_dict_for_each(it, &info.props->dict)
 				pw_log(level, "     '%s': '%s'", it->key, it->value);
 			break;

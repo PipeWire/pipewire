@@ -476,8 +476,27 @@ enum encoding {
 	ENCODING_TRUEHD_IEC61937,
 	ENCODING_DTSHD_IEC61937,
 	ENCODING_MAX,
-	NCODING_INVALID = -1,
+	ENCODING_INVALID = -1,
 };
+
+static const char *encoding_names[] = {
+	[ENCODING_ANY] = "ANY",
+	[ENCODING_PCM] = "PCM",
+	[ENCODING_AC3_IEC61937] = "AC3-IEC61937",
+	[ENCODING_EAC3_IEC61937] = "EAC3-IEC61937",
+	[ENCODING_MPEG_IEC61937] = "MPEG-IEC61937",
+	[ENCODING_DTS_IEC61937] = "DTS-IEC61937",
+	[ENCODING_MPEG2_AAC_IEC61937] = "MPEG2-AAC-IEC61937",
+	[ENCODING_TRUEHD_IEC61937] = "TRUEHD-IEC61937",
+	[ENCODING_DTSHD_IEC61937] = "DTSHD-IEC61937",
+};
+
+static inline const char *format_encoding2name(enum encoding enc)
+{
+	if (enc >= 0 && enc < (int)SPA_N_ELEMENTS(encoding_names))
+		return encoding_names[enc];
+	return "INVALID";
+}
 
 struct format_info {
 	enum encoding encoding;

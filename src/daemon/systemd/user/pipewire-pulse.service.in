@@ -17,9 +17,16 @@ Requires=pipewire-pulse.socket
 ConditionUser=!root
 
 [Service]
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
 Type=simple
 ExecStart=@PW_PULSE_BINARY@
 Restart=on-failure
+Slice=session.slice
 
 [Install]
 Also=pipewire-pulse.socket

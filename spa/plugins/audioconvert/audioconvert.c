@@ -81,7 +81,11 @@ struct impl {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-	struct spa_param_info params[8];
+#define IDX_EnumPortConfig	0
+#define IDX_PortConfig		1
+#define IDX_PropInfo		2
+#define IDX_Props		3
+	struct spa_param_info params[4];
 
 	int n_links;
 	struct link links[8];
@@ -121,12 +125,22 @@ struct impl {
 
 static void emit_node_info(struct impl *this, bool full)
 {
+	uint32_t i;
+
 	if (this->add_listener)
 		return;
 
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
+		if (this->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < SPA_N_ELEMENTS(this->params); i++) {
+				if (this->params[i].user > 0) {
+					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					this->params[i].user = 0;
+				}
+			}
+		}
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -606,15 +620,15 @@ static void on_channelmix_info(void *data, const struct spa_node_info *info)
 
 		switch (info->params[i].id) {
 		case SPA_PARAM_PropInfo:
-			idx = 2;
+			idx = IDX_PropInfo;
 			break;
 		case SPA_PARAM_Props:
-			idx = 3;
+			idx = IDX_Props;
 			break;
 		}
 		if (idx != SPA_ID_INVALID) {
-			this->params[idx] = info->params[i];
 			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			this->params[idx].user++;
 		}
 	}
 	emit_node_info(this, false);
@@ -705,8 +719,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 			return res;
 
 		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
-		this->params[3].flags ^= SPA_PARAM_INFO_SERIAL;
 		this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
+		this->params[IDX_Props].user++;
 	}
 
 	/* notify ports of new node */
@@ -1253,10 +1267,10 @@ impl_init(const struct spa_handle_factory *factory,
 		SPA_NODE_FLAG_IN_PORT_CONFIG |
 		SPA_NODE_FLAG_OUT_PORT_CONFIG |
 		SPA_NODE_FLAG_NEED_CONFIGURE;
-	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
-	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
-	this->params[2] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-	this->params[3] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_EnumPortConfig] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
+	this->params[IDX_PortConfig] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = 4;
 

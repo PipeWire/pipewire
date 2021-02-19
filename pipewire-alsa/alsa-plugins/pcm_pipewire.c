@@ -457,6 +457,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		goto error;
 
 	pw_properties_set(props, PW_KEY_CLIENT_API, "alsa");
+	pw_properties_setf(props, PW_KEY_APP_NAME, "%s", pw_get_prgname());
 
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);

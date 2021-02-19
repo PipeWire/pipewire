@@ -2114,17 +2114,17 @@ static bool is_module_enabled(struct impl *impl, const char *val)
 	return str ? pw_properties_parse_bool(str) : false;
 }
 
-static void show_help(const char *name, struct impl *impl)
+static void show_help(const char *name, struct impl *impl, const char *config_name)
 {
 	size_t i;
 
         fprintf(stdout, "%s [options]\n"
-             "  -h, --help                            Show this help\n"
-             "      --version                         Show version\n",
-	     name);
+		"  -h, --help                            Show this help\n"
+		"      --version                         Show version\n"
+		"  -c, --config                          Load config (Default %s)\n",
+		name, config_name);
 
-        fprintf(stdout,
-             "\noptions: (*=enabled)\n");
+	fprintf(stdout, "\noptions: (*=enabled)\n");
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
 		fprintf(stdout, "\t  %c %-15.15s: %s\n",
 				is_module_enabled(impl, modules[i].name) ? '*' : ' ',
@@ -2136,12 +2136,14 @@ int main(int argc, char *argv[])
 {
 	struct impl impl = { 0, };
 	const struct spa_support *support;
-	const char *str;
+	const char *str, *config_name = SESSION_CONF;
+	bool do_show_help = false;
 	uint32_t n_support;
 	int res = 0, c;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
+		{ "config",	required_argument,	NULL, 'c' },
 		{ NULL, 0, NULL, 0}
 	};
         size_t i;
@@ -2149,9 +2151,30 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	while ((c = getopt_long(argc, argv, "hVc:", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			do_show_help = true;
+			break;
+		case 'V':
+			fprintf(stdout, "%s\n"
+				"Compiled with libpipewire %s\n"
+				"Linked with libpipewire %s\n",
+				argv[0],
+				pw_get_headers_version(),
+				pw_get_library_version());
+			return 0;
+		case 'c':
+			config_name = optarg;
+			break;
+		default:
+			return -1;
+		}
+	}
+
 	impl.this.props = pw_properties_new(
 			PW_KEY_CONFIG_PREFIX, SESSION_PREFIX,
-			PW_KEY_CONFIG_NAME, SESSION_CONF,
+			PW_KEY_CONFIG_NAME, config_name,
 			NULL);
 	if (impl.this.props == NULL)
 		return -1;
@@ -2159,7 +2182,7 @@ int main(int argc, char *argv[])
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
 		return -1;
 
-	pw_conf_load_conf(SESSION_PREFIX, SESSION_CONF, impl.conf);
+	pw_conf_load_conf(SESSION_PREFIX, config_name, impl.conf);
 
 	if ((str = pw_properties_get(impl.conf, "context.properties")) != NULL)
 		pw_properties_update_string(impl.this.props, str, strlen(str));
@@ -2169,22 +2192,9 @@ int main(int argc, char *argv[])
 	if ((str = pw_properties_get(impl.conf, "session.modules")) != NULL)
 		collect_modules(&impl, str);
 
-	while ((c = getopt_long(argc, argv, "hV", long_options, NULL)) != -1) {
-		switch (c) {
-		case 'h':
-			show_help(argv[0], &impl);
-			return 0;
-		case 'V':
-			fprintf(stdout, "%s\n"
-				"Compiled with libpipewire %s\n"
-				"Linked with libpipewire %s\n",
-				argv[0],
-				pw_get_headers_version(),
-				pw_get_library_version());
-			return 0;
-		default:
-			return -1;
-		}
+	if (do_show_help) {
+		show_help(argv[0], &impl, config_name);
+		return 0;
 	}
 
 	spa_dict_for_each(item, &impl.this.props->dict)

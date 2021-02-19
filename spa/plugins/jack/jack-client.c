@@ -63,6 +63,8 @@ static int status_to_result(jack_status_t status)
 		res = -ECONNREFUSED;
 	else if (status & JackVersionError)
 		res = -EPROTO;
+	else if (status & JackInitFailure)
+		res = -EIO;
 	else
 		res = -EFAULT;
 

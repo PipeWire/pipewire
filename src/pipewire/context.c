@@ -239,6 +239,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if ((str = pw_properties_get(conf, "context.properties")) != NULL)
 		pw_properties_update_string(properties, str, strlen(str));
 
+	if (getenv("PIPEWIRE_DEBUG") == NULL &&
+	    (str = pw_properties_get(properties, "log.level")) != NULL)
+		pw_log_set_level(atoi(str));
+
 	if ((str = pw_properties_get(properties, "mem.mlock-all")) != NULL &&
 	    pw_properties_parse_bool(str)) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE) < 0)

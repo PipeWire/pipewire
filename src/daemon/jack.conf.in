@@ -5,7 +5,7 @@ context.properties = {
     #mem.warn-mlock  = false
     #mem.allow-mlock = true
     #mem.mlock-all   = false
-    #log.level       = 2
+    log.level        = 0
 }
 
 context.spa-libs = {

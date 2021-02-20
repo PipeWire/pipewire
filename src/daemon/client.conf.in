@@ -52,3 +52,14 @@ context.modules = {
     # Provides factories to make session manager objects.
     libpipewire-module-session-manager = null
 }
+
+filter.properties = {
+    #node.latency = 1024/48000
+}
+
+stream.properties = {
+    #node.latency = 1024/48000
+    #resample.quality = 4
+    #channelmix.normalize = false
+    #channelmix.mix-lfe = false
+}

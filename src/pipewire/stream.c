@@ -1176,6 +1176,8 @@ stream_new(struct pw_context *context, const char *name,
 		res = -errno;
 		goto error_properties;
 	}
+	if ((str = pw_context_get_conf_section(context, "stream.properties")) != NULL)
+		pw_properties_update_string(props, str, strlen(str));
 
 	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
 		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "true");

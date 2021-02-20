@@ -2517,8 +2517,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		pw_properties_set(client->props, PW_KEY_MEDIA_CATEGORY, "Duplex");
 	if (pw_properties_get(client->props, PW_KEY_MEDIA_ROLE) == NULL)
 		pw_properties_set(client->props, PW_KEY_MEDIA_ROLE, "DSP");
-	if (pw_properties_get(client->props, PW_KEY_NODE_LATENCY) == NULL &&
-	    (str = getenv("PIPEWIRE_LATENCY")) != NULL)
+	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
 	if (pw_properties_get(client->props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_ALWAYS_PROCESS, "true");

@@ -2421,18 +2421,15 @@ jack_client_t * jack_client_open (const char *client_name,
 	varargs_parse(client, options, ap);
 	va_end(ap);
 
-        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
-		client->props = pw_properties_new_string(str);
-	if (client->props == NULL)
-		client->props = pw_properties_new(NULL, NULL);
+	client->props = pw_properties_new(
+			"loop.cancel", "true",
+			PW_KEY_REMOTE_NAME, client->server_name,
+			PW_KEY_CLIENT_NAME, client_name,
+			PW_KEY_CLIENT_API, "jack",
+			PW_KEY_CONFIG_NAME, "jack.conf",
+			NULL);
 	if (client->props == NULL)
 		goto no_props;
-
-	pw_properties_set(client->props, "loop.cancel", "true");
-	pw_properties_set(client->props, PW_KEY_REMOTE_NAME, client->server_name);
-	pw_properties_set(client->props, PW_KEY_CLIENT_NAME, client_name);
-	pw_properties_set(client->props, PW_KEY_CLIENT_API, "jack");
-	pw_properties_set(client->props, PW_KEY_CONFIG_NAME, "jack.conf");
 
 	client->node_id = SPA_ID_INVALID;
 	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
@@ -2450,6 +2447,9 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	if ((str = pw_context_get_conf_section(client->context.context,
 					"jack.properties")) != NULL)
+		pw_properties_update_string(client->props, str, strlen(str));
+
+        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		pw_properties_update_string(client->props, str, strlen(str));
 
 	if ((str = pw_properties_get(client->props, "jack.merge-monitor")) != NULL)

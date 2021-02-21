@@ -5923,7 +5923,7 @@ static void impl_free(struct impl *impl)
 	struct server *s;
 	struct client *c;
 
-	if (impl->context)
+	if (impl->context != NULL)
 		spa_hook_remove(&impl->context_listener);
 	spa_list_consume(c, &impl->cleanup_clients, link)
 		client_free(c);
@@ -5931,10 +5931,9 @@ static void impl_free(struct impl *impl)
 		server_free(s);
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
-	if (impl->cleanup)
+	if (impl->cleanup != NULL)
 		pw_loop_destroy_source(impl->loop, impl->cleanup);
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->props);
 	free(impl);
 }
 
@@ -5968,21 +5967,25 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 {
 	struct impl *impl;
 	const char *str;
-	char *free_str = NULL;
 	struct spa_json it[2];
 	char value[512];
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
-		return NULL;
+		goto error_exit;
 
-	str = NULL;
-	if (props != NULL)
-		str = pw_properties_get(props, "server.address");
+	if (props == NULL)
+		props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		goto error_free;
+
+	str = pw_properties_get(props, "server.address");
 	if (str == NULL) {
-		str = free_str = spa_aprintf("[ \"%s-%s\" ]",
+		pw_properties_setf(props, "server.address",
+				"[ \"%s-%s\" ]",
 				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
 				get_server_name(context));
+		str = pw_properties_get(props, "server.address");
 	}
 	if (str == NULL)
 		goto error_free;
@@ -6017,7 +6020,6 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			}
 		}
 	}
-	free(free_str);
 
 	dbus_request_name(context, "org.pulseaudio.Server");
 
@@ -6025,6 +6027,9 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 error_free:
 	free(impl);
+error_exit:
+	if (props != NULL)
+		pw_properties_free(props);
 	return NULL;
 }
 

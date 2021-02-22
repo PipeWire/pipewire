@@ -279,7 +279,7 @@ static int handle_profile(struct device *dev)
 					dev->name, pr.name);
 
 			dev->restored = false;
-		} else if (dev->saved_profile && pr.index != dev->saved_profile) {
+		} else if (dev->saved_profile != SPA_ID_INVALID && pr.index != dev->saved_profile) {
 			struct profile saved;
 			/* we had a saved profile but we're on some other profile,
 			 * see if the saved profile is available now and switch to it */

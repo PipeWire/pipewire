@@ -345,14 +345,16 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 				offs += snprintf(&buf[offs], sizeof(buf) - offs,
 						"%s ", snd_pcm_format_name((snd_pcm_format_t)i));
 		}
-		spa_log_warn(state->log, "unsupported card: formats:%s", buf);
+		spa_log_warn(state->log, "%s: unsupported card: formats:%s",
+				state->props.device, buf);
 
 		for (i = 0, offs = 0; i <= SND_PCM_ACCESS_LAST; i++) {
 			if (snd_pcm_access_mask_test(amask, (snd_pcm_access_t)i))
 				offs += snprintf(&buf[offs], sizeof(buf) - offs,
 						"%s ", snd_pcm_access_name((snd_pcm_access_t)i));
 		}
-		spa_log_warn(state->log, "unsupported card: access:%s", buf);
+		spa_log_warn(state->log, "%s: unsupported card: access:%s",
+				state->props.device, buf);
 		return -ENOTSUP;
 	}
 	if (j > 1)
@@ -508,7 +510,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	/* get format info */
 	format = spa_format_to_alsa(info->format, &planar);
 	if (format == SND_PCM_FORMAT_UNKNOWN) {
-		spa_log_warn(state->log, NAME" %p: unknown format %u", state, info->format);
+		spa_log_warn(state->log, NAME" %s: unknown format %u",
+				state->props.device, info->format);
 		return -EINVAL;
 	}
 
@@ -530,8 +533,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		if ((err = snd_pcm_hw_params_set_access(hndl, params,
 				planar ? SND_PCM_ACCESS_RW_NONINTERLEAVED
 				: SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-			spa_log_error(state->log, NAME" %p: RW not possible: %s", state,
-					snd_strerror(err));
+			spa_log_error(state->log, NAME" %s: RW not possible: %s",
+					state->props.device, snd_strerror(err));
 			return err;
 		}
 	}
@@ -551,8 +554,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	rchannels = info->channels;
 	CHECK(snd_pcm_hw_params_set_channels_near(hndl, params, &rchannels), "set_channels");
 	if (rchannels != info->channels) {
-		spa_log_warn(state->log, NAME" %p: Channels doesn't match (requested %u, get %u",
-				state, info->channels, rchannels);
+		spa_log_warn(state->log, NAME" %s: Channels doesn't match (requested %u, got %u)",
+				state->props.device, info->channels, rchannels);
 		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
 		info->channels = rchannels;
@@ -563,8 +566,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	rrate = info->rate;
 	CHECK(snd_pcm_hw_params_set_rate_near(hndl, params, &rrate, 0), "set_rate_near");
 	if (rrate != info->rate) {
-		spa_log_warn(state->log, NAME" %p: Rate doesn't match (requested %iHz, get %iHz)",
-				state, info->rate, rrate);
+		spa_log_warn(state->log, NAME" %s: Rate doesn't match (requested %iHz, got %iHz)",
+				state->props.device, info->rate, rrate);
 		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
 		info->rate = rrate;
@@ -678,8 +681,8 @@ int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
 		frames = state->buffer_frames;
 
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_mmap_begin error: %s",
-					state, snd_strerror(res));
+			spa_log_error(state->log, NAME" %s: snd_pcm_mmap_begin error: %s",
+					state->props.device, snd_strerror(res));
 			return res;
 		}
 		silence = SPA_MIN(silence, frames);
@@ -688,8 +691,8 @@ int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
 		snd_pcm_areas_silence(my_areas, offset, state->channels, silence, state->format);
 
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_commit(hndl, offset, silence)) < 0)) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_mmap_commit error: %s",
-					state, snd_strerror(res));
+			spa_log_error(state->log, NAME" %s: snd_pcm_mmap_commit error: %s",
+					state->props.device, snd_strerror(res));
 			return res;
 		}
 	} else {
@@ -714,8 +717,8 @@ static inline int do_start(struct state *state)
 	if (SPA_UNLIKELY(!state->alsa_started)) {
 		spa_log_trace(state->log, NAME" %p: snd_pcm_start", state);
 		if ((res = snd_pcm_start(state->hndl)) < 0) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_start: %s",
-					state, snd_strerror(res));
+			spa_log_error(state->log, NAME" %s: snd_pcm_start: %s",
+					state->props.device, snd_strerror(res));
 			return res;
 		}
 		state->alsa_started = true;
@@ -730,8 +733,8 @@ static int alsa_recover(struct state *state, int err)
 
 	snd_pcm_status_alloca(&status);
 	if (SPA_UNLIKELY((res = snd_pcm_status(state->hndl, status)) < 0)) {
-		spa_log_error(state->log, NAME" %p: snd_pcm_status error: %s",
-				state, snd_strerror(res));
+		spa_log_error(state->log, NAME" %s: snd_pcm_status error: %s",
+				state->props.device, snd_strerror(res));
 		goto recover;
 	}
 
@@ -759,20 +762,20 @@ static int alsa_recover(struct state *state, int err)
 		break;
 	}
 	case SND_PCM_STATE_SUSPENDED:
-		spa_log_info(state->log, NAME" %p: recover from state %s",
-				state, snd_pcm_state_name(st));
+		spa_log_info(state->log, NAME" %s: recover from state %s",
+				state->props.device, snd_pcm_state_name(st));
 		err = -ESTRPIPE;
 		break;
 	default:
-		spa_log_error(state->log, NAME" %p: recover from error state %s",
-				state, snd_pcm_state_name(st));
+		spa_log_error(state->log, NAME" %s: recover from error state %s",
+				state->props.device, snd_pcm_state_name(st));
 		break;
 	}
 
 recover:
 	if (SPA_UNLIKELY((res = snd_pcm_recover(state->hndl, err, true)) < 0)) {
-		spa_log_error(state->log, NAME" %p: snd_pcm_recover error: %s",
-				state, snd_strerror(res));
+		spa_log_error(state->log, NAME" %s: snd_pcm_recover error: %s",
+				state->props.device, snd_strerror(res));
 		return res;
 	}
 	spa_dll_init(&state->dll);
@@ -794,8 +797,8 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
 		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
-			spa_log_warn(state->log, NAME" %p: snd_pcm_avail after recover: %s",
-					state, snd_strerror(avail));
+			spa_log_warn(state->log, NAME" %s: snd_pcm_avail after recover: %s",
+					state->props.device, snd_strerror(avail));
 			avail = state->threshold * 2;
 		}
 	} else {
@@ -917,8 +920,9 @@ int spa_alsa_write(struct state *state)
 			return res;
 
 		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
-			spa_log_warn(state->log, NAME" %p: follower delay:%ld resync %f %f %f",
-					state, delay, state->dll.z1, state->dll.z2, state->dll.z3);
+			spa_log_warn(state->log, NAME" %s: follower delay:%ld resync %f %f %f",
+					state->props.device, delay, state->dll.z1,
+					state->dll.z2, state->dll.z3);
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
@@ -943,8 +947,8 @@ again:
 	frames = state->buffer_frames;
 	if (state->use_mmap) {
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_mmap_begin error: %s",
-					state, snd_strerror(res));
+			spa_log_error(state->log, NAME" %s: snd_pcm_mmap_begin error: %s",
+					state->props.device, snd_strerror(res));
 			return res;
 		}
 		spa_log_trace_fp(state->log, NAME" %p: begin %ld %ld %d",
@@ -1033,15 +1037,15 @@ again:
 
 	if (state->use_mmap) {
 		if (SPA_UNLIKELY((commitres = snd_pcm_mmap_commit(hndl, offset, written)) < 0)) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_mmap_commit error: %s",
-					state, snd_strerror(commitres));
+			spa_log_error(state->log, NAME" %s: snd_pcm_mmap_commit error: %s",
+					state->props.device, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
 		}
 
 		if (commitres > 0 && written != (snd_pcm_uframes_t) commitres) {
-			spa_log_warn(state->log, NAME" %p: mmap_commit wrote %ld instead of %ld",
-				     state, commitres, written);
+			spa_log_warn(state->log, NAME" %s: mmap_commit wrote %ld instead of %ld",
+				     state->props.device, commitres, written);
 		}
 	}
 
@@ -1076,7 +1080,7 @@ push_frames(struct state *state,
 	snd_pcm_uframes_t total_frames = 0;
 
 	if (spa_list_is_empty(&state->free)) {
-		spa_log_warn(state->log, NAME" %p: no more buffers", state);
+		spa_log_warn(state->log, NAME" %s: no more buffers", state->props.device);
 		total_frames = frames;
 	} else if (frames > 0) {
 		uint8_t *src;
@@ -1154,8 +1158,9 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			position = state->position->clock.position;
 			if (state->last_position && state->last_position + state->last_duration != position) {
 				state->alsa_sync = true;
-				spa_log_info(state->log, NAME" %p: discont, resync %"PRIu64" %"PRIu64" %d",
-						state, state->last_position, position, state->last_duration);
+				spa_log_info(state->log, NAME" %s: discont, resync %"PRIu64" %"PRIu64" %d",
+						state->props.device, state->last_position,
+						position, state->last_duration);
 			}
 			state->last_position = position;
 			state->last_duration = state->duration;
@@ -1171,14 +1176,15 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			return res;
 
 		if (!state->alsa_recovering && (delay < target || delay > target * 2)) {
-			spa_log_warn(state->log, NAME" %p: follower delay:%lu target:%lu resync %f %f %f",
-					state, delay, target, state->dll.z1, state->dll.z2, state->dll.z3);
+			spa_log_warn(state->log, NAME" %s: follower delay:%lu target:%lu resync %f %f %f",
+					state->props.device, delay, target, state->dll.z1,
+					state->dll.z2, state->dll.z3);
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
 		if (state->alsa_sync) {
-			spa_log_warn(state->log, NAME" %p: follower resync %ld %d %ld",
-					state, delay, threshold, target);
+			spa_log_warn(state->log, NAME" %s: follower resync %ld %d %ld",
+					state->props.device, delay, threshold, target);
 			if (delay < target)
 				snd_pcm_rewind(state->hndl, target - delay + 32);
 			else if (delay > target)
@@ -1200,8 +1206,8 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	if (state->use_mmap) {
 		to_read = state->buffer_frames;
 		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &to_read)) < 0) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_mmap_begin error: %s",
-					state, snd_strerror(res));
+			spa_log_error(state->log, NAME" %s: snd_pcm_mmap_begin error: %s",
+					state->props.device, snd_strerror(res));
 			return res;
 		}
 		spa_log_trace_fp(state->log, NAME" %p: begin offs:%ld frames:%ld to_read:%ld thres:%d", state,
@@ -1219,15 +1225,15 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		spa_log_trace_fp(state->log, NAME" %p: commit offs:%ld read:%ld count:%"PRIi64, state,
 				offset, read, state->sample_count);
 		if ((commitres = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
-			spa_log_error(state->log, NAME" %p: snd_pcm_mmap_commit error: %s",
-					state, snd_strerror(commitres));
+			spa_log_error(state->log, NAME" %s: snd_pcm_mmap_commit error: %s",
+					state->props.device, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
 		}
 
 		if (commitres > 0 && read != (snd_pcm_uframes_t) commitres) {
-			spa_log_warn(state->log, NAME" %p: mmap_commit read %ld instead of %ld",
-				     state, commitres, read);
+			spa_log_warn(state->log, NAME" %s: mmap_commit read %ld instead of %ld",
+				     state->props.device, commitres, read);
 		}
 	}
 
@@ -1404,7 +1410,8 @@ int spa_alsa_start(struct state *state)
 		state->rate_denom = state->position->clock.rate.denom;
 	}
 	else {
-		spa_log_warn(state->log, NAME" %p: no position set, using defaults", state);
+		spa_log_warn(state->log, NAME" %s: no position set, using defaults",
+				state->props.device);
 		state->duration = state->props.min_latency;
 		state->rate_denom = state->rate;
 	}
@@ -1425,8 +1432,8 @@ int spa_alsa_start(struct state *state)
 		snd_pcm_dump(state->hndl, state->output);
 
 	if ((err = snd_pcm_prepare(state->hndl)) < 0 && err != -EBUSY) {
-		spa_log_error(state->log, NAME" %p: snd_pcm_prepare error: %s", state,
-				snd_strerror(err));
+		spa_log_error(state->log, NAME" %s: snd_pcm_prepare error: %s",
+				state->props.device, snd_strerror(err));
 		return err;
 	}
 
@@ -1516,7 +1523,7 @@ int spa_alsa_pause(struct state *state)
 	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
 
 	if ((err = snd_pcm_drop(state->hndl)) < 0)
-		spa_log_error(state->log, NAME" %p: snd_pcm_drop %s", state,
+		spa_log_error(state->log, NAME" %s: snd_pcm_drop %s", state->props.device,
 				snd_strerror(err));
 
 	state->started = false;

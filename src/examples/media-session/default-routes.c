@@ -142,6 +142,7 @@ struct route_info {
 	char name[64];
 	unsigned int restore:1;
 	unsigned int save:1;
+	unsigned int valid:1;
 };
 
 struct route {
@@ -180,6 +181,7 @@ static struct route_info *find_route_info(struct device *dev, struct route *r)
 	i->generation = dev->generation;
 	i->available = r->available;
 	i->restore = true;
+	i->valid = true;
 
 	return i;
 }
@@ -753,7 +755,7 @@ static void prune_route_info(struct device *dev)
 	for (i = pw_array_first(&dev->route_info);
 	     pw_array_check(&dev->route_info, i);) {
 		if (i->generation != dev->generation) {
-			pw_log_info("device %d: route %d unused", dev->id, i->index);
+			pw_log_info("device %d: route '%s' unused", dev->id, i->name);
 			pw_array_remove(&dev->route_info, i);
 		} else
 			i++;
@@ -796,11 +798,12 @@ static int handle_route(struct device *dev, struct route *r)
 	} else if (ri->available != r->available) {
 		struct profile best;
 
-		ri->available = r->available;
 		/* port availability changed, find new best profile and switch
 		 * to it when needed. */
 		pw_log_info("device %d: route %s available changed %d -> %d",
 				dev->id, r->name, ri->available, r->available);
+
+		ri->available = r->available;
 
 		if ((res = find_best_profile(dev, &best)) < 0) {
 			pw_log_info("device %d: can't find best profile", dev->id);
@@ -812,12 +815,12 @@ static int handle_route(struct device *dev, struct route *r)
 					dev->id, best.name);
 			/* we need to switch profiles */
 			set_profile(dev, &best);
+			ri->valid = false;
 		} else if (r->available != SPA_PARAM_AVAILABILITY_yes) {
 			struct route t;
 
 			/* an existing port has changed to unavailable */
 			pw_log_info("device %d: route '%s' not available", dev->id, r->name);
-
 			/* try to find a new best port */
 			res = find_best_route(dev, r->device_id, &t);
 			if (res < 0) {
@@ -826,9 +829,10 @@ static int handle_route(struct device *dev, struct route *r)
 				pw_log_info("device %d: found best route '%s'", dev->id,
 						t.name);
 				restore_route(dev, &t);
+				ri->valid = false;
 			}
 		}
-	} else if (r->props) {
+	} else if (ri->valid && r->props) {
 		/* just save port properties */
 		save_route(dev, r);
 	}

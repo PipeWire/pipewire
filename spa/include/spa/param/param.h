@@ -119,6 +119,7 @@ enum spa_param_profile {
 					  *           String : property (eg. "card.profile.devices"),
 					  *           Array of Int: device indexes
 					  *         )*)) */
+	SPA_PARAM_PROFILE_save,		/**< If profile should be saved (Bool) */
 };
 
 enum spa_param_port_config_mode {
@@ -159,6 +160,7 @@ enum spa_param_route {
 	SPA_PARAM_ROUTE_props,			/**< properties SPA_TYPE_OBJECT_Props */
 	SPA_PARAM_ROUTE_devices,		/**< associated device indexes (Array of Int) */
 	SPA_PARAM_ROUTE_profile,		/**< profile id (Int) */
+	SPA_PARAM_ROUTE_save,			/**< If route should be saved (Bool) */
 };
 
 

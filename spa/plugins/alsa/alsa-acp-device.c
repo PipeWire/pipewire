@@ -294,7 +294,7 @@ static int impl_sync(void *object, int seq)
 }
 
 static struct spa_pod *build_profile(struct spa_pod_builder *b, uint32_t id,
-	struct acp_card_profile *pr)
+	struct acp_card_profile *pr, bool current)
 {
 	struct spa_pod_frame f[2];
 	uint32_t i, n_classes, n_capture = 0, n_playback = 0;
@@ -345,6 +345,11 @@ static struct spa_pod *build_profile(struct spa_pod_builder *b, uint32_t id,
 				n_playback, playback));
 	}
 	spa_pod_builder_pop(b, &f[1]);
+	if (current) {
+		spa_pod_builder_prop(b, SPA_PARAM_PROFILE_save, 0);
+		spa_pod_builder_bool(b, SPA_FLAG_IS_SET(pr->flags, ACP_PROFILE_SAVE));
+	}
+
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
@@ -438,6 +443,8 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 	if (profile != SPA_ID_INVALID) {
 		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profile, 0);
 		spa_pod_builder_int(b, profile);
+		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_save, 0);
+		spa_pod_builder_bool(b, SPA_FLAG_IS_SET(p->flags, ACP_PORT_SAVE));
 	}
 	return spa_pod_builder_pop(b, &f[0]);
 }
@@ -486,7 +493,7 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		pr = card->profiles[result.index];
-		param = build_profile(&b, id, pr);
+		param = build_profile(&b, id, pr, false);
 		break;
 
 	case SPA_PARAM_Profile:
@@ -494,7 +501,7 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		pr = card->profiles[card->active_profile_index];
-		param = build_profile(&b, id, pr);
+		param = build_profile(&b, id, pr, true);
 		break;
 
 	case SPA_PARAM_EnumRoute:
@@ -600,16 +607,18 @@ static int impl_set_param(void *object,
 	case SPA_PARAM_Profile:
 	{
 		uint32_t id;
+		bool save = false;
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id))) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_save, SPA_POD_OPT_Bool(&save))) < 0) {
 			spa_log_warn(this->log, "can't parse profile");
 			spa_debug_pod(0, NULL, param);
 			return res;
 		}
 
-		res = acp_card_set_profile(this->card, id);
+		res = acp_card_set_profile(this->card, id, save ? ACP_PROFILE_SAVE : 0);
 		emit_info(this, false);
 		break;
 	}
@@ -618,12 +627,14 @@ static int impl_set_param(void *object,
 		uint32_t id, device;
 		struct spa_pod *props = NULL;
 		struct acp_device *dev;
+		bool save = false;
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
-				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props))) < 0) {
+				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props),
+				SPA_PARAM_ROUTE_save, SPA_POD_OPT_Bool(&save))) < 0) {
 			spa_log_warn(this->log, "can't parse route");
 			spa_debug_pod(0, NULL, param);
 			return res;
@@ -632,7 +643,7 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		dev = this->card->devices[device];
-		res = acp_device_set_port(dev, id);
+		res = acp_device_set_port(dev, id, save ? ACP_PORT_SAVE : 0);
 		if (props)
 			apply_device_props(this, dev, props);
 		emit_info(this, false);
@@ -712,7 +723,7 @@ static void card_profile_available(void *data, uint32_t index,
 
 	if (this->props.auto_profile) {
 		uint32_t best = acp_card_find_best_profile_index(card, NULL);
-		acp_card_set_profile(card, best);
+		acp_card_set_profile(card, best, 0);
 	}
 }
 
@@ -755,7 +766,7 @@ static void card_port_available(void *data, uint32_t index,
 				continue;
 
 			best = acp_device_find_best_port_index(d, NULL);
-			acp_device_set_port(d, best);
+			acp_device_set_port(d, best, 0);
 		}
 	}
 }

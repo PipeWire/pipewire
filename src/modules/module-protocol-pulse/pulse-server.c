@@ -2949,6 +2949,8 @@ static int set_card_volume_mute_delay(struct pw_manager_object *o, uint32_t id,
 		spa_pod_builder_add(&b,
 				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(*latency_offset), 0);
 	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_save, 0);
+	spa_pod_builder_bool(&b, true);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
 	pw_device_set_param((struct pw_device*)o->proxy,
@@ -2970,7 +2972,8 @@ static int set_card_port(struct pw_manager_object *o, uint32_t device_id,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(port_id),
-				SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id)));
+				SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
+				SPA_PARAM_ROUTE_save, SPA_POD_Bool(true)));
 
 	return 0;
 }
@@ -4693,7 +4696,8 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
                         SPA_PARAM_Profile, 0,
                         spa_pod_builder_add_object(&b,
                                 SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-                                SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id)));
+                                SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id),
+                                SPA_PARAM_PROFILE_save, SPA_POD_Bool(true)));
 
 	return reply_simple_ack(client, tag);
 }

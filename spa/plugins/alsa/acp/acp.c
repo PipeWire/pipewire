@@ -1328,7 +1328,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	return 0;
 }
 
-int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
+int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t flags)
 {
 	pa_card *impl = (pa_card *)card;
 	pa_alsa_mapping *am;
@@ -1397,8 +1397,8 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index)
 		}
 	}
 	if (op)
-		op->profile.flags &= ~ACP_PROFILE_ACTIVE;
-	np->profile.flags |= ACP_PROFILE_ACTIVE;
+		op->profile.flags &= ~(ACP_PROFILE_ACTIVE | ACP_PROFILE_SAVE);
+	np->profile.flags |= ACP_PROFILE_ACTIVE | flags;
 	impl->card.active_profile_index = new_index;
 
 	if (impl->events && impl->events->profile_changed)
@@ -1566,7 +1566,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 		profile = "off";
 
 	profile_index = acp_card_find_best_profile_index(&impl->card, profile);
-	acp_card_set_profile(&impl->card, profile_index);
+	acp_card_set_profile(&impl->card, profile_index, 0);
 
 	init_eld_ctls(impl);
 
@@ -1744,7 +1744,7 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 		return ACP_INVALID_INDEX;
 }
 
-int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
+int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t flags)
 {
 	pa_alsa_device *d = (pa_alsa_device*)dev;
 	pa_card *impl = d->card;
@@ -1762,9 +1762,9 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index)
 		return -EINVAL;
 
 	if (old)
-		old->port.flags &= ~ACP_PORT_ACTIVE;
+		old->port.flags &= ~(ACP_PORT_ACTIVE | ACP_PORT_SAVE);
 	d->active_port = p;
-	p->port.flags |= ACP_PORT_ACTIVE;
+	p->port.flags |= ACP_PORT_ACTIVE | flags;
 
 	if (impl->use_ucm) {
 		pa_alsa_ucm_port_data *data;

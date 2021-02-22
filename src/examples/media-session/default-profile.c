@@ -120,6 +120,7 @@ struct profile {
 	const char *name;
 	uint32_t prio;
 	uint32_t available;
+	bool save;
 };
 
 static int parse_profile(struct sm_param *p, struct profile *pr)
@@ -127,25 +128,14 @@ static int parse_profile(struct sm_param *p, struct profile *pr)
 	pr->p = p;
 	pr->prio = 0;
 	pr->available = SPA_PARAM_AVAILABILITY_unknown;
+	pr->save = false;
 	return spa_pod_parse_object(p->param,
 			SPA_TYPE_OBJECT_ParamProfile, NULL,
 			SPA_PARAM_PROFILE_index, SPA_POD_Int(&pr->index),
 			SPA_PARAM_PROFILE_name,  SPA_POD_String(&pr->name),
 			SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&pr->prio),
-			SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&pr->available));
-}
-
-static int find_profile(struct device *dev, uint32_t index, struct profile *pr)
-{
-	struct sm_param *p;
-	spa_list_for_each(p, &dev->obj->param_list, link) {
-		if (p->id != SPA_PARAM_EnumProfile ||
-		    parse_profile(p, pr) < 0)
-			continue;
-		if (index == pr->index)
-			return 0;
-	}
-	return -ENOENT;
+			SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&pr->available),
+			SPA_PARAM_PROFILE_save,  SPA_POD_OPT_Bool(&pr->save));
 }
 
 static int find_current_profile(struct device *dev, struct profile *pr)
@@ -252,7 +242,8 @@ static int set_profile(struct device *dev, struct profile *pr)
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(pr->index)));
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(pr->index),
+				SPA_PARAM_PROFILE_save, SPA_POD_Bool(pr->save)));
 
 	dev->active_profile = pr->index;
 
@@ -265,33 +256,6 @@ static int handle_profile(struct device *dev)
 	struct profile pr;
 	int res;
 
-	if (dev->active_profile != SPA_ID_INVALID) {
-		/* we have a profile, find it */
-		res = find_profile(dev, dev->active_profile, &pr);
-		if (res < 0 || pr.available == SPA_PARAM_AVAILABILITY_no) {
-			/* we had a profile but it is now gone or not available,
-			 * try to restore a new profile */
-			if (res < 0)
-				pw_log_info("device '%s': active profile index %d removed",
-					dev->name, dev->active_profile);
-			else
-				pw_log_info("device '%s': active profile '%s' unavailable",
-					dev->name, pr.name);
-
-			dev->restored = false;
-		} else if (dev->saved_profile != SPA_ID_INVALID && pr.index != dev->saved_profile) {
-			struct profile saved;
-			/* we had a saved profile but we're on some other profile,
-			 * see if the saved profile is available now and switch to it */
-			res = find_saved_profile(dev, &saved);
-			if (res >= 0 && saved.available != SPA_PARAM_AVAILABILITY_no) {
-				pw_log_info("device '%s': restore saved profile '%s' index %d",
-						dev->name, saved.name, saved.index);
-				if (set_profile(dev, &saved) >= 0)
-					dev->restored = true;
-			}
-		}
-	}
 	if (!dev->restored) {
 		/* first try to restore our saved profile */
 		res = find_saved_profile(dev, &pr);
@@ -316,6 +280,8 @@ static int handle_profile(struct device *dev)
 			pw_log_info("device '%s': found saved profile '%s'",
 						dev->name, pr.name);
 			dev->saved_profile = pr.index;
+			/* make sure we save again */
+			pr.save = true;
 		}
 		if (res >= 0) {
 			pw_log_info("device '%s': restore profile '%s' index %d",
@@ -332,9 +298,13 @@ static int handle_profile(struct device *dev)
 		if (dev->active_profile == pr.index)
 			return 0;
 
-		/* we get here when had configured a profile but something
-		 * else changed it, in that case, save it. */
+		/* we get here when we had configured a profile but something
+		 * else changed it, in that case, save it when asked. */
 		dev->active_profile = pr.index;
+
+		if (!pr.save)
+			return 0;
+
 		dev->saved_profile = pr.index;
 		if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {
 			pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);

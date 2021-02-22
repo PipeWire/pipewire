@@ -320,7 +320,7 @@ static int cmd_set_profile(struct data *data, const struct command *cmd, int arg
 	else
 		index = card->active_profile_index;
 
-	return acp_card_set_profile(card, index);
+	return acp_card_set_profile(card, index, 0);
 }
 
 static int cmd_list_ports(struct data *data, const struct command *cmd, int argc, char *argv[])
@@ -355,7 +355,7 @@ static int cmd_set_port(struct data *data, const struct command *cmd, int argc, 
 	if (dev_id >= card->n_devices)
 		return -EINVAL;
 
-	return acp_device_set_port(card->devices[dev_id], port_id);
+	return acp_device_set_port(card->devices[dev_id], port_id, 0);
 }
 
 static int cmd_list_devices(struct data *data, const struct command *cmd, int argc, char *argv[])

@@ -272,6 +272,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	size_t i, j;
 	int err, dir;
 	unsigned int min, max;
+	unsigned int rrate, rchannels;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_choice *choice;
@@ -297,6 +298,25 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
+
+	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
+
+	if (state->default_channels != 0) {
+		rchannels = state->default_channels;
+		CHECK(snd_pcm_hw_params_set_channels_near(hndl, params, &rchannels), "set_channels");
+		if (state->default_channels != rchannels) {
+			spa_log_warn(state->log, NAME" %s: Channels doesn't match (requested %u, got %u)",
+				state->props.device, state->default_channels, rchannels);
+		}
+	}
+	if (state->default_rate != 0) {
+		rrate = state->default_rate;
+		CHECK(snd_pcm_hw_params_set_rate_near(hndl, params, &rrate, 0), "set_rate_near");
+		if (state->default_rate != rrate) {
+			spa_log_warn(state->log, NAME" %s: Rate doesn't match (requested %u, got %u)",
+				state->props.device, state->default_rate, rrate);
+		}
+	}
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(&b,

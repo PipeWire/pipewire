@@ -2171,7 +2171,6 @@ static void registry_event_global(void *data, uint32_t id,
 		unsigned long flags = 0;
 		jack_port_type_id_t type_id;
 		uint32_t node_id;
-		char full_name[1024];
 		bool is_monitor = false;
 		char tmp[REAL_JACK_PORT_NAME_SIZE+1];
 
@@ -2219,10 +2218,10 @@ static void registry_event_global(void *data, uint32_t id,
 
 		o = NULL;
 		if (node_id == c->node_id) {
-			snprintf(full_name, sizeof(full_name), "%s:%s", c->name, str);
-			o = find_port(c, full_name);
+			snprintf(tmp, sizeof(tmp), "%s:%s", c->name, str);
+			o = find_port(c, tmp);
 			if (o != NULL)
-				pw_log_debug(NAME" %p: %s found our port %p", c, full_name, o);
+				pw_log_debug(NAME" %p: %s found our port %p", c, tmp, o);
 		}
 		if (o == NULL) {
 			o = alloc_object(c);

@@ -207,8 +207,10 @@ int main(int argc, char *argv[])
 		rd_device_release(impl.device);
 
 exit:
-	pw_context_destroy(impl.context);
-	pw_main_loop_destroy(impl.mainloop);
+	if (impl.context)
+		pw_context_destroy(impl.context);
+	if (impl.mainloop)
+		pw_main_loop_destroy(impl.mainloop);
 
 	pw_deinit();
 

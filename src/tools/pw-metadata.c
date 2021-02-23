@@ -240,6 +240,10 @@ int main(int argc, char *argv[])
 		data.opt_type = argv[optind++];
 
 	data.loop = pw_main_loop_new(NULL);
+	if (data.loop == NULL) {
+		fprintf(stderr, "can't create mainloop: %m\n");
+		return -1;
+	}
 	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
 	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
 

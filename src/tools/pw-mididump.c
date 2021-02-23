@@ -134,6 +134,9 @@ static void do_quit(void *userdata, int signal_number)
 static int dump_filter(struct data *data)
 {
 	data->loop = pw_main_loop_new(NULL);
+	if (data->loop == NULL)
+		return -errno;
+
 	pw_loop_add_signal(pw_main_loop_get_loop(data->loop), SIGINT, do_quit, data);
 	pw_loop_add_signal(pw_main_loop_get_loop(data->loop), SIGTERM, do_quit, data);
 

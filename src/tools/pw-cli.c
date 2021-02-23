@@ -3002,6 +3002,10 @@ int main(int argc, char *argv[])
 	}
 
 	data.loop = pw_main_loop_new(NULL);
+	if (data.loop == NULL) {
+		fprintf(stderr, "Broken installation: %m\n");
+		return -1;
+	}
 	l = pw_main_loop_get_loop(data.loop);
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
 	pw_loop_add_signal(l, SIGTERM, do_quit, &data);

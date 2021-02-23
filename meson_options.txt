@@ -6,6 +6,10 @@ option('examples',
        description: 'Build examples',
        type: 'boolean',
        value: true)
+option('media-session',
+       description: 'Build and install pipewire-media-session',
+       type: 'boolean',
+       value: true)
 option('man',
        description: 'Build manpages',
        type: 'boolean',

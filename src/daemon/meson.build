@@ -75,7 +75,9 @@ executable('pipewire-pulse',
 #  )
 #endif
 
-subdir('media-session.d')
+if get_option('media-session')
+  subdir('media-session.d')
+endif
 if get_option('systemd') and systemd.found()
   subdir('systemd')
 endif

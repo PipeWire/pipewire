@@ -80,6 +80,22 @@ struct stats {
 	uint32_t sample_cache;
 };
 
+#define DEFAULT_MIN_REQ		"256/48000"
+#define DEFAULT_DEFAULT_REQ	"960/48000"
+#define DEFAULT_MIN_FRAG	"256/48000"
+#define DEFAULT_DEFAULT_FRAG	"96000/48000"
+#define DEFAULT_DEFAULT_TLENGTH	"96000/48000"
+#define DEFAULT_MIN_QUANTUM	"256/48000"
+
+struct defs {
+	struct spa_fraction min_req;
+	struct spa_fraction default_req;
+	struct spa_fraction min_frag;
+	struct spa_fraction default_frag;
+	struct spa_fraction default_tlength;
+	struct spa_fraction min_quantum;
+};
+
 #include "format.c"
 #include "volume.c"
 #include "message.c"
@@ -246,6 +262,7 @@ struct impl {
 	struct pw_map samples;
 
 	struct spa_list free_messages;
+	struct defs defs;
 	struct stats stat;
 };
 
@@ -1066,10 +1083,10 @@ static int send_command_request(struct stream *stream)
 	return send_message(client, msg);
 }
 
-static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *ss)
+static uint32_t frac_to_bytes_round_up(struct spa_fraction val, const struct sample_spec *ss)
 {
 	uint64_t u;
-	u = (uint64_t) usec * (uint64_t) ss->rate;
+	u = (uint64_t) (val.num * 1000000UL * (uint64_t) ss->rate) / val.denom;
 	u = (u + 1000000UL - 1) / 1000000UL;
 	u *= sample_spec_frame_size(ss);
 	return (uint32_t) u;
@@ -1078,9 +1095,10 @@ static uint32_t usec_to_bytes_round_up(uint64_t usec, const struct sample_spec *
 static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
 	uint32_t frame_size, max_prebuf, minreq;
+	struct defs *defs = &s->impl->defs;
 
 	frame_size = s->frame_size;
-	minreq = usec_to_bytes_round_up(MIN_USEC, &s->ss);
+	minreq = frac_to_bytes_round_up(defs->min_req, &s->ss);
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -1088,7 +1106,7 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
 	if (attr->tlength == (uint32_t) -1)
-		attr->tlength = usec_to_bytes_round_up(DEFAULT_TLENGTH_MSEC*1000, &s->ss);
+		attr->tlength = frac_to_bytes_round_up(defs->default_tlength, &s->ss);
 	if (attr->tlength > attr->maxlength)
 		attr->tlength = attr->maxlength;
 	attr->tlength -= attr->tlength % frame_size;
@@ -1096,7 +1114,7 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	attr->tlength = SPA_MAX(attr->tlength, minreq);
 
 	if (attr->minreq == (uint32_t) -1) {
-		uint32_t process = usec_to_bytes_round_up(DEFAULT_PROCESS_MSEC*1000, &s->ss);
+		uint32_t process = frac_to_bytes_round_up(defs->default_req, &s->ss);
 		/* With low-latency, tlength/4 gives a decent default in all of traditional,
 		 * adjust latency and early request modes. */
 		uint32_t m = attr->tlength / 4;
@@ -1145,6 +1163,7 @@ static int reply_create_playback_stream(struct stream *stream)
 	const char *peer_name;
 	struct spa_fraction lat;
 	uint64_t lat_usec;
+	struct defs *defs = &stream->impl->defs;
 
 	fix_playback_buffer_attr(stream, &stream->attr);
 
@@ -1167,8 +1186,11 @@ static int reply_create_playback_stream(struct stream *stream)
 		else
 			lat.num = stream->attr.minreq;
 	}
-	lat.num /= stream->frame_size;
 	lat.denom = stream->ss.rate;
+	lat.num /= stream->frame_size;
+	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
+		lat.num = (defs->min_quantum.num * lat.denom +
+				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
@@ -1244,6 +1266,7 @@ static int reply_create_playback_stream(struct stream *stream)
 static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
 	uint32_t frame_size, minfrag;
+	struct defs *defs = &s->impl->defs;
 
 	frame_size = s->frame_size;
 
@@ -1252,10 +1275,10 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	attr->maxlength -= attr->maxlength % frame_size;
 	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
-	minfrag = usec_to_bytes_round_up(MIN_USEC, &s->ss);
+	minfrag = frac_to_bytes_round_up(defs->min_frag, &s->ss);
 
 	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
-		attr->fragsize = usec_to_bytes_round_up(DEFAULT_FRAGSIZE_MSEC*1000, &s->ss);
+		attr->fragsize = frac_to_bytes_round_up(defs->default_frag, &s->ss);
 	attr->fragsize -= attr->fragsize % frame_size;
 	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
 	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
@@ -1283,6 +1306,7 @@ static int reply_create_record_stream(struct stream *stream)
 	uint32_t peer_id;
 	struct spa_fraction lat;
 	uint64_t lat_usec;
+	struct defs *defs = &stream->impl->defs;
 
 	fix_record_buffer_attr(stream, &stream->attr);
 
@@ -1293,14 +1317,18 @@ static int reply_create_record_stream(struct stream *stream)
 	spa_ringbuffer_init(&stream->ring);
 
 	if (stream->early_requests) {
-		lat.num = stream->attr.fragsize / stream->frame_size;
+		lat.num = stream->attr.fragsize;
 	} else if (stream->adjust_latency) {
-		lat.num = stream->attr.fragsize / stream->frame_size;
+		lat.num = stream->attr.fragsize;
 	} else {
-		lat.num = stream->attr.fragsize / stream->frame_size;
+		lat.num = stream->attr.fragsize;
 	}
 
+	lat.num /= stream->frame_size;
 	lat.denom = stream->ss.rate;
+	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
+		lat.num = (defs->min_quantum.num * lat.denom +
+				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
@@ -5964,6 +5992,29 @@ static void on_server_cleanup(void *data, uint64_t count)
 	}
 }
 
+static int parse_frac(struct pw_properties *props, const char *key, const char *def,
+		struct spa_fraction *res)
+{
+	const char *str;
+	if (props == NULL ||
+	    (str = pw_properties_get(props, key)) == NULL)
+		str = def;
+	if (sscanf(str, "%u/%u", &res->num, &res->denom) != 2 || res->denom == 0)
+		return -EINVAL;
+	pw_log_info(NAME": defaults: %s = %u/%u", key, res->num, res->denom);
+	return 0;
+}
+
+static void load_defaults(struct defs *def, struct pw_properties *props)
+{
+	parse_frac(props, "pulse.min.req", DEFAULT_MIN_REQ, &def->min_req);
+	parse_frac(props, "pulse.default.req", DEFAULT_DEFAULT_REQ, &def->default_req);
+	parse_frac(props, "pulse.min.frag", DEFAULT_MIN_FRAG, &def->min_frag);
+	parse_frac(props, "pulse.default.frag", DEFAULT_DEFAULT_FRAG, &def->default_frag);
+	parse_frac(props, "pulse.default.tlength", DEFAULT_DEFAULT_TLENGTH, &def->default_tlength);
+	parse_frac(props, "pulse.min.quantum", DEFAULT_MIN_QUANTUM, &def->min_quantum);
+}
+
 struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		struct pw_properties *props, size_t user_data_size)
 {
@@ -5991,6 +6042,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	}
 	if (str == NULL)
 		goto error_free;
+
+	load_defaults(&impl->defs, props);
 
 	debug_messages = pw_debug_is_category_enabled("connection");
 

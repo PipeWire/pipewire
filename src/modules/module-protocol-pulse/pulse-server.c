@@ -196,7 +196,6 @@ struct stream {
 	struct channel_map map;
 	struct buffer_attr attr;
 	uint32_t frame_size;
-	uint32_t minblock;
 	uint32_t rate;
 
 	struct volume volume;
@@ -1125,9 +1124,9 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	s->missing = attr->tlength;
 	attr->fragsize = 0;
 
-	pw_log_info(NAME" %p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u minblock:%u", s,
+	pw_log_info(NAME" %p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
 			s->client->name, attr->maxlength, attr->tlength,
-			attr->minreq, attr->prebuf, s->minblock);
+			attr->minreq, attr->prebuf);
 }
 
 static int reply_create_playback_stream(struct stream *stream)
@@ -1477,7 +1476,6 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		pw_stream_set_error(stream->stream, res, "format not supported");
 		return;
 	}
-	stream->minblock = MIN_BLOCK * stream->frame_size;
 	stream->rate = stream->ss.rate;
 
 	if (stream->create_tag != SPA_ID_INVALID) {
@@ -1649,7 +1647,7 @@ static void stream_process(void *data)
 		if (stream->rate_match)
 			minreq = stream->rate_match->size * stream->frame_size;
 		else
-			minreq = SPA_MAX(stream->minblock, stream->attr.minreq);
+			minreq = stream->attr.minreq;
 
 		if (avail < (int32_t)minreq || stream->corked) {
 			/* underrun, produce a silence buffer */

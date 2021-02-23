@@ -10,6 +10,7 @@ install_data(
 systemd_config = configuration_data()
 systemd_config.set('PW_BINARY', join_paths(pipewire_bindir, 'pipewire'))
 systemd_config.set('PW_PULSE_BINARY', join_paths(pipewire_bindir, 'pipewire-pulse'))
+systemd_config.set('PW_MEDIA_SESSION_BINARY', join_paths(pipewire_bindir, 'pipewire-media-session'))
 
 configure_file(input : 'pipewire.service.in',
                output : 'pipewire.service',
@@ -20,3 +21,10 @@ configure_file(input : 'pipewire-pulse.service.in',
                output : 'pipewire-pulse.service',
                configuration : systemd_config,
                install_dir : systemd_user_services_dir)
+
+if get_option('media-session')
+  configure_file(input : 'pipewire-media-session.service.in',
+               output : 'pipewire-media-session.service',
+               configuration : systemd_config,
+               install_dir : systemd_user_services_dir)
+endif

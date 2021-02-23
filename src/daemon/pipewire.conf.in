@@ -197,13 +197,14 @@ context.exec = {
     #
     # Execute the given program with arguments.
     #
-    # Start the session manager. Run the session manager with -h for
-    # options.
+    # You can optionally start the session manager here,
+    # but it is better to start it as a systemd service.
+    # Run the session manager with -h for options.
     #
-    "@media_session_path@" = { args = "" }
+    #"@media_session_path@" = { args = "" }
     #
     # You can optionally start the pulseaudio-server here as well
-    # but it better to start it as a systemd service.
+    # but it is better to start it as a systemd service.
     # It can be interesting to start another daemon here that listens
     # on another address with the -a option (eg. -a tcp:4713).
     #

@@ -596,7 +596,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 	spa_log_debug(monitor->log, "device %p: profiles %08x %08x %d",
 			device, device->profiles, connected_profiles, device->added);
 
-	if (connected_profiles == 0 && device->active_codec_switch == NULL) {
+	if (connected_profiles == 0 && spa_list_is_empty(&device->codec_switch_list)) {
 		if (device->added) {
 			device_stop_timer(device);
 			device_remove(monitor, device);
@@ -1682,7 +1682,6 @@ static void a2dp_codec_switch_process(struct spa_bt_a2dp_codec_switch *sw)
 
 	/* Didn't find any suitable endpoint. Report failure. */
 	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: failed to get an endpoint", sw);
-	sw->device->active_codec_switch = NULL;
 	spa_bt_device_emit_codec_switched(sw->device, -ENODEV);
 	spa_bt_device_check_profiles(sw->device, false);
 	a2dp_codec_switch_free(sw);
@@ -1691,6 +1690,7 @@ static void a2dp_codec_switch_process(struct spa_bt_a2dp_codec_switch *sw)
 static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_a2dp_codec_switch *sw = user_data;
+	struct spa_bt_a2dp_codec_switch *active_sw;
 	struct spa_bt_device *device = sw->device;
 	DBusMessage *r;
 
@@ -1700,16 +1700,23 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	dbus_pending_call_unref(pending);
 	sw->pending = NULL;
 
-	if (sw->device->active_codec_switch != sw) {
-		/* This codec switch has been canceled. Switch to the new one. */
+	active_sw = spa_list_first(&device->codec_switch_list, struct spa_bt_a2dp_codec_switch, device_link);
+
+	if (active_sw != sw) {
+		struct spa_bt_a2dp_codec_switch *t;
+
+		/* This codec switch has been canceled. Switch to the newest one. */
 		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: canceled, go to new switch", sw);
-		a2dp_codec_switch_free(sw);
 
 		if (r != NULL)
 			dbus_message_unref(r);
 
-		spa_assert(device->active_codec_switch != NULL);
-		a2dp_codec_switch_process(device->active_codec_switch);
+		spa_list_for_each_safe(sw, t, &device->codec_switch_list, device_link) {
+			if (sw != active_sw)
+				a2dp_codec_switch_free(sw);
+		}
+
+		a2dp_codec_switch_process(active_sw);
 		return;
 	}
 
@@ -1732,7 +1739,6 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 
 	/* Success */
 	spa_log_info(sw->device->monitor->log, NAME": a2dp codec switch %p: success", sw);
-	device->active_codec_switch = NULL;
 	spa_bt_device_emit_codec_switched(sw->device, 0);
 	spa_bt_device_check_profiles(sw->device, false);
 	a2dp_codec_switch_free(sw);
@@ -1795,7 +1801,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	 * However, if there already was a codec switch running, these transports may
 	 * disapper soon. In that case, we have to do the full thing.
 	 */
-	if (device->active_codec_switch == NULL && preferred_codec != NULL) {
+	if (spa_list_is_empty(&device->codec_switch_list) && preferred_codec != NULL) {
 		spa_list_for_each(t, &device->transport_list, device_link) {
 			if (t->a2dp_codec != preferred_codec || !t->enabled)
 				continue;
@@ -1856,9 +1862,8 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	sw->profile = device->connected_profiles;
 
 	sw->device = device;
-	spa_list_append(&device->codec_switch_list, &sw->device_link);
 
-	if (device->active_codec_switch != NULL) {
+	if (!spa_list_is_empty(&device->codec_switch_list)) {
 		/*
 		 * There's a codec switch already running.  BlueZ does not appear to allow
 		 * calling dbus_pending_call_cancel on an active request, so we have to
@@ -1867,10 +1872,10 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 		 */
 		spa_log_debug(sw->device->monitor->log,
 		             NAME": a2dp codec switch: already in progress, canceling previous");
-		spa_assert(device->active_codec_switch->pending != NULL);
-		device->active_codec_switch = sw;
+
+		spa_list_prepend(&device->codec_switch_list, &sw->device_link);
 	} else {
-		device->active_codec_switch = sw;
+		spa_list_prepend(&device->codec_switch_list, &sw->device_link);
 		a2dp_codec_switch_process(sw);
 	}
 

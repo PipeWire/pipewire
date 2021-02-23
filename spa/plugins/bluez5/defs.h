@@ -388,7 +388,6 @@ struct spa_bt_device {
 	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;
 	struct spa_list codec_switch_list;
-	struct spa_bt_a2dp_codec_switch *active_codec_switch;
 
 	struct spa_hook_list listener_list;
 	bool added;

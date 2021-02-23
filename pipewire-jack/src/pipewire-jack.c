@@ -352,6 +352,8 @@ struct client {
 	unsigned int timeowner_pending:1;
 	unsigned int timeowner_conditional:1;
 	unsigned int merge_monitor:1;
+	unsigned int short_name:1;
+	unsigned int filter_name:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -2078,6 +2080,18 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property
 };
 
+#define FILTER_NAME	" ()[].:*$"
+#define FILTER_PORT	" ()[].*$"
+
+static void filter_name(char *str, const char *filter)
+{
+	char *p;
+	for (p = str; *p; p++) {
+		if (strchr(filter, *p) != NULL)
+			*p = ' ';
+	}
+}
+
 static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, const char *type, uint32_t version,
                                   const struct spa_dict *props)
@@ -2093,6 +2107,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
 		const char *app, *node_name;
+		char tmp[JACK_CLIENT_NAME_SIZE+1];
 
 		o = alloc_object(c);
 		object_type = INTERFACE_Node;
@@ -2113,19 +2128,34 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) != NULL)
 			o->node.is_bridge = strstr(str, "Bridge") != NULL;
 
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL &&
-		    (str = spa_dict_lookup(props, PW_KEY_NODE_NICK)) == NULL &&
-		    (str = node_name) == NULL) {
-			str = "node";
+		if (c->short_name) {
+			str = spa_dict_lookup(props, PW_KEY_NODE_NICK);
+			if (str == NULL)
+				str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
+		} else {
+			str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
+			if (str == NULL)
+				str = spa_dict_lookup(props, PW_KEY_NODE_NICK);
 		}
-		if (app && strcmp(app, str) != 0)
-			snprintf(o->node.name, sizeof(o->node.name), "%s/%s", app, str);
-		else
-			snprintf(o->node.name, sizeof(o->node.name), "%s", str);
+		if (str == NULL)
+			str = node_name;
+		if (str == NULL)
+			str = "node";
 
-		ot = find_node(c, o->node.name);
+		if (app && strcmp(app, str) != 0)
+			snprintf(tmp, sizeof(tmp), "%s/%s", app, str);
+		else
+			snprintf(tmp, sizeof(tmp), "%s", str);
+
+		if (c->filter_name)
+			filter_name(tmp, FILTER_NAME);
+
+		ot = find_node(c, tmp);
 		if (ot != NULL && o->node.client_id != ot->node.client_id)
-			snprintf(o->node.name, sizeof(o->node.name), "%s-%d", str, id);
+			snprintf(o->node.name, sizeof(o->node.name), "%.*s-%d",
+					(int)(sizeof(tmp)-11), tmp, id);
+		else
+			snprintf(o->node.name, sizeof(o->node.name), "%s", tmp);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_DRIVER)) != NULL)
 			o->node.priority = pw_properties_parse_int(str);
@@ -2143,6 +2173,7 @@ static void registry_event_global(void *data, uint32_t id,
 		uint32_t node_id;
 		char full_name[1024];
 		bool is_monitor = false;
+		char tmp[REAL_JACK_PORT_NAME_SIZE+1];
 
 		object_type = INTERFACE_Port;
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
@@ -2207,11 +2238,14 @@ static void registry_event_global(void *data, uint32_t id,
 				goto exit_free;
 
 			if (ot->node.is_bridge && strchr(str, ':') != NULL)
-				snprintf(o->port.name, sizeof(o->port.name), "%s", str);
+				snprintf(tmp, sizeof(tmp), "%s", str);
 			else if (is_monitor && !c->merge_monitor)
-				snprintf(o->port.name, sizeof(o->port.name), "%s Monitor:%s", ot->node.name, str);
+				snprintf(tmp, sizeof(tmp), "%s Monitor:%s", ot->node.name, str);
 			else
-				snprintf(o->port.name, sizeof(o->port.name), "%s:%s", ot->node.name, str);
+				snprintf(tmp, sizeof(tmp), "%s:%s", ot->node.name, str);
+
+			if (c->filter_name)
+				filter_name(tmp, FILTER_PORT);
 
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
@@ -2233,10 +2267,12 @@ static void registry_event_global(void *data, uint32_t id,
 		o->port.node_id = node_id;
 		o->port.is_monitor = is_monitor;
 
-		op = find_port(c, o->port.name);
+		op = find_port(c, tmp);
 		if (op != NULL && op != o)
 			snprintf(o->port.name, sizeof(o->port.name), "%.*s-%d",
-					(int)(sizeof(op->port.name)-11), op->port.name, id);
+					(int)(sizeof(tmp)-11), tmp, id);
+		else
+			snprintf(o->port.name, sizeof(o->port.name), "%s", tmp);
 
 		pw_log_debug(NAME" %p: add port %d name:%s %d", c, id,
 				o->port.name, type_id);
@@ -2454,6 +2490,10 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	if ((str = pw_properties_get(client->props, "jack.merge-monitor")) != NULL)
 		client->merge_monitor = pw_properties_parse_bool(str);
+	if ((str = pw_properties_get(client->props, "jack.short-name")) != NULL)
+		client->short_name = pw_properties_parse_bool(str);
+	if ((str = pw_properties_get(client->props, "jack.filter-name")) != NULL)
+		client->filter_name = pw_properties_parse_bool(str);
 
 	spa_list_init(&client->context.free_objects);
 	pthread_mutex_init(&client->context.lock, NULL);

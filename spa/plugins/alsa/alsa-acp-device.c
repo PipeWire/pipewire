@@ -609,7 +609,10 @@ static int impl_set_param(void *object,
 		uint32_t id;
 		bool save = false;
 
-		if ((res = spa_pod_parse_object(param,
+		if (param == NULL) {
+			id = acp_card_find_best_profile_index(this->card, NULL);
+			save = true;
+		} else if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
 				SPA_PARAM_PROFILE_save, SPA_POD_OPT_Bool(&save))) < 0) {
@@ -628,6 +631,9 @@ static int impl_set_param(void *object,
 		struct spa_pod *props = NULL;
 		struct acp_device *dev;
 		bool save = false;
+
+		if (param == NULL)
+			return -EINVAL;
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,

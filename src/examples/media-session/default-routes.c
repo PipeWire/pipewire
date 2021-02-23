@@ -140,9 +140,9 @@ struct route_info {
 	uint32_t available;
 	enum spa_direction direction;
 	char name[64];
-	unsigned int restore:1;
 	unsigned int save:1;
-	unsigned int valid:1;
+	unsigned int prev_active:1;
+	unsigned int active:1;
 };
 
 struct route {
@@ -175,13 +175,12 @@ static struct route_info *find_route_info(struct device *dev, struct route *r)
 		return NULL;
 
 	pw_log_info("device %d: new route %d '%s' found", dev->id, r->index, r->name);
+	spa_zero(*i);
 	i->index = r->index;
 	snprintf(i->name, sizeof(i->name), "%s", r->name);
 	i->direction = r->direction;
 	i->generation = dev->generation;
 	i->available = r->available;
-	i->restore = true;
-	i->valid = true;
 
 	return i;
 }
@@ -233,7 +232,7 @@ static int parse_enum_route(struct sm_param *p, uint32_t device_id, struct route
 			SPA_PARAM_ROUTE_devices, SPA_POD_OPT_Pod(&devices))) < 0)
 		return res;
 
-	if (!array_contains(devices, device_id))
+	if (device_id != SPA_ID_INVALID && !array_contains(devices, device_id))
 		return -ENOENT;
 
 	r->device_id = device_id;
@@ -518,8 +517,10 @@ static int restore_route(struct device *dev, struct route *r)
 	pw_log_info("device %d: restore route %d '%s' to %s", dev->id, r->index, key, val);
 
 	restore_route_params(dev, val, r);
+	ri->prev_active = true;
+	ri->active = true;
 	ri->generation = dev->generation;
-	ri->restore = false;
+	ri->available = r->available;
 	ri->save = r->save;
 
 	return 0;
@@ -787,63 +788,88 @@ static int handle_route(struct device *dev, struct route *r)
 	struct route_info *ri;
 	int res;
 
+	pw_log_info("device %d: port '%s'", dev->id, r->name);
 	if ((ri = find_route_info(dev, r)) == NULL)
 		return -errno;
 
-	if (ri->restore) {
+	ri->active = true;
+
+	if (!ri->prev_active) {
 		/* a new port has been found, restore the volume and make sure we
 		 * save this as a prefered port */
-		pw_log_info("device %d: new port found '%s'", dev->id, r->name);
+		pw_log_info("device %d: new active port found '%s'", dev->id, r->name);
 		restore_route(dev, r);
-	} else if (ri->available != r->available) {
-		struct profile best;
-
-		/* port availability changed, find new best profile and switch
-		 * to it when needed. */
-		pw_log_info("device %d: route %s available changed %d -> %d",
-				dev->id, r->name, ri->available, r->available);
-
-		ri->available = r->available;
-
-		if ((res = find_best_profile(dev, &best)) < 0) {
-			pw_log_info("device %d: can't find best profile", dev->id);
-			return res;
+	} else if (ri->available != r->available && r->available != SPA_PARAM_AVAILABILITY_yes) {
+		struct route t;
+		/* an existing port has changed to unavailable */
+		pw_log_info("device %d: route '%s' not available", dev->id, r->name);
+		/* try to find a new best port */
+		res = find_best_route(dev, r->device_id, &t);
+		if (res < 0) {
+			pw_log_info("device %d: can't find best route", dev->id);
+		} else {
+			pw_log_info("device %d: found best route '%s'", dev->id,
+					t.name);
+			restore_route(dev, &t);
 		}
-
-		if (dev->active_profile != best.index) {
-			pw_log_info("device %d: activating best profile %s",
-					dev->id, best.name);
-			/* we need to switch profiles */
-			set_profile(dev, &best);
-			ri->valid = false;
-		} else if (r->available != SPA_PARAM_AVAILABILITY_yes) {
-			struct route t;
-
-			/* an existing port has changed to unavailable */
-			pw_log_info("device %d: route '%s' not available", dev->id, r->name);
-			/* try to find a new best port */
-			res = find_best_route(dev, r->device_id, &t);
-			if (res < 0) {
-				pw_log_info("device %d: can't find best route", dev->id);
-			} else {
-				pw_log_info("device %d: found best route '%s'", dev->id,
-						t.name);
-				restore_route(dev, &t);
-				ri->valid = false;
-			}
-		}
-	} else if (ri->valid && r->props) {
+	} else if (ri->prev_active && r->props) {
 		/* just save port properties */
 		save_route(dev, r);
 	}
-	ri->generation = dev->generation;
+	ri->available = r->available;
 	return 0;
 }
 
 static int handle_routes(struct device *dev)
 {
 	struct sm_param *p;
+	bool changed = false;
+	int res;
 
+	/* first look at all routes and see if something changed */
+	spa_list_for_each(p, &dev->obj->param_list, link) {
+		struct route r;
+		struct route_info *ri;
+
+		if (p->id != SPA_PARAM_EnumRoute ||
+		    parse_enum_route(p, SPA_ID_INVALID, &r) < 0)
+			continue;
+
+		if ((ri = find_route_info(dev, &r)) == NULL)
+			continue;
+
+		if (ri->available != r.available) {
+			pw_log_info("device %d: route %s available changed %d -> %d",
+					dev->id, r.name, ri->available, r.available);
+			changed = true;
+		}
+		ri->generation = dev->generation;
+		ri->prev_active = ri->active;
+		ri->active = false;
+	}
+
+	if (changed) {
+		struct profile best;
+
+		pw_log_info("device %d: find best profile", dev->id);
+		/* port availability changed, find new best profile and switch
+		 * to it when needed. */
+		if ((res = find_best_profile(dev, &best)) < 0) {
+			pw_log_info("device %d: can't find best profile", dev->id);
+			return res;
+		}
+		if (dev->active_profile != best.index) {
+			pw_log_info("device %d: activating best profile %s",
+					dev->id, best.name);
+			/* we need to switch profiles */
+			set_profile(dev, &best);
+			return 0;
+		} else {
+			pw_log_info("device %d: best profile %s already active",
+					dev->id, best.name);
+		}
+	}
+	/* then check for changes in the active ports */
 	spa_list_for_each(p, &dev->obj->param_list, link) {
 		struct route r;
 		if (p->id != SPA_PARAM_Route ||

@@ -437,7 +437,6 @@ static void on_core_destroy(void *_data)
 	spa_list_remove(&rd->link);
 
 	spa_hook_remove(&rd->core_listener);
-	spa_hook_remove(&rd->registry_listener);
 	spa_hook_remove(&rd->proxy_core_listener);
 
 	pw_map_remove(&data->vars, rd->id);
@@ -456,6 +455,7 @@ static const struct pw_proxy_events proxy_core_events = {
 
 static void remote_data_free(struct remote_data *rd)
 {
+	spa_hook_remove(&rd->registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)rd->registry);
 	pw_core_disconnect(rd->core);
 }

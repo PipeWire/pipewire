@@ -99,9 +99,17 @@ static inline int res_to_err(int res)
 	case -EINVAL: return ERR_INVALID;
 	case -EEXIST: return ERR_EXIST;
 	case -ENOENT: case -ESRCH: case -ENXIO: case -ENODEV: return ERR_NOENTITY;
-	case -ECONNREFUSED: case -ENONET: case -EHOSTDOWN: case -ENETDOWN: return ERR_CONNECTIONREFUSED;
+	case -ECONNREFUSED:
+#ifdef ENONET
+	case -ENONET:
+#endif
+	case -EHOSTDOWN: case -ENETDOWN: return ERR_CONNECTIONREFUSED;
 	case -EPROTO: case -EBADMSG: return ERR_PROTOCOL;
-	case -ETIMEDOUT: case -ETIME: return ERR_TIMEOUT;
+	case -ETIMEDOUT:
+#ifdef ETIME
+	case -ETIME:
+#endif
+		return ERR_TIMEOUT;
 #ifdef ENOKEY
 	case -ENOKEY: return ERR_AUTHKEY;
 #endif

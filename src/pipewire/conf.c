@@ -36,6 +36,9 @@
 #if HAVE_PWD_H
 #include <pwd.h>
 #endif
+#ifdef __FreeBSD__
+#define O_PATH 0
+#endif
 
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>

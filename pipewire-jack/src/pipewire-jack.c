@@ -60,6 +60,7 @@
 #define JACK_PORT_MAX			4096
 #define JACK_PORT_TYPE_SIZE             32
 #define CONNECTION_NUM_FOR_PORT		1024
+#define MONITOR_EXT			" Monitor"
 
 #define MAX_BUFFER_FRAMES		8192
 
@@ -2239,8 +2240,9 @@ static void registry_event_global(void *data, uint32_t id,
 			if (ot->node.is_bridge && strchr(str, ':') != NULL)
 				snprintf(tmp, sizeof(tmp), "%s", str);
 			else if (is_monitor && !c->merge_monitor)
-				snprintf(tmp, sizeof(tmp), "%.*s Monitor:%s",
-					JACK_CLIENT_NAME_SIZE-8, ot->node.name, str);
+				snprintf(tmp, sizeof(tmp), "%.*s%s:%s",
+					(int)(JACK_CLIENT_NAME_SIZE-(sizeof(MONITOR_EXT)-1)),
+					ot->node.name, MONITOR_EXT, str);
 			else
 				snprintf(tmp, sizeof(tmp), "%s:%s", ot->node.name, str);
 

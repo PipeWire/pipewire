@@ -25,6 +25,7 @@ Type=simple
 ExecStart=@PW_BINARY@
 Restart=on-failure
 RuntimeDirectory=pipewire
+RuntimeDirectoryPreserve=yes
 User=pipewire
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
 

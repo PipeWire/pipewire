@@ -98,7 +98,9 @@ context.modules = {
     # The portal module monitors the PID of the portal process
     # and tags connections with the same PID as portal
     # connections.
-    libpipewire-module-portal = null
+    libpipewire-module-portal = {
+        flags = [ ifexists nofail ]
+    }
 
     # The access module can perform access checks and block
     # new clients.

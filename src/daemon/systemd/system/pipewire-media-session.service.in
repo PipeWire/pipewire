@@ -13,7 +13,6 @@ SystemCallFilter=@system-service
 Type=simple
 ExecStart=@PW_MEDIA_SESSION_BINARY@
 Restart=on-failure
-RuntimeDirectory=pipewire
 User=pipewire
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
 

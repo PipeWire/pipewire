@@ -2665,8 +2665,8 @@ static void pending_sample_free(struct pending_sample *ps)
 {
 	spa_list_remove(&ps->link);
 	spa_hook_remove(&ps->listener);
-	sample_play_destroy(ps->play);
 	ps->client->ref--;
+	sample_play_destroy(ps->play);
 }
 
 static void sample_play_ready(void *data, uint32_t index)

@@ -257,6 +257,9 @@
 /* Define to 1 if you have the <string.h> header file. */
 #mesondefine HAVE_STRING_H
 
+/* Define to 1 if you have the <sys/mount.h> header file. */
+#mesondefine HAVE_SYS_MOUNT_H
+
 /* Define to 1 if you have the <sys/param.h> header file. */
 #mesondefine HAVE_SYS_PARAM_H
 
@@ -283,6 +286,9 @@
 
 /* Define to 1 if you have the <sys/utsname.h> header file. */
 #mesondefine HAVE_SYS_UTSNAME_H
+
+/* Define to 1 if you have the <sys/vfs.h> header file. */
+#mesondefine HAVE_SYS_VFS_H
 
 /* Define to 1 if you have the <sys/wait.h> header file. */
 #mesondefine HAVE_SYS_WAIT_H

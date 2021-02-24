@@ -41,7 +41,12 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#if HAVE_SYS_VFS_H
 #include <sys/vfs.h>
+#endif
+#if HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
 #if HAVE_PWD_H
 #include <pwd.h>
 #endif

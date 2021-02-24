@@ -27,11 +27,17 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/vfs.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include "config.h"
+
+#if HAVE_SYS_VFS_H
+#include <sys/vfs.h>
+#endif
+#if HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
 
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>

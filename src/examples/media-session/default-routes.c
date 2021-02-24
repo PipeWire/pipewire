@@ -691,31 +691,19 @@ static int restore_device_route(struct device *dev, const char *val, uint32_t de
 	return res;
 }
 
-static int handle_profile(struct device *dev)
+static int reconfigure_profile(struct device *dev, struct profile *pr)
 {
 	struct impl *impl = dev->impl;
-	struct profile pr;
-	int res;
 	char key[1024];
 	const char *json;
-
-	if ((res = find_current_profile(dev, &pr)) < 0)
-		return res;
-	if (dev->active_profile == pr.index)
-		return 0;
-
-	pw_log_info("device %s: restore routes for profile '%s'",
-			dev->name, pr.name);
-	dev->active_profile = pr.index;
-	snprintf(dev->profile_name, sizeof(dev->profile_name), "%s", pr.name);
 
 	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, dev->profile_name);
 	json = pw_properties_get(impl->to_restore, key);
 
-	if (pr.classes != NULL) {
+	if (pr->classes != NULL) {
 		struct spa_pod *iter;
 
-		SPA_POD_STRUCT_FOREACH(pr.classes, iter) {
+		SPA_POD_STRUCT_FOREACH(pr->classes, iter) {
 			struct spa_pod_parser prs;
 			struct spa_pod_frame f[1];
 			struct spa_pod *val;
@@ -745,8 +733,25 @@ static int handle_profile(struct device *dev)
                         spa_pod_parser_pop(&prs, &f[0]);
 		}
 	}
-
 	return 0;
+}
+
+static int handle_profile(struct device *dev)
+{
+	struct profile pr;
+	int res;
+
+	if ((res = find_current_profile(dev, &pr)) < 0)
+		return res;
+	if (dev->active_profile == pr.index)
+		return 0;
+
+	pw_log_info("device %s: restore routes for profile '%s'",
+			dev->name, pr.name);
+	dev->active_profile = pr.index;
+	snprintf(dev->profile_name, sizeof(dev->profile_name), "%s", pr.name);
+
+	return reconfigure_profile(dev, &pr);
 }
 
 static void prune_route_info(struct device *dev)
@@ -786,7 +791,6 @@ static int set_profile(struct device *dev, struct profile *pr)
 static int handle_route(struct device *dev, struct route *r)
 {
 	struct route_info *ri;
-	int res;
 
 	pw_log_info("device %d: port '%s'", dev->id, r->name);
 	if ((ri = find_route_info(dev, r)) == NULL)
@@ -799,20 +803,7 @@ static int handle_route(struct device *dev, struct route *r)
 		 * save this as a prefered port */
 		pw_log_info("device %d: new active port found '%s'", dev->id, r->name);
 		restore_route(dev, r);
-	} else if (ri->available != r->available && r->available != SPA_PARAM_AVAILABILITY_yes) {
-		struct route t;
-		/* an existing port has changed to unavailable */
-		pw_log_info("device %d: route '%s' not available", dev->id, r->name);
-		/* try to find a new best port */
-		res = find_best_route(dev, r->device_id, &t);
-		if (res < 0) {
-			pw_log_info("device %d: can't find best route", dev->id);
-		} else {
-			pw_log_info("device %d: found best route '%s'", dev->id,
-					t.name);
-			restore_route(dev, &t);
-		}
-	} else if (ri->prev_active && r->props) {
+	} else if (r->props) {
 		/* just save port properties */
 		save_route(dev, r);
 	}
@@ -847,7 +838,14 @@ static int handle_routes(struct device *dev)
 		ri->prev_active = ri->active;
 		ri->active = false;
 	}
-
+	/* then check for changes in the active ports */
+	spa_list_for_each(p, &dev->obj->param_list, link) {
+		struct route r;
+		if (p->id != SPA_PARAM_Route ||
+		    parse_route(p, &r) < 0)
+			continue;
+		handle_route(dev, &r);
+	}
 	if (changed) {
 		struct profile best;
 
@@ -867,15 +865,8 @@ static int handle_routes(struct device *dev)
 		} else {
 			pw_log_info("device %d: best profile %s already active",
 					dev->id, best.name);
+			reconfigure_profile(dev, &best);
 		}
-	}
-	/* then check for changes in the active ports */
-	spa_list_for_each(p, &dev->obj->param_list, link) {
-		struct route r;
-		if (p->id != SPA_PARAM_Route ||
-		    parse_route(p, &r) < 0)
-			continue;
-		handle_route(dev, &r);
 	}
 	prune_route_info(dev);
 

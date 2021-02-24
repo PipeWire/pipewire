@@ -55,7 +55,7 @@
 
 #define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"
 
-#define JACK_CLIENT_NAME_SIZE		64
+#define JACK_CLIENT_NAME_SIZE		128
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_MAX			4096
 #define JACK_PORT_TYPE_SIZE             32
@@ -2120,7 +2120,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if (id == c->node_id) {
 			pw_log_debug(NAME" %p: add our node %d", c, id);
 			if (node_name != NULL)
-				strncpy(c->name, node_name, JACK_CLIENT_NAME_SIZE);
+				snprintf(c->name, sizeof(c->name), "%s", node_name);
 		}
 
 		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
@@ -2239,7 +2239,8 @@ static void registry_event_global(void *data, uint32_t id,
 			if (ot->node.is_bridge && strchr(str, ':') != NULL)
 				snprintf(tmp, sizeof(tmp), "%s", str);
 			else if (is_monitor && !c->merge_monitor)
-				snprintf(tmp, sizeof(tmp), "%s Monitor:%s", ot->node.name, str);
+				snprintf(tmp, sizeof(tmp), "%.*s Monitor:%s",
+					JACK_CLIENT_NAME_SIZE-8, ot->node.name, str);
 			else
 				snprintf(tmp, sizeof(tmp), "%s:%s", ot->node.name, str);
 
@@ -2467,7 +2468,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		goto no_props;
 
 	client->node_id = SPA_ID_INVALID;
-	strncpy(client->name, client_name, JACK_CLIENT_NAME_SIZE);
+	snprintf(client->name, sizeof(client->name), "%s", client_name);
 	client->context.loop = pw_thread_loop_new(client_name, NULL);
 	client->context.l = pw_thread_loop_get_loop(client->context.loop),
 	client->context.context = pw_context_new(

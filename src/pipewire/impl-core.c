@@ -24,6 +24,9 @@
 
 #include <unistd.h>
 #include <errno.h>
+#ifndef ENODATA
+#define ENODATA 9919
+#endif
 #include <sys/random.h>
 
 #include <spa/debug/types.h>

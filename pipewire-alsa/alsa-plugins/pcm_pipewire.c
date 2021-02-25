@@ -566,30 +566,19 @@ static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 static int set_default_channels(struct spa_audio_info_raw *info)
 {
 	switch (info->channels) {
-	case 7:
-		info->position[5] = SPA_AUDIO_CHANNEL_SL;
-		info->position[6] = SPA_AUDIO_CHANNEL_SR;
-		SPA_FALLTHROUGH
-	case 5:
-		info->position[3] = SPA_AUDIO_CHANNEL_RL;
-		info->position[4] = SPA_AUDIO_CHANNEL_RR;
-		info->position[2] = SPA_AUDIO_CHANNEL_FC;
-		info->position[0] = SPA_AUDIO_CHANNEL_FL;
-		info->position[1] = SPA_AUDIO_CHANNEL_FR;
-		return 1;
 	case 8:
 		info->position[6] = SPA_AUDIO_CHANNEL_SL;
 		info->position[7] = SPA_AUDIO_CHANNEL_SR;
 		SPA_FALLTHROUGH
 	case 6:
-		info->position[4] = SPA_AUDIO_CHANNEL_RL;
-		info->position[5] = SPA_AUDIO_CHANNEL_RR;
+		info->position[5] = SPA_AUDIO_CHANNEL_LFE;
+		SPA_FALLTHROUGH
+	case 5:
+		info->position[4] = SPA_AUDIO_CHANNEL_FC;
 		SPA_FALLTHROUGH
 	case 4:
-		info->position[3] = SPA_AUDIO_CHANNEL_LFE;
-		SPA_FALLTHROUGH
-	case 3:
-		info->position[2] = SPA_AUDIO_CHANNEL_FC;
+		info->position[2] = SPA_AUDIO_CHANNEL_RL;
+		info->position[3] = SPA_AUDIO_CHANNEL_RR;
 		SPA_FALLTHROUGH
 	case 2:
 		info->position[0] = SPA_AUDIO_CHANNEL_FL;
@@ -737,9 +726,24 @@ static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel chann
 	return SND_CHMAP_UNKNOWN;
 }
 
+static enum spa_audio_channel chmap_to_channel(enum snd_pcm_chmap_position pos)
+{
+	if (pos < 0 || pos >= SPA_N_ELEMENTS(chmap_info))
+		return SPA_AUDIO_CHANNEL_UNKNOWN;
+	return chmap_info[pos].channel;
+}
+
 static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
 				const snd_pcm_chmap_t * map)
 {
+	snd_pcm_pipewire_t *pw = io->private_data;
+	unsigned int i;
+
+	pw->format.channels = map->channels;
+	for (i = 0; i < map->channels; i++) {
+		pw->format.position[i] = chmap_to_channel(map->pos[i]);
+		fprintf(stderr, "%d: %d %d\n", i, map->pos[i], pw->format.position[i]);
+	}
 	return 1;
 }
 
@@ -758,39 +762,6 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 	return map;
 }
 
-static void make_map(snd_pcm_chmap_query_t **maps, int index, int channels, ...)
-{
-	va_list args;
-	int i;
-
-	maps[index] = malloc(sizeof(snd_pcm_chmap_query_t) + (channels * sizeof(unsigned int)));
-	maps[index]->type = SND_CHMAP_TYPE_FIXED;
-	maps[index]->map.channels = channels;
-	va_start(args, channels);
-	for (i = 0; i < channels; i++)
-		maps[index]->map.pos[i] = va_arg(args, int);
-	va_end(args);
-}
-
-static snd_pcm_chmap_query_t **snd_pcm_pipewire_query_chmaps(snd_pcm_ioplug_t *io)
-{
-	snd_pcm_chmap_query_t **maps;
-
-	maps = calloc(9, sizeof(*maps));
-	make_map(maps,  0, 1, SND_CHMAP_MONO);
-	make_map(maps,  1, 2, SND_CHMAP_FL, SND_CHMAP_FR);
-	make_map(maps,  2, 3, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_FC);
-	make_map(maps,  3, 4, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_FC, SND_CHMAP_LFE);
-	make_map(maps,  4, 5, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_FC, SND_CHMAP_RL, SND_CHMAP_RR);
-	make_map(maps,  5, 6, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_FC, SND_CHMAP_LFE, SND_CHMAP_RL, SND_CHMAP_RR);
-	make_map(maps,  6, 7, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_FC,
-			SND_CHMAP_SL, SND_CHMAP_SR, SND_CHMAP_RL, SND_CHMAP_RR);
-	make_map(maps,  7, 8, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_FC, SND_CHMAP_LFE,
-			SND_CHMAP_SL, SND_CHMAP_SR, SND_CHMAP_RL, SND_CHMAP_RR);
-
-	return maps;
-}
-
 static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.close = snd_pcm_pipewire_close,
 	.start = snd_pcm_pipewire_start,
@@ -804,7 +775,6 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.hw_params = snd_pcm_pipewire_hw_params,
 	.set_chmap = snd_pcm_pipewire_set_chmap,
 	.get_chmap = snd_pcm_pipewire_get_chmap,
-	.query_chmaps = snd_pcm_pipewire_query_chmaps,
 };
 
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,

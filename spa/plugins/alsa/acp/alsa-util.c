@@ -717,7 +717,7 @@ snd_pcm_t *pa_alsa_open_by_device_string(
             if (!pa_startswith(d, "plug:") && !pa_startswith(d, "plughw:")) {
                 char *t;
 
-                t = pa_sprintf_malloc("plug:%s", d);
+                t = pa_sprintf_malloc("plug:SLAVE='%s'", d);
                 pa_xfree(d);
                 d = t;
 

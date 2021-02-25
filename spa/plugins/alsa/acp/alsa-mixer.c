@@ -5158,6 +5158,8 @@ void pa_alsa_profile_set_probe(
         uint32_t idx;
         p = *pp;
 
+        pa_log_debug("Check Profile %s.", p->name);
+
         /* Skip if fallback and already found something */
         if (found_input && p->fallback_input)
             continue;

@@ -180,7 +180,6 @@ struct pa_alsa_jack {
 
     struct pa_alsa_mixer_id alsa_id;
     char *name; /* E g "Headphone" */
-    char *alsa_name; /* E g "Headphone Jack" */
     bool has_control; /* is the jack itself present? */
     bool plugged_in; /* is this jack currently plugged in? */
     snd_mixer_elem_t *melem; /* Jack detection handle */

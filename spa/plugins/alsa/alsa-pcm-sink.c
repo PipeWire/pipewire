@@ -801,6 +801,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->disable_mmap = (strcmp(s, "true") == 0 || atoi(s) == 1);
 		} else if (!strcmp(info->items[i].key, "api.alsa.disable-batch")) {
 			this->disable_batch = (strcmp(s, "true") == 0 || atoi(s) == 1);
+		} else if (!strcmp(info->items[i].key, "api.alsa.use-chmap")) {
+			this->props.use_chmap = (strcmp(s, "true") == 0 || atoi(s) == 1);
 		}
 	}
 	return 0;

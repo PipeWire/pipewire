@@ -13,6 +13,7 @@ conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
 conf_config.set('media_session_path', join_paths(pipewire_bindir, 'pipewire-media-session'))
 conf_config.set('pipewire_path', join_paths(pipewire_bindir, 'pipewire'))
 conf_config.set('pipewire_pulse_path', join_paths(pipewire_bindir, 'pipewire-pulse'))
+conf_config.set('comment', '#')
 conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
 
 conf_config_uninstalled = conf_config
@@ -22,6 +23,7 @@ conf_config_uninstalled.set('pipewire_path',
   join_paths(meson.build_root(), 'src', 'daemon', 'pipewire'))
 conf_config_uninstalled.set('pipewire_pulse_path',
   join_paths(meson.build_root(), 'src', 'daemon', 'pipewire-pulse'))
+conf_config_uninstalled.set('comment', '')
 
 
 conf_files = [

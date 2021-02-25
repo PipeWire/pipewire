@@ -59,7 +59,7 @@ make run
 
 This will use the default config file to configure and start the daemon.
 The default config will also start pipewire-media-session, a default
-example media session.
+example media session and pipewire-pulse, a PulseAudio compatible server.
 
 You can also enable more debugging with the PIPEWIRE_DEBUG environment
 variable like so:
@@ -74,6 +74,9 @@ started already, with:
 ```
 systemctl --user stop pipewire.service
 systemctl --user stop pipewire.socket
+systemctl --user stop pipewire-media-session.service
+systemctl --user stop pipewire-pulse.service
+systemctl --user stop pipewire-pulse.socket
 ```
 
 ## Installing
@@ -99,6 +102,18 @@ socket activation or as a service.
 Configuration of the PipeWire daemon can be found in
 /etc/pipewire/pipewire.conf. Please refer to the comments in the 
 config file for more information about the configuration options.
+
+The daemon is started with:
+```
+systemctl --user start pipewire.service
+systemctl --user start pipewire.socket
+```
+
+If you did not start the media-session in pipewire.conf, you will
+also need to start it like this:
+```
+systemctl --user start pipewire-media-session.service
+```
 
 ### ALSA plugin
 
@@ -182,8 +197,8 @@ The server can be started with provided systemd activation files or
 from PipeWire itself. (See `/etc/pipewire/pipewire.conf`)
 
 ```
-systemctl --user stop pipewire-pulse.service
-systemctl --user stop pipewire-pulse.socket
+systemctl --user start pipewire-pulse.service
+systemctl --user start pipewire-pulse.socket
 ```
 
 You can also start additional PulseAudio servers listening on other

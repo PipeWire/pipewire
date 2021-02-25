@@ -833,10 +833,12 @@ again:
 
 		/* pop new buffer */
 		if ((b = pop_queue(impl, &impl->queued)) != NULL) {
+			impl->drained = false;
 			io->buffer_id = b->id;
 			res = io->status = SPA_STATUS_HAVE_DATA;
 			pw_log_trace(NAME" %p: pop %d %p", stream, b->id, io);
-		} else if (impl->draining) {
+		} else if (impl->draining || impl->drained) {
+			impl->draining = true;
 			impl->drained = true;
 			io->buffer_id = SPA_ID_INVALID;
 			res = io->status = SPA_STATUS_DRAINED;
@@ -1135,8 +1137,11 @@ static void context_drained(void *data, struct pw_impl_node *node)
 	struct stream *impl = data;
 	if (impl->node != node)
 		return;
-	if (impl->draining && impl->drained)
+	if (impl->draining && impl->drained) {
+		impl->draining = false;
+		impl->io->status = SPA_STATUS_NEED_DATA;
 		call_drained(impl);
+	}
 }
 
 static const struct pw_context_driver_events context_events = {

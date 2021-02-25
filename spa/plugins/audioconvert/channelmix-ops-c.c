@@ -411,7 +411,7 @@ channelmix_f32_7p1_2_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 		for (n = 0; n < n_samples; n++) {
 			const float ctr = clev * s[2][n] + llev * s[3][n];
 			d[0][n] = s[0][n] * v0 + ctr + s[4][n] * slev0 + s[6][n] * rlev0;
-			d[1][n] = s[1][n] * v1 + ctr + s[5][n] * slev1 + s[6][n] * rlev1;
+			d[1][n] = s[1][n] * v1 + ctr + s[5][n] * slev1 + s[7][n] * rlev1;
 		}
 	}
 }
@@ -429,7 +429,7 @@ channelmix_f32_7p1_3p1_c(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 	const float v2 = mix->matrix[2][2];
 	const float v3 = mix->matrix[3][3];
 	const float v4 = (mix->matrix[0][4] + mix->matrix[0][6]) * 0.5f;
-	const float v5 = (mix->matrix[1][5] + mix->matrix[1][6]) * 0.5f;
+	const float v5 = (mix->matrix[1][5] + mix->matrix[1][7]) * 0.5f;
 
 	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)

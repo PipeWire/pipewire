@@ -279,6 +279,27 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static void emit_node_info(struct impl *this, bool full);
+
+static int apply_props(struct impl *this, const struct spa_pod *param)
+{
+	struct props new_props = this->props;
+	int changed = 0;
+
+	if (param == NULL) {
+		reset_props(&new_props);
+	} else {
+		spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_minLatency, SPA_POD_OPT_Int(&new_props.min_latency),
+				SPA_PROP_maxLatency, SPA_POD_OPT_Int(&new_props.max_latency));
+	}
+
+	changed = (memcmp(&new_props, &this->props, sizeof(struct props)) != 0);
+	this->props = new_props;
+	return changed;
+}
+
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -289,16 +310,11 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	switch (id) {
 	case SPA_PARAM_Props:
 	{
-		struct props *p = &this->props;
-
-		if (param == NULL) {
-			reset_props(p);
-			return 0;
+		if (apply_props(this, param) > 0) {
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
+			emit_node_info(this, false);
 		}
-		spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_minLatency, SPA_POD_OPT_Int(&p->min_latency),
-			SPA_PROP_maxLatency, SPA_POD_OPT_Int(&p->max_latency));
 		break;
 	}
 	default:

@@ -919,14 +919,18 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
 	uint32_t i;
+	int changed = 0;
 
 	if (n_volumes == 0)
 		return -EINVAL;
 
 	spa_log_info(this->log, "node %p volume %f", node, volumes[0]);
 
-	for (i = 0; i < node->n_channels; i++)
+	for (i = 0; i < node->n_channels; i++) {
+		if (node->volumes[i] != volumes[i % n_volumes])
+			++changed;
 		node->volumes[i] = volumes[i % n_volumes];
+	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0],
@@ -944,7 +948,7 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 
 	spa_device_emit_event(&this->hooks, event);
 
-	return 0;
+	return changed;
 }
 
 static int node_set_mute(struct impl *this, struct node *node, bool mute)
@@ -953,8 +957,11 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
+	int changed = 0;
 
 	spa_log_info(this->log, "node %p mute %d", node, mute);
+
+	changed = (node->mute != mute);
 	node->mute = mute;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -971,7 +978,7 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 
 	spa_device_emit_event(&this->hooks, event);
 
-	return 0;
+	return changed;
 }
 
 static int node_set_latency_offset(struct impl *this, struct node *node, int64_t latency_offset)
@@ -980,8 +987,11 @@ static int node_set_latency_offset(struct impl *this, struct node *node, int64_t
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
+	int changed = 0;
 
 	spa_log_info(this->log, "node %p latency offset %"PRIi64" nsec", node, latency_offset);
+
+	changed = (node->latency_offset != latency_offset);
 	node->latency_offset = latency_offset;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -998,7 +1008,7 @@ static int node_set_latency_offset(struct impl *this, struct node *node, int64_t
 
 	spa_device_emit_event(&this->hooks, event);
 
-	return 0;
+	return changed;
 }
 
 static int apply_device_props(struct impl *this, struct node *node, struct spa_pod *props)
@@ -1010,7 +1020,7 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 	int changed = 0;
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
-	uint32_t n_volumes = 0, n_channels = 0;
+	uint32_t n_volumes = 0, SPA_UNUSED n_channels = 0;
 	int64_t latency_offset = 0;
 
 	if (!spa_pod_is_object_type(props, SPA_TYPE_OBJECT_Props))
@@ -1020,37 +1030,39 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 		switch (prop->key) {
 		case SPA_PROP_volume:
 			if (spa_pod_get_float(&prop->value, &volume) == 0) {
-				node_set_volume(this, node, &volume, 1);
-				changed++;
+				int res = node_set_volume(this, node, &volume, 1);
+				if (res > 0)
+					++changed;
 			}
 			break;
 		case SPA_PROP_mute:
 			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
-				node_set_mute(this, node, mute);
-				changed++;
+				int res = node_set_mute(this, node, mute);
+				if (res > 0)
+					++changed;
 			}
 			break;
 		case SPA_PROP_channelVolumes:
-			if ((n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
-				changed++;
-			}
+			n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					volumes, SPA_AUDIO_MAX_CHANNELS);
 			break;
 		case SPA_PROP_channelMap:
-			if ((n_channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					channels, SPA_AUDIO_MAX_CHANNELS)) > 0) {
-				changed++;
-			}
+			n_channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					channels, SPA_AUDIO_MAX_CHANNELS);
 			break;
 		case SPA_PROP_latencyOffsetNsec:
 			if (spa_pod_get_long(&prop->value, &latency_offset) == 0) {
-				node_set_latency_offset(this, node, latency_offset);
-				changed++;
+				int res = node_set_latency_offset(this, node, latency_offset);
+				if (res > 0)
+					++changed;
 			}
 		}
 	}
-	if (n_volumes > 0)
-		node_set_volume(this, node, volumes, n_volumes);
+	if (n_volumes > 0) {
+		int res = node_set_volume(this, node, volumes, n_volumes);
+		if (res > 0)
+			++changed;
+	}
 
 	return changed;
 }
@@ -1108,9 +1120,11 @@ static int impl_set_param(void *object,
 
 		node = &this->nodes[device];
 		if (props) {
-			apply_device_props(this, node, props);
-			this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-			this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+			int changed = apply_device_props(this, node, props);
+			if (changed > 0) {
+				this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+				this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+			}
 			emit_info(this, false);
 		}
 		break;

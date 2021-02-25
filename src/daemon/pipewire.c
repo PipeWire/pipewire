@@ -1,6 +1,6 @@
 /* PipeWire
  *
- * Copyright © 2020 Wim Taymans
+ * Copyright © 2018 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,16 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <limits.h>
 #include <signal.h>
 #include <getopt.h>
 
 #include <spa/utils/result.h>
-
 #include <pipewire/pipewire.h>
 
 #include "config.h"
-
-static const char *config_name = "pipewire-pulse.conf";
 
 static void do_quit(void *data, int signal_number)
 {
@@ -39,10 +37,9 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(loop);
 }
 
-static void show_help(const char *name)
+static void show_help(const char *name, const char *config_name)
 {
-	fprintf(stdout, "%s [options]\n\n"
-		"Start a pulseaudio compatible daemon.\n\n"
+	fprintf(stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -c, --config                          Load config (Default %s)\n",
@@ -59,16 +56,25 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "config",	required_argument,	NULL, 'c' },
+
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
+	char path[PATH_MAX];
+	const char *config_name;
+
+	if (setenv("PIPEWIRE_INTERNAL", "1", 1) < 0)
+		fprintf(stderr, "can't set PIPEWIRE_INTERNAL env: %m");
+
+	snprintf(path, sizeof(path), "%s.conf", argv[0]);
+	config_name = basename(path);
 
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVc:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(argv[0], config_name);
 			return 0;
 		case 'V':
 			fprintf(stdout, "%s\n"

@@ -1,5 +1,5 @@
 pipewire_daemon_sources = [
-  'main.c',
+  'pipewire.c',
 ]
 
 pipewire_c_args = [
@@ -54,7 +54,7 @@ executable('pipewire',
 )
 
 executable('pipewire-pulse',
-  'pipewire-pulse.c',
+  pipewire_daemon_sources,
   install: true,
   c_args : pipewire_c_args,
   include_directories : [configinc, spa_inc],

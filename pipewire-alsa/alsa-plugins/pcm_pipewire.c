@@ -396,14 +396,25 @@ static const struct pw_stream_events stream_events = {
 	.drained = on_stream_drained,
 };
 
+static int pipewire_start(snd_pcm_pipewire_t *pw)
+{
+	if (!pw->activated && pw->stream != NULL) {
+		pw_stream_set_active(pw->stream, true);
+		pw->activated = true;
+	}
+	return 0;
+}
+
 static int snd_pcm_pipewire_drain(snd_pcm_ioplug_t *io)
 {
 	int res;
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_thread_loop_lock(pw->main_loop);
+	pw_log_debug(NAME" %p: drain", pw);
 	pw->drained = false;
 	pw->draining = false;
+	pipewire_start(pw);
 	while (!pw->drained && pw->error >= 0 && pw->activated) {
 		pw_thread_loop_wait(pw->main_loop);
 	}
@@ -511,10 +522,7 @@ static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 
 	pw_thread_loop_lock(pw->main_loop);
 	pw_log_debug(NAME" %p:", pw);
-	if (!pw->activated && pw->stream != NULL) {
-		pw_stream_set_active(pw->stream, true);
-		pw->activated = true;
-	}
+	pipewire_start(pw);
 	pw_thread_loop_unlock(pw->main_loop);
 	return 0;
 }

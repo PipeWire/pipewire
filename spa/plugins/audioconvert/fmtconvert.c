@@ -895,7 +895,7 @@ static int impl_node_process(void *object)
 		if (this->is_passthrough)
 			dd[i].data = (void *)src_datas[src_remap];
 		else
-			dst_datas[dst_remap] = dd[i].data = outbuf->datas[i];
+			dst_datas[i] = dd[dst_remap].data = outbuf->datas[dst_remap];
 
 		dd[i].chunk->offset = 0;
 		dd[i].chunk->size = n_samples * outport->stride;

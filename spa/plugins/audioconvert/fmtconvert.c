@@ -178,8 +178,19 @@ static int setup_convert(struct impl *this)
 			if (informat.info.raw.position[i] !=
 			    outformat.info.raw.position[j])
 				continue;
-			this->src_remap[j] = i;
-			this->dst_remap[i] = j;
+			if (inport->blocks > 1) {
+				this->src_remap[j] = i;
+				if (outport->blocks > 1)
+					this->dst_remap[j] = j;
+				else
+					this->dst_remap[j] = 0;
+			} else {
+				this->src_remap[j] = 0;
+				if (outport->blocks > 1)
+					this->dst_remap[i] = j;
+				else
+					this->dst_remap[j] = 0;
+			}
 			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%s -> %s)", this,
 					i, j,
 					spa_debug_type_find_short_name(spa_type_audio_channel,
@@ -872,11 +883,11 @@ static int impl_node_process(void *object)
 
 	size = UINT32_MAX;
 	for (i = 0; i < n_src_datas; i++) {
-		struct spa_data *sd = &inb->datas[i];
-		uint32_t src_remap = n_src_datas > 1 ? this->src_remap[i] : 0;
+		uint32_t src_remap = this->src_remap[i];
+		struct spa_data *sd = &inb->datas[src_remap];
 		offs = SPA_MIN(sd->chunk->offset, sd->maxsize);
 		size = SPA_MIN(size, SPA_MIN(sd->maxsize - offs, sd->chunk->size));
-		src_datas[src_remap] = SPA_MEMBER(sd->data, offs, void);
+		src_datas[i] = SPA_MEMBER(sd->data, offs, void);
 	}
 	n_samples = size / inport->stride;
 
@@ -888,12 +899,11 @@ static int impl_node_process(void *object)
 			this->is_passthrough);
 
 	for (i = 0; i < n_dst_datas; i++) {
-		uint32_t dst_remap = n_dst_datas > 1 ? this->dst_remap[i] : 0;
-		uint32_t src_remap = n_src_datas > 1 ? i : 0;
+		uint32_t dst_remap = this->dst_remap[i];
 		struct spa_data *dd = outb->datas;
 
 		if (this->is_passthrough)
-			dd[i].data = (void *)src_datas[src_remap];
+			dd[i].data = (void *)src_datas[i];
 		else
 			dst_datas[i] = dd[dst_remap].data = outbuf->datas[dst_remap];
 

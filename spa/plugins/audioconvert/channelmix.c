@@ -294,11 +294,12 @@ static int setup_convert(struct impl *this,
 
 	emit_params_changed(this);
 
-	spa_log_debug(this->log, NAME " %p: got channelmix features %08x:%08x flags:%08x",
-			this, this->cpu_flags, this->mix.cpu_flags,
-			this->mix.flags);
-
 	this->is_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
+
+	spa_log_debug(this->log, NAME " %p: got channelmix features %08x:%08x flags:%08x passthrough:%d",
+			this, this->cpu_flags, this->mix.cpu_flags,
+			this->mix.flags, this->is_passthrough);
+
 
 	return 0;
 }

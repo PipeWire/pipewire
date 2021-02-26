@@ -86,6 +86,7 @@ struct port {
 
 	bool have_format;
 	struct spa_audio_info current_format;
+	uint32_t blocks;
 	size_t bpf;
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -367,7 +368,10 @@ port_enum_formats(struct impl *this,
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32),
+			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(3,
+								SPA_AUDIO_FORMAT_F32P,
+								SPA_AUDIO_FORMAT_F32P,
+								SPA_AUDIO_FORMAT_F32),
 			0);
 
 		if (this->props.rate != 0) {
@@ -455,7 +459,7 @@ impl_node_port_enum_params(void *object, int seq,
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							MAX_SAMPLES * port->bpf,
 							16 * port->bpf,
@@ -526,10 +530,15 @@ port_set_format(struct impl *this,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
-		if (info.info.raw.format != SPA_AUDIO_FORMAT_F32)
+		if (info.info.raw.format == SPA_AUDIO_FORMAT_F32) {
+			port->bpf = 4 * info.info.raw.channels;
+			port->blocks = 1;
+		} else if (info.info.raw.format == SPA_AUDIO_FORMAT_F32P) {
+			port->bpf = 4;
+			port->blocks = info.info.raw.channels;
+		} else
 			return -EINVAL;
 
-		port->bpf = 4 * info.info.raw.channels;
 		port->current_format = info;
 		port->have_format = true;
 	}

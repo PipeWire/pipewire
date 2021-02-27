@@ -373,6 +373,7 @@ static void device_free(void *data)
 	spa_hook_remove(&device->listener);
 	pw_unload_spa_handle(device->handle);
 	pw_properties_free(device->props);
+	sm_object_discard(&device->sdevice->obj);
 	free(device);
 }
 

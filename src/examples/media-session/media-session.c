@@ -136,8 +136,13 @@ struct impl {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
+	struct pw_registry *monitor_registry;
+	struct spa_hook monitor_registry_listener;
+
 	struct pw_map globals;
-	struct spa_list global_list;
+	struct spa_list object_list;		/**< all sm_objects */
+
+	struct spa_list registry_event_list;	/**< pending registry events */
 
 	struct spa_hook_list hooks;
 
@@ -188,23 +193,38 @@ struct object_info {
 	void (*destroy) (void *object);
 };
 
+struct registry_event {
+	uint32_t id;
+	uint32_t permissions;
+	const char *type;
+	uint32_t version;
+	const struct spa_dict *props;
+
+	struct pw_proxy *proxy;
+
+	int seq;
+	struct pw_properties *props_store;
+
+	struct spa_list link;
+	unsigned int monitor:1;
+	unsigned int allocated:1;
+};
+
 static void add_object(struct impl *impl, struct sm_object *obj, uint32_t id)
 {
 	size_t size = pw_map_get_size(&impl->globals);
 	obj->id = id;
-	pw_log_debug("add %u %p", obj->id, obj);
+	pw_log_debug("add global '%u' %p monitor:%d", obj->id, obj, obj->monitor_global);
 	while (obj->id > size)
 		pw_map_insert_at(&impl->globals, size++, NULL);
 	pw_map_insert_at(&impl->globals, obj->id, obj);
-	spa_list_append(&impl->global_list, &obj->link);
 	sm_media_session_emit_create(impl, obj);
 }
 
 static void remove_object(struct impl *impl, struct sm_object *obj)
 {
-	pw_log_debug("remove %u %p", obj->id, obj);
+	pw_log_debug("remove global '%u' %p monitor:%d", obj->id, obj, obj->monitor_global);
 	pw_map_insert_at(&impl->globals, obj->id, NULL);
-	spa_list_remove(&obj->link);
 	sm_media_session_emit_remove(impl, obj);
 	obj->id = SPA_ID_INVALID;
 }
@@ -269,17 +289,18 @@ int sm_object_remove_data(struct sm_object *obj, const char *id)
 	return 0;
 }
 
-int sm_object_destroy(struct sm_object *obj)
+static int sm_object_destroy_maybe_free(struct sm_object *obj)
 {
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
 	struct data *d;
-	struct pw_proxy *p, *h;
 
-	p = obj->proxy;
-	h = obj->handle;
+	pw_log_debug(NAME" %p: destroy object %p id:%d proxy:%p handle:%p monitor:%d destroyed:%d discarded:%d", obj->session,
+			obj, obj->id, obj->proxy, obj->handle, obj->monitor_global, obj->destroyed, obj->discarded);
 
-	pw_log_debug(NAME" %p: object %d proxy:%p handle:%p", obj->session,
-			obj->id, p, h);
+	if (obj->destroyed)
+		goto unref;
+
+	obj->destroyed = true;
 
 	sm_object_emit_destroy(obj);
 
@@ -294,38 +315,44 @@ int sm_object_destroy(struct sm_object *obj)
 	if (obj->destroy)
 		obj->destroy(obj);
 
-	if (p) {
-		pw_proxy_ref(p);
+	spa_hook_remove(&obj->handle_listener);
+
+	if (obj->proxy) {
 		spa_hook_remove(&obj->proxy_listener);
+		if (obj->proxy != obj->handle)
+			pw_proxy_destroy(obj->proxy);
+		obj->proxy = NULL;
 	}
-	if (h) {
-		pw_proxy_ref(h);
-		spa_hook_remove(&obj->handle_listener);
-	}
-	if (p)
-		pw_proxy_destroy(p);
-	if (h != p)
-		pw_proxy_destroy(h);
+
+	pw_proxy_ref(obj->handle);
+	pw_proxy_destroy(obj->handle);
 
 	sm_object_emit_free(obj);
 
-	if (obj->props)
+unref:
+	if (!obj->discarded)
+		return 0;
+
+	if (obj->props) {
 		pw_properties_free(obj->props);
-	obj->props = NULL;
+		obj->props = NULL;
+	}
 
 	spa_list_consume(d, &obj->data, link) {
 		spa_list_remove(&d->link);
 		free(d);
 	}
 
-	obj->proxy = NULL;
-	obj->handle = NULL;
-	if (p)
-		pw_proxy_unref(p);
-	if (h)
-		pw_proxy_unref(h);  /* may free obj, if from init_object */
+	spa_list_remove(&obj->link);
+	pw_proxy_unref(obj->handle);  /* frees obj */
 
 	return 0;
+}
+
+int sm_object_destroy(struct sm_object *obj)
+{
+	sm_object_discard(obj);
+	return sm_object_destroy_maybe_free(obj);
 }
 
 static struct param *add_param(struct spa_list *param_list,
@@ -1062,7 +1089,12 @@ static void done_proxy(void *data, int seq)
 	}
 }
 
-static void bound_proxy(void *data, uint32_t id)
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.done = done_proxy,
+};
+
+static void bound_handle(void *data, uint32_t id)
 {
 	struct sm_object *obj = data;
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
@@ -1070,14 +1102,30 @@ static void bound_proxy(void *data, uint32_t id)
 	pw_log_debug("bound %p proxy %p handle %p id:%d->%d",
 			obj, obj->proxy, obj->handle, obj->id, id);
 
-	if (obj->id == SPA_ID_INVALID)
+	if (obj->id == SPA_ID_INVALID) {
+		struct sm_object *old_obj = find_object(impl, id, NULL);
+
+		if (old_obj != NULL) {
+			/*
+			 * Monitor core is always more up-to-date in object creation
+			 * events (see registry_global), so in case of duplicate objects
+			 * we should prefer monitor globals.
+			 */
+			if (obj->monitor_global)
+				sm_object_destroy_maybe_free(old_obj);
+			else {
+				sm_object_destroy_maybe_free(obj);
+				return;
+			}
+		}
+
 		add_object(impl, obj, id);
+	}
 }
 
-static const struct pw_proxy_events proxy_events = {
+static const struct pw_proxy_events handle_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.done = done_proxy,
-	.bound = bound_proxy,
+	.bound = bound_handle,
 };
 
 int sm_object_sync_update(struct sm_object *obj)
@@ -1123,7 +1171,7 @@ static const struct object_info *get_object_info(struct impl *impl, const char *
 
 static struct sm_object *init_object(struct impl *impl, const struct object_info *info,
 		struct pw_proxy *proxy, struct pw_proxy *handle, uint32_t id,
-		const struct spa_dict *props)
+		const struct spa_dict *props, bool monitor_global)
 {
 	struct sm_object *obj;
 
@@ -1137,8 +1185,11 @@ static struct sm_object *init_object(struct impl *impl, const struct object_info
 	obj->destroy = info->destroy;
 	obj->mask |= SM_OBJECT_CHANGE_MASK_PROPERTIES | SM_OBJECT_CHANGE_MASK_BIND;
 	obj->avail |= obj->mask;
+	obj->monitor_global = monitor_global;
 	spa_hook_list_init(&obj->hooks);
 	spa_list_init(&obj->data);
+
+	spa_list_append(&impl->object_list, &obj->link);
 
 	if (proxy) {
 		pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
@@ -1146,20 +1197,17 @@ static struct sm_object *init_object(struct impl *impl, const struct object_info
 			pw_proxy_add_object_listener(obj->proxy, &obj->object_listener, info->events, obj);
 		SPA_FLAG_UPDATE(obj->mask, SM_OBJECT_CHANGE_MASK_LISTENER, info->events != NULL);
 	}
-	pw_proxy_add_listener(obj->handle, &obj->handle_listener, &proxy_events, obj);
+	pw_proxy_add_listener(obj->handle, &obj->handle_listener, &handle_events, obj);
 
 	if (info->init)
 		info->init(obj);
-
-	if (id != SPA_ID_INVALID)
-		add_object(impl, obj, id);
 
 	return obj;
 }
 
 static struct sm_object *
 create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle,
-		const struct spa_dict *props)
+		const struct spa_dict *props, bool monitor_global)
 {
 	const char *type;
 	const struct object_info *info;
@@ -1176,7 +1224,7 @@ create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle
 		errno = ENOTSUP;
 		return NULL;
 	}
-	obj = init_object(impl, info, proxy, handle, SPA_ID_INVALID, props);
+	obj = init_object(impl, info, proxy, handle, SPA_ID_INVALID, props, monitor_global);
 
 	pw_log_debug(NAME" %p: created new object %p proxy:%p handle:%p", impl,
 			obj, obj->proxy, obj->handle);
@@ -1185,50 +1233,40 @@ create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle
 }
 
 static struct sm_object *
-bind_object(struct impl *impl, const struct object_info *info, uint32_t id,
-		uint32_t permissions, const char *type, uint32_t version,
-		const struct spa_dict *props)
+bind_object(struct impl *impl, const struct object_info *info, struct registry_event *re)
 {
-	int res;
 	struct pw_proxy *proxy;
 	struct sm_object *obj;
 
-	proxy = pw_registry_bind(impl->registry,
-			id, type, info->version, info->size);
-	if (proxy == NULL) {
-		res = -errno;
-		goto error;
-	}
-	obj = init_object(impl, info, proxy, proxy, id, props);
+	proxy = re->proxy;
+	re->proxy = NULL;
+
+	obj = init_object(impl, info, proxy, proxy, re->id, re->props, false);
+	sm_object_discard(obj);
+	add_object(impl, obj, re->id);
 
 	pw_log_debug(NAME" %p: bound new object %p proxy %p id:%d", impl, obj, obj->proxy, obj->id);
 
 	return obj;
-
-error:
-	pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(res));
-	errno = -res;
-	return NULL;
 }
 
 static int
-update_object(struct impl *impl, const struct object_info *info,
-		struct sm_object *obj, uint32_t id,
-		uint32_t permissions, const char *type, uint32_t version,
-		const struct spa_dict *props)
+update_object(struct impl *impl, const struct object_info *info, struct sm_object *obj,
+              struct registry_event *re)
 {
-	pw_properties_update(obj->props, props);
+	struct pw_proxy *proxy;
+
+	pw_properties_update(obj->props, re->props);
 
 	if (obj->proxy != NULL)
 		return 0;
 
 	pw_log_debug(NAME" %p: update type:%s", impl, obj->type);
 
-	obj->proxy = pw_registry_bind(impl->registry,
-			id, info->type, info->version, 0);
-	if (obj->proxy == NULL)
-		return -errno;
+	proxy = re->proxy;
+	re->proxy = NULL;
 
+	obj->proxy = proxy;
 	obj->type = info->type;
 
 	pw_proxy_add_listener(obj->proxy, &obj->proxy_listener, &proxy_events, obj);
@@ -1242,31 +1280,203 @@ update_object(struct impl *impl, const struct object_info *info,
 	return 0;
 }
 
+static void registry_event_free(struct registry_event *re)
+{
+	if (re->proxy)
+		pw_proxy_destroy(re->proxy);
+	if (re->props_store)
+		pw_properties_free(re->props_store);
+	if (re->allocated) {
+		spa_list_remove(&re->link);
+		free(re);
+	} else {
+		spa_zero(*re);
+	}
+}
+
+static int handle_registry_event(struct impl *impl, struct registry_event *re)
+{
+	struct sm_object *obj;
+	const struct object_info *info = NULL;
+
+	obj = find_object(impl, re->id, NULL);
+
+	pw_log_debug(NAME " %p: new global '%d' %s/%d obj:%p monitor:%d seq:%d",
+			impl, re->id, re->type, re->version, obj, re->monitor, re->seq);
+
+	info = get_object_info(impl, re->type);
+	if (info == NULL)
+		return 0;
+
+	if (obj == NULL && !re->monitor) {
+		/*
+		 * Only policy core binds new objects.
+		 *
+		 * The monitor core event corresponding to this one has already been
+		 * processed. If monitor doesn't have the id now, the object either has
+		 * not been created there, or there is a race condition and it was already
+		 * removed. In that case, we create a zombie object here, but its remove
+		 * event is already queued and arrives soon.
+		 */
+		obj = bind_object(impl, info, re);
+	} else if (obj != NULL && obj->monitor_global == re->monitor) {
+		/* Each core handles their own object updates */
+		update_object(impl, info, obj, re);
+	}
+
+	sm_media_session_schedule_rescan(&impl->this);
+	return 0;
+}
+
+static int handle_postponed_registry_events(struct impl *impl, int seq)
+{
+	struct registry_event *re, *t;
+
+	spa_list_for_each_safe(re, t, &impl->registry_event_list, link) {
+		if (re->seq == seq) {
+			handle_registry_event(impl, re);
+			registry_event_free(re);
+		}
+	}
+	return 0;
+}
+
+static int monitor_sync(struct impl *impl)
+{
+	pw_core_set_paused(impl->policy_core, true);
+	impl->monitor_seq = pw_core_sync(impl->monitor_core, 0, impl->monitor_seq);
+	pw_log_debug(NAME " %p: monitor sync start %d", impl, impl->monitor_seq);
+	sm_media_session_schedule_rescan(&impl->this);
+	return impl->monitor_seq;
+}
+
 static void
 registry_global(void *data, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
 	struct impl *impl = data;
-        struct sm_object *obj;
 	const struct object_info *info;
-
-	pw_log_debug(NAME " %p: new global '%d' %s/%d", impl, id, type, version);
+	struct registry_event *re = NULL;
 
 	info = get_object_info(impl, type);
 	if (info == NULL)
 		return;
 
-	obj = find_object(impl, id, NULL);
-	if (obj == NULL) {
-		bind_object(impl, info, id, permissions, type, version, props);
-	} else {
-		pw_log_debug(NAME " %p: our object %d appeared %s/%s",
-				impl, id, obj->type, type);
-		update_object(impl, info, obj, id, permissions, type, version, props);
+	pw_log_debug(NAME " %p: registry event (policy) for new global '%d'", impl, id);
+
+	/*
+	 * Handle policy core events after monitor core ones.
+	 *
+	 * Monitor sync pauses policy core, so the event will be handled before
+	 * further registry or proxy events are received via policy core.
+	 */
+	re = calloc(1, sizeof(struct registry_event));
+	if (re == NULL)
+		goto error;
+
+	re->allocated = true;
+	spa_list_append(&impl->registry_event_list, &re->link);
+
+	re->id = id;
+	re->monitor = false;
+	re->permissions = permissions;
+	re->type = info->type;
+	re->version = version;
+
+	/* Bind proxy now */
+	re->proxy = pw_registry_bind(impl->registry, id, type, info->version, info->size);
+	if (re->proxy == NULL)
+		goto error;
+
+	if (props) {
+		re->props_store = pw_properties_new_dict(props);
+		if (re->props_store == NULL)
+			goto error;
+		re->props = &re->props_store->dict;
 	}
-	sm_media_session_schedule_rescan(&impl->this);
+
+	re->seq = monitor_sync(impl);
+
+	return;
+
+error:
+	if (re)
+		registry_event_free(re);
+	pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(-errno));
 }
+
+static void
+registry_global_remove(void *data, uint32_t id)
+{
+	struct impl *impl = data;
+	struct sm_object *obj;
+
+	obj = find_object(impl, id, NULL);
+	obj = (obj && !obj->monitor_global) ? obj : NULL;
+
+	pw_log_debug(NAME " %p: registry event (policy) for remove global '%d' obj:%p",
+			impl, id, obj);
+
+	if (obj)
+		sm_object_destroy_maybe_free(obj);
+}
+
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
+	.global = registry_global,
+	.global_remove = registry_global_remove,
+};
+
+static void
+monitor_registry_global(void *data, uint32_t id,
+		uint32_t permissions, const char *type, uint32_t version,
+		const struct spa_dict *props)
+{
+	struct impl *impl = data;
+	const struct object_info *info;
+	struct registry_event re = {
+		.id = id, .permissions = permissions, .type = type, .version = version,
+		.props = props,	.monitor = true
+	};
+
+	pw_log_debug(NAME " %p: registry event (monitor) for new global '%d'", impl, id);
+
+	info = get_object_info(impl, type);
+	if (info == NULL)
+		return;
+
+	/* Bind proxy now from policy core */
+	re.proxy = pw_registry_bind(impl->registry, id, type, info->version, 0);
+	if (re.proxy)
+		handle_registry_event(impl, &re);
+	else 
+		pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(-errno));
+
+	registry_event_free(&re);
+	return;
+}
+
+static void
+monitor_registry_global_remove(void *data, uint32_t id)
+{
+	struct impl *impl = data;
+	struct sm_object *obj;
+
+	obj = find_object(impl, id, NULL);
+	obj = (obj && obj->monitor_global) ? obj : NULL;
+
+	pw_log_debug(NAME " %p: registry event (monitor) for remove global '%d' obj:%p", impl, id, obj);
+
+	if (obj)
+		sm_object_destroy_maybe_free(obj);
+}
+
+static const struct pw_registry_events monitor_registry_events = {
+      PW_VERSION_REGISTRY_EVENTS,
+      .global = monitor_registry_global,
+      .global_remove = monitor_registry_global_remove,
+};
 
 int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,
 		const struct sm_object_events *events, void *data)
@@ -1284,8 +1494,11 @@ int sm_media_session_add_listener(struct sm_media_session *sess, struct spa_hook
 
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
-	spa_list_for_each(obj, &impl->global_list, link)
+	spa_list_for_each(obj, &impl->object_list, link) {
+		if (obj->id == SPA_ID_INVALID)
+			continue;
 		sm_media_session_emit_create(impl, obj);
+	}
 
         spa_hook_list_join(&impl->hooks, &save);
 
@@ -1313,7 +1526,9 @@ int sm_media_session_for_each_object(struct sm_media_session *sess,
 	struct sm_object *obj;
 	int res;
 
-	spa_list_for_each(obj, &impl->global_list, link) {
+	spa_list_for_each(obj, &impl->object_list, link) {
+		if (obj->id == SPA_ID_INVALID)
+			continue;
 		if ((res = callback(data, obj)) != 0)
 			return res;
 	}
@@ -1388,34 +1603,6 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 	return 0;
 }
 
-static void
-registry_global_remove(void *data, uint32_t id)
-{
-	struct impl *impl = data;
-	struct sm_object *obj;
-
-	pw_log_debug(NAME " %p: remove global '%d'", impl, id);
-
-	if ((obj = find_object(impl, id, NULL)) == NULL)
-		return;
-
-	sm_object_destroy(obj);
-}
-
-static const struct pw_registry_events registry_events = {
-	PW_VERSION_REGISTRY_EVENTS,
-        .global = registry_global,
-        .global_remove = registry_global_remove,
-};
-
-static void monitor_sync(struct impl *impl)
-{
-	pw_core_set_paused(impl->policy_core, true);
-	impl->monitor_seq = pw_core_sync(impl->monitor_core, 0, impl->monitor_seq);
-	pw_log_debug(NAME " %p: monitor sync start %d", impl, impl->monitor_seq);
-	sm_media_session_schedule_rescan(&impl->this);
-}
-
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 		const char *type, const struct spa_dict *props,
 		void *object, size_t user_data_size)
@@ -1445,7 +1632,7 @@ struct sm_node *sm_media_session_export_node(struct sm_media_session *sess,
 	handle = pw_core_export(impl->monitor_core, PW_TYPE_INTERFACE_Node,
 			props, object, sizeof(struct sm_node));
 
-	node = (struct sm_node *) create_object(impl, NULL, handle, props);
+	node = (struct sm_node *) create_object(impl, NULL, handle, props, true);
 
 	monitor_sync(impl);
 
@@ -1464,7 +1651,7 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 	handle = pw_core_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
 			props, object, sizeof(struct sm_device));
 
-	device = (struct sm_device *) create_object(impl, NULL, handle, props);
+	device = (struct sm_device *) create_object(impl, NULL, handle, props, true);
 
 	monitor_sync(impl);
 
@@ -1496,7 +1683,7 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 				props,
 				sizeof(struct sm_node));
 
-	node = (struct sm_node *)create_object(impl, proxy, proxy, props);
+	node = (struct sm_node *)create_object(impl, proxy, proxy, props, false);
 
 	return node;
 }
@@ -1851,6 +2038,9 @@ static void monitor_core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
 
+	if (id == 0)
+		handle_postponed_registry_events(impl, seq);
+
 	if (seq == impl->monitor_seq) {
 		pw_log_debug(NAME " %p: monitor sync stop %d", impl, seq);
 		pw_core_set_paused(impl->policy_core, false);
@@ -1873,6 +2063,12 @@ static int start_session(struct impl *impl)
 	pw_core_add_listener(impl->monitor_core,
 			&impl->monitor_listener,
 			&monitor_core_events, impl);
+
+	impl->monitor_registry = pw_core_get_registry(impl->monitor_core,
+			PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(impl->monitor_registry,
+			&impl->monitor_registry_listener,
+			&monitor_registry_events, impl);
 
 	return 0;
 }
@@ -1915,7 +2111,9 @@ static void core_done(void *data, uint32_t id, int seq)
 			}
 		}
 
-		spa_list_for_each_safe(obj, to, &impl->global_list, link) {
+		spa_list_for_each_safe(obj, to, &impl->object_list, link) {
+			if (obj->id == SPA_ID_INVALID)
+				continue;
 			pw_log_trace(NAME" %p: obj %p %08x", impl, obj, obj->changed);
 			if (obj->changed)
 				sm_object_emit_update(obj);
@@ -1985,12 +2183,15 @@ static int start_policy(struct impl *impl)
 static void session_shutdown(struct impl *impl)
 {
 	struct sm_object *obj;
+	struct registry_event *re;
 
 	pw_log_info(NAME" %p", impl);
 	sm_media_session_emit_shutdown(impl);
 
-	spa_list_consume(obj, &impl->global_list, link)
+	spa_list_consume(obj, &impl->object_list, link)
 		sm_object_destroy(obj);
+	spa_list_consume(re, &impl->registry_event_list, link)
+		registry_event_free(re);
 
 	impl->this.metadata = NULL;
 
@@ -1999,6 +2200,10 @@ static void session_shutdown(struct impl *impl)
 	if (impl->registry) {
 		spa_hook_remove(&impl->registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)impl->registry);
+	}
+	if (impl->monitor_registry) {
+		spa_hook_remove(&impl->monitor_registry_listener);
+		pw_proxy_destroy((struct pw_proxy*)impl->monitor_registry);
 	}
 	if (impl->policy_core) {
 		spa_hook_remove(&impl->policy_listener);
@@ -2222,7 +2427,8 @@ int main(int argc, char *argv[])
 	pw_context_set_object(impl.this.context, SM_TYPE_MEDIA_SESSION, &impl);
 
 	pw_map_init(&impl.globals, 64, 64);
-	spa_list_init(&impl.global_list);
+	spa_list_init(&impl.object_list);
+	spa_list_init(&impl.registry_event_list);
 	spa_list_init(&impl.link_list);
 	pw_map_init(&impl.endpoint_links, 64, 64);
 	spa_list_init(&impl.endpoint_link_list);

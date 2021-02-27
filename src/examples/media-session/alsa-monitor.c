@@ -441,7 +441,7 @@ static void alsa_device_event(void *data, const struct spa_event *event)
 
 	switch (type) {
 	case SPA_DEVICE_EVENT_ObjectConfig:
-		if (props)
+		if (props && !node->snode->obj.destroyed)
 			pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
 				SPA_PARAM_Props, 0, props);
 		break;
@@ -788,6 +788,7 @@ static void device_free(void *data)
 	free(device->factory_name);
 	pw_unload_spa_handle(device->handle);
 	pw_properties_free(device->props);
+	sm_object_discard(&device->sdevice->obj);
 	free(device);
 }
 

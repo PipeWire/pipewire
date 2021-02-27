@@ -302,8 +302,8 @@ static void bluez_device_event(void *data, const struct spa_event *event)
 				pw_node_set_param((struct pw_node*)node->snode->obj.proxy,
 					SPA_PARAM_Props, 0, props);
 			} else {
-				pw_log_warn("device %p: node %d not ready for volume yet",
-						device, id);
+				pw_log_warn("device %p: node %d object:%p not ready for volume yet",
+						device, id, node->snode);
 			}
 		}
 		break;

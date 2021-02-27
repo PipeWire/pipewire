@@ -83,6 +83,10 @@ struct sm_object {
 	struct spa_callbacks methods;
 
 	struct spa_list data;
+
+	unsigned int monitor_global:1;	/**< whether handle is from monitor core */
+	unsigned int destroyed:1;	/**< whether proxies have been destroyed */
+	unsigned int discarded:1;	/**< whether monitors hold no references */
 };
 
 int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,
@@ -108,6 +112,8 @@ int sm_object_remove_data(struct sm_object *obj, const char *id);
 int sm_object_sync_update(struct sm_object *obj);
 
 int sm_object_destroy(struct sm_object *obj);
+
+#define sm_object_discard(o)	do { (o)->discarded = true; } while (0)
 
 struct sm_client {
 	struct sm_object obj;

@@ -457,10 +457,10 @@ channelmix_f32_7p1_4_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 	const float v1 = mix->matrix[1][1];
 	const float clev = (mix->matrix[0][2] + mix->matrix[1][2]) * 0.5f;
 	const float llev = (mix->matrix[0][3] + mix->matrix[1][3]) * 0.5f;
-	const float slev0 = mix->matrix[0][4];
-	const float slev1 = mix->matrix[1][5];
-	const float rlev0 = mix->matrix[0][6];
-	const float rlev1 = mix->matrix[1][7];
+	const float slev0 = mix->matrix[2][4];
+	const float slev1 = mix->matrix[3][5];
+	const float rlev0 = mix->matrix[2][6];
+	const float rlev1 = mix->matrix[3][7];
 
 	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)

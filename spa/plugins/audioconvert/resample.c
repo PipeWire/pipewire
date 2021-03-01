@@ -816,7 +816,8 @@ static int impl_node_process(void *object)
 	}
 	if (size == 0) {
 		size = sb->datas[0].maxsize;
-		memset(sb->datas[0].data, 0, size);
+		for (i = 0; i < sb->n_datas; i++)
+			memset(sb->datas[i].data, 0, size);
 		inport->offset = 0;
 		flush_in = draining = true;
 	}

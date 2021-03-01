@@ -132,14 +132,16 @@ static void add_props(struct pw_properties *props, const char *str)
 		} else {
 			f = ' ';
 		}
+		v = p;
 		e = strchr(p, f);
 		if (e == NULL)
 			e = strchr(p, '\0');
 		if (e == NULL)
 			break;
+		p = e;
+		if (*e != '\0')
+			p++;
 		*e = '\0';
-		v = p;
-		p = e + 1;
 		pw_properties_set(props, k, v);
 	}
 	free(s);

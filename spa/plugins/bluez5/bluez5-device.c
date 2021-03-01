@@ -627,13 +627,6 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		SPA_PARAM_PROFILE_description, SPA_POD_String(desc),
 		SPA_PARAM_PROFILE_available, SPA_POD_Id(SPA_PARAM_AVAILABILITY_yes),
 		0);
-	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
-	spa_pod_builder_push_array(b, &f[1]);
-	if (n_source > 0)
-		spa_pod_builder_int(b, capture[0]);
-	if (n_sink > 0)
-		spa_pod_builder_int(b, playback[0]);
-	spa_pod_builder_pop(b, &f[1]);
 	if (n_source > 0 || n_sink > 0) {
 		spa_pod_builder_prop(b, SPA_PARAM_PROFILE_classes, 0);
 		spa_pod_builder_push_struct(b, &f[1]);

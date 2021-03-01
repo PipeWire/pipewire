@@ -155,7 +155,7 @@ struct client {
 	struct spa_list out_messages;
 
 	struct spa_list operations;
-	struct spa_list modules;
+	struct spa_list loading_modules;
 
 	struct spa_list pending_samples;
 
@@ -265,6 +265,7 @@ struct impl {
 	struct spa_list cleanup_clients;
 
 	struct pw_map samples;
+	struct pw_map modules;
 
 	struct spa_list free_messages;
 	struct defs defs;
@@ -3693,6 +3694,29 @@ static int fill_module_info(struct client *client, struct message *m,
 	return 0;
 }
 
+static int fill_ext_module_info(struct client *client, struct message *m,
+		struct module *module)
+{
+	message_put(m,
+		TAG_U32, module->idx,			/* module index */
+		TAG_STRING, module->name,
+		TAG_STRING, module->args,
+		TAG_U32, -1,				/* n_used */
+		TAG_INVALID);
+
+	if (client->version < 15) {
+		message_put(m,
+			TAG_BOOLEAN, false,		/* auto unload deprecated */
+			TAG_INVALID);
+	}
+	if (client->version >= 15) {
+		message_put(m,
+			TAG_PROPLIST, module->props,
+			TAG_INVALID);
+	}
+	return 0;
+}
+
 static int64_t get_port_latency_offset(struct client *client, struct pw_manager_object *card, struct port_info *pi)
 {
 	struct pw_manager *m = client->manager;
@@ -4297,6 +4321,17 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_INVALID)) < 0)
 		goto error_protocol;
 
+	reply = reply_new(client, tag);
+
+	if (command == COMMAND_GET_MODULE_INFO && (sel.id & MODULE_FLAG) != 0) {
+		struct module *module;
+		module = pw_map_lookup(&impl->modules, sel.id & INDEX_MASK);
+		if (module == NULL)
+			goto error_noentity;
+		fill_ext_module_info(client, reply, module);
+		return send_message(client, reply);
+	}
+
 	switch (command) {
 	case COMMAND_GET_CLIENT_INFO:
 		sel.type = object_is_client;
@@ -4365,7 +4400,6 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	if (o == NULL)
 		goto error_noentity;
 
-	reply = reply_new(client, tag);
 	if ((res = fill_func(client, reply, o)) < 0)
 		goto error;
 
@@ -4491,6 +4525,14 @@ static int do_list_info(void *data, struct pw_manager_object *object)
 	return 0;
 }
 
+static int do_info_list_module(void *item, void *data)
+{
+	struct module *m = item;
+	struct info_list_data *info = data;
+	fill_ext_module_info(info->client, info->reply, m);
+	return 0;
+}
+
 static int do_get_info_list(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -4532,6 +4574,9 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 	info.reply = reply_new(client, tag);
 	if (info.fill_func)
 		pw_manager_for_each_object(manager, do_list_info, &info);
+
+	if (command == COMMAND_GET_MODULE_INFO_LIST)
+		pw_map_for_each(&impl->modules, do_info_list_module, &info);
 
 	return send_message(client, info.reply);
 }
@@ -4896,7 +4941,10 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 }
 
 struct load_module_data {
+	struct spa_list link;
 	struct client *client;
+	struct module *module;
+	struct spa_hook listener;
 	uint32_t tag;
 };
 
@@ -4908,38 +4956,24 @@ static struct load_module_data *load_module_data_new(struct client *client, uint
 	return data;
 }
 
-static void on_module_removed(void *data, struct module *module)
+static void load_module_data_free(struct load_module_data *d)
 {
-	struct client *client = data;
-
-	pw_log_info(NAME" %p: [%s] module %d unloaded", client->impl, client->name, module->idx);
-
-	spa_list_remove(&module->link);
+	spa_hook_remove(&d->listener);
+	free(d);
 }
 
-static void on_module_error(void *data)
-{
-	struct client *client = data;
-
-	pw_log_info(NAME" %p: [%s] error loading module", client->impl, client->name);
-}
-
-static void on_module_loaded(struct module *module, int error, void *data)
+static void on_module_loaded(void *data, int error)
 {
 	struct load_module_data *d = data;
+	struct module *module = d->module;
+	struct impl *impl = module->impl;
 	struct message *reply;
 	struct client *client;
 	uint32_t tag;
-	int res;
-
-	struct module_events listener = {
-		on_module_removed,
-		on_module_error,
-	};
 
 	client = d->client;
 	tag = d->tag;
-	free(d);
+	load_module_data_free(d);
 
 	if (error < 0) {
 		pw_log_warn(NAME" %p: [%s] error loading module", client->impl, client->name);
@@ -4947,25 +4981,31 @@ static void on_module_loaded(struct module *module, int error, void *data)
 		return;
 	}
 
-	spa_list_append(&client->modules, &module->link);
-	module_add_listener(module, &listener, client);
-
 	pw_log_info(NAME" %p: [%s] module %d loaded", client->impl, client->name, module->idx);
+
+	broadcast_subscribe_event(impl,
+			SUBSCRIPTION_MASK_MODULE,
+			SUBSCRIPTION_EVENT_NEW | SUBSCRIPTION_EVENT_MODULE,
+			module->idx);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
 		TAG_U32, module->idx,
 		TAG_INVALID);
-	if ((res = send_message(client, reply)) < 0)
-		reply_error(client, COMMAND_LOAD_MODULE, tag, res);
+	send_message(client, reply);
 }
 
 static int do_load_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct load_module_data *data;
+	struct module *module;
 	struct impl *impl = client->impl;
+	struct load_module_data *d;
 	const char *name, *argument;
 	int res;
+	static struct module_events listener = {
+		VERSION_MODULE_EVENTS,
+		.loaded = on_module_loaded,
+	};
 
 	if ((res = message_get(m,
 			TAG_STRING, &name,
@@ -4976,9 +5016,15 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	pw_log_info(NAME" %p: [%s] %s name:%s argument:%s", impl,
 			client->name, commands[command].name, name, argument);
 
-	data = load_module_data_new(client, tag);
-	res = load_module(client, name, argument, on_module_loaded, data);
-	return res;
+	module = create_module(client, name, argument);
+	if (module == NULL)
+		return -errno;
+
+	d = load_module_data_new(client, tag);
+	d->module = module;
+	module_add_listener(module, &d->listener, &listener, d);
+
+	return module_load(client, module);
 }
 
 static int do_unload_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -4996,14 +5042,22 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u", impl, client->name,
 			commands[command].name, tag, module_idx);
 
-	spa_list_for_each(module, &client->modules, link) {
-		if (module->idx == module_idx)
-			break;
-	}
-	if (spa_list_is_end(module, &client->modules, link))
+	if (module_idx == SPA_ID_INVALID)
+		return -EINVAL;
+	if ((module_idx & MODULE_FLAG) == 0)
+		return -EPERM;
+
+	module = pw_map_lookup(&impl->modules, module_idx & INDEX_MASK);
+	if (module == NULL)
 		return -ENOENT;
 
-	unload_module(module);
+	module_unload(client, module);
+
+	broadcast_subscribe_event(impl,
+			SUBSCRIPTION_MASK_MODULE,
+			SUBSCRIPTION_EVENT_REMOVE | SUBSCRIPTION_EVENT_MODULE,
+			module_idx);
+
 	return reply_simple_ack(client, tag);
 }
 
@@ -5208,7 +5262,6 @@ static void client_free(struct client *client)
 {
 	struct impl *impl = client->impl;
 	struct message *msg;
-	struct module *module, *tmp;
 	struct pending_sample *p;
 
 	pw_log_info(NAME" %p: client %p free", impl, client);
@@ -5219,9 +5272,6 @@ static void client_free(struct client *client)
 
 	spa_list_consume(p, &client->pending_samples, link)
 		pending_sample_free(p);
-
-	spa_list_for_each_safe(module, tmp, &client->modules, link)
-		unload_module(module);
 
 	spa_list_consume(msg, &client->out_messages, link)
 		message_free(impl, msg, true, false);
@@ -5607,7 +5657,6 @@ on_connect(void *data, int fd, uint32_t mask)
 	pw_map_init(&client->streams, 16, 16);
 	spa_list_init(&client->out_messages);
 	spa_list_init(&client->operations);
-	spa_list_init(&client->modules);
 	spa_list_init(&client->pending_samples);
 
 	client->props = pw_properties_new(
@@ -5953,6 +6002,13 @@ static int impl_free_sample(void *item, void *data)
 	return 0;
 }
 
+static int impl_free_module(void *item, void *data)
+{
+	struct module *m = item;
+	module_free(m);
+	return 0;
+}
+
 static void impl_free(struct impl *impl)
 {
 	struct server *s;
@@ -5966,6 +6022,8 @@ static void impl_free(struct impl *impl)
 		server_free(s);
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
+	pw_map_for_each(&impl->modules, impl_free_module, impl);
+	pw_map_clear(&impl->modules);
 	if (impl->cleanup != NULL)
 		pw_loop_destroy_source(impl->loop, impl->cleanup);
 	pw_properties_free(impl->props);
@@ -6065,6 +6123,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	impl->rate_limit.burst = 1;
 	pw_map_init(&impl->samples, 16, 16);
+	pw_map_init(&impl->modules, 16, 16);
 	spa_list_init(&impl->cleanup_clients);
 	spa_list_init(&impl->free_messages);
 

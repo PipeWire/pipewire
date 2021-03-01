@@ -609,6 +609,9 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 			}
 			if (idx != SPA_ID_INVALID) {
 				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+				this->params[idx].flags =
+					(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+					(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 				this->params[idx].user++;
 			}
 		}
@@ -683,6 +686,9 @@ static void follower_info(void *data, const struct spa_node_info *info)
 			}
 			if (idx != SPA_ID_INVALID) {
 				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+				this->params[idx].flags =
+					(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+					(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 				this->params[idx].user++;
 			}
 		}
@@ -708,6 +714,9 @@ static void follower_port_info(void *data,
 			}
 			if (idx != SPA_ID_INVALID) {
 				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+				this->params[idx].flags =
+					(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+					(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 				this->params[idx].user++;
 			}
 		}

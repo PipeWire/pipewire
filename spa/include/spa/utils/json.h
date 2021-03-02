@@ -244,6 +244,27 @@ static inline int spa_json_get_float(struct spa_json *iter, float *res)
 	return spa_json_parse_float(value, len, res);
 }
 
+/* int */
+static inline int spa_json_parse_int(const char *val, int len, int *result)
+{
+	char *end;
+	*result = strtol(val, &end, 0);
+	return end == val + len;
+}
+static inline bool spa_json_is_int(const char *val, int len)
+{
+	int dummy;
+	return spa_json_parse_int(val, len, &dummy);
+}
+static inline int spa_json_get_int(struct spa_json *iter, int *res)
+{
+	const char *value;
+	int len;
+	if ((len = spa_json_next(iter, &value)) <= 0)
+		return -1;
+	return spa_json_parse_int(value, len, res);
+}
+
 /* bool */
 static inline bool spa_json_is_true(const char *val, int len)
 {

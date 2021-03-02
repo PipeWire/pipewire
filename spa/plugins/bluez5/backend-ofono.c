@@ -36,6 +36,7 @@
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
+#include <spa/param/audio/raw.h>
 
 #include "defs.h"
 
@@ -125,6 +126,8 @@ static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend
 	t->backend = backend;
 	t->profile = profile;
 	t->codec = codec;
+	t->n_channels = 1;
+	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 	t->enabled = true;
 
 finish:

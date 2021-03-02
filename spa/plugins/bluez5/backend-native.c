@@ -39,6 +39,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
 #include <spa/utils/json.h>
+#include <spa/param/audio/raw.h>
 
 #include "defs.h"
 
@@ -144,6 +145,8 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	spa_list_append(&t->device->transport_list, &t->device_link);
 	t->profile = rfcomm->profile;
 	t->backend = backend;
+	t->n_channels = 1;
+	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 	t->enabled = true;
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);

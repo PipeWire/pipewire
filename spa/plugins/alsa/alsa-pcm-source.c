@@ -271,18 +271,24 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_DEVICE_API, "alsa" },
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
-
 static void emit_node_info(struct state *this, bool full)
 {
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		struct spa_dict_item items[4];
+		uint32_t n_items = 0;
+		char latency[64];
+
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Source");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
+		if (this->have_format) {
+			snprintf(latency, sizeof(latency), "%lu/%d", this->buffer_frames / 4, this->rate);
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_LATENCY, latency);
+		}
+		this->info.props = &SPA_DICT_INIT(items, n_items);
+
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}
@@ -504,6 +510,9 @@ static int port_set_format(void *object,
 		this->current_format = info;
 		this->have_format = true;
 	}
+
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+	emit_node_info(this, false);
 
 	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_RATE;
 	this->port_info.rate = SPA_FRACTION(1, this->rate);

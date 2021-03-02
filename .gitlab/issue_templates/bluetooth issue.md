@@ -1,3 +1,5 @@
+If you are filing this issue with a regular release please try master as it might already be fixed. Also test with PulseAudio because if it doesn't work there it's not going to here either.
+
 Bluetooth Radio, Bluetooth Headset, Desktop Environment, Distribution, Version (Bluez, Kernel, and PipeWire):
 
 

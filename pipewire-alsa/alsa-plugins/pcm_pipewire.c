@@ -94,22 +94,31 @@ typedef struct {
 
 static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io);
 
+static int block_check(snd_pcm_ioplug_t *io)
+{
+	snd_pcm_pipewire_t *pw = io->private_data;
+	snd_pcm_sframes_t avail;
+	uint64_t val;
+
+	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+	if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
+		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
+		return 1;
+	}
+	return 0;
+}
+
 static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 {
-	uint64_t val;
-	snd_pcm_sframes_t avail;
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	if (io->state == SND_PCM_STATE_DRAINING) {
+		uint64_t val;
 		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 		return 0;
 	} else if (io->state == SND_PCM_STATE_RUNNING ||
 			   (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
-		avail = snd_pcm_avail_update(io->pcm);
-		if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
-			spa_system_eventfd_read(pw->system, io->poll_fd, &val);
-			return 1;
-		}
+		return block_check(io);
 	}
 	return 0;
 }
@@ -117,8 +126,14 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 static inline int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	spa_system_eventfd_write(pw->system, pw->fd, 1);
-	return 1;
+	snd_pcm_uframes_t avail;
+
+	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+	if (avail >= pw->min_avail || io->state == SND_PCM_STATE_DRAINING) {
+		spa_system_eventfd_write(pw->system, pw->fd, 1);
+		return 1;
+	}
+	return 0;
 }
 
 static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
@@ -145,6 +160,15 @@ static int snd_pcm_pipewire_close(snd_pcm_ioplug_t *io)
 	pw_log_debug(NAME" %p:", pw);
 	snd_pcm_pipewire_free(pw);
 	return 0;
+}
+
+static int snd_pcm_pipewire_poll_descriptors(snd_pcm_ioplug_t *io, struct pollfd *pfds, unsigned int space)
+{
+	snd_pcm_pipewire_t *pw = io->private_data;
+	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
+	pfds->fd = pw->fd;
+	pfds->events = POLLIN | POLLERR | POLLNVAL;
+	return 1;
 }
 
 static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
@@ -523,6 +547,7 @@ static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 	pw_thread_loop_lock(pw->main_loop);
 	pw_log_debug(NAME" %p:", pw);
 	pipewire_start(pw);
+	block_check(io); /* unblock socket for polling if needed */
 	pw_thread_loop_unlock(pw->main_loop);
 	return 0;
 }
@@ -771,6 +796,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.delay = snd_pcm_pipewire_delay,
 	.drain = snd_pcm_pipewire_drain,
 	.prepare = snd_pcm_pipewire_prepare,
+	.poll_descriptors = snd_pcm_pipewire_poll_descriptors,
 	.poll_revents = snd_pcm_pipewire_poll_revents,
 	.hw_params = snd_pcm_pipewire_hw_params,
 	.set_chmap = snd_pcm_pipewire_set_chmap,

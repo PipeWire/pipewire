@@ -1,3 +1,5 @@
+If you are filing this issue with a regular release please try master as it might already be fixed.
+
 Version, Distribution, Desktop Environment:
 
 

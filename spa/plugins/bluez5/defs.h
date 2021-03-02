@@ -545,6 +545,7 @@ static inline struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *m
 }
 static inline void backend_native_free(struct spa_bt_backend *backend) {}
 static inline void backend_native_register_profiles(struct spa_bt_backend *backend) {}
+static inline void backend_native_unregister_profiles(struct spa_bt_backend *backend) {}
 #endif
 
 #define OFONO_SERVICE "org.ofono"

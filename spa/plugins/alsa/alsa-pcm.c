@@ -803,7 +803,7 @@ recover:
 	state->alsa_started = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->threshold * 2);
+		spa_alsa_silence(state, state->threshold * 2 + state->headroom);
 
 	return do_start(state);
 }
@@ -1479,7 +1479,7 @@ int spa_alsa_start(struct state *state)
 	state->alsa_started = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->threshold * 2);
+		spa_alsa_silence(state, state->threshold * 2 + state->headroom);
 
 	if ((err = do_start(state)) < 0)
 		return err;

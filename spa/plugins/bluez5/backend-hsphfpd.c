@@ -34,6 +34,7 @@
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
+#include <spa/param/audio/raw.h>
 
 #include "defs.h"
 

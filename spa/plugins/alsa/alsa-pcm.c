@@ -1264,7 +1264,7 @@ static int handle_play(struct state *state, uint64_t nsec,
 {
 	int res;
 
-	if (SPA_UNLIKELY(delay > target + state->last_threshold)) {
+	if (SPA_UNLIKELY(delay > target + state->threshold)) {
 		spa_log_trace(state->log, NAME" %p: early wakeup %ld %ld", state, delay, target);
 		state->next_time = nsec + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;

@@ -772,8 +772,8 @@ static int alsa_recover(struct state *state, int err)
 		delay = SPA_TIMEVAL_TO_USEC(&diff);
 		missing = delay * state->rate / SPA_USEC_PER_SEC;
 
-		spa_log_trace(state->log, NAME" %p: xrun of %"PRIu64" usec %"PRIu64" %f",
-				state, delay, missing, state->safety);
+		spa_log_trace(state->log, NAME" %p: xrun of %"PRIu64" usec %"PRIu64,
+				state, delay, missing);
 
 		spa_node_call_xrun(&state->callbacks,
 				SPA_TIMEVAL_TO_USEC(&trigger), delay, NULL);
@@ -828,16 +828,13 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 
 	*target = state->threshold + state->headroom;
 
-#define MARGIN 48
 	if (state->resample && state->rate_match) {
 		state->delay = state->rate_match->delay * 2;
 		state->read_size = state->rate_match->size;
 		/* We try to compensate for the latency introduced by rate matching
-		 * by moving a little closer to the device read/write pointers.
-		 * Don't try to get closer than 48 samples but instead increase the
-		 * reported latency on the port (TODO). */
-		if (*target <= state->delay + MARGIN)
-			*target -= SPA_MAX(0, (int)(*target - MARGIN - state->delay));
+		 * by moving a little closer to the device read/write pointers. */
+		if (*target <= state->delay)
+			*target -= SPA_MAX(0, (int)(*target - state->delay));
 		else
 			*target -= state->delay;
 	} else {
@@ -851,7 +848,6 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 		*delay = avail;
 		*target = SPA_MAX(*target, state->read_size);
 	}
-
 	return 0;
 }
 
@@ -863,7 +859,9 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
 		err = delay - target;
 	else
-		err = (target + 128) - delay;
+		err = target - delay;
+
+	err = SPA_CLAMP(err, -state->max_error, state->max_error);
 
 	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
 		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
@@ -874,16 +872,14 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	if (SPA_UNLIKELY(state->last_threshold != state->threshold)) {
 		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
-		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d",
-				state, follower, diff);
+		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d -> %d (%d)",
+				state, follower, state->last_threshold, state->threshold, diff);
 		state->next_time += diff / corr * 1e9 / state->rate;
 		state->last_threshold = state->threshold;
 	}
 
 	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
 		state->base_time = state->next_time;
-		if (state->dll.bw > SPA_DLL_BW_MIN)
-			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0, state->threshold, state->rate);
 
 		spa_log_debug(state->log, NAME" %p: follower:%d match:%d rate:%f "
 				"bw:%f thr:%d del:%ld target:%ld err:%f (%f %f %f)",
@@ -894,9 +890,9 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	if (state->rate_match) {
 		if (state->stream == SND_PCM_STREAM_PLAYBACK)
-			state->rate_match->rate = SPA_CLAMP(corr, 0.95, 1.05);
+			state->rate_match->rate = corr;
 		else
-			state->rate_match->rate = SPA_CLAMP(1.0/corr, 0.95, 1.05);
+			state->rate_match->rate = 1.0/corr;
 
 		SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, state->matching);
 	}
@@ -1206,7 +1202,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 			spa_log_warn(state->log, NAME" %s: follower resync %ld %d %ld",
 					state->props.device, delay, threshold, target);
 			if (delay < target)
-				snd_pcm_rewind(state->hndl, target - delay + 32);
+				snd_pcm_rewind(state->hndl, target - delay);
 			else if (delay > target)
 				snd_pcm_forward(state->hndl, delay - target);
 
@@ -1297,14 +1293,14 @@ static int handle_capture(struct state *state, uint64_t nsec,
 	int res;
 	struct spa_io_buffers *io;
 
-	if (delay < target) {
+	if (SPA_UNLIKELY(delay < target)) {
 		spa_log_trace(state->log, NAME" %p: early wakeup %ld %ld", state, delay, target);
 		state->next_time = nsec + (target - delay) * SPA_NSEC_PER_SEC /
 			state->rate;
-		return 0;
+		return -EAGAIN;
 	}
 
-	if ((res = update_time(state, nsec, delay, target, false)) < 0)
+	if (SPA_UNLIKELY(res = update_time(state, nsec, delay, target, false)) < 0)
 		return res;
 
 	if ((res = spa_alsa_read(state, target)) < 0)
@@ -1410,6 +1406,24 @@ static inline bool is_following(struct state *state)
 	return state->position && state->clock && state->position->clock.id != state->clock->id;
 }
 
+static int setup_matching(struct state *state)
+{
+	int card;
+
+	state->matching = state->following;
+
+	if (state->position == NULL)
+		return -ENOTSUP;
+
+	spa_log_debug(state->log, "clock:%s card:%d", state->position->clock.name, state->card);
+	if (sscanf(state->position->clock.name, "api.alsa.%d", &card) == 1 &&
+	    card == state->card) {
+		state->matching = false;
+	}
+	state->resample = (state->rate != state->rate_denom) || state->matching;
+	return 0;
+}
+
 int spa_alsa_start(struct state *state)
 {
 	int err;
@@ -1417,15 +1431,7 @@ int spa_alsa_start(struct state *state)
 	if (state->started)
 		return 0;
 
-	state->following = is_following(state);
-	state->matching = state->following;
-
 	if (state->position) {
-		int card;
-		if (sscanf(state->position->clock.name, "api.alsa.%d", &card) == 1 &&
-		    card == state->card) {
-			state->matching = false;
-		}
 		state->duration = state->position->clock.duration;
 		state->rate_denom = state->position->clock.rate.denom;
 	}
@@ -1436,12 +1442,14 @@ int spa_alsa_start(struct state *state)
 		state->rate_denom = state->rate;
 	}
 
-	state->resample = (state->rate != state->rate_denom) || state->matching;
+	state->following = is_following(state);
+	setup_matching(state);
+
 	state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	state->last_threshold = state->threshold;
 
 	spa_dll_init(&state->dll);
-	state->safety = 0.0;
+	state->max_error = (256.0 * state->rate) / state->rate_denom;
 
 	spa_log_debug(state->log, NAME" %p: start %d duration:%d rate:%d follower:%d match:%d resample:%d",
 			state, state->threshold, state->duration, state->rate_denom,
@@ -1508,6 +1516,7 @@ int spa_alsa_reassign_follower(struct state *state)
 		state->following = following;
 		spa_loop_invoke(state->data_loop, do_reassign_follower, 0, NULL, 0, true, state);
 	}
+	setup_matching(state);
 	return 0;
 }
 

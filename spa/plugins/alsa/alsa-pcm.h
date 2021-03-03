@@ -173,9 +173,9 @@ struct state {
 	uint64_t base_time;
 
 	uint64_t underrun;
-	double safety;
 
 	struct spa_dll dll;
+	double max_error;
 };
 
 int

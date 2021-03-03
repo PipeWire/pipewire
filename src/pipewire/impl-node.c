@@ -865,6 +865,26 @@ static void check_properties(struct pw_impl_node *node)
 			}
 		}
 	}
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_MAX_LATENCY))) {
+		uint32_t num, denom;
+                if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
+			uint32_t max_quantum_size;
+
+			node->max_latency = SPA_FRACTION(num, denom);
+			max_quantum_size = flp2((num * context->defaults.clock_rate / denom));
+
+			if (max_quantum_size != node->max_quantum_size) {
+				pw_log_debug(NAME" %p: max latency '%s' quantum %u/%u",
+						node, str, max_quantum_size, context->defaults.clock_rate);
+				pw_log_info("(%s-%u) max latency:%s ->quantum %u/%u", node->name,
+						node->info.id, str, max_quantum_size,
+						context->defaults.clock_rate);
+				node->max_quantum_size = max_quantum_size;
+				do_recalc = true;
+			}
+		}
+	}
+
 	pw_log_debug(NAME" %p: driver:%d recalc:%d active:%d", node, node->driver,
 			do_recalc, node->active);
 

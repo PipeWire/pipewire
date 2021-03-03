@@ -143,6 +143,8 @@ extern "C" {
 								  *  node/session */
 #define PW_KEY_NODE_LATENCY		"node.latency"		/**< the requested latency of the node as
 								  *  a fraction. Ex: 128/48000 */
+#define PW_KEY_NODE_MAX_LATENCY		"node.max-latency"	/**< the maximum supported latency of the
+								  *  node as a fraction. Ex: 1024/48000 */
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node */
 #define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */
 #define PW_KEY_NODE_PAUSE_ON_IDLE	"node.pause-on-idle"	/**< pause the node when idle */

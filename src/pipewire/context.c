@@ -991,32 +991,34 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		bool running = false;
-		uint32_t max_quantum = 0;
-		uint32_t min_quantum = 0;
-		uint32_t quantum;
+		uint32_t max_quantum = context->defaults.clock_max_quantum;
+		uint32_t quantum = 0;
 
 		if (!n->driving || n->exported)
 			continue;
 
 		/* collect quantum and count active nodes */
 		spa_list_for_each(s, &n->follower_list, follower_link) {
+
 			if (s->quantum_size > 0) {
-				if (min_quantum == 0 || s->quantum_size < min_quantum)
-					min_quantum = s->quantum_size;
-				if (s->quantum_size > max_quantum)
-					max_quantum = s->quantum_size;
+				if (quantum == 0 || s->quantum_size < quantum)
+					quantum = s->quantum_size;
+			}
+			if (s->max_quantum_size > 0) {
+				if (s->max_quantum_size < max_quantum)
+					max_quantum = s->max_quantum_size;
 			}
 			if (s == n)
 				continue;
 			if (s->active)
 				running = !n->passive;
 		}
-		quantum = min_quantum;
 		if (quantum == 0)
 			quantum = context->defaults.clock_quantum;
+
 		quantum = SPA_CLAMP(quantum,
 				context->defaults.clock_min_quantum,
-				context->defaults.clock_max_quantum);
+				max_quantum);
 
 		if (n->rt.position && quantum != n->rt.position->clock.duration) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",

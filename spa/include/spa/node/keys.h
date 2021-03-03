@@ -32,6 +32,7 @@ extern "C" {
 /** node keys */
 #define SPA_KEY_NODE_NAME		"node.name"		/**< a node name */
 #define SPA_KEY_NODE_LATENCY		"node.latency"		/**< the requested node latency */
+#define SPA_KEY_NODE_MAX_LATENCY	"node.max-latency"	/**< maximum supported latency */
 
 #define SPA_KEY_NODE_DRIVER		"node.driver"		/**< the node can be a driver */
 #define SPA_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< call the process function even if

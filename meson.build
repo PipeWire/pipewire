@@ -374,8 +374,7 @@ subdir('spa')
 subdir('src')
 
 if get_option('pipewire-jack')
-  jack_dep = dependency('jack', version : '>= 1.9.10')
-  subdir('pipewire-jack/src')
+  subdir('pipewire-jack')
 endif
 
 if get_option('pipewire-alsa')

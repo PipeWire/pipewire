@@ -15,9 +15,6 @@ pipewire_jack_c_args = [
   '-DPIC',
 ]
 
-#optional dependencies
-jack_dep = dependency('jack', version : '>= 1.9.10', required : false)
-
 libjack_path = get_option('libjack-path')
 if libjack_path == ''
   libjack_path = join_paths(modules_install_dir, 'jack')
@@ -39,8 +36,8 @@ pipewire_jack = shared_library('jack',
     soversion : soversion,
     version : libversion,
     c_args : pipewire_jack_c_args,
-    include_directories : [configinc],
-    dependencies : [pipewire_dep, atomic_dep, jack_dep, mathlib],
+    include_directories : [configinc, jack_inc],
+    dependencies : [pipewire_dep, atomic_dep, mathlib],
     install : true,
     install_dir : libjack_path,
 )
@@ -50,8 +47,8 @@ pipewire_jackserver = shared_library('jackserver',
     soversion : soversion,
     version : libversion,
     c_args : pipewire_jack_c_args,
-    include_directories : [configinc],
-    dependencies : [pipewire_dep, jack_dep, mathlib],
+    include_directories : [configinc, jack_inc],
+    dependencies : [pipewire_dep, mathlib],
     install : true,
     install_dir : libjack_path,
 )
@@ -61,8 +58,8 @@ pipewire_jackserver = shared_library('jacknet',
     soversion : soversion,
     version : libversion,
     c_args : pipewire_jack_c_args,
-    include_directories : [configinc],
-    dependencies : [pipewire_dep, jack_dep, mathlib],
+    include_directories : [configinc, jack_inc],
+    dependencies : [pipewire_dep, mathlib],
     install : true,
     install_dir : libjack_path,
 )
@@ -71,9 +68,10 @@ if sdl_dep.found()
   executable('video-dsp-play',
     '../examples/video-dsp-play.c',
     c_args : [ '-D_GNU_SOURCE' ],
+    include_directories : [jack_inc],
     install : installed_tests_enabled,
     install_dir : join_paths(installed_tests_execdir, 'examples', 'jack'),
-    dependencies : [jack_dep, sdl_dep, mathlib],
+    dependencies : [sdl_dep, mathlib],
     link_with: pipewire_jack,
   )
 endif

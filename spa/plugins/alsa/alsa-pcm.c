@@ -874,7 +874,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
 		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d -> %d (%d)",
 				state, follower, state->last_threshold, state->threshold, diff);
-		state->next_time += diff / corr * 1e9 / state->rate;
+		if (diff < 0)
+			state->next_time += diff / corr * 1e9 / state->rate;
 		state->last_threshold = state->threshold;
 	}
 

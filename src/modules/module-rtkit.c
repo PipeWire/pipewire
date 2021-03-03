@@ -45,7 +45,7 @@
 #include <pipewire/impl.h>
 
 #define DEFAULT_NICE_LEVEL	-11
-#define DEFAULT_RT_PRIO		20
+#define DEFAULT_RT_PRIO		88
 #define DEFAULT_RT_TIME_SOFT	200000
 #define DEFAULT_RT_TIME_HARD	200000
 

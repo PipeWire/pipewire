@@ -33,7 +33,7 @@ context.modules = {
     libpipewire-module-rtkit = {
         args = {
             #nice.level   = -11
-            #rt.prio      = 20
+            #rt.prio      = 88
             #rt.time.soft = 200000
             #rt.time.hard = 200000
         }

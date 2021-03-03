@@ -54,8 +54,17 @@ include:
     - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
   script:
     - meson "$BUILD_DIR" . --prefix="$PREFIX"
-        -Ddocs=true -Daudiomixer=true -Daudiotestsrc=true
-        -Dtest=true -Dvideotestsrc=true -Dvolume=true
+        -Ddocs=true
+        -Dinstalled_tests=true
+        -Dsystemd-system-service=true
+        -Dbluez5-backend-hsphfpd=true
+        -Daudiotestsrc=true
+        -Dtest=true
+        -Dvideotestsrc=true
+        -Dvolume=true
+        -Dvulkan=true
+        -Dsdl2=enabled
+        -Dsndfile=enabled
     - ninja -C "$BUILD_DIR"
     - ninja -C "$BUILD_DIR" test
     - ninja -C "$BUILD_DIR" install

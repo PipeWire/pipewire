@@ -368,6 +368,15 @@ static void on_stream_io_changed(void *data, uint32_t id, void *area, uint32_t s
 	}
 }
 
+static void on_stream_drained(void *data)
+{
+	snd_pcm_pipewire_t *pw = data;
+	pw->drained = true;
+	pw->draining = false;
+	pw_log_debug(NAME" %p: drained", pw);
+	pw_thread_loop_signal(pw->main_loop, false);
+}
+
 static void on_stream_process(void *data)
 {
 	snd_pcm_pipewire_t *pw = data;
@@ -396,20 +405,15 @@ static void on_stream_process(void *data)
 	pw_stream_queue_buffer(pw->stream, b);
 
 	if (io->state == SND_PCM_STATE_DRAINING && !pw->draining && hw_avail == 0) {
-		pw_stream_flush(pw->stream, true);
-		pw->draining = true;
-		pw->drained = false;
+		if (io->stream == SND_PCM_STREAM_CAPTURE) {
+			on_stream_drained (pw); /* since pw_stream does not call drained() for capture */
+		} else {
+			pw_stream_flush(pw->stream, true);
+			pw->draining = true;
+			pw->drained = false;
+		}
 	}
 	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
-}
-
-static void on_stream_drained(void *data)
-{
-	snd_pcm_pipewire_t *pw = data;
-	pw->drained = true;
-	pw->draining = false;
-	pw_log_debug(NAME" %p: drained", pw);
-	pw_thread_loop_signal(pw->main_loop, false);
 }
 
 static const struct pw_stream_events stream_events = {

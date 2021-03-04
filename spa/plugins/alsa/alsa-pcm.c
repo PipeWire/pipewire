@@ -838,7 +838,8 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 		else
 			*target -= state->delay;
 	} else {
-		state->delay = state->read_size = 0;
+		state->delay = 0;
+		state->read_size = state->threshold;
 	}
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -1217,8 +1218,6 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	}
 
 	frames = state->read_size;
-	if (frames == 0)
-		frames = state->threshold + state->delay;
 
 	if (state->use_mmap) {
 		to_read = state->buffer_frames;

@@ -1193,7 +1193,7 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 		if ((res = get_status(state, &delay, &target)) < 0)
 			return res;
 
-		if (!state->alsa_recovering && (delay < target || delay > target * 2)) {
+		if (!state->alsa_recovering && (delay < target / 2 || delay > target * 2)) {
 			spa_log_warn(state->log, NAME" %s: follower delay:%lu target:%lu resync %f %f %f",
 					state->props.device, delay, target, state->dll.z1,
 					state->dll.z2, state->dll.z3);

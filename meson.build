@@ -218,6 +218,7 @@ check_headers = [['dlfcn.h','HAVE_DLFCN_H'],
   ['sys/param.h', 'HAVE_SYS_PARAM_H'],
   ['sys/poll.h', 'HAVE_SYS_POLL_H'],
   ['sys/prctl.h', 'HAVE_SYS_PRCTL_H'],
+  ['sys/random.h', 'HAVE_SYS_RANDOM_H'],
   ['sys/socket.h', 'HAVE_SYS_SOCKET_H'],
   ['sys/stat.h', 'HAVE_SYS_STAT_H'],
   ['sys/times.h', 'HAVE_SYS_TIMES_H'],
@@ -270,6 +271,10 @@ endif
 
 if cc.has_function('memfd_create', prefix : '#include <sys/mman.h>', args : [ '-D_GNU_SOURCE' ])
   cdata.set('HAVE_MEMFD_CREATE', 1)
+endif
+
+if cc.has_function('getrandom', prefix : '#include <sys/random.h>')
+  cdata.set('HAVE_GETRANDOM', 1)
 endif
 
 if get_option('systemd')

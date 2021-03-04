@@ -60,7 +60,7 @@ struct handle {
 	struct plugin *plugin;
 	char *factory_name;
 	int ref;
-	struct spa_handle handle;
+	struct spa_handle handle SPA_ALIGNED(8);
 };
 
 struct registry {

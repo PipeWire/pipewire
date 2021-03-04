@@ -391,16 +391,17 @@ static void free_port(struct seq_state *state, struct seq_stream *stream, struct
 	spa_zero(*port);
 }
 
-static void init_port(struct seq_state *state, struct seq_port *port, const snd_seq_addr_t *addr)
+static void init_port(struct seq_state *state, struct seq_port *port, const snd_seq_addr_t *addr,
+		unsigned int caps)
 {
 	port->addr = *addr;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_LIVE |
-			   SPA_PORT_FLAG_PHYSICAL |
-			   SPA_PORT_FLAG_TERMINAL;
+	port->info.flags = SPA_PORT_FLAG_LIVE;
+	if (caps & (SND_SEQ_PORT_TYPE_HARDWARE|SND_SEQ_PORT_TYPE_PORT|SND_SEQ_PORT_TYPE_SPECIFIC))
+		port->info.flags |= SPA_PORT_FLAG_PHYSICAL | SPA_PORT_FLAG_TERMINAL;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
@@ -433,7 +434,7 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 			port = alloc_port(state, stream);
 			if (port == NULL)
 				return;
-			init_port(state, port, addr);
+			init_port(state, port, addr, caps);
 		} else if (port != NULL) {
 			if ((caps & stream->caps) != stream->caps) {
 				spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);

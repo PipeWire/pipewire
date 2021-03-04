@@ -1,3 +1,110 @@
+PipeWire 0.3.23
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Fixes for some critical bugs in last release.
+  - Fix bug where audio was not drained properly at the end of
+    playback, causing repeating sound.
+  - Profile and route switching was improved and should mimic
+    more what pulseaudio did.
+  - Various fixes for xruns in capture and playback.
+  - Bluetooth now supports delay adjustment and various other
+    improvements.
+  - The pulseaudio server now correctly identifies AC3 and DTS
+    streams and returns a not supported error instead of playing
+    static.
+  - Multichannel support was improved in the alsa plugin and
+    the channel mixer. Channels should now play on the right
+    speakers in all cases.
+
+- PipeWire improvements
+  - Small fixes and improvements in JSON parsing and encoding.
+  - Improvements to param handling in audioconverter. It would
+    previously not always notify of changes.
+  - Avoid updating some properties that we use internally such
+    as the object id and the node.id.
+  - log.level in the config files is now actually used.
+  - the PIPEWIRE_LATENCY env variable should always override
+    any application settings in filter/stream/jack.
+  - The config file can now contain filer and stream properties
+    to, for example, control the resampler, mixer and latency.
+  - Add sandboxing to the systemd services
+  - Various FreeBSD fixes.
+  - Improve draining and a way to exit the drain state as well.
+  - Many multichannel fixes. Channel remapping should now be
+    correct.
+  - Fix bug with repeating audio at the end of playback because
+    the drain in the resampler was not draining all channels.
+  - RTKit default rt.prio has been increased to 88. This will
+    likely still be clamped to 20 until distros increase the
+    max priority.
+
+- Session-manager
+  - Don't try to switch to Pro Audio profile, this should be
+    a user choice only.
+  - Don't crash when metadata was disabled such as when not
+    using the audio features of pipewire.
+  - Rework the profile and route handling.
+  - Add systemd unit files for the media-session
+  - Device names should now also have sane names so that tab
+    pactl completion works on them.
+
+- Device support
+  - Fix ALSA format enumeration in more cases. Use the channels
+    and rate as a filter.
+  - Make sure the graph doesn't ever use buffers larger than
+    the alsa device buffer size or we get xruns.
+  - Tuning of the alsa device timeout handling and dynamic
+    resampler. There should now not be any xruns when streams
+    appear and disappear or when the quantum changes.
+  - Fix bug in alsa device when reassigning to a new driver,
+    in some cases the dynamic resampler was not activated and
+    things would drift out of sync and fail.
+  - Fixes in quantum changes for ALSA capture and how the
+    resampler is drained and fed with the new samples.
+
+- Bluetooth
+  - Delay adjustment has been implemented now. Bluetooth
+    devices should now be more synchronized with video due
+    to proper delay reporting. Because BT delays can be
+    large, it can cause hickups in some players.
+  - Fix volume in bluetooth devices.
+  - Codec switch improvements.
+
+- PulseAudio server
+  - Latency offset adjustment is now implemented and functional
+    for bluetooth devices. It is not working for alsa devices
+    yet.
+  - Handle unsupported formats. Previously we would accept encoded
+    formats and play noise. This fixes AC3 playback in vlc.
+  - Move some of the configurable parameters to the config file.
+  - Fix a fatal use after free when playing samples
+  - Improve module handling. loaded modules now show up in the
+    list of modules and can be unloaded. This also prepares the
+    core for more module implementations later.
+
+- ALSA plugin
+  - Fix drain with very large buffers, we need to manually start
+    the stream before draining.
+  - Fix the channel layout handling.
+  - Improve compatibility with apps that expect the poll to only
+    return when there is activity.
+  - Fix drain for capture
+
+- JACK
+  - Add a config option to shorten and filter client names
+  - Increase the length of the client name size and make sure
+    we don't exceed the allocated size.
+  - We now include our own jack header files so we can build
+    without depending on another jack-devel package. We don't
+    yet install the headers or provide pkgconfig files.
+
+
+Older versions:
+
+
 PipeWire 0.3.22
 
 This is a bugfix release that is API and ABI compatible
@@ -84,10 +191,6 @@ with previous 0.3.x releases.
     of a device. This makes it more usable in apps.
   - add support for system:playback_N and system:capture_N port
     names for apps that hardcode these port names.
-
-
-
-Older versions:
 
 
 PipeWire 0.3.21

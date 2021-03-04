@@ -329,6 +329,30 @@ static struct device *bluez5_find_device(struct impl *impl, uint32_t id)
 	return NULL;
 }
 
+static int update_device_props(struct device *device)
+{
+	struct pw_properties *p = device->props;
+	const char *s;
+	char temp[32], tmp[1024];
+
+	s = pw_properties_get(p, SPA_KEY_DEVICE_NAME);
+	if (s == NULL)
+		s = pw_properties_get(p, SPA_KEY_API_BLUEZ5_ADDRESS);
+	if (s == NULL)
+		s = pw_properties_get(p, SPA_KEY_DEVICE_DESCRIPTION);
+	if (s == NULL) {
+		snprintf(temp, sizeof(temp), "%d", device->id);
+		s = temp;
+	}
+	if (strstr(s, "bluez_card.") == s)
+		s += strlen("bluez_card.");
+
+	pw_properties_set(p, PW_KEY_DEVICE_NAME,
+			sm_media_session_sanitize_name(tmp, sizeof(tmp),
+					'_', "bluez_card.%s", s));
+	return 0;
+}
+
 static void bluez5_update_device(struct impl *impl, struct device *dev,
 		const struct spa_device_object_info *info)
 {
@@ -338,6 +362,7 @@ static void bluez5_update_device(struct impl *impl, struct device *dev,
 		spa_debug_dict(0, info->props);
 
 	pw_properties_update(dev->props, info->props);
+	update_device_props(dev);
 }
 
 static void device_destroy(void *data)
@@ -375,7 +400,6 @@ static const struct sm_object_events device_events = {
         .destroy = device_destroy,
         .update = device_update,
 };
-
 
 static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 		const struct spa_device_object_info *info)
@@ -420,6 +444,7 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 	device->handle = handle;
 	device->device = iface;
 	device->props = pw_properties_new_dict(info->props);
+	update_device_props(device);
 	device->sdevice = sm_media_session_export_device(impl->session,
 			&device->props->dict, device->device);
 	if (device->sdevice == NULL) {

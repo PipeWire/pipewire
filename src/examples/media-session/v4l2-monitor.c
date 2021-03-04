@@ -294,7 +294,7 @@ static int v4l2_update_device_props(struct device *dev)
 {
 	struct pw_properties *p = dev->props;
 	const char *s, *d;
-	char temp[32];
+	char temp[32], tmp[1024];
 	int i;
 
 	if ((s = pw_properties_get(p, SPA_KEY_DEVICE_NAME)) == NULL) {
@@ -305,7 +305,9 @@ static int v4l2_update_device_props(struct device *dev)
 			}
 		}
 	}
-	pw_properties_setf(p, PW_KEY_DEVICE_NAME, "v4l2_device.%s", s);
+	pw_properties_set(p, PW_KEY_DEVICE_NAME,
+			sm_media_session_sanitize_name(tmp, sizeof(tmp),
+					'_', "v4l2_device.%s", s));
 
 	for (i = 2; i <= 99; i++) {
 		if ((d = pw_properties_get(p, PW_KEY_DEVICE_NAME)) == NULL)
@@ -314,7 +316,9 @@ static int v4l2_update_device_props(struct device *dev)
 		if (v4l2_find_device(dev->impl, SPA_ID_INVALID,  d) == NULL)
 			break;
 
-		pw_properties_setf(p, PW_KEY_DEVICE_NAME, "v4l2_device.%s.%d", s, i);
+		pw_properties_set(p, PW_KEY_DEVICE_NAME,
+			sm_media_session_sanitize_name(tmp, sizeof(tmp),
+					'_', "v4l2_device.%s.%d", s, i));
 	}
 	if (i == 99)
 		return -EEXIST;

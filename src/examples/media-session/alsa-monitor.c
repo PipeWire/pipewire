@@ -488,7 +488,7 @@ static int update_device_props(struct device *device)
 {
 	struct pw_properties *p = device->props;
 	const char *s, *d;
-	char temp[32];
+	char temp[32], tmp[1024];
 	int i;
 
 	s = pw_properties_get(p, SPA_KEY_DEVICE_NAME);
@@ -500,7 +500,9 @@ static int update_device_props(struct device *device)
 		snprintf(temp, sizeof(temp), "%d", device->id);
 		s = temp;
 	}
-	pw_properties_setf(p, PW_KEY_DEVICE_NAME, "alsa_card.%s", s);
+	pw_properties_set(p, PW_KEY_DEVICE_NAME,
+			sm_media_session_sanitize_name(tmp, sizeof(tmp),
+					'_', "alsa_card.%s", s));
 
 	for (i = 2; i <= 99; i++) {
 		if ((d = pw_properties_get(p, PW_KEY_DEVICE_NAME)) == NULL)
@@ -509,7 +511,9 @@ static int update_device_props(struct device *device)
 		if (alsa_find_device(device->impl, SPA_ID_INVALID, d) == NULL)
 			break;
 
-		pw_properties_setf(p, PW_KEY_DEVICE_NAME, "alsa_card.%s.%d", s, i);
+		pw_properties_set(p, PW_KEY_DEVICE_NAME,
+				sm_media_session_sanitize_name(tmp, sizeof(tmp),
+						'_', "alsa_card.%s.%d", s, i));
 	}
 	if (i == 99)
 		return -EEXIST;

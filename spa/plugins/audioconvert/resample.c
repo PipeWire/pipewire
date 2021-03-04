@@ -855,16 +855,19 @@ static int impl_node_process(void *object)
 	inport->offset += in_len * sizeof(float);
 	if (inport->offset >= size || flush_in) {
 		inio->status = SPA_STATUS_NEED_DATA;
+		spa_log_trace_fp(this->log, NAME" %p: return input buffer of %zd samples",
+				this, size / sizeof(float));
 		inport->offset = 0;
+		size = 0;
 		SPA_FLAG_SET(res, inio->status);
-		spa_log_trace_fp(this->log, NAME " %p: return input buffer of %zd samples", this, size / sizeof(float));
 	}
 
 	outport->offset += out_len * sizeof(float);
 	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
 		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
-		spa_log_trace_fp(this->log, NAME " %p: have output buffer of %zd samples", this, outport->offset / sizeof(float));
+		spa_log_trace_fp(this->log, NAME" %p: have output buffer of %zd samples",
+				this, outport->offset / sizeof(float));
 		dequeue_buffer(this, dbuf);
 		outport->offset = 0;
 		this->drained = draining;
@@ -878,12 +881,19 @@ static int impl_node_process(void *object)
 	}
 
 	if (this->io_rate_match) {
+		uint32_t match_size;
+
 		if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
 			resample_update_rate(&this->resample, this->io_rate_match->rate);
 		else
 			resample_update_rate(&this->resample, 1.0);
+
 		this->io_rate_match->delay = resample_delay(&this->resample);
-		this->io_rate_match->size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
+
+		match_size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
+		match_size -= SPA_MIN(match_size, size - inport->offset / sizeof(float));
+		this->io_rate_match->size = match_size;
+		spa_log_trace_fp(this->log, NAME " %p: next match %u", this, match_size);
 	}
 	return res;
 }

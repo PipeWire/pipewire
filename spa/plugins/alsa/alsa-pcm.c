@@ -1100,7 +1100,7 @@ push_frames(struct state *state,
 	if (spa_list_is_empty(&state->free)) {
 		spa_log_warn(state->log, NAME" %s: no more buffers", state->props.device);
 		total_frames = frames;
-	} else if (frames > 0) {
+	} else {
 		uint8_t *src;
 		size_t n_bytes, left;
 		struct buffer *b;

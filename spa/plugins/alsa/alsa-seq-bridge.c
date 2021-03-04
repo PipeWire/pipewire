@@ -226,7 +226,7 @@ static inline void clean_name(char *name)
 {
 	char *c;
 	for (c = name; *c; ++c) {
-		if (!isalnum(*c) && strchr(" /_:()", *c) == NULL)
+		if (!isalnum(*c) && strchr(" /_:()[]", *c) == NULL)
 			*c = '-';
 	}
 }
@@ -254,10 +254,12 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		snd_seq_get_any_client_info(this->sys.hndl,
 				port->addr.client, client_info);
 
-		snprintf(name, sizeof(name), "%s:%s_%d",
+		snprintf(name, sizeof(name), "%s [%d] (%s): [%d] %s",
 				snd_seq_client_info_get_name(client_info),
+				port->addr.client,
 				port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
-				port->addr.port);
+				port->addr.port,
+				snd_seq_port_info_get_name(info));
 		clean_name(name);
 
 		snprintf(path, sizeof(path), "alsa:seq:%s:client_%d:%s_%d",

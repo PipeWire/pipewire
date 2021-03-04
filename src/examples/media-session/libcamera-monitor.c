@@ -300,6 +300,20 @@ static void device_destroy(void *data)
 		libcamera_remove_node(device, node);
 }
 
+static void device_free(void *data)
+{
+	struct device *dev = data;
+	pw_log_debug("remove device %u", dev->id);
+	spa_list_remove(&dev->link);
+	if (dev->appeared)
+		spa_hook_remove(&dev->device_listener);
+	sm_object_discard(&dev->sdevice->obj);
+	spa_hook_remove(&dev->listener);
+	pw_unload_spa_handle(dev->handle);
+	pw_properties_free(dev->props);
+	free(dev);
+}
+
 static void device_update(void *data)
 {
 	struct device *device = data;
@@ -323,6 +337,7 @@ static void device_update(void *data)
 static const struct sm_object_events device_events = {
 	SM_VERSION_OBJECT_EVENTS,
         .destroy = device_destroy,
+        .free = device_free,
         .update = device_update,
 };
 
@@ -400,16 +415,7 @@ exit:
 
 static void libcamera_remove_device(struct impl *impl, struct device *dev)
 {
-	pw_log_debug("remove device %u", dev->id);
-	spa_list_remove(&dev->link);
-	if (dev->appeared)
-		spa_hook_remove(&dev->device_listener);
-	if (dev->sdevice)
-		sm_object_destroy(&dev->sdevice->obj);
-	spa_hook_remove(&dev->listener);
-	pw_unload_spa_handle(dev->handle);
-	pw_properties_free(dev->props);
-	free(dev);
+	sm_object_destroy(&dev->sdevice->obj);
 }
 
 static void libcamera_udev_object_info(void *data, uint32_t id,

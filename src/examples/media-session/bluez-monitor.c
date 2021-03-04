@@ -376,6 +376,23 @@ static void device_destroy(void *data)
 		bluez5_remove_node(device, node);
 }
 
+static void device_free(void *data)
+{
+	struct device *device = data;
+
+	pw_log_debug("remove device %u", device->id);
+	spa_list_remove(&device->link);
+	spa_hook_remove(&device->listener);
+	if (device->appeared)
+		spa_hook_remove(&device->device_listener);
+
+	sm_object_discard(&device->sdevice->obj);
+
+	pw_unload_spa_handle(device->handle);
+	pw_properties_free(device->props);
+	free(device);
+}
+
 static void device_update(void *data)
 {
 	struct device *device = data;
@@ -398,6 +415,7 @@ static void device_update(void *data)
 static const struct sm_object_events device_events = {
 	SM_VERSION_OBJECT_EVENTS,
         .destroy = device_destroy,
+        .free = device_free,
         .update = device_update,
 };
 
@@ -477,21 +495,7 @@ exit:
 
 static void bluez5_remove_device(struct impl *impl, struct device *device)
 {
-	struct node *node;
-
-	pw_log_debug("remove device %u", device->id);
-	spa_list_remove(&device->link);
-	spa_hook_remove(&device->device_listener);
-
-	spa_list_consume(node, &device->node_list, link)
-		bluez5_remove_node(device, node);
-
-	if (device->sdevice)
-		sm_object_destroy(&device->sdevice->obj);
-
-	pw_unload_spa_handle(device->handle);
-	pw_properties_free(device->props);
-	free(device);
+	sm_object_destroy(&device->sdevice->obj);
 }
 
 static void bluez5_enum_object_info(void *data, uint32_t id,

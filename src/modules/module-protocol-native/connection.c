@@ -191,7 +191,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 		else if (len < 0) {
 			if (errno == EINTR)
 				continue;
-			if (errno != EAGAIN || errno != EWOULDBLOCK)
+			if (errno != EAGAIN && errno != EWOULDBLOCK)
 				goto recv_error;
 			return -EAGAIN;
 		}

@@ -771,7 +771,7 @@ static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
 	pw->format.channels = map->channels;
 	for (i = 0; i < map->channels; i++) {
 		pw->format.position[i] = chmap_to_channel(map->pos[i]);
-		fprintf(stderr, "%d: %d %d\n", i, map->pos[i], pw->format.position[i]);
+		pw_log_debug("map %d: %d %d", i, map->pos[i], pw->format.position[i]);
 	}
 	return 1;
 }
@@ -791,6 +791,38 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 	return map;
 }
 
+static void make_map(snd_pcm_chmap_query_t **maps, int index, int channels, ...)
+{
+	va_list args;
+	int i;
+
+	maps[index] = malloc(sizeof(snd_pcm_chmap_query_t) + (channels * sizeof(unsigned int)));
+	maps[index]->type = SND_CHMAP_TYPE_FIXED;
+	maps[index]->map.channels = channels;
+	va_start(args, channels);
+	for (i = 0; i < channels; i++)
+		maps[index]->map.pos[i] = va_arg(args, int);
+	va_end(args);
+}
+
+static snd_pcm_chmap_query_t **snd_pcm_pipewire_query_chmaps(snd_pcm_ioplug_t *io)
+{
+	snd_pcm_chmap_query_t **maps;
+
+	maps = calloc(7, sizeof(*maps));
+	make_map(maps,  0, 1, SND_CHMAP_MONO);
+	make_map(maps,  1, 2, SND_CHMAP_FL, SND_CHMAP_FR);
+	make_map(maps,  2, 4, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR);
+	make_map(maps,  3, 5, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
+			SND_CHMAP_FC);
+	make_map(maps,  4, 6, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
+			SND_CHMAP_FC, SND_CHMAP_LFE);
+	make_map(maps,  5, 8, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
+			SND_CHMAP_FC, SND_CHMAP_LFE, SND_CHMAP_SL, SND_CHMAP_SR);
+
+	return maps;
+}
+
 static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.close = snd_pcm_pipewire_close,
 	.start = snd_pcm_pipewire_start,
@@ -805,6 +837,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.hw_params = snd_pcm_pipewire_hw_params,
 	.set_chmap = snd_pcm_pipewire_set_chmap,
 	.get_chmap = snd_pcm_pipewire_get_chmap,
+	.query_chmaps = snd_pcm_pipewire_query_chmaps,
 };
 
 static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,

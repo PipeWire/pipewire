@@ -2459,6 +2459,10 @@ jack_client_t * jack_client_open (const char *client_name,
 	varargs_parse(client, options, ap);
 	va_end(ap);
 
+	if (client->server_name != NULL &&
+	    strcmp(client->server_name, "default") == 0)
+		client->server_name = NULL;
+
 	client->props = pw_properties_new(
 			"loop.cancel", "true",
 			PW_KEY_REMOTE_NAME, client->server_name,

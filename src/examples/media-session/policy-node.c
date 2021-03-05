@@ -407,7 +407,7 @@ static bool check_node_name(struct node *node, const char *name)
 static struct node *find_node_by_id_name(struct impl *impl, uint32_t id, const char *name)
 {
 	struct node *node;
-	uint32_t name_id = name ? atoi(name) : SPA_ID_INVALID;
+	uint32_t name_id = name ? (uint32_t)atoi(name) : SPA_ID_INVALID;
 
 	spa_list_for_each(node, &impl->node_list, link) {
 		if (node->id == id || node->id == name_id)

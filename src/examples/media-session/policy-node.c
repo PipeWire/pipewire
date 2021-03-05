@@ -871,7 +871,7 @@ static void refresh_auto_default_nodes(struct impl *impl)
 			const char *name = pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME);
 			char buf[1024];
 
-			if (strzcmp(name, def->value) == 0)
+			if (name == NULL || strzcmp(name, def->value) == 0)
 				continue;
 
 			free(def->value);

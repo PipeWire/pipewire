@@ -953,7 +953,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 			}
 			if ((changed = strzcmp(client->default_sink, value))) {
 				free(client->default_sink);
-				client->default_sink = strdup(value);
+				client->default_sink = value ? strdup(value) : NULL;
 			}
 		}
 		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
@@ -966,7 +966,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 			}
 			if ((changed = strzcmp(client->default_source, value))) {
 				free(client->default_source);
-				client->default_source = strdup(value);
+				client->default_source = value ? strdup(value) : NULL;
 			}
 		}
 		if (changed)

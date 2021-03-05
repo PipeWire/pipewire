@@ -185,7 +185,7 @@ int pw_conf_save_state(const char *prefix, const char *name, struct pw_propertie
 	const struct spa_dict_item *it;
 	char path[PATH_MAX];
 	char *tmp_name;
-	int res, sfd, fd;
+	int res, sfd, fd, count = 0;
 	FILE *f;
 
 	if ((sfd = open_write_dir(path, sizeof(path), prefix)) < 0)
@@ -200,16 +200,16 @@ int pw_conf_save_state(const char *prefix, const char *name, struct pw_propertie
 	}
 
 	f = fdopen(fd, "w");
-	fprintf(f, "{ \n");
+	fprintf(f, "{");
 	spa_dict_for_each(it, &conf->dict) {
 		char key[1024];
 
 		if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
 			continue;
 
-		fprintf(f, " %s: %s\n", key, it->value);
+		fprintf(f, "%s\n  %s: %s", count++ == 0 ? "" : ",", key, it->value);
 	}
-	fprintf(f, "}\n");
+	fprintf(f, "%s}", count == 0 ? " " : "\n");
 	fclose(f);
 
 	if (renameat(sfd, tmp_name, sfd, name) < 0) {

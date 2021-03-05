@@ -293,9 +293,9 @@ int sm_media_session_load_conf(struct sm_media_session *sess,
 		const char *name, struct pw_properties *conf);
 
 int sm_media_session_load_state(struct sm_media_session *sess,
-		const char *name, const char *prefix, struct pw_properties *props);
+		const char *name, struct pw_properties *props);
 int sm_media_session_save_state(struct sm_media_session *sess,
-		const char *name, const char *prefix, const struct pw_properties *props);
+		const char *name, const struct pw_properties *props);
 
 int sm_media_session_match_rules(const char *rules, size_t size,
 		struct pw_properties *props);

@@ -217,7 +217,8 @@ static void sync_metadata(struct impl *impl)
 
 	impl->sync = true;
 	spa_dict_for_each(it, &impl->props->dict)
-		pw_metadata_set_property(impl->metadata, 0, it->key, "Spa:String:JSON", it->value);
+		pw_metadata_set_property(impl->metadata,
+				PW_ID_CORE, it->key, "Spa:String:JSON", it->value);
 	impl->sync = false;
 }
 

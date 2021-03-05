@@ -227,12 +227,14 @@ static void session_create(void *data, struct sm_object *object)
 			if (def->key == NULL)
 				continue;
 
-			char val[16];
-			snprintf(val, sizeof(val), "%u", d.id);
-			pw_log_info("found %s with id:%s restore as %s",
-					name, val, item->key);
-			pw_metadata_set_property(impl->session->metadata,
-				PW_ID_CORE, item->key, SPA_TYPE_INFO_BASE"Id", val);
+			if (impl->session->metadata != NULL) {
+				char val[16];
+				snprintf(val, sizeof(val), "%u", d.id);
+				pw_log_info("found %s with id:%s restore as %s",
+						name, val, item->key);
+				pw_metadata_set_property(impl->session->metadata,
+					PW_ID_CORE, item->key, SPA_TYPE_INFO_BASE"Id", val);
+			}
 		}
 	}
 }
@@ -248,7 +250,10 @@ static void session_remove(void *data, struct sm_object *object)
 	for (def = impl->defaults; def->key != NULL; ++def) {
 		if (def->value == object->id) {
 			def->value = SPA_ID_INVALID;
-			pw_metadata_set_property(impl->session->metadata, PW_ID_CORE, def->key, NULL, NULL);
+			if (impl->session->metadata != NULL) {
+				pw_metadata_set_property(impl->session->metadata,
+						PW_ID_CORE, def->key, NULL, NULL);
+			}
 		}
 	}
 }
